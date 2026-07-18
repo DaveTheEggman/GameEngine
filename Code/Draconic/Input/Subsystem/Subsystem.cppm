@@ -51,6 +51,10 @@ export namespace draconic::input
 
         void Update(f32 deltaTime) override
         {
+            if (draconic::runtime::Context* context = GetContext())
+            {
+                m_runtime.SetTimeScale(context->TimeScale());
+            }
             IInputSourceProvider& devices =
                 (m_override != nullptr) ? *m_override
                                         : static_cast<IInputSourceProvider&>(m_shellSource);

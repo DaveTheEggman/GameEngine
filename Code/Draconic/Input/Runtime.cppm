@@ -282,6 +282,12 @@ export namespace draconic::input
         }
         [[nodiscard]] u64 Frame() const noexcept { return m_frame; }
 
+        /// Engine time scale, applied to actions whose processors set `timeScale` (their
+        /// VALUE multiplies by it - a rate driving per-second gameplay slows with the
+        /// world). Mouse-delta-style rates should simply not set the flag (the ez rule).
+        void SetTimeScale(f32 scale) noexcept { m_timeScale = scale < 0.0f ? 0.0f : scale; }
+        [[nodiscard]] f32 TimeScale() const noexcept { return m_timeScale; }
+
         // ---- queries ----
         [[nodiscard]] bool IsDown(ActionRef ref) const
         {
@@ -574,7 +580,13 @@ export namespace draconic::input
             if (!physicallyPressed) { state.latched = false; }
             const bool effective = physicallyPressed && !suppressed && !state.latched;
 
-            state.value = (suppressed || state.latched) ? Float2{ 0.0f, 0.0f } : state.smoothed;
+            Float2 reportedValue = state.smoothed;
+            if (proc.timeScale)
+            {
+                reportedValue.x *= m_timeScale;
+                reportedValue.y *= m_timeScale;
+            }
+            state.value = (suppressed || state.latched) ? Float2{ 0.0f, 0.0f } : reportedValue;
 
             // Interactions reshape the EFFECTIVE press into the reported one (Hold delays
             // it, Tap/DoubleTap turn it into one-frame pulses); None passes through.
@@ -645,6 +657,7 @@ export namespace draconic::input
         Array<String> m_exclusiveStack;
         Array<RefEntry> m_refs;
         u64 m_frame = 0;
+        f32 m_timeScale = 1.0f;
         bool m_latchHeldOnce = false;   // set by exclusive push/pop, consumed next Update
     };
 }

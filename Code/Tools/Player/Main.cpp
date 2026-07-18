@@ -255,7 +255,8 @@ namespace
             rt::DefaultApplication::OnUpdate(host, deltaTime);
             if (m_game.Get() != nullptr)
             {
-                Variant dt = Variant::From(deltaTime);
+                // Gameplay time: the script's update(dt) sees the SCALED clock.
+                Variant dt = Variant::From(deltaTime * host.Ctx().TimeScale());
                 if (auto result = m_game->Invoke(u8"update", Span<Variant>{ &dt, 1 }); !result.HasValue())
                 {
                     DRACONIC_LOG_ERROR(u8"Player", u8"game script update() faulted - stopping script");

@@ -523,6 +523,45 @@ TEST_CASE("input: rebind capture - first activated input matching the filter")
     CHECK(captured.code == 3u);
 }
 
+TEST_CASE("input: the timeScale processor scales flagged action VALUES only")
+{
+    InputMap map;
+    ActionSet set;
+    set.name = String(u8"S");
+    auto addAxis = [&](StringView name, bool scaled) {
+        Action axis;
+        axis.name = String(name);
+        axis.kind = ActionKind::Axis1D;
+        Binding key;
+        key.source = BindingSource::Key;
+        key.code = static_cast<u32>(dshell::KeyCode::W);
+        axis.bindings.PushBack(key);
+        axis.processors.timeScale = scaled;
+        set.actions.PushBack(static_cast<Action&&>(axis));
+    };
+    addAxis(u8"Scaled", true);
+    addAxis(u8"Raw", false);
+    map.sets.PushBack(static_cast<ActionSet&&>(set));
+
+    ActionRuntime runtime;
+    runtime.SetMap(map);
+    FakeDevices devices;
+    devices.keyboard.Set(dshell::KeyCode::W, true);
+    const ActionRef scaled = runtime.Resolve(u8"Scaled");
+    const ActionRef raw = runtime.Resolve(u8"Raw");
+
+    runtime.SetTimeScale(0.25f);
+    runtime.Update(devices, 1.0f / 60.0f);
+    CHECK(runtime.Value(scaled) == doctest::Approx(0.25f));
+    CHECK(runtime.Value(raw) == doctest::Approx(1.0f));
+    CHECK(runtime.IsDown(raw));
+
+    runtime.SetTimeScale(0.0f);   // paused world: flagged values zero, digital press intact
+    runtime.Update(devices, 1.0f / 60.0f);
+    CHECK(runtime.Value(scaled) == doctest::Approx(0.0f));
+    CHECK(runtime.IsDown(scaled));   // the PRESS is physical; only the value scales
+}
+
 TEST_CASE("input: interactions - hold, tap, and double tap")
 {
     auto makeButtonMap = [](InteractionKind kind, f32 seconds) {

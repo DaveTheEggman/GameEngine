@@ -83,6 +83,13 @@ export namespace draconic::runtime
             m_running = true;
         }
 
+        // Engine time scale (ez-style): 1 = realtime, 0 = paused, 0.5 = slow-mo. The host
+        // scales the dt feeding FixedUpdate accumulation and the Update/PostUpdate phases;
+        // frame-rate-tied work (UI, app hooks) keeps the raw dt. Gameplay code and the
+        // input runtime's per-action timeScale flag read it from here.
+        void SetTimeScale(core::f32 scale) noexcept { m_timeScale = scale < 0.0f ? 0.0f : scale; }
+        [[nodiscard]] core::f32 TimeScale() const noexcept { return m_timeScale; }
+
         // Fixed-lane timing, published by the host each frame AFTER the fixed steps ran:
         // subsystems interpolating fixed-rate state (physics poses) blend with FixedAlpha().
         void SetFixedTiming(core::f32 step, core::f32 alpha) noexcept
@@ -174,6 +181,7 @@ export namespace draconic::runtime
         bool m_running = false;
         core::f32 m_fixedStep = 1.0f / 60.0f;
         core::f32 m_fixedAlpha = 0.0f;
+        core::f32 m_timeScale = 1.0f;
         bool m_disposed = false;
     };
 }

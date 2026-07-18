@@ -44,6 +44,24 @@ namespace
     };
 }
 
+TEST_CASE("runtime: time scale clamps at zero and defaults to realtime")
+{
+    draconic::runtime::Context ctx;
+    CHECK(ctx.TimeScale() == 1.0f);
+    ctx.SetTimeScale(0.5f);
+    CHECK(ctx.TimeScale() == 0.5f);
+    ctx.SetTimeScale(-3.0f);   // negative time is not a thing
+    CHECK(ctx.TimeScale() == 0.0f);
+
+    // Half-speed feeding the stepper: 60 raw frames at 1/60 yield ~30 fixed steps.
+    draconic::runtime::FixedStepper stepper;
+    ctx.SetTimeScale(0.5f);
+    draconic::core::u32 steps = 0;
+    for (int i = 0; i < 60; ++i) { steps += stepper.Advance((1.0f / 60.0f) * ctx.TimeScale()); }
+    CHECK(steps >= 29u);
+    CHECK(steps <= 30u);
+}
+
 TEST_CASE("runtime: fixed stepper - exact cadence, alpha, and the hitch clamp")
 {
     using draconic::runtime::FixedStepper;

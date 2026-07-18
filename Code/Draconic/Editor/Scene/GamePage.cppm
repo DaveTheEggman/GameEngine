@@ -231,12 +231,13 @@ export namespace draconic::editor
             RefreshToolbar();
         }
 
-        void OnUpdate(grt::IApplicationHost&, f32 dt) override
+        void OnUpdate(grt::IApplicationHost& host, f32 dt) override
         {
             m_viewport->SyncInputRegion();
             if (m_running && m_game.Get() != nullptr)
             {
-                Variant dtArg = Variant::From(dt);
+                // Gameplay time: the script's update(dt) sees the SCALED clock.
+                Variant dtArg = Variant::From(dt * host.Ctx().TimeScale());
                 if (auto result = m_game->Invoke(u8"update", Span<Variant>{ &dtArg, 1 });
                     !result.HasValue())
                 {

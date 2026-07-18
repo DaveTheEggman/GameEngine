@@ -92,9 +92,12 @@ export namespace draconic::runtime
 
             {
                 DRACONIC_PROFILE_SCOPE("Update");
+                // Simulation lanes run on SCALED time (slow-mo/pause); the app hook and
+                // frame bookkeeping keep the raw dt.
+                const core::f32 scaledDelta = deltaTime * m_context.TimeScale();
                 m_stepper.step = m_settings.fixedTimeStep;
                 m_stepper.maxSteps = m_settings.maxFixedStepsPerFrame;
-                const core::u32 fixedSteps = m_stepper.Advance(deltaTime);
+                const core::u32 fixedSteps = m_stepper.Advance(scaledDelta);
                 for (core::u32 i = 0; i < fixedSteps; ++i)
                 {
                     m_context.FixedUpdate(m_settings.fixedTimeStep);
@@ -104,9 +107,9 @@ export namespace draconic::runtime
                 // published AFTER the steps so it reflects this frame's leftover time.
                 m_context.SetFixedTiming(m_settings.fixedTimeStep, m_stepper.Alpha());
 
-                m_context.Update(deltaTime);
+                m_context.Update(scaledDelta);
                 m_app->OnUpdate(*this, deltaTime);
-                m_context.PostUpdate(deltaTime);
+                m_context.PostUpdate(scaledDelta);
             }
 
             // Render every window uniformly (main == windows[0]).
