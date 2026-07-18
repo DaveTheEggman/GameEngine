@@ -91,13 +91,9 @@ namespace
 
         void Configure(rt::IApplicationHost& host) override
         {
+            // ALL gameplay subsystems come from DefaultApplication (runtime-host.md v3) -
+            // the player registers only its content-pipeline plumbing below.
             rt::DefaultApplication::Configure(host);
-            host.Ctx().AddSubsystem<draconic::particles::ParticleSubsystem>();
-            m_physics = host.Ctx().AddSubsystem<draconic::physics::PhysicsSubsystem>();
-            // FIRST in tick order matters not (input polls devices, scenes read the runtime);
-            // shell devices wire in OnStartup once the shell exists.
-            m_input = host.Ctx().AddSubsystem<draconic::input::InputSubsystem>(
-                host.Shell() != nullptr ? host.Shell()->Input() : nullptr);
 
             // Product/runtime types: factories construct cooked products BY TYPE NAME.
             draconic::modelimporter::RegisterModelImporterTypes();
@@ -238,13 +234,13 @@ namespace
 
             // The project's default input map: cooked resource -> the input subsystem's
             // ActionRuntime. Nil/unresolved = the runtime simply has no actions bound.
-            if (m_input != nullptr && !m_settings.defaultInputMapId.IsNil())
+            if (Input() != nullptr && !m_settings.defaultInputMapId.IsNil())
             {
                 auto mapProxy = m_resources->Bind<draconic::input::InputMapResource>(
                     m_settings.defaultInputMapId);
                 if (mapProxy)
                 {
-                    m_input->SetMap(mapProxy->Map());
+                    Input()->SetMap(mapProxy->Map());
                     DRACONIC_LOG_INFO(u8"Player", u8"input map bound ({} set(s))",
                                       mapProxy->Map().sets.Size());
                 }
@@ -254,22 +250,13 @@ namespace
                 }
             }
 
-            StartGameScript(host);
+            SetPrimaryScene(m_scene);
+            LoadAndStartGameScript();
         }
 
         void OnUpdate(rt::IApplicationHost& host, f32 deltaTime) override
         {
-            rt::DefaultApplication::OnUpdate(host, deltaTime);
-            if (m_game.Get() != nullptr)
-            {
-                // Gameplay time: the script's update(dt) sees the SCALED clock.
-                Variant dt = Variant::From(deltaTime * host.Ctx().TimeScale());
-                if (auto result = m_game->Invoke(u8"update", Span<Variant>{ &dt, 1 }); !result.HasValue())
-                {
-                    DRACONIC_LOG_ERROR(u8"Player", u8"game script update() faulted - stopping script");
-                    m_game = nullptr;
-                }
-            }
+            rt::DefaultApplication::OnUpdate(host, deltaTime);   // ticks the game script
             if (m_options.exitAfterSeconds > 0.0f)
             {
                 m_elapsed += deltaTime;
@@ -279,13 +266,8 @@ namespace
 
         void OnExit(rt::IApplicationHost&) override
         {
-            if (m_game.Get() != nullptr)
-            {
-                (void)m_game->Invoke(u8"exit", Span<Variant>{});
-                m_game = nullptr;
-            }
-            m_scriptContext = nullptr;
-            m_scriptManager = nullptr;
+            StopGameScript();
+            SetPrimaryScene(nullptr);
             if (m_scene != nullptr) { m_scene->Stop(); }
         }
 
@@ -316,14 +298,12 @@ namespace
             cameras->Add(e);
         }
 
-        // The GAME SCRIPT: a Wren class `Game` with construct new(), launch(), update(dt),
-        // exit() - all optional except the class itself. Faults disable the script, not the game.
-        void StartGameScript(rt::IApplicationHost&)
+        // Resolves the startup-script SOURCE (project file / pak entry); the lifecycle
+        // (facades, services, launch/update/exit) lives in DefaultApplication.
+        void LoadAndStartGameScript()
         {
             const StringView scriptPath = m_settings.startupScript.AsView();
             if (scriptPath.IsEmpty()) { return; }
-
-            // Project mode: a loose file under the project root. Dist mode: a raw pak entry.
             draconic::vfs::IFileSystem& root = (m_pak.Get() != nullptr)
                 ? static_cast<draconic::vfs::IFileSystem&>(*m_pak)
                 : static_cast<draconic::vfs::IFileSystem&>(*m_root);
@@ -340,35 +320,13 @@ namespace
                 DRACONIC_LOG_ERROR(u8"Player", u8"startup script '{}' unreadable", scriptPath);
                 return;
             }
-            const StringView source(reinterpret_cast<const utf8char*>(bytes.Data()), bytes.Size());
-
-            draconic::input::RegisterInputScriptApi();   // scripts get the Input facade
-            draconic::physics::RegisterPhysicsScriptApi();   // ...and the Physics facade
-            m_scriptManager = draconic::script::wren::CreateScriptManager();
-            draconic::script::RegisterReflectedTypes(*m_scriptManager);
-            m_scriptContext = m_scriptManager->CreateContext();
-            if (m_input != nullptr) { m_input->ExposeToScript(*m_scriptContext); }
-            if (m_physics != nullptr) { m_physics->ExposeToScript(*m_scriptContext); }
-            if (!m_scriptContext->Load(source, scriptPath).IsOk())
-            {
-                DRACONIC_LOG_ERROR(u8"Player", u8"startup script '{}' failed to compile", scriptPath);
-                return;
-            }
-            m_game = m_scriptContext->CreateInstance(u8"Game", Span<Variant>{});
-            if (m_game.Get() == nullptr)
-            {
-                DRACONIC_LOG_ERROR(u8"Player", u8"startup script has no `Game` class (construct new())");
-                return;
-            }
-            (void)m_game->Invoke(u8"launch", Span<Variant>{});
-            DRACONIC_LOG_INFO(u8"Player", u8"game script '{}' launched", scriptPath);
+            (void)StartGameScript(
+                StringView(reinterpret_cast<const utf8char*>(bytes.Data()), bytes.Size()), scriptPath);
         }
 
         PlayerOptions m_options;
         f32 m_elapsed = 0.0f;
         draconic::project::ProjectSettings m_settings;
-        draconic::input::InputSubsystem* m_input = nullptr;
-        draconic::physics::PhysicsSubsystem* m_physics = nullptr;
         draconic::input::InputMapFactory m_inputMapFactory;
         draconic::physics::CollisionShapeFactory m_collisionShapeFactory;
         draconic::physics::PhysicalMaterialFactory m_physicalMaterialFactory;
@@ -389,9 +347,6 @@ namespace
         draconic::particles::ParticleEffectFactory m_effectFactory;
         UniquePtr<draconic::texture::TextureFactory> m_textureFactory;
         dscene::Scene* m_scene = nullptr;   // owned by the SceneSubsystem
-        RefPtr<draconic::script::IScriptManager> m_scriptManager;
-        RefPtr<draconic::script::IScriptContext> m_scriptContext;
-        RefPtr<draconic::script::ScriptObject> m_game;
     };
 }
 

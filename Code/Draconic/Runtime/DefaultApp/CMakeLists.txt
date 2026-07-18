@@ -10,6 +10,8 @@ add_library(Draconic::RuntimeDefaultApp ALIAS DraconicRuntimeDefaultApp)
 target_link_libraries(DraconicRuntimeDefaultApp
     PUBLIC Draconic::Core Draconic::RHI Draconic::RuntimeClient Draconic::Shell Draconic::Graphics
            Draconic::Scene Draconic::SceneSubsystem Draconic::RenderSubsystem Draconic::AnimationSubsystem
+           Draconic::ParticlesSubsystem Draconic::Physics Draconic::PhysicsSubsystem
+           Draconic::Input Draconic::InputSubsystem Draconic::Script Draconic::ScriptWren
            Draconic::Profiler Draconic::Policy)
 
 target_sources(DraconicRuntimeDefaultApp
