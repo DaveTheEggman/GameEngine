@@ -35,6 +35,11 @@ export namespace draconic::editor::app
         virtual void OnRenderWindow(draconic::runtime::IApplicationHost& host,
                                     draconic::graphics::FrameContext& frame) { (void)host; (void)frame; }
 
+        /// After the scene renderer's EndRendering (targets are COMPOSED): overlays that
+        /// draw ON the page's offscreen content (the Game tab's screen-tier UI).
+        virtual void OnAfterSceneRender(draconic::runtime::IApplicationHost& host,
+                                        draconic::graphics::FrameContext& frame) { (void)host; (void)frame; }
+
         /// Called right before the page is removed - release GPU/scene resources while the
         /// device and window are still alive.
         virtual void OnClose() {}

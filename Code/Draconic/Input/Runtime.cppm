@@ -292,6 +292,34 @@ export namespace draconic::input
         void SetTimeScale(f32 scale) noexcept { m_timeScale = scale < 0.0f ? 0.0f : scale; }
         [[nodiscard]] f32 TimeScale() const noexcept { return m_timeScale; }
 
+        /// UI consumption (game-ui.md §3.3): device CLASSES the UI consumed this frame -
+        /// bindings on those classes read RELEASED through actions (raw facades stay
+        /// unfiltered). Separate classes so a menu eating the mouse doesn't mute gamepad
+        /// movement. Republished every frame by the UI subsystem; sticky until changed.
+        struct ConsumptionMask
+        {
+            bool pointer = false;    // MouseButton/MouseAxis/MouseDelta/TouchButton/TouchStick
+            bool keyboard = false;   // Key (+ Composite2D, which is four keys)
+        };
+        void SetConsumptionMask(ConsumptionMask mask) noexcept { m_consumed = mask; }
+        [[nodiscard]] ConsumptionMask GetConsumptionMask() const noexcept { return m_consumed; }
+
+        [[nodiscard]] static bool IsPointerSource(BindingSource source) noexcept
+        {
+            return source == BindingSource::MouseButton || source == BindingSource::MouseAxis
+                || source == BindingSource::MouseDelta || source == BindingSource::TouchButton
+                || source == BindingSource::TouchStick;
+        }
+        [[nodiscard]] static bool IsKeyboardSource(BindingSource source) noexcept
+        {
+            return source == BindingSource::Key || source == BindingSource::Composite2D;
+        }
+        [[nodiscard]] bool IsConsumed(BindingSource source) const noexcept
+        {
+            return (m_consumed.pointer && IsPointerSource(source))
+                || (m_consumed.keyboard && IsKeyboardSource(source));
+        }
+
         // ---- queries ----
         [[nodiscard]] bool IsDown(ActionRef ref) const
         {
@@ -629,6 +657,7 @@ export namespace draconic::input
             bool digitalDown = false;
             for (const Binding& b : action.bindings)
             {
+                if (IsConsumed(b.source)) { continue; }   // UI ate this device class
                 const Contribution c =
                     (b.source == BindingSource::TouchButton
                      || b.source == BindingSource::TouchStick)
@@ -749,6 +778,7 @@ export namespace draconic::input
         Array<RefEntry> m_refs;
         u64 m_frame = 0;
         f32 m_timeScale = 1.0f;
+        ConsumptionMask m_consumed;
         bool m_latchHeldOnce = false;   // set by exclusive push/pop, consumed next Update
     };
 }

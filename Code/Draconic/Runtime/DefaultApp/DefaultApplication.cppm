@@ -47,6 +47,7 @@ import draconic.texture.resource;   // texture factory (device-backed)
 import draconic.image.resource;     // image resource registration
 import draconic.model.resource;     // cooked-model family types + registration
 import draconic.ui.resource;        // cooked UI documents/themes (game-ui)
+import draconic.ui.subsystem;       // the game screen tier (canvases + overlay + consumption)
 import draconic.profiler;           // the CPU scope profiler (P-key dump)
 
 namespace rhi = draconic::rhi;
@@ -113,10 +114,17 @@ export namespace draconic::runtime
             m_physics = host.Ctx().AddSubsystem<draconic::physics::PhysicsSubsystem>();
             m_input = host.Ctx().AddSubsystem<draconic::input::InputSubsystem>(
                 host.Shell() != nullptr ? host.Shell()->Input() : nullptr);
+            m_ui = host.Ctx().AddSubsystem<draconic::ui::UISubsystem>();
+            if (!m_uiFontPath.IsEmpty()) { m_ui->SetFontPath(m_uiFontPath.AsView()); }
         }
 
         [[nodiscard]] draconic::input::InputSubsystem* Input() const noexcept { return m_input; }
         [[nodiscard]] draconic::physics::PhysicsSubsystem* Physics() const noexcept { return m_physics; }
+        [[nodiscard]] draconic::ui::UISubsystem* UI() const noexcept { return m_ui; }
+
+        /// TTF for the game UI's default font (preset BEFORE Configure; the editor passes
+        /// its own font path, the player defaults to the dev-tree Roboto).
+        void SetUIFontPath(core::StringView path) { m_uiFontPath = core::String(path); }
 
         // ---- infrastructure preset (Sedulous PresetInfrastructure lineage): shared
         // pieces are handed in BEFORE Startup; anything not preset the app creates for
@@ -153,6 +161,12 @@ export namespace draconic::runtime
             draconic::ui::RegisterUIResource();
             core::GlobalTypeRegistry().Register(draconic::scene::SceneDocument::StaticType());
             core::RegisterSerializable<draconic::scene::SceneDocument>();
+            draconic::ui::RegisterUIComponentReflection();
+            if (GraphicsDevice* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr
+                && m_ui != nullptr)
+            {
+                m_ui->EnsureRenderReady(*gfx->Raw(), gfx->FramesInFlight());
+            }
 
             if (m_borrowedResources == nullptr && m_contentDatabase != nullptr)
             {
@@ -274,6 +288,13 @@ export namespace draconic::runtime
                                     frame.width, frame.height);   // clear comes from the scene's camera
             }
             render->EndRendering();
+
+            // The game screen tier composites over the finished scene (game-ui.md P1).
+            if (m_ui != nullptr)
+            {
+                m_ui->RenderOverlay(*frame.encoder, frame.backbufferView, colorFormat,
+                                    frame.width, frame.height, frame.frameIndex);
+            }
         }
 
     private:
@@ -295,6 +316,8 @@ export namespace draconic::runtime
         draconic::content::IContentDatabase* m_contentDatabase = nullptr;
         core::UniquePtr<draconic::resource::ResourceManager> m_ownedResources;
         draconic::input::InputSubsystem* m_input = nullptr;
+        draconic::ui::UISubsystem* m_ui = nullptr;
+        core::String m_uiFontPath;
         draconic::physics::PhysicsSubsystem* m_physics = nullptr;
         draconic::scene::Scene* m_primaryScene = nullptr;
         draconic::script::IScriptErrorHandler* m_scriptErrorHandler = nullptr;

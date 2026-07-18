@@ -12,6 +12,7 @@ target_link_libraries(DraconicEditorScene
         Draconic::Render Draconic::RenderSubsystem Draconic::Animation Draconic::AnimationSubsystem
         Draconic::ModelImporter Draconic::TextureResource Draconic::ParticlesResource
         Draconic::Physics Draconic::PhysicsResource Draconic::PhysicsSubsystem
+        Draconic::UIResource Draconic::UISubsystem
         Draconic::Geometry Draconic::Materials Draconic::MaterialResource Draconic::MaterialEditor
         Draconic::UI Draconic::UIRuntime Draconic::UIViewport Draconic::VGRenderer
         Draconic::Script Draconic::ScriptWren

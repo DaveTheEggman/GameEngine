@@ -41,6 +41,15 @@ export namespace draconic::input
         /// Null restores the shell devices.
         void SetSourceProvider(IInputSourceProvider* provider) noexcept { m_override = provider; }
 
+        /// The device source actions currently evaluate against - the UI subsystem reads
+        /// the SAME facades (so game UI sees viewport-transformed coordinates in the Game
+        /// tab and window coordinates in the player, transparently).
+        [[nodiscard]] IInputSourceProvider& ActiveSource() noexcept
+        {
+            return (m_override != nullptr) ? *m_override
+                                           : static_cast<IInputSourceProvider&>(m_shellSource);
+        }
+
         /// Binds THIS subsystem's runtime as `context`'s input service - the scripting
         /// facade (class Input below) resolves it per context, so two contexts can read
         /// two different runtimes (players; editor vs game). Call once per created context.

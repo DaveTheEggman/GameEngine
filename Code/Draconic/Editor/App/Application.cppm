@@ -225,6 +225,7 @@ export namespace draconic::editor::app
                 m_stopGameRequested = true;
             } });
             m_embeddedApp = MakeUnique<rt::DefaultApplication>(DefaultAllocator());
+            if (!m_config.fontPath.IsEmpty()) { m_embeddedApp->SetUIFontPath(m_config.fontPath.AsView()); }
             if (m_resources) { m_embeddedApp->SetResourceManager(m_resources.Get()); }
             m_embeddedApp->Configure(*m_embeddedHost);
             m_runtimeContext.Startup();
@@ -677,6 +678,8 @@ export namespace draconic::editor::app
                 if (m_sceneRenderer != nullptr) { m_sceneRenderer->BeginRendering(*frame.encoder, frame.frameIndex); }
                 for (const PagePanel& entry : m_pagePanels) { entry.page->OnRenderWindow(host, frame); }
                 if (m_sceneRenderer != nullptr) { m_sceneRenderer->EndRendering(); }
+                // Post-compose overlays (the Game tab's screen-tier UI onto its viewport).
+                for (const PagePanel& entry : m_pagePanels) { entry.page->OnAfterSceneRender(host, frame); }
                 if (m_embeddedApp) { m_runtimeContext.EndFrame(); }
             }
             if (m_uiHost) { m_uiHost->RenderWindow(frame); }

@@ -39,6 +39,7 @@ import draconic.input.resource;
 import draconic.input.subsystem;
 import draconic.physics.subsystem;
 import draconic.runtime.defaultapp;
+import draconic.ui.subsystem;
 import draconic.editor.core;
 import draconic.editor.app;
 
@@ -347,6 +348,32 @@ export namespace draconic::editor
             targetState.finalState = rhi::ResourceState::ShaderRead;
             m_render->RenderScene(*m_scene, m_viewport->ColorTargetView(), m_viewport->ColorFormat(),
                                   w, h, grender::ViewportRect{ 0, 0, w, h }, nullptr, targetState);
+            m_viewport->SetColorState(rhi::ResourceState::ShaderRead);
+        }
+
+        void OnAfterSceneRender(grt::IApplicationHost& host,
+                                draconic::graphics::FrameContext& frame) override
+        {
+            // The game's SCREEN-TIER UI composites onto the viewport AFTER the scene graph
+            // composed it (RenderScene is collect-only; content exists only post-
+            // EndRendering). Same subsystem, same path as the player's backbuffer overlay.
+            if (!m_running || m_scene == nullptr || !m_viewport->IsReady() || !frame.valid)
+            {
+                return;
+            }
+            auto* ui = host.Ctx().GetSubsystem<draconic::ui::UISubsystem>();
+            if (ui == nullptr) { return; }
+            const u32 w = m_viewport->RenderWidth();
+            const u32 h = m_viewport->RenderHeight();
+            if (w == 0 || h == 0) { return; }
+            frame.encoder->TransitionTexture(m_viewport->ColorTexture(),
+                                             m_viewport->ColorState(),
+                                             rhi::ResourceState::RenderTarget);
+            ui->RenderOverlay(*frame.encoder, m_viewport->ColorTargetView(),
+                              m_viewport->ColorFormat(), w, h, frame.frameIndex);
+            frame.encoder->TransitionTexture(m_viewport->ColorTexture(),
+                                             rhi::ResourceState::RenderTarget,
+                                             rhi::ResourceState::ShaderRead);
             m_viewport->SetColorState(rhi::ResourceState::ShaderRead);
         }
 

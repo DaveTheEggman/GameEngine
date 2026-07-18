@@ -878,3 +878,61 @@ TEST_CASE("input: smoothing - sensitivity ramp, gravity recenter, snap on flip")
     for (int i = 0; i < 8; ++i) { runtime.Update(devices, 1.0f / 60.0f); }
     CHECK(runtime.Value(throttle) == doctest::Approx(0.0f));
 }
+
+TEST_CASE("input: the UI consumption mask gates device classes independently")
+{
+    // Self-contained map: one KEY action, one MOUSE-BUTTON action.
+    InputMap map;
+    ActionSet set;
+    set.name = String(u8"G");
+    {
+        Action jump;
+        jump.name = String(u8"Jump");
+        jump.kind = ActionKind::Button;
+        Binding key;
+        key.source = BindingSource::Key;
+        key.code = static_cast<u32>(dshell::KeyCode::Space);
+        jump.bindings.PushBack(key);
+        set.actions.PushBack(static_cast<Action&&>(jump));
+    }
+    {
+        Action shoot;
+        shoot.name = String(u8"Shoot");
+        shoot.kind = ActionKind::Button;
+        Binding button;
+        button.source = BindingSource::MouseButton;
+        button.code = static_cast<u32>(dshell::MouseButton::Left);
+        shoot.bindings.PushBack(button);
+        set.actions.PushBack(static_cast<Action&&>(shoot));
+    }
+    map.sets.PushBack(static_cast<ActionSet&&>(set));
+
+    ActionRuntime runtime;
+    runtime.SetMap(map);
+    FakeDevices devices;
+    devices.keyboard.Set(dshell::KeyCode::Space, true);
+    devices.mouse.buttons[static_cast<u32>(dshell::MouseButton::Left)] = true;
+    runtime.Update(devices, 1.0f / 60.0f);
+    const ActionRef jump = runtime.Resolve(u8"Jump");
+    const ActionRef shoot = runtime.Resolve(u8"Shoot");
+    CHECK(runtime.IsDown(jump));
+    CHECK(runtime.IsDown(shoot));
+
+    // Pointer consumed (menu under the mouse): Shoot mutes, Jump keeps working.
+    runtime.SetConsumptionMask(ActionRuntime::ConsumptionMask{ .pointer = true, .keyboard = false });
+    runtime.Update(devices, 1.0f / 60.0f);
+    CHECK(runtime.IsDown(jump));
+    CHECK_FALSE(runtime.IsDown(shoot));
+
+    // Keyboard consumed too (text field focused): both mute.
+    runtime.SetConsumptionMask(ActionRuntime::ConsumptionMask{ .pointer = true, .keyboard = true });
+    runtime.Update(devices, 1.0f / 60.0f);
+    CHECK_FALSE(runtime.IsDown(jump));
+    CHECK_FALSE(runtime.IsDown(shoot));
+
+    // Cleared: both return (consumption is a mask, not an exclusive-set latch).
+    runtime.SetConsumptionMask(ActionRuntime::ConsumptionMask{});
+    runtime.Update(devices, 1.0f / 60.0f);
+    CHECK(runtime.IsDown(jump));
+    CHECK(runtime.IsDown(shoot));
+}
