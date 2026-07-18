@@ -83,6 +83,16 @@ export namespace draconic::runtime
             m_running = true;
         }
 
+        // Fixed-lane timing, published by the host each frame AFTER the fixed steps ran:
+        // subsystems interpolating fixed-rate state (physics poses) blend with FixedAlpha().
+        void SetFixedTiming(core::f32 step, core::f32 alpha) noexcept
+        {
+            m_fixedStep = step;
+            m_fixedAlpha = alpha;
+        }
+        [[nodiscard]] core::f32 FixedTimeStep() const noexcept { return m_fixedStep; }
+        [[nodiscard]] core::f32 FixedAlpha() const noexcept { return m_fixedAlpha; }
+
         void BeginFrame(core::f32 dt)  { for (Subsystem* s : m_sorted) { s->BeginFrame(dt); } }
         void FixedUpdate(core::f32 dt) { for (Subsystem* s : m_sorted) { s->FixedUpdate(dt); } }
         void Update(core::f32 dt)      { for (Subsystem* s : m_sorted) { s->Update(dt); } }
@@ -162,6 +172,8 @@ export namespace draconic::runtime
         core::Array<Subsystem*> m_sorted;                 // non-owning, UpdateOrder-sorted
         core::Array<core::UniquePtr<Subsystem>> m_owned;    // ownership
         bool m_running = false;
+        core::f32 m_fixedStep = 1.0f / 60.0f;
+        core::f32 m_fixedAlpha = 0.0f;
         bool m_disposed = false;
     };
 }

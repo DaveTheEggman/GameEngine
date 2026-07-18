@@ -40,6 +40,36 @@ export namespace draconic::runtime
     {
         core::f32 fixedTimeStep = 1.0f / 60.0f; // seconds per fixed update
         core::f32 maxFrameTime  = 0.25f;        // clamp per frame (avoids the spiral of death)
+        core::u32 maxFixedStepsPerFrame = 4;    // catch-up cap at the ACCUMULATOR (physics P0):
+                                                // excess time is DROPPED, so a hitch (debugger
+                                                // pause) never cascades into a step storm -
+                                                // independent of the runner's maxFrameTime clamp
+    };
+
+    // The fixed-update accumulator (physics.md P0): pure step math, host-owned, unit-tested.
+    // Advance() returns how many fixed steps this frame runs (clamped; excess time dropped);
+    // Alpha() is the leftover fraction of a step in [0,1) - the interpolation weight render
+    // consumers (physics pose smoothing) blend prev->current poses with.
+    struct FixedStepper
+    {
+        core::f32 step = 1.0f / 60.0f;
+        core::u32 maxSteps = 4;
+        core::f32 accumulator = 0.0f;
+
+        [[nodiscard]] core::u32 Advance(core::f32 deltaTime)
+        {
+            if (step <= 0.0f) { accumulator = 0.0f; return 0; }   // a zero step must not spin
+            if (deltaTime > 0.0f) { accumulator += deltaTime; }
+            core::u32 steps = 0;
+            while (accumulator >= step) { accumulator -= step; ++steps; }
+            if (steps > maxSteps) { steps = maxSteps; }   // the excess was already drained: dropped
+            return steps;
+        }
+
+        [[nodiscard]] core::f32 Alpha() const noexcept
+        {
+            return (step > 0.0f) ? (accumulator / step) : 0.0f;
+        }
     };
 
     // The host as seen by the application: register subsystems via Ctx(), reach the

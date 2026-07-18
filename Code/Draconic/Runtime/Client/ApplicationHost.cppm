@@ -92,13 +92,17 @@ export namespace draconic::runtime
 
             {
                 DRACONIC_PROFILE_SCOPE("Update");
-                m_accumulator += deltaTime;
-                while (m_accumulator >= m_settings.fixedTimeStep)
+                m_stepper.step = m_settings.fixedTimeStep;
+                m_stepper.maxSteps = m_settings.maxFixedStepsPerFrame;
+                const core::u32 fixedSteps = m_stepper.Advance(deltaTime);
+                for (core::u32 i = 0; i < fixedSteps; ++i)
                 {
                     m_context.FixedUpdate(m_settings.fixedTimeStep);
                     m_app->OnFixedUpdate(*this, m_settings.fixedTimeStep);
-                    m_accumulator -= m_settings.fixedTimeStep;
                 }
+                // Interpolation weight for render consumers (physics pose smoothing):
+                // published AFTER the steps so it reflects this frame's leftover time.
+                m_context.SetFixedTiming(m_settings.fixedTimeStep, m_stepper.Alpha());
 
                 m_context.Update(deltaTime);
                 m_app->OnUpdate(*this, deltaTime);
@@ -238,6 +242,6 @@ export namespace draconic::runtime
         bool m_started = false;
         bool m_running = false;
         int m_exitCode = 0;
-        core::f32 m_accumulator = 0.0f;
+        FixedStepper m_stepper;
     };
 }

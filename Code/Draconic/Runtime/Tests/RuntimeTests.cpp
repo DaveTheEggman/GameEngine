@@ -4,6 +4,7 @@
 
 import draconic.core;
 import draconic.runtime;
+import draconic.runtime.client;
 
 using namespace draconic::core;
 using namespace draconic::runtime;
@@ -41,6 +42,49 @@ namespace
         i32 m_order;
         Array<int>* m_log;
     };
+}
+
+TEST_CASE("runtime: fixed stepper - exact cadence, alpha, and the hitch clamp")
+{
+    using draconic::runtime::FixedStepper;
+
+    // Exact cadence: sixty 1/60 frames = sixty steps, alpha stays ~0 (no drift blowup).
+    FixedStepper stepper;
+    stepper.step = 1.0f / 60.0f;
+    stepper.maxSteps = 4;
+    draconic::core::u32 total = 0;
+    for (int i = 0; i < 60; ++i) { total += stepper.Advance(1.0f / 60.0f); }
+    CHECK(total >= 59u);   // float accumulation may defer one step...
+    CHECK(total <= 60u);
+    CHECK(stepper.Alpha() >= 0.0f);
+    CHECK(stepper.Alpha() < 1.0f);
+
+    // Sub-step frames accumulate: two half-steps = one step, alpha reflects the leftover.
+    FixedStepper half;
+    half.step = 0.02f;
+    CHECK(half.Advance(0.01f) == 0u);
+    CHECK(half.Alpha() == doctest::Approx(0.5f));
+    CHECK(half.Advance(0.01f) == 1u);
+    CHECK(half.Alpha() == doctest::Approx(0.0f).epsilon(0.01));
+
+    // A hitch is CLAMPED, never a step storm: one 1-second frame at 1/60 yields exactly
+    // maxSteps, the excess time is dropped, and alpha stays a valid weight in [0,1).
+    FixedStepper hitch;
+    hitch.step = 1.0f / 60.0f;
+    hitch.maxSteps = 4;
+    CHECK(hitch.Advance(1.0f) == 4u);
+    CHECK(hitch.Alpha() >= 0.0f);
+    CHECK(hitch.Alpha() < 1.0f);
+    // The next normal frame is back to a single step - no debt carried.
+    CHECK(hitch.Advance(1.0f / 60.0f) <= 1u);
+
+    // Degenerate inputs: negative/zero dt never steps; zero step never divides by zero.
+    FixedStepper degenerate;
+    CHECK(degenerate.Advance(-1.0f) == 0u);
+    CHECK(degenerate.Advance(0.0f) == 0u);
+    degenerate.step = 0.0f;
+    CHECK(degenerate.Alpha() == 0.0f);
+    CHECK(degenerate.Advance(1.0f) == 0u);   // zero step: no spin, no steps
 }
 
 TEST_CASE("runtime: register, look up, and own subsystems by type")
