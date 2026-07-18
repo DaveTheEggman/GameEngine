@@ -475,6 +475,10 @@ public:
     // Enters play mode: simulation on, notify systems. (Editor "stop" calls Stop.)
     void Start() {
         if (m_started) { return; }
+        // Authored locals -> world matrices BEFORE systems hear OnSceneStarted: world
+        // matrices are Identity until the first update, and start callbacks that sample
+        // them (physics body building, spawn points) must see the authored layout.
+        UpdateTransforms();
         m_started = true;
         m_simulationEnabled = true;
         for (SceneSystem* s : m_sortedSystems) { s->OnSceneStarted(); }
