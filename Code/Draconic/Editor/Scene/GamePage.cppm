@@ -369,7 +369,7 @@ export namespace draconic::editor
             frame.encoder->TransitionTexture(m_viewport->ColorTexture(),
                                              m_viewport->ColorState(),
                                              rhi::ResourceState::RenderTarget);
-            ui->RenderOverlay(*frame.encoder, m_viewport->ColorTargetView(),
+            ui->RenderOverlay(*m_scene, *frame.encoder, m_viewport->ColorTargetView(),
                               m_viewport->ColorFormat(), w, h, frame.frameIndex);
             frame.encoder->TransitionTexture(m_viewport->ColorTexture(),
                                              rhi::ResourceState::RenderTarget,

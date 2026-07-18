@@ -26,6 +26,8 @@ import draconic.vg;
 import draconic.vg.renderer;
 import draconic.ui;
 import draconic.ui.resource;
+import draconic.render;
+import draconic.render.subsystem;   // ExtractPrimaryCamera (billboard projection)
 
 using namespace draconic::core;
 
@@ -139,6 +141,16 @@ namespace draconic::ui
         m_context.SetStyleSheet(m_theme);
         m_screenRoot = MakeRef<RootView>(DefaultAllocator());
         m_context.AddRootView(m_screenRoot.Get());
+        // Billboards live in one shared absolute layer BELOW the canvases (one batch).
+        auto layer = MakeRef<AbsoluteLayout>(DefaultAllocator());
+        layer->IsHitTestVisible = false;   // nameplates never eat clicks (P2 scope)
+        m_billboardLayer = layer;
+        m_screenRoot->AddView(m_billboardLayer.Get());
+        // The scene-LESS screen tier (global overlays) sits above everything; canvas
+        // attaches re-append it so it stays topmost (draw order = child order).
+        auto overlay = MakeRef<FrameLayout>(DefaultAllocator());
+        m_overlayLayer = overlay;
+        m_screenRoot->AddView(m_overlayLayer.Get());
     }
 
     void UISubsystem::OnReady()
@@ -162,6 +174,8 @@ namespace draconic::ui
                 scenes->UnregisterSceneAware(this);
             }
         }
+        m_billboardLayer = nullptr;
+        m_overlayLayer = nullptr;
         if (m_screenRoot.Get() != nullptr) { m_context.RemoveRootView(m_screenRoot.Get()); }
         m_screenRoot = nullptr;
         m_render = nullptr;
@@ -198,7 +212,16 @@ namespace draconic::ui
                     if (document != nullptr && !document->markup.IsEmpty())
                     {
                         c.root = MarkupLoader::LoadFromString(document->markup.AsView(), &m_context);
-                        if (c.root.Get() != nullptr) { m_screenRoot->AddView(c.root.Get()); }
+                        if (c.root.Get() != nullptr)
+                        {
+                            m_screenRoot->AddView(c.root.Get());
+                            if (m_overlayLayer.Get() != nullptr)
+                            {
+                                RefPtr<View> keep = m_overlayLayer;
+                                m_screenRoot->RemoveView(keep.Get());
+                                m_screenRoot->AddView(keep.Get());
+                            }
+                        }
                         else
                         {
                             DRACONIC_LOG_WARNING(u8"UI", u8"canvas document failed to instantiate");
@@ -223,9 +246,31 @@ namespace draconic::ui
                 {
                     c.root->Visibility = c.visible ? VisibilityValue::Visible : VisibilityValue::Gone;
                     c.root->IsHitTestVisible = c.interactive;
-                    // Draw/dispatch order (v1): reorder children by `order` is deferred to
-                    // the multi-canvas pass; a single canvas per screen covers P1's menu+HUD
-                    // when authored as one document each (stacking arrives with billboards).
+                }
+            });
+
+            auto* billboards = scene->GetSystem<UIBillboardComponentManager>();
+            if (billboards == nullptr) { continue; }
+            billboards->ForEach([&](UIBillboardComponent& c, dscene::EntityHandle) {
+                const UIDocument* document = c.document.Get();
+                if (document != c.builtFrom)
+                {
+                    if (c.root.Get() != nullptr)
+                    {
+                        m_billboardLayer->RemoveView(c.root.Get());
+                        c.root = nullptr;
+                    }
+                    if (document != nullptr && !document->markup.IsEmpty())
+                    {
+                        c.root = MarkupLoader::LoadFromString(document->markup.AsView(), &m_context);
+                        if (c.root.Get() != nullptr)
+                        {
+                            auto lp = MakeRef<AbsoluteLayoutParams>(DefaultAllocator());
+                            c.root->LayoutParams = lp;
+                            m_billboardLayer->AddView(c.root.Get());
+                        }
+                    }
+                    c.builtFrom = document;
                 }
             });
         }
@@ -285,13 +330,95 @@ namespace draconic::ui
             draconic::input::ActionRuntime::ConsumptionMask{ pointer, keyboard });
     }
 
-    void UISubsystem::RenderOverlay(rhi::CommandEncoder& encoder, rhi::TextureView* target,
-                                    rhi::TextureFormat format, u32 width, u32 height,
-                                    i32 frameIndex)
+    void UISubsystem::RenderOverlay(dscene::Scene& scene, rhi::CommandEncoder& encoder,
+                                    rhi::TextureView* target, rhi::TextureFormat format,
+                                    u32 width, u32 height, i32 frameIndex)
     {
         if (m_screenRoot.Get() == nullptr || target == nullptr || width == 0 || height == 0)
         {
             return;
+        }
+
+        // Per-scene gating: only THIS scene's canvases/billboards draw into this target.
+        for (dscene::Scene* owned : m_scenes)
+        {
+            const bool active = owned == &scene;
+            if (auto* canvases = owned->GetSystem<UICanvasComponentManager>())
+            {
+                canvases->ForEach([&](UICanvasComponent& c, dscene::EntityHandle) {
+                    if (c.root.Get() != nullptr)
+                    {
+                        c.root->Visibility = (active && c.visible) ? VisibilityValue::Visible
+                                                                   : VisibilityValue::Gone;
+                    }
+                });
+            }
+            if (auto* billboards = owned->GetSystem<UIBillboardComponentManager>())
+            {
+                billboards->ForEach([&](UIBillboardComponent& c, dscene::EntityHandle) {
+                    if (c.root.Get() != nullptr && (!active || !c.visible))
+                    {
+                        c.root->Visibility = VisibilityValue::Gone;
+                    }
+                });
+            }
+        }
+
+        // Billboards: project this scene's anchors through its primary camera (the
+        // reference recipe: world -> clip -> NDC -> screen px; behind-camera parks at
+        // (-10000,-10000); distance scale as a 2D view-transform).
+        draconic::render::ViewCamera camera;
+        const bool hasCamera = draconic::render::ExtractPrimaryCamera(scene, camera);
+        if (auto* billboards = scene.GetSystem<UIBillboardComponentManager>())
+        {
+            const Float4x4 viewProjection = camera.ViewProjection();
+            billboards->ForEach([&](UIBillboardComponent& c, dscene::EntityHandle e) {
+                if (c.root.Get() == nullptr || !c.visible) { return; }
+                if (!hasCamera)
+                {
+                    c.root->Visibility = VisibilityValue::Gone;
+                    return;
+                }
+                c.root->Visibility = VisibilityValue::Visible;
+                const Float4x4 entity = scene.GetWorldMatrix(e);
+                Float3 worldPos;
+                if (c.orientation == BillboardOrientation::Cylindrical)
+                {
+                    const Float3 anchor = TransformPoint(Float3{ 0, 0, 0 }, entity);
+                    worldPos = Float3{ anchor.x + c.offset.x, anchor.y + c.offset.y,
+                                       anchor.z + c.offset.z };
+                }
+                else
+                {
+                    worldPos = TransformPoint(c.offset, entity);
+                }
+                const Float4 clip =
+                    Float4{ worldPos.x, worldPos.y, worldPos.z, 1.0f } * viewProjection;
+                auto* lp = Cast<AbsoluteLayoutParams>(c.root->LayoutParams.Get());
+                if (lp == nullptr) { return; }
+                if (clip.w <= 0.0f)
+                {
+                    lp->X = -10000.0f;   // behind the camera: clipped + unhit, no tree churn
+                    lp->Y = -10000.0f;
+                }
+                else
+                {
+                    const f32 ndcX = clip.x / clip.w;
+                    const f32 ndcY = clip.y / clip.w;
+                    lp->X = (ndcX * 0.5f + 0.5f) * static_cast<f32>(width);
+                    lp->Y = (1.0f - (ndcY * 0.5f + 0.5f)) * static_cast<f32>(height);
+                }
+                f32 scale = 1.0f;
+                if (c.scaleMode == BillboardScale::Distance)
+                {
+                    const Float3 toCamera{ worldPos.x - camera.position.x,
+                                           worldPos.y - camera.position.y,
+                                           worldPos.z - camera.position.z };
+                    const f32 distance = Max(Length(toCamera), 0.001f);
+                    scale = Clamp(c.referenceDistance / distance, c.minScale, c.maxScale);
+                }
+                c.root->Transform.Scale = Float2{ scale, scale };
+            });
         }
         if (m_render.Get() == nullptr)
         {
@@ -364,6 +491,31 @@ namespace draconic::ui
         builder.Value("ReferenceResolution", CanvasScalerMode::ReferenceResolution);
     }
 
+    DRACONIC_REFLECT_ENUM(BillboardOrientation, "draconic::ui")
+    {
+        builder.Value("Screen", BillboardOrientation::Screen);
+        builder.Value("Cylindrical", BillboardOrientation::Cylindrical);
+    }
+
+    DRACONIC_REFLECT_ENUM(BillboardScale, "draconic::ui")
+    {
+        builder.Value("Fixed", BillboardScale::Fixed);
+        builder.Value("Distance", BillboardScale::Distance);
+    }
+
+    DRACONIC_REFLECT_VALUE(UIBillboardComponent, "draconic::ui")
+    {
+        builder.DataVersion(1);
+        builder.Property<&UIBillboardComponent::document>("document");
+        builder.Property<&UIBillboardComponent::offset>("offset");
+        builder.Property<&UIBillboardComponent::orientation>("orientation");
+        builder.Property<&UIBillboardComponent::scaleMode>("scaleMode");
+        builder.Property<&UIBillboardComponent::referenceDistance>("referenceDistance");
+        builder.Property<&UIBillboardComponent::minScale>("minScale");
+        builder.Property<&UIBillboardComponent::maxScale>("maxScale");
+        builder.Property<&UIBillboardComponent::visible>("visible");
+    }
+
     DRACONIC_REFLECT_VALUE(UICanvasComponent, "draconic::ui")
     {
         builder.DataVersion(1);
@@ -380,7 +532,10 @@ namespace draconic::ui
     {
         static const bool once = []() {
             DraconicRegisterEnum_CanvasScalerMode();
+            DraconicRegisterEnum_BillboardOrientation();
+            DraconicRegisterEnum_BillboardScale();
             DraconicRegisterValue_UICanvasComponent();
+            DraconicRegisterValue_UIBillboardComponent();
             return true;
         }();
         (void)once;

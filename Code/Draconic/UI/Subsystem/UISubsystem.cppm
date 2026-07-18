@@ -93,6 +93,64 @@ export namespace draconic::ui
             : SerializableComponentManager<UICanvasComponent>(u8"ui.Canvas") {}
     };
 
+    // ---- billboards (P2: nameplates/health bars) - the Sedulous reference's
+    // best-behaved tier, ported as-is: ONE shared layer under the canvases, one VG
+    // batch; world position -> clip -> screen px; behind-camera anchors park off-screen
+    // (clipped + unhit, no tree churn); distance scaling as a 2D view-transform. ----
+
+    enum class BillboardOrientation : u8
+    {
+        Screen = 0,     // offset in ENTITY-LOCAL space (rides the entity's rotation)
+        Cylindrical,    // offset in WORLD space (a fixed lift above the anchor)
+    };
+    enum class BillboardScale : u8 { Fixed = 0, Distance };
+
+    struct UIBillboardComponent
+    {
+        // Authored:
+        draconic::resource::Ref<UIDocument> document;
+        Float3 offset{ 0.0f, 0.0f, 0.0f };
+        BillboardOrientation orientation = BillboardOrientation::Cylindrical;
+        BillboardScale scaleMode = BillboardScale::Fixed;
+        f32 referenceDistance = 10.0f;   // Distance mode: scale = clamp(ref/dist, min, max)
+        f32 minScale = 0.3f;
+        f32 maxScale = 2.0f;
+        bool visible = true;
+
+        // Runtime (transient):
+        RefPtr<View> root;
+        const UIDocument* builtFrom = nullptr;
+    };
+
+    inline void Serialize(ISerializer& ar, UIBillboardComponent& c)
+    {
+        draconic::core::Serialize(ar, "document", c.document);
+        draconic::core::Serialize(ar, "offset", c.offset);
+        u8 orientation = static_cast<u8>(c.orientation);
+        draconic::core::Serialize(ar, "orientation", orientation);
+        c.orientation = static_cast<BillboardOrientation>(orientation);
+        u8 scale = static_cast<u8>(c.scaleMode);
+        draconic::core::Serialize(ar, "scaleMode", scale);
+        c.scaleMode = static_cast<BillboardScale>(scale);
+        draconic::core::Serialize(ar, "referenceDistance", c.referenceDistance);
+        draconic::core::Serialize(ar, "minScale", c.minScale);
+        draconic::core::Serialize(ar, "maxScale", c.maxScale);
+        draconic::core::Serialize(ar, "visible", c.visible);
+    }
+
+    inline void ResolveResources(draconic::resource::ResourceManager& manager, UIBillboardComponent& c)
+    {
+        c.document.Bind(manager);
+    }
+
+    class UIBillboardComponentManager final
+        : public dscene::SerializableComponentManager<UIBillboardComponent>
+    {
+    public:
+        UIBillboardComponentManager()
+            : SerializableComponentManager<UIBillboardComponent>(u8"ui.Billboard") {}
+    };
+
     void RegisterUIComponentReflection();
 
     class UISubsystem final : public draconic::runtime::Subsystem,
@@ -113,6 +171,39 @@ export namespace draconic::ui
         [[nodiscard]] UIContext& Context() noexcept { return m_context; }
         [[nodiscard]] RootView* ScreenRoot() noexcept { return m_screenRoot.Get(); }
 
+        // ---- the scene-less SCREEN tier (Sedulous ScreenUIView) ----
+        // Global overlays OUTSIDE any scene: they survive scene swaps (loading screens,
+        // system menus) and draw ABOVE every scene's canvases in every target. Pushed
+        // from code; the caller keeps the returned/passed view to remove it later.
+
+        /// Instantiates `document` and attaches it topmost. Null if the markup fails.
+        RefPtr<View> PushScreenOverlay(const UIDocument& document)
+        {
+            if (document.markup.IsEmpty() || m_overlayLayer.Get() == nullptr) { return {}; }
+            RefPtr<View> view = MarkupLoader::LoadFromString(document.markup.AsView(), &m_context);
+            if (view.Get() != nullptr) { m_overlayLayer->AddView(view.Get()); }
+            return view;
+        }
+        /// Attaches an already-built view topmost (code-built overlays).
+        void PushScreenOverlay(RefPtr<View> view)
+        {
+            if (view.Get() != nullptr && m_overlayLayer.Get() != nullptr)
+            {
+                m_overlayLayer->AddView(view.Get());
+            }
+        }
+        void RemoveScreenOverlay(View* view)
+        {
+            if (view != nullptr && m_overlayLayer.Get() != nullptr)
+            {
+                m_overlayLayer->RemoveView(view);
+            }
+        }
+        [[nodiscard]] usize ScreenOverlayCount() const noexcept
+        {
+            return m_overlayLayer.Get() != nullptr ? m_overlayLayer->ChildCount() : 0;
+        }
+
         // ---- lifecycle (definitions in UISubsystemImpl.cpp) ----
         void OnInit() override;
         void OnShutdown() override;
@@ -122,6 +213,7 @@ export namespace draconic::ui
         void OnSceneCreated(dscene::Scene& scene) override
         {
             scene.AddSystem<UICanvasComponentManager>();
+            scene.AddSystem<UIBillboardComponentManager>();
             m_scenes.PushBack(&scene);
         }
         void OnSceneDestroyed(dscene::Scene& scene) override
@@ -132,12 +224,14 @@ export namespace draconic::ui
             }
         }
 
-        /// Draws the screen tier into `target` via a Load-op pass on the SAME encoder,
-        /// AFTER the scene has composed (post-EndRendering). The target must currently be
-        /// in RenderTarget state; it is left there (the caller transitions onward).
-        /// Lays out against (width, height) - the live target size.
-        void RenderOverlay(rhi::CommandEncoder& encoder, rhi::TextureView* target,
-                           rhi::TextureFormat format, u32 width, u32 height, i32 frameIndex);
+        /// Draws `scene`'s screen tier (its canvases + billboards ONLY - a Simulate
+        /// page's UI never bleeds into the Game tab) into `target` via a Load-op pass on
+        /// the SAME encoder, AFTER the scene composed (post-EndRendering). Billboards
+        /// project through the scene's primary camera. The target must be in
+        /// RenderTarget state; it is left there. Lays out against the live target size.
+        void RenderOverlay(dscene::Scene& scene, rhi::CommandEncoder& encoder,
+                           rhi::TextureView* target, rhi::TextureFormat format,
+                           u32 width, u32 height, i32 frameIndex);
 
         /// One-time GPU bring-up (shader compile + device wire) by whoever owns graphics
         /// (DefaultApplication's startup). Idempotent; without it RenderOverlay no-ops.
@@ -154,6 +248,8 @@ export namespace draconic::ui
         String m_fontPath;
         UIContext m_context;
         RefPtr<RootView> m_screenRoot;
+        RefPtr<ViewGroup> m_billboardLayer;   // shared, BELOW the canvases; one batch
+        RefPtr<ViewGroup> m_overlayLayer;     // scene-LESS screen tier, ABOVE everything
         RefPtr<StyleSheet> m_theme;
         UniquePtr<draconic::fonts::TrueTypeFontService> m_fonts;
         Array<dscene::Scene*> m_scenes;

@@ -289,11 +289,15 @@ export namespace draconic::runtime
             }
             render->EndRendering();
 
-            // The game screen tier composites over the finished scene (game-ui.md P1).
+            // The game screen tier composites over the finished scenes, PER SCENE (its
+            // canvases + billboards only; billboards project through the scene camera).
             if (m_ui != nullptr)
             {
-                m_ui->RenderOverlay(*frame.encoder, frame.backbufferView, colorFormat,
-                                    frame.width, frame.height, frame.frameIndex);
+                for (draconic::scene::Scene* scene : scenes->ActiveScenes())
+                {
+                    m_ui->RenderOverlay(*scene, *frame.encoder, frame.backbufferView, colorFormat,
+                                        frame.width, frame.height, frame.frameIndex);
+                }
             }
         }
 

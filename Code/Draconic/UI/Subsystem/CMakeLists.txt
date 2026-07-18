@@ -5,7 +5,8 @@ target_link_libraries(DraconicUISubsystem
     PUBLIC Draconic::Core Draconic::Runtime Draconic::Scene Draconic::SceneSubsystem
            Draconic::Resource Draconic::Shell Draconic::RHI Draconic::Fonts Draconic::FontsTTF
            Draconic::Input Draconic::InputSubsystem Draconic::UI Draconic::UIResource
-           Draconic::VG Draconic::VGRenderer Draconic::Shaders Draconic::Policy)
+           Draconic::VG Draconic::VGRenderer Draconic::Shaders
+           Draconic::Render Draconic::RenderSubsystem Draconic::Policy)
 target_sources(DraconicUISubsystem
     PRIVATE
         UISubsystemImpl.cpp   # implementation unit: VG/shader contact + reflection bodies

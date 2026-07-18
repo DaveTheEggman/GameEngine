@@ -302,6 +302,23 @@ namespace
                 m_hero = m_scene->CreateEntity(u8"hero");
                 m_scene->SetLocalPosition(m_hero, core::Float3{ -6.0f, 0.9f, 4.0f });
                 m_scene->GetSystem<physics::CharacterComponentManager>()->Add(m_hero);
+
+                // Billboard proof (UI P2): a nameplate riding the character, distance-scaled.
+                m_nameplateDocument = core::MakeRef<draconic::ui::UIDocument>(core::DefaultAllocator());
+                m_nameplateDocument->markup = core::String(
+                    u8"<Panel padding=\"4\""
+                    u8"       style=\"background: rounded-rect(rgb(20, 24, 30), radius=4);\">"
+                    u8"  <Label text=\"Hero\" font-size=\"13\"/>"
+                    u8"</Panel>");
+                auto* billboards = m_scene->GetSystem<draconic::ui::UIBillboardComponentManager>();
+                if (billboards != nullptr)
+                {
+                    draconic::ui::UIBillboardComponent& plate = billboards->Add(m_hero);
+                    plate.document = m_nameplateDocument;
+                    plate.offset = core::Float3{ 0.0f, 1.4f, 0.0f };   // above the capsule
+                    plate.scaleMode = draconic::ui::BillboardScale::Distance;
+                    plate.referenceDistance = 12.0f;
+                }
             }
             // A motorized hinge spinner (P3 joints): a blade welded to the world pivot,
             // spinning at 2 rad/s - walk the character into it to get batted away.
@@ -443,6 +460,7 @@ namespace
         dscene::EntityHandle m_hero;
         dscene::EntityHandle m_hudEntity;
         core::RefPtr<draconic::ui::UIDocument> m_hudDocument;
+        core::RefPtr<draconic::ui::UIDocument> m_nameplateDocument;
         bool m_hudBound = false;
         core::u32 m_hudClicks = 0;
         core::RefPtr<physics::CollisionShape> m_rampShape;
