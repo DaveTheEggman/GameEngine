@@ -86,6 +86,43 @@ export namespace draconic::editor::app
             m_scriptEdit = AddTextRow(*column, u8"Startup script", project != nullptr
                 ? project->Settings().startupScript.AsView() : StringView(u8""));
 
+            // Default input map: the cooked map the player (and the Game tab) binds at
+            // startup - the input twin of the default scene.
+            {
+                ui::FlexLayout* row = AddRow(*column, u8"Default input map");
+                m_inputMapLabel = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"(none)"));
+                {
+                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    lp->Grow = 1.0f;
+                    lp->AlignSelf = ui::Align::Center;
+                    row->AddView(m_inputMapLabel.Get(), lp);
+                }
+                auto pick = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Pick..."));
+                {
+                    ProjectSettingsDialog* self = this;
+                    pick->OnClick.Add([self](ui::ButtonBase*) { self->PickInputMap(); });
+                    row->AddView(pick.Get());
+                }
+                auto clear = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Clear"));
+                {
+                    ProjectSettingsDialog* self = this;
+                    clear->OnClick.Add([self](ui::ButtonBase*) {
+                        self->m_inputMapId = Guid{};
+                        self->m_inputMapLabel->SetText(u8"(none)");
+                    });
+                    row->AddView(clear.Get());
+                }
+                if (project != nullptr)
+                {
+                    m_inputMapId = project->Settings().defaultInputMapId;
+                    if (content::Instance* map = !m_inputMapId.IsNil()
+                            ? project->SourceDb().GetInstance(m_inputMapId) : nullptr)
+                    {
+                        m_inputMapLabel->SetText(map->Path().AsView());
+                    }
+                }
+            }
+
             // Engine stamp - informational; re-stamped by every save.
             {
                 ui::FlexLayout* row = AddRow(*column, u8"Engine version");
@@ -141,6 +178,28 @@ export namespace draconic::editor::app
             return raw;
         }
 
+        void PickInputMap()
+        {
+            if (Context == nullptr) { return; }
+            Array<String> typeNames;
+            typeNames.PushBack(String(u8"InputMapAsset"));
+            auto picker = MakeRef<AssetPickerDialog>(DefaultAllocator(), *m_context, Move(typeNames));
+            ProjectSettingsDialog* self = this;
+            picker->OnPicked = [self](const Guid& id) {
+                self->m_inputMapId = id;
+                if (content::Instance* map = !id.IsNil() && self->m_context->Project() != nullptr
+                        ? self->m_context->Project()->SourceDb().GetInstance(id) : nullptr)
+                {
+                    self->m_inputMapLabel->SetText(map->Path().AsView());
+                }
+                else
+                {
+                    self->m_inputMapLabel->SetText(u8"(none)");
+                }
+            };
+            picker->Show(Context);
+        }
+
         void PickScene()
         {
             if (Context == nullptr) { return; }
@@ -174,6 +233,7 @@ export namespace draconic::editor::app
             project->Settings().name = String(m_nameEdit->Text());
             project->Settings().startupScript = String(m_scriptEdit->Text());
             project->Settings().defaultSceneId = m_sceneId;
+            project->Settings().defaultInputMapId = m_inputMapId;
             project->Settings().defaultScene = String();
             if (content::Instance* scene = !m_sceneId.IsNil()
                     ? project->SourceDb().GetInstance(m_sceneId) : nullptr)
@@ -197,6 +257,8 @@ export namespace draconic::editor::app
         }
 
         draconic::editor::EditorContext* m_context;
+        Guid m_inputMapId{};
+        RefPtr<ui::Label> m_inputMapLabel;
         ui::EditText* m_nameEdit = nullptr;
         ui::EditText* m_scriptEdit = nullptr;
         RefPtr<ui::Label> m_sceneLabel;
