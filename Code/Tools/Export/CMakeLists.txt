@@ -7,5 +7,5 @@ target_link_libraries(RaptorExport PRIVATE
     Draconic::Editor Draconic::EditorCook Draconic::EditorCore
     Draconic::TextureEditor Draconic::ImageEditor Draconic::ImageResource Draconic::MeshEditor
     Draconic::AnimationEditor Draconic::MaterialEditor Draconic::ShaderEditor
-    Draconic::ParticlesEditor Draconic::ModelImporter
+    Draconic::ParticlesEditor Draconic::Input Draconic::InputResource Draconic::InputEditor Draconic::ModelImporter
     Draconic::RenderSubsystem Draconic::AnimationSubsystem Draconic::ParticlesSubsystem)

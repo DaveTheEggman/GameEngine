@@ -55,6 +55,7 @@ export namespace draconic::project
                                // IApplication counterpart (launch/update/exit), hosted by the
                                // player and play-in-editor
         String nativeModule;   // RESERVED: optional native game module (tagged for later planning)
+        Guid defaultInputMapId; // the input map the player binds at startup (nil = none; v4)
 
         // Migration branches on ar.Version() - the type's data version is written/read by
         // the manifest helpers below (DRACONIC_DEFINE_OBJECT_VERSIONED sets the current one).
@@ -73,6 +74,11 @@ export namespace draconic::project
             draconic::core::Serialize(ar, "defaultScene", defaultScene);
             draconic::core::Serialize(ar, "startupScript", startupScript);
             draconic::core::Serialize(ar, "nativeModule", nativeModule);
+            if (ar.Version() >= 4)   // v4 added the default input map
+            {
+                ar.Key("defaultInputMapId");
+                ar.GuidValue(defaultInputMapId);
+            }
         }
     };
 
@@ -109,5 +115,5 @@ export namespace draconic::project
         return writable.Save(fileName, buffer.Bytes());
     }
 
-    DRACONIC_DEFINE_OBJECT_VERSIONED(ProjectSettings, "draconic::project", 3)
+    DRACONIC_DEFINE_OBJECT_VERSIONED(ProjectSettings, "draconic::project", 4)
 }

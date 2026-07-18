@@ -24,6 +24,9 @@ import draconic.animation.editor;
 import draconic.materials.editor;
 import draconic.shaders.editor;
 import draconic.particles.editor;
+import draconic.input;
+import draconic.input.resource;
+import draconic.input.editor;
 import draconic.modelimporter;
 
 using namespace draconic::core;
@@ -48,6 +51,7 @@ namespace
         draconic::materials::RegisterMaterialAsset();
         draconic::shaders::RegisterShaderAsset();
         draconic::particles::RegisterParticleEffectAsset();
+        draconic::input::RegisterInputMapAsset();
         draconic::modelimporter::RegisterModelManifestAsset();
         // Product/resource types: ReadObject constructs cooked products BY TYPE NAME, so the
         // runtime-facing types must be registered too (meshes/materials/textures/animation/
@@ -65,6 +69,7 @@ namespace
         Add<draconic::materials::MaterialAssetBuilder>(registry);
         Add<draconic::shaders::ShaderAssetBuilder>(registry);
         Add<draconic::particles::ParticleEffectAssetBuilder>(registry);
+        Add<draconic::input::InputMapAssetBuilder>(registry);
         Add<draconic::modelimporter::ModelManifestAssetBuilder>(registry);
     }
 }

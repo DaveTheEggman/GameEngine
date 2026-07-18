@@ -11,6 +11,7 @@ target_link_libraries(RaptorPlayer PRIVATE
     Draconic::AnimationResource Draconic::ParticlesResource Draconic::ImageResource
     Draconic::ModelImporter
     Draconic::Script Draconic::ScriptWren
+    Draconic::Input Draconic::InputResource Draconic::InputSubsystem
     Draconic::Project Draconic::VFSPak Draconic::Content Draconic::VFS Draconic::XmlSerialization)
 
 # Stage the player's runtime deps beside it + emit RaptorPlayer.runtime-libs (the export host-template

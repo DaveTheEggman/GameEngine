@@ -45,6 +45,9 @@ import draconic.animation.editor;
 import draconic.materials.editor;
 import draconic.shaders.editor;
 import draconic.particles.editor;
+import draconic.input;
+import draconic.input.resource;
+import draconic.input.editor;
 import draconic.modelimporter;
 
 using namespace draconic::core;
@@ -69,6 +72,7 @@ namespace
         draconic::materials::RegisterMaterialAsset();
         draconic::shaders::RegisterShaderAsset();
         draconic::particles::RegisterParticleEffectAsset();
+        draconic::input::RegisterInputMapAsset();
         draconic::modelimporter::RegisterModelManifestAsset();
         // Product/resource types: ReadObject constructs cooked products BY TYPE NAME, so the
         // runtime-facing types must be registered too (meshes/materials/textures/animation/
@@ -86,6 +90,7 @@ namespace
         AddBuilder<draconic::materials::MaterialAssetBuilder>(registry);
         AddBuilder<draconic::shaders::ShaderAssetBuilder>(registry);
         AddBuilder<draconic::particles::ParticleEffectAssetBuilder>(registry);
+        AddBuilder<draconic::input::InputMapAssetBuilder>(registry);
         AddBuilder<draconic::modelimporter::ModelManifestAssetBuilder>(registry);
     }
 
@@ -201,6 +206,26 @@ int main(int argc, char** argv)
         draconic::editor::RegisterSceneEditor(app.Context(), host, uiHost);
         draconic::editor::RegisterMaterialEditor(app.Context(), host, uiHost);
         RegisterPrimitiveMeshCreators(app.Context());
+        {
+            // New Asset > Input Map: seeded with the conventional Gameplay starter set.
+            // (The dedicated editing page is input P2; the asset cooks + binds today.)
+            ed::EditorContext::AssetCreator inputCreator;
+            inputCreator.label = String(u8"Input Map");
+            inputCreator.create = [](ed::EditorContext& ctx, draconic::content::Group* group)
+                -> draconic::content::Instance* {
+                if (ctx.Project() == nullptr) { return nullptr; }
+                draconic::content::Group* target = group != nullptr
+                    ? group : ctx.Project()->SourceDb().RootGroup();
+                draconic::content::Instance* instance = target->CreateInstance(
+                    u8"InputMap", draconic::input::InputMapAsset::StaticType());
+                if (instance == nullptr) { return nullptr; }
+                draconic::input::InputMapAsset asset;
+                asset.SeedDefaultContent();
+                if (!instance->WriteObject(asset).IsOk()) { return nullptr; }
+                return instance;
+            };
+            app.Context().RegisterCreator(static_cast<ed::EditorContext::AssetCreator&&>(inputCreator));
+        }
         RegisterAllBuilders(app.Builders());   // the cook service routes through this set
 
         // OS-file importers (drag-drop onto the editor).

@@ -35,6 +35,9 @@ import draconic.animation.editor;
 import draconic.materials.editor;
 import draconic.shaders.editor;
 import draconic.particles.editor;
+import draconic.input;
+import draconic.input.resource;
+import draconic.input.editor;
 import draconic.modelimporter;
 import draconic.render.subsystem;
 import draconic.animation.subsystem;
@@ -115,6 +118,7 @@ namespace
         draconic::materials::RegisterMaterialAsset();
         draconic::shaders::RegisterShaderAsset();
         draconic::particles::RegisterParticleEffectAsset();
+        draconic::input::RegisterInputMapAsset();
         draconic::modelimporter::RegisterModelManifestAsset();
         draconic::modelimporter::RegisterModelImporterTypes();
         draconic::image::RegisterImageResource();
@@ -131,6 +135,7 @@ namespace
         Add<draconic::materials::MaterialAssetBuilder>(registry);
         Add<draconic::shaders::ShaderAssetBuilder>(registry);
         Add<draconic::particles::ParticleEffectAssetBuilder>(registry);
+        Add<draconic::input::InputMapAssetBuilder>(registry);
         Add<draconic::modelimporter::ModelManifestAssetBuilder>(registry);
     }
 

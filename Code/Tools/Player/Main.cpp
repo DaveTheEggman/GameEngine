@@ -58,6 +58,9 @@ import draconic.image.resource;
 import draconic.modelimporter;
 import draconic.script;
 import draconic.script.wren;
+import draconic.input;
+import draconic.input.resource;
+import draconic.input.subsystem;
 import draconic.xml.serialization;
 import draconic.project;       // manifest + layout (runtime-side, editor-free)
 import draconic.vfs.pak;       // dist mode: one Content.pak holds products + scenes + scripts
@@ -87,11 +90,16 @@ namespace
         {
             rt::DefaultApplication::Configure(host);
             host.Ctx().AddSubsystem<draconic::particles::ParticleSubsystem>();
+            // FIRST in tick order matters not (input polls devices, scenes read the runtime);
+            // shell devices wire in OnStartup once the shell exists.
+            m_input = host.Ctx().AddSubsystem<draconic::input::InputSubsystem>(
+                host.Shell() != nullptr ? host.Shell()->Input() : nullptr);
 
             // Product/runtime types: factories construct cooked products BY TYPE NAME.
             draconic::modelimporter::RegisterModelImporterTypes();
             draconic::image::RegisterImageResource();
             draconic::particles::RegisterParticleEffectResource();
+            draconic::input::RegisterInputMapResource();
             GlobalTypeRegistry().Register(dscene::SceneDocument::StaticType());
             RegisterSerializable<dscene::SceneDocument>();
         }
@@ -152,6 +160,7 @@ namespace
             m_resources->AddFactory(&m_clipFactory);
             m_resources->AddFactory(&m_graphFactory);
             m_resources->AddFactory(&m_effectFactory);
+            m_resources->AddFactory(&m_inputMapFactory);
             if (graphics::GraphicsDevice* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
                 m_textureFactory = MakeUnique<draconic::texture::TextureFactory>(DefaultAllocator(), *gfx->Raw());
@@ -219,6 +228,24 @@ namespace
             m_scene->Start();
             m_scene->SetSimulationEnabled(true);
             DRACONIC_LOG_INFO(u8"Player", u8"running scene '{}'", scenePath);
+
+            // The project's default input map: cooked resource -> the input subsystem's
+            // ActionRuntime. Nil/unresolved = the runtime simply has no actions bound.
+            if (m_input != nullptr && !m_settings.defaultInputMapId.IsNil())
+            {
+                auto mapProxy = m_resources->Bind<draconic::input::InputMapResource>(
+                    m_settings.defaultInputMapId);
+                if (mapProxy)
+                {
+                    m_input->SetMap(mapProxy->Map());
+                    DRACONIC_LOG_INFO(u8"Player", u8"input map bound ({} set(s))",
+                                      mapProxy->Map().sets.Size());
+                }
+                else
+                {
+                    DRACONIC_LOG_WARNING(u8"Player", u8"default input map did not resolve");
+                }
+            }
 
             StartGameScript(host);
         }
@@ -328,6 +355,8 @@ namespace
         PlayerOptions m_options;
         f32 m_elapsed = 0.0f;
         draconic::project::ProjectSettings m_settings;
+        draconic::input::InputSubsystem* m_input = nullptr;
+        draconic::input::InputMapFactory m_inputMapFactory;
         UniquePtr<draconic::vfs::NativeFileSystem> m_root;
         UniquePtr<draconic::vfs::PakFileSystem> m_pak;             // dist mode only
         UniquePtr<draconic::vfs::NativeFileSystem> m_contentMount; // project mode only
