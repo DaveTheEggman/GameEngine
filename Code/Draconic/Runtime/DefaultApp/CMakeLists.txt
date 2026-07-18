@@ -15,7 +15,7 @@ target_link_libraries(DraconicRuntimeDefaultApp
            Draconic::Resource Draconic::Content Draconic::SceneResource
            Draconic::MeshResource Draconic::MaterialResource Draconic::AnimationResource
            Draconic::ParticlesResource Draconic::InputResource Draconic::PhysicsResource
-           Draconic::TextureResource Draconic::ImageResource Draconic::ModelResource
+           Draconic::TextureResource Draconic::ImageResource Draconic::ModelResource Draconic::UIResource
            Draconic::Profiler Draconic::Policy)
 
 target_sources(DraconicRuntimeDefaultApp

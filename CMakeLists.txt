@@ -145,6 +145,8 @@ add_subdirectory(Code/Draconic/Fonts)     # font types/interfaces over Core + Im
 add_subdirectory(Code/Draconic/Texture)   # texture descriptors + cooked resource/GPU factory + editor
 add_subdirectory(Code/Draconic/Materials) # data-driven material model (PipelineConfig + bind-group-inferring MaterialSystem)
 add_subdirectory(Code/Draconic/Model/Resource) # cooked model manifest + runtime composite (runtime side; no tooling deps)
+add_subdirectory(Code/Draconic/UI/Resource)   # cooked UI documents + themes (game-ui; UI-framework-free records)
+add_subdirectory(Code/Draconic/UI/Editor)     # UI document/theme assets + validating builders (tooling)
 add_subdirectory(Code/Draconic/ModelImporter) # top-level model import: model IR -> cooked geometry/material/texture/animation resources
 add_subdirectory(Code/Draconic/VG)        # 2D vector-graphics core over Core + Image
 add_subdirectory(Code/Draconic/UI)        # retained-mode UI framework (faithful Sedulous.UI port) over Core (+ VG/Fonts as phases land)

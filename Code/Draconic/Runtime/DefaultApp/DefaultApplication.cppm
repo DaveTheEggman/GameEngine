@@ -46,6 +46,7 @@ import draconic.physics.resource;   // collision-shape/physical-material factori
 import draconic.texture.resource;   // texture factory (device-backed)
 import draconic.image.resource;     // image resource registration
 import draconic.model.resource;     // cooked-model family types + registration
+import draconic.ui.resource;        // cooked UI documents/themes (game-ui)
 import draconic.profiler;           // the CPU scope profiler (P-key dump)
 
 namespace rhi = draconic::rhi;
@@ -149,6 +150,7 @@ export namespace draconic::runtime
             draconic::particles::RegisterParticleEffectResource();
             draconic::input::RegisterInputMapResource();
             draconic::physics::RegisterPhysicsResource();
+            draconic::ui::RegisterUIResource();
             core::GlobalTypeRegistry().Register(draconic::scene::SceneDocument::StaticType());
             core::RegisterSerializable<draconic::scene::SceneDocument>();
 
@@ -170,6 +172,8 @@ export namespace draconic::runtime
             resources->AddFactory(&m_collisionShapeFactory);
             resources->AddFactory(&m_physicalMaterialFactory);
             resources->AddFactory(&m_modelFactory);
+            resources->AddFactory(&m_uiDocumentFactory);
+            resources->AddFactory(&m_uiThemeFactory);
             if (GraphicsDevice* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
                 m_textureFactory = core::MakeUnique<draconic::texture::TextureFactory>(
@@ -284,6 +288,8 @@ export namespace draconic::runtime
         draconic::physics::CollisionShapeFactory m_collisionShapeFactory;
         draconic::physics::PhysicalMaterialFactory m_physicalMaterialFactory;
         draconic::model::ModelFactory m_modelFactory;
+        draconic::ui::UIDocumentFactory m_uiDocumentFactory;
+        draconic::ui::UIThemeFactory m_uiThemeFactory;
         core::UniquePtr<draconic::texture::TextureFactory> m_textureFactory;
         draconic::resource::ResourceManager* m_borrowedResources = nullptr;
         draconic::content::IContentDatabase* m_contentDatabase = nullptr;

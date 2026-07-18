@@ -6,4 +6,5 @@ target_link_libraries(RaptorCook PRIVATE
     Draconic::TextureEditor Draconic::ImageEditor Draconic::MeshEditor
     Draconic::AnimationEditor Draconic::MaterialEditor Draconic::ShaderEditor
     Draconic::ParticlesEditor Draconic::Input Draconic::InputResource Draconic::InputEditor Draconic::ModelImporter Draconic::ImageResource
-    Draconic::Physics Draconic::PhysicsResource Draconic::PhysicsEditor)
+    Draconic::Physics Draconic::PhysicsResource Draconic::PhysicsEditor
+    Draconic::UIResource Draconic::UIEditor)

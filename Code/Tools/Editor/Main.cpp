@@ -53,6 +53,8 @@ import draconic.input.subsystem;
 import draconic.physics;
 import draconic.physics.resource;
 import draconic.physics.editor;
+import draconic.ui.resource;
+import draconic.ui.editor;
 import draconic.physics.subsystem;
 import draconic.modelimporter;
 
@@ -87,6 +89,8 @@ namespace
         draconic::image::RegisterImageResource();
         draconic::physics::RegisterPhysicsAssets();
         draconic::physics::RegisterPhysicsResource();
+        draconic::ui::RegisterUIAssets();
+        draconic::ui::RegisterUIResource();
 
         AddBuilder<draconic::texture::TextureAssetBuilder>(registry);
         AddBuilder<draconic::image::ImageAssetBuilder>(registry);
@@ -102,6 +106,8 @@ namespace
         AddBuilder<draconic::modelimporter::ModelManifestAssetBuilder>(registry);
         AddBuilder<draconic::physics::CollisionShapeAssetBuilder>(registry);
         AddBuilder<draconic::physics::PhysicalMaterialAssetBuilder>(registry);
+        AddBuilder<draconic::ui::UIDocumentAssetBuilder>(registry);
+        AddBuilder<draconic::ui::UIThemeAssetBuilder>(registry);
     }
 
     // Create a StaticMeshAsset in the project's Meshes/ group from a procedural primitive,
@@ -249,6 +255,42 @@ int main(int argc, char** argv)
             app.Context().RegisterCreator(static_cast<ed::EditorContext::AssetCreator&&>(materialCreator));
         }
         {
+            // New Asset > UI Document / UI Theme (starter payloads; edited as text until
+            // the UIDocumentPage lands, hot-reloading through the standard cook).
+            ed::EditorContext::AssetCreator documentCreator;
+            documentCreator.label = String(u8"UI Document");
+            documentCreator.create = [](ed::EditorContext& ctx, draconic::content::Group* group)
+                -> draconic::content::Instance* {
+                if (ctx.Project() == nullptr) { return nullptr; }
+                draconic::content::Group* target = group != nullptr
+                    ? group : ctx.Project()->SourceDb().RootGroup();
+                draconic::content::Instance* instance = target->CreateInstance(
+                    u8"UIDocument", draconic::ui::UIDocumentAsset::StaticType());
+                if (instance == nullptr) { return nullptr; }
+                draconic::ui::UIDocumentAsset asset;
+                asset.markup = String(draconic::ui::kUIDocumentStarter);
+                if (!instance->WriteObject(asset).IsOk()) { return nullptr; }
+                return instance;
+            };
+            app.Context().RegisterCreator(static_cast<ed::EditorContext::AssetCreator&&>(documentCreator));
+            ed::EditorContext::AssetCreator themeCreator;
+            themeCreator.label = String(u8"UI Theme");
+            themeCreator.create = [](ed::EditorContext& ctx, draconic::content::Group* group)
+                -> draconic::content::Instance* {
+                if (ctx.Project() == nullptr) { return nullptr; }
+                draconic::content::Group* target = group != nullptr
+                    ? group : ctx.Project()->SourceDb().RootGroup();
+                draconic::content::Instance* instance = target->CreateInstance(
+                    u8"UITheme", draconic::ui::UIThemeAsset::StaticType());
+                if (instance == nullptr) { return nullptr; }
+                draconic::ui::UIThemeAsset asset;
+                asset.stylesheet = String(draconic::ui::kUIThemeStarter);
+                if (!instance->WriteObject(asset).IsOk()) { return nullptr; }
+                return instance;
+            };
+            app.Context().RegisterCreator(static_cast<ed::EditorContext::AssetCreator&&>(themeCreator));
+        }
+        {
             // New Asset > Collision Shape (point its sourceMesh at a mesh in the inspector).
             ed::EditorContext::AssetCreator shapeCreator;
             shapeCreator.label = String(u8"Collision Shape");
@@ -273,6 +315,8 @@ int main(int argc, char** argv)
             DefaultAllocator().New<draconic::texture::TextureFileImporter>(), DefaultAllocator()));
         app.Context().Importers().Register(UniquePtr<ed::IFileImporter>(
             DefaultAllocator().New<draconic::modelimporter::ModelFileImporter>(), DefaultAllocator()));
+        app.Context().Importers().Register(UniquePtr<ed::IFileImporter>(
+            DefaultAllocator().New<draconic::ui::UIFileImporter>(), DefaultAllocator()));
 
         // Resource factories come from the embedded DefaultApplication (registered into
         // the editor's preset ResourceManager at its OnStartup) - none registered here.
