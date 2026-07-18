@@ -113,3 +113,26 @@ TEST_CASE("ui.pipeline: malformed payloads FAIL the cook")
 
     RemoveTree(u8"draconic_uipipe_bad_db");
 }
+
+TEST_CASE("ui.pipeline: silent markup drops surface as cook warnings")
+{
+    MarkupLoader::Initialize();
+    Array<String> warnings;
+    RefPtr<View> tree = MarkupLoader::LoadFromString(
+        u8"<Flex direction=\"vertical\">"
+        u8"  <Label fontSize=\"20\" text=\"typo\"/>"      // camelCase typo -> warning
+        u8"  <NotARealControl/>"                          // unknown child -> warning (dropped)
+        u8"  <Button id=\"ok\" text=\"fine\" height=\"40\"/>"
+        u8"</Flex>",
+        nullptr, &warnings);
+    REQUIRE(tree.Get() != nullptr);                       // the tree still builds
+    REQUIRE(warnings.Size() == 2);
+    CHECK(warnings[0].AsView().StartsWith(u8"unknown attribute 'fontSize'"));
+    CHECK(warnings[1].AsView().StartsWith(u8"unknown element <NotARealControl>"));
+
+    // A clean document warns about nothing.
+    warnings.Clear();
+    RefPtr<View> clean = MarkupLoader::LoadFromString(kUIDocumentStarter, nullptr, &warnings);
+    REQUIRE(clean.Get() != nullptr);
+    CHECK(warnings.IsEmpty());
+}

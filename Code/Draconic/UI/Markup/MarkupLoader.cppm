@@ -31,8 +31,11 @@ export namespace draconic::ui
     struct MarkupLoader
     {
         /// Parse an XML string and return the root View (null on failure). The context is used for name
-        /// registration (id attributes) via the tree it is attached to.
-        [[nodiscard]] static RefPtr<View> LoadFromString(StringView xmlText, UIContext* context = nullptr)
+        /// registration (id attributes) via the tree it is attached to. `warnings`, when given, collects
+        /// diagnostics for constructs the loader would otherwise drop SILENTLY - unknown child elements
+        /// and unrecognized attributes (the cook surfaces these; authoring typos die loud, not quiet).
+        [[nodiscard]] static RefPtr<View> LoadFromString(StringView xmlText, UIContext* context = nullptr,
+                                                         Array<String>* warnings = nullptr)
         {
             xml::XmlDocument doc;
             if (xml::IsError(doc.Parse(xmlText))) { return {}; }
@@ -40,7 +43,7 @@ export namespace draconic::ui
             xml::XmlElement* rootElem = doc.RootElement();
             if (rootElem == nullptr) { return {}; }
 
-            return BuildView(rootElem, nullptr, StringView{}, context);
+            return BuildView(rootElem, nullptr, StringView{}, context, warnings);
         }
 
         /// Initialize the markup system. Call once at startup.
@@ -48,7 +51,8 @@ export namespace draconic::ui
 
     private:
         /// Build a View from an XML element, recursing into children.
-        [[nodiscard]] static RefPtr<View> BuildView(xml::XmlElement* element, ViewGroup* parent, StringView parentTagName, UIContext* context)
+        [[nodiscard]] static RefPtr<View> BuildView(xml::XmlElement* element, ViewGroup* parent, StringView parentTagName, UIContext* context,
+                                                    Array<String>* warnings = nullptr)
         {
             (void)parent;
             const StringView tagName = element->TagName();
@@ -66,7 +70,7 @@ export namespace draconic::ui
                 lp = MarkupRegistry::CreateLayoutParams(parentTagName);
             }
 
-            ApplyAttributes(element, tagName, view.Get(), parentTagName, lp.Get(), context);
+            ApplyAttributes(element, tagName, view.Get(), parentTagName, lp.Get(), context, warnings);
 
             // If LayoutParams were created, assign them to the view.
             if (lp) { view->LayoutParams = lp; }
@@ -79,8 +83,17 @@ export namespace draconic::ui
                     if (childNode->NodeType() == xml::XmlNodeType::Element)
                     {
                         xml::XmlElement* childElem = static_cast<xml::XmlElement*>(childNode);
-                        RefPtr<View> childView = BuildView(childElem, viewGroup, tagName, context);
+                        RefPtr<View> childView = BuildView(childElem, viewGroup, tagName, context, warnings);
                         if (childView) { viewGroup->AddView(childView.Get()); }
+                        else if (warnings != nullptr)
+                        {
+                            String w(u8"unknown element <");
+                            w.Append(childElem->TagName());
+                            w.Append(u8"> dropped (inside <");
+                            w.Append(tagName);
+                            w.Append(u8">)");
+                            warnings->PushBack(Move(w));
+                        }
                     }
                 }
             }
@@ -98,7 +111,8 @@ export namespace draconic::ui
 
         /// Apply XML attributes, routing to special attributes, properties, or layout params.
         static void ApplyAttributes(xml::XmlElement* element, StringView tagName, View* view,
-                                    StringView parentTagName, LayoutParams* lp, UIContext* context)
+                                    StringView parentTagName, LayoutParams* lp, UIContext* context,
+                                    Array<String>* warnings = nullptr)
         {
             (void)context;
             for (xml::XmlAttribute* attr : element->Attributes())
@@ -169,7 +183,17 @@ export namespace draconic::ui
                 // === Control-specific properties via registry ===
                 if (MarkupRegistry::SetProperty(tagName, view, name, value)) { continue; }
 
-                // Unknown attribute - silently ignore.
+                // Unknown attribute: ignored at runtime, but SURFACED to the cook - a
+                // camelCase typo (fontSize vs font-size) once shipped an invisible HUD.
+                if (warnings != nullptr)
+                {
+                    String w(u8"unknown attribute '");
+                    w.Append(name);
+                    w.Append(u8"' on <");
+                    w.Append(tagName);
+                    w.Append(u8">");
+                    warnings->PushBack(Move(w));
+                }
             }
         }
 

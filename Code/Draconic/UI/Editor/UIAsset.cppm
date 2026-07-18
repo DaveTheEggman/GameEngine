@@ -36,10 +36,10 @@ export namespace draconic::ui
         u8"<Flex direction=\"vertical\" justify=\"center\" align=\"center\" padding=\"32\">\n"
         u8"  <Panel padding=\"24\"\n"
         u8"         style=\"background: rounded-rect(rgb(35, 38, 48), radius=12);\">\n"
-        u8"    <Flex direction=\"vertical\" align=\"center\" spacing=\"8\" width=\"260\">\n"
+        u8"    <Flex direction=\"vertical\" align=\"center\" spacing=\"8\">\n"
         u8"      <Label id=\"title\" text=\"New Document\" font-size=\"24\"/>\n"
         u8"      <Spacer spacer-height=\"12\"/>\n"
-        u8"      <Button id=\"ok-btn\" text=\"OK\" height=\"40\"/>\n"
+        u8"      <Button id=\"ok-btn\" text=\"OK\" width=\"200\" height=\"40\"/>\n"
         u8"    </Flex>\n"
         u8"  </Panel>\n"
         u8"</Flex>\n";
@@ -96,14 +96,20 @@ export namespace draconic::ui
                 DRACONIC_LOG_ERROR(u8"UI", u8"UI document is empty - nothing to cook");
                 return Status{ ErrorCode::InvalidArgument };
             }
-            // Validation IS the cook: parse against the registered control set.
+            // Validation IS the cook: parse against the registered control set. Silent
+            // drops (unknown attributes / child elements) surface as cook WARNINGS.
             MarkupLoader::Initialize();
-            RefPtr<View> tree = MarkupLoader::LoadFromString(da.markup.AsView());
+            Array<String> warnings;
+            RefPtr<View> tree = MarkupLoader::LoadFromString(da.markup.AsView(), nullptr, &warnings);
             if (tree.Get() == nullptr)
             {
                 DRACONIC_LOG_ERROR(u8"UI",
                     u8"UI document failed to parse (malformed XML or unknown control)");
                 return Status{ ErrorCode::InvalidArgument };
+            }
+            for (const String& warning : warnings)
+            {
+                DRACONIC_LOG_WARNING(u8"UI", u8"UI document: {}", warning);
             }
             UIDocumentSource cooked;
             cooked.markup = String(da.markup.AsView());
