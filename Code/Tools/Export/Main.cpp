@@ -42,6 +42,8 @@ import draconic.modelimporter;
 import draconic.render.subsystem;
 import draconic.animation.subsystem;
 import draconic.particles.subsystem;
+import draconic.physics;
+import draconic.physics.subsystem;
 
 using namespace draconic::core;
 namespace ed = draconic::editor;
@@ -84,6 +86,10 @@ namespace
         scene.AddSystem<anim::SkeletalAnimationComponentManager>();
         scene.AddSystem<anim::InstancedSkinningManager>();
         scene.AddSystem<particles::ParticleEffectComponentManager>();
+        namespace physics = draconic::physics;
+        scene.AddSystem<physics::RigidBodyComponentManager>();
+        scene.AddSystem<physics::ColliderComponentManager>();
+        scene.AddSystem<physics::PhysicsSceneSystem>();   // carries the settings block
     }
 
     // Pre-transcode every scene/prefab TEXT source stream to the binary wire (the editor
@@ -255,6 +261,7 @@ int main(int argc, char** argv)
     draconic::render::RegisterRenderComponentReflection();
     draconic::animation::RegisterAnimationComponentReflection();
     draconic::particles::RegisterParticleComponentReflection();
+    draconic::physics::RegisterPhysicsComponentReflection();
     HashMap<Guid, Array<byte>> sceneStreams;
     CollectSceneStreams(*project->SourceDb().RootGroup(), sceneStreams);
 

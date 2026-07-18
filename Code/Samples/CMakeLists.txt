@@ -13,6 +13,7 @@ endfunction()
 if(TARGET Draconic::ShellDesktop AND TARGET Draconic::RuntimeDesktop AND TARGET Draconic::GraphicsGpu)
     add_subdirectory(HelloWindow)
     add_subdirectory(InputActions)       # draconic.input consumer proof (named actions end-to-end)
+    add_subdirectory(PhysicsPlayground)  # physics P1 consumer proof (crates/trigger/raycast on Jolt)
     add_subdirectory(MultiWindow)
     add_subdirectory(Sandbox)            # the dev harness we grow the engine in
     add_subdirectory(RenderStressTest)   # worst-case benchmark to keep perf honest

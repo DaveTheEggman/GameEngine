@@ -59,6 +59,8 @@ import draconic.modelimporter;
 import draconic.script;
 import draconic.script.wren;
 import draconic.input;
+import draconic.physics;
+import draconic.physics.subsystem;
 import draconic.input.resource;
 import draconic.input.subsystem;
 import draconic.xml.serialization;
@@ -90,6 +92,7 @@ namespace
         {
             rt::DefaultApplication::Configure(host);
             host.Ctx().AddSubsystem<draconic::particles::ParticleSubsystem>();
+            host.Ctx().AddSubsystem<draconic::physics::PhysicsSubsystem>();
             // FIRST in tick order matters not (input polls devices, scenes read the runtime);
             // shell devices wire in OnStartup once the shell exists.
             m_input = host.Ctx().AddSubsystem<draconic::input::InputSubsystem>(

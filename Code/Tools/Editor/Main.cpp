@@ -50,6 +50,8 @@ import draconic.input.resource;
 import draconic.input.editor;
 import draconic.editor.input;
 import draconic.input.subsystem;
+import draconic.physics;
+import draconic.physics.subsystem;
 import draconic.modelimporter;
 
 using namespace draconic::core;
@@ -200,6 +202,7 @@ int main(int argc, char** argv)
             *host.Graphics()->Raw(), host.Graphics()->FramesInFlight());
         host.Ctx().AddSubsystem<draconic::animation::AnimationSubsystem>();
         host.Ctx().AddSubsystem<draconic::particles::ParticleSubsystem>();
+        host.Ctx().AddSubsystem<draconic::physics::PhysicsSubsystem>();
         host.Ctx().AddSubsystem<draconic::input::InputSubsystem>(
             host.Shell() != nullptr ? host.Shell()->Input() : nullptr);
     };
