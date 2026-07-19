@@ -196,6 +196,77 @@ export namespace draconic::audio
         }
     };
 
+    // ---- sound cue (P3): weighted-variant container, cooked ----
+
+    class SoundCueSource : public ISerializable
+    {
+        DRACONIC_OBJECT(SoundCueSource, ISerializable)
+    public:
+        struct Variant
+        {
+            Guid clipId;
+            f32 weight = 1.0f;
+        };
+        Array<Variant> variants;
+        u8 mode = 0;              // SoundCueMode
+        f32 pitchMin = 1.0f;
+        f32 pitchMax = 1.0f;
+        f32 volumeMin = 1.0f;
+        f32 volumeMax = 1.0f;
+
+        void Serialize(ISerializer& ar) override
+        {
+            u32 count = static_cast<u32>(variants.Size());
+            draconic::core::Serialize(ar, "variantCount", count);
+            if (ar.Mode() == SerializeMode::Read) { variants.Resize(count); }
+            for (u32 i = 0; i < count; ++i)
+            {
+                ar.Key("clip");
+                ar.GuidValue(variants[i].clipId);
+                draconic::core::Serialize(ar, "weight", variants[i].weight);
+            }
+            draconic::core::Serialize(ar, "mode", mode);
+            draconic::core::Serialize(ar, "pitchMin", pitchMin);
+            draconic::core::Serialize(ar, "pitchMax", pitchMax);
+            draconic::core::Serialize(ar, "volumeMin", volumeMin);
+            draconic::core::Serialize(ar, "volumeMax", volumeMax);
+        }
+    };
+
+    class SoundCueFactory final : public IResourceFactory
+    {
+    public:
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &SoundCue::StaticType();
+        }
+
+        [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
+                                            draconic::content::Instance& instance) override
+        {
+            RefPtr<ISerializable> object = instance.ReadObject();
+            SoundCueSource* source = Cast<SoundCueSource>(object.Get());
+            if (source == nullptr) { return RefPtr<Object>{}; }
+            RefPtr<SoundCue> cue = MakeRef<SoundCue>(DefaultAllocator());
+            cue->mode = static_cast<SoundCueMode>(source->mode);
+            cue->pitchMin = source->pitchMin;
+            cue->pitchMax = source->pitchMax;
+            cue->volumeMin = source->volumeMin;
+            cue->volumeMax = source->volumeMax;
+            for (const SoundCueSource::Variant& variant : source->variants)
+            {
+                SoundCueVariant out;
+                if (!variant.clipId.IsNil())
+                {
+                    out.clip = RefPtr<AudioClip>(manager.Bind<AudioClip>(variant.clipId).Get());
+                }
+                out.weight = variant.weight;
+                cue->variants.PushBack(Move(out));
+            }
+            return cue;
+        }
+    };
+
     // Registers the cooked record + product types (content-DB construction by type name).
     inline void RegisterAudioResource()
     {
@@ -205,9 +276,13 @@ export namespace draconic::audio
         GlobalTypeRegistry().Register(AudioBusLayoutSource::StaticType());
         RegisterSerializable<AudioBusLayoutSource>();
         GlobalTypeRegistry().Register(AudioBusLayoutResource::StaticType());
+        GlobalTypeRegistry().Register(SoundCueSource::StaticType());
+        RegisterSerializable<SoundCueSource>();
+        GlobalTypeRegistry().Register(SoundCue::StaticType());
     }
 
     DRACONIC_DEFINE_OBJECT(AudioClipSource, "draconic::audio")
     DRACONIC_DEFINE_OBJECT(AudioBusLayoutSource, "draconic::audio")
     DRACONIC_DEFINE_OBJECT(AudioBusLayoutResource, "draconic::audio")
+    DRACONIC_DEFINE_OBJECT(SoundCueSource, "draconic::audio")
 }

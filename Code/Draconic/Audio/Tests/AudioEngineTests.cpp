@@ -661,3 +661,59 @@ TEST_CASE("audio.engine: bus layout applies volumes/mutes and splices effect cha
     engine.Update(1.0f / 60.0f);
     CHECK(engine.IsPlaying(voice));
 }
+
+TEST_CASE("audio.cue: weighted resolution - no-repeat, sequential, jitter, degenerate")
+{
+    RefPtr<AudioClip> a = MakeToneClip(0.1f);
+    RefPtr<AudioClip> b = MakeToneClip(0.1f);
+    RefPtr<AudioClip> c = MakeToneClip(0.1f);
+
+    SoundCue cue;
+    cue.variants.PushBack(SoundCueVariant{ a, 1.0f });
+    cue.variants.PushBack(SoundCueVariant{ RefPtr<AudioClip>{}, 5.0f });   // empty: skipped
+    cue.variants.PushBack(SoundCueVariant{ b, 0.0f });                     // zero weight: skipped
+    cue.variants.PushBack(SoundCueVariant{ c, 3.0f });
+    cue.pitchMin = 0.9f;
+    cue.pitchMax = 1.1f;
+
+    Random rng(42);
+    u32 cursor = 0;
+
+    // RandomNoRepeat: only slots 0 and 3 are eligible; consecutive picks always differ
+    // (with two choices, no-repeat must alternate), jitter stays in range.
+    i32 last = -1;
+    for (int i = 0; i < 50; ++i)
+    {
+        const SoundCuePick pick = ResolveSoundCue(cue, rng, last, cursor);
+        REQUIRE((pick.variantIndex == 0 || pick.variantIndex == 3));
+        if (last >= 0) { CHECK(pick.variantIndex != last); }
+        CHECK(pick.pitch >= 0.9f);
+        CHECK(pick.pitch <= 1.1f);
+        CHECK(pick.volume == doctest::Approx(1.0f));
+        last = pick.variantIndex;
+    }
+
+    // Random (repeats allowed): weights bias toward slot 3 (3:1).
+    cue.mode = SoundCueMode::Random;
+    int hits0 = 0, hits3 = 0;
+    for (int i = 0; i < 400; ++i)
+    {
+        const SoundCuePick pick = ResolveSoundCue(cue, rng, -1, cursor);
+        if (pick.variantIndex == 0) { ++hits0; }
+        if (pick.variantIndex == 3) { ++hits3; }
+    }
+    CHECK(hits0 + hits3 == 400);
+    CHECK(hits3 > hits0 * 2);   // ~3x expected; 2x is a generous statistical floor
+
+    // Sequential: round-robin over the eligible set in slot order.
+    cue.mode = SoundCueMode::Sequential;
+    cursor = 0;
+    CHECK(ResolveSoundCue(cue, rng, -1, cursor).variantIndex == 0);
+    CHECK(ResolveSoundCue(cue, rng, -1, cursor).variantIndex == 3);
+    CHECK(ResolveSoundCue(cue, rng, -1, cursor).variantIndex == 0);
+
+    // No playable variant -> -1.
+    SoundCue empty;
+    empty.variants.PushBack(SoundCueVariant{ RefPtr<AudioClip>{}, 1.0f });
+    CHECK(ResolveSoundCue(empty, rng, -1, cursor).variantIndex == -1);
+}

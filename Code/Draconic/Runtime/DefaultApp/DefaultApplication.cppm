@@ -193,6 +193,7 @@ export namespace draconic::runtime
             resources->AddFactory(&m_physicalMaterialFactory);
             resources->AddFactory(&m_audioClipFactory);
             resources->AddFactory(&m_busLayoutFactory);
+            resources->AddFactory(&m_soundCueFactory);
             resources->AddFactory(&m_modelFactory);
             resources->AddFactory(&m_uiDocumentFactory);
             resources->AddFactory(&m_uiThemeFactory);
@@ -324,6 +325,7 @@ export namespace draconic::runtime
         draconic::physics::PhysicalMaterialFactory m_physicalMaterialFactory;
         draconic::audio::AudioClipFactory m_audioClipFactory;
         draconic::audio::AudioBusLayoutFactory m_busLayoutFactory;
+        draconic::audio::SoundCueFactory m_soundCueFactory;
         draconic::model::ModelFactory m_modelFactory;
         draconic::ui::UIDocumentFactory m_uiDocumentFactory;
         draconic::ui::UIThemeFactory m_uiThemeFactory;
