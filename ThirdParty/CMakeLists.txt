@@ -114,3 +114,23 @@ target_compile_features(draconic_jolt PUBLIC cxx_std_17)
 target_compile_definitions(draconic_jolt PUBLIC
     $<$<CONFIG:Debug>:JPH_ENABLE_ASSERTS>)
 set_target_properties(draconic_jolt PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+# AngelScript 2.39.0 WIP — vendored BY COPY (github.com/anjo76/angelscript, sdk library
+# + the scriptstdstring add-on; no submodule). Compiled from source as one static lib;
+# per-architecture native-call sources self-select via as_config.h #ifdefs, so globbing
+# every .cpp is safe. Include dirs are PUBLIC + SYSTEM so draconic.script.angelscript
+# can #include <angelscript.h> / <scriptstdstring/scriptstdstring.h> from its module
+# IMPLEMENTATION unit. Does not link draconic_policy (vendored code builds without our
+# -Werror). scriptstdstring_utils.cpp is deliberately not vendored (needs scriptarray).
+file(GLOB draconic_angelscript_sources ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/source/*.cpp)
+add_library(draconic_angelscript STATIC
+    ${draconic_angelscript_sources}
+    ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/add_on/scriptstdstring/scriptstdstring.cpp)
+add_library(Draconic::AngelScript ALIAS draconic_angelscript)
+target_include_directories(draconic_angelscript SYSTEM PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/add_on)
+target_compile_features(draconic_angelscript PRIVATE cxx_std_17)
+set_target_properties(draconic_angelscript PROPERTIES POSITION_INDEPENDENT_CODE ON)
+find_package(Threads REQUIRED)
+target_link_libraries(draconic_angelscript PUBLIC Threads::Threads)
