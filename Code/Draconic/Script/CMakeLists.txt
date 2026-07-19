@@ -21,3 +21,4 @@ target_sources(DraconicScript
 
 # VM backends.
 add_subdirectory(Wren)
+add_subdirectory(AngelScript)
