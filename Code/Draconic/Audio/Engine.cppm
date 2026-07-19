@@ -68,6 +68,10 @@ export namespace draconic::audio
     struct AudioPlayParams
     {
         AudioBus bus = AudioBus::Effects;
+        // Named-bus addressing: when non-empty AND the applied layout has a custom bus
+        // of this name, the voice routes there instead of `bus`. Unknown names fall
+        // back to `bus` (warned once per engine) - content never faults playback.
+        String busName;
         f32 volume = 1.0f;             // multiplied with the clip's authored gain
         f32 pitch = 1.0f;              // real resampling (not stored-and-ignored)
         f32 pan = 0.0f;                // -1 left .. +1 right (non-spatial voices)
@@ -80,6 +84,12 @@ export namespace draconic::audio
         // clip in the same instant are distinct voices at distinct positions, never a
         // stack - merging them silently collapsed all-but-one emitter.
         bool allowDedupe = true;
+
+        // Per-voice reverb send (0..1): a splitter after the voice's chain feeds the
+        // scene's SEND reverb (wet-only Freeverb; zones drive its room character) in
+        // parallel with the dry path, scaled by this. 0 = no splitter, no send.
+        // Requires a scene group (the send reverb is per-scene).
+        f32 reverbSend = 0.0f;
 
         // 3D (spatial = true):
         bool spatial = false;
@@ -129,10 +139,46 @@ export namespace draconic::audio
         Array<AudioBusEffectDesc> effects;   // applied in order; None entries skip
     };
 
+    // A named CUSTOM bus (the additive topology freedom over the fixed four): realized
+    // as an extra ma_sound_group parented per the layout. The four AudioBus enum buses
+    // stay the well-known addressing model; custom buses are addressed BY NAME
+    // (AudioPlayParams::busName / AudioSourceComponent::busName).
+    struct AudioNamedBus
+    {
+        String name;      // unique per layout (case-sensitive); empty = ignored
+        String parent;    // a fixed bus name ("Master"/"Effects"/"Music"/"UI",
+                          // case-insensitive) or another custom bus's name; empty =
+                          // Master. Cycles are rejected at cook AND defused at apply.
+        AudioBusSettings settings;
+    };
+
     struct AudioBusLayout
     {
         AudioBusSettings buses[static_cast<usize>(AudioBus::Count)];
+        Array<AudioNamedBus> customBuses;   // additive named tree (may be empty)
     };
+
+    /// Fixed-bus lookup by name, ASCII case-insensitive ("effects" == "Effects").
+    /// The shared seam between the layout apply, the cook validator, and the Wren
+    /// facade's string addressing. False = not one of the four fixed buses.
+    [[nodiscard]] inline bool AudioBusFromName(StringView name, AudioBus& out)
+    {
+        auto equals = [](StringView a, const utf8char* b) {
+            usize i = 0;
+            for (; i < a.Size(); ++i)
+            {
+                utf8char c = a[i];
+                if (c >= u8'A' && c <= u8'Z') { c = static_cast<utf8char>(c + 32); }
+                if (b[i] == 0 || c != b[i]) { return false; }
+            }
+            return b[i] == 0;
+        };
+        if (equals(name, u8"master")) { out = AudioBus::Master; return true; }
+        if (equals(name, u8"effects")) { out = AudioBus::Effects; return true; }
+        if (equals(name, u8"music")) { out = AudioBus::Music; return true; }
+        if (equals(name, u8"ui")) { out = AudioBus::UI; return true; }
+        return false;
+    }
 
     struct VoiceStatus
     {
@@ -144,10 +190,18 @@ export namespace draconic::audio
         f32 volume = 1.0f;
         f32 pitch = 1.0f;
         AudioBus bus = AudioBus::Effects;
+        // The custom bus the voice routes through (empty = the fixed `bus`). Cleared
+        // when a layout rebuild removes the bus and the voice falls back to `bus`.
+        String busName;
         u8 priority = 0;
         Float3 position{ 0.0f, 0.0f, 0.0f };
         // Distance low-pass state: the cutoff currently applied (0 = no filter node).
         f32 lowpassCutoffHz = 0.0f;
+        // TRUE playback cursor (seconds into the clip's data, from the voice itself -
+        // not an elapsed-time approximation): honors pitch, pauses, and loop wraps.
+        f32 cursorSeconds = 0.0f;
+        // Per-voice reverb send level (0 = no splitter in the chain).
+        f32 reverbSend = 0.0f;
     };
 
     struct AudioEngineSettings
@@ -162,6 +216,12 @@ export namespace draconic::audio
         u32 listenerCount = 1;         // spatial listeners (1..4; split-screen); voices
                                        // auto-attach to the CLOSEST listener
         f32 stopFadeSeconds = 0.010f;  // the always-fade on stop/pause (Godot rule)
+        // Faded steal: a stolen voice's ma_sound moves to a bounded "dying" side list
+        // and fades out over THIS window while the newcomer starts at once - no click.
+        // The mixer briefly carries pool + dying voices; the ADDRESSABLE pool never
+        // exceeds voiceCount (see ActiveVoiceCount/DyingVoiceCount).
+        f32 stealFadeSeconds = 0.030f;
+        u32 dyingVoiceCapacity = 8;    // 0 = legacy immediate cut; full = oldest hard-cuts
         f32 dedupeWindowSeconds = 1.0f / 30.0f;   // recent-play merge window (Traktor)
         /// Optional mount for path-addressed streaming (clip stream sources don't need it).
         draconic::vfs::IFileSystem* fileSystem = nullptr;
@@ -203,8 +263,17 @@ export namespace draconic::audio
         void SetVoiceLooping(VoiceHandle handle, bool loop);
         /// Per-frame 3D sync: position + velocity (velocity drives doppler).
         void SetVoicePosition(VoiceHandle handle, Float3 position, Float3 velocity);
+        /// Live send scaling (splitter output-bus volume). No-op on voices played
+        /// with reverbSend 0 - the splitter only splices at Play.
+        void SetVoiceReverbSend(VoiceHandle handle, f32 send);
 
+        /// ADDRESSABLE voices: slots owned by a live generation. A stolen voice leaves
+        /// this count at the instant of the steal (its handle dies) even though its
+        /// audio tail keeps mixing briefly - see DyingVoiceCount().
         [[nodiscard]] usize ActiveVoiceCount() const;
+        /// Stolen voices still fading out on the dying side list (steal declick). They
+        /// are unaddressable and capacity-bounded (settings.dyingVoiceCapacity).
+        [[nodiscard]] usize DyingVoiceCount() const;
 
         // ---- listener (one active listener; multi-listener deferred) ----
         void SetListenerTransform(Float3 position, Float3 forward, Float3 up, Float3 velocity);
@@ -230,6 +299,20 @@ export namespace draconic::audio
         /// Live effect-node count on a bus (tests/diagnostics).
         [[nodiscard]] u32 BusEffectCount(AudioBus bus) const;
 
+        // ---- named custom buses (additive over the fixed four) ----
+        // Realized by ApplyBusLayout from AudioBusLayout::customBuses. Re-applying a
+        // layout reconciles BY NAME: kept buses update in place (their voices keep
+        // playing), removed buses re-attach their live voices to the voice's fixed
+        // fallback bus (they SURVIVE the rebuild), new buses splice in. Volume/mute/
+        // effect chains behave exactly like the fixed buses.
+        [[nodiscard]] bool HasNamedBus(StringView name) const;
+        [[nodiscard]] u32 NamedBusCount() const;
+        void SetNamedBusVolume(StringView name, f32 volume);
+        [[nodiscard]] f32 NamedBusVolume(StringView name) const;   // 0 when unknown
+        void SetNamedBusMuted(StringView name, bool muted);
+        [[nodiscard]] bool NamedBusMuted(StringView name) const;
+        [[nodiscard]] u32 NamedBusEffectCount(StringView name) const;
+
         // ---- music (P2): scene-less helpers on the Music bus with cross-fade ----
         // Music routes through the SAME graph as everything else (the Sedulous stream-
         // bypass is structurally impossible here); it carries no scene group, so it
@@ -253,7 +336,9 @@ export namespace draconic::audio
 
         // ---- per-scene reverb (P3 zones): a Freeverb node on the scene's Effects
         // child group, wet driven by listener zone occupancy. wet 0 = bypass (the node
-        // stays spliced once created; params update live). ----
+        // stays spliced once created; params update live). The same params' roomSize/
+        // damping also retune the scene's SEND reverb (per-voice reverbSend), which is
+        // wet-only and fed by voice splitters regardless of zone occupancy. ----
         void SetSceneReverb(u64 sceneGroup, const AudioReverbParams& params);
         [[nodiscard]] f32 SceneReverbWet(u64 sceneGroup) const;
 

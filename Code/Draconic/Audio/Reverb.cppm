@@ -21,6 +21,10 @@ export namespace draconic::audio
         f32 roomSize = 0.6f;   // 0..1 (comb feedback)
         f32 damping = 0.4f;    // 0..1 (high-frequency decay inside the tail)
         f32 wet = 0.4f;        // 0..1 mix (0 = fully dry passthrough)
+        // Dry passthrough level: < 0 = the classic INSERT mix (1 - wet); an explicit
+        // 0 makes a WET-ONLY node (aux-send reverb: per-voice sends feed it in
+        // parallel with the dry path, so the dry signal must not pass through again).
+        f32 dry = -1.0f;
     };
 
     /// Stereo Freeverb state. Buffer lengths scale from the canonical 44.1 kHz tunings.
@@ -66,11 +70,14 @@ export namespace draconic::audio
             m_feedback = 0.7f + Clamp(params.roomSize, 0.0f, 1.0f) * 0.28f;
             m_damp = Clamp(params.damping, 0.0f, 1.0f) * 0.4f;
             m_wet = Clamp(params.wet, 0.0f, 1.0f);
+            m_dry = params.dry < 0.0f ? 1.0f - m_wet : Clamp(params.dry, 0.0f, 1.0f);
         }
 
         [[nodiscard]] f32 Wet() const noexcept { return m_wet; }
+        [[nodiscard]] f32 Dry() const noexcept { return m_dry; }
 
-        /// Interleaved-stereo in-place processing: out = dry * (1 - wet) + tail * wet.
+        /// Interleaved-stereo in-place processing: out = in * dry + tail * wet (dry
+        /// defaults to 1 - wet, the classic insert mix; 0 = wet-only send node).
         /// Mono callers duplicate the channel. Denormal-flushed.
         void ProcessStereo(const f32* input, f32* output, u32 frameCount)
         {
@@ -92,8 +99,8 @@ export namespace draconic::audio
                     outL = AllpassProcess(m_allpass[0][i], outL);
                     outR = AllpassProcess(m_allpass[1][i], outR);
                 }
-                output[frame * 2 + 0] = inL * (1.0f - m_wet) + outL * m_wet * 3.0f;
-                output[frame * 2 + 1] = inR * (1.0f - m_wet) + outR * m_wet * 3.0f;
+                output[frame * 2 + 0] = inL * m_dry + outL * m_wet * 3.0f;
+                output[frame * 2 + 1] = inR * m_dry + outR * m_wet * 3.0f;
             }
         }
 
@@ -141,6 +148,7 @@ export namespace draconic::audio
         f32 m_feedback = 0.84f;
         f32 m_damp = 0.2f;
         f32 m_wet = 0.4f;
+        f32 m_dry = 0.6f;    // tracks 1 - wet unless params.dry pins it (send mode)
         bool m_initialized = false;
     };
 }

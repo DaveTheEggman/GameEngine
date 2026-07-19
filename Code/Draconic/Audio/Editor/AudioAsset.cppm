@@ -369,7 +369,12 @@ export namespace draconic::audio
     // FLAT per-bus fields (v1) so the reflection inspector edits it without an array
     // editor: per bus - volume, mute, and three effect slots (0 disables each). The
     // builder folds the flat fields into the generic wire chain (lowpass -> highpass ->
-    // delay, in that order, when enabled).
+    // delay, in that order, when enabled). Asset data v2 adds a FIXED bank of custom-bus
+    // slots (the SoundCueAsset precedent: fixed slots keep the existing editing path
+    // working without an array editor): each slot = name + parent + the same flat bus
+    // fields; an empty name disables the slot.
+
+    inline constexpr usize kAudioCustomBusSlotCount = 8;
 
     class AudioBusLayoutAsset final : public draconic::editor::Asset
     {
@@ -387,16 +392,25 @@ export namespace draconic::audio
             f32 reverbRoomSize = 0.6f;
             f32 reverbDamping = 0.4f;
         };
+        // A named custom bus: parent = one of the four fixed bus names (case-
+        // insensitive) or another slot's name; empty parent = Master. Cycles among
+        // slots FAIL the cook.
+        struct CustomBusSlot
+        {
+            String name;               // empty = slot unused
+            String parent;
+            Bus bus;
+        };
         Bus master;
         Bus effects;
         Bus music;
         Bus ui;
+        CustomBusSlot custom[kAudioCustomBusSlotCount];
 
         void Serialize(ISerializer& ar) override
         {
             draconic::editor::Asset::Serialize(ar);
-            auto serializeBus = [&ar](const char* prefix, Bus& bus) {
-                (void)prefix;
+            auto serializeBus = [&ar](Bus& bus) {
                 draconic::core::Serialize(ar, "volume", bus.volume);
                 draconic::core::Serialize(ar, "muted", bus.muted);
                 draconic::core::Serialize(ar, "lowpassHz", bus.lowpassHz);
@@ -407,10 +421,22 @@ export namespace draconic::audio
                 draconic::core::Serialize(ar, "reverbRoomSize", bus.reverbRoomSize);
                 draconic::core::Serialize(ar, "reverbDamping", bus.reverbDamping);
             };
-            serializeBus("master", master);
-            serializeBus("effects", effects);
-            serializeBus("music", music);
-            serializeBus("ui", ui);
+            serializeBus(master);
+            serializeBus(effects);
+            serializeBus(music);
+            serializeBus(ui);
+            if (ar.Version() >= 2)   // v2: the custom-bus slot bank
+            {
+                u32 slots = kAudioCustomBusSlotCount;
+                draconic::core::Serialize(ar, "customSlots", slots);
+                const u32 count = Min<u32>(slots, kAudioCustomBusSlotCount);
+                for (u32 i = 0; i < count; ++i)
+                {
+                    draconic::core::Serialize(ar, "name", custom[i].name);
+                    draconic::core::Serialize(ar, "parent", custom[i].parent);
+                    serializeBus(custom[i].bus);
+                }
+            }
         }
     };
 
@@ -425,7 +451,7 @@ export namespace draconic::audio
         {
             return &AudioBusLayoutSource::StaticType();
         }
-        [[nodiscard]] u32 Version() const override { return 1; }
+        [[nodiscard]] u32 Version() const override { return 2; }   // v2: custom buses
 
         [[nodiscard]] Status Build(const draconic::editor::Asset& asset,
                                    draconic::editor::AssetBuildContext& ctx) override
@@ -441,51 +467,125 @@ export namespace draconic::audio
             buses[static_cast<usize>(AudioBus::UI)] = &layoutAsset.ui;
             for (usize i = 0; i < static_cast<usize>(AudioBus::Count); ++i)
             {
-                const AudioBusLayoutAsset::Bus& bus = *buses[i];
-                AudioBusSettings& out = source.layout.buses[i];
-                out.volume = Clamp(bus.volume, 0.0f, 4.0f);
-                out.muted = bus.muted;
-                if (bus.lowpassHz > 0.0f)
+                FoldBusSettings(*buses[i], asset.fileName, source.layout.buses[i]);
+            }
+
+            // Custom-bus slots: fold used slots; validate parents. A parent CYCLE is a
+            // broken mixer - reject the cook (unknown parents only warn: they fall back
+            // to Master at apply).
+            for (usize i = 0; i < kAudioCustomBusSlotCount; ++i)
+            {
+                const AudioBusLayoutAsset::CustomBusSlot& slot = layoutAsset.custom[i];
+                if (slot.name.IsEmpty()) { continue; }
+                AudioBus fixedAlias{};
+                if (AudioBusFromName(slot.name.AsView(), fixedAlias))
                 {
-                    AudioBusEffectDesc effect;
-                    effect.kind = AudioBusEffectKind::Lowpass;
-                    effect.frequencyHz = bus.lowpassHz;
-                    out.effects.PushBack(effect);
+                    DRACONIC_LOG_WARNING(u8"Audio",
+                        u8"bus layout '{}': custom bus '{}' shadows a fixed bus - skipped",
+                        asset.fileName, slot.name);
+                    continue;
                 }
-                if (bus.highpassHz > 0.0f)
+                bool duplicate = false;
+                for (const AudioNamedBus& existing : source.layout.customBuses)
                 {
-                    AudioBusEffectDesc effect;
-                    effect.kind = AudioBusEffectKind::Highpass;
-                    effect.frequencyHz = bus.highpassHz;
-                    out.effects.PushBack(effect);
+                    if (existing.name.AsView() == slot.name.AsView()) { duplicate = true; break; }
                 }
-                if (bus.delaySeconds > 0.0f)
+                if (duplicate)
                 {
-                    AudioBusEffectDesc effect;
-                    effect.kind = AudioBusEffectKind::Delay;
-                    effect.delaySeconds = bus.delaySeconds;
-                    effect.delayDecay = Clamp(bus.delayDecay, 0.0f, 0.99f);
-                    if (bus.delayDecay >= 1.0f)
+                    DRACONIC_LOG_WARNING(u8"Audio",
+                        u8"bus layout '{}': duplicate custom bus '{}' - slot skipped",
+                        asset.fileName, slot.name);
+                    continue;
+                }
+                AudioNamedBus named;
+                named.name = String(slot.name.AsView());
+                named.parent = String(slot.parent.AsView());
+                FoldBusSettings(slot.bus, asset.fileName, named.settings);
+                source.layout.customBuses.PushBack(Move(named));
+            }
+
+            // Cycle check over the folded set (parents that name other custom buses).
+            for (usize i = 0; i < source.layout.customBuses.Size(); ++i)
+            {
+                usize cursor = i;
+                usize steps = 0;
+                for (;;)
+                {
+                    const StringView parent =
+                        source.layout.customBuses[cursor].parent.AsView();
+                    AudioBus fixed{};
+                    if (parent.IsEmpty() || AudioBusFromName(parent, fixed)) { break; }
+                    bool found = false;
+                    for (usize j = 0; j < source.layout.customBuses.Size(); ++j)
                     {
-                        DRACONIC_LOG_WARNING(u8"Audio",
-                            u8"bus layout '{}': delayDecay >= 1 self-oscillates - clamped to 0.99",
-                            asset.fileName);
+                        if (source.layout.customBuses[j].name.AsView() == parent)
+                        {
+                            cursor = j;
+                            found = true;
+                            break;
+                        }
                     }
-                    out.effects.PushBack(effect);
-                }
-                if (bus.reverbWet > 0.0f)
-                {
-                    AudioBusEffectDesc effect;
-                    effect.kind = AudioBusEffectKind::Reverb;
-                    effect.roomSize = Clamp(bus.reverbRoomSize, 0.0f, 1.0f);
-                    effect.damping = Clamp(bus.reverbDamping, 0.0f, 1.0f);
-                    effect.wetLevel = Clamp(bus.reverbWet, 0.0f, 1.0f);
-                    out.effects.PushBack(effect);
+                    if (!found) { break; }   // unknown parent: warned at apply, not a cycle
+                    if (cursor == i || ++steps > source.layout.customBuses.Size())
+                    {
+                        DRACONIC_LOG_ERROR(u8"Audio",
+                            u8"bus layout '{}': custom bus '{}' is part of a parent "
+                            u8"CYCLE - cook failed", asset.fileName,
+                            source.layout.customBuses[i].name);
+                        return Status{ ErrorCode::InvalidArgument };
+                    }
                 }
             }
 
             const Status written = ctx.output->WriteObject(source);
             return written;
+        }
+
+    private:
+        // The flat editor fields -> the generic wire chain (lowpass -> highpass ->
+        // delay -> reverb, when enabled). Shared by the fixed buses and custom slots.
+        static void FoldBusSettings(const AudioBusLayoutAsset::Bus& bus,
+                                    const String& assetName, AudioBusSettings& out)
+        {
+            out.volume = Clamp(bus.volume, 0.0f, 4.0f);
+            out.muted = bus.muted;
+            if (bus.lowpassHz > 0.0f)
+            {
+                AudioBusEffectDesc effect;
+                effect.kind = AudioBusEffectKind::Lowpass;
+                effect.frequencyHz = bus.lowpassHz;
+                out.effects.PushBack(effect);
+            }
+            if (bus.highpassHz > 0.0f)
+            {
+                AudioBusEffectDesc effect;
+                effect.kind = AudioBusEffectKind::Highpass;
+                effect.frequencyHz = bus.highpassHz;
+                out.effects.PushBack(effect);
+            }
+            if (bus.delaySeconds > 0.0f)
+            {
+                AudioBusEffectDesc effect;
+                effect.kind = AudioBusEffectKind::Delay;
+                effect.delaySeconds = bus.delaySeconds;
+                effect.delayDecay = Clamp(bus.delayDecay, 0.0f, 0.99f);
+                if (bus.delayDecay >= 1.0f)
+                {
+                    DRACONIC_LOG_WARNING(u8"Audio",
+                        u8"bus layout '{}': delayDecay >= 1 self-oscillates - clamped to 0.99",
+                        assetName);
+                }
+                out.effects.PushBack(effect);
+            }
+            if (bus.reverbWet > 0.0f)
+            {
+                AudioBusEffectDesc effect;
+                effect.kind = AudioBusEffectKind::Reverb;
+                effect.roomSize = Clamp(bus.reverbRoomSize, 0.0f, 1.0f);
+                effect.damping = Clamp(bus.reverbDamping, 0.0f, 1.0f);
+                effect.wetLevel = Clamp(bus.reverbWet, 0.0f, 1.0f);
+                out.effects.PushBack(effect);
+            }
         }
     };
 
@@ -588,6 +688,7 @@ export namespace draconic::audio
 
     DRACONIC_DEFINE_OBJECT(AudioClipAsset, "draconic::audio")
     DRACONIC_DEFINE_OBJECT(AudioImportOptions, "draconic::audio")
-    DRACONIC_DEFINE_OBJECT(AudioBusLayoutAsset, "draconic::audio")
+    // v2: the custom-bus slot bank (see Serialize) - v0/v1 sources read cleanly.
+    DRACONIC_DEFINE_OBJECT_VERSIONED(AudioBusLayoutAsset, "draconic::audio", 2)
     DRACONIC_DEFINE_OBJECT(SoundCueAsset, "draconic::audio")
 }

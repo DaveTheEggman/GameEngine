@@ -152,21 +152,53 @@ namespace draconic::audio
         }
     }
 
+    // Per-bus effect chain node: typed so teardown calls the right uninit. Shared by
+    // the fixed buses and the named custom buses.
+    struct BusEffectNode
+    {
+        AudioBusEffectKind kind = AudioBusEffectKind::None;
+        void* node = nullptr;
+    };
+
+    // A named custom bus (audio.md: the additive topology freedom): one extra
+    // ma_sound_group, parented to a fixed bus or another custom bus per the layout.
+    struct CustomBusData
+    {
+        String name;
+        AudioBus fixedParent = AudioBus::Master;   // parent when parentCustom < 0
+        i32 parentCustom = -1;                     // index into Impl::customBuses
+        f32 volume = 1.0f;
+        bool muted = false;
+        ma_sound_group group{};
+        bool initialized = false;
+        Array<BusEffectNode> effects;
+    };
+
     struct VoiceSlot
     {
-        ma_sound sound{};
+        // Arena-backed (Impl::soundArena): the ma_sound must survive its slot on a
+        // faded steal - the pointer HANDS OVER to the dying side list while the slot
+        // is immediately reused. ma_sound is not movable (the node graph points into
+        // it), so ownership moves, the storage never does.
+        ma_sound* sound = nullptr;
         bool soundInitialized = false;
         u32 generation = 1;
         VoiceState state = VoiceState::Free;
         u8 priority = 0;
         bool spatial = false;
         bool looping = false;
+        String customBusName;   // non-empty = routed through a named custom bus
         Float3 position{ 0.0f, 0.0f, 0.0f };
         f32 volume = 1.0f;
         f32 pitch = 1.0f;
         AudioBus bus = AudioBus::Effects;
         u64 sceneGroup = 0;
         RefPtr<AudioClip> clip;
+        // Per-voice reverb send: a splitter at the END of the voice chain - out 0 is
+        // the dry path to the group, out 1 (volume = reverbSend) feeds the scene's
+        // wet-only SEND reverb in parallel. nullptr = played with reverbSend 0.
+        ma_splitter_node* splitterNode = nullptr;
+        f32 reverbSend = 0.0f;
         // Distance low-pass (P2): an ma_lpf node between the sound and its group; the
         // cutoff glides open->floor across [min, max] distance every Update.
         ma_lpf_node* lowpassNode = nullptr;
@@ -184,6 +216,11 @@ namespace draconic::audio
         bool paused = false;
         ReverbNode* reverb = nullptr;   // zone reverb on the Effects child group
         f32 reverbWet = 0.0f;
+        // The per-voice send target: a WET-ONLY Freeverb (dry pinned to 0) fed by
+        // voice splitters, straight into the Effects bus. Zones retune roomSize/
+        // damping through SetSceneReverb; sends stay audible regardless of zone
+        // occupancy (the send level is the VOICE's own knob).
+        ReverbNode* sendReverb = nullptr;
     };
 
     struct AudioEngine::Impl
@@ -211,6 +248,23 @@ namespace draconic::audio
         u32 voiceCount = 0;
         u32 streamVoiceCount = 0;
 
+        // Fixed ma_sound storage (pool + dying headroom; never resized after init -
+        // pointers into it are stable) + the free-index stack.
+        Array<ma_sound> soundArena;
+        Array<u32> freeSounds;
+
+        // Faded steal (audio.md parked item): the victim's ma_sound fades here (~30 ms)
+        // while its slot is reused at once. Capacity-bounded; oldest hard-cuts on
+        // overflow. Entries keep the clip alive until the fade lands.
+        struct DyingVoice
+        {
+            ma_sound* sound = nullptr;
+            ma_lpf_node* lowpass = nullptr;
+            ma_splitter_node* splitter = nullptr;
+            RefPtr<AudioClip> clip;
+        };
+        Array<DyingVoice> dyingVoices;
+
         HashMap<u64, SceneGroupData*> sceneGroups;   // owned via DefaultAllocator New/Delete
         u64 nextSceneGroupId = 1;
 
@@ -221,16 +275,13 @@ namespace draconic::audio
         Float3 listenerPosition{ 0.0f, 0.0f, 0.0f };
         VoiceHandle musicVoice;        // the PlayMusic cross-fade tracks ONE music voice
 
-        // Per-bus effect chains (P2): typed so teardown calls the right uninit.
-        struct BusEffectNode
-        {
-            AudioBusEffectKind kind = AudioBusEffectKind::None;
-            void* node = nullptr;
-        };
         Array<BusEffectNode> busEffects[static_cast<usize>(AudioBus::Count)];
+        // Named custom buses (heap entries: ma_sound_group is address-stable).
+        Array<CustomBusData*> customBuses;
         f64 timeSeconds = 0.0;
         bool warnedMonoDownmix = false;
         bool warnedStreamStereoSpatial = false;
+        bool warnedUnknownBusName = false;
         Array<f32> pumpScratch;        // headless mixing scratch
 
         // ---------------- ma_vfs callbacks ----------------
@@ -340,6 +391,28 @@ namespace draconic::audio
             voiceCount = settings.voiceCount;
             streamVoiceCount = settings.streamVoiceCount;
             voices.Resize(static_cast<usize>(voiceCount) + streamVoiceCount);
+            // Storage for every pool slot PLUS the dying headroom (a steal briefly
+            // needs both the victim's fading sound and the newcomer's).
+            soundArena.Resize(static_cast<usize>(voiceCount) + streamVoiceCount
+                              + settings.dyingVoiceCapacity);
+            for (usize i = soundArena.Size(); i > 0; --i)
+            {
+                freeSounds.PushBack(static_cast<u32>(i - 1));
+            }
+        }
+
+        [[nodiscard]] ma_sound* AcquireSound()
+        {
+            if (freeSounds.IsEmpty()) { return nullptr; }   // unreachable by construction
+            const u32 index = freeSounds.Back();
+            freeSounds.PopBack();
+            return &soundArena[index];
+        }
+
+        void ReleaseSound(ma_sound* sound)
+        {
+            if (sound == nullptr) { return; }
+            freeSounds.PushBack(static_cast<u32>(sound - soundArena.Data()));
         }
 
         [[nodiscard]] bool InitializeEngine(bool withoutDevice)
@@ -366,13 +439,10 @@ namespace draconic::audio
                 : reinterpret_cast<ma_node*>(&busGroups[static_cast<usize>(AudioBus::Master)]);
         }
 
-        void ClearBusEffects(usize bus)
+        // Frees every node in `chain` (the caller re-attaches the source first).
+        void ClearEffectChain(Array<BusEffectNode>& chain)
         {
-            if (busGroupInitialized[bus])
-            {
-                (void)ma_node_attach_output_bus(&busGroups[bus], 0, BusParentNode(bus), 0);
-            }
-            for (BusEffectNode& effect : busEffects[bus])
+            for (BusEffectNode& effect : chain)
             {
                 switch (effect.kind)
                 {
@@ -394,7 +464,16 @@ namespace draconic::audio
                     case AudioBusEffectKind::None: break;
                 }
             }
-            busEffects[bus].Clear();
+            chain.Clear();
+        }
+
+        void ClearBusEffects(usize bus)
+        {
+            if (busGroupInitialized[bus])
+            {
+                (void)ma_node_attach_output_bus(&busGroups[bus], 0, BusParentNode(bus), 0);
+            }
+            ClearEffectChain(busEffects[bus]);
         }
 
         // Rebuild one bus's chain: group -> e0 -> e1 -> ... -> parent.
@@ -402,11 +481,20 @@ namespace draconic::audio
         {
             ClearBusEffects(bus);
             if (!busGroupInitialized[bus]) { return; }
+            BuildEffectChain(reinterpret_cast<ma_node*>(&busGroups[bus]), busEffects[bus],
+                             BusParentNode(bus), effects);
+        }
+
+        // Generic splice: source -> e0 -> e1 -> ... -> parent (shared by fixed and
+        // named custom buses). `chain` must be empty on entry.
+        void BuildEffectChain(ma_node* source, Array<BusEffectNode>& chain, ma_node* parent,
+                              Span<const AudioBusEffectDesc> effects)
+        {
             const u32 channels = ma_engine_get_channels(&engine);
             const u32 sampleRate = ma_engine_get_sample_rate(&engine);
             ma_node_graph* graph = ma_engine_get_node_graph(&engine);
 
-            ma_node* upstream = reinterpret_cast<ma_node*>(&busGroups[bus]);
+            ma_node* upstream = source;
             for (const AudioBusEffectDesc& desc : effects)
             {
                 BusEffectNode effect;
@@ -470,9 +558,229 @@ namespace draconic::audio
                 }
                 (void)ma_node_attach_output_bus(upstream, 0, effect.node, 0);
                 upstream = effect.node;
-                busEffects[bus].PushBack(effect);
+                chain.PushBack(effect);
             }
-            (void)ma_node_attach_output_bus(upstream, 0, BusParentNode(bus), 0);
+            (void)ma_node_attach_output_bus(upstream, 0, parent, 0);
+        }
+
+        // ---------------- named custom buses ----------------
+
+        [[nodiscard]] i32 FindCustomBus(StringView name) const
+        {
+            for (usize i = 0; i < customBuses.Size(); ++i)
+            {
+                if (customBuses[i]->name.AsView() == name) { return static_cast<i32>(i); }
+            }
+            return -1;
+        }
+
+        [[nodiscard]] ma_node* CustomBusParentNode(const CustomBusData& bus)
+        {
+            if (bus.parentCustom >= 0
+                && static_cast<usize>(bus.parentCustom) < customBuses.Size()
+                && customBuses[static_cast<usize>(bus.parentCustom)]->initialized)
+            {
+                return reinterpret_cast<ma_node*>(
+                    &customBuses[static_cast<usize>(bus.parentCustom)]->group);
+            }
+            const usize fixed = static_cast<usize>(bus.fixedParent);
+            return busGroupInitialized[fixed]
+                ? reinterpret_cast<ma_node*>(&busGroups[fixed])
+                : BusParentNode(static_cast<usize>(AudioBus::Master));
+        }
+
+        // A removed custom bus hands its live voices back to their fixed fallback bus
+        // (voices SURVIVE a layout rebuild; only the routing changes).
+        void DetachVoicesFromCustomBus(CustomBusData& bus)
+        {
+            for (VoiceSlot& slot : voices)
+            {
+                if (slot.state == VoiceState::Free
+                    || slot.customBusName.AsView() != bus.name.AsView())
+                {
+                    continue;
+                }
+                if (ma_sound_group* fallback = GroupFor(slot.sceneGroup, slot.bus))
+                {
+                    (void)ma_node_attach_output_bus(VoiceOutputNode(slot), 0, fallback, 0);
+                }
+                slot.customBusName = String{};
+            }
+        }
+
+        // The voice chain's LAST node (what attaches to the group): splitter (dry out
+        // 0) if present, else the distance low-pass, else the sound itself.
+        [[nodiscard]] static ma_node* VoiceOutputNode(VoiceSlot& slot)
+        {
+            if (slot.splitterNode != nullptr) { return slot.splitterNode; }
+            if (slot.lowpassNode != nullptr)
+            {
+                return reinterpret_cast<ma_node*>(slot.lowpassNode);
+            }
+            return reinterpret_cast<ma_node*>(slot.sound);
+        }
+
+        // Lazily creates the scene's wet-only send reverb (per-voice reverbSend
+        // target), attached straight to the Effects bus. Zone updates retune it.
+        [[nodiscard]] ReverbNode* EnsureSceneSendReverb(u64 sceneGroup)
+        {
+            SceneGroupData** found = sceneGroups.Find(sceneGroup);
+            if (found == nullptr) { return nullptr; }
+            SceneGroupData& data = **found;
+            if (data.sendReverb == nullptr)
+            {
+                AudioReverbParams params;
+                params.wet = 1.0f;   // full tail; the SEND level is the voice's knob
+                params.dry = 0.0f;   // wet-only: the dry path already reaches the bus
+                data.sendReverb = CreateReverbNode(engine, params);
+                if (data.sendReverb != nullptr
+                    && busGroupInitialized[static_cast<usize>(AudioBus::Effects)])
+                {
+                    (void)ma_node_attach_output_bus(
+                        data.sendReverb, 0,
+                        &busGroups[static_cast<usize>(AudioBus::Effects)], 0);
+                }
+            }
+            return data.sendReverb;
+        }
+
+        void DestroyCustomBus(CustomBusData* bus)
+        {
+            DetachVoicesFromCustomBus(*bus);
+            ClearEffectChain(bus->effects);
+            if (bus->initialized) { ma_sound_group_uninit(&bus->group); }
+            DefaultAllocator().Delete(bus);
+        }
+
+        // Reconcile the live custom-bus set with the layout BY NAME: kept buses update
+        // in place (voices keep playing through them), removed buses fall their voices
+        // back, new buses splice in. Cycles are defused to Master (cook rejects them;
+        // this is the runtime backstop).
+        void RebuildCustomBuses(Span<const AudioNamedBus> desired)
+        {
+            // Filter: named, first occurrence wins.
+            Array<const AudioNamedBus*> wanted;
+            for (const AudioNamedBus& named : desired)
+            {
+                if (named.name.IsEmpty()) { continue; }
+                bool duplicate = false;
+                for (const AudioNamedBus* seen : wanted)
+                {
+                    if (seen->name.AsView() == named.name.AsView()) { duplicate = true; break; }
+                }
+                if (duplicate)
+                {
+                    DRACONIC_LOG_WARNING(u8"Audio",
+                        u8"bus layout: duplicate custom bus '{}' ignored", named.name);
+                    continue;
+                }
+                AudioBus fixedAlias{};
+                if (AudioBusFromName(named.name.AsView(), fixedAlias))
+                {
+                    DRACONIC_LOG_WARNING(u8"Audio",
+                        u8"bus layout: custom bus '{}' shadows a fixed bus - ignored",
+                        named.name);
+                    continue;
+                }
+                wanted.PushBack(&named);
+            }
+
+            // Drop buses no longer in the layout.
+            for (usize i = customBuses.Size(); i > 0; --i)
+            {
+                CustomBusData* bus = customBuses[i - 1];
+                bool keep = false;
+                for (const AudioNamedBus* named : wanted)
+                {
+                    if (named->name.AsView() == bus->name.AsView()) { keep = true; break; }
+                }
+                if (!keep)
+                {
+                    DestroyCustomBus(bus);
+                    customBuses.RemoveAt(i - 1);
+                }
+            }
+
+            // Create the missing groups (parented to Master; re-parented below).
+            for (const AudioNamedBus* named : wanted)
+            {
+                if (FindCustomBus(named->name.AsView()) >= 0) { continue; }
+                auto* bus = DefaultAllocator().New<CustomBusData>();
+                bus->name = String(named->name.AsView());
+                bus->initialized = ma_sound_group_init(
+                    &engine, 0, &busGroups[static_cast<usize>(AudioBus::Master)],
+                    &bus->group) == MA_SUCCESS;
+                customBuses.PushBack(bus);
+            }
+
+            // Resolve parents (fixed bus name, custom bus name, or empty = Master).
+            for (const AudioNamedBus* named : wanted)
+            {
+                const i32 index = FindCustomBus(named->name.AsView());
+                if (index < 0) { continue; }
+                CustomBusData& bus = *customBuses[static_cast<usize>(index)];
+                bus.fixedParent = AudioBus::Master;
+                bus.parentCustom = -1;
+                if (!named->parent.IsEmpty())
+                {
+                    AudioBus fixed{};
+                    if (AudioBusFromName(named->parent.AsView(), fixed))
+                    {
+                        bus.fixedParent = fixed;
+                    }
+                    else if (const i32 parent = FindCustomBus(named->parent.AsView());
+                             parent >= 0 && parent != index)
+                    {
+                        bus.parentCustom = parent;
+                    }
+                    else
+                    {
+                        DRACONIC_LOG_WARNING(u8"Audio",
+                            u8"bus layout: custom bus '{}' has unknown parent '{}' - "
+                            u8"parented to Master", named->name, named->parent);
+                    }
+                }
+            }
+
+            // Defuse parent cycles (each cycle breaks at the first member that sees it).
+            for (usize i = 0; i < customBuses.Size(); ++i)
+            {
+                i32 cursor = customBuses[i]->parentCustom;
+                usize steps = 0;
+                while (cursor >= 0 && steps <= customBuses.Size())
+                {
+                    if (cursor == static_cast<i32>(i))
+                    {
+                        DRACONIC_LOG_WARNING(u8"Audio",
+                            u8"bus layout: custom bus '{}' is part of a parent CYCLE - "
+                            u8"parented to Master", customBuses[i]->name);
+                        customBuses[i]->parentCustom = -1;
+                        customBuses[i]->fixedParent = AudioBus::Master;
+                        break;
+                    }
+                    cursor = customBuses[static_cast<usize>(cursor)]->parentCustom;
+                    ++steps;
+                }
+            }
+
+            // Apply settings + rebuild each bus's effect chain into its parent.
+            for (const AudioNamedBus* named : wanted)
+            {
+                const i32 index = FindCustomBus(named->name.AsView());
+                if (index < 0) { continue; }
+                CustomBusData& bus = *customBuses[static_cast<usize>(index)];
+                bus.volume = named->settings.volume < 0.0f ? 0.0f : named->settings.volume;
+                bus.muted = named->settings.muted;
+                if (!bus.initialized) { continue; }
+                ma_sound_group_set_volume(&bus.group, bus.muted ? 0.0f : bus.volume);
+                (void)ma_node_attach_output_bus(&bus.group, 0, CustomBusParentNode(bus), 0);
+                ClearEffectChain(bus.effects);
+                BuildEffectChain(reinterpret_cast<ma_node*>(&bus.group), bus.effects,
+                                 CustomBusParentNode(bus),
+                                 Span<const AudioBusEffectDesc>(
+                                     named->settings.effects.Data(),
+                                     named->settings.effects.Size()));
+            }
         }
 
         void InitializeBusGroups()
@@ -492,10 +800,13 @@ namespace draconic::audio
         {
             if (engineInitialized)
             {
+                while (!dyingVoices.IsEmpty()) { ReapDyingVoice(dyingVoices.Size() - 1); }
                 for (VoiceSlot& slot : voices) { ReleaseSlot(slot); }
                 Array<u64> groupIds;
                 for (auto& entry : sceneGroups) { groupIds.PushBack(entry.key); }
                 for (u64 id : groupIds) { DestroySceneGroupData(id); }
+                for (CustomBusData* bus : customBuses) { DestroyCustomBus(bus); }
+                customBuses.Clear();
                 for (usize bus = 0; bus < static_cast<usize>(AudioBus::Count); ++bus)
                 {
                     ClearBusEffects(bus);
@@ -630,21 +941,93 @@ namespace draconic::audio
         {
             if (slot.soundInitialized)
             {
-                ma_sound_uninit(&slot.sound);
+                ma_sound_uninit(slot.sound);
                 slot.soundInitialized = false;
             }
+            ReleaseSound(slot.sound);
+            slot.sound = nullptr;
             if (slot.lowpassNode != nullptr)
             {
                 ma_lpf_node_uninit(slot.lowpassNode, nullptr);
                 DefaultAllocator().Delete(slot.lowpassNode);
                 slot.lowpassNode = nullptr;
             }
+            if (slot.splitterNode != nullptr)
+            {
+                ma_splitter_node_uninit(slot.splitterNode, nullptr);
+                DefaultAllocator().Delete(slot.splitterNode);
+                slot.splitterNode = nullptr;
+            }
+            ClearSlotBookkeeping(slot);
+        }
+
+        void ClearSlotBookkeeping(VoiceSlot& slot)
+        {
             slot.lowpassFloorHz = 0.0f;
             slot.lowpassCutoffHz = 0.0f;
+            slot.reverbSend = 0.0f;
             slot.state = VoiceState::Free;
             slot.clip = nullptr;
             slot.sceneGroup = 0;
+            slot.customBusName = String{};
             ++slot.generation;
+        }
+
+        // Faded steal: the victim's handle dies NOW (the slot is reused at once), but
+        // its ma_sound fades on the dying list instead of clicking off. Silent victims
+        // (paused) release immediately - nothing audible to protect.
+        void StealSlot(VoiceSlot& slot)
+        {
+            if (!slot.soundInitialized || slot.state == VoiceState::Paused
+                || settings.dyingVoiceCapacity == 0)
+            {
+                ReleaseSlot(slot);
+                return;
+            }
+            while (dyingVoices.Size() >= settings.dyingVoiceCapacity)
+            {
+                ReapDyingVoice(0);   // full: hard-cut the OLDEST tail
+            }
+            (void)ma_sound_stop_with_fade_in_milliseconds(slot.sound, StealFadeMilliseconds());
+            DyingVoice dying;
+            dying.sound = slot.sound;
+            dying.lowpass = slot.lowpassNode;
+            dying.splitter = slot.splitterNode;
+            dying.clip = slot.clip;
+            dyingVoices.PushBack(Move(dying));
+            slot.sound = nullptr;
+            slot.soundInitialized = false;
+            slot.lowpassNode = nullptr;
+            slot.splitterNode = nullptr;
+            ClearSlotBookkeeping(slot);
+        }
+
+        void ReapDyingVoice(usize index)
+        {
+            DyingVoice& dying = dyingVoices[index];
+            if (dying.sound != nullptr)
+            {
+                ma_sound_uninit(dying.sound);
+                ReleaseSound(dying.sound);
+            }
+            if (dying.lowpass != nullptr)
+            {
+                ma_lpf_node_uninit(dying.lowpass, nullptr);
+                DefaultAllocator().Delete(dying.lowpass);
+            }
+            if (dying.splitter != nullptr)
+            {
+                ma_splitter_node_uninit(dying.splitter, nullptr);
+                DefaultAllocator().Delete(dying.splitter);
+            }
+            dyingVoices.RemoveAt(index);
+        }
+
+        [[nodiscard]] u64 StealFadeMilliseconds() const
+        {
+            const f32 seconds = settings.stealFadeSeconds > 0.0f ? settings.stealFadeSeconds
+                                                                 : 0.0f;
+            return static_cast<u64>(seconds * 1000.0f + 0.5f);
         }
 
         [[nodiscard]] f32 DistanceToListener(const VoiceSlot& slot) const
@@ -695,7 +1078,9 @@ namespace draconic::audio
             }
             if (victim < voices.Size())
             {
-                ReleaseSlot(voices[victim]);   // immediate steal (Traktor semantics)
+                // Faded steal: the victim's slot frees NOW, its audio tail fades on
+                // the dying list (~stealFadeSeconds) instead of clicking off.
+                StealSlot(voices[victim]);
                 return victim;
             }
             return voices.Size();
@@ -779,6 +1164,7 @@ namespace draconic::audio
                 }
             }
             DestroyReverbNode((*data)->reverb);
+            DestroyReverbNode((*data)->sendReverb);
             for (usize bus = 0; bus < static_cast<usize>(AudioBus::Count); ++bus)
             {
                 if ((*data)->initialized[bus]) { ma_sound_group_uninit(&(*data)->group[bus]); }
@@ -837,6 +1223,15 @@ namespace draconic::audio
             }
         }
 
+        // Dying voices (faded steal): reap the ones whose fade landed.
+        for (usize i = impl.dyingVoices.Size(); i > 0; --i)
+        {
+            if (ma_sound_is_playing(impl.dyingVoices[i - 1].sound) == MA_FALSE)
+            {
+                impl.ReapDyingVoice(i - 1);
+            }
+        }
+
         // Reap: fades that landed, one-shots that reached their end. The same walk
         // glides every filtered voice's distance low-pass (covers one-shots and a
         // moving listener - voices the scene sync never repositions).
@@ -845,10 +1240,10 @@ namespace draconic::audio
             if (slot.state != VoiceState::Free) { impl.UpdateVoiceLowpass(slot); }
             if (slot.state == VoiceState::Stopping)
             {
-                if (ma_sound_is_playing(&slot.sound) == MA_FALSE) { impl.ReleaseSlot(slot); }
+                if (ma_sound_is_playing(slot.sound) == MA_FALSE) { impl.ReleaseSlot(slot); }
             }
             else if (slot.state == VoiceState::Playing && !slot.looping
-                     && ma_sound_at_end(&slot.sound) == MA_TRUE)
+                     && ma_sound_at_end(slot.sound) == MA_TRUE)
             {
                 impl.ReleaseSlot(slot);
             }
@@ -921,12 +1316,39 @@ namespace draconic::audio
         const usize slotIndex = impl.AcquireSlot(clipPtr->stream, params.priority);
         if (slotIndex >= impl.voices.Size()) { return {}; }   // pool full of higher priority
         VoiceSlot& slot = impl.voices[slotIndex];
+        slot.sound = impl.AcquireSound();
+        if (slot.sound == nullptr) { return {}; }   // unreachable: arena covers pool + dying
 
+        // Named-bus addressing: a known custom bus overrides the enum bus. Unknown
+        // names warn once and fall back - content typos never silence a game.
         ma_sound_group* group = impl.GroupFor(params.sceneGroup, params.bus);
+        i32 customBusIndex = -1;
+        if (!params.busName.IsEmpty())
+        {
+            customBusIndex = impl.FindCustomBus(params.busName.AsView());
+            if (customBusIndex >= 0
+                && impl.customBuses[static_cast<usize>(customBusIndex)]->initialized)
+            {
+                group = &impl.customBuses[static_cast<usize>(customBusIndex)]->group;
+            }
+            else
+            {
+                customBusIndex = -1;
+                if (!impl.warnedUnknownBusName)
+                {
+                    impl.warnedUnknownBusName = true;
+                    DRACONIC_LOG_WARNING(u8"Audio",
+                        u8"play addressed unknown custom bus '{}' - using the fixed bus "
+                        u8"(warned once)", params.busName);
+                }
+            }
+        }
         const ma_uint32 flags = clipPtr->stream ? MA_SOUND_FLAG_STREAM : 0;
         if (ma_sound_init_from_file(&impl.engine, name, flags, group, nullptr,
-                                    &slot.sound) != MA_SUCCESS)
+                                    slot.sound) != MA_SUCCESS)
         {
+            impl.ReleaseSound(slot.sound);
+            slot.sound = nullptr;
             ++slot.generation;
             DRACONIC_LOG_WARNING(u8"Audio", u8"voice init failed for clip");
             return {};
@@ -939,6 +1361,7 @@ namespace draconic::audio
         slot.volume = params.volume;
         slot.pitch = params.pitch;
         slot.bus = params.bus;
+        slot.customBusName = customBusIndex >= 0 ? String(params.busName.AsView()) : String{};
         slot.sceneGroup = params.sceneGroup;
         slot.clip = clip;
         slot.looping = params.loop || clipPtr->loop;
@@ -954,7 +1377,7 @@ namespace draconic::audio
             if (ma_lpf_node_init(ma_engine_get_node_graph(&impl.engine), &config, nullptr,
                                  node) == MA_SUCCESS
                 && ma_node_attach_output_bus(node, 0, group, 0) == MA_SUCCESS
-                && ma_node_attach_output_bus(&slot.sound, 0, node, 0) == MA_SUCCESS)
+                && ma_node_attach_output_bus(slot.sound, 0, node, 0) == MA_SUCCESS)
             {
                 slot.lowpassNode = node;
                 slot.lowpassFloorHz = params.distanceLowpassHz;
@@ -969,31 +1392,67 @@ namespace draconic::audio
             }
         }
 
-        ma_sound_set_volume(&slot.sound, params.volume * clipPtr->gain);
-        ma_sound_set_pitch(&slot.sound, params.pitch);
-        ma_sound_set_looping(&slot.sound, slot.looping ? MA_TRUE : MA_FALSE);
+        // Per-voice reverb send: splice a splitter at the END of the chain - out 0
+        // stays the dry route into the group, out 1 (volume = reverbSend) feeds the
+        // scene's wet-only send reverb in parallel. Scene-group voices only (the send
+        // reverb is per-scene); failure just plays dry.
+        if (params.reverbSend > 0.0f && params.sceneGroup != 0 && group != nullptr)
+        {
+            if (ReverbNode* sendReverb = impl.EnsureSceneSendReverb(params.sceneGroup))
+            {
+                const f32 send = Clamp(params.reverbSend, 0.0f, 1.0f);
+                ma_node* tail = slot.lowpassNode != nullptr
+                    ? reinterpret_cast<ma_node*>(slot.lowpassNode)
+                    : reinterpret_cast<ma_node*>(slot.sound);
+                auto* splitter = DefaultAllocator().New<ma_splitter_node>();
+                ma_splitter_node_config config =
+                    ma_splitter_node_config_init(ma_engine_get_channels(&impl.engine));
+                if (ma_splitter_node_init(ma_engine_get_node_graph(&impl.engine), &config,
+                                          nullptr, splitter) != MA_SUCCESS)
+                {
+                    DefaultAllocator().Delete(splitter);
+                }
+                else if (ma_node_attach_output_bus(splitter, 0, group, 0) == MA_SUCCESS
+                         && ma_node_attach_output_bus(splitter, 1, sendReverb, 0) == MA_SUCCESS
+                         && ma_node_attach_output_bus(tail, 0, splitter, 0) == MA_SUCCESS)
+                {
+                    (void)ma_node_set_output_bus_volume(splitter, 1, send);
+                    slot.splitterNode = splitter;
+                    slot.reverbSend = send;
+                }
+                else
+                {
+                    ma_splitter_node_uninit(splitter, nullptr);
+                    DefaultAllocator().Delete(splitter);
+                }
+            }
+        }
+
+        ma_sound_set_volume(slot.sound, params.volume * clipPtr->gain);
+        ma_sound_set_pitch(slot.sound, params.pitch);
+        ma_sound_set_looping(slot.sound, slot.looping ? MA_TRUE : MA_FALSE);
         if (slot.looping && (clipPtr->loopStartFrame > 0 || clipPtr->loopEndFrame > 0))
         {
             const u64 loopEnd = clipPtr->loopEndFrame > 0 ? clipPtr->loopEndFrame
                                                           : clipPtr->frameCount;
             (void)ma_data_source_set_loop_point_in_pcm_frames(
-                ma_sound_get_data_source(&slot.sound), clipPtr->loopStartFrame, loopEnd);
+                ma_sound_get_data_source(slot.sound), clipPtr->loopStartFrame, loopEnd);
         }
 
         if (params.spatial)
         {
-            ma_sound_set_spatialization_enabled(&slot.sound, MA_TRUE);
-            ma_sound_set_positioning(&slot.sound, ma_positioning_absolute);
-            ma_sound_set_position(&slot.sound, params.position.x, params.position.y, params.position.z);
-            ma_sound_set_velocity(&slot.sound, params.velocity.x, params.velocity.y, params.velocity.z);
-            ma_sound_set_attenuation_model(&slot.sound, ToMiniaudio(params.attenuationModel));
-            ma_sound_set_min_distance(&slot.sound, params.minDistance);
-            ma_sound_set_max_distance(&slot.sound, params.maxDistance);
-            ma_sound_set_rolloff(&slot.sound, params.rolloff);
-            ma_sound_set_doppler_factor(&slot.sound, params.dopplerFactor);
+            ma_sound_set_spatialization_enabled(slot.sound, MA_TRUE);
+            ma_sound_set_positioning(slot.sound, ma_positioning_absolute);
+            ma_sound_set_position(slot.sound, params.position.x, params.position.y, params.position.z);
+            ma_sound_set_velocity(slot.sound, params.velocity.x, params.velocity.y, params.velocity.z);
+            ma_sound_set_attenuation_model(slot.sound, ToMiniaudio(params.attenuationModel));
+            ma_sound_set_min_distance(slot.sound, params.minDistance);
+            ma_sound_set_max_distance(slot.sound, params.maxDistance);
+            ma_sound_set_rolloff(slot.sound, params.rolloff);
+            ma_sound_set_doppler_factor(slot.sound, params.dopplerFactor);
             if (params.coneInnerAngleDegrees < 360.0f || params.coneOuterAngleDegrees < 360.0f)
             {
-                ma_sound_set_cone(&slot.sound,
+                ma_sound_set_cone(slot.sound,
                                   params.coneInnerAngleDegrees * kDegreesToRadians,
                                   params.coneOuterAngleDegrees * kDegreesToRadians,
                                   params.coneOuterGain);
@@ -1001,11 +1460,21 @@ namespace draconic::audio
         }
         else
         {
-            ma_sound_set_spatialization_enabled(&slot.sound, MA_FALSE);
-            ma_sound_set_pan(&slot.sound, params.pan);
+            ma_sound_set_spatialization_enabled(slot.sound, MA_FALSE);
+            ma_sound_set_pan(slot.sound, params.pan);
         }
 
-        if (!params.startPaused) { (void)ma_sound_start(&slot.sound); }
+        // A custom-bus voice bypasses the scene child groups, so a paused scene group
+        // must freeze it explicitly (fixed-bus voices inherit the halted group node).
+        bool sceneFrozen = false;
+        if (customBusIndex >= 0 && params.sceneGroup != 0)
+        {
+            if (SceneGroupData** sceneData = impl.sceneGroups.Find(params.sceneGroup))
+            {
+                sceneFrozen = (*sceneData)->paused;
+            }
+        }
+        if (!params.startPaused && !sceneFrozen) { (void)ma_sound_start(slot.sound); }
 
         const VoiceHandle handle = impl.HandleFor(slotIndex);
         if (params.allowDedupe)
@@ -1028,7 +1497,7 @@ namespace draconic::audio
         }
         if (slot->state != VoiceState::Stopping)
         {
-            (void)ma_sound_stop_with_fade_in_milliseconds(&slot->sound, m_impl->FadeMilliseconds());
+            (void)ma_sound_stop_with_fade_in_milliseconds(slot->sound, m_impl->FadeMilliseconds());
             slot->state = VoiceState::Stopping;
         }
     }
@@ -1046,7 +1515,7 @@ namespace draconic::audio
         {
             if (current->state != VoiceState::Stopping)
             {
-                (void)ma_sound_stop_with_fade_in_milliseconds(&current->sound, fadeMs);
+                (void)ma_sound_stop_with_fade_in_milliseconds(current->sound, fadeMs);
                 current->state = VoiceState::Stopping;
             }
         }
@@ -1060,7 +1529,7 @@ namespace draconic::audio
         const VoiceHandle handle = Play(clip, params);
         if (VoiceSlot* slot = impl.Resolve(handle); slot != nullptr && fadeMs > 0)
         {
-            ma_sound_set_fade_in_milliseconds(&slot->sound, 0.0f, 1.0f, fadeMs);
+            ma_sound_set_fade_in_milliseconds(slot->sound, 0.0f, 1.0f, fadeMs);
         }
         impl.musicVoice = handle;
         return handle;
@@ -1074,7 +1543,7 @@ namespace draconic::audio
             if (slot->state != VoiceState::Stopping)
             {
                 const u64 fadeMs = static_cast<u64>(Max(fadeSeconds, 0.0f) * 1000.0f + 0.5f);
-                (void)ma_sound_stop_with_fade_in_milliseconds(&slot->sound, fadeMs);
+                (void)ma_sound_stop_with_fade_in_milliseconds(slot->sound, fadeMs);
                 slot->state = VoiceState::Stopping;
             }
         }
@@ -1097,6 +1566,64 @@ namespace draconic::audio
             impl.BuildBusEffects(bus, Span<const AudioBusEffectDesc>(
                                           settings.effects.Data(), settings.effects.Size()));
         }
+        impl.RebuildCustomBuses(Span<const AudioNamedBus>(
+            layout.customBuses.Data(), layout.customBuses.Size()));
+    }
+
+    // ---- named custom buses ----
+
+    bool AudioEngine::HasNamedBus(StringView name) const
+    {
+        return m_impl->FindCustomBus(name) >= 0;
+    }
+
+    u32 AudioEngine::NamedBusCount() const
+    {
+        return static_cast<u32>(m_impl->customBuses.Size());
+    }
+
+    void AudioEngine::SetNamedBusVolume(StringView name, f32 volume)
+    {
+        const i32 index = m_impl->FindCustomBus(name);
+        if (index < 0) { return; }
+        CustomBusData& bus = *m_impl->customBuses[static_cast<usize>(index)];
+        bus.volume = volume < 0.0f ? 0.0f : volume;
+        if (bus.initialized && !bus.muted)
+        {
+            ma_sound_group_set_volume(&bus.group, bus.volume);
+        }
+    }
+
+    f32 AudioEngine::NamedBusVolume(StringView name) const
+    {
+        const i32 index = m_impl->FindCustomBus(name);
+        return index >= 0 ? m_impl->customBuses[static_cast<usize>(index)]->volume : 0.0f;
+    }
+
+    void AudioEngine::SetNamedBusMuted(StringView name, bool muted)
+    {
+        const i32 index = m_impl->FindCustomBus(name);
+        if (index < 0) { return; }
+        CustomBusData& bus = *m_impl->customBuses[static_cast<usize>(index)];
+        bus.muted = muted;
+        if (bus.initialized)
+        {
+            ma_sound_group_set_volume(&bus.group, muted ? 0.0f : bus.volume);
+        }
+    }
+
+    bool AudioEngine::NamedBusMuted(StringView name) const
+    {
+        const i32 index = m_impl->FindCustomBus(name);
+        return index >= 0 && m_impl->customBuses[static_cast<usize>(index)]->muted;
+    }
+
+    u32 AudioEngine::NamedBusEffectCount(StringView name) const
+    {
+        const i32 index = m_impl->FindCustomBus(name);
+        return index >= 0
+            ? static_cast<u32>(m_impl->customBuses[static_cast<usize>(index)]->effects.Size())
+            : 0u;
     }
 
     u32 AudioEngine::BusEffectCount(AudioBus bus) const
@@ -1123,14 +1650,14 @@ namespace draconic::audio
         if (slot == nullptr || slot->state == VoiceState::Stopping) { return; }
         if (paused && slot->state == VoiceState::Playing)
         {
-            (void)ma_sound_stop_with_fade_in_milliseconds(&slot->sound, m_impl->FadeMilliseconds());
+            (void)ma_sound_stop_with_fade_in_milliseconds(slot->sound, m_impl->FadeMilliseconds());
             slot->state = VoiceState::Paused;
         }
         else if (!paused && slot->state == VoiceState::Paused)
         {
-            ma_sound_reset_stop_time_and_fade(&slot->sound);
-            ma_sound_set_fade_in_milliseconds(&slot->sound, 0.0f, 1.0f, m_impl->FadeMilliseconds());
-            (void)ma_sound_start(&slot->sound);
+            ma_sound_reset_stop_time_and_fade(slot->sound);
+            ma_sound_set_fade_in_milliseconds(slot->sound, 0.0f, 1.0f, m_impl->FadeMilliseconds());
+            (void)ma_sound_start(slot->sound);
             slot->state = VoiceState::Playing;
         }
     }
@@ -1162,10 +1689,29 @@ namespace draconic::audio
         out.volume = slot->volume;
         out.pitch = slot->pitch;
         out.bus = slot->bus;
+        out.busName = String(slot->customBusName.AsView());
         out.priority = slot->priority;
         out.position = slot->position;
         out.lowpassCutoffHz = slot->lowpassCutoffHz;
+        out.cursorSeconds = 0.0f;
+        if (slot->soundInitialized)
+        {
+            float cursor = 0.0f;
+            if (ma_sound_get_cursor_in_seconds(slot->sound, &cursor) == MA_SUCCESS)
+            {
+                out.cursorSeconds = cursor;
+            }
+        }
+        out.reverbSend = slot->reverbSend;
         return true;
+    }
+
+    void AudioEngine::SetVoiceReverbSend(VoiceHandle handle, f32 send)
+    {
+        VoiceSlot* slot = m_impl->Resolve(handle);
+        if (slot == nullptr || slot->splitterNode == nullptr) { return; }
+        slot->reverbSend = Clamp(send, 0.0f, 1.0f);
+        (void)ma_node_set_output_bus_volume(slot->splitterNode, 1, slot->reverbSend);
     }
 
     void AudioEngine::SetVoiceVolume(VoiceHandle handle, f32 volume)
@@ -1174,7 +1720,7 @@ namespace draconic::audio
         {
             slot->volume = volume;
             const AudioClip* clip = slot->clip.Get();
-            ma_sound_set_volume(&slot->sound, volume * (clip != nullptr ? clip->gain : 1.0f));
+            ma_sound_set_volume(slot->sound, volume * (clip != nullptr ? clip->gain : 1.0f));
         }
     }
 
@@ -1183,7 +1729,7 @@ namespace draconic::audio
         if (VoiceSlot* slot = m_impl->Resolve(handle))
         {
             slot->pitch = pitch;
-            ma_sound_set_pitch(&slot->sound, pitch);
+            ma_sound_set_pitch(slot->sound, pitch);
         }
     }
 
@@ -1191,7 +1737,7 @@ namespace draconic::audio
     {
         if (VoiceSlot* slot = m_impl->Resolve(handle))
         {
-            ma_sound_set_pan(&slot->sound, pan);
+            ma_sound_set_pan(slot->sound, pan);
         }
     }
 
@@ -1200,7 +1746,7 @@ namespace draconic::audio
         if (VoiceSlot* slot = m_impl->Resolve(handle))
         {
             slot->looping = loop;
-            ma_sound_set_looping(&slot->sound, loop ? MA_TRUE : MA_FALSE);
+            ma_sound_set_looping(slot->sound, loop ? MA_TRUE : MA_FALSE);
         }
     }
 
@@ -1209,8 +1755,8 @@ namespace draconic::audio
         if (VoiceSlot* slot = m_impl->Resolve(handle))
         {
             slot->position = position;
-            ma_sound_set_position(&slot->sound, position.x, position.y, position.z);
-            ma_sound_set_velocity(&slot->sound, velocity.x, velocity.y, velocity.z);
+            ma_sound_set_position(slot->sound, position.x, position.y, position.z);
+            ma_sound_set_velocity(slot->sound, velocity.x, velocity.y, velocity.z);
         }
     }
 
@@ -1222,6 +1768,11 @@ namespace draconic::audio
             if (slot.state != VoiceState::Free) { ++count; }
         }
         return count;
+    }
+
+    usize AudioEngine::DyingVoiceCount() const
+    {
+        return m_impl->dyingVoices.Size();
     }
 
     void AudioEngine::SetListenerTransform(Float3 position, Float3 forward, Float3 up, Float3 velocity)
@@ -1334,6 +1885,29 @@ namespace draconic::audio
                 (void)ma_sound_group_start(group);
             }
         }
+        // Custom-bus voices route OUTSIDE the scene's child groups (the named tree is
+        // engine-global) - freeze/resume them individually. Their VoiceState stays
+        // Playing, mirroring the group behavior; user-paused voices are untouched.
+        for (VoiceSlot& slot : impl.voices)
+        {
+            if (slot.sceneGroup != sceneGroup || slot.customBusName.IsEmpty()
+                || slot.state != VoiceState::Playing)
+            {
+                continue;
+            }
+            if (paused)
+            {
+                (void)ma_sound_stop_with_fade_in_milliseconds(slot.sound,
+                                                              impl.FadeMilliseconds());
+            }
+            else
+            {
+                ma_sound_reset_stop_time_and_fade(slot.sound);
+                ma_sound_set_fade_in_milliseconds(slot.sound, 0.0f, 1.0f,
+                                                  impl.FadeMilliseconds());
+                (void)ma_sound_start(slot.sound);
+            }
+        }
     }
 
     bool AudioEngine::IsSceneGroupPaused(u64 sceneGroup) const
@@ -1374,6 +1948,15 @@ namespace draconic::audio
             AudioReverbParams applied = params;
             applied.wet = data.reverbWet;
             data.reverb->state->SetParams(applied);
+        }
+        // The per-voice SEND reverb shares the room character but stays wet-only and
+        // fully open - the send level lives on each voice's splitter.
+        if (data.sendReverb != nullptr && data.sendReverb->state != nullptr)
+        {
+            AudioReverbParams sendParams = params;
+            sendParams.wet = 1.0f;
+            sendParams.dry = 0.0f;
+            data.sendReverb->state->SetParams(sendParams);
         }
     }
 

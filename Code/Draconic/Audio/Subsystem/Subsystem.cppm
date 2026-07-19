@@ -26,6 +26,8 @@ import draconic.scene.subsystem;
 import draconic.audio;
 import draconic.script;    // ExposeToScript + the Audio facade's service seam
 import draconic.settings;  // AudioUserSettings section (persisted volumes)
+import draconic.resource;  // ResourceManager (script content-path playback)
+import draconic.content;   // Instance lookup by content path
 // NOTE: no render imports HERE - the camera-fallback listener lives in SubsystemImpl.cpp
 // (a module implementation unit), keeping heavyweight imports out of the interface for
 // GCC's -fno-module-lazy consumers.
@@ -36,8 +38,20 @@ export namespace draconic::audio
 {
     namespace dscene = draconic::scene;
 
+    class AudioSubsystem;   // forward (the script binding carries it)
+
     /// The service key ExposeToScript binds and the scripting Audio facade resolves.
-    inline constexpr StringView kAudioEngineService = u8"audio.engine";
+    /// Payload = AudioScriptBinding (the physics-binding precedent): ONE service
+    /// carries the engine (bus/music control) plus the subsystem + resource manager
+    /// (content-path playback), instead of audio growing a second generic service.
+    inline constexpr StringView kAudioScriptService = u8"audio.script";
+
+    struct AudioScriptBinding
+    {
+        AudioEngine* engine = nullptr;
+        AudioSubsystem* subsystem = nullptr;                        // cue state + helpers
+        draconic::resource::ResourceManager* resources = nullptr;   // path -> product
+    };
 
     /// One listener's world pose this frame (multi-listener collection).
     struct ListenerPose
@@ -284,6 +298,7 @@ export namespace draconic::audio
 
             AudioPlayParams params;
             params.bus = c.bus;
+            params.busName = String(c.busName.AsView());
             params.volume = c.volume * cueVolume;
             params.pitch = c.pitch * cuePitch;
             params.loop = c.loop;
@@ -293,6 +308,7 @@ export namespace draconic::audio
             // clip - four torches - are distinct voices; autoplay starts them in the
             // same instant, which the one-shot window would otherwise collapse).
             params.allowDedupe = false;
+            params.reverbSend = c.reverbSend;
             params.spatial = c.spatial;
             if (c.spatial)
             {
@@ -476,11 +492,88 @@ export namespace draconic::audio
             return PlayCueResolved(cue, params);
         }
 
-        /// Binds THIS subsystem's engine as `context`'s audio service - the scripting
-        /// facade (class Audio below) resolves it per context. Call once per context.
-        void ExposeToScript(draconic::script::IScriptContext& context)
+        /// Binds THIS subsystem's script binding as `context`'s audio service - the
+        /// scripting facade (class Audio below) resolves it per context. Call once per
+        /// context, AFTER init. `resources` (optional) enables content-path playback
+        /// (Audio.playOneShot("Sounds/laser") etc.); without it those calls no-op.
+        void ExposeToScript(draconic::script::IScriptContext& context,
+                            draconic::resource::ResourceManager* resources = nullptr)
         {
-            context.SetService(kAudioEngineService, m_engine.Get());
+            m_scriptBinding.engine = m_engine.Get();
+            m_scriptBinding.subsystem = this;
+            m_scriptBinding.resources = resources;
+            context.SetService(kAudioScriptService, &m_scriptBinding);
+        }
+
+        // ---- content-path playback (the Wren facade's resource addressing) ----
+        // `path` = the source-DB content path shown in the editor; the cook mirrors
+        // group paths AND guids into the cooked DB, so the same string resolves against
+        // the runtime manager's database. Missing/uncooked/mistyped content warns ONCE
+        // per path and no-ops - scripts never fault on content problems. Paths resolve
+        // by TYPE: a clip path plays the clip, a cue path resolves one weighted trigger
+        // (a cue handed to playOneShot behaves like the component's cue-wins rule).
+
+        VoiceHandle PlayOneShotByPath(draconic::resource::ResourceManager& resources,
+                                      StringView path, AudioBus bus = AudioBus::Effects)
+        {
+            const ResolvedPathContent content = ResolveContentPath(resources, path);
+            if (content.cue.Get() != nullptr)
+            {
+                AudioPlayParams params;
+                params.bus = bus;
+                return PlayCueResolved(content.cue, params);
+            }
+            if (content.clip.Get() == nullptr) { return {}; }
+            return PlayOneShot(content.clip, bus);
+        }
+
+        VoiceHandle PlayOneShot3DByPath(draconic::resource::ResourceManager& resources,
+                                        StringView path, Float3 position)
+        {
+            const ResolvedPathContent content = ResolveContentPath(resources, path);
+            if (content.cue.Get() != nullptr)
+            {
+                AudioPlayParams params;
+                params.spatial = true;
+                params.position = position;
+                return PlayCueResolved(content.cue, params);
+            }
+            if (content.clip.Get() == nullptr) { return {}; }
+            return PlayOneShot3D(content.clip, position);
+        }
+
+        VoiceHandle PlayCueByPath(draconic::resource::ResourceManager& resources,
+                                  StringView path, AudioBus bus = AudioBus::Effects)
+        {
+            const ResolvedPathContent content = ResolveContentPath(resources, path);
+            if (content.cue.Get() != nullptr) { return PlayCueOneShot(content.cue, bus); }
+            if (content.clip.Get() != nullptr) { return PlayOneShot(content.clip, bus); }
+            return {};
+        }
+
+        VoiceHandle PlayMusicByPath(draconic::resource::ResourceManager& resources,
+                                    StringView path, f32 crossFadeSeconds = 1.0f)
+        {
+            const ResolvedPathContent content = ResolveContentPath(resources, path);
+            RefPtr<AudioClip> clip = content.clip;
+            if (clip.Get() == nullptr && content.cue.Get() != nullptr)
+            {
+                // Music from a cue: resolve ONE variant and cross-fade to it.
+                CueOneShotState* found = m_cueOneShotState.Find(content.cue.Get());
+                CueOneShotState& state = found != nullptr
+                    ? *found
+                    : m_cueOneShotState.InsertOrAssign(content.cue.Get(), CueOneShotState{});
+                const SoundCuePick pick = ResolveSoundCue(*content.cue, m_cueRandom,
+                                                          state.lastVariant,
+                                                          state.sequentialCursor);
+                if (pick.variantIndex >= 0)
+                {
+                    state.lastVariant = pick.variantIndex;
+                    clip = content.cue->variants[static_cast<usize>(pick.variantIndex)].clip;
+                }
+            }
+            if (clip.Get() == nullptr) { return {}; }
+            return PlayMusic(clip, crossFadeSeconds);
         }
 
         // ---- music (scene-less, survives scene swaps; audio.md P2) ----
@@ -556,6 +649,57 @@ export namespace draconic::audio
         }
 
     private:
+        struct ResolvedPathContent
+        {
+            RefPtr<AudioClip> clip;
+            RefPtr<SoundCue> cue;
+        };
+
+        // Path -> cooked product, sniffed by the instance's TYPE name. Binding through
+        // the manager caches the product exactly like component refs do.
+        [[nodiscard]] ResolvedPathContent ResolveContentPath(
+            draconic::resource::ResourceManager& resources, StringView path)
+        {
+            ResolvedPathContent result;
+            draconic::content::Instance* instance = resources.Database().GetInstance(path);
+            if (instance == nullptr)
+            {
+                WarnPathOnce(path, u8"no content at this path");
+                return result;
+            }
+            if (instance->TypeName() == u8"SoundCueSource")
+            {
+                result.cue = RefPtr<SoundCue>(resources.Bind<SoundCue>(instance->Id()).Get());
+                if (result.cue.Get() == nullptr)
+                {
+                    WarnPathOnce(path, u8"sound cue failed to load (uncooked?)");
+                }
+            }
+            else if (instance->TypeName() == u8"AudioClipSource")
+            {
+                result.clip =
+                    RefPtr<AudioClip>(resources.Bind<AudioClip>(instance->Id()).Get());
+                if (result.clip.Get() == nullptr)
+                {
+                    WarnPathOnce(path, u8"audio clip failed to load (uncooked?)");
+                }
+            }
+            else
+            {
+                WarnPathOnce(path, u8"not an audio clip or sound cue");
+            }
+            return result;
+        }
+
+        void WarnPathOnce(StringView path, StringView reason)
+        {
+            String key(path);
+            if (m_warnedScriptPaths.Find(key) != nullptr) { return; }
+            m_warnedScriptPaths.InsertOrAssign(Move(key), true);
+            DRACONIC_LOG_WARNING(u8"Audio", u8"script audio play '{}': {} - call ignored "
+                                 u8"(warned once per path)", path, reason);
+        }
+
         [[nodiscard]] VoiceHandle PlayCueResolved(const RefPtr<SoundCue>& cue,
                                                   AudioPlayParams params)
         {
@@ -585,64 +729,123 @@ export namespace draconic::audio
         Array<SceneEntry> m_systems;
         Random m_cueRandom;
         HashMap<const SoundCue*, CueOneShotState> m_cueOneShotState;
+        AudioScriptBinding m_scriptBinding;          // the bound script service payload
+        HashMap<String, bool> m_warnedScriptPaths;   // warn-once per content path
     };
     // The scripting facade (the Input facade's twin): statics on a foreign class
-    // resolving the CURRENT script context's bound engine. Bus addressing by name
-    // ("master"/"effects"/"music"/"ui"; unknown = no-op / neutral read).
-    // Clip-referencing calls (playOneShot/playMusic) stay PARKED with the entity-handle
-    // family - they need script-side resource handles.
+    // resolving the CURRENT script context's bound AudioScriptBinding. Bus addressing
+    // by name ("master"/"effects"/"music"/"ui" + the layout's custom buses; unknown =
+    // no-op / neutral read). Clip/cue PLAYBACK addresses content by its source-DB
+    // path (the string shown in the editor) - resource addressing, no entity handles
+    // needed; missing content warns once per path and no-ops.
     class Audio final : public Object
     {
         DRACONIC_OBJECT(Audio, Object)
     public:
-        [[nodiscard]] static AudioEngine* Resolve()
+        [[nodiscard]] static AudioScriptBinding* ResolveBinding()
         {
             draconic::script::IScriptContext* context = draconic::script::CurrentScriptContext();
             return context != nullptr
-                ? static_cast<AudioEngine*>(context->GetService(kAudioEngineService))
+                ? static_cast<AudioScriptBinding*>(context->GetService(kAudioScriptService))
                 : nullptr;
+        }
+
+        [[nodiscard]] static AudioEngine* Resolve()
+        {
+            AudioScriptBinding* binding = ResolveBinding();
+            return binding != nullptr ? binding->engine : nullptr;
+        }
+
+        // Playback binding: subsystem + resource manager both required (the binding
+        // carries them when the host wired a manager into ExposeToScript).
+        [[nodiscard]] static bool ResolvePlayback(AudioSubsystem*& outSubsystem,
+                                                  draconic::resource::ResourceManager*& outResources)
+        {
+            AudioScriptBinding* binding = ResolveBinding();
+            if (binding == nullptr || binding->subsystem == nullptr
+                || binding->resources == nullptr)
+            {
+                return false;
+            }
+            outSubsystem = binding->subsystem;
+            outResources = binding->resources;
+            return true;
+        }
+
+        // ---- content-path playback (returns whether a voice actually started) ----
+        static bool playOneShot(String path)
+        {
+            AudioSubsystem* subsystem = nullptr;
+            draconic::resource::ResourceManager* resources = nullptr;
+            if (!ResolvePlayback(subsystem, resources)) { return false; }
+            return subsystem->PlayOneShotByPath(*resources, path.AsView()).IsValid();
+        }
+        static bool playOneShot3D(String path, f32 x, f32 y, f32 z)
+        {
+            AudioSubsystem* subsystem = nullptr;
+            draconic::resource::ResourceManager* resources = nullptr;
+            if (!ResolvePlayback(subsystem, resources)) { return false; }
+            return subsystem
+                ->PlayOneShot3DByPath(*resources, path.AsView(), Float3{ x, y, z })
+                .IsValid();
+        }
+        static bool playCue(String path)
+        {
+            AudioSubsystem* subsystem = nullptr;
+            draconic::resource::ResourceManager* resources = nullptr;
+            if (!ResolvePlayback(subsystem, resources)) { return false; }
+            return subsystem->PlayCueByPath(*resources, path.AsView()).IsValid();
+        }
+        static bool playMusic(String path, f32 fadeSeconds)
+        {
+            AudioSubsystem* subsystem = nullptr;
+            draconic::resource::ResourceManager* resources = nullptr;
+            if (!ResolvePlayback(subsystem, resources)) { return false; }
+            return subsystem
+                ->PlayMusicByPath(*resources, path.AsView(), Max(fadeSeconds, 0.0f))
+                .IsValid();
         }
 
         [[nodiscard]] static bool BusFromName(StringView name, AudioBus& out)
         {
-            if (name == u8"master") { out = AudioBus::Master; return true; }
-            if (name == u8"effects") { out = AudioBus::Effects; return true; }
-            if (name == u8"music") { out = AudioBus::Music; return true; }
-            if (name == u8"ui") { out = AudioBus::UI; return true; }
-            return false;
+            return AudioBusFromName(name, out);   // the shared case-insensitive seam
         }
 
+        // Bus addressing: the four fixed names first, then the applied layout's NAMED
+        // custom buses (item: named bus trees) - unknown = no-op / neutral read.
         static void setBusVolume(String bus, f32 volume)
         {
             AudioEngine* engine = Resolve();
+            if (engine == nullptr) { return; }
             AudioBus which{};
-            if (engine != nullptr && BusFromName(bus.AsView(), which))
-            {
-                engine->SetBusVolume(which, Clamp(volume, 0.0f, 4.0f));
-            }
+            const f32 clamped = Clamp(volume, 0.0f, 4.0f);
+            if (BusFromName(bus.AsView(), which)) { engine->SetBusVolume(which, clamped); }
+            else { engine->SetNamedBusVolume(bus.AsView(), clamped); }
         }
         [[nodiscard]] static f32 busVolume(String bus)
         {
             AudioEngine* engine = Resolve();
+            if (engine == nullptr) { return 1.0f; }
             AudioBus which{};
-            return engine != nullptr && BusFromName(bus.AsView(), which)
-                ? engine->BusVolume(which) : 1.0f;
+            if (BusFromName(bus.AsView(), which)) { return engine->BusVolume(which); }
+            return engine->HasNamedBus(bus.AsView())
+                ? engine->NamedBusVolume(bus.AsView()) : 1.0f;
         }
         static void setBusMuted(String bus, bool muted)
         {
             AudioEngine* engine = Resolve();
+            if (engine == nullptr) { return; }
             AudioBus which{};
-            if (engine != nullptr && BusFromName(bus.AsView(), which))
-            {
-                engine->SetBusMuted(which, muted);
-            }
+            if (BusFromName(bus.AsView(), which)) { engine->SetBusMuted(which, muted); }
+            else { engine->SetNamedBusMuted(bus.AsView(), muted); }
         }
         [[nodiscard]] static bool busMuted(String bus)
         {
             AudioEngine* engine = Resolve();
+            if (engine == nullptr) { return false; }
             AudioBus which{};
-            return engine != nullptr && BusFromName(bus.AsView(), which)
-                && engine->BusMuted(which);
+            if (BusFromName(bus.AsView(), which)) { return engine->BusMuted(which); }
+            return engine->NamedBusMuted(bus.AsView());
         }
         static void stopMusic(f32 fadeSeconds)
         {

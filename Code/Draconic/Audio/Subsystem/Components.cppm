@@ -28,6 +28,9 @@ export namespace draconic::audio
         // weighted variant with the cue's jitter (autoplay/loop apply to the pick).
         draconic::resource::Ref<SoundCue> cue;
         AudioBus bus = AudioBus::Effects;
+        // Named custom-bus routing (v2): when non-empty and the applied layout has a
+        // custom bus of this name, the voice routes there; unknown/empty = `bus`.
+        String busName;
         f32 volume = 1.0f;
         f32 pitch = 1.0f;               // real resampling at runtime
         bool loop = false;              // OR-ed with the clip's authored loop intent
@@ -36,6 +39,9 @@ export namespace draconic::audio
         // Distance low-pass floor (Hz) for spatial sources: the cutoff glides from
         // open at minDistance to this at maxDistance. 0 = no muffling filter.
         f32 distanceLowpassHz = 4000.0f;
+        // Per-voice reverb send (v3): 0..1 scaling this source's feed into the
+        // scene's send reverb (zones drive the room character). 0 = dry only.
+        f32 reverbSend = 0.0f;
         u8 priority = 128;              // pool contention (higher survives)
         f32 minDistance = 1.0f;
         f32 maxDistance = 100.0f;
@@ -78,6 +84,14 @@ export namespace draconic::audio
         draconic::core::Serialize(ar, "coneInnerAngleDegrees", c.coneInnerAngleDegrees);
         draconic::core::Serialize(ar, "coneOuterAngleDegrees", c.coneOuterAngleDegrees);
         draconic::core::Serialize(ar, "coneOuterGain", c.coneOuterGain);
+        if (ar.Version() >= 2)   // v2: named custom-bus routing
+        {
+            draconic::core::Serialize(ar, "busName", c.busName);
+        }
+        if (ar.Version() >= 3)   // v3: per-voice reverb send
+        {
+            draconic::core::Serialize(ar, "reverbSend", c.reverbSend);
+        }
     }
 
     inline void ResolveResources(draconic::resource::ResourceManager& manager,

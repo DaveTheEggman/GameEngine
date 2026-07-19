@@ -237,6 +237,8 @@ TEST_CASE("audio.engine: steal policy - free slot, then lowest lower priority, t
     CHECK(engine.ActiveVoiceCount() == 2u);
 
     // Pool full: a HIGHER-priority play steals the LOWEST priority below it (A at 10).
+    // FADED steal: A's handle dies at once but its ma_sound is NOT uninitialized yet -
+    // it fades on the dying side list while C already plays (no click, brief overlap).
     AudioPlayParams high;
     high.priority = 30;
     high.loop = true;
@@ -244,7 +246,12 @@ TEST_CASE("audio.engine: steal policy - free slot, then lowest lower priority, t
     REQUIRE(voiceC.IsValid());
     CHECK_FALSE(engine.IsValidHandle(voiceA));
     CHECK(engine.IsValidHandle(voiceB));
-    CHECK(engine.ActiveVoiceCount() == 2u);
+    CHECK(engine.ActiveVoiceCount() == 2u);   // addressable voices only
+    CHECK(engine.DyingVoiceCount() == 1u);    // A's tail is still mixing
+
+    // The steal fade (~30 ms) lands and the tail reaps.
+    for (int i = 0; i < 10; ++i) { engine.Update(0.05f); }
+    CHECK(engine.DyingVoiceCount() == 0u);
 
     // Pool full of strictly-higher priorities: the new play is REJECTED.
     AudioPlayParams lowest;
@@ -279,6 +286,52 @@ TEST_CASE("audio.engine: same-priority contention steals the voice FARTHEST from
     REQUIRE(newVoice.IsValid());
     CHECK(engine.IsValidHandle(nearVoice));       // near survived
     CHECK_FALSE(engine.IsValidHandle(farVoice));  // far was stolen
+    CHECK(engine.DyingVoiceCount() == 1u);        // ... but its tail fades, no hard cut
+}
+
+TEST_CASE("audio.engine: faded steal - the dying list is capacity-bounded (oldest "
+          "hard-cuts) and paused victims skip it")
+{
+    AudioEngineSettings settings = HeadlessSettings(/*voiceCount=*/1, /*streamVoiceCount=*/0);
+    settings.dyingVoiceCapacity = 2;
+    AudioEngine engine(settings);
+    RefPtr<AudioClip> clips[4] = { MakeToneClip(1.0f), MakeToneClip(1.0f, 4000, 1),
+                                   MakeToneClip(1.0f, 16000, 1), MakeToneClip(1.0f, 12000, 1) };
+
+    // Four same-frame plays through a 1-slot pool: each steals the incumbent. The
+    // dying list holds at most 2 tails; the overflow hard-cut the oldest.
+    AudioPlayParams params;
+    params.loop = true;
+    params.allowDedupe = false;
+    VoiceHandle last;
+    for (int i = 0; i < 4; ++i)
+    {
+        last = engine.Play(clips[i], params);
+        REQUIRE(last.IsValid());
+    }
+    CHECK(engine.ActiveVoiceCount() == 1u);
+    CHECK(engine.DyingVoiceCount() == 2u);
+
+    // All tails reap once their fades land; the survivor keeps playing.
+    for (int i = 0; i < 10; ++i) { engine.Update(0.05f); }
+    CHECK(engine.DyingVoiceCount() == 0u);
+    CHECK(engine.IsPlaying(last));
+
+    // A PAUSED victim is already silent: stealing it never busies the dying list.
+    engine.SetPaused(last, true);
+    const VoiceHandle successor = engine.Play(clips[0], params);
+    REQUIRE(successor.IsValid());
+    CHECK_FALSE(engine.IsValidHandle(last));
+    CHECK(engine.DyingVoiceCount() == 0u);
+
+    // Capacity 0 = the legacy immediate cut.
+    AudioEngineSettings immediate = HeadlessSettings(/*voiceCount=*/1, /*streamVoiceCount=*/0);
+    immediate.dyingVoiceCapacity = 0;
+    AudioEngine hardEngine(immediate);
+    REQUIRE(hardEngine.Play(clips[0], params).IsValid());
+    REQUIRE(hardEngine.Play(clips[1], params).IsValid());
+    CHECK(hardEngine.DyingVoiceCount() == 0u);
+    CHECK(hardEngine.ActiveVoiceCount() == 1u);
 }
 
 TEST_CASE("audio.engine: recent-play dedupe merges same-clip plays inside the window")
@@ -662,6 +715,245 @@ TEST_CASE("audio.engine: bus layout applies volumes/mutes and splices effect cha
     CHECK(engine.IsPlaying(voice));
 }
 
+TEST_CASE("audio.engine: VoiceStatus.cursorSeconds is the TRUE voice cursor - it "
+          "advances with the mixer and wraps on loop")
+{
+    AudioEngine engine(HeadlessSettings());
+    RefPtr<AudioClip> clip = MakeToneClip(1.0f);   // 1 s one-shot
+    AudioPlayParams params;
+    params.allowDedupe = false;
+    const VoiceHandle voice = engine.Play(clip, params);
+    REQUIRE(voice.IsValid());
+
+    VoiceStatus status;
+    REQUIRE(engine.GetVoiceStatus(voice, status));
+    const f32 start = status.cursorSeconds;
+    CHECK(start >= 0.0f);
+    CHECK(start < 0.05f);
+
+    // Pump ~0.3 s of mixing: the cursor advances with the DATA, not wall time.
+    for (int i = 0; i < 18; ++i) { engine.Update(1.0f / 60.0f); }
+    REQUIRE(engine.GetVoiceStatus(voice, status));
+    CHECK(status.cursorSeconds > start + 0.2f);
+    CHECK(status.cursorSeconds < 0.6f);
+    const f32 mid = status.cursorSeconds;
+
+    // A paused voice's cursor holds still.
+    engine.SetPaused(voice, true);
+    for (int i = 0; i < 12; ++i) { engine.Update(1.0f / 60.0f); }
+    REQUIRE(engine.GetVoiceStatus(voice, status));
+    CHECK(status.cursorSeconds == doctest::Approx(mid).epsilon(0.02));
+    engine.SetPaused(voice, false);
+
+    // Looping wraps: a 0.25 s loop pumped ~0.6 s reads back inside the clip.
+    RefPtr<AudioClip> shortClip = MakeToneClip(0.25f, 8000, 1);
+    AudioPlayParams loopParams;
+    loopParams.loop = true;
+    loopParams.allowDedupe = false;
+    const VoiceHandle looping = engine.Play(shortClip, loopParams);
+    REQUIRE(looping.IsValid());
+    for (int i = 0; i < 36; ++i) { engine.Update(1.0f / 60.0f); }
+    REQUIRE(engine.GetVoiceStatus(looping, status));
+    CHECK(engine.IsPlaying(looping));
+    CHECK(status.cursorSeconds >= 0.0f);
+    CHECK(status.cursorSeconds < 0.26f);   // wrapped, not 0.6
+}
+
+TEST_CASE("audio.engine: named custom buses - layout realizes the tree, voices route by "
+          "name, volume/mute/effects work like fixed buses")
+{
+    AudioEngine engine(HeadlessSettings());
+    AudioBusLayout layout;
+    AudioNamedBus drums;
+    drums.name = String(u8"drums");
+    drums.parent = String(u8"Effects");
+    drums.settings.volume = 0.5f;
+    AudioBusEffectDesc lowpass;
+    lowpass.kind = AudioBusEffectKind::Lowpass;
+    lowpass.frequencyHz = 1500.0f;
+    drums.settings.effects.PushBack(lowpass);
+    AudioNamedBus quiet;
+    quiet.name = String(u8"quiet");
+    quiet.parent = String(u8"drums");   // custom-under-custom nesting
+    quiet.settings.muted = true;
+    layout.customBuses.PushBack(drums);
+    layout.customBuses.PushBack(quiet);
+    engine.ApplyBusLayout(layout);
+
+    CHECK(engine.NamedBusCount() == 2u);
+    CHECK(engine.HasNamedBus(u8"drums"));
+    CHECK(engine.HasNamedBus(u8"quiet"));
+    CHECK_FALSE(engine.HasNamedBus(u8"nope"));
+    CHECK(engine.NamedBusVolume(u8"drums") == doctest::Approx(0.5f));
+    CHECK(engine.NamedBusMuted(u8"quiet"));
+    CHECK(engine.NamedBusEffectCount(u8"drums") == 1u);
+    CHECK(engine.BusEffectCount(AudioBus::Effects) == 0u);   // fixed buses untouched
+
+    // Voices address the custom bus by name; unknown names fall back to the enum bus.
+    RefPtr<AudioClip> clip = MakeToneClip(1.0f);
+    AudioPlayParams params;
+    params.loop = true;
+    params.busName = String(u8"drums");
+    const VoiceHandle onDrums = engine.Play(clip, params);
+    REQUIRE(onDrums.IsValid());
+    VoiceStatus status;
+    REQUIRE(engine.GetVoiceStatus(onDrums, status));
+    CHECK(status.busName.AsView() == StringView(u8"drums"));
+
+    AudioPlayParams unknown;
+    unknown.loop = true;
+    unknown.busName = String(u8"missing");
+    unknown.allowDedupe = false;
+    const VoiceHandle fallback = engine.Play(clip, unknown);
+    REQUIRE(fallback.IsValid());
+    REQUIRE(engine.GetVoiceStatus(fallback, status));
+    CHECK(status.busName.IsEmpty());
+    CHECK(status.bus == AudioBus::Effects);
+
+    // Live named-bus tuning mirrors the fixed accessors.
+    engine.SetNamedBusVolume(u8"drums", 0.25f);
+    CHECK(engine.NamedBusVolume(u8"drums") == doctest::Approx(0.25f));
+    engine.SetNamedBusMuted(u8"drums", true);
+    CHECK(engine.NamedBusMuted(u8"drums"));
+    engine.SetNamedBusMuted(u8"drums", false);
+    CHECK(engine.NamedBusVolume(u8"drums") == doctest::Approx(0.25f));   // remembered
+
+    engine.Update(1.0f / 60.0f);
+    CHECK(engine.IsPlaying(onDrums));
+}
+
+TEST_CASE("audio.engine: a layout rebuild keeps voices ALIVE - kept buses update in "
+          "place, removed buses re-home their voices to the fixed fallback")
+{
+    AudioEngine engine(HeadlessSettings());
+    AudioBusLayout layout;
+    AudioNamedBus drums;
+    drums.name = String(u8"drums");
+    drums.parent = String(u8"Effects");
+    layout.customBuses.PushBack(drums);
+    AudioNamedBus voices;
+    voices.name = String(u8"voices");
+    layout.customBuses.PushBack(voices);
+    engine.ApplyBusLayout(layout);
+
+    RefPtr<AudioClip> clipA = MakeToneClip(1.0f);
+    RefPtr<AudioClip> clipB = MakeToneClip(1.0f, 4000, 1);
+    AudioPlayParams params;
+    params.loop = true;
+    params.busName = String(u8"drums");
+    const VoiceHandle onDrums = engine.Play(clipA, params);
+    params.busName = String(u8"voices");
+    params.allowDedupe = false;
+    const VoiceHandle onVoices = engine.Play(clipB, params);
+    REQUIRE(onDrums.IsValid());
+    REQUIRE(onVoices.IsValid());
+
+    // Rebuild WITHOUT "voices": drums persists (voice keeps its name), the removed
+    // bus's voice survives on its fixed fallback (busName clears).
+    AudioBusLayout rebuilt;
+    AudioNamedBus drumsKept;
+    drumsKept.name = String(u8"drums");
+    drumsKept.parent = String(u8"Music");   // re-parent while live
+    drumsKept.settings.volume = 0.8f;
+    rebuilt.customBuses.PushBack(drumsKept);
+    engine.ApplyBusLayout(rebuilt);
+
+    CHECK(engine.NamedBusCount() == 1u);
+    CHECK(engine.NamedBusVolume(u8"drums") == doctest::Approx(0.8f));
+    engine.Update(1.0f / 60.0f);
+    CHECK(engine.IsPlaying(onDrums));
+    CHECK(engine.IsPlaying(onVoices));
+    VoiceStatus status;
+    REQUIRE(engine.GetVoiceStatus(onDrums, status));
+    CHECK(status.busName.AsView() == StringView(u8"drums"));
+    REQUIRE(engine.GetVoiceStatus(onVoices, status));
+    CHECK(status.busName.IsEmpty());   // re-homed to the fixed bus
+    engine.Update(1.0f / 60.0f);
+    CHECK(engine.IsPlaying(onVoices));
+}
+
+TEST_CASE("audio.engine: custom-bus degenerates defuse - parent cycles land on Master, "
+          "unknown parents warn, duplicates and fixed-name shadows are skipped")
+{
+    AudioEngine engine(HeadlessSettings());
+    AudioBusLayout layout;
+    AudioNamedBus a;
+    a.name = String(u8"a");
+    a.parent = String(u8"b");
+    AudioNamedBus b;
+    b.name = String(u8"b");
+    b.parent = String(u8"a");            // a <-> b cycle
+    AudioNamedBus orphan;
+    orphan.name = String(u8"orphan");
+    orphan.parent = String(u8"ghost");   // unknown parent -> Master
+    AudioNamedBus dupe;
+    dupe.name = String(u8"a");           // duplicate -> skipped
+    AudioNamedBus shadow;
+    shadow.name = String(u8"Effects");   // shadows a fixed bus -> skipped
+    layout.customBuses.PushBack(a);
+    layout.customBuses.PushBack(b);
+    layout.customBuses.PushBack(orphan);
+    layout.customBuses.PushBack(dupe);
+    layout.customBuses.PushBack(shadow);
+    engine.ApplyBusLayout(layout);
+
+    CHECK(engine.NamedBusCount() == 3u);   // a, b, orphan
+    CHECK(engine.HasNamedBus(u8"a"));
+    CHECK(engine.HasNamedBus(u8"b"));
+    CHECK(engine.HasNamedBus(u8"orphan"));
+    CHECK_FALSE(engine.HasNamedBus(u8"Effects"));
+
+    // The defused graph still mixes: play on every custom bus, pump, all audible.
+    RefPtr<AudioClip> clip = MakeToneClip(0.5f);
+    AudioPlayParams params;
+    params.loop = true;
+    params.allowDedupe = false;
+    const StringView names[3] = { u8"a", u8"b", u8"orphan" };
+    for (StringView name : names)
+    {
+        params.busName = String(name);
+        const VoiceHandle voice = engine.Play(clip, params);
+        REQUIRE(voice.IsValid());
+    }
+    engine.Update(0.1f);
+    CHECK(engine.ActiveVoiceCount() == 3u);
+}
+
+TEST_CASE("audio.engine: scene-group pause freezes custom-bus voices too (they bypass "
+          "the scene child groups)")
+{
+    AudioEngine engine(HeadlessSettings());
+    AudioBusLayout layout;
+    AudioNamedBus drums;
+    drums.name = String(u8"drums");
+    layout.customBuses.PushBack(drums);
+    engine.ApplyBusLayout(layout);
+
+    const u64 sceneGroup = engine.CreateSceneGroup();
+    REQUIRE(sceneGroup != 0u);
+    RefPtr<AudioClip> clip = MakeToneClip(1.0f);
+    AudioPlayParams params;
+    params.loop = true;
+    params.sceneGroup = sceneGroup;
+    params.busName = String(u8"drums");
+    const VoiceHandle voice = engine.Play(clip, params);
+    REQUIRE(voice.IsValid());
+
+    engine.SetSceneGroupPaused(sceneGroup, true);
+    for (int i = 0; i < 5; ++i) { engine.Update(0.1f); }
+    CHECK(engine.IsValidHandle(voice));   // held, not reaped
+    VoiceStatus status;
+    REQUIRE(engine.GetVoiceStatus(voice, status));
+    CHECK(status.busName.AsView() == StringView(u8"drums"));
+
+    engine.SetSceneGroupPaused(sceneGroup, false);
+    engine.Update(0.1f);
+    CHECK(engine.IsPlaying(voice));
+
+    engine.DestroySceneGroup(sceneGroup);
+    CHECK_FALSE(engine.IsValidHandle(voice));
+}
+
 TEST_CASE("audio.cue: weighted resolution - no-repeat, sequential, jitter, degenerate")
 {
     RefPtr<AudioClip> a = MakeToneClip(0.1f);
@@ -776,6 +1068,122 @@ TEST_CASE("audio.reverb: freeverb - dry passthrough at wet 0, a tail past the im
         }
     }
     CHECK(dampedTail < longTail * 0.5f);
+}
+
+TEST_CASE("audio.reverb: wet-only send mode - dry pinned to 0 passes NO dry signal but "
+          "still rings a tail")
+{
+    FreeverbState send;
+    send.Initialize(44100);
+    AudioReverbParams params;
+    params.wet = 1.0f;
+    params.dry = 0.0f;
+    params.roomSize = 0.8f;
+    params.damping = 0.1f;
+    send.SetParams(params);
+    CHECK(send.Dry() == doctest::Approx(0.0f));
+
+    f32 impulse[512 * 2] = {};
+    impulse[0] = 1.0f;
+    impulse[1] = 1.0f;
+    f32 output[512 * 2] = {};
+    send.ProcessStereo(impulse, output, 512);
+    CHECK(output[0] == doctest::Approx(0.0f));   // no dry passthrough
+    CHECK(output[1] == doctest::Approx(0.0f));
+
+    f32 silent[512 * 2] = {};
+    f32 tail = 0.0f;
+    for (int block = 0; block < 20; ++block)
+    {
+        send.ProcessStereo(silent, output, 512);
+        for (usize i = 0; i < 512 * 2; ++i) { tail += output[i] * output[i]; }
+    }
+    CHECK(tail > 1.0e-6f);   // the send tail rings
+
+    // Default dry (< 0) keeps tracking 1 - wet (the classic insert mix).
+    AudioReverbParams insert;
+    insert.wet = 0.25f;
+    send.SetParams(insert);
+    CHECK(send.Dry() == doctest::Approx(0.75f));
+}
+
+TEST_CASE("audio.engine: per-voice reverb sends - splitter splices per voice, live "
+          "scaling works, steal hands the splitter to the dying list")
+{
+    AudioEngine engine(HeadlessSettings(/*voiceCount=*/2, /*streamVoiceCount=*/0));
+    const u64 sceneGroup = engine.CreateSceneGroup();
+    REQUIRE(sceneGroup != 0u);
+
+    RefPtr<AudioClip> clip = MakeToneClip(1.0f);
+    AudioPlayParams wet;
+    wet.loop = true;
+    wet.sceneGroup = sceneGroup;
+    wet.reverbSend = 0.5f;
+    wet.spatial = true;
+    wet.distanceLowpassHz = 4000.0f;   // send + low-pass coexist in one chain
+    const VoiceHandle sending = engine.Play(clip, wet);
+    REQUIRE(sending.IsValid());
+    VoiceStatus status;
+    REQUIRE(engine.GetVoiceStatus(sending, status));
+    CHECK(status.reverbSend == doctest::Approx(0.5f));
+
+    AudioPlayParams dry;
+    dry.loop = true;
+    dry.sceneGroup = sceneGroup;
+    dry.allowDedupe = false;
+    RefPtr<AudioClip> other = MakeToneClip(1.0f, 4000, 1);
+    const VoiceHandle drier = engine.Play(other, dry);
+    REQUIRE(drier.IsValid());
+    REQUIRE(engine.GetVoiceStatus(drier, status));
+    CHECK(status.reverbSend == doctest::Approx(0.0f));   // no splitter, no send
+
+    // The graph mixes cleanly with the send spliced in.
+    for (int i = 0; i < 10; ++i) { engine.Update(1.0f / 60.0f); }
+    CHECK(engine.IsPlaying(sending));
+
+    // Live scaling lands (and clamps); dry voices ignore it.
+    engine.SetVoiceReverbSend(sending, 2.0f);
+    REQUIRE(engine.GetVoiceStatus(sending, status));
+    CHECK(status.reverbSend == doctest::Approx(1.0f));
+    engine.SetVoiceReverbSend(drier, 0.7f);
+    REQUIRE(engine.GetVoiceStatus(drier, status));
+    CHECK(status.reverbSend == doctest::Approx(0.0f));
+
+    // Zone params retune the send reverb without touching the voice's send level.
+    AudioReverbParams zone;
+    zone.roomSize = 0.9f;
+    zone.damping = 0.2f;
+    zone.wet = 0.6f;
+    engine.SetSceneReverb(sceneGroup, zone);
+    REQUIRE(engine.GetVoiceStatus(sending, status));
+    CHECK(status.reverbSend == doctest::Approx(1.0f));
+
+    // Steal the SEND voice (pool of 2, both taken, higher priority incoming): its
+    // splitter+sound hand over to the dying list and reap cleanly.
+    AudioPlayParams high;
+    high.loop = true;
+    high.priority = 200;
+    high.allowDedupe = false;
+    RefPtr<AudioClip> third = MakeToneClip(1.0f, 16000, 1);
+    const VoiceHandle stealer = engine.Play(third, high);
+    REQUIRE(stealer.IsValid());
+    CHECK(engine.DyingVoiceCount() == 1u);
+    for (int i = 0; i < 10; ++i) { engine.Update(0.05f); }
+    CHECK(engine.DyingVoiceCount() == 0u);
+
+    // Scene teardown destroys the send reverb with the group.
+    engine.DestroySceneGroup(sceneGroup);
+    engine.Update(1.0f / 60.0f);
+
+    // Sends OUTSIDE a scene group are inert (no send reverb to feed).
+    AudioPlayParams global;
+    global.loop = true;
+    global.reverbSend = 0.8f;
+    global.allowDedupe = false;
+    const VoiceHandle globalVoice = engine.Play(clip, global);
+    REQUIRE(globalVoice.IsValid());
+    REQUIRE(engine.GetVoiceStatus(globalVoice, status));
+    CHECK(status.reverbSend == doctest::Approx(0.0f));
 }
 
 TEST_CASE("audio.engine: a Reverb bus effect splices and the headless mixer survives it")

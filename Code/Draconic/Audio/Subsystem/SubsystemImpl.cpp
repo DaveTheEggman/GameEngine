@@ -113,9 +113,11 @@ namespace draconic::audio
 
     DRACONIC_REFLECT_VALUE(AudioSourceComponent, "draconic::audio")
     {
-        builder.DataVersion(1);
+        builder.DataVersion(3);   // v2: busName (custom buses); v3: reverbSend
         builder.Property<&AudioSourceComponent::clip>("clip");
         builder.Property<&AudioSourceComponent::bus>("bus");
+        builder.Property<&AudioSourceComponent::busName>("busName");
+        builder.Property<&AudioSourceComponent::reverbSend>("reverbSend");
         builder.Property<&AudioSourceComponent::volume>("volume");
         builder.Property<&AudioSourceComponent::pitch>("pitch");
         builder.Property<&AudioSourceComponent::loop>("loop");
@@ -149,6 +151,11 @@ namespace draconic::audio
         builder.Method<&Audio::setBusMuted>("setBusMuted");
         builder.Method<&Audio::busMuted>("busMuted");
         builder.Method<&Audio::stopMusic>("stopMusic");
+        // Content-path playback (item 4): path = the editor's source-DB content path.
+        builder.Method<&Audio::playOneShot>("playOneShot");
+        builder.Method<&Audio::playOneShot3D>("playOneShot3D");
+        builder.Method<&Audio::playCue>("playCue");
+        builder.Method<&Audio::playMusic>("playMusic");
         builder.Constructor();   // Wren only materializes constructible foreign classes
     }
 
