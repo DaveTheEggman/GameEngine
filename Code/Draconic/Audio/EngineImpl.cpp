@@ -194,6 +194,11 @@ namespace draconic::audio
         AudioBus bus = AudioBus::Effects;
         u64 sceneGroup = 0;
         RefPtr<AudioClip> clip;
+        // Per-voice reverb send: a splitter at the END of the voice chain - out 0 is
+        // the dry path to the group, out 1 (volume = reverbSend) feeds the scene's
+        // wet-only SEND reverb in parallel. nullptr = played with reverbSend 0.
+        ma_splitter_node* splitterNode = nullptr;
+        f32 reverbSend = 0.0f;
         // Distance low-pass (P2): an ma_lpf node between the sound and its group; the
         // cutoff glides open->floor across [min, max] distance every Update.
         ma_lpf_node* lowpassNode = nullptr;
@@ -211,6 +216,11 @@ namespace draconic::audio
         bool paused = false;
         ReverbNode* reverb = nullptr;   // zone reverb on the Effects child group
         f32 reverbWet = 0.0f;
+        // The per-voice send target: a WET-ONLY Freeverb (dry pinned to 0) fed by
+        // voice splitters, straight into the Effects bus. Zones retune roomSize/
+        // damping through SetSceneReverb; sends stay audible regardless of zone
+        // occupancy (the send level is the VOICE's own knob).
+        ReverbNode* sendReverb = nullptr;
     };
 
     struct AudioEngine::Impl
@@ -250,6 +260,7 @@ namespace draconic::audio
         {
             ma_sound* sound = nullptr;
             ma_lpf_node* lowpass = nullptr;
+            ma_splitter_node* splitter = nullptr;
             RefPtr<AudioClip> clip;
         };
         Array<DyingVoice> dyingVoices;
@@ -589,15 +600,48 @@ namespace draconic::audio
                 {
                     continue;
                 }
-                ma_node* out = slot.lowpassNode != nullptr
-                    ? reinterpret_cast<ma_node*>(slot.lowpassNode)
-                    : reinterpret_cast<ma_node*>(slot.sound);
                 if (ma_sound_group* fallback = GroupFor(slot.sceneGroup, slot.bus))
                 {
-                    (void)ma_node_attach_output_bus(out, 0, fallback, 0);
+                    (void)ma_node_attach_output_bus(VoiceOutputNode(slot), 0, fallback, 0);
                 }
                 slot.customBusName = String{};
             }
+        }
+
+        // The voice chain's LAST node (what attaches to the group): splitter (dry out
+        // 0) if present, else the distance low-pass, else the sound itself.
+        [[nodiscard]] static ma_node* VoiceOutputNode(VoiceSlot& slot)
+        {
+            if (slot.splitterNode != nullptr) { return slot.splitterNode; }
+            if (slot.lowpassNode != nullptr)
+            {
+                return reinterpret_cast<ma_node*>(slot.lowpassNode);
+            }
+            return reinterpret_cast<ma_node*>(slot.sound);
+        }
+
+        // Lazily creates the scene's wet-only send reverb (per-voice reverbSend
+        // target), attached straight to the Effects bus. Zone updates retune it.
+        [[nodiscard]] ReverbNode* EnsureSceneSendReverb(u64 sceneGroup)
+        {
+            SceneGroupData** found = sceneGroups.Find(sceneGroup);
+            if (found == nullptr) { return nullptr; }
+            SceneGroupData& data = **found;
+            if (data.sendReverb == nullptr)
+            {
+                AudioReverbParams params;
+                params.wet = 1.0f;   // full tail; the SEND level is the voice's knob
+                params.dry = 0.0f;   // wet-only: the dry path already reaches the bus
+                data.sendReverb = CreateReverbNode(engine, params);
+                if (data.sendReverb != nullptr
+                    && busGroupInitialized[static_cast<usize>(AudioBus::Effects)])
+                {
+                    (void)ma_node_attach_output_bus(
+                        data.sendReverb, 0,
+                        &busGroups[static_cast<usize>(AudioBus::Effects)], 0);
+                }
+            }
+            return data.sendReverb;
         }
 
         void DestroyCustomBus(CustomBusData* bus)
@@ -908,6 +952,12 @@ namespace draconic::audio
                 DefaultAllocator().Delete(slot.lowpassNode);
                 slot.lowpassNode = nullptr;
             }
+            if (slot.splitterNode != nullptr)
+            {
+                ma_splitter_node_uninit(slot.splitterNode, nullptr);
+                DefaultAllocator().Delete(slot.splitterNode);
+                slot.splitterNode = nullptr;
+            }
             ClearSlotBookkeeping(slot);
         }
 
@@ -915,6 +965,7 @@ namespace draconic::audio
         {
             slot.lowpassFloorHz = 0.0f;
             slot.lowpassCutoffHz = 0.0f;
+            slot.reverbSend = 0.0f;
             slot.state = VoiceState::Free;
             slot.clip = nullptr;
             slot.sceneGroup = 0;
@@ -941,11 +992,13 @@ namespace draconic::audio
             DyingVoice dying;
             dying.sound = slot.sound;
             dying.lowpass = slot.lowpassNode;
+            dying.splitter = slot.splitterNode;
             dying.clip = slot.clip;
             dyingVoices.PushBack(Move(dying));
             slot.sound = nullptr;
             slot.soundInitialized = false;
             slot.lowpassNode = nullptr;
+            slot.splitterNode = nullptr;
             ClearSlotBookkeeping(slot);
         }
 
@@ -961,6 +1014,11 @@ namespace draconic::audio
             {
                 ma_lpf_node_uninit(dying.lowpass, nullptr);
                 DefaultAllocator().Delete(dying.lowpass);
+            }
+            if (dying.splitter != nullptr)
+            {
+                ma_splitter_node_uninit(dying.splitter, nullptr);
+                DefaultAllocator().Delete(dying.splitter);
             }
             dyingVoices.RemoveAt(index);
         }
@@ -1106,6 +1164,7 @@ namespace draconic::audio
                 }
             }
             DestroyReverbNode((*data)->reverb);
+            DestroyReverbNode((*data)->sendReverb);
             for (usize bus = 0; bus < static_cast<usize>(AudioBus::Count); ++bus)
             {
                 if ((*data)->initialized[bus]) { ma_sound_group_uninit(&(*data)->group[bus]); }
@@ -1330,6 +1389,42 @@ namespace draconic::audio
             {
                 ma_lpf_node_uninit(node, nullptr);
                 DefaultAllocator().Delete(node);
+            }
+        }
+
+        // Per-voice reverb send: splice a splitter at the END of the chain - out 0
+        // stays the dry route into the group, out 1 (volume = reverbSend) feeds the
+        // scene's wet-only send reverb in parallel. Scene-group voices only (the send
+        // reverb is per-scene); failure just plays dry.
+        if (params.reverbSend > 0.0f && params.sceneGroup != 0 && group != nullptr)
+        {
+            if (ReverbNode* sendReverb = impl.EnsureSceneSendReverb(params.sceneGroup))
+            {
+                const f32 send = Clamp(params.reverbSend, 0.0f, 1.0f);
+                ma_node* tail = slot.lowpassNode != nullptr
+                    ? reinterpret_cast<ma_node*>(slot.lowpassNode)
+                    : reinterpret_cast<ma_node*>(slot.sound);
+                auto* splitter = DefaultAllocator().New<ma_splitter_node>();
+                ma_splitter_node_config config =
+                    ma_splitter_node_config_init(ma_engine_get_channels(&impl.engine));
+                if (ma_splitter_node_init(ma_engine_get_node_graph(&impl.engine), &config,
+                                          nullptr, splitter) != MA_SUCCESS)
+                {
+                    DefaultAllocator().Delete(splitter);
+                }
+                else if (ma_node_attach_output_bus(splitter, 0, group, 0) == MA_SUCCESS
+                         && ma_node_attach_output_bus(splitter, 1, sendReverb, 0) == MA_SUCCESS
+                         && ma_node_attach_output_bus(tail, 0, splitter, 0) == MA_SUCCESS)
+                {
+                    (void)ma_node_set_output_bus_volume(splitter, 1, send);
+                    slot.splitterNode = splitter;
+                    slot.reverbSend = send;
+                }
+                else
+                {
+                    ma_splitter_node_uninit(splitter, nullptr);
+                    DefaultAllocator().Delete(splitter);
+                }
             }
         }
 
@@ -1607,7 +1702,16 @@ namespace draconic::audio
                 out.cursorSeconds = cursor;
             }
         }
+        out.reverbSend = slot->reverbSend;
         return true;
+    }
+
+    void AudioEngine::SetVoiceReverbSend(VoiceHandle handle, f32 send)
+    {
+        VoiceSlot* slot = m_impl->Resolve(handle);
+        if (slot == nullptr || slot->splitterNode == nullptr) { return; }
+        slot->reverbSend = Clamp(send, 0.0f, 1.0f);
+        (void)ma_node_set_output_bus_volume(slot->splitterNode, 1, slot->reverbSend);
     }
 
     void AudioEngine::SetVoiceVolume(VoiceHandle handle, f32 volume)
@@ -1844,6 +1948,15 @@ namespace draconic::audio
             AudioReverbParams applied = params;
             applied.wet = data.reverbWet;
             data.reverb->state->SetParams(applied);
+        }
+        // The per-voice SEND reverb shares the room character but stays wet-only and
+        // fully open - the send level lives on each voice's splitter.
+        if (data.sendReverb != nullptr && data.sendReverb->state != nullptr)
+        {
+            AudioReverbParams sendParams = params;
+            sendParams.wet = 1.0f;
+            sendParams.dry = 0.0f;
+            data.sendReverb->state->SetParams(sendParams);
         }
     }
 

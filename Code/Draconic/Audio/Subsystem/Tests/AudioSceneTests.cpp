@@ -260,6 +260,7 @@ TEST_CASE("audio.scene: components round-trip through SerializeScene (authored f
     sc.clip.SetId(clipId);
     sc.bus = AudioBus::Music;
     sc.busName = String(u8"drums");
+    sc.reverbSend = 0.35f;
     sc.volume = 0.7f;
     sc.pitch = 1.25f;
     sc.loop = true;
@@ -302,6 +303,7 @@ TEST_CASE("audio.scene: components round-trip through SerializeScene (authored f
     CHECK(loaded->clip.id == clipId);
     CHECK(loaded->bus == AudioBus::Music);
     CHECK(loaded->busName.AsView() == StringView(u8"drums"));
+    CHECK(loaded->reverbSend == doctest::Approx(0.35f));
     CHECK(loaded->volume == doctest::Approx(0.7f));
     CHECK(loaded->pitch == doctest::Approx(1.25f));
     CHECK(loaded->loop);
@@ -371,6 +373,25 @@ TEST_CASE("audio.scene: sources sharing one clip each get their OWN voice (dedup
     for (int i = 1; i < 4; ++i) { CHECK_FALSE(voices[i] == voices[0]); }
     CHECK(engine.ActiveVoiceCount() == 4u);
     scene.Stop();
+}
+
+TEST_CASE("audio.scene: a source's reverbSend feeds the scene send reverb from Play")
+{
+    PlayScene play;
+    RefPtr<AudioClip> clip = MakeToneClip(1.0f);
+    const dscene::EntityHandle e = play.AddSource(clip, Float3{ 1.0f, 0.0f, 0.0f });
+    play.scene.GetSystem<AudioSourceComponentManager>()->Get(e)->reverbSend = 0.4f;
+    play.Start();
+
+    AudioSourceComponent* c = play.scene.GetSystem<AudioSourceComponentManager>()->Get(e);
+    REQUIRE(c != nullptr);
+    REQUIRE(c->voice.IsValid());
+    VoiceStatus status;
+    REQUIRE(play.engine.GetVoiceStatus(c->voice, status));
+    CHECK(status.reverbSend == doctest::Approx(0.4f));
+    play.Frame();
+    CHECK(play.engine.IsPlaying(c->voice));
+    play.scene.Stop();
 }
 
 TEST_CASE("audio.scene: a source's busName routes its voice onto the layout's custom bus")

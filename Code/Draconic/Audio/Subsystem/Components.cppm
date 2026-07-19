@@ -39,6 +39,9 @@ export namespace draconic::audio
         // Distance low-pass floor (Hz) for spatial sources: the cutoff glides from
         // open at minDistance to this at maxDistance. 0 = no muffling filter.
         f32 distanceLowpassHz = 4000.0f;
+        // Per-voice reverb send (v3): 0..1 scaling this source's feed into the
+        // scene's send reverb (zones drive the room character). 0 = dry only.
+        f32 reverbSend = 0.0f;
         u8 priority = 128;              // pool contention (higher survives)
         f32 minDistance = 1.0f;
         f32 maxDistance = 100.0f;
@@ -84,6 +87,10 @@ export namespace draconic::audio
         if (ar.Version() >= 2)   // v2: named custom-bus routing
         {
             draconic::core::Serialize(ar, "busName", c.busName);
+        }
+        if (ar.Version() >= 3)   // v3: per-voice reverb send
+        {
+            draconic::core::Serialize(ar, "reverbSend", c.reverbSend);
         }
     }
 

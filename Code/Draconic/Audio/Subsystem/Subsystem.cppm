@@ -308,6 +308,7 @@ export namespace draconic::audio
             // clip - four torches - are distinct voices; autoplay starts them in the
             // same instant, which the one-shot window would otherwise collapse).
             params.allowDedupe = false;
+            params.reverbSend = c.reverbSend;
             params.spatial = c.spatial;
             if (c.spatial)
             {

@@ -1070,6 +1070,122 @@ TEST_CASE("audio.reverb: freeverb - dry passthrough at wet 0, a tail past the im
     CHECK(dampedTail < longTail * 0.5f);
 }
 
+TEST_CASE("audio.reverb: wet-only send mode - dry pinned to 0 passes NO dry signal but "
+          "still rings a tail")
+{
+    FreeverbState send;
+    send.Initialize(44100);
+    AudioReverbParams params;
+    params.wet = 1.0f;
+    params.dry = 0.0f;
+    params.roomSize = 0.8f;
+    params.damping = 0.1f;
+    send.SetParams(params);
+    CHECK(send.Dry() == doctest::Approx(0.0f));
+
+    f32 impulse[512 * 2] = {};
+    impulse[0] = 1.0f;
+    impulse[1] = 1.0f;
+    f32 output[512 * 2] = {};
+    send.ProcessStereo(impulse, output, 512);
+    CHECK(output[0] == doctest::Approx(0.0f));   // no dry passthrough
+    CHECK(output[1] == doctest::Approx(0.0f));
+
+    f32 silent[512 * 2] = {};
+    f32 tail = 0.0f;
+    for (int block = 0; block < 20; ++block)
+    {
+        send.ProcessStereo(silent, output, 512);
+        for (usize i = 0; i < 512 * 2; ++i) { tail += output[i] * output[i]; }
+    }
+    CHECK(tail > 1.0e-6f);   // the send tail rings
+
+    // Default dry (< 0) keeps tracking 1 - wet (the classic insert mix).
+    AudioReverbParams insert;
+    insert.wet = 0.25f;
+    send.SetParams(insert);
+    CHECK(send.Dry() == doctest::Approx(0.75f));
+}
+
+TEST_CASE("audio.engine: per-voice reverb sends - splitter splices per voice, live "
+          "scaling works, steal hands the splitter to the dying list")
+{
+    AudioEngine engine(HeadlessSettings(/*voiceCount=*/2, /*streamVoiceCount=*/0));
+    const u64 sceneGroup = engine.CreateSceneGroup();
+    REQUIRE(sceneGroup != 0u);
+
+    RefPtr<AudioClip> clip = MakeToneClip(1.0f);
+    AudioPlayParams wet;
+    wet.loop = true;
+    wet.sceneGroup = sceneGroup;
+    wet.reverbSend = 0.5f;
+    wet.spatial = true;
+    wet.distanceLowpassHz = 4000.0f;   // send + low-pass coexist in one chain
+    const VoiceHandle sending = engine.Play(clip, wet);
+    REQUIRE(sending.IsValid());
+    VoiceStatus status;
+    REQUIRE(engine.GetVoiceStatus(sending, status));
+    CHECK(status.reverbSend == doctest::Approx(0.5f));
+
+    AudioPlayParams dry;
+    dry.loop = true;
+    dry.sceneGroup = sceneGroup;
+    dry.allowDedupe = false;
+    RefPtr<AudioClip> other = MakeToneClip(1.0f, 4000, 1);
+    const VoiceHandle drier = engine.Play(other, dry);
+    REQUIRE(drier.IsValid());
+    REQUIRE(engine.GetVoiceStatus(drier, status));
+    CHECK(status.reverbSend == doctest::Approx(0.0f));   // no splitter, no send
+
+    // The graph mixes cleanly with the send spliced in.
+    for (int i = 0; i < 10; ++i) { engine.Update(1.0f / 60.0f); }
+    CHECK(engine.IsPlaying(sending));
+
+    // Live scaling lands (and clamps); dry voices ignore it.
+    engine.SetVoiceReverbSend(sending, 2.0f);
+    REQUIRE(engine.GetVoiceStatus(sending, status));
+    CHECK(status.reverbSend == doctest::Approx(1.0f));
+    engine.SetVoiceReverbSend(drier, 0.7f);
+    REQUIRE(engine.GetVoiceStatus(drier, status));
+    CHECK(status.reverbSend == doctest::Approx(0.0f));
+
+    // Zone params retune the send reverb without touching the voice's send level.
+    AudioReverbParams zone;
+    zone.roomSize = 0.9f;
+    zone.damping = 0.2f;
+    zone.wet = 0.6f;
+    engine.SetSceneReverb(sceneGroup, zone);
+    REQUIRE(engine.GetVoiceStatus(sending, status));
+    CHECK(status.reverbSend == doctest::Approx(1.0f));
+
+    // Steal the SEND voice (pool of 2, both taken, higher priority incoming): its
+    // splitter+sound hand over to the dying list and reap cleanly.
+    AudioPlayParams high;
+    high.loop = true;
+    high.priority = 200;
+    high.allowDedupe = false;
+    RefPtr<AudioClip> third = MakeToneClip(1.0f, 16000, 1);
+    const VoiceHandle stealer = engine.Play(third, high);
+    REQUIRE(stealer.IsValid());
+    CHECK(engine.DyingVoiceCount() == 1u);
+    for (int i = 0; i < 10; ++i) { engine.Update(0.05f); }
+    CHECK(engine.DyingVoiceCount() == 0u);
+
+    // Scene teardown destroys the send reverb with the group.
+    engine.DestroySceneGroup(sceneGroup);
+    engine.Update(1.0f / 60.0f);
+
+    // Sends OUTSIDE a scene group are inert (no send reverb to feed).
+    AudioPlayParams global;
+    global.loop = true;
+    global.reverbSend = 0.8f;
+    global.allowDedupe = false;
+    const VoiceHandle globalVoice = engine.Play(clip, global);
+    REQUIRE(globalVoice.IsValid());
+    REQUIRE(engine.GetVoiceStatus(globalVoice, status));
+    CHECK(status.reverbSend == doctest::Approx(0.0f));
+}
+
 TEST_CASE("audio.engine: a Reverb bus effect splices and the headless mixer survives it")
 {
     AudioEngine engine(HeadlessSettings());

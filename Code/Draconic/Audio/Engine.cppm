@@ -85,6 +85,12 @@ export namespace draconic::audio
         // stack - merging them silently collapsed all-but-one emitter.
         bool allowDedupe = true;
 
+        // Per-voice reverb send (0..1): a splitter after the voice's chain feeds the
+        // scene's SEND reverb (wet-only Freeverb; zones drive its room character) in
+        // parallel with the dry path, scaled by this. 0 = no splitter, no send.
+        // Requires a scene group (the send reverb is per-scene).
+        f32 reverbSend = 0.0f;
+
         // 3D (spatial = true):
         bool spatial = false;
         // Distance low-pass (the muffling-with-distance Godot/Traktor ship and Sedulous
@@ -194,6 +200,8 @@ export namespace draconic::audio
         // TRUE playback cursor (seconds into the clip's data, from the voice itself -
         // not an elapsed-time approximation): honors pitch, pauses, and loop wraps.
         f32 cursorSeconds = 0.0f;
+        // Per-voice reverb send level (0 = no splitter in the chain).
+        f32 reverbSend = 0.0f;
     };
 
     struct AudioEngineSettings
@@ -255,6 +263,9 @@ export namespace draconic::audio
         void SetVoiceLooping(VoiceHandle handle, bool loop);
         /// Per-frame 3D sync: position + velocity (velocity drives doppler).
         void SetVoicePosition(VoiceHandle handle, Float3 position, Float3 velocity);
+        /// Live send scaling (splitter output-bus volume). No-op on voices played
+        /// with reverbSend 0 - the splitter only splices at Play.
+        void SetVoiceReverbSend(VoiceHandle handle, f32 send);
 
         /// ADDRESSABLE voices: slots owned by a live generation. A stolen voice leaves
         /// this count at the instant of the steal (its handle dies) even though its
@@ -325,7 +336,9 @@ export namespace draconic::audio
 
         // ---- per-scene reverb (P3 zones): a Freeverb node on the scene's Effects
         // child group, wet driven by listener zone occupancy. wet 0 = bypass (the node
-        // stays spliced once created; params update live). ----
+        // stays spliced once created; params update live). The same params' roomSize/
+        // damping also retune the scene's SEND reverb (per-voice reverbSend), which is
+        // wet-only and fed by voice splitters regardless of zone occupancy. ----
         void SetSceneReverb(u64 sceneGroup, const AudioReverbParams& params);
         [[nodiscard]] f32 SceneReverbWet(u64 sceneGroup) const;
 
