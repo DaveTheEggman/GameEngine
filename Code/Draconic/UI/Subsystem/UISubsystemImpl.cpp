@@ -37,22 +37,41 @@ namespace draconic::ui
 
     // Per-canvas host inside a scene root: carries the canvas's draw ORDER (the scene
     // root's canvas children are kept sorted by it - higher = later = on top; the
-    // billboard layer stays child 0, below every canvas). Hit-test transparent:
-    // only the document tree consumes input.
+    // billboard layer stays child 0, below every canvas) and the SCALER transform
+    // (ReferenceResolution lays the document out at the reference size and uniform-
+    // scales it to fit, centered; ConstantPixel = 1 UI px = 1 target px). Hit-test
+    // transparent: only the document tree consumes input, and the child's scale
+    // transform is undone by the standard ViewGroup inverse-transform hit test.
     class CanvasHostView final : public ViewGroup
     {
         DRACONIC_OBJECT(CanvasHostView, ViewGroup)
     public:
         i32 Order = 0;
         bool Seen = false;   // swept by SyncCanvases when the component vanished
+        CanvasScalerMode ScalerMode = CanvasScalerMode::ConstantPixel;
+        Float2 ReferenceResolution{ 0.0f, 0.0f };
+
         CanvasHostView() { IsHitTestVisible = false; }
+
+        /// The size the document lays out at: the reference resolution when scaling,
+        /// else the host's own (viewport) size.
+        [[nodiscard]] Float2 LayoutSizeFor(f32 width, f32 height) const noexcept
+        {
+            if (ScalerMode == CanvasScalerMode::ReferenceResolution &&
+                ReferenceResolution.x > 0.0f && ReferenceResolution.y > 0.0f)
+            {
+                return ReferenceResolution;
+            }
+            return Float2{ width, height };
+        }
 
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
             MeasuredSize = Float2{ constraints.ConstrainWidth(constraints.MaxWidth),
                                    constraints.ConstrainHeight(constraints.MaxHeight) };
-            const BoxConstraints childConstraints = BoxConstraints::Tight(MeasuredSize.x, MeasuredSize.y);
+            const Float2 inner = LayoutSizeFor(MeasuredSize.x, MeasuredSize.y);
+            const BoxConstraints childConstraints = BoxConstraints::Tight(inner.x, inner.y);
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 View* child = GetChildAt(i);
@@ -62,11 +81,26 @@ namespace draconic::ui
 
         void OnLayout(f32 /*left*/, f32 /*top*/, f32 width, f32 height) override
         {
+            const Float2 inner = LayoutSizeFor(width, height);
+            f32 scale = 1.0f;
+            f32 offsetX = 0.0f;
+            f32 offsetY = 0.0f;
+            if (inner.x != width || inner.y != height)
+            {
+                // The standard rule: uniform min-fit, letterboxed and centered.
+                scale = Min(width / inner.x, height / inner.y);
+                offsetX = (width - inner.x * scale) * 0.5f;
+                offsetY = (height - inner.y * scale) * 0.5f;
+            }
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 View* child = GetChildAt(i);
                 if (child->Visibility == VisibilityValue::Gone) { continue; }
-                child->Layout(0.0f, 0.0f, width, height);
+                child->Layout(offsetX, offsetY, inner.x, inner.y);
+                // Scale around the top-left so drawn rect = offset + scale * content;
+                // hit testing undoes the same transform (ViewGroup::HitTest).
+                child->Transform.Scale = Float2{ scale, scale };
+                child->Transform.Origin = Float2{ 0.0f, 0.0f };
             }
         }
     };
@@ -323,6 +357,8 @@ namespace draconic::ui
                 auto* host = static_cast<CanvasHostView*>(c.host.Get());
                 host->Seen = true;
                 host->Order = c.order;
+                host->ScalerMode = c.scalerMode;
+                host->ReferenceResolution = c.referenceResolution;
                 const UIDocument* document = c.document.Get();
                 if (document != c.builtFrom)
                 {

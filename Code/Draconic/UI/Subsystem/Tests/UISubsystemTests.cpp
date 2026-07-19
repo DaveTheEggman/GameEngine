@@ -472,3 +472,61 @@ TEST_CASE("ui.subsystem: canvases stack by order; billboard layer stays below; d
 
     ctx.Shutdown();
 }
+
+TEST_CASE("ui.subsystem: ReferenceResolution scaler lays out at the reference size and scales to fit")
+{
+    rt::Context ctx;
+    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
+    auto* ui = ctx.AddSubsystem<UISubsystem>();
+    ctx.Startup();
+    dscene::Scene* scene = scenes->CreateScene(u8"menu");
+    auto* canvases = scene->GetSystem<UICanvasComponentManager>();
+    dscene::EntityHandle e = scene->CreateEntity(u8"hud");
+    {
+        UICanvasComponent& c = canvases->Add(e);
+        c.document = MakeDocument(
+            u8"<Flex direction=\"vertical\"><Button id=\"btn\" text=\"go\" width=\"200\" height=\"40\"/></Flex>");
+        c.scalerMode = CanvasScalerMode::ReferenceResolution;
+        c.referenceResolution = Float2{ 1600.0f, 900.0f };
+    }
+    ctx.BeginFrame(1.0f / 60.0f);
+    UICanvasComponent* c = canvases->Get(e);
+    REQUIRE(c != nullptr);
+    REQUIRE(c->root.Get() != nullptr);
+
+    // Lay the scene root out at a smaller, differently-proportioned viewport.
+    RootView* root = ui->SceneRoot(*scene);
+    REQUIRE(root != nullptr);
+    root->ViewportSize = Float2{ 800.0f, 600.0f };
+    ui->Context().UpdateRootView(root);
+
+    // The document laid out at the REFERENCE size, uniformly scaled by
+    // min(800/1600, 600/900) = 0.5 and centered (letterbox: 75px top/bottom).
+    CHECK(c->root->Width() == doctest::Approx(1600.0f));
+    CHECK(c->root->Height() == doctest::Approx(900.0f));
+    CHECK(c->root->Transform.Scale.x == doctest::Approx(0.5f));
+    CHECK(c->root->Transform.Scale.y == doctest::Approx(0.5f));
+    CHECK(c->root->Bounds.x == doctest::Approx(0.0f));
+    CHECK(c->root->Bounds.y == doctest::Approx(75.0f));
+
+    // Hit-testing follows the transform: reference-space (100, 20) draws at
+    // (50, 75 + 10) - the button is hit there, and the letterbox bar is empty.
+    View* hit = root->HitTest(Float2{ 50.0f, 85.0f });
+    REQUIRE(hit != nullptr);
+    CHECK(hit->Name.AsView() == u8"btn");
+    View* bar = root->HitTest(Float2{ 50.0f, 30.0f });
+    CHECK((bar == nullptr || bar == root));
+
+    // Switching back to ConstantPixel restores 1:1 layout on the next sync.
+    c->scalerMode = CanvasScalerMode::ConstantPixel;
+    ctx.BeginFrame(1.0f / 60.0f);
+    ui->Context().UpdateRootView(root);
+    c = canvases->Get(e);
+    CHECK(c->root->Width() == doctest::Approx(800.0f));
+    CHECK(c->root->Transform.Scale.x == doctest::Approx(1.0f));
+    View* direct = root->HitTest(Float2{ 100.0f, 20.0f });
+    REQUIRE(direct != nullptr);
+    CHECK(direct->Name.AsView() == u8"btn");
+
+    ctx.Shutdown();
+}
