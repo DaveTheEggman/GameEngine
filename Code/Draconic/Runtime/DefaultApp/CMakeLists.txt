@@ -11,6 +11,7 @@ target_link_libraries(DraconicRuntimeDefaultApp
     PUBLIC Draconic::Core Draconic::RHI Draconic::RuntimeClient Draconic::Shell Draconic::Graphics
            Draconic::Scene Draconic::SceneSubsystem Draconic::RenderSubsystem Draconic::AnimationSubsystem
            Draconic::ParticlesSubsystem Draconic::Physics Draconic::PhysicsSubsystem
+           Draconic::Audio Draconic::AudioResource Draconic::AudioSubsystem
            Draconic::Input Draconic::InputSubsystem Draconic::Script Draconic::ScriptWren
            Draconic::Resource Draconic::Content Draconic::SceneResource
            Draconic::MeshResource Draconic::MaterialResource Draconic::AnimationResource

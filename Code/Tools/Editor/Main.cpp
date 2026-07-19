@@ -58,6 +58,9 @@ import draconic.ui.editor;
 import draconic.editor.gameui;
 import draconic.physics.subsystem;
 import draconic.modelimporter;
+import draconic.audio;
+import draconic.audio.resource;
+import draconic.audio.editor;
 
 using namespace draconic::core;
 namespace ed = draconic::editor;
@@ -92,6 +95,8 @@ namespace
         draconic::physics::RegisterPhysicsResource();
         draconic::ui::RegisterUIAssets();
         draconic::ui::RegisterUIResource();
+        draconic::audio::RegisterAudioAssets();
+        draconic::audio::RegisterAudioResource();
 
         AddBuilder<draconic::texture::TextureAssetBuilder>(registry);
         AddBuilder<draconic::image::ImageAssetBuilder>(registry);
@@ -109,6 +114,7 @@ namespace
         AddBuilder<draconic::physics::PhysicalMaterialAssetBuilder>(registry);
         AddBuilder<draconic::ui::UIDocumentAssetBuilder>(registry);
         AddBuilder<draconic::ui::UIThemeAssetBuilder>(registry);
+        AddBuilder<draconic::audio::AudioClipAssetBuilder>(registry);
     }
 
     // Create a StaticMeshAsset in the project's Meshes/ group from a procedural primitive,
@@ -319,6 +325,8 @@ int main(int argc, char** argv)
             DefaultAllocator().New<draconic::modelimporter::ModelFileImporter>(), DefaultAllocator()));
         app.Context().Importers().Register(UniquePtr<ed::IFileImporter>(
             DefaultAllocator().New<draconic::ui::UIFileImporter>(), DefaultAllocator()));
+        app.Context().Importers().Register(UniquePtr<ed::IFileImporter>(
+            DefaultAllocator().New<draconic::audio::AudioFileImporter>(), DefaultAllocator()));
 
         // Resource factories come from the embedded DefaultApplication (registered into
         // the editor's preset ResourceManager at its OnStartup) - none registered here.

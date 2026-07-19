@@ -1,0 +1,317 @@
+// draconic.audio.subsystem tests: the scene integration headless - autoplay on scene
+// start, per-frame position/velocity sync (the doppler feed), finished-voice reap into
+// the component, the per-scene group pausing with scene simulation, the component
+// control surface, the listener component pose, and component serialization round-trip.
+
+#include <doctest/doctest.h>
+
+#include "Core/Prelude.h"
+#include <cmath>
+
+import draconic.core;
+import draconic.scene;
+import draconic.scene.resource;
+import draconic.audio;
+import draconic.audio.subsystem;
+
+using namespace draconic::core;
+using namespace draconic::audio;
+namespace dscene = draconic::scene;
+
+namespace
+{
+    [[nodiscard]] RefPtr<AudioClip> MakeToneClip(f32 seconds, u32 sampleRate = 8000,
+                                                 u32 channels = 1)
+    {
+        Array<i16> samples;
+        const usize frameCount = static_cast<usize>(seconds * static_cast<f32>(sampleRate));
+        for (usize frame = 0; frame < frameCount; ++frame)
+        {
+            const f32 t = static_cast<f32>(frame) / static_cast<f32>(sampleRate);
+            const i16 sample =
+                static_cast<i16>(0.5f * std::sin(2.0f * 3.14159265f * 440.0f * t) * 32000.0f);
+            for (u32 channel = 0; channel < channels; ++channel) { samples.PushBack(sample); }
+        }
+        Array<byte> wav;
+        REQUIRE(EncodeWavFromPcm16(Span<const i16>(samples.Data(), samples.Size()),
+                                   channels, sampleRate, wav));
+        RefPtr<AudioClip> clip = MakeRef<AudioClip>(DefaultAllocator());
+        AudioClipMetadata metadata;
+        REQUIRE(ProbeAudioClipMetadata(Span<const byte>(wav.Data(), wav.Size()), metadata));
+        clip->channels = metadata.channels;
+        clip->sampleRate = metadata.sampleRate;
+        clip->frameCount = metadata.frameCount;
+        clip->durationSeconds = metadata.durationSeconds;
+        clip->encodedData = wav;
+        return clip;
+    }
+
+    struct PlayScene
+    {
+        AudioEngine engine;
+        dscene::Scene scene{ u8"audio-test" };
+        AudioSceneSystem* audio = nullptr;
+
+        PlayScene()
+            : engine([] {
+                  AudioEngineSettings settings;
+                  settings.headless = true;
+                  settings.dedupeWindowSeconds = 0.0f;   // scene tests place explicit voices
+                  return settings;
+              }())
+        {
+            RegisterAudioComponentReflection();
+            scene.AddSystem<AudioSourceComponentManager>();
+            scene.AddSystem<AudioListenerComponentManager>();
+            audio = scene.AddSystem<AudioSceneSystem>();
+            audio->SetEngine(&engine);
+        }
+
+        dscene::EntityHandle AddSource(const RefPtr<AudioClip>& clip, Float3 position,
+                                       bool autoPlay = true, bool loop = true)
+        {
+            dscene::EntityHandle e = scene.CreateEntity(u8"source");
+            scene.SetLocalPosition(e, position);
+            AudioSourceComponent& c = scene.GetSystem<AudioSourceComponentManager>()->Add(e);
+            c.clip = clip;
+            c.autoPlay = autoPlay;
+            c.loop = loop;
+            return e;
+        }
+
+        void Start()
+        {
+            scene.Start();
+            scene.SetSimulationEnabled(true);
+        }
+
+        void Frame(f32 deltaTime = 1.0f / 60.0f)
+        {
+            scene.Update(deltaTime);
+            engine.Update(deltaTime);
+        }
+    };
+}
+
+TEST_CASE("audio.scene: autoplay sources start voices at scene start, positioned where "
+          "authored; scene stop tears the group down and clears handles")
+{
+    PlayScene play;
+    RefPtr<AudioClip> clip = MakeToneClip(1.0f);
+    const dscene::EntityHandle e = play.AddSource(clip, Float3{ 3.0f, 1.0f, -2.0f });
+    play.Start();
+
+    auto* sources = play.scene.GetSystem<AudioSourceComponentManager>();
+    AudioSourceComponent* c = sources->Get(e);
+    REQUIRE(c != nullptr);
+    REQUIRE(c->voice.IsValid());
+    CHECK(play.engine.IsPlaying(c->voice));
+    CHECK(play.audio->SceneGroup() != 0u);
+
+    VoiceStatus status;
+    REQUIRE(play.engine.GetVoiceStatus(c->voice, status));
+    CHECK(status.spatial);
+    CHECK(status.position.x == doctest::Approx(3.0f));
+    CHECK(status.position.z == doctest::Approx(-2.0f));
+
+    const VoiceHandle handle = c->voice;
+    play.scene.Stop();
+    CHECK_FALSE(c->voice.IsValid());              // component handle cleared
+    CHECK_FALSE(play.engine.IsValidHandle(handle));   // group teardown freed the voice
+    CHECK(play.audio->SceneGroup() == 0u);
+}
+
+TEST_CASE("audio.scene: per-frame sync pushes position AND velocity (the doppler feed) "
+          "from transform deltas")
+{
+    PlayScene play;
+    RefPtr<AudioClip> clip = MakeToneClip(1.0f);
+    const dscene::EntityHandle e = play.AddSource(clip, Float3{ 0.0f, 0.0f, 0.0f });
+    play.Start();
+    play.Frame();   // primes previousPosition
+
+    // Move 1 unit in x over one 60 Hz frame = 60 u/s along x.
+    dscene::EntityHandle entity = e;
+    play.scene.SetLocalPosition(entity, Float3{ 1.0f, 0.0f, 0.0f });
+    play.Frame();
+
+    AudioSourceComponent* c = play.scene.GetSystem<AudioSourceComponentManager>()->Get(e);
+    REQUIRE(c != nullptr);
+    VoiceStatus status;
+    REQUIRE(play.engine.GetVoiceStatus(c->voice, status));
+    CHECK(status.position.x == doctest::Approx(1.0f));
+    CHECK(c->previousPosition.x == doctest::Approx(1.0f));
+    CHECK(c->hasPreviousPosition);
+}
+
+TEST_CASE("audio.scene: pausing scene simulation pauses the scene's voice group; "
+          "resuming unpauses it")
+{
+    PlayScene play;
+    RefPtr<AudioClip> clip = MakeToneClip(1.0f);
+    (void)play.AddSource(clip, Float3{ 0, 0, 0 });
+    play.Start();
+    play.Frame();
+    CHECK_FALSE(play.engine.IsSceneGroupPaused(play.audio->SceneGroup()));
+
+    play.scene.SetSimulationEnabled(false);
+    play.Frame();
+    CHECK(play.engine.IsSceneGroupPaused(play.audio->SceneGroup()));
+
+    play.scene.SetSimulationEnabled(true);
+    play.Frame();
+    CHECK_FALSE(play.engine.IsSceneGroupPaused(play.audio->SceneGroup()));
+}
+
+TEST_CASE("audio.scene: a finished one-shot reaps and the component handle clears")
+{
+    PlayScene play;
+    RefPtr<AudioClip> clip = MakeToneClip(0.1f);
+    const dscene::EntityHandle e =
+        play.AddSource(clip, Float3{ 0, 0, 0 }, /*autoPlay=*/true, /*loop=*/false);
+    play.Start();
+
+    AudioSourceComponent* c = play.scene.GetSystem<AudioSourceComponentManager>()->Get(e);
+    REQUIRE(c != nullptr);
+    REQUIRE(c->voice.IsValid());
+
+    for (int i = 0; i < 30 && c->voice.IsValid(); ++i) { play.Frame(0.05f); }
+    CHECK_FALSE(c->voice.IsValid());
+    CHECK(play.engine.ActiveVoiceCount() == 0u);
+}
+
+TEST_CASE("audio.scene: the component control surface - Play/Stop/SetPaused/IsPlaying")
+{
+    PlayScene play;
+    RefPtr<AudioClip> clip = MakeToneClip(1.0f);
+    const dscene::EntityHandle e =
+        play.AddSource(clip, Float3{ 1, 2, 3 }, /*autoPlay=*/false);
+    play.Start();
+
+    AudioSourceComponent* c = play.scene.GetSystem<AudioSourceComponentManager>()->Get(e);
+    REQUIRE(c != nullptr);
+    CHECK_FALSE(c->voice.IsValid());              // no autoplay
+
+    const VoiceHandle voice = play.audio->Play(e);
+    REQUIRE(voice.IsValid());
+    CHECK(play.audio->IsPlaying(e));
+
+    play.audio->SetPaused(e, true);
+    CHECK_FALSE(play.audio->IsPlaying(e));
+    play.audio->SetPaused(e, false);
+    CHECK(play.audio->IsPlaying(e));
+
+    play.audio->Stop(e);
+    CHECK_FALSE(c->voice.IsValid());
+    play.Frame(0.1f);
+    CHECK(play.engine.ActiveVoiceCount() == 0u);
+
+    // Entities without a source are inert.
+    dscene::EntityHandle bare = play.scene.CreateEntity(u8"bare");
+    CHECK_FALSE(play.audio->Play(bare).IsValid());
+    CHECK_FALSE(play.audio->IsPlaying(bare));
+}
+
+TEST_CASE("audio.scene: the first ACTIVE listener component drives the scene's listener "
+          "pose (position + forward + velocity)")
+{
+    PlayScene play;
+    dscene::EntityHandle inactive = play.scene.CreateEntity(u8"inactive-listener");
+    play.scene.GetSystem<AudioListenerComponentManager>()->Add(inactive).isActive = false;
+    play.scene.SetLocalPosition(inactive, Float3{ 100.0f, 0.0f, 0.0f });
+
+    dscene::EntityHandle listener = play.scene.CreateEntity(u8"listener");
+    play.scene.GetSystem<AudioListenerComponentManager>()->Add(listener);
+    play.scene.SetLocalPosition(listener, Float3{ 5.0f, 2.0f, 0.0f });
+
+    play.Start();
+    play.Frame();
+    REQUIRE(play.audio->ListenerValid());
+    CHECK(play.audio->ListenerPosition().x == doctest::Approx(5.0f));   // inactive skipped
+    CHECK(play.audio->ListenerForward().z == doctest::Approx(-1.0f));   // identity: -Z
+    CHECK(play.audio->ListenerUp().y == doctest::Approx(1.0f));
+
+    // Velocity from transform deltas: 0.6 units over 1/60 s = 36 u/s.
+    play.scene.SetLocalPosition(listener, Float3{ 5.6f, 2.0f, 0.0f });
+    play.Frame();
+    CHECK(play.audio->ListenerVelocity().x == doctest::Approx(36.0f).epsilon(0.05));
+}
+
+TEST_CASE("audio.scene: components round-trip through SerializeScene (authored fields "
+          "kept, runtime voice handles NOT serialized)")
+{
+    RegisterAudioComponentReflection();
+    dscene::Scene a(u8"level");
+    a.AddSystem<AudioSourceComponentManager>();
+    a.AddSystem<AudioListenerComponentManager>();
+
+    dscene::EntityHandle source = a.CreateEntity(u8"emitter");
+    AudioSourceComponent& sc = a.GetSystem<AudioSourceComponentManager>()->Add(source);
+    Guid clipId;
+    REQUIRE(Guid::TryParse(u8"12345678-1234-4234-8234-123456789abc", clipId));
+    sc.clip.SetId(clipId);
+    sc.bus = AudioBus::Music;
+    sc.volume = 0.7f;
+    sc.pitch = 1.25f;
+    sc.loop = true;
+    sc.spatial = true;
+    sc.autoPlay = true;
+    sc.priority = 200;
+    sc.minDistance = 2.5f;
+    sc.maxDistance = 80.0f;
+    sc.attenuationModel = AudioAttenuationModel::Linear;
+    sc.rolloff = 1.5f;
+    sc.dopplerFactor = 0.5f;
+    sc.coneInnerAngleDegrees = 45.0f;
+    sc.coneOuterAngleDegrees = 90.0f;
+    sc.coneOuterGain = 0.25f;
+    sc.voice = VoiceHandle{ 7, 3 };   // runtime junk that must NOT survive
+
+    dscene::EntityHandle listener = a.CreateEntity(u8"ears");
+    a.GetSystem<AudioListenerComponentManager>()->Add(listener).isActive = false;
+
+    MemoryStream stream;
+    {
+        BinarySerializer writer(stream, SerializeMode::Write);
+        dscene::SerializeScene(writer, a);
+    }
+    (void)stream.Seek(0, SeekOrigin::Begin);
+
+    dscene::Scene b;
+    b.AddSystem<AudioSourceComponentManager>();
+    b.AddSystem<AudioListenerComponentManager>();
+    {
+        BinarySerializer reader(stream, SerializeMode::Read);
+        dscene::SerializeScene(reader, b);
+    }
+
+    dscene::EntityHandle loadedSource = b.FindEntity(a.GetEntityId(source));
+    REQUIRE(loadedSource.IsAssigned());
+    AudioSourceComponent* loaded =
+        b.GetSystem<AudioSourceComponentManager>()->Get(loadedSource);
+    REQUIRE(loaded != nullptr);
+    CHECK(loaded->clip.id == clipId);
+    CHECK(loaded->bus == AudioBus::Music);
+    CHECK(loaded->volume == doctest::Approx(0.7f));
+    CHECK(loaded->pitch == doctest::Approx(1.25f));
+    CHECK(loaded->loop);
+    CHECK(loaded->spatial);
+    CHECK(loaded->autoPlay);
+    CHECK(loaded->priority == 200);
+    CHECK(loaded->minDistance == doctest::Approx(2.5f));
+    CHECK(loaded->maxDistance == doctest::Approx(80.0f));
+    CHECK(loaded->attenuationModel == AudioAttenuationModel::Linear);
+    CHECK(loaded->rolloff == doctest::Approx(1.5f));
+    CHECK(loaded->dopplerFactor == doctest::Approx(0.5f));
+    CHECK(loaded->coneInnerAngleDegrees == doctest::Approx(45.0f));
+    CHECK(loaded->coneOuterAngleDegrees == doctest::Approx(90.0f));
+    CHECK(loaded->coneOuterGain == doctest::Approx(0.25f));
+    CHECK_FALSE(loaded->voice.IsValid());   // runtime handle did not travel
+
+    dscene::EntityHandle loadedListener = b.FindEntity(a.GetEntityId(listener));
+    REQUIRE(loadedListener.IsAssigned());
+    AudioListenerComponent* loadedEars =
+        b.GetSystem<AudioListenerComponentManager>()->Get(loadedListener);
+    REQUIRE(loadedEars != nullptr);
+    CHECK_FALSE(loadedEars->isActive);
+}
