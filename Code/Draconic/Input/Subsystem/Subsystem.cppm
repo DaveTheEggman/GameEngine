@@ -25,6 +25,19 @@ export namespace draconic::input
     /// The service key ExposeToScript binds and the scripting facade resolves.
     inline constexpr StringView kInputRuntimeService = u8"input.runtime";
 
+    /// How game-UI input routing treats the active source when it carries NO scene
+    /// binding (see SetSourceProvider). The PLAYER's shell source owns the whole
+    /// window, so un-bound input reaches every scene's UI (AllScenes - the default).
+    /// An EDITOR-embedded runtime sets ScreenTierOnly: un-bound input (raw shell
+    /// keystrokes before the Game tab exists, or the Game viewport's source while
+    /// NOT playing) must never reach scene-tier game canvases in open editing pages -
+    /// their HUDs stay VISIBLE (WYSIWYG) but deliberately not interactive.
+    enum class UnboundInputScenePolicy : u8
+    {
+        AllScenes = 0,     // un-bound input reaches every scene's UI (player default)
+        ScreenTierOnly,    // un-bound input reaches only the scene-less screen tier (editor)
+    };
+
     class InputSubsystem final : public draconic::runtime::Subsystem
     {
     public:
@@ -39,7 +52,38 @@ export namespace draconic::input
 
         /// Overrides the device source (play-in-editor: the Game viewport's gated facades).
         /// Null restores the shell devices.
-        void SetSourceProvider(IInputSourceProvider* provider) noexcept { m_override = provider; }
+        ///
+        /// `boundSceneKey` is the PER-SURFACE SCENE BINDING (game-ui.md §9): the opaque
+        /// identity of the scene this source represents - a Scene* used only for
+        /// comparison, the render layer's SceneOverlayView::sceneKey convention, which
+        /// keeps this module scene-agnostic. When bound, the UI pump routes pointer
+        /// probing, keyboard/text, and gamepad navigation ONLY to that scene's UI root
+        /// (plus the scene-less screen tier, which is modal while occupied) and publishes
+        /// the consumption mask from that root alone - two interactive scenes visible at
+        /// once can no longer cross-route on overlapping coordinates. Null = un-bound:
+        /// UnboundScenePolicy() decides. The binding rides the override - clearing the
+        /// provider clears it.
+        void SetSourceProvider(IInputSourceProvider* provider,
+                               const void* boundSceneKey = nullptr) noexcept
+        {
+            m_override = provider;
+            m_boundSceneKey = (provider != nullptr) ? boundSceneKey : nullptr;
+        }
+
+        /// The active source's scene binding (null = un-bound; see SetSourceProvider).
+        [[nodiscard]] const void* BoundSceneKey() const noexcept { return m_boundSceneKey; }
+
+        /// Routing for un-bound sources (see UnboundInputScenePolicy). The editor's
+        /// embedded runtime sets ScreenTierOnly once at startup; the player keeps the
+        /// AllScenes default.
+        void SetUnboundScenePolicy(UnboundInputScenePolicy policy) noexcept
+        {
+            m_unboundScenePolicy = policy;
+        }
+        [[nodiscard]] UnboundInputScenePolicy UnboundScenePolicy() const noexcept
+        {
+            return m_unboundScenePolicy;
+        }
 
         /// The device source actions currently evaluate against - the UI subsystem reads
         /// the SAME facades (so game UI sees viewport-transformed coordinates in the Game
@@ -73,6 +117,8 @@ export namespace draconic::input
     private:
         ShellInputSource m_shellSource;
         IInputSourceProvider* m_override = nullptr;   // borrowed
+        const void* m_boundSceneKey = nullptr;        // the override's scene binding (comparison only)
+        UnboundInputScenePolicy m_unboundScenePolicy = UnboundInputScenePolicy::AllScenes;
         ActionRuntime m_runtime;
     };
 
