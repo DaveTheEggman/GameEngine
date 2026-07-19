@@ -577,6 +577,72 @@ namespace draconic::ui
                 for (View* root : liveBillboards) { if (root == child) { live = true; break; } }
                 if (!live) { sceneUI.billboardLayer->RemoveView(child); }
             }
+
+            // World panels (the world tier): standalone roots like RT canvases - never
+            // parented into a tier, registered through the SAME texture-root registry
+            // (its mark-sweep handles despawn); drawn + sprite-driven by
+            // RenderCanvasTextures; the pump ray-routes the pointer into them.
+            if (auto* panels = scene->GetSystem<UIWorldPanelComponentManager>())
+            {
+                panels->ForEach([&](UIWorldPanelComponent& c, dscene::EntityHandle) {
+                    const UIDocument* document = c.document.Get();
+                    if (document != c.builtFrom)
+                    {
+                        if (c.renderRoot.Get() != nullptr)
+                        {
+                            m_context.RemoveRootView(c.renderRoot.Get());
+                            c.renderRoot = nullptr;
+                            c.root = nullptr;
+                            c.renderTexture = nullptr;       // swept by RenderCanvasTextures
+                            c.renderTextureView = nullptr;
+                        }
+                        if (document != nullptr && !document->markup.IsEmpty())
+                        {
+                            c.root = MarkupLoader::LoadFromString(document->markup.AsView(),
+                                                                  &m_context);
+                            if (c.root.Get() != nullptr)
+                            {
+                                c.renderRoot = MakeRef<RootView>(DefaultAllocator());
+                                c.renderRoot->AddView(c.root.Get());
+                                m_context.AddRootView(c.renderRoot.Get());
+                                TextureCanvasRoot entry;
+                                entry.root = c.renderRoot;
+                                m_textureCanvasRoots.PushBack(Move(entry));
+                            }
+                            else
+                            {
+                                DRACONIC_LOG_WARNING(u8"UI",
+                                    u8"world panel document failed to instantiate");
+                            }
+                        }
+                        c.builtFrom = document;
+                    }
+                    if (c.renderRoot.Get() != nullptr)
+                    {
+                        for (TextureCanvasRoot& entry : m_textureCanvasRoots)
+                        {
+                            if (entry.root.Get() == c.renderRoot.Get())
+                            {
+                                entry.seen = true;
+                                break;
+                            }
+                        }
+                    }
+                    const UITheme* theme = c.theme.Get();
+                    if (theme != c.themeFrom)
+                    {
+                        c.themeSheet = nullptr;
+                        if (theme != nullptr && !theme->stylesheet.IsEmpty())
+                        {
+                            StyleSheetLoader loader;
+                            loader.SetPalette(GameTheme::Palette());
+                            c.themeSheet = loader.Load(theme->stylesheet.AsView());
+                        }
+                        if (c.root.Get() != nullptr) { c.root->SetLocalStyleSheet(c.themeSheet); }
+                        c.themeFrom = theme;
+                    }
+                });
+            }
         }
         // Sweep RenderTexture roots whose component vanished (despawn/removal/scene
         // teardown): unregister from the context - which stores roots NON-OWNING, so a
@@ -628,12 +694,18 @@ namespace draconic::ui
             return unboundReachesScenes;
         };
 
+        // World-panel pointer routing state: when the ray hits a panel, its root
+        // becomes the active input root and the DISPATCH coordinates become the
+        // panel-local pixels (the root's own space) instead of the raw pointer.
+        bool panelPointer = false;
+        Float2 panelPointerPx{ 0.0f, 0.0f };
+
         // The context dispatches input through ONE ActiveInputRoot (the UIHost multi-
         // window precedent) - with the tiers split across roots, pick it per frame:
         // an OCCUPIED screen tier is modal and always wins; otherwise the ELIGIBLE
-        // root under the pointer; otherwise (pad/keyboard-only) the first eligible
-        // scene root with canvas content, so gamepad nav reaches a pause menu no
-        // pointer ever hovered.
+        // root under the pointer; otherwise the nearest INTERACTIVE WORLD PANEL under
+        // the camera ray; otherwise (pad/keyboard-only) the first eligible scene root
+        // with canvas content, so gamepad nav reaches a pause menu no pointer hovered.
         {
             RootView* target = nullptr;
             if (overlayActive) { target = m_screenRoot.Get(); }
@@ -652,6 +724,48 @@ namespace draconic::ui
                     if (root == nullptr) { continue; }
                     View* hit = root->HitTest(point);
                     if (hit != nullptr && hit != root) { target = root; }
+                }
+                // World tier: the pointer missed every overlay - cast the scene
+                // camera's ray and take the NEAREST interactive panel it crosses.
+                if (target == nullptr)
+                {
+                    f32 bestDistance = 0.0f;
+                    for (SceneUI& sceneUI : m_sceneUIs)
+                    {
+                        if (!sceneRootEligible(sceneUI)) { continue; }
+                        auto* panels =
+                            sceneUI.scene->GetSystem<UIWorldPanelComponentManager>();
+                        if (panels == nullptr) { continue; }
+                        // The surface's content size = the scene root's last-drawn
+                        // viewport (zero before the first frame renders - no ray yet).
+                        const Float2 viewSize = sceneUI.root.Get() != nullptr
+                            ? sceneUI.root->ViewportSize : Float2{ 0.0f, 0.0f };
+                        if (viewSize.x <= 0.0f || viewSize.y <= 0.0f) { continue; }
+                        draconic::render::ViewCamera camera;
+                        if (!draconic::render::ExtractPrimaryCamera(*sceneUI.scene, camera))
+                        {
+                            continue;
+                        }
+                        Float3 rayOrigin, rayDirection;
+                        PointerRayFromCamera(camera, point, viewSize, rayOrigin, rayDirection);
+                        panels->ForEach([&](UIWorldPanelComponent& c,
+                                            dscene::EntityHandle e) {
+                            if (!c.interactive || !c.visible) { return; }
+                            if (c.renderRoot.Get() == nullptr) { return; }
+                            const WorldPanelHit hit = RayHitWorldPanel(
+                                rayOrigin, rayDirection,
+                                sceneUI.scene->GetWorldMatrix(e), c.sizeMeters);
+                            if (!hit.hit) { return; }
+                            if (target != nullptr && hit.distance >= bestDistance) { return; }
+                            target = c.renderRoot.Get();
+                            bestDistance = hit.distance;
+                            const Float2 rootSize = c.renderRoot->ViewportSize;
+                            panelPointerPx = Float2{ hit.uv.x * rootSize.x,
+                                                     hit.uv.y * rootSize.y };
+                            panelPointer = true;
+                        });
+                    }
+                    if (target == nullptr) { panelPointer = false; }
                 }
             }
             if (target == nullptr)
@@ -672,8 +786,10 @@ namespace draconic::ui
         }
         if (mouse != nullptr)
         {
-            const f32 x = mouse->X();
-            const f32 y = mouse->Y();
+            // Panel routing swaps in panel-local pixels: the active root IS the panel's
+            // standalone root, so dispatch coordinates live in its texture space.
+            const f32 x = panelPointer ? panelPointerPx.x : mouse->X();
+            const f32 y = panelPointer ? panelPointerPx.y : mouse->Y();
             inputManager.ProcessMouseMove(x, y);
             const draconic::shell::MouseButton shellButtons[3] = {
                 draconic::shell::MouseButton::Left, draconic::shell::MouseButton::Right,
@@ -809,7 +925,8 @@ namespace draconic::ui
                 pointer = hit != nullptr && hit != root;
             }
         }
-        pointer = pointer || inputManager.PressedId() != ViewId{};
+        // A ray-hit interactive panel consumes the pointer like any hovered canvas.
+        pointer = pointer || panelPointer || inputManager.PressedId() != ViewId{};
         const bool keyboard = m_context.WantsTextInput();
         m_pointerConsumed = pointer;
         m_input->Runtime().SetConsumptionMask(
@@ -1021,6 +1138,64 @@ namespace draconic::ui
                                           rhi::ResourceState::ShaderRead);
                 target->state = rhi::ResourceState::ShaderRead;
             });
+
+            // World panels: same target machinery, sized by PIXELS-PER-METER, and the
+            // sibling sprite is DRIVEN outright (EntityOriented + sizeMeters + texture)
+            // - the panel IS the authoring surface, the sprite is its render vehicle.
+            // One RT consumer per entity: a panel and an RT canvas on the same entity
+            // would collide on the (scene, entity) target key - warned, panel wins.
+            if (auto* panels = sceneUI.scene->GetSystem<UIWorldPanelComponentManager>())
+            {
+                panels->ForEach([&](UIWorldPanelComponent& c, dscene::EntityHandle entity) {
+                    if (c.renderRoot.Get() == nullptr) { return; }
+                    const f32 ppm = Max(c.pixelsPerMeter, 1.0f);
+                    const u32 width = Clamp<u32>(
+                        static_cast<u32>(c.sizeMeters.x * ppm + 0.5f), 16u, 2048u);
+                    const u32 height = Clamp<u32>(
+                        static_cast<u32>(c.sizeMeters.y * ppm + 0.5f), 16u, 2048u);
+                    RenderState::CanvasTarget* target = m_render->EnsureCanvasTarget(
+                        sceneUI.scene, entity, width, height, kCanvasTextureFormat);
+                    if (target == nullptr)
+                    {
+                        c.renderTexture = nullptr;
+                        c.renderTextureView = nullptr;
+                        return;
+                    }
+                    target->seen = true;
+                    c.renderTexture = target->texture;
+                    c.renderTextureView = target->view;
+
+                    // Drive the sprite (auto-added): the panel's quad in the world.
+                    if (sprites != nullptr)
+                    {
+                        draconic::render::SpriteComponent* sprite = sprites->Get(entity);
+                        if (sprite == nullptr) { sprite = &sprites->Add(entity); }
+                        sprite->orientation = draconic::render::SpriteOrientation::EntityOriented;
+                        sprite->size = c.sizeMeters;
+                        sprite->texture = target->view;
+                        sprite->visible = c.visible;
+                    }
+                    if (!c.visible) { return; }   // keep the texture, skip the draw
+                    encoder.TransitionTexture(target->texture, target->state,
+                                              rhi::ResourceState::RenderTarget);
+                    rhi::RenderPassDesc pass;
+                    rhi::ColorAttachment color;
+                    color.view = target->view;
+                    color.loadOp = rhi::LoadOp::Clear;
+                    color.storeOp = rhi::StoreOp::Store;
+                    color.clearValue = rhi::ClearColor{ 0.0f, 0.0f, 0.0f, 0.0f };
+                    pass.colorAttachments.Add(color);
+                    if (rhi::RenderPassEncoder* rp = encoder.BeginRenderPass(pass))
+                    {
+                        DrawRootInPass(*c.renderRoot, *rp, kCanvasTextureFormat, 0, 0,
+                                       width, height, frameIndex);
+                        rp->End();
+                    }
+                    encoder.TransitionTexture(target->texture, rhi::ResourceState::RenderTarget,
+                                              rhi::ResourceState::ShaderRead);
+                    target->state = rhi::ResourceState::ShaderRead;
+                });
+            }
         }
         // Sweep targets whose canvas vanished (despawn, scene destroyed, mode flip) -
         // and un-bind any sprite/decal override still pointing at the dying view (only
@@ -1200,6 +1375,17 @@ namespace draconic::ui
         builder.Property<&UICanvasComponent::renderTextureHeight>("renderTextureHeight");
     }
 
+    DRACONIC_REFLECT_VALUE(UIWorldPanelComponent, "draconic::ui")
+    {
+        builder.DataVersion(1);
+        builder.Property<&UIWorldPanelComponent::document>("document");
+        builder.Property<&UIWorldPanelComponent::theme>("theme");
+        builder.Property<&UIWorldPanelComponent::sizeMeters>("sizeMeters");
+        builder.Property<&UIWorldPanelComponent::pixelsPerMeter>("pixelsPerMeter");
+        builder.Property<&UIWorldPanelComponent::interactive>("interactive");
+        builder.Property<&UIWorldPanelComponent::visible>("visible");
+    }
+
     void RegisterUIComponentReflection()
     {
         static const bool once = []() {
@@ -1208,6 +1394,7 @@ namespace draconic::ui
             DraconicRegisterEnum_BillboardOrientation();
             DraconicRegisterEnum_BillboardScale();
             DraconicRegisterValue_UICanvasComponent();
+            DraconicRegisterValue_UIWorldPanelComponent();
             DraconicRegisterValue_UIBillboardComponent();
             return true;
         }();

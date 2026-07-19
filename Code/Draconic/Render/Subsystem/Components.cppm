@@ -186,6 +186,7 @@ enum class SpriteOrientation : u32 {
     CameraFacing  = 0,   // full billboard - always faces the camera
     CameraFacingY = 1,   // rotates about world-Y only (trees/characters)
     WorldAligned  = 2,   // fixed world XY plane (decal-like flat art)
+    EntityOriented = 3,  // spanned by the ENTITY's world right/up axes (world panels)
 };
 
 struct SpriteComponent {

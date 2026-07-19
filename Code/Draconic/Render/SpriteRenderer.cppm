@@ -36,8 +36,10 @@ struct SpriteInstance {
     Float4 sizeOrientation;   // x height, y orientation mode
     Float4 tint;
     Float4 uvRect;            // xy uv min, zw uv size
+    Float4 axisRight;         // xyz entity right (EntityOriented)
+    Float4 axisUp;            // xyz entity up (EntityOriented)
 };
-static_assert(sizeof(SpriteInstance) == 64);
+static_assert(sizeof(SpriteInstance) == 96);
 
 class SpriteRenderer final : public Renderer {
 public:
@@ -137,6 +139,8 @@ public:
                     si.sizeOrientation = Float4{ s->size.y, static_cast<f32>(s->orientation), 0.0f, 0.0f };
                     si.tint            = Float4{ s->tint.r, s->tint.g, s->tint.b, s->tint.a };
                     si.uvRect          = s->uvRect;
+                    si.axisRight       = Float4{ s->axisRight.x, s->axisRight.y, s->axisRight.z, 0.0f };
+                    si.axisUp          = Float4{ s->axisUp.x, s->axisUp.y, s->axisUp.z, 0.0f };
                 }
                 rhi::RenderPipeline* pso = EnsurePipeline(ctx.colorFormat, head->additive);
                 rhi::BindGroup* texBg = EnsureTextureBindGroup(head->texture);
@@ -207,10 +211,12 @@ private:
             { rhi::VertexFormat::Float32x4, 16, 1 },
             { rhi::VertexFormat::Float32x4, 32, 2 },
             { rhi::VertexFormat::Float32x4, 48, 3 },
+            { rhi::VertexFormat::Float32x4, 64, 4 },
+            { rhi::VertexFormat::Float32x4, 80, 5 },
         };
         rhi::VertexBufferLayout vbl{};
         vbl.stride = sizeof(SpriteInstance); vbl.stepMode = rhi::VertexStepMode::Instance;
-        vbl.attributes = Span<const rhi::VertexAttribute>{ attrs, 4 };
+        vbl.attributes = Span<const rhi::VertexAttribute>{ attrs, 6 };
 
         rhi::ColorTargetState target{};
         target.format = colorFormat;

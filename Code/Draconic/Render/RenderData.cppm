@@ -234,8 +234,10 @@ struct SpriteRenderData : RenderData {
     Float2  size        = Float2{ 1.0f, 1.0f };                 // world-unit width/height
     Float4  uvRect      = Float4{ 0.0f, 0.0f, 1.0f, 1.0f };     // atlas sub-rect (u, v, w, h)
     Color tint        = Color{ 1.0f, 1.0f, 1.0f, 1.0f };
-    u32   orientation = 0;      // 0 = camera-facing, 1 = camera-facing about world-Y, 2 = world-aligned (XY)
+    u32   orientation = 0;      // 0 = camera-facing, 1 = about world-Y, 2 = world XY, 3 = entity-oriented
     bool  additive    = false;  // blend: false = alpha over, true = additive
+    Float3 axisRight  = Float3{ 1.0f, 0.0f, 0.0f };   // EntityOriented: world right axis
+    Float3 axisUp     = Float3{ 0.0f, 1.0f, 0.0f };   // EntityOriented: world up axis
     rhi::TextureView* texture = nullptr;
 };
 static_assert(std::is_trivially_destructible_v<SpriteRenderData>);

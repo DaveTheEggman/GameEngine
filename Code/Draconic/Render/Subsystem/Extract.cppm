@@ -245,6 +245,14 @@ inline void ExtractSpritesInto(scene::Scene& scene, ExtractedScene& out, u16 spr
         rd->tint        = sc.tint;
         rd->orientation = static_cast<u32>(sc.orientation);
         rd->additive    = sc.additive;
+        if (sc.orientation == SpriteOrientation::EntityOriented)
+        {
+            // The entity's world right/up span the quad (normalized: `size` alone sets
+            // the extent, matching every other orientation's contract).
+            const Float4x4 world = scene.GetWorldMatrix(e);
+            rd->axisRight = Normalized(Float3{ world.m[0][0], world.m[0][1], world.m[0][2] });
+            rd->axisUp    = Normalized(Float3{ world.m[1][0], world.m[1][1], world.m[1][2] });
+        }
         rd->texture     = view;
     });
 }

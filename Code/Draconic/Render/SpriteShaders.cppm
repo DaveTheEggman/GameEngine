@@ -29,6 +29,8 @@ struct VSIn {
     float4 SizeOrientation : TEXCOORD1;   // x = height, y = orientation mode
     float4 Tint            : TEXCOORD2;
     float4 UVRect          : TEXCOORD3;    // xy = uv min, zw = uv size
+    float4 AxisRight       : TEXCOORD4;    // xyz entity right (mode 3)
+    float4 AxisUp          : TEXCOORD5;    // xyz entity up (mode 3)
     uint   VertexID        : SV_VertexID;
 };
 struct VSOut { float4 pos : SV_Position; float2 uv : TEXCOORD0; float4 col : COLOR0; };
@@ -50,7 +52,9 @@ VSOut main(VSIn i) {
 
     // Billboard basis in world space.
     float3 right, up;
-    if (mode == 2) {                     // world-aligned (XY plane)
+    if (mode == 3) {                     // entity-oriented (world panels: the entity's plane)
+        right = i.AxisRight.xyz; up = i.AxisUp.xyz;
+    } else if (mode == 2) {              // world-aligned (XY plane)
         right = float3(1, 0, 0); up = float3(0, 1, 0);
     } else if (mode == 1) {              // camera-facing about world Y (right in XZ, up = world Y)
         float3 camRight = float3(View._m00, View._m10, View._m20);

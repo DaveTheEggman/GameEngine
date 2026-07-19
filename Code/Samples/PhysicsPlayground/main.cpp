@@ -147,6 +147,32 @@ namespace
                     }
                 }
             }
+            if (!m_kioskBound && m_scene != nullptr)
+            {
+                if (auto* panels = m_scene->GetSystem<draconic::ui::UIWorldPanelComponentManager>())
+                {
+                    if (auto* panel = panels->Get(m_kioskEntity);
+                        panel != nullptr && panel->renderRoot.Get() != nullptr)
+                    {
+                        if (auto* button = core::Cast<draconic::ui::ViewGroup>(panel->renderRoot.Get())
+                                               ->FindByName<draconic::ui::Button>(u8"kiosk-btn"))
+                        {
+                            PlaygroundApp* self = this;
+                            draconic::ui::Button* raw = button;
+                            button->OnClick.Add([self, raw](draconic::ui::ButtonBase*) {
+                                ++self->m_kioskTaps;
+                                core::String text(u8"Taps: ");
+                                const core::u32 n = self->m_kioskTaps;
+                                if (n >= 10) { text.PushBack(static_cast<core::utf8char>('0' + n / 10 % 10)); }
+                                text.PushBack(static_cast<core::utf8char>('0' + n % 10));
+                                raw->SetText(text.AsView());
+                                core::ConsoleWrite(u8"Kiosk panel tapped\n");
+                            });
+                            m_kioskBound = true;
+                        }
+                    }
+                }
+            }
 
             // Crosshair shove: ray along the camera forward; impulse along the ray.
             // Gated on UI consumption: a click that lands ON the HUD never shoves.
@@ -320,6 +346,30 @@ namespace
                     plate.referenceDistance = 12.0f;
                 }
             }
+            // World panel (UI world tier): an interactive kiosk standing in the arena -
+            // a clickable counter ON A SURFACE. Aim at it and click; the pointer ray
+            // routes into the panel (and is consumed - no crate shove through it).
+            {
+                dscene::EntityHandle e = m_scene->CreateEntity(u8"kiosk");
+                m_scene->SetLocalPosition(e, core::Float3{ 4.0f, 1.6f, -6.0f });
+                m_kioskDocument = core::MakeRef<draconic::ui::UIDocument>(core::DefaultAllocator());
+                m_kioskDocument->markup = core::String(
+                    u8"<Flex direction=\"vertical\" spacing=\"8\" padding=\"12\""
+                    u8" style=\"background: rounded-rect(#20242cE0, 8)\">"
+                    u8"<Label text=\"KIOSK\" font-size=\"22\"/>"
+                    u8"<Button id=\"kiosk-btn\" text=\"Taps: 0\" width=\"220\" height=\"48\"/>"
+                    u8"</Flex>");
+                auto* panels = m_scene->GetSystem<draconic::ui::UIWorldPanelComponentManager>();
+                if (panels != nullptr)
+                {
+                    draconic::ui::UIWorldPanelComponent& panel = panels->Add(e);
+                    panel.document = m_kioskDocument;
+                    panel.sizeMeters = core::Float2{ 1.6f, 1.0f };
+                    panel.pixelsPerMeter = 220.0f;
+                    m_kioskEntity = e;
+                }
+            }
+
             // A motorized hinge spinner (P3 joints): a blade welded to the world pivot,
             // spinning at 2 rad/s - walk the character into it to get batted away.
             {
@@ -462,6 +512,10 @@ namespace
         core::RefPtr<draconic::ui::UIDocument> m_hudDocument;
         core::RefPtr<draconic::ui::UIDocument> m_nameplateDocument;
         bool m_hudBound = false;
+        core::RefPtr<draconic::ui::UIDocument> m_kioskDocument;
+        dscene::EntityHandle m_kioskEntity{};
+        bool m_kioskBound = false;
+        core::u32 m_kioskTaps = 0;
         core::u32 m_hudClicks = 0;
         core::RefPtr<physics::CollisionShape> m_rampShape;
         core::RefPtr<physics::CollisionShape> m_boulderShape;

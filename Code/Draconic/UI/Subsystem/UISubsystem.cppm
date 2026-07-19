@@ -176,6 +176,117 @@ export namespace draconic::ui
             : SerializableComponentManager<UIBillboardComponent>(u8"ui.Billboard") {}
     };
 
+    // ---- world tier (game-ui.md, decided 2026-07-19: RT-quad panels; direct-draw
+    // becomes a later per-panel mode) ----
+    // A UI document ON A SURFACE IN THE WORLD: the panel renders its tree into an
+    // offscreen target sized by PIXELS-PER-METER (uniform density) and drives a
+    // sibling SpriteComponent (EntityOriented - the entity's plane) with it, so the
+    // panel is ordinary scene content: depth, occlusion, TAA and post are correct by
+    // construction. UNLIT by design. Interactive panels take the pointer via a camera
+    // ray (the pump: ray -> nearest panel -> UV -> pixel injection into the panel's
+    // standalone root), under the same per-surface scene-binding rules as every tier.
+    struct UIWorldPanelComponent
+    {
+        // Authored:
+        draconic::resource::Ref<UIDocument> document;
+        draconic::resource::Ref<UITheme> theme;    // optional override (nil = context theme)
+        Float2 sizeMeters{ 1.6f, 0.9f };           // world extent of the quad
+        f32 pixelsPerMeter = 200.0f;               // texture density (target = size * ppm)
+        bool interactive = true;
+        bool visible = true;
+
+        // Runtime (transient):
+        RefPtr<View> root;
+        RefPtr<RootView> renderRoot;               // standalone (never a tier root)
+        const UIDocument* builtFrom = nullptr;
+        RefPtr<StyleSheet> themeSheet;
+        const UITheme* themeFrom = nullptr;
+        rhi::Texture* renderTexture = nullptr;         // subsystem-owned (accessors)
+        rhi::TextureView* renderTextureView = nullptr;
+    };
+
+    inline void Serialize(ISerializer& ar, UIWorldPanelComponent& c)
+    {
+        draconic::core::Serialize(ar, "document", c.document);
+        draconic::core::Serialize(ar, "theme", c.theme);
+        draconic::core::Serialize(ar, "sizeMeters", c.sizeMeters);
+        draconic::core::Serialize(ar, "pixelsPerMeter", c.pixelsPerMeter);
+        draconic::core::Serialize(ar, "interactive", c.interactive);
+        draconic::core::Serialize(ar, "visible", c.visible);
+    }
+
+    inline void ResolveResources(draconic::resource::ResourceManager& manager, UIWorldPanelComponent& c)
+    {
+        c.document.Bind(manager);
+        c.theme.Bind(manager);
+    }
+
+    class UIWorldPanelComponentManager final
+        : public dscene::SerializableComponentManager<UIWorldPanelComponent>
+    {
+    public:
+        UIWorldPanelComponentManager()
+            : SerializableComponentManager<UIWorldPanelComponent>(u8"ui.WorldPanel") {}
+    };
+
+    // ---- world-panel pointer math (pure; unit-tested) ----
+
+    /// The world-space pointer ray for `pointerPx` on a view of `viewSize`, through
+    /// `camera` (unjittered). D3D depth convention (near z = 0, far z = 1).
+    inline void PointerRayFromCamera(const render::ViewCamera& camera, Float2 pointerPx,
+                                     Float2 viewSize, Float3& outOrigin, Float3& outDirection)
+    {
+        const Float4x4 inverseViewProjection = Inverse(camera.ViewProjection());
+        const f32 ndcX = (pointerPx.x / viewSize.x) * 2.0f - 1.0f;
+        const f32 ndcY = 1.0f - (pointerPx.y / viewSize.y) * 2.0f;
+        auto unproject = [&](f32 z) {
+            const Float4 clip = Float4{ ndcX, ndcY, z, 1.0f } * inverseViewProjection;
+            const f32 w = clip.w != 0.0f ? clip.w : 1.0f;
+            return Float3{ clip.x / w, clip.y / w, clip.z / w };
+        };
+        outOrigin = unproject(0.0f);
+        const Float3 far = unproject(1.0f);
+        outDirection = Normalized(Float3{ far.x - outOrigin.x, far.y - outOrigin.y,
+                                          far.z - outOrigin.z });
+    }
+
+    struct WorldPanelHit
+    {
+        bool hit = false;
+        f32 distance = 0.0f;   // along the ray (world units)
+        Float2 uv{ 0.0f, 0.0f };   // 0..1 across the panel (v down, matching UI pixels)
+    };
+
+    /// Ray vs the panel's plane (entity world right/up span the quad; both faces hit).
+    [[nodiscard]] inline WorldPanelHit RayHitWorldPanel(Float3 rayOrigin, Float3 rayDirection,
+                                                        const Float4x4& panelWorld,
+                                                        Float2 sizeMeters)
+    {
+        WorldPanelHit result;
+        const Float3 center{ panelWorld.m[3][0], panelWorld.m[3][1], panelWorld.m[3][2] };
+        const Float3 right = Normalized(
+            Float3{ panelWorld.m[0][0], panelWorld.m[0][1], panelWorld.m[0][2] });
+        const Float3 up = Normalized(
+            Float3{ panelWorld.m[1][0], panelWorld.m[1][1], panelWorld.m[1][2] });
+        const Float3 normal = Cross(right, up);
+        const f32 denominator = Dot(rayDirection, normal);
+        if (Abs(denominator) < 1.0e-6f) { return result; }   // parallel
+        const Float3 toCenter{ center.x - rayOrigin.x, center.y - rayOrigin.y,
+                               center.z - rayOrigin.z };
+        const f32 t = Dot(toCenter, normal) / denominator;
+        if (t <= 0.0f) { return result; }   // behind the pointer
+        const Float3 point{ rayOrigin.x + rayDirection.x * t, rayOrigin.y + rayDirection.y * t,
+                            rayOrigin.z + rayDirection.z * t };
+        const Float3 local{ point.x - center.x, point.y - center.y, point.z - center.z };
+        const f32 x = Dot(local, right);
+        const f32 y = Dot(local, up);
+        if (Abs(x) > sizeMeters.x * 0.5f || Abs(y) > sizeMeters.y * 0.5f) { return result; }
+        result.hit = true;
+        result.distance = t;
+        result.uv = Float2{ x / sizeMeters.x + 0.5f, 0.5f - y / sizeMeters.y };
+        return result;
+    }
+
     void RegisterUIComponentReflection();
 
     class UISubsystem final : public draconic::runtime::Subsystem,
@@ -267,6 +378,7 @@ export namespace draconic::ui
         {
             scene.AddSystem<UICanvasComponentManager>();
             scene.AddSystem<UIBillboardComponentManager>();
+            scene.AddSystem<UIWorldPanelComponentManager>();
             // The scene tier: each scene gets its own root (billboard layer BELOW its
             // canvases) that the scene-overlay pass draws wherever this scene renders.
             SceneUI ui;

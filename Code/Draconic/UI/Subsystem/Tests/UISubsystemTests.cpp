@@ -1094,3 +1094,118 @@ TEST_CASE("ui.subsystem: RT canvases auto-bind the entity's sprite/decal texture
 
     ctx.Shutdown();
 }
+
+TEST_CASE("ui.worldpanel: ray/uv math - front and back hits, edges, parallel misses")
+{
+    // Identity-oriented panel at the origin: right = +X, up = +Y, normal = +Z.
+    const Float4x4 panel = Float4x4::Identity();
+    const Float2 size{ 2.0f, 1.0f };
+
+    // Straight-on from +Z at the exact center.
+    WorldPanelHit hit = RayHitWorldPanel(Float3{ 0, 0, 5 }, Float3{ 0, 0, -1 }, panel, size);
+    REQUIRE(hit.hit);
+    CHECK(hit.distance == doctest::Approx(5.0f));
+    CHECK(hit.uv.x == doctest::Approx(0.5f));
+    CHECK(hit.uv.y == doctest::Approx(0.5f));
+
+    // Off-center: +0.5 right, +0.25 up -> u 0.75, v 0.25 (v runs DOWN like UI pixels).
+    hit = RayHitWorldPanel(Float3{ 0.5f, 0.25f, 5 }, Float3{ 0, 0, -1 }, panel, size);
+    REQUIRE(hit.hit);
+    CHECK(hit.uv.x == doctest::Approx(0.75f));
+    CHECK(hit.uv.y == doctest::Approx(0.25f));
+
+    // The BACK face hits too (double-sided panels).
+    hit = RayHitWorldPanel(Float3{ 0, 0, -5 }, Float3{ 0, 0, 1 }, panel, size);
+    CHECK(hit.hit);
+
+    // Beyond the half extent: miss. Parallel to the plane: miss. Behind pointer: miss.
+    CHECK_FALSE(RayHitWorldPanel(Float3{ 1.5f, 0, 5 }, Float3{ 0, 0, -1 }, panel, size).hit);
+    CHECK_FALSE(RayHitWorldPanel(Float3{ 0, 0, 5 }, Float3{ 1, 0, 0 }, panel, size).hit);
+    CHECK_FALSE(RayHitWorldPanel(Float3{ 0, 0, 5 }, Float3{ 0, 0, 1 }, panel, size).hit);
+
+    // Pointer-ray unprojection: the view center looks straight down the camera axis.
+    draconic::render::ViewCamera camera;
+    camera.projection = Float4x4::PerspectiveFovRH(1.0472f, 16.0f / 9.0f, 0.1f, 100.0f);
+    Float3 origin, direction;
+    PointerRayFromCamera(camera, Float2{ 640.0f, 360.0f }, Float2{ 1280.0f, 720.0f },
+                         origin, direction);
+    CHECK(direction.z < -0.99f);   // identity view: forward is -Z
+    CHECK(Abs(direction.x) < 0.01f);
+    CHECK(Abs(direction.y) < 0.01f);
+}
+
+TEST_CASE("ui.worldpanel: instantiates, renders to its target, drives the sprite, and "
+          "takes a ray-routed click")
+{
+    rt::Context ctx;
+    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
+    auto* input = ctx.AddSubsystem<draconic::input::InputSubsystem>(nullptr);
+    auto* ui = ctx.AddSubsystem<UISubsystem>();
+    ctx.Startup();
+    draconic::rhi::null::NullDevice device{ DefaultAllocator() };
+    ui->EnsureRenderReady(device, 2);
+    draconic::rhi::null::NullCommandEncoder encoder;
+
+    PointerFakeDevices devices;
+    input->SetSourceProvider(&devices);
+
+    dscene::Scene* scene = scenes->CreateScene(u8"world");
+    scene->AddSystem<draconic::render::CameraComponentManager>();
+    scene->AddSystem<draconic::render::SpriteComponentManager>();
+    dscene::EntityHandle cam = scene->CreateEntity(u8"cam");
+    scene->SetLocalPosition(cam, Float3{ 0.0f, 2.0f, 10.0f });
+    scene->GetSystem<draconic::render::CameraComponentManager>()->Add(cam);
+
+    dscene::EntityHandle e = scene->CreateEntity(u8"kiosk");
+    scene->SetLocalPosition(e, Float3{ 0.0f, 2.0f, 0.0f });
+    auto* panels = scene->GetSystem<UIWorldPanelComponentManager>();
+    REQUIRE(panels != nullptr);
+    UIWorldPanelComponent& panel = panels->Add(e);
+    panel.document = MakeDocument(
+        u8"<FrameLayout><Button id=\"kiosk-btn\" text=\"Press\" width=\"200\" height=\"100\"/></FrameLayout>");
+    panel.sizeMeters = Float2{ 2.0f, 1.0f };
+    panel.pixelsPerMeter = 100.0f;   // -> 200x100 target
+    scene->UpdateTransforms();
+
+    ctx.BeginFrame(1.0f / 60.0f);   // instantiate
+    REQUIRE(panel.renderRoot.Get() != nullptr);
+    ui->RenderCanvasTextures(encoder, 0);
+    CHECK(panel.renderTexture != nullptr);
+    CHECK(panel.renderTextureView != nullptr);
+    CHECK(panel.renderRoot->ViewportSize.x == doctest::Approx(200.0f));
+
+    // The sprite is DRIVEN: auto-added, entity-oriented, panel-sized, texture-bound.
+    auto* sprite = scene->GetSystem<draconic::render::SpriteComponentManager>()->Get(e);
+    REQUIRE(sprite != nullptr);
+    CHECK(sprite->orientation == draconic::render::SpriteOrientation::EntityOriented);
+    CHECK(sprite->size.x == doctest::Approx(2.0f));
+    CHECK(sprite->texture == panel.renderTextureView);
+
+    // Route a click: lay the scene root out (the surface size the ray math reads),
+    // point at the view center - the camera looks straight at the panel center.
+    RootView* sceneRoot = ui->SceneRoot(*scene);
+    REQUIRE(sceneRoot != nullptr);
+    sceneRoot->ViewportSize = Float2{ 800.0f, 600.0f };
+    bool clicked = false;
+    Cast<ViewGroup>(panel.renderRoot.Get())->FindByName<Button>(u8"kiosk-btn")->OnClick.Add(
+        [&clicked](ButtonBase*) { clicked = true; });
+
+    devices.mouse.x = 400.0f;
+    devices.mouse.y = 300.0f;
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(ui->Context().ActiveInputRoot() == panel.renderRoot.Get());
+    CHECK(ui->PointerOverUI());
+
+    devices.mouse.buttons[static_cast<u32>(draconic::shell::MouseButton::Left)] = true;
+    ctx.BeginFrame(1.0f / 60.0f);
+    devices.mouse.buttons[static_cast<u32>(draconic::shell::MouseButton::Left)] = false;
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(clicked);
+
+    // Non-interactive: the ray ignores it; the pointer no longer routes to the panel.
+    panel.interactive = false;
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(ui->Context().ActiveInputRoot() != panel.renderRoot.Get());
+
+    ctx.Shutdown();
+}
