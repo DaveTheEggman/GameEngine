@@ -312,6 +312,7 @@ export namespace draconic::script
             if (phase != dscene::ScenePhase::Update) { return; }
             if (!m_started || m_scene == nullptr || m_host == nullptr) { return; }
             TickBehaviors(deltaTime);
+            DrainMessages();   // deferred entity.send delivery - same frame, never nested
         }
 
         /// Live instance count (the subsystem's context-teardown bookkeeping).
@@ -339,12 +340,83 @@ export namespace draconic::script
             }
         }
 
+        /// Behavior messaging (P2 §3.4): QUEUE `on<Message>(args)` for EVERY enabled
+        /// behavior of `target` that declares the handler. Reached from the `Entity::send`
+        /// facade via the run binding's route. Delivery is DEFERRED (drained at the tick's
+        /// top level) because a send happens INSIDE a running script call and Wren forbids
+        /// re-entrant VM calls - so messages arrive later the same frame, never nested.
+        void EnqueueMessage(dscene::EntityHandle target, StringView message,
+                            Span<const Variant> args)
+        {
+            if (message.IsEmpty()) { return; }
+            PendingMessage pending;
+            pending.target = target;
+            pending.handler = BuildMessageHandlerName(message);
+            pending.args.Reserve(args.Size());
+            for (const Variant& arg : args) { pending.args.PushBack(arg); }
+            m_messages.PushBack(Move(pending));
+        }
+
+        /// Drains queued messages at the tick's top level (no VM call is active here, so
+        /// InvokeHandler's wrenCall is safe). A handler may send again - those are drained
+        /// in the same pass, capped to break runaway send loops.
+        void DrainMessages()
+        {
+            if (m_messages.IsEmpty()) { return; }
+            auto* components = m_scene != nullptr
+                ? m_scene->GetSystem<ScriptComponentManager>() : nullptr;
+            usize delivered = 0;
+            for (usize m = 0; m < m_messages.Size(); ++m)
+            {
+                if (++delivered > kMaxMessagesPerDrain)
+                {
+                    DRACONIC_LOG_WARNING(u8"Script",
+                        u8"message drain hit the {} cap - dropping the rest (send loop?)",
+                        kMaxMessagesPerDrain);
+                    break;
+                }
+                // Copy out before dispatch: delivering may append (reallocating m_messages).
+                const dscene::EntityHandle target = m_messages[m].target;
+                const String handler = m_messages[m].handler;
+                Array<Variant> args = m_messages[m].args;
+                if (components == nullptr) { continue; }
+                const Span<Variant> argSpan{ args.Data(), args.Size() };
+                for (usize i = 0;; ++i)
+                {
+                    ScriptComponent* component = components->Get(target);
+                    if (component == nullptr || i >= component->behaviors.Size()) { break; }
+                    ScriptBehavior& behavior = component->behaviors[i];
+                    if (!behavior.enabled || behavior.faulted
+                        || behavior.instance.Get() == nullptr || behavior.boundClass == nullptr)
+                    {
+                        continue;
+                    }
+                    InvokeHandler(behavior, *behavior.boundClass, target, handler.AsView(),
+                                  argSpan);
+                }
+            }
+            m_messages.Clear();
+        }
+
     private:
         static constexpr StringView kOnStart = u8"onStart";
         static constexpr StringView kOnUpdate = u8"onUpdate";
         static constexpr StringView kOnEnable = u8"onEnable";
         static constexpr StringView kOnDisable = u8"onDisable";
         static constexpr StringView kOnDestroy = u8"onDestroy";
+
+        // "heal" -> "onHeal": the send() message convention. First char uppercased.
+        [[nodiscard]] static String BuildMessageHandlerName(StringView message)
+        {
+            String name(u8"on");
+            for (usize i = 0; i < message.Size(); ++i)
+            {
+                utf8char c = message[i];
+                if (i == 0 && c >= u8'a' && c <= u8'z') { c = static_cast<utf8char>(c - 32); }
+                name += c;
+            }
+            return name;
+        }
 
         void TickBehaviors(f32 deltaTime)
         {
@@ -556,10 +628,19 @@ export namespace draconic::script
             });
         }
 
+        struct PendingMessage
+        {
+            dscene::EntityHandle target;
+            String handler;          // prebuilt "on<Message>"
+            Array<Variant> args;     // marshalled at send time
+        };
+        static constexpr usize kMaxMessagesPerDrain = 4096;
+
         dscene::Scene* m_scene = nullptr;
         ScriptRunHost* m_host = nullptr;
         Function<void()> m_runObserver;
         Array<dscene::EntityHandle> m_tickOwners;   // per-tick snapshot (reused)
+        Array<PendingMessage> m_messages;           // deferred entity.send queue
         bool m_started = false;
     };
 
@@ -617,6 +698,7 @@ export namespace draconic::script
                 self->MaybeTeardownRunContext();
             } });
             m_systems.PushBack(SceneEntry{ &scene, system });
+            EnsureMessageRoute();
         }
         void OnSceneDestroyed(dscene::Scene& scene) override
         {
@@ -685,6 +767,29 @@ export namespace draconic::script
             ScriptSceneSystem* system = nullptr;
         };
 
+        // Route entity.send messages to the scene system that owns the target's scene.
+        // Reads the live m_systems list on each call, so a destroyed scene's system is
+        // never touched (no dangling capture). Installed once, lazily.
+        void EnsureMessageRoute()
+        {
+            if (m_messageRouteInstalled) { return; }
+            ScriptSubsystem* self = this;
+            m_runHost.Binding().dispatchMessage = Function<void(dscene::Scene*,
+                dscene::EntityHandle, StringView, Span<const Variant>)>{
+                [self](dscene::Scene* scene, dscene::EntityHandle target, StringView message,
+                       Span<const Variant> args) {
+                    for (const SceneEntry& entry : self->m_systems)
+                    {
+                        if (entry.scene == scene && entry.system != nullptr)
+                        {
+                            entry.system->EnqueueMessage(target, message, args);
+                            return;
+                        }
+                    }
+                } };
+            m_messageRouteInstalled = true;
+        }
+
         // The run ends when the game script released its hold, no scene is actively
         // simulating, and no live instances remain (an edit-page scene that is started
         // but frozen never pins the context).
@@ -703,5 +808,6 @@ export namespace draconic::script
         ScriptRunHost m_runHost;
         Array<SceneEntry> m_systems;
         bool m_gameScriptHold = false;
+        bool m_messageRouteInstalled = false;
     };
 }

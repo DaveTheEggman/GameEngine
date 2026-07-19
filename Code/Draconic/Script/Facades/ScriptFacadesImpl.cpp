@@ -26,6 +26,11 @@ namespace draconic::script
         builder.Method<&Entity::setRotationEuler>("setRotationEuler");
         builder.Method<&Entity::setScale>("setScale");
         builder.Method<&Entity::destroy>("destroy");
+        // send overloads (P2 messaging) - one reflected name, resolved by arg type.
+        builder.Method<static_cast<void (Entity::*)(String) const>(&Entity::send)>("send");
+        builder.Method<static_cast<void (Entity::*)(String, f64) const>(&Entity::send)>("send");
+        builder.Method<static_cast<void (Entity::*)(String, String) const>(&Entity::send)>("send");
+        builder.Method<static_cast<void (Entity::*)(String, Entity) const>(&Entity::send)>("send");
         builder.Constructor();   // Wren only materializes constructible foreign classes
     }
 

@@ -270,31 +270,38 @@ export namespace draconic::script
 
     inline Array<String> ScanScriptHandlers(StringView source)
     {
-        static constexpr StringView kKnownHandlers[] = {
-            u8"onStart", u8"onUpdate", u8"onFixedUpdate",
-            u8"onEnable", u8"onDisable", u8"onDestroy",
-        };
+        // Any method declared as `on<Upper>...(` is a dispatchable handler: the fixed
+        // lifecycle set (onStart/onUpdate/...), the reserved event handlers
+        // (onContactBegin, onTriggerEnter, ...), AND user message handlers reached by
+        // `entity.send("heal", ...)` -> `onHeal(...)` (P2). The runtime dispatch gate is
+        // ScriptClass::HasHandler, so harvesting the whole convention here is what makes
+        // custom messages and events cost nothing per frame. A leading lowercase after
+        // `on` (e.g. `onlyOnce`) is NOT a handler; a getter (`onFoo {`, no parens) is not
+        // either - handlers take an argument list.
         const String stripped = StripScriptComments(source);
         const StringView text = stripped.AsView();
         Array<String> found;
-        for (StringView handler : kKnownHandlers)
+        for (usize i = 0; i + 2 < text.Size(); ++i)
         {
-            bool present = false;
-            for (usize i = 0; !present && i + handler.Size() < text.Size(); ++i)
+            if (text[i] != u8'o' || text[i + 1] != u8'n') { continue; }
+            if (i > 0 && detail::IsIdentChar(text[i - 1])) { continue; }
+            const utf8char third = text[i + 2];
+            if (third < u8'A' || third > u8'Z') { continue; }   // on + UpperCase only
+            usize end = i + 2;
+            while (end < text.Size() && detail::IsIdentChar(text[end])) { ++end; }
+            usize after = end;
+            while (after < text.Size() && (text[after] == u8' ' || text[after] == u8'\t'))
             {
-                if (text.SubStr(i, handler.Size()) != handler) { continue; }
-                if (i > 0 && detail::IsIdentChar(text[i - 1])) { continue; }
-                usize after = i + handler.Size();
-                while (after < text.Size() && (text[after] == u8' ' || text[after] == u8'\t'))
-                {
-                    ++after;
-                }
-                if (after < text.Size() && (text[after] == u8'(' || text[after] == u8'{'))
-                {
-                    present = true;
-                }
+                ++after;
             }
-            if (present) { found.PushBack(String(handler)); }
+            if (after >= text.Size() || text[after] != u8'(') { continue; }   // method, not getter
+            const StringView name = text.SubStr(i, end - i);
+            bool duplicate = false;
+            for (const String& existing : found)
+            {
+                if (existing.AsView() == name) { duplicate = true; break; }
+            }
+            if (!duplicate) { found.PushBack(String(name)); }
         }
         return found;
     }

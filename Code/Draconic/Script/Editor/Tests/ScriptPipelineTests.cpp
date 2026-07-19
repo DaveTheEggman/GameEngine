@@ -160,6 +160,30 @@ TEST_CASE("script.pipeline: handler scan finds declared handlers only (comments 
     CHECK_FALSE(has(u8"onDisable"));
 }
 
+TEST_CASE("script.pipeline: handler scan captures the whole on<Upper>(...) convention - "
+          "custom message + event handlers, not lookalikes (P2)")
+{
+    const Array<String> handlers = ScanScriptHandlers(
+        u8"class A {\n"
+        u8"    onStart() {}\n"
+        u8"    onHeal(amount) {}\n"            // custom message handler (entity.send)
+        u8"    onContactBegin(o, p, n) {}\n"   // physics event handler
+        u8"    onlyOnce() {}\n"                // lowercase after 'on' - NOT a handler
+        u8"    onFoo {}\n"                     // getter (no parens) - NOT a handler
+        u8"    speed=(v) {}\n"                 // setter - NOT a handler
+        u8"}\n");
+    auto has = [&handlers](StringView name) {
+        for (const String& h : handlers) { if (h.AsView() == name) { return true; } }
+        return false;
+    };
+    CHECK(has(u8"onStart"));
+    CHECK(has(u8"onHeal"));
+    CHECK(has(u8"onContactBegin"));
+    CHECK_FALSE(has(u8"onlyOnce"));
+    CHECK_FALSE(has(u8"onFoo"));
+    CHECK(handlers.Size() == 3u);
+}
+
 TEST_CASE("script.pipeline: full harvest round-trip - source -> cook -> factory -> "
           "typed metadata (sorted, hashed, described)")
 {

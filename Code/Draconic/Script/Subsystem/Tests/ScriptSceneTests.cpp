@@ -91,6 +91,16 @@ namespace
             scripts = scene.AddSystem<ScriptSceneSystem>();
             components->SetScriptSystem(scripts);
             scripts->SetRunHost(&host);
+            // Wire the single-scene message route (the ScriptSubsystem installs a
+            // scene-multiplexer in a real run; here one system owns every entity).
+            ScriptSceneSystem* system = scripts;
+            host.Binding().dispatchMessage =
+                Function<void(dscene::Scene*, dscene::EntityHandle, StringView,
+                              Span<const Variant>)>{
+                    [system](dscene::Scene*, dscene::EntityHandle target, StringView message,
+                             Span<const Variant> args) {
+                        system->EnqueueMessage(target, message, args);
+                    } };
         }
 
         dscene::EntityHandle AddScripted(const RefPtr<ScriptClass>& cls, StringView name)
@@ -632,4 +642,53 @@ TEST_CASE("script.scene: run-host teardown after stop releases the context; a la
     ScriptRunHost host;
     CHECK(host.EnsureContext(u8"nolang") == nullptr);
     CHECK_FALSE(host.EnsureClassLoaded(*alien));
+}
+
+TEST_CASE("script.scene: entity.send invokes on<Message>(arg) on every declaring "
+          "behavior of the target (P2 messaging)")
+{
+    ScriptedScene bed;
+
+    // Receiver at index 0 so it is instantiated before the sender (index 1) fires its
+    // onStart send this same tick - dispatch skips not-yet-live instances by design.
+    RefPtr<ScriptClass> receiver = MakeClass(u8"Receiver",
+        u8"class Receiver {\n"
+        u8"    construct new(entity) { _entity = entity }\n"
+        u8"    onPing(amount) { _entity.setName(\"pinged:\" + amount.toString) }\n"
+        u8"}\n",
+        { u8"onPing" });
+    RefPtr<ScriptClass> sender = MakeClass(u8"Sender",
+        u8"class Sender {\n"
+        u8"    construct new(entity) { _entity = entity }\n"
+        u8"    onStart() { _entity.send(\"ping\", 7) }\n"
+        u8"}\n",
+        { u8"onStart" });
+
+    dscene::EntityHandle target = bed.scene.CreateEntity(u8"target");
+    ScriptComponent& component = bed.components->Add(target);
+    { ScriptBehavior b; b.script = receiver; component.behaviors.PushBack(Move(b)); }
+    { ScriptBehavior b; b.script = sender; component.behaviors.PushBack(Move(b)); }
+
+    bed.Start();
+    bed.Frame();   // both instantiate; sender.onStart -> send "ping" -> receiver.onPing
+
+    CHECK(bed.scene.GetEntityName(target) == u8"pinged:7");
+}
+
+TEST_CASE("script.scene: entity.send to a target with no matching handler is a safe "
+          "no-op (P2 messaging)")
+{
+    ScriptedScene bed;
+    RefPtr<ScriptClass> sender = MakeClass(u8"LoneSender",
+        u8"class LoneSender {\n"
+        u8"    construct new(entity) { _entity = entity }\n"
+        u8"    onStart() { _entity.send(\"noHandler\", 1) }\n"
+        u8"}\n",
+        { u8"onStart" });
+    dscene::EntityHandle e = bed.AddScripted(sender, u8"lone");
+    bed.Start();
+    bed.Frame();   // must not fault the sender
+    ScriptComponent* c = bed.components->Get(e);
+    REQUIRE(c != nullptr);
+    CHECK_FALSE(c->behaviors[0].faulted);
 }

@@ -43,6 +43,13 @@ export namespace draconic::script
         f64 timeSeconds = 0.0;    // seconds since the run context was created
         f32 deltaSeconds = 0.0f;  // last frame's dt
         core::Random random;      // the run's RNG (per-run determinism seam)
+
+        // Behavior-to-behavior messaging (P2): `entity.send("heal", amount)` routes here.
+        // The subsystem installs this; it invokes `on<Heal>(amount)` on every behavior of
+        // the target entity that declares the handler. Args are already marshalled. Null
+        // when no subsystem is driving the run (a bare cook VM) - send becomes a no-op.
+        core::Function<void(dscene::Scene*, dscene::EntityHandle, StringView,
+                            core::Span<const core::Variant>)> dispatchMessage;
     };
 
     // ---- the curated behavior facades (camelCase = the script-visible names, the
@@ -110,6 +117,40 @@ export namespace draconic::script
         void destroy()
         {
             if (Live()) { scene->DestroyEntity(Handle()); }
+        }
+
+        // ---- behavior messaging (P2 §3.4): entity.send(name[, arg]) invokes
+        // `on<Name>(arg)` on EVERY behavior of this entity that declares it (the target
+        // is this handle's entity - typically self or a resolved sibling). One typed arg
+        // (number/string/entity) covers the common case; multi-arg/list is a follow-up.
+        void send(String message) const { Dispatch(message.AsView(), {}); }
+        void send(String message, f64 number) const
+        {
+            Variant arg = Variant::From<f64>(number);
+            Dispatch(message.AsView(), Span<const Variant>{ &arg, 1 });
+        }
+        void send(String message, String text) const
+        {
+            Variant arg = Variant::From<String>(Move(text));
+            Dispatch(message.AsView(), Span<const Variant>{ &arg, 1 });
+        }
+        void send(String message, Entity target) const
+        {
+            Variant arg = Variant::From<Entity>(target);
+            Dispatch(message.AsView(), Span<const Variant>{ &arg, 1 });
+        }
+
+        void Dispatch(StringView message, Span<const Variant> args) const
+        {
+            if (!Live() || message.IsEmpty()) { return; }
+            IScriptContext* context = CurrentScriptContext();
+            auto* binding = context != nullptr
+                ? static_cast<ScriptRuntimeBinding*>(context->GetService(kScriptRuntimeService))
+                : nullptr;
+            if (binding != nullptr && binding->dispatchMessage)
+            {
+                binding->dispatchMessage(scene, Handle(), message, args);
+            }
         }
     };
 
