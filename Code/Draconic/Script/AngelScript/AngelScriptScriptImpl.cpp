@@ -698,6 +698,25 @@ namespace draconic::script::angelscript
 
     // ---- generic dispatchers (run DURING script execution; the surrounding
     // Call/Load/Invoke already pushed the ScriptCallScope) ---------------------
+
+    // Generic-call handle ownership (asEP_GENERIC_CALL_MODE == 1, the modern
+    // default): a plain `Type@` parameter arrives with a reference the CALLEE
+    // owns and must release - the engine adds no cleanup instruction for it.
+    // Every dispatcher that takes arguments calls this after marshalling (the
+    // Variants hold copies by then). Missing this leaks one reference per
+    // object argument (found by ASAN).
+    inline void ReleaseHandleArgs(asIScriptGeneric* gen, const AngelScriptManager* manager)
+    {
+        const asUINT argc = gen->GetArgCount();
+        for (asUINT i = 0; i < argc; ++i)
+        {
+            const int typeId = gen->GetArgTypeId(i);
+            if ((typeId & asTYPEID_OBJHANDLE) != 0 && manager->TypeInfoForTypeId(typeId) != nullptr)
+            {
+                ReleaseBox(static_cast<BoxedVariant*>(gen->GetArgObject(i)));
+            }
+        }
+    }
     void FactoryDispatch(asIScriptGeneric* gen)
     {
         const Binding* binding = static_cast<const Binding*>(gen->GetAuxiliary());
@@ -710,6 +729,7 @@ namespace draconic::script::angelscript
             args[i] = binding->manager->ValueFromArg(gen, static_cast<asUINT>(i),
                                                      param.type != nullptr ? param.type() : nullptr);
         }
+        ReleaseHandleArgs(gen, binding->manager);
         core::Result<core::Variant> created = binding->constructor->invoke(
             core::Span<core::Variant>{ args, static_cast<core::usize>(argc) });
         if (!created.HasValue())
@@ -749,6 +769,7 @@ namespace draconic::script::angelscript
         BoxedVariant* self = static_cast<BoxedVariant*>(gen->GetObject());
         core::Instance instance = core::ToInstance(self->value);
         const core::Variant value = binding->manager->ValueFromArg(gen, 0, binding->property->type);
+        ReleaseHandleArgs(gen, binding->manager);
         (void)core::SetProperty(*binding->property, instance, value);
     }
 
@@ -765,6 +786,7 @@ namespace draconic::script::angelscript
                 && method.params[i].type != nullptr) ? method.params[i].type() : nullptr;
             args[i] = binding->manager->ValueFromArg(gen, static_cast<asUINT>(i), expected);
         }
+        ReleaseHandleArgs(gen, binding->manager);
         const core::Span<core::Variant> argSpan{ args, static_cast<core::usize>(argc) };
         core::Result<core::Variant> result = core::Err(core::ErrorCode::Internal);
         if (method.isStatic)
