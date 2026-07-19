@@ -13,6 +13,7 @@ target_link_libraries(DraconicRuntimeDefaultApp
            Draconic::ParticlesSubsystem Draconic::Physics Draconic::PhysicsSubsystem
            Draconic::Audio Draconic::AudioResource Draconic::AudioSubsystem
            Draconic::Input Draconic::InputSubsystem Draconic::Script Draconic::ScriptWren
+           Draconic::ScriptResource Draconic::ScriptSubsystem
            Draconic::Resource Draconic::Content Draconic::SceneResource
            Draconic::MeshResource Draconic::MaterialResource Draconic::AnimationResource
            Draconic::ParticlesResource Draconic::InputResource Draconic::PhysicsResource

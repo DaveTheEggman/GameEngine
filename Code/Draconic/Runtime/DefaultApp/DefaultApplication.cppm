@@ -34,6 +34,8 @@ import draconic.input;              // the action model/runtime
 import draconic.input.subsystem;    // InputSubsystem + the Wren Input facade
 import draconic.script;             // IScriptManager/Context (the game script)
 import draconic.script.wren;        // the Wren backend
+import draconic.script.resource;    // cooked script classes + factory (entity behaviors)
+import draconic.script.subsystem;   // ScriptSubsystem (behaviors + the run's shared context)
 import draconic.resource;           // ResourceManager (owned or borrowed - see the preset seam)
 import draconic.content;            // IContentDatabase (preset by the entry point)
 import draconic.scene.resource;     // SceneDocument (product-type registration)
@@ -120,6 +122,32 @@ export namespace draconic::runtime
                 host.Shell() != nullptr ? host.Shell()->Input() : nullptr);
             m_ui = host.Ctx().AddSubsystem<draconic::ui::UISubsystem>();
             if (!m_uiFontPath.IsEmpty()) { m_ui->SetFontPath(m_uiFontPath.AsView()); }
+
+            // Entity behaviors (scripting.md P1). Facade/backend registration is
+            // batteries-included here (idempotent - entry points may register more);
+            // the run context itself is created lazily by the subsystem and SHARED
+            // with the game script (one gameplay context per run, the locked rule).
+            m_scripts = host.Ctx().AddSubsystem<draconic::script::ScriptSubsystem>();
+            draconic::input::RegisterInputScriptApi();
+            draconic::physics::RegisterPhysicsScriptApi();
+            draconic::audio::RegisterAudioScriptApi();
+            draconic::script::wren::RegisterWrenScriptBackend();
+            DefaultApplication* self = this;
+            m_scripts->SetContextConfigurator(
+                core::Function<void(draconic::script::IScriptContext&)>{
+                    [self](draconic::script::IScriptContext& context) {
+                        if (self->m_input != nullptr) { self->m_input->ExposeToScript(context); }
+                        if (self->m_physics != nullptr) { self->m_physics->ExposeToScript(context); }
+                        if (self->m_audio != nullptr)
+                        {
+                            self->m_audio->ExposeToScript(context, self->Resources());
+                        }
+                    } });
+        }
+
+        [[nodiscard]] draconic::script::ScriptSubsystem* Scripts() const noexcept
+        {
+            return m_scripts;
         }
 
         [[nodiscard]] draconic::input::InputSubsystem* Input() const noexcept { return m_input; }
@@ -170,6 +198,7 @@ export namespace draconic::runtime
             draconic::input::RegisterInputMapResource();
             draconic::physics::RegisterPhysicsResource();
             draconic::audio::RegisterAudioResource();
+            draconic::script::RegisterScriptResource();
             draconic::ui::RegisterUIResource();
             core::GlobalTypeRegistry().Register(draconic::scene::SceneDocument::StaticType());
             core::RegisterSerializable<draconic::scene::SceneDocument>();
@@ -200,6 +229,7 @@ export namespace draconic::runtime
             resources->AddFactory(&m_audioClipFactory);
             resources->AddFactory(&m_busLayoutFactory);
             resources->AddFactory(&m_soundCueFactory);
+            resources->AddFactory(&m_scriptClassFactory);
             resources->AddFactory(&m_modelFactory);
             resources->AddFactory(&m_uiDocumentFactory);
             resources->AddFactory(&m_uiThemeFactory);
@@ -238,31 +268,52 @@ export namespace draconic::runtime
         bool StartGameScript(core::StringView source, core::StringView name)
         {
             StopGameScript();
-            draconic::input::RegisterInputScriptApi();
-            draconic::physics::RegisterPhysicsScriptApi();
-            draconic::audio::RegisterAudioScriptApi();
-            // Batteries-included default: Wren registers with the backend REGISTRY
-            // (like default subsystems - subclasses/entry points may register more),
-            // then the manager resolves by the script FILE's extension. No consumer
-            // names a backend type (scripting.md B1).
-            draconic::script::wren::RegisterWrenScriptBackend();
-            m_scriptManager = draconic::script::CreateScriptManagerForFile(name);
-            if (m_scriptManager.Get() == nullptr)
+            if (m_scripts != nullptr)
             {
-                DRACONIC_LOG_ERROR(u8"App", u8"no script backend for '{}'", name);
-                return false;
+                // The SHARED run context (scripting.md §4/§8): the game script and the
+                // entity behaviors live in the ONE gameplay context the subsystem owns;
+                // Stop releases the hold and the subsystem tears the run down.
+                m_scripts->SetExternalErrorSink(m_scriptErrorHandler);
+                draconic::script::IScriptContext* shared =
+                    m_scripts->AcquireRunContextForFile(name);
+                if (shared == nullptr)
+                {
+                    DRACONIC_LOG_ERROR(u8"App", u8"no script backend for '{}'", name);
+                    return false;
+                }
+                m_scriptContext = core::RefPtr<draconic::script::IScriptContext>(shared);
             }
-            draconic::script::RegisterReflectedTypes(*m_scriptManager);
-            m_scriptContext = m_scriptManager->CreateContext();
-            if (m_scriptErrorHandler != nullptr)
+            else
             {
-                m_scriptContext->SetErrorHandler(m_scriptErrorHandler);
+                // Headless/no-subsystem fallback: self-owned manager + context.
+                draconic::input::RegisterInputScriptApi();
+                draconic::physics::RegisterPhysicsScriptApi();
+                draconic::audio::RegisterAudioScriptApi();
+                // Batteries-included default: Wren registers with the backend REGISTRY
+                // (like default subsystems - subclasses/entry points may register more),
+                // then the manager resolves by the script FILE's extension. No consumer
+                // names a backend type (scripting.md B1).
+                draconic::script::wren::RegisterWrenScriptBackend();
+                m_scriptManager = draconic::script::CreateScriptManagerForFile(name);
+                if (m_scriptManager.Get() == nullptr)
+                {
+                    DRACONIC_LOG_ERROR(u8"App", u8"no script backend for '{}'", name);
+                    return false;
+                }
+                draconic::script::RegisterReflectedTypes(*m_scriptManager);
+                m_scriptContext = m_scriptManager->CreateContext();
+                if (m_scriptErrorHandler != nullptr)
+                {
+                    m_scriptContext->SetErrorHandler(m_scriptErrorHandler);
+                }
+                if (m_input != nullptr) { m_input->ExposeToScript(*m_scriptContext); }
+                if (m_physics != nullptr) { m_physics->ExposeToScript(*m_scriptContext); }
+                // Resources() enables the facade's content-path playback (playOneShot etc.).
+                if (m_audio != nullptr) { m_audio->ExposeToScript(*m_scriptContext, Resources()); }
             }
-            if (m_input != nullptr) { m_input->ExposeToScript(*m_scriptContext); }
-            if (m_physics != nullptr) { m_physics->ExposeToScript(*m_scriptContext); }
-            // Resources() enables the facade's content-path playback (playOneShot etc.).
-            if (m_audio != nullptr) { m_audio->ExposeToScript(*m_scriptContext, Resources()); }
-            if (!m_scriptContext->Load(source, name).IsOk())
+            const bool loaded = m_scriptContext->Load(source, name).IsOk();
+            if (m_scripts != nullptr) { m_scripts->NoteExternalLoad(); }
+            if (!loaded)
             {
                 DRACONIC_LOG_ERROR(u8"App", u8"game script '{}' failed to compile", name);
                 StopGameScript();
@@ -287,6 +338,15 @@ export namespace draconic::runtime
             {
                 (void)m_game->Invoke(u8"exit", core::Span<core::Variant>{});
                 m_game = nullptr;
+            }
+            if (m_scripts != nullptr)
+            {
+                // Shared context: the SUBSYSTEM owns handler + lifetime; just release
+                // the game script's hold (the run tears down when nothing else holds).
+                m_scriptContext = nullptr;
+                m_scriptManager = nullptr;
+                m_scripts->ReleaseRunContext();
+                return;
             }
             if (m_scriptContext.Get() != nullptr) { m_scriptContext->SetErrorHandler(nullptr); }
             m_scriptContext = nullptr;
@@ -343,6 +403,7 @@ export namespace draconic::runtime
         draconic::audio::AudioClipFactory m_audioClipFactory;
         draconic::audio::AudioBusLayoutFactory m_busLayoutFactory;
         draconic::audio::SoundCueFactory m_soundCueFactory;
+        draconic::script::ScriptClassFactory m_scriptClassFactory;
         draconic::audio::AudioEngineSettings m_audioEngineSettings;
         draconic::model::ModelFactory m_modelFactory;
         draconic::ui::UIDocumentFactory m_uiDocumentFactory;
@@ -356,6 +417,7 @@ export namespace draconic::runtime
         core::String m_uiFontPath;
         draconic::physics::PhysicsSubsystem* m_physics = nullptr;
         draconic::audio::AudioSubsystem* m_audio = nullptr;
+        draconic::script::ScriptSubsystem* m_scripts = nullptr;
         draconic::scene::Scene* m_primaryScene = nullptr;
         draconic::script::IScriptErrorHandler* m_scriptErrorHandler = nullptr;
         core::RefPtr<draconic::script::IScriptManager> m_scriptManager;
