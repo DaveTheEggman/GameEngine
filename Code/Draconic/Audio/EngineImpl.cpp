@@ -613,12 +613,17 @@ namespace draconic::audio
 
         // Recent-play dedupe: a same-clip play inside the window merges into the
         // existing voice instead of stacking (shotgun pellets, particle bursts).
-        if (DedupeEntry* recent = impl.recentPlays.Find(clipPtr))
+        // Opt-out plays (persistent component sources) neither merge nor arm the
+        // window - a persistent voice must not swallow later legitimate one-shots.
+        if (params.allowDedupe)
         {
-            if (impl.timeSeconds - recent->time < impl.settings.dedupeWindowSeconds
-                && impl.Resolve(recent->handle) != nullptr)
+            if (DedupeEntry* recent = impl.recentPlays.Find(clipPtr))
             {
-                return recent->handle;
+                if (impl.timeSeconds - recent->time < impl.settings.dedupeWindowSeconds
+                    && impl.Resolve(recent->handle) != nullptr)
+                {
+                    return recent->handle;
+                }
             }
         }
 
@@ -727,8 +732,11 @@ namespace draconic::audio
         if (!params.startPaused) { (void)ma_sound_start(&slot.sound); }
 
         const VoiceHandle handle = impl.HandleFor(slotIndex);
-        impl.recentPlays.InsertOrAssign(static_cast<void*>(clipPtr),
-                                        DedupeEntry{ impl.timeSeconds, handle });
+        if (params.allowDedupe)
+        {
+            impl.recentPlays.InsertOrAssign(static_cast<void*>(clipPtr),
+                                            DedupeEntry{ impl.timeSeconds, handle });
+        }
         (void)useMonoVariant;
         return handle;
     }

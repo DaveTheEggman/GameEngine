@@ -303,6 +303,39 @@ TEST_CASE("audio.engine: recent-play dedupe merges same-clip plays inside the wi
     CHECK(engine.ActiveVoiceCount() == 2u);
 }
 
+TEST_CASE("audio.engine: dedupe opt-out - persistent sources sharing a clip stay distinct")
+{
+    // The component path plays with allowDedupe=false: four authored emitters sharing
+    // one clip autoplay in the SAME instant and must each get their own voice (the
+    // one-shot window silently collapsed all-but-one emitter - the AudioPlayground bug).
+    AudioEngineSettings settings = HeadlessSettings();
+    settings.dedupeWindowSeconds = 1.0f / 30.0f;
+    AudioEngine engine(settings);
+    RefPtr<AudioClip> clip = MakeToneClip(1.0f);
+    AudioPlayParams params;
+    params.loop = true;
+    params.spatial = true;
+    params.allowDedupe = false;
+
+    VoiceHandle voices[4];
+    for (int i = 0; i < 4; ++i)
+    {
+        params.position = Float3{ static_cast<f32>(i) * 10.0f, 0.0f, 0.0f };
+        voices[i] = engine.Play(clip, params);
+        REQUIRE(voices[i].IsValid());
+    }
+    CHECK(engine.ActiveVoiceCount() == 4u);
+    for (int i = 1; i < 4; ++i) { CHECK_FALSE(voices[i] == voices[0]); }
+
+    // Opt-out plays must not ARM the window either: a later defaulted (dedupe-eligible)
+    // play still creates a fresh voice instead of merging into a persistent source.
+    AudioPlayParams oneShot;
+    const VoiceHandle shot = engine.Play(clip, oneShot);
+    REQUIRE(shot.IsValid());
+    for (int i = 0; i < 4; ++i) { CHECK_FALSE(shot == voices[i]); }
+    CHECK(engine.ActiveVoiceCount() == 5u);
+}
+
 TEST_CASE("audio.engine: voice parameter setters land (volume/pitch/pan/position/looping)")
 {
     AudioEngine engine(HeadlessSettings());

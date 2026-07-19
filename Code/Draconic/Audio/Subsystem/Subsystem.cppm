@@ -204,6 +204,10 @@ export namespace draconic::audio
             params.loop = c.loop;
             params.priority = c.priority;
             params.sceneGroup = m_sceneGroup;
+            // Persistent authored source: NEVER dedupe-merged (several sources sharing a
+            // clip - four torches - are distinct voices; autoplay starts them in the
+            // same instant, which the one-shot window would otherwise collapse).
+            params.allowDedupe = false;
             params.spatial = c.spatial;
             if (c.spatial)
             {

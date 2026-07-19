@@ -74,6 +74,11 @@ export namespace draconic::audio
         u8 priority = 128;             // higher wins pool contention (Traktor stealing)
         u64 sceneGroup = 0;            // per-scene pause/teardown group id (0 = global)
         bool startPaused = false;
+        // Recent-play merging (shotgun pellets / particle bursts). PERSISTENT sources
+        // (scene components) must opt OUT: distinct authored sources playing the same
+        // clip in the same instant are distinct voices at distinct positions, never a
+        // stack - merging them silently collapsed all-but-one emitter.
+        bool allowDedupe = true;
 
         // 3D (spatial = true):
         bool spatial = false;

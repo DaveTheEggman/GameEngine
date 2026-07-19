@@ -315,3 +315,50 @@ TEST_CASE("audio.scene: components round-trip through SerializeScene (authored f
     REQUIRE(loadedEars != nullptr);
     CHECK_FALSE(loadedEars->isActive);
 }
+
+TEST_CASE("audio.scene: sources sharing one clip each get their OWN voice (dedupe never merges components)")
+{
+    // The AudioPlayground bug: four emitters sharing a clip autoplayed in the same
+    // instant and the one-shot dedupe window collapsed them into ONE voice - three
+    // gizmos were silent. Component plays opt out of dedupe; this test runs with a
+    // REAL window (the shared harness's zero window would mask the regression).
+    AudioEngineSettings settings;
+    settings.headless = true;
+    settings.dedupeWindowSeconds = 1.0f / 30.0f;
+    AudioEngine engine(settings);
+    RegisterAudioComponentReflection();
+    dscene::Scene scene{ u8"audio-dedupe" };
+    scene.AddSystem<AudioSourceComponentManager>();
+    scene.AddSystem<AudioListenerComponentManager>();
+    AudioSceneSystem* audio = scene.AddSystem<AudioSceneSystem>();
+    audio->SetEngine(&engine);
+
+    RefPtr<AudioClip> clip = MakeToneClip(1.0f);
+    auto* sources = scene.GetSystem<AudioSourceComponentManager>();
+    dscene::EntityHandle entities[4];
+    for (int i = 0; i < 4; ++i)
+    {
+        entities[i] = scene.CreateEntity(u8"emitter");
+        scene.SetLocalPosition(entities[i], Float3{ static_cast<f32>(i) * 10.0f, 0.0f, 0.0f });
+        AudioSourceComponent& c = sources->Add(entities[i]);
+        c.clip = clip;
+        c.autoPlay = true;
+        c.loop = true;
+        c.spatial = true;
+    }
+    scene.Start();
+    scene.SetSimulationEnabled(true);
+
+    VoiceHandle voices[4];
+    for (int i = 0; i < 4; ++i)
+    {
+        AudioSourceComponent* c = sources->Get(entities[i]);
+        REQUIRE(c != nullptr);
+        REQUIRE(c->voice.IsValid());
+        CHECK(engine.IsPlaying(c->voice));
+        voices[i] = c->voice;
+    }
+    for (int i = 1; i < 4; ++i) { CHECK_FALSE(voices[i] == voices[0]); }
+    CHECK(engine.ActiveVoiceCount() == 4u);
+    scene.Stop();
+}
