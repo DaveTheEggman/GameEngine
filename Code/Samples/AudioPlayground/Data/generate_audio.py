@@ -29,18 +29,23 @@ def envelope(i, n, attack=0.02, release=0.25):
 
 
 def ambient(rate=11025, seconds=3.0):
-    """A gentle looping minor-chord pad (root+fifth+octave with slow tremolo)."""
+    """A gentle looping minor-chord pad with slow tremolo.
+
+    Voiced in the mid range (A3 root) ON PURPOSE: the original 110/165/220 Hz
+    voicing was inaudible on typical laptop speakers - it played fine and nobody
+    could hear it. Keep pads >= ~220 Hz so the sample is audible everywhere.
+    """
     n = int(rate * seconds)
     out = []
     for i in range(n):
         t = i / rate
         tremolo = 0.8 + 0.2 * math.sin(2 * math.pi * t / seconds * 2)
         s = 0.0
-        for k, freq in enumerate((110.0, 165.0, 220.0)):
+        for k, freq in enumerate((220.0, 330.0, 440.0, 660.0)):
             # Integer number of cycles over the loop so it loops clean.
             cycles = round(freq * seconds)
             s += math.sin(2 * math.pi * cycles * t / seconds) / (k + 1)
-        out.append(0.18 * tremolo * s)
+        out.append(0.16 * tremolo * s)
     return out, rate
 
 
