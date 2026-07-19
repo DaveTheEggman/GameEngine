@@ -178,6 +178,16 @@ export namespace draconic::audio
         void SetBusMuted(AudioBus bus, bool muted);
         [[nodiscard]] bool BusMuted(AudioBus bus) const;
 
+        // ---- music (P2): scene-less helpers on the Music bus with cross-fade ----
+        // Music routes through the SAME graph as everything else (the Sedulous stream-
+        // bypass is structurally impossible here); it carries no scene group, so it
+        // survives scene swaps. PlayMusic fades the previous music voice out and the
+        // new one in over `crossFadeSeconds`.
+        VoiceHandle PlayMusic(const RefPtr<AudioClip>& clip, f32 crossFadeSeconds = 1.0f,
+                              f32 volume = 1.0f);
+        void StopMusic(f32 fadeSeconds = 1.0f);
+        [[nodiscard]] VoiceHandle MusicVoice() const;
+
         // ---- per-scene groups (open question 1: YES - a per-scene child group under
         // each bus, so scene pause/stop-all falls out of the graph naturally) ----
         [[nodiscard]] u64 CreateSceneGroup();

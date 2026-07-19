@@ -155,6 +155,7 @@ namespace draconic::audio
         HashMap<void*, DedupeEntry> recentPlays;          // key = AudioClip*
 
         Float3 listenerPosition{ 0.0f, 0.0f, 0.0f };
+        VoiceHandle musicVoice;        // the PlayMusic cross-fade tracks ONE music voice
         f64 timeSeconds = 0.0;
         bool warnedMonoDownmix = false;
         bool warnedStreamStereoSpatial = false;
@@ -836,6 +837,56 @@ namespace draconic::audio
             slot->state = VoiceState::Stopping;
         }
     }
+
+    // ---- music (P2): one tracked voice on the Music bus, cross-faded ----
+
+    VoiceHandle AudioEngine::PlayMusic(const RefPtr<AudioClip>& clip, f32 crossFadeSeconds,
+                                       f32 volume)
+    {
+        Impl& impl = *m_impl;
+        const u64 fadeMs = static_cast<u64>(Max(crossFadeSeconds, 0.0f) * 1000.0f + 0.5f);
+
+        // Fade the incumbent out over the SAME window the newcomer fades in.
+        if (VoiceSlot* current = impl.Resolve(impl.musicVoice))
+        {
+            if (current->state != VoiceState::Stopping)
+            {
+                (void)ma_sound_stop_with_fade_in_milliseconds(&current->sound, fadeMs);
+                current->state = VoiceState::Stopping;
+            }
+        }
+        impl.musicVoice = VoiceHandle{};
+
+        AudioPlayParams params;
+        params.bus = AudioBus::Music;
+        params.loop = true;             // music loops unless the clip says otherwise anyway
+        params.volume = volume;
+        params.allowDedupe = false;     // replaying the same track restarts it
+        const VoiceHandle handle = Play(clip, params);
+        if (VoiceSlot* slot = impl.Resolve(handle); slot != nullptr && fadeMs > 0)
+        {
+            ma_sound_set_fade_in_milliseconds(&slot->sound, 0.0f, 1.0f, fadeMs);
+        }
+        impl.musicVoice = handle;
+        return handle;
+    }
+
+    void AudioEngine::StopMusic(f32 fadeSeconds)
+    {
+        Impl& impl = *m_impl;
+        if (VoiceSlot* slot = impl.Resolve(impl.musicVoice))
+        {
+            if (slot->state != VoiceState::Stopping)
+            {
+                const u64 fadeMs = static_cast<u64>(Max(fadeSeconds, 0.0f) * 1000.0f + 0.5f);
+                (void)ma_sound_stop_with_fade_in_milliseconds(&slot->sound, fadeMs);
+                slot->state = VoiceState::Stopping;
+            }
+        }
+        impl.musicVoice = VoiceHandle{};
+    }
+
+    VoiceHandle AudioEngine::MusicVoice() const { return m_impl->musicVoice; }
 
     void AudioEngine::StopAll()
     {

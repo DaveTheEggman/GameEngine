@@ -325,6 +325,18 @@ export namespace draconic::audio
             return m_engine->Play(clip, params);
         }
 
+        // ---- music (scene-less, survives scene swaps; audio.md P2) ----
+        VoiceHandle PlayMusic(const RefPtr<AudioClip>& clip, f32 crossFadeSeconds = 1.0f,
+                              f32 volume = 1.0f)
+        {
+            return m_engine.Get() != nullptr
+                ? m_engine->PlayMusic(clip, crossFadeSeconds, volume) : VoiceHandle{};
+        }
+        void StopMusic(f32 fadeSeconds = 1.0f)
+        {
+            if (m_engine.Get() != nullptr) { m_engine->StopMusic(fadeSeconds); }
+        }
+
         void Stop(VoiceHandle handle)
         {
             if (m_engine.Get() != nullptr) { m_engine->Stop(handle); }

@@ -584,3 +584,42 @@ TEST_CASE("audio.engine: distance low-pass glides open -> floor across [min, max
     REQUIRE(engine.GetVoiceStatus(plain, status));
     CHECK(status.lowpassCutoffHz == 0.0f);
 }
+
+TEST_CASE("audio.engine: PlayMusic cross-fades - old voice fades out while the new plays")
+{
+    AudioEngine engine(HeadlessSettings());
+    RefPtr<AudioClip> trackA = MakeToneClip(3.0f);
+    RefPtr<AudioClip> trackB = MakeToneClip(3.0f);
+
+    const VoiceHandle first = engine.PlayMusic(trackA, 0.2f);
+    REQUIRE(first.IsValid());
+    CHECK(engine.MusicVoice() == first);
+    VoiceStatus status;
+    REQUIRE(engine.GetVoiceStatus(first, status));
+    CHECK(status.bus == AudioBus::Music);
+    CHECK(status.playing);
+
+    // Cross-fade to B: A enters its fade-out, B is the tracked music voice, both alive
+    // through the overlap window.
+    const VoiceHandle second = engine.PlayMusic(trackB, 0.2f);
+    REQUIRE(second.IsValid());
+    CHECK_FALSE(second == first);
+    CHECK(engine.MusicVoice() == second);
+    REQUIRE(engine.GetVoiceStatus(first, status));
+    CHECK(status.stopping);
+    REQUIRE(engine.GetVoiceStatus(second, status));
+    CHECK(status.playing);
+    CHECK(engine.ActiveVoiceCount() == 2u);
+
+    // The fade lands: A reaps; B keeps playing.
+    for (int i = 0; i < 40; ++i) { engine.Update(1.0f / 60.0f); }   // ~0.66 s
+    CHECK_FALSE(engine.GetVoiceStatus(first, status));
+    REQUIRE(engine.GetVoiceStatus(second, status));
+    CHECK(status.playing);
+
+    // StopMusic fades the tracked voice and forgets it.
+    engine.StopMusic(0.1f);
+    CHECK_FALSE(engine.MusicVoice().IsValid());
+    for (int i = 0; i < 30; ++i) { engine.Update(1.0f / 60.0f); }
+    CHECK(engine.ActiveVoiceCount() == 0u);
+}
