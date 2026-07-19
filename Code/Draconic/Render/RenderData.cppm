@@ -59,8 +59,9 @@ namespace RenderCategories {
     inline constexpr RenderCategory ReflectionProbe= 6;
     inline constexpr RenderCategory GUI            = 7;
     inline constexpr RenderCategory Particle       = 8;
+    inline constexpr RenderCategory WorldUI        = 9;   // POST-TONEMAP, depth-tested (world panels)
 }
-inline constexpr u16 kBuiltinCategoryCount = 9;
+inline constexpr u16 kBuiltinCategoryCount = 10;
 inline constexpr u16 kMaxCategories        = 64;   // registry table size (room for extensions)
 
 // How a category's draws are depth-ordered (packed into the sort key). FrontToBack for opaque
@@ -70,7 +71,7 @@ enum class SortMode : u8 { FrontToBack, BackToFront };
 // Which forward pass emits a category - the split that used to be a hard-coded `cat >= Transparent`.
 // Opaque = the MRT opaque pass; Blended = the color-only pass after TAA; None = not emitted by the
 // forward passes at all (Sky/Decal/Light have their own dedicated passes or are shading-only inputs).
-enum class PassAffinity : u8 { Opaque, Blended, None };
+enum class PassAffinity : u8 { Opaque, Blended, PostTonemap, None };
 
 // A dynamic registry of render categories (ezEngine-style): categories carry a name + sort/pass
 // metadata and are assigned ids at RegisterCategory time, so extensions (sprites, particles, custom
@@ -91,6 +92,9 @@ public:
         Register(u8"ReflectionProbe",SortMode::FrontToBack, PassAffinity::None);
         Register(u8"GUI",            SortMode::BackToFront, PassAffinity::Blended);
         Register(u8"Particle",       SortMode::BackToFront, PassAffinity::Blended);
+        // World-space UI: drawn AFTER tonemap, depth-tested against the scene - the
+        // panel keeps its authored colors (matching the screen tier) yet still occludes.
+        Register(u8"WorldUI",        SortMode::BackToFront, PassAffinity::PostTonemap);
     }
 
     // Register a category by name (idempotent - returns the existing id if the name is taken).
@@ -236,6 +240,7 @@ struct SpriteRenderData : RenderData {
     Color tint        = Color{ 1.0f, 1.0f, 1.0f, 1.0f };
     u32   orientation = 0;      // 0 = camera-facing, 1 = about world-Y, 2 = world XY, 3 = entity-oriented
     bool  additive    = false;  // blend: false = alpha over, true = additive
+    bool  postTonemap = false;  // WorldUI category: after tonemap, authored colors intact
     Float3 axisRight  = Float3{ 1.0f, 0.0f, 0.0f };   // EntityOriented: world right axis
     Float3 axisUp     = Float3{ 0.0f, 1.0f, 0.0f };   // EntityOriented: world up axis
     rhi::TextureView* texture = nullptr;

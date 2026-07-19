@@ -197,6 +197,7 @@ struct SpriteComponent {
     Color tint        = Color{ 1.0f, 1.0f, 1.0f, 1.0f };
     SpriteOrientation orientation = SpriteOrientation::CameraFacing;
     bool  additive    = false;  // false = alpha over, true = additive (glow)
+    bool  postTonemap = false;  // draw AFTER tonemap (world UI: authored colors intact)
     bool  visible     = true;
 };
 

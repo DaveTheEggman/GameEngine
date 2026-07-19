@@ -1229,6 +1229,9 @@ namespace draconic::ui
                         sprite->size = c.sizeMeters;
                         sprite->texture = target->view;
                         sprite->visible = c.visible;
+                        // Post-tonemap: the panel keeps its AUTHORED colors (matching
+                        // the screen-tier HUD) while still depth-testing into the scene.
+                        sprite->postTonemap = true;
                     }
                     if (!c.visible) { return; }   // keep the texture, skip the draw
                     encoder.TransitionTexture(target->texture, target->state,

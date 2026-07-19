@@ -320,3 +320,32 @@ TEST_CASE("extraction refreshes the material cache from the refs EVERY frame (la
         CHECK(rd->submeshMaterialCount == 0u);
     }
 }
+
+TEST_CASE("extract: postTonemap sprites land in the WorldUI category (authored colors)")
+{
+    scene::Scene scene{ u8"world" };
+    scene.AddSystem<SpriteComponentManager>();
+    const scene::EntityHandle e = scene.CreateEntity(u8"panel");
+    SpriteComponent& sprite = scene.GetSystem<SpriteComponentManager>()->Add(e);
+    rhi::TextureView* fakeView = reinterpret_cast<rhi::TextureView*>(0x1);   // extract only stores it
+    sprite.texture = fakeView;
+    sprite.postTonemap = true;
+    sprite.orientation = SpriteOrientation::EntityOriented;
+    scene.UpdateTransforms();
+
+    ExtractedScene out;
+    ExtractSpritesInto(scene, out, /*rendererId*/ 1);
+    REQUIRE(out.Items().Size() == 1u);
+    const auto* rd = static_cast<const SpriteRenderData*>(out.Items()[0]);
+    CHECK(rd->category == RenderCategories::WorldUI);
+    CHECK(rd->postTonemap);
+    CHECK(Categories().Affinity(rd->category) == PassAffinity::PostTonemap);
+    CHECK(Categories().Sort(rd->category) == SortMode::BackToFront);
+
+    // The default path stays in Transparent.
+    sprite.postTonemap = false;
+    ExtractedScene plain;
+    ExtractSpritesInto(scene, plain, 1);
+    REQUIRE(plain.Items().Size() == 1u);
+    CHECK(plain.Items()[0]->category == RenderCategories::Transparent);
+}

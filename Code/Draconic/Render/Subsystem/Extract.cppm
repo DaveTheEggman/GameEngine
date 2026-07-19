@@ -234,7 +234,8 @@ inline void ExtractSpritesInto(scene::Scene& scene, ExtractedScene& out, u16 spr
         if (view == nullptr) { return; }
         SpriteRenderData* rd = out.Add<SpriteRenderData>();
         if (rd == nullptr) { return; }
-        rd->category    = RenderCategories::Transparent;
+        rd->category    = sc.postTonemap ? RenderCategories::WorldUI
+                                         : RenderCategories::Transparent;
         rd->rendererId  = spriteRendererId;
         rd->worldCenter = TransformPoint(Float3{ 0, 0, 0 }, scene.GetWorldMatrix(e));
         // Bounding-sphere radius for view-frustum culling: half the billboard's diagonal. size is in
@@ -245,6 +246,7 @@ inline void ExtractSpritesInto(scene::Scene& scene, ExtractedScene& out, u16 spr
         rd->tint        = sc.tint;
         rd->orientation = static_cast<u32>(sc.orientation);
         rd->additive    = sc.additive;
+        rd->postTonemap = sc.postTonemap;
         if (sc.orientation == SpriteOrientation::EntityOriented)
         {
             // The entity's world right/up span the quad (normalized: `size` alone sets

@@ -379,7 +379,7 @@ public:
             if (probeValid) { b.ReadTexture(probeHandle); }
             b.NeverCull();
             b.SetBundleExecute([this, &view, &registry, colorFormat, frameIndex, viewIndex, prevViewProj, jitter, prevJitter, cluster, shadow, ibl, probeValid, probeBase, probeCount](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
-                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, view.Camera().ViewProjection(), prevViewProj, jitter, prevJitter, /*transparentPass*/ false, cluster, shadow, ibl, out, /*sceneDepth*/ nullptr, /*probesEnabled*/ probeValid, probeBase, probeCount);
+                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, view.Camera().ViewProjection(), prevViewProj, jitter, prevJitter, PassAffinity::Opaque, cluster, shadow, ibl, out, /*sceneDepth*/ nullptr, /*probesEnabled*/ probeValid, probeBase, probeCount);
             });
         });
     }
@@ -408,7 +408,36 @@ public:
                 // The opaque depth is now DepthStencilRead (read-only depth target) - resolve its sampleable
                 // view and hand it to the renderers for soft particles. No render-graph change; already in state.
                 rhi::TextureView* sceneDepth = graph.GetTextureView(depth);
-                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, drawViewProj, prevViewProj, jitter, prevJitter, /*transparentPass*/ true, cluster, shadow, ibl, out, sceneDepth, /*probesEnabled*/ true, probeBase, probeCount);
+                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, drawViewProj, prevViewProj, jitter, prevJitter, PassAffinity::Blended, cluster, shadow, ibl, out, sceneDepth, /*probesEnabled*/ true, probeBase, probeCount);
+            });
+        });
+    }
+
+    // World-space UI (the WorldUI category): drawn AFTER tonemap into the final LDR,
+    // depth-tested read-only against the opaque depth - panels keep their authored
+    // colors (identical to the screen tier's) yet still occlude behind scene geometry.
+    // Unlit by design: no cluster/shadow/IBL bindings.
+    void DeclarePostTonemapUI(const RenderView& view, const RendererRegistry& registry,
+                              rendergraph::RenderGraph& graph, u32 frameIndex, u32 viewIndex,
+                              rendergraph::RGHandle colorH, rendergraph::RGHandle depth,
+                              rhi::TextureFormat colorFormat, const Float4x4& drawViewProj,
+                              const Float4x4& prevViewProj) {
+        if (view.Width() == 0 || view.Height() == 0) { return; }
+        bool any = false;
+        for (const DrawItem& it : view.DrawList()) {
+            if (Categories().Affinity(it.data->category) == PassAffinity::PostTonemap) { any = true; break; }
+        }
+        if (!any) { return; }
+        graph.AddRenderPass(u8"worldui", [this, &view, &registry, depth, colorH, colorFormat, frameIndex, viewIndex, drawViewProj, prevViewProj](rendergraph::PassBuilder& b) {
+            b.SetColorTarget(0, colorH, rhi::LoadOp::Load, rhi::StoreOp::Store, view.Settings().clear);
+            b.SetReadOnlyDepthTarget(depth);
+            b.SetViewport(view.ViewportX(), view.ViewportY(), view.ViewportWidth(), view.ViewportHeight());
+            b.NeverCull();
+            b.SetBundleExecute([this, &view, &registry, colorFormat, frameIndex, viewIndex, drawViewProj, prevViewProj](rhi::CommandEncoder& enc, Array<rhi::RenderBundle*>& out) {
+                ResolveAndEmit(view, registry, enc, frameIndex, viewIndex, colorFormat, drawViewProj, prevViewProj,
+                               Float2{ 0.0f, 0.0f }, Float2{ 0.0f, 0.0f }, PassAffinity::PostTonemap,
+                               ClusterBinding{}, ShadowBinding{}, IblBinding{}, out, nullptr,
+                               /*probesEnabled*/ false, 0, 0);
             });
         });
     }
@@ -419,7 +448,7 @@ private:
     // system (per-worker bundles). The graph replays `out` via ExecuteBundles.
     void ResolveAndEmit(const RenderView& view, const RendererRegistry& registry,
                         rhi::CommandEncoder& encoder, u32 frameIndex, u32 viewIndex, rhi::TextureFormat colorFormat,
-                        const Float4x4& drawViewProj, const Float4x4& prevViewProj, Float2 jitter, Float2 prevJitter, bool transparentPass,
+                        const Float4x4& drawViewProj, const Float4x4& prevViewProj, Float2 jitter, Float2 prevJitter, PassAffinity passAffinity,
                         const ClusterBinding& cluster, const ShadowBinding& shadow, const IblBinding& ibl,
                         Array<rhi::RenderBundle*>& out,
                         rhi::TextureView* sceneDepthView = nullptr, bool probesEnabled = true,
@@ -457,9 +486,7 @@ private:
         // still batches within one renderer). The list is category-sorted, so this-pass items are
         // contiguous; within the blended span, depth order mixes renderers as needed.
         const auto inThisPass = [&](const DrawItem& it) noexcept {
-            const PassAffinity a = Categories().Affinity(it.data->category);
-            if (a == PassAffinity::None) { return false; }
-            return (a == PassAffinity::Blended) == transparentPass;
+            return Categories().Affinity(it.data->category) == passAffinity;
         };
         m_resolved.Clear();
         const Span<const DrawItem> items = view.DrawList();
@@ -479,8 +506,8 @@ private:
         // bundles can't inherit it) - this view's sub-rect of the target, not the full target.
         rhi::RenderBundleDesc bd{};
         bd.colorFormats[0]    = colorFormat;
-        if (transparentPass) {
-            bd.colorFormatCount = 1;                 // color-only pass
+        if (passAffinity != PassAffinity::Opaque) {
+            bd.colorFormatCount = 1;                 // color-only pass (blended / post-tonemap)
         } else {
             bd.colorFormats[1]  = kGNormalFormat;    // MRT: view-space normal
             bd.colorFormats[2]  = kGVelocityFormat;  // MRT: motion vector
@@ -1590,6 +1617,11 @@ public:
                                           v->TargetFormat(), unjitteredVP, prevViewProj, jitter, prevJitter, cluster, shadow, ibl,
                                           probeRange.base, probeRange.count);
             }
+
+            // World-space UI (WorldUI category): post-tonemap, depth-tested - after post
+            // so authored colors survive, before the overlays/debug that sit above.
+            m_pass.DeclarePostTonemapUI(*v, *m_registry, m_graph, m_frameIndex, viewIndex,
+                                        colorH, depth, v->TargetFormat(), unjitteredVP, prevViewProj);
 
             // Scene-tier overlays (game UI: HUD canvases, billboards): one shared Load-op pass on the
             // view's final LDR output, after post (never TAA-smeared / tonemapped over), BEFORE debug
