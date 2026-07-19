@@ -409,3 +409,32 @@ TEST_CASE("gizmo-controller: pose tracks selection even while the pointer is off
     CHECK(scene.GetLocalTransform(edit.Resolve(b)).position.x == doctest::Approx(5.0f).epsilon(0.01f));
     CHECK_FALSE(commands.CanUndo());
 }
+
+TEST_CASE("gizmo-controller: a pointer-less update follows an entity the simulation moves")
+{
+    // Simulate mode drives the gizmo with pointerValid=false every frame (read-only).
+    // The reported bug: physics moved the selected box and the gizmo stayed at the
+    // pre-play pose - the page skipped Update entirely while simulating.
+    draconic::scene::Scene scene;
+    EditorCommandStack commands;
+    SceneEditContext edit(scene, commands);
+    GizmoController ctl(edit);
+
+    const Guid box = edit.CreateEntity(u8"box");
+    edit.EntitySelection().Set(box);
+
+    GizmoFrameInput away = Frame(Float3{}, false, false, false);
+    away.pointerValid = false;
+    (void)ctl.Update(away);
+    CHECK(ctl.Gizmo().position.y == doctest::Approx(0.0f));
+
+    // "Physics" moves the entity (runtime transform write, no command).
+    core::Transform t;
+    t.position = Float3{ 0.0f, -3.0f, 2.0f };
+    scene.SetLocalTransform(edit.Resolve(box), t);
+
+    (void)ctl.Update(away);
+    CHECK(ctl.IsActive());
+    CHECK(ctl.Gizmo().position.y == doctest::Approx(-3.0f));
+    CHECK(ctl.Gizmo().position.z == doctest::Approx(2.0f));
+}

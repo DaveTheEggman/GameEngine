@@ -700,9 +700,21 @@ export namespace draconic::editor
         // drag) - click-picking must skip.
         [[nodiscard]] bool UpdateGizmos(bool viewportActive)
         {
-            // Simulate mode: transforms belong to the running systems; gizmo drags would fight
-            // them (and their commands are refused by the locked stack anyway).
-            if (!m_gizmos || m_isSimulating) { return false; }
+            if (!m_gizmos) { return false; }
+            // Simulate mode: transforms belong to the running systems, so the gizmo goes
+            // READ-ONLY - a pointer-less update refreshes its anchor from the live world
+            // matrix every frame (it follows what physics/animation move) but can never
+            // start a drag (and drag commands are refused by the locked stack anyway).
+            if (m_isSimulating)
+            {
+                GizmoFrameInput in;
+                in.cameraPosition = m_camera.position;
+                in.cameraForward = m_camera.Forward();
+                in.fovY = kFovY;
+                in.pointerValid = false;
+                (void)m_gizmos->Update(in);
+                return false;
+            }
             GizmoFrameInput in;
             in.cameraPosition = m_camera.position;
             in.cameraForward = m_camera.Forward();
