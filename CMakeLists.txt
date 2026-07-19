@@ -144,6 +144,7 @@ add_subdirectory(Code/Draconic/Render)    # renderer: scene->render extraction +
 add_subdirectory(Code/Draconic/Animation/Subsystem) # skeletal-animation scene integration (links RenderSubsystem; after Render)
 add_subdirectory(Code/Draconic/Particles/Subsystem) # particle scene/render integration (renderer + provider seam; after Render)
 add_subdirectory(Code/Draconic/Physics/Subsystem) # physics scene integration (components + per-scene Jolt world + interpolation; after Render)
+add_subdirectory(Code/Draconic/Audio/Subsystem)   # audio scene integration (components + per-scene voice group + listener sync; after Render)
 add_subdirectory(Code/Draconic/Fonts)     # font types/interfaces over Core + Image
 add_subdirectory(Code/Draconic/Texture)   # texture descriptors + cooked resource/GPU factory + editor
 add_subdirectory(Code/Draconic/Materials) # data-driven material model (PipelineConfig + bind-group-inferring MaterialSystem)
