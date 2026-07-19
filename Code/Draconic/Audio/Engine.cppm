@@ -205,6 +205,12 @@ export namespace draconic::audio
         u32 listenerCount = 1;         // spatial listeners (1..4; split-screen); voices
                                        // auto-attach to the CLOSEST listener
         f32 stopFadeSeconds = 0.010f;  // the always-fade on stop/pause (Godot rule)
+        // Faded steal: a stolen voice's ma_sound moves to a bounded "dying" side list
+        // and fades out over THIS window while the newcomer starts at once - no click.
+        // The mixer briefly carries pool + dying voices; the ADDRESSABLE pool never
+        // exceeds voiceCount (see ActiveVoiceCount/DyingVoiceCount).
+        f32 stealFadeSeconds = 0.030f;
+        u32 dyingVoiceCapacity = 8;    // 0 = legacy immediate cut; full = oldest hard-cuts
         f32 dedupeWindowSeconds = 1.0f / 30.0f;   // recent-play merge window (Traktor)
         /// Optional mount for path-addressed streaming (clip stream sources don't need it).
         draconic::vfs::IFileSystem* fileSystem = nullptr;
@@ -247,7 +253,13 @@ export namespace draconic::audio
         /// Per-frame 3D sync: position + velocity (velocity drives doppler).
         void SetVoicePosition(VoiceHandle handle, Float3 position, Float3 velocity);
 
+        /// ADDRESSABLE voices: slots owned by a live generation. A stolen voice leaves
+        /// this count at the instant of the steal (its handle dies) even though its
+        /// audio tail keeps mixing briefly - see DyingVoiceCount().
         [[nodiscard]] usize ActiveVoiceCount() const;
+        /// Stolen voices still fading out on the dying side list (steal declick). They
+        /// are unaddressable and capacity-bounded (settings.dyingVoiceCapacity).
+        [[nodiscard]] usize DyingVoiceCount() const;
 
         // ---- listener (one active listener; multi-listener deferred) ----
         void SetListenerTransform(Float3 position, Float3 forward, Float3 up, Float3 velocity);

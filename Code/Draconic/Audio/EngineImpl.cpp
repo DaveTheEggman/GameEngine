@@ -176,7 +176,11 @@ namespace draconic::audio
 
     struct VoiceSlot
     {
-        ma_sound sound{};
+        // Arena-backed (Impl::soundArena): the ma_sound must survive its slot on a
+        // faded steal - the pointer HANDS OVER to the dying side list while the slot
+        // is immediately reused. ma_sound is not movable (the node graph points into
+        // it), so ownership moves, the storage never does.
+        ma_sound* sound = nullptr;
         bool soundInitialized = false;
         u32 generation = 1;
         VoiceState state = VoiceState::Free;
@@ -233,6 +237,22 @@ namespace draconic::audio
         Array<VoiceSlot> voices;       // [0, voiceCount) in-memory, then stream slots
         u32 voiceCount = 0;
         u32 streamVoiceCount = 0;
+
+        // Fixed ma_sound storage (pool + dying headroom; never resized after init -
+        // pointers into it are stable) + the free-index stack.
+        Array<ma_sound> soundArena;
+        Array<u32> freeSounds;
+
+        // Faded steal (audio.md parked item): the victim's ma_sound fades here (~30 ms)
+        // while its slot is reused at once. Capacity-bounded; oldest hard-cuts on
+        // overflow. Entries keep the clip alive until the fade lands.
+        struct DyingVoice
+        {
+            ma_sound* sound = nullptr;
+            ma_lpf_node* lowpass = nullptr;
+            RefPtr<AudioClip> clip;
+        };
+        Array<DyingVoice> dyingVoices;
 
         HashMap<u64, SceneGroupData*> sceneGroups;   // owned via DefaultAllocator New/Delete
         u64 nextSceneGroupId = 1;
@@ -360,6 +380,28 @@ namespace draconic::audio
             voiceCount = settings.voiceCount;
             streamVoiceCount = settings.streamVoiceCount;
             voices.Resize(static_cast<usize>(voiceCount) + streamVoiceCount);
+            // Storage for every pool slot PLUS the dying headroom (a steal briefly
+            // needs both the victim's fading sound and the newcomer's).
+            soundArena.Resize(static_cast<usize>(voiceCount) + streamVoiceCount
+                              + settings.dyingVoiceCapacity);
+            for (usize i = soundArena.Size(); i > 0; --i)
+            {
+                freeSounds.PushBack(static_cast<u32>(i - 1));
+            }
+        }
+
+        [[nodiscard]] ma_sound* AcquireSound()
+        {
+            if (freeSounds.IsEmpty()) { return nullptr; }   // unreachable by construction
+            const u32 index = freeSounds.Back();
+            freeSounds.PopBack();
+            return &soundArena[index];
+        }
+
+        void ReleaseSound(ma_sound* sound)
+        {
+            if (sound == nullptr) { return; }
+            freeSounds.PushBack(static_cast<u32>(sound - soundArena.Data()));
         }
 
         [[nodiscard]] bool InitializeEngine(bool withoutDevice)
@@ -549,7 +591,7 @@ namespace draconic::audio
                 }
                 ma_node* out = slot.lowpassNode != nullptr
                     ? reinterpret_cast<ma_node*>(slot.lowpassNode)
-                    : reinterpret_cast<ma_node*>(&slot.sound);
+                    : reinterpret_cast<ma_node*>(slot.sound);
                 if (ma_sound_group* fallback = GroupFor(slot.sceneGroup, slot.bus))
                 {
                     (void)ma_node_attach_output_bus(out, 0, fallback, 0);
@@ -714,6 +756,7 @@ namespace draconic::audio
         {
             if (engineInitialized)
             {
+                while (!dyingVoices.IsEmpty()) { ReapDyingVoice(dyingVoices.Size() - 1); }
                 for (VoiceSlot& slot : voices) { ReleaseSlot(slot); }
                 Array<u64> groupIds;
                 for (auto& entry : sceneGroups) { groupIds.PushBack(entry.key); }
@@ -854,15 +897,22 @@ namespace draconic::audio
         {
             if (slot.soundInitialized)
             {
-                ma_sound_uninit(&slot.sound);
+                ma_sound_uninit(slot.sound);
                 slot.soundInitialized = false;
             }
+            ReleaseSound(slot.sound);
+            slot.sound = nullptr;
             if (slot.lowpassNode != nullptr)
             {
                 ma_lpf_node_uninit(slot.lowpassNode, nullptr);
                 DefaultAllocator().Delete(slot.lowpassNode);
                 slot.lowpassNode = nullptr;
             }
+            ClearSlotBookkeeping(slot);
+        }
+
+        void ClearSlotBookkeeping(VoiceSlot& slot)
+        {
             slot.lowpassFloorHz = 0.0f;
             slot.lowpassCutoffHz = 0.0f;
             slot.state = VoiceState::Free;
@@ -870,6 +920,56 @@ namespace draconic::audio
             slot.sceneGroup = 0;
             slot.customBusName = String{};
             ++slot.generation;
+        }
+
+        // Faded steal: the victim's handle dies NOW (the slot is reused at once), but
+        // its ma_sound fades on the dying list instead of clicking off. Silent victims
+        // (paused) release immediately - nothing audible to protect.
+        void StealSlot(VoiceSlot& slot)
+        {
+            if (!slot.soundInitialized || slot.state == VoiceState::Paused
+                || settings.dyingVoiceCapacity == 0)
+            {
+                ReleaseSlot(slot);
+                return;
+            }
+            while (dyingVoices.Size() >= settings.dyingVoiceCapacity)
+            {
+                ReapDyingVoice(0);   // full: hard-cut the OLDEST tail
+            }
+            (void)ma_sound_stop_with_fade_in_milliseconds(slot.sound, StealFadeMilliseconds());
+            DyingVoice dying;
+            dying.sound = slot.sound;
+            dying.lowpass = slot.lowpassNode;
+            dying.clip = slot.clip;
+            dyingVoices.PushBack(Move(dying));
+            slot.sound = nullptr;
+            slot.soundInitialized = false;
+            slot.lowpassNode = nullptr;
+            ClearSlotBookkeeping(slot);
+        }
+
+        void ReapDyingVoice(usize index)
+        {
+            DyingVoice& dying = dyingVoices[index];
+            if (dying.sound != nullptr)
+            {
+                ma_sound_uninit(dying.sound);
+                ReleaseSound(dying.sound);
+            }
+            if (dying.lowpass != nullptr)
+            {
+                ma_lpf_node_uninit(dying.lowpass, nullptr);
+                DefaultAllocator().Delete(dying.lowpass);
+            }
+            dyingVoices.RemoveAt(index);
+        }
+
+        [[nodiscard]] u64 StealFadeMilliseconds() const
+        {
+            const f32 seconds = settings.stealFadeSeconds > 0.0f ? settings.stealFadeSeconds
+                                                                 : 0.0f;
+            return static_cast<u64>(seconds * 1000.0f + 0.5f);
         }
 
         [[nodiscard]] f32 DistanceToListener(const VoiceSlot& slot) const
@@ -920,7 +1020,9 @@ namespace draconic::audio
             }
             if (victim < voices.Size())
             {
-                ReleaseSlot(voices[victim]);   // immediate steal (Traktor semantics)
+                // Faded steal: the victim's slot frees NOW, its audio tail fades on
+                // the dying list (~stealFadeSeconds) instead of clicking off.
+                StealSlot(voices[victim]);
                 return victim;
             }
             return voices.Size();
@@ -1062,6 +1164,15 @@ namespace draconic::audio
             }
         }
 
+        // Dying voices (faded steal): reap the ones whose fade landed.
+        for (usize i = impl.dyingVoices.Size(); i > 0; --i)
+        {
+            if (ma_sound_is_playing(impl.dyingVoices[i - 1].sound) == MA_FALSE)
+            {
+                impl.ReapDyingVoice(i - 1);
+            }
+        }
+
         // Reap: fades that landed, one-shots that reached their end. The same walk
         // glides every filtered voice's distance low-pass (covers one-shots and a
         // moving listener - voices the scene sync never repositions).
@@ -1070,10 +1181,10 @@ namespace draconic::audio
             if (slot.state != VoiceState::Free) { impl.UpdateVoiceLowpass(slot); }
             if (slot.state == VoiceState::Stopping)
             {
-                if (ma_sound_is_playing(&slot.sound) == MA_FALSE) { impl.ReleaseSlot(slot); }
+                if (ma_sound_is_playing(slot.sound) == MA_FALSE) { impl.ReleaseSlot(slot); }
             }
             else if (slot.state == VoiceState::Playing && !slot.looping
-                     && ma_sound_at_end(&slot.sound) == MA_TRUE)
+                     && ma_sound_at_end(slot.sound) == MA_TRUE)
             {
                 impl.ReleaseSlot(slot);
             }
@@ -1146,6 +1257,8 @@ namespace draconic::audio
         const usize slotIndex = impl.AcquireSlot(clipPtr->stream, params.priority);
         if (slotIndex >= impl.voices.Size()) { return {}; }   // pool full of higher priority
         VoiceSlot& slot = impl.voices[slotIndex];
+        slot.sound = impl.AcquireSound();
+        if (slot.sound == nullptr) { return {}; }   // unreachable: arena covers pool + dying
 
         // Named-bus addressing: a known custom bus overrides the enum bus. Unknown
         // names warn once and fall back - content typos never silence a game.
@@ -1173,8 +1286,10 @@ namespace draconic::audio
         }
         const ma_uint32 flags = clipPtr->stream ? MA_SOUND_FLAG_STREAM : 0;
         if (ma_sound_init_from_file(&impl.engine, name, flags, group, nullptr,
-                                    &slot.sound) != MA_SUCCESS)
+                                    slot.sound) != MA_SUCCESS)
         {
+            impl.ReleaseSound(slot.sound);
+            slot.sound = nullptr;
             ++slot.generation;
             DRACONIC_LOG_WARNING(u8"Audio", u8"voice init failed for clip");
             return {};
@@ -1203,7 +1318,7 @@ namespace draconic::audio
             if (ma_lpf_node_init(ma_engine_get_node_graph(&impl.engine), &config, nullptr,
                                  node) == MA_SUCCESS
                 && ma_node_attach_output_bus(node, 0, group, 0) == MA_SUCCESS
-                && ma_node_attach_output_bus(&slot.sound, 0, node, 0) == MA_SUCCESS)
+                && ma_node_attach_output_bus(slot.sound, 0, node, 0) == MA_SUCCESS)
             {
                 slot.lowpassNode = node;
                 slot.lowpassFloorHz = params.distanceLowpassHz;
@@ -1218,31 +1333,31 @@ namespace draconic::audio
             }
         }
 
-        ma_sound_set_volume(&slot.sound, params.volume * clipPtr->gain);
-        ma_sound_set_pitch(&slot.sound, params.pitch);
-        ma_sound_set_looping(&slot.sound, slot.looping ? MA_TRUE : MA_FALSE);
+        ma_sound_set_volume(slot.sound, params.volume * clipPtr->gain);
+        ma_sound_set_pitch(slot.sound, params.pitch);
+        ma_sound_set_looping(slot.sound, slot.looping ? MA_TRUE : MA_FALSE);
         if (slot.looping && (clipPtr->loopStartFrame > 0 || clipPtr->loopEndFrame > 0))
         {
             const u64 loopEnd = clipPtr->loopEndFrame > 0 ? clipPtr->loopEndFrame
                                                           : clipPtr->frameCount;
             (void)ma_data_source_set_loop_point_in_pcm_frames(
-                ma_sound_get_data_source(&slot.sound), clipPtr->loopStartFrame, loopEnd);
+                ma_sound_get_data_source(slot.sound), clipPtr->loopStartFrame, loopEnd);
         }
 
         if (params.spatial)
         {
-            ma_sound_set_spatialization_enabled(&slot.sound, MA_TRUE);
-            ma_sound_set_positioning(&slot.sound, ma_positioning_absolute);
-            ma_sound_set_position(&slot.sound, params.position.x, params.position.y, params.position.z);
-            ma_sound_set_velocity(&slot.sound, params.velocity.x, params.velocity.y, params.velocity.z);
-            ma_sound_set_attenuation_model(&slot.sound, ToMiniaudio(params.attenuationModel));
-            ma_sound_set_min_distance(&slot.sound, params.minDistance);
-            ma_sound_set_max_distance(&slot.sound, params.maxDistance);
-            ma_sound_set_rolloff(&slot.sound, params.rolloff);
-            ma_sound_set_doppler_factor(&slot.sound, params.dopplerFactor);
+            ma_sound_set_spatialization_enabled(slot.sound, MA_TRUE);
+            ma_sound_set_positioning(slot.sound, ma_positioning_absolute);
+            ma_sound_set_position(slot.sound, params.position.x, params.position.y, params.position.z);
+            ma_sound_set_velocity(slot.sound, params.velocity.x, params.velocity.y, params.velocity.z);
+            ma_sound_set_attenuation_model(slot.sound, ToMiniaudio(params.attenuationModel));
+            ma_sound_set_min_distance(slot.sound, params.minDistance);
+            ma_sound_set_max_distance(slot.sound, params.maxDistance);
+            ma_sound_set_rolloff(slot.sound, params.rolloff);
+            ma_sound_set_doppler_factor(slot.sound, params.dopplerFactor);
             if (params.coneInnerAngleDegrees < 360.0f || params.coneOuterAngleDegrees < 360.0f)
             {
-                ma_sound_set_cone(&slot.sound,
+                ma_sound_set_cone(slot.sound,
                                   params.coneInnerAngleDegrees * kDegreesToRadians,
                                   params.coneOuterAngleDegrees * kDegreesToRadians,
                                   params.coneOuterGain);
@@ -1250,8 +1365,8 @@ namespace draconic::audio
         }
         else
         {
-            ma_sound_set_spatialization_enabled(&slot.sound, MA_FALSE);
-            ma_sound_set_pan(&slot.sound, params.pan);
+            ma_sound_set_spatialization_enabled(slot.sound, MA_FALSE);
+            ma_sound_set_pan(slot.sound, params.pan);
         }
 
         // A custom-bus voice bypasses the scene child groups, so a paused scene group
@@ -1264,7 +1379,7 @@ namespace draconic::audio
                 sceneFrozen = (*sceneData)->paused;
             }
         }
-        if (!params.startPaused && !sceneFrozen) { (void)ma_sound_start(&slot.sound); }
+        if (!params.startPaused && !sceneFrozen) { (void)ma_sound_start(slot.sound); }
 
         const VoiceHandle handle = impl.HandleFor(slotIndex);
         if (params.allowDedupe)
@@ -1287,7 +1402,7 @@ namespace draconic::audio
         }
         if (slot->state != VoiceState::Stopping)
         {
-            (void)ma_sound_stop_with_fade_in_milliseconds(&slot->sound, m_impl->FadeMilliseconds());
+            (void)ma_sound_stop_with_fade_in_milliseconds(slot->sound, m_impl->FadeMilliseconds());
             slot->state = VoiceState::Stopping;
         }
     }
@@ -1305,7 +1420,7 @@ namespace draconic::audio
         {
             if (current->state != VoiceState::Stopping)
             {
-                (void)ma_sound_stop_with_fade_in_milliseconds(&current->sound, fadeMs);
+                (void)ma_sound_stop_with_fade_in_milliseconds(current->sound, fadeMs);
                 current->state = VoiceState::Stopping;
             }
         }
@@ -1319,7 +1434,7 @@ namespace draconic::audio
         const VoiceHandle handle = Play(clip, params);
         if (VoiceSlot* slot = impl.Resolve(handle); slot != nullptr && fadeMs > 0)
         {
-            ma_sound_set_fade_in_milliseconds(&slot->sound, 0.0f, 1.0f, fadeMs);
+            ma_sound_set_fade_in_milliseconds(slot->sound, 0.0f, 1.0f, fadeMs);
         }
         impl.musicVoice = handle;
         return handle;
@@ -1333,7 +1448,7 @@ namespace draconic::audio
             if (slot->state != VoiceState::Stopping)
             {
                 const u64 fadeMs = static_cast<u64>(Max(fadeSeconds, 0.0f) * 1000.0f + 0.5f);
-                (void)ma_sound_stop_with_fade_in_milliseconds(&slot->sound, fadeMs);
+                (void)ma_sound_stop_with_fade_in_milliseconds(slot->sound, fadeMs);
                 slot->state = VoiceState::Stopping;
             }
         }
@@ -1440,14 +1555,14 @@ namespace draconic::audio
         if (slot == nullptr || slot->state == VoiceState::Stopping) { return; }
         if (paused && slot->state == VoiceState::Playing)
         {
-            (void)ma_sound_stop_with_fade_in_milliseconds(&slot->sound, m_impl->FadeMilliseconds());
+            (void)ma_sound_stop_with_fade_in_milliseconds(slot->sound, m_impl->FadeMilliseconds());
             slot->state = VoiceState::Paused;
         }
         else if (!paused && slot->state == VoiceState::Paused)
         {
-            ma_sound_reset_stop_time_and_fade(&slot->sound);
-            ma_sound_set_fade_in_milliseconds(&slot->sound, 0.0f, 1.0f, m_impl->FadeMilliseconds());
-            (void)ma_sound_start(&slot->sound);
+            ma_sound_reset_stop_time_and_fade(slot->sound);
+            ma_sound_set_fade_in_milliseconds(slot->sound, 0.0f, 1.0f, m_impl->FadeMilliseconds());
+            (void)ma_sound_start(slot->sound);
             slot->state = VoiceState::Playing;
         }
     }
@@ -1492,7 +1607,7 @@ namespace draconic::audio
         {
             slot->volume = volume;
             const AudioClip* clip = slot->clip.Get();
-            ma_sound_set_volume(&slot->sound, volume * (clip != nullptr ? clip->gain : 1.0f));
+            ma_sound_set_volume(slot->sound, volume * (clip != nullptr ? clip->gain : 1.0f));
         }
     }
 
@@ -1501,7 +1616,7 @@ namespace draconic::audio
         if (VoiceSlot* slot = m_impl->Resolve(handle))
         {
             slot->pitch = pitch;
-            ma_sound_set_pitch(&slot->sound, pitch);
+            ma_sound_set_pitch(slot->sound, pitch);
         }
     }
 
@@ -1509,7 +1624,7 @@ namespace draconic::audio
     {
         if (VoiceSlot* slot = m_impl->Resolve(handle))
         {
-            ma_sound_set_pan(&slot->sound, pan);
+            ma_sound_set_pan(slot->sound, pan);
         }
     }
 
@@ -1518,7 +1633,7 @@ namespace draconic::audio
         if (VoiceSlot* slot = m_impl->Resolve(handle))
         {
             slot->looping = loop;
-            ma_sound_set_looping(&slot->sound, loop ? MA_TRUE : MA_FALSE);
+            ma_sound_set_looping(slot->sound, loop ? MA_TRUE : MA_FALSE);
         }
     }
 
@@ -1527,8 +1642,8 @@ namespace draconic::audio
         if (VoiceSlot* slot = m_impl->Resolve(handle))
         {
             slot->position = position;
-            ma_sound_set_position(&slot->sound, position.x, position.y, position.z);
-            ma_sound_set_velocity(&slot->sound, velocity.x, velocity.y, velocity.z);
+            ma_sound_set_position(slot->sound, position.x, position.y, position.z);
+            ma_sound_set_velocity(slot->sound, velocity.x, velocity.y, velocity.z);
         }
     }
 
@@ -1540,6 +1655,11 @@ namespace draconic::audio
             if (slot.state != VoiceState::Free) { ++count; }
         }
         return count;
+    }
+
+    usize AudioEngine::DyingVoiceCount() const
+    {
+        return m_impl->dyingVoices.Size();
     }
 
     void AudioEngine::SetListenerTransform(Float3 position, Float3 forward, Float3 up, Float3 velocity)
@@ -1664,15 +1784,15 @@ namespace draconic::audio
             }
             if (paused)
             {
-                (void)ma_sound_stop_with_fade_in_milliseconds(&slot.sound,
+                (void)ma_sound_stop_with_fade_in_milliseconds(slot.sound,
                                                               impl.FadeMilliseconds());
             }
             else
             {
-                ma_sound_reset_stop_time_and_fade(&slot.sound);
-                ma_sound_set_fade_in_milliseconds(&slot.sound, 0.0f, 1.0f,
+                ma_sound_reset_stop_time_and_fade(slot.sound);
+                ma_sound_set_fade_in_milliseconds(slot.sound, 0.0f, 1.0f,
                                                   impl.FadeMilliseconds());
-                (void)ma_sound_start(&slot.sound);
+                (void)ma_sound_start(slot.sound);
             }
         }
     }

@@ -237,6 +237,8 @@ TEST_CASE("audio.engine: steal policy - free slot, then lowest lower priority, t
     CHECK(engine.ActiveVoiceCount() == 2u);
 
     // Pool full: a HIGHER-priority play steals the LOWEST priority below it (A at 10).
+    // FADED steal: A's handle dies at once but its ma_sound is NOT uninitialized yet -
+    // it fades on the dying side list while C already plays (no click, brief overlap).
     AudioPlayParams high;
     high.priority = 30;
     high.loop = true;
@@ -244,7 +246,12 @@ TEST_CASE("audio.engine: steal policy - free slot, then lowest lower priority, t
     REQUIRE(voiceC.IsValid());
     CHECK_FALSE(engine.IsValidHandle(voiceA));
     CHECK(engine.IsValidHandle(voiceB));
-    CHECK(engine.ActiveVoiceCount() == 2u);
+    CHECK(engine.ActiveVoiceCount() == 2u);   // addressable voices only
+    CHECK(engine.DyingVoiceCount() == 1u);    // A's tail is still mixing
+
+    // The steal fade (~30 ms) lands and the tail reaps.
+    for (int i = 0; i < 10; ++i) { engine.Update(0.05f); }
+    CHECK(engine.DyingVoiceCount() == 0u);
 
     // Pool full of strictly-higher priorities: the new play is REJECTED.
     AudioPlayParams lowest;
@@ -279,6 +286,52 @@ TEST_CASE("audio.engine: same-priority contention steals the voice FARTHEST from
     REQUIRE(newVoice.IsValid());
     CHECK(engine.IsValidHandle(nearVoice));       // near survived
     CHECK_FALSE(engine.IsValidHandle(farVoice));  // far was stolen
+    CHECK(engine.DyingVoiceCount() == 1u);        // ... but its tail fades, no hard cut
+}
+
+TEST_CASE("audio.engine: faded steal - the dying list is capacity-bounded (oldest "
+          "hard-cuts) and paused victims skip it")
+{
+    AudioEngineSettings settings = HeadlessSettings(/*voiceCount=*/1, /*streamVoiceCount=*/0);
+    settings.dyingVoiceCapacity = 2;
+    AudioEngine engine(settings);
+    RefPtr<AudioClip> clips[4] = { MakeToneClip(1.0f), MakeToneClip(1.0f, 4000, 1),
+                                   MakeToneClip(1.0f, 16000, 1), MakeToneClip(1.0f, 12000, 1) };
+
+    // Four same-frame plays through a 1-slot pool: each steals the incumbent. The
+    // dying list holds at most 2 tails; the overflow hard-cut the oldest.
+    AudioPlayParams params;
+    params.loop = true;
+    params.allowDedupe = false;
+    VoiceHandle last;
+    for (int i = 0; i < 4; ++i)
+    {
+        last = engine.Play(clips[i], params);
+        REQUIRE(last.IsValid());
+    }
+    CHECK(engine.ActiveVoiceCount() == 1u);
+    CHECK(engine.DyingVoiceCount() == 2u);
+
+    // All tails reap once their fades land; the survivor keeps playing.
+    for (int i = 0; i < 10; ++i) { engine.Update(0.05f); }
+    CHECK(engine.DyingVoiceCount() == 0u);
+    CHECK(engine.IsPlaying(last));
+
+    // A PAUSED victim is already silent: stealing it never busies the dying list.
+    engine.SetPaused(last, true);
+    const VoiceHandle successor = engine.Play(clips[0], params);
+    REQUIRE(successor.IsValid());
+    CHECK_FALSE(engine.IsValidHandle(last));
+    CHECK(engine.DyingVoiceCount() == 0u);
+
+    // Capacity 0 = the legacy immediate cut.
+    AudioEngineSettings immediate = HeadlessSettings(/*voiceCount=*/1, /*streamVoiceCount=*/0);
+    immediate.dyingVoiceCapacity = 0;
+    AudioEngine hardEngine(immediate);
+    REQUIRE(hardEngine.Play(clips[0], params).IsValid());
+    REQUIRE(hardEngine.Play(clips[1], params).IsValid());
+    CHECK(hardEngine.DyingVoiceCount() == 0u);
+    CHECK(hardEngine.ActiveVoiceCount() == 1u);
 }
 
 TEST_CASE("audio.engine: recent-play dedupe merges same-clip plays inside the window")
