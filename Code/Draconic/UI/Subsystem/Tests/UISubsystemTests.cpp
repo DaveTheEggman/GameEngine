@@ -15,6 +15,8 @@ import draconic.render.api;
 import draconic.render.subsystem;
 import draconic.shell;
 import draconic.shell.null;
+import draconic.rhi;
+import draconic.rhi.null;
 import draconic.input;
 import draconic.input.subsystem;
 
@@ -87,6 +89,7 @@ TEST_CASE("ui.subsystem: canvases instantiate, hot-reload, and sync visibility")
 
 TEST_CASE("ui.subsystem: canvas component serialization round-trips")
 {
+    RegisterUIComponentReflection();   // versioned payloads read the type's data version
     UICanvasComponent a;
     a.document.SetId(Guid{ 1, 2 });
     a.theme.SetId(Guid{ 3, 4 });
@@ -95,17 +98,24 @@ TEST_CASE("ui.subsystem: canvas component serialization round-trips")
     a.interactive = false;
     a.scalerMode = CanvasScalerMode::ReferenceResolution;
     a.referenceResolution = Float2{ 1280.0f, 800.0f };
+    a.renderMode = CanvasRenderMode::RenderTexture;
+    a.renderTextureWidth = 640;
+    a.renderTextureHeight = 360;
 
     MemoryStream buffer;
     {
         BinarySerializer writer(buffer, SerializeMode::Write);
+        BeginVersionedPayload(writer, TypeOf<UICanvasComponent>());
         Serialize(writer, a);
+        EndVersionedPayload(writer);
     }
     (void)buffer.Seek(0, SeekOrigin::Begin);
     UICanvasComponent b;
     {
         BinarySerializer reader(buffer, SerializeMode::Read);
+        BeginVersionedPayload(reader, TypeOf<UICanvasComponent>());
         Serialize(reader, b);
+        EndVersionedPayload(reader);
     }
     CHECK(b.document.id == a.document.id);
     CHECK(b.theme.id == a.theme.id);
@@ -114,6 +124,9 @@ TEST_CASE("ui.subsystem: canvas component serialization round-trips")
     CHECK_FALSE(b.interactive);
     CHECK(b.scalerMode == CanvasScalerMode::ReferenceResolution);
     CHECK(b.referenceResolution.x == doctest::Approx(1280.0f));
+    CHECK(b.renderMode == CanvasRenderMode::RenderTexture);   // v2 fields
+    CHECK(b.renderTextureWidth == 640u);
+    CHECK(b.renderTextureHeight == 360u);
 }
 
 TEST_CASE("ui.subsystem: billboards project through the scene camera and park behind it")
@@ -630,6 +643,90 @@ TEST_CASE("ui.subsystem: key/text events reach a focused game EditText; IME foll
     ctx.BeginFrame(1.0f / 60.0f);
     CHECK_FALSE(window.IsTextInputActive());
     CHECK_FALSE(input->Runtime().GetConsumptionMask().keyboard);
+
+    ctx.Shutdown();
+}
+
+TEST_CASE("ui.subsystem: RenderTexture canvases own an offscreen target and stay out of the tiers")
+{
+    rt::Context ctx;
+    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
+    auto* ui = ctx.AddSubsystem<UISubsystem>();
+    ctx.Startup();
+
+    // Headless GPU: the Null RHI device (texture lifecycle without a real GPU).
+    draconic::rhi::null::NullDevice device{ DefaultAllocator() };
+    ui->EnsureRenderReady(device, 2);
+    draconic::rhi::null::NullCommandEncoder encoder;
+
+    dscene::Scene* scene = scenes->CreateScene(u8"world");
+    auto* canvases = scene->GetSystem<UICanvasComponentManager>();
+    dscene::EntityHandle e = scene->CreateEntity(u8"screen");
+    {
+        UICanvasComponent& c = canvases->Add(e);
+        c.document = MakeDocument(u8"<Label id=\"rt-label\" text=\"scoreboard\"/>");
+        c.renderMode = CanvasRenderMode::RenderTexture;
+        c.renderTextureWidth = 256;
+        c.renderTextureHeight = 128;
+    }
+    ctx.BeginFrame(1.0f / 60.0f);
+    UICanvasComponent* c = canvases->Get(e);
+    REQUIRE(c != nullptr);
+    REQUIRE(c->root.Get() != nullptr);
+    REQUIRE(c->renderRoot.Get() != nullptr);
+
+    // NOT in the overlay tiers: the scene root holds only the billboard layer, and the
+    // document is unreachable from it (RT canvases never draw in the overlay pass and
+    // never take pointer input - the input pump only probes tier roots).
+    RootView* sceneRoot = ui->SceneRoot(*scene);
+    REQUIRE(sceneRoot != nullptr);
+    CHECK(sceneRoot->ChildCount() == 1u);
+    CHECK(Cast<ViewGroup>(sceneRoot)->FindByName(u8"rt-label") == nullptr);
+    CHECK(Cast<ViewGroup>(ui->ScreenRoot())->FindByName(u8"rt-label") == nullptr);
+    CHECK(Cast<ViewGroup>(c->renderRoot.Get())->FindByName(u8"rt-label") != nullptr);
+
+    // No texture until the host seam runs; then create at the authored size.
+    CHECK(c->renderTexture == nullptr);
+    ui->RenderCanvasTextures(encoder, 0);
+    c = canvases->Get(e);
+    REQUIRE(c->renderTexture != nullptr);
+    REQUIRE(c->renderTextureView != nullptr);
+    CHECK(c->renderTexture->desc.width == 256u);
+    CHECK(c->renderTexture->desc.height == 128u);
+    CHECK(ui->CanvasRenderTextureView(*scene, e) == c->renderTextureView);
+    // The root laid out at the texture size.
+    CHECK(c->renderRoot->ViewportSize.x == doctest::Approx(256.0f));
+    CHECK(c->renderRoot->ViewportSize.y == doctest::Approx(128.0f));
+
+    // Resize: the target recreates at the new size.
+    c->renderTextureWidth = 512;
+    ui->RenderCanvasTextures(encoder, 1);
+    c = canvases->Get(e);
+    REQUIRE(c->renderTexture != nullptr);
+    CHECK(c->renderTexture->desc.width == 512u);
+    CHECK(c->renderTexture->desc.height == 128u);
+
+    // Mode flip back to ScreenOverlay: the standalone root goes away, the document
+    // re-parents into the scene root, and the GPU target is swept.
+    c->renderMode = CanvasRenderMode::ScreenOverlay;
+    ctx.BeginFrame(1.0f / 60.0f);
+    c = canvases->Get(e);
+    CHECK(c->renderRoot.Get() == nullptr);
+    CHECK(c->renderTexture == nullptr);
+    CHECK(c->renderTextureView == nullptr);
+    CHECK(Cast<ViewGroup>(ui->SceneRoot(*scene))->FindByName(u8"rt-label") != nullptr);
+    ui->RenderCanvasTextures(encoder, 0);
+    CHECK(ui->CanvasRenderTextureView(*scene, e) == nullptr);
+
+    // And back to RenderTexture, then DESPAWN: the sweep destroys the orphaned target.
+    c->renderMode = CanvasRenderMode::RenderTexture;
+    ctx.BeginFrame(1.0f / 60.0f);
+    ui->RenderCanvasTextures(encoder, 0);
+    REQUIRE(canvases->Get(e)->renderTexture != nullptr);
+    scene->DestroyEntity(e);
+    ctx.BeginFrame(1.0f / 60.0f);
+    ui->RenderCanvasTextures(encoder, 0);   // sweeps; must not crash or leak
+    CHECK(canvases->Get(e) == nullptr);
 
     ctx.Shutdown();
 }

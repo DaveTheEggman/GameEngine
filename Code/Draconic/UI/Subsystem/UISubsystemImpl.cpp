@@ -145,14 +145,101 @@ namespace draconic::ui
         Array<FormatRenderer> renderers;
         i32 frameCount = 2;
 
+        // RenderTexture canvases: one subsystem-owned offscreen target per RT canvas,
+        // keyed by (scene, entity). Reconciled by RenderCanvasTextures each call.
+        struct CanvasTarget
+        {
+            dscene::Scene* scene = nullptr;
+            dscene::EntityHandle entity{};
+            rhi::Texture* texture = nullptr;
+            rhi::TextureView* view = nullptr;
+            u32 width = 0;
+            u32 height = 0;
+            rhi::ResourceState state = rhi::ResourceState::Undefined;
+            bool seen = false;
+        };
+        Array<CanvasTarget> canvasTargets;
+
         explicit RenderState(draconic::fonts::IFontService* fonts) : vgContext(fonts) {}
 
         ~RenderState()
         {
+            if (!canvasTargets.IsEmpty() && device != nullptr) { device->WaitIdle(); }
+            for (usize i = canvasTargets.Size(); i-- > 0;) { DestroyCanvasTarget(i, false); }
             renderers.Clear();
             if (vertexShader != nullptr && device != nullptr) { device->DestroyShaderModule(vertexShader); }
             if (fragmentShader != nullptr && device != nullptr) { device->DestroyShaderModule(fragmentShader); }
             if (compiler != nullptr) { compiler->Destroy(); }
+        }
+
+        // The (created-on-demand) target for one RT canvas, recreated on resize. Null
+        // only when texture creation fails.
+        [[nodiscard]] CanvasTarget* EnsureCanvasTarget(dscene::Scene* scene,
+                                                       dscene::EntityHandle entity,
+                                                       u32 width, u32 height,
+                                                       rhi::TextureFormat format)
+        {
+            CanvasTarget* found = nullptr;
+            for (auto& target : canvasTargets)
+            {
+                if (target.scene == scene && target.entity == entity) { found = &target; break; }
+            }
+            if (found != nullptr && (found->width != width || found->height != height))
+            {
+                // Resize: the GPU may still sample the old target - idle before freeing
+                // (the ViewportView resize precedent; RT resizes are rare, author-driven).
+                device->WaitIdle();
+                if (found->view != nullptr) { device->DestroyTextureView(found->view); }
+                if (found->texture != nullptr) { device->DestroyTexture(found->texture); }
+                found->texture = nullptr;
+                found->view = nullptr;
+            }
+            if (found == nullptr)
+            {
+                CanvasTarget target;
+                target.scene = scene;
+                target.entity = entity;
+                canvasTargets.PushBack(target);
+                found = &canvasTargets[canvasTargets.Size() - 1];
+            }
+            if (found->texture == nullptr)
+            {
+                rhi::TextureDesc desc =
+                    rhi::TextureDesc::RenderTarget(format, width, height, 1, u8"UICanvasTexture");
+                if (!device->CreateTexture(desc, found->texture).IsOk())
+                {
+                    found->texture = nullptr;
+                    return nullptr;
+                }
+                rhi::TextureViewDesc viewDesc{};
+                viewDesc.format = format;
+                if (!device->CreateTextureView(found->texture, viewDesc, found->view).IsOk())
+                {
+                    device->DestroyTexture(found->texture);
+                    found->texture = nullptr;
+                    found->view = nullptr;
+                    return nullptr;
+                }
+                found->width = width;
+                found->height = height;
+                found->state = rhi::ResourceState::Undefined;
+            }
+            return found;
+        }
+
+        void DestroyCanvasTarget(usize index, bool waitIdle = true)
+        {
+            CanvasTarget& target = canvasTargets[index];
+            if (device != nullptr)
+            {
+                if (waitIdle && (target.texture != nullptr || target.view != nullptr))
+                {
+                    device->WaitIdle();   // the scene may still be sampling it
+                }
+                if (target.view != nullptr) { device->DestroyTextureView(target.view); }
+                if (target.texture != nullptr) { device->DestroyTexture(target.texture); }
+            }
+            canvasTargets.RemoveAt(index);
         }
 
         bool CompileOne(StringView source, draconic::shaders::ShaderStage stage,
@@ -348,38 +435,68 @@ namespace draconic::ui
                 }
             }
             canvases->ForEach([&](UICanvasComponent& c, dscene::EntityHandle) {
-                // Every canvas parents through its own host: the order/scaler carrier.
-                if (c.host.Get() == nullptr)
-                {
-                    c.host = MakeRef<CanvasHostView>(DefaultAllocator());
-                    sceneUI.root->AddView(c.host.Get());
-                }
-                auto* host = static_cast<CanvasHostView*>(c.host.Get());
-                host->Seen = true;
-                host->Order = c.order;
-                host->ScalerMode = c.scalerMode;
-                host->ReferenceResolution = c.referenceResolution;
                 const UIDocument* document = c.document.Get();
-                if (document != c.builtFrom)
+                const bool wantsTexture = c.renderMode == CanvasRenderMode::RenderTexture;
+                const bool builtAsTexture = c.renderRoot.Get() != nullptr;
+                if (document != c.builtFrom || (c.root.Get() != nullptr && wantsTexture != builtAsTexture))
                 {
+                    // Tear down whichever shape was built (document reload or a render-
+                    // mode flip), then instantiate for the CURRENT mode.
                     if (c.root.Get() != nullptr)
                     {
-                        host->RemoveView(c.root.Get());
+                        if (c.host.Get() != nullptr) { c.host->RemoveView(c.root.Get()); }
+                        if (c.renderRoot.Get() != nullptr) { c.renderRoot->RemoveView(c.root.Get()); }
                         c.root = nullptr;
+                    }
+                    if (c.renderRoot.Get() != nullptr)
+                    {
+                        m_context.RemoveRootView(c.renderRoot.Get());
+                        c.renderRoot = nullptr;
+                        c.renderTexture = nullptr;       // GPU objects swept by the next
+                        c.renderTextureView = nullptr;   // RenderCanvasTextures
                     }
                     if (document != nullptr && !document->markup.IsEmpty())
                     {
                         c.root = MarkupLoader::LoadFromString(document->markup.AsView(), &m_context);
-                        if (c.root.Get() != nullptr)
-                        {
-                            host->AddView(c.root.Get());
-                        }
-                        else
+                        if (c.root.Get() == nullptr)
                         {
                             DRACONIC_LOG_WARNING(u8"UI", u8"canvas document failed to instantiate");
                         }
+                        else if (wantsTexture)
+                        {
+                            // RenderTexture: a STANDALONE root - never parented into a
+                            // tier (not drawn by the overlay roles) and never an input
+                            // root (v1 RT canvases are non-interactive).
+                            c.renderRoot = MakeRef<RootView>(DefaultAllocator());
+                            c.renderRoot->AddView(c.root.Get());
+                            m_context.AddRootView(c.renderRoot.Get());
+                        }
                     }
                     c.builtFrom = document;
+                }
+                if (!wantsTexture)
+                {
+                    // Overlay canvases parent through their host: the order/scaler
+                    // carrier in the scene root. (An unseen host - RT mode or a dead
+                    // component - is swept below.)
+                    if (c.host.Get() == nullptr)
+                    {
+                        c.host = MakeRef<CanvasHostView>(DefaultAllocator());
+                        sceneUI.root->AddView(c.host.Get());
+                    }
+                    auto* host = static_cast<CanvasHostView*>(c.host.Get());
+                    host->Seen = true;
+                    host->Order = c.order;
+                    host->ScalerMode = c.scalerMode;
+                    host->ReferenceResolution = c.referenceResolution;
+                    if (c.root.Get() != nullptr && c.root->Parent == nullptr)
+                    {
+                        host->AddView(c.root.Get());
+                    }
+                }
+                else if (c.host.Get() != nullptr)
+                {
+                    c.host = nullptr;   // the stale host stays unseen -> swept below
                 }
                 const UITheme* theme = c.theme.Get();
                 if (theme != c.themeFrom)
@@ -768,6 +885,67 @@ namespace draconic::ui
         renderer->Render(encoder, width, height, frameIndex, slice);
     }
 
+    // RenderTexture canvases (game-ui.md P3): draw each RT canvas's standalone root into
+    // its subsystem-owned offscreen texture. Runs on the HOST's encoder BEFORE the scene
+    // render (the RenderCanvasTextures seam next to EnsureRenderReady/RenderOverlays),
+    // so materials sampling the texture see this frame's UI. Targets are created and
+    // resized on demand, swept when their canvas vanishes or leaves the mode, and end
+    // in ShaderRead. The VG ring gating is the shared one: DrawRootInPass goes through
+    // RendererFor(format, m_frameSerial, frameIndex), which resets a format renderer's
+    // ring at most once per UI frame - same-frame overlay draws are never clobbered.
+    void UISubsystem::RenderCanvasTextures(rhi::CommandEncoder& encoder, i32 frameIndex)
+    {
+        constexpr rhi::TextureFormat kCanvasTextureFormat = rhi::TextureFormat::RGBA8Unorm;
+        if (m_render.Get() == nullptr || m_render->device == nullptr) { return; }
+        for (auto& target : m_render->canvasTargets) { target.seen = false; }
+        for (SceneUI& sceneUI : m_sceneUIs)
+        {
+            auto* canvases = sceneUI.scene->GetSystem<UICanvasComponentManager>();
+            if (canvases == nullptr) { continue; }
+            canvases->ForEach([&](UICanvasComponent& c, dscene::EntityHandle entity) {
+                if (c.renderMode != CanvasRenderMode::RenderTexture) { return; }
+                if (c.renderRoot.Get() == nullptr) { return; }   // no document instantiated
+                const u32 width = Max(c.renderTextureWidth, 1u);
+                const u32 height = Max(c.renderTextureHeight, 1u);
+                RenderState::CanvasTarget* target = m_render->EnsureCanvasTarget(
+                    sceneUI.scene, entity, width, height, kCanvasTextureFormat);
+                if (target == nullptr)
+                {
+                    c.renderTexture = nullptr;
+                    c.renderTextureView = nullptr;
+                    return;
+                }
+                target->seen = true;
+                c.renderTexture = target->texture;      // the component-level accessor
+                c.renderTextureView = target->view;
+                if (!c.visible) { return; }   // keep the texture, skip the draw
+                encoder.TransitionTexture(target->texture, target->state,
+                                          rhi::ResourceState::RenderTarget);
+                rhi::RenderPassDesc pass;
+                rhi::ColorAttachment color;
+                color.view = target->view;
+                color.loadOp = rhi::LoadOp::Clear;   // fresh transparent background
+                color.storeOp = rhi::StoreOp::Store;
+                color.clearValue = rhi::ClearColor{ 0.0f, 0.0f, 0.0f, 0.0f };
+                pass.colorAttachments.Add(color);
+                if (rhi::RenderPassEncoder* rp = encoder.BeginRenderPass(pass))
+                {
+                    DrawRootInPass(*c.renderRoot, *rp, kCanvasTextureFormat,
+                                   width, height, frameIndex);
+                    rp->End();
+                }
+                encoder.TransitionTexture(target->texture, rhi::ResourceState::RenderTarget,
+                                          rhi::ResourceState::ShaderRead);
+                target->state = rhi::ResourceState::ShaderRead;
+            });
+        }
+        // Sweep targets whose canvas vanished (despawn, scene destroyed, mode flip).
+        for (usize i = m_render->canvasTargets.Size(); i-- > 0;)
+        {
+            if (!m_render->canvasTargets[i].seen) { m_render->DestroyCanvasTarget(i); }
+        }
+    }
+
     // Pass-owning draw body (the preview seam): opens its own Load-op pass on the
     // caller's encoder, then records through DrawRootInPass.
     void UISubsystem::DrawRootInto(RootView& root, rhi::CommandEncoder& encoder,
@@ -847,6 +1025,12 @@ namespace draconic::ui
         builder.Value("ReferenceResolution", CanvasScalerMode::ReferenceResolution);
     }
 
+    DRACONIC_REFLECT_ENUM(CanvasRenderMode, "draconic::ui")
+    {
+        builder.Value("ScreenOverlay", CanvasRenderMode::ScreenOverlay);
+        builder.Value("RenderTexture", CanvasRenderMode::RenderTexture);
+    }
+
     DRACONIC_REFLECT_ENUM(BillboardOrientation, "draconic::ui")
     {
         builder.Value("Screen", BillboardOrientation::Screen);
@@ -874,7 +1058,7 @@ namespace draconic::ui
 
     DRACONIC_REFLECT_VALUE(UICanvasComponent, "draconic::ui")
     {
-        builder.DataVersion(1);
+        builder.DataVersion(2);   // v2 added the RenderTexture canvas mode
         builder.Property<&UICanvasComponent::document>("document");
         builder.Property<&UICanvasComponent::theme>("theme");
         builder.Property<&UICanvasComponent::order>("order");
@@ -882,12 +1066,16 @@ namespace draconic::ui
         builder.Property<&UICanvasComponent::interactive>("interactive");
         builder.Property<&UICanvasComponent::scalerMode>("scalerMode");
         builder.Property<&UICanvasComponent::referenceResolution>("referenceResolution");
+        builder.Property<&UICanvasComponent::renderMode>("renderMode");
+        builder.Property<&UICanvasComponent::renderTextureWidth>("renderTextureWidth");
+        builder.Property<&UICanvasComponent::renderTextureHeight>("renderTextureHeight");
     }
 
     void RegisterUIComponentReflection()
     {
         static const bool once = []() {
             DraconicRegisterEnum_CanvasScalerMode();
+            DraconicRegisterEnum_CanvasRenderMode();
             DraconicRegisterEnum_BillboardOrientation();
             DraconicRegisterEnum_BillboardScale();
             DraconicRegisterValue_UICanvasComponent();

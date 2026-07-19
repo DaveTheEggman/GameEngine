@@ -353,6 +353,13 @@ export namespace draconic::editor
             if (w == 0 || h == 0) { return; }
             if (!m_viewport->IsEffectivelyVisible()) { return; }
 
+            // RenderTexture canvases draw before the scene (the same host seam the
+            // player runs in DefaultApplication::OnRenderWindow).
+            if (m_app != nullptr && m_app->UI() != nullptr)
+            {
+                m_app->UI()->RenderCanvasTextures(*frame.encoder, static_cast<i32>(frame.frameIndex));
+            }
+
             // No camera override: the SCENE's primary camera drives the view (its clear
             // color included) - the player's presentation, not the editor's.
             grender::TargetState targetState;

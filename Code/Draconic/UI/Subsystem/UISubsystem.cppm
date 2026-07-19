@@ -48,6 +48,12 @@ export namespace draconic::ui
         ReferenceResolution,   // uniform-scale so referenceResolution fits the target
     };
 
+    enum class CanvasRenderMode : u8
+    {
+        ScreenOverlay = 0,     // drawn in the scene-overlay pass (the screen tier)
+        RenderTexture,         // drawn into an offscreen texture (in-world screens)
+    };
+
     // A screen-space UI canvas on an entity: menus/HUD ride in scenes and prefabs
     // (spawn/despawn = open/close). renderMode is implicitly ScreenOverlay in P1.
     struct UICanvasComponent
@@ -60,13 +66,21 @@ export namespace draconic::ui
         bool interactive = true;
         CanvasScalerMode scalerMode = CanvasScalerMode::ConstantPixel;
         Float2 referenceResolution{ 1920.0f, 1080.0f };
+        CanvasRenderMode renderMode = CanvasRenderMode::ScreenOverlay;
+        u32 renderTextureWidth = 512;              // RenderTexture mode: target size (px)
+        u32 renderTextureHeight = 512;
 
         // Runtime (transient):
         RefPtr<View> root;                         // instantiated tree (template = document)
         RefPtr<ViewGroup> host;                    // per-canvas host in the scene root (order + scaler)
+        RefPtr<RootView> renderRoot;               // RenderTexture mode: standalone root (never a tier)
         const UIDocument* builtFrom = nullptr;     // rebuild detector (hot reload)
         RefPtr<StyleSheet> themeSheet;             // parsed override (built on theme change)
         const UITheme* themeFrom = nullptr;
+        // RenderTexture mode accessors (subsystem-owned GPU objects, refreshed by
+        // RenderCanvasTextures; null until the first render / outside the mode).
+        rhi::Texture* renderTexture = nullptr;
+        rhi::TextureView* renderTextureView = nullptr;
     };
 
     inline void Serialize(ISerializer& ar, UICanvasComponent& c)
@@ -80,6 +94,14 @@ export namespace draconic::ui
         c.scalerMode = static_cast<CanvasScalerMode>(scaler);
         draconic::core::Serialize(ar, "referenceResolution", c.referenceResolution);
         draconic::core::Serialize(ar, "interactive", c.interactive);
+        if (ar.Version() >= 2)   // v2 added the RenderTexture canvas mode
+        {
+            u8 render = static_cast<u8>(c.renderMode);
+            draconic::core::Serialize(ar, "renderMode", render);
+            c.renderMode = static_cast<CanvasRenderMode>(render);
+            draconic::core::Serialize(ar, "renderTextureWidth", c.renderTextureWidth);
+            draconic::core::Serialize(ar, "renderTextureHeight", c.renderTextureHeight);
+        }
     }
 
     inline void ResolveResources(draconic::resource::ResourceManager& manager, UICanvasComponent& c)
@@ -283,6 +305,24 @@ export namespace draconic::ui
         /// plus billboard projection/scaling through the VIEW's camera (world -> clip ->
         /// NDC -> px in the target; behind-camera parks off-screen).
         void UpdateSceneView(dscene::Scene& scene, const render::SceneOverlayView& view);
+
+        /// RenderTexture canvases: draws every RT canvas's root into its subsystem-owned
+        /// offscreen texture (create/resize on demand; orphaned targets destroyed). The
+        /// HOST calls this once per frame on its command encoder BEFORE the scene render
+        /// (DefaultApplication::OnRenderWindow / the Game tab), so the scene can sample
+        /// the result the same frame. Textures end in ShaderRead.
+        void RenderCanvasTextures(rhi::CommandEncoder& encoder, i32 frameIndex);
+
+        /// The offscreen texture view of `entity`'s RenderTexture canvas in `scene`
+        /// (null when absent, not that mode, or not rendered yet). Also mirrored on the
+        /// component (renderTexture/renderTextureView).
+        [[nodiscard]] rhi::TextureView* CanvasRenderTextureView(dscene::Scene& scene,
+                                                                dscene::EntityHandle entity) noexcept
+        {
+            auto* canvases = scene.GetSystem<UICanvasComponentManager>();
+            UICanvasComponent* c = canvases != nullptr ? canvases->Get(entity) : nullptr;
+            return c != nullptr ? c->renderTextureView : nullptr;
+        }
 
         /// One-time GPU bring-up (shader compile + device wire) by whoever owns graphics
         /// (DefaultApplication's startup). Idempotent; without it overlay draws no-op.
