@@ -1600,6 +1600,13 @@ public:
                                           v->Settings().clear, v->TargetFormat(),
                                           v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
                                           m_frameIndex, viewIndex, m_exposure, bloomStrength, uvScale, uvOffset, aoStrength, showAo);
+                // World-space UI draws BETWEEN tonemap and FXAA: authored colors survive
+                // (FXAA doesn't grade) and the quad silhouettes get antialiased. With
+                // FXAA off the pass lands directly on the final LDR (TAA never touched
+                // transparents, so edge AA there matches the old transparent-pass look).
+                m_pass.DeclarePostTonemapUI(*v, *m_registry, m_graph, m_frameIndex, viewIndex,
+                                            fxaa ? tonemapOut : colorH, depth, v->TargetFormat(),
+                                            unjitteredVP, prevViewProj);
                 if (fxaa) {
                     const Float2 texel{ 1.0f / fullW, 1.0f / fullH };
                     m_fxaa->DeclareFxaa(m_graph, tonemapOut, colorH, clearColor, v->Settings().clear, v->TargetFormat(),
@@ -1616,12 +1623,10 @@ public:
                 m_pass.DeclareTransparent(*v, *m_registry, m_graph, m_frameIndex, viewIndex, colorH, depth,
                                           v->TargetFormat(), unjitteredVP, prevViewProj, jitter, prevJitter, cluster, shadow, ibl,
                                           probeRange.base, probeRange.count);
+                // No-tonemap path: world UI straight onto the LDR target.
+                m_pass.DeclarePostTonemapUI(*v, *m_registry, m_graph, m_frameIndex, viewIndex,
+                                            colorH, depth, v->TargetFormat(), unjitteredVP, prevViewProj);
             }
-
-            // World-space UI (WorldUI category): post-tonemap, depth-tested - after post
-            // so authored colors survive, before the overlays/debug that sit above.
-            m_pass.DeclarePostTonemapUI(*v, *m_registry, m_graph, m_frameIndex, viewIndex,
-                                        colorH, depth, v->TargetFormat(), unjitteredVP, prevViewProj);
 
             // Scene-tier overlays (game UI: HUD canvases, billboards): one shared Load-op pass on the
             // view's final LDR output, after post (never TAA-smeared / tonemapped over), BEFORE debug
