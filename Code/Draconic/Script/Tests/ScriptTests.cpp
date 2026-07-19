@@ -192,3 +192,19 @@ TEST_CASE("script.backend: RegisterReflectedTypes drives the two-phase contract 
     CHECK(manager.finalized);
     CHECK(manager.finalizedAfterAll);     // finalize came after every RegisterType
 }
+
+TEST_CASE("script.backend: capability flags default to None and compose (B4)")
+{
+    using draconic::script::ScriptCapabilities;
+    using draconic::script::HasScriptCapability;
+
+    FakeScriptManager manager;
+    CHECK(manager.Capabilities() == ScriptCapabilities::None);
+    CHECK_FALSE(HasScriptCapability(manager.Capabilities(), ScriptCapabilities::Fibers));
+
+    constexpr ScriptCapabilities both =
+        ScriptCapabilities::Fibers | ScriptCapabilities::Profiler;
+    CHECK(HasScriptCapability(both, ScriptCapabilities::Fibers));
+    CHECK(HasScriptCapability(both, ScriptCapabilities::Profiler));
+    CHECK_FALSE(HasScriptCapability(both, ScriptCapabilities::Debugger));
+}

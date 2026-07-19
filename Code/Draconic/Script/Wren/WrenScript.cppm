@@ -718,6 +718,11 @@ namespace draconic::script::wren
             return core::RefPtr<IScriptContext>(core::MakeRef<WrenContext>(core::DefaultAllocator(), types));
         }
 
+        [[nodiscard]] ScriptCapabilities Capabilities() const override
+        {
+            return ScriptCapabilities::Fibers;   // first-class Fiber - the P2 scheduler backend
+        }
+
     private:
         core::Array<const core::TypeInfo*> m_types;
     };

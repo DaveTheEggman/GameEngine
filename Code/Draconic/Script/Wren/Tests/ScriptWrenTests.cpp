@@ -348,3 +348,10 @@ TEST_CASE("wren: CERTIFIED - the backend conformance battery (scripting.md B2)")
     draconic::script::conformance::RunScriptBackendConformance(
         []() { return draconic::script::wren::CreateScriptManager(); }, dialect);
 }
+
+TEST_CASE("wren: declares the Fibers capability (B4 - the P2 scheduler gate)")
+{
+    RefPtr<IScriptManager> manager = wren::CreateScriptManager();
+    CHECK(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Fibers));
+    CHECK_FALSE(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Debugger));
+}

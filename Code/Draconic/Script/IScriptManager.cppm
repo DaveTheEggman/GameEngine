@@ -16,6 +16,25 @@ namespace core = draconic::core;
 
 export namespace draconic::script
 {
+    /// Optional backend features (scripting.md B4), declared per backend and consumed
+    /// contract-first: a consumer CHECKS the flag and degrades cleanly - a backend
+    /// without Fibers still runs behaviors, it just has no coroutine scheduler.
+    enum class ScriptCapabilities : core::u32
+    {
+        None     = 0,
+        Fibers   = 1 << 0,   // first-class coroutines (Wren fibers) - the P2 wait/tween scheduler gate
+        Debugger = 1 << 1,   // step-debug seam (none implemented yet)
+        Profiler = 1 << 2,   // VM-level profiling hooks (none implemented yet)
+    };
+    inline constexpr ScriptCapabilities operator|(ScriptCapabilities a, ScriptCapabilities b)
+    {
+        return static_cast<ScriptCapabilities>(static_cast<core::u32>(a) | static_cast<core::u32>(b));
+    }
+    inline constexpr bool HasScriptCapability(ScriptCapabilities value, ScriptCapabilities flag)
+    {
+        return (static_cast<core::u32>(value) & static_cast<core::u32>(flag)) != 0;
+    }
+
     class IScriptManager : public core::Object
     {
     public:
@@ -39,5 +58,12 @@ export namespace draconic::script
         // Single-step garbage collection, for backends that need it kept small in
         // real-time loops. Default: no-op.
         virtual void CollectGarbage() {}
+
+        /// The backend's OPTIONAL feature set. Required behavior is certified by the
+        /// conformance battery instead - never flagged here.
+        [[nodiscard]] virtual ScriptCapabilities Capabilities() const
+        {
+            return ScriptCapabilities::None;
+        }
     };
 }

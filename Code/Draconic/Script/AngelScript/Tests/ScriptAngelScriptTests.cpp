@@ -459,3 +459,10 @@ TEST_CASE("angelscript: CERTIFIED - the backend conformance battery (scripting.m
     draconic::script::conformance::RunScriptBackendConformance(
         []() { return draconic::script::angelscript::CreateScriptManager(); }, dialect);
 }
+
+TEST_CASE("angelscript: declares no optional capabilities yet (B4 - consumers degrade cleanly)")
+{
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    CHECK(manager->Capabilities() == ScriptCapabilities::None);
+    CHECK_FALSE(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Fibers));
+}
