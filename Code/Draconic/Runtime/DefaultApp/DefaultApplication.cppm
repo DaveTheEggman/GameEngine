@@ -48,6 +48,9 @@ import draconic.image.resource;     // image resource registration
 import draconic.model.resource;     // cooked-model family types + registration
 import draconic.ui.resource;        // cooked UI documents/themes (game-ui)
 import draconic.ui.subsystem;       // the game screen tier (canvases + overlay + consumption)
+import draconic.audio;              // AudioEngine (owned by the audio subsystem)
+import draconic.audio.resource;     // cooked audio clips + factory
+import draconic.audio.subsystem;    // AudioSubsystem (voices/buses/one-shots + scene sync)
 import draconic.profiler;           // the CPU scope profiler (P-key dump)
 
 namespace rhi = draconic::rhi;
@@ -112,6 +115,7 @@ export namespace draconic::runtime
                 host.Ctx().AddSubsystem<draconic::particles::ParticleSubsystem>();
             }
             m_physics = host.Ctx().AddSubsystem<draconic::physics::PhysicsSubsystem>();
+            m_audio = host.Ctx().AddSubsystem<draconic::audio::AudioSubsystem>();
             m_input = host.Ctx().AddSubsystem<draconic::input::InputSubsystem>(
                 host.Shell() != nullptr ? host.Shell()->Input() : nullptr);
             m_ui = host.Ctx().AddSubsystem<draconic::ui::UISubsystem>();
@@ -120,6 +124,7 @@ export namespace draconic::runtime
 
         [[nodiscard]] draconic::input::InputSubsystem* Input() const noexcept { return m_input; }
         [[nodiscard]] draconic::physics::PhysicsSubsystem* Physics() const noexcept { return m_physics; }
+        [[nodiscard]] draconic::audio::AudioSubsystem* Audio() const noexcept { return m_audio; }
         [[nodiscard]] draconic::ui::UISubsystem* UI() const noexcept { return m_ui; }
 
         /// TTF for the game UI's default font (preset BEFORE Configure; the editor passes
@@ -158,6 +163,7 @@ export namespace draconic::runtime
             draconic::particles::RegisterParticleEffectResource();
             draconic::input::RegisterInputMapResource();
             draconic::physics::RegisterPhysicsResource();
+            draconic::audio::RegisterAudioResource();
             draconic::ui::RegisterUIResource();
             core::GlobalTypeRegistry().Register(draconic::scene::SceneDocument::StaticType());
             core::RegisterSerializable<draconic::scene::SceneDocument>();
@@ -185,6 +191,7 @@ export namespace draconic::runtime
             resources->AddFactory(&m_inputMapFactory);
             resources->AddFactory(&m_collisionShapeFactory);
             resources->AddFactory(&m_physicalMaterialFactory);
+            resources->AddFactory(&m_audioClipFactory);
             resources->AddFactory(&m_modelFactory);
             resources->AddFactory(&m_uiDocumentFactory);
             resources->AddFactory(&m_uiThemeFactory);
@@ -308,6 +315,7 @@ export namespace draconic::runtime
         draconic::input::InputMapFactory m_inputMapFactory;
         draconic::physics::CollisionShapeFactory m_collisionShapeFactory;
         draconic::physics::PhysicalMaterialFactory m_physicalMaterialFactory;
+        draconic::audio::AudioClipFactory m_audioClipFactory;
         draconic::model::ModelFactory m_modelFactory;
         draconic::ui::UIDocumentFactory m_uiDocumentFactory;
         draconic::ui::UIThemeFactory m_uiThemeFactory;
@@ -319,6 +327,7 @@ export namespace draconic::runtime
         draconic::ui::UISubsystem* m_ui = nullptr;
         core::String m_uiFontPath;
         draconic::physics::PhysicsSubsystem* m_physics = nullptr;
+        draconic::audio::AudioSubsystem* m_audio = nullptr;
         draconic::scene::Scene* m_primaryScene = nullptr;
         draconic::script::IScriptErrorHandler* m_scriptErrorHandler = nullptr;
         core::RefPtr<draconic::script::IScriptManager> m_scriptManager;

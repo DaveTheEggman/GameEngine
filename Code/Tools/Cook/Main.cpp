@@ -33,6 +33,9 @@ import draconic.physics.resource;
 import draconic.physics.editor;
 import draconic.ui.resource;
 import draconic.ui.editor;
+import draconic.audio;
+import draconic.audio.resource;
+import draconic.audio.editor;
 
 using namespace draconic::core;
 namespace ed = draconic::editor;
@@ -67,6 +70,8 @@ namespace
         draconic::physics::RegisterPhysicsResource();
         draconic::ui::RegisterUIAssets();
         draconic::ui::RegisterUIResource();
+        draconic::audio::RegisterAudioAssets();
+        draconic::audio::RegisterAudioResource();
 
         Add<draconic::texture::TextureAssetBuilder>(registry);
         Add<draconic::image::ImageAssetBuilder>(registry);
@@ -84,6 +89,7 @@ namespace
         Add<draconic::physics::PhysicalMaterialAssetBuilder>(registry);
         Add<draconic::ui::UIDocumentAssetBuilder>(registry);
         Add<draconic::ui::UIThemeAssetBuilder>(registry);
+        Add<draconic::audio::AudioClipAssetBuilder>(registry);
     }
 }
 
