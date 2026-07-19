@@ -28,6 +28,9 @@ export namespace draconic::audio
         // weighted variant with the cue's jitter (autoplay/loop apply to the pick).
         draconic::resource::Ref<SoundCue> cue;
         AudioBus bus = AudioBus::Effects;
+        // Named custom-bus routing (v2): when non-empty and the applied layout has a
+        // custom bus of this name, the voice routes there; unknown/empty = `bus`.
+        String busName;
         f32 volume = 1.0f;
         f32 pitch = 1.0f;               // real resampling at runtime
         bool loop = false;              // OR-ed with the clip's authored loop intent
@@ -78,6 +81,10 @@ export namespace draconic::audio
         draconic::core::Serialize(ar, "coneInnerAngleDegrees", c.coneInnerAngleDegrees);
         draconic::core::Serialize(ar, "coneOuterAngleDegrees", c.coneOuterAngleDegrees);
         draconic::core::Serialize(ar, "coneOuterGain", c.coneOuterGain);
+        if (ar.Version() >= 2)   // v2: named custom-bus routing
+        {
+            draconic::core::Serialize(ar, "busName", c.busName);
+        }
     }
 
     inline void ResolveResources(draconic::resource::ResourceManager& manager,

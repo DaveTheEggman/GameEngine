@@ -113,9 +113,10 @@ namespace draconic::audio
 
     DRACONIC_REFLECT_VALUE(AudioSourceComponent, "draconic::audio")
     {
-        builder.DataVersion(1);
+        builder.DataVersion(2);   // v2: busName (named custom-bus routing)
         builder.Property<&AudioSourceComponent::clip>("clip");
         builder.Property<&AudioSourceComponent::bus>("bus");
+        builder.Property<&AudioSourceComponent::busName>("busName");
         builder.Property<&AudioSourceComponent::volume>("volume");
         builder.Property<&AudioSourceComponent::pitch>("pitch");
         builder.Property<&AudioSourceComponent::loop>("loop");

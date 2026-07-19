@@ -253,6 +253,7 @@ TEST_CASE("audio.scene: components round-trip through SerializeScene (authored f
     REQUIRE(Guid::TryParse(u8"12345678-1234-4234-8234-123456789abc", clipId));
     sc.clip.SetId(clipId);
     sc.bus = AudioBus::Music;
+    sc.busName = String(u8"drums");
     sc.volume = 0.7f;
     sc.pitch = 1.25f;
     sc.loop = true;
@@ -294,6 +295,7 @@ TEST_CASE("audio.scene: components round-trip through SerializeScene (authored f
     REQUIRE(loaded != nullptr);
     CHECK(loaded->clip.id == clipId);
     CHECK(loaded->bus == AudioBus::Music);
+    CHECK(loaded->busName.AsView() == StringView(u8"drums"));
     CHECK(loaded->volume == doctest::Approx(0.7f));
     CHECK(loaded->pitch == doctest::Approx(1.25f));
     CHECK(loaded->loop);
@@ -363,6 +365,38 @@ TEST_CASE("audio.scene: sources sharing one clip each get their OWN voice (dedup
     for (int i = 1; i < 4; ++i) { CHECK_FALSE(voices[i] == voices[0]); }
     CHECK(engine.ActiveVoiceCount() == 4u);
     scene.Stop();
+}
+
+TEST_CASE("audio.scene: a source's busName routes its voice onto the layout's custom bus")
+{
+    PlayScene play;
+    AudioBusLayout layout;
+    AudioNamedBus drums;
+    drums.name = String(u8"drums");
+    drums.parent = String(u8"Effects");
+    layout.customBuses.PushBack(drums);
+    play.engine.ApplyBusLayout(layout);
+
+    RefPtr<AudioClip> clip = MakeToneClip(1.0f);
+    const dscene::EntityHandle e = play.AddSource(clip, Float3{ 0.0f, 0.0f, 0.0f });
+    play.scene.GetSystem<AudioSourceComponentManager>()->Get(e)->busName = String(u8"drums");
+    play.Start();
+
+    AudioSourceComponent* c = play.scene.GetSystem<AudioSourceComponentManager>()->Get(e);
+    REQUIRE(c != nullptr);
+    REQUIRE(c->voice.IsValid());
+    VoiceStatus status;
+    REQUIRE(play.engine.GetVoiceStatus(c->voice, status));
+    CHECK(status.busName.AsView() == StringView(u8"drums"));
+
+    // Scene pause freezes custom-bus voices with the rest of the scene.
+    play.scene.SetSimulationEnabled(false);
+    play.Frame();
+    CHECK(play.engine.IsValidHandle(c->voice));
+    play.scene.SetSimulationEnabled(true);
+    play.Frame();
+    CHECK(play.engine.IsPlaying(c->voice));
+    play.scene.Stop();
 }
 
 TEST_CASE("audio.settings: user volumes capture -> store round-trip -> apply")

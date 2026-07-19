@@ -662,6 +662,201 @@ TEST_CASE("audio.engine: bus layout applies volumes/mutes and splices effect cha
     CHECK(engine.IsPlaying(voice));
 }
 
+TEST_CASE("audio.engine: named custom buses - layout realizes the tree, voices route by "
+          "name, volume/mute/effects work like fixed buses")
+{
+    AudioEngine engine(HeadlessSettings());
+    AudioBusLayout layout;
+    AudioNamedBus drums;
+    drums.name = String(u8"drums");
+    drums.parent = String(u8"Effects");
+    drums.settings.volume = 0.5f;
+    AudioBusEffectDesc lowpass;
+    lowpass.kind = AudioBusEffectKind::Lowpass;
+    lowpass.frequencyHz = 1500.0f;
+    drums.settings.effects.PushBack(lowpass);
+    AudioNamedBus quiet;
+    quiet.name = String(u8"quiet");
+    quiet.parent = String(u8"drums");   // custom-under-custom nesting
+    quiet.settings.muted = true;
+    layout.customBuses.PushBack(drums);
+    layout.customBuses.PushBack(quiet);
+    engine.ApplyBusLayout(layout);
+
+    CHECK(engine.NamedBusCount() == 2u);
+    CHECK(engine.HasNamedBus(u8"drums"));
+    CHECK(engine.HasNamedBus(u8"quiet"));
+    CHECK_FALSE(engine.HasNamedBus(u8"nope"));
+    CHECK(engine.NamedBusVolume(u8"drums") == doctest::Approx(0.5f));
+    CHECK(engine.NamedBusMuted(u8"quiet"));
+    CHECK(engine.NamedBusEffectCount(u8"drums") == 1u);
+    CHECK(engine.BusEffectCount(AudioBus::Effects) == 0u);   // fixed buses untouched
+
+    // Voices address the custom bus by name; unknown names fall back to the enum bus.
+    RefPtr<AudioClip> clip = MakeToneClip(1.0f);
+    AudioPlayParams params;
+    params.loop = true;
+    params.busName = String(u8"drums");
+    const VoiceHandle onDrums = engine.Play(clip, params);
+    REQUIRE(onDrums.IsValid());
+    VoiceStatus status;
+    REQUIRE(engine.GetVoiceStatus(onDrums, status));
+    CHECK(status.busName.AsView() == StringView(u8"drums"));
+
+    AudioPlayParams unknown;
+    unknown.loop = true;
+    unknown.busName = String(u8"missing");
+    unknown.allowDedupe = false;
+    const VoiceHandle fallback = engine.Play(clip, unknown);
+    REQUIRE(fallback.IsValid());
+    REQUIRE(engine.GetVoiceStatus(fallback, status));
+    CHECK(status.busName.IsEmpty());
+    CHECK(status.bus == AudioBus::Effects);
+
+    // Live named-bus tuning mirrors the fixed accessors.
+    engine.SetNamedBusVolume(u8"drums", 0.25f);
+    CHECK(engine.NamedBusVolume(u8"drums") == doctest::Approx(0.25f));
+    engine.SetNamedBusMuted(u8"drums", true);
+    CHECK(engine.NamedBusMuted(u8"drums"));
+    engine.SetNamedBusMuted(u8"drums", false);
+    CHECK(engine.NamedBusVolume(u8"drums") == doctest::Approx(0.25f));   // remembered
+
+    engine.Update(1.0f / 60.0f);
+    CHECK(engine.IsPlaying(onDrums));
+}
+
+TEST_CASE("audio.engine: a layout rebuild keeps voices ALIVE - kept buses update in "
+          "place, removed buses re-home their voices to the fixed fallback")
+{
+    AudioEngine engine(HeadlessSettings());
+    AudioBusLayout layout;
+    AudioNamedBus drums;
+    drums.name = String(u8"drums");
+    drums.parent = String(u8"Effects");
+    layout.customBuses.PushBack(drums);
+    AudioNamedBus voices;
+    voices.name = String(u8"voices");
+    layout.customBuses.PushBack(voices);
+    engine.ApplyBusLayout(layout);
+
+    RefPtr<AudioClip> clipA = MakeToneClip(1.0f);
+    RefPtr<AudioClip> clipB = MakeToneClip(1.0f, 4000, 1);
+    AudioPlayParams params;
+    params.loop = true;
+    params.busName = String(u8"drums");
+    const VoiceHandle onDrums = engine.Play(clipA, params);
+    params.busName = String(u8"voices");
+    params.allowDedupe = false;
+    const VoiceHandle onVoices = engine.Play(clipB, params);
+    REQUIRE(onDrums.IsValid());
+    REQUIRE(onVoices.IsValid());
+
+    // Rebuild WITHOUT "voices": drums persists (voice keeps its name), the removed
+    // bus's voice survives on its fixed fallback (busName clears).
+    AudioBusLayout rebuilt;
+    AudioNamedBus drumsKept;
+    drumsKept.name = String(u8"drums");
+    drumsKept.parent = String(u8"Music");   // re-parent while live
+    drumsKept.settings.volume = 0.8f;
+    rebuilt.customBuses.PushBack(drumsKept);
+    engine.ApplyBusLayout(rebuilt);
+
+    CHECK(engine.NamedBusCount() == 1u);
+    CHECK(engine.NamedBusVolume(u8"drums") == doctest::Approx(0.8f));
+    engine.Update(1.0f / 60.0f);
+    CHECK(engine.IsPlaying(onDrums));
+    CHECK(engine.IsPlaying(onVoices));
+    VoiceStatus status;
+    REQUIRE(engine.GetVoiceStatus(onDrums, status));
+    CHECK(status.busName.AsView() == StringView(u8"drums"));
+    REQUIRE(engine.GetVoiceStatus(onVoices, status));
+    CHECK(status.busName.IsEmpty());   // re-homed to the fixed bus
+    engine.Update(1.0f / 60.0f);
+    CHECK(engine.IsPlaying(onVoices));
+}
+
+TEST_CASE("audio.engine: custom-bus degenerates defuse - parent cycles land on Master, "
+          "unknown parents warn, duplicates and fixed-name shadows are skipped")
+{
+    AudioEngine engine(HeadlessSettings());
+    AudioBusLayout layout;
+    AudioNamedBus a;
+    a.name = String(u8"a");
+    a.parent = String(u8"b");
+    AudioNamedBus b;
+    b.name = String(u8"b");
+    b.parent = String(u8"a");            // a <-> b cycle
+    AudioNamedBus orphan;
+    orphan.name = String(u8"orphan");
+    orphan.parent = String(u8"ghost");   // unknown parent -> Master
+    AudioNamedBus dupe;
+    dupe.name = String(u8"a");           // duplicate -> skipped
+    AudioNamedBus shadow;
+    shadow.name = String(u8"Effects");   // shadows a fixed bus -> skipped
+    layout.customBuses.PushBack(a);
+    layout.customBuses.PushBack(b);
+    layout.customBuses.PushBack(orphan);
+    layout.customBuses.PushBack(dupe);
+    layout.customBuses.PushBack(shadow);
+    engine.ApplyBusLayout(layout);
+
+    CHECK(engine.NamedBusCount() == 3u);   // a, b, orphan
+    CHECK(engine.HasNamedBus(u8"a"));
+    CHECK(engine.HasNamedBus(u8"b"));
+    CHECK(engine.HasNamedBus(u8"orphan"));
+    CHECK_FALSE(engine.HasNamedBus(u8"Effects"));
+
+    // The defused graph still mixes: play on every custom bus, pump, all audible.
+    RefPtr<AudioClip> clip = MakeToneClip(0.5f);
+    AudioPlayParams params;
+    params.loop = true;
+    params.allowDedupe = false;
+    const StringView names[3] = { u8"a", u8"b", u8"orphan" };
+    for (StringView name : names)
+    {
+        params.busName = String(name);
+        const VoiceHandle voice = engine.Play(clip, params);
+        REQUIRE(voice.IsValid());
+    }
+    engine.Update(0.1f);
+    CHECK(engine.ActiveVoiceCount() == 3u);
+}
+
+TEST_CASE("audio.engine: scene-group pause freezes custom-bus voices too (they bypass "
+          "the scene child groups)")
+{
+    AudioEngine engine(HeadlessSettings());
+    AudioBusLayout layout;
+    AudioNamedBus drums;
+    drums.name = String(u8"drums");
+    layout.customBuses.PushBack(drums);
+    engine.ApplyBusLayout(layout);
+
+    const u64 sceneGroup = engine.CreateSceneGroup();
+    REQUIRE(sceneGroup != 0u);
+    RefPtr<AudioClip> clip = MakeToneClip(1.0f);
+    AudioPlayParams params;
+    params.loop = true;
+    params.sceneGroup = sceneGroup;
+    params.busName = String(u8"drums");
+    const VoiceHandle voice = engine.Play(clip, params);
+    REQUIRE(voice.IsValid());
+
+    engine.SetSceneGroupPaused(sceneGroup, true);
+    for (int i = 0; i < 5; ++i) { engine.Update(0.1f); }
+    CHECK(engine.IsValidHandle(voice));   // held, not reaped
+    VoiceStatus status;
+    REQUIRE(engine.GetVoiceStatus(voice, status));
+    CHECK(status.busName.AsView() == StringView(u8"drums"));
+
+    engine.SetSceneGroupPaused(sceneGroup, false);
+    engine.Update(0.1f);
+    CHECK(engine.IsPlaying(voice));
+
+    engine.DestroySceneGroup(sceneGroup);
+    CHECK_FALSE(engine.IsValidHandle(voice));
+}
+
 TEST_CASE("audio.cue: weighted resolution - no-repeat, sequential, jitter, degenerate")
 {
     RefPtr<AudioClip> a = MakeToneClip(0.1f);

@@ -284,6 +284,7 @@ export namespace draconic::audio
 
             AudioPlayParams params;
             params.bus = c.bus;
+            params.busName = String(c.busName.AsView());
             params.volume = c.volume * cueVolume;
             params.pitch = c.pitch * cuePitch;
             params.loop = c.loop;
@@ -605,44 +606,44 @@ export namespace draconic::audio
 
         [[nodiscard]] static bool BusFromName(StringView name, AudioBus& out)
         {
-            if (name == u8"master") { out = AudioBus::Master; return true; }
-            if (name == u8"effects") { out = AudioBus::Effects; return true; }
-            if (name == u8"music") { out = AudioBus::Music; return true; }
-            if (name == u8"ui") { out = AudioBus::UI; return true; }
-            return false;
+            return AudioBusFromName(name, out);   // the shared case-insensitive seam
         }
 
+        // Bus addressing: the four fixed names first, then the applied layout's NAMED
+        // custom buses (item: named bus trees) - unknown = no-op / neutral read.
         static void setBusVolume(String bus, f32 volume)
         {
             AudioEngine* engine = Resolve();
+            if (engine == nullptr) { return; }
             AudioBus which{};
-            if (engine != nullptr && BusFromName(bus.AsView(), which))
-            {
-                engine->SetBusVolume(which, Clamp(volume, 0.0f, 4.0f));
-            }
+            const f32 clamped = Clamp(volume, 0.0f, 4.0f);
+            if (BusFromName(bus.AsView(), which)) { engine->SetBusVolume(which, clamped); }
+            else { engine->SetNamedBusVolume(bus.AsView(), clamped); }
         }
         [[nodiscard]] static f32 busVolume(String bus)
         {
             AudioEngine* engine = Resolve();
+            if (engine == nullptr) { return 1.0f; }
             AudioBus which{};
-            return engine != nullptr && BusFromName(bus.AsView(), which)
-                ? engine->BusVolume(which) : 1.0f;
+            if (BusFromName(bus.AsView(), which)) { return engine->BusVolume(which); }
+            return engine->HasNamedBus(bus.AsView())
+                ? engine->NamedBusVolume(bus.AsView()) : 1.0f;
         }
         static void setBusMuted(String bus, bool muted)
         {
             AudioEngine* engine = Resolve();
+            if (engine == nullptr) { return; }
             AudioBus which{};
-            if (engine != nullptr && BusFromName(bus.AsView(), which))
-            {
-                engine->SetBusMuted(which, muted);
-            }
+            if (BusFromName(bus.AsView(), which)) { engine->SetBusMuted(which, muted); }
+            else { engine->SetNamedBusMuted(bus.AsView(), muted); }
         }
         [[nodiscard]] static bool busMuted(String bus)
         {
             AudioEngine* engine = Resolve();
+            if (engine == nullptr) { return false; }
             AudioBus which{};
-            return engine != nullptr && BusFromName(bus.AsView(), which)
-                && engine->BusMuted(which);
+            if (BusFromName(bus.AsView(), which)) { return engine->BusMuted(which); }
+            return engine->NamedBusMuted(bus.AsView());
         }
         static void stopMusic(f32 fadeSeconds)
         {

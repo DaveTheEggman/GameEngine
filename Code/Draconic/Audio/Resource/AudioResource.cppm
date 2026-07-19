@@ -133,7 +133,9 @@ export namespace draconic::audio
     // ---- bus layout (P2): cooked mixer data ----
 
     // Wire shape stays GENERIC (per-bus effect arrays) even though the editor asset is
-    // flat v1 - a richer chain editor later needs no wire change.
+    // flat v1 - a richer chain editor later needs no wire change. Data v2 appends the
+    // NAMED custom-bus array (name/parent/settings); v0/v1 cooks simply have none -
+    // the ar.Version() gate keeps old cooks loading.
     class AudioBusLayoutSource : public ISerializable
     {
         DRACONIC_OBJECT(AudioBusLayoutSource, ISerializable)
@@ -142,12 +144,7 @@ export namespace draconic::audio
 
         void Serialize(ISerializer& ar) override
         {
-            u32 busCount = static_cast<u32>(AudioBus::Count);
-            draconic::core::Serialize(ar, "busCount", busCount);
-            const u32 buses = Min(busCount, static_cast<u32>(AudioBus::Count));
-            for (u32 bus = 0; bus < buses; ++bus)
-            {
-                AudioBusSettings& settings = layout.buses[bus];
+            auto serializeSettings = [&ar](AudioBusSettings& settings) {
                 draconic::core::Serialize(ar, "volume", settings.volume);
                 draconic::core::Serialize(ar, "muted", settings.muted);
                 u32 effectCount = static_cast<u32>(settings.effects.Size());
@@ -165,6 +162,31 @@ export namespace draconic::audio
                     draconic::core::Serialize(ar, "roomSize", effect.roomSize);
                     draconic::core::Serialize(ar, "damping", effect.damping);
                     draconic::core::Serialize(ar, "wetLevel", effect.wetLevel);
+                }
+            };
+
+            u32 busCount = static_cast<u32>(AudioBus::Count);
+            draconic::core::Serialize(ar, "busCount", busCount);
+            const u32 buses = Min(busCount, static_cast<u32>(AudioBus::Count));
+            for (u32 bus = 0; bus < buses; ++bus)
+            {
+                serializeSettings(layout.buses[bus]);
+            }
+
+            if (ar.Version() >= 2)   // v2: named custom buses (generic, growable)
+            {
+                u32 customCount = static_cast<u32>(layout.customBuses.Size());
+                draconic::core::Serialize(ar, "customBusCount", customCount);
+                if (ar.Mode() == SerializeMode::Read)
+                {
+                    layout.customBuses.Resize(customCount);
+                }
+                for (u32 i = 0; i < customCount; ++i)
+                {
+                    AudioNamedBus& named = layout.customBuses[i];
+                    draconic::core::Serialize(ar, "name", named.name);
+                    draconic::core::Serialize(ar, "parent", named.parent);
+                    serializeSettings(named.settings);
                 }
             }
         }
@@ -285,7 +307,8 @@ export namespace draconic::audio
     }
 
     DRACONIC_DEFINE_OBJECT(AudioClipSource, "draconic::audio")
-    DRACONIC_DEFINE_OBJECT(AudioBusLayoutSource, "draconic::audio")
+    // v2: the named custom-bus section (see Serialize) - old cooks read as version 0.
+    DRACONIC_DEFINE_OBJECT_VERSIONED(AudioBusLayoutSource, "draconic::audio", 2)
     DRACONIC_DEFINE_OBJECT(AudioBusLayoutResource, "draconic::audio")
     DRACONIC_DEFINE_OBJECT(SoundCueSource, "draconic::audio")
 }

@@ -87,7 +87,8 @@ namespace
     void RemoveDbTree(StringView dir)
     {
         for (const utf8char* name : { u8"clip.rasset", u8"cooked.rasset", u8"cooked.data.bin",
-                                      u8"tone.wav" })
+                                      u8"tone.wav", u8"mixer.rasset", u8"tree.rasset",
+                                      u8"cyclic.rasset" })
         {
             String path(dir);
             path.Append(u8"/");
@@ -460,6 +461,160 @@ TEST_CASE("audio.pipeline: bus layout asset cooks flat fields into the effect-ch
     CHECK(engine.BusEffectCount(AudioBus::Effects) == 2u);
 
     RemoveDbTree(u8"draconic_audiopipe_bus");
+}
+
+TEST_CASE("audio.pipeline: custom-bus slots cook into the NAMED wire section and load "
+          "back through the resource")
+{
+    RegisterAudioResource();
+    RegisterAudioAssets();
+    RemoveDbTree(u8"draconic_audiopipe_named");
+
+    draconic::vfs::NativeFileSystem outputMount(u8"draconic_audiopipe_named");
+    content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
+
+    AudioBusLayoutAsset asset;
+    asset.custom[0].name = String(u8"drums");
+    asset.custom[0].parent = String(u8"effects");   // case-insensitive fixed parent
+    asset.custom[0].bus.volume = 0.6f;
+    asset.custom[0].bus.lowpassHz = 2500.0f;
+    asset.custom[2].name = String(u8"quiet");       // sparse slots fold down
+    asset.custom[2].parent = String(u8"drums");     // custom-under-custom
+    asset.custom[2].bus.muted = true;
+    asset.custom[4].name = String(u8"drums");       // duplicate: skipped with a warning
+    asset.custom[5].name = String(u8"Music");       // fixed-name shadow: skipped
+
+    AudioBusLayoutAssetBuilder builder;
+    draconic::editor::AssetBuildContext ctx;
+    auto* outputInstance =
+        outputDb.RootGroup()->CreateInstance(u8"tree", AudioBusLayoutSource::StaticType());
+    ctx.output = outputInstance;
+    REQUIRE(builder.Build(asset, ctx).IsOk());
+
+    AudioBusLayoutFactory factory;
+    ResourceManager manager(outputDb);
+    manager.AddFactory(&factory);
+    Proxy<AudioBusLayoutResource> layout =
+        manager.Bind<AudioBusLayoutResource>(outputInstance->Id());
+    REQUIRE(layout);
+    REQUIRE(layout->layout.customBuses.Size() == 2u);
+    CHECK(layout->layout.customBuses[0].name.AsView() == StringView(u8"drums"));
+    CHECK(layout->layout.customBuses[0].parent.AsView() == StringView(u8"effects"));
+    CHECK(layout->layout.customBuses[0].settings.volume == doctest::Approx(0.6f));
+    REQUIRE(layout->layout.customBuses[0].settings.effects.Size() == 1u);
+    CHECK(layout->layout.customBuses[0].settings.effects[0].kind
+          == AudioBusEffectKind::Lowpass);
+    CHECK(layout->layout.customBuses[1].name.AsView() == StringView(u8"quiet"));
+    CHECK(layout->layout.customBuses[1].settings.muted);
+
+    // The cooked tree realizes on a live (headless) engine.
+    AudioEngineSettings settings;
+    settings.headless = true;
+    AudioEngine engine(settings);
+    engine.ApplyBusLayout(layout->layout);
+    CHECK(engine.NamedBusCount() == 2u);
+    CHECK(engine.NamedBusEffectCount(u8"drums") == 1u);
+    CHECK(engine.NamedBusMuted(u8"quiet"));
+
+    RemoveDbTree(u8"draconic_audiopipe_named");
+}
+
+TEST_CASE("audio.pipeline: a custom-bus parent CYCLE fails the cook")
+{
+    RegisterAudioResource();
+    RegisterAudioAssets();
+    RemoveDbTree(u8"draconic_audiopipe_cycle");
+
+    draconic::vfs::NativeFileSystem outputMount(u8"draconic_audiopipe_cycle");
+    content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
+
+    AudioBusLayoutAsset asset;
+    asset.custom[0].name = String(u8"a");
+    asset.custom[0].parent = String(u8"b");
+    asset.custom[1].name = String(u8"b");
+    asset.custom[1].parent = String(u8"a");
+
+    AudioBusLayoutAssetBuilder builder;
+    draconic::editor::AssetBuildContext ctx;
+    auto* outputInstance =
+        outputDb.RootGroup()->CreateInstance(u8"cyclic", AudioBusLayoutSource::StaticType());
+    ctx.output = outputInstance;
+    CHECK_FALSE(builder.Build(asset, ctx).IsOk());
+
+    // Self-parenting is the one-bus cycle.
+    AudioBusLayoutAsset selfish;
+    selfish.custom[0].name = String(u8"a");
+    selfish.custom[0].parent = String(u8"a");
+    CHECK_FALSE(builder.Build(selfish, ctx).IsOk());
+
+    // An UNKNOWN parent is not a cycle - it cooks (falls back to Master at apply).
+    AudioBusLayoutAsset orphan;
+    orphan.custom[0].name = String(u8"a");
+    orphan.custom[0].parent = String(u8"ghost");
+    CHECK(builder.Build(orphan, ctx).IsOk());
+
+    RemoveDbTree(u8"draconic_audiopipe_cycle");
+}
+
+TEST_CASE("audio.pipeline: bus layout wire is version-tolerant - v0 payloads (no named "
+          "section) still load, v2 round-trips the custom buses")
+{
+    // Simulate an OLD cook: write the source under an explicit version-0 scope (the
+    // Serialize body then writes the pre-named wire exactly) and read it back.
+    AudioBusLayoutSource oldSource;
+    oldSource.layout.buses[static_cast<usize>(AudioBus::Music)].volume = 0.4f;
+    MemoryStream oldStream;
+    {
+        BinarySerializer ar(oldStream, SerializeMode::Write);
+        SerializedDataVersion v0{ AudioBusLayoutSource::StaticType().id, 0u };
+        ar.PushVersionScope(&v0, 1);
+        oldSource.Serialize(ar);
+        ar.PopVersionScope();
+        REQUIRE(ar.IsOk());
+    }
+    REQUIRE(oldStream.Seek(0, SeekOrigin::Begin) == 0);
+    {
+        BinarySerializer ar(oldStream, SerializeMode::Read);
+        SerializedDataVersion v0{ AudioBusLayoutSource::StaticType().id, 0u };
+        ar.PushVersionScope(&v0, 1);
+        AudioBusLayoutSource loaded;
+        loaded.Serialize(ar);
+        ar.PopVersionScope();
+        REQUIRE(ar.IsOk());
+        CHECK(loaded.layout.buses[static_cast<usize>(AudioBus::Music)].volume
+              == doctest::Approx(0.4f));
+        CHECK(loaded.layout.customBuses.IsEmpty());
+    }
+
+    // Current-version write/read carries the named section whole.
+    AudioBusLayoutSource newSource;
+    AudioNamedBus named;
+    named.name = String(u8"drums");
+    named.parent = String(u8"Effects");
+    named.settings.volume = 0.7f;
+    newSource.layout.customBuses.PushBack(named);
+    MemoryStream newStream;
+    {
+        BinarySerializer ar(newStream, SerializeMode::Write);
+        BeginVersionedPayload(ar, AudioBusLayoutSource::StaticType());
+        newSource.Serialize(ar);
+        EndVersionedPayload(ar);
+        REQUIRE(ar.IsOk());
+    }
+    REQUIRE(newStream.Seek(0, SeekOrigin::Begin) == 0);
+    {
+        BinarySerializer ar(newStream, SerializeMode::Read);
+        BeginVersionedPayload(ar, AudioBusLayoutSource::StaticType());
+        CHECK(ar.Version() == 2u);
+        AudioBusLayoutSource loaded;
+        loaded.Serialize(ar);
+        EndVersionedPayload(ar);
+        REQUIRE(ar.IsOk());
+        REQUIRE(loaded.layout.customBuses.Size() == 1u);
+        CHECK(loaded.layout.customBuses[0].name.AsView() == StringView(u8"drums"));
+        CHECK(loaded.layout.customBuses[0].parent.AsView() == StringView(u8"Effects"));
+        CHECK(loaded.layout.customBuses[0].settings.volume == doctest::Approx(0.7f));
+    }
 }
 
 TEST_CASE("audio.pipeline: sound cue cooks slots -> variants and resolves clip refs")

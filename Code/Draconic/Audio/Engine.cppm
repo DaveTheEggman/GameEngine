@@ -68,6 +68,10 @@ export namespace draconic::audio
     struct AudioPlayParams
     {
         AudioBus bus = AudioBus::Effects;
+        // Named-bus addressing: when non-empty AND the applied layout has a custom bus
+        // of this name, the voice routes there instead of `bus`. Unknown names fall
+        // back to `bus` (warned once per engine) - content never faults playback.
+        String busName;
         f32 volume = 1.0f;             // multiplied with the clip's authored gain
         f32 pitch = 1.0f;              // real resampling (not stored-and-ignored)
         f32 pan = 0.0f;                // -1 left .. +1 right (non-spatial voices)
@@ -129,10 +133,46 @@ export namespace draconic::audio
         Array<AudioBusEffectDesc> effects;   // applied in order; None entries skip
     };
 
+    // A named CUSTOM bus (the additive topology freedom over the fixed four): realized
+    // as an extra ma_sound_group parented per the layout. The four AudioBus enum buses
+    // stay the well-known addressing model; custom buses are addressed BY NAME
+    // (AudioPlayParams::busName / AudioSourceComponent::busName).
+    struct AudioNamedBus
+    {
+        String name;      // unique per layout (case-sensitive); empty = ignored
+        String parent;    // a fixed bus name ("Master"/"Effects"/"Music"/"UI",
+                          // case-insensitive) or another custom bus's name; empty =
+                          // Master. Cycles are rejected at cook AND defused at apply.
+        AudioBusSettings settings;
+    };
+
     struct AudioBusLayout
     {
         AudioBusSettings buses[static_cast<usize>(AudioBus::Count)];
+        Array<AudioNamedBus> customBuses;   // additive named tree (may be empty)
     };
+
+    /// Fixed-bus lookup by name, ASCII case-insensitive ("effects" == "Effects").
+    /// The shared seam between the layout apply, the cook validator, and the Wren
+    /// facade's string addressing. False = not one of the four fixed buses.
+    [[nodiscard]] inline bool AudioBusFromName(StringView name, AudioBus& out)
+    {
+        auto equals = [](StringView a, const utf8char* b) {
+            usize i = 0;
+            for (; i < a.Size(); ++i)
+            {
+                utf8char c = a[i];
+                if (c >= u8'A' && c <= u8'Z') { c = static_cast<utf8char>(c + 32); }
+                if (b[i] == 0 || c != b[i]) { return false; }
+            }
+            return b[i] == 0;
+        };
+        if (equals(name, u8"master")) { out = AudioBus::Master; return true; }
+        if (equals(name, u8"effects")) { out = AudioBus::Effects; return true; }
+        if (equals(name, u8"music")) { out = AudioBus::Music; return true; }
+        if (equals(name, u8"ui")) { out = AudioBus::UI; return true; }
+        return false;
+    }
 
     struct VoiceStatus
     {
@@ -144,6 +184,9 @@ export namespace draconic::audio
         f32 volume = 1.0f;
         f32 pitch = 1.0f;
         AudioBus bus = AudioBus::Effects;
+        // The custom bus the voice routes through (empty = the fixed `bus`). Cleared
+        // when a layout rebuild removes the bus and the voice falls back to `bus`.
+        String busName;
         u8 priority = 0;
         Float3 position{ 0.0f, 0.0f, 0.0f };
         // Distance low-pass state: the cutoff currently applied (0 = no filter node).
@@ -229,6 +272,20 @@ export namespace draconic::audio
         void ApplyBusLayout(const AudioBusLayout& layout);
         /// Live effect-node count on a bus (tests/diagnostics).
         [[nodiscard]] u32 BusEffectCount(AudioBus bus) const;
+
+        // ---- named custom buses (additive over the fixed four) ----
+        // Realized by ApplyBusLayout from AudioBusLayout::customBuses. Re-applying a
+        // layout reconciles BY NAME: kept buses update in place (their voices keep
+        // playing), removed buses re-attach their live voices to the voice's fixed
+        // fallback bus (they SURVIVE the rebuild), new buses splice in. Volume/mute/
+        // effect chains behave exactly like the fixed buses.
+        [[nodiscard]] bool HasNamedBus(StringView name) const;
+        [[nodiscard]] u32 NamedBusCount() const;
+        void SetNamedBusVolume(StringView name, f32 volume);
+        [[nodiscard]] f32 NamedBusVolume(StringView name) const;   // 0 when unknown
+        void SetNamedBusMuted(StringView name, bool muted);
+        [[nodiscard]] bool NamedBusMuted(StringView name) const;
+        [[nodiscard]] u32 NamedBusEffectCount(StringView name) const;
 
         // ---- music (P2): scene-less helpers on the Music bus with cross-fade ----
         // Music routes through the SAME graph as everything else (the Sedulous stream-

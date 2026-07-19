@@ -152,6 +152,28 @@ namespace draconic::audio
         }
     }
 
+    // Per-bus effect chain node: typed so teardown calls the right uninit. Shared by
+    // the fixed buses and the named custom buses.
+    struct BusEffectNode
+    {
+        AudioBusEffectKind kind = AudioBusEffectKind::None;
+        void* node = nullptr;
+    };
+
+    // A named custom bus (audio.md: the additive topology freedom): one extra
+    // ma_sound_group, parented to a fixed bus or another custom bus per the layout.
+    struct CustomBusData
+    {
+        String name;
+        AudioBus fixedParent = AudioBus::Master;   // parent when parentCustom < 0
+        i32 parentCustom = -1;                     // index into Impl::customBuses
+        f32 volume = 1.0f;
+        bool muted = false;
+        ma_sound_group group{};
+        bool initialized = false;
+        Array<BusEffectNode> effects;
+    };
+
     struct VoiceSlot
     {
         ma_sound sound{};
@@ -161,6 +183,7 @@ namespace draconic::audio
         u8 priority = 0;
         bool spatial = false;
         bool looping = false;
+        String customBusName;   // non-empty = routed through a named custom bus
         Float3 position{ 0.0f, 0.0f, 0.0f };
         f32 volume = 1.0f;
         f32 pitch = 1.0f;
@@ -221,16 +244,13 @@ namespace draconic::audio
         Float3 listenerPosition{ 0.0f, 0.0f, 0.0f };
         VoiceHandle musicVoice;        // the PlayMusic cross-fade tracks ONE music voice
 
-        // Per-bus effect chains (P2): typed so teardown calls the right uninit.
-        struct BusEffectNode
-        {
-            AudioBusEffectKind kind = AudioBusEffectKind::None;
-            void* node = nullptr;
-        };
         Array<BusEffectNode> busEffects[static_cast<usize>(AudioBus::Count)];
+        // Named custom buses (heap entries: ma_sound_group is address-stable).
+        Array<CustomBusData*> customBuses;
         f64 timeSeconds = 0.0;
         bool warnedMonoDownmix = false;
         bool warnedStreamStereoSpatial = false;
+        bool warnedUnknownBusName = false;
         Array<f32> pumpScratch;        // headless mixing scratch
 
         // ---------------- ma_vfs callbacks ----------------
@@ -366,13 +386,10 @@ namespace draconic::audio
                 : reinterpret_cast<ma_node*>(&busGroups[static_cast<usize>(AudioBus::Master)]);
         }
 
-        void ClearBusEffects(usize bus)
+        // Frees every node in `chain` (the caller re-attaches the source first).
+        void ClearEffectChain(Array<BusEffectNode>& chain)
         {
-            if (busGroupInitialized[bus])
-            {
-                (void)ma_node_attach_output_bus(&busGroups[bus], 0, BusParentNode(bus), 0);
-            }
-            for (BusEffectNode& effect : busEffects[bus])
+            for (BusEffectNode& effect : chain)
             {
                 switch (effect.kind)
                 {
@@ -394,7 +411,16 @@ namespace draconic::audio
                     case AudioBusEffectKind::None: break;
                 }
             }
-            busEffects[bus].Clear();
+            chain.Clear();
+        }
+
+        void ClearBusEffects(usize bus)
+        {
+            if (busGroupInitialized[bus])
+            {
+                (void)ma_node_attach_output_bus(&busGroups[bus], 0, BusParentNode(bus), 0);
+            }
+            ClearEffectChain(busEffects[bus]);
         }
 
         // Rebuild one bus's chain: group -> e0 -> e1 -> ... -> parent.
@@ -402,11 +428,20 @@ namespace draconic::audio
         {
             ClearBusEffects(bus);
             if (!busGroupInitialized[bus]) { return; }
+            BuildEffectChain(reinterpret_cast<ma_node*>(&busGroups[bus]), busEffects[bus],
+                             BusParentNode(bus), effects);
+        }
+
+        // Generic splice: source -> e0 -> e1 -> ... -> parent (shared by fixed and
+        // named custom buses). `chain` must be empty on entry.
+        void BuildEffectChain(ma_node* source, Array<BusEffectNode>& chain, ma_node* parent,
+                              Span<const AudioBusEffectDesc> effects)
+        {
             const u32 channels = ma_engine_get_channels(&engine);
             const u32 sampleRate = ma_engine_get_sample_rate(&engine);
             ma_node_graph* graph = ma_engine_get_node_graph(&engine);
 
-            ma_node* upstream = reinterpret_cast<ma_node*>(&busGroups[bus]);
+            ma_node* upstream = source;
             for (const AudioBusEffectDesc& desc : effects)
             {
                 BusEffectNode effect;
@@ -470,9 +505,196 @@ namespace draconic::audio
                 }
                 (void)ma_node_attach_output_bus(upstream, 0, effect.node, 0);
                 upstream = effect.node;
-                busEffects[bus].PushBack(effect);
+                chain.PushBack(effect);
             }
-            (void)ma_node_attach_output_bus(upstream, 0, BusParentNode(bus), 0);
+            (void)ma_node_attach_output_bus(upstream, 0, parent, 0);
+        }
+
+        // ---------------- named custom buses ----------------
+
+        [[nodiscard]] i32 FindCustomBus(StringView name) const
+        {
+            for (usize i = 0; i < customBuses.Size(); ++i)
+            {
+                if (customBuses[i]->name.AsView() == name) { return static_cast<i32>(i); }
+            }
+            return -1;
+        }
+
+        [[nodiscard]] ma_node* CustomBusParentNode(const CustomBusData& bus)
+        {
+            if (bus.parentCustom >= 0
+                && static_cast<usize>(bus.parentCustom) < customBuses.Size()
+                && customBuses[static_cast<usize>(bus.parentCustom)]->initialized)
+            {
+                return reinterpret_cast<ma_node*>(
+                    &customBuses[static_cast<usize>(bus.parentCustom)]->group);
+            }
+            const usize fixed = static_cast<usize>(bus.fixedParent);
+            return busGroupInitialized[fixed]
+                ? reinterpret_cast<ma_node*>(&busGroups[fixed])
+                : BusParentNode(static_cast<usize>(AudioBus::Master));
+        }
+
+        // A removed custom bus hands its live voices back to their fixed fallback bus
+        // (voices SURVIVE a layout rebuild; only the routing changes).
+        void DetachVoicesFromCustomBus(CustomBusData& bus)
+        {
+            for (VoiceSlot& slot : voices)
+            {
+                if (slot.state == VoiceState::Free
+                    || slot.customBusName.AsView() != bus.name.AsView())
+                {
+                    continue;
+                }
+                ma_node* out = slot.lowpassNode != nullptr
+                    ? reinterpret_cast<ma_node*>(slot.lowpassNode)
+                    : reinterpret_cast<ma_node*>(&slot.sound);
+                if (ma_sound_group* fallback = GroupFor(slot.sceneGroup, slot.bus))
+                {
+                    (void)ma_node_attach_output_bus(out, 0, fallback, 0);
+                }
+                slot.customBusName = String{};
+            }
+        }
+
+        void DestroyCustomBus(CustomBusData* bus)
+        {
+            DetachVoicesFromCustomBus(*bus);
+            ClearEffectChain(bus->effects);
+            if (bus->initialized) { ma_sound_group_uninit(&bus->group); }
+            DefaultAllocator().Delete(bus);
+        }
+
+        // Reconcile the live custom-bus set with the layout BY NAME: kept buses update
+        // in place (voices keep playing through them), removed buses fall their voices
+        // back, new buses splice in. Cycles are defused to Master (cook rejects them;
+        // this is the runtime backstop).
+        void RebuildCustomBuses(Span<const AudioNamedBus> desired)
+        {
+            // Filter: named, first occurrence wins.
+            Array<const AudioNamedBus*> wanted;
+            for (const AudioNamedBus& named : desired)
+            {
+                if (named.name.IsEmpty()) { continue; }
+                bool duplicate = false;
+                for (const AudioNamedBus* seen : wanted)
+                {
+                    if (seen->name.AsView() == named.name.AsView()) { duplicate = true; break; }
+                }
+                if (duplicate)
+                {
+                    DRACONIC_LOG_WARNING(u8"Audio",
+                        u8"bus layout: duplicate custom bus '{}' ignored", named.name);
+                    continue;
+                }
+                AudioBus fixedAlias{};
+                if (AudioBusFromName(named.name.AsView(), fixedAlias))
+                {
+                    DRACONIC_LOG_WARNING(u8"Audio",
+                        u8"bus layout: custom bus '{}' shadows a fixed bus - ignored",
+                        named.name);
+                    continue;
+                }
+                wanted.PushBack(&named);
+            }
+
+            // Drop buses no longer in the layout.
+            for (usize i = customBuses.Size(); i > 0; --i)
+            {
+                CustomBusData* bus = customBuses[i - 1];
+                bool keep = false;
+                for (const AudioNamedBus* named : wanted)
+                {
+                    if (named->name.AsView() == bus->name.AsView()) { keep = true; break; }
+                }
+                if (!keep)
+                {
+                    DestroyCustomBus(bus);
+                    customBuses.RemoveAt(i - 1);
+                }
+            }
+
+            // Create the missing groups (parented to Master; re-parented below).
+            for (const AudioNamedBus* named : wanted)
+            {
+                if (FindCustomBus(named->name.AsView()) >= 0) { continue; }
+                auto* bus = DefaultAllocator().New<CustomBusData>();
+                bus->name = String(named->name.AsView());
+                bus->initialized = ma_sound_group_init(
+                    &engine, 0, &busGroups[static_cast<usize>(AudioBus::Master)],
+                    &bus->group) == MA_SUCCESS;
+                customBuses.PushBack(bus);
+            }
+
+            // Resolve parents (fixed bus name, custom bus name, or empty = Master).
+            for (const AudioNamedBus* named : wanted)
+            {
+                const i32 index = FindCustomBus(named->name.AsView());
+                if (index < 0) { continue; }
+                CustomBusData& bus = *customBuses[static_cast<usize>(index)];
+                bus.fixedParent = AudioBus::Master;
+                bus.parentCustom = -1;
+                if (!named->parent.IsEmpty())
+                {
+                    AudioBus fixed{};
+                    if (AudioBusFromName(named->parent.AsView(), fixed))
+                    {
+                        bus.fixedParent = fixed;
+                    }
+                    else if (const i32 parent = FindCustomBus(named->parent.AsView());
+                             parent >= 0 && parent != index)
+                    {
+                        bus.parentCustom = parent;
+                    }
+                    else
+                    {
+                        DRACONIC_LOG_WARNING(u8"Audio",
+                            u8"bus layout: custom bus '{}' has unknown parent '{}' - "
+                            u8"parented to Master", named->name, named->parent);
+                    }
+                }
+            }
+
+            // Defuse parent cycles (each cycle breaks at the first member that sees it).
+            for (usize i = 0; i < customBuses.Size(); ++i)
+            {
+                i32 cursor = customBuses[i]->parentCustom;
+                usize steps = 0;
+                while (cursor >= 0 && steps <= customBuses.Size())
+                {
+                    if (cursor == static_cast<i32>(i))
+                    {
+                        DRACONIC_LOG_WARNING(u8"Audio",
+                            u8"bus layout: custom bus '{}' is part of a parent CYCLE - "
+                            u8"parented to Master", customBuses[i]->name);
+                        customBuses[i]->parentCustom = -1;
+                        customBuses[i]->fixedParent = AudioBus::Master;
+                        break;
+                    }
+                    cursor = customBuses[static_cast<usize>(cursor)]->parentCustom;
+                    ++steps;
+                }
+            }
+
+            // Apply settings + rebuild each bus's effect chain into its parent.
+            for (const AudioNamedBus* named : wanted)
+            {
+                const i32 index = FindCustomBus(named->name.AsView());
+                if (index < 0) { continue; }
+                CustomBusData& bus = *customBuses[static_cast<usize>(index)];
+                bus.volume = named->settings.volume < 0.0f ? 0.0f : named->settings.volume;
+                bus.muted = named->settings.muted;
+                if (!bus.initialized) { continue; }
+                ma_sound_group_set_volume(&bus.group, bus.muted ? 0.0f : bus.volume);
+                (void)ma_node_attach_output_bus(&bus.group, 0, CustomBusParentNode(bus), 0);
+                ClearEffectChain(bus.effects);
+                BuildEffectChain(reinterpret_cast<ma_node*>(&bus.group), bus.effects,
+                                 CustomBusParentNode(bus),
+                                 Span<const AudioBusEffectDesc>(
+                                     named->settings.effects.Data(),
+                                     named->settings.effects.Size()));
+            }
         }
 
         void InitializeBusGroups()
@@ -496,6 +718,8 @@ namespace draconic::audio
                 Array<u64> groupIds;
                 for (auto& entry : sceneGroups) { groupIds.PushBack(entry.key); }
                 for (u64 id : groupIds) { DestroySceneGroupData(id); }
+                for (CustomBusData* bus : customBuses) { DestroyCustomBus(bus); }
+                customBuses.Clear();
                 for (usize bus = 0; bus < static_cast<usize>(AudioBus::Count); ++bus)
                 {
                     ClearBusEffects(bus);
@@ -644,6 +868,7 @@ namespace draconic::audio
             slot.state = VoiceState::Free;
             slot.clip = nullptr;
             slot.sceneGroup = 0;
+            slot.customBusName = String{};
             ++slot.generation;
         }
 
@@ -922,7 +1147,30 @@ namespace draconic::audio
         if (slotIndex >= impl.voices.Size()) { return {}; }   // pool full of higher priority
         VoiceSlot& slot = impl.voices[slotIndex];
 
+        // Named-bus addressing: a known custom bus overrides the enum bus. Unknown
+        // names warn once and fall back - content typos never silence a game.
         ma_sound_group* group = impl.GroupFor(params.sceneGroup, params.bus);
+        i32 customBusIndex = -1;
+        if (!params.busName.IsEmpty())
+        {
+            customBusIndex = impl.FindCustomBus(params.busName.AsView());
+            if (customBusIndex >= 0
+                && impl.customBuses[static_cast<usize>(customBusIndex)]->initialized)
+            {
+                group = &impl.customBuses[static_cast<usize>(customBusIndex)]->group;
+            }
+            else
+            {
+                customBusIndex = -1;
+                if (!impl.warnedUnknownBusName)
+                {
+                    impl.warnedUnknownBusName = true;
+                    DRACONIC_LOG_WARNING(u8"Audio",
+                        u8"play addressed unknown custom bus '{}' - using the fixed bus "
+                        u8"(warned once)", params.busName);
+                }
+            }
+        }
         const ma_uint32 flags = clipPtr->stream ? MA_SOUND_FLAG_STREAM : 0;
         if (ma_sound_init_from_file(&impl.engine, name, flags, group, nullptr,
                                     &slot.sound) != MA_SUCCESS)
@@ -939,6 +1187,7 @@ namespace draconic::audio
         slot.volume = params.volume;
         slot.pitch = params.pitch;
         slot.bus = params.bus;
+        slot.customBusName = customBusIndex >= 0 ? String(params.busName.AsView()) : String{};
         slot.sceneGroup = params.sceneGroup;
         slot.clip = clip;
         slot.looping = params.loop || clipPtr->loop;
@@ -1005,7 +1254,17 @@ namespace draconic::audio
             ma_sound_set_pan(&slot.sound, params.pan);
         }
 
-        if (!params.startPaused) { (void)ma_sound_start(&slot.sound); }
+        // A custom-bus voice bypasses the scene child groups, so a paused scene group
+        // must freeze it explicitly (fixed-bus voices inherit the halted group node).
+        bool sceneFrozen = false;
+        if (customBusIndex >= 0 && params.sceneGroup != 0)
+        {
+            if (SceneGroupData** sceneData = impl.sceneGroups.Find(params.sceneGroup))
+            {
+                sceneFrozen = (*sceneData)->paused;
+            }
+        }
+        if (!params.startPaused && !sceneFrozen) { (void)ma_sound_start(&slot.sound); }
 
         const VoiceHandle handle = impl.HandleFor(slotIndex);
         if (params.allowDedupe)
@@ -1097,6 +1356,64 @@ namespace draconic::audio
             impl.BuildBusEffects(bus, Span<const AudioBusEffectDesc>(
                                           settings.effects.Data(), settings.effects.Size()));
         }
+        impl.RebuildCustomBuses(Span<const AudioNamedBus>(
+            layout.customBuses.Data(), layout.customBuses.Size()));
+    }
+
+    // ---- named custom buses ----
+
+    bool AudioEngine::HasNamedBus(StringView name) const
+    {
+        return m_impl->FindCustomBus(name) >= 0;
+    }
+
+    u32 AudioEngine::NamedBusCount() const
+    {
+        return static_cast<u32>(m_impl->customBuses.Size());
+    }
+
+    void AudioEngine::SetNamedBusVolume(StringView name, f32 volume)
+    {
+        const i32 index = m_impl->FindCustomBus(name);
+        if (index < 0) { return; }
+        CustomBusData& bus = *m_impl->customBuses[static_cast<usize>(index)];
+        bus.volume = volume < 0.0f ? 0.0f : volume;
+        if (bus.initialized && !bus.muted)
+        {
+            ma_sound_group_set_volume(&bus.group, bus.volume);
+        }
+    }
+
+    f32 AudioEngine::NamedBusVolume(StringView name) const
+    {
+        const i32 index = m_impl->FindCustomBus(name);
+        return index >= 0 ? m_impl->customBuses[static_cast<usize>(index)]->volume : 0.0f;
+    }
+
+    void AudioEngine::SetNamedBusMuted(StringView name, bool muted)
+    {
+        const i32 index = m_impl->FindCustomBus(name);
+        if (index < 0) { return; }
+        CustomBusData& bus = *m_impl->customBuses[static_cast<usize>(index)];
+        bus.muted = muted;
+        if (bus.initialized)
+        {
+            ma_sound_group_set_volume(&bus.group, muted ? 0.0f : bus.volume);
+        }
+    }
+
+    bool AudioEngine::NamedBusMuted(StringView name) const
+    {
+        const i32 index = m_impl->FindCustomBus(name);
+        return index >= 0 && m_impl->customBuses[static_cast<usize>(index)]->muted;
+    }
+
+    u32 AudioEngine::NamedBusEffectCount(StringView name) const
+    {
+        const i32 index = m_impl->FindCustomBus(name);
+        return index >= 0
+            ? static_cast<u32>(m_impl->customBuses[static_cast<usize>(index)]->effects.Size())
+            : 0u;
     }
 
     u32 AudioEngine::BusEffectCount(AudioBus bus) const
@@ -1162,6 +1479,7 @@ namespace draconic::audio
         out.volume = slot->volume;
         out.pitch = slot->pitch;
         out.bus = slot->bus;
+        out.busName = String(slot->customBusName.AsView());
         out.priority = slot->priority;
         out.position = slot->position;
         out.lowpassCutoffHz = slot->lowpassCutoffHz;
@@ -1332,6 +1650,29 @@ namespace draconic::audio
                 ma_sound_reset_stop_time_and_fade(group);
                 ma_sound_set_fade_in_milliseconds(group, 0.0f, 1.0f, impl.FadeMilliseconds());
                 (void)ma_sound_group_start(group);
+            }
+        }
+        // Custom-bus voices route OUTSIDE the scene's child groups (the named tree is
+        // engine-global) - freeze/resume them individually. Their VoiceState stays
+        // Playing, mirroring the group behavior; user-paused voices are untouched.
+        for (VoiceSlot& slot : impl.voices)
+        {
+            if (slot.sceneGroup != sceneGroup || slot.customBusName.IsEmpty()
+                || slot.state != VoiceState::Playing)
+            {
+                continue;
+            }
+            if (paused)
+            {
+                (void)ma_sound_stop_with_fade_in_milliseconds(&slot.sound,
+                                                              impl.FadeMilliseconds());
+            }
+            else
+            {
+                ma_sound_reset_stop_time_and_fade(&slot.sound);
+                ma_sound_set_fade_in_milliseconds(&slot.sound, 0.0f, 1.0f,
+                                                  impl.FadeMilliseconds());
+                (void)ma_sound_start(&slot.sound);
             }
         }
     }
