@@ -105,7 +105,13 @@ namespace draconic::audio
         AudioBus bus = AudioBus::Effects;
         u64 sceneGroup = 0;
         RefPtr<AudioClip> clip;
-        void* lowpassNode = nullptr;   // P2: per-3D-voice ma_lpf (distance low-pass) slot
+        // Distance low-pass (P2): an ma_lpf node between the sound and its group; the
+        // cutoff glides open->floor across [min, max] distance every Update.
+        ma_lpf_node* lowpassNode = nullptr;
+        f32 lowpassFloorHz = 0.0f;
+        f32 lowpassMinDistance = 1.0f;
+        f32 lowpassMaxDistance = 100.0f;
+        f32 lowpassCutoffHz = 0.0f;
     };
 
     // Per-scene child groups, one under each bus the scene actually uses (lazy).
@@ -432,6 +438,14 @@ namespace draconic::audio
                 ma_sound_uninit(&slot.sound);
                 slot.soundInitialized = false;
             }
+            if (slot.lowpassNode != nullptr)
+            {
+                ma_lpf_node_uninit(slot.lowpassNode, nullptr);
+                DefaultAllocator().Delete(slot.lowpassNode);
+                slot.lowpassNode = nullptr;
+            }
+            slot.lowpassFloorHz = 0.0f;
+            slot.lowpassCutoffHz = 0.0f;
             slot.state = VoiceState::Free;
             slot.clip = nullptr;
             slot.sceneGroup = 0;
@@ -491,6 +505,45 @@ namespace draconic::audio
             }
             return voices.Size();
         }
+
+        // ---------------- distance low-pass ----------------
+
+        // Cutoff mapping: fully open inside minDistance, gliding linearly down to the
+        // voice's floor at maxDistance. Reinit only on audible change (>1%) - filter
+        // reconfiguration is not free.
+        void UpdateVoiceLowpass(VoiceSlot& slot)
+        {
+            if (slot.lowpassNode == nullptr) { return; }
+            const f32 dx = slot.position.x - listenerPosition.x;
+            const f32 dy = slot.position.y - listenerPosition.y;
+            const f32 dz = slot.position.z - listenerPosition.z;
+            const f32 distance = Sqrt(dx * dx + dy * dy + dz * dz);
+            const f32 open = OpenCutoffHz();
+            const f32 range = Max(slot.lowpassMaxDistance - slot.lowpassMinDistance, 0.001f);
+            const f32 t = Clamp((distance - slot.lowpassMinDistance) / range, 0.0f, 1.0f);
+            const f32 cutoff = open + (slot.lowpassFloorHz - open) * t;
+            if (slot.lowpassCutoffHz > 0.0f
+                && Abs(cutoff - slot.lowpassCutoffHz) < slot.lowpassCutoffHz * 0.01f)
+            {
+                return;
+            }
+            ma_lpf_config config = ma_lpf_config_init(
+                ma_format_f32, ma_engine_get_channels(&engine),
+                ma_engine_get_sample_rate(&engine), cutoff, kLowpassOrder);
+            if (ma_lpf_node_reinit(&config, slot.lowpassNode) == MA_SUCCESS)
+            {
+                slot.lowpassCutoffHz = cutoff;
+            }
+        }
+
+        [[nodiscard]] f32 OpenCutoffHz() const
+        {
+            // "No muffling" = just under Nyquist (a 20 kHz ceiling on high rates).
+            return Min(20000.0f, static_cast<f32>(ma_engine_get_sample_rate(
+                                     const_cast<ma_engine*>(&engine))) * 0.45f);
+        }
+
+        static constexpr u32 kLowpassOrder = 2;
 
         // ---------------- groups ----------------
 
@@ -588,9 +641,12 @@ namespace draconic::audio
             }
         }
 
-        // Reap: fades that landed, one-shots that reached their end.
+        // Reap: fades that landed, one-shots that reached their end. The same walk
+        // glides every filtered voice's distance low-pass (covers one-shots and a
+        // moving listener - voices the scene sync never repositions).
         for (VoiceSlot& slot : impl.voices)
         {
+            if (slot.state != VoiceState::Free) { impl.UpdateVoiceLowpass(slot); }
             if (slot.state == VoiceState::Stopping)
             {
                 if (ma_sound_is_playing(&slot.sound) == MA_FALSE) { impl.ReleaseSlot(slot); }
@@ -690,8 +746,32 @@ namespace draconic::audio
         slot.sceneGroup = params.sceneGroup;
         slot.clip = clip;
         slot.looping = params.loop || clipPtr->loop;
-        // P2 (distance low-pass): the ma_lpf node inserts between the sound and `group`
-        // here - slot.lowpassNode is the reserved seat.
+
+        // Distance low-pass: splice an ma_lpf between the sound and its group. Wholly
+        // per-voice; 0 Hz = no node (the chain stays sound->group).
+        if (params.spatial && params.distanceLowpassHz > 0.0f && group != nullptr)
+        {
+            auto* node = DefaultAllocator().New<ma_lpf_node>();
+            ma_lpf_node_config config = ma_lpf_node_config_init(
+                ma_engine_get_channels(&impl.engine), ma_engine_get_sample_rate(&impl.engine),
+                impl.OpenCutoffHz(), Impl::kLowpassOrder);
+            if (ma_lpf_node_init(ma_engine_get_node_graph(&impl.engine), &config, nullptr,
+                                 node) == MA_SUCCESS
+                && ma_node_attach_output_bus(node, 0, group, 0) == MA_SUCCESS
+                && ma_node_attach_output_bus(&slot.sound, 0, node, 0) == MA_SUCCESS)
+            {
+                slot.lowpassNode = node;
+                slot.lowpassFloorHz = params.distanceLowpassHz;
+                slot.lowpassMinDistance = params.minDistance;
+                slot.lowpassMaxDistance = params.maxDistance;
+                slot.lowpassCutoffHz = 0.0f;   // forces the first mapping to land
+            }
+            else
+            {
+                ma_lpf_node_uninit(node, nullptr);
+                DefaultAllocator().Delete(node);
+            }
+        }
 
         ma_sound_set_volume(&slot.sound, params.volume * clipPtr->gain);
         ma_sound_set_pitch(&slot.sound, params.pitch);
@@ -815,6 +895,7 @@ namespace draconic::audio
         out.bus = slot->bus;
         out.priority = slot->priority;
         out.position = slot->position;
+        out.lowpassCutoffHz = slot->lowpassCutoffHz;
         return true;
     }
 

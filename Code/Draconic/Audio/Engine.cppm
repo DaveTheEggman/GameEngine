@@ -82,6 +82,10 @@ export namespace draconic::audio
 
         // 3D (spatial = true):
         bool spatial = false;
+        // Distance low-pass (the muffling-with-distance Godot/Traktor ship and Sedulous
+        // left dead): the cutoff glides from fully open at minDistance down to THIS
+        // frequency at maxDistance. 0 disables the filter (no node in the chain).
+        f32 distanceLowpassHz = 4000.0f;
         Float3 position{ 0.0f, 0.0f, 0.0f };
         Float3 velocity{ 0.0f, 0.0f, 0.0f };   // feeds doppler (per-frame transform deltas)
         f32 minDistance = 1.0f;
@@ -107,6 +111,8 @@ export namespace draconic::audio
         AudioBus bus = AudioBus::Effects;
         u8 priority = 0;
         Float3 position{ 0.0f, 0.0f, 0.0f };
+        // Distance low-pass state: the cutoff currently applied (0 = no filter node).
+        f32 lowpassCutoffHz = 0.0f;
     };
 
     struct AudioEngineSettings

@@ -30,6 +30,9 @@ export namespace draconic::audio
         bool loop = false;              // OR-ed with the clip's authored loop intent
         bool spatial = true;
         bool autoPlay = false;          // starts when scene simulation starts
+        // Distance low-pass floor (Hz) for spatial sources: the cutoff glides from
+        // open at minDistance to this at maxDistance. 0 = no muffling filter.
+        f32 distanceLowpassHz = 4000.0f;
         u8 priority = 128;              // pool contention (higher survives)
         f32 minDistance = 1.0f;
         f32 maxDistance = 100.0f;
@@ -58,6 +61,7 @@ export namespace draconic::audio
         draconic::core::Serialize(ar, "loop", c.loop);
         draconic::core::Serialize(ar, "spatial", c.spatial);
         draconic::core::Serialize(ar, "autoPlay", c.autoPlay);
+        draconic::core::Serialize(ar, "distanceLowpassHz", c.distanceLowpassHz);
         draconic::core::Serialize(ar, "priority", c.priority);
         draconic::core::Serialize(ar, "minDistance", c.minDistance);
         draconic::core::Serialize(ar, "maxDistance", c.maxDistance);

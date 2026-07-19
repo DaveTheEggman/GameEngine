@@ -538,3 +538,49 @@ TEST_CASE("audio.waveform: peaks bucket the decoded signal; silence reads near z
     const byte garbage[8] = {};
     CHECK_FALSE(BuildWaveformPeaks(Span<const byte>(garbage, 8), 16, none));
 }
+
+TEST_CASE("audio.engine: distance low-pass glides open -> floor across [min, max] distance")
+{
+    AudioEngine engine(HeadlessSettings());
+    engine.SetListenerTransform(Float3{ 0, 0, 0 }, Float3{ 0, 0, -1 }, Float3{ 0, 1, 0 },
+                                Float3{ 0, 0, 0 });
+    RefPtr<AudioClip> clip = MakeToneClip(2.0f);
+
+    AudioPlayParams params;
+    params.loop = true;
+    params.spatial = true;
+    params.minDistance = 2.0f;
+    params.maxDistance = 20.0f;
+    params.distanceLowpassHz = 4000.0f;
+    params.position = Float3{ 0.0f, 0.0f, -2.0f };   // at minDistance: fully open
+    const VoiceHandle voice = engine.Play(clip, params);
+    REQUIRE(voice.IsValid());
+    engine.Update(1.0f / 60.0f);
+
+    VoiceStatus status;
+    REQUIRE(engine.GetVoiceStatus(voice, status));
+    const f32 openCutoff = status.lowpassCutoffHz;
+    CHECK(openCutoff > 15000.0f);   // inside minDistance = no audible muffling
+
+    // Far: the cutoff lands on the floor.
+    engine.SetVoicePosition(voice, Float3{ 0.0f, 0.0f, -20.0f }, Float3{});
+    engine.Update(1.0f / 60.0f);
+    REQUIRE(engine.GetVoiceStatus(voice, status));
+    CHECK(status.lowpassCutoffHz == doctest::Approx(4000.0f).epsilon(0.02));
+
+    // Midway: strictly between the endpoints (the glide is monotonic).
+    engine.SetVoicePosition(voice, Float3{ 0.0f, 0.0f, -11.0f }, Float3{});
+    engine.Update(1.0f / 60.0f);
+    REQUIRE(engine.GetVoiceStatus(voice, status));
+    CHECK(status.lowpassCutoffHz > 4100.0f);
+    CHECK(status.lowpassCutoffHz < openCutoff - 100.0f);
+
+    // 0 Hz disables the filter entirely - no node, no cutoff reported.
+    AudioPlayParams unfiltered = params;
+    unfiltered.distanceLowpassHz = 0.0f;
+    const VoiceHandle plain = engine.Play(clip, unfiltered);
+    REQUIRE(plain.IsValid());
+    engine.Update(1.0f / 60.0f);
+    REQUIRE(engine.GetVoiceStatus(plain, status));
+    CHECK(status.lowpassCutoffHz == 0.0f);
+}

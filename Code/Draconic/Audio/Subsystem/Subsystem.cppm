@@ -211,6 +211,7 @@ export namespace draconic::audio
             params.spatial = c.spatial;
             if (c.spatial)
             {
+                params.distanceLowpassHz = c.distanceLowpassHz;
                 params.position = EntityPosition(e);
                 params.minDistance = c.minDistance;
                 params.maxDistance = c.maxDistance;
