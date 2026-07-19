@@ -354,11 +354,13 @@ namespace
                 m_scene->SetLocalPosition(e, core::Float3{ 4.0f, 1.6f, -6.0f });
                 m_kioskDocument = core::MakeRef<draconic::ui::UIDocument>(core::DefaultAllocator());
                 m_kioskDocument->markup = core::String(
-                    u8"<Flex direction=\"vertical\" spacing=\"8\" padding=\"12\""
-                    u8" style=\"background: rounded-rect(#20242cE0, 8)\">"
-                    u8"<Label text=\"KIOSK\" font-size=\"22\"/>"
-                    u8"<Button id=\"kiosk-btn\" text=\"Taps: 0\" width=\"220\" height=\"48\"/>"
-                    u8"</Flex>");
+                    u8"<Panel padding=\"14\""
+                    u8" style=\"background: rounded-rect(rgb(28, 32, 40), radius=10);\">"
+                    u8"  <Flex direction=\"vertical\" spacing=\"10\">"
+                    u8"    <Label text=\"KIOSK\" font-size=\"22\"/>"
+                    u8"    <Button id=\"kiosk-btn\" text=\"Taps: 0\" width=\"260\" height=\"56\"/>"
+                    u8"  </Flex>"
+                    u8"</Panel>");
                 auto* panels = m_scene->GetSystem<draconic::ui::UIWorldPanelComponentManager>();
                 if (panels != nullptr)
                 {

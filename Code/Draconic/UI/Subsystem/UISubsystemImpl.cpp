@@ -727,8 +727,12 @@ namespace draconic::ui
                 }
                 // World tier: the pointer missed every overlay - cast the scene
                 // camera's ray and take the NEAREST interactive panel it crosses.
+                // In CAPTURED/look mode (FPS flying) the cursor is parked wherever it
+                // was grabbed - the crosshair IS the pointer, so the ray goes through
+                // the view center instead.
                 if (target == nullptr)
                 {
+                    const bool centerAim = mouse->RelativeMode();
                     f32 bestDistance = 0.0f;
                     for (SceneUI& sceneUI : m_sceneUIs)
                     {
@@ -746,8 +750,10 @@ namespace draconic::ui
                         {
                             continue;
                         }
+                        const Float2 rayPoint = centerAim
+                            ? Float2{ viewSize.x * 0.5f, viewSize.y * 0.5f } : point;
                         Float3 rayOrigin, rayDirection;
-                        PointerRayFromCamera(camera, point, viewSize, rayOrigin, rayDirection);
+                        PointerRayFromCamera(camera, rayPoint, viewSize, rayOrigin, rayDirection);
                         panels->ForEach([&](UIWorldPanelComponent& c,
                                             dscene::EntityHandle e) {
                             if (!c.interactive || !c.visible) { return; }

@@ -1209,3 +1209,39 @@ TEST_CASE("ui.worldpanel: instantiates, renders to its target, drives the sprite
 
     ctx.Shutdown();
 }
+
+TEST_CASE("ui.worldpanel: the ray hits under an OBLIQUE camera (the playground pose)")
+{
+    // Reproduces PhysicsPlayground exactly: fly camera at (8,6,14) yaw 0.5 pitch -0.3,
+    // kiosk at (4,1.6,-6) identity-oriented, 1.6x1.0 m. The pointer is placed at the
+    // kiosk center's PROJECTED screen position - the ray must come back to uv ~center.
+    draconic::render::ViewCamera camera;
+    const Quaternion rotation = FromYawPitchRoll(0.5f, -0.3f, 0.0f);
+    Float4x4 world = RotationMatrix(rotation);
+    world.m[3][0] = 8.0f;
+    world.m[3][1] = 6.0f;
+    world.m[3][2] = 14.0f;
+    camera.view = Inverse(world);
+    camera.projection = Float4x4::PerspectiveFovRH(1.04719755f, 1280.0f / 720.0f, 0.1f, 1000.0f);
+    camera.position = Float3{ 8.0f, 6.0f, 14.0f };
+
+    Float4x4 panel = Float4x4::Identity();
+    panel.m[3][0] = 4.0f;
+    panel.m[3][1] = 1.6f;
+    panel.m[3][2] = -6.0f;
+    const Float2 sizeMeters{ 1.6f, 1.0f };
+
+    // Project the panel center to screen pixels.
+    const Float4 clip = Float4{ 4.0f, 1.6f, -6.0f, 1.0f } * camera.ViewProjection();
+    REQUIRE(clip.w > 0.0f);   // in front of the camera
+    const Float2 viewSize{ 1280.0f, 720.0f };
+    const Float2 pointer{ (clip.x / clip.w * 0.5f + 0.5f) * viewSize.x,
+                          (1.0f - (clip.y / clip.w * 0.5f + 0.5f)) * viewSize.y };
+
+    Float3 origin, direction;
+    PointerRayFromCamera(camera, pointer, viewSize, origin, direction);
+    const WorldPanelHit hit = RayHitWorldPanel(origin, direction, panel, sizeMeters);
+    REQUIRE(hit.hit);
+    CHECK(hit.uv.x == doctest::Approx(0.5f).epsilon(0.01));
+    CHECK(hit.uv.y == doctest::Approx(0.5f).epsilon(0.01));
+}
