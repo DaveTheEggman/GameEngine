@@ -90,6 +90,14 @@ export namespace draconic::editor
         {
             return viewport != nullptr ? viewport->Touch() : nullptr;
         }
+        [[nodiscard]] Span<const draconic::shell::InputEvent> Events() override
+        {
+            // Key/text events stream only while the viewport owns keyboard focus - the
+            // same gate SurfaceKeyboard applies to the polled reads.
+            auto* surface = viewport != nullptr ? viewport->Surface() : nullptr;
+            if (surface == nullptr || !surface->Focused() || shellInput == nullptr) { return {}; }
+            return shellInput->Events();
+        }
     };
 
     // Wren runtime faults during play surface as editor notices, not console-only lines.
@@ -317,6 +325,12 @@ export namespace draconic::editor
         {
             EnsureViewportBound();
             m_viewport->SyncInputRegion();
+            // IME follows the GAME UI's focus through the host window: the viewport (the
+            // editor context's focused view while playing) forwards the game context's
+            // WantsTextInput, and the editor's own input bridge does the Start/Stop.
+            m_viewport->SetHostedTextInputWanted(
+                m_app != nullptr && m_app->UI() != nullptr &&
+                m_app->UI()->Context().WantsTextInput());
             // The play bracket: the embedded app updates ONLY while a run is live (its
             // OnUpdate ticks the game script with the primary scene's scaled time).
             if (m_running && m_app != nullptr) { m_app->OnUpdate(host, dt); }

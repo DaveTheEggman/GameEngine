@@ -142,6 +142,14 @@ namespace
             // (product types registered there too - runtime-host.md v3 infra preset).
             SetContentDatabase(m_contentDb.Get());
             rt::DefaultApplication::OnStartup(host);
+
+            // Game-UI IME lifecycle: the player owns its window, so the UI subsystem
+            // drives StartTextInput/StopTextInput on it as game EditText focus moves.
+            // (The editor leaves this null - its UIHost bridge owns the IME there.)
+            if (UI() != nullptr && host.Shell() != nullptr)
+            {
+                UI()->SetTextInputTarget(host.Shell()->MainWindow());
+            }
         }
 
         void OnLaunch(rt::IApplicationHost& host) override

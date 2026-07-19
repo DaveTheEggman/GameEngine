@@ -14,6 +14,7 @@ import draconic.ui.subsystem;
 import draconic.render.api;
 import draconic.render.subsystem;
 import draconic.shell;
+import draconic.shell.null;
 import draconic.input;
 import draconic.input.subsystem;
 
@@ -527,6 +528,108 @@ TEST_CASE("ui.subsystem: ReferenceResolution scaler lays out at the reference si
     View* direct = root->HitTest(Float2{ 100.0f, 20.0f });
     REQUIRE(direct != nullptr);
     CHECK(direct->Name.AsView() == u8"btn");
+
+    ctx.Shutdown();
+}
+
+namespace
+{
+    // An event-first provider fake: no polled devices, just this frame's tagged stream
+    // (the shape ShellInputSource/GameViewportInputSource produce for key/text).
+    struct EventFakeDevices final : draconic::input::IInputSourceProvider
+    {
+        Array<draconic::shell::InputEvent> events;
+        [[nodiscard]] draconic::shell::IMouse* Mouse() override { return nullptr; }
+        [[nodiscard]] draconic::shell::IKeyboard* Keyboard() override { return nullptr; }
+        [[nodiscard]] i32 GamepadCount() const override { return 0; }
+        [[nodiscard]] draconic::shell::IGamepad* Gamepad(i32) override { return nullptr; }
+        [[nodiscard]] Span<const draconic::shell::InputEvent> Events() override
+        {
+            return { events.Data(), events.Size() };
+        }
+
+        void PushKey(draconic::shell::InputEventKind kind, draconic::shell::KeyCode key)
+        {
+            draconic::shell::InputEvent e;
+            e.kind = kind;
+            e.key = key;
+            events.PushBack(e);
+        }
+        void PushText(StringView text)
+        {
+            draconic::shell::InputEvent e;
+            e.kind = draconic::shell::InputEventKind::TextInput;
+            usize i = 0;
+            for (; i < text.Size() && i < 31; ++i) { e.text[i] = text[i]; }
+            e.text[i] = 0;
+            events.PushBack(e);
+        }
+    };
+}
+
+TEST_CASE("ui.subsystem: key/text events reach a focused game EditText; IME follows focus")
+{
+    rt::Context ctx;
+    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
+    auto* input = ctx.AddSubsystem<draconic::input::InputSubsystem>(nullptr);
+    auto* ui = ctx.AddSubsystem<UISubsystem>();
+    ctx.Startup();
+
+    EventFakeDevices devices;
+    input->SetSourceProvider(&devices);
+
+    // The player-window IME target (headless stand-in).
+    draconic::shell::NullWindow window(1, draconic::shell::WindowSettings{});
+    ui->SetTextInputTarget(&window);
+
+    dscene::Scene* scene = scenes->CreateScene(u8"menu");
+    dscene::EntityHandle e = scene->CreateEntity(u8"form");
+    {
+        UICanvasComponent& c = scene->GetSystem<UICanvasComponentManager>()->Add(e);
+        c.document = MakeDocument(
+            u8"<Flex direction=\"vertical\">"
+            u8"<EditText id=\"name-field\" width=\"200\" height=\"30\"/>"
+            u8"</Flex>");
+    }
+    ctx.BeginFrame(1.0f / 60.0f);
+    RootView* root = ui->SceneRoot(*scene);
+    REQUIRE(root != nullptr);
+    root->ViewportSize = Float2{ 800.0f, 600.0f };
+    ui->Context().UpdateRootView(root);
+
+    auto* edit = Cast<ViewGroup>(root)->FindByName<EditText>(u8"name-field");
+    REQUIRE(edit != nullptr);
+
+    // Nothing focused: no IME, keyboard not consumed.
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK_FALSE(window.IsTextInputActive());
+    CHECK_FALSE(input->Runtime().GetConsumptionMask().keyboard);
+
+    // Focus the field: the next pump starts platform text input (WantsTextInput went
+    // on) and publishes the keyboard consumption class.
+    ui->Context().GetFocusManager()->SetFocus(edit);
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(window.IsTextInputActive());
+    CHECK(input->Runtime().GetConsumptionMask().keyboard);
+
+    // Text events flow through the provider's event stream into the editor...
+    devices.PushText(u8"hi");
+    ctx.BeginFrame(1.0f / 60.0f);
+    devices.events.Clear();
+    CHECK(edit->Text() == u8"hi");
+
+    // ...as do ordered key events (Backspace erases the last character).
+    devices.PushKey(draconic::shell::InputEventKind::KeyDown, draconic::shell::KeyCode::Backspace);
+    devices.PushKey(draconic::shell::InputEventKind::KeyUp, draconic::shell::KeyCode::Backspace);
+    ctx.BeginFrame(1.0f / 60.0f);
+    devices.events.Clear();
+    CHECK(edit->Text() == u8"h");
+
+    // Dropping focus stops text input and releases the keyboard class.
+    ui->Context().GetFocusManager()->ClearFocus();
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK_FALSE(window.IsTextInputActive());
+    CHECK_FALSE(input->Runtime().GetConsumptionMask().keyboard);
 
     ctx.Shutdown();
 }

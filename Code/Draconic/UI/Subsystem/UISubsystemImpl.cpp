@@ -521,6 +521,30 @@ namespace draconic::ui
             }
         }
 
+        // ---- keyboard + text (game-ui.md P3): the tagged event stream off the SAME
+        // provider seam - ordered key events and TextInput payloads that polling cannot
+        // carry. The bridge applies the standard shell->UI key mapping (Return stays
+        // dispatch-first) and reconciles the IME after every event; mouse/pad kinds are
+        // skipped here (mouse is polled above - dispatching both would double-fire).
+        // The provider gates: the player streams its window's events, the Game tab's
+        // viewport source streams only while the viewport owns keyboard focus. ----
+        for (const draconic::shell::InputEvent& event : devices.Events())
+        {
+            switch (event.kind)
+            {
+            case draconic::shell::InputEventKind::KeyDown:
+            case draconic::shell::InputEventKind::KeyUp:
+            case draconic::shell::InputEventKind::TextInput:
+                (void)m_bridge.Dispatch(event);
+                break;
+            default:
+                break;
+            }
+        }
+        // Reconcile the IME even on event-less frames: focus can move without a key or
+        // click (gamepad navigation onto/off an EditText).
+        m_bridge.SyncTextInput();
+
         // ---- gamepad focus navigation (game-ui.md P2): dpad/left stick move focus
         // through the framework's geometric MoveFocus; South = Submit (synthesized
         // Return - the existing dispatch-first activation path), East = Cancel

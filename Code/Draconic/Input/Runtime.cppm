@@ -40,6 +40,12 @@ export namespace draconic::input
         // Defaulted (not every provider has one): touch coordinates are NORMALIZED window
         // space, matching the touch bindings' region model.
         [[nodiscard]] virtual dshell::ITouch* Touch() { return nullptr; }
+        // This frame's tagged shell event stream, gated like the device facades (a
+        // viewport provider returns it only while it owns keyboard focus). Consumers
+        // needing ORDER or PAYLOADS polling cannot carry - key sequence, TextInput
+        // characters - read these; the span is valid until the next shell pump.
+        // Defaulted empty: pure-polling providers (tests, fakes) stay valid.
+        [[nodiscard]] virtual Span<const dshell::InputEvent> Events() { return {}; }
     };
 
     // The common case: the whole app's devices, straight off the shell.
@@ -53,6 +59,10 @@ export namespace draconic::input
         [[nodiscard]] i32 GamepadCount() const override { return m_input != nullptr ? m_input->GamepadCount() : 0; }
         [[nodiscard]] dshell::IGamepad* Gamepad(i32 index) override { return m_input != nullptr ? m_input->GetGamepad(index) : nullptr; }
         [[nodiscard]] dshell::ITouch* Touch() override { return m_input != nullptr ? m_input->Touch() : nullptr; }
+        [[nodiscard]] Span<const dshell::InputEvent> Events() override
+        {
+            return m_input != nullptr ? m_input->Events() : Span<const dshell::InputEvent>{};
+        }
 
     private:
         dshell::IInputManager* m_input = nullptr;   // borrowed

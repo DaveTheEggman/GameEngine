@@ -33,6 +33,7 @@ import draconic.input;
 import draconic.input.subsystem;
 import draconic.render.api;   // the two-tier overlay roles (ISceneOverlay/IScreenOverlay)
 import draconic.ui;
+import draconic.ui.shell;     // UiInputBridge (key/text mapping + IME lifecycle)
 import draconic.ui.resource;
 
 using namespace draconic::core;
@@ -171,6 +172,17 @@ export namespace draconic::ui
         /// Optional TTF for the default font ("" = try the repo-relative Roboto, else
         /// text simply doesn't render). Preset before Startup.
         void SetFontPath(StringView path) { m_fontPath = String(path); }
+
+        /// The window whose platform text input (IME) follows GAME UI focus: when the
+        /// context's WantsTextInput() turns on/off (an EditText gains/loses focus), the
+        /// pump starts/stops the window's text input. The PLAYER sets its main window;
+        /// hosts whose IME another bridge owns (the editor - its UIHost reconciles from
+        /// the EDITOR context, with ViewportView forwarding the game's wish) leave it
+        /// null. Null also clears it.
+        void SetTextInputTarget(draconic::shell::IWindow* window) noexcept
+        {
+            m_bridge.SetTextInputTarget(window);
+        }
 
         [[nodiscard]] UIContext& Context() noexcept { return m_context; }
         /// The scene-LESS screen tier's root (global overlays only; scene UI lives in
@@ -319,6 +331,7 @@ export namespace draconic::ui
 
         String m_fontPath;
         UIContext m_context;
+        UiInputBridge m_bridge{ &m_context };   // key/text event mapping + IME sync
         RefPtr<RootView> m_screenRoot;
         RefPtr<ViewGroup> m_overlayLayer;     // scene-LESS screen tier, ABOVE everything
         RefPtr<StyleSheet> m_theme;

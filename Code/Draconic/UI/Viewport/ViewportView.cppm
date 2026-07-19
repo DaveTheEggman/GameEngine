@@ -178,6 +178,14 @@ export namespace draconic::ui::viewport
         void SetColorState(rhi::ResourceState state) noexcept { m_colorState = state; }
 
         // === Input ===
+        /// Hosted-content text input: when the content this viewport hosts (an embedded
+        /// game's UI) has a focused text editor, the viewport - the HOST context's
+        /// focused view - reports WantsTextInput, so the host window's IME lifecycle
+        /// (UiInputBridge::SyncTextInput over the host UIContext) follows the embedded
+        /// focus without a second bridge fighting over StartTextInput/StopTextInput.
+        /// Pushed per frame by the hosting page.
+        void SetHostedTextInputWanted(bool wanted) noexcept { m_hostedTextInputWanted = wanted; }
+        [[nodiscard]] bool WantsTextInput() const override { return m_hostedTextInputWanted; }
         [[nodiscard]] shell::InputSurface* Surface() const noexcept { return m_surface.Get(); }
         [[nodiscard]] shell::IMouse* Mouse() const noexcept { return m_surface ? m_surface->Mouse() : nullptr; }
         [[nodiscard]] shell::IKeyboard* Keyboard() const noexcept { return m_surface ? m_surface->Keyboard() : nullptr; }
@@ -360,6 +368,7 @@ export namespace draconic::ui::viewport
         rhi::ResourceState m_colorState = rhi::ResourceState::Undefined;
         rhi::ResourceState m_depthState = rhi::ResourceState::Undefined;
 
+        bool m_hostedTextInputWanted = false;
         u32 m_fixedWidth = 0;
         u32 m_fixedHeight = 0;
         u32 m_textureWidth = 0;
