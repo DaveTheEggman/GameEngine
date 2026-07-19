@@ -365,13 +365,125 @@ export namespace draconic::audio
         }
     };
 
+    // ---- bus layout asset (P2): the mixer edited in the inspector ----
+    // FLAT per-bus fields (v1) so the reflection inspector edits it without an array
+    // editor: per bus - volume, mute, and three effect slots (0 disables each). The
+    // builder folds the flat fields into the generic wire chain (lowpass -> highpass ->
+    // delay, in that order, when enabled).
+
+    class AudioBusLayoutAsset final : public draconic::editor::Asset
+    {
+        DRACONIC_OBJECT(AudioBusLayoutAsset, draconic::editor::Asset)
+    public:
+        struct Bus
+        {
+            f32 volume = 1.0f;
+            bool muted = false;
+            f32 lowpassHz = 0.0f;      // 0 = off
+            f32 highpassHz = 0.0f;     // 0 = off
+            f32 delaySeconds = 0.0f;   // 0 = off
+            f32 delayDecay = 0.3f;
+        };
+        Bus master;
+        Bus effects;
+        Bus music;
+        Bus ui;
+
+        void Serialize(ISerializer& ar) override
+        {
+            draconic::editor::Asset::Serialize(ar);
+            auto serializeBus = [&ar](const char* prefix, Bus& bus) {
+                (void)prefix;
+                draconic::core::Serialize(ar, "volume", bus.volume);
+                draconic::core::Serialize(ar, "muted", bus.muted);
+                draconic::core::Serialize(ar, "lowpassHz", bus.lowpassHz);
+                draconic::core::Serialize(ar, "highpassHz", bus.highpassHz);
+                draconic::core::Serialize(ar, "delaySeconds", bus.delaySeconds);
+                draconic::core::Serialize(ar, "delayDecay", bus.delayDecay);
+            };
+            serializeBus("master", master);
+            serializeBus("effects", effects);
+            serializeBus("music", music);
+            serializeBus("ui", ui);
+        }
+    };
+
+    class AudioBusLayoutAssetBuilder final : public draconic::editor::DefaultAssetBuilder
+    {
+    public:
+        [[nodiscard]] const TypeInfo* AssetType() const override
+        {
+            return &AudioBusLayoutAsset::StaticType();
+        }
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &AudioBusLayoutSource::StaticType();
+        }
+        [[nodiscard]] u32 Version() const override { return 1; }
+
+        [[nodiscard]] Status Build(const draconic::editor::Asset& asset,
+                                   draconic::editor::AssetBuildContext& ctx) override
+        {
+            const auto& layoutAsset = static_cast<const AudioBusLayoutAsset&>(asset);
+            if (ctx.output == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
+
+            AudioBusLayoutSource source;
+            const AudioBusLayoutAsset::Bus* buses[static_cast<usize>(AudioBus::Count)] = {};
+            buses[static_cast<usize>(AudioBus::Master)] = &layoutAsset.master;
+            buses[static_cast<usize>(AudioBus::Effects)] = &layoutAsset.effects;
+            buses[static_cast<usize>(AudioBus::Music)] = &layoutAsset.music;
+            buses[static_cast<usize>(AudioBus::UI)] = &layoutAsset.ui;
+            for (usize i = 0; i < static_cast<usize>(AudioBus::Count); ++i)
+            {
+                const AudioBusLayoutAsset::Bus& bus = *buses[i];
+                AudioBusSettings& out = source.layout.buses[i];
+                out.volume = Clamp(bus.volume, 0.0f, 4.0f);
+                out.muted = bus.muted;
+                if (bus.lowpassHz > 0.0f)
+                {
+                    AudioBusEffectDesc effect;
+                    effect.kind = AudioBusEffectKind::Lowpass;
+                    effect.frequencyHz = bus.lowpassHz;
+                    out.effects.PushBack(effect);
+                }
+                if (bus.highpassHz > 0.0f)
+                {
+                    AudioBusEffectDesc effect;
+                    effect.kind = AudioBusEffectKind::Highpass;
+                    effect.frequencyHz = bus.highpassHz;
+                    out.effects.PushBack(effect);
+                }
+                if (bus.delaySeconds > 0.0f)
+                {
+                    AudioBusEffectDesc effect;
+                    effect.kind = AudioBusEffectKind::Delay;
+                    effect.delaySeconds = bus.delaySeconds;
+                    effect.delayDecay = Clamp(bus.delayDecay, 0.0f, 0.99f);
+                    if (bus.delayDecay >= 1.0f)
+                    {
+                        DRACONIC_LOG_WARNING(u8"Audio",
+                            u8"bus layout '{}': delayDecay >= 1 self-oscillates - clamped to 0.99",
+                            asset.fileName);
+                    }
+                    out.effects.PushBack(effect);
+                }
+            }
+
+            const Status written = ctx.output->WriteObject(source);
+            return written;
+        }
+    };
+
     // Registers the asset type for content-DB construction + deserialization.
     inline void RegisterAudioAssets()
     {
         GlobalTypeRegistry().Register(AudioClipAsset::StaticType());
         RegisterSerializable<AudioClipAsset>();
+        GlobalTypeRegistry().Register(AudioBusLayoutAsset::StaticType());
+        RegisterSerializable<AudioBusLayoutAsset>();
     }
 
     DRACONIC_DEFINE_OBJECT(AudioClipAsset, "draconic::audio")
     DRACONIC_DEFINE_OBJECT(AudioImportOptions, "draconic::audio")
+    DRACONIC_DEFINE_OBJECT(AudioBusLayoutAsset, "draconic::audio")
 }

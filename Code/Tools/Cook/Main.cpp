@@ -90,6 +90,7 @@ namespace
         Add<draconic::ui::UIDocumentAssetBuilder>(registry);
         Add<draconic::ui::UIThemeAssetBuilder>(registry);
         Add<draconic::audio::AudioClipAssetBuilder>(registry);
+        Add<draconic::audio::AudioBusLayoutAssetBuilder>(registry);
     }
 }
 

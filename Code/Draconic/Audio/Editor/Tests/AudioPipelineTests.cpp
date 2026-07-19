@@ -408,3 +408,56 @@ TEST_CASE("audio.pipeline: the file importer creates an AudioClipAsset with prob
     FileDelete(PathJoin(projectDir, u8"Content/draconic_audiopipe_long.xasset"));
     cleanProject();
 }
+
+TEST_CASE("audio.pipeline: bus layout asset cooks flat fields into the effect-chain wire "
+          "and resolves as a resource")
+{
+    RegisterAudioResource();
+    RegisterAudioAssets();
+    RemoveDbTree(u8"draconic_audiopipe_bus");
+
+    draconic::vfs::NativeFileSystem outputMount(u8"draconic_audiopipe_bus");
+    content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
+
+    AudioBusLayoutAsset asset;
+    asset.music.volume = 0.5f;
+    asset.ui.muted = true;
+    asset.effects.lowpassHz = 3000.0f;      // slot order: lowpass -> highpass -> delay
+    asset.effects.delaySeconds = 0.2f;
+    asset.effects.delayDecay = 1.5f;        // out of range: the builder clamps to 0.99
+
+    AudioBusLayoutAssetBuilder builder;
+    draconic::editor::AssetBuildContext ctx;
+    auto* outputInstance =
+        outputDb.RootGroup()->CreateInstance(u8"mixer", AudioBusLayoutSource::StaticType());
+    ctx.output = outputInstance;
+    REQUIRE(builder.Build(asset, ctx).IsOk());
+
+    AudioBusLayoutFactory factory;
+    ResourceManager manager(outputDb);
+    manager.AddFactory(&factory);
+    Proxy<AudioBusLayoutResource> layout =
+        manager.Bind<AudioBusLayoutResource>(outputInstance->Id());
+    REQUIRE(layout);
+    const AudioBusSettings& music = layout->layout.buses[static_cast<usize>(AudioBus::Music)];
+    CHECK(music.volume == doctest::Approx(0.5f));
+    const AudioBusSettings& ui = layout->layout.buses[static_cast<usize>(AudioBus::UI)];
+    CHECK(ui.muted);
+    const AudioBusSettings& effects =
+        layout->layout.buses[static_cast<usize>(AudioBus::Effects)];
+    REQUIRE(effects.effects.Size() == 2u);
+    CHECK(effects.effects[0].kind == AudioBusEffectKind::Lowpass);
+    CHECK(effects.effects[0].frequencyHz == doctest::Approx(3000.0f));
+    CHECK(effects.effects[1].kind == AudioBusEffectKind::Delay);
+    CHECK(effects.effects[1].delayDecay == doctest::Approx(0.99f));
+
+    // The cooked layout applies to a live (headless) engine.
+    AudioEngineSettings settings;
+    settings.headless = true;
+    AudioEngine engine(settings);
+    engine.ApplyBusLayout(layout->layout);
+    CHECK(engine.BusVolume(AudioBus::Music) == doctest::Approx(0.5f));
+    CHECK(engine.BusEffectCount(AudioBus::Effects) == 2u);
+
+    RemoveDbTree(u8"draconic_audiopipe_bus");
+}

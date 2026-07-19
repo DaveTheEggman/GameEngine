@@ -123,6 +123,43 @@ export namespace draconic::editor::app
                 }
             }
 
+            // Default audio bus layout: the cooked mixer applied at startup (player +
+            // play-in-editor) - nil = the built-in neutral four-bus layout.
+            {
+                ui::FlexLayout* row = AddRow(*column, u8"Default bus layout");
+                m_busLayoutLabel = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"(built-in)"));
+                {
+                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    lp->Grow = 1.0f;
+                    lp->AlignSelf = ui::Align::Center;
+                    row->AddView(m_busLayoutLabel.Get(), lp);
+                }
+                auto pick = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Pick..."));
+                {
+                    ProjectSettingsDialog* self = this;
+                    pick->OnClick.Add([self](ui::ButtonBase*) { self->PickBusLayout(); });
+                    row->AddView(pick.Get());
+                }
+                auto clear = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Clear"));
+                {
+                    ProjectSettingsDialog* self = this;
+                    clear->OnClick.Add([self](ui::ButtonBase*) {
+                        self->m_busLayoutId = Guid{};
+                        self->m_busLayoutLabel->SetText(u8"(built-in)");
+                    });
+                    row->AddView(clear.Get());
+                }
+                if (project != nullptr)
+                {
+                    m_busLayoutId = project->Settings().defaultBusLayoutId;
+                    if (content::Instance* layout = !m_busLayoutId.IsNil()
+                            ? project->SourceDb().GetInstance(m_busLayoutId) : nullptr)
+                    {
+                        m_busLayoutLabel->SetText(layout->Path().AsView());
+                    }
+                }
+            }
+
             // Engine stamp - informational; re-stamped by every save.
             {
                 ui::FlexLayout* row = AddRow(*column, u8"Engine version");
@@ -176,6 +213,28 @@ export namespace draconic::editor::app
             lp->Grow = 1.0f;
             row->AddView(edit.Get(), lp);
             return raw;
+        }
+
+        void PickBusLayout()
+        {
+            if (Context == nullptr) { return; }
+            Array<String> typeNames;
+            typeNames.PushBack(String(u8"AudioBusLayoutAsset"));
+            auto picker = MakeRef<AssetPickerDialog>(DefaultAllocator(), *m_context, Move(typeNames));
+            ProjectSettingsDialog* self = this;
+            picker->OnPicked = [self](const Guid& id) {
+                self->m_busLayoutId = id;
+                if (content::Instance* layout = !id.IsNil() && self->m_context->Project() != nullptr
+                        ? self->m_context->Project()->SourceDb().GetInstance(id) : nullptr)
+                {
+                    self->m_busLayoutLabel->SetText(layout->Path().AsView());
+                }
+                else
+                {
+                    self->m_busLayoutLabel->SetText(u8"(built-in)");
+                }
+            };
+            picker->Show(Context);
         }
 
         void PickInputMap()
@@ -234,6 +293,7 @@ export namespace draconic::editor::app
             project->Settings().startupScript = String(m_scriptEdit->Text());
             project->Settings().defaultSceneId = m_sceneId;
             project->Settings().defaultInputMapId = m_inputMapId;
+            project->Settings().defaultBusLayoutId = m_busLayoutId;
             project->Settings().defaultScene = String();
             if (content::Instance* scene = !m_sceneId.IsNil()
                     ? project->SourceDb().GetInstance(m_sceneId) : nullptr)
@@ -258,7 +318,9 @@ export namespace draconic::editor::app
 
         draconic::editor::EditorContext* m_context;
         Guid m_inputMapId{};
+        Guid m_busLayoutId{};
         RefPtr<ui::Label> m_inputMapLabel;
+        RefPtr<ui::Label> m_busLayoutLabel;
         ui::EditText* m_nameEdit = nullptr;
         ui::EditText* m_scriptEdit = nullptr;
         RefPtr<ui::Label> m_sceneLabel;

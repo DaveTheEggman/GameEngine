@@ -9,8 +9,9 @@
 //     clips get a ContentInstanceStreamSource so miniaudio pages the bytes on demand
 //     straight out of the content mount (pak included - Instance::ReadData seeks).
 //
-// BusLayoutResource (mixer-as-data) is P2; the P1 layout is the fixed enum in
-// draconic.audio.
+// AudioBusLayoutSource/Resource (P2): the mixer as data - per-bus volume/mute/effect
+// chains over the FIXED four-bus topology (the AudioBus enum stays the addressing
+// model; free-form named trees are a later migration).
 
 module;
 #include "Core/Prelude.h"
@@ -129,13 +130,84 @@ export namespace draconic::audio
         }
     };
 
+    // ---- bus layout (P2): cooked mixer data ----
+
+    // Wire shape stays GENERIC (per-bus effect arrays) even though the editor asset is
+    // flat v1 - a richer chain editor later needs no wire change.
+    class AudioBusLayoutSource : public ISerializable
+    {
+        DRACONIC_OBJECT(AudioBusLayoutSource, ISerializable)
+    public:
+        AudioBusLayout layout;
+
+        void Serialize(ISerializer& ar) override
+        {
+            u32 busCount = static_cast<u32>(AudioBus::Count);
+            draconic::core::Serialize(ar, "busCount", busCount);
+            const u32 buses = Min(busCount, static_cast<u32>(AudioBus::Count));
+            for (u32 bus = 0; bus < buses; ++bus)
+            {
+                AudioBusSettings& settings = layout.buses[bus];
+                draconic::core::Serialize(ar, "volume", settings.volume);
+                draconic::core::Serialize(ar, "muted", settings.muted);
+                u32 effectCount = static_cast<u32>(settings.effects.Size());
+                draconic::core::Serialize(ar, "effectCount", effectCount);
+                if (ar.Mode() == SerializeMode::Read) { settings.effects.Resize(effectCount); }
+                for (u32 i = 0; i < effectCount; ++i)
+                {
+                    AudioBusEffectDesc& effect = settings.effects[i];
+                    u8 kind = static_cast<u8>(effect.kind);
+                    draconic::core::Serialize(ar, "kind", kind);
+                    effect.kind = static_cast<AudioBusEffectKind>(kind);
+                    draconic::core::Serialize(ar, "frequencyHz", effect.frequencyHz);
+                    draconic::core::Serialize(ar, "delaySeconds", effect.delaySeconds);
+                    draconic::core::Serialize(ar, "delayDecay", effect.delayDecay);
+                }
+            }
+        }
+    };
+
+    // Runtime product a project's defaultBusLayoutId resolves to.
+    class AudioBusLayoutResource final : public Object
+    {
+        DRACONIC_OBJECT(AudioBusLayoutResource, Object)
+    public:
+        AudioBusLayout layout;
+    };
+
+    class AudioBusLayoutFactory final : public IResourceFactory
+    {
+    public:
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &AudioBusLayoutResource::StaticType();
+        }
+
+        [[nodiscard]] RefPtr<Object> Create(ResourceManager&,
+                                            draconic::content::Instance& instance) override
+        {
+            RefPtr<ISerializable> object = instance.ReadObject();
+            AudioBusLayoutSource* source = Cast<AudioBusLayoutSource>(object.Get());
+            if (source == nullptr) { return RefPtr<Object>{}; }
+            RefPtr<AudioBusLayoutResource> resource =
+                MakeRef<AudioBusLayoutResource>(DefaultAllocator());
+            resource->layout = source->layout;
+            return resource;
+        }
+    };
+
     // Registers the cooked record + product types (content-DB construction by type name).
     inline void RegisterAudioResource()
     {
         GlobalTypeRegistry().Register(AudioClipSource::StaticType());
         RegisterSerializable<AudioClipSource>();
         GlobalTypeRegistry().Register(AudioClip::StaticType());
+        GlobalTypeRegistry().Register(AudioBusLayoutSource::StaticType());
+        RegisterSerializable<AudioBusLayoutSource>();
+        GlobalTypeRegistry().Register(AudioBusLayoutResource::StaticType());
     }
 
     DRACONIC_DEFINE_OBJECT(AudioClipSource, "draconic::audio")
+    DRACONIC_DEFINE_OBJECT(AudioBusLayoutSource, "draconic::audio")
+    DRACONIC_DEFINE_OBJECT(AudioBusLayoutResource, "draconic::audio")
 }

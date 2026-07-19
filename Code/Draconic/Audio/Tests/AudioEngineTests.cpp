@@ -623,3 +623,41 @@ TEST_CASE("audio.engine: PlayMusic cross-fades - old voice fades out while the n
     for (int i = 0; i < 30; ++i) { engine.Update(1.0f / 60.0f); }
     CHECK(engine.ActiveVoiceCount() == 0u);
 }
+
+TEST_CASE("audio.engine: bus layout applies volumes/mutes and splices effect chains")
+{
+    AudioEngine engine(HeadlessSettings());
+    AudioBusLayout layout;
+    layout.buses[static_cast<usize>(AudioBus::Music)].volume = 0.5f;
+    layout.buses[static_cast<usize>(AudioBus::UI)].muted = true;
+    AudioBusEffectDesc lowpass;
+    lowpass.kind = AudioBusEffectKind::Lowpass;
+    lowpass.frequencyHz = 2000.0f;
+    AudioBusEffectDesc delay;
+    delay.kind = AudioBusEffectKind::Delay;
+    delay.delaySeconds = 0.1f;
+    delay.delayDecay = 0.4f;
+    layout.buses[static_cast<usize>(AudioBus::Effects)].effects.PushBack(lowpass);
+    layout.buses[static_cast<usize>(AudioBus::Effects)].effects.PushBack(delay);
+
+    engine.ApplyBusLayout(layout);
+    CHECK(engine.BusVolume(AudioBus::Music) == doctest::Approx(0.5f));
+    CHECK(engine.BusMuted(AudioBus::UI));
+    CHECK(engine.BusEffectCount(AudioBus::Effects) == 2u);
+    CHECK(engine.BusEffectCount(AudioBus::Master) == 0u);
+
+    // Voices still route and play through the spliced chain.
+    RefPtr<AudioClip> clip = MakeToneClip(0.5f);
+    AudioPlayParams params;
+    params.loop = true;
+    const VoiceHandle voice = engine.Play(clip, params);
+    REQUIRE(voice.IsValid());
+    engine.Update(1.0f / 60.0f);
+    CHECK(engine.IsPlaying(voice));
+
+    // Re-apply an empty layout: chains tear down cleanly, the voice survives.
+    engine.ApplyBusLayout(AudioBusLayout{});
+    CHECK(engine.BusEffectCount(AudioBus::Effects) == 0u);
+    engine.Update(1.0f / 60.0f);
+    CHECK(engine.IsPlaying(voice));
+}

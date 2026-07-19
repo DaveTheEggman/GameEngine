@@ -156,6 +156,14 @@ namespace draconic::audio
 
         Float3 listenerPosition{ 0.0f, 0.0f, 0.0f };
         VoiceHandle musicVoice;        // the PlayMusic cross-fade tracks ONE music voice
+
+        // Per-bus effect chains (P2): typed so teardown calls the right uninit.
+        struct BusEffectNode
+        {
+            AudioBusEffectKind kind = AudioBusEffectKind::None;
+            void* node = nullptr;
+        };
+        Array<BusEffectNode> busEffects[static_cast<usize>(AudioBus::Count)];
         f64 timeSeconds = 0.0;
         bool warnedMonoDownmix = false;
         bool warnedStreamStereoSpatial = false;
@@ -285,6 +293,110 @@ namespace draconic::audio
             return engineInitialized;
         }
 
+        // The node a bus's output feeds when it has NO effects: Master for the leaves,
+        // the graph endpoint for Master itself.
+        [[nodiscard]] ma_node* BusParentNode(usize bus)
+        {
+            return bus == static_cast<usize>(AudioBus::Master)
+                ? ma_node_graph_get_endpoint(ma_engine_get_node_graph(&engine))
+                : reinterpret_cast<ma_node*>(&busGroups[static_cast<usize>(AudioBus::Master)]);
+        }
+
+        void ClearBusEffects(usize bus)
+        {
+            if (busGroupInitialized[bus])
+            {
+                (void)ma_node_attach_output_bus(&busGroups[bus], 0, BusParentNode(bus), 0);
+            }
+            for (BusEffectNode& effect : busEffects[bus])
+            {
+                switch (effect.kind)
+                {
+                    case AudioBusEffectKind::Lowpass:
+                        ma_lpf_node_uninit(static_cast<ma_lpf_node*>(effect.node), nullptr);
+                        DefaultAllocator().Delete(static_cast<ma_lpf_node*>(effect.node));
+                        break;
+                    case AudioBusEffectKind::Highpass:
+                        ma_hpf_node_uninit(static_cast<ma_hpf_node*>(effect.node), nullptr);
+                        DefaultAllocator().Delete(static_cast<ma_hpf_node*>(effect.node));
+                        break;
+                    case AudioBusEffectKind::Delay:
+                        ma_delay_node_uninit(static_cast<ma_delay_node*>(effect.node), nullptr);
+                        DefaultAllocator().Delete(static_cast<ma_delay_node*>(effect.node));
+                        break;
+                    case AudioBusEffectKind::None: break;
+                }
+            }
+            busEffects[bus].Clear();
+        }
+
+        // Rebuild one bus's chain: group -> e0 -> e1 -> ... -> parent.
+        void BuildBusEffects(usize bus, Span<const AudioBusEffectDesc> effects)
+        {
+            ClearBusEffects(bus);
+            if (!busGroupInitialized[bus]) { return; }
+            const u32 channels = ma_engine_get_channels(&engine);
+            const u32 sampleRate = ma_engine_get_sample_rate(&engine);
+            ma_node_graph* graph = ma_engine_get_node_graph(&engine);
+
+            ma_node* upstream = reinterpret_cast<ma_node*>(&busGroups[bus]);
+            for (const AudioBusEffectDesc& desc : effects)
+            {
+                BusEffectNode effect;
+                effect.kind = desc.kind;
+                switch (desc.kind)
+                {
+                    case AudioBusEffectKind::Lowpass:
+                    {
+                        auto* node = DefaultAllocator().New<ma_lpf_node>();
+                        ma_lpf_node_config config = ma_lpf_node_config_init(
+                            channels, sampleRate, Max(desc.frequencyHz, 10.0f), kLowpassOrder);
+                        if (ma_lpf_node_init(graph, &config, nullptr, node) != MA_SUCCESS)
+                        {
+                            DefaultAllocator().Delete(node);
+                            continue;
+                        }
+                        effect.node = node;
+                        break;
+                    }
+                    case AudioBusEffectKind::Highpass:
+                    {
+                        auto* node = DefaultAllocator().New<ma_hpf_node>();
+                        ma_hpf_node_config config = ma_hpf_node_config_init(
+                            channels, sampleRate, Max(desc.frequencyHz, 10.0f), kLowpassOrder);
+                        if (ma_hpf_node_init(graph, &config, nullptr, node) != MA_SUCCESS)
+                        {
+                            DefaultAllocator().Delete(node);
+                            continue;
+                        }
+                        effect.node = node;
+                        break;
+                    }
+                    case AudioBusEffectKind::Delay:
+                    {
+                        auto* node = DefaultAllocator().New<ma_delay_node>();
+                        const u32 delayFrames = static_cast<u32>(
+                            Max(desc.delaySeconds, 0.001f) * static_cast<f32>(sampleRate));
+                        ma_delay_node_config config = ma_delay_node_config_init(
+                            channels, sampleRate, delayFrames,
+                            Clamp(desc.delayDecay, 0.0f, 0.99f));
+                        if (ma_delay_node_init(graph, &config, nullptr, node) != MA_SUCCESS)
+                        {
+                            DefaultAllocator().Delete(node);
+                            continue;
+                        }
+                        effect.node = node;
+                        break;
+                    }
+                    case AudioBusEffectKind::None: continue;
+                }
+                (void)ma_node_attach_output_bus(upstream, 0, effect.node, 0);
+                upstream = effect.node;
+                busEffects[bus].PushBack(effect);
+            }
+            (void)ma_node_attach_output_bus(upstream, 0, BusParentNode(bus), 0);
+        }
+
         void InitializeBusGroups()
         {
             // Master first; the leaf buses parent to it (the fixed P1 layout).
@@ -306,6 +418,10 @@ namespace draconic::audio
                 Array<u64> groupIds;
                 for (auto& entry : sceneGroups) { groupIds.PushBack(entry.key); }
                 for (u64 id : groupIds) { DestroySceneGroupData(id); }
+                for (usize bus = 0; bus < static_cast<usize>(AudioBus::Count); ++bus)
+                {
+                    ClearBusEffects(bus);
+                }
                 for (usize bus = static_cast<usize>(AudioBus::Count); bus > 0; --bus)
                 {
                     if (busGroupInitialized[bus - 1])
@@ -887,6 +1003,29 @@ namespace draconic::audio
     }
 
     VoiceHandle AudioEngine::MusicVoice() const { return m_impl->musicVoice; }
+
+    // ---- bus layout (P2) ----
+
+    void AudioEngine::ApplyBusLayout(const AudioBusLayout& layout)
+    {
+        Impl& impl = *m_impl;
+        if (!impl.engineInitialized) { return; }
+        for (usize bus = 0; bus < static_cast<usize>(AudioBus::Count); ++bus)
+        {
+            const AudioBusSettings& settings = layout.buses[bus];
+            SetBusVolume(static_cast<AudioBus>(bus), settings.volume);
+            SetBusMuted(static_cast<AudioBus>(bus), settings.muted);
+            impl.BuildBusEffects(bus, Span<const AudioBusEffectDesc>(
+                                          settings.effects.Data(), settings.effects.Size()));
+        }
+    }
+
+    u32 AudioEngine::BusEffectCount(AudioBus bus) const
+    {
+        const usize index = static_cast<usize>(bus);
+        if (index >= static_cast<usize>(AudioBus::Count)) { return 0; }
+        return static_cast<u32>(m_impl->busEffects[index].Size());
+    }
 
     void AudioEngine::StopAll()
     {

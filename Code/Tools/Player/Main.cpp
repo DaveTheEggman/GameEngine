@@ -50,6 +50,9 @@ import draconic.particles.resource;
 import draconic.particles.subsystem;
 import draconic.geometry;
 import draconic.geometry.resource;
+import draconic.audio;
+import draconic.audio.resource;
+import draconic.audio.subsystem;
 import draconic.materials;
 import draconic.materials.resource;
 import draconic.texture;
@@ -220,6 +223,24 @@ namespace
                 else
                 {
                     DRACONIC_LOG_WARNING(u8"Player", u8"default input map did not resolve");
+                }
+            }
+
+            // The project's default audio bus layout: cooked mixer data -> the engine.
+            // Nil/unresolved = the built-in neutral four-bus layout.
+            if (Audio() != nullptr && Audio()->Engine() != nullptr
+                && !m_settings.defaultBusLayoutId.IsNil())
+            {
+                auto layoutProxy = Resources()->Bind<draconic::audio::AudioBusLayoutResource>(
+                    m_settings.defaultBusLayoutId);
+                if (layoutProxy)
+                {
+                    Audio()->Engine()->ApplyBusLayout(layoutProxy->layout);
+                    DRACONIC_LOG_INFO(u8"Player", u8"audio bus layout applied");
+                }
+                else
+                {
+                    DRACONIC_LOG_WARNING(u8"Player", u8"default bus layout did not resolve");
                 }
             }
 

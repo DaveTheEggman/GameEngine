@@ -38,6 +38,9 @@ import draconic.input;
 import draconic.input.resource;
 import draconic.input.subsystem;
 import draconic.physics.subsystem;
+import draconic.audio;
+import draconic.audio.resource;
+import draconic.audio.subsystem;
 import draconic.runtime.defaultapp;
 import draconic.editor.core;
 import draconic.editor.app;
@@ -244,6 +247,7 @@ export namespace draconic::editor
             if (m_pauseToggle != nullptr) { m_pauseToggle->SetIsChecked(false); }
             m_sceneTitle = String(instance->Name());
             BindInput();
+            BindBusLayout(*m_host);
             // The play bracket + game script are the EMBEDDED APP's (same lifecycle as
             // the standalone player); the page only resolves the script SOURCE (editor
             // project layout) and surfaces notices.
@@ -426,6 +430,28 @@ export namespace draconic::editor
             {
                 m_context->Notify(NoticeKind::Warning,
                     u8"Game: default input map is not cooked yet.");
+            }
+        }
+
+        // The project's default audio bus layout into the embedded engine (the player's
+        // startup twin) - nil/unresolved = the built-in neutral layout stays.
+        void BindBusLayout(grt::IApplicationHost& host)
+        {
+            auto* audio = host.Ctx().GetSubsystem<draconic::audio::AudioSubsystem>();
+            if (audio == nullptr || audio->Engine() == nullptr) { return; }
+            const Guid layoutId = m_context->Project()->Settings().defaultBusLayoutId;
+            if (layoutId.IsNil() || m_context->Resources() == nullptr) { return; }
+            auto proxy =
+                m_context->Resources()->Bind<draconic::audio::AudioBusLayoutResource>(layoutId);
+            if (proxy)
+            {
+                audio->Engine()->ApplyBusLayout(proxy->layout);
+                DRACONIC_LOG_INFO(u8"Editor", u8"Game: audio bus layout applied");
+            }
+            else
+            {
+                m_context->Notify(NoticeKind::Warning,
+                    u8"Game: default bus layout is not cooked yet.");
             }
         }
 

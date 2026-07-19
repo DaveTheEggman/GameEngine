@@ -116,6 +116,7 @@ namespace
         AddBuilder<draconic::ui::UIDocumentAssetBuilder>(registry);
         AddBuilder<draconic::ui::UIThemeAssetBuilder>(registry);
         AddBuilder<draconic::audio::AudioClipAssetBuilder>(registry);
+        AddBuilder<draconic::audio::AudioBusLayoutAssetBuilder>(registry);
     }
 
     // Create a StaticMeshAsset in the project's Meshes/ group from a procedural primitive,
@@ -263,6 +264,23 @@ int main(int argc, char** argv)
                 return instance;
             };
             app.Context().RegisterCreator(static_cast<ed::EditorContext::AssetCreator&&>(materialCreator));
+
+            // New Asset > Audio Bus Layout (the mixer as data; edited in the inspector).
+            ed::EditorContext::AssetCreator busLayoutCreator;
+            busLayoutCreator.label = String(u8"Audio Bus Layout");
+            busLayoutCreator.create = [](ed::EditorContext& ctx, draconic::content::Group* group)
+                -> draconic::content::Instance* {
+                if (ctx.Project() == nullptr) { return nullptr; }
+                draconic::content::Group* target = group != nullptr
+                    ? group : ctx.Project()->SourceDb().RootGroup();
+                draconic::content::Instance* instance = target->CreateInstance(
+                    u8"BusLayout", draconic::audio::AudioBusLayoutAsset::StaticType());
+                if (instance == nullptr) { return nullptr; }
+                draconic::audio::AudioBusLayoutAsset asset;
+                if (!instance->WriteObject(asset).IsOk()) { return nullptr; }
+                return instance;
+            };
+            app.Context().RegisterCreator(static_cast<ed::EditorContext::AssetCreator&&>(busLayoutCreator));
         }
         {
             // New Asset > UI Document / UI Theme (starter payloads; edited as text until

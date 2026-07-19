@@ -99,6 +99,36 @@ export namespace draconic::audio
     };
 
     // Introspection for tests/tools (the voice state machine is observable).
+    // ---- bus layout data (P2) ----
+
+    enum class AudioBusEffectKind : u8
+    {
+        None = 0,
+        Lowpass,    // frequencyHz = cutoff
+        Highpass,   // frequencyHz = cutoff
+        Delay,      // delaySeconds + delayDecay (feedback 0..1)
+    };
+
+    struct AudioBusEffectDesc
+    {
+        AudioBusEffectKind kind = AudioBusEffectKind::None;
+        f32 frequencyHz = 1000.0f;
+        f32 delaySeconds = 0.25f;
+        f32 delayDecay = 0.3f;
+    };
+
+    struct AudioBusSettings
+    {
+        f32 volume = 1.0f;
+        bool muted = false;
+        Array<AudioBusEffectDesc> effects;   // applied in order; None entries skip
+    };
+
+    struct AudioBusLayout
+    {
+        AudioBusSettings buses[static_cast<usize>(AudioBus::Count)];
+    };
+
     struct VoiceStatus
     {
         bool active = false;      // slot owned by this generation
@@ -177,6 +207,15 @@ export namespace draconic::audio
         [[nodiscard]] f32 BusVolume(AudioBus bus) const;
         void SetBusMuted(AudioBus bus, bool muted);
         [[nodiscard]] bool BusMuted(AudioBus bus) const;
+
+        // ---- bus layout (P2): per-bus tuning + effect chains as DATA ----
+        // v1 keeps the FIXED four-bus topology (the AudioBus enum is the addressing
+        // model across components/serialization; free-form named trees are a later
+        // migration) and makes everything ELSE data: per-bus volume, mute, and an
+        // ordered effect chain spliced between the bus group and its parent.
+        void ApplyBusLayout(const AudioBusLayout& layout);
+        /// Live effect-node count on a bus (tests/diagnostics).
+        [[nodiscard]] u32 BusEffectCount(AudioBus bus) const;
 
         // ---- music (P2): scene-less helpers on the Music bus with cross-fade ----
         // Music routes through the SAME graph as everything else (the Sedulous stream-
