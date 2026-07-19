@@ -113,6 +113,7 @@ namespace draconic::audio
         builder.Property<&AudioSourceComponent::spatial>("spatial");
         builder.Property<&AudioSourceComponent::autoPlay>("autoPlay");
         builder.Property<&AudioSourceComponent::distanceLowpassHz>("distanceLowpassHz");
+        builder.Property<&AudioSourceComponent::cue>("cue");
         builder.Property<&AudioSourceComponent::priority>("priority");
         builder.Property<&AudioSourceComponent::minDistance>("minDistance");
         builder.Property<&AudioSourceComponent::maxDistance>("maxDistance");

@@ -24,6 +24,9 @@ export namespace draconic::audio
     {
         // Authored:
         draconic::resource::Ref<AudioClip> clip;
+        // Optional cue: when set it WINS over `clip` - each Play trigger resolves a
+        // weighted variant with the cue's jitter (autoplay/loop apply to the pick).
+        draconic::resource::Ref<SoundCue> cue;
         AudioBus bus = AudioBus::Effects;
         f32 volume = 1.0f;
         f32 pitch = 1.0f;               // real resampling at runtime
@@ -45,6 +48,8 @@ export namespace draconic::audio
 
         // Runtime (transient):
         VoiceHandle voice;
+        i32 lastCueVariant = -1;      // cue no-repeat state (runtime)
+        u32 cueSequentialCursor = 0;
         Float3 previousPosition{ 0.0f, 0.0f, 0.0f };
         bool hasPreviousPosition = false;
     };
@@ -62,6 +67,7 @@ export namespace draconic::audio
         draconic::core::Serialize(ar, "spatial", c.spatial);
         draconic::core::Serialize(ar, "autoPlay", c.autoPlay);
         draconic::core::Serialize(ar, "distanceLowpassHz", c.distanceLowpassHz);
+        draconic::core::Serialize(ar, "cue", c.cue);
         draconic::core::Serialize(ar, "priority", c.priority);
         draconic::core::Serialize(ar, "minDistance", c.minDistance);
         draconic::core::Serialize(ar, "maxDistance", c.maxDistance);
@@ -78,6 +84,7 @@ export namespace draconic::audio
                                  AudioSourceComponent& c)
     {
         c.clip.Bind(manager);
+        c.cue.Bind(manager);
     }
 
     class AudioSourceComponentManager final

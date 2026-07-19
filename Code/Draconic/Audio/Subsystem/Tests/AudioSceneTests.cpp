@@ -394,3 +394,40 @@ TEST_CASE("audio.settings: user volumes capture -> store round-trip -> apply")
     CHECK(fresh.BusMuted(AudioBus::Effects));
     CHECK(fresh.BusVolume(AudioBus::Master) == doctest::Approx(1.0f));
 }
+
+TEST_CASE("audio.scene: a cue on the source wins over the clip and varies per trigger")
+{
+    PlayScene play;
+    RefPtr<AudioClip> fallback = MakeToneClip(0.2f);
+    RefPtr<AudioClip> stepA = MakeToneClip(0.2f);
+    RefPtr<AudioClip> stepB = MakeToneClip(0.2f);
+    RefPtr<SoundCue> cue = MakeRef<SoundCue>(DefaultAllocator());
+    cue->variants.PushBack(SoundCueVariant{ stepA, 1.0f });
+    cue->variants.PushBack(SoundCueVariant{ stepB, 1.0f });
+    cue->pitchMin = 0.8f;
+    cue->pitchMax = 1.2f;
+
+    const dscene::EntityHandle e = play.AddSource(fallback, Float3{ 0, 0, 0 },
+                                                  /*autoPlay=*/false, /*loop=*/false);
+    auto* sources = play.scene.GetSystem<AudioSourceComponentManager>();
+    sources->Get(e)->cue = cue;
+    play.Start();
+
+    // Two-variant no-repeat: repeated triggers alternate; jitter lands in range.
+    i32 first = -1;
+    for (int i = 0; i < 8; ++i)
+    {
+        const VoiceHandle voice = play.audio->Play(e);
+        REQUIRE(voice.IsValid());
+        VoiceStatus status;
+        REQUIRE(play.engine.GetVoiceStatus(voice, status));
+        CHECK(status.pitch >= 0.8f);
+        CHECK(status.pitch <= 1.2f);
+        AudioSourceComponent* c = sources->Get(e);
+        REQUIRE(c != nullptr);
+        if (first >= 0) { CHECK(c->lastCueVariant != first); }
+        first = c->lastCueVariant;
+        play.engine.Stop(voice);
+        for (int f = 0; f < 5; ++f) { play.Frame(); }
+    }
+}

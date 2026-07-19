@@ -243,10 +243,26 @@ export namespace draconic::audio
         VoiceHandle PlayComponent(AudioSourceComponent& c, dscene::EntityHandle e)
         {
             if (m_engine == nullptr) { return {}; }
-            AudioClip* clip = c.clip.Get();
+            // Cue wins over clip: resolve one weighted variant + this trigger's jitter.
+            AudioClip* clip = nullptr;
+            f32 cuePitch = 1.0f;
+            f32 cueVolume = 1.0f;
+            if (const SoundCue* cue = c.cue.Get())
+            {
+                const SoundCuePick pick = ResolveSoundCue(
+                    *cue, m_cueRandom, c.lastCueVariant, c.cueSequentialCursor);
+                if (pick.variantIndex >= 0)
+                {
+                    c.lastCueVariant = pick.variantIndex;
+                    clip = cue->variants[static_cast<usize>(pick.variantIndex)].clip.Get();
+                    cuePitch = pick.pitch;
+                    cueVolume = pick.volume;
+                }
+            }
+            if (clip == nullptr) { clip = c.clip.Get(); }
             if (clip == nullptr)
             {
-                DRACONIC_LOG_WARNING(u8"Audio", u8"'{}': audio source has no clip",
+                DRACONIC_LOG_WARNING(u8"Audio", u8"'{}': audio source has no clip or cue",
                                      m_scene->GetEntityName(e));
                 return {};
             }
@@ -254,8 +270,8 @@ export namespace draconic::audio
 
             AudioPlayParams params;
             params.bus = c.bus;
-            params.volume = c.volume;
-            params.pitch = c.pitch;
+            params.volume = c.volume * cueVolume;
+            params.pitch = c.pitch * cuePitch;
             params.loop = c.loop;
             params.priority = c.priority;
             params.sceneGroup = m_sceneGroup;
@@ -313,6 +329,7 @@ export namespace draconic::audio
         u64 m_sceneGroup = 0;
         bool m_started = false;
         bool m_wasSimulating = true;
+        Random m_cueRandom;   // cue variant selection (per scene system)
         bool m_listenerValid = false;
         Float3 m_listenerPosition{ 0.0f, 0.0f, 0.0f };
         Float3 m_listenerForward{ 0.0f, 0.0f, -1.0f };
@@ -378,6 +395,24 @@ export namespace draconic::audio
             params.spatial = true;
             params.position = position;
             return m_engine->Play(clip, params);
+        }
+
+        /// One cue TRIGGER as a one-shot: weighted variant + jitter through the same
+        /// resolution the components use; no-repeat state tracked per cue product.
+        [[nodiscard]] VoiceHandle PlayCueOneShot(const RefPtr<SoundCue>& cue,
+                                                 AudioBus bus = AudioBus::Effects)
+        {
+            AudioPlayParams params;
+            params.bus = bus;
+            return PlayCueResolved(cue, params);
+        }
+        [[nodiscard]] VoiceHandle PlayCueOneShot3D(const RefPtr<SoundCue>& cue, Float3 position,
+                                                   const AudioPlayParams& baseParams = {})
+        {
+            AudioPlayParams params = baseParams;
+            params.spatial = true;
+            params.position = position;
+            return PlayCueResolved(cue, params);
         }
 
         /// Binds THIS subsystem's engine as `context`'s audio service - the scripting
@@ -460,9 +495,35 @@ export namespace draconic::audio
         }
 
     private:
+        [[nodiscard]] VoiceHandle PlayCueResolved(const RefPtr<SoundCue>& cue,
+                                                  AudioPlayParams params)
+        {
+            if (m_engine.Get() == nullptr || cue.Get() == nullptr) { return {}; }
+            CueOneShotState* found = m_cueOneShotState.Find(cue.Get());
+            CueOneShotState& state = found != nullptr
+                ? *found : m_cueOneShotState.InsertOrAssign(cue.Get(), CueOneShotState{});
+            const SoundCuePick pick =
+                ResolveSoundCue(*cue, m_cueRandom, state.lastVariant, state.sequentialCursor);
+            if (pick.variantIndex < 0) { return {}; }
+            state.lastVariant = pick.variantIndex;
+            params.pitch *= pick.pitch;
+            params.volume *= pick.volume;
+            params.allowDedupe = false;   // distinct triggers, never merged
+            return m_engine->Play(cue->variants[static_cast<usize>(pick.variantIndex)].clip,
+                                  params);
+        }
+
+        struct CueOneShotState
+        {
+            i32 lastVariant = -1;
+            u32 sequentialCursor = 0;
+        };
+
         AudioEngineSettings m_engineSettings;
         UniquePtr<AudioEngine> m_engine;
         Array<SceneEntry> m_systems;
+        Random m_cueRandom;
+        HashMap<const SoundCue*, CueOneShotState> m_cueOneShotState;
     };
     // The scripting facade (the Input facade's twin): statics on a foreign class
     // resolving the CURRENT script context's bound engine. Bus addressing by name

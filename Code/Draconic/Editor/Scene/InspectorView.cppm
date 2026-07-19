@@ -1002,6 +1002,12 @@ export namespace draconic::editor
                     { u8"AudioClipAsset" });
                 return;
             }
+            if (prop.type == &TypeOf<draconic::resource::Ref<draconic::audio::SoundCue>>())
+            {
+                BuildResourceRefRow<draconic::audio::SoundCue>(id, type, prop, category,
+                    { u8"SoundCueAsset" });
+                return;
+            }
             if (prop.type == &TypeOf<draconic::resource::Ref<draconic::ui::UIDocument>>())
             {
                 BuildResourceRefRow<draconic::ui::UIDocument>(id, type, prop, category,
