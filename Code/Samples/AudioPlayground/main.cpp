@@ -116,13 +116,16 @@ namespace
                 c.spatial = false;
                 c.loop = true;
                 c.autoPlay = true;
-                c.volume = 0.6f;
+                // Quiet bed: positional sources must read OVER it (masking lesson -
+                // the pad shares the beeps' spectrum, so level is the separator).
+                c.volume = 0.35f;
             }
 
             // Four 3D emitters around the origin: the SAME low-beep clip at four pitches
             // (real resampling), looping, positioned - fly past to hear pan/attenuation
             // and strafe quickly for doppler.
-            const f32 pitches[4] = { 0.5f, 0.8f, 1.0f, 1.5f };
+            // Pitches keep every emitter >= ~250 Hz (laptop-speaker floor) and distinct.
+            const f32 pitches[4] = { 0.75f, 1.0f, 1.5f, 2.0f };
             for (int i = 0; i < 4; ++i)
             {
                 const f32 angle = 3.14159265f * 0.5f * static_cast<f32>(i);
