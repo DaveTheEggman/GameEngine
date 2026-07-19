@@ -33,7 +33,12 @@ import draconic.particles.resource;
 import draconic.scene;
 import draconic.render.subsystem;
 import draconic.physics;
+import draconic.physics.resource;
 import draconic.physics.subsystem;
+import draconic.audio;
+import draconic.audio.resource;
+import draconic.audio.subsystem;
+import draconic.ui.resource;
 import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.editor.core;
@@ -977,6 +982,36 @@ export namespace draconic::editor
             {
                 BuildResourceRefRow<draconic::particles::ParticleEffectResource>(id, type, prop, category,
                     { u8"ParticleEffectAsset" });
+                return;
+            }
+            if (prop.type == &TypeOf<draconic::resource::Ref<draconic::physics::CollisionShape>>())
+            {
+                BuildResourceRefRow<draconic::physics::CollisionShape>(id, type, prop, category,
+                    { u8"CollisionShapeAsset" });
+                return;
+            }
+            if (prop.type == &TypeOf<draconic::resource::Ref<draconic::physics::PhysicalMaterial>>())
+            {
+                BuildResourceRefRow<draconic::physics::PhysicalMaterial>(id, type, prop, category,
+                    { u8"PhysicalMaterialAsset" });
+                return;
+            }
+            if (prop.type == &TypeOf<draconic::resource::Ref<draconic::audio::AudioClip>>())
+            {
+                BuildResourceRefRow<draconic::audio::AudioClip>(id, type, prop, category,
+                    { u8"AudioClipAsset" });
+                return;
+            }
+            if (prop.type == &TypeOf<draconic::resource::Ref<draconic::ui::UIDocument>>())
+            {
+                BuildResourceRefRow<draconic::ui::UIDocument>(id, type, prop, category,
+                    { u8"UIDocumentAsset" });
+                return;
+            }
+            if (prop.type == &TypeOf<draconic::resource::Ref<draconic::ui::UITheme>>())
+            {
+                BuildResourceRefRow<draconic::ui::UITheme>(id, type, prop, category,
+                    { u8"UIThemeAsset" });
                 return;
             }
 
