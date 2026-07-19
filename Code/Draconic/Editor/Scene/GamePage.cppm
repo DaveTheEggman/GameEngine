@@ -276,8 +276,13 @@ export namespace draconic::editor
         {
             if (!m_running && m_scene == nullptr) { return; }
             // The map clears (no actions bound between runs); the SOURCE stays - it is
-            // the runtime input's permanent provider (v3).
-            if (m_input != nullptr) { m_input->SetMap(draconic::input::InputMap{}); }
+            // the runtime input's permanent provider (v3) - but its SCENE BINDING drops
+            // with the run, returning the editor to inert (ScreenTierOnly) game UI.
+            if (m_input != nullptr)
+            {
+                m_input->SetMap(draconic::input::InputMap{});
+                m_input->SetSourceProvider(&m_viewportSource, nullptr);
+            }
             // Script exits first (it may still observe the world), then the scene.
             if (m_app != nullptr)
             {
@@ -313,10 +318,18 @@ export namespace draconic::editor
             {
                 m_viewport->Initialize(m_host->Graphics()->Raw(), renderer,
                                        m_host->Shell()->Input(), window->Window().Id());
-                // The (now-existing) gated surface is the runtime input's permanent source.
+                // The (now-existing) gated surface is the runtime input's permanent
+                // source. The SCENE BINDING rides the play state: bound to the fresh
+                // run's scene while playing (BindInput), un-bound otherwise - which,
+                // under the editor's ScreenTierOnly policy, keeps game UI inert until
+                // Play (editing-page HUDs render but never take editor input).
                 m_viewportSource.viewport = m_viewport.Get();
                 m_viewportSource.shellInput = m_shellInput;
-                if (m_input != nullptr) { m_input->SetSourceProvider(&m_viewportSource); }
+                if (m_input != nullptr)
+                {
+                    m_input->SetSourceProvider(&m_viewportSource,
+                                               m_running ? static_cast<const void*>(m_scene) : nullptr);
+                }
             }
             else
             {
@@ -437,7 +450,11 @@ export namespace draconic::editor
             if (m_input == nullptr) { return; }
             m_viewportSource.viewport = m_viewport.Get();
             m_viewportSource.shellInput = m_shellInput;
-            m_input->SetSourceProvider(&m_viewportSource);
+            // Per-surface scene binding (game-ui.md §9): the viewport source represents
+            // THIS run's scene, so game-UI routing + consumption confine to it - open
+            // editing pages' HUDs can no longer catch the run's clicks/keys, and the
+            // run's UI never reacts to another scene's coordinates.
+            m_input->SetSourceProvider(&m_viewportSource, m_scene);
             const Guid mapId = m_context->Project()->Settings().defaultInputMapId;
             if (mapId.IsNil() || m_context->Resources() == nullptr) { return; }
             auto proxy = m_context->Resources()->Bind<draconic::input::InputMapResource>(mapId);

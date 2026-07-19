@@ -936,3 +936,32 @@ TEST_CASE("input: the UI consumption mask gates device classes independently")
     CHECK(runtime.IsDown(jump));
     CHECK(runtime.IsDown(shoot));
 }
+
+TEST_CASE("input.subsystem: the per-surface scene binding rides the source override")
+{
+    // game-ui.md §9: SetSourceProvider carries the scene the source REPRESENTS (an
+    // opaque key - the SceneOverlayView::sceneKey convention); the UI pump confines
+    // routing/consumption to it. Un-bound sources follow the policy knob.
+    InputSubsystem input(nullptr);
+    CHECK(input.BoundSceneKey() == nullptr);
+    CHECK(input.UnboundScenePolicy() == UnboundInputScenePolicy::AllScenes);   // player default
+
+    FakeDevices devices;
+    int sceneStandIn = 0;   // any stable address works as a key
+    input.SetSourceProvider(&devices, &sceneStandIn);
+    CHECK(input.BoundSceneKey() == &sceneStandIn);
+    CHECK(&input.ActiveSource() == static_cast<IInputSourceProvider*>(&devices));
+
+    // Re-setting without a scene un-binds (the Game tab's Stop: provider stays, the
+    // run's binding drops).
+    input.SetSourceProvider(&devices, nullptr);
+    CHECK(input.BoundSceneKey() == nullptr);
+
+    // Clearing the provider always clears the binding - the shell source is un-bound.
+    input.SetSourceProvider(&devices, &sceneStandIn);
+    input.SetSourceProvider(nullptr, &sceneStandIn);
+    CHECK(input.BoundSceneKey() == nullptr);
+
+    input.SetUnboundScenePolicy(UnboundInputScenePolicy::ScreenTierOnly);
+    CHECK(input.UnboundScenePolicy() == UnboundInputScenePolicy::ScreenTierOnly);
+}

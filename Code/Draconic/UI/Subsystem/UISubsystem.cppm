@@ -314,9 +314,13 @@ export namespace draconic::ui
 
         /// RenderTexture canvases: draws every RT canvas's root into its subsystem-owned
         /// offscreen texture (create/resize on demand; orphaned targets destroyed). The
-        /// HOST calls this once per frame on its command encoder BEFORE the scene render
-        /// (DefaultApplication::OnRenderWindow / the Game tab), so the scene can sample
-        /// the result the same frame. Textures end in ShaderRead.
+        /// HOST calls this on its command encoder BEFORE the scene render
+        /// (DefaultApplication::OnRenderWindow / the Game tab / editor scene pages), so
+        /// the scene can sample the result the same frame. Textures end in ShaderRead.
+        /// Runs at most ONCE per UI frame - repeat calls from co-hosted pages no-op.
+        /// Also refreshes the declarative material binding: the canvas ENTITY's own
+        /// sprite/decal `texture` override tracks the canvas's current view (rebinds on
+        /// resize, un-binds when the canvas/target goes away).
         void RenderCanvasTextures(rhi::CommandEncoder& encoder, i32 frameIndex);
 
         /// The offscreen texture view of `entity`'s RenderTexture canvas in `scene`
@@ -369,6 +373,17 @@ export namespace draconic::ui
 
         void SyncCanvases();
         void PumpInput();
+        // RenderTexture canvas roots are STANDALONE context roots owned by their
+        // component - this registry (strong refs, mark-sweep like the canvas hosts) is
+        // how a vanished component (despawn/removal; managers have no destroy hook)
+        // gets its root UNREGISTERED from the context, which stores roots non-owning.
+        // The strong ref keeps a just-orphaned root alive until the sweep runs.
+        struct TextureCanvasRoot
+        {
+            RefPtr<RootView> root;
+            bool seen = false;
+        };
+        Array<TextureCanvasRoot> m_textureCanvasRoots;
         void DrawRootInto(RootView& root, rhi::CommandEncoder& encoder, rhi::TextureView* target,
                           rhi::TextureFormat format, u32 width, u32 height, i32 frameIndex);
         // Records one root into an ALREADY-ACTIVE render pass (the overlay-role contract).
@@ -390,6 +405,7 @@ export namespace draconic::ui
         draconic::render::ISceneRenderer* m_sceneRenderer = nullptr;    // overlay registration seam
         draconic::render::IScreenRenderer* m_screenRenderer = nullptr;
         u64 m_frameSerial = 0;                // gates VGRenderer::BeginFrame to once per frame
+        u64 m_canvasTexturesSerial = ~0ull;   // gates RenderCanvasTextures to once per frame
 
         // pointer edge tracking for the polled pump
         bool m_prevButtons[3] = { false, false, false };

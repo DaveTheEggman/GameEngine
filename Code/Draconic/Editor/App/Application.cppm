@@ -25,6 +25,7 @@ import draconic.runtime.client;
 import draconic.runtime.defaultapp;   // the embedded game application (v3)
 import draconic.ui.resource;          // UITheme (the manifest's default game-UI theme)
 import draconic.ui.subsystem;         // UISubsystem (SetDefaultTheme)
+import draconic.input.subsystem;      // InputSubsystem (the embedded runtime's scene-input policy)
 import draconic.render.api;
 import draconic.ui;
 import draconic.ui.toolkit;
@@ -230,6 +231,18 @@ export namespace draconic::editor::app
             if (!m_config.fontPath.IsEmpty()) { m_embeddedApp->SetUIFontPath(m_config.fontPath.AsView()); }
             if (m_resources) { m_embeddedApp->SetResourceManager(m_resources.Get()); }
             m_embeddedApp->Configure(*m_embeddedHost);
+            // Embedded-runtime input policy (game-ui.md §9): UN-BOUND input must never
+            // reach scene-tier game UI here. The player's shell source owns its whole
+            // window, so its un-bound input reaches every scene (the AllScenes default);
+            // in the editor the same rule would let raw shell keystrokes and editor-pane
+            // clicks land in game canvases of OPEN EDITING PAGES. Editing/Simulate HUDs
+            // therefore render WYSIWYG but are deliberately NOT interactive; the Game
+            // tab is the interactive-run surface and binds its scene on Play.
+            if (m_embeddedApp->Input() != nullptr)
+            {
+                m_embeddedApp->Input()->SetUnboundScenePolicy(
+                    draconic::input::UnboundInputScenePolicy::ScreenTierOnly);
+            }
             m_runtimeContext.Startup();
             m_embeddedApp->OnStartup(*m_embeddedHost);
             // Project-default UI theme (game-ui.md P3): the same manifest reference the

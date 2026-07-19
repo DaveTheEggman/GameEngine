@@ -679,11 +679,13 @@ TEST_CASE("ui.subsystem: RenderTexture canvases own an offscreen target and stay
         c.renderTextureWidth = 256;
         c.renderTextureHeight = 128;
     }
+    const usize rootsBefore = ui->Context().RootViewCount();   // screen + scene roots
     ctx.BeginFrame(1.0f / 60.0f);
     UICanvasComponent* c = canvases->Get(e);
     REQUIRE(c != nullptr);
     REQUIRE(c->root.Get() != nullptr);
     REQUIRE(c->renderRoot.Get() != nullptr);
+    CHECK(ui->Context().RootViewCount() == rootsBefore + 1);   // the standalone RT root
 
     // NOT in the overlay tiers: the scene root holds only the billboard layer, and the
     // document is unreachable from it (RT canvases never draw in the overlay pass and
@@ -708,8 +710,10 @@ TEST_CASE("ui.subsystem: RenderTexture canvases own an offscreen target and stay
     CHECK(c->renderRoot->ViewportSize.x == doctest::Approx(256.0f));
     CHECK(c->renderRoot->ViewportSize.y == doctest::Approx(128.0f));
 
-    // Resize: the target recreates at the new size.
+    // Resize: the target recreates at the new size. (A fresh UI frame first - the
+    // seam runs at most once per frame so co-hosted editor pages share one draw.)
     c->renderTextureWidth = 512;
+    ctx.BeginFrame(1.0f / 60.0f);
     ui->RenderCanvasTextures(encoder, 1);
     c = canvases->Get(e);
     REQUIRE(c->renderTexture != nullptr);
@@ -728,15 +732,19 @@ TEST_CASE("ui.subsystem: RenderTexture canvases own an offscreen target and stay
     ui->RenderCanvasTextures(encoder, 0);
     CHECK(ui->CanvasRenderTextureView(*scene, e) == nullptr);
 
-    // And back to RenderTexture, then DESPAWN: the sweep destroys the orphaned target.
+    // And back to RenderTexture, then DESPAWN: the sweep destroys the orphaned target
+    // AND unregisters the standalone root from the context (which stores roots
+    // non-owning - a stale registration would dangle).
     c->renderMode = CanvasRenderMode::RenderTexture;
     ctx.BeginFrame(1.0f / 60.0f);
     ui->RenderCanvasTextures(encoder, 0);
     REQUIRE(canvases->Get(e)->renderTexture != nullptr);
+    CHECK(ui->Context().RootViewCount() == rootsBefore + 1);
     scene->DestroyEntity(e);
     ctx.BeginFrame(1.0f / 60.0f);
     ui->RenderCanvasTextures(encoder, 0);   // sweeps; must not crash or leak
     CHECK(canvases->Get(e) == nullptr);
+    CHECK(ui->Context().RootViewCount() == rootsBefore);   // RT root swept with it
 
     ctx.Shutdown();
 }
@@ -801,6 +809,288 @@ TEST_CASE("ui.subsystem: removing a canvas or billboard COMPONENT sweeps its tre
     ctx.BeginFrame(1.0f / 60.0f);
     CHECK(Cast<ViewGroup>(root)->FindByName(u8"hud-label") == nullptr);
     CHECK(Cast<ViewGroup>(root)->FindByName(u8"plate") == nullptr);
+
+    ctx.Shutdown();
+}
+
+namespace
+{
+    // A pointer-capable provider fake: settable position + button state for the polled
+    // pump, plus the tagged event stream - the full shape a real source presents.
+    struct PointerFakeMouse final : draconic::shell::IMouse
+    {
+        f32 x = 0.0f;
+        f32 y = 0.0f;
+        bool buttons[8] = {};
+        [[nodiscard]] f32 X() const override { return x; }
+        [[nodiscard]] f32 Y() const override { return y; }
+        [[nodiscard]] f32 GlobalX() const override { return x; }
+        [[nodiscard]] f32 GlobalY() const override { return y; }
+        [[nodiscard]] f32 DeltaX() const override { return 0.0f; }
+        [[nodiscard]] f32 DeltaY() const override { return 0.0f; }
+        [[nodiscard]] f32 ScrollX() const override { return 0.0f; }
+        [[nodiscard]] f32 ScrollY() const override { return 0.0f; }
+        [[nodiscard]] bool IsButtonDown(draconic::shell::MouseButton b) const override
+        { return buttons[static_cast<u32>(b) & 7]; }
+        [[nodiscard]] bool IsButtonPressed(draconic::shell::MouseButton) const override { return false; }
+        [[nodiscard]] bool IsButtonReleased(draconic::shell::MouseButton) const override { return false; }
+        [[nodiscard]] bool RelativeMode() const override { return false; }
+        void SetRelativeMode(bool) override {}
+        [[nodiscard]] bool CursorVisible() const override { return true; }
+        void SetCursorVisible(bool) override {}
+        void SetCursor(draconic::shell::CursorType) override {}
+        void SetGlobalCapture(bool) override {}
+    };
+
+    struct PointerFakeDevices final : draconic::input::IInputSourceProvider
+    {
+        PointerFakeMouse mouse;
+        bool mousePresent = true;   // false = pointer-less frame (pad/keyboard-only path)
+        Array<draconic::shell::InputEvent> events;
+        [[nodiscard]] draconic::shell::IMouse* Mouse() override
+        { return mousePresent ? &mouse : nullptr; }
+        [[nodiscard]] draconic::shell::IKeyboard* Keyboard() override { return nullptr; }
+        [[nodiscard]] i32 GamepadCount() const override { return 0; }
+        [[nodiscard]] draconic::shell::IGamepad* Gamepad(i32) override { return nullptr; }
+        [[nodiscard]] Span<const draconic::shell::InputEvent> Events() override
+        {
+            return { events.Data(), events.Size() };
+        }
+        void PushText(StringView text)
+        {
+            draconic::shell::InputEvent e;
+            e.kind = draconic::shell::InputEventKind::TextInput;
+            usize i = 0;
+            for (; i < text.Size() && i < 31; ++i) { e.text[i] = text[i]; }
+            e.text[i] = 0;
+            events.PushBack(e);
+        }
+        // One full click at the CURRENT position across two pump frames.
+        void PressLeft() { mouse.buttons[static_cast<u32>(draconic::shell::MouseButton::Left)] = true; }
+        void ReleaseLeft() { mouse.buttons[static_cast<u32>(draconic::shell::MouseButton::Left)] = false; }
+    };
+}
+
+TEST_CASE("ui.subsystem: a bound source confines routing + consumption to ITS scene (game-ui.md §9)")
+{
+    rt::Context ctx;
+    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
+    auto* input = ctx.AddSubsystem<draconic::input::InputSubsystem>(nullptr);
+    auto* ui = ctx.AddSubsystem<UISubsystem>();
+    ctx.Startup();
+
+    PointerFakeDevices devices;
+    input->SetSourceProvider(&devices);   // un-bound: the AllScenes default applies
+
+    // Two scenes, each with an interactive button at the SAME coordinates - the
+    // historical known edge (probing in creation order can hit the wrong scene).
+    dscene::Scene* sceneA = scenes->CreateScene(u8"a");
+    dscene::EntityHandle ea = sceneA->CreateEntity(u8"hud-a");
+    sceneA->GetSystem<UICanvasComponentManager>()->Add(ea).document = MakeDocument(
+        u8"<Flex direction=\"vertical\"><Button id=\"btn-a\" text=\"A\" width=\"200\" height=\"40\"/></Flex>");
+    dscene::Scene* sceneB = scenes->CreateScene(u8"b");
+    dscene::EntityHandle eb = sceneB->CreateEntity(u8"hud-b");
+    sceneB->GetSystem<UICanvasComponentManager>()->Add(eb).document = MakeDocument(
+        u8"<Flex direction=\"vertical\">"
+        u8"<Button id=\"btn-b\" text=\"B\" width=\"200\" height=\"40\"/>"
+        u8"<EditText id=\"field-b\" width=\"200\" height=\"30\"/>"
+        u8"</Flex>");
+
+    ctx.BeginFrame(1.0f / 60.0f);   // instantiate trees
+    RootView* rootA = ui->SceneRoot(*sceneA);
+    RootView* rootB = ui->SceneRoot(*sceneB);
+    REQUIRE(rootA != nullptr);
+    REQUIRE(rootB != nullptr);
+    rootA->ViewportSize = Float2{ 800.0f, 600.0f };
+    rootB->ViewportSize = Float2{ 800.0f, 600.0f };
+    ui->Context().UpdateRootView(rootA);
+    ui->Context().UpdateRootView(rootB);
+
+    bool clickedA = false;
+    bool clickedB = false;
+    Cast<ViewGroup>(rootA)->FindByName<Button>(u8"btn-a")->OnClick.Add(
+        [&clickedA](ButtonBase*) { clickedA = true; });
+    Cast<ViewGroup>(rootB)->FindByName<Button>(u8"btn-b")->OnClick.Add(
+        [&clickedB](ButtonBase*) { clickedB = true; });
+
+    // UN-BOUND (AllScenes default): the pointer probe walks scene roots in creation
+    // order - scene A wins the overlapping point. (The documented historical edge.)
+    devices.mouse.x = 50.0f;
+    devices.mouse.y = 20.0f;
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(ui->Context().ActiveInputRoot() == rootA);
+    CHECK(input->Runtime().GetConsumptionMask().pointer);
+
+    // BOUND to scene B: the same coordinates now route to B - and ONLY B. The click
+    // fires B's button; A's identical button at the identical point never hears it.
+    input->SetSourceProvider(&devices, sceneB);
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(ui->Context().ActiveInputRoot() == rootB);
+    CHECK(input->Runtime().GetConsumptionMask().pointer);
+    devices.PressLeft();
+    ctx.BeginFrame(1.0f / 60.0f);
+    devices.ReleaseLeft();
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(clickedB);
+    CHECK_FALSE(clickedA);
+
+    // Pointer-less frames (pad/keyboard-only): the fallback root is the BOUND scene,
+    // not the first scene with content.
+    devices.mousePresent = false;
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(ui->Context().ActiveInputRoot() == rootB);
+
+    // Keyboard/text follow the binding: focus B's field, stream text, and the
+    // keyboard consumption class publishes for the bound scene.
+    auto* field = Cast<ViewGroup>(rootB)->FindByName<EditText>(u8"field-b");
+    REQUIRE(field != nullptr);
+    ui->Context().GetFocusManager()->SetFocus(field);
+    devices.PushText(u8"go");
+    ctx.BeginFrame(1.0f / 60.0f);
+    devices.events.Clear();
+    CHECK(field->Text() == u8"go");
+    CHECK(input->Runtime().GetConsumptionMask().keyboard);
+    ui->Context().GetFocusManager()->ClearFocus();
+
+    // Un-binding (provider kept) returns to the un-bound default: creation order.
+    devices.mousePresent = true;
+    input->SetSourceProvider(&devices, nullptr);
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(ui->Context().ActiveInputRoot() == rootA);
+
+    ctx.Shutdown();
+}
+
+TEST_CASE("ui.subsystem: ScreenTierOnly keeps un-bound input out of scene UI (editor policy)")
+{
+    rt::Context ctx;
+    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
+    auto* input = ctx.AddSubsystem<draconic::input::InputSubsystem>(nullptr);
+    auto* ui = ctx.AddSubsystem<UISubsystem>();
+    ctx.Startup();
+
+    PointerFakeDevices devices;
+    input->SetSourceProvider(&devices);   // un-bound...
+    input->SetUnboundScenePolicy(draconic::input::UnboundInputScenePolicy::ScreenTierOnly);
+
+    dscene::Scene* scene = scenes->CreateScene(u8"editing");
+    dscene::EntityHandle e = scene->CreateEntity(u8"hud");
+    scene->GetSystem<UICanvasComponentManager>()->Add(e).document = MakeDocument(
+        u8"<Flex direction=\"vertical\"><Button id=\"btn\" text=\"hud\" width=\"200\" height=\"40\"/></Flex>");
+    ctx.BeginFrame(1.0f / 60.0f);
+    RootView* root = ui->SceneRoot(*scene);
+    REQUIRE(root != nullptr);
+    root->ViewportSize = Float2{ 800.0f, 600.0f };
+    ui->ScreenRoot()->ViewportSize = Float2{ 800.0f, 600.0f };
+    ui->Context().UpdateRootView(root);
+    ui->Context().UpdateRootView(ui->ScreenRoot());
+
+    bool clicked = false;
+    Cast<ViewGroup>(root)->FindByName<Button>(u8"btn")->OnClick.Add(
+        [&clicked](ButtonBase*) { clicked = true; });
+
+    // The HUD renders (tree exists, visible) but is NOT interactive: the pointer over
+    // its button neither routes to the scene root nor publishes consumption - an
+    // editor pane click at these coordinates stays an editor click.
+    devices.mouse.x = 50.0f;
+    devices.mouse.y = 20.0f;
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(ui->Context().ActiveInputRoot() == ui->ScreenRoot());
+    CHECK_FALSE(input->Runtime().GetConsumptionMask().pointer);
+    CHECK_FALSE(ui->PointerOverUI());
+    devices.PressLeft();
+    ctx.BeginFrame(1.0f / 60.0f);
+    devices.ReleaseLeft();
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK_FALSE(clicked);
+
+    // The scene-less screen tier is NOT confined: an occupied overlay is modal and
+    // fully interactive under the same policy (loading screens/system menus work).
+    RefPtr<UIDocument> modal = MakeRef<UIDocument>(DefaultAllocator());
+    modal->markup = String(
+        u8"<Flex direction=\"vertical\"><Button id=\"ok\" text=\"OK\" width=\"200\" height=\"40\"/></Flex>");
+    RefPtr<View> overlay = ui->PushScreenOverlay(*modal);
+    REQUIRE(overlay.Get() != nullptr);
+    ctx.BeginFrame(1.0f / 60.0f);
+    ui->Context().UpdateRootView(ui->ScreenRoot());
+    bool okClicked = false;
+    Cast<ViewGroup>(ui->ScreenRoot())->FindByName<Button>(u8"ok")->OnClick.Add(
+        [&okClicked](ButtonBase*) { okClicked = true; });
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(ui->Context().ActiveInputRoot() == ui->ScreenRoot());
+    CHECK(input->Runtime().GetConsumptionMask().pointer);
+    devices.PressLeft();
+    ctx.BeginFrame(1.0f / 60.0f);
+    devices.ReleaseLeft();
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(okClicked);
+    CHECK_FALSE(clicked);   // the scene button under the overlay still never fires
+    ui->RemoveScreenOverlay(overlay.Get());
+
+    ctx.Shutdown();
+}
+
+TEST_CASE("ui.subsystem: RT canvases auto-bind the entity's sprite/decal texture override")
+{
+    rt::Context ctx;
+    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
+    auto* ui = ctx.AddSubsystem<UISubsystem>();
+    ctx.Startup();
+
+    draconic::rhi::null::NullDevice device{ DefaultAllocator() };
+    ui->EnsureRenderReady(device, 2);
+    draconic::rhi::null::NullCommandEncoder encoder;
+
+    // The render managers normally come from the RenderSubsystem; add them directly
+    // (the camera-manager test's pattern).
+    dscene::Scene* scene = scenes->CreateScene(u8"world");
+    scene->AddSystem<draconic::render::SpriteComponentManager>();
+    scene->AddSystem<draconic::render::DecalComponentManager>();
+    auto* canvases = scene->GetSystem<UICanvasComponentManager>();
+    auto* sprites = scene->GetSystem<draconic::render::SpriteComponentManager>();
+    auto* decals = scene->GetSystem<draconic::render::DecalComponentManager>();
+
+    // One entity carries the RT canvas AND the material components that show it -
+    // the declarative contract: same entity = auto-bound, no scripting needed.
+    dscene::EntityHandle e = scene->CreateEntity(u8"scoreboard");
+    {
+        UICanvasComponent& c = canvases->Add(e);
+        c.document = MakeDocument(u8"<Label id=\"score\" text=\"0 : 0\"/>");
+        c.renderMode = CanvasRenderMode::RenderTexture;
+        c.renderTextureWidth = 256;
+        c.renderTextureHeight = 128;
+    }
+    sprites->Add(e);
+    decals->Add(e);
+
+    ctx.BeginFrame(1.0f / 60.0f);
+    ui->RenderCanvasTextures(encoder, 0);
+    UICanvasComponent* c = canvases->Get(e);
+    REQUIRE(c != nullptr);
+    REQUIRE(c->renderTextureView != nullptr);
+    CHECK(sprites->Get(e)->texture == c->renderTextureView);
+    CHECK(decals->Get(e)->texture == c->renderTextureView);
+
+    // Resize recreates the target - the view pointer changes (the reason manual
+    // assignment breaks) - and the binder refreshes the overrides the same call.
+    // (No pointer-inequality check: an allocator may legitimately reuse the address;
+    // the CONTRACT is override == current view, whatever that is.)
+    c->renderTextureWidth = 512;
+    ctx.BeginFrame(1.0f / 60.0f);
+    ui->RenderCanvasTextures(encoder, 1);
+    c = canvases->Get(e);
+    REQUIRE(c->renderTextureView != nullptr);
+    CHECK(c->renderTexture->desc.width == 512u);
+    CHECK(sprites->Get(e)->texture == c->renderTextureView);
+    CHECK(decals->Get(e)->texture == c->renderTextureView);
+
+    // Removing the CANVAS un-binds (the target is destroyed - a stale override would
+    // dangle); the sprite/decal components themselves survive.
+    canvases->Remove(e);
+    ctx.BeginFrame(1.0f / 60.0f);
+    ui->RenderCanvasTextures(encoder, 0);
+    CHECK(sprites->Get(e)->texture == nullptr);
+    CHECK(decals->Get(e)->texture == nullptr);
 
     ctx.Shutdown();
 }
