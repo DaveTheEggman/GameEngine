@@ -241,7 +241,17 @@ export namespace draconic::runtime
             draconic::input::RegisterInputScriptApi();
             draconic::physics::RegisterPhysicsScriptApi();
             draconic::audio::RegisterAudioScriptApi();
-            m_scriptManager = draconic::script::wren::CreateScriptManager();
+            // Batteries-included default: Wren registers with the backend REGISTRY
+            // (like default subsystems - subclasses/entry points may register more),
+            // then the manager resolves by the script FILE's extension. No consumer
+            // names a backend type (scripting.md B1).
+            draconic::script::wren::RegisterWrenScriptBackend();
+            m_scriptManager = draconic::script::CreateScriptManagerForFile(name);
+            if (m_scriptManager.Get() == nullptr)
+            {
+                DRACONIC_LOG_ERROR(u8"App", u8"no script backend for '{}'", name);
+                return false;
+            }
             draconic::script::RegisterReflectedTypes(*m_scriptManager);
             m_scriptContext = m_scriptManager->CreateContext();
             if (m_scriptErrorHandler != nullptr)

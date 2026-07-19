@@ -16,7 +16,8 @@ target_sources(DraconicScript
             ScriptModule.cppm
             IScriptContext.cppm
             IScriptManager.cppm
-            RegisterTypes.cppm)
+            RegisterTypes.cppm
+            BackendRegistry.cppm)
 
 # VM backends.
 add_subdirectory(Wren)

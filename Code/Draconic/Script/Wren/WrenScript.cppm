@@ -734,4 +734,16 @@ export namespace draconic::script::wren
     {
         return core::RefPtr<IScriptManager>(core::MakeRef<WrenManager>(core::DefaultAllocator()));
     }
+
+    /// Registers Wren with the backend registry (scripting.md B1) - the ONE line that
+    /// makes a language available; consumers resolve by extension, never by type.
+    inline void RegisterWrenScriptBackend()
+    {
+        ScriptBackendDesc desc;
+        desc.languageId = core::String(u8"wren");
+        desc.displayName = core::String(u8"Wren");
+        desc.fileExtensions.PushBack(core::String(u8"wren"));
+        desc.create = []() { return CreateScriptManager(); };
+        ScriptBackendRegistry::Get().Register(core::Move(desc));
+    }
 }

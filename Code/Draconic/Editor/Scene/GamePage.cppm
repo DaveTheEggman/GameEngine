@@ -32,7 +32,6 @@ import draconic.ui.runtime;
 import draconic.vg.renderer;
 import draconic.ui.viewport;
 import draconic.script;
-import draconic.script.wren;
 import draconic.shell;
 import draconic.input;
 import draconic.input.resource;

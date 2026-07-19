@@ -60,7 +60,6 @@ import draconic.texture.resource;
 import draconic.image.resource;
 import draconic.model.resource;
 import draconic.script;
-import draconic.script.wren;
 import draconic.input;
 import draconic.physics;
 import draconic.physics.resource;

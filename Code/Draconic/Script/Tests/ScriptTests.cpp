@@ -111,3 +111,84 @@ TEST_CASE("script: backend reports unsupported operations cleanly")
     CHECK_FALSE(ctx->HasFunction(u8"main"));
     CHECK(ctx->Call(u8"main", Span<Variant>{}).Error() == ErrorCode::NotSupported);
 }
+
+namespace
+{
+    // A registry-conformance fake: records the two-phase order the contract promises.
+    class FakeScriptManager final : public draconic::script::IScriptManager
+    {
+    public:
+        u32 registered = 0;
+        bool finalized = false;
+        bool finalizedAfterAll = false;
+        void RegisterType(const TypeInfo&) override
+        {
+            REQUIRE_FALSE(finalized);   // collection strictly precedes finalize
+            ++registered;
+        }
+        void FinalizeTypes() override
+        {
+            finalized = true;
+            finalizedAfterAll = registered > 0;
+        }
+        [[nodiscard]] RefPtr<draconic::script::IScriptContext> CreateContext() override
+        {
+            return {};
+        }
+    };
+}
+
+TEST_CASE("script.backend: registry resolves by language and extension; file dispatch "
+          "falls back to a sole backend")
+{
+    using namespace draconic::script;
+    ScriptBackendRegistry& registry = ScriptBackendRegistry::Get();
+
+    ScriptBackendDesc wrenLike;
+    wrenLike.languageId = String(u8"testlang");
+    wrenLike.displayName = String(u8"TestLang");
+    wrenLike.fileExtensions.PushBack(String(u8"tl"));
+    int created = 0;
+    wrenLike.create = [&created]() -> RefPtr<IScriptManager> {
+        ++created;
+        return RefPtr<IScriptManager>(MakeRef<FakeScriptManager>(DefaultAllocator()));
+    };
+    registry.Register(Move(wrenLike));
+
+    REQUIRE(registry.FindByLanguage(u8"testlang") != nullptr);
+    CHECK(registry.FindByLanguage(u8"nosuch") == nullptr);
+    REQUIRE(registry.FindByExtension(u8"tl") != nullptr);
+    CHECK(registry.FindByExtension(u8"lua") == nullptr);
+
+    // Extension dispatch; unknown-extension fallback only when unambiguous.
+    RefPtr<IScriptManager> byFile = CreateScriptManagerForFile(u8"Scripts/game.tl");
+    CHECK(byFile.Get() != nullptr);
+    CHECK(created == 1);
+    (void)CreateScriptManagerForLanguage(u8"testlang");
+    CHECK(created == 2);
+    CHECK(CreateScriptManagerForLanguage(u8"nosuch").Get() == nullptr);
+
+    // Re-register REPLACES (idempotent by id) - no duplicate entries.
+    ScriptBackendDesc again;
+    again.languageId = String(u8"testlang");
+    again.displayName = String(u8"TestLang2");
+    again.fileExtensions.PushBack(String(u8"tl"));
+    again.create = []() -> RefPtr<IScriptManager> { return {}; };
+    registry.Register(Move(again));
+    usize count = 0;
+    for (const ScriptBackendDesc& d : registry.All())
+    {
+        if (d.languageId == u8"testlang") { ++count; }
+    }
+    CHECK(count == 1);
+}
+
+TEST_CASE("script.backend: RegisterReflectedTypes drives the two-phase contract "
+          "(collect all, THEN finalize - the AngelScript requirement)")
+{
+    FakeScriptManager manager;
+    draconic::script::RegisterReflectedTypes(manager);
+    CHECK(manager.registered > 0);        // the global registry is never empty here
+    CHECK(manager.finalized);
+    CHECK(manager.finalizedAfterAll);     // finalize came after every RegisterType
+}

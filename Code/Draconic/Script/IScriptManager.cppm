@@ -24,6 +24,14 @@ export namespace draconic::script
         // the corresponding bindings.
         virtual void RegisterType(const core::TypeInfo& type) = 0;
 
+        /// Called once after ALL RegisterType calls, before the first CreateContext
+        /// (RegisterReflectedTypes drives it). Backends that need two-phase emission -
+        /// AngelScript must DECLARE every object type before any member of any type is
+        /// registered, or everything has to arrive in strict dependency order - defer
+        /// their emission to here: declare-all-types, then bind-all-members. Backends
+        /// with lazy emitters (Wren materializes at context creation) no-op.
+        virtual void FinalizeTypes() {}
+
         // Create a fresh, isolated execution context. Contexts see the classes
         // registered up to their creation.
         [[nodiscard]] virtual core::RefPtr<IScriptContext> CreateContext() = 0;

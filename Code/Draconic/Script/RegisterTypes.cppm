@@ -23,5 +23,6 @@ export namespace draconic::script
         {
             manager.RegisterType(*type);
         }
+        manager.FinalizeTypes();   // two-phase backends emit here (declare-all, then bind)
     }
 }
