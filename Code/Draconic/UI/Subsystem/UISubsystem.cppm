@@ -259,9 +259,9 @@ export namespace draconic::ui
         // window target when the host calls IScreenRenderer::RenderOverlays.
 
         [[nodiscard]] i32 OverlayOrder() const noexcept override { return 0; }   // both roles
-        /// Scene tier: draws the view's scene root (matched by SceneKey). Sub-rect views
-        /// (split-screen) are skipped for now - positioning a VG draw inside a sub-rect
-        /// needs a VG renderer viewport seam (consult-first per the standing rule).
+        /// Scene tier: draws the view's scene root (matched by SceneKey) into the view's
+        /// viewport rect - sub-rect views (split-screen) lay out at the viewport size and
+        /// draw through the VG renderer's viewport seam, clipped to their rect.
         void Render(rhi::RenderPassEncoder& encoder, const render::SceneOverlayView& view) override;
         /// Screen tier: draws the global overlay root.
         void Render(rhi::RenderPassEncoder& encoder, const render::ScreenOverlayView& view) override;
@@ -313,8 +313,11 @@ export namespace draconic::ui
         void DrawRootInto(RootView& root, rhi::CommandEncoder& encoder, rhi::TextureView* target,
                           rhi::TextureFormat format, u32 width, u32 height, i32 frameIndex);
         // Records one root into an ALREADY-ACTIVE render pass (the overlay-role contract).
+        // (viewportX, viewportY) places the content rect within the pass's target
+        // (split-screen sub-rect views); (0,0) for whole-target draws.
         void DrawRootInPass(RootView& root, rhi::RenderPassEncoder& encoder,
-                            rhi::TextureFormat format, u32 width, u32 height, i32 frameIndex);
+                            rhi::TextureFormat format, i32 viewportX, i32 viewportY,
+                            u32 width, u32 height, i32 frameIndex);
 
         String m_fontPath;
         UIContext m_context;
@@ -327,7 +330,6 @@ export namespace draconic::ui
         draconic::render::ISceneRenderer* m_sceneRenderer = nullptr;    // overlay registration seam
         draconic::render::IScreenRenderer* m_screenRenderer = nullptr;
         u64 m_frameSerial = 0;                // gates VGRenderer::BeginFrame to once per frame
-        bool m_subRectWarned = false;         // log the split-screen skip once
 
         // pointer edge tracking for the polled pump
         bool m_prevButtons[3] = { false, false, false };

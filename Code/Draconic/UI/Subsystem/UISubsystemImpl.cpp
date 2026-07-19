@@ -537,10 +537,12 @@ namespace draconic::ui
                 }
                 else
                 {
+                    // Pixels in VIEWPORT space: the scene root lays out at the viewport
+                    // size and the VG viewport seam places it at the view's rect.
                     const f32 ndcX = clip.x / clip.w;
                     const f32 ndcY = clip.y / clip.w;
-                    lp->X = (ndcX * 0.5f + 0.5f) * static_cast<f32>(view.targetWidth);
-                    lp->Y = (1.0f - (ndcY * 0.5f + 0.5f)) * static_cast<f32>(view.targetHeight);
+                    lp->X = (ndcX * 0.5f + 0.5f) * static_cast<f32>(view.viewportWidth);
+                    lp->Y = (1.0f - (ndcY * 0.5f + 0.5f)) * static_cast<f32>(view.viewportHeight);
                 }
                 f32 scale = 1.0f;
                 if (c.scaleMode == BillboardScale::Distance)
@@ -563,31 +565,18 @@ namespace draconic::ui
     void UISubsystem::Render(rhi::RenderPassEncoder& encoder, const render::SceneOverlayView& view)
     {
         if (m_render.Get() == nullptr || m_render->device == nullptr) { return; }
-        if (view.targetWidth == 0 || view.targetHeight == 0) { return; }
+        if (view.viewportWidth == 0 || view.viewportHeight == 0) { return; }
         SceneUI* sceneUI = nullptr;
         for (SceneUI& ui : m_sceneUIs)
         {
             if (static_cast<const void*>(ui.scene) == view.sceneKey) { sceneUI = &ui; break; }
         }
         if (sceneUI == nullptr || sceneUI->root.Get() == nullptr) { return; }
-        // Sub-rect views (split-screen): the VG renderer draws at the target origin, so
-        // positioning inside a sub-rect needs a VG viewport seam (consult-first rule).
-        const bool fullRect = view.viewportX == 0 && view.viewportY == 0 &&
-                              view.viewportWidth == view.targetWidth &&
-                              view.viewportHeight == view.targetHeight;
-        if (!fullRect)
-        {
-            if (!m_subRectWarned)
-            {
-                m_subRectWarned = true;
-                DRACONIC_LOG_WARNING(u8"UI",
-                    u8"scene UI skipped for a sub-rect view (split-screen scene HUD needs a VG viewport seam)");
-            }
-            return;
-        }
+        // The scene root lays out at the VIEWPORT size and draws at the view's rect
+        // (split-screen halves each lay out their own HUD, clipped to their half).
         UpdateSceneView(*sceneUI->scene, view);
-        DrawRootInPass(*sceneUI->root, encoder, view.targetFormat,
-                       view.targetWidth, view.targetHeight, static_cast<i32>(view.frameIndex));
+        DrawRootInPass(*sceneUI->root, encoder, view.targetFormat, view.viewportX, view.viewportY,
+                       view.viewportWidth, view.viewportHeight, static_cast<i32>(view.frameIndex));
     }
 
     // Screen tier (IScreenOverlay): called from the host's RenderOverlays per window
@@ -596,17 +585,18 @@ namespace draconic::ui
     {
         if (m_render.Get() == nullptr || m_render->device == nullptr) { return; }
         if (m_screenRoot.Get() == nullptr || view.width == 0 || view.height == 0) { return; }
-        DrawRootInPass(*m_screenRoot, encoder, view.targetFormat, view.width, view.height,
+        DrawRootInPass(*m_screenRoot, encoder, view.targetFormat, 0, 0, view.width, view.height,
                        static_cast<i32>(view.frameIndex));
     }
 
-    // Records one root into an ALREADY-ACTIVE render pass: layout at the target size,
-    // batch through the shared VGContext, upload a slice (pure mapped-memory writes -
-    // legal during pass recording), draw. The per-format renderer's ring resets once
-    // per UI frame (m_frameSerial) so same-frame draws never clobber each other.
+    // Records one root into an ALREADY-ACTIVE render pass: layout at the CONTENT size
+    // (width/height), batch through the shared VGContext, upload a slice (pure mapped-
+    // memory writes - legal during pass recording), draw at (viewportX, viewportY) via
+    // the VG viewport seam. The per-format renderer's ring resets once per UI frame
+    // (m_frameSerial) so same-frame draws never clobber each other.
     void UISubsystem::DrawRootInPass(RootView& root, rhi::RenderPassEncoder& encoder,
-                                     rhi::TextureFormat format, u32 width, u32 height,
-                                     i32 frameIndex)
+                                     rhi::TextureFormat format, i32 viewportX, i32 viewportY,
+                                     u32 width, u32 height, i32 frameIndex)
     {
         root.ViewportSize = Float2{ static_cast<f32>(width), static_cast<f32>(height) };
         m_context.UpdateRootView(&root);
@@ -619,7 +609,7 @@ namespace draconic::ui
         vgr::VGRenderer* renderer = m_render->RendererFor(format, m_frameSerial, frameIndex);
         if (renderer == nullptr) { return; }
         const vgr::VGRenderSlice slice = renderer->Prepare(batch, frameIndex, width, height);
-        renderer->Render(encoder, width, height, frameIndex, slice);
+        renderer->Render(encoder, viewportX, viewportY, width, height, frameIndex, slice);
     }
 
     // Pass-owning draw body (the preview seam): opens its own Load-op pass on the
@@ -636,7 +626,7 @@ namespace draconic::ui
         pass.colorAttachments.Add(color);
         if (rhi::RenderPassEncoder* rp = encoder.BeginRenderPass(pass))
         {
-            DrawRootInPass(root, *rp, format, width, height, frameIndex);
+            DrawRootInPass(root, *rp, format, 0, 0, width, height, frameIndex);
             rp->End();
         }
     }

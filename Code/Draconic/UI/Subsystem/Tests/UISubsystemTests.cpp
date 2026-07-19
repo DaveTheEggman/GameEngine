@@ -170,6 +170,16 @@ TEST_CASE("ui.subsystem: billboards project through the scene camera and park be
     CHECK(lpBehind->X == doctest::Approx(-10000.0f));   // behind the camera -> parked
     CHECK(lpBehind->Y == doctest::Approx(-10000.0f));
 
+    // Sub-rect view (split-screen half): billboards land in VIEWPORT pixels - the VG
+    // viewport seam places the whole root at the view's rect, so the on-axis anchor
+    // centers within the HALF, not the full target.
+    view.viewportX = 400;
+    view.viewportWidth = 400;
+    view.viewportHeight = 300;
+    ui->UpdateSceneView(*scene, view);
+    CHECK(lpFront->X == doctest::Approx(200.0f));   // center of the 400x300 half
+    CHECK(lpFront->Y == doctest::Approx(150.0f));
+
     // Scene isolation is structural now: another scene's canvas parents into ITS root.
     dscene::Scene* other = scenes->CreateScene(u8"other");
     auto* otherCanvases = other->GetSystem<UICanvasComponentManager>();

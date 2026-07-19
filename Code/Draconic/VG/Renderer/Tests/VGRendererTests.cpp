@@ -185,3 +185,43 @@ TEST_CASE("vg.renderer: empty batch yields an invalid slice")
     device.DestroyShaderModule(vs);
     device.DestroyShaderModule(fs);
 }
+
+TEST_CASE("vg.renderer: ComputeScissor clamps to content then offsets to the viewport")
+{
+    using draconic::vg::renderer::VGRenderer;
+
+    // Fully inside: clamp is a no-op, the viewport origin offsets the rect.
+    {
+        const auto s = VGRenderer::ComputeScissor(Rectangle{ 10.0f, 20.0f, 100.0f, 50.0f },
+                                                  400, 300, 400, 300);
+        CHECK(s.x == 410);
+        CHECK(s.y == 320);
+        CHECK(s.width == 100u);
+        CHECK(s.height == 50u);
+    }
+    // Overhanging the content box: clamped to (0..w, 0..h) BEFORE the offset - a clip
+    // rect can never reach outside its view's rect (split-screen halves stay sealed).
+    {
+        const auto s = VGRenderer::ComputeScissor(Rectangle{ -30.0f, -10.0f, 500.0f, 400.0f },
+                                                  400, 0, 400, 300);
+        CHECK(s.x == 400);
+        CHECK(s.y == 0);
+        CHECK(s.width == 400u);
+        CHECK(s.height == 300u);
+    }
+    // Entirely outside the content box: degenerates to zero size (nothing drawn).
+    {
+        const auto s = VGRenderer::ComputeScissor(Rectangle{ 500.0f, 0.0f, 50.0f, 50.0f },
+                                                  0, 0, 400, 300);
+        CHECK(s.width == 0u);
+    }
+    // Full-target viewport (the classic overload's path): identity behavior.
+    {
+        const auto s = VGRenderer::ComputeScissor(Rectangle{ 10.0f, 10.0f, 50.0f, 50.0f },
+                                                  0, 0, 800, 600);
+        CHECK(s.x == 10);
+        CHECK(s.y == 10);
+        CHECK(s.width == 50u);
+        CHECK(s.height == 50u);
+    }
+}

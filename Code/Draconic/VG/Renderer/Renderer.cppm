@@ -167,13 +167,51 @@ export namespace draconic::vg::renderer
             return slice;
         }
 
-        /// Dispatch a slice's draws into the active render pass.
+        /// A scissor rect in FRAMEBUFFER coordinates (what SetScissor takes).
+        struct ScissorRect
+        {
+            i32 x = 0, y = 0;
+            u32 width = 0, height = 0;
+        };
+
+        /// Map a command's content-space clip rect into framebuffer coordinates for a
+        /// viewport whose origin sits at (viewportX, viewportY) with the given content
+        /// extent: clamp to the content box first, then offset. Pure (unit-tested).
+        [[nodiscard]] static ScissorRect ComputeScissor(const Rectangle& clipRect,
+                                                        i32 viewportX, i32 viewportY,
+                                                        u32 width, u32 height)
+        {
+            const i32 startX = static_cast<i32>(Ceil(Max(0.0f, clipRect.x)));
+            const i32 startY = static_cast<i32>(Ceil(Max(0.0f, clipRect.y)));
+            const i32 endX = static_cast<i32>(Floor(Min(clipRect.x + clipRect.width, static_cast<f32>(width))));
+            const i32 endY = static_cast<i32>(Floor(Min(clipRect.y + clipRect.height, static_cast<f32>(height))));
+            ScissorRect rect;
+            rect.x = viewportX + startX;
+            rect.y = viewportY + startY;
+            rect.width = static_cast<u32>(Max(0, endX - startX));
+            rect.height = static_cast<u32>(Max(0, endY - startY));
+            return rect;
+        }
+
+        /// Dispatch a slice's draws into the active render pass (full-target viewport).
         void Render(rhi::RenderPassEncoder& renderPass, u32 width, u32 height, i32 frameIndex, const VGRenderSlice& slice)
+        {
+            Render(renderPass, 0, 0, width, height, frameIndex, slice);
+        }
+
+        /// Dispatch a slice's draws into a VIEWPORT SUB-RECT of the active pass's target
+        /// (split-screen views): content coordinates (0..width, 0..height) map to the
+        /// rect at (viewportX, viewportY); every scissor - including the default - is
+        /// clamped to that rect, so content never bleeds into a neighboring view. The
+        /// slice must have been Prepared with the SAME width/height (the projection).
+        void Render(rhi::RenderPassEncoder& renderPass, i32 viewportX, i32 viewportY,
+                    u32 width, u32 height, i32 frameIndex, const VGRenderSlice& slice)
         {
             if (!slice.isValid || slice.drawCommandCount == 0)
                 return;
 
-            renderPass.SetViewport(0.0f, 0.0f, static_cast<f32>(width), static_cast<f32>(height), 0.0f, 1.0f);
+            renderPass.SetViewport(static_cast<f32>(viewportX), static_cast<f32>(viewportY),
+                                   static_cast<f32>(width), static_cast<f32>(height), 0.0f, 1.0f);
             renderPass.SetPipeline(m_pipeline);
             renderPass.SetVertexBuffer(0, m_vertexBuffers[static_cast<usize>(frameIndex)], slice.vertexByteOffset);
             renderPass.SetIndexBuffer(m_indexBuffers[static_cast<usize>(frameIndex)], rhi::IndexFormat::UInt32, slice.indexByteOffset);
@@ -197,11 +235,8 @@ export namespace draconic::vg::renderer
 
                 if (cmd.clipMode == draconic::vg::VGClipMode::Scissor && cmd.clipRect.width > 0.0f && cmd.clipRect.height > 0.0f)
                 {
-                    const i32 startX = static_cast<i32>(Ceil(Max(0.0f, cmd.clipRect.x)));
-                    const i32 startY = static_cast<i32>(Ceil(Max(0.0f, cmd.clipRect.y)));
-                    const i32 endX = static_cast<i32>(Floor(Min(cmd.clipRect.x + cmd.clipRect.width, static_cast<f32>(width))));
-                    const i32 endY = static_cast<i32>(Floor(Min(cmd.clipRect.y + cmd.clipRect.height, static_cast<f32>(height))));
-                    renderPass.SetScissor(startX, startY, static_cast<u32>(Max(0, endX - startX)), static_cast<u32>(Max(0, endY - startY)));
+                    const ScissorRect scissor = ComputeScissor(cmd.clipRect, viewportX, viewportY, width, height);
+                    renderPass.SetScissor(scissor.x, scissor.y, scissor.width, scissor.height);
                 }
                 else if (cmd.clipMode == draconic::vg::VGClipMode::Scissor)
                 {
@@ -209,7 +244,7 @@ export namespace draconic::vg::renderer
                 }
                 else
                 {
-                    renderPass.SetScissor(0, 0, width, height);
+                    renderPass.SetScissor(viewportX, viewportY, width, height);
                 }
 
                 renderPass.DrawIndexed(static_cast<u32>(cmd.indexCount), 1, static_cast<u32>(cmd.startIndex), 0, 0);
