@@ -1077,4 +1077,81 @@ namespace draconic::audio
         pushBytes(interleavedSamples.Data(), dataBytes);
         return true;
     }
+    // ---- editor waveform (P2): pure decode -> per-bucket peaks ----
+
+    bool BuildWaveformPeaks(Span<const byte> encoded, u32 buckets, Array<f32>& outPeaks)
+    {
+        outPeaks.Clear();
+        if (encoded.IsEmpty() || buckets == 0) { return false; }
+
+        ma_decoder_config config = ma_decoder_config_init(ma_format_f32, 0, 0);
+        ma_decoder decoder;
+        if (ma_decoder_init_memory(encoded.Data(), encoded.Size(), &config, &decoder) != MA_SUCCESS)
+        {
+            return false;
+        }
+        const u32 channels = decoder.outputChannels;
+
+        // Total length drives the frame->bucket map; fall back to a growing two-pass
+        // walk when the container cannot report it (some mp3s).
+        ma_uint64 totalFrames = 0;
+        (void)ma_decoder_get_length_in_pcm_frames(&decoder, &totalFrames);
+
+        outPeaks.Resize(buckets);
+        for (u32 i = 0; i < buckets; ++i) { outPeaks[i] = 0.0f; }
+
+        f32 chunk[4096];
+        const u64 chunkFrames = 4096 / (channels == 0 ? 1 : channels);
+        u64 frameCursor = 0;
+        Array<f32> unknownLengthPeaks;   // per-CHUNK peaks when length is unknown
+        for (;;)
+        {
+            ma_uint64 read = 0;
+            const ma_result result = ma_decoder_read_pcm_frames(&decoder, chunk, chunkFrames, &read);
+            for (u64 frame = 0; frame < read; ++frame)
+            {
+                f32 peak = 0.0f;
+                for (u32 c = 0; c < channels; ++c)
+                {
+                    const f32 magnitude = Abs(chunk[frame * channels + c]);
+                    if (magnitude > peak) { peak = magnitude; }
+                }
+                if (totalFrames > 0)
+                {
+                    const u64 bucket = Min<u64>((frameCursor + frame) * buckets / totalFrames,
+                                                buckets - 1);
+                    if (peak > outPeaks[static_cast<usize>(bucket)])
+                    {
+                        outPeaks[static_cast<usize>(bucket)] = peak;
+                    }
+                }
+                else
+                {
+                    unknownLengthPeaks.PushBack(peak);
+                }
+            }
+            frameCursor += read;
+            if (result != MA_SUCCESS || read < chunkFrames) { break; }
+        }
+        ma_decoder_uninit(&decoder);
+        if (frameCursor == 0) { outPeaks.Clear(); return false; }
+
+        if (totalFrames == 0)
+        {
+            // Unknown length: rebucket the collected per-frame peaks now that the
+            // total is known.
+            const u64 total = unknownLengthPeaks.Size();
+            for (u64 i = 0; i < total; ++i)
+            {
+                const u64 bucket = Min<u64>(i * buckets / total, buckets - 1);
+                if (unknownLengthPeaks[static_cast<usize>(i)] > outPeaks[static_cast<usize>(bucket)])
+                {
+                    outPeaks[static_cast<usize>(bucket)] = unknownLengthPeaks[static_cast<usize>(i)];
+                }
+            }
+        }
+        for (u32 i = 0; i < buckets; ++i) { outPeaks[i] = Min(outPeaks[i], 1.0f); }
+        return true;
+    }
+
 }

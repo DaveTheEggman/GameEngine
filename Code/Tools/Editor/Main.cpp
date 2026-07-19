@@ -56,6 +56,7 @@ import draconic.physics.editor;
 import draconic.ui.resource;
 import draconic.ui.editor;
 import draconic.editor.gameui;
+import draconic.editor.audio;
 import draconic.physics.subsystem;
 import draconic.modelimporter;
 import draconic.audio;
@@ -223,6 +224,7 @@ int main(int argc, char** argv)
         draconic::editor::RegisterMaterialEditor(app.Context(), host, uiHost);
         draconic::editor::RegisterInputEditor(app.Context(), host);
         draconic::editor::RegisterGameUIEditor(app.Context(), host, uiHost);
+        draconic::editor::RegisterAudioClipEditor(app.Context(), host);
         RegisterPrimitiveMeshCreators(app.Context());
         {
             // New Asset > Input Map: seeded with the conventional Gameplay starter set.

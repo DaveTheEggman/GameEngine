@@ -187,4 +187,11 @@ export namespace draconic::audio
         struct Impl;
         UniquePtr<Impl> m_impl;
     };
+
+    /// Decodes `encoded` container bytes (wav/flac/mp3/vorbis) and reduces them to
+    /// `buckets` per-bucket PEAK magnitudes in [0, 1] (max |sample| across channels) -
+    /// the editor waveform thumbnail. Engine-free (a pure decode; works headless).
+    /// False on decode failure, empty input, or zero buckets.
+    [[nodiscard]] bool BuildWaveformPeaks(Span<const byte> encoded, u32 buckets,
+                                          Array<f32>& outPeaks);
 }

@@ -168,6 +168,7 @@ add_subdirectory(Code/Draconic/Imgui)     # Dear ImGui debug UI (RHI renderer + 
 add_subdirectory(Code/Draconic/Editor/App) # editor UI shell (chrome + layout persistence + EditorApplication)
 add_subdirectory(Code/Draconic/Editor/Input) # input-map editing page (editor exe only)
 add_subdirectory(Code/Draconic/Editor/GameUI) # UI document page: text + live preview (editor exe only)
+add_subdirectory(Code/Draconic/Editor/Audio)  # audio clip audition page: waveform + play (editor exe only)
 add_subdirectory(Code/Draconic/Editor/Scene) # scene editor plugin (SceneEditorPage + RegisterSceneEditor)
 add_subdirectory(Code/Tools/Editor)        # RaptorEditor executable (editor assembly)
 add_subdirectory(Code/Tools/Cook)          # RaptorCook CLI cooker (headless)

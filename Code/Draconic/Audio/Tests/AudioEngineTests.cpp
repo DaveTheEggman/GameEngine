@@ -506,3 +506,35 @@ TEST_CASE("audio.engine: StopAll fades every voice out")
     CHECK_FALSE(engine.IsValidHandle(voiceA));
     CHECK_FALSE(engine.IsValidHandle(voiceB));
 }
+
+TEST_CASE("audio.waveform: peaks bucket the decoded signal; silence reads near zero")
+{
+    // Tone for the first half, silence for the second: front buckets sit near the tone
+    // amplitude (~0.49 after 16-bit quantization), back buckets near zero.
+    const u32 rate = 8000;
+    Array<i16> samples = MakeTone(0.5f, rate, 1);
+    const usize toneCount = samples.Size();
+    for (usize i = 0; i < toneCount; ++i) { samples.PushBack(0); }
+    Array<byte> wav;
+    REQUIRE(EncodeWavFromPcm16(Span<const i16>(samples.Data(), samples.Size()), 1, rate, wav));
+
+    Array<f32> peaks;
+    REQUIRE(BuildWaveformPeaks(Span<const byte>(wav.Data(), wav.Size()), 16, peaks));
+    REQUIRE(peaks.Size() == 16u);
+    for (usize i = 0; i < 7; ++i)    // tone half (skip the boundary bucket)
+    {
+        CHECK(peaks[i] > 0.4f);
+        CHECK(peaks[i] <= 1.0f);
+    }
+    for (usize i = 9; i < 16; ++i)   // silent half
+    {
+        CHECK(peaks[i] < 0.01f);
+    }
+
+    // Degenerate inputs refuse cleanly.
+    Array<f32> none;
+    CHECK_FALSE(BuildWaveformPeaks(Span<const byte>{}, 16, none));
+    CHECK_FALSE(BuildWaveformPeaks(Span<const byte>(wav.Data(), wav.Size()), 0, none));
+    const byte garbage[8] = {};
+    CHECK_FALSE(BuildWaveformPeaks(Span<const byte>(garbage, 8), 16, none));
+}
