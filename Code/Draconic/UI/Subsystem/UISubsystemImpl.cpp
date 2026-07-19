@@ -7,6 +7,8 @@ module;
 #include "Core/Log/Log.h"
 #include "Core/Reflection/Reflect.h"
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 
 module draconic.ui.subsystem;
 
@@ -530,7 +532,14 @@ namespace draconic::ui
                 if (c.root.Get() != nullptr)
                 {
                     c.root->Visibility = c.visible ? VisibilityValue::Visible : VisibilityValue::Gone;
-                    c.root->IsHitTestVisible = c.interactive;
+                    // Interactivity gates the SUBTREE; the stretched document root
+                    // itself stays hit-TRANSPARENT. The canvas root is the canvas's
+                    // screen AREA, not a widget - if it consumed hits, one full-screen
+                    // HUD would swallow the pointer everywhere (eating world panels
+                    // and gameplay clicks alike). Content that wants a clickable
+                    // backdrop uses an explicit full-size child.
+                    c.root->IsInteractionEnabled = c.interactive;
+                    c.root->IsHitTestVisible = false;
                 }
             });
             // Sweep hosts orphaned by component/entity destruction, then keep the
@@ -733,6 +742,7 @@ namespace draconic::ui
                 if (target == nullptr)
                 {
                     const bool centerAim = mouse->RelativeMode();
+                    const bool rayDebug = std::getenv("DRACONIC_UI_RAY_DEBUG") != nullptr;
                     f32 bestDistance = 0.0f;
                     for (SceneUI& sceneUI : m_sceneUIs)
                     {
@@ -754,6 +764,14 @@ namespace draconic::ui
                             ? Float2{ viewSize.x * 0.5f, viewSize.y * 0.5f } : point;
                         Float3 rayOrigin, rayDirection;
                         PointerRayFromCamera(camera, rayPoint, viewSize, rayOrigin, rayDirection);
+                        if (rayDebug)
+                        {
+                            std::fprintf(stderr,
+                                "[UIRAY] view=%.0fx%.0f point=(%.0f,%.0f) center=%d origin=(%.2f,%.2f,%.2f) dir=(%.2f,%.2f,%.2f)\n",
+                                viewSize.x, viewSize.y, rayPoint.x, rayPoint.y,
+                                centerAim ? 1 : 0, rayOrigin.x, rayOrigin.y, rayOrigin.z,
+                                rayDirection.x, rayDirection.y, rayDirection.z);
+                        }
                         panels->ForEach([&](UIWorldPanelComponent& c,
                                             dscene::EntityHandle e) {
                             if (!c.interactive || !c.visible) { return; }
@@ -761,6 +779,15 @@ namespace draconic::ui
                             const WorldPanelHit hit = RayHitWorldPanel(
                                 rayOrigin, rayDirection,
                                 sceneUI.scene->GetWorldMatrix(e), c.sizeMeters);
+                            if (rayDebug)
+                            {
+                                const Float4x4 w = sceneUI.scene->GetWorldMatrix(e);
+                                std::fprintf(stderr,
+                                    "[UIRAY]   panel at (%.2f,%.2f,%.2f) size=(%.1f,%.1f) hit=%d uv=(%.2f,%.2f) d=%.2f\n",
+                                    w.m[3][0], w.m[3][1], w.m[3][2], c.sizeMeters.x,
+                                    c.sizeMeters.y, hit.hit ? 1 : 0, hit.uv.x, hit.uv.y,
+                                    hit.distance);
+                            }
                             if (!hit.hit) { return; }
                             if (target != nullptr && hit.distance >= bestDistance) { return; }
                             target = c.renderRoot.Get();
@@ -786,6 +813,23 @@ namespace draconic::ui
                         break;
                     }
                 }
+            }
+            if (std::getenv("DRACONIC_UI_RAY_DEBUG") != nullptr)
+            {
+                const char* kind = "none";
+                if (target == m_screenRoot.Get()) { kind = overlayActive ? "screen(modal)" : "screen(hit)"; }
+                else if (target != nullptr)
+                {
+                    kind = "scene-or-panel";
+                    for (SceneUI& ui : m_sceneUIs)
+                    {
+                        if (target == ui.root.Get()) { kind = "scene-root"; break; }
+                    }
+                }
+                std::fprintf(stderr, "[UIRAY] frame target=%s mouse=%d pos=(%.0f,%.0f)\n",
+                             kind, mouse != nullptr ? 1 : 0,
+                             mouse != nullptr ? mouse->X() : -1.0f,
+                             mouse != nullptr ? mouse->Y() : -1.0f);
             }
             if (target == nullptr) { target = m_screenRoot.Get(); }
             if (target != nullptr) { m_context.SetActiveInputRoot(target); }
@@ -1073,7 +1117,12 @@ namespace draconic::ui
     // ring at most once per UI frame - same-frame overlay draws are never clobbered.
     void UISubsystem::RenderCanvasTextures(rhi::CommandEncoder& encoder, i32 frameIndex)
     {
-        constexpr rhi::TextureFormat kCanvasTextureFormat = rhi::TextureFormat::RGBA8Unorm;
+        // sRGB so the stored encoding matches the swapchain path: the VG shader emits
+        // linear, the hardware encodes on write and decodes on sample - the panel's
+        // sprite feeds the SAME linear values into the scene the HUD feeds the window.
+        // (A world panel still tone-maps with the scene afterwards - it's IN the world;
+        // that residual difference vs the post-tonemap HUD is by design.)
+        constexpr rhi::TextureFormat kCanvasTextureFormat = rhi::TextureFormat::RGBA8UnormSrgb;
         if (m_render.Get() == nullptr || m_render->device == nullptr) { return; }
         // At most ONCE per UI frame: several hosts share one runtime context in the
         // editor (the Game tab + every open scene page call this seam), and one call

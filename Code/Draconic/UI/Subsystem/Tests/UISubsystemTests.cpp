@@ -1245,3 +1245,74 @@ TEST_CASE("ui.worldpanel: the ray hits under an OBLIQUE camera (the playground p
     CHECK(hit.uv.x == doctest::Approx(0.5f).epsilon(0.01));
     CHECK(hit.uv.y == doctest::Approx(0.5f).epsilon(0.01));
 }
+
+TEST_CASE("ui.subsystem: a stretched full-screen canvas does NOT swallow the pointer "
+          "(world panels stay reachable - the kiosk regression)")
+{
+    // CanvasHostView stretches every document to the viewport; the doc root must stay
+    // hit-TRANSPARENT or one HUD eats the pointer everywhere: consumption reads true on
+    // empty space (crate clicks die) and the scene root outbids every world panel.
+    rt::Context ctx;
+    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
+    auto* input = ctx.AddSubsystem<draconic::input::InputSubsystem>(nullptr);
+    auto* ui = ctx.AddSubsystem<UISubsystem>();
+    ctx.Startup();
+    draconic::rhi::null::NullDevice device{ DefaultAllocator() };
+    ui->EnsureRenderReady(device, 2);
+    draconic::rhi::null::NullCommandEncoder encoder;
+    PointerFakeDevices devices;
+    input->SetSourceProvider(&devices);
+
+    dscene::Scene* scene = scenes->CreateScene(u8"world");
+    scene->AddSystem<draconic::render::CameraComponentManager>();
+    scene->AddSystem<draconic::render::SpriteComponentManager>();
+    dscene::EntityHandle cam = scene->CreateEntity(u8"cam");
+    scene->SetLocalPosition(cam, Float3{ 0.0f, 2.0f, 10.0f });
+    scene->GetSystem<draconic::render::CameraComponentManager>()->Add(cam);
+
+    // A PhysicsPlayground-style HUD: stretched root Flex, content in one corner.
+    dscene::EntityHandle hud = scene->CreateEntity(u8"hud");
+    scene->GetSystem<UICanvasComponentManager>()->Add(hud).document = MakeDocument(
+        u8"<Flex direction=\"vertical\" align=\"start\" padding=\"12\">"
+        u8"<Button id=\"hud-btn\" text=\"HUD\" width=\"180\" height=\"36\"/></Flex>");
+
+    // And a world panel mid-view.
+    dscene::EntityHandle kiosk = scene->CreateEntity(u8"kiosk");
+    scene->SetLocalPosition(kiosk, Float3{ 0.0f, 2.0f, 0.0f });
+    UIWorldPanelComponent& panel =
+        scene->GetSystem<UIWorldPanelComponentManager>()->Add(kiosk);
+    panel.document = MakeDocument(
+        u8"<FrameLayout><Button id=\"kiosk-btn\" text=\"Tap\" width=\"200\" height=\"100\"/></FrameLayout>");
+    panel.sizeMeters = Float2{ 2.0f, 1.0f };
+    panel.pixelsPerMeter = 100.0f;
+    scene->UpdateTransforms();
+
+    ctx.BeginFrame(1.0f / 60.0f);
+    ui->RenderCanvasTextures(encoder, 0);
+    RootView* sceneRoot = ui->SceneRoot(*scene);
+    sceneRoot->ViewportSize = Float2{ 800.0f, 600.0f };
+    ui->Context().UpdateRootView(sceneRoot);
+
+    // Pointer over the HUD button: the scene root wins, consumption reads true.
+    devices.mouse.x = 30.0f;
+    devices.mouse.y = 30.0f;
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(ui->Context().ActiveInputRoot() == sceneRoot);
+    CHECK(ui->PointerOverUI());
+
+    // Pointer at the view CENTER (empty HUD space, kiosk dead ahead): the panel is
+    // reachable THROUGH the stretched HUD, and the hit consumes the pointer.
+    devices.mouse.x = 400.0f;
+    devices.mouse.y = 300.0f;
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(ui->Context().ActiveInputRoot() == panel.renderRoot.Get());
+    CHECK(ui->PointerOverUI());
+
+    // Pointer over truly empty space (no panel behind): NOT consumed - gameplay
+    // clicks (crate shoves) pass through. The P3 host stretch had broken this.
+    panel.visible = false;
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK_FALSE(ui->PointerOverUI());
+
+    ctx.Shutdown();
+}
