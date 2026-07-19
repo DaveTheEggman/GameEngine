@@ -150,6 +150,11 @@ namespace draconic::audio
         builder.Method<&Audio::setBusMuted>("setBusMuted");
         builder.Method<&Audio::busMuted>("busMuted");
         builder.Method<&Audio::stopMusic>("stopMusic");
+        // Content-path playback (item 4): path = the editor's source-DB content path.
+        builder.Method<&Audio::playOneShot>("playOneShot");
+        builder.Method<&Audio::playOneShot3D>("playOneShot3D");
+        builder.Method<&Audio::playCue>("playCue");
+        builder.Method<&Audio::playMusic>("playMusic");
         builder.Constructor();   // Wren only materializes constructible foreign classes
     }
 

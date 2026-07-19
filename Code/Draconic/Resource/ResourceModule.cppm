@@ -179,6 +179,13 @@ export namespace draconic::resource
         explicit ResourceManager(draconic::content::IContentDatabase& database) noexcept
             : m_database(&database) {}
 
+        /// The backing content database (path-addressed lookups: script facades and
+        /// tooling resolve editor-visible content paths to instances, then Bind by id).
+        [[nodiscard]] draconic::content::IContentDatabase& Database() const noexcept
+        {
+            return *m_database;
+        }
+
         void AddFactory(IResourceFactory* factory)
         {
             if (factory != nullptr && factory->ProductType() != nullptr)

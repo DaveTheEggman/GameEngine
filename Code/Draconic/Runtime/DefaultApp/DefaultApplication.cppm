@@ -250,7 +250,8 @@ export namespace draconic::runtime
             }
             if (m_input != nullptr) { m_input->ExposeToScript(*m_scriptContext); }
             if (m_physics != nullptr) { m_physics->ExposeToScript(*m_scriptContext); }
-            if (m_audio != nullptr) { m_audio->ExposeToScript(*m_scriptContext); }
+            // Resources() enables the facade's content-path playback (playOneShot etc.).
+            if (m_audio != nullptr) { m_audio->ExposeToScript(*m_scriptContext, Resources()); }
             if (!m_scriptContext->Load(source, name).IsOk())
             {
                 DRACONIC_LOG_ERROR(u8"App", u8"game script '{}' failed to compile", name);
