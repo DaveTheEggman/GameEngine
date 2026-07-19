@@ -136,6 +136,8 @@ add_subdirectory(Code/Draconic/Physics)   # Jolt-backed rigid-body core (world/b
 add_subdirectory(Code/Draconic/Physics/Resource)  # cooked collision shapes + physical materials
 add_subdirectory(Code/Draconic/Physics/Editor)    # collision/material assets + builders (tooling)
 add_subdirectory(Code/Draconic/Audio)     # miniaudio-backed audio engine core (voices/buses/handles; ma_* never public)
+add_subdirectory(Code/Draconic/Audio/Resource)    # cooked audio clips + factory
+add_subdirectory(Code/Draconic/Audio/Editor)      # audio clip asset/builder/importer (tooling)
 add_subdirectory(Code/Draconic/Scene)     # scene / ECS foundation (entities, transforms, components, SceneSubsystem)
 add_subdirectory(Code/Draconic/Render/Api) # light scene-rendering interface (ISceneRenderer) - tools drive rendering w/o linking the renderer
 add_subdirectory(Code/Draconic/Render)    # renderer: scene->render extraction + (later) the GPU forward path
