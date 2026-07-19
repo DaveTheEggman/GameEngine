@@ -67,6 +67,8 @@ import draconic.physics.resource;
 import draconic.physics.subsystem;
 import draconic.input.resource;
 import draconic.input.subsystem;
+import draconic.ui.resource;    // UITheme (the manifest's default theme)
+import draconic.ui.subsystem;   // UISubsystem (IME target + default theme)
 import draconic.xml.serialization;
 import draconic.settings;
 import draconic.project;       // manifest + layout (runtime-side, editor-free)
@@ -146,6 +148,14 @@ namespace
             // (product types registered there too - runtime-host.md v3 infra preset).
             SetContentDatabase(m_contentDb.Get());
             rt::DefaultApplication::OnStartup(host);
+
+            // Game-UI IME lifecycle: the player owns its window, so the UI subsystem
+            // drives StartTextInput/StopTextInput on it as game EditText focus moves.
+            // (The editor leaves this null - its UIHost bridge owns the IME there.)
+            if (UI() != nullptr && host.Shell() != nullptr)
+            {
+                UI()->SetTextInputTarget(host.Shell()->MainWindow());
+            }
         }
 
         void OnLaunch(rt::IApplicationHost& host) override
@@ -267,6 +277,23 @@ namespace
                             DRACONIC_LOG_INFO(u8"Player", u8"user audio settings applied");
                         }
                     }
+                }
+            }
+
+            // The project's default UI theme: cooked UITheme -> the game context's
+            // stylesheet (nil/unresolved = the built-in GameTheme stays).
+            if (UI() != nullptr && !m_settings.defaultUiThemeId.IsNil())
+            {
+                auto themeProxy = Resources()->Bind<draconic::ui::UITheme>(
+                    m_settings.defaultUiThemeId);
+                if (themeProxy)
+                {
+                    UI()->SetDefaultTheme(themeProxy.Get());
+                    DRACONIC_LOG_INFO(u8"Player", u8"default UI theme bound");
+                }
+                else
+                {
+                    DRACONIC_LOG_WARNING(u8"Player", u8"default UI theme did not resolve");
                 }
             }
 

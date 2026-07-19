@@ -291,6 +291,12 @@ export namespace draconic::runtime
             }
 
             const rhi::TextureFormat colorFormat = frame.window->Swap()->Format();
+            // RenderTexture canvases draw BEFORE the scene so materials sampling them
+            // see this frame's UI (the RenderCanvasTextures host seam).
+            if (m_ui != nullptr)
+            {
+                m_ui->RenderCanvasTextures(*frame.encoder, static_cast<core::i32>(frame.frameIndex));
+            }
             render->BeginRendering(*frame.encoder, frame.frameIndex);
             for (draconic::scene::Scene* scene : scenes->ActiveScenes())
             {

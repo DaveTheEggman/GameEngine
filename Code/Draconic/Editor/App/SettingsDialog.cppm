@@ -160,6 +160,43 @@ export namespace draconic::editor::app
                 }
             }
 
+            // Default UI theme: the cooked UITheme the game UI defaults to (player and
+            // embedded runtime alike); nil = the built-in GameTheme.
+            {
+                ui::FlexLayout* row = AddRow(*column, u8"Default UI theme");
+                m_uiThemeLabel = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"(built-in)"));
+                {
+                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    lp->Grow = 1.0f;
+                    lp->AlignSelf = ui::Align::Center;
+                    row->AddView(m_uiThemeLabel.Get(), lp);
+                }
+                auto pick = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Pick..."));
+                {
+                    ProjectSettingsDialog* self = this;
+                    pick->OnClick.Add([self](ui::ButtonBase*) { self->PickUiTheme(); });
+                    row->AddView(pick.Get());
+                }
+                auto clear = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Clear"));
+                {
+                    ProjectSettingsDialog* self = this;
+                    clear->OnClick.Add([self](ui::ButtonBase*) {
+                        self->m_uiThemeId = Guid{};
+                        self->m_uiThemeLabel->SetText(u8"(built-in)");
+                    });
+                    row->AddView(clear.Get());
+                }
+                if (project != nullptr)
+                {
+                    m_uiThemeId = project->Settings().defaultUiThemeId;
+                    if (content::Instance* theme = !m_uiThemeId.IsNil()
+                            ? project->SourceDb().GetInstance(m_uiThemeId) : nullptr)
+                    {
+                        m_uiThemeLabel->SetText(theme->Path().AsView());
+                    }
+                }
+            }
+
             // Engine stamp - informational; re-stamped by every save.
             {
                 ui::FlexLayout* row = AddRow(*column, u8"Engine version");
@@ -259,6 +296,28 @@ export namespace draconic::editor::app
             picker->Show(Context);
         }
 
+        void PickUiTheme()
+        {
+            if (Context == nullptr) { return; }
+            Array<String> typeNames;
+            typeNames.PushBack(String(u8"UIThemeAsset"));
+            auto picker = MakeRef<AssetPickerDialog>(DefaultAllocator(), *m_context, Move(typeNames));
+            ProjectSettingsDialog* self = this;
+            picker->OnPicked = [self](const Guid& id) {
+                self->m_uiThemeId = id;
+                if (content::Instance* theme = !id.IsNil() && self->m_context->Project() != nullptr
+                        ? self->m_context->Project()->SourceDb().GetInstance(id) : nullptr)
+                {
+                    self->m_uiThemeLabel->SetText(theme->Path().AsView());
+                }
+                else
+                {
+                    self->m_uiThemeLabel->SetText(u8"(built-in)");
+                }
+            };
+            picker->Show(Context);
+        }
+
         void PickScene()
         {
             if (Context == nullptr) { return; }
@@ -294,6 +353,7 @@ export namespace draconic::editor::app
             project->Settings().defaultSceneId = m_sceneId;
             project->Settings().defaultInputMapId = m_inputMapId;
             project->Settings().defaultBusLayoutId = m_busLayoutId;
+            project->Settings().defaultUiThemeId = m_uiThemeId;
             project->Settings().defaultScene = String();
             if (content::Instance* scene = !m_sceneId.IsNil()
                     ? project->SourceDb().GetInstance(m_sceneId) : nullptr)
@@ -321,6 +381,8 @@ export namespace draconic::editor::app
         Guid m_busLayoutId{};
         RefPtr<ui::Label> m_inputMapLabel;
         RefPtr<ui::Label> m_busLayoutLabel;
+        Guid m_uiThemeId{};
+        RefPtr<ui::Label> m_uiThemeLabel;
         ui::EditText* m_nameEdit = nullptr;
         ui::EditText* m_scriptEdit = nullptr;
         RefPtr<ui::Label> m_sceneLabel;

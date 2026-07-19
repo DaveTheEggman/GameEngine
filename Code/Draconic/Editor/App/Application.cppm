@@ -23,6 +23,8 @@ import draconic.fonts.ttf;
 import draconic.runtime;
 import draconic.runtime.client;
 import draconic.runtime.defaultapp;   // the embedded game application (v3)
+import draconic.ui.resource;          // UITheme (the manifest's default game-UI theme)
+import draconic.ui.subsystem;         // UISubsystem (SetDefaultTheme)
 import draconic.render.api;
 import draconic.ui;
 import draconic.ui.toolkit;
@@ -230,6 +232,20 @@ export namespace draconic::editor::app
             m_embeddedApp->Configure(*m_embeddedHost);
             m_runtimeContext.Startup();
             m_embeddedApp->OnStartup(*m_embeddedHost);
+            // Project-default UI theme (game-ui.md P3): the same manifest reference the
+            // player honors at startup, applied to the embedded runtime's game UI so
+            // Simulate/Game-tab/previews style like the shipped game.
+            if (m_project && m_resources && m_embeddedApp->UI() != nullptr)
+            {
+                const Guid themeId = m_project->Settings().defaultUiThemeId;
+                if (!themeId.IsNil())
+                {
+                    if (auto themeProxy = m_resources->Bind<draconic::ui::UITheme>(themeId))
+                    {
+                        m_embeddedApp->UI()->SetDefaultTheme(themeProxy.Get());
+                    }
+                }
+            }
 
             // Per-subsystem editor plugins register here (page factories, creators, ...), and
             // the exe injects the engine interfaces the app drives (SetSceneRenderer). They

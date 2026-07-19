@@ -12,6 +12,7 @@ target_link_libraries(RaptorPlayer PRIVATE
     Draconic::ModelResource
     Draconic::Script Draconic::ScriptWren
     Draconic::Input Draconic::InputResource Draconic::InputSubsystem
+    Draconic::UIResource Draconic::UISubsystem
     Draconic::Physics Draconic::PhysicsResource Draconic::PhysicsSubsystem
     Draconic::Project Draconic::VFSPak Draconic::Content Draconic::VFS Draconic::XmlSerialization)
 
