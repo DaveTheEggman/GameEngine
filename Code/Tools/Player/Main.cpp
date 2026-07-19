@@ -64,6 +64,8 @@ import draconic.physics.resource;
 import draconic.physics.subsystem;
 import draconic.input.resource;
 import draconic.input.subsystem;
+import draconic.ui.resource;    // UITheme (the manifest's default theme)
+import draconic.ui.subsystem;   // UISubsystem (IME target + default theme)
 import draconic.xml.serialization;
 import draconic.project;       // manifest + layout (runtime-side, editor-free)
 import draconic.vfs.pak;       // dist mode: one Content.pak holds products + scenes + scripts
@@ -228,6 +230,23 @@ namespace
                 else
                 {
                     DRACONIC_LOG_WARNING(u8"Player", u8"default input map did not resolve");
+                }
+            }
+
+            // The project's default UI theme: cooked UITheme -> the game context's
+            // stylesheet (nil/unresolved = the built-in GameTheme stays).
+            if (UI() != nullptr && !m_settings.defaultUiThemeId.IsNil())
+            {
+                auto themeProxy = Resources()->Bind<draconic::ui::UITheme>(
+                    m_settings.defaultUiThemeId);
+                if (themeProxy)
+                {
+                    UI()->SetDefaultTheme(themeProxy.Get());
+                    DRACONIC_LOG_INFO(u8"Player", u8"default UI theme bound");
+                }
+                else
+                {
+                    DRACONIC_LOG_WARNING(u8"Player", u8"default UI theme did not resolve");
                 }
             }
 

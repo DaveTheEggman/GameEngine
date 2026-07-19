@@ -14,6 +14,7 @@ import draconic.core;
 import :style_sheet;
 import :theme_palette;
 import :dark_theme;
+import :light_theme;
 
 using namespace draconic::core;
 
@@ -30,5 +31,20 @@ export namespace draconic::ui
             return p;
         }
         [[nodiscard]] static RefPtr<StyleSheet> Create() { return DarkTheme::Create(Palette()); }
+    };
+
+    // The built-in LIGHT variant (game-ui.md P3 theme variations): the LightTheme shape
+    // with the same teal game accent - for games whose UI sits on bright scenes/menus.
+    // Swap per context (UISubsystem's Context().SetStyleSheet(GameLightTheme::Create()))
+    // or ship a cooked UITheme asset for full control.
+    struct GameLightTheme
+    {
+        [[nodiscard]] static ThemePalette Palette() noexcept
+        {
+            ThemePalette p = ThemePalette::Light();
+            p.PrimaryAccent = Color{ 22.0f / 255.0f, 142.0f / 255.0f, 134.0f / 255.0f, 1.0f };
+            return p;
+        }
+        [[nodiscard]] static RefPtr<StyleSheet> Create() { return LightTheme::Create(Palette()); }
     };
 }

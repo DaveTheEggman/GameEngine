@@ -730,3 +730,35 @@ TEST_CASE("ui.subsystem: RenderTexture canvases own an offscreen target and stay
 
     ctx.Shutdown();
 }
+
+TEST_CASE("ui.subsystem: the project-default theme swaps the context stylesheet (GameTheme fallback)")
+{
+    rt::Context ctx;
+    ctx.AddSubsystem<dscene::SceneSubsystem>();
+    auto* ui = ctx.AddSubsystem<UISubsystem>();
+    ctx.Startup();
+
+    StyleSheet* builtin = ui->Context().GetStyleSheet();
+    REQUIRE(builtin != nullptr);   // the built-in GameTheme ships by default
+
+    // A cooked UITheme (validated .sss text) replaces the context stylesheet.
+    UITheme theme;
+    theme.stylesheet = String(u8"Button { text-color: #ff0000; }");
+    ui->SetDefaultTheme(&theme);
+    StyleSheet* custom = ui->Context().GetStyleSheet();
+    REQUIRE(custom != nullptr);
+    CHECK(custom != builtin);
+
+    // Null (nil manifest reference / cleared) restores the built-in GameTheme.
+    ui->SetDefaultTheme(nullptr);
+    StyleSheet* restored = ui->Context().GetStyleSheet();
+    REQUIRE(restored != nullptr);
+    CHECK(restored != custom);
+
+    // The built-in LIGHT variant exists alongside GameTheme and differs in palette.
+    RefPtr<StyleSheet> light = GameLightTheme::Create();
+    CHECK(light.Get() != nullptr);
+    CHECK(GameLightTheme::Palette().Background.r != doctest::Approx(GameTheme::Palette().Background.r));
+
+    ctx.Shutdown();
+}

@@ -11,6 +11,7 @@ target_link_libraries(DraconicEditorApp
         Draconic::RenderApi
         Draconic::Fonts Draconic::FontsTTF
         Draconic::UI Draconic::UIToolkit Draconic::UIRuntime Draconic::UIApplication
+        Draconic::UIResource Draconic::UISubsystem
         Draconic::EditorCore Draconic::Settings Draconic::Policy)
 
 target_sources(DraconicEditorApp

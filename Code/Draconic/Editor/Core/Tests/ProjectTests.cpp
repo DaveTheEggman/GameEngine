@@ -150,6 +150,10 @@ TEST_CASE("editor-project: settings changes persist through SaveSettings")
         REQUIRE(static_cast<bool>(project));
         REQUIRE(Guid::TryParse(u8"6ba7b810-9dad-11d1-80b4-00c04fd430c8",
                                project->Settings().defaultSceneId));
+        REQUIRE(Guid::TryParse(u8"6ba7b811-9dad-11d1-80b4-00c04fd430c8",
+                               project->Settings().defaultUiThemeId));
+        REQUIRE(Guid::TryParse(u8"6ba7b812-9dad-11d1-80b4-00c04fd430c8",
+                               project->Settings().defaultInputMapId));
         project->Settings().defaultScene = String(u8"scenes/main");
         savedId = project->Settings().defaultSceneId;
         CHECK(project->SaveSettings().IsOk());
@@ -159,6 +163,13 @@ TEST_CASE("editor-project: settings changes persist through SaveSettings")
         REQUIRE(static_cast<bool>(project));
         CHECK(project->Settings().defaultScene == u8"scenes/main");
         CHECK(project->Settings().defaultSceneId == savedId);   // guid is authoritative
+        Guid themeId;
+        REQUIRE(Guid::TryParse(u8"6ba7b811-9dad-11d1-80b4-00c04fd430c8", themeId));
+        CHECK(project->Settings().defaultUiThemeId == themeId);   // v5 field round-trips
+        Guid mapId;
+        REQUIRE(Guid::TryParse(u8"6ba7b812-9dad-11d1-80b4-00c04fd430c8", mapId));
+        // Open's per-field settings move used to DROP defaultInputMapId (silent data loss).
+        CHECK(project->Settings().defaultInputMapId == mapId);
     }
 
     RemoveProjectTree(dir);

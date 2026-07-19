@@ -993,6 +993,24 @@ namespace draconic::ui
         DrawRootInto(root, encoder, target, format, width, height, frameIndex);
     }
 
+    void UISubsystem::SetDefaultTheme(const UITheme* theme)
+    {
+        RefPtr<StyleSheet> sheet;
+        if (theme != nullptr && !theme->stylesheet.IsEmpty())
+        {
+            StyleSheetLoader loader;
+            loader.SetPalette(GameTheme::Palette());
+            sheet = loader.Load(theme->stylesheet.AsView());
+            if (sheet.Get() == nullptr)
+            {
+                DRACONIC_LOG_WARNING(u8"UI",
+                    u8"default UI theme failed to parse - keeping the built-in GameTheme");
+            }
+        }
+        m_theme = sheet.Get() != nullptr ? sheet : GameTheme::Create();
+        m_context.SetStyleSheet(m_theme);
+    }
+
     // Device/shader bring-up, called once by the application layer that owns graphics.
     void UISubsystem::EnsureRenderReady(rhi::Device& device, i32 frameCount)
     {

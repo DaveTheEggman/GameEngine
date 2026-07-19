@@ -159,6 +159,8 @@ export namespace draconic::editor
             m_settings.defaultScene  = Move(settings.defaultScene);
             m_settings.startupScript = Move(settings.startupScript);
             m_settings.nativeModule  = Move(settings.nativeModule);
+            m_settings.defaultInputMapId = settings.defaultInputMapId;   // was MISSING: Open dropped it
+            m_settings.defaultUiThemeId  = settings.defaultUiThemeId;
         }
 
     private:

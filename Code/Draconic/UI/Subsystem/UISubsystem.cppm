@@ -207,6 +207,12 @@ export namespace draconic::ui
         }
 
         [[nodiscard]] UIContext& Context() noexcept { return m_context; }
+
+        /// The project-default UITheme (cooked .sss): parsed with the game palette and
+        /// set as the context's stylesheet. Null / empty / parse failure falls back to
+        /// the built-in GameTheme. Hosts call it at startup from the project manifest's
+        /// defaultUiThemeId (player + editor); per-canvas theme overrides layer on top.
+        void SetDefaultTheme(const UITheme* theme);
         /// The scene-LESS screen tier's root (global overlays only; scene UI lives in
         /// per-scene roots - see SceneRoot).
         [[nodiscard]] RootView* ScreenRoot() noexcept { return m_screenRoot.Get(); }
