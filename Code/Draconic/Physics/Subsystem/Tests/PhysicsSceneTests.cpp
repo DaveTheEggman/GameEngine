@@ -477,3 +477,60 @@ TEST_CASE("physics.scene: the character component walks, jumps, and lands (inter
     CHECK(character.ground == CharacterGround::OnGround); // landed
     CHECK(play.scene.GetWorldPosition(hero).y == doctest::Approx(0.9f).epsilon(0.03));
 }
+
+// ---- the editor Simulate cycle (regression: stop hung + OOMed the editor) ----
+// Capture -> Start -> frames -> Stop -> Restore -> frames, twice, on the real
+// subsystem stack (SceneSubsystem drives per-scene fixed stepping like the editor).
+
+import draconic.runtime;
+import draconic.scene.subsystem;
+import draconic.scene.resource;
+
+TEST_CASE("physics.scene: the editor simulate cycle (capture/start/stop/restore) terminates")
+{
+    namespace rt = draconic::runtime;
+    rt::Context ctx;
+    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
+    ctx.AddSubsystem<PhysicsSubsystem>();
+    ctx.Startup();
+
+    dscene::Scene* scene = scenes->CreateScene(u8"level");
+    {
+        dscene::EntityHandle floor = scene->CreateEntity(u8"floor");
+        scene->SetLocalPosition(floor, Float3{ 0.0f, -0.5f, 0.0f });
+        auto& body = scene->GetSystem<RigidBodyComponentManager>()->Add(floor);
+        body.motion = MotionKind::Static;
+        body.layer = PhysicsLayer::Static;
+        body.halfExtents = Float3{ 50.0f, 0.5f, 50.0f };
+    }
+    for (int i = 0; i < 8; ++i)
+    {
+        dscene::EntityHandle box = scene->CreateEntity(u8"box");
+        scene->SetLocalPosition(box, Float3{ static_cast<f32>(i) * 0.5f, 3.0f + static_cast<f32>(i), 0.0f });
+        auto& body = scene->GetSystem<RigidBodyComponentManager>()->Add(box);
+        body.motion = MotionKind::Dynamic;
+        body.layer = PhysicsLayer::Dynamic;
+    }
+    scene->UpdateTransforms();
+
+    for (int cycle = 0; cycle < 2; ++cycle)
+    {
+        MESSAGE("cycle ", cycle, ": capture");
+        auto snapshot = dscene::SceneSnapshot::Capture(*scene);
+        REQUIRE(snapshot);
+        MESSAGE("cycle ", cycle, ": start");
+        scene->Start();
+        scene->SetSimulationEnabled(true);
+        MESSAGE("cycle ", cycle, ": simulate");
+        for (int f = 0; f < 120; ++f) { ctx.BeginFrame(1.0f / 60.0f); }
+        MESSAGE("cycle ", cycle, ": stop");
+        scene->Stop();
+        MESSAGE("cycle ", cycle, ": restore");
+        CHECK(snapshot->Restore(*scene, nullptr).IsOk());
+        scene->SetSimulationEnabled(false);
+        MESSAGE("cycle ", cycle, ": post-stop frames");
+        for (int f = 0; f < 60; ++f) { ctx.BeginFrame(1.0f / 60.0f); }
+    }
+
+    ctx.Shutdown();
+}

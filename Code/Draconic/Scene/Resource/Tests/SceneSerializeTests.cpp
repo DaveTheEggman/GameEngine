@@ -1624,3 +1624,53 @@ TEST_CASE("scene v2: unknown component and settings records SKIP instead of abor
     CHECK(b.EntityCount() == 1u);
     CHECK(b.FindEntity(a.GetEntityId(hero)).IsAssigned());
 }
+
+TEST_CASE("scene-snapshot: a scene WITH a prefab instance restores aligned (Simulate-stop hang regression)")
+{
+    // The writer emits owner/nestedSrcRoot unconditionally in the Expanded section; the
+    // reader used to gate them on a Referenced-only flag, so any snapshot of a scene
+    // holding a prefab instance misaligned on restore - the next count read was garbage
+    // in the billions and the member loop allocated until the OS killed the editor.
+    Scene scene(u8"level");
+    EntityHandle root = scene.CreateEntity(u8"outer-root");
+    EntityHandle member = scene.CreateEntity(u8"outer-member");
+    scene.SetParent(member, root);
+
+    auto state = MakeUnique<Scene::PrefabInstanceState>(DefaultAllocator());
+    const Guid rootId = scene.GetEntityId(root);
+    state->prefabId = Guid{ 0xAA, 0x01 };
+    state->rootEntityId = rootId;
+    state->ownerRootEntityId = Guid{ 0xBB, 0x02 };     // the nesting links the reader skipped
+    state->nestedRootSourceId = Guid{ 0xCC, 0x03 };
+    state->sourceIds.PushBack(Guid{ 0xDD, 0x04 });
+    state->liveIds.PushBack(scene.GetEntityId(member));
+    state->baselineTransforms.PushBack(Transform{});
+    Scene::PrefabComponentBaseline baseline;
+    baseline.sourceEntity = Guid{ 0xDD, 0x04 };
+    baseline.typeId = String(u8"test.Health");
+    baseline.blob.PushBack(42);
+    state->componentBaselines.PushBack(static_cast<Scene::PrefabComponentBaseline&&>(baseline));
+    scene.AddPrefabInstance(static_cast<UniquePtr<Scene::PrefabInstanceState>&&>(state));
+
+    UniquePtr<SceneSnapshot> snapshot = SceneSnapshot::Capture(scene);
+    REQUIRE(snapshot);
+    REQUIRE(snapshot->Restore(scene).IsOk());   // used to spin here allocating gigabytes
+
+    // The instance state round-tripped verbatim - including the nesting links.
+    Scene::PrefabInstanceState* restored = scene.FindPrefabInstanceByRoot(rootId);
+    REQUIRE(restored != nullptr);
+    CHECK(restored->prefabId == Guid{ 0xAA, 0x01 });
+    CHECK(restored->ownerRootEntityId == Guid{ 0xBB, 0x02 });
+    CHECK(restored->nestedRootSourceId == Guid{ 0xCC, 0x03 });
+    REQUIRE(restored->sourceIds.Size() == 1u);
+    CHECK(restored->sourceIds[0] == Guid{ 0xDD, 0x04 });
+    REQUIRE(restored->componentBaselines.Size() == 1u);
+    CHECK(restored->componentBaselines[0].typeId.AsView() == u8"test.Health");
+    REQUIRE(restored->componentBaselines[0].blob.Size() == 1u);
+    CHECK(restored->componentBaselines[0].blob[0] == 42);
+
+    // Second cycle (the user's repro was play/stop repeatedly): still aligned.
+    UniquePtr<SceneSnapshot> second = SceneSnapshot::Capture(scene);
+    REQUIRE(second);
+    REQUIRE(second->Restore(scene).IsOk());
+}

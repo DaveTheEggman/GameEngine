@@ -1015,17 +1015,27 @@ inline void SerializeScene(ISerializer& ar, Scene& scene, IStream* legacyProbe =
                 ar.EndArray();
             });
         } else {
+            // The nesting links are gated by the EXPANDED section's own mode (the writer
+            // above emits them unconditionally = kPrefabWireExpanded2), NOT wireNested
+            // (a Referenced3-only flag, always false here). Gating on wireNested skipped
+            // 32 bytes the writer produced, misaligning every restore of a scene with a
+            // prefab instance: the next count read was mid-guid garbage in the billions
+            // and the member loop allocated until the OS killed the editor (the Simulate
+            // stop hang). Old kPrefabWireExpanded(1) streams still read the short form.
+            const bool expandedNested = sectionMode == detail::kPrefabWireExpanded2;
+            if (instanceCount > detail::kMaxPrefabRecordEntries) { return; }   // misparse guard
             for (u32 n = 0; n < instanceCount; ++n) {
                 auto state = MakeUnique<Scene::PrefabInstanceState>(DefaultAllocator());
                 detail::SerializeGuid(ar, "prefab", state->prefabId);
                 detail::SerializeGuid(ar, "root", state->rootEntityId);
-                if (wireNested) {
+                if (expandedNested) {
                     detail::SerializeGuid(ar, "owner", state->ownerRootEntityId);
                     detail::SerializeGuid(ar, "nestedSrcRoot", state->nestedRootSourceId);
                 }
                 u32 memberCount = 0;
                 ar.Key("members");
                 ar.BeginArray(memberCount);
+                if (memberCount > detail::kMaxPrefabRecordEntries) { return; }   // misparse guard
                 for (u32 i = 0; i < memberCount; ++i) {
                     Guid src, live; Transform t;
                     detail::SerializeGuid(ar, "src", src);
@@ -1039,6 +1049,7 @@ inline void SerializeScene(ISerializer& ar, Scene& scene, IStream* legacyProbe =
                 u32 baselineCount = 0;
                 ar.Key("baselines");
                 ar.BeginArray(baselineCount);
+                if (baselineCount > detail::kMaxPrefabRecordEntries) { return; }   // misparse guard
                 for (u32 i = 0; i < baselineCount; ++i) {
                     Scene::PrefabComponentBaseline b;
                     detail::SerializeGuid(ar, "src", b.sourceEntity);
