@@ -325,3 +325,26 @@ TEST_CASE("wren: a script object outlives the local context reference")
     }
     CHECK(obj->Invoke(u8"ping", Span<Variant>{}).Value().Get<f64>() == 42.0);
 }
+
+#include "../../Tests/BackendConformance.h"
+
+TEST_CASE("wren: CERTIFIED - the backend conformance battery (scripting.md B2)")
+{
+    draconic::script::conformance::Dialect dialect;
+    dialect.languageId = u8"wren";
+    dialect.functionsModule =
+        u8"var answer = 42\n"
+        u8"var add = Fn.new {|a, b| a + b }\n"
+        u8"var greeting = Fn.new { \"hi\" }\n";
+    dialect.counterClass =
+        u8"class Counter {\n"
+        u8"  construct new(n) { _n = n }\n"
+        u8"  increment() { _n = _n + 1 }\n"
+        u8"  value() { _n }\n"
+        u8"}\n";
+    dialect.compileBroken = u8"var = = = @#$";
+    dialect.runtimeFault = u8"Fiber.abort(\"conformance fault\")";
+
+    draconic::script::conformance::RunScriptBackendConformance(
+        []() { return draconic::script::wren::CreateScriptManager(); }, dialect);
+}
