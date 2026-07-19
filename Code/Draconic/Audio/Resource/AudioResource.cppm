@@ -162,6 +162,9 @@ export namespace draconic::audio
                     draconic::core::Serialize(ar, "frequencyHz", effect.frequencyHz);
                     draconic::core::Serialize(ar, "delaySeconds", effect.delaySeconds);
                     draconic::core::Serialize(ar, "delayDecay", effect.delayDecay);
+                    draconic::core::Serialize(ar, "roomSize", effect.roomSize);
+                    draconic::core::Serialize(ar, "damping", effect.damping);
+                    draconic::core::Serialize(ar, "wetLevel", effect.wetLevel);
                 }
             }
         }

@@ -110,6 +110,37 @@ export namespace draconic::audio
         draconic::core::Serialize(ar, "isActive", c.isActive);
     }
 
+    // ---- reverb zones (P3): environmental reverb follows the LISTENER ----
+    // A sphere volume; when the scene's listener is inside, the scene's Effects tier
+    // reverberates - wet fades in across the edge band, the WETTEST zone wins.
+    struct AudioReverbZoneComponent
+    {
+        f32 radius = 8.0f;
+        f32 edgeFade = 0.25f;      // fraction of the radius that fades wet 0 -> full
+        f32 roomSize = 0.6f;
+        f32 damping = 0.4f;
+        f32 wetLevel = 0.5f;
+        bool enabled = true;
+    };
+
+    inline void Serialize(ISerializer& ar, AudioReverbZoneComponent& c)
+    {
+        draconic::core::Serialize(ar, "radius", c.radius);
+        draconic::core::Serialize(ar, "edgeFade", c.edgeFade);
+        draconic::core::Serialize(ar, "roomSize", c.roomSize);
+        draconic::core::Serialize(ar, "damping", c.damping);
+        draconic::core::Serialize(ar, "wetLevel", c.wetLevel);
+        draconic::core::Serialize(ar, "enabled", c.enabled);
+    }
+
+    class AudioReverbZoneComponentManager final
+        : public draconic::scene::SerializableComponentManager<AudioReverbZoneComponent>
+    {
+    public:
+        AudioReverbZoneComponentManager()
+            : SerializableComponentManager<AudioReverbZoneComponent>(u8"audio.ReverbZone") {}
+    };
+
     class AudioListenerComponentManager final
         : public draconic::scene::SerializableComponentManager<AudioListenerComponent>
     {

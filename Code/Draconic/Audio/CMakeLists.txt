@@ -16,7 +16,8 @@ target_sources(DraconicAudio
             AudioModule.cppm
             Clip.cppm
             Cue.cppm
-            Engine.cppm)
+            Engine.cppm
+            Reverb.cppm)
 
 # stb_vorbis.c is included from ThirdParty/stb (no INTERFACE target carries that dir for
 # sources; add it directly for the implementation TU).

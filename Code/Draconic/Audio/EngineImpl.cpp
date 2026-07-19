@@ -88,6 +88,68 @@ namespace draconic::audio
             std::snprintf(buffer, size, "%s%016llx", prefix,
                           static_cast<unsigned long long>(reinterpret_cast<uptr>(key)));
         }
+
+        // ---- the Freeverb ma_node wrapper (P3): pure DSP lives in :reverb ----
+        // CONTINUOUS processing so the tail keeps ringing after inputs stop.
+        struct ReverbNode
+        {
+            ma_node_base base;   // FIRST: a ReverbNode* is a valid ma_node*
+            FreeverbState* state = nullptr;
+            u32 channels = 0;
+        };
+
+        void ReverbNodeProcess(ma_node* node, const float** framesIn, ma_uint32* frameCountIn,
+                               float** framesOut, ma_uint32* frameCountOut)
+        {
+            auto* reverb = reinterpret_cast<ReverbNode*>(node);
+            const ma_uint32 frames = *frameCountOut < *frameCountIn ? *frameCountOut
+                                                                    : *frameCountIn;
+            if (reverb->channels == 2 && reverb->state != nullptr)
+            {
+                reverb->state->ProcessStereo(framesIn[0], framesOut[0], frames);
+            }
+            else
+            {
+                std::memcpy(framesOut[0], framesIn[0],
+                            static_cast<usize>(frames) * reverb->channels * sizeof(float));
+            }
+            *frameCountIn = frames;
+            *frameCountOut = frames;
+        }
+
+        ma_node_vtable g_reverbNodeVtable = { ReverbNodeProcess, nullptr, 1, 1,
+                                              MA_NODE_FLAG_CONTINUOUS_PROCESSING };
+
+        [[nodiscard]] ReverbNode* CreateReverbNode(ma_engine& engine,
+                                                   const AudioReverbParams& params)
+        {
+            auto* node = DefaultAllocator().New<ReverbNode>();
+            node->channels = ma_engine_get_channels(&engine);
+            node->state = DefaultAllocator().New<FreeverbState>();
+            node->state->Initialize(ma_engine_get_sample_rate(&engine));
+            node->state->SetParams(params);
+            const ma_uint32 channels[1] = { node->channels };
+            ma_node_config config = ma_node_config_init();
+            config.vtable = &g_reverbNodeVtable;
+            config.pInputChannels = channels;
+            config.pOutputChannels = channels;
+            if (ma_node_init(ma_engine_get_node_graph(&engine), &config, nullptr,
+                             &node->base) != MA_SUCCESS)
+            {
+                DefaultAllocator().Delete(node->state);
+                DefaultAllocator().Delete(node);
+                return nullptr;
+            }
+            return node;
+        }
+
+        void DestroyReverbNode(ReverbNode* node)
+        {
+            if (node == nullptr) { return; }
+            ma_node_uninit(&node->base, nullptr);
+            DefaultAllocator().Delete(node->state);
+            DefaultAllocator().Delete(node);
+        }
     }
 
     struct VoiceSlot
@@ -120,6 +182,8 @@ namespace draconic::audio
         ma_sound_group group[static_cast<usize>(AudioBus::Count)]{};
         bool initialized[static_cast<usize>(AudioBus::Count)] = {};
         bool paused = false;
+        ReverbNode* reverb = nullptr;   // zone reverb on the Effects child group
+        f32 reverbWet = 0.0f;
     };
 
     struct AudioEngine::Impl
@@ -324,6 +388,9 @@ namespace draconic::audio
                         ma_delay_node_uninit(static_cast<ma_delay_node*>(effect.node), nullptr);
                         DefaultAllocator().Delete(static_cast<ma_delay_node*>(effect.node));
                         break;
+                    case AudioBusEffectKind::Reverb:
+                        DestroyReverbNode(static_cast<ReverbNode*>(effect.node));
+                        break;
                     case AudioBusEffectKind::None: break;
                 }
             }
@@ -385,6 +452,17 @@ namespace draconic::audio
                             DefaultAllocator().Delete(node);
                             continue;
                         }
+                        effect.node = node;
+                        break;
+                    }
+                    case AudioBusEffectKind::Reverb:
+                    {
+                        AudioReverbParams params;
+                        params.roomSize = desc.roomSize;
+                        params.damping = desc.damping;
+                        params.wet = desc.wetLevel;
+                        ReverbNode* node = CreateReverbNode(engine, params);
+                        if (node == nullptr) { continue; }
                         effect.node = node;
                         break;
                     }
@@ -700,6 +778,7 @@ namespace draconic::audio
                     ReleaseSlot(slot);
                 }
             }
+            DestroyReverbNode((*data)->reverb);
             for (usize bus = 0; bus < static_cast<usize>(AudioBus::Count); ++bus)
             {
                 if ((*data)->initialized[bus]) { ma_sound_group_uninit(&(*data)->group[bus]); }
@@ -1236,6 +1315,47 @@ namespace draconic::audio
     {
         SceneGroupData** data = m_impl->sceneGroups.Find(sceneGroup);
         return data != nullptr && (*data)->paused;
+    }
+
+    void AudioEngine::SetSceneReverb(u64 sceneGroup, const AudioReverbParams& params)
+    {
+        Impl& impl = *m_impl;
+        SceneGroupData** found = impl.sceneGroups.Find(sceneGroup);
+        if (found == nullptr) { return; }
+        SceneGroupData& data = **found;
+        if (data.reverb == nullptr)
+        {
+            if (params.wet <= 0.0f) { data.reverbWet = 0.0f; return; }   // nothing to build
+            // Splice on the scene's Effects child group: group -> reverb -> Effects bus.
+            ma_sound_group* group =
+                impl.GroupFor(sceneGroup, AudioBus::Effects);
+            if (group == nullptr || group == &impl.busGroups[static_cast<usize>(AudioBus::Effects)])
+            {
+                return;   // no per-scene child group available
+            }
+            data.reverb = CreateReverbNode(impl.engine, params);
+            if (data.reverb == nullptr) { return; }
+            (void)ma_node_attach_output_bus(data.reverb, 0,
+                                            &impl.busGroups[static_cast<usize>(AudioBus::Effects)], 0);
+            (void)ma_node_attach_output_bus(group, 0, data.reverb, 0);
+        }
+        else
+        {
+            data.reverb->state->SetParams(params);
+        }
+        data.reverbWet = Clamp(params.wet, 0.0f, 1.0f);
+        if (data.reverb != nullptr && data.reverb->state != nullptr)
+        {
+            AudioReverbParams applied = params;
+            applied.wet = data.reverbWet;
+            data.reverb->state->SetParams(applied);
+        }
+    }
+
+    f32 AudioEngine::SceneReverbWet(u64 sceneGroup) const
+    {
+        SceneGroupData** data = m_impl->sceneGroups.Find(sceneGroup);
+        return data != nullptr ? (*data)->reverbWet : 0.0f;
     }
 
     void AudioEngine::StopSceneGroup(u64 sceneGroup)

@@ -216,6 +216,7 @@ export namespace draconic::audio
             }
 
             UpdateListenerPose(deltaTime);
+            UpdateReverbZones();
         }
 
         // The scene's listener pose this frame (component-driven). The SUBSYSTEM pushes
@@ -299,6 +300,40 @@ export namespace draconic::audio
             return c.voice;
         }
 
+        // Environmental reverb (P3 zones): the WETTEST zone containing the listener
+        // drives the scene's Effects reverb; wet fades across each zone's edge band.
+        // No listener / no zone = wet 0 (the node bypasses; the tail decays naturally).
+        void UpdateReverbZones()
+        {
+            if (m_engine == nullptr || m_sceneGroup == 0) { return; }
+            AudioReverbParams best;
+            best.wet = 0.0f;
+            auto* zones = m_scene->GetSystem<AudioReverbZoneComponentManager>();
+            if (m_listenerValid && zones != nullptr)
+            {
+                zones->ForEach([&](AudioReverbZoneComponent& zone, dscene::EntityHandle e) {
+                    if (!zone.enabled || zone.radius <= 0.0f || zone.wetLevel <= 0.0f) { return; }
+                    const Float3 center = EntityPosition(e);
+                    const Float3 delta{ m_listenerPosition.x - center.x,
+                                        m_listenerPosition.y - center.y,
+                                        m_listenerPosition.z - center.z };
+                    const f32 distance = Sqrt(delta.x * delta.x + delta.y * delta.y
+                                              + delta.z * delta.z);
+                    if (distance >= zone.radius) { return; }
+                    const f32 fadeWidth = Max(zone.edgeFade * zone.radius, 0.001f);
+                    const f32 blend = Clamp((zone.radius - distance) / fadeWidth, 0.0f, 1.0f);
+                    const f32 wet = zone.wetLevel * blend;
+                    if (wet > best.wet)
+                    {
+                        best.wet = wet;
+                        best.roomSize = zone.roomSize;
+                        best.damping = zone.damping;
+                    }
+                });
+            }
+            m_engine->SetSceneReverb(m_sceneGroup, best);
+        }
+
         void UpdateListenerPose(f32 deltaTime)
         {
             m_listenerValid = false;
@@ -357,6 +392,7 @@ export namespace draconic::audio
         {
             scene.AddSystem<AudioSourceComponentManager>();
             scene.AddSystem<AudioListenerComponentManager>();
+            scene.AddSystem<AudioReverbZoneComponentManager>();
             AudioSceneSystem* system = scene.AddSystem<AudioSceneSystem>();
             system->SetEngine(m_engine.Get());
             m_systems.PushBack(SceneEntry{ &scene, system });

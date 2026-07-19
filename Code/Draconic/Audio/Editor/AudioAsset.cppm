@@ -383,6 +383,9 @@ export namespace draconic::audio
             f32 highpassHz = 0.0f;     // 0 = off
             f32 delaySeconds = 0.0f;   // 0 = off
             f32 delayDecay = 0.3f;
+            f32 reverbWet = 0.0f;      // 0 = off
+            f32 reverbRoomSize = 0.6f;
+            f32 reverbDamping = 0.4f;
         };
         Bus master;
         Bus effects;
@@ -400,6 +403,9 @@ export namespace draconic::audio
                 draconic::core::Serialize(ar, "highpassHz", bus.highpassHz);
                 draconic::core::Serialize(ar, "delaySeconds", bus.delaySeconds);
                 draconic::core::Serialize(ar, "delayDecay", bus.delayDecay);
+                draconic::core::Serialize(ar, "reverbWet", bus.reverbWet);
+                draconic::core::Serialize(ar, "reverbRoomSize", bus.reverbRoomSize);
+                draconic::core::Serialize(ar, "reverbDamping", bus.reverbDamping);
             };
             serializeBus("master", master);
             serializeBus("effects", effects);
@@ -465,6 +471,15 @@ export namespace draconic::audio
                             u8"bus layout '{}': delayDecay >= 1 self-oscillates - clamped to 0.99",
                             asset.fileName);
                     }
+                    out.effects.PushBack(effect);
+                }
+                if (bus.reverbWet > 0.0f)
+                {
+                    AudioBusEffectDesc effect;
+                    effect.kind = AudioBusEffectKind::Reverb;
+                    effect.roomSize = Clamp(bus.reverbRoomSize, 0.0f, 1.0f);
+                    effect.damping = Clamp(bus.reverbDamping, 0.0f, 1.0f);
+                    effect.wetLevel = Clamp(bus.reverbWet, 0.0f, 1.0f);
                     out.effects.PushBack(effect);
                 }
             }

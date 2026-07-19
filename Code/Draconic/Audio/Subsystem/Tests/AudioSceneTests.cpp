@@ -64,6 +64,7 @@ namespace
             RegisterAudioComponentReflection();
             scene.AddSystem<AudioSourceComponentManager>();
             scene.AddSystem<AudioListenerComponentManager>();
+            scene.AddSystem<AudioReverbZoneComponentManager>();
             audio = scene.AddSystem<AudioSceneSystem>();
             audio->SetEngine(&engine);
         }
@@ -430,4 +431,51 @@ TEST_CASE("audio.scene: a cue on the source wins over the clip and varies per tr
         play.engine.Stop(voice);
         for (int f = 0; f < 5; ++f) { play.Frame(); }
     }
+}
+
+TEST_CASE("audio.scene: reverb zones - wet follows listener occupancy, wettest zone wins")
+{
+    PlayScene play;
+    RefPtr<AudioClip> clip = MakeToneClip(1.0f);
+    play.AddSource(clip, Float3{ 0, 0, 0 });
+
+    // Listener entity at the origin.
+    dscene::EntityHandle listener = play.scene.CreateEntity(u8"ears");
+    play.scene.GetSystem<AudioListenerComponentManager>()->Add(listener);
+
+    // Zone A centered at origin (r=10, wet .5); zone B overlapping, wetter (r=4, wet .9).
+    dscene::EntityHandle za = play.scene.CreateEntity(u8"hall");
+    auto* zones = play.scene.GetSystem<AudioReverbZoneComponentManager>();
+    REQUIRE(zones != nullptr);
+    AudioReverbZoneComponent& zoneA = zones->Add(za);
+    zoneA.radius = 10.0f;
+    zoneA.wetLevel = 0.5f;
+    zoneA.edgeFade = 0.5f;
+    dscene::EntityHandle zb = play.scene.CreateEntity(u8"cave");
+    AudioReverbZoneComponent& zoneB = zones->Add(zb);
+    zoneB.radius = 4.0f;
+    zoneB.wetLevel = 0.9f;
+    zoneB.edgeFade = 0.25f;
+
+    play.Start();
+    play.Frame();
+    const u64 group = play.audio->SceneGroup();
+    REQUIRE(group != 0u);
+
+    // Deep inside both: the wetter zone wins at full blend.
+    CHECK(play.engine.SceneReverbWet(group) == doctest::Approx(0.9f).epsilon(0.02));
+
+    // Move the listener outside B but into A's edge band: partial A wet.
+    play.scene.SetLocalPosition(listener, Float3{ 8.0f, 0.0f, 0.0f });
+    play.scene.UpdateTransforms();
+    play.Frame();
+    const f32 edgeWet = play.engine.SceneReverbWet(group);
+    CHECK(edgeWet > 0.0f);
+    CHECK(edgeWet < 0.45f);
+
+    // Far outside every zone: dry.
+    play.scene.SetLocalPosition(listener, Float3{ 50.0f, 0.0f, 0.0f });
+    play.scene.UpdateTransforms();
+    play.Frame();
+    CHECK(play.engine.SceneReverbWet(group) == doctest::Approx(0.0f));
 }

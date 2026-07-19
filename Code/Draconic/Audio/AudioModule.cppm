@@ -14,3 +14,4 @@ export module draconic.audio;
 export import :clip;
 export import :cue;
 export import :engine;
+export import :reverb;

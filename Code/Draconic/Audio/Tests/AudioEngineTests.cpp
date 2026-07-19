@@ -717,3 +717,88 @@ TEST_CASE("audio.cue: weighted resolution - no-repeat, sequential, jitter, degen
     empty.variants.PushBack(SoundCueVariant{ RefPtr<AudioClip>{}, 1.0f });
     CHECK(ResolveSoundCue(empty, rng, -1, cursor).variantIndex == -1);
 }
+
+TEST_CASE("audio.reverb: freeverb - dry passthrough at wet 0, a tail past the impulse, "
+          "and damping shortens it")
+{
+    FreeverbState reverb;
+    reverb.Initialize(44100);
+    REQUIRE(reverb.IsInitialized());
+
+    // wet 0: byte-exact passthrough.
+    AudioReverbParams params;
+    params.wet = 0.0f;
+    reverb.SetParams(params);
+    f32 impulse[512 * 2] = {};
+    impulse[0] = 1.0f;
+    impulse[1] = 1.0f;
+    f32 output[512 * 2] = {};
+    reverb.ProcessStereo(impulse, output, 512);
+    CHECK(output[0] == doctest::Approx(1.0f));
+    f32 tail = 0.0f;
+    for (usize i = 2; i < 512 * 2; ++i) { tail += output[i] * output[i]; }
+    CHECK(tail == doctest::Approx(0.0f));
+
+    // wet > 0: energy exists WELL past the impulse (the reverb tail), for seconds.
+    FreeverbState wetReverb;
+    wetReverb.Initialize(44100);
+    params.wet = 0.8f;
+    params.roomSize = 0.8f;
+    params.damping = 0.1f;
+    wetReverb.SetParams(params);
+    f32 silent[512 * 2] = {};
+    wetReverb.ProcessStereo(impulse, output, 512);
+    f32 longTail = 0.0f;
+    for (int block = 0; block < 40; ++block)   // ~0.46 s after the impulse
+    {
+        wetReverb.ProcessStereo(silent, output, 512);
+        if (block > 20)
+        {
+            for (usize i = 0; i < 512 * 2; ++i) { longTail += output[i] * output[i]; }
+        }
+    }
+    CHECK(longTail > 1.0e-6f);
+
+    // Heavier damping + smaller room: the same late window carries LESS energy.
+    FreeverbState dampedReverb;
+    dampedReverb.Initialize(44100);
+    params.roomSize = 0.2f;
+    params.damping = 0.9f;
+    dampedReverb.SetParams(params);
+    dampedReverb.ProcessStereo(impulse, output, 512);
+    f32 dampedTail = 0.0f;
+    for (int block = 0; block < 40; ++block)
+    {
+        dampedReverb.ProcessStereo(silent, output, 512);
+        if (block > 20)
+        {
+            for (usize i = 0; i < 512 * 2; ++i) { dampedTail += output[i] * output[i]; }
+        }
+    }
+    CHECK(dampedTail < longTail * 0.5f);
+}
+
+TEST_CASE("audio.engine: a Reverb bus effect splices and the headless mixer survives it")
+{
+    AudioEngine engine(HeadlessSettings());
+    AudioBusLayout layout;
+    AudioBusEffectDesc reverb;
+    reverb.kind = AudioBusEffectKind::Reverb;
+    reverb.roomSize = 0.7f;
+    reverb.damping = 0.3f;
+    reverb.wetLevel = 0.5f;
+    layout.buses[static_cast<usize>(AudioBus::Effects)].effects.PushBack(reverb);
+    engine.ApplyBusLayout(layout);
+    CHECK(engine.BusEffectCount(AudioBus::Effects) == 1u);
+
+    RefPtr<AudioClip> clip = MakeToneClip(0.3f);
+    AudioPlayParams params;
+    params.loop = true;
+    const VoiceHandle voice = engine.Play(clip, params);
+    REQUIRE(voice.IsValid());
+    for (int i = 0; i < 30; ++i) { engine.Update(1.0f / 60.0f); }   // pumps through the tail
+    CHECK(engine.IsPlaying(voice));
+    engine.ApplyBusLayout(AudioBusLayout{});   // teardown mid-play stays clean
+    engine.Update(1.0f / 60.0f);
+    CHECK(engine.IsPlaying(voice));
+}

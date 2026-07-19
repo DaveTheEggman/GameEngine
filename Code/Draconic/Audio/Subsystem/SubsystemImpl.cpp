@@ -148,6 +148,17 @@ namespace draconic::audio
         GlobalTypeRegistry().Register(Audio::StaticType());
     }
 
+    DRACONIC_REFLECT_VALUE(AudioReverbZoneComponent, "draconic::audio")
+    {
+        builder.DataVersion(1);
+        builder.Property<&AudioReverbZoneComponent::radius>("radius");
+        builder.Property<&AudioReverbZoneComponent::edgeFade>("edgeFade");
+        builder.Property<&AudioReverbZoneComponent::roomSize>("roomSize");
+        builder.Property<&AudioReverbZoneComponent::damping>("damping");
+        builder.Property<&AudioReverbZoneComponent::wetLevel>("wetLevel");
+        builder.Property<&AudioReverbZoneComponent::enabled>("enabled");
+    }
+
     void RegisterAudioComponentReflection()
     {
         static const bool once = []() {
@@ -155,6 +166,7 @@ namespace draconic::audio
             DraconicRegisterEnum_AudioAttenuationModel();
             DraconicRegisterValue_AudioSourceComponent();
             DraconicRegisterValue_AudioListenerComponent();
+            DraconicRegisterValue_AudioReverbZoneComponent();
             return true;
         }();
         (void)once;

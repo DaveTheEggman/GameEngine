@@ -28,6 +28,7 @@ export module draconic.audio:engine;
 import draconic.core;
 import draconic.vfs;
 import :clip;
+import :reverb;   // AudioReverbParams (the scene-reverb seam)
 
 using namespace draconic::core;
 
@@ -107,6 +108,7 @@ export namespace draconic::audio
         Lowpass,    // frequencyHz = cutoff
         Highpass,   // frequencyHz = cutoff
         Delay,      // delaySeconds + delayDecay (feedback 0..1)
+        Reverb,     // roomSize + damping + wetLevel (Freeverb tail)
     };
 
     struct AudioBusEffectDesc
@@ -115,6 +117,9 @@ export namespace draconic::audio
         f32 frequencyHz = 1000.0f;
         f32 delaySeconds = 0.25f;
         f32 delayDecay = 0.3f;
+        f32 roomSize = 0.6f;
+        f32 damping = 0.4f;
+        f32 wetLevel = 0.4f;
     };
 
     struct AudioBusSettings
@@ -237,6 +242,12 @@ export namespace draconic::audio
         [[nodiscard]] bool IsSceneGroupPaused(u64 sceneGroup) const;
         /// Fade-stops every voice in the group (they reap as fades land).
         void StopSceneGroup(u64 sceneGroup);
+
+        // ---- per-scene reverb (P3 zones): a Freeverb node on the scene's Effects
+        // child group, wet driven by listener zone occupancy. wet 0 = bypass (the node
+        // stays spliced once created; params update live). ----
+        void SetSceneReverb(u64 sceneGroup, const AudioReverbParams& params);
+        [[nodiscard]] f32 SceneReverbWet(u64 sceneGroup) const;
 
     private:
         struct Impl;
