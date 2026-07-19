@@ -39,6 +39,8 @@ import draconic.audio;
 import draconic.audio.resource;
 import draconic.audio.subsystem;
 import draconic.ui.resource;
+import draconic.script.resource;
+import draconic.script.subsystem;
 import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.editor.core;
@@ -820,6 +822,13 @@ export namespace draconic::editor
                 BuildMaterialSlots(id, category);
             }
 
+            // ScriptComponent: the ordered behavior list, each a script picker + the
+            // rows the cooked ScriptClass metadata drives (scripting.md P1 §5).
+            if (mgr.SerializationTypeId() == StringView(u8"script"))
+            {
+                BuildScriptBehaviors(id, category);
+            }
+
             // Prefab members: a per-component revert row whose label carries a LIVE override
             // dot (recomputed by the refresher, so it tracks edits and undo without grid
             // rebuilds). Revert rides the undoable paste-component path.
@@ -1370,6 +1379,476 @@ export namespace draconic::editor
                     same = names[i] == slotsRef->slotNames[i];
                 }
                 if (!same) { self->m_forceRebuild = true; }
+            });
+        }
+
+        // One undoable mutation of the selected entity's ScriptComponent (the mesh-
+        // materials pattern: mutate live, snapshot to a clipboard blob, restore, PASTE
+        // - the paste command captures the pre-state, so every action is one undo step).
+        void MutateScriptComponent(const Guid& id,
+                                   const Function<void(draconic::script::ScriptComponent&)>& mutate)
+        {
+            const dscene::EntityHandle e = m_edit->Resolve(id);
+            auto* manager = m_edit->Scene().GetSystem<draconic::script::ScriptComponentManager>();
+            draconic::script::ScriptComponent* live =
+                (manager != nullptr && e.IsAssigned()) ? manager->Get(e) : nullptr;
+            if (live == nullptr) { return; }
+            const draconic::script::ScriptComponent before = *live;
+            mutate(*live);
+            Array<byte> blob =
+                m_edit->CopyComponent(id, &TypeOf<draconic::script::ScriptComponent>());
+            *live = before;
+            if (!blob.IsEmpty())
+            {
+                (void)m_edit->PasteComponent(id, Span<const byte>{ blob.Data(), blob.Size() });
+            }
+        }
+
+        // The cooked ScriptClass a behavior references (bound through the editor's
+        // resource manager so the harvested metadata is available; null when unset or
+        // not yet cooked).
+        [[nodiscard]] draconic::script::ScriptClass* BehaviorClass(
+            const draconic::script::ScriptBehavior& behavior)
+        {
+            if (behavior.script.Get() != nullptr) { return behavior.script.Get(); }
+            if (behavior.script.id.IsNil() || m_editor->Resources() == nullptr) { return nullptr; }
+            auto proxy = m_editor->Resources()->Bind<draconic::script::ScriptClass>(
+                behavior.script.id);
+            return proxy.Get();
+        }
+
+        // Signature of the behavior list's SHAPE (count + script ids + enabled flags +
+        // override counts) - the refresher forces a rebuild when it changes, since the
+        // inspector's own Signature only watches selection + component presence.
+        [[nodiscard]] u64 ScriptBehaviorsSignature(const draconic::script::ScriptComponent& c)
+        {
+            u64 hash = HashInteger(c.behaviors.Size());
+            for (const draconic::script::ScriptBehavior& b : c.behaviors)
+            {
+                hash = HashBytes(&b.script.id, sizeof(Guid), hash);
+                const u64 flags = (b.enabled ? 1u : 0u) | (b.overrides.Size() << 1);
+                hash = HashBytes(&flags, sizeof(flags), hash);
+            }
+            return hash;
+        }
+
+        void BuildScriptBehaviors(const Guid& id, StringView category)
+        {
+            const dscene::EntityHandle e = m_edit->Resolve(id);
+            auto* manager = m_edit->Scene().GetSystem<draconic::script::ScriptComponentManager>();
+            draconic::script::ScriptComponent* component =
+                (manager != nullptr && e.IsAssigned()) ? manager->Get(e) : nullptr;
+            if (component == nullptr) { return; }
+
+            SceneInspectorView* self = this;
+            for (usize i = 0; i < component->behaviors.Size(); ++i)
+            {
+                BuildScriptBehaviorRows(id, category, i);
+            }
+
+            auto add = MakeRef<tk::ButtonEditor>(DefaultAllocator(),
+                StringView(u8"+ Add Behavior"),
+                Function<void()>{ [self, id]() {
+                    self->MutateScriptComponent(id, [](draconic::script::ScriptComponent& c) {
+                        c.behaviors.PushBack(draconic::script::ScriptBehavior{});
+                    });
+                } }, category);
+            m_grid->AddProperty(RefPtr<tk::PropertyEditor>(add.Get()));
+
+            // Shape-change watcher (add/remove/reorder/pick/override toggle rebuilds).
+            const u64 signature = ScriptBehaviorsSignature(*component);
+            auto watcher = MakeRef<tk::ButtonEditor>(DefaultAllocator(), StringView(u8""),
+                Function<void()>{ []() {} }, category);
+            watcher->SetRowVisible(false);
+            AddEditor(watcher.Get(), [self, id, signature]() {
+                const dscene::EntityHandle live = self->m_edit->Resolve(id);
+                auto* mgr =
+                    self->m_edit->Scene().GetSystem<draconic::script::ScriptComponentManager>();
+                draconic::script::ScriptComponent* c =
+                    (mgr != nullptr && live.IsAssigned()) ? mgr->Get(live) : nullptr;
+                if (c != nullptr && self->ScriptBehaviorsSignature(*c) != signature)
+                {
+                    self->m_forceRebuild = true;
+                }
+            });
+        }
+
+        void BuildScriptBehaviorRows(const Guid& id, StringView category, usize index)
+        {
+            const dscene::EntityHandle e = m_edit->Resolve(id);
+            auto* manager = m_edit->Scene().GetSystem<draconic::script::ScriptComponentManager>();
+            draconic::script::ScriptComponent* component =
+                (manager != nullptr && e.IsAssigned()) ? manager->Get(e) : nullptr;
+            if (component == nullptr || index >= component->behaviors.Size()) { return; }
+            draconic::script::ScriptBehavior& behavior = component->behaviors[index];
+            SceneInspectorView* self = this;
+
+            // Script picker (AssetPickerDialog filtered to ScriptClass).
+            const StringView assetName = behavior.script.id.IsNil()
+                ? StringView(u8"(none)") : AssetNameFor(behavior.script.id);
+            auto picker = MakeRef<ResourceRefEditor>(DefaultAllocator(),
+                StringView(u8"Script"), assetName, category);
+            ResourceRefEditor* pickerRaw = picker.Get();
+            pickerRaw->OnPick = [self, id, index]() {
+                if (self->Context == nullptr || self->m_editor->Project() == nullptr) { return; }
+                Array<String> typeNames;
+                typeNames.PushBack(String(u8"ScriptClassAsset"));
+                auto dialog = MakeRef<draconic::editor::app::AssetPickerDialog>(
+                    DefaultAllocator(), *self->m_editor, Move(typeNames));
+                dialog->OnPicked = [self, id, index](const Guid& picked) {
+                    self->MutateScriptComponent(id, [index, picked](
+                        draconic::script::ScriptComponent& c) {
+                        if (index >= c.behaviors.Size()) { return; }
+                        c.behaviors[index].script = draconic::resource::Ref<draconic::script::ScriptClass>{};
+                        c.behaviors[index].script.SetId(picked);
+                        c.behaviors[index].overrides.Clear();   // metadata changed
+                    });
+                };
+                dialog->Show(self->Context);
+            };
+            AddEditor(pickerRaw, [self, id, index, pickerRaw]() {
+                const dscene::EntityHandle live = self->m_edit->Resolve(id);
+                auto* mgr =
+                    self->m_edit->Scene().GetSystem<draconic::script::ScriptComponentManager>();
+                draconic::script::ScriptComponent* c =
+                    (mgr != nullptr && live.IsAssigned()) ? mgr->Get(live) : nullptr;
+                if (c == nullptr || index >= c->behaviors.Size()) { return; }
+                const Guid target = c->behaviors[index].script.id;
+                pickerRaw->SetValueText(target.IsNil() ? StringView(u8"(none)")
+                                                       : self->AssetNameFor(target));
+            });
+
+            // Enabled toggle.
+            auto enabled = MakeRef<tk::BoolEditor>(DefaultAllocator(), StringView(u8"Enabled"),
+                behavior.enabled, Function<void(bool)>{ [self, id, index](bool value) {
+                    self->MutateScriptComponent(id, [index, value](
+                        draconic::script::ScriptComponent& c) {
+                        if (index < c.behaviors.Size()) { c.behaviors[index].enabled = value; }
+                    });
+                } }, category);
+            m_grid->AddProperty(RefPtr<tk::PropertyEditor>(enabled.Get()));
+
+            // Reorder / remove.
+            auto up = MakeRef<tk::ButtonEditor>(DefaultAllocator(), StringView(u8"Move Up"),
+                Function<void()>{ [self, id, index]() {
+                    self->MutateScriptComponent(id, [index](draconic::script::ScriptComponent& c) {
+                        if (index > 0 && index < c.behaviors.Size())
+                        {
+                            draconic::script::ScriptBehavior tmp = Move(c.behaviors[index]);
+                            c.behaviors[index] = Move(c.behaviors[index - 1]);
+                            c.behaviors[index - 1] = Move(tmp);
+                        }
+                    });
+                } }, category);
+            up->SetButtonEnabled(index > 0);
+            m_grid->AddProperty(RefPtr<tk::PropertyEditor>(up.Get()));
+            auto remove = MakeRef<tk::ButtonEditor>(DefaultAllocator(), StringView(u8"Remove Behavior"),
+                Function<void()>{ [self, id, index]() {
+                    self->MutateScriptComponent(id, [index](draconic::script::ScriptComponent& c) {
+                        if (index < c.behaviors.Size()) { c.behaviors.RemoveAt(index); }
+                    });
+                } }, category);
+            m_grid->AddProperty(RefPtr<tk::PropertyEditor>(remove.Get()));
+
+            // Property rows from the cooked ScriptClass metadata (data-driven; no VM).
+            draconic::script::ScriptClass* scriptClass = BehaviorClass(behavior);
+            if (scriptClass == nullptr) { return; }
+            for (const draconic::script::ScriptPropertyDesc& property : scriptClass->properties)
+            {
+                BuildScriptPropertyRow(id, category, index, property);
+            }
+        }
+
+        void BuildScriptPropertyRow(const Guid& id, StringView category, usize index,
+                                    const draconic::script::ScriptPropertyDesc& property)
+        {
+            SceneInspectorView* self = this;
+            const u64 hash = property.hash;
+            using draconic::script::ScriptPropertyType;
+            using draconic::script::ScriptPropertyValue;
+            using draconic::script::ScriptComponent;
+
+            // The effective value = override if present, else the harvested default.
+            auto effective = [self, id, index, hash, property]() -> ScriptPropertyValue {
+                const dscene::EntityHandle live = self->m_edit->Resolve(id);
+                auto* mgr =
+                    self->m_edit->Scene().GetSystem<draconic::script::ScriptComponentManager>();
+                ScriptComponent* c =
+                    (mgr != nullptr && live.IsAssigned()) ? mgr->Get(live) : nullptr;
+                if (c != nullptr && index < c->behaviors.Size())
+                {
+                    if (const auto* over = c->behaviors[index].FindOverride(hash))
+                    {
+                        return over->value;
+                    }
+                }
+                return property.defaultValue;
+            };
+            auto setOverride = [self, id, index, hash](const ScriptPropertyValue& value) {
+                self->MutateScriptComponent(id, [index, hash, value](ScriptComponent& c) {
+                    if (index < c.behaviors.Size()) { c.behaviors[index].SetOverride(hash, value); }
+                });
+            };
+            const StringView name = property.name.AsView();
+
+            switch (property.type)
+            {
+                case ScriptPropertyType::Float:
+                {
+                    auto editor = MakeRef<tk::FloatEditor>(DefaultAllocator(), name,
+                        effective().number, -1e9, 1e9, 0.1, 3,
+                        Function<void(f64)>{ [setOverride](f64 v) {
+                            ScriptPropertyValue value;
+                            value.kind = ScriptPropertyType::Float;
+                            value.number = v;
+                            setOverride(value);
+                        } }, category);
+                    if (!property.description.IsEmpty())
+                    {
+                        editor->SetTooltip(property.description.AsView());
+                    }
+                    AddEditor(editor.Get(), [effective, raw = editor.Get()]() {
+                        raw->SetValue(effective().number);
+                    });
+                    break;
+                }
+                case ScriptPropertyType::Int:
+                {
+                    auto editor = MakeRef<tk::IntEditor>(DefaultAllocator(), name,
+                        static_cast<i64>(effective().number),
+                        std::numeric_limits<i64>::min(), std::numeric_limits<i64>::max(),
+                        Function<void(i64)>{ [setOverride](i64 v) {
+                            ScriptPropertyValue value;
+                            value.kind = ScriptPropertyType::Int;
+                            value.number = static_cast<f64>(v);
+                            setOverride(value);
+                        } }, category);
+                    if (!property.description.IsEmpty())
+                    {
+                        editor->SetTooltip(property.description.AsView());
+                    }
+                    AddEditor(editor.Get(), [effective, raw = editor.Get()]() {
+                        raw->SetValue(static_cast<i64>(effective().number));
+                    });
+                    break;
+                }
+                case ScriptPropertyType::Bool:
+                {
+                    auto editor = MakeRef<tk::BoolEditor>(DefaultAllocator(), name,
+                        effective().boolean, Function<void(bool)>{ [setOverride](bool v) {
+                            ScriptPropertyValue value;
+                            value.kind = ScriptPropertyType::Bool;
+                            value.boolean = v;
+                            setOverride(value);
+                        } }, category);
+                    if (!property.description.IsEmpty())
+                    {
+                        editor->SetTooltip(property.description.AsView());
+                    }
+                    AddEditor(editor.Get(), [effective, raw = editor.Get()]() {
+                        raw->SetValue(effective().boolean);
+                    });
+                    break;
+                }
+                case ScriptPropertyType::String:
+                {
+                    auto editor = MakeRef<tk::StringEditor>(DefaultAllocator(), name,
+                        effective().text.AsView(),
+                        Function<void(StringView)>{ [setOverride](StringView v) {
+                            ScriptPropertyValue value;
+                            value.kind = ScriptPropertyType::String;
+                            value.text = String(v);
+                            setOverride(value);
+                        } }, category);
+                    if (!property.description.IsEmpty())
+                    {
+                        editor->SetTooltip(property.description.AsView());
+                    }
+                    AddEditor(editor.Get(), [effective, raw = editor.Get()]() {
+                        raw->SetValue(effective().text.AsView());
+                    });
+                    break;
+                }
+                case ScriptPropertyType::Color:
+                {
+                    auto editor = MakeRef<tk::ColorEditor>(DefaultAllocator(), name,
+                        effective().color, Function<void(Color)>{ [setOverride](Color v) {
+                            ScriptPropertyValue value;
+                            value.kind = ScriptPropertyType::Color;
+                            value.color = v;
+                            setOverride(value);
+                        } }, category);
+                    if (!property.description.IsEmpty())
+                    {
+                        editor->SetTooltip(property.description.AsView());
+                    }
+                    AddEditor(editor.Get(), [effective, raw = editor.Get()]() {
+                        raw->SetValue(effective().color);
+                    });
+                    break;
+                }
+                case ScriptPropertyType::Vec3:
+                {
+                    auto editor = MakeRef<tk::Float3Editor>(DefaultAllocator(), name,
+                        effective().vector, -1e9f, 1e9f, 0.1f,
+                        Function<void(Float3)>{ [setOverride](Float3 v) {
+                            ScriptPropertyValue value;
+                            value.kind = ScriptPropertyType::Vec3;
+                            value.vector = v;
+                            setOverride(value);
+                        } }, category);
+                    if (!property.description.IsEmpty())
+                    {
+                        editor->SetTooltip(property.description.AsView());
+                    }
+                    AddEditor(editor.Get(), [effective, raw = editor.Get()]() {
+                        raw->SetValue(effective().vector);
+                    });
+                    break;
+                }
+                case ScriptPropertyType::Entity:
+                {
+                    BuildScriptEntityPropertyRow(id, category, index, property);
+                    break;
+                }
+                case ScriptPropertyType::Asset:
+                {
+                    BuildScriptAssetPropertyRow(id, category, index, property);
+                    break;
+                }
+                case ScriptPropertyType::None:
+                default:
+                    break;
+            }
+        }
+
+        // Entity-typed property: a picker over the CURRENT scene's entities (a menu of
+        // names; the override stores the target's guid).
+        void BuildScriptEntityPropertyRow(const Guid& id, StringView category, usize index,
+                                          const draconic::script::ScriptPropertyDesc& property)
+        {
+            using draconic::script::ScriptPropertyType;
+            using draconic::script::ScriptPropertyValue;
+            using draconic::script::ScriptComponent;
+            SceneInspectorView* self = this;
+            const u64 hash = property.hash;
+
+            auto currentTarget = [self, id, index, hash]() -> Guid {
+                const dscene::EntityHandle live = self->m_edit->Resolve(id);
+                auto* mgr =
+                    self->m_edit->Scene().GetSystem<draconic::script::ScriptComponentManager>();
+                ScriptComponent* c =
+                    (mgr != nullptr && live.IsAssigned()) ? mgr->Get(live) : nullptr;
+                if (c != nullptr && index < c->behaviors.Size())
+                {
+                    if (const auto* over = c->behaviors[index].FindOverride(hash))
+                    {
+                        return over->value.guid;
+                    }
+                }
+                return Guid{};
+            };
+            auto nameOf = [self](const Guid& target) -> StringView {
+                if (target.IsNil()) { return u8"(none)"; }
+                const dscene::EntityHandle h = self->m_edit->Scene().FindEntity(target);
+                return h.IsAssigned() ? self->m_edit->Scene().GetEntityName(h)
+                                      : StringView(u8"(missing)");
+            };
+
+            auto editor = MakeRef<ResourceRefEditor>(DefaultAllocator(),
+                property.name.AsView(), nameOf(currentTarget()), category);
+            ResourceRefEditor* raw = editor.Get();
+            if (!property.description.IsEmpty()) { raw->SetTooltip(property.description.AsView()); }
+            raw->OnPick = [self, id, index, hash]() {
+                if (self->Context == nullptr) { return; }
+                auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
+                menu->AddItem(StringView(u8"(none)"), [self, id, index, hash]() {
+                    self->MutateScriptComponent(id, [index, hash](
+                        draconic::script::ScriptComponent& c) {
+                        if (index < c.behaviors.Size()) { c.behaviors[index].RemoveOverride(hash); }
+                    });
+                });
+                menu->AddSeparator();
+                self->m_edit->Scene().ForEachEntity([self, id, index, hash, &menu](
+                    dscene::EntityHandle handle) {
+                    const Guid target = self->m_edit->Scene().GetEntityId(handle);
+                    String label(self->m_edit->Scene().GetEntityName(handle));
+                    menu->AddItem(label.AsView(), [self, id, index, hash, target]() {
+                        self->MutateScriptComponent(id, [index, hash, target](
+                            draconic::script::ScriptComponent& c) {
+                            if (index >= c.behaviors.Size()) { return; }
+                            ScriptPropertyValue value;
+                            value.kind = ScriptPropertyType::Entity;
+                            value.guid = target;
+                            c.behaviors[index].SetOverride(hash, value);
+                        });
+                    });
+                });
+                const Float2 pos = self->m_addButton->LocalToScreen(Float2{ 0.0f, 0.0f });
+                menu->Show(self->Context, pos.x, pos.y);
+            };
+            AddEditor(raw, [self, currentTarget, nameOf, raw]() {
+                (void)self;
+                raw->SetValueText(nameOf(currentTarget()));
+            });
+        }
+
+        // Asset-typed property (asset:<TypeName>): an AssetPickerDialog over that
+        // asset type; the override stores the picked guid.
+        void BuildScriptAssetPropertyRow(const Guid& id, StringView category, usize index,
+                                         const draconic::script::ScriptPropertyDesc& property)
+        {
+            using draconic::script::ScriptPropertyType;
+            using draconic::script::ScriptPropertyValue;
+            using draconic::script::ScriptComponent;
+            SceneInspectorView* self = this;
+            const u64 hash = property.hash;
+            const String assetType = property.assetType.IsEmpty()
+                ? String(u8"") : property.assetType;
+
+            auto currentTarget = [self, id, index, hash]() -> Guid {
+                const dscene::EntityHandle live = self->m_edit->Resolve(id);
+                auto* mgr =
+                    self->m_edit->Scene().GetSystem<draconic::script::ScriptComponentManager>();
+                ScriptComponent* c =
+                    (mgr != nullptr && live.IsAssigned()) ? mgr->Get(live) : nullptr;
+                if (c != nullptr && index < c->behaviors.Size())
+                {
+                    if (const auto* over = c->behaviors[index].FindOverride(hash))
+                    {
+                        return over->value.guid;
+                    }
+                }
+                return Guid{};
+            };
+
+            auto editor = MakeRef<ResourceRefEditor>(DefaultAllocator(),
+                property.name.AsView(), AssetNameFor(currentTarget()), category);
+            ResourceRefEditor* raw = editor.Get();
+            if (!property.description.IsEmpty()) { raw->SetTooltip(property.description.AsView()); }
+            raw->OnPick = [self, id, index, hash, assetType]() {
+                if (self->Context == nullptr || self->m_editor->Project() == nullptr) { return; }
+                Array<String> typeNames;
+                // The harvested "AudioClip" maps to the "AudioClipAsset" source type.
+                String assetTypeName(assetType.AsView());
+                assetTypeName.Append(u8"Asset");
+                typeNames.PushBack(Move(assetTypeName));
+                auto dialog = MakeRef<draconic::editor::app::AssetPickerDialog>(
+                    DefaultAllocator(), *self->m_editor, Move(typeNames));
+                dialog->OnPicked = [self, id, index, hash](const Guid& picked) {
+                    self->MutateScriptComponent(id, [index, hash, picked](
+                        draconic::script::ScriptComponent& c) {
+                        if (index >= c.behaviors.Size()) { return; }
+                        ScriptPropertyValue value;
+                        value.kind = ScriptPropertyType::Asset;
+                        value.guid = picked;
+                        c.behaviors[index].SetOverride(hash, value);
+                    });
+                };
+                dialog->Show(self->Context);
+            };
+            AddEditor(raw, [self, currentTarget, raw]() {
+                raw->SetValueText(self->AssetNameFor(currentTarget()));
             });
         }
 

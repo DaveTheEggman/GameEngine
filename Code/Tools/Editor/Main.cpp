@@ -62,6 +62,10 @@ import draconic.modelimporter;
 import draconic.audio;
 import draconic.audio.resource;
 import draconic.audio.editor;
+import draconic.script;
+import draconic.script.wren;
+import draconic.script.resource;
+import draconic.script.editor;
 
 using namespace draconic::core;
 namespace ed = draconic::editor;
@@ -98,6 +102,11 @@ namespace
         draconic::ui::RegisterUIResource();
         draconic::audio::RegisterAudioAssets();
         draconic::audio::RegisterAudioResource();
+        draconic::script::RegisterScriptAssets();
+        draconic::script::RegisterScriptResource();
+        // The script builder resolves its harvest VM through the backend
+        // REGISTRY (B3); registering backends is the entry point's job.
+        draconic::script::wren::RegisterWrenScriptBackend();
 
         AddBuilder<draconic::texture::TextureAssetBuilder>(registry);
         AddBuilder<draconic::image::ImageAssetBuilder>(registry);
@@ -118,6 +127,7 @@ namespace
         AddBuilder<draconic::audio::AudioClipAssetBuilder>(registry);
         AddBuilder<draconic::audio::AudioBusLayoutAssetBuilder>(registry);
         AddBuilder<draconic::audio::SoundCueAssetBuilder>(registry);
+        AddBuilder<draconic::script::ScriptClassAssetBuilder>(registry);
     }
 
     // Create a StaticMeshAsset in the project's Meshes/ group from a procedural primitive,
@@ -299,6 +309,48 @@ int main(int argc, char** argv)
                 return instance;
             };
             app.Context().RegisterCreator(static_cast<ed::EditorContext::AssetCreator&&>(cueCreator));
+
+            // New Asset > Script Class (a starter behavior .wren in Sources/, the
+            // convention pre-filled; cooks + attaches via a ScriptComponent behavior).
+            ed::EditorContext::AssetCreator scriptCreator;
+            scriptCreator.label = String(u8"Script Class");
+            scriptCreator.create = [](ed::EditorContext& ctx, draconic::content::Group* group)
+                -> draconic::content::Instance* {
+                if (ctx.Project() == nullptr) { return nullptr; }
+                draconic::content::Group* target = group != nullptr
+                    ? group : ctx.Project()->SourceDb().RootGroup();
+                // Unique instance + source-file name (NewBehavior, NewBehavior2, ...).
+                String name(u8"NewBehavior");
+                for (i32 counter = 2; target->GetInstance(name.AsView()) != nullptr; ++counter)
+                {
+                    name = String(u8"NewBehavior");
+                    if (counter >= 10)
+                    {
+                        name.PushBack(static_cast<utf8char>('0' + (counter / 10 % 10)));
+                    }
+                    name.PushBack(static_cast<utf8char>('0' + (counter % 10)));
+                }
+                String fileName(name.AsView());
+                fileName.Append(u8".wren");
+                const String path = PathJoin(ctx.Project()->SourcesRoot().AsView(),
+                                             fileName.AsView());
+                const StringView starter = draconic::script::kScriptBehaviorStarter;
+                if (!WriteFile(path.AsView(),
+                               Span<const byte>(reinterpret_cast<const byte*>(starter.Data()),
+                                                starter.Size())).IsOk())
+                {
+                    return nullptr;
+                }
+                draconic::content::Instance* instance = target->CreateInstance(
+                    name.AsView(), draconic::script::ScriptClassAsset::StaticType());
+                if (instance == nullptr) { return nullptr; }
+                draconic::script::ScriptClassAsset asset;
+                asset.fileName = fileName;
+                asset.language = String(u8"wren");
+                if (!instance->WriteObject(asset).IsOk()) { return nullptr; }
+                return instance;
+            };
+            app.Context().RegisterCreator(static_cast<ed::EditorContext::AssetCreator&&>(scriptCreator));
         }
         {
             // New Asset > UI Document / UI Theme (starter payloads; edited as text until
@@ -365,6 +417,8 @@ int main(int argc, char** argv)
             DefaultAllocator().New<draconic::ui::UIFileImporter>(), DefaultAllocator()));
         app.Context().Importers().Register(UniquePtr<ed::IFileImporter>(
             DefaultAllocator().New<draconic::audio::AudioFileImporter>(), DefaultAllocator()));
+        app.Context().Importers().Register(UniquePtr<ed::IFileImporter>(
+            DefaultAllocator().New<draconic::script::ScriptFileImporter>(), DefaultAllocator()));
 
         // Resource factories come from the embedded DefaultApplication (registered into
         // the editor's preset ResourceManager at its OnStartup) - none registered here.

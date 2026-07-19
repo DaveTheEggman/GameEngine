@@ -14,6 +14,7 @@ if(TARGET Draconic::ShellDesktop AND TARGET Draconic::RuntimeDesktop AND TARGET 
     add_subdirectory(HelloWindow)
     add_subdirectory(InputActions)       # draconic.input consumer proof (named actions end-to-end)
     add_subdirectory(PhysicsPlayground)  # physics P1 consumer proof (crates/trigger/raycast on Jolt)
+    add_subdirectory(ScriptPlayground)   # script P1 consumer proof (Wren Mover/Spinner behaviors on the ScriptSubsystem)
     add_subdirectory(AudioPlayground)    # audio P1 consumer proof (ambient loop + positional one-shots on miniaudio)
     add_subdirectory(MultiWindow)
     add_subdirectory(Sandbox)            # the dev harness we grow the engine in

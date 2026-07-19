@@ -36,6 +36,10 @@ import draconic.ui.editor;
 import draconic.audio;
 import draconic.audio.resource;
 import draconic.audio.editor;
+import draconic.script;
+import draconic.script.wren;
+import draconic.script.resource;
+import draconic.script.editor;
 
 using namespace draconic::core;
 namespace ed = draconic::editor;
@@ -72,6 +76,11 @@ namespace
         draconic::ui::RegisterUIResource();
         draconic::audio::RegisterAudioAssets();
         draconic::audio::RegisterAudioResource();
+        draconic::script::RegisterScriptAssets();
+        draconic::script::RegisterScriptResource();
+        // The script builder resolves its harvest VM through the backend
+        // REGISTRY (B3); registering backends is the entry point's job.
+        draconic::script::wren::RegisterWrenScriptBackend();
 
         Add<draconic::texture::TextureAssetBuilder>(registry);
         Add<draconic::image::ImageAssetBuilder>(registry);
@@ -92,6 +101,7 @@ namespace
         Add<draconic::audio::AudioClipAssetBuilder>(registry);
         Add<draconic::audio::AudioBusLayoutAssetBuilder>(registry);
         Add<draconic::audio::SoundCueAssetBuilder>(registry);
+        Add<draconic::script::ScriptClassAssetBuilder>(registry);
     }
 }
 

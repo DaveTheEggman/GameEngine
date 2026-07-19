@@ -50,6 +50,10 @@ import draconic.ui.editor;
 import draconic.audio;
 import draconic.audio.resource;
 import draconic.audio.editor;
+import draconic.script;
+import draconic.script.wren;
+import draconic.script.resource;
+import draconic.script.editor;
 import draconic.physics.subsystem;
 
 using namespace draconic::core;
@@ -143,6 +147,11 @@ namespace
         draconic::ui::RegisterUIResource();
         draconic::audio::RegisterAudioAssets();
         draconic::audio::RegisterAudioResource();
+        draconic::script::RegisterScriptAssets();
+        draconic::script::RegisterScriptResource();
+        // The script builder resolves its harvest VM through the backend
+        // REGISTRY (B3); registering backends is the entry point's job.
+        draconic::script::wren::RegisterWrenScriptBackend();
         GlobalTypeRegistry().Register(dscene::SceneDocument::StaticType());
         RegisterSerializable<dscene::SceneDocument>();
 
@@ -165,6 +174,7 @@ namespace
         Add<draconic::audio::AudioClipAssetBuilder>(registry);
         Add<draconic::audio::AudioBusLayoutAssetBuilder>(registry);
         Add<draconic::audio::SoundCueAssetBuilder>(registry);
+        Add<draconic::script::ScriptClassAssetBuilder>(registry);
     }
 
     // Directory containing this executable (Bin/... - where RaptorPlayer + its .runtime-libs live,
