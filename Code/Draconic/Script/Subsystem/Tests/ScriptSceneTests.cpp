@@ -692,3 +692,64 @@ TEST_CASE("script.scene: entity.send to a target with no matching handler is a s
     REQUIRE(c != nullptr);
     CHECK_FALSE(c->behaviors[0].faulted);
 }
+
+TEST_CASE("script.scene: updateInterval throttles onUpdate and delivers the accumulated "
+          "dt (P3)")
+{
+    ScriptedScene bed;
+    RefPtr<ScriptClass> ticker = MakeClass(u8"Ticker",
+        u8"class Ticker {\n"
+        u8"    construct new(entity) { _entity = entity }\n"
+        u8"    onUpdate(dt) {\n"
+        u8"        var p = _entity.position()\n"
+        u8"        _entity.setPosition(p.x + 1.0, dt, p.z)\n"   // x counts calls; y = last dt
+        u8"    }\n"
+        u8"}\n",
+        { u8"onUpdate" });
+    const dscene::EntityHandle e = bed.AddScripted(ticker, u8"ticker");
+    bed.components->Get(e)->behaviors[0].updateInterval = 1.0f;
+
+    bed.Start();
+    bed.Frame(0.5f);   // acc 0.5 < 1.0 -> no update
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 0.0f));
+    bed.Frame(0.5f);   // acc 1.0 -> ONE update, dt = accumulated 1.0
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 1.0f));
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.y, 1.0f));   // accumulated dt, not 0.5
+    bed.Frame(0.5f);   // acc 0.5 -> no update
+    bed.Frame(0.5f);   // acc 1.0 -> second update
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 2.0f));   // 2 calls over 4 ticks
+}
+
+TEST_CASE("script.scene: updateInterval survives the SerializeScene wire (P3 symmetry)")
+{
+    RegisterScriptComponentReflection();
+    dscene::Scene scene(u8"interval-wire");
+    auto* manager = scene.AddSystem<ScriptComponentManager>();
+    const dscene::EntityHandle e = scene.CreateEntity(u8"scripted");
+    ScriptComponent& c = manager->Add(e);
+    ScriptBehavior behavior;
+    behavior.script.SetId(Guid{ 0x77, 0x88 });
+    behavior.updateInterval = 0.25f;
+    c.behaviors.PushBack(Move(behavior));
+    const Guid entityId = scene.GetEntityId(e);
+
+    MemoryStream stream;
+    {
+        BinarySerializer w(stream, SerializeMode::Write);
+        dscene::SerializeScene(w, scene);
+        REQUIRE(w.IsOk());
+    }
+    (void)stream.Seek(0, SeekOrigin::Begin);
+
+    dscene::Scene loaded(u8"loaded");
+    auto* loadedManager = loaded.AddSystem<ScriptComponentManager>();
+    {
+        BinarySerializer r(stream, SerializeMode::Read);
+        dscene::SerializeScene(r, loaded);
+        REQUIRE(r.IsOk());
+    }
+    ScriptComponent* lc = loadedManager->Get(loaded.FindEntity(entityId));
+    REQUIRE(lc != nullptr);
+    REQUIRE(lc->behaviors.Size() == 1u);
+    CHECK(Near(lc->behaviors[0].updateInterval, 0.25f));
+}

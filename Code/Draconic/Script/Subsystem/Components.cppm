@@ -40,6 +40,8 @@ export namespace draconic::script
         // Authored:
         draconic::resource::Ref<ScriptClass> script;
         bool enabled = true;
+        f32 updateInterval = 0.0f;   // seconds between onUpdate calls; <=0 = every tick (P3
+                                     // throttling). The delivered dt is the ACCUMULATED time.
         Array<ScriptPropertyOverride> overrides;
 
         // Runtime (transient):
@@ -49,6 +51,7 @@ export namespace draconic::script
         bool started = false;                      // onStart delivered
         bool active = false;                       // last delivered enable state (onEnable/onDisable edges)
         bool faulted = false;                      // a fault disables THIS behavior (cleared by reload)
+        f32 updateAccumulator = 0.0f;              // time banked toward the next throttled onUpdate
 
         [[nodiscard]] const ScriptPropertyOverride* FindOverride(u64 nameHash) const
         {
@@ -79,6 +82,7 @@ export namespace draconic::script
     {
         draconic::core::Serialize(ar, "script", b.script);
         draconic::core::Serialize(ar, "enabled", b.enabled);
+        draconic::core::Serialize(ar, "updateInterval", b.updateInterval);
         draconic::core::Serialize(ar, "overrides", b.overrides);   // count-prefixed array scope
     }
 

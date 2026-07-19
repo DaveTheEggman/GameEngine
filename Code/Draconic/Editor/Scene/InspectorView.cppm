@@ -1528,6 +1528,23 @@ export namespace draconic::editor
                 } }, category);
             m_grid->AddProperty(RefPtr<tk::PropertyEditor>(enabled.Get()));
 
+            // Update interval (P3 throttling): seconds between onUpdate; 0 = every tick.
+            auto interval = MakeRef<tk::FloatEditor>(DefaultAllocator(),
+                StringView(u8"Update Interval"), static_cast<f64>(behavior.updateInterval),
+                0.0, 3600.0, 0.05, 3,
+                Function<void(f64)>{ [self, id, index](f64 value) {
+                    self->MutateScriptComponent(id, [index, value](
+                        draconic::script::ScriptComponent& c) {
+                        if (index < c.behaviors.Size())
+                        {
+                            c.behaviors[index].updateInterval =
+                                static_cast<f32>(value < 0.0 ? 0.0 : value);
+                        }
+                    });
+                } }, category);
+            interval->SetTooltip(StringView(u8"Seconds between onUpdate calls (0 = every frame)"));
+            m_grid->AddProperty(RefPtr<tk::PropertyEditor>(interval.Get()));
+
             // Reorder / remove.
             auto up = MakeRef<tk::ButtonEditor>(DefaultAllocator(), StringView(u8"Move Up"),
                 Function<void()>{ [self, id, index]() {

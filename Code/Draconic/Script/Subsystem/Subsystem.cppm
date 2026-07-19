@@ -489,9 +489,26 @@ export namespace draconic::script
                 behavior.started = true;
                 if (behavior.faulted) { return; }
             }
-            Variant dt = Variant::From(deltaTime);
-            InvokeHandler(behavior, *scriptClass, entity, kOnUpdate,
-                          Span<Variant>{ &dt, 1 });
+            // updateInterval throttling (P3): 0 = every tick with the raw dt; otherwise
+            // bank time and deliver once the interval elapses, passing the ACCUMULATED dt
+            // (so movement integrates correctly at a lower call rate).
+            if (behavior.updateInterval > 0.0f)
+            {
+                behavior.updateAccumulator += deltaTime;
+                if (behavior.updateAccumulator + 1e-6f >= behavior.updateInterval)
+                {
+                    Variant dt = Variant::From(behavior.updateAccumulator);
+                    InvokeHandler(behavior, *scriptClass, entity, kOnUpdate,
+                                  Span<Variant>{ &dt, 1 });
+                    behavior.updateAccumulator = 0.0f;
+                }
+            }
+            else
+            {
+                Variant dt = Variant::From(deltaTime);
+                InvokeHandler(behavior, *scriptClass, entity, kOnUpdate,
+                              Span<Variant>{ &dt, 1 });
+            }
         }
 
         void InstantiateBehavior(ScriptBehavior& behavior, dscene::EntityHandle entity,
@@ -513,6 +530,7 @@ export namespace draconic::script
             behavior.boundClass = &scriptClass;
             behavior.started = false;
             behavior.active = false;
+            behavior.updateAccumulator = 0.0f;   // fresh instance banks from zero
             if (behavior.instance.Get() == nullptr)
             {
                 behavior.faulted = true;
