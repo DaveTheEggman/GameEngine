@@ -13,6 +13,7 @@ import draconic.scene;
 import draconic.scene.resource;
 import draconic.audio;
 import draconic.audio.subsystem;
+import draconic.settings;
 
 using namespace draconic::core;
 using namespace draconic::audio;
@@ -361,4 +362,35 @@ TEST_CASE("audio.scene: sources sharing one clip each get their OWN voice (dedup
     for (int i = 1; i < 4; ++i) { CHECK_FALSE(voices[i] == voices[0]); }
     CHECK(engine.ActiveVoiceCount() == 4u);
     scene.Stop();
+}
+
+TEST_CASE("audio.settings: user volumes capture -> store round-trip -> apply")
+{
+    RegisterAudioSettingsTypes();
+
+    AudioEngineSettings engineSettings;
+    engineSettings.headless = true;
+    AudioEngine engine(engineSettings);
+    engine.SetBusVolume(AudioBus::Music, 0.25f);
+    engine.SetBusMuted(AudioBus::Effects, true);
+
+    draconic::settings::Settings store;
+    CaptureAudioUserSettings(engine, store.Section<AudioUserSettings>());
+
+    MemoryStream buffer;
+    REQUIRE(store.Save(buffer, BinarySerializerFactory()).IsOk());
+    (void)buffer.Seek(0, SeekOrigin::Begin);
+    draconic::settings::Settings loaded;
+    REQUIRE(loaded.Load(buffer, BinarySerializerFactory()).IsOk());
+    const AudioUserSettings* user = loaded.Find<AudioUserSettings>();
+    REQUIRE(user != nullptr);
+    CHECK(user->volumes[static_cast<usize>(AudioBus::Music)] == doctest::Approx(0.25f));
+    CHECK(user->muted[static_cast<usize>(AudioBus::Effects)]);
+
+    // Applying onto a fresh engine reproduces the mixer state.
+    AudioEngine fresh(engineSettings);
+    ApplyAudioUserSettings(fresh, *user);
+    CHECK(fresh.BusVolume(AudioBus::Music) == doctest::Approx(0.25f));
+    CHECK(fresh.BusMuted(AudioBus::Effects));
+    CHECK(fresh.BusVolume(AudioBus::Master) == doctest::Approx(1.0f));
 }

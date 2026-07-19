@@ -13,6 +13,7 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
+#include "Core/Reflection/Reflect.h"
 
 export module draconic.audio.subsystem;
 
@@ -23,6 +24,8 @@ import draconic.runtime;
 import draconic.scene;
 import draconic.scene.subsystem;
 import draconic.audio;
+import draconic.script;    // ExposeToScript + the Audio facade's service seam
+import draconic.settings;  // AudioUserSettings section (persisted volumes)
 // NOTE: no render imports HERE - the camera-fallback listener lives in SubsystemImpl.cpp
 // (a module implementation unit), keeping heavyweight imports out of the interface for
 // GCC's -fno-module-lazy consumers.
@@ -32,6 +35,58 @@ using namespace draconic::core;
 export namespace draconic::audio
 {
     namespace dscene = draconic::scene;
+
+    /// The service key ExposeToScript binds and the scripting Audio facade resolves.
+    inline constexpr StringView kAudioEngineService = u8"audio.engine";
+
+    // ---- persisted user volumes (P2): a draconic.settings SECTION ----
+    // Bus volumes/mutes as the USER's mixer state (options-menu sliders). Applied AFTER
+    // any project bus layout - the layout is the artistic baseline, the user's setting
+    // is absolute (the way options menus behave). Hosts load it at startup and capture
+    // + save it at shutdown; scripts change volumes through the Audio facade.
+    class AudioUserSettings final : public ISerializable
+    {
+        DRACONIC_OBJECT(AudioUserSettings, ISerializable)
+    public:
+        f32 volumes[static_cast<usize>(AudioBus::Count)] = { 1.0f, 1.0f, 1.0f, 1.0f };
+        bool muted[static_cast<usize>(AudioBus::Count)] = {};
+
+        void Serialize(ISerializer& ar) override
+        {
+            u32 busCount = static_cast<u32>(AudioBus::Count);
+            draconic::core::Serialize(ar, "busCount", busCount);
+            const u32 buses = Min(busCount, static_cast<u32>(AudioBus::Count));
+            for (u32 bus = 0; bus < buses; ++bus)
+            {
+                draconic::core::Serialize(ar, "volume", volumes[bus]);
+                draconic::core::Serialize(ar, "muted", muted[bus]);
+            }
+        }
+    };
+
+    inline void ApplyAudioUserSettings(AudioEngine& engine, const AudioUserSettings& settings)
+    {
+        for (usize bus = 0; bus < static_cast<usize>(AudioBus::Count); ++bus)
+        {
+            engine.SetBusVolume(static_cast<AudioBus>(bus), settings.volumes[bus]);
+            engine.SetBusMuted(static_cast<AudioBus>(bus), settings.muted[bus]);
+        }
+    }
+
+    inline void CaptureAudioUserSettings(const AudioEngine& engine, AudioUserSettings& settings)
+    {
+        for (usize bus = 0; bus < static_cast<usize>(AudioBus::Count); ++bus)
+        {
+            settings.volumes[bus] = engine.BusVolume(static_cast<AudioBus>(bus));
+            settings.muted[bus] = engine.BusMuted(static_cast<AudioBus>(bus));
+        }
+    }
+
+    inline void RegisterAudioSettingsTypes()
+    {
+        GlobalTypeRegistry().Register(AudioUserSettings::StaticType());
+        RegisterSerializable<AudioUserSettings>();
+    }
 
     class AudioSceneSystem final : public dscene::SceneSystem
     {
@@ -325,6 +380,13 @@ export namespace draconic::audio
             return m_engine->Play(clip, params);
         }
 
+        /// Binds THIS subsystem's engine as `context`'s audio service - the scripting
+        /// facade (class Audio below) resolves it per context. Call once per context.
+        void ExposeToScript(draconic::script::IScriptContext& context)
+        {
+            context.SetService(kAudioEngineService, m_engine.Get());
+        }
+
         // ---- music (scene-less, survives scene swaps; audio.md P2) ----
         VoiceHandle PlayMusic(const RefPtr<AudioClip>& clip, f32 crossFadeSeconds = 1.0f,
                               f32 volume = 1.0f)
@@ -402,4 +464,70 @@ export namespace draconic::audio
         UniquePtr<AudioEngine> m_engine;
         Array<SceneEntry> m_systems;
     };
+    // The scripting facade (the Input facade's twin): statics on a foreign class
+    // resolving the CURRENT script context's bound engine. Bus addressing by name
+    // ("master"/"effects"/"music"/"ui"; unknown = no-op / neutral read).
+    // Clip-referencing calls (playOneShot/playMusic) stay PARKED with the entity-handle
+    // family - they need script-side resource handles.
+    class Audio final : public Object
+    {
+        DRACONIC_OBJECT(Audio, Object)
+    public:
+        [[nodiscard]] static AudioEngine* Resolve()
+        {
+            draconic::script::IScriptContext* context = draconic::script::CurrentScriptContext();
+            return context != nullptr
+                ? static_cast<AudioEngine*>(context->GetService(kAudioEngineService))
+                : nullptr;
+        }
+
+        [[nodiscard]] static bool BusFromName(StringView name, AudioBus& out)
+        {
+            if (name == u8"master") { out = AudioBus::Master; return true; }
+            if (name == u8"effects") { out = AudioBus::Effects; return true; }
+            if (name == u8"music") { out = AudioBus::Music; return true; }
+            if (name == u8"ui") { out = AudioBus::UI; return true; }
+            return false;
+        }
+
+        static void setBusVolume(String bus, f32 volume)
+        {
+            AudioEngine* engine = Resolve();
+            AudioBus which{};
+            if (engine != nullptr && BusFromName(bus.AsView(), which))
+            {
+                engine->SetBusVolume(which, Clamp(volume, 0.0f, 4.0f));
+            }
+        }
+        [[nodiscard]] static f32 busVolume(String bus)
+        {
+            AudioEngine* engine = Resolve();
+            AudioBus which{};
+            return engine != nullptr && BusFromName(bus.AsView(), which)
+                ? engine->BusVolume(which) : 1.0f;
+        }
+        static void setBusMuted(String bus, bool muted)
+        {
+            AudioEngine* engine = Resolve();
+            AudioBus which{};
+            if (engine != nullptr && BusFromName(bus.AsView(), which))
+            {
+                engine->SetBusMuted(which, muted);
+            }
+        }
+        [[nodiscard]] static bool busMuted(String bus)
+        {
+            AudioEngine* engine = Resolve();
+            AudioBus which{};
+            return engine != nullptr && BusFromName(bus.AsView(), which)
+                && engine->BusMuted(which);
+        }
+        static void stopMusic(f32 fadeSeconds)
+        {
+            if (AudioEngine* engine = Resolve()) { engine->StopMusic(fadeSeconds); }
+        }
+    };
+
+    void RegisterAudioScriptApi();
+
 }

@@ -5,7 +5,7 @@ add_library(Draconic::AudioSubsystem ALIAS DraconicAudioSubsystem)
 
 target_link_libraries(DraconicAudioSubsystem
     PUBLIC Draconic::Core Draconic::Runtime Draconic::Scene Draconic::SceneSubsystem
-           Draconic::Audio Draconic::Resource
+           Draconic::Audio Draconic::Resource Draconic::Script Draconic::Settings
            Draconic::RenderSubsystem Draconic::Policy)
 
 target_sources(DraconicAudioSubsystem

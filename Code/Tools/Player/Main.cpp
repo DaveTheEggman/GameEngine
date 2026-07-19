@@ -68,6 +68,7 @@ import draconic.physics.subsystem;
 import draconic.input.resource;
 import draconic.input.subsystem;
 import draconic.xml.serialization;
+import draconic.settings;
 import draconic.project;       // manifest + layout (runtime-side, editor-free)
 import draconic.vfs.pak;       // dist mode: one Content.pak holds products + scenes + scripts
 
@@ -244,8 +245,41 @@ namespace
                 }
             }
 
+            // Per-user audio volumes: <userdata>/<project>.user.settings.xml, applied
+            // ON TOP of the layout (the user's slider is absolute - options-menu law).
+            // Absent on first run; captured back at shutdown so script-driven changes
+            // (Audio.setBusVolume) persist for free.
+            if (Audio() != nullptr && Audio()->Engine() != nullptr)
+            {
+                draconic::audio::RegisterAudioSettingsTypes();
+                draconic::vfs::NativeFileSystem userFs(
+                    draconic::core::GetUserDataDirectory(u8"draconic").AsView());
+                UniquePtr<IStream> stream =
+                    userFs.Open(UserSettingsFileName().AsView(), FileMode::Read);
+                if (stream)
+                {
+                    draconic::settings::Settings store;
+                    if (store.Load(*stream, draconic::xml::XmlSerializerFactory()).IsOk())
+                    {
+                        if (const auto* audio = store.Find<draconic::audio::AudioUserSettings>())
+                        {
+                            draconic::audio::ApplyAudioUserSettings(*Audio()->Engine(), *audio);
+                            DRACONIC_LOG_INFO(u8"Player", u8"user audio settings applied");
+                        }
+                    }
+                }
+            }
+
             SetPrimaryScene(m_scene);
             LoadAndStartGameScript();
+        }
+
+        [[nodiscard]] String UserSettingsFileName() const
+        {
+            String name = m_settings.name.IsEmpty() ? String(u8"project")
+                                                    : String(m_settings.name.AsView());
+            name.Append(u8".user.settings.xml");
+            return name;
         }
 
         void OnUpdate(rt::IApplicationHost& host, f32 deltaTime) override
@@ -267,6 +301,22 @@ namespace
 
         void OnShutdown(rt::IApplicationHost& host) override
         {
+            // Persist the user's mixer state (see the startup load).
+            if (Audio() != nullptr && Audio()->Engine() != nullptr)
+            {
+                draconic::settings::Settings store;
+                draconic::audio::CaptureAudioUserSettings(
+                    *Audio()->Engine(), store.Section<draconic::audio::AudioUserSettings>());
+                const String dir = draconic::core::GetUserDataDirectory(u8"draconic");
+                (void)draconic::core::CreateDirectory(dir.AsView());
+                draconic::vfs::NativeFileSystem userFs(dir.AsView());
+                MemoryStream buffer;
+                if (store.Save(buffer, draconic::xml::XmlSerializerFactory()).IsOk())
+                {
+                    (void)userFs.AsWritable()->Save(UserSettingsFileName().AsView(),
+                                                    buffer.Bytes());
+                }
+            }
             rt::DefaultApplication::OnShutdown(host);   // releases products device-alive
         }
 

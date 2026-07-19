@@ -233,6 +233,7 @@ export namespace draconic::runtime
             StopGameScript();
             draconic::input::RegisterInputScriptApi();
             draconic::physics::RegisterPhysicsScriptApi();
+            draconic::audio::RegisterAudioScriptApi();
             m_scriptManager = draconic::script::wren::CreateScriptManager();
             draconic::script::RegisterReflectedTypes(*m_scriptManager);
             m_scriptContext = m_scriptManager->CreateContext();
@@ -242,6 +243,7 @@ export namespace draconic::runtime
             }
             if (m_input != nullptr) { m_input->ExposeToScript(*m_scriptContext); }
             if (m_physics != nullptr) { m_physics->ExposeToScript(*m_scriptContext); }
+            if (m_audio != nullptr) { m_audio->ExposeToScript(*m_scriptContext); }
             if (!m_scriptContext->Load(source, name).IsOk())
             {
                 DRACONIC_LOG_ERROR(u8"App", u8"game script '{}' failed to compile", name);

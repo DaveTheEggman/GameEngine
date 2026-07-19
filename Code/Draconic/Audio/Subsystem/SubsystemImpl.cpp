@@ -130,6 +130,23 @@ namespace draconic::audio
         builder.Property<&AudioListenerComponent::isActive>("isActive");
     }
 
+    DRACONIC_DEFINE_OBJECT(AudioUserSettings, "draconic::audio")
+
+    DRACONIC_REFLECT(Audio, "draconic::audio")
+    {
+        builder.Method<&Audio::setBusVolume>("setBusVolume");
+        builder.Method<&Audio::busVolume>("busVolume");
+        builder.Method<&Audio::setBusMuted>("setBusMuted");
+        builder.Method<&Audio::busMuted>("busMuted");
+        builder.Method<&Audio::stopMusic>("stopMusic");
+        builder.Constructor();   // Wren only materializes constructible foreign classes
+    }
+
+    void RegisterAudioScriptApi()
+    {
+        GlobalTypeRegistry().Register(Audio::StaticType());
+    }
+
     void RegisterAudioComponentReflection()
     {
         static const bool once = []() {
