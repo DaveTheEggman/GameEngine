@@ -159,6 +159,8 @@ export namespace draconic::audio
         u32 voiceCount = 64;           // fixed in-memory voice pool
         u32 streamVoiceCount = 8;      // fixed streamed-voice pool (music etc.)
         u32 sampleRate = 48000;        // headless mixing rate (a real device uses its own)
+        u32 listenerCount = 1;         // spatial listeners (1..4; split-screen); voices
+                                       // auto-attach to the CLOSEST listener
         f32 stopFadeSeconds = 0.010f;  // the always-fade on stop/pause (Godot rule)
         f32 dedupeWindowSeconds = 1.0f / 30.0f;   // recent-play merge window (Traktor)
         /// Optional mount for path-addressed streaming (clip stream sources don't need it).
@@ -206,6 +208,12 @@ export namespace draconic::audio
 
         // ---- listener (one active listener; multi-listener deferred) ----
         void SetListenerTransform(Float3 position, Float3 forward, Float3 up, Float3 velocity);
+        /// Multi-listener (P3, split-screen): move listener `index` (< ListenerCount()).
+        /// Spatial voices attenuate/pan against the CLOSEST enabled listener.
+        void SetListenerTransformIndexed(u32 index, Float3 position, Float3 forward,
+                                         Float3 up, Float3 velocity);
+        void SetListenerEnabled(u32 index, bool enabled);
+        [[nodiscard]] u32 ListenerCount() const;
 
         // ---- buses ----
         void SetBusVolume(AudioBus bus, f32 volume);

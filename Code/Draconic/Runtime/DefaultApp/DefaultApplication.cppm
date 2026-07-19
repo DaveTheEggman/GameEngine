@@ -115,7 +115,7 @@ export namespace draconic::runtime
                 host.Ctx().AddSubsystem<draconic::particles::ParticleSubsystem>();
             }
             m_physics = host.Ctx().AddSubsystem<draconic::physics::PhysicsSubsystem>();
-            m_audio = host.Ctx().AddSubsystem<draconic::audio::AudioSubsystem>();
+            m_audio = host.Ctx().AddSubsystem<draconic::audio::AudioSubsystem>(m_audioEngineSettings);
             m_input = host.Ctx().AddSubsystem<draconic::input::InputSubsystem>(
                 host.Shell() != nullptr ? host.Shell()->Input() : nullptr);
             m_ui = host.Ctx().AddSubsystem<draconic::ui::UISubsystem>();
@@ -125,6 +125,12 @@ export namespace draconic::runtime
         [[nodiscard]] draconic::input::InputSubsystem* Input() const noexcept { return m_input; }
         [[nodiscard]] draconic::physics::PhysicsSubsystem* Physics() const noexcept { return m_physics; }
         [[nodiscard]] draconic::audio::AudioSubsystem* Audio() const noexcept { return m_audio; }
+        /// Preset BEFORE Configure: audio engine tuning (listener count for split-screen,
+        /// voice pool sizes). Defaults suit a single-listener game.
+        void SetAudioEngineSettings(const draconic::audio::AudioEngineSettings& settings)
+        {
+            m_audioEngineSettings = settings;
+        }
         [[nodiscard]] draconic::ui::UISubsystem* UI() const noexcept { return m_ui; }
 
         /// TTF for the game UI's default font (preset BEFORE Configure; the editor passes
@@ -326,6 +332,7 @@ export namespace draconic::runtime
         draconic::audio::AudioClipFactory m_audioClipFactory;
         draconic::audio::AudioBusLayoutFactory m_busLayoutFactory;
         draconic::audio::SoundCueFactory m_soundCueFactory;
+        draconic::audio::AudioEngineSettings m_audioEngineSettings;
         draconic::model::ModelFactory m_modelFactory;
         draconic::ui::UIDocumentFactory m_uiDocumentFactory;
         draconic::ui::UIThemeFactory m_uiThemeFactory;

@@ -146,6 +146,28 @@ namespace
                 m_emitters.PushBack(e);
             }
 
+            // Reverb zone (P3): stand near the origin to hear the 'cave' - the tail
+            // fades in across the zone's edge band and dries out as you fly away.
+            {
+                dscene::EntityHandle zone = m_scene->CreateEntity(u8"cave-zone");
+                auto& reverb =
+                    m_scene->GetSystem<audio::AudioReverbZoneComponentManager>()->Add(zone);
+                reverb.radius = 12.0f;
+                reverb.edgeFade = 0.4f;
+                reverb.roomSize = 0.8f;
+                reverb.damping = 0.2f;
+                reverb.wetLevel = 0.6f;
+            }
+
+            // LMB one-shots fire through a CUE (P3): three weighted variants with
+            // pitch jitter - no two consecutive shots pick the same clip.
+            m_shotCue = core::MakeRef<audio::SoundCue>(core::DefaultAllocator());
+            m_shotCue->variants.PushBack(audio::SoundCueVariant{ m_beepHigh, 3.0f });
+            m_shotCue->variants.PushBack(audio::SoundCueVariant{ m_click, 2.0f });
+            m_shotCue->variants.PushBack(audio::SoundCueVariant{ m_beepLow, 1.0f });
+            m_shotCue->pitchMin = 0.85f;
+            m_shotCue->pitchMax = 1.25f;
+
             m_scene->Start();
             m_scene->SetSimulationEnabled(true);
             if (Audio()->Engine() != nullptr && Audio()->Engine()->IsHeadless())
@@ -179,10 +201,9 @@ namespace
                     m_fly.position.y + forward.y * distance,
                     m_fly.position.z + forward.z * distance + (Random01() - 0.5f) * 4.0f };
                 audio::AudioPlayParams params;
-                params.pitch = 0.8f + 0.4f * Random01();
                 params.minDistance = 1.5f;
                 params.maxDistance = 50.0f;
-                m_lastOneShot = Audio()->PlayOneShot3D(m_beepHigh, position, params);
+                m_lastOneShot = Audio()->PlayCueOneShot3D(m_shotCue, position, params);
                 m_lastOneShotPosition = position;
                 m_haveOneShot = true;
             }
@@ -293,6 +314,7 @@ namespace
         dscene::EntityHandle m_camera;
         core::Array<dscene::EntityHandle> m_emitters;
         core::RefPtr<audio::AudioClip> m_ambient;
+        core::RefPtr<audio::SoundCue> m_shotCue;
         core::RefPtr<audio::AudioClip> m_beepHigh;
         core::RefPtr<audio::AudioClip> m_beepLow;
         core::RefPtr<audio::AudioClip> m_click;

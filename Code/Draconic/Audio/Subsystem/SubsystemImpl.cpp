@@ -48,23 +48,26 @@ namespace draconic::audio
         AudioEngine* engine = Engine();
         if (engine == nullptr) { return; }
 
-        // One active listener: the first STARTED scene with a listener COMPONENT wins;
-        // otherwise the first started scene's camera stands in.
-        bool pushed = false;
+        // Listeners (multi-listener, P3): every active listener COMPONENT across the
+        // started scenes fills an engine listener slot, in scene order, up to the
+        // engine's configured count - spatial voices attenuate against the CLOSEST
+        // enabled listener (split-screen ears). No component anywhere = the first
+        // started scene's camera stands in on slot 0. Unused slots disable.
+        const u32 capacity = engine->ListenerCount();
+        u32 used = 0;
         for (const SceneEntry& entry : Systems())
         {
-            if (!entry.system->Started()) { continue; }
-            if (entry.system->ListenerValid())
+            if (!entry.system->Started() || used >= capacity) { continue; }
+            for (const ListenerPose& pose : entry.system->ListenerPoses())
             {
-                engine->SetListenerTransform(entry.system->ListenerPosition(),
-                                             entry.system->ListenerForward(),
-                                             entry.system->ListenerUp(),
-                                             entry.system->ListenerVelocity());
-                pushed = true;
-                break;
+                if (used >= capacity) { break; }
+                engine->SetListenerTransformIndexed(used, pose.position, pose.forward,
+                                                    pose.up, pose.velocity);
+                engine->SetListenerEnabled(used, true);
+                ++used;
             }
         }
-        if (!pushed)
+        if (used == 0)
         {
             for (const SceneEntry& entry : Systems())
             {
@@ -72,11 +75,17 @@ namespace draconic::audio
                 Float3 position, forward, up;
                 if (CameraListenerPose(*entry.scene, position, forward, up))
                 {
-                    engine->SetListenerTransform(position, forward, up,
-                                                 Float3{ 0.0f, 0.0f, 0.0f });
+                    engine->SetListenerTransformIndexed(0, position, forward, up,
+                                                        Float3{ 0.0f, 0.0f, 0.0f });
+                    engine->SetListenerEnabled(0, true);
+                    used = 1;
                     break;
                 }
             }
+        }
+        for (u32 i = Max(used, 1u); i < capacity; ++i)   // slot 0 always stays enabled
+        {
+            engine->SetListenerEnabled(i, false);
         }
 
         engine->Update(deltaTime);   // reap + dedupe clock (+ headless pump)

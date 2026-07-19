@@ -346,7 +346,7 @@ namespace draconic::audio
         {
             ma_engine_config config = ma_engine_config_init();
             config.pResourceManagerVFS = &bridge;
-            config.listenerCount = 1;
+            config.listenerCount = Clamp<u32>(settings.listenerCount, 1, 4);
             if (withoutDevice)
             {
                 config.noDevice = MA_TRUE;
@@ -1226,13 +1226,38 @@ namespace draconic::audio
 
     void AudioEngine::SetListenerTransform(Float3 position, Float3 forward, Float3 up, Float3 velocity)
     {
+        SetListenerTransformIndexed(0, position, forward, up, velocity);
+    }
+
+    void AudioEngine::SetListenerTransformIndexed(u32 index, Float3 position, Float3 forward,
+                                                  Float3 up, Float3 velocity)
+    {
         Impl& impl = *m_impl;
-        if (!impl.engineInitialized) { return; }
-        impl.listenerPosition = position;
-        ma_engine_listener_set_position(&impl.engine, 0, position.x, position.y, position.z);
-        ma_engine_listener_set_direction(&impl.engine, 0, forward.x, forward.y, forward.z);
-        ma_engine_listener_set_world_up(&impl.engine, 0, up.x, up.y, up.z);
-        ma_engine_listener_set_velocity(&impl.engine, 0, velocity.x, velocity.y, velocity.z);
+        if (!impl.engineInitialized || index >= ma_engine_get_listener_count(&impl.engine))
+        {
+            return;
+        }
+        // The steal-farthest heuristic + distance low-pass track listener 0 (primary).
+        if (index == 0) { impl.listenerPosition = position; }
+        ma_engine_listener_set_position(&impl.engine, index, position.x, position.y, position.z);
+        ma_engine_listener_set_direction(&impl.engine, index, forward.x, forward.y, forward.z);
+        ma_engine_listener_set_world_up(&impl.engine, index, up.x, up.y, up.z);
+        ma_engine_listener_set_velocity(&impl.engine, index, velocity.x, velocity.y, velocity.z);
+    }
+
+    void AudioEngine::SetListenerEnabled(u32 index, bool enabled)
+    {
+        Impl& impl = *m_impl;
+        if (!impl.engineInitialized || index >= ma_engine_get_listener_count(&impl.engine))
+        {
+            return;
+        }
+        ma_engine_listener_set_enabled(&impl.engine, index, enabled ? MA_TRUE : MA_FALSE);
+    }
+
+    u32 AudioEngine::ListenerCount() const
+    {
+        return m_impl->engineInitialized ? ma_engine_get_listener_count(&m_impl->engine) : 0;
     }
 
     void AudioEngine::SetBusVolume(AudioBus bus, f32 volume)

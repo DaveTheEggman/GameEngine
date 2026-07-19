@@ -39,6 +39,15 @@ export namespace draconic::audio
     /// The service key ExposeToScript binds and the scripting Audio facade resolves.
     inline constexpr StringView kAudioEngineService = u8"audio.engine";
 
+    /// One listener's world pose this frame (multi-listener collection).
+    struct ListenerPose
+    {
+        Float3 position{ 0.0f, 0.0f, 0.0f };
+        Float3 forward{ 0.0f, 0.0f, -1.0f };
+        Float3 up{ 0.0f, 1.0f, 0.0f };
+        Float3 velocity{ 0.0f, 0.0f, 0.0f };
+    };
+
     // ---- persisted user volumes (P2): a draconic.settings SECTION ----
     // Bus volumes/mutes as the USER's mixer state (options-menu sliders). Applied AFTER
     // any project bus layout - the layout is the artistic baseline, the user's setting
@@ -226,6 +235,10 @@ export namespace draconic::audio
         [[nodiscard]] Float3 ListenerForward() const noexcept { return m_listenerForward; }
         [[nodiscard]] Float3 ListenerUp() const noexcept { return m_listenerUp; }
         [[nodiscard]] Float3 ListenerVelocity() const noexcept { return m_listenerVelocity; }
+        [[nodiscard]] Span<const ListenerPose> ListenerPoses() const noexcept
+        {
+            return Span<const ListenerPose>{ m_listenerPoses.Data(), m_listenerPoses.Size() };
+        }
 
     private:
         [[nodiscard]] AudioSourceComponent* Component(dscene::EntityHandle entity)
@@ -336,26 +349,37 @@ export namespace draconic::audio
 
         void UpdateListenerPose(f32 deltaTime)
         {
+            // ALL active listeners collect (multi-listener, P3: split-screen ears);
+            // the FIRST one stays the scene's primary (zones + legacy accessors).
             m_listenerValid = false;
+            m_listenerPoses.Clear();
             auto* listeners = m_scene->GetSystem<AudioListenerComponentManager>();
             if (listeners == nullptr) { return; }
             listeners->ForEach([&](AudioListenerComponent& c, dscene::EntityHandle e) {
-                if (m_listenerValid || !c.isActive) { return; }
+                if (!c.isActive) { return; }
                 const Float4x4 world = m_scene->GetWorldMatrix(e);
-                const Float3 position = TransformPoint(Float3{ 0.0f, 0.0f, 0.0f }, world);
+                ListenerPose pose;
+                pose.position = TransformPoint(Float3{ 0.0f, 0.0f, 0.0f }, world);
                 // Forward is -Z (row 2 negated), up is +Y (row 1) - row-vector convention.
-                m_listenerForward = Normalized(
+                pose.forward = Normalized(
                     Float3{ -world.m[2][0], -world.m[2][1], -world.m[2][2] });
-                m_listenerUp = Normalized(Float3{ world.m[1][0], world.m[1][1], world.m[1][2] });
-                m_listenerVelocity = (c.hasPreviousPosition && deltaTime > 0.0f)
-                    ? Float3{ (position.x - c.previousPosition.x) / deltaTime,
-                              (position.y - c.previousPosition.y) / deltaTime,
-                              (position.z - c.previousPosition.z) / deltaTime }
+                pose.up = Normalized(Float3{ world.m[1][0], world.m[1][1], world.m[1][2] });
+                pose.velocity = (c.hasPreviousPosition && deltaTime > 0.0f)
+                    ? Float3{ (pose.position.x - c.previousPosition.x) / deltaTime,
+                              (pose.position.y - c.previousPosition.y) / deltaTime,
+                              (pose.position.z - c.previousPosition.z) / deltaTime }
                     : Float3{ 0.0f, 0.0f, 0.0f };
-                m_listenerPosition = position;
-                c.previousPosition = position;
+                c.previousPosition = pose.position;
                 c.hasPreviousPosition = true;
-                m_listenerValid = true;
+                if (!m_listenerValid)
+                {
+                    m_listenerPosition = pose.position;
+                    m_listenerForward = pose.forward;
+                    m_listenerUp = pose.up;
+                    m_listenerVelocity = pose.velocity;
+                    m_listenerValid = true;
+                }
+                m_listenerPoses.PushBack(pose);
             });
         }
 
@@ -370,6 +394,7 @@ export namespace draconic::audio
         Float3 m_listenerForward{ 0.0f, 0.0f, -1.0f };
         Float3 m_listenerUp{ 0.0f, 1.0f, 0.0f };
         Float3 m_listenerVelocity{ 0.0f, 0.0f, 0.0f };
+        Array<ListenerPose> m_listenerPoses;
     };
 
     // The runtime subsystem: owns the ONE AudioEngine, injects the managers + system

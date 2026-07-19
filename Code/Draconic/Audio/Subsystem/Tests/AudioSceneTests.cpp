@@ -479,3 +479,45 @@ TEST_CASE("audio.scene: reverb zones - wet follows listener occupancy, wettest z
     play.Frame();
     CHECK(play.engine.SceneReverbWet(group) == doctest::Approx(0.0f));
 }
+
+TEST_CASE("audio.scene: multi-listener - every active listener collects, first is primary")
+{
+    PlayScene play;
+    RefPtr<AudioClip> clip = MakeToneClip(0.5f);
+    play.AddSource(clip, Float3{ 0, 0, 0 });
+
+    auto* listeners = play.scene.GetSystem<AudioListenerComponentManager>();
+    dscene::EntityHandle earsA = play.scene.CreateEntity(u8"p1");
+    play.scene.SetLocalPosition(earsA, Float3{ -5.0f, 0.0f, 0.0f });
+    listeners->Add(earsA);
+    dscene::EntityHandle earsB = play.scene.CreateEntity(u8"p2");
+    play.scene.SetLocalPosition(earsB, Float3{ 5.0f, 0.0f, 0.0f });
+    listeners->Add(earsB);
+    dscene::EntityHandle earsOff = play.scene.CreateEntity(u8"spectator");
+    listeners->Add(earsOff).isActive = false;   // inactive: never collected
+
+    play.Start();
+    play.scene.UpdateTransforms();
+    play.Frame();
+
+    const Span<const ListenerPose> poses = play.audio->ListenerPoses();
+    REQUIRE(poses.Size() == 2u);
+    CHECK(poses[0].position.x == doctest::Approx(-5.0f));   // first component = primary
+    CHECK(poses[1].position.x == doctest::Approx(5.0f));
+    CHECK(play.audio->ListenerPosition().x == doctest::Approx(-5.0f));
+}
+
+TEST_CASE("audio.engine: listener slots honor the configured count and reject OOB")
+{
+    AudioEngineSettings settings;
+    settings.headless = true;
+    settings.listenerCount = 3;
+    AudioEngine engine(settings);
+    CHECK(engine.ListenerCount() == 3u);
+    engine.SetListenerTransformIndexed(2, Float3{ 1, 2, 3 }, Float3{ 0, 0, -1 },
+                                       Float3{ 0, 1, 0 }, Float3{});
+    engine.SetListenerTransformIndexed(7, Float3{}, Float3{ 0, 0, -1 },
+                                       Float3{ 0, 1, 0 }, Float3{});   // OOB: no-op
+    engine.SetListenerEnabled(1, false);
+    engine.Update(1.0f / 60.0f);   // pump survives partial listener config
+}
