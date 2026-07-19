@@ -394,6 +394,11 @@ namespace draconic::ui
             if (ui.root.Get() != nullptr) { m_context.RemoveRootView(ui.root.Get()); }
         }
         m_sceneUIs.Clear();
+        for (TextureCanvasRoot& entry : m_textureCanvasRoots)
+        {
+            m_context.RemoveRootView(entry.root.Get());
+        }
+        m_textureCanvasRoots.Clear();
         m_overlayLayer = nullptr;
         if (m_screenRoot.Get() != nullptr) { m_context.RemoveRootView(m_screenRoot.Get()); }
         m_screenRoot = nullptr;
@@ -419,6 +424,7 @@ namespace draconic::ui
         // pointer) rebuilds; theme overrides parse per canvas as a LOCAL stylesheet.
         // Canvases and billboards parent into THEIR SCENE's root (the scene tier) - a
         // Simulate page's UI can never bleed into the Game tab by construction.
+        for (TextureCanvasRoot& entry : m_textureCanvasRoots) { entry.seen = false; }
         for (SceneUI& sceneUI : m_sceneUIs)
         {
             dscene::Scene* scene = sceneUI.scene;
@@ -470,9 +476,19 @@ namespace draconic::ui
                             c.renderRoot = MakeRef<RootView>(DefaultAllocator());
                             c.renderRoot->AddView(c.root.Get());
                             m_context.AddRootView(c.renderRoot.Get());
+                            TextureCanvasRoot entry;
+                            entry.root = c.renderRoot;
+                            m_textureCanvasRoots.PushBack(Move(entry));
                         }
                     }
                     c.builtFrom = document;
+                }
+                if (c.renderRoot.Get() != nullptr)
+                {
+                    for (TextureCanvasRoot& entry : m_textureCanvasRoots)
+                    {
+                        if (entry.root.Get() == c.renderRoot.Get()) { entry.seen = true; break; }
+                    }
                 }
                 if (!wantsTexture)
                 {
@@ -562,6 +578,16 @@ namespace draconic::ui
                 if (!live) { sceneUI.billboardLayer->RemoveView(child); }
             }
         }
+        // Sweep RenderTexture roots whose component vanished (despawn/removal/scene
+        // teardown): unregister from the context - which stores roots NON-OWNING, so a
+        // stale registration would dangle - then drop our keep-alive ref. (A mode-flip/
+        // rebuild teardown above already unregistered; the second remove is a no-op.)
+        for (usize i = m_textureCanvasRoots.Size(); i-- > 0;)
+        {
+            if (m_textureCanvasRoots[i].seen) { continue; }
+            m_context.RemoveRootView(m_textureCanvasRoots[i].root.Get());
+            m_textureCanvasRoots.RemoveAt(i);
+        }
     }
 
     void UISubsystem::PumpInput()
@@ -580,11 +606,34 @@ namespace draconic::ui
         draconic::shell::IMouse* mouse = devices.Mouse();
         InputManager& inputManager = *m_context.GetInputManager();
 
+        // Per-surface scene binding (game-ui.md §9 known edge): which scene roots may
+        // this frame's input reach? A BOUND source (the editor's Game tab binds its
+        // scene on Play) confines routing + consumption to ITS scene's root - two
+        // interactive scenes visible at once can no longer cross-route on overlapping
+        // coordinates. An UN-BOUND source follows the input subsystem's policy:
+        // AllScenes in the player (the shell owns the whole window - the historical
+        // behavior), ScreenTierOnly in the editor's embedded runtime, where editing-
+        // page HUDs render WYSIWYG but are deliberately NOT interactive (Simulate
+        // included - the Game tab is the interactive-run surface). The scene-LESS
+        // screen tier is never confined: global overlays sit above every scene and
+        // stay modal while occupied.
+        const void* boundSceneKey = m_input->BoundSceneKey();
+        const bool unboundReachesScenes = m_input->UnboundScenePolicy() ==
+                                          draconic::input::UnboundInputScenePolicy::AllScenes;
+        auto sceneRootEligible = [&](const SceneUI& ui) noexcept {
+            if (boundSceneKey != nullptr)
+            {
+                return static_cast<const void*>(ui.scene) == boundSceneKey;
+            }
+            return unboundReachesScenes;
+        };
+
         // The context dispatches input through ONE ActiveInputRoot (the UIHost multi-
         // window precedent) - with the tiers split across roots, pick it per frame:
-        // an OCCUPIED screen tier is modal and always wins; otherwise the root under
-        // the pointer; otherwise (pad/keyboard-only) the first scene root with canvas
-        // content, so gamepad nav reaches a pause menu no pointer ever hovered.
+        // an OCCUPIED screen tier is modal and always wins; otherwise the ELIGIBLE
+        // root under the pointer; otherwise (pad/keyboard-only) the first eligible
+        // scene root with canvas content, so gamepad nav reaches a pause menu no
+        // pointer ever hovered.
         {
             RootView* target = nullptr;
             if (overlayActive) { target = m_screenRoot.Get(); }
@@ -598,6 +647,7 @@ namespace draconic::ui
                 }
                 for (usize i = 0; target == nullptr && i < m_sceneUIs.Size(); ++i)
                 {
+                    if (!sceneRootEligible(m_sceneUIs[i])) { continue; }
                     RootView* root = m_sceneUIs[i].root.Get();
                     if (root == nullptr) { continue; }
                     View* hit = root->HitTest(point);
@@ -608,6 +658,7 @@ namespace draconic::ui
             {
                 for (SceneUI& ui : m_sceneUIs)
                 {
+                    if (!sceneRootEligible(ui)) { continue; }
                     // Beyond the billboard layer = at least one canvas instantiated.
                     if (ui.root.Get() != nullptr && ui.root->ChildCount() > 1)
                     {
@@ -737,7 +788,9 @@ namespace draconic::ui
         // Consumption: pointer = an INTERACTIVE canvas under the cursor (or a pressed
         // view); keyboard = a focused text editor. Published to the action layer -
         // UI-consumed input never reaches gameplay actions. The pointer probes the
-        // screen tier first (topmost), then every scene root.
+        // screen tier first (topmost), then the ELIGIBLE scene roots - the same
+        // binding rule as routing, so an un-bound editor context never publishes a
+        // spurious mask from HUDs it cannot interact with.
         bool pointer = false;
         if (mouse != nullptr)
         {
@@ -749,6 +802,7 @@ namespace draconic::ui
             }
             for (usize i = 0; !pointer && i < m_sceneUIs.Size(); ++i)
             {
+                if (!sceneRootEligible(m_sceneUIs[i])) { continue; }
                 RootView* root = m_sceneUIs[i].root.Get();
                 if (root == nullptr) { continue; }
                 View* hit = root->HitTest(point);
@@ -898,27 +952,55 @@ namespace draconic::ui
     {
         constexpr rhi::TextureFormat kCanvasTextureFormat = rhi::TextureFormat::RGBA8Unorm;
         if (m_render.Get() == nullptr || m_render->device == nullptr) { return; }
+        // At most ONCE per UI frame: several hosts share one runtime context in the
+        // editor (the Game tab + every open scene page call this seam), and one call
+        // already renders EVERY scene's RT canvases - repeat calls would draw the same
+        // targets again on the same encoder.
+        if (m_canvasTexturesSerial == m_frameSerial) { return; }
+        m_canvasTexturesSerial = m_frameSerial;
         for (auto& target : m_render->canvasTargets) { target.seen = false; }
         for (SceneUI& sceneUI : m_sceneUIs)
         {
             auto* canvases = sceneUI.scene->GetSystem<UICanvasComponentManager>();
             if (canvases == nullptr) { continue; }
+            auto* sprites = sceneUI.scene->GetSystem<draconic::render::SpriteComponentManager>();
+            auto* decals = sceneUI.scene->GetSystem<draconic::render::DecalComponentManager>();
+            // Declarative RT-canvas -> material binding: the canvas ENTITY's own sprite/
+            // decal runtime `texture` override tracks the canvas's CURRENT view (which
+            // changes on resize). Deliberately UI-side: it writes the SAME override
+            // manual/script assignment uses, so the render subsystem stays UI-unaware -
+            // no new render fields, no importer/inspector surface. Cross-entity binding
+            // stays manual (script refreshes from CanvasRenderTextureView per frame).
+            auto bindEntityMaterials = [&](dscene::EntityHandle entity, rhi::TextureView* oldView,
+                                           rhi::TextureView* newView) {
+                if (auto* sprite = sprites != nullptr ? sprites->Get(entity) : nullptr)
+                {
+                    if (newView != nullptr || sprite->texture == oldView) { sprite->texture = newView; }
+                }
+                if (auto* decal = decals != nullptr ? decals->Get(entity) : nullptr)
+                {
+                    if (newView != nullptr || decal->texture == oldView) { decal->texture = newView; }
+                }
+            };
             canvases->ForEach([&](UICanvasComponent& c, dscene::EntityHandle entity) {
                 if (c.renderMode != CanvasRenderMode::RenderTexture) { return; }
                 if (c.renderRoot.Get() == nullptr) { return; }   // no document instantiated
                 const u32 width = Max(c.renderTextureWidth, 1u);
                 const u32 height = Max(c.renderTextureHeight, 1u);
+                rhi::TextureView* previousView = c.renderTextureView;
                 RenderState::CanvasTarget* target = m_render->EnsureCanvasTarget(
                     sceneUI.scene, entity, width, height, kCanvasTextureFormat);
                 if (target == nullptr)
                 {
                     c.renderTexture = nullptr;
                     c.renderTextureView = nullptr;
+                    bindEntityMaterials(entity, previousView, nullptr);   // never leave a freed view bound
                     return;
                 }
                 target->seen = true;
                 c.renderTexture = target->texture;      // the component-level accessor
                 c.renderTextureView = target->view;
+                bindEntityMaterials(entity, previousView, target->view);
                 if (!c.visible) { return; }   // keep the texture, skip the draw
                 encoder.TransitionTexture(target->texture, target->state,
                                           rhi::ResourceState::RenderTarget);
@@ -940,10 +1022,38 @@ namespace draconic::ui
                 target->state = rhi::ResourceState::ShaderRead;
             });
         }
-        // Sweep targets whose canvas vanished (despawn, scene destroyed, mode flip).
+        // Sweep targets whose canvas vanished (despawn, scene destroyed, mode flip) -
+        // and un-bind any sprite/decal override still pointing at the dying view (only
+        // while the scene itself is alive; a destroyed scene took its components along).
         for (usize i = m_render->canvasTargets.Size(); i-- > 0;)
         {
-            if (!m_render->canvasTargets[i].seen) { m_render->DestroyCanvasTarget(i); }
+            RenderState::CanvasTarget& target = m_render->canvasTargets[i];
+            if (target.seen) { continue; }
+            bool sceneAlive = false;   // pointer compare only - the scene may be freed
+            for (const SceneUI& ui : m_sceneUIs)
+            {
+                if (ui.scene == target.scene) { sceneAlive = true; break; }
+            }
+            if (target.view != nullptr && sceneAlive)
+            {
+                if (auto* sprites = target.scene->GetSystem<draconic::render::SpriteComponentManager>())
+                {
+                    if (auto* sprite = sprites->Get(target.entity);
+                        sprite != nullptr && sprite->texture == target.view)
+                    {
+                        sprite->texture = nullptr;
+                    }
+                }
+                if (auto* decals = target.scene->GetSystem<draconic::render::DecalComponentManager>())
+                {
+                    if (auto* decal = decals->Get(target.entity);
+                        decal != nullptr && decal->texture == target.view)
+                    {
+                        decal->texture = nullptr;
+                    }
+                }
+            }
+            m_render->DestroyCanvasTarget(i);
         }
     }
 

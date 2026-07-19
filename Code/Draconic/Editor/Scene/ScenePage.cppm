@@ -35,6 +35,7 @@ import draconic.render.subsystem;
 import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.ui.runtime;
+import draconic.ui.subsystem;   // game-UI RenderTexture canvases (live in editing viewports)
 import draconic.ui.viewport;
 import draconic.vg.renderer;
 import draconic.editor.core;
@@ -68,6 +69,7 @@ export namespace draconic::editor
         {
             m_scenes = host.Ctx().GetSubsystem<dscene::SceneSubsystem>();
             m_render = host.Ctx().GetSubsystem<drender::RenderSubsystem>();
+            m_gameUI = host.Ctx().GetSubsystem<draconic::ui::UISubsystem>();
 
             // Own live Scene per page (managers injected by the subsystems on CreateScene).
             if (m_scenes != nullptr)
@@ -243,6 +245,16 @@ export namespace draconic::editor
             {
                 m_renderedOnce = true;
                 DRACONIC_LOG_DEBUG(u8"Editor", u8"scene page '{}' first frame ({}x{})", m_title, w, h);
+            }
+
+            // RenderTexture canvases stay LIVE in editing viewports too (WYSIWYG - an
+            // in-world screen must not show stale/black content while its scene is being
+            // edited; Simulate renders through this same path). Same host seam as the
+            // player/Game tab; the subsystem draws at most once per UI frame, so several
+            // open pages (or a running Game tab) share one draw of every RT canvas.
+            if (m_gameUI != nullptr)
+            {
+                m_gameUI->RenderCanvasTextures(*frame.encoder, static_cast<i32>(frame.frameIndex));
             }
 
             drender::ViewCamera camera;
@@ -863,6 +875,13 @@ export namespace draconic::editor
         /// system, SimulationEnabled un-freezes simulation-only work, and the command stack
         /// LOCKS (runtime mutations don't belong on the edit history; undoing into entities
         /// the restore recreates is a guid minefield). No-op if already simulating.
+        ///
+        /// Game UI stays NOT interactive during Simulate (deliberate): the scene's HUD
+        /// renders in the viewport (WYSIWYG), but no per-surface scene binding is made
+        /// (input-subsystem SetSourceProvider), so under the editor's ScreenTierOnly
+        /// policy the canvases never take editor clicks/keys. Simulate is a physics/
+        /// systems preview whose pointer must keep serving SELECTION and camera flight;
+        /// the Game tab is the interactive-run surface and binds its scene on Play.
         void StartSimulation()
         {
             if (m_isSimulating || m_scene == nullptr) { return; }
@@ -1105,6 +1124,7 @@ export namespace draconic::editor
         uirt::UIHost* m_uiHost;                      // borrowed
         dscene::SceneSubsystem* m_scenes = nullptr;  // borrowed (context subsystem)
         drender::RenderSubsystem* m_render = nullptr;
+        draconic::ui::UISubsystem* m_gameUI = nullptr;   // RT-canvas host seam (borrowed)
 
         String m_title;
         dscene::Scene* m_scene = nullptr;            // owned by the SceneSubsystem
