@@ -450,6 +450,10 @@ export namespace draconic::ui
         void RemoveView(View* child, bool deleteChild = false);
         void RemoveAllViews(bool deleteChildren = false);
         void InsertView(View* child, usize index, LayoutParamsPtr lp = {});
+        /// Moves an EXISTING child to `index` (clamped) - a pure reorder with NO
+        /// Detach/Attach round-trip, so focus/hover/registration survive. For z-order
+        /// maintenance (e.g. canvas order-stacking). Defined in the impl unit.
+        void MoveView(View* child, usize index);
 
         [[nodiscard]] Rectangle ContentBounds() const
         {

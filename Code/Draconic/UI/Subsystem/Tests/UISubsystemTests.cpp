@@ -400,3 +400,75 @@ TEST_CASE("ui.subsystem: preview roots live in the context but never on the scre
     ctx.BeginFrame(1.0f / 60.0f);
     ctx.Shutdown();
 }
+
+TEST_CASE("ui.subsystem: canvases stack by order; billboard layer stays below; despawn sweeps")
+{
+    rt::Context ctx;
+    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
+    auto* ui = ctx.AddSubsystem<UISubsystem>();
+    ctx.Startup();
+
+    dscene::Scene* scene = scenes->CreateScene(u8"hud");
+    auto* canvases = scene->GetSystem<UICanvasComponentManager>();
+
+    // Components added in order a (order 5), b (order 0), c (order 5 - a TIE with a).
+    // Component references are transient (the pool compacts) - set fields right after
+    // each Add and re-resolve later via Get.
+    dscene::EntityHandle ea = scene->CreateEntity(u8"a");
+    {
+        UICanvasComponent& a = canvases->Add(ea);
+        a.document = MakeDocument(u8"<Label id=\"canvas-a\" text=\"a\"/>");
+        a.order = 5;
+    }
+    dscene::EntityHandle eb = scene->CreateEntity(u8"b");
+    {
+        UICanvasComponent& b = canvases->Add(eb);
+        b.document = MakeDocument(u8"<Label id=\"canvas-b\" text=\"b\"/>");
+        b.order = 0;
+    }
+    dscene::EntityHandle ec = scene->CreateEntity(u8"c");
+    {
+        UICanvasComponent& c = canvases->Add(ec);
+        c.document = MakeDocument(u8"<Label id=\"canvas-c\" text=\"c\"/>");
+        c.order = 5;
+    }
+
+    ctx.BeginFrame(1.0f / 60.0f);
+    RootView* root = ui->SceneRoot(*scene);
+    REQUIRE(root != nullptr);
+    REQUIRE(root->ChildCount() == 4u);   // billboard layer + 3 canvas hosts
+
+    // Which canvas lives at which child index (child order = draw order, later = on top)?
+    auto canvasAt = [root](usize index) -> StringView {
+        auto* group = Cast<ViewGroup>(root->GetChildAt(index));
+        if (group == nullptr) { return u8""; }
+        if (group->FindByName(u8"canvas-a") != nullptr) { return u8"a"; }
+        if (group->FindByName(u8"canvas-b") != nullptr) { return u8"b"; }
+        if (group->FindByName(u8"canvas-c") != nullptr) { return u8"c"; }
+        return u8"";
+    };
+    // The billboard layer is child 0 (below every canvas) and holds no canvas.
+    CHECK(canvasAt(0) == u8"");
+    // Sorted by order, STABLE for the a/c tie (component order): b(0), a(5), c(5).
+    CHECK(canvasAt(1) == u8"b");
+    CHECK(canvasAt(2) == u8"a");
+    CHECK(canvasAt(3) == u8"c");
+
+    // An order change re-sorts on the next sync: push b on top.
+    canvases->Get(eb)->order = 10;
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(canvasAt(1) == u8"a");
+    CHECK(canvasAt(2) == u8"c");
+    CHECK(canvasAt(3) == u8"b");
+
+    // Despawning the entity sweeps its host out of the scene root (menus close on
+    // despawn even though component managers have no destroy hook).
+    scene->DestroyEntity(ec);
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(root->ChildCount() == 3u);
+    CHECK(Cast<ViewGroup>(root)->FindByName(u8"canvas-c") == nullptr);
+    CHECK(canvasAt(1) == u8"a");
+    CHECK(canvasAt(2) == u8"b");
+
+    ctx.Shutdown();
+}

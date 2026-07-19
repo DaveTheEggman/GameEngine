@@ -62,6 +62,7 @@ export namespace draconic::ui
 
         // Runtime (transient):
         RefPtr<View> root;                         // instantiated tree (template = document)
+        RefPtr<ViewGroup> host;                    // per-canvas host in the scene root (order + scaler)
         const UIDocument* builtFrom = nullptr;     // rebuild detector (hot reload)
         RefPtr<StyleSheet> themeSheet;             // parsed override (built on theme change)
         const UITheme* themeFrom = nullptr;

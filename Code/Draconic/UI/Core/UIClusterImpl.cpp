@@ -223,6 +223,25 @@ namespace draconic::ui
         Invalidate();
     }
 
+    void ViewGroup::MoveView(View* child, usize index)
+    {
+        if (child == nullptr || m_children.IsEmpty()) { return; }
+        usize current = m_children.Size();
+        for (usize i = 0; i < m_children.Size(); ++i)
+        {
+            if (m_children[i].Get() == child) { current = i; break; }
+        }
+        if (current == m_children.Size()) { return; }   // not a child of this group
+        const usize target = index >= m_children.Size() ? m_children.Size() - 1 : index;
+        if (target == current) { return; }
+        RefPtr<View> keepAlive = m_children[current];
+        m_children.RemoveAt(current);
+        // Inserting at `target` after the removal lands the child at final index `target`
+        // regardless of direction (the removal already shifted trailing entries left).
+        m_children.Insert(target, Move(keepAlive));
+        Invalidate();
+    }
+
     void MutationQueue::QueueDelete(View* view)
     {
         if (view == nullptr || view->IsPendingDeletion) { return; }

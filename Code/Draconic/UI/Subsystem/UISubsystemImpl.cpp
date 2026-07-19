@@ -35,6 +35,65 @@ namespace draconic::ui
 {
     namespace vgr = draconic::vg::renderer;
 
+    // Per-canvas host inside a scene root: carries the canvas's draw ORDER (the scene
+    // root's canvas children are kept sorted by it - higher = later = on top; the
+    // billboard layer stays child 0, below every canvas). Hit-test transparent:
+    // only the document tree consumes input.
+    class CanvasHostView final : public ViewGroup
+    {
+        DRACONIC_OBJECT(CanvasHostView, ViewGroup)
+    public:
+        i32 Order = 0;
+        bool Seen = false;   // swept by SyncCanvases when the component vanished
+        CanvasHostView() { IsHitTestVisible = false; }
+
+    protected:
+        void OnMeasure(BoxConstraints constraints) override
+        {
+            MeasuredSize = Float2{ constraints.ConstrainWidth(constraints.MaxWidth),
+                                   constraints.ConstrainHeight(constraints.MaxHeight) };
+            const BoxConstraints childConstraints = BoxConstraints::Tight(MeasuredSize.x, MeasuredSize.y);
+            for (usize i = 0; i < ChildCount(); ++i)
+            {
+                View* child = GetChildAt(i);
+                if (child->Visibility != VisibilityValue::Gone) { child->Measure(childConstraints); }
+            }
+        }
+
+        void OnLayout(f32 /*left*/, f32 /*top*/, f32 width, f32 height) override
+        {
+            for (usize i = 0; i < ChildCount(); ++i)
+            {
+                View* child = GetChildAt(i);
+                if (child->Visibility == VisibilityValue::Gone) { continue; }
+                child->Layout(0.0f, 0.0f, width, height);
+            }
+        }
+    };
+
+    DRACONIC_DEFINE_OBJECT(CanvasHostView, "draconic::ui")
+
+    // Keep a scene root's canvas hosts sorted by Order, STABLE for ties (the child
+    // sequence is component/insertion order between re-sorts). MoveView is a pure
+    // reorder (no detach), so focus/hover survive an order change; targets start at
+    // child 1 (the billboard layer stays 0) and RootView keeps its popup layer last.
+    void SortCanvasHostsByOrder(RootView& root)
+    {
+        Array<CanvasHostView*> hosts;
+        for (usize i = 0; i < root.ChildCount(); ++i)
+        {
+            if (auto* host = Cast<CanvasHostView>(root.GetChildAt(i))) { hosts.PushBack(host); }
+        }
+        for (usize i = 1; i < hosts.Size(); ++i)   // stable insertion sort
+        {
+            CanvasHostView* key = hosts[i];
+            usize j = i;
+            while (j > 0 && hosts[j - 1]->Order > key->Order) { hosts[j] = hosts[j - 1]; --j; }
+            hosts[j] = key;
+        }
+        for (usize i = 0; i < hosts.Size(); ++i) { root.MoveView(hosts[i], 1 + i); }
+    }
+
     // Per-target-format VG pipeline (backbuffer vs viewport formats differ).
     struct UISubsystem::RenderState
     {
@@ -244,13 +303,32 @@ namespace draconic::ui
             dscene::Scene* scene = sceneUI.scene;
             auto* canvases = scene->GetSystem<UICanvasComponentManager>();
             if (canvases == nullptr) { continue; }
+            // Mark: hosts whose component vanished this frame get swept after the walk
+            // (component managers have no destroy hook - despawning a menu entity must
+            // still remove its tree from the scene root).
+            for (usize i = 0; i < sceneUI.root->ChildCount(); ++i)
+            {
+                if (auto* host = Cast<CanvasHostView>(sceneUI.root->GetChildAt(i)))
+                {
+                    host->Seen = false;
+                }
+            }
             canvases->ForEach([&](UICanvasComponent& c, dscene::EntityHandle) {
+                // Every canvas parents through its own host: the order/scaler carrier.
+                if (c.host.Get() == nullptr)
+                {
+                    c.host = MakeRef<CanvasHostView>(DefaultAllocator());
+                    sceneUI.root->AddView(c.host.Get());
+                }
+                auto* host = static_cast<CanvasHostView*>(c.host.Get());
+                host->Seen = true;
+                host->Order = c.order;
                 const UIDocument* document = c.document.Get();
                 if (document != c.builtFrom)
                 {
                     if (c.root.Get() != nullptr)
                     {
-                        sceneUI.root->RemoveView(c.root.Get());
+                        host->RemoveView(c.root.Get());
                         c.root = nullptr;
                     }
                     if (document != nullptr && !document->markup.IsEmpty())
@@ -258,7 +336,7 @@ namespace draconic::ui
                         c.root = MarkupLoader::LoadFromString(document->markup.AsView(), &m_context);
                         if (c.root.Get() != nullptr)
                         {
-                            sceneUI.root->AddView(c.root.Get());
+                            host->AddView(c.root.Get());
                         }
                         else
                         {
@@ -286,6 +364,14 @@ namespace draconic::ui
                     c.root->IsHitTestVisible = c.interactive;
                 }
             });
+            // Sweep hosts orphaned by component/entity destruction, then keep the
+            // canvases stacked by their authored order (billboard layer always below).
+            for (usize i = sceneUI.root->ChildCount(); i-- > 0;)
+            {
+                auto* host = Cast<CanvasHostView>(sceneUI.root->GetChildAt(i));
+                if (host != nullptr && !host->Seen) { sceneUI.root->RemoveView(host); }
+            }
+            SortCanvasHostsByOrder(*sceneUI.root);
 
             auto* billboards = scene->GetSystem<UIBillboardComponentManager>();
             if (billboards == nullptr) { continue; }

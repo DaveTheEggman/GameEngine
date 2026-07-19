@@ -404,3 +404,42 @@ TEST_CASE("viewgroup: HitTest_AppliesInverseTransform")
     // ...but at its old layout position (now empty because the child drew away) it is not.
     CHECK(root->HitTest(Float2{ 10, 10 }) != child.Get());
 }
+
+// MoveView: a pure reorder - the child changes index without a Detach/Attach round-trip
+// (Context/registration survive), clamped, and a non-child is ignored.
+TEST_CASE("viewgroup: MoveView_ReordersWithoutDetach")
+{
+    UIContext ctx;
+    core::RefPtr<RootView> root = MakeRoot();
+    Init(ctx, root.Get());
+
+    core::RefPtr<TestGroup> group = MakeTestGroup();
+    root->AddView(group.Get());
+    core::RefPtr<TestView> a = MakeTestView();
+    core::RefPtr<TestView> b = MakeTestView();
+    core::RefPtr<TestView> c = MakeTestView();
+    group->AddView(a.Get());
+    group->AddView(b.Get());
+    group->AddView(c.Get());
+
+    group->MoveView(c.Get(), 0);   // [c, a, b]
+    CHECK(group->GetChildAt(0) == c.Get());
+    CHECK(group->GetChildAt(1) == a.Get());
+    CHECK(group->GetChildAt(2) == b.Get());
+    CHECK(c->Parent == group.Get());
+    CHECK(c->Context == &ctx);   // no detach happened
+
+    group->MoveView(c.Get(), 99);   // clamped to last: [a, b, c]
+    CHECK(group->GetChildAt(2) == c.Get());
+    CHECK(group->GetChildAt(0) == a.Get());
+
+    group->MoveView(a.Get(), 1);   // forward move: [b, a, c]
+    CHECK(group->GetChildAt(0) == b.Get());
+    CHECK(group->GetChildAt(1) == a.Get());
+
+    // A view that is not a child is ignored.
+    core::RefPtr<TestView> stranger = MakeTestView();
+    group->MoveView(stranger.Get(), 0);
+    CHECK(group->ChildCount() == 3u);
+    CHECK(group->GetChildAt(0) == b.Get());
+}
