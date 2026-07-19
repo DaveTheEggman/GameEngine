@@ -1598,6 +1598,15 @@ namespace draconic::audio
         out.priority = slot->priority;
         out.position = slot->position;
         out.lowpassCutoffHz = slot->lowpassCutoffHz;
+        out.cursorSeconds = 0.0f;
+        if (slot->soundInitialized)
+        {
+            float cursor = 0.0f;
+            if (ma_sound_get_cursor_in_seconds(slot->sound, &cursor) == MA_SUCCESS)
+            {
+                out.cursorSeconds = cursor;
+            }
+        }
         return true;
     }
 

@@ -191,6 +191,9 @@ export namespace draconic::audio
         Float3 position{ 0.0f, 0.0f, 0.0f };
         // Distance low-pass state: the cutoff currently applied (0 = no filter node).
         f32 lowpassCutoffHz = 0.0f;
+        // TRUE playback cursor (seconds into the clip's data, from the voice itself -
+        // not an elapsed-time approximation): honors pitch, pauses, and loop wraps.
+        f32 cursorSeconds = 0.0f;
     };
 
     struct AudioEngineSettings

@@ -141,9 +141,10 @@ export namespace draconic::editor
         [[nodiscard]] gui::View* ContentView() override { return m_content.Get(); }
         [[nodiscard]] Status Save() override { return Status{}; }   // audition-only (options edit via inspector)
 
-        void OnUpdate(grt::IApplicationHost&, f32 deltaTime) override
+        void OnUpdate(grt::IApplicationHost&, f32) override
         {
-            // Playhead: elapsed time against the clip duration (looping wraps). The
+            // Playhead: the voice's TRUE cursor (VoiceStatus::cursorSeconds) - honors
+            // pitch and loop wraps, unlike the old elapsed-time approximation. The
             // voice handle going invalid (finished/stolen) parks the head.
             if (!m_voice.IsValid() || m_audio == nullptr || m_audio->Engine() == nullptr)
             {
@@ -154,12 +155,15 @@ export namespace draconic::editor
                 StopAudition();
                 return;
             }
-            m_elapsed += deltaTime;
+            gaudio::VoiceStatus status;
+            if (!m_audio->Engine()->GetVoiceStatus(m_voice, status)) { return; }
             const f32 duration = m_clip.Get() != nullptr ? m_clip->durationSeconds : 0.0f;
             if (duration <= 0.0f) { return; }
-            f32 fraction = m_elapsed / duration;
+            f32 fraction = status.cursorSeconds / duration;
             if (m_loop) { fraction = fraction - static_cast<f32>(static_cast<i64>(fraction)); }
             m_waveform->SetPlayheadFraction(Min(fraction, 1.0f));
+            String text = Format(u8"Playing...  {} s", FormatFixed(status.cursorSeconds, 1));
+            m_status->SetText(text.AsView());
         }
 
         void OnClose() override { StopAudition(); }
@@ -230,7 +234,6 @@ export namespace draconic::editor
             params.loop = m_loop;
             params.allowDedupe = false;   // rapid re-audition must restart, never merge
             m_voice = m_audio->Engine()->Play(m_clip, params);
-            m_elapsed = 0.0f;
             m_status->SetText(m_voice.IsValid() ? StringView(u8"Playing...")
                                                 : StringView(u8"No voice (engine headless?)"));
         }
@@ -242,7 +245,6 @@ export namespace draconic::editor
                 m_audio->Engine()->Stop(m_voice);
             }
             m_voice = gaudio::VoiceHandle{};
-            m_elapsed = 0.0f;
             m_waveform->SetPlayheadFraction(-1.0f);
             m_status->SetText(u8"");
         }
@@ -253,7 +255,6 @@ export namespace draconic::editor
         bool m_loop = false;
         RefPtr<gaudio::AudioClip> m_clip;
         gaudio::VoiceHandle m_voice;
-        f32 m_elapsed = 0.0f;
         RefPtr<gui::View> m_content;
         RefPtr<gui::Label> m_info;
         RefPtr<gui::Label> m_status;

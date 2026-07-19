@@ -715,6 +715,50 @@ TEST_CASE("audio.engine: bus layout applies volumes/mutes and splices effect cha
     CHECK(engine.IsPlaying(voice));
 }
 
+TEST_CASE("audio.engine: VoiceStatus.cursorSeconds is the TRUE voice cursor - it "
+          "advances with the mixer and wraps on loop")
+{
+    AudioEngine engine(HeadlessSettings());
+    RefPtr<AudioClip> clip = MakeToneClip(1.0f);   // 1 s one-shot
+    AudioPlayParams params;
+    params.allowDedupe = false;
+    const VoiceHandle voice = engine.Play(clip, params);
+    REQUIRE(voice.IsValid());
+
+    VoiceStatus status;
+    REQUIRE(engine.GetVoiceStatus(voice, status));
+    const f32 start = status.cursorSeconds;
+    CHECK(start >= 0.0f);
+    CHECK(start < 0.05f);
+
+    // Pump ~0.3 s of mixing: the cursor advances with the DATA, not wall time.
+    for (int i = 0; i < 18; ++i) { engine.Update(1.0f / 60.0f); }
+    REQUIRE(engine.GetVoiceStatus(voice, status));
+    CHECK(status.cursorSeconds > start + 0.2f);
+    CHECK(status.cursorSeconds < 0.6f);
+    const f32 mid = status.cursorSeconds;
+
+    // A paused voice's cursor holds still.
+    engine.SetPaused(voice, true);
+    for (int i = 0; i < 12; ++i) { engine.Update(1.0f / 60.0f); }
+    REQUIRE(engine.GetVoiceStatus(voice, status));
+    CHECK(status.cursorSeconds == doctest::Approx(mid).epsilon(0.02));
+    engine.SetPaused(voice, false);
+
+    // Looping wraps: a 0.25 s loop pumped ~0.6 s reads back inside the clip.
+    RefPtr<AudioClip> shortClip = MakeToneClip(0.25f, 8000, 1);
+    AudioPlayParams loopParams;
+    loopParams.loop = true;
+    loopParams.allowDedupe = false;
+    const VoiceHandle looping = engine.Play(shortClip, loopParams);
+    REQUIRE(looping.IsValid());
+    for (int i = 0; i < 36; ++i) { engine.Update(1.0f / 60.0f); }
+    REQUIRE(engine.GetVoiceStatus(looping, status));
+    CHECK(engine.IsPlaying(looping));
+    CHECK(status.cursorSeconds >= 0.0f);
+    CHECK(status.cursorSeconds < 0.26f);   // wrapped, not 0.6
+}
+
 TEST_CASE("audio.engine: named custom buses - layout realizes the tree, voices route by "
           "name, volume/mute/effects work like fixed buses")
 {

@@ -168,6 +168,28 @@ export namespace draconic::editor
         [[nodiscard]] StringView Title() const override { return m_title.AsView(); }
         [[nodiscard]] gui::View* ContentView() override { return m_content.Get(); }
 
+        void OnUpdate(grt::IApplicationHost&, f32) override
+        {
+            // Status line: append the auditioning voice's TRUE cursor (item: voice-
+            // cursor playhead) while it plays; restore the plain pick line after.
+            if (m_audio == nullptr || m_audio->Engine() == nullptr || !m_voice.IsValid())
+            {
+                return;
+            }
+            gaudio::VoiceStatus status;
+            if (m_audio->Engine()->GetVoiceStatus(m_voice, status) && status.playing)
+            {
+                String text = Format(u8"{}  |  {} s", m_pickText,
+                                     FormatFixed(status.cursorSeconds, 1));
+                m_status->SetText(text.AsView());
+            }
+            else
+            {
+                m_voice = gaudio::VoiceHandle{};
+                m_status->SetText(m_pickText.AsView());
+            }
+        }
+
         [[nodiscard]] Status Save() override
         {
             draconic::content::Instance* instance =
@@ -285,9 +307,9 @@ export namespace draconic::editor
             params.allowDedupe = false;
             m_voice = m_audio->Engine()->Play(
                 cue.variants[static_cast<usize>(pick.variantIndex)].clip, params);
-            String text = Format(u8"slot {}  pitch {}  vol {}", pick.variantIndex,
-                                 FormatFixed(pick.pitch, 2), FormatFixed(pick.volume, 2));
-            m_status->SetText(text.AsView());
+            m_pickText = Format(u8"slot {}  pitch {}  vol {}", pick.variantIndex,
+                                FormatFixed(pick.pitch, 2), FormatFixed(pick.volume, 2));
+            m_status->SetText(m_pickText.AsView());
         }
 
         [[nodiscard]] RefPtr<gaudio::AudioClip> LoadSlotClip(usize slot)
@@ -330,6 +352,7 @@ export namespace draconic::editor
         i32 m_lastVariant = -1;
         u32 m_sequentialCursor = 0;
         gaudio::VoiceHandle m_voice;
+        String m_pickText;
         HashMap<Guid, RefPtr<gaudio::AudioClip>> m_clipCache;
         RefPtr<gui::View> m_content;
         RefPtr<gui::Label> m_slotLabels[gaudio::kSoundCueSlotCount];
