@@ -1098,11 +1098,18 @@ namespace draconic::script::angelscript
         for (asUINT i = 0; i < type->GetFactoryCount(); ++i)
         {
             asIScriptFunction* candidate = type->GetFactoryByIndex(i);
-            if (candidate->GetParamCount() == args.Size())
+            if (candidate->GetParamCount() != args.Size()) { continue; }
+            if (args.Size() == 1)
             {
-                factory = candidate;
-                break;
+                // Skip the implicit copy factory (one self-typed parameter) - a
+                // Variant argument can never be a live script object.
+                int paramTypeId = 0;
+                (void)candidate->GetParam(0, &paramTypeId);
+                const int baseId = paramTypeId & ~(asTYPEID_OBJHANDLE | asTYPEID_HANDLETOCONST);
+                if (baseId == type->GetTypeId()) { continue; }
             }
+            factory = candidate;
+            break;
         }
         if (factory == nullptr) { return nullptr; }
 
