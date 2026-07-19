@@ -13,6 +13,8 @@ module;
 
 export module draconic.editor.audio;
 
+export import :sound_cue_page;
+
 import draconic.core;
 import draconic.content;
 import draconic.runtime.client;
@@ -283,5 +285,7 @@ export namespace draconic::editor
     {
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
             DefaultAllocator().New<AudioClipPageFactory>(host), DefaultAllocator()));
+        context.Pages().Register(UniquePtr<IEditorPageFactory>(
+            DefaultAllocator().New<SoundCuePageFactory>(host), DefaultAllocator()));
     }
 }

@@ -91,6 +91,7 @@ namespace
         Add<draconic::ui::UIThemeAssetBuilder>(registry);
         Add<draconic::audio::AudioClipAssetBuilder>(registry);
         Add<draconic::audio::AudioBusLayoutAssetBuilder>(registry);
+        Add<draconic::audio::SoundCueAssetBuilder>(registry);
     }
 }
 

@@ -474,6 +474,92 @@ export namespace draconic::audio
         }
     };
 
+    // ---- sound cue asset (P3): weighted clip variants, edited via SoundCuePage ----
+
+    inline constexpr usize kSoundCueSlotCount = 8;
+
+    class SoundCueAsset final : public draconic::editor::Asset
+    {
+        DRACONIC_OBJECT(SoundCueAsset, draconic::editor::Asset)
+    public:
+        Guid clipIds[kSoundCueSlotCount]{};
+        f32 weights[kSoundCueSlotCount] = { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
+        u8 mode = 0;               // SoundCueMode
+        f32 pitchMin = 1.0f;
+        f32 pitchMax = 1.0f;
+        f32 volumeMin = 1.0f;
+        f32 volumeMax = 1.0f;
+
+        void Serialize(ISerializer& ar) override
+        {
+            draconic::editor::Asset::Serialize(ar);
+            u32 slots = kSoundCueSlotCount;
+            draconic::core::Serialize(ar, "slots", slots);
+            const u32 count = Min<u32>(slots, kSoundCueSlotCount);
+            for (u32 i = 0; i < count; ++i)
+            {
+                ar.Key("clip");
+                ar.GuidValue(clipIds[i]);
+                draconic::core::Serialize(ar, "weight", weights[i]);
+            }
+            draconic::core::Serialize(ar, "mode", mode);
+            draconic::core::Serialize(ar, "pitchMin", pitchMin);
+            draconic::core::Serialize(ar, "pitchMax", pitchMax);
+            draconic::core::Serialize(ar, "volumeMin", volumeMin);
+            draconic::core::Serialize(ar, "volumeMax", volumeMax);
+        }
+    };
+
+    class SoundCueAssetBuilder final : public draconic::editor::DefaultAssetBuilder
+    {
+    public:
+        [[nodiscard]] const TypeInfo* AssetType() const override
+        {
+            return &SoundCueAsset::StaticType();
+        }
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &SoundCueSource::StaticType();
+        }
+        [[nodiscard]] u32 Version() const override { return 1; }
+
+        [[nodiscard]] Status Build(const draconic::editor::Asset& asset,
+                                   draconic::editor::AssetBuildContext& ctx) override
+        {
+            const auto& cueAsset = static_cast<const SoundCueAsset&>(asset);
+            if (ctx.output == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
+
+            SoundCueSource source;
+            for (usize i = 0; i < kSoundCueSlotCount; ++i)
+            {
+                if (cueAsset.clipIds[i].IsNil()) { continue; }
+                if (cueAsset.weights[i] <= 0.0f)
+                {
+                    DRACONIC_LOG_WARNING(u8"Audio",
+                        u8"sound cue slot {} has a clip but weight <= 0 - slot disabled", i);
+                    continue;
+                }
+                SoundCueSource::Variant variant;
+                variant.clipId = cueAsset.clipIds[i];
+                variant.weight = cueAsset.weights[i];
+                source.variants.PushBack(variant);
+            }
+            // Validate: a cue with no playable variant is a broken trigger - fail the cook.
+            if (source.variants.IsEmpty())
+            {
+                DRACONIC_LOG_ERROR(u8"Audio",
+                    u8"sound cue has no playable variant (assign at least one clip) - cook failed");
+                return Status{ ErrorCode::InvalidArgument };
+            }
+            source.mode = cueAsset.mode;
+            source.pitchMin = Min(cueAsset.pitchMin, cueAsset.pitchMax);
+            source.pitchMax = Max(cueAsset.pitchMin, cueAsset.pitchMax);
+            source.volumeMin = Min(cueAsset.volumeMin, cueAsset.volumeMax);
+            source.volumeMax = Max(cueAsset.volumeMin, cueAsset.volumeMax);
+            return ctx.output->WriteObject(source);
+        }
+    };
+
     // Registers the asset type for content-DB construction + deserialization.
     inline void RegisterAudioAssets()
     {
@@ -481,9 +567,12 @@ export namespace draconic::audio
         RegisterSerializable<AudioClipAsset>();
         GlobalTypeRegistry().Register(AudioBusLayoutAsset::StaticType());
         RegisterSerializable<AudioBusLayoutAsset>();
+        GlobalTypeRegistry().Register(SoundCueAsset::StaticType());
+        RegisterSerializable<SoundCueAsset>();
     }
 
     DRACONIC_DEFINE_OBJECT(AudioClipAsset, "draconic::audio")
     DRACONIC_DEFINE_OBJECT(AudioImportOptions, "draconic::audio")
     DRACONIC_DEFINE_OBJECT(AudioBusLayoutAsset, "draconic::audio")
+    DRACONIC_DEFINE_OBJECT(SoundCueAsset, "draconic::audio")
 }

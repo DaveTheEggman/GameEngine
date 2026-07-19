@@ -117,6 +117,7 @@ namespace
         AddBuilder<draconic::ui::UIThemeAssetBuilder>(registry);
         AddBuilder<draconic::audio::AudioClipAssetBuilder>(registry);
         AddBuilder<draconic::audio::AudioBusLayoutAssetBuilder>(registry);
+        AddBuilder<draconic::audio::SoundCueAssetBuilder>(registry);
     }
 
     // Create a StaticMeshAsset in the project's Meshes/ group from a procedural primitive,
@@ -281,6 +282,23 @@ int main(int argc, char** argv)
                 return instance;
             };
             app.Context().RegisterCreator(static_cast<ed::EditorContext::AssetCreator&&>(busLayoutCreator));
+
+            // New Asset > Sound Cue (weighted clip variants; edited via SoundCuePage).
+            ed::EditorContext::AssetCreator cueCreator;
+            cueCreator.label = String(u8"Sound Cue");
+            cueCreator.create = [](ed::EditorContext& ctx, draconic::content::Group* group)
+                -> draconic::content::Instance* {
+                if (ctx.Project() == nullptr) { return nullptr; }
+                draconic::content::Group* target = group != nullptr
+                    ? group : ctx.Project()->SourceDb().RootGroup();
+                draconic::content::Instance* instance = target->CreateInstance(
+                    u8"SoundCue", draconic::audio::SoundCueAsset::StaticType());
+                if (instance == nullptr) { return nullptr; }
+                draconic::audio::SoundCueAsset asset;
+                if (!instance->WriteObject(asset).IsOk()) { return nullptr; }
+                return instance;
+            };
+            app.Context().RegisterCreator(static_cast<ed::EditorContext::AssetCreator&&>(cueCreator));
         }
         {
             // New Asset > UI Document / UI Theme (starter payloads; edited as text until

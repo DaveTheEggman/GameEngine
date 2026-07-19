@@ -461,3 +461,71 @@ TEST_CASE("audio.pipeline: bus layout asset cooks flat fields into the effect-ch
 
     RemoveDbTree(u8"draconic_audiopipe_bus");
 }
+
+TEST_CASE("audio.pipeline: sound cue cooks slots -> variants and resolves clip refs")
+{
+    RegisterAudioResource();
+    RegisterAudioAssets();
+    RemoveDbTree(u8"draconic_audiopipe_cue");
+
+    draconic::vfs::NativeFileSystem outputMount(u8"draconic_audiopipe_cue");
+    content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
+
+    // Two cooked clips the cue references.
+    const Array<byte> wav = MakeToneWav(0.1f, 8000, 1);
+    Guid clipIds[2];
+    for (int i = 0; i < 2; ++i)
+    {
+        auto* clipInstance = outputDb.RootGroup()->CreateInstance(
+            i == 0 ? StringView(u8"stepA") : StringView(u8"stepB"),
+            AudioClipSource::StaticType());
+        AudioClipSource clipSource;
+        clipSource.channels = 1;
+        clipSource.sampleRate = 8000;
+        clipSource.durationSeconds = 0.1f;
+        REQUIRE(clipInstance->WriteObject(clipSource).IsOk());
+        REQUIRE(clipInstance->WriteData(u8"data", Span<const byte>(wav.Data(), wav.Size())).IsOk());
+        clipIds[i] = clipInstance->Id();
+    }
+
+    SoundCueAsset asset;
+    asset.clipIds[0] = clipIds[0];
+    asset.weights[0] = 2.0f;
+    asset.clipIds[3] = clipIds[1];   // sparse slots fold down
+    asset.weights[3] = 1.0f;
+    asset.clipIds[5] = clipIds[1];
+    asset.weights[5] = 0.0f;         // weighted-out slot: warned + dropped
+    asset.pitchMin = 1.2f;
+    asset.pitchMax = 0.8f;           // reversed range: builder normalizes
+
+    SoundCueAssetBuilder builder;
+    draconic::editor::AssetBuildContext ctx;
+    auto* outputInstance =
+        outputDb.RootGroup()->CreateInstance(u8"footsteps", SoundCueSource::StaticType());
+    ctx.output = outputInstance;
+    REQUIRE(builder.Build(asset, ctx).IsOk());
+
+    AudioClipFactory clipFactory;
+    SoundCueFactory cueFactory;
+    ResourceManager manager(outputDb);
+    manager.AddFactory(&clipFactory);
+    manager.AddFactory(&cueFactory);
+    Proxy<SoundCue> cue = manager.Bind<SoundCue>(outputInstance->Id());
+    REQUIRE(cue);
+    REQUIRE(cue->variants.Size() == 2u);
+    CHECK(cue->variants[0].weight == doctest::Approx(2.0f));
+    CHECK(cue->variants[0].clip.Get() != nullptr);
+    CHECK(cue->variants[0].clip->sampleRate == 8000u);
+    CHECK(cue->variants[1].clip.Get() != nullptr);
+    CHECK(cue->pitchMin == doctest::Approx(0.8f));
+    CHECK(cue->pitchMax == doctest::Approx(1.2f));
+
+    // No playable variant fails the cook.
+    SoundCueAsset empty;
+    auto* emptyInstance =
+        outputDb.RootGroup()->CreateInstance(u8"empty", SoundCueSource::StaticType());
+    ctx.output = emptyInstance;
+    CHECK_FALSE(builder.Build(empty, ctx).IsOk());
+
+    RemoveDbTree(u8"draconic_audiopipe_cue");
+}
