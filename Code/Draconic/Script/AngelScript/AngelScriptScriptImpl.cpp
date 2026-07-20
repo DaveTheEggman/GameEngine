@@ -216,8 +216,12 @@ namespace draconic::script::angelscript
     // section, so it never shifts the user source's error line numbers). `wait` and the
     // funcdefs are host-registered engine-globally; only waitUntil needs a script body,
     // and it polls in-script so the host scheduler only ever deals with numeric waits.
+    // It lives in a `Coroutine` NAMESPACE (authored as `Coroutine::waitUntil(...)`) so it
+    // can never redefine-collide with a user's own global `waitUntil`; the global `wait`
+    // and CoroutinePredicate funcdef still resolve from inside the namespace.
     inline constexpr const char* kCoroutinePreludeSection =
-        "void waitUntil(CoroutinePredicate@ pred) { while (!pred()) { wait(0.0f); } }\n";
+        "namespace Coroutine { void waitUntil(CoroutinePredicate@ pred)"
+        " { while (!pred()) { wait(0.0f); } } }\n";
 
     class AngelScriptManager final : public IScriptManager
     {

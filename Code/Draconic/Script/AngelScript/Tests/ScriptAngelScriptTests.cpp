@@ -468,7 +468,7 @@ TEST_CASE("angelscript: CERTIFIED - the backend conformance battery (scripting.m
         u8"  void flip() { gate = true; }\n"
         u8"  bool GateOpen() { return gate; }\n"
         u8"  void RunWait() { wait(1.0f); p = 1; }\n"
-        u8"  void RunUntil() { waitUntil(CoroutinePredicate(this.GateOpen)); p = 1; }\n"
+        u8"  void RunUntil() { Coroutine::waitUntil(CoroutinePredicate(this.GateOpen)); p = 1; }\n"
         u8"  void begin() { startCoroutine(ScriptCoroutine(this.RunWait)); }\n"
         u8"  void beginUntil() { startCoroutine(ScriptCoroutine(this.RunUntil)); }\n"
         u8"}\n";
