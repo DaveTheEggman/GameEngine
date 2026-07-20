@@ -68,3 +68,14 @@ TEST_CASE("wren.cook: a compile error FAILS the cook (last good record untouched
     CHECK_FALSE(cook->Cook(u8"class Mover {\n  this is not wren at all(\n",
                            u8"broken.wren", sink, out));
 }
+
+TEST_CASE("wren.cook: the New-Asset starter template compiles clean (example calls resolve)")
+{
+    IScriptLanguageCook* cook = WrenCook();
+    REQUIRE(cook != nullptr);
+    CookScriptErrorSink sink;
+    ScriptClassSource out;
+    const bool ok = cook->Cook(cook->NewAssetTemplate(), u8"NewBehavior.wren", sink, out);
+    REQUIRE(ok);   // the starter MUST compile - it teaches the API by example
+    CHECK(out.className == u8"NewBehavior");
+}

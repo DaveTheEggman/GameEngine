@@ -49,8 +49,16 @@ export namespace draconic::script
         u8"    // One setter per declared property (the engine pushes values through them).\n"
         u8"    speed=(v) { _speed = v }\n"
         u8"\n"
-        u8"    onStart() {}\n"
-        u8"    onUpdate(dt) {}\n"
+        u8"    // Facades use Wren method syntax (dot, lowercase): Log.info, Time.delta,\n"
+        u8"    // Random.value, Scene.find; the entity handle likewise (_entity.setName, ...).\n"
+        u8"    onStart() {\n"
+        u8"        Log.info(\"NewBehavior started on %(_entity.name())\")\n"
+        u8"    }\n"
+        u8"    onUpdate(dt) {\n"
+        u8"        // Drift along +X at `speed` units/second.\n"
+        u8"        var p = _entity.position()\n"
+        u8"        _entity.setPosition(p.x + _speed * dt, p.y, p.z)\n"
+        u8"    }\n"
         u8"    onDestroy() {}\n"
         u8"}\n";
 

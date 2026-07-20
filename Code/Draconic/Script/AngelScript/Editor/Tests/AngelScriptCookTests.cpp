@@ -189,3 +189,14 @@ TEST_CASE("as.cook: a compile error FAILS the cook (the last good record is unto
     ScriptClassSource out;
     CHECK_FALSE(cook->Cook(u8"class Broken { void foo( }\n", u8"broken.as", sink, out));
 }
+
+TEST_CASE("as.cook: the New-Asset starter template compiles clean (its example calls resolve)")
+{
+    IScriptLanguageCook* cook = AngelScriptCook();
+    REQUIRE(cook != nullptr);
+    CookScriptErrorSink sink;
+    ScriptClassSource out;
+    const bool ok = cook->Cook(cook->NewAssetTemplate(), u8"NewBehavior.as", sink, out);
+    REQUIRE(ok);   // the starter MUST compile - it teaches the API by example
+    CHECK(out.className == u8"NewBehavior");
+}
