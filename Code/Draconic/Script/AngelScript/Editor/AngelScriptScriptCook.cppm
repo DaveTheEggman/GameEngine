@@ -1,18 +1,20 @@
 // Draconic::ScriptAngelScriptEditor - the `draconic.script.angelscript.editor` module.
 //
-// The AngelScript cook service (scripting.md §5 + §7.5): a MINIMAL cook - compile-check
-// in a cooker-owned AngelScript VM (resolved through the backend registry by language) +
-// the shared on<Upper>(...) handler scan + an AngelScript starter template.
+// The AngelScript cook service (scripting.md §5 + §7.5): compile-check in a cooker-owned
+// AngelScript VM (resolved through the backend registry by language) + the shared
+// on<Upper>(...) handler scan + PROPERTY HARVEST + an AngelScript starter template.
 //
-// PROPERTY HARVEST IS DEFERRED for AngelScript. AngelScript has no `static properties`
-// map like Wren's, and its property convention is a separate design task; so an AS
-// behavior cooks compile-checked with text-scanned handlers and NO property metadata,
-// exactly as scripting.md §7.5 anticipates ("other languages cook compile-checked with
-// text-scanned handlers and no property metadata until they grow their own probe"). When
-// AS grows a property surface, only this cook changes - the neutral pipeline is untouched.
+// AngelScript's editor-property surface is typed member FIELDS annotated with the
+// language's own `[metadata]`: `[default, "description"]` before a field declares that
+// field an inspector property (a field with no metadata is not one). The cook builds the
+// behavior through the vendored CScriptBuilder add-on (which pre-processes `[metadata]`)
+// and walks the class's fields, mapping each metadata'd field's declared type + default +
+// description into the SAME ScriptPropertyDesc metadata the Wren cook produces. All the
+// AngelScript / scriptbuilder contact lives in the implementation unit.
 //
-// Plain module interface unit: the cook VM is reached through the neutral IScriptContext
-// surface, so no AngelScript SDK header appears here (GCC module hygiene by construction).
+// Plain module interface unit: no AngelScript SDK header appears here (GCC module hygiene
+// by construction); the implementation unit reaches the cook VM's engine through the
+// backend's AngelScriptEngineHandle seam.
 
 module;
 #include "Core/Prelude.h"
