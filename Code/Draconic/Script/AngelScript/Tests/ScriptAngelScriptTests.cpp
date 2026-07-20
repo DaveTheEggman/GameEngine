@@ -435,6 +435,59 @@ TEST_CASE("angelscript: registry - both backends resolve side by side")
     CHECK_FALSE(wrenCtx->Load(u8"double f() { return 1; }", u8"main").IsOk()); // AS source rejected
 }
 
+// P1.5 regression: the behaviors module is loaded with each class in its OWN script section
+// named by its sourceName (not one flat "behaviors#N"). This is what makes editor gutter
+// breakpoints - keyed on the source file - line up with what GetLineNumber reports. Proves a
+// breakpoint set on ("Mover.as", line) stops AND CaptureStackFrames()[0].file == "Mover.as".
+TEST_CASE("angelscript: LoadBehaviorModule reports each class's sourceName as its section")
+{
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    REQUIRE(static_cast<bool>(manager));
+    UniquePtr<IScriptDebugger> debugger = manager->CreateDebugger();
+    REQUIRE(debugger.Get() != nullptr);
+
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+    REQUIRE(static_cast<bool>(ctx));
+
+    // One behavior class, source file "Mover.as"; line 5 is the breakpoint line.
+    const StringView moverSource =
+        u8"class Mover {\n"           // 1
+        u8"  double x;\n"            // 2
+        u8"  Mover() { x = 0; }\n"   // 3
+        u8"  void tick() {\n"        // 4
+        u8"    x = x + 1;\n"         // 5  <- breakpoint (keyed on the source file)
+        u8"  }\n"                    // 6
+        u8"}\n";                     // 7
+    const BehaviorModuleClass classes[] = { { u8"Mover.as", moverSource } };
+    REQUIRE(ctx->LoadBehaviorModule(Span<const BehaviorModuleClass>{ classes, 1 },
+                                    u8"behaviors#1").IsOk());
+
+    struct Sink final : IScriptDebuggerListener
+    {
+        ScriptDebuggerState last = ScriptDebuggerState::Running;
+        void OnDebuggerStateChanged(ScriptDebuggerState state) override { last = state; }
+    } sink;
+    debugger->SetListener(&sink);
+
+    // The breakpoint is keyed on the SOURCE FILE, exactly as an editor gutter would set it -
+    // NOT on the "behaviors#1" module name.
+    debugger->SetBreakpoint(u8"Mover.as", 5);
+
+    RefPtr<ScriptObject> mover = ctx->CreateInstance(u8"Mover", Span<Variant>{});
+    REQUIRE(static_cast<bool>(mover));
+    (void)mover->Invoke(u8"tick", Span<Variant>{});   // suspends at the breakpoint
+
+    CHECK(sink.last == ScriptDebuggerState::Breakpoint);
+    Array<ScriptStackFrame> frames = debugger->CaptureStackFrames();
+    REQUIRE_FALSE(frames.IsEmpty());
+    CHECK(frames[0].line == 5);
+    CHECK(StringView(frames[0].file) == u8"Mover.as");   // the section IS the source file
+
+    debugger->Continue();
+    CHECK(sink.last == ScriptDebuggerState::Terminated);
+    debugger->SetListener(nullptr);
+}
+
 #include "../../Tests/BackendConformance.h"
 
 TEST_CASE("angelscript: CERTIFIED - the backend conformance battery (scripting.md B2)")

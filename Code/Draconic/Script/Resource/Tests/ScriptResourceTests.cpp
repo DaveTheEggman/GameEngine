@@ -139,6 +139,7 @@ TEST_CASE("script.resource: cooked record -> factory -> runtime product (metadat
     ScriptClassSource cooked;
     cooked.language = String(u8"wren");
     cooked.className = String(u8"Mover");
+    cooked.sourceName = String(u8"Mover.wren");   // the source-file identity (breakpoint key)
     cooked.source = String(u8"class Mover {\n construct new(e) {}\n}\n");
     {
         ScriptPropertyDesc speed;
@@ -174,6 +175,7 @@ TEST_CASE("script.resource: cooked record -> factory -> runtime product (metadat
     REQUIRE(product);
     CHECK(product->language == u8"wren");
     CHECK(product->className == u8"Mover");
+    CHECK(product->sourceName == u8"Mover.wren");   // travels the cooked wire (symmetric)
     CHECK(product->source == cooked.source);
     REQUIRE(product->properties.Size() == 2u);
     const ScriptPropertyDesc* speed = product->FindProperty(ScriptPropertyNameHash(u8"speed"));

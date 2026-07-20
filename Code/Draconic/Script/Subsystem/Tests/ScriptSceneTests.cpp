@@ -925,6 +925,9 @@ TEST_CASE("script.scene: a breakpoint in a behavior handler pauses the game and 
         u8"    }\n"                                            // 8
         u8"}\n",                                               // 9
         { u8"onUpdate" });
+    // The cook stamps sourceName = the asset file; the runtime loads this class in its OWN
+    // section named by it, so a breakpoint keyed on the SOURCE FILE (the editor's key) lines up.
+    breaker->sourceName = String(u8"Breaker.as");
 
     bed.host.RequestDebugger(Function<void(IScriptDebugger&)>{});   // debuggable run
 
@@ -933,12 +936,12 @@ TEST_CASE("script.scene: a breakpoint in a behavior handler pauses the game and 
     bed.Frame();   // instantiate + onUpdate (no breakpoint yet): x = 1
     CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 1.0f));
 
-    // The behaviors module is loaded as "behaviors#1" (generation 1) - set the breakpoint on
-    // the increment line now that the debugger + module exist.
+    // Set the breakpoint on the SOURCE FILE (the editor's breakpoint key) at the increment
+    // line, now that the debugger + module exist - it must line up with the class's section.
     IScriptDebugger* debugger = bed.host.Debugger();
     REQUIRE(debugger != nullptr);
     CHECK_FALSE(bed.host.IsDebugPaused());
-    debugger->SetBreakpoint(u8"behaviors#1", 6);
+    debugger->SetBreakpoint(u8"Breaker.as", 6);
 
     // Next tick: onUpdate hits the breakpoint and SUSPENDS before the increment -> the game
     // is paused, the world holds still (position frozen at 1), and the behavior is NOT faulted.
@@ -952,6 +955,7 @@ TEST_CASE("script.scene: a breakpoint in a behavior handler pauses the game and 
     Array<ScriptStackFrame> frames = debugger->CaptureStackFrames();
     REQUIRE_FALSE(frames.IsEmpty());
     CHECK(frames[0].line == 6);
+    CHECK(StringView(frames[0].file) == u8"Breaker.as");   // the section IS the source file
     Array<ScriptVariable> locals = debugger->CaptureLocals(0);
     bool sawDt = false;
     for (const ScriptVariable& local : locals)
@@ -972,7 +976,7 @@ TEST_CASE("script.scene: a breakpoint in a behavior handler pauses the game and 
     CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 2.0f));
 
     // With the breakpoint removed, ticking is fully normal again.
-    debugger->RemoveBreakpoint(u8"behaviors#1", 6);
+    debugger->RemoveBreakpoint(u8"Breaker.as", 6);
     bed.Frame();
     CHECK_FALSE(bed.host.IsDebugPaused());
     CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 3.0f));
