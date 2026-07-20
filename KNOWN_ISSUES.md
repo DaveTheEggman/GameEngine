@@ -24,6 +24,25 @@ Until identified, treat a lone first-run failure that clears on rerun as this fl
 
 ---
 
+## AngelScript coroutine scheduler: `$func` GC warning at engine shutdown
+
+**Status:** open — cosmetic, low priority (shutdown-only console warning, no functional leak).
+
+**Symptom:** the AngelScript coroutine scheduler prints a `$func` garbage-collector warning
+when the engine is destroyed (seen in the AngelScript conformance battery, whose coroutine
+section holds coroutine contexts/funcdef handles). The isolated delegate test is
+warning-free, so it's specific to the coroutine path.
+
+**Cause:** the coroutine scheduler (own `asIScriptContext` per coroutine + AddRef'd
+funcdef/function handles) doesn't release every held handle before engine teardown, so
+AngelScript's GC reports a lingering reference at shutdown. Benign (the process is ending)
+but it means the scheduler's teardown isn't releasing all coroutine handles.
+
+**Plan:** audit the coroutine scheduler's teardown to release all held `asIScriptFunction*`
+/ context handles before the engine is destroyed; the warning should disappear.
+
+---
+
 ## AngelScript: misaligned `asPWORD` read in bytecode dispatch (UBSan)
 
 **Status:** open — vendored third-party bug, benign on x86-64, fix upstream + carry a patch.
