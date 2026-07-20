@@ -83,7 +83,11 @@ target_compile_definitions(draconic_policy INTERFACE
     $<$<CONFIG:Debug>:DRACONIC_DEBUG=1>
     $<$<CONFIG:Release,RelWithDebInfo,MinSizeRel>:DRACONIC_RELEASE=1>
     # Instrumentation on in Debug/RelWithDebInfo; off (compiles to nothing) in shipping builds.
-    $<$<CONFIG:Debug,RelWithDebInfo>:DRACONIC_PROFILING=1>)
+    $<$<CONFIG:Debug,RelWithDebInfo>:DRACONIC_PROFILING=1>
+    # Build identity as strings, matching the Bin/<Config>/<Platform>-<Compiler> layout: the export
+    # host template stamps itself with the config/compiler that built the running tool (export-templates.md).
+    DRACONIC_BUILD_CONFIG=\"$<CONFIG>\"
+    DRACONIC_BUILD_COMPILER=\"${_dr_comp}\")
 
 target_compile_options(draconic_policy INTERFACE
     $<$<CXX_COMPILER_ID:Clang,GNU>:-fno-exceptions;-fno-rtti>

@@ -8,6 +8,7 @@
 //   RaptorExport <projectDir> [--out <dir>] [--preset <name> | --all] [--rebuild]
 //   RaptorExport --template list
 //   RaptorExport --template import <templateDir>
+//   RaptorExport --template create <configDir> [--install | --out <folder>]
 //
 // No export_presets.xml in the project => a host preset for the current platform is synthesized, so a
 // quick dev export works out of the box (the host template = the player next to this tool).
@@ -216,7 +217,8 @@ namespace
             "usage:\n"
             "  RaptorExport <projectDir> [--out <dir>] [--preset <name> | --all] [--rebuild]\n"
             "  RaptorExport --template list\n"
-            "  RaptorExport --template import <templateDir>\n");
+            "  RaptorExport --template import <templateDir>\n"
+            "  RaptorExport --template create <configDir> [--install | --out <folder>]\n");
         return 1;
     }
 
@@ -252,6 +254,36 @@ namespace
         (void)argv0;
         return 0;
     }
+
+    // --template create <configDir> [--install | --out <folder>]. Default: install into the templates
+    // root (usable immediately). --out <folder> writes a self-contained bundle to that folder to zip.
+    int TemplateCreate(int argc, char** argv)
+    {
+        // argv[3] = configDir; optional argv[4..] = --install | --out <folder>.
+        if (argc < 4) { return Usage(); }
+        const char* configDir = argv[3];
+        bool install = true;
+        const char* outFolder = nullptr;
+        for (int i = 4; i < argc; ++i)
+        {
+            if (std::strcmp(argv[i], "--install") == 0) { install = true; }
+            else if (std::strcmp(argv[i], "--out") == 0 && i + 1 < argc) { install = false; outFolder = argv[++i]; }
+            else { std::fprintf(stderr, "unknown option: %s\n", argv[i]); return Usage(); }
+        }
+
+        const String root = TemplatesRoot();
+        const String destRoot = install ? root : String(Sv(outFolder));
+        const ed::TemplateOutput mode = install ? ed::TemplateOutput::Install : ed::TemplateOutput::ExportFolder;
+        String createdId, createdDir;
+        if (!ed::CreateTemplate(Sv(configDir), destRoot.AsView(), mode, &createdId, &createdDir).IsOk())
+        {
+            std::fprintf(stderr, "RaptorExport: failed to create a template from '%s' "
+                                 "(missing player binary or runtime-libs?)\n", configDir);
+            return 1;
+        }
+        std::printf("created template '%s' -> %s\n", Cs(createdId), Cs(createdDir));
+        return 0;
+    }
 }
 
 int main(int argc, char** argv)
@@ -269,6 +301,7 @@ int main(int argc, char** argv)
             if (argc < 4) { return Usage(); }
             return TemplateImport(argv[0], argv[3]);
         }
+        if (std::strcmp(argv[2], "create") == 0) { return TemplateCreate(argc, argv); }
         return Usage();
     }
 

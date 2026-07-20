@@ -437,6 +437,24 @@ export namespace draconic::editor
             }
         }
 
+        // Symbols (PDB/DWARF) are stripped from the dist by default; stage them only when the preset
+        // opts in (export-templates.md symbols policy). sidecars[] always stage; symbols[] gate here.
+        if (preset.stageSymbols)
+        {
+            for (const String& symbol : tmpl->symbols)
+            {
+                if (detail::CopyFilePreserving(tmpl->directory.AsView(), symbol.AsView(),
+                                               result.outputDir.AsView(), symbol.AsView()))
+                {
+                    ++result.filesStaged;
+                }
+                else
+                {
+                    DRACONIC_LOG_WARNING(u8"Export", u8"symbol file '{}' not found in template '{}'", symbol, tmpl->id);
+                }
+            }
+        }
+
         // Preset additionalFiles (game extras, project-relative) -> <outDir>/<basename>.
         for (const String& extra : preset.additionalFiles)
         {

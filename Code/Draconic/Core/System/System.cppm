@@ -232,6 +232,27 @@ export namespace draconic::core
         return StringView(reinterpret_cast<const utf8char*>(sys::GetHostPlatformName()));
     }
 
+    // Build config the running tool was compiled with ("Debug" / "Release" / "RelWithDebInfo"),
+    // matching the Bin/<Config>/... layout - the export host template stamps itself with this so a
+    // Debug editor synthesizes a Debug template (export-templates.md, the config axis).
+#ifndef DRACONIC_BUILD_CONFIG
+#define DRACONIC_BUILD_CONFIG "Release"
+#endif
+#ifndef DRACONIC_BUILD_COMPILER
+#define DRACONIC_BUILD_COMPILER ""
+#endif
+    [[nodiscard]] inline StringView GetBuildConfigName() noexcept
+    {
+        return StringView(reinterpret_cast<const utf8char*>(DRACONIC_BUILD_CONFIG));
+    }
+
+    // Compiler that built the running tool ("Clang" / "GCC" / "MSVC"; empty if unknown). Metadata
+    // only - recorded in the host template for traceability, never a selector.
+    [[nodiscard]] inline StringView GetBuildCompilerName() noexcept
+    {
+        return StringView(reinterpret_cast<const utf8char*>(DRACONIC_BUILD_COMPILER));
+    }
+
     // Platform executable filename for `baseName`: appends this platform's exe extension
     // ("Game" -> "Game.exe" on Windows, "Game" elsewhere).
     [[nodiscard]] inline String GetExecutableName(StringView baseName)

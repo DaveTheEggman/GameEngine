@@ -212,6 +212,7 @@ TEST_CASE("export: preset set round-trips through export_presets.xml")
     a.name = String(u8"Linux Desktop"); a.platform = String(u8"Linux64"); a.outputSubdir = String(u8"Linux64");
     ed::ExportPreset b;
     b.name = String(u8"Windows Desktop"); b.platform = String(u8"Win64");
+    b.config = String(u8"RelWithDebInfo"); b.stageSymbols = true;
     b.templateId = String(u8"raptor-win64-0.1.0"); b.playerName = String(u8"MyGame.exe");
     b.outputSubdir = String(u8"Win64");
     b.additionalFiles.PushBack(String(u8"icon.ico"));
@@ -231,6 +232,8 @@ TEST_CASE("export: preset set round-trips through export_presets.xml")
     const ed::ExportPreset* win = loaded.Find(u8"Windows Desktop");
     REQUIRE(win != nullptr);
     CHECK(win->platform == u8"Win64");
+    CHECK(win->config == u8"RelWithDebInfo");   // config axis round-trips
+    CHECK(win->stageSymbols);                   // symbols opt-in round-trips
     CHECK(win->templateId == u8"raptor-win64-0.1.0");
     CHECK(win->playerName == u8"MyGame.exe");
     REQUIRE(win->additionalFiles.Size() == 2u);
@@ -262,37 +265,84 @@ TEST_CASE("export: template.xml round-trips + host synthesis reads its runtime-l
     REQUIRE(CreateDirectory(dir.AsView()));
     draconic::vfs::NativeFileSystem root(dir.AsView());
 
-    // template.xml round-trip.
+    // template.xml round-trip, including the v2 (platform, config) axis: config + compiler + symbols[].
     ed::ExportTemplate t;
-    t.id = String(u8"raptor-win64-0.1.0"); t.name = String(u8"Windows Desktop 0.1.0");
-    t.platform = String(u8"Win64"); t.engineVersion = String(u8"0.1.0");
+    t.id = String(u8"raptor-win64-release-0.1.0"); t.name = String(u8"Windows Desktop Release 0.1.0");
+    t.platform = String(u8"Win64"); t.config = String(u8"Release"); t.compiler = String(u8"MSVC");
+    t.engineVersion = String(u8"0.1.0");
     t.playerBinary = String(u8"RaptorPlayer.exe");
     t.sidecars.PushBack(String(u8"SDL3.dll"));
     t.sidecars.PushBack(String(u8"dxcompiler.dll"));
+    t.symbols.PushBack(String(u8"RaptorPlayer.pdb"));
     REQUIRE(ed::SaveTemplateManifest(*root.AsWritable(), t).IsOk());
 
     ed::ExportTemplate loaded;
     REQUIRE(ed::LoadTemplateManifest(root, loaded).IsOk());
-    CHECK(loaded.id == u8"raptor-win64-0.1.0");
+    CHECK(loaded.id == u8"raptor-win64-release-0.1.0");
     CHECK(loaded.platform == u8"Win64");
+    CHECK(loaded.config == u8"Release");
+    CHECK(loaded.compiler == u8"MSVC");
     CHECK(loaded.playerBinary == u8"RaptorPlayer.exe");
     REQUIRE(loaded.sidecars.Size() == 2u);
     CHECK(loaded.sidecars[0] == u8"SDL3.dll");
     CHECK(loaded.sidecars[1] == u8"dxcompiler.dll");
+    REQUIRE(loaded.symbols.Size() == 1u);
+    CHECK(loaded.symbols[0] == u8"RaptorPlayer.pdb");
 
-    // Host synthesis: id/platform/player from the host; sidecars from "<player>.runtime-libs".
+    // Host synthesis: id/platform/config/player from the host; sidecars from "<player>.runtime-libs".
     SaveText(root, u8"RaptorPlayer.runtime-libs", u8"SDL3.dll\r\n\n  dxil.dll  \n");
     ed::ExportTemplate host;
     ed::SynthesizeHostTemplate(dir.AsView(), &root, host);
     CHECK(host.isHost);
     CHECK(host.platform == GetHostPlatformName());
+    CHECK(host.config == GetBuildConfigName());   // the config that built this test binary
+    // Host id carries the config: "host-<platform>-<config>".
     String expectedId(u8"host-"); expectedId += GetHostPlatformName();
+    expectedId += u8"-"; expectedId += GetBuildConfigName();
     CHECK(host.id == expectedId.AsView());
     CHECK(host.playerBinary == GetExecutableName(u8"RaptorPlayer"));
     CHECK(host.directory == dir);
     REQUIRE(host.sidecars.Size() == 2u);          // blank line skipped, CR + spaces trimmed
     CHECK(host.sidecars[0] == u8"SDL3.dll");
     CHECK(host.sidecars[1] == u8"dxil.dll");
+
+    NukeTree(dir.AsView());
+}
+
+TEST_CASE("export: a v1 template.xml without a config field reads as Release (back-compat)")
+{
+    const String dir = TempDir(u8"draconic_template_v1_backcompat");
+    NukeTree(dir.AsView());
+    REQUIRE(CreateDirectory(dir.AsView()));
+    draconic::vfs::NativeFileSystem root(dir.AsView());
+
+    // A hand-written v1 manifest: the OLD schema (dataVersion 1, no config/compiler/symbols). This is
+    // exactly what a pre-config-axis editor wrote; it must still load, defaulting config -> Release.
+    const StringView v1 =
+        u8"<root>"
+        u8"<array name=\"dataVersions\" count=\"1\">"
+        u8"<u64 name=\"type\">0</u64><u32 name=\"version\">1</u32>"
+        u8"</array>"
+        u8"<string name=\"id\">raptor-legacy</string>"
+        u8"<string name=\"name\">Legacy</string>"
+        u8"<string name=\"platform\">Win64</string>"
+        u8"<string name=\"engineVersion\">0.1.0</string>"
+        u8"<string name=\"playerBinary\">RaptorPlayer.exe</string>"
+        u8"<array name=\"sidecars\" count=\"1\"><string>SDL3.dll</string></array>"
+        u8"<string name=\"notes\"></string>"
+        u8"</root>";
+    SaveText(root, u8"template.xml", v1);
+
+    ed::ExportTemplate loaded;
+    REQUIRE(ed::LoadTemplateManifest(root, loaded).IsOk());
+    CHECK(loaded.id == u8"raptor-legacy");
+    CHECK(loaded.platform == u8"Win64");
+    CHECK(loaded.config == u8"Release");           // absent config normalizes to Release
+    CHECK(loaded.EffectiveConfig() == u8"Release");
+    CHECK(loaded.compiler.IsEmpty());
+    REQUIRE(loaded.sidecars.Size() == 1u);         // the old required sidecars still map through
+    CHECK(loaded.sidecars[0] == u8"SDL3.dll");
+    CHECK(loaded.symbols.IsEmpty());
 
     NukeTree(dir.AsView());
 }
@@ -330,17 +380,18 @@ TEST_CASE("export: template registry resolves by id, by platform, and host-falls
     REQUIRE(byId != nullptr);
     CHECK(byId->directory == PathJoin(rootDir.AsView(), u8"foreign-template"));
 
-    // By platform: the imported template answers its own platform; the host platform falls back to
-    // the synthesized host template.
-    CHECK(reg.FindByPlatform(foreignPlatform.AsView()) == byId);
-    const ed::ExportTemplate* hostT = reg.FindByPlatform(hostPlatform);
+    // By (platform, config): the imported (Release) template answers its own platform; the host
+    // platform falls back to the synthesized host template (whatever config built this binary).
+    CHECK(reg.FindBy(foreignPlatform.AsView(), u8"Release") == byId);
+    CHECK(reg.FindBy(foreignPlatform.AsView(), u8"") == byId);   // empty config => Release
+    const ed::ExportTemplate* hostT = reg.FindBy(hostPlatform, GetBuildConfigName());
     REQUIRE(hostT != nullptr);
     CHECK(hostT->isHost);
 
-    // Resolve a preset: blank-id-by-platform, explicit id, and no-match => null.
+    // Resolve a preset: blank-id-by-(platform,config), explicit id, and no-match => null.
     ed::ExportPreset p;
-    p.platform = foreignPlatform;
-    CHECK(reg.Resolve(p) == byId);                 // blank templateId -> by platform
+    p.platform = foreignPlatform;   // blank config -> Release, which the imported foreign template is
+    CHECK(reg.Resolve(p) == byId);                 // blank templateId -> by (platform, config)
     p.templateId = String(u8"raptor-foreign-0.1.0");
     CHECK(reg.Resolve(p) == byId);                 // explicit id
     ed::ExportPreset none; none.platform = String(u8"Nonexistent64");
@@ -361,9 +412,11 @@ TEST_CASE("export: an imported template out-ranks the synthesized host for the h
     draconic::vfs::NativeFileSystem rootFs(rootDir.AsView());
     draconic::vfs::NativeFileSystem hostFs(hostDir.AsView());
 
-    // An imported template for the SAME platform as this host build.
+    // An imported template for the SAME platform AND config as this host build - so the exact-match
+    // pass returns both, and the imported (non-host) bundle must win the tiebreak.
     ed::ExportTemplate imported;
     imported.id = String(u8"raptor-host-import"); imported.platform = String(GetHostPlatformName());
+    imported.config = String(GetBuildConfigName());
     imported.playerBinary = String(u8"RaptorPlayer");
     REQUIRE(ed::SaveTemplateManifest(*rootFs.AsWritable(), imported, u8"host-template/template.xml").IsOk());
 
@@ -371,14 +424,16 @@ TEST_CASE("export: an imported template out-ranks the synthesized host for the h
     reg.Refresh(rootDir.AsView(), &rootFs, hostDir.AsView(), &hostFs);
     CHECK(reg.Count() == 2u);   // imported + synthesized host (same platform)
 
-    // FindByPlatform prefers the real imported bundle over the synthesized host template.
-    const ed::ExportTemplate* byPlatform = reg.FindByPlatform(GetHostPlatformName());
+    // FindBy prefers the real imported bundle over the synthesized host template (platform-only
+    // fallback: the imported template has no config => Release, and outranks the host).
+    const ed::ExportTemplate* byPlatform = reg.FindBy(GetHostPlatformName(), GetBuildConfigName());
     REQUIRE(byPlatform != nullptr);
     CHECK_FALSE(byPlatform->isHost);
     CHECK(byPlatform->id == u8"raptor-host-import");
 
-    // The synthesized host template is still present, reachable by its "host-<platform>" id.
+    // The synthesized host template is still present, reachable by its "host-<platform>-<config>" id.
     String hostId(u8"host-"); hostId += GetHostPlatformName();
+    hostId += u8"-"; hostId += GetBuildConfigName();
     const ed::ExportTemplate* host = reg.FindById(hostId.AsView());
     REQUIRE(host != nullptr);
     CHECK(host->isHost);
@@ -518,6 +573,256 @@ TEST_CASE("export: ImportTemplate installs a bundle the registry then resolves")
     CHECK_FALSE(ed::ImportTemplate(empty.AsView(), root.AsView()).IsOk());
 
     NukeTree(src.AsView()); NukeTree(root.AsView()); NukeTree(empty.AsView());
+}
+
+TEST_CASE("export: CreateTemplate packages a Bin/<Config> dir and the registry then resolves it")
+{
+    const String base = TempDir(u8"draconic_createtmpl");
+    const String root = TempDir(u8"draconic_createtmpl_root");
+    NukeTree(base.AsView()); NukeTree(root.AsView());
+
+    // A fake build dir with the canonical layout "…/Bin/<Config>/<Platform>-<Compiler>", holding a
+    // player + its runtime-libs manifest + the one sidecar it lists.
+    String leaf(GetHostPlatformName()); leaf += u8"-Clang";
+    const String binDir = PathJoin(PathJoin(PathJoin(base.AsView(), u8"Bin").AsView(), u8"Release").AsView(),
+                                   leaf.AsView());
+    REQUIRE(CreateDirectories(binDir.AsView()));
+    draconic::vfs::NativeFileSystem binFs(binDir.AsView());
+    SaveText(binFs, GetExecutableName(u8"RaptorPlayer").AsView(), u8"#!player\n");
+    SaveText(binFs, u8"RaptorPlayer.runtime-libs", u8"libfoo.so\n");
+    SaveText(binFs, u8"libfoo.so", u8"foo\n");
+
+    // Install mode: writes into <root>/<id>. config/compiler come from the packaged dir path.
+    String createdId, createdDir;
+    REQUIRE(ed::CreateTemplate(binDir.AsView(), root.AsView(), ed::TemplateOutput::Install,
+                               &createdId, &createdDir).IsOk());
+    // id = raptor-<platform>-<config>-<engineVersion> (lowercased platform/config).
+    String expectedId(u8"raptor-");
+    expectedId += ed::AsciiLower(GetHostPlatformName());
+    expectedId += u8"-release-";
+    expectedId += draconic::project::kEngineVersionString;
+    CHECK(createdId == expectedId.AsView());
+    CHECK(createdDir == PathJoin(root.AsView(), createdId.AsView()));
+
+    // The bundle exists on disk: manifest + player + the sidecar.
+    draconic::vfs::NativeFileSystem bundleFs(createdDir.AsView());
+    CHECK(bundleFs.Exists(u8"template.xml"));
+    CHECK(bundleFs.Exists(GetExecutableName(u8"RaptorPlayer").AsView()));
+    CHECK(bundleFs.Exists(u8"libfoo.so"));
+
+    // The manifest stamped config = Release (from the dir), compiler = Clang (from the leaf).
+    ed::ExportTemplate manifest;
+    REQUIRE(ed::LoadTemplateManifest(bundleFs, manifest).IsOk());
+    CHECK(manifest.config == u8"Release");
+    CHECK(manifest.compiler == u8"Clang");
+    CHECK(manifest.platform == GetHostPlatformName());
+    REQUIRE(manifest.sidecars.Size() == 1u);
+    CHECK(manifest.sidecars[0] == u8"libfoo.so");
+
+    // The registry over the root now finds the created template.
+    draconic::vfs::NativeFileSystem rootFs(root.AsView());
+    draconic::vfs::NativeFileSystem toolFs(base.AsView());   // any dir for the host template
+    ed::TemplateRegistry reg;
+    reg.Refresh(root.AsView(), &rootFs, base.AsView(), &toolFs);
+    const ed::ExportTemplate* found = reg.FindById(createdId.AsView());
+    REQUIRE(found != nullptr);
+    CHECK_FALSE(found->isHost);
+    CHECK(found->config == u8"Release");
+    CHECK(reg.FindBy(GetHostPlatformName(), u8"Release") == found);   // resolves by (platform, config)
+
+    NukeTree(base.AsView()); NukeTree(root.AsView());
+}
+
+TEST_CASE("export: CreateTemplate --out mode writes a self-contained bundle to the folder")
+{
+    const String base = TempDir(u8"draconic_createtmpl_out");
+    const String outFolder = TempDir(u8"draconic_createtmpl_bundle");
+    NukeTree(base.AsView()); NukeTree(outFolder.AsView());
+
+    String leaf(GetHostPlatformName()); leaf += u8"-GCC";
+    const String binDir = PathJoin(PathJoin(PathJoin(base.AsView(), u8"Bin").AsView(), u8"Debug").AsView(),
+                                   leaf.AsView());
+    REQUIRE(CreateDirectories(binDir.AsView()));
+    draconic::vfs::NativeFileSystem binFs(binDir.AsView());
+    SaveText(binFs, GetExecutableName(u8"RaptorPlayer").AsView(), u8"#!player\n");
+    // No runtime-libs manifest => no sidecars (an rpath-style build); the player alone still packages.
+
+    String createdId, createdDir;
+    REQUIRE(ed::CreateTemplate(binDir.AsView(), outFolder.AsView(), ed::TemplateOutput::ExportFolder,
+                               &createdId, &createdDir).IsOk());
+    // ExportFolder writes straight into the given folder (zip it to distribute).
+    CHECK(createdDir == outFolder);
+    draconic::vfs::NativeFileSystem bundleFs(outFolder.AsView());
+    CHECK(bundleFs.Exists(u8"template.xml"));
+    CHECK(bundleFs.Exists(GetExecutableName(u8"RaptorPlayer").AsView()));
+
+    ed::ExportTemplate manifest;
+    REQUIRE(ed::LoadTemplateManifest(bundleFs, manifest).IsOk());
+    CHECK(manifest.config == u8"Debug");   // from the Bin/Debug path
+    CHECK(manifest.compiler == u8"GCC");
+
+    // A missing player binary is a hard failure (nothing to package).
+    const String emptyBin = PathJoin(base.AsView(), u8"empty");
+    REQUIRE(CreateDirectories(emptyBin.AsView()));
+    CHECK_FALSE(ed::CreateTemplate(emptyBin.AsView(), outFolder.AsView(),
+                                   ed::TemplateOutput::ExportFolder).IsOk());
+
+    NukeTree(base.AsView()); NukeTree(outFolder.AsView());
+}
+
+TEST_CASE("export: FindBy resolves exact (platform,config) and falls back preferring Release")
+{
+    const String rootDir = TempDir(u8"draconic_findby_root");
+    const String hostDir = TempDir(u8"draconic_findby_host");
+    NukeTree(rootDir.AsView()); NukeTree(hostDir.AsView());
+    REQUIRE(CreateDirectory(rootDir.AsView()));
+    REQUIRE(CreateDirectory(hostDir.AsView()));
+
+    // Two imported templates for the SAME non-host platform: a Debug one and a Release one.
+    const StringView hostPlatform = GetHostPlatformName();
+    const String plat = (hostPlatform == StringView(u8"Win64")) ? String(u8"Linux64") : String(u8"Win64");
+
+    const auto writeTemplate = [&](StringView id, StringView cfg, StringView subdir)
+    {
+        REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), subdir).AsView()));
+        draconic::vfs::NativeFileSystem rootFs(rootDir.AsView());
+        ed::ExportTemplate t;
+        t.id = String(id); t.platform = plat; t.config = String(cfg);
+        t.playerBinary = String(u8"RaptorPlayer");
+        const String manifestPath = PathJoin(subdir, u8"template.xml");
+        REQUIRE(ed::SaveTemplateManifest(*rootFs.AsWritable(), t, manifestPath.AsView()).IsOk());
+    };
+    writeTemplate(u8"raptor-dbg", u8"Debug", u8"dbg");
+    writeTemplate(u8"raptor-rel", u8"Release", u8"rel");
+
+    draconic::vfs::NativeFileSystem rootFs(rootDir.AsView());
+    draconic::vfs::NativeFileSystem hostFs(hostDir.AsView());
+    ed::TemplateRegistry reg;
+    reg.Refresh(rootDir.AsView(), &rootFs, hostDir.AsView(), &hostFs);
+
+    // Exact match by config.
+    const ed::ExportTemplate* dbg = reg.FindById(u8"raptor-dbg");
+    const ed::ExportTemplate* rel = reg.FindById(u8"raptor-rel");
+    REQUIRE(dbg != nullptr); REQUIRE(rel != nullptr);
+    CHECK(reg.FindBy(plat.AsView(), u8"Debug") == dbg);
+    CHECK(reg.FindBy(plat.AsView(), u8"Release") == rel);
+
+    // No RelWithDebInfo template for this platform => platform-only fallback prefers the Release one.
+    CHECK(reg.FindBy(plat.AsView(), u8"RelWithDebInfo") == rel);
+    // Empty config defaults to Release (exact match).
+    CHECK(reg.FindBy(plat.AsView(), u8"") == rel);
+
+    // A preset selecting (platform, Debug) resolves to the Debug template.
+    ed::ExportPreset p; p.platform = plat; p.config = String(u8"Debug");
+    CHECK(reg.Resolve(p) == dbg);
+    p.config = String(u8"Release");
+    CHECK(reg.Resolve(p) == rel);
+    p.config.Clear();                      // blank => Release
+    CHECK(reg.Resolve(p) == rel);
+
+    NukeTree(rootDir.AsView()); NukeTree(hostDir.AsView());
+}
+
+TEST_CASE("export: ExportOne stages template symbols only when the preset opts in")
+{
+    const String projectDir = TempDir(u8"draconic_sym_proj");
+    const String rootDir = TempDir(u8"draconic_sym_root");
+    const String toolDir = TempDir(u8"draconic_sym_tool");
+    const String outRoot = TempDir(u8"draconic_sym_out");
+    NukeTree(projectDir.AsView()); NukeTree(rootDir.AsView());
+    NukeTree(toolDir.AsView()); NukeTree(outRoot.AsView());
+
+    REQUIRE(ed::EditorProject::Create(projectDir.AsView(), u8"SymbolsTest").IsOk());
+    UniquePtr<ed::EditorProject> project = ed::EditorProject::Open(projectDir.AsView());
+    REQUIRE(static_cast<bool>(project));
+    REQUIRE(project->SaveSettings().IsOk());
+
+    // An imported template with a player, one required sidecar, and one SYMBOL file.
+    REQUIRE(CreateDirectory(rootDir.AsView()));
+    REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), u8"sym-template").AsView()));
+    draconic::vfs::NativeFileSystem rootFs(rootDir.AsView());
+    ed::ExportTemplate t;
+    t.id = String(u8"raptor-sym"); t.platform = String(GetHostPlatformName());
+    t.playerBinary = GetExecutableName(u8"RaptorPlayer");
+    t.sidecars.PushBack(String(u8"libfoo.so"));
+    t.symbols.PushBack(String(u8"RaptorPlayer.debug"));
+    REQUIRE(ed::SaveTemplateManifest(*rootFs.AsWritable(), t, u8"sym-template/template.xml").IsOk());
+    draconic::vfs::NativeFileSystem tmplDirFs(PathJoin(rootDir.AsView(), u8"sym-template").AsView());
+    SaveText(tmplDirFs, GetExecutableName(u8"RaptorPlayer").AsView(), u8"#!player\n");
+    SaveText(tmplDirFs, u8"libfoo.so", u8"foo\n");
+    SaveText(tmplDirFs, u8"RaptorPlayer.debug", u8"dwarf\n");
+
+    REQUIRE(CreateDirectory(toolDir.AsView()));
+    draconic::vfs::NativeFileSystem toolFs(toolDir.AsView());
+    ed::TemplateRegistry registry;
+    registry.Refresh(rootDir.AsView(), &rootFs, toolDir.AsView(), &toolFs);
+
+    ed::BuilderRegistry builders;
+
+    // Default preset: symbols stripped from the dist (sidecar staged, symbol not).
+    {
+        ed::ExportPreset preset;
+        preset.name = String(u8"Stripped"); preset.templateId = String(u8"raptor-sym");
+        preset.outputSubdir = String(u8"stripped");
+        ed::ExportResult result;
+        REQUIRE(ed::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result).IsOk());
+        draconic::vfs::NativeFileSystem distFs(result.outputDir.AsView());
+        CHECK(distFs.Exists(GetExecutableName(u8"RaptorPlayer").AsView()));
+        CHECK(distFs.Exists(u8"libfoo.so"));                 // required sidecar always staged
+        CHECK_FALSE(distFs.Exists(u8"RaptorPlayer.debug"));  // symbols stripped by default
+        CHECK(result.filesStaged == 2u);                     // player + sidecar
+    }
+
+    // Opt-in preset: symbols staged too.
+    {
+        ed::ExportPreset preset;
+        preset.name = String(u8"WithSymbols"); preset.templateId = String(u8"raptor-sym");
+        preset.outputSubdir = String(u8"symbols"); preset.stageSymbols = true;
+        ed::ExportResult result;
+        REQUIRE(ed::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result).IsOk());
+        draconic::vfs::NativeFileSystem distFs(result.outputDir.AsView());
+        CHECK(distFs.Exists(u8"RaptorPlayer.debug"));        // opted in
+        CHECK(result.filesStaged == 3u);                     // player + sidecar + symbol
+    }
+
+    NukeTree(projectDir.AsView()); NukeTree(rootDir.AsView());
+    NukeTree(toolDir.AsView()); NukeTree(outRoot.AsView());
+}
+
+TEST_CASE("export: a v1 export_presets.xml without config/stageSymbols reads as Release/false")
+{
+    const String dir = TempDir(u8"draconic_presets_v1");
+    NukeTree(dir.AsView());
+    REQUIRE(CreateDirectory(dir.AsView()));
+    draconic::vfs::NativeFileSystem root(dir.AsView());
+
+    // A hand-written v1 export_presets.xml (dataVersion 1, no config/stageSymbols on the preset).
+    const StringView v1 =
+        u8"<root>"
+        u8"<array name=\"dataVersions\" count=\"1\">"
+        u8"<u64 name=\"type\">0</u64><u32 name=\"version\">1</u32>"
+        u8"</array>"
+        u8"<array name=\"presets\" count=\"1\">"
+        u8"<object>"
+        u8"<string name=\"name\">Legacy</string>"
+        u8"<string name=\"platform\">Win64</string>"
+        u8"<string name=\"templateId\"></string>"
+        u8"<string name=\"playerName\"></string>"
+        u8"<string name=\"outputSubdir\">Win64</string>"
+        u8"<array name=\"additionalFiles\" count=\"0\"></array>"
+        u8"</object>"
+        u8"</array>"
+        u8"</root>";
+    SaveText(root, u8"export_presets.xml", v1);
+
+    ed::ExportPresetSet loaded;
+    REQUIRE(ed::LoadExportPresets(root, loaded).IsOk());
+    REQUIRE(loaded.presets.Size() == 1u);
+    CHECK(loaded.presets[0].name == u8"Legacy");
+    CHECK(loaded.presets[0].config.IsEmpty());          // absent => resolves as Release
+    CHECK_FALSE(loaded.presets[0].stageSymbols);        // absent => stripped
+
+    NukeTree(dir.AsView());
 }
 
 TEST_CASE("export: ResolveTemplatesRoot prefers an explicit override")
