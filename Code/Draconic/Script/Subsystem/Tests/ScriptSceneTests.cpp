@@ -903,6 +903,82 @@ TEST_CASE("script.scene: an AngelScript behavior runs the neutral lifecycle path
     CHECK_FALSE(c->behaviors[0].faulted);
 }
 
+// ---- the step debugger through the subsystem (script-debugger.md P1): a breakpoint in a
+// behavior handler PAUSES the game (the world holds still - behaviors stop advancing) while
+// the debugger owns the suspended handler; Continue runs it to completion and ticking resumes.
+// The suspension is NOT a fault. Proves the game-pause wiring + the debug-suspend handling
+// end-to-end through the real ScriptSceneSystem, headless.
+
+TEST_CASE("script.scene: a breakpoint in a behavior handler pauses the game and resumes clean")
+{
+    draconic::script::angelscript::RegisterAngelScriptBackend();
+    ScriptedScene bed;
+    // Line-numbered so the breakpoint below lands inside onUpdate BEFORE x is incremented.
+    RefPtr<ScriptClass> breaker = MakeClassLang(u8"angelscript", u8"Breaker",
+        u8"class Breaker {\n"                                  // 1
+        u8"    private Entity@ self;\n"                        // 2
+        u8"    private float x;\n"                             // 3
+        u8"    Breaker(Entity@ entity) { @self = entity; x = 0.0f; }\n"  // 4
+        u8"    void onUpdate(double dt) {\n"                   // 5
+        u8"        x = x + 1.0f;\n"                            // 6  <- breakpoint
+        u8"        self.setPosition(x, 0.0f, 0.0f);\n"         // 7
+        u8"    }\n"                                            // 8
+        u8"}\n",                                               // 9
+        { u8"onUpdate" });
+
+    bed.host.RequestDebugger(Function<void(IScriptDebugger&)>{});   // debuggable run
+
+    const dscene::EntityHandle e = bed.AddScripted(breaker, u8"walker");
+    bed.Start();
+    bed.Frame();   // instantiate + onUpdate (no breakpoint yet): x = 1
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 1.0f));
+
+    // The behaviors module is loaded as "behaviors#1" (generation 1) - set the breakpoint on
+    // the increment line now that the debugger + module exist.
+    IScriptDebugger* debugger = bed.host.Debugger();
+    REQUIRE(debugger != nullptr);
+    CHECK_FALSE(bed.host.IsDebugPaused());
+    debugger->SetBreakpoint(u8"behaviors#1", 6);
+
+    // Next tick: onUpdate hits the breakpoint and SUSPENDS before the increment -> the game
+    // is paused, the world holds still (position frozen at 1), and the behavior is NOT faulted.
+    bed.Frame();
+    CHECK(bed.host.IsDebugPaused());
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 1.0f));
+    CHECK_FALSE(bed.components->Get(e)->behaviors[0].faulted);
+
+    // The suspended context is inspectable: the innermost frame is on the break line, and
+    // onUpdate's `dt` local is captured.
+    Array<ScriptStackFrame> frames = debugger->CaptureStackFrames();
+    REQUIRE_FALSE(frames.IsEmpty());
+    CHECK(frames[0].line == 6);
+    Array<ScriptVariable> locals = debugger->CaptureLocals(0);
+    bool sawDt = false;
+    for (const ScriptVariable& local : locals)
+    {
+        if (StringView(local.name) == u8"dt") { sawDt = true; }
+    }
+    CHECK(sawDt);
+
+    // While paused, further ticks advance nothing (frozen world).
+    bed.Frame();
+    CHECK(bed.host.IsDebugPaused());
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 1.0f));
+
+    // Continue runs the suspended handler to completion: x increments to 2, setPosition runs,
+    // and the pause clears so ticking resumes.
+    debugger->Continue();
+    CHECK_FALSE(bed.host.IsDebugPaused());
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 2.0f));
+
+    // With the breakpoint removed, ticking is fully normal again.
+    debugger->RemoveBreakpoint(u8"behaviors#1", 6);
+    bed.Frame();
+    CHECK_FALSE(bed.host.IsDebugPaused());
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 3.0f));
+    CHECK_FALSE(bed.components->Get(e)->behaviors[0].faulted);
+}
+
 // A harvested AngelScript editor property (a member field) reaches the instance through the
 // neutral setter-Invoke path: the subsystem Invokes `<name>=`, which the AngelScript backend
 // writes to the same-named member field. Both the default and a hash-keyed override drive it.

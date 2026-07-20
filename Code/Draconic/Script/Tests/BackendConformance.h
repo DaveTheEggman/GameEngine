@@ -77,6 +77,17 @@ namespace draconic::script::conformance
         // subscribes a function computing value * 2 (via the backend's own callable syntax -
         // a Wren fn/closure, an AngelScript funcdef handle).
         StringView delegateModule;
+        // Optional (certified only when the backend declares the Debugger capability): a module
+        // with a zero-arg entry function `debugFunction`. Execution reaching `debugBreakLine`
+        // (1-based, in the section named `debugSection`) must have a local named `debugLocalName`
+        // in scope whose captured display text equals `debugLocalValue`. The line above the break
+        // must NOT be the last line (Step lands on a further line, then Continue completes).
+        StringView debugModule;
+        StringView debugSection;
+        StringView debugFunction;
+        StringView debugLocalName;
+        StringView debugLocalValue;
+        i32 debugBreakLine = 0;
     };
 
     // Reflected so a script can construct/subscribe it; StaticType() lives in this header
@@ -329,7 +340,63 @@ namespace draconic::script::conformance
         // one on later immediately has a certification target here. ---
         if (HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Debugger))
         {
-            CHECK(manager->CreateDebugger().Get() != nullptr); // a real debugger when declared
+            UniquePtr<IScriptDebugger> debugger = manager->CreateDebugger();
+            REQUIRE(debugger.Get() != nullptr); // a real debugger when declared
+
+            // LIVE certification: set a breakpoint, drive execution, assert it stops at the
+            // line (state=Breakpoint), capture the call stack + a known local, step to the
+            // next line (state=Stepped), continue to completion (state=Terminated). Headless -
+            // the context is driven directly, no editor. (Backends without a debug dialect
+            // certify only the factory above.)
+            if (!dialect.debugModule.IsEmpty())
+            {
+                struct StateSink final : IScriptDebuggerListener
+                {
+                    ScriptDebuggerState last = ScriptDebuggerState::Running;
+                    int changes = 0;
+                    void OnDebuggerStateChanged(ScriptDebuggerState state) override
+                    {
+                        last = state;
+                        ++changes;
+                    }
+                } sink;
+                debugger->SetListener(&sink);
+
+                RefPtr<IScriptContext> debugCtx = manager->CreateContext();
+                REQUIRE(debugCtx.Get() != nullptr);
+                REQUIRE(debugCtx->Load(dialect.debugModule, dialect.debugSection).IsOk());
+                debugger->SetBreakpoint(dialect.debugSection, dialect.debugBreakLine);
+
+                // The call SUSPENDS at the breakpoint (it does NOT run to completion): the
+                // debugger now owns the context, and the listener has seen Breakpoint.
+                (void)debugCtx->Call(dialect.debugFunction, Span<Variant>{});
+                CHECK(sink.last == ScriptDebuggerState::Breakpoint);
+
+                // Call stack: innermost frame sits on the break line.
+                Array<ScriptStackFrame> frames = debugger->CaptureStackFrames();
+                REQUIRE_FALSE(frames.IsEmpty());
+                CHECK(frames[0].line == dialect.debugBreakLine);
+
+                // A known local is captured with its expected display value.
+                Array<ScriptVariable> locals = debugger->CaptureLocals(0);
+                bool foundLocal = false;
+                for (const ScriptVariable& local : locals)
+                {
+                    if (StringView(local.name) == dialect.debugLocalName)
+                    {
+                        foundLocal = true;
+                        CHECK(StringView(local.value) == dialect.debugLocalValue);
+                    }
+                }
+                CHECK(foundLocal);
+
+                // Step to the next line, then continue to completion.
+                debugger->StepOver();
+                CHECK(sink.last == ScriptDebuggerState::Stepped);
+                debugger->Continue();
+                CHECK(sink.last == ScriptDebuggerState::Terminated);
+                debugger->SetListener(nullptr);
+            }
         }
         else
         {

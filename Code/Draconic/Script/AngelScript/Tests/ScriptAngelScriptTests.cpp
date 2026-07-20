@@ -477,20 +477,35 @@ TEST_CASE("angelscript: CERTIFIED - the backend conformance battery (scripting.m
         u8"  void begin() { startCoroutine(ScriptCoroutine(this.RunWait)); }\n"
         u8"  void beginUntil() { startCoroutine(ScriptCoroutine(this.RunUntil)); }\n"
         u8"}\n";
+    // Debugger: a zero-arg entry. Line 1 `gLast`, line 2 the signature, line 3 sets `tag`,
+    // line 4 (the breakpoint) has `tag == "hit"` in scope; a step lands on line 5, and
+    // continue runs to completion.
+    dialect.debugModule =
+        u8"int gLast = 0;\n"          // 1
+        u8"void debugRun() {\n"       // 2
+        u8"  string tag = \"hit\";\n" // 3
+        u8"  int a = 7;\n"            // 4  <- breakpoint (tag in scope, == "hit")
+        u8"  gLast = a;\n"            // 5
+        u8"}\n";                      // 6
+    dialect.debugSection = u8"debug.script";
+    dialect.debugFunction = u8"debugRun";
+    dialect.debugBreakLine = 4;
+    dialect.debugLocalName = u8"tag";
+    dialect.debugLocalValue = u8"\"hit\"";
 
     draconic::script::conformance::RunScriptBackendConformance(
         []() { return draconic::script::angelscript::CreateScriptManager(); }, dialect);
 }
 
-TEST_CASE("angelscript: declares the Coroutines + Delegates capabilities; seams absent (B4)")
+TEST_CASE("angelscript: declares Coroutines + Delegates + Debugger; profiler/bytecode absent (B4)")
 {
     RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
     CHECK(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Coroutines));
     CHECK(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Delegates));
-    CHECK_FALSE(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Debugger));
+    CHECK(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Debugger));
     CHECK_FALSE(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Profiler));
     CHECK_FALSE(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Bytecode));
-    CHECK(manager->CreateDebugger().Get() == nullptr);
+    CHECK(manager->CreateDebugger().Get() != nullptr);   // Debugger declared -> real factory
     CHECK(manager->CreateProfiler().Get() == nullptr);
     CHECK(manager->CompileToBlob(u8"", u8"blob").Error() == ErrorCode::NotSupported);
 }

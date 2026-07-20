@@ -164,6 +164,30 @@ namespace draconic::script::angelscript
         return nullptr;
     }
 
+    // A short display string for a captured Variant (a debugger local / object member):
+    // strings quoted inline, bools as true/false, any number decimal, an object/value type
+    // rendered as its type name (its fields fetched lazily via CaptureObject).
+    inline core::String DebugValueText(const core::Variant& value)
+    {
+        if (value.IsEmpty()) { return core::String(u8"null"); }
+        if (const core::String* s = value.TryGet<core::String>())
+        {
+            core::String out(u8"\"");
+            out += *s;
+            out += u8"\"";
+            return out;
+        }
+        if (const bool* b = value.TryGet<bool>())
+        {
+            return core::String(*b ? u8"true" : u8"false");
+        }
+        bool ok = false;
+        const double number = NumericOf(value, ok);
+        if (ok) { return core::Format(u8"{}", number); }
+        const core::TypeInfo* type = value.Type();
+        return core::String(ViewOfAscii(type != nullptr ? type->name : "object"));
+    }
+
     inline constexpr int kMaxArgs = 8;
 
     // Every reflected instance held by script: a refcounted box around a Variant.
@@ -211,6 +235,19 @@ namespace draconic::script::angelscript
     void MethodDispatch(asIScriptGeneric* gen);
     void CoroutineStartDispatch(asIScriptGeneric* gen);   // startCoroutine(ScriptCoroutine@)
     void CoroutineWaitDispatch(asIScriptGeneric* gen);    // wait(float seconds)
+
+    // The suspension-based step debugger (implements IScriptDebugger). Defined after the
+    // context class; forward-declared so the manager can hold + hand out the active one, and
+    // ExecuteCall can arm/adopt it. Its line callback is a plain CDECL function taking the
+    // debugger back as `param` (AngelScript's SetLineCallback contract).
+    class AngelScriptDebugger;
+    void DebuggerLineCallback(asIScriptContext* ctx, void* param);
+    // Arm a debugger's line callback on a pooled executor before Execute (owner = the
+    // IScriptContext scoped for that call, re-established when the debugger resumes it).
+    void ArmDebugger(AngelScriptDebugger& debugger, asIScriptContext* ctx, IScriptContext* owner);
+    // After Execute returned SUSPENDED: did THIS debugger cause it (a breakpoint/step on
+    // `ctx`)? If so it adopts the context (owns it until resume) and fires its listener.
+    [[nodiscard]] bool AdoptDebuggerSuspension(AngelScriptDebugger& debugger, asIScriptContext* ctx);
 
     // A script funcdef-handle argument -> an AngelScriptDelegate wrapping it, as an
     // object-mode Variant (defined after AngelScriptDelegate). Forward-declared so
@@ -303,9 +340,21 @@ namespace draconic::script::angelscript
 
         [[nodiscard]] ScriptCapabilities Capabilities() const override
         {
-            // host-side asIScriptContext scheduler + funcdef-handle-backed delegate seam.
-            return ScriptCapabilities::Coroutines | ScriptCapabilities::Delegates;
+            // host-side asIScriptContext scheduler + funcdef-handle-backed delegate seam +
+            // suspension-based step debugger (context Suspend + AS introspection).
+            return ScriptCapabilities::Coroutines | ScriptCapabilities::Delegates
+                 | ScriptCapabilities::Debugger;
         }
+
+        // A step debugger over this engine's contexts (suspension breakpoints + AS
+        // introspection). One at a time; it registers itself as the active debugger on
+        // construction (ExecuteCall consults it) and unregisters on destruction.
+        [[nodiscard]] core::UniquePtr<IScriptDebugger> CreateDebugger() override;
+
+        /// The active debugger the dispatch path arms/adopts, or null (the default). The
+        /// debugger sets this from its ctor/dtor - one per manager.
+        void SetActiveDebugger(AngelScriptDebugger* debugger) noexcept { m_debugger = debugger; }
+        [[nodiscard]] AngelScriptDebugger* ActiveDebugger() const noexcept { return m_debugger; }
 
         // The ACTUAL AngelScript-callable surface: one entry per declared object type, with
         // members spelled the way AngelScript presents them (statics as `Type::name(...)`,
@@ -1059,6 +1108,7 @@ namespace draconic::script::angelscript
         core::Array<CapturedMessage> m_capturedMessages;
         core::Array<Coroutine> m_coroutines;
         core::Array<asIScriptContext*> m_dueScratch;   // reused per-frame due snapshot
+        AngelScriptDebugger* m_debugger = nullptr;      // borrowed; the active debugger (self-registers)
     };
 
     // ---- generic dispatchers (run DURING script execution; the surrounding
@@ -1327,10 +1377,28 @@ namespace draconic::script::angelscript
             BoxedVariant* boxTemps[kMaxArgs] = {};
             BindArgs(executor, function, args, stringTemps, boxTemps);
 
+            // Arm the step debugger (if attached) on this executor: its line callback calls
+            // ctx->Suspend() on a breakpoint/step line, unwinding back here as SUSPENDED.
+            AngelScriptDebugger* debugger = m_manager->ActiveDebugger();
+            if (debugger != nullptr) { ArmDebugger(*debugger, executor, this); }
+
             int result;
             {
                 ScriptCallScope scope(this);
                 result = executor->Execute();
+            }
+
+            // A DEBUGGER suspension is distinct from a coroutine suspend (which happens on a
+            // coroutine's OWN dedicated context, never this pooled executor). When the debugger
+            // caused it, it now OWNS the suspended context for inspection + resume: do NOT
+            // return it to the pool, and report a paused status the subsystem recognizes (via
+            // the run host's pause flag) - never a fault, never completion. Value args only
+            // (lifecycle handlers take a numeric dt or nothing), so releasing box args is safe.
+            if (result == asEXECUTION_SUSPENDED && debugger != nullptr
+                && AdoptDebuggerSuspension(*debugger, executor))
+            {
+                for (BoxedVariant* box : boxTemps) { ReleaseBox(box); }
+                return core::Err(core::ErrorCode::Internal);
             }
             for (BoxedVariant* box : boxTemps) { ReleaseBox(box); }
 
@@ -1347,6 +1415,8 @@ namespace draconic::script::angelscript
             {
                 ReportException(executor);
             }
+            // Never return a context to the pool carrying a stale line callback.
+            if (debugger != nullptr) { executor->ClearLineCallback(); }
             engine->ReturnContext(executor);
             return outcome;
         }
@@ -1583,6 +1653,340 @@ namespace draconic::script::angelscript
         {
             if (m_coroutines[i].owner == owner) { DropCoroutineAt(i); }
         }
+    }
+
+    // ---- the suspension-based step debugger --------------------------------------
+    //
+    // Single-threaded, non-blocking: a breakpoint is a line callback that calls
+    // ctx->Suspend(), unwinding execution back to ExecuteCall (which reports it up as a
+    // paused status). While suspended the context is fully inspectable (GetCallstackSize /
+    // GetVar / GetAddressOfVar). Continue/Step re-Execute the SAME held context. The editor
+    // UI + a future remote transport drive only the neutral IScriptDebugger - nothing here
+    // leaks to the contract.
+    class AngelScriptDebugger final : public IScriptDebugger
+    {
+    public:
+        explicit AngelScriptDebugger(AngelScriptManager* manager) noexcept : m_manager(manager)
+        {
+            if (m_manager != nullptr) { m_manager->SetActiveDebugger(this); }
+        }
+
+        ~AngelScriptDebugger() override
+        {
+            // A held (paused) context is aborted + returned so the engine tears down cleanly.
+            if (m_pausedContext != nullptr)
+            {
+                (void)m_pausedContext->Abort();
+                m_pausedContext->ClearLineCallback();
+                if (m_manager != nullptr && m_manager->Engine() != nullptr)
+                {
+                    m_manager->Engine()->ReturnContext(m_pausedContext);
+                }
+                m_pausedContext = nullptr;
+            }
+            if (m_manager != nullptr) { m_manager->SetActiveDebugger(nullptr); }
+        }
+
+        AngelScriptDebugger(const AngelScriptDebugger&) = delete;
+        AngelScriptDebugger& operator=(const AngelScriptDebugger&) = delete;
+
+        // ---- IScriptDebugger -------------------------------------------------
+        void SetBreakpoint(core::StringView file, core::i32 line) override
+        {
+            for (const Breakpoint& breakpoint : m_breakpoints)
+            {
+                if (breakpoint.line == line && breakpoint.file.AsView() == file) { return; }
+            }
+            m_breakpoints.PushBack(Breakpoint{ core::String(file), line });
+        }
+
+        void RemoveBreakpoint(core::StringView file, core::i32 line) override
+        {
+            for (core::usize i = 0; i < m_breakpoints.Size(); ++i)
+            {
+                if (m_breakpoints[i].line == line && m_breakpoints[i].file.AsView() == file)
+                {
+                    m_breakpoints.RemoveAt(i);
+                    return;
+                }
+            }
+        }
+
+        // Suspend at the next executed line (a manual pause). Honoured on the next line
+        // callback of whatever context is currently executing.
+        void Break() override { m_breakNext = true; }
+
+        void Continue() override { Resume(StepMode::None); }
+        void StepInto() override { Resume(StepMode::Into); }
+        void StepOver() override { Resume(StepMode::Over); }
+
+        [[nodiscard]] core::Array<ScriptStackFrame> CaptureStackFrames() override
+        {
+            core::Array<ScriptStackFrame> frames;
+            if (m_pausedContext == nullptr) { return frames; }
+            const asUINT size = m_pausedContext->GetCallstackSize();
+            for (asUINT level = 0; level < size; ++level)   // level 0 = innermost
+            {
+                ScriptStackFrame frame;
+                const char* section = nullptr;
+                frame.line = m_pausedContext->GetLineNumber(level, nullptr, &section);
+                frame.file = core::String(ViewOfAscii(section));
+                asIScriptFunction* function = m_pausedContext->GetFunction(level);
+                frame.function = core::String(ViewOfAscii(
+                    function != nullptr ? function->GetDeclaration() : "?"));
+                frames.PushBack(core::Move(frame));
+            }
+            return frames;
+        }
+
+        [[nodiscard]] core::Array<ScriptVariable> CaptureLocals(core::u32 depth) override
+        {
+            core::Array<ScriptVariable> locals;
+            if (m_pausedContext == nullptr) { return locals; }
+            const int count = m_pausedContext->GetVarCount(depth);
+            for (int i = 0; i < count; ++i)
+            {
+                const char* name = nullptr;
+                int typeId = 0;
+                if (m_pausedContext->GetVar(static_cast<asUINT>(i), depth, &name, &typeId) < 0)
+                {
+                    continue;
+                }
+                if (name == nullptr || name[0] == '\0') { continue; }   // unnamed temporary
+                ScriptVariable variable;
+                variable.name = core::String(ViewOfAscii(name));
+                const char* declaration =
+                    m_pausedContext->GetVarDeclaration(static_cast<asUINT>(i), depth, false);
+                variable.typeName = core::String(ViewOfAscii(declaration));
+                void* address = m_pausedContext->GetAddressOfVar(static_cast<asUINT>(i), depth);
+                if (address == nullptr)
+                {
+                    variable.value = core::String(u8"<uninitialized>");
+                    locals.PushBack(core::Move(variable));
+                    continue;
+                }
+                core::Variant value = m_manager->VariantFromTypedAddress(typeId, address);
+                DescribeValue(variable, value);
+                locals.PushBack(core::Move(variable));
+            }
+            return locals;
+        }
+
+        [[nodiscard]] core::Array<ScriptVariable> CaptureObject(core::u64 objectRef) override
+        {
+            core::Array<ScriptVariable> members;
+            core::Variant* stored = FindObject(objectRef);
+            if (stored == nullptr) { return members; }
+            const core::TypeInfo* type = stored->Type();
+            if (type == nullptr) { return members; }
+            core::Instance instance = core::ToInstance(*stored);
+            for (core::usize i = 0; i < core::PropertyCount(*type); ++i)
+            {
+                const core::PropertyInfo& property = core::PropertyAt(*type, i);
+                ScriptVariable variable;
+                variable.name = core::String(ViewOfAscii(property.name));
+                variable.typeName = core::String(ViewOfAscii(
+                    property.type != nullptr ? property.type->name : "?"));
+                core::Variant value = core::GetProperty(property, instance);
+                DescribeValue(variable, value);
+                members.PushBack(core::Move(variable));
+            }
+            return members;
+        }
+
+        void SetListener(IScriptDebuggerListener* listener) override { m_listener = listener; }
+
+        // ---- called by the dispatch path (via the free helpers below) --------
+
+        void ArmOn(asIScriptContext* ctx, IScriptContext* owner)
+        {
+            m_owner = owner;
+            (void)ctx->SetLineCallback(asFUNCTION(DebuggerLineCallback), this, asCALL_CDECL);
+        }
+
+        // True (and adopts the context) when this debugger's line callback suspended `ctx`.
+        [[nodiscard]] bool Adopt(asIScriptContext* ctx)
+        {
+            if (m_pausedContext != ctx) { return false; }
+            m_paused = true;
+            FireState(m_cause == Cause::Step ? ScriptDebuggerState::Stepped
+                                             : ScriptDebuggerState::Breakpoint);
+            return true;
+        }
+
+        [[nodiscard]] bool IsPaused() const noexcept { return m_paused; }
+
+        // The line callback (control is INSIDE Execute here): suspend when the current line is
+        // a breakpoint, a satisfied step, or a pending manual Break.
+        void OnLine(asIScriptContext* ctx)
+        {
+            const char* section = nullptr;
+            const int line = ctx->GetLineNumber(0, nullptr, &section);
+            Cause cause = Cause::Breakpoint;
+            bool suspend = false;
+            if (m_breakNext)
+            {
+                suspend = true;
+                cause = Cause::Step;
+                m_breakNext = false;
+            }
+            else if (m_stepArmed)
+            {
+                const int depth = static_cast<int>(ctx->GetCallstackSize());
+                const bool depthOk = (m_stepMode == StepMode::Into) || (depth <= m_stepBaseDepth);
+                const bool moved = (line != m_stepFromLine) || (depth != m_stepFromDepth);
+                if (depthOk && moved) { suspend = true; cause = Cause::Step; }
+            }
+            if (!suspend && IsBreakpoint(section, line)) { suspend = true; cause = Cause::Breakpoint; }
+            if (!suspend) { return; }
+            m_pausedContext = ctx;
+            m_cause = cause;
+            m_stepArmed = false;
+            (void)ctx->Suspend();
+        }
+
+    private:
+        enum class StepMode { None, Into, Over };
+        enum class Cause { Breakpoint, Step };
+
+        struct Breakpoint
+        {
+            core::String file;
+            core::i32 line = -1;
+        };
+
+        struct CapturedObject
+        {
+            core::u64 ref = 0;
+            core::Variant value;
+        };
+
+        [[nodiscard]] bool IsBreakpoint(const char* section, int line) const
+        {
+            const core::StringView sectionView = ViewOfAscii(section);
+            for (const Breakpoint& breakpoint : m_breakpoints)
+            {
+                if (breakpoint.line == line && breakpoint.file.AsView() == sectionView)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Fill a ScriptVariable's display text + expandability from a captured Variant: a
+        // reflected object/value with properties gets a non-zero objectRef for lazy expansion.
+        void DescribeValue(ScriptVariable& variable, const core::Variant& value)
+        {
+            const core::TypeInfo* type = value.Type();
+            const bool expandable = type != nullptr && core::PropertyCount(*type) > 0
+                                 && PrimitiveDeclName(type) == nullptr;
+            if (expandable) { variable.objectRef = StoreObject(value); }
+            variable.value = DebugValueText(value);
+        }
+
+        [[nodiscard]] core::u64 StoreObject(const core::Variant& value)
+        {
+            const core::u64 ref = m_nextObjectRef++;
+            m_objects.PushBack(CapturedObject{ ref, value });
+            return ref;
+        }
+
+        [[nodiscard]] core::Variant* FindObject(core::u64 ref)
+        {
+            for (CapturedObject& object : m_objects)
+            {
+                if (object.ref == ref) { return &object.value; }
+            }
+            return nullptr;
+        }
+
+        // Re-Execute the held context. None = run to the next breakpoint/completion;
+        // Into/Over arm a one-line step. Re-establishes the owning context's call scope so
+        // resumed facade calls still resolve their per-context services.
+        void Resume(StepMode mode)
+        {
+            if (m_pausedContext == nullptr) { return; }
+            asIScriptContext* ctx = m_pausedContext;
+            if (mode == StepMode::None)
+            {
+                m_stepArmed = false;
+            }
+            else
+            {
+                m_stepArmed = true;
+                m_stepMode = mode;
+                m_stepFromDepth = static_cast<int>(ctx->GetCallstackSize());
+                m_stepBaseDepth = m_stepFromDepth;
+                m_stepFromLine = ctx->GetLineNumber(0, nullptr, nullptr);
+            }
+            m_paused = false;
+            m_pausedContext = nullptr;   // re-set by the line callback if it suspends again
+            m_objects.Clear();           // object refs are valid only within one break
+            m_nextObjectRef = 1;
+            FireState(ScriptDebuggerState::Running);
+
+            int result;
+            {
+                ScriptCallScope scope(m_owner);
+                result = ctx->Execute();
+            }
+            if (result == asEXECUTION_SUSPENDED && m_pausedContext == ctx)
+            {
+                m_paused = true;
+                FireState(m_cause == Cause::Step ? ScriptDebuggerState::Stepped
+                                                 : ScriptDebuggerState::Breakpoint);
+                return;   // still holding the context, paused again
+            }
+            // Ran to completion (or faulted): release the context back to the pool.
+            ctx->ClearLineCallback();
+            if (m_manager != nullptr && m_manager->Engine() != nullptr)
+            {
+                m_manager->Engine()->ReturnContext(ctx);
+            }
+            FireState(ScriptDebuggerState::Terminated);
+        }
+
+        void FireState(ScriptDebuggerState state)
+        {
+            if (m_listener != nullptr) { m_listener->OnDebuggerStateChanged(state); }
+        }
+
+        AngelScriptManager* m_manager = nullptr;
+        IScriptDebuggerListener* m_listener = nullptr;
+        IScriptContext* m_owner = nullptr;             // call scope for a resumed context
+        asIScriptContext* m_pausedContext = nullptr;   // the held suspended context (owned while paused)
+        core::Array<Breakpoint> m_breakpoints;
+        core::Array<CapturedObject> m_objects;         // lazily-expandable handles for this break
+        core::u64 m_nextObjectRef = 1;                 // 0 = a leaf scalar
+        Cause m_cause = Cause::Breakpoint;
+        StepMode m_stepMode = StepMode::None;
+        int m_stepFromLine = -1;
+        int m_stepFromDepth = 0;
+        int m_stepBaseDepth = 0;
+        bool m_paused = false;
+        bool m_stepArmed = false;
+        bool m_breakNext = false;
+    };
+
+    void DebuggerLineCallback(asIScriptContext* ctx, void* param)
+    {
+        static_cast<AngelScriptDebugger*>(param)->OnLine(ctx);
+    }
+
+    void ArmDebugger(AngelScriptDebugger& debugger, asIScriptContext* ctx, IScriptContext* owner)
+    {
+        debugger.ArmOn(ctx, owner);
+    }
+
+    bool AdoptDebuggerSuspension(AngelScriptDebugger& debugger, asIScriptContext* ctx)
+    {
+        return debugger.Adopt(ctx);
+    }
+
+    core::UniquePtr<IScriptDebugger> AngelScriptManager::CreateDebugger()
+    {
+        return core::MakeUnique<AngelScriptDebugger>(core::DefaultAllocator(), this);
     }
 
     core::RefPtr<IScriptContext> AngelScriptManager::CreateContext()

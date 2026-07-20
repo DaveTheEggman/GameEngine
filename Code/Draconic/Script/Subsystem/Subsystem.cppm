@@ -71,6 +71,26 @@ export namespace draconic::script
         }
     };
 
+    /// Tracks the debugger's pause state for the run (the game-pause flag the scene tick
+    /// checks) and forwards state changes to an optional external listener (the editor's
+    /// debugger panels). Owned by the run host so the flag survives across the whole run.
+    class DebugPauseTracker final : public IScriptDebuggerListener
+    {
+    public:
+        IScriptDebuggerListener* external = nullptr;
+        [[nodiscard]] bool Paused() const noexcept { return m_paused; }
+        void Reset() noexcept { m_paused = false; }
+        void OnDebuggerStateChanged(ScriptDebuggerState state) override
+        {
+            m_paused = (state == ScriptDebuggerState::Breakpoint
+                        || state == ScriptDebuggerState::Stepped);
+            if (external != nullptr) { external->OnDebuggerStateChanged(state); }
+        }
+
+    private:
+        bool m_paused = false;
+    };
+
     /// Owns the run's manager + context and the behaviors MODULE loaded into it. Class
     /// sources are concatenated into one generation-versioned module ("behaviors#N"):
     /// the contract's CreateInstance resolves against the LAST loaded module, and Wren
@@ -89,6 +109,32 @@ export namespace draconic::script
         {
             m_errorSink.external = sink;
         }
+
+        // ---- step debugging (the PIE debugger + the future remote transport) ----
+
+        /// Ask that this run be debuggable: a debugger is created on the run's manager
+        /// (lazily, when the context exists) and `configurator` is called once with it so the
+        /// caller can apply breakpoints + capture the pointer. The internal pause tracker is
+        /// always the debugger's listener; a caller forwards through SetExternalDebugListener.
+        void RequestDebugger(Function<void(IScriptDebugger&)> configurator)
+        {
+            m_debuggerConfigurator = Move(configurator);
+            m_debuggerRequested = true;
+            EnsureDebugger();
+        }
+        /// The run's debugger, or null (not requested / backend lacks the capability / no
+        /// context yet). Contract-typed so a caller never depends on a backend.
+        [[nodiscard]] IScriptDebugger* Debugger() const noexcept { return m_debugger.Get(); }
+        /// Forward debugger state changes to an external listener (the editor's panels), on
+        /// top of the internal pause tracking. Cleared on teardown.
+        void SetExternalDebugListener(IScriptDebuggerListener* listener) noexcept
+        {
+            m_debugTracker.external = listener;
+        }
+        /// The game-pause flag: true while suspended at a breakpoint/step. The scene tick
+        /// checks this to hold the world still; InvokeHandler checks it to tell a
+        /// debug-suspended handler apart from a fault.
+        [[nodiscard]] bool IsDebugPaused() const noexcept { return m_debugTracker.Paused(); }
 
         [[nodiscard]] IScriptContext* Context() const noexcept { return m_context.Get(); }
         [[nodiscard]] IScriptManager* Manager() const noexcept { return m_manager.Get(); }
@@ -133,6 +179,7 @@ export namespace draconic::script
             m_context->SetService(kScriptRuntimeService, &m_binding);
             if (m_configurator) { m_configurator(*m_context); }
             m_moduleCurrent = false;
+            EnsureDebugger();   // a debugger requested before the context existed attaches now
             DRACONIC_LOG_DEBUG(u8"Script", u8"run script context created ({})", languageId);
             return m_context.Get();
         }
@@ -246,6 +293,10 @@ export namespace draconic::script
         {
             if (m_context.Get() == nullptr && m_manager.Get() == nullptr) { return; }
             if (m_context.Get() != nullptr) { m_context->SetErrorHandler(nullptr); }
+            // The debugger holds engine contexts (a paused one) - release it BEFORE the
+            // manager/engine it borrows.
+            m_debugger = nullptr;
+            m_debugTracker.Reset();
             m_context = nullptr;
             m_manager = nullptr;
             m_language = String{};
@@ -258,6 +309,22 @@ export namespace draconic::script
         [[nodiscard]] bool IsActive() const noexcept { return m_context.Get() != nullptr; }
 
     private:
+        // Create the debugger once the manager exists and it was requested (idempotent). The
+        // internal tracker is always the listener; the caller's configurator applies the
+        // initial breakpoints + grabs the pointer for live changes.
+        void EnsureDebugger()
+        {
+            if (m_debugger || !m_debuggerRequested || m_manager.Get() == nullptr) { return; }
+            if (!HasScriptCapability(m_manager->Capabilities(), ScriptCapabilities::Debugger))
+            {
+                return;
+            }
+            m_debugger = m_manager->CreateDebugger();
+            if (!m_debugger) { return; }
+            m_debugger->SetListener(&m_debugTracker);
+            if (m_debuggerConfigurator) { m_debuggerConfigurator(*m_debugger); }
+        }
+
         void WarnLanguageMismatchOnce(StringView languageId)
         {
             if (m_warnedLanguageMismatch) { return; }
@@ -276,9 +343,13 @@ export namespace draconic::script
         Function<void(IScriptContext&)> m_configurator;
         Array<RefPtr<ScriptClass>> m_loadedClasses;   // the behaviors module's content
         Array<StringView> m_classSourceScratch;       // reused per-rebuild source view list
+        UniquePtr<IScriptDebugger> m_debugger;        // the run's step debugger (opt-in)
+        DebugPauseTracker m_debugTracker;             // the game-pause flag + external forward
+        Function<void(IScriptDebugger&)> m_debuggerConfigurator;
         u32 m_generation = 0;
         bool m_moduleCurrent = false;
         bool m_warnedLanguageMismatch = false;
+        bool m_debuggerRequested = false;
     };
 
     // ---- per-scene dispatch ----
@@ -312,6 +383,10 @@ export namespace draconic::script
         {
             if (phase != dscene::ScenePhase::Update) { return; }
             if (!m_started || m_scene == nullptr || m_host == nullptr) { return; }
+            // Frozen at a breakpoint: the world holds still (behaviors + coroutines stop
+            // advancing) while the debugger owns a suspended handler. The editor loop keeps
+            // running; step/continue drive the held context directly, not this tick.
+            if (m_host->IsDebugPaused()) { return; }
             m_host->Binding().currentScene = m_scene;   // Scene.spawn target for this tick
             TickBehaviors(deltaTime);
             DrainMessages();   // deferred entity.send delivery - same frame, never nested
@@ -417,14 +492,21 @@ export namespace draconic::script
                     {
                         continue;
                     }
-                    InvokeHandler(behavior, *behavior.boundClass, target, handler.AsView(),
-                                  argSpan);
+                    (void)InvokeHandler(behavior, *behavior.boundClass, target, handler.AsView(),
+                                        argSpan);
                 }
+                // A message handler that hit a breakpoint pauses the game: stop draining (the
+                // rest of this pass is dropped - a rare edge, message-handler breakpoints).
+                if (m_host != nullptr && m_host->IsDebugPaused()) { break; }
             }
             m_messages.Clear();
         }
 
     private:
+        // The result of one handler dispatch: Ok (ran), Faulted (disabled), or Suspended
+        // (hit a breakpoint - the game is paused, the debugger owns the mid-flight handler).
+        enum class HandlerOutcome { Ok, Faulted, Suspended };
+
         static constexpr StringView kOnStart = u8"onStart";
         static constexpr StringView kOnUpdate = u8"onUpdate";
         static constexpr StringView kOnEnable = u8"onEnable";
@@ -465,6 +547,9 @@ export namespace draconic::script
                     ScriptComponent* component = components->Get(entity);
                     if (component == nullptr || i >= component->behaviors.Size()) { break; }
                     TickBehavior(component->behaviors[i], entity, deltaTime);
+                    // A breakpoint hit inside that dispatch pauses the game mid-tick: stop
+                    // advancing the rest of this tick (the world holds still).
+                    if (m_host != nullptr && m_host->IsDebugPaused()) { return; }
                 }
             }
         }
@@ -490,8 +575,8 @@ export namespace draconic::script
             {
                 if (behavior.instance.Get() != nullptr && behavior.active)
                 {
-                    InvokeHandler(behavior, *behavior.boundClass, entity, kOnDisable, {});
-                    behavior.active = false;
+                    behavior.active = false;   // set before dispatch (no re-dispatch on suspend/fault)
+                    (void)InvokeHandler(behavior, *behavior.boundClass, entity, kOnDisable, {});
                     CancelCoroutines(behavior);   // a disabled behavior's coroutines stop too
                 }
                 return;
@@ -504,17 +589,20 @@ export namespace draconic::script
                 if (behavior.instance.Get() == nullptr) { return; }
             }
 
+            // Lifecycle flags are set BEFORE the dispatch: whether it faults OR debug-suspends
+            // (mid-handler, game paused), it must not re-dispatch onEnable/onStart. A
+            // debug-suspended handler runs to completion later via the debugger's Continue.
             if (!behavior.active)
             {
-                InvokeHandler(behavior, *scriptClass, entity, kOnEnable, {});
                 behavior.active = true;
-                if (behavior.faulted) { return; }
+                if (InvokeHandler(behavior, *scriptClass, entity, kOnEnable, {})
+                    != HandlerOutcome::Ok) { return; }
             }
             if (!behavior.started)
             {
-                InvokeHandler(behavior, *scriptClass, entity, kOnStart, {});
                 behavior.started = true;
-                if (behavior.faulted) { return; }
+                if (InvokeHandler(behavior, *scriptClass, entity, kOnStart, {})
+                    != HandlerOutcome::Ok) { return; }
             }
             // updateInterval throttling (P3): 0 = every tick with the raw dt; otherwise
             // bank time and deliver once the interval elapses, passing the ACCUMULATED dt
@@ -525,16 +613,16 @@ export namespace draconic::script
                 if (behavior.updateAccumulator + 1e-6f >= behavior.updateInterval)
                 {
                     Variant dt = Variant::From(behavior.updateAccumulator);
-                    InvokeHandler(behavior, *scriptClass, entity, kOnUpdate,
-                                  Span<Variant>{ &dt, 1 });
-                    behavior.updateAccumulator = 0.0f;
+                    behavior.updateAccumulator = 0.0f;   // consume before dispatch (no double on resume)
+                    (void)InvokeHandler(behavior, *scriptClass, entity, kOnUpdate,
+                                        Span<Variant>{ &dt, 1 });
                 }
             }
             else
             {
                 Variant dt = Variant::From(deltaTime);
-                InvokeHandler(behavior, *scriptClass, entity, kOnUpdate,
-                              Span<Variant>{ &dt, 1 });
+                (void)InvokeHandler(behavior, *scriptClass, entity, kOnUpdate,
+                                    Span<Variant>{ &dt, 1 });
             }
         }
 
@@ -633,20 +721,28 @@ export namespace draconic::script
         }
 
         // One handler dispatch: declared-handler gate (no method-missing probing), the
-        // per-behavior profile scope, and the fault-disables-this-behavior rule.
-        void InvokeHandler(ScriptBehavior& behavior, const ScriptClass& scriptClass,
-                           dscene::EntityHandle entity, StringView method, Span<Variant> args)
+        // per-behavior profile scope, and the fault-disables-this-behavior rule. A handler
+        // that DEBUG-SUSPENDED (hit a breakpoint) is reported as Suspended, NOT a fault: the
+        // game is now paused and the debugger owns the mid-flight handler; on Continue it runs
+        // to completion and normal flow resumes.
+        [[nodiscard]] HandlerOutcome InvokeHandler(ScriptBehavior& behavior,
+                           const ScriptClass& scriptClass, dscene::EntityHandle entity,
+                           StringView method, Span<Variant> args)
         {
-            if (behavior.instance.Get() == nullptr || !scriptClass.HasHandler(method)) { return; }
-            DRACONIC_PROFILE_SCOPE(scriptClass.ProfileName());
-            if (auto result = behavior.instance->Invoke(method, args); !result.HasValue())
+            if (behavior.instance.Get() == nullptr || !scriptClass.HasHandler(method))
             {
-                behavior.faulted = true;
-                DRACONIC_LOG_ERROR(u8"Script",
-                    u8"'{}': behavior '{}' faulted in {} - behavior disabled",
-                    m_scene != nullptr ? m_scene->GetEntityName(entity) : StringView(u8"?"),
-                    scriptClass.className, method);
+                return HandlerOutcome::Ok;
             }
+            DRACONIC_PROFILE_SCOPE(scriptClass.ProfileName());
+            auto result = behavior.instance->Invoke(method, args);
+            if (result.HasValue()) { return HandlerOutcome::Ok; }
+            if (m_host != nullptr && m_host->IsDebugPaused()) { return HandlerOutcome::Suspended; }
+            behavior.faulted = true;
+            DRACONIC_LOG_ERROR(u8"Script",
+                u8"'{}': behavior '{}' faulted in {} - behavior disabled",
+                m_scene != nullptr ? m_scene->GetEntityName(entity) : StringView(u8"?"),
+                scriptClass.className, method);
+            return HandlerOutcome::Faulted;
         }
 
         // Stop every coroutine the behavior's instance started (disable / destroy /
@@ -674,7 +770,7 @@ export namespace draconic::script
             if (behavior.instance.Get() != nullptr && invokeDestroy && behavior.started
                 && behavior.boundClass != nullptr && !behavior.faulted)
             {
-                InvokeHandler(behavior, *behavior.boundClass, entity, kOnDestroy, {});
+                (void)InvokeHandler(behavior, *behavior.boundClass, entity, kOnDestroy, {});
             }
             CancelCoroutines(behavior);   // drop pending coroutines before releasing the instance
             behavior.instance = nullptr;
