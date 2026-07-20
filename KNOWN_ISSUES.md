@@ -5,6 +5,25 @@ and the plan. Keep newest first.
 
 ---
 
+## ctest: intermittent single-suite failure on the first run after a full build
+
+**Status:** open — flaky, unidentified, low priority (never reproduces on rerun).
+
+**Symptom:** the FIRST `ctest --test-dir build/{clang,gcc}` immediately after a full
+`cmake --build` occasionally reports `1 tests failed out of N`; an immediate re-run is
+always 100% green. Seen many times across clang and gcc while landing the scripting work
+— it is NOT tied to any one change (predates and outlives individual commits).
+
+**Likely cause:** a timing/resource-sensitive suite under peak parallel load right after
+a build (contention, a startup timeout, or a test with a wall-clock assumption). Not a
+correctness regression — the same binaries pass deterministically on rerun.
+
+**Plan:** next time it trips, capture the failing suite name (`ctest --output-on-failure`)
+and pin it down — likely add slack to a timing assertion or serialize that one suite.
+Until identified, treat a lone first-run failure that clears on rerun as this flake.
+
+---
+
 ## AngelScript: misaligned `asPWORD` read in bytecode dispatch (UBSan)
 
 **Status:** open — vendored third-party bug, benign on x86-64, fix upstream + carry a patch.
