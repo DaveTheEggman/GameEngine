@@ -19,6 +19,7 @@ import draconic.script;
 import draconic.script.wren;
 import draconic.script.resource;
 import draconic.script.editor;
+import draconic.script.wren.editor;   // the Wren cook (starter + compile/harvest) under test
 
 using namespace draconic::core;
 using namespace draconic::script;
@@ -77,7 +78,7 @@ namespace
                 return true;
             }();
             (void)logReady;
-            draconic::script::wren::RegisterWrenScriptBackend();
+            RegisterWrenScriptCook();   // registers the Wren backend + cook (idempotent)
             RegisterScriptResource();
             RegisterScriptAssets();
             srcDir = String(u8"draconic_scriptpipe_src_");
@@ -184,24 +185,18 @@ TEST_CASE("script.pipeline: handler scan captures the whole on<Upper>(...) conve
     CHECK(handlers.Size() == 3u);
 }
 
-TEST_CASE("script.pipeline: coroutine use is harvested (is Behavior / startCoroutine, "
-          "comments ignored)")
+TEST_CASE("script.pipeline: the shared startCoroutine( surface is detected neutrally "
+          "(comments ignored) - both languages reuse it")
 {
-    // Wren: extending the base OR referencing startCoroutine( flags it.
-    CHECK(ScriptUsesCoroutines(u8"class Mover is Behavior {\n}\n", u8"wren"));
-    CHECK(ScriptUsesCoroutines(
-        u8"class Mover {\n    onStart() { startCoroutine(Fn.new {}) }\n}\n", u8"wren"));
-    // A plain P1 behavior does not.
-    CHECK_FALSE(ScriptUsesCoroutines(
-        u8"class Mover {\n    onUpdate(dt) {}\n}\n", u8"wren"));
-    // `is Behavior` only counts in real code, not a comment.
-    CHECK_FALSE(ScriptUsesCoroutines(
-        u8"// class Mover is Behavior\nclass Mover {\n}\n", u8"wren"));
-    // A non-Wren language ignores the Wren-only `is Behavior` token but still catches
-    // the shared startCoroutine( surface.
-    CHECK_FALSE(ScriptUsesCoroutines(u8"class Mover is Behavior {}\n", u8"angelscript"));
-    CHECK(ScriptUsesCoroutines(u8"void begin() { startCoroutine(@this.Run); }\n",
-                               u8"angelscript"));
+    // The shared coroutine-start token (a facade convention, not language syntax).
+    CHECK(ScriptReferencesCoroutineStart(
+        u8"class Mover {\n    onStart() { startCoroutine(Fn.new {}) }\n}\n"));
+    CHECK(ScriptReferencesCoroutineStart(u8"void begin() { startCoroutine(@this.Run); }\n"));
+    // A plain behavior does not reference it.
+    CHECK_FALSE(ScriptReferencesCoroutineStart(u8"class Mover {\n    onUpdate(dt) {}\n}\n"));
+    // Only in real code, not a comment.
+    CHECK_FALSE(ScriptReferencesCoroutineStart(
+        u8"// startCoroutine(nope)\nclass Mover {\n}\n"));
 }
 
 TEST_CASE("script.pipeline: full harvest round-trip - source -> cook -> factory -> "
@@ -352,60 +347,49 @@ TEST_CASE("script.pipeline: compile errors FAIL the cook and the last good recor
     CHECK_FALSE(bed.Cook(u8"mover.wren", u8"wren", instance).IsOk());
 }
 
-TEST_CASE("script.pipeline: B3 - the builder resolves its harvest VM through the "
-          "backend REGISTRY by the asset's language")
+TEST_CASE("script.pipeline: B3 - the neutral builder resolves a per-language COOK "
+          "through the registry by the asset's language (never a named cook type)")
 {
-    // A fake language backend: counts creations, compiles anything.
-    struct FakeContext final : IScriptContext
+    // A fake language cook: counts calls, accepts anything, harvests no metadata.
+    static int cooked = 0;
+    cooked = 0;
+    struct FakeCook final : IScriptLanguageCook
     {
-        void SetErrorHandler(IScriptErrorHandler*) override {}
-        Status Load(StringView, StringView) override { return Status{}; }
-        void SetGlobal(StringView, const Variant&) override {}
-        Variant GetGlobal(StringView) override { return Variant{}; }
-        bool HasFunction(StringView) const override { return false; }
-        Result<Variant> Call(StringView, Span<Variant>) override
+        [[nodiscard]] StringView NewAssetTemplate() const override { return u8"// fake\n"; }
+        [[nodiscard]] bool Cook(StringView source, StringView, CookScriptErrorSink&,
+                                ScriptClassSource& out) override
         {
-            return Err(ErrorCode::NotSupported);
-        }
-        RefPtr<ScriptObject> CreateInstance(StringView, Span<Variant>) override
-        {
-            return nullptr;
+            ++cooked;
+            out.language = String(u8"faketest");
+            out.source = String(source);
+            return true;
         }
     };
-    struct FakeManager final : IScriptManager
-    {
-        void RegisterType(const TypeInfo&) override {}
-        RefPtr<IScriptContext> CreateContext() override
-        {
-            return RefPtr<IScriptContext>(MakeRef<FakeContext>(DefaultAllocator()));
-        }
-    };
+    ScriptLanguageCookRegistry::Get().Register(
+        String(u8"faketest"),
+        UniquePtr<IScriptLanguageCook>(DefaultAllocator().New<FakeCook>(), DefaultAllocator()));
 
-    static int created = 0;
-    created = 0;
+    // A backend claims the extension so the drop-importer recognises it (language-clean).
     ScriptBackendDesc fake;
     fake.languageId = String(u8"faketest");
     fake.displayName = String(u8"FakeTest");
     fake.fileExtensions.PushBack(String(u8"ftl"));
-    fake.create = []() -> RefPtr<IScriptManager> {
-        ++created;
-        return RefPtr<IScriptManager>(MakeRef<FakeManager>(DefaultAllocator()));
-    };
+    fake.create = []() -> RefPtr<IScriptManager> { return {}; };
     ScriptBackendRegistry::Get().Register(Move(fake));
 
     CookBed bed(u8"b3");
-    bed.WriteSource(u8"fake.ftl", u8"anything goes - the fake backend accepts it\n");
+    bed.WriteSource(u8"fake.ftl", u8"anything goes - the fake cook accepts it\n");
     content::Instance* instance = nullptr;
     REQUIRE(bed.Cook(u8"fake.ftl", u8"faketest", instance).IsOk());
-    CHECK(created == 1);   // the harvest VM came from the REGISTRY, by language
+    CHECK(cooked == 1);   // the cook came from the REGISTRY, by language
 
     RefPtr<ISerializable> object = instance->ReadObject();
-    ScriptClassSource* cooked = Cast<ScriptClassSource>(object.Get());
-    REQUIRE(cooked != nullptr);
-    CHECK(cooked->language == u8"faketest");
-    CHECK(cooked->properties.IsEmpty());   // no Wren probe for other languages (v1)
+    ScriptClassSource* record = Cast<ScriptClassSource>(object.Get());
+    REQUIRE(record != nullptr);
+    CHECK(record->language == u8"faketest");
+    CHECK(record->properties.IsEmpty());   // the fake cook harvests nothing
 
-    // An asset naming an UNREGISTERED language fails the cook cleanly.
+    // An asset naming an UNREGISTERED language fails the cook cleanly (no cook resolves).
     content::Instance* second = bed.outputDb->RootGroup()->CreateInstance(
         u8"cooked2", ScriptClassSource::StaticType());
     ScriptClassAsset asset;
@@ -439,4 +423,21 @@ TEST_CASE("script.pipeline: the New Asset starter template cooks with its declar
     CHECK(cooked->properties[0].name == u8"speed");
     CHECK(cooked->properties[0].type == ScriptPropertyType::Float);
     CHECK(cooked->handlers.Size() == 3u);   // onStart, onUpdate, onDestroy
+}
+
+TEST_CASE("script.pipeline: the Wren cook flags usesCoroutines from `is Behavior` "
+          "(the Wren-only opt-in lives in the Wren cook, not the neutral pipeline)")
+{
+    CookBed bed(u8"coro");
+    bed.WriteSource(u8"waiter.wren",
+                    u8"class Waiter is Behavior {\n"
+                    u8"    construct new(entity) { super(entity) }\n"
+                    u8"    onStart() {}\n"
+                    u8"}\n");
+    content::Instance* instance = nullptr;
+    REQUIRE(bed.Cook(u8"waiter.wren", u8"wren", instance).IsOk());
+    RefPtr<ISerializable> object = instance->ReadObject();
+    ScriptClassSource* cooked = Cast<ScriptClassSource>(object.Get());
+    REQUIRE(cooked != nullptr);
+    CHECK(cooked->usesCoroutines);
 }

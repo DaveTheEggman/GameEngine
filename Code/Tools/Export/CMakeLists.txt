@@ -11,5 +11,6 @@ target_link_libraries(RaptorExport PRIVATE
     Draconic::RenderSubsystem Draconic::AnimationSubsystem Draconic::ParticlesSubsystem
     Draconic::Physics Draconic::PhysicsResource Draconic::PhysicsEditor Draconic::PhysicsSubsystem
     Draconic::Audio Draconic::AudioResource Draconic::AudioEditor
-    Draconic::Script Draconic::ScriptWren Draconic::ScriptResource Draconic::ScriptFacades Draconic::ScriptEditor
+    Draconic::Script Draconic::ScriptWren Draconic::ScriptAngelScript Draconic::ScriptResource Draconic::ScriptFacades
+    Draconic::ScriptEditor Draconic::ScriptWrenEditor Draconic::ScriptAngelScriptEditor
     Draconic::UIResource Draconic::UIEditor)

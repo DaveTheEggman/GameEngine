@@ -19,6 +19,7 @@ import draconic.scene.subsystem;
 import draconic.resource;
 import draconic.script;
 import draconic.script.wren;
+import draconic.script.angelscript;
 import draconic.script.resource;
 import draconic.script.subsystem;
 import draconic.physics;
@@ -47,6 +48,20 @@ namespace
         {
             cls->properties.PushBack(property);
         }
+        cls->BuildProfileName();
+        return cls;
+    }
+
+    // Same, but for an arbitrary backend language (the AngelScript behavior path).
+    [[nodiscard]] RefPtr<ScriptClass> MakeClassLang(
+        StringView language, StringView className, StringView source,
+        std::initializer_list<StringView> handlers)
+    {
+        RefPtr<ScriptClass> cls = MakeRef<ScriptClass>(DefaultAllocator());
+        cls->language = String(language);
+        cls->className = String(className);
+        cls->source = String(source);
+        for (StringView handler : handlers) { cls->handlers.PushBack(String(handler)); }
         cls->BuildProfileName();
         return cls;
     }
@@ -847,6 +862,40 @@ TEST_CASE("script.scene: Scene.find / Scene.findByPath resolve entities in the c
     CHECK(bed.scene.GetEntityName(target) == StringView(u8"found-by-name"));
     CHECK(bed.scene.GetEntityName(weapon) == StringView(u8"found-by-path"));
     CHECK(bed.scene.GetEntityName(e) == StringView(u8"miss-ok"));
+}
+
+// ---- second backend, uniformly (scripting.md §7.5): a .as behavior runs the SAME neutral
+// runtime path as Wren - the RunHost resolves the backend by the class's language, assembles
+// the module through the backend (AngelScript needs no prelude), instantiates, and dispatches
+// lifecycle. Property harvest is deferred for AS, so this behavior carries no properties.
+
+TEST_CASE("script.scene: an AngelScript behavior runs the neutral lifecycle path "
+          "(onStart + onUpdate(dt)) - proves both backends, uniformly")
+{
+    draconic::script::angelscript::RegisterAngelScriptBackend();
+    ScriptedScene bed;
+    RefPtr<ScriptClass> mover = MakeClassLang(u8"angelscript", u8"Mover",
+        u8"class Mover {\n"
+        u8"    private Entity@ self;\n"
+        u8"    private float x;\n"
+        u8"    private float speed;\n"
+        u8"    Mover(Entity@ entity) { @self = entity; x = 0.0f; speed = 2.0f; }\n"
+        u8"    void onStart() { self.setName(\"started\"); }\n"
+        u8"    void onUpdate(double dt) { x = x + speed * float(dt); self.setPosition(x, 0.0f, 0.0f); }\n"
+        u8"}\n",
+        { u8"onStart", u8"onUpdate" });
+
+    const dscene::EntityHandle e = bed.AddScripted(mover, u8"walker");
+    bed.Start();
+    bed.Frame();   // instantiate + onStart + first onUpdate (dt 0.5): x = 1.0
+    CHECK(bed.host.Language() == StringView(u8"angelscript"));
+    CHECK(bed.scene.GetEntityName(e) == StringView(u8"started"));
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 1.0f));   // 2.0 * 0.5
+    bed.Frame();
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 2.0f));
+    ScriptComponent* c = bed.components->Get(e);
+    REQUIRE(c != nullptr);
+    CHECK_FALSE(c->behaviors[0].faulted);
 }
 
 // ---- coroutines (scripting.md §3.3): the Wren `Behavior` base + host scheduler wired

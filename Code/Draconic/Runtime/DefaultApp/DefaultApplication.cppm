@@ -35,6 +35,7 @@ import draconic.input;              // the action model/runtime
 import draconic.input.subsystem;    // InputSubsystem + the Wren Input facade
 import draconic.script;             // IScriptManager/Context (the game script)
 import draconic.script.wren;        // the Wren backend
+import draconic.script.angelscript; // the AngelScript backend (opt-in second backend)
 import draconic.script.resource;    // cooked script classes + factory (entity behaviors)
 import draconic.script.subsystem;   // ScriptSubsystem (behaviors + the run's shared context)
 import draconic.resource;           // ResourceManager (owned or borrowed - see the preset seam)
@@ -132,7 +133,10 @@ export namespace draconic::runtime
             draconic::input::RegisterInputScriptApi();
             draconic::physics::RegisterPhysicsScriptApi();
             draconic::audio::RegisterAudioScriptApi();
+            // Both backends are registered (batteries-included); a run resolves by the
+            // script's language - one gameplay context per run stays the locked rule.
             draconic::script::wren::RegisterWrenScriptBackend();
+            draconic::script::angelscript::RegisterAngelScriptBackend();
             DefaultApplication* self = this;
             m_scripts->SetContextConfigurator(
                 core::Function<void(draconic::script::IScriptContext&)>{
@@ -336,6 +340,7 @@ export namespace draconic::runtime
                 // then the manager resolves by the script FILE's extension. No consumer
                 // names a backend type (scripting.md B1).
                 draconic::script::wren::RegisterWrenScriptBackend();
+                draconic::script::angelscript::RegisterAngelScriptBackend();
                 m_scriptManager = draconic::script::CreateScriptManagerForFile(name);
                 if (m_scriptManager.Get() == nullptr)
                 {

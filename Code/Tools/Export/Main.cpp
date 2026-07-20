@@ -52,6 +52,9 @@ import draconic.audio.resource;
 import draconic.audio.editor;
 import draconic.script;
 import draconic.script.wren;
+import draconic.script.angelscript;
+import draconic.script.wren.editor;
+import draconic.script.angelscript.editor;
 import draconic.script.resource;
 import draconic.script.editor;
 import draconic.physics.subsystem;
@@ -149,9 +152,12 @@ namespace
         draconic::audio::RegisterAudioResource();
         draconic::script::RegisterScriptAssets();
         draconic::script::RegisterScriptResource();
-        // The script builder resolves its harvest VM through the backend
-        // REGISTRY (B3); registering backends is the entry point's job.
+        // The builder resolves a per-language COOK through the registry (B3);
+        // registering backends + cooks is the entry point's job - both languages.
         draconic::script::wren::RegisterWrenScriptBackend();
+        draconic::script::angelscript::RegisterAngelScriptBackend();
+        draconic::script::RegisterWrenScriptCook();
+        draconic::script::RegisterAngelScriptScriptCook();
         GlobalTypeRegistry().Register(dscene::SceneDocument::StaticType());
         RegisterSerializable<dscene::SceneDocument>();
 
