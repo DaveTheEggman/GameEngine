@@ -57,6 +57,7 @@ import draconic.ui.resource;
 import draconic.ui.editor;
 import draconic.editor.gameui;
 import draconic.editor.audio;
+import draconic.editor.script;
 import draconic.physics.subsystem;
 import draconic.modelimporter;
 import draconic.audio;
@@ -243,6 +244,9 @@ int main(int argc, char** argv)
         draconic::editor::RegisterInputEditor(app.Context(), host);
         draconic::editor::RegisterGameUIEditor(app.Context(), host, uiHost);
         draconic::editor::RegisterAudioClipEditor(app.Context(), host);
+        // Script behavior page + per-backend "New Asset > <Lang> Script" creators (scripting.md
+        // §5). Backends were registered above, so the creators fan out over every language.
+        draconic::editor::RegisterScriptEditor(app.Context());
         RegisterPrimitiveMeshCreators(app.Context());
         {
             // New Asset > Input Map: seeded with the conventional Gameplay starter set.
@@ -315,53 +319,8 @@ int main(int argc, char** argv)
                 return instance;
             };
             app.Context().RegisterCreator(static_cast<ed::EditorContext::AssetCreator&&>(cueCreator));
-
-            // New Asset > Script Class (a starter behavior .wren in Sources/, the
-            // convention pre-filled; cooks + attaches via a ScriptComponent behavior).
-            ed::EditorContext::AssetCreator scriptCreator;
-            scriptCreator.label = String(u8"Script Class");
-            scriptCreator.create = [](ed::EditorContext& ctx, draconic::content::Group* group)
-                -> draconic::content::Instance* {
-                if (ctx.Project() == nullptr) { return nullptr; }
-                draconic::content::Group* target = group != nullptr
-                    ? group : ctx.Project()->SourceDb().RootGroup();
-                // Unique instance + source-file name (NewBehavior, NewBehavior2, ...).
-                String name(u8"NewBehavior");
-                for (i32 counter = 2; target->GetInstance(name.AsView()) != nullptr; ++counter)
-                {
-                    name = String(u8"NewBehavior");
-                    if (counter >= 10)
-                    {
-                        name.PushBack(static_cast<utf8char>('0' + (counter / 10 % 10)));
-                    }
-                    name.PushBack(static_cast<utf8char>('0' + (counter % 10)));
-                }
-                String fileName(name.AsView());
-                fileName.Append(u8".wren");
-                const String path = PathJoin(ctx.Project()->SourcesRoot().AsView(),
-                                             fileName.AsView());
-                // The starter template is the language cook's - resolved by language, never
-                // a named type (New Behavior authors in Wren, the batteries-included default).
-                draconic::script::IScriptLanguageCook* cook =
-                    draconic::script::ScriptLanguageCookRegistry::Get().FindByLanguage(u8"wren");
-                if (cook == nullptr) { return nullptr; }
-                const StringView starter = cook->NewAssetTemplate();
-                if (!WriteFile(path.AsView(),
-                               Span<const byte>(reinterpret_cast<const byte*>(starter.Data()),
-                                                starter.Size())).IsOk())
-                {
-                    return nullptr;
-                }
-                draconic::content::Instance* instance = target->CreateInstance(
-                    name.AsView(), draconic::script::ScriptClassAsset::StaticType());
-                if (instance == nullptr) { return nullptr; }
-                draconic::script::ScriptClassAsset asset;
-                asset.fileName = fileName;
-                asset.language = String(u8"wren");
-                if (!instance->WriteObject(asset).IsOk()) { return nullptr; }
-                return instance;
-            };
-            app.Context().RegisterCreator(static_cast<ed::EditorContext::AssetCreator&&>(scriptCreator));
+            // New Asset > <Language> Script is registered by RegisterScriptEditor (one creator
+            // per script backend, seeded from the cook's NewAssetTemplate - backend-neutral).
         }
         {
             // New Asset > UI Document / UI Theme (starter payloads; edited as text until
