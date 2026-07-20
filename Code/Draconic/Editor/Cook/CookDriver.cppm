@@ -217,6 +217,9 @@ export namespace draconic::editor
         usize orphansSweptCount = 0;   // filled by PrepareProducts
         usize upToDate = 0;
         usize unbuildable = 0;    // instances with no registered builder (informational)
+        Array<Guid> reachable;    // PlanFor only: the roots + their whole dependency CLOSURE (every
+                                  // visited guid, clean or dirty, buildable or not) - the reachable
+                                  // SET export pruning ships. Empty for a whole-project Plan().
     };
 
     struct CookProgress
@@ -281,6 +284,7 @@ export namespace draconic::editor
                 for (const Guid& dep : deps.references) { queue.PushBack(dep); }
             }
             SortByLevel(plan.dirty);
+            plan.reachable = Move(visited);   // the full closure (roots + transitive deps)
             return plan;
         }
 
