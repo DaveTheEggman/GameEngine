@@ -126,6 +126,32 @@ namespace draconic::script::wren
     // --- marshalling -------------------------------------------------------
     inline constexpr const char* kModule = "main"; // module the foreign classes live in
 
+    inline core::StringView AsciiView(const char* text) noexcept
+    {
+        return (text != nullptr)
+            ? core::StringView(reinterpret_cast<const core::utf8char*>(text))
+            : core::StringView{};
+    }
+
+    // The Wren call spelling of a method: `name(_,_,...)` with one `_` per parameter.
+    inline core::String WrenCallSignatureOf(const char* name, core::u32 paramCount)
+    {
+        core::String sig(AsciiView(name));
+        sig += u8"(";
+        for (core::u32 i = 0; i < paramCount; ++i)
+        {
+            if (i != 0) { sig += u8","; }
+            sig += u8"_";
+        }
+        sig += u8")";
+        return sig;
+    }
+
+    // A script function argument (a Wren Fn/closure) -> a WrenScriptDelegate wrapping it,
+    // as an object-mode Variant. Defined after WrenContext (it registers with the owning
+    // context for lifetime); forward-declared so MarshalIn can wrap a delegate parameter.
+    core::Variant WrapWrenDelegateArg(WrenVM* vm, int slot);
+
     // Engine value -> Wren slot for primitives; true if handled (slot untouched
     // and false otherwise, so the caller can try a foreign wrap).
     inline bool TryPrimitiveOut(WrenVM* vm, int slot, const core::Variant& value)
@@ -189,6 +215,13 @@ namespace draconic::script::wren
     // numbers to the target scalar; foreign slots carry a Variant already).
     inline core::Variant MarshalIn(WrenVM* vm, int slot, const core::TypeInfo* expected)
     {
+        // A delegate parameter (RefPtr<IScriptDelegate>): the argument is a Wren fn/closure,
+        // not a reflected foreign value - wrap it into a WrenScriptDelegate holding a handle
+        // to the fn (grabbed regardless of slot type, the coroutine-registration recipe).
+        if (expected != nullptr && core::IsDerivedFrom(expected, &IScriptDelegate::StaticType()))
+        {
+            return WrapWrenDelegateArg(vm, slot);
+        }
         switch (wrenGetSlotType(vm, slot))
         {
             case WREN_TYPE_FOREIGN:
@@ -253,7 +286,8 @@ namespace draconic::script::wren
             case WREN_TYPE_STRING:
                 return pt == &core::TypeOf<core::String>() || pt == &core::TypeOf<core::String>();
             default:
-                return false;
+                // A Fn/closure (WREN_TYPE_UNKNOWN) matches a delegate parameter.
+                return pt != nullptr && core::IsDerivedFrom(pt, &IScriptDelegate::StaticType());
         }
     }
 
@@ -494,6 +528,7 @@ namespace draconic::script::wren
     };
 
     class WrenManager;   // forward: WrenContext keeps its manager (the coroutine scheduler) alive
+    class WrenScriptDelegate; // forward: WrenContext tracks its live delegates for teardown detach
 
     class WrenContext final : public IScriptContext
     {
@@ -526,6 +561,19 @@ namespace draconic::script::wren
         // WrenManager; foreign coroutine callbacks route registration through it.
         [[nodiscard]] WrenManager& Manager() const noexcept;
         [[nodiscard]] WrenVM* Vm() const noexcept { return m_vm; }
+
+        // A live WrenScriptDelegate tracks itself here so that, when this context's VM is
+        // freed, we can detach each delegate (null its handle) BEFORE wrenFreeVM releases
+        // the fn handles - releasing a handle after wrenFreeVM would be a use-after-free.
+        // A delegate held only by native code is a safe no-op once detached.
+        void RegisterDelegate(WrenScriptDelegate* delegate) { m_delegates.PushBack(delegate); }
+        void UnregisterDelegate(WrenScriptDelegate* delegate)
+        {
+            for (core::usize i = 0; i < m_delegates.Size(); ++i)
+            {
+                if (m_delegates[i] == delegate) { m_delegates.RemoveAt(i); return; }
+            }
+        }
 
         [[nodiscard]] const core::TypeInfo* FindType(const char* className) const
         {
@@ -723,11 +771,16 @@ namespace draconic::script::wren
             WriteUtf8(&core::ConsoleWriteError, message);
         }
 
+        // Detach every live delegate (defined after WrenScriptDelegate); called from the
+        // destructor before wrenFreeVM.
+        void DetachAllDelegates();
+
         WrenVM* m_vm = nullptr;
         IScriptErrorHandler* m_errorHandler = nullptr;
         core::String m_module;
         core::Array<const core::TypeInfo*> m_types;
         core::RefPtr<IScriptManager> m_manager;   // keeps the manager (scheduler) alive
+        core::Array<WrenScriptDelegate*> m_delegates; // live delegates (non-owning; detached on teardown)
     };
 
     // --- foreign bind callbacks (defined after WrenContext) ----------------
@@ -810,7 +863,44 @@ namespace draconic::script::wren
 
         [[nodiscard]] ScriptCapabilities Capabilities() const override
         {
-            return ScriptCapabilities::Coroutines;   // Wren fibers back the scheduler below
+            // Wren fibers back the coroutine scheduler; fn handles back the delegate seam.
+            return ScriptCapabilities::Coroutines | ScriptCapabilities::Delegates;
+        }
+
+        // The ACTUAL Wren-callable surface: one entry per constructible reflected type (the
+        // foreign classes GenerateForeignClasses emits), with Wren-spelled member signatures.
+        [[nodiscard]] core::Array<ScriptApiType> DescribeBoundApi() const override
+        {
+            core::Array<ScriptApiType> result;
+            for (const core::TypeInfo* t : m_types)
+            {
+                if (t == nullptr || t->name == nullptr) { continue; }
+                if (core::ConstructorCount(*t) == 0) { continue; } // no foreign class emitted
+                ScriptApiType api;
+                api.scriptName = core::String(AsciiView(t->name));
+                api.isNamespace = false;
+                for (core::usize i = 0; i < core::PropertyCount(*t); ++i)
+                {
+                    const core::PropertyInfo& p = core::PropertyAt(*t, i);
+                    ScriptApiMember member;
+                    member.name = core::String(AsciiView(p.name));
+                    member.signature = member.name; // Wren getter/setter share the bare name
+                    member.kind = ScriptApiMemberKind::Property;
+                    api.members.PushBack(core::Move(member));
+                }
+                for (core::usize i = 0; i < core::MethodCount(*t); ++i)
+                {
+                    const core::MethodInfo& m = core::MethodAt(*t, i);
+                    ScriptApiMember member;
+                    member.name = core::String(AsciiView(m.name));
+                    member.signature = WrenCallSignatureOf(m.name, m.paramCount);
+                    member.isStatic = m.isStatic;
+                    member.kind = ScriptApiMemberKind::Method;
+                    api.members.PushBack(core::Move(member));
+                }
+                result.PushBack(core::Move(api));
+            }
+            return result;
         }
 
         // The Wren behavior module: the facade `import "main" for ...` prelude + the
@@ -969,6 +1059,77 @@ namespace draconic::script::wren
         core::i32 m_nextCoroutineId = 0;
     };
 
+    // ---- script delegate (a Wren fn held as a native callback) ----
+
+    // Wraps a Wren fn/closure handle so native code can call back into script through the
+    // neutral IScriptDelegate seam. Non-owning of its context (holding it strongly would
+    // cycle: VM -> foreign object -> delegate -> context -> VM). Instead it registers with
+    // the context, which detaches it on VM teardown - a delegate outliving its context is a
+    // safe no-op. The fn handle keeps the closure alive across Wren GC (the GC-safe promise).
+    class WrenScriptDelegate final : public IScriptDelegate
+    {
+    public:
+        WrenScriptDelegate(WrenContext* context, WrenHandle* fn) noexcept
+            : m_context(context), m_fn(fn)
+        {
+            if (m_context != nullptr) { m_context->RegisterDelegate(this); }
+        }
+
+        ~WrenScriptDelegate() override
+        {
+            if (m_context != nullptr)
+            {
+                m_context->UnregisterDelegate(this);
+                if (m_fn != nullptr) { wrenReleaseHandle(m_context->Vm(), m_fn); }
+            }
+        }
+
+        WrenScriptDelegate(const WrenScriptDelegate&) = delete;
+        WrenScriptDelegate& operator=(const WrenScriptDelegate&) = delete;
+
+        // The VM is being freed (wrenFreeVM releases the fn handle itself): drop our
+        // references without touching them, so the destructor becomes a no-op.
+        void Detach() noexcept { m_context = nullptr; m_fn = nullptr; }
+
+        [[nodiscard]] core::Result<core::Variant> Invoke(core::Span<core::Variant> args) override
+        {
+            if (m_context == nullptr || m_fn == nullptr) { return core::Err(core::ErrorCode::Internal); }
+            WrenVM* vm = m_context->Vm();
+            const core::usize argc = args.Size();
+            wrenEnsureSlots(vm, static_cast<int>(argc) + 1);
+            wrenSetSlotHandle(vm, 0, m_fn); // the receiver is the fn itself
+            for (core::usize i = 0; i < argc; ++i) { MarshalOut(vm, static_cast<int>(i) + 1, args[i]); }
+
+            char signature[64];
+            BuildSignature(signature, sizeof(signature), "call", argc);
+            WrenHandle* call = wrenMakeCallHandle(vm, signature);
+            const WrenInterpretResult result = wrenCall(vm, call);
+            wrenReleaseHandle(vm, call);
+            if (result != WREN_RESULT_SUCCESS) { return core::Err(core::ErrorCode::Internal); }
+            return SlotToVariant(vm, 0);
+        }
+
+    private:
+        WrenContext* m_context;
+        WrenHandle* m_fn;
+    };
+
+    core::Variant WrapWrenDelegateArg(WrenVM* vm, int slot)
+    {
+        WrenContext* context = static_cast<WrenContext*>(OwningContext(vm));
+        // A Fn is not a reflected foreign type; grab its handle regardless of slot type.
+        WrenHandle* fn = wrenGetSlotHandle(vm, slot);
+        core::RefPtr<IScriptDelegate> delegate(core::MakeRef<WrenScriptDelegate>(
+            core::DefaultAllocator(), context, fn));
+        return core::Variant::From(delegate);
+    }
+
+    void WrenContext::DetachAllDelegates()
+    {
+        for (WrenScriptDelegate* delegate : m_delegates) { delegate->Detach(); }
+        m_delegates.Clear();
+    }
+
     // ---- coroutine foreign callbacks (defined after WrenManager) ----
 
     WrenManager& WrenContext::Manager() const noexcept
@@ -980,8 +1141,9 @@ namespace draconic::script::wren
     {
         if (m_vm != nullptr)
         {
-            // Drop this VM's coroutines before freeing it (the manager outlives us - we
-            // hold a strong ref); wrenFreeVM then frees the fiber handles.
+            // Detach delegates and drop this VM's coroutines BEFORE freeing it (the manager
+            // outlives us - we hold a strong ref); wrenFreeVM then frees the fn/fiber handles.
+            DetachAllDelegates();
             Manager().ForgetCoroutinesForVm(m_vm);
             wrenFreeVM(m_vm);
         }
