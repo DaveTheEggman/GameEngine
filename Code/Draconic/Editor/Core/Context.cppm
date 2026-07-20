@@ -279,6 +279,47 @@ export namespace draconic::editor
             for (const auto& listener : m_importListeners) { listener(instance, options); }
         }
 
+        // === Script breakpoints (the debugger, script-debugger.md P1) ===
+        // Shared editor state: the ScriptPage gutter toggles them per source file+line, and a
+        // Game run applies them to its script debugger. Contract-neutral plain data (a future
+        // remote debugger consumes the same set).
+
+        struct ScriptBreakpoint
+        {
+            String file;   // source file name (the section the runtime reports)
+            i32 line = 0;   // 1-based
+        };
+
+        /// Toggle a breakpoint at `file:line`; fires OnBreakpointsChanged.
+        void ToggleBreakpoint(StringView file, i32 line)
+        {
+            for (usize i = 0; i < m_breakpoints.Size(); ++i)
+            {
+                if (m_breakpoints[i].line == line && m_breakpoints[i].file.AsView() == file)
+                {
+                    m_breakpoints.RemoveAt(i);
+                    if (OnBreakpointsChanged) { OnBreakpointsChanged(); }
+                    return;
+                }
+            }
+            m_breakpoints.PushBack(ScriptBreakpoint{ String(file), line });
+            if (OnBreakpointsChanged) { OnBreakpointsChanged(); }
+        }
+        [[nodiscard]] bool HasBreakpoint(StringView file, i32 line) const
+        {
+            for (const ScriptBreakpoint& breakpoint : m_breakpoints)
+            {
+                if (breakpoint.line == line && breakpoint.file.AsView() == file) { return true; }
+            }
+            return false;
+        }
+        [[nodiscard]] Span<const ScriptBreakpoint> Breakpoints() const noexcept
+        {
+            return Span<const ScriptBreakpoint>{ m_breakpoints.Data(), m_breakpoints.Size() };
+        }
+        /// Fired on every breakpoint toggle (the gutter repaints; a live run re-applies).
+        Function<void()> OnBreakpointsChanged;
+
         // === Status ===
 
         void SetStatus(StringView text)
@@ -304,5 +345,7 @@ export namespace draconic::editor
         Array<UniquePtr<EditorPage>> m_pages;
         EditorPage* m_activePage = nullptr;
         Selection<const draconic::content::Instance*> m_assetSelection;
+        Array<ScriptBreakpoint> m_breakpoints;   // shared script debugger breakpoints
+
     };
 }

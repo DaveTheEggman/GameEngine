@@ -34,6 +34,63 @@ export namespace draconic::editor
     namespace gui = draconic::ui;
     namespace content = draconic::content;
 
+    // A clickable breakpoint gutter beside the source editor (script-debugger.md P1): click a
+    // line to toggle a breakpoint in the shared EditorContext store; a red dot marks each
+    // breakpoint line, aligned to the editor's line height + scroll. Contract-neutral - it
+    // only edits the store; a Game run applies the same set to its debugger.
+    class BreakpointGutter final : public gui::View
+    {
+    public:
+        EditorContext* context = nullptr;   // the shared breakpoint store (borrowed)
+        gui::EditText* editor = nullptr;     // line-metric source (borrowed)
+        String file;                         // the source file these breakpoints key on
+
+        void OnMeasure(gui::BoxConstraints constraints) override
+        {
+            MeasuredSize = Float2{ 24.0f, constraints.ConstrainHeight(0.0f) };
+        }
+
+        void OnDraw(gui::UIDrawContext& ctx) override
+        {
+            ctx.VG().FillRect(Rectangle{ 0, 0, Width(), Height() },
+                              Color{ 0.12f, 0.13f, 0.16f, 1.0f });
+            if (context == nullptr || editor == nullptr) { return; }
+            const f32 lineHeight = editor->LineHeight();
+            if (lineHeight <= 0.0f) { return; }
+            const f32 scrollY = editor->ScrollOffsetY();
+            for (const EditorContext::ScriptBreakpoint& breakpoint : context->Breakpoints())
+            {
+                if (breakpoint.file.AsView() != file.AsView()) { continue; }
+                const f32 centreY = kTopPad + (static_cast<f32>(breakpoint.line) - 0.5f)
+                                    * lineHeight - scrollY;
+                if (centreY < 0.0f || centreY > Height()) { continue; }
+                ctx.VG().FillCircle(Float2{ Width() * 0.5f, centreY }, 4.5f,
+                                    Color{ 0.85f, 0.2f, 0.2f, 1.0f });
+            }
+        }
+
+        void OnMouseDown(gui::MouseEventArgs& e) override
+        {
+            if (e.Button != gui::MouseButton::Left || context == nullptr || editor == nullptr)
+            {
+                return;
+            }
+            const f32 lineHeight = editor->LineHeight();
+            if (lineHeight <= 0.0f) { return; }
+            const i32 line = static_cast<i32>(
+                (e.Y - kTopPad + editor->ScrollOffsetY()) / lineHeight) + 1;
+            if (line >= 1)
+            {
+                context->ToggleBreakpoint(file.AsView(), line);
+                Invalidate();
+            }
+            e.Handled = true;
+        }
+
+    private:
+        static constexpr f32 kTopPad = 4.0f;   // the editor's top text padding (Thickness{6,4})
+    };
+
     // The in-editor script text page. Pure UI over ScriptSourceDocument (the headless save +
     // compile-check model): the page owns the widget tree and forwards edits/Save to the model.
     class ScriptEditorPage final : public app::UIEditorPage
@@ -68,11 +125,32 @@ export namespace draconic::editor
                 self->MarkDirty();
                 self->m_validateDelay = 0.6f;   // debounce a background compile-check
             });
+
+            // A horizontal row: [breakpoint gutter | source editor]. The gutter toggles
+            // breakpoints in the shared store; a Game run applies them to its debugger.
+            auto editorRow = MakeRef<gui::FlexLayout>(DefaultAllocator());
+            editorRow->Direction = gui::Orientation::Horizontal;
+            m_gutter = MakeRef<BreakpointGutter>(DefaultAllocator());
+            m_gutter->context = &context;
+            m_gutter->editor = m_editor.Get();
+            m_gutter->file = String(m_doc.FileName());
+            {
+                auto lp = MakeRef<gui::FlexLayoutParams>(DefaultAllocator());
+                lp->Width = gui::SizeSpec::Fixed(gui::Unit::Px(24));
+                lp->Height = gui::SizeSpec::Match();
+                editorRow->AddView(m_gutter.Get(), lp);
+            }
+            {
+                auto lp = MakeRef<gui::FlexLayoutParams>(DefaultAllocator());
+                lp->Grow = 1.0f;
+                lp->Height = gui::SizeSpec::Match();
+                editorRow->AddView(m_editor.Get(), lp);
+            }
             {
                 auto lp = MakeRef<gui::FlexLayoutParams>(DefaultAllocator());
                 lp->Grow = 1.0f;
                 lp->Width = gui::SizeSpec::Match();
-                column->AddView(m_editor.Get(), lp);
+                column->AddView(editorRow.Get(), lp);
             }
 
             // A one-line compile status (OK / N error(s) / no cook).
@@ -192,6 +270,7 @@ export namespace draconic::editor
         f32 m_validateDelay = 0.0f;
         RefPtr<gui::View> m_content;
         RefPtr<gui::EditText> m_editor;
+        RefPtr<BreakpointGutter> m_gutter;
         RefPtr<gui::Label> m_status;
         RefPtr<gui::EditText> m_errorView;
     };

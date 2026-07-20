@@ -187,6 +187,10 @@ export namespace draconic::ui
             return font->font->Metrics().lineHeight;
         }
 
+        /// Vertical scroll offset (px) of the multiline text - so an external gutter can align
+        /// its per-line markers to the editor's visible lines.
+        [[nodiscard]] f32 ScrollOffsetY() const noexcept { return m_scrollOffsetY; }
+
         [[nodiscard]] IClipboard* Clipboard() override { return Context ? Context->Clipboard() : nullptr; }
         [[nodiscard]] f32 CurrentTime() override { return Context ? Context->TotalTime() : 0.0f; }
 
