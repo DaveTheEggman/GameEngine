@@ -25,6 +25,7 @@ import draconic.runtime;
 import draconic.scene;
 import draconic.scene.subsystem;
 import draconic.script;
+import draconic.script.facades;   // draconic::script::Entity (the raycast/contact hit entity)
 import draconic.physics;
 // NOTE: no render imports HERE - the debug-draw path lives in SubsystemImpl.cpp (a module
 // implementation unit). Keeping heavyweight imports out of the interface matters for
@@ -35,6 +36,47 @@ using namespace draconic::core;
 export namespace draconic::physics
 {
     namespace dscene = draconic::scene;
+
+    // The body user word carries the owning entity handle. EntityHandle is {u32 index,
+    // u32 generation} = exactly 64 bits and unique BY CONSTRUCTION (the generation rejects
+    // a reused slot), so it packs losslessly - unlike the entity guid's low 64 bits, which
+    // is a lossy projection of the 128-bit guid that two distinct entities can share. This
+    // subsystem is the ONLY place that packs and unpacks the word (the World-level u64 stays
+    // an opaque handle), so the helpers live here.
+    [[nodiscard]] inline u64 PackEntity(dscene::EntityHandle handle) noexcept
+    {
+        return (static_cast<u64>(handle.index) << 32) | static_cast<u64>(handle.generation);
+    }
+    [[nodiscard]] inline dscene::EntityHandle UnpackEntity(u64 value) noexcept
+    {
+        return dscene::EntityHandle{ static_cast<u32>(value >> 32),
+                                     static_cast<u32>(value & 0xFFFFFFFFu) };
+    }
+
+    /// A contact whose bodies have been resolved back to scene entities (invalid handles for
+    /// a side whose body no longer maps to a live entity - e.g. an End event after a body was
+    /// destroyed). Delivered by the physics subsystem to every registered IContactListener at
+    /// the physics tick (a safe top level - never nested inside a script call).
+    struct EntityContact
+    {
+        ContactKind kind = ContactKind::Begin;
+        dscene::Scene* scene = nullptr;
+        dscene::EntityHandle a;
+        dscene::EntityHandle b;
+        Float3 point{ 0, 0, 0 };
+        Float3 normal{ 0, 0, 0 };
+        f32 speed = 0.0f;
+    };
+
+    /// A consumer of resolved contacts (the script subsystem implements this to route contacts
+    /// into behavior handlers). Called at the physics tick, once per drained contact per
+    /// registered listener; implementations MUST only enqueue (no re-entrant script calls).
+    class IContactListener
+    {
+    public:
+        virtual ~IContactListener() = default;
+        virtual void OnContact(const EntityContact& contact) = 0;
+    };
 
     class PhysicsSceneSystem final : public dscene::SceneSystem
     {
@@ -60,6 +102,14 @@ export namespace draconic::physics
         [[nodiscard]] Span<const ContactEvent> Events() const noexcept
         {
             return Span<const ContactEvent>{ m_events.Data(), m_events.Size() };
+        }
+
+        /// The subsystem points this at its listener list (stable address); each drained
+        /// contact batch is resolved to entities and pushed to every listener. Null = no
+        /// dispatch (a bare scene-system harness with no subsystem driving it).
+        void SetContactListeners(const Array<IContactListener*>* listeners) noexcept
+        {
+            m_listeners = listeners;
         }
 
         // ---- play lifecycle ----
@@ -140,6 +190,11 @@ export namespace draconic::physics
 
             m_events.Clear();
             m_world->DrainContacts(m_events);
+            // PUSH each drained batch at the physics tick: m_events is cleared every substep,
+            // so a frame with multiple substeps would lose all but the last if listeners only
+            // pulled Events() once per frame. Dispatch here (a safe top level - not nested in
+            // any script call); listeners only enqueue.
+            DispatchContacts();
 
             // Characters: the standard velocity recipe (grounded = planar move + one-shot
             // jump; airborne = keep gravity-integrated fall, steer planar), then sweep.
@@ -339,7 +394,7 @@ export namespace draconic::physics
                 desc.stepUp = c.stepUp;
                 desc.stepDown = c.stepDown;
                 desc.position = position;
-                desc.userData = scene.GetEntityId(e).low;
+                desc.userData = PackEntity(e);   // lossless entity reverse-map (see PackEntity)
                 c.character = m_world->CreateCharacter(desc);
                 c.ground = CharacterGround::InAir;
                 c.prevPosition = c.currPosition = position;
@@ -366,10 +421,9 @@ export namespace draconic::physics
                 desc.isTrigger = c.isTrigger;
                 desc.group = c.collisionGroup;
 
-                // Reverse map: the entity guid's low 64 bits (guids are 128-bit; low is
-                // unique enough within one scene for lookups via FindEntity by the system).
-                const Guid id = scene.GetEntityId(e);
-                desc.userData = id.low;
+                // Reverse map: the owning entity handle, packed losslessly into the body user
+                // word (see PackEntity - unique by construction, unlike the guid's low bits).
+                desc.userData = PackEntity(e);
 
                 Float3 position, scale;
                 Quaternion rotation;
@@ -450,6 +504,33 @@ export namespace draconic::physics
             });
         }
 
+        // Resolve every drained contact's packed user words back to live entities and push
+        // the result to each registered listener. A side that doesn't resolve (destroyed
+        // body / stale slot) is delivered as an invalid handle; a contact with neither side
+        // live is dropped.
+        void DispatchContacts()
+        {
+            if (m_listeners == nullptr || m_listeners->IsEmpty() || m_scene == nullptr) { return; }
+            for (const ContactEvent& event : m_events)
+            {
+                const dscene::EntityHandle a = UnpackEntity(event.userA);
+                const dscene::EntityHandle b = UnpackEntity(event.userB);
+                EntityContact contact;
+                contact.kind = event.kind;
+                contact.scene = m_scene;
+                contact.a = m_scene->IsValid(a) ? a : dscene::EntityHandle::Invalid();
+                contact.b = m_scene->IsValid(b) ? b : dscene::EntityHandle::Invalid();
+                if (!contact.a.IsAssigned() && !contact.b.IsAssigned()) { continue; }
+                contact.point = event.point;
+                contact.normal = event.normal;
+                contact.speed = event.speed;
+                for (IContactListener* listener : *m_listeners)
+                {
+                    if (listener != nullptr) { listener->OnContact(contact); }
+                }
+            }
+        }
+
         [[nodiscard]] static bool IsDescendantOf(dscene::Scene& scene, dscene::EntityHandle child,
                                                  dscene::EntityHandle ancestor)
         {
@@ -464,6 +545,7 @@ export namespace draconic::physics
         PhysicsSceneSettings m_settings;
         UniquePtr<PhysicsWorld> m_world;
         Array<ContactEvent> m_events;
+        const Array<IContactListener*>* m_listeners = nullptr;   // owned by the subsystem
     };
 
     // The runtime subsystem: injects the managers + system into every scene (ISceneAware)
@@ -491,6 +573,25 @@ export namespace draconic::physics
             context.SetService(kPhysicsScriptService, &m_scriptBinding);
         }
 
+        /// Register a consumer of resolved contacts (the script subsystem). Duplicates are
+        /// ignored; every per-scene world dispatches to the shared list at its physics tick.
+        void RegisterContactListener(IContactListener* listener)
+        {
+            if (listener == nullptr) { return; }
+            for (IContactListener* existing : m_contactListeners)
+            {
+                if (existing == listener) { return; }
+            }
+            m_contactListeners.PushBack(listener);
+        }
+        void UnregisterContactListener(IContactListener* listener)
+        {
+            for (usize i = 0; i < m_contactListeners.Size(); ++i)
+            {
+                if (m_contactListeners[i] == listener) { m_contactListeners.RemoveAt(i); return; }
+            }
+        }
+
         // BEFORE the scene subsystem (-500): the interpolation's local-transform writes
         // must land before Scene::Update recomputes world matrices, or rendering (which
         // extracts world matrices) would lag the physics poses by a frame.
@@ -503,6 +604,7 @@ export namespace draconic::physics
             scene.AddSystem<JointComponentManager>();
             scene.AddSystem<CharacterComponentManager>();
             PhysicsSceneSystem* system = scene.AddSystem<PhysicsSceneSystem>();
+            system->SetContactListeners(&m_contactListeners);   // shared list, stable address
             m_systems.PushBack(SceneEntry{ &scene, system });
         }
         void OnSceneDestroyed(dscene::Scene& scene) override
@@ -555,6 +657,7 @@ export namespace draconic::physics
 
     private:
         Array<SceneEntry> m_systems;
+        Array<IContactListener*> m_contactListeners;   // consumers of resolved contacts
     };
 
     // The scripting facade: a foreign class named `Physics` whose STATIC methods resolve
@@ -599,6 +702,28 @@ export namespace draconic::physics
         [[nodiscard]] static f32 hitNormalZ() { auto* b = Resolve(); return b != nullptr && b->lastHitValid ? b->lastHit.normal.z : 0.0f; }
         /// Material slot of the hit face (cooked triangle meshes; 0 otherwise).
         [[nodiscard]] static f32 hitSurface() { auto* b = Resolve(); return b != nullptr && b->lastHitValid ? static_cast<f32>(b->lastHit.surface) : 0.0f; }
+
+        /// The ENTITY the last successful rayCast hit, resolved from the body's packed user
+        /// word (the raw u64 is an internal handle since the reverse map became an entity
+        /// handle, so gameplay reads the entity, never the number). Invalid Entity on a miss,
+        /// no bound service, or a body whose entity is no longer live.
+        [[nodiscard]] static draconic::script::Entity rayHitEntity()
+        {
+            PhysicsScriptBinding* binding = Resolve();
+            if (binding == nullptr || !binding->lastHitValid || binding->system == nullptr)
+            {
+                return draconic::script::Entity{};
+            }
+            dscene::Scene* scene = binding->system->ScenePtr();
+            if (scene == nullptr) { return draconic::script::Entity{}; }
+            const dscene::EntityHandle handle = UnpackEntity(binding->lastHit.userData);
+            if (!scene->IsValid(handle)) { return draconic::script::Entity{}; }
+            draconic::script::Entity entity;
+            entity.scene = scene;
+            entity.entityIndex = handle.index;
+            entity.entityGeneration = handle.generation;
+            return entity;
+        }
 
         /// Impulse on the body the last successful rayCast hit.
         static void impulseOnHit(f32 x, f32 y, f32 z)

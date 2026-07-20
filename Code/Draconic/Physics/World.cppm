@@ -114,6 +114,16 @@ export namespace draconic::physics
         BodyId bodyB;
         u64 userA = 0;
         u64 userB = 0;
+        /// Contact geometry (Begin/TriggerEnter only; zero for End/TriggerExit which have
+        /// no manifold). `point`/`normal` are world-space (normal points from body B toward
+        /// body A). `speed` is the impact APPROACH SPEED: the magnitude of the two bodies'
+        /// relative velocity projected onto the contact normal - "how hard did they hit".
+        /// It is deliberately NOT a solver impulse: Jolt does not surface the true impulse
+        /// cleanly in OnContactAdded, so approach speed is the honest, physically-meaningful
+        /// value (see WorldImpl.cpp OnContactAdded).
+        Float3 point{ 0, 0, 0 };
+        Float3 normal{ 0, 0, 0 };
+        f32 speed = 0.0f;
     };
 
     // ---- joints (P3) ----

@@ -256,6 +256,7 @@ namespace draconic::physics
         builder.Method<&Physics::hitNormalY>("hitNormalY");
         builder.Method<&Physics::hitNormalZ>("hitNormalZ");
         builder.Method<&Physics::hitSurface>("hitSurface");
+        builder.Method<&Physics::rayHitEntity>("rayHitEntity");
         builder.Method<&Physics::impulseOnHit>("impulseOnHit");
         builder.Method<&Physics::setGravity>("setGravity");
         builder.Method<&Physics::gravityY>("gravityY");

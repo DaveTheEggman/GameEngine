@@ -162,7 +162,18 @@ TEST_CASE("physics.scene: descendant colliders compound into the ancestor body")
     CHECK(hit.position.y == doctest::Approx(1.0f).epsilon(0.05));   // the arm's top face
 }
 
-TEST_CASE("physics.scene: trigger components raise enter events with entity user data")
+namespace
+{
+    // Records resolved contacts (the PhysicsSubsystem plays this role in a real run; the bare
+    // scene-system harness wires it in directly via SetContactListeners).
+    struct RecordingListener final : IContactListener
+    {
+        Array<EntityContact> contacts;
+        void OnContact(const EntityContact& contact) override { contacts.PushBack(contact); }
+    };
+}
+
+TEST_CASE("physics.scene: trigger components raise enter events resolved to entities")
 {
     PlayScene play;
     (void)play.AddFloor();
@@ -173,20 +184,58 @@ TEST_CASE("physics.scene: trigger components raise enter events with entity user
     const dscene::EntityHandle faller = play.AddBox(6.0f);
     play.Start();
 
+    RecordingListener recorder;
+    Array<IContactListener*> listeners;
+    listeners.PushBack(&recorder);
+    play.physics->SetContactListeners(&listeners);   // packed userData resolves to entities
+
     bool entered = false;
-    const u64 volumeUser = play.scene.GetEntityId(volume).low;
-    const u64 fallerUser = play.scene.GetEntityId(faller).low;
     for (int i = 0; i < 240 && !entered; ++i)
     {
         play.Step(1);
-        for (const ContactEvent& e : play.physics->Events())
+        for (const EntityContact& c : recorder.contacts)
         {
-            if (e.kind == ContactKind::TriggerEnter
-                && (e.userA == volumeUser || e.userB == volumeUser)
-                && (e.userA == fallerUser || e.userB == fallerUser)) { entered = true; }
+            if (c.kind == ContactKind::TriggerEnter
+                && ((c.a == volume && c.b == faller) || (c.a == faller && c.b == volume)))
+            {
+                entered = true;
+            }
         }
     }
     CHECK(entered);
+}
+
+TEST_CASE("physics.scene: a real Jolt collision reaches a registered listener with resolved "
+          "entities + geometry")
+{
+    PlayScene play;
+    const dscene::EntityHandle floor = play.AddFloor();
+    const dscene::EntityHandle box = play.AddBox(1.4f);   // drops onto the floor
+    play.Start();
+
+    RecordingListener recorder;
+    Array<IContactListener*> listeners;
+    listeners.PushBack(&recorder);
+    play.physics->SetContactListeners(&listeners);
+
+    bool sawBegin = false;
+    for (int i = 0; i < 120 && !sawBegin; ++i)
+    {
+        play.Step(1);
+        for (const EntityContact& c : recorder.contacts)
+        {
+            if (c.kind != ContactKind::Begin) { continue; }
+            if ((c.a == box && c.b == floor) || (c.a == floor && c.b == box))
+            {
+                sawBegin = true;
+                CHECK(c.scene == &play.scene);
+                CHECK(c.speed >= 0.0f);                       // approach speed, never negative
+                const f32 normalLength = Length(c.normal);
+                CHECK(normalLength == doctest::Approx(1.0f).epsilon(0.02));   // unit normal
+            }
+        }
+    }
+    CHECK(sawBegin);
 }
 
 TEST_CASE("physics.scene: cooked collision shape drives a body via the component ref")

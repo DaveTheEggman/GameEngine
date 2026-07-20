@@ -38,6 +38,7 @@ module;
 #include <Jolt/Physics/Character/CharacterVirtual.h>
 
 #include <atomic>
+#include <cmath>
 #include <cstring>
 
 module draconic.physics;
@@ -277,12 +278,33 @@ namespace draconic::physics
         {
             Mutex mutex;
             Array<ContactEvent> events;
+            // Set after the PhysicsSystem is constructed: End events (OnContactRemoved) only
+            // carry body IDs, so we resolve their user words through the body interface.
+            JPH::PhysicsSystem* system = nullptr;
 
             void OnContactAdded(const JPH::Body& a, const JPH::Body& b,
-                                const JPH::ContactManifold&, JPH::ContactSettings&) override
+                                const JPH::ContactManifold& manifold, JPH::ContactSettings&) override
             {
-                Push(a, b, a.IsSensor() || b.IsSensor() ? ContactKind::TriggerEnter
-                                                        : ContactKind::Begin);
+                ContactEvent e;
+                e.kind = a.IsSensor() || b.IsSensor() ? ContactKind::TriggerEnter
+                                                      : ContactKind::Begin;
+                e.bodyA = BodyId{ a.GetID().GetIndexAndSequenceNumber() };
+                e.bodyB = BodyId{ b.GetID().GetIndexAndSequenceNumber() };
+                e.userA = a.GetUserData();
+                e.userB = b.GetUserData();
+                e.normal = FromJph(manifold.mWorldSpaceNormal);
+                if (manifold.mRelativeContactPointsOn1.size() > 0)
+                {
+                    e.point = FromJph(manifold.GetWorldSpaceContactPointOn1(0));
+                }
+                // Approach speed, NOT a solver impulse (see ContactEvent::speed): Jolt does
+                // not expose the true impulse cleanly here, so we report the magnitude of the
+                // relative velocity along the contact normal - a physically-meaningful measure
+                // of how hard the two bodies met.
+                const JPH::Vec3 relative = a.GetLinearVelocity() - b.GetLinearVelocity();
+                e.speed = std::fabs(relative.Dot(manifold.mWorldSpaceNormal));
+                ScopedLock lock(mutex);
+                events.PushBack(e);
             }
             void OnContactRemoved(const JPH::SubShapeIDPair& pair) override
             {
@@ -290,19 +312,21 @@ namespace draconic::physics
                 e.kind = ContactKind::End;
                 e.bodyA = BodyId{ pair.GetBody1ID().GetIndexAndSequenceNumber() };
                 e.bodyB = BodyId{ pair.GetBody2ID().GetIndexAndSequenceNumber() };
-                ScopedLock lock(mutex);
-                events.PushBack(e);
-            }
-
-        private:
-            void Push(const JPH::Body& a, const JPH::Body& b, ContactKind kind)
-            {
-                ContactEvent e;
-                e.kind = kind;
-                e.bodyA = BodyId{ a.GetID().GetIndexAndSequenceNumber() };
-                e.bodyB = BodyId{ b.GetID().GetIndexAndSequenceNumber() };
-                e.userA = a.GetUserData();
-                e.userB = b.GetUserData();
+                // Resolve the user words by body ID if the body still exists (the callback can
+                // fire for an already-destroyed body - leave that side 0 so the subsystem skips
+                // it). NoLock interface: contact callbacks run with bodies already locked.
+                if (system != nullptr)
+                {
+                    const JPH::BodyLockInterface& bodies = system->GetBodyLockInterfaceNoLock();
+                    {
+                        JPH::BodyLockRead lock(bodies, pair.GetBody1ID());
+                        if (lock.Succeeded()) { e.userA = lock.GetBody().GetUserData(); }
+                    }
+                    {
+                        JPH::BodyLockRead lock(bodies, pair.GetBody2ID());
+                        if (lock.Succeeded()) { e.userB = lock.GetBody().GetUserData(); }
+                    }
+                }
                 ScopedLock lock(mutex);
                 events.PushBack(e);
             }
@@ -427,6 +451,7 @@ namespace draconic::physics
                              m_impl->broadPhaseLayers, m_impl->objectVsBroadPhase,
                              m_impl->pairFilter);
         m_impl->system->SetGravity(ToJph(settings.gravity));
+        m_impl->contacts.system = m_impl->system.Get();   // End events resolve user words by ID
         m_impl->system->SetContactListener(&m_impl->contacts);
     }
 
