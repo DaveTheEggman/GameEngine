@@ -5,7 +5,7 @@ add_library(DraconicScriptEditor STATIC)
 add_library(Draconic::ScriptEditor ALIAS DraconicScriptEditor)
 target_link_libraries(DraconicScriptEditor PUBLIC
     Draconic::Core Draconic::Editor Draconic::EditorCore Draconic::Content
-    Draconic::Script Draconic::ScriptResource Draconic::ScriptFacades Draconic::Policy)
+    Draconic::Script Draconic::ScriptResource Draconic::Policy)
 target_sources(DraconicScriptEditor PUBLIC FILE_SET script_editor_modules TYPE CXX_MODULES FILES ScriptAsset.cppm)
 
 if(DRACONIC_BUILD_TESTS)

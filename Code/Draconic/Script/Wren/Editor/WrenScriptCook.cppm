@@ -1,0 +1,61 @@
+// Draconic::ScriptWrenEditor - the `draconic.script.wren.editor` module (tooling).
+//
+// The Wren cook service (scripting.md §5 + §7.5): compile-checks a Wren behavior in a
+// cooker-owned Wren VM (resolved through the backend registry by language), harvests the
+// `static properties` map via a Fiber probe, scans handlers, and supplies the New-Asset
+// starter. ALL Wren-specific cook syntax lives HERE, not in the neutral draconic.script.editor.
+//
+// This is a plain module interface unit: it spins up the cook VM through the NEUTRAL
+// IScriptContext surface (CreateScriptManagerForLanguage), so no Wren C header appears
+// here at all - the GCC module-hygiene rule (backend headers out of interface units) is
+// satisfied by construction.
+
+module;
+#include "Core/Prelude.h"
+#include "Core/Log/Log.h"
+
+export module draconic.script.wren.editor;
+
+import draconic.core;
+import draconic.script;               // registry + IScriptManager/IScriptContext + RegisterReflectedTypes
+import draconic.script.resource;      // ScriptClassSource + ScriptPropertyDesc + parse helpers
+import draconic.script.facades;       // RegisterScriptFacadeReflection (the cook VM's "main" surface)
+import draconic.script.editor;        // IScriptLanguageCook + registry + shared cook helpers
+import draconic.script.wren;          // ensures the Wren backend is available to the registry
+
+using namespace draconic::core;
+
+export namespace draconic::script
+{
+    // The New Asset starter (the behavior convention pre-filled). Property values reach an
+    // instance through plain Wren SETTERS ("speed" -> `speed=(v)`) - harvested names are
+    // pushed via `Invoke("<name>=")` at instantiate, after construct new(entity).
+    inline constexpr StringView kScriptBehaviorStarter =
+        u8"// Behavior class - attach via a ScriptComponent behavior slot.\n"
+        u8"// NOTE Wren is newline-sensitive: `{` must sit on the signature's line.\n"
+        u8"// Reflected engine types live in the \"main\" module:\n"
+        u8"//   import \"main\" for Float3\n"
+        u8"class NewBehavior {\n"
+        u8"    // name: [type, default, description?]  - types: float, int, bool, string,\n"
+        u8"    // color, vec3, entity, asset:<TypeName>\n"
+        u8"    static properties { {\n"
+        u8"        \"speed\": [\"float\", 1.0, \"units per second\"],\n"
+        u8"    } }\n"
+        u8"\n"
+        u8"    construct new(entity) {\n"
+        u8"        _entity = entity\n"
+        u8"        _speed = 1.0\n"
+        u8"    }\n"
+        u8"    // One setter per declared property (the engine pushes values through them).\n"
+        u8"    speed=(v) { _speed = v }\n"
+        u8"\n"
+        u8"    onStart() {}\n"
+        u8"    onUpdate(dt) {}\n"
+        u8"    onDestroy() {}\n"
+        u8"}\n";
+
+    /// Registers the Wren cook (and, idempotently, the Wren backend it needs) so the
+    /// neutral ScriptClassAssetBuilder resolves it by language. Entry points call this
+    /// (exactly like registering the backend). Idempotent.
+    void RegisterWrenScriptCook();
+}

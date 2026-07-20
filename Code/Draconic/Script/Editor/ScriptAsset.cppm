@@ -1,20 +1,25 @@
 // Draconic::ScriptEditor - the `draconic.script.editor` module (tooling).
 //
-// Source-side script authoring + cook (docs/design/scripting.md §5 + §7.5 B3):
-//   * ScriptClassAsset (editor::Asset): the copied script file + its LANGUAGE
-//     (defaulted from the imported file's extension - backend neutrality B3).
-//   * ScriptClassAssetBuilder: compiles the source in a cooker-owned VM resolved
-//     through the ScriptBackendRegistry (never a named backend type), surfaces
-//     compile errors as cook errors with file/line, harvests the `static properties`
-//     map + the declared handler set, and writes source + metadata. A failing cook
-//     leaves the LAST good cooked record untouched (the cook service only reloads
-//     successful products), so live instances keep running the old class.
-//   * ScriptFileImporter: drop-import for any extension a registered backend claims
-//     (.wren today); no options dialog.
+// Source-side script authoring + cook (docs/design/scripting.md §5 + §7.5 B3), fully
+// BACKEND-NEUTRAL - no language syntax lives here:
+//   * ScriptClassAsset (editor::Asset): the copied script file + its LANGUAGE id
+//     (defaulted from the imported file's extension - backend neutrality B3). The asset
+//     is just source bytes + a language id + cooked metadata; nothing language-specific.
+//   * IScriptLanguageCook: the per-language cook SERVICE. Each language library provides
+//     one (Wren: draconic.script.wren.editor; AngelScript: draconic.script.angelscript.editor)
+//     and registers it into ScriptLanguageCookRegistry, keyed by languageId (mirroring the
+//     ScriptBackendRegistry). A cook compile-checks + harvests metadata; the New-Asset
+//     starter template is its NewAssetTemplate().
+//   * ScriptClassAssetBuilder: a THIN shell - resolves the cook by the asset's language
+//     and delegates NewAssetTemplate / Cook. It never names a language or a backend type.
+//   * ScriptFileImporter: drop-import for any extension a registered backend claims; no
+//     options dialog.
+//   * Shared cook conventions (NOT language syntax): the on<Upper>(...) handler scan
+//     (ScanScriptHandlers), the C-family comment stripper (StripScriptComments), the first
+//     top-level `class Name` scan (FindScriptClassName), and the shared `startCoroutine(`
+//     surface detection (ScriptReferencesCoroutineStart). Every cook reuses these.
 //
-// Never linked by the runtime. The Wren-specific part is confined to the PROPERTY
-// probe snippet (other languages cook compile-checked with text-scanned handlers and
-// no property metadata until they grow their own probe).
+// Never linked by the runtime.
 
 module;
 #include "Core/Prelude.h"
@@ -29,7 +34,6 @@ import draconic.editor.core;
 import draconic.content;
 import draconic.script;
 import draconic.script.resource;
-import draconic.script.facades;   // the cook VM mirrors the runtime's "main" surface
 
 using namespace draconic::core;
 
@@ -51,57 +55,28 @@ export namespace draconic::script
         }
     };
 
-    // ---- pure cook helpers (unit-testable without a project) ----
+    // ---- shared cook helpers (unit-testable without a project; NOT language syntax) ----
 
     /// First top-level `class Name` whose name matches `preferredName` (the file stem),
     /// else the FIRST top-level class; empty when the source declares none (a utility
-    /// module). Line comments / block comments are ignored.
+    /// module). Line comments / block comments are ignored. `class Name` is a C-family
+    /// convention shared by every language backend, so this stays neutral + shared.
     [[nodiscard]] inline String FindScriptClassName(StringView source, StringView preferredName);
 
-    /// The declared lifecycle handlers out of the KNOWN set, by source scan (comments
-    /// stripped): a handler is `name(` or `name {` at declaration position.
+    /// The declared lifecycle/event/message handlers out of the `on<Upper>(...)` naming
+    /// convention, by source scan (comments stripped). Both languages use it, so it is a
+    /// shared cook helper, not language syntax.
     [[nodiscard]] inline Array<String> ScanScriptHandlers(StringView source);
 
-    /// True when the class opts into the coroutine scheduler (the cancel-on-teardown
-    /// gate). Wren: it extends `Behavior` (`is Behavior`) or references `startCoroutine(`.
-    /// Comment-stripped scan - simple, and enough for the runtime cancel guard.
-    [[nodiscard]] inline bool ScriptUsesCoroutines(StringView source, StringView language);
-
     /// Strips `//` line comments and `/* */` block comments (string literals respected).
+    /// C-family; both languages use it.
     [[nodiscard]] inline String StripScriptComments(StringView source);
 
-    /// One record of the Wren probe's harvest string -> a property desc.
-    /// Record layout: name \x1F typeString \x1F default \x1F description, where default
-    /// is "~" (none), "n:<num>", "b:true|false", "s:<text>" or "l:<a,b,c[,d]>".
-    [[nodiscard]] inline bool ParseHarvestRecord(StringView record, ScriptPropertyDesc& out,
-                                                 String& outError);
-
-    // The New Asset starter (the behavior convention pre-filled). Property values reach
-    // an instance through plain Wren SETTERS (`speed=(v)`) - harvested names are pushed
-    // via `Invoke("<name>=")` at instantiate, after construct new(entity).
-    inline constexpr StringView kScriptBehaviorStarter =
-        u8"// Behavior class - attach via a ScriptComponent behavior slot.\n"
-        u8"// NOTE Wren is newline-sensitive: `{` must sit on the signature's line.\n"
-        u8"// Reflected engine types live in the \"main\" module:\n"
-        u8"//   import \"main\" for Float3\n"
-        u8"class NewBehavior {\n"
-        u8"    // name: [type, default, description?]  - types: float, int, bool, string,\n"
-        u8"    // color, vec3, entity, asset:<TypeName>\n"
-        u8"    static properties { {\n"
-        u8"        \"speed\": [\"float\", 1.0, \"units per second\"],\n"
-        u8"    } }\n"
-        u8"\n"
-        u8"    construct new(entity) {\n"
-        u8"        _entity = entity\n"
-        u8"        _speed = 1.0\n"
-        u8"    }\n"
-        u8"    // One setter per declared property (the engine pushes values through them).\n"
-        u8"    speed=(v) { _speed = v }\n"
-        u8"\n"
-        u8"    onStart() {}\n"
-        u8"    onUpdate(dt) {}\n"
-        u8"    onDestroy() {}\n"
-        u8"}\n";
+    /// True when the (comment-stripped) source references the shared `startCoroutine(`
+    /// coroutine surface. A convention shared by every backend's coroutine facade - not
+    /// language syntax. A language whose coroutine opt-in has ADDITIONAL markers layers
+    /// them on top inside its own cook.
+    [[nodiscard]] inline bool ScriptReferencesCoroutineStart(StringView source);
 
     namespace detail
     {
@@ -111,94 +86,22 @@ export namespace draconic::script
                 || (c >= u8'0' && c <= u8'9') || c == u8'_';
         }
 
-        // The Wren property probe, appended INTO the class's own module so the class
-        // name resolves without imports. Wren maps have no guaranteed key order - the
-        // cook SORTS the parsed records by name for deterministic bytes.
-        [[nodiscard]] inline String BuildWrenPropertyProbe(StringView className)
+        // First occurrence of `needle` in `haystack` (byte scan).
+        [[nodiscard]] inline bool Contains(StringView haystack, StringView needle) noexcept
         {
-            String cls(className);
-            String probe;
-            probe += u8"var drHarvestResult = \"\"\n";
-            probe += u8"var drHarvestError = \"\"\n";
-            // NOTE Wren parses a single-line `{ ... }` as an EXPRESSION body - every
-            // block holding a statement must span multiple lines.
-            probe += u8"var drHarvestSer\n";
-            probe += u8"drHarvestSer = Fn.new {|v|\n";
-            probe += u8"  var out = \"?\"\n";
-            probe += u8"  if (v == null) {\n";
-            probe += u8"    out = \"~\"\n";
-            probe += u8"  } else if (v is Num) {\n";
-            probe += u8"    out = \"n:\" + v.toString\n";
-            probe += u8"  } else if (v is Bool) {\n";
-            probe += u8"    out = \"b:\" + v.toString\n";
-            probe += u8"  } else if (v is String) {\n";
-            probe += u8"    out = \"s:\" + v\n";
-            probe += u8"  } else if (v is List) {\n";
-            probe += u8"    var parts = \"\"\n";
-            probe += u8"    for (e in v) {\n";
-            probe += u8"      if (parts != \"\") parts = parts + \",\"\n";
-            probe += u8"      parts = parts + e.toString\n";
-            probe += u8"    }\n";
-            probe += u8"    out = \"l:\" + parts\n";
-            probe += u8"  }\n";
-            probe += u8"  return out\n";
-            probe += u8"}\n";
-            probe += u8"var drHarvestFiber = Fiber.new {\n";
-            probe += u8"  var m = ";
-            probe += cls.AsView();
-            probe += u8".properties\n";
-            probe += u8"  var out = \"\"\n";
-            probe += u8"  for (k in m.keys) {\n";
-            probe += u8"    var entry = m[k]\n";
-            probe += u8"    var type = \"\"\n";
-            probe += u8"    var dflt = \"~\"\n";
-            probe += u8"    var desc = \"\"\n";
-            probe += u8"    if (entry is List) {\n";
-            probe += u8"      if (entry.count > 0) { type = entry[0].toString }\n";
-            probe += u8"      if (entry.count > 1) { dflt = drHarvestSer.call(entry[1]) }\n";
-            probe += u8"      if (entry.count > 2) { desc = entry[2].toString }\n";
-            probe += u8"    } else {\n";
-            probe += u8"      type = entry.toString\n";
-            probe += u8"    }\n";
-            probe += u8"    out = out + k + \"\\x1f\" + type + \"\\x1f\" + dflt + \"\\x1f\" + desc + \"\\x1e\"\n";
-            probe += u8"  }\n";
-            probe += u8"  drHarvestResult = out\n";
-            probe += u8"}\n";
-            probe += u8"var drHarvestCaught = drHarvestFiber.try()\n";
-            probe += u8"if (drHarvestCaught != null) { drHarvestError = drHarvestCaught.toString }\n";
-            return probe;
+            if (needle.IsEmpty() || needle.Size() > haystack.Size()) { return false; }
+            for (usize i = 0; i + needle.Size() <= haystack.Size(); ++i)
+            {
+                if (haystack.SubStr(i, needle.Size()) == needle) { return true; }
+            }
+            return false;
         }
 
-        // Parses "a,b,c[,d]" into up to 4 floats; returns the count parsed.
-        [[nodiscard]] inline u32 ParseFloatList(StringView text, f32 (&out)[4])
+        [[nodiscard]] inline usize CountNewlines(StringView text) noexcept
         {
-            u32 count = 0;
-            usize begin = 0;
-            for (usize i = 0; i <= text.Size() && count < 4; ++i)
-            {
-                if (i == text.Size() || text[i] == u8',')
-                {
-                    const StringView piece = text.SubStr(begin, i - begin);
-                    begin = i + 1;
-                    if (piece.IsEmpty()) { continue; }
-                    // Minimal float parse (sign, digits, dot, exponent-free harvest output).
-                    f64 value = 0.0;
-                    f64 scale = 1.0;
-                    bool negative = false;
-                    bool afterDot = false;
-                    for (usize j = 0; j < piece.Size(); ++j)
-                    {
-                        const utf8char c = piece[j];
-                        if (j == 0 && c == u8'-') { negative = true; continue; }
-                        if (c == u8'.') { afterDot = true; continue; }
-                        if (c < u8'0' || c > u8'9') { continue; }
-                        if (afterDot) { scale *= 0.1; value += (c - u8'0') * scale; }
-                        else { value = value * 10.0 + (c - u8'0'); }
-                    }
-                    out[count++] = static_cast<f32>(negative ? -value : value);
-                }
-            }
-            return count;
+            usize n = 0;
+            for (usize i = 0; i < text.Size(); ++i) { if (text[i] == u8'\n') { ++n; } }
+            return n;
         }
     }
 
@@ -311,134 +214,15 @@ export namespace draconic::script
         return found;
     }
 
-    namespace detail
+    inline bool ScriptReferencesCoroutineStart(StringView source)
     {
-        // First occurrence of `needle` in `haystack` (byte scan); npc when absent.
-        [[nodiscard]] inline bool Contains(StringView haystack, StringView needle) noexcept
-        {
-            if (needle.IsEmpty() || needle.Size() > haystack.Size()) { return false; }
-            for (usize i = 0; i + needle.Size() <= haystack.Size(); ++i)
-            {
-                if (haystack.SubStr(i, needle.Size()) == needle) { return true; }
-            }
-            return false;
-        }
-
-        [[nodiscard]] inline usize CountNewlines(StringView text) noexcept
-        {
-            usize n = 0;
-            for (usize i = 0; i < text.Size(); ++i) { if (text[i] == u8'\n') { ++n; } }
-            return n;
-        }
-    }
-
-    inline bool ScriptUsesCoroutines(StringView source, StringView language)
-    {
-        // Only Wren grows the `Behavior` base today; other languages express coroutines
-        // through their own surface (e.g. AngelScript's startCoroutine) - the shared
-        // `startCoroutine(` token catches those too.
         const String stripped = StripScriptComments(source);
-        const StringView text = stripped.AsView();
-        if (detail::Contains(text, u8"startCoroutine(")) { return true; }
-        if (language == u8"wren" && detail::Contains(text, u8"is Behavior")) { return true; }
-        return false;
+        return detail::Contains(stripped.AsView(), u8"startCoroutine(");
     }
 
-    inline bool ParseHarvestRecord(StringView record, ScriptPropertyDesc& out, String& outError)
-    {
-        StringView fields[4];
-        u32 fieldCount = 0;
-        usize begin = 0;
-        for (usize i = 0; i <= record.Size() && fieldCount < 4; ++i)
-        {
-            if (i == record.Size() || record[i] == utf8char(0x1F))
-            {
-                fields[fieldCount++] = record.SubStr(begin, i - begin);
-                begin = i + 1;
-            }
-        }
-        if (fieldCount < 2 || fields[0].IsEmpty())
-        {
-            outError = String(u8"malformed property record");
-            return false;
-        }
-        out.name = String(fields[0]);
-        out.hash = ScriptPropertyNameHash(fields[0]);
-        out.description = fieldCount > 3 ? String(fields[3]) : String{};
-        if (!ParseScriptPropertyType(fields[1], out.type, out.assetType))
-        {
-            outError = String(u8"property '");
-            outError += fields[0];
-            outError += u8"' has unknown type '";
-            outError += fields[1];
-            outError += u8"' (valid: float, int, bool, string, color, vec3, entity, asset:<TypeName>)";
-            return false;
-        }
+    // ---- cook error plumbing (shared by every cook service) ----
 
-        // Default value: typed from the serialized payload; "~" = the type's default.
-        ScriptPropertyValue& value = out.defaultValue;
-        value.kind = out.type;
-        const StringView payload = fieldCount > 2 ? fields[2] : StringView(u8"~");
-        if (payload == u8"~" || payload.Size() < 2) { return true; }
-        const utf8char tag = payload[0];
-        const StringView body = payload.SubStr(2, payload.Size() - 2);
-        switch (out.type)
-        {
-            case ScriptPropertyType::Float:
-            case ScriptPropertyType::Int:
-                if (tag == u8'n')
-                {
-                    f32 numbers[4] = {};
-                    if (detail::ParseFloatList(body, numbers) > 0)
-                    {
-                        value.number = static_cast<f64>(numbers[0]);
-                        if (out.type == ScriptPropertyType::Int)
-                        {
-                            value.number = static_cast<f64>(static_cast<i64>(value.number));
-                        }
-                    }
-                }
-                break;
-            case ScriptPropertyType::Bool:
-                value.boolean = (tag == u8'b' && body == u8"true");
-                break;
-            case ScriptPropertyType::String:
-                if (tag == u8's') { value.text = String(body); }
-                break;
-            case ScriptPropertyType::Color:
-                if (tag == u8'l')
-                {
-                    f32 numbers[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-                    const u32 parsed = detail::ParseFloatList(body, numbers);
-                    if (parsed >= 3)
-                    {
-                        value.color = Color{ numbers[0], numbers[1], numbers[2],
-                                             parsed >= 4 ? numbers[3] : 1.0f };
-                    }
-                }
-                break;
-            case ScriptPropertyType::Vec3:
-                if (tag == u8'l')
-                {
-                    f32 numbers[4] = {};
-                    if (detail::ParseFloatList(body, numbers) >= 3)
-                    {
-                        value.vector = Float3{ numbers[0], numbers[1], numbers[2] };
-                    }
-                }
-                break;
-            case ScriptPropertyType::Entity:
-            case ScriptPropertyType::Asset:
-                // Only null defaults are expressible in script; guids come from overrides.
-                break;
-            case ScriptPropertyType::None:
-            default:
-                break;
-        }
-        return true;
-    }
-
-    // Captures compile/runtime errors during the harvest compile (file/line for the
+    // Captures compile/runtime errors during a cook's compile/harvest (file/line for the
     // cook error report - ScriptError already carries them).
     class CookScriptErrorSink final : public IScriptErrorHandler
     {
@@ -459,8 +243,99 @@ export namespace draconic::script
         }
     };
 
-    // Cooks a ScriptClassAsset -> ScriptClassSource (compile + harvest, B3: the VM is
-    // resolved from the asset's LANGUAGE through the backend registry).
+    /// Logs a cook's captured compile/runtime errors as cook errors with the asset's
+    /// file/line. `preludeLines` is the line count any language framing injected AHEAD of
+    /// the user source - subtracted back so reported lines match the authored file. Shared
+    /// by every cook (the reporting format is not language-specific).
+    inline void ReportScriptCookErrors(StringView fileName, const CookScriptErrorSink& sink,
+                                       i32 preludeLines = 0)
+    {
+        if (sink.errors.IsEmpty())
+        {
+            DRACONIC_LOG_ERROR(u8"Script", u8"'{}': compile failed - cook failed", fileName);
+            return;
+        }
+        for (const CookScriptErrorSink::Entry& e : sink.errors)
+        {
+            const i32 line = e.line > preludeLines ? e.line - preludeLines : e.line;
+            DRACONIC_LOG_ERROR(u8"Script", u8"{}:{}: {} - cook failed",
+                               e.module.IsEmpty() ? fileName : e.module.AsView(),
+                               line, e.message);
+        }
+    }
+
+    // ---- the per-language cook service (backend neutrality §7.5) ----
+
+    /// A language's cook: compile-check + metadata harvest + the New-Asset starter. The
+    /// only place a language's specifics live on the cook side; the neutral builder
+    /// resolves one by languageId and delegates. Implemented per language in its own
+    /// library (draconic.script.<lang>.editor), registered via ScriptLanguageCookRegistry.
+    class IScriptLanguageCook
+    {
+    public:
+        virtual ~IScriptLanguageCook() = default;
+
+        /// The New-Asset starter source (the behavior convention pre-filled).
+        [[nodiscard]] virtual StringView NewAssetTemplate() const = 0;
+
+        /// Compile-check `source` (named `assetName` for error reporting) and harvest its
+        /// metadata into `out` (language, className, handlers, usesCoroutines, and any
+        /// property metadata the language supports); report cook errors through `sink`;
+        /// return success. On failure the builder does not write, so the LAST good cooked
+        /// record survives (live instances keep running the old class).
+        [[nodiscard]] virtual bool Cook(StringView source, StringView assetName,
+                                        CookScriptErrorSink& sink, ScriptClassSource& out) = 0;
+    };
+
+    /// The cook registry (mirrors ScriptBackendRegistry): a language library registers its
+    /// cook here, keyed by languageId; the builder resolves through it - never by type.
+    class ScriptLanguageCookRegistry
+    {
+    public:
+        [[nodiscard]] static ScriptLanguageCookRegistry& Get()
+        {
+            static ScriptLanguageCookRegistry instance;
+            return instance;
+        }
+
+        /// Idempotent by languageId (a re-register replaces - hot-reload friendly).
+        void Register(String languageId, UniquePtr<IScriptLanguageCook> cook)
+        {
+            for (Entry& existing : m_cooks)
+            {
+                if (existing.languageId == languageId)
+                {
+                    existing.cook = Move(cook);
+                    return;
+                }
+            }
+            Entry entry;
+            entry.languageId = Move(languageId);
+            entry.cook = Move(cook);
+            m_cooks.PushBack(Move(entry));
+        }
+
+        [[nodiscard]] IScriptLanguageCook* FindByLanguage(StringView languageId)
+        {
+            for (Entry& entry : m_cooks)
+            {
+                if (entry.languageId == languageId) { return entry.cook.Get(); }
+            }
+            return nullptr;
+        }
+
+    private:
+        struct Entry
+        {
+            String languageId;
+            UniquePtr<IScriptLanguageCook> cook;
+        };
+        Array<Entry> m_cooks;
+    };
+
+    // Cooks a ScriptClassAsset -> ScriptClassSource by delegating to the language cook the
+    // asset's LANGUAGE resolves to (B3). A THIN shell: it reads the source, resolves the
+    // cook, and delegates - no language syntax, no VM handling.
     class ScriptClassAssetBuilder final : public draconic::editor::DefaultAssetBuilder
     {
     public:
@@ -492,165 +367,25 @@ export namespace draconic::script
             const StringView language = scriptAsset.language.IsEmpty()
                 ? StringView(u8"wren") : scriptAsset.language.AsView();
 
-            // B3: the harvest VM comes from the registry, by LANGUAGE - never a named
-            // backend type. No backend = a configuration error, surfaced as a cook error.
-            RefPtr<IScriptManager> manager = CreateScriptManagerForLanguage(language);
-            if (manager.Get() == nullptr)
+            // B3: the cook comes from the registry, by LANGUAGE - never a named cook type.
+            // No cook = a configuration error, surfaced as a cook error.
+            IScriptLanguageCook* cook =
+                ScriptLanguageCookRegistry::Get().FindByLanguage(language);
+            if (cook == nullptr)
             {
                 DRACONIC_LOG_ERROR(u8"Script",
-                    u8"'{}': no script backend registered for language '{}' - cook failed",
+                    u8"'{}': no script cook registered for language '{}' - cook failed",
                     scriptAsset.fileName, language);
                 return Status{ ErrorCode::NotSupported };
             }
-            // The cook VM registers the SAME "main"-module surface the runtime does
-            // (core math + the behavior facades), so the prelude import and explicit
-            // `import "main" for Float3`-style imports compile identically here.
-            RegisterCoreTypes();
-            RegisterScriptFacadeReflection();
-            RegisterReflectedTypes(*manager);
-            RefPtr<IScriptContext> context = manager->CreateContext();
-            if (context.Get() == nullptr) { return Status{ ErrorCode::Internal }; }
-            CookScriptErrorSink sink;
-            context->SetErrorHandler(&sink);
-
-            // Compile check: errors become cook errors with the asset's file + line.
-            // Wren sources compile WITH the runtime's facade prelude AND the optional
-            // `Behavior` coroutine base (so `is Behavior` resolves at harvest exactly as
-            // it does at runtime); error lines shift by the injected line count, which
-            // the reporter subtracts back.
-            const bool wrenPrelude = (language == u8"wren");
-            String compileSource;
-            i32 preludeLines = 0;
-            if (wrenPrelude)
-            {
-                compileSource += kScriptBehaviorModulePrelude;
-                compileSource += kScriptWrenBehaviorBase;
-                preludeLines = static_cast<i32>(detail::CountNewlines(kScriptBehaviorModulePrelude)
-                                                + detail::CountNewlines(kScriptWrenBehaviorBase));
-            }
-            compileSource += source.AsView();
-            if (!context->Load(compileSource.AsView(), scriptAsset.fileName.AsView()).IsOk())
-            {
-                ReportCompileErrors(scriptAsset.fileName.AsView(), sink, preludeLines);
-                return Status{ ErrorCode::InvalidArgument };
-            }
 
             ScriptClassSource cooked;
-            cooked.language = String(language);
-            cooked.source = source;
-            cooked.className = FindScriptClassName(
-                source.AsView(),
-                draconic::editor::FileStemOf(scriptAsset.fileName.AsView()));
-            cooked.handlers = ScanScriptHandlers(source.AsView());
-            cooked.usesCoroutines = ScriptUsesCoroutines(source.AsView(), language);
-
-            // Probe only when the convention is DECLARED (a class without a
-            // `static properties` getter legitimately has no inspector rows).
-            if (!cooked.className.IsEmpty() && language == u8"wren"
-                && DeclaresStaticProperties(source.AsView()))
+            CookScriptErrorSink sink;
+            if (!cook->Cook(source.AsView(), scriptAsset.fileName.AsView(), sink, cooked))
             {
-                const Status harvested = HarvestWrenProperties(
-                    *context, scriptAsset.fileName.AsView(), cooked.className.AsView(),
-                    sink, cooked.properties);
-                if (!harvested.IsOk()) { return harvested; }
+                return Status{ ErrorCode::InvalidArgument };
             }
             return ctx.output->WriteObject(cooked);
-        }
-
-    private:
-        // Whether the (comment-stripped) source declares the `static properties` getter.
-        [[nodiscard]] static bool DeclaresStaticProperties(StringView source)
-        {
-            const String stripped = StripScriptComments(source);
-            const StringView text = stripped.AsView();
-            const StringView keyword = u8"static properties";
-            if (text.Size() < keyword.Size()) { return false; }
-            for (usize i = 0; i + keyword.Size() <= text.Size(); ++i)
-            {
-                if (text.SubStr(i, keyword.Size()) == keyword) { return true; }
-            }
-            return false;
-        }
-
-        static void ReportCompileErrors(StringView fileName, const CookScriptErrorSink& sink,
-                                        i32 preludeLines = 0)
-        {
-            if (sink.errors.IsEmpty())
-            {
-                DRACONIC_LOG_ERROR(u8"Script", u8"'{}': compile failed - cook failed", fileName);
-                return;
-            }
-            for (const CookScriptErrorSink::Entry& e : sink.errors)
-            {
-                const i32 line = e.line > preludeLines ? e.line - preludeLines : e.line;
-                DRACONIC_LOG_ERROR(u8"Script", u8"{}:{}: {} - cook failed",
-                                   e.module.IsEmpty() ? fileName : e.module.AsView(),
-                                   line, e.message);
-            }
-        }
-
-        // Appends the probe into the class's own module (same chunk name = same Wren
-        // module, so the class resolves), then reads the harvest globals back.
-        [[nodiscard]] static Status HarvestWrenProperties(
-            IScriptContext& context, StringView fileName, StringView className,
-            CookScriptErrorSink& sink, Array<ScriptPropertyDesc>& outProperties)
-        {
-            const String probe = detail::BuildWrenPropertyProbe(className);
-            if (!context.Load(probe.AsView(), fileName).IsOk())
-            {
-                ReportCompileErrors(fileName, sink);
-                return Status{ ErrorCode::InvalidArgument };
-            }
-            const Variant errorVariant = context.GetGlobal(u8"drHarvestError");
-            if (const String* probeError = errorVariant.TryGet<String>();
-                probeError != nullptr && !probeError->IsEmpty())
-            {
-                DRACONIC_LOG_ERROR(u8"Script",
-                    u8"'{}': `static properties` of class '{}' faulted: {} - cook failed",
-                    fileName, className, *probeError);
-                return Status{ ErrorCode::InvalidArgument };
-            }
-            const Variant resultVariant = context.GetGlobal(u8"drHarvestResult");
-            const String* harvest = resultVariant.TryGet<String>();
-            if (harvest == nullptr) { return Status{}; }   // no properties getter at all
-
-            const StringView text = harvest->AsView();
-            usize begin = 0;
-            for (usize i = 0; i < text.Size(); ++i)
-            {
-                if (text[i] != utf8char(0x1E)) { continue; }
-                const StringView record = text.SubStr(begin, i - begin);
-                begin = i + 1;
-                if (record.IsEmpty()) { continue; }
-                ScriptPropertyDesc desc;
-                String error;
-                if (!ParseHarvestRecord(record, desc, error))
-                {
-                    DRACONIC_LOG_ERROR(u8"Script", u8"'{}': {} - cook failed", fileName, error);
-                    return Status{ ErrorCode::InvalidArgument };
-                }
-                outProperties.PushBack(Move(desc));
-            }
-            // Wren map order is unspecified: sort by name for deterministic cooked bytes.
-            auto lessThan = [](StringView a, StringView b) {
-                const usize n = a.Size() < b.Size() ? a.Size() : b.Size();
-                for (usize k = 0; k < n; ++k)
-                {
-                    if (a[k] != b[k]) { return a[k] < b[k]; }
-                }
-                return a.Size() < b.Size();
-            };
-            for (usize i = 1; i < outProperties.Size(); ++i)
-            {
-                for (usize j = i; j > 0
-                     && lessThan(outProperties[j].name.AsView(), outProperties[j - 1].name.AsView()); --j)
-                {
-                    ScriptPropertyDesc tmp = Move(outProperties[j]);
-                    outProperties[j] = Move(outProperties[j - 1]);
-                    outProperties[j - 1] = Move(tmp);
-                }
-            }
-            return Status{};
         }
     };
 

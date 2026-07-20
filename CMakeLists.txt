@@ -159,7 +159,9 @@ add_subdirectory(Code/Draconic/GUI)       # fresh eepp-derived UI framework, pro
 add_subdirectory(Code/Draconic/Script)
 add_subdirectory(Code/Draconic/Script/Resource)   # cooked script classes + factory (source + harvested metadata)
 add_subdirectory(Code/Draconic/Script/Facades)    # curated behavior facades (Entity/Log/Time/Random) - shared by cook VM + runtime
-add_subdirectory(Code/Draconic/Script/Editor)     # script class asset/builder/importer (tooling; registry-resolved harvest VM)
+add_subdirectory(Code/Draconic/Script/Editor)     # script class asset/builder/importer (tooling; neutral - resolves a per-language cook)
+add_subdirectory(Code/Draconic/Script/Wren/Editor)        # Wren cook service (compile-check + `static properties` probe + starter)
+add_subdirectory(Code/Draconic/Script/AngelScript/Editor) # AngelScript cook service (compile-check + handler scan + starter; property harvest deferred)
 add_subdirectory(Code/Draconic/Shell)     # raw platform/OS service (IShell: window/input/events) over Core; below Runtime
 add_subdirectory(Code/Draconic/Input)     # action-mapping layer (InputMap + ActionRuntime + asset/cooked) over Core + Shell
 add_subdirectory(Code/Draconic/GUI/Shell)  # draconic.gui.shell: platform input bridge (Shell InputEvents -> GUI EventDispatcher)
