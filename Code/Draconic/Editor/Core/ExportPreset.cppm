@@ -38,10 +38,12 @@ export namespace draconic::editor
     {
         String name;                    // "Windows Desktop"
         String platform;                // "Win64" / "Linux64" (the Bin/<Config>/<Platform> tag)
-        String templateId;              // which template; "" => resolve by platform
+        String config;                  // "Debug"/"Release"/"RelWithDebInfo"; "" => Release (default)
+        String templateId;              // which template; "" => resolve by (platform, config)
         String playerName;              // output exe name; "" => the template's player basename
         String outputSubdir;            // export-root-relative output dir; "" => sanitized `name`
         Array<String> additionalFiles;  // game-specific extra files (beyond the template's sidecars)
+        bool stageSymbols = false;      // stage the template's symbols[] into the dist (default: stripped)
 
         void Serialize(ISerializer& ar)
         {
@@ -51,6 +53,14 @@ export namespace draconic::editor
             draconic::core::Serialize(ar, "playerName", playerName);
             draconic::core::Serialize(ar, "outputSubdir", outputSubdir);
             draconic::core::Serialize(ar, "additionalFiles", additionalFiles);
+            // v2 added the config axis: a preset selects (platform, config) and opts symbols in/out.
+            // A v1 export_presets.xml lacks these, so gate them on the stored ExportPresetSet version -
+            // an old file reads config="" (=> Release at resolution) and stageSymbols=false (stripped).
+            if (ar.Version() >= 2)
+            {
+                draconic::core::Serialize(ar, "config", config);
+                draconic::core::Serialize(ar, "stageSymbols", stageSymbols);
+            }
         }
     };
 
@@ -194,6 +204,6 @@ export namespace draconic::editor
         return SaveEditorSettings(*fs.AsWritable(), in);
     }
 
-    DRACONIC_DEFINE_OBJECT_VERSIONED(ExportPresetSet, "draconic::editor", 1)
+    DRACONIC_DEFINE_OBJECT_VERSIONED(ExportPresetSet, "draconic::editor", 2)
     DRACONIC_DEFINE_OBJECT_VERSIONED(EditorExportSettings, "draconic::editor", 1)
 }

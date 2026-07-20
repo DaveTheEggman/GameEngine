@@ -34,16 +34,25 @@ export namespace draconic::editor
     {
         DRACONIC_OBJECT(ExportTemplate, ISerializable)
     public:
-        String id;              // "raptor-win64-0.1.0" (unique within the templates root)
-        String name;            // "Windows Desktop 0.1.0"
+        String id;              // "raptor-win64-release-0.1.0" (unique within the templates root)
+        String name;            // "Windows Desktop Release 0.1.0"
         String platform;        // "Win64" / "Linux64"
+        String config;          // "Debug" / "Release" / "RelWithDebInfo" (identity); empty read => "Release"
+        String compiler;        // "MSVC" / "Clang" / "GCC" - metadata only, NOT a selector
         String engineVersion;   // engine this was built against (soft-matched; warn on mismatch)
         String playerBinary;    // player exe filename within the template dir
-        Array<String> sidecars; // runtime files (relative to the template dir) staged beside the player
+        Array<String> sidecars; // required runtime files (relative to the template dir), always staged
+        Array<String> symbols;  // optional symbol files (PDB/DWARF); staged only when the preset opts in
         String notes;
 
         String directory;       // NOT serialized: absolute dir the bundle lives in (host: the Bin dir)
         bool isHost = false;    // NOT serialized: synthesized host template vs imported from disk
+
+        // The config for identity/resolution, treating an unstamped (v1) template as Release.
+        [[nodiscard]] StringView EffectiveConfig() const noexcept
+        {
+            return config.IsEmpty() ? StringView(u8"Release") : config.AsView();
+        }
 
         void Serialize(ISerializer& ar) override
         {
@@ -54,6 +63,19 @@ export namespace draconic::editor
             draconic::core::Serialize(ar, "playerBinary", playerBinary);
             draconic::core::Serialize(ar, "sidecars", sidecars);
             draconic::core::Serialize(ar, "notes", notes);
+            // v2 added the (platform, config) axis: config + compiler metadata + a parallel symbols
+            // group. A v1 template.xml lacks these fields, so gate them on the stored data version -
+            // reading an old manifest leaves config empty (normalized to Release below) and works.
+            if (ar.Version() >= 2)
+            {
+                draconic::core::Serialize(ar, "config", config);
+                draconic::core::Serialize(ar, "compiler", compiler);
+                draconic::core::Serialize(ar, "symbols", symbols);
+            }
+            if (ar.Mode() == SerializeMode::Read && config.IsEmpty())
+            {
+                config = String(u8"Release");   // back-compat: absent config => Release
+            }
         }
     };
 
@@ -120,14 +142,64 @@ export namespace draconic::editor
         }
     }
 
+    // Lowercase an ASCII string (used to build stable, case-insensitive template ids). Non-ASCII
+    // bytes pass through unchanged (platform/config tags are ASCII).
+    [[nodiscard]] inline String AsciiLower(StringView in)
+    {
+        String out(in);
+        for (usize i = 0; i < out.Size(); ++i)
+        {
+            utf8char* d = const_cast<utf8char*>(out.Data());
+            if (d[i] >= utf8char('A') && d[i] <= utf8char('Z')) { d[i] = static_cast<utf8char>(d[i] - 'A' + 'a'); }
+        }
+        return out;
+    }
+
+    // Parse a "…/Bin/<Config>/<Platform>-<Compiler>" build dir into its config + compiler tags:
+    // the last path component is "<Platform>-<Compiler>" (compiler = the suffix after the final
+    // '-'); the component one level up is "<Config>". Fields left untouched when a segment is
+    // absent (a non-Bin dir), so the caller's defaults survive.
+    inline void DeriveConfigAndCompiler(StringView dir, String& outConfig, String& outCompiler)
+    {
+        StringView p = dir;
+        const auto isSep = [](utf8char c) { return c == utf8char('/') || c == utf8char('\\'); };
+        while (!p.IsEmpty() && isSep(p[p.Size() - 1])) { p = p.SubStr(0, p.Size() - 1); }
+        if (p.IsEmpty()) { return; }
+
+        // Split off the last component (the "<Platform>-<Compiler>" leaf).
+        usize leafStart = 0;
+        for (usize i = 0; i < p.Size(); ++i) { if (isSep(p[i])) { leafStart = i + 1; } }
+        const StringView leaf = p.SubStr(leafStart, p.Size() - leafStart);
+        const StringView parent = (leafStart > 0) ? p.SubStr(0, leafStart - 1) : StringView{};
+
+        // compiler = leaf suffix after the last '-' (strip a trailing "-ASAN"-style suffix's owner:
+        // we only take the final '-' segment, matching "<Platform>-<Compiler>").
+        usize dash = leaf.Size();
+        for (usize i = 0; i < leaf.Size(); ++i) { if (leaf[i] == utf8char('-')) { dash = i; } }
+        if (dash < leaf.Size()) { outCompiler = String(leaf.SubStr(dash + 1, leaf.Size() - dash - 1)); }
+
+        // config = the parent dir's last component.
+        if (!parent.IsEmpty())
+        {
+            usize cfgStart = 0;
+            for (usize i = 0; i < parent.Size(); ++i) { if (isSep(parent[i])) { cfgStart = i + 1; } }
+            outConfig = String(parent.SubStr(cfgStart, parent.Size() - cfgStart));
+        }
+    }
+
     // Synthesize the host implicit template from the running tool's own directory (Bin/...), so a dev
     // export for the current platform works with no import. Sidecars come from the build-emitted
-    // "<player>.runtime-libs" in that directory (config-driven; empty on rpath platforms).
+    // "<player>.runtime-libs" in that directory (config-driven; empty on rpath platforms). The host
+    // template carries the config/compiler that built the running tool (export-templates.md): a Debug
+    // editor synthesizes a Debug host template - so its id is "host-<platform>-<config>".
     inline void SynthesizeHostTemplate(StringView hostToolDir, vfs::IFileSystem* hostToolFs, ExportTemplate& out)
     {
         out.platform = String(GetHostPlatformName());
-        out.id = String(u8"host-"); out.id += out.platform;
-        out.name = out.platform; out.name += u8" (host build)";
+        out.config = String(GetBuildConfigName());
+        if (out.config.IsEmpty()) { out.config = String(u8"Release"); }
+        out.compiler = String(GetBuildCompilerName());
+        out.id = String(u8"host-"); out.id += out.platform; out.id += u8"-"; out.id += out.config;
+        out.name = out.platform; out.name += u8" "; out.name += out.config; out.name += u8" (host build)";
         out.engineVersion = String(draconic::project::kEngineVersionString);
         out.playerBinary = GetExecutableName(kPlayerBaseName);   // host-based (this template is the host)
         out.directory = String(hostToolDir);
@@ -188,6 +260,80 @@ export namespace draconic::editor
         return Status{};
     }
 
+    // Where CreateTemplate writes the bundle it builds.
+    enum class TemplateOutput
+    {
+        Install,       // into <destRoot>/<id> under the templates root (usable immediately)
+        ExportFolder,  // directly into <destRoot> (a self-contained bundle to zip/distribute)
+    };
+
+    // Synthesize + materialize a template from a "Bin/<Config>/<Platform>-<Compiler>" build dir
+    // (export-templates.md "Create"). Reuses SynthesizeHostTemplate to read the platform + the
+    // build-emitted "<player>.runtime-libs", then stamps config + compiler (parsed from the dir path)
+    // and engineVersion, and gives it a canonical id "raptor-<platform>-<config>-<engineVersion>".
+    // Copies the player binary + each sidecar (FileCopyPreserving, keeping +x) and writes template.xml.
+    //
+    // Two output modes (TemplateOutput): Install writes to <destRoot>/<id> (the templates root, so the
+    // registry picks it up next Refresh); ExportFolder writes straight into <destRoot> (zip that folder
+    // to distribute, then Import it elsewhere). `outId` / `outDir` receive the id and the bundle dir.
+    // NotFound if the player binary is missing from `configDir`.
+    [[nodiscard]] inline Status CreateTemplate(StringView configDir, StringView destRoot, TemplateOutput mode,
+                                               String* outId = nullptr, String* outDir = nullptr)
+    {
+        vfs::NativeFileSystem configFs(configDir);
+
+        ExportTemplate tmpl;
+        SynthesizeHostTemplate(configDir, &configFs, tmpl);   // platform + player + sidecars + engineVersion
+        tmpl.isHost = false;
+
+        // config/compiler come from WHICH Bin/<Config>/<Platform>-<Compiler> dir is being packaged
+        // (not the running tool's), so a Debug editor can still create a Release template.
+        String parsedConfig, parsedCompiler;
+        DeriveConfigAndCompiler(configDir, parsedConfig, parsedCompiler);
+        if (!parsedConfig.IsEmpty()) { tmpl.config = parsedConfig; }
+        if (tmpl.config.IsEmpty()) { tmpl.config = String(u8"Release"); }
+        if (!parsedCompiler.IsEmpty()) { tmpl.compiler = parsedCompiler; }
+
+        // Canonical id + name (lowercased platform/config for a stable, case-insensitive id).
+        tmpl.id = String(u8"raptor-");
+        tmpl.id += AsciiLower(tmpl.platform.AsView());
+        tmpl.id += u8"-"; tmpl.id += AsciiLower(tmpl.config.AsView());
+        tmpl.id += u8"-"; tmpl.id += tmpl.engineVersion;
+        tmpl.name = tmpl.platform; tmpl.name += u8" "; tmpl.name += tmpl.config;
+        tmpl.name += u8" "; tmpl.name += tmpl.engineVersion;
+
+        // The player must exist in the source dir, or there's nothing to package.
+        if (!configFs.Exists(tmpl.playerBinary.AsView())) { return Status{ ErrorCode::NotFound }; }
+
+        const String bundleDir = (mode == TemplateOutput::Install)
+            ? PathJoin(destRoot, tmpl.id.AsView()) : String(destRoot);
+        if (!CreateDirectories(bundleDir.AsView())) { return Status{ ErrorCode::NotSupported }; }
+
+        // Copy the player, then each required sidecar (a missing sidecar is fatal - the bundle would be
+        // incomplete; unlike export-time staging where a stale list only warns).
+        if (!FileCopyPreserving(PathJoin(configDir, tmpl.playerBinary.AsView()).AsView(),
+                                PathJoin(bundleDir.AsView(), tmpl.playerBinary.AsView()).AsView()))
+        {
+            return Status{ ErrorCode::Internal };
+        }
+        for (const String& sidecar : tmpl.sidecars)
+        {
+            if (!FileCopyPreserving(PathJoin(configDir, sidecar.AsView()).AsView(),
+                                    PathJoin(bundleDir.AsView(), sidecar.AsView()).AsView()))
+            {
+                return Status{ ErrorCode::Internal };
+            }
+        }
+
+        tmpl.directory = bundleDir;
+        vfs::NativeFileSystem bundleFs(bundleDir.AsView());
+        if (Status s = SaveTemplateManifest(*bundleFs.AsWritable(), tmpl); !s.IsOk()) { return s; }
+
+        if (outId != nullptr) { *outId = tmpl.id; }
+        if (outDir != nullptr) { *outDir = bundleDir; }
+        return Status{};
+    }
+
     // The installed export templates (imported bundles under a templates root) plus the synthesized
     // host template. Resolves a preset to the template that will produce its dist (export.md §6).
     class TemplateRegistry
@@ -243,30 +389,58 @@ export namespace draconic::editor
             return nullptr;
         }
 
-        // The template for `platform`, preferring a real imported bundle over the host synthesized one.
-        [[nodiscard]] const ExportTemplate* FindByPlatform(StringView platform) const
+        // The template for `(platform, config)` (export-templates.md), preferring a real imported
+        // bundle over the synthesized host template. Resolution order:
+        //   1. exact (platform, config) - imported bundle, else the host template for that config.
+        //   2. platform-only fallback (config mismatch/absent): the nearest config, preferring Release,
+        //      again imported over host - so an old preset with no config still resolves.
+        // An empty `config` means Release (the product default).
+        [[nodiscard]] const ExportTemplate* FindBy(StringView platform, StringView config) const
         {
-            const ExportTemplate* host = nullptr;
+            const StringView wantConfig = config.IsEmpty() ? StringView(u8"Release") : config;
+
+            // Pass 1: exact (platform, config).
+            const ExportTemplate* exactHost = nullptr;
+            for (const UniquePtr<ExportTemplate>& t : m_templates)
+            {
+                if (t->platform.AsView() != platform || t->EffectiveConfig() != wantConfig) { continue; }
+                if (t->isHost) { exactHost = t.Get(); }
+                else { return t.Get(); }
+            }
+            if (exactHost != nullptr) { return exactHost; }
+
+            // Pass 2: platform-only fallback, preferring a Release config, imported over host.
+            const ExportTemplate* bestImported = nullptr; bool bestImportedRelease = false;
+            const ExportTemplate* bestHost = nullptr;     bool bestHostRelease = false;
             for (const UniquePtr<ExportTemplate>& t : m_templates)
             {
                 if (t->platform.AsView() != platform) { continue; }
-                if (t->isHost) { host = t.Get(); }
-                else { return t.Get(); }
+                const bool isRelease = t->EffectiveConfig() == StringView(u8"Release");
+                if (t->isHost)
+                {
+                    if (bestHost == nullptr || (isRelease && !bestHostRelease)) { bestHost = t.Get(); bestHostRelease = isRelease; }
+                }
+                else
+                {
+                    if (bestImported == nullptr || (isRelease && !bestImportedRelease)) { bestImported = t.Get(); bestImportedRelease = isRelease; }
+                }
             }
-            return host;
+            if (bestImported != nullptr) { return bestImported; }
+            return bestHost;
         }
 
         // export.md §6: an explicit templateId wins; otherwise the installed template for the preset's
-        // platform (host template counts). Null when nothing matches (caller: "import a template").
+        // (platform, config) - the preset's config defaults to Release when blank. Null when nothing
+        // matches (caller: "import a template").
         [[nodiscard]] const ExportTemplate* Resolve(const ExportPreset& preset) const
         {
             if (!preset.templateId.IsEmpty()) { return FindById(preset.templateId.AsView()); }
-            return FindByPlatform(preset.platform.AsView());
+            return FindBy(preset.platform.AsView(), preset.config.AsView());
         }
 
     private:
         Array<UniquePtr<ExportTemplate>> m_templates;
     };
 
-    DRACONIC_DEFINE_OBJECT_VERSIONED(ExportTemplate, "draconic::editor", 1)
+    DRACONIC_DEFINE_OBJECT_VERSIONED(ExportTemplate, "draconic::editor", 2)
 }
