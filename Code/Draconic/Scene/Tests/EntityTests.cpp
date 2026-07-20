@@ -208,3 +208,41 @@ TEST_CASE("MoveBefore reorders siblings and roots")
     CHECK(scene.Revision() == r);
     CHECK(scene.GetParent(p) == EntityHandle::Invalid());
 }
+
+TEST_CASE("entity find: by name (first match) and by hierarchy path")
+{
+    Scene scene(u8"world");
+    EntityHandle player = scene.CreateEntity(u8"Player");
+    EntityHandle weapon = scene.CreateEntity(u8"Weapon");
+    EntityHandle muzzle = scene.CreateEntity(u8"Muzzle");
+    EntityHandle enemy  = scene.CreateEntity(u8"Enemy");
+    scene.SetParent(weapon, player);
+    scene.SetParent(muzzle, weapon);
+
+    // Find by name.
+    CHECK(scene.FindEntityByName(u8"Player") == player);
+    CHECK(scene.FindEntityByName(u8"Muzzle") == muzzle);
+    CHECK_FALSE(scene.FindEntityByName(u8"Missing").IsAssigned());
+
+    // First-match on duplicate names.
+    EntityHandle dupA = scene.CreateEntity(u8"Dup");
+    (void)scene.CreateEntity(u8"Dup");
+    CHECK(scene.FindEntityByName(u8"Dup") == dupA);
+
+    // Find by hierarchy path (roots downward).
+    CHECK(scene.FindEntityByPath(u8"Player") == player);
+    CHECK(scene.FindEntityByPath(u8"Player/Weapon") == weapon);
+    CHECK(scene.FindEntityByPath(u8"Player/Weapon/Muzzle") == muzzle);
+    // Tolerate leading/trailing/double slashes.
+    CHECK(scene.FindEntityByPath(u8"/Player//Weapon/") == weapon);
+    // A miss at any depth is invalid; Enemy is a root, not under Player.
+    CHECK_FALSE(scene.FindEntityByPath(u8"Player/Muzzle").IsAssigned());
+    CHECK_FALSE(scene.FindEntityByPath(u8"Player/Weapon/Enemy").IsAssigned());
+    CHECK_FALSE(scene.FindEntityByPath(u8"").IsAssigned());
+    CHECK(scene.FindEntityByPath(u8"Enemy") == enemy);
+
+    // FindChildByName: invalid parent = search roots.
+    CHECK(scene.FindChildByName(EntityHandle::Invalid(), u8"Player") == player);
+    CHECK(scene.FindChildByName(player, u8"Weapon") == weapon);
+    CHECK_FALSE(scene.FindChildByName(player, u8"Muzzle").IsAssigned());   // grandchild
+}

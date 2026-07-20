@@ -235,27 +235,55 @@ export namespace draconic::script
     {
         DRACONIC_OBJECT(Scene, Object)
     public:
-        [[nodiscard]] static Entity spawn(Guid prefab, f32 x, f32 y, f32 z)
+        [[nodiscard]] static ScriptRuntimeBinding* Resolve()
         {
-            Entity result;
             IScriptContext* context = CurrentScriptContext();
-            auto* binding = context != nullptr
+            return context != nullptr
                 ? static_cast<ScriptRuntimeBinding*>(context->GetService(kScriptRuntimeService))
                 : nullptr;
+        }
+
+        [[nodiscard]] static Entity Wrap(dscene::Scene* scene, dscene::EntityHandle handle)
+        {
+            Entity result;
+            if (scene != nullptr && handle.IsAssigned())
+            {
+                result.scene = scene;
+                result.entityIndex = handle.index;
+                result.entityGeneration = handle.generation;
+            }
+            return result;
+        }
+
+        [[nodiscard]] static Entity spawn(Guid prefab, f32 x, f32 y, f32 z)
+        {
+            ScriptRuntimeBinding* binding = Resolve();
             if (binding == nullptr || binding->currentScene == nullptr
                 || !binding->spawnPrefab || prefab.IsNil())
             {
-                return result;
+                return Entity{};
             }
-            const dscene::EntityHandle spawned =
-                binding->spawnPrefab(binding->currentScene, prefab, Float3{ x, y, z });
-            if (spawned.IsAssigned())
-            {
-                result.scene = binding->currentScene;
-                result.entityIndex = spawned.index;
-                result.entityGeneration = spawned.generation;
-            }
-            return result;
+            return Wrap(binding->currentScene,
+                        binding->spawnPrefab(binding->currentScene, prefab, Float3{ x, y, z }));
+        }
+
+        /// First entity in the current scene with this name (invalid if none).
+        [[nodiscard]] static Entity find(String name)
+        {
+            ScriptRuntimeBinding* binding = Resolve();
+            return (binding != nullptr && binding->currentScene != nullptr)
+                ? Wrap(binding->currentScene, binding->currentScene->FindEntityByName(name.AsView()))
+                : Entity{};
+        }
+
+        /// Resolve a '/'-separated hierarchy path from the current scene's roots, e.g.
+        /// "Player/Weapon/Muzzle" (invalid if any segment misses).
+        [[nodiscard]] static Entity findByPath(String path)
+        {
+            ScriptRuntimeBinding* binding = Resolve();
+            return (binding != nullptr && binding->currentScene != nullptr)
+                ? Wrap(binding->currentScene, binding->currentScene->FindEntityByPath(path.AsView()))
+                : Entity{};
         }
     };
 

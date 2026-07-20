@@ -60,6 +60,8 @@ namespace draconic::script
     DRACONIC_REFLECT(Scene, "draconic::script")
     {
         builder.Method<&Scene::spawn>("spawn");
+        builder.Method<&Scene::find>("find");
+        builder.Method<&Scene::findByPath>("findByPath");
         builder.Constructor();
     }
 

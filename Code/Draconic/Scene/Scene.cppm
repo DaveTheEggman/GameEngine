@@ -297,6 +297,47 @@ public:
         return count;
     }
 
+    /// First alive entity with this exact name (names are NOT unique - first in slot
+    /// order wins), invalid if none. Linear scan; prefer FindEntity(Guid) for identity.
+    [[nodiscard]] EntityHandle FindEntityByName(StringView name) const {
+        for (u32 i = 0; i < m_entities.Size(); ++i) {
+            if (m_entities[i].alive && m_entities[i].name.AsView() == name) {
+                return EntityHandle{ i, m_entities[i].generation };
+            }
+        }
+        return EntityHandle::Invalid();
+    }
+
+    /// Direct child of `parent` (or a scene ROOT when `parent` is invalid) with this
+    /// name, in sibling order; invalid if none.
+    [[nodiscard]] EntityHandle FindChildByName(EntityHandle parent, StringView name) const {
+        EntityHandle child = parent.IsAssigned() ? GetFirstChild(parent) : GetFirstRoot();
+        while (child.IsAssigned() && IsValid(child)) {
+            if (GetEntityName(child) == name) { return child; }
+            child = GetNextSibling(child);
+        }
+        return EntityHandle::Invalid();
+    }
+
+    /// Resolve a '/'-separated hierarchy path from the scene roots, e.g.
+    /// "Player/Weapon/Muzzle". Empty/leading/trailing/double slashes are tolerated. Each
+    /// segment matches a child name at that depth; invalid if any segment misses.
+    [[nodiscard]] EntityHandle FindEntityByPath(StringView path) const {
+        EntityHandle current = EntityHandle::Invalid();   // start at the roots
+        bool matchedAny = false;
+        usize begin = 0;
+        for (usize i = 0; i <= path.Size(); ++i) {
+            if (i != path.Size() && path[i] != u8'/') { continue; }
+            const StringView segment = path.SubStr(begin, i - begin);
+            begin = i + 1;
+            if (segment.IsEmpty()) { continue; }   // tolerate // and leading/trailing /
+            current = FindChildByName(current, segment);
+            if (!current.IsAssigned()) { return EntityHandle::Invalid(); }
+            matchedAny = true;
+        }
+        return matchedAny ? current : EntityHandle::Invalid();
+    }
+
     // Reparents `child` under `parent` (Invalid() = make a root). Rejects a reparent
     // that would form a cycle (parent is `child` or a descendant of it).
     void SetParent(EntityHandle child, EntityHandle parent) {

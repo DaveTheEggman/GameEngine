@@ -810,3 +810,36 @@ TEST_CASE("script.scene: Scene.spawn routes through the run spawner to the curre
     CHECK(Near(bed.scene.GetLocalTransform(spawnedHandle).position.x, 3.0f));
     CHECK(Near(bed.scene.GetLocalTransform(spawnedHandle).position.z, 5.0f));
 }
+
+TEST_CASE("script.scene: Scene.find / Scene.findByPath resolve entities in the current "
+          "scene from a behavior (P2)")
+{
+    ScriptedScene bed;
+    // Build a small hierarchy the behavior will look up: Target (root) and Player/Weapon.
+    dscene::EntityHandle target = bed.scene.CreateEntity(u8"Target");
+    dscene::EntityHandle player = bed.scene.CreateEntity(u8"Player");
+    dscene::EntityHandle weapon = bed.scene.CreateEntity(u8"Weapon");
+    bed.scene.SetParent(weapon, player);
+    (void)target;
+
+    RefPtr<ScriptClass> finder = MakeClass(u8"Finder",
+        u8"class Finder {\n"
+        u8"    construct new(entity) { _entity = entity }\n"
+        u8"    onStart() {\n"
+        u8"        var t = Scene.find(\"Target\")\n"
+        u8"        if (t.isValid()) { t.setName(\"found-by-name\") }\n"
+        u8"        var w = Scene.findByPath(\"Player/Weapon\")\n"
+        u8"        if (w.isValid()) { w.setName(\"found-by-path\") }\n"
+        u8"        var missing = Scene.find(\"Nope\")\n"
+        u8"        if (!missing.isValid()) { _entity.setName(\"miss-ok\") }\n"
+        u8"    }\n"
+        u8"}\n",
+        { u8"onStart" });
+    const dscene::EntityHandle e = bed.AddScripted(finder, u8"finder");
+    bed.Start();
+    bed.Frame();
+
+    CHECK(bed.scene.GetEntityName(target) == StringView(u8"found-by-name"));
+    CHECK(bed.scene.GetEntityName(weapon) == StringView(u8"found-by-path"));
+    CHECK(bed.scene.GetEntityName(e) == StringView(u8"miss-ok"));
+}
