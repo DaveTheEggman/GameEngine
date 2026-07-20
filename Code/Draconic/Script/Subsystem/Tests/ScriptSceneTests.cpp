@@ -12,17 +12,22 @@
 #include <initializer_list>
 
 import draconic.core;
+import draconic.runtime;
 import draconic.scene;
 import draconic.scene.resource;
+import draconic.scene.subsystem;
 import draconic.resource;
 import draconic.script;
 import draconic.script.wren;
 import draconic.script.resource;
 import draconic.script.subsystem;
+import draconic.physics;
+import draconic.physics.subsystem;
 
 using namespace draconic::core;
 using namespace draconic::script;
 namespace dscene = draconic::scene;
+namespace dphysics = draconic::physics;
 
 namespace
 {
@@ -842,4 +847,169 @@ TEST_CASE("script.scene: Scene.find / Scene.findByPath resolve entities in the c
     CHECK(bed.scene.GetEntityName(target) == StringView(u8"found-by-name"));
     CHECK(bed.scene.GetEntityName(weapon) == StringView(u8"found-by-path"));
     CHECK(bed.scene.GetEntityName(e) == StringView(u8"miss-ok"));
+}
+
+// ---- physics contact events -> behaviors (end-to-end, real Jolt + real Scene) ----
+// A full runtime Context wiring SceneSubsystem + PhysicsSubsystem + ScriptSubsystem: the
+// physics tick resolves contacts to entities and pushes them to the script subsystem
+// (registered as an IContactListener at OnReady), which enqueues them onto the owning
+// scene's deferred queue; the scene tick drains and dispatches the on<Event> handler.
+
+namespace
+{
+    namespace rt = draconic::runtime;
+
+    // Builds a Context with all three subsystems started + a live scene, returns the scene.
+    struct ContactWorld
+    {
+        rt::Context ctx;
+        dscene::SceneSubsystem* scenes = nullptr;
+        dscene::Scene* scene = nullptr;
+
+        ContactWorld()
+        {
+            draconic::script::wren::RegisterWrenScriptBackend();
+            RegisterCoreTypes();
+            dphysics::RegisterPhysicsComponentReflection();
+            RegisterScriptComponentReflection();
+            RegisterScriptFacadeReflection();
+            scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
+            ctx.AddSubsystem<dphysics::PhysicsSubsystem>();
+            ctx.AddSubsystem<ScriptSubsystem>();
+            ctx.Startup();   // OnReady: the script subsystem registers as a contact listener
+            scene = scenes->CreateScene(u8"level");
+        }
+        ~ContactWorld() { ctx.Shutdown(); }
+
+        dscene::EntityHandle AddBody(StringView name, Float3 position, dphysics::MotionKind motion,
+                                     Float3 halfExtents, bool trigger = false)
+        {
+            dscene::EntityHandle e = scene->CreateEntity(name);
+            scene->SetLocalPosition(e, position);
+            auto& body = scene->GetSystem<dphysics::RigidBodyComponentManager>()->Add(e);
+            body.motion = motion;
+            body.layer = motion == dphysics::MotionKind::Static ? dphysics::PhysicsLayer::Static
+                       : motion == dphysics::MotionKind::Kinematic ? dphysics::PhysicsLayer::Kinematic
+                                                                   : dphysics::PhysicsLayer::Dynamic;
+            body.halfExtents = halfExtents;
+            body.isTrigger = trigger;
+            return e;
+        }
+
+        void Attach(dscene::EntityHandle e, const RefPtr<ScriptClass>& cls)
+        {
+            auto& component = scene->GetSystem<ScriptComponentManager>()->Add(e);
+            ScriptBehavior behavior;
+            behavior.script = cls;
+            component.behaviors.PushBack(Move(behavior));
+        }
+
+        void Play(int frames)
+        {
+            scene->UpdateTransforms();
+            scene->Start();
+            scene->SetSimulationEnabled(true);
+            for (int i = 0; i < frames; ++i)
+            {
+                ctx.BeginFrame(1.0f / 60.0f);   // fixed steps: physics contacts -> script enqueue
+                ctx.Update(1.0f / 60.0f);       // scene tick: drain -> behavior dispatch
+            }
+        }
+    };
+}
+
+TEST_CASE("script.scene: a physics collision dispatches onContactBegin(other, point, normal, "
+          "speed) to the behavior on the colliding entity")
+{
+    ContactWorld world;
+    const dscene::EntityHandle floor =
+        world.AddBody(u8"floor", Float3{ 0, -0.5f, 0 }, dphysics::MotionKind::Static,
+                      Float3{ 50, 0.5f, 50 });
+    (void)floor;
+    const dscene::EntityHandle box =
+        world.AddBody(u8"box", Float3{ 0, 1.4f, 0 }, dphysics::MotionKind::Dynamic,
+                      Float3{ 0.5f, 0.5f, 0.5f });
+
+    // Records the OTHER entity's name only if speed is non-negative and the normal is unit-ish
+    // - proving all four args crossed the boundary intact.
+    RefPtr<ScriptClass> bumper = MakeClass(u8"Bumper",
+        u8"class Bumper {\n"
+        u8"    construct new(entity) { _entity = entity }\n"
+        u8"    onContactBegin(other, point, normal, speed) {\n"
+        u8"        var len = normal.x*normal.x + normal.y*normal.y + normal.z*normal.z\n"
+        u8"        if (speed >= 0 && len > 0.5) { _entity.setName(\"hit:\" + other.name()) }\n"
+        u8"    }\n"
+        u8"}\n",
+        { u8"onContactBegin" });
+    world.Attach(box, bumper);
+
+    world.Play(180);
+
+    CHECK(world.scene->GetEntityName(box) == StringView(u8"hit:floor"));
+}
+
+TEST_CASE("script.scene: a physics trigger dispatches onTriggerEnter(other) to a behavior")
+{
+    ContactWorld world;
+    (void)world.AddBody(u8"floor", Float3{ 0, -0.5f, 0 }, dphysics::MotionKind::Static,
+                        Float3{ 50, 0.5f, 50 });
+    // A kinematic sensor volume with a behavior; a box falls through it.
+    const dscene::EntityHandle volume =
+        world.AddBody(u8"volume", Float3{ 0, 2.0f, 0 }, dphysics::MotionKind::Kinematic,
+                      Float3{ 1, 1, 1 }, /*trigger*/ true);
+    const dscene::EntityHandle faller =
+        world.AddBody(u8"faller", Float3{ 0, 6.0f, 0 }, dphysics::MotionKind::Dynamic,
+                      Float3{ 0.5f, 0.5f, 0.5f });
+    (void)faller;
+
+    RefPtr<ScriptClass> sensor = MakeClass(u8"Sensor",
+        u8"class Sensor {\n"
+        u8"    construct new(entity) { _entity = entity }\n"
+        u8"    onTriggerEnter(other) { _entity.setName(\"sensed:\" + other.name()) }\n"
+        u8"}\n",
+        { u8"onTriggerEnter" });
+    world.Attach(volume, sensor);
+
+    world.Play(240);
+
+    CHECK(world.scene->GetEntityName(volume) == StringView(u8"sensed:faller"));
+}
+
+TEST_CASE("script.scene: behaviors tick without error when no physics subsystem is present "
+          "(contact-listener registration is guarded)")
+{
+    namespace rt2 = draconic::runtime;
+    rt2::Context ctx;
+    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
+    ctx.AddSubsystem<ScriptSubsystem>();   // NO physics subsystem
+    draconic::script::wren::RegisterWrenScriptBackend();
+    RegisterCoreTypes();
+    RegisterScriptComponentReflection();
+    RegisterScriptFacadeReflection();
+    ctx.Startup();   // OnReady must not crash resolving the (absent) physics subsystem
+
+    dscene::Scene* scene = scenes->CreateScene(u8"no-physics");
+    RefPtr<ScriptClass> mover = MakeClass(u8"Mover",
+        u8"class Mover {\n"
+        u8"    construct new(entity) { _entity = entity }\n"
+        u8"    onUpdate(dt) {\n"
+        u8"        var p = _entity.position()\n"
+        u8"        _entity.setPosition(p.x + 1.0, p.y, p.z)\n"
+        u8"    }\n"
+        u8"}\n",
+        { u8"onUpdate" });
+    dscene::EntityHandle e = scene->CreateEntity(u8"m");
+    {
+        auto& component = scene->GetSystem<ScriptComponentManager>()->Add(e);
+        ScriptBehavior behavior;
+        behavior.script = mover;
+        component.behaviors.PushBack(Move(behavior));
+    }
+    scene->Start();
+    scene->SetSimulationEnabled(true);
+    ctx.BeginFrame(1.0f / 60.0f);
+    ctx.Update(1.0f / 60.0f);
+    CHECK(Near(scene->GetLocalTransform(e).position.x, 1.0f));
+
+    ctx.Shutdown();
 }

@@ -38,6 +38,8 @@ import draconic.scene.subsystem;
 import draconic.resource;
 import draconic.script;
 import draconic.script.resource;
+import draconic.physics;              // ContactKind (the contact vocabulary)
+import draconic.physics.subsystem;   // IContactListener/EntityContact (physics -> behaviors)
 import draconic.profiler;
 
 using namespace draconic::core;
@@ -358,6 +360,21 @@ export namespace draconic::script
             m_messages.PushBack(Move(pending));
         }
 
+        /// Physics contacts (§ contact events): QUEUE a contact handler call (the handler name
+        /// is already the final `on<Event>` - e.g. "onContactBegin" - not a message to convert)
+        /// with pre-marshalled args. Reuses the SAME deferred queue as entity.send so it drains
+        /// at the tick's top level: the physics tick pushes contacts (never nested in a script
+        /// call), and delivery is gated by HasHandler in InvokeHandler exactly like messages.
+        void EnqueueContact(dscene::EntityHandle target, StringView handler, Array<Variant> args)
+        {
+            if (handler.IsEmpty()) { return; }
+            PendingMessage pending;
+            pending.target = target;
+            pending.handler = String(handler);
+            pending.args = Move(args);
+            m_messages.PushBack(Move(pending));
+        }
+
         /// Drains queued messages at the tick's top level (no VM call is active here, so
         /// InvokeHandler's wrenCall is safe). A handler may send again - those are drained
         /// in the same pass, capped to break runaway send loops.
@@ -666,10 +683,35 @@ export namespace draconic::script
     // ---- the runtime subsystem ----
 
     class ScriptSubsystem final : public draconic::runtime::Subsystem,
-                                  public dscene::ISceneAware
+                                  public dscene::ISceneAware,
+                                  public draconic::physics::IContactListener
     {
     public:
         [[nodiscard]] ScriptRunHost& RunHost() noexcept { return m_runHost; }
+
+        // ---- physics contact events (IContactListener) ----
+
+        /// A resolved contact from the physics subsystem: deliver it to BOTH entities' declared
+        /// handlers (each sees the OTHER as an Entity). Collision handlers get
+        /// (other, point, normal, speed); trigger handlers get (other). Only ENQUEUES onto the
+        /// owning scene's deferred queue - drained at the scene tick's top level, so no
+        /// re-entrancy even though physics stepped inside the same frame.
+        void OnContact(const draconic::physics::EntityContact& contact) override
+        {
+            StringView handler;
+            bool trigger = false;
+            switch (contact.kind)
+            {
+                case draconic::physics::ContactKind::Begin:        handler = u8"onContactBegin"; break;
+                case draconic::physics::ContactKind::End:          handler = u8"onContactEnd"; break;
+                case draconic::physics::ContactKind::TriggerEnter: handler = u8"onTriggerEnter"; trigger = true; break;
+                case draconic::physics::ContactKind::TriggerExit:  handler = u8"onTriggerExit"; trigger = true; break;
+            }
+            ScriptSceneSystem* system = SystemForScene(contact.scene);
+            if (system == nullptr) { return; }
+            DeliverContact(*system, contact.scene, contact.a, contact.b, handler, contact, trigger);
+            DeliverContact(*system, contact.scene, contact.b, contact.a, handler, contact, trigger);
+        }
 
         /// Host-app wiring: exposes engine services (Input/Audio/Physics facades) on
         /// every run context the host creates. Set BEFORE the first run.
@@ -764,6 +806,12 @@ export namespace draconic::script
                 {
                     scenes->RegisterSceneAware(this);
                 }
+                // Consume physics contacts IF physics is present (a game may script without
+                // it - registration is guarded, so no-physics scenes tick behaviors normally).
+                if (auto* physics = context->GetSubsystem<draconic::physics::PhysicsSubsystem>())
+                {
+                    physics->RegisterContactListener(this);
+                }
             }
         }
         void OnShutdown() override
@@ -773,6 +821,10 @@ export namespace draconic::script
                 if (auto* scenes = context->GetSubsystem<dscene::SceneSubsystem>())
                 {
                     scenes->UnregisterSceneAware(this);
+                }
+                if (auto* physics = context->GetSubsystem<draconic::physics::PhysicsSubsystem>())
+                {
+                    physics->UnregisterContactListener(this);
                 }
             }
             for (const SceneEntry& entry : m_systems)
@@ -792,6 +844,39 @@ export namespace draconic::script
             dscene::Scene* scene = nullptr;
             ScriptSceneSystem* system = nullptr;
         };
+
+        [[nodiscard]] ScriptSceneSystem* SystemForScene(dscene::Scene* scene)
+        {
+            for (const SceneEntry& entry : m_systems)
+            {
+                if (entry.scene == scene) { return entry.system; }
+            }
+            return nullptr;
+        }
+
+        // Enqueue one side of a contact: `self` receives the handler with `other` marshalled as
+        // an Entity (collision handlers also get point/normal/speed). Skips a side whose entity
+        // didn't resolve (invalid `self`); a stale `other` marshals to a safe no-op Entity.
+        void DeliverContact(ScriptSceneSystem& system, dscene::Scene* scene,
+                            dscene::EntityHandle self, dscene::EntityHandle other,
+                            StringView handler, const draconic::physics::EntityContact& contact,
+                            bool trigger)
+        {
+            if (!self.IsAssigned()) { return; }
+            Entity otherEntity;
+            otherEntity.scene = scene;
+            otherEntity.entityIndex = other.index;
+            otherEntity.entityGeneration = other.generation;
+            Array<Variant> args;
+            args.PushBack(Variant::From<Entity>(otherEntity));
+            if (!trigger)
+            {
+                args.PushBack(Variant::From<Float3>(contact.point));
+                args.PushBack(Variant::From<Float3>(contact.normal));
+                args.PushBack(Variant::From<f64>(static_cast<f64>(contact.speed)));
+            }
+            system.EnqueueContact(self, handler, Move(args));
+        }
 
         // Route entity.send messages to the scene system that owns the target's scene.
         // Reads the live m_systems list on each call, so a destroyed scene's system is

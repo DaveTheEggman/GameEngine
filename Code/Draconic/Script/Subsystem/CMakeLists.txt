@@ -8,7 +8,7 @@ add_library(Draconic::ScriptSubsystem ALIAS DraconicScriptSubsystem)
 target_link_libraries(DraconicScriptSubsystem
     PUBLIC Draconic::Core Draconic::Runtime Draconic::Scene Draconic::SceneSubsystem
            Draconic::Script Draconic::ScriptResource Draconic::ScriptFacades
-           Draconic::Resource Draconic::Content
+           Draconic::Resource Draconic::Content Draconic::PhysicsSubsystem
            Draconic::Profiler Draconic::Policy)
 
 target_sources(DraconicScriptSubsystem
