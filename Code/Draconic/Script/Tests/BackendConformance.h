@@ -28,6 +28,12 @@ namespace draconic::script::conformance
     ///    `increment()` adding 1, zero-arg method `value()` returning the count.
     ///  - compileBroken: source that CANNOT compile.
     ///  - runtimeFault: source that compiles but faults at load/run time.
+    ///  - coroutineClass (optional; certified only when the backend declares the
+    ///    Coroutines capability): a class `Coro`, constructed with NO args, with methods
+    ///    `begin()` starting a coroutine that waits ~1.0s then sets progress to 1,
+    ///    `beginUntil()` starting a coroutine that waitUntil-s a predicate then sets
+    ///    progress to 1, `flip()` making that predicate true, and `progress()` returning
+    ///    0 (pending) or 1 (done). The coroutine belongs to the `Coro` instance.
     struct Dialect
     {
         StringView languageId;
@@ -35,6 +41,7 @@ namespace draconic::script::conformance
         StringView counterClass;
         StringView compileBroken;
         StringView runtimeFault;
+        StringView coroutineClass;   // optional - see the Coroutines section below
     };
 
     struct CapturedErrors final : IScriptErrorHandler
@@ -134,6 +141,60 @@ namespace draconic::script::conformance
             auto value = counter->Invoke(u8"value", Span<Variant>{});
             REQUIRE(value.HasValue());
             CHECK(value.Value().Get<f64>() == doctest::Approx(11.0));
+        }
+
+        // --- Coroutines (certified ONLY when the backend advertises the capability;
+        // the flag advertises, this section certifies the behavior) ---
+        if (HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Coroutines)
+            && !dialect.coroutineClass.IsEmpty())
+        {
+            const auto progressOf = [](const RefPtr<ScriptObject>& coro) -> f64 {
+                auto p = coro->Invoke(u8"progress", Span<Variant>{});
+                REQUIRE(p.HasValue());
+                return p.Value().Get<f64>();
+            };
+
+            // (1) a timed wait: does NOT complete before ~1s of accumulated advance, DOES after.
+            {
+                RefPtr<IScriptContext> ctx = manager->CreateContext();
+                REQUIRE(ctx.Get() != nullptr);
+                CHECK(ctx->Load(dialect.coroutineClass, u8"conformance.coroutine").IsOk());
+                RefPtr<ScriptObject> coro = ctx->CreateInstance(u8"Coro", Span<Variant>{});
+                REQUIRE(coro.Get() != nullptr);
+                REQUIRE(coro->Invoke(u8"begin", Span<Variant>{}).HasValue());
+                for (int i = 0; i < 3; ++i) { manager->AdvanceCoroutines(0.1); }   // 0.3s
+                CHECK(progressOf(coro) == doctest::Approx(0.0));                    // still waiting
+                for (int i = 0; i < 12; ++i) { manager->AdvanceCoroutines(0.1); }  // +1.2s past 1.0
+                CHECK(progressOf(coro) == doctest::Approx(1.0));                    // resumed + ran
+            }
+
+            // (2) waitUntil resumes when the predicate flips (not before).
+            {
+                RefPtr<IScriptContext> ctx = manager->CreateContext();
+                CHECK(ctx->Load(dialect.coroutineClass, u8"conformance.coroutine").IsOk());
+                RefPtr<ScriptObject> coro = ctx->CreateInstance(u8"Coro", Span<Variant>{});
+                REQUIRE(coro.Get() != nullptr);
+                REQUIRE(coro->Invoke(u8"beginUntil", Span<Variant>{}).HasValue());
+                for (int i = 0; i < 5; ++i) { manager->AdvanceCoroutines(0.1); }
+                CHECK(progressOf(coro) == doctest::Approx(0.0));   // predicate false -> pending
+                REQUIRE(coro->Invoke(u8"flip", Span<Variant>{}).HasValue());
+                for (int i = 0; i < 3; ++i) { manager->AdvanceCoroutines(0.1); }
+                CHECK(progressOf(coro) == doctest::Approx(1.0));   // predicate flipped -> resumed
+            }
+
+            // (3) CancelCoroutinesFor stops a pending coroutine (it never completes after).
+            {
+                RefPtr<IScriptContext> ctx = manager->CreateContext();
+                CHECK(ctx->Load(dialect.coroutineClass, u8"conformance.coroutine").IsOk());
+                RefPtr<ScriptObject> coro = ctx->CreateInstance(u8"Coro", Span<Variant>{});
+                REQUIRE(coro.Get() != nullptr);
+                REQUIRE(coro->Invoke(u8"begin", Span<Variant>{}).HasValue());
+                for (int i = 0; i < 3; ++i) { manager->AdvanceCoroutines(0.1); }   // 0.3s, pending
+                CHECK(progressOf(coro) == doctest::Approx(0.0));
+                manager->CancelCoroutinesFor(*coro);
+                for (int i = 0; i < 20; ++i) { manager->AdvanceCoroutines(0.1); }  // 2s must not run
+                CHECK(progressOf(coro) == doctest::Approx(0.0));   // cancelled -> never completes
+            }
         }
     }
 }

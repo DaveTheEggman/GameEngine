@@ -391,6 +391,13 @@ namespace draconic::script::wren
     WrenForeignMethodFn BindForeignMethod(WrenVM* vm, const char* module, const char* className,
                                           bool isStatic, const char* signature);
 
+    // The coroutine primitives the Wren `Behavior` base declares as foreign methods
+    // (scripting.md §3.3). Bound by name (independent of the reflected-type pool), they
+    // route the fiber/id to the manager's host-side scheduler. Defined after WrenManager.
+    void CoroutineRegisterForeign(WrenVM* vm);     // drRegisterCoroutine(fiber, wait) -> id
+    void CoroutineUnregisterForeign(WrenVM* vm);   // drUnregisterCoroutine(id)
+    inline constexpr const char* kBehaviorClassName = "Behavior";
+
     // A live instance of a script-defined Wren class. Holds a handle to the
     // object plus a strong reference to its owning context (keeping the VM alive),
     // and dispatches Invoke() by building the method's Wren call signature.
@@ -431,10 +438,14 @@ namespace draconic::script::wren
         WrenHandle* m_instance;
     };
 
+    class WrenManager;   // forward: WrenContext keeps its manager (the coroutine scheduler) alive
+
     class WrenContext final : public IScriptContext
     {
     public:
-        explicit WrenContext(core::Span<const core::TypeInfo* const> types)
+        WrenContext(core::Span<const core::TypeInfo* const> types,
+                    core::RefPtr<IScriptManager> manager)
+            : m_manager(core::Move(manager))
         {
             for (const core::TypeInfo* t : types) { m_types.PushBack(t); }
 
@@ -451,10 +462,15 @@ namespace draconic::script::wren
             GenerateForeignClasses();
         }
 
-        ~WrenContext() override { if (m_vm != nullptr) { wrenFreeVM(m_vm); } }
+        ~WrenContext() override;   // drops the VM's coroutines, then frees the VM
 
         WrenContext(const WrenContext&) = delete;
         WrenContext& operator=(const WrenContext&) = delete;
+
+        // The owning manager (holds the host-side coroutine scheduler). Defined after
+        // WrenManager; foreign coroutine callbacks route registration through it.
+        [[nodiscard]] WrenManager& Manager() const noexcept;
+        [[nodiscard]] WrenVM* Vm() const noexcept { return m_vm; }
 
         [[nodiscard]] const core::TypeInfo* FindType(const char* className) const
         {
@@ -656,6 +672,7 @@ namespace draconic::script::wren
         IScriptErrorHandler* m_errorHandler = nullptr;
         core::String m_module;
         core::Array<const core::TypeInfo*> m_types;
+        core::RefPtr<IScriptManager> m_manager;   // keeps the manager (scheduler) alive
     };
 
     // --- foreign bind callbacks (defined after WrenContext) ----------------
@@ -686,12 +703,20 @@ namespace draconic::script::wren
     WrenForeignMethodFn BindForeignMethod(WrenVM* vm, const char*, const char* className,
                                           bool isStatic, const char* signature)
     {
+        char name[64];
+        MemberName(signature, name, sizeof(name));
+
+        // The `Behavior` base's coroutine primitives (a plain Wren class with foreign
+        // methods - not a reflected type), bound by declaring-class name + method name.
+        if (NameEq(className, kBehaviorClassName))
+        {
+            if (NameEq(name, "drRegisterCoroutine")) { return &CoroutineRegisterForeign; }
+            if (NameEq(name, "drUnregisterCoroutine")) { return &CoroutineUnregisterForeign; }
+        }
+
         const WrenContext* ctx = static_cast<const WrenContext*>(wrenGetUserData(vm));
         const core::TypeInfo* type = (ctx != nullptr) ? ctx->FindType(className) : nullptr;
         if (type == nullptr) { return nullptr; }
-
-        char name[64];
-        MemberName(signature, name, sizeof(name));
 
         if (IsSetterSig(signature))
         {
@@ -710,22 +735,207 @@ namespace draconic::script::wren
     class WrenManager final : public IScriptManager
     {
     public:
+        ~WrenManager() override
+        {
+            // Every coroutine belongs to a context's VM, and a context holds a strong
+            // ref to this manager - so by the time we're destroyed all contexts (and
+            // their VMs) are gone and each already called ForgetCoroutinesForVm. The
+            // list is empty here; drop it without touching any freed handle.
+            m_coroutines.Clear();
+        }
+
         void RegisterType(const core::TypeInfo& type) override { m_types.PushBack(&type); }
 
         [[nodiscard]] core::RefPtr<IScriptContext> CreateContext() override
         {
             const core::Span<const core::TypeInfo* const> types{ m_types.Data(), m_types.Size() };
-            return core::RefPtr<IScriptContext>(core::MakeRef<WrenContext>(core::DefaultAllocator(), types));
+            return core::RefPtr<IScriptContext>(core::MakeRef<WrenContext>(
+                core::DefaultAllocator(), types, core::RefPtr<IScriptManager>(this)));
         }
 
         [[nodiscard]] ScriptCapabilities Capabilities() const override
         {
-            return ScriptCapabilities::Fibers;   // first-class Fiber - the P2 scheduler backend
+            return ScriptCapabilities::Coroutines;   // Wren fibers back the scheduler below
+        }
+
+        // ---- the host-side coroutine scheduler (Wren fibers) ----
+
+        /// A live coroutine: the fiber handle we own (release on drop), its VM, and the
+        /// seconds still to wait before the next resume.
+        struct WrenCoroutine
+        {
+            core::i32 id = 0;
+            WrenVM* vm = nullptr;
+            WrenHandle* fiber = nullptr;
+            core::f64 wait = 0.0;
+        };
+
+        /// Foreign `__registerCoroutine`: takes ownership of the fiber handle, stores it
+        /// with its initial wait, returns the id the Behavior base records.
+        [[nodiscard]] core::i32 RegisterCoroutine(WrenVM* vm, WrenHandle* fiber, core::f64 wait)
+        {
+            const core::i32 id = ++m_nextCoroutineId;
+            m_coroutines.PushBack(WrenCoroutine{ id, vm, fiber, wait });
+            return id;
+        }
+
+        /// Foreign `__unregisterCoroutine`: cancel by id (releases the fiber handle).
+        void UnregisterCoroutine(core::i32 id)
+        {
+            for (core::usize i = 0; i < m_coroutines.Size(); ++i)
+            {
+                if (m_coroutines[i].id == id)
+                {
+                    if (m_coroutines[i].fiber != nullptr)
+                    {
+                        wrenReleaseHandle(m_coroutines[i].vm, m_coroutines[i].fiber);
+                    }
+                    m_coroutines.RemoveAt(i);
+                    return;
+                }
+            }
+        }
+
+        /// A context's VM is being freed: drop its coroutines WITHOUT releasing the
+        /// fiber handles (wrenFreeVM frees them - releasing here would double-free).
+        void ForgetCoroutinesForVm(WrenVM* vm)
+        {
+            for (core::usize i = m_coroutines.Size(); i-- > 0;)
+            {
+                if (m_coroutines[i].vm == vm) { m_coroutines.RemoveAt(i); }
+            }
+        }
+
+        void AdvanceCoroutines(core::f64 deltaSeconds) override
+        {
+            // Snapshot the due ids first: a resumed fiber may start MORE coroutines
+            // (append) - those are not advanced this frame - and by resuming through the
+            // id (re-found after the call) a nested cancel can never touch a dead entry.
+            for (WrenCoroutine& co : m_coroutines) { co.wait -= deltaSeconds; }
+            m_dueScratch.Clear();
+            for (const WrenCoroutine& co : m_coroutines)
+            {
+                if (co.wait <= kDueEpsilon) { m_dueScratch.PushBack(co.id); }
+            }
+            for (const core::i32 id : m_dueScratch)
+            {
+                const core::i32 index = FindCoroutineIndex(id);
+                if (index < 0) { continue; }
+                WrenVM* vm = m_coroutines[static_cast<core::usize>(index)].vm;
+                WrenHandle* fiber = m_coroutines[static_cast<core::usize>(index)].fiber;
+
+                // Resume: fiber.call(dt) runs it to its next Fiber.yield(seconds); the
+                // yielded number lands in slot 0 as the next wait.
+                wrenEnsureSlots(vm, 2);
+                wrenSetSlotHandle(vm, 0, fiber);
+                wrenSetSlotDouble(vm, 1, deltaSeconds);
+                WrenHandle* call = wrenMakeCallHandle(vm, "call(_)");
+                const WrenInterpretResult result = wrenCall(vm, call);
+                wrenReleaseHandle(vm, call);
+
+                bool drop = false;
+                core::f64 nextWait = 0.0;
+                if (result != WREN_RESULT_SUCCESS)
+                {
+                    drop = true;   // the fiber faulted; the error already went to the sink
+                }
+                else
+                {
+                    if (wrenGetSlotType(vm, 0) == WREN_TYPE_NUM)
+                    {
+                        nextWait = wrenGetSlotDouble(vm, 0);
+                    }
+                    // isDone getter (reuses the slots we just read from).
+                    wrenEnsureSlots(vm, 1);
+                    wrenSetSlotHandle(vm, 0, fiber);
+                    WrenHandle* done = wrenMakeCallHandle(vm, "isDone");
+                    if (wrenCall(vm, done) == WREN_RESULT_SUCCESS
+                        && wrenGetSlotType(vm, 0) == WREN_TYPE_BOOL && wrenGetSlotBool(vm, 0))
+                    {
+                        drop = true;
+                    }
+                    wrenReleaseHandle(vm, done);
+                }
+
+                const core::i32 after = FindCoroutineIndex(id);
+                if (after < 0) { continue; }   // a nested cancel already removed it
+                if (drop)
+                {
+                    wrenReleaseHandle(m_coroutines[static_cast<core::usize>(after)].vm,
+                                      m_coroutines[static_cast<core::usize>(after)].fiber);
+                    m_coroutines.RemoveAt(static_cast<core::usize>(after));
+                }
+                else
+                {
+                    m_coroutines[static_cast<core::usize>(after)].wait = nextWait;
+                }
+            }
+        }
+
+        void CancelCoroutinesFor(ScriptObject& instance) override
+        {
+            // The Behavior base owns its own id list; asking it to cancel routes back
+            // through drUnregisterCoroutine (which releases each fiber). Missing method
+            // (a non-Behavior instance) just returns an error - a safe no-op.
+            (void)instance.Invoke(u8"drCancelCoroutines", core::Span<core::Variant>{});
         }
 
     private:
+        [[nodiscard]] core::i32 FindCoroutineIndex(core::i32 id) const
+        {
+            for (core::usize i = 0; i < m_coroutines.Size(); ++i)
+            {
+                if (m_coroutines[i].id == id) { return static_cast<core::i32>(i); }
+            }
+            return -1;
+        }
+
+        static constexpr core::f64 kDueEpsilon = 1e-4;
+
         core::Array<const core::TypeInfo*> m_types;
+        core::Array<WrenCoroutine> m_coroutines;
+        core::Array<core::i32> m_dueScratch;   // reused per-frame due-id snapshot
+        core::i32 m_nextCoroutineId = 0;
     };
+
+    // ---- coroutine foreign callbacks (defined after WrenManager) ----
+
+    WrenManager& WrenContext::Manager() const noexcept
+    {
+        return *static_cast<WrenManager*>(m_manager.Get());
+    }
+
+    WrenContext::~WrenContext()
+    {
+        if (m_vm != nullptr)
+        {
+            // Drop this VM's coroutines before freeing it (the manager outlives us - we
+            // hold a strong ref); wrenFreeVM then frees the fiber handles.
+            Manager().ForgetCoroutinesForVm(m_vm);
+            wrenFreeVM(m_vm);
+        }
+    }
+
+    void CoroutineRegisterForeign(WrenVM* vm)
+    {
+        WrenContext* ctx = static_cast<WrenContext*>(wrenGetUserData(vm));
+        // A Fiber is not a reflected foreign type, so grab its handle regardless of the
+        // slot type (the documented recipe). Slot 2 is the initial wait (seconds).
+        WrenHandle* fiber = wrenGetSlotHandle(vm, 1);
+        const core::f64 wait = (wrenGetSlotType(vm, 2) == WREN_TYPE_NUM)
+            ? wrenGetSlotDouble(vm, 2) : 0.0;
+        const core::i32 id = ctx->Manager().RegisterCoroutine(vm, fiber, wait);
+        wrenSetSlotDouble(vm, 0, static_cast<double>(id));
+    }
+
+    void CoroutineUnregisterForeign(WrenVM* vm)
+    {
+        WrenContext* ctx = static_cast<WrenContext*>(wrenGetUserData(vm));
+        const core::i32 id = (wrenGetSlotType(vm, 1) == WREN_TYPE_NUM)
+            ? static_cast<core::i32>(wrenGetSlotDouble(vm, 1)) : -1;
+        ctx->Manager().UnregisterCoroutine(id);
+        wrenSetSlotNull(vm, 0);
+    }
 
     [[nodiscard]] IScriptContext* OwningContext(WrenVM* vm)
     {

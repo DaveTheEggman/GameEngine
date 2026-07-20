@@ -38,6 +38,47 @@ export namespace draconic::script
     inline constexpr StringView kScriptBehaviorModulePrelude =
         u8"import \"main\" for Entity, Log, Time, Random, Scene\n";
 
+    /// The OPTIONAL Wren `Behavior` base class (scripting.md §3.3 coroutines), injected
+    /// into every Wren behaviors module right after the prelude. A behavior opts in with
+    /// `class Mover is Behavior { construct new(entity) { super(entity) } ... }` to get
+    /// `startCoroutine(fn)` / `wait(seconds)` / `waitUntil(fn)`; plain P1 classes that do
+    /// NOT extend it are untouched. The base owns the instance's coroutine-id list and
+    /// routes register/unregister to the backend's host-side scheduler through two
+    /// foreign methods (bound by the Wren backend, independent of the reflected types).
+    /// `wait` = `Fiber.yield(seconds)`; `waitUntil` polls in-script so the host scheduler
+    /// only ever deals with numeric waits (no host-side predicate invocation).
+    inline constexpr StringView kScriptWrenBehaviorBase =
+        u8"class Behavior {\n"
+        u8"  construct new(entity) {\n"
+        u8"    _entity = entity\n"
+        u8"    _drCoroutines = []\n"
+        u8"  }\n"
+        u8"  entity { _entity }\n"
+        u8"  startCoroutine(fn) {\n"
+        u8"    var fiber = Fiber.new(fn)\n"
+        u8"    var w = fiber.call()\n"
+        u8"    if (fiber.isDone) return -1\n"
+        u8"    if (!(w is Num)) w = 0\n"
+        u8"    var id = drRegisterCoroutine(fiber, w)\n"
+        u8"    _drCoroutines.add(id)\n"
+        u8"    return id\n"
+        u8"  }\n"
+        u8"  wait(seconds) { Fiber.yield(seconds) }\n"
+        u8"  waitUntil(fn) {\n"
+        u8"    while (!fn.call()) {\n"
+        u8"      Fiber.yield(0)\n"
+        u8"    }\n"
+        u8"  }\n"
+        u8"  foreign drRegisterCoroutine(fiber, w)\n"
+        u8"  foreign drUnregisterCoroutine(id)\n"
+        u8"  drCancelCoroutines() {\n"
+        u8"    for (id in _drCoroutines) {\n"
+        u8"      drUnregisterCoroutine(id)\n"
+        u8"    }\n"
+        u8"    _drCoroutines.clear()\n"
+        u8"  }\n"
+        u8"}\n";
+
     struct ScriptRuntimeBinding
     {
         f64 timeSeconds = 0.0;    // seconds since the run context was created

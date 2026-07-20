@@ -18,13 +18,14 @@ export namespace draconic::script
 {
     /// Optional backend features (scripting.md B4), declared per backend and consumed
     /// contract-first: a consumer CHECKS the flag and degrades cleanly - a backend
-    /// without Fibers still runs behaviors, it just has no coroutine scheduler.
+    /// without Coroutines still runs behaviors, it just has no coroutine scheduler.
     enum class ScriptCapabilities : core::u32
     {
-        None     = 0,
-        Fibers   = 1 << 0,   // first-class coroutines (Wren fibers) - the P2 wait/tween scheduler gate
-        Debugger = 1 << 1,   // step-debug seam (none implemented yet)
-        Profiler = 1 << 2,   // VM-level profiling hooks (none implemented yet)
+        None       = 0,
+        Coroutines = 1 << 0, // cooperative coroutines (wait/waitUntil scheduler) - implemented
+                             // host-side per backend (Wren fibers / AngelScript contexts)
+        Debugger   = 1 << 1, // step-debug seam (none implemented yet)
+        Profiler   = 1 << 2, // VM-level profiling hooks (none implemented yet)
     };
     inline constexpr ScriptCapabilities operator|(ScriptCapabilities a, ScriptCapabilities b)
     {
@@ -58,6 +59,18 @@ export namespace draconic::script
         // Single-step garbage collection, for backends that need it kept small in
         // real-time loops. Default: no-op.
         virtual void CollectGarbage() {}
+
+        /// Resume every coroutine whose wait has elapsed, accumulating `deltaSeconds`;
+        /// drop the ones that complete or fault. The scheduler lives host-side inside
+        /// the backend (Wren fibers / AngelScript contexts); the subsystem calls this
+        /// ONCE per simulated frame. A backend without ScriptCapabilities::Coroutines
+        /// leaves this a no-op - the battery certifies the behavior, the flag only
+        /// advertises it.
+        virtual void AdvanceCoroutines(core::f64 deltaSeconds) { (void)deltaSeconds; }
+
+        /// Stop and drop every coroutine owned by `instance` (its behavior is being
+        /// disabled or destroyed). No-op on a backend without the capability.
+        virtual void CancelCoroutinesFor(ScriptObject& instance) { (void)instance; }
 
         /// The backend's OPTIONAL feature set. Required behavior is certified by the
         /// conformance battery instead - never flagged here.

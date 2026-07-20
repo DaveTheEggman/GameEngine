@@ -455,14 +455,31 @@ TEST_CASE("angelscript: CERTIFIED - the backend conformance battery (scripting.m
     dialect.compileBroken = u8"int = = = @#$";
     dialect.runtimeFault =
         u8"void main() { int zero = 0; int boom = 10 / zero; }\n";
+    // AngelScript's natural coroutine surface: a delegate to a method (`this.RunWait`)
+    // wrapped in the ScriptCoroutine funcdef, started with startCoroutine; `wait` is a
+    // host function, `waitUntil` a script helper (injected per module). Same concept as
+    // Wren, different syntax (delegate vs fiber block) - and that is the point.
+    dialect.coroutineClass =
+        u8"class Coro {\n"
+        u8"  double p;\n"
+        u8"  bool gate;\n"
+        u8"  Coro() { p = 0; gate = false; }\n"
+        u8"  double progress() { return p; }\n"
+        u8"  void flip() { gate = true; }\n"
+        u8"  bool GateOpen() { return gate; }\n"
+        u8"  void RunWait() { wait(1.0f); p = 1; }\n"
+        u8"  void RunUntil() { waitUntil(CoroutinePredicate(this.GateOpen)); p = 1; }\n"
+        u8"  void begin() { startCoroutine(ScriptCoroutine(this.RunWait)); }\n"
+        u8"  void beginUntil() { startCoroutine(ScriptCoroutine(this.RunUntil)); }\n"
+        u8"}\n";
 
     draconic::script::conformance::RunScriptBackendConformance(
         []() { return draconic::script::angelscript::CreateScriptManager(); }, dialect);
 }
 
-TEST_CASE("angelscript: declares no optional capabilities yet (B4 - consumers degrade cleanly)")
+TEST_CASE("angelscript: declares the Coroutines capability (B4 - the coroutine scheduler)")
 {
     RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
-    CHECK(manager->Capabilities() == ScriptCapabilities::None);
-    CHECK_FALSE(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Fibers));
+    CHECK(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Coroutines));
+    CHECK_FALSE(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Debugger));
 }

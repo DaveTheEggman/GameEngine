@@ -200,11 +200,11 @@ TEST_CASE("script.backend: capability flags default to None and compose (B4)")
 
     FakeScriptManager manager;
     CHECK(manager.Capabilities() == ScriptCapabilities::None);
-    CHECK_FALSE(HasScriptCapability(manager.Capabilities(), ScriptCapabilities::Fibers));
+    CHECK_FALSE(HasScriptCapability(manager.Capabilities(), ScriptCapabilities::Coroutines));
 
     constexpr ScriptCapabilities both =
-        ScriptCapabilities::Fibers | ScriptCapabilities::Profiler;
-    CHECK(HasScriptCapability(both, ScriptCapabilities::Fibers));
+        ScriptCapabilities::Coroutines | ScriptCapabilities::Profiler;
+    CHECK(HasScriptCapability(both, ScriptCapabilities::Coroutines));
     CHECK(HasScriptCapability(both, ScriptCapabilities::Profiler));
     CHECK_FALSE(HasScriptCapability(both, ScriptCapabilities::Debugger));
 }

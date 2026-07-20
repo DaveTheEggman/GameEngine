@@ -209,6 +209,15 @@ namespace draconic::script::angelscript
     void PropertyGetDispatch(asIScriptGeneric* gen);
     void PropertySetDispatch(asIScriptGeneric* gen);
     void MethodDispatch(asIScriptGeneric* gen);
+    void CoroutineStartDispatch(asIScriptGeneric* gen);   // startCoroutine(ScriptCoroutine@)
+    void CoroutineWaitDispatch(asIScriptGeneric* gen);    // wait(float seconds)
+
+    // The one-line coroutine support prelude AngelScript modules get (a separate script
+    // section, so it never shifts the user source's error line numbers). `wait` and the
+    // funcdefs are host-registered engine-globally; only waitUntil needs a script body,
+    // and it polls in-script so the host scheduler only ever deals with numeric waits.
+    inline constexpr const char* kCoroutinePreludeSection =
+        "void waitUntil(CoroutinePredicate@ pred) { while (!pred()) { wait(0.0f); } }\n";
 
     class AngelScriptManager final : public IScriptManager
     {
@@ -220,10 +229,14 @@ namespace draconic::script::angelscript
                                          asCALL_CDECL);
             RegisterStdString(m_engine);
             m_stringTypeId = m_engine->GetTypeIdByDecl("string");
+            RegisterCoroutineSurface();
         }
 
         ~AngelScriptManager() override
         {
+            // Coroutine contexts belong to the engine - drop them (and their owner refs)
+            // BEFORE the engine is torn down.
+            DropAllCoroutines();
             if (m_engine != nullptr) { m_engine->ShutDownAndRelease(); }
             for (Binding* binding : m_bindings)
             {
@@ -270,6 +283,86 @@ namespace draconic::script::angelscript
             // "callable any time" promise while staying frame-budget friendly.
             if (m_engine != nullptr) { m_engine->GarbageCollect(asGC_FULL_CYCLE); }
         }
+
+        [[nodiscard]] ScriptCapabilities Capabilities() const override
+        {
+            return ScriptCapabilities::Coroutines;   // host-side asIScriptContext scheduler below
+        }
+
+        // ---- the from-scratch coroutine scheduler (one asIScriptContext each) ----
+
+        /// One live coroutine: its own execution context, the seconds still to wait, and
+        /// the owning behavior instance (AddRef'd) so CancelCoroutinesFor can drop by owner.
+        struct Coroutine
+        {
+            asIScriptContext* ctx = nullptr;
+            core::f64 wait = 0.0;
+            asIScriptObject* owner = nullptr;
+        };
+
+        /// `startCoroutine(fn)`: spins up a dedicated context for the coroutine function
+        /// (a delegate carries its owner), runs it to the first `wait`/suspend, and keeps
+        /// it if it suspended. Called from inside a script Execute - a nested Execute on a
+        /// fresh context is fine (AngelScript contexts are independent).
+        void StartCoroutine(asIScriptFunction* fn)
+        {
+            if (fn == nullptr || m_engine == nullptr) { return; }
+            asIScriptFunction* func = fn;
+            asIScriptObject* owner = nullptr;
+            if (fn->GetFuncType() == asFUNC_DELEGATE)
+            {
+                owner = static_cast<asIScriptObject*>(fn->GetDelegateObject());
+                func = fn->GetDelegateFunction();
+            }
+            if (func == nullptr) { return; }
+
+            asIScriptContext* co = m_engine->CreateContext();
+            if (co == nullptr || co->Prepare(func) < 0)
+            {
+                if (co != nullptr) { co->Release(); }
+                return;
+            }
+            if (owner != nullptr) { co->SetObject(owner); owner->AddRef(); }
+
+            // Record BEFORE Execute so the `wait` host call can find it (by active ctx).
+            m_coroutines.PushBack(Coroutine{ co, 0.0, owner });
+            const int result = co->Execute();
+            ResolveCoroutineExecution(co, result);
+        }
+
+        /// The `wait(seconds)` host function, running on the coroutine's own context:
+        /// records the wait on it and requests a suspend (returns to AdvanceCoroutines).
+        void CoroutineWaitCurrent(float seconds)
+        {
+            asIScriptContext* active = asGetActiveContext();
+            if (active == nullptr) { return; }
+            for (Coroutine& co : m_coroutines)
+            {
+                if (co.ctx == active) { co.wait = static_cast<core::f64>(seconds); break; }
+            }
+            (void)active->Suspend();
+        }
+
+        void AdvanceCoroutines(core::f64 deltaSeconds) override
+        {
+            for (Coroutine& co : m_coroutines) { co.wait -= deltaSeconds; }
+            // Snapshot due contexts (stable pointers): a resumed coroutine may start more
+            // (append) - not advanced this frame - and re-finding by ctx tolerates a
+            // nested cancel dropping an entry mid-loop.
+            m_dueScratch.Clear();
+            for (const Coroutine& co : m_coroutines)
+            {
+                if (co.wait <= kDueEpsilon) { m_dueScratch.PushBack(co.ctx); }
+            }
+            for (asIScriptContext* ctx : m_dueScratch)
+            {
+                if (FindCoroutine(ctx) < 0) { continue; }   // a nested cancel removed it
+                const int result = ctx->Execute();
+                ResolveCoroutineExecution(ctx, result);
+            }
+        }
+
+        void CancelCoroutinesFor(ScriptObject& instance) override;   // by owner; after AngelScriptObject
 
         // ---- shared services for contexts / dispatchers ---------------------
         [[nodiscard]] asIScriptEngine* Engine() const noexcept { return m_engine; }
@@ -475,6 +568,54 @@ namespace draconic::script::angelscript
         }
 
     private:
+        // Registers the coroutine surface once: the funcdefs (a coroutine body and a
+        // bool predicate) plus the `startCoroutine`/`wait` host functions. `waitUntil` is
+        // script-side (kCoroutinePreludeSection), added per module in Load.
+        void RegisterCoroutineSurface()
+        {
+            if (m_engine == nullptr) { return; }
+            (void)m_engine->RegisterFuncdef("void ScriptCoroutine()");
+            (void)m_engine->RegisterFuncdef("bool CoroutinePredicate()");
+            (void)m_engine->RegisterGlobalFunction("void startCoroutine(ScriptCoroutine@ fn)",
+                asFUNCTION(CoroutineStartDispatch), asCALL_GENERIC, this);
+            (void)m_engine->RegisterGlobalFunction("void wait(float seconds)",
+                asFUNCTION(CoroutineWaitDispatch), asCALL_GENERIC, this);
+        }
+
+        [[nodiscard]] int FindCoroutine(asIScriptContext* ctx) const
+        {
+            for (core::usize i = 0; i < m_coroutines.Size(); ++i)
+            {
+                if (m_coroutines[i].ctx == ctx) { return static_cast<int>(i); }
+            }
+            return -1;
+        }
+
+        // Release a coroutine's context (unwinding a suspended call stack) and its owner ref.
+        void DropCoroutineAt(core::usize index)
+        {
+            Coroutine& co = m_coroutines[index];
+            if (co.ctx != nullptr) { (void)co.ctx->Abort(); co.ctx->Release(); }
+            if (co.owner != nullptr) { co.owner->Release(); }
+            m_coroutines.RemoveAt(index);
+        }
+
+        void DropAllCoroutines()
+        {
+            while (m_coroutines.Size() > 0) { DropCoroutineAt(m_coroutines.Size() - 1); }
+        }
+
+        // After an Execute: keep it if it suspended (its next wait is already recorded);
+        // drop it (finished/faulted) otherwise.
+        void ResolveCoroutineExecution(asIScriptContext* ctx, int result)
+        {
+            if (result == asEXECUTION_SUSPENDED) { return; }
+            const int index = FindCoroutine(ctx);
+            if (index >= 0) { DropCoroutineAt(static_cast<core::usize>(index)); }
+        }
+
+        static constexpr core::f64 kDueEpsilon = 1e-4;
+
         struct RegisteredType
         {
             const core::TypeInfo* type;
@@ -694,6 +835,8 @@ namespace draconic::script::angelscript
         core::Array<RegisteredType> m_registered;
         core::Array<Binding*> m_bindings;
         core::Array<CapturedMessage> m_capturedMessages;
+        core::Array<Coroutine> m_coroutines;
+        core::Array<asIScriptContext*> m_dueScratch;   // reused per-frame due snapshot
     };
 
     // ---- generic dispatchers (run DURING script execution; the surrounding
@@ -802,6 +945,20 @@ namespace draconic::script::angelscript
             result.HasValue() ? result.Value() : core::Variant{});
     }
 
+    // ---- coroutine host functions (auxiliary = the manager) ----
+    void CoroutineStartDispatch(asIScriptGeneric* gen)
+    {
+        AngelScriptManager* manager = static_cast<AngelScriptManager*>(gen->GetAuxiliary());
+        asIScriptFunction* fn = static_cast<asIScriptFunction*>(gen->GetArgObject(0));
+        if (manager != nullptr) { manager->StartCoroutine(fn); }
+    }
+
+    void CoroutineWaitDispatch(asIScriptGeneric* gen)
+    {
+        AngelScriptManager* manager = static_cast<AngelScriptManager*>(gen->GetAuxiliary());
+        if (manager != nullptr) { manager->CoroutineWaitCurrent(gen->GetArgFloat(0)); }
+    }
+
     // ---- context -------------------------------------------------------------
     class AngelScriptContext final : public IScriptContext
     {
@@ -837,6 +994,9 @@ namespace draconic::script::angelscript
             const core::String section(chunkName);
             (void)module->AddScriptSection(CStr(section),
                 reinterpret_cast<const char*>(source.Data()), source.Size());
+            // The in-script `waitUntil` helper, in its OWN section so it never shifts the
+            // user source's error line numbers (the funcdefs + `wait` are engine-global).
+            (void)module->AddScriptSection("__coroutine_support", kCoroutinePreludeSection);
 
             // Build compiles AND runs global initializers; classify buffered errors
             // by the return code (compile failure vs failed global init).
@@ -1073,6 +1233,9 @@ namespace draconic::script::angelscript
         AngelScriptObject(const AngelScriptObject&) = delete;
         AngelScriptObject& operator=(const AngelScriptObject&) = delete;
 
+        /// The underlying script object (CancelCoroutinesFor matches coroutines by owner).
+        [[nodiscard]] asIScriptObject* ScriptInstance() const noexcept { return m_instance; }
+
         [[nodiscard]] core::Result<core::Variant> Invoke(core::StringView method,
                                                          core::Span<core::Variant> args) override
         {
@@ -1099,6 +1262,17 @@ namespace draconic::script::angelscript
         core::RefPtr<AngelScriptContext> m_owner;
         asIScriptObject* m_instance;
     };
+
+    void AngelScriptManager::CancelCoroutinesFor(ScriptObject& instance)
+    {
+        // We hold the owner pointer directly - drop every coroutine started by this
+        // behavior instance (its context is aborted + released, its owner ref freed).
+        asIScriptObject* owner = static_cast<AngelScriptObject&>(instance).ScriptInstance();
+        for (core::usize i = m_coroutines.Size(); i-- > 0;)
+        {
+            if (m_coroutines[i].owner == owner) { DropCoroutineAt(i); }
+        }
+    }
 
     core::RefPtr<IScriptContext> AngelScriptManager::CreateContext()
     {

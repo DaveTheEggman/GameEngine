@@ -344,14 +344,73 @@ TEST_CASE("wren: CERTIFIED - the backend conformance battery (scripting.md B2)")
         u8"}\n";
     dialect.compileBroken = u8"var = = = @#$";
     dialect.runtimeFault = u8"Fiber.abort(\"conformance fault\")";
+    // Self-contained coroutine class: the `Behavior` base inlined (the subsystem injects
+    // it at runtime; the raw battery does not), then a `Coro` that opts in. Coroutine
+    // bodies use an explicit receiver (`me`) + getter/setter methods so no field is
+    // touched inside a closure (a Wren restriction).
+    dialect.coroutineClass =
+        u8"class Behavior {\n"
+        u8"  construct new(entity) {\n"
+        u8"    _entity = entity\n"
+        u8"    _drCoroutines = []\n"
+        u8"  }\n"
+        u8"  startCoroutine(fn) {\n"
+        u8"    var fiber = Fiber.new(fn)\n"
+        u8"    var w = fiber.call()\n"
+        u8"    if (fiber.isDone) return -1\n"
+        u8"    if (!(w is Num)) w = 0\n"
+        u8"    var id = drRegisterCoroutine(fiber, w)\n"
+        u8"    _drCoroutines.add(id)\n"
+        u8"    return id\n"
+        u8"  }\n"
+        u8"  wait(seconds) { Fiber.yield(seconds) }\n"
+        u8"  waitUntil(fn) {\n"
+        u8"    while (!fn.call()) {\n"
+        u8"      Fiber.yield(0)\n"
+        u8"    }\n"
+        u8"  }\n"
+        u8"  foreign drRegisterCoroutine(fiber, w)\n"
+        u8"  foreign drUnregisterCoroutine(id)\n"
+        u8"  drCancelCoroutines() {\n"
+        u8"    for (id in _drCoroutines) {\n"
+        u8"      drUnregisterCoroutine(id)\n"
+        u8"    }\n"
+        u8"    _drCoroutines.clear()\n"
+        u8"  }\n"
+        u8"}\n"
+        u8"class Coro is Behavior {\n"
+        u8"  construct new() {\n"
+        u8"    super(null)\n"
+        u8"    _p = 0\n"
+        u8"    _gate = false\n"
+        u8"  }\n"
+        u8"  progress() { _p }\n"
+        u8"  flip() { _gate = true }\n"
+        u8"  markDone() { _p = 1 }\n"
+        u8"  gateOpen { _gate }\n"
+        u8"  begin() {\n"
+        u8"    var me = this\n"
+        u8"    startCoroutine(Fn.new {\n"
+        u8"      me.wait(1)\n"
+        u8"      me.markDone()\n"
+        u8"    })\n"
+        u8"  }\n"
+        u8"  beginUntil() {\n"
+        u8"    var me = this\n"
+        u8"    startCoroutine(Fn.new {\n"
+        u8"      me.waitUntil(Fn.new { me.gateOpen })\n"
+        u8"      me.markDone()\n"
+        u8"    })\n"
+        u8"  }\n"
+        u8"}\n";
 
     draconic::script::conformance::RunScriptBackendConformance(
         []() { return draconic::script::wren::CreateScriptManager(); }, dialect);
 }
 
-TEST_CASE("wren: declares the Fibers capability (B4 - the P2 scheduler gate)")
+TEST_CASE("wren: declares the Coroutines capability (B4 - the coroutine scheduler)")
 {
     RefPtr<IScriptManager> manager = wren::CreateScriptManager();
-    CHECK(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Fibers));
+    CHECK(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Coroutines));
     CHECK_FALSE(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Debugger));
 }
