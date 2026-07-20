@@ -57,6 +57,16 @@ export namespace draconic::script
             core::StringView method, core::Span<core::Variant> args) = 0;
     };
 
+    // One class in a structured behavior-module load. `name` is the class's SOURCE FILE
+    // identity (ScriptClass::sourceName - e.g. "Mover.as"): a debug-capable backend makes
+    // it the class's own script section, so GetLineNumber reports (sourceFile, sourceLine)
+    // and an editor breakpoint keyed on the file lines up. `source` is the class body.
+    struct BehaviorModuleClass
+    {
+        core::StringView name;    // the source-file section identity (may be empty)
+        core::StringView source;  // the class source text
+    };
+
     class IScriptContext : public core::Object
     {
     public:
@@ -67,6 +77,27 @@ export namespace draconic::script
         // Compile and run a chunk of script source. NotSupported if the backend
         // has no compiler (e.g. it only loads precompiled blobs).
         virtual core::Status Load(core::StringView source, core::StringView chunkName) = 0;
+
+        // Load the run's behavior module from its per-class sources, PRESERVING per-class
+        // section identity. The run host owns the generation bookkeeping and passes
+        // `moduleName` (e.g. "behaviors#3") for the module; each class carries its own
+        // `name` (its sourceName). A debug-capable backend adds each class as its OWN
+        // script section named `name`, so GetLineNumber reports the source file (not the
+        // concatenated module) - the identity an editor breakpoint keys on. The default
+        // reproduces the frameless single-chunk behavior (newline-joined sources loaded as
+        // `moduleName`); a backend that needs language framing (a facade import prelude, a
+        // coroutine base) overrides to add it - see IScriptManager::AssembleBehaviorModuleSource.
+        virtual core::Status LoadBehaviorModule(core::Span<const BehaviorModuleClass> classes,
+                                                core::StringView moduleName)
+        {
+            core::String moduleSource;
+            for (const BehaviorModuleClass& entry : classes)
+            {
+                moduleSource += entry.source;
+                moduleSource += u8"\n";
+            }
+            return Load(moduleSource.AsView(), moduleName);
+        }
 
         // Load a precompiled bytecode blob (the counterpart to
         // IScriptManager::CompileToBlob). COMMITTED SEAM: the default is NotSupported;

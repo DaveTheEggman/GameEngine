@@ -1313,6 +1313,58 @@ namespace draconic::script::angelscript
             return core::Status{};
         }
 
+        // The behaviors module, loaded with each class in its OWN script section named by
+        // its sourceName - so GetLineNumber reports (sourceFile, sourceLine) and an editor
+        // breakpoint keyed on the file lines up (script-debugger.md P1.5). Same framing +
+        // build/classify path as Load; only the section split differs (Load uses one section).
+        core::Status LoadBehaviorModule(core::Span<const BehaviorModuleClass> classes,
+                                        core::StringView moduleName) override
+        {
+            asIScriptEngine* engine = m_manager->Engine();
+            const core::String moduleNameStr(moduleName);
+            asIScriptModule* module = engine->GetModule(CStr(moduleNameStr), asGM_ALWAYS_CREATE);
+            if (module == nullptr) { return core::Status{ core::ErrorCode::Internal }; }
+
+            // One section PER CLASS, named by its sourceName (the editor's breakpoint key).
+            // A class with no sourceName falls back to the module name (still compiles; only
+            // its breakpoints won't line up - the cook always stamps sourceName).
+            for (const BehaviorModuleClass& entry : classes)
+            {
+                const core::String section(entry.name.IsEmpty() ? moduleName : entry.name);
+                (void)module->AddScriptSection(CStr(section),
+                    reinterpret_cast<const char*>(entry.source.Data()), entry.source.Size());
+            }
+            // The in-script `waitUntil` helper, in its OWN section (line numbers unaffected).
+            (void)module->AddScriptSection("__coroutine_support", kCoroutinePreludeSection);
+
+            int result;
+            m_manager->BeginMessageCapture();
+            {
+                ScriptCallScope scope(this);
+                result = module->Build();
+            }
+            const bool initFailed = (result == asINIT_GLOBAL_VARS_FAILED);
+            m_manager->EndMessageCapture(m_errorHandler,
+                initFailed ? ScriptErrorKind::Runtime : ScriptErrorKind::Compile);
+            if (result < 0)
+            {
+                module->Discard();
+                return core::Status{ initFailed ? core::ErrorCode::Internal
+                                                : core::ErrorCode::InvalidArgument };
+            }
+
+            m_ownedModules.PushBack(module);
+            m_module = module;
+
+            if (asIScriptFunction* entry = module->GetFunctionByName("main"))
+            {
+                core::Result<core::Variant> ran = ExecuteCall(entry, nullptr,
+                                                              core::Span<core::Variant>{});
+                if (!ran.HasValue()) { return core::Status{ core::ErrorCode::Internal }; }
+            }
+            return core::Status{};
+        }
+
         void SetGlobal(core::StringView name, const core::Variant& value) override
         {
             if (m_module == nullptr) { return; }

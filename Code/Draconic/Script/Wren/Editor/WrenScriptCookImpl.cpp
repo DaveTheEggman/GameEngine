@@ -304,6 +304,7 @@ namespace draconic::script
                                     CookScriptErrorSink& sink, ScriptClassSource& out) override
             {
                 out.language = String(u8"wren");
+                out.sourceName = String(assetName);   // the source file identity (breakpoint key)
                 out.source = String(source);
 
                 // B3: the harvest VM comes from the registry, by LANGUAGE.

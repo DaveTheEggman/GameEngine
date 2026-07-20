@@ -261,21 +261,25 @@ export namespace draconic::script
             }
             if (m_moduleCurrent) { return true; }
 
-            // Rebuild: one concatenated module, fresh generation name. The LANGUAGE
-            // framing (any prelude/base a backend needs) is the backend's job - the run
-            // host only supplies the ordered class SOURCES and compiles the result, so no
-            // language syntax lives here (scripting.md §7.5).
+            // Rebuild: fresh generation module, each class carrying its OWN section identity
+            // (sourceName). The structured LoadBehaviorModule preserves per-class sections so a
+            // debug-capable backend reports (sourceFile, sourceLine) from GetLineNumber and
+            // editor breakpoints line up (script-debugger.md P1.5). The LANGUAGE framing (any
+            // prelude/base a backend needs) stays the backend's job - the run host only supplies
+            // the ordered {sourceName, source} pairs, no language syntax here (scripting.md §7.5).
             m_classSourceScratch.Clear();
             m_classSourceScratch.Reserve(m_loadedClasses.Size());
             for (const RefPtr<ScriptClass>& loaded : m_loadedClasses)
             {
-                m_classSourceScratch.PushBack(loaded->source.AsView());
+                m_classSourceScratch.PushBack(
+                    BehaviorModuleClass{ loaded->sourceName.AsView(), loaded->source.AsView() });
             }
-            const String moduleSource = m_manager->AssembleBehaviorModuleSource(
-                Span<const StringView>{ m_classSourceScratch.Data(), m_classSourceScratch.Size() });
             ++m_generation;
             const String moduleName = Format(u8"behaviors#{}", m_generation);
-            if (!m_context->Load(moduleSource.AsView(), moduleName.AsView()).IsOk())
+            if (!m_context->LoadBehaviorModule(
+                    Span<const BehaviorModuleClass>{ m_classSourceScratch.Data(),
+                                                     m_classSourceScratch.Size() },
+                    moduleName.AsView()).IsOk())
             {
                 DRACONIC_LOG_ERROR(u8"Script",
                     u8"behaviors module failed to compile (class '{}' newly added)",
@@ -342,7 +346,7 @@ export namespace draconic::script
         ScriptRuntimeBinding m_binding;
         Function<void(IScriptContext&)> m_configurator;
         Array<RefPtr<ScriptClass>> m_loadedClasses;   // the behaviors module's content
-        Array<StringView> m_classSourceScratch;       // reused per-rebuild source view list
+        Array<BehaviorModuleClass> m_classSourceScratch;   // reused per-rebuild {sourceName, source} list
         UniquePtr<IScriptDebugger> m_debugger;        // the run's step debugger (opt-in)
         DebugPauseTracker m_debugTracker;             // the game-pause flag + external forward
         Function<void(IScriptDebugger&)> m_debuggerConfigurator;

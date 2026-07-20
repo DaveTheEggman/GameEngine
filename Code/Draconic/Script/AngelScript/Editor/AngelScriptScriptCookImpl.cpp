@@ -345,6 +345,7 @@ namespace draconic::script
                                     CookScriptErrorSink& sink, ScriptClassSource& out) override
             {
                 out.language = String(u8"angelscript");
+                out.sourceName = String(assetName);   // the source file identity (breakpoint key)
                 out.source = String(source);
 
                 RefPtr<IScriptManager> manager = CreateScriptManagerForLanguage(u8"angelscript");

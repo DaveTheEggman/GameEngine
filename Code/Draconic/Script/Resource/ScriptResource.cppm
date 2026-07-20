@@ -178,6 +178,8 @@ export namespace draconic::script
     public:
         String language;    // backend id ("wren"); resolved via the ScriptBackendRegistry
         String className;   // empty = a ScriptClass-less utility module
+        String sourceName;  // the source file identity ("Mover.as"): the AngelScript section
+                            // name + the editor's breakpoint key - cook-stamped = asset fileName
         String source;      // full script source text (no bytecode - see the header note)
         Array<ScriptPropertyDesc> properties;
         Array<String> handlers;    // declared lifecycle/event handlers (dispatch gate)
@@ -187,6 +189,7 @@ export namespace draconic::script
         {
             draconic::core::Serialize(ar, "language", language);
             draconic::core::Serialize(ar, "className", className);
+            draconic::core::Serialize(ar, "sourceName", sourceName);
             draconic::core::Serialize(ar, "source", source);
             draconic::core::Serialize(ar, "properties", properties);
             draconic::core::Serialize(ar, "handlers", handlers);
@@ -202,6 +205,8 @@ export namespace draconic::script
     public:
         String language;
         String className;
+        String sourceName;   // the source file identity: the AngelScript section name a
+                             // breakpoint keys on (== EditorContext::ScriptBreakpoint.file)
         String source;
         Array<ScriptPropertyDesc> properties;
         Array<String> handlers;
@@ -258,6 +263,7 @@ export namespace draconic::script
             RefPtr<ScriptClass> product = MakeRef<ScriptClass>(DefaultAllocator());
             product->language = source->language;
             product->className = source->className;
+            product->sourceName = source->sourceName;
             product->source = source->source;
             product->properties = source->properties;
             product->handlers = source->handlers;

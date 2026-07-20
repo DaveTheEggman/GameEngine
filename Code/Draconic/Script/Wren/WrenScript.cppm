@@ -598,6 +598,14 @@ namespace draconic::script::wren
             return core::Status{ core::ErrorCode::Unknown };
         }
 
+        // Wren has no debug API (its debugger is deferred - script-debugger.md P1), so the
+        // per-class `name` is unused: this stays BYTE-IDENTICAL to the old flat-assemble path -
+        // the manager frames the facade prelude + coroutine base + concatenated sources, and
+        // it loads as one chunk named `moduleName`, exactly as before. Defined out-of-line
+        // (below WrenManager) because it dereferences the manager.
+        core::Status LoadBehaviorModule(core::Span<const BehaviorModuleClass> classes,
+                                        core::StringView moduleName) override;
+
         void SetErrorHandler(IScriptErrorHandler* handler) override { m_errorHandler = handler; }
 
         void SetGlobal(core::StringView, const core::Variant&) override {}
@@ -1131,6 +1139,17 @@ namespace draconic::script::wren
     }
 
     // ---- coroutine foreign callbacks (defined after WrenManager) ----
+
+    core::Status WrenContext::LoadBehaviorModule(core::Span<const BehaviorModuleClass> classes,
+                                                 core::StringView moduleName)
+    {
+        core::Array<core::StringView> sources;
+        sources.Reserve(classes.Size());
+        for (const BehaviorModuleClass& entry : classes) { sources.PushBack(entry.source); }
+        const core::String moduleSource = Manager().AssembleBehaviorModuleSource(
+            core::Span<const core::StringView>{ sources.Data(), sources.Size() });
+        return Load(moduleSource.AsView(), moduleName);
+    }
 
     WrenManager& WrenContext::Manager() const noexcept
     {
