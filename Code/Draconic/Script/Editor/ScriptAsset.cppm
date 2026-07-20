@@ -434,6 +434,122 @@ export namespace draconic::script
         }
     };
 
+    // ---- ScriptPage editing model (scripting.md §5) ----
+
+    /// The headless half of the in-editor ScriptPage: the edit buffer for one script asset's
+    /// source file plus the save + compile-check loop, factored OUT of the UI so it is
+    /// unit-testable without a window. Save writes the source file (the recook + hot reload is
+    /// driven by the page through EditorContext::RequestCook - the SAME path an external edit
+    /// takes). Validate() compile-checks the CURRENT buffer through the language cook the
+    /// product build already delegates to: it captures the cook's ScriptError file/line +
+    /// message for inline surfacing but NEVER writes a product, so a failing edit leaves the
+    /// last-good cooked ScriptClass untouched (live instances keep running the old class).
+    class ScriptSourceDocument
+    {
+    public:
+        struct CompileError
+        {
+            ScriptErrorKind kind = ScriptErrorKind::Compile;
+            String module;   // reporting module/file (empty = the asset's own file)
+            i32 line = 0;    // NOTE: as the cook's error handler captured it (may include the
+                             // backend's framing prelude offset; the message is authoritative)
+            String message;
+        };
+
+        /// Bind to an asset's source file: the project's Sources/ root, the asset's file name,
+        /// and its language id (empty defaults to Wren, matching the builder).
+        void Bind(StringView sourcesRoot, StringView fileName, StringView language)
+        {
+            m_sourcesRoot = String(sourcesRoot);
+            m_fileName = String(fileName);
+            m_language = language.IsEmpty() ? String(u8"wren") : String(language);
+        }
+
+        [[nodiscard]] StringView FileName() const noexcept { return m_fileName.AsView(); }
+        [[nodiscard]] StringView Language() const noexcept { return m_language.AsView(); }
+
+        /// Read the bound source file into the edit buffer (and mark it as the saved baseline).
+        [[nodiscard]] Status Load()
+        {
+            const String path = PathJoin(m_sourcesRoot.AsView(), m_fileName.AsView());
+            Result<Array<byte>> bytes = ReadFile(path.AsView());
+            if (!bytes.HasValue()) { return Status{ bytes.Error() }; }
+            const Array<byte>& data = bytes.Value();
+            m_source = String(StringView(reinterpret_cast<const utf8char*>(data.Data()),
+                                         data.Size()));
+            m_saved = m_source;
+            return Status{};
+        }
+
+        [[nodiscard]] StringView Source() const noexcept { return m_source.AsView(); }
+        void SetSource(StringView source) { m_source = String(source); }
+        [[nodiscard]] bool IsModified() const { return m_source.AsView() != m_saved.AsView(); }
+
+        /// Persist the edit buffer to the bound source file (clears IsModified on success).
+        /// The caller drives the recook + hot reload afterwards (EditorContext::RequestCook).
+        [[nodiscard]] Status Save()
+        {
+            const String path = PathJoin(m_sourcesRoot.AsView(), m_fileName.AsView());
+            const Status written = WriteFile(path.AsView(),
+                Span<const byte>(reinterpret_cast<const byte*>(m_source.Data()), m_source.Size()));
+            if (written.IsOk()) { m_saved = m_source; }
+            return written;
+        }
+
+        /// Compile-check the CURRENT buffer through the language cook (no product write).
+        /// Fills Errors() with the captured ScriptErrors and, on success, the harvested class
+        /// name. Returns whether it compiled. An unknown language surfaces one config error.
+        [[nodiscard]] bool Validate()
+        {
+            m_errors.Clear();
+            m_className = String{};
+            IScriptLanguageCook* cook =
+                ScriptLanguageCookRegistry::Get().FindByLanguage(m_language.AsView());
+            if (cook == nullptr)
+            {
+                CompileError e;
+                e.message = String(u8"no script cook registered for language '");
+                e.message.Append(m_language.AsView());
+                e.message.Append(u8"'");
+                m_errors.PushBack(Move(e));
+                m_lastCompileOk = false;
+                return false;
+            }
+            CookScriptErrorSink sink;
+            ScriptClassSource out;
+            const bool ok = cook->Cook(m_source.AsView(), m_fileName.AsView(), sink, out);
+            for (const CookScriptErrorSink::Entry& entry : sink.errors)
+            {
+                CompileError e;
+                e.kind = entry.kind;
+                e.module = entry.module;
+                e.line = entry.line;
+                e.message = entry.message;
+                m_errors.PushBack(Move(e));
+            }
+            if (ok) { m_className = out.className; }
+            m_lastCompileOk = ok;
+            return ok;
+        }
+
+        [[nodiscard]] Span<const CompileError> Errors() const noexcept
+        {
+            return Span<const CompileError>{ m_errors.Data(), m_errors.Size() };
+        }
+        [[nodiscard]] StringView ClassName() const noexcept { return m_className.AsView(); }
+        [[nodiscard]] bool LastCompileOk() const noexcept { return m_lastCompileOk; }
+
+    private:
+        String m_sourcesRoot;
+        String m_fileName;
+        String m_language;
+        String m_source;
+        String m_saved;
+        String m_className;
+        Array<CompileError> m_errors;
+        bool m_lastCompileOk = true;
+    };
+
     // Registers the asset type for content-DB construction + deserialization.
     inline void RegisterScriptAssets()
     {

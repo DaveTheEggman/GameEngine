@@ -441,3 +441,64 @@ TEST_CASE("script.pipeline: the Wren cook flags usesCoroutines from `is Behavior
     REQUIRE(cooked != nullptr);
     CHECK(cooked->usesCoroutines);
 }
+
+TEST_CASE("script.pipeline: ScriptSourceDocument is the ScriptPage save->recook seam - it "
+          "round-trips source, cooks an updated product, and surfaces compile errors while "
+          "the last-good product survives")
+{
+    CookBed bed(u8"scriptpage");
+    bed.WriteSource(u8"mover.wren", kMoverSource);
+
+    // Load: the document reads the bound source file into its edit buffer.
+    ScriptSourceDocument doc;
+    doc.Bind(bed.srcDir.AsView(), u8"mover.wren", u8"wren");
+    REQUIRE(doc.Load().IsOk());
+    CHECK(doc.Source() == kMoverSource);
+    CHECK_FALSE(doc.IsModified());
+
+    // Validate: a compile-check through the SAME language cook - no product write.
+    CHECK(doc.Validate());
+    CHECK(doc.LastCompileOk());
+    CHECK(doc.ClassName() == u8"Mover");
+    CHECK(doc.Errors().Size() == 0u);
+
+    // The recook (the builder over the saved file) produces an updated cooked ScriptClass.
+    content::Instance* product = nullptr;
+    REQUIRE(bed.Cook(u8"mover.wren", u8"wren", product).IsOk());
+    {
+        RefPtr<ISerializable> object = product->ReadObject();
+        ScriptClassSource* cooked = Cast<ScriptClassSource>(object.Get());
+        REQUIRE(cooked != nullptr);
+        CHECK(cooked->className == u8"Mover");
+    }
+
+    // Edit to a broken script THROUGH the document + save it to disk.
+    constexpr StringView kBroken =
+        u8"class Mover {\n"
+        u8"    onStart() { this is not valid wren )( }\n";
+    doc.SetSource(kBroken);
+    CHECK(doc.IsModified());
+    REQUIRE(doc.Save().IsOk());
+    CHECK_FALSE(doc.IsModified());
+
+    // The bytes persisted (a fresh document reads them back).
+    ScriptSourceDocument reopened;
+    reopened.Bind(bed.srcDir.AsView(), u8"mover.wren", u8"wren");
+    REQUIRE(reopened.Load().IsOk());
+    CHECK(reopened.Source() == kBroken);
+
+    // Validate now surfaces compile errors (file/line + message) and compiles false.
+    CHECK_FALSE(doc.Validate());
+    CHECK_FALSE(doc.LastCompileOk());
+    REQUIRE(doc.Errors().Size() >= 1u);
+    CHECK_FALSE(doc.Errors().Data()[0].message.IsEmpty());
+
+    // The recook of the now-broken source FAILS - and the last good cooked product survives.
+    CHECK_FALSE(bed.Cook(u8"mover.wren", u8"wren", product).IsOk());
+    {
+        RefPtr<ISerializable> object = product->ReadObject();
+        ScriptClassSource* cooked = Cast<ScriptClassSource>(object.Get());
+        REQUIRE(cooked != nullptr);
+        CHECK(cooked->className == u8"Mover");   // unchanged - the failed cook never wrote
+    }
+}
