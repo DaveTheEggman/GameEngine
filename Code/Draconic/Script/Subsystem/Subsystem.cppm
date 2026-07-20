@@ -217,11 +217,14 @@ export namespace draconic::script
             if (m_moduleCurrent) { return true; }
 
             // Rebuild: one concatenated module, fresh generation name. Wren modules
-            // get the facade prelude (one line; the import resolves against "main").
+            // get the facade prelude (the import resolves against "main") plus the
+            // optional `Behavior` coroutine base, so `class Mover is Behavior { ... }`
+            // compiles; plain P1 classes that don't extend it are untouched.
             String moduleSource;
             if (m_language.AsView() == u8"wren")
             {
                 moduleSource += kScriptBehaviorModulePrelude;
+                moduleSource += kScriptWrenBehaviorBase;
             }
             for (const RefPtr<ScriptClass>& loaded : m_loadedClasses)
             {
@@ -316,6 +319,15 @@ export namespace draconic::script
             m_host->Binding().currentScene = m_scene;   // Scene.spawn target for this tick
             TickBehaviors(deltaTime);
             DrainMessages();   // deferred entity.send delivery - same frame, never nested
+            // Resume due coroutines ONCE per simulated frame, at the tick's top level (no
+            // VM call active - the backend's resume is safe here). Gated to a backend that
+            // actually has the scheduler; a non-supporting one no-ops anyway.
+            if (IScriptManager* manager = m_host->Manager();
+                manager != nullptr
+                && HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Coroutines))
+            {
+                manager->AdvanceCoroutines(static_cast<f64>(deltaTime));
+            }
         }
 
         /// Live instance count (the subsystem's context-teardown bookkeeping).
@@ -484,6 +496,7 @@ export namespace draconic::script
                 {
                     InvokeHandler(behavior, *behavior.boundClass, entity, kOnDisable, {});
                     behavior.active = false;
+                    CancelCoroutines(behavior);   // a disabled behavior's coroutines stop too
                 }
                 return;
             }
@@ -640,6 +653,25 @@ export namespace draconic::script
             }
         }
 
+        // Stop every coroutine the behavior's instance started (disable / destroy /
+        // reload). Gated to a coroutine-capable backend AND a class that opted in
+        // (usesCoroutines) - a backend/class without coroutines pays nothing.
+        void CancelCoroutines(ScriptBehavior& behavior)
+        {
+            if (behavior.instance.Get() == nullptr || behavior.boundClass == nullptr
+                || !behavior.boundClass->usesCoroutines || m_host == nullptr)
+            {
+                return;
+            }
+            IScriptManager* manager = m_host->Manager();
+            if (manager == nullptr
+                || !HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Coroutines))
+            {
+                return;
+            }
+            manager->CancelCoroutinesFor(*behavior.instance);
+        }
+
         void StopBehavior(ScriptBehavior& behavior, dscene::EntityHandle entity,
                           bool invokeDestroy)
         {
@@ -648,6 +680,7 @@ export namespace draconic::script
             {
                 InvokeHandler(behavior, *behavior.boundClass, entity, kOnDestroy, {});
             }
+            CancelCoroutines(behavior);   // drop pending coroutines before releasing the instance
             behavior.instance = nullptr;
             behavior.boundClass = nullptr;
             behavior.started = false;

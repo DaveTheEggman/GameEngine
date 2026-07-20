@@ -180,7 +180,8 @@ export namespace draconic::script
         String className;   // empty = a ScriptClass-less utility module
         String source;      // full script source text (no bytecode - see the header note)
         Array<ScriptPropertyDesc> properties;
-        Array<String> handlers;   // declared lifecycle/event handlers (dispatch gate)
+        Array<String> handlers;    // declared lifecycle/event handlers (dispatch gate)
+        bool usesCoroutines = false;   // harvested: the class starts coroutines (cancel-on-teardown gate)
 
         void Serialize(ISerializer& ar) override
         {
@@ -189,6 +190,7 @@ export namespace draconic::script
             draconic::core::Serialize(ar, "source", source);
             draconic::core::Serialize(ar, "properties", properties);
             draconic::core::Serialize(ar, "handlers", handlers);
+            draconic::core::Serialize(ar, "usesCoroutines", usesCoroutines);
         }
     };
 
@@ -203,6 +205,7 @@ export namespace draconic::script
         String source;
         Array<ScriptPropertyDesc> properties;
         Array<String> handlers;
+        bool usesCoroutines = false;   // the class starts coroutines (cancel on disable/destroy)
 
         [[nodiscard]] bool HasHandler(StringView name) const
         {
@@ -258,6 +261,7 @@ export namespace draconic::script
             product->source = source->source;
             product->properties = source->properties;
             product->handlers = source->handlers;
+            product->usesCoroutines = source->usesCoroutines;
             product->BuildProfileName();
             return product;
         }

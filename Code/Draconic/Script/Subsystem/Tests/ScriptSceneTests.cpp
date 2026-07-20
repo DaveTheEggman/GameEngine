@@ -849,6 +849,138 @@ TEST_CASE("script.scene: Scene.find / Scene.findByPath resolve entities in the c
     CHECK(bed.scene.GetEntityName(e) == StringView(u8"miss-ok"));
 }
 
+// ---- coroutines (scripting.md §3.3): the Wren `Behavior` base + host scheduler wired
+// through the subsystem tick (AdvanceCoroutines once per frame) + cancel on disable/destroy.
+
+TEST_CASE("script.scene: a coroutine wait(1.0) runs its body only after ~1s of ticks")
+{
+    ScriptedScene bed;
+    RefPtr<ScriptClass> waiter = MakeClass(u8"Waiter",
+        u8"class Waiter is Behavior {\n"
+        u8"    construct new(entity) { super(entity) }\n"
+        u8"    onStart() {\n"
+        u8"        var me = this\n"
+        u8"        startCoroutine(Fn.new {\n"
+        u8"            me.wait(1.0)\n"
+        u8"            me.finish()\n"
+        u8"        })\n"
+        u8"    }\n"
+        u8"    finish() { entity.setPosition(5, 0, 0) }\n"
+        u8"}\n",
+        { u8"onStart" });
+    waiter->usesCoroutines = true;
+
+    const dscene::EntityHandle e = bed.AddScripted(waiter, u8"w");
+    bed.Start();
+    bed.Frame(0.5f);   // onStart registers wait 1.0; +0.5s -> still pending
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 0.0f));
+    bed.Frame(0.5f);   // +0.5s -> 1.0s reached -> resume runs finish()
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 5.0f));
+    bed.Frame(0.5f);   // completed coroutine does not run again
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 5.0f));
+}
+
+TEST_CASE("script.scene: a coroutine waitUntil resumes when the predicate flips")
+{
+    ScriptedScene bed;
+    RefPtr<ScriptClass> gater = MakeClass(u8"Gater",
+        u8"class Gater is Behavior {\n"
+        u8"    construct new(entity) {\n"
+        u8"        super(entity)\n"
+        u8"        _open = false\n"
+        u8"        _ticks = 0\n"
+        u8"    }\n"
+        u8"    onStart() {\n"
+        u8"        var me = this\n"
+        u8"        startCoroutine(Fn.new {\n"
+        u8"            me.waitUntil(Fn.new { me.isOpen })\n"
+        u8"            me.finish()\n"
+        u8"        })\n"
+        u8"    }\n"
+        u8"    onUpdate(dt) {\n"
+        u8"        _ticks = _ticks + 1\n"
+        u8"        if (_ticks >= 3) { _open = true }\n"
+        u8"    }\n"
+        u8"    isOpen { _open }\n"
+        u8"    finish() { entity.setPosition(9, 0, 0) }\n"
+        u8"}\n",
+        { u8"onStart", u8"onUpdate" });
+    gater->usesCoroutines = true;
+
+    const dscene::EntityHandle e = bed.AddScripted(gater, u8"g");
+    bed.Start();
+    bed.Frame(0.5f);   // tick 1, gate closed
+    bed.Frame(0.5f);   // tick 2, gate closed
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 0.0f));
+    bed.Frame(0.5f);   // tick 3 opens the gate -> waitUntil resumes -> finish()
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 9.0f));
+}
+
+TEST_CASE("script.scene: destroying a behavior cancels its pending coroutine (never fires)")
+{
+    ScriptedScene bed;
+    RefPtr<ScriptClass> ghost = MakeClass(u8"Ghost",
+        u8"var GhostFired = 0\n"
+        u8"class Ghost is Behavior {\n"
+        u8"    construct new(entity) { super(entity) }\n"
+        u8"    onStart() {\n"
+        u8"        var me = this\n"
+        u8"        startCoroutine(Fn.new {\n"
+        u8"            me.wait(1.0)\n"
+        u8"            me.fire()\n"
+        u8"        })\n"
+        u8"    }\n"
+        u8"    fire() { GhostFired = GhostFired + 1 }\n"
+        u8"}\n",
+        { u8"onStart" });
+    ghost->usesCoroutines = true;
+
+    const dscene::EntityHandle e = bed.AddScripted(ghost, u8"ghost");
+    bed.Start();
+    bed.Frame(0.5f);            // registers wait 1.0; +0.5s pending
+    bed.scene.DestroyEntity(e); // onDestroy path cancels the coroutine
+    bed.Frame(0.5f);
+    bed.Frame(0.5f);
+    bed.Frame(0.5f);            // well past 1.0s - a cancelled coroutine must not run
+
+    const Variant fired = bed.host.Context()->GetGlobal(u8"GhostFired");
+    REQUIRE(fired.TryGet<f64>() != nullptr);
+    CHECK(*fired.TryGet<f64>() == 0.0);
+}
+
+TEST_CASE("script.scene: disabling a behavior cancels its pending coroutine (never fires)")
+{
+    ScriptedScene bed;
+    RefPtr<ScriptClass> ghost = MakeClass(u8"Sleeper",
+        u8"var SleeperFired = 0\n"
+        u8"class Sleeper is Behavior {\n"
+        u8"    construct new(entity) { super(entity) }\n"
+        u8"    onStart() {\n"
+        u8"        var me = this\n"
+        u8"        startCoroutine(Fn.new {\n"
+        u8"            me.wait(1.0)\n"
+        u8"            me.fire()\n"
+        u8"        })\n"
+        u8"    }\n"
+        u8"    onUpdate(dt) {}\n"
+        u8"    fire() { SleeperFired = SleeperFired + 1 }\n"
+        u8"}\n",
+        { u8"onStart", u8"onUpdate" });
+    ghost->usesCoroutines = true;
+
+    const dscene::EntityHandle e = bed.AddScripted(ghost, u8"s");
+    bed.Start();
+    bed.Frame(0.5f);   // registers wait 1.0; +0.5s pending
+    bed.components->Get(e)->behaviors[0].enabled = false;
+    bed.Frame(0.5f);   // onDisable edge cancels the coroutine
+    bed.Frame(0.5f);
+    bed.Frame(0.5f);   // past 1.0s - must not fire
+
+    const Variant fired = bed.host.Context()->GetGlobal(u8"SleeperFired");
+    REQUIRE(fired.TryGet<f64>() != nullptr);
+    CHECK(*fired.TryGet<f64>() == 0.0);
+}
+
 // ---- physics contact events -> behaviors (end-to-end, real Jolt + real Scene) ----
 // A full runtime Context wiring SceneSubsystem + PhysicsSubsystem + ScriptSubsystem: the
 // physics tick resolves contacts to entities and pushes them to the script subsystem

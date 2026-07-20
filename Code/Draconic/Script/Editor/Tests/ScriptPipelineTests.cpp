@@ -184,6 +184,26 @@ TEST_CASE("script.pipeline: handler scan captures the whole on<Upper>(...) conve
     CHECK(handlers.Size() == 3u);
 }
 
+TEST_CASE("script.pipeline: coroutine use is harvested (is Behavior / startCoroutine, "
+          "comments ignored)")
+{
+    // Wren: extending the base OR referencing startCoroutine( flags it.
+    CHECK(ScriptUsesCoroutines(u8"class Mover is Behavior {\n}\n", u8"wren"));
+    CHECK(ScriptUsesCoroutines(
+        u8"class Mover {\n    onStart() { startCoroutine(Fn.new {}) }\n}\n", u8"wren"));
+    // A plain P1 behavior does not.
+    CHECK_FALSE(ScriptUsesCoroutines(
+        u8"class Mover {\n    onUpdate(dt) {}\n}\n", u8"wren"));
+    // `is Behavior` only counts in real code, not a comment.
+    CHECK_FALSE(ScriptUsesCoroutines(
+        u8"// class Mover is Behavior\nclass Mover {\n}\n", u8"wren"));
+    // A non-Wren language ignores the Wren-only `is Behavior` token but still catches
+    // the shared startCoroutine( surface.
+    CHECK_FALSE(ScriptUsesCoroutines(u8"class Mover is Behavior {}\n", u8"angelscript"));
+    CHECK(ScriptUsesCoroutines(u8"void begin() { startCoroutine(@this.Run); }\n",
+                               u8"angelscript"));
+}
+
 TEST_CASE("script.pipeline: full harvest round-trip - source -> cook -> factory -> "
           "typed metadata (sorted, hashed, described)")
 {

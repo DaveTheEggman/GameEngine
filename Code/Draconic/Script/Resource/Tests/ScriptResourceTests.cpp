@@ -160,6 +160,7 @@ TEST_CASE("script.resource: cooked record -> factory -> runtime product (metadat
     }
     cooked.handlers.PushBack(String(u8"onStart"));
     cooked.handlers.PushBack(String(u8"onUpdate"));
+    cooked.usesCoroutines = true;
 
     auto* instance = outputDb.RootGroup()->CreateInstance(u8"cooked",
                                                           ScriptClassSource::StaticType());
@@ -187,6 +188,7 @@ TEST_CASE("script.resource: cooked record -> factory -> runtime product (metadat
     CHECK(product->HasHandler(u8"onStart"));
     CHECK(product->HasHandler(u8"onUpdate"));
     CHECK_FALSE(product->HasHandler(u8"onDestroy"));
+    CHECK(product->usesCoroutines);   // travels the cooked wire (symmetric)
     CHECK(product->ProfileName() != nullptr);
 
     RemoveDbTree(u8"draconic_scriptres_out");

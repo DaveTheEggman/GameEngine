@@ -62,6 +62,11 @@ export namespace draconic::script
     /// stripped): a handler is `name(` or `name {` at declaration position.
     [[nodiscard]] inline Array<String> ScanScriptHandlers(StringView source);
 
+    /// True when the class opts into the coroutine scheduler (the cancel-on-teardown
+    /// gate). Wren: it extends `Behavior` (`is Behavior`) or references `startCoroutine(`.
+    /// Comment-stripped scan - simple, and enough for the runtime cancel guard.
+    [[nodiscard]] inline bool ScriptUsesCoroutines(StringView source, StringView language);
+
     /// Strips `//` line comments and `/* */` block comments (string literals respected).
     [[nodiscard]] inline String StripScriptComments(StringView source);
 
@@ -306,6 +311,39 @@ export namespace draconic::script
         return found;
     }
 
+    namespace detail
+    {
+        // First occurrence of `needle` in `haystack` (byte scan); npc when absent.
+        [[nodiscard]] inline bool Contains(StringView haystack, StringView needle) noexcept
+        {
+            if (needle.IsEmpty() || needle.Size() > haystack.Size()) { return false; }
+            for (usize i = 0; i + needle.Size() <= haystack.Size(); ++i)
+            {
+                if (haystack.SubStr(i, needle.Size()) == needle) { return true; }
+            }
+            return false;
+        }
+
+        [[nodiscard]] inline usize CountNewlines(StringView text) noexcept
+        {
+            usize n = 0;
+            for (usize i = 0; i < text.Size(); ++i) { if (text[i] == u8'\n') { ++n; } }
+            return n;
+        }
+    }
+
+    inline bool ScriptUsesCoroutines(StringView source, StringView language)
+    {
+        // Only Wren grows the `Behavior` base today; other languages express coroutines
+        // through their own surface (e.g. AngelScript's startCoroutine) - the shared
+        // `startCoroutine(` token catches those too.
+        const String stripped = StripScriptComments(source);
+        const StringView text = stripped.AsView();
+        if (detail::Contains(text, u8"startCoroutine(")) { return true; }
+        if (language == u8"wren" && detail::Contains(text, u8"is Behavior")) { return true; }
+        return false;
+    }
+
     inline bool ParseHarvestRecord(StringView record, ScriptPropertyDesc& out, String& outError)
     {
         StringView fields[4];
@@ -476,15 +514,24 @@ export namespace draconic::script
             context->SetErrorHandler(&sink);
 
             // Compile check: errors become cook errors with the asset's file + line.
-            // Wren sources compile WITH the runtime's one-line facade prelude (error
-            // lines shift by one; the reporter subtracts it back).
+            // Wren sources compile WITH the runtime's facade prelude AND the optional
+            // `Behavior` coroutine base (so `is Behavior` resolves at harvest exactly as
+            // it does at runtime); error lines shift by the injected line count, which
+            // the reporter subtracts back.
             const bool wrenPrelude = (language == u8"wren");
             String compileSource;
-            if (wrenPrelude) { compileSource += kScriptBehaviorModulePrelude; }
+            i32 preludeLines = 0;
+            if (wrenPrelude)
+            {
+                compileSource += kScriptBehaviorModulePrelude;
+                compileSource += kScriptWrenBehaviorBase;
+                preludeLines = static_cast<i32>(detail::CountNewlines(kScriptBehaviorModulePrelude)
+                                                + detail::CountNewlines(kScriptWrenBehaviorBase));
+            }
             compileSource += source.AsView();
             if (!context->Load(compileSource.AsView(), scriptAsset.fileName.AsView()).IsOk())
             {
-                ReportCompileErrors(scriptAsset.fileName.AsView(), sink, wrenPrelude ? 1 : 0);
+                ReportCompileErrors(scriptAsset.fileName.AsView(), sink, preludeLines);
                 return Status{ ErrorCode::InvalidArgument };
             }
 
@@ -495,6 +542,7 @@ export namespace draconic::script
                 source.AsView(),
                 draconic::editor::FileStemOf(scriptAsset.fileName.AsView()));
             cooked.handlers = ScanScriptHandlers(source.AsView());
+            cooked.usesCoroutines = ScriptUsesCoroutines(source.AsView(), language);
 
             // Probe only when the convention is DECLARED (a class without a
             // `static properties` getter legitimately has no inspector rows).
