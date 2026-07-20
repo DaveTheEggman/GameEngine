@@ -207,4 +207,61 @@ TEST_CASE("script.backend: capability flags default to None and compose (B4)")
     CHECK(HasScriptCapability(both, ScriptCapabilities::Coroutines));
     CHECK(HasScriptCapability(both, ScriptCapabilities::Profiler));
     CHECK_FALSE(HasScriptCapability(both, ScriptCapabilities::Debugger));
+    // The new seam flags compose too.
+    constexpr ScriptCapabilities more =
+        ScriptCapabilities::Delegates | ScriptCapabilities::Bytecode;
+    CHECK(HasScriptCapability(more, ScriptCapabilities::Delegates));
+    CHECK(HasScriptCapability(more, ScriptCapabilities::Bytecode));
+    CHECK_FALSE(HasScriptCapability(more, ScriptCapabilities::Debugger));
+}
+
+TEST_CASE("script.backend: unset seams default to null factories / unsupported")
+{
+    // A backend that overrides nothing has the committed seams ABSENT: the factories
+    // return null and CompileToBlob is unsupported. DescribeBoundApi defaults to empty.
+    FakeScriptManager manager;
+    CHECK(manager.DescribeBoundApi().IsEmpty());
+    CHECK(manager.CreateDebugger().Get() == nullptr);
+    CHECK(manager.CreateProfiler().Get() == nullptr);
+    CHECK(manager.CompileToBlob(u8"", u8"chunk").Error() == ErrorCode::NotSupported);
+}
+
+TEST_CASE("script.debug: snapshot value types are wire-symmetric (remote-transport ready)")
+{
+    using namespace draconic::script;
+
+    const auto roundTrip = [](auto value) {
+        using T = decltype(value);
+        MemoryStream stream;
+        {
+            BinarySerializer writer(stream, SerializeMode::Write);
+            T copy = value;
+            Serialize(writer, copy);   // ADL finds draconic::script::Serialize
+            REQUIRE(writer.IsOk());
+        }
+        (void)stream.Seek(0, SeekOrigin::Begin);
+        T out{};
+        BinarySerializer reader(stream, SerializeMode::Read);
+        Serialize(reader, out);
+        REQUIRE(reader.IsOk());
+        return out;
+    };
+
+    ScriptStackFrame frame{ String(u8"game.wren"), String(u8"update"), 42 };
+    ScriptStackFrame frameOut = roundTrip(frame);
+    CHECK(frameOut.file == u8"game.wren");
+    CHECK(frameOut.function == u8"update");
+    CHECK(frameOut.line == 42);
+
+    ScriptVariable variable{ String(u8"health"), String(u8"double"), String(u8"100"), 7u };
+    ScriptVariable variableOut = roundTrip(variable);
+    CHECK(variableOut.name == u8"health");
+    CHECK(variableOut.typeName == u8"double");
+    CHECK(variableOut.value == u8"100");
+    CHECK(variableOut.objectRef == 7u);
+
+    ScriptValueObject object{ 99u, String(u8"Entity#3") };
+    ScriptValueObject objectOut = roundTrip(object);
+    CHECK(objectOut.ref == 99u);
+    CHECK(objectOut.text == u8"Entity#3");
 }

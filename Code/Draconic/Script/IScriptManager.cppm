@@ -11,6 +11,8 @@ export module draconic.script:script_manager;
 
 import draconic.core;
 import :script_context;
+import :script_introspection;   // DescribeBoundApi surface
+import :script_debug;           // IScriptDebugger / IScriptProfiler / IScriptBlob seams
 
 namespace core = draconic::core;
 
@@ -24,8 +26,10 @@ export namespace draconic::script
         None       = 0,
         Coroutines = 1 << 0, // cooperative coroutines (wait/waitUntil scheduler) - implemented
                              // host-side per backend (each backend uses its own primitive)
-        Debugger   = 1 << 1, // step-debug seam (none implemented yet)
-        Profiler   = 1 << 2, // VM-level profiling hooks (none implemented yet)
+        Debugger   = 1 << 1, // step-debug seam (interface committed; none implemented yet)
+        Profiler   = 1 << 2, // VM-level profiling hooks (interface committed; none implemented yet)
+        Delegates  = 1 << 3, // script functions as native callbacks (IScriptDelegate) - implemented
+        Bytecode   = 1 << 4, // cook-to-bytecode blob (interface committed; none implemented yet)
     };
     inline constexpr ScriptCapabilities operator|(ScriptCapabilities a, ScriptCapabilities b)
     {
@@ -77,6 +81,45 @@ export namespace draconic::script
         [[nodiscard]] virtual ScriptCapabilities Capabilities() const
         {
             return ScriptCapabilities::None;
+        }
+
+        /// The ACTUAL script-callable API this backend bound, spelled in the backend's own
+        /// language (names/signatures differ per backend, and a backend may not bind every
+        /// reflected type). The accurate source for a future ScriptClassesView/autocomplete
+        /// and for the conformance diff that catches a type the backend silently failed to
+        /// bind. NOT a capability - every backend implements it; the default (empty) is the
+        /// honest answer for a backend that has bound nothing, and the diff then flags it.
+        [[nodiscard]] virtual core::Array<ScriptApiType> DescribeBoundApi() const
+        {
+            return core::Array<ScriptApiType>{};
+        }
+
+        // ---- committed seams (no backend implements these yet) ----
+
+        /// A step debugger for this VM, or null when ScriptCapabilities::Debugger is absent
+        /// (the default - the seam is committed, the impl is a later track).
+        [[nodiscard]] virtual core::UniquePtr<IScriptDebugger> CreateDebugger()
+        {
+            return core::UniquePtr<IScriptDebugger>{};
+        }
+
+        /// A VM profiler, or null when ScriptCapabilities::Profiler is absent (the default).
+        [[nodiscard]] virtual core::UniquePtr<IScriptProfiler> CreateProfiler()
+        {
+            return core::UniquePtr<IScriptProfiler>{};
+        }
+
+        /// Compile source to an opaque bytecode blob (the cook side of the Bytecode seam).
+        /// Default: NotSupported (ScriptCapabilities::Bytecode absent). A backend with a
+        /// stable bytecode (AngelScript SaveByteCode) fills this later; a source-only
+        /// backend (Wren) stays unsupported - exactly the split the capability model exists
+        /// for.
+        [[nodiscard]] virtual core::Result<core::RefPtr<IScriptBlob>> CompileToBlob(
+            core::StringView source, core::StringView chunkName)
+        {
+            (void)source;
+            (void)chunkName;
+            return core::Err(core::ErrorCode::NotSupported);
         }
 
         /// Assemble the ONE behavior module's source from the loaded class SOURCES. The

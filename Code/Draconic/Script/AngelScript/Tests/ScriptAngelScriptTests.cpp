@@ -455,6 +455,11 @@ TEST_CASE("angelscript: CERTIFIED - the backend conformance battery (scripting.m
     dialect.compileBroken = u8"int = = = @#$";
     dialect.runtimeFault =
         u8"void main() { int zero = 0; int boom = 10 / zero; }\n";
+    // Delegate: subscribe an AngelScript funcdef handle (value * 2) to DelegateSignal.
+    dialect.delegateModule =
+        u8"double dbl(double x) { return x * 2; }\n"
+        u8"DelegateSignal@ signal = DelegateSignal();\n"
+        u8"void main() { signal.Connect(ScriptDelegate(dbl)); }\n";
     // AngelScript's natural coroutine surface: a delegate to a method (`this.RunWait`)
     // wrapped in the ScriptCoroutine funcdef, started with startCoroutine; `wait` is a
     // host function, `waitUntil` a script helper (injected per module). Same concept as
@@ -477,9 +482,37 @@ TEST_CASE("angelscript: CERTIFIED - the backend conformance battery (scripting.m
         []() { return draconic::script::angelscript::CreateScriptManager(); }, dialect);
 }
 
-TEST_CASE("angelscript: declares the Coroutines capability (B4 - the coroutine scheduler)")
+TEST_CASE("angelscript: declares the Coroutines + Delegates capabilities; seams absent (B4)")
 {
     RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
     CHECK(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Coroutines));
+    CHECK(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Delegates));
     CHECK_FALSE(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Debugger));
+    CHECK_FALSE(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Profiler));
+    CHECK_FALSE(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Bytecode));
+    CHECK(manager->CreateDebugger().Get() == nullptr);
+    CHECK(manager->CreateProfiler().Get() == nullptr);
+    CHECK(manager->CompileToBlob(u8"", u8"blob").Error() == ErrorCode::NotSupported);
+}
+
+TEST_CASE("angelscript: a script function is a native callback via IScriptDelegate (the real use)")
+{
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    manager->RegisterType(conformance::DelegateSignal::StaticType());
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+
+    // A behavior subscribes a function handle to a native event; native code fires it.
+    REQUIRE(ctx->Load(
+        u8"double add5(double x) { return x + 5; }\n"
+        u8"DelegateSignal@ signal = DelegateSignal();\n"
+        u8"void main() { signal.Connect(ScriptDelegate(add5)); }\n",
+        u8"main").IsOk());
+
+    Variant signalVar = ctx->GetGlobal(u8"signal");
+    REQUIRE(signalVar.IsObject());
+    conformance::DelegateSignal* signal = signalVar.AsObject<conformance::DelegateSignal>();
+    REQUIRE(signal != nullptr);
+
+    CHECK(signal->Emit(10.0) == doctest::Approx(15.0));   // native fires -> function runs
+    CHECK(signal->Emit(100.0) == doctest::Approx(105.0)); // reusable across firings
 }

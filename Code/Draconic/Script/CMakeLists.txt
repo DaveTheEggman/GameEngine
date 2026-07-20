@@ -14,6 +14,9 @@ target_sources(DraconicScript
     PUBLIC
         FILE_SET script_modules TYPE CXX_MODULES FILES
             ScriptModule.cppm
+            IScriptDelegate.cppm
+            ScriptIntrospection.cppm
+            ScriptDebug.cppm
             IScriptContext.cppm
             IScriptManager.cppm
             RegisterTypes.cppm

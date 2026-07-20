@@ -11,6 +11,7 @@ module;
 export module draconic.script:script_context;
 
 import draconic.core;
+import :script_debug;   // IScriptBlob (the LoadBlob seam)
 
 namespace core = draconic::core;
 
@@ -66,6 +67,15 @@ export namespace draconic::script
         // Compile and run a chunk of script source. NotSupported if the backend
         // has no compiler (e.g. it only loads precompiled blobs).
         virtual core::Status Load(core::StringView source, core::StringView chunkName) = 0;
+
+        // Load a precompiled bytecode blob (the counterpart to
+        // IScriptManager::CompileToBlob). COMMITTED SEAM: the default is NotSupported;
+        // no backend implements it yet (ScriptCapabilities::Bytecode is absent).
+        virtual core::Status LoadBlob(IScriptBlob& blob)
+        {
+            (void)blob;
+            return core::Status{ core::ErrorCode::NotSupported };
+        }
 
         // Globals are exchanged as Variants (values or objects).
         virtual void SetGlobal(core::StringView name, const core::Variant& value) = 0;

@@ -13,6 +13,7 @@
 
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
+#include "Core/Reflection/Reflect.h"
 
 import draconic.core;
 import draconic.script;
@@ -20,6 +21,35 @@ import draconic.script;
 namespace draconic::script::conformance
 {
     using namespace draconic::core;
+
+    // A real native API that takes a script function as a typed callback (the delegate
+    // seam's "user"): an event a behavior subscribes to, that native code later fires.
+    // Certified below on every backend that declares ScriptCapabilities::Delegates.
+    class DelegateSignal : public Object
+    {
+        DRACONIC_OBJECT(DelegateSignal, Object)
+    public:
+        // A script function subscribes; holding the RefPtr keeps it alive across GC.
+        void Connect(RefPtr<IScriptDelegate> handler) { m_handler = Move(handler); }
+
+        // Fire the event with one value; returns the handler's result (0 if unconnected).
+        f64 Emit(f64 value)
+        {
+            if (m_handler.Get() == nullptr) { return 0.0; }
+            Variant args[] = { Variant::From<f64>(value) };
+            Result<Variant> result = m_handler->Invoke(Span<Variant>{ args, 1 });
+            if (!result.HasValue()) { return 0.0; }
+            const f64* returned = result.Value().TryGet<f64>();
+            return (returned != nullptr) ? *returned : 0.0;
+        }
+
+        // The stored delegate (so a test can invoke it directly from C++). Not reflected -
+        // returning a delegate to script is not part of the seam.
+        [[nodiscard]] RefPtr<IScriptDelegate> Handler() const { return m_handler; }
+
+    private:
+        RefPtr<IScriptDelegate> m_handler;
+    };
 
     /// The language-specific sources. Every snippet implements a FIXED contract:
     ///  - functionsModule: function `add(a, b)` returning a + b, function `greeting()`
@@ -42,7 +72,34 @@ namespace draconic::script::conformance
         StringView compileBroken;
         StringView runtimeFault;
         StringView coroutineClass;   // optional - see the Coroutines section below
+        // Optional (certified only when the backend declares the Delegates capability):
+        // source that creates a global `signal` of the native DelegateSignal type and
+        // subscribes a function computing value * 2 (via the backend's own callable syntax -
+        // a Wren fn/closure, an AngelScript funcdef handle).
+        StringView delegateModule;
     };
+
+    // Reflected so a script can construct/subscribe it; StaticType() lives in this header
+    // (single TU per test executable). It is registered with the manager on demand, never a
+    // global-registry type - so the introspection diff never demands a backend bind it.
+    DRACONIC_REFLECT(DelegateSignal, "draconic::script::conformance")
+    {
+        builder.Constructor();
+        builder.Method<&DelegateSignal::Connect>("Connect");
+        builder.Method<&DelegateSignal::Emit>("Emit");
+    }
+
+    // Does the backend's reported API surface contain a type spelled `scriptName`?
+    [[nodiscard]] inline bool SurfaceHasType(const Array<ScriptApiType>& surface,
+                                             const char* scriptName)
+    {
+        const StringView wanted(reinterpret_cast<const utf8char*>(scriptName));
+        for (const ScriptApiType& type : surface)
+        {
+            if (StringView(type.scriptName) == wanted) { return true; }
+        }
+        return false;
+    }
 
     struct CapturedErrors final : IScriptErrorHandler
     {
@@ -61,6 +118,8 @@ namespace draconic::script::conformance
                                             const Dialect& dialect)
     {
         // --- manager + two-phase type registration (collect, then finalize) ---
+        RegisterCoreTypes();                // self-contained: the introspection diff below
+                                            // needs the global registry populated (idempotent)
         RefPtr<IScriptManager> manager = factory();
         REQUIRE(manager.Get() != nullptr);
         RegisterReflectedTypes(*manager);   // walks the registry + FinalizeTypes()
@@ -195,6 +254,106 @@ namespace draconic::script::conformance
                 for (int i = 0; i < 20; ++i) { manager->AdvanceCoroutines(0.1); }  // 2s must not run
                 CHECK(progressOf(coro) == doctest::Approx(0.0));   // cancelled -> never completes
             }
+        }
+
+        // --- Backend API introspection: the reflection-vs-backend diff ---
+        // Every reflected engine type the manager bound must appear in the surface it
+        // reports; a type present in the registry but ABSENT from the surface is a backend
+        // that silently failed to bind it. Restrict to types both backends actually bind
+        // (constructible, valid identifier, not a primitive / enum / container).
+        {
+            const Array<ScriptApiType> surface = manager->DescribeBoundApi();
+            CHECK_FALSE(surface.IsEmpty());   // a backend that registered types bound something
+            int checked = 0;
+            for (const TypeInfo* type : GlobalTypeRegistry().All())
+            {
+                if (type == nullptr || type->name == nullptr) { continue; }
+                const bool bindable = type->constructorCount > 0
+                    && type->enumeratorCount == 0 && type->container == nullptr
+                    && &TypeOf<f32>() != type && &TypeOf<f64>() != type;
+                if (!bindable) { continue; }
+                INFO("reflected type absent from backend surface: ", type->name);
+                CHECK(SurfaceHasType(surface, type->name));
+                ++checked;
+            }
+            CHECK(checked > 0);   // the diff actually exercised some types
+            // Spot-check a known type is spelled with its members (not just present).
+            for (const ScriptApiType& api : surface)
+            {
+                if (StringView(api.scriptName) != u8"Float3") { continue; }
+                bool hasDot = false;
+                for (const ScriptApiMember& member : api.members)
+                {
+                    if (StringView(member.name) == u8"Dot") { hasDot = true; }
+                }
+                CHECK(hasDot);   // Float3::Dot is bound and reported
+            }
+        }
+
+        // --- Script delegates (certified only when the backend declares the capability) ---
+        if (HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Delegates)
+            && !dialect.delegateModule.IsEmpty())
+        {
+            manager->RegisterType(DelegateSignal::StaticType());   // late registration is supported
+            RefPtr<IScriptContext> ctx = manager->CreateContext();
+            REQUIRE(ctx.Get() != nullptr);
+            // Reflected foreign types live in the "main" module (Wren); load there so the
+            // script can see DelegateSignal. AngelScript registers types engine-globally, so
+            // the chunk name is immaterial to it.
+            CHECK(ctx->Load(dialect.delegateModule, u8"main").IsOk());
+
+            Variant signalVar = ctx->GetGlobal(u8"signal");
+            REQUIRE(signalVar.IsObject());
+            DelegateSignal* signal = signalVar.AsObject<DelegateSignal>();
+            REQUIRE(signal != nullptr);
+
+            // (1) native code fires the event -> the subscribed script function runs.
+            CHECK(signal->Emit(21.0) == doctest::Approx(42.0));
+
+            // (2) invoke the stored delegate DIRECTLY from C++ and check the returned Variant.
+            RefPtr<IScriptDelegate> handler = signal->Handler();
+            REQUIRE(handler.Get() != nullptr);
+            {
+                Variant callArgs[] = { Variant::From<f64>(10.0) };
+                Result<Variant> returned = handler->Invoke(Span<Variant>{ callArgs, 1 });
+                REQUIRE(returned.HasValue());
+                CHECK(returned.Value().Get<f64>() == doctest::Approx(20.0));
+            }
+
+            // (3) the held delegate survives garbage collection.
+            manager->CollectGarbage();
+            CHECK(signal->Emit(50.0) == doctest::Approx(100.0));
+        }
+
+        // --- Committed seams (skipped when the capability is absent - the default). Turning
+        // one on later immediately has a certification target here. ---
+        if (HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Debugger))
+        {
+            CHECK(manager->CreateDebugger().Get() != nullptr); // a real debugger when declared
+        }
+        else
+        {
+            CHECK(manager->CreateDebugger().Get() == nullptr); // absent seam: null factory
+        }
+
+        if (HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Profiler))
+        {
+            CHECK(manager->CreateProfiler().Get() != nullptr);
+        }
+        else
+        {
+            CHECK(manager->CreateProfiler().Get() == nullptr);
+        }
+
+        if (HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Bytecode))
+        {
+            auto blob = manager->CompileToBlob(u8"", u8"conformance.blob");
+            CHECK(blob.HasValue());
+        }
+        else
+        {
+            auto blob = manager->CompileToBlob(u8"", u8"conformance.blob");
+            CHECK(blob.Error() == ErrorCode::NotSupported); // absent seam: unsupported
         }
     }
 }

@@ -344,6 +344,10 @@ TEST_CASE("wren: CERTIFIED - the backend conformance battery (scripting.md B2)")
         u8"}\n";
     dialect.compileBroken = u8"var = = = @#$";
     dialect.runtimeFault = u8"Fiber.abort(\"conformance fault\")";
+    // Delegate: subscribe a Wren fn/closure (value * 2) to the native DelegateSignal.
+    dialect.delegateModule =
+        u8"var signal = DelegateSignal.new()\n"
+        u8"signal.Connect(Fn.new {|x| x * 2 })\n";
     // Self-contained coroutine class: the `Behavior` base inlined (the subsystem injects
     // it at runtime; the raw battery does not), then a `Coro` that opts in. Coroutine
     // bodies use an explicit receiver (`me`) + getter/setter methods so no field is
@@ -408,9 +412,37 @@ TEST_CASE("wren: CERTIFIED - the backend conformance battery (scripting.md B2)")
         []() { return draconic::script::wren::CreateScriptManager(); }, dialect);
 }
 
-TEST_CASE("wren: declares the Coroutines capability (B4 - the coroutine scheduler)")
+TEST_CASE("wren: declares the Coroutines + Delegates capabilities; seams absent (B4)")
 {
     RefPtr<IScriptManager> manager = wren::CreateScriptManager();
     CHECK(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Coroutines));
+    CHECK(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Delegates));
+    // Committed-but-unimplemented seams stay ABSENT (their factories return null).
     CHECK_FALSE(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Debugger));
+    CHECK_FALSE(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Profiler));
+    CHECK_FALSE(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Bytecode));
+    CHECK(manager->CreateDebugger().Get() == nullptr);
+    CHECK(manager->CreateProfiler().Get() == nullptr);
+    CHECK(manager->CompileToBlob(u8"", u8"blob").Error() == ErrorCode::NotSupported);
+}
+
+TEST_CASE("wren: a script function is a native callback via IScriptDelegate (the real use)")
+{
+    RefPtr<IScriptManager> manager = wren::CreateScriptManager();
+    manager->RegisterType(conformance::DelegateSignal::StaticType());
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+
+    // A behavior subscribes a closure to a native event; native code fires it.
+    REQUIRE(ctx->Load(
+        u8"var signal = DelegateSignal.new()\n"
+        u8"signal.Connect(Fn.new {|x| x + 5 })\n",
+        u8"main").IsOk());
+
+    Variant signalVar = ctx->GetGlobal(u8"signal");
+    REQUIRE(signalVar.IsObject());
+    conformance::DelegateSignal* signal = signalVar.AsObject<conformance::DelegateSignal>();
+    REQUIRE(signal != nullptr);
+
+    CHECK(signal->Emit(10.0) == doctest::Approx(15.0));   // native fires -> closure runs
+    CHECK(signal->Emit(100.0) == doctest::Approx(105.0)); // reusable across firings
 }

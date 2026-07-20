@@ -212,6 +212,18 @@ namespace draconic::script::angelscript
     void CoroutineStartDispatch(asIScriptGeneric* gen);   // startCoroutine(ScriptCoroutine@)
     void CoroutineWaitDispatch(asIScriptGeneric* gen);    // wait(float seconds)
 
+    // A script funcdef-handle argument -> an AngelScriptDelegate wrapping it, as an
+    // object-mode Variant (defined after AngelScriptDelegate). Forward-declared so
+    // AngelScriptManager::ValueFromArg can wrap a delegate parameter.
+    core::Variant MakeAngelScriptDelegateVariant(asIScriptFunction* function);
+
+    // The funcdef reflected-method parameters typed RefPtr<IScriptDelegate> map onto. A
+    // single general-purpose signature (a number in, a number out) backs the delegate seam;
+    // the delegate's Invoke marshals against the funcdef's ACTUAL params, so a richer
+    // per-signature funcdef surface is a later extension without touching the mechanism.
+    inline constexpr const char* kScriptDelegateFuncdef = "double ScriptDelegate(double)";
+    inline constexpr const char* kScriptDelegateTypeName = "ScriptDelegate";
+
     // The one-line coroutine support prelude AngelScript modules get (a separate script
     // section, so it never shifts the user source's error line numbers). `wait` and the
     // funcdefs are host-registered engine-globally; only waitUntil needs a script body,
@@ -234,6 +246,7 @@ namespace draconic::script::angelscript
             RegisterStdString(m_engine);
             m_stringTypeId = m_engine->GetTypeIdByDecl("string");
             RegisterCoroutineSurface();
+            RegisterDelegateSurface();
         }
 
         ~AngelScriptManager() override
@@ -290,7 +303,98 @@ namespace draconic::script::angelscript
 
         [[nodiscard]] ScriptCapabilities Capabilities() const override
         {
-            return ScriptCapabilities::Coroutines;   // host-side asIScriptContext scheduler below
+            // host-side asIScriptContext scheduler + funcdef-handle-backed delegate seam.
+            return ScriptCapabilities::Coroutines | ScriptCapabilities::Delegates;
+        }
+
+        // The ACTUAL AngelScript-callable surface: one entry per declared object type, with
+        // members spelled the way AngelScript presents them (statics as `Type::name(...)`,
+        // properties as `get_`/`set_` accessors). A member whose declaration the backend
+        // could not express (and therefore did not register) is omitted, so the surface
+        // matches what BindType actually bound - which is exactly what the reflection diff
+        // needs to catch a silently-unbound type.
+        [[nodiscard]] core::Array<ScriptApiType> DescribeBoundApi() const override
+        {
+            core::Array<ScriptApiType> result;
+            for (const RegisteredType& entry : m_registered)
+            {
+                const core::TypeInfo& type = *entry.type;
+                ScriptApiType api;
+                api.scriptName = core::String(ViewOfAscii(type.name));
+                api.isNamespace = false;
+                for (core::usize i = 0; i < core::PropertyCount(type); ++i)
+                {
+                    const core::PropertyInfo& property = core::PropertyAt(type, i);
+                    if (!IsValidIdentifier(property.name)) { continue; }
+                    ScriptApiMember member;
+                    member.name = core::String(ViewOfAscii(property.name));
+                    core::String signature(ViewOfAscii(type.name));
+                    AppendAscii(signature, ".");
+                    AppendAscii(signature, property.name);
+                    member.signature = core::Move(signature);
+                    member.kind = ScriptApiMemberKind::Property;
+                    api.members.PushBack(core::Move(member));
+                }
+                for (core::usize i = 0; i < core::MethodCount(type); ++i)
+                {
+                    const core::MethodInfo& method = core::MethodAt(type, i);
+                    if (!IsValidIdentifier(method.name)) { continue; }
+                    core::String signature;
+                    if (!BuildMemberSignature(signature, type, method)) { continue; } // not bound
+                    ScriptApiMember member;
+                    member.name = core::String(ViewOfAscii(method.name));
+                    member.signature = core::Move(signature);
+                    member.isStatic = method.isStatic;
+                    member.kind = ScriptApiMemberKind::Method;
+                    api.members.PushBack(core::Move(member));
+                }
+                result.PushBack(core::Move(api));
+            }
+            return result;
+        }
+
+        // Invoke a script funcdef handle (an AngelScriptDelegate's stored function) from
+        // native code with reflected args: runs on a pooled context, marshalling against the
+        // funcdef's actual parameters, and returns its result. Handles a delegate-to-method
+        // (bound object) as well as a plain function handle.
+        [[nodiscard]] core::Result<core::Variant> ExecuteDelegate(
+            asIScriptFunction* delegate, core::Span<core::Variant> args)
+        {
+            if (delegate == nullptr || m_engine == nullptr) { return core::Err(core::ErrorCode::Internal); }
+            asIScriptFunction* func = delegate;
+            asIScriptObject* object = nullptr;
+            if (delegate->GetFuncType() == asFUNC_DELEGATE)
+            {
+                object = static_cast<asIScriptObject*>(delegate->GetDelegateObject());
+                func = delegate->GetDelegateFunction();
+            }
+            if (func == nullptr) { return core::Err(core::ErrorCode::Internal); }
+
+            asIScriptContext* executor = m_engine->RequestContext();
+            if (executor == nullptr || executor->Prepare(func) < 0)
+            {
+                if (executor != nullptr) { m_engine->ReturnContext(executor); }
+                return core::Err(core::ErrorCode::Internal);
+            }
+            if (object != nullptr) { (void)executor->SetObject(object); }
+
+            std::string stringTemps[kMaxArgs];
+            BoxedVariant* boxTemps[kMaxArgs] = {};
+            BindArgsInto(executor, func, args, stringTemps, boxTemps);
+            const int result = executor->Execute();
+            for (BoxedVariant* box : boxTemps) { ReleaseBox(box); }
+
+            core::Result<core::Variant> outcome = core::Err(core::ErrorCode::Internal);
+            if (result == asEXECUTION_FINISHED)
+            {
+                const int returnTypeId = func->GetReturnTypeId();
+                outcome = (returnTypeId == asTYPEID_VOID)
+                    ? core::Result<core::Variant>(core::Variant{})
+                    : core::Result<core::Variant>(VariantFromTypedAddress(
+                          returnTypeId, executor->GetAddressOfReturnValue()));
+            }
+            m_engine->ReturnContext(executor);
+            return outcome;
         }
 
         // The AngelScript behavior module: just the concatenated class sources. AngelScript
@@ -438,7 +542,22 @@ namespace draconic::script::angelscript
                 const BoxedVariant* box = static_cast<const BoxedVariant*>(gen->GetArgObject(index));
                 return (box != nullptr) ? box->value : core::Variant{};
             }
+            // A funcdef handle (a delegate parameter): wrap the function into a script delegate.
+            if ((typeId & asTYPEID_OBJHANDLE) != 0 && IsFuncdefTypeId(typeId))
+            {
+                asIScriptFunction* fn = static_cast<asIScriptFunction*>(gen->GetArgObject(index));
+                return MakeAngelScriptDelegateVariant(fn);
+            }
             return core::Variant{};
+        }
+
+        // True when `typeId` is a handle to a funcdef (a callable delegate type).
+        [[nodiscard]] bool IsFuncdefTypeId(int typeId) const noexcept
+        {
+            if (m_engine == nullptr) { return false; }
+            asITypeInfo* info = m_engine->GetTypeInfoById(
+                typeId & ~(asTYPEID_OBJHANDLE | asTYPEID_HANDLETOCONST));
+            return info != nullptr && info->GetFuncdefSignature() != nullptr;
         }
 
         // Engine Variant -> the generic call's declared return slot. An empty
@@ -602,6 +721,82 @@ namespace draconic::script::angelscript
                 asFUNCTION(CoroutineWaitDispatch), asCALL_GENERIC, this);
         }
 
+        // Registers the delegate funcdef reflected methods spell their RefPtr<IScriptDelegate>
+        // parameters as (`ScriptDelegate@`). A script passes any compatible function/closure
+        // handle; the backend wraps it into an AngelScriptDelegate.
+        void RegisterDelegateSurface()
+        {
+            if (m_engine == nullptr) { return; }
+            (void)m_engine->RegisterFuncdef(kScriptDelegateFuncdef);
+        }
+
+        // Marshals `args` into a prepared context's argument slots against `function`'s
+        // declared parameters. Shared by ExecuteDelegate (and mirrors the context's own
+        // BindArgs); boxTemps hold object references released by the caller after Execute.
+        void BindArgsInto(asIScriptContext* executor, asIScriptFunction* function,
+                          core::Span<core::Variant> args, std::string* stringTemps,
+                          BoxedVariant** boxTemps)
+        {
+            const core::usize limit = function->GetParamCount();
+            for (core::usize i = 0;
+                 i < args.Size() && i < limit && i < static_cast<core::usize>(kMaxArgs); ++i)
+            {
+                const asUINT arg = static_cast<asUINT>(i);
+                int typeId = 0;
+                (void)function->GetParam(arg, &typeId);
+                const core::Variant& value = args[i];
+                bool ok = false;
+                const double number = NumericOf(value, ok);
+                switch (typeId)
+                {
+                    case asTYPEID_BOOL:   (void)executor->SetArgByte(arg, number != 0.0 ? 1 : 0); continue;
+                    case asTYPEID_INT8:
+                    case asTYPEID_UINT8:  (void)executor->SetArgByte(arg, static_cast<asBYTE>(static_cast<core::i64>(number))); continue;
+                    case asTYPEID_INT16:
+                    case asTYPEID_UINT16: (void)executor->SetArgWord(arg, static_cast<asWORD>(static_cast<core::i64>(number))); continue;
+                    case asTYPEID_INT32:
+                    case asTYPEID_UINT32: (void)executor->SetArgDWord(arg, static_cast<asDWORD>(static_cast<core::i64>(number))); continue;
+                    case asTYPEID_INT64:
+                    case asTYPEID_UINT64: (void)executor->SetArgQWord(arg, static_cast<asQWORD>(static_cast<core::i64>(number))); continue;
+                    case asTYPEID_FLOAT:  (void)executor->SetArgFloat(arg, static_cast<float>(number)); continue;
+                    case asTYPEID_DOUBLE: (void)executor->SetArgDouble(arg, number); continue;
+                    default: break;
+                }
+                if (typeId == m_stringTypeId)
+                {
+                    stringTemps[i] = StdFromVariantString(value);
+                    (void)executor->SetArgObject(arg, &stringTemps[i]);
+                    continue;
+                }
+                if ((typeId & asTYPEID_OBJHANDLE) != 0
+                    && TypeInfoForTypeId(typeId) != nullptr && !value.IsEmpty())
+                {
+                    boxTemps[i] = NewBox(value);
+                    (void)executor->SetArgObject(arg, boxTemps[i]);
+                    continue;
+                }
+            }
+        }
+
+        // Builds the AngelScript declaration string of a method for the introspection
+        // surface (return name(params), statics as Type::name). False when a return/param
+        // type is not expressible - i.e. BindType never registered it either.
+        [[nodiscard]] bool BuildMemberSignature(core::String& out, const core::TypeInfo& type,
+                                                const core::MethodInfo& method) const
+        {
+            const core::TypeInfo* returnType =
+                (method.returnType != nullptr) ? method.returnType() : nullptr;
+            if (returnType == nullptr) { AppendAscii(out, "void"); }
+            else if (!AppendDeclType(out, returnType, /*isParam*/ false)) { return false; }
+            AppendAscii(out, " ");
+            if (method.isStatic) { AppendAscii(out, type.name); AppendAscii(out, "::"); }
+            AppendAscii(out, method.name);
+            AppendAscii(out, "(");
+            if (!AppendParams(out, method.params, method.paramCount)) { return false; }
+            AppendAscii(out, ")");
+            return true;
+        }
+
         [[nodiscard]] int FindCoroutine(asIScriptContext* ctx) const
         {
             for (core::usize i = 0; i < m_coroutines.Size(); ++i)
@@ -680,6 +875,13 @@ namespace draconic::script::angelscript
         bool AppendDeclType(core::String& out, const core::TypeInfo* type, bool isParam) const
         {
             if (type == nullptr) { return false; }
+            // A delegate parameter is spelled as the ScriptDelegate funcdef handle.
+            if (type == &IScriptDelegate::StaticType())
+            {
+                AppendAscii(out, kScriptDelegateTypeName);
+                AppendAscii(out, "@");
+                return true;
+            }
             if (const char* primitive = PrimitiveDeclName(type))
             {
                 if (isParam && type == &core::TypeOf<core::String>())
@@ -874,9 +1076,19 @@ namespace draconic::script::angelscript
         for (asUINT i = 0; i < argc; ++i)
         {
             const int typeId = gen->GetArgTypeId(i);
-            if ((typeId & asTYPEID_OBJHANDLE) != 0 && manager->TypeInfoForTypeId(typeId) != nullptr)
+            if ((typeId & asTYPEID_OBJHANDLE) == 0) { continue; }
+            if (manager->TypeInfoForTypeId(typeId) != nullptr)
             {
                 ReleaseBox(static_cast<BoxedVariant*>(gen->GetArgObject(i)));
+            }
+            else if (manager->IsFuncdefTypeId(typeId))
+            {
+                // A funcdef-handle arg (a delegate): the callee owns this reference. The
+                // AngelScriptDelegate we built AddRef'd its own; release the incoming one.
+                if (asIScriptFunction* fn = static_cast<asIScriptFunction*>(gen->GetArgObject(i)))
+                {
+                    fn->Release();
+                }
             }
         }
     }
@@ -1313,6 +1525,54 @@ namespace draconic::script::angelscript
         core::RefPtr<AngelScriptContext> m_owner;
         asIScriptObject* m_instance;
     };
+
+    // A script function/closure held as a native callback. Holds the manager (keeps the
+    // engine alive) and one AddRef on the funcdef handle (the GC-safe promise); Invoke runs
+    // it on a pooled context. It references the MANAGER, not the owning context, so it never
+    // cycles with a context that stores it back (e.g. through a reflected event object).
+    class AngelScriptDelegate final : public IScriptDelegate
+    {
+    public:
+        AngelScriptDelegate(core::RefPtr<AngelScriptManager> manager, asIScriptFunction* function) noexcept
+            : m_manager(core::Move(manager)), m_function(function)
+        {
+            if (m_function != nullptr) { m_function->AddRef(); }
+        }
+
+        ~AngelScriptDelegate() override
+        {
+            if (m_function != nullptr) { m_function->Release(); }
+        }
+
+        AngelScriptDelegate(const AngelScriptDelegate&) = delete;
+        AngelScriptDelegate& operator=(const AngelScriptDelegate&) = delete;
+
+        [[nodiscard]] core::Result<core::Variant> Invoke(core::Span<core::Variant> args) override
+        {
+            if (m_manager.Get() == nullptr || m_function == nullptr)
+            {
+                return core::Err(core::ErrorCode::Internal);
+            }
+            return m_manager->ExecuteDelegate(m_function, args);
+        }
+
+    private:
+        core::RefPtr<AngelScriptManager> m_manager;
+        asIScriptFunction* m_function;
+    };
+
+    core::Variant MakeAngelScriptDelegateVariant(asIScriptFunction* function)
+    {
+        // The wrapping happens inside a reflected dispatch, so the executing context (and its
+        // manager) is the current script context.
+        IScriptContext* current = CurrentScriptContext();
+        if (current == nullptr || function == nullptr) { return core::Variant{}; }
+        AngelScriptContext* context = static_cast<AngelScriptContext*>(current);
+        core::RefPtr<AngelScriptManager> manager(&context->Manager());
+        core::RefPtr<IScriptDelegate> delegate(core::MakeRef<AngelScriptDelegate>(
+            core::DefaultAllocator(), core::Move(manager), function));
+        return core::Variant::From(delegate);
+    }
 
     void AngelScriptManager::CancelCoroutinesFor(ScriptObject& instance)
     {
