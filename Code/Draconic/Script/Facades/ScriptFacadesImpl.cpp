@@ -65,6 +65,15 @@ namespace draconic::script
         builder.Constructor();
     }
 
+    core::Span<const core::StringView> BehaviorFacadeNames()
+    {
+        // Kept in sync with RegisterScriptFacadeReflection below.
+        static const core::StringView names[] = {
+            u8"Entity", u8"Log", u8"Time", u8"Random", u8"Scene",
+        };
+        return core::Span<const core::StringView>{ names, 5 };
+    }
+
     void RegisterScriptFacadeReflection()
     {
         static const bool once = []() {

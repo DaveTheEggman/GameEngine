@@ -22,11 +22,66 @@ export module draconic.script.wren;
 
 import draconic.core;
 import draconic.script;
+import draconic.script.facades;   // BehaviorFacadeNames() - the prelude's import list
 
 namespace core = draconic::core;
 
 namespace draconic::script::wren
 {
+    // The OPTIONAL Wren `Behavior` base class (scripting.md §3.3 coroutines), injected
+    // into every behaviors module right after the facade prelude. A behavior opts in with
+    // `class Mover is Behavior { ... }` to get startCoroutine(fn) / wait(seconds) /
+    // waitUntil(fn); plain classes that do not extend it are untouched. The base owns the
+    // instance's coroutine-id list and routes register/unregister to the manager's
+    // host-side scheduler through two foreign methods (bound by name, below).
+    inline constexpr core::StringView kBehaviorBaseSource =
+        u8"class Behavior {\n"
+        u8"  construct new(entity) {\n"
+        u8"    _entity = entity\n"
+        u8"    _drCoroutines = []\n"
+        u8"  }\n"
+        u8"  entity { _entity }\n"
+        u8"  startCoroutine(fn) {\n"
+        u8"    var fiber = Fiber.new(fn)\n"
+        u8"    var w = fiber.call()\n"
+        u8"    if (fiber.isDone) return -1\n"
+        u8"    if (!(w is Num)) w = 0\n"
+        u8"    var id = drRegisterCoroutine(fiber, w)\n"
+        u8"    _drCoroutines.add(id)\n"
+        u8"    return id\n"
+        u8"  }\n"
+        u8"  wait(seconds) { Fiber.yield(seconds) }\n"
+        u8"  waitUntil(fn) {\n"
+        u8"    while (!fn.call()) {\n"
+        u8"      Fiber.yield(0)\n"
+        u8"    }\n"
+        u8"  }\n"
+        u8"  foreign drRegisterCoroutine(fiber, w)\n"
+        u8"  foreign drUnregisterCoroutine(id)\n"
+        u8"  drCancelCoroutines() {\n"
+        u8"    for (id in _drCoroutines) {\n"
+        u8"      drUnregisterCoroutine(id)\n"
+        u8"    }\n"
+        u8"    _drCoroutines.clear()\n"
+        u8"  }\n"
+        u8"}\n";
+
+    // Reflected classes live in the "main" module; behavior modules are separate, so the
+    // module is framed with ONE prelude line importing the facade names (built from the
+    // neutral BehaviorFacadeNames list) followed by the Behavior base. Appended to `out`.
+    inline void AppendBehaviorPrelude(core::String& out)
+    {
+        out += u8"import \"main\" for ";
+        const core::Span<const core::StringView> facades = BehaviorFacadeNames();
+        for (core::usize i = 0; i < facades.Size(); ++i)
+        {
+            if (i != 0) { out += u8", "; }
+            out += facades[i];
+        }
+        out += u8"\n";
+        out += kBehaviorBaseSource;
+    }
+
     inline const char* CStr(const core::String& s) noexcept
     {
         return reinterpret_cast<const char*>(s.CStr());
@@ -756,6 +811,22 @@ namespace draconic::script::wren
         [[nodiscard]] ScriptCapabilities Capabilities() const override
         {
             return ScriptCapabilities::Coroutines;   // Wren fibers back the scheduler below
+        }
+
+        // The Wren behavior module: the facade `import "main" for ...` prelude + the
+        // coroutine Behavior base, then the concatenated class sources. This is the ONLY
+        // place the Wren behavior-module syntax lives (scripting.md §7.5).
+        [[nodiscard]] core::String AssembleBehaviorModuleSource(
+            core::Span<const core::StringView> classSources) const override
+        {
+            core::String moduleSource;
+            AppendBehaviorPrelude(moduleSource);
+            for (const core::StringView& source : classSources)
+            {
+                moduleSource += source;
+                moduleSource += u8"\n";
+            }
+            return moduleSource;
         }
 
         // ---- the host-side coroutine scheduler (Wren fibers) ----

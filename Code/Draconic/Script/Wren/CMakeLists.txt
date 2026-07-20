@@ -34,7 +34,9 @@ add_library(Draconic::ScriptWren ALIAS DraconicScriptWren)
 
 # wren_vm is PRIVATE: consumers see only the draconic.script.wren module (the
 # factory), never the Wren C API. (CMake still links wren_vm into final exes.)
-target_link_libraries(DraconicScriptWren PUBLIC Draconic::Script Draconic::Policy PRIVATE wren_vm)
+# Draconic::ScriptFacades PUBLIC: WrenScript.cppm imports it for BehaviorFacadeNames()
+# (the neutral facade-name list its behavior-module prelude is built from).
+target_link_libraries(DraconicScriptWren PUBLIC Draconic::Script Draconic::ScriptFacades Draconic::Policy PRIVATE wren_vm)
 
 target_sources(DraconicScriptWren
     PUBLIC

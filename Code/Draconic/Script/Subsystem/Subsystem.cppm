@@ -106,8 +106,8 @@ export namespace draconic::script
                 WarnLanguageMismatchOnce(languageId);
                 return nullptr;
             }
-            // The full curated surface: core math + the behavior facades, so the
-            // prelude import and explicit `import "main" for Float3`-style imports
+            // The full curated surface: core math + the behavior facades, so a backend's
+            // behavior-module framing and any explicit engine-type imports a script writes
             // resolve identically at cook and at runtime. Both idempotent.
             RegisterCoreTypes();
             RegisterScriptFacadeReflection();
@@ -214,21 +214,18 @@ export namespace draconic::script
             }
             if (m_moduleCurrent) { return true; }
 
-            // Rebuild: one concatenated module, fresh generation name. Wren modules
-            // get the facade prelude (the import resolves against "main") plus the
-            // optional `Behavior` coroutine base, so `class Mover is Behavior { ... }`
-            // compiles; plain P1 classes that don't extend it are untouched.
-            String moduleSource;
-            if (m_language.AsView() == u8"wren")
-            {
-                moduleSource += kScriptBehaviorModulePrelude;
-                moduleSource += kScriptWrenBehaviorBase;
-            }
+            // Rebuild: one concatenated module, fresh generation name. The LANGUAGE
+            // framing (any prelude/base a backend needs) is the backend's job - the run
+            // host only supplies the ordered class SOURCES and compiles the result, so no
+            // language syntax lives here (scripting.md §7.5).
+            m_classSourceScratch.Clear();
+            m_classSourceScratch.Reserve(m_loadedClasses.Size());
             for (const RefPtr<ScriptClass>& loaded : m_loadedClasses)
             {
-                moduleSource += loaded->source.AsView();
-                moduleSource += u8"\n";
+                m_classSourceScratch.PushBack(loaded->source.AsView());
             }
+            const String moduleSource = m_manager->AssembleBehaviorModuleSource(
+                Span<const StringView>{ m_classSourceScratch.Data(), m_classSourceScratch.Size() });
             ++m_generation;
             const String moduleName = Format(u8"behaviors#{}", m_generation);
             if (!m_context->Load(moduleSource.AsView(), moduleName.AsView()).IsOk())
@@ -278,6 +275,7 @@ export namespace draconic::script
         ScriptRuntimeBinding m_binding;
         Function<void(IScriptContext&)> m_configurator;
         Array<RefPtr<ScriptClass>> m_loadedClasses;   // the behaviors module's content
+        Array<StringView> m_classSourceScratch;       // reused per-rebuild source view list
         u32 m_generation = 0;
         bool m_moduleCurrent = false;
         bool m_warnedLanguageMismatch = false;
@@ -572,7 +570,7 @@ export namespace draconic::script
         }
 
         // Defaults first, then hash-keyed overrides win; pushed through the class's
-        // plain property SETTERS (`speed=(v)`) - Invoke builds the setter signature.
+        // per-property setter ("<name>=") - Invoke builds the setter call.
         void ApplyProperties(ScriptBehavior& behavior, const ScriptClass& scriptClass,
                              dscene::EntityHandle entity)
         {

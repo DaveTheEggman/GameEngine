@@ -50,7 +50,7 @@ export namespace draconic::script
                                                    // (a reload swaps the product -> re-instantiate)
         bool started = false;                      // onStart delivered
         bool active = false;                       // last delivered enable state (onEnable/onDisable edges)
-        bool faulted = false;                      // a fault disables THIS behavior (cleared by reload)
+        bool faulted = false;                      // a fault disables the one behavior (cleared by reload)
         f32 updateAccumulator = 0.0f;              // time banked toward the next throttled onUpdate
 
         [[nodiscard]] const ScriptPropertyOverride* FindOverride(u64 nameHash) const

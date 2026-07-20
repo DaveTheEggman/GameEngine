@@ -6,11 +6,12 @@
 // RUNTIME register the SAME "main"-module surface - a facade-using behavior that
 // compiles at cook compiles at runtime and vice versa.
 //
-// Wren visibility rule: reflected classes live in the "main" module; behavior modules
-// are separate, so the run host (and the cook's compile check) prepend ONE prelude
-// line importing the facade names. Additional engine types (Float3, Color, ...) are
-// imported explicitly by the script (`import "main" for Float3`) - both VMs register
-// the core types, so the import resolves in both.
+// Module-visibility rule (language-specific, so it lives in the BACKENDS): a backend
+// whose reflected classes live in a separate module frames each behavior module with a
+// prelude that imports the facade names. To keep that framing OUT of this neutral lib,
+// the facade name list is exposed here as data (BehaviorFacadeNames) and each backend's
+// AssembleBehaviorModuleSource builds its own prelude from it - so adding a facade never
+// edits a backend.
 
 module;
 #include "Core/Prelude.h"
@@ -32,52 +33,12 @@ export namespace draconic::script
     /// The service key the gameplay facades (Time/Random) resolve per context.
     inline constexpr StringView kScriptRuntimeService = u8"script.runtime";
 
-    /// The ONE prelude line prepended to every (Wren) behavior module - the facade
-    /// names resolve without user imports. Exactly one line: compile-error line
-    /// numbers shift by one and reporters subtract it back.
-    inline constexpr StringView kScriptBehaviorModulePrelude =
-        u8"import \"main\" for Entity, Log, Time, Random, Scene\n";
-
-    /// The OPTIONAL Wren `Behavior` base class (scripting.md §3.3 coroutines), injected
-    /// into every Wren behaviors module right after the prelude. A behavior opts in with
-    /// `class Mover is Behavior { construct new(entity) { super(entity) } ... }` to get
-    /// `startCoroutine(fn)` / `wait(seconds)` / `waitUntil(fn)`; plain P1 classes that do
-    /// NOT extend it are untouched. The base owns the instance's coroutine-id list and
-    /// routes register/unregister to the backend's host-side scheduler through two
-    /// foreign methods (bound by the Wren backend, independent of the reflected types).
-    /// `wait` = `Fiber.yield(seconds)`; `waitUntil` polls in-script so the host scheduler
-    /// only ever deals with numeric waits (no host-side predicate invocation).
-    inline constexpr StringView kScriptWrenBehaviorBase =
-        u8"class Behavior {\n"
-        u8"  construct new(entity) {\n"
-        u8"    _entity = entity\n"
-        u8"    _drCoroutines = []\n"
-        u8"  }\n"
-        u8"  entity { _entity }\n"
-        u8"  startCoroutine(fn) {\n"
-        u8"    var fiber = Fiber.new(fn)\n"
-        u8"    var w = fiber.call()\n"
-        u8"    if (fiber.isDone) return -1\n"
-        u8"    if (!(w is Num)) w = 0\n"
-        u8"    var id = drRegisterCoroutine(fiber, w)\n"
-        u8"    _drCoroutines.add(id)\n"
-        u8"    return id\n"
-        u8"  }\n"
-        u8"  wait(seconds) { Fiber.yield(seconds) }\n"
-        u8"  waitUntil(fn) {\n"
-        u8"    while (!fn.call()) {\n"
-        u8"      Fiber.yield(0)\n"
-        u8"    }\n"
-        u8"  }\n"
-        u8"  foreign drRegisterCoroutine(fiber, w)\n"
-        u8"  foreign drUnregisterCoroutine(id)\n"
-        u8"  drCancelCoroutines() {\n"
-        u8"    for (id in _drCoroutines) {\n"
-        u8"      drUnregisterCoroutine(id)\n"
-        u8"    }\n"
-        u8"    _drCoroutines.clear()\n"
-        u8"  }\n"
-        u8"}\n";
+    /// The reflected behavior-facade names a backend's behavior-module prelude must make
+    /// visible (the classes RegisterScriptFacadeReflection installs). Exposed as DATA so
+    /// the language framing stays in the backends: a Wren backend builds its import line
+    /// from this list, and adding a facade here reaches every backend for free. Order is
+    /// the authored order. Kept in sync with RegisterScriptFacadeReflection below.
+    [[nodiscard]] core::Span<const core::StringView> BehaviorFacadeNames();
 
     struct ScriptRuntimeBinding
     {

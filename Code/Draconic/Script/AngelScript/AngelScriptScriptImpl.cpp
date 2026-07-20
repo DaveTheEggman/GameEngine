@@ -289,6 +289,22 @@ namespace draconic::script::angelscript
             return ScriptCapabilities::Coroutines;   // host-side asIScriptContext scheduler below
         }
 
+        // The AngelScript behavior module: just the concatenated class sources. AngelScript
+        // needs NO import prelude - reflected types and the coroutine surface (startCoroutine/
+        // wait) are registered engine-globally, so every reflected type is already visible.
+        // This keeps the language framing in the backend, off the neutral libs (§7.5).
+        [[nodiscard]] core::String AssembleBehaviorModuleSource(
+            core::Span<const core::StringView> classSources) const override
+        {
+            core::String moduleSource;
+            for (const core::StringView& source : classSources)
+            {
+                moduleSource += source;
+                moduleSource += u8"\n";
+            }
+            return moduleSource;
+        }
+
         // ---- the from-scratch coroutine scheduler (one asIScriptContext each) ----
 
         /// One live coroutine: its own execution context, the seconds still to wait, and

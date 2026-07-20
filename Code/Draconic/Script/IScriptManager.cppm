@@ -23,7 +23,7 @@ export namespace draconic::script
     {
         None       = 0,
         Coroutines = 1 << 0, // cooperative coroutines (wait/waitUntil scheduler) - implemented
-                             // host-side per backend (Wren fibers / AngelScript contexts)
+                             // host-side per backend (each backend uses its own primitive)
         Debugger   = 1 << 1, // step-debug seam (none implemented yet)
         Profiler   = 1 << 2, // VM-level profiling hooks (none implemented yet)
     };
@@ -62,7 +62,7 @@ export namespace draconic::script
 
         /// Resume every coroutine whose wait has elapsed, accumulating `deltaSeconds`;
         /// drop the ones that complete or fault. The scheduler lives host-side inside
-        /// the backend (Wren fibers / AngelScript contexts); the subsystem calls this
+        /// the backend (each backend on its own primitive); the subsystem calls this
         /// ONCE per simulated frame. A backend without ScriptCapabilities::Coroutines
         /// leaves this a no-op - the battery certifies the behavior, the flag only
         /// advertises it.
@@ -77,6 +77,26 @@ export namespace draconic::script
         [[nodiscard]] virtual ScriptCapabilities Capabilities() const
         {
             return ScriptCapabilities::None;
+        }
+
+        /// Assemble the ONE behavior module's source from the loaded class SOURCES. The
+        /// run host owns the neutral generation/state bookkeeping and compiles the result;
+        /// the LANGUAGE-SPECIFIC framing lives HERE, per backend, so no language syntax
+        /// leaks into the neutral libraries (scripting.md §7.5). A backend whose reflected
+        /// types live in a separate module prepends its own facade-import prelude + any
+        /// coroutine base; a backend with globally-visible types needs none. The default
+        /// is a plain newline-joined concatenation - the safe behavior for a backend that
+        /// needs no framing at all.
+        [[nodiscard]] virtual core::String AssembleBehaviorModuleSource(
+            core::Span<const core::StringView> classSources) const
+        {
+            core::String moduleSource;
+            for (const core::StringView& source : classSources)
+            {
+                moduleSource += source;
+                moduleSource += u8"\n";
+            }
+            return moduleSource;
         }
     };
 }
