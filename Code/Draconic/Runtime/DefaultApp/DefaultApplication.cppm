@@ -29,6 +29,7 @@ import draconic.scene.subsystem;    // SceneSubsystem (the standard scene driver
 import draconic.render.subsystem;   // RenderSubsystem (the standard renderer)
 import draconic.animation.subsystem; // AnimationSubsystem (drives skeletal animation from the scene)
 import draconic.particles.subsystem; // ParticleSubsystem (scene-driven CPU sim)
+import draconic.physics;             // ContactKind/EntityContact (the contact bridge)
 import draconic.physics.subsystem;  // PhysicsSubsystem (Jolt worlds + interpolation)
 import draconic.input;              // the action model/runtime
 import draconic.input.subsystem;    // InputSubsystem + the Wren Input facade
@@ -174,6 +175,15 @@ export namespace draconic::runtime
                         }
                         return root;
                     } });
+
+            // Composition-root bridge: forward physics contacts to the script subsystem's
+            // neutral ingress. Keeps the two subsystems independent - neither depends on the
+            // other for scripting; the wiring lives here, where integration belongs.
+            if (m_physics != nullptr && m_scripts != nullptr)
+            {
+                m_contactBridge.scripts = m_scripts;
+                m_physics->RegisterContactListener(&m_contactBridge);
+            }
         }
 
         [[nodiscard]] draconic::script::ScriptSubsystem* Scripts() const noexcept
@@ -274,6 +284,7 @@ export namespace draconic::runtime
 
         void OnShutdown(IApplicationHost&) override
         {
+            if (m_physics != nullptr) { m_physics->UnregisterContactListener(&m_contactBridge); }
             m_ownedResources = nullptr;   // release products while the device is alive
             m_textureFactory = nullptr;
         }
@@ -421,6 +432,29 @@ export namespace draconic::runtime
         }
 
     private:
+        // Bridges physics contacts to the script subsystem's neutral ingress, mapping the
+        // physics kind onto the script vocabulary. This is the ONLY place physics and script
+        // meet for contacts - the subsystems stay mutually independent.
+        struct ScriptContactBridge final : public draconic::physics::IContactListener
+        {
+            draconic::script::ScriptSubsystem* scripts = nullptr;
+            void OnContact(const draconic::physics::EntityContact& c) override
+            {
+                if (scripts == nullptr) { return; }
+                using SK = draconic::script::ScriptContactKind;
+                SK kind = SK::Begin;
+                switch (c.kind)
+                {
+                    case draconic::physics::ContactKind::Begin:        kind = SK::Begin; break;
+                    case draconic::physics::ContactKind::End:          kind = SK::End; break;
+                    case draconic::physics::ContactKind::TriggerEnter: kind = SK::TriggerEnter; break;
+                    case draconic::physics::ContactKind::TriggerExit:  kind = SK::TriggerExit; break;
+                }
+                scripts->DeliverContact(c.scene, c.a, c.b, kind, c.point, c.normal, c.speed);
+            }
+        };
+        ScriptContactBridge m_contactBridge;
+
         draconic::geometry::StaticMeshFactory m_meshFactory;
         draconic::geometry::SkinnedMeshFactory m_skinnedMeshFactory;
         draconic::materials::MaterialFactory m_materialFactory;

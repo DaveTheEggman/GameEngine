@@ -4,6 +4,7 @@ add_executable(DraconicScriptSceneTests TestsMain.cpp ScriptSceneTests.cpp)
 target_link_libraries(DraconicScriptSceneTests PRIVATE
     Draconic::ScriptSubsystem Draconic::ScriptResource Draconic::Scene Draconic::SceneResource
     Draconic::Content Draconic::Resource Draconic::VFS
+    Draconic::Physics Draconic::PhysicsSubsystem
     Draconic::Script Draconic::ScriptWren doctest::doctest)
 target_compile_definitions(DraconicScriptSceneTests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(DraconicScriptSceneTests PRIVATE

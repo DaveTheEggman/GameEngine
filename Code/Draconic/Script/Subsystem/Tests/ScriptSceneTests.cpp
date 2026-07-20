@@ -992,10 +992,15 @@ namespace
     namespace rt = draconic::runtime;
 
     // Builds a Context with all three subsystems started + a live scene, returns the scene.
-    struct ContactWorld
+    // Acts as its OWN composition root: bridges physics contacts to the script subsystem's
+    // neutral DeliverContact ingress (exactly what DefaultApplication does in a real run) -
+    // the script subsystem itself has no physics dependency.
+    struct ContactWorld final : public dphysics::IContactListener
     {
         rt::Context ctx;
         dscene::SceneSubsystem* scenes = nullptr;
+        dphysics::PhysicsSubsystem* physics = nullptr;
+        ScriptSubsystem* scripts = nullptr;
         dscene::Scene* scene = nullptr;
 
         ContactWorld()
@@ -1006,12 +1011,30 @@ namespace
             RegisterScriptComponentReflection();
             RegisterScriptFacadeReflection();
             scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
-            ctx.AddSubsystem<dphysics::PhysicsSubsystem>();
-            ctx.AddSubsystem<ScriptSubsystem>();
-            ctx.Startup();   // OnReady: the script subsystem registers as a contact listener
+            physics = ctx.AddSubsystem<dphysics::PhysicsSubsystem>();
+            scripts = ctx.AddSubsystem<ScriptSubsystem>();
+            ctx.Startup();
+            physics->RegisterContactListener(this);   // the composition-root bridge
             scene = scenes->CreateScene(u8"level");
         }
-        ~ContactWorld() { ctx.Shutdown(); }
+        ~ContactWorld() override
+        {
+            physics->UnregisterContactListener(this);
+            ctx.Shutdown();
+        }
+
+        void OnContact(const dphysics::EntityContact& c) override
+        {
+            ScriptContactKind kind = ScriptContactKind::Begin;
+            switch (c.kind)
+            {
+                case dphysics::ContactKind::Begin:        kind = ScriptContactKind::Begin; break;
+                case dphysics::ContactKind::End:          kind = ScriptContactKind::End; break;
+                case dphysics::ContactKind::TriggerEnter: kind = ScriptContactKind::TriggerEnter; break;
+                case dphysics::ContactKind::TriggerExit:  kind = ScriptContactKind::TriggerExit; break;
+            }
+            scripts->DeliverContact(c.scene, c.a, c.b, kind, c.point, c.normal, c.speed);
+        }
 
         dscene::EntityHandle AddBody(StringView name, Float3 position, dphysics::MotionKind motion,
                                      Float3 halfExtents, bool trigger = false)
