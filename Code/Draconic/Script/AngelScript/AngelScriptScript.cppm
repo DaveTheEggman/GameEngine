@@ -44,4 +44,18 @@ export namespace draconic::script::angelscript
     /// the batteries-included default: a game/project opts in by calling this from
     /// its entry point (exactly like registering extra subsystems).
     void RegisterAngelScriptBackend();
+
+    /// Editor-cook seam: the raw `asIScriptEngine*` (as an opaque `void*`) behind a
+    /// manager THIS backend created, so the AngelScript editor cook can drive the
+    /// CScriptBuilder add-on for `[metadata]` property harvest against an engine that
+    /// already has the reflected types registered. Returns null for a null/foreign
+    /// manager. `void*` keeps the AngelScript SDK header out of this interface unit
+    /// (GCC module hygiene). Runtime dispatch never uses this - it is a tooling hook.
+    [[nodiscard]] void* AngelScriptEngineHandle(IScriptManager& manager) noexcept;
+
+    /// The in-module coroutine support section (`Coroutine::waitUntil`) the runtime
+    /// adds to every loaded behavior module. Exposed so the editor cook, which builds
+    /// the behavior through CScriptBuilder, compiles it with the SAME surface the
+    /// runtime does (a coroutine-using behavior harvests exactly as it runs).
+    [[nodiscard]] core::StringView AngelScriptCoroutineModulePrelude() noexcept;
 }

@@ -1261,6 +1261,19 @@ namespace draconic::script::angelscript
         {
             asITypeInfo* type = m_instance->GetObjectType();
             if (type == nullptr) { return core::Err(core::ErrorCode::NotFound); }
+
+            // The neutral property-apply path Invokes the setter as `<name>=` with one
+            // argument (the Wren `name=(v)` setter convention). AngelScript has no method
+            // by that name; its editor properties are plain member FIELDS. So a trailing
+            // `=` with exactly one arg writes the same-named member field directly - the
+            // "settable member" AngelScript exposes for harvested behavior properties.
+            if (args.Size() == 1 && !method.IsEmpty() && method[method.Size() - 1] == u8'=')
+            {
+                const core::StringView fieldName = method.SubStr(0, method.Size() - 1);
+                if (SetMemberField(fieldName, args[0])) { return core::Variant{}; }
+                return core::Err(core::ErrorCode::NotFound);
+            }
+
             const core::String methodName(method);
             asIScriptFunction* target = nullptr;
             for (asUINT i = 0; i < type->GetMethodCount(); ++i)
@@ -1279,6 +1292,24 @@ namespace draconic::script::angelscript
         }
 
     private:
+        // Writes the instance member field named `fieldName` from `value` (the harvested
+        // editor-property apply path). Marshals through the manager's typed-address writer,
+        // so scalars/string/reflected-handle members all take the value uniformly. False
+        // when no such (writable) member exists or the value's type cannot fill it.
+        [[nodiscard]] bool SetMemberField(core::StringView fieldName, const core::Variant& value)
+        {
+            const core::String name(fieldName);
+            const asUINT count = m_instance->GetPropertyCount();
+            for (asUINT i = 0; i < count; ++i)
+            {
+                const char* memberName = m_instance->GetPropertyName(i);
+                if (memberName == nullptr || !NameEq(memberName, CStr(name))) { continue; }
+                return m_owner->Manager().WriteTypedAddress(
+                    m_instance->GetPropertyTypeId(i), m_instance->GetAddressOfProperty(i), value);
+            }
+            return false;
+        }
+
         core::RefPtr<AngelScriptContext> m_owner;
         asIScriptObject* m_instance;
     };
@@ -1365,6 +1396,20 @@ namespace draconic::script::angelscript
     {
         return core::RefPtr<IScriptManager>(
             core::MakeRef<AngelScriptManager>(core::DefaultAllocator()));
+    }
+
+    core::StringView AngelScriptCoroutineModulePrelude() noexcept
+    {
+        return ViewOfAscii(kCoroutinePreludeSection);
+    }
+
+    void* AngelScriptEngineHandle(IScriptManager& manager) noexcept
+    {
+        // Only this backend produces AngelScriptManager instances, and the editor cook
+        // resolves the manager by language id "angelscript" before calling - so the
+        // static_cast is safe. The engine already carries the reflected types the cook
+        // registered, which is exactly what CScriptBuilder needs to build a behavior.
+        return static_cast<AngelScriptManager&>(manager).Engine();
     }
 
     void RegisterAngelScriptBackend()

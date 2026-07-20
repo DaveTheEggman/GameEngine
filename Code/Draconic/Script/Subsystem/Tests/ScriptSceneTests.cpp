@@ -55,13 +55,18 @@ namespace
     // Same, but for an arbitrary backend language (the AngelScript behavior path).
     [[nodiscard]] RefPtr<ScriptClass> MakeClassLang(
         StringView language, StringView className, StringView source,
-        std::initializer_list<StringView> handlers)
+        std::initializer_list<StringView> handlers,
+        std::initializer_list<ScriptPropertyDesc> properties = {})
     {
         RefPtr<ScriptClass> cls = MakeRef<ScriptClass>(DefaultAllocator());
         cls->language = String(language);
         cls->className = String(className);
         cls->source = String(source);
         for (StringView handler : handlers) { cls->handlers.PushBack(String(handler)); }
+        for (const ScriptPropertyDesc& property : properties)
+        {
+            cls->properties.PushBack(property);
+        }
         cls->BuildProfileName();
         return cls;
     }
@@ -896,6 +901,53 @@ TEST_CASE("script.scene: an AngelScript behavior runs the neutral lifecycle path
     ScriptComponent* c = bed.components->Get(e);
     REQUIRE(c != nullptr);
     CHECK_FALSE(c->behaviors[0].faulted);
+}
+
+// A harvested AngelScript editor property (a member field) reaches the instance through the
+// neutral setter-Invoke path: the subsystem Invokes `<name>=`, which the AngelScript backend
+// writes to the same-named member field. Both the default and a hash-keyed override drive it.
+
+TEST_CASE("script.scene: an AngelScript harvested float property applies (default + override) "
+          "and drives onUpdate")
+{
+    draconic::script::angelscript::RegisterAngelScriptBackend();
+
+    auto makeSpeeder = []() {
+        return MakeClassLang(u8"angelscript", u8"Speeder",
+            u8"class Speeder {\n"
+            u8"    private Entity@ self;\n"
+            u8"    private float x;\n"
+            u8"    float speed;\n"                       // harvested editor property (member field)
+            u8"    Speeder(Entity@ entity) { @self = entity; x = 0.0f; speed = 0.0f; }\n"
+            u8"    void onUpdate(double dt) { x = x + speed * float(dt); "
+            u8"self.setPosition(x, 0.0f, 0.0f); }\n"
+            u8"}\n",
+            { u8"onUpdate" }, { FloatProperty(u8"speed", 2.0) });
+    };
+
+    SUBCASE("the harvested default applies")
+    {
+        ScriptedScene bed;
+        const dscene::EntityHandle e = bed.AddScripted(makeSpeeder(), u8"walker");
+        bed.Start();
+        bed.Frame();   // default speed 2.0 applied (overrides the ctor's 0.0): x = 2.0 * 0.5
+        CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 1.0f));
+        CHECK_FALSE(bed.components->Get(e)->behaviors[0].faulted);
+    }
+
+    SUBCASE("a hash-keyed override wins over the default")
+    {
+        ScriptedScene bed;
+        const dscene::EntityHandle e = bed.AddScripted(makeSpeeder(), u8"runner");
+        ScriptPropertyValue five;
+        five.kind = ScriptPropertyType::Float;
+        five.number = 5.0;
+        bed.components->Get(e)->behaviors[0].SetOverride(ScriptPropertyNameHash(u8"speed"), five);
+        bed.Start();
+        bed.Frame();   // override speed 5.0: x = 5.0 * 0.5
+        CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 2.5f));
+        CHECK_FALSE(bed.components->Get(e)->behaviors[0].faulted);
+    }
 }
 
 // ---- coroutines (scripting.md §3.3): the Wren `Behavior` base + host scheduler wired
