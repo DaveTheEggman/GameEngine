@@ -213,6 +213,7 @@ TEST_CASE("export: preset set round-trips through export_presets.xml")
     ed::ExportPreset b;
     b.name = String(u8"Windows Desktop"); b.platform = String(u8"Win64");
     b.config = String(u8"RelWithDebInfo"); b.stageSymbols = true;
+    b.pruneToReachable = true;
     b.templateId = String(u8"raptor-win64-0.1.0"); b.playerName = String(u8"MyGame.exe");
     b.outputSubdir = String(u8"Win64");
     b.additionalFiles.PushBack(String(u8"icon.ico"));
@@ -229,11 +230,14 @@ TEST_CASE("export: preset set round-trips through export_presets.xml")
     CHECK(loaded.presets[0].templateId.IsEmpty());
     CHECK(loaded.presets[0].playerName.IsEmpty());
 
+    CHECK_FALSE(loaded.presets[0].pruneToReachable);   // default (unset) stays false
+
     const ed::ExportPreset* win = loaded.Find(u8"Windows Desktop");
     REQUIRE(win != nullptr);
     CHECK(win->platform == u8"Win64");
     CHECK(win->config == u8"RelWithDebInfo");   // config axis round-trips
     CHECK(win->stageSymbols);                   // symbols opt-in round-trips
+    CHECK(win->pruneToReachable);               // pruning opt-in round-trips
     CHECK(win->templateId == u8"raptor-win64-0.1.0");
     CHECK(win->playerName == u8"MyGame.exe");
     REQUIRE(win->additionalFiles.Size() == 2u);
@@ -255,6 +259,49 @@ namespace
     {
         (void)fs.AsWritable()->Save(name, Span<const byte>(
             reinterpret_cast<const byte*>(text.Data()), text.Size()));
+    }
+
+    // A scene/prefab reference scanner for the pruning tests (mirrors the CLI's MakeSceneScanner but
+    // with just the manager these tests use). Loads the instance, resolves its Refs through a
+    // factory-less ResourceManager so every bound id lands in CollectUnresolved, and reads back the
+    // parked prefab instances (the scene->prefab->asset chain).
+    ed::SceneReferenceScanner MakePruningScanner()
+    {
+        return [](draconic::content::Instance& instance, draconic::content::ContentDatabase& db,
+                  ed::SceneReferences& out)
+        {
+            dscene::Scene scene;
+            scene.AddSystem<draconic::render::MeshComponentManager>();
+            if (!dscene::LoadScene(instance, scene).IsOk()) { return; }
+            draconic::resource::ResourceManager collector(db);
+            dscene::ResolveSceneResources(scene, collector);
+            collector.CollectUnresolved(out.resources);
+            scene.ForEachPendingPrefabInstance([&out](dscene::Scene::PendingPrefabInstance& pending)
+            {
+                out.prefabs.PushBack(pending.prefabId);
+            });
+        };
+    }
+
+    // Author a cube StaticMeshAsset under `group` and return its guid.
+    Guid AuthorMesh(draconic::content::Group& group, StringView name)
+    {
+        draconic::content::Instance* inst = group.CreateInstance(name, geo::StaticMeshAsset::StaticType());
+        REQUIRE(inst != nullptr);
+        geo::StaticMeshAsset asset;
+        geo::MeshImporter::Import(*geo::Primitives::Cube(2.0f), asset);
+        REQUIRE(inst->WriteObject(asset).IsOk());
+        return inst->Id();
+    }
+
+    // A minimal host export template in `toolDir` (fake player + no sidecars). Returns a preset
+    // targeting it (blank templateId => resolve by host platform).
+    void SetupHostTemplate(StringView toolDir, ed::TemplateRegistry& registry)
+    {
+        REQUIRE(CreateDirectory(toolDir));
+        draconic::vfs::NativeFileSystem toolFs(toolDir);
+        SaveText(toolFs, GetExecutableName(u8"RaptorPlayer").AsView(), u8"#!player\n");
+        registry.Refresh(StringView{}, nullptr, toolDir, &toolFs);
     }
 }
 
@@ -821,6 +868,7 @@ TEST_CASE("export: a v1 export_presets.xml without config/stageSymbols reads as 
     CHECK(loaded.presets[0].name == u8"Legacy");
     CHECK(loaded.presets[0].config.IsEmpty());          // absent => resolves as Release
     CHECK_FALSE(loaded.presets[0].stageSymbols);        // absent => stripped
+    CHECK_FALSE(loaded.presets[0].pruneToReachable);    // absent => pack everything (back-compat)
 
     NukeTree(dir.AsView());
 }
@@ -870,4 +918,187 @@ TEST_CASE("export: EditorExportSettings round-trips through the editor settings 
     }
 
     NukeTree(dir.AsView());
+}
+
+TEST_CASE("export: pruned dist keeps the referenced closure, drops the rest, and reports both")
+{
+    GlobalTypeRegistry().Register(dscene::SceneDocument::StaticType());
+    RegisterSerializable<dscene::SceneDocument>();
+    geo::RegisterMeshAssets();
+    GlobalTypeRegistry().Register(geo::StaticMeshSource::StaticType());
+    RegisterSerializable<geo::StaticMeshSource>();
+
+    const String projectDir = TempDir(u8"draconic_prune_proj");
+    const String toolDir    = TempDir(u8"draconic_prune_tool");
+    const String outRoot    = TempDir(u8"draconic_prune_out");
+    NukeTree(projectDir.AsView()); NukeTree(toolDir.AsView()); NukeTree(outRoot.AsView());
+
+    REQUIRE(ed::EditorProject::Create(projectDir.AsView(), u8"Prune").IsOk());
+    UniquePtr<ed::EditorProject> project = ed::EditorProject::Open(projectDir.AsView());
+    REQUIRE(static_cast<bool>(project));
+
+    // Two authored meshes; the scene references only the first.
+    draconic::content::Group* meshes = project->SourceDb().RootGroup()->CreateGroup(u8"Meshes");
+    const Guid meshRefId  = AuthorMesh(*meshes, u8"Referenced");
+    const Guid meshDeadId = AuthorMesh(*meshes, u8"Unreferenced");
+
+    draconic::content::Group* scenes = project->SourceDb().RootGroup()->CreateGroup(u8"Scenes");
+    draconic::content::Instance* sceneInst =
+        scenes->CreateInstance(u8"Main", dscene::SceneDocument::StaticType());
+    REQUIRE(sceneInst != nullptr);
+    { dscene::SceneDocument doc; doc.name = String(u8"Main"); REQUIRE(sceneInst->WriteObject(doc).IsOk()); }
+    const Guid sceneId = sceneInst->Id();
+    {
+        dscene::Scene scene(u8"Main");
+        scene.AddSystem<draconic::render::MeshComponentManager>();
+        const dscene::EntityHandle e = scene.CreateEntity(u8"Box");
+        scene.GetSystem<draconic::render::MeshComponentManager>()->Add(e).mesh.SetId(meshRefId);
+        REQUIRE(dscene::SaveScene(scene, *sceneInst).IsOk());
+    }
+    project->Settings().defaultSceneId = sceneId;
+    project->Settings().defaultScene = String(u8"Scenes/Main");
+    REQUIRE(project->SaveSettings().IsOk());
+
+    ed::BuilderRegistry builders;
+    builders.Register(UniquePtr<ed::IAssetBuilder>(
+        DefaultAllocator().New<geo::StaticMeshAssetBuilder>(), DefaultAllocator()));
+    ed::TemplateRegistry registry;
+    SetupHostTemplate(toolDir.AsView(), registry);
+    const ed::SceneReferenceScanner scanner = MakePruningScanner();
+
+    // --- pruned export: only the reachable closure ships ---
+    ed::ExportPreset preset;
+    preset.name = String(u8"Pruned"); preset.platform = String(GetHostPlatformName());
+    preset.outputSubdir = String(u8"pruned"); preset.pruneToReachable = true;
+    ed::ExportResult result;
+    REQUIRE(ed::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result,
+                          {}, true, nullptr, &scanner).IsOk());
+
+    draconic::vfs::PakFileSystem pak(PathJoin(result.outputDir.AsView(), proj::kDistContentPak).AsView());
+    REQUIRE(pak.IsValid());
+    draconic::content::ContentDatabase db(pak, BinarySerializerFactory(), proj::kCookedAssetExtension);
+    CHECK(db.GetInstance(sceneId) != nullptr);      // scene staged
+    CHECK(db.GetInstance(meshRefId) != nullptr);    // referenced mesh kept
+    CHECK(db.GetInstance(meshDeadId) == nullptr);   // unreferenced mesh pruned
+
+    // The report is loud: pruned, one default-scene root, the unreferenced mesh named as dropped.
+    CHECK(result.pruning.pruned);
+    REQUIRE(result.pruning.roots.Size() == 1u);
+    CHECK(result.pruning.roots[0].reason == ed::ExportRootReason::DefaultScene);
+    CHECK(result.pruning.roots[0].id == sceneId);
+    bool droppedDead = false;
+    for (const String& d : result.pruning.dropped) { if (d == u8"Meshes/Unreferenced") { droppedDead = true; } }
+    CHECK(droppedDead);
+    draconic::vfs::NativeFileSystem distFs(result.outputDir.AsView());
+    CHECK(distFs.Exists(u8"export-report.txt"));    // report written beside the dist
+
+    // --- non-pruned (default) export: EVERYTHING ships, no report (escape hatch, no regression) ---
+    ed::ExportPreset full;
+    full.name = String(u8"Full"); full.platform = String(GetHostPlatformName());
+    full.outputSubdir = String(u8"full");   // pruneToReachable defaults false
+    ed::ExportResult fullResult;
+    REQUIRE(ed::ExportOne(*project, full, registry, builders, outRoot.AsView(), false, &fullResult,
+                          {}, true, nullptr, &scanner).IsOk());
+    draconic::vfs::PakFileSystem fullPak(
+        PathJoin(fullResult.outputDir.AsView(), proj::kDistContentPak).AsView());
+    REQUIRE(fullPak.IsValid());
+    draconic::content::ContentDatabase fullDb(fullPak, BinarySerializerFactory(), proj::kCookedAssetExtension);
+    CHECK(fullDb.GetInstance(meshRefId) != nullptr);
+    CHECK(fullDb.GetInstance(meshDeadId) != nullptr);   // unreferenced ships when not pruning
+    CHECK_FALSE(fullResult.pruning.pruned);
+    draconic::vfs::NativeFileSystem fullFs(fullResult.outputDir.AsView());
+    CHECK_FALSE(fullFs.Exists(u8"export-report.txt"));
+
+    NukeTree(projectDir.AsView()); NukeTree(toolDir.AsView()); NukeTree(outRoot.AsView());
+}
+
+TEST_CASE("export: pruning keeps a scene -> prefab -> asset chain")
+{
+    GlobalTypeRegistry().Register(dscene::SceneDocument::StaticType());
+    RegisterSerializable<dscene::SceneDocument>();
+    GlobalTypeRegistry().Register(dscene::PrefabDocument::StaticType());
+    RegisterSerializable<dscene::PrefabDocument>();
+    geo::RegisterMeshAssets();
+    GlobalTypeRegistry().Register(geo::StaticMeshSource::StaticType());
+    RegisterSerializable<geo::StaticMeshSource>();
+
+    const String projectDir = TempDir(u8"draconic_prunepf_proj");
+    const String toolDir    = TempDir(u8"draconic_prunepf_tool");
+    const String outRoot    = TempDir(u8"draconic_prunepf_out");
+    NukeTree(projectDir.AsView()); NukeTree(toolDir.AsView()); NukeTree(outRoot.AsView());
+
+    REQUIRE(ed::EditorProject::Create(projectDir.AsView(), u8"PrunePrefab").IsOk());
+    UniquePtr<ed::EditorProject> project = ed::EditorProject::Open(projectDir.AsView());
+    REQUIRE(static_cast<bool>(project));
+
+    draconic::content::Group* meshes = project->SourceDb().RootGroup()->CreateGroup(u8"Meshes");
+    const Guid meshInPrefab = AuthorMesh(*meshes, u8"PrefabMesh");
+    const Guid meshDead     = AuthorMesh(*meshes, u8"Unreferenced");
+
+    // The prefab body: an entity with a MeshComponent -> meshInPrefab, captured into the prefab
+    // instance's "scene" stream. meshInPrefab is reachable ONLY through this prefab.
+    draconic::content::Group* prefabsGroup = project->SourceDb().RootGroup()->CreateGroup(u8"Prefabs");
+    draconic::content::Instance* prefabInst =
+        prefabsGroup->CreateInstance(u8"Barrel", dscene::PrefabDocument::StaticType());
+    REQUIRE(prefabInst != nullptr);
+    { dscene::PrefabDocument doc; doc.name = String(u8"Barrel"); REQUIRE(prefabInst->WriteObject(doc).IsOk()); }
+    const Guid prefabId = prefabInst->Id();
+    {
+        dscene::Scene author(u8"Barrel");
+        author.AddSystem<draconic::render::MeshComponentManager>();
+        const dscene::EntityHandle e = author.CreateEntity(u8"Body");
+        author.GetSystem<draconic::render::MeshComponentManager>()->Add(e).mesh.SetId(meshInPrefab);
+        MemoryStream payload;
+        REQUIRE(dscene::CapturePrefab(author, e, payload).IsOk());
+        const Span<const byte> bytes = payload.Bytes();
+        REQUIRE(prefabInst->WriteData(u8"scene", bytes).IsOk());
+    }
+
+    // The main scene spawns the prefab, then saves it (persists as ref + deltas -> a
+    // PendingPrefabInstance on load, NOT a flattened mesh).
+    draconic::content::Group* scenes = project->SourceDb().RootGroup()->CreateGroup(u8"Scenes");
+    draconic::content::Instance* sceneInst =
+        scenes->CreateInstance(u8"Main", dscene::SceneDocument::StaticType());
+    REQUIRE(sceneInst != nullptr);
+    { dscene::SceneDocument doc; doc.name = String(u8"Main"); REQUIRE(sceneInst->WriteObject(doc).IsOk()); }
+    const Guid sceneId = sceneInst->Id();
+    {
+        dscene::Scene scene(u8"Main");
+        scene.AddSystem<draconic::render::MeshComponentManager>();
+        UniquePtr<IStream> payloadStream = prefabInst->ReadData(u8"scene");
+        REQUIRE(payloadStream.Get() != nullptr);
+        const dscene::EntityHandle spawned = dscene::SpawnPrefab(scene, *payloadStream, prefabId);
+        REQUIRE(spawned.IsAssigned());
+        REQUIRE(scene.PrefabInstanceCount() == 1u);
+        REQUIRE(dscene::SaveScene(scene, *sceneInst).IsOk());
+    }
+    project->Settings().defaultSceneId = sceneId;
+    project->Settings().defaultScene = String(u8"Scenes/Main");
+    REQUIRE(project->SaveSettings().IsOk());
+
+    ed::BuilderRegistry builders;
+    builders.Register(UniquePtr<ed::IAssetBuilder>(
+        DefaultAllocator().New<geo::StaticMeshAssetBuilder>(), DefaultAllocator()));
+    ed::TemplateRegistry registry;
+    SetupHostTemplate(toolDir.AsView(), registry);
+    const ed::SceneReferenceScanner scanner = MakePruningScanner();
+
+    ed::ExportPreset preset;
+    preset.name = String(u8"Pruned"); preset.platform = String(GetHostPlatformName());
+    preset.outputSubdir = String(u8"pruned"); preset.pruneToReachable = true;
+    ed::ExportResult result;
+    REQUIRE(ed::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result,
+                          {}, true, nullptr, &scanner).IsOk());
+
+    // The whole chain is kept: scene staged, prefab staged (scene->prefab), the prefab's mesh cooked
+    // in (prefab->asset); the unreferenced mesh is gone.
+    draconic::vfs::PakFileSystem pak(PathJoin(result.outputDir.AsView(), proj::kDistContentPak).AsView());
+    REQUIRE(pak.IsValid());
+    draconic::content::ContentDatabase db(pak, BinarySerializerFactory(), proj::kCookedAssetExtension);
+    CHECK(db.GetInstance(sceneId) != nullptr);
+    CHECK(db.GetInstance(prefabId) != nullptr);       // prefab staged
+    CHECK(db.GetInstance(meshInPrefab) != nullptr);   // reachable only through the prefab
+    CHECK(db.GetInstance(meshDead) == nullptr);       // unreferenced dropped
+
+    NukeTree(projectDir.AsView()); NukeTree(toolDir.AsView()); NukeTree(outRoot.AsView());
 }
