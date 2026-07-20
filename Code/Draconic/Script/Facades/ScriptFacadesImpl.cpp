@@ -57,6 +57,12 @@ namespace draconic::script
         builder.Constructor();
     }
 
+    DRACONIC_REFLECT(Scene, "draconic::script")
+    {
+        builder.Method<&Scene::spawn>("spawn");
+        builder.Constructor();
+    }
+
     void RegisterScriptFacadeReflection()
     {
         static const bool once = []() {
@@ -65,6 +71,7 @@ namespace draconic::script
             GlobalTypeRegistry().Register(Log::StaticType());
             GlobalTypeRegistry().Register(Time::StaticType());
             GlobalTypeRegistry().Register(Random::StaticType());
+            GlobalTypeRegistry().Register(Scene::StaticType());
             return true;
         }();
         (void)once;

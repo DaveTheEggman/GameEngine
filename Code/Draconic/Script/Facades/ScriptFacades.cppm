@@ -36,7 +36,7 @@ export namespace draconic::script
     /// names resolve without user imports. Exactly one line: compile-error line
     /// numbers shift by one and reporters subtract it back.
     inline constexpr StringView kScriptBehaviorModulePrelude =
-        u8"import \"main\" for Entity, Log, Time, Random\n";
+        u8"import \"main\" for Entity, Log, Time, Random, Scene\n";
 
     struct ScriptRuntimeBinding
     {
@@ -50,6 +50,14 @@ export namespace draconic::script
         // when no subsystem is driving the run (a bare cook VM) - send becomes a no-op.
         core::Function<void(dscene::Scene*, dscene::EntityHandle, StringView,
                             core::Span<const core::Variant>)> dispatchMessage;
+
+        // Prefab spawning (P2): `Scene.spawn(prefab, x, y, z)` routes here. The subsystem
+        // sets `currentScene` around each scene's tick so the static facade knows WHERE to
+        // spawn; the host app installs `spawnPrefab` (it owns the content DB that resolves
+        // a prefab id to its payload). Null spawner (bare cook VM / no host) = safe no-op.
+        dscene::Scene* currentScene = nullptr;
+        core::Function<dscene::EntityHandle(dscene::Scene*, const core::Guid&,
+                                            const core::Float3&)> spawnPrefab;
     };
 
     // ---- the curated behavior facades (camelCase = the script-visible names, the
@@ -219,7 +227,39 @@ export namespace draconic::script
         }
     };
 
-    /// Registers the behavior facade types (Entity/Log/Time/Random) with the global
+    /// Scene.spawn(prefab, x, y, z): instantiates a prefab into the CURRENT scene at a
+    /// world position, returning the spawned root's Entity handle (invalid if no spawner
+    /// is wired or the prefab id is nil). The prefab id comes from an `asset:Prefab`
+    /// behavior property (marshalled as a Guid).
+    class Scene final : public Object
+    {
+        DRACONIC_OBJECT(Scene, Object)
+    public:
+        [[nodiscard]] static Entity spawn(Guid prefab, f32 x, f32 y, f32 z)
+        {
+            Entity result;
+            IScriptContext* context = CurrentScriptContext();
+            auto* binding = context != nullptr
+                ? static_cast<ScriptRuntimeBinding*>(context->GetService(kScriptRuntimeService))
+                : nullptr;
+            if (binding == nullptr || binding->currentScene == nullptr
+                || !binding->spawnPrefab || prefab.IsNil())
+            {
+                return result;
+            }
+            const dscene::EntityHandle spawned =
+                binding->spawnPrefab(binding->currentScene, prefab, Float3{ x, y, z });
+            if (spawned.IsAssigned())
+            {
+                result.scene = binding->currentScene;
+                result.entityIndex = spawned.index;
+                result.entityGeneration = spawned.generation;
+            }
+            return result;
+        }
+    };
+
+    /// Registers the behavior facade types (Entity/Log/Time/Random/Scene) with the global
     /// registry - call BEFORE a script manager is created (the run host and the cook's
     /// builder both do). Idempotent.
     void RegisterScriptFacadeReflection();

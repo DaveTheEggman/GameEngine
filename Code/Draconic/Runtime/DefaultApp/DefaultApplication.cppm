@@ -143,6 +143,37 @@ export namespace draconic::runtime
                             self->m_audio->ExposeToScript(context, self->Resources());
                         }
                     } });
+            // Scene.spawn: resolve the prefab payload from the content DB the entry point
+            // preset, spawn it, place the root at the requested world position, and bind
+            // the freshly spawned entities' resources.
+            m_scripts->SetPrefabSpawner(
+                core::Function<draconic::scene::EntityHandle(draconic::scene::Scene*,
+                    const core::Guid&, const core::Float3&)>{
+                    [self](draconic::scene::Scene* scene, const core::Guid& prefabId,
+                           const core::Float3& position) -> draconic::scene::EntityHandle {
+                        if (scene == nullptr || self->m_contentDatabase == nullptr)
+                        {
+                            return draconic::scene::EntityHandle::Invalid();
+                        }
+                        draconic::content::Instance* prefab =
+                            self->m_contentDatabase->GetInstance(prefabId);
+                        core::UniquePtr<core::IStream> payload = (prefab != nullptr)
+                            ? prefab->ReadData(u8"scene") : core::UniquePtr<core::IStream>{};
+                        if (!payload) { return draconic::scene::EntityHandle::Invalid(); }
+                        const draconic::scene::EntityHandle root =
+                            draconic::scene::SpawnPrefab(*scene, *payload, prefabId);
+                        if (root.IsAssigned())
+                        {
+                            core::Transform transform = scene->GetLocalTransform(root);
+                            transform.position = position;
+                            scene->SetLocalTransform(root, transform);
+                            if (self->Resources() != nullptr)
+                            {
+                                draconic::scene::ResolveSceneResources(*scene, *self->Resources());
+                            }
+                        }
+                        return root;
+                    } });
         }
 
         [[nodiscard]] draconic::script::ScriptSubsystem* Scripts() const noexcept

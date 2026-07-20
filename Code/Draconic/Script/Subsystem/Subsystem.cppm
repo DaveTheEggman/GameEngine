@@ -311,6 +311,7 @@ export namespace draconic::script
         {
             if (phase != dscene::ScenePhase::Update) { return; }
             if (!m_started || m_scene == nullptr || m_host == nullptr) { return; }
+            m_host->Binding().currentScene = m_scene;   // Scene.spawn target for this tick
             TickBehaviors(deltaTime);
             DrainMessages();   // deferred entity.send delivery - same frame, never nested
         }
@@ -680,6 +681,13 @@ export namespace draconic::script
         void SetExternalErrorSink(IScriptErrorHandler* sink) noexcept
         {
             m_runHost.SetExternalErrorSink(sink);
+        }
+        /// Host-app wiring: the prefab spawner behind `Scene.spawn` (the host owns the
+        /// content DB that resolves a prefab id to its payload). Set BEFORE the first run.
+        void SetPrefabSpawner(Function<dscene::EntityHandle(dscene::Scene*, const Guid&,
+                                                            const Float3&)> spawner)
+        {
+            m_runHost.Binding().spawnPrefab = Move(spawner);
         }
 
         // ---- the game-script seam (DefaultApplication): SHARES the run context ----

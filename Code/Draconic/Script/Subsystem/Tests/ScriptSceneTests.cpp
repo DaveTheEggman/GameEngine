@@ -753,3 +753,60 @@ TEST_CASE("script.scene: updateInterval survives the SerializeScene wire (P3 sym
     REQUIRE(lc->behaviors.Size() == 1u);
     CHECK(Near(lc->behaviors[0].updateInterval, 0.25f));
 }
+
+TEST_CASE("script.scene: Scene.spawn routes through the run spawner to the current scene "
+          "and returns a live Entity (P2)")
+{
+    ScriptedScene bed;
+
+    // A fake prefab spawner: creates a plain entity at the requested position (a real run
+    // resolves + spawns a cooked prefab payload; the facade->binding->scene path is what
+    // is under test here). Records the last call.
+    int spawnCalls = 0;
+    Guid lastPrefab;
+    dscene::EntityHandle spawnedHandle;
+    bed.host.Binding().spawnPrefab =
+        Function<dscene::EntityHandle(dscene::Scene*, const Guid&, const Float3&)>{
+            [&](dscene::Scene* scene, const Guid& prefabId, const Float3& position)
+                -> dscene::EntityHandle {
+                ++spawnCalls;
+                lastPrefab = prefabId;
+                spawnedHandle = scene->CreateEntity(u8"spawned");
+                scene->SetLocalPosition(spawnedHandle, position);
+                return spawnedHandle;
+            } };
+
+    // The behavior spawns on start using a prefab id delivered as an asset property.
+    RefPtr<ScriptClass> spawner = MakeClass(u8"Spawner",
+        u8"class Spawner {\n"
+        u8"    construct new(entity) { _entity = entity }\n"
+        u8"    prefab=(v) { _prefab = v }\n"
+        u8"    onStart() {\n"
+        u8"        var e = Scene.spawn(_prefab, 3.0, 4.0, 5.0)\n"
+        u8"        e.setName(\"child\")\n"
+        u8"    }\n"
+        u8"}\n",
+        { u8"onStart" });
+    ScriptPropertyDesc prefabProp;
+    prefabProp.name = String(u8"prefab");
+    prefabProp.hash = ScriptPropertyNameHash(u8"prefab");
+    prefabProp.type = ScriptPropertyType::Asset;
+    prefabProp.assetType = String(u8"Prefab");
+    prefabProp.defaultValue.kind = ScriptPropertyType::Asset;
+    prefabProp.defaultValue.guid = Guid{ 0xABC, 0xDEF };
+    spawner->properties.PushBack(prefabProp);
+
+    const dscene::EntityHandle e = bed.AddScripted(spawner, u8"spawner");
+    (void)e;
+    bed.Start();
+    bed.Frame();
+
+    CHECK(spawnCalls == 1);
+    CHECK(lastPrefab == Guid{ 0xABC, 0xDEF });
+    // Scene.spawn returned the live Entity: the script renamed it and it sits at the
+    // requested world position.
+    REQUIRE(spawnedHandle.IsAssigned());
+    CHECK(bed.scene.GetEntityName(spawnedHandle) == StringView(u8"child"));
+    CHECK(Near(bed.scene.GetLocalTransform(spawnedHandle).position.x, 3.0f));
+    CHECK(Near(bed.scene.GetLocalTransform(spawnedHandle).position.z, 5.0f));
+}
