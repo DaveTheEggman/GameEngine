@@ -42,12 +42,102 @@ export namespace draconic::editor
         usize filesPacked = 0;
     };
 
+    // === Reachability pruning (docs/design/export-reachability.md, Phase 1) ===
+    //
+    // Opt-in per preset (ExportPreset::pruneToReachable): a dist ships only the CLOSURE of its
+    // entry points instead of the whole cooked dir. The closure reuses the cook's dependency graph
+    // (CookDriver::PlanFor) for asset->asset edges; a caller-supplied SceneReferenceScanner bridges
+    // the scene-graph edges the cook doesn't model (a scene's component resource Refs + its prefab
+    // instances), because scenes/prefabs are builder-less and thus outside PlanFor's read-dep walk.
+
+    // Why a root is in the dist. Phase 1 seeds DefaultScene + StartupScript; Phase 2 ("Always
+    // Export") adds Flag / Group; Phase 4 adds ScriptLiteral. Keep the enum stable for the report.
+    enum class ExportRootReason
+    {
+        DefaultScene,   // ProjectSettings::defaultSceneId
+        StartupScript,  // the startup script's own imported asset (the script FILE ships regardless)
+    };
+
+    [[nodiscard]] inline StringView ExportRootReasonName(ExportRootReason r)
+    {
+        switch (r)
+        {
+            case ExportRootReason::DefaultScene:  return u8"default-scene";
+            case ExportRootReason::StartupScript: return u8"startup-script";
+        }
+        return u8"?";
+    }
+
+    // A seed entry point: the dist is the closure of these. The Array<ExportRoot> the seeding
+    // function returns is the SEAM Phase 2 extends (it just appends Flag/Group roots).
+    struct ExportRoot
+    {
+        Guid id;
+        String name;                 // the instance's source path (report display); "" if unresolved
+        ExportRootReason reason = ExportRootReason::DefaultScene;
+    };
+
+    // What a scan of one scene/prefab instance yields: the guids it references directly. Resources
+    // feed PlanFor (which then closes asset->asset); prefabs are staged AND rescanned for their own
+    // references (the scene->prefab->asset chain).
+    struct SceneReferences
+    {
+        Array<Guid> resources;   // component resource Ref ids (mesh/material/texture/... instances)
+        Array<Guid> prefabs;     // prefab-instance ids nested in this scene/prefab
+    };
+
+    // Caller hook: collect one scene/prefab instance's direct references (see SceneReferences).
+    // The export LIBRARY stays subsystem-agnostic, so the driving tool - which owns the full
+    // component-manager set (render/physics/animation/...) - supplies this. The canonical
+    // implementation loads the instance (LoadScene over all managers), resolves its Refs through a
+    // factory-less ResourceManager and reads back ResourceManager::CollectUnresolved (every bound
+    // id, since nothing built), plus each parked prefab instance's prefabId. Same reason the
+    // scene-stream transcode (sceneStreams) is a caller hook.
+    using SceneReferenceScanner =
+        Function<void(draconic::content::Instance&, draconic::content::ContentDatabase&, SceneReferences&)>;
+
+    // The loud, auditable record of a pruned export: which roots were kept and WHY, plus what was
+    // dropped. Lives on ExportResult (CLI prints it, editor Console shows it) and is written beside
+    // the dist as export-report.txt. Empty/pruned=false for a pack-everything export.
+    struct PruningReport
+    {
+        bool pruned = false;
+        Array<ExportRoot> roots;     // the seed entry points + their reasons
+        usize keptCount = 0;         // scenes + cooked products shipped (closure size on disk)
+        Array<String> dropped;       // instance paths excluded from the dist (WIP/unreferenced)
+    };
+
     namespace detail
     {
+        // A cooked file's owning instance is reachable: the owning instance path is `file` up to a
+        // '.' in its NAME region (envelope "<path>.<ext>" and stream "<path>.<stream>.bin" both begin
+        // with "<path>."). Tests each '.' boundary against the reachable-instance-path set; the '.'
+        // delimiter makes prefix matching collision-safe (a peer "CubeBig" never matches "Cube.").
+        [[nodiscard]] inline bool FileOwnerReachable(StringView file,
+                                                     const HashMap<String, u8>& reachablePaths)
+        {
+            usize nameStart = 0;
+            for (usize i = 0; i < file.Size(); ++i)
+            {
+                if (file[i] == utf8char('/')) { nameStart = i + 1; }
+            }
+            for (usize i = nameStart; i < file.Size(); ++i)
+            {
+                if (file[i] == utf8char('.'))
+                {
+                    if (reachablePaths.Find(String(file.SubStr(0, i))) != nullptr) { return true; }
+                }
+            }
+            return false;
+        }
+
         // Recursively add every file under `folder` to the pak (locator = mount-relative path).
+        // When `reachablePaths` is non-null, packs ONLY files whose owning instance path is in the
+        // set (closure pruning); null packs the whole tree (the default "export everything").
         inline bool PackTree(draconic::vfs::IFileSystem& mount,
                              draconic::vfs::IEnumerableFileSystem& enumerable,
-                             StringView folder, draconic::vfs::PakBuilder& pak, usize& fileCount)
+                             StringView folder, draconic::vfs::PakBuilder& pak, usize& fileCount,
+                             const HashMap<String, u8>* reachablePaths = nullptr)
         {
             Array<draconic::vfs::DirEntry> entries;
             if (!enumerable.Enumerate(folder, entries).IsOk()) { return folder.IsEmpty(); }
@@ -56,8 +146,12 @@ export namespace draconic::editor
                 const String path = PathJoin(folder, entry.name.AsView());
                 if (entry.isDirectory)
                 {
-                    if (!PackTree(mount, enumerable, path.AsView(), pak, fileCount)) { return false; }
+                    if (!PackTree(mount, enumerable, path.AsView(), pak, fileCount, reachablePaths)) { return false; }
                     continue;
+                }
+                if (reachablePaths != nullptr && !FileOwnerReachable(path.AsView(), *reachablePaths))
+                {
+                    continue;   // pruned: not part of the reachable closure
                 }
                 UniquePtr<IStream> stream = mount.Open(path.AsView(), FileMode::Read);
                 if (!stream) { return false; }
@@ -146,6 +240,35 @@ export namespace draconic::editor
             for (draconic::content::Group* child : group.Groups()) { CollectScenes(*child, out); }
         }
 
+        // Every instance in a database (used to enumerate cooked products for the dropped report).
+        inline void CollectAllInstances(draconic::content::Group& group,
+                                        Array<draconic::content::Instance*>& out)
+        {
+            for (draconic::content::Instance* instance : group.Instances()) { out.PushBack(instance); }
+            for (draconic::content::Group* child : group.Groups()) { CollectAllInstances(*child, out); }
+        }
+
+        // The source instance whose asset imports `fileName` (the startup script's own asset, if the
+        // project imported the script). Nil when none - the script FILE still ships either way.
+        [[nodiscard]] inline Guid FindAssetByFileName(draconic::content::ContentDatabase& db,
+                                                      StringView fileName)
+        {
+            Array<draconic::content::Instance*> instances;
+            CollectAllInstances(*db.RootGroup(), instances);
+            for (draconic::content::Instance* instance : instances)
+            {
+                RefPtr<ISerializable> object = instance->ReadObject();
+                if (const Asset* asset = Cast<Asset>(object.Get()))
+                {
+                    if (!asset->fileName.IsEmpty() && asset->fileName.AsView() == fileName)
+                    {
+                        return instance->Id();
+                    }
+                }
+            }
+            return Guid{};
+        }
+
         inline void RemoveTreeRecursive(StringView root)
         {
             draconic::vfs::NativeFileSystem fs(root);
@@ -207,13 +330,168 @@ export namespace draconic::editor
     // the editor's background job wires it to a JobContext for the status-bar progress bar).
     using ExportProgress = Function<void(StringView, f32)>;
 
+    // === Reachability pruning helpers ===
+
+    /// Seed export roots: the entry points whose closure the dist ships. Phase 1 = defaultSceneId
+    /// (+ the startup script's own imported asset, if any). This is the Phase-2 SEAM: "Always
+    /// Export" just appends Flag/Group roots to the returned list.
+    [[nodiscard]] inline Array<ExportRoot> CollectExportRoots(EditorProject& project)
+    {
+        Array<ExportRoot> roots;
+        const draconic::project::ProjectSettings& settings = project.Settings();
+
+        if (!settings.defaultSceneId.IsNil())
+        {
+            ExportRoot root;
+            root.id = settings.defaultSceneId;
+            root.reason = ExportRootReason::DefaultScene;
+            if (draconic::content::Instance* inst = project.SourceDb().GetInstance(settings.defaultSceneId))
+            {
+                root.name = inst->Path();
+            }
+            roots.PushBack(Move(root));
+        }
+
+        // The script FILE always ships (packed raw in ExportContent); seed its OWN asset only when the
+        // project imported the script as a content instance - the assets the script LOADS follow the
+        // normal contract (Phase 3 AssetRef / Phase 2 flag), not chased here.
+        if (!settings.startupScript.IsEmpty())
+        {
+            const Guid scriptAsset = detail::FindAssetByFileName(project.SourceDb(),
+                                                                 settings.startupScript.AsView());
+            if (!scriptAsset.IsNil())
+            {
+                ExportRoot root;
+                root.id = scriptAsset;
+                root.reason = ExportRootReason::StartupScript;
+                if (draconic::content::Instance* inst = project.SourceDb().GetInstance(scriptAsset))
+                {
+                    root.name = inst->Path();
+                }
+                roots.PushBack(Move(root));
+            }
+        }
+        return roots;
+    }
+
+    /// Expand seed roots across the scene-graph edges the cook does not model: scan each scene/prefab
+    /// root for its component resource Refs (feed PlanFor) and its prefab instances (staged AND
+    /// rescanned), transitively. Returns the deduped guid set to seed CookDriver::PlanFor with -
+    /// PlanFor then closes the asset->asset edges. `scanner` bridges scene->asset; without it the
+    /// scene contents can't be discovered (caller must supply it when pruning).
+    [[nodiscard]] inline Array<Guid> ExpandReachableRoots(EditorProject& project,
+                                                          const Array<ExportRoot>& seeds,
+                                                          const SceneReferenceScanner& scanner)
+    {
+        Array<Guid> out;
+        HashMap<Guid, u8> seen;
+        Array<Guid> queue;
+        const auto push = [&](const Guid& id)
+        {
+            if (id.IsNil() || seen.Find(id) != nullptr) { return; }
+            seen.InsertOrAssign(id, u8(1));
+            out.PushBack(id);
+            queue.PushBack(id);
+        };
+        for (const ExportRoot& r : seeds) { push(r.id); }
+
+        usize head = 0;
+        while (head < queue.Size())
+        {
+            const Guid id = queue[head++];
+            draconic::content::Instance* inst = project.SourceDb().GetInstance(id);
+            if (inst == nullptr) { continue; }
+            const bool isSceneLike = inst->TypeName() == u8"SceneDocument"
+                                  || inst->TypeName() == u8"PrefabDocument";
+            if (!isSceneLike || !scanner) { continue; }
+
+            SceneReferences refs;
+            scanner(*inst, project.SourceDb(), refs);
+            for (const Guid& g : refs.resources) { push(g); }
+            for (const Guid& g : refs.prefabs) { push(g); }
+        }
+        return out;
+    }
+
+    /// Cook + compute the reachable closure with ONE CookDriver: PlanFor(planRoots) yields the
+    /// closure (asset->asset), and - when `cook` - Execute cooks ONLY that set (cook only what
+    /// ships). Fills stats.cooked / stats.cookFailed and `outReachable` (the full closure guids).
+    [[nodiscard]] inline Status CookReachable(EditorProject& project, BuilderRegistry& builders,
+                                              Span<const Guid> planRoots, bool cook, bool rebuild,
+                                              ExportStats& stats, Array<Guid>& outReachable,
+                                              const ExportProgress& onProgress = {})
+    {
+        draconic::vfs::NativeFileSystem sourcesMount(project.SourcesRoot().AsView());
+        draconic::vfs::NativeFileSystem cacheMount(project.CacheRoot().AsView());
+        JobSystem jobs;
+        CookDriver driver(project.SourceDb(), project.CookedDb(), builders,
+                          &sourcesMount, &cacheMount, &jobs);
+        CookPlan plan = driver.PlanFor(planRoots, rebuild);
+        outReachable = plan.reachable;
+
+        if (cook)
+        {
+            CookProgress cookProgress;
+            cookProgress.onItem = [&onProgress](usize done, usize total, StringView path, bool)
+            {
+                if (!onProgress) { return; }
+                const f32 frac = (total > 0) ? 0.05f + (static_cast<f32>(done) / static_cast<f32>(total)) * 0.55f
+                                             : 0.6f;
+                String step(u8"Cooking "); step += path;
+                onProgress(step.AsView(), frac);
+            };
+            const CookStats cookStats = driver.Execute(plan, &cookProgress);
+            stats.cooked = cookStats.cooked;
+            stats.cookFailed = cookStats.failed;
+            if (cookStats.failed > 0)
+            {
+                DRACONIC_LOG_ERROR(u8"Export", u8"aborting - the cook has {} failure(s)", cookStats.failed);
+                return Status{ ErrorCode::Internal };
+            }
+        }
+        return Status{};
+    }
+
+    /// Render a pruning report as human-readable text (the on-disk export-report.txt + Console dump).
+    [[nodiscard]] inline String FormatPruningReport(const PruningReport& report)
+    {
+        String out(u8"Export reachability pruning report\n");
+        out += u8"==================================\n";
+        out += Format(u8"kept: {} instance(s) in the closure\n", report.keptCount);
+        out += Format(u8"roots: {}\n", report.roots.Size());
+        for (const ExportRoot& r : report.roots)
+        {
+            out += u8"  - ";
+            out += r.name.IsEmpty() ? StringView(u8"(unresolved)") : r.name.AsView();
+            out += u8"  [";
+            out += ExportRootReasonName(r.reason);
+            out += u8"]\n";
+        }
+        out += Format(u8"dropped: {} instance(s)\n", report.dropped.Size());
+        for (const String& d : report.dropped)
+        {
+            out += u8"  - ";
+            out += d.AsView();
+            out += u8"\n";
+        }
+        return out;
+    }
+
     /// Stage scenes + pack Content.pak + write the dist manifest into `outDir`. Does NOT cook - it
     /// assumes the project's cooked dir is already up to date (the CLI's ExportProject cooks then calls
     /// this; the editor cooks via CookService first, then runs this on a background job). Fills
     /// stats.scenesStaged / stats.filesPacked.
+    // `reachable` (opt-in closure pruning): when non-null, stage ONLY reachable scenes and pack ONLY
+    // cooked products whose source guid is in the set - the whole cooked dir + every scene otherwise.
+    // `roots` + `outReport` feed the pruning report (kept roots + reasons, dropped list), written
+    // beside the dist as export-report.txt and returned to the caller. All null => today's behavior,
+    // byte-for-byte.
     [[nodiscard]] inline Status ExportContent(EditorProject& project, StringView outDir,
                                               ExportStats& stats, const ExportProgress& onProgress = {},
-                                              const HashMap<Guid, Array<byte>>* sceneStreams = nullptr)
+                                              const HashMap<Guid, Array<byte>>* sceneStreams = nullptr,
+                                              const HashMap<Guid, u8>* reachable = nullptr,
+                                              const Array<ExportRoot>* roots = nullptr,
+                                              PruningReport* outReport = nullptr)
     {
         namespace proj = draconic::project;
 
@@ -223,28 +501,72 @@ export namespace draconic::editor
         const String stagingDir = PathJoin(outDir, u8".stage-scenes");
         (void)CreateDirectory(stagingDir.AsView());
         draconic::vfs::NativeFileSystem stagingMount(stagingDir.AsView());
+        Array<String> droppedScenes;   // for the pruning report
         {
             draconic::content::ContentDatabase staging(stagingMount, BinarySerializerFactory(),
                                                        proj::kCookedAssetExtension);
             Array<draconic::content::Instance*> scenes;
             detail::CollectScenes(*project.SourceDb().RootGroup(), scenes);
+            usize staged = 0;
             for (draconic::content::Instance* scene : scenes)
             {
+                if (reachable != nullptr && reachable->Find(scene->Id()) == nullptr)
+                {
+                    droppedScenes.PushBack(scene->Path());   // pruned: not reachable from any root
+                    continue;
+                }
                 if (!detail::StageScene(*scene, staging, sceneStreams))
                 {
                     DRACONIC_LOG_ERROR(u8"Export", u8"failed to stage scene '{}'", scene->Path());
                     return Status{ ErrorCode::Internal };
                 }
+                ++staged;
             }
-            stats.scenesStaged = scenes.Size();
+            stats.scenesStaged = staged;
         }
 
         // --- 3. pack ---
+        // When pruning, resolve the reachable guids to their COOKED instance paths so the pack walk
+        // can filter cooked files (a file belongs to instance P iff it begins "P.").
+        UniquePtr<HashMap<String, u8>> reachablePaths;
+        usize keptProducts = 0;
+        Array<String> droppedProducts;
+        if (reachable != nullptr)
+        {
+            reachablePaths = MakeUnique<HashMap<String, u8>>(DefaultAllocator());
+            Array<draconic::content::Instance*> cooked;
+            detail::CollectAllInstances(*project.CookedDb().RootGroup(), cooked);
+            for (draconic::content::Instance* product : cooked)
+            {
+                if (reachable->Find(product->Id()) != nullptr)
+                {
+                    reachablePaths->InsertOrAssign(product->Path(), u8(1));
+                    ++keptProducts;
+                }
+            }
+            // Dropped = the authored (non-scene) source assets excluded from the dist. Computed from
+            // the SOURCE db, not the cooked db: a scoped cook never PRODUCES the unreachable assets,
+            // so they wouldn't appear cooked - but they're exactly what pruning left out, so the
+            // report must name them (scenes are reported via droppedScenes above).
+            Array<draconic::content::Instance*> sources;
+            detail::CollectAllInstances(*project.SourceDb().RootGroup(), sources);
+            for (draconic::content::Instance* src : sources)
+            {
+                const bool isSceneLike = src->TypeName() == u8"SceneDocument"
+                                      || src->TypeName() == u8"PrefabDocument";
+                if (!isSceneLike && reachable->Find(src->Id()) == nullptr)
+                {
+                    droppedProducts.PushBack(src->Path());
+                }
+            }
+        }
+
         if (onProgress) { onProgress(u8"Packing Content.pak...", 0.78f); }
         draconic::vfs::PakBuilder pak;
         draconic::vfs::NativeFileSystem cookedMount(
             PathJoin(project.Directory(), proj::kProjectCookedDir).AsView());
-        if (!detail::PackTree(cookedMount, *cookedMount.AsEnumerable(), u8"", pak, stats.filesPacked)
+        if (!detail::PackTree(cookedMount, *cookedMount.AsEnumerable(), u8"", pak, stats.filesPacked,
+                              reachablePaths.Get())
             || !detail::PackTree(stagingMount, *stagingMount.AsEnumerable(), u8"", pak, stats.filesPacked))
         {
             DRACONIC_LOG_ERROR(u8"Export", u8"packing failed");
@@ -290,6 +612,27 @@ export namespace draconic::editor
                 DRACONIC_LOG_ERROR(u8"Export", u8"failed to write the dist manifest");
                 return Status{ ErrorCode::Internal };
             }
+        }
+
+        // --- 5. pruning report (loud + auditable: pruning can silently break a shipped game) ---
+        if (reachable != nullptr)
+        {
+            PruningReport report;
+            report.pruned = true;
+            if (roots != nullptr) { report.roots = *roots; }
+            report.keptCount = stats.scenesStaged + keptProducts;
+            for (const String& d : droppedScenes) { report.dropped.PushBack(String(d.AsView())); }
+            for (const String& d : droppedProducts) { report.dropped.PushBack(String(d.AsView())); }
+
+            const String text = FormatPruningReport(report);
+            DRACONIC_LOG_INFO(u8"Export", u8"pruned dist: {} kept, {} dropped ({} root(s))",
+                              report.keptCount, report.dropped.Size(), report.roots.Size());
+            {
+                draconic::vfs::NativeFileSystem outMount(outDir);
+                (void)outMount.AsWritable()->Save(u8"export-report.txt", Span<const byte>(
+                    reinterpret_cast<const byte*>(text.CStr()), text.Size()));
+            }
+            if (outReport != nullptr) { *outReport = Move(report); }
         }
 
         detail::RemoveTreeRecursive(stagingDir.AsView());
@@ -347,6 +690,8 @@ export namespace draconic::editor
         String engineVersionWarning; // set when the resolved template was built against a different
                                      // engine version (soft mismatch); empty otherwise. The export
                                      // still runs; callers may surface this to the user.
+        PruningReport pruning;       // closure-pruning report (roots + reasons, kept/dropped counts).
+                                     // pruned=false for a pack-everything (non-pruned) export.
     };
 
     /// Produce ONE preset's dist under `outRoot`: resolve its template, export the content
@@ -360,7 +705,8 @@ export namespace draconic::editor
                                           const TemplateRegistry& templates, BuilderRegistry& builders,
                                           StringView outRoot, bool rebuild, ExportResult* outResult = nullptr,
                                           const ExportProgress& onProgress = {}, bool cook = true,
-                                          const HashMap<Guid, Array<byte>>* sceneStreams = nullptr)
+                                          const HashMap<Guid, Array<byte>>* sceneStreams = nullptr,
+                                          const SceneReferenceScanner* scanner = nullptr)
     {
         const ExportTemplate* tmpl = templates.Resolve(preset);
         if (tmpl == nullptr)
@@ -398,10 +744,42 @@ export namespace draconic::editor
         // Ensure the output dir (and outRoot) exist before the content pipeline writes into it.
         (void)CreateDirectories(result.outputDir.AsView());
 
-        const Status contentStatus = cook
-            ? ExportProject(project, result.outputDir.AsView(), builders, rebuild, &result.content, onProgress)
-            : ExportContent(project, result.outputDir.AsView(), result.content, onProgress,
-                            sceneStreams);
+        // Closure pruning is opt-in per preset. It needs a scene-reference scanner to discover a
+        // scene's assets (scenes are builder-less, so PlanFor alone can't reach them); without one we
+        // must NOT silently drop content, so fall back to the pack-everything path with a warning.
+        bool prune = preset.pruneToReachable;
+        if (prune && (scanner == nullptr || !*scanner))
+        {
+            DRACONIC_LOG_WARNING(u8"Export",
+                u8"preset '{}' requests pruning but no scene-reference scanner was supplied - "
+                u8"exporting everything", preset.name);
+            prune = false;
+        }
+
+        Status contentStatus;
+        if (prune)
+        {
+            // Seed roots -> expand scene-graph edges -> PlanFor closure -> cook + stage/pack only it.
+            const Array<ExportRoot> seeds = CollectExportRoots(project);
+            const Array<Guid> planRoots = ExpandReachableRoots(project, seeds, *scanner);
+            Array<Guid> reachableList;
+            contentStatus = CookReachable(project, builders, Span<const Guid>(planRoots.Data(), planRoots.Size()),
+                                          cook, rebuild, result.content, reachableList, onProgress);
+            if (contentStatus.IsOk())
+            {
+                HashMap<Guid, u8> reachable;
+                for (const Guid& g : reachableList) { reachable.InsertOrAssign(g, u8(1)); }
+                contentStatus = ExportContent(project, result.outputDir.AsView(), result.content, onProgress,
+                                              sceneStreams, &reachable, &seeds, &result.pruning);
+            }
+        }
+        else
+        {
+            contentStatus = cook
+                ? ExportProject(project, result.outputDir.AsView(), builders, rebuild, &result.content, onProgress)
+                : ExportContent(project, result.outputDir.AsView(), result.content, onProgress,
+                                sceneStreams);
+        }
         if (!contentStatus.IsOk())
         {
             if (outResult != nullptr) { *outResult = result; }
@@ -480,7 +858,8 @@ export namespace draconic::editor
                                           const TemplateRegistry& templates, BuilderRegistry& builders,
                                           StringView outRoot, bool rebuild, const ExportProgress& onProgress = {},
                                           bool cook = true,
-                                          const HashMap<Guid, Array<byte>>* sceneStreams = nullptr)
+                                          const HashMap<Guid, Array<byte>>* sceneStreams = nullptr,
+                                          const SceneReferenceScanner* scanner = nullptr)
     {
         usize ok = 0;
         const usize n = presets.Size();
@@ -496,7 +875,7 @@ export namespace draconic::editor
             };
             ExportResult result;
             if (ExportOne(project, preset, templates, builders, outRoot, rebuild, &result, scoped, cook,
-                          sceneStreams).IsOk())
+                          sceneStreams, scanner).IsOk())
             {
                 ++ok;
                 DRACONIC_LOG_INFO(u8"Export", u8"exported '{}' -> {} ({} files staged)",

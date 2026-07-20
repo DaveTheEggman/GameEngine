@@ -44,6 +44,9 @@ export namespace draconic::editor
         String outputSubdir;            // export-root-relative output dir; "" => sanitized `name`
         Array<String> additionalFiles;  // game-specific extra files (beyond the template's sidecars)
         bool stageSymbols = false;      // stage the template's symbols[] into the dist (default: stripped)
+        bool pruneToReachable = false;  // ship only the closure of the entry points (default: pack
+                                        // everything - the escape hatch for teams not yet managing
+                                        // reachability). See docs/design/export-reachability.md.
 
         void Serialize(ISerializer& ar)
         {
@@ -60,6 +63,12 @@ export namespace draconic::editor
             {
                 draconic::core::Serialize(ar, "config", config);
                 draconic::core::Serialize(ar, "stageSymbols", stageSymbols);
+            }
+            // v3 added closure pruning. Absent (v1/v2) => false = today's "pack everything", so a
+            // preset written before this axis keeps shipping the whole cooked dir (back-compat).
+            if (ar.Version() >= 3)
+            {
+                draconic::core::Serialize(ar, "pruneToReachable", pruneToReachable);
             }
         }
     };
@@ -204,6 +213,6 @@ export namespace draconic::editor
         return SaveEditorSettings(*fs.AsWritable(), in);
     }
 
-    DRACONIC_DEFINE_OBJECT_VERSIONED(ExportPresetSet, "draconic::editor", 2)
+    DRACONIC_DEFINE_OBJECT_VERSIONED(ExportPresetSet, "draconic::editor", 3)
     DRACONIC_DEFINE_OBJECT_VERSIONED(EditorExportSettings, "draconic::editor", 1)
 }

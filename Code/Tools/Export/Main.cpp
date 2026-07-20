@@ -24,6 +24,7 @@
 import draconic.core;
 import draconic.vfs;
 import draconic.content;
+import draconic.resource;
 import draconic.scene;
 import draconic.scene.resource;
 import draconic.editor;
@@ -129,6 +130,28 @@ namespace
             if (bytes.HasValue()) { out.InsertOrAssign(instance->Id(), Move(bytes.Value())); }
         }
         for (draconic::content::Group* child : group.Groups()) { CollectSceneStreams(*child, out); }
+    }
+
+    // Scene-reference scanner for closure pruning: load a scene/prefab over the full manager set,
+    // resolve its component Refs through a factory-less ResourceManager (nothing builds, so every
+    // bound id lands in CollectUnresolved), and read back its parked prefab instances. The export
+    // library stays subsystem-agnostic; this bridges the scene->asset edges PlanFor can't see.
+    ed::SceneReferenceScanner MakeSceneScanner()
+    {
+        return [](draconic::content::Instance& instance, draconic::content::ContentDatabase& db,
+                  ed::SceneReferences& out)
+        {
+            dscene::Scene scene;
+            AddAllSceneManagers(scene);
+            if (!dscene::LoadScene(instance, scene).IsOk()) { return; }
+            draconic::resource::ResourceManager collector(db);   // no factories -> all binds unresolved
+            dscene::ResolveSceneResources(scene, collector);
+            collector.CollectUnresolved(out.resources);
+            scene.ForEachPendingPrefabInstance([&out](dscene::Scene::PendingPrefabInstance& pending)
+            {
+                out.prefabs.PushBack(pending.prefabId);
+            });
+        };
     }
 
     // Same builder set as RaptorCook/RaptorEditor (kept in lockstep).
@@ -349,11 +372,13 @@ int main(int argc, char** argv)
     const String outRoot = (outArg != nullptr) ? String(Sv(outArg))
                                                : PathJoin(project->Directory(), u8"Dist");
 
+    const ed::SceneReferenceScanner scanner = MakeSceneScanner();
+
     if (all)
     {
         const Span<const ed::ExportPreset> span(presets.presets.Data(), presets.presets.Size());
         if (!ed::ExportAll(*project, span, registry, builders, outRoot.AsView(), rebuild, {}, true,
-                           &sceneStreams).IsOk())
+                           &sceneStreams, &scanner).IsOk())
         {
             std::fprintf(stderr, "RaptorExport: one or more presets failed (see log)\n");
             return 1;
@@ -374,7 +399,7 @@ int main(int argc, char** argv)
 
     ed::ExportResult result;
     if (!ed::ExportOne(*project, *preset, registry, builders, outRoot.AsView(), rebuild, &result, {}, true,
-                       &sceneStreams).IsOk())
+                       &sceneStreams, &scanner).IsOk())
     {
         std::fprintf(stderr, "RaptorExport: export failed (see log)\n");
         return 1;
@@ -386,6 +411,13 @@ int main(int argc, char** argv)
     if (!result.engineVersionWarning.IsEmpty())
     {
         std::printf("  warning: %s\n", Cs(result.engineVersionWarning.AsView()));
+    }
+    if (result.pruning.pruned)
+    {
+        const String reportText = ed::FormatPruningReport(result.pruning);
+        std::printf("  pruned: %zu kept, %zu dropped -> %s/export-report.txt\n",
+                    result.pruning.keptCount, result.pruning.dropped.Size(), Cs(result.outputDir.AsView()));
+        std::printf("%s", Cs(reportText.AsView()));
     }
 
     GlobalLogger().RemoveSink(&consoleSink);
