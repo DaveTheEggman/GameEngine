@@ -116,16 +116,19 @@ target_compile_definitions(draconic_jolt PUBLIC
 set_target_properties(draconic_jolt PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # AngelScript 2.39.0 WIP — vendored BY COPY (github.com/anjo76/angelscript, sdk library
-# + the scriptstdstring add-on; no submodule). Compiled from source as one static lib;
-# per-architecture native-call sources self-select via as_config.h #ifdefs, so globbing
-# every .cpp is safe. Include dirs are PUBLIC + SYSTEM so draconic.script.angelscript
-# can #include <angelscript.h> / <scriptstdstring/scriptstdstring.h> from its module
-# IMPLEMENTATION unit. Does not link draconic_policy (vendored code builds without our
-# -Werror). scriptstdstring_utils.cpp is deliberately not vendored (needs scriptarray).
+# + the scriptstdstring and scriptbuilder add-ons; no submodule). Compiled from source as
+# one static lib; per-architecture native-call sources self-select via as_config.h #ifdefs,
+# so globbing every .cpp is safe. Include dirs are PUBLIC + SYSTEM so draconic.script.angelscript
+# can #include <angelscript.h> / <scriptstdstring/scriptstdstring.h> /
+# <scriptbuilder/scriptbuilder.h> from its module IMPLEMENTATION unit. Does not link
+# draconic_policy (vendored code builds without our -Werror). scriptstdstring_utils.cpp is
+# deliberately not vendored (needs scriptarray). scriptbuilder parses [metadata] ahead of
+# declarations (the AngelScript editor cook harvests behavior properties through it).
 file(GLOB draconic_angelscript_sources ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/source/*.cpp)
 add_library(draconic_angelscript STATIC
     ${draconic_angelscript_sources}
-    ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/add_on/scriptstdstring/scriptstdstring.cpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/add_on/scriptstdstring/scriptstdstring.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/add_on/scriptbuilder/scriptbuilder.cpp)
 add_library(Draconic::AngelScript ALIAS draconic_angelscript)
 target_include_directories(draconic_angelscript SYSTEM PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/include
