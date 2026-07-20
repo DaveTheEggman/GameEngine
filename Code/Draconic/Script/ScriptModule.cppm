@@ -7,6 +7,9 @@
 
 export module draconic.script;
 
+export import :script_delegate;
+export import :script_introspection;
+export import :script_debug;
 export import :script_context;
 export import :script_manager;
 export import :script_register;
