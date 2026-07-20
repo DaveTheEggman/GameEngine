@@ -245,7 +245,11 @@ int main(int argc, char** argv)
         draconic::editor::RegisterGameUIEditor(app.Context(), host, uiHost);
         draconic::editor::RegisterAudioClipEditor(app.Context(), host);
         // Script behavior page + per-backend "New Asset > <Lang> Script" creators (scripting.md
-        // §5). Backends were registered above, so the creators fan out over every language.
+        // §5). RegisterScriptEditor fans creators over backends that have a registered COOK, so the
+        // cooks must be registered FIRST — RegisterAllBuilders (below) also registers them for the
+        // cook service, but that runs later, so register them here too (idempotent by languageId).
+        draconic::script::RegisterWrenScriptCook();
+        draconic::script::RegisterAngelScriptScriptCook();
         draconic::editor::RegisterScriptEditor(app.Context());
         RegisterPrimitiveMeshCreators(app.Context());
         {

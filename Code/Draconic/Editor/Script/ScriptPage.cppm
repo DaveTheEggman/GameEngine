@@ -343,13 +343,19 @@ export namespace draconic::editor
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
             DefaultAllocator().New<ScriptClassPageFactory>(), DefaultAllocator()));
 
-        for (const draconic::script::ScriptBackendDesc& backend :
-             draconic::script::ScriptBackendRegistry::Get().All())
+        const auto backends = draconic::script::ScriptBackendRegistry::Get().All();
+        DRACONIC_LOG_INFO(u8"Editor",
+            u8"RegisterScriptEditor: {} script backend(s) in the registry", backends.Size());
+        core::u32 registeredCreators = 0;
+        for (const draconic::script::ScriptBackendDesc& backend : backends)
         {
             // A backend with no cook (compile/harvest) cannot seed a starter - skip it.
             if (draconic::script::ScriptLanguageCookRegistry::Get().FindByLanguage(
                     backend.languageId.AsView()) == nullptr)
             {
+                DRACONIC_LOG_WARNING(u8"Editor",
+                    u8"  script backend '{}' has NO registered cook - no New-Asset creator",
+                    backend.languageId);
                 continue;
             }
             String extension = backend.fileExtensions.IsEmpty()
@@ -367,6 +373,9 @@ export namespace draconic::editor
                 return CreateScriptInstance(ctx, g, languageId.AsView(), extension.AsView());
             };
             context.RegisterCreator(Move(creator));
+            ++registeredCreators;
         }
+        DRACONIC_LOG_INFO(u8"Editor",
+            u8"RegisterScriptEditor: {} script New-Asset creator(s) registered", registeredCreators);
     }
 }
