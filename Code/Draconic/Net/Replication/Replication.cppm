@@ -94,6 +94,7 @@ usize ReadReplicatedState(BitReader& reader, const Instance& instance);
 struct NetworkComponent {
     NetworkId id{};
     NetworkAuthority authority = NetworkAuthority::Server;
+    Guid prefab{};   // the source prefab for network spawn (nil = a bare / non-prefab networked entity)
 };
 
 // ADL serialization for scene persistence (bidirectional; enum via the temp-u8 idiom).
@@ -102,6 +103,7 @@ inline void Serialize(ISerializer& ar, NetworkComponent& c) {
     u8 authority = static_cast<u8>(c.authority);
     draconic::core::Serialize(ar, "authority", authority);
     c.authority = static_cast<NetworkAuthority>(authority);
+    draconic::core::Serialize(ar, "prefab", c.prefab);   // the Guid overload routes through ISerializer::GuidValue
 }
 
 class NetworkComponentManager final : public dscene::SerializableComponentManager<NetworkComponent> {
@@ -135,9 +137,16 @@ public:
 // desyncing the reader.
 class StateReplication final : public IReplicationModel {
 public:
+    // The client's prefab-spawn seam: resolve a network-spawned prefab into a local entity (the host
+    // wires this to its content DB via SpawnPrefab). Null (or a nil prefab id) => a bare entity is
+    // created instead - enough to round-trip state, but no prefab structure/visuals.
+    using SpawnHandler = core::Function<dscene::EntityHandle(dscene::Scene&, const Guid&, NetworkId)>;
+    void SetSpawnHandler(SpawnHandler handler);
+
     // Server: give an entity a NetworkId (adds the NetworkComponent if absent), returning it. A
-    // re-registered entity keeps its id. Records the id->entity mapping for capture.
-    NetworkId AssignNetworkId(dscene::Scene& scene, dscene::EntityHandle entity);
+    // re-registered entity keeps its id. `prefab` records the source prefab so a client can network-
+    // spawn it (nil for a bare networked entity). Records the id->entity mapping for capture.
+    NetworkId AssignNetworkId(dscene::Scene& scene, dscene::EntityHandle entity, const Guid& prefab = {});
 
     void CaptureSnapshot(dscene::Scene& scene, BitWriter& out) override;
     void ApplySnapshot(dscene::Scene& scene, BitReader& in) override;
@@ -158,11 +167,13 @@ public:
     [[nodiscard]] usize NetworkedCount() const noexcept { return m_netIdToEntity.Size(); }
 
 private:
-    // Client: the entity for this id, creating a bare tagged entity on first sight (prefab-based
-    // network spawn is a later slice; a bare entity + applied components suffices to round-trip state).
-    dscene::EntityHandle FindOrCreateEntity(dscene::Scene& scene, u32 networkId);
+    // Client: the entity for this id. First sight of a spawn record with a prefab id routes through
+    // the spawn handler (prefab instance); otherwise a bare tagged entity is created.
+    dscene::EntityHandle FindOrCreateEntity(dscene::Scene& scene, u32 networkId, const Guid& prefab, bool spawn);
     // Shared apply loop: read `count` component records (tag + length-prefixed blob) onto an entity.
     void ApplyComponentRecords(dscene::Scene& scene, dscene::EntityHandle entity, u32 count, BitReader& in);
+    // Read a count-prefixed run of entity records (the unified snapshot/delta payload) and apply them.
+    void ApplyEntries(dscene::Scene& scene, BitReader& in);
 
     // A peer's last-sent state (the delta baseline), per networked entity, per component.
     struct ComponentBaseline { u32 typeHash = 0; Array<byte> blob; };
@@ -172,6 +183,7 @@ private:
     u32 m_nextNetworkId = 0;   // server-side monotonic id allocator (0 stays "unassigned")
     HashMap<u32, dscene::EntityHandle> m_netIdToEntity;
     HashMap<u32, PeerBaseline> m_peerBaselines;   // peerId -> baseline
+    SpawnHandler m_spawnHandler;                  // client-side prefab resolver (null = bare create)
 };
 
 }

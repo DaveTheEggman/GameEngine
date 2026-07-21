@@ -56,6 +56,13 @@ namespace {
         for (usize i = 0; i < b.Size(); ++i) { out[i] = b[i]; }
         return out;
     }
+
+    // Entity-record flags (shared by the snapshot + delta payloads).
+    constexpr u8 kFlagRemoved = 1u << 0;   // entity despawned - destroy locally, no fields follow
+    constexpr u8 kFlagSpawn   = 1u << 1;   // first delivery to this peer - a prefab Guid follows
+
+    void WriteGuid(BitWriter& w, const Guid& g) { w.WriteU64(g.high); w.WriteU64(g.low); }
+    [[nodiscard]] Guid ReadGuid(BitReader& r) { Guid g; g.high = r.ReadU64(); g.low = r.ReadU64(); return g; }
 }
 
 bool IsFieldTypeSupported(const TypeInfo* type) noexcept {
@@ -166,6 +173,7 @@ DRACONIC_REFLECT_VALUE(NetworkComponent, "draconic::net")
     builder.DataVersion(1);
     builder.Property<&NetworkComponent::id>("id");
     builder.Property<&NetworkComponent::authority>("authority");
+    builder.Property<&NetworkComponent::prefab>("prefab");
 }
 
 void RegisterReplicationComponents()
@@ -180,12 +188,15 @@ void RegisterReplicationComponents()
 
 // ---- StateReplication -----------------------------------------------------------------------
 
-NetworkId StateReplication::AssignNetworkId(dscene::Scene& scene, dscene::EntityHandle entity)
+void StateReplication::SetSpawnHandler(SpawnHandler handler) { m_spawnHandler = Move(handler); }
+
+NetworkId StateReplication::AssignNetworkId(dscene::Scene& scene, dscene::EntityHandle entity, const Guid& prefab)
 {
     auto* netMgr = scene.GetSystem<NetworkComponentManager>();
     if (netMgr == nullptr) { return NetworkId::Invalid(); }
     NetworkComponent& nc = netMgr->Has(entity) ? *netMgr->Get(entity) : netMgr->Add(entity);
     if (!nc.id.IsValid()) { nc.id = NetworkId{ ++m_nextNetworkId }; }   // 0 stays "unassigned"
+    if (!prefab.IsNil()) { nc.prefab = prefab; }
     m_netIdToEntity.InsertOrAssign(nc.id.value, entity);
     return nc.id;
 }
@@ -196,16 +207,23 @@ dscene::EntityHandle StateReplication::FindEntity(NetworkId id) const
     return dscene::EntityHandle::Invalid();
 }
 
-dscene::EntityHandle StateReplication::FindOrCreateEntity(dscene::Scene& scene, u32 networkId)
+dscene::EntityHandle StateReplication::FindOrCreateEntity(dscene::Scene& scene, u32 networkId,
+                                                          const Guid& prefab, bool spawn)
 {
     if (const dscene::EntityHandle* found = m_netIdToEntity.Find(networkId)) {
         if (scene.IsValid(*found)) { return *found; }
     }
-    const dscene::EntityHandle e = scene.CreateEntity();
+    // A spawn record with a prefab id + a wired handler => a full prefab instance; else a bare entity.
+    dscene::EntityHandle e = dscene::EntityHandle::Invalid();
+    if (spawn && !prefab.IsNil() && m_spawnHandler) {
+        e = m_spawnHandler(scene, prefab, NetworkId{ networkId });
+    }
+    if (!e.IsAssigned()) { e = scene.CreateEntity(); }
     if (auto* netMgr = scene.GetSystem<NetworkComponentManager>()) {
         NetworkComponent& nc = netMgr->Has(e) ? *netMgr->Get(e) : netMgr->Add(e);
         nc.id = NetworkId{ networkId };
         nc.authority = NetworkAuthority::Server;   // the client's view: the server owns this entity
+        nc.prefab = prefab;
     }
     m_netIdToEntity.InsertOrAssign(networkId, e);
     return e;
@@ -217,15 +235,19 @@ void StateReplication::CaptureSnapshot(dscene::Scene& scene, BitWriter& out)
     if (netMgr == nullptr) { out.WriteVarU32(0); return; }
 
     // Snapshot the assigned networked entities from the tag pool.
-    struct Ent { u32 id; dscene::EntityHandle handle; };
+    struct Ent { u32 id; Guid prefab; dscene::EntityHandle handle; };
     Array<Ent> entities;
     netMgr->ForEach([&](NetworkComponent& nc, dscene::EntityHandle e) {
-        if (nc.id.IsValid()) { entities.PushBack(Ent{ nc.id.value, e }); }
+        if (nc.id.IsValid()) { entities.PushBack(Ent{ nc.id.value, nc.prefab, e }); }
     });
 
     out.WriteVarU32(static_cast<u32>(entities.Size()));
     for (const Ent& ent : entities) {
+        // A full snapshot is "everything, as a spawn" - a fresh (late-joining) client reconstructs
+        // each entity via its prefab id, then applies the state on top.
         out.WriteU32(ent.id);
+        out.WriteU8(kFlagSpawn);
+        WriteGuid(out, ent.prefab);
         // Gather this entity's serializable components that carry replicated fields.
         Array<dscene::ComponentManagerBase*> comps;
         scene.ForEachManager([&](dscene::ComponentManagerBase& m) {
@@ -269,16 +291,37 @@ void StateReplication::ApplyComponentRecords(dscene::Scene& scene, dscene::Entit
     }
 }
 
-void StateReplication::ApplySnapshot(dscene::Scene& scene, BitReader& in)
+void StateReplication::ApplyEntries(dscene::Scene& scene, BitReader& in)
 {
-    const u32 entityCount = in.ReadVarU32();
-    for (u32 i = 0; i < entityCount && in.Ok(); ++i) {
+    // The unified snapshot/delta payload: count, then per entity { id, flags, [prefab if spawn],
+    // [componentCount + records unless removed] }.
+    const u32 entryCount = in.ReadVarU32();
+    for (u32 i = 0; i < entryCount && in.Ok(); ++i) {
         const u32 networkId = in.ReadU32();
-        const dscene::EntityHandle entity = FindOrCreateEntity(scene, networkId);
+        const u8 flags = in.ReadU8();
+        if (!in.Ok()) { break; }
+
+        if ((flags & kFlagRemoved) != 0u) {   // despawn
+            if (const dscene::EntityHandle* h = m_netIdToEntity.Find(networkId)) {
+                if (scene.IsValid(*h)) { scene.DestroyEntity(*h); }
+            }
+            (void)m_netIdToEntity.Remove(networkId);
+            continue;
+        }
+
+        const bool spawn = (flags & kFlagSpawn) != 0u;
+        const Guid prefab = spawn ? ReadGuid(in) : Guid{};
+        if (!in.Ok()) { break; }
+        const dscene::EntityHandle entity = FindOrCreateEntity(scene, networkId, prefab, spawn);
         const u32 componentCount = in.ReadVarU32();
         ApplyComponentRecords(scene, entity, componentCount, in);
     }
 }
+
+// Both the full snapshot (late-join) and the per-peer delta share the entry payload; the only
+// difference is what the CAPTURE side emits (all-spawn+full vs changed-only), so apply is one path.
+void StateReplication::ApplySnapshot(dscene::Scene& scene, BitReader& in) { ApplyEntries(scene, in); }
+void StateReplication::ApplyDelta(dscene::Scene& scene, BitReader& in) { ApplyEntries(scene, in); }
 
 void StateReplication::ForgetPeer(u32 peerId) { (void)m_peerBaselines.Remove(peerId); }
 
@@ -291,9 +334,11 @@ usize StateReplication::CaptureDelta(dscene::Scene& scene, u32 peerId, BitWriter
     if (m_peerBaselines.Find(peerId) == nullptr) { m_peerBaselines.InsertOrAssign(peerId, PeerBaseline{}); }
     PeerBaseline& base = *m_peerBaselines.Find(peerId);
 
-    // One delta entry: a changed/new entity (its changed component records) or a removal.
+    // One delta entry: a changed/new entity (its changed component records) or a removal. A new
+    // entity (absent from the baseline) is a SPAWN and carries its prefab id so the client can
+    // network-spawn it.
     struct CompRecord { StringView typeId; Array<byte> blob; };
-    struct Entry { u32 id = 0; bool removed = false; Array<CompRecord> comps; };
+    struct Entry { u32 id = 0; bool removed = false; bool spawn = false; Guid prefab{}; Array<CompRecord> comps; };
     Array<Entry> entries;
     HashMap<u32, EntityBaseline> nextBaseline;   // becomes the baseline after this capture
 
@@ -328,8 +373,8 @@ usize StateReplication::CaptureDelta(dscene::Scene& scene, u32 peerId, BitWriter
             newEb.components.PushBack(ComponentBaseline{ typeHash, CopyBlob(blob) });
         });
 
-        if (oldEb == nullptr || !changed.IsEmpty()) {   // new entity, or something changed
-            entries.PushBack(Entry{ nid, false, Move(changed) });
+        if (oldEb == nullptr || !changed.IsEmpty()) {   // new entity (spawn), or something changed
+            entries.PushBack(Entry{ nid, false, /*spawn=*/oldEb == nullptr, nc.prefab, Move(changed) });
         }
         nextBaseline.InsertOrAssign(nid, Move(newEb));
     });
@@ -337,15 +382,19 @@ usize StateReplication::CaptureDelta(dscene::Scene& scene, u32 peerId, BitWriter
     // Removals: entities in the old baseline that are no longer networked/present.
     for (const auto& entry : base.entities) {
         if (nextBaseline.Find(entry.key) == nullptr) {
-            entries.PushBack(Entry{ entry.key, true, {} });
+            entries.PushBack(Entry{ entry.key, true, false, Guid{}, {} });
         }
     }
 
     out.WriteVarU32(static_cast<u32>(entries.Size()));
     for (const Entry& entry : entries) {
         out.WriteU32(entry.id);
-        out.WriteU8(entry.removed ? 1u : 0u);
+        u8 flags = 0;
+        if (entry.removed) { flags |= kFlagRemoved; }
+        if (entry.spawn) { flags |= kFlagSpawn; }
+        out.WriteU8(flags);
         if (entry.removed) { continue; }
+        if (entry.spawn) { WriteGuid(out, entry.prefab); }
         out.WriteVarU32(static_cast<u32>(entry.comps.Size()));
         for (const CompRecord& comp : entry.comps) {
             WriteWireString(out, comp.typeId);
@@ -356,26 +405,6 @@ usize StateReplication::CaptureDelta(dscene::Scene& scene, u32 peerId, BitWriter
 
     base.entities = Move(nextBaseline);   // commit last-sent (reliable-ordered => delivered)
     return entries.Size();
-}
-
-void StateReplication::ApplyDelta(dscene::Scene& scene, BitReader& in)
-{
-    const u32 entryCount = in.ReadVarU32();
-    for (u32 i = 0; i < entryCount && in.Ok(); ++i) {
-        const u32 networkId = in.ReadU32();
-        const u8 flags = in.ReadU8();
-        if (!in.Ok()) { break; }
-        if ((flags & 1u) != 0u) {   // removed
-            if (const dscene::EntityHandle* h = m_netIdToEntity.Find(networkId)) {
-                if (scene.IsValid(*h)) { scene.DestroyEntity(*h); }
-            }
-            (void)m_netIdToEntity.Remove(networkId);
-            continue;
-        }
-        const dscene::EntityHandle entity = FindOrCreateEntity(scene, networkId);
-        const u32 componentCount = in.ReadVarU32();
-        ApplyComponentRecords(scene, entity, componentCount, in);
-    }
 }
 
 }

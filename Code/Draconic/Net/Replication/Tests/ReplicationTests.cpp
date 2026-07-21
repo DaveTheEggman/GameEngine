@@ -256,3 +256,99 @@ TEST_CASE("replication: per-peer delta sends only what changed since the peer's 
     rep.ForgetPeer(peer);
     { net::BitWriter w; const usize n = rep.CaptureDelta(server, peer, w); CHECK(n == 1u); }
 }
+
+TEST_CASE("replication: late-join full snapshot spawns prefabs via the spawn handler")
+{
+    DraconicRegisterValue_Mover();
+    net::RegisterReplicationComponents();
+
+    // Server: two entities network-spawned from prefabs, each with replicated Mover state.
+    dscene::Scene server;
+    server.AddSystem<net::NetworkComponentManager>();
+    MoverManager* movers = server.AddSystem<MoverManager>();
+    net::StateReplication rep;
+
+    const Guid pfxA{ 0xAAAA, 0x1111 };
+    const Guid pfxB{ 0xBBBB, 0x2222 };
+    const dscene::EntityHandle a = server.CreateEntity(u8"A");
+    movers->Add(a).health = 7;
+    const net::NetworkId idA = rep.AssignNetworkId(server, a, pfxA);
+    const dscene::EntityHandle b = server.CreateEntity(u8"B");
+    movers->Add(b).health = 8;
+    const net::NetworkId idB = rep.AssignNetworkId(server, b, pfxB);
+
+    // A late-joining client whose spawn handler stands in for SpawnPrefab: it records the prefab id
+    // and produces a Mover-bearing entity (as the real prefab would).
+    dscene::Scene client;
+    client.AddSystem<net::NetworkComponentManager>();
+    MoverManager* cmovers = client.AddSystem<MoverManager>();
+    net::StateReplication crep;
+    Array<Guid> spawned;
+    crep.SetSpawnHandler([&](dscene::Scene& s, const Guid& p, net::NetworkId) -> dscene::EntityHandle {
+        spawned.PushBack(p);
+        const dscene::EntityHandle e = s.CreateEntity();
+        s.GetSystem<MoverManager>()->Add(e);
+        return e;
+    });
+
+    net::BitWriter w; rep.CaptureSnapshot(server, w);
+    net::BitReader r(w.Data()); crep.ApplySnapshot(client, r);
+    CHECK(r.Ok());
+
+    // The handler ran once per entity with the right prefab id, and the client mirrors the state.
+    REQUIRE(spawned.Size() == 2u);
+    bool haveA = false, haveB = false;
+    for (const Guid& g : spawned) { if (g == pfxA) { haveA = true; } if (g == pfxB) { haveB = true; } }
+    CHECK(haveA); CHECK(haveB);
+    CHECK(cmovers->Get(crep.FindEntity(idA))->health == 7);
+    CHECK(cmovers->Get(crep.FindEntity(idB))->health == 8);
+    // The client recorded the source prefab on the tag (host-migration / re-spawn use it later).
+    net::NetworkComponentManager* cnet = client.GetSystem<net::NetworkComponentManager>();
+    CHECK(cnet->Get(crep.FindEntity(idA))->prefab == pfxA);
+}
+
+TEST_CASE("replication: a delta spawns a newly-added networked entity via its prefab")
+{
+    DraconicRegisterValue_Mover();
+    net::RegisterReplicationComponents();
+
+    dscene::Scene server;
+    server.AddSystem<net::NetworkComponentManager>();
+    MoverManager* movers = server.AddSystem<MoverManager>();
+    net::StateReplication rep;
+    const u32 peer = 1;
+
+    dscene::Scene client;
+    client.AddSystem<net::NetworkComponentManager>();
+    client.AddSystem<MoverManager>();
+    net::StateReplication crep;
+    Array<Guid> spawned;
+    crep.SetSpawnHandler([&](dscene::Scene& s, const Guid& p, net::NetworkId) -> dscene::EntityHandle {
+        spawned.PushBack(p);
+        const dscene::EntityHandle e = s.CreateEntity();
+        s.GetSystem<MoverManager>()->Add(e);
+        return e;
+    });
+
+    // First delta: one prefab-spawned entity.
+    const Guid pfx1{ 1, 2 };
+    const dscene::EntityHandle a = server.CreateEntity();
+    movers->Add(a).health = 1;
+    rep.AssignNetworkId(server, a, pfx1);
+    { net::BitWriter w; rep.CaptureDelta(server, peer, w); net::BitReader r(w.Data()); crep.ApplyDelta(client, r); }
+    REQUIRE(spawned.Size() == 1u);
+    CHECK(spawned[0] == pfx1);
+
+    // A second entity added later -> the next delta carries just its spawn.
+    const Guid pfx2{ 3, 4 };
+    const dscene::EntityHandle b = server.CreateEntity();
+    movers->Add(b).health = 2;
+    rep.AssignNetworkId(server, b, pfx2);
+    {
+        net::BitWriter w; const usize n = rep.CaptureDelta(server, peer, w); CHECK(n == 1u);
+        net::BitReader r(w.Data()); crep.ApplyDelta(client, r);
+    }
+    REQUIRE(spawned.Size() == 2u);
+    CHECK(spawned[1] == pfx2);
+    CHECK(crep.NetworkedCount() == 2u);
+}
