@@ -114,6 +114,33 @@ namespace draconic::core::sys
     LibraryHandle LibraryOpen(const char* path) noexcept;                 // nullptr on failure
     void* LibrarySymbol(LibraryHandle handle, const char* name) noexcept; // nullptr if absent
     void LibraryClose(LibraryHandle handle) noexcept;
+
+    // --- UDP sockets (IPv4; the draconic.net datagram backend wraps these) --
+    // Opaque handle: a POSIX fd or a Win32 SOCKET. kInvalidSocket = failure.
+    using SocketHandle = std::uintptr_t;
+    constexpr SocketHandle kInvalidSocket = ~static_cast<SocketHandle>(0);
+
+    // Bring up / tear down the platform networking layer (WSAStartup on Win32; no-op elsewhere).
+    // Reference-counted + idempotent: call once per socket user, ShutdownNetworking when done.
+    bool InitializeNetworking() noexcept;
+    void ShutdownNetworking() noexcept;
+
+    // Open a NON-BLOCKING UDP socket bound to `port` (0 = OS-assigned). Returns kInvalidSocket on
+    // failure; *outBoundPort (if non-null) receives the actual bound port (host order).
+    SocketHandle UdpOpen(std::uint16_t port, std::uint16_t* outBoundPort) noexcept;
+    void SocketClose(SocketHandle socket) noexcept;
+
+    // Parse "a.b.c.d" into a HOST-order IPv4 address. false on malformed input.
+    bool ParseIPv4(const char* dottedQuad, std::uint32_t* outIp) noexcept;
+
+    // Send `size` bytes to (ip host-order, port host-order). Returns bytes sent (>=0), or -1 on a
+    // real error (a would-block on a full send buffer returns 0 - the caller may retry).
+    std::int64_t UdpSendTo(SocketHandle socket, std::uint32_t ip, std::uint16_t port,
+                           const void* data, std::size_t size) noexcept;
+    // Receive one datagram into `out` (capacity outCap). Returns bytes read (>0), 0 when none are
+    // pending (non-blocking), or -1 on error. Fills the sender's (ip,port) host-order when non-null.
+    std::int64_t UdpRecvFrom(SocketHandle socket, void* out, std::size_t outCap,
+                             std::uint32_t* fromIp, std::uint16_t* fromPort) noexcept;
 }
 
 #endif // DRACONIC_CORE_SYSTEM_BACKEND_H

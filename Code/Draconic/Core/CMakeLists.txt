@@ -108,6 +108,7 @@ elseif(WIN32)
     target_sources(DraconicCore PRIVATE
         System/Win32/Win32System.cpp
         Threading/Win32/Win32Thread.cpp)
+    target_link_libraries(DraconicCore PUBLIC ws2_32)   # Winsock2 for the UDP socket backend
 endif()
 
 # Threading runtime (pthreads on Linux).

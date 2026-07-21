@@ -302,4 +302,31 @@ export namespace draconic::core
     {
         return sys::OpenPathInFileManager(detail::NullTerminated(path).CStr());
     }
+
+    // --- UDP sockets (IPv4) - the draconic.net datagram backend wraps these ---
+    using SocketHandle = sys::SocketHandle;
+    inline constexpr SocketHandle kInvalidSocket = sys::kInvalidSocket;
+
+    inline bool InitializeNetworking() noexcept { return sys::InitializeNetworking(); }
+    inline void ShutdownNetworking() noexcept { sys::ShutdownNetworking(); }
+
+    [[nodiscard]] inline SocketHandle UdpOpen(u16 port, u16* outBoundPort = nullptr) noexcept
+    {
+        return sys::UdpOpen(port, outBoundPort);
+    }
+    inline void SocketClose(SocketHandle socket) noexcept { sys::SocketClose(socket); }
+
+    [[nodiscard]] inline bool ParseIPv4(StringView dottedQuad, u32& outIp) noexcept
+    {
+        return sys::ParseIPv4(detail::NullTerminated(dottedQuad).CStr(), &outIp);
+    }
+
+    [[nodiscard]] inline i64 UdpSendTo(SocketHandle socket, u32 ip, u16 port, const void* data, usize size) noexcept
+    {
+        return sys::UdpSendTo(socket, ip, port, data, size);
+    }
+    [[nodiscard]] inline i64 UdpRecvFrom(SocketHandle socket, void* out, usize outCap, u32& fromIp, u16& fromPort) noexcept
+    {
+        return sys::UdpRecvFrom(socket, out, outCap, &fromIp, &fromPort);
+    }
 }

@@ -3,9 +3,13 @@
 #include "Core/System/SystemBackend.h"
 
 #include <ctime>
+#include <cerrno>
 #include <dirent.h>
 #include <dlfcn.h>
 #include <fcntl.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -345,5 +349,73 @@ namespace draconic::core::sys
     void LibraryClose(LibraryHandle handle) noexcept
     {
         if (handle != nullptr) { dlclose(handle); }
+    }
+
+    // --- UDP sockets -------------------------------------------------------
+
+    bool InitializeNetworking() noexcept { return true; }   // POSIX needs no init
+    void ShutdownNetworking() noexcept {}
+
+    SocketHandle UdpOpen(std::uint16_t port, std::uint16_t* outBoundPort) noexcept
+    {
+        const int fd = ::socket(AF_INET, SOCK_DGRAM, 0);
+        if (fd < 0) { return kInvalidSocket; }
+        const int flags = ::fcntl(fd, F_GETFL, 0);
+        ::fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+        const int yes = 1;
+        ::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+        sockaddr_in addr{};
+        addr.sin_family = AF_INET;
+        addr.sin_addr.s_addr = htonl(INADDR_ANY);
+        addr.sin_port = htons(port);
+        if (::bind(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) { ::close(fd); return kInvalidSocket; }
+        if (outBoundPort != nullptr)
+        {
+            sockaddr_in bound{};
+            socklen_t len = sizeof(bound);
+            *outBoundPort = (::getsockname(fd, reinterpret_cast<sockaddr*>(&bound), &len) == 0) ? ntohs(bound.sin_port) : port;
+        }
+        return static_cast<SocketHandle>(fd);
+    }
+
+    void SocketClose(SocketHandle socket) noexcept
+    {
+        if (socket != kInvalidSocket) { ::close(static_cast<int>(socket)); }
+    }
+
+    bool ParseIPv4(const char* dottedQuad, std::uint32_t* outIp) noexcept
+    {
+        in_addr a{};
+        if (::inet_pton(AF_INET, dottedQuad, &a) != 1) { return false; }
+        if (outIp != nullptr) { *outIp = ntohl(a.s_addr); }
+        return true;
+    }
+
+    std::int64_t UdpSendTo(SocketHandle socket, std::uint32_t ip, std::uint16_t port,
+                           const void* data, std::size_t size) noexcept
+    {
+        if (socket == kInvalidSocket) { return -1; }
+        sockaddr_in addr{};
+        addr.sin_family = AF_INET;
+        addr.sin_addr.s_addr = htonl(ip);
+        addr.sin_port = htons(port);
+        const ssize_t n = ::sendto(static_cast<int>(socket), data, size, 0,
+                                   reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
+        if (n < 0) { return (errno == EWOULDBLOCK || errno == EAGAIN) ? 0 : -1; }
+        return static_cast<std::int64_t>(n);
+    }
+
+    std::int64_t UdpRecvFrom(SocketHandle socket, void* out, std::size_t outCap,
+                             std::uint32_t* fromIp, std::uint16_t* fromPort) noexcept
+    {
+        if (socket == kInvalidSocket) { return -1; }
+        sockaddr_in addr{};
+        socklen_t len = sizeof(addr);
+        const ssize_t n = ::recvfrom(static_cast<int>(socket), out, outCap, 0,
+                                     reinterpret_cast<sockaddr*>(&addr), &len);
+        if (n < 0) { return (errno == EWOULDBLOCK || errno == EAGAIN) ? 0 : -1; }
+        if (fromIp != nullptr) { *fromIp = ntohl(addr.sin_addr.s_addr); }
+        if (fromPort != nullptr) { *fromPort = ntohs(addr.sin_port); }
+        return static_cast<std::int64_t>(n);
     }
 }

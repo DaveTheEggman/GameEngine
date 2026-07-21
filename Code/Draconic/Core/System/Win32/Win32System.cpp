@@ -7,6 +7,8 @@
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
+#include <winsock2.h>   // must precede windows.h (winsock2 vs the legacy winsock.h windows.h pulls in)
+#include <ws2tcpip.h>
 #include <windows.h>
 
 #include <cstdio>
@@ -299,5 +301,85 @@ namespace draconic::core::sys
     void LibraryClose(LibraryHandle handle) noexcept
     {
         if (handle != nullptr) { FreeLibrary(reinterpret_cast<HMODULE>(handle)); }
+    }
+
+    // --- UDP sockets (Winsock2; validate on Windows) -----------------------
+
+    namespace { int g_wsaRefs = 0; }
+
+    bool InitializeNetworking() noexcept
+    {
+        if (g_wsaRefs > 0) { ++g_wsaRefs; return true; }
+        WSADATA wsa{};
+        if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) { return false; }
+        g_wsaRefs = 1;
+        return true;
+    }
+    void ShutdownNetworking() noexcept
+    {
+        if (g_wsaRefs > 0 && --g_wsaRefs == 0) { WSACleanup(); }
+    }
+
+    SocketHandle UdpOpen(std::uint16_t port, std::uint16_t* outBoundPort) noexcept
+    {
+        const SOCKET s = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        if (s == INVALID_SOCKET) { return kInvalidSocket; }
+        u_long nonBlocking = 1;
+        ::ioctlsocket(s, FIONBIO, &nonBlocking);
+        const BOOL yes = TRUE;
+        ::setsockopt(s, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&yes), sizeof(yes));
+        sockaddr_in addr{};
+        addr.sin_family = AF_INET;
+        addr.sin_addr.s_addr = htonl(INADDR_ANY);
+        addr.sin_port = htons(port);
+        if (::bind(s, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == SOCKET_ERROR) { ::closesocket(s); return kInvalidSocket; }
+        if (outBoundPort != nullptr)
+        {
+            sockaddr_in bound{};
+            int len = sizeof(bound);
+            *outBoundPort = (::getsockname(s, reinterpret_cast<sockaddr*>(&bound), &len) == 0) ? ntohs(bound.sin_port) : port;
+        }
+        return static_cast<SocketHandle>(s);
+    }
+
+    void SocketClose(SocketHandle socket) noexcept
+    {
+        if (socket != kInvalidSocket) { ::closesocket(static_cast<SOCKET>(socket)); }
+    }
+
+    bool ParseIPv4(const char* dottedQuad, std::uint32_t* outIp) noexcept
+    {
+        in_addr a{};
+        if (::inet_pton(AF_INET, dottedQuad, &a) != 1) { return false; }
+        if (outIp != nullptr) { *outIp = ntohl(a.S_un.S_addr); }
+        return true;
+    }
+
+    std::int64_t UdpSendTo(SocketHandle socket, std::uint32_t ip, std::uint16_t port,
+                           const void* data, std::size_t size) noexcept
+    {
+        if (socket == kInvalidSocket) { return -1; }
+        sockaddr_in addr{};
+        addr.sin_family = AF_INET;
+        addr.sin_addr.s_addr = htonl(ip);
+        addr.sin_port = htons(port);
+        const int n = ::sendto(static_cast<SOCKET>(socket), static_cast<const char*>(data), static_cast<int>(size), 0,
+                               reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
+        if (n == SOCKET_ERROR) { return (WSAGetLastError() == WSAEWOULDBLOCK) ? 0 : -1; }
+        return static_cast<std::int64_t>(n);
+    }
+
+    std::int64_t UdpRecvFrom(SocketHandle socket, void* out, std::size_t outCap,
+                             std::uint32_t* fromIp, std::uint16_t* fromPort) noexcept
+    {
+        if (socket == kInvalidSocket) { return -1; }
+        sockaddr_in addr{};
+        int len = sizeof(addr);
+        const int n = ::recvfrom(static_cast<SOCKET>(socket), static_cast<char*>(out), static_cast<int>(outCap), 0,
+                                 reinterpret_cast<sockaddr*>(&addr), &len);
+        if (n == SOCKET_ERROR) { return (WSAGetLastError() == WSAEWOULDBLOCK) ? 0 : -1; }
+        if (fromIp != nullptr) { *fromIp = ntohl(addr.sin_addr.s_addr); }
+        if (fromPort != nullptr) { *fromPort = ntohs(addr.sin_port); }
+        return static_cast<std::int64_t>(n);
     }
 }
