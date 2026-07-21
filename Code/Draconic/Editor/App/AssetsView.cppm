@@ -449,6 +449,25 @@ export namespace draconic::editor::app
         // names, so one commit handler routes to the instance or group rename. Slow-click /
         // F2 / menu Rename edit in place; double-click is deliberately NOT an edit trigger
         // (it navigates); single clicks pass through to the list's selection.
+        // A list-row / grid-tile container that overlays a small dot in its top-right corner when
+        // the item is an "Always Export" root - the Sedulous registry-badge idiom (a proper visual
+        // badge, not a name-color tint). The dot draws in local space after the children, so it sits
+        // on top of the icon in both list and grid modes. Set per-bind via ShowExportBadge.
+        class AssetCell final : public ui::FlexLayout
+        {
+        public:
+            bool ShowExportBadge = false;
+            void OnDraw(ui::UIDrawContext& ctx) override
+            {
+                ui::FlexLayout::OnDraw(ctx);   // draw children (icon + name [+ meta])
+                if (ShowExportBadge)
+                {
+                    ctx.VG().FillCircle(Float2{ Width() - 7.0f, 7.0f }, 3.0f,
+                                        Color{ 80.0f / 255.0f, 180.0f / 255.0f, 80.0f / 255.0f, 1.0f });
+                }
+            }
+        };
+
         class NameLabel final : public ui::EditableLabel
         {
         public:
@@ -554,7 +573,7 @@ export namespace draconic::editor::app
             }
             [[nodiscard]] RefPtr<ui::View> CreateView(i32) override
             {
-                auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+                auto row = MakeRef<AssetCell>(DefaultAllocator());
                 row->Direction = ui::Orientation::Horizontal;
                 row->Spacing = 6;
                 row->Padding = ui::Thickness{ 4, 3 };
@@ -575,8 +594,9 @@ export namespace draconic::editor::app
             }
             void BindView(ui::View* view, i32 position) override
             {
-                auto* row = Cast<ui::FlexLayout>(view);
+                auto* row = Cast<AssetCell>(view);
                 if (row == nullptr || row->ChildCount() < 3) { return; }
+                row->ShowExportBadge = m_owner->IsRowExportRoot(position);
                 auto* iconView = Cast<ui::DrawableView>(row->GetChildAt(0));
                 auto* name = static_cast<NameLabel*>(row->GetChildAt(1));
                 auto* meta = Cast<ui::Label>(row->GetChildAt(2));
@@ -611,7 +631,7 @@ export namespace draconic::editor::app
             }
             [[nodiscard]] RefPtr<ui::View> CreateView(i32) override
             {
-                auto tile = MakeRef<ui::FlexLayout>(DefaultAllocator());
+                auto tile = MakeRef<AssetCell>(DefaultAllocator());
                 tile->Direction = ui::Orientation::Vertical;
                 tile->Padding = ui::Thickness{ 4, 4 };
                 auto iconRow = MakeRef<ui::FlexLayout>(DefaultAllocator());
@@ -645,8 +665,9 @@ export namespace draconic::editor::app
             }
             void BindView(ui::View* view, i32 position) override
             {
-                auto* tile = Cast<ui::FlexLayout>(view);
+                auto* tile = Cast<AssetCell>(view);
                 if (tile == nullptr || tile->ChildCount() < 2) { return; }
+                tile->ShowExportBadge = m_owner->IsRowExportRoot(position);
                 auto* iconRow = Cast<ui::FlexLayout>(tile->GetChildAt(0));
                 auto* name = static_cast<NameLabel*>(tile->GetChildAt(1));
                 if (iconRow == nullptr || iconRow->ChildCount() < 1 || name == nullptr) { return; }
@@ -938,6 +959,9 @@ export namespace draconic::editor::app
                     self->m_cook->RequestCookFor(Move(ids), true);
                 });
                 menu->AddItem(u8"Rename", [self, position]() { self->StartRenameDeferred(position); });
+                menu->AddItem(IsGroupExportRoot(group) ? StringView(u8"Don't always export contents")
+                                                       : StringView(u8"Always export contents"),
+                              [self, group]() { self->ToggleGroupExportRoot(group); });
                 menu->AddSeparator();
                 menu->AddItem(u8"Delete Group", [self, group]() { self->ConfirmDeleteGroup(group); });
                 const Float2 screenPos = anchor->LocalToScreen(Float2{ x, y });
@@ -965,6 +989,9 @@ export namespace draconic::editor::app
                               self->m_context->ToggleFavorite(id);
                               self->RebuildList();
                           });
+            menu->AddItem(IsInstanceExportRoot(id) ? StringView(u8"Remove from Always Export")
+                                                   : StringView(u8"Always Export"),
+                          [self, id]() { self->ToggleInstanceExportRoot(id); });
             menu->AddSeparator();
             // Scoped: the selected assets + their dependency closure (Build > Cook All stays
             // the whole-project path) - huge scenes cook one asset/group at a time.
@@ -1035,6 +1062,9 @@ export namespace draconic::editor::app
                 menu->AddItem(u8"Rename Group", [self, target]() {
                     self->StartRenameGroupInTreeDeferred(target);
                 });
+                menu->AddItem(IsGroupExportRoot(target) ? StringView(u8"Don't always export contents")
+                                                        : StringView(u8"Always export contents"),
+                              [self, target]() { self->ToggleGroupExportRoot(target); });
                 menu->AddItem(u8"Delete Group", [self, target]() {
                     self->ConfirmDeleteGroup(target);
                 });
@@ -1060,6 +1090,67 @@ export namespace draconic::editor::app
             menu->AddItem(u8"Rebuild All", [self]() { self->m_cook->RequestCook(true); });
             const Float2 screenPos = anchor->LocalToScreen(Float2{ x, y });
             menu->Show(Context, screenPos.x, screenPos.y);
+        }
+
+        // === "Always Export" roots (docs/design/export-reachability.md §2) ===
+        // A user flags an asset (or a whole group subtree) as an export root; its dependency
+        // closure then ships even with reachability pruning on. Stored centrally on the project
+        // (export_roots.xml, committed) and saved immediately on toggle - deliberate, rare, and
+        // auditable in one place.
+
+        [[nodiscard]] bool IsInstanceExportRoot(const Guid& id) const
+        {
+            draconic::editor::EditorProject* project = m_context->Project();
+            return project != nullptr && project->ExportRoots().HasInstance(id);
+        }
+        // Row-level: a directly-flagged instance OR a flagged group row (the corner-dot badge).
+        [[nodiscard]] bool IsRowExportRoot(i32 position)
+        {
+            const Row* row = RowAt(position);
+            if (row == nullptr) { return false; }
+            return (row->group != nullptr) ? IsGroupExportRoot(row->group)
+                                           : IsInstanceExportRoot(row->id);
+        }
+        [[nodiscard]] bool IsGroupExportRoot(content::Group* group) const
+        {
+            draconic::editor::EditorProject* project = m_context->Project();
+            return project != nullptr && group != nullptr
+                && project->ExportRoots().HasGroup(group->Path().AsView());
+        }
+
+        void ToggleInstanceExportRoot(const Guid& id)
+        {
+            draconic::editor::EditorProject* project = m_context->Project();
+            if (project == nullptr) { return; }
+            const bool nowRoot = project->ExportRoots().ToggleInstance(id);
+            content::Instance* inst = Resolve(id);
+            AfterExportRootChange(nowRoot, (inst != nullptr) ? inst->Name() : StringView(u8"asset"), false);
+        }
+        void ToggleGroupExportRoot(content::Group* group)
+        {
+            draconic::editor::EditorProject* project = m_context->Project();
+            if (project == nullptr || group == nullptr) { return; }
+            const bool nowRoot = project->ExportRoots().ToggleGroup(group->Path().AsView());
+            AfterExportRootChange(nowRoot, group->Name(), true);
+        }
+
+        // Persist + surface + refresh after a flag toggle. A failed save reverts the in-memory
+        // change so the badge never claims a state that isn't on disk.
+        void AfterExportRootChange(bool nowRoot, StringView name, bool isGroup)
+        {
+            draconic::editor::EditorProject* project = m_context->Project();
+            if (project == nullptr) { return; }
+            if (Status s = project->SaveExportRoots(); !s.IsOk())
+            {
+                m_context->Notify(draconic::editor::NoticeKind::Error,
+                                  u8"Failed to save export roots (export_roots.xml)");
+                return;
+            }
+            String message = nowRoot ? String(u8"Always Export: ") : String(u8"Removed from Always Export: ");
+            message += name;
+            if (isGroup && nowRoot) { message += u8" (contents)"; }
+            m_context->Notify(draconic::editor::NoticeKind::Info, message.AsView());
+            RebuildList();
         }
 
         void CreateGroupIn(content::Group* parent)
