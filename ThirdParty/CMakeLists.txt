@@ -20,11 +20,17 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/DXC/include/dxc/dxcapi.h)
     target_include_directories(draconic_dxc_headers
         SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/DXC/include)
 
+    # DRACONIC_DXC_LIB (cache): the absolute path to the DXC runtime library, so apps that ship
+    # (RaptorPlayer) can STAGE it beside the executable as a sidecar - DXC is loaded at runtime
+    # (renderer compiles HLSL on demand), so a dist that lacks it renders nothing on any machine
+    # but this one (where the compiled-in DRACONIC_DXC_PATH rpath still resolves into the tree).
     if(WIN32)
         set(_dxc_lib_dir "${CMAKE_CURRENT_SOURCE_DIR}/DXC/lib/win-x64")
         if(EXISTS "${_dxc_lib_dir}/dxcompiler.dll")
             target_compile_definitions(draconic_dxc_headers
                 INTERFACE DRACONIC_DXC_PATH="${_dxc_lib_dir}/dxcompiler.dll")
+            set(DRACONIC_DXC_LIB "${_dxc_lib_dir}/dxcompiler.dll" CACHE INTERNAL
+                "DXC runtime library to stage beside shipping apps")
             message(STATUS "DXC runtime: ${_dxc_lib_dir}")
         endif()
     elseif(UNIX AND NOT APPLE)
@@ -32,6 +38,8 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/DXC/include/dxc/dxcapi.h)
         if(EXISTS "${_dxc_lib_dir}/libdxcompiler.so")
             target_compile_definitions(draconic_dxc_headers
                 INTERFACE DRACONIC_DXC_PATH="${_dxc_lib_dir}/libdxcompiler.so")
+            set(DRACONIC_DXC_LIB "${_dxc_lib_dir}/libdxcompiler.so" CACHE INTERNAL
+                "DXC runtime library to stage beside shipping apps")
             list(APPEND CMAKE_BUILD_RPATH "${_dxc_lib_dir}")
             set(CMAKE_BUILD_RPATH "${CMAKE_BUILD_RPATH}" PARENT_SCOPE)
             message(STATUS "DXC runtime: ${_dxc_lib_dir}")

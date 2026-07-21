@@ -278,6 +278,14 @@ Status createCompiler(const CompilerDesc& desc, Compiler*& out, IAllocator& allo
             path.assign(reinterpret_cast<const char*>(desc.dxcompilerPath.Data()), desc.dxcompilerPath.Size());
         }
         s->dxcompiler = dlopen(path.c_str(), RTLD_LAZY | RTLD_LOCAL);
+        // Fallback for a RELOCATED dist: DRACONIC_DXC_PATH is the vendored source-tree lib's
+        // ABSOLUTE path, which does not exist on another machine. Retry the bare soname so the
+        // dynamic loader searches the binary's RUNPATH ($ORIGIN => the libdxcompiler.so staged
+        // beside the executable), LD_LIBRARY_PATH, and the system dirs (mirrors the Win32
+        // dxcompiler.dll fallback above).
+        if (s->dxcompiler == nullptr && path != "libdxcompiler.so") {
+            s->dxcompiler = dlopen("libdxcompiler.so", RTLD_LAZY | RTLD_LOCAL);
+        }
     }
     if (!s->dxcompiler) {
         std::fprintf(stderr, "draconic.shaders: dlopen(libdxcompiler.so) failed: %s\n", dlerror());
