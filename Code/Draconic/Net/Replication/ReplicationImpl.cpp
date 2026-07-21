@@ -63,6 +63,15 @@ namespace {
 
     void WriteGuid(BitWriter& w, const Guid& g) { w.WriteU64(g.high); w.WriteU64(g.low); }
     [[nodiscard]] Guid ReadGuid(BitReader& r) { Guid g; g.high = r.ReadU64(); g.low = r.ReadU64(); return g; }
+
+    // True if the component type has at least one replicated field worth interpolating (transform-
+    // like). Pure-discrete components are applied directly, never buffered/smoothed.
+    [[nodiscard]] bool HasInterpolatableField(const TypeInfo& type) {
+        for (const PropertyInfo* p : ReplicatedProperties(type)) {
+            if (IsInterpolatableType(p->type)) { return true; }
+        }
+        return false;
+    }
 }
 
 bool IsFieldTypeSupported(const TypeInfo* type) noexcept {
@@ -272,7 +281,8 @@ void StateReplication::CaptureSnapshot(dscene::Scene& scene, BitWriter& out)
 }
 
 void StateReplication::ApplyComponentRecords(dscene::Scene& scene, dscene::EntityHandle entity,
-                                             u32 count, BitReader& in)
+                                             NetworkId id, u32 count, BitReader& in,
+                                             InterpolationBuffer* interp, f64 timestampMs)
 {
     for (u32 j = 0; j < count && in.Ok(); ++j) {
         const String typeId = ReadWireString(in);
@@ -289,10 +299,16 @@ void StateReplication::ApplyComponentRecords(dscene::Scene& scene, dscene::Entit
         if (inst.Type() == nullptr) { continue; }
         BitReader fields(Span<const byte>(blob.Data(), blob.Size()));
         (void)ReadReplicatedState(fields, inst);
+
+        // Buffer components with interpolatable fields for smooth playback; others stay direct-applied.
+        if (interp != nullptr && HasInterpolatableField(*inst.Type())) {
+            interp->Record(id, HashTypeId(typeId.AsView()), timestampMs, inst);
+        }
     }
 }
 
-void StateReplication::ApplyEntries(dscene::Scene& scene, BitReader& in)
+void StateReplication::ApplyEntries(dscene::Scene& scene, BitReader& in,
+                                    InterpolationBuffer* interp, f64 timestampMs)
 {
     // The unified snapshot/delta payload: count, then per entity { id, flags, [prefab if spawn],
     // [componentCount + records unless removed] }.
@@ -307,6 +323,7 @@ void StateReplication::ApplyEntries(dscene::Scene& scene, BitReader& in)
                 if (scene.IsValid(*h)) { scene.DestroyEntity(*h); }
             }
             (void)m_netIdToEntity.Remove(networkId);
+            if (interp != nullptr) { interp->Forget(NetworkId{ networkId }); }
             continue;
         }
 
@@ -315,14 +332,35 @@ void StateReplication::ApplyEntries(dscene::Scene& scene, BitReader& in)
         if (!in.Ok()) { break; }
         const dscene::EntityHandle entity = FindOrCreateEntity(scene, networkId, prefab, spawn);
         const u32 componentCount = in.ReadVarU32();
-        ApplyComponentRecords(scene, entity, componentCount, in);
+        ApplyComponentRecords(scene, entity, NetworkId{ networkId }, componentCount, in, interp, timestampMs);
     }
 }
 
 // Both the full snapshot (late-join) and the per-peer delta share the entry payload; the only
 // difference is what the CAPTURE side emits (all-spawn+full vs changed-only), so apply is one path.
-void StateReplication::ApplySnapshot(dscene::Scene& scene, BitReader& in) { ApplyEntries(scene, in); }
-void StateReplication::ApplyDelta(dscene::Scene& scene, BitReader& in) { ApplyEntries(scene, in); }
+void StateReplication::ApplySnapshot(dscene::Scene& scene, BitReader& in) { ApplyEntries(scene, in, nullptr, 0.0); }
+void StateReplication::ApplyDelta(dscene::Scene& scene, BitReader& in) { ApplyEntries(scene, in, nullptr, 0.0); }
+void StateReplication::ApplyDelta(dscene::Scene& scene, BitReader& in, InterpolationBuffer& interp, f64 timestampMs)
+{
+    ApplyEntries(scene, in, &interp, timestampMs);
+}
+
+void StateReplication::SampleInterpolation(dscene::Scene& scene, InterpolationBuffer& interp,
+                                           f64 renderTimeMs) const
+{
+    auto* netMgr = scene.GetSystem<NetworkComponentManager>();
+    if (netMgr == nullptr) { return; }
+    netMgr->ForEach([&](NetworkComponent& nc, dscene::EntityHandle e) {
+        if (!nc.id.IsValid()) { return; }
+        scene.ForEachManager([&](dscene::ComponentManagerBase& m) {
+            const Instance inst = m.GetComponentInstance(e);
+            if (inst.Type() == nullptr) { return; }
+            if (!m.IsSerializable() || m.SerializationTypeId().IsEmpty()) { return; }
+            if (!HasInterpolatableField(*inst.Type())) { return; }
+            (void)interp.Sample(nc.id, HashTypeId(m.SerializationTypeId()), renderTimeMs, inst);
+        });
+    });
+}
 
 void StateReplication::ForgetPeer(u32 peerId) { (void)m_peerBaselines.Remove(peerId); }
 

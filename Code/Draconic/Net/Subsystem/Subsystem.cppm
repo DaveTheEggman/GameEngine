@@ -98,7 +98,13 @@ public:
             if (ev.kind == NetEventKind::Received && ev.channel == kRpcChannel) {
                 m_rpc.Dispatch(ev.peer, ev.payload.AsSpan());
             } else if (ev.kind == NetEventKind::Received && ev.channel == kReplicationChannel) {
-                if (m_scene != nullptr) { BitReader reader(ev.payload.AsSpan()); m_replication.ApplyDelta(*m_scene, reader); }
+                if (m_scene != nullptr) {
+                    // Packet = server capture time (for interpolation) + the delta.
+                    BitReader reader(ev.payload.AsSpan());
+                    const u64 bits = reader.ReadU64();
+                    f64 serverTimeMs = 0.0; MemCopy(&serverTimeMs, &bits, sizeof(serverTimeMs));
+                    m_replication.ApplyDelta(*m_scene, reader, m_interp, serverTimeMs);
+                }
             } else {
                 if (ev.kind == NetEventKind::Disconnected) { m_replication.ForgetPeer(ev.peer); }
                 if (onEvent) { onEvent(ev); }
@@ -106,12 +112,21 @@ public:
         }
 
         if (m_session.IsServer() && m_scene != nullptr) {
+            const f64 now = m_session.NetworkTimeMs();
+            u64 bits = 0; MemCopy(&bits, &now, sizeof(bits));
             for (const NetPeer& peer : m_session.Peers()) {
                 BitWriter writer;
+                writer.WriteU64(bits);   // server capture time, ahead of the delta
                 if (m_replication.CaptureDelta(*m_scene, peer.id, writer) > 0) {
                     m_session.Send(peer.id, kReplicationChannel, writer.Data(), Reliability::ReliableOrdered);
                 }
             }
+        }
+
+        // Client: render each interpolatable networked component at (synced network time - delay),
+        // playing the buffered states back smoothly between the low-rate updates.
+        if (m_session.IsClient() && m_scene != nullptr) {
+            m_replication.SampleInterpolation(*m_scene, m_interp, m_session.NetworkTimeMs() - m_interpDelayMs);
         }
     }
 
@@ -119,6 +134,9 @@ public:
     // no replication (session + RPC still run). The host sets the gameplay scene here.
     void SetReplicatedScene(dscene::Scene* scene) noexcept { m_scene = scene; }
     [[nodiscard]] StateReplication& Replication() noexcept { return m_replication; }
+    // How far behind synced network time the client renders (interpolation delay). ~2x the server
+    // send interval hides one lost/late update. Default 100 ms.
+    void SetInterpolationDelayMs(f64 ms) noexcept { m_interpDelayMs = ms; }
 
     // Install the Net facade's service into a script context (call once, after the context exists).
     void InstallScriptService(IScriptContext& context) {
@@ -134,8 +152,10 @@ private:
     NetSession       m_session;
     RpcTable         m_rpc;
     NetScriptBinding m_binding;
-    StateReplication m_replication;
-    dscene::Scene*   m_scene = nullptr;   // the replicated world (null = no replication)
+    StateReplication   m_replication;
+    InterpolationBuffer m_interp;          // client-side smoothing of received states
+    dscene::Scene*     m_scene = nullptr;  // the replicated world (null = no replication)
+    f64                m_interpDelayMs = 100.0;
 };
 
 // ---- runtime startup: how a host (DefaultApplication) enters a networked role from config ----

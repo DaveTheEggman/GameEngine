@@ -464,3 +464,42 @@ TEST_CASE("replication: per-peer relevancy hides non-relevant entities and remov
     CHECK(crep1.NetworkedCount() == 1u);
     CHECK(c1movers->Get(crep1.FindEntity(idA))->health == 1);
 }
+
+TEST_CASE("replication: ApplyDelta records interpolatable state, SampleInterpolation smooths it")
+{
+    DraconicRegisterValue_Mover();
+    net::RegisterReplicationComponents();
+
+    dscene::Scene server;
+    server.AddSystem<net::NetworkComponentManager>();
+    MoverManager* smovers = server.AddSystem<MoverManager>();
+    net::StateReplication srep;
+    const dscene::EntityHandle a = server.CreateEntity();
+    Mover& sm = smovers->Add(a); sm.position = Float3{ 0, 0, 0 }; sm.health = 5;
+    const net::NetworkId id = srep.AssignNetworkId(server, a);
+
+    dscene::Scene client;
+    client.AddSystem<net::NetworkComponentManager>();
+    MoverManager* cmovers = client.AddSystem<MoverManager>();
+    net::StateReplication crep;
+    net::InterpolationBuffer buf;
+    const u32 peer = 1;
+
+    // Delta 1 recorded at server time 0 (position 0).
+    { net::BitWriter w; srep.CaptureDelta(server, peer, w); net::BitReader r(w.Data()); crep.ApplyDelta(client, r, buf, 0.0); }
+    // Move, delta 2 recorded at server time 100 (position 10).
+    sm.position = Float3{ 10, 0, 0 };
+    { net::BitWriter w; srep.CaptureDelta(server, peer, w); net::BitReader r(w.Data()); crep.ApplyDelta(client, r, buf, 100.0); }
+
+    const dscene::EntityHandle ce = crep.FindEntity(id);
+    REQUIRE(client.IsValid(ce));
+    CHECK(cmovers->Get(ce)->position.x == doctest::Approx(10.0f));   // direct apply = latest
+
+    // Render halfway between the two samples -> interpolated to the midpoint.
+    crep.SampleInterpolation(client, buf, 50.0);
+    CHECK(cmovers->Get(ce)->position.x == doctest::Approx(5.0f));
+
+    // Render at the earliest sample time -> the earliest value.
+    crep.SampleInterpolation(client, buf, 0.0);
+    CHECK(cmovers->Get(ce)->position.x == doctest::Approx(0.0f));
+}

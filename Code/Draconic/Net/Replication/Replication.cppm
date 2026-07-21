@@ -199,6 +199,13 @@ public:
     usize CaptureDelta(dscene::Scene& scene, u32 peerId, BitWriter& out);
     // Client: apply a delta - changed components applied in place, removed entities destroyed.
     void ApplyDelta(dscene::Scene& scene, BitReader& in);
+    // Same, but also RECORD each applied interpolatable component into `interp` at `timestampMs`
+    // (the server's capture time), for smooth playback. Sample it back each frame via
+    // SampleInterpolation. Components with no interpolatable field are applied directly (not buffered).
+    void ApplyDelta(dscene::Scene& scene, BitReader& in, InterpolationBuffer& interp, f64 timestampMs);
+    // Client, per render frame: write each networked interpolatable component's value at `renderTimeMs`
+    // (= synced network time - interpolation delay) from the buffer onto the live scene.
+    void SampleInterpolation(dscene::Scene& scene, InterpolationBuffer& interp, f64 renderTimeMs) const;
     // Drop a peer's baseline on disconnect; its next CaptureDelta re-sends everything as new.
     void ForgetPeer(u32 peerId);
 
@@ -212,9 +219,11 @@ private:
     // the spawn handler (prefab instance); otherwise a bare tagged entity is created.
     dscene::EntityHandle FindOrCreateEntity(dscene::Scene& scene, u32 networkId, const Guid& prefab, bool spawn);
     // Shared apply loop: read `count` component records (tag + length-prefixed blob) onto an entity.
-    void ApplyComponentRecords(dscene::Scene& scene, dscene::EntityHandle entity, u32 count, BitReader& in);
+    // If `interp` is set, records each applied interpolatable component at `timestampMs`.
+    void ApplyComponentRecords(dscene::Scene& scene, dscene::EntityHandle entity, NetworkId id,
+                               u32 count, BitReader& in, InterpolationBuffer* interp, f64 timestampMs);
     // Read a count-prefixed run of entity records (the unified snapshot/delta payload) and apply them.
-    void ApplyEntries(dscene::Scene& scene, BitReader& in);
+    void ApplyEntries(dscene::Scene& scene, BitReader& in, InterpolationBuffer* interp, f64 timestampMs);
 
     // A peer's last-sent state (the delta baseline), per networked entity, per component.
     struct ComponentBaseline { u32 typeHash = 0; Array<byte> blob; };

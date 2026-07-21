@@ -56,6 +56,7 @@ import draconic.audio;              // AudioEngine (owned by the audio subsystem
 import draconic.audio.resource;     // cooked audio clips + factory
 import draconic.audio.subsystem;    // AudioSubsystem (voices/buses/one-shots + scene sync)
 import draconic.net;                // UdpSocket / DatagramEndpoint (the transport)
+import draconic.net.replication;    // NetworkId / StateReplication (the spawn-handler seam)
 import draconic.net.subsystem;      // NetSubsystem + NetworkStartup/StartNetworking + the Net facade
 import draconic.profiler;           // the CPU scope profiler (P-key dump)
 
@@ -152,6 +153,31 @@ export namespace draconic::runtime
             }
 
             DefaultApplication* self = this;
+
+            // Client-side network spawn: a replicated prefab id -> a live prefab instance from the
+            // content DB (mirrors the script Scene.spawn resolver; replication then applies the
+            // transform + other fields on top). The server assigns ids; game rules set relevancy.
+            if (m_net.IsActive())
+            {
+                m_net.subsystem->Replication().SetSpawnHandler(
+                    core::Function<draconic::scene::EntityHandle(draconic::scene::Scene&,
+                        const core::Guid&, net::NetworkId)>{
+                        [self](draconic::scene::Scene& scene, const core::Guid& prefabId,
+                               net::NetworkId) -> draconic::scene::EntityHandle {
+                            if (self->m_contentDatabase == nullptr) { return draconic::scene::EntityHandle::Invalid(); }
+                            draconic::content::Instance* prefab = self->m_contentDatabase->GetInstance(prefabId);
+                            core::UniquePtr<core::IStream> payload = (prefab != nullptr)
+                                ? prefab->ReadData(u8"scene") : core::UniquePtr<core::IStream>{};
+                            if (!payload) { return draconic::scene::EntityHandle::Invalid(); }
+                            const draconic::scene::EntityHandle root =
+                                draconic::scene::SpawnPrefab(scene, *payload, prefabId);
+                            if (root.IsAssigned() && self->Resources() != nullptr)
+                            {
+                                draconic::scene::ResolveSceneResources(scene, *self->Resources());
+                            }
+                            return root;
+                        } });
+            }
             m_scripts->SetContextConfigurator(
                 core::Function<void(draconic::script::IScriptContext&)>{
                     [self](draconic::script::IScriptContext& context) {
@@ -329,7 +355,12 @@ export namespace draconic::runtime
 
         /// The scene whose time scale the script's update(dt) follows (and, later, the
         /// scene game services bind against). Set by the launch flow; null = context time.
-        void SetPrimaryScene(draconic::scene::Scene* scene) noexcept { m_primaryScene = scene; }
+        void SetPrimaryScene(draconic::scene::Scene* scene) noexcept
+        {
+            m_primaryScene = scene;
+            // The primary gameplay scene is the replicated world (server captures / client applies).
+            if (m_net.IsActive()) { m_net.subsystem->SetReplicatedScene(scene); }
+        }
         [[nodiscard]] draconic::scene::Scene* PrimaryScene() const noexcept { return m_primaryScene; }
 
         /// Optional per-run error sink (the editor surfaces notices); set BEFORE
