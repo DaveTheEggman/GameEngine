@@ -5,22 +5,22 @@ and the plan. Keep newest first.
 
 ---
 
-## ctest: intermittent single-suite failure on the first run after a full build
+## ctest: intermittent `DraconicEditorCoreTests` failure under parallel load — FIXED
 
-**Status:** open — flaky, unidentified, low priority (never reproduces on rerun).
+**Status:** FIXED 2026-07-20. Was the recurring "1 tests failed on the first run after a
+build" flake seen many times across clang and gcc this session.
 
-**Symptom:** the FIRST `ctest --test-dir build/{clang,gcc}` immediately after a full
-`cmake --build` occasionally reports `1 tests failed out of N`; an immediate re-run is
-always 100% green. Seen many times across clang and gcc while landing the scripting work
-— it is NOT tied to any one change (predates and outlives individual commits).
+**Root cause (a real bug, not just a flaky test):** `EditorJobService::Update`
+(`JobService.cppm`) drained a job's log, then on completion called `m_ctx.Reset()`
+**without a final drain**. A log line the worker appended *between* that drain and the
+reset was discarded — so a fast job could silently drop its last log lines. The
+`jobs: ... sawLog` assertion (`JobServiceTests.cpp:54`) caught it: under peak parallel
+load the "halfway" log landed in that window and was lost.
 
-**Likely cause:** a timing/resource-sensitive suite under peak parallel load right after
-a build (contention, a startup timeout, or a test with a wall-clock assumption). Not a
-correctness regression — the same binaries pass deterministically on rerun.
-
-**Plan:** next time it trips, capture the failing suite name (`ctest --output-on-failure`)
-and pin it down — likely add slack to a timing assertion or serialize that one suite.
-Until identified, treat a lone first-run failure that clears on rerun as this flake.
+**Fix:** `Update` now does a final drain of `m_ctx->m_log` **after `JoinWorker()`** (worker
+joined ⇒ no more appends) and before `m_ctx.Reset()`, so completion never drops a job's
+last logs. Verified: two full gcc ctest runs 87/87 after the fix (previously failed nearly
+every first run under load).
 
 ---
 

@@ -103,6 +103,17 @@ export namespace draconic::editor
             if (m_finished.exchange(false))
             {
                 JoinWorker();
+                // Final drain (worker is now joined, so no more appends): flush any log
+                // lines the worker wrote AFTER the drain above but before it finished.
+                // Without this, m_ctx.Reset() below discards a job's last log lines - a
+                // real race (fast jobs drop logs) and the source of the intermittent
+                // JobService `sawLog` test flake.
+                if (m_ctx)
+                {
+                    Array<String> tail = static_cast<Array<String>&&>(m_ctx->m_log);
+                    m_ctx->m_log = Array<String>{};
+                    if (log) { for (const String& line : tail) { log(line.AsView()); } }
+                }
                 Function<void(Status)> onDone = static_cast<Function<void(Status)>&&>(m_onDone);
                 const Status result = m_result;
                 m_ctx.Reset();
