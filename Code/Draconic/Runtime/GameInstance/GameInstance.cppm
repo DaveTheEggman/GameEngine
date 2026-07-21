@@ -60,7 +60,14 @@ public:
     [[nodiscard]] bool ScriptRunning() const noexcept { return m_game.Get() != nullptr; }
     [[nodiscard]] dscript::IScriptContext* ScriptContext() const noexcept { return m_scriptContext.Get(); }
 
+    /// This run's script host - the gameplay context shared by the game script AND this instance's
+    /// scenes' behaviors ("one gameplay context per instance", game-instance.md §11). Owned HERE now;
+    /// the ScriptSubsystem borrows it (a later step has the instance drive it directly). Moving the
+    /// storage onto the instance is the prerequisite for per-instance runs (Array<GameInstance>).
+    [[nodiscard]] dscript::ScriptRunHost& RunHost() noexcept { return m_runHost; }
+
 private:
+    dscript::ScriptRunHost m_runHost;   // owned; borrowed by the ScriptSubsystem (see RunHost())
     dscene::Scene* m_scene = nullptr;
     dscript::IScriptErrorHandler* m_errorHandler = nullptr;
     f32 m_instanceTimeScale = 1.0f;

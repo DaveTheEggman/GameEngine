@@ -127,6 +127,10 @@ export namespace draconic::runtime
             // the run context itself is created lazily by the subsystem and SHARED
             // with the game script (one gameplay context per run, the locked rule).
             m_scripts = host.Ctx().AddSubsystem<draconic::script::ScriptSubsystem>();
+            // The run's script host lives on the GameInstance now (game-instance.md §11): lend it to
+            // the subsystem so the game script + this instance's scenes' behaviors share the one
+            // context. At N=1 this is behaviour-identical to the subsystem owning it.
+            m_scripts->UseRunHost(&m_instance.RunHost());
             draconic::input::RegisterInputScriptApi();
             draconic::physics::RegisterPhysicsScriptApi();
             draconic::audio::RegisterAudioScriptApi();

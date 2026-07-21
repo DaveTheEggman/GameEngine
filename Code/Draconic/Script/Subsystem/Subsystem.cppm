@@ -820,7 +820,13 @@ export namespace draconic::script
                                   public dscene::ISceneAware
     {
     public:
-        [[nodiscard]] ScriptRunHost& RunHost() noexcept { return m_runHost; }
+        [[nodiscard]] ScriptRunHost& RunHost() noexcept { return *m_runHost; }
+
+        /// Borrow an external run host instead of the owned default (game-instance.md §11 step 2): a
+        /// GameInstance owns its run host and lends it here, so its storage lifetime is the instance's.
+        /// Null restores the owned default (headless tests / standalone). At N=1 this points the
+        /// subsystem at the one instance's run host - behaviour identical to owning it.
+        void UseRunHost(ScriptRunHost* host) noexcept { m_runHost = (host != nullptr) ? host : &m_ownedRunHost; }
 
         // ---- contact events (neutral ingress) ----
 
@@ -852,19 +858,19 @@ export namespace draconic::script
         /// every run context the host creates. Set BEFORE the first run.
         void SetContextConfigurator(Function<void(IScriptContext&)> configurator)
         {
-            m_runHost.SetContextConfigurator(Move(configurator));
+            m_runHost->SetContextConfigurator(Move(configurator));
         }
         /// Optional per-run external error sink (the editor's notices). Cleared on release.
         void SetExternalErrorSink(IScriptErrorHandler* sink) noexcept
         {
-            m_runHost.SetExternalErrorSink(sink);
+            m_runHost->SetExternalErrorSink(sink);
         }
         /// Host-app wiring: the prefab spawner behind `Scene.spawn` (the host owns the
         /// content DB that resolves a prefab id to its payload). Set BEFORE the first run.
         void SetPrefabSpawner(Function<dscene::EntityHandle(dscene::Scene*, const Guid&,
                                                             const Float3&)> spawner)
         {
-            m_runHost.Binding().spawnPrefab = Move(spawner);
+            m_runHost->Binding().spawnPrefab = Move(spawner);
         }
 
         // ---- the game-script seam (DefaultApplication): SHARES the run context ----
@@ -873,18 +879,18 @@ export namespace draconic::script
         /// extension); holds the context alive until ReleaseRunContext.
         [[nodiscard]] IScriptContext* AcquireRunContextForFile(StringView path)
         {
-            IScriptContext* context = m_runHost.EnsureContextForFile(path);
+            IScriptContext* context = m_runHost->EnsureContextForFile(path);
             if (context != nullptr) { m_gameScriptHold = true; }
             return context;
         }
         /// The game script loaded its module into the shared context.
-        void NoteExternalLoad() noexcept { m_runHost.NoteExternalLoad(); }
+        void NoteExternalLoad() noexcept { m_runHost->NoteExternalLoad(); }
         /// Releases the game script's hold; tears the context down when nothing else
         /// keeps the run alive (the Stop bracket).
         void ReleaseRunContext()
         {
             m_gameScriptHold = false;
-            m_runHost.SetExternalErrorSink(nullptr);
+            m_runHost->SetExternalErrorSink(nullptr);
             MaybeTeardownRunContext();
         }
 
@@ -895,7 +901,7 @@ export namespace draconic::script
             auto* components = scene.AddSystem<ScriptComponentManager>();
             ScriptSceneSystem* system = scene.AddSystem<ScriptSceneSystem>();
             components->SetScriptSystem(system);
-            system->SetRunHost(&m_runHost);
+            system->SetRunHost(m_runHost);
             ScriptSubsystem* self = this;
             system->SetRunObserver(Function<void()>{ [self]() {
                 self->MaybeTeardownRunContext();
@@ -918,12 +924,12 @@ export namespace draconic::script
 
         void Update(f32 deltaTime) override
         {
-            ScriptRuntimeBinding& binding = m_runHost.Binding();
+            ScriptRuntimeBinding& binding = m_runHost->Binding();
             binding.timeSeconds += static_cast<f64>(deltaTime);
             binding.deltaSeconds = deltaTime;
-            if (m_runHost.Manager() != nullptr)
+            if (m_runHost->Manager() != nullptr)
             {
-                m_runHost.Manager()->CollectGarbage();   // frame-budgeted GC stepping
+                m_runHost->Manager()->CollectGarbage();   // frame-budgeted GC stepping
             }
         }
 
@@ -960,7 +966,7 @@ export namespace draconic::script
                     entry.system->OnSceneStopped();
                 }
             }
-            m_runHost.Teardown();
+            m_runHost->Teardown();
         }
 
     private:
@@ -1010,7 +1016,7 @@ export namespace draconic::script
         {
             if (m_messageRouteInstalled) { return; }
             ScriptSubsystem* self = this;
-            m_runHost.Binding().dispatchMessage = Function<void(dscene::Scene*,
+            m_runHost->Binding().dispatchMessage = Function<void(dscene::Scene*,
                 dscene::EntityHandle, StringView, Span<const Variant>)>{
                 [self](dscene::Scene* scene, dscene::EntityHandle target, StringView message,
                        Span<const Variant> args) {
@@ -1031,17 +1037,18 @@ export namespace draconic::script
         // but frozen never pins the context).
         void MaybeTeardownRunContext()
         {
-            if (!m_runHost.IsActive() || m_gameScriptHold) { return; }
+            if (!m_runHost->IsActive() || m_gameScriptHold) { return; }
             for (const SceneEntry& entry : m_systems)
             {
                 if (entry.system == nullptr || entry.scene == nullptr) { continue; }
                 if (entry.system->Started() && entry.scene->SimulationEnabled()) { return; }
                 if (entry.system->InstanceCount() > 0) { return; }
             }
-            m_runHost.Teardown();
+            m_runHost->Teardown();
         }
 
-        ScriptRunHost m_runHost;
+        ScriptRunHost  m_ownedRunHost;               // the default run host (tests / standalone)
+        ScriptRunHost* m_runHost = &m_ownedRunHost;  // borrowed: a GameInstance lends its own (UseRunHost)
         Array<SceneEntry> m_systems;
         bool m_gameScriptHold = false;
         bool m_messageRouteInstalled = false;

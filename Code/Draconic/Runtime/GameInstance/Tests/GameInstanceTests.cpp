@@ -19,6 +19,7 @@ TEST_CASE("game-instance: instance time scale defaults to 1 and is settable; fre
     CHECK_FALSE(gi.ScriptRunning());
     CHECK(gi.GetScene() == nullptr);
     CHECK(gi.ScriptContext() == nullptr);
+    CHECK_FALSE(gi.RunHost().IsActive());   // the instance owns its run host (idle until a run starts)
 }
 
 TEST_CASE("game-instance: fallback path starts, ticks, and stops a Game script")
