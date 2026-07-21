@@ -15,8 +15,8 @@ int main()
     ConsoleSink consoleSink;
     GlobalLogger().AddSink(&consoleSink);
 
-    net::UdpDatagramSocket serverSock(0);
-    net::UdpDatagramSocket clientSock(0);
+    net::UdpSocket serverSock(0);
+    net::UdpSocket clientSock(0);
     if (!serverSock.IsOpen() || !clientSock.IsOpen())
     {
         DRACONIC_LOG_ERROR(u8"NetEcho", u8"failed to open UDP sockets");

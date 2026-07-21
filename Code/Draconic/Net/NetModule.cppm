@@ -15,4 +15,5 @@ export import :wire;
 export import :transport;
 export import :datagram;
 export import :reliable;
-export import :socket;
+export import :udp_socket;
+export import :tcp_socket;

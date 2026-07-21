@@ -16,6 +16,7 @@ target_sources(DraconicNet
             Datagram.cppm
             Reliable.cppm
             UdpSocket.cppm
+            TcpSocket.cppm
             NetModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)

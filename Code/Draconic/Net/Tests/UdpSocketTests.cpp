@@ -21,8 +21,8 @@ TEST_CASE("udp: endpoint pack/unpack and IPv4 parsing round-trip")
 
 TEST_CASE("udp: two sockets bind distinct OS ports and exchange a raw datagram over localhost")
 {
-    net::UdpDatagramSocket a(0);
-    net::UdpDatagramSocket b(0);
+    net::UdpSocket a(0);
+    net::UdpSocket b(0);
     REQUIRE(a.IsOpen());
     REQUIRE(b.IsOpen());
     CHECK(a.BoundPort() != 0u);
@@ -46,8 +46,8 @@ TEST_CASE("udp: two sockets bind distinct OS ports and exchange a raw datagram o
 
 TEST_CASE("udp: reliable transport handshakes + delivers a reliable message over real sockets")
 {
-    net::UdpDatagramSocket serverSock(0);
-    net::UdpDatagramSocket clientSock(0);
+    net::UdpSocket serverSock(0);
+    net::UdpSocket clientSock(0);
     REQUIRE(serverSock.IsOpen());
     REQUIRE(clientSock.IsOpen());
 
