@@ -13,7 +13,8 @@ target_sources(DraconicNetReplication
         FILE_SET net_replication_modules TYPE CXX_MODULES FILES
             Replication.cppm
     PRIVATE
-        ReplicationImpl.cpp)
+        ReplicationImpl.cpp
+        Interpolation.cpp)
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)

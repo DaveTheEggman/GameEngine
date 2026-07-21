@@ -115,6 +115,40 @@ public:
 // snapshot path needs the patched TypeInfo for its versioned records). Idempotent.
 void RegisterReplicationComponents();
 
+// ---- client-side interpolation (smooth playback of low-rate updates) ------------------------
+
+// True if this field type is smoothly interpolated (vs snapped) by LerpFieldValue.
+[[nodiscard]] bool IsInterpolatableType(const TypeInfo* type) noexcept;
+
+// Interpolate one reflected field between two samples, t in [0,1]. f32/f64/Float2-4 lerp;
+// Quaternion nlerps (shortest-path); non-interpolatable types (bool/ints) SNAP to `a` - the value
+// in effect at the render time (the earlier bracketing sample). Same field type on both sides.
+[[nodiscard]] Variant LerpFieldValue(const Variant& a, const Variant& b, f32 t);
+
+// A per-entity, per-component timeline of received replicated states, sampled at a DELAYED render
+// time so low-rate updates play back smoothly (Valve/Fiedler snapshot interpolation). Delay-agnostic:
+// the caller passes renderTimeMs (= now - interpolationDelay). Record on network receive; Sample each
+// frame to write the interpolated fields onto the live component. Genre-neutral.
+class InterpolationBuffer {
+public:
+    void SetHistoryMs(f64 ms) noexcept { m_historyMs = ms; }
+
+    // Snapshot a component's replicated fields at `timestampMs` (layout order, via reflection).
+    void Record(NetworkId id, u32 componentTypeHash, f64 timestampMs, const Instance& component);
+    // Write the fields interpolated at `renderTimeMs` onto `component`; false if no samples exist.
+    // Clamps to the earliest/latest sample outside the buffered window (no extrapolation).
+    bool Sample(NetworkId id, u32 componentTypeHash, f64 renderTimeMs, const Instance& component) const;
+    // Drop an entity's timelines (despawn / disconnect).
+    void Forget(NetworkId id);
+    [[nodiscard]] usize TrackedEntities() const noexcept { return m_entities.Size(); }
+
+private:
+    struct StateSample { f64 time = 0.0; Array<Variant> fields; };   // fields in replicated-layout order
+    struct Timeline { Array<StateSample> samples; };                 // ascending by time
+    f64 m_historyMs = 1000.0;
+    HashMap<u32, HashMap<u32, Timeline>> m_entities;            // networkId -> (typeHash -> timeline)
+};
+
 // ---- the replication model seam + StateReplication ------------------------------------------
 
 // The seam a replication architecture implements (§5.1): StateReplication (server-authoritative

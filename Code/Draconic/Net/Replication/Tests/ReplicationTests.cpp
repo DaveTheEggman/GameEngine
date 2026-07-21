@@ -352,3 +352,53 @@ TEST_CASE("replication: a delta spawns a newly-added networked entity via its pr
     CHECK(spawned[1] == pfx2);
     CHECK(crep.NetworkedCount() == 2u);
 }
+
+TEST_CASE("replication: LerpFieldValue interpolates floats/vectors and snaps discrete types")
+{
+    CHECK(*net::LerpFieldValue(Variant::From<f32>(0.0f), Variant::From<f32>(10.0f), 0.5f).TryGet<f32>()
+          == doctest::Approx(5.0f));
+    const Variant v = net::LerpFieldValue(Variant::From<Float3>(Float3{ 0, 0, 0 }),
+                                          Variant::From<Float3>(Float3{ 2, 4, 6 }), 0.25f);
+    CHECK(*v.TryGet<Float3>() == Float3{ 0.5f, 1.0f, 1.5f });
+    // bool is discrete -> snaps to `a`.
+    CHECK(*net::LerpFieldValue(Variant::From<bool>(false), Variant::From<bool>(true), 0.9f).TryGet<bool>()
+          == false);
+    CHECK(net::IsInterpolatableType(&TypeOf<Float3>()));
+    CHECK(net::IsInterpolatableType(&TypeOf<Quaternion>()));
+    CHECK_FALSE(net::IsInterpolatableType(&TypeOf<i32>()));
+}
+
+TEST_CASE("replication: interpolation buffer lerps transforms and snaps discrete fields at render time")
+{
+    DraconicRegisterValue_Mover();
+    net::InterpolationBuffer buf;
+    const net::NetworkId id{ 1 };
+    const u32 typeHash = 0xABCDu;
+
+    // Two states 100 ms apart.
+    Mover s0; s0.position = Float3{ 0, 0, 0 }; s0.speed = 0.0f; s0.health = 10;
+    buf.Record(id, typeHash, 0.0, Instance::From(&s0));
+    Mover s1; s1.position = Float3{ 10, 0, 0 }; s1.speed = 5.0f; s1.health = 20;
+    buf.Record(id, typeHash, 100.0, Instance::From(&s1));
+    CHECK(buf.TrackedEntities() == 1u);
+
+    Mover out;
+    // Midway: position + speed lerp; health (discrete) holds the earlier bracket's value.
+    REQUIRE(buf.Sample(id, typeHash, 50.0, Instance::From(&out)));
+    CHECK(out.position.x == doctest::Approx(5.0f));
+    CHECK(out.speed == doctest::Approx(2.5f));
+    CHECK(out.health == 10);
+
+    // At the newer sample's time -> its value.
+    buf.Sample(id, typeHash, 100.0, Instance::From(&out));
+    CHECK(out.position.x == doctest::Approx(10.0f));
+
+    // Before the window -> clamp to earliest (no extrapolation).
+    buf.Sample(id, typeHash, -30.0, Instance::From(&out));
+    CHECK(out.position.x == doctest::Approx(0.0f));
+
+    // Forget drops the timeline.
+    buf.Forget(id);
+    CHECK_FALSE(buf.Sample(id, typeHash, 50.0, Instance::From(&out)));
+    CHECK(buf.TrackedEntities() == 0u);
+}
