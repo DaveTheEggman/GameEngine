@@ -50,3 +50,40 @@ TEST_CASE("net-subsystem: the Net facade type registers")
     CHECK(PropertyCount(ti) == 0u);   // a facade has methods, not properties
     // (End-to-end script binding on both backends is exercised in FacadeScriptTests.cpp.)
 }
+
+TEST_CASE("net-startup: role=None yields an inactive runtime (single-player)")
+{
+    net::NetworkStartup cfg;   // role defaults to None
+    net::NetworkRuntime rt = net::StartNetworking(cfg);
+    CHECK_FALSE(rt.IsActive());
+    CHECK(rt.socket.Get() == nullptr);
+    CHECK(rt.subsystem.Get() == nullptr);
+}
+
+TEST_CASE("net-startup: config -> socket -> role connects a server + client over real localhost UDP")
+{
+    net::NetworkStartup serverCfg;
+    serverCfg.role = net::NetworkRole::Server;
+    serverCfg.dedicated = true;
+    serverCfg.listenPort = 0;   // OS-assigned
+    net::NetworkRuntime server = net::StartNetworking(serverCfg);
+    REQUIRE(server.IsActive());
+    REQUIRE(server.socket->IsOpen());
+    CHECK(server.subsystem->Session().IsServer());
+
+    net::NetworkStartup clientCfg;
+    clientCfg.role = net::NetworkRole::Client;
+    clientCfg.serverHost = String(u8"127.0.0.1");
+    clientCfg.serverPort = server.socket->BoundPort();   // connect to the server's actual port
+    net::NetworkRuntime client = net::StartNetworking(clientCfg);
+    REQUIRE(client.IsActive());
+    CHECK(client.subsystem->Session().IsClient());
+
+    // Drive both on the fixed lane (16 ms) until the handshake lands.
+    for (int i = 0; i < 300 && server.subsystem->Session().PeerCount() == 0u; ++i)
+    {
+        server.subsystem->Update(16.0f);
+        client.subsystem->Update(16.0f);
+    }
+    CHECK(server.subsystem->Session().PeerCount() == 1u);
+}

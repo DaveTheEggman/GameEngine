@@ -39,4 +39,28 @@ namespace draconic::net
         }();
         (void)once;
     }
+
+    NetworkRuntime StartNetworking(const NetworkStartup& config)
+    {
+        NetworkRuntime runtime;
+        if (config.role == NetworkRole::None) { return runtime; }
+
+        // The facade is bound wherever networking actually runs (idempotent).
+        RegisterNetScriptFacade();
+
+        // Server binds the listen port; a client binds ephemeral (0) unless a port is forced.
+        runtime.socket = MakeUnique<UdpSocket>(DefaultAllocator(), config.listenPort);
+        runtime.subsystem = MakeUnique<NetSubsystem>(DefaultAllocator(), *runtime.socket, config.reliable);
+
+        if (config.role == NetworkRole::Server)
+        {
+            runtime.subsystem->StartServer(config.dedicated);
+        }
+        else   // Client
+        {
+            const DatagramEndpoint server = ResolveEndpoint(config.serverHost.AsView(), config.serverPort);
+            runtime.subsystem->ConnectTo(server);
+        }
+        return runtime;
+    }
 }

@@ -102,6 +102,38 @@ private:
     NetScriptBinding m_binding;
 };
 
+// ---- runtime startup: how a host (DefaultApplication) enters a networked role from config ----
+
+// The role a networked run starts in. None = single-player (no socket opened, no facade service).
+enum class NetworkRole { None, Server, Client };
+
+// Declarative startup config an app presets before it configures its subsystems (mirrors the
+// audio-engine-settings preset). IPv4 for v1: serverHost is a dotted-quad (no DNS yet).
+struct NetworkStartup {
+    NetworkRole role = NetworkRole::None;
+    u16 listenPort = 0;                         // server: bind port; client: 0 = OS-assigned
+    core::String serverHost = core::String(u8"127.0.0.1");  // client: server address to connect to
+    u16 serverPort = 0;                         // client: the server's port
+    bool dedicated = false;                     // server: dedicated (no local player) vs listen-server
+    ReliableConfig reliable = {};               // protocol tuning (keepalive/timeout/resend)
+};
+
+// A started net home: the socket the subsystem borrows + the subsystem itself. Both must outlive
+// the run; the subsystem holds a reference to the socket, so keep/destroy the subsystem FIRST.
+// socket/subsystem are null when role==None; a non-null socket that failed to open reports
+// !IsOpen() (the caller logs). Bundled so the socket-open + role-entry logic stays in this lib.
+struct NetworkRuntime {
+    core::UniquePtr<UdpSocket>     socket;
+    core::UniquePtr<NetSubsystem> subsystem;
+
+    [[nodiscard]] bool IsActive() const noexcept { return subsystem.Get() != nullptr; }
+};
+
+// Open the socket, build the subsystem, and enter the role (StartServer / ConnectTo). Returns an
+// empty NetworkRuntime for role==None. Registers the Net script facade as a side effect when a
+// role is entered (idempotent), so the facade is bound wherever networking is actually used.
+[[nodiscard]] NetworkRuntime StartNetworking(const NetworkStartup& config);
+
 /// Register the Net facade type (call before a script manager is created, like
 /// RegisterScriptFacadeReflection). Idempotent.
 void RegisterNetScriptFacade();

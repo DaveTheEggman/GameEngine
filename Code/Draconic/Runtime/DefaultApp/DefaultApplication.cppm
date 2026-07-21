@@ -55,10 +55,13 @@ import draconic.ui.subsystem;       // the game screen tier (canvases + overlay 
 import draconic.audio;              // AudioEngine (owned by the audio subsystem)
 import draconic.audio.resource;     // cooked audio clips + factory
 import draconic.audio.subsystem;    // AudioSubsystem (voices/buses/one-shots + scene sync)
+import draconic.net;                // UdpSocket / DatagramEndpoint (the transport)
+import draconic.net.subsystem;      // NetSubsystem + NetworkStartup/StartNetworking + the Net facade
 import draconic.profiler;           // the CPU scope profiler (P-key dump)
 
 namespace rhi = draconic::rhi;
 namespace core  = draconic::core;
+namespace net = draconic::net;   // NetSubsystem + NetworkStartup + the Net facade
 using namespace draconic::shell;   // IShell + input/window types (moved from draconic::runtime)
 using namespace draconic::graphics;   // GraphicsDevice/RenderWindow/FrameContext (moved from draconic::runtime)
 
@@ -137,6 +140,17 @@ export namespace draconic::runtime
             // script's language - one gameplay context per run stays the locked rule.
             draconic::script::wren::RegisterWrenScriptBackend();
             draconic::script::angelscript::RegisterAngelScriptBackend();
+            // Networking (net.md §6): open the socket + enter the role from the preset config
+            // (no-op for single-player). Registers the Net facade as a side effect when active;
+            // the context configurator installs its per-context service below.
+            m_net = net::StartNetworking(m_netStartup);
+            if (m_netStartup.role != net::NetworkRole::None &&
+                (!m_net.socket || !m_net.socket->IsOpen()))
+            {
+                DRACONIC_LOG_ERROR(u8"App", u8"networking failed to open a socket (port {}) - running offline",
+                                   m_netStartup.listenPort);
+            }
+
             DefaultApplication* self = this;
             m_scripts->SetContextConfigurator(
                 core::Function<void(draconic::script::IScriptContext&)>{
@@ -147,6 +161,7 @@ export namespace draconic::runtime
                         {
                             self->m_audio->ExposeToScript(context, self->Resources());
                         }
+                        if (self->m_net.IsActive()) { self->m_net.subsystem->InstallScriptService(context); }
                     } });
             // Scene.spawn: resolve the prefab payload from the content DB the entry point
             // preset, spawn it, place the root at the requested world position, and bind
@@ -198,6 +213,20 @@ export namespace draconic::runtime
         [[nodiscard]] draconic::input::InputSubsystem* Input() const noexcept { return m_input; }
         [[nodiscard]] draconic::physics::PhysicsSubsystem* Physics() const noexcept { return m_physics; }
         [[nodiscard]] draconic::audio::AudioSubsystem* Audio() const noexcept { return m_audio; }
+
+        /// Preset BEFORE Configure: enter a server/client role at startup (default = single-player,
+        /// no socket). The player's launch flow / editor Game tab fills this from project settings.
+        void SetNetworkStartup(const net::NetworkStartup& startup) { m_netStartup = startup; }
+        [[nodiscard]] net::NetSubsystem* Net() const noexcept { return m_net.subsystem.Get(); }
+
+        // Drives the network on the FIXED lane (deterministic step): pump incoming datagrams,
+        // dispatch RPCs, flush reliable sends. Runs even with no game script (a dedicated server
+        // has none). A subclass overriding OnFixedUpdate calls the base to keep the network alive.
+        void OnFixedUpdate(IApplicationHost& host, core::f32 fixedDeltaTime) override
+        {
+            (void)host;
+            if (m_net.IsActive()) { m_net.subsystem->Update(fixedDeltaTime * 1000.0f); }   // seconds -> ms
+        }
         /// Preset BEFORE Configure: audio engine tuning (listener count for split-screen,
         /// voice pool sizes). Defaults suit a single-listener game.
         void SetAudioEngineSettings(const draconic::audio::AudioEngineSettings& settings)
@@ -289,6 +318,8 @@ export namespace draconic::runtime
         void OnShutdown(IApplicationHost&) override
         {
             if (m_physics != nullptr) { m_physics->UnregisterContactListener(&m_contactBridge); }
+            m_net.subsystem = nullptr;   // stop the session (drops peers) before closing the socket
+            m_net.socket = nullptr;
             m_ownedResources = nullptr;   // release products while the device is alive
             m_textureFactory = nullptr;
         }
@@ -357,6 +388,7 @@ export namespace draconic::runtime
                 if (m_physics != nullptr) { m_physics->ExposeToScript(*m_scriptContext); }
                 // Resources() enables the facade's content-path playback (playOneShot etc.).
                 if (m_audio != nullptr) { m_audio->ExposeToScript(*m_scriptContext, Resources()); }
+                if (m_net.IsActive()) { m_net.subsystem->InstallScriptService(*m_scriptContext); }
             }
             const bool loaded = m_scriptContext->Load(source, name).IsOk();
             if (m_scripts != nullptr) { m_scripts->NoteExternalLoad(); }
@@ -487,6 +519,8 @@ export namespace draconic::runtime
         core::String m_uiFontPath;
         draconic::physics::PhysicsSubsystem* m_physics = nullptr;
         draconic::audio::AudioSubsystem* m_audio = nullptr;
+        net::NetworkStartup m_netStartup;   // preset before Configure (default = single-player)
+        net::NetworkRuntime m_net;          // socket + subsystem; subsystem destructs first (declared after socket)
         draconic::script::ScriptSubsystem* m_scripts = nullptr;
         draconic::scene::Scene* m_primaryScene = nullptr;
         draconic::script::IScriptErrorHandler* m_scriptErrorHandler = nullptr;
