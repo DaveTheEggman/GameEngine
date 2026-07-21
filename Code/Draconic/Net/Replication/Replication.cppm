@@ -142,6 +142,16 @@ public:
     void CaptureSnapshot(dscene::Scene& scene, BitWriter& out) override;
     void ApplySnapshot(dscene::Scene& scene, BitReader& in) override;
 
+    // Server: write the DELTA for one peer - only the entities/components that changed since this
+    // peer's last delta, plus removed entities. Returns the number of entries written (0 = nothing
+    // changed). The baseline is "what was last sent this peer", so this rides RELIABLE-ORDERED
+    // delivery (§5.6): send the output reliably or the baseline diverges. Updates the peer baseline.
+    usize CaptureDelta(dscene::Scene& scene, u32 peerId, BitWriter& out);
+    // Client: apply a delta - changed components applied in place, removed entities destroyed.
+    void ApplyDelta(dscene::Scene& scene, BitReader& in);
+    // Drop a peer's baseline on disconnect; its next CaptureDelta re-sends everything as new.
+    void ForgetPeer(u32 peerId);
+
     // The local entity for a NetworkId (invalid if unknown) - the id->entity map, populated by
     // AssignNetworkId (server) or ApplySnapshot's find-or-create (client).
     [[nodiscard]] dscene::EntityHandle FindEntity(NetworkId id) const;
@@ -151,9 +161,17 @@ private:
     // Client: the entity for this id, creating a bare tagged entity on first sight (prefab-based
     // network spawn is a later slice; a bare entity + applied components suffices to round-trip state).
     dscene::EntityHandle FindOrCreateEntity(dscene::Scene& scene, u32 networkId);
+    // Shared apply loop: read `count` component records (tag + length-prefixed blob) onto an entity.
+    void ApplyComponentRecords(dscene::Scene& scene, dscene::EntityHandle entity, u32 count, BitReader& in);
+
+    // A peer's last-sent state (the delta baseline), per networked entity, per component.
+    struct ComponentBaseline { u32 typeHash = 0; Array<byte> blob; };
+    struct EntityBaseline { Array<ComponentBaseline> components; };
+    struct PeerBaseline { HashMap<u32, EntityBaseline> entities; };   // networkId -> its components
 
     u32 m_nextNetworkId = 0;   // server-side monotonic id allocator (0 stays "unassigned")
     HashMap<u32, dscene::EntityHandle> m_netIdToEntity;
+    HashMap<u32, PeerBaseline> m_peerBaselines;   // peerId -> baseline
 };
 
 }

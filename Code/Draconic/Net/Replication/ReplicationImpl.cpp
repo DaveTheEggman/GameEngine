@@ -39,6 +39,23 @@ namespace {
         reader.ReadBytes(Span<byte>(buf.Data(), buf.Size()));
         return String(StringView(reinterpret_cast<const char8_t*>(buf.Data()), n));
     }
+
+    // FNV-1a over the component's on-disk type id - the baseline key (same family as RpcTable::Hash).
+    [[nodiscard]] u32 HashTypeId(StringView s) noexcept {
+        u32 h = 2166136261u;
+        for (usize i = 0; i < s.Size(); ++i) { h ^= static_cast<u8>(s.Data()[i]); h *= 16777619u; }
+        return h;
+    }
+    [[nodiscard]] bool BlobsEqual(const Array<byte>& a, Span<const byte> b) noexcept {
+        if (a.Size() != b.Size()) { return false; }
+        for (usize i = 0; i < a.Size(); ++i) { if (a[i] != b[i]) { return false; } }
+        return true;
+    }
+    [[nodiscard]] Array<byte> CopyBlob(Span<const byte> b) {
+        Array<byte> out; out.Resize(b.Size());
+        for (usize i = 0; i < b.Size(); ++i) { out[i] = b[i]; }
+        return out;
+    }
 }
 
 bool IsFieldTypeSupported(const TypeInfo* type) noexcept {
@@ -231,6 +248,27 @@ void StateReplication::CaptureSnapshot(dscene::Scene& scene, BitWriter& out)
     }
 }
 
+void StateReplication::ApplyComponentRecords(dscene::Scene& scene, dscene::EntityHandle entity,
+                                             u32 count, BitReader& in)
+{
+    for (u32 j = 0; j < count && in.Ok(); ++j) {
+        const String typeId = ReadWireString(in);
+        const u32 blobBytes = in.ReadVarU32();
+        Array<byte> blob;
+        blob.Resize(blobBytes);
+        if (blobBytes > 0) { in.ReadBytes(Span<byte>(blob.Data(), blob.Size())); }
+        if (!in.Ok()) { break; }
+
+        dscene::ComponentManagerBase* m = scene.FindManagerBySerializationId(typeId.AsView());
+        if (m == nullptr) { continue; }   // unknown type on this peer - blob already consumed (skip)
+        if (m->GetComponentInstance(entity).Type() == nullptr) { (void)m->AddDefaultComponent(entity); }
+        const Instance inst = m->GetComponentInstance(entity);
+        if (inst.Type() == nullptr) { continue; }
+        BitReader fields(Span<const byte>(blob.Data(), blob.Size()));
+        (void)ReadReplicatedState(fields, inst);
+    }
+}
+
 void StateReplication::ApplySnapshot(dscene::Scene& scene, BitReader& in)
 {
     const u32 entityCount = in.ReadVarU32();
@@ -238,22 +276,105 @@ void StateReplication::ApplySnapshot(dscene::Scene& scene, BitReader& in)
         const u32 networkId = in.ReadU32();
         const dscene::EntityHandle entity = FindOrCreateEntity(scene, networkId);
         const u32 componentCount = in.ReadVarU32();
-        for (u32 j = 0; j < componentCount && in.Ok(); ++j) {
-            const String typeId = ReadWireString(in);
-            const u32 blobBytes = in.ReadVarU32();
-            Array<byte> blob;
-            blob.Resize(blobBytes);
-            if (blobBytes > 0) { in.ReadBytes(Span<byte>(blob.Data(), blob.Size())); }
-            if (!in.Ok()) { break; }
+        ApplyComponentRecords(scene, entity, componentCount, in);
+    }
+}
 
-            dscene::ComponentManagerBase* m = scene.FindManagerBySerializationId(typeId.AsView());
-            if (m == nullptr) { continue; }   // unknown type on this peer - blob already consumed (skip)
-            if (m->GetComponentInstance(entity).Type() == nullptr) { (void)m->AddDefaultComponent(entity); }
-            const Instance inst = m->GetComponentInstance(entity);
-            if (inst.Type() == nullptr) { continue; }
-            BitReader fields(Span<const byte>(blob.Data(), blob.Size()));
-            (void)ReadReplicatedState(fields, inst);
+void StateReplication::ForgetPeer(u32 peerId) { (void)m_peerBaselines.Remove(peerId); }
+
+usize StateReplication::CaptureDelta(dscene::Scene& scene, u32 peerId, BitWriter& out)
+{
+    auto* netMgr = scene.GetSystem<NetworkComponentManager>();
+    if (netMgr == nullptr) { out.WriteVarU32(0); return 0; }
+
+    // Get-or-insert this peer's baseline.
+    if (m_peerBaselines.Find(peerId) == nullptr) { m_peerBaselines.InsertOrAssign(peerId, PeerBaseline{}); }
+    PeerBaseline& base = *m_peerBaselines.Find(peerId);
+
+    // One delta entry: a changed/new entity (its changed component records) or a removal.
+    struct CompRecord { StringView typeId; Array<byte> blob; };
+    struct Entry { u32 id = 0; bool removed = false; Array<CompRecord> comps; };
+    Array<Entry> entries;
+    HashMap<u32, EntityBaseline> nextBaseline;   // becomes the baseline after this capture
+
+    netMgr->ForEach([&](NetworkComponent& nc, dscene::EntityHandle e) {
+        if (!nc.id.IsValid()) { return; }
+        const u32 nid = nc.id.value;
+        const EntityBaseline* oldEb = base.entities.Find(nid);
+
+        EntityBaseline newEb;
+        Array<CompRecord> changed;
+        scene.ForEachManager([&](dscene::ComponentManagerBase& m) {
+            const Instance inst = m.GetComponentInstance(e);
+            if (inst.Type() == nullptr) { return; }
+            if (ReplicatedProperties(*inst.Type()).IsEmpty()) { return; }
+            if (!m.IsSerializable() || m.SerializationTypeId().IsEmpty()) { return; }
+
+            BitWriter fields;
+            (void)WriteReplicatedState(fields, inst);
+            const Span<const byte> blob = fields.Data();
+            const u32 typeHash = HashTypeId(m.SerializationTypeId());
+
+            // Changed if the component is new to this peer or its bytes differ from last-sent.
+            const Array<byte>* prev = nullptr;
+            if (oldEb != nullptr) {
+                for (const ComponentBaseline& cb : oldEb->components) {
+                    if (cb.typeHash == typeHash) { prev = &cb.blob; break; }
+                }
+            }
+            if (prev == nullptr || !BlobsEqual(*prev, blob)) {
+                changed.PushBack(CompRecord{ m.SerializationTypeId(), CopyBlob(blob) });
+            }
+            newEb.components.PushBack(ComponentBaseline{ typeHash, CopyBlob(blob) });
+        });
+
+        if (oldEb == nullptr || !changed.IsEmpty()) {   // new entity, or something changed
+            entries.PushBack(Entry{ nid, false, Move(changed) });
         }
+        nextBaseline.InsertOrAssign(nid, Move(newEb));
+    });
+
+    // Removals: entities in the old baseline that are no longer networked/present.
+    for (const auto& entry : base.entities) {
+        if (nextBaseline.Find(entry.key) == nullptr) {
+            entries.PushBack(Entry{ entry.key, true, {} });
+        }
+    }
+
+    out.WriteVarU32(static_cast<u32>(entries.Size()));
+    for (const Entry& entry : entries) {
+        out.WriteU32(entry.id);
+        out.WriteU8(entry.removed ? 1u : 0u);
+        if (entry.removed) { continue; }
+        out.WriteVarU32(static_cast<u32>(entry.comps.Size()));
+        for (const CompRecord& comp : entry.comps) {
+            WriteWireString(out, comp.typeId);
+            out.WriteVarU32(static_cast<u32>(comp.blob.Size()));
+            out.WriteBytes(Span<const byte>(comp.blob.Data(), comp.blob.Size()));
+        }
+    }
+
+    base.entities = Move(nextBaseline);   // commit last-sent (reliable-ordered => delivered)
+    return entries.Size();
+}
+
+void StateReplication::ApplyDelta(dscene::Scene& scene, BitReader& in)
+{
+    const u32 entryCount = in.ReadVarU32();
+    for (u32 i = 0; i < entryCount && in.Ok(); ++i) {
+        const u32 networkId = in.ReadU32();
+        const u8 flags = in.ReadU8();
+        if (!in.Ok()) { break; }
+        if ((flags & 1u) != 0u) {   // removed
+            if (const dscene::EntityHandle* h = m_netIdToEntity.Find(networkId)) {
+                if (scene.IsValid(*h)) { scene.DestroyEntity(*h); }
+            }
+            (void)m_netIdToEntity.Remove(networkId);
+            continue;
+        }
+        const dscene::EntityHandle entity = FindOrCreateEntity(scene, networkId);
+        const u32 componentCount = in.ReadVarU32();
+        ApplyComponentRecords(scene, entity, componentCount, in);
     }
 }
 

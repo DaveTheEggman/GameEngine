@@ -197,3 +197,62 @@ TEST_CASE("replication: a full snapshot round-trips networked entities server ->
     CHECK(clientRep.NetworkedCount() == 2u);          // no new entities minted
     CHECK(clientMovers->Get(clientRep.FindEntity(idA))->health == 55);
 }
+
+TEST_CASE("replication: per-peer delta sends only what changed since the peer's last delta")
+{
+    DraconicRegisterValue_Mover();
+    net::RegisterReplicationComponents();
+
+    dscene::Scene server;
+    server.AddSystem<net::NetworkComponentManager>();
+    MoverManager* movers = server.AddSystem<MoverManager>();
+    net::StateReplication rep;
+
+    const dscene::EntityHandle a = server.CreateEntity(u8"A");
+    Mover& ma = movers->Add(a); ma.position = Float3{ 1.0f, 0.0f, 0.0f }; ma.health = 10;
+    const net::NetworkId idA = rep.AssignNetworkId(server, a);
+    const dscene::EntityHandle b = server.CreateEntity(u8"B");
+    Mover& mb = movers->Add(b); mb.position = Float3{ 0.0f, 1.0f, 0.0f }; mb.health = 20;
+    const net::NetworkId idB = rep.AssignNetworkId(server, b);
+
+    const u32 peer = 1;
+
+    dscene::Scene client;
+    client.AddSystem<net::NetworkComponentManager>();
+    MoverManager* cmovers = client.AddSystem<MoverManager>();
+    net::StateReplication crep;
+
+    // First delta: everything new for this peer -> 2 entries, and the client mirrors it.
+    {
+        net::BitWriter w; const usize n = rep.CaptureDelta(server, peer, w); CHECK(n == 2u);
+        net::BitReader r(w.Data()); crep.ApplyDelta(client, r); CHECK(r.Ok());
+    }
+    CHECK(crep.NetworkedCount() == 2u);
+    CHECK(cmovers->Get(crep.FindEntity(idA))->health == 10);
+    CHECK(cmovers->Get(crep.FindEntity(idB))->health == 20);
+
+    // Nothing changed -> empty delta.
+    { net::BitWriter w; const usize n = rep.CaptureDelta(server, peer, w); CHECK(n == 0u); }
+
+    // Change only A -> the delta carries just A.
+    ma.health = 99;
+    {
+        net::BitWriter w; const usize n = rep.CaptureDelta(server, peer, w); CHECK(n == 1u);
+        net::BitReader r(w.Data()); crep.ApplyDelta(client, r);
+    }
+    CHECK(cmovers->Get(crep.FindEntity(idA))->health == 99);
+    CHECK(cmovers->Get(crep.FindEntity(idB))->health == 20);   // B untouched by A's delta
+
+    // Despawn B on the server -> the delta marks it removed -> the client destroys it.
+    const dscene::EntityHandle cb = crep.FindEntity(idB);
+    server.DestroyEntity(b);
+    {
+        net::BitWriter w; const usize n = rep.CaptureDelta(server, peer, w); CHECK(n == 1u);
+        net::BitReader r(w.Data()); crep.ApplyDelta(client, r);
+    }
+    CHECK_FALSE(client.IsValid(cb));
+
+    // ForgetPeer (disconnect) -> the next delta re-sends everything (only A remains -> 1 new entry).
+    rep.ForgetPeer(peer);
+    { net::BitWriter w; const usize n = rep.CaptureDelta(server, peer, w); CHECK(n == 1u); }
+}
