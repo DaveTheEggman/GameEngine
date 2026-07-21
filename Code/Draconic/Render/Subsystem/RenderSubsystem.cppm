@@ -69,6 +69,7 @@ public:
         scene.AddSystem<LightComponentManager>();
         scene.AddSystem<ReflectionProbeComponentManager>();
         scene.AddSystem<EnvironmentSystem>();
+        scene.AddSystem<PostProcessSystem>();
     }
 
     // Drop any render-data providers registered for a scene that's going away (borrowed pointers).

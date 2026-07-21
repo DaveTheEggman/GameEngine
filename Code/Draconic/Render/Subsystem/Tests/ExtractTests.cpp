@@ -11,6 +11,7 @@ import draconic.geometry;
 import draconic.materials;
 import draconic.render;             // ExtractedScene / MeshRenderData / ViewCamera (scene-agnostic)
 import draconic.render.subsystem;   // components + ExtractSceneInto / ExtractPrimaryCamera
+import draconic.scene.resource;      // SerializeScene (post-process settings round-trip)
 import draconic.resource;
 import draconic.rhi;
 import draconic.texture.resource;   // texture::Texture (the sky-texture product)
@@ -348,4 +349,68 @@ TEST_CASE("extract: postTonemap sprites land in the WorldUI category (authored c
     ExtractSpritesInto(scene, plain, 1);
     REQUIRE(plain.Items().Size() == 1u);
     CHECK(plain.Items()[0]->category == RenderCategories::Transparent);
+}
+
+TEST_CASE("PostProcessSettings: defaults match today's look, and round-trip through the scene")
+{
+    RegisterRenderComponentReflection();
+
+    // Defaults MUST match the RenderSubsystem's current hardcoded values (Phase 1 changes nothing
+    // visually until the passes are wired to read these).
+    {
+        PostProcessSystem sys;
+        const PostProcessSettings& d = sys.Post();
+        CHECK(d.exposureEV == 0.0f);                        // 2^0 = the old fixed 1.0 multiplier
+        CHECK(d.tonemapOperator == TonemapOperator::AgX);
+        CHECK(d.bloomEnabled);
+        CHECK(Near(d.bloomIntensity, 0.05f));
+        CHECK(Near(d.bloomThreshold, 1.0f));
+        CHECK(Near(d.bloomKnee, 0.6f));
+        CHECK(d.aoMode == AoMode::Off);
+        CHECK(Near(d.aoStrength, 0.6f));
+        CHECK(d.ssrEnabled == false);
+        CHECK(d.aaMode == AaMode::Off);
+        CHECK(Near(d.taaBlendFactor, 0.97f));
+        CHECK(Near(d.taaVarianceGamma, 1.25f));
+    }
+
+    // Reflected for the auto-generated inspector section: the type resolves with every property.
+    const TypeInfo& ti = TypeOf<PostProcessSettings>();
+    CHECK(PropertyCount(ti) >= 15u);   // exposure + tonemap + bloom(4) + ao(4) + ssr(2) + aa(4)
+
+    // Edit a field of each kind (float, bool, all three enums), serialize the whole scene, reload:
+    // the authored look survives (the "serialize with the scene, ship to the runtime" contract).
+    scene::Scene a(u8"look");
+    PostProcessSystem* postA = a.AddSystem<PostProcessSystem>();
+    postA->Post().exposureEV      = 1.5f;
+    postA->Post().tonemapOperator = TonemapOperator::Clamp;
+    postA->Post().bloomIntensity  = 0.2f;
+    postA->Post().aoMode          = AoMode::GTAO;
+    postA->Post().ssrEnabled      = true;
+    postA->Post().aaMode          = AaMode::TAA;
+    postA->Post().taaBlendFactor  = 0.9f;
+    (void)a.CreateEntity(u8"e");
+
+    MemoryStream stream;
+    {
+        BinarySerializer writer(stream, SerializeMode::Write);
+        SerializeScene(writer, a);
+        REQUIRE(writer.IsOk());
+    }
+    (void)stream.Seek(0, SeekOrigin::Begin);
+    scene::Scene b;
+    PostProcessSystem* postB = b.AddSystem<PostProcessSystem>();
+    {
+        BinarySerializer reader(stream, SerializeMode::Read);
+        SerializeScene(reader, b, &stream);
+        REQUIRE(reader.IsOk());
+    }
+    const PostProcessSettings& r = postB->Post();
+    CHECK(Near(r.exposureEV, 1.5f));
+    CHECK(r.tonemapOperator == TonemapOperator::Clamp);
+    CHECK(Near(r.bloomIntensity, 0.2f));
+    CHECK(r.aoMode == AoMode::GTAO);
+    CHECK(r.ssrEnabled);
+    CHECK(r.aaMode == AaMode::TAA);
+    CHECK(Near(r.taaBlendFactor, 0.9f));
 }

@@ -448,6 +448,87 @@ private:
     EnvironmentSettings m_env;
 };
 
+// ============================================================================================
+// Post-processing (docs/design/post-processing-config.md): the authored "look" of a scene -
+// exposure/tonemap, bloom, AO, SSR, anti-aliasing. ONE per scene (like EnvironmentSettings),
+// reflected + serialized + inspector-surfaced with no bespoke UI, extracted per frame and
+// applied per view. Defaults MATCH today's RenderSubsystem values, so a scene looks identical
+// until an artist edits the block.
+// ============================================================================================
+
+enum class TonemapOperator : u32 { Clamp = 0, AgX = 1 };   // CM1a (clamp) / CM1b (AgX)
+enum class AaMode : u32 { Off = 0, FXAA = 1, TAA = 2 };    // one enum: TAA and FXAA are exclusive
+
+struct PostProcessSettings {
+    // Exposure / tonemap. exposureEV is photographic stops: the tonemap applies 2^EV, so 0 =
+    // neutral (the old fixed 1.0 multiplier), +1 = one stop brighter, -1 = one stop darker.
+    f32             exposureEV      = 0.0f;
+    TonemapOperator tonemapOperator = TonemapOperator::AgX;
+
+    // Bloom.
+    bool bloomEnabled   = true;
+    f32  bloomThreshold = 1.0f;
+    f32  bloomKnee      = 0.6f;
+    f32  bloomIntensity = 0.05f;
+
+    // Ambient occlusion. `aoStrength` is the master mix (0..1); GTAO's own radius/intensity below.
+    AoMode aoMode      = AoMode::Off;
+    f32    aoStrength  = 0.6f;
+    f32    aoRadius    = 0.5f;
+    f32    aoIntensity = 1.0f;
+
+    // Screen-space reflections.
+    bool ssrEnabled   = false;
+    f32  ssrIntensity = 1.0f;
+
+    // Anti-aliasing (aaMode selects the exclusive path; the others' params are ignored).
+    AaMode aaMode           = AaMode::Off;
+    f32    taaBlendFactor   = 0.97f;   // history weight   (aaMode == TAA)
+    f32    taaVarianceGamma = 1.25f;   // variance-clip box half-width (aaMode == TAA)
+    f32    fxaaSubpixel     = 0.75f;   // subpixel aliasing removal    (aaMode == FXAA)
+};
+
+class PostProcessSystem final : public scene::SceneSystem {
+public:
+    [[nodiscard]] PostProcessSettings&       Post()       noexcept { return m_post; }
+    [[nodiscard]] const PostProcessSettings& Post() const noexcept { return m_post; }
+
+    // Scene-settings seam (same shape as EnvironmentSystem): the inspector edits m_post through
+    // the reflected type; SerializeScene persists it (versioned payload; future fields gate on
+    // ar.Version()).
+    [[nodiscard]] const TypeInfo* SettingsType() const noexcept override { return &TypeOf<PostProcessSettings>(); }
+    [[nodiscard]] void* SettingsInstance() noexcept override { return &m_post; }
+    [[nodiscard]] StringView SettingsId() const noexcept override { return u8"postprocess"; }
+    void SerializeSettings(ISerializer& ar) override {
+        draconic::core::Serialize(ar, "exposureEV", m_post.exposureEV);
+        SerializeEnum(ar, "tonemapOperator", m_post.tonemapOperator);
+        draconic::core::Serialize(ar, "bloomEnabled",   m_post.bloomEnabled);
+        draconic::core::Serialize(ar, "bloomThreshold", m_post.bloomThreshold);
+        draconic::core::Serialize(ar, "bloomKnee",      m_post.bloomKnee);
+        draconic::core::Serialize(ar, "bloomIntensity", m_post.bloomIntensity);
+        SerializeEnum(ar, "aoMode", m_post.aoMode);
+        draconic::core::Serialize(ar, "aoStrength",  m_post.aoStrength);
+        draconic::core::Serialize(ar, "aoRadius",    m_post.aoRadius);
+        draconic::core::Serialize(ar, "aoIntensity", m_post.aoIntensity);
+        draconic::core::Serialize(ar, "ssrEnabled",   m_post.ssrEnabled);
+        draconic::core::Serialize(ar, "ssrIntensity", m_post.ssrIntensity);
+        SerializeEnum(ar, "aaMode", m_post.aaMode);
+        draconic::core::Serialize(ar, "taaBlendFactor",   m_post.taaBlendFactor);
+        draconic::core::Serialize(ar, "taaVarianceGamma", m_post.taaVarianceGamma);
+        draconic::core::Serialize(ar, "fxaaSubpixel",     m_post.fxaaSubpixel);
+    }
+
+private:
+    // u32-round-trip an enum field (mirrors EnvironmentSystem's skyMode handling).
+    template <typename E>
+    static void SerializeEnum(ISerializer& ar, const char* key, E& value) {
+        u32 raw = static_cast<u32>(value);
+        draconic::core::Serialize(ar, key, raw);
+        if (ar.Mode() == SerializeMode::Read) { value = static_cast<E>(raw); }
+    }
+    PostProcessSettings m_post;
+};
+
 } // namespace draconic::render (exported)
 
 // ============================================================================================
@@ -622,6 +703,73 @@ DRACONIC_REFLECT_VALUE(ReflectionProbeComponent, "draconic::render")
            .Property<&ReflectionProbeComponent::enabled>("enabled");
 }
 
+DRACONIC_REFLECT_ENUM(TonemapOperator, "draconic::render")
+{
+    builder.Value("Clamp", TonemapOperator::Clamp);
+    builder.Value("AgX", TonemapOperator::AgX);
+}
+
+DRACONIC_REFLECT_ENUM(AaMode, "draconic::render")
+{
+    builder.Value("Off", AaMode::Off);
+    builder.Value("FXAA", AaMode::FXAA);
+    builder.Value("TAA", AaMode::TAA);
+}
+
+DRACONIC_REFLECT_ENUM(AoMode, "draconic::render")
+{
+    builder.Value("Off", AoMode::Off);
+    builder.Value("GTAO", AoMode::GTAO);
+    builder.Value("SSAO", AoMode::SSAO);
+}
+
+DRACONIC_REFLECT_VALUE(PostProcessSettings, "draconic::render")
+{
+    builder.DataVersion(1)
+           .Property<&PostProcessSettings::exposureEV>("exposureEV")
+               .PropAttribute("range", Float4{ -8.0f, 8.0f, 0.05f, 0.0f })
+               .PropAttribute("displayName", String(u8"Exposure (EV)"))
+               .PropAttribute("description", String(u8"Exposure in stops; the tonemap applies 2^EV (0 = neutral)"))
+           .Property<&PostProcessSettings::tonemapOperator>("tonemapOperator")
+               .PropAttribute("displayName", String(u8"Tonemap"))
+           .Property<&PostProcessSettings::bloomEnabled>("bloomEnabled")
+               .PropAttribute("displayName", String(u8"Bloom"))
+           .Property<&PostProcessSettings::bloomThreshold>("bloomThreshold")
+               .PropAttribute("range", Float4{ 0.0f, 4.0f, 0.01f, 0.0f })
+           .Property<&PostProcessSettings::bloomKnee>("bloomKnee")
+               .PropAttribute("range", Float4{ 0.0f, 1.0f, 0.01f, 0.0f })
+           .Property<&PostProcessSettings::bloomIntensity>("bloomIntensity")
+               .PropAttribute("range", Float4{ 0.0f, 1.0f, 0.005f, 0.0f })
+           .Property<&PostProcessSettings::aoMode>("aoMode")
+               .PropAttribute("displayName", String(u8"Ambient Occlusion"))
+           .Property<&PostProcessSettings::aoStrength>("aoStrength")
+               .PropAttribute("range", Float4{ 0.0f, 1.0f, 0.01f, 0.0f })
+               .PropAttribute("visibleWhen", String(u8"aoMode=1,2"))
+               .PropAttribute("description", String(u8"Master AO mix (0 = none, 1 = full)"))
+           .Property<&PostProcessSettings::aoRadius>("aoRadius")
+               .PropAttribute("range", Float4{ 0.05f, 4.0f, 0.05f, 0.0f })
+               .PropAttribute("visibleWhen", String(u8"aoMode=1,2"))
+           .Property<&PostProcessSettings::aoIntensity>("aoIntensity")
+               .PropAttribute("range", Float4{ 0.0f, 4.0f, 0.05f, 0.0f })
+               .PropAttribute("visibleWhen", String(u8"aoMode=1,2"))
+           .Property<&PostProcessSettings::ssrEnabled>("ssrEnabled")
+               .PropAttribute("displayName", String(u8"Screen-Space Reflections"))
+           .Property<&PostProcessSettings::ssrIntensity>("ssrIntensity")
+               .PropAttribute("range", Float4{ 0.0f, 2.0f, 0.02f, 0.0f })
+           .Property<&PostProcessSettings::aaMode>("aaMode")
+               .PropAttribute("displayName", String(u8"Anti-Aliasing"))
+           .Property<&PostProcessSettings::taaBlendFactor>("taaBlendFactor")
+               .PropAttribute("range", Float4{ 0.5f, 0.99f, 0.005f, 0.0f })
+               .PropAttribute("visibleWhen", String(u8"aaMode=2"))
+               .PropAttribute("description", String(u8"TAA history weight (higher = steadier, more ghosting)"))
+           .Property<&PostProcessSettings::taaVarianceGamma>("taaVarianceGamma")
+               .PropAttribute("range", Float4{ 0.5f, 3.0f, 0.05f, 0.0f })
+               .PropAttribute("visibleWhen", String(u8"aaMode=2"))
+           .Property<&PostProcessSettings::fxaaSubpixel>("fxaaSubpixel")
+               .PropAttribute("range", Float4{ 0.0f, 1.0f, 0.05f, 0.0f })
+               .PropAttribute("visibleWhen", String(u8"aaMode=1"));
+}
+
 } // namespace draconic::render (reflection bodies)
 
 // Registers all render component/enum reflection (idempotent). Called by RenderSubsystem::OnInit
@@ -643,6 +791,10 @@ namespace draconic::render
             DraconicRegisterEnum_ProbeUpdateMode();
             DraconicRegisterEnum_SkyMode();
             DraconicRegisterValue_EnvironmentSettings();
+            DraconicRegisterEnum_TonemapOperator();
+            DraconicRegisterEnum_AaMode();
+            DraconicRegisterEnum_AoMode();
+            DraconicRegisterValue_PostProcessSettings();
             DraconicRegisterValue_MeshComponent();
         DraconicRegisterValue_InstancedMeshComponent();
             DraconicRegisterValue_CameraComponent();
