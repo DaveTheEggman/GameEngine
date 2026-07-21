@@ -129,7 +129,7 @@ public:
 
     // Screen-space reflections: on/off + tunables (intensity, max view-space ray length, hit thickness,
     // screen-edge fade, roughness cutoff, march steps). Reflects the lit HDR before AO/TAA.
-    void SetSsrEnabled(bool on) noexcept { m_ssrEnabled = on; }
+    void SetSsrEnabled(bool on) noexcept { m_ssrEnabled = on; m_globalPostActive = true; }
     [[nodiscard]] bool SsrEnabled() const noexcept { return m_ssrEnabled; }
     [[nodiscard]] SsrPass::Params& SsrParams() noexcept { return m_ssrParams; }
 
@@ -148,9 +148,9 @@ public:
     }
 
     // FXAA on/off (TAA-off fallback AA - ignored while TAA is on) + sub-pixel quality (0..1).
-    void SetFxaaEnabled(bool on) noexcept { m_fxaaEnabled = on; }
+    void SetFxaaEnabled(bool on) noexcept { m_fxaaEnabled = on; m_globalPostActive = true; }
     [[nodiscard]] bool FxaaEnabled() const noexcept { return m_fxaaEnabled; }
-    void SetFxaaSubpixel(f32 v) noexcept { m_fxaaSubpixel = v; }
+    void SetFxaaSubpixel(f32 v) noexcept { m_fxaaSubpixel = v; m_globalPostActive = true; }
     [[nodiscard]] f32 FxaaSubpixel() const noexcept { return m_fxaaSubpixel; }
 
     // Debug draw (immediate-mode, cleared each frame after rendering). Three destinations by WHERE the
@@ -165,11 +165,11 @@ public:
     [[nodiscard]] debug::DebugDraw& DebugScreen() noexcept { return m_debugScreen; }
 
     // Temporal AA on/off (projection jitter + history resolve) + resolve tunables.
-    void SetTaaEnabled(bool on) noexcept { m_taaEnabled = on; }
+    void SetTaaEnabled(bool on) noexcept { m_taaEnabled = on; m_globalPostActive = true; }
     [[nodiscard]] bool TaaEnabled() const noexcept { return m_taaEnabled; }
-    void SetTaaBlend(f32 v) noexcept { m_taaBlend = v; }
+    void SetTaaBlend(f32 v) noexcept { m_taaBlend = v; m_globalPostActive = true; }
     [[nodiscard]] f32 TaaBlend() const noexcept { return m_taaBlend; }
-    void SetTaaGamma(f32 v) noexcept { m_taaGamma = v; }
+    void SetTaaGamma(f32 v) noexcept { m_taaGamma = v; m_globalPostActive = true; }
     [[nodiscard]] f32 TaaGamma() const noexcept { return m_taaGamma; }
     void SetTaaMotionScale(f32 v) noexcept { m_taaMotionScale = v; }
     [[nodiscard]] f32 TaaMotionScale() const noexcept { return m_taaMotionScale; }
@@ -278,6 +278,7 @@ public:
         // (AA/SSR remain frame-global for now - phase 2a.)
         if (m_globalPostActive) {
             settings.post.exposure       = m_exposure;
+            settings.post.agxTonemap     = true;   // the legacy global API has no operator toggle
             settings.post.bloomEnabled   = m_bloomEnabled;
             settings.post.bloomThreshold = m_bloomThreshold;
             settings.post.bloomKnee      = m_bloomKnee;
@@ -286,9 +287,21 @@ public:
             settings.post.aoStrength     = m_aoStrength;
             settings.post.aoRadius       = m_aoRadius;
             settings.post.aoIntensity    = m_aoIntensity;
+            settings.post.taaEnabled     = m_taaEnabled;
+            settings.post.taaBlend       = m_taaBlend;
+            settings.post.taaGamma       = m_taaGamma;
+            settings.post.fxaaEnabled    = m_fxaaEnabled;
+            settings.post.fxaaSubpixel   = m_fxaaSubpixel;
+            settings.post.ssrEnabled     = m_ssrEnabled;
+            settings.post.ssrIntensity   = m_ssrParams.intensity;
         } else if (const PostProcessSystem* pp = scene.GetSystem<PostProcessSystem>()) {
             settings.post = ResolveScenePost(pp->Post());
         }
+        // Finalize per-view motion-vector need: TAA (already set) OR an SSR temporal pass. SSR's
+        // detailed params (incl. `temporal`) stay frame-global, so the OR lands here, not in
+        // ResolveScenePost.
+        settings.post.needsMotion = settings.post.taaEnabled
+                                 || (settings.post.ssrEnabled && m_ssrParams.temporal);
         {
             DRACONIC_PROFILE_SCOPE("Render.AddView");   // binds the view + builds/sorts its draw list
             const void* sceneDebug = m_debugScenes.Find(&scene);   // this scene's per-scene gizmo list (or null)

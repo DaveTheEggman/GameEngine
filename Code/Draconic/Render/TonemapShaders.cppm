@@ -43,8 +43,17 @@ SamplerState      BloomSamp : register(s0, space0);
 // UvScale/UvOffset map the fullscreen [0,1] uv to this view's sub-rect of the (full-size) HDR/bloom
 // transients - so split-screen views resolve their own region instead of the whole target.
 // AoStrength lerps the AO factor in (0 = GTAO off).
-struct TonemapPush { float Exposure; float BloomIntensity; float2 UvScale; float2 UvOffset; float AoStrength; float DebugShowAo; };
+struct TonemapPush { float Exposure; float BloomIntensity; float2 UvScale; float2 UvOffset; float AoStrength; float DebugShowAo; float Operator; };
 [[vk::push_constant]] TonemapPush pc;
+
+// Linear -> sRGB display encode (the OETF the CM1a "clamp" operator needs before writing the
+// UNORM target; the AgX path bakes its own display encoding in).
+float3 linearToSrgb(float3 c) {
+    c = saturate(c);
+    float3 lo = c * 12.92;
+    float3 hi = 1.055 * pow(c, 1.0 / 2.4) - 0.055;
+    return lerp(hi, lo, step(c, 0.0031308));
+}
 
 // 6th-order polynomial fit of the AgX log->display sigmoid.
 float3 agxContrast(float3 x) {
@@ -74,6 +83,9 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     c *= ao;                                                                       // occlude before adding bloom
     c += Bloom.SampleLevel(BloomSamp, st, 0).rgb * max(pc.BloomIntensity, 0.0);   // additive bloom (linear HDR)
     c *= max(pc.Exposure, 0.0);   // linear exposure multiplier (scene setting)
+
+    // CM1a: a trivial clamp operator (saturate) + the sRGB display OETF. AgX (below) is the default.
+    if (pc.Operator < 0.5) { return float4(linearToSrgb(c), 1.0); }
 
     const float3x3 agxInset = float3x3(
         0.842479062253094, 0.0423282422610123, 0.0423756549057051,

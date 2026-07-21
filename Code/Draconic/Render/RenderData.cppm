@@ -472,10 +472,9 @@ enum class SkyMode : u32 { Procedural, Analytic, Color, HDREquirect, Cubemap };
 // pulling in the subsystem; the render subsystem resolves a scene's authored PostProcessSettings
 // (or its legacy global override) into this per RenderScene, and the compose passes read it per
 // view. Defaults MATCH the RenderSubsystem's historical globals, so a default view is unchanged.
-// NOTE (phase 2a): exposure/bloom/AO are wired per-view here; anti-aliasing + SSR remain
-// frame-global for now (they entangle per-view motion-vector/jitter/history plumbing).
 struct ViewPostConfig {
     f32  exposure       = 1.0f;   // LINEAR multiplier (a scene's EV is resolved via exp2 upstream)
+    bool agxTonemap     = true;   // true = AgX operator, false = clamp (CM1a)
     bool bloomEnabled   = true;
     f32  bloomThreshold = 1.0f;
     f32  bloomKnee      = 0.6f;
@@ -484,6 +483,20 @@ struct ViewPostConfig {
     f32  aoStrength     = 0.6f;
     f32  aoRadius       = 0.5f;
     f32  aoIntensity    = 1.0f;
+    // Anti-aliasing (TAA and FXAA are mutually exclusive). taaMotionScale stays frame-global.
+    bool taaEnabled     = false;
+    f32  taaBlend       = 0.97f;
+    f32  taaGamma       = 1.25f;
+    bool fxaaEnabled    = false;
+    f32  fxaaSubpixel   = 0.75f;
+    // Screen-space reflections (enable + intensity per view; the detailed SsrPass::Params config
+    // stays frame-global for now).
+    bool ssrEnabled     = false;
+    f32  ssrIntensity   = 1.0f;
+    // Resolved by the subsystem: does this view need motion vectors? (taaEnabled || an SSR temporal
+    // pass). Read at forward-pass EXECUTE via the bound view, so it must be pre-resolved here rather
+    // than recomputed from frame-global state.
+    bool needsMotion    = false;
 };
 
 // The per-frame environment snapshot driving IBL + sky. Plain types (colors as Float3) so the

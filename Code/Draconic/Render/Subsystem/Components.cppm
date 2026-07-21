@@ -531,10 +531,12 @@ private:
 
 // Resolve a scene's authored PostProcessSettings into the renderer's per-view ViewPostConfig:
 // exposure EV/stops -> the tonemap's linear multiplier (2^EV), authoring enums -> pass primitives.
-// Phase 2a maps exposure/bloom/AO (the pure per-pass params); AA + SSR stay frame-global for now.
+// `needsMotion` gets only the TAA part here (SSR's temporal contribution depends on the frame-global
+// SsrPass::Params, so the caller ORs it in).
 [[nodiscard]] inline ViewPostConfig ResolveScenePost(const PostProcessSettings& s) {
     ViewPostConfig vp;
     vp.exposure       = draconic::core::Pow(2.0f, s.exposureEV);
+    vp.agxTonemap     = (s.tonemapOperator == TonemapOperator::AgX);
     vp.bloomEnabled   = s.bloomEnabled;
     vp.bloomThreshold = s.bloomThreshold;
     vp.bloomKnee      = s.bloomKnee;
@@ -543,6 +545,14 @@ private:
     vp.aoStrength     = s.aoStrength;
     vp.aoRadius       = s.aoRadius;
     vp.aoIntensity    = s.aoIntensity;
+    vp.taaEnabled     = (s.aaMode == AaMode::TAA);
+    vp.taaBlend       = s.taaBlendFactor;
+    vp.taaGamma       = s.taaVarianceGamma;
+    vp.fxaaEnabled    = (s.aaMode == AaMode::FXAA);
+    vp.fxaaSubpixel   = s.fxaaSubpixel;
+    vp.ssrEnabled     = s.ssrEnabled;
+    vp.ssrIntensity   = s.ssrIntensity;
+    vp.needsMotion    = vp.taaEnabled;   // caller ORs in (ssrEnabled && ssr-temporal)
     return vp;
 }
 

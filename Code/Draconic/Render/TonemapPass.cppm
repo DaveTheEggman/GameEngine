@@ -48,7 +48,7 @@ public:
         if (!m_device->CreateBindGroupLayout(ld, m_layout).IsOk()) { return Status{ ErrorCode::Unknown }; }
 
         rhi::BindGroupLayout* layouts[] = { m_layout };
-        rhi::PushConstantRange pc{}; pc.stages = rhi::ShaderStage::Fragment; pc.offset = 0; pc.size = sizeof(f32) * 8;   // exposure + bloom + uvScale.xy + uvOffset.xy + aoStrength + pad
+        rhi::PushConstantRange pc{}; pc.stages = rhi::ShaderStage::Fragment; pc.offset = 0; pc.size = sizeof(f32) * 9;   // exposure + bloom + uvScale.xy + uvOffset.xy + aoStrength + debugShowAo + operator
         rhi::PipelineLayoutDesc pld{};
         pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{ layouts, 1 };
         pld.pushConstantRanges = Span<const rhi::PushConstantRange>{ &pc, 1 };
@@ -70,11 +70,12 @@ public:
     void DeclareTonemap(rendergraph::RenderGraph& graph, rendergraph::RGHandle hdr, rendergraph::RGHandle bloom, rendergraph::RGHandle ao,
                         rendergraph::RGHandle ldr, bool clearColor, const rhi::ClearColor& clear, rhi::TextureFormat ldrFormat,
                         i32 vpX, i32 vpY, u32 vpW, u32 vpH, u32 frameIndex, u32 viewIndex, f32 exposure = 1.0f, f32 bloomIntensity = 0.0f,
-                        Float2 uvScale = Float2{ 1, 1 }, Float2 uvOffset = Float2{ 0, 0 }, f32 aoStrength = 0.0f, bool debugShowAo = false) {
+                        Float2 uvScale = Float2{ 1, 1 }, Float2 uvOffset = Float2{ 0, 0 }, f32 aoStrength = 0.0f, bool debugShowAo = false,
+                        bool agx = true) {
         rhi::RenderPipeline* pipeline = EnsurePipeline(ldrFormat);
         if (pipeline == nullptr) { return; }
         const u32 slot = (viewIndex % kMaxViews) * m_framesInFlight + (frameIndex % m_framesInFlight);
-        const f32 push[8] = { exposure, bloomIntensity, uvScale.x, uvScale.y, uvOffset.x, uvOffset.y, aoStrength, debugShowAo ? 1.0f : 0.0f };
+        const f32 push[9] = { exposure, bloomIntensity, uvScale.x, uvScale.y, uvOffset.x, uvOffset.y, aoStrength, debugShowAo ? 1.0f : 0.0f, agx ? 1.0f : 0.0f };
 
         const rhi::LoadOp load = clearColor ? rhi::LoadOp::Clear : rhi::LoadOp::Load;
         graph.AddRenderPass(u8"tonemap",

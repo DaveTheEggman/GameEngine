@@ -444,4 +444,29 @@ TEST_CASE("ResolveScenePost maps authored settings to the per-view ViewPostConfi
         CHECK(vp.aoMode == 2u);              // AoMode::SSAO
         CHECK_FALSE(vp.bloomEnabled);
     }
+    // AA-mode enum -> the mutually-exclusive TAA/FXAA flags; tonemap operator -> agx bool; SSR.
+    {
+        PostProcessSettings taa; taa.aaMode = AaMode::TAA; taa.taaBlendFactor = 0.9f;
+        const ViewPostConfig vp = ResolveScenePost(taa);
+        CHECK(vp.taaEnabled); CHECK_FALSE(vp.fxaaEnabled);
+        CHECK(Near(vp.taaBlend, 0.9f));
+        CHECK(vp.needsMotion);               // TAA needs motion vectors
+    }
+    {
+        PostProcessSettings fx; fx.aaMode = AaMode::FXAA;
+        const ViewPostConfig vp = ResolveScenePost(fx);
+        CHECK(vp.fxaaEnabled); CHECK_FALSE(vp.taaEnabled);
+        CHECK_FALSE(vp.needsMotion);         // FXAA is post-tonemap, no motion
+    }
+    {
+        PostProcessSettings tm; tm.tonemapOperator = TonemapOperator::Clamp;
+        CHECK_FALSE(ResolveScenePost(tm).agxTonemap);
+        PostProcessSettings agx; agx.tonemapOperator = TonemapOperator::AgX;
+        CHECK(ResolveScenePost(agx).agxTonemap);
+    }
+    {
+        PostProcessSettings ssr; ssr.ssrEnabled = true; ssr.ssrIntensity = 0.7f;
+        const ViewPostConfig vp = ResolveScenePost(ssr);
+        CHECK(vp.ssrEnabled); CHECK(Near(vp.ssrIntensity, 0.7f));
+    }
 }

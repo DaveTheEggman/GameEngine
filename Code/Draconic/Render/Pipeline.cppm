@@ -476,7 +476,7 @@ private:
         ctx.probeBase   = probeBase;    // this view's scene's record range (multi-scene frames)
         ctx.probeCount  = probeCount;
         ctx.ibl         = ibl;          // this view's SCENE's IBL products (per-scene contexts)
-        ctx.needsMotion = m_motionNeeded;   // skip per-instance prev-world when no temporal effect reads velocity
+        ctx.needsMotion = view.Settings().post.needsMotion;   // per-view: skip prev-world when no temporal effect reads velocity
         ctx.shadowFarFade = m_shadowFarFade;
 
         // RESOLVE (single-threaded): sorted draw list -> ResolvedDraws (PSO build, mesh upload,
@@ -798,7 +798,7 @@ public:
         // reuses it instead of re-filling (matches Sedulous's build-instance-offsets-once). Needs the same
         // prevWorld the forward would use, so mirror the motion-needed condition.
         ctx.fillInstanceCache = m_instanceSharing;   // toggleable: off => forward re-fills (old double-build), for A/B
-        ctx.needsMotion = m_taaEnabled || (m_ssr != nullptr && m_ssrEnabled && m_ssrParams.temporal);
+        ctx.needsMotion = view.Settings().post.needsMotion;   // per-view (resolved: TAA || SSR-temporal)
 
         m_prepassResolved.Clear();
         const Span<const DrawItem> items = view.DrawList();
@@ -1466,14 +1466,19 @@ public:
             const rendergraph::RGHandle materialT = m_graph.CreateTransient(
                 u8"forward.material", rendergraph::RGTextureDesc(kGMaterialFormat, v->Width(), v->Height()));
 
+            // Per-view authored post (exposure/tonemap/bloom/AO/AA/SSR), resolved by the RenderSubsystem
+            // from the scene's PostProcessSettings (or the legacy global override). Read per view here.
+            const ViewPostConfig& post = v->Settings().post;
+
             // TAA jitter: sub-pixel-offset the projection so the resolve accumulates supersamples. Applied
             // BEFORE reading the view-proj, so the prepass + forward + sky all use the SAME jittered matrix
-            // (mismatched depth would break the prepass early-Z). Off when TAA is disabled.
+            // (mismatched depth would break the prepass early-Z). Off when TAA is disabled (per view).
             const Float4x4 unjitteredVP = v->Camera().ViewProjection();   // captured BEFORE jitter (transparent draws with this, post-TAA)
             Float2 jitter{ 0.0f, 0.0f };
-            if (m_taaEnabled && m_taa != nullptr) {
+            if (post.taaEnabled && m_taa != nullptr) {
                 jitter = HaltonJitter(m_jitterIndex, v->Width(), v->Height());
                 v->ApplyProjectionJitter(jitter.x, jitter.y);
+                m_anyViewTaa = true;   // advance the Halton phase once this frame (any view used TAA)
             }
             // Motion vectors: this view's previous-frame (jittered) view-proj + jitter (no motion on first
             // sight). Record this frame's for next frame.
@@ -1539,18 +1544,19 @@ public:
                 // decals and BEFORE AO/TAA (pre-TAA so the resolve stabilizes the march). Reads the roughness
                 // G-buffer to gate/fade; LERP-replaces the IBL specular where it hits. Produces a fresh HDR.
                 rendergraph::RGHandle sceneHdr = hdr;
-                if (m_ssr != nullptr && m_ssrEnabled) {
+                if (m_ssr != nullptr && post.ssrEnabled) {
+                    // Per-view enable + intensity over the frame-global SSR config.
+                    SsrPass::Params ssrParams = m_ssrParams;
+                    ssrParams.intensity = post.ssrIntensity;
                     sceneHdr = m_ssr->DeclareSsr(m_graph, hdr, depth, normalT, materialT, velocityT, v->Width(), v->Height(),
                                                  v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
                                                  Inverse(v->Camera().projection), v->Camera().projection,
-                                                 m_ssrParams, viewIndex, m_frameIndex);
+                                                 ssrParams, viewIndex, m_frameIndex);
                 }
                 // AO (GTAO or SSAO) from the opaque depth+normal G-buffer, computed BEFORE the TAA resolve
                 // and multiplied into the HDR pre-TAA, so TAA stabilizes it (applying AO post-TAA wobbles,
                 // since the AO is computed from the jittered G-buffer and shifts sub-pixel each frame).
-                // Per-view authored post (exposure/bloom/AO), resolved by the RenderSubsystem from
-                // the scene's PostProcessSettings. AO debug stays a frame-global renderer toggle.
-                const ViewPostConfig& post = v->Settings().post;
+                // AO debug stays a frame-global renderer toggle (not authored content).
                 const AoMode viewAoMode = static_cast<AoMode>(post.aoMode);
                 const bool aoActive = (viewAoMode != AoMode::Off) || m_aoDebug != 0;
                 const AoMode aoMode = (viewAoMode != AoMode::Off) ? viewAoMode : AoMode::GTAO;   // debug needs a generator
@@ -1569,10 +1575,10 @@ public:
                 // on the RESOLVED image (see below), so it's never temporally accumulated (no ghost) or
                 // jittered (no wobble). Bloom + tonemap run on the resolved color.
                 rendergraph::RGHandle sceneColor = litHdr;
-                if (m_taaEnabled && m_taa != nullptr) {
+                if (post.taaEnabled && m_taa != nullptr) {
                     const f32 taaFar  = (v->Camera().farZ > 0.0f) ? v->Camera().farZ : 1000.0f;
                     sceneColor = m_taa->DeclareTaa(m_graph, litHdr, velocityT, depth, viewIndex, v->Width(), v->Height(),
-                                                   m_taaBlend, m_taaGamma, m_taaMotionScale, /*near*/ 0.1f, taaFar);
+                                                   post.taaBlend, post.taaGamma, m_taaMotionScale, /*near*/ 0.1f, taaFar);
                 }
                 // Transparent (blended) AFTER TAA, into the resolved image, with the UNJITTERED projection:
                 // color-only, depth read-only against the opaque depth, back-to-front.
@@ -1596,14 +1602,15 @@ public:
                 const Float2 uvOffset{ static_cast<f32>(v->ViewportX()) / fullW, static_cast<f32>(v->ViewportY()) / fullH };
                 // FXAA (TAA-off fallback) runs AFTER tonemap: tonemap -> LDR intermediate, FXAA -> final.
                 // Never stacked with TAA (TAA already resolves aliasing). Off/TAA-on -> tonemap writes final.
-                const bool fxaa = m_fxaa != nullptr && m_fxaaEnabled && !m_taaEnabled;
+                const bool fxaa = m_fxaa != nullptr && post.fxaaEnabled && !post.taaEnabled;
                 const rendergraph::RGHandle tonemapOut = fxaa
                     ? m_graph.CreateTransient(u8"post.ldr", rendergraph::RGTextureDesc(v->TargetFormat(), v->Width(), v->Height()))
                     : colorH;
                 m_tonemap->DeclareTonemap(m_graph, sceneColor, bloomTex, aoTex, tonemapOut, /*clearColor*/ fxaa || clearColor,
                                           v->Settings().clear, v->TargetFormat(),
                                           v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
-                                          m_frameIndex, viewIndex, post.exposure, bloomStrength, uvScale, uvOffset, aoStrength, showAo);
+                                          m_frameIndex, viewIndex, post.exposure, bloomStrength, uvScale, uvOffset, aoStrength, showAo,
+                                          post.agxTonemap);
                 // World-space UI draws BETWEEN tonemap and FXAA: authored colors survive
                 // (FXAA doesn't grade) and the quad silhouettes get antialiased. With
                 // FXAA off the pass lands directly on the final LDR (TAA never touched
@@ -1615,7 +1622,7 @@ public:
                     const Float2 texel{ 1.0f / fullW, 1.0f / fullH };
                     m_fxaa->DeclareFxaa(m_graph, tonemapOut, colorH, clearColor, v->Settings().clear, v->TargetFormat(),
                                         v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
-                                        m_frameIndex, viewIndex, texel, uvScale, uvOffset, m_fxaaSubpixel);
+                                        m_frameIndex, viewIndex, texel, uvScale, uvOffset, post.fxaaSubpixel);
                 }
             } else {
                 // No tonemap: forward writes the LDR target directly.
@@ -1703,7 +1710,8 @@ public:
         for (Renderer* r : m_registry->Unique()) { r->FinishFrame(); }
         m_prevViewProj = m_curViewProj;   // this frame's view-projs become next frame's "previous"
         m_prevJitter   = m_curJitter;     // ...and jitters (for the motion-vector unjitter)
-        if (m_taaEnabled) { m_jitterIndex = (m_jitterIndex + 1u) % 8u; }   // Halton phase advances per frame
+        if (m_anyViewTaa) { m_jitterIndex = (m_jitterIndex + 1u) % 8u; }   // Halton phase advances per frame (any view used TAA)
+        m_anyViewTaa = false;   // reset for next frame (re-accumulated during the view loop)
         m_encoder = nullptr;
     }
 
@@ -1753,6 +1761,7 @@ private:
     f32                     m_taaGamma       = 1.25f;
     f32                     m_taaMotionScale = 32.0f;
     u32                     m_jitterIndex    = 0;    // Halton phase, advances once per frame (mod 8)
+    bool                    m_anyViewTaa     = false; // set per frame when any view enables TAA (drives the jitter advance)
     // Motion vectors + TAA: last frame's view-proj + jitter per view index (this frame's collected into
     // m_curViewProj/m_curJitter, swapped in at End). Camera motion = prev vs current (jittered) view-proj.
     Array<Float4x4>             m_prevViewProj;
