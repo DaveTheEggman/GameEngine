@@ -17,6 +17,7 @@ target_sources(DraconicRuntime
 # The client Application loop + scripting integration. (The shell service is now a top-level
 # layer - Draconic::Shell - added before Runtime, since Client links it.)
 add_subdirectory(Client)
+add_subdirectory(GameInstance)   # a running game as a first-class object (DefaultApp owns one)
 add_subdirectory(DefaultApp)
 add_subdirectory(Script)
 

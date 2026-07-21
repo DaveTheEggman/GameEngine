@@ -22,6 +22,7 @@ export module draconic.runtime.defaultapp;
 import draconic.core;
 import draconic.rhi;
 import draconic.runtime.client;     // IApplication, IApplicationHost
+import draconic.runtime.gameinstance; // GameInstance - this app's running game (scene + script bracket)
 import draconic.shell;   // IShell, IKeyboard, KeyCode (the profile-dump hotkey)
 import draconic.graphics;   // GraphicsDevice, FrameContext
 import draconic.scene;              // Scene
@@ -96,15 +97,7 @@ export namespace draconic::runtime
         // base to keep the script (and the profile hotkey) alive.
         void TickGameScript(IApplicationHost& host, core::f32 deltaTime)
         {
-            if (m_game.Get() == nullptr) { return; }
-            const core::f32 sceneScale = m_primaryScene != nullptr ? m_primaryScene->TimeScale() : 1.0f;
-            core::Variant dt = core::Variant::From(deltaTime * host.Ctx().TimeScale() * sceneScale);
-            if (auto result = m_game->Invoke(u8"update", core::Span<core::Variant>{ &dt, 1 });
-                !result.HasValue())
-            {
-                DRACONIC_LOG_ERROR(u8"App", u8"game script update() faulted - stopping script");
-                m_game = nullptr;
-            }
+            m_instance.TickScript(deltaTime, host.Ctx().TimeScale());
         }
 
         // Registers ALL standard engine subsystems. A game subclass overrides this,
@@ -357,112 +350,40 @@ export namespace draconic::runtime
         /// scene game services bind against). Set by the launch flow; null = context time.
         void SetPrimaryScene(draconic::scene::Scene* scene) noexcept
         {
-            m_primaryScene = scene;
+            m_instance.SetScene(scene);
             // The primary gameplay scene is the replicated world (server captures / client applies).
             if (m_net.IsActive()) { m_net.subsystem->SetReplicatedScene(scene); }
         }
-        [[nodiscard]] draconic::scene::Scene* PrimaryScene() const noexcept { return m_primaryScene; }
+        [[nodiscard]] draconic::scene::Scene* PrimaryScene() const noexcept { return m_instance.GetScene(); }
 
         /// Optional per-run error sink (the editor surfaces notices); set BEFORE
         /// StartGameScript, cleared automatically on StopGameScript.
         void SetGameScriptErrorHandler(draconic::script::IScriptErrorHandler* handler) noexcept
         {
-            m_scriptErrorHandler = handler;
+            m_instance.SetScriptErrorHandler(handler);
         }
 
-        /// Compiles + launches the game script from source text. The CALLER resolves
-        /// where the source lives (player: project file / pak entry; editor: SourceDb).
-        /// Registers the script facades and exposes the per-context services.
+        /// Compiles + launches the game script from source text - delegated to the run's GameInstance.
+        /// The CALLER resolves where the source lives (player: project file / pak entry; editor:
+        /// SourceDb). The exposeServices lambda binds the per-context script facades on the fallback
+        /// path (the normal path uses the ScriptSubsystem's configured shared context).
         bool StartGameScript(core::StringView source, core::StringView name)
         {
-            StopGameScript();
-            if (m_scripts != nullptr)
-            {
-                // The SHARED run context (scripting.md §4/§8): the game script and the
-                // entity behaviors live in the ONE gameplay context the subsystem owns;
-                // Stop releases the hold and the subsystem tears the run down.
-                m_scripts->SetExternalErrorSink(m_scriptErrorHandler);
-                draconic::script::IScriptContext* shared =
-                    m_scripts->AcquireRunContextForFile(name);
-                if (shared == nullptr)
-                {
-                    DRACONIC_LOG_ERROR(u8"App", u8"no script backend for '{}'", name);
-                    return false;
-                }
-                m_scriptContext = core::RefPtr<draconic::script::IScriptContext>(shared);
-            }
-            else
-            {
-                // Headless/no-subsystem fallback: self-owned manager + context.
-                draconic::input::RegisterInputScriptApi();
-                draconic::physics::RegisterPhysicsScriptApi();
-                draconic::audio::RegisterAudioScriptApi();
-                // Batteries-included default: Wren registers with the backend REGISTRY
-                // (like default subsystems - subclasses/entry points may register more),
-                // then the manager resolves by the script FILE's extension. No consumer
-                // names a backend type (scripting.md B1).
-                draconic::script::wren::RegisterWrenScriptBackend();
-                draconic::script::angelscript::RegisterAngelScriptBackend();
-                m_scriptManager = draconic::script::CreateScriptManagerForFile(name);
-                if (m_scriptManager.Get() == nullptr)
-                {
-                    DRACONIC_LOG_ERROR(u8"App", u8"no script backend for '{}'", name);
-                    return false;
-                }
-                draconic::script::RegisterReflectedTypes(*m_scriptManager);
-                m_scriptContext = m_scriptManager->CreateContext();
-                if (m_scriptErrorHandler != nullptr)
-                {
-                    m_scriptContext->SetErrorHandler(m_scriptErrorHandler);
-                }
-                if (m_input != nullptr) { m_input->ExposeToScript(*m_scriptContext); }
-                if (m_physics != nullptr) { m_physics->ExposeToScript(*m_scriptContext); }
-                // Resources() enables the facade's content-path playback (playOneShot etc.).
-                if (m_audio != nullptr) { m_audio->ExposeToScript(*m_scriptContext, Resources()); }
-                if (m_net.IsActive()) { m_net.subsystem->InstallScriptService(*m_scriptContext); }
-            }
-            const bool loaded = m_scriptContext->Load(source, name).IsOk();
-            if (m_scripts != nullptr) { m_scripts->NoteExternalLoad(); }
-            if (!loaded)
-            {
-                DRACONIC_LOG_ERROR(u8"App", u8"game script '{}' failed to compile", name);
-                StopGameScript();
-                return false;
-            }
-            m_game = m_scriptContext->CreateInstance(u8"Game", core::Span<core::Variant>{});
-            if (m_game.Get() == nullptr)
-            {
-                DRACONIC_LOG_ERROR(u8"App", u8"game script '{}' has no `Game` class (construct new())", name);
-                StopGameScript();
-                return false;
-            }
-            (void)m_game->Invoke(u8"launch", core::Span<core::Variant>{});
-            DRACONIC_LOG_INFO(u8"App", u8"game script '{}' launched", name);
-            return true;
+            DefaultApplication* self = this;
+            return m_instance.StartScript(m_scripts,
+                core::Function<void(draconic::script::IScriptContext&)>{
+                    [self](draconic::script::IScriptContext& context) {
+                        if (self->m_input != nullptr) { self->m_input->ExposeToScript(context); }
+                        if (self->m_physics != nullptr) { self->m_physics->ExposeToScript(context); }
+                        if (self->m_audio != nullptr) { self->m_audio->ExposeToScript(context, self->Resources()); }
+                        if (self->m_net.IsActive()) { self->m_net.subsystem->InstallScriptService(context); }
+                    } },
+                source, name);
         }
 
         /// exit() + teardown (idempotent; the update fault path also lands here).
-        void StopGameScript()
-        {
-            if (m_game.Get() != nullptr)
-            {
-                (void)m_game->Invoke(u8"exit", core::Span<core::Variant>{});
-                m_game = nullptr;
-            }
-            if (m_scripts != nullptr)
-            {
-                // Shared context: the SUBSYSTEM owns handler + lifetime; just release
-                // the game script's hold (the run tears down when nothing else holds).
-                m_scriptContext = nullptr;
-                m_scriptManager = nullptr;
-                m_scripts->ReleaseRunContext();
-                return;
-            }
-            if (m_scriptContext.Get() != nullptr) { m_scriptContext->SetErrorHandler(nullptr); }
-            m_scriptContext = nullptr;
-            m_scriptManager = nullptr;
-        }
-        [[nodiscard]] bool GameScriptRunning() const noexcept { return m_game.Get() != nullptr; }
+        void StopGameScript() { m_instance.StopScript(m_scripts); }
+        [[nodiscard]] bool GameScriptRunning() const noexcept { return m_instance.ScriptRunning(); }
 
         // Default render: draw every active scene into the window via the RenderSubsystem.
         // A game overrides this for custom rendering. (Single-scene for now - multiple
@@ -553,10 +474,6 @@ export namespace draconic::runtime
         net::NetworkStartup m_netStartup;   // preset before Configure (default = single-player)
         net::NetworkRuntime m_net;          // socket + subsystem; subsystem destructs first (declared after socket)
         draconic::script::ScriptSubsystem* m_scripts = nullptr;
-        draconic::scene::Scene* m_primaryScene = nullptr;
-        draconic::script::IScriptErrorHandler* m_scriptErrorHandler = nullptr;
-        core::RefPtr<draconic::script::IScriptManager> m_scriptManager;
-        core::RefPtr<draconic::script::IScriptContext> m_scriptContext;
-        core::RefPtr<draconic::script::ScriptObject> m_game;
+        GameInstance m_instance;   // this app's single running game (scene + script; Array in a later phase)
     };
 }
