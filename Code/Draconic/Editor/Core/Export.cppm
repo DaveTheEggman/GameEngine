@@ -28,6 +28,7 @@ import draconic.editor;
 import draconic.editor.cook;
 import :project;
 import :export_preset;
+import :export_roots;
 import :export_template;
 
 using namespace draconic::core;
@@ -56,6 +57,8 @@ export namespace draconic::editor
     {
         DefaultScene,   // ProjectSettings::defaultSceneId
         StartupScript,  // the startup script's own imported asset (the script FILE ships regardless)
+        Flag,           // an instance flagged "Always Export" (ExportRoots::instances)
+        Group,          // an instance under a group flagged "Always export contents" (ExportRoots::groups)
     };
 
     [[nodiscard]] inline StringView ExportRootReasonName(ExportRootReason r)
@@ -64,6 +67,8 @@ export namespace draconic::editor
         {
             case ExportRootReason::DefaultScene:  return u8"default-scene";
             case ExportRootReason::StartupScript: return u8"startup-script";
+            case ExportRootReason::Flag:          return u8"always-export";
+            case ExportRootReason::Group:         return u8"always-export-group";
         }
         return u8"?";
     }
@@ -333,43 +338,51 @@ export namespace draconic::editor
     // === Reachability pruning helpers ===
 
     /// Seed export roots: the entry points whose closure the dist ships. Phase 1 = defaultSceneId
-    /// (+ the startup script's own imported asset, if any). This is the Phase-2 SEAM: "Always
-    /// Export" just appends Flag/Group roots to the returned list.
+    /// (+ the startup script's own imported asset, if any); Phase 2 = the project's explicit
+    /// "Always Export" set (ExportRoots) - flagged instances (Flag) and every instance under a
+    /// flagged group subtree (Group). Deduped by guid, keeping the FIRST (highest-priority) reason,
+    /// so the pruning report lists each root once with a stable why.
     [[nodiscard]] inline Array<ExportRoot> CollectExportRoots(EditorProject& project)
     {
         Array<ExportRoot> roots;
-        const draconic::project::ProjectSettings& settings = project.Settings();
-
-        if (!settings.defaultSceneId.IsNil())
+        HashMap<Guid, u8> seen;
+        const auto add = [&](const Guid& id, ExportRootReason reason)
         {
+            if (id.IsNil() || seen.Find(id) != nullptr) { return; }
+            seen.InsertOrAssign(id, u8(1));
             ExportRoot root;
-            root.id = settings.defaultSceneId;
-            root.reason = ExportRootReason::DefaultScene;
-            if (draconic::content::Instance* inst = project.SourceDb().GetInstance(settings.defaultSceneId))
+            root.id = id;
+            root.reason = reason;
+            if (draconic::content::Instance* inst = project.SourceDb().GetInstance(id))
             {
                 root.name = inst->Path();
             }
             roots.PushBack(Move(root));
-        }
+        };
+
+        const draconic::project::ProjectSettings& settings = project.Settings();
+
+        add(settings.defaultSceneId, ExportRootReason::DefaultScene);
 
         // The script FILE always ships (packed raw in ExportContent); seed its OWN asset only when the
         // project imported the script as a content instance - the assets the script LOADS follow the
         // normal contract (Phase 3 AssetRef / Phase 2 flag), not chased here.
         if (!settings.startupScript.IsEmpty())
         {
-            const Guid scriptAsset = detail::FindAssetByFileName(project.SourceDb(),
-                                                                 settings.startupScript.AsView());
-            if (!scriptAsset.IsNil())
-            {
-                ExportRoot root;
-                root.id = scriptAsset;
-                root.reason = ExportRootReason::StartupScript;
-                if (draconic::content::Instance* inst = project.SourceDb().GetInstance(scriptAsset))
-                {
-                    root.name = inst->Path();
-                }
-                roots.PushBack(Move(root));
-            }
+            add(detail::FindAssetByFileName(project.SourceDb(), settings.startupScript.AsView()),
+                ExportRootReason::StartupScript);
+        }
+
+        // Phase 2 "Always Export": explicit instance flags, then group subtrees (dynamic membership -
+        // whatever is under the flagged folder now). A group that also contains the default scene /
+        // a directly-flagged instance is deduped above, keeping the earlier reason.
+        const ExportRootsSet& always = project.ExportRoots();
+        for (const Guid& id : always.instances) { add(id, ExportRootReason::Flag); }
+        for (const String& groupPath : always.groups)
+        {
+            Array<Guid> members;
+            CollectGroupInstances(project.SourceDb(), groupPath.AsView(), members);
+            for (const Guid& id : members) { add(id, ExportRootReason::Group); }
         }
         return roots;
     }

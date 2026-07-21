@@ -27,6 +27,7 @@ import draconic.vfs;
 import draconic.content;
 import draconic.xml.serialization;
 import draconic.project;
+import :export_roots;   // the project owns its "Always Export" set (export_roots.xml)
 
 using namespace draconic::core;
 
@@ -138,6 +139,21 @@ export namespace draconic::editor
             return WriteManifest(root, m_settings);
         }
 
+        /// The project's explicit "Always Export" roots (export_roots.xml). Loaded on Open; the
+        /// export driver seeds these as Flag/Group roots (docs/design/export-reachability.md §2).
+        [[nodiscard]] ExportRootsSet& ExportRoots() noexcept { return m_exportRoots; }
+        [[nodiscard]] const ExportRootsSet& ExportRoots() const noexcept { return m_exportRoots; }
+
+        // Persist the export roots to <project>/export_roots.xml (the editor calls this after a
+        // right-click "Always Export" toggle mutates the set).
+        [[nodiscard]] Status SaveExportRoots()
+        {
+            vfs::NativeFileSystem root(m_directory.AsView());
+            vfs::IWritableFileSystem* writable = root.AsWritable();
+            if (writable == nullptr) { return Status{ ErrorCode::NotSupported }; }
+            return draconic::editor::SaveExportRoots(*writable, m_exportRoots);
+        }
+
         // Internal (public for allocator New); use Create/Open. Fields are moved out of
         // `settings` one by one (ISerializable's deleted copy suppresses the implicit move).
         EditorProject(StringView directory, ProjectSettings& settings)
@@ -161,6 +177,15 @@ export namespace draconic::editor
             m_settings.nativeModule  = Move(settings.nativeModule);
             m_settings.defaultInputMapId = settings.defaultInputMapId;   // was MISSING: Open dropped it
             m_settings.defaultUiThemeId  = settings.defaultUiThemeId;
+
+            // The "Always Export" set is a separate committed sidecar (export_roots.xml). Absent =
+            // no explicit roots (the empty set), which is the common case; only a project that has
+            // flagged assets carries the file. A present-but-unreadable file leaves the set empty
+            // (never blocks Open) - the export then over-includes (safe), never mis-prunes.
+            {
+                vfs::NativeFileSystem root(directory);
+                (void)LoadExportRoots(root, m_exportRoots);
+            }
         }
 
     private:
@@ -175,6 +200,7 @@ export namespace draconic::editor
 
         String m_directory;
         ProjectSettings m_settings;
+        ExportRootsSet m_exportRoots;   // "Always Export" set (export_roots.xml); empty when absent
         UniquePtr<vfs::NativeFileSystem> m_contentMount;
         UniquePtr<vfs::NativeFileSystem> m_cookedMount;
         UniquePtr<draconic::content::ContentDatabase> m_sourceDb;

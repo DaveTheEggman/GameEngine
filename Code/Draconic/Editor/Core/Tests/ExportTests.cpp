@@ -1223,3 +1223,139 @@ TEST_CASE("export: TemplateEngineMatches flags a version mismatch, passes host +
     ed::ExportTemplate blank;
     CHECK(ed::TemplateEngineMatches(blank));
 }
+
+// === Reachability Phase 2: the "Always Export" roots set (docs/design/export-reachability.md) ===
+
+TEST_CASE("export: ExportRootsSet membership toggle is idempotent and round-trips through XML")
+{
+    const String dir = TempDir(u8"draconic_export_roots_set");
+    NukeTree(dir.AsView());
+    REQUIRE(CreateDirectory(dir.AsView()));
+    draconic::vfs::NativeFileSystem root(dir.AsView());
+
+    ed::ExportRootsSet set;
+    CHECK(set.IsEmpty());
+
+    const Guid a{ 0x1111111111111111ull, 0x2222222222222222ull };
+    const Guid b{ 0x3333333333333333ull, 0x4444444444444444ull };
+
+    CHECK(set.ToggleInstance(a) == true);        // a is now a root
+    CHECK(set.HasInstance(a));
+    CHECK_FALSE(set.HasInstance(b));
+    CHECK(set.SetInstance(a, true) == true);      // adding a present guid is a no-op
+    REQUIRE(set.instances.Size() == 1u);          // not duplicated
+    CHECK(set.SetInstance(b, false) == false);    // removing an absent guid is a no-op
+    REQUIRE(set.instances.Size() == 1u);
+
+    CHECK(set.ToggleGroup(u8"Weapons/Runtime") == true);
+    CHECK(set.HasGroup(u8"Weapons/Runtime"));
+    CHECK_FALSE(set.IsEmpty());
+
+    REQUIRE(ed::SaveExportRoots(*root.AsWritable(), set).IsOk());
+
+    ed::ExportRootsSet loaded;
+    REQUIRE(ed::LoadExportRoots(root, loaded).IsOk());
+    REQUIRE(loaded.instances.Size() == 1u);
+    REQUIRE(loaded.groups.Size() == 1u);
+    CHECK(loaded.HasInstance(a));
+    CHECK(loaded.HasGroup(u8"Weapons/Runtime"));
+
+    // Toggling off drops membership (and the reverse of the earlier toggle).
+    CHECK(loaded.ToggleInstance(a) == false);
+    CHECK_FALSE(loaded.HasInstance(a));
+    CHECK(loaded.ToggleGroup(u8"Weapons/Runtime") == false);
+    CHECK(loaded.IsEmpty());
+
+    // A project with no export_roots.xml => NotFound (caller treats as the empty set).
+    ed::ExportRootsSet none;
+    CHECK(ed::LoadExportRoots(root, none, u8"does_not_exist.xml").Code() == ErrorCode::NotFound);
+
+    NukeTree(dir.AsView());
+}
+
+TEST_CASE("export: CollectGroupInstances enumerates a group subtree, not its siblings")
+{
+    const String projectDir = TempDir(u8"draconic_export_roots_group");
+    NukeTree(projectDir.AsView());
+    REQUIRE(ed::EditorProject::Create(projectDir.AsView(), u8"Roots").IsOk());
+    UniquePtr<ed::EditorProject> project = ed::EditorProject::Open(projectDir.AsView());
+    REQUIRE(static_cast<bool>(project));
+
+    draconic::content::ContentDatabase& db = project->SourceDb();
+    const TypeInfo& ty = dscene::SceneDocument::StaticType();   // any type; enumeration ignores it
+
+    draconic::content::Group* weapons = db.RootGroup()->CreateGroup(u8"Weapons");
+    const Guid sword = weapons->CreateInstance(u8"Sword", ty)->Id();
+    const Guid axe   = weapons->CreateInstance(u8"Axe", ty)->Id();
+    draconic::content::Group* rare = weapons->CreateGroup(u8"Rare");   // nested subtree
+    const Guid excalibur = rare->CreateInstance(u8"Excalibur", ty)->Id();
+
+    draconic::content::Group* props = db.RootGroup()->CreateGroup(u8"Props");
+    const Guid crate = props->CreateInstance(u8"Crate", ty)->Id();
+
+    // "Weapons" pulls its own instances AND the nested Rare subtree, but not the Props sibling.
+    Array<Guid> got;
+    ed::CollectGroupInstances(db, u8"Weapons", got);
+    const auto has = [&](const Guid& id) {
+        for (const Guid& g : got) { if (g == id) { return true; } } return false;
+    };
+    CHECK(got.Size() == 3u);
+    CHECK(has(sword)); CHECK(has(axe)); CHECK(has(excalibur));
+    CHECK_FALSE(has(crate));
+
+    // Empty path = the whole DB (root subtree); a missing group contributes nothing.
+    Array<Guid> all; ed::CollectGroupInstances(db, u8"", all);
+    CHECK(all.Size() == 4u);
+    Array<Guid> missing; ed::CollectGroupInstances(db, u8"NoSuchGroup", missing);
+    CHECK(missing.IsEmpty());
+
+    NukeTree(projectDir.AsView());
+}
+
+TEST_CASE("export: CollectExportRoots seeds Always-Export flags + group members, deduped by guid")
+{
+    const String projectDir = TempDir(u8"draconic_export_roots_seed");
+    NukeTree(projectDir.AsView());
+    REQUIRE(ed::EditorProject::Create(projectDir.AsView(), u8"Roots").IsOk());
+    UniquePtr<ed::EditorProject> project = ed::EditorProject::Open(projectDir.AsView());
+    REQUIRE(static_cast<bool>(project));
+
+    draconic::content::ContentDatabase& db = project->SourceDb();
+    const TypeInfo& ty = dscene::SceneDocument::StaticType();
+
+    draconic::content::Group* scenes = db.RootGroup()->CreateGroup(u8"Scenes");
+    const Guid mainScene = scenes->CreateInstance(u8"Main", ty)->Id();
+    const Guid weaponMesh = db.RootGroup()->CreateGroup(u8"Meshes")->CreateInstance(u8"Sword", ty)->Id();
+    draconic::content::Group* runtime = db.RootGroup()->CreateGroup(u8"RuntimeLoaded");
+    const Guid table = runtime->CreateInstance(u8"LootTable", ty)->Id();
+
+    project->Settings().defaultSceneId = mainScene;
+    project->ExportRoots().SetInstance(weaponMesh, true);       // an explicit instance flag
+    project->ExportRoots().SetGroup(u8"RuntimeLoaded", true);   // a group subtree flag
+    // The default scene ALSO flagged directly => must dedupe to one root, keeping DefaultScene.
+    project->ExportRoots().SetInstance(mainScene, true);
+
+    const Array<ed::ExportRoot> roots = ed::CollectExportRoots(*project);
+
+    const auto reasonOf = [&](const Guid& id) -> const ed::ExportRoot* {
+        for (const ed::ExportRoot& r : roots) { if (r.id == id) { return &r; } } return nullptr;
+    };
+    // Exactly three distinct roots (default scene deduped despite the redundant flag).
+    CHECK(roots.Size() == 3u);
+    REQUIRE(reasonOf(mainScene) != nullptr);
+    CHECK(reasonOf(mainScene)->reason == ed::ExportRootReason::DefaultScene);   // wins over Flag
+    REQUIRE(reasonOf(weaponMesh) != nullptr);
+    CHECK(reasonOf(weaponMesh)->reason == ed::ExportRootReason::Flag);
+    REQUIRE(reasonOf(table) != nullptr);
+    CHECK(reasonOf(table)->reason == ed::ExportRootReason::Group);
+
+    // The set persists: save it, reopen the project, the flags survive (Open reads export_roots.xml).
+    REQUIRE(project->SaveExportRoots().IsOk());
+    project.Reset();
+    UniquePtr<ed::EditorProject> reopened = ed::EditorProject::Open(projectDir.AsView());
+    REQUIRE(static_cast<bool>(reopened));
+    CHECK(reopened->ExportRoots().HasInstance(weaponMesh));
+    CHECK(reopened->ExportRoots().HasGroup(u8"RuntimeLoaded"));
+
+    NukeTree(projectDir.AsView());
+}
