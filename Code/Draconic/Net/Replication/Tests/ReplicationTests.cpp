@@ -402,3 +402,65 @@ TEST_CASE("replication: interpolation buffer lerps transforms and snaps discrete
     CHECK_FALSE(buf.Sample(id, typeHash, 50.0, Instance::From(&out)));
     CHECK(buf.TrackedEntities() == 0u);
 }
+
+TEST_CASE("replication: per-peer relevancy hides non-relevant entities and removes them on exit (fog of war)")
+{
+    DraconicRegisterValue_Mover();
+    net::RegisterReplicationComponents();
+
+    dscene::Scene server;
+    server.AddSystem<net::NetworkComponentManager>();
+    MoverManager* movers = server.AddSystem<MoverManager>();
+    net::StateReplication rep;
+
+    const dscene::EntityHandle a = server.CreateEntity(u8"A");
+    movers->Add(a).health = 1;
+    const net::NetworkId idA = rep.AssignNetworkId(server, a);
+    const dscene::EntityHandle b = server.CreateEntity(u8"B");
+    movers->Add(b).health = 2;
+    const net::NetworkId idB = rep.AssignNetworkId(server, b);
+
+    // Peer 1 can currently see A; peer 2 sees everything. A flag lets A leave peer-1 relevance later.
+    bool peer1SeesA = true;
+    rep.SetRelevance([&](u32 peerId, net::NetworkId id, dscene::EntityHandle) -> bool {
+        if (peerId == 1u) { return id == idA && peer1SeesA; }
+        return true;   // peer 2: full visibility
+    });
+
+    // Two client scenes.
+    auto makeClient = [](dscene::Scene& s) { s.AddSystem<net::NetworkComponentManager>(); s.AddSystem<MoverManager>(); };
+    dscene::Scene c1; makeClient(c1); net::StateReplication crep1;
+    dscene::Scene c2; makeClient(c2); net::StateReplication crep2;
+    MoverManager* c1movers = c1.GetSystem<MoverManager>();
+
+    // Peer 1's delta: only A crosses (B is hidden).
+    { net::BitWriter w; const usize n = rep.CaptureDelta(server, 1u, w); CHECK(n == 1u);
+      net::BitReader r(w.Data()); crep1.ApplyDelta(c1, r); }
+    CHECK(crep1.NetworkedCount() == 1u);
+    CHECK(c1.IsValid(crep1.FindEntity(idA)));
+    CHECK_FALSE(c1.IsValid(crep1.FindEntity(idB)));   // B never sent to peer 1
+
+    // Peer 2's delta: both A and B.
+    { net::BitWriter w; const usize n = rep.CaptureDelta(server, 2u, w); CHECK(n == 2u);
+      net::BitReader r(w.Data()); crep2.ApplyDelta(c2, r); }
+    CHECK(crep2.NetworkedCount() == 2u);
+
+    // A leaves peer 1's relevance -> peer 1's next delta REMOVES A (client destroys it).
+    const dscene::EntityHandle localA = crep1.FindEntity(idA);
+    REQUIRE(c1.IsValid(localA));
+    peer1SeesA = false;
+    { net::BitWriter w; const usize n = rep.CaptureDelta(server, 1u, w); CHECK(n == 1u);
+      net::BitReader r(w.Data()); crep1.ApplyDelta(c1, r); }
+    CHECK_FALSE(c1.IsValid(localA));                  // hidden state actively destroyed on the client
+    CHECK(crep1.NetworkedCount() == 0u);
+
+    // Peer 2 is unaffected by peer 1's relevance and sees no change -> empty delta.
+    { net::BitWriter w; const usize n = rep.CaptureDelta(server, 2u, w); CHECK(n == 0u); }
+
+    // A re-enters peer 1's relevance -> it re-spawns as a fresh entry.
+    peer1SeesA = true;
+    { net::BitWriter w; const usize n = rep.CaptureDelta(server, 1u, w); CHECK(n == 1u);
+      net::BitReader r(w.Data()); crep1.ApplyDelta(c1, r); }
+    CHECK(crep1.NetworkedCount() == 1u);
+    CHECK(c1movers->Get(crep1.FindEntity(idA))->health == 1);
+}

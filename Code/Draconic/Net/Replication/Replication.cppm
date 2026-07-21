@@ -177,6 +177,13 @@ public:
     using SpawnHandler = core::Function<dscene::EntityHandle(dscene::Scene&, const Guid&, NetworkId)>;
     void SetSpawnHandler(SpawnHandler handler);
 
+    // Per-peer RELEVANCY / interest (§5.6 - fog-of-war is SECURITY, not just bandwidth): return true
+    // if `id` should be replicated to `peerId`. Unset => everything is relevant to everyone. When an
+    // entity LEAVES a peer's relevance, its next delta actively REMOVES it on that client (destroyed,
+    // so hidden state can't be memory-read to cheat) - the server never sends what a peer may not see.
+    using RelevanceFn = core::Function<bool(u32 peerId, NetworkId id, dscene::EntityHandle entity)>;
+    void SetRelevance(RelevanceFn fn);
+
     // Server: give an entity a NetworkId (adds the NetworkComponent if absent), returning it. A
     // re-registered entity keeps its id. `prefab` records the source prefab so a client can network-
     // spawn it (nil for a bare networked entity). Records the id->entity mapping for capture.
@@ -218,6 +225,7 @@ private:
     HashMap<u32, dscene::EntityHandle> m_netIdToEntity;
     HashMap<u32, PeerBaseline> m_peerBaselines;   // peerId -> baseline
     SpawnHandler m_spawnHandler;                  // client-side prefab resolver (null = bare create)
+    RelevanceFn m_relevance;                      // server-side per-peer interest filter (null = all)
 };
 
 }

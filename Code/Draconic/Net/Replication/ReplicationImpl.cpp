@@ -189,6 +189,7 @@ void RegisterReplicationComponents()
 // ---- StateReplication -----------------------------------------------------------------------
 
 void StateReplication::SetSpawnHandler(SpawnHandler handler) { m_spawnHandler = Move(handler); }
+void StateReplication::SetRelevance(RelevanceFn fn) { m_relevance = Move(fn); }
 
 NetworkId StateReplication::AssignNetworkId(dscene::Scene& scene, dscene::EntityHandle entity, const Guid& prefab)
 {
@@ -341,11 +342,20 @@ usize StateReplication::CaptureDelta(dscene::Scene& scene, u32 peerId, BitWriter
     struct Entry { u32 id = 0; bool removed = false; bool spawn = false; Guid prefab{}; Array<CompRecord> comps; };
     Array<Entry> entries;
     HashMap<u32, EntityBaseline> nextBaseline;   // becomes the baseline after this capture
+    HashMap<u32, u8> present;                     // all present networked ids (despawn detection, relevance-independent)
 
     netMgr->ForEach([&](NetworkComponent& nc, dscene::EntityHandle e) {
         if (!nc.id.IsValid()) { return; }
         const u32 nid = nc.id.value;
+        present.InsertOrAssign(nid, u8{ 1 });
         const EntityBaseline* oldEb = base.entities.Find(nid);
+
+        // Relevancy / fog-of-war: an irrelevant entity is NEVER sent, and if the peer currently has
+        // it (in its baseline) it is REMOVED (client destroys it - no hidden state to memory-read).
+        if (m_relevance && !m_relevance(peerId, NetworkId{ nid }, e)) {
+            if (oldEb != nullptr) { entries.PushBack(Entry{ nid, true, false, Guid{}, {} }); }
+            return;   // do not add to nextBaseline: the peer must not know this entity
+        }
 
         EntityBaseline newEb;
         Array<CompRecord> changed;
@@ -379,9 +389,11 @@ usize StateReplication::CaptureDelta(dscene::Scene& scene, u32 peerId, BitWriter
         nextBaseline.InsertOrAssign(nid, Move(newEb));
     });
 
-    // Removals: entities in the old baseline that are no longer networked/present.
+    // Removals: baseline entities no longer PRESENT in the scene (true despawns). Relevance-based
+    // removals were already emitted above; those entities still exist (are in `present`), so this
+    // loop skips them - no double removal.
     for (const auto& entry : base.entities) {
-        if (nextBaseline.Find(entry.key) == nullptr) {
+        if (!present.Contains(entry.key)) {
             entries.PushBack(Entry{ entry.key, true, false, Guid{}, {} });
         }
     }
