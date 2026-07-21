@@ -106,7 +106,13 @@ export namespace draconic::runtime
         // one place (runtime-host.md v3).
         void Configure(IApplicationHost& host) override
         {
-            host.Ctx().AddSubsystem<draconic::scene::SceneSubsystem>();
+            auto* scenes = host.Ctx().AddSubsystem<draconic::scene::SceneSubsystem>();
+            // The run's scene group lives on the GameInstance (game-instance.md §11): wire it to the
+            // app-wide aware registry and register it so it ticks on the Context lane beside the default
+            // (editor/loose) group. Empty until the launch flow creates scenes in it (a later step);
+            // registering it now is a no-op tick, and keeps the wiring in one place.
+            m_instance.Scenes().SetAwareRegistry(&scenes->AwareRegistry());
+            scenes->RegisterManager(&m_instance.Scenes());
             if (GraphicsDevice* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
                 host.Ctx().AddSubsystem<draconic::render::RenderSubsystem>(*gfx->Raw(), gfx->FramesInFlight());

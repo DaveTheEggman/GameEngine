@@ -66,8 +66,14 @@ public:
     /// storage onto the instance is the prerequisite for per-instance runs (Array<GameInstance>).
     [[nodiscard]] dscript::ScriptRunHost& RunHost() noexcept { return m_runHost; }
 
+    /// This run's scene group (game-instance.md §11.2 / §4.4): the set of scenes the run manages + its
+    /// current scene, ticked on the Context lane once registered with the SceneSubsystem. Wire its
+    /// aware-registry (from the SceneSubsystem) before creating scenes in it.
+    [[nodiscard]] dscene::SceneManager& Scenes() noexcept { return m_sceneManager; }
+
 private:
-    dscript::ScriptRunHost m_runHost;   // owned; borrowed by the ScriptSubsystem (see RunHost())
+    dscript::ScriptRunHost m_runHost;      // owned; borrowed by the ScriptSubsystem (see RunHost())
+    dscene::SceneManager   m_sceneManager; // owned; registered with the SceneSubsystem to tick
     dscene::Scene* m_scene = nullptr;
     dscript::IScriptErrorHandler* m_errorHandler = nullptr;
     f32 m_instanceTimeScale = 1.0f;

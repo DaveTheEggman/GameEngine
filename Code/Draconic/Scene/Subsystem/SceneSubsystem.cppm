@@ -50,6 +50,20 @@ public:
     [[nodiscard]] SceneAwareRegistry& AwareRegistry() noexcept { return m_registry; }
     [[nodiscard]] SceneManager& DefaultManager() noexcept { return m_default; }
 
+    /// Register a GameInstance's own SceneManager (borrowed) so it ticks on the same Context-driven
+    /// lane as the default group. The subsystem holds a `SceneManager*` (scene-lib type) - it never
+    /// learns about `GameInstance`, so the dependency stays down. The instance unregisters on Stop.
+    void RegisterManager(SceneManager* manager) {
+        if (manager == nullptr || manager == &m_default) { return; }
+        for (SceneManager* m : m_extra) { if (m == manager) { return; } }
+        m_extra.PushBack(manager);
+    }
+    void UnregisterManager(SceneManager* manager) {
+        for (usize i = 0; i < m_extra.Size(); ++i) {
+            if (m_extra[i] == manager) { m_extra.RemoveAt(i); return; }
+        }
+    }
+
     // ---- subsystem frame phases (drive the default manager; the Context factors are applied here) ----
 
     // Fixed stepping is PER SCENE (each scene owns a FixedStepper): BeginFrame runs it so fixed-rate
@@ -59,13 +73,18 @@ public:
         const f32 contextScale = GetContext() != nullptr ? GetContext()->TimeScale() : 1.0f;
         const f32 contextStep = GetContext() != nullptr ? GetContext()->FixedTimeStep() : 0.0f;
         m_default.BeginFrame(deltaTime, contextScale, contextStep);
+        for (SceneManager* m : m_extra) { m->BeginFrame(deltaTime, contextScale, contextStep); }
     }
-    void Update(f32 deltaTime) override { m_default.Update(deltaTime); }
-    void OnShutdown() override { m_default.Clear(); }
+    void Update(f32 deltaTime) override {
+        m_default.Update(deltaTime);
+        for (SceneManager* m : m_extra) { m->Update(deltaTime); }
+    }
+    void OnShutdown() override { m_default.Clear(); }   // instance managers are cleared by their owners
 
 private:
-    SceneAwareRegistry m_registry;         // app-wide aware list (declared first: m_default borrows it)
-    SceneManager       m_default;          // the loose / editor scene group
+    SceneAwareRegistry   m_registry;       // app-wide aware list (declared first: m_default borrows it)
+    SceneManager         m_default;        // the loose / editor scene group
+    Array<SceneManager*> m_extra;          // per-instance managers (borrowed; owned by GameInstances)
 };
 
 } // namespace draconic::scene

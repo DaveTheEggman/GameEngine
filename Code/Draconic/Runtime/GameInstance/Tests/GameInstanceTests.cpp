@@ -4,11 +4,13 @@
 
 import draconic.core;
 import draconic.runtime.gameinstance;
+import draconic.scene;
 import draconic.script;
 import draconic.script.wren;
 
 using namespace draconic::core;
 namespace rt = draconic::runtime;
+namespace dscene = draconic::scene;
 
 TEST_CASE("game-instance: instance time scale defaults to 1 and is settable; fresh instance idle")
 {
@@ -20,6 +22,13 @@ TEST_CASE("game-instance: instance time scale defaults to 1 and is settable; fre
     CHECK(gi.GetScene() == nullptr);
     CHECK(gi.ScriptContext() == nullptr);
     CHECK_FALSE(gi.RunHost().IsActive());   // the instance owns its run host (idle until a run starts)
+
+    // The instance owns a usable scene group (its SceneManager).
+    CHECK(gi.Scenes().SceneCount() == 0u);
+    dscene::Scene* level = gi.Scenes().CreateScene(u8"L1");
+    REQUIRE(level != nullptr);
+    CHECK(gi.Scenes().SceneCount() == 1u);
+    CHECK(gi.Scenes().CurrentScene() == level);
 }
 
 TEST_CASE("game-instance: fallback path starts, ticks, and stops a Game script")
