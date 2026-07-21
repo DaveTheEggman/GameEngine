@@ -13,3 +13,5 @@ export module draconic.net;
 
 export import :wire;
 export import :transport;
+export import :datagram;
+export import :reliable;

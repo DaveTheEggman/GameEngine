@@ -13,6 +13,8 @@ target_sources(DraconicNet
         FILE_SET net_modules TYPE CXX_MODULES FILES
             WireStream.cppm
             Transport.cppm
+            Datagram.cppm
+            Reliable.cppm
             NetModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)

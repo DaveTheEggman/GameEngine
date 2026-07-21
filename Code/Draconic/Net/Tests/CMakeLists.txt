@@ -1,5 +1,5 @@
 
-add_executable(DraconicNetTests TestsMain.cpp WireTests.cpp TransportTests.cpp)
+add_executable(DraconicNetTests TestsMain.cpp WireTests.cpp TransportTests.cpp DatagramTests.cpp ReliableTests.cpp)
 target_link_libraries(DraconicNetTests PRIVATE Draconic::Net doctest::doctest)
 target_compile_definitions(DraconicNetTests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(DraconicNetTests PRIVATE
