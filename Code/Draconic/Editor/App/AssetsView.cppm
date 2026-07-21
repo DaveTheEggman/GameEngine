@@ -449,22 +449,25 @@ export namespace draconic::editor::app
         // names, so one commit handler routes to the instance or group rename. Slow-click /
         // F2 / menu Rename edit in place; double-click is deliberately NOT an edit trigger
         // (it navigates); single clicks pass through to the list's selection.
-        // A list-row / grid-tile container that overlays a small dot in its top-right corner when
-        // the item is an "Always Export" root - the Sedulous registry-badge idiom (a proper visual
-        // badge, not a name-color tint). The dot draws in local space after the children, so it sits
-        // on top of the icon in both list and grid modes. Set per-bind via ShowExportBadge.
+        // A list-row / grid-tile container that overlays small status dots in its top-right corner
+        // (the Sedulous registry-badge idiom: proper visual badges, not name-color tints). Dots draw
+        // in local space after the children, so they sit on top of the icon in both list and grid.
+        // Multiple dots stack right-to-left in a fixed priority order (export outermost). Set per-bind.
         class AssetCell final : public ui::FlexLayout
         {
         public:
-            bool ShowExportBadge = false;
+            bool ShowExportBadge = false;     // green: an "Always Export" root
+            bool ShowFavoriteBadge = false;   // gold: a pinned favorite
             void OnDraw(ui::UIDrawContext& ctx) override
             {
                 ui::FlexLayout::OnDraw(ctx);   // draw children (icon + name [+ meta])
-                if (ShowExportBadge)
-                {
-                    ctx.VG().FillCircle(Float2{ Width() - 7.0f, 7.0f }, 3.0f,
-                                        Color{ 80.0f / 255.0f, 180.0f / 255.0f, 80.0f / 255.0f, 1.0f });
-                }
+                f32 x = Width() - 7.0f;
+                const auto dot = [&](Color color) {
+                    ctx.VG().FillCircle(Float2{ x, 7.0f }, 3.0f, color);
+                    x -= 8.0f;
+                };
+                if (ShowExportBadge)   { dot(Color{ 80.0f / 255.0f, 180.0f / 255.0f, 80.0f / 255.0f, 1.0f }); }
+                if (ShowFavoriteBadge) { dot(Color{ 242.0f / 255.0f, 204.0f / 255.0f, 89.0f / 255.0f, 1.0f }); }
             }
         };
 
@@ -597,6 +600,7 @@ export namespace draconic::editor::app
                 auto* row = Cast<AssetCell>(view);
                 if (row == nullptr || row->ChildCount() < 3) { return; }
                 row->ShowExportBadge = m_owner->IsRowExportRoot(position);
+                row->ShowFavoriteBadge = m_owner->IsRowFavorite(position);
                 auto* iconView = Cast<ui::DrawableView>(row->GetChildAt(0));
                 auto* name = static_cast<NameLabel*>(row->GetChildAt(1));
                 auto* meta = Cast<ui::Label>(row->GetChildAt(2));
@@ -668,6 +672,7 @@ export namespace draconic::editor::app
                 auto* tile = Cast<AssetCell>(view);
                 if (tile == nullptr || tile->ChildCount() < 2) { return; }
                 tile->ShowExportBadge = m_owner->IsRowExportRoot(position);
+                tile->ShowFavoriteBadge = m_owner->IsRowFavorite(position);
                 auto* iconRow = Cast<ui::FlexLayout>(tile->GetChildAt(0));
                 auto* name = static_cast<NameLabel*>(tile->GetChildAt(1));
                 if (iconRow == nullptr || iconRow->ChildCount() < 1 || name == nullptr) { return; }
@@ -676,8 +681,8 @@ export namespace draconic::editor::app
                 if (iconView == nullptr || row == nullptr) { return; }
                 iconView->Drawable = ui::DrawablePtr(m_owner->RowIcon(position));
                 name->BindTarget(row->id, row->group);
-                // The tile has no meta label: the name carries the badge color (favorite
-                // gold wins) and stays PURE (it is the inline-rename edit text).
+                // The tile has no meta label: the name color carries the COOK status (favorite +
+                // export show as corner dots) and stays PURE (it is the inline-rename edit text).
                 String text;
                 Color color{ 0.85f, 0.85f, 0.85f, 1.0f };
                 m_owner->RowName(position, text, color);
@@ -809,8 +814,9 @@ export namespace draconic::editor::app
             return (instance != nullptr) ? icons.ForAssetType(instance->TypeName()) : nullptr;
         }
 
-        // The name text stays PURE (it doubles as the inline-rename edit text): favorites
-        // show as GOLD, not a "* " prefix; the badge tints it when not favorited.
+        // The name text stays PURE (it doubles as the inline-rename edit text). Favorite +
+        // export status are shown by the AssetCell corner dots (gold / green), so the name color
+        // is free to always carry the COOK status - even for favorited items.
         void RowName(i32 position, String& text, Color& color)
         {
             const Row* row = RowAt(position);
@@ -824,7 +830,6 @@ export namespace draconic::editor::app
             content::Instance* instance = Resolve(row->id);
             if (instance == nullptr) { return; }
             text.Append(instance->Name());
-            if (m_context->IsFavorite(row->id)) { color = Color{ 0.95f, 0.8f, 0.35f, 1.0f }; return; }
             switch (m_cook->BadgeFor(*instance))
             {
                 case draconic::editor::CookBadge::Cooked:  color = Color{ 0.6f, 0.9f, 0.6f, 1.0f }; break;
@@ -1110,6 +1115,12 @@ export namespace draconic::editor::app
             if (row == nullptr) { return false; }
             return (row->group != nullptr) ? IsGroupExportRoot(row->group)
                                            : IsInstanceExportRoot(row->id);
+        }
+        // Row-level favorite (instances only; groups are never favorites) - the gold corner dot.
+        [[nodiscard]] bool IsRowFavorite(i32 position)
+        {
+            const Row* row = RowAt(position);
+            return row != nullptr && row->group == nullptr && m_context->IsFavorite(row->id);
         }
         [[nodiscard]] bool IsGroupExportRoot(content::Group* group) const
         {
