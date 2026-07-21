@@ -279,7 +279,7 @@ export namespace draconic::editor
             targetState.finalState = rhi::ResourceState::ShaderRead;
 
             m_render->RenderScene(*m_scene, m_viewport->ColorTargetView(), m_viewport->ColorFormat(), w, h,
-                                  drender::ViewportRect{ 0, 0, w, h }, &cameraOverride, targetState);
+                                  drender::ViewportRect{ 0, 0, w, h }, &cameraOverride, targetState, &m_postOverride);
             m_viewport->SetColorState(rhi::ResourceState::ShaderRead);
         }
 
@@ -790,6 +790,28 @@ export namespace draconic::editor
             });
         }
 
+        // The viewport's ephemeral post "show flags" popup (checkable). Toggling a flag re-renders
+        // this page's viewport with that effect stripped; the scene asset is never touched.
+        void ShowPostFlagsMenu(draconic::ui::View* anchor)
+        {
+            if (anchor == nullptr) { return; }
+            auto menu = MakeRef<draconic::ui::ContextMenu>(DefaultAllocator());
+            SceneEditorPage* self = this;
+            const auto mark = [](bool on) { return on ? StringView(u8"[x] ") : StringView(u8"[ ] "); };
+            const auto add = [&](StringView label, bool drender::ViewPostOverride::* field) {
+                String text(mark(m_postOverride.*field)); text += label;
+                menu->AddItem(text.AsView(), [self, field]() { self->m_postOverride.*field = !(self->m_postOverride.*field); });
+            };
+            add(u8"No Post (bloom/AO/SSR/AA off)", &drender::ViewPostOverride::disablePost);
+            menu->AddSeparator();
+            add(u8"No Bloom", &drender::ViewPostOverride::disableBloom);
+            add(u8"No AO",    &drender::ViewPostOverride::disableAo);
+            add(u8"No SSR",   &drender::ViewPostOverride::disableSsr);
+            add(u8"No AA (crisp)", &drender::ViewPostOverride::disableAa);
+            const Float2 pos = anchor->LocalToScreen(Float2{ 0.0f, anchor->Height() });
+            menu->Show(anchor->Context, pos.x, pos.y);
+        }
+
         // === Viewport toolbar (gizmo mode/space/grid) ===
 
         void BuildViewportToolbar()
@@ -839,6 +861,14 @@ export namespace draconic::editor
             m_toolbar->AddSeparator();
 
             ScenePage_GridToggleInit();
+
+            // Post show-flags: ephemeral per-view overrides that strip effects for editing clarity
+            // (never written to the scene). A "Post" button opens a checkable menu.
+            {
+                SceneEditorPage* self = this;
+                tk::ToolbarButton* postButton = m_toolbar->AddButton(u8"Post");
+                postButton->OnClick.Add([self](tk::ToolbarButton* btn) { self->ShowPostFlagsMenu(btn); });
+            }
 
             // Spacer pushes the simulation cluster to the right edge (Sedulous toolbar shape).
             {
@@ -1132,6 +1162,7 @@ export namespace draconic::editor
         RefPtr<draconic::ui::toolkit::SplitView> m_content;   // hierarchy | viewport
         RefPtr<SceneHierarchyView> m_hierarchy;
         RefPtr<tk::Toolbar> m_toolbar;
+        drender::ViewPostOverride m_postOverride;   // ephemeral viewport post show-flags (not serialized)
         tk::ToolbarButton* m_playButton = nullptr;   // borrowed (toolbar-owned)
         tk::ToolbarToggle* m_pauseToggle = nullptr;
         tk::ToolbarButton* m_stopButton = nullptr;

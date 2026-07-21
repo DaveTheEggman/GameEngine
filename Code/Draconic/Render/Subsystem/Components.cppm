@@ -556,6 +556,16 @@ private:
     return vp;
 }
 
+// Apply an editor viewport's ephemeral post "show flags" to a resolved ViewPostConfig, stripping
+// effects for editing clarity (never written back to the scene). Does NOT recompute needsMotion -
+// the caller finalizes that after (it also depends on the frame-global SSR `temporal` flag).
+inline void ApplyViewPostOverride(ViewPostConfig& vp, const ViewPostOverride& o) {
+    if (o.disablePost || o.disableBloom) { vp.bloomEnabled = false; }
+    if (o.disablePost || o.disableAo)    { vp.aoMode = 0u; }   // AoMode::Off
+    if (o.disablePost || o.disableSsr)   { vp.ssrEnabled = false; }
+    if (o.disablePost || o.disableAa)    { vp.taaEnabled = false; vp.fxaaEnabled = false; }
+}
+
 } // namespace draconic::render (exported)
 
 // ============================================================================================

@@ -470,3 +470,33 @@ TEST_CASE("ResolveScenePost maps authored settings to the per-view ViewPostConfi
         CHECK(vp.ssrEnabled); CHECK(Near(vp.ssrIntensity, 0.7f));
     }
 }
+
+TEST_CASE("ApplyViewPostOverride strips effects per view without touching the authored config")
+{
+    // Start from a fully-enabled config (exposure/tonemap preserved by every override).
+    const auto base = []() {
+        ViewPostConfig vp;
+        vp.bloomEnabled = true; vp.aoMode = 1u; vp.ssrEnabled = true;
+        vp.taaEnabled = true; vp.fxaaEnabled = false; vp.exposure = 2.0f;
+        return vp;
+    };
+
+    // A single flag strips just its effect.
+    { ViewPostConfig vp = base(); ApplyViewPostOverride(vp, ViewPostOverride{ .disableBloom = true }); CHECK_FALSE(vp.bloomEnabled); CHECK(vp.aoMode == 1u); }
+    { ViewPostConfig vp = base(); ApplyViewPostOverride(vp, ViewPostOverride{ .disableAo = true });    CHECK(vp.aoMode == 0u); CHECK(vp.bloomEnabled); }
+    { ViewPostConfig vp = base(); ApplyViewPostOverride(vp, ViewPostOverride{ .disableSsr = true });   CHECK_FALSE(vp.ssrEnabled); }
+    { ViewPostConfig vp = base(); ApplyViewPostOverride(vp, ViewPostOverride{ .disableAa = true });    CHECK_FALSE(vp.taaEnabled); CHECK_FALSE(vp.fxaaEnabled); }
+
+    // The master "No Post" strips bloom/AO/SSR/AA but keeps exposure + tonemap (so it still displays).
+    {
+        ViewPostConfig vp = base();
+        ApplyViewPostOverride(vp, ViewPostOverride{ .disablePost = true });
+        CHECK_FALSE(vp.bloomEnabled);
+        CHECK(vp.aoMode == 0u);
+        CHECK_FALSE(vp.ssrEnabled);
+        CHECK_FALSE(vp.taaEnabled);
+        CHECK(Near(vp.exposure, 2.0f));   // exposure preserved
+    }
+    // A default (empty) override changes nothing.
+    { ViewPostConfig vp = base(); ApplyViewPostOverride(vp, ViewPostOverride{}); CHECK(vp.bloomEnabled); CHECK(vp.ssrEnabled); CHECK(vp.taaEnabled); }
+}

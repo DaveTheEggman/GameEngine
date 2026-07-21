@@ -56,6 +56,19 @@ struct CameraOverride {
     Color      clearColor = Color{ 0.392f, 0.584f, 0.929f, 1.0f };   // the view's backdrop
 };
 
+// Ephemeral per-view post-processing overrides for a RenderScene call - the editor viewport's
+// "show flags" (docs/design/post-processing-config.md). Applied ON TOP of the view's resolved
+// post config; NEVER touches the scene asset. Lets an editor viewport strip effects for editing
+// clarity (crisp unjittered image for pixel inspection, raw lit image without bloom/AO/SSR)
+// without changing the authored look the game ships.
+struct ViewPostOverride {
+    bool disablePost  = false;   // master: drop bloom + AO + SSR + AA (exposure + tonemap stay, so it still displays)
+    bool disableBloom = false;
+    bool disableAo    = false;
+    bool disableSsr   = false;
+    bool disableAa    = false;   // TAA + FXAA off (crisp + unjittered)
+};
+
 // How the render target's resource state is handled. Default = the host-managed backbuffer (present).
 // For an offscreen target, give its `texture` (so the graph barriers it) + the state it's currently
 // in + the state to leave it in (ShaderRead to sample it next, CopySrc to blit it).
@@ -166,7 +179,8 @@ public:
     virtual void RenderScene(scene::Scene& scene, rhi::TextureView* target, rhi::TextureFormat targetFormat,
                              u32 width, u32 height, ViewportRect viewport = {},
                              const CameraOverride* cameraOverride = nullptr,
-                             const TargetState& targetState = {}) = 0;
+                             const TargetState& targetState = {},
+                             const ViewPostOverride* postOverride = nullptr) = 0;
 
     // Compose every collected view into the frame's encoder.
     virtual void EndRendering() = 0;

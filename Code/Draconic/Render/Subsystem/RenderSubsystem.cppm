@@ -222,7 +222,8 @@ public:
     void RenderScene(scene::Scene& scene, rhi::TextureView* target, rhi::TextureFormat targetFormat,
                      u32 width, u32 height, ViewportRect viewport = {},
                      const CameraOverride* cameraOverride = nullptr,
-                     const TargetState& targetState = {}) override {
+                     const TargetState& targetState = {},
+                     const ViewPostOverride* postOverride = nullptr) override {
         if (m_frame.Get() == nullptr || target == nullptr) { return; }
 
         // ONE extraction per scene per frame: a scene rendered through several views
@@ -297,9 +298,11 @@ public:
         } else if (const PostProcessSystem* pp = scene.GetSystem<PostProcessSystem>()) {
             settings.post = ResolveScenePost(pp->Post());
         }
-        // Finalize per-view motion-vector need: TAA (already set) OR an SSR temporal pass. SSR's
-        // detailed params (incl. `temporal`) stay frame-global, so the OR lands here, not in
-        // ResolveScenePost.
+        // Editor viewport "show flags": ephemeral per-view overrides that strip effects for editing
+        // clarity, layered ON TOP of the resolved post - never written back to the scene.
+        if (postOverride != nullptr) { ApplyViewPostOverride(settings.post, *postOverride); }
+        // Finalize per-view motion-vector need AFTER any override: TAA OR an SSR temporal pass.
+        // SSR's `temporal` stays frame-global, so the OR lands here, not in ResolveScenePost.
         settings.post.needsMotion = settings.post.taaEnabled
                                  || (settings.post.ssrEnabled && m_ssrParams.temporal);
         {
