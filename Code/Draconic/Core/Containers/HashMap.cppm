@@ -123,6 +123,41 @@ export namespace draconic::core
             return m_entries[target].value;
         }
 
+        // Move-value overload: inserts/overwrites with a moved value, so MOVE-ONLY values
+        // (Function, UniquePtr, ...) can live in a HashMap.
+        V& InsertOrAssign(const K& key, V&& value)
+        {
+            EnsureCapacityForInsert();
+
+            const usize mask = m_capacity - 1;
+            usize index = Hasher{}(key) & mask;
+            usize tombstone = kNoSlot;
+
+            while (m_states[index] != State::Empty)
+            {
+                if (m_states[index] == State::Occupied && m_entries[index].key == key)
+                {
+                    m_entries[index].value = Move(value);
+                    return m_entries[index].value;
+                }
+                if (m_states[index] == State::Tombstone && tombstone == kNoSlot)
+                {
+                    tombstone = index;
+                }
+                index = (index + 1) & mask;
+            }
+
+            const usize target = (tombstone != kNoSlot) ? tombstone : index;
+            if (tombstone != kNoSlot)
+            {
+                --m_tombstones;
+            }
+            Construct<Entry>(&m_entries[target], key, Move(value));
+            m_states[target] = State::Occupied;
+            ++m_size;
+            return m_entries[target].value;
+        }
+
         [[nodiscard]] V* Find(const K& key) noexcept
         {
             const usize index = FindIndex(key);
