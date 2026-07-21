@@ -146,6 +146,69 @@ TEST_CASE("reliable: a silent peer times out into Disconnected")
     CHECK(disconnected);
 }
 
+TEST_CASE("reliable: a large message fragments + reassembles intact over loss")
+{
+    net::SimConditions sim; sim.latencyMs = 20.0f; sim.lossPct = 0.3f; sim.reorderPct = 0.2f; sim.seed = 31;
+    Fixture fx(sim);
+    fx.server.SetAccepting(true);
+    const net::PeerId sp = fx.client.Connect(fx.sb->LocalEndpoint());
+    fx.Pump(20);
+    { net::NetEvent ev; while (fx.server.Poll(ev)) {} }
+
+    // 5000 bytes => several fragments (FragPayloadLimit ~1136).
+    Array<byte> big; big.Resize(5000);
+    for (usize i = 0; i < big.Size(); ++i) { big[i] = static_cast<byte>((i * 7u + 3u) & 0xFFu); }
+    fx.client.Send(sp, 0, big.AsSpan(), net::Reliability::ReliableOrdered);
+
+    Array<byte> got;
+    for (int s = 0; s < 600; ++s) {
+        fx.Step();
+        net::NetEvent ev;
+        while (fx.server.Poll(ev)) { if (ev.kind == net::NetEventKind::Received) { got = static_cast<Array<byte>&&>(ev.payload); } }
+        if (got.Size() == 5000u) { break; }
+    }
+    REQUIRE(got.Size() == 5000u);              // reassembled whole
+    bool exact = true;
+    for (usize i = 0; i < got.Size(); ++i) { if (static_cast<u8>(got[i]) != static_cast<u8>((i * 7u + 3u) & 0xFFu)) { exact = false; break; } }
+    CHECK(exact);                               // byte-exact after reassembly
+}
+
+namespace {
+    // Decorator that counts datagrams sent (to prove resend timing isn't per-tick).
+    struct CountingSocket final : net::IDatagramSocket {
+        net::IDatagramSocket* inner; int sends = 0;
+        explicit CountingSocket(net::IDatagramSocket* i) : inner(i) {}
+        void Send(const net::DatagramEndpoint& to, Span<const byte> data) override { ++sends; inner->Send(to, data); }
+        bool Receive(net::DatagramEndpoint& from, Array<byte>& out) override { return inner->Receive(from, out); }
+        net::DatagramEndpoint LocalEndpoint() const override { return inner->LocalEndpoint(); }
+    };
+}
+
+TEST_CASE("reliable: resend is RTT-timed, not per-tick (no flooding for an unacked message)")
+{
+    net::SimConditions sim; sim.latencyMs = 10.0f;
+    net::ReliableConfig cfg; cfg.minResendMs = 50.0f; cfg.keepAliveMs = 100.0f;
+    net::SimDatagramNetwork network(sim);
+    net::IDatagramSocket* sa = network.CreateSocket();
+    net::IDatagramSocket* sb = network.CreateSocket();
+    CountingSocket counting(sa);
+    net::ReliableTransport client(counting, cfg);
+    net::ReliableTransport server(*sb, cfg);
+    server.SetAccepting(true);
+    const net::PeerId sp = client.Connect(sb->LocalEndpoint());
+    for (int i = 0; i < 20; ++i) { network.Advance(10.0f); client.Update(10.0f); server.Update(10.0f); }
+
+    // Send a reliable message, then let the server go DARK so it never acks. Over 200ms with a 50ms
+    // resend floor, the client should resend ~4 times (+ ~2 keepalives), NOT ~20 (once per 10ms tick).
+    Array<byte> m = Bytes({ 0x42 });
+    client.Send(sp, 0, m.AsSpan(), net::Reliability::ReliableOrdered);
+    const int before = counting.sends;
+    for (int i = 0; i < 20; ++i) { network.Advance(10.0f); client.Update(10.0f); }   // 200ms, server dark
+    const int sent = counting.sends - before;
+    CHECK(sent >= 2);     // it does keep retrying
+    CHECK(sent <= 10);    // but RTT-timed (~4 resends + ~2 keepalives), not per-tick (~20)
+}
+
 TEST_CASE("reliable: explicit Disconnect notifies the peer")
 {
     net::SimConditions sim; sim.latencyMs = 10.0f;

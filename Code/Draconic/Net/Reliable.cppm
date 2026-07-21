@@ -33,8 +33,11 @@ struct ReliableConfig {
     f32 keepAliveMs       = 100.0f;   // send an ack-only packet if idle this long (keeps acks flowing)
     f32 connectResendMs   = 100.0f;   // resend ConnectRequest until accepted
     f32 timeoutMs         = 5000.0f;  // no packet received in this long => disconnect
-    u32 maxMessageBytes   = 1024;     // per-message cap (no fragmentation yet)
-    u32 maxPacketBytes    = 1200;     // soft budget per datagram (< typical MTU)
+    f32 minResendMs       = 20.0f;    // reliable resend floor (a message resends no faster than this)
+    f32 maxResendMs       = 1000.0f;  // reliable resend ceiling (caps the RTT-scaled backoff)
+    u32 maxMessageBytes   = 256u * 1024u; // largest message (reassembled) - bigger is dropped
+    u32 maxPacketBytes    = 1200;     // soft budget per datagram (< typical MTU); large reliable
+                                      // messages fragment into this-sized pieces + reassemble
 };
 
 enum class ConnectionState : u8 { Connecting, Connected, Disconnected };
@@ -62,20 +65,43 @@ public:
         Connection* c = FindByPeer(peer);
         if (c == nullptr || c->state == ConnectionState::Disconnected) { return; }
         if (data.Size() > m_cfg.maxMessageBytes) {
-            DRACONIC_LOG_WARNING(u8"Net", u8"reliable: message {} B exceeds maxMessageBytes {} - dropped (no fragmentation yet)",
+            DRACONIC_LOG_WARNING(u8"Net", u8"message {} B exceeds maxMessageBytes {} - dropped",
                                  data.Size(), m_cfg.maxMessageBytes);
             return;
         }
-        OutMessage msg;
-        msg.channel = channel;
-        msg.reliable = (reliability == Reliability::ReliableOrdered);
-        msg.data.Resize(data.Size());
-        if (data.Size() > 0) { MemCopy(msg.data.Data(), data.Data(), data.Size()); }
-        if (msg.reliable) {
-            msg.id = c->nextOutReliableId++;
-            c->unackedReliable.PushBack(static_cast<OutMessage&&>(msg));
+        const usize limit = FragPayloadLimit();
+        if (reliability != Reliability::ReliableOrdered) {
+            // Unreliable messages are single-datagram (fragmenting fire-and-forget data makes no
+            // sense - a lost fragment orphans the rest). Too-big unreliable is dropped.
+            if (data.Size() > limit) {
+                DRACONIC_LOG_WARNING(u8"Net", u8"unreliable message {} B exceeds one datagram ({} B) - dropped",
+                                     data.Size(), limit);
+                return;
+            }
+            OutMessage m; m.channel = channel; m.reliable = false;
+            m.data.Resize(data.Size());
+            if (data.Size() > 0) { MemCopy(m.data.Data(), data.Data(), data.Size()); }
+            c->pendingUnreliable.PushBack(static_cast<OutMessage&&>(m));
+            return;
+        }
+        // Reliable: one message when it fits, else fragment into consecutive-id pieces.
+        if (data.Size() <= limit) {
+            OutMessage m; m.channel = channel; m.reliable = true; m.id = c->nextOutReliableId++;
+            m.data.Resize(data.Size());
+            if (data.Size() > 0) { MemCopy(m.data.Data(), data.Data(), data.Size()); }
+            c->unackedReliable.PushBack(static_cast<OutMessage&&>(m));
         } else {
-            c->pendingUnreliable.PushBack(static_cast<OutMessage&&>(msg));
+            const u32 fragCount = static_cast<u32>((data.Size() + limit - 1) / limit);
+            const u32 group = c->nextFragGroup++;
+            for (u32 i = 0; i < fragCount; ++i) {
+                const usize off = static_cast<usize>(i) * limit;
+                const usize len = Min(limit, data.Size() - off);
+                OutMessage m; m.channel = channel; m.reliable = true; m.id = c->nextOutReliableId++;
+                m.fragmented = true; m.fragGroup = group; m.fragIndex = i; m.fragCount = fragCount;
+                m.data.Resize(len);
+                MemCopy(m.data.Data(), data.Data() + off, len);
+                c->unackedReliable.PushBack(static_cast<OutMessage&&>(m));
+            }
         }
     }
 
@@ -108,9 +134,22 @@ public:
 private:
     enum class PacketType : u8 { ConnectRequest = 0, ConnectAccept = 1, Data = 2, Disconnect = 3 };
 
-    struct OutMessage { u8 channel = 0; bool reliable = false; u16 id = 0; Array<byte> data; };
+    struct OutMessage {
+        u8 channel = 0; bool reliable = false; u16 id = 0;
+        // Fragmentation of a large reliable message: fragments get consecutive ids + a shared group,
+        // so ordered delivery releases them consecutively and the receiver reassembles by group.
+        bool fragmented = false; u32 fragGroup = 0; u32 fragIndex = 0; u32 fragCount = 1;
+        f64 lastSentMs = -1.0e9;   // RTT-based resend: only (re)sent once this + resend-timeout elapses
+        Array<byte> data;
+    };
     struct SentPacket { u16 seq = 0; f64 sendTimeMs = 0.0; bool acked = false; Array<u16> reliableIds; };
-    struct BufferedIn { u16 id = 0; u8 channel = 0; Array<byte> data; };
+    struct BufferedIn {
+        u16 id = 0; u8 channel = 0;
+        bool fragmented = false; u32 fragGroup = 0; u32 fragIndex = 0; u32 fragCount = 1;
+        Array<byte> data;
+    };
+    // Accumulates the fragments of one large reliable message (they arrive in order, so one at a time).
+    struct Reassembly { bool active = false; u32 group = 0; u32 nextIndex = 0; u32 count = 0; u8 channel = 0; Array<byte> data; };
 
     struct Connection {
         PeerId           peer = kInvalidPeer;
@@ -124,10 +163,12 @@ private:
         Array<SentPacket> sentWindow;   // recent sent Data packets (for acks + RTT)
         // reliable messages
         u16 nextOutReliableId = 0;
-        Array<OutMessage> unackedReliable;    // resent every packet until acked
+        u32 nextFragGroup = 0;
+        Array<OutMessage> unackedReliable;    // resent (RTT-timed) until acked
         Array<OutMessage> pendingUnreliable;  // sent once, then cleared
         u16 nextInReliableId = 0;             // next ordered id to release
         Array<BufferedIn> reorderBuffer;      // received reliable ids ahead of nextInReliableId
+        Reassembly reassembly;                // in-progress fragment reassembly
         // timing
         f64 rttMs = 0.0;
         f64 lastRecvMs = 0.0;
@@ -188,8 +229,24 @@ private:
         RawSend(c, w);
     }
 
-    // Build + send one Data packet: header + as many unacked-reliable then pending-unreliable
-    // messages as fit the budget. Records the sent packet for ack/RTT.
+    [[nodiscard]] usize FragPayloadLimit() const noexcept {
+        // A fragment must fit one datagram with the packet + message headers. 64 B is generous
+        // headroom (packet header ~13 + message header with frag fields ~24).
+        return (m_cfg.maxPacketBytes > 64u) ? (m_cfg.maxPacketBytes - 64u) : 1u;
+    }
+    // How long to wait before resending an unacked reliable message: RTT-scaled, clamped.
+    [[nodiscard]] f64 ResendTimeout(const Connection& c) const noexcept {
+        const f64 base = (c.rttMs > 0.0) ? (c.rttMs * 1.5) : static_cast<f64>(m_cfg.minResendMs);
+        return Clamp(base, static_cast<f64>(m_cfg.minResendMs), static_cast<f64>(m_cfg.maxResendMs));
+    }
+    [[nodiscard]] bool AnyReliableDue(const Connection& c) const noexcept {
+        const f64 timeout = ResendTimeout(c);
+        for (const OutMessage& m : c.unackedReliable) { if (m_nowMs - m.lastSentMs >= timeout) { return true; } }
+        return false;
+    }
+
+    // Build + send one Data packet: header + as many DUE reliable, then pending-unreliable, messages
+    // as fit the byte budget. Records the sent packet for ack/RTT and stamps each reliable's resend time.
     void SendDataPacket(Connection& c) {
         BitWriter w;
         w.WriteU16(m_cfg.protocolId);
@@ -199,24 +256,30 @@ private:
         w.WriteU16(c.remoteSeq);
         w.WriteU32(c.receivedBits);
 
-        // Collect messages within the byte budget.
         SentPacket rec; rec.seq = seq; rec.sendTimeMs = m_nowMs;
-        Array<const OutMessage*> chosen;
+        Array<OutMessage*> chosen;
         usize budget = m_cfg.maxPacketBytes;
-        for (const OutMessage& m : c.unackedReliable) {
-            if (m.data.Size() + 8u > budget) { break; }
-            chosen.PushBack(&m); budget -= (m.data.Size() + 8u);
+        const f64 resendTimeout = ResendTimeout(c);
+        for (OutMessage& m : c.unackedReliable) {
+            if (m_nowMs - m.lastSentMs < resendTimeout) { continue; }   // not due yet (RTT-timed resend)
+            if (m.data.Size() + 24u > budget) { break; }
+            chosen.PushBack(&m); budget -= (m.data.Size() + 24u);
             rec.reliableIds.PushBack(m.id);
+            m.lastSentMs = m_nowMs;
         }
-        for (const OutMessage& m : c.pendingUnreliable) {
-            if (m.data.Size() + 8u > budget) { break; }
-            chosen.PushBack(&m); budget -= (m.data.Size() + 8u);
+        for (OutMessage& m : c.pendingUnreliable) {
+            if (m.data.Size() + 12u > budget) { break; }
+            chosen.PushBack(&m); budget -= (m.data.Size() + 12u);
         }
         w.WriteVarU32(static_cast<u32>(chosen.Size()));
-        for (const OutMessage* m : chosen) {
+        for (OutMessage* m : chosen) {
             w.WriteU8(m->channel);
             w.WriteBool(m->reliable);
-            if (m->reliable) { w.WriteU16(m->id); }
+            if (m->reliable) {
+                w.WriteU16(m->id);
+                w.WriteBool(m->fragmented);
+                if (m->fragmented) { w.WriteVarU32(m->fragGroup); w.WriteVarU32(m->fragIndex); w.WriteVarU32(m->fragCount); }
+            }
             w.WriteVarU32(static_cast<u32>(m->data.Size()));
             w.WriteBytes(Span<const byte>(m->data.Data(), m->data.Size()));
         }
@@ -241,9 +304,9 @@ private:
             if (m_nowMs - c.lastConnectSendMs >= static_cast<f64>(m_cfg.connectResendMs)) { SendConnectRequest(c); }
             return;
         }
-        // Connected: send a Data packet when there's something to (re)send, an ack is owed, or a
-        // keepalive is due.
-        const bool haveWork = !c.unackedReliable.IsEmpty() || !c.pendingUnreliable.IsEmpty();
+        // Connected: send a Data packet when a reliable message is DUE for (re)send, an unreliable is
+        // queued, an ack is owed, or a keepalive is due. RTT-timed resend => no per-tick flooding.
+        const bool haveWork = AnyReliableDue(c) || !c.pendingUnreliable.IsEmpty();
         const bool keepAliveDue = (m_nowMs - c.lastSendMs) >= static_cast<f64>(m_cfg.keepAliveMs);
         if (haveWork || c.ackPending || keepAliveDue) { c.ackPending = false; SendDataPacket(c); }
     }
@@ -313,15 +376,23 @@ private:
         for (u32 i = 0; i < count && r.Ok(); ++i) {
             const u8 channel = r.ReadU8();
             const bool reliable = r.ReadBool();
-            u16 id = 0;
-            if (reliable) { id = r.ReadU16(); }
+            u16 id = 0; bool fragmented = false; u32 fragGroup = 0, fragIndex = 0, fragCount = 1;
+            if (reliable) {
+                id = r.ReadU16();
+                fragmented = r.ReadBool();
+                if (fragmented) { fragGroup = r.ReadVarU32(); fragIndex = r.ReadVarU32(); fragCount = r.ReadVarU32(); }
+            }
             const u32 len = r.ReadVarU32();
-            if (!r.Ok() || len > m_cfg.maxMessageBytes) { return; }
+            if (!r.Ok() || len > m_cfg.maxPacketBytes) { return; }   // a single message fits one datagram
             Array<byte> payload; payload.Resize(len);
             if (len > 0) { r.ReadBytes(Span<byte>(payload.Data(), len)); }
             if (!r.Ok()) { return; }
-            if (reliable) { DeliverReliable(*c, id, channel, static_cast<Array<byte>&&>(payload)); }
-            else { PushEvent(NetEventKind::Received, c->peer, channel, static_cast<Array<byte>&&>(payload)); }
+            if (reliable) {
+                DeliverReliable(*c, id, channel, fragmented, fragGroup, fragIndex, fragCount,
+                                static_cast<Array<byte>&&>(payload));
+            } else {
+                PushEvent(NetEventKind::Received, c->peer, channel, static_cast<Array<byte>&&>(payload));
+            }
         }
     }
 
@@ -362,21 +433,24 @@ private:
     }
 
     // Ordered reliable delivery: release in id order, buffering ids that arrive early, dropping dups.
-    void DeliverReliable(Connection& c, u16 id, u8 channel, Array<byte>&& payload) {
+    // A released message is either delivered directly or fed to the fragment reassembler.
+    void DeliverReliable(Connection& c, u16 id, u8 channel, bool fragmented, u32 fragGroup, u32 fragIndex,
+                         u32 fragCount, Array<byte>&& payload) {
         if (SeqGreater(c.nextInReliableId, id) || id == static_cast<u16>(c.nextInReliableId - 1)) {
             return;   // already delivered (id < nextIn) - a duplicate resend
         }
         if (id == c.nextInReliableId) {
-            PushEvent(NetEventKind::Received, c.peer, channel, static_cast<Array<byte>&&>(payload));
+            ReleaseMessage(c, channel, fragmented, fragGroup, fragIndex, fragCount, static_cast<Array<byte>&&>(payload));
             c.nextInReliableId++;
             // release any buffered consecutive ids
             for (;;) {
                 bool released = false;
                 for (usize i = 0; i < c.reorderBuffer.Size(); ++i) {
                     if (c.reorderBuffer[i].id == c.nextInReliableId) {
-                        PushEvent(NetEventKind::Received, c.peer, c.reorderBuffer[i].channel,
-                                  static_cast<Array<byte>&&>(c.reorderBuffer[i].data));
+                        BufferedIn b = static_cast<BufferedIn&&>(c.reorderBuffer[i]);
                         c.reorderBuffer.RemoveAt(i);
+                        ReleaseMessage(c, b.channel, b.fragmented, b.fragGroup, b.fragIndex, b.fragCount,
+                                       static_cast<Array<byte>&&>(b.data));
                         c.nextInReliableId++;
                         released = true;
                         break;
@@ -387,8 +461,38 @@ private:
         } else {
             // early arrival - buffer unless already buffered
             for (const BufferedIn& b : c.reorderBuffer) { if (b.id == id) { return; } }
-            BufferedIn b; b.id = id; b.channel = channel; b.data = static_cast<Array<byte>&&>(payload);
+            BufferedIn b; b.id = id; b.channel = channel;
+            b.fragmented = fragmented; b.fragGroup = fragGroup; b.fragIndex = fragIndex; b.fragCount = fragCount;
+            b.data = static_cast<Array<byte>&&>(payload);
             c.reorderBuffer.PushBack(static_cast<BufferedIn&&>(b));
+        }
+    }
+
+    // A reliable message, released in order. Non-fragmented => deliver as-is. Fragmented => append to
+    // the reassembly buffer (fragments arrive consecutively since delivery is ordered); deliver the
+    // whole when the last fragment lands.
+    void ReleaseMessage(Connection& c, u8 channel, bool fragmented, u32 fragGroup, u32 fragIndex,
+                        u32 fragCount, Array<byte>&& payload) {
+        if (!fragmented) {
+            PushEvent(NetEventKind::Received, c.peer, channel, static_cast<Array<byte>&&>(payload));
+            return;
+        }
+        Reassembly& ra = c.reassembly;
+        if (fragIndex == 0) {   // first fragment starts a fresh reassembly
+            ra.active = true; ra.group = fragGroup; ra.nextIndex = 0; ra.count = fragCount; ra.channel = channel;
+            ra.data.Clear();
+        }
+        if (!ra.active || ra.group != fragGroup || ra.nextIndex != fragIndex) {
+            ra.active = false;   // out-of-sequence fragment (shouldn't happen under ordered delivery) - drop
+            return;
+        }
+        const usize base = ra.data.Size();
+        ra.data.Resize(base + payload.Size());
+        if (payload.Size() > 0) { MemCopy(ra.data.Data() + base, payload.Data(), payload.Size()); }
+        ra.nextIndex++;
+        if (ra.nextIndex >= ra.count) {
+            PushEvent(NetEventKind::Received, c.peer, ra.channel, static_cast<Array<byte>&&>(ra.data));
+            ra.active = false; ra.data.Clear();
         }
     }
 
