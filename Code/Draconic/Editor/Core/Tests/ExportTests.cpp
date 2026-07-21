@@ -1012,6 +1012,91 @@ TEST_CASE("export: pruned dist keeps the referenced closure, drops the rest, and
     NukeTree(projectDir.AsView()); NukeTree(toolDir.AsView()); NukeTree(outRoot.AsView());
 }
 
+TEST_CASE("export: precomputed reachable roots prune like an inline scanner (editor main-thread path)")
+{
+    GlobalTypeRegistry().Register(dscene::SceneDocument::StaticType());
+    RegisterSerializable<dscene::SceneDocument>();
+    geo::RegisterMeshAssets();
+    GlobalTypeRegistry().Register(geo::StaticMeshSource::StaticType());
+    RegisterSerializable<geo::StaticMeshSource>();
+
+    const String projectDir = TempDir(u8"draconic_prune_pre_proj");
+    const String toolDir    = TempDir(u8"draconic_prune_pre_tool");
+    const String outRoot    = TempDir(u8"draconic_prune_pre_out");
+    NukeTree(projectDir.AsView()); NukeTree(toolDir.AsView()); NukeTree(outRoot.AsView());
+
+    REQUIRE(ed::EditorProject::Create(projectDir.AsView(), u8"PrunePre").IsOk());
+    UniquePtr<ed::EditorProject> project = ed::EditorProject::Open(projectDir.AsView());
+    REQUIRE(static_cast<bool>(project));
+
+    draconic::content::Group* meshes = project->SourceDb().RootGroup()->CreateGroup(u8"Meshes");
+    const Guid meshRefId  = AuthorMesh(*meshes, u8"Referenced");
+    const Guid meshDeadId = AuthorMesh(*meshes, u8"Unreferenced");
+
+    draconic::content::Group* scenes = project->SourceDb().RootGroup()->CreateGroup(u8"Scenes");
+    draconic::content::Instance* sceneInst =
+        scenes->CreateInstance(u8"Main", dscene::SceneDocument::StaticType());
+    REQUIRE(sceneInst != nullptr);
+    { dscene::SceneDocument doc; doc.name = String(u8"Main"); REQUIRE(sceneInst->WriteObject(doc).IsOk()); }
+    const Guid sceneId = sceneInst->Id();
+    {
+        dscene::Scene scene(u8"Main");
+        scene.AddSystem<draconic::render::MeshComponentManager>();
+        const dscene::EntityHandle e = scene.CreateEntity(u8"Box");
+        scene.GetSystem<draconic::render::MeshComponentManager>()->Add(e).mesh.SetId(meshRefId);
+        REQUIRE(dscene::SaveScene(scene, *sceneInst).IsOk());
+    }
+    project->Settings().defaultSceneId = sceneId;
+    project->Settings().defaultScene = String(u8"Scenes/Main");
+    REQUIRE(project->SaveSettings().IsOk());
+
+    ed::BuilderRegistry builders;
+    builders.Register(UniquePtr<ed::IAssetBuilder>(
+        DefaultAllocator().New<geo::StaticMeshAssetBuilder>(), DefaultAllocator()));
+    ed::TemplateRegistry registry;
+    SetupHostTemplate(toolDir.AsView(), registry);
+
+    // MAIN-THREAD pre-scan: expand the reachable closure with a scanner (as the editor does before
+    // submitting the background job), then export with scanner=null + the precomputed guid set - the
+    // scene loading (unsafe off the main thread) has already happened.
+    const ed::SceneReferenceScanner scanner = MakePruningScanner();
+    const Array<ed::ExportRoot> seeds = ed::CollectExportRoots(*project);
+    const Array<Guid> reachable = ed::ExpandReachableRoots(*project, seeds, scanner);
+    CHECK(reachable.Size() >= 2u);   // at least the scene + its referenced mesh
+
+    ed::ExportPreset preset;
+    preset.name = String(u8"Pruned"); preset.platform = String(GetHostPlatformName());
+    preset.outputSubdir = String(u8"pruned"); preset.pruneToReachable = true;
+    ed::ExportResult result;
+    REQUIRE(ed::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result,
+                          {}, true, nullptr, /*scanner*/ nullptr, &reachable).IsOk());
+
+    draconic::vfs::PakFileSystem pak(PathJoin(result.outputDir.AsView(), proj::kDistContentPak).AsView());
+    REQUIRE(pak.IsValid());
+    draconic::content::ContentDatabase db(pak, BinarySerializerFactory(), proj::kCookedAssetExtension);
+    CHECK(db.GetInstance(sceneId) != nullptr);
+    CHECK(db.GetInstance(meshRefId) != nullptr);
+    CHECK(db.GetInstance(meshDeadId) == nullptr);   // pruned via the precomputed set, no live scanner
+    CHECK(result.pruning.pruned);
+
+    // Guard: pruning requested but NEITHER a scanner NOR a precomputed set -> safe fallback (pack
+    // everything, no prune) rather than a silently-broken dist.
+    ed::ExportPreset noHelp;
+    noHelp.name = String(u8"NoHelp"); noHelp.platform = String(GetHostPlatformName());
+    noHelp.outputSubdir = String(u8"nohelp"); noHelp.pruneToReachable = true;
+    ed::ExportResult noHelpResult;
+    REQUIRE(ed::ExportOne(*project, noHelp, registry, builders, outRoot.AsView(), false,
+                          &noHelpResult).IsOk());
+    draconic::vfs::PakFileSystem noHelpPak(
+        PathJoin(noHelpResult.outputDir.AsView(), proj::kDistContentPak).AsView());
+    REQUIRE(noHelpPak.IsValid());
+    draconic::content::ContentDatabase noHelpDb(noHelpPak, BinarySerializerFactory(), proj::kCookedAssetExtension);
+    CHECK(noHelpDb.GetInstance(meshDeadId) != nullptr);   // fell back to pack-everything
+    CHECK_FALSE(noHelpResult.pruning.pruned);
+
+    NukeTree(projectDir.AsView()); NukeTree(toolDir.AsView()); NukeTree(outRoot.AsView());
+}
+
 TEST_CASE("export: pruning keeps a scene -> prefab -> asset chain")
 {
     GlobalTypeRegistry().Register(dscene::SceneDocument::StaticType());

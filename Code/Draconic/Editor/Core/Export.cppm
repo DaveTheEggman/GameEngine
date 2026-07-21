@@ -719,7 +719,8 @@ export namespace draconic::editor
                                           StringView outRoot, bool rebuild, ExportResult* outResult = nullptr,
                                           const ExportProgress& onProgress = {}, bool cook = true,
                                           const HashMap<Guid, Array<byte>>* sceneStreams = nullptr,
-                                          const SceneReferenceScanner* scanner = nullptr)
+                                          const SceneReferenceScanner* scanner = nullptr,
+                                          const Array<Guid>* precomputedReachableRoots = nullptr)
     {
         const ExportTemplate* tmpl = templates.Resolve(preset);
         if (tmpl == nullptr)
@@ -757,15 +758,19 @@ export namespace draconic::editor
         // Ensure the output dir (and outRoot) exist before the content pipeline writes into it.
         (void)CreateDirectories(result.outputDir.AsView());
 
-        // Closure pruning is opt-in per preset. It needs a scene-reference scanner to discover a
-        // scene's assets (scenes are builder-less, so PlanFor alone can't reach them); without one we
-        // must NOT silently drop content, so fall back to the pack-everything path with a warning.
+        // Closure pruning is opt-in per preset. It needs the scene->asset edges discovered - EITHER
+        // by a live scene-reference scanner (the CLI, which loads scenes on its own single thread),
+        // OR by a precomputed reachable-root set (the editor, which pre-scans on the MAIN thread and
+        // passes the guids into this background job - scene loading is main-thread-only). Without
+        // either we must NOT silently drop content, so fall back to pack-everything with a warning.
+        const bool haveScanner = (scanner != nullptr && *scanner);
+        const bool havePrecomputed = (precomputedReachableRoots != nullptr);
         bool prune = preset.pruneToReachable;
-        if (prune && (scanner == nullptr || !*scanner))
+        if (prune && !haveScanner && !havePrecomputed)
         {
             DRACONIC_LOG_WARNING(u8"Export",
-                u8"preset '{}' requests pruning but no scene-reference scanner was supplied - "
-                u8"exporting everything", preset.name);
+                u8"preset '{}' requests pruning but no scene-reference scanner or precomputed root "
+                u8"set was supplied - exporting everything", preset.name);
             prune = false;
         }
 
@@ -773,8 +778,13 @@ export namespace draconic::editor
         if (prune)
         {
             // Seed roots -> expand scene-graph edges -> PlanFor closure -> cook + stage/pack only it.
+            // The scene-edge expansion is either precomputed (editor main-thread pre-scan) or run
+            // inline via the scanner (CLI). `seeds` is still recomputed here for the report (metadata
+            // only, background-safe); it drives display, while planRoots drives cook/pack.
             const Array<ExportRoot> seeds = CollectExportRoots(project);
-            const Array<Guid> planRoots = ExpandReachableRoots(project, seeds, *scanner);
+            const Array<Guid> planRoots = havePrecomputed
+                ? *precomputedReachableRoots
+                : ExpandReachableRoots(project, seeds, *scanner);
             Array<Guid> reachableList;
             contentStatus = CookReachable(project, builders, Span<const Guid>(planRoots.Data(), planRoots.Size()),
                                           cook, rebuild, result.content, reachableList, onProgress);
@@ -872,8 +882,11 @@ export namespace draconic::editor
                                           StringView outRoot, bool rebuild, const ExportProgress& onProgress = {},
                                           bool cook = true,
                                           const HashMap<Guid, Array<byte>>* sceneStreams = nullptr,
-                                          const SceneReferenceScanner* scanner = nullptr)
+                                          const SceneReferenceScanner* scanner = nullptr,
+                                          const Array<Guid>* precomputedReachableRoots = nullptr)
     {
+        // The reachable-root closure is project-level (not per-preset), so one precomputed set
+        // seeds every pruning preset in the run.
         usize ok = 0;
         const usize n = presets.Size();
         for (usize i = 0; i < n; ++i)
@@ -888,7 +901,7 @@ export namespace draconic::editor
             };
             ExportResult result;
             if (ExportOne(project, preset, templates, builders, outRoot, rebuild, &result, scoped, cook,
-                          sceneStreams, scanner).IsOk())
+                          sceneStreams, scanner, precomputedReachableRoots).IsOk())
             {
                 ++ok;
                 DRACONIC_LOG_INFO(u8"Export", u8"exported '{}' -> {} ({} files staged)",
