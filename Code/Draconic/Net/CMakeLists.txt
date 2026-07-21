@@ -15,6 +15,8 @@ target_sources(DraconicNet
             Transport.cppm
             Datagram.cppm
             Reliable.cppm
+            Session.cppm
+            Rpc.cppm
             UdpSocket.cppm
             TcpSocket.cppm
             NetModule.cppm)

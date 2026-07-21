@@ -15,5 +15,7 @@ export import :wire;
 export import :transport;
 export import :datagram;
 export import :reliable;
+export import :session;
+export import :rpc;
 export import :udp_socket;
 export import :tcp_socket;
