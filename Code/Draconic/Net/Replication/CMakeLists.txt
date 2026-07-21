@@ -6,7 +6,7 @@
 add_library(DraconicNetReplication STATIC)
 add_library(Draconic::NetReplication ALIAS DraconicNetReplication)
 
-target_link_libraries(DraconicNetReplication PUBLIC Draconic::Core Draconic::Net Draconic::Policy)
+target_link_libraries(DraconicNetReplication PUBLIC Draconic::Core Draconic::Net Draconic::Scene Draconic::Resource Draconic::Policy)
 
 target_sources(DraconicNetReplication
     PUBLIC

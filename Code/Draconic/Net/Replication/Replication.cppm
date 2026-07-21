@@ -13,9 +13,12 @@ module;
 export module draconic.net.replication;
 
 import draconic.core;
-import draconic.net;   // BitWriter / BitReader (:wire)
+import draconic.net;        // BitWriter / BitReader (:wire)
+import draconic.scene;      // Scene / EntityHandle / ComponentManagerBase (snapshot assembly)
+import draconic.resource;   // ResourceManager (SerializableComponentManager's ResolveResources seam)
 
 using namespace draconic::core;
+namespace dscene = draconic::scene;
 
 export namespace draconic::net {
 
@@ -81,5 +84,76 @@ usize WriteReplicatedState(BitWriter& writer, const Instance& instance);
 // same layout order. Returns the field count applied. A read past the end of the stream stops early
 // (the wire is overflow-safe); returns what was applied.
 usize ReadReplicatedState(BitReader& reader, const Instance& instance);
+
+// ---- the networked-entity tag (a scene component) -------------------------------------------
+
+// Tags an entity as replicated. The server assigns the NetworkId (StateReplication::AssignNetworkId);
+// the client mirrors it. Persistent (a designer can mark an entity networked in the editor), so it
+// rides SerializableComponentManager - but its OWN fields are identity, not replicated state (they
+// carry no kReplicatedAttribute, so the field codec never touches them).
+struct NetworkComponent {
+    NetworkId id{};
+    NetworkAuthority authority = NetworkAuthority::Server;
+};
+
+// ADL serialization for scene persistence (bidirectional; enum via the temp-u8 idiom).
+inline void Serialize(ISerializer& ar, NetworkComponent& c) {
+    draconic::core::Serialize(ar, "id", c.id.value);
+    u8 authority = static_cast<u8>(c.authority);
+    draconic::core::Serialize(ar, "authority", authority);
+    c.authority = static_cast<NetworkAuthority>(authority);
+}
+
+class NetworkComponentManager final : public dscene::SerializableComponentManager<NetworkComponent> {
+public:
+    NetworkComponentManager() : SerializableComponentManager(u8"net.Network") {}
+};
+
+// Registers NetworkComponent's reflection (call once before a networked scene is built; the
+// snapshot path needs the patched TypeInfo for its versioned records). Idempotent.
+void RegisterReplicationComponents();
+
+// ---- the replication model seam + StateReplication ------------------------------------------
+
+// The seam a replication architecture implements (§5.1): StateReplication (server-authoritative
+// property snapshots, here) vs the deferred CommandReplication (lockstep). A snapshot is written on
+// the server and applied on the client, both over the :wire stream.
+class IReplicationModel {
+public:
+    virtual ~IReplicationModel() = default;
+    virtual void CaptureSnapshot(dscene::Scene& scene, BitWriter& out) = 0;
+    virtual void ApplySnapshot(dscene::Scene& scene, BitReader& in) = 0;
+};
+
+// Server-authoritative state replication. This slice does the FULL snapshot (every networked
+// entity's every replicated component) - the primitive that per-peer delta (next slice) and
+// full-snapshot late-join build on. Per-peer baselines, interpolation and relevancy are later slices.
+//
+// A snapshot is: VarU32 entityCount, then per entity { U32 networkId, VarU32 componentCount, then
+// per component { string SerializationTypeId, VarU32 blobBytes, blob } }. The per-component
+// length prefix lets a peer that lacks a component type SKIP it (forward-compat) instead of
+// desyncing the reader.
+class StateReplication final : public IReplicationModel {
+public:
+    // Server: give an entity a NetworkId (adds the NetworkComponent if absent), returning it. A
+    // re-registered entity keeps its id. Records the id->entity mapping for capture.
+    NetworkId AssignNetworkId(dscene::Scene& scene, dscene::EntityHandle entity);
+
+    void CaptureSnapshot(dscene::Scene& scene, BitWriter& out) override;
+    void ApplySnapshot(dscene::Scene& scene, BitReader& in) override;
+
+    // The local entity for a NetworkId (invalid if unknown) - the id->entity map, populated by
+    // AssignNetworkId (server) or ApplySnapshot's find-or-create (client).
+    [[nodiscard]] dscene::EntityHandle FindEntity(NetworkId id) const;
+    [[nodiscard]] usize NetworkedCount() const noexcept { return m_netIdToEntity.Size(); }
+
+private:
+    // Client: the entity for this id, creating a bare tagged entity on first sight (prefab-based
+    // network spawn is a later slice; a bare entity + applied components suffices to round-trip state).
+    dscene::EntityHandle FindOrCreateEntity(dscene::Scene& scene, u32 networkId);
+
+    u32 m_nextNetworkId = 0;   // server-side monotonic id allocator (0 stays "unassigned")
+    HashMap<u32, dscene::EntityHandle> m_netIdToEntity;
+};
 
 }

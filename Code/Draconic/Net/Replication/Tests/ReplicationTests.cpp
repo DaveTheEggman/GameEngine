@@ -8,9 +8,11 @@
 import draconic.core;
 import draconic.net;              // BitWriter / BitReader
 import draconic.net.replication;
+import draconic.scene;            // Scene / EntityHandle / SerializableComponentManager
 
 using namespace draconic::core;
 namespace net = draconic::net;
+namespace dscene = draconic::scene;
 
 namespace
 {
@@ -25,6 +27,25 @@ namespace
         i32 health = 0;                            // replicated
         f32 localOnly = 0.0f;                      // NOT replicated (no marker)
         String label;                              // marked replicated but unsupported type -> excluded
+    };
+
+    // ADL serialization (required to instantiate SerializableComponentManager<Mover>).
+    inline void Serialize(ISerializer& ar, Mover& m)
+    {
+        draconic::core::Serialize(ar, "position", m.position);
+        draconic::core::Serialize(ar, "rotation", m.rotation);
+        draconic::core::Serialize(ar, "speed", m.speed);
+        draconic::core::Serialize(ar, "grounded", m.grounded);
+        draconic::core::Serialize(ar, "health", m.health);
+        draconic::core::Serialize(ar, "localOnly", m.localOnly);
+        draconic::core::Serialize(ar, "label", m.label);
+    }
+
+    // A serializable pool so Mover can live in a scene + carry the wire type tag "test.Mover".
+    class MoverManager final : public dscene::SerializableComponentManager<Mover>
+    {
+    public:
+        MoverManager() : SerializableComponentManager(u8"test.Mover") {}
     };
 }
 
@@ -111,4 +132,68 @@ TEST_CASE("replication: field codec round-trips supported scalars + rejects unsu
     // Reading an unsupported type consumes nothing and reports false.
     Variant d;
     CHECK_FALSE(net::ReadFieldValue(reader, &TypeOf<String>(), d));
+}
+
+TEST_CASE("replication: a full snapshot round-trips networked entities server -> client")
+{
+    DraconicRegisterValue_Mover();
+    net::RegisterReplicationComponents();
+
+    // --- server scene: two networked entities, each with a Mover ---
+    dscene::Scene server;
+    server.AddSystem<net::NetworkComponentManager>();
+    MoverManager* serverMovers = server.AddSystem<MoverManager>();
+    net::StateReplication serverRep;
+
+    const dscene::EntityHandle a = server.CreateEntity(u8"A");
+    Mover& ma = serverMovers->Add(a);
+    ma.position = Float3{ 1.0f, 2.0f, 3.0f }; ma.speed = 10.0f; ma.health = 100; ma.grounded = true;
+    const net::NetworkId idA = serverRep.AssignNetworkId(server, a);
+
+    const dscene::EntityHandle b = server.CreateEntity(u8"B");
+    Mover& mb = serverMovers->Add(b);
+    mb.position = Float3{ -4.0f, 0.0f, 9.0f }; mb.speed = 2.5f; mb.health = 42;
+    const net::NetworkId idB = serverRep.AssignNetworkId(server, b);
+
+    REQUIRE(idA.IsValid()); REQUIRE(idB.IsValid()); REQUIRE(idA != idB);
+    CHECK(serverRep.NetworkedCount() == 2u);
+
+    // --- capture on the server ---
+    net::BitWriter writer;
+    serverRep.CaptureSnapshot(server, writer);
+
+    // --- apply into a fresh client scene with the SAME managers ---
+    dscene::Scene client;
+    client.AddSystem<net::NetworkComponentManager>();
+    MoverManager* clientMovers = client.AddSystem<MoverManager>();
+    net::StateReplication clientRep;
+
+    net::BitReader reader(writer.Data());
+    clientRep.ApplySnapshot(client, reader);
+    CHECK(reader.Ok());
+    CHECK(clientRep.NetworkedCount() == 2u);
+
+    // --- the client now mirrors the server's replicated state, keyed by NetworkId ---
+    const dscene::EntityHandle ca = clientRep.FindEntity(idA);
+    const dscene::EntityHandle cb = clientRep.FindEntity(idB);
+    REQUIRE(client.IsValid(ca)); REQUIRE(client.IsValid(cb));
+    const Mover* rca = clientMovers->Get(ca);
+    const Mover* rcb = clientMovers->Get(cb);
+    REQUIRE(rca != nullptr); REQUIRE(rcb != nullptr);
+    CHECK(rca->position == Float3{ 1.0f, 2.0f, 3.0f });
+    CHECK(rca->speed == doctest::Approx(10.0f));
+    CHECK(rca->health == 100);
+    CHECK(rca->grounded == true);
+    CHECK(rcb->position == Float3{ -4.0f, 0.0f, 9.0f });
+    CHECK(rcb->speed == doctest::Approx(2.5f));
+    CHECK(rcb->health == 42);
+
+    // --- re-applying an updated snapshot mutates in place (same entities, no duplicates) ---
+    ma.health = 55;
+    net::BitWriter writer2;
+    serverRep.CaptureSnapshot(server, writer2);
+    net::BitReader reader2(writer2.Data());
+    clientRep.ApplySnapshot(client, reader2);
+    CHECK(clientRep.NetworkedCount() == 2u);          // no new entities minted
+    CHECK(clientMovers->Get(clientRep.FindEntity(idA))->health == 55);
 }

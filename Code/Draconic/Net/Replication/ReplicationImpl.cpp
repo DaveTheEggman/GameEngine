@@ -5,11 +5,13 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
+#include "Core/Reflection/Reflect.h"
 
 module draconic.net.replication;
 
 import draconic.core;
 import draconic.net;
+import draconic.scene;
 
 using namespace draconic::core;
 
@@ -23,6 +25,19 @@ namespace {
     }
     [[nodiscard]] const Attribute* FindReplicatedMark(const PropertyInfo& property) noexcept {
         return FindAttribute(property, Ascii(kReplicatedAttribute));
+    }
+
+    // Length-prefixed UTF-8 on the wire (the component type tag - SerializationTypeId).
+    void WriteWireString(BitWriter& writer, StringView s) {
+        writer.WriteVarU32(static_cast<u32>(s.Size()));
+        writer.WriteBytes(Span<const byte>(reinterpret_cast<const byte*>(s.Data()), s.Size()));
+    }
+    [[nodiscard]] String ReadWireString(BitReader& reader) {
+        const u32 n = reader.ReadVarU32();
+        if (n == 0 || !reader.Ok()) { return String{}; }
+        Array<byte> buf; buf.Resize(n);
+        reader.ReadBytes(Span<byte>(buf.Data(), buf.Size()));
+        return String(StringView(reinterpret_cast<const char8_t*>(buf.Data()), n));
     }
 }
 
@@ -125,6 +140,121 @@ usize ReadReplicatedState(BitReader& reader, const Instance& instance) {
         ++applied;
     }
     return applied;
+}
+
+// ---- NetworkComponent reflection (versioned records need the patched TypeInfo) ---------------
+
+DRACONIC_REFLECT_VALUE(NetworkComponent, "draconic::net")
+{
+    builder.DataVersion(1);
+    builder.Property<&NetworkComponent::id>("id");
+    builder.Property<&NetworkComponent::authority>("authority");
+}
+
+void RegisterReplicationComponents()
+{
+    static const bool once = []() {
+        DraconicRegisterValue_NetworkComponent();
+        GlobalTypeRegistry().Register(TypeOf<NetworkComponent>());
+        return true;
+    }();
+    (void)once;
+}
+
+// ---- StateReplication -----------------------------------------------------------------------
+
+NetworkId StateReplication::AssignNetworkId(dscene::Scene& scene, dscene::EntityHandle entity)
+{
+    auto* netMgr = scene.GetSystem<NetworkComponentManager>();
+    if (netMgr == nullptr) { return NetworkId::Invalid(); }
+    NetworkComponent& nc = netMgr->Has(entity) ? *netMgr->Get(entity) : netMgr->Add(entity);
+    if (!nc.id.IsValid()) { nc.id = NetworkId{ ++m_nextNetworkId }; }   // 0 stays "unassigned"
+    m_netIdToEntity.InsertOrAssign(nc.id.value, entity);
+    return nc.id;
+}
+
+dscene::EntityHandle StateReplication::FindEntity(NetworkId id) const
+{
+    if (const dscene::EntityHandle* found = m_netIdToEntity.Find(id.value)) { return *found; }
+    return dscene::EntityHandle::Invalid();
+}
+
+dscene::EntityHandle StateReplication::FindOrCreateEntity(dscene::Scene& scene, u32 networkId)
+{
+    if (const dscene::EntityHandle* found = m_netIdToEntity.Find(networkId)) {
+        if (scene.IsValid(*found)) { return *found; }
+    }
+    const dscene::EntityHandle e = scene.CreateEntity();
+    if (auto* netMgr = scene.GetSystem<NetworkComponentManager>()) {
+        NetworkComponent& nc = netMgr->Has(e) ? *netMgr->Get(e) : netMgr->Add(e);
+        nc.id = NetworkId{ networkId };
+        nc.authority = NetworkAuthority::Server;   // the client's view: the server owns this entity
+    }
+    m_netIdToEntity.InsertOrAssign(networkId, e);
+    return e;
+}
+
+void StateReplication::CaptureSnapshot(dscene::Scene& scene, BitWriter& out)
+{
+    auto* netMgr = scene.GetSystem<NetworkComponentManager>();
+    if (netMgr == nullptr) { out.WriteVarU32(0); return; }
+
+    // Snapshot the assigned networked entities from the tag pool.
+    struct Ent { u32 id; dscene::EntityHandle handle; };
+    Array<Ent> entities;
+    netMgr->ForEach([&](NetworkComponent& nc, dscene::EntityHandle e) {
+        if (nc.id.IsValid()) { entities.PushBack(Ent{ nc.id.value, e }); }
+    });
+
+    out.WriteVarU32(static_cast<u32>(entities.Size()));
+    for (const Ent& ent : entities) {
+        out.WriteU32(ent.id);
+        // Gather this entity's serializable components that carry replicated fields.
+        Array<dscene::ComponentManagerBase*> comps;
+        scene.ForEachManager([&](dscene::ComponentManagerBase& m) {
+            const Instance inst = m.GetComponentInstance(ent.handle);
+            if (inst.Type() == nullptr) { return; }
+            if (ReplicatedProperties(*inst.Type()).IsEmpty()) { return; }
+            if (!m.IsSerializable() || m.SerializationTypeId().IsEmpty()) { return; }  // need a wire tag
+            comps.PushBack(&m);
+        });
+        out.WriteVarU32(static_cast<u32>(comps.Size()));
+        for (dscene::ComponentManagerBase* m : comps) {
+            // Length-prefix each component blob so a peer lacking the type can skip it (forward-compat).
+            BitWriter fields;
+            (void)WriteReplicatedState(fields, m->GetComponentInstance(ent.handle));
+            const Span<const byte> blob = fields.Data();
+            WriteWireString(out, m->SerializationTypeId());
+            out.WriteVarU32(static_cast<u32>(blob.Size()));
+            out.WriteBytes(blob);
+        }
+    }
+}
+
+void StateReplication::ApplySnapshot(dscene::Scene& scene, BitReader& in)
+{
+    const u32 entityCount = in.ReadVarU32();
+    for (u32 i = 0; i < entityCount && in.Ok(); ++i) {
+        const u32 networkId = in.ReadU32();
+        const dscene::EntityHandle entity = FindOrCreateEntity(scene, networkId);
+        const u32 componentCount = in.ReadVarU32();
+        for (u32 j = 0; j < componentCount && in.Ok(); ++j) {
+            const String typeId = ReadWireString(in);
+            const u32 blobBytes = in.ReadVarU32();
+            Array<byte> blob;
+            blob.Resize(blobBytes);
+            if (blobBytes > 0) { in.ReadBytes(Span<byte>(blob.Data(), blob.Size())); }
+            if (!in.Ok()) { break; }
+
+            dscene::ComponentManagerBase* m = scene.FindManagerBySerializationId(typeId.AsView());
+            if (m == nullptr) { continue; }   // unknown type on this peer - blob already consumed (skip)
+            if (m->GetComponentInstance(entity).Type() == nullptr) { (void)m->AddDefaultComponent(entity); }
+            const Instance inst = m->GetComponentInstance(entity);
+            if (inst.Type() == nullptr) { continue; }
+            BitReader fields(Span<const byte>(blob.Data(), blob.Size()));
+            (void)ReadReplicatedState(fields, inst);
+        }
+    }
 }
 
 }
