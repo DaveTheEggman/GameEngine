@@ -13,15 +13,21 @@ export module draconic.net.subsystem;
 
 import draconic.core;
 import draconic.net;
+import draconic.net.replication;   // StateReplication / InterpolationBuffer (same draconic::net namespace)
+import draconic.scene;             // Scene (the replicated world)
 import draconic.script;   // Object / IScriptContext / CurrentScriptContext / SetService
 
 using namespace draconic::core;
 using namespace draconic::script;   // Object, IScriptContext, CurrentScriptContext (the facade base)
+namespace dscene = draconic::scene;
 
 export namespace draconic::net {
 
 // The service key the Net facade resolves per script context (distinct from script.runtime).
 inline constexpr StringView kNetScriptService = u8"net.runtime";
+
+// Reserved channel for StateReplication deltas (alongside kControlChannel=255, kRpcChannel=254).
+inline constexpr u8 kReplicationChannel = 253;
 
 // What the Net facade reads/acts on: the live session + its RPC table. Installed as a script service
 // by NetSubsystem::InstallScriptService.
@@ -80,11 +86,39 @@ public:
     void StartServer(bool dedicated = false) { m_session.StartServer(dedicated); }
     PeerId ConnectTo(const DatagramEndpoint& server) { return m_session.Connect(server); }
 
-    // Drive the session + route RPCs to the table. Non-RPC events reach `onEvent` (e.g. Connected).
+    // Drive the session + route received messages by reserved channel: RPCs (254) to the table,
+    // replication deltas (253) into the scene, everything else to `onEvent` (e.g. Connected). On the
+    // server, push each connected peer its replication delta this tick (reliable-ordered - the delta
+    // baseline assumes delivery). Call on the FIXED lane.
     void Update(f32 deltaMs, const Function<void(const NetEvent&)>& onEvent = {}) {
         m_session.Update(deltaMs);
-        m_rpc.Pump(m_session, onEvent);
+
+        NetEvent ev;
+        while (m_session.PollEvent(ev)) {
+            if (ev.kind == NetEventKind::Received && ev.channel == kRpcChannel) {
+                m_rpc.Dispatch(ev.peer, ev.payload.AsSpan());
+            } else if (ev.kind == NetEventKind::Received && ev.channel == kReplicationChannel) {
+                if (m_scene != nullptr) { BitReader reader(ev.payload.AsSpan()); m_replication.ApplyDelta(*m_scene, reader); }
+            } else {
+                if (ev.kind == NetEventKind::Disconnected) { m_replication.ForgetPeer(ev.peer); }
+                if (onEvent) { onEvent(ev); }
+            }
+        }
+
+        if (m_session.IsServer() && m_scene != nullptr) {
+            for (const NetPeer& peer : m_session.Peers()) {
+                BitWriter writer;
+                if (m_replication.CaptureDelta(*m_scene, peer.id, writer) > 0) {
+                    m_session.Send(peer.id, kReplicationChannel, writer.Data(), Reliability::ReliableOrdered);
+                }
+            }
+        }
     }
+
+    // The scene this subsystem replicates (server captures from it, client applies into it). Null =
+    // no replication (session + RPC still run). The host sets the gameplay scene here.
+    void SetReplicatedScene(dscene::Scene* scene) noexcept { m_scene = scene; }
+    [[nodiscard]] StateReplication& Replication() noexcept { return m_replication; }
 
     // Install the Net facade's service into a script context (call once, after the context exists).
     void InstallScriptService(IScriptContext& context) {
@@ -100,6 +134,8 @@ private:
     NetSession       m_session;
     RpcTable         m_rpc;
     NetScriptBinding m_binding;
+    StateReplication m_replication;
+    dscene::Scene*   m_scene = nullptr;   // the replicated world (null = no replication)
 };
 
 // ---- runtime startup: how a host (DefaultApplication) enters a networked role from config ----

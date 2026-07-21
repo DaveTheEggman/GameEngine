@@ -5,7 +5,7 @@
 add_library(DraconicNetSubsystem STATIC)
 add_library(Draconic::NetSubsystem ALIAS DraconicNetSubsystem)
 
-target_link_libraries(DraconicNetSubsystem PUBLIC Draconic::Core Draconic::Net Draconic::Script Draconic::ScriptFacades Draconic::Policy)
+target_link_libraries(DraconicNetSubsystem PUBLIC Draconic::Core Draconic::Net Draconic::NetReplication Draconic::Scene Draconic::Script Draconic::ScriptFacades Draconic::Policy)
 
 target_sources(DraconicNetSubsystem
     PUBLIC
