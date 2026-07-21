@@ -1102,3 +1102,124 @@ TEST_CASE("export: pruning keeps a scene -> prefab -> asset chain")
 
     NukeTree(projectDir.AsView()); NukeTree(toolDir.AsView()); NukeTree(outRoot.AsView());
 }
+
+TEST_CASE("export: ExportPresetsController round-trips add/edit/duplicate/delete through save->load")
+{
+    const String dir = TempDir(u8"draconic_presets_controller");
+    NukeTree(dir.AsView());
+    REQUIRE(CreateDirectory(dir.AsView()));
+    draconic::vfs::NativeFileSystem root(dir.AsView());
+
+    // First load, no file yet => seeded with the built-in default (one host-platform preset).
+    ed::ExportPresetsController ctl;
+    ctl.Load(root);
+    REQUIRE(ctl.Count() == 1u);
+    CHECK(ctl.At(0).platform == GetHostPlatformName());
+
+    // Add two presets; the second collides on name and is auto-uniqued to "Windows Copy".
+    ed::ExportPreset a; a.name = String(u8"Windows"); a.platform = String(u8"Win64");
+    a.config = String(u8"Release"); a.stageSymbols = true;
+    const usize ia = ctl.Add(a);
+    CHECK(ctl.At(ia).name == u8"Windows");
+    ed::ExportPreset dup; dup.name = String(u8"Windows"); dup.platform = String(u8"Win64");
+    const usize idup = ctl.Add(dup);
+    CHECK(ctl.At(idup).name == u8"Windows Copy");   // name collision resolved on Add
+    REQUIRE(ctl.Count() == 3u);
+
+    // Edit: rename + change fields on the "Windows" preset.
+    ed::ExportPreset edited = ctl.At(ia);
+    edited.name = String(u8"Windows Ship"); edited.playerName = String(u8"MyGame.exe");
+    edited.additionalFiles.PushBack(String(u8"icon.ico"));
+    ctl.Update(ia, edited);
+    CHECK(ctl.At(ia).name == u8"Windows Ship");
+    CHECK(ctl.At(ia).playerName == u8"MyGame.exe");
+
+    // Duplicate: a distinct " Copy" name off the source, appended at the end.
+    const usize icopy = ctl.Duplicate(ia);
+    CHECK(icopy == ctl.Count() - 1u);
+    CHECK(ctl.At(icopy).name == u8"Windows Ship Copy");
+    CHECK(ctl.At(icopy).playerName == u8"MyGame.exe");   // fields carried over
+
+    // Persist and reload into a fresh controller: every mutation survives the XML round-trip.
+    REQUIRE(ctl.Save(*root.AsWritable()).IsOk());
+    ed::ExportPresetsController reloaded;
+    reloaded.Load(root);
+    REQUIRE(reloaded.Count() == ctl.Count());
+    const ed::ExportPreset* ship = reloaded.Set().Find(u8"Windows Ship");
+    REQUIRE(ship != nullptr);
+    CHECK(ship->playerName == u8"MyGame.exe");
+    CHECK(ship->stageSymbols);
+    REQUIRE(ship->additionalFiles.Size() == 1u);
+    CHECK(ship->additionalFiles[0] == u8"icon.ico");
+    CHECK(reloaded.Set().Find(u8"Windows Ship Copy") != nullptr);
+
+    // Delete: drop the duplicate, save, reload - it's gone; the rest stays.
+    for (usize i = 0; i < reloaded.Count(); ++i)
+    {
+        if (reloaded.At(i).name == u8"Windows Ship Copy") { reloaded.Remove(i); break; }
+    }
+    REQUIRE(reloaded.Save(*root.AsWritable()).IsOk());
+    ed::ExportPresetsController afterDelete;
+    afterDelete.Load(root);
+    CHECK(afterDelete.Set().Find(u8"Windows Ship Copy") == nullptr);
+    CHECK(afterDelete.Set().Find(u8"Windows Ship") != nullptr);
+
+    NukeTree(dir.AsView());
+}
+
+TEST_CASE("export: RemoveTemplate deletes an installed bundle the registry then drops")
+{
+    const String rootDir = TempDir(u8"draconic_removetmpl_root");
+    const String hostDir = TempDir(u8"draconic_removetmpl_host");
+    NukeTree(rootDir.AsView()); NukeTree(hostDir.AsView());
+    REQUIRE(CreateDirectory(rootDir.AsView()));
+    REQUIRE(CreateDirectory(hostDir.AsView()));
+    REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), u8"raptor-remove-me").AsView()));
+
+    draconic::vfs::NativeFileSystem rootFs(rootDir.AsView());
+    draconic::vfs::NativeFileSystem hostFs(hostDir.AsView());
+    ed::ExportTemplate t;
+    t.id = String(u8"raptor-remove-me"); t.platform = String(u8"Win64");
+    t.playerBinary = String(u8"RaptorPlayer.exe");
+    REQUIRE(ed::SaveTemplateManifest(*rootFs.AsWritable(), t, u8"raptor-remove-me/template.xml").IsOk());
+
+    // Present before removal.
+    {
+        ed::TemplateRegistry reg;
+        reg.Refresh(rootDir.AsView(), &rootFs, hostDir.AsView(), &hostFs);
+        REQUIRE(reg.FindById(u8"raptor-remove-me") != nullptr);
+    }
+
+    // Remove the bundle dir; a fresh registry no longer sees it (host template remains).
+    REQUIRE(ed::RemoveTemplate(rootDir.AsView(), u8"raptor-remove-me").IsOk());
+    {
+        draconic::vfs::NativeFileSystem rootFs2(rootDir.AsView());
+        ed::TemplateRegistry reg;
+        reg.Refresh(rootDir.AsView(), &rootFs2, hostDir.AsView(), &hostFs);
+        CHECK(reg.FindById(u8"raptor-remove-me") == nullptr);
+        CHECK(reg.Count() == 1u);   // just the synthesized host template
+    }
+
+    // Removing a non-existent id fails softly (NotFound), never crashes; empty id is rejected.
+    CHECK_FALSE(ed::RemoveTemplate(rootDir.AsView(), u8"raptor-remove-me").IsOk());
+    CHECK_FALSE(ed::RemoveTemplate(rootDir.AsView(), u8"").IsOk());
+
+    NukeTree(rootDir.AsView()); NukeTree(hostDir.AsView());
+}
+
+TEST_CASE("export: TemplateEngineMatches flags a version mismatch, passes host + unstamped")
+{
+    // The synthesized host template carries this build's engine version => matches.
+    ed::ExportTemplate host;
+    host.engineVersion = String(draconic::project::kEngineVersionString);
+    CHECK(ed::TemplateEngineMatches(host));
+
+    // A stamped, differing version => mismatch (the "!" note in the templates manager).
+    ed::ExportTemplate old; old.engineVersion = String(u8"0.0.0-ancient");
+    CHECK_FALSE(ed::TemplateEngineMatches(old));
+
+    // An unstamped (hand-written) manifest is treated as a match (driver only soft-warns on a real
+    // differing stamp).
+    ed::ExportTemplate blank;
+    CHECK(ed::TemplateEngineMatches(blank));
+}

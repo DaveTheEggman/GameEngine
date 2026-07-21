@@ -22,6 +22,7 @@ target_sources(DraconicEditorCore
             JobService.cppm
             ExportPreset.cppm
             ExportTemplate.cppm
+            ExportController.cppm
             CookService.cppm
             Importer.cppm
             EditorCoreModule.cppm)

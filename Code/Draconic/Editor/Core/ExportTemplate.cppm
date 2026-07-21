@@ -260,6 +260,30 @@ export namespace draconic::editor
         return Status{};
     }
 
+    // Remove an installed template bundle: delete `<templatesRoot>/<templateId>` and everything
+    // under it (the editor's templates-manager Remove action; the registry drops it next Refresh).
+    // The HOST template is synthesized, not on disk, so it is never removable this way - callers
+    // must not offer Remove for it. Empty id / a missing dir is a soft error, not a crash.
+    [[nodiscard]] inline Status RemoveTemplate(StringView templatesRoot, StringView templateId)
+    {
+        if (templateId.IsEmpty()) { return Status{ ErrorCode::InvalidArgument }; }
+        const String dir = PathJoin(templatesRoot, templateId);
+        namespace fs = std::filesystem;
+        std::error_code ec;
+        const auto removed = fs::remove_all(fs::path(reinterpret_cast<const char*>(dir.CStr())), ec);
+        if (ec) { return Status{ ErrorCode::Internal }; }
+        return (removed > 0) ? Status{} : Status{ ErrorCode::NotFound };   // nothing deleted => not there
+    }
+
+    // Does a template's engineVersion match this running build's? Empty (an unstamped/hand-written
+    // manifest) is treated as a match - the export driver only soft-warns on a real mismatch, so the
+    // editor's templates-manager surfaces the same "!" note only when a stamped version differs.
+    [[nodiscard]] inline bool TemplateEngineMatches(const ExportTemplate& tmpl)
+    {
+        return tmpl.engineVersion.IsEmpty()
+            || tmpl.engineVersion.AsView() == draconic::project::kEngineVersionString;
+    }
+
     // Where CreateTemplate writes the bundle it builds.
     enum class TemplateOutput
     {
