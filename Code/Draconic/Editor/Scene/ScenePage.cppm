@@ -1377,6 +1377,37 @@ export namespace draconic::editor
             return true;
         };
 
+        // Export reachability seam (docs/design/export-reachability.md): collect the assets a
+        // scene/prefab references so the export closure can chase the scene->asset edges the cook's
+        // read-dep graph can't see. Same SceneSubsystem-scratch pattern as the stager above (the full
+        // manager set via ISceneAware, so no component type is silently skipped); resolves the scene's
+        // Refs through a factory-less ResourceManager (nothing builds, so every bound id lands in
+        // CollectUnresolved) and reads back the parked prefab instances. MAIN-THREAD only.
+        context.SceneRefScanner = [appHost](draconic::content::Instance& instance,
+                                            draconic::content::ContentDatabase& db,
+                                            Array<Guid>& outResources, Array<Guid>& outPrefabs) -> bool {
+            const bool isScene = instance.TypeName() == StringView(u8"SceneDocument");
+            const bool isPrefab = instance.TypeName() == StringView(u8"PrefabDocument");
+            if (!isScene && !isPrefab) { return false; }
+            auto* scenes = appHost->Ctx().GetSubsystem<dscene::SceneSubsystem>();
+            if (scenes == nullptr) { return false; }
+            dscene::Scene* scratch = scenes->CreateScene(u8"__export_scan");
+            if (scratch == nullptr) { return false; }
+            const bool loaded = dscene::LoadScene(instance, *scratch).IsOk();
+            if (loaded)
+            {
+                draconic::resource::ResourceManager collector(db);   // no factories -> all binds unresolved
+                dscene::ResolveSceneResources(*scratch, collector);
+                collector.CollectUnresolved(outResources);
+                scratch->ForEachPendingPrefabInstance([&outPrefabs](dscene::Scene::PendingPrefabInstance& pending)
+                {
+                    outPrefabs.PushBack(pending.prefabId);
+                });
+            }
+            scenes->DestroyScene(scratch);
+            return loaded;
+        };
+
         context.AddImportListener([editorContext, appHost](draconic::content::Instance& instance,
                                                            const ImportOptions* options) {
             if (instance.TypeName() != StringView(u8"ModelManifestAsset")) { return; }

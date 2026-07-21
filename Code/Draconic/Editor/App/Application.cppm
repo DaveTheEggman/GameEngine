@@ -900,6 +900,22 @@ export namespace draconic::editor::app
             return PathJoin(GetCurrentDirectory().AsView(), path);
         }
 
+        // Does this export run include a preset that prunes to reachable? (m_exportPresets must be
+        // loaded first.) Decides whether the main-thread reachability pre-scan is worth running.
+        [[nodiscard]] bool AnyPresetPrunes(bool all, StringView presetName) const
+        {
+            if (all)
+            {
+                for (const ed::ExportPreset& p : m_exportPresets.presets)
+                {
+                    if (p.pruneToReachable) { return true; }
+                }
+                return false;
+            }
+            const ed::ExportPreset* p = m_exportPresets.Find(presetName);
+            return p != nullptr && p->pruneToReachable;
+        }
+
         void SubmitExportJob(String presetName, bool all)
         {
             draconic::editor::EditorProject* project = m_project.Get();
@@ -914,23 +930,54 @@ export namespace draconic::editor::app
                 CollectSceneStreams(*m_project->SourceDb().RootGroup());
             }
             const HashMap<Guid, Array<byte>>* sceneStreams = &m_exportSceneStreams;
+
+            // Load the presets on the MAIN thread (was in the job): the pre-scan below needs to know
+            // whether pruning is requested, and the job then reuses this copy instead of re-reading.
+            m_exportPresets.presets.Clear();
+            {
+                draconic::vfs::NativeFileSystem projectFs(project->Directory());
+                if (!ed::LoadExportPresets(projectFs, m_exportPresets).IsOk())
+                {
+                    ed::DefaultExportPresets(m_exportPresets);
+                }
+            }
+
+            // MAIN-THREAD reachability pre-scan (docs/design/export-reachability.md): pruning needs
+            // the scene->asset edges, which means LOADING scenes - unsafe off the main thread. So when
+            // a preset in this run prunes and the scene editor supplied a scanner, expand the reachable
+            // closure NOW and hand the guid set to the background job (which then only cooks + packs
+            // that set - pure I/O). Without a scanner the job falls back to pack-everything (safe).
+            m_exportReachableRoots.Clear();
+            m_exportReachableValid = false;
+            if (AnyPresetPrunes(all, presetName.AsView()) && m_context.SceneRefScanner)
+            {
+                EditorApplication* self = this;
+                const ed::SceneReferenceScanner adapter =
+                    [self](draconic::content::Instance& inst, draconic::content::ContentDatabase& db,
+                           ed::SceneReferences& refs) {
+                        self->m_context.SceneRefScanner(inst, db, refs.resources, refs.prefabs);
+                    };
+                const Array<ed::ExportRoot> seeds = ed::CollectExportRoots(*project);
+                m_exportReachableRoots = ed::ExpandReachableRoots(*project, seeds, adapter);
+                m_exportReachableValid = true;
+            }
+            const Array<Guid>* reachableRoots = m_exportReachableValid ? &m_exportReachableRoots : nullptr;
+            const ed::ExportPresetSet* presetsPtr = &m_exportPresets;
+
             const String toolDir = GetExecutableDirectory();
             const String templatesRoot = TemplatesRoot();   // resolve on the main thread (reads settings)
             const String outRoot = Absolutize(PathJoin(m_project->Directory(), u8"Dist").AsView());
             const String title(all ? StringView(u8"Export All") : StringView(u8"Export"));
 
             m_jobService.Submit(title.AsView(),
-                [project, builders, toolDir, templatesRoot, presetName, all, outRoot, sceneStreams](ed::JobContext& ctx) -> Status
+                [project, builders, toolDir, templatesRoot, presetName, all, outRoot, sceneStreams,
+                 reachableRoots, presetsPtr](ed::JobContext& ctx) -> Status
                 {
                     draconic::vfs::NativeFileSystem toolFs(toolDir.AsView());
                     draconic::vfs::NativeFileSystem rootFs(templatesRoot.AsView());   // imported templates
                     ed::TemplateRegistry registry;
                     registry.Refresh(templatesRoot.AsView(), &rootFs, toolDir.AsView(), &toolFs);
-                    ed::ExportPresetSet presets;
-                    {
-                        draconic::vfs::NativeFileSystem projectFs(project->Directory());
-                        if (!ed::LoadExportPresets(projectFs, presets).IsOk()) { ed::DefaultExportPresets(presets); }
-                    }
+                    const ed::ExportPresetSet& presets = *presetsPtr;   // loaded on the main thread
                     const ed::ExportProgress onProgress = [&ctx](StringView step, f32 frac)
                     { ctx.SetStep(step); ctx.SetFraction(frac); };
 
@@ -938,13 +985,15 @@ export namespace draconic::editor::app
                     {
                         const Span<const ed::ExportPreset> span(presets.presets.Data(), presets.presets.Size());
                         return ed::ExportAll(*project, span, registry, *builders, outRoot.AsView(),
-                                             /*rebuild*/ false, onProgress, /*cook*/ false, sceneStreams);
+                                             /*rebuild*/ false, onProgress, /*cook*/ false, sceneStreams,
+                                             /*scanner*/ nullptr, reachableRoots);
                     }
                     const ed::ExportPreset* preset = presets.Find(presetName.AsView());
                     if (preset == nullptr) { return Status{ ErrorCode::NotFound }; }
                     ed::ExportResult result;
                     return ed::ExportOne(*project, *preset, registry, *builders, outRoot.AsView(),
-                                         /*rebuild*/ false, &result, onProgress, /*cook*/ false, sceneStreams);
+                                         /*rebuild*/ false, &result, onProgress, /*cook*/ false, sceneStreams,
+                                         /*scanner*/ nullptr, reachableRoots);
                 },
                 [this, outRoot](Status s)   // main thread
                 {
@@ -1892,6 +1941,9 @@ export namespace draconic::editor::app
         PendingExport m_pendingExport;
         ed::ExportPresetsController m_presetsController;   // backs the Export presets panel + editor form
         HashMap<Guid, Array<byte>> m_exportSceneStreams;   // export pre-transcoded scene wires
+        ed::ExportPresetSet m_exportPresets;               // main-thread-loaded presets for the running job
+        Array<Guid> m_exportReachableRoots;                // main-thread pre-scan result (reachable closure roots)
+        bool m_exportReachableValid = false;               // true when the pre-scan ran (else no pruning this run)
         UIEditorPage* m_gamePage = nullptr;                // borrowed singleton (context owns)                       // export waiting for its pre-cook to finish
         f32 m_elapsed = 0.0f;   // autoExit/autoRebuild accumulator
         f32 m_testOpenElapsed = 0.0f;   // RAPTOR_TEST_OPEN hook

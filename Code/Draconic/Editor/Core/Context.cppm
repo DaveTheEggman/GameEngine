@@ -274,6 +274,16 @@ export namespace draconic::editor
         /// MAIN-THREAD only (creates a scratch scene through the SceneSubsystem).
         Function<bool(draconic::content::Instance&, Array<byte>&)> SceneStreamStager;
 
+        /// Export reachability seam: collects the assets a scene/prefab instance references, for the
+        /// export closure (docs/design/export-reachability.md). Loads the instance over the app's full
+        /// manager set, appending its component resource Ref ids to `outResources` and its nested
+        /// prefab-instance ids to `outPrefabs`; returns false for non-scene instances or on failure.
+        /// Registered by the scene editor plugin (needs scene machinery). MAIN-THREAD only (loads a
+        /// scene through the SceneSubsystem), which is exactly why the editor pre-scans with this on
+        /// the main thread and hands the resulting guid set to the background export job.
+        Function<bool(draconic::content::Instance&, draconic::content::ContentDatabase&,
+                      Array<Guid>& /*outResources*/, Array<Guid>& /*outPrefabs*/)> SceneRefScanner;
+
         void NotifyImported(draconic::content::Instance& instance, const ImportOptions* options)
         {
             for (const auto& listener : m_importListeners) { listener(instance, options); }
