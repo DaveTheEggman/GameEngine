@@ -54,6 +54,7 @@ export namespace draconic::editor::app
     namespace uirt = draconic::ui::runtime;
     namespace ed = draconic::editor;
     namespace uiapp = draconic::ui::application;
+    namespace ui = draconic::ui;
 
     class EditorApplication;
 
@@ -980,9 +981,141 @@ export namespace draconic::editor::app
                 });
         }
 
-        // Import an export template bundle: pick a folder (native dialog), copy it into the templates
-        // root under its manifest id. The picked folder must contain a template.xml.
-        void OpenImportTemplateDialog()
+        // === Templates + presets UI (File > Export... / File > Manage Templates...) ===
+        //
+        // Two management surfaces over the shared export driver: a templates manager (list + import /
+        // create / remove installed bundles, with an engine-version match note) and an export-presets
+        // panel (list + add / edit / duplicate / delete + Export / Export All). The presets panel drives
+        // a preset-editor form; both defer every view-destroying action (dialog swap, list refresh)
+        // through the UI mutation queue, and copy any async native-dialog paths before touching the UI.
+        // The non-UI logic lives in ExportPresetsController + the template registry/helpers (tested).
+
+        // Build a template registry on the MAIN thread: the host template (this editor's own Bin dir)
+        // plus imported/created bundles under the configured templates root. Self-contained after
+        // Refresh (copies manifests + dir paths), so it outlives the temporary filesystems here.
+        void BuildTemplateRegistryMainThread(ed::TemplateRegistry& out)
+        {
+            const String toolDir = GetExecutableDirectory();
+            const String templatesRoot = TemplatesRoot();
+            draconic::vfs::NativeFileSystem toolFs(toolDir.AsView());
+            draconic::vfs::NativeFileSystem rootFs(templatesRoot.AsView());
+            out.Refresh(templatesRoot.AsView(), &rootFs, toolDir.AsView(), &toolFs);
+        }
+
+        // A labeled form row: fixed-width label + `field` (grows to fill). Returns the row so a caller
+        // can append trailing controls (e.g. a "Browse..." button beside a text field).
+        ui::FlexLayout* AddFormRow(ui::FlexLayout& column, StringView label, ui::View* field)
+        {
+            auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            row->Direction = ui::Orientation::Horizontal;
+            row->Spacing = 8;
+            {
+                auto text = MakeRef<ui::Label>(DefaultAllocator(), label);
+                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(120));
+                lp->AlignSelf = ui::Align::Center;
+                row->AddView(text.Get(), lp);
+            }
+            if (field != nullptr)
+            {
+                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Grow = 1.0f;
+                lp->AlignSelf = ui::Align::Center;
+                row->AddView(field, lp);
+            }
+            ui::FlexLayout* raw = row.Get();
+            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            lp->Width = ui::SizeSpec::Match();
+            column.AddView(row.Get(), lp);
+            return raw;
+        }
+
+        // Swap the currently-open management dialog for a freshly-built one: close `current` and run
+        // `open`, all on the UI mutation queue (never destroy/rebuild views mid-event-dispatch).
+        void QueueReplaceDialog(ui::Dialog* current, Function<void()> open)
+        {
+            m_uiHost->Context().MutationQueueRef().QueueAction(Function<void()>{
+                [current, open = Move(open)]()
+            {
+                if (current != nullptr) { current->Close(); }
+                open();
+            } });
+        }
+
+        void ReopenExportPresetsPanel(ui::Dialog* current)
+        {
+            QueueReplaceDialog(current, Function<void()>{ [this]() { OpenExportPresetsPanel(); } });
+        }
+        void ReopenTemplatesManager(ui::Dialog* current)
+        {
+            QueueReplaceDialog(current, Function<void()>{ [this]() { OpenTemplatesManager(); } });
+        }
+
+        // Persist the in-memory preset set to the project's export_presets.xml.
+        void SavePresetsController()
+        {
+            if (!m_project) { return; }
+            draconic::vfs::NativeFileSystem projectFs(m_project->Directory());
+            if (!m_presetsController.Save(*projectFs.AsWritable()).IsOk())
+            {
+                m_context.Notify(ed::NoticeKind::Error, u8"Saving export presets FAILED (see console).");
+            }
+        }
+
+        // Join / split the additionalFiles list <-> the ";"-separated text of the editor's Extra Files
+        // field (an EditText holds no array, so the form marshals through a single string).
+        [[nodiscard]] static String JoinSemicolons(const Array<String>& items)
+        {
+            String out;
+            for (usize i = 0; i < items.Size(); ++i)
+            {
+                if (i > 0) { out += u8";"; }
+                out += items[i].AsView();
+            }
+            return out;
+        }
+        static void SplitSemicolons(StringView text, Array<String>& out)
+        {
+            const auto isSpace = [](utf8char c) { return c == utf8char(' ') || c == utf8char('\t'); };
+            usize start = 0;
+            for (usize i = 0; i <= text.Size(); ++i)
+            {
+                if (i != text.Size() && text[i] != utf8char(';')) { continue; }
+                usize s = start, e = i;
+                while (s < e && isSpace(text[s])) { ++s; }
+                while (e > s && isSpace(text[e - 1])) { --e; }
+                if (e > s) { out.PushBack(String(text.SubStr(s, e - s))); }
+                start = i + 1;
+            }
+        }
+
+        // Native multi-select "open file" -> append the chosen absolute paths to the Extra Files field.
+        // `target` is held by RefPtr so the field survives even if the form closes before the async
+        // dialog resolves (SetText on a detached view is harmless); no view hierarchy is rebuilt.
+        void PickAdditionalFiles(RefPtr<ui::EditText> target)
+        {
+            if (m_host == nullptr || m_host->Shell() == nullptr || m_host->Shell()->Dialogs() == nullptr)
+            {
+                m_context.Notify(ed::NoticeKind::Error, u8"File dialogs are unavailable.");
+                return;
+            }
+            m_host->Shell()->Dialogs()->ShowOpenFile(
+                draconic::shell::DialogResultCallback{ [target](Span<const String> paths)
+                {
+                    if (paths.Size() == 0) { return; }   // cancelled
+                    String text(target->Text());
+                    for (usize i = 0; i < paths.Size(); ++i)
+                    {
+                        if (!text.IsEmpty() && text[text.Size() - 1] != utf8char(';')) { text += u8";"; }
+                        text += paths[i].AsView();
+                    }
+                    target->SetText(text.AsView());
+                } }, {}, {}, /*allowMultiple*/ true);
+        }
+
+        // Import a template bundle (folder with a template.xml) into the templates root, then rebuild
+        // the manager. Async: the picked path is copied into ImportTemplate before any UI mutation.
+        void ImportTemplateThenRefresh(ui::Dialog* current)
         {
             if (m_host == nullptr || m_host->Shell() == nullptr || m_host->Shell()->Dialogs() == nullptr)
             {
@@ -990,10 +1123,10 @@ export namespace draconic::editor::app
                 return;
             }
             m_host->Shell()->Dialogs()->ShowOpenFolder(
-                Function<void(Span<const String>)>{ [this](Span<const String> paths)
+                draconic::shell::DialogResultCallback{ [this, current](Span<const String> paths)
                 {
-                    if (paths.Size() == 0) { return; }   // cancelled
-                    const String root = TemplatesRoot();   // settings override / env / default
+                    if (paths.Size() == 0) { return; }   // cancelled - leave the manager open
+                    const String root = TemplatesRoot();
                     String id;
                     if (ed::ImportTemplate(paths[0].AsView(), root.AsView(), &id).IsOk())
                     {
@@ -1005,47 +1138,370 @@ export namespace draconic::editor::app
                         m_context.Notify(ed::NoticeKind::Error,
                                          u8"Import failed - the folder has no valid template.xml.");
                     }
+                    ReopenTemplatesManager(current);
                 } });
         }
 
-        void OpenExportDialog()
+        // Create a template bundle from a "Bin/<Config>/<Platform>-<Compiler>" build dir (packaging the
+        // player + its runtime-libs), installing it into the templates root, then rebuild the manager.
+        void CreateTemplateThenRefresh(ui::Dialog* current)
         {
-            if (!m_project) { m_context.Notify(ed::NoticeKind::Info, u8"Open a project first."); return; }
-
-            ed::ExportPresetSet presets;
+            if (m_host == nullptr || m_host->Shell() == nullptr || m_host->Shell()->Dialogs() == nullptr)
             {
-                draconic::vfs::NativeFileSystem projectFs(m_project->Directory());
-                if (!ed::LoadExportPresets(projectFs, presets).IsOk()) { ed::DefaultExportPresets(presets); }
+                m_context.Notify(ed::NoticeKind::Error, u8"File dialogs are unavailable.");
+                return;
+            }
+            m_host->Shell()->Dialogs()->ShowOpenFolder(
+                draconic::shell::DialogResultCallback{ [this, current](Span<const String> paths)
+                {
+                    if (paths.Size() == 0) { return; }   // cancelled
+                    const String root = TemplatesRoot();
+                    String id, dir;
+                    if (ed::CreateTemplate(paths[0].AsView(), root.AsView(), ed::TemplateOutput::Install,
+                                           &id, &dir).IsOk())
+                    {
+                        String msg(u8"Created template '"); msg += id; msg += u8"'.";
+                        m_context.Notify(ed::NoticeKind::Success, msg.AsView());
+                    }
+                    else
+                    {
+                        m_context.Notify(ed::NoticeKind::Error,
+                            u8"Create failed - pick a Bin/<Config> build dir containing RaptorPlayer.");
+                    }
+                    ReopenTemplatesManager(current);
+                } });
+        }
+
+        // Templates manager: list every registry template (imported + the synthesized host), each with
+        // its platform/config/engine-version and a soft "(!) engine mismatch" note; Import / Create /
+        // Remove (non-host only) mutate the templates root and rebuild this dialog.
+        void OpenTemplatesManager()
+        {
+            if (!m_uiHost) { return; }
+
+            ed::TemplateRegistry registry;
+            BuildTemplateRegistryMainThread(registry);
+
+            auto dialog = MakeRef<ui::Dialog>(DefaultAllocator(), StringView(u8"Manage Export Templates"));
+            dialog->MinWidth.SetValue(560.0f);
+            dialog->MaxWidth.SetValue(780.0f);
+            dialog->MinHeight.SetValue(240.0f);
+            dialog->MaxHeight.SetValue(560.0f);
+            ui::Dialog* raw = dialog.Get();
+
+            auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            column->Direction = ui::Orientation::Vertical;
+            column->Spacing = 6;
+
+            auto header = MakeRef<ui::Label>(DefaultAllocator(),
+                StringView(u8"Installed export templates (the host build is always available):"));
+            column->AddView(header.Get());
+
+            for (usize i = 0; i < registry.Count(); ++i)
+            {
+                const ed::ExportTemplate* t = registry.At(i);
+                if (t == nullptr) { continue; }
+                String text(t->name.AsView());
+                text += u8"  ["; text += t->platform.AsView();
+                text += u8"/";  text += t->EffectiveConfig(); text += u8"]";
+                if (!t->engineVersion.IsEmpty()) { text += u8"  v"; text += t->engineVersion.AsView(); }
+                if (t->isHost) { text += u8"  (host)"; }
+                if (!ed::TemplateEngineMatches(*t)) { text += u8"  (!) engine mismatch"; }
+
+                auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+                row->Direction = ui::Orientation::Horizontal;
+                row->Spacing = 8;
+                {
+                    auto label = MakeRef<ui::Label>(DefaultAllocator(), text.AsView());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    lp->Grow = 1.0f;
+                    lp->AlignSelf = ui::Align::Center;
+                    row->AddView(label.Get(), lp);
+                }
+                if (!t->isHost)   // the host template is synthesized, never on disk => not removable
+                {
+                    const String id(t->id.AsView());
+                    auto remove = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Remove"));
+                    remove->OnClick.Add([this, raw, id](ui::ButtonBase*)
+                    {
+                        const String root = TemplatesRoot();
+                        if (ed::RemoveTemplate(root.AsView(), id.AsView()).IsOk())
+                        {
+                            String msg(u8"Removed template '"); msg += id; msg += u8"'.";
+                            m_context.Notify(ed::NoticeKind::Success, msg.AsView());
+                        }
+                        else { m_context.Notify(ed::NoticeKind::Error, u8"Remove failed (see console)."); }
+                        ReopenTemplatesManager(raw);
+                    });
+                    row->AddView(remove.Get());
+                }
+                column->AddView(row.Get());
             }
 
-            auto dialog = MakeRef<draconic::ui::Dialog>(DefaultAllocator(), StringView(u8"Export"));
-            auto column = MakeRef<draconic::ui::FlexLayout>(DefaultAllocator());
-            column->Direction = draconic::ui::Orientation::Vertical;
-
-            auto info = MakeRef<draconic::ui::Label>(DefaultAllocator(),
-                StringView(u8"Export a preset (output: <project>/Dist):"));
-            column->AddView(info.Get());
-
-            draconic::ui::Dialog* raw = dialog.Get();
-            for (const ed::ExportPreset& preset : presets.presets)
-            {
-                String label(u8"Export: "); label += preset.name;
-                auto button = MakeRef<draconic::ui::Button>(DefaultAllocator(), label.AsView());
-                const String name(preset.name.AsView());
-                button->OnClick.Add([this, name, raw](draconic::ui::ButtonBase*) {
-                    RunExport(name.AsView(), false);
-                    raw->Close(draconic::ui::DialogResult::OK);
-                });
-                column->AddView(button.Get());
-            }
             dialog->SetContent(column.Get());
 
-            draconic::ui::Button* exportAll = dialog->AddButton(u8"Export All", draconic::ui::DialogResult::None);
-            exportAll->OnClick.Add([this, raw](draconic::ui::ButtonBase*) {
-                RunExport(StringView{}, true);
-                raw->Close(draconic::ui::DialogResult::OK);
+            ui::Button* import = dialog->AddButton(u8"Import...", ui::DialogResult::None);
+            import->OnClick.Add([this, raw](ui::ButtonBase*) { ImportTemplateThenRefresh(raw); });
+            ui::Button* create = dialog->AddButton(u8"Create...", ui::DialogResult::None);
+            create->OnClick.Add([this, raw](ui::ButtonBase*) { CreateTemplateThenRefresh(raw); });
+            dialog->AddButton(u8"Close", ui::DialogResult::Cancel);
+            dialog->Show(&m_uiHost->Context());
+        }
+
+        // Export presets panel: (re)load the project's export_presets.xml into the controller, list each
+        // preset with per-row Export / Edit / Duplicate / Delete, plus Add / Export All / Manage
+        // Templates in the footer. Edit/Add open the preset-editor form (swapping this dialog).
+        void OpenExportPresetsPanel()
+        {
+            if (!m_project) { m_context.Notify(ed::NoticeKind::Info, u8"Open a project first."); return; }
+            if (!m_uiHost) { return; }
+
+            {
+                draconic::vfs::NativeFileSystem projectFs(m_project->Directory());
+                m_presetsController.Load(projectFs);   // reflects edits persisted by the editor form
+            }
+
+            auto dialog = MakeRef<ui::Dialog>(DefaultAllocator(), StringView(u8"Export"));
+            dialog->MinWidth.SetValue(600.0f);
+            dialog->MaxWidth.SetValue(820.0f);
+            dialog->MinHeight.SetValue(220.0f);
+            dialog->MaxHeight.SetValue(560.0f);
+            ui::Dialog* raw = dialog.Get();
+
+            auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            column->Direction = ui::Orientation::Vertical;
+            column->Spacing = 6;
+
+            auto info = MakeRef<ui::Label>(DefaultAllocator(),
+                StringView(u8"Export presets (output directory: <project>/Dist):"));
+            column->AddView(info.Get());
+
+            for (usize i = 0; i < m_presetsController.Count(); ++i)
+            {
+                const ed::ExportPreset& p = m_presetsController.At(i);
+                String text(p.name.AsView());
+                text += u8"  [";
+                text += p.platform.IsEmpty() ? StringView(u8"?") : p.platform.AsView();
+                text += u8"/";
+                text += p.config.IsEmpty() ? StringView(u8"Release") : p.config.AsView();
+                text += u8"]";
+
+                auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+                row->Direction = ui::Orientation::Horizontal;
+                row->Spacing = 6;
+                {
+                    auto label = MakeRef<ui::Label>(DefaultAllocator(), text.AsView());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    lp->Grow = 1.0f;
+                    lp->AlignSelf = ui::Align::Center;
+                    row->AddView(label.Get(), lp);
+                }
+                const String name(p.name.AsView());
+                const usize index = i;
+                {
+                    auto b = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Export"));
+                    b->OnClick.Add([this, raw, name](ui::ButtonBase*)
+                    {
+                        RunExport(name.AsView(), false);
+                        raw->Close(ui::DialogResult::OK);
+                    });
+                    row->AddView(b.Get());
+                }
+                {
+                    auto b = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Edit"));
+                    b->OnClick.Add([this, raw, index](ui::ButtonBase*)
+                    {
+                        ed::ExportPreset current = m_presetsController.At(index);
+                        QueueReplaceDialog(raw, Function<void()>{ [this, current, index]()
+                            { OpenPresetEditor(current, static_cast<isize>(index)); } });
+                    });
+                    row->AddView(b.Get());
+                }
+                {
+                    auto b = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Duplicate"));
+                    b->OnClick.Add([this, raw, index](ui::ButtonBase*)
+                    {
+                        m_presetsController.Duplicate(index);
+                        SavePresetsController();
+                        ReopenExportPresetsPanel(raw);
+                    });
+                    row->AddView(b.Get());
+                }
+                {
+                    auto b = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Delete"));
+                    b->OnClick.Add([this, raw, index](ui::ButtonBase*)
+                    {
+                        m_presetsController.Remove(index);
+                        SavePresetsController();
+                        ReopenExportPresetsPanel(raw);
+                    });
+                    row->AddView(b.Get());
+                }
+                column->AddView(row.Get());
+            }
+
+            dialog->SetContent(column.Get());
+
+            ui::Button* add = dialog->AddButton(u8"Add...", ui::DialogResult::None);
+            add->OnClick.Add([this, raw](ui::ButtonBase*)
+            {
+                ed::ExportPreset fresh;
+                fresh.name = String(u8"New Preset");
+                fresh.platform = String(GetHostPlatformName());
+                QueueReplaceDialog(raw, Function<void()>{ [this, fresh]() { OpenPresetEditor(fresh, -1); } });
             });
-            dialog->AddButton(u8"Close", draconic::ui::DialogResult::Cancel);
+            ui::Button* exportAll = dialog->AddButton(u8"Export All", ui::DialogResult::None);
+            exportAll->OnClick.Add([this, raw](ui::ButtonBase*)
+            {
+                RunExport(StringView{}, true);
+                raw->Close(ui::DialogResult::OK);
+            });
+            ui::Button* templates = dialog->AddButton(u8"Manage Templates...", ui::DialogResult::None);
+            templates->OnClick.Add([this, raw](ui::ButtonBase*)
+            {
+                QueueReplaceDialog(raw, Function<void()>{ [this]() { OpenTemplatesManager(); } });
+            });
+            dialog->AddButton(u8"Close", ui::DialogResult::Cancel);
+            dialog->Show(&m_uiHost->Context());
+        }
+
+        // Preset-editor form: name, a template dropdown (registry.All(): sets templateId + derives
+        // platform/config) OR explicit platform/config when "(resolve by ...)" is chosen, player name,
+        // output subdir, additionalFiles (native multi-select picker) and the stageSymbols /
+        // pruneToReachable toggles. Save writes through the controller (Add when `editIndex` < 0, else
+        // Update), persists, and returns to the presets panel; Cancel just returns.
+        void OpenPresetEditor(ed::ExportPreset initial, isize editIndex)
+        {
+            if (!m_uiHost) { return; }
+
+            ed::TemplateRegistry registry;
+            BuildTemplateRegistryMainThread(registry);
+
+            auto dialog = MakeRef<ui::Dialog>(DefaultAllocator(),
+                StringView(editIndex < 0 ? u8"Add Export Preset" : u8"Edit Export Preset"));
+            dialog->MinWidth.SetValue(600.0f);
+            dialog->MaxWidth.SetValue(820.0f);
+            dialog->MinHeight.SetValue(340.0f);
+            dialog->MaxHeight.SetValue(640.0f);
+            ui::Dialog* raw = dialog.Get();
+
+            auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            column->Direction = ui::Orientation::Vertical;
+            column->Spacing = 6;
+
+            auto nameEdit = MakeRef<ui::EditText>(DefaultAllocator());
+            nameEdit->SetText(initial.name.AsView());
+            AddFormRow(*column, u8"Name", nameEdit.Get());
+
+            // Template dropdown: index 0 = resolve by platform/config; each later item maps to a
+            // concrete templateId (+ its platform/config), captured into the parallel arrays below.
+            auto templateCombo = MakeRef<ui::ComboBox>(DefaultAllocator());
+            templateCombo->AddItem(u8"(resolve by platform + config below)");
+            Array<String> comboIds, comboPlatforms, comboConfigs;
+            comboIds.PushBack(String{}); comboPlatforms.PushBack(String{}); comboConfigs.PushBack(String{});
+            i32 selectedCombo = 0;
+            for (usize i = 0; i < registry.Count(); ++i)
+            {
+                const ed::ExportTemplate* t = registry.At(i);
+                if (t == nullptr) { continue; }
+                String item(t->name.AsView());
+                item += u8" ["; item += t->platform.AsView();
+                item += u8"/"; item += t->EffectiveConfig(); item += u8"]";
+                if (t->isHost) { item += u8" (host)"; }
+                const i32 idx = templateCombo->AddItem(item.AsView());
+                comboIds.PushBack(String(t->id.AsView()));
+                comboPlatforms.PushBack(String(t->platform.AsView()));
+                comboConfigs.PushBack(String(t->EffectiveConfig()));
+                if (!initial.templateId.IsEmpty() && initial.templateId.AsView() == t->id.AsView())
+                {
+                    selectedCombo = idx;
+                }
+            }
+            templateCombo->SetSelectedIndex(selectedCombo);
+            AddFormRow(*column, u8"Template", templateCombo.Get());
+
+            auto platformEdit = MakeRef<ui::EditText>(DefaultAllocator());
+            platformEdit->SetText(initial.platform.AsView());
+            platformEdit->SetPlaceholder(GetHostPlatformName());
+            AddFormRow(*column, u8"Platform", platformEdit.Get());
+
+            auto configEdit = MakeRef<ui::EditText>(DefaultAllocator());
+            configEdit->SetText(initial.config.AsView());
+            configEdit->SetPlaceholder(u8"Release");
+            AddFormRow(*column, u8"Config", configEdit.Get());
+
+            auto playerEdit = MakeRef<ui::EditText>(DefaultAllocator());
+            playerEdit->SetText(initial.playerName.AsView());
+            playerEdit->SetPlaceholder(u8"(template default)");
+            AddFormRow(*column, u8"Player name", playerEdit.Get());
+
+            auto subdirEdit = MakeRef<ui::EditText>(DefaultAllocator());
+            subdirEdit->SetText(initial.outputSubdir.AsView());
+            subdirEdit->SetPlaceholder(u8"(sanitized name)");
+            AddFormRow(*column, u8"Output subdir", subdirEdit.Get());
+
+            auto filesEdit = MakeRef<ui::EditText>(DefaultAllocator());
+            filesEdit->SetText(JoinSemicolons(initial.additionalFiles).AsView());
+            filesEdit->SetPlaceholder(u8"icon.ico;config.xml");
+            ui::FlexLayout* filesRow = AddFormRow(*column, u8"Extra files", filesEdit.Get());
+            {
+                RefPtr<ui::EditText> filesRef = filesEdit;
+                auto browse = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Add Files..."));
+                browse->OnClick.Add([this, filesRef](ui::ButtonBase*) { PickAdditionalFiles(filesRef); });
+                filesRow->AddView(browse.Get());
+            }
+
+            auto symbolsCheck = MakeRef<ui::CheckBox>(DefaultAllocator(),
+                StringView(u8"Stage debug symbols into the dist"), initial.stageSymbols);
+            column->AddView(symbolsCheck.Get());
+            auto pruneCheck = MakeRef<ui::CheckBox>(DefaultAllocator(),
+                StringView(u8"Prune to reachable content only"), initial.pruneToReachable);
+            column->AddView(pruneCheck.Get());
+
+            dialog->SetContent(column.Get());
+
+            ui::EditText* nameRaw = nameEdit.Get();
+            ui::ComboBox* comboRaw = templateCombo.Get();
+            ui::EditText* platformRaw = platformEdit.Get();
+            ui::EditText* configRaw = configEdit.Get();
+            ui::EditText* playerRaw = playerEdit.Get();
+            ui::EditText* subdirRaw = subdirEdit.Get();
+            ui::EditText* filesRaw = filesEdit.Get();
+            ui::CheckBox* symbolsRaw = symbolsCheck.Get();
+            ui::CheckBox* pruneRaw = pruneCheck.Get();
+
+            ui::Button* save = dialog->AddButton(u8"Save", ui::DialogResult::None);
+            save->OnClick.Add([this, raw, editIndex, nameRaw, comboRaw, platformRaw, configRaw, playerRaw,
+                               subdirRaw, filesRaw, symbolsRaw, pruneRaw,
+                               comboIds, comboPlatforms, comboConfigs](ui::ButtonBase*)
+            {
+                ed::ExportPreset result;
+                result.name = String(nameRaw->Text());
+                const i32 sel = comboRaw->SelectedIndex();
+                if (sel > 0 && static_cast<usize>(sel) < comboIds.Size())
+                {
+                    result.templateId = comboIds[static_cast<usize>(sel)];
+                    result.platform = comboPlatforms[static_cast<usize>(sel)];
+                    result.config = comboConfigs[static_cast<usize>(sel)];
+                }
+                else
+                {
+                    result.platform = String(platformRaw->Text());
+                    result.config = String(configRaw->Text());
+                }
+                result.playerName = String(playerRaw->Text());
+                result.outputSubdir = String(subdirRaw->Text());
+                result.stageSymbols = symbolsRaw->IsChecked.Value();
+                result.pruneToReachable = pruneRaw->IsChecked.Value();
+                SplitSemicolons(filesRaw->Text(), result.additionalFiles);
+
+                if (editIndex < 0) { m_presetsController.Add(result); }
+                else { m_presetsController.Update(static_cast<usize>(editIndex), result); }
+                SavePresetsController();
+                ReopenExportPresetsPanel(raw);
+            });
+            ui::Button* cancel = dialog->AddButton(u8"Cancel", ui::DialogResult::None);
+            cancel->OnClick.Add([this, raw](ui::ButtonBase*) { ReopenExportPresetsPanel(raw); });
             dialog->Show(&m_uiHost->Context());
         }
 
@@ -1360,8 +1816,8 @@ export namespace draconic::editor::app
                     dialog->Show(&m_uiHost->Context());
                 });
                 file->AddSeparator();
-                file->AddItem(u8"Export...", [this]() { OpenExportDialog(); });
-                file->AddItem(u8"Import Template...", [this]() { OpenImportTemplateDialog(); });
+                file->AddItem(u8"Export...", [this]() { OpenExportPresetsPanel(); });
+                file->AddItem(u8"Manage Templates...", [this]() { OpenTemplatesManager(); });
                 file->AddItem(u8"Exit", [this, host]() {
                     if (host != nullptr && ConfirmExitAllowed()) { host->RequestExit(); }
                 });
@@ -1434,6 +1890,7 @@ export namespace draconic::editor::app
         draconic::settings::Settings m_editorSettings;       // per-user editor prefs (<userdata>/editor.settings.xml)
         struct PendingExport { String presetName; bool all = false; bool waitingCook = false; bool active = false; };
         PendingExport m_pendingExport;
+        ed::ExportPresetsController m_presetsController;   // backs the Export presets panel + editor form
         HashMap<Guid, Array<byte>> m_exportSceneStreams;   // export pre-transcoded scene wires
         UIEditorPage* m_gamePage = nullptr;                // borrowed singleton (context owns)                       // export waiting for its pre-cook to finish
         f32 m_elapsed = 0.0f;   // autoExit/autoRebuild accumulator
