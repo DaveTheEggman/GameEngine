@@ -120,6 +120,7 @@ add_subdirectory(ThirdParty)
 add_subdirectory(Code/Draconic/Core)
 add_subdirectory(Code/Draconic/Settings)  # typed/versioned settings store over Core (runtime + editor)
 add_subdirectory(Code/Draconic/Profiler)  # CPU scope profiler over Core (instrumented across the engine)
+add_subdirectory(Code/Draconic/Net)       # real-time game networking: wire + INetTransport + loopback sim (over Core)
 add_subdirectory(Code/Draconic/Xml)       # DOM XML parser + writer over Core
 add_subdirectory(Code/Draconic/VFS)       # byte access over Core stream primitives
 add_subdirectory(Code/Draconic/Project)   # project manifest/layout (runtime-side, editor-free)
