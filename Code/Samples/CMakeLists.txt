@@ -8,6 +8,9 @@ function(draconic_copy_sdl3_dll target)
     draconic_copy_runtime_deps(${target} EXTRA ${DRACONIC_SDL3_DLL})
 endfunction()
 
+# NetEcho - console proof of draconic.net (no graphics); builds + runs anywhere.
+add_subdirectory(NetEcho)
+
 # HelloWindow and MultiWindow both present through a GraphicsDevice, so both need
 # the desktop shell + the Vulkan GPU factory.
 if(TARGET Draconic::ShellDesktop AND TARGET Draconic::RuntimeDesktop AND TARGET Draconic::GraphicsGpu)
