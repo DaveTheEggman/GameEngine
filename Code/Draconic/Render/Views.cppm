@@ -41,6 +41,9 @@ struct ViewSettings {
     rhi::Texture*      targetTexture       = nullptr;
     rhi::ResourceState targetCurrentState  = rhi::ResourceState::RenderTarget;
     rhi::ResourceState targetFinalState    = rhi::ResourceState::RenderTarget;
+    // Resolved per-view post-processing (exposure/bloom/AO). The RenderSubsystem fills this from
+    // the scene's authored PostProcessSettings; the compose passes read it per view.
+    ViewPostConfig     post{};
 };
 
 // A single view: what to draw (a shared ExtractedScene), from where (camera), into what

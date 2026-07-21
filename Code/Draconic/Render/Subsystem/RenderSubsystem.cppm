@@ -96,27 +96,33 @@ public:
         if (m_iblSystem.Get() != nullptr) { m_iblSystem->SetCubemap(faceSize, sixFaces); }
     }
 
+    // Exposure/bloom/AO are now AUTHORED per scene (PostProcessSettings) and resolved per view.
+    // These programmatic setters remain as a GLOBAL OVERRIDE (samples' ImGui debug panels): calling
+    // any of them latches m_globalPostActive, and the resolve in RenderScene then prefers the global
+    // values over the scene's authored ones for exposure/bloom/AO. Untouched (the editor path), the
+    // scene's authored settings drive. (AO debug below stays a pure frame-global renderer toggle.)
+
     // Linear exposure multiplier applied in the tonemap (default 1.0).
-    void SetExposure(f32 exposure) noexcept { m_exposure = exposure; }
+    void SetExposure(f32 exposure) noexcept { m_exposure = exposure; m_globalPostActive = true; }
     [[nodiscard]] f32 Exposure() const noexcept { return m_exposure; }
 
     // Bloom on/off (skips the whole pyramid when off) + composite strength + soft-knee prefilter.
-    void SetBloomEnabled(bool on) noexcept { m_bloomEnabled = on; }
+    void SetBloomEnabled(bool on) noexcept { m_bloomEnabled = on; m_globalPostActive = true; }
     [[nodiscard]] bool BloomEnabled() const noexcept { return m_bloomEnabled; }
-    void SetBloomIntensity(f32 v) noexcept { m_bloomIntensity = v; }
+    void SetBloomIntensity(f32 v) noexcept { m_bloomIntensity = v; m_globalPostActive = true; }
     [[nodiscard]] f32 BloomIntensity() const noexcept { return m_bloomIntensity; }
-    void SetBloomThreshold(f32 v) noexcept { m_bloomThreshold = v; }
+    void SetBloomThreshold(f32 v) noexcept { m_bloomThreshold = v; m_globalPostActive = true; }
     [[nodiscard]] f32 BloomThreshold() const noexcept { return m_bloomThreshold; }
 
     // Ambient occlusion: mode (Off/GTAO/SSAO, mutually exclusive) + tunables (strength = composite amount,
     // radius = world AO radius, intensity = power). Both modes share the whole apply/blur/debug pipeline.
-    void SetAoMode(AoMode m) noexcept { m_aoMode = m; }
+    void SetAoMode(AoMode m) noexcept { m_aoMode = m; m_globalPostActive = true; }
     [[nodiscard]] AoMode GetAoMode() const noexcept { return m_aoMode; }
-    void SetAoStrength(f32 v) noexcept { m_aoStrength = v; }
+    void SetAoStrength(f32 v) noexcept { m_aoStrength = v; m_globalPostActive = true; }
     [[nodiscard]] f32 AoStrength() const noexcept { return m_aoStrength; }
-    void SetAoRadius(f32 v) noexcept { m_aoRadius = v; }
+    void SetAoRadius(f32 v) noexcept { m_aoRadius = v; m_globalPostActive = true; }
     [[nodiscard]] f32 AoRadius() const noexcept { return m_aoRadius; }
-    void SetAoIntensity(f32 v) noexcept { m_aoIntensity = v; }
+    void SetAoIntensity(f32 v) noexcept { m_aoIntensity = v; m_globalPostActive = true; }
     [[nodiscard]] f32 AoIntensity() const noexcept { return m_aoIntensity; }
     void SetAoDebug(i32 mode) noexcept { m_aoDebug = mode; }   // 0=off, 1=AO, 2/3/4=N.xyz, 5=viewZ, 6=depth
     [[nodiscard]] i32 AoDebug() const noexcept { return m_aoDebug; }
@@ -265,6 +271,24 @@ public:
         settings.targetTexture = targetState.texture;
         settings.targetCurrentState = targetState.currentState;
         settings.targetFinalState = targetState.finalState;
+
+        // Resolve this view's post-processing (exposure/bloom/AO). The programmatic global override
+        // (samples' debug panels) wins once touched; otherwise the scene's authored PostProcessSettings
+        // drive - exposure authored in EV/stops is resolved to the tonemap's linear multiplier here.
+        // (AA/SSR remain frame-global for now - phase 2a.)
+        if (m_globalPostActive) {
+            settings.post.exposure       = m_exposure;
+            settings.post.bloomEnabled   = m_bloomEnabled;
+            settings.post.bloomThreshold = m_bloomThreshold;
+            settings.post.bloomKnee      = m_bloomKnee;
+            settings.post.bloomIntensity = m_bloomIntensity;
+            settings.post.aoMode         = static_cast<u32>(m_aoMode);
+            settings.post.aoStrength     = m_aoStrength;
+            settings.post.aoRadius       = m_aoRadius;
+            settings.post.aoIntensity    = m_aoIntensity;
+        } else if (const PostProcessSystem* pp = scene.GetSystem<PostProcessSystem>()) {
+            settings.post = ResolveScenePost(pp->Post());
+        }
         {
             DRACONIC_PROFILE_SCOPE("Render.AddView");   // binds the view + builds/sorts its draw list
             const void* sceneDebug = m_debugScenes.Find(&scene);   // this scene's per-scene gizmo list (or null)
@@ -478,6 +502,7 @@ private:
     debug::DebugDraw                           m_debugGlobal;                 // global gizmos (all views)
     debug::DebugDraw                           m_debugScreen;                 // whole-window HUD (drawn once)
     HashMap<scene::Scene*, debug::DebugDraw>   m_debugScenes;                 // per-scene gizmos
+    bool                                      m_globalPostActive = false;   // a post setter was called => global override wins
     f32                                       m_exposure = 1.0f;
     bool                                      m_bloomEnabled   = true;
     AoMode                                    m_aoMode         = AoMode::Off;   // AO off by default (UI combo)

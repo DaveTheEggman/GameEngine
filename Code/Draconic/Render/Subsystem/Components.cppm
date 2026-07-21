@@ -529,6 +529,23 @@ private:
     PostProcessSettings m_post;
 };
 
+// Resolve a scene's authored PostProcessSettings into the renderer's per-view ViewPostConfig:
+// exposure EV/stops -> the tonemap's linear multiplier (2^EV), authoring enums -> pass primitives.
+// Phase 2a maps exposure/bloom/AO (the pure per-pass params); AA + SSR stay frame-global for now.
+[[nodiscard]] inline ViewPostConfig ResolveScenePost(const PostProcessSettings& s) {
+    ViewPostConfig vp;
+    vp.exposure       = draconic::core::Pow(2.0f, s.exposureEV);
+    vp.bloomEnabled   = s.bloomEnabled;
+    vp.bloomThreshold = s.bloomThreshold;
+    vp.bloomKnee      = s.bloomKnee;
+    vp.bloomIntensity = s.bloomIntensity;
+    vp.aoMode         = static_cast<u32>(s.aoMode);
+    vp.aoStrength     = s.aoStrength;
+    vp.aoRadius       = s.aoRadius;
+    vp.aoIntensity    = s.aoIntensity;
+    return vp;
+}
+
 } // namespace draconic::render (exported)
 
 // ============================================================================================

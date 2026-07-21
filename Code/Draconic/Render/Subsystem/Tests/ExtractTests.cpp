@@ -414,3 +414,34 @@ TEST_CASE("PostProcessSettings: defaults match today's look, and round-trip thro
     CHECK(r.aaMode == AaMode::TAA);
     CHECK(Near(r.taaBlendFactor, 0.9f));
 }
+
+TEST_CASE("ResolveScenePost maps authored settings to the per-view ViewPostConfig (EV -> linear)")
+{
+    // A default block resolves to the historical renderer globals (no visual change).
+    {
+        PostProcessSettings d;
+        const ViewPostConfig vp = ResolveScenePost(d);
+        CHECK(Near(vp.exposure, 1.0f));      // 2^0
+        CHECK(vp.bloomEnabled);
+        CHECK(Near(vp.bloomIntensity, 0.05f));
+        CHECK(vp.aoMode == 0u);              // AoMode::Off
+        CHECK(Near(vp.aoStrength, 0.6f));
+    }
+    // Exposure is authored in stops: +2 EV = 4x, -1 EV = 0.5x. AO enum -> u32.
+    {
+        PostProcessSettings s;
+        s.exposureEV = 2.0f;
+        const ViewPostConfig vp = ResolveScenePost(s);
+        CHECK(Near(vp.exposure, 4.0f));
+    }
+    {
+        PostProcessSettings s;
+        s.exposureEV = -1.0f;
+        s.aoMode = AoMode::SSAO;
+        s.bloomEnabled = false;
+        const ViewPostConfig vp = ResolveScenePost(s);
+        CHECK(Near(vp.exposure, 0.5f));
+        CHECK(vp.aoMode == 2u);              // AoMode::SSAO
+        CHECK_FALSE(vp.bloomEnabled);
+    }
+}

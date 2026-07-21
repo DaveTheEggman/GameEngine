@@ -1548,18 +1548,22 @@ public:
                 // AO (GTAO or SSAO) from the opaque depth+normal G-buffer, computed BEFORE the TAA resolve
                 // and multiplied into the HDR pre-TAA, so TAA stabilizes it (applying AO post-TAA wobbles,
                 // since the AO is computed from the jittered G-buffer and shifts sub-pixel each frame).
-                const bool aoActive = (m_aoMode != AoMode::Off) || m_aoDebug != 0;
-                const AoMode aoMode = (m_aoMode != AoMode::Off) ? m_aoMode : AoMode::GTAO;   // debug needs a generator
+                // Per-view authored post (exposure/bloom/AO), resolved by the RenderSubsystem from
+                // the scene's PostProcessSettings. AO debug stays a frame-global renderer toggle.
+                const ViewPostConfig& post = v->Settings().post;
+                const AoMode viewAoMode = static_cast<AoMode>(post.aoMode);
+                const bool aoActive = (viewAoMode != AoMode::Off) || m_aoDebug != 0;
+                const AoMode aoMode = (viewAoMode != AoMode::Off) ? viewAoMode : AoMode::GTAO;   // debug needs a generator
                 rendergraph::RGHandle aoH{};
                 if (m_ao != nullptr && aoActive) {
                     aoH = m_ao->DeclareAo(m_graph, depth, normalT, v->Width(), v->Height(),
                                           Inverse(v->Camera().projection), v->Camera().projection,
-                                          m_aoRadius, m_aoIntensity, m_frameIndex, aoMode, m_aoDebug);
+                                          post.aoRadius, post.aoIntensity, m_frameIndex, aoMode, m_aoDebug);
                 }
                 const bool showAo = aoH.IsValid() && m_aoDebug != 0;   // debug: AO/channel straight to screen
                 rendergraph::RGHandle litHdr = sceneHdr;
-                if (aoH.IsValid() && m_aoMode != AoMode::Off && m_aoDebug == 0) {
-                    litHdr = m_ao->DeclareApply(m_graph, sceneHdr, aoH, v->Width(), v->Height(), m_aoStrength);
+                if (aoH.IsValid() && viewAoMode != AoMode::Off && m_aoDebug == 0) {
+                    litHdr = m_ao->DeclareApply(m_graph, sceneHdr, aoH, v->Width(), v->Height(), post.aoStrength);
                 }
                 // TAA resolve on the opaque+sky+AO HDR (jittered) -> stable HDR. Then transparent composites
                 // on the RESOLVED image (see below), so it's never temporally accumulated (no ghost) or
@@ -1577,10 +1581,10 @@ public:
                                           probeRange.base, probeRange.count);
                 // Bloom pyramid over the resolved scene, composited by the tonemap.
                 rendergraph::RGHandle bloomH{};
-                if (m_bloom != nullptr && m_bloomIntensity > 0.0f) {
-                    bloomH = m_bloom->DeclareBloom(m_graph, sceneColor, v->Width(), v->Height(), m_bloomThreshold, m_bloomKnee);
+                if (m_bloom != nullptr && post.bloomEnabled && post.bloomIntensity > 0.0f) {
+                    bloomH = m_bloom->DeclareBloom(m_graph, sceneColor, v->Width(), v->Height(), post.bloomThreshold, post.bloomKnee);
                 }
-                const f32 bloomStrength = bloomH.IsValid() ? m_bloomIntensity : 0.0f;
+                const f32 bloomStrength = bloomH.IsValid() ? post.bloomIntensity : 0.0f;
                 const rendergraph::RGHandle bloomTex = bloomH.IsValid() ? bloomH : sceneColor;   // valid binding even when off
                 // AO already applied pre-TAA; tonemap only needs the AO handle for the debug view.
                 const f32 aoStrength = 0.0f;
@@ -1599,7 +1603,7 @@ public:
                 m_tonemap->DeclareTonemap(m_graph, sceneColor, bloomTex, aoTex, tonemapOut, /*clearColor*/ fxaa || clearColor,
                                           v->Settings().clear, v->TargetFormat(),
                                           v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
-                                          m_frameIndex, viewIndex, m_exposure, bloomStrength, uvScale, uvOffset, aoStrength, showAo);
+                                          m_frameIndex, viewIndex, post.exposure, bloomStrength, uvScale, uvOffset, aoStrength, showAo);
                 // World-space UI draws BETWEEN tonemap and FXAA: authored colors survive
                 // (FXAA doesn't grade) and the quad silhouettes get antialiased. With
                 // FXAA off the pass lands directly on the final LDR (TAA never touched
