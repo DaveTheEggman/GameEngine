@@ -16,6 +16,7 @@ target_sources(DraconicScene
             Component.cppm
             Aware.cppm
             Scene.cppm
+            SceneManager.cppm
             SceneModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)

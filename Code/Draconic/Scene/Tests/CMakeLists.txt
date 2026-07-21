@@ -5,7 +5,8 @@ add_executable(DraconicSceneTests
     EntityTests.cpp
     TransformTests.cpp
     ComponentTests.cpp
-    SceneSystemTests.cpp)
+    SceneSystemTests.cpp
+    SceneManagerTests.cpp)
 
 target_link_libraries(DraconicSceneTests PRIVATE
     Draconic::Scene doctest::doctest)

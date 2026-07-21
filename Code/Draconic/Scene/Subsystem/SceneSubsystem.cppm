@@ -1,13 +1,13 @@
 /// Draconic::SceneSubsystem - `draconic.scene.subsystem`.
 ///
-/// The Context-level driver for scenes (the scene MANAGER is the subsystem; the Scene
-/// itself is data). Owns the scene list, drives each scene's per-frame update + fixed
-/// update (UpdateOrder -500, so scenes tick before rendering reads them), and brokers
-/// ISceneAware: when a scene is created, every registered scene-aware subsystem gets a
-/// two-pass notification (OnSceneCreated, then OnSceneReady) so they can inject their
-/// per-scene systems. Scene-aware subsystems register themselves with this broker (a
-/// decoupled, RTTI-free alternative to iterating + dynamic-casting the subsystem list);
-/// keeping the bridge here leaves draconic.scene runtime-free.
+/// The Context-level scene driver. Since game-instance.md §11 it is a THIN wrapper over the scene
+/// lib's SceneManager: it owns the app-wide ISceneAware registry + a DEFAULT SceneManager (the group
+/// of loose / editor scenes, i.e. everything not owned by a GameInstance) and drives that manager's
+/// per-frame update + fixed update (UpdateOrder -500, so scenes tick before rendering reads them).
+/// GameInstances own their OWN SceneManagers over the SAME shared registry (later phases). The scene
+/// lifecycle + tick logic all live in SceneManager now; this class just exposes the default manager +
+/// the registry to the Context and applies the Context time-scale / fixed-step (draconic.scene stays
+/// runtime-free - the manager is Context-agnostic and takes those factors as parameters).
 
 module;
 #include "Core/Prelude.h"
@@ -24,113 +24,48 @@ export namespace draconic::scene {
 
 class SceneSubsystem final : public draconic::runtime::Subsystem {
 public:
+    SceneSubsystem() noexcept : m_default(&m_registry) {}
+
     [[nodiscard]] i32 UpdateOrder() const noexcept override { return -500; }   // scenes tick early
 
-    // ---- scene lifecycle ----
+    // ---- scene lifecycle (delegates to the default manager) ----
 
-    // Creates a scene, makes it active, and notifies scene-aware subsystems (two-pass).
-    Scene* CreateScene(StringView name = u8"Scene") {
-        UniquePtr<Scene> owned = MakeUnique<Scene>(DefaultAllocator(), name);
-        Scene* scene = owned.Get();
-        m_scenes.PushBack(Move(owned));
-        m_active.PushBack(scene);
-        NotifyCreated(*scene);
-        return scene;
-    }
+    Scene* CreateScene(StringView name = u8"Scene") { return m_default.CreateScene(name); }
+    void DestroyScene(Scene* scene) { m_default.DestroyScene(scene); }
+    [[nodiscard]] Scene* GetScene(StringView name) { return m_default.GetScene(name); }
+    [[nodiscard]] Span<Scene* const> ActiveScenes() const noexcept { return m_default.ActiveScenes(); }
 
-    // Destroys a scene. Deferred to the end of Update if called while updating.
-    void DestroyScene(Scene* scene) {
-        if (scene == nullptr) { return; }
-        if (m_updating) { m_pendingRemove.PushBack(scene); return; }
-        DestroyImmediate(scene);
-    }
+    /// Visits every live scene in the DEFAULT group (prefab rebuilds after a template save, tooling
+    /// sweeps). Per-instance scenes live on their own managers.
+    template <typename Fn>
+    void ForEachScene(Fn&& fn) { m_default.ForEachScene(static_cast<Fn&&>(fn)); }
 
-    [[nodiscard]] Scene* GetScene(StringView name) {
-        for (Scene* s : m_active) { if (s->Name() == name) { return s; } }
-        return nullptr;
-    }
-    [[nodiscard]] Span<Scene* const> ActiveScenes() const noexcept { return { m_active.Data(), m_active.Size() }; }
+    // ---- ISceneAware broker (the registry is app-wide; every manager fans out through it) ----
 
-    // ---- ISceneAware broker ----
+    void RegisterSceneAware(ISceneAware* aware) { m_registry.Register(aware); }
+    void UnregisterSceneAware(ISceneAware* aware) { m_registry.Unregister(aware); }
 
-    void RegisterSceneAware(ISceneAware* aware) {
-        if (aware == nullptr) { return; }
-        for (ISceneAware* a : m_aware) { if (a == aware) { return; } }
-        m_aware.PushBack(aware);
-    }
-    void UnregisterSceneAware(ISceneAware* aware) {
-        for (usize i = 0; i < m_aware.Size(); ++i) {
-            if (m_aware[i] == aware) { m_aware.RemoveAt(i); return; }
-        }
-    }
+    /// The shared registry + the default manager, so a GameInstance can build its own SceneManager
+    /// over the same app-wide aware list (game-instance.md §11).
+    [[nodiscard]] SceneAwareRegistry& AwareRegistry() noexcept { return m_registry; }
+    [[nodiscard]] SceneManager& DefaultManager() noexcept { return m_default; }
 
-    // ---- subsystem frame phases ----
+    // ---- subsystem frame phases (drive the default manager; the Context factors are applied here) ----
 
-    // Fixed stepping is PER SCENE (each scene owns a FixedStepper + time scale): it runs
-    // in BeginFrame so fixed-rate state (physics poses + alpha) is fresh BEFORE any
-    // subsystem's Update reads it (physics interpolation runs at order -600, before us).
-    // BeginFrame receives the RAW host dt - the context scale is applied here; Update
-    // receives context-scaled dt - only the scene factor is applied there.
+    // Fixed stepping is PER SCENE (each scene owns a FixedStepper): BeginFrame runs it so fixed-rate
+    // state (physics poses + alpha) is fresh BEFORE any subsystem's Update reads it. BeginFrame gets the
+    // RAW host dt (context scale applied inside the manager); Update gets context-scaled dt.
     void BeginFrame(f32 deltaTime) override {
         const f32 contextScale = GetContext() != nullptr ? GetContext()->TimeScale() : 1.0f;
         const f32 contextStep = GetContext() != nullptr ? GetContext()->FixedTimeStep() : 0.0f;
-        for (Scene* s : m_active) {
-            if (contextStep > 0.0f && s->FixedTimeStep() != contextStep) {
-                s->SetFixedTiming(contextStep, 4);
-            }
-            (void)s->AdvanceTime(deltaTime * contextScale * s->TimeScale());
-        }
+        m_default.BeginFrame(deltaTime, contextScale, contextStep);
     }
-
-    void Update(f32 deltaTime) override {
-        m_updating = true;
-        for (Scene* s : m_active) { s->Update(deltaTime * s->TimeScale()); }
-        m_updating = false;
-        ProcessPendingRemoves();
-    }
-
-    void OnShutdown() override {
-        for (usize i = m_scenes.Size(); i-- > 0;) { NotifyDestroyed(*m_scenes[i]); }
-        m_active.Clear();
-        m_pendingRemove.Clear();
-        m_scenes.Clear();   // UniquePtr frees each Scene
-    }
-
-    /// Visits every live scene (prefab rebuilds after a template save, tooling sweeps).
-    template <typename Fn>
-    void ForEachScene(Fn&& fn)
-    {
-        for (auto& scene : m_scenes) { fn(*scene); }
-    }
+    void Update(f32 deltaTime) override { m_default.Update(deltaTime); }
+    void OnShutdown() override { m_default.Clear(); }
 
 private:
-    void NotifyCreated(Scene& scene) {
-        for (ISceneAware* a : m_aware) { a->OnSceneCreated(scene); }   // pass 1: inject systems
-        for (ISceneAware* a : m_aware) { a->OnSceneReady(scene); }     // pass 2: cross-subsystem safe
-    }
-    void NotifyDestroyed(Scene& scene) {
-        for (ISceneAware* a : m_aware) { a->OnSceneDestroyed(scene); }
-    }
-
-    void DestroyImmediate(Scene* scene) {
-        NotifyDestroyed(*scene);
-        for (usize i = 0; i < m_active.Size(); ++i) {
-            if (m_active[i] == scene) { m_active.RemoveAt(i); break; }
-        }
-        for (usize i = 0; i < m_scenes.Size(); ++i) {
-            if (m_scenes[i].Get() == scene) { m_scenes.RemoveAt(i); break; }   // frees the Scene
-        }
-    }
-    void ProcessPendingRemoves() {
-        for (Scene* s : m_pendingRemove) { DestroyImmediate(s); }
-        m_pendingRemove.Clear();
-    }
-
-    Array<UniquePtr<Scene>> m_scenes;       // ownership
-    Array<Scene*>           m_active;       // active scenes (non-owning)
-    Array<Scene*>           m_pendingRemove;
-    Array<ISceneAware*>     m_aware;        // registered scene-aware subsystems
-    bool                    m_updating = false;
+    SceneAwareRegistry m_registry;         // app-wide aware list (declared first: m_default borrows it)
+    SceneManager       m_default;          // the loose / editor scene group
 };
 
 } // namespace draconic::scene

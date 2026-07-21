@@ -13,3 +13,4 @@ export import :system;
 export import :component;
 export import :aware;
 export import :scene;
+export import :manager;
