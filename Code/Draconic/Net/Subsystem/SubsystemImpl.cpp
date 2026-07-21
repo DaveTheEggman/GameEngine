@@ -10,6 +10,7 @@ module draconic.net.subsystem;
 import draconic.core;
 import draconic.net;
 import draconic.script;
+import draconic.script.facades;   // RegisterExtraFacadeName (the Wren prelude hook)
 
 using namespace draconic::core;
 using namespace draconic::script;
@@ -33,6 +34,7 @@ namespace draconic::net
     {
         static const bool once = []() {
             GlobalTypeRegistry().Register(Net::StaticType());
+            RegisterExtraFacadeName(u8"Net");   // so the Wren behavior prelude imports it (AngelScript binds by registry)
             return true;
         }();
         (void)once;

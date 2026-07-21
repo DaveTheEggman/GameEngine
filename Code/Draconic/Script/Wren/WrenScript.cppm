@@ -73,11 +73,10 @@ namespace draconic::script::wren
     {
         out += u8"import \"main\" for ";
         const core::Span<const core::StringView> facades = BehaviorFacadeNames();
-        for (core::usize i = 0; i < facades.Size(); ++i)
-        {
-            if (i != 0) { out += u8", "; }
-            out += facades[i];
-        }
+        const core::Span<const core::StringView> extras = ExtraFacadeNames();   // out-of-tree facades (e.g. Net)
+        bool first = true;
+        for (core::usize i = 0; i < facades.Size(); ++i) { if (!first) { out += u8", "; } out += facades[i]; first = false; }
+        for (core::usize i = 0; i < extras.Size(); ++i)  { if (!first) { out += u8", "; } out += extras[i];  first = false; }
         out += u8"\n";
         out += kBehaviorBaseSource;
     }

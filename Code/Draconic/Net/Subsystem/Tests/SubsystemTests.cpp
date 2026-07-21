@@ -48,5 +48,5 @@ TEST_CASE("net-subsystem: the Net facade type registers")
     net::RegisterNetScriptFacade();   // idempotent; must not crash + registers the reflected type
     const TypeInfo& ti = net::Net::StaticType();
     CHECK(PropertyCount(ti) == 0u);   // a facade has methods, not properties
-    // (End-to-end script binding is exercised once the facade system is made extension-aware.)
+    // (End-to-end script binding on both backends is exercised in FacadeScriptTests.cpp.)
 }

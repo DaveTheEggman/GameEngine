@@ -40,6 +40,14 @@ export namespace draconic::script
     /// the authored order. Kept in sync with RegisterScriptFacadeReflection below.
     [[nodiscard]] core::Span<const core::StringView> BehaviorFacadeNames();
 
+    /// Register an ADDITIONAL facade name from an out-of-tree module (e.g. draconic.net's `Net`),
+    /// so the behavior prelude imports it too - without this base lib depending on that module.
+    /// Idempotent; call alongside the module's own reflection registration. Names are borrowed as
+    /// interned copies. See ExtraFacadeNames.
+    void RegisterExtraFacadeName(core::StringView name);
+    /// The extra facade names registered by other modules (appended to the prelude after the built-ins).
+    [[nodiscard]] core::Span<const core::StringView> ExtraFacadeNames();
+
     struct ScriptRuntimeBinding
     {
         f64 timeSeconds = 0.0;    // seconds since the run context was created

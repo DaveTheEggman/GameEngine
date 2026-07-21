@@ -74,6 +74,24 @@ namespace draconic::script
         return core::Span<const core::StringView>{ names, 5 };
     }
 
+    namespace
+    {
+        Array<String>& ExtraFacadeStorage() { static Array<String> names; return names; }
+        Array<StringView>& ExtraFacadeViews() { static Array<StringView> views; return views; }
+    }
+
+    void RegisterExtraFacadeName(StringView name)
+    {
+        for (const String& existing : ExtraFacadeStorage()) { if (existing.AsView() == name) { return; } }  // idempotent
+        ExtraFacadeStorage().PushBack(String(name));
+        // Rebuild the view list from the (possibly reallocated) storage.
+        Array<StringView>& views = ExtraFacadeViews();
+        views.Clear();
+        for (const String& n : ExtraFacadeStorage()) { views.PushBack(n.AsView()); }
+    }
+
+    Span<const StringView> ExtraFacadeNames() { return ExtraFacadeViews().AsSpan(); }
+
     void RegisterScriptFacadeReflection()
     {
         static const bool once = []() {
