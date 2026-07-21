@@ -382,4 +382,95 @@ namespace draconic::core::sys
         if (fromPort != nullptr) { *fromPort = ntohs(addr.sin_port); }
         return static_cast<std::int64_t>(n);
     }
+
+    // --- TCP sockets (Winsock2; validate on Windows) -----------------------
+
+    static void SetNonBlocking(SOCKET s) noexcept { u_long nb = 1; ::ioctlsocket(s, FIONBIO, &nb); }
+
+    SocketHandle TcpListen(std::uint16_t port, std::uint16_t* outBoundPort) noexcept
+    {
+        const SOCKET s = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if (s == INVALID_SOCKET) { return kInvalidSocket; }
+        SetNonBlocking(s);
+        const BOOL yes = TRUE;
+        ::setsockopt(s, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&yes), sizeof(yes));
+        sockaddr_in addr{};
+        addr.sin_family = AF_INET;
+        addr.sin_addr.s_addr = htonl(INADDR_ANY);
+        addr.sin_port = htons(port);
+        if (::bind(s, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == SOCKET_ERROR) { ::closesocket(s); return kInvalidSocket; }
+        if (::listen(s, SOMAXCONN) == SOCKET_ERROR) { ::closesocket(s); return kInvalidSocket; }
+        if (outBoundPort != nullptr)
+        {
+            sockaddr_in bound{};
+            int len = sizeof(bound);
+            *outBoundPort = (::getsockname(s, reinterpret_cast<sockaddr*>(&bound), &len) == 0) ? ntohs(bound.sin_port) : port;
+        }
+        return static_cast<SocketHandle>(s);
+    }
+
+    SocketHandle TcpAccept(SocketHandle listener, std::uint32_t* fromIp, std::uint16_t* fromPort) noexcept
+    {
+        if (listener == kInvalidSocket) { return kInvalidSocket; }
+        sockaddr_in addr{};
+        int len = sizeof(addr);
+        const SOCKET fd = ::accept(static_cast<SOCKET>(listener), reinterpret_cast<sockaddr*>(&addr), &len);
+        if (fd == INVALID_SOCKET) { return kInvalidSocket; }   // WSAEWOULDBLOCK => none pending
+        SetNonBlocking(fd);
+        if (fromIp != nullptr) { *fromIp = ntohl(addr.sin_addr.s_addr); }
+        if (fromPort != nullptr) { *fromPort = ntohs(addr.sin_port); }
+        return static_cast<SocketHandle>(fd);
+    }
+
+    SocketHandle TcpConnect(std::uint32_t ip, std::uint16_t port) noexcept
+    {
+        const SOCKET s = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if (s == INVALID_SOCKET) { return kInvalidSocket; }
+        SetNonBlocking(s);
+        sockaddr_in addr{};
+        addr.sin_family = AF_INET;
+        addr.sin_addr.s_addr = htonl(ip);
+        addr.sin_port = htons(port);
+        const int r = ::connect(s, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
+        if (r == SOCKET_ERROR && WSAGetLastError() != WSAEWOULDBLOCK) { ::closesocket(s); return kInvalidSocket; }
+        return static_cast<SocketHandle>(s);
+    }
+
+    int TcpConnectStatus(SocketHandle socket) noexcept
+    {
+        if (socket == kInvalidSocket) { return -1; }
+        const SOCKET s = static_cast<SOCKET>(socket);
+        fd_set wfds; FD_ZERO(&wfds); FD_SET(s, &wfds);
+        fd_set efds; FD_ZERO(&efds); FD_SET(s, &efds);
+        timeval tv{ 0, 0 };
+        const int r = ::select(0, nullptr, &wfds, &efds, &tv);
+        if (r == 0) { return 0; }
+        if (r == SOCKET_ERROR) { return -1; }
+        if (FD_ISSET(s, &efds)) { return -1; }
+        if (FD_ISSET(s, &wfds))
+        {
+            int err = 0;
+            int len = sizeof(err);
+            if (::getsockopt(s, SOL_SOCKET, SO_ERROR, reinterpret_cast<char*>(&err), &len) == SOCKET_ERROR) { return -1; }
+            return (err == 0) ? 1 : -1;
+        }
+        return 0;
+    }
+
+    std::int64_t TcpSend(SocketHandle socket, const void* data, std::size_t size) noexcept
+    {
+        if (socket == kInvalidSocket) { return -1; }
+        const int n = ::send(static_cast<SOCKET>(socket), static_cast<const char*>(data), static_cast<int>(size), 0);
+        if (n == SOCKET_ERROR) { return (WSAGetLastError() == WSAEWOULDBLOCK) ? 0 : -1; }
+        return static_cast<std::int64_t>(n);
+    }
+
+    std::int64_t TcpRecv(SocketHandle socket, void* out, std::size_t outCap) noexcept
+    {
+        if (socket == kInvalidSocket) { return -1; }
+        const int n = ::recv(static_cast<SOCKET>(socket), static_cast<char*>(out), static_cast<int>(outCap), 0);
+        if (n > 0) { return static_cast<std::int64_t>(n); }
+        if (n == 0) { return -1; }   // peer closed
+        return (WSAGetLastError() == WSAEWOULDBLOCK) ? 0 : -1;
+    }
 }

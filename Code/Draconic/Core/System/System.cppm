@@ -329,4 +329,24 @@ export namespace draconic::core
     {
         return sys::UdpRecvFrom(socket, out, outCap, &fromIp, &fromPort);
     }
+
+    // --- TCP (stream) sockets - the draconic.http / websocket / debugger transports wrap these ---
+    [[nodiscard]] inline SocketHandle TcpListen(u16 port, u16* outBoundPort = nullptr) noexcept
+    {
+        return sys::TcpListen(port, outBoundPort);
+    }
+    [[nodiscard]] inline SocketHandle TcpAccept(SocketHandle listener, u32* fromIp = nullptr, u16* fromPort = nullptr) noexcept
+    {
+        return sys::TcpAccept(listener, fromIp, fromPort);
+    }
+    [[nodiscard]] inline SocketHandle TcpConnect(u32 ip, u16 port) noexcept { return sys::TcpConnect(ip, port); }
+    [[nodiscard]] inline int TcpConnectStatus(SocketHandle socket) noexcept { return sys::TcpConnectStatus(socket); }
+    [[nodiscard]] inline i64 TcpSend(SocketHandle socket, const void* data, usize size) noexcept
+    {
+        return sys::TcpSend(socket, data, size);
+    }
+    [[nodiscard]] inline i64 TcpRecv(SocketHandle socket, void* out, usize outCap) noexcept
+    {
+        return sys::TcpRecv(socket, out, outCap);
+    }
 }

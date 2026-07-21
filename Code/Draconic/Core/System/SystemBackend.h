@@ -141,6 +141,28 @@ namespace draconic::core::sys
     // pending (non-blocking), or -1 on error. Fills the sender's (ip,port) host-order when non-null.
     std::int64_t UdpRecvFrom(SocketHandle socket, void* out, std::size_t outCap,
                              std::uint32_t* fromIp, std::uint16_t* fromPort) noexcept;
+
+    // --- TCP (stream) sockets (the draconic.http / websocket transports wrap these) --
+    // All non-blocking. Consumers: HTTP client (draconic.http), a P5 WebSocket transport, and the
+    // script debugger's remote transport. Not used by the UDP game networking.
+    //
+    // Open a listening socket on `port` (0 = OS-assigned); *outBoundPort gets the actual port.
+    SocketHandle TcpListen(std::uint16_t port, std::uint16_t* outBoundPort) noexcept;
+    // Accept one pending connection on `listener`. Returns kInvalidSocket when none is pending
+    // (non-blocking). Fills the peer's (ip,port) host-order when non-null. The accepted socket is
+    // non-blocking.
+    SocketHandle TcpAccept(SocketHandle listener, std::uint32_t* fromIp, std::uint16_t* fromPort) noexcept;
+    // Begin a NON-BLOCKING connect to (ip,port host-order). Returns a handle immediately (poll
+    // readiness with TcpConnectStatus) or kInvalidSocket if the socket could not be created.
+    SocketHandle TcpConnect(std::uint32_t ip, std::uint16_t port) noexcept;
+    // Non-blocking connect progress: 1 = connected, 0 = still in progress, -1 = failed.
+    int TcpConnectStatus(SocketHandle socket) noexcept;
+    // Send on a connected stream. Returns bytes sent (may be < size - a partial write on a full send
+    // buffer), 0 on would-block, -1 on error/closed.
+    std::int64_t TcpSend(SocketHandle socket, const void* data, std::size_t size) noexcept;
+    // Receive on a connected stream into `out`. Returns bytes read (>0), 0 on would-block (no data
+    // yet), or -1 when the connection is closed or on error.
+    std::int64_t TcpRecv(SocketHandle socket, void* out, std::size_t outCap) noexcept;
 }
 
 #endif // DRACONIC_CORE_SYSTEM_BACKEND_H
