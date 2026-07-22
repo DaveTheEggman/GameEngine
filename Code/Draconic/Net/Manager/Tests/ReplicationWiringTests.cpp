@@ -1,4 +1,4 @@
-// draconic.net.subsystem - StateReplication driven end-to-end through NetSubsystem over the sim
+// draconic.net.manager - StateReplication driven end-to-end through NetworkManager over the sim
 // transport: a server-assigned networked entity's replicated state reaches a connected client's scene.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
@@ -7,7 +7,7 @@
 import draconic.core;
 import draconic.net;
 import draconic.net.replication;
-import draconic.net.subsystem;
+import draconic.net.manager;
 import draconic.scene;
 
 using namespace draconic::core;
@@ -37,7 +37,7 @@ DRACONIC_REFLECT_VALUE(RepMover, "draconic::net::test")
     builder.Property<&RepMover::health>("health").PropAttribute(net::kReplicatedAttribute, true);
 }
 
-TEST_CASE("net-subsystem: state replicates server -> client through the subsystem + transport")
+TEST_CASE("net-manager: state replicates server -> client through the manager + transport")
 {
     DraconicRegisterValue_RepMover();
     net::RegisterReplicationComponents();
@@ -45,8 +45,8 @@ TEST_CASE("net-subsystem: state replicates server -> client through the subsyste
     net::SimConditions sim; sim.latencyMs = 15.0f; sim.lossPct = 0.1f; sim.seed = 7;
     net::SimDatagramNetwork network(sim);
     net::IDatagramSocket* sv = network.CreateSocket();
-    net::NetSubsystem server(*sv);
-    net::NetSubsystem client(*network.CreateSocket());
+    net::NetworkManager server(*sv);
+    net::NetworkManager client(*network.CreateSocket());
 
     dscene::Scene serverScene;
     serverScene.AddSystem<net::NetworkComponentManager>();

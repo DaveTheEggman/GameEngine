@@ -1,7 +1,7 @@
-// draconic.net.subsystem - the Net facade PROVEN end-to-end on both script backends.
+// draconic.net.manager - the Net facade PROVEN end-to-end on both script backends.
 //
-// SubsystemTests.cpp checks the facade TYPE registers; this drives a real Wren / AngelScript
-// VM: a server subsystem installs its net.runtime service into the context, then a script calls
+// ManagerTests.cpp checks the facade TYPE registers; this drives a real Wren / AngelScript
+// VM: a server manager installs its net.runtime service into the context, then a script calls
 // Net.isServer()/isClient()/peerCount() and we read the results back. This is the acceptance test
 // for the extensibility hook (RegisterExtraFacadeName -> Wren prelude; registry -> AngelScript).
 #include <doctest/doctest.h>
@@ -9,7 +9,7 @@
 
 import draconic.core;
 import draconic.net;
-import draconic.net.subsystem;
+import draconic.net.manager;
 import draconic.script;
 import draconic.script.wren;
 import draconic.script.angelscript;
@@ -20,11 +20,11 @@ namespace net = draconic::net;
 
 namespace
 {
-    // Build a server subsystem over the sim network and hand back its socket owner so it stays alive.
+    // Build a server manager over the sim network and hand back its socket owner so it stays alive.
     struct ServerFixture
     {
         net::SimDatagramNetwork network{ net::SimConditions{} };
-        net::NetSubsystem server{ *network.CreateSocket() };
+        net::NetworkManager server{ *network.CreateSocket() };
         ServerFixture() { server.StartServer(/*dedicated=*/true); }
     };
 }

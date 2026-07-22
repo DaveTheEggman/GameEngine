@@ -1,11 +1,11 @@
-// Draconic::NetSubsystem - implementation unit: the DRACONIC_REFLECT_* body for the Net facade +
+// Draconic::NetworkManager - implementation unit: the DRACONIC_REFLECT_* body for the Net facade +
 // the registration (kept out of the interface unit per the GCC gcm-cluster rule).
 
 module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-module draconic.net.subsystem;
+module draconic.net.manager;
 
 import draconic.core;
 import draconic.net;
@@ -50,16 +50,16 @@ namespace draconic::net
 
         // Server binds the listen port; a client binds ephemeral (0) unless a port is forced.
         runtime.socket = MakeUnique<UdpSocket>(DefaultAllocator(), config.listenPort);
-        runtime.subsystem = MakeUnique<NetSubsystem>(DefaultAllocator(), *runtime.socket, config.reliable);
+        runtime.manager = MakeUnique<NetworkManager>(DefaultAllocator(), *runtime.socket, config.reliable);
 
         if (config.role == NetworkRole::Server)
         {
-            runtime.subsystem->StartServer(config.dedicated);
+            runtime.manager->StartServer(config.dedicated);
         }
         else   // Client
         {
             const DatagramEndpoint server = ResolveEndpoint(config.serverHost.AsView(), config.serverPort);
-            runtime.subsystem->ConnectTo(server);
+            runtime.manager->ConnectTo(server);
         }
         return runtime;
     }

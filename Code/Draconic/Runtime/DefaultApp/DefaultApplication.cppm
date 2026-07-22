@@ -58,12 +58,12 @@ import draconic.audio.resource;     // cooked audio clips + factory
 import draconic.audio.subsystem;    // AudioSubsystem (voices/buses/one-shots + scene sync)
 import draconic.net;                // UdpSocket / DatagramEndpoint (the transport)
 import draconic.net.replication;    // NetworkId / StateReplication (the spawn-handler seam)
-import draconic.net.subsystem;      // NetSubsystem + NetworkStartup/StartNetworking + the Net facade
+import draconic.net.manager;        // NetworkManager + NetworkStartup/StartNetworking + the Net facade
 import draconic.profiler;           // the CPU scope profiler (P-key dump)
 
 namespace rhi = draconic::rhi;
 namespace core  = draconic::core;
-namespace net = draconic::net;   // NetSubsystem + NetworkStartup + the Net facade
+namespace net = draconic::net;   // NetworkManager + NetworkStartup + the Net facade
 using namespace draconic::shell;   // IShell + input/window types (moved from draconic::runtime)
 using namespace draconic::graphics;   // GraphicsDevice/RenderWindow/FrameContext (moved from draconic::runtime)
 
@@ -163,7 +163,7 @@ export namespace draconic::runtime
             // transform + other fields on top). The server assigns ids; game rules set relevancy.
             if (m_net.IsActive())
             {
-                m_net.subsystem->Replication().SetSpawnHandler(
+                m_net.manager->Replication().SetSpawnHandler(
                     core::Function<draconic::scene::EntityHandle(draconic::scene::Scene&,
                         const core::Guid&, net::NetworkId)>{
                         [self](draconic::scene::Scene& scene, const core::Guid& prefabId,
@@ -191,7 +191,7 @@ export namespace draconic::runtime
                         {
                             self->m_audio->ExposeToScript(context, self->Resources());
                         }
-                        if (self->m_net.IsActive()) { self->m_net.subsystem->InstallScriptService(context); }
+                        if (self->m_net.IsActive()) { self->m_net.manager->InstallScriptService(context); }
                     } });
             // Scene.spawn: resolve the prefab payload from the content DB the entry point
             // preset, spawn it, place the root at the requested world position, and bind
@@ -285,7 +285,7 @@ export namespace draconic::runtime
         /// Preset BEFORE Configure: enter a server/client role at startup (default = single-player,
         /// no socket). The player's launch flow / editor Game tab fills this from project settings.
         void SetNetworkStartup(const net::NetworkStartup& startup) { m_netStartup = startup; }
-        [[nodiscard]] net::NetSubsystem* Net() const noexcept { return m_net.subsystem.Get(); }
+        [[nodiscard]] net::NetworkManager* Net() const noexcept { return m_net.manager.Get(); }
 
         // Drives the network on the FIXED lane (deterministic step): pump incoming datagrams,
         // dispatch RPCs, flush reliable sends. Runs even with no game script (a dedicated server
@@ -293,7 +293,7 @@ export namespace draconic::runtime
         void OnFixedUpdate(IApplicationHost& host, core::f32 fixedDeltaTime) override
         {
             (void)host;
-            if (m_net.IsActive()) { m_net.subsystem->Update(fixedDeltaTime * 1000.0f); }   // seconds -> ms
+            if (m_net.IsActive()) { m_net.manager->Update(fixedDeltaTime * 1000.0f); }   // seconds -> ms
         }
         /// Preset BEFORE Configure: audio engine tuning (listener count for split-screen,
         /// voice pool sizes). Defaults suit a single-listener game.
@@ -390,7 +390,7 @@ export namespace draconic::runtime
             // player + any leftover. Do it FIRST, before subsystem teardown, for EVERY instance.
             ForEachInstance([](GameInstance& gi) { gi.Scenes().Clear(); gi.RunHost().Teardown(); });
             if (m_physics != nullptr) { m_physics->UnregisterContactListener(&m_contactBridge); }
-            m_net.subsystem = nullptr;   // stop the session (drops peers) before closing the socket
+            m_net.manager = nullptr;   // stop the session (drops peers) before closing the socket
             m_net.socket = nullptr;
             m_ownedResources = nullptr;   // release products while the device is alive
             m_textureFactory = nullptr;
@@ -405,7 +405,7 @@ export namespace draconic::runtime
         {
             m_instance.SetScene(scene);
             // The primary gameplay scene is the replicated world (server captures / client applies).
-            if (m_net.IsActive()) { m_net.subsystem->SetReplicatedScene(scene); }
+            if (m_net.IsActive()) { m_net.manager->SetReplicatedScene(scene); }
         }
         [[nodiscard]] draconic::scene::Scene* PrimaryScene() const noexcept { return m_instance.GetScene(); }
 

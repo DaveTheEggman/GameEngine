@@ -1,15 +1,17 @@
-/// Draconic::NetSubsystem - the `draconic.net.subsystem` module (docs/design/networking.md §6).
+/// Draconic::NetworkManager - the `draconic.net.manager` module (docs/design/networking.md §6).
 ///
-/// The RUNTIME HOME for networking: NetSubsystem owns a live NetSession + RpcTable over an
-/// IDatagramSocket (real UDP or the sim), is driven each fixed step by the app, and installs a
-/// script service so the `Net` facade can query the session and fire RPCs from Wren / AngelScript.
-/// Mirrors how the ScriptSubsystem installs its runtime binding; the Net facade mirrors Time/Random.
+/// A NETWORKED ENDPOINT, owned per running game (a GameInstance): NetworkManager owns a live
+/// NetSession + RpcTable over an IDatagramSocket (real UDP or the sim), is driven each fixed step,
+/// and installs a script service so the `Net` facade can query the session and fire RPCs from
+/// Wren / AngelScript. NOT a subsystem - there is no once-per-context networking state, so an
+/// endpoint lives with the instance that runs it (N instances = N independent endpoints). The Net
+/// facade resolves the CURRENT script context's endpoint, so each instance's script sees its own.
 
 module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.net.subsystem;
+export module draconic.net.manager;
 
 import draconic.core;
 import draconic.net;
@@ -30,7 +32,7 @@ inline constexpr StringView kNetScriptService = u8"net.runtime";
 inline constexpr u8 kReplicationChannel = 253;
 
 // What the Net facade reads/acts on: the live session + its RPC table. Installed as a script service
-// by NetSubsystem::InstallScriptService.
+// by NetworkManager::InstallScriptService.
 struct NetScriptBinding {
     NetSession* session = nullptr;
     RpcTable*   rpc = nullptr;
@@ -75,11 +77,12 @@ private:
     }
 };
 
-// The runtime networking subsystem: owns the session + RPC table, driven each fixed step, and the
-// installer of the Net facade's script service. App-level (one per app), not per-scene.
-class NetSubsystem {
+// A networked endpoint: owns the session + RPC table, driven each fixed step, and the installer of
+// the Net facade's script service. Owned per running game (a GameInstance), NOT app-wide - N
+// instances hold N independent endpoints (see the module header).
+class NetworkManager {
 public:
-    explicit NetSubsystem(IDatagramSocket& socket, const ReliableConfig& config = {})
+    explicit NetworkManager(IDatagramSocket& socket, const ReliableConfig& config = {})
         : m_session(socket, config) {}
 
     // Roles (see NetSession).
@@ -130,7 +133,7 @@ public:
         }
     }
 
-    // The scene this subsystem replicates (server captures from it, client applies into it). Null =
+    // The scene this manager replicates (server captures from it, client applies into it). Null =
     // no replication (session + RPC still run). The host sets the gameplay scene here.
     void SetReplicatedScene(dscene::Scene* scene) noexcept { m_scene = scene; }
     [[nodiscard]] StateReplication& Replication() noexcept { return m_replication; }
@@ -174,18 +177,18 @@ struct NetworkStartup {
     ReliableConfig reliable = {};               // protocol tuning (keepalive/timeout/resend)
 };
 
-// A started net home: the socket the subsystem borrows + the subsystem itself. Both must outlive
-// the run; the subsystem holds a reference to the socket, so keep/destroy the subsystem FIRST.
-// socket/subsystem are null when role==None; a non-null socket that failed to open reports
-// !IsOpen() (the caller logs). Bundled so the socket-open + role-entry logic stays in this lib.
+// A started net home: the socket the manager borrows + the manager itself. Both must outlive the
+// run; the manager holds a reference to the socket, so keep/destroy the manager FIRST. socket/
+// manager are null when role==None; a non-null socket that failed to open reports !IsOpen() (the
+// caller logs). Bundled so the socket-open + role-entry logic stays in this lib.
 struct NetworkRuntime {
-    core::UniquePtr<UdpSocket>     socket;
-    core::UniquePtr<NetSubsystem> subsystem;
+    core::UniquePtr<UdpSocket>      socket;
+    core::UniquePtr<NetworkManager> manager;
 
-    [[nodiscard]] bool IsActive() const noexcept { return subsystem.Get() != nullptr; }
+    [[nodiscard]] bool IsActive() const noexcept { return manager.Get() != nullptr; }
 };
 
-// Open the socket, build the subsystem, and enter the role (StartServer / ConnectTo). Returns an
+// Open the socket, build the manager, and enter the role (StartServer / ConnectTo). Returns an
 // empty NetworkRuntime for role==None. Registers the Net script facade as a side effect when a
 // role is entered (idempotent), so the facade is bound wherever networking is actually used.
 [[nodiscard]] NetworkRuntime StartNetworking(const NetworkStartup& config);
