@@ -595,6 +595,15 @@ export namespace draconic::editor
                 // Play (editing-page HUDs render but never take editor input).
                 m_viewportSource.viewport = m_viewport.Get();
                 m_viewportSource.shellInput = m_shellInput;
+                // Gate the viewport surface (hover/focus) via an InputRouter, like ScenePage. Without
+                // it the surface is never focused, so SurfaceKeyboard reports every key UP and the game
+                // reads no keyboard - the game viewport must own a router or its input is dead.
+                if (m_router.Get() == nullptr)
+                {
+                    m_router = MakeUnique<draconic::shell::InputRouter>(
+                        DefaultAllocator(), m_host->Shell()->Input());
+                }
+                if (m_viewport->Surface() != nullptr) { m_router->AddSurface(m_viewport->Surface()); }
                 if (m_input != nullptr)
                 {
                     m_input->SetSourceProvider(&m_viewportSource,
@@ -612,6 +621,7 @@ export namespace draconic::editor
         {
             EnsureViewportBound();
             m_viewport->SyncInputRegion();
+            if (m_router.Get() != nullptr) { m_router->Update(); }   // gate the surface: hover=mouse, click=keyboard focus
             // IME follows the GAME UI's focus through the host window: the viewport (the
             // editor context's focused view while playing) forwards the game context's
             // WantsTextInput, and the editor's own input bridge does the Start/Stop.
@@ -917,6 +927,7 @@ export namespace draconic::editor
         bool m_simPausedByDebugger = false;         // we disabled sim for a breakpoint
         RefPtr<draconic::ui::Label> m_statusLabel;
         RefPtr<guivp::ViewportView> m_viewport;
+        UniquePtr<draconic::shell::InputRouter> m_router;   // gates the viewport surface (hover/focus)
 
 
         String m_sceneTitle;
