@@ -70,6 +70,33 @@ DRACONIC_REFLECT(NumProbe, "draconic::script::test")
     builder.Constructor();
 }
 
+TEST_CASE("angelscript: reflected value types support value assignment (Float3 p = expr)")
+{
+    // All reflected types register as asOBJ_REF boxes; without a registered opAssign, `Float3 p = q;`
+    // failed with "no appropriate opAssign". The generic opAssign copies the boxed value.
+    RegisterCoreTypes();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RegisterReflectedTypes(*manager);
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+    REQUIRE(static_cast<bool>(ctx));
+
+    const Status status = ctx->Load(
+        u8"double X; double Y; double Z;\n"
+        u8"void main() {\n"
+        u8"  Float3 a = Float3(1, 2, 3);\n"   // copy-init from a factory return (opAssign)
+        u8"  Float3 b = a;\n"                  // value assignment from another local
+        u8"  X = b.x;\n"
+        u8"  b = Float3(7, 8, 9);\n"           // re-assign; must NOT alias a
+        u8"  Y = b.y;\n"
+        u8"  Z = a.x;\n"                        // a stays 1 (value copy, not a shared handle)
+        u8"}\n",
+        u8"main");
+    REQUIRE(status.IsOk());
+    CHECK(ctx->GetGlobal(u8"X").Get<f64>() == 1.0);
+    CHECK(ctx->GetGlobal(u8"Y").Get<f64>() == 8.0);
+    CHECK(ctx->GetGlobal(u8"Z").Get<f64>() == 1.0);   // value semantics: a not mutated by b's reassign
+}
+
 TEST_CASE("angelscript: 64-bit integer facade args/returns round-trip exactly (no double funnel)")
 {
     RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();

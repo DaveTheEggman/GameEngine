@@ -254,6 +254,7 @@ namespace draconic::script::angelscript
     };
 
     void FactoryDispatch(asIScriptGeneric* gen);
+    void AssignDispatch(asIScriptGeneric* gen);   // value assignment (T& opAssign(const T&in))
     void AddRefDispatch(asIScriptGeneric* gen);
     void ReleaseDispatch(asIScriptGeneric* gen);
     void PropertyGetDispatch(asIScriptGeneric* gen);
@@ -1012,6 +1013,18 @@ namespace draconic::script::angelscript
             (void)m_engine->RegisterObjectBehaviour(name, asBEHAVE_RELEASE, "void f()",
                 asFUNCTION(ReleaseDispatch), asCALL_GENERIC);
 
+            // Value assignment so `Float3 p = expr;` works (copies the boxed value). All reflected
+            // types are asOBJ_REF boxes, so AngelScript otherwise reports no opAssign.
+            {
+                core::String decl;
+                AppendAscii(decl, name);
+                AppendAscii(decl, "& opAssign(const ");
+                AppendAscii(decl, name);
+                AppendAscii(decl, "&in)");
+                (void)m_engine->RegisterObjectMethod(name, CStr(decl),
+                    asFUNCTION(AssignDispatch), asCALL_GENERIC);
+            }
+
             core::Array<core::String> used; // exact-declaration dedupe
 
             // Factories: one per reflected constructor (`builder.Constructor()` is
@@ -1203,6 +1216,17 @@ namespace draconic::script::angelscript
         }
         *static_cast<void**>(gen->GetAddressOfReturnLocation()) =
             NewBox(core::Move(created.Value()));
+    }
+
+    // Value assignment (T& opAssign(const T&in other)): every reflected type is an asOBJ_REF box, so
+    // without this AngelScript rejects `Float3 p = expr;` with "no opAssign for value assignment".
+    // Copies the source box's Variant into this one and returns *this (a reference).
+    void AssignDispatch(asIScriptGeneric* gen)
+    {
+        BoxedVariant* self = static_cast<BoxedVariant*>(gen->GetObject());
+        const BoxedVariant* other = static_cast<const BoxedVariant*>(gen->GetArgObject(0));
+        if (self != nullptr && other != nullptr) { self->value = other->value; }
+        gen->SetReturnAddress(self);
     }
 
     void AddRefDispatch(asIScriptGeneric* gen)
