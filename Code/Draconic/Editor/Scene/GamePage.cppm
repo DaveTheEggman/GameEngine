@@ -438,6 +438,14 @@ export namespace draconic::editor
         [[nodiscard]] Status Save() override { return Status{}; }   // nothing here is a document
         [[nodiscard]] draconic::ui::View* ContentView() override { return m_content.Get(); }
 
+        // The scene group this tab's game scene belongs to: the embedded app's GameInstance manager
+        // (game-instance.md §11), so the game scene groups + ticks + is bound to the instance's run
+        // host. Falls back to the SceneSubsystem's default manager if there's no embedded app.
+        [[nodiscard]] gscene::SceneManager& SceneGroup() noexcept
+        {
+            return (m_app != nullptr) ? m_app->Instance().Scenes() : m_scenes->DefaultManager();
+        }
+
         /// Fresh player run: the project's default scene from the DBs, simulation on.
         void Play()
         {
@@ -466,11 +474,11 @@ export namespace draconic::editor
             // Nudge a background incremental cook so just-edited content is fresh; the
             // run starts immediately and late products heal via the hot-reload path.
             if (m_context->OnCookRequested) { m_context->OnCookRequested(false); }
-            m_scene = m_scenes->CreateScene(instance->Name());
+            m_scene = SceneGroup().CreateScene(instance->Name());
             if (m_scene == nullptr || !gscene::LoadScene(*instance, *m_scene).IsOk())
             {
                 m_context->Notify(NoticeKind::Error, u8"Game: default scene failed to load.");
-                if (m_scene != nullptr) { m_scenes->DestroyScene(m_scene); m_scene = nullptr; }
+                if (m_scene != nullptr) { SceneGroup().DestroyScene(m_scene); m_scene = nullptr; }
                 return;
             }
             // Products bind from the cooked DB (the editor's shared manager); prefab payloads
@@ -552,7 +560,7 @@ export namespace draconic::editor
             if (m_scene != nullptr)
             {
                 m_scene->Stop();
-                if (m_scenes != nullptr) { m_scenes->DestroyScene(m_scene); }
+                if (m_scenes != nullptr) { SceneGroup().DestroyScene(m_scene); }
                 m_scene = nullptr;
             }
             m_running = false;

@@ -239,6 +239,10 @@ export namespace draconic::runtime
             return m_scripts;
         }
 
+        /// The app's running game (N=1 today). The launch flow creates the game scene in its
+        /// Scenes() manager so it groups + ticks + renders as this run's scenes.
+        [[nodiscard]] GameInstance& Instance() noexcept { return m_instance; }
+
         [[nodiscard]] draconic::input::InputSubsystem* Input() const noexcept { return m_input; }
         [[nodiscard]] draconic::physics::PhysicsSubsystem* Physics() const noexcept { return m_physics; }
         [[nodiscard]] draconic::audio::AudioSubsystem* Audio() const noexcept { return m_audio; }
@@ -346,6 +350,10 @@ export namespace draconic::runtime
 
         void OnShutdown(IApplicationHost&) override
         {
+            // Destroy the run's scenes while the aware subsystems are still alive (they get
+            // OnSceneDestroyed). The editor's GamePage already cleared them per Stop; this covers the
+            // player + any leftover. Do it FIRST, before subsystem teardown.
+            m_instance.Scenes().Clear();
             if (m_physics != nullptr) { m_physics->UnregisterContactListener(&m_contactBridge); }
             m_net.subsystem = nullptr;   // stop the session (drops peers) before closing the socket
             m_net.socket = nullptr;
@@ -417,10 +425,15 @@ export namespace draconic::runtime
                 m_ui->RenderCanvasTextures(*frame.encoder, static_cast<core::i32>(frame.frameIndex));
             }
             render->BeginRendering(*frame.encoder, frame.frameIndex);
+            // The run's scenes live on the GameInstance's manager (game-instance.md §11); the default
+            // manager holds any loose scenes. Render both groups (clear comes from the scene's camera).
+            for (draconic::scene::Scene* scene : m_instance.Scenes().ActiveScenes())
+            {
+                render->RenderScene(*scene, frame.backbufferView, colorFormat, frame.width, frame.height);
+            }
             for (draconic::scene::Scene* scene : scenes->ActiveScenes())
             {
-                render->RenderScene(*scene, frame.backbufferView, colorFormat,
-                                    frame.width, frame.height);   // clear comes from the scene's camera
+                render->RenderScene(*scene, frame.backbufferView, colorFormat, frame.width, frame.height);
             }
             render->EndRendering();   // scene-tier overlays (HUD/billboards) draw inside the compose
 
