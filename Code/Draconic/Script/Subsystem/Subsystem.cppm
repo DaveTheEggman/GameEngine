@@ -303,9 +303,13 @@ export namespace draconic::script
             if (m_context.Get() == nullptr && m_manager.Get() == nullptr) { return; }
             if (m_context.Get() != nullptr) { m_context->SetErrorHandler(nullptr); }
             // The debugger holds engine contexts (a paused one) - release it BEFORE the
-            // manager/engine it borrows.
+            // manager/engine it borrows. Clear the REQUEST + configurator too: they capture the
+            // caller (an editor GamePage) that may be destroyed before this host is reused, so a
+            // stale configurator must never fire on a later EnsureDebugger (dangling-capture UAF).
             m_debugger = nullptr;
             m_debugTracker.Reset();
+            m_debuggerRequested = false;
+            m_debuggerConfigurator = Function<void(IScriptDebugger&)>{};
             m_context = nullptr;
             m_manager = nullptr;
             m_language = String{};

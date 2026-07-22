@@ -689,6 +689,10 @@ export namespace draconic::editor
         void OnClose() override
         {
             Stop();
+            // Destroy THIS tab's extra instance (unregisters its scene manager + tears down its run
+            // host) so nothing dangling is ticked/rendered after the tab closes. No-op for the primary.
+            if (m_app != nullptr && m_gameInstance != nullptr) { m_app->ReleaseInstance(m_gameInstance); }
+            m_gameInstance = nullptr;
             m_context->StopGameRun = Function<void()>{};
             m_viewport->Shutdown();
         }

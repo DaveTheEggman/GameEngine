@@ -261,6 +261,23 @@ export namespace draconic::runtime
             return gi;
         }
 
+        /// Destroy an EXTRA instance (a "Play New Instance" tab closing). Unregisters its scene manager
+        /// from the SceneSubsystem (else a dangling borrowed pointer is ticked/rendered), tears down its
+        /// run host, and frees it. The PRIMARY instance is permanent (a member) - a no-op for it.
+        void ReleaseInstance(GameInstance* instance)
+        {
+            if (instance == nullptr || instance == &m_instance) { return; }
+            for (core::usize i = 0; i < m_extraInstances.Size(); ++i)
+            {
+                if (m_extraInstances[i].Get() != instance) { continue; }
+                if (m_scenes != nullptr) { m_scenes->UnregisterManager(&instance->Scenes()); }
+                instance->Scenes().Clear();     // destroy any remaining scenes (aware subsystems notified)
+                instance->RunHost().Teardown();
+                m_extraInstances.RemoveAt(i);   // frees the GameInstance
+                return;
+            }
+        }
+
         [[nodiscard]] draconic::input::InputSubsystem* Input() const noexcept { return m_input; }
         [[nodiscard]] draconic::physics::PhysicsSubsystem* Physics() const noexcept { return m_physics; }
         [[nodiscard]] draconic::audio::AudioSubsystem* Audio() const noexcept { return m_audio; }
