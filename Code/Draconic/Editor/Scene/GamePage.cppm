@@ -705,6 +705,13 @@ export namespace draconic::editor
             // but-open tab keeps viewport input). On CLOSE the source is about to be freed, so clear it
             // or ActiveSource() dangles and the next PumpInput crashes (guarded: only if it's ours).
             if (m_input != nullptr) { m_input->ClearSourceProviderIf(&m_viewportSource); }
+            // The PER-INSTANCE input source (BindInput set it to this tab's viewport) also dangles once
+            // m_viewportSource is freed - and ReleaseInstance below is a NO-OP for the PRIMARY instance,
+            // so its DriveInput would dereference the freed source next frame. Revert it to the shell.
+            if (m_gameInstance != nullptr)
+            {
+                m_gameInstance->SetInputSource(m_input != nullptr ? &m_input->ShellSource() : nullptr);
+            }
             // Destroy THIS tab's extra instance (unregisters its scene manager + tears down its run
             // host) so nothing dangling is ticked/rendered after the tab closes. No-op for the primary.
             if (m_app != nullptr && m_gameInstance != nullptr) { m_app->ReleaseInstance(m_gameInstance); }
