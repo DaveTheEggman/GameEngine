@@ -26,6 +26,10 @@ import draconic.scene.editor;
 import draconic.editor;
 import draconic.editor.core;
 import draconic.settings;
+import draconic.script.wren;          // the Wren backend (the cook compile-checks against it)
+import draconic.script.wren.editor;   // RegisterWrenScriptCook
+import draconic.script.editor;        // ScriptClassAsset + ScriptClassAssetBuilder
+import draconic.script.resource;      // RegisterScriptResource + ScriptClass + ScriptClassFactory
 
 using namespace draconic::core;
 namespace ed = draconic::editor;
@@ -40,6 +44,80 @@ namespace
         std::filesystem::remove_all(
             std::filesystem::path(reinterpret_cast<const char*>(String(root).CStr())));
     }
+}
+
+TEST_CASE("export: a startup script asset cooks into the dist pak and binds like the player")
+{
+    namespace dscript = draconic::script;
+    dscript::wren::RegisterWrenScriptBackend();
+    dscript::RegisterWrenScriptCook();
+    dscript::RegisterScriptResource();
+    GlobalTypeRegistry().Register(dscript::ScriptClassAsset::StaticType());
+    RegisterSerializable<dscript::ScriptClassAsset>();
+
+    const StringView projectDir = u8"draconic_export_script_project";
+    const StringView distDir = u8"draconic_export_script_dist";
+    NukeTree(projectDir);
+    NukeTree(distDir);
+
+    Guid scriptId;
+    {
+        REQUIRE(ed::EditorProject::Create(projectDir, u8"S").IsOk());
+        UniquePtr<ed::EditorProject> project = ed::EditorProject::Open(projectDir);
+        REQUIRE(static_cast<bool>(project));
+
+        // The game script SOURCE in Sources/ (what New-Asset writes).
+        String srcPath(project->SourcesRoot());
+        srcPath.Append(u8"/game.wren");
+        const StringView src = u8"class Game {\n  construct new() {}\n  launch() {}\n  update(dt) {}\n  exit() {}\n}\n";
+        REQUIRE(WriteFile(srcPath.AsView(),
+            Span<const byte>(reinterpret_cast<const byte*>(src.Data()), src.Size())).IsOk());
+
+        // The ScriptClassAsset instance recording file + language (the picker's target).
+        draconic::content::Instance* scriptAsset = project->SourceDb().RootGroup()->CreateInstance(
+            u8"NetGame", dscript::ScriptClassAsset::StaticType());
+        REQUIRE(scriptAsset != nullptr);
+        dscript::ScriptClassAsset asset;
+        asset.fileName = String(u8"game.wren");
+        asset.language = String(u8"wren");
+        REQUIRE(scriptAsset->WriteObject(asset).IsOk());
+        scriptId = scriptAsset->Id();
+
+        project->Settings().startupScriptId = scriptId;
+        REQUIRE(project->SaveSettings().IsOk());
+    }
+
+    // Export (cooks the reachable closure - here the startup script) with the script builder.
+    ed::BuilderRegistry registry;
+    registry.Register(UniquePtr<ed::IAssetBuilder>(
+        DefaultAllocator().New<dscript::ScriptClassAssetBuilder>(), DefaultAllocator()));
+    ed::ExportStats stats;
+    {
+        UniquePtr<ed::EditorProject> project = ed::EditorProject::Open(projectDir);
+        REQUIRE(ed::ExportProject(*project, distDir, registry, /*rebuild=*/false, &stats).IsOk());
+        CHECK(stats.cooked >= 1u);   // the script cooked
+    }
+
+    // Consume the dist exactly like the player: manifest guid -> Bind<ScriptClass> from the pak.
+    draconic::vfs::NativeFileSystem distRoot(distDir);
+    proj::ProjectSettings manifest;
+    REQUIRE(proj::LoadProjectSettings(distRoot, manifest, proj::kDistManifestFile).IsOk());
+    CHECK(manifest.startupScriptId == scriptId);
+
+    draconic::vfs::PakFileSystem pak(PathJoin(distDir, proj::kDistContentPak).AsView());
+    REQUIRE(pak.IsValid());
+    draconic::content::ContentDatabase db(pak, BinarySerializerFactory(), proj::kCookedAssetExtension);
+    draconic::resource::ResourceManager resources(db);
+    dscript::ScriptClassFactory scriptFactory;
+    resources.AddFactory(&scriptFactory);
+
+    draconic::resource::Proxy<dscript::ScriptClass> proxy = resources.Bind<dscript::ScriptClass>(manifest.startupScriptId);
+    REQUIRE(static_cast<bool>(proxy));
+    CHECK(proxy->className == u8"Game");        // the cook harvested the class
+    CHECK(proxy->source.Size() > 0u);           // the source rode into the pak
+
+    NukeTree(projectDir);
+    NukeTree(distDir);
 }
 
 TEST_CASE("export: project -> dist pak -> player-style load-back (versioned formats)")
