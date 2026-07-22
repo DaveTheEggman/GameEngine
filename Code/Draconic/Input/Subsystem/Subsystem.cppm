@@ -70,6 +70,14 @@ export namespace draconic::input
             m_boundSceneKey = (provider != nullptr) ? boundSceneKey : nullptr;
         }
 
+        /// Clear the override IFF it currently points at `source` - so a source about to be destroyed
+        /// (a closing editor Game tab's viewport source) can't leave `m_override` dangling for the next
+        /// PumpInput/Update. Guarded so it never clears a DIFFERENT still-open tab's active source.
+        void ClearSourceProviderIf(const IInputSourceProvider* source) noexcept
+        {
+            if (m_override == source) { m_override = nullptr; m_boundSceneKey = nullptr; }
+        }
+
         /// The active source's scene binding (null = un-bound; see SetSourceProvider).
         [[nodiscard]] const void* BoundSceneKey() const noexcept { return m_boundSceneKey; }
 

@@ -965,3 +965,32 @@ TEST_CASE("input.subsystem: the per-surface scene binding rides the source overr
     input.SetUnboundScenePolicy(UnboundInputScenePolicy::ScreenTierOnly);
     CHECK(input.UnboundScenePolicy() == UnboundInputScenePolicy::ScreenTierOnly);
 }
+
+TEST_CASE("input.subsystem: ClearSourceProviderIf drops only its own dangling override")
+{
+    // A closing editor Game tab clears its viewport source before it is destroyed, so
+    // ActiveSource()/Update never dereference freed memory. The guard makes it a no-op
+    // when a DIFFERENT still-open tab is the active source.
+    InputSubsystem input(nullptr);
+    FakeDevices tabA;
+    FakeDevices tabB;
+    int keyA = 0;
+
+    input.SetSourceProvider(&tabA, &keyA);
+    CHECK(&input.ActiveSource() == static_cast<IInputSourceProvider*>(&tabA));
+
+    // Closing a NON-active tab must not disturb the active override.
+    input.ClearSourceProviderIf(&tabB);
+    CHECK(&input.ActiveSource() == static_cast<IInputSourceProvider*>(&tabA));
+    CHECK(input.BoundSceneKey() == &keyA);
+
+    // Closing the ACTIVE tab clears the override + its binding; ActiveSource falls back
+    // to the (always-valid) shell source, so the next pump can't dangle.
+    input.ClearSourceProviderIf(&tabA);
+    CHECK(&input.ActiveSource() != static_cast<IInputSourceProvider*>(&tabA));
+    CHECK(input.BoundSceneKey() == nullptr);
+
+    // Idempotent once cleared.
+    input.ClearSourceProviderIf(&tabA);
+    CHECK(&input.ActiveSource() != static_cast<IInputSourceProvider*>(&tabA));
+}

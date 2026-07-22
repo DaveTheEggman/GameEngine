@@ -689,6 +689,10 @@ export namespace draconic::editor
         void OnClose() override
         {
             Stop();
+            // Stop leaves this page's viewport source as the input override (by design, so a STOPPED-
+            // but-open tab keeps viewport input). On CLOSE the source is about to be freed, so clear it
+            // or ActiveSource() dangles and the next PumpInput crashes (guarded: only if it's ours).
+            if (m_input != nullptr) { m_input->ClearSourceProviderIf(&m_viewportSource); }
             // Destroy THIS tab's extra instance (unregisters its scene manager + tears down its run
             // host) so nothing dangling is ticked/rendered after the tab closes. No-op for the primary.
             if (m_app != nullptr && m_gameInstance != nullptr) { m_app->ReleaseInstance(m_gameInstance); }
