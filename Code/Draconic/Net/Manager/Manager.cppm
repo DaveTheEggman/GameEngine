@@ -82,8 +82,30 @@ private:
 // instances hold N independent endpoints (see the module header).
 class NetworkManager {
 public:
+    // Sim/test: BORROW an external socket (SimDatagramNetwork or a shared UDP socket). The session
+    // is live immediately; the manager does not own the socket, so it must outlive the manager.
     explicit NetworkManager(IDatagramSocket& socket, const ReliableConfig& config = {})
         : m_session(socket, config) {}
+
+    // Runtime: OWN an already-opened UDP socket (m_ownedSocket destructs after m_session, which
+    // borrows it - declaration order below guarantees it). Used by the HostServer/JoinServer
+    // factories; a bare game never constructs this directly.
+    explicit NetworkManager(core::UniquePtr<UdpSocket> ownedSocket, const ReliableConfig& config = {})
+        : m_ownedSocket(static_cast<core::UniquePtr<UdpSocket>&&>(ownedSocket))
+        , m_session(*m_ownedSocket, config) {}
+
+    // Runtime endpoint construction: open a real UDP socket and enter a role in one step. Returns
+    // null if the socket fails to open (the caller logs + runs offline). HostServer binds `port`
+    // (0 = OS-assigned; read BoundPort() after); JoinServer binds ephemeral and connects to
+    // host:port. These are how a running game goes online (the Net facade calls them - phase 3).
+    [[nodiscard]] static core::UniquePtr<NetworkManager> HostServer(u16 port, bool dedicated = false,
+                                                                    const ReliableConfig& config = {});
+    [[nodiscard]] static core::UniquePtr<NetworkManager> JoinServer(core::StringView host, u16 port,
+                                                                    const ReliableConfig& config = {});
+
+    // The port this endpoint's owned UDP socket is bound to (0 when borrowing a sim/shared socket).
+    // A HostServer opened with port 0 reports its OS-assigned port here so a client can reach it.
+    [[nodiscard]] u16 BoundPort() const noexcept { return m_ownedSocket ? m_ownedSocket->BoundPort() : 0; }
 
     // Roles (see NetSession).
     void StartServer(bool dedicated = false) { m_session.StartServer(dedicated); }
@@ -152,6 +174,10 @@ public:
     [[nodiscard]] RpcTable& Rpc() noexcept { return m_rpc; }
 
 private:
+    // Declared FIRST so it constructs before (and destructs after) m_session, which borrows it.
+    // Null when the manager borrows an external socket (the sim/test ctor); non-null when it owns
+    // a UDP socket (the HostServer/JoinServer factories).
+    core::UniquePtr<UdpSocket> m_ownedSocket;
     NetSession       m_session;
     RpcTable         m_rpc;
     NetScriptBinding m_binding;

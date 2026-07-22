@@ -40,6 +40,28 @@ namespace draconic::net
         (void)once;
     }
 
+    core::UniquePtr<NetworkManager> NetworkManager::HostServer(u16 port, bool dedicated,
+                                                               const ReliableConfig& config)
+    {
+        UniquePtr<UdpSocket> socket = MakeUnique<UdpSocket>(DefaultAllocator(), port);
+        if (!socket->IsOpen()) { return {}; }   // caller logs + runs offline
+        UniquePtr<NetworkManager> manager =
+            MakeUnique<NetworkManager>(DefaultAllocator(), static_cast<UniquePtr<UdpSocket>&&>(socket), config);
+        manager->StartServer(dedicated);
+        return manager;
+    }
+
+    core::UniquePtr<NetworkManager> NetworkManager::JoinServer(StringView host, u16 port,
+                                                              const ReliableConfig& config)
+    {
+        UniquePtr<UdpSocket> socket = MakeUnique<UdpSocket>(DefaultAllocator(), u16{ 0 });   // ephemeral
+        if (!socket->IsOpen()) { return {}; }
+        UniquePtr<NetworkManager> manager =
+            MakeUnique<NetworkManager>(DefaultAllocator(), static_cast<UniquePtr<UdpSocket>&&>(socket), config);
+        manager->ConnectTo(ResolveEndpoint(host, port));
+        return manager;
+    }
+
     NetworkRuntime StartNetworking(const NetworkStartup& config)
     {
         NetworkRuntime runtime;

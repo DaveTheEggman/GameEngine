@@ -43,6 +43,40 @@ TEST_CASE("net-manager: server + client connect, and an RPC routes through the m
     CHECK(from == server.Session().Peers()[0].id);
 }
 
+TEST_CASE("net-manager: HostServer/JoinServer own their UDP sockets and exchange an RPC over localhost")
+{
+    // The self-contained runtime path: each endpoint opens its OWN real UDP socket (no shared sim
+    // network, no externally-owned socket) - two NetworkManagers in one process talking over real
+    // loopback, exactly the in-editor server<->client scenario.
+    UniquePtr<net::NetworkManager> server = net::NetworkManager::HostServer(/*port=*/0, /*dedicated=*/true);
+    REQUIRE(static_cast<bool>(server));
+    CHECK(server->Session().IsServer());
+    CHECK(server->BoundPort() != 0u);   // OS-assigned, surfaced so a client can reach it
+
+    UniquePtr<net::NetworkManager> client = net::NetworkManager::JoinServer(u8"127.0.0.1", server->BoundPort());
+    REQUIRE(static_cast<bool>(client));
+    CHECK(client->Session().IsClient());
+    CHECK(client->BoundPort() != server->BoundPort());   // distinct ephemeral port
+
+    bool got = false; f64 arg = 0.0;
+    server->Rpc().On(u8"order", [&](net::PeerId, net::BitReader& r) {
+        const u64 bits = r.ReadU64(); MemCopy(&arg, &bits, sizeof(arg)); got = true;
+    });
+
+    for (int i = 0; i < 400 && server->Session().PeerCount() == 0u; ++i) {
+        server->Update(16.0f); client->Update(16.0f); SleepMilliseconds(1);
+    }
+    REQUIRE(server->Session().PeerCount() == 1u);
+
+    client->Rpc().Call(client->Session(), client->Session().ServerPeer(), u8"order", [](net::BitWriter& w) {
+        const f64 v = 7.25; u64 b = 0; MemCopy(&b, &v, sizeof(b)); w.WriteU64(b);
+    });
+
+    for (int i = 0; i < 400 && !got; ++i) { server->Update(16.0f); client->Update(16.0f); SleepMilliseconds(1); }
+    CHECK(got);
+    CHECK(arg == doctest::Approx(7.25));
+}
+
 TEST_CASE("net-manager: the Net facade type registers")
 {
     net::RegisterNetScriptFacade();   // idempotent; must not crash + registers the reflected type
