@@ -145,43 +145,17 @@ export namespace draconic::runtime
             // script's language - one gameplay context per run stays the locked rule.
             draconic::script::wren::RegisterWrenScriptBackend();
             draconic::script::angelscript::RegisterAngelScriptBackend();
-            // Networking (net.md §6): open the socket + enter the role from the preset config
-            // (no-op for single-player). Registers the Net facade as a side effect when active;
-            // the context configurator installs its per-context service below.
-            m_net = net::StartNetworking(m_netStartup);
-            if (m_netStartup.role != net::NetworkRole::None &&
-                (!m_net.socket || !m_net.socket->IsOpen()))
-            {
-                DRACONIC_LOG_ERROR(u8"App", u8"networking failed to open a socket (port {}) - running offline",
-                                   m_netStartup.listenPort);
-            }
+            // Networking (net.md §6): the Net facade type is registered here; each GameInstance owns
+            // its OWN endpoint and goes online at RUNTIME via the facade (Net.startServer/connect from
+            // the game's menu) - no app-owned socket. The primary instance carries the online hook (the
+            // prefab net-spawn resolver) + the optional startup preset below; extras get the hook in
+            // CreateInstance. The per-instance net binding is installed by GameInstance itself.
+            net::RegisterNetScriptFacade();
+            m_instance.SetEndpointOnlineHook(MakeEndpointOnlineHook());
+            ApplyNetworkStartup(m_instance);   // enter a preset server/client role at startup (None = offline)
 
             DefaultApplication* self = this;
 
-            // Client-side network spawn: a replicated prefab id -> a live prefab instance from the
-            // content DB (mirrors the script Scene.spawn resolver; replication then applies the
-            // transform + other fields on top). The server assigns ids; game rules set relevancy.
-            if (m_net.IsActive())
-            {
-                m_net.manager->Replication().SetSpawnHandler(
-                    core::Function<draconic::scene::EntityHandle(draconic::scene::Scene&,
-                        const core::Guid&, net::NetworkId)>{
-                        [self](draconic::scene::Scene& scene, const core::Guid& prefabId,
-                               net::NetworkId) -> draconic::scene::EntityHandle {
-                            if (self->m_contentDatabase == nullptr) { return draconic::scene::EntityHandle::Invalid(); }
-                            draconic::content::Instance* prefab = self->m_contentDatabase->GetInstance(prefabId);
-                            core::UniquePtr<core::IStream> payload = (prefab != nullptr)
-                                ? prefab->ReadData(u8"scene") : core::UniquePtr<core::IStream>{};
-                            if (!payload) { return draconic::scene::EntityHandle::Invalid(); }
-                            const draconic::scene::EntityHandle root =
-                                draconic::scene::SpawnPrefab(scene, *payload, prefabId);
-                            if (root.IsAssigned() && self->Resources() != nullptr)
-                            {
-                                draconic::scene::ResolveSceneResources(scene, *self->Resources());
-                            }
-                            return root;
-                        } });
-            }
             m_scripts->SetContextConfigurator(
                 core::Function<void(draconic::script::IScriptContext&)>{
                     [self](draconic::script::IScriptContext& context) {
@@ -191,7 +165,6 @@ export namespace draconic::runtime
                         {
                             self->m_audio->ExposeToScript(context, self->Resources());
                         }
-                        if (self->m_net.IsActive()) { self->m_net.manager->InstallScriptService(context); }
                     } });
             // Scene.spawn: resolve the prefab payload from the content DB the entry point
             // preset, spawn it, place the root at the requested world position, and bind
@@ -257,6 +230,7 @@ export namespace draconic::runtime
             gi->Scenes().SetAwareRegistry(&m_scenes->AwareRegistry());
             m_scenes->RegisterManager(&gi->Scenes());
             m_scripts->ConfigureRunHost(gi->RunHost());
+            gi->SetEndpointOnlineHook(MakeEndpointOnlineHook());   // its own endpoint, wired like the primary
             m_extraInstances.PushBack(Move(owned));
             return gi;
         }
@@ -282,18 +256,21 @@ export namespace draconic::runtime
         [[nodiscard]] draconic::physics::PhysicsSubsystem* Physics() const noexcept { return m_physics; }
         [[nodiscard]] draconic::audio::AudioSubsystem* Audio() const noexcept { return m_audio; }
 
-        /// Preset BEFORE Configure: enter a server/client role at startup (default = single-player,
-        /// no socket). The player's launch flow / editor Game tab fills this from project settings.
+        /// Preset BEFORE Configure: the PRIMARY instance enters a server/client role at startup
+        /// (default = single-player, no socket). The player's launch flow / editor Game tab fills this
+        /// from project settings. Extra instances go online at runtime via the Net facade instead.
         void SetNetworkStartup(const net::NetworkStartup& startup) { m_netStartup = startup; }
-        [[nodiscard]] net::NetworkManager* Net() const noexcept { return m_net.manager.Get(); }
+        /// The primary instance's live endpoint (null when offline / single-player).
+        [[nodiscard]] net::NetworkManager* Net() const noexcept { return m_instance.NetEndpoint(); }
 
-        // Drives the network on the FIXED lane (deterministic step): pump incoming datagrams,
-        // dispatch RPCs, flush reliable sends. Runs even with no game script (a dedicated server
-        // has none). A subclass overriding OnFixedUpdate calls the base to keep the network alive.
+        // Drives networking on the FIXED lane (deterministic step) for EVERY instance: pump datagrams,
+        // dispatch RPCs, push per-peer deltas / sample interpolation. Runs even with no game script (a
+        // dedicated server has none). A subclass overriding OnFixedUpdate calls the base to keep it alive.
         void OnFixedUpdate(IApplicationHost& host, core::f32 fixedDeltaTime) override
         {
             (void)host;
-            if (m_net.IsActive()) { m_net.manager->Update(fixedDeltaTime * 1000.0f); }   // seconds -> ms
+            const core::f32 fixedMs = fixedDeltaTime * 1000.0f;   // seconds -> ms
+            ForEachInstance([fixedMs](GameInstance& gi) { gi.DriveNetwork(fixedMs); });
         }
         /// Preset BEFORE Configure: audio engine tuning (listener count for split-screen,
         /// voice pool sizes). Defaults suit a single-listener game.
@@ -388,10 +365,8 @@ export namespace draconic::runtime
             // Destroy the run's scenes while the aware subsystems are still alive (they get
             // OnSceneDestroyed). The editor's GamePage already cleared them per Stop; this covers the
             // player + any leftover. Do it FIRST, before subsystem teardown, for EVERY instance.
-            ForEachInstance([](GameInstance& gi) { gi.Scenes().Clear(); gi.RunHost().Teardown(); });
+            ForEachInstance([](GameInstance& gi) { gi.StopNetworking(); gi.Scenes().Clear(); gi.RunHost().Teardown(); });
             if (m_physics != nullptr) { m_physics->UnregisterContactListener(&m_contactBridge); }
-            m_net.manager = nullptr;   // stop the session (drops peers) before closing the socket
-            m_net.socket = nullptr;
             m_ownedResources = nullptr;   // release products while the device is alive
             m_textureFactory = nullptr;
         }
@@ -403,9 +378,7 @@ export namespace draconic::runtime
         /// scene game services bind against). Set by the launch flow; null = context time.
         void SetPrimaryScene(draconic::scene::Scene* scene) noexcept
         {
-            m_instance.SetScene(scene);
-            // The primary gameplay scene is the replicated world (server captures / client applies).
-            if (m_net.IsActive()) { m_net.manager->SetReplicatedScene(scene); }
+            m_instance.SetScene(scene);   // also repoints the instance's replicated scene when online
         }
         [[nodiscard]] draconic::scene::Scene* PrimaryScene() const noexcept { return m_instance.GetScene(); }
 
@@ -526,7 +499,6 @@ export namespace draconic::runtime
         draconic::physics::PhysicsSubsystem* m_physics = nullptr;
         draconic::audio::AudioSubsystem* m_audio = nullptr;
         net::NetworkStartup m_netStartup;   // preset before Configure (default = single-player)
-        net::NetworkRuntime m_net;          // socket + subsystem; subsystem destructs first (declared after socket)
         draconic::script::ScriptSubsystem* m_scripts = nullptr;
         // Every running game: the primary (a stable member) + any extras (stable UniquePtr addresses,
         // required because the SceneSubsystem borrows each SceneManager's pointer).
@@ -534,6 +506,54 @@ export namespace draconic::runtime
         {
             fn(m_instance);
             for (core::UniquePtr<GameInstance>& gi : m_extraInstances) { fn(*gi); }
+        }
+
+        // The online hook wired onto every GameInstance: when its endpoint goes online, install the
+        // client-side prefab net-spawn resolver (a replicated prefab id -> a live prefab from the
+        // content DB; replication then applies the transform + fields on top). The server assigns ids;
+        // game rules set relevancy. Built fresh each go-online so a reconnect re-wires correctly.
+        [[nodiscard]] EndpointOnlineHook MakeEndpointOnlineHook()
+        {
+            DefaultApplication* self = this;
+            return EndpointOnlineHook{ [self](net::NetworkManager& endpoint) {
+                endpoint.Replication().SetSpawnHandler(
+                    core::Function<draconic::scene::EntityHandle(draconic::scene::Scene&,
+                        const core::Guid&, net::NetworkId)>{
+                        [self](draconic::scene::Scene& scene, const core::Guid& prefabId,
+                               net::NetworkId) -> draconic::scene::EntityHandle {
+                            if (self->m_contentDatabase == nullptr) { return draconic::scene::EntityHandle::Invalid(); }
+                            draconic::content::Instance* prefab = self->m_contentDatabase->GetInstance(prefabId);
+                            core::UniquePtr<core::IStream> payload = (prefab != nullptr)
+                                ? prefab->ReadData(u8"scene") : core::UniquePtr<core::IStream>{};
+                            if (!payload) { return draconic::scene::EntityHandle::Invalid(); }
+                            const draconic::scene::EntityHandle root =
+                                draconic::scene::SpawnPrefab(scene, *payload, prefabId);
+                            if (root.IsAssigned() && self->Resources() != nullptr)
+                            {
+                                draconic::scene::ResolveSceneResources(scene, *self->Resources());
+                            }
+                            return root;
+                        } });
+            } };
+        }
+
+        // Enter the preset startup role on the primary instance (None = single-player, no-op). The
+        // reliable-config tuning uses the endpoint defaults here; the preset path is the CLI/dedicated
+        // launch (scripts go online via the Net facade instead).
+        void ApplyNetworkStartup(GameInstance& instance)
+        {
+            switch (m_netStartup.role)
+            {
+                case net::NetworkRole::Server:
+                    (void)instance.StartServer(m_netStartup.listenPort, m_netStartup.dedicated);
+                    break;
+                case net::NetworkRole::Client:
+                    (void)instance.Connect(m_netStartup.serverHost.AsView(), m_netStartup.serverPort);
+                    break;
+                case net::NetworkRole::None:
+                default:
+                    break;
+            }
         }
 
         draconic::scene::SceneSubsystem* m_scenes = nullptr;

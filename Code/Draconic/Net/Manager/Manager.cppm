@@ -31,55 +31,32 @@ inline constexpr StringView kNetScriptService = u8"net.runtime";
 // Reserved channel for StateReplication deltas (alongside kControlChannel=255, kRpcChannel=254).
 inline constexpr u8 kReplicationChannel = 253;
 
-// What the Net facade reads/acts on: the live session + its RPC table. Installed as a script service
-// by NetworkManager::InstallScriptService.
-struct NetScriptBinding {
-    NetSession* session = nullptr;
-    RpcTable*   rpc = nullptr;
-};
+class NetworkManager;   // defined below; the facade + binding reference it
 
-// Script facade: read the session's state and fire RPCs. Static methods resolve the per-context
-// NetScriptBinding (same pattern as Time/Random). Bound on both backends via reflection.
-class Net final : public Object {
-    DRACONIC_OBJECT(Net, Object)
+// The owner of a running game's networking (a GameInstance): the Net facade drives roles (start
+// server / connect / disconnect) and reaches the live endpoint THROUGH it. Behind an interface so
+// draconic.net.manager never depends on the runtime layer - the dependency points DOWN (runtime
+// implements this). The controller outlives every endpoint it creates, so the binding never dangles.
+class INetworkController {
 public:
-    [[nodiscard]] static NetScriptBinding* Resolve() {
-        IScriptContext* context = CurrentScriptContext();
-        return context != nullptr ? static_cast<NetScriptBinding*>(context->GetService(kNetScriptService)) : nullptr;
-    }
-
-    [[nodiscard]] static bool isServer() { NetScriptBinding* b = Resolve(); return b != nullptr && b->session != nullptr && b->session->IsServer(); }
-    [[nodiscard]] static bool isClient() { NetScriptBinding* b = Resolve(); return b != nullptr && b->session != nullptr && b->session->IsClient(); }
-    [[nodiscard]] static i32 peerCount() { NetScriptBinding* b = Resolve(); return (b != nullptr && b->session != nullptr) ? static_cast<i32>(b->session->PeerCount()) : 0; }
-    [[nodiscard]] static f64 networkTick() { NetScriptBinding* b = Resolve(); return (b != nullptr && b->session != nullptr) ? static_cast<f64>(b->session->NetworkTick()) : 0.0; }
-    [[nodiscard]] static f64 networkTimeMs() { NetScriptBinding* b = Resolve(); return (b != nullptr && b->session != nullptr) ? b->session->NetworkTimeMs() : 0.0; }
-
-    // Fire an RPC (no args). Client -> the server; server -> broadcast to all clients.
-    static void rpc(String name) { CallRpc(name.AsView(), Function<void(BitWriter&)>{}); }
-    // Fire an RPC with one number / one text argument (the common turn-based-order shapes).
-    static void rpcNumber(String name, f64 value) {
-        CallRpc(name.AsView(), [value](BitWriter& w) { u64 bits = 0; MemCopy(&bits, &value, sizeof(bits)); w.WriteU64(bits); });
-    }
-    static void rpcText(String name, String text) {
-        String owned(text);
-        CallRpc(name.AsView(), [owned](BitWriter& w) {
-            w.WriteVarU32(static_cast<u32>(owned.Size()));
-            w.WriteBytes(Span<const byte>(reinterpret_cast<const byte*>(owned.Data()), owned.Size()));
-        });
-    }
-
-private:
-    static void CallRpc(StringView name, const Function<void(BitWriter&)>& writeArgs) {
-        NetScriptBinding* b = Resolve();
-        if (b == nullptr || b->session == nullptr || b->rpc == nullptr) { return; }
-        if (b->session->IsClient()) { b->rpc->Call(*b->session, b->session->ServerPeer(), name, writeArgs); }
-        else if (b->session->IsServer()) { b->rpc->CallAll(*b->session, name, writeArgs); }
-    }
+    virtual ~INetworkController() = default;
+    virtual bool StartServer(u16 port, bool dedicated) = 0;
+    virtual bool Connect(StringView host, u16 port) = 0;
+    virtual void StopNetworking() = 0;
+    // The live endpoint, or null when offline (before startServer/connect, after disconnect).
+    [[nodiscard]] virtual NetworkManager* NetEndpoint() const = 0;
 };
 
-// A networked endpoint: owns the session + RPC table, driven each fixed step, and the installer of
-// the Net facade's script service. Owned per running game (a GameInstance), NOT app-wide - N
-// instances hold N independent endpoints (see the module header).
+// Installed as a per-context script service; the Net facade resolves it. Holds the CONTROLLER (the
+// GameInstance) - stable for the instance's life. The endpoint it points at may come and go, but
+// the binding itself never dangles (approach A - the dangling-service bug made structurally
+// impossible rather than merely avoided). Install/clear with the free helpers below.
+struct NetScriptBinding {
+    INetworkController* controller = nullptr;
+};
+
+// A networked endpoint: owns the session + RPC table, driven each fixed step. Owned per running
+// game (a GameInstance), NOT app-wide - N instances hold N independent endpoints (module header).
 class NetworkManager {
 public:
     // Sim/test: BORROW an external socket (SimDatagramNetwork or a shared UDP socket). The session
@@ -163,13 +140,6 @@ public:
     // send interval hides one lost/late update. Default 100 ms.
     void SetInterpolationDelayMs(f64 ms) noexcept { m_interpDelayMs = ms; }
 
-    // Install the Net facade's service into a script context (call once, after the context exists).
-    void InstallScriptService(IScriptContext& context) {
-        m_binding.session = &m_session;
-        m_binding.rpc = &m_rpc;
-        context.SetService(kNetScriptService, &m_binding);
-    }
-
     [[nodiscard]] NetSession& Session() noexcept { return m_session; }
     [[nodiscard]] RpcTable& Rpc() noexcept { return m_rpc; }
 
@@ -180,11 +150,77 @@ private:
     core::UniquePtr<UdpSocket> m_ownedSocket;
     NetSession       m_session;
     RpcTable         m_rpc;
-    NetScriptBinding m_binding;
     StateReplication   m_replication;
     InterpolationBuffer m_interp;          // client-side smoothing of received states
     dscene::Scene*     m_scene = nullptr;  // the replicated world (null = no replication)
     f64                m_interpDelayMs = 100.0;
+};
+
+// Point / clear a script context's Net facade at a binding. The binding (a GameInstance member)
+// must outlive the context; the owner clears it before teardown. The facade reads binding.controller.
+inline void InstallNetScriptService(IScriptContext& context, NetScriptBinding& binding) {
+    context.SetService(kNetScriptService, &binding);
+}
+inline void ClearNetScriptService(IScriptContext& context) {
+    context.SetService(kNetScriptService, nullptr);
+}
+
+// Script facade: read the live session, drive roles (server/connect/disconnect), and fire RPCs.
+// Static methods resolve the per-context NetScriptBinding -> its controller -> the live endpoint
+// (null-safe when offline). Ports are natural i32 (the corrected numerics basis). Both backends
+// bind it via reflection. Defined after NetworkManager so the read paths see the full type.
+class Net final : public Object {
+    DRACONIC_OBJECT(Net, Object)
+public:
+    [[nodiscard]] static NetScriptBinding* Resolve() {
+        IScriptContext* context = CurrentScriptContext();
+        return context != nullptr ? static_cast<NetScriptBinding*>(context->GetService(kNetScriptService)) : nullptr;
+    }
+    // The live endpoint for the current script context, or null when offline.
+    [[nodiscard]] static NetworkManager* Endpoint() {
+        NetScriptBinding* b = Resolve();
+        return (b != nullptr && b->controller != nullptr) ? b->controller->NetEndpoint() : nullptr;
+    }
+
+    [[nodiscard]] static bool isServer() { NetworkManager* m = Endpoint(); return m != nullptr && m->Session().IsServer(); }
+    [[nodiscard]] static bool isClient() { NetworkManager* m = Endpoint(); return m != nullptr && m->Session().IsClient(); }
+    [[nodiscard]] static i32 peerCount() { NetworkManager* m = Endpoint(); return m != nullptr ? static_cast<i32>(m->Session().PeerCount()) : 0; }
+    [[nodiscard]] static f64 networkTick() { NetworkManager* m = Endpoint(); return m != nullptr ? static_cast<f64>(m->Session().NetworkTick()) : 0.0; }
+    [[nodiscard]] static f64 networkTimeMs() { NetworkManager* m = Endpoint(); return m != nullptr ? m->Session().NetworkTimeMs() : 0.0; }
+
+    // Runtime role control - a game's menu calls these. Port is a natural i32 (0..65535). Return
+    // false when offline-support is absent or the socket fails to open (the game shows an error).
+    static bool startServer(i32 port) { INetworkController* c = Controller(); return c != nullptr && c->StartServer(static_cast<u16>(port), /*dedicated=*/false); }
+    static bool startDedicatedServer(i32 port) { INetworkController* c = Controller(); return c != nullptr && c->StartServer(static_cast<u16>(port), /*dedicated=*/true); }
+    static bool connect(String host, i32 port) { INetworkController* c = Controller(); return c != nullptr && c->Connect(host.AsView(), static_cast<u16>(port)); }
+    static void disconnect() { INetworkController* c = Controller(); if (c != nullptr) { c->StopNetworking(); } }
+
+    // Fire an RPC (no args). Client -> the server; server -> broadcast to all clients.
+    static void rpc(String name) { CallRpc(name.AsView(), Function<void(BitWriter&)>{}); }
+    // Fire an RPC with one number / one text argument (the common turn-based-order shapes).
+    static void rpcNumber(String name, f64 value) {
+        CallRpc(name.AsView(), [value](BitWriter& w) { u64 bits = 0; MemCopy(&bits, &value, sizeof(bits)); w.WriteU64(bits); });
+    }
+    static void rpcText(String name, String text) {
+        String owned(text);
+        CallRpc(name.AsView(), [owned](BitWriter& w) {
+            w.WriteVarU32(static_cast<u32>(owned.Size()));
+            w.WriteBytes(Span<const byte>(reinterpret_cast<const byte*>(owned.Data()), owned.Size()));
+        });
+    }
+
+private:
+    [[nodiscard]] static INetworkController* Controller() {
+        NetScriptBinding* b = Resolve();
+        return (b != nullptr) ? b->controller : nullptr;
+    }
+    static void CallRpc(StringView name, const Function<void(BitWriter&)>& writeArgs) {
+        NetworkManager* m = Endpoint();
+        if (m == nullptr) { return; }
+        NetSession& session = m->Session();
+        if (session.IsClient()) { m->Rpc().Call(session, session.ServerPeer(), name, writeArgs); }
+        else if (session.IsServer()) { m->Rpc().CallAll(session, name, writeArgs); }
+    }
 };
 
 // ---- runtime startup: how a host (DefaultApplication) enters a networked role from config ----

@@ -7,10 +7,13 @@ import draconic.runtime.gameinstance;
 import draconic.scene;
 import draconic.script;
 import draconic.script.wren;
+import draconic.net;            // NetSession queries (IsServer/PeerCount)
+import draconic.net.manager;    // NetworkManager (the endpoint the instance owns)
 
 using namespace draconic::core;
 namespace rt = draconic::runtime;
 namespace dscene = draconic::scene;
+namespace dnet = draconic::net;
 
 TEST_CASE("game-instance: instance time scale defaults to 1 and is settable; fresh instance idle")
 {
@@ -29,6 +32,36 @@ TEST_CASE("game-instance: instance time scale defaults to 1 and is settable; fre
     REQUIRE(level != nullptr);
     CHECK(gi.Scenes().SceneCount() == 1u);
     CHECK(gi.Scenes().CurrentScene() == level);
+}
+
+TEST_CASE("game-instance: each instance owns an independent networked endpoint (server + client over UDP)")
+{
+    // The per-instance networking model: a GameInstance IS the INetworkController, opening its OWN
+    // real UDP endpoint on StartServer/Connect. Two instances in one process = two isolated endpoints.
+    rt::GameInstance server;
+    rt::GameInstance client;
+    CHECK(server.NetEndpoint() == nullptr);   // offline until a role is entered
+
+    REQUIRE(server.StartServer(/*port=*/0, /*dedicated=*/true));
+    REQUIRE(server.NetEndpoint() != nullptr);
+    CHECK(server.NetEndpoint()->Session().IsServer());
+    const u16 port = server.NetEndpoint()->BoundPort();
+    CHECK(port != 0u);
+
+    REQUIRE(client.Connect(u8"127.0.0.1", port));
+    REQUIRE(client.NetEndpoint() != nullptr);
+    CHECK(client.NetEndpoint()->Session().IsClient());
+    CHECK(server.NetEndpoint() != client.NetEndpoint());   // independent endpoints
+
+    for (int i = 0; i < 400 && server.NetEndpoint()->Session().PeerCount() == 0u; ++i)
+    {
+        server.DriveNetwork(16.0f); client.DriveNetwork(16.0f); SleepMilliseconds(1);
+    }
+    CHECK(server.NetEndpoint()->Session().PeerCount() == 1u);
+
+    client.StopNetworking();                       // disconnect drops the endpoint
+    CHECK(client.NetEndpoint() == nullptr);
+    CHECK(server.NetEndpoint() != nullptr);        // the server is unaffected (isolation)
 }
 
 TEST_CASE("game-instance: fallback path starts, ticks, and stops a Game script")

@@ -11,6 +11,7 @@ import draconic.core;
 import draconic.scene;
 import draconic.script;
 import draconic.script.subsystem;
+import draconic.net.manager;        // NetworkManager factories + InstallNetScriptService
 
 using namespace draconic::core;
 
@@ -30,6 +31,7 @@ bool GameInstance::StartScript(core::StringView source, core::StringView name)
     }
     m_scriptContext = core::RefPtr<dscript::IScriptContext>(context);
     m_runHost.SetGameScriptHold(true);
+    InstallNetBinding();   // the game script (its menu) can now call Net.startServer()/connect()
 
     const bool loaded = m_scriptContext->Load(source, name).IsOk();
     m_runHost.NoteExternalLoad();   // the game script loaded its own module (behaviors reload target)
@@ -61,8 +63,46 @@ void GameInstance::StopScript()
     m_scriptContext = nullptr;   // drop the game script's ref; the run host owns the context
     m_runHost.SetGameScriptHold(false);
     m_runHost.SetExternalErrorSink(nullptr);
+    StopNetworking();            // networking belongs to the run - the endpoint drops with it
     // The run host tears down when nothing else pins it - driven by the scene-stop observer
     // (ScriptSubsystem::MaybeTeardownRunHost). A bare instance (no scenes) keeps it until destruction.
+}
+
+void GameInstance::InstallNetBinding()
+{
+    m_netBinding.controller = this;   // stable; the endpoint m_net points at may come and go
+    if (m_scriptContext.Get() != nullptr) { dnet::InstallNetScriptService(*m_scriptContext, m_netBinding); }
+}
+
+bool GameInstance::StartServer(u16 port, bool dedicated)
+{
+    m_net = dnet::NetworkManager::HostServer(port, dedicated);
+    if (!m_net) { DRACONIC_LOG_ERROR(u8"App", u8"failed to open a server socket on port {}", port); return false; }
+    m_net->SetReplicatedScene(m_scene);
+    if (m_onEndpointOnline) { m_onEndpointOnline(*m_net); }   // app wires per-endpoint setup (spawn resolver)
+    DRACONIC_LOG_INFO(u8"App", u8"server listening on port {}", m_net->BoundPort());
+    return true;
+}
+
+bool GameInstance::Connect(core::StringView host, u16 port)
+{
+    m_net = dnet::NetworkManager::JoinServer(host, port);
+    if (!m_net) { DRACONIC_LOG_ERROR(u8"App", u8"failed to open a client socket"); return false; }
+    m_net->SetReplicatedScene(m_scene);
+    if (m_onEndpointOnline) { m_onEndpointOnline(*m_net); }
+    DRACONIC_LOG_INFO(u8"App", u8"connecting to {}:{}", host, port);
+    return true;
+}
+
+void GameInstance::StopNetworking()
+{
+    if (m_net) { DRACONIC_LOG_INFO(u8"App", u8"networking stopped"); }
+    m_net = nullptr;   // closes the session (drops peers) + the owned socket
+}
+
+void GameInstance::DriveNetwork(f32 fixedDeltaMs)
+{
+    if (m_net) { m_net->Update(fixedDeltaMs); }
 }
 
 dscene::Scene* GameInstance::CreateScene(core::StringView name)

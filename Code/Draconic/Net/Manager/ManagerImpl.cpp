@@ -24,6 +24,10 @@ namespace draconic::net
         builder.Method<&Net::peerCount>("peerCount");
         builder.Method<&Net::networkTick>("networkTick");
         builder.Method<&Net::networkTimeMs>("networkTimeMs");
+        builder.Method<&Net::startServer>("startServer");
+        builder.Method<&Net::startDedicatedServer>("startDedicatedServer");
+        builder.Method<&Net::connect>("connect");
+        builder.Method<&Net::disconnect>("disconnect");
         builder.Method<&Net::rpc>("rpc");
         builder.Method<&Net::rpcNumber>("rpcNumber");
         builder.Method<&Net::rpcText>("rpcText");

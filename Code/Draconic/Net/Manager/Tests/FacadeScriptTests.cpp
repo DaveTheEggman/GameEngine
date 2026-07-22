@@ -20,12 +20,23 @@ namespace net = draconic::net;
 
 namespace
 {
-    // Build a server manager over the sim network and hand back its socket owner so it stays alive.
-    struct ServerFixture
+    // A server endpoint over the sim network + a controller the Net facade resolves through. The
+    // endpoint is already live here, so the runtime role hooks are no-ops (they are exercised
+    // per-instance in the runtime tests); NetEndpoint() hands the facade the live server.
+    struct ServerFixture final : net::INetworkController
     {
         net::SimDatagramNetwork network{ net::SimConditions{} };
         net::NetworkManager server{ *network.CreateSocket() };
-        ServerFixture() { server.StartServer(/*dedicated=*/true); }
+        net::NetScriptBinding binding;
+        ServerFixture() { server.StartServer(/*dedicated=*/true); binding.controller = this; }
+
+        bool StartServer(u16, bool) override { return true; }
+        bool Connect(StringView, u16) override { return false; }
+        void StopNetworking() override {}
+        [[nodiscard]] net::NetworkManager* NetEndpoint() const override
+        {
+            return const_cast<net::NetworkManager*>(&server);
+        }
     };
 }
 
@@ -39,7 +50,7 @@ TEST_CASE("net-facade: Wren reads the live session through the Net facade")
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
     ServerFixture fx;
-    fx.server.InstallScriptService(*ctx);
+    net::InstallNetScriptService(*ctx, fx.binding);
 
     // Top-level Wren; the reflected static facade is imported by the (extensible) behavior prelude,
     // but a bare "main" module reaches the class directly since RegisterReflectedTypes emitted it.
@@ -65,7 +76,7 @@ TEST_CASE("net-facade: AngelScript reads the live session through the Net facade
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
     ServerFixture fx;
-    fx.server.InstallScriptService(*ctx);
+    net::InstallNetScriptService(*ctx, fx.binding);
 
     // AngelScript: statics live in the type's namespace (Net::isServer()); logic in main().
     const Status status = ctx->Load(
