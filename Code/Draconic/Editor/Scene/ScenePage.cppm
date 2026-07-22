@@ -26,6 +26,7 @@ import draconic.shell;
 import draconic.runtime;
 import draconic.runtime.client;
 import draconic.runtime.defaultapp;
+import draconic.runtime.gameinstance;   // GameInstance (the Game tab's run; multi-instance factory)
 import draconic.scene;
 import draconic.scene.subsystem;
 import draconic.scene.resource;
@@ -1378,10 +1379,13 @@ export namespace draconic::editor
         rt::IApplicationHost* appHost = &host;
 
         // Play-in-editor: the singleton Game tab (player behavior in-process).
-        context.GamePageFactory = [editorContext, appHost, appUiHost = &uiHost, embeddedApp]()
+        context.GamePageFactory = [editorContext, appHost, appUiHost = &uiHost, embeddedApp](bool newInstance)
             -> UniquePtr<EditorPage> {
+            // Reuse the primary instance for the normal Play; spin up an extra for "Play New Instance".
+            grt::GameInstance* instance = newInstance ? embeddedApp->CreateInstance()
+                                                      : &embeddedApp->Instance();
             return UniquePtr<EditorPage>(
-                DefaultAllocator().New<GameEditorPage>(*editorContext, *appHost, *appUiHost, embeddedApp),
+                DefaultAllocator().New<GameEditorPage>(*editorContext, *appHost, *appUiHost, embeddedApp, instance),
                 DefaultAllocator());
         };
 

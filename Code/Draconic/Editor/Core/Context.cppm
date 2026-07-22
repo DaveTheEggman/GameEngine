@@ -262,7 +262,9 @@ export namespace draconic::editor
 
         /// Play-in-editor seam: creates the singleton Game page (the player behavior in a
         /// tab). Registered by the scene editor plugin; unset = the Game menu item notifies.
-        Function<UniquePtr<EditorPage>()> GamePageFactory;
+        // Creates a Game tab. `newInstance` = false reuses the app's primary GameInstance (the normal
+        // Play); true spins up an ADDITIONAL instance (multi-instance PIE, game-instance.md §11 step 5).
+        Function<UniquePtr<EditorPage>(bool newInstance)> GamePageFactory;
         /// Stops the Game tab's live run, if any (the embedded app's RequestExit lands
         /// here, deferred to after the page-update loop). Set by the Game page.
         Function<void()> StopGameRun;

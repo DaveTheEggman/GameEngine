@@ -404,9 +404,12 @@ export namespace draconic::editor::app
         /// Open (or focus) the singleton Game tab (play-in-editor: the player behavior
         /// in-process; the page's own toolbar runs Play/Stop). Created through the scene
         /// editor plugin's factory seam - editor.app never links scene modules.
-        void OpenGamePage()
+        // `newInstance` = false: the normal Play (focus the existing tab or open one on the primary
+        // instance). true: "Play New Instance" - an ADDITIONAL Game tab driving its own GameInstance
+        // (multi-instance PIE, game-instance.md §11 step 5).
+        void OpenGamePage(bool newInstance = false)
         {
-            if (m_gamePage != nullptr)
+            if (!newInstance && m_gamePage != nullptr)
             {
                 for (const PagePanel& entry : m_pagePanels)
                 {
@@ -423,15 +426,21 @@ export namespace draconic::editor::app
                 m_context.Notify(ed::NoticeKind::Info, u8"No game page registered in this build.");
                 return;
             }
-            UniquePtr<draconic::editor::EditorPage> page = m_context.GamePageFactory();
+            UniquePtr<draconic::editor::EditorPage> page = m_context.GamePageFactory(newInstance);
             if (!page) { return; }
             // All pages in this app are UIEditorPages (:ui_page contract), the Game page too.
             UIEditorPage* uiPage = static_cast<UIEditorPage*>(m_context.AdoptPage(Move(page)));
             if (uiPage == nullptr) { return; }
-            m_gamePage = uiPage;
+            if (!newInstance) { m_gamePage = uiPage; }   // only the primary tab is the focus target
 
             tk::DockablePanel* panel = m_shell.AddPagePanel(uiPage->Title(), uiPage->ContentView());
-            panel->SetPersistenceId(u8"game-page");
+            // Unique persistence id per tab (extras get a counter so a docking restore can't collide).
+            if (newInstance)
+            {
+                const String id = Format(u8"game-page-{}", ++m_gamePageCounter);
+                panel->SetPersistenceId(id.AsView());
+            }
+            else { panel->SetPersistenceId(u8"game-page"); }
             panel->OnCloseRequested.Add([this, uiPage](tk::DockablePanel*) {
                 m_uiHost->Context().MutationQueueRef().QueueAction(
                     Function<void()>{ [this, uiPage]() { ClosePage(uiPage); } });
@@ -559,6 +568,9 @@ export namespace draconic::editor::app
                 m_runtimeContext.BeginFrame(dt);
                 m_runtimeContext.Update(scaled);
                 m_runtimeContext.PostUpdate(scaled);
+                // Tick EVERY game instance's script ONCE per frame (game-instance.md §11 step 5) -
+                // moved here from the Game page so N game tabs don't tick every instance N times.
+                m_embeddedApp->OnUpdate(*m_embeddedHost, dt);
             }
 
             if (m_config.autoExitSeconds > 0.0f || m_config.autoRebuildSeconds > 0.0f)
@@ -1894,7 +1906,8 @@ export namespace draconic::editor::app
 
             if (draconic::ui::ContextMenu* game = bar->AddMenu(u8"Game"))
             {
-                game->AddItem(u8"Play", [this]() { OpenGamePage(); });
+                game->AddItem(u8"Play", [this]() { OpenGamePage(false); });
+                game->AddItem(u8"Play New Instance", [this]() { OpenGamePage(true); });
             }
             if (draconic::ui::ContextMenu* view = bar->AddMenu(u8"View"))
             {
@@ -1944,7 +1957,8 @@ export namespace draconic::editor::app
         ed::ExportPresetSet m_exportPresets;               // main-thread-loaded presets for the running job
         Array<Guid> m_exportReachableRoots;                // main-thread pre-scan result (reachable closure roots)
         bool m_exportReachableValid = false;               // true when the pre-scan ran (else no pruning this run)
-        UIEditorPage* m_gamePage = nullptr;                // borrowed singleton (context owns)                       // export waiting for its pre-cook to finish
+        UIEditorPage* m_gamePage = nullptr;                // the PRIMARY game tab (focus target); extras untracked
+        u32 m_gamePageCounter = 0;                         // unique persistence id for "Play New Instance" tabs
         f32 m_elapsed = 0.0f;   // autoExit/autoRebuild accumulator
         f32 m_testOpenElapsed = 0.0f;   // RAPTOR_TEST_OPEN hook
         u32 m_testOpenStage = 0;

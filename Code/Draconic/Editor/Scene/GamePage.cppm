@@ -42,6 +42,7 @@ import draconic.audio;
 import draconic.audio.resource;
 import draconic.audio.subsystem;
 import draconic.runtime.defaultapp;
+import draconic.runtime.gameinstance;   // GameInstance - this tab drives its OWN run (multi-instance PIE)
 import draconic.editor.core;
 import draconic.editor.app;
 
@@ -355,8 +356,10 @@ export namespace draconic::editor
     {
     public:
         GameEditorPage(EditorContext& context, grt::IApplicationHost& host,
-                       guirt::UIHost& uiHost, grt::DefaultApplication* embeddedApp)
-            : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_app(embeddedApp)
+                       guirt::UIHost& uiHost, grt::DefaultApplication* embeddedApp,
+                       grt::GameInstance* instance)
+            : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_app(embeddedApp),
+              m_gameInstance(instance)
         {
             m_scenes = host.Ctx().GetSubsystem<gscene::SceneSubsystem>();
             m_render = host.Ctx().GetSubsystem<grender::RenderSubsystem>();
@@ -443,7 +446,7 @@ export namespace draconic::editor
         // host. Falls back to the SceneSubsystem's default manager if there's no embedded app.
         [[nodiscard]] gscene::SceneManager& SceneGroup() noexcept
         {
-            return (m_app != nullptr) ? m_app->Instance().Scenes() : m_scenes->DefaultManager();
+            return (m_gameInstance != nullptr) ? m_gameInstance->Scenes() : m_scenes->DefaultManager();
         }
 
         /// Fresh player run: the project's default scene from the DBs, simulation on.
@@ -474,9 +477,9 @@ export namespace draconic::editor
             // Nudge a background incremental cook so just-edited content is fresh; the
             // run starts immediately and late products heal via the hot-reload path.
             if (m_context->OnCookRequested) { m_context->OnCookRequested(false); }
-            // Via the instance (not just SceneGroup) so behaviors bind to the instance's run host.
-            m_scene = (m_app != nullptr) ? m_app->Instance().CreateScene(instance->Name())
-                                         : m_scenes->DefaultManager().CreateScene(instance->Name());
+            // Via THIS tab's instance (not just SceneGroup) so behaviors bind to its run host.
+            m_scene = (m_gameInstance != nullptr) ? m_gameInstance->CreateScene(instance->Name())
+                                                  : m_scenes->DefaultManager().CreateScene(instance->Name());
             if (m_scene == nullptr || !gscene::LoadScene(*instance, *m_scene).IsOk())
             {
                 m_context->Notify(NoticeKind::Error, u8"Game: default scene failed to load.");
@@ -515,15 +518,14 @@ export namespace draconic::editor
             m_sceneTitle = String(instance->Name());
             BindInput();
             BindBusLayout(*m_host);
-            // The play bracket + game script are the EMBEDDED APP's (same lifecycle as
-            // the standalone player); the page only resolves the script SOURCE (editor
-            // project layout) and surfaces notices.
-            if (m_app != nullptr)
+            // The play bracket + game script run on THIS tab's GameInstance (game-instance.md §11):
+            // its own scene pairing, run host, error sink - so multiple tabs are isolated. The page
+            // only resolves the script SOURCE (editor project layout) and surfaces notices.
+            if (m_gameInstance != nullptr)
             {
-                m_app->SetPrimaryScene(m_scene);
-                m_app->OnLaunch(*m_host);
+                m_gameInstance->SetScene(m_scene);
                 m_scriptErrors.context = m_context;
-                m_app->SetGameScriptErrorHandler(&m_scriptErrors);
+                m_gameInstance->SetScriptErrorHandler(&m_scriptErrors);
                 EnableDebugging();
                 StartGameScriptFromProject();
             }
@@ -545,19 +547,18 @@ export namespace draconic::editor
             }
             // Drop the debugger wiring BEFORE the run tears the debugger down (the panel
             // holds a borrowed pointer; the run host owns + destroys it in OnExit).
-            if (m_app != nullptr && m_app->Scripts() != nullptr)
+            if (m_gameInstance != nullptr)
             {
-                m_app->Scripts()->RunHost().SetExternalDebugListener(nullptr);
+                m_gameInstance->RunHost().SetExternalDebugListener(nullptr);
             }
             m_debuggerPanel.SetIdle();
             m_simPausedByDebugger = false;
             // Script exits first (it may still observe the world), then the scene.
-            if (m_app != nullptr)
+            if (m_gameInstance != nullptr)
             {
-                m_app->StopGameScript();
-                m_app->SetGameScriptErrorHandler(nullptr);
-                m_app->SetPrimaryScene(nullptr);
-                m_app->OnExit(*m_host);
+                m_gameInstance->StopScript();
+                m_gameInstance->SetScriptErrorHandler(nullptr);
+                m_gameInstance->SetScene(nullptr);
             }
             if (m_scene != nullptr)
             {
@@ -616,9 +617,10 @@ export namespace draconic::editor
             m_viewport->SetHostedTextInputWanted(
                 m_app != nullptr && m_app->UI() != nullptr &&
                 m_app->UI()->Context().WantsTextInput());
-            // The play bracket: the embedded app updates ONLY while a run is live (its
-            // OnUpdate ticks the game script with the primary scene's scaled time).
-            if (m_running && m_app != nullptr) { m_app->OnUpdate(host, dt); }
+            // The embedded app's OnUpdate (ticking EVERY instance's game script) is driven ONCE by
+            // the editor app now (game-instance.md §11 step 5) - not per game tab, or N tabs would
+            // tick every instance N times. This tab only drains its own debugger state.
+            (void)host; (void)dt;
             DrainDebuggerState();
         }
 
@@ -778,7 +780,7 @@ export namespace draconic::editor
             Array<byte> bytes;
             bytes.Resize(static_cast<usize>(stream->Size()));
             if (stream->Read(bytes.Data(), bytes.Size()) != bytes.Size()) { return; }
-            if (!m_app->StartGameScript(
+            if (m_gameInstance == nullptr || !m_gameInstance->StartScript(
                     StringView(reinterpret_cast<const utf8char*>(bytes.Data()), bytes.Size()),
                     scriptPath))
             {
@@ -792,12 +794,11 @@ export namespace draconic::editor
         // created when the script context is (first behavior / game script).
         void EnableDebugging()
         {
-            if (m_app == nullptr || m_app->Scripts() == nullptr) { return; }
-            dscript::ScriptSubsystem* scripts = m_app->Scripts();
-            scripts->RunHost().SetExternalDebugListener(&m_debugListener);
+            if (m_gameInstance == nullptr) { return; }
+            m_gameInstance->RunHost().SetExternalDebugListener(&m_debugListener);
             EditorContext* context = m_context;
             GameEditorPage* self = this;
-            scripts->RunHost().RequestDebugger(
+            m_gameInstance->RunHost().RequestDebugger(
                 Function<void(dscript::IScriptDebugger&)>{
                     [context, self](dscript::IScriptDebugger& debugger) {
                         for (const EditorContext::ScriptBreakpoint& breakpoint : context->Breakpoints())
@@ -887,6 +888,7 @@ export namespace draconic::editor
         grt::IApplicationHost* m_host = nullptr;
         guirt::UIHost* m_uiHost = nullptr;
         grt::DefaultApplication* m_app = nullptr;   // the embedded game application (v3)
+        grt::GameInstance* m_gameInstance = nullptr;   // THIS tab's running game (its own run host + scenes)
         draconic::graphics::RenderWindow* m_hostWindow = nullptr;   // borrowed; tracks dock/float moves
         gscene::SceneSubsystem* m_scenes = nullptr;
         grender::RenderSubsystem* m_render = nullptr;
