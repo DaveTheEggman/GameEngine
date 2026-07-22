@@ -166,6 +166,7 @@ add_subdirectory(Code/Draconic/Script)
 add_subdirectory(Code/Draconic/Script/Resource)   # cooked script classes + factory (source + harvested metadata)
 add_subdirectory(Code/Draconic/Script/Facades)    # curated behavior facades (Entity/Log/Time/Random) - shared by cook VM + runtime
 add_subdirectory(Code/Draconic/Net/Manager)       # per-instance networked endpoint (NetworkManager) + Net script facade (over Net + Script)
+add_subdirectory(Code/Draconic/Net/Subsystem)     # once-per-context NetworkSubsystem (injects NetworkComponentManager into scenes)
 add_subdirectory(Code/Draconic/Script/Editor)     # script class asset/builder/importer (tooling; neutral - resolves a per-language cook)
 add_subdirectory(Code/Draconic/Script/Wren/Editor)        # Wren cook service (compile-check + `static properties` probe + starter)
 add_subdirectory(Code/Draconic/Script/AngelScript/Editor) # AngelScript cook service (compile-check + handler scan + starter; property harvest deferred)

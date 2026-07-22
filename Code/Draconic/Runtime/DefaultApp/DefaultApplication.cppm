@@ -59,6 +59,7 @@ import draconic.audio.subsystem;    // AudioSubsystem (voices/buses/one-shots + 
 import draconic.net;                // UdpSocket / DatagramEndpoint (the transport)
 import draconic.net.replication;    // NetworkId / StateReplication (the spawn-handler seam)
 import draconic.net.manager;        // NetworkManager + NetworkStartup/StartNetworking + the Net facade
+import draconic.net.subsystem;       // NetworkSubsystem (injects the NetworkComponentManager into scenes)
 import draconic.profiler;           // the CPU scope profiler (P-key dump)
 
 namespace rhi = draconic::rhi;
@@ -123,6 +124,9 @@ export namespace draconic::runtime
                 host.Ctx().AddSubsystem<draconic::particles::ParticleSubsystem>();
             }
             m_physics = host.Ctx().AddSubsystem<draconic::physics::PhysicsSubsystem>();
+            // Networking scene integration: injects the NetworkComponentManager into every scene so
+            // authored NetworkComponents work (the per-instance endpoint replicates over it).
+            host.Ctx().AddSubsystem<draconic::net::NetworkSubsystem>();
             m_audio = host.Ctx().AddSubsystem<draconic::audio::AudioSubsystem>(m_audioEngineSettings);
             m_input = host.Ctx().AddSubsystem<draconic::input::InputSubsystem>(
                 host.Shell() != nullptr ? host.Shell()->Input() : nullptr);
