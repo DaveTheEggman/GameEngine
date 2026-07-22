@@ -23,7 +23,8 @@ using namespace draconic::core;
 export namespace draconic::input
 {
     /// The service key ExposeToScript binds and the scripting facade resolves.
-    inline constexpr StringView kInputRuntimeService = u8"input.runtime";
+    // kInputRuntimeService now lives in draconic.input (:runtime) so per-instance owners (GameInstance)
+    // can install their own runtime under it without importing this subsystem.
 
     /// How game-UI input routing treats the active source when it carries NO scene
     /// binding (see SetSourceProvider). The PLAYER's shell source owns the whole
@@ -46,6 +47,10 @@ export namespace draconic::input
             : m_shellSource(input) {}
 
         [[nodiscard]] ActionRuntime& Runtime() noexcept { return m_runtime; }
+
+        /// The raw shell devices as an input source - a host points a GameInstance's per-instance input
+        /// runtime here when there is no gated viewport (the standalone player reads the window directly).
+        [[nodiscard]] IInputSourceProvider& ShellSource() noexcept { return m_shellSource; }
 
         /// Installs (copies) a map - from the cooked resource, a test, or hand-authored.
         void SetMap(const InputMap& map) { m_runtime.SetMap(map); }

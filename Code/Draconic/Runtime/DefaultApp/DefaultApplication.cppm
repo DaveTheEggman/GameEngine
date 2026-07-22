@@ -79,8 +79,13 @@ export namespace draconic::runtime
         void OnUpdate(IApplicationHost& host, core::f32 deltaTime) override
         {
             // Drive + tick EVERY instance (primary + any extras - multi-instance PIE / headless server).
+            // Input FIRST (so the game script sees this frame's keys), then the run host clock, then tick.
             const core::f32 contextScale = host.Ctx().TimeScale();
-            ForEachInstance([&](GameInstance& gi) { gi.DriveRunHost(deltaTime); gi.TickScript(deltaTime, contextScale); });
+            ForEachInstance([&](GameInstance& gi) {
+                gi.DriveInput(deltaTime, contextScale);
+                gi.DriveRunHost(deltaTime);
+                gi.TickScript(deltaTime, contextScale);
+            });
             IShell* plat = host.Shell();
             IInputManager* input = (plat != nullptr) ? plat->Input() : nullptr;
             IKeyboard* kb = (input != nullptr) ? input->Keyboard() : nullptr;
@@ -130,6 +135,9 @@ export namespace draconic::runtime
             m_audio = host.Ctx().AddSubsystem<draconic::audio::AudioSubsystem>(m_audioEngineSettings);
             m_input = host.Ctx().AddSubsystem<draconic::input::InputSubsystem>(
                 host.Shell() != nullptr ? host.Shell()->Input() : nullptr);
+            // The primary instance's per-instance input reads the shell devices by default (the player
+            // path); the editor Game tab overrides this to its gated viewport source per tab.
+            m_instance.SetInputSource(&m_input->ShellSource());
             m_ui = host.Ctx().AddSubsystem<draconic::ui::UISubsystem>();
             if (!m_uiFontPath.IsEmpty()) { m_ui->SetFontPath(m_uiFontPath.AsView()); }
 
@@ -235,6 +243,7 @@ export namespace draconic::runtime
             m_scenes->RegisterManager(&gi->Scenes());
             m_scripts->ConfigureRunHost(gi->RunHost());
             gi->SetEndpointOnlineHook(MakeEndpointOnlineHook());   // its own endpoint, wired like the primary
+            if (m_input != nullptr) { gi->SetInputSource(&m_input->ShellSource()); }   // editor tabs override to their viewport
             m_extraInstances.PushBack(Move(owned));
             return gi;
         }

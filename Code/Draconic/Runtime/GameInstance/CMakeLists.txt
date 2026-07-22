@@ -7,7 +7,7 @@ add_library(Draconic::RuntimeGameInstance ALIAS DraconicRuntimeGameInstance)
 
 target_link_libraries(DraconicRuntimeGameInstance PUBLIC
     Draconic::Core Draconic::Scene Draconic::Script Draconic::ScriptSubsystem
-    Draconic::NetManager Draconic::Policy)
+    Draconic::NetManager Draconic::Input Draconic::Policy)
 
 target_sources(DraconicRuntimeGameInstance
     PUBLIC

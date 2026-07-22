@@ -12,6 +12,7 @@ import draconic.scene;
 import draconic.script;
 import draconic.script.subsystem;
 import draconic.net.manager;        // NetworkManager factories + InstallNetScriptService
+import draconic.input;              // kInputRuntimeService (install the per-instance runtime)
 
 using namespace draconic::core;
 
@@ -32,6 +33,9 @@ bool GameInstance::StartScript(core::StringView source, core::StringView name)
     m_scriptContext = core::RefPtr<dscript::IScriptContext>(context);
     m_runHost.SetGameScriptHold(true);
     InstallNetBinding();   // the game script (its menu) can now call Net.startServer()/connect()
+    // Install THIS instance's input runtime as the context's Input service (overriding the shared
+    // editor runtime the run-host configurator installed), so the game reads only ITS own source.
+    context->SetService(dinput::kInputRuntimeService, &m_inputRuntime);
 
     const bool loaded = m_scriptContext->Load(source, name).IsOk();
     m_runHost.NoteExternalLoad();   // the game script loaded its own module (behaviors reload target)
@@ -103,6 +107,13 @@ void GameInstance::StopNetworking()
 void GameInstance::DriveNetwork(f32 fixedDeltaMs)
 {
     if (m_net) { m_net->Update(fixedDeltaMs); }
+}
+
+void GameInstance::DriveInput(f32 deltaTime, f32 contextTimeScale)
+{
+    if (m_inputSource == nullptr) { return; }
+    m_inputRuntime.SetTimeScale(contextTimeScale);
+    m_inputRuntime.Update(*m_inputSource, deltaTime);
 }
 
 dscene::Scene* GameInstance::CreateScene(core::StringView name)

@@ -27,6 +27,12 @@ export namespace draconic::input
 {
     namespace dshell = draconic::shell;
 
+    // The per-context script service key: the Input facade resolves an ActionRuntime under this key
+    // (each context can read a DIFFERENT runtime - the shared editor runtime, or a per-GameInstance
+    // one). Lives here (not the subsystem) so a GameInstance can install its own runtime without
+    // pulling the whole InputSubsystem in.
+    inline constexpr core::StringView kInputRuntimeService = u8"input.runtime";
+
     // The device seam. All accessors may return null / zero - devices come and go (hotplug,
     // unfocused editor viewport) and evaluation treats absence as "released".
     class IInputSourceProvider

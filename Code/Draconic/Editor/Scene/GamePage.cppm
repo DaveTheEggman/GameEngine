@@ -744,13 +744,17 @@ export namespace draconic::editor
             // THIS run's scene, so game-UI routing + consumption confine to it - open
             // editing pages' HUDs can no longer catch the run's clicks/keys, and the
             // run's UI never reacts to another scene's coordinates.
-            m_input->SetSourceProvider(&m_viewportSource, m_scene);
+            m_input->SetSourceProvider(&m_viewportSource, m_scene);   // UI-pump active source (game-UI routing)
+            // Per-instance INPUT: this tab's game reads its OWN viewport source through its OWN action
+            // runtime, so two Game tabs never cross-feed keys (only the FOCUSED tab's surface reports
+            // them). The shared subsystem runtime is no longer the game's input.
+            if (m_gameInstance != nullptr) { m_gameInstance->SetInputSource(&m_viewportSource); }
             const Guid mapId = m_context->Project()->Settings().defaultInputMapId;
             if (mapId.IsNil() || m_context->Resources() == nullptr) { return; }
             auto proxy = m_context->Resources()->Bind<draconic::input::InputMapResource>(mapId);
             if (proxy)
             {
-                m_input->SetMap(proxy->Map());
+                if (m_gameInstance != nullptr) { m_gameInstance->SetInputMap(proxy->Map()); }
                 DRACONIC_LOG_INFO(u8"Editor", u8"Game: input map bound ({} set(s))",
                                   proxy->Map().sets.Size());
             }

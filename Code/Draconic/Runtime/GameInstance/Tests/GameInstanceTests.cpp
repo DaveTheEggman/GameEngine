@@ -9,11 +9,56 @@ import draconic.script;
 import draconic.script.wren;
 import draconic.net;            // NetSession queries (IsServer/PeerCount)
 import draconic.net.manager;    // NetworkManager (the endpoint the instance owns)
+import draconic.input;          // ActionRuntime / IInputSourceProvider (per-instance input)
+import draconic.shell;          // IKeyboard / KeyCode (a minimal fake device)
 
 using namespace draconic::core;
 namespace rt = draconic::runtime;
 namespace dscene = draconic::scene;
 namespace dnet = draconic::net;
+namespace dinput = draconic::input;
+namespace dshell = draconic::shell;
+
+namespace
+{
+    // A minimal input source: one keyboard reporting a single held key, everything else absent.
+    class OneKeyKeyboard final : public dshell::IKeyboard
+    {
+    public:
+        dshell::KeyCode key{};
+        bool down = false;
+        [[nodiscard]] bool IsKeyDown(dshell::KeyCode k) const override { return down && k == key; }
+        [[nodiscard]] bool IsKeyPressed(dshell::KeyCode k) const override { return down && k == key; }
+        [[nodiscard]] bool IsKeyReleased(dshell::KeyCode) const override { return false; }
+        [[nodiscard]] dshell::KeyModifiers Modifiers() const override { return dshell::KeyModifiers::None; }
+    };
+    class OneKeySource final : public dinput::IInputSourceProvider
+    {
+    public:
+        OneKeyKeyboard keyboard;
+        [[nodiscard]] dshell::IKeyboard* Keyboard() override { return &keyboard; }
+        [[nodiscard]] dshell::IMouse* Mouse() override { return nullptr; }
+        [[nodiscard]] i32 GamepadCount() const override { return 0; }
+        [[nodiscard]] dshell::IGamepad* Gamepad(i32) override { return nullptr; }
+        [[nodiscard]] dshell::ITouch* Touch() override { return nullptr; }
+    };
+    [[nodiscard]] dinput::InputMap MakeFireMap(dshell::KeyCode key)
+    {
+        dinput::InputMap map;
+        dinput::ActionSet set;
+        set.name = String(u8"S");
+        dinput::Action a;
+        a.name = String(u8"fire");
+        a.kind = dinput::ActionKind::Button;
+        dinput::Binding b;
+        b.source = dinput::BindingSource::Key;
+        b.code = static_cast<u32>(key);
+        a.bindings.PushBack(b);
+        set.actions.PushBack(static_cast<dinput::Action&&>(a));
+        map.sets.PushBack(static_cast<dinput::ActionSet&&>(set));
+        return map;
+    }
+}
 
 TEST_CASE("game-instance: instance time scale defaults to 1 and is settable; fresh instance idle")
 {
@@ -32,6 +77,33 @@ TEST_CASE("game-instance: instance time scale defaults to 1 and is settable; fre
     REQUIRE(level != nullptr);
     CHECK(gi.Scenes().SceneCount() == 1u);
     CHECK(gi.Scenes().CurrentScene() == level);
+}
+
+TEST_CASE("game-instance: each instance's input runtime reads ONLY its own source (per-instance isolation)")
+{
+    // The multi-instance-PIE fix: each GameInstance has its OWN ActionRuntime bound to its OWN source,
+    // so one tab's keys never reach another tab's game (the shared-runtime bug that flipped the server
+    // tab into a client). Same map, same key, two sources - only the source with the key held fires.
+    rt::GameInstance a;
+    rt::GameInstance b;
+    OneKeySource srcA; srcA.keyboard.key = dshell::KeyCode::H; srcA.keyboard.down = true;    // A holds H
+    OneKeySource srcB; srcB.keyboard.key = dshell::KeyCode::H; srcB.keyboard.down = false;   // B does not
+    a.SetInputSource(&srcA); a.SetInputMap(MakeFireMap(dshell::KeyCode::H));
+    b.SetInputSource(&srcB); b.SetInputMap(MakeFireMap(dshell::KeyCode::H));
+
+    a.DriveInput(0.016f, 1.0f);
+    b.DriveInput(0.016f, 1.0f);
+
+    CHECK(a.InputRuntime().IsDown(a.InputRuntime().Resolve(u8"fire")) == true);    // A's source has it
+    CHECK(b.InputRuntime().IsDown(b.InputRuntime().Resolve(u8"fire")) == false);   // B's does NOT (no cross-feed)
+
+    // Flip which source holds the key: isolation holds the other way too.
+    srcA.keyboard.down = false;
+    srcB.keyboard.down = true;
+    a.DriveInput(0.016f, 1.0f);
+    b.DriveInput(0.016f, 1.0f);
+    CHECK(a.InputRuntime().IsDown(a.InputRuntime().Resolve(u8"fire")) == false);
+    CHECK(b.InputRuntime().IsDown(b.InputRuntime().Resolve(u8"fire")) == true);
 }
 
 TEST_CASE("game-instance: each instance owns an independent networked endpoint (server + client over UDP)")

@@ -21,6 +21,7 @@ import draconic.scene;
 import draconic.script;
 import draconic.script.subsystem;
 import draconic.net.manager;        // NetworkManager + INetworkController + NetScriptBinding
+import draconic.input;              // ActionRuntime + IInputSourceProvider + InputMap (per-instance input)
 
 using namespace draconic::core;
 
@@ -29,6 +30,7 @@ export namespace draconic::runtime {
 namespace dscene = draconic::scene;
 namespace dscript = draconic::script;
 namespace dnet = draconic::net;
+namespace dinput = draconic::input;
 
 // A hook the app sets once and GameInstance fires on every go-online, passing the freshly created
 // endpoint. The app uses it to wire per-endpoint setup that needs app state (e.g. the prefab
@@ -99,6 +101,26 @@ public:
     /// aware-registry (from the SceneSubsystem) before creating scenes in it.
     [[nodiscard]] dscene::SceneManager& Scenes() noexcept { return m_sceneManager; }
 
+    // ---- input (this instance's OWN action runtime; game-instance.md - the input analog of the
+    // per-instance scene group + net endpoint) ----
+
+    /// This run's input source (the editor Game tab's gated viewport, or the player's shell devices).
+    /// The host sets it; the per-instance runtime reads ONLY this source, so per-surface focus gating
+    /// isolates input across Game tabs (only the focused tab's source reports keys). Null = no input.
+    void SetInputSource(dinput::IInputSourceProvider* source) noexcept { m_inputSource = source; }
+
+    /// Install the action map (the game's controls, from the project's input-map asset) on this
+    /// instance's runtime. Each instance has its own runtime + map copy.
+    void SetInputMap(const dinput::InputMap& map) { m_inputRuntime.SetMap(map); }
+
+    /// This run's action runtime - the Input facade resolves it per script context (installed into
+    /// this instance's context, so instance A's script never sees instance B's keys).
+    [[nodiscard]] dinput::ActionRuntime& InputRuntime() noexcept { return m_inputRuntime; }
+
+    /// Evaluate this instance's action runtime against its source (call before TickScript so the game
+    /// sees this frame's input). No-op when no source is set.
+    void DriveInput(f32 deltaTime, f32 contextTimeScale);
+
     // ---- networking (this instance's endpoint; INetworkController for the Net facade) ----
 
     /// A hook the app sets once; GameInstance fires it (with the live endpoint) each time the game
@@ -136,6 +158,9 @@ private:
     core::UniquePtr<dnet::NetworkManager> m_net;   // this instance's endpoint (null = offline)
     dnet::NetScriptBinding m_netBinding;           // stable; the facade resolves controller=this
     EndpointOnlineHook m_onEndpointOnline;         // app-set; fires with m_net on each go-online
+
+    dinput::ActionRuntime m_inputRuntime;          // this run's action state (per-instance)
+    dinput::IInputSourceProvider* m_inputSource = nullptr;   // borrowed: the viewport / shell devices
 };
 
 }

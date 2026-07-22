@@ -223,15 +223,15 @@ namespace
             m_scene->SetSimulationEnabled(true);
             DRACONIC_LOG_INFO(u8"Player", u8"running scene '{}'", scenePath);
 
-            // The project's default input map: cooked resource -> the input subsystem's
-            // ActionRuntime. Nil/unresolved = the runtime simply has no actions bound.
+            // The project's default input map: cooked resource -> the PRIMARY instance's ActionRuntime
+            // (per-instance input; the game reads its own runtime). Nil/unresolved = no actions bound.
             if (Input() != nullptr && !m_settings.defaultInputMapId.IsNil())
             {
                 auto mapProxy = Resources()->Bind<draconic::input::InputMapResource>(
                     m_settings.defaultInputMapId);
                 if (mapProxy)
                 {
-                    Input()->SetMap(mapProxy->Map());
+                    Instance().SetInputMap(mapProxy->Map());
                     DRACONIC_LOG_INFO(u8"Player", u8"input map bound ({} set(s))",
                                       mapProxy->Map().sets.Size());
                 }
