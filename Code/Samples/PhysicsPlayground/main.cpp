@@ -72,7 +72,7 @@ namespace
         {
             auto* scenes = host.Ctx().GetSubsystem<dscene::SceneSubsystem>();
             if (scenes == nullptr) { return; }
-            m_scene = scenes->CreateScene(u8"playground");
+            m_scene = PrimaryScenes().CreateScene(u8"playground");
             m_physics = m_scene->GetSystem<physics::PhysicsSceneSystem>();
             if (m_physics != nullptr) { m_physics->Settings().debugDraw = true; }
 

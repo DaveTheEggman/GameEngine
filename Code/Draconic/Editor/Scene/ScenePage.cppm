@@ -72,10 +72,13 @@ export namespace draconic::editor
             m_render = host.Ctx().GetSubsystem<drender::RenderSubsystem>();
             m_gameUI = host.Ctx().GetSubsystem<draconic::ui::UISubsystem>();
 
-            // Own live Scene per page (managers injected by the subsystems on CreateScene).
+            // Own live Scene per page in this page's OWN SceneManager (registered with the subsystem
+            // so it ticks on the Context lane; there is no shared default manager).
             if (m_scenes != nullptr)
             {
-                m_scene = m_scenes->CreateScene(instance.Name());
+                m_sceneManager.SetAwareRegistry(&m_scenes->AwareRegistry());
+                m_scenes->RegisterManager(&m_sceneManager);
+                m_scene = m_sceneManager.CreateScene(instance.Name());
                 m_scene->SetSimulationEnabled(false);   // edit mode is frozen; Simulate un-freezes
                 const Status loaded = dscene::LoadScene(instance, *m_scene);
                 if (loaded.IsOk())
@@ -673,11 +676,12 @@ export namespace draconic::editor
         {
             // GPU targets + external-texture registration go while device + VGRenderer live.
             m_viewport->Shutdown();
-            if (m_scenes != nullptr && m_scene != nullptr)
+            if (m_scene != nullptr)
             {
-                m_scenes->DestroyScene(m_scene);
+                m_sceneManager.DestroyScene(m_scene);   // aware subsystems get OnSceneDestroyed
                 m_scene = nullptr;
             }
+            if (m_scenes != nullptr) { m_scenes->UnregisterManager(&m_sceneManager); }
         }
 
         [[nodiscard]] dscene::Scene* ScenePtr() const noexcept { return m_scene; }
@@ -1153,7 +1157,8 @@ export namespace draconic::editor
         EditorContext* m_context;                    // borrowed
         rt::IApplicationHost* m_host;                // borrowed
         uirt::UIHost* m_uiHost;                      // borrowed
-        dscene::SceneSubsystem* m_scenes = nullptr;  // borrowed (context subsystem)
+        dscene::SceneSubsystem* m_scenes = nullptr;  // borrowed (context subsystem: registry + tick)
+        dscene::SceneManager m_sceneManager;         // this page's OWN scene group (registered with m_scenes)
         drender::RenderSubsystem* m_render = nullptr;
         draconic::ui::UISubsystem* m_gameUI = nullptr;   // RT-canvas host seam (borrowed)
 
@@ -1402,11 +1407,14 @@ export namespace draconic::editor
             if (stream.Get() == nullptr) { return false; }
             auto* scenes = appHost->Ctx().GetSubsystem<dscene::SceneSubsystem>();
             if (scenes == nullptr) { return false; }
-            dscene::Scene* scratch = scenes->CreateScene(u8"__export_transcode");
+            // A transient scratch group over the app's aware registry, so OnSceneCreated injects the
+            // FULL component-manager set (no type silently skipped). Destructs at scope end.
+            dscene::SceneManager scratchMgr(&scenes->AwareRegistry());
+            dscene::Scene* scratch = scratchMgr.CreateScene(u8"__export_transcode");
             if (scratch == nullptr) { return false; }
             Result<Array<byte>> bytes =
                 dscene::TranscodeSceneStreamToBinary(*stream, *scratch, /*includeSettings=*/isScene);
-            scenes->DestroyScene(scratch);
+            scratchMgr.DestroyScene(scratch);
             if (!bytes.HasValue()) { return false; }
             out = Move(bytes.Value());
             return true;
@@ -1426,7 +1434,8 @@ export namespace draconic::editor
             if (!isScene && !isPrefab) { return false; }
             auto* scenes = appHost->Ctx().GetSubsystem<dscene::SceneSubsystem>();
             if (scenes == nullptr) { return false; }
-            dscene::Scene* scratch = scenes->CreateScene(u8"__export_scan");
+            dscene::SceneManager scratchMgr(&scenes->AwareRegistry());   // full manager set via ISceneAware
+            dscene::Scene* scratch = scratchMgr.CreateScene(u8"__export_scan");
             if (scratch == nullptr) { return false; }
             const bool loaded = dscene::LoadScene(instance, *scratch).IsOk();
             if (loaded)
@@ -1439,7 +1448,7 @@ export namespace draconic::editor
                     outPrefabs.PushBack(pending.prefabId);
                 });
             }
-            scenes->DestroyScene(scratch);
+            scratchMgr.DestroyScene(scratch);
             return loaded;
         };
 

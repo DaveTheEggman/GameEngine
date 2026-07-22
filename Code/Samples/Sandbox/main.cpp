@@ -92,11 +92,9 @@ namespace
 
         void OnStartup(runtime::IApplicationHost& host) override
         {
-            auto* scenes = host.Ctx().GetSubsystem<scene::SceneSubsystem>();
-            if (scenes == nullptr) { return; }
-
-            // CreateScene triggers the RenderSubsystem to inject the render managers.
-            m_scene = scenes->CreateScene(u8"sandbox");
+            // CreateScene triggers the RenderSubsystem to inject the render managers. The scene lives
+            // on the primary instance's group (the app renders instance scenes; there is no default).
+            m_scene = PrimaryScenes().CreateScene(u8"sandbox");
 
             // Per-scene environment: drives IBL (split-sum ambient from a procedural sky) + the flat
             // fallback. The procedural sky's gradient + sun feed the SH9 diffuse + prefiltered specular.

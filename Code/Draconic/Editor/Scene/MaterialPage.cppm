@@ -205,11 +205,12 @@ export namespace draconic::editor
         void OnClose() override
         {
             m_viewport->Shutdown();
-            if (m_scenes != nullptr && m_scene != nullptr)
+            if (m_scene != nullptr)
             {
-                m_scenes->DestroyScene(m_scene);
+                m_sceneManager.DestroyScene(m_scene);
                 m_scene = nullptr;
             }
+            if (m_scenes != nullptr) { m_scenes->UnregisterManager(&m_sceneManager); }
         }
 
         // Deserialize a source blob into the live asset + refresh the preview (the command
@@ -284,7 +285,9 @@ export namespace draconic::editor
         void BuildPreviewScene()
         {
             if (m_scenes == nullptr) { return; }
-            m_scene = m_scenes->CreateScene(u8"material.preview");
+            m_sceneManager.SetAwareRegistry(&m_scenes->AwareRegistry());
+            m_scenes->RegisterManager(&m_sceneManager);
+            m_scene = m_sceneManager.CreateScene(u8"material.preview");
             m_scene->SetSimulationEnabled(false);
 
             m_sphere = m_scene->CreateEntity(u8"PreviewSphere");
@@ -819,6 +822,7 @@ export namespace draconic::editor
         RefPtr<mats::MaterialAsset> m_asset;
 
         dscene::SceneSubsystem* m_scenes = nullptr;
+        dscene::SceneManager m_sceneManager;   // this page's OWN preview scene group (registered with m_scenes)
         drender::RenderSubsystem* m_render = nullptr;
         dscene::Scene* m_scene = nullptr;
         dscene::EntityHandle m_sphere;

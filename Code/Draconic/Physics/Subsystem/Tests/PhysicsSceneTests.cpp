@@ -540,10 +540,11 @@ TEST_CASE("physics.scene: the editor simulate cycle (capture/start/stop/restore)
     namespace rt = draconic::runtime;
     rt::Context ctx;
     auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
+    dscene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
     ctx.AddSubsystem<PhysicsSubsystem>();
     ctx.Startup();
 
-    dscene::Scene* scene = scenes->CreateScene(u8"level");
+    dscene::Scene* scene = sm.CreateScene(u8"level");
     {
         dscene::EntityHandle floor = scene->CreateEntity(u8"floor");
         scene->SetLocalPosition(floor, Float3{ 0.0f, -0.5f, 0.0f });

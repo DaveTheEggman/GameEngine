@@ -169,7 +169,7 @@ namespace
 
             auto* scenes = host.Ctx().GetSubsystem<dscene::SceneSubsystem>();
             if (scenes == nullptr) { return; }
-            m_scene = scenes->CreateScene(u8"scripts");
+            m_scene = PrimaryScenes().CreateScene(u8"scripts");
 
             m_camera = m_scene->CreateEntity(u8"camera");
             if (auto* cameras = m_scene->GetSystem<render::CameraComponentManager>())

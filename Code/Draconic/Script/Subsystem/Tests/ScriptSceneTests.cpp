@@ -1183,6 +1183,7 @@ namespace
         dphysics::PhysicsSubsystem* physics = nullptr;
         ScriptSubsystem* scripts = nullptr;
         dscene::Scene* scene = nullptr;
+        UniquePtr<dscene::SceneManager> sm;   // this bed's scene group (subsystem owns none)
 
         ContactWorld()
         {
@@ -1196,7 +1197,9 @@ namespace
             scripts = ctx.AddSubsystem<ScriptSubsystem>();
             ctx.Startup();
             physics->RegisterContactListener(this);   // the composition-root bridge
-            scene = scenes->CreateScene(u8"level");
+            sm = MakeUnique<dscene::SceneManager>(DefaultAllocator(), &scenes->AwareRegistry());
+            scenes->RegisterManager(sm.Get());
+            scene = sm->CreateScene(u8"level");
         }
         ~ContactWorld() override
         {
@@ -1317,6 +1320,7 @@ TEST_CASE("script.scene: behaviors tick without error when no physics subsystem 
     namespace rt2 = draconic::runtime;
     rt2::Context ctx;
     auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
+    dscene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
     ctx.AddSubsystem<ScriptSubsystem>();   // NO physics subsystem
     draconic::script::wren::RegisterWrenScriptBackend();
     RegisterCoreTypes();
@@ -1324,7 +1328,7 @@ TEST_CASE("script.scene: behaviors tick without error when no physics subsystem 
     RegisterScriptFacadeReflection();
     ctx.Startup();   // OnReady must not crash resolving the (absent) physics subsystem
 
-    dscene::Scene* scene = scenes->CreateScene(u8"no-physics");
+    dscene::Scene* scene = sm.CreateScene(u8"no-physics");
     RefPtr<ScriptClass> mover = MakeClass(u8"Mover",
         u8"class Mover {\n"
         u8"    construct new(entity) { _entity = entity }\n"

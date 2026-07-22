@@ -444,10 +444,11 @@ export namespace draconic::editor
 
         // The scene group this tab's game scene belongs to: the embedded app's GameInstance manager
         // (game-instance.md §11), so the game scene groups + ticks + is bound to the instance's run
-        // host. Falls back to the SceneSubsystem's default manager if there's no embedded app.
+        // host. Falls back to THIS page's own (unregistered) manager if there's no embedded app - a
+        // defensive placeholder, since without a runtime there is no game to run anyway.
         [[nodiscard]] gscene::SceneManager& SceneGroup() noexcept
         {
-            return (m_gameInstance != nullptr) ? m_gameInstance->Scenes() : m_scenes->DefaultManager();
+            return (m_gameInstance != nullptr) ? m_gameInstance->Scenes() : m_fallbackScenes;
         }
 
         /// Fresh player run: the project's default scene from the DBs, simulation on.
@@ -480,7 +481,7 @@ export namespace draconic::editor
             if (m_context->OnCookRequested) { m_context->OnCookRequested(false); }
             // Via THIS tab's instance (not just SceneGroup) so behaviors bind to its run host.
             m_scene = (m_gameInstance != nullptr) ? m_gameInstance->CreateScene(instance->Name())
-                                                  : m_scenes->DefaultManager().CreateScene(instance->Name());
+                                                  : m_fallbackScenes.CreateScene(instance->Name());
             if (m_scene == nullptr || !gscene::LoadScene(*instance, *m_scene).IsOk())
             {
                 m_context->Notify(NoticeKind::Error, u8"Game: default scene failed to load.");
@@ -932,6 +933,7 @@ export namespace draconic::editor
         RefPtr<draconic::ui::Label> m_statusLabel;
         RefPtr<guivp::ViewportView> m_viewport;
         UniquePtr<draconic::shell::InputRouter> m_router;   // gates the viewport surface (hover/focus)
+        gscene::SceneManager m_fallbackScenes;   // no-embedded-app placeholder group (see SceneGroup)
 
 
         String m_sceneTitle;

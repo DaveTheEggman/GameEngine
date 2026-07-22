@@ -44,13 +44,17 @@ TEST_CASE("scene-aware subsystem injects a per-scene system on scene creation (t
     FakeRenderSubsystem* render = ctx.AddSubsystem<FakeRenderSubsystem>();
     ctx.Startup();                                   // OnReady -> render registers with the broker
 
-    Scene* level = scenes->CreateScene(u8"level");
+    // The subsystem owns no scenes; an owner registers its own SceneManager over the shared registry.
+    SceneManager sm(&scenes->AwareRegistry());
+    scenes->RegisterManager(&sm);
+
+    Scene* level = sm.CreateScene(u8"level");
     REQUIRE(level != nullptr);
     CHECK(render->created == 1);
     CHECK(render->ready == 1);                        // both passes ran
     CHECK(level->GetSystem<RenderSceneSystem>() != nullptr);   // injected
-    CHECK(scenes->GetScene(u8"level") == level);
-    CHECK(scenes->ActiveScenes().Size() == 1);
+    CHECK(sm.GetScene(u8"level") == level);
+    CHECK(sm.ActiveScenes().Size() == 1);
 
     ctx.Shutdown();
 }
@@ -61,8 +65,10 @@ TEST_CASE("the subsystem ticks its scenes each Context update")
     SceneSubsystem* scenes = ctx.AddSubsystem<SceneSubsystem>();
     FakeRenderSubsystem* render = ctx.AddSubsystem<FakeRenderSubsystem>();
     ctx.Startup();
+    SceneManager sm(&scenes->AwareRegistry());
+    scenes->RegisterManager(&sm);
 
-    Scene* level = scenes->CreateScene();
+    Scene* level = sm.CreateScene();
     RenderSceneSystem* sys = level->GetSystem<RenderSceneSystem>();
     REQUIRE(sys != nullptr);
 
@@ -80,17 +86,19 @@ TEST_CASE("destroying a scene notifies aware subsystems + drops it from the acti
     SceneSubsystem* scenes = ctx.AddSubsystem<SceneSubsystem>();
     FakeRenderSubsystem* render = ctx.AddSubsystem<FakeRenderSubsystem>();
     ctx.Startup();
+    SceneManager sm(&scenes->AwareRegistry());
+    scenes->RegisterManager(&sm);
 
-    Scene* a = scenes->CreateScene(u8"a");
-    Scene* b = scenes->CreateScene(u8"b");
-    CHECK(scenes->ActiveScenes().Size() == 2);
+    Scene* a = sm.CreateScene(u8"a");
+    Scene* b = sm.CreateScene(u8"b");
+    CHECK(sm.ActiveScenes().Size() == 2);
     CHECK(render->created == 2);
 
-    scenes->DestroyScene(a);
+    sm.DestroyScene(a);
     CHECK(render->destroyed == 1);
-    CHECK(scenes->ActiveScenes().Size() == 1);
-    CHECK(scenes->GetScene(u8"a") == nullptr);
-    CHECK(scenes->GetScene(u8"b") == b);
+    CHECK(sm.ActiveScenes().Size() == 1);
+    CHECK(sm.GetScene(u8"a") == nullptr);
+    CHECK(sm.GetScene(u8"b") == b);
 
     ctx.Shutdown();
 }
@@ -101,13 +109,15 @@ TEST_CASE("scene-aware registration is idempotent; unregister stops notification
     SceneSubsystem* scenes = ctx.AddSubsystem<SceneSubsystem>();
     FakeRenderSubsystem* render = ctx.AddSubsystem<FakeRenderSubsystem>();
     ctx.Startup();
+    SceneManager sm(&scenes->AwareRegistry());
+    scenes->RegisterManager(&sm);
 
     scenes->RegisterSceneAware(render);              // duplicate (already registered in OnReady)
-    scenes->CreateScene(u8"one");
+    sm.CreateScene(u8"one");
     CHECK(render->created == 1);                      // notified once, not twice
 
     scenes->UnregisterSceneAware(render);
-    scenes->CreateScene(u8"two");
+    sm.CreateScene(u8"two");
     CHECK(render->created == 1);                      // no longer notified
 
     ctx.Shutdown();
@@ -136,9 +146,11 @@ TEST_CASE("per-scene time: scales isolate scenes; pause stops one without the ot
     runtime::Context ctx;
     SceneSubsystem* scenes = ctx.AddSubsystem<SceneSubsystem>();
     ctx.Startup();
+    SceneManager sm(&scenes->AwareRegistry());
+    scenes->RegisterManager(&sm);
 
-    Scene* normal = scenes->CreateScene(u8"normal");
-    Scene* slow = scenes->CreateScene(u8"slow");
+    Scene* normal = sm.CreateScene(u8"normal");
+    Scene* slow = sm.CreateScene(u8"slow");
     TimeProbeSystem* normalProbe = normal->AddSystem<TimeProbeSystem>();
     TimeProbeSystem* slowProbe = slow->AddSystem<TimeProbeSystem>();
     slow->SetTimeScale(0.5f);
@@ -186,7 +198,9 @@ TEST_CASE("per-scene time: fixed alpha is the scene's own leftover fraction")
     runtime::Context ctx;
     SceneSubsystem* scenes = ctx.AddSubsystem<SceneSubsystem>();
     ctx.Startup();
-    Scene* scene = scenes->CreateScene(u8"alpha");
+    SceneManager sm(&scenes->AwareRegistry());
+    scenes->RegisterManager(&sm);
+    Scene* scene = sm.CreateScene(u8"alpha");
     scene->SetFixedTiming(1.0f / 60.0f, 4);
 
     // Feed 1.5 steps: one step fires, half a step remains -> alpha 0.5.

@@ -78,7 +78,7 @@ namespace
         {
             auto* scenes = host.Ctx().GetSubsystem<scene::SceneSubsystem>();
             if (scenes == nullptr) { return; }
-            m_scene = scenes->CreateScene(u8"particlefx");
+            m_scene = PrimaryScenes().CreateScene(u8"particlefx");
 
             // Dim cool ambient so the (unlit) additive particles pop against the lit floor.
             if (auto* env = m_scene->GetSystem<render::EnvironmentSystem>()) {

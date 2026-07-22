@@ -87,7 +87,7 @@ namespace
         {
             auto* scenes = host.Ctx().GetSubsystem<dscene::SceneSubsystem>();
             if (scenes == nullptr || Audio() == nullptr) { return; }
-            m_scene = scenes->CreateScene(u8"audio-playground");
+            m_scene = PrimaryScenes().CreateScene(u8"audio-playground");
 
             const core::String dataDir(u8"" DRACONIC_AUDIO_SAMPLE_DATA_DIR);
             m_ambient = LoadClipFromFile(core::PathJoin(dataDir.AsView(), u8"ambient_loop.wav"), true);

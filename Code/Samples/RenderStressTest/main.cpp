@@ -79,7 +79,7 @@ namespace
         {
             auto* scenes = host.Ctx().GetSubsystem<scene::SceneSubsystem>();
             if (scenes == nullptr) { return; }
-            m_scene = scenes->CreateScene(u8"stress");
+            m_scene = PrimaryScenes().CreateScene(u8"stress");
 
             // A modest ambient so unlit-facing hemispheres aren't pure black.
             if (auto* env = m_scene->GetSystem<render::EnvironmentSystem>()) {

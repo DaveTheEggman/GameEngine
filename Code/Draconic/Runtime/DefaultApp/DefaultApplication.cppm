@@ -229,6 +229,11 @@ export namespace draconic::runtime
         /// Scenes() manager so it groups + ticks + renders as this run's scenes.
         [[nodiscard]] GameInstance& Instance() noexcept { return m_instance; }
 
+        /// The primary instance's scene group - a scene created here renders (the app renders instance
+        /// scenes; there is no default manager). Returns SceneManager& directly so callers need not
+        /// name GameInstance.
+        [[nodiscard]] draconic::scene::SceneManager& PrimaryScenes() noexcept { return m_instance.Scenes(); }
+
         /// Create an ADDITIONAL running game (multi-instance PIE / an in-editor headless dedicated
         /// server, game-instance.md §11 / networking.md). Wired like the primary - its scene group ticks
         /// on the Context lane and its run host gets the app services. Stable address (UniquePtr), so the
@@ -448,10 +453,6 @@ export namespace draconic::runtime
                     render->RenderScene(*scene, frame.backbufferView, colorFormat, frame.width, frame.height);
                 }
             });
-            for (draconic::scene::Scene* scene : scenes->ActiveScenes())
-            {
-                render->RenderScene(*scene, frame.backbufferView, colorFormat, frame.width, frame.height);
-            }
             render->EndRendering();   // scene-tier overlays (HUD/billboards) draw inside the compose
 
             // Window-space overlays (screen-tier UI, diagnostics, ...) composite over the

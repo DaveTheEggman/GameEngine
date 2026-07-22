@@ -106,7 +106,7 @@ namespace
             if (scenes == nullptr) { return; }
 
             // CreateScene triggers the RenderSubsystem to inject the render managers.
-            m_scene = scenes->CreateScene(u8"sandbox");
+            m_scene = PrimaryScenes().CreateScene(u8"sandbox");
 
             // Per-scene environment ambient (a dim cool indirect term; IBL replaces it later).
             if (auto* env = m_scene->GetSystem<render::EnvironmentSystem>()) {
