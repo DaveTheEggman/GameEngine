@@ -222,10 +222,15 @@ public:
     // spawn it (nil for a bare networked entity). Records the id->entity mapping for capture.
     NetworkId AssignNetworkId(dscene::Scene& scene, dscene::EntityHandle entity, const Guid& prefab = {});
 
-    // Server: assign a NetworkId to every authored-networked entity (a NetworkComponent) that does
-    // not have one yet - so a designer can mark entities networked in the editor and the server
-    // "just replicates" them on start. Idempotent (already-assigned entities keep their id).
+    // Server: give every authored-networked entity (a NetworkComponent) a NetworkId derived from its
+    // authored Guid, and register id -> entity. A designer just adds a NetworkComponent in the editor
+    // and the server "replicates" the entity on start - no hand-authored ids. Idempotent.
     void AssignSceneNetworkIds(dscene::Scene& scene);
+
+    // Client: compute the SAME Guid-derived id the server did (both peers load the same authored
+    // scene, so the same entity Guid -> the same id) and register id -> local entity, so incoming
+    // replication UPDATES the authored entity instead of creating a duplicate.
+    void RegisterAuthoredEntities(dscene::Scene& scene);
 
     void CaptureSnapshot(dscene::Scene& scene, BitWriter& out) override;
     void ApplySnapshot(dscene::Scene& scene, BitReader& in) override;

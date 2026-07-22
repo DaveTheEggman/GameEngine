@@ -248,14 +248,41 @@ NetworkId StateReplication::AssignNetworkId(dscene::Scene& scene, dscene::Entity
     return nc.id;
 }
 
+namespace
+{
+    // A stable NetworkId derived from an entity's authored Guid: both peers load the SAME scene, so
+    // they compute the SAME id for the same entity WITHOUT any hand-authored ids. Never 0 (0 =
+    // unassigned). Collisions are astronomically unlikely at a scene's entity count.
+    inline NetworkId DeterministicNetworkId(const Guid& g) noexcept
+    {
+        u64 h = g.high ^ (g.low * 0x9E3779B97F4A7C15ull);
+        h ^= h >> 32;
+        const u32 v = static_cast<u32>(h);
+        return NetworkId{ v == 0u ? 1u : v };
+    }
+}
+
 void StateReplication::AssignSceneNetworkIds(dscene::Scene& scene)
 {
     auto* netMgr = scene.GetSystem<NetworkComponentManager>();
     if (netMgr == nullptr) { return; }
-    // Assign to unassigned authored-networked entities. Safe during ForEach: AssignNetworkId only
-    // mutates the existing NetworkComponent (no structural change to the manager being iterated).
+    // Safe during ForEach: only the existing NetworkComponents are mutated (no structural change).
     netMgr->ForEach([&](NetworkComponent& nc, dscene::EntityHandle e) {
-        if (!nc.id.IsValid()) { AssignNetworkId(scene, e, nc.prefab); }
+        if (!nc.id.IsValid()) { nc.id = DeterministicNetworkId(scene.GetEntityId(e)); }
+        m_netIdToEntity.InsertOrAssign(nc.id.value, e);
+        if (nc.id.value > m_nextNetworkId) { m_nextNetworkId = nc.id.value; }   // keep mints clear
+    });
+}
+
+void StateReplication::RegisterAuthoredEntities(dscene::Scene& scene)
+{
+    auto* netMgr = scene.GetSystem<NetworkComponentManager>();
+    if (netMgr == nullptr) { return; }
+    // Compute the SAME Guid-derived id the server did, so incoming replication resolves to the
+    // client's own authored entity (not a duplicate).
+    netMgr->ForEach([&](NetworkComponent& nc, dscene::EntityHandle e) {
+        if (!nc.id.IsValid()) { nc.id = DeterministicNetworkId(scene.GetEntityId(e)); }
+        m_netIdToEntity.InsertOrAssign(nc.id.value, e);
     });
 }
 

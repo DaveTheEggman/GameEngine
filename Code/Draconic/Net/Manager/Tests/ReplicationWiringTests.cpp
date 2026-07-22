@@ -151,3 +151,49 @@ TEST_CASE("net-manager: a NetworkedTransform replicates an entity's movement ser
     CHECK(ct.position.y == doctest::Approx(3.0f));
     CHECK(ct.position.z == doctest::Approx(-5.0f));
 }
+
+TEST_CASE("net-manager: a shared authored scene matches by stable id (no duplicate on the client)")
+{
+    net::RegisterReplicationComponents();
+
+    net::SimConditions sim; sim.seed = 21;
+    net::SimDatagramNetwork network(sim);
+    net::IDatagramSocket* sv = network.CreateSocket();
+    net::NetworkManager server(*sv);
+    net::NetworkManager client(*network.CreateSocket());
+    client.SetInterpolationDelayMs(0.0);
+
+    // Both peers author the same entity with the SAME authored Guid (as both Game tabs loading one
+    // scene from disk do). No hand-authored id - the id is derived from the Guid on both sides.
+    const Guid sharedGuid{ 0x0123456789ABCDEFull, 0xFEDCBA9876543210ull };
+    const auto authorEntity = [&](dscene::Scene& s) -> dscene::EntityHandle {
+        s.AddSystem<net::NetworkComponentManager>();
+        s.AddSystem<net::NetworkedTransformComponentManager>();
+        const dscene::EntityHandle e = s.CreateEntity(sharedGuid, u8"Shared");
+        s.GetSystem<net::NetworkComponentManager>()->Add(e);           // id 0 -> derived from sharedGuid
+        s.GetSystem<net::NetworkedTransformComponentManager>()->Add(e);
+        return e;
+    };
+    dscene::Scene serverScene; const dscene::EntityHandle se = authorEntity(serverScene);
+    dscene::Scene clientScene; const dscene::EntityHandle ce = authorEntity(clientScene);
+
+    server.StartServer(/*dedicated=*/true);
+    server.SetReplicatedScene(&serverScene);   // derives + registers the id for se
+    client.SetReplicatedScene(&clientScene);   // derives the SAME id for ce (client's OWN authored entity)
+    (void)client.ConnectTo(sv->LocalEndpoint());
+
+    const net::NetworkId id = serverScene.GetSystem<net::NetworkComponentManager>()->Get(se)->id;
+    REQUIRE(id.IsValid());
+    CHECK(clientScene.GetSystem<net::NetworkComponentManager>()->Get(ce)->id == id);   // both agree, no authoring
+
+    // Move the server's shared entity; the client's SAME entity follows - no second entity minted.
+    Transform t; t.position = Float3{ 4, 5, 6 };
+    serverScene.SetLocalTransform(se, t);
+    for (int i = 0; i < 400; ++i) { network.Advance(10.0f); server.Update(10.0f); client.Update(10.0f); }
+
+    CHECK(client.Replication().FindEntity(id) == ce);   // matched the client's authored entity
+    CHECK(clientScene.GetSystem<net::NetworkComponentManager>()->OwnerHandles().Size() == 1u);   // NO duplicate
+    const Transform ct = clientScene.GetLocalTransform(ce);
+    CHECK(ct.position.x == doctest::Approx(4.0f));
+    CHECK(ct.position.z == doctest::Approx(6.0f));
+}

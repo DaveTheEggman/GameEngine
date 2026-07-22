@@ -143,7 +143,12 @@ public:
     // entity networked and it "just replicates" on host); the client receives ids over the wire.
     void SetReplicatedScene(dscene::Scene* scene) {
         m_scene = scene;
-        if (scene != nullptr && m_session.IsServer()) { m_replication.AssignSceneNetworkIds(*scene); }
+        if (scene == nullptr) { return; }
+        if (m_session.IsServer()) {
+            m_replication.AssignSceneNetworkIds(*scene);        // mint + register authored entities
+        } else {
+            m_replication.RegisterAuthoredEntities(*scene);     // match by stable authored id (no duplicate)
+        }
     }
     [[nodiscard]] StateReplication& Replication() noexcept { return m_replication; }
     // How far behind synced network time the client renders (interpolation delay). ~2x the server
