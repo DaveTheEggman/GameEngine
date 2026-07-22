@@ -95,3 +95,59 @@ TEST_CASE("net-manager: state replicates server -> client through the manager + 
     }
     CHECK(rc->health == 99);
 }
+
+TEST_CASE("net-manager: a NetworkedTransform replicates an entity's movement server -> client")
+{
+    net::RegisterReplicationComponents();
+
+    net::SimConditions sim; sim.latencyMs = 15.0f; sim.seed = 11;
+    net::SimDatagramNetwork network(sim);
+    net::IDatagramSocket* sv = network.CreateSocket();
+    net::NetworkManager server(*sv);
+    net::NetworkManager client(*network.CreateSocket());
+    client.SetInterpolationDelayMs(0.0);   // sample the latest state (deterministic once movement stops)
+
+    // Server scene: an AUTHORED networked entity (NetworkComponent + NetworkedTransform), not yet
+    // assigned an id - SetReplicatedScene on the server auto-assigns it (the "author + auto-assign"
+    // path the demo uses; no manual AssignNetworkId).
+    dscene::Scene serverScene;
+    serverScene.AddSystem<net::NetworkComponentManager>();
+    serverScene.AddSystem<net::NetworkedTransformComponentManager>();
+    const dscene::EntityHandle e = serverScene.CreateEntity(u8"Mover");
+    serverScene.GetSystem<net::NetworkComponentManager>()->Add(e);
+    serverScene.GetSystem<net::NetworkedTransformComponentManager>()->Add(e);
+    Transform t0; t0.position = Float3{ 1, 0, 0 };
+    serverScene.SetLocalTransform(e, t0);
+
+    dscene::Scene clientScene;
+    clientScene.AddSystem<net::NetworkComponentManager>();
+    clientScene.AddSystem<net::NetworkedTransformComponentManager>();
+
+    server.StartServer(/*dedicated=*/true);
+    server.SetReplicatedScene(&serverScene);   // server: auto-assigns the authored entity a NetworkId
+    client.SetReplicatedScene(&clientScene);
+    (void)client.ConnectTo(sv->LocalEndpoint());
+
+    const net::NetworkId id = serverScene.GetSystem<net::NetworkComponentManager>()->Get(e)->id;
+    REQUIRE(id.IsValid());   // auto-assigned on SetReplicatedScene (server)
+
+    // Drive until the client mirrors the entity.
+    dscene::EntityHandle ce = dscene::EntityHandle::Invalid();
+    for (int i = 0; i < 400 && !clientScene.IsValid(ce); ++i) {
+        network.Advance(10.0f); server.Update(10.0f); client.Update(10.0f);
+        ce = client.Replication().FindEntity(id);
+    }
+    REQUIRE(clientScene.IsValid(ce));
+
+    // Move the server entity's LOCAL transform; the client's transform follows (via the
+    // CaptureEntityTransforms -> wire -> ApplyEntityTransforms bridge, no manual sync).
+    Transform t1; t1.position = Float3{ 9, 3, -5 };
+    serverScene.SetLocalTransform(e, t1);
+    for (int i = 0; i < 300; ++i) {
+        network.Advance(10.0f); server.Update(10.0f); client.Update(10.0f);
+    }
+    const Transform ct = clientScene.GetLocalTransform(ce);
+    CHECK(ct.position.x == doctest::Approx(9.0f));
+    CHECK(ct.position.y == doctest::Approx(3.0f));
+    CHECK(ct.position.z == doctest::Approx(-5.0f));
+}

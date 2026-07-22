@@ -114,6 +114,9 @@ public:
         }
 
         if (m_session.IsServer() && m_scene != nullptr) {
+            // Pull each networked entity's authoritative LOCAL transform into its NetworkedTransform
+            // component, so the capture below sends the current pose (the reflected-component pipe).
+            CaptureEntityTransforms(*m_scene);
             const f64 now = m_session.NetworkTimeMs();
             u64 bits = 0; MemCopy(&bits, &now, sizeof(bits));
             for (const NetPeer& peer : m_session.Peers()) {
@@ -126,15 +129,22 @@ public:
         }
 
         // Client: render each interpolatable networked component at (synced network time - delay),
-        // playing the buffered states back smoothly between the low-rate updates.
+        // playing the buffered states back smoothly between the low-rate updates, then push the
+        // (interpolated) NetworkedTransform components back onto their entities' local transforms.
         if (m_session.IsClient() && m_scene != nullptr) {
             m_replication.SampleInterpolation(*m_scene, m_interp, m_session.NetworkTimeMs() - m_interpDelayMs);
+            ApplyEntityTransforms(*m_scene);
         }
     }
 
     // The scene this manager replicates (server captures from it, client applies into it). Null =
-    // no replication (session + RPC still run). The host sets the gameplay scene here.
-    void SetReplicatedScene(dscene::Scene* scene) noexcept { m_scene = scene; }
+    // no replication (session + RPC still run). The host sets the gameplay scene here. On a SERVER,
+    // authored-networked entities in the scene are assigned NetworkIds now (so a designer marks an
+    // entity networked and it "just replicates" on host); the client receives ids over the wire.
+    void SetReplicatedScene(dscene::Scene* scene) {
+        m_scene = scene;
+        if (scene != nullptr && m_session.IsServer()) { m_replication.AssignSceneNetworkIds(*scene); }
+    }
     [[nodiscard]] StateReplication& Replication() noexcept { return m_replication; }
     // How far behind synced network time the client renders (interpolation delay). ~2x the server
     // send interval hides one lost/late update. Default 100 ms.

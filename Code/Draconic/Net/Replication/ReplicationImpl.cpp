@@ -185,11 +185,48 @@ DRACONIC_REFLECT_VALUE(NetworkComponent, "draconic::net")
     builder.Property<&NetworkComponent::prefab>("prefab");
 }
 
+// NetworkedTransform: unlike NetworkComponent, its fields ARE replicated (kReplicatedAttribute), so
+// the field codec captures/applies them and interpolation smooths them.
+DRACONIC_REFLECT_VALUE(NetworkedTransform, "draconic::net")
+{
+    builder.DataVersion(1);
+    builder.Property<&NetworkedTransform::position>("position").PropAttribute(kReplicatedAttribute, true);
+    builder.Property<&NetworkedTransform::rotation>("rotation").PropAttribute(kReplicatedAttribute, true);
+    builder.Property<&NetworkedTransform::scale>("scale").PropAttribute(kReplicatedAttribute, true);
+}
+
+void CaptureEntityTransforms(dscene::Scene& scene)
+{
+    auto* mgr = scene.GetSystem<NetworkedTransformComponentManager>();
+    if (mgr == nullptr) { return; }
+    mgr->ForEach([&](NetworkedTransform& nt, dscene::EntityHandle e) {
+        const Transform t = scene.GetLocalTransform(e);
+        nt.position = t.position;
+        nt.rotation = t.rotation;
+        nt.scale = t.scale;
+    });
+}
+
+void ApplyEntityTransforms(dscene::Scene& scene)
+{
+    auto* mgr = scene.GetSystem<NetworkedTransformComponentManager>();
+    if (mgr == nullptr) { return; }
+    mgr->ForEach([&](NetworkedTransform& nt, dscene::EntityHandle e) {
+        Transform t;
+        t.position = nt.position;
+        t.rotation = nt.rotation;
+        t.scale = nt.scale;
+        scene.SetLocalTransform(e, t);
+    });
+}
+
 void RegisterReplicationComponents()
 {
     static const bool once = []() {
         DraconicRegisterValue_NetworkComponent();
         GlobalTypeRegistry().Register(TypeOf<NetworkComponent>());
+        DraconicRegisterValue_NetworkedTransform();
+        GlobalTypeRegistry().Register(TypeOf<NetworkedTransform>());
         return true;
     }();
     (void)once;
@@ -209,6 +246,17 @@ NetworkId StateReplication::AssignNetworkId(dscene::Scene& scene, dscene::Entity
     if (!prefab.IsNil()) { nc.prefab = prefab; }
     m_netIdToEntity.InsertOrAssign(nc.id.value, entity);
     return nc.id;
+}
+
+void StateReplication::AssignSceneNetworkIds(dscene::Scene& scene)
+{
+    auto* netMgr = scene.GetSystem<NetworkComponentManager>();
+    if (netMgr == nullptr) { return; }
+    // Assign to unassigned authored-networked entities. Safe during ForEach: AssignNetworkId only
+    // mutates the existing NetworkComponent (no structural change to the manager being iterated).
+    netMgr->ForEach([&](NetworkComponent& nc, dscene::EntityHandle e) {
+        if (!nc.id.IsValid()) { AssignNetworkId(scene, e, nc.prefab); }
+    });
 }
 
 dscene::EntityHandle StateReplication::FindEntity(NetworkId id) const

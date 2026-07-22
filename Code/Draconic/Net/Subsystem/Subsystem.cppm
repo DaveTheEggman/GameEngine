@@ -31,7 +31,8 @@ public:
     // the server's runtime AssignNetworkId) have a home. Replicated-state component managers (e.g.
     // the transform) are injected by their own subsystems - this adds only the identity tag pool.
     void OnSceneCreated(draconic::scene::Scene& scene) override {
-        scene.AddSystem<NetworkComponentManager>();
+        scene.AddSystem<NetworkComponentManager>();     // identity (NetworkId + authority + prefab)
+        scene.AddSystem<NetworkedTransformComponentManager>();   // replicated transform (the common case)
     }
 
 protected:

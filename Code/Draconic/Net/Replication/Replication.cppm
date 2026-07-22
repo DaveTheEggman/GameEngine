@@ -111,8 +111,41 @@ public:
     NetworkComponentManager() : SerializableComponentManager(u8"net.Network") {}
 };
 
-// Registers NetworkComponent's reflection (call once before a networked scene is built; the
-// snapshot path needs the patched TypeInfo for its versioned records). Idempotent.
+// ---- networked transform (the common case: replicate an entity's movement) -------------------
+
+// A replicated transform: mirrors an entity's LOCAL transform over the network. Add it alongside a
+// NetworkComponent to replicate movement. Its fields ARE replicated (unlike NetworkComponent's
+// identity fields), so the field codec + interpolation handle them; the server copies the entity
+// transform INTO this component before send (CaptureEntityTransforms) and the client applies this
+// component (interpolated) BACK onto the entity transform after receive (ApplyEntityTransforms) -
+// the engine's built-in bridge between the reflected-component replication pipe and the non-reflected
+// TransformData the entity system stores.
+struct NetworkedTransform {
+    Float3     position = Float3::Zero;
+    Quaternion rotation = Quaternion::Identity;
+    Float3     scale    = Float3::One;
+};
+
+inline void Serialize(ISerializer& ar, NetworkedTransform& t) {
+    draconic::core::Serialize(ar, "position", t.position);
+    draconic::core::Serialize(ar, "rotation", t.rotation);
+    draconic::core::Serialize(ar, "scale", t.scale);
+}
+
+class NetworkedTransformComponentManager final : public dscene::SerializableComponentManager<NetworkedTransform> {
+public:
+    NetworkedTransformComponentManager() : SerializableComponentManager(u8"net.Transform") {}
+};
+
+// Server: copy each entity's live LOCAL transform INTO its NetworkedTransform component, so the
+// replication capture that follows sends the authoritative pose. Call before CaptureDelta/Snapshot.
+void CaptureEntityTransforms(dscene::Scene& scene);
+// Client: write each NetworkedTransform component (already interpolated by SampleInterpolation) BACK
+// onto its entity's LOCAL transform, so the visual follows the replicated pose. Call after sampling.
+void ApplyEntityTransforms(dscene::Scene& scene);
+
+// Registers NetworkComponent + NetworkedTransform reflection (call once before a networked scene is
+// built; the snapshot path needs the patched TypeInfo for its versioned records). Idempotent.
 void RegisterReplicationComponents();
 
 // ---- client-side interpolation (smooth playback of low-rate updates) ------------------------
@@ -188,6 +221,11 @@ public:
     // re-registered entity keeps its id. `prefab` records the source prefab so a client can network-
     // spawn it (nil for a bare networked entity). Records the id->entity mapping for capture.
     NetworkId AssignNetworkId(dscene::Scene& scene, dscene::EntityHandle entity, const Guid& prefab = {});
+
+    // Server: assign a NetworkId to every authored-networked entity (a NetworkComponent) that does
+    // not have one yet - so a designer can mark entities networked in the editor and the server
+    // "just replicates" them on start. Idempotent (already-assigned entities keep their id).
+    void AssignSceneNetworkIds(dscene::Scene& scene);
 
     void CaptureSnapshot(dscene::Scene& scene, BitWriter& out) override;
     void ApplySnapshot(dscene::Scene& scene, BitReader& in) override;

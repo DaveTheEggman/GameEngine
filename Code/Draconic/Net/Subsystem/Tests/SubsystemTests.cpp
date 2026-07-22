@@ -19,11 +19,14 @@ TEST_CASE("net-subsystem: OnSceneCreated injects the NetworkComponentManager")
     net::NetworkSubsystem subsystem;
     dscene::Scene scene;
 
-    // No net manager until the subsystem injects it (a bare scene is not networked).
+    // No net managers until the subsystem injects them (a bare scene is not networked).
     CHECK(scene.FindManagerBySerializationId(u8"net.Network") == nullptr);
+    CHECK(scene.FindManagerBySerializationId(u8"net.Transform") == nullptr);
 
     subsystem.OnSceneCreated(scene);   // the ISceneAware pass-1 injection the SceneManager fans out
 
-    // Now an authored/assigned NetworkComponent has a home in this scene.
+    // Now an authored/assigned NetworkComponent (identity) + NetworkedTransform (replicated movement)
+    // both have a home in this scene.
     CHECK(scene.FindManagerBySerializationId(u8"net.Network") != nullptr);
+    CHECK(scene.FindManagerBySerializationId(u8"net.Transform") != nullptr);
 }

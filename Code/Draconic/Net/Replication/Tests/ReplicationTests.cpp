@@ -198,6 +198,73 @@ TEST_CASE("replication: a full snapshot round-trips networked entities server ->
     CHECK(clientMovers->Get(clientRep.FindEntity(idA))->health == 55);
 }
 
+TEST_CASE("replication: NetworkedTransform bridges the entity transform through capture -> wire -> apply")
+{
+    net::RegisterReplicationComponents();
+
+    dscene::Scene server;
+    server.AddSystem<net::NetworkComponentManager>();
+    server.AddSystem<net::NetworkedTransformComponentManager>();
+    net::StateReplication serverRep;
+
+    const dscene::EntityHandle e = server.CreateEntity(u8"E");
+    server.GetSystem<net::NetworkedTransformComponentManager>()->Add(e);
+    Transform t;
+    t.position = Float3{ 5.0f, 6.0f, 7.0f };
+    t.scale = Float3{ 2.0f, 2.0f, 2.0f };
+    server.SetLocalTransform(e, t);
+    const net::NetworkId id = serverRep.AssignNetworkId(server, e);
+    REQUIRE(id.IsValid());
+
+    // Server: pull the entity's transform into the component, then snapshot.
+    net::CaptureEntityTransforms(server);
+    CHECK(server.GetSystem<net::NetworkedTransformComponentManager>()->Get(e)->position == Float3{ 5.0f, 6.0f, 7.0f });
+    net::BitWriter writer;
+    serverRep.CaptureSnapshot(server, writer);
+
+    // Client: apply the snapshot (fills the component), then push it onto the entity's transform.
+    dscene::Scene client;
+    client.AddSystem<net::NetworkComponentManager>();
+    client.AddSystem<net::NetworkedTransformComponentManager>();
+    net::StateReplication clientRep;
+    net::BitReader reader(writer.Data());
+    clientRep.ApplySnapshot(client, reader);
+    REQUIRE(reader.Ok());
+
+    const dscene::EntityHandle ce = clientRep.FindEntity(id);
+    REQUIRE(client.IsValid(ce));
+    net::ApplyEntityTransforms(client);
+    const Transform ct = client.GetLocalTransform(ce);
+    CHECK(ct.position == Float3{ 5.0f, 6.0f, 7.0f });
+    CHECK(ct.scale == Float3{ 2.0f, 2.0f, 2.0f });
+}
+
+TEST_CASE("replication: AssignSceneNetworkIds assigns ids to authored-networked entities (idempotent)")
+{
+    net::RegisterReplicationComponents();
+
+    dscene::Scene scene;
+    auto* netMgr = scene.AddSystem<net::NetworkComponentManager>();
+    net::StateReplication rep;
+
+    const dscene::EntityHandle a = scene.CreateEntity(u8"A");
+    netMgr->Add(a);
+    const dscene::EntityHandle b = scene.CreateEntity(u8"B");
+    netMgr->Add(b);
+    scene.CreateEntity(u8"plain");   // no NetworkComponent -> never assigned
+
+    CHECK_FALSE(netMgr->Get(a)->id.IsValid());
+    rep.AssignSceneNetworkIds(scene);
+    CHECK(netMgr->Get(a)->id.IsValid());
+    CHECK(netMgr->Get(b)->id.IsValid());
+    CHECK(netMgr->Get(a)->id != netMgr->Get(b)->id);
+
+    // Idempotent: a second pass keeps the same ids (already-assigned entities are untouched).
+    const net::NetworkId idA = netMgr->Get(a)->id;
+    rep.AssignSceneNetworkIds(scene);
+    CHECK(netMgr->Get(a)->id == idA);
+}
+
 TEST_CASE("replication: per-peer delta sends only what changed since the peer's last delta")
 {
     DraconicRegisterValue_Mover();
