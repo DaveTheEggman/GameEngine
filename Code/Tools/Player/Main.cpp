@@ -60,6 +60,7 @@ import draconic.texture.resource;
 import draconic.image.resource;
 import draconic.model.resource;
 import draconic.script;
+import draconic.script.resource;   // ScriptClass (the cooked game script, bound from the content DB)
 import draconic.input;
 import draconic.physics;
 import draconic.physics.resource;
@@ -376,26 +377,16 @@ namespace
         // (facades, services, launch/update/exit) lives in DefaultApplication.
         void LoadAndStartGameScript()
         {
-            const StringView scriptPath = m_settings.startupScript.AsView();
-            if (scriptPath.IsEmpty()) { return; }
-            draconic::vfs::IFileSystem& root = (m_pak.Get() != nullptr)
-                ? static_cast<draconic::vfs::IFileSystem&>(*m_pak)
-                : static_cast<draconic::vfs::IFileSystem&>(*m_root);
-            UniquePtr<IStream> stream = root.Open(scriptPath, FileMode::Read);
-            if (!stream)
+            // The startup game script is a cooked ScriptClass asset, bound from the content DB by guid.
+            const Guid scriptId = m_settings.startupScriptId;
+            if (scriptId.IsNil() || Resources() == nullptr) { return; }
+            auto proxy = Resources()->Bind<draconic::script::ScriptClass>(scriptId);
+            if (!proxy || proxy->source.IsEmpty())
             {
-                DRACONIC_LOG_ERROR(u8"Player", u8"startup script '{}' not found", scriptPath);
+                DRACONIC_LOG_ERROR(u8"Player", u8"startup script asset not found");
                 return;
             }
-            Array<byte> bytes;
-            bytes.Resize(static_cast<usize>(stream->Size()));
-            if (stream->Read(bytes.Data(), bytes.Size()) != bytes.Size())
-            {
-                DRACONIC_LOG_ERROR(u8"Player", u8"startup script '{}' unreadable", scriptPath);
-                return;
-            }
-            (void)StartGameScript(
-                StringView(reinterpret_cast<const utf8char*>(bytes.Data()), bytes.Size()), scriptPath);
+            (void)StartGameScript(proxy->source.AsView(), proxy->sourceName.AsView());
         }
 
         PlayerOptions m_options;

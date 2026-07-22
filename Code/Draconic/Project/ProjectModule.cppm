@@ -51,9 +51,10 @@ export namespace draconic::project
         Guid defaultSceneId;   // AUTHORITATIVE startup-scene reference (rename/move-proof)
         String defaultScene;   // its source-DB path - the human-readable mirror (and the
                                // fallback for v2 manifests that predate the guid)
-        String startupScript;  // project-relative GAME SCRIPT path ("" = none) - the scripted
-                               // IApplication counterpart (launch/update/exit), hosted by the
-                               // player and play-in-editor
+        Guid startupScriptId;  // AUTHORITATIVE game-script reference (a cooked ScriptClass asset;
+                               // launch/update/exit), bound from the content DB by the player and
+                               // play-in-editor. nil = none. (v6; supersedes the startupScript path.)
+        String startupScript;  // its source-DB path - the human-readable mirror (and the v<6 fallback)
         String nativeModule;   // RESERVED: optional native game module (tagged for later planning)
         Guid defaultInputMapId; // the input map the player binds at startup (nil = none; v4)
         Guid defaultBusLayoutId; // the audio mixer layout applied at startup (nil = built-in; v5)
@@ -87,6 +88,11 @@ export namespace draconic::project
                 ar.GuidValue(defaultBusLayoutId);
                 ar.Key("defaultUiThemeId");
                 ar.GuidValue(defaultUiThemeId);
+            }
+            if (ar.Version() >= 6)   // v6 made the startup script guid-authoritative (a ScriptClass asset)
+            {
+                ar.Key("startupScriptId");
+                ar.GuidValue(startupScriptId);
             }
         }
     };
@@ -124,5 +130,5 @@ export namespace draconic::project
         return writable.Save(fileName, buffer.Bytes());
     }
 
-    DRACONIC_DEFINE_OBJECT_VERSIONED(ProjectSettings, "draconic::project", 5)
+    DRACONIC_DEFINE_OBJECT_VERSIONED(ProjectSettings, "draconic::project", 6)
 }

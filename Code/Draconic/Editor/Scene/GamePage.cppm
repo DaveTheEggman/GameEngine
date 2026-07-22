@@ -32,6 +32,7 @@ import draconic.ui.runtime;
 import draconic.vg.renderer;
 import draconic.ui.viewport;
 import draconic.script;
+import draconic.script.resource;    // ScriptClass (the cooked game script, bound from the content DB)
 import draconic.script.subsystem;   // ScriptSubsystem / ScriptRunHost (debugger wiring)
 import draconic.shell;
 import draconic.input;
@@ -776,21 +777,18 @@ export namespace draconic::editor
         // facades, services, launch/update/exit, fault handling - is the embedded app's.
         void StartGameScriptFromProject()
         {
-            const StringView scriptPath = m_context->Project()->Settings().startupScript.AsView();
-            if (scriptPath.IsEmpty()) { return; }
-            draconic::vfs::NativeFileSystem root(m_context->Project()->Directory());
-            UniquePtr<IStream> stream = root.Open(scriptPath, FileMode::Read);
-            if (!stream)
+            // The startup script is a cooked ScriptClass asset (guid-authoritative), bound from the
+            // content DB like every other asset - no raw source path.
+            const Guid scriptId = m_context->Project()->Settings().startupScriptId;
+            if (scriptId.IsNil() || m_context->Resources() == nullptr) { return; }
+            auto proxy = m_context->Resources()->Bind<draconic::script::ScriptClass>(scriptId);
+            if (!proxy || proxy->source.IsEmpty())
             {
-                m_context->Notify(NoticeKind::Warning, u8"Game: startup script not found.");
+                m_context->Notify(NoticeKind::Warning, u8"Game: startup script asset not found.");
                 return;
             }
-            Array<byte> bytes;
-            bytes.Resize(static_cast<usize>(stream->Size()));
-            if (stream->Read(bytes.Data(), bytes.Size()) != bytes.Size()) { return; }
-            if (m_gameInstance == nullptr || !m_gameInstance->StartScript(
-                    StringView(reinterpret_cast<const utf8char*>(bytes.Data()), bytes.Size()),
-                    scriptPath))
+            if (m_gameInstance == nullptr
+                || !m_gameInstance->StartScript(proxy->source.AsView(), proxy->sourceName.AsView()))
             {
                 m_context->Notify(NoticeKind::Error,
                     u8"Game: startup script failed to start (see Console).");

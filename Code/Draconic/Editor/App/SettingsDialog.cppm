@@ -83,8 +83,42 @@ export namespace draconic::editor::app
                 }
             }
 
-            m_scriptEdit = AddTextRow(*column, u8"Startup script", project != nullptr
-                ? project->Settings().startupScript.AsView() : StringView(u8""));
+            // Startup script: the cooked ScriptClass asset the player (and the Game tab) binds at
+            // startup - picked by GUID like the default scene, not a typed path.
+            {
+                ui::FlexLayout* row = AddRow(*column, u8"Startup script");
+                m_scriptLabel = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"(none)"));
+                {
+                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    lp->Grow = 1.0f;
+                    lp->AlignSelf = ui::Align::Center;
+                    row->AddView(m_scriptLabel.Get(), lp);
+                }
+                auto pick = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Pick..."));
+                {
+                    ProjectSettingsDialog* self = this;
+                    pick->OnClick.Add([self](ui::ButtonBase*) { self->PickStartupScript(); });
+                    row->AddView(pick.Get());
+                }
+                auto clear = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Clear"));
+                {
+                    ProjectSettingsDialog* self = this;
+                    clear->OnClick.Add([self](ui::ButtonBase*) {
+                        self->m_scriptId = Guid{};
+                        self->m_scriptLabel->SetText(u8"(none)");
+                    });
+                    row->AddView(clear.Get());
+                }
+                if (project != nullptr)
+                {
+                    m_scriptId = project->Settings().startupScriptId;
+                    if (content::Instance* script = !m_scriptId.IsNil()
+                            ? project->SourceDb().GetInstance(m_scriptId) : nullptr)
+                    {
+                        m_scriptLabel->SetText(script->Path().AsView());
+                    }
+                }
+            }
 
             // Default input map: the cooked map the player (and the Game tab) binds at
             // startup - the input twin of the default scene.
@@ -274,6 +308,28 @@ export namespace draconic::editor::app
             picker->Show(Context);
         }
 
+        void PickStartupScript()
+        {
+            if (Context == nullptr) { return; }
+            Array<String> typeNames;
+            typeNames.PushBack(String(u8"ScriptClassAsset"));
+            auto picker = MakeRef<AssetPickerDialog>(DefaultAllocator(), *m_context, Move(typeNames));
+            ProjectSettingsDialog* self = this;
+            picker->OnPicked = [self](const Guid& id) {
+                self->m_scriptId = id;
+                if (content::Instance* script = !id.IsNil() && self->m_context->Project() != nullptr
+                        ? self->m_context->Project()->SourceDb().GetInstance(id) : nullptr)
+                {
+                    self->m_scriptLabel->SetText(script->Path().AsView());
+                }
+                else
+                {
+                    self->m_scriptLabel->SetText(u8"(none)");
+                }
+            };
+            picker->Show(Context);
+        }
+
         void PickInputMap()
         {
             if (Context == nullptr) { return; }
@@ -349,7 +405,13 @@ export namespace draconic::editor::app
                 return;
             }
             project->Settings().name = String(m_nameEdit->Text());
-            project->Settings().startupScript = String(m_scriptEdit->Text());
+            project->Settings().startupScriptId = m_scriptId;
+            project->Settings().startupScript = String();   // the source-DB path mirror (display / v<6 fallback)
+            if (content::Instance* script = !m_scriptId.IsNil()
+                    ? project->SourceDb().GetInstance(m_scriptId) : nullptr)
+            {
+                project->Settings().startupScript = script->Path();
+            }
             project->Settings().defaultSceneId = m_sceneId;
             project->Settings().defaultInputMapId = m_inputMapId;
             project->Settings().defaultBusLayoutId = m_busLayoutId;
@@ -384,7 +446,8 @@ export namespace draconic::editor::app
         Guid m_uiThemeId{};
         RefPtr<ui::Label> m_uiThemeLabel;
         ui::EditText* m_nameEdit = nullptr;
-        ui::EditText* m_scriptEdit = nullptr;
+        RefPtr<ui::Label> m_scriptLabel;
+        Guid m_scriptId{};
         RefPtr<ui::Label> m_sceneLabel;
         RefPtr<ui::Button> m_pickButton;
         Guid m_sceneId;

@@ -222,24 +222,25 @@ TEST_CASE("editor-project: source db is XML, cooked db is binary, both round-tri
     RemoveProjectTree(dir);
 }
 
-TEST_CASE("project: manifest round-trips startupScript under a versioned payload")
+TEST_CASE("project: manifest round-trips the startup-script asset guid under a versioned payload")
 {
     const StringView dir = u8"draconic_project_v2_test";
     (void)FileDelete(PathJoin(dir, u8"Project.xml"));
     (void)RemoveDirectory(dir);
 
+    const Guid scriptId = Guid{ 0x1122334455667788ull, 0x99AABBCCDDEEFF00ull };
     REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
     {
         UniquePtr<EditorProject> project = EditorProject::Open(dir);
         REQUIRE(static_cast<bool>(project));
-        CHECK(project->Settings().startupScript.IsEmpty());
-        project->Settings().startupScript = String(u8"Scripts/game.wren");
+        CHECK(project->Settings().startupScriptId.IsNil());
+        project->Settings().startupScriptId = scriptId;
         REQUIRE(project->SaveSettings().IsOk());
     }
     {
         UniquePtr<EditorProject> project = EditorProject::Open(dir);
         REQUIRE(static_cast<bool>(project));
-        CHECK(project->Settings().startupScript == u8"Scripts/game.wren");
+        CHECK(project->Settings().startupScriptId == scriptId);
     }
 
     (void)FileDelete(PathJoin(dir, u8"Project.xml"));

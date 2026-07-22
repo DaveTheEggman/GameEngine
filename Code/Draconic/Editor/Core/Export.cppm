@@ -364,14 +364,9 @@ export namespace draconic::editor
 
         add(settings.defaultSceneId, ExportRootReason::DefaultScene);
 
-        // The script FILE always ships (packed raw in ExportContent); seed its OWN asset only when the
-        // project imported the script as a content instance - the assets the script LOADS follow the
-        // normal contract (Phase 3 AssetRef / Phase 2 flag), not chased here.
-        if (!settings.startupScript.IsEmpty())
-        {
-            add(detail::FindAssetByFileName(project.SourceDb(), settings.startupScript.AsView()),
-                ExportRootReason::StartupScript);
-        }
+        // The startup game script is a cooked ScriptClass asset (guid-authoritative) - seed it as a
+        // reachability root so it (and the assets IT loads, via the normal AssetRef contract) ship.
+        add(settings.startupScriptId, ExportRootReason::StartupScript);
 
         // Phase 2 "Always Export": explicit instance flags, then group subtrees (dynamic membership -
         // whatever is under the flagged folder now). A group that also contains the default scene /
@@ -585,25 +580,9 @@ export namespace draconic::editor
             DRACONIC_LOG_ERROR(u8"Export", u8"packing failed");
             return Status{ ErrorCode::Internal };
         }
-        if (!project.Settings().startupScript.IsEmpty())
-        {
-            draconic::vfs::NativeFileSystem projectRoot(project.Directory());
-            const StringView scriptPath = project.Settings().startupScript.AsView();
-            if (UniquePtr<IStream> stream = projectRoot.Open(scriptPath, FileMode::Read))
-            {
-                Array<byte> bytes;
-                bytes.Resize(static_cast<usize>(stream->Size()));
-                if (stream->Read(bytes.Data(), bytes.Size()) == bytes.Size())
-                {
-                    pak.Add(scriptPath, Span<const byte>{ bytes.Data(), bytes.Size() });
-                    ++stats.filesPacked;
-                }
-            }
-            else
-            {
-                DRACONIC_LOG_WARNING(u8"Export", u8"startup script '{}' not found", scriptPath);
-            }
-        }
+        // The startup game script needs no special staging - it is a cooked ScriptClass asset in the
+        // reachability closure, so it already rides in the content DB pak like every other asset. The
+        // dist manifest carries its guid (below); the player binds it from the content DB.
         const String pakPath = PathJoin(outDir, proj::kDistContentPak);
         if (!pak.Write(pakPath.AsView()).IsOk())
         {
@@ -619,7 +598,8 @@ export namespace draconic::editor
             dist.name = String(project.Settings().name.AsView());
             dist.defaultSceneId = project.Settings().defaultSceneId;
             dist.defaultScene = String(project.Settings().defaultScene.AsView());
-            dist.startupScript = String(project.Settings().startupScript.AsView());
+            dist.startupScriptId = project.Settings().startupScriptId;
+            dist.startupScript = String(project.Settings().startupScript.AsView());   // display mirror
             if (!proj::SaveProjectSettings(*outMount.AsWritable(), dist, proj::kDistManifestFile).IsOk())
             {
                 DRACONIC_LOG_ERROR(u8"Export", u8"failed to write the dist manifest");

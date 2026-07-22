@@ -57,6 +57,7 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
 
     Guid meshId;
     Guid sceneId;
+    const Guid scriptId = Guid{ 0xABCD1234ull, 0x5678EF90ull };   // stand-in startup-script asset id
     // --- author the project ---
     {
         REQUIRE(ed::EditorProject::Create(projectDir, u8"E2E").IsOk());
@@ -92,16 +93,12 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
             REQUIRE(dscene::SaveScene(scene, *sceneInstance).IsOk());
         }
 
-        // The game script + manifest wiring.
-        {
-            const StringView script = u8"class Game { construct new() {} }\n";
-            draconic::vfs::NativeFileSystem root(projectDir);
-            REQUIRE(root.AsWritable()->Save(u8"Scripts/game.wren",
-                Span<const byte>(reinterpret_cast<const byte*>(script.Data()), script.Size())).IsOk());
-        }
+        // The startup script is a guid-authoritative ScriptClass asset now (bound from the content DB
+        // by the player). Here we just verify the manifest carries the guid; a full script-asset-in-dist
+        // export/bind test belongs with the script-cook fixtures.
         project->Settings().defaultSceneId = sceneId;
         project->Settings().defaultScene = String(u8"Scenes/Main");
-        project->Settings().startupScript = String(u8"Scripts/game.wren");
+        project->Settings().startupScriptId = scriptId;
         REQUIRE(project->SaveSettings().IsOk());
 
         // --- export ---
@@ -127,7 +124,7 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
         REQUIRE(ed::ExportProject(*project, distDir, registry, false, &stats, {}, &sceneStreams).IsOk());
         CHECK(stats.cooked == 1u);        // the cube
         CHECK(stats.scenesStaged == 1u);
-        CHECK(stats.filesPacked >= 3u);   // product + scene envelope + scene stream + script
+        CHECK(stats.filesPacked >= 2u);   // product + scene envelope + scene stream
     }
 
     // --- consume the dist exactly like RaptorPlayer's dist mode ---
@@ -136,7 +133,7 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
     REQUIRE(proj::LoadProjectSettings(distRoot, manifest, proj::kDistManifestFile).IsOk());
     CHECK(manifest.defaultScene == u8"Scenes/Main");
     CHECK(manifest.defaultSceneId == sceneId);   // dist manifest carries the guid too
-    CHECK(manifest.startupScript == u8"Scripts/game.wren");
+    CHECK(manifest.startupScriptId == scriptId);   // the startup script rides as a guid (bound from the DB)
 
     draconic::vfs::PakFileSystem pak(PathJoin(distDir, proj::kDistContentPak).AsView());
     REQUIRE(pak.IsValid());
@@ -173,11 +170,6 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
     geo::StaticMesh* mesh = mc->mesh.Get();
     REQUIRE(mesh != nullptr);
     CHECK(mesh->bounds.max.x == doctest::Approx(1.0f));   // the 2.0 cube
-
-    // The game script rides in the pak as a raw entry.
-    UniquePtr<IStream> script = pak.Open(manifest.startupScript.AsView(), FileMode::Read);
-    REQUIRE(script);
-    CHECK(script->Size() > 0);
 
     NukeTree(projectDir);
     NukeTree(distDir);
