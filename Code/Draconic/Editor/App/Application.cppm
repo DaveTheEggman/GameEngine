@@ -566,6 +566,18 @@ export namespace draconic::editor::app
             {
                 const f32 scaled = dt * m_runtimeContext.TimeScale();
                 m_runtimeContext.BeginFrame(dt);
+                // Fixed lane: per-scene fixed stepping already ran in BeginFrame, but the APP-level
+                // OnFixedUpdate (networking - each GameInstance's DriveNetwork) is otherwise never
+                // driven in the editor. Accumulate + step it at the runtime's fixed rate, mirroring
+                // ApplicationHost::Tick. No-op until an instance goes online, so always safe.
+                const rt::ApplicationSettings settings = m_embeddedApp->Settings();
+                m_embeddedFixedStepper.step = settings.fixedTimeStep;
+                m_embeddedFixedStepper.maxSteps = settings.maxFixedStepsPerFrame;
+                const u32 fixedSteps = m_embeddedFixedStepper.Advance(scaled);
+                for (u32 i = 0; i < fixedSteps; ++i)
+                {
+                    m_embeddedApp->OnFixedUpdate(*m_embeddedHost, settings.fixedTimeStep);
+                }
                 m_runtimeContext.Update(scaled);
                 m_runtimeContext.PostUpdate(scaled);
                 // Tick EVERY game instance's script ONCE per frame (game-instance.md §11 step 5) -
@@ -1931,6 +1943,7 @@ export namespace draconic::editor::app
         // The embedded runtime (v3): gameplay subsystems + ALL scene hosting live here.
         rt::Context m_runtimeContext;
         UniquePtr<rt::EmbeddedApplicationHost> m_embeddedHost;
+        rt::FixedStepper m_embeddedFixedStepper;   // drives the embedded app's OnFixedUpdate (net) in-editor
         UniquePtr<rt::DefaultApplication> m_embeddedApp;
         bool m_stopGameRequested = false;   // borrowed (exe injects)
 
