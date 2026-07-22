@@ -77,6 +77,7 @@ export namespace draconic::runtime
         // keep the hotkey. (Reads the GPU timestamps after a device stall - fine for an on-demand dump.)
         void OnUpdate(IApplicationHost& host, core::f32 deltaTime) override
         {
+            m_instance.DriveRunHost(deltaTime);   // advance the instance run host clock + GC (subsystem drives its own)
             TickGameScript(host, deltaTime);
             IShell* plat = host.Shell();
             IInputManager* input = (plat != nullptr) ? plat->Input() : nullptr;
@@ -133,10 +134,10 @@ export namespace draconic::runtime
             // the run context itself is created lazily by the subsystem and SHARED
             // with the game script (one gameplay context per run, the locked rule).
             m_scripts = host.Ctx().AddSubsystem<draconic::script::ScriptSubsystem>();
-            // The run's script host lives on the GameInstance now (game-instance.md §11): lend it to
-            // the subsystem so the game script + this instance's scenes' behaviors share the one
-            // context. At N=1 this is behaviour-identical to the subsystem owning it.
-            m_scripts->UseRunHost(&m_instance.RunHost());
+            // The instance owns its run host (game-instance.md §11.10); wire it with the app's facades
+            // + Scene.spawn + entity.send routing so its context has them when the game script starts.
+            // (The subsystem's own default host - for editor scenes - is wired in its OnReady.)
+            m_scripts->ConfigureRunHost(m_instance.RunHost());
             draconic::input::RegisterInputScriptApi();
             draconic::physics::RegisterPhysicsScriptApi();
             draconic::audio::RegisterAudioScriptApi();
@@ -354,6 +355,7 @@ export namespace draconic::runtime
             // OnSceneDestroyed). The editor's GamePage already cleared them per Stop; this covers the
             // player + any leftover. Do it FIRST, before subsystem teardown.
             m_instance.Scenes().Clear();
+            m_instance.RunHost().Teardown();   // release the instance's script context while the engine's alive
             if (m_physics != nullptr) { m_physics->UnregisterContactListener(&m_contactBridge); }
             m_net.subsystem = nullptr;   // stop the session (drops peers) before closing the socket
             m_net.socket = nullptr;
@@ -387,20 +389,12 @@ export namespace draconic::runtime
         /// path (the normal path uses the ScriptSubsystem's configured shared context).
         bool StartGameScript(core::StringView source, core::StringView name)
         {
-            DefaultApplication* self = this;
-            return m_instance.StartScript(m_scripts,
-                core::Function<void(draconic::script::IScriptContext&)>{
-                    [self](draconic::script::IScriptContext& context) {
-                        if (self->m_input != nullptr) { self->m_input->ExposeToScript(context); }
-                        if (self->m_physics != nullptr) { self->m_physics->ExposeToScript(context); }
-                        if (self->m_audio != nullptr) { self->m_audio->ExposeToScript(context, self->Resources()); }
-                        if (self->m_net.IsActive()) { self->m_net.subsystem->InstallScriptService(context); }
-                    } },
-                source, name);
+            return m_instance.StartScript(source, name);
         }
 
-        /// exit() + teardown (idempotent; the update fault path also lands here).
-        void StopGameScript() { m_instance.StopScript(m_scripts); }
+        /// exit() + release (idempotent; the update fault path also lands here). The run host tears
+        /// down via the scene-stop observer once the run's scene stops.
+        void StopGameScript() { m_instance.StopScript(); }
         [[nodiscard]] bool GameScriptRunning() const noexcept { return m_instance.ScriptRunning(); }
 
         // Default render: draw every active scene into the window via the RenderSubsystem.

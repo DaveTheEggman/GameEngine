@@ -110,6 +110,11 @@ export namespace draconic::script
             m_errorSink.external = sink;
         }
 
+        // The game-script hold (game-instance.md §11.10): true while a game script is loaded into THIS
+        // host, so teardown accounting keeps the context alive. Per-host now (was ScriptSubsystem-wide).
+        void SetGameScriptHold(bool held) noexcept { m_gameScriptHold = held; }
+        [[nodiscard]] bool HasGameScriptHold() const noexcept { return m_gameScriptHold; }
+
         // ---- step debugging (the PIE debugger + the future remote transport) ----
 
         /// Ask that this run be debuggable: a debugger is created on the run's manager
@@ -354,6 +359,7 @@ export namespace draconic::script
         bool m_moduleCurrent = false;
         bool m_warnedLanguageMismatch = false;
         bool m_debuggerRequested = false;
+        bool m_gameScriptHold = false;   // a game script is loaded into this host (teardown pin)
     };
 
     // ---- per-scene dispatch ----
@@ -365,6 +371,7 @@ export namespace draconic::script
 
         /// The subsystem (or a headless test) wires the shared run host in.
         void SetRunHost(ScriptRunHost* host) noexcept { m_host = host; }
+        [[nodiscard]] ScriptRunHost* Host() const noexcept { return m_host; }
         /// Optional: the subsystem hears about run-participation changes (teardown check).
         void SetRunObserver(Function<void()> observer) { m_runObserver = Move(observer); }
 
@@ -820,13 +827,53 @@ export namespace draconic::script
                                   public dscene::ISceneAware
     {
     public:
-        [[nodiscard]] ScriptRunHost& RunHost() noexcept { return *m_runHost; }
+        /// The DEFAULT run host - the one for the editor's editing/loose scenes (game-instance.md
+        /// §11.10). A GameInstance owns its OWN run host for its game scenes + game script; this is not
+        /// that. Editing-scene Simulate runs its behaviors on this host.
+        [[nodiscard]] ScriptRunHost& RunHost() noexcept { return m_ownedRunHost; }
 
-        /// Borrow an external run host instead of the owned default (game-instance.md §11 step 2): a
-        /// GameInstance owns its run host and lends it here, so its storage lifetime is the instance's.
-        /// Null restores the owned default (headless tests / standalone). At N=1 this points the
-        /// subsystem at the one instance's run host - behaviour identical to owning it.
-        void UseRunHost(ScriptRunHost* host) noexcept { m_runHost = (host != nullptr) ? host : &m_ownedRunHost; }
+        /// Wire a run host (this default OR a GameInstance's) with the app services + routing so its
+        /// context, once created, has the facades, the Scene.spawn spawner, and entity.send routing
+        /// (game-instance.md §11.10). The wrappers read the stored configurator/spawner + m_systems
+        /// LIVE, so one call per host suffices and the same message route serves every host. Call
+        /// once per run host before its first context is created.
+        void ConfigureRunHost(ScriptRunHost& host)
+        {
+            ScriptSubsystem* self = this;
+            host.SetContextConfigurator(Function<void(IScriptContext&)>{
+                [self](IScriptContext& context) { if (self->m_configurator) { self->m_configurator(context); } } });
+            host.Binding().spawnPrefab = Function<dscene::EntityHandle(dscene::Scene*, const Guid&, const Float3&)>{
+                [self](dscene::Scene* scene, const Guid& prefab, const Float3& position) -> dscene::EntityHandle {
+                    return self->m_spawner ? self->m_spawner(scene, prefab, position) : dscene::EntityHandle::Invalid();
+                } };
+            host.Binding().dispatchMessage = Function<void(dscene::Scene*, dscene::EntityHandle, StringView,
+                Span<const Variant>)>{
+                [self](dscene::Scene* scene, dscene::EntityHandle target, StringView message,
+                       Span<const Variant> args) {
+                    for (const SceneEntry& entry : self->m_systems) {
+                        if (entry.scene == scene && entry.system != nullptr) {
+                            entry.system->EnqueueMessage(target, message, args);
+                            return;
+                        }
+                    }
+                } };
+        }
+
+        /// Tear down `host` if nothing pins it: no game-script hold, no scene BOUND TO IT simulating,
+        /// no live behavior instances in those scenes (game-instance.md §11.10). Per-host, so an
+        /// instance's host and the editor's host tear down independently. Called by the scene-stop
+        /// observer, OnSceneDestroyed, and a GameInstance on its own host.
+        void MaybeTeardownRunHost(ScriptRunHost& host)
+        {
+            if (!host.IsActive() || host.HasGameScriptHold()) { return; }
+            for (const SceneEntry& entry : m_systems) {
+                if (entry.system == nullptr || entry.scene == nullptr) { continue; }
+                if (entry.system->Host() != &host) { continue; }   // only scenes bound to THIS host
+                if (entry.system->Started() && entry.scene->SimulationEnabled()) { return; }
+                if (entry.system->InstanceCount() > 0) { return; }
+            }
+            host.Teardown();
+        }
 
         // ---- contact events (neutral ingress) ----
 
@@ -854,45 +901,22 @@ export namespace draconic::script
             DeliverContactSide(*system, scene, b, a, handler, point, normal, speed, trigger);
         }
 
-        /// Host-app wiring: exposes engine services (Input/Audio/Physics facades) on
-        /// every run context the host creates. Set BEFORE the first run.
+        /// Host-app wiring: exposes engine services (Input/Audio/Physics facades) on every run context
+        /// (via ConfigureRunHost's live wrapper - applies to the default host AND every instance host).
         void SetContextConfigurator(Function<void(IScriptContext&)> configurator)
         {
-            m_runHost->SetContextConfigurator(Move(configurator));
+            m_configurator = Move(configurator);
         }
-        /// Optional per-run external error sink (the editor's notices). Cleared on release.
-        void SetExternalErrorSink(IScriptErrorHandler* sink) noexcept
-        {
-            m_runHost->SetExternalErrorSink(sink);
-        }
-        /// Host-app wiring: the prefab spawner behind `Scene.spawn` (the host owns the
-        /// content DB that resolves a prefab id to its payload). Set BEFORE the first run.
+        /// Host-app wiring: the prefab spawner behind `Scene.spawn` (the host owns the content DB that
+        /// resolves a prefab id). Applied to every run host by ConfigureRunHost's live wrapper.
         void SetPrefabSpawner(Function<dscene::EntityHandle(dscene::Scene*, const Guid&,
                                                             const Float3&)> spawner)
         {
-            m_runHost->Binding().spawnPrefab = Move(spawner);
+            m_spawner = Move(spawner);
         }
-
-        // ---- the game-script seam (DefaultApplication): SHARES the run context ----
-
-        /// The run context for the game script (resolved by the script file's
-        /// extension); holds the context alive until ReleaseRunContext.
-        [[nodiscard]] IScriptContext* AcquireRunContextForFile(StringView path)
-        {
-            IScriptContext* context = m_runHost->EnsureContextForFile(path);
-            if (context != nullptr) { m_gameScriptHold = true; }
-            return context;
-        }
-        /// The game script loaded its module into the shared context.
-        void NoteExternalLoad() noexcept { m_runHost->NoteExternalLoad(); }
-        /// Releases the game script's hold; tears the context down when nothing else
-        /// keeps the run alive (the Stop bracket).
-        void ReleaseRunContext()
-        {
-            m_gameScriptHold = false;
-            m_runHost->SetExternalErrorSink(nullptr);
-            MaybeTeardownRunContext();
-        }
+        // The game-script run context is no longer acquired here (game-instance.md §11.10): a
+        // GameInstance owns its run host and drives its own game script through it. This subsystem is
+        // machinery (routing + ISceneAware + reflection + Configure/MaybeTeardownRunHost).
 
         // ---- scene integration ----
 
@@ -901,35 +925,39 @@ export namespace draconic::script
             auto* components = scene.AddSystem<ScriptComponentManager>();
             ScriptSceneSystem* system = scene.AddSystem<ScriptSceneSystem>();
             components->SetScriptSystem(system);
-            system->SetRunHost(m_runHost);
+            // Bind to the DEFAULT run host; a GameInstance re-binds ITS scenes to its own host on adopt
+            // (game-instance.md §11.10). The teardown observer checks the system's CURRENT host.
+            system->SetRunHost(&m_ownedRunHost);
             ScriptSubsystem* self = this;
-            system->SetRunObserver(Function<void()>{ [self]() {
-                self->MaybeTeardownRunContext();
+            system->SetRunObserver(Function<void()>{ [self, system]() {
+                if (system->Host() != nullptr) { self->MaybeTeardownRunHost(*system->Host()); }
             } });
             m_systems.PushBack(SceneEntry{ &scene, system });
-            EnsureMessageRoute();
         }
         void OnSceneDestroyed(dscene::Scene& scene) override
         {
+            ScriptRunHost* host = nullptr;
             for (usize i = 0; i < m_systems.Size(); ++i)
             {
                 if (m_systems[i].scene == &scene)
                 {
+                    if (m_systems[i].system != nullptr) { host = m_systems[i].system->Host(); }
                     m_systems.RemoveAt(i);
                     break;
                 }
             }
-            MaybeTeardownRunContext();
+            if (host != nullptr) { MaybeTeardownRunHost(*host); }
         }
 
+        // Drives the DEFAULT run host (editor scenes). A GameInstance drives its own host.
         void Update(f32 deltaTime) override
         {
-            ScriptRuntimeBinding& binding = m_runHost->Binding();
+            ScriptRuntimeBinding& binding = m_ownedRunHost.Binding();
             binding.timeSeconds += static_cast<f64>(deltaTime);
             binding.deltaSeconds = deltaTime;
-            if (m_runHost->Manager() != nullptr)
+            if (m_ownedRunHost.Manager() != nullptr)
             {
-                m_runHost->Manager()->CollectGarbage();   // frame-budgeted GC stepping
+                m_ownedRunHost.Manager()->CollectGarbage();   // frame-budgeted GC stepping
             }
         }
 
@@ -941,6 +969,7 @@ export namespace draconic::script
         }
         void OnReady() override
         {
+            ConfigureRunHost(m_ownedRunHost);   // wire the default (editor-scene) run host once
             if (draconic::runtime::Context* context = GetContext())
             {
                 if (auto* scenes = context->GetSubsystem<dscene::SceneSubsystem>())
@@ -966,7 +995,7 @@ export namespace draconic::script
                     entry.system->OnSceneStopped();
                 }
             }
-            m_runHost->Teardown();
+            m_ownedRunHost.Teardown();   // instance hosts are torn down by their owners
         }
 
     private:
@@ -1009,48 +1038,9 @@ export namespace draconic::script
             system.EnqueueContact(self, handler, Move(args));
         }
 
-        // Route entity.send messages to the scene system that owns the target's scene.
-        // Reads the live m_systems list on each call, so a destroyed scene's system is
-        // never touched (no dangling capture). Installed once, lazily.
-        void EnsureMessageRoute()
-        {
-            if (m_messageRouteInstalled) { return; }
-            ScriptSubsystem* self = this;
-            m_runHost->Binding().dispatchMessage = Function<void(dscene::Scene*,
-                dscene::EntityHandle, StringView, Span<const Variant>)>{
-                [self](dscene::Scene* scene, dscene::EntityHandle target, StringView message,
-                       Span<const Variant> args) {
-                    for (const SceneEntry& entry : self->m_systems)
-                    {
-                        if (entry.scene == scene && entry.system != nullptr)
-                        {
-                            entry.system->EnqueueMessage(target, message, args);
-                            return;
-                        }
-                    }
-                } };
-            m_messageRouteInstalled = true;
-        }
-
-        // The run ends when the game script released its hold, no scene is actively
-        // simulating, and no live instances remain (an edit-page scene that is started
-        // but frozen never pins the context).
-        void MaybeTeardownRunContext()
-        {
-            if (!m_runHost->IsActive() || m_gameScriptHold) { return; }
-            for (const SceneEntry& entry : m_systems)
-            {
-                if (entry.system == nullptr || entry.scene == nullptr) { continue; }
-                if (entry.system->Started() && entry.scene->SimulationEnabled()) { return; }
-                if (entry.system->InstanceCount() > 0) { return; }
-            }
-            m_runHost->Teardown();
-        }
-
-        ScriptRunHost  m_ownedRunHost;               // the default run host (tests / standalone)
-        ScriptRunHost* m_runHost = &m_ownedRunHost;  // borrowed: a GameInstance lends its own (UseRunHost)
+        ScriptRunHost m_ownedRunHost;   // the DEFAULT run host (editor/editing scenes; game-instance §11.10)
         Array<SceneEntry> m_systems;
-        bool m_gameScriptHold = false;
-        bool m_messageRouteInstalled = false;
+        Function<void(IScriptContext&)> m_configurator;   // app services, applied to every host via ConfigureRunHost
+        Function<dscene::EntityHandle(dscene::Scene*, const Guid&, const Float3&)> m_spawner;  // Scene.spawn
     };
 }

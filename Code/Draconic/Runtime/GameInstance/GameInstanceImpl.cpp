@@ -16,53 +16,34 @@ using namespace draconic::core;
 
 namespace draconic::runtime {
 
-bool GameInstance::StartScript(dscript::ScriptSubsystem* scripts,
-                              const core::Function<void(dscript::IScriptContext&)>& exposeServices,
-                              core::StringView source, core::StringView name)
+bool GameInstance::StartScript(core::StringView source, core::StringView name)
 {
-    StopScript(scripts);
-    if (scripts != nullptr)
+    StopScript();
+    // THIS instance's run host is the game's context (game-instance.md §11.10). The host was
+    // configured by the app (ConfigureRunHost) with the facades + Scene.spawn + entity.send routing.
+    m_runHost.SetExternalErrorSink(m_errorHandler);   // before the context is created
+    dscript::IScriptContext* context = m_runHost.EnsureContextForFile(name);
+    if (context == nullptr)
     {
-        // The SHARED run context (scripting.md): the game script + entity behaviors live in the ONE
-        // gameplay context the subsystem owns; Stop releases the hold and the subsystem tears down.
-        scripts->SetExternalErrorSink(m_errorHandler);
-        dscript::IScriptContext* shared = scripts->AcquireRunContextForFile(name);
-        if (shared == nullptr)
-        {
-            DRACONIC_LOG_ERROR(u8"App", u8"no script backend for '{}'", name);
-            return false;
-        }
-        m_scriptContext = core::RefPtr<dscript::IScriptContext>(shared);
+        DRACONIC_LOG_ERROR(u8"App", u8"no script backend for '{}'", name);
+        return false;
     }
-    else
-    {
-        // Headless / no-subsystem fallback: self-owned manager + context. Backends + script APIs are
-        // registered by the app's Configure; the caller's exposeServices binds the per-context services.
-        m_scriptManager = dscript::CreateScriptManagerForFile(name);
-        if (m_scriptManager.Get() == nullptr)
-        {
-            DRACONIC_LOG_ERROR(u8"App", u8"no script backend for '{}'", name);
-            return false;
-        }
-        dscript::RegisterReflectedTypes(*m_scriptManager);
-        m_scriptContext = m_scriptManager->CreateContext();
-        if (m_errorHandler != nullptr) { m_scriptContext->SetErrorHandler(m_errorHandler); }
-        if (exposeServices) { exposeServices(*m_scriptContext); }
-    }
+    m_scriptContext = core::RefPtr<dscript::IScriptContext>(context);
+    m_runHost.SetGameScriptHold(true);
 
     const bool loaded = m_scriptContext->Load(source, name).IsOk();
-    if (scripts != nullptr) { scripts->NoteExternalLoad(); }
+    m_runHost.NoteExternalLoad();   // the game script loaded its own module (behaviors reload target)
     if (!loaded)
     {
         DRACONIC_LOG_ERROR(u8"App", u8"game script '{}' failed to compile", name);
-        StopScript(scripts);
+        StopScript();
         return false;
     }
     m_game = m_scriptContext->CreateInstance(u8"Game", core::Span<core::Variant>{});
     if (m_game.Get() == nullptr)
     {
         DRACONIC_LOG_ERROR(u8"App", u8"game script '{}' has no `Game` class (construct new())", name);
-        StopScript(scripts);
+        StopScript();
         return false;
     }
     (void)m_game->Invoke(u8"launch", core::Span<core::Variant>{});
@@ -70,24 +51,38 @@ bool GameInstance::StartScript(dscript::ScriptSubsystem* scripts,
     return true;
 }
 
-void GameInstance::StopScript(dscript::ScriptSubsystem* scripts)
+void GameInstance::StopScript()
 {
     if (m_game.Get() != nullptr)
     {
         (void)m_game->Invoke(u8"exit", core::Span<core::Variant>{});
         m_game = nullptr;
     }
-    if (scripts != nullptr)
+    m_scriptContext = nullptr;   // drop the game script's ref; the run host owns the context
+    m_runHost.SetGameScriptHold(false);
+    m_runHost.SetExternalErrorSink(nullptr);
+    // The run host tears down when nothing else pins it - driven by the scene-stop observer
+    // (ScriptSubsystem::MaybeTeardownRunHost). A bare instance (no scenes) keeps it until destruction.
+}
+
+dscene::Scene* GameInstance::CreateScene(core::StringView name)
+{
+    dscene::Scene* scene = m_sceneManager.CreateScene(name);
+    if (scene != nullptr)
     {
-        // Shared context: the SUBSYSTEM owns handler + lifetime; just release this run's hold.
-        m_scriptContext = nullptr;
-        m_scriptManager = nullptr;
-        scripts->ReleaseRunContext();
-        return;
+        // OnSceneCreated (the ScriptSubsystem) added the ScriptSceneSystem + bound it to the DEFAULT
+        // host; re-bind it to THIS instance's host so its behaviors share the game's context.
+        if (auto* system = scene->GetSystem<dscript::ScriptSceneSystem>()) { system->SetRunHost(&m_runHost); }
     }
-    if (m_scriptContext.Get() != nullptr) { m_scriptContext->SetErrorHandler(nullptr); }
-    m_scriptContext = nullptr;
-    m_scriptManager = nullptr;
+    return scene;
+}
+
+void GameInstance::DriveRunHost(f32 deltaTime)
+{
+    auto& binding = m_runHost.Binding();
+    binding.timeSeconds += static_cast<core::f64>(deltaTime);
+    binding.deltaSeconds = deltaTime;
+    if (m_runHost.Manager() != nullptr) { m_runHost.Manager()->CollectGarbage(); }
 }
 
 void GameInstance::TickScript(f32 hostDeltaTime, f32 contextTimeScale)

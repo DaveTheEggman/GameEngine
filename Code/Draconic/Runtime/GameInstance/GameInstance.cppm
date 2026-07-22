@@ -42,20 +42,29 @@ public:
     void SetInstanceTimeScale(f32 scale) noexcept { m_instanceTimeScale = scale; }
     [[nodiscard]] f32 InstanceTimeScale() const noexcept { return m_instanceTimeScale; }
 
-    /// Compile + launch the `Game` script (a class with launch()/update(dt)/exit()). `scripts`
-    /// non-null = the subsystem's shared run context (the normal path); null = a self-owned manager,
-    /// with `exposeServices` binding the app's per-context script services (the headless fallback).
-    /// Idempotent start (stops a prior run first). false on any compile / no-`Game`-class failure.
-    bool StartScript(dscript::ScriptSubsystem* scripts,
-                     const core::Function<void(dscript::IScriptContext&)>& exposeServices,
-                     core::StringView source, core::StringView name);
+    /// Compile + launch the `Game` script (a class with launch()/update(dt)/exit()) on THIS instance's
+    /// run host (game-instance.md §11.10). The host must be configured first (the app's
+    /// ScriptSubsystem::ConfigureRunHost exposes the facades + routing); a bare test just needs a
+    /// backend registered. Idempotent start (stops a prior run first). false on compile / no-`Game`.
+    bool StartScript(core::StringView source, core::StringView name);
 
-    /// exit() the `Game` + tear down the run context (idempotent; the update-fault path lands here).
-    void StopScript(dscript::ScriptSubsystem* scripts);
+    /// exit() the `Game` + release the game-script hold (idempotent; the update-fault path lands here).
+    /// The run host tears down when nothing else pins it (the scene-stop observer drives that).
+    void StopScript();
+
+    /// Create a scene in this instance's group AND bind its behaviors to this instance's run host
+    /// (game-instance.md §11.10). Use this instead of Scenes().CreateScene so the re-bind happens.
+    dscene::Scene* CreateScene(core::StringView name);
+    /// Destroy a scene in this instance's group.
+    void DestroyScene(dscene::Scene* scene) { m_sceneManager.DestroyScene(scene); }
 
     /// Tick the `Game` script with gameplay time: hostDt x contextScale x instanceScale x sceneScale.
     /// A faulting update disables THIS instance's script (drops the `Game`), not the app.
     void TickScript(f32 hostDeltaTime, f32 contextTimeScale);
+
+    /// Drive this instance's run host each frame: advance the script binding clock (Time.now/delta)
+    /// and step its GC. The subsystem drives its OWN (editor) host; each instance drives its own.
+    void DriveRunHost(f32 deltaTime);
 
     [[nodiscard]] bool ScriptRunning() const noexcept { return m_game.Get() != nullptr; }
     [[nodiscard]] dscript::IScriptContext* ScriptContext() const noexcept { return m_scriptContext.Get(); }
@@ -72,13 +81,12 @@ public:
     [[nodiscard]] dscene::SceneManager& Scenes() noexcept { return m_sceneManager; }
 
 private:
-    dscript::ScriptRunHost m_runHost;      // owned; borrowed by the ScriptSubsystem (see RunHost())
+    dscript::ScriptRunHost m_runHost;      // owned: the game's script context (§11.10)
     dscene::SceneManager   m_sceneManager; // owned; registered with the SceneSubsystem to tick
     dscene::Scene* m_scene = nullptr;
     dscript::IScriptErrorHandler* m_errorHandler = nullptr;
     f32 m_instanceTimeScale = 1.0f;
-    core::RefPtr<dscript::IScriptManager> m_scriptManager;   // self-owned (fallback) only
-    core::RefPtr<dscript::IScriptContext> m_scriptContext;
+    core::RefPtr<dscript::IScriptContext> m_scriptContext;   // the game script's ref to the run host's context
     core::RefPtr<dscript::ScriptObject> m_game;
 };
 

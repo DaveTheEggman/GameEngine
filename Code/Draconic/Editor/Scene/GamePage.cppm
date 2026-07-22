@@ -474,7 +474,9 @@ export namespace draconic::editor
             // Nudge a background incremental cook so just-edited content is fresh; the
             // run starts immediately and late products heal via the hot-reload path.
             if (m_context->OnCookRequested) { m_context->OnCookRequested(false); }
-            m_scene = SceneGroup().CreateScene(instance->Name());
+            // Via the instance (not just SceneGroup) so behaviors bind to the instance's run host.
+            m_scene = (m_app != nullptr) ? m_app->Instance().CreateScene(instance->Name())
+                                         : m_scenes->DefaultManager().CreateScene(instance->Name());
             if (m_scene == nullptr || !gscene::LoadScene(*instance, *m_scene).IsOk())
             {
                 m_context->Notify(NoticeKind::Error, u8"Game: default scene failed to load.");

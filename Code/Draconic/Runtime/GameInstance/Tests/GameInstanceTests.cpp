@@ -38,7 +38,6 @@ TEST_CASE("game-instance: fallback path starts, ticks, and stops a Game script")
 
     rt::GameInstance gi;
     const bool ok = gi.StartScript(
-        /*scripts=*/nullptr, /*exposeServices=*/{},
         u8"class Game {\n"
         u8"  construct new() {}\n"
         u8"  launch() {}\n"
@@ -49,11 +48,13 @@ TEST_CASE("game-instance: fallback path starts, ticks, and stops a Game script")
     REQUIRE(ok);
     CHECK(gi.ScriptRunning());
     CHECK(gi.ScriptContext() != nullptr);
+    CHECK(gi.RunHost().IsActive());   // the game script runs on the instance's own run host
 
+    gi.DriveRunHost(0.016f);       // advance the run host clock/GC (must not fault)
     gi.TickScript(0.016f, 1.0f);   // must not fault
     CHECK(gi.ScriptRunning());
 
-    gi.StopScript(/*scripts=*/nullptr);
+    gi.StopScript();
     CHECK_FALSE(gi.ScriptRunning());
 }
 
@@ -63,7 +64,7 @@ TEST_CASE("game-instance: a missing Game class fails to start cleanly")
     draconic::script::wren::RegisterWrenScriptBackend();
 
     rt::GameInstance gi;
-    const bool ok = gi.StartScript(nullptr, {}, u8"var X = 1\n", u8"game.wren");
+    const bool ok = gi.StartScript(u8"var X = 1\n", u8"game.wren");
     CHECK_FALSE(ok);              // no `Game` class
     CHECK_FALSE(gi.ScriptRunning());
 }

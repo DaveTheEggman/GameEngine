@@ -189,10 +189,11 @@ namespace
             }
             const String scenePath = instance->Path();
 
-            // The run's scene belongs to this app's GameInstance (game-instance.md §11): create it in
-            // the instance's manager so it groups + ticks + renders as this run's scene. (`scenes` is
-            // still required - it drives the tick + owns the aware registry the instance manager uses.)
-            m_scene = Instance().Scenes().CreateScene(instance->Name());
+            // The run's scene belongs to this app's GameInstance (game-instance.md §11): create it via
+            // the instance so it groups + ticks + renders as this run's scene AND its behaviors bind to
+            // the instance's run host. (`scenes` is still required - it drives the tick + owns the aware
+            // registry the instance manager uses.)
+            m_scene = Instance().CreateScene(instance->Name());
             if (m_scene == nullptr || !dscene::LoadScene(*instance, *m_scene).IsOk())
             {
                 DRACONIC_LOG_ERROR(u8"Player", u8"scene '{}' failed to load", scenePath);
