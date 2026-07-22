@@ -351,13 +351,13 @@ export namespace draconic::editor
             [[nodiscard]] bool Execute() override
             {
                 m_page->m_map = m_after;
-                m_page->Rebuild();
+                m_page->RequestRebuild();
                 return true;
             }
             void Undo() override
             {
                 m_page->m_map = m_before;
-                m_page->Rebuild();
+                m_page->RequestRebuild();
             }
             [[nodiscard]] StringView TypeId() const override { return u8"input-map-edit"; }
 
@@ -462,6 +462,19 @@ export namespace draconic::editor
             lp->Grow = 1.0f;
             lp->Height = iui::SizeSpec::Match();
             row.AddView(label.Get(), lp);
+        }
+
+        /// Defer a Rebuild through the UI MutationQueue - call this instead of Rebuild() from anything
+        /// that runs DURING UI event dispatch (a row/button click, an undo/redo, a rebind). Rebuilding
+        /// the rows in-line frees the clicked button, then FireClick + DispatchMouseUp dereference the
+        /// freed view -> crash; the queue runs the rebuild AFTER dispatch drains. Rebuild() itself stays
+        /// for the initial (setup-time) build.
+        void RequestRebuild()
+        {
+            iui::UIContext* ctx = (m_rows.Get() != nullptr) ? m_rows->Context : nullptr;
+            if (ctx == nullptr) { Rebuild(); return; }   // not attached yet (setup) - safe to do now
+            InputMapEditorPage* self = this;
+            ctx->MutationQueueRef().QueueAction(Function<void()>{ [self]() { self->Rebuild(); } });
         }
 
         void Rebuild()
@@ -674,7 +687,7 @@ export namespace draconic::editor
                 keysOnly.mouseButtons = false;
                 keysOnly.gamepadButtons = false;
                 m_listenFilter = keysOnly;
-                Rebuild();
+                RequestRebuild();
                 return;
             }
             // Filter by the action's declared kind: a Button rebind ignores stick noise,
