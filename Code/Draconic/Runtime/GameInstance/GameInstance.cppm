@@ -36,6 +36,11 @@ public:
     void SetScriptErrorHandler(dscript::IScriptErrorHandler* handler) noexcept { m_errorHandler = handler; }
     [[nodiscard]] dscript::IScriptErrorHandler* ScriptErrorHandler() const noexcept { return m_errorHandler; }
 
+    /// Headless: simulate + run scripts, but the host does NOT render this instance (no camera/
+    /// swapchain needed) - the in-editor dedicated server (game-instance.md §11 / networking.md).
+    void SetHeadless(bool headless) noexcept { m_headless = headless; }
+    [[nodiscard]] bool IsHeadless() const noexcept { return m_headless; }
+
     /// This run's global time scale - the `instance` term in the generalized time model
     /// (dt a scene sees = host dt x context scale x INSTANCE scale x scene scale). Defaults to 1,
     /// so at N=1 it collapses to the previous two-level model (no behaviour change).
@@ -85,6 +90,7 @@ private:
     dscene::SceneManager   m_sceneManager; // owned; registered with the SceneSubsystem to tick
     dscene::Scene* m_scene = nullptr;
     dscript::IScriptErrorHandler* m_errorHandler = nullptr;
+    bool m_headless = false;
     f32 m_instanceTimeScale = 1.0f;
     core::RefPtr<dscript::IScriptContext> m_scriptContext;   // the game script's ref to the run host's context
     core::RefPtr<dscript::ScriptObject> m_game;

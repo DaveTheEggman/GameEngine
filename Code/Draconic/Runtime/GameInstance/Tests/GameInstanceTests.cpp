@@ -58,6 +58,31 @@ TEST_CASE("game-instance: fallback path starts, ticks, and stops a Game script")
     CHECK_FALSE(gi.ScriptRunning());
 }
 
+TEST_CASE("game-instance: two instances own separate, isolated run-host contexts")
+{
+    RegisterCoreTypes();
+    draconic::script::wren::RegisterWrenScriptBackend();
+
+    const char8_t* src = u8"class Game { construct new() {}\n launch() {}\n update(dt) {}\n exit() {}\n}\n";
+    rt::GameInstance a;
+    rt::GameInstance b;
+    REQUIRE(a.StartScript(src, u8"game.wren"));
+    REQUIRE(b.StartScript(src, u8"game.wren"));
+
+    REQUIRE(a.RunHost().Context() != nullptr);
+    REQUIRE(b.RunHost().Context() != nullptr);
+    CHECK(a.RunHost().Context() != b.RunHost().Context());   // distinct contexts = no shared script globals
+
+    a.SetHeadless(true);
+    CHECK(a.IsHeadless());
+    CHECK_FALSE(b.IsHeadless());
+
+    a.StopScript();
+    b.StopScript();
+    CHECK_FALSE(a.ScriptRunning());
+    CHECK_FALSE(b.ScriptRunning());
+}
+
 TEST_CASE("game-instance: a missing Game class fails to start cleanly")
 {
     RegisterCoreTypes();

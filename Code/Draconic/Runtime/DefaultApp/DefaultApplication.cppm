@@ -77,8 +77,9 @@ export namespace draconic::runtime
         // keep the hotkey. (Reads the GPU timestamps after a device stall - fine for an on-demand dump.)
         void OnUpdate(IApplicationHost& host, core::f32 deltaTime) override
         {
-            m_instance.DriveRunHost(deltaTime);   // advance the instance run host clock + GC (subsystem drives its own)
-            TickGameScript(host, deltaTime);
+            // Drive + tick EVERY instance (primary + any extras - multi-instance PIE / headless server).
+            const core::f32 contextScale = host.Ctx().TimeScale();
+            ForEachInstance([&](GameInstance& gi) { gi.DriveRunHost(deltaTime); gi.TickScript(deltaTime, contextScale); });
             IShell* plat = host.Shell();
             IInputManager* input = (plat != nullptr) ? plat->Input() : nullptr;
             IKeyboard* kb = (input != nullptr) ? input->Keyboard() : nullptr;
@@ -107,13 +108,12 @@ export namespace draconic::runtime
         // one place (runtime-host.md v3).
         void Configure(IApplicationHost& host) override
         {
-            auto* scenes = host.Ctx().AddSubsystem<draconic::scene::SceneSubsystem>();
+            m_scenes = host.Ctx().AddSubsystem<draconic::scene::SceneSubsystem>();
             // The run's scene group lives on the GameInstance (game-instance.md §11): wire it to the
             // app-wide aware registry and register it so it ticks on the Context lane beside the default
-            // (editor/loose) group. Empty until the launch flow creates scenes in it (a later step);
-            // registering it now is a no-op tick, and keeps the wiring in one place.
-            m_instance.Scenes().SetAwareRegistry(&scenes->AwareRegistry());
-            scenes->RegisterManager(&m_instance.Scenes());
+            // (editor/loose) group. WireInstance centralizes this so extra instances wire the same way.
+            m_scenes->RegisterManager(&m_instance.Scenes());
+            m_instance.Scenes().SetAwareRegistry(&m_scenes->AwareRegistry());
             if (GraphicsDevice* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
                 host.Ctx().AddSubsystem<draconic::render::RenderSubsystem>(*gfx->Raw(), gfx->FramesInFlight());
@@ -244,6 +244,23 @@ export namespace draconic::runtime
         /// Scenes() manager so it groups + ticks + renders as this run's scenes.
         [[nodiscard]] GameInstance& Instance() noexcept { return m_instance; }
 
+        /// Create an ADDITIONAL running game (multi-instance PIE / an in-editor headless dedicated
+        /// server, game-instance.md §11 / networking.md). Wired like the primary - its scene group ticks
+        /// on the Context lane and its run host gets the app services. Stable address (UniquePtr), so the
+        /// SceneSubsystem's borrowed manager pointer stays valid. Returns null before Configure ran.
+        [[nodiscard]] GameInstance* CreateInstance(bool headless = false)
+        {
+            if (m_scenes == nullptr || m_scripts == nullptr) { return nullptr; }
+            core::UniquePtr<GameInstance> owned = core::MakeUnique<GameInstance>(core::DefaultAllocator());
+            GameInstance* gi = owned.Get();
+            gi->SetHeadless(headless);
+            gi->Scenes().SetAwareRegistry(&m_scenes->AwareRegistry());
+            m_scenes->RegisterManager(&gi->Scenes());
+            m_scripts->ConfigureRunHost(gi->RunHost());
+            m_extraInstances.PushBack(Move(owned));
+            return gi;
+        }
+
         [[nodiscard]] draconic::input::InputSubsystem* Input() const noexcept { return m_input; }
         [[nodiscard]] draconic::physics::PhysicsSubsystem* Physics() const noexcept { return m_physics; }
         [[nodiscard]] draconic::audio::AudioSubsystem* Audio() const noexcept { return m_audio; }
@@ -353,9 +370,8 @@ export namespace draconic::runtime
         {
             // Destroy the run's scenes while the aware subsystems are still alive (they get
             // OnSceneDestroyed). The editor's GamePage already cleared them per Stop; this covers the
-            // player + any leftover. Do it FIRST, before subsystem teardown.
-            m_instance.Scenes().Clear();
-            m_instance.RunHost().Teardown();   // release the instance's script context while the engine's alive
+            // player + any leftover. Do it FIRST, before subsystem teardown, for EVERY instance.
+            ForEachInstance([](GameInstance& gi) { gi.Scenes().Clear(); gi.RunHost().Teardown(); });
             if (m_physics != nullptr) { m_physics->UnregisterContactListener(&m_contactBridge); }
             m_net.subsystem = nullptr;   // stop the session (drops peers) before closing the socket
             m_net.socket = nullptr;
@@ -419,12 +435,16 @@ export namespace draconic::runtime
                 m_ui->RenderCanvasTextures(*frame.encoder, static_cast<core::i32>(frame.frameIndex));
             }
             render->BeginRendering(*frame.encoder, frame.frameIndex);
-            // The run's scenes live on the GameInstance's manager (game-instance.md §11); the default
-            // manager holds any loose scenes. Render both groups (clear comes from the scene's camera).
-            for (draconic::scene::Scene* scene : m_instance.Scenes().ActiveScenes())
-            {
-                render->RenderScene(*scene, frame.backbufferView, colorFormat, frame.width, frame.height);
-            }
+            // Render every NON-headless instance's scenes (game-instance.md §11 - a headless dedicated
+            // server simulates but isn't drawn) + the default group's loose scenes. Clear comes from
+            // the scene's camera.
+            ForEachInstance([&](GameInstance& gi) {
+                if (gi.IsHeadless()) { return; }
+                for (draconic::scene::Scene* scene : gi.Scenes().ActiveScenes())
+                {
+                    render->RenderScene(*scene, frame.backbufferView, colorFormat, frame.width, frame.height);
+                }
+            });
             for (draconic::scene::Scene* scene : scenes->ActiveScenes())
             {
                 render->RenderScene(*scene, frame.backbufferView, colorFormat, frame.width, frame.height);
@@ -491,6 +511,16 @@ export namespace draconic::runtime
         net::NetworkStartup m_netStartup;   // preset before Configure (default = single-player)
         net::NetworkRuntime m_net;          // socket + subsystem; subsystem destructs first (declared after socket)
         draconic::script::ScriptSubsystem* m_scripts = nullptr;
-        GameInstance m_instance;   // this app's single running game (scene + script; Array in a later phase)
+        // Every running game: the primary (a stable member) + any extras (stable UniquePtr addresses,
+        // required because the SceneSubsystem borrows each SceneManager's pointer).
+        template <typename Fn> void ForEachInstance(Fn&& fn)
+        {
+            fn(m_instance);
+            for (core::UniquePtr<GameInstance>& gi : m_extraInstances) { fn(*gi); }
+        }
+
+        draconic::scene::SceneSubsystem* m_scenes = nullptr;
+        GameInstance m_instance;   // the primary running game (app-level ops target this one)
+        core::Array<core::UniquePtr<GameInstance>> m_extraInstances;   // multi-instance PIE / headless server
     };
 }
