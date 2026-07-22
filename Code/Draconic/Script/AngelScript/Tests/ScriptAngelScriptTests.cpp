@@ -40,6 +40,65 @@ DRACONIC_REFLECT(Widget, "draconic::script::test")
     builder.Constructor();
 }
 
+// Exercises natural-typed numeric facades: a 64-bit integer argument + return must round-trip
+// EXACTLY, not funnel through double (which would corrupt values above 2^53). 9007199254740993
+// is 2^53 + 1 - the smallest integer a double cannot represent, so it discriminates the fixed
+// integer-exact marshalling from the old double currency.
+namespace
+{
+    class NumProbe : public Object
+    {
+        DRACONIC_OBJECT(NumProbe, Object)
+    public:
+        i64 lastI64 = 0;
+        i32 lastI32 = 0;
+        void takeI64(i64 v) { lastI64 = v; }
+        void takeI32(i32 v) { lastI32 = v; }
+        bool argWasExact() const { return lastI64 == 9007199254740993LL; }   // 2^53 + 1
+        i32  echoI32() const { return lastI32; }
+        i64  bigConst() const { return 9007199254740993LL; }                 // 2^53 + 1
+    };
+}
+
+DRACONIC_REFLECT(NumProbe, "draconic::script::test")
+{
+    builder.Method<&NumProbe::takeI64>("takeI64");
+    builder.Method<&NumProbe::takeI32>("takeI32");
+    builder.Method<&NumProbe::argWasExact>("argWasExact");
+    builder.Method<&NumProbe::echoI32>("echoI32");
+    builder.Method<&NumProbe::bigConst>("bigConst");
+    builder.Constructor();
+}
+
+TEST_CASE("angelscript: 64-bit integer facade args/returns round-trip exactly (no double funnel)")
+{
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    REQUIRE(static_cast<bool>(manager));
+    manager->RegisterType(NumProbe::StaticType());
+    RefPtr<IScriptContext> ctx = manager->CreateContext();   // defensively finalizes
+    REQUIRE(static_cast<bool>(ctx));
+
+    // ArgOk: script passes 2^53+1 into an int64 facade param -> C++ must see it exactly.
+    // ReturnOk: an int64 facade return equals the same literal, compared in-script (int64==int64).
+    // I32Ok: a 32-bit natural-typed param also survives.
+    const Status status = ctx->Load(
+        u8"bool ArgOk; bool ReturnOk; bool I32Ok;\n"
+        u8"void main() {\n"
+        u8"  NumProbe p;\n"
+        u8"  p.takeI64(9007199254740993);\n"
+        u8"  ArgOk = p.argWasExact();\n"
+        u8"  ReturnOk = (p.bigConst() == 9007199254740993);\n"
+        u8"  p.takeI32(1234567);\n"
+        u8"  I32Ok = (p.echoI32() == 1234567);\n"
+        u8"}\n",
+        u8"main");
+    REQUIRE(status.IsOk());
+
+    CHECK(ctx->GetGlobal(u8"ArgOk").Get<bool>() == true);
+    CHECK(ctx->GetGlobal(u8"ReturnOk").Get<bool>() == true);
+    CHECK(ctx->GetGlobal(u8"I32Ok").Get<bool>() == true);
+}
+
 TEST_CASE("angelscript: a context runs valid source")
 {
     RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();

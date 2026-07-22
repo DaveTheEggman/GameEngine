@@ -144,6 +144,32 @@ namespace draconic::script::angelscript
         return Variant::From<f64>(d);
     }
 
+    // An already-typed 64-bit integer Variant (i64/u64) coerced to the reflected type the callee
+    // wants, WITHOUT a double stopover - so values above 2^53 round-trip exactly (CoerceNumber
+    // funnels through double and would corrupt them). Integer targets cast integer->integer on the
+    // two's-complement bit pattern; float targets convert honoring the source's signedness. Only
+    // valid when `src` holds i64 or u64 (the caller guarantees it). expected==null keeps the source.
+    inline core::Variant CoerceInteger(const core::Variant& src, const core::TypeInfo* expected)
+    {
+        using namespace core;
+        if (expected == nullptr || src.Type() == expected) { return src; }
+        const u64* asU = src.TryGet<u64>();
+        const bool isUnsigned = (asU != nullptr);
+        const u64 bits = isUnsigned ? *asU : static_cast<u64>(*src.TryGet<i64>());
+        if (expected == &TypeOf<i8>())  { return Variant::From<i8>(static_cast<i8>(bits)); }
+        if (expected == &TypeOf<u8>())  { return Variant::From<u8>(static_cast<u8>(bits)); }
+        if (expected == &TypeOf<i16>()) { return Variant::From<i16>(static_cast<i16>(bits)); }
+        if (expected == &TypeOf<u16>()) { return Variant::From<u16>(static_cast<u16>(bits)); }
+        if (expected == &TypeOf<i32>()) { return Variant::From<i32>(static_cast<i32>(bits)); }
+        if (expected == &TypeOf<u32>()) { return Variant::From<u32>(static_cast<u32>(bits)); }
+        if (expected == &TypeOf<i64>()) { return Variant::From<i64>(static_cast<i64>(bits)); }
+        if (expected == &TypeOf<u64>()) { return Variant::From<u64>(bits); }
+        if (expected == &TypeOf<bool>()) { return Variant::From<bool>(bits != 0); }
+        if (expected == &TypeOf<f32>()) { return Variant::From<f32>(isUnsigned ? static_cast<f32>(bits) : static_cast<f32>(static_cast<i64>(bits))); }
+        if (expected == &TypeOf<f64>()) { return Variant::From<f64>(isUnsigned ? static_cast<f64>(bits) : static_cast<f64>(static_cast<i64>(bits))); }
+        return src;
+    }
+
     // Reflected scalar/string -> AngelScript type name (null when `type` is not a
     // primitive - i.e. it needs an object-type registration instead).
     inline const char* PrimitiveDeclName(const core::TypeInfo* type) noexcept
@@ -573,8 +599,10 @@ namespace draconic::script::angelscript
                 case asTYPEID_UINT16: return CoerceNumber(gen->GetArgWord(index), expected);
                 case asTYPEID_INT32:  return CoerceNumber(static_cast<core::i32>(gen->GetArgDWord(index)), expected);
                 case asTYPEID_UINT32: return CoerceNumber(gen->GetArgDWord(index), expected);
-                case asTYPEID_INT64:  return CoerceNumber(static_cast<double>(static_cast<core::i64>(gen->GetArgQWord(index))), expected);
-                case asTYPEID_UINT64: return CoerceNumber(static_cast<double>(gen->GetArgQWord(index)), expected);
+                // 64-bit integers carry their exact type across (never via double) so values
+                // above 2^53 survive - the reason CoerceInteger exists.
+                case asTYPEID_INT64:  return CoerceInteger(core::Variant::From<core::i64>(static_cast<core::i64>(gen->GetArgQWord(index))), expected);
+                case asTYPEID_UINT64: return CoerceInteger(core::Variant::From<core::u64>(gen->GetArgQWord(index)), expected);
                 case asTYPEID_FLOAT:  return CoerceNumber(gen->GetArgFloat(index), expected);
                 case asTYPEID_DOUBLE: return CoerceNumber(gen->GetArgDouble(index), expected);
                 default: break;
@@ -627,7 +655,14 @@ namespace draconic::script::angelscript
                 case asTYPEID_INT32:
                 case asTYPEID_UINT32: gen->SetReturnDWord(static_cast<asDWORD>(static_cast<core::i64>(number))); return;
                 case asTYPEID_INT64:
-                case asTYPEID_UINT64: gen->SetReturnQWord(static_cast<asQWORD>(static_cast<core::i64>(number))); return;
+                case asTYPEID_UINT64:
+                {
+                    // Prefer the Variant's exact 64-bit value (a facade returning i64/u64); only a
+                    // float source falls back through `number`, which is the correct currency there.
+                    if (const core::i64* iv = value.TryGet<core::i64>()) { gen->SetReturnQWord(static_cast<asQWORD>(*iv)); return; }
+                    if (const core::u64* uv = value.TryGet<core::u64>()) { gen->SetReturnQWord(static_cast<asQWORD>(*uv)); return; }
+                    gen->SetReturnQWord(static_cast<asQWORD>(static_cast<core::i64>(number))); return;
+                }
                 case asTYPEID_FLOAT:  gen->SetReturnFloat(static_cast<float>(number)); return;
                 case asTYPEID_DOUBLE: gen->SetReturnDouble(number); return;
                 default: break;
