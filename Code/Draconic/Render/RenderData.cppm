@@ -114,35 +114,11 @@ export namespace draconic::render
 
         // Register a category by name (idempotent - returns the existing id if the name is taken).
         // Names are borrowed string literals (must outlive the registry). Returns kMaxCategories on overflow.
-        RenderCategory Register(StringView name, SortMode sort, PassAffinity affinity)
-        {
-            for (u16 i = 0; i < m_count; ++i)
-            {
-                if (m_info[i].name == name)
-                {
-                    return i;
-                }
-            }
-            if (m_count >= kMaxCategories)
-            {
-                return kMaxCategories;
-            }
-            m_info[m_count] = Info{name, sort, affinity};
-            return m_count++;
-        }
+        RenderCategory Register(StringView name, SortMode sort, PassAffinity affinity);
 
-        [[nodiscard]] SortMode Sort(RenderCategory c) const noexcept
-        {
-            return (c < m_count) ? m_info[c].sort : SortMode::FrontToBack;
-        }
-        [[nodiscard]] PassAffinity Affinity(RenderCategory c) const noexcept
-        {
-            return (c < m_count) ? m_info[c].affinity : PassAffinity::None;
-        }
-        [[nodiscard]] StringView Name(RenderCategory c) const noexcept
-        {
-            return (c < m_count) ? m_info[c].name : StringView{};
-        }
+        [[nodiscard]] SortMode Sort(RenderCategory c) const noexcept;
+        [[nodiscard]] PassAffinity Affinity(RenderCategory c) const noexcept;
+        [[nodiscard]] StringView Name(RenderCategory c) const noexcept;
         [[nodiscard]] u16 Count() const noexcept { return m_count; }
 
     private:
@@ -534,38 +510,9 @@ export namespace draconic::render
             return p != nullptr ? new (p) T{static_cast<Args&&>(args)...} : nullptr;
         }
 
-        [[nodiscard]] void* Allocate(usize size, usize alignment)
-        {
-            // Walk to a chunk that fits (reusing chunks retained across Reset), else grow.
-            for (;;)
-            {
-                if (m_current < m_chunks.Size())
-                {
-                    Chunk& c = m_chunks[m_current];
-                    const usize base = reinterpret_cast<usize>(c.data);
-                    const usize aligned = AlignUp(base + m_offset, alignment) - base;
-                    if (aligned + size <= c.size)
-                    {
-                        m_offset = aligned + size;
-                        return c.data + aligned;
-                    }
-                    // doesn't fit this chunk - advance to the next
-                    ++m_current;
-                    m_offset = 0;
-                    continue;
-                }
-                if (!AddChunk(size > m_chunkSize ? size : m_chunkSize))
-                {
-                    return nullptr;
-                }
-            }
-        }
+        [[nodiscard]] void* Allocate(usize size, usize alignment);
 
-        void Reset() noexcept
-        {
-            m_current = 0;
-            m_offset = 0;
-        }
+        void Reset() noexcept;
 
         [[nodiscard]] usize ChunkCount() const noexcept { return m_chunks.Size(); }
 
@@ -579,16 +526,7 @@ export namespace draconic::render
             usize size = 0;
         };
 
-        bool AddChunk(usize size)
-        {
-            void* mem = DefaultAllocator().Allocate(size, kChunkAlign);
-            if (mem == nullptr)
-            {
-                return false;
-            }
-            m_chunks.PushBack(Chunk{static_cast<byte*>(mem), size});
-            return true;
-        }
+        bool AddChunk(usize size);
 
         Array<Chunk> m_chunks;
         usize m_chunkSize;
@@ -685,13 +623,7 @@ export namespace draconic::render
         // snapshot's use - e.g. it lives in a RenderContext per-worker arena owned by the producer).
         // Used by parallel extraction: workers fill their own arenas, then the merge adopts the
         // pointers here single-threaded.
-        void AddExternal(RenderData* data)
-        {
-            if (data != nullptr)
-            {
-                m_items.PushBack(data);
-            }
-        }
+        void AddExternal(RenderData* data);
 
         // Add a light to the snapshot (shading input, not a drawable).
         void AddLight(const GpuLight& light) { m_lights.PushBack(light); }
@@ -700,24 +632,15 @@ export namespace draconic::render
         // at frame time). `lightIndex` must equal the light's position in the list (the index AddLight
         // assigns) so its shadowIndex can be patched once the atlas slot is known.
         void AddLocalShadowCaster(const LocalShadowCaster& c) { m_localCasters.PushBack(c); }
-        [[nodiscard]] Span<const LocalShadowCaster> LocalShadowCasters() const noexcept
-        {
-            return Span<const LocalShadowCaster>{m_localCasters.Data(), m_localCasters.Size()};
-        }
+        [[nodiscard]] Span<const LocalShadowCaster> LocalShadowCasters() const noexcept;
 
         // Screen-space decals (consumed by the standalone DecalPass, not the Renderer dispatch).
         void AddDecal(const DecalInstance& d) { m_decals.PushBack(d); }
-        [[nodiscard]] Span<const DecalInstance> Decals() const noexcept
-        {
-            return Span<const DecalInstance>{m_decals.Data(), m_decals.Size()};
-        }
+        [[nodiscard]] Span<const DecalInstance> Decals() const noexcept;
 
         // Reflection probes (consumed by the ReflectionProbeSystem: capture + prefilter + froxel assignment).
         void AddReflectionProbe(const ReflectionProbe& p) { m_probes.PushBack(p); }
-        [[nodiscard]] Span<const ReflectionProbe> ReflectionProbes() const noexcept
-        {
-            return Span<const ReflectionProbe>{m_probes.Data(), m_probes.Size()};
-        }
+        [[nodiscard]] Span<const ReflectionProbe> ReflectionProbes() const noexcept;
 
         // The scene's environment ambient (a flat indirect term until IBL lands). Premultiplied
         // color × intensity, applied as `albedo * ambient` in the forward shader.
@@ -730,33 +653,13 @@ export namespace draconic::render
 
         // The active directional shadow caster (phase 5.1). Set during light extraction.
         void SetDirectionalShadow(const DirectionalShadow& s) noexcept { m_shadow = s; }
-        [[nodiscard]] const DirectionalShadow& DirectionalShadowData() const noexcept
-        {
-            return m_shadow;
-        }
+        [[nodiscard]] const DirectionalShadow& DirectionalShadowData() const noexcept;
 
         // Reset for a new frame: drop the item + light lists, rewind the (internal) arena.
-        void Reset() noexcept
-        {
-            m_items.Clear();
-            m_lights.Clear();
-            m_localCasters.Clear();
-            m_decals.Clear();
-            m_probes.Clear();
-            m_ambient = Float3{0.03f, 0.03f, 0.03f};
-            m_sky = {};
-            m_shadow = {};
-            m_arena.Reset();
-        }
+        void Reset() noexcept;
 
-        [[nodiscard]] Span<RenderData* const> Items() const noexcept
-        {
-            return Span<RenderData* const>{m_items.Data(), m_items.Size()};
-        }
-        [[nodiscard]] Span<const GpuLight> Lights() const noexcept
-        {
-            return Span<const GpuLight>{m_lights.Data(), m_lights.Size()};
-        }
+        [[nodiscard]] Span<RenderData* const> Items() const noexcept;
+        [[nodiscard]] Span<const GpuLight> Lights() const noexcept;
         [[nodiscard]] usize Size() const noexcept { return m_items.Size(); }
         [[nodiscard]] bool IsEmpty() const noexcept { return m_items.IsEmpty(); }
 

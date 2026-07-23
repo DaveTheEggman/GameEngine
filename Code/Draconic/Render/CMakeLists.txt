@@ -13,6 +13,12 @@ target_sources(DraconicRender
     PRIVATE
         MeshRendererImpl.cpp   # out-of-line MeshRenderer defs (see MeshRenderer.cppm)
         PipelineImpl.cpp        # out-of-line Pipeline defs (see Pipeline.cppm)
+        IBLSystemImpl.cpp       # out-of-line IBLSystem defs (see IBLSystem.cppm)
+        ReflectionProbeSystemImpl.cpp
+        Debug/DebugDrawPassImpl.cpp
+        SsrPassImpl.cpp
+        AoPassImpl.cpp
+        RenderDataImpl.cpp
     PUBLIC
         FILE_SET render_modules TYPE CXX_MODULES FILES
             RenderData.cppm
