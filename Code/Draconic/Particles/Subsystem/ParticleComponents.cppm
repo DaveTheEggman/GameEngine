@@ -668,37 +668,9 @@ export namespace draconic::particles
 
 } // exported namespace
 
-// Reflection (tooling; effect/texture/mesh references need resource pickers - not reflected).
-namespace draconic::particles
-{
-
-    DRACONIC_REFLECT_VALUE(ParticleEffectComponent, "draconic::particles")
-    {
-        builder.Property<&ParticleEffectComponent::effectAsset>("effect")
-            .Property<&ParticleEffectComponent::mesh>("mesh")
-            .Property<&ParticleEffectComponent::material>("material")
-            .Property<&ParticleEffectComponent::meshScale>("meshScale")
-            .Property<&ParticleEffectComponent::lightIntensity>("lightIntensity")
-            .Property<&ParticleEffectComponent::lightRange>("lightRange")
-            .Property<&ParticleEffectComponent::visible>("visible");
-    }
-
-} // namespace draconic::particles (reflection bodies)
-
+// Reflection (tooling). The DRACONIC_REFLECT_VALUE body + RegisterParticleComponentReflection()
+// live in ParticleSubsystemImpl.cpp (kept out of this interface; see gcc-module-interface-hygiene).
 export namespace draconic::particles
 {
     void RegisterParticleComponentReflection();
-}
-
-namespace draconic::particles
-{
-    void RegisterParticleComponentReflection()
-    {
-        static const bool once = []()
-        {
-            DraconicRegisterValue_ParticleEffectComponent();
-            return true;
-        }();
-        (void)once;
-    }
 }

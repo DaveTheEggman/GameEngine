@@ -12,10 +12,10 @@ target_link_libraries(DraconicParticles
 target_sources(DraconicParticles
     PUBLIC
         FILE_SET particles_modules TYPE CXX_MODULES FILES
-            Types.cppm
-            Streams.cppm
-            Modules.cppm
-            Effect.cppm
+            ParticleTypes.cppm
+            ParticleStreams.cppm
+            ParticleModules.cppm
+            ParticleEffect.cppm
             ParticlesModule.cppm)
 
 add_subdirectory(Resource)   # draconic.particles.resource (cooked ParticleEffectResource + factory)

@@ -13,11 +13,13 @@ target_link_libraries(DraconicParticlesSubsystem
            Draconic::Geometry Draconic::Materials Draconic::Policy Draconic::Profiler)
 
 target_sources(DraconicParticlesSubsystem
+    PRIVATE
+        ParticleSubsystemImpl.cpp   # DRACONIC_REFLECT_VALUE body (see ParticleComponents.cppm)
     PUBLIC
         FILE_SET particles_subsystem_modules TYPE CXX_MODULES FILES
-            RenderData.cppm
+            ParticleRenderData.cppm
             ParticleShaders.cppm
             ParticleRenderer.cppm
-            Components.cppm
-            Subsystem.cppm
+            ParticleComponents.cppm
+            ParticleSubsystem.cppm
             ParticlesSubsystemModule.cppm)

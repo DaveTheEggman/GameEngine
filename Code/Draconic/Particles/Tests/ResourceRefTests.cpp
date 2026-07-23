@@ -20,9 +20,9 @@ import draconic.scene;
 import draconic.scene.resource;
 
 using namespace draconic::core;
-namespace dscene = draconic::scene;
-namespace res = draconic::resource;
-namespace px = draconic::particles;
+namespace scene = draconic::scene;
+namespace resource = draconic::resource;
+namespace particles = draconic::particles;
 
 namespace
 {
@@ -51,63 +51,63 @@ TEST_CASE("resource-ref: scene round-trip resolves the effect ref and the manage
     (void)CreateDirectory(dir);
     draconic::vfs::NativeFileSystem mount(dir);
 
-    px::RegisterParticleEffectResource();
+    particles::RegisterParticleEffectResource();
 
     // Cook an effect with one 64-particle system into the content DB.
     draconic::content::ContentDatabase cookedDb(mount, BinarySerializerFactory(), u8".rasset");
     Guid effectId;
     {
-        px::ParticleEffectResource resource;
-        px::ParticleSystem& sys = resource.Effect().AddSystem(64);
+        particles::ParticleEffectResource resource;
+        particles::ParticleSystem& sys = resource.Effect().AddSystem(64);
         sys.emitter.isEmitting = true;
         draconic::content::Instance* inst = cookedDb.RootGroup()->CreateInstance(
-            u8"Puff", px::ParticleEffectResource::StaticType());
+            u8"Puff", particles::ParticleEffectResource::StaticType());
         REQUIRE(inst != nullptr);
         REQUIRE(inst->WriteObject(resource).IsOk());
         effectId = inst->Id();
     }
 
-    res::ResourceManager resources(cookedDb);
-    px::ParticleEffectFactory factory;
+    resource::ResourceManager resources(cookedDb);
+    particles::ParticleEffectFactory factory;
     resources.AddFactory(&factory);
 
     // Author a scene whose ParticleEffectComponent references the effect BY GUID only.
     MemoryStream blob;
     {
-        dscene::Scene scene;
-        scene.AddSystem<px::ParticleEffectComponentManager>();
-        const dscene::EntityHandle e = scene.CreateEntity(u8"Emitter");
-        px::ParticleEffectComponent& c =
-            scene.GetSystem<px::ParticleEffectComponentManager>()->Add(e);
+        scene::Scene scene;
+        scene.AddSystem<particles::ParticleEffectComponentManager>();
+        const scene::EntityHandle e = scene.CreateEntity(u8"Emitter");
+        particles::ParticleEffectComponent& c =
+            scene.GetSystem<particles::ParticleEffectComponentManager>()->Add(e);
         c.effectAsset.SetId(effectId);
         c.lightRange = 7.0f;
 
         BinarySerializer ar(blob, SerializeMode::Write);
-        dscene::SerializeScene(ar, scene);
+        scene::SerializeScene(ar, scene);
         REQUIRE(ar.IsOk());
     }
 
-    dscene::Scene loaded;
-    loaded.AddSystem<px::ParticleEffectComponentManager>();
+    scene::Scene loaded;
+    loaded.AddSystem<particles::ParticleEffectComponentManager>();
     REQUIRE(blob.Seek(0, SeekOrigin::Begin) == 0);
     {
         BinarySerializer ar(blob, SerializeMode::Read);
-        dscene::SerializeScene(ar, loaded);
+        scene::SerializeScene(ar, loaded);
         REQUIRE(ar.IsOk());
     }
 
-    auto* mgr = loaded.GetSystem<px::ParticleEffectComponentManager>();
+    auto* mgr = loaded.GetSystem<particles::ParticleEffectComponentManager>();
     REQUIRE(mgr != nullptr);
     REQUIRE(mgr->ComponentCount() == 1u);
-    px::ParticleEffectComponent* c = nullptr;
-    mgr->ForEach([&](px::ParticleEffectComponent& pc, dscene::EntityHandle) { c = &pc; });
+    particles::ParticleEffectComponent* c = nullptr;
+    mgr->ForEach([&](particles::ParticleEffectComponent& pc, scene::EntityHandle) { c = &pc; });
     REQUIRE(c != nullptr);
     CHECK(c->effectAsset.id == effectId);
     CHECK(c->effectAsset.Get() == nullptr);
     CHECK(c->lightRange == doctest::Approx(7.0f));
 
-    dscene::ResolveSceneResources(loaded, resources);
-    px::ParticleEffectResource* live = c->effectAsset.Get();
+    scene::ResolveSceneResources(loaded, resources);
+    particles::ParticleEffectResource* live = c->effectAsset.Get();
     REQUIRE(live != nullptr);
     CHECK(live->Effect().SystemCount() == 1);
 
@@ -131,24 +131,24 @@ TEST_CASE("resource-ref: SetEffect(proxy) still attaches immediately (sample pat
     (void)CreateDirectory(dir);
     draconic::vfs::NativeFileSystem mount(dir);
 
-    px::RegisterParticleEffectResource();
+    particles::RegisterParticleEffectResource();
     draconic::content::ContentDatabase cookedDb(mount, BinarySerializerFactory(), u8".rasset");
     Guid effectId;
     {
-        px::ParticleEffectResource resource;
+        particles::ParticleEffectResource resource;
         (void)resource.Effect().AddSystem(16);
         draconic::content::Instance* inst = cookedDb.RootGroup()->CreateInstance(
-            u8"Spark", px::ParticleEffectResource::StaticType());
+            u8"Spark", particles::ParticleEffectResource::StaticType());
         REQUIRE(inst != nullptr);
         REQUIRE(inst->WriteObject(resource).IsOk());
         effectId = inst->Id();
     }
-    res::ResourceManager resources(cookedDb);
-    px::ParticleEffectFactory factory;
+    resource::ResourceManager resources(cookedDb);
+    particles::ParticleEffectFactory factory;
     resources.AddFactory(&factory);
 
-    px::ParticleEffectComponent c;
-    c.SetEffect(resources.Bind<px::ParticleEffectResource>(effectId));
+    particles::ParticleEffectComponent c;
+    c.SetEffect(resources.Bind<particles::ParticleEffectResource>(effectId));
     REQUIRE(c.instance.Get() != nullptr);
     REQUIRE(c.effectAsset.Get() != nullptr);
     CHECK(c.attachedResource == c.effectAsset.Get());
