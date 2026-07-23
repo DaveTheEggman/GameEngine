@@ -50,24 +50,25 @@ export namespace draconic::script
 
     struct ScriptRuntimeBinding
     {
-        f64 timeSeconds = 0.0;    // seconds since the run context was created
-        f32 deltaSeconds = 0.0f;  // last frame's dt
-        core::Random random;      // the run's RNG (per-run determinism seam)
+        f64 timeSeconds = 0.0;   // seconds since the run context was created
+        f32 deltaSeconds = 0.0f; // last frame's dt
+        core::Random random;     // the run's RNG (per-run determinism seam)
 
         // Behavior-to-behavior messaging (P2): `entity.send("heal", amount)` routes here.
         // The subsystem installs this; it invokes `on<Heal>(amount)` on every behavior of
         // the target entity that declares the handler. Args are already marshalled. Null
         // when no subsystem is driving the run (a bare cook VM) - send becomes a no-op.
         core::Function<void(dscene::Scene*, dscene::EntityHandle, StringView,
-                            core::Span<const core::Variant>)> dispatchMessage;
+                            core::Span<const core::Variant>)>
+            dispatchMessage;
 
         // Prefab spawning (P2): `Scene.spawn(prefab, x, y, z)` routes here. The subsystem
         // sets `currentScene` around each scene's tick so the static facade knows WHERE to
         // spawn; the host app installs `spawnPrefab` (it owns the content DB that resolves
         // a prefab id to its payload). Null spawner (bare cook VM / no host) = safe no-op.
         dscene::Scene* currentScene = nullptr;
-        core::Function<dscene::EntityHandle(dscene::Scene*, const core::Guid&,
-                                            const core::Float3&)> spawnPrefab;
+        core::Function<dscene::EntityHandle(dscene::Scene*, const core::Guid&, const core::Float3&)>
+            spawnPrefab;
     };
 
     // ---- the curated behavior facades (camelCase = the script-visible names, the
@@ -84,7 +85,7 @@ export namespace draconic::script
 
         [[nodiscard]] dscene::EntityHandle Handle() const noexcept
         {
-            return dscene::EntityHandle{ entityIndex, entityGeneration };
+            return dscene::EntityHandle{entityIndex, entityGeneration};
         }
         [[nodiscard]] bool Live() const noexcept
         {
@@ -98,43 +99,58 @@ export namespace draconic::script
         }
         void setName(String value)
         {
-            if (Live()) { scene->SetEntityName(Handle(), value.AsView()); }
+            if (Live())
+            {
+                scene->SetEntityName(Handle(), value.AsView());
+            }
         }
         [[nodiscard]] Float3 position() const
         {
-            return Live() ? scene->GetLocalTransform(Handle()).position
-                          : Float3{ 0.0f, 0.0f, 0.0f };
+            return Live() ? scene->GetLocalTransform(Handle()).position : Float3{0.0f, 0.0f, 0.0f};
         }
         void setPosition(f32 x, f32 y, f32 z)
         {
-            if (Live()) { scene->SetLocalPosition(Handle(), Float3{ x, y, z }); }
+            if (Live())
+            {
+                scene->SetLocalPosition(Handle(), Float3{x, y, z});
+            }
         }
         [[nodiscard]] Float3 worldPosition() const
         {
-            if (!Live()) { return Float3{ 0.0f, 0.0f, 0.0f }; }
-            return TransformPoint(Float3{ 0.0f, 0.0f, 0.0f },
-                                  scene->GetWorldMatrix(Handle()));
+            if (!Live())
+            {
+                return Float3{0.0f, 0.0f, 0.0f};
+            }
+            return TransformPoint(Float3{0.0f, 0.0f, 0.0f}, scene->GetWorldMatrix(Handle()));
         }
         /// Absolute local rotation from Euler DEGREES (x = pitch, y = yaw, z = roll).
         void setRotationEuler(f32 xDegrees, f32 yDegrees, f32 zDegrees)
         {
-            if (!Live()) { return; }
+            if (!Live())
+            {
+                return;
+            }
             Transform transform = scene->GetLocalTransform(Handle());
-            transform.rotation = FromYawPitchRoll(DegreesToRadians(yDegrees),
-                                                  DegreesToRadians(xDegrees),
-                                                  DegreesToRadians(zDegrees));
+            transform.rotation = FromYawPitchRoll(
+                DegreesToRadians(yDegrees), DegreesToRadians(xDegrees), DegreesToRadians(zDegrees));
             scene->SetLocalTransform(Handle(), transform);
         }
         void setScale(f32 x, f32 y, f32 z)
         {
-            if (!Live()) { return; }
+            if (!Live())
+            {
+                return;
+            }
             Transform transform = scene->GetLocalTransform(Handle());
-            transform.scale = Float3{ x, y, z };
+            transform.scale = Float3{x, y, z};
             scene->SetLocalTransform(Handle(), transform);
         }
         void destroy()
         {
-            if (Live()) { scene->DestroyEntity(Handle()); }
+            if (Live())
+            {
+                scene->DestroyEntity(Handle());
+            }
         }
 
         // ---- behavior messaging (P2 §3.4): entity.send(name[, arg]) invokes
@@ -145,26 +161,30 @@ export namespace draconic::script
         void send(String message, f64 number) const
         {
             Variant arg = Variant::From<f64>(number);
-            Dispatch(message.AsView(), Span<const Variant>{ &arg, 1 });
+            Dispatch(message.AsView(), Span<const Variant>{&arg, 1});
         }
         void send(String message, String text) const
         {
             Variant arg = Variant::From<String>(Move(text));
-            Dispatch(message.AsView(), Span<const Variant>{ &arg, 1 });
+            Dispatch(message.AsView(), Span<const Variant>{&arg, 1});
         }
         void send(String message, Entity target) const
         {
             Variant arg = Variant::From<Entity>(target);
-            Dispatch(message.AsView(), Span<const Variant>{ &arg, 1 });
+            Dispatch(message.AsView(), Span<const Variant>{&arg, 1});
         }
 
         void Dispatch(StringView message, Span<const Variant> args) const
         {
-            if (!Live() || message.IsEmpty()) { return; }
+            if (!Live() || message.IsEmpty())
+            {
+                return;
+            }
             IScriptContext* context = CurrentScriptContext();
-            auto* binding = context != nullptr
-                ? static_cast<ScriptRuntimeBinding*>(context->GetService(kScriptRuntimeService))
-                : nullptr;
+            auto* binding =
+                context != nullptr
+                    ? static_cast<ScriptRuntimeBinding*>(context->GetService(kScriptRuntimeService))
+                    : nullptr;
             if (binding != nullptr && binding->dispatchMessage)
             {
                 binding->dispatchMessage(scene, Handle(), message, args);
@@ -177,18 +197,9 @@ export namespace draconic::script
     {
         DRACONIC_OBJECT(Log, Object)
     public:
-        static void info(String message)
-        {
-            DRACONIC_LOG_INFO(u8"Script", u8"{}", message);
-        }
-        static void warn(String message)
-        {
-            DRACONIC_LOG_WARNING(u8"Script", u8"{}", message);
-        }
-        static void error(String message)
-        {
-            DRACONIC_LOG_ERROR(u8"Script", u8"{}", message);
-        }
+        static void info(String message) { DRACONIC_LOG_INFO(u8"Script", u8"{}", message); }
+        static void warn(String message) { DRACONIC_LOG_WARNING(u8"Script", u8"{}", message); }
+        static void error(String message) { DRACONIC_LOG_ERROR(u8"Script", u8"{}", message); }
     };
 
     /// Time.now() (seconds since the run started) / Time.delta() (last frame dt).
@@ -199,9 +210,9 @@ export namespace draconic::script
         [[nodiscard]] static ScriptRuntimeBinding* Resolve()
         {
             IScriptContext* context = CurrentScriptContext();
-            return context != nullptr
-                ? static_cast<ScriptRuntimeBinding*>(context->GetService(kScriptRuntimeService))
-                : nullptr;
+            return context != nullptr ? static_cast<ScriptRuntimeBinding*>(
+                                            context->GetService(kScriptRuntimeService))
+                                      : nullptr;
         }
         [[nodiscard]] static f64 now()
         {
@@ -248,9 +259,9 @@ export namespace draconic::script
         [[nodiscard]] static ScriptRuntimeBinding* Resolve()
         {
             IScriptContext* context = CurrentScriptContext();
-            return context != nullptr
-                ? static_cast<ScriptRuntimeBinding*>(context->GetService(kScriptRuntimeService))
-                : nullptr;
+            return context != nullptr ? static_cast<ScriptRuntimeBinding*>(
+                                            context->GetService(kScriptRuntimeService))
+                                      : nullptr;
         }
 
         [[nodiscard]] static Entity Wrap(dscene::Scene* scene, dscene::EntityHandle handle)
@@ -268,13 +279,13 @@ export namespace draconic::script
         [[nodiscard]] static Entity spawn(Guid prefab, f32 x, f32 y, f32 z)
         {
             ScriptRuntimeBinding* binding = Resolve();
-            if (binding == nullptr || binding->currentScene == nullptr
-                || !binding->spawnPrefab || prefab.IsNil())
+            if (binding == nullptr || binding->currentScene == nullptr || !binding->spawnPrefab ||
+                prefab.IsNil())
             {
                 return Entity{};
             }
             return Wrap(binding->currentScene,
-                        binding->spawnPrefab(binding->currentScene, prefab, Float3{ x, y, z }));
+                        binding->spawnPrefab(binding->currentScene, prefab, Float3{x, y, z}));
         }
 
         /// First entity in the current scene with this name (invalid if none).
@@ -282,8 +293,9 @@ export namespace draconic::script
         {
             ScriptRuntimeBinding* binding = Resolve();
             return (binding != nullptr && binding->currentScene != nullptr)
-                ? Wrap(binding->currentScene, binding->currentScene->FindEntityByName(name.AsView()))
-                : Entity{};
+                       ? Wrap(binding->currentScene,
+                              binding->currentScene->FindEntityByName(name.AsView()))
+                       : Entity{};
         }
 
         /// Resolve a '/'-separated hierarchy path from the current scene's roots, e.g.
@@ -292,8 +304,9 @@ export namespace draconic::script
         {
             ScriptRuntimeBinding* binding = Resolve();
             return (binding != nullptr && binding->currentScene != nullptr)
-                ? Wrap(binding->currentScene, binding->currentScene->FindEntityByPath(path.AsView()))
-                : Entity{};
+                       ? Wrap(binding->currentScene,
+                              binding->currentScene->FindEntityByPath(path.AsView()))
+                       : Entity{};
         }
     };
 

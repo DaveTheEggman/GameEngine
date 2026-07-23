@@ -11,8 +11,8 @@ export module draconic.script:script_manager;
 
 import draconic.core;
 import :script_context;
-import :script_introspection;   // DescribeBoundApi surface
-import :script_debug;           // IScriptDebugger / IScriptProfiler / IScriptBlob seams
+import :script_introspection; // DescribeBoundApi surface
+import :script_debug;         // IScriptDebugger / IScriptProfiler / IScriptBlob seams
 
 namespace core = draconic::core;
 
@@ -23,17 +23,18 @@ export namespace draconic::script
     /// without Coroutines still runs behaviors, it just has no coroutine scheduler.
     enum class ScriptCapabilities : core::u32
     {
-        None       = 0,
+        None = 0,
         Coroutines = 1 << 0, // cooperative coroutines (wait/waitUntil scheduler) - implemented
                              // host-side per backend (each backend uses its own primitive)
-        Debugger   = 1 << 1, // step-debug seam (interface committed; none implemented yet)
-        Profiler   = 1 << 2, // VM-level profiling hooks (interface committed; none implemented yet)
-        Delegates  = 1 << 3, // script functions as native callbacks (IScriptDelegate) - implemented
-        Bytecode   = 1 << 4, // cook-to-bytecode blob (interface committed; none implemented yet)
+        Debugger = 1 << 1,   // step-debug seam (interface committed; none implemented yet)
+        Profiler = 1 << 2,   // VM-level profiling hooks (interface committed; none implemented yet)
+        Delegates = 1 << 3,  // script functions as native callbacks (IScriptDelegate) - implemented
+        Bytecode = 1 << 4,   // cook-to-bytecode blob (interface committed; none implemented yet)
     };
     inline constexpr ScriptCapabilities operator|(ScriptCapabilities a, ScriptCapabilities b)
     {
-        return static_cast<ScriptCapabilities>(static_cast<core::u32>(a) | static_cast<core::u32>(b));
+        return static_cast<ScriptCapabilities>(static_cast<core::u32>(a) |
+                                               static_cast<core::u32>(b));
     }
     inline constexpr bool HasScriptCapability(ScriptCapabilities value, ScriptCapabilities flag)
     {
@@ -114,8 +115,8 @@ export namespace draconic::script
         /// stable bytecode (AngelScript SaveByteCode) fills this later; a source-only
         /// backend (Wren) stays unsupported - exactly the split the capability model exists
         /// for.
-        [[nodiscard]] virtual core::Result<core::RefPtr<IScriptBlob>> CompileToBlob(
-            core::StringView source, core::StringView chunkName)
+        [[nodiscard]] virtual core::Result<core::RefPtr<IScriptBlob>>
+        CompileToBlob(core::StringView source, core::StringView chunkName)
         {
             (void)source;
             (void)chunkName;
@@ -130,8 +131,8 @@ export namespace draconic::script
         /// coroutine base; a backend with globally-visible types needs none. The default
         /// is a plain newline-joined concatenation - the safe behavior for a backend that
         /// needs no framing at all.
-        [[nodiscard]] virtual core::String AssembleBehaviorModuleSource(
-            core::Span<const core::StringView> classSources) const
+        [[nodiscard]] virtual core::String
+        AssembleBehaviorModuleSource(core::Span<const core::StringView> classSources) const
         {
             core::String moduleSource;
             for (const core::StringView& source : classSources)

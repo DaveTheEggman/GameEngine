@@ -16,13 +16,14 @@ namespace core = draconic::core;
 
 export namespace draconic::script
 {
-    inline void RegisterReflectedTypes(IScriptManager& manager,
-                                       const core::TypeRegistry& registry = core::GlobalTypeRegistry())
+    inline void
+    RegisterReflectedTypes(IScriptManager& manager,
+                           const core::TypeRegistry& registry = core::GlobalTypeRegistry())
     {
         for (const core::TypeInfo* type : registry.All())
         {
             manager.RegisterType(*type);
         }
-        manager.FinalizeTypes();   // two-phase backends emit here (declare-all, then bind)
+        manager.FinalizeTypes(); // two-phase backends emit here (declare-all, then bind)
     }
 }

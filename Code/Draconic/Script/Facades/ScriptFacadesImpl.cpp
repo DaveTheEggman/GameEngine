@@ -31,7 +31,7 @@ namespace draconic::script
         builder.Method<static_cast<void (Entity::*)(String, f64) const>(&Entity::send)>("send");
         builder.Method<static_cast<void (Entity::*)(String, String) const>(&Entity::send)>("send");
         builder.Method<static_cast<void (Entity::*)(String, Entity) const>(&Entity::send)>("send");
-        builder.Constructor();   // Wren only materializes constructible foreign classes
+        builder.Constructor(); // Wren only materializes constructible foreign classes
     }
 
     DRACONIC_REFLECT(Log, "draconic::script")
@@ -71,30 +71,48 @@ namespace draconic::script
         static const core::StringView names[] = {
             u8"Entity", u8"Log", u8"Time", u8"Random", u8"Scene",
         };
-        return core::Span<const core::StringView>{ names, 5 };
+        return core::Span<const core::StringView>{names, 5};
     }
 
     namespace
     {
-        Array<String>& ExtraFacadeStorage() { static Array<String> names; return names; }
-        Array<StringView>& ExtraFacadeViews() { static Array<StringView> views; return views; }
+        Array<String>& ExtraFacadeStorage()
+        {
+            static Array<String> names;
+            return names;
+        }
+        Array<StringView>& ExtraFacadeViews()
+        {
+            static Array<StringView> views;
+            return views;
+        }
     }
 
     void RegisterExtraFacadeName(StringView name)
     {
-        for (const String& existing : ExtraFacadeStorage()) { if (existing.AsView() == name) { return; } }  // idempotent
+        for (const String& existing : ExtraFacadeStorage())
+        {
+            if (existing.AsView() == name)
+            {
+                return;
+            }
+        } // idempotent
         ExtraFacadeStorage().PushBack(String(name));
         // Rebuild the view list from the (possibly reallocated) storage.
         Array<StringView>& views = ExtraFacadeViews();
         views.Clear();
-        for (const String& n : ExtraFacadeStorage()) { views.PushBack(n.AsView()); }
+        for (const String& n : ExtraFacadeStorage())
+        {
+            views.PushBack(n.AsView());
+        }
     }
 
     Span<const StringView> ExtraFacadeNames() { return ExtraFacadeViews().AsSpan(); }
 
     void RegisterScriptFacadeReflection()
     {
-        static const bool once = []() {
+        static const bool once = []()
+        {
             DraconicRegisterValue_Entity();
             GlobalTypeRegistry().Register(TypeOf<Entity>());
             GlobalTypeRegistry().Register(Log::StaticType());

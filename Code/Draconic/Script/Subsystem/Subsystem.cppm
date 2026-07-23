@@ -29,7 +29,7 @@ module;
 export module draconic.script.subsystem;
 
 export import :components;
-export import draconic.script.facades;   // Entity/Log/Time/Random + the run-service binding
+export import draconic.script.facades; // Entity/Log/Time/Random + the run-service binding
 
 import draconic.core;
 import draconic.runtime;
@@ -67,7 +67,10 @@ export namespace draconic::script
                 DRACONIC_LOG_ERROR(u8"Script", u8"{} (line {}): {}", error.module, error.line,
                                    error.message);
             }
-            if (external != nullptr) { external->OnError(error); }
+            if (external != nullptr)
+            {
+                external->OnError(error);
+            }
         }
     };
 
@@ -82,9 +85,12 @@ export namespace draconic::script
         void Reset() noexcept { m_paused = false; }
         void OnDebuggerStateChanged(ScriptDebuggerState state) override
         {
-            m_paused = (state == ScriptDebuggerState::Breakpoint
-                        || state == ScriptDebuggerState::Stepped);
-            if (external != nullptr) { external->OnDebuggerStateChanged(state); }
+            m_paused =
+                (state == ScriptDebuggerState::Breakpoint || state == ScriptDebuggerState::Stepped);
+            if (external != nullptr)
+            {
+                external->OnDebuggerStateChanged(state);
+            }
         }
 
     private:
@@ -153,7 +159,10 @@ export namespace draconic::script
         {
             if (m_context.Get() != nullptr)
             {
-                if (m_language.AsView() == languageId) { return m_context.Get(); }
+                if (m_language.AsView() == languageId)
+                {
+                    return m_context.Get();
+                }
                 WarnLanguageMismatchOnce(languageId);
                 return nullptr;
             }
@@ -165,8 +174,7 @@ export namespace draconic::script
             m_manager = CreateScriptManagerForLanguage(languageId);
             if (m_manager.Get() == nullptr)
             {
-                DRACONIC_LOG_ERROR(u8"Script", u8"no script backend for language '{}'",
-                                   languageId);
+                DRACONIC_LOG_ERROR(u8"Script", u8"no script backend for language '{}'", languageId);
                 return nullptr;
             }
             RegisterReflectedTypes(*m_manager);
@@ -179,12 +187,15 @@ export namespace draconic::script
             m_language = String(languageId);
             m_binding.timeSeconds = 0.0;
             m_binding.deltaSeconds = 0.0f;
-            m_binding.random = core::Random{};   // fresh per-run RNG
+            m_binding.random = core::Random{}; // fresh per-run RNG
             m_context->SetErrorHandler(&m_errorSink);
             m_context->SetService(kScriptRuntimeService, &m_binding);
-            if (m_configurator) { m_configurator(*m_context); }
+            if (m_configurator)
+            {
+                m_configurator(*m_context);
+            }
             m_moduleCurrent = false;
-            EnsureDebugger();   // a debugger requested before the context existed attaches now
+            EnsureDebugger(); // a debugger requested before the context existed attaches now
             DRACONIC_LOG_DEBUG(u8"Script", u8"run script context created ({})", languageId);
             return m_context.Get();
         }
@@ -200,11 +211,14 @@ export namespace draconic::script
                     extension = path.SubStr(i + 1, path.Size() - (i + 1));
                     break;
                 }
-                if (path[i] == u8'/' || path[i] == u8'\\') { break; }
+                if (path[i] == u8'/' || path[i] == u8'\\')
+                {
+                    break;
+                }
             }
             const ScriptBackendRegistry& registry = ScriptBackendRegistry::Get();
-            const ScriptBackendDesc* backend = extension.IsEmpty()
-                ? nullptr : registry.FindByExtension(extension);
+            const ScriptBackendDesc* backend =
+                extension.IsEmpty() ? nullptr : registry.FindByExtension(extension);
             if (backend == nullptr && registry.All().Size() == 1)
             {
                 backend = &registry.All()[0];
@@ -223,10 +237,12 @@ export namespace draconic::script
 
         /// Instantiate a behavior class instance (loads/reloads the behaviors module as
         /// needed). Null on failure (logged).
-        [[nodiscard]] RefPtr<ScriptObject> Instantiate(ScriptClass& scriptClass,
-                                                       Span<Variant> args)
+        [[nodiscard]] RefPtr<ScriptObject> Instantiate(ScriptClass& scriptClass, Span<Variant> args)
         {
-            if (!EnsureClassLoaded(scriptClass)) { return nullptr; }
+            if (!EnsureClassLoaded(scriptClass))
+            {
+                return nullptr;
+            }
             RefPtr<ScriptObject> instance =
                 m_context->CreateInstance(scriptClass.className.AsView(), args);
             if (instance.Get() == nullptr)
@@ -242,14 +258,22 @@ export namespace draconic::script
         [[nodiscard]] bool EnsureClassLoaded(ScriptClass& scriptClass)
         {
             const StringView language = scriptClass.language.IsEmpty()
-                ? StringView(u8"wren") : scriptClass.language.AsView();
-            if (EnsureContext(language) == nullptr) { return false; }
+                                            ? StringView(u8"wren")
+                                            : scriptClass.language.AsView();
+            if (EnsureContext(language) == nullptr)
+            {
+                return false;
+            }
 
             bool present = false;
             for (usize i = 0; i < m_loadedClasses.Size(); ++i)
             {
                 ScriptClass* loaded = m_loadedClasses[i].Get();
-                if (loaded == &scriptClass) { present = true; break; }
+                if (loaded == &scriptClass)
+                {
+                    present = true;
+                    break;
+                }
                 // A reloaded product replaces its predecessor (same class name).
                 if (loaded->className.AsView() == scriptClass.className.AsView())
                 {
@@ -264,7 +288,10 @@ export namespace draconic::script
                 m_loadedClasses.PushBack(RefPtr<ScriptClass>(&scriptClass));
                 m_moduleCurrent = false;
             }
-            if (m_moduleCurrent) { return true; }
+            if (m_moduleCurrent)
+            {
+                return true;
+            }
 
             // Rebuild: fresh generation module, each class carrying its OWN section identity
             // (sourceName). The structured LoadBehaviorModule preserves per-class sections so a
@@ -277,18 +304,20 @@ export namespace draconic::script
             for (const RefPtr<ScriptClass>& loaded : m_loadedClasses)
             {
                 m_classSourceScratch.PushBack(
-                    BehaviorModuleClass{ loaded->sourceName.AsView(), loaded->source.AsView() });
+                    BehaviorModuleClass{loaded->sourceName.AsView(), loaded->source.AsView()});
             }
             ++m_generation;
             const String moduleName = Format(u8"behaviors#{}", m_generation);
-            if (!m_context->LoadBehaviorModule(
-                    Span<const BehaviorModuleClass>{ m_classSourceScratch.Data(),
-                                                     m_classSourceScratch.Size() },
-                    moduleName.AsView()).IsOk())
+            if (!m_context
+                     ->LoadBehaviorModule(
+                         Span<const BehaviorModuleClass>{m_classSourceScratch.Data(),
+                                                         m_classSourceScratch.Size()},
+                         moduleName.AsView())
+                     .IsOk())
             {
                 DRACONIC_LOG_ERROR(u8"Script",
-                    u8"behaviors module failed to compile (class '{}' newly added)",
-                    scriptClass.className);
+                                   u8"behaviors module failed to compile (class '{}' newly added)",
+                                   scriptClass.className);
                 return false;
             }
             m_moduleCurrent = true;
@@ -300,8 +329,14 @@ export namespace draconic::script
         /// context alive until released - callers destroy instances FIRST.
         void Teardown()
         {
-            if (m_context.Get() == nullptr && m_manager.Get() == nullptr) { return; }
-            if (m_context.Get() != nullptr) { m_context->SetErrorHandler(nullptr); }
+            if (m_context.Get() == nullptr && m_manager.Get() == nullptr)
+            {
+                return;
+            }
+            if (m_context.Get() != nullptr)
+            {
+                m_context->SetErrorHandler(nullptr);
+            }
             // The debugger holds engine contexts (a paused one) - release it BEFORE the
             // manager/engine it borrows. Clear the REQUEST + configurator too: they capture the
             // caller (an editor GamePage) that may be destroyed before this host is reused, so a
@@ -327,25 +362,37 @@ export namespace draconic::script
         // initial breakpoints + grabs the pointer for live changes.
         void EnsureDebugger()
         {
-            if (m_debugger || !m_debuggerRequested || m_manager.Get() == nullptr) { return; }
+            if (m_debugger || !m_debuggerRequested || m_manager.Get() == nullptr)
+            {
+                return;
+            }
             if (!HasScriptCapability(m_manager->Capabilities(), ScriptCapabilities::Debugger))
             {
                 return;
             }
             m_debugger = m_manager->CreateDebugger();
-            if (!m_debugger) { return; }
+            if (!m_debugger)
+            {
+                return;
+            }
             m_debugger->SetListener(&m_debugTracker);
-            if (m_debuggerConfigurator) { m_debuggerConfigurator(*m_debugger); }
+            if (m_debuggerConfigurator)
+            {
+                m_debuggerConfigurator(*m_debugger);
+            }
         }
 
         void WarnLanguageMismatchOnce(StringView languageId)
         {
-            if (m_warnedLanguageMismatch) { return; }
+            if (m_warnedLanguageMismatch)
+            {
+                return;
+            }
             m_warnedLanguageMismatch = true;
             DRACONIC_LOG_ERROR(u8"Script",
-                u8"behavior language '{}' differs from the run context's '{}' - one "
-                u8"gameplay context per run; these behaviors stay disabled", languageId,
-                m_language);
+                               u8"behavior language '{}' differs from the run context's '{}' - one "
+                               u8"gameplay context per run; these behaviors stay disabled",
+                               languageId, m_language);
         }
 
         RefPtr<IScriptManager> m_manager;
@@ -354,16 +401,17 @@ export namespace draconic::script
         RunScriptErrorSink m_errorSink;
         ScriptRuntimeBinding m_binding;
         Function<void(IScriptContext&)> m_configurator;
-        Array<RefPtr<ScriptClass>> m_loadedClasses;   // the behaviors module's content
-        Array<BehaviorModuleClass> m_classSourceScratch;   // reused per-rebuild {sourceName, source} list
-        UniquePtr<IScriptDebugger> m_debugger;        // the run's step debugger (opt-in)
-        DebugPauseTracker m_debugTracker;             // the game-pause flag + external forward
+        Array<RefPtr<ScriptClass>> m_loadedClasses; // the behaviors module's content
+        Array<BehaviorModuleClass>
+            m_classSourceScratch;              // reused per-rebuild {sourceName, source} list
+        UniquePtr<IScriptDebugger> m_debugger; // the run's step debugger (opt-in)
+        DebugPauseTracker m_debugTracker;      // the game-pause flag + external forward
         Function<void(IScriptDebugger&)> m_debuggerConfigurator;
         u32 m_generation = 0;
         bool m_moduleCurrent = false;
         bool m_warnedLanguageMismatch = false;
         bool m_debuggerRequested = false;
-        bool m_gameScriptHold = false;   // a game script is loaded into this host (teardown pin)
+        bool m_gameScriptHold = false; // a game script is loaded into this host (teardown pin)
     };
 
     // ---- per-scene dispatch ----
@@ -391,26 +439,38 @@ export namespace draconic::script
         {
             m_started = false;
             DestroyAllInstances();
-            if (m_runObserver) { m_runObserver(); }
+            if (m_runObserver)
+            {
+                m_runObserver();
+            }
         }
 
         void OnUpdate(dscene::ScenePhase phase, f32 deltaTime) override
         {
-            if (phase != dscene::ScenePhase::Update) { return; }
-            if (!m_started || m_scene == nullptr || m_host == nullptr) { return; }
+            if (phase != dscene::ScenePhase::Update)
+            {
+                return;
+            }
+            if (!m_started || m_scene == nullptr || m_host == nullptr)
+            {
+                return;
+            }
             // Frozen at a breakpoint: the world holds still (behaviors + coroutines stop
             // advancing) while the debugger owns a suspended handler. The editor loop keeps
             // running; step/continue drive the held context directly, not this tick.
-            if (m_host->IsDebugPaused()) { return; }
-            m_host->Binding().currentScene = m_scene;   // Scene.spawn target for this tick
+            if (m_host->IsDebugPaused())
+            {
+                return;
+            }
+            m_host->Binding().currentScene = m_scene; // Scene.spawn target for this tick
             TickBehaviors(deltaTime);
-            DrainMessages();   // deferred entity.send delivery - same frame, never nested
+            DrainMessages(); // deferred entity.send delivery - same frame, never nested
             // Resume due coroutines ONCE per simulated frame, at the tick's top level (no
             // VM call active - the backend's resume is safe here). Gated to a backend that
             // actually has the scheduler; a non-supporting one no-ops anyway.
             if (IScriptManager* manager = m_host->Manager();
-                manager != nullptr
-                && HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Coroutines))
+                manager != nullptr &&
+                HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Coroutines))
             {
                 manager->AdvanceCoroutines(static_cast<f64>(deltaTime));
             }
@@ -419,16 +479,24 @@ export namespace draconic::script
         /// Live instance count (the subsystem's context-teardown bookkeeping).
         [[nodiscard]] u32 InstanceCount() const
         {
-            auto* components = m_scene != nullptr
-                ? m_scene->GetSystem<ScriptComponentManager>() : nullptr;
-            if (components == nullptr) { return 0; }
+            auto* components =
+                m_scene != nullptr ? m_scene->GetSystem<ScriptComponentManager>() : nullptr;
+            if (components == nullptr)
+            {
+                return 0;
+            }
             u32 count = 0;
-            components->ForEach([&count](ScriptComponent& component, dscene::EntityHandle) {
-                for (const ScriptBehavior& behavior : component.behaviors)
+            components->ForEach(
+                [&count](ScriptComponent& component, dscene::EntityHandle)
                 {
-                    if (behavior.instance.Get() != nullptr) { ++count; }
-                }
-            });
+                    for (const ScriptBehavior& behavior : component.behaviors)
+                    {
+                        if (behavior.instance.Get() != nullptr)
+                        {
+                            ++count;
+                        }
+                    }
+                });
             return count;
         }
 
@@ -449,12 +517,18 @@ export namespace draconic::script
         void EnqueueMessage(dscene::EntityHandle target, StringView message,
                             Span<const Variant> args)
         {
-            if (message.IsEmpty()) { return; }
+            if (message.IsEmpty())
+            {
+                return;
+            }
             PendingMessage pending;
             pending.target = target;
             pending.handler = BuildMessageHandlerName(message);
             pending.args.Reserve(args.Size());
-            for (const Variant& arg : args) { pending.args.PushBack(arg); }
+            for (const Variant& arg : args)
+            {
+                pending.args.PushBack(arg);
+            }
             m_messages.PushBack(Move(pending));
         }
 
@@ -465,7 +539,10 @@ export namespace draconic::script
         /// call), and delivery is gated by HasHandler in InvokeHandler exactly like messages.
         void EnqueueContact(dscene::EntityHandle target, StringView handler, Array<Variant> args)
         {
-            if (handler.IsEmpty()) { return; }
+            if (handler.IsEmpty())
+            {
+                return;
+            }
             PendingMessage pending;
             pending.target = target;
             pending.handler = String(handler);
@@ -478,15 +555,19 @@ export namespace draconic::script
         /// in the same pass, capped to break runaway send loops.
         void DrainMessages()
         {
-            if (m_messages.IsEmpty()) { return; }
-            auto* components = m_scene != nullptr
-                ? m_scene->GetSystem<ScriptComponentManager>() : nullptr;
+            if (m_messages.IsEmpty())
+            {
+                return;
+            }
+            auto* components =
+                m_scene != nullptr ? m_scene->GetSystem<ScriptComponentManager>() : nullptr;
             usize delivered = 0;
             for (usize m = 0; m < m_messages.Size(); ++m)
             {
                 if (++delivered > kMaxMessagesPerDrain)
                 {
-                    DRACONIC_LOG_WARNING(u8"Script",
+                    DRACONIC_LOG_WARNING(
+                        u8"Script",
                         u8"message drain hit the {} cap - dropping the rest (send loop?)",
                         kMaxMessagesPerDrain);
                     break;
@@ -495,15 +576,21 @@ export namespace draconic::script
                 const dscene::EntityHandle target = m_messages[m].target;
                 const String handler = m_messages[m].handler;
                 Array<Variant> args = m_messages[m].args;
-                if (components == nullptr) { continue; }
-                const Span<Variant> argSpan{ args.Data(), args.Size() };
+                if (components == nullptr)
+                {
+                    continue;
+                }
+                const Span<Variant> argSpan{args.Data(), args.Size()};
                 for (usize i = 0;; ++i)
                 {
                     ScriptComponent* component = components->Get(target);
-                    if (component == nullptr || i >= component->behaviors.Size()) { break; }
+                    if (component == nullptr || i >= component->behaviors.Size())
+                    {
+                        break;
+                    }
                     ScriptBehavior& behavior = component->behaviors[i];
-                    if (!behavior.enabled || behavior.faulted
-                        || behavior.instance.Get() == nullptr || behavior.boundClass == nullptr)
+                    if (!behavior.enabled || behavior.faulted ||
+                        behavior.instance.Get() == nullptr || behavior.boundClass == nullptr)
                     {
                         continue;
                     }
@@ -512,7 +599,10 @@ export namespace draconic::script
                 }
                 // A message handler that hit a breakpoint pauses the game: stop draining (the
                 // rest of this pass is dropped - a rare edge, message-handler breakpoints).
-                if (m_host != nullptr && m_host->IsDebugPaused()) { break; }
+                if (m_host != nullptr && m_host->IsDebugPaused())
+                {
+                    break;
+                }
             }
             m_messages.Clear();
         }
@@ -520,7 +610,12 @@ export namespace draconic::script
     private:
         // The result of one handler dispatch: Ok (ran), Faulted (disabled), or Suspended
         // (hit a breakpoint - the game is paused, the debugger owns the mid-flight handler).
-        enum class HandlerOutcome { Ok, Faulted, Suspended };
+        enum class HandlerOutcome
+        {
+            Ok,
+            Faulted,
+            Suspended
+        };
 
         static constexpr StringView kOnStart = u8"onStart";
         static constexpr StringView kOnUpdate = u8"onUpdate";
@@ -535,7 +630,10 @@ export namespace draconic::script
             for (usize i = 0; i < message.Size(); ++i)
             {
                 utf8char c = message[i];
-                if (i == 0 && c >= u8'a' && c <= u8'z') { c = static_cast<utf8char>(c - 32); }
+                if (i == 0 && c >= u8'a' && c <= u8'z')
+                {
+                    c = static_cast<utf8char>(c - 32);
+                }
                 name += c;
             }
             return name;
@@ -544,7 +642,10 @@ export namespace draconic::script
         void TickBehaviors(f32 deltaTime)
         {
             auto* components = m_scene->GetSystem<ScriptComponentManager>();
-            if (components == nullptr || components->Count() == 0) { return; }
+            if (components == nullptr || components->Count() == 0)
+            {
+                return;
+            }
 
             // Snapshot the owner list: scripts may destroy entities (swap-remove moves
             // pool slots) or spawn new ones (picked up next tick - the deferred start).
@@ -560,11 +661,17 @@ export namespace draconic::script
                 for (usize i = 0;; ++i)
                 {
                     ScriptComponent* component = components->Get(entity);
-                    if (component == nullptr || i >= component->behaviors.Size()) { break; }
+                    if (component == nullptr || i >= component->behaviors.Size())
+                    {
+                        break;
+                    }
                     TickBehavior(component->behaviors[i], entity, deltaTime);
                     // A breakpoint hit inside that dispatch pauses the game mid-tick: stop
                     // advancing the rest of this tick (the world holds still).
-                    if (m_host != nullptr && m_host->IsDebugPaused()) { return; }
+                    if (m_host != nullptr && m_host->IsDebugPaused())
+                    {
+                        return;
+                    }
                 }
             }
         }
@@ -574,7 +681,10 @@ export namespace draconic::script
             ScriptClass* scriptClass = behavior.script.Get();
             if (scriptClass == nullptr)
             {
-                if (behavior.instance.Get() != nullptr) { StopBehavior(behavior, entity, true); }
+                if (behavior.instance.Get() != nullptr)
+                {
+                    StopBehavior(behavior, entity, true);
+                }
                 return;
             }
 
@@ -590,18 +700,25 @@ export namespace draconic::script
             {
                 if (behavior.instance.Get() != nullptr && behavior.active)
                 {
-                    behavior.active = false;   // set before dispatch (no re-dispatch on suspend/fault)
+                    behavior.active =
+                        false; // set before dispatch (no re-dispatch on suspend/fault)
                     (void)InvokeHandler(behavior, *behavior.boundClass, entity, kOnDisable, {});
-                    CancelCoroutines(behavior);   // a disabled behavior's coroutines stop too
+                    CancelCoroutines(behavior); // a disabled behavior's coroutines stop too
                 }
                 return;
             }
-            if (behavior.faulted) { return; }
+            if (behavior.faulted)
+            {
+                return;
+            }
 
             if (behavior.instance.Get() == nullptr)
             {
                 InstantiateBehavior(behavior, entity, *scriptClass);
-                if (behavior.instance.Get() == nullptr) { return; }
+                if (behavior.instance.Get() == nullptr)
+                {
+                    return;
+                }
             }
 
             // Lifecycle flags are set BEFORE the dispatch: whether it faults OR debug-suspends
@@ -610,14 +727,20 @@ export namespace draconic::script
             if (!behavior.active)
             {
                 behavior.active = true;
-                if (InvokeHandler(behavior, *scriptClass, entity, kOnEnable, {})
-                    != HandlerOutcome::Ok) { return; }
+                if (InvokeHandler(behavior, *scriptClass, entity, kOnEnable, {}) !=
+                    HandlerOutcome::Ok)
+                {
+                    return;
+                }
             }
             if (!behavior.started)
             {
                 behavior.started = true;
-                if (InvokeHandler(behavior, *scriptClass, entity, kOnStart, {})
-                    != HandlerOutcome::Ok) { return; }
+                if (InvokeHandler(behavior, *scriptClass, entity, kOnStart, {}) !=
+                    HandlerOutcome::Ok)
+                {
+                    return;
+                }
             }
             // updateInterval throttling (P3): 0 = every tick with the raw dt; otherwise
             // bank time and deliver once the interval elapses, passing the ACCUMULATED dt
@@ -628,16 +751,17 @@ export namespace draconic::script
                 if (behavior.updateAccumulator + 1e-6f >= behavior.updateInterval)
                 {
                     Variant dt = Variant::From(behavior.updateAccumulator);
-                    behavior.updateAccumulator = 0.0f;   // consume before dispatch (no double on resume)
+                    behavior.updateAccumulator =
+                        0.0f; // consume before dispatch (no double on resume)
                     (void)InvokeHandler(behavior, *scriptClass, entity, kOnUpdate,
-                                        Span<Variant>{ &dt, 1 });
+                                        Span<Variant>{&dt, 1});
                 }
             }
             else
             {
                 Variant dt = Variant::From(deltaTime);
                 (void)InvokeHandler(behavior, *scriptClass, entity, kOnUpdate,
-                                    Span<Variant>{ &dt, 1 });
+                                    Span<Variant>{&dt, 1});
             }
         }
 
@@ -656,16 +780,16 @@ export namespace draconic::script
             handle.entityIndex = entity.index;
             handle.entityGeneration = entity.generation;
             Variant arg = Variant::From(handle);
-            behavior.instance = m_host->Instantiate(scriptClass, Span<Variant>{ &arg, 1 });
+            behavior.instance = m_host->Instantiate(scriptClass, Span<Variant>{&arg, 1});
             behavior.boundClass = &scriptClass;
             behavior.started = false;
             behavior.active = false;
-            behavior.updateAccumulator = 0.0f;   // fresh instance banks from zero
+            behavior.updateAccumulator = 0.0f; // fresh instance banks from zero
             if (behavior.instance.Get() == nullptr)
             {
                 behavior.faulted = true;
-                DRACONIC_LOG_ERROR(u8"Script",
-                    u8"'{}': behavior '{}' failed to instantiate - behavior disabled",
+                DRACONIC_LOG_ERROR(
+                    u8"Script", u8"'{}': behavior '{}' failed to instantiate - behavior disabled",
                     m_scene->GetEntityName(entity), scriptClass.className);
                 return;
             }
@@ -686,12 +810,13 @@ export namespace draconic::script
 
                 String setter(property.name.AsView());
                 setter += u8"=";
-                Variant args[1] = { Move(marshalled) };
-                if (auto result = behavior.instance->Invoke(setter.AsView(),
-                                                            Span<Variant>{ args, 1 });
+                Variant args[1] = {Move(marshalled)};
+                if (auto result =
+                        behavior.instance->Invoke(setter.AsView(), Span<Variant>{args, 1});
                     !result.HasValue())
                 {
-                    DRACONIC_LOG_WARNING(u8"Script",
+                    DRACONIC_LOG_WARNING(
+                        u8"Script",
                         u8"'{}': class '{}' has no setter '{}=' for its declared property",
                         m_scene->GetEntityName(entity), scriptClass.className, property.name);
                 }
@@ -705,33 +830,39 @@ export namespace draconic::script
                 value.kind != ScriptPropertyType::None ? value.kind : declaredType;
             switch (kind)
             {
-                case ScriptPropertyType::Float:
-                case ScriptPropertyType::Int:
-                    return Variant::From<f64>(value.number);
-                case ScriptPropertyType::Bool:
-                    return Variant::From<bool>(value.boolean);
-                case ScriptPropertyType::String:
-                    return Variant::From<String>(String(value.text.AsView()));
-                case ScriptPropertyType::Color:
-                    return Variant::From<Color>(value.color);
-                case ScriptPropertyType::Vec3:
-                    return Variant::From<Float3>(value.vector);
-                case ScriptPropertyType::Entity:
+            case ScriptPropertyType::Float:
+            case ScriptPropertyType::Int:
+                return Variant::From<f64>(value.number);
+            case ScriptPropertyType::Bool:
+                return Variant::From<bool>(value.boolean);
+            case ScriptPropertyType::String:
+                return Variant::From<String>(String(value.text.AsView()));
+            case ScriptPropertyType::Color:
+                return Variant::From<Color>(value.color);
+            case ScriptPropertyType::Vec3:
+                return Variant::From<Float3>(value.vector);
+            case ScriptPropertyType::Entity:
+            {
+                if (value.guid.IsNil() || m_scene == nullptr)
                 {
-                    if (value.guid.IsNil() || m_scene == nullptr) { return Variant{}; }
-                    const dscene::EntityHandle target = m_scene->FindEntity(value.guid);
-                    if (!target.IsAssigned()) { return Variant{}; }
-                    Entity handle;
-                    handle.scene = m_scene;
-                    handle.entityIndex = target.index;
-                    handle.entityGeneration = target.generation;
-                    return Variant::From(handle);
-                }
-                case ScriptPropertyType::Asset:
-                    return Variant::From<Guid>(value.guid);
-                case ScriptPropertyType::None:
-                default:
                     return Variant{};
+                }
+                const dscene::EntityHandle target = m_scene->FindEntity(value.guid);
+                if (!target.IsAssigned())
+                {
+                    return Variant{};
+                }
+                Entity handle;
+                handle.scene = m_scene;
+                handle.entityIndex = target.index;
+                handle.entityGeneration = target.generation;
+                return Variant::From(handle);
+            }
+            case ScriptPropertyType::Asset:
+                return Variant::From<Guid>(value.guid);
+            case ScriptPropertyType::None:
+            default:
+                return Variant{};
             }
         }
 
@@ -741,8 +872,9 @@ export namespace draconic::script
         // game is now paused and the debugger owns the mid-flight handler; on Continue it runs
         // to completion and normal flow resumes.
         [[nodiscard]] HandlerOutcome InvokeHandler(ScriptBehavior& behavior,
-                           const ScriptClass& scriptClass, dscene::EntityHandle entity,
-                           StringView method, Span<Variant> args)
+                                                   const ScriptClass& scriptClass,
+                                                   dscene::EntityHandle entity, StringView method,
+                                                   Span<Variant> args)
         {
             if (behavior.instance.Get() == nullptr || !scriptClass.HasHandler(method))
             {
@@ -750,11 +882,17 @@ export namespace draconic::script
             }
             DRACONIC_PROFILE_SCOPE(scriptClass.ProfileName());
             auto result = behavior.instance->Invoke(method, args);
-            if (result.HasValue()) { return HandlerOutcome::Ok; }
-            if (m_host != nullptr && m_host->IsDebugPaused()) { return HandlerOutcome::Suspended; }
+            if (result.HasValue())
+            {
+                return HandlerOutcome::Ok;
+            }
+            if (m_host != nullptr && m_host->IsDebugPaused())
+            {
+                return HandlerOutcome::Suspended;
+            }
             behavior.faulted = true;
-            DRACONIC_LOG_ERROR(u8"Script",
-                u8"'{}': behavior '{}' faulted in {} - behavior disabled",
+            DRACONIC_LOG_ERROR(
+                u8"Script", u8"'{}': behavior '{}' faulted in {} - behavior disabled",
                 m_scene != nullptr ? m_scene->GetEntityName(entity) : StringView(u8"?"),
                 scriptClass.className, method);
             return HandlerOutcome::Faulted;
@@ -765,29 +903,28 @@ export namespace draconic::script
         // (usesCoroutines) - a backend/class without coroutines pays nothing.
         void CancelCoroutines(ScriptBehavior& behavior)
         {
-            if (behavior.instance.Get() == nullptr || behavior.boundClass == nullptr
-                || !behavior.boundClass->usesCoroutines || m_host == nullptr)
+            if (behavior.instance.Get() == nullptr || behavior.boundClass == nullptr ||
+                !behavior.boundClass->usesCoroutines || m_host == nullptr)
             {
                 return;
             }
             IScriptManager* manager = m_host->Manager();
-            if (manager == nullptr
-                || !HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Coroutines))
+            if (manager == nullptr ||
+                !HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Coroutines))
             {
                 return;
             }
             manager->CancelCoroutinesFor(*behavior.instance);
         }
 
-        void StopBehavior(ScriptBehavior& behavior, dscene::EntityHandle entity,
-                          bool invokeDestroy)
+        void StopBehavior(ScriptBehavior& behavior, dscene::EntityHandle entity, bool invokeDestroy)
         {
-            if (behavior.instance.Get() != nullptr && invokeDestroy && behavior.started
-                && behavior.boundClass != nullptr && !behavior.faulted)
+            if (behavior.instance.Get() != nullptr && invokeDestroy && behavior.started &&
+                behavior.boundClass != nullptr && !behavior.faulted)
             {
                 (void)InvokeHandler(behavior, *behavior.boundClass, entity, kOnDestroy, {});
             }
-            CancelCoroutines(behavior);   // drop pending coroutines before releasing the instance
+            CancelCoroutines(behavior); // drop pending coroutines before releasing the instance
             behavior.instance = nullptr;
             behavior.boundClass = nullptr;
             behavior.started = false;
@@ -796,27 +933,29 @@ export namespace draconic::script
 
         void DestroyAllInstances()
         {
-            auto* components = m_scene != nullptr
-                ? m_scene->GetSystem<ScriptComponentManager>() : nullptr;
-            if (components == nullptr) { return; }
-            components->ForEach([this](ScriptComponent& component, dscene::EntityHandle entity) {
-                ReleaseComponentInstances(component, entity);
-            });
+            auto* components =
+                m_scene != nullptr ? m_scene->GetSystem<ScriptComponentManager>() : nullptr;
+            if (components == nullptr)
+            {
+                return;
+            }
+            components->ForEach([this](ScriptComponent& component, dscene::EntityHandle entity)
+                                { ReleaseComponentInstances(component, entity); });
         }
 
         struct PendingMessage
         {
             dscene::EntityHandle target;
-            String handler;          // prebuilt "on<Message>"
-            Array<Variant> args;     // marshalled at send time
+            String handler;      // prebuilt "on<Message>"
+            Array<Variant> args; // marshalled at send time
         };
         static constexpr usize kMaxMessagesPerDrain = 4096;
 
         dscene::Scene* m_scene = nullptr;
         ScriptRunHost* m_host = nullptr;
         Function<void()> m_runObserver;
-        Array<dscene::EntityHandle> m_tickOwners;   // per-tick snapshot (reused)
-        Array<PendingMessage> m_messages;           // deferred entity.send queue
+        Array<dscene::EntityHandle> m_tickOwners; // per-tick snapshot (reused)
+        Array<PendingMessage> m_messages;         // deferred entity.send queue
         bool m_started = false;
     };
 
@@ -825,10 +964,15 @@ export namespace draconic::script
     /// The neutral contact vocabulary the script layer speaks. A producer (physics, via a
     /// composition-root bridge) maps its own kind onto this - the script subsystem never
     /// names a physics type, so it does not depend on the physics library.
-    enum class ScriptContactKind : u8 { Begin, End, TriggerEnter, TriggerExit };
+    enum class ScriptContactKind : u8
+    {
+        Begin,
+        End,
+        TriggerEnter,
+        TriggerExit
+    };
 
-    class ScriptSubsystem final : public draconic::runtime::Subsystem,
-                                  public dscene::ISceneAware
+    class ScriptSubsystem final : public draconic::runtime::Subsystem, public dscene::ISceneAware
     {
     public:
         /// The DEFAULT run host - the one for the editor's editing/loose scenes (game-instance.md
@@ -844,23 +988,36 @@ export namespace draconic::script
         void ConfigureRunHost(ScriptRunHost& host)
         {
             ScriptSubsystem* self = this;
-            host.SetContextConfigurator(Function<void(IScriptContext&)>{
-                [self](IScriptContext& context) { if (self->m_configurator) { self->m_configurator(context); } } });
-            host.Binding().spawnPrefab = Function<dscene::EntityHandle(dscene::Scene*, const Guid&, const Float3&)>{
-                [self](dscene::Scene* scene, const Guid& prefab, const Float3& position) -> dscene::EntityHandle {
-                    return self->m_spawner ? self->m_spawner(scene, prefab, position) : dscene::EntityHandle::Invalid();
-                } };
-            host.Binding().dispatchMessage = Function<void(dscene::Scene*, dscene::EntityHandle, StringView,
-                Span<const Variant>)>{
+            host.SetContextConfigurator(
+                Function<void(IScriptContext&)>{[self](IScriptContext& context)
+                                                {
+                                                    if (self->m_configurator)
+                                                    {
+                                                        self->m_configurator(context);
+                                                    }
+                                                }});
+            host.Binding().spawnPrefab =
+                Function<dscene::EntityHandle(dscene::Scene*, const Guid&, const Float3&)>{
+                    [self](dscene::Scene* scene, const Guid& prefab,
+                           const Float3& position) -> dscene::EntityHandle
+                    {
+                        return self->m_spawner ? self->m_spawner(scene, prefab, position)
+                                               : dscene::EntityHandle::Invalid();
+                    }};
+            host.Binding().dispatchMessage = Function<void(dscene::Scene*, dscene::EntityHandle,
+                                                           StringView, Span<const Variant>)>{
                 [self](dscene::Scene* scene, dscene::EntityHandle target, StringView message,
-                       Span<const Variant> args) {
-                    for (const SceneEntry& entry : self->m_systems) {
-                        if (entry.scene == scene && entry.system != nullptr) {
+                       Span<const Variant> args)
+                {
+                    for (const SceneEntry& entry : self->m_systems)
+                    {
+                        if (entry.scene == scene && entry.system != nullptr)
+                        {
                             entry.system->EnqueueMessage(target, message, args);
                             return;
                         }
                     }
-                } };
+                }};
         }
 
         /// Tear down `host` if nothing pins it: no game-script hold, no scene BOUND TO IT simulating,
@@ -869,12 +1026,28 @@ export namespace draconic::script
         /// observer, OnSceneDestroyed, and a GameInstance on its own host.
         void MaybeTeardownRunHost(ScriptRunHost& host)
         {
-            if (!host.IsActive() || host.HasGameScriptHold()) { return; }
-            for (const SceneEntry& entry : m_systems) {
-                if (entry.system == nullptr || entry.scene == nullptr) { continue; }
-                if (entry.system->Host() != &host) { continue; }   // only scenes bound to THIS host
-                if (entry.system->Started() && entry.scene->SimulationEnabled()) { return; }
-                if (entry.system->InstanceCount() > 0) { return; }
+            if (!host.IsActive() || host.HasGameScriptHold())
+            {
+                return;
+            }
+            for (const SceneEntry& entry : m_systems)
+            {
+                if (entry.system == nullptr || entry.scene == nullptr)
+                {
+                    continue;
+                }
+                if (entry.system->Host() != &host)
+                {
+                    continue;
+                } // only scenes bound to THIS host
+                if (entry.system->Started() && entry.scene->SimulationEnabled())
+                {
+                    return;
+                }
+                if (entry.system->InstanceCount() > 0)
+                {
+                    return;
+                }
             }
             host.Teardown();
         }
@@ -894,13 +1067,26 @@ export namespace draconic::script
             bool trigger = false;
             switch (kind)
             {
-                case ScriptContactKind::Begin:        handler = u8"onContactBegin"; break;
-                case ScriptContactKind::End:          handler = u8"onContactEnd"; break;
-                case ScriptContactKind::TriggerEnter: handler = u8"onTriggerEnter"; trigger = true; break;
-                case ScriptContactKind::TriggerExit:  handler = u8"onTriggerExit"; trigger = true; break;
+            case ScriptContactKind::Begin:
+                handler = u8"onContactBegin";
+                break;
+            case ScriptContactKind::End:
+                handler = u8"onContactEnd";
+                break;
+            case ScriptContactKind::TriggerEnter:
+                handler = u8"onTriggerEnter";
+                trigger = true;
+                break;
+            case ScriptContactKind::TriggerExit:
+                handler = u8"onTriggerExit";
+                trigger = true;
+                break;
             }
             ScriptSceneSystem* system = SystemForScene(scene);
-            if (system == nullptr) { return; }
+            if (system == nullptr)
+            {
+                return;
+            }
             DeliverContactSide(*system, scene, a, b, handler, point, normal, speed, trigger);
             DeliverContactSide(*system, scene, b, a, handler, point, normal, speed, trigger);
         }
@@ -913,8 +1099,8 @@ export namespace draconic::script
         }
         /// Host-app wiring: the prefab spawner behind `Scene.spawn` (the host owns the content DB that
         /// resolves a prefab id). Applied to every run host by ConfigureRunHost's live wrapper.
-        void SetPrefabSpawner(Function<dscene::EntityHandle(dscene::Scene*, const Guid&,
-                                                            const Float3&)> spawner)
+        void SetPrefabSpawner(
+            Function<dscene::EntityHandle(dscene::Scene*, const Guid&, const Float3&)> spawner)
         {
             m_spawner = Move(spawner);
         }
@@ -933,10 +1119,15 @@ export namespace draconic::script
             // (game-instance.md §11.10). The teardown observer checks the system's CURRENT host.
             system->SetRunHost(&m_ownedRunHost);
             ScriptSubsystem* self = this;
-            system->SetRunObserver(Function<void()>{ [self, system]() {
-                if (system->Host() != nullptr) { self->MaybeTeardownRunHost(*system->Host()); }
-            } });
-            m_systems.PushBack(SceneEntry{ &scene, system });
+            system->SetRunObserver(Function<void()>{[self, system]()
+                                                    {
+                                                        if (system->Host() != nullptr)
+                                                        {
+                                                            self->MaybeTeardownRunHost(
+                                                                *system->Host());
+                                                        }
+                                                    }});
+            m_systems.PushBack(SceneEntry{&scene, system});
         }
         void OnSceneDestroyed(dscene::Scene& scene) override
         {
@@ -945,12 +1136,18 @@ export namespace draconic::script
             {
                 if (m_systems[i].scene == &scene)
                 {
-                    if (m_systems[i].system != nullptr) { host = m_systems[i].system->Host(); }
+                    if (m_systems[i].system != nullptr)
+                    {
+                        host = m_systems[i].system->Host();
+                    }
                     m_systems.RemoveAt(i);
                     break;
                 }
             }
-            if (host != nullptr) { MaybeTeardownRunHost(*host); }
+            if (host != nullptr)
+            {
+                MaybeTeardownRunHost(*host);
+            }
         }
 
         // Drives the DEFAULT run host (editor scenes). A GameInstance drives its own host.
@@ -961,7 +1158,7 @@ export namespace draconic::script
             binding.deltaSeconds = deltaTime;
             if (m_ownedRunHost.Manager() != nullptr)
             {
-                m_ownedRunHost.Manager()->CollectGarbage();   // frame-budgeted GC stepping
+                m_ownedRunHost.Manager()->CollectGarbage(); // frame-budgeted GC stepping
             }
         }
 
@@ -973,7 +1170,7 @@ export namespace draconic::script
         }
         void OnReady() override
         {
-            ConfigureRunHost(m_ownedRunHost);   // wire the default (editor-scene) run host once
+            ConfigureRunHost(m_ownedRunHost); // wire the default (editor-scene) run host once
             if (draconic::runtime::Context* context = GetContext())
             {
                 if (auto* scenes = context->GetSubsystem<dscene::SceneSubsystem>())
@@ -999,7 +1196,7 @@ export namespace draconic::script
                     entry.system->OnSceneStopped();
                 }
             }
-            m_ownedRunHost.Teardown();   // instance hosts are torn down by their owners
+            m_ownedRunHost.Teardown(); // instance hosts are torn down by their owners
         }
 
     private:
@@ -1013,7 +1210,10 @@ export namespace draconic::script
         {
             for (const SceneEntry& entry : m_systems)
             {
-                if (entry.scene == scene) { return entry.system; }
+                if (entry.scene == scene)
+                {
+                    return entry.system;
+                }
             }
             return nullptr;
         }
@@ -1026,7 +1226,10 @@ export namespace draconic::script
                                 StringView handler, const Float3& point, const Float3& normal,
                                 f32 speed, bool trigger)
         {
-            if (!self.IsAssigned()) { return; }
+            if (!self.IsAssigned())
+            {
+                return;
+            }
             Entity otherEntity;
             otherEntity.scene = scene;
             otherEntity.entityIndex = other.index;
@@ -1042,9 +1245,12 @@ export namespace draconic::script
             system.EnqueueContact(self, handler, Move(args));
         }
 
-        ScriptRunHost m_ownedRunHost;   // the DEFAULT run host (editor/editing scenes; game-instance §11.10)
+        ScriptRunHost
+            m_ownedRunHost; // the DEFAULT run host (editor/editing scenes; game-instance §11.10)
         Array<SceneEntry> m_systems;
-        Function<void(IScriptContext&)> m_configurator;   // app services, applied to every host via ConfigureRunHost
-        Function<dscene::EntityHandle(dscene::Scene*, const Guid&, const Float3&)> m_spawner;  // Scene.spawn
+        Function<void(IScriptContext&)>
+            m_configurator; // app services, applied to every host via ConfigureRunHost
+        Function<dscene::EntityHandle(dscene::Scene*, const Guid&, const Float3&)>
+            m_spawner; // Scene.spawn
     };
 }

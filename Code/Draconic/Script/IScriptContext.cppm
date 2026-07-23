@@ -11,7 +11,7 @@ module;
 export module draconic.script:script_context;
 
 import draconic.core;
-import :script_debug;   // IScriptBlob (the LoadBlob seam)
+import :script_debug; // IScriptBlob (the LoadBlob seam)
 
 namespace core = draconic::core;
 
@@ -28,8 +28,8 @@ export namespace draconic::script
     struct ScriptError
     {
         ScriptErrorKind kind;
-        core::StringView module;  // may be empty
-        core::i32 line;           // 1-based source line, or -1 if unknown
+        core::StringView module; // may be empty
+        core::i32 line;          // 1-based source line, or -1 if unknown
         core::StringView message;
     };
 
@@ -53,8 +53,8 @@ export namespace draconic::script
         // Invoke a method on this object with reflected args. Returns its result
         // (empty Variant for a void method), or an error if the method is missing
         // or the script faults.
-        [[nodiscard]] virtual core::Result<core::Variant> Invoke(
-            core::StringView method, core::Span<core::Variant> args) = 0;
+        [[nodiscard]] virtual core::Result<core::Variant>
+        Invoke(core::StringView method, core::Span<core::Variant> args) = 0;
     };
 
     // One class in a structured behavior-module load. `name` is the class's SOURCE FILE
@@ -63,8 +63,8 @@ export namespace draconic::script
     // and an editor breakpoint keyed on the file lines up. `source` is the class body.
     struct BehaviorModuleClass
     {
-        core::StringView name;    // the source-file section identity (may be empty)
-        core::StringView source;  // the class source text
+        core::StringView name;   // the source-file section identity (may be empty)
+        core::StringView source; // the class source text
     };
 
     class IScriptContext : public core::Object
@@ -105,7 +105,7 @@ export namespace draconic::script
         virtual core::Status LoadBlob(IScriptBlob& blob)
         {
             (void)blob;
-            return core::Status{ core::ErrorCode::NotSupported };
+            return core::Status{core::ErrorCode::NotSupported};
         }
 
         // Globals are exchanged as Variants (values or objects).
@@ -117,14 +117,14 @@ export namespace draconic::script
 
         // Call a global function with reflected args; returns its result (void
         // -> empty Variant), or an error if missing / on a script fault.
-        [[nodiscard]] virtual core::Result<core::Variant> Call(
-            core::StringView function, core::Span<core::Variant> args) = 0;
+        [[nodiscard]] virtual core::Result<core::Variant> Call(core::StringView function,
+                                                               core::Span<core::Variant> args) = 0;
 
         // Instantiate a script-defined class by name, passing reflected
         // constructor args. Returns null if the class is unknown or construction
         // faults. The returned object outlives this call and retains the context.
-        [[nodiscard]] virtual core::RefPtr<ScriptObject> CreateInstance(
-            core::StringView className, core::Span<core::Variant> args) = 0;
+        [[nodiscard]] virtual core::RefPtr<ScriptObject>
+        CreateInstance(core::StringView className, core::Span<core::Variant> args) = 0;
 
         // ---- host services (per-context) ----
         // Name-keyed host objects native facades resolve DURING a scripted call (via

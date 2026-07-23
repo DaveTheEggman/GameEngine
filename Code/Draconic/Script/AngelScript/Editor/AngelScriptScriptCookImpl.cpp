@@ -34,7 +34,7 @@ module;
 module draconic.script.angelscript.editor;
 
 import draconic.core;
-import draconic.editor.core;   // FileStemOf
+import draconic.editor.core; // FileStemOf
 import draconic.script;
 import draconic.script.resource;
 import draconic.script.facades;
@@ -51,8 +51,8 @@ namespace draconic::script
 
         inline StringView ViewOfCStr(const char* text) noexcept
         {
-            return (text != nullptr)
-                ? StringView(reinterpret_cast<const utf8char*>(text)) : StringView{};
+            return (text != nullptr) ? StringView(reinterpret_cast<const utf8char*>(text))
+                                     : StringView{};
         }
 
         inline std::string StdFromView(StringView text)
@@ -64,8 +64,7 @@ namespace draconic::script
         [[nodiscard]] String Unquote(StringView text)
         {
             const StringView trimmed = Trim(text);
-            if (trimmed.Size() < 2 || trimmed[0] != u8'"'
-                || trimmed[trimmed.Size() - 1] != u8'"')
+            if (trimmed.Size() < 2 || trimmed[0] != u8'"' || trimmed[trimmed.Size() - 1] != u8'"')
             {
                 return String(trimmed);
             }
@@ -77,7 +76,12 @@ namespace draconic::script
                 if (body[i] == u8'\\' && i + 1 < body.Size())
                 {
                     const utf8char next = body[i + 1];
-                    if (next == u8'"' || next == u8'\\') { out.PushBack(next); ++i; continue; }
+                    if (next == u8'"' || next == u8'\\')
+                    {
+                        out.PushBack(next);
+                        ++i;
+                        continue;
+                    }
                 }
                 out.PushBack(body[i]);
             }
@@ -104,13 +108,35 @@ namespace draconic::script
                 const utf8char c = content[i];
                 if (inString)
                 {
-                    if (c == u8'\\') { ++i; continue; }
-                    if (c == u8'"') { inString = false; }
+                    if (c == u8'\\')
+                    {
+                        ++i;
+                        continue;
+                    }
+                    if (c == u8'"')
+                    {
+                        inString = false;
+                    }
                     continue;
                 }
-                if (c == u8'"') { inString = true; continue; }
-                if (c == u8'(' || c == u8'[' || c == u8'{') { ++depth; continue; }
-                if (c == u8')' || c == u8']' || c == u8'}') { if (depth > 0) { --depth; } continue; }
+                if (c == u8'"')
+                {
+                    inString = true;
+                    continue;
+                }
+                if (c == u8'(' || c == u8'[' || c == u8'{')
+                {
+                    ++depth;
+                    continue;
+                }
+                if (c == u8')' || c == u8']' || c == u8'}')
+                {
+                    if (depth > 0)
+                    {
+                        --depth;
+                    }
+                    continue;
+                }
                 if (c == u8',' && depth == 0)
                 {
                     tokens.PushBack(String(Trim(content.SubStr(begin, i - begin))));
@@ -143,7 +169,10 @@ namespace draconic::script
                 {
                     const StringView piece = Trim(body.SubStr(begin, i - begin));
                     begin = i + 1;
-                    if (!piece.IsEmpty()) { out[count++] = static_cast<f32>(ParseNumber(piece)); }
+                    if (!piece.IsEmpty())
+                    {
+                        out[count++] = static_cast<f32>(ParseNumber(piece));
+                    }
                 }
             }
             return count;
@@ -162,15 +191,18 @@ namespace draconic::script
                 t = Trim(t.SubStr(constPrefix.Size(), t.Size() - constPrefix.Size()));
             }
             usize end = t.Size();
-            while (end > 0 && (t[end - 1] == u8'@' || IsWhiteSpace(t[end - 1]))) { --end; }
+            while (end > 0 && (t[end - 1] == u8'@' || IsWhiteSpace(t[end - 1])))
+            {
+                --end;
+            }
             return t.SubStr(0, end);
         }
 
         [[nodiscard]] bool IsIntTypeName(StringView t) noexcept
         {
-            return t == u8"int" || t == u8"int8" || t == u8"int16" || t == u8"int32"
-                || t == u8"int64" || t == u8"uint" || t == u8"uint8" || t == u8"uint16"
-                || t == u8"uint32" || t == u8"uint64";
+            return t == u8"int" || t == u8"int8" || t == u8"int16" || t == u8"int32" ||
+                   t == u8"int64" || t == u8"uint" || t == u8"uint8" || t == u8"uint16" ||
+                   t == u8"uint32" || t == u8"uint64";
         }
 
         // Resolves the ScriptPropertyType for a field of declared type `typeName` whose
@@ -183,14 +215,39 @@ namespace draconic::script
             outAssetType = String{};
             if (typeName == u8"float" || typeName == u8"double")
             {
-                outKind = ScriptPropertyType::Float; return true;
+                outKind = ScriptPropertyType::Float;
+                return true;
             }
-            if (IsIntTypeName(typeName)) { outKind = ScriptPropertyType::Int; return true; }
-            if (typeName == u8"bool") { outKind = ScriptPropertyType::Bool; return true; }
-            if (typeName == u8"string") { outKind = ScriptPropertyType::String; return true; }
-            if (typeName == u8"Color") { outKind = ScriptPropertyType::Color; return true; }
-            if (typeName == u8"Float3") { outKind = ScriptPropertyType::Vec3; return true; }
-            if (typeName == u8"Entity") { outKind = ScriptPropertyType::Entity; return true; }
+            if (IsIntTypeName(typeName))
+            {
+                outKind = ScriptPropertyType::Int;
+                return true;
+            }
+            if (typeName == u8"bool")
+            {
+                outKind = ScriptPropertyType::Bool;
+                return true;
+            }
+            if (typeName == u8"string")
+            {
+                outKind = ScriptPropertyType::String;
+                return true;
+            }
+            if (typeName == u8"Color")
+            {
+                outKind = ScriptPropertyType::Color;
+                return true;
+            }
+            if (typeName == u8"Float3")
+            {
+                outKind = ScriptPropertyType::Vec3;
+                return true;
+            }
+            if (typeName == u8"Entity")
+            {
+                outKind = ScriptPropertyType::Entity;
+                return true;
+            }
             if (typeName == u8"Guid")
             {
                 // A Guid property is a typed asset reference declared by an `asset:<TypeName>`
@@ -199,12 +256,12 @@ namespace draconic::script
                 {
                     const String tag = Unquote(firstToken);
                     const StringView prefix = u8"asset:";
-                    if (tag.Size() > prefix.Size()
-                        && tag.AsView().SubStr(0, prefix.Size()) == prefix)
+                    if (tag.Size() > prefix.Size() &&
+                        tag.AsView().SubStr(0, prefix.Size()) == prefix)
                     {
                         outKind = ScriptPropertyType::Asset;
-                        outAssetType = String(tag.AsView().SubStr(prefix.Size(),
-                                                                  tag.Size() - prefix.Size()));
+                        outAssetType =
+                            String(tag.AsView().SubStr(prefix.Size(), tag.Size() - prefix.Size()));
                         return true;
                     }
                 }
@@ -220,41 +277,47 @@ namespace draconic::script
         {
             out.kind = type;
             const StringView token = Trim(firstToken);
-            if (token.IsEmpty() || token == u8"null") { return; }
+            if (token.IsEmpty() || token == u8"null")
+            {
+                return;
+            }
             switch (type)
             {
-                case ScriptPropertyType::Float:
-                    out.number = ParseNumber(token);
-                    break;
-                case ScriptPropertyType::Int:
-                    out.number = static_cast<f64>(static_cast<i64>(ParseNumber(token)));
-                    break;
-                case ScriptPropertyType::Bool:
-                    out.boolean = (token == u8"true");
-                    break;
-                case ScriptPropertyType::String:
-                    out.text = Unquote(token);
-                    break;
-                case ScriptPropertyType::Color:
+            case ScriptPropertyType::Float:
+                out.number = ParseNumber(token);
+                break;
+            case ScriptPropertyType::Int:
+                out.number = static_cast<f64>(static_cast<i64>(ParseNumber(token)));
+                break;
+            case ScriptPropertyType::Bool:
+                out.boolean = (token == u8"true");
+                break;
+            case ScriptPropertyType::String:
+                out.text = Unquote(token);
+                break;
+            case ScriptPropertyType::Color:
+            {
+                f32 n[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+                if (ParseNumberList(token, n) >= 3)
                 {
-                    f32 n[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-                    if (ParseNumberList(token, n) >= 3)
-                    {
-                        out.color = Color{ n[0], n[1], n[2], n[3] };
-                    }
-                    break;
+                    out.color = Color{n[0], n[1], n[2], n[3]};
                 }
-                case ScriptPropertyType::Vec3:
+                break;
+            }
+            case ScriptPropertyType::Vec3:
+            {
+                f32 n[4] = {};
+                if (ParseNumberList(token, n) >= 3)
                 {
-                    f32 n[4] = {};
-                    if (ParseNumberList(token, n) >= 3) { out.vector = Float3{ n[0], n[1], n[2] }; }
-                    break;
+                    out.vector = Float3{n[0], n[1], n[2]};
                 }
-                case ScriptPropertyType::Entity:
-                case ScriptPropertyType::Asset:
-                case ScriptPropertyType::None:
-                default:
-                    break;   // only null defaults are expressible; overrides carry guids
+                break;
+            }
+            case ScriptPropertyType::Entity:
+            case ScriptPropertyType::Asset:
+            case ScriptPropertyType::None:
+            default:
+                break; // only null defaults are expressible; overrides carry guids
             }
         }
 
@@ -267,12 +330,17 @@ namespace draconic::script
 
         void ForwardBuildMessage(const asSMessageInfo* message, void* param)
         {
-            if (message == nullptr || message->type != asMSGTYPE_ERROR) { return; }
+            if (message == nullptr || message->type != asMSGTYPE_ERROR)
+            {
+                return;
+            }
             CookMessageForward* forward = static_cast<CookMessageForward*>(param);
-            if (forward == nullptr || forward->sink == nullptr) { return; }
-            const ScriptError error{ ScriptErrorKind::Compile, ViewOfCStr(message->section),
-                                     static_cast<i32>(message->row),
-                                     ViewOfCStr(message->message) };
+            if (forward == nullptr || forward->sink == nullptr)
+            {
+                return;
+            }
+            const ScriptError error{ScriptErrorKind::Compile, ViewOfCStr(message->section),
+                                    static_cast<i32>(message->row), ViewOfCStr(message->message)};
             forward->sink->OnError(error);
         }
 
@@ -284,11 +352,17 @@ namespace draconic::script
                                              Array<ScriptPropertyDesc>& out)
         {
             asIScriptModule* module = builder.GetModule();
-            if (module == nullptr) { return true; }
+            if (module == nullptr)
+            {
+                return true;
+            }
             const String classNameStr(className);
-            asITypeInfo* type = module->GetTypeInfoByDecl(
-                reinterpret_cast<const char*>(classNameStr.CStr()));
-            if (type == nullptr) { return true; }   // utility module or no such class
+            asITypeInfo* type =
+                module->GetTypeInfoByDecl(reinterpret_cast<const char*>(classNameStr.CStr()));
+            if (type == nullptr)
+            {
+                return true;
+            } // utility module or no such class
 
             const int classTypeId = type->GetTypeId();
             const asUINT count = type->GetPropertyCount();
@@ -302,11 +376,13 @@ namespace draconic::script
                 }
                 std::vector<std::string> metadata =
                     builder.GetMetadataForTypeProperty(classTypeId, static_cast<int>(i));
-                if (metadata.empty() || metadata[0].empty()) { continue; }   // not a property
+                if (metadata.empty() || metadata[0].empty())
+                {
+                    continue;
+                } // not a property
 
                 const Array<String> tokens = SplitTopLevel(ViewOfCStr(metadata[0].c_str()));
-                const StringView firstToken =
-                    tokens.IsEmpty() ? StringView{} : tokens[0].AsView();
+                const StringView firstToken = tokens.IsEmpty() ? StringView{} : tokens[0].AsView();
                 const StringView typeName =
                     NormalizeTypeName(ViewOfCStr(engine->GetTypeDeclaration(fieldTypeId, false)));
 
@@ -316,10 +392,10 @@ namespace draconic::script
                 if (!ResolvePropertyType(typeName, firstToken, desc.type, desc.assetType))
                 {
                     DRACONIC_LOG_ERROR(u8"Script",
-                        u8"'{}': property '{}' has unsupported type '{}' "
-                        u8"(valid: float, int, bool, string, Color, Float3, Entity, "
-                        u8"or Guid tagged \"asset:<TypeName>\") - cook failed",
-                        assetName, desc.name, typeName);
+                                       u8"'{}': property '{}' has unsupported type '{}' "
+                                       u8"(valid: float, int, bool, string, Color, Float3, Entity, "
+                                       u8"or Guid tagged \"asset:<TypeName>\") - cook failed",
+                                       assetName, desc.name, typeName);
                     return false;
                 }
                 ParseDefault(desc.type, firstToken, desc.defaultValue);
@@ -345,14 +421,15 @@ namespace draconic::script
                                     CookScriptErrorSink& sink, ScriptClassSource& out) override
             {
                 out.language = String(u8"angelscript");
-                out.sourceName = String(assetName);   // the source file identity (breakpoint key)
+                out.sourceName = String(assetName); // the source file identity (breakpoint key)
                 out.source = String(source);
 
                 RefPtr<IScriptManager> manager = CreateScriptManagerForLanguage(u8"angelscript");
                 if (manager.Get() == nullptr)
                 {
                     DRACONIC_LOG_ERROR(u8"Script",
-                        u8"'{}': no AngelScript backend registered - cook failed", assetName);
+                                       u8"'{}': no AngelScript backend registered - cook failed",
+                                       assetName);
                     return false;
                 }
                 // Same "main"-module surface the runtime registers (core + facades), so a
@@ -362,17 +439,18 @@ namespace draconic::script
                 RegisterScriptFacadeReflection();
                 RegisterReflectedTypes(*manager);
 
-                asIScriptEngine* engine =
-                    static_cast<asIScriptEngine*>(
-                        draconic::script::angelscript::AngelScriptEngineHandle(*manager));
-                if (engine == nullptr) { return false; }
+                asIScriptEngine* engine = static_cast<asIScriptEngine*>(
+                    draconic::script::angelscript::AngelScriptEngineHandle(*manager));
+                if (engine == nullptr)
+                {
+                    return false;
+                }
 
                 // Build the behavior through CScriptBuilder: it strips `[metadata]` (which is
                 // NOT valid AngelScript syntax to the raw compiler) and records it for the
                 // per-field lookup below. Errors route into the cook sink for the report.
-                CookMessageForward forward{ &sink };
-                engine->SetMessageCallback(asFUNCTION(ForwardBuildMessage), &forward,
-                                           asCALL_CDECL);
+                CookMessageForward forward{&sink};
+                engine->SetMessageCallback(asFUNCTION(ForwardBuildMessage), &forward, asCALL_CDECL);
 
                 CScriptBuilder builder;
                 if (builder.StartNewModule(engine, "DraconicAsCookHarvest") < 0)
@@ -381,16 +459,15 @@ namespace draconic::script
                     return false;
                 }
                 const String section(assetName);
-                (void)builder.AddSectionFromMemory(
-                    reinterpret_cast<const char*>(section.CStr()),
-                    reinterpret_cast<const char*>(source.Data()),
-                    static_cast<unsigned>(source.Size()));
+                (void)builder.AddSectionFromMemory(reinterpret_cast<const char*>(section.CStr()),
+                                                   reinterpret_cast<const char*>(source.Data()),
+                                                   static_cast<unsigned>(source.Size()));
                 // The same coroutine support section the runtime adds per module, so a
                 // coroutine-using behavior compiles here exactly as it runs.
                 const StringView coroutinePrelude =
                     draconic::script::angelscript::AngelScriptCoroutineModulePrelude();
-                (void)builder.AddSectionFromMemory("__coroutine_support",
-                    reinterpret_cast<const char*>(coroutinePrelude.Data()),
+                (void)builder.AddSectionFromMemory(
+                    "__coroutine_support", reinterpret_cast<const char*>(coroutinePrelude.Data()),
                     static_cast<unsigned>(coroutinePrelude.Size()));
 
                 const int built = builder.BuildModule();
@@ -401,8 +478,8 @@ namespace draconic::script
                     return false;
                 }
 
-                out.className = FindScriptClassName(
-                    source, draconic::editor::FileStemOf(assetName));
+                out.className =
+                    FindScriptClassName(source, draconic::editor::FileStemOf(assetName));
                 out.handlers = ScanScriptHandlers(source);
                 out.usesCoroutines = ScriptReferencesCoroutineStart(source);
 

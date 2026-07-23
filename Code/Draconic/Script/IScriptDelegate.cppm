@@ -34,7 +34,8 @@ export namespace draconic::script
     {
         DRACONIC_OBJECT(IScriptDelegate, core::Object)
     public:
-        [[nodiscard]] virtual core::Result<core::Variant> Invoke(core::Span<core::Variant> args) = 0;
+        [[nodiscard]] virtual core::Result<core::Variant>
+        Invoke(core::Span<core::Variant> args) = 0;
     };
 }
 

@@ -19,7 +19,7 @@ import draconic.script;
 import draconic.script.wren;
 import draconic.script.resource;
 import draconic.script.editor;
-import draconic.script.wren.editor;   // the Wren cook (starter + compile/harvest) under test
+import draconic.script.wren.editor; // the Wren cook (starter + compile/harvest) under test
 
 using namespace draconic::core;
 using namespace draconic::script;
@@ -50,8 +50,8 @@ namespace
 
     void RemoveTree(StringView dir)
     {
-        for (const utf8char* name : { u8"mover.wren", u8"cooked.rasset", u8"util.wren",
-                                      u8"broken.wren", u8"fake.ftl", u8"starter.wren" })
+        for (const utf8char* name : {u8"mover.wren", u8"cooked.rasset", u8"util.wren",
+                                     u8"broken.wren", u8"fake.ftl", u8"starter.wren"})
         {
             String path(dir);
             path.Append(u8"/");
@@ -72,13 +72,14 @@ namespace
         explicit CookBed(StringView tag)
         {
             // Cook-error logs reach the test output (silent otherwise).
-            static bool logReady = []() {
+            static bool logReady = []()
+            {
                 static ConsoleSink sink;
                 GlobalLogger().AddSink(&sink);
                 return true;
             }();
             (void)logReady;
-            RegisterWrenScriptCook();   // registers the Wren backend + cook (idempotent)
+            RegisterWrenScriptCook(); // registers the Wren backend + cook (idempotent)
             RegisterScriptResource();
             RegisterScriptAssets();
             srcDir = String(u8"draconic_scriptpipe_src_");
@@ -88,8 +89,10 @@ namespace
             RemoveTree(srcDir.AsView());
             RemoveTree(outDir.AsView());
             REQUIRE(CreateDirectory(srcDir.AsView()));
-            sources = MakeUnique<draconic::vfs::NativeFileSystem>(DefaultAllocator(), srcDir.AsView());
-            output = MakeUnique<draconic::vfs::NativeFileSystem>(DefaultAllocator(), outDir.AsView());
+            sources =
+                MakeUnique<draconic::vfs::NativeFileSystem>(DefaultAllocator(), srcDir.AsView());
+            output =
+                MakeUnique<draconic::vfs::NativeFileSystem>(DefaultAllocator(), outDir.AsView());
             outputDb = MakeUnique<content::ContentDatabase>(DefaultAllocator(), *output,
                                                             BinarySerializerFactory(), u8".rasset");
         }
@@ -105,9 +108,10 @@ namespace
             String path(srcDir.AsView());
             path.Append(u8"/");
             path.Append(fileName);
-            REQUIRE(WriteFile(path.AsView(),
-                              Span<const byte>(reinterpret_cast<const byte*>(text.Data()),
-                                               text.Size())).IsOk());
+            REQUIRE(
+                WriteFile(path.AsView(),
+                          Span<const byte>(reinterpret_cast<const byte*>(text.Data()), text.Size()))
+                    .IsOk());
         }
 
         [[nodiscard]] Status Cook(StringView fileName, StringView language,
@@ -143,15 +147,21 @@ TEST_CASE("script.pipeline: class-name scan prefers the file stem, falls back to
 
 TEST_CASE("script.pipeline: handler scan finds declared handlers only (comments stripped)")
 {
-    const Array<String> handlers = ScanScriptHandlers(
-        u8"class A {\n"
-        u8"    onStart() {}\n"
-        u8"    onUpdate(dt) {}\n"
-        u8"    // onDestroy() would be nice\n"
-        u8"    /* onEnable() {} */\n"
-        u8"}\n");
-    auto has = [&handlers](StringView name) {
-        for (const String& h : handlers) { if (h.AsView() == name) { return true; } }
+    const Array<String> handlers = ScanScriptHandlers(u8"class A {\n"
+                                                      u8"    onStart() {}\n"
+                                                      u8"    onUpdate(dt) {}\n"
+                                                      u8"    // onDestroy() would be nice\n"
+                                                      u8"    /* onEnable() {} */\n"
+                                                      u8"}\n");
+    auto has = [&handlers](StringView name)
+    {
+        for (const String& h : handlers)
+        {
+            if (h.AsView() == name)
+            {
+                return true;
+            }
+        }
         return false;
     };
     CHECK(has(u8"onStart"));
@@ -164,17 +174,24 @@ TEST_CASE("script.pipeline: handler scan finds declared handlers only (comments 
 TEST_CASE("script.pipeline: handler scan captures the whole on<Upper>(...) convention - "
           "custom message + event handlers, not lookalikes (P2)")
 {
-    const Array<String> handlers = ScanScriptHandlers(
-        u8"class A {\n"
-        u8"    onStart() {}\n"
-        u8"    onHeal(amount) {}\n"            // custom message handler (entity.send)
-        u8"    onContactBegin(o, p, n) {}\n"   // physics event handler
-        u8"    onlyOnce() {}\n"                // lowercase after 'on' - NOT a handler
-        u8"    onFoo {}\n"                     // getter (no parens) - NOT a handler
-        u8"    speed=(v) {}\n"                 // setter - NOT a handler
-        u8"}\n");
-    auto has = [&handlers](StringView name) {
-        for (const String& h : handlers) { if (h.AsView() == name) { return true; } }
+    const Array<String> handlers =
+        ScanScriptHandlers(u8"class A {\n"
+                           u8"    onStart() {}\n"
+                           u8"    onHeal(amount) {}\n" // custom message handler (entity.send)
+                           u8"    onContactBegin(o, p, n) {}\n" // physics event handler
+                           u8"    onlyOnce() {}\n" // lowercase after 'on' - NOT a handler
+                           u8"    onFoo {}\n"      // getter (no parens) - NOT a handler
+                           u8"    speed=(v) {}\n"  // setter - NOT a handler
+                           u8"}\n");
+    auto has = [&handlers](StringView name)
+    {
+        for (const String& h : handlers)
+        {
+            if (h.AsView() == name)
+            {
+                return true;
+            }
+        }
         return false;
     };
     CHECK(has(u8"onStart"));
@@ -195,8 +212,7 @@ TEST_CASE("script.pipeline: the shared startCoroutine( surface is detected neutr
     // A plain behavior does not reference it.
     CHECK_FALSE(ScriptReferencesCoroutineStart(u8"class Mover {\n    onUpdate(dt) {}\n}\n"));
     // Only in real code, not a comment.
-    CHECK_FALSE(ScriptReferencesCoroutineStart(
-        u8"// startCoroutine(nope)\nclass Mover {\n}\n"));
+    CHECK_FALSE(ScriptReferencesCoroutineStart(u8"// startCoroutine(nope)\nclass Mover {\n}\n"));
 }
 
 TEST_CASE("script.pipeline: full harvest round-trip - source -> cook -> factory -> "
@@ -226,8 +242,16 @@ TEST_CASE("script.pipeline: full harvest round-trip - source -> cook -> factory 
         const usize n = a.Size() < b.Size() ? a.Size() : b.Size();
         for (usize k = 0; k <= n; ++k)
         {
-            if (k == n) { ordered = a.Size() <= b.Size(); break; }
-            if (a[k] != b[k]) { ordered = a[k] < b[k]; break; }
+            if (k == n)
+            {
+                ordered = a.Size() <= b.Size();
+                break;
+            }
+            if (a[k] != b[k])
+            {
+                ordered = a[k] < b[k];
+                break;
+            }
         }
         CHECK(ordered);
     }
@@ -283,16 +307,15 @@ TEST_CASE("script.pipeline: facade-using behaviors compile at cook (the cook VM 
           "mirrors the runtime's \"main\" surface, prelude included)")
 {
     CookBed bed(u8"facades");
-    bed.WriteSource(u8"mover.wren",
-                    u8"import \"main\" for Float3\n"
-                    u8"class Mover {\n"
-                    u8"    construct new(entity) { _entity = entity }\n"
-                    u8"    onUpdate(dt) {\n"
-                    u8"        Log.info(\"at %(Time.now())\")\n"
-                    u8"        var v = Float3.new(Random.value(), 0, 0)\n"
-                    u8"        _entity.setPosition(v.x, v.y, v.z)\n"
-                    u8"    }\n"
-                    u8"}\n");
+    bed.WriteSource(u8"mover.wren", u8"import \"main\" for Float3\n"
+                                    u8"class Mover {\n"
+                                    u8"    construct new(entity) { _entity = entity }\n"
+                                    u8"    onUpdate(dt) {\n"
+                                    u8"        Log.info(\"at %(Time.now())\")\n"
+                                    u8"        var v = Float3.new(Random.value(), 0, 0)\n"
+                                    u8"        _entity.setPosition(v.x, v.y, v.z)\n"
+                                    u8"    }\n"
+                                    u8"}\n");
     content::Instance* instance = nullptr;
     CHECK(bed.Cook(u8"mover.wren", u8"wren", instance).IsOk());
 }
@@ -325,17 +348,16 @@ TEST_CASE("script.pipeline: compile errors FAIL the cook and the last good recor
 
     RefPtr<ISerializable> object = instance->ReadObject();
     ScriptClassSource* cooked = Cast<ScriptClassSource>(object.Get());
-    REQUIRE(cooked != nullptr);                       // the LAST GOOD record
+    REQUIRE(cooked != nullptr); // the LAST GOOD record
     CHECK(cooked->className == u8"Mover");
     CHECK(cooked->source == kMoverSource);
     CHECK(cooked->properties.Size() == 8u);
 
     // A faulting `static properties` getter is a cook error too.
-    bed.WriteSource(u8"mover.wren",
-                    u8"class Mover {\n"
-                    u8"    static properties { Fiber.abort(\"boom\") }\n"
-                    u8"    construct new(e) {}\n"
-                    u8"}\n");
+    bed.WriteSource(u8"mover.wren", u8"class Mover {\n"
+                                    u8"    static properties { Fiber.abort(\"boom\") }\n"
+                                    u8"    construct new(e) {}\n"
+                                    u8"}\n");
     CHECK_FALSE(bed.Cook(u8"mover.wren", u8"wren", instance).IsOk());
 
     // An unknown property type is a cook error (the v1 type set is CLOSED).
@@ -381,17 +403,17 @@ TEST_CASE("script.pipeline: B3 - the neutral builder resolves a per-language COO
     bed.WriteSource(u8"fake.ftl", u8"anything goes - the fake cook accepts it\n");
     content::Instance* instance = nullptr;
     REQUIRE(bed.Cook(u8"fake.ftl", u8"faketest", instance).IsOk());
-    CHECK(cooked == 1);   // the cook came from the REGISTRY, by language
+    CHECK(cooked == 1); // the cook came from the REGISTRY, by language
 
     RefPtr<ISerializable> object = instance->ReadObject();
     ScriptClassSource* record = Cast<ScriptClassSource>(object.Get());
     REQUIRE(record != nullptr);
     CHECK(record->language == u8"faketest");
-    CHECK(record->properties.IsEmpty());   // the fake cook harvests nothing
+    CHECK(record->properties.IsEmpty()); // the fake cook harvests nothing
 
     // An asset naming an UNREGISTERED language fails the cook cleanly (no cook resolves).
-    content::Instance* second = bed.outputDb->RootGroup()->CreateInstance(
-        u8"cooked2", ScriptClassSource::StaticType());
+    content::Instance* second =
+        bed.outputDb->RootGroup()->CreateInstance(u8"cooked2", ScriptClassSource::StaticType());
     ScriptClassAsset asset;
     asset.fileName = String(u8"fake.ftl");
     asset.language = String(u8"nosuchlang");
@@ -422,18 +444,17 @@ TEST_CASE("script.pipeline: the New Asset starter template cooks with its declar
     REQUIRE(cooked->properties.Size() == 1u);
     CHECK(cooked->properties[0].name == u8"speed");
     CHECK(cooked->properties[0].type == ScriptPropertyType::Float);
-    CHECK(cooked->handlers.Size() == 3u);   // onStart, onUpdate, onDestroy
+    CHECK(cooked->handlers.Size() == 3u); // onStart, onUpdate, onDestroy
 }
 
 TEST_CASE("script.pipeline: the Wren cook flags usesCoroutines from `is Behavior` "
           "(the Wren-only opt-in lives in the Wren cook, not the neutral pipeline)")
 {
     CookBed bed(u8"coro");
-    bed.WriteSource(u8"waiter.wren",
-                    u8"class Waiter is Behavior {\n"
-                    u8"    construct new(entity) { super(entity) }\n"
-                    u8"    onStart() {}\n"
-                    u8"}\n");
+    bed.WriteSource(u8"waiter.wren", u8"class Waiter is Behavior {\n"
+                                     u8"    construct new(entity) { super(entity) }\n"
+                                     u8"    onStart() {}\n"
+                                     u8"}\n");
     content::Instance* instance = nullptr;
     REQUIRE(bed.Cook(u8"waiter.wren", u8"wren", instance).IsOk());
     RefPtr<ISerializable> object = instance->ReadObject();
@@ -473,9 +494,8 @@ TEST_CASE("script.pipeline: ScriptSourceDocument is the ScriptPage save->recook 
     }
 
     // Edit to a broken script THROUGH the document + save it to disk.
-    constexpr StringView kBroken =
-        u8"class Mover {\n"
-        u8"    onStart() { this is not valid wren )( }\n";
+    constexpr StringView kBroken = u8"class Mover {\n"
+                                   u8"    onStart() { this is not valid wren )( }\n";
     doc.SetSource(kBroken);
     CHECK(doc.IsModified());
     REQUIRE(doc.Save().IsOk());
@@ -499,6 +519,6 @@ TEST_CASE("script.pipeline: ScriptSourceDocument is the ScriptPage save->recook 
         RefPtr<ISerializable> object = product->ReadObject();
         ScriptClassSource* cooked = Cast<ScriptClassSource>(object.Get());
         REQUIRE(cooked != nullptr);
-        CHECK(cooked->className == u8"Mover");   // unchanged - the failed cook never wrote
+        CHECK(cooked->className == u8"Mover"); // unchanged - the failed cook never wrote
     }
 }

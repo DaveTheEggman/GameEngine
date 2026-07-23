@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-#include "Core/Prelude.h"  // <new> reachability for container instantiation (GCC)
+#include "Core/Prelude.h" // <new> reachability for container instantiation (GCC)
 #include "Core/Reflection/Reflect.h"
 
 import draconic.core;
@@ -25,15 +25,21 @@ namespace
     {
     public:
         void SetErrorHandler(IScriptErrorHandler*) override {}
-        Status Load(StringView, StringView) override { return Status{ ErrorCode::NotSupported }; }
-        void SetGlobal(StringView name, const Variant& value) override { m_globals.InsertOrAssign(String(name), value); }
+        Status Load(StringView, StringView) override { return Status{ErrorCode::NotSupported}; }
+        void SetGlobal(StringView name, const Variant& value) override
+        {
+            m_globals.InsertOrAssign(String(name), value);
+        }
         Variant GetGlobal(StringView name) override
         {
             const Variant* found = m_globals.Find(String(name));
             return (found != nullptr) ? *found : Variant{};
         }
         bool HasFunction(StringView) const override { return false; }
-        Result<Variant> Call(StringView, Span<Variant>) override { return Err(ErrorCode::NotSupported); }
+        Result<Variant> Call(StringView, Span<Variant>) override
+        {
+            return Err(ErrorCode::NotSupported);
+        }
         RefPtr<ScriptObject> CreateInstance(StringView, Span<Variant>) override { return nullptr; }
 
     private:
@@ -51,7 +57,13 @@ namespace
 
         [[nodiscard]] bool Has(const TypeInfo& type) const
         {
-            for (const TypeInfo* t : m_registered) { if (t == &type) { return true; } }
+            for (const TypeInfo* t : m_registered)
+            {
+                if (t == &type)
+                {
+                    return true;
+                }
+            }
             return false;
         }
         [[nodiscard]] usize Count() const { return m_registered.Size(); }
@@ -83,14 +95,14 @@ TEST_CASE("script: context round-trips value and object globals as Variant")
     REQUIRE(static_cast<bool>(ctx));
 
     // Value global.
-    ctx->SetGlobal(u8"pos", Variant::From(Float3{ 1.0f, 2.0f, 3.0f }));
-    CHECK(ctx->GetGlobal(u8"pos").Get<Float3>() == Float3{ 1.0f, 2.0f, 3.0f });
+    ctx->SetGlobal(u8"pos", Variant::From(Float3{1.0f, 2.0f, 3.0f}));
+    CHECK(ctx->GetGlobal(u8"pos").Get<Float3>() == Float3{1.0f, 2.0f, 3.0f});
 
     // Object global keeps the object alive and reports its dynamic type.
     RefPtr<Widget> widget = MakeRef<Widget>(DefaultAllocator());
     widget->id = 42;
     ctx->SetGlobal(u8"w", Variant::From(widget));
-    CHECK(widget->RefCount() == 2u);  // widget + the global's Variant
+    CHECK(widget->RefCount() == 2u); // widget + the global's Variant
 
     Variant got = ctx->GetGlobal(u8"w");
     CHECK(got.IsObject());
@@ -123,7 +135,7 @@ namespace
         bool finalizedAfterAll = false;
         void RegisterType(const TypeInfo&) override
         {
-            REQUIRE_FALSE(finalized);   // collection strictly precedes finalize
+            REQUIRE_FALSE(finalized); // collection strictly precedes finalize
             ++registered;
         }
         void FinalizeTypes() override
@@ -149,7 +161,8 @@ TEST_CASE("script.backend: registry resolves by language and extension; file dis
     wrenLike.displayName = String(u8"TestLang");
     wrenLike.fileExtensions.PushBack(String(u8"tl"));
     int created = 0;
-    wrenLike.create = [&created]() -> RefPtr<IScriptManager> {
+    wrenLike.create = [&created]() -> RefPtr<IScriptManager>
+    {
         ++created;
         return RefPtr<IScriptManager>(MakeRef<FakeScriptManager>(DefaultAllocator()));
     };
@@ -178,7 +191,10 @@ TEST_CASE("script.backend: registry resolves by language and extension; file dis
     usize count = 0;
     for (const ScriptBackendDesc& d : registry.All())
     {
-        if (d.languageId == u8"testlang") { ++count; }
+        if (d.languageId == u8"testlang")
+        {
+            ++count;
+        }
     }
     CHECK(count == 1);
 }
@@ -188,15 +204,15 @@ TEST_CASE("script.backend: RegisterReflectedTypes drives the two-phase contract 
 {
     FakeScriptManager manager;
     draconic::script::RegisterReflectedTypes(manager);
-    CHECK(manager.registered > 0);        // the global registry is never empty here
+    CHECK(manager.registered > 0); // the global registry is never empty here
     CHECK(manager.finalized);
-    CHECK(manager.finalizedAfterAll);     // finalize came after every RegisterType
+    CHECK(manager.finalizedAfterAll); // finalize came after every RegisterType
 }
 
 TEST_CASE("script.backend: capability flags default to None and compose (B4)")
 {
-    using draconic::script::ScriptCapabilities;
     using draconic::script::HasScriptCapability;
+    using draconic::script::ScriptCapabilities;
 
     FakeScriptManager manager;
     CHECK(manager.Capabilities() == ScriptCapabilities::None);
@@ -230,13 +246,14 @@ TEST_CASE("script.debug: snapshot value types are wire-symmetric (remote-transpo
 {
     using namespace draconic::script;
 
-    const auto roundTrip = [](auto value) {
+    const auto roundTrip = [](auto value)
+    {
         using T = decltype(value);
         MemoryStream stream;
         {
             BinarySerializer writer(stream, SerializeMode::Write);
             T copy = value;
-            Serialize(writer, copy);   // ADL finds draconic::script::Serialize
+            Serialize(writer, copy); // ADL finds draconic::script::Serialize
             REQUIRE(writer.IsOk());
         }
         (void)stream.Seek(0, SeekOrigin::Begin);
@@ -247,20 +264,20 @@ TEST_CASE("script.debug: snapshot value types are wire-symmetric (remote-transpo
         return out;
     };
 
-    ScriptStackFrame frame{ String(u8"game.wren"), String(u8"update"), 42 };
+    ScriptStackFrame frame{String(u8"game.wren"), String(u8"update"), 42};
     ScriptStackFrame frameOut = roundTrip(frame);
     CHECK(frameOut.file == u8"game.wren");
     CHECK(frameOut.function == u8"update");
     CHECK(frameOut.line == 42);
 
-    ScriptVariable variable{ String(u8"health"), String(u8"double"), String(u8"100"), 7u };
+    ScriptVariable variable{String(u8"health"), String(u8"double"), String(u8"100"), 7u};
     ScriptVariable variableOut = roundTrip(variable);
     CHECK(variableOut.name == u8"health");
     CHECK(variableOut.typeName == u8"double");
     CHECK(variableOut.value == u8"100");
     CHECK(variableOut.objectRef == 7u);
 
-    ScriptValueObject object{ 99u, String(u8"Entity#3") };
+    ScriptValueObject object{99u, String(u8"Entity#3")};
     ScriptValueObject objectOut = roundTrip(object);
     CHECK(objectOut.ref == 99u);
     CHECK(objectOut.text == u8"Entity#3");

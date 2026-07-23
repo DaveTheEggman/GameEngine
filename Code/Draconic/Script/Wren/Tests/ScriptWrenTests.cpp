@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-#include "Core/Prelude.h"             // <new> reachability for reflection containers (GCC)
+#include "Core/Prelude.h" // <new> reachability for reflection containers (GCC)
 #include "Core/Reflection/Reflect.h"
 
 import draconic.core;
@@ -40,13 +40,12 @@ TEST_CASE("wren: a context runs valid source")
     REQUIRE(static_cast<bool>(ctx));
 
     // A real class-based Wren program: define a class, instantiate, call a method.
-    const Status status = ctx->Load(
-        u8"class Greeter {\n"
-        u8"  construct new(name) { _name = name }\n"
-        u8"  greet() { System.print(\"hi %(_name)\") }\n"
-        u8"}\n"
-        u8"Greeter.new(\"draconic\").greet()\n",
-        u8"main");
+    const Status status = ctx->Load(u8"class Greeter {\n"
+                                    u8"  construct new(name) { _name = name }\n"
+                                    u8"  greet() { System.print(\"hi %(_name)\") }\n"
+                                    u8"}\n"
+                                    u8"Greeter.new(\"draconic\").greet()\n",
+                                    u8"main");
     CHECK(status.IsOk());
 }
 
@@ -125,39 +124,38 @@ TEST_CASE("wren: each context is an isolated VM")
 TEST_CASE("wren: read module globals as Variant")
 {
     RefPtr<IScriptContext> ctx = wren::CreateScriptManager()->CreateContext();
-    REQUIRE(ctx->Load(
-        u8"var Answer = 42\n"
-        u8"var Name = \"draconic\"\n"
-        u8"var Flag = true\n",
-        u8"main").IsOk());
+    REQUIRE(ctx->Load(u8"var Answer = 42\n"
+                      u8"var Name = \"draconic\"\n"
+                      u8"var Flag = true\n",
+                      u8"main")
+                .IsOk());
 
-    CHECK(ctx->GetGlobal(u8"Answer").Get<f64>() == 42.0);   // Wren numbers are doubles
+    CHECK(ctx->GetGlobal(u8"Answer").Get<f64>() == 42.0); // Wren numbers are doubles
     CHECK(ctx->GetGlobal(u8"Name").Get<String>() == u8"draconic");
     CHECK(ctx->GetGlobal(u8"Flag").Get<bool>() == true);
 
-    CHECK(ctx->GetGlobal(u8"Missing").IsEmpty());           // absent -> empty Variant
+    CHECK(ctx->GetGlobal(u8"Missing").IsEmpty()); // absent -> empty Variant
 }
 
 TEST_CASE("wren: reflected value types are usable from script (construct + properties)")
 {
     RegisterCoreTypes();
     RefPtr<IScriptManager> manager = wren::CreateScriptManager();
-    RegisterReflectedTypes(*manager);                 // reflection -> manager
+    RegisterReflectedTypes(*manager);                      // reflection -> manager
     RefPtr<IScriptContext> ctx = manager->CreateContext(); // emits Wren foreign classes
 
     // Construct a reflected Float3 from Wren, read and write its properties.
-    const Status status = ctx->Load(
-        u8"var v = Float3.new(1, 2, 3)\n"
-        u8"var X = v.x\n"
-        u8"var Z = v.z\n"
-        u8"v.x = 9\n"
-        u8"var X2 = v.x\n",
-        u8"main");
+    const Status status = ctx->Load(u8"var v = Float3.new(1, 2, 3)\n"
+                                    u8"var X = v.x\n"
+                                    u8"var Z = v.z\n"
+                                    u8"v.x = 9\n"
+                                    u8"var X2 = v.x\n",
+                                    u8"main");
     REQUIRE(status.IsOk());
 
-    CHECK(ctx->GetGlobal(u8"X").Get<f64>() == 1.0);    // construct + getter
+    CHECK(ctx->GetGlobal(u8"X").Get<f64>() == 1.0); // construct + getter
     CHECK(ctx->GetGlobal(u8"Z").Get<f64>() == 3.0);
-    CHECK(ctx->GetGlobal(u8"X2").Get<f64>() == 9.0);   // setter took effect
+    CHECK(ctx->GetGlobal(u8"X2").Get<f64>() == 9.0); // setter took effect
 }
 
 TEST_CASE("wren: call reflected methods (static, instance, struct return, foreign args)")
@@ -168,30 +166,30 @@ TEST_CASE("wren: call reflected methods (static, instance, struct return, foreig
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
     // Static method with foreign args, scalar return: Float3.Dot(a, b).
-    REQUIRE(ctx->Load(
-        u8"var a = Float3.new(1, 2, 3)\n"
-        u8"var b = Float3.new(4, 5, 6)\n"
-        u8"var D = Float3.Dot(a, b)\n",
-        u8"main").IsOk());
+    REQUIRE(ctx->Load(u8"var a = Float3.new(1, 2, 3)\n"
+                      u8"var b = Float3.new(4, 5, 6)\n"
+                      u8"var D = Float3.Dot(a, b)\n",
+                      u8"main")
+                .IsOk());
     CHECK(ctx->GetGlobal(u8"D").Get<f64>() == 32.0);
 
     // Instance method returning a struct (Float4.XYZ() -> Float3), then read it.
-    REQUIRE(ctx->Load(
-        u8"var v4 = Float4.new(7, 8, 9, 10)\n"
-        u8"var xyz = v4.XYZ()\n"
-        u8"var XX = xyz.x\n"
-        u8"var ZZ = xyz.z\n",
-        u8"main").IsOk());
+    REQUIRE(ctx->Load(u8"var v4 = Float4.new(7, 8, 9, 10)\n"
+                      u8"var xyz = v4.XYZ()\n"
+                      u8"var XX = xyz.x\n"
+                      u8"var ZZ = xyz.z\n",
+                      u8"main")
+                .IsOk());
     CHECK(ctx->GetGlobal(u8"XX").Get<f64>() == 7.0);
     CHECK(ctx->GetGlobal(u8"ZZ").Get<f64>() == 9.0);
 
     // Instance method taking a foreign arg, returning bool; constructed from
     // foreign args too (AABB.new(Float3, Float3)).
-    REQUIRE(ctx->Load(
-        u8"var box = AABB.new(Float3.new(0, 0, 0), Float3.new(10, 10, 10))\n"
-        u8"var inside = box.Contains(Float3.new(5, 5, 5))\n"
-        u8"var outside = box.Contains(Float3.new(20, 0, 0))\n",
-        u8"main").IsOk());
+    REQUIRE(ctx->Load(u8"var box = AABB.new(Float3.new(0, 0, 0), Float3.new(10, 10, 10))\n"
+                      u8"var inside = box.Contains(Float3.new(5, 5, 5))\n"
+                      u8"var outside = box.Contains(Float3.new(20, 0, 0))\n",
+                      u8"main")
+                .IsOk());
     CHECK(ctx->GetGlobal(u8"inside").Get<bool>() == true);
     CHECK(ctx->GetGlobal(u8"outside").Get<bool>() == false);
 }
@@ -204,34 +202,34 @@ TEST_CASE("wren: same-name overloads resolve by argument type")
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
     // Float3.Mul has two overloads: (Float3, Float3) componentwise and (Float3, f32) scale.
-    REQUIRE(ctx->Load(
-        u8"var p = Float3.new(2, 3, 4)\n"
-        u8"var comp = Float3.Mul(p, Float3.new(1, 2, 3))\n"  // -> (2, 6, 12)
-        u8"var scaled = Float3.Mul(p, 2)\n"                // -> (4, 6, 8)
-        u8"var CX = comp.x\n"
-        u8"var CZ = comp.z\n"
-        u8"var SX = scaled.x\n",
-        u8"main").IsOk());
-    CHECK(ctx->GetGlobal(u8"CX").Get<f64>() == 2.0);    // chose (Float3, Float3)
+    REQUIRE(ctx->Load(u8"var p = Float3.new(2, 3, 4)\n"
+                      u8"var comp = Float3.Mul(p, Float3.new(1, 2, 3))\n" // -> (2, 6, 12)
+                      u8"var scaled = Float3.Mul(p, 2)\n"                 // -> (4, 6, 8)
+                      u8"var CX = comp.x\n"
+                      u8"var CZ = comp.z\n"
+                      u8"var SX = scaled.x\n",
+                      u8"main")
+                .IsOk());
+    CHECK(ctx->GetGlobal(u8"CX").Get<f64>() == 2.0); // chose (Float3, Float3)
     CHECK(ctx->GetGlobal(u8"CZ").Get<f64>() == 12.0);
-    CHECK(ctx->GetGlobal(u8"SX").Get<f64>() == 4.0);    // chose (Float3, f32)
+    CHECK(ctx->GetGlobal(u8"SX").Get<f64>() == 4.0); // chose (Float3, f32)
 }
 
 TEST_CASE("wren: Object-derived type as a foreign class")
 {
     RefPtr<IScriptManager> manager = wren::CreateScriptManager();
-    manager->RegisterType(Widget::StaticType());       // register just the Object type
+    manager->RegisterType(Widget::StaticType()); // register just the Object type
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
-    REQUIRE(ctx->Load(
-        u8"var w = Widget.new()\n"
-        u8"w.id = 21\n"
-        u8"var w2 = Widget.new()\n"
-        u8"w2.id = 5\n"
-        u8"var I = w.id\n"
-        u8"var D = w.doubled()\n"     // instance method -> 42
-        u8"var O = w.idOf(w2)\n",     // object argument -> 5
-        u8"main").IsOk());
+    REQUIRE(ctx->Load(u8"var w = Widget.new()\n"
+                      u8"w.id = 21\n"
+                      u8"var w2 = Widget.new()\n"
+                      u8"w2.id = 5\n"
+                      u8"var I = w.id\n"
+                      u8"var D = w.doubled()\n" // instance method -> 42
+                      u8"var O = w.idOf(w2)\n", // object argument -> 5
+                      u8"main")
+                .IsOk());
     CHECK(ctx->GetGlobal(u8"I").Get<f64>() == 21.0);
     CHECK(ctx->GetGlobal(u8"D").Get<f64>() == 42.0);
     CHECK(ctx->GetGlobal(u8"O").Get<f64>() == 5.0);
@@ -245,11 +243,11 @@ TEST_CASE("wren: a default-constructed reflected type")
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
     // Guid has a default ctor and (u64, u64); its props round-trip through doubles.
-    REQUIRE(ctx->Load(
-        u8"var g = Guid.new(7, 42)\n"
-        u8"var Hi = g.high\n"
-        u8"var Lo = g.low\n",
-        u8"main").IsOk());
+    REQUIRE(ctx->Load(u8"var g = Guid.new(7, 42)\n"
+                      u8"var Hi = g.high\n"
+                      u8"var Lo = g.low\n",
+                      u8"main")
+                .IsOk());
     CHECK(ctx->GetGlobal(u8"Hi").Get<f64>() == 7.0);
     CHECK(ctx->GetGlobal(u8"Lo").Get<f64>() == 42.0);
 }
@@ -257,17 +255,17 @@ TEST_CASE("wren: a default-constructed reflected type")
 TEST_CASE("wren: call a script function with marshalled args")
 {
     RefPtr<IScriptContext> ctx = wren::CreateScriptManager()->CreateContext();
-    REQUIRE(ctx->Load(
-        u8"var add = Fn.new { |a, b| a + b }\n"
-        u8"var greeting = Fn.new { \"hi\" }\n",
-        u8"main").IsOk());
+    REQUIRE(ctx->Load(u8"var add = Fn.new { |a, b| a + b }\n"
+                      u8"var greeting = Fn.new { \"hi\" }\n",
+                      u8"main")
+                .IsOk());
 
     CHECK(ctx->HasFunction(u8"add"));
     CHECK_FALSE(ctx->HasFunction(u8"nope"));
 
     // int args marshal to Wren numbers; result comes back as a double.
-    Variant addArgs[] = { Variant::From(2), Variant::From(3) };
-    CHECK(ctx->Call(u8"add", Span<Variant>{ addArgs, 2 }).Value().Get<f64>() == 5.0);
+    Variant addArgs[] = {Variant::From(2), Variant::From(3)};
+    CHECK(ctx->Call(u8"add", Span<Variant>{addArgs, 2}).Value().Get<f64>() == 5.0);
 
     // no-arg call returning a string.
     CHECK(ctx->Call(u8"greeting", Span<Variant>{}).Value().Get<String>() == u8"hi");
@@ -279,21 +277,22 @@ TEST_CASE("wren: call a script function with marshalled args")
 TEST_CASE("wren: instantiate a script class and invoke its methods")
 {
     RefPtr<IScriptContext> ctx = wren::CreateScriptManager()->CreateContext();
-    REQUIRE(ctx->Load(
-        u8"class Counter {\n"
-        u8"  construct new(start) { _n = start }\n"
-        u8"  add(x) { _n = _n + x }\n"
-        u8"  value() { _n }\n"    // a zero-arg method (Invoke models methods, not getters)
-        u8"  reset() { _n = 0 }\n"
-        u8"}\n",
-        u8"main").IsOk());
+    REQUIRE(
+        ctx->Load(u8"class Counter {\n"
+                  u8"  construct new(start) { _n = start }\n"
+                  u8"  add(x) { _n = _n + x }\n"
+                  u8"  value() { _n }\n" // a zero-arg method (Invoke models methods, not getters)
+                  u8"  reset() { _n = 0 }\n"
+                  u8"}\n",
+                  u8"main")
+            .IsOk());
 
-    Variant ctorArgs[] = { Variant::From(10) };
-    RefPtr<ScriptObject> counter = ctx->CreateInstance(u8"Counter", Span<Variant>{ ctorArgs, 1 });
+    Variant ctorArgs[] = {Variant::From(10)};
+    RefPtr<ScriptObject> counter = ctx->CreateInstance(u8"Counter", Span<Variant>{ctorArgs, 1});
     REQUIRE(static_cast<bool>(counter));
 
-    Variant addArgs[] = { Variant::From(5) };
-    CHECK(counter->Invoke(u8"add", Span<Variant>{ addArgs, 1 }).HasValue());
+    Variant addArgs[] = {Variant::From(5)};
+    CHECK(counter->Invoke(u8"add", Span<Variant>{addArgs, 1}).HasValue());
 
     // Zero-arg getter: signature has no parens, so call it by its bare name.
     CHECK(counter->Invoke(u8"value", Span<Variant>{}).Value().Get<f64>() == 15.0);
@@ -314,11 +313,12 @@ TEST_CASE("wren: a script object outlives the local context reference")
     RefPtr<ScriptObject> obj;
     {
         RefPtr<IScriptContext> ctx = wren::CreateScriptManager()->CreateContext();
-        REQUIRE(ctx->Load(
-            u8"class Echo {\n"
-            u8"  construct new() {}\n"
-            u8"  ping() { 42 }\n"
-            u8"}\n", u8"main").IsOk());
+        REQUIRE(ctx->Load(u8"class Echo {\n"
+                          u8"  construct new() {}\n"
+                          u8"  ping() { 42 }\n"
+                          u8"}\n",
+                          u8"main")
+                    .IsOk());
         obj = ctx->CreateInstance(u8"Echo", Span<Variant>{});
         REQUIRE(static_cast<bool>(obj));
         // ctx goes out of scope here; obj retains it (keeps the VM alive).
@@ -332,81 +332,77 @@ TEST_CASE("wren: CERTIFIED - the backend conformance battery (scripting.md B2)")
 {
     draconic::script::conformance::Dialect dialect;
     dialect.languageId = u8"wren";
-    dialect.functionsModule =
-        u8"var answer = 42\n"
-        u8"var add = Fn.new {|a, b| a + b }\n"
-        u8"var greeting = Fn.new { \"hi\" }\n";
-    dialect.counterClass =
-        u8"class Counter {\n"
-        u8"  construct new(n) { _n = n }\n"
-        u8"  increment() { _n = _n + 1 }\n"
-        u8"  value() { _n }\n"
-        u8"}\n";
+    dialect.functionsModule = u8"var answer = 42\n"
+                              u8"var add = Fn.new {|a, b| a + b }\n"
+                              u8"var greeting = Fn.new { \"hi\" }\n";
+    dialect.counterClass = u8"class Counter {\n"
+                           u8"  construct new(n) { _n = n }\n"
+                           u8"  increment() { _n = _n + 1 }\n"
+                           u8"  value() { _n }\n"
+                           u8"}\n";
     dialect.compileBroken = u8"var = = = @#$";
     dialect.runtimeFault = u8"Fiber.abort(\"conformance fault\")";
     // Delegate: subscribe a Wren fn/closure (value * 2) to the native DelegateSignal.
-    dialect.delegateModule =
-        u8"var signal = DelegateSignal.new()\n"
-        u8"signal.Connect(Fn.new {|x| x * 2 })\n";
+    dialect.delegateModule = u8"var signal = DelegateSignal.new()\n"
+                             u8"signal.Connect(Fn.new {|x| x * 2 })\n";
     // Self-contained coroutine class: the `Behavior` base inlined (the subsystem injects
     // it at runtime; the raw battery does not), then a `Coro` that opts in. Coroutine
     // bodies use an explicit receiver (`me`) + getter/setter methods so no field is
     // touched inside a closure (a Wren restriction).
-    dialect.coroutineClass =
-        u8"class Behavior {\n"
-        u8"  construct new(entity) {\n"
-        u8"    _entity = entity\n"
-        u8"    _drCoroutines = []\n"
-        u8"  }\n"
-        u8"  startCoroutine(fn) {\n"
-        u8"    var fiber = Fiber.new(fn)\n"
-        u8"    var w = fiber.call()\n"
-        u8"    if (fiber.isDone) return -1\n"
-        u8"    if (!(w is Num)) w = 0\n"
-        u8"    var id = drRegisterCoroutine(fiber, w)\n"
-        u8"    _drCoroutines.add(id)\n"
-        u8"    return id\n"
-        u8"  }\n"
-        u8"  wait(seconds) { Fiber.yield(seconds) }\n"
-        u8"  waitUntil(fn) {\n"
-        u8"    while (!fn.call()) {\n"
-        u8"      Fiber.yield(0)\n"
-        u8"    }\n"
-        u8"  }\n"
-        u8"  foreign drRegisterCoroutine(fiber, w)\n"
-        u8"  foreign drUnregisterCoroutine(id)\n"
-        u8"  drCancelCoroutines() {\n"
-        u8"    for (id in _drCoroutines) {\n"
-        u8"      drUnregisterCoroutine(id)\n"
-        u8"    }\n"
-        u8"    _drCoroutines.clear()\n"
-        u8"  }\n"
-        u8"}\n"
-        u8"class Coro is Behavior {\n"
-        u8"  construct new() {\n"
-        u8"    super(null)\n"
-        u8"    _p = 0\n"
-        u8"    _gate = false\n"
-        u8"  }\n"
-        u8"  progress() { _p }\n"
-        u8"  flip() { _gate = true }\n"
-        u8"  markDone() { _p = 1 }\n"
-        u8"  gateOpen { _gate }\n"
-        u8"  begin() {\n"
-        u8"    var me = this\n"
-        u8"    startCoroutine(Fn.new {\n"
-        u8"      me.wait(1)\n"
-        u8"      me.markDone()\n"
-        u8"    })\n"
-        u8"  }\n"
-        u8"  beginUntil() {\n"
-        u8"    var me = this\n"
-        u8"    startCoroutine(Fn.new {\n"
-        u8"      me.waitUntil(Fn.new { me.gateOpen })\n"
-        u8"      me.markDone()\n"
-        u8"    })\n"
-        u8"  }\n"
-        u8"}\n";
+    dialect.coroutineClass = u8"class Behavior {\n"
+                             u8"  construct new(entity) {\n"
+                             u8"    _entity = entity\n"
+                             u8"    _drCoroutines = []\n"
+                             u8"  }\n"
+                             u8"  startCoroutine(fn) {\n"
+                             u8"    var fiber = Fiber.new(fn)\n"
+                             u8"    var w = fiber.call()\n"
+                             u8"    if (fiber.isDone) return -1\n"
+                             u8"    if (!(w is Num)) w = 0\n"
+                             u8"    var id = drRegisterCoroutine(fiber, w)\n"
+                             u8"    _drCoroutines.add(id)\n"
+                             u8"    return id\n"
+                             u8"  }\n"
+                             u8"  wait(seconds) { Fiber.yield(seconds) }\n"
+                             u8"  waitUntil(fn) {\n"
+                             u8"    while (!fn.call()) {\n"
+                             u8"      Fiber.yield(0)\n"
+                             u8"    }\n"
+                             u8"  }\n"
+                             u8"  foreign drRegisterCoroutine(fiber, w)\n"
+                             u8"  foreign drUnregisterCoroutine(id)\n"
+                             u8"  drCancelCoroutines() {\n"
+                             u8"    for (id in _drCoroutines) {\n"
+                             u8"      drUnregisterCoroutine(id)\n"
+                             u8"    }\n"
+                             u8"    _drCoroutines.clear()\n"
+                             u8"  }\n"
+                             u8"}\n"
+                             u8"class Coro is Behavior {\n"
+                             u8"  construct new() {\n"
+                             u8"    super(null)\n"
+                             u8"    _p = 0\n"
+                             u8"    _gate = false\n"
+                             u8"  }\n"
+                             u8"  progress() { _p }\n"
+                             u8"  flip() { _gate = true }\n"
+                             u8"  markDone() { _p = 1 }\n"
+                             u8"  gateOpen { _gate }\n"
+                             u8"  begin() {\n"
+                             u8"    var me = this\n"
+                             u8"    startCoroutine(Fn.new {\n"
+                             u8"      me.wait(1)\n"
+                             u8"      me.markDone()\n"
+                             u8"    })\n"
+                             u8"  }\n"
+                             u8"  beginUntil() {\n"
+                             u8"    var me = this\n"
+                             u8"    startCoroutine(Fn.new {\n"
+                             u8"      me.waitUntil(Fn.new { me.gateOpen })\n"
+                             u8"      me.markDone()\n"
+                             u8"    })\n"
+                             u8"  }\n"
+                             u8"}\n";
 
     draconic::script::conformance::RunScriptBackendConformance(
         []() { return draconic::script::wren::CreateScriptManager(); }, dialect);
@@ -433,10 +429,10 @@ TEST_CASE("wren: a script function is a native callback via IScriptDelegate (the
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
     // A behavior subscribes a closure to a native event; native code fires it.
-    REQUIRE(ctx->Load(
-        u8"var signal = DelegateSignal.new()\n"
-        u8"signal.Connect(Fn.new {|x| x + 5 })\n",
-        u8"main").IsOk());
+    REQUIRE(ctx->Load(u8"var signal = DelegateSignal.new()\n"
+                      u8"signal.Connect(Fn.new {|x| x + 5 })\n",
+                      u8"main")
+                .IsOk());
 
     Variant signalVar = ctx->GetGlobal(u8"signal");
     REQUIRE(signalVar.IsObject());

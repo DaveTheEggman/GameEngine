@@ -13,7 +13,7 @@ module;
 module draconic.script.wren.editor;
 
 import draconic.core;
-import draconic.editor.core;   // FileStemOf
+import draconic.editor.core; // FileStemOf
 import draconic.script;
 import draconic.script.resource;
 import draconic.script.facades;
@@ -37,7 +37,10 @@ namespace draconic::script
                 {
                     const StringView piece = text.SubStr(begin, i - begin);
                     begin = i + 1;
-                    if (piece.IsEmpty()) { continue; }
+                    if (piece.IsEmpty())
+                    {
+                        continue;
+                    }
                     // Minimal float parse (sign, digits, dot, exponent-free harvest output).
                     f64 value = 0.0;
                     f64 scale = 1.0;
@@ -46,11 +49,29 @@ namespace draconic::script
                     for (usize j = 0; j < piece.Size(); ++j)
                     {
                         const utf8char c = piece[j];
-                        if (j == 0 && c == u8'-') { negative = true; continue; }
-                        if (c == u8'.') { afterDot = true; continue; }
-                        if (c < u8'0' || c > u8'9') { continue; }
-                        if (afterDot) { scale *= 0.1; value += (c - u8'0') * scale; }
-                        else { value = value * 10.0 + (c - u8'0'); }
+                        if (j == 0 && c == u8'-')
+                        {
+                            negative = true;
+                            continue;
+                        }
+                        if (c == u8'.')
+                        {
+                            afterDot = true;
+                            continue;
+                        }
+                        if (c < u8'0' || c > u8'9')
+                        {
+                            continue;
+                        }
+                        if (afterDot)
+                        {
+                            scale *= 0.1;
+                            value += (c - u8'0') * scale;
+                        }
+                        else
+                        {
+                            value = value * 10.0 + (c - u8'0');
+                        }
                     }
                     out[count++] = static_cast<f32>(negative ? -value : value);
                 }
@@ -107,12 +128,14 @@ namespace draconic::script
             probe += u8"    } else {\n";
             probe += u8"      type = entry.toString\n";
             probe += u8"    }\n";
-            probe += u8"    out = out + k + \"\\x1f\" + type + \"\\x1f\" + dflt + \"\\x1f\" + desc + \"\\x1e\"\n";
+            probe += u8"    out = out + k + \"\\x1f\" + type + \"\\x1f\" + dflt + \"\\x1f\" + desc "
+                     u8"+ \"\\x1e\"\n";
             probe += u8"  }\n";
             probe += u8"  drHarvestResult = out\n";
             probe += u8"}\n";
             probe += u8"var drHarvestCaught = drHarvestFiber.try()\n";
-            probe += u8"if (drHarvestCaught != null) { drHarvestError = drHarvestCaught.toString }\n";
+            probe +=
+                u8"if (drHarvestCaught != null) { drHarvestError = drHarvestCaught.toString }\n";
             return probe;
         }
 
@@ -147,7 +170,8 @@ namespace draconic::script
                 outError += fields[0];
                 outError += u8"' has unknown type '";
                 outError += fields[1];
-                outError += u8"' (valid: float, int, bool, string, color, vec3, entity, asset:<TypeName>)";
+                outError +=
+                    u8"' (valid: float, int, bool, string, color, vec3, entity, asset:<TypeName>)";
                 return false;
             }
 
@@ -155,61 +179,67 @@ namespace draconic::script
             ScriptPropertyValue& value = out.defaultValue;
             value.kind = out.type;
             const StringView payload = fieldCount > 2 ? fields[2] : StringView(u8"~");
-            if (payload == u8"~" || payload.Size() < 2) { return true; }
+            if (payload == u8"~" || payload.Size() < 2)
+            {
+                return true;
+            }
             const utf8char tag = payload[0];
             const StringView body = payload.SubStr(2, payload.Size() - 2);
             switch (out.type)
             {
-                case ScriptPropertyType::Float:
-                case ScriptPropertyType::Int:
-                    if (tag == u8'n')
+            case ScriptPropertyType::Float:
+            case ScriptPropertyType::Int:
+                if (tag == u8'n')
+                {
+                    f32 numbers[4] = {};
+                    if (ParseFloatList(body, numbers) > 0)
                     {
-                        f32 numbers[4] = {};
-                        if (ParseFloatList(body, numbers) > 0)
+                        value.number = static_cast<f64>(numbers[0]);
+                        if (out.type == ScriptPropertyType::Int)
                         {
-                            value.number = static_cast<f64>(numbers[0]);
-                            if (out.type == ScriptPropertyType::Int)
-                            {
-                                value.number = static_cast<f64>(static_cast<i64>(value.number));
-                            }
+                            value.number = static_cast<f64>(static_cast<i64>(value.number));
                         }
                     }
-                    break;
-                case ScriptPropertyType::Bool:
-                    value.boolean = (tag == u8'b' && body == u8"true");
-                    break;
-                case ScriptPropertyType::String:
-                    if (tag == u8's') { value.text = String(body); }
-                    break;
-                case ScriptPropertyType::Color:
-                    if (tag == u8'l')
+                }
+                break;
+            case ScriptPropertyType::Bool:
+                value.boolean = (tag == u8'b' && body == u8"true");
+                break;
+            case ScriptPropertyType::String:
+                if (tag == u8's')
+                {
+                    value.text = String(body);
+                }
+                break;
+            case ScriptPropertyType::Color:
+                if (tag == u8'l')
+                {
+                    f32 numbers[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+                    const u32 parsed = ParseFloatList(body, numbers);
+                    if (parsed >= 3)
                     {
-                        f32 numbers[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-                        const u32 parsed = ParseFloatList(body, numbers);
-                        if (parsed >= 3)
-                        {
-                            value.color = Color{ numbers[0], numbers[1], numbers[2],
-                                                 parsed >= 4 ? numbers[3] : 1.0f };
-                        }
+                        value.color = Color{numbers[0], numbers[1], numbers[2],
+                                            parsed >= 4 ? numbers[3] : 1.0f};
                     }
-                    break;
-                case ScriptPropertyType::Vec3:
-                    if (tag == u8'l')
+                }
+                break;
+            case ScriptPropertyType::Vec3:
+                if (tag == u8'l')
+                {
+                    f32 numbers[4] = {};
+                    if (ParseFloatList(body, numbers) >= 3)
                     {
-                        f32 numbers[4] = {};
-                        if (ParseFloatList(body, numbers) >= 3)
-                        {
-                            value.vector = Float3{ numbers[0], numbers[1], numbers[2] };
-                        }
+                        value.vector = Float3{numbers[0], numbers[1], numbers[2]};
                     }
-                    break;
-                case ScriptPropertyType::Entity:
-                case ScriptPropertyType::Asset:
-                    // Only null defaults are expressible in script; guids come from overrides.
-                    break;
-                case ScriptPropertyType::None:
-                default:
-                    break;
+                }
+                break;
+            case ScriptPropertyType::Entity:
+            case ScriptPropertyType::Asset:
+                // Only null defaults are expressible in script; guids come from overrides.
+                break;
+            case ScriptPropertyType::None:
+            default:
+                break;
             }
             return true;
         }
@@ -220,69 +250,90 @@ namespace draconic::script
             const String stripped = StripScriptComments(source);
             const StringView text = stripped.AsView();
             const StringView keyword = u8"static properties";
-            if (text.Size() < keyword.Size()) { return false; }
+            if (text.Size() < keyword.Size())
+            {
+                return false;
+            }
             for (usize i = 0; i + keyword.Size() <= text.Size(); ++i)
             {
-                if (text.SubStr(i, keyword.Size()) == keyword) { return true; }
+                if (text.SubStr(i, keyword.Size()) == keyword)
+                {
+                    return true;
+                }
             }
             return false;
         }
 
         // Appends the probe into the class's own module (same chunk name = same Wren
         // module, so the class resolves), then reads the harvest globals back.
-        [[nodiscard]] Status HarvestWrenProperties(
-            IScriptContext& context, StringView fileName, StringView className,
-            CookScriptErrorSink& sink, Array<ScriptPropertyDesc>& outProperties)
+        [[nodiscard]] Status HarvestWrenProperties(IScriptContext& context, StringView fileName,
+                                                   StringView className, CookScriptErrorSink& sink,
+                                                   Array<ScriptPropertyDesc>& outProperties)
         {
             const String probe = BuildWrenPropertyProbe(className);
             if (!context.Load(probe.AsView(), fileName).IsOk())
             {
                 ReportScriptCookErrors(fileName, sink);
-                return Status{ ErrorCode::InvalidArgument };
+                return Status{ErrorCode::InvalidArgument};
             }
             const Variant errorVariant = context.GetGlobal(u8"drHarvestError");
             if (const String* probeError = errorVariant.TryGet<String>();
                 probeError != nullptr && !probeError->IsEmpty())
             {
-                DRACONIC_LOG_ERROR(u8"Script",
-                    u8"'{}': `static properties` of class '{}' faulted: {} - cook failed",
-                    fileName, className, *probeError);
-                return Status{ ErrorCode::InvalidArgument };
+                DRACONIC_LOG_ERROR(
+                    u8"Script",
+                    u8"'{}': `static properties` of class '{}' faulted: {} - cook failed", fileName,
+                    className, *probeError);
+                return Status{ErrorCode::InvalidArgument};
             }
             const Variant resultVariant = context.GetGlobal(u8"drHarvestResult");
             const String* harvest = resultVariant.TryGet<String>();
-            if (harvest == nullptr) { return Status{}; }   // no properties getter at all
+            if (harvest == nullptr)
+            {
+                return Status{};
+            } // no properties getter at all
 
             const StringView text = harvest->AsView();
             usize begin = 0;
             for (usize i = 0; i < text.Size(); ++i)
             {
-                if (text[i] != utf8char(0x1E)) { continue; }
+                if (text[i] != utf8char(0x1E))
+                {
+                    continue;
+                }
                 const StringView record = text.SubStr(begin, i - begin);
                 begin = i + 1;
-                if (record.IsEmpty()) { continue; }
+                if (record.IsEmpty())
+                {
+                    continue;
+                }
                 ScriptPropertyDesc desc;
                 String error;
                 if (!ParseHarvestRecord(record, desc, error))
                 {
                     DRACONIC_LOG_ERROR(u8"Script", u8"'{}': {} - cook failed", fileName, error);
-                    return Status{ ErrorCode::InvalidArgument };
+                    return Status{ErrorCode::InvalidArgument};
                 }
                 outProperties.PushBack(Move(desc));
             }
             // Wren map order is unspecified: sort by name for deterministic cooked bytes.
-            auto lessThan = [](StringView a, StringView b) {
+            auto lessThan = [](StringView a, StringView b)
+            {
                 const usize n = a.Size() < b.Size() ? a.Size() : b.Size();
                 for (usize k = 0; k < n; ++k)
                 {
-                    if (a[k] != b[k]) { return a[k] < b[k]; }
+                    if (a[k] != b[k])
+                    {
+                        return a[k] < b[k];
+                    }
                 }
                 return a.Size() < b.Size();
             };
             for (usize i = 1; i < outProperties.Size(); ++i)
             {
-                for (usize j = i; j > 0
-                     && lessThan(outProperties[j].name.AsView(), outProperties[j - 1].name.AsView()); --j)
+                for (usize j = i; j > 0 && lessThan(outProperties[j].name.AsView(),
+                                                    outProperties[j - 1].name.AsView());
+                     --j)
                 {
                     ScriptPropertyDesc tmp = Move(outProperties[j]);
                     outProperties[j] = Move(outProperties[j - 1]);
@@ -304,15 +355,15 @@ namespace draconic::script
                                     CookScriptErrorSink& sink, ScriptClassSource& out) override
             {
                 out.language = String(u8"wren");
-                out.sourceName = String(assetName);   // the source file identity (breakpoint key)
+                out.sourceName = String(assetName); // the source file identity (breakpoint key)
                 out.source = String(source);
 
                 // B3: the harvest VM comes from the registry, by LANGUAGE.
                 RefPtr<IScriptManager> manager = CreateScriptManagerForLanguage(u8"wren");
                 if (manager.Get() == nullptr)
                 {
-                    DRACONIC_LOG_ERROR(u8"Script",
-                        u8"'{}': no Wren backend registered - cook failed", assetName);
+                    DRACONIC_LOG_ERROR(
+                        u8"Script", u8"'{}': no Wren backend registered - cook failed", assetName);
                     return false;
                 }
                 // The cook VM registers the SAME "main"-module surface the runtime does
@@ -322,7 +373,10 @@ namespace draconic::script
                 RegisterScriptFacadeReflection();
                 RegisterReflectedTypes(*manager);
                 RefPtr<IScriptContext> context = manager->CreateContext();
-                if (context.Get() == nullptr) { return false; }
+                if (context.Get() == nullptr)
+                {
+                    return false;
+                }
                 context->SetErrorHandler(&sink);
 
                 // Compile check: frame the source with the backend's OWN behavior-module
@@ -330,23 +384,25 @@ namespace draconic::script
                 // harvest exactly as at runtime. Error lines shift by the injected line
                 // count, which the reporter subtracts back.
                 const String framedEmpty = manager->AssembleBehaviorModuleSource({});
-                const i32 preludeLines = static_cast<i32>(detail::CountNewlines(framedEmpty.AsView()));
-                const StringView single[] = { source };
-                const String compileSource = manager->AssembleBehaviorModuleSource(
-                    Span<const StringView>{ single, 1 });
+                const i32 preludeLines =
+                    static_cast<i32>(detail::CountNewlines(framedEmpty.AsView()));
+                const StringView single[] = {source};
+                const String compileSource =
+                    manager->AssembleBehaviorModuleSource(Span<const StringView>{single, 1});
                 if (!context->Load(compileSource.AsView(), assetName).IsOk())
                 {
                     ReportScriptCookErrors(assetName, sink, preludeLines);
                     return false;
                 }
 
-                out.className = FindScriptClassName(
-                    source, draconic::editor::FileStemOf(assetName));
+                out.className =
+                    FindScriptClassName(source, draconic::editor::FileStemOf(assetName));
                 out.handlers = ScanScriptHandlers(source);
                 // Wren coroutine opt-in: the shared startCoroutine( surface OR extending
                 // the Wren `Behavior` base (`is Behavior`).
-                out.usesCoroutines = ScriptReferencesCoroutineStart(source)
-                    || detail::Contains(StripScriptComments(source).AsView(), u8"is Behavior");
+                out.usesCoroutines =
+                    ScriptReferencesCoroutineStart(source) ||
+                    detail::Contains(StripScriptComments(source).AsView(), u8"is Behavior");
 
                 // Probe only when the convention is DECLARED (a class without a
                 // `static properties` getter legitimately has no inspector rows).
@@ -354,7 +410,10 @@ namespace draconic::script
                 {
                     const Status harvested = HarvestWrenProperties(
                         *context, assetName, out.className.AsView(), sink, out.properties);
-                    if (!harvested.IsOk()) { return false; }
+                    if (!harvested.IsOk())
+                    {
+                        return false;
+                    }
                 }
                 return true;
             }
@@ -367,8 +426,7 @@ namespace draconic::script
         // cook is never resolvable without its VM.
         draconic::script::wren::RegisterWrenScriptBackend();
         ScriptLanguageCookRegistry::Get().Register(
-            String(u8"wren"),
-            UniquePtr<IScriptLanguageCook>(DefaultAllocator().New<WrenScriptCook>(),
-                                           DefaultAllocator()));
+            String(u8"wren"), UniquePtr<IScriptLanguageCook>(
+                                  DefaultAllocator().New<WrenScriptCook>(), DefaultAllocator()));
     }
 }

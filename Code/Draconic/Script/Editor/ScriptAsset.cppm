@@ -46,11 +46,11 @@ export namespace draconic::script
     {
         DRACONIC_OBJECT(ScriptClassAsset, draconic::editor::Asset)
     public:
-        String language;   // backend id ("wren"), defaulted from the file extension
+        String language; // backend id ("wren"), defaulted from the file extension
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::editor::Asset::Serialize(ar);   // fileName
+            draconic::editor::Asset::Serialize(ar); // fileName
             draconic::core::Serialize(ar, "language", language);
         }
     };
@@ -82,17 +82,23 @@ export namespace draconic::script
     {
         [[nodiscard]] inline bool IsIdentChar(utf8char c) noexcept
         {
-            return (c >= u8'a' && c <= u8'z') || (c >= u8'A' && c <= u8'Z')
-                || (c >= u8'0' && c <= u8'9') || c == u8'_';
+            return (c >= u8'a' && c <= u8'z') || (c >= u8'A' && c <= u8'Z') ||
+                   (c >= u8'0' && c <= u8'9') || c == u8'_';
         }
 
         // First occurrence of `needle` in `haystack` (byte scan).
         [[nodiscard]] inline bool Contains(StringView haystack, StringView needle) noexcept
         {
-            if (needle.IsEmpty() || needle.Size() > haystack.Size()) { return false; }
+            if (needle.IsEmpty() || needle.Size() > haystack.Size())
+            {
+                return false;
+            }
             for (usize i = 0; i + needle.Size() <= haystack.Size(); ++i)
             {
-                if (haystack.SubStr(i, needle.Size()) == needle) { return true; }
+                if (haystack.SubStr(i, needle.Size()) == needle)
+                {
+                    return true;
+                }
             }
             return false;
         }
@@ -100,7 +106,13 @@ export namespace draconic::script
         [[nodiscard]] inline usize CountNewlines(StringView text) noexcept
         {
             usize n = 0;
-            for (usize i = 0; i < text.Size(); ++i) { if (text[i] == u8'\n') { ++n; } }
+            for (usize i = 0; i < text.Size(); ++i)
+            {
+                if (text[i] == u8'\n')
+                {
+                    ++n;
+                }
+            }
             return n;
         }
     }
@@ -118,25 +130,63 @@ export namespace draconic::script
             const utf8char next = (i + 1 < source.Size()) ? source[i + 1] : utf8char(0);
             if (inLineComment)
             {
-                if (c == u8'\n') { inLineComment = false; out.PushBack(c); }
+                if (c == u8'\n')
+                {
+                    inLineComment = false;
+                    out.PushBack(c);
+                }
                 continue;
             }
             if (inBlockComment)
             {
-                if (c == u8'*' && next == u8'/') { inBlockComment = false; ++i; }
-                else if (c == u8'\n') { out.PushBack(c); }   // keep line numbers stable-ish
+                if (c == u8'*' && next == u8'/')
+                {
+                    inBlockComment = false;
+                    ++i;
+                }
+                else if (c == u8'\n')
+                {
+                    out.PushBack(c);
+                } // keep line numbers stable-ish
                 continue;
             }
             if (inString)
             {
-                if (c == u8'\\') { out.PushBack(c); if (next != 0) { out.PushBack(next); ++i; } continue; }
-                if (c == u8'"') { inString = false; }
+                if (c == u8'\\')
+                {
+                    out.PushBack(c);
+                    if (next != 0)
+                    {
+                        out.PushBack(next);
+                        ++i;
+                    }
+                    continue;
+                }
+                if (c == u8'"')
+                {
+                    inString = false;
+                }
                 out.PushBack(c);
                 continue;
             }
-            if (c == u8'"') { inString = true; out.PushBack(c); continue; }
-            if (c == u8'/' && next == u8'/') { inLineComment = true; ++i; continue; }
-            if (c == u8'/' && next == u8'*') { inBlockComment = true; ++i; continue; }
+            if (c == u8'"')
+            {
+                inString = true;
+                out.PushBack(c);
+                continue;
+            }
+            if (c == u8'/' && next == u8'/')
+            {
+                inLineComment = true;
+                ++i;
+                continue;
+            }
+            if (c == u8'/' && next == u8'*')
+            {
+                inBlockComment = true;
+                ++i;
+                continue;
+            }
             out.PushBack(c);
         }
         return out;
@@ -151,24 +201,42 @@ export namespace draconic::script
         for (usize i = 0; i < text.Size(); ++i)
         {
             const utf8char c = text[i];
-            if (c == u8'\n') { lineStart = true; continue; }
-            if (lineStart && (c == u8' ' || c == u8'\t')) { continue; }
+            if (c == u8'\n')
+            {
+                lineStart = true;
+                continue;
+            }
+            if (lineStart && (c == u8' ' || c == u8'\t'))
+            {
+                continue;
+            }
             if (lineStart)
             {
                 lineStart = false;
                 const StringView keyword = u8"class ";
-                if (i + keyword.Size() < text.Size()
-                    && text.SubStr(i, keyword.Size()) == keyword)
+                if (i + keyword.Size() < text.Size() && text.SubStr(i, keyword.Size()) == keyword)
                 {
                     usize begin = i + keyword.Size();
-                    while (begin < text.Size() && text[begin] == u8' ') { ++begin; }
+                    while (begin < text.Size() && text[begin] == u8' ')
+                    {
+                        ++begin;
+                    }
                     usize end = begin;
-                    while (end < text.Size() && detail::IsIdentChar(text[end])) { ++end; }
+                    while (end < text.Size() && detail::IsIdentChar(text[end]))
+                    {
+                        ++end;
+                    }
                     if (end > begin)
                     {
                         const StringView name = text.SubStr(begin, end - begin);
-                        if (name == preferredName) { return String(name); }
-                        if (first.IsEmpty()) { first = String(name); }
+                        if (name == preferredName)
+                        {
+                            return String(name);
+                        }
+                        if (first.IsEmpty())
+                        {
+                            first = String(name);
+                        }
                     }
                 }
             }
@@ -191,25 +259,47 @@ export namespace draconic::script
         Array<String> found;
         for (usize i = 0; i + 2 < text.Size(); ++i)
         {
-            if (text[i] != u8'o' || text[i + 1] != u8'n') { continue; }
-            if (i > 0 && detail::IsIdentChar(text[i - 1])) { continue; }
+            if (text[i] != u8'o' || text[i + 1] != u8'n')
+            {
+                continue;
+            }
+            if (i > 0 && detail::IsIdentChar(text[i - 1]))
+            {
+                continue;
+            }
             const utf8char third = text[i + 2];
-            if (third < u8'A' || third > u8'Z') { continue; }   // on + UpperCase only
+            if (third < u8'A' || third > u8'Z')
+            {
+                continue;
+            } // on + UpperCase only
             usize end = i + 2;
-            while (end < text.Size() && detail::IsIdentChar(text[end])) { ++end; }
+            while (end < text.Size() && detail::IsIdentChar(text[end]))
+            {
+                ++end;
+            }
             usize after = end;
             while (after < text.Size() && (text[after] == u8' ' || text[after] == u8'\t'))
             {
                 ++after;
             }
-            if (after >= text.Size() || text[after] != u8'(') { continue; }   // method, not getter
+            if (after >= text.Size() || text[after] != u8'(')
+            {
+                continue;
+            } // method, not getter
             const StringView name = text.SubStr(i, end - i);
             bool duplicate = false;
             for (const String& existing : found)
             {
-                if (existing.AsView() == name) { duplicate = true; break; }
+                if (existing.AsView() == name)
+                {
+                    duplicate = true;
+                    break;
+                }
             }
-            if (!duplicate) { found.PushBack(String(name)); }
+            if (!duplicate)
+            {
+                found.PushBack(String(name));
+            }
         }
         return found;
     }
@@ -238,7 +328,7 @@ export namespace draconic::script
 
         void OnError(const ScriptError& error) override
         {
-            Entry entry{ error.kind, String(error.module), error.line, String(error.message) };
+            Entry entry{error.kind, String(error.module), error.line, String(error.message)};
             errors.PushBack(Move(entry));
         }
     };
@@ -259,8 +349,7 @@ export namespace draconic::script
         {
             const i32 line = e.line > preludeLines ? e.line - preludeLines : e.line;
             DRACONIC_LOG_ERROR(u8"Script", u8"{}:{}: {} - cook failed",
-                               e.module.IsEmpty() ? fileName : e.module.AsView(),
-                               line, e.message);
+                               e.module.IsEmpty() ? fileName : e.module.AsView(), line, e.message);
         }
     }
 
@@ -319,7 +408,10 @@ export namespace draconic::script
         {
             for (Entry& entry : m_cooks)
             {
-                if (entry.languageId == languageId) { return entry.cook.Get(); }
+                if (entry.languageId == languageId)
+                {
+                    return entry.cook.Get();
+                }
             }
             return nullptr;
         }
@@ -353,7 +445,10 @@ export namespace draconic::script
                                    draconic::editor::AssetBuildContext& ctx) override
         {
             const ScriptClassAsset& scriptAsset = static_cast<const ScriptClassAsset&>(asset);
-            if (ctx.output == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
+            if (ctx.output == nullptr)
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
 
             String source;
             const Status read = ReadSourceText(ctx, scriptAsset.fileName.AsView(), source);
@@ -365,25 +460,25 @@ export namespace draconic::script
             }
 
             const StringView language = scriptAsset.language.IsEmpty()
-                ? StringView(u8"wren") : scriptAsset.language.AsView();
+                                            ? StringView(u8"wren")
+                                            : scriptAsset.language.AsView();
 
             // B3: the cook comes from the registry, by LANGUAGE - never a named cook type.
             // No cook = a configuration error, surfaced as a cook error.
-            IScriptLanguageCook* cook =
-                ScriptLanguageCookRegistry::Get().FindByLanguage(language);
+            IScriptLanguageCook* cook = ScriptLanguageCookRegistry::Get().FindByLanguage(language);
             if (cook == nullptr)
             {
-                DRACONIC_LOG_ERROR(u8"Script",
-                    u8"'{}': no script cook registered for language '{}' - cook failed",
+                DRACONIC_LOG_ERROR(
+                    u8"Script", u8"'{}': no script cook registered for language '{}' - cook failed",
                     scriptAsset.fileName, language);
-                return Status{ ErrorCode::NotSupported };
+                return Status{ErrorCode::NotSupported};
             }
 
             ScriptClassSource cooked;
             CookScriptErrorSink sink;
             if (!cook->Cook(source.AsView(), scriptAsset.fileName.AsView(), sink, cooked))
             {
-                return Status{ ErrorCode::InvalidArgument };
+                return Status{ErrorCode::InvalidArgument};
             }
             return ctx.output->WriteObject(cooked);
         }
@@ -404,32 +499,44 @@ export namespace draconic::script
 
         [[nodiscard]] RefPtr<draconic::editor::ImportOptions> CreateOptions() const override
         {
-            return {};   // no options dialog - the drop imports immediately
+            return {}; // no options dialog - the drop imports immediately
         }
 
-        [[nodiscard]] Result<content::Instance*> Import(
-            StringView sourcePath, draconic::editor::EditorProject& project,
-            content::Group& group, const draconic::editor::ImportOptions*,
-            Object*, Array<draconic::editor::DeferredImportWrite>*) override
+        [[nodiscard]] Result<content::Instance*>
+        Import(StringView sourcePath, draconic::editor::EditorProject& project,
+               content::Group& group, const draconic::editor::ImportOptions*, Object*,
+               Array<draconic::editor::DeferredImportWrite>*) override
         {
             const String extension = draconic::editor::FileExtensionLower(sourcePath);
             const ScriptBackendDesc* backend =
                 ScriptBackendRegistry::Get().FindByExtension(extension.AsView());
-            if (backend == nullptr) { return Err(ErrorCode::NotSupported); }
+            if (backend == nullptr)
+            {
+                return Err(ErrorCode::NotSupported);
+            }
 
             Result<String> fileName = draconic::editor::CopyIntoSources(project, sourcePath);
-            if (!fileName.HasValue()) { return Err(fileName.Error()); }
+            if (!fileName.HasValue())
+            {
+                return Err(fileName.Error());
+            }
 
             const StringView stem = draconic::editor::FileStemOf(fileName.Value().AsView());
             content::Instance* instance =
                 group.CreateInstance(stem, ScriptClassAsset::StaticType());
-            if (instance == nullptr) { return Err(ErrorCode::Unknown); }
+            if (instance == nullptr)
+            {
+                return Err(ErrorCode::Unknown);
+            }
 
             ScriptClassAsset asset;
             asset.fileName = fileName.Value();
             asset.language = String(backend->languageId.AsView());
             const Status written = instance->WriteObject(asset);
-            if (!written.IsOk()) { return Err(written.Code()); }
+            if (!written.IsOk())
+            {
+                return Err(written.Code());
+            }
             return instance;
         }
     };
@@ -450,9 +557,9 @@ export namespace draconic::script
         struct CompileError
         {
             ScriptErrorKind kind = ScriptErrorKind::Compile;
-            String module;   // reporting module/file (empty = the asset's own file)
-            i32 line = 0;    // NOTE: as the cook's error handler captured it (may include the
-                             // backend's framing prelude offset; the message is authoritative)
+            String module; // reporting module/file (empty = the asset's own file)
+            i32 line = 0;  // NOTE: as the cook's error handler captured it (may include the
+                           // backend's framing prelude offset; the message is authoritative)
             String message;
         };
 
@@ -473,10 +580,13 @@ export namespace draconic::script
         {
             const String path = PathJoin(m_sourcesRoot.AsView(), m_fileName.AsView());
             Result<Array<byte>> bytes = ReadFile(path.AsView());
-            if (!bytes.HasValue()) { return Status{ bytes.Error() }; }
+            if (!bytes.HasValue())
+            {
+                return Status{bytes.Error()};
+            }
             const Array<byte>& data = bytes.Value();
-            m_source = String(StringView(reinterpret_cast<const utf8char*>(data.Data()),
-                                         data.Size()));
+            m_source =
+                String(StringView(reinterpret_cast<const utf8char*>(data.Data()), data.Size()));
             m_saved = m_source;
             return Status{};
         }
@@ -490,9 +600,13 @@ export namespace draconic::script
         [[nodiscard]] Status Save()
         {
             const String path = PathJoin(m_sourcesRoot.AsView(), m_fileName.AsView());
-            const Status written = WriteFile(path.AsView(),
+            const Status written = WriteFile(
+                path.AsView(),
                 Span<const byte>(reinterpret_cast<const byte*>(m_source.Data()), m_source.Size()));
-            if (written.IsOk()) { m_saved = m_source; }
+            if (written.IsOk())
+            {
+                m_saved = m_source;
+            }
             return written;
         }
 
@@ -527,14 +641,17 @@ export namespace draconic::script
                 e.message = entry.message;
                 m_errors.PushBack(Move(e));
             }
-            if (ok) { m_className = out.className; }
+            if (ok)
+            {
+                m_className = out.className;
+            }
             m_lastCompileOk = ok;
             return ok;
         }
 
         [[nodiscard]] Span<const CompileError> Errors() const noexcept
         {
-            return Span<const CompileError>{ m_errors.Data(), m_errors.Size() };
+            return Span<const CompileError>{m_errors.Data(), m_errors.Size()};
         }
         [[nodiscard]] StringView ClassName() const noexcept { return m_className.AsView(); }
         [[nodiscard]] bool LastCompileOk() const noexcept { return m_lastCompileOk; }

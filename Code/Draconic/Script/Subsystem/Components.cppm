@@ -25,7 +25,7 @@ export namespace draconic::script
 {
     struct ScriptPropertyOverride
     {
-        u64 nameHash = 0;   // ScriptPropertyNameHash of the property's name
+        u64 nameHash = 0; // ScriptPropertyNameHash of the property's name
         ScriptPropertyValue value;
     };
 
@@ -40,24 +40,27 @@ export namespace draconic::script
         // Authored:
         draconic::resource::Ref<ScriptClass> script;
         bool enabled = true;
-        f32 updateInterval = 0.0f;   // seconds between onUpdate calls; <=0 = every tick (P3
-                                     // throttling). The delivered dt is the ACCUMULATED time.
+        f32 updateInterval = 0.0f; // seconds between onUpdate calls; <=0 = every tick (P3
+                                   // throttling). The delivered dt is the ACCUMULATED time.
         Array<ScriptPropertyOverride> overrides;
 
         // Runtime (transient):
         RefPtr<ScriptObject> instance;
-        const ScriptClass* boundClass = nullptr;   // product the instance was built from
-                                                   // (a reload swaps the product -> re-instantiate)
-        bool started = false;                      // onStart delivered
-        bool active = false;                       // last delivered enable state (onEnable/onDisable edges)
-        bool faulted = false;                      // a fault disables the one behavior (cleared by reload)
-        f32 updateAccumulator = 0.0f;              // time banked toward the next throttled onUpdate
+        const ScriptClass* boundClass = nullptr; // product the instance was built from
+                                                 // (a reload swaps the product -> re-instantiate)
+        bool started = false;                    // onStart delivered
+        bool active = false;          // last delivered enable state (onEnable/onDisable edges)
+        bool faulted = false;         // a fault disables the one behavior (cleared by reload)
+        f32 updateAccumulator = 0.0f; // time banked toward the next throttled onUpdate
 
         [[nodiscard]] const ScriptPropertyOverride* FindOverride(u64 nameHash) const
         {
             for (const ScriptPropertyOverride& entry : overrides)
             {
-                if (entry.nameHash == nameHash) { return &entry; }
+                if (entry.nameHash == nameHash)
+                {
+                    return &entry;
+                }
             }
             return nullptr;
         }
@@ -65,15 +68,23 @@ export namespace draconic::script
         {
             for (ScriptPropertyOverride& entry : overrides)
             {
-                if (entry.nameHash == nameHash) { entry.value = value; return; }
+                if (entry.nameHash == nameHash)
+                {
+                    entry.value = value;
+                    return;
+                }
             }
-            overrides.PushBack(ScriptPropertyOverride{ nameHash, value });
+            overrides.PushBack(ScriptPropertyOverride{nameHash, value});
         }
         void RemoveOverride(u64 nameHash)
         {
             for (usize i = 0; i < overrides.Size(); ++i)
             {
-                if (overrides[i].nameHash == nameHash) { overrides.RemoveAt(i); return; }
+                if (overrides[i].nameHash == nameHash)
+                {
+                    overrides.RemoveAt(i);
+                    return;
+                }
             }
         }
     };
@@ -83,12 +94,12 @@ export namespace draconic::script
         draconic::core::Serialize(ar, "script", b.script);
         draconic::core::Serialize(ar, "enabled", b.enabled);
         draconic::core::Serialize(ar, "updateInterval", b.updateInterval);
-        draconic::core::Serialize(ar, "overrides", b.overrides);   // count-prefixed array scope
+        draconic::core::Serialize(ar, "overrides", b.overrides); // count-prefixed array scope
     }
 
     struct ScriptComponent
     {
-        Array<ScriptBehavior> behaviors;   // execution order = array order
+        Array<ScriptBehavior> behaviors; // execution order = array order
     };
 
     inline void Serialize(ISerializer& ar, ScriptComponent& c)
@@ -104,14 +115,13 @@ export namespace draconic::script
         }
     }
 
-    class ScriptSceneSystem;   // forward (:subsystem) - the destroy hook dispatches onDestroy
+    class ScriptSceneSystem; // forward (:subsystem) - the destroy hook dispatches onDestroy
 
     class ScriptComponentManager final
         : public draconic::scene::SerializableComponentManager<ScriptComponent>
     {
     public:
-        ScriptComponentManager()
-            : SerializableComponentManager<ScriptComponent>(u8"script") {}
+        ScriptComponentManager() : SerializableComponentManager<ScriptComponent>(u8"script") {}
 
         /// The per-scene script system, wired by the subsystem right after AddSystem -
         /// entity/component destruction routes onDestroy through it.

@@ -42,14 +42,12 @@ namespace draconic::script
     // behavior array renders through the bespoke inspector section), but it MUST be
     // reflected so the Add Component menu lists it and versioned payloads carry a
     // data version.
-    DRACONIC_REFLECT_VALUE(ScriptComponent, "draconic::script")
-    {
-        builder.DataVersion(1);
-    }
+    DRACONIC_REFLECT_VALUE(ScriptComponent, "draconic::script") { builder.DataVersion(1); }
 
     void RegisterScriptComponentReflection()
     {
-        static const bool once = []() {
+        static const bool once = []()
+        {
             DraconicRegisterValue_ScriptComponent();
             GlobalTypeRegistry().Register(TypeOf<ScriptComponent>());
             return true;

@@ -21,9 +21,9 @@ export namespace draconic::script
 {
     struct ScriptBackendDesc
     {
-        String languageId;              // canonical lowercase id: u8"wren", u8"angelscript"
-        String displayName;             // editor-facing: u8"Wren"
-        Array<String> fileExtensions;   // lowercase, no dot: { u8"wren" }
+        String languageId;            // canonical lowercase id: u8"wren", u8"angelscript"
+        String displayName;           // editor-facing: u8"Wren"
+        Array<String> fileExtensions; // lowercase, no dot: { u8"wren" }
         Function<RefPtr<IScriptManager>()> create;
     };
 
@@ -54,7 +54,10 @@ export namespace draconic::script
         {
             for (const ScriptBackendDesc& backend : m_backends)
             {
-                if (backend.languageId == languageId) { return &backend; }
+                if (backend.languageId == languageId)
+                {
+                    return &backend;
+                }
             }
             return nullptr;
         }
@@ -66,7 +69,10 @@ export namespace draconic::script
             {
                 for (const String& ext : backend.fileExtensions)
                 {
-                    if (ext == extension) { return &backend; }
+                    if (ext == extension)
+                    {
+                        return &backend;
+                    }
                 }
             }
             return nullptr;
@@ -74,7 +80,7 @@ export namespace draconic::script
 
         [[nodiscard]] Span<const ScriptBackendDesc> All() const noexcept
         {
-            return Span<const ScriptBackendDesc>{ m_backends.Data(), m_backends.Size() };
+            return Span<const ScriptBackendDesc>{m_backends.Data(), m_backends.Size()};
         }
 
     private:
@@ -82,7 +88,8 @@ export namespace draconic::script
     };
 
     /// Create a manager for `languageId`; null (with a warning) when unknown.
-    [[nodiscard]] inline RefPtr<IScriptManager> CreateScriptManagerForLanguage(StringView languageId)
+    [[nodiscard]] inline RefPtr<IScriptManager>
+    CreateScriptManagerForLanguage(StringView languageId)
     {
         const ScriptBackendDesc* backend = ScriptBackendRegistry::Get().FindByLanguage(languageId);
         if (backend == nullptr || !backend->create)
@@ -107,7 +114,10 @@ export namespace draconic::script
                 extension = path.SubStr(i + 1, path.Size() - (i + 1));
                 break;
             }
-            if (path[i] == u8'/' || path[i] == u8'\\') { break; }
+            if (path[i] == u8'/' || path[i] == u8'\\')
+            {
+                break;
+            }
         }
         const ScriptBackendRegistry& registry = ScriptBackendRegistry::Get();
         if (!extension.IsEmpty())
@@ -123,8 +133,8 @@ export namespace draconic::script
             return sole.create ? sole.create() : RefPtr<IScriptManager>{};
         }
         DRACONIC_LOG_WARNING(u8"Script",
-            u8"no script backend matches '{}' ({} backend(s) registered)", path,
-            registry.All().Size());
+                             u8"no script backend matches '{}' ({} backend(s) registered)", path,
+                             registry.All().Size());
         return {};
     }
 }

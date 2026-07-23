@@ -40,7 +40,7 @@ namespace
 
     void RemoveDbTree(StringView dir)
     {
-        for (const utf8char* name : { u8"cooked.rasset" })
+        for (const utf8char* name : {u8"cooked.rasset"})
         {
             String path(dir);
             path.Append(u8"/");
@@ -80,29 +80,29 @@ TEST_CASE("script.resource: property values round-trip for every kind (symmetric
     {
         ScriptPropertyValue v;
         v.kind = ScriptPropertyType::Color;
-        v.color = Color{ 0.25f, 0.5f, 0.75f, 0.5f };
+        v.color = Color{0.25f, 0.5f, 0.75f, 0.5f};
         CHECK(ScriptPropertyValuesEqual(RoundTrip(v), v));
     }
     {
         ScriptPropertyValue v;
         v.kind = ScriptPropertyType::Vec3;
-        v.vector = Float3{ 1.0f, -2.0f, 3.5f };
+        v.vector = Float3{1.0f, -2.0f, 3.5f};
         CHECK(ScriptPropertyValuesEqual(RoundTrip(v), v));
     }
     {
         ScriptPropertyValue v;
         v.kind = ScriptPropertyType::Entity;
-        v.guid = Guid{ 0x12, 0x34 };
+        v.guid = Guid{0x12, 0x34};
         CHECK(ScriptPropertyValuesEqual(RoundTrip(v), v));
     }
     {
         ScriptPropertyValue v;
         v.kind = ScriptPropertyType::Asset;
-        v.guid = Guid{ 0xAB, 0xCD };
+        v.guid = Guid{0xAB, 0xCD};
         CHECK(ScriptPropertyValuesEqual(RoundTrip(v), v));
     }
     {
-        ScriptPropertyValue v;   // None writes no payload and reads back as None
+        ScriptPropertyValue v; // None writes no payload and reads back as None
         CHECK(RoundTrip(v).kind == ScriptPropertyType::None);
     }
 }
@@ -139,7 +139,7 @@ TEST_CASE("script.resource: cooked record -> factory -> runtime product (metadat
     ScriptClassSource cooked;
     cooked.language = String(u8"wren");
     cooked.className = String(u8"Mover");
-    cooked.sourceName = String(u8"Mover.wren");   // the source-file identity (breakpoint key)
+    cooked.sourceName = String(u8"Mover.wren"); // the source-file identity (breakpoint key)
     cooked.source = String(u8"class Mover {\n construct new(e) {}\n}\n");
     {
         ScriptPropertyDesc speed;
@@ -163,8 +163,8 @@ TEST_CASE("script.resource: cooked record -> factory -> runtime product (metadat
     cooked.handlers.PushBack(String(u8"onUpdate"));
     cooked.usesCoroutines = true;
 
-    auto* instance = outputDb.RootGroup()->CreateInstance(u8"cooked",
-                                                          ScriptClassSource::StaticType());
+    auto* instance =
+        outputDb.RootGroup()->CreateInstance(u8"cooked", ScriptClassSource::StaticType());
     REQUIRE(instance != nullptr);
     REQUIRE(instance->WriteObject(cooked).IsOk());
 
@@ -175,7 +175,7 @@ TEST_CASE("script.resource: cooked record -> factory -> runtime product (metadat
     REQUIRE(product);
     CHECK(product->language == u8"wren");
     CHECK(product->className == u8"Mover");
-    CHECK(product->sourceName == u8"Mover.wren");   // travels the cooked wire (symmetric)
+    CHECK(product->sourceName == u8"Mover.wren"); // travels the cooked wire (symmetric)
     CHECK(product->source == cooked.source);
     REQUIRE(product->properties.Size() == 2u);
     const ScriptPropertyDesc* speed = product->FindProperty(ScriptPropertyNameHash(u8"speed"));
@@ -190,7 +190,7 @@ TEST_CASE("script.resource: cooked record -> factory -> runtime product (metadat
     CHECK(product->HasHandler(u8"onStart"));
     CHECK(product->HasHandler(u8"onUpdate"));
     CHECK_FALSE(product->HasHandler(u8"onDestroy"));
-    CHECK(product->usesCoroutines);   // travels the cooked wire (symmetric)
+    CHECK(product->usesCoroutines); // travels the cooked wire (symmetric)
     CHECK(product->ProfileName() != nullptr);
 
     RemoveDbTree(u8"draconic_scriptres_out");

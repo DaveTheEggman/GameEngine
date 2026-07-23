@@ -19,7 +19,7 @@ namespace
 {
     [[nodiscard]] IScriptLanguageCook* AngelScriptCook()
     {
-        RegisterAngelScriptScriptCook();   // registers the AS backend + cook (idempotent)
+        RegisterAngelScriptScriptCook(); // registers the AS backend + cook (idempotent)
         return ScriptLanguageCookRegistry::Get().FindByLanguage(u8"angelscript");
     }
 }
@@ -39,28 +39,34 @@ TEST_CASE("as.cook: an AngelScript behavior compile-checks, scans its on<Upper>(
 
     CookScriptErrorSink sink;
     ScriptClassSource out;
-    const bool ok = cook->Cook(
-        u8"class Bouncer\n"
-        u8"{\n"
-        u8"    private Entity@ self;\n"
-        u8"    Bouncer(Entity@ e) { @self = e; }\n"
-        u8"    void onStart() {}\n"
-        u8"    void onUpdate(double dt) {}\n"
-        u8"    void onHeal(double amount) {}\n"
-        u8"}\n",
-        u8"bouncer.as", sink, out);
+    const bool ok = cook->Cook(u8"class Bouncer\n"
+                               u8"{\n"
+                               u8"    private Entity@ self;\n"
+                               u8"    Bouncer(Entity@ e) { @self = e; }\n"
+                               u8"    void onStart() {}\n"
+                               u8"    void onUpdate(double dt) {}\n"
+                               u8"    void onHeal(double amount) {}\n"
+                               u8"}\n",
+                               u8"bouncer.as", sink, out);
     REQUIRE(ok);
     CHECK(out.language == u8"angelscript");
     CHECK(out.className == u8"Bouncer");
-    auto scanned = [&out](StringView name) {
-        for (const String& h : out.handlers) { if (h.AsView() == name) { return true; } }
+    auto scanned = [&out](StringView name)
+    {
+        for (const String& h : out.handlers)
+        {
+            if (h.AsView() == name)
+            {
+                return true;
+            }
+        }
         return false;
     };
     CHECK(scanned(u8"onStart"));
     CHECK(scanned(u8"onUpdate"));
     CHECK(scanned(u8"onHeal"));
     CHECK(out.handlers.Size() == 3u);
-    CHECK(out.properties.IsEmpty());   // no metadata anywhere -> no inspector properties
+    CHECK(out.properties.IsEmpty()); // no metadata anywhere -> no inspector properties
 }
 
 namespace
@@ -70,7 +76,10 @@ namespace
     {
         for (const ScriptPropertyDesc& p : out.properties)
         {
-            if (p.name.AsView() == name) { return &p; }
+            if (p.name.AsView() == name)
+            {
+                return &p;
+            }
         }
         return nullptr;
     }
@@ -85,24 +94,23 @@ TEST_CASE("as.cook: harvests [metadata] member fields of every supported type in
 
     CookScriptErrorSink sink;
     ScriptClassSource out;
-    const bool ok = cook->Cook(
-        u8"class Kitchen\n"
-        u8"{\n"
-        u8"    [4.0, \"units per second\"] float   speed;\n"
-        u8"    [7, \"hit points\"]         int     hp;\n"
-        u8"    [true]                     bool    active;\n"
-        u8"    [\"hello\", \"greeting\"]     string  greeting;\n"
-        u8"    [(1, 0.5, 0.25, 1), \"tint\"] Color@  tint;\n"
-        u8"    [(0, 1, 0)]                Float3@ dir;\n"
-        u8"    [null, \"the target\"]       Entity@ target;\n"
-        u8"    [\"asset:AudioClip\", \"sfx\"] Guid@   clip;\n"
-        u8"    float                      noMeta;\n"
-        u8"    void onUpdate(double dt) {}\n"
-        u8"}\n",
-        u8"kitchen.as", sink, out);
+    const bool ok = cook->Cook(u8"class Kitchen\n"
+                               u8"{\n"
+                               u8"    [4.0, \"units per second\"] float   speed;\n"
+                               u8"    [7, \"hit points\"]         int     hp;\n"
+                               u8"    [true]                     bool    active;\n"
+                               u8"    [\"hello\", \"greeting\"]     string  greeting;\n"
+                               u8"    [(1, 0.5, 0.25, 1), \"tint\"] Color@  tint;\n"
+                               u8"    [(0, 1, 0)]                Float3@ dir;\n"
+                               u8"    [null, \"the target\"]       Entity@ target;\n"
+                               u8"    [\"asset:AudioClip\", \"sfx\"] Guid@   clip;\n"
+                               u8"    float                      noMeta;\n"
+                               u8"    void onUpdate(double dt) {}\n"
+                               u8"}\n",
+                               u8"kitchen.as", sink, out);
     REQUIRE(ok);
     CHECK(out.className == u8"Kitchen");
-    CHECK(out.properties.Size() == 8u);          // noMeta is not a property
+    CHECK(out.properties.Size() == 8u); // noMeta is not a property
     CHECK(FindProp(out, u8"noMeta") == nullptr);
 
     const ScriptPropertyDesc* speed = FindProp(out, u8"speed");
@@ -149,7 +157,7 @@ TEST_CASE("as.cook: harvests [metadata] member fields of every supported type in
     const ScriptPropertyDesc* target = FindProp(out, u8"target");
     REQUIRE(target != nullptr);
     CHECK(target->type == ScriptPropertyType::Entity);
-    CHECK(target->defaultValue.guid.IsNil());    // null default
+    CHECK(target->defaultValue.guid.IsNil()); // null default
     CHECK(target->description == u8"the target");
 
     const ScriptPropertyDesc* clip = FindProp(out, u8"clip");
@@ -166,9 +174,8 @@ TEST_CASE("as.cook: a metadata'd field of an unsupported type FAILS the cook")
     CookScriptErrorSink sink;
     ScriptClassSource out;
     // A Guid without the asset:<TypeName> tag is not a resolvable property type.
-    CHECK_FALSE(cook->Cook(
-        u8"class Bad { [42] Guid@ mystery; void onUpdate(double dt) {} }\n",
-        u8"bad.as", sink, out));
+    CHECK_FALSE(cook->Cook(u8"class Bad { [42] Guid@ mystery; void onUpdate(double dt) {} }\n",
+                           u8"bad.as", sink, out));
 }
 
 TEST_CASE("as.cook: the starter template itself compiles clean")
@@ -197,6 +204,6 @@ TEST_CASE("as.cook: the New-Asset starter template compiles clean (its example c
     CookScriptErrorSink sink;
     ScriptClassSource out;
     const bool ok = cook->Cook(cook->NewAssetTemplate(), u8"NewBehavior.as", sink, out);
-    REQUIRE(ok);   // the starter MUST compile - it teaches the API by example
+    REQUIRE(ok); // the starter MUST compile - it teaches the API by example
     CHECK(out.className == u8"NewBehavior");
 }

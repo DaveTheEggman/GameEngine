@@ -17,11 +17,11 @@ module;
 export module draconic.script.wren.editor;
 
 import draconic.core;
-import draconic.script;               // registry + IScriptManager/IScriptContext + RegisterReflectedTypes
-import draconic.script.resource;      // ScriptClassSource + ScriptPropertyDesc + parse helpers
-import draconic.script.facades;       // RegisterScriptFacadeReflection (the cook VM's "main" surface)
-import draconic.script.editor;        // IScriptLanguageCook + registry + shared cook helpers
-import draconic.script.wren;          // ensures the Wren backend is available to the registry
+import draconic.script; // registry + IScriptManager/IScriptContext + RegisterReflectedTypes
+import draconic.script.resource; // ScriptClassSource + ScriptPropertyDesc + parse helpers
+import draconic.script.facades;  // RegisterScriptFacadeReflection (the cook VM's "main" surface)
+import draconic.script.editor;   // IScriptLanguageCook + registry + shared cook helpers
+import draconic.script.wren;     // ensures the Wren backend is available to the registry
 
 using namespace draconic::core;
 

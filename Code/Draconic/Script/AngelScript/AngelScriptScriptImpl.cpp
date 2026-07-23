@@ -52,13 +52,23 @@ namespace draconic::script::angelscript
     {
         char buf[16];
         int i = 0;
-        if (n == 0) { buf[i++] = '0'; }
+        if (n == 0)
+        {
+            buf[i++] = '0';
+        }
         else
         {
             char tmp[16];
             int j = 0;
-            while (n != 0) { tmp[j++] = static_cast<char>('0' + (n % 10)); n /= 10; }
-            while (j != 0) { buf[i++] = tmp[--j]; }
+            while (n != 0)
+            {
+                tmp[j++] = static_cast<char>('0' + (n % 10));
+                n /= 10;
+            }
+            while (j != 0)
+            {
+                buf[i++] = tmp[--j];
+            }
         }
         buf[i] = '\0';
         AppendAscii(s, buf);
@@ -67,35 +77,45 @@ namespace draconic::script::angelscript
     inline bool NameEq(const char* a, const char* b) noexcept
     {
         core::usize i = 0;
-        while (a[i] != '\0' && a[i] == b[i]) { ++i; }
+        while (a[i] != '\0' && a[i] == b[i])
+        {
+            ++i;
+        }
         return a[i] == b[i];
     }
 
     inline bool IsValidIdentifier(const char* name) noexcept
     {
-        if (name == nullptr || name[0] == '\0') { return false; }
-        const auto alpha = [](char c) {
-            return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
-        };
-        if (!alpha(name[0])) { return false; }
+        if (name == nullptr || name[0] == '\0')
+        {
+            return false;
+        }
+        const auto alpha = [](char c)
+        { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_'; };
+        if (!alpha(name[0]))
+        {
+            return false;
+        }
         for (const char* p = name + 1; *p != '\0'; ++p)
         {
-            if (!alpha(*p) && !(*p >= '0' && *p <= '9')) { return false; }
+            if (!alpha(*p) && !(*p >= '0' && *p <= '9'))
+            {
+                return false;
+            }
         }
         return true;
     }
 
     inline core::StringView ViewOfAscii(const char* text) noexcept
     {
-        return (text != nullptr)
-            ? core::StringView(reinterpret_cast<const core::utf8char*>(text))
-            : core::StringView{};
+        return (text != nullptr) ? core::StringView(reinterpret_cast<const core::utf8char*>(text))
+                                 : core::StringView{};
     }
 
     inline core::String StringFromStd(const std::string& s)
     {
-        return core::String(core::StringView(
-            reinterpret_cast<const core::utf8char*>(s.c_str()), s.size()));
+        return core::String(
+            core::StringView(reinterpret_cast<const core::utf8char*>(s.c_str()), s.size()));
     }
 
     inline std::string StdFromVariantString(const core::Variant& value)
@@ -111,17 +131,50 @@ namespace draconic::script::angelscript
     inline double NumericOf(const core::Variant& value, bool& ok) noexcept
     {
         ok = true;
-        if (const core::f64* d = value.TryGet<core::f64>()) { return *d; }
-        if (const core::f32* f = value.TryGet<core::f32>()) { return static_cast<double>(*f); }
-        if (const core::i32* i = value.TryGet<core::i32>()) { return static_cast<double>(*i); }
-        if (const core::i64* i = value.TryGet<core::i64>()) { return static_cast<double>(*i); }
-        if (const core::u32* u = value.TryGet<core::u32>()) { return static_cast<double>(*u); }
-        if (const core::u64* u = value.TryGet<core::u64>()) { return static_cast<double>(*u); }
-        if (const core::i16* i = value.TryGet<core::i16>()) { return static_cast<double>(*i); }
-        if (const core::u16* u = value.TryGet<core::u16>()) { return static_cast<double>(*u); }
-        if (const core::i8* i = value.TryGet<core::i8>()) { return static_cast<double>(*i); }
-        if (const core::u8* u = value.TryGet<core::u8>()) { return static_cast<double>(*u); }
-        if (const bool* b = value.TryGet<bool>()) { return *b ? 1.0 : 0.0; }
+        if (const core::f64* d = value.TryGet<core::f64>())
+        {
+            return *d;
+        }
+        if (const core::f32* f = value.TryGet<core::f32>())
+        {
+            return static_cast<double>(*f);
+        }
+        if (const core::i32* i = value.TryGet<core::i32>())
+        {
+            return static_cast<double>(*i);
+        }
+        if (const core::i64* i = value.TryGet<core::i64>())
+        {
+            return static_cast<double>(*i);
+        }
+        if (const core::u32* u = value.TryGet<core::u32>())
+        {
+            return static_cast<double>(*u);
+        }
+        if (const core::u64* u = value.TryGet<core::u64>())
+        {
+            return static_cast<double>(*u);
+        }
+        if (const core::i16* i = value.TryGet<core::i16>())
+        {
+            return static_cast<double>(*i);
+        }
+        if (const core::u16* u = value.TryGet<core::u16>())
+        {
+            return static_cast<double>(*u);
+        }
+        if (const core::i8* i = value.TryGet<core::i8>())
+        {
+            return static_cast<double>(*i);
+        }
+        if (const core::u8* u = value.TryGet<core::u8>())
+        {
+            return static_cast<double>(*u);
+        }
+        if (const bool* b = value.TryGet<bool>())
+        {
+            return *b ? 1.0 : 0.0;
+        }
         ok = false;
         return 0.0;
     }
@@ -131,16 +184,46 @@ namespace draconic::script::angelscript
     inline core::Variant CoerceNumber(double d, const core::TypeInfo* expected)
     {
         using namespace core;
-        if (expected == &TypeOf<f32>()) { return Variant::From<f32>(static_cast<f32>(d)); }
-        if (expected == &TypeOf<i32>()) { return Variant::From<i32>(static_cast<i32>(d)); }
-        if (expected == &TypeOf<i64>()) { return Variant::From<i64>(static_cast<i64>(d)); }
-        if (expected == &TypeOf<u32>()) { return Variant::From<u32>(static_cast<u32>(d)); }
-        if (expected == &TypeOf<u64>()) { return Variant::From<u64>(static_cast<u64>(d)); }
-        if (expected == &TypeOf<i16>()) { return Variant::From<i16>(static_cast<i16>(d)); }
-        if (expected == &TypeOf<u16>()) { return Variant::From<u16>(static_cast<u16>(d)); }
-        if (expected == &TypeOf<i8>())  { return Variant::From<i8>(static_cast<i8>(d)); }
-        if (expected == &TypeOf<u8>())  { return Variant::From<u8>(static_cast<u8>(d)); }
-        if (expected == &TypeOf<bool>()) { return Variant::From<bool>(d != 0.0); }
+        if (expected == &TypeOf<f32>())
+        {
+            return Variant::From<f32>(static_cast<f32>(d));
+        }
+        if (expected == &TypeOf<i32>())
+        {
+            return Variant::From<i32>(static_cast<i32>(d));
+        }
+        if (expected == &TypeOf<i64>())
+        {
+            return Variant::From<i64>(static_cast<i64>(d));
+        }
+        if (expected == &TypeOf<u32>())
+        {
+            return Variant::From<u32>(static_cast<u32>(d));
+        }
+        if (expected == &TypeOf<u64>())
+        {
+            return Variant::From<u64>(static_cast<u64>(d));
+        }
+        if (expected == &TypeOf<i16>())
+        {
+            return Variant::From<i16>(static_cast<i16>(d));
+        }
+        if (expected == &TypeOf<u16>())
+        {
+            return Variant::From<u16>(static_cast<u16>(d));
+        }
+        if (expected == &TypeOf<i8>())
+        {
+            return Variant::From<i8>(static_cast<i8>(d));
+        }
+        if (expected == &TypeOf<u8>())
+        {
+            return Variant::From<u8>(static_cast<u8>(d));
+        }
+        if (expected == &TypeOf<bool>())
+        {
+            return Variant::From<bool>(d != 0.0);
+        }
         return Variant::From<f64>(d);
     }
 
@@ -152,21 +235,59 @@ namespace draconic::script::angelscript
     inline core::Variant CoerceInteger(const core::Variant& src, const core::TypeInfo* expected)
     {
         using namespace core;
-        if (expected == nullptr || src.Type() == expected) { return src; }
+        if (expected == nullptr || src.Type() == expected)
+        {
+            return src;
+        }
         const u64* asU = src.TryGet<u64>();
         const bool isUnsigned = (asU != nullptr);
         const u64 bits = isUnsigned ? *asU : static_cast<u64>(*src.TryGet<i64>());
-        if (expected == &TypeOf<i8>())  { return Variant::From<i8>(static_cast<i8>(bits)); }
-        if (expected == &TypeOf<u8>())  { return Variant::From<u8>(static_cast<u8>(bits)); }
-        if (expected == &TypeOf<i16>()) { return Variant::From<i16>(static_cast<i16>(bits)); }
-        if (expected == &TypeOf<u16>()) { return Variant::From<u16>(static_cast<u16>(bits)); }
-        if (expected == &TypeOf<i32>()) { return Variant::From<i32>(static_cast<i32>(bits)); }
-        if (expected == &TypeOf<u32>()) { return Variant::From<u32>(static_cast<u32>(bits)); }
-        if (expected == &TypeOf<i64>()) { return Variant::From<i64>(static_cast<i64>(bits)); }
-        if (expected == &TypeOf<u64>()) { return Variant::From<u64>(bits); }
-        if (expected == &TypeOf<bool>()) { return Variant::From<bool>(bits != 0); }
-        if (expected == &TypeOf<f32>()) { return Variant::From<f32>(isUnsigned ? static_cast<f32>(bits) : static_cast<f32>(static_cast<i64>(bits))); }
-        if (expected == &TypeOf<f64>()) { return Variant::From<f64>(isUnsigned ? static_cast<f64>(bits) : static_cast<f64>(static_cast<i64>(bits))); }
+        if (expected == &TypeOf<i8>())
+        {
+            return Variant::From<i8>(static_cast<i8>(bits));
+        }
+        if (expected == &TypeOf<u8>())
+        {
+            return Variant::From<u8>(static_cast<u8>(bits));
+        }
+        if (expected == &TypeOf<i16>())
+        {
+            return Variant::From<i16>(static_cast<i16>(bits));
+        }
+        if (expected == &TypeOf<u16>())
+        {
+            return Variant::From<u16>(static_cast<u16>(bits));
+        }
+        if (expected == &TypeOf<i32>())
+        {
+            return Variant::From<i32>(static_cast<i32>(bits));
+        }
+        if (expected == &TypeOf<u32>())
+        {
+            return Variant::From<u32>(static_cast<u32>(bits));
+        }
+        if (expected == &TypeOf<i64>())
+        {
+            return Variant::From<i64>(static_cast<i64>(bits));
+        }
+        if (expected == &TypeOf<u64>())
+        {
+            return Variant::From<u64>(bits);
+        }
+        if (expected == &TypeOf<bool>())
+        {
+            return Variant::From<bool>(bits != 0);
+        }
+        if (expected == &TypeOf<f32>())
+        {
+            return Variant::From<f32>(isUnsigned ? static_cast<f32>(bits)
+                                                 : static_cast<f32>(static_cast<i64>(bits)));
+        }
+        if (expected == &TypeOf<f64>())
+        {
+            return Variant::From<f64>(isUnsigned ? static_cast<f64>(bits)
+                                                 : static_cast<f64>(static_cast<i64>(bits)));
+        }
         return src;
     }
 
@@ -175,18 +296,54 @@ namespace draconic::script::angelscript
     inline const char* PrimitiveDeclName(const core::TypeInfo* type) noexcept
     {
         using namespace core;
-        if (type == &TypeOf<f32>()) { return "float"; }
-        if (type == &TypeOf<f64>()) { return "double"; }
-        if (type == &TypeOf<bool>()) { return "bool"; }
-        if (type == &TypeOf<i32>()) { return "int"; }
-        if (type == &TypeOf<i64>()) { return "int64"; }
-        if (type == &TypeOf<u32>()) { return "uint"; }
-        if (type == &TypeOf<u64>()) { return "uint64"; }
-        if (type == &TypeOf<i16>()) { return "int16"; }
-        if (type == &TypeOf<u16>()) { return "uint16"; }
-        if (type == &TypeOf<i8>())  { return "int8"; }
-        if (type == &TypeOf<u8>())  { return "uint8"; }
-        if (type == &TypeOf<String>()) { return "string"; }
+        if (type == &TypeOf<f32>())
+        {
+            return "float";
+        }
+        if (type == &TypeOf<f64>())
+        {
+            return "double";
+        }
+        if (type == &TypeOf<bool>())
+        {
+            return "bool";
+        }
+        if (type == &TypeOf<i32>())
+        {
+            return "int";
+        }
+        if (type == &TypeOf<i64>())
+        {
+            return "int64";
+        }
+        if (type == &TypeOf<u32>())
+        {
+            return "uint";
+        }
+        if (type == &TypeOf<u64>())
+        {
+            return "uint64";
+        }
+        if (type == &TypeOf<i16>())
+        {
+            return "int16";
+        }
+        if (type == &TypeOf<u16>())
+        {
+            return "uint16";
+        }
+        if (type == &TypeOf<i8>())
+        {
+            return "int8";
+        }
+        if (type == &TypeOf<u8>())
+        {
+            return "uint8";
+        }
+        if (type == &TypeOf<String>())
+        {
+            return "string";
+        }
         return nullptr;
     }
 
@@ -195,7 +352,10 @@ namespace draconic::script::angelscript
     // rendered as its type name (its fields fetched lazily via CaptureObject).
     inline core::String DebugValueText(const core::Variant& value)
     {
-        if (value.IsEmpty()) { return core::String(u8"null"); }
+        if (value.IsEmpty())
+        {
+            return core::String(u8"null");
+        }
         if (const core::String* s = value.TryGet<core::String>())
         {
             core::String out(u8"\"");
@@ -209,7 +369,10 @@ namespace draconic::script::angelscript
         }
         bool ok = false;
         const double number = NumericOf(value, ok);
-        if (ok) { return core::Format(u8"{}", number); }
+        if (ok)
+        {
+            return core::Format(u8"{}", number);
+        }
         const core::TypeInfo* type = value.Type();
         return core::String(ViewOfAscii(type != nullptr ? type->name : "object"));
     }
@@ -244,7 +407,13 @@ namespace draconic::script::angelscript
     // via asIScriptGeneric::GetAuxiliary - no trampoline pool needed).
     struct Binding
     {
-        enum class Kind { Constructor, PropertyGet, PropertySet, Method };
+        enum class Kind
+        {
+            Constructor,
+            PropertyGet,
+            PropertySet,
+            Method
+        };
         Kind kind;
         AngelScriptManager* manager;
         const core::TypeInfo* type;
@@ -254,14 +423,14 @@ namespace draconic::script::angelscript
     };
 
     void FactoryDispatch(asIScriptGeneric* gen);
-    void AssignDispatch(asIScriptGeneric* gen);   // value assignment (T& opAssign(const T&in))
+    void AssignDispatch(asIScriptGeneric* gen); // value assignment (T& opAssign(const T&in))
     void AddRefDispatch(asIScriptGeneric* gen);
     void ReleaseDispatch(asIScriptGeneric* gen);
     void PropertyGetDispatch(asIScriptGeneric* gen);
     void PropertySetDispatch(asIScriptGeneric* gen);
     void MethodDispatch(asIScriptGeneric* gen);
-    void CoroutineStartDispatch(asIScriptGeneric* gen);   // startCoroutine(ScriptCoroutine@)
-    void CoroutineWaitDispatch(asIScriptGeneric* gen);    // wait(float seconds)
+    void CoroutineStartDispatch(asIScriptGeneric* gen); // startCoroutine(ScriptCoroutine@)
+    void CoroutineWaitDispatch(asIScriptGeneric* gen);  // wait(float seconds)
 
     // The suspension-based step debugger (implements IScriptDebugger). Defined after the
     // context class; forward-declared so the manager can hold + hand out the active one, and
@@ -274,7 +443,8 @@ namespace draconic::script::angelscript
     void ArmDebugger(AngelScriptDebugger& debugger, asIScriptContext* ctx, IScriptContext* owner);
     // After Execute returned SUSPENDED: did THIS debugger cause it (a breakpoint/step on
     // `ctx`)? If so it adopts the context (owns it until resume) and fires its listener.
-    [[nodiscard]] bool AdoptDebuggerSuspension(AngelScriptDebugger& debugger, asIScriptContext* ctx);
+    [[nodiscard]] bool AdoptDebuggerSuspension(AngelScriptDebugger& debugger,
+                                               asIScriptContext* ctx);
 
     // A script funcdef-handle argument -> an AngelScriptDelegate wrapping it, as an
     // object-mode Variant (defined after AngelScriptDelegate). Forward-declared so
@@ -318,7 +488,10 @@ namespace draconic::script::angelscript
             // Coroutine contexts belong to the engine - drop them (and their owner refs)
             // BEFORE the engine is torn down.
             DropAllCoroutines();
-            if (m_engine != nullptr) { m_engine->ShutDownAndRelease(); }
+            if (m_engine != nullptr)
+            {
+                m_engine->ShutDownAndRelease();
+            }
             for (Binding* binding : m_bindings)
             {
                 core::DefaultAllocator().Delete(binding);
@@ -333,7 +506,10 @@ namespace draconic::script::angelscript
         {
             for (const core::TypeInfo* existing : m_types)
             {
-                if (existing == &type) { return; }
+                if (existing == &type)
+                {
+                    return;
+                }
             }
             m_types.PushBack(&type);
             if (m_finalized)
@@ -347,13 +523,22 @@ namespace draconic::script::angelscript
 
         void FinalizeTypes() override
         {
-            if (m_finalized) { return; }
+            if (m_finalized)
+            {
+                return;
+            }
             m_finalized = true;
             // Phase 1: DECLARE every collected type - after this, any declaration
             // string may reference any reflected type.
-            for (const core::TypeInfo* type : m_types) { DeclareType(*type); }
+            for (const core::TypeInfo* type : m_types)
+            {
+                DeclareType(*type);
+            }
             // Phase 2: bind members (factories, properties, methods, statics).
-            for (const core::TypeInfo* type : m_types) { BindType(*type); }
+            for (const core::TypeInfo* type : m_types)
+            {
+                BindType(*type);
+            }
         }
 
         [[nodiscard]] core::RefPtr<IScriptContext> CreateContext() override;
@@ -362,15 +547,18 @@ namespace draconic::script::angelscript
         {
             // AngelScript's GC is incremental; one full pass keeps the battery's
             // "callable any time" promise while staying frame-budget friendly.
-            if (m_engine != nullptr) { m_engine->GarbageCollect(asGC_FULL_CYCLE); }
+            if (m_engine != nullptr)
+            {
+                m_engine->GarbageCollect(asGC_FULL_CYCLE);
+            }
         }
 
         [[nodiscard]] ScriptCapabilities Capabilities() const override
         {
             // host-side asIScriptContext scheduler + funcdef-handle-backed delegate seam +
             // suspension-based step debugger (context Suspend + AS introspection).
-            return ScriptCapabilities::Coroutines | ScriptCapabilities::Delegates
-                 | ScriptCapabilities::Debugger;
+            return ScriptCapabilities::Coroutines | ScriptCapabilities::Delegates |
+                   ScriptCapabilities::Debugger;
         }
 
         // A step debugger over this engine's contexts (suspension breakpoints + AS
@@ -401,7 +589,10 @@ namespace draconic::script::angelscript
                 for (core::usize i = 0; i < core::PropertyCount(type); ++i)
                 {
                     const core::PropertyInfo& property = core::PropertyAt(type, i);
-                    if (!IsValidIdentifier(property.name)) { continue; }
+                    if (!IsValidIdentifier(property.name))
+                    {
+                        continue;
+                    }
                     ScriptApiMember member;
                     member.name = core::String(ViewOfAscii(property.name));
                     core::String signature(ViewOfAscii(type.name));
@@ -414,9 +605,15 @@ namespace draconic::script::angelscript
                 for (core::usize i = 0; i < core::MethodCount(type); ++i)
                 {
                     const core::MethodInfo& method = core::MethodAt(type, i);
-                    if (!IsValidIdentifier(method.name)) { continue; }
+                    if (!IsValidIdentifier(method.name))
+                    {
+                        continue;
+                    }
                     core::String signature;
-                    if (!BuildMemberSignature(signature, type, method)) { continue; } // not bound
+                    if (!BuildMemberSignature(signature, type, method))
+                    {
+                        continue;
+                    } // not bound
                     ScriptApiMember member;
                     member.name = core::String(ViewOfAscii(method.name));
                     member.signature = core::Move(signature);
@@ -433,10 +630,13 @@ namespace draconic::script::angelscript
         // native code with reflected args: runs on a pooled context, marshalling against the
         // funcdef's actual parameters, and returns its result. Handles a delegate-to-method
         // (bound object) as well as a plain function handle.
-        [[nodiscard]] core::Result<core::Variant> ExecuteDelegate(
-            asIScriptFunction* delegate, core::Span<core::Variant> args)
+        [[nodiscard]] core::Result<core::Variant> ExecuteDelegate(asIScriptFunction* delegate,
+                                                                  core::Span<core::Variant> args)
         {
-            if (delegate == nullptr || m_engine == nullptr) { return core::Err(core::ErrorCode::Internal); }
+            if (delegate == nullptr || m_engine == nullptr)
+            {
+                return core::Err(core::ErrorCode::Internal);
+            }
             asIScriptFunction* func = delegate;
             asIScriptObject* object = nullptr;
             if (delegate->GetFuncType() == asFUNC_DELEGATE)
@@ -444,30 +644,42 @@ namespace draconic::script::angelscript
                 object = static_cast<asIScriptObject*>(delegate->GetDelegateObject());
                 func = delegate->GetDelegateFunction();
             }
-            if (func == nullptr) { return core::Err(core::ErrorCode::Internal); }
+            if (func == nullptr)
+            {
+                return core::Err(core::ErrorCode::Internal);
+            }
 
             asIScriptContext* executor = m_engine->RequestContext();
             if (executor == nullptr || executor->Prepare(func) < 0)
             {
-                if (executor != nullptr) { m_engine->ReturnContext(executor); }
+                if (executor != nullptr)
+                {
+                    m_engine->ReturnContext(executor);
+                }
                 return core::Err(core::ErrorCode::Internal);
             }
-            if (object != nullptr) { (void)executor->SetObject(object); }
+            if (object != nullptr)
+            {
+                (void)executor->SetObject(object);
+            }
 
             std::string stringTemps[kMaxArgs];
             BoxedVariant* boxTemps[kMaxArgs] = {};
             BindArgsInto(executor, func, args, stringTemps, boxTemps);
             const int result = executor->Execute();
-            for (BoxedVariant* box : boxTemps) { ReleaseBox(box); }
+            for (BoxedVariant* box : boxTemps)
+            {
+                ReleaseBox(box);
+            }
 
             core::Result<core::Variant> outcome = core::Err(core::ErrorCode::Internal);
             if (result == asEXECUTION_FINISHED)
             {
                 const int returnTypeId = func->GetReturnTypeId();
                 outcome = (returnTypeId == asTYPEID_VOID)
-                    ? core::Result<core::Variant>(core::Variant{})
-                    : core::Result<core::Variant>(VariantFromTypedAddress(
-                          returnTypeId, executor->GetAddressOfReturnValue()));
+                              ? core::Result<core::Variant>(core::Variant{})
+                              : core::Result<core::Variant>(VariantFromTypedAddress(
+                                    returnTypeId, executor->GetAddressOfReturnValue()));
             }
             m_engine->ReturnContext(executor);
             return outcome;
@@ -477,8 +689,8 @@ namespace draconic::script::angelscript
         // needs NO import prelude - reflected types and the coroutine surface (startCoroutine/
         // wait) are registered engine-globally, so every reflected type is already visible.
         // This keeps the language framing in the backend, off the neutral libs (§7.5).
-        [[nodiscard]] core::String AssembleBehaviorModuleSource(
-            core::Span<const core::StringView> classSources) const override
+        [[nodiscard]] core::String
+        AssembleBehaviorModuleSource(core::Span<const core::StringView> classSources) const override
         {
             core::String moduleSource;
             for (const core::StringView& source : classSources)
@@ -506,7 +718,10 @@ namespace draconic::script::angelscript
         /// fresh context is fine (AngelScript contexts are independent).
         void StartCoroutine(asIScriptFunction* fn)
         {
-            if (fn == nullptr || m_engine == nullptr) { return; }
+            if (fn == nullptr || m_engine == nullptr)
+            {
+                return;
+            }
             asIScriptFunction* func = fn;
             asIScriptObject* owner = nullptr;
             if (fn->GetFuncType() == asFUNC_DELEGATE)
@@ -514,18 +729,28 @@ namespace draconic::script::angelscript
                 owner = static_cast<asIScriptObject*>(fn->GetDelegateObject());
                 func = fn->GetDelegateFunction();
             }
-            if (func == nullptr) { return; }
+            if (func == nullptr)
+            {
+                return;
+            }
 
             asIScriptContext* co = m_engine->CreateContext();
             if (co == nullptr || co->Prepare(func) < 0)
             {
-                if (co != nullptr) { co->Release(); }
+                if (co != nullptr)
+                {
+                    co->Release();
+                }
                 return;
             }
-            if (owner != nullptr) { co->SetObject(owner); owner->AddRef(); }
+            if (owner != nullptr)
+            {
+                co->SetObject(owner);
+                owner->AddRef();
+            }
 
             // Record BEFORE Execute so the `wait` host call can find it (by active ctx).
-            m_coroutines.PushBack(Coroutine{ co, 0.0, owner });
+            m_coroutines.PushBack(Coroutine{co, 0.0, owner});
             const int result = co->Execute();
             ResolveCoroutineExecution(co, result);
         }
@@ -535,34 +760,51 @@ namespace draconic::script::angelscript
         void CoroutineWaitCurrent(float seconds)
         {
             asIScriptContext* active = asGetActiveContext();
-            if (active == nullptr) { return; }
+            if (active == nullptr)
+            {
+                return;
+            }
             for (Coroutine& co : m_coroutines)
             {
-                if (co.ctx == active) { co.wait = static_cast<core::f64>(seconds); break; }
+                if (co.ctx == active)
+                {
+                    co.wait = static_cast<core::f64>(seconds);
+                    break;
+                }
             }
             (void)active->Suspend();
         }
 
         void AdvanceCoroutines(core::f64 deltaSeconds) override
         {
-            for (Coroutine& co : m_coroutines) { co.wait -= deltaSeconds; }
+            for (Coroutine& co : m_coroutines)
+            {
+                co.wait -= deltaSeconds;
+            }
             // Snapshot due contexts (stable pointers): a resumed coroutine may start more
             // (append) - not advanced this frame - and re-finding by ctx tolerates a
             // nested cancel dropping an entry mid-loop.
             m_dueScratch.Clear();
             for (const Coroutine& co : m_coroutines)
             {
-                if (co.wait <= kDueEpsilon) { m_dueScratch.PushBack(co.ctx); }
+                if (co.wait <= kDueEpsilon)
+                {
+                    m_dueScratch.PushBack(co.ctx);
+                }
             }
             for (asIScriptContext* ctx : m_dueScratch)
             {
-                if (FindCoroutine(ctx) < 0) { continue; }   // a nested cancel removed it
+                if (FindCoroutine(ctx) < 0)
+                {
+                    continue;
+                } // a nested cancel removed it
                 const int result = ctx->Execute();
                 ResolveCoroutineExecution(ctx, result);
             }
         }
 
-        void CancelCoroutinesFor(ScriptObject& instance) override;   // by owner; after AngelScriptObject
+        void
+        CancelCoroutinesFor(ScriptObject& instance) override; // by owner; after AngelScriptObject
 
         // ---- shared services for contexts / dispatchers ---------------------
         [[nodiscard]] asIScriptEngine* Engine() const noexcept { return m_engine; }
@@ -575,7 +817,10 @@ namespace draconic::script::angelscript
             const int base = typeId & ~(asTYPEID_OBJHANDLE | asTYPEID_HANDLETOCONST);
             for (const RegisteredType& entry : m_registered)
             {
-                if (entry.typeId == base) { return entry.type; }
+                if (entry.typeId == base)
+                {
+                    return entry.type;
+                }
             }
             return nullptr;
         }
@@ -587,37 +832,51 @@ namespace draconic::script::angelscript
             const int typeId = gen->GetArgTypeId(index);
             switch (typeId)
             {
-                case asTYPEID_BOOL:
-                {
-                    const bool b = gen->GetArgByte(index) != 0;
-                    return (expected == nullptr || expected == &core::TypeOf<bool>())
-                        ? core::Variant::From<bool>(b)
-                        : CoerceNumber(b ? 1.0 : 0.0, expected);
-                }
-                case asTYPEID_INT8:   return CoerceNumber(static_cast<core::i8>(gen->GetArgByte(index)), expected);
-                case asTYPEID_UINT8:  return CoerceNumber(gen->GetArgByte(index), expected);
-                case asTYPEID_INT16:  return CoerceNumber(static_cast<core::i16>(gen->GetArgWord(index)), expected);
-                case asTYPEID_UINT16: return CoerceNumber(gen->GetArgWord(index), expected);
-                case asTYPEID_INT32:  return CoerceNumber(static_cast<core::i32>(gen->GetArgDWord(index)), expected);
-                case asTYPEID_UINT32: return CoerceNumber(gen->GetArgDWord(index), expected);
-                // 64-bit integers carry their exact type across (never via double) so values
-                // above 2^53 survive - the reason CoerceInteger exists.
-                case asTYPEID_INT64:  return CoerceInteger(core::Variant::From<core::i64>(static_cast<core::i64>(gen->GetArgQWord(index))), expected);
-                case asTYPEID_UINT64: return CoerceInteger(core::Variant::From<core::u64>(gen->GetArgQWord(index)), expected);
-                case asTYPEID_FLOAT:  return CoerceNumber(gen->GetArgFloat(index), expected);
-                case asTYPEID_DOUBLE: return CoerceNumber(gen->GetArgDouble(index), expected);
-                default: break;
+            case asTYPEID_BOOL:
+            {
+                const bool b = gen->GetArgByte(index) != 0;
+                return (expected == nullptr || expected == &core::TypeOf<bool>())
+                           ? core::Variant::From<bool>(b)
+                           : CoerceNumber(b ? 1.0 : 0.0, expected);
+            }
+            case asTYPEID_INT8:
+                return CoerceNumber(static_cast<core::i8>(gen->GetArgByte(index)), expected);
+            case asTYPEID_UINT8:
+                return CoerceNumber(gen->GetArgByte(index), expected);
+            case asTYPEID_INT16:
+                return CoerceNumber(static_cast<core::i16>(gen->GetArgWord(index)), expected);
+            case asTYPEID_UINT16:
+                return CoerceNumber(gen->GetArgWord(index), expected);
+            case asTYPEID_INT32:
+                return CoerceNumber(static_cast<core::i32>(gen->GetArgDWord(index)), expected);
+            case asTYPEID_UINT32:
+                return CoerceNumber(gen->GetArgDWord(index), expected);
+            // 64-bit integers carry their exact type across (never via double) so values
+            // above 2^53 survive - the reason CoerceInteger exists.
+            case asTYPEID_INT64:
+                return CoerceInteger(
+                    core::Variant::From<core::i64>(static_cast<core::i64>(gen->GetArgQWord(index))),
+                    expected);
+            case asTYPEID_UINT64:
+                return CoerceInteger(core::Variant::From<core::u64>(gen->GetArgQWord(index)),
+                                     expected);
+            case asTYPEID_FLOAT:
+                return CoerceNumber(gen->GetArgFloat(index), expected);
+            case asTYPEID_DOUBLE:
+                return CoerceNumber(gen->GetArgDouble(index), expected);
+            default:
+                break;
             }
             if (typeId == m_stringTypeId)
             {
                 const std::string* s = static_cast<const std::string*>(gen->GetArgAddress(index));
-                return (s != nullptr)
-                    ? core::Variant::From<core::String>(StringFromStd(*s))
-                    : core::Variant{};
+                return (s != nullptr) ? core::Variant::From<core::String>(StringFromStd(*s))
+                                      : core::Variant{};
             }
             if ((typeId & asTYPEID_OBJHANDLE) != 0 && TypeInfoForTypeId(typeId) != nullptr)
             {
-                const BoxedVariant* box = static_cast<const BoxedVariant*>(gen->GetArgObject(index));
+                const BoxedVariant* box =
+                    static_cast<const BoxedVariant*>(gen->GetArgObject(index));
                 return (box != nullptr) ? box->value : core::Variant{};
             }
             // A funcdef handle (a delegate parameter): wrap the function into a script delegate.
@@ -632,9 +891,12 @@ namespace draconic::script::angelscript
         // True when `typeId` is a handle to a funcdef (a callable delegate type).
         [[nodiscard]] bool IsFuncdefTypeId(int typeId) const noexcept
         {
-            if (m_engine == nullptr) { return false; }
-            asITypeInfo* info = m_engine->GetTypeInfoById(
-                typeId & ~(asTYPEID_OBJHANDLE | asTYPEID_HANDLETOCONST));
+            if (m_engine == nullptr)
+            {
+                return false;
+            }
+            asITypeInfo* info =
+                m_engine->GetTypeInfoById(typeId & ~(asTYPEID_OBJHANDLE | asTYPEID_HANDLETOCONST));
             return info != nullptr && info->GetFuncdefSignature() != nullptr;
         }
 
@@ -643,30 +905,55 @@ namespace draconic::script::angelscript
         void SetGenericReturn(asIScriptGeneric* gen, const core::Variant& value) const
         {
             const int typeId = gen->GetReturnTypeId();
-            if (typeId == asTYPEID_VOID) { return; }
+            if (typeId == asTYPEID_VOID)
+            {
+                return;
+            }
             bool ok = false;
             const double number = NumericOf(value, ok);
             switch (typeId)
             {
-                case asTYPEID_BOOL:   gen->SetReturnByte(number != 0.0 ? 1 : 0); return;
-                case asTYPEID_INT8:
-                case asTYPEID_UINT8:  gen->SetReturnByte(static_cast<asBYTE>(static_cast<core::i64>(number))); return;
-                case asTYPEID_INT16:
-                case asTYPEID_UINT16: gen->SetReturnWord(static_cast<asWORD>(static_cast<core::i64>(number))); return;
-                case asTYPEID_INT32:
-                case asTYPEID_UINT32: gen->SetReturnDWord(static_cast<asDWORD>(static_cast<core::i64>(number))); return;
-                case asTYPEID_INT64:
-                case asTYPEID_UINT64:
+            case asTYPEID_BOOL:
+                gen->SetReturnByte(number != 0.0 ? 1 : 0);
+                return;
+            case asTYPEID_INT8:
+            case asTYPEID_UINT8:
+                gen->SetReturnByte(static_cast<asBYTE>(static_cast<core::i64>(number)));
+                return;
+            case asTYPEID_INT16:
+            case asTYPEID_UINT16:
+                gen->SetReturnWord(static_cast<asWORD>(static_cast<core::i64>(number)));
+                return;
+            case asTYPEID_INT32:
+            case asTYPEID_UINT32:
+                gen->SetReturnDWord(static_cast<asDWORD>(static_cast<core::i64>(number)));
+                return;
+            case asTYPEID_INT64:
+            case asTYPEID_UINT64:
+            {
+                // Prefer the Variant's exact 64-bit value (a facade returning i64/u64); only a
+                // float source falls back through `number`, which is the correct currency there.
+                if (const core::i64* iv = value.TryGet<core::i64>())
                 {
-                    // Prefer the Variant's exact 64-bit value (a facade returning i64/u64); only a
-                    // float source falls back through `number`, which is the correct currency there.
-                    if (const core::i64* iv = value.TryGet<core::i64>()) { gen->SetReturnQWord(static_cast<asQWORD>(*iv)); return; }
-                    if (const core::u64* uv = value.TryGet<core::u64>()) { gen->SetReturnQWord(static_cast<asQWORD>(*uv)); return; }
-                    gen->SetReturnQWord(static_cast<asQWORD>(static_cast<core::i64>(number))); return;
+                    gen->SetReturnQWord(static_cast<asQWORD>(*iv));
+                    return;
                 }
-                case asTYPEID_FLOAT:  gen->SetReturnFloat(static_cast<float>(number)); return;
-                case asTYPEID_DOUBLE: gen->SetReturnDouble(number); return;
-                default: break;
+                if (const core::u64* uv = value.TryGet<core::u64>())
+                {
+                    gen->SetReturnQWord(static_cast<asQWORD>(*uv));
+                    return;
+                }
+                gen->SetReturnQWord(static_cast<asQWORD>(static_cast<core::i64>(number)));
+                return;
+            }
+            case asTYPEID_FLOAT:
+                gen->SetReturnFloat(static_cast<float>(number));
+                return;
+            case asTYPEID_DOUBLE:
+                gen->SetReturnDouble(number);
+                return;
+            default:
+                break;
             }
             if (typeId == m_stringTypeId)
             {
@@ -676,8 +963,8 @@ namespace draconic::script::angelscript
             if ((typeId & asTYPEID_OBJHANDLE) != 0)
             {
                 BoxedVariant* box = (!value.IsEmpty() && TypeInfoForTypeId(typeId) != nullptr)
-                    ? NewBox(value)
-                    : nullptr;
+                                        ? NewBox(value)
+                                        : nullptr;
                 *static_cast<void**>(gen->GetAddressOfReturnLocation()) = box;
             }
         }
@@ -687,21 +974,38 @@ namespace draconic::script::angelscript
         // handles to OUR types as a copy of the boxed Variant (Wren parity).
         [[nodiscard]] core::Variant VariantFromTypedAddress(int typeId, void* address) const
         {
-            if (address == nullptr) { return core::Variant{}; }
+            if (address == nullptr)
+            {
+                return core::Variant{};
+            }
             switch (typeId)
             {
-                case asTYPEID_BOOL:   return core::Variant::From<bool>(*static_cast<bool*>(address));
-                case asTYPEID_INT8:   return core::Variant::From<core::f64>(*static_cast<core::i8*>(address));
-                case asTYPEID_UINT8:  return core::Variant::From<core::f64>(*static_cast<core::u8*>(address));
-                case asTYPEID_INT16:  return core::Variant::From<core::f64>(*static_cast<core::i16*>(address));
-                case asTYPEID_UINT16: return core::Variant::From<core::f64>(*static_cast<core::u16*>(address));
-                case asTYPEID_INT32:  return core::Variant::From<core::f64>(*static_cast<core::i32*>(address));
-                case asTYPEID_UINT32: return core::Variant::From<core::f64>(*static_cast<core::u32*>(address));
-                case asTYPEID_INT64:  return core::Variant::From<core::f64>(static_cast<core::f64>(*static_cast<core::i64*>(address)));
-                case asTYPEID_UINT64: return core::Variant::From<core::f64>(static_cast<core::f64>(*static_cast<core::u64*>(address)));
-                case asTYPEID_FLOAT:  return core::Variant::From<core::f64>(*static_cast<float*>(address));
-                case asTYPEID_DOUBLE: return core::Variant::From<core::f64>(*static_cast<double*>(address));
-                default: break;
+            case asTYPEID_BOOL:
+                return core::Variant::From<bool>(*static_cast<bool*>(address));
+            case asTYPEID_INT8:
+                return core::Variant::From<core::f64>(*static_cast<core::i8*>(address));
+            case asTYPEID_UINT8:
+                return core::Variant::From<core::f64>(*static_cast<core::u8*>(address));
+            case asTYPEID_INT16:
+                return core::Variant::From<core::f64>(*static_cast<core::i16*>(address));
+            case asTYPEID_UINT16:
+                return core::Variant::From<core::f64>(*static_cast<core::u16*>(address));
+            case asTYPEID_INT32:
+                return core::Variant::From<core::f64>(*static_cast<core::i32*>(address));
+            case asTYPEID_UINT32:
+                return core::Variant::From<core::f64>(*static_cast<core::u32*>(address));
+            case asTYPEID_INT64:
+                return core::Variant::From<core::f64>(
+                    static_cast<core::f64>(*static_cast<core::i64*>(address)));
+            case asTYPEID_UINT64:
+                return core::Variant::From<core::f64>(
+                    static_cast<core::f64>(*static_cast<core::u64*>(address)));
+            case asTYPEID_FLOAT:
+                return core::Variant::From<core::f64>(*static_cast<float*>(address));
+            case asTYPEID_DOUBLE:
+                return core::Variant::From<core::f64>(*static_cast<double*>(address));
+            default:
+                break;
             }
             if (typeId == m_stringTypeId)
             {
@@ -720,27 +1024,89 @@ namespace draconic::script::angelscript
         // slot's type cannot take the value.
         bool WriteTypedAddress(int typeId, void* address, const core::Variant& value) const
         {
-            if (address == nullptr) { return false; }
+            if (address == nullptr)
+            {
+                return false;
+            }
             bool ok = false;
             const double number = NumericOf(value, ok);
             switch (typeId)
             {
-                case asTYPEID_BOOL:   if (ok) { *static_cast<bool*>(address) = number != 0.0; } return ok;
-                case asTYPEID_INT8:   if (ok) { *static_cast<core::i8*>(address) = static_cast<core::i8>(number); } return ok;
-                case asTYPEID_UINT8:  if (ok) { *static_cast<core::u8*>(address) = static_cast<core::u8>(number); } return ok;
-                case asTYPEID_INT16:  if (ok) { *static_cast<core::i16*>(address) = static_cast<core::i16>(number); } return ok;
-                case asTYPEID_UINT16: if (ok) { *static_cast<core::u16*>(address) = static_cast<core::u16>(number); } return ok;
-                case asTYPEID_INT32:  if (ok) { *static_cast<core::i32*>(address) = static_cast<core::i32>(number); } return ok;
-                case asTYPEID_UINT32: if (ok) { *static_cast<core::u32*>(address) = static_cast<core::u32>(number); } return ok;
-                case asTYPEID_INT64:  if (ok) { *static_cast<core::i64*>(address) = static_cast<core::i64>(number); } return ok;
-                case asTYPEID_UINT64: if (ok) { *static_cast<core::u64*>(address) = static_cast<core::u64>(number); } return ok;
-                case asTYPEID_FLOAT:  if (ok) { *static_cast<float*>(address) = static_cast<float>(number); } return ok;
-                case asTYPEID_DOUBLE: if (ok) { *static_cast<double*>(address) = number; } return ok;
-                default: break;
+            case asTYPEID_BOOL:
+                if (ok)
+                {
+                    *static_cast<bool*>(address) = number != 0.0;
+                }
+                return ok;
+            case asTYPEID_INT8:
+                if (ok)
+                {
+                    *static_cast<core::i8*>(address) = static_cast<core::i8>(number);
+                }
+                return ok;
+            case asTYPEID_UINT8:
+                if (ok)
+                {
+                    *static_cast<core::u8*>(address) = static_cast<core::u8>(number);
+                }
+                return ok;
+            case asTYPEID_INT16:
+                if (ok)
+                {
+                    *static_cast<core::i16*>(address) = static_cast<core::i16>(number);
+                }
+                return ok;
+            case asTYPEID_UINT16:
+                if (ok)
+                {
+                    *static_cast<core::u16*>(address) = static_cast<core::u16>(number);
+                }
+                return ok;
+            case asTYPEID_INT32:
+                if (ok)
+                {
+                    *static_cast<core::i32*>(address) = static_cast<core::i32>(number);
+                }
+                return ok;
+            case asTYPEID_UINT32:
+                if (ok)
+                {
+                    *static_cast<core::u32*>(address) = static_cast<core::u32>(number);
+                }
+                return ok;
+            case asTYPEID_INT64:
+                if (ok)
+                {
+                    *static_cast<core::i64*>(address) = static_cast<core::i64>(number);
+                }
+                return ok;
+            case asTYPEID_UINT64:
+                if (ok)
+                {
+                    *static_cast<core::u64*>(address) = static_cast<core::u64>(number);
+                }
+                return ok;
+            case asTYPEID_FLOAT:
+                if (ok)
+                {
+                    *static_cast<float*>(address) = static_cast<float>(number);
+                }
+                return ok;
+            case asTYPEID_DOUBLE:
+                if (ok)
+                {
+                    *static_cast<double*>(address) = number;
+                }
+                return ok;
+            default:
+                break;
             }
             if (typeId == m_stringTypeId)
             {
-                if (value.TryGet<core::String>() == nullptr) { return false; }
+                if (value.TryGet<core::String>() == nullptr)
+                {
+                    return false;
+                }
                 *static_cast<std::string*>(address) = StdFromVariantString(value);
                 return true;
             }
@@ -772,8 +1138,8 @@ namespace draconic::script::angelscript
             {
                 if (handler != nullptr)
                 {
-                    const ScriptError error{ kind, core::StringView(message.section),
-                                             message.row, core::StringView(message.text) };
+                    const ScriptError error{kind, core::StringView(message.section), message.row,
+                                            core::StringView(message.text)};
                     handler->OnError(error);
                 }
                 else
@@ -797,13 +1163,18 @@ namespace draconic::script::angelscript
         // script-side (kCoroutinePreludeSection), added per module in Load.
         void RegisterCoroutineSurface()
         {
-            if (m_engine == nullptr) { return; }
+            if (m_engine == nullptr)
+            {
+                return;
+            }
             (void)m_engine->RegisterFuncdef("void ScriptCoroutine()");
             (void)m_engine->RegisterFuncdef("bool CoroutinePredicate()");
             (void)m_engine->RegisterGlobalFunction("void startCoroutine(ScriptCoroutine@ fn)",
-                asFUNCTION(CoroutineStartDispatch), asCALL_GENERIC, this);
+                                                   asFUNCTION(CoroutineStartDispatch),
+                                                   asCALL_GENERIC, this);
             (void)m_engine->RegisterGlobalFunction("void wait(float seconds)",
-                asFUNCTION(CoroutineWaitDispatch), asCALL_GENERIC, this);
+                                                   asFUNCTION(CoroutineWaitDispatch),
+                                                   asCALL_GENERIC, this);
         }
 
         // Registers the delegate funcdef reflected methods spell their RefPtr<IScriptDelegate>
@@ -811,7 +1182,10 @@ namespace draconic::script::angelscript
         // handle; the backend wraps it into an AngelScriptDelegate.
         void RegisterDelegateSurface()
         {
-            if (m_engine == nullptr) { return; }
+            if (m_engine == nullptr)
+            {
+                return;
+            }
             (void)m_engine->RegisterFuncdef(kScriptDelegateFuncdef);
         }
 
@@ -834,18 +1208,37 @@ namespace draconic::script::angelscript
                 const double number = NumericOf(value, ok);
                 switch (typeId)
                 {
-                    case asTYPEID_BOOL:   (void)executor->SetArgByte(arg, number != 0.0 ? 1 : 0); continue;
-                    case asTYPEID_INT8:
-                    case asTYPEID_UINT8:  (void)executor->SetArgByte(arg, static_cast<asBYTE>(static_cast<core::i64>(number))); continue;
-                    case asTYPEID_INT16:
-                    case asTYPEID_UINT16: (void)executor->SetArgWord(arg, static_cast<asWORD>(static_cast<core::i64>(number))); continue;
-                    case asTYPEID_INT32:
-                    case asTYPEID_UINT32: (void)executor->SetArgDWord(arg, static_cast<asDWORD>(static_cast<core::i64>(number))); continue;
-                    case asTYPEID_INT64:
-                    case asTYPEID_UINT64: (void)executor->SetArgQWord(arg, static_cast<asQWORD>(static_cast<core::i64>(number))); continue;
-                    case asTYPEID_FLOAT:  (void)executor->SetArgFloat(arg, static_cast<float>(number)); continue;
-                    case asTYPEID_DOUBLE: (void)executor->SetArgDouble(arg, number); continue;
-                    default: break;
+                case asTYPEID_BOOL:
+                    (void)executor->SetArgByte(arg, number != 0.0 ? 1 : 0);
+                    continue;
+                case asTYPEID_INT8:
+                case asTYPEID_UINT8:
+                    (void)executor->SetArgByte(arg,
+                                               static_cast<asBYTE>(static_cast<core::i64>(number)));
+                    continue;
+                case asTYPEID_INT16:
+                case asTYPEID_UINT16:
+                    (void)executor->SetArgWord(arg,
+                                               static_cast<asWORD>(static_cast<core::i64>(number)));
+                    continue;
+                case asTYPEID_INT32:
+                case asTYPEID_UINT32:
+                    (void)executor->SetArgDWord(
+                        arg, static_cast<asDWORD>(static_cast<core::i64>(number)));
+                    continue;
+                case asTYPEID_INT64:
+                case asTYPEID_UINT64:
+                    (void)executor->SetArgQWord(
+                        arg, static_cast<asQWORD>(static_cast<core::i64>(number)));
+                    continue;
+                case asTYPEID_FLOAT:
+                    (void)executor->SetArgFloat(arg, static_cast<float>(number));
+                    continue;
+                case asTYPEID_DOUBLE:
+                    (void)executor->SetArgDouble(arg, number);
+                    continue;
+                default:
+                    break;
                 }
                 if (typeId == m_stringTypeId)
                 {
@@ -853,8 +1246,8 @@ namespace draconic::script::angelscript
                     (void)executor->SetArgObject(arg, &stringTemps[i]);
                     continue;
                 }
-                if ((typeId & asTYPEID_OBJHANDLE) != 0
-                    && TypeInfoForTypeId(typeId) != nullptr && !value.IsEmpty())
+                if ((typeId & asTYPEID_OBJHANDLE) != 0 && TypeInfoForTypeId(typeId) != nullptr &&
+                    !value.IsEmpty())
                 {
                     boxTemps[i] = NewBox(value);
                     (void)executor->SetArgObject(arg, boxTemps[i]);
@@ -871,13 +1264,26 @@ namespace draconic::script::angelscript
         {
             const core::TypeInfo* returnType =
                 (method.returnType != nullptr) ? method.returnType() : nullptr;
-            if (returnType == nullptr) { AppendAscii(out, "void"); }
-            else if (!AppendDeclType(out, returnType, /*isParam*/ false)) { return false; }
+            if (returnType == nullptr)
+            {
+                AppendAscii(out, "void");
+            }
+            else if (!AppendDeclType(out, returnType, /*isParam*/ false))
+            {
+                return false;
+            }
             AppendAscii(out, " ");
-            if (method.isStatic) { AppendAscii(out, type.name); AppendAscii(out, "::"); }
+            if (method.isStatic)
+            {
+                AppendAscii(out, type.name);
+                AppendAscii(out, "::");
+            }
             AppendAscii(out, method.name);
             AppendAscii(out, "(");
-            if (!AppendParams(out, method.params, method.paramCount)) { return false; }
+            if (!AppendParams(out, method.params, method.paramCount))
+            {
+                return false;
+            }
             AppendAscii(out, ")");
             return true;
         }
@@ -886,7 +1292,10 @@ namespace draconic::script::angelscript
         {
             for (core::usize i = 0; i < m_coroutines.Size(); ++i)
             {
-                if (m_coroutines[i].ctx == ctx) { return static_cast<int>(i); }
+                if (m_coroutines[i].ctx == ctx)
+                {
+                    return static_cast<int>(i);
+                }
             }
             return -1;
         }
@@ -895,23 +1304,39 @@ namespace draconic::script::angelscript
         void DropCoroutineAt(core::usize index)
         {
             Coroutine& co = m_coroutines[index];
-            if (co.ctx != nullptr) { (void)co.ctx->Abort(); co.ctx->Release(); }
-            if (co.owner != nullptr) { co.owner->Release(); }
+            if (co.ctx != nullptr)
+            {
+                (void)co.ctx->Abort();
+                co.ctx->Release();
+            }
+            if (co.owner != nullptr)
+            {
+                co.owner->Release();
+            }
             m_coroutines.RemoveAt(index);
         }
 
         void DropAllCoroutines()
         {
-            while (m_coroutines.Size() > 0) { DropCoroutineAt(m_coroutines.Size() - 1); }
+            while (m_coroutines.Size() > 0)
+            {
+                DropCoroutineAt(m_coroutines.Size() - 1);
+            }
         }
 
         // After an Execute: keep it if it suspended (its next wait is already recorded);
         // drop it (finished/faulted) otherwise.
         void ResolveCoroutineExecution(asIScriptContext* ctx, int result)
         {
-            if (result == asEXECUTION_SUSPENDED) { return; }
+            if (result == asEXECUTION_SUSPENDED)
+            {
+                return;
+            }
             const int index = FindCoroutine(ctx);
-            if (index >= 0) { DropCoroutineAt(static_cast<core::usize>(index)); }
+            if (index >= 0)
+            {
+                DropCoroutineAt(static_cast<core::usize>(index));
+            }
         }
 
         static constexpr core::f64 kDueEpsilon = 1e-4;
@@ -932,7 +1357,10 @@ namespace draconic::script::angelscript
         static void OnMessage(const asSMessageInfo* message, void* param)
         {
             AngelScriptManager* self = static_cast<AngelScriptManager*>(param);
-            if (message->type != asMSGTYPE_ERROR) { return; } // warnings/info: quiet
+            if (message->type != asMSGTYPE_ERROR)
+            {
+                return;
+            } // warnings/info: quiet
             if (self->m_capturing)
             {
                 CapturedMessage captured;
@@ -949,7 +1377,10 @@ namespace draconic::script::angelscript
         {
             for (const RegisteredType& entry : m_registered)
             {
-                if (entry.type == type) { return true; }
+                if (entry.type == type)
+                {
+                    return true;
+                }
             }
             return false;
         }
@@ -959,7 +1390,10 @@ namespace draconic::script::angelscript
         // declared object types as handles. False = not expressible, skip member.
         bool AppendDeclType(core::String& out, const core::TypeInfo* type, bool isParam) const
         {
-            if (type == nullptr) { return false; }
+            if (type == nullptr)
+            {
+                return false;
+            }
             // A delegate parameter is spelled as the ScriptDelegate funcdef handle.
             if (type == &IScriptDelegate::StaticType())
             {
@@ -977,7 +1411,10 @@ namespace draconic::script::angelscript
                 AppendAscii(out, primitive);
                 return true;
             }
-            if (!IsDeclared(type)) { return false; }
+            if (!IsDeclared(type))
+            {
+                return false;
+            }
             AppendAscii(out, type->name);
             AppendAscii(out, "@");
             return true;
@@ -987,31 +1424,46 @@ namespace draconic::script::angelscript
         // and anything AngelScript's own registry rejects, e.g. name collisions).
         void DeclareType(const core::TypeInfo& type)
         {
-            if (!IsValidIdentifier(type.name)) { return; }
-            if (PrimitiveDeclName(&type) != nullptr) { return; } // scalar/string currency
-            if (type.enumeratorCount > 0 || type.container != nullptr) { return; }
-            if (IsDeclared(&type)) { return; }
+            if (!IsValidIdentifier(type.name))
+            {
+                return;
+            }
+            if (PrimitiveDeclName(&type) != nullptr)
+            {
+                return;
+            } // scalar/string currency
+            if (type.enumeratorCount > 0 || type.container != nullptr)
+            {
+                return;
+            }
+            if (IsDeclared(&type))
+            {
+                return;
+            }
             const int typeId = m_engine->RegisterObjectType(type.name, 0, asOBJ_REF);
             if (typeId < 0)
             {
                 DRACONIC_LOG_DEBUG(u8"Script",
-                    u8"AngelScript: could not declare reflected type '{}' ({})",
-                    ViewOfAscii(type.name), typeId);
+                                   u8"AngelScript: could not declare reflected type '{}' ({})",
+                                   ViewOfAscii(type.name), typeId);
                 return;
             }
-            m_registered.PushBack(RegisteredType{ &type, typeId });
+            m_registered.PushBack(RegisteredType{&type, typeId});
         }
 
         // Phase 2: bind the declared type's members.
         void BindType(const core::TypeInfo& type)
         {
-            if (!IsDeclared(&type)) { return; }
+            if (!IsDeclared(&type))
+            {
+                return;
+            }
             const char* name = type.name;
 
             (void)m_engine->RegisterObjectBehaviour(name, asBEHAVE_ADDREF, "void f()",
-                asFUNCTION(AddRefDispatch), asCALL_GENERIC);
+                                                    asFUNCTION(AddRefDispatch), asCALL_GENERIC);
             (void)m_engine->RegisterObjectBehaviour(name, asBEHAVE_RELEASE, "void f()",
-                asFUNCTION(ReleaseDispatch), asCALL_GENERIC);
+                                                    asFUNCTION(ReleaseDispatch), asCALL_GENERIC);
 
             // Value assignment so `Float3 p = expr;` works (copies the boxed value). All reflected
             // types are asOBJ_REF boxes, so AngelScript otherwise reports no opAssign.
@@ -1021,8 +1473,8 @@ namespace draconic::script::angelscript
                 AppendAscii(decl, "& opAssign(const ");
                 AppendAscii(decl, name);
                 AppendAscii(decl, "&in)");
-                (void)m_engine->RegisterObjectMethod(name, CStr(decl),
-                    asFUNCTION(AssignDispatch), asCALL_GENERIC);
+                (void)m_engine->RegisterObjectMethod(name, CStr(decl), asFUNCTION(AssignDispatch),
+                                                     asCALL_GENERIC);
             }
 
             core::Array<core::String> used; // exact-declaration dedupe
@@ -1035,13 +1487,20 @@ namespace draconic::script::angelscript
                 core::String decl;
                 AppendAscii(decl, name);
                 AppendAscii(decl, "@ f(");
-                if (!AppendParams(decl, constructor.params, constructor.paramCount)) { continue; }
+                if (!AppendParams(decl, constructor.params, constructor.paramCount))
+                {
+                    continue;
+                }
                 AppendAscii(decl, ")");
-                if (IsUsed(used, decl)) { continue; }
-                Binding* binding = MakeBinding(Binding{ Binding::Kind::Constructor, this,
-                                                        &type, &constructor, nullptr, nullptr });
+                if (IsUsed(used, decl))
+                {
+                    continue;
+                }
+                Binding* binding = MakeBinding(Binding{Binding::Kind::Constructor, this, &type,
+                                                       &constructor, nullptr, nullptr});
                 if (m_engine->RegisterObjectBehaviour(name, asBEHAVE_FACTORY, CStr(decl),
-                        asFUNCTION(FactoryDispatch), asCALL_GENERIC, binding) >= 0)
+                                                      asFUNCTION(FactoryDispatch), asCALL_GENERIC,
+                                                      binding) >= 0)
                 {
                     used.PushBack(core::Move(decl));
                 }
@@ -1051,32 +1510,41 @@ namespace draconic::script::angelscript
             for (core::usize i = 0; i < core::PropertyCount(type); ++i)
             {
                 const core::PropertyInfo& property = core::PropertyAt(type, i);
-                if (!IsValidIdentifier(property.name)) { continue; }
+                if (!IsValidIdentifier(property.name))
+                {
+                    continue;
+                }
                 {
                     core::String decl;
-                    if (!AppendDeclType(decl, property.type, /*isParam*/ false)) { continue; }
+                    if (!AppendDeclType(decl, property.type, /*isParam*/ false))
+                    {
+                        continue;
+                    }
                     AppendAscii(decl, " get_");
                     AppendAscii(decl, property.name);
                     AppendAscii(decl, "() property");
-                    Binding* binding = MakeBinding(Binding{ Binding::Kind::PropertyGet, this,
-                                                            &type, nullptr, &property, nullptr });
-                    (void)m_engine->RegisterObjectMethod(name, CStr(decl),
-                        asFUNCTION(PropertyGetDispatch), asCALL_GENERIC, binding);
+                    Binding* binding = MakeBinding(Binding{Binding::Kind::PropertyGet, this, &type,
+                                                           nullptr, &property, nullptr});
+                    (void)m_engine->RegisterObjectMethod(
+                        name, CStr(decl), asFUNCTION(PropertyGetDispatch), asCALL_GENERIC, binding);
                 }
-                const bool readOnly = (static_cast<core::u32>(property.flags)
-                    & static_cast<core::u32>(core::PropertyFlags::ReadOnly)) != 0;
+                const bool readOnly = (static_cast<core::u32>(property.flags) &
+                                       static_cast<core::u32>(core::PropertyFlags::ReadOnly)) != 0;
                 if (!readOnly)
                 {
                     core::String decl;
                     AppendAscii(decl, "void set_");
                     AppendAscii(decl, property.name);
                     AppendAscii(decl, "(");
-                    if (!AppendDeclType(decl, property.type, /*isParam*/ true)) { continue; }
+                    if (!AppendDeclType(decl, property.type, /*isParam*/ true))
+                    {
+                        continue;
+                    }
                     AppendAscii(decl, ") property");
-                    Binding* binding = MakeBinding(Binding{ Binding::Kind::PropertySet, this,
-                                                            &type, nullptr, &property, nullptr });
-                    (void)m_engine->RegisterObjectMethod(name, CStr(decl),
-                        asFUNCTION(PropertySetDispatch), asCALL_GENERIC, binding);
+                    Binding* binding = MakeBinding(Binding{Binding::Kind::PropertySet, this, &type,
+                                                           nullptr, &property, nullptr});
+                    (void)m_engine->RegisterObjectMethod(
+                        name, CStr(decl), asFUNCTION(PropertySetDispatch), asCALL_GENERIC, binding);
                 }
             }
 
@@ -1088,36 +1556,54 @@ namespace draconic::script::angelscript
             for (core::usize i = 0; i < core::MethodCount(type); ++i)
             {
                 const core::MethodInfo& method = core::MethodAt(type, i);
-                if (!IsValidIdentifier(method.name)) { continue; }
+                if (!IsValidIdentifier(method.name))
+                {
+                    continue;
+                }
                 const core::TypeInfo* returnType =
                     (method.returnType != nullptr) ? method.returnType() : nullptr;
                 core::String decl;
-                if (returnType == nullptr) { AppendAscii(decl, "void"); }
-                else if (!AppendDeclType(decl, returnType, /*isParam*/ false)) { continue; }
+                if (returnType == nullptr)
+                {
+                    AppendAscii(decl, "void");
+                }
+                else if (!AppendDeclType(decl, returnType, /*isParam*/ false))
+                {
+                    continue;
+                }
                 AppendAscii(decl, " ");
                 AppendAscii(decl, method.name);
                 AppendAscii(decl, "(");
-                if (!AppendParams(decl, method.params, method.paramCount)) { continue; }
+                if (!AppendParams(decl, method.params, method.paramCount))
+                {
+                    continue;
+                }
                 AppendAscii(decl, ")");
 
                 core::Array<core::String>& dedupe = method.isStatic ? usedStatics : used;
-                if (IsUsed(dedupe, decl)) { continue; }
-                Binding* binding = MakeBinding(Binding{ Binding::Kind::Method, this,
-                                                        &type, nullptr, nullptr, &method });
+                if (IsUsed(dedupe, decl))
+                {
+                    continue;
+                }
+                Binding* binding = MakeBinding(
+                    Binding{Binding::Kind::Method, this, &type, nullptr, nullptr, &method});
                 int r;
                 if (method.isStatic)
                 {
                     (void)m_engine->SetDefaultNamespace(name);
-                    r = m_engine->RegisterGlobalFunction(CStr(decl),
-                        asFUNCTION(MethodDispatch), asCALL_GENERIC, binding);
+                    r = m_engine->RegisterGlobalFunction(CStr(decl), asFUNCTION(MethodDispatch),
+                                                         asCALL_GENERIC, binding);
                     (void)m_engine->SetDefaultNamespace("");
                 }
                 else
                 {
-                    r = m_engine->RegisterObjectMethod(name, CStr(decl),
-                        asFUNCTION(MethodDispatch), asCALL_GENERIC, binding);
+                    r = m_engine->RegisterObjectMethod(name, CStr(decl), asFUNCTION(MethodDispatch),
+                                                       asCALL_GENERIC, binding);
                 }
-                if (r >= 0) { dedupe.PushBack(core::Move(decl)); }
+                if (r >= 0)
+                {
+                    dedupe.PushBack(core::Move(decl));
+                }
             }
         }
 
@@ -1130,7 +1616,10 @@ namespace draconic::script::angelscript
                 {
                     return false;
                 }
-                if (p + 1 < count) { AppendAscii(decl, ", "); }
+                if (p + 1 < count)
+                {
+                    AppendAscii(decl, ", ");
+                }
             }
             return true;
         }
@@ -1140,7 +1629,10 @@ namespace draconic::script::angelscript
         {
             for (const core::String& existing : used)
             {
-                if (existing == decl) { return true; }
+                if (existing == decl)
+                {
+                    return true;
+                }
             }
             return false;
         }
@@ -1155,8 +1647,8 @@ namespace draconic::script::angelscript
         core::Array<Binding*> m_bindings;
         core::Array<CapturedMessage> m_capturedMessages;
         core::Array<Coroutine> m_coroutines;
-        core::Array<asIScriptContext*> m_dueScratch;   // reused per-frame due snapshot
-        AngelScriptDebugger* m_debugger = nullptr;      // borrowed; the active debugger (self-registers)
+        core::Array<asIScriptContext*> m_dueScratch; // reused per-frame due snapshot
+        AngelScriptDebugger* m_debugger = nullptr; // borrowed; the active debugger (self-registers)
     };
 
     // ---- generic dispatchers (run DURING script execution; the surrounding
@@ -1174,7 +1666,10 @@ namespace draconic::script::angelscript
         for (asUINT i = 0; i < argc; ++i)
         {
             const int typeId = gen->GetArgTypeId(i);
-            if ((typeId & asTYPEID_OBJHANDLE) == 0) { continue; }
+            if ((typeId & asTYPEID_OBJHANDLE) == 0)
+            {
+                continue;
+            }
             if (manager->TypeInfoForTypeId(typeId) != nullptr)
             {
                 ReleaseBox(static_cast<BoxedVariant*>(gen->GetArgObject(i)));
@@ -1194,17 +1689,20 @@ namespace draconic::script::angelscript
     {
         const Binding* binding = static_cast<const Binding*>(gen->GetAuxiliary());
         int argc = static_cast<int>(gen->GetArgCount());
-        if (argc > kMaxArgs) { argc = kMaxArgs; }
+        if (argc > kMaxArgs)
+        {
+            argc = kMaxArgs;
+        }
         core::Variant args[kMaxArgs];
         for (int i = 0; i < argc; ++i)
         {
             const core::ParamInfo& param = binding->constructor->params[i];
-            args[i] = binding->manager->ValueFromArg(gen, static_cast<asUINT>(i),
-                                                     param.type != nullptr ? param.type() : nullptr);
+            args[i] = binding->manager->ValueFromArg(
+                gen, static_cast<asUINT>(i), param.type != nullptr ? param.type() : nullptr);
         }
         ReleaseHandleArgs(gen, binding->manager);
         core::Result<core::Variant> created = binding->constructor->invoke(
-            core::Span<core::Variant>{ args, static_cast<core::usize>(argc) });
+            core::Span<core::Variant>{args, static_cast<core::usize>(argc)});
         if (!created.HasValue())
         {
             *static_cast<void**>(gen->GetAddressOfReturnLocation()) = nullptr;
@@ -1225,7 +1723,10 @@ namespace draconic::script::angelscript
     {
         BoxedVariant* self = static_cast<BoxedVariant*>(gen->GetObject());
         const BoxedVariant* other = static_cast<const BoxedVariant*>(gen->GetArgObject(0));
-        if (self != nullptr && other != nullptr) { self->value = other->value; }
+        if (self != nullptr && other != nullptr)
+        {
+            self->value = other->value;
+        }
         gen->SetReturnAddress(self);
     }
 
@@ -1262,16 +1763,21 @@ namespace draconic::script::angelscript
         const Binding* binding = static_cast<const Binding*>(gen->GetAuxiliary());
         const core::MethodInfo& method = *binding->method;
         int argc = static_cast<int>(gen->GetArgCount());
-        if (argc > kMaxArgs) { argc = kMaxArgs; }
+        if (argc > kMaxArgs)
+        {
+            argc = kMaxArgs;
+        }
         core::Variant args[kMaxArgs];
         for (int i = 0; i < argc; ++i)
         {
-            const core::TypeInfo* expected = (i < static_cast<int>(method.paramCount)
-                && method.params[i].type != nullptr) ? method.params[i].type() : nullptr;
+            const core::TypeInfo* expected =
+                (i < static_cast<int>(method.paramCount) && method.params[i].type != nullptr)
+                    ? method.params[i].type()
+                    : nullptr;
             args[i] = binding->manager->ValueFromArg(gen, static_cast<asUINT>(i), expected);
         }
         ReleaseHandleArgs(gen, binding->manager);
-        const core::Span<core::Variant> argSpan{ args, static_cast<core::usize>(argc) };
+        const core::Span<core::Variant> argSpan{args, static_cast<core::usize>(argc)};
         core::Result<core::Variant> result = core::Err(core::ErrorCode::Internal);
         if (method.isStatic)
         {
@@ -1283,7 +1789,7 @@ namespace draconic::script::angelscript
             result = core::InvokeMethod(method, core::ToInstance(self->value), argSpan);
         }
         binding->manager->SetGenericReturn(gen,
-            result.HasValue() ? result.Value() : core::Variant{});
+                                           result.HasValue() ? result.Value() : core::Variant{});
     }
 
     // ---- coroutine host functions (auxiliary = the manager) ----
@@ -1291,13 +1797,19 @@ namespace draconic::script::angelscript
     {
         AngelScriptManager* manager = static_cast<AngelScriptManager*>(gen->GetAuxiliary());
         asIScriptFunction* fn = static_cast<asIScriptFunction*>(gen->GetArgObject(0));
-        if (manager != nullptr) { manager->StartCoroutine(fn); }
+        if (manager != nullptr)
+        {
+            manager->StartCoroutine(fn);
+        }
     }
 
     void CoroutineWaitDispatch(asIScriptGeneric* gen)
     {
         AngelScriptManager* manager = static_cast<AngelScriptManager*>(gen->GetAuxiliary());
-        if (manager != nullptr) { manager->CoroutineWaitCurrent(gen->GetArgFloat(0)); }
+        if (manager != nullptr)
+        {
+            manager->CoroutineWaitCurrent(gen->GetArgFloat(0));
+        }
     }
 
     // ---- context -------------------------------------------------------------
@@ -1315,7 +1827,10 @@ namespace draconic::script::angelscript
         {
             // No ScriptObject outlives its context (they hold a strong ref), so
             // discarding this context's modules is safe here.
-            for (asIScriptModule* module : m_ownedModules) { module->Discard(); }
+            for (asIScriptModule* module : m_ownedModules)
+            {
+                module->Discard();
+            }
         }
 
         AngelScriptContext(const AngelScriptContext&) = delete;
@@ -1330,11 +1845,14 @@ namespace draconic::script::angelscript
             AppendAscii(moduleName, ":");
             AppendUint(moduleName, m_loadCounter++);
             asIScriptModule* module = engine->GetModule(CStr(moduleName), asGM_ALWAYS_CREATE);
-            if (module == nullptr) { return core::Status{ core::ErrorCode::Internal }; }
+            if (module == nullptr)
+            {
+                return core::Status{core::ErrorCode::Internal};
+            }
 
             const core::String section(chunkName);
-            (void)module->AddScriptSection(CStr(section),
-                reinterpret_cast<const char*>(source.Data()), source.Size());
+            (void)module->AddScriptSection(
+                CStr(section), reinterpret_cast<const char*>(source.Data()), source.Size());
             // The in-script `waitUntil` helper, in its OWN section so it never shifts the
             // user source's error line numbers (the funcdefs + `wait` are engine-global).
             (void)module->AddScriptSection("__coroutine_support", kCoroutinePreludeSection);
@@ -1348,13 +1866,13 @@ namespace draconic::script::angelscript
                 result = module->Build();
             }
             const bool initFailed = (result == asINIT_GLOBAL_VARS_FAILED);
-            m_manager->EndMessageCapture(m_errorHandler,
-                initFailed ? ScriptErrorKind::Runtime : ScriptErrorKind::Compile);
+            m_manager->EndMessageCapture(m_errorHandler, initFailed ? ScriptErrorKind::Runtime
+                                                                    : ScriptErrorKind::Compile);
             if (result < 0)
             {
                 module->Discard();
-                return core::Status{ initFailed ? core::ErrorCode::Internal
-                                                : core::ErrorCode::InvalidArgument };
+                return core::Status{initFailed ? core::ErrorCode::Internal
+                                               : core::ErrorCode::InvalidArgument};
             }
 
             m_ownedModules.PushBack(module);
@@ -1365,9 +1883,12 @@ namespace draconic::script::angelscript
             // and script-setup seam the contract's Load semantics map onto).
             if (asIScriptFunction* entry = module->GetFunctionByName("main"))
             {
-                core::Result<core::Variant> ran = ExecuteCall(entry, nullptr,
-                                                              core::Span<core::Variant>{});
-                if (!ran.HasValue()) { return core::Status{ core::ErrorCode::Internal }; }
+                core::Result<core::Variant> ran =
+                    ExecuteCall(entry, nullptr, core::Span<core::Variant>{});
+                if (!ran.HasValue())
+                {
+                    return core::Status{core::ErrorCode::Internal};
+                }
             }
             return core::Status{};
         }
@@ -1382,7 +1903,10 @@ namespace draconic::script::angelscript
             asIScriptEngine* engine = m_manager->Engine();
             const core::String moduleNameStr(moduleName);
             asIScriptModule* module = engine->GetModule(CStr(moduleNameStr), asGM_ALWAYS_CREATE);
-            if (module == nullptr) { return core::Status{ core::ErrorCode::Internal }; }
+            if (module == nullptr)
+            {
+                return core::Status{core::ErrorCode::Internal};
+            }
 
             // One section PER CLASS, named by its sourceName (the editor's breakpoint key).
             // A class with no sourceName falls back to the module name (still compiles; only
@@ -1391,7 +1915,8 @@ namespace draconic::script::angelscript
             {
                 const core::String section(entry.name.IsEmpty() ? moduleName : entry.name);
                 (void)module->AddScriptSection(CStr(section),
-                    reinterpret_cast<const char*>(entry.source.Data()), entry.source.Size());
+                                               reinterpret_cast<const char*>(entry.source.Data()),
+                                               entry.source.Size());
             }
             // The in-script `waitUntil` helper, in its OWN section (line numbers unaffected).
             (void)module->AddScriptSection("__coroutine_support", kCoroutinePreludeSection);
@@ -1403,13 +1928,13 @@ namespace draconic::script::angelscript
                 result = module->Build();
             }
             const bool initFailed = (result == asINIT_GLOBAL_VARS_FAILED);
-            m_manager->EndMessageCapture(m_errorHandler,
-                initFailed ? ScriptErrorKind::Runtime : ScriptErrorKind::Compile);
+            m_manager->EndMessageCapture(m_errorHandler, initFailed ? ScriptErrorKind::Runtime
+                                                                    : ScriptErrorKind::Compile);
             if (result < 0)
             {
                 module->Discard();
-                return core::Status{ initFailed ? core::ErrorCode::Internal
-                                                : core::ErrorCode::InvalidArgument };
+                return core::Status{initFailed ? core::ErrorCode::Internal
+                                               : core::ErrorCode::InvalidArgument};
             }
 
             m_ownedModules.PushBack(module);
@@ -1417,37 +1942,52 @@ namespace draconic::script::angelscript
 
             if (asIScriptFunction* entry = module->GetFunctionByName("main"))
             {
-                core::Result<core::Variant> ran = ExecuteCall(entry, nullptr,
-                                                              core::Span<core::Variant>{});
-                if (!ran.HasValue()) { return core::Status{ core::ErrorCode::Internal }; }
+                core::Result<core::Variant> ran =
+                    ExecuteCall(entry, nullptr, core::Span<core::Variant>{});
+                if (!ran.HasValue())
+                {
+                    return core::Status{core::ErrorCode::Internal};
+                }
             }
             return core::Status{};
         }
 
         void SetGlobal(core::StringView name, const core::Variant& value) override
         {
-            if (m_module == nullptr) { return; }
+            if (m_module == nullptr)
+            {
+                return;
+            }
             const core::String globalName(name);
             const int index = m_module->GetGlobalVarIndexByName(CStr(globalName));
-            if (index < 0) { return; }
+            if (index < 0)
+            {
+                return;
+            }
             int typeId = 0;
             (void)m_module->GetGlobalVar(static_cast<asUINT>(index), nullptr, nullptr, &typeId,
                                          nullptr);
-            (void)m_manager->WriteTypedAddress(typeId,
-                m_module->GetAddressOfGlobalVar(static_cast<asUINT>(index)), value);
+            (void)m_manager->WriteTypedAddress(
+                typeId, m_module->GetAddressOfGlobalVar(static_cast<asUINT>(index)), value);
         }
 
         [[nodiscard]] core::Variant GetGlobal(core::StringView name) override
         {
-            if (m_module == nullptr) { return core::Variant{}; }
+            if (m_module == nullptr)
+            {
+                return core::Variant{};
+            }
             const core::String globalName(name);
             const int index = m_module->GetGlobalVarIndexByName(CStr(globalName));
-            if (index < 0) { return core::Variant{}; }
+            if (index < 0)
+            {
+                return core::Variant{};
+            }
             int typeId = 0;
             (void)m_module->GetGlobalVar(static_cast<asUINT>(index), nullptr, nullptr, &typeId,
                                          nullptr);
-            return m_manager->VariantFromTypedAddress(typeId,
-                m_module->GetAddressOfGlobalVar(static_cast<asUINT>(index)));
+            return m_manager->VariantFromTypedAddress(
+                typeId, m_module->GetAddressOfGlobalVar(static_cast<asUINT>(index)));
         }
 
         [[nodiscard]] bool HasFunction(core::StringView name) const override
@@ -1467,22 +2007,28 @@ namespace draconic::script::angelscript
             return ExecuteCall(target, nullptr, args);
         }
 
-        [[nodiscard]] core::RefPtr<ScriptObject> CreateInstance(
-            core::StringView className, core::Span<core::Variant> args) override;
+        [[nodiscard]] core::RefPtr<ScriptObject>
+        CreateInstance(core::StringView className, core::Span<core::Variant> args) override;
 
         // Prepare + execute a script function on the engine's pooled contexts.
         // The public seam AngelScriptObject::Invoke dispatches through as well.
-        [[nodiscard]] core::Result<core::Variant> ExecuteCall(
-            asIScriptFunction* function, void* object, core::Span<core::Variant> args)
+        [[nodiscard]] core::Result<core::Variant>
+        ExecuteCall(asIScriptFunction* function, void* object, core::Span<core::Variant> args)
         {
             asIScriptEngine* engine = m_manager->Engine();
             asIScriptContext* executor = engine->RequestContext();
             if (executor == nullptr || executor->Prepare(function) < 0)
             {
-                if (executor != nullptr) { engine->ReturnContext(executor); }
+                if (executor != nullptr)
+                {
+                    engine->ReturnContext(executor);
+                }
                 return core::Err(core::ErrorCode::Internal);
             }
-            if (object != nullptr) { (void)executor->SetObject(object); }
+            if (object != nullptr)
+            {
+                (void)executor->SetObject(object);
+            }
 
             std::string stringTemps[kMaxArgs];
             BoxedVariant* boxTemps[kMaxArgs] = {};
@@ -1491,7 +2037,10 @@ namespace draconic::script::angelscript
             // Arm the step debugger (if attached) on this executor: its line callback calls
             // ctx->Suspend() on a breakpoint/step line, unwinding back here as SUSPENDED.
             AngelScriptDebugger* debugger = m_manager->ActiveDebugger();
-            if (debugger != nullptr) { ArmDebugger(*debugger, executor, this); }
+            if (debugger != nullptr)
+            {
+                ArmDebugger(*debugger, executor, this);
+            }
 
             int result;
             {
@@ -1505,29 +2054,38 @@ namespace draconic::script::angelscript
             // return it to the pool, and report a paused status the subsystem recognizes (via
             // the run host's pause flag) - never a fault, never completion. Value args only
             // (lifecycle handlers take a numeric dt or nothing), so releasing box args is safe.
-            if (result == asEXECUTION_SUSPENDED && debugger != nullptr
-                && AdoptDebuggerSuspension(*debugger, executor))
+            if (result == asEXECUTION_SUSPENDED && debugger != nullptr &&
+                AdoptDebuggerSuspension(*debugger, executor))
             {
-                for (BoxedVariant* box : boxTemps) { ReleaseBox(box); }
+                for (BoxedVariant* box : boxTemps)
+                {
+                    ReleaseBox(box);
+                }
                 return core::Err(core::ErrorCode::Internal);
             }
-            for (BoxedVariant* box : boxTemps) { ReleaseBox(box); }
+            for (BoxedVariant* box : boxTemps)
+            {
+                ReleaseBox(box);
+            }
 
             core::Result<core::Variant> outcome = core::Err(core::ErrorCode::Internal);
             if (result == asEXECUTION_FINISHED)
             {
                 const int returnTypeId = function->GetReturnTypeId();
                 outcome = (returnTypeId == asTYPEID_VOID)
-                    ? core::Result<core::Variant>(core::Variant{})
-                    : core::Result<core::Variant>(m_manager->VariantFromTypedAddress(
-                          returnTypeId, executor->GetAddressOfReturnValue()));
+                              ? core::Result<core::Variant>(core::Variant{})
+                              : core::Result<core::Variant>(m_manager->VariantFromTypedAddress(
+                                    returnTypeId, executor->GetAddressOfReturnValue()));
             }
             else if (result == asEXECUTION_EXCEPTION)
             {
                 ReportException(executor);
             }
             // Never return a context to the pool carrying a stale line callback.
-            if (debugger != nullptr) { executor->ClearLineCallback(); }
+            if (debugger != nullptr)
+            {
+                executor->ClearLineCallback();
+            }
             engine->ReturnContext(executor);
             return outcome;
         }
@@ -1537,7 +2095,10 @@ namespace draconic::script::angelscript
     private:
         [[nodiscard]] asIScriptFunction* FindFunction(core::StringView name, int argc) const
         {
-            if (m_module == nullptr) { return nullptr; }
+            if (m_module == nullptr)
+            {
+                return nullptr;
+            }
             const core::String functionName(name);
             asIScriptFunction* byName = nullptr;
             for (asUINT i = 0; i < m_module->GetFunctionCount(); ++i)
@@ -1552,7 +2113,10 @@ namespace draconic::script::angelscript
                 {
                     return candidate;
                 }
-                if (byName == nullptr) { byName = candidate; }
+                if (byName == nullptr)
+                {
+                    byName = candidate;
+                }
             }
             return byName;
         }
@@ -1573,18 +2137,37 @@ namespace draconic::script::angelscript
                 const double number = NumericOf(value, ok);
                 switch (typeId)
                 {
-                    case asTYPEID_BOOL:   (void)executor->SetArgByte(arg, number != 0.0 ? 1 : 0); continue;
-                    case asTYPEID_INT8:
-                    case asTYPEID_UINT8:  (void)executor->SetArgByte(arg, static_cast<asBYTE>(static_cast<core::i64>(number))); continue;
-                    case asTYPEID_INT16:
-                    case asTYPEID_UINT16: (void)executor->SetArgWord(arg, static_cast<asWORD>(static_cast<core::i64>(number))); continue;
-                    case asTYPEID_INT32:
-                    case asTYPEID_UINT32: (void)executor->SetArgDWord(arg, static_cast<asDWORD>(static_cast<core::i64>(number))); continue;
-                    case asTYPEID_INT64:
-                    case asTYPEID_UINT64: (void)executor->SetArgQWord(arg, static_cast<asQWORD>(static_cast<core::i64>(number))); continue;
-                    case asTYPEID_FLOAT:  (void)executor->SetArgFloat(arg, static_cast<float>(number)); continue;
-                    case asTYPEID_DOUBLE: (void)executor->SetArgDouble(arg, number); continue;
-                    default: break;
+                case asTYPEID_BOOL:
+                    (void)executor->SetArgByte(arg, number != 0.0 ? 1 : 0);
+                    continue;
+                case asTYPEID_INT8:
+                case asTYPEID_UINT8:
+                    (void)executor->SetArgByte(arg,
+                                               static_cast<asBYTE>(static_cast<core::i64>(number)));
+                    continue;
+                case asTYPEID_INT16:
+                case asTYPEID_UINT16:
+                    (void)executor->SetArgWord(arg,
+                                               static_cast<asWORD>(static_cast<core::i64>(number)));
+                    continue;
+                case asTYPEID_INT32:
+                case asTYPEID_UINT32:
+                    (void)executor->SetArgDWord(
+                        arg, static_cast<asDWORD>(static_cast<core::i64>(number)));
+                    continue;
+                case asTYPEID_INT64:
+                case asTYPEID_UINT64:
+                    (void)executor->SetArgQWord(
+                        arg, static_cast<asQWORD>(static_cast<core::i64>(number)));
+                    continue;
+                case asTYPEID_FLOAT:
+                    (void)executor->SetArgFloat(arg, static_cast<float>(number));
+                    continue;
+                case asTYPEID_DOUBLE:
+                    (void)executor->SetArgDouble(arg, number);
+                    continue;
+                default:
+                    break;
                 }
                 if (typeId == m_manager->StringTypeId())
                 {
@@ -1594,10 +2177,11 @@ namespace draconic::script::angelscript
                     (void)executor->SetArgObject(arg, &stringTemps[i]);
                     continue;
                 }
-                if ((typeId & asTYPEID_OBJHANDLE) != 0
-                    && m_manager->TypeInfoForTypeId(typeId) != nullptr && !value.IsEmpty())
+                if ((typeId & asTYPEID_OBJHANDLE) != 0 &&
+                    m_manager->TypeInfoForTypeId(typeId) != nullptr && !value.IsEmpty())
                 {
-                    boxTemps[i] = NewBox(value); // SetArgObject AddRefs; ours released after Execute
+                    boxTemps[i] =
+                        NewBox(value); // SetArgObject AddRefs; ours released after Execute
                     (void)executor->SetArgObject(arg, boxTemps[i]);
                     continue;
                 }
@@ -1610,9 +2194,9 @@ namespace draconic::script::angelscript
             const int line = executor->GetExceptionLineNumber(nullptr, &section);
             if (m_errorHandler != nullptr)
             {
-                const ScriptError error{ ScriptErrorKind::Runtime, ViewOfAscii(section),
-                                         static_cast<core::i32>(line),
-                                         ViewOfAscii(executor->GetExceptionString()) };
+                const ScriptError error{ScriptErrorKind::Runtime, ViewOfAscii(section),
+                                        static_cast<core::i32>(line),
+                                        ViewOfAscii(executor->GetExceptionString())};
                 m_errorHandler->OnError(error);
                 return;
             }
@@ -1623,7 +2207,7 @@ namespace draconic::script::angelscript
         IScriptErrorHandler* m_errorHandler = nullptr;
         core::String m_namePrefix;
         core::u32 m_loadCounter = 0;
-        asIScriptModule* m_module = nullptr;            // most recent successful Load
+        asIScriptModule* m_module = nullptr; // most recent successful Load
         core::Array<asIScriptModule*> m_ownedModules;
     };
 
@@ -1633,14 +2217,18 @@ namespace draconic::script::angelscript
     class AngelScriptObject final : public ScriptObject
     {
     public:
-        AngelScriptObject(core::RefPtr<AngelScriptContext> owner, asIScriptObject* instance) noexcept
+        AngelScriptObject(core::RefPtr<AngelScriptContext> owner,
+                          asIScriptObject* instance) noexcept
             : m_owner(core::Move(owner)), m_instance(instance)
         {
         }
 
         ~AngelScriptObject() override
         {
-            if (m_instance != nullptr) { m_instance->Release(); }
+            if (m_instance != nullptr)
+            {
+                m_instance->Release();
+            }
         }
 
         AngelScriptObject(const AngelScriptObject&) = delete;
@@ -1653,7 +2241,10 @@ namespace draconic::script::angelscript
                                                          core::Span<core::Variant> args) override
         {
             asITypeInfo* type = m_instance->GetObjectType();
-            if (type == nullptr) { return core::Err(core::ErrorCode::NotFound); }
+            if (type == nullptr)
+            {
+                return core::Err(core::ErrorCode::NotFound);
+            }
 
             // The neutral property-apply path Invokes the setter as `<name>=` with one
             // argument (the Wren `name=(v)` setter convention). AngelScript has no method
@@ -1663,7 +2254,10 @@ namespace draconic::script::angelscript
             if (args.Size() == 1 && !method.IsEmpty() && method[method.Size() - 1] == u8'=')
             {
                 const core::StringView fieldName = method.SubStr(0, method.Size() - 1);
-                if (SetMemberField(fieldName, args[0])) { return core::Variant{}; }
+                if (SetMemberField(fieldName, args[0]))
+                {
+                    return core::Variant{};
+                }
                 return core::Err(core::ErrorCode::NotFound);
             }
 
@@ -1673,14 +2267,17 @@ namespace draconic::script::angelscript
             {
                 asIScriptFunction* candidate = type->GetMethodByIndex(i);
                 const char* candidateName = candidate->GetName();
-                if (candidateName != nullptr && NameEq(candidateName, CStr(methodName))
-                    && candidate->GetParamCount() == args.Size())
+                if (candidateName != nullptr && NameEq(candidateName, CStr(methodName)) &&
+                    candidate->GetParamCount() == args.Size())
                 {
                     target = candidate;
                     break;
                 }
             }
-            if (target == nullptr) { return core::Err(core::ErrorCode::NotFound); }
+            if (target == nullptr)
+            {
+                return core::Err(core::ErrorCode::NotFound);
+            }
             return m_owner->ExecuteCall(target, m_instance, args);
         }
 
@@ -1696,7 +2293,10 @@ namespace draconic::script::angelscript
             for (asUINT i = 0; i < count; ++i)
             {
                 const char* memberName = m_instance->GetPropertyName(i);
-                if (memberName == nullptr || !NameEq(memberName, CStr(name))) { continue; }
+                if (memberName == nullptr || !NameEq(memberName, CStr(name)))
+                {
+                    continue;
+                }
                 return m_owner->Manager().WriteTypedAddress(
                     m_instance->GetPropertyTypeId(i), m_instance->GetAddressOfProperty(i), value);
             }
@@ -1714,15 +2314,22 @@ namespace draconic::script::angelscript
     class AngelScriptDelegate final : public IScriptDelegate
     {
     public:
-        AngelScriptDelegate(core::RefPtr<AngelScriptManager> manager, asIScriptFunction* function) noexcept
+        AngelScriptDelegate(core::RefPtr<AngelScriptManager> manager,
+                            asIScriptFunction* function) noexcept
             : m_manager(core::Move(manager)), m_function(function)
         {
-            if (m_function != nullptr) { m_function->AddRef(); }
+            if (m_function != nullptr)
+            {
+                m_function->AddRef();
+            }
         }
 
         ~AngelScriptDelegate() override
         {
-            if (m_function != nullptr) { m_function->Release(); }
+            if (m_function != nullptr)
+            {
+                m_function->Release();
+            }
         }
 
         AngelScriptDelegate(const AngelScriptDelegate&) = delete;
@@ -1747,7 +2354,10 @@ namespace draconic::script::angelscript
         // The wrapping happens inside a reflected dispatch, so the executing context (and its
         // manager) is the current script context.
         IScriptContext* current = CurrentScriptContext();
-        if (current == nullptr || function == nullptr) { return core::Variant{}; }
+        if (current == nullptr || function == nullptr)
+        {
+            return core::Variant{};
+        }
         AngelScriptContext* context = static_cast<AngelScriptContext*>(current);
         core::RefPtr<AngelScriptManager> manager(&context->Manager());
         core::RefPtr<IScriptDelegate> delegate(core::MakeRef<AngelScriptDelegate>(
@@ -1762,7 +2372,10 @@ namespace draconic::script::angelscript
         asIScriptObject* owner = static_cast<AngelScriptObject&>(instance).ScriptInstance();
         for (core::usize i = m_coroutines.Size(); i-- > 0;)
         {
-            if (m_coroutines[i].owner == owner) { DropCoroutineAt(i); }
+            if (m_coroutines[i].owner == owner)
+            {
+                DropCoroutineAt(i);
+            }
         }
     }
 
@@ -1779,7 +2392,10 @@ namespace draconic::script::angelscript
     public:
         explicit AngelScriptDebugger(AngelScriptManager* manager) noexcept : m_manager(manager)
         {
-            if (m_manager != nullptr) { m_manager->SetActiveDebugger(this); }
+            if (m_manager != nullptr)
+            {
+                m_manager->SetActiveDebugger(this);
+            }
         }
 
         ~AngelScriptDebugger() override
@@ -1795,7 +2411,10 @@ namespace draconic::script::angelscript
                 }
                 m_pausedContext = nullptr;
             }
-            if (m_manager != nullptr) { m_manager->SetActiveDebugger(nullptr); }
+            if (m_manager != nullptr)
+            {
+                m_manager->SetActiveDebugger(nullptr);
+            }
         }
 
         AngelScriptDebugger(const AngelScriptDebugger&) = delete;
@@ -1806,9 +2425,12 @@ namespace draconic::script::angelscript
         {
             for (const Breakpoint& breakpoint : m_breakpoints)
             {
-                if (breakpoint.line == line && breakpoint.file.AsView() == file) { return; }
+                if (breakpoint.line == line && breakpoint.file.AsView() == file)
+                {
+                    return;
+                }
             }
-            m_breakpoints.PushBack(Breakpoint{ core::String(file), line });
+            m_breakpoints.PushBack(Breakpoint{core::String(file), line});
         }
 
         void RemoveBreakpoint(core::StringView file, core::i32 line) override
@@ -1834,17 +2456,20 @@ namespace draconic::script::angelscript
         [[nodiscard]] core::Array<ScriptStackFrame> CaptureStackFrames() override
         {
             core::Array<ScriptStackFrame> frames;
-            if (m_pausedContext == nullptr) { return frames; }
+            if (m_pausedContext == nullptr)
+            {
+                return frames;
+            }
             const asUINT size = m_pausedContext->GetCallstackSize();
-            for (asUINT level = 0; level < size; ++level)   // level 0 = innermost
+            for (asUINT level = 0; level < size; ++level) // level 0 = innermost
             {
                 ScriptStackFrame frame;
                 const char* section = nullptr;
                 frame.line = m_pausedContext->GetLineNumber(level, nullptr, &section);
                 frame.file = core::String(ViewOfAscii(section));
                 asIScriptFunction* function = m_pausedContext->GetFunction(level);
-                frame.function = core::String(ViewOfAscii(
-                    function != nullptr ? function->GetDeclaration() : "?"));
+                frame.function = core::String(
+                    ViewOfAscii(function != nullptr ? function->GetDeclaration() : "?"));
                 frames.PushBack(core::Move(frame));
             }
             return frames;
@@ -1853,7 +2478,10 @@ namespace draconic::script::angelscript
         [[nodiscard]] core::Array<ScriptVariable> CaptureLocals(core::u32 depth) override
         {
             core::Array<ScriptVariable> locals;
-            if (m_pausedContext == nullptr) { return locals; }
+            if (m_pausedContext == nullptr)
+            {
+                return locals;
+            }
             const int count = m_pausedContext->GetVarCount(depth);
             for (int i = 0; i < count; ++i)
             {
@@ -1863,7 +2491,10 @@ namespace draconic::script::angelscript
                 {
                     continue;
                 }
-                if (name == nullptr || name[0] == '\0') { continue; }   // unnamed temporary
+                if (name == nullptr || name[0] == '\0')
+                {
+                    continue;
+                } // unnamed temporary
                 ScriptVariable variable;
                 variable.name = core::String(ViewOfAscii(name));
                 const char* declaration =
@@ -1887,17 +2518,23 @@ namespace draconic::script::angelscript
         {
             core::Array<ScriptVariable> members;
             core::Variant* stored = FindObject(objectRef);
-            if (stored == nullptr) { return members; }
+            if (stored == nullptr)
+            {
+                return members;
+            }
             const core::TypeInfo* type = stored->Type();
-            if (type == nullptr) { return members; }
+            if (type == nullptr)
+            {
+                return members;
+            }
             core::Instance instance = core::ToInstance(*stored);
             for (core::usize i = 0; i < core::PropertyCount(*type); ++i)
             {
                 const core::PropertyInfo& property = core::PropertyAt(*type, i);
                 ScriptVariable variable;
                 variable.name = core::String(ViewOfAscii(property.name));
-                variable.typeName = core::String(ViewOfAscii(
-                    property.type != nullptr ? property.type->name : "?"));
+                variable.typeName =
+                    core::String(ViewOfAscii(property.type != nullptr ? property.type->name : "?"));
                 core::Variant value = core::GetProperty(property, instance);
                 DescribeValue(variable, value);
                 members.PushBack(core::Move(variable));
@@ -1918,7 +2555,10 @@ namespace draconic::script::angelscript
         // True (and adopts the context) when this debugger's line callback suspended `ctx`.
         [[nodiscard]] bool Adopt(asIScriptContext* ctx)
         {
-            if (m_pausedContext != ctx) { return false; }
+            if (m_pausedContext != ctx)
+            {
+                return false;
+            }
             m_paused = true;
             FireState(m_cause == Cause::Step ? ScriptDebuggerState::Stepped
                                              : ScriptDebuggerState::Breakpoint);
@@ -1946,10 +2586,21 @@ namespace draconic::script::angelscript
                 const int depth = static_cast<int>(ctx->GetCallstackSize());
                 const bool depthOk = (m_stepMode == StepMode::Into) || (depth <= m_stepBaseDepth);
                 const bool moved = (line != m_stepFromLine) || (depth != m_stepFromDepth);
-                if (depthOk && moved) { suspend = true; cause = Cause::Step; }
+                if (depthOk && moved)
+                {
+                    suspend = true;
+                    cause = Cause::Step;
+                }
             }
-            if (!suspend && IsBreakpoint(section, line)) { suspend = true; cause = Cause::Breakpoint; }
-            if (!suspend) { return; }
+            if (!suspend && IsBreakpoint(section, line))
+            {
+                suspend = true;
+                cause = Cause::Breakpoint;
+            }
+            if (!suspend)
+            {
+                return;
+            }
             m_pausedContext = ctx;
             m_cause = cause;
             m_stepArmed = false;
@@ -1957,8 +2608,17 @@ namespace draconic::script::angelscript
         }
 
     private:
-        enum class StepMode { None, Into, Over };
-        enum class Cause { Breakpoint, Step };
+        enum class StepMode
+        {
+            None,
+            Into,
+            Over
+        };
+        enum class Cause
+        {
+            Breakpoint,
+            Step
+        };
 
         struct Breakpoint
         {
@@ -1990,16 +2650,19 @@ namespace draconic::script::angelscript
         void DescribeValue(ScriptVariable& variable, const core::Variant& value)
         {
             const core::TypeInfo* type = value.Type();
-            const bool expandable = type != nullptr && core::PropertyCount(*type) > 0
-                                 && PrimitiveDeclName(type) == nullptr;
-            if (expandable) { variable.objectRef = StoreObject(value); }
+            const bool expandable = type != nullptr && core::PropertyCount(*type) > 0 &&
+                                    PrimitiveDeclName(type) == nullptr;
+            if (expandable)
+            {
+                variable.objectRef = StoreObject(value);
+            }
             variable.value = DebugValueText(value);
         }
 
         [[nodiscard]] core::u64 StoreObject(const core::Variant& value)
         {
             const core::u64 ref = m_nextObjectRef++;
-            m_objects.PushBack(CapturedObject{ ref, value });
+            m_objects.PushBack(CapturedObject{ref, value});
             return ref;
         }
 
@@ -2007,7 +2670,10 @@ namespace draconic::script::angelscript
         {
             for (CapturedObject& object : m_objects)
             {
-                if (object.ref == ref) { return &object.value; }
+                if (object.ref == ref)
+                {
+                    return &object.value;
+                }
             }
             return nullptr;
         }
@@ -2017,7 +2683,10 @@ namespace draconic::script::angelscript
         // resumed facade calls still resolve their per-context services.
         void Resume(StepMode mode)
         {
-            if (m_pausedContext == nullptr) { return; }
+            if (m_pausedContext == nullptr)
+            {
+                return;
+            }
             asIScriptContext* ctx = m_pausedContext;
             if (mode == StepMode::None)
             {
@@ -2032,8 +2701,8 @@ namespace draconic::script::angelscript
                 m_stepFromLine = ctx->GetLineNumber(0, nullptr, nullptr);
             }
             m_paused = false;
-            m_pausedContext = nullptr;   // re-set by the line callback if it suspends again
-            m_objects.Clear();           // object refs are valid only within one break
+            m_pausedContext = nullptr; // re-set by the line callback if it suspends again
+            m_objects.Clear();         // object refs are valid only within one break
             m_nextObjectRef = 1;
             FireState(ScriptDebuggerState::Running);
 
@@ -2047,7 +2716,7 @@ namespace draconic::script::angelscript
                 m_paused = true;
                 FireState(m_cause == Cause::Step ? ScriptDebuggerState::Stepped
                                                  : ScriptDebuggerState::Breakpoint);
-                return;   // still holding the context, paused again
+                return; // still holding the context, paused again
             }
             // Ran to completion (or faulted): release the context back to the pool.
             ctx->ClearLineCallback();
@@ -2060,16 +2729,20 @@ namespace draconic::script::angelscript
 
         void FireState(ScriptDebuggerState state)
         {
-            if (m_listener != nullptr) { m_listener->OnDebuggerStateChanged(state); }
+            if (m_listener != nullptr)
+            {
+                m_listener->OnDebuggerStateChanged(state);
+            }
         }
 
         AngelScriptManager* m_manager = nullptr;
         IScriptDebuggerListener* m_listener = nullptr;
-        IScriptContext* m_owner = nullptr;             // call scope for a resumed context
-        asIScriptContext* m_pausedContext = nullptr;   // the held suspended context (owned while paused)
+        IScriptContext* m_owner = nullptr; // call scope for a resumed context
+        asIScriptContext* m_pausedContext =
+            nullptr; // the held suspended context (owned while paused)
         core::Array<Breakpoint> m_breakpoints;
-        core::Array<CapturedObject> m_objects;         // lazily-expandable handles for this break
-        core::u64 m_nextObjectRef = 1;                 // 0 = a leaf scalar
+        core::Array<CapturedObject> m_objects; // lazily-expandable handles for this break
+        core::u64 m_nextObjectRef = 1;         // 0 = a leaf scalar
         Cause m_cause = Cause::Breakpoint;
         StepMode m_stepMode = StepMode::None;
         int m_stepFromLine = -1;
@@ -2109,18 +2782,27 @@ namespace draconic::script::angelscript
             core::DefaultAllocator(), core::RefPtr<AngelScriptManager>(this), m_nextContextId++));
     }
 
-    core::RefPtr<ScriptObject> AngelScriptContext::CreateInstance(
-        core::StringView className, core::Span<core::Variant> args)
+    core::RefPtr<ScriptObject> AngelScriptContext::CreateInstance(core::StringView className,
+                                                                  core::Span<core::Variant> args)
     {
-        if (m_module == nullptr) { return nullptr; }
+        if (m_module == nullptr)
+        {
+            return nullptr;
+        }
         const core::String name(className);
         asITypeInfo* type = m_module->GetTypeInfoByDecl(CStr(name));
-        if (type == nullptr) { return nullptr; }
+        if (type == nullptr)
+        {
+            return nullptr;
+        }
         asIScriptFunction* factory = nullptr;
         for (asUINT i = 0; i < type->GetFactoryCount(); ++i)
         {
             asIScriptFunction* candidate = type->GetFactoryByIndex(i);
-            if (candidate->GetParamCount() != args.Size()) { continue; }
+            if (candidate->GetParamCount() != args.Size())
+            {
+                continue;
+            }
             if (args.Size() == 1)
             {
                 // Skip the implicit copy factory (one self-typed parameter) - a
@@ -2128,18 +2810,27 @@ namespace draconic::script::angelscript
                 int paramTypeId = 0;
                 (void)candidate->GetParam(0, &paramTypeId);
                 const int baseId = paramTypeId & ~(asTYPEID_OBJHANDLE | asTYPEID_HANDLETOCONST);
-                if (baseId == type->GetTypeId()) { continue; }
+                if (baseId == type->GetTypeId())
+                {
+                    continue;
+                }
             }
             factory = candidate;
             break;
         }
-        if (factory == nullptr) { return nullptr; }
+        if (factory == nullptr)
+        {
+            return nullptr;
+        }
 
         asIScriptEngine* engine = m_manager->Engine();
         asIScriptContext* executor = engine->RequestContext();
         if (executor == nullptr || executor->Prepare(factory) < 0)
         {
-            if (executor != nullptr) { engine->ReturnContext(executor); }
+            if (executor != nullptr)
+            {
+                engine->ReturnContext(executor);
+            }
             return nullptr;
         }
         std::string stringTemps[kMaxArgs];
@@ -2150,19 +2841,28 @@ namespace draconic::script::angelscript
             ScriptCallScope scope(this);
             result = executor->Execute();
         }
-        for (BoxedVariant* box : boxTemps) { ReleaseBox(box); }
+        for (BoxedVariant* box : boxTemps)
+        {
+            ReleaseBox(box);
+        }
         asIScriptObject* instance = nullptr;
         if (result == asEXECUTION_FINISHED)
         {
             instance = static_cast<asIScriptObject*>(executor->GetReturnObject());
-            if (instance != nullptr) { instance->AddRef(); } // before the pool reuses the context
+            if (instance != nullptr)
+            {
+                instance->AddRef();
+            } // before the pool reuses the context
         }
         else if (result == asEXECUTION_EXCEPTION)
         {
             ReportException(executor);
         }
         engine->ReturnContext(executor);
-        if (instance == nullptr) { return nullptr; }
+        if (instance == nullptr)
+        {
+            return nullptr;
+        }
         return core::RefPtr<ScriptObject>(core::MakeRef<AngelScriptObject>(
             core::DefaultAllocator(), core::RefPtr<AngelScriptContext>(this), instance));
     }
