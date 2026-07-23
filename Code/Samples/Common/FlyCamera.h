@@ -47,8 +47,6 @@ struct FlyCamera {
     // to confine the camera to one viewport. Mouse: RMB (or Tab-capture) = free look; Alt+LMB = turntable
     // orbit about the focus point (Maya-style); MMB = pan; wheel = dolly/zoom. Plus WASD/QE move + Shift.
     void Update(draconic::shell::IKeyboard* kb, draconic::shell::IMouse* mouse, draconic::core::f32 dt) {
-        namespace runtime = draconic::runtime;
-        namespace shell = draconic::shell;
         using draconic::core::Float3;
         if (kb == nullptr) { return; }
 

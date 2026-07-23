@@ -14,13 +14,13 @@ import draconic.shaders;
 import draconic.samples.framework;
 import draconic.rhi.vk;
 
-namespace sf = draconic::samples::framework;
+namespace samples = draconic::samples;
 namespace rhi = draconic::rhi;
 namespace shaders = draconic::shaders;
 
-class DynamicOffsetSample : public sf::SampleApp {
+class DynamicOffsetSample : public samples::framework::SampleApp {
 public:
-    using sf::SampleApp::SampleApp;
+    using samples::framework::SampleApp::SampleApp;
     draconic::core::StringView Title() const override { return u8"Sample026 - Dynamic Offsets & Blend Constants"; }
 protected:
     draconic::core::Status OnInit() override;
@@ -82,8 +82,8 @@ private:
 draconic::core::Status DynamicOffsetSample::OnInit() {
     using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
     if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Vertex,   u8"VSMain", u8"DynVS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Fragment, u8"PSMain", u8"DynPS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (samples::framework::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Vertex,   u8"VSMain", u8"DynVS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (samples::framework::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Fragment, u8"PSMain", u8"DynPS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Unit quad vertices (will be transformed by UBO data).
     static constexpr float verts[] = {

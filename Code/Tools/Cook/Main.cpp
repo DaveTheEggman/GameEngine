@@ -45,19 +45,19 @@ import draconic.script.resource;
 import draconic.script.editor;
 
 using namespace draconic::core;
-namespace ed = draconic::editor;
+namespace editor = draconic::editor;
 namespace vfs = draconic::vfs;
 
 namespace
 {
     template <typename T>
-    void Add(ed::BuilderRegistry& registry)
+    void Add(editor::BuilderRegistry& registry)
     {
-        registry.Register(UniquePtr<ed::IAssetBuilder>(DefaultAllocator().New<T>(), DefaultAllocator()));
+        registry.Register(UniquePtr<editor::IAssetBuilder>(DefaultAllocator().New<T>(), DefaultAllocator()));
     }
 
     // Every builder the engine ships (the editor executable assembles the same set).
-    void RegisterAllBuilders(ed::BuilderRegistry& registry)
+    void RegisterAllBuilders(editor::BuilderRegistry& registry)
     {
         draconic::texture::RegisterTextureAsset();
         draconic::image::RegisterImageAsset();
@@ -138,22 +138,22 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    ed::BuilderRegistry registry;
+    editor::BuilderRegistry registry;
     RegisterAllBuilders(registry);
 
     vfs::NativeFileSystem sourcesMount(project->SourcesRoot().AsView());
     vfs::NativeFileSystem cacheMount(project->CacheRoot().AsView());
     JobSystem jobs;
 
-    ed::CookDriver driver(project->SourceDb(), project->CookedDb(), registry,
+    editor::CookDriver driver(project->SourceDb(), project->CookedDb(), registry,
                           &sourcesMount, &cacheMount, &jobs);
 
-    ed::CookPlan plan = driver.Plan(rebuild);
+    editor::CookPlan plan = driver.Plan(rebuild);
     std::printf("cook plan: %zu dirty, %zu up to date, %zu orphan(s), %zu without builders\n",
                 plan.dirty.Size(), plan.upToDate, plan.orphans.Size(), plan.unbuildable);
     if (dryRun)
     {
-        for (const ed::CookItem& item : plan.dirty)
+        for (const editor::CookItem& item : plan.dirty)
         {
             std::printf("  dirty: %.*s\n", static_cast<int>(item.path.Size()),
                         reinterpret_cast<const char*>(item.path.Data()));
@@ -161,12 +161,12 @@ int main(int argc, char** argv)
         return 0;
     }
 
-    ed::CookProgress progress;
+    editor::CookProgress progress;
     progress.onItem = [](usize done, usize total, StringView path, bool ok) {
         std::printf("[%zu/%zu] %s %.*s\n", done, total, ok ? "ok  " : "FAIL",
                     static_cast<int>(path.Size()), reinterpret_cast<const char*>(path.Data()));
     };
-    const ed::CookStats stats = driver.Execute(plan, &progress);
+    const editor::CookStats stats = driver.Execute(plan, &progress);
     std::printf("cooked %zu, failed %zu, swept %zu orphan(s)\n",
                 stats.cooked, stats.failed, stats.orphansSwept);
 

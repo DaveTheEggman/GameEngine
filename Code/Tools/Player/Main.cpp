@@ -75,11 +75,11 @@ import draconic.project;       // manifest + layout (runtime-side, editor-free)
 import draconic.vfs.pak;       // dist mode: one Content.pak holds products + scenes + scripts
 
 using namespace draconic::core;
-namespace rt = draconic::runtime;
+namespace runtime = draconic::runtime;
 namespace shell = draconic::shell;
 namespace graphics = draconic::graphics;
-namespace dscene = draconic::scene;
-namespace res = draconic::resource;
+namespace scene = draconic::scene;
+namespace resource = draconic::resource;
 
 namespace
 {
@@ -90,50 +90,50 @@ namespace
         f32 exitAfterSeconds = 0.0f;
     };
 
-    class PlayerApplication final : public rt::DefaultApplication
+    class PlayerApplication final : public runtime::DefaultApplication
     {
     public:
         explicit PlayerApplication(PlayerOptions options) : m_options(Move(options)) {}
 
 
-        void OnStartup(rt::IApplicationHost& host) override
+        void OnStartup(runtime::IApplicationHost& host) override
         {
-            namespace proj = draconic::project;
+            namespace project = draconic::project;
             m_root = MakeUnique<draconic::vfs::NativeFileSystem>(DefaultAllocator(), m_options.projectDir.AsView());
 
             // Dist layout wins when present (a staged dist can sit inside a project tree).
-            if (m_root->Exists(proj::kDistContentPak))
+            if (m_root->Exists(project::kDistContentPak))
             {
                 m_pak = MakeUnique<draconic::vfs::PakFileSystem>(DefaultAllocator(),
-                    PathJoin(m_options.projectDir.AsView(), proj::kDistContentPak).AsView());
+                    PathJoin(m_options.projectDir.AsView(), project::kDistContentPak).AsView());
                 if (!m_pak->IsValid()
-                    || !proj::LoadProjectSettings(*m_root, m_settings, proj::kDistManifestFile).IsOk())
+                    || !project::LoadProjectSettings(*m_root, m_settings, project::kDistManifestFile).IsOk())
                 {
                     DRACONIC_LOG_ERROR(u8"Player", u8"dist at '{}' is unreadable", m_options.projectDir);
                     host.RequestExit(1);
                     return;
                 }
                 m_contentDb = MakeUnique<draconic::content::ContentDatabase>(DefaultAllocator(),
-                    *m_pak, BinarySerializerFactory(), proj::kCookedAssetExtension);
+                    *m_pak, BinarySerializerFactory(), project::kCookedAssetExtension);
                 m_sceneDb = m_contentDb.Get();   // scenes live IN the pak, binary like products
                 DRACONIC_LOG_INFO(u8"Player", u8"dist mode ({} pak entries)", m_pak->EntryCount());
             }
-            else if (m_root->Exists(proj::kProjectManifestFile))
+            else if (m_root->Exists(project::kProjectManifestFile))
             {
-                if (!proj::LoadProjectSettings(*m_root, m_settings).IsOk())
+                if (!project::LoadProjectSettings(*m_root, m_settings).IsOk())
                 {
                     DRACONIC_LOG_ERROR(u8"Player", u8"project manifest at '{}' is unreadable", m_options.projectDir);
                     host.RequestExit(1);
                     return;
                 }
                 m_contentMount = MakeUnique<draconic::vfs::NativeFileSystem>(DefaultAllocator(),
-                    PathJoin(m_options.projectDir.AsView(), proj::kProjectContentDir).AsView());
+                    PathJoin(m_options.projectDir.AsView(), project::kProjectContentDir).AsView());
                 m_cookedMount = MakeUnique<draconic::vfs::NativeFileSystem>(DefaultAllocator(),
-                    PathJoin(m_options.projectDir.AsView(), proj::kProjectCookedDir).AsView());
+                    PathJoin(m_options.projectDir.AsView(), project::kProjectCookedDir).AsView());
                 m_sourceDb = MakeUnique<draconic::content::ContentDatabase>(DefaultAllocator(),
-                    *m_contentMount, draconic::xml::XmlSerializerFactory(), proj::kSourceAssetExtension);
+                    *m_contentMount, draconic::xml::XmlSerializerFactory(), project::kSourceAssetExtension);
                 m_contentDb = MakeUnique<draconic::content::ContentDatabase>(DefaultAllocator(),
-                    *m_cookedMount, BinarySerializerFactory(), proj::kCookedAssetExtension);
+                    *m_cookedMount, BinarySerializerFactory(), project::kCookedAssetExtension);
                 m_sceneDb = m_sourceDb.Get();   // authored scenes; products from the cooked DB
             }
             else
@@ -147,7 +147,7 @@ namespace
             // The app builds the resource manager + standard factories over this DB
             // (product types registered there too - runtime-host.md v3 infra preset).
             SetContentDatabase(m_contentDb.Get());
-            rt::DefaultApplication::OnStartup(host);
+            runtime::DefaultApplication::OnStartup(host);
 
             // Game-UI IME lifecycle: the player owns its window, so the UI subsystem
             // drives StartTextInput/StopTextInput on it as game EditText focus moves.
@@ -158,10 +158,10 @@ namespace
             }
         }
 
-        void OnLaunch(rt::IApplicationHost& host) override
+        void OnLaunch(runtime::IApplicationHost& host) override
         {
             if (m_sceneDb == nullptr) { return; }
-            auto* scenes = host.Ctx().GetSubsystem<dscene::SceneSubsystem>();
+            auto* scenes = host.Ctx().GetSubsystem<scene::SceneSubsystem>();
             if (scenes == nullptr) { return; }
 
             // Resolution order: --scene path override, the manifest's guid (authoritative,
@@ -195,19 +195,19 @@ namespace
             // the instance's run host. (`scenes` is still required - it drives the tick + owns the aware
             // registry the instance manager uses.)
             m_scene = Instance().CreateScene(instance->Name());
-            if (m_scene == nullptr || !dscene::LoadScene(*instance, *m_scene).IsOk())
+            if (m_scene == nullptr || !scene::LoadScene(*instance, *m_scene).IsOk())
             {
                 DRACONIC_LOG_ERROR(u8"Player", u8"scene '{}' failed to load", scenePath);
                 host.RequestExit(1);
                 return;
             }
-            dscene::ResolveSceneResources(*m_scene, *Resources());
+            scene::ResolveSceneResources(*m_scene, *Resources());
             // Prefab instances arrive as ref+deltas: respawn them from the same DB the
             // scene came from (pak mode: the staged payloads; project mode: the sources).
             if (m_scene->PendingPrefabInstanceCount() > 0)
             {
                 draconic::content::ContentDatabase* sceneDb = m_sceneDb;
-                dscene::ResolveScenePrefabs(*m_scene,
+                scene::ResolveScenePrefabs(*m_scene,
                     Function<UniquePtr<IStream>(const Guid&)>{
                         [sceneDb](const Guid& prefabId) -> UniquePtr<IStream> {
                             draconic::content::Instance* prefab =
@@ -215,7 +215,7 @@ namespace
                             return (prefab != nullptr) ? prefab->ReadData(u8"scene")
                                                        : UniquePtr<IStream>{};
                         } });
-                dscene::ResolveSceneResources(*m_scene, *Resources());
+                scene::ResolveSceneResources(*m_scene, *Resources());
             }
             EnsureCamera();
 
@@ -313,9 +313,9 @@ namespace
             return name;
         }
 
-        void OnUpdate(rt::IApplicationHost& host, f32 deltaTime) override
+        void OnUpdate(runtime::IApplicationHost& host, f32 deltaTime) override
         {
-            rt::DefaultApplication::OnUpdate(host, deltaTime);   // ticks the game script
+            runtime::DefaultApplication::OnUpdate(host, deltaTime);   // ticks the game script
             if (m_options.exitAfterSeconds > 0.0f)
             {
                 m_elapsed += deltaTime;
@@ -323,14 +323,14 @@ namespace
             }
         }
 
-        void OnExit(rt::IApplicationHost&) override
+        void OnExit(runtime::IApplicationHost&) override
         {
             StopGameScript();
             SetPrimaryScene(nullptr);
             if (m_scene != nullptr) { m_scene->Stop(); }
         }
 
-        void OnShutdown(rt::IApplicationHost& host) override
+        void OnShutdown(runtime::IApplicationHost& host) override
         {
             // Persist the user's mixer state (see the startup load).
             if (Audio() != nullptr && Audio()->Engine() != nullptr)
@@ -348,7 +348,7 @@ namespace
                                                     buffer.Bytes());
                 }
             }
-            rt::DefaultApplication::OnShutdown(host);   // releases products device-alive
+            runtime::DefaultApplication::OnShutdown(host);   // releases products device-alive
         }
 
     private:
@@ -359,11 +359,11 @@ namespace
             auto* cameras = m_scene->GetSystem<draconic::render::CameraComponentManager>();
             if (cameras == nullptr) { return; }
             bool hasCamera = false;
-            cameras->ForEach([&](draconic::render::CameraComponent&, dscene::EntityHandle) { hasCamera = true; });
+            cameras->ForEach([&](draconic::render::CameraComponent&, scene::EntityHandle) { hasCamera = true; });
             if (hasCamera) { return; }
 
             DRACONIC_LOG_WARNING(u8"Player", u8"scene has no camera - adding a default one");
-            const dscene::EntityHandle e = m_scene->CreateEntity(u8"PlayerCamera");
+            const scene::EntityHandle e = m_scene->CreateEntity(u8"PlayerCamera");
             Transform t;
             t.position = Float3{ 8.0f, 6.0f, 10.0f };
             // Yaw toward the origin, then pitch down (same convention as the seeded Sun).
@@ -399,7 +399,7 @@ namespace
         UniquePtr<draconic::content::ContentDatabase> m_sourceDb;  // project mode: authored scenes
         UniquePtr<draconic::content::ContentDatabase> m_contentDb; // products (and dist scenes)
         draconic::content::ContentDatabase* m_sceneDb = nullptr;   // where scenes come from
-        dscene::Scene* m_scene = nullptr;   // owned by the SceneSubsystem
+        scene::Scene* m_scene = nullptr;   // owned by the SceneSubsystem
     };
 }
 
@@ -466,7 +466,7 @@ int main(int argc, char** argv)
     }
 
     PlayerApplication app(static_cast<PlayerOptions&&>(options));
-    const int code = rt::RunApplication(app, *shellPtr, gpu.Value().Get());
+    const int code = runtime::RunApplication(app, *shellPtr, gpu.Value().Get());
     GlobalLogger().RemoveSink(&consoleSink);
     return code;
 }

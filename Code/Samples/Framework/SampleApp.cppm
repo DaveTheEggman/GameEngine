@@ -160,7 +160,7 @@ inline Status SampleApp::CreateBackend() {
         rhi::vk::VkBackendDesc desc{};
         desc.enableValidation = m_validationEnabled;
         if (!rhi::vk::CreateBackend(desc, raw).IsOk()) {
-            rhi::LogError("SampleApp: vk::CreateBackend failed"); return ErrorCode::Unknown;
+            rhi::LogError("SampleApp: rhi::vk::CreateBackend failed"); return ErrorCode::Unknown;
         }
         break;
     }
@@ -169,7 +169,7 @@ inline Status SampleApp::CreateBackend() {
         rhi::dx12::DxBackendDesc desc{};
         desc.enableValidation = m_validationEnabled;
         if (!rhi::dx12::CreateDxBackend(desc, raw).IsOk()) {
-            rhi::LogError("SampleApp: dx12::CreateDxBackend failed"); return ErrorCode::Unknown;
+            rhi::LogError("SampleApp: rhi::dx12::CreateDxBackend failed"); return ErrorCode::Unknown;
         }
 #else
         rhi::LogError("SampleApp: DX12 backend not available on this platform");

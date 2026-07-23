@@ -62,8 +62,8 @@ import draconic.script.editor;
 import draconic.physics.subsystem;
 
 using namespace draconic::core;
-namespace ed = draconic::editor;
-namespace dscene = draconic::scene;
+namespace editor = draconic::editor;
+namespace scene = draconic::scene;
 namespace vfs = draconic::vfs;
 namespace fs = std::filesystem;
 
@@ -76,19 +76,19 @@ namespace
     [[nodiscard]] const char* Cs(const String& s) { return reinterpret_cast<const char*>(s.CStr()); }
 
     template <typename T>
-    void Add(ed::BuilderRegistry& registry)
+    void Add(editor::BuilderRegistry& registry)
     {
-        registry.Register(UniquePtr<ed::IAssetBuilder>(DefaultAllocator().New<T>(), DefaultAllocator()));
+        registry.Register(UniquePtr<editor::IAssetBuilder>(DefaultAllocator().New<T>(), DefaultAllocator()));
     }
 
     // Same manager set the subsystems inject into every scene (kept in lockstep, like the
     // builder set below): the scene-stream transcode must know EVERY serializable component
     // type, or staged scenes would silently drop records. Managers are plain value pools -
     // no device, no subsystem lifecycle needed.
-    void AddAllSceneManagers(dscene::Scene& scene)
+    void AddAllSceneManagers(scene::Scene& scene)
     {
         namespace render = draconic::render;
-        namespace anim = draconic::animation;
+        namespace animation = draconic::animation;
         namespace particles = draconic::particles;
         scene.AddSystem<render::MeshComponentManager>();
         scene.AddSystem<render::InstancedMeshComponentManager>();
@@ -98,9 +98,9 @@ namespace
         scene.AddSystem<render::LightComponentManager>();
         scene.AddSystem<render::ReflectionProbeComponentManager>();
         scene.AddSystem<render::EnvironmentSystem>();
-        scene.AddSystem<anim::AnimationGraphComponentManager>();
-        scene.AddSystem<anim::SkeletalAnimationComponentManager>();
-        scene.AddSystem<anim::InstancedSkinningManager>();
+        scene.AddSystem<animation::AnimationGraphComponentManager>();
+        scene.AddSystem<animation::SkeletalAnimationComponentManager>();
+        scene.AddSystem<animation::InstancedSkinningManager>();
         scene.AddSystem<particles::ParticleEffectComponentManager>();
         namespace physics = draconic::physics;
         scene.AddSystem<physics::RigidBodyComponentManager>();
@@ -123,10 +123,10 @@ namespace
             if (!isScene && !isPrefab) { continue; }
             UniquePtr<IStream> stream = instance->ReadData(u8"scene");
             if (stream.Get() == nullptr) { continue; }
-            dscene::Scene scratch(u8"__export_transcode");
+            scene::Scene scratch(u8"__export_transcode");
             AddAllSceneManagers(scratch);
             Result<Array<byte>> bytes =
-                dscene::TranscodeSceneStreamToBinary(*stream, scratch, /*includeSettings=*/isScene);
+                scene::TranscodeSceneStreamToBinary(*stream, scratch, /*includeSettings=*/isScene);
             if (bytes.HasValue()) { out.InsertOrAssign(instance->Id(), Move(bytes.Value())); }
         }
         for (draconic::content::Group* child : group.Groups()) { CollectSceneStreams(*child, out); }
@@ -136,18 +136,18 @@ namespace
     // resolve its component Refs through a factory-less ResourceManager (nothing builds, so every
     // bound id lands in CollectUnresolved), and read back its parked prefab instances. The export
     // library stays subsystem-agnostic; this bridges the scene->asset edges PlanFor can't see.
-    ed::SceneReferenceScanner MakeSceneScanner()
+    editor::SceneReferenceScanner MakeSceneScanner()
     {
         return [](draconic::content::Instance& instance, draconic::content::ContentDatabase& db,
-                  ed::SceneReferences& out)
+                  editor::SceneReferences& out)
         {
-            dscene::Scene scene;
+            scene::Scene scene;
             AddAllSceneManagers(scene);
-            if (!dscene::LoadScene(instance, scene).IsOk()) { return; }
+            if (!scene::LoadScene(instance, scene).IsOk()) { return; }
             draconic::resource::ResourceManager collector(db);   // no factories -> all binds unresolved
-            dscene::ResolveSceneResources(scene, collector);
+            scene::ResolveSceneResources(scene, collector);
             collector.CollectUnresolved(out.resources);
-            scene.ForEachPendingPrefabInstance([&out](dscene::Scene::PendingPrefabInstance& pending)
+            scene.ForEachPendingPrefabInstance([&out](scene::Scene::PendingPrefabInstance& pending)
             {
                 out.prefabs.PushBack(pending.prefabId);
             });
@@ -155,7 +155,7 @@ namespace
     }
 
     // Same builder set as RaptorCook/RaptorEditor (kept in lockstep).
-    void RegisterAllBuilders(ed::BuilderRegistry& registry)
+    void RegisterAllBuilders(editor::BuilderRegistry& registry)
     {
         draconic::texture::RegisterTextureAsset();
         draconic::image::RegisterImageAsset();
@@ -182,8 +182,8 @@ namespace
         draconic::script::angelscript::RegisterAngelScriptBackend();
         draconic::script::RegisterWrenScriptCook();
         draconic::script::RegisterAngelScriptScriptCook();
-        GlobalTypeRegistry().Register(dscene::SceneDocument::StaticType());
-        RegisterSerializable<dscene::SceneDocument>();
+        GlobalTypeRegistry().Register(scene::SceneDocument::StaticType());
+        RegisterSerializable<scene::SceneDocument>();
 
         Add<draconic::texture::TextureAssetBuilder>(registry);
         Add<draconic::image::ImageAssetBuilder>(registry);
@@ -219,10 +219,10 @@ namespace
 
     // Templates root: $DRACONIC_TEMPLATES_DIR or <user-data-dir>/templates (the CLI has no editor
     // settings, so it passes no override - same resolution the editor uses with an empty setting).
-    [[nodiscard]] String TemplatesRoot() { return ed::ResolveTemplatesRoot(); }
+    [[nodiscard]] String TemplatesRoot() { return editor::ResolveTemplatesRoot(); }
 
     // Build the registry from the templates root (if it exists) + the host template (from toolDir).
-    void BuildRegistry(ed::TemplateRegistry& registry, StringView templatesRoot, StringView toolDir)
+    void BuildRegistry(editor::TemplateRegistry& registry, StringView templatesRoot, StringView toolDir)
     {
         std::error_code ec;
         UniquePtr<vfs::NativeFileSystem> rootFs;
@@ -249,14 +249,14 @@ namespace
 
     int TemplateList(const char* argv0)
     {
-        ed::TemplateRegistry registry;
+        editor::TemplateRegistry registry;
         const String toolDir = ToolDir(argv0);
         const String root = TemplatesRoot();
         BuildRegistry(registry, root.AsView(), toolDir.AsView());
         std::printf("export templates (root: %s):\n", Cs(root.AsView()));
         for (usize i = 0; i < registry.Count(); ++i)
         {
-            const ed::ExportTemplate* t = registry.At(i);
+            const editor::ExportTemplate* t = registry.At(i);
             std::printf("  %-24s %-8s %s%s\n", Cs(t->id.AsView()), Cs(t->platform.AsView()),
                         Cs(t->name.AsView()), t->isHost ? "  [host]" : "");
         }
@@ -267,7 +267,7 @@ namespace
     {
         const String root = TemplatesRoot();
         String importedId;
-        if (!ed::ImportTemplate(Sv(srcDir), root.AsView(), &importedId).IsOk())
+        if (!editor::ImportTemplate(Sv(srcDir), root.AsView(), &importedId).IsOk())
         {
             std::fprintf(stderr, "RaptorExport: failed to import '%s' (no valid template.xml?)\n", srcDir);
             return 1;
@@ -296,9 +296,9 @@ namespace
 
         const String root = TemplatesRoot();
         const String destRoot = install ? root : String(Sv(outFolder));
-        const ed::TemplateOutput mode = install ? ed::TemplateOutput::Install : ed::TemplateOutput::ExportFolder;
+        const editor::TemplateOutput mode = install ? editor::TemplateOutput::Install : editor::TemplateOutput::ExportFolder;
         String createdId, createdDir;
-        if (!ed::CreateTemplate(Sv(configDir), destRoot.AsView(), mode, &createdId, &createdDir).IsOk())
+        if (!editor::CreateTemplate(Sv(configDir), destRoot.AsView(), mode, &createdId, &createdDir).IsOk())
         {
             std::fprintf(stderr, "RaptorExport: failed to create a template from '%s' "
                                  "(missing player binary or runtime-libs?)\n", configDir);
@@ -345,10 +345,10 @@ int main(int argc, char** argv)
     }
     if (all && presetName != nullptr) { std::fprintf(stderr, "--all and --preset are mutually exclusive\n"); return 1; }
 
-    UniquePtr<ed::EditorProject> project = ed::EditorProject::Open(Sv(projectDir));
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(Sv(projectDir));
     if (!project) { std::fprintf(stderr, "RaptorExport: failed to open project '%s'\n", projectDir); return 1; }
 
-    ed::BuilderRegistry builders;
+    editor::BuilderRegistry builders;
     RegisterAllBuilders(builders);
 
     // Component reflection (data-version gates) before any scene stream deserializes.
@@ -360,24 +360,24 @@ int main(int argc, char** argv)
     CollectSceneStreams(*project->SourceDb().RootGroup(), sceneStreams);
 
     // Presets: from <project>/export_presets.xml, else a synthesized host preset.
-    ed::ExportPresetSet presets;
+    editor::ExportPresetSet presets;
     {
         vfs::NativeFileSystem projectFs(project->Directory());
-        if (!ed::LoadExportPresets(projectFs, presets).IsOk()) { ed::DefaultExportPresets(presets); }
+        if (!editor::LoadExportPresets(projectFs, presets).IsOk()) { editor::DefaultExportPresets(presets); }
     }
 
-    ed::TemplateRegistry registry;
+    editor::TemplateRegistry registry;
     BuildRegistry(registry, TemplatesRoot().AsView(), ToolDir(argv[0]).AsView());
 
     const String outRoot = (outArg != nullptr) ? String(Sv(outArg))
                                                : PathJoin(project->Directory(), u8"Dist");
 
-    const ed::SceneReferenceScanner scanner = MakeSceneScanner();
+    const editor::SceneReferenceScanner scanner = MakeSceneScanner();
 
     if (all)
     {
-        const Span<const ed::ExportPreset> span(presets.presets.Data(), presets.presets.Size());
-        if (!ed::ExportAll(*project, span, registry, builders, outRoot.AsView(), rebuild, {}, true,
+        const Span<const editor::ExportPreset> span(presets.presets.Data(), presets.presets.Size());
+        if (!editor::ExportAll(*project, span, registry, builders, outRoot.AsView(), rebuild, {}, true,
                            &sceneStreams, &scanner).IsOk())
         {
             std::fprintf(stderr, "RaptorExport: one or more presets failed (see log)\n");
@@ -387,7 +387,7 @@ int main(int argc, char** argv)
         return 0;
     }
 
-    const ed::ExportPreset* preset = (presetName != nullptr)
+    const editor::ExportPreset* preset = (presetName != nullptr)
         ? presets.Find(Sv(presetName))
         : (presets.presets.Size() > 0 ? &presets.presets[0] : nullptr);
     if (preset == nullptr)
@@ -397,8 +397,8 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    ed::ExportResult result;
-    if (!ed::ExportOne(*project, *preset, registry, builders, outRoot.AsView(), rebuild, &result, {}, true,
+    editor::ExportResult result;
+    if (!editor::ExportOne(*project, *preset, registry, builders, outRoot.AsView(), rebuild, &result, {}, true,
                        &sceneStreams, &scanner).IsOk())
     {
         std::fprintf(stderr, "RaptorExport: export failed (see log)\n");
@@ -414,7 +414,7 @@ int main(int argc, char** argv)
     }
     if (result.pruning.pruned)
     {
-        const String reportText = ed::FormatPruningReport(result.pruning);
+        const String reportText = editor::FormatPruningReport(result.pruning);
         std::printf("  pruned: %zu kept, %zu dropped -> %s/export-report.txt\n",
                     result.pruning.keptCount, result.pruning.dropped.Size(), Cs(result.outputDir.AsView()));
         std::printf("%s", Cs(reportText.AsView()));

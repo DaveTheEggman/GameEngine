@@ -10,7 +10,7 @@ import draconic.shaders;
 import draconic.samples.framework;
 import draconic.rhi.vk;
 
-namespace sf = draconic::samples::framework;
+namespace samples = draconic::samples;
 namespace rhi = draconic::rhi;
 namespace shaders = draconic::shaders;
 
@@ -21,9 +21,9 @@ struct PushData {
     float pad1;
 };
 
-class MeshShaderSample : public sf::SampleApp {
+class MeshShaderSample : public samples::framework::SampleApp {
 public:
-    using sf::SampleApp::SampleApp;
+    using samples::framework::SampleApp::SampleApp;
     draconic::core::StringView Title() const override { return u8"Sample020 - Mesh Shaders (Rotating Triangle)"; }
 protected:
     rhi::DeviceFeatures RequiredFeatures() const override {
@@ -43,7 +43,7 @@ private:
             float Pad0, Pad1;
         };
 
-        [[vk::push_constant]] ConstantBuffer<PushConstants> pc : register(b0, space0);
+        [[rhi::vk::push_constant]] ConstantBuffer<PushConstants> pc : register(b0, space0);
 
         struct MeshOutput
         {
@@ -123,12 +123,12 @@ draconic::core::Status MeshShaderSample::OnInit() {
     if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Compile mesh shader (SM 6.5 required for mesh shaders).
-    if (sf::CompileToModule(m_compiler, m_device, kMeshShaderSource, shaders::ShaderStage::Mesh,
+    if (samples::framework::CompileToModule(m_compiler, m_device, kMeshShaderSource, shaders::ShaderStage::Mesh,
                             u8"MSMain", u8"MeshShader", u8"6_5", m_meshModule) != draconic::core::ErrorCode::Ok)
         return draconic::core::ErrorCode::Unknown;
 
     // Compile fragment shader.
-    if (sf::CompileToModule(m_compiler, m_device, kFragmentShaderSource, shaders::ShaderStage::Fragment,
+    if (samples::framework::CompileToModule(m_compiler, m_device, kFragmentShaderSource, shaders::ShaderStage::Fragment,
                             u8"PSMain", u8"FragmentShader", m_fragModule) != draconic::core::ErrorCode::Ok)
         return draconic::core::ErrorCode::Unknown;
 

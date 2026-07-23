@@ -13,13 +13,13 @@ import draconic.shaders;
 import draconic.samples.framework;
 import draconic.rhi.vk;
 
-namespace sf = draconic::samples::framework;
+namespace samples = draconic::samples;
 namespace rhi = draconic::rhi;
 namespace shaders = draconic::shaders;
 
-class ProceduralRTSample : public sf::SampleApp {
+class ProceduralRTSample : public samples::framework::SampleApp {
 public:
-    using sf::SampleApp::SampleApp;
+    using samples::framework::SampleApp::SampleApp;
     draconic::core::StringView Title() const override { return u8"Sample028 - Procedural RT (AABB Spheres)"; }
 protected:
     rhi::DeviceFeatures RequiredFeatures() const override {
@@ -35,7 +35,7 @@ private:
     // Ray tracing shader library (compiled as lib_6_3).
     // All RT entry points are in a single source compiled once as a library.
     static constexpr const char8_t kRtShaderSource[] = u8R"(
-        [[vk::image_format("rgba8")]] RWTexture2D<float4> gOutput : register(u0, space0);
+        [[rhi::vk::image_format("rgba8")]] RWTexture2D<float4> gOutput : register(u0, space0);
         RaytracingAccelerationStructure gScene : register(t0, space0);
 
         struct RayPayload
@@ -190,7 +190,7 @@ draconic::core::Status ProceduralRTSample::OnInit() {
     if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // ---- Compile RT shader library (lib_6_3) ----
-    if (sf::CompileToModule(m_compiler, m_device, kRtShaderSource, shaders::ShaderStage::RayGen,
+    if (samples::framework::CompileToModule(m_compiler, m_device, kRtShaderSource, shaders::ShaderStage::RayGen,
                             u8"", u8"ProcRTLib", u8"6_3", m_rtShaderModule) != draconic::core::ErrorCode::Ok) {
         std::fprintf(stderr, "ERROR: RT shader library compilation failed\n");
         return draconic::core::ErrorCode::Unknown;

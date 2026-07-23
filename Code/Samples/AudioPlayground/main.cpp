@@ -36,7 +36,7 @@ namespace core = draconic::core;
 namespace runtime = draconic::runtime;
 namespace graphics = draconic::graphics;
 namespace shell = draconic::shell;
-namespace dscene = draconic::scene;
+namespace scene = draconic::scene;
 namespace render = draconic::render;
 namespace audio = draconic::audio;
 namespace imgui = draconic::imgui;
@@ -85,7 +85,7 @@ namespace
 
         void OnLaunch(runtime::IApplicationHost& host) override
         {
-            auto* scenes = host.Ctx().GetSubsystem<dscene::SceneSubsystem>();
+            auto* scenes = host.Ctx().GetSubsystem<scene::SceneSubsystem>();
             if (scenes == nullptr || Audio() == nullptr) { return; }
             m_scene = PrimaryScenes().CreateScene(u8"audio-playground");
 
@@ -108,7 +108,7 @@ namespace
 
             // Ambient pad: a looping streamless clip on the MUSIC bus (autoplay, 2D).
             {
-                dscene::EntityHandle e = m_scene->CreateEntity(u8"ambient");
+                scene::EntityHandle e = m_scene->CreateEntity(u8"ambient");
                 audio::AudioSourceComponent& c =
                     m_scene->GetSystem<audio::AudioSourceComponentManager>()->Add(e);
                 c.clip = m_ambient;
@@ -129,7 +129,7 @@ namespace
             for (int i = 0; i < 4; ++i)
             {
                 const f32 angle = 3.14159265f * 0.5f * static_cast<f32>(i);
-                dscene::EntityHandle e = m_scene->CreateEntity(u8"emitter");
+                scene::EntityHandle e = m_scene->CreateEntity(u8"emitter");
                 m_scene->SetLocalPosition(
                     e, core::Float3{ 10.0f * std::cos(angle), 1.5f, 10.0f * std::sin(angle) });
                 audio::AudioSourceComponent& c =
@@ -149,7 +149,7 @@ namespace
             // Reverb zone (P3): stand near the origin to hear the 'cave' - the tail
             // fades in across the zone's edge band and dries out as you fly away.
             {
-                dscene::EntityHandle zone = m_scene->CreateEntity(u8"cave-zone");
+                scene::EntityHandle zone = m_scene->CreateEntity(u8"cave-zone");
                 auto& reverb =
                     m_scene->GetSystem<audio::AudioReverbZoneComponentManager>()->Add(zone);
                 reverb.radius = 12.0f;
@@ -257,7 +257,7 @@ namespace
             auto* renderer = host.Ctx().GetSubsystem<render::RenderSubsystem>();
             if (renderer == nullptr || m_scene == nullptr) { return; }
             auto& draw = renderer->DebugScene(*m_scene);
-            for (dscene::EntityHandle e : m_emitters)
+            for (scene::EntityHandle e : m_emitters)
             {
                 const core::Float3 position = m_scene->GetWorldPosition(e);
                 draw.DrawWireSphere(position, 0.5f, core::Color{ 0.3f, 0.9f, 1.0f, 1.0f });
@@ -310,9 +310,9 @@ namespace
             m_scene->SetLocalTransform(m_camera, t);
         }
 
-        dscene::Scene* m_scene = nullptr;
-        dscene::EntityHandle m_camera;
-        core::Array<dscene::EntityHandle> m_emitters;
+        scene::Scene* m_scene = nullptr;
+        scene::EntityHandle m_camera;
+        core::Array<scene::EntityHandle> m_emitters;
         core::RefPtr<audio::AudioClip> m_ambient;
         core::RefPtr<audio::SoundCue> m_shotCue;
         core::RefPtr<audio::AudioClip> m_beepHigh;

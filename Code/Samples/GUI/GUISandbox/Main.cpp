@@ -21,7 +21,7 @@ import draconic.gui;
 import draconic.gui.shell;
 
 using namespace draconic::core;
-namespace sf = draconic::samples::framework;
+namespace samples = draconic::samples;
 namespace rhi = draconic::rhi;
 namespace shaders = draconic::shaders;
 namespace shell = draconic::shell;
@@ -95,7 +95,7 @@ namespace
     }
 }
 
-class GUISandbox : public sf::SampleApp
+class GUISandbox : public samples::framework::SampleApp
 {
 public:
     GUISandbox() { m_width = 900; m_height = 860; }
@@ -174,8 +174,8 @@ private:
 Status GUISandbox::OnInit()
 {
     if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) != ErrorCode::Ok) return ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, vg::renderer::VertexShaderSource(),   shaders::ShaderStage::Vertex,   u8"main", u8"vg.vert", m_vs) != ErrorCode::Ok) return ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, vg::renderer::FragmentShaderSource(), shaders::ShaderStage::Fragment, u8"main", u8"vg.frag", m_fs) != ErrorCode::Ok) return ErrorCode::Unknown;
+    if (samples::framework::CompileToModule(m_compiler, m_device, vg::renderer::VertexShaderSource(),   shaders::ShaderStage::Vertex,   u8"main", u8"vg.vert", m_vs) != ErrorCode::Ok) return ErrorCode::Unknown;
+    if (samples::framework::CompileToModule(m_compiler, m_device, vg::renderer::FragmentShaderSource(), shaders::ShaderStage::Fragment, u8"main", u8"vg.frag", m_fs) != ErrorCode::Ok) return ErrorCode::Unknown;
 
     if (!m_renderer.Initialize(*m_device, *m_vs, *m_fs, m_swapChain->Format(), static_cast<i32>(kFrames)).IsOk())
         return ErrorCode::Unknown;

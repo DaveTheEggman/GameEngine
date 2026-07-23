@@ -16,13 +16,13 @@ import draconic.shaders;
 import draconic.samples.framework;
 import draconic.rhi.vk;
 
-namespace sf = draconic::samples::framework;
+namespace samples = draconic::samples;
 namespace rhi = draconic::rhi;
 namespace shaders = draconic::shaders;
 
-class BatchUploadSample : public sf::SampleApp {
+class BatchUploadSample : public samples::framework::SampleApp {
 public:
-    using sf::SampleApp::SampleApp;
+    using samples::framework::SampleApp::SampleApp;
     draconic::core::StringView Title() const override { return u8"Sample019 - Batch Upload (Async Transfer)"; }
 protected:
     draconic::core::Status OnInit() override;
@@ -109,8 +109,8 @@ draconic::core::Status BatchUploadSample::OnInit() {
     using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
 
     if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Vertex,   u8"VSMain", u8"BatchVS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Fragment, u8"PSMain", u8"BatchPS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (samples::framework::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Vertex,   u8"VSMain", u8"BatchVS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (samples::framework::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Fragment, u8"PSMain", u8"BatchPS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Vertex buffer: 4 vertices x (pos3 + uv2) x 4 = 80 bytes
     rhi::BufferDesc vbd{}; vbd.size = 80; vbd.usage = rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst; vbd.memory = rhi::MemoryLocation::GpuOnly; vbd.label = u8"BatchVB";

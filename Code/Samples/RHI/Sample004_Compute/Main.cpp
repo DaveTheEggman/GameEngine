@@ -12,14 +12,14 @@ import draconic.shaders;
 import draconic.samples.framework;
 import draconic.rhi.vk;
 
-namespace sf = draconic::samples::framework;
+namespace samples = draconic::samples;
 namespace rhi = draconic::rhi;
 namespace shaders = draconic::shaders;
 using draconic::core::Float4x4;
 
-class ComputeSample : public sf::SampleApp {
+class ComputeSample : public samples::framework::SampleApp {
 public:
-    using sf::SampleApp::SampleApp;
+    using samples::framework::SampleApp::SampleApp;
     draconic::core::StringView Title() const override { return u8"Sample004 - Compute (Animated Point Grid)"; }
 protected:
     draconic::core::Status OnInit() override;
@@ -48,7 +48,7 @@ private:
         cbuffer ViewProj : register(b0, space0) { row_major float4x4 VP; };
         struct VSInput { float3 Position : TEXCOORD0; float3 Color : TEXCOORD1; };
         struct PSInput { float4 Position : SV_POSITION; float3 Color : COLOR0;
-                         [[vk::builtin("PointSize")]] float PointSize : PSIZE; };
+                         [[rhi::vk::builtin("PointSize")]] float PointSize : PSIZE; };
         PSInput VSMain(VSInput i) { PSInput o; o.Position = mul(float4(i.Position,1), VP); o.Color = i.Color; o.PointSize = 1.0; return o; }
         float4 PSMain(PSInput i) : SV_TARGET { return float4(i.Color, 1.0); }
     )";
@@ -66,15 +66,15 @@ private:
     rhi::RenderPipeline *m_renPipe = nullptr;
     rhi::CommandPool *m_pool = nullptr; rhi::Fence *m_fence = nullptr;
     draconic::core::u64 m_fenceVal = 0;
-    sf::DepthBuffer m_depthBuf;
+    samples::framework::DepthBuffer m_depthBuf;
 };
 
 draconic::core::Status ComputeSample::OnInit() {
     using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
     if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kComputeSrc, shaders::ShaderStage::Compute, u8"CSMain", u8"CS", m_cs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kRenderSrc, shaders::ShaderStage::Vertex,  u8"VSMain", u8"VS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kRenderSrc, shaders::ShaderStage::Fragment,u8"PSMain", u8"PS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (samples::framework::CompileToModule(m_compiler, m_device, kComputeSrc, shaders::ShaderStage::Compute, u8"CSMain", u8"CS", m_cs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (samples::framework::CompileToModule(m_compiler, m_device, kRenderSrc, shaders::ShaderStage::Vertex,  u8"VSMain", u8"VS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (samples::framework::CompileToModule(m_compiler, m_device, kRenderSrc, shaders::ShaderStage::Fragment,u8"PSMain", u8"PS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Buffers.
     rhi::BufferDesc vbd{}; vbd.size = kBufSz; vbd.usage = rhi::BufferUsage::Storage | rhi::BufferUsage::Vertex; vbd.memory = rhi::MemoryLocation::GpuOnly;

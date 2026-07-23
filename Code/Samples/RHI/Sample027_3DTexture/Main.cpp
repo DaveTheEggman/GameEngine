@@ -15,13 +15,13 @@ import draconic.shaders;
 import draconic.samples.framework;
 import draconic.rhi.vk;
 
-namespace sf = draconic::samples::framework;
+namespace samples = draconic::samples;
 namespace rhi = draconic::rhi;
 namespace shaders = draconic::shaders;
 
-class Texture3DSample : public sf::SampleApp {
+class Texture3DSample : public samples::framework::SampleApp {
 public:
-    using sf::SampleApp::SampleApp;
+    using samples::framework::SampleApp::SampleApp;
     draconic::core::StringView Title() const override { return u8"Sample027 - 3D Texture & 1D LUT"; }
 protected:
     draconic::core::Status OnInit() override;
@@ -43,7 +43,7 @@ private:
             float2 _pad;
         };
 
-        [[vk::push_constant]] ConstantBuffer<PushConstants> pc : register(b0, space1);
+        [[rhi::vk::push_constant]] ConstantBuffer<PushConstants> pc : register(b0, space1);
 
         struct PSInput
         {
@@ -109,8 +109,8 @@ draconic::core::Status Texture3DSample::OnInit() {
     using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
 
     if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Vertex,   u8"VSMain", u8"Vol3DVS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Fragment, u8"PSMain", u8"Vol3DPS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (samples::framework::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Vertex,   u8"VSMain", u8"Vol3DVS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (samples::framework::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Fragment, u8"PSMain", u8"Vol3DPS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     if (createVolumeTexture() != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
     if (createLUTTexture() != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;

@@ -12,14 +12,14 @@ import draconic.shaders;
 import draconic.samples.framework;
 import draconic.rhi.vk;
 
-namespace sf = draconic::samples::framework;
+namespace samples = draconic::samples;
 namespace rhi = draconic::rhi;
 namespace shaders = draconic::shaders;
 using draconic::core::Float4x4;
 
-class UniformBufferSample : public sf::SampleApp {
+class UniformBufferSample : public samples::framework::SampleApp {
 public:
-    using sf::SampleApp::SampleApp;
+    using samples::framework::SampleApp::SampleApp;
     draconic::core::StringView Title() const override { return u8"Sample003 - Rotating Cube (Uniform Buffers)"; }
 
 protected:
@@ -32,7 +32,7 @@ private:
     static constexpr const char8_t kShaderSource[] = u8R"(
         cbuffer UBO : register(b0, space0) { row_major float4x4 MVP; };
         struct PushData { float4 Tint; };
-        [[vk::push_constant]] ConstantBuffer<PushData> gPush : register(b0, space1);
+        [[rhi::vk::push_constant]] ConstantBuffer<PushData> gPush : register(b0, space1);
         struct VSInput { float3 Position : TEXCOORD0; float3 Color : TEXCOORD1; };
         struct PSInput { float4 Position : SV_POSITION; float3 Color : COLOR0; };
         PSInput VSMain(VSInput input) {
@@ -60,15 +60,15 @@ private:
     rhi::Fence* m_fence = nullptr;
     draconic::core::u64 m_fenceVal = 0;
     void* m_ubMapped = nullptr;
-    sf::DepthBuffer m_depthBuf;
+    samples::framework::DepthBuffer m_depthBuf;
 };
 
 draconic::core::Status UniformBufferSample::OnInit() {
     using draconic::core::Status, draconic::core::Span, draconic::core::u8;
 
     if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShaderSource, shaders::ShaderStage::Vertex,   u8"VSMain", u8"CubeVS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShaderSource, shaders::ShaderStage::Fragment, u8"PSMain", u8"CubePS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (samples::framework::CompileToModule(m_compiler, m_device, kShaderSource, shaders::ShaderStage::Vertex,   u8"VSMain", u8"CubeVS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (samples::framework::CompileToModule(m_compiler, m_device, kShaderSource, shaders::ShaderStage::Fragment, u8"PSMain", u8"CubePS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Buffers.
     rhi::BufferDesc vbd{}; vbd.size = sizeof(kCubeVerts); vbd.usage = rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst; vbd.memory = rhi::MemoryLocation::GpuOnly;

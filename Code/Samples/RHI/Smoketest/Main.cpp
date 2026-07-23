@@ -33,7 +33,7 @@ static const char* adapterTypeStr(draconic::rhi::AdapterType t) {
 int main(int /*argc*/, char** /*argv*/) {
     using namespace draconic::core;
     using namespace draconic::rhi;
-    namespace vk = draconic::rhi::vk;
+    namespace rhi = draconic::rhi;
         namespace shell = draconic::shell;
 
     // ---- Shell: window via the desktop (SDL3) shell ----
@@ -57,9 +57,9 @@ int main(int /*argc*/, char** /*argv*/) {
     }
 
     // ---- VK backend (wrapped in validation layer) ----
-    vk::VkBackendDesc vkDesc{ .enableValidation = true };
+    rhi::vk::VkBackendDesc vkDesc{ .enableValidation = true };
     Backend* rawBackend = nullptr;
-    if (vk::CreateBackend(vkDesc, rawBackend) != draconic::core::ErrorCode::Ok) {
+    if (rhi::vk::CreateBackend(vkDesc, rawBackend) != draconic::core::ErrorCode::Ok) {
         std::fprintf(stderr, "createBackend failed\n");
         return 1;
     }
@@ -316,9 +316,8 @@ int main(int /*argc*/, char** /*argv*/) {
     // ---- Null backend exercise ----
     std::printf("\n=== Null Backend ===\n");
     {
-        namespace null = draconic::rhi::null;
         Backend* nullBackend = nullptr;
-        null::CreateNullBackend(nullBackend);
+        rhi::null::CreateNullBackend(nullBackend);
 
         auto nullAdapters = nullBackend->EnumerateAdapters();
         std::printf("null adapters: %zu\n", nullAdapters.Size());
@@ -370,13 +369,12 @@ int main(int /*argc*/, char** /*argv*/) {
     // ===== DX12 backend (Windows only) =====
 #ifdef DRACONIC_HAS_DX12
     {
-        namespace dx12 = draconic::rhi::dx12;
         std::printf("\n=== DX12 Backend ===\n");
 
         Backend* dx12Backend = nullptr;
-        dx12::DxBackendDesc dx12Desc{};
+        rhi::dx12::DxBackendDesc dx12Desc{};
         dx12Desc.enableValidation = true;
-        if (dx12::CreateDxBackend(dx12Desc, dx12Backend) != ErrorCode::Ok) {
+        if (rhi::dx12::CreateDxBackend(dx12Desc, dx12Backend) != ErrorCode::Ok) {
             std::printf("DX12 backend: FAILED to create\n");
         } else {
             auto dx12Adapters = dx12Backend->EnumerateAdapters();

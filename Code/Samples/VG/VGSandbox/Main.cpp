@@ -21,13 +21,12 @@ import draconic.vg.renderer;
 import draconic.vg.svg;
 
 using namespace draconic::core;
-namespace sf = draconic::samples::framework;
+namespace samples = draconic::samples;
 namespace rhi = draconic::rhi;
 namespace shaders = draconic::shaders;
 namespace image = draconic::image;
 namespace fonts = draconic::fonts;
 namespace vg = draconic::vg;
-namespace svg = draconic::vg::svg;
 
 namespace
 {
@@ -41,7 +40,7 @@ namespace
     inline Color GC(u8 r, u8 g, u8 b, u8 a = 255) { return ToColor(Color32{ r, g, b, a }); }
 }
 
-class VGSandbox : public sf::SampleApp
+class VGSandbox : public samples::framework::SampleApp
 {
 public:
     VGSandbox() { m_width = 1000; m_height = 720; } // match Sedulous VGSandbox layout
@@ -92,15 +91,15 @@ private:
     fonts::CachedFont* m_fontMedium = nullptr;
     fonts::CachedFont* m_fontLarge = nullptr;
 
-    svg::SVGDocument m_badge; bool m_hasBadge = false;
-    svg::SVGDocument m_icon;  bool m_hasIcon = false;
+    vg::svg::SVGDocument m_badge; bool m_hasBadge = false;
+    vg::svg::SVGDocument m_icon;  bool m_hasIcon = false;
 };
 
 Status VGSandbox::OnInit()
 {
     if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) != ErrorCode::Ok) return ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, vg::renderer::VertexShaderSource(),   shaders::ShaderStage::Vertex,   u8"main", u8"vg.vert", m_vs) != ErrorCode::Ok) return ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, vg::renderer::FragmentShaderSource(), shaders::ShaderStage::Fragment, u8"main", u8"vg.frag", m_fs) != ErrorCode::Ok) return ErrorCode::Unknown;
+    if (samples::framework::CompileToModule(m_compiler, m_device, vg::renderer::VertexShaderSource(),   shaders::ShaderStage::Vertex,   u8"main", u8"vg.vert", m_vs) != ErrorCode::Ok) return ErrorCode::Unknown;
+    if (samples::framework::CompileToModule(m_compiler, m_device, vg::renderer::FragmentShaderSource(), shaders::ShaderStage::Fragment, u8"main", u8"vg.frag", m_fs) != ErrorCode::Ok) return ErrorCode::Unknown;
 
     if (!m_renderer.Initialize(*m_device, *m_vs, *m_fs, m_swapChain->Format(), static_cast<i32>(kFrames)).IsOk())
         return ErrorCode::Unknown;
@@ -134,7 +133,7 @@ Status VGSandbox::OnInit()
 
     // SVG badge + star icon.
     {
-        Result<svg::SVGDocument> r = svg::SVGLoader::Load(
+        Result<vg::svg::SVGDocument> r = vg::svg::SVGLoader::Load(
             u8"<svg viewBox=\"0 0 100 100\">"
             u8"<circle cx=\"50\" cy=\"50\" r=\"45\" fill=\"#2A6BC0\" stroke=\"#1A4A90\" stroke-width=\"3\"/>"
             u8"<circle cx=\"50\" cy=\"50\" r=\"30\" fill=\"none\" stroke=\"#4A9AFF\" stroke-width=\"1.5\" opacity=\"0.6\"/>"
@@ -143,7 +142,7 @@ Status VGSandbox::OnInit()
         if (r.HasValue()) { m_badge = Move(r.Value()); m_hasBadge = true; }
     }
     {
-        Result<svg::SVGDocument> r = svg::SVGLoader::Load(
+        Result<vg::svg::SVGDocument> r = vg::svg::SVGLoader::Load(
             u8"<svg viewBox=\"0 0 24 24\">"
             u8"<path d=\"M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z\" fill=\"#FFD700\" stroke=\"#B8960F\" stroke-width=\"0.8\"/>"
             u8"<text x=\"12\" y=\"14\" text-anchor=\"middle\" font-size=\"6\" fill=\"#8B6914\">5</text>"
@@ -576,16 +575,16 @@ void VGSandbox::DrawSVGDemo(vg::VGContext& vgc, f32 x, f32 y)
 
     if (m_hasBadge)
     {
-        svg::SVGRenderer::Render(vgc, m_badge, Rectangle{ x, y + 24, 80, 80 });
-        svg::SVGRenderer::Render(vgc, m_badge, Rectangle{ x + 90, y + 34, 48, 48 });
-        svg::SVGRenderer::Render(vgc, m_badge, Rectangle{ x + 148, y + 34, 48, 48 }, Optional<Color>(GC( 255, 120, 80, 255 )));
+        vg::svg::SVGRenderer::Render(vgc, m_badge, Rectangle{ x, y + 24, 80, 80 });
+        vg::svg::SVGRenderer::Render(vgc, m_badge, Rectangle{ x + 90, y + 34, 48, 48 });
+        vg::svg::SVGRenderer::Render(vgc, m_badge, Rectangle{ x + 148, y + 34, 48, 48 }, Optional<Color>(GC( 255, 120, 80, 255 )));
     }
     if (m_hasIcon)
     {
-        svg::SVGRenderer::Render(vgc, m_icon, Rectangle{ x + 210, y + 30, 56, 56 });
-        svg::SVGRenderer::Render(vgc, m_icon, Rectangle{ x + 272, y + 38, 40, 40 });
-        svg::SVGRenderer::Render(vgc, m_icon, Rectangle{ x + 318, y + 46, 28, 28 });
-        svg::SVGRenderer::Render(vgc, m_icon, Rectangle{ x + 352, y + 50, 20, 20 });
+        vg::svg::SVGRenderer::Render(vgc, m_icon, Rectangle{ x + 210, y + 30, 56, 56 });
+        vg::svg::SVGRenderer::Render(vgc, m_icon, Rectangle{ x + 272, y + 38, 40, 40 });
+        vg::svg::SVGRenderer::Render(vgc, m_icon, Rectangle{ x + 318, y + 46, 28, 28 });
+        vg::svg::SVGRenderer::Render(vgc, m_icon, Rectangle{ x + 352, y + 50, 20, 20 });
     }
 }
 

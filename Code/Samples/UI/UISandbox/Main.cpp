@@ -38,19 +38,14 @@ import draconic.ui.viewport;
 using namespace draconic::core;
 namespace runtime = draconic::runtime;
 namespace graphics = draconic::graphics;
-namespace uirt = draconic::ui::runtime;
-namespace uiapp = draconic::ui::application;
+namespace ui = draconic::ui;
 namespace rhi = draconic::rhi;
 namespace shaders = draconic::shaders;
 namespace shell = draconic::shell;
 namespace image = draconic::image;
 namespace fonts = draconic::fonts;
 namespace vg = draconic::vg;
-namespace ui = draconic::ui;
-namespace tk = draconic::ui::toolkit;
 namespace vfs = draconic::vfs;
-namespace uivfs = draconic::ui::vfs;
-namespace viewport = draconic::ui::viewport;
 namespace samples = draconic::samples;
 
 namespace
@@ -546,7 +541,7 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
     // A flat drag-to-reorder list source for the Toolkit tab's DraggableTreeView (port of the Sedulous
     // UISandbox ReorderableListAdapter). Implements the toolkit IReorderableTreeAdapter (ITreeAdapter +
     // CanMove/MoveItem); the DraggableTreeView borrows it, so the app keeps it alive as a member.
-    class ReorderableListAdapter final : public tk::IReorderableTreeAdapter
+    class ReorderableListAdapter final : public ui::toolkit::IReorderableTreeAdapter
     {
     public:
         explicit ReorderableListAdapter(Span<const StringView> items)
@@ -656,11 +651,11 @@ private:
     // VFS-backed resource provider for loading the pause-menu .sml (draconic.ui.vfs over a NativeFileSystem
     // rooted at Data/Assets/ui). Kept alive for the app's lifetime (Sedulous keeps mGuiResourceProvider).
     UniquePtr<vfs::NativeFileSystem>       m_uiFs;
-    UniquePtr<uivfs::VfsResourceProvider>  m_resProvider;
+    UniquePtr<ui::vfs::VfsResourceProvider>  m_resProvider;
 
     // UI.
     RefPtr<ui::RootView>      m_root;
-    RefPtr<tk::ToastHost>     m_toastHost;   // notification overlay (Overlays tab triggers)
+    RefPtr<ui::toolkit::ToastHost>     m_toastHost;   // notification overlay (Overlays tab triggers)
     RefPtr<ui::StyleSheet>    m_sheet;
     RefPtr<ui::FlexLayout>    m_main;
     UniquePtr<image::OwnedImageData> m_testImage; // borrowed by the ImageView/DrawableView demos
@@ -678,20 +673,20 @@ private:
 
     // draconic.ui.toolkit: the theme extension must outlive every theme build (ThemeRegistry stores it by
     // pointer), and the DraggableTreeView borrows its reorder adapter, so both live on the app.
-    tk::ToolkitThemeExtension           m_toolkitThemeExt;
+    ui::toolkit::ToolkitThemeExtension           m_toolkitThemeExt;
     UniquePtr<ReorderableListAdapter>   m_reorderAdapter;
 
     // Docking: the runtime docking host (floats panels into real OS windows) + a handle to the DockManager
     // (the tab tree owns it via AddView; we keep a ref for lifetime clarity). Constructed in OnStartup.
-    UniquePtr<uiapp::RuntimeDockableWindowHost> m_dockHost;
-    RefPtr<tk::DockManager>                     m_dockManager;
+    UniquePtr<ui::application::RuntimeDockableWindowHost> m_dockHost;
+    RefPtr<ui::toolkit::DockManager>                     m_dockManager;
 
     // draconic.ui.viewport: a ViewportView hosting a raw-RHI spinning cube. The view owns the offscreen
     // RT + gated InputSurface; the app owns an InputRouter and a FlyCamera driven by that surface's gated
     // devices (occlusion-gated by IsHovered()/IsFocused()). Wired in OnStartup after AttachWindow.
     graphics::RenderWindow*        m_mainRw = nullptr;
-    RefPtr<viewport::ViewportView> m_viewport;
-    RefPtr<tk::DockManager>        m_viewportDock;   // separate DockManager (the existing Docking tab is untouched)
+    RefPtr<ui::viewport::ViewportView> m_viewport;
+    RefPtr<ui::toolkit::DockManager>        m_viewportDock;   // separate DockManager (the existing Docking tab is untouched)
     graphics::RenderWindow*        m_viewportWindow = nullptr;  // window currently hosting the viewport (tracks undock)
     UniquePtr<shell::InputRouter>  m_vpRouter;
     samples::FlyCamera             m_cam;
@@ -703,7 +698,7 @@ private:
 
     // The reusable UI-on-runtime bridge (owns the UIContext, per-window VG + input). Declared LAST so it
     // tears down first.
-    UniquePtr<uirt::UIHost> m_uiHost;
+    UniquePtr<ui::runtime::UIHost> m_uiHost;
 };
 
 void UISandbox::OnStartup(runtime::IApplicationHost& host)
@@ -734,9 +729,9 @@ void UISandbox::OnStartup(runtime::IApplicationHost& host)
         }
     }
 
-    m_uiHost = MakeUnique<uirt::UIHost>(DefaultAllocator(), *host.Graphics(), *host.Shell(), *m_fontService);
+    m_uiHost = MakeUnique<ui::runtime::UIHost>(DefaultAllocator(), *host.Graphics(), *host.Shell(), *m_fontService);
     // Docking host needs the runtime host + UIHost; construct before BuildUI (the Docking tab uses it).
-    m_dockHost = MakeUnique<uiapp::RuntimeDockableWindowHost>(DefaultAllocator(), host, *m_uiHost);
+    m_dockHost = MakeUnique<ui::application::RuntimeDockableWindowHost>(DefaultAllocator(), host, *m_uiHost);
 
     BuildUI();                                  // builds m_root, sets theme on m_uiHost->Context(), registers m_toolkitThemeExt
     m_uiHost->AttachWindow(mainRw, m_root);     // adds the root to the context + wires per-window VG + input
@@ -775,7 +770,7 @@ void UISandbox::WireViewport(runtime::IApplicationHost& host)
     SpinningCube* cube = &m_cube;
     samples::FlyCamera* cam = &m_cam;
     f32* time = &m_time;
-    m_viewport->OnRender = [cube, cam, time](viewport::ViewportView& v, rhi::CommandEncoder& enc, i32 frameIndex)
+    m_viewport->OnRender = [cube, cam, time](ui::viewport::ViewportView& v, rhi::CommandEncoder& enc, i32 frameIndex)
     {
         const u32 w = v.RenderWidth(), h = v.RenderHeight();
         if (w == 0 || h == 0) { return; }
@@ -853,7 +848,7 @@ void UISandbox::BuildUI()
     m_root->AddView(m_main.Get());
 
     // Toast overlay across the whole window (input-transparent outside the cards).
-    m_toastHost = MakeRef<tk::ToastHost>(DefaultAllocator());
+    m_toastHost = MakeRef<ui::toolkit::ToastHost>(DefaultAllocator());
     m_root->AddView(m_toastHost.Get());
 
     // Theme button above the tabs - cycles Dark / Light / Rounded Dark / Textured / Breeze (Sedulous ApplyTheme).
@@ -921,7 +916,7 @@ void UISandbox::EnsureResourceProvider()
     String uiRoot(assetDir);
     uiRoot += u8"/ui";
     m_uiFs = MakeUnique<vfs::NativeFileSystem>(DefaultAllocator(), uiRoot.AsView());
-    m_resProvider = MakeUnique<uivfs::VfsResourceProvider>(DefaultAllocator(), m_uiFs.Get());
+    m_resProvider = MakeUnique<ui::vfs::VfsResourceProvider>(DefaultAllocator(), m_uiFs.Get());
 }
 
 RefPtr<ui::StyleSheet> UISandbox::LoadSSSTheme(StringView path, ui::ThemePalette palette)
@@ -1084,23 +1079,23 @@ void UISandbox::BuildDockingTab(ui::TabView* tabView)
     demo->Padding = ui::Thickness{ 8, 8 };
     tabView->AddTab(u8"Docking", demo.Get());
 
-    auto dm = MakeRef<tk::DockManager>(DefaultAllocator());
+    auto dm = MakeRef<ui::toolkit::DockManager>(DefaultAllocator());
     m_dockManager = dm;
     dm->DockableWindowHost = m_dockHost.Get();
     demo->AddView(dm.Get(), Grow(1.0f));
 
-    tk::DockablePanel* p1 = dm->AddPanel(u8"Scene",     MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Scene viewport")).Get());
-    tk::DockablePanel* p2 = dm->AddPanel(u8"Inspector", MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Inspector properties")).Get());
-    tk::DockablePanel* p3 = dm->AddPanel(u8"Hierarchy", MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Scene hierarchy")).Get());
-    tk::DockablePanel* p4 = dm->AddPanel(u8"Console",   MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Console output")).Get());
-    tk::DockablePanel* p5 = dm->AddPanel(u8"Assets",    MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Asset browser")).Get());
+    ui::toolkit::DockablePanel* p1 = dm->AddPanel(u8"Scene",     MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Scene viewport")).Get());
+    ui::toolkit::DockablePanel* p2 = dm->AddPanel(u8"Inspector", MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Inspector properties")).Get());
+    ui::toolkit::DockablePanel* p3 = dm->AddPanel(u8"Hierarchy", MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Scene hierarchy")).Get());
+    ui::toolkit::DockablePanel* p4 = dm->AddPanel(u8"Console",   MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Console output")).Get());
+    ui::toolkit::DockablePanel* p5 = dm->AddPanel(u8"Assets",    MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Asset browser")).Get());
 
     // IDE layout: Scene center, Hierarchy left, Inspector right, Console bottom, Assets tabbed with Console.
-    dm->DockPanel(p1, tk::DockPosition::Center);
-    dm->DockPanel(p3, tk::DockPosition::Left);
-    dm->DockPanel(p2, tk::DockPosition::Right);
-    dm->DockPanel(p4, tk::DockPosition::Bottom);
-    dm->DockPanelRelativeTo(p5, tk::DockPosition::Center, p4->Parent);
+    dm->DockPanel(p1, ui::toolkit::DockPosition::Center);
+    dm->DockPanel(p3, ui::toolkit::DockPosition::Left);
+    dm->DockPanel(p2, ui::toolkit::DockPosition::Right);
+    dm->DockPanel(p4, ui::toolkit::DockPosition::Bottom);
+    dm->DockPanelRelativeTo(p5, ui::toolkit::DockPosition::Center, p4->Parent);
 }
 
 // MarkupLoader::LoadFromString. Then we wire button clicks + inline style overrides + a scoped
@@ -1245,7 +1240,7 @@ void UISandbox::BuildToolkitTab(ui::TabView* tabView)
     tabView->AddTab(u8"Toolkit", demo.Get());
 
     // MenuBar at top.
-    auto menuBar = MakeRef<tk::MenuBar>(DefaultAllocator());
+    auto menuBar = MakeRef<ui::toolkit::MenuBar>(DefaultAllocator());
     ui::ContextMenu* fileMenu = menuBar->AddMenu(u8"File");
     fileMenu->AddItem(u8"New", Function<void()>{ [] {} });
     fileMenu->AddItem(u8"Open", Function<void()>{ [] {} });
@@ -1264,7 +1259,7 @@ void UISandbox::BuildToolkitTab(ui::TabView* tabView)
     demo->AddView(menuBar.Get(), LP(SizeSpec::Match(), SizeSpec::Wrap()));
 
     // Toolbar below the menu.
-    auto toolbar = MakeRef<tk::Toolbar>(DefaultAllocator());
+    auto toolbar = MakeRef<ui::toolkit::Toolbar>(DefaultAllocator());
     toolbar->AddButton(u8"New");
     toolbar->AddButton(u8"Open");
     toolbar->AddButton(u8"Save");
@@ -1274,7 +1269,7 @@ void UISandbox::BuildToolkitTab(ui::TabView* tabView)
     demo->AddView(toolbar.Get(), LP(SizeSpec::Match(), SizeSpec::Wrap()));
 
     // BreadcrumbBar.
-    auto breadcrumb = MakeRef<tk::BreadcrumbBar>(DefaultAllocator());
+    auto breadcrumb = MakeRef<ui::toolkit::BreadcrumbBar>(DefaultAllocator());
     breadcrumb->SetPath(u8"Project/Assets/Textures/Environment");
     demo->AddView(breadcrumb.Get(), LP(SizeSpec::Match(), SizeSpec::Wrap()));
 
@@ -1287,7 +1282,7 @@ void UISandbox::BuildToolkitTab(ui::TabView* tabView)
     }
 
     // SplitView with two labeled panes.
-    auto splitView = MakeRef<tk::SplitView>(DefaultAllocator(), ui::Orientation::Horizontal);
+    auto splitView = MakeRef<ui::toolkit::SplitView>(DefaultAllocator(), ui::Orientation::Horizontal);
     splitView->SetPanes(MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Left Pane")).Get(),
                         MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Right Pane")).Get());
     splitView->SetSplitRatio(0.4f);
@@ -1298,20 +1293,20 @@ void UISandbox::BuildToolkitTab(ui::TabView* tabView)
     dragCol->AddView(MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Drag to reorder:")).Get());
     const StringView reorderItems[] = { u8"Alpha", u8"Bravo", u8"Charlie", u8"Delta", u8"Echo", u8"Foxtrot" };
     m_reorderAdapter = MakeUnique<ReorderableListAdapter>(DefaultAllocator(), Span<const StringView>(reorderItems, 6));
-    auto dragTree = MakeRef<tk::DraggableTreeView>(DefaultAllocator());
+    auto dragTree = MakeRef<ui::toolkit::DraggableTreeView>(DefaultAllocator());
     dragTree->SetAdapter(m_reorderAdapter.Get());
     dragTree->SetItemHeight(22.0f);
     dragCol->AddView(dragTree.Get(), Grow(1));
     centerRow->AddView(dragCol.Get(), LP(SizeSpec::Fixed(Unit::Px(200)), SizeSpec::Wrap()));
 
     // ColorPicker.
-    auto colorPicker = MakeRef<tk::ColorPicker>(DefaultAllocator());
+    auto colorPicker = MakeRef<ui::toolkit::ColorPicker>(DefaultAllocator());
     colorPicker->SetColor(Rgb(80, 160, 240, 255));
     colorPicker->SetOriginalColor(Rgb(80, 160, 240, 255));
     centerRow->AddView(colorPicker.Get());
 
     // StatusBar at the bottom.
-    auto statusBar = MakeRef<tk::StatusBar>(DefaultAllocator());
+    auto statusBar = MakeRef<ui::toolkit::StatusBar>(DefaultAllocator());
     statusBar->SetText(u8"Ready");
     statusBar->AddSection(u8"Ln 42, Col 8");
     statusBar->AddSection(u8"UTF-8");
@@ -1325,19 +1320,19 @@ void UISandbox::BuildPropertyGridTab(ui::TabView* tabView)
     demo->Padding = ui::Thickness{ 8, 8 };
     tabView->AddTab(u8"PropertyGrid", demo.Get());
 
-    auto propGrid = MakeRef<tk::PropertyGrid>(DefaultAllocator());
-    propGrid->AddProperty(MakeRef<tk::BoolEditor>(DefaultAllocator(), StringView(u8"Enabled"), true));
-    propGrid->AddProperty(MakeRef<tk::BoolEditor>(DefaultAllocator(), StringView(u8"Visible"), true));
-    propGrid->AddProperty(MakeRef<tk::StringEditor>(DefaultAllocator(), StringView(u8"Name"), StringView(u8"Player")));
-    propGrid->AddProperty(MakeRef<tk::FloatEditor>(DefaultAllocator(), StringView(u8"Speed"), 5.0, 0.0, 100.0, 0.5, 1));
-    propGrid->AddProperty(MakeRef<tk::IntEditor>(DefaultAllocator(), StringView(u8"Health"), static_cast<i64>(100), static_cast<i64>(0), static_cast<i64>(999)));
-    propGrid->AddProperty(MakeRef<tk::RangeEditor>(DefaultAllocator(), StringView(u8"Volume"), 0.75f, 0.0f, 1.0f, 0.01f));
+    auto propGrid = MakeRef<ui::toolkit::PropertyGrid>(DefaultAllocator());
+    propGrid->AddProperty(MakeRef<ui::toolkit::BoolEditor>(DefaultAllocator(), StringView(u8"Enabled"), true));
+    propGrid->AddProperty(MakeRef<ui::toolkit::BoolEditor>(DefaultAllocator(), StringView(u8"Visible"), true));
+    propGrid->AddProperty(MakeRef<ui::toolkit::StringEditor>(DefaultAllocator(), StringView(u8"Name"), StringView(u8"Player")));
+    propGrid->AddProperty(MakeRef<ui::toolkit::FloatEditor>(DefaultAllocator(), StringView(u8"Speed"), 5.0, 0.0, 100.0, 0.5, 1));
+    propGrid->AddProperty(MakeRef<ui::toolkit::IntEditor>(DefaultAllocator(), StringView(u8"Health"), static_cast<i64>(100), static_cast<i64>(0), static_cast<i64>(999)));
+    propGrid->AddProperty(MakeRef<ui::toolkit::RangeEditor>(DefaultAllocator(), StringView(u8"Volume"), 0.75f, 0.0f, 1.0f, 0.01f));
     const StringView modeItems[] = { u8"Easy", u8"Normal", u8"Hard" };
-    propGrid->AddProperty(MakeRef<tk::EnumEditor>(DefaultAllocator(), StringView(u8"Mode"), 0, Span<const StringView>(modeItems, 3)));
-    propGrid->AddProperty(MakeRef<tk::ColorEditor>(DefaultAllocator(), StringView(u8"Tint"), Rgb(255, 200, 100, 255)));
-    propGrid->AddProperty(MakeRef<tk::Float3Editor>(DefaultAllocator(), StringView(u8"Position"), Float3{ 1.0f, 2.5f, -3.0f }, -100000.0f, 100000.0f, 0.1f, Function<void(Float3)>{}, StringView(u8"Transform")));
-    propGrid->AddProperty(MakeRef<tk::Float3Editor>(DefaultAllocator(), StringView(u8"Rotation"), Float3{ 0, 45, 0 }, -100000.0f, 100000.0f, 0.1f, Function<void(Float3)>{}, StringView(u8"Transform")));
-    propGrid->AddProperty(MakeRef<tk::Float3Editor>(DefaultAllocator(), StringView(u8"Scale"), Float3{ 1, 1, 1 }, -100000.0f, 100000.0f, 0.1f, Function<void(Float3)>{}, StringView(u8"Transform")));
+    propGrid->AddProperty(MakeRef<ui::toolkit::EnumEditor>(DefaultAllocator(), StringView(u8"Mode"), 0, Span<const StringView>(modeItems, 3)));
+    propGrid->AddProperty(MakeRef<ui::toolkit::ColorEditor>(DefaultAllocator(), StringView(u8"Tint"), Rgb(255, 200, 100, 255)));
+    propGrid->AddProperty(MakeRef<ui::toolkit::Float3Editor>(DefaultAllocator(), StringView(u8"Position"), Float3{ 1.0f, 2.5f, -3.0f }, -100000.0f, 100000.0f, 0.1f, Function<void(Float3)>{}, StringView(u8"Transform")));
+    propGrid->AddProperty(MakeRef<ui::toolkit::Float3Editor>(DefaultAllocator(), StringView(u8"Rotation"), Float3{ 0, 45, 0 }, -100000.0f, 100000.0f, 0.1f, Function<void(Float3)>{}, StringView(u8"Transform")));
+    propGrid->AddProperty(MakeRef<ui::toolkit::Float3Editor>(DefaultAllocator(), StringView(u8"Scale"), Float3{ 1, 1, 1 }, -100000.0f, 100000.0f, 0.1f, Function<void(Float3)>{}, StringView(u8"Transform")));
     demo->AddView(propGrid.Get(), Grow(1));
 }
 
@@ -1355,25 +1350,25 @@ void UISandbox::BuildCurveEditorTab(ui::TabView* tabView)
         u8"Left-click + drag the colored handles on the selected key: edit tangent.  Right-click handle: cycle TangentMode (Mirrored / Free / Flat)."));
     demo->AddView(help.Get(), LP(SizeSpec::Match(), SizeSpec::Wrap()));
 
-    auto curve = MakeRef<tk::CurveCanvas>(DefaultAllocator());
+    auto curve = MakeRef<ui::toolkit::CurveCanvas>(DefaultAllocator());
     curve->MaxKeys = 12;
 
-    tk::ChannelDescriptor ch;
+    ui::toolkit::ChannelDescriptor ch;
     ch.Name = String(u8"easeOut");
     ch.StrokeColor = Rgb(120, 220, 160, 255);
     ch.DefaultValue = 0.0f;
     ch.DisplayMin = 0.0f; ch.DisplayMax = 1.0f;
-    ch.Interpolation = tk::CurveInterpolation::Hermite;
-    tk::ChannelDescriptor chans[1] = { ch };
-    curve->SetChannels(Span<const tk::ChannelDescriptor>(chans, 1));
+    ch.Interpolation = ui::toolkit::CurveInterpolation::Hermite;
+    ui::toolkit::ChannelDescriptor chans[1] = { ch };
+    curve->SetChannels(Span<const ui::toolkit::ChannelDescriptor>(chans, 1));
 
     // Seed a default ease-in / ease-out shape so the curving tangents are visible immediately.
-    tk::CurveCanvas::Key seedKeys[3] = {
-        { 0.0f, 0.0f, 0.0f, 1.5f, tk::TangentMode::Mirrored },
-        { 0.5f, 0.5f, 1.5f, 1.5f, tk::TangentMode::Mirrored },
-        { 1.0f, 1.0f, 1.5f, 0.0f, tk::TangentMode::Mirrored },
+    ui::toolkit::CurveCanvas::Key seedKeys[3] = {
+        { 0.0f, 0.0f, 0.0f, 1.5f, ui::toolkit::TangentMode::Mirrored },
+        { 0.5f, 0.5f, 1.5f, 1.5f, ui::toolkit::TangentMode::Mirrored },
+        { 1.0f, 1.0f, 1.5f, 0.0f, ui::toolkit::TangentMode::Mirrored },
     };
-    curve->SetKeys(0, Span<const tk::CurveCanvas::Key>(seedKeys, 3));
+    curve->SetKeys(0, Span<const ui::toolkit::CurveCanvas::Key>(seedKeys, 3));
     {
         auto p = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
         p->Width = SizeSpec::Match(); p->Grow = 1.0f;
@@ -1384,7 +1379,7 @@ void UISandbox::BuildCurveEditorTab(ui::TabView* tabView)
     demo->AddView(status.Get(), LP(SizeSpec::Match(), SizeSpec::Wrap()));
 
     // Refresh the status line on any key edit (position drags and tangent drags both hit OnKeyChanged).
-    tk::CurveCanvas* curveRaw = curve.Get();
+    ui::toolkit::CurveCanvas* curveRaw = curve.Get();
     ui::Label* statusRaw = status.Get();
     auto doRefresh = [curveRaw, statusRaw]()
     {
@@ -1395,13 +1390,13 @@ void UISandbox::BuildCurveEditorTab(ui::TabView* tabView)
             statusRaw->SetText(StringView(u8"Selected key: (none)"));
             return;
         }
-        const tk::CurveCanvas::Key key = curveRaw->GetKey(selCh, selKey);
+        const ui::toolkit::CurveCanvas::Key key = curveRaw->GetKey(selCh, selKey);
         const char* modeName = "Mirrored";
         switch (key.Mode)
         {
-        case tk::TangentMode::Mirrored: modeName = "Mirrored"; break;
-        case tk::TangentMode::Free:     modeName = "Free"; break;
-        case tk::TangentMode::Flat:     modeName = "Flat"; break;
+        case ui::toolkit::TangentMode::Mirrored: modeName = "Mirrored"; break;
+        case ui::toolkit::TangentMode::Free:     modeName = "Free"; break;
+        case ui::toolkit::TangentMode::Flat:     modeName = "Flat"; break;
         }
         char buf[192];
         std::snprintf(buf, sizeof(buf), "Key #%d  t=%.2f  v=%.2f  tIn=%.2f  tOut=%.2f  mode=%s",
@@ -1417,51 +1412,51 @@ void UISandbox::BuildCurveEditorTab(ui::TabView* tabView)
 // === Tab 13: Node Graph (4 nodes + 3 connections, console-logged interaction events) ===
 void UISandbox::BuildNodeGraphTab(ui::TabView* tabView)
 {
-    auto graph = MakeRef<tk::NodeGraphCanvas>(DefaultAllocator());
+    auto graph = MakeRef<ui::toolkit::NodeGraphCanvas>(DefaultAllocator());
     graph->ShowGrid = true;
 
     // Idle (node 0).
-    auto nodeA = MakeUnique<tk::NodeGraphNode>(DefaultAllocator());
+    auto nodeA = MakeUnique<ui::toolkit::NodeGraphNode>(DefaultAllocator());
     nodeA->Title = String(u8"Idle");
     nodeA->Position = Float2{ 50, 50 };
     nodeA->HeaderColor = Rgb(70, 130, 80, 255);
-    { tk::NodeGraphPort p; p.Direction = tk::PortDirection::Output; p.Label = String(u8"Out"); nodeA->OutputPorts.PushBack(p); }
-    { tk::NodeGraphPort p; p.Direction = tk::PortDirection::Input;  p.Label = String(u8"In");  nodeA->InputPorts.PushBack(p); }
+    { ui::toolkit::NodeGraphPort p; p.Direction = ui::toolkit::PortDirection::Output; p.Label = String(u8"Out"); nodeA->OutputPorts.PushBack(p); }
+    { ui::toolkit::NodeGraphPort p; p.Direction = ui::toolkit::PortDirection::Input;  p.Label = String(u8"In");  nodeA->InputPorts.PushBack(p); }
     graph->AddNode(Move(nodeA));
 
     // Walk (node 1).
-    auto nodeB = MakeUnique<tk::NodeGraphNode>(DefaultAllocator());
+    auto nodeB = MakeUnique<ui::toolkit::NodeGraphNode>(DefaultAllocator());
     nodeB->Title = String(u8"Walk");
     nodeB->Position = Float2{ 300, 50 };
     nodeB->HeaderColor = Rgb(70, 100, 180, 255);
-    { tk::NodeGraphPort p; p.Direction = tk::PortDirection::Output; p.Label = String(u8"Out"); nodeB->OutputPorts.PushBack(p); }
-    { tk::NodeGraphPort p; p.Direction = tk::PortDirection::Input;  p.Label = String(u8"In");  nodeB->InputPorts.PushBack(p); }
+    { ui::toolkit::NodeGraphPort p; p.Direction = ui::toolkit::PortDirection::Output; p.Label = String(u8"Out"); nodeB->OutputPorts.PushBack(p); }
+    { ui::toolkit::NodeGraphPort p; p.Direction = ui::toolkit::PortDirection::Input;  p.Label = String(u8"In");  nodeB->InputPorts.PushBack(p); }
     graph->AddNode(Move(nodeB));
 
     // Run (node 2) - has a typed "Speed" input port.
-    auto nodeC = MakeUnique<tk::NodeGraphNode>(DefaultAllocator());
+    auto nodeC = MakeUnique<ui::toolkit::NodeGraphNode>(DefaultAllocator());
     nodeC->Title = String(u8"Run");
     nodeC->Subtitle = String(u8"BlendTree1D");
     nodeC->Position = Float2{ 300, 200 };
     nodeC->HeaderColor = Rgb(180, 100, 70, 255);
-    { tk::NodeGraphPort p; p.Direction = tk::PortDirection::Output; p.Label = String(u8"Out"); nodeC->OutputPorts.PushBack(p); }
-    { tk::NodeGraphPort p; p.Direction = tk::PortDirection::Input;  p.Label = String(u8"In");  nodeC->InputPorts.PushBack(p); }
-    { tk::NodeGraphPort p; p.Direction = tk::PortDirection::Input;  p.Label = String(u8"Speed"); p.PortType = tk::NodeGraphPortType(1, Rgb(100, 200, 100, 255)); nodeC->InputPorts.PushBack(p); }
+    { ui::toolkit::NodeGraphPort p; p.Direction = ui::toolkit::PortDirection::Output; p.Label = String(u8"Out"); nodeC->OutputPorts.PushBack(p); }
+    { ui::toolkit::NodeGraphPort p; p.Direction = ui::toolkit::PortDirection::Input;  p.Label = String(u8"In");  nodeC->InputPorts.PushBack(p); }
+    { ui::toolkit::NodeGraphPort p; p.Direction = ui::toolkit::PortDirection::Input;  p.Label = String(u8"Speed"); p.PortType = ui::toolkit::NodeGraphPortType(1, Rgb(100, 200, 100, 255)); nodeC->InputPorts.PushBack(p); }
     graph->AddNode(Move(nodeC));
 
     // Any State (node 3) - not deletable.
-    auto nodeD = MakeUnique<tk::NodeGraphNode>(DefaultAllocator());
+    auto nodeD = MakeUnique<ui::toolkit::NodeGraphNode>(DefaultAllocator());
     nodeD->Title = String(u8"Any State");
     nodeD->Position = Float2{ 50, 200 };
     nodeD->HeaderColor = Rgb(100, 100, 110, 255);
     nodeD->IsDeletable = false;
-    { tk::NodeGraphPort p; p.Direction = tk::PortDirection::Output; p.Label = String(); nodeD->OutputPorts.PushBack(p); }
+    { ui::toolkit::NodeGraphPort p; p.Direction = ui::toolkit::PortDirection::Output; p.Label = String(); nodeD->OutputPorts.PushBack(p); }
     graph->AddNode(Move(nodeD));
 
     // Connections: Idle -> Walk, Idle -> Run, Any State -> Walk.
-    { tk::NodeGraphConnection c; c.SourceNodeIndex = 0; c.SourcePortIndex = 0; c.DestNodeIndex = 1; c.DestPortIndex = 0; graph->AddConnection(c); }
-    { tk::NodeGraphConnection c; c.SourceNodeIndex = 0; c.SourcePortIndex = 0; c.DestNodeIndex = 2; c.DestPortIndex = 0; graph->AddConnection(c); }
-    { tk::NodeGraphConnection c; c.SourceNodeIndex = 3; c.SourcePortIndex = 0; c.DestNodeIndex = 1; c.DestPortIndex = 0; graph->AddConnection(c); }
+    { ui::toolkit::NodeGraphConnection c; c.SourceNodeIndex = 0; c.SourcePortIndex = 0; c.DestNodeIndex = 1; c.DestPortIndex = 0; graph->AddConnection(c); }
+    { ui::toolkit::NodeGraphConnection c; c.SourceNodeIndex = 0; c.SourcePortIndex = 0; c.DestNodeIndex = 2; c.DestPortIndex = 0; graph->AddConnection(c); }
+    { ui::toolkit::NodeGraphConnection c; c.SourceNodeIndex = 3; c.SourcePortIndex = 0; c.DestNodeIndex = 1; c.DestPortIndex = 0; graph->AddConnection(c); }
 
     // Wire interaction events to stdout (Sedulous logs to Console).
     graph->OnNodeMoved.Add(ui::Event<void(i32)>::Handler{ [](i32 idx) { std::printf("Node moved: %d\n", idx); } });
@@ -1568,12 +1563,12 @@ void UISandbox::BuildOverlaysTab(ui::TabView* tabView)
     spacer(); section(u8"Toasts (bottom-right)");
     {
         auto row = HFlex(8.0f);
-        tk::ToastHost* toasts = m_toastHost.Get();
-        auto toastBtn = [&](const char8_t* text, tk::ToastSeverity severity, const char8_t* message, f32 duration)
+        ui::toolkit::ToastHost* toasts = m_toastHost.Get();
+        auto toastBtn = [&](const char8_t* text, ui::toolkit::ToastSeverity severity, const char8_t* message, f32 duration)
         {
             auto b = MakeRef<ui::Button>(DefaultAllocator(), StringView(text));
             b->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{ [toasts, severity, message, duration](ui::ButtonBase*) {
-                tk::ToastRequest request;
+                ui::toolkit::ToastRequest request;
                 request.message = String(StringView(message));
                 request.severity = severity;
                 request.durationSeconds = duration;
@@ -1581,22 +1576,22 @@ void UISandbox::BuildOverlaysTab(ui::TabView* tabView)
             } });
             row->AddView(b.Get());
         };
-        toastBtn(u8"Info",    tk::ToastSeverity::Info,    u8"For your information.",        4.0f);
-        toastBtn(u8"Success", tk::ToastSeverity::Success, u8"Cook finished: 3 asset(s).",   4.0f);
-        toastBtn(u8"Warning", tk::ToastSeverity::Warning, u8"No importer for 'foo.xyz'.",   4.0f);
-        toastBtn(u8"Error (sticky)", tk::ToastSeverity::Error, u8"Cook: 1 failed (close me).", 0.0f);
+        toastBtn(u8"Info",    ui::toolkit::ToastSeverity::Info,    u8"For your information.",        4.0f);
+        toastBtn(u8"Success", ui::toolkit::ToastSeverity::Success, u8"Cook finished: 3 asset(s).",   4.0f);
+        toastBtn(u8"Warning", ui::toolkit::ToastSeverity::Warning, u8"No importer for 'foo.xyz'.",   4.0f);
+        toastBtn(u8"Error (sticky)", ui::toolkit::ToastSeverity::Error, u8"Cook: 1 failed (close me).", 0.0f);
         auto actionBtn = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"With action"));
         actionBtn->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{ [toasts](ui::ButtonBase*) {
-            tk::ToastRequest request;
+            ui::toolkit::ToastRequest request;
             request.message = String(u8"Scene saved.");
-            request.severity = tk::ToastSeverity::Success;
+            request.severity = ui::toolkit::ToastSeverity::Success;
             request.durationSeconds = 0.0f;   // sticky so the action stays reachable
             request.actionLabel = String(u8"Undo");
-            tk::ToastHost* host = toasts;
+            ui::toolkit::ToastHost* host = toasts;
             request.onAction = Function<void()>{ [host]() {
-                tk::ToastRequest ack;
+                ui::toolkit::ToastRequest ack;
                 ack.message = String(u8"Undone.");
-                ack.severity = tk::ToastSeverity::Info;
+                ack.severity = ui::toolkit::ToastSeverity::Info;
                 ack.durationSeconds = 3.0f;
                 (void)host->Show(Move(ack));
             } };
@@ -2159,18 +2154,18 @@ void UISandbox::BuildViewportTab(ui::TabView* tabView)
 
     // A SEPARATE DockManager (shares the app's RuntimeDockableWindowHost with the existing Docking tab,
     // which is left untouched). The viewport lives in a dockable panel, so it can be floated into an OS window.
-    auto dm = MakeRef<tk::DockManager>(DefaultAllocator());
+    auto dm = MakeRef<ui::toolkit::DockManager>(DefaultAllocator());
     m_viewportDock = dm;
     dm->DockableWindowHost = m_dockHost.Get();
     body->AddView(dm.Get(), Grow(1.0f));
 
-    m_viewport = MakeRef<viewport::ViewportView>(DefaultAllocator());
+    m_viewport = MakeRef<ui::viewport::ViewportView>(DefaultAllocator());
     m_viewport->SetFitMode(FitMode::Letterbox); // preserve the cube's aspect; bars visualize the fit region
-    tk::DockablePanel* vpPanel   = dm->AddPanel(u8"Viewport", m_viewport.Get());
-    tk::DockablePanel* infoPanel = dm->AddPanel(u8"Inspector",
+    ui::toolkit::DockablePanel* vpPanel   = dm->AddPanel(u8"Viewport", m_viewport.Get());
+    ui::toolkit::DockablePanel* infoPanel = dm->AddPanel(u8"Inspector",
         MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Drag the Viewport tab out to float it into an OS window.")).Get());
-    dm->DockPanel(vpPanel, tk::DockPosition::Center);
-    dm->DockPanel(infoPanel, tk::DockPosition::Right);
+    dm->DockPanel(vpPanel, ui::toolkit::DockPosition::Center);
+    dm->DockPanel(infoPanel, ui::toolkit::DockPosition::Right);
 
     const i32 idx = tabView->AddTab(u8"Viewport (3D)", body.Get());
     tabView->SetSelectedIndex(idx); // open on the viewport so the 3D cube + gating are the first thing shown

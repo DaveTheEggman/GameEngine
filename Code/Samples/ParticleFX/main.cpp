@@ -46,7 +46,7 @@ namespace render = draconic::render;
 namespace imgui = draconic::imgui;
 namespace geometry = draconic::geometry;
 namespace materials = draconic::materials;
-namespace px = draconic::particles;
+namespace particles = draconic::particles;
 namespace vfs = draconic::vfs;
 namespace content = draconic::content;
 namespace resource = draconic::resource;
@@ -135,7 +135,7 @@ namespace
             BuildMagicCircle(m_magic);
             BuildFireflies(m_fireflies);
 
-            if (auto* pmgr = m_scene->GetSystem<px::ParticleEffectComponentManager>()) {
+            if (auto* pmgr = m_scene->GetSystem<particles::ParticleEffectComponentManager>()) {
                 // One system per cell of a 4x4 showcase grid (cells 12-15 reserved for later samples).
                 // Cell 0: billboard fountain (additive soft dots).
                 m_emitter = m_scene->CreateEntity(u8"fountain");
@@ -146,7 +146,7 @@ namespace
                 // Cell 1 = opaque solid shards; cell 2 = additive glow (routed to the Transparent pass).
                 m_debrisEmitter = m_scene->CreateEntity(u8"shards-solid");
                 m_scene->SetLocalPosition(m_debrisEmitter, CellPos(1));
-                px::ParticleEffectComponent& dc = pmgr->Add(m_debrisEmitter);
+                particles::ParticleEffectComponent& dc = pmgr->Add(m_debrisEmitter);
                 dc.SetEffect(m_debris);
                 dc.mesh      = geometry::Primitives::Cube(1.0f);
                 dc.material = materials::CreatePBR(u8"shards-solid", core::Float4{ 0.35f, 0.6f, 0.9f, 1.0f }, 0.1f, 0.5f);
@@ -154,7 +154,7 @@ namespace
 
                 m_glowEmitter = m_scene->CreateEntity(u8"shards-glow");
                 m_scene->SetLocalPosition(m_glowEmitter, CellPos(2));
-                px::ParticleEffectComponent& gc = pmgr->Add(m_glowEmitter);
+                particles::ParticleEffectComponent& gc = pmgr->Add(m_glowEmitter);
                 gc.SetEffect(m_meshGlow);
                 gc.mesh      = geometry::Primitives::Cube(1.0f);
                 gc.meshScale = 0.5f;
@@ -169,7 +169,7 @@ namespace
                 // Cell 3: light particles (drifting embers) - a point light per particle + a billboard glow.
                 m_emberEmitter = m_scene->CreateEntity(u8"embers");
                 m_scene->SetLocalPosition(m_emberEmitter, CellPos(3));
-                px::ParticleEffectComponent& ec = pmgr->Add(m_emberEmitter);
+                particles::ParticleEffectComponent& ec = pmgr->Add(m_emberEmitter);
                 ec.SetEffect(m_embers);
                 ec.lightIntensity = 14.0f;
                 ec.lightRange     = 6.0f;   // smaller range -> fewer clusters overlap -> no visible cluster grid
@@ -226,7 +226,7 @@ namespace
                 // Cell 13: explosion - flipbook fireball blast (atlas texture) + debris/shockwave (soft dot).
                 m_explosionEmitter = m_scene->CreateEntity(u8"explosion");
                 m_scene->SetLocalPosition(m_explosionEmitter, CellPos(13));
-                px::ParticleEffectComponent& xc = pmgr->Add(m_explosionEmitter);
+                particles::ParticleEffectComponent& xc = pmgr->Add(m_explosionEmitter);
                 xc.SetEffect(m_explosion);
                 if (rhi::Device* dev = (host.Graphics() != nullptr) ? host.Graphics()->Raw() : nullptr) {
                     xc.texture = MakeBlastAtlas(*dev);
@@ -326,108 +326,108 @@ namespace
             return core::Float3{ (col - half) * kCellSpacing, 0.2f, (row - half) * kCellSpacing };
         }
 
-        static void BuildFountain(px::ParticleEffect& effect)
+        static void BuildFountain(particles::ParticleEffect& effect)
         {
-            px::ParticleSystem& sys = effect.AddSystem(30000);
+            particles::ParticleSystem& sys = effect.AddSystem(30000);
             sys.name       = core::String{ u8"fountain" };
-            sys.blendMode  = px::ParticleBlendMode::Additive;
-            sys.renderMode = px::ParticleRenderMode::Billboard;
-            sys.emitter.mode = px::EmissionMode::Continuous;
+            sys.blendMode  = particles::ParticleBlendMode::Additive;
+            sys.renderMode = particles::ParticleRenderMode::Billboard;
+            sys.emitter.mode = particles::EmissionMode::Continuous;
             sys.emitter.spawnRate = 3000.0f;
 
-            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Sphere(0.25f);
-            sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(1.6f, 2.6f);
+            sys.AddInitializer<particles::PositionInitializer>().shape = particles::EmissionShape::Sphere(0.25f);
+            sys.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(1.6f, 2.6f);
             {
-                px::VelocityInitializer& v = sys.AddInitializer<px::VelocityInitializer>();
+                particles::VelocityInitializer& v = sys.AddInitializer<particles::VelocityInitializer>();
                 v.baseVelocity = core::Float3{ 0.0f, 13.0f, 0.0f };
                 v.randomness   = core::Float3{ 3.0f, 2.0f, 3.0f };
-                v.shape        = px::EmissionShape::Cone(0.4f, 0.35f);
+                v.shape        = particles::EmissionShape::Cone(0.4f, 0.35f);
                 v.shapeDirectionSpeed = 4.0f;
             }
-            sys.AddInitializer<px::SizeInitializer>().size = px::RangeFloat2::Constant(core::Float2{ 0.35f, 0.35f });
-            sys.AddInitializer<px::ColorInitializer>().color =
-                px::RangeColor(core::Float4{ 1.0f, 0.55f, 0.15f, 1.0f }, core::Float4{ 1.0f, 0.85f, 0.4f, 1.0f });
+            sys.AddInitializer<particles::SizeInitializer>().size = particles::RangeFloat2::Constant(core::Float2{ 0.35f, 0.35f });
+            sys.AddInitializer<particles::ColorInitializer>().color =
+                particles::RangeColor(core::Float4{ 1.0f, 0.55f, 0.15f, 1.0f }, core::Float4{ 1.0f, 0.85f, 0.4f, 1.0f });
 
-            sys.AddBehavior<px::GravityBehavior>().multiplier = 1.4f;
-            sys.AddBehavior<px::DragBehavior>().drag = 0.25f;
-            sys.AddBehavior<px::ColorOverLifetimeBehavior>().curve =
-                px::ParticleCurveColor::FadeAlpha(core::Float4{ 1.0f, 0.5f, 0.12f, 1.0f }, 0.35f);
-            sys.AddBehavior<px::SizeOverLifetimeBehavior>().curve =
-                px::ParticleCurveFloat2::Linear(core::Float2{ 0.4f, 0.4f }, core::Float2{ 0.04f, 0.04f });
+            sys.AddBehavior<particles::GravityBehavior>().multiplier = 1.4f;
+            sys.AddBehavior<particles::DragBehavior>().drag = 0.25f;
+            sys.AddBehavior<particles::ColorOverLifetimeBehavior>().curve =
+                particles::ParticleCurveColor::FadeAlpha(core::Float4{ 1.0f, 0.5f, 0.12f, 1.0f }, 0.35f);
+            sys.AddBehavior<particles::SizeOverLifetimeBehavior>().curve =
+                particles::ParticleCurveFloat2::Linear(core::Float2{ 0.4f, 0.4f }, core::Float2{ 0.04f, 0.04f });
         }
 
         // Light-mode particles: slow warm embers drifting up; each contributes a point light so they
         // paint moving pools of light on the floor (plus the additive billboard glow).
-        static void BuildEmbers(px::ParticleEffect& effect)
+        static void BuildEmbers(particles::ParticleEffect& effect)
         {
-            px::ParticleSystem& sys = effect.AddSystem(400);   // few: sparse enough not to saturate clusters
+            particles::ParticleSystem& sys = effect.AddSystem(400);   // few: sparse enough not to saturate clusters
             sys.name       = core::String{ u8"embers" };
-            sys.renderMode = px::ParticleRenderMode::Light;
-            sys.blendMode  = px::ParticleBlendMode::Additive;
-            sys.emitter.mode = px::EmissionMode::Continuous;
+            sys.renderMode = particles::ParticleRenderMode::Light;
+            sys.blendMode  = particles::ParticleBlendMode::Additive;
+            sys.emitter.mode = particles::EmissionMode::Continuous;
             sys.emitter.spawnRate = 12.0f;   // ~45 alive: all fit under the cap (stable, no popping) + light cluster load
 
-            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Box(core::Float3{ 4.0f, 0.1f, 4.0f });
-            sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(2.5f, 4.5f);
+            sys.AddInitializer<particles::PositionInitializer>().shape = particles::EmissionShape::Box(core::Float3{ 4.0f, 0.1f, 4.0f });
+            sys.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(2.5f, 4.5f);
             {
-                px::VelocityInitializer& v = sys.AddInitializer<px::VelocityInitializer>();
+                particles::VelocityInitializer& v = sys.AddInitializer<particles::VelocityInitializer>();
                 v.baseVelocity = core::Float3{ 0.0f, 1.4f, 0.0f };
                 v.randomness   = core::Float3{ 0.5f, 0.3f, 0.5f };
             }
-            sys.AddInitializer<px::SizeInitializer>().size = px::RangeFloat2::Constant(core::Float2{ 0.6f, 0.6f });
-            sys.AddInitializer<px::ColorInitializer>().color =
-                px::RangeColor(core::Float4{ 1.0f, 0.5f, 0.15f, 1.0f }, core::Float4{ 1.0f, 0.75f, 0.3f, 1.0f });
-            sys.AddBehavior<px::DragBehavior>().drag = 0.5f;
-            sys.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.55f);  // bright, then fade
+            sys.AddInitializer<particles::SizeInitializer>().size = particles::RangeFloat2::Constant(core::Float2{ 0.6f, 0.6f });
+            sys.AddInitializer<particles::ColorInitializer>().color =
+                particles::RangeColor(core::Float4{ 1.0f, 0.5f, 0.15f, 1.0f }, core::Float4{ 1.0f, 0.75f, 0.3f, 1.0f });
+            sys.AddBehavior<particles::DragBehavior>().drag = 0.5f;
+            sys.AddBehavior<particles::AlphaOverLifetimeBehavior>().curve = particles::ParticleCurveFloat::FadeOut(1.0f, 0.55f);  // bright, then fade
         }
 
         // Ground haze: big, slow, camera-facing billboards centered at floor level so each quad straddles
         // the ground plane - the clearest soft-particle A/B (hard clip line vs. soft fade at the floor).
-        static void BuildHaze(px::ParticleEffect& effect)
+        static void BuildHaze(particles::ParticleEffect& effect)
         {
-            px::ParticleSystem& sys = effect.AddSystem(300);
+            particles::ParticleSystem& sys = effect.AddSystem(300);
             sys.name       = core::String{ u8"haze" };
-            sys.renderMode = px::ParticleRenderMode::Billboard;
-            sys.blendMode  = px::ParticleBlendMode::Additive;
+            sys.renderMode = particles::ParticleRenderMode::Billboard;
+            sys.blendMode  = particles::ParticleBlendMode::Additive;
             sys.softDistance = 2.0f;   // wide fade band, obvious in the A/B
-            sys.emitter.mode = px::EmissionMode::Continuous;
+            sys.emitter.mode = particles::EmissionMode::Continuous;
             sys.emitter.spawnRate = 14.0f;
 
-            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Box(core::Float3{ 3.5f, 0.05f, 3.5f });
-            sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(4.0f, 6.0f);
-            sys.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Float3{ 0.0f, 0.25f, 0.0f };
-            sys.AddInitializer<px::SizeInitializer>().size = px::RangeFloat2::Constant(core::Float2{ 2.0f, 2.0f });  // straddles the floor for the A/B
-            sys.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Float4{ 0.35f, 0.28f, 0.45f, 1.0f });
-            sys.AddBehavior<px::DragBehavior>().drag = 0.6f;
-            sys.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.4f);
+            sys.AddInitializer<particles::PositionInitializer>().shape = particles::EmissionShape::Box(core::Float3{ 3.5f, 0.05f, 3.5f });
+            sys.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(4.0f, 6.0f);
+            sys.AddInitializer<particles::VelocityInitializer>().baseVelocity = core::Float3{ 0.0f, 0.25f, 0.0f };
+            sys.AddInitializer<particles::SizeInitializer>().size = particles::RangeFloat2::Constant(core::Float2{ 2.0f, 2.0f });  // straddles the floor for the A/B
+            sys.AddInitializer<particles::ColorInitializer>().color = particles::RangeColor::Constant(core::Float4{ 0.35f, 0.28f, 0.45f, 1.0f });
+            sys.AddBehavior<particles::DragBehavior>().drag = 0.6f;
+            sys.AddBehavior<particles::AlphaOverLifetimeBehavior>().curve = particles::ParticleCurveFloat::FadeOut(1.0f, 0.4f);
         }
 
         // Trail-mode: arcing sparks, each leaving a camera-facing ribbon behind it (the Phase-5 showcase).
-        static void BuildTrail(px::ParticleEffect& effect)
+        static void BuildTrail(particles::ParticleEffect& effect)
         {
-            px::ParticleSystem& sys = effect.AddSystem(2000);
+            particles::ParticleSystem& sys = effect.AddSystem(2000);
             sys.name       = core::String{ u8"sparks" };
-            sys.renderMode = px::ParticleRenderMode::Trail;
-            sys.blendMode  = px::ParticleBlendMode::Additive;
-            sys.emitter.mode = px::EmissionMode::Continuous;
+            sys.renderMode = particles::ParticleRenderMode::Trail;
+            sys.blendMode  = particles::ParticleBlendMode::Additive;
+            sys.emitter.mode = particles::EmissionMode::Continuous;
             sys.emitter.spawnRate = 40.0f;
 
-            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Sphere(0.15f);
-            sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(1.4f, 2.4f);
+            sys.AddInitializer<particles::PositionInitializer>().shape = particles::EmissionShape::Sphere(0.15f);
+            sys.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(1.4f, 2.4f);
             {
-                px::VelocityInitializer& v = sys.AddInitializer<px::VelocityInitializer>();
+                particles::VelocityInitializer& v = sys.AddInitializer<particles::VelocityInitializer>();
                 v.baseVelocity = core::Float3{ 0.0f, 8.0f, 0.0f };
                 v.randomness   = core::Float3{ 6.0f, 3.0f, 6.0f };   // spray sideways so the ribbons curve
-                v.shape        = px::EmissionShape::Cone(0.5f, 0.2f);
+                v.shape        = particles::EmissionShape::Cone(0.5f, 0.2f);
                 v.shapeDirectionSpeed = 3.0f;
             }
-            sys.AddInitializer<px::SizeInitializer>().size = px::RangeFloat2::Constant(core::Float2{ 0.2f, 0.2f });
-            sys.AddInitializer<px::ColorInitializer>().color =
-                px::RangeColor(core::Float4{ 0.2f, 0.7f, 1.0f, 1.0f }, core::Float4{ 0.9f, 0.4f, 1.0f, 1.0f });
+            sys.AddInitializer<particles::SizeInitializer>().size = particles::RangeFloat2::Constant(core::Float2{ 0.2f, 0.2f });
+            sys.AddInitializer<particles::ColorInitializer>().color =
+                particles::RangeColor(core::Float4{ 0.2f, 0.7f, 1.0f, 1.0f }, core::Float4{ 0.9f, 0.4f, 1.0f, 1.0f });
 
-            sys.AddBehavior<px::GravityBehavior>().multiplier = 1.5f;   // arc back down -> curved ribbons
-            sys.AddBehavior<px::ColorOverLifetimeBehavior>().curve =
-                px::ParticleCurveColor::FadeAlpha(core::Float4{ 0.5f, 0.6f, 1.0f, 1.0f }, 0.3f);
+            sys.AddBehavior<particles::GravityBehavior>().multiplier = 1.5f;   // arc back down -> curved ribbons
+            sys.AddBehavior<particles::ColorOverLifetimeBehavior>().curve =
+                particles::ParticleCurveColor::FadeAlpha(core::Float4{ 0.5f, 0.6f, 1.0f, 1.0f }, 0.3f);
 
             sys.trail.enabled          = true;
             sys.trail.maxPoints        = 32;
@@ -442,26 +442,26 @@ namespace
         // Collision showcase: rain that spawns high and bounces off both the world ground plane (y=0) and a
         // rendered sphere obstacle at `obstacle` (radius `obRadius`). World-space, so the collider centre
         // is a world position matching the drawn sphere.
-        static void BuildCollision(px::ParticleEffect& effect, core::Float3 obstacle, core::f32 obRadius)
+        static void BuildCollision(particles::ParticleEffect& effect, core::Float3 obstacle, core::f32 obRadius)
         {
-            px::ParticleSystem& sys = effect.AddSystem(4000);
+            particles::ParticleSystem& sys = effect.AddSystem(4000);
             sys.name       = core::String{ u8"rain" };
-            sys.renderMode = px::ParticleRenderMode::Billboard;
-            sys.blendMode  = px::ParticleBlendMode::Alpha;
-            sys.emitter.mode = px::EmissionMode::Continuous;
+            sys.renderMode = particles::ParticleRenderMode::Billboard;
+            sys.blendMode  = particles::ParticleBlendMode::Alpha;
+            sys.emitter.mode = particles::EmissionMode::Continuous;
             sys.emitter.spawnRate = 500.0f;
 
-            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Box(core::Float3{ 3.0f, 0.1f, 3.0f });
-            sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(3.0f, 4.0f);
-            sys.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Float3{ 0.0f, -1.0f, 0.0f };
-            sys.AddInitializer<px::SizeInitializer>().size = px::RangeFloat2::Constant(core::Float2{ 0.12f, 0.12f });
-            sys.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Float4{ 0.5f, 0.75f, 1.0f, 0.9f });
-            sys.AddBehavior<px::GravityBehavior>().multiplier = 1.0f;
+            sys.AddInitializer<particles::PositionInitializer>().shape = particles::EmissionShape::Box(core::Float3{ 3.0f, 0.1f, 3.0f });
+            sys.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(3.0f, 4.0f);
+            sys.AddInitializer<particles::VelocityInitializer>().baseVelocity = core::Float3{ 0.0f, -1.0f, 0.0f };
+            sys.AddInitializer<particles::SizeInitializer>().size = particles::RangeFloat2::Constant(core::Float2{ 0.12f, 0.12f });
+            sys.AddInitializer<particles::ColorInitializer>().color = particles::RangeColor::Constant(core::Float4{ 0.5f, 0.75f, 1.0f, 0.9f });
+            sys.AddBehavior<particles::GravityBehavior>().multiplier = 1.0f;
             {
-                px::CollisionBehavior& col = sys.AddBehavior<px::CollisionBehavior>();
-                col.planes[0]  = px::CollisionPlane{ core::Float3{ 0.0f, 1.0f, 0.0f }, 0.0f };   // world ground
+                particles::CollisionBehavior& col = sys.AddBehavior<particles::CollisionBehavior>();
+                col.planes[0]  = particles::CollisionPlane{ core::Float3{ 0.0f, 1.0f, 0.0f }, 0.0f };   // world ground
                 col.planeCount = 1;
-                col.spheres[0]  = px::CollisionSphere{ obstacle, obRadius };                       // the drawn obstacle
+                col.spheres[0]  = particles::CollisionSphere{ obstacle, obRadius };                       // the drawn obstacle
                 col.sphereCount = 1;
                 col.radius       = 0.06f;   // particle radius so drops sit on the surface, not in it
                 col.bounce       = 0.45f;
@@ -471,129 +471,129 @@ namespace
         }
 
         // A single fire system (billboard additive): fast rising, shrinking, colour-graded white->red.
-        static void ConfigureFire(px::ParticleSystem& sys, core::f32 scale)
+        static void ConfigureFire(particles::ParticleSystem& sys, core::f32 scale)
         {
             sys.name       = core::String{ u8"fire" };
-            sys.renderMode = px::ParticleRenderMode::Billboard;
-            sys.blendMode  = px::ParticleBlendMode::Additive;
-            sys.emitter.mode = px::EmissionMode::Continuous;
+            sys.renderMode = particles::ParticleRenderMode::Billboard;
+            sys.blendMode  = particles::ParticleBlendMode::Additive;
+            sys.emitter.mode = particles::EmissionMode::Continuous;
             sys.emitter.spawnRate = 160.0f;
 
-            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Circle(0.6f * scale);
-            sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(0.6f, 1.1f);
+            sys.AddInitializer<particles::PositionInitializer>().shape = particles::EmissionShape::Circle(0.6f * scale);
+            sys.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(0.6f, 1.1f);
             {
-                px::VelocityInitializer& v = sys.AddInitializer<px::VelocityInitializer>();
+                particles::VelocityInitializer& v = sys.AddInitializer<particles::VelocityInitializer>();
                 v.baseVelocity = core::Float3{ 0.0f, 3.2f * scale, 0.0f };
                 v.randomness   = core::Float3{ 0.7f, 0.6f, 0.7f };
             }
-            sys.AddInitializer<px::SizeInitializer>().size = px::RangeFloat2::Constant(core::Float2{ 1.0f * scale, 1.0f * scale });
-            sys.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Float4{ 1.0f, 0.9f, 0.5f, 1.0f });
-            sys.AddBehavior<px::TurbulenceBehavior>().strength = 1.5f;   // flicker/curl
-            sys.AddBehavior<px::SizeOverLifetimeBehavior>().curve =
-                px::ParticleCurveFloat2::Linear(core::Float2{ 1.0f * scale, 1.0f * scale }, core::Float2{ 0.15f * scale, 0.15f * scale });
+            sys.AddInitializer<particles::SizeInitializer>().size = particles::RangeFloat2::Constant(core::Float2{ 1.0f * scale, 1.0f * scale });
+            sys.AddInitializer<particles::ColorInitializer>().color = particles::RangeColor::Constant(core::Float4{ 1.0f, 0.9f, 0.5f, 1.0f });
+            sys.AddBehavior<particles::TurbulenceBehavior>().strength = 1.5f;   // flicker/curl
+            sys.AddBehavior<particles::SizeOverLifetimeBehavior>().curve =
+                particles::ParticleCurveFloat2::Linear(core::Float2{ 1.0f * scale, 1.0f * scale }, core::Float2{ 0.15f * scale, 0.15f * scale });
             // Colour ramp: white-hot -> yellow -> orange -> red, fading out at the tip.
-            px::ParticleCurveColor ramp;
+            particles::ParticleCurveColor ramp;
             ramp.AddKey(0.0f, core::Float4{ 1.0f, 0.95f, 0.7f, 1.0f });
             ramp.AddKey(0.35f, core::Float4{ 1.0f, 0.6f, 0.2f, 0.9f });
             ramp.AddKey(0.7f, core::Float4{ 0.9f, 0.2f, 0.05f, 0.5f });
             ramp.AddKey(1.0f, core::Float4{ 0.4f, 0.05f, 0.02f, 0.0f });
-            sys.AddBehavior<px::ColorOverLifetimeBehavior>().curve = ramp;
+            sys.AddBehavior<particles::ColorOverLifetimeBehavior>().curve = ramp;
         }
 
         // A single smoke system (billboard alpha): slow rise, expanding, drifting, fading. Soft particles
         // are OFF - the soft-depth fade against the floor behind it would zero the alpha of a rising column.
-        static void ConfigureSmoke(px::ParticleSystem& sys, core::f32 scale, core::f32 rise)
+        static void ConfigureSmoke(particles::ParticleSystem& sys, core::f32 scale, core::f32 rise)
         {
             sys.name       = core::String{ u8"smoke" };
-            sys.renderMode = px::ParticleRenderMode::Billboard;
-            sys.blendMode  = px::ParticleBlendMode::Alpha;
+            sys.renderMode = particles::ParticleRenderMode::Billboard;
+            sys.blendMode  = particles::ParticleBlendMode::Alpha;
             sys.softParticles = false;
-            sys.emitter.mode = px::EmissionMode::Continuous;
+            sys.emitter.mode = particles::EmissionMode::Continuous;
             sys.emitter.spawnRate = 40.0f;
 
-            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Circle(0.5f * scale);
-            sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(3.0f, 5.0f);
-            sys.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Float3{ 0.0f, rise, 0.0f };
-            sys.AddInitializer<px::SizeInitializer>().size = px::RangeFloat2::Constant(core::Float2{ 1.0f * scale, 1.0f * scale });
+            sys.AddInitializer<particles::PositionInitializer>().shape = particles::EmissionShape::Circle(0.5f * scale);
+            sys.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(3.0f, 5.0f);
+            sys.AddInitializer<particles::VelocityInitializer>().baseVelocity = core::Float3{ 0.0f, rise, 0.0f };
+            sys.AddInitializer<particles::SizeInitializer>().size = particles::RangeFloat2::Constant(core::Float2{ 1.0f * scale, 1.0f * scale });
             // Near-white ambient-lit grey: light enough to read against the (grey) floor it starts over AND
             // the dark sky it rises into. Grey-on-grey-floor was the reason earlier smoke was invisible.
-            sys.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Float4{ 0.78f, 0.78f, 0.82f, 1.0f });
-            sys.AddBehavior<px::TurbulenceBehavior>().strength = 0.8f;   // lazy drift
-            sys.AddBehavior<px::DragBehavior>().drag = 0.12f;            // light drag -> the column keeps climbing off the floor
-            sys.AddBehavior<px::SizeOverLifetimeBehavior>().curve =
-                px::ParticleCurveFloat2::Linear(core::Float2{ 1.0f * scale, 1.0f * scale }, core::Float2{ 3.5f * scale, 3.5f * scale });
+            sys.AddInitializer<particles::ColorInitializer>().color = particles::RangeColor::Constant(core::Float4{ 0.78f, 0.78f, 0.82f, 1.0f });
+            sys.AddBehavior<particles::TurbulenceBehavior>().strength = 0.8f;   // lazy drift
+            sys.AddBehavior<particles::DragBehavior>().drag = 0.12f;            // light drag -> the column keeps climbing off the floor
+            sys.AddBehavior<particles::SizeOverLifetimeBehavior>().curve =
+                particles::ParticleCurveFloat2::Linear(core::Float2{ 1.0f * scale, 1.0f * scale }, core::Float2{ 3.5f * scale, 3.5f * scale });
             // Fade in from nothing, hold fairly opaque, fade out (billows appear then dissipate).
-            px::ParticleCurveFloat a;
+            particles::ParticleCurveFloat a;
             a.AddKey(0.0f, 0.0f); a.AddKey(0.15f, 0.9f); a.AddKey(0.6f, 0.7f); a.AddKey(1.0f, 0.0f);
-            sys.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = a;
+            sys.AddBehavior<particles::AlphaOverLifetimeBehavior>().curve = a;
         }
 
-        static void BuildFire(px::ParticleEffect& effect)  { ConfigureFire(effect.AddSystem(2000), 1.0f); }
-        static void BuildSmoke(px::ParticleEffect& effect) { ConfigureSmoke(effect.AddSystem(1200), 1.0f, 3.0f); }
+        static void BuildFire(particles::ParticleEffect& effect)  { ConfigureFire(effect.AddSystem(2000), 1.0f); }
+        static void BuildSmoke(particles::ParticleEffect& effect) { ConfigureSmoke(effect.AddSystem(1200), 1.0f, 3.0f); }
 
         // Composite effect: fire at the base + smoke rising above it, in ONE effect (two systems) - the
         // multi-system authoring case.
-        static void BuildCampfire(px::ParticleEffect& effect)
+        static void BuildCampfire(particles::ParticleEffect& effect)
         {
             ConfigureFire(effect.AddSystem(2000), 0.7f);
             // Thin, gentle wisp scaled to the small flame (not a billowing column): smaller, slower, sparser.
-            px::ParticleSystem& smoke = effect.AddSystem(400);
+            particles::ParticleSystem& smoke = effect.AddSystem(400);
             ConfigureSmoke(smoke, 0.35f, 2.0f);
             smoke.emitter.spawnRate = 12.0f;
         }
 
         // Fireworks: rockets shoot up and, on death, burst into a colour-inheriting spark shower via a
         // sub-emitter link (OnDeath -> child system, inherit position + colour).
-        static void BuildFireworks(px::ParticleEffect& effect)
+        static void BuildFireworks(particles::ParticleEffect& effect)
         {
             // System 0: rockets - launch up, short life, additive with a trail.
-            px::ParticleSystem& rocket = effect.AddSystem(64);
+            particles::ParticleSystem& rocket = effect.AddSystem(64);
             rocket.name       = core::String{ u8"rocket" };
-            rocket.renderMode = px::ParticleRenderMode::Trail;
-            rocket.blendMode  = px::ParticleBlendMode::Additive;
-            rocket.emitter.mode = px::EmissionMode::Continuous;
+            rocket.renderMode = particles::ParticleRenderMode::Trail;
+            rocket.blendMode  = particles::ParticleBlendMode::Additive;
+            rocket.emitter.mode = particles::EmissionMode::Continuous;
             rocket.emitter.spawnRate = 3.0f;   // a few launches per second
-            rocket.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Circle(0.4f);
-            rocket.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(1.0f, 1.4f);
+            rocket.AddInitializer<particles::PositionInitializer>().shape = particles::EmissionShape::Circle(0.4f);
+            rocket.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(1.0f, 1.4f);
             {
-                px::VelocityInitializer& v = rocket.AddInitializer<px::VelocityInitializer>();
+                particles::VelocityInitializer& v = rocket.AddInitializer<particles::VelocityInitializer>();
                 v.baseVelocity = core::Float3{ 0.0f, 13.0f, 0.0f };
                 v.randomness   = core::Float3{ 1.5f, 1.5f, 1.5f };
             }
-            rocket.AddInitializer<px::SizeInitializer>().size = px::RangeFloat2::Constant(core::Float2{ 0.25f, 0.25f });
+            rocket.AddInitializer<particles::SizeInitializer>().size = particles::RangeFloat2::Constant(core::Float2{ 0.25f, 0.25f });
             // Vivid warm hues (gold -> hot magenta) so the bursts pop against the dark sky - blues would
             // wash out. Sparks inherit this colour via the sub-emitter link.
-            rocket.AddInitializer<px::ColorInitializer>().color =
-                px::RangeColor(core::Float4{ 1.0f, 0.85f, 0.2f, 1.0f }, core::Float4{ 1.0f, 0.25f, 0.7f, 1.0f });
-            rocket.AddBehavior<px::GravityBehavior>().multiplier = 1.0f;   // arc to an apex, then die
+            rocket.AddInitializer<particles::ColorInitializer>().color =
+                particles::RangeColor(core::Float4{ 1.0f, 0.85f, 0.2f, 1.0f }, core::Float4{ 1.0f, 0.25f, 0.7f, 1.0f });
+            rocket.AddBehavior<particles::GravityBehavior>().multiplier = 1.0f;   // arc to an apex, then die
             rocket.trail.enabled = true; rocket.trail.maxPoints = 20; rocket.trail.lifetime = 0.4f;
             rocket.trail.widthStart = 0.12f; rocket.trail.widthEnd = 0.0f; rocket.trail.recordInterval = 0.02f;
 
             // System 1: sparks - spawned by rocket deaths (no self-emission); explode outward, gravity, fade.
-            px::ParticleSystem& sparks = effect.AddSystem(6000);
+            particles::ParticleSystem& sparks = effect.AddSystem(6000);
             sparks.name       = core::String{ u8"sparks" };
-            sparks.renderMode = px::ParticleRenderMode::Billboard;
-            sparks.blendMode  = px::ParticleBlendMode::Additive;
+            sparks.renderMode = particles::ParticleRenderMode::Billboard;
+            sparks.blendMode  = particles::ParticleBlendMode::Additive;
             sparks.emitter.isEmitting = false;
             {
-                px::PositionInitializer& p = sparks.AddInitializer<px::PositionInitializer>();
-                p.shape = px::EmissionShape::Point();
+                particles::PositionInitializer& p = sparks.AddInitializer<particles::PositionInitializer>();
+                p.shape = particles::EmissionShape::Point();
             }
-            sparks.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(0.9f, 1.7f);
+            sparks.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(0.9f, 1.7f);
             {
-                px::VelocityInitializer& v = sparks.AddInitializer<px::VelocityInitializer>();
-                v.shape = px::EmissionShape::Sphere(1.0f, /*shell*/ true);   // radial burst
+                particles::VelocityInitializer& v = sparks.AddInitializer<particles::VelocityInitializer>();
+                v.shape = particles::EmissionShape::Sphere(1.0f, /*shell*/ true);   // radial burst
                 v.shapeDirectionSpeed = 7.0f;
                 v.randomness = core::Float3{ 1.0f, 1.0f, 1.0f };
             }
-            sparks.AddInitializer<px::SizeInitializer>().size = px::RangeFloat2::Constant(core::Float2{ 0.16f, 0.16f });
-            sparks.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Float4{ 1.0f, 1.0f, 1.0f, 1.0f });
-            sparks.AddBehavior<px::GravityBehavior>().multiplier = 1.3f;
-            sparks.AddBehavior<px::DragBehavior>().drag = 0.6f;
-            sparks.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.15f);
+            sparks.AddInitializer<particles::SizeInitializer>().size = particles::RangeFloat2::Constant(core::Float2{ 0.16f, 0.16f });
+            sparks.AddInitializer<particles::ColorInitializer>().color = particles::RangeColor::Constant(core::Float4{ 1.0f, 1.0f, 1.0f, 1.0f });
+            sparks.AddBehavior<particles::GravityBehavior>().multiplier = 1.3f;
+            sparks.AddBehavior<particles::DragBehavior>().drag = 0.6f;
+            sparks.AddBehavior<particles::AlphaOverLifetimeBehavior>().curve = particles::ParticleCurveFloat::FadeOut(1.0f, 0.15f);
 
-            px::SubEmitterLink link = px::SubEmitterLink::Default();
-            link.trigger          = px::ParticleEventType::OnDeath;
+            particles::SubEmitterLink link = particles::SubEmitterLink::Default();
+            link.trigger          = particles::ParticleEventType::OnDeath;
             link.childSystemIndex = 1;
             link.spawnCount       = 80;
             link.probability      = 1.0f;
@@ -604,53 +604,53 @@ namespace
 
         // Tornado: a dust column that swirls up a vertical axis. Local space keeps the vortex + attractor
         // centres at the origin (re-based to the cell at extract), so the funnel spins around itself.
-        static void BuildTornado(px::ParticleEffect& effect)
+        static void BuildTornado(particles::ParticleEffect& effect)
         {
-            px::ParticleSystem& sys = effect.AddSystem(4000);
+            particles::ParticleSystem& sys = effect.AddSystem(4000);
             sys.name       = core::String{ u8"tornado" };
-            sys.renderMode = px::ParticleRenderMode::Billboard;
-            sys.blendMode  = px::ParticleBlendMode::Additive;
+            sys.renderMode = particles::ParticleRenderMode::Billboard;
+            sys.blendMode  = particles::ParticleBlendMode::Additive;
             sys.softParticles = false;
-            sys.simulationSpace = px::ParticleSpace::Local;   // vortex/attractor centres sit at the local origin
+            sys.simulationSpace = particles::ParticleSpace::Local;   // vortex/attractor centres sit at the local origin
             sys.prewarmTime = 2.0f;
-            sys.emitter.mode = px::EmissionMode::Continuous;
+            sys.emitter.mode = particles::EmissionMode::Continuous;
             sys.emitter.spawnRate = 600.0f;
-            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Circle(1.6f);
-            sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(1.6f, 2.8f);
-            sys.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Float3{ 0.0f, 4.5f, 0.0f };
-            sys.AddInitializer<px::SizeInitializer>().size = px::RangeFloat2::Constant(core::Float2{ 0.4f, 0.4f });
-            sys.AddInitializer<px::ColorInitializer>().color =
-                px::RangeColor(core::Float4{ 0.55f, 0.5f, 0.42f, 1.0f }, core::Float4{ 0.4f, 0.36f, 0.3f, 1.0f });
-            sys.AddBehavior<px::VortexBehavior>().strength = 12.0f;      // tangential swirl about local Y
-            sys.AddBehavior<px::AttractorBehavior>().strength = 3.5f;    // pull inward toward the axis (tighten the funnel)
-            sys.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.1f);
+            sys.AddInitializer<particles::PositionInitializer>().shape = particles::EmissionShape::Circle(1.6f);
+            sys.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(1.6f, 2.8f);
+            sys.AddInitializer<particles::VelocityInitializer>().baseVelocity = core::Float3{ 0.0f, 4.5f, 0.0f };
+            sys.AddInitializer<particles::SizeInitializer>().size = particles::RangeFloat2::Constant(core::Float2{ 0.4f, 0.4f });
+            sys.AddInitializer<particles::ColorInitializer>().color =
+                particles::RangeColor(core::Float4{ 0.55f, 0.5f, 0.42f, 1.0f }, core::Float4{ 0.4f, 0.36f, 0.3f, 1.0f });
+            sys.AddBehavior<particles::VortexBehavior>().strength = 12.0f;      // tangential swirl about local Y
+            sys.AddBehavior<particles::AttractorBehavior>().strength = 3.5f;    // pull inward toward the axis (tighten the funnel)
+            sys.AddBehavior<particles::AlphaOverLifetimeBehavior>().curve = particles::ParticleCurveFloat::FadeOut(1.0f, 0.1f);
         }
 
         // Explosion blast core: burst-looping fireballs that play a 4x4 flipbook atlas over their short life
         // (the atlas texture is set on the component). RadialForce spreads the puffs into a cluster.
-        static void BuildExplosionBlast(px::ParticleEffect& effect)
+        static void BuildExplosionBlast(particles::ParticleEffect& effect)
         {
-            px::ParticleSystem& sys = effect.AddSystem(200);
+            particles::ParticleSystem& sys = effect.AddSystem(200);
             sys.name       = core::String{ u8"blast" };
-            sys.renderMode = px::ParticleRenderMode::Billboard;
-            sys.blendMode  = px::ParticleBlendMode::Additive;
+            sys.renderMode = particles::ParticleRenderMode::Billboard;
+            sys.blendMode  = particles::ParticleBlendMode::Additive;
             sys.softParticles = true;   // soften where the fireballs meet the ground/obstacles
             sys.softDistance  = 1.0f;
-            sys.emitter.mode = px::EmissionMode::Burst;
+            sys.emitter.mode = particles::EmissionMode::Burst;
             sys.emitter.burstCount = 5;
             sys.emitter.burstInterval = 1.7f;   // repeating boom
             sys.emitter.burstCycles = 0;        // forever
-            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Sphere(0.5f);
-            sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(0.7f, 0.9f);
+            sys.AddInitializer<particles::PositionInitializer>().shape = particles::EmissionShape::Sphere(0.5f);
+            sys.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(0.7f, 0.9f);
             {
-                px::VelocityInitializer& v = sys.AddInitializer<px::VelocityInitializer>();
+                particles::VelocityInitializer& v = sys.AddInitializer<particles::VelocityInitializer>();
                 v.baseVelocity = core::Float3{ 0.0f, 1.5f, 0.0f };
                 v.randomness   = core::Float3{ 2.0f, 1.0f, 2.0f };
             }
-            sys.AddInitializer<px::SizeInitializer>().size = px::RangeFloat2::Constant(core::Float2{ 3.5f, 3.5f });
-            sys.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Float4{ 1.0f, 1.0f, 1.0f, 1.0f });
-            sys.AddBehavior<px::RadialForceBehavior>().strength = 5.0f;   // spread the cluster outward
-            sys.AddBehavior<px::DragBehavior>().drag = 1.5f;
+            sys.AddInitializer<particles::SizeInitializer>().size = particles::RangeFloat2::Constant(core::Float2{ 3.5f, 3.5f });
+            sys.AddInitializer<particles::ColorInitializer>().color = particles::RangeColor::Constant(core::Float4{ 1.0f, 1.0f, 1.0f, 1.0f });
+            sys.AddBehavior<particles::RadialForceBehavior>().strength = 5.0f;   // spread the cluster outward
+            sys.AddBehavior<particles::DragBehavior>().drag = 1.5f;
             sys.flipbook.enabled = true;
             sys.flipbook.columns = 4;
             sys.flipbook.rows = 4;
@@ -659,110 +659,110 @@ namespace
 
         // Explosion secondary FX (no texture -> soft dot): velocity-stretched debris streaks + a flat ground
         // shockwave disc. Burst-synced to the blast.
-        static void BuildExplosionFx(px::ParticleEffect& effect)
+        static void BuildExplosionFx(particles::ParticleEffect& effect)
         {
             // Debris streaks (StretchedBillboard: the quad stretches along the particle velocity).
-            px::ParticleSystem& deb = effect.AddSystem(1200);
+            particles::ParticleSystem& deb = effect.AddSystem(1200);
             deb.name       = core::String{ u8"debris" };
-            deb.renderMode = px::ParticleRenderMode::StretchedBillboard;
-            deb.blendMode  = px::ParticleBlendMode::Additive;
+            deb.renderMode = particles::ParticleRenderMode::StretchedBillboard;
+            deb.blendMode  = particles::ParticleBlendMode::Additive;
             deb.softParticles = false;
-            deb.emitter.mode = px::EmissionMode::Burst;
+            deb.emitter.mode = particles::EmissionMode::Burst;
             deb.emitter.burstCount = 140; deb.emitter.burstInterval = 1.7f; deb.emitter.burstCycles = 0;
-            deb.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Sphere(0.3f);
-            deb.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(0.5f, 1.0f);
+            deb.AddInitializer<particles::PositionInitializer>().shape = particles::EmissionShape::Sphere(0.3f);
+            deb.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(0.5f, 1.0f);
             {
-                px::VelocityInitializer& v = deb.AddInitializer<px::VelocityInitializer>();
-                v.shape = px::EmissionShape::Sphere(1.0f, /*shell*/ true);   // radial burst
+                particles::VelocityInitializer& v = deb.AddInitializer<particles::VelocityInitializer>();
+                v.shape = particles::EmissionShape::Sphere(1.0f, /*shell*/ true);   // radial burst
                 v.shapeDirectionSpeed = 13.0f;
                 v.randomness = core::Float3{ 2.0f, 2.0f, 2.0f };
             }
-            deb.AddInitializer<px::SizeInitializer>().size = px::RangeFloat2::Constant(core::Float2{ 0.14f, 0.14f });
-            deb.AddInitializer<px::ColorInitializer>().color =
-                px::RangeColor(core::Float4{ 1.0f, 0.85f, 0.35f, 1.0f }, core::Float4{ 1.0f, 0.35f, 0.1f, 1.0f });
-            deb.AddBehavior<px::GravityBehavior>().multiplier = 1.4f;
-            deb.AddBehavior<px::DragBehavior>().drag = 1.0f;
-            deb.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.2f);
+            deb.AddInitializer<particles::SizeInitializer>().size = particles::RangeFloat2::Constant(core::Float2{ 0.14f, 0.14f });
+            deb.AddInitializer<particles::ColorInitializer>().color =
+                particles::RangeColor(core::Float4{ 1.0f, 0.85f, 0.35f, 1.0f }, core::Float4{ 1.0f, 0.35f, 0.1f, 1.0f });
+            deb.AddBehavior<particles::GravityBehavior>().multiplier = 1.4f;
+            deb.AddBehavior<particles::DragBehavior>().drag = 1.0f;
+            deb.AddBehavior<particles::AlphaOverLifetimeBehavior>().curve = particles::ParticleCurveFloat::FadeOut(1.0f, 0.2f);
 
             // Shockwave: a single flat disc that expands and fades on the ground each boom.
-            px::ParticleSystem& ring = effect.AddSystem(16);
+            particles::ParticleSystem& ring = effect.AddSystem(16);
             ring.name       = core::String{ u8"shock" };
-            ring.renderMode = px::ParticleRenderMode::HorizontalBillboard;   // ground-flat
-            ring.blendMode  = px::ParticleBlendMode::Additive;
+            ring.renderMode = particles::ParticleRenderMode::HorizontalBillboard;   // ground-flat
+            ring.blendMode  = particles::ParticleBlendMode::Additive;
             ring.softParticles = false;
-            ring.emitter.mode = px::EmissionMode::Burst;
+            ring.emitter.mode = particles::EmissionMode::Burst;
             ring.emitter.burstCount = 1; ring.emitter.burstInterval = 1.7f; ring.emitter.burstCycles = 0;
-            ring.AddInitializer<px::PositionInitializer>();
-            ring.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(0.6f, 0.6f);
-            ring.AddInitializer<px::SizeInitializer>().size = px::RangeFloat2::Constant(core::Float2{ 1.0f, 1.0f });
-            ring.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Float4{ 1.0f, 0.7f, 0.3f, 1.0f });
-            ring.AddBehavior<px::SizeOverLifetimeBehavior>().curve =
-                px::ParticleCurveFloat2::Linear(core::Float2{ 1.0f, 1.0f }, core::Float2{ 9.0f, 9.0f });
-            ring.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.0f);
+            ring.AddInitializer<particles::PositionInitializer>();
+            ring.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(0.6f, 0.6f);
+            ring.AddInitializer<particles::SizeInitializer>().size = particles::RangeFloat2::Constant(core::Float2{ 1.0f, 1.0f });
+            ring.AddInitializer<particles::ColorInitializer>().color = particles::RangeColor::Constant(core::Float4{ 1.0f, 0.7f, 0.3f, 1.0f });
+            ring.AddBehavior<particles::SizeOverLifetimeBehavior>().curve =
+                particles::ParticleCurveFloat2::Linear(core::Float2{ 1.0f, 1.0f }, core::Float2{ 9.0f, 9.0f });
+            ring.AddBehavior<particles::AlphaOverLifetimeBehavior>().curve = particles::ParticleCurveFloat::FadeOut(1.0f, 0.0f);
         }
 
         // Magic circle: a slow-rotating ground-flat rune ring (HorizontalBillboard + Ring emission) with
         // glyph sparks rising off it.
-        static void BuildMagicCircle(px::ParticleEffect& effect)
+        static void BuildMagicCircle(particles::ParticleEffect& effect)
         {
             // Ground rune glyphs on a ring, lying flat, spinning.
-            px::ParticleSystem& rune = effect.AddSystem(400);
+            particles::ParticleSystem& rune = effect.AddSystem(400);
             rune.name       = core::String{ u8"rune" };
-            rune.renderMode = px::ParticleRenderMode::HorizontalBillboard;
-            rune.blendMode  = px::ParticleBlendMode::Additive;
+            rune.renderMode = particles::ParticleRenderMode::HorizontalBillboard;
+            rune.blendMode  = particles::ParticleBlendMode::Additive;
             rune.softParticles = false;
             rune.prewarmTime = 1.5f;
-            rune.emitter.mode = px::EmissionMode::Continuous;
+            rune.emitter.mode = particles::EmissionMode::Continuous;
             rune.emitter.spawnRate = 60.0f;
-            rune.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Ring(2.6f);
-            rune.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(1.4f, 1.8f);
-            rune.AddInitializer<px::SizeInitializer>().size = px::RangeFloat2::Constant(core::Float2{ 0.5f, 0.5f });
-            rune.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Float4{ 0.3f, 0.8f, 1.0f, 1.0f });
-            rune.AddInitializer<px::RotationInitializer>();
-            rune.AddBehavior<px::RotationOverLifetimeBehavior>();   // slow spin
-            rune.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::PeakAt(0.5f, 1.0f);
+            rune.AddInitializer<particles::PositionInitializer>().shape = particles::EmissionShape::Ring(2.6f);
+            rune.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(1.4f, 1.8f);
+            rune.AddInitializer<particles::SizeInitializer>().size = particles::RangeFloat2::Constant(core::Float2{ 0.5f, 0.5f });
+            rune.AddInitializer<particles::ColorInitializer>().color = particles::RangeColor::Constant(core::Float4{ 0.3f, 0.8f, 1.0f, 1.0f });
+            rune.AddInitializer<particles::RotationInitializer>();
+            rune.AddBehavior<particles::RotationOverLifetimeBehavior>();   // slow spin
+            rune.AddBehavior<particles::AlphaOverLifetimeBehavior>().curve = particles::ParticleCurveFloat::PeakAt(0.5f, 1.0f);
 
             // Glyph sparks rising off the ring.
-            px::ParticleSystem& spark = effect.AddSystem(600);
+            particles::ParticleSystem& spark = effect.AddSystem(600);
             spark.name       = core::String{ u8"glyph" };
-            spark.renderMode = px::ParticleRenderMode::Billboard;
-            spark.blendMode  = px::ParticleBlendMode::Additive;
+            spark.renderMode = particles::ParticleRenderMode::Billboard;
+            spark.blendMode  = particles::ParticleBlendMode::Additive;
             spark.softParticles = false;
-            spark.emitter.mode = px::EmissionMode::Continuous;
+            spark.emitter.mode = particles::EmissionMode::Continuous;
             spark.emitter.spawnRate = 40.0f;
-            spark.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Ring(2.6f);
-            spark.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(1.0f, 1.8f);
-            spark.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Float3{ 0.0f, 1.6f, 0.0f };
-            spark.AddInitializer<px::SizeInitializer>().size = px::RangeFloat2::Constant(core::Float2{ 0.18f, 0.18f });
-            spark.AddInitializer<px::ColorInitializer>().color = px::RangeColor::Constant(core::Float4{ 0.4f, 0.9f, 1.0f, 1.0f });
-            spark.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.2f);
+            spark.AddInitializer<particles::PositionInitializer>().shape = particles::EmissionShape::Ring(2.6f);
+            spark.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(1.0f, 1.8f);
+            spark.AddInitializer<particles::VelocityInitializer>().baseVelocity = core::Float3{ 0.0f, 1.6f, 0.0f };
+            spark.AddInitializer<particles::SizeInitializer>().size = particles::RangeFloat2::Constant(core::Float2{ 0.18f, 0.18f });
+            spark.AddInitializer<particles::ColorInitializer>().color = particles::RangeColor::Constant(core::Float4{ 0.4f, 0.9f, 1.0f, 1.0f });
+            spark.AddBehavior<particles::AlphaOverLifetimeBehavior>().curve = particles::ParticleCurveFloat::FadeOut(1.0f, 0.2f);
         }
 
         // Fireflies: glowing points wandering on a gentle wind + turbulence, twinkling via an oscillating
         // alpha curve. Showcases WindBehavior.
-        static void BuildFireflies(px::ParticleEffect& effect)
+        static void BuildFireflies(particles::ParticleEffect& effect)
         {
-            px::ParticleSystem& sys = effect.AddSystem(700);
+            particles::ParticleSystem& sys = effect.AddSystem(700);
             sys.name       = core::String{ u8"fireflies" };
-            sys.renderMode = px::ParticleRenderMode::Billboard;
-            sys.blendMode  = px::ParticleBlendMode::Additive;
+            sys.renderMode = particles::ParticleRenderMode::Billboard;
+            sys.blendMode  = particles::ParticleBlendMode::Additive;
             sys.softParticles = false;
             sys.prewarmTime = 2.0f;
-            sys.emitter.mode = px::EmissionMode::Continuous;
+            sys.emitter.mode = particles::EmissionMode::Continuous;
             sys.emitter.spawnRate = 40.0f;
-            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Box(core::Float3{ 3.0f, 2.0f, 3.0f });
-            sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(2.5f, 4.0f);
-            sys.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Float3{ 0.0f, 0.2f, 0.0f };
-            sys.AddInitializer<px::SizeInitializer>().size = px::RangeFloat2::Constant(core::Float2{ 0.16f, 0.16f });
-            sys.AddInitializer<px::ColorInitializer>().color =
-                px::RangeColor(core::Float4{ 0.8f, 1.0f, 0.3f, 1.0f }, core::Float4{ 1.0f, 0.9f, 0.2f, 1.0f });
-            { px::WindBehavior& w = sys.AddBehavior<px::WindBehavior>(); w.force = core::Float3{ 0.5f, 0.0f, 0.3f }; w.turbulence = 1.5f; }
-            sys.AddBehavior<px::TurbulenceBehavior>().strength = 1.2f;   // wander
+            sys.AddInitializer<particles::PositionInitializer>().shape = particles::EmissionShape::Box(core::Float3{ 3.0f, 2.0f, 3.0f });
+            sys.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(2.5f, 4.0f);
+            sys.AddInitializer<particles::VelocityInitializer>().baseVelocity = core::Float3{ 0.0f, 0.2f, 0.0f };
+            sys.AddInitializer<particles::SizeInitializer>().size = particles::RangeFloat2::Constant(core::Float2{ 0.16f, 0.16f });
+            sys.AddInitializer<particles::ColorInitializer>().color =
+                particles::RangeColor(core::Float4{ 0.8f, 1.0f, 0.3f, 1.0f }, core::Float4{ 1.0f, 0.9f, 0.2f, 1.0f });
+            { particles::WindBehavior& w = sys.AddBehavior<particles::WindBehavior>(); w.force = core::Float3{ 0.5f, 0.0f, 0.3f }; w.turbulence = 1.5f; }
+            sys.AddBehavior<particles::TurbulenceBehavior>().strength = 1.2f;   // wander
             {
-                px::ParticleCurveFloat a;   // twinkle: fade in, flicker, fade out
+                particles::ParticleCurveFloat a;   // twinkle: fade in, flicker, fade out
                 a.AddKey(0.0f, 0.0f); a.AddKey(0.15f, 1.0f); a.AddKey(0.35f, 0.25f);
                 a.AddKey(0.55f, 1.0f); a.AddKey(0.75f, 0.3f); a.AddKey(0.9f, 0.9f); a.AddKey(1.0f, 0.0f);
-                sys.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = a;
+                sys.AddBehavior<particles::AlphaOverLifetimeBehavior>().curve = a;
             }
         }
 
@@ -817,95 +817,95 @@ namespace
         }
 
         // Local-space showcase: a tight puff that rigidly follows its orbiting emitter (see OnUpdate).
-        static void BuildLocal(px::ParticleEffect& effect)
+        static void BuildLocal(particles::ParticleEffect& effect)
         {
-            px::ParticleSystem& sys = effect.AddSystem(2000);
+            particles::ParticleSystem& sys = effect.AddSystem(2000);
             sys.name       = core::String{ u8"orbit" };
-            sys.renderMode = px::ParticleRenderMode::Billboard;
-            sys.blendMode  = px::ParticleBlendMode::Additive;
-            sys.simulationSpace = px::ParticleSpace::Local;   // cloud moves as a rigid body with the emitter
+            sys.renderMode = particles::ParticleRenderMode::Billboard;
+            sys.blendMode  = particles::ParticleBlendMode::Additive;
+            sys.simulationSpace = particles::ParticleSpace::Local;   // cloud moves as a rigid body with the emitter
             sys.prewarmTime = 1.5f;                           // start already-populated
-            sys.emitter.mode = px::EmissionMode::Continuous;
+            sys.emitter.mode = particles::EmissionMode::Continuous;
             sys.emitter.spawnRate = 200.0f;
 
-            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Sphere(0.3f);
-            sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(1.0f, 1.6f);
-            sys.AddInitializer<px::VelocityInitializer>().baseVelocity = core::Float3{ 0.0f, 0.4f, 0.0f };
-            sys.AddInitializer<px::SizeInitializer>().size = px::RangeFloat2::Constant(core::Float2{ 0.18f, 0.18f });
-            sys.AddInitializer<px::ColorInitializer>().color =
-                px::RangeColor(core::Float4{ 1.0f, 0.8f, 0.3f, 1.0f }, core::Float4{ 1.0f, 0.4f, 0.1f, 1.0f });
-            sys.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.2f);
+            sys.AddInitializer<particles::PositionInitializer>().shape = particles::EmissionShape::Sphere(0.3f);
+            sys.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(1.0f, 1.6f);
+            sys.AddInitializer<particles::VelocityInitializer>().baseVelocity = core::Float3{ 0.0f, 0.4f, 0.0f };
+            sys.AddInitializer<particles::SizeInitializer>().size = particles::RangeFloat2::Constant(core::Float2{ 0.18f, 0.18f });
+            sys.AddInitializer<particles::ColorInitializer>().color =
+                particles::RangeColor(core::Float4{ 1.0f, 0.8f, 0.3f, 1.0f }, core::Float4{ 1.0f, 0.4f, 0.1f, 1.0f });
+            sys.AddBehavior<particles::AlphaOverLifetimeBehavior>().curve = particles::ParticleCurveFloat::FadeOut(1.0f, 0.2f);
         }
 
         // Shared mesh-particle config: tumbling shards that rise and spread. Used for BOTH mesh cells -
         // identical simulation; the only difference is the component's material (opaque solid vs. additive
         // glow, which routes to the Transparent pass). Demonstrates the mesh blend->category path.
-        static void BuildMeshShards(px::ParticleEffect& effect)
+        static void BuildMeshShards(particles::ParticleEffect& effect)
         {
-            px::ParticleSystem& sys = effect.AddSystem(2000);
+            particles::ParticleSystem& sys = effect.AddSystem(2000);
             sys.name       = core::String{ u8"shards" };
-            sys.renderMode = px::ParticleRenderMode::Mesh;
-            sys.emitter.mode = px::EmissionMode::Continuous;
+            sys.renderMode = particles::ParticleRenderMode::Mesh;
+            sys.emitter.mode = particles::EmissionMode::Continuous;
             sys.emitter.spawnRate = 80.0f;
 
-            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Sphere(0.4f);
-            sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(1.6f, 2.6f);
+            sys.AddInitializer<particles::PositionInitializer>().shape = particles::EmissionShape::Sphere(0.4f);
+            sys.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(1.6f, 2.6f);
             {
-                px::VelocityInitializer& v = sys.AddInitializer<px::VelocityInitializer>();
+                particles::VelocityInitializer& v = sys.AddInitializer<particles::VelocityInitializer>();
                 v.baseVelocity = core::Float3{ 0.0f, 3.5f, 0.0f };
                 v.randomness   = core::Float3{ 1.5f, 1.0f, 1.5f };
             }
-            sys.AddInitializer<px::SizeInitializer>().size = px::RangeFloat2::Constant(core::Float2{ 0.3f, 0.3f });
-            sys.AddInitializer<px::ColorInitializer>().color =
-                px::RangeColor(core::Float4{ 0.3f, 0.9f, 1.0f, 1.0f }, core::Float4{ 0.5f, 0.3f, 1.0f, 1.0f });
-            sys.AddInitializer<px::RotationInitializer>();
-            sys.AddInitializer<px::MeshOrientationInitializer>();
-            sys.AddBehavior<px::RotationOverLifetimeBehavior>();                 // tumble
-            sys.AddBehavior<px::DragBehavior>().drag = 0.5f;
-            sys.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.1f);
+            sys.AddInitializer<particles::SizeInitializer>().size = particles::RangeFloat2::Constant(core::Float2{ 0.3f, 0.3f });
+            sys.AddInitializer<particles::ColorInitializer>().color =
+                particles::RangeColor(core::Float4{ 0.3f, 0.9f, 1.0f, 1.0f }, core::Float4{ 0.5f, 0.3f, 1.0f, 1.0f });
+            sys.AddInitializer<particles::RotationInitializer>();
+            sys.AddInitializer<particles::MeshOrientationInitializer>();
+            sys.AddBehavior<particles::RotationOverLifetimeBehavior>();                 // tumble
+            sys.AddBehavior<particles::DragBehavior>().drag = 0.5f;
+            sys.AddBehavior<particles::AlphaOverLifetimeBehavior>().curve = particles::ParticleCurveFloat::FadeOut(1.0f, 0.1f);
         }
 
         // The effect for the cooked-pipeline demo: a bright cyan additive fountain (distinct from cell 0).
-        static void BuildCookedEffect(px::ParticleEffect& fx)
+        static void BuildCookedEffect(particles::ParticleEffect& fx)
         {
-            px::ParticleSystem& sys = fx.AddSystem(4000);
+            particles::ParticleSystem& sys = fx.AddSystem(4000);
             sys.name       = core::String{ u8"cooked" };
-            sys.blendMode  = px::ParticleBlendMode::Additive;
-            sys.renderMode = px::ParticleRenderMode::Billboard;
-            sys.emitter.mode = px::EmissionMode::Continuous;
+            sys.blendMode  = particles::ParticleBlendMode::Additive;
+            sys.renderMode = particles::ParticleRenderMode::Billboard;
+            sys.emitter.mode = particles::EmissionMode::Continuous;
             sys.emitter.spawnRate = 400.0f;
-            sys.AddInitializer<px::PositionInitializer>().shape = px::EmissionShape::Cone(0.3f, 0.5f);
-            sys.AddInitializer<px::LifetimeInitializer>().lifetime = px::RangeFloat(1.2f, 2.0f);
+            sys.AddInitializer<particles::PositionInitializer>().shape = particles::EmissionShape::Cone(0.3f, 0.5f);
+            sys.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(1.2f, 2.0f);
             {
-                px::VelocityInitializer& v = sys.AddInitializer<px::VelocityInitializer>();
+                particles::VelocityInitializer& v = sys.AddInitializer<particles::VelocityInitializer>();
                 v.baseVelocity = core::Float3{ 0.0f, 10.0f, 0.0f };
                 v.randomness   = core::Float3{ 2.5f, 1.0f, 2.5f };
             }
-            sys.AddInitializer<px::SizeInitializer>().size = px::RangeFloat2::Constant(core::Float2{ 0.3f, 0.3f });
-            sys.AddInitializer<px::ColorInitializer>().color =
-                px::RangeColor(core::Float4{ 0.2f, 1.0f, 0.9f, 1.0f }, core::Float4{ 0.4f, 0.6f, 1.0f, 1.0f });
-            sys.AddBehavior<px::GravityBehavior>().multiplier = 1.2f;
-            sys.AddBehavior<px::AlphaOverLifetimeBehavior>().curve = px::ParticleCurveFloat::FadeOut(1.0f, 0.3f);
+            sys.AddInitializer<particles::SizeInitializer>().size = particles::RangeFloat2::Constant(core::Float2{ 0.3f, 0.3f });
+            sys.AddInitializer<particles::ColorInitializer>().color =
+                particles::RangeColor(core::Float4{ 0.2f, 1.0f, 0.9f, 1.0f }, core::Float4{ 0.4f, 0.6f, 1.0f, 1.0f });
+            sys.AddBehavior<particles::GravityBehavior>().multiplier = 1.2f;
+            sys.AddBehavior<particles::AlphaOverLifetimeBehavior>().curve = particles::ParticleCurveFloat::FadeOut(1.0f, 0.3f);
         }
 
         // The full authoring pipeline, live: author a ParticleEffectAsset in code -> bake it with the
         // builder into a cooked ParticleEffectResource in the per-sample content DB -> Bind it through the
         // ResourceManager -> drive a component with the cooked Proxy. This is exactly the editor->runtime
         // path (an editor would bake offline; here we bake at startup), proving it end to end in the app.
-        void SetupCookedDemo(px::ParticleEffectComponentManager& pmgr)
+        void SetupCookedDemo(particles::ParticleEffectComponentManager& pmgr)
         {
             const core::StringView outputDir(reinterpret_cast<const core::utf8char*>(DRACONIC_PARTICLEFX_OUTPUT_DIR));
             if (outputDir.IsEmpty()) { return; }
-            px::RegisterParticleEffectAsset();   // register cooked/asset/module types + serializable factories
+            particles::RegisterParticleEffectAsset();   // register cooked/asset/module types + serializable factories
 
             m_contentFs = core::MakeUnique<vfs::NativeFileSystem>(core::DefaultAllocator(), outputDir);
             m_contentDb = core::MakeUnique<content::ContentDatabase>(core::DefaultAllocator(), *m_contentFs, core::BinarySerializerFactory(), u8".rasset");
 
             // AUTHOR -> BAKE: cook the authored asset into a content-DB ParticleEffectResource.
-            content::Instance* inst = m_contentDb->RootGroup()->CreateInstance(u8"cooked_demo", px::ParticleEffectResource::StaticType());
-            px::ParticleEffectAsset asset;
+            content::Instance* inst = m_contentDb->RootGroup()->CreateInstance(u8"cooked_demo", particles::ParticleEffectResource::StaticType());
+            particles::ParticleEffectAsset asset;
             BuildCookedEffect(asset.Effect());
-            px::ParticleEffectAssetBuilder builder;
+            particles::ParticleEffectAssetBuilder builder;
             editor::AssetBuildContext ctx;
             ctx.output = inst;
             ctx.db = m_contentDb.Get();
@@ -914,7 +914,7 @@ namespace
             // LOAD: bind the cooked resource back through the manager + factory (runtime path).
             m_resources = core::MakeUnique<resource::ResourceManager>(core::DefaultAllocator(), *m_contentDb);
             m_resources->AddFactory(&m_pfxFactory);
-            m_cookedProxy = m_resources->Bind<px::ParticleEffectResource>(inst->Id());
+            m_cookedProxy = m_resources->Bind<particles::ParticleEffectResource>(inst->Id());
             if (!m_cookedProxy) { return; }
 
             // DEMO: a component driven by the cooked resource (in front of the grid).
@@ -924,10 +924,10 @@ namespace
         }
 
         // Push the current soft-particle distance to every system in an effect (0 => disabled).
-        void ApplySoft(px::ParticleEffect& fx)
+        void ApplySoft(particles::ParticleEffect& fx)
         {
             for (core::i32 i = 0; i < fx.SystemCount(); ++i) {
-                if (px::ParticleSystem* s = fx.GetSystem(i)) { s->softParticles = m_softOn; s->softDistance = m_softDistance; }
+                if (particles::ParticleSystem* s = fx.GetSystem(i)) { s->softParticles = m_softOn; s->softDistance = m_softDistance; }
             }
         }
 
@@ -935,7 +935,7 @@ namespace
         {
             ImGui::SetNextWindowPos(ImVec2(12, 12), ImGuiCond_FirstUseEver);
             if (ImGui::Begin("ParticleFX")) {
-                px::ParticleSystem* sys = m_effect.GetSystem(0);
+                particles::ParticleSystem* sys = m_effect.GetSystem(0);
                 ImGui::Text("alive: %d", sys != nullptr ? sys->AliveCount() : 0);
                 ImGui::Text("fps: %.0f", 1.0f / core::Max(m_frameSmooth, 0.0001f));
                 if (sys != nullptr) {
@@ -945,7 +945,7 @@ namespace
                     // Fountain blend mode - live (read at extract), so all four PSO variants are eyeballable.
                     const char* kBlends[] = { "Alpha", "Additive", "Premultiplied", "Multiply" };
                     int blend = static_cast<int>(sys->blendMode);
-                    if (ImGui::Combo("blend", &blend, kBlends, 4)) { sys->blendMode = static_cast<px::ParticleBlendMode>(blend); }
+                    if (ImGui::Combo("blend", &blend, kBlends, 4)) { sys->blendMode = static_cast<particles::ParticleBlendMode>(blend); }
                 }
                 // Soft-particle A/B (live - read every frame at extract). Checkbox = on/off; slider tunes
                 // the fade band (kept while off, so toggling restores it). Applies to all billboard systems.
@@ -980,31 +980,31 @@ namespace
         scene::EntityHandle   m_explosionFxEmitter;
         scene::EntityHandle   m_magicEmitter;
         scene::EntityHandle   m_firefliesEmitter;
-        px::ParticleEffect    m_effect;
-        px::ParticleEffect    m_debris;
-        px::ParticleEffect    m_embers;
-        px::ParticleEffect    m_haze;
-        px::ParticleEffect    m_trail;
-        px::ParticleEffect    m_collide;
-        px::ParticleEffect    m_local;
-        px::ParticleEffect    m_meshGlow;
-        px::ParticleEffect    m_smoke;
-        px::ParticleEffect    m_fire;
-        px::ParticleEffect    m_campfire;
-        px::ParticleEffect    m_fireworks;
-        px::ParticleEffect    m_tornado;
-        px::ParticleEffect    m_explosion;
-        px::ParticleEffect    m_explosionFx;
-        px::ParticleEffect    m_magic;
-        px::ParticleEffect    m_fireflies;
+        particles::ParticleEffect    m_effect;
+        particles::ParticleEffect    m_debris;
+        particles::ParticleEffect    m_embers;
+        particles::ParticleEffect    m_haze;
+        particles::ParticleEffect    m_trail;
+        particles::ParticleEffect    m_collide;
+        particles::ParticleEffect    m_local;
+        particles::ParticleEffect    m_meshGlow;
+        particles::ParticleEffect    m_smoke;
+        particles::ParticleEffect    m_fire;
+        particles::ParticleEffect    m_campfire;
+        particles::ParticleEffect    m_fireworks;
+        particles::ParticleEffect    m_tornado;
+        particles::ParticleEffect    m_explosion;
+        particles::ParticleEffect    m_explosionFx;
+        particles::ParticleEffect    m_magic;
+        particles::ParticleEffect    m_fireflies;
         rhi::Texture*         m_blastTex = nullptr;    // flipbook atlas for the explosion (owned)
         rhi::TextureView*     m_blastView = nullptr;
         // Cooked-pipeline demo: content DB + manager + factory + the bound cooked effect.
         core::UniquePtr<vfs::NativeFileSystem>       m_contentFs;
         core::UniquePtr<content::ContentDatabase>    m_contentDb;
         core::UniquePtr<resource::ResourceManager>   m_resources;
-        px::ParticleEffectFactory                    m_pfxFactory;
-        resource::Proxy<px::ParticleEffectResource>  m_cookedProxy;
+        particles::ParticleEffectFactory                    m_pfxFactory;
+        resource::Proxy<particles::ParticleEffectResource>  m_cookedProxy;
         scene::EntityHandle                          m_cookedEmitter;
         samples::FlyCamera    m_fly;
         core::f32             m_frameSmooth = 0.016f;

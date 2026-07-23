@@ -37,7 +37,7 @@ namespace core = draconic::core;
 namespace runtime = draconic::runtime;
 namespace graphics = draconic::graphics;
 namespace shell = draconic::shell;
-namespace dscene = draconic::scene;
+namespace scene = draconic::scene;
 namespace render = draconic::render;
 namespace physics = draconic::physics;
 namespace imgui = draconic::imgui;
@@ -70,7 +70,7 @@ namespace
 
         void OnLaunch(runtime::IApplicationHost& host) override
         {
-            auto* scenes = host.Ctx().GetSubsystem<dscene::SceneSubsystem>();
+            auto* scenes = host.Ctx().GetSubsystem<scene::SceneSubsystem>();
             if (scenes == nullptr) { return; }
             m_scene = PrimaryScenes().CreateScene(u8"playground");
             m_physics = m_scene->GetSystem<physics::PhysicsSceneSystem>();
@@ -235,7 +235,7 @@ namespace
 
             // Ground: an infinite plane (P2) - crates land anywhere, not just on a slab.
             {
-                dscene::EntityHandle e = m_scene->CreateEntity(u8"ground");
+                scene::EntityHandle e = m_scene->CreateEntity(u8"ground");
                 physics::RigidBodyComponent& body = bodies->Add(e);
                 body.motion = physics::MotionKind::Static;
                 body.layer = physics::PhysicsLayer::Static;
@@ -268,7 +268,7 @@ namespace
                     {
                         m_rampShape->outline = static_cast<core::Array<core::Float3>&&>(outline);
                     }
-                    dscene::EntityHandle e = m_scene->CreateEntity(u8"ramp");
+                    scene::EntityHandle e = m_scene->CreateEntity(u8"ramp");
                     physics::RigidBodyComponent& body = bodies->Add(e);
                     body.motion = physics::MotionKind::Static;
                     body.layer = physics::PhysicsLayer::Static;
@@ -313,7 +313,7 @@ namespace
             {
                 for (int col = 0; col < 5; ++col)
                 {
-                    dscene::EntityHandle e = m_scene->CreateEntity(u8"crate");
+                    scene::EntityHandle e = m_scene->CreateEntity(u8"crate");
                     m_scene->SetLocalPosition(e,
                         core::Float3{ (col - 2) * 1.05f, 0.5f + row * 1.05f, 0.0f });
                     physics::RigidBodyComponent& body = bodies->Add(e);
@@ -350,7 +350,7 @@ namespace
             // a clickable counter ON A SURFACE. Aim at it and click; the pointer ray
             // routes into the panel (and is consumed - no crate shove through it).
             {
-                dscene::EntityHandle e = m_scene->CreateEntity(u8"kiosk");
+                scene::EntityHandle e = m_scene->CreateEntity(u8"kiosk");
                 m_scene->SetLocalPosition(e, core::Float3{ 4.0f, 1.6f, -6.0f });
                 m_kioskDocument = core::MakeRef<draconic::ui::UIDocument>(core::DefaultAllocator());
                 m_kioskDocument->markup = core::String(
@@ -375,7 +375,7 @@ namespace
             // A motorized hinge spinner (P3 joints): a blade welded to the world pivot,
             // spinning at 2 rad/s - walk the character into it to get batted away.
             {
-                dscene::EntityHandle e = m_scene->CreateEntity(u8"spinner");
+                scene::EntityHandle e = m_scene->CreateEntity(u8"spinner");
                 m_scene->SetLocalPosition(e, core::Float3{ -6.0f, 1.0f, -4.0f });
                 physics::RigidBodyComponent& body = bodies->Add(e);
                 body.halfExtents = core::Float3{ 2.0f, 0.1f, 0.1f };
@@ -403,7 +403,7 @@ namespace
                     u8"    </Flex>"
                     u8"  </Panel>"
                     u8"</Flex>");
-                dscene::EntityHandle e = m_scene->CreateEntity(u8"hud");
+                scene::EntityHandle e = m_scene->CreateEntity(u8"hud");
                 auto* canvases = m_scene->GetSystem<draconic::ui::UICanvasComponentManager>();
                 if (canvases != nullptr)
                 {
@@ -423,7 +423,7 @@ namespace
             }
             // The trigger volume above the stack.
             {
-                dscene::EntityHandle e = m_scene->CreateEntity(u8"trigger");
+                scene::EntityHandle e = m_scene->CreateEntity(u8"trigger");
                 m_scene->SetLocalPosition(e, core::Float3{ 0.0f, 6.0f, 0.0f });
                 physics::RigidBodyComponent& body = bodies->Add(e);
                 body.motion = physics::MotionKind::Kinematic;
@@ -438,7 +438,7 @@ namespace
             if (m_physics == nullptr || m_physics->World() == nullptr) { return; }
             auto* bodies = m_scene->GetSystem<physics::RigidBodyComponentManager>();
             int i = 0;
-            for (dscene::EntityHandle e : m_crates)
+            for (scene::EntityHandle e : m_crates)
             {
                 const int row = i / 5;
                 const int col = i % 5;
@@ -503,19 +503,19 @@ namespace
             m_scene->SetLocalTransform(m_camera, t);
         }
 
-        dscene::Scene* m_scene = nullptr;
+        scene::Scene* m_scene = nullptr;
         physics::PhysicsSceneSystem* m_physics = nullptr;
-        dscene::EntityHandle m_camera;
-        dscene::EntityHandle m_sweeper;
-        core::Array<dscene::EntityHandle> m_crates;
-        dscene::EntityHandle m_boulder;
-        dscene::EntityHandle m_hero;
-        dscene::EntityHandle m_hudEntity;
+        scene::EntityHandle m_camera;
+        scene::EntityHandle m_sweeper;
+        core::Array<scene::EntityHandle> m_crates;
+        scene::EntityHandle m_boulder;
+        scene::EntityHandle m_hero;
+        scene::EntityHandle m_hudEntity;
         core::RefPtr<draconic::ui::UIDocument> m_hudDocument;
         core::RefPtr<draconic::ui::UIDocument> m_nameplateDocument;
         bool m_hudBound = false;
         core::RefPtr<draconic::ui::UIDocument> m_kioskDocument;
-        dscene::EntityHandle m_kioskEntity{};
+        scene::EntityHandle m_kioskEntity{};
         bool m_kioskBound = false;
         core::u32 m_kioskTaps = 0;
         core::u32 m_hudClicks = 0;

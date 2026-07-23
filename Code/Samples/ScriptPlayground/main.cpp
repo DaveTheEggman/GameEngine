@@ -45,7 +45,7 @@ namespace core = draconic::core;
 namespace runtime = draconic::runtime;
 namespace graphics = draconic::graphics;
 namespace shell = draconic::shell;
-namespace dscene = draconic::scene;
+namespace scene = draconic::scene;
 namespace render = draconic::render;
 namespace geometry = draconic::geometry;
 namespace materials = draconic::materials;
@@ -167,7 +167,7 @@ namespace
             // sample self-reports (Mover onStart lines, any behavior fault).
             core::GlobalLogger().AddSink(&m_consoleSink);
 
-            auto* scenes = host.Ctx().GetSubsystem<dscene::SceneSubsystem>();
+            auto* scenes = host.Ctx().GetSubsystem<scene::SceneSubsystem>();
             if (scenes == nullptr) { return; }
             m_scene = PrimaryScenes().CreateScene(u8"scripts");
 
@@ -227,14 +227,14 @@ namespace
 
             // A ground slab (static) for a sense of place.
             {
-                dscene::EntityHandle ground = m_scene->CreateEntity(u8"ground");
+                scene::EntityHandle ground = m_scene->CreateEntity(u8"ground");
                 m_scene->SetLocalPosition(ground, core::Float3{ 0.0f, -0.6f, 0.0f });
                 core::RefPtr<geometry::StaticMesh> slab = geometry::Primitives::Cube(1.0f);
                 render::MeshComponent& mc = meshes->Add(ground);
                 mc.mesh = slab;
                 mc.SetMaterial(materials::CreatePBR(u8"lit",
                     core::Float4{ 0.15f, 0.16f, 0.19f, 1.0f }, 0.0f, 0.8f));
-                dscene::EntityHandle g = ground;
+                scene::EntityHandle g = ground;
                 core::Transform t = m_scene->GetLocalTransform(g);
                 t.scale = core::Float3{ 30.0f, 0.2f, 30.0f };
                 m_scene->SetLocalTransform(g, t);
@@ -261,7 +261,7 @@ namespace
             for (int i = 0; i < kMovers; ++i)
             {
                 const f32 angle = static_cast<f32>(i) / kMovers * 6.2831853f;
-                dscene::EntityHandle e = m_scene->CreateEntity(u8"mover");
+                scene::EntityHandle e = m_scene->CreateEntity(u8"mover");
                 m_scene->SetLocalPosition(e, core::Float3{ core::Cos(angle) * 8.0f, 0.5f,
                                                            core::Sin(angle) * 8.0f });
                 render::MeshComponent& mc = meshes->Add(e);
@@ -303,9 +303,9 @@ namespace
             m_scene->SetLocalTransform(m_camera, t);
         }
 
-        dscene::Scene* m_scene = nullptr;
-        dscene::EntityHandle m_camera{};
-        dscene::EntityHandle m_beacon{};
+        scene::Scene* m_scene = nullptr;
+        scene::EntityHandle m_camera{};
+        scene::EntityHandle m_beacon{};
         core::RefPtr<script::ScriptClass> m_mover;
         core::RefPtr<script::ScriptClass> m_spinner;
         core::ConsoleSink m_consoleSink;

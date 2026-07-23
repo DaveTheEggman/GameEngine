@@ -14,13 +14,13 @@ import draconic.shaders;
 import draconic.samples.framework;
 import draconic.rhi.vk;
 
-namespace sf = draconic::samples::framework;
+namespace samples = draconic::samples;
 namespace rhi = draconic::rhi;
 namespace shaders = draconic::shaders;
 
-class BindlessSample : public sf::SampleApp {
+class BindlessSample : public samples::framework::SampleApp {
 public:
-    using sf::SampleApp::SampleApp;
+    using samples::framework::SampleApp::SampleApp;
     draconic::core::StringView Title() const override { return u8"Sample018 - Bindless Textures"; }
     rhi::DeviceFeatures RequiredFeatures() const override {
         rhi::DeviceFeatures f{}; f.bindlessDescriptors = true; return f;
@@ -45,7 +45,7 @@ private:
             float Padding;
         };
 
-        [[vk::push_constant]] ConstantBuffer<PushData> gPush : register(b0, space2);
+        [[rhi::vk::push_constant]] ConstantBuffer<PushData> gPush : register(b0, space2);
 
         struct PSInput
         {
@@ -113,8 +113,8 @@ draconic::core::Status BindlessSample::OnInit() {
     using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
 
     if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Vertex,   u8"VSMain", u8"BindlessVS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Fragment, u8"PSMain", u8"BindlessPS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (samples::framework::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Vertex,   u8"VSMain", u8"BindlessVS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (samples::framework::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Fragment, u8"PSMain", u8"BindlessPS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Create 4 procedural textures with different patterns
     if (createTextures() != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;

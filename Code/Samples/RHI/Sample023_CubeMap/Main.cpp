@@ -16,13 +16,13 @@ import draconic.shaders;
 import draconic.samples.framework;
 import draconic.rhi.vk;
 
-namespace sf = draconic::samples::framework;
+namespace samples = draconic::samples;
 namespace rhi = draconic::rhi;
 namespace shaders = draconic::shaders;
 
-class CubeMapSample : public sf::SampleApp {
+class CubeMapSample : public samples::framework::SampleApp {
 public:
-    using sf::SampleApp::SampleApp;
+    using samples::framework::SampleApp::SampleApp;
     draconic::core::StringView Title() const override { return u8"Sample023 - Cube Map & Comparison Sampler"; }
 protected:
     draconic::core::Status OnInit() override;
@@ -44,7 +44,7 @@ private:
             float2 _pad;
         };
 
-        [[vk::push_constant]] ConstantBuffer<PushConstants> pc : register(b0, space1);
+        [[rhi::vk::push_constant]] ConstantBuffer<PushConstants> pc : register(b0, space1);
 
         struct PSInput
         {
@@ -92,7 +92,7 @@ private:
             float2 _pad;
         };
 
-        [[vk::push_constant]] ConstantBuffer<PushConstants> pc : register(b0, space1);
+        [[rhi::vk::push_constant]] ConstantBuffer<PushConstants> pc : register(b0, space1);
 
         struct VSInput
         {
@@ -169,12 +169,12 @@ draconic::core::Status CubeMapSample::OnInit() {
     if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Compile skybox shaders
-    if (sf::CompileToModule(m_compiler, m_device, kSkyboxShader, shaders::ShaderStage::Vertex,   u8"VSMain", u8"SkyboxVS", m_skyboxVs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kSkyboxShader, shaders::ShaderStage::Fragment, u8"PSMain", u8"SkyboxPS", m_skyboxPs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (samples::framework::CompileToModule(m_compiler, m_device, kSkyboxShader, shaders::ShaderStage::Vertex,   u8"VSMain", u8"SkyboxVS", m_skyboxVs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (samples::framework::CompileToModule(m_compiler, m_device, kSkyboxShader, shaders::ShaderStage::Fragment, u8"PSMain", u8"SkyboxPS", m_skyboxPs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Compile shadow shaders
-    if (sf::CompileToModule(m_compiler, m_device, kShadowShader, shaders::ShaderStage::Vertex,   u8"VSMain", u8"ShadowVS", m_shadowVs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (sf::CompileToModule(m_compiler, m_device, kShadowShader, shaders::ShaderStage::Fragment, u8"PSMain", u8"ShadowPS", m_shadowPs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (samples::framework::CompileToModule(m_compiler, m_device, kShadowShader, shaders::ShaderStage::Vertex,   u8"VSMain", u8"ShadowVS", m_shadowVs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (samples::framework::CompileToModule(m_compiler, m_device, kShadowShader, shaders::ShaderStage::Fragment, u8"PSMain", u8"ShadowPS", m_shadowPs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
 
     // Create procedural cube map (6 faces, 64x64, each a solid color)
     if (createCubeMap() != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
