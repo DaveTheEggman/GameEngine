@@ -11,9 +11,11 @@ target_link_libraries(DraconicRenderSubsystem
            Draconic::PipelineCache Draconic::Profiler Draconic::Policy)
 
 target_sources(DraconicRenderSubsystem
+    PRIVATE
+        RenderComponentsImpl.cpp   # DRACONIC_REFLECT_* bodies (see RenderComponents.cppm)
     PUBLIC
         FILE_SET render_subsystem_modules TYPE CXX_MODULES FILES
-            Components.cppm
+            RenderComponents.cppm
             SceneRenderer.cppm
             Extract.cppm
             RenderSubsystem.cppm
