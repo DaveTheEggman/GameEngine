@@ -19,7 +19,7 @@ import :drawable;
 import :draw_context;
 
 using namespace draconic::core;
-namespace svg = draconic::vg::svg;
+namespace vg = draconic::vg;
 
 export namespace draconic::ui
 {
@@ -30,12 +30,12 @@ export namespace draconic::ui
         /// Optional tint; when set, overrides all stroke/fill colors in the SVG. Empty = original colors.
         Optional<Color> TintColor;
 
-        explicit SVGDrawable(svg::SVGDocument document) : m_document(Move(document)) {}
+        explicit SVGDrawable(vg::svg::SVGDocument document) : m_document(Move(document)) {}
 
         /// Create from an SVG string. Returns an empty RefPtr on parse failure.
         [[nodiscard]] static RefPtr<SVGDrawable> FromString(StringView svgContent)
         {
-            Result<svg::SVGDocument> result = svg::SVGLoader::Load(svgContent);
+            Result<vg::svg::SVGDocument> result = vg::svg::SVGLoader::Load(svgContent);
             if (result.HasValue()) { return MakeRef<SVGDrawable>(DefaultAllocator(), Move(result.Value())); }
             return {};
         }
@@ -43,7 +43,7 @@ export namespace draconic::ui
         /// Create from an SVG string with a tint applied.
         [[nodiscard]] static RefPtr<SVGDrawable> FromString(StringView svgContent, Color tint)
         {
-            Result<svg::SVGDocument> result = svg::SVGLoader::Load(svgContent);
+            Result<vg::svg::SVGDocument> result = vg::svg::SVGLoader::Load(svgContent);
             if (result.HasValue())
             {
                 RefPtr<SVGDrawable> d = MakeRef<SVGDrawable>(DefaultAllocator(), Move(result.Value()));
@@ -61,11 +61,11 @@ export namespace draconic::ui
 
         void Draw(UIDrawContext& ctx, const Rectangle& bounds) override
         {
-            svg::SVGRenderer::Render(ctx.VG(), m_document, bounds, TintColor);
+            vg::svg::SVGRenderer::Render(ctx.VG(), m_document, bounds, TintColor);
         }
 
     private:
-        svg::SVGDocument m_document;
+        vg::svg::SVGDocument m_document;
     };
 
     DRACONIC_DEFINE_OBJECT(SVGDrawable, "draconic::ui")

@@ -8,7 +8,7 @@ import draconic.ui.vfs;
 
 using namespace draconic::core;
 namespace vfs = draconic::vfs;
-namespace uivfs = draconic::ui::vfs;
+namespace ui = draconic::ui;
 
 namespace
 {
@@ -34,7 +34,7 @@ TEST_CASE("vfs-provider: LoadText reads file bytes")
 {
     MemFS fs;
     fs.files.InsertOrAssign(String(u8"a.sss"), String(u8"button { color: #fff; }"));
-    uivfs::VfsResourceProvider provider(&fs);
+    ui::vfs::VfsResourceProvider provider(&fs);
 
     String out;
     CHECK(provider.LoadText(u8"a.sss", out));
@@ -44,7 +44,7 @@ TEST_CASE("vfs-provider: LoadText reads file bytes")
 TEST_CASE("vfs-provider: LoadText missing file fails")
 {
     MemFS fs;
-    uivfs::VfsResourceProvider provider(&fs);
+    ui::vfs::VfsResourceProvider provider(&fs);
     String out;
     CHECK(!provider.LoadText(u8"nope.sss", out));
 }
@@ -53,7 +53,7 @@ TEST_CASE("vfs-provider: empty file succeeds with empty text")
 {
     MemFS fs;
     fs.files.InsertOrAssign(String(u8"empty.sss"), String());
-    uivfs::VfsResourceProvider provider(&fs);
+    ui::vfs::VfsResourceProvider provider(&fs);
     String out;
     CHECK(provider.LoadText(u8"empty.sss", out));
     CHECK(out.Size() == 0);
@@ -61,7 +61,7 @@ TEST_CASE("vfs-provider: empty file succeeds with empty text")
 
 TEST_CASE("vfs-provider: null filesystem fails gracefully")
 {
-    uivfs::VfsResourceProvider provider(nullptr);
+    ui::vfs::VfsResourceProvider provider(nullptr);
     String out;
     CHECK(!provider.LoadText(u8"x", out));
     CHECK(provider.LoadImage(u8"x") == nullptr);

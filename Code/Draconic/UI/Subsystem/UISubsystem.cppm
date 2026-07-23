@@ -40,7 +40,7 @@ using namespace draconic::core;
 
 export namespace draconic::ui
 {
-    namespace dscene = draconic::scene;
+    namespace scene = draconic::scene;
 
     enum class CanvasScalerMode : u8
     {
@@ -111,7 +111,7 @@ export namespace draconic::ui
     }
 
     class UICanvasComponentManager final
-        : public dscene::SerializableComponentManager<UICanvasComponent>
+        : public scene::SerializableComponentManager<UICanvasComponent>
     {
     public:
         UICanvasComponentManager()
@@ -169,7 +169,7 @@ export namespace draconic::ui
     }
 
     class UIBillboardComponentManager final
-        : public dscene::SerializableComponentManager<UIBillboardComponent>
+        : public scene::SerializableComponentManager<UIBillboardComponent>
     {
     public:
         UIBillboardComponentManager()
@@ -222,7 +222,7 @@ export namespace draconic::ui
     }
 
     class UIWorldPanelComponentManager final
-        : public dscene::SerializableComponentManager<UIWorldPanelComponent>
+        : public scene::SerializableComponentManager<UIWorldPanelComponent>
     {
     public:
         UIWorldPanelComponentManager()
@@ -290,7 +290,7 @@ export namespace draconic::ui
     void RegisterUIComponentReflection();
 
     class UISubsystem final : public draconic::runtime::Subsystem,
-                              public dscene::ISceneAware,
+                              public scene::ISceneAware,
                               public draconic::render::ISceneOverlay,
                               public draconic::render::IScreenOverlay
     {
@@ -329,7 +329,7 @@ export namespace draconic::ui
         [[nodiscard]] RootView* ScreenRoot() noexcept { return m_screenRoot.Get(); }
         /// The scene tier's root for `scene` (canvases above a shared billboard layer);
         /// null if the scene is unknown.
-        [[nodiscard]] RootView* SceneRoot(dscene::Scene& scene) noexcept
+        [[nodiscard]] RootView* SceneRoot(scene::Scene& scene) noexcept
         {
             SceneUI* ui = FindSceneUI(scene);
             return ui != nullptr ? ui->root.Get() : nullptr;
@@ -374,7 +374,7 @@ export namespace draconic::ui
         void OnReady() override;
         void BeginFrame(f32 deltaTime) override;
 
-        void OnSceneCreated(dscene::Scene& scene) override
+        void OnSceneCreated(scene::Scene& scene) override
         {
             scene.AddSystem<UICanvasComponentManager>();
             scene.AddSystem<UIBillboardComponentManager>();
@@ -391,7 +391,7 @@ export namespace draconic::ui
             m_context.AddRootView(ui.root.Get());
             m_sceneUIs.PushBack(Move(ui));
         }
-        void OnSceneDestroyed(dscene::Scene& scene) override
+        void OnSceneDestroyed(scene::Scene& scene) override
         {
             for (usize i = 0; i < m_sceneUIs.Size(); ++i)
             {
@@ -422,7 +422,7 @@ export namespace draconic::ui
         /// The scene-tier per-view sync, split out for headless tests: canvas visibility
         /// plus billboard projection/scaling through the VIEW's camera (world -> clip ->
         /// NDC -> px in the target; behind-camera parks off-screen).
-        void UpdateSceneView(dscene::Scene& scene, const render::SceneOverlayView& view);
+        void UpdateSceneView(scene::Scene& scene, const render::SceneOverlayView& view);
 
         /// RenderTexture canvases: draws every RT canvas's root into its subsystem-owned
         /// offscreen texture (create/resize on demand; orphaned targets destroyed). The
@@ -438,8 +438,8 @@ export namespace draconic::ui
         /// The offscreen texture view of `entity`'s RenderTexture canvas in `scene`
         /// (null when absent, not that mode, or not rendered yet). Also mirrored on the
         /// component (renderTexture/renderTextureView).
-        [[nodiscard]] rhi::TextureView* CanvasRenderTextureView(dscene::Scene& scene,
-                                                                dscene::EntityHandle entity) noexcept
+        [[nodiscard]] rhi::TextureView* CanvasRenderTextureView(scene::Scene& scene,
+                                                                scene::EntityHandle entity) noexcept
         {
             auto* canvases = scene.GetSystem<UICanvasComponentManager>();
             UICanvasComponent* c = canvases != nullptr ? canvases->Get(entity) : nullptr;
@@ -473,11 +473,11 @@ export namespace draconic::ui
         // Per-scene UI state: the scene tier's root + its billboard layer.
         struct SceneUI
         {
-            dscene::Scene* scene = nullptr;
+            scene::Scene* scene = nullptr;
             RefPtr<RootView> root;
             RefPtr<ViewGroup> billboardLayer;   // BELOW the scene's canvases; one batch
         };
-        [[nodiscard]] SceneUI* FindSceneUI(dscene::Scene& scene) noexcept
+        [[nodiscard]] SceneUI* FindSceneUI(scene::Scene& scene) noexcept
         {
             for (SceneUI& ui : m_sceneUIs) { if (ui.scene == &scene) { return &ui; } }
             return nullptr;

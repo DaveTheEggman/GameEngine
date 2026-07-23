@@ -32,10 +32,10 @@ import draconic.render.api;
 import draconic.render.subsystem;   // RenderSubsystem (overlay-role registration)
 
 using namespace draconic::core;
+    namespace vg = draconic::vg;
 
 namespace draconic::ui
 {
-    namespace vgr = draconic::vg::renderer;
 
     // Per-canvas host inside a scene root: carries the canvas's draw ORDER (the scene
     // root's canvas children are kept sorted by it - higher = later = on top; the
@@ -141,7 +141,7 @@ namespace draconic::ui
         struct FormatRenderer
         {
             rhi::TextureFormat format = rhi::TextureFormat::RGBA8Unorm;
-            UniquePtr<vgr::VGRenderer> renderer;
+            UniquePtr<vg::renderer::VGRenderer> renderer;
             u64 begunSerial = 0;   // last UI frame this renderer's ring was reset for
         };
         Array<FormatRenderer> renderers;
@@ -151,8 +151,8 @@ namespace draconic::ui
         // keyed by (scene, entity). Reconciled by RenderCanvasTextures each call.
         struct CanvasTarget
         {
-            dscene::Scene* scene = nullptr;
-            dscene::EntityHandle entity{};
+            scene::Scene* scene = nullptr;
+            scene::EntityHandle entity{};
             rhi::Texture* texture = nullptr;
             rhi::TextureView* view = nullptr;
             u32 width = 0;
@@ -176,8 +176,8 @@ namespace draconic::ui
 
         // The (created-on-demand) target for one RT canvas, recreated on resize. Null
         // only when texture creation fails.
-        [[nodiscard]] CanvasTarget* EnsureCanvasTarget(dscene::Scene* scene,
-                                                       dscene::EntityHandle entity,
+        [[nodiscard]] CanvasTarget* EnsureCanvasTarget(scene::Scene* scene,
+                                                       scene::EntityHandle entity,
                                                        u32 width, u32 height,
                                                        rhi::TextureFormat format)
         {
@@ -282,7 +282,7 @@ namespace draconic::ui
         // vertex/uniform rings and clears the command list, so calling it before every
         // draw would clobber the slices of draws recorded earlier in the SAME frame
         // (scene overlay + screen overlay + preview all share a format's renderer now).
-        [[nodiscard]] vgr::VGRenderer* RendererFor(rhi::TextureFormat format, u64 frameSerial,
+        [[nodiscard]] vg::renderer::VGRenderer* RendererFor(rhi::TextureFormat format, u64 frameSerial,
                                                    i32 frameIndex)
         {
             FormatRenderer* found = nullptr;
@@ -293,7 +293,7 @@ namespace draconic::ui
             if (found == nullptr)
             {
                 if (vertexShader == nullptr || fragmentShader == nullptr) { return nullptr; }
-                auto renderer = MakeUnique<vgr::VGRenderer>(DefaultAllocator());
+                auto renderer = MakeUnique<vg::renderer::VGRenderer>(DefaultAllocator());
                 if (!renderer->Initialize(*device, *vertexShader, *fragmentShader, format,
                                           frameCount).IsOk())
                 {
@@ -355,7 +355,7 @@ namespace draconic::ui
         if (draconic::runtime::Context* context = GetContext())
         {
             m_input = context->GetSubsystem<draconic::input::InputSubsystem>();
-            if (auto* scenes = context->GetSubsystem<dscene::SceneSubsystem>())
+            if (auto* scenes = context->GetSubsystem<scene::SceneSubsystem>())
             {
                 scenes->RegisterSceneAware(this);   // injects the canvas manager per scene
             }
@@ -386,7 +386,7 @@ namespace draconic::ui
         }
         if (draconic::runtime::Context* context = GetContext())
         {
-            if (auto* scenes = context->GetSubsystem<dscene::SceneSubsystem>())
+            if (auto* scenes = context->GetSubsystem<scene::SceneSubsystem>())
             {
                 scenes->UnregisterSceneAware(this);
             }
@@ -429,7 +429,7 @@ namespace draconic::ui
         for (TextureCanvasRoot& entry : m_textureCanvasRoots) { entry.seen = false; }
         for (SceneUI& sceneUI : m_sceneUIs)
         {
-            dscene::Scene* scene = sceneUI.scene;
+            scene::Scene* scene = sceneUI.scene;
             auto* canvases = scene->GetSystem<UICanvasComponentManager>();
             if (canvases == nullptr) { continue; }
             // Mark: hosts whose component vanished this frame get swept after the walk
@@ -442,7 +442,7 @@ namespace draconic::ui
                     host->Seen = false;
                 }
             }
-            canvases->ForEach([&](UICanvasComponent& c, dscene::EntityHandle) {
+            canvases->ForEach([&](UICanvasComponent& c, scene::EntityHandle) {
                 const UIDocument* document = c.document.Get();
                 const bool wantsTexture = c.renderMode == CanvasRenderMode::RenderTexture;
                 const bool builtAsTexture = c.renderRoot.Get() != nullptr;
@@ -554,7 +554,7 @@ namespace draconic::ui
             auto* billboards = scene->GetSystem<UIBillboardComponentManager>();
             if (billboards == nullptr) { continue; }
             Array<View*> liveBillboards;   // the sweep below removes everything else
-            billboards->ForEach([&](UIBillboardComponent& c, dscene::EntityHandle) {
+            billboards->ForEach([&](UIBillboardComponent& c, scene::EntityHandle) {
                 const UIDocument* document = c.document.Get();
                 if (document != c.builtFrom)
                 {
@@ -593,7 +593,7 @@ namespace draconic::ui
             // RenderCanvasTextures; the pump ray-routes the pointer into them.
             if (auto* panels = scene->GetSystem<UIWorldPanelComponentManager>())
             {
-                panels->ForEach([&](UIWorldPanelComponent& c, dscene::EntityHandle) {
+                panels->ForEach([&](UIWorldPanelComponent& c, scene::EntityHandle) {
                     const UIDocument* document = c.document.Get();
                     if (document != c.builtFrom)
                     {
@@ -773,7 +773,7 @@ namespace draconic::ui
                                 rayDirection.x, rayDirection.y, rayDirection.z);
                         }
                         panels->ForEach([&](UIWorldPanelComponent& c,
-                                            dscene::EntityHandle e) {
+                                            scene::EntityHandle e) {
                             if (!c.interactive || !c.visible) { return; }
                             if (c.renderRoot.Get() == nullptr) { return; }
                             const WorldPanelHit hit = RayHitWorldPanel(
@@ -987,11 +987,11 @@ namespace draconic::ui
     // billboard projection through the VIEW's real camera (world -> clip -> NDC -> px;
     // behind-camera parks at (-10000,-10000); distance scale as a 2D view-transform).
     // Public + encoder-free so headless tests drive it with a synthetic view.
-    void UISubsystem::UpdateSceneView(dscene::Scene& scene, const render::SceneOverlayView& view)
+    void UISubsystem::UpdateSceneView(scene::Scene& scene, const render::SceneOverlayView& view)
     {
         if (auto* canvases = scene.GetSystem<UICanvasComponentManager>())
         {
-            canvases->ForEach([&](UICanvasComponent& c, dscene::EntityHandle) {
+            canvases->ForEach([&](UICanvasComponent& c, scene::EntityHandle) {
                 if (c.root.Get() != nullptr)
                 {
                     c.root->Visibility = c.visible ? VisibilityValue::Visible
@@ -1001,7 +1001,7 @@ namespace draconic::ui
         }
         if (auto* billboards = scene.GetSystem<UIBillboardComponentManager>())
         {
-            billboards->ForEach([&](UIBillboardComponent& c, dscene::EntityHandle e) {
+            billboards->ForEach([&](UIBillboardComponent& c, scene::EntityHandle e) {
                 if (c.root.Get() == nullptr) { return; }
                 if (!c.visible)
                 {
@@ -1101,9 +1101,9 @@ namespace draconic::ui
         vg::VGBatch& batch = m_render->vgContext.GetBatch();
         if (batch.commands.IsEmpty()) { return; }
 
-        vgr::VGRenderer* renderer = m_render->RendererFor(format, m_frameSerial, frameIndex);
+        vg::renderer::VGRenderer* renderer = m_render->RendererFor(format, m_frameSerial, frameIndex);
         if (renderer == nullptr) { return; }
-        const vgr::VGRenderSlice slice = renderer->Prepare(batch, frameIndex, width, height);
+        const vg::renderer::VGRenderSlice slice = renderer->Prepare(batch, frameIndex, width, height);
         renderer->Render(encoder, viewportX, viewportY, width, height, frameIndex, slice);
     }
 
@@ -1143,7 +1143,7 @@ namespace draconic::ui
             // manual/script assignment uses, so the render subsystem stays UI-unaware -
             // no new render fields, no importer/inspector surface. Cross-entity binding
             // stays manual (script refreshes from CanvasRenderTextureView per frame).
-            auto bindEntityMaterials = [&](dscene::EntityHandle entity, rhi::TextureView* oldView,
+            auto bindEntityMaterials = [&](scene::EntityHandle entity, rhi::TextureView* oldView,
                                            rhi::TextureView* newView) {
                 if (auto* sprite = sprites != nullptr ? sprites->Get(entity) : nullptr)
                 {
@@ -1154,7 +1154,7 @@ namespace draconic::ui
                     if (newView != nullptr || decal->texture == oldView) { decal->texture = newView; }
                 }
             };
-            canvases->ForEach([&](UICanvasComponent& c, dscene::EntityHandle entity) {
+            canvases->ForEach([&](UICanvasComponent& c, scene::EntityHandle entity) {
                 if (c.renderMode != CanvasRenderMode::RenderTexture) { return; }
                 if (c.renderRoot.Get() == nullptr) { return; }   // no document instantiated
                 const u32 width = Max(c.renderTextureWidth, 1u);
@@ -1201,7 +1201,7 @@ namespace draconic::ui
             // would collide on the (scene, entity) target key - warned, panel wins.
             if (auto* panels = sceneUI.scene->GetSystem<UIWorldPanelComponentManager>())
             {
-                panels->ForEach([&](UIWorldPanelComponent& c, dscene::EntityHandle entity) {
+                panels->ForEach([&](UIWorldPanelComponent& c, scene::EntityHandle entity) {
                     if (c.renderRoot.Get() == nullptr) { return; }
                     const f32 ppm = Max(c.pixelsPerMeter, 1.0f);
                     const u32 width = Clamp<u32>(
@@ -1371,9 +1371,9 @@ namespace draconic::ui
             DRACONIC_LOG_ERROR(u8"UI", u8"shader compiler unavailable - game UI will not render");
             return;
         }
-        (void)m_render->CompileOne(vgr::VertexShaderSource(), draconic::shaders::ShaderStage::Vertex,
+        (void)m_render->CompileOne(vg::renderer::VertexShaderSource(), draconic::shaders::ShaderStage::Vertex,
                                    u8"gameui.vg.vert", m_render->vertexShader);
-        (void)m_render->CompileOne(vgr::FragmentShaderSource(), draconic::shaders::ShaderStage::Fragment,
+        (void)m_render->CompileOne(vg::renderer::FragmentShaderSource(), draconic::shaders::ShaderStage::Fragment,
                                    u8"gameui.vg.frag", m_render->fragmentShader);
     }
 }

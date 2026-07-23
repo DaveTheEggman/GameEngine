@@ -40,7 +40,7 @@ export namespace draconic::ui::viewport
 {
     namespace rhi = draconic::rhi;
     namespace image = draconic::image;
-    namespace vgr = draconic::vg::renderer;
+    namespace vg = draconic::vg;
 
     class ViewportView;
 
@@ -85,7 +85,7 @@ export namespace draconic::ui::viewport
         /// Wire the GPU device (graphics::GraphicsDevice::Raw()), the per-window VGRenderer that draws
         /// this view's window (UIHost::RendererFor(window)), and the shell input manager + window id used
         /// to build the gated input surface. Call once before the first layout.
-        void Initialize(rhi::Device* device, vgr::VGRenderer* renderer, shell::IInputManager* input, u32 windowId)
+        void Initialize(rhi::Device* device, vg::renderer::VGRenderer* renderer, shell::IInputManager* input, u32 windowId)
         {
             m_device = device;
             m_renderer = renderer;
@@ -103,7 +103,7 @@ export namespace draconic::ui::viewport
         /// themselves are unchanged. (This is the per-renderer undock path - it moves the RT between one
         /// renderer at a time; sampling ONE RT in TWO windows at once would need the shared external-
         /// texture cache, still deferred.)
-        void AttachToWindow(vgr::VGRenderer* renderer, u32 windowId)
+        void AttachToWindow(vg::renderer::VGRenderer* renderer, u32 windowId)
         {
             if (renderer != m_renderer)
             {
@@ -358,7 +358,7 @@ export namespace draconic::ui::viewport
         }
 
         rhi::Device* m_device = nullptr;
-        vgr::VGRenderer* m_renderer = nullptr;
+        vg::renderer::VGRenderer* m_renderer = nullptr;
 
         UniquePtr<image::ImageDataRef> m_imageRef;
         rhi::Texture* m_colorTexture = nullptr;

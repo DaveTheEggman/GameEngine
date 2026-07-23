@@ -22,8 +22,8 @@ import draconic.input.subsystem;
 
 using namespace draconic::core;
 using namespace draconic::ui;
-namespace dscene = draconic::scene;
-namespace rt = draconic::runtime;
+namespace scene = draconic::scene;
+namespace runtime = draconic::runtime;
 
 namespace
 {
@@ -37,17 +37,17 @@ namespace
 
 TEST_CASE("ui.subsystem: canvases instantiate, hot-reload, and sync visibility")
 {
-    rt::Context ctx;
-    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
-    dscene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
+    runtime::Context ctx;
+    auto* scenes = ctx.AddSubsystem<scene::SceneSubsystem>();
+    scene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     ctx.Startup();
 
-    dscene::Scene* scene = sm.CreateScene(u8"menu");
+    scene::Scene* scene = sm.CreateScene(u8"menu");
     auto* canvases = scene->GetSystem<UICanvasComponentManager>();
     REQUIRE(canvases != nullptr);   // injected by the subsystem (ISceneAware)
 
-    dscene::EntityHandle e = scene->CreateEntity(u8"pause");
+    scene::EntityHandle e = scene->CreateEntity(u8"pause");
     UICanvasComponent& canvas = canvases->Add(e);
     RefPtr<UIDocument> document = MakeDocument(
         u8"<FlexLayout><Label id=\"title\" text=\"Paused\" /><Button id=\"resume-btn\" text=\"Resume\" /></FlexLayout>");
@@ -132,22 +132,22 @@ TEST_CASE("ui.subsystem: canvas component serialization round-trips")
 
 TEST_CASE("ui.subsystem: billboards project through the scene camera and park behind it")
 {
-    rt::Context ctx;
-    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
-    dscene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
+    runtime::Context ctx;
+    auto* scenes = ctx.AddSubsystem<scene::SceneSubsystem>();
+    scene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     (void)ui;
     // The camera manager comes from the render subsystem normally; add it directly here.
     ctx.Startup();
-    dscene::Scene* scene = sm.CreateScene(u8"world");
+    scene::Scene* scene = sm.CreateScene(u8"world");
     scene->AddSystem<draconic::render::CameraComponentManager>();
 
     // A camera at origin looking down -Z (identity rotation), and two anchors.
-    dscene::EntityHandle cam = scene->CreateEntity(u8"cam");
+    scene::EntityHandle cam = scene->CreateEntity(u8"cam");
     scene->GetSystem<draconic::render::CameraComponentManager>()->Add(cam);
-    dscene::EntityHandle front = scene->CreateEntity(u8"front");
+    scene::EntityHandle front = scene->CreateEntity(u8"front");
     scene->SetLocalPosition(front, Float3{ 0.0f, 0.0f, -10.0f });
-    dscene::EntityHandle behind = scene->CreateEntity(u8"behind");
+    scene::EntityHandle behind = scene->CreateEntity(u8"behind");
     scene->SetLocalPosition(behind, Float3{ 0.0f, 0.0f, 10.0f });
     scene->UpdateTransforms();
 
@@ -197,9 +197,9 @@ TEST_CASE("ui.subsystem: billboards project through the scene camera and park be
     CHECK(lpFront->Y == doctest::Approx(150.0f));
 
     // Scene isolation is structural now: another scene's canvas parents into ITS root.
-    dscene::Scene* other = sm.CreateScene(u8"other");
+    scene::Scene* other = sm.CreateScene(u8"other");
     auto* otherCanvases = other->GetSystem<UICanvasComponentManager>();
-    dscene::EntityHandle e = other->CreateEntity(u8"hud");
+    scene::EntityHandle e = other->CreateEntity(u8"hud");
     UICanvasComponent& canvas = otherCanvases->Add(e);
     canvas.document = MakeDocument(u8"<Label id=\"x\" text=\"other\"/>");
     ctx.BeginFrame(1.0f / 60.0f);
@@ -212,15 +212,15 @@ TEST_CASE("ui.subsystem: billboards project through the scene camera and park be
 
 TEST_CASE("ui.subsystem: the scene-less screen tier survives scene swaps and stays topmost")
 {
-    rt::Context ctx;
-    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
-    dscene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
+    runtime::Context ctx;
+    auto* scenes = ctx.AddSubsystem<scene::SceneSubsystem>();
+    scene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     ctx.Startup();
 
-    dscene::Scene* scene = sm.CreateScene(u8"level");
+    scene::Scene* scene = sm.CreateScene(u8"level");
     auto* canvases = scene->GetSystem<UICanvasComponentManager>();
-    dscene::EntityHandle e = scene->CreateEntity(u8"hud");
+    scene::EntityHandle e = scene->CreateEntity(u8"hud");
     UICanvasComponent& canvas = canvases->Add(e);
     canvas.document = MakeDocument(u8"<Label id=\"hud\" text=\"HUD\"/>");
 
@@ -251,13 +251,13 @@ TEST_CASE("ui.subsystem: the scene-less screen tier survives scene swaps and sta
 
 TEST_CASE("ui.subsystem: an EMPTY overlay layer never blocks canvas hit-testing")
 {
-    rt::Context ctx;
-    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
-    dscene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
+    runtime::Context ctx;
+    auto* scenes = ctx.AddSubsystem<scene::SceneSubsystem>();
+    scene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     ctx.Startup();
-    dscene::Scene* scene = sm.CreateScene(u8"level");
-    dscene::EntityHandle e = scene->CreateEntity(u8"hud");
+    scene::Scene* scene = sm.CreateScene(u8"level");
+    scene::EntityHandle e = scene->CreateEntity(u8"hud");
     UICanvasComponent& canvas = scene->GetSystem<UICanvasComponentManager>()->Add(e);
     canvas.document = MakeDocument(
         u8"<Flex direction=\"vertical\"><Button id=\"btn\" text=\"hit me\" width=\"200\" height=\"40\"/></Flex>");
@@ -327,9 +327,9 @@ namespace
 
 TEST_CASE("ui.subsystem: gamepad dpad moves focus with hold-repeat; South activates")
 {
-    rt::Context ctx;
-    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
-    dscene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
+    runtime::Context ctx;
+    auto* scenes = ctx.AddSubsystem<scene::SceneSubsystem>();
+    scene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
     auto* input = ctx.AddSubsystem<draconic::input::InputSubsystem>(nullptr);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     ctx.Startup();
@@ -337,8 +337,8 @@ TEST_CASE("ui.subsystem: gamepad dpad moves focus with hold-repeat; South activa
     NavFakeDevices devices;
     input->SetSourceProvider(&devices);
 
-    dscene::Scene* scene = sm.CreateScene(u8"menu");
-    dscene::EntityHandle e = scene->CreateEntity(u8"pause");
+    scene::Scene* scene = sm.CreateScene(u8"menu");
+    scene::EntityHandle e = scene->CreateEntity(u8"pause");
     UICanvasComponent& canvas = scene->GetSystem<UICanvasComponentManager>()->Add(e);
     canvas.document = MakeDocument(
         u8"<Flex direction=\"vertical\" spacing=\"4\">"
@@ -399,8 +399,8 @@ TEST_CASE("ui.subsystem: gamepad dpad moves focus with hold-repeat; South activa
 
 TEST_CASE("ui.subsystem: preview roots live in the context but never on the screen root")
 {
-    rt::Context ctx;
-    ctx.AddSubsystem<dscene::SceneSubsystem>();
+    runtime::Context ctx;
+    ctx.AddSubsystem<scene::SceneSubsystem>();
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     ctx.Startup();
 
@@ -432,31 +432,31 @@ TEST_CASE("ui.subsystem: preview roots live in the context but never on the scre
 
 TEST_CASE("ui.subsystem: canvases stack by order; billboard layer stays below; despawn sweeps")
 {
-    rt::Context ctx;
-    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
-    dscene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
+    runtime::Context ctx;
+    auto* scenes = ctx.AddSubsystem<scene::SceneSubsystem>();
+    scene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     ctx.Startup();
 
-    dscene::Scene* scene = sm.CreateScene(u8"hud");
+    scene::Scene* scene = sm.CreateScene(u8"hud");
     auto* canvases = scene->GetSystem<UICanvasComponentManager>();
 
     // Components added in order a (order 5), b (order 0), c (order 5 - a TIE with a).
     // Component references are transient (the pool compacts) - set fields right after
     // each Add and re-resolve later via Get.
-    dscene::EntityHandle ea = scene->CreateEntity(u8"a");
+    scene::EntityHandle ea = scene->CreateEntity(u8"a");
     {
         UICanvasComponent& a = canvases->Add(ea);
         a.document = MakeDocument(u8"<Label id=\"canvas-a\" text=\"a\"/>");
         a.order = 5;
     }
-    dscene::EntityHandle eb = scene->CreateEntity(u8"b");
+    scene::EntityHandle eb = scene->CreateEntity(u8"b");
     {
         UICanvasComponent& b = canvases->Add(eb);
         b.document = MakeDocument(u8"<Label id=\"canvas-b\" text=\"b\"/>");
         b.order = 0;
     }
-    dscene::EntityHandle ec = scene->CreateEntity(u8"c");
+    scene::EntityHandle ec = scene->CreateEntity(u8"c");
     {
         UICanvasComponent& c = canvases->Add(ec);
         c.document = MakeDocument(u8"<Label id=\"canvas-c\" text=\"c\"/>");
@@ -505,14 +505,14 @@ TEST_CASE("ui.subsystem: canvases stack by order; billboard layer stays below; d
 
 TEST_CASE("ui.subsystem: ReferenceResolution scaler lays out at the reference size and scales to fit")
 {
-    rt::Context ctx;
-    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
-    dscene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
+    runtime::Context ctx;
+    auto* scenes = ctx.AddSubsystem<scene::SceneSubsystem>();
+    scene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     ctx.Startup();
-    dscene::Scene* scene = sm.CreateScene(u8"menu");
+    scene::Scene* scene = sm.CreateScene(u8"menu");
     auto* canvases = scene->GetSystem<UICanvasComponentManager>();
-    dscene::EntityHandle e = scene->CreateEntity(u8"hud");
+    scene::EntityHandle e = scene->CreateEntity(u8"hud");
     {
         UICanvasComponent& c = canvases->Add(e);
         c.document = MakeDocument(
@@ -599,9 +599,9 @@ namespace
 
 TEST_CASE("ui.subsystem: key/text events reach a focused game EditText; IME follows focus")
 {
-    rt::Context ctx;
-    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
-    dscene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
+    runtime::Context ctx;
+    auto* scenes = ctx.AddSubsystem<scene::SceneSubsystem>();
+    scene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
     auto* input = ctx.AddSubsystem<draconic::input::InputSubsystem>(nullptr);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     ctx.Startup();
@@ -613,8 +613,8 @@ TEST_CASE("ui.subsystem: key/text events reach a focused game EditText; IME foll
     draconic::shell::NullWindow window(1, draconic::shell::WindowSettings{});
     ui->SetTextInputTarget(&window);
 
-    dscene::Scene* scene = sm.CreateScene(u8"menu");
-    dscene::EntityHandle e = scene->CreateEntity(u8"form");
+    scene::Scene* scene = sm.CreateScene(u8"menu");
+    scene::EntityHandle e = scene->CreateEntity(u8"form");
     {
         UICanvasComponent& c = scene->GetSystem<UICanvasComponentManager>()->Add(e);
         c.document = MakeDocument(
@@ -667,9 +667,9 @@ TEST_CASE("ui.subsystem: key/text events reach a focused game EditText; IME foll
 
 TEST_CASE("ui.subsystem: RenderTexture canvases own an offscreen target and stay out of the tiers")
 {
-    rt::Context ctx;
-    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
-    dscene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
+    runtime::Context ctx;
+    auto* scenes = ctx.AddSubsystem<scene::SceneSubsystem>();
+    scene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     ctx.Startup();
 
@@ -678,9 +678,9 @@ TEST_CASE("ui.subsystem: RenderTexture canvases own an offscreen target and stay
     ui->EnsureRenderReady(device, 2);
     draconic::rhi::null::NullCommandEncoder encoder;
 
-    dscene::Scene* scene = sm.CreateScene(u8"world");
+    scene::Scene* scene = sm.CreateScene(u8"world");
     auto* canvases = scene->GetSystem<UICanvasComponentManager>();
-    dscene::EntityHandle e = scene->CreateEntity(u8"screen");
+    scene::EntityHandle e = scene->CreateEntity(u8"screen");
     {
         UICanvasComponent& c = canvases->Add(e);
         c.document = MakeDocument(u8"<Label id=\"rt-label\" text=\"scoreboard\"/>");
@@ -760,8 +760,8 @@ TEST_CASE("ui.subsystem: RenderTexture canvases own an offscreen target and stay
 
 TEST_CASE("ui.subsystem: the project-default theme swaps the context stylesheet (GameTheme fallback)")
 {
-    rt::Context ctx;
-    ctx.AddSubsystem<dscene::SceneSubsystem>();
+    runtime::Context ctx;
+    ctx.AddSubsystem<scene::SceneSubsystem>();
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     ctx.Startup();
 
@@ -795,14 +795,14 @@ TEST_CASE("ui.subsystem: removing a canvas or billboard COMPONENT sweeps its tre
     // The user's exact repro: add a ui.Canvas in the editor, see it render, REMOVE the
     // component (entity stays) - the UI must disappear. Same for billboards, whose
     // layer needed its own sweep.
-    rt::Context ctx;
-    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
-    dscene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
+    runtime::Context ctx;
+    auto* scenes = ctx.AddSubsystem<scene::SceneSubsystem>();
+    scene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     ctx.Startup();
-    dscene::Scene* scene = sm.CreateScene(u8"level");
+    scene::Scene* scene = sm.CreateScene(u8"level");
 
-    dscene::EntityHandle e = scene->CreateEntity(u8"hud");
+    scene::EntityHandle e = scene->CreateEntity(u8"hud");
     auto* canvases = scene->GetSystem<UICanvasComponentManager>();
     canvases->Add(e).document = MakeDocument(u8"<Label id=\"hud-label\" text=\"HUD\"/>");
     auto* billboards = scene->GetSystem<UIBillboardComponentManager>();
@@ -883,9 +883,9 @@ namespace
 
 TEST_CASE("ui.subsystem: a bound source confines routing + consumption to ITS scene (game-ui.md §9)")
 {
-    rt::Context ctx;
-    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
-    dscene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
+    runtime::Context ctx;
+    auto* scenes = ctx.AddSubsystem<scene::SceneSubsystem>();
+    scene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
     auto* input = ctx.AddSubsystem<draconic::input::InputSubsystem>(nullptr);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     ctx.Startup();
@@ -895,12 +895,12 @@ TEST_CASE("ui.subsystem: a bound source confines routing + consumption to ITS sc
 
     // Two scenes, each with an interactive button at the SAME coordinates - the
     // historical known edge (probing in creation order can hit the wrong scene).
-    dscene::Scene* sceneA = sm.CreateScene(u8"a");
-    dscene::EntityHandle ea = sceneA->CreateEntity(u8"hud-a");
+    scene::Scene* sceneA = sm.CreateScene(u8"a");
+    scene::EntityHandle ea = sceneA->CreateEntity(u8"hud-a");
     sceneA->GetSystem<UICanvasComponentManager>()->Add(ea).document = MakeDocument(
         u8"<Flex direction=\"vertical\"><Button id=\"btn-a\" text=\"A\" width=\"200\" height=\"40\"/></Flex>");
-    dscene::Scene* sceneB = sm.CreateScene(u8"b");
-    dscene::EntityHandle eb = sceneB->CreateEntity(u8"hud-b");
+    scene::Scene* sceneB = sm.CreateScene(u8"b");
+    scene::EntityHandle eb = sceneB->CreateEntity(u8"hud-b");
     sceneB->GetSystem<UICanvasComponentManager>()->Add(eb).document = MakeDocument(
         u8"<Flex direction=\"vertical\">"
         u8"<Button id=\"btn-b\" text=\"B\" width=\"200\" height=\"40\"/>"
@@ -974,9 +974,9 @@ TEST_CASE("ui.subsystem: a bound source confines routing + consumption to ITS sc
 
 TEST_CASE("ui.subsystem: ScreenTierOnly keeps un-bound input out of scene UI (editor policy)")
 {
-    rt::Context ctx;
-    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
-    dscene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
+    runtime::Context ctx;
+    auto* scenes = ctx.AddSubsystem<scene::SceneSubsystem>();
+    scene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
     auto* input = ctx.AddSubsystem<draconic::input::InputSubsystem>(nullptr);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     ctx.Startup();
@@ -985,8 +985,8 @@ TEST_CASE("ui.subsystem: ScreenTierOnly keeps un-bound input out of scene UI (ed
     input->SetSourceProvider(&devices);   // un-bound...
     input->SetUnboundScenePolicy(draconic::input::UnboundInputScenePolicy::ScreenTierOnly);
 
-    dscene::Scene* scene = sm.CreateScene(u8"editing");
-    dscene::EntityHandle e = scene->CreateEntity(u8"hud");
+    scene::Scene* scene = sm.CreateScene(u8"editing");
+    scene::EntityHandle e = scene->CreateEntity(u8"hud");
     scene->GetSystem<UICanvasComponentManager>()->Add(e).document = MakeDocument(
         u8"<Flex direction=\"vertical\"><Button id=\"btn\" text=\"hud\" width=\"200\" height=\"40\"/></Flex>");
     ctx.BeginFrame(1.0f / 60.0f);
@@ -1044,9 +1044,9 @@ TEST_CASE("ui.subsystem: ScreenTierOnly keeps un-bound input out of scene UI (ed
 
 TEST_CASE("ui.subsystem: RT canvases auto-bind the entity's sprite/decal texture override")
 {
-    rt::Context ctx;
-    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
-    dscene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
+    runtime::Context ctx;
+    auto* scenes = ctx.AddSubsystem<scene::SceneSubsystem>();
+    scene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     ctx.Startup();
 
@@ -1056,7 +1056,7 @@ TEST_CASE("ui.subsystem: RT canvases auto-bind the entity's sprite/decal texture
 
     // The render managers normally come from the RenderSubsystem; add them directly
     // (the camera-manager test's pattern).
-    dscene::Scene* scene = sm.CreateScene(u8"world");
+    scene::Scene* scene = sm.CreateScene(u8"world");
     scene->AddSystem<draconic::render::SpriteComponentManager>();
     scene->AddSystem<draconic::render::DecalComponentManager>();
     auto* canvases = scene->GetSystem<UICanvasComponentManager>();
@@ -1065,7 +1065,7 @@ TEST_CASE("ui.subsystem: RT canvases auto-bind the entity's sprite/decal texture
 
     // One entity carries the RT canvas AND the material components that show it -
     // the declarative contract: same entity = auto-bound, no scripting needed.
-    dscene::EntityHandle e = scene->CreateEntity(u8"scoreboard");
+    scene::EntityHandle e = scene->CreateEntity(u8"scoreboard");
     {
         UICanvasComponent& c = canvases->Add(e);
         c.document = MakeDocument(u8"<Label id=\"score\" text=\"0 : 0\"/>");
@@ -1150,9 +1150,9 @@ TEST_CASE("ui.worldpanel: ray/uv math - front and back hits, edges, parallel mis
 TEST_CASE("ui.worldpanel: instantiates, renders to its target, drives the sprite, and "
           "takes a ray-routed click")
 {
-    rt::Context ctx;
-    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
-    dscene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
+    runtime::Context ctx;
+    auto* scenes = ctx.AddSubsystem<scene::SceneSubsystem>();
+    scene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
     auto* input = ctx.AddSubsystem<draconic::input::InputSubsystem>(nullptr);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     ctx.Startup();
@@ -1163,14 +1163,14 @@ TEST_CASE("ui.worldpanel: instantiates, renders to its target, drives the sprite
     PointerFakeDevices devices;
     input->SetSourceProvider(&devices);
 
-    dscene::Scene* scene = sm.CreateScene(u8"world");
+    scene::Scene* scene = sm.CreateScene(u8"world");
     scene->AddSystem<draconic::render::CameraComponentManager>();
     scene->AddSystem<draconic::render::SpriteComponentManager>();
-    dscene::EntityHandle cam = scene->CreateEntity(u8"cam");
+    scene::EntityHandle cam = scene->CreateEntity(u8"cam");
     scene->SetLocalPosition(cam, Float3{ 0.0f, 2.0f, 10.0f });
     scene->GetSystem<draconic::render::CameraComponentManager>()->Add(cam);
 
-    dscene::EntityHandle e = scene->CreateEntity(u8"kiosk");
+    scene::EntityHandle e = scene->CreateEntity(u8"kiosk");
     scene->SetLocalPosition(e, Float3{ 0.0f, 2.0f, 0.0f });
     auto* panels = scene->GetSystem<UIWorldPanelComponentManager>();
     REQUIRE(panels != nullptr);
@@ -1266,9 +1266,9 @@ TEST_CASE("ui.subsystem: a stretched full-screen canvas does NOT swallow the poi
     // CanvasHostView stretches every document to the viewport; the doc root must stay
     // hit-TRANSPARENT or one HUD eats the pointer everywhere: consumption reads true on
     // empty space (crate clicks die) and the scene root outbids every world panel.
-    rt::Context ctx;
-    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
-    dscene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
+    runtime::Context ctx;
+    auto* scenes = ctx.AddSubsystem<scene::SceneSubsystem>();
+    scene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
     auto* input = ctx.AddSubsystem<draconic::input::InputSubsystem>(nullptr);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     ctx.Startup();
@@ -1278,21 +1278,21 @@ TEST_CASE("ui.subsystem: a stretched full-screen canvas does NOT swallow the poi
     PointerFakeDevices devices;
     input->SetSourceProvider(&devices);
 
-    dscene::Scene* scene = sm.CreateScene(u8"world");
+    scene::Scene* scene = sm.CreateScene(u8"world");
     scene->AddSystem<draconic::render::CameraComponentManager>();
     scene->AddSystem<draconic::render::SpriteComponentManager>();
-    dscene::EntityHandle cam = scene->CreateEntity(u8"cam");
+    scene::EntityHandle cam = scene->CreateEntity(u8"cam");
     scene->SetLocalPosition(cam, Float3{ 0.0f, 2.0f, 10.0f });
     scene->GetSystem<draconic::render::CameraComponentManager>()->Add(cam);
 
     // A PhysicsPlayground-style HUD: stretched root Flex, content in one corner.
-    dscene::EntityHandle hud = scene->CreateEntity(u8"hud");
+    scene::EntityHandle hud = scene->CreateEntity(u8"hud");
     scene->GetSystem<UICanvasComponentManager>()->Add(hud).document = MakeDocument(
         u8"<Flex direction=\"vertical\" align=\"start\" padding=\"12\">"
         u8"<Button id=\"hud-btn\" text=\"HUD\" width=\"180\" height=\"36\"/></Flex>");
 
     // And a world panel mid-view.
-    dscene::EntityHandle kiosk = scene->CreateEntity(u8"kiosk");
+    scene::EntityHandle kiosk = scene->CreateEntity(u8"kiosk");
     scene->SetLocalPosition(kiosk, Float3{ 0.0f, 2.0f, 0.0f });
     UIWorldPanelComponent& panel =
         scene->GetSystem<UIWorldPanelComponentManager>()->Add(kiosk);

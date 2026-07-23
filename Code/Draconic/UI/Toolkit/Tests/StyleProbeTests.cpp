@@ -10,7 +10,7 @@ import draconic.ui.toolkit;
 
 using namespace draconic::core;
 using namespace draconic::ui;
-namespace tk = draconic::ui::toolkit;
+namespace ui = draconic::ui;
 
 namespace
 {
@@ -38,12 +38,12 @@ TEST_CASE("style: property-field class overrides the type font size on every edi
     sheet->ForClass(u8"property-field").Set(StyleProperty::FontSize, 10.0f);
     ctx.SetStyleSheet(sheet);
 
-    auto floatEd  = MakeRef<tk::FloatEditor>(DefaultAllocator(), StringView(u8"f"), 1.0f);
-    auto intEd    = MakeRef<tk::IntEditor>(DefaultAllocator(), StringView(u8"i"), 1);
-    auto f2Ed     = MakeRef<tk::Float2Editor>(DefaultAllocator(), StringView(u8"v2"), Float2{});
-    auto f3Ed     = MakeRef<tk::Float3Editor>(DefaultAllocator(), StringView(u8"v3"), Float3{});
-    auto f4Ed     = MakeRef<tk::Float4Editor>(DefaultAllocator(), StringView(u8"v4"), Float4{});
-    auto vec3     = MakeRef<tk::Vector3Field>(DefaultAllocator());
+    auto floatEd  = MakeRef<ui::toolkit::FloatEditor>(DefaultAllocator(), StringView(u8"f"), 1.0f);
+    auto intEd    = MakeRef<ui::toolkit::IntEditor>(DefaultAllocator(), StringView(u8"i"), 1);
+    auto f2Ed     = MakeRef<ui::toolkit::Float2Editor>(DefaultAllocator(), StringView(u8"v2"), Float2{});
+    auto f3Ed     = MakeRef<ui::toolkit::Float3Editor>(DefaultAllocator(), StringView(u8"v3"), Float3{});
+    auto f4Ed     = MakeRef<ui::toolkit::Float4Editor>(DefaultAllocator(), StringView(u8"v4"), Float4{});
+    auto vec3     = MakeRef<ui::toolkit::Vector3Field>(DefaultAllocator());
     root->AddView(floatEd->EditorView());
     root->AddView(intEd->EditorView());
     root->AddView(f2Ed->EditorView());

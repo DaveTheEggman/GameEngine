@@ -46,7 +46,7 @@ export namespace draconic::ui::application
     class RuntimeDockableWindowHost final : public toolkit::IDockableWindowHost
     {
     public:
-        RuntimeDockableWindowHost(rtc::IApplicationHost& host, uirt::UIHost& uiHost) noexcept
+        RuntimeDockableWindowHost(runtime::IApplicationHost& host, uirt::UIHost& uiHost) noexcept
             : m_host(&host), m_uiHost(&uiHost) {}
 
         RuntimeDockableWindowHost(const RuntimeDockableWindowHost&) = delete;
@@ -232,7 +232,7 @@ export namespace draconic::ui::application
             }
         }
 
-        rtc::IApplicationHost* m_host;    // borrowed
+        runtime::IApplicationHost* m_host;    // borrowed
         uirt::UIHost*              m_uiHost;  // borrowed (the app owns it)
         core::Array<Entry>         m_entries;
 

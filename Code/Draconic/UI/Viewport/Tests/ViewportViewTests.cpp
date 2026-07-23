@@ -16,7 +16,6 @@ import draconic.ui.viewport;
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
 namespace vg = draconic::vg;
-namespace vgr = draconic::vg::renderer;
 namespace ui = draconic::ui;
 using draconic::ui::viewport::ViewportView;
 
@@ -41,7 +40,7 @@ TEST_CASE("ui.viewport: layout creates targets + registers an external texture u
     REQUIRE(vs != nullptr);
     REQUIRE(fs != nullptr);
 
-    vgr::VGRenderer renderer;
+    vg::renderer::VGRenderer renderer;
     REQUIRE(renderer.Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, /*frameCount*/ 2).IsOk());
 
     ViewportView view;
@@ -67,7 +66,7 @@ TEST_CASE("ui.viewport: layout creates targets + registers an external texture u
     // Because the key is registered as an external texture, Prepare builds a valid slice for it
     // (an unregistered pixel-less ImageDataRef would yield no bind group).
     renderer.BeginFrame(0);
-    const vgr::VGRenderSlice slice = renderer.Prepare(batch, 0, 800, 600);
+    const vg::renderer::VGRenderSlice slice = renderer.Prepare(batch, 0, 800, 600);
     CHECK(slice.isValid);
 
     renderer.Dispose();
@@ -114,7 +113,7 @@ TEST_CASE("ui.viewport: resize re-registers; teardown is clean")
     rhi::ShaderModule* vs = MakeModule(device);
     rhi::ShaderModule* fs = MakeModule(device);
 
-    vgr::VGRenderer renderer;
+    vg::renderer::VGRenderer renderer;
     REQUIRE(renderer.Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, 1).IsOk());
 
     {
@@ -143,8 +142,8 @@ TEST_CASE("ui.viewport: AttachToWindow re-registers into a new renderer (undock 
     rhi::ShaderModule* fs = MakeModule(device);
 
     // Two renderers standing in for two windows' per-window VGRenderers.
-    vgr::VGRenderer rendererA;
-    vgr::VGRenderer rendererB;
+    vg::renderer::VGRenderer rendererA;
+    vg::renderer::VGRenderer rendererB;
     REQUIRE(rendererA.Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, 1).IsOk());
     REQUIRE(rendererB.Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, 1).IsOk());
 
