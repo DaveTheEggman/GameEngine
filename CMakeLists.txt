@@ -8,7 +8,7 @@ cmake_minimum_required(VERSION 3.28)
 project(Draconic
     VERSION 0.1.0
     DESCRIPTION "Draconic game engine"
-    LANGUAGES CXX)
+    LANGUAGES CXX ASM)
 
 # --- Global language settings ------------------------------------------------
 set(CMAKE_CXX_STANDARD 23)

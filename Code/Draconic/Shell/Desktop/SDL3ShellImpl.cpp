@@ -9,6 +9,7 @@ module;
 #include "Core/Log/Log.h"
 #include <cstdint>
 #include <SDL3/SDL.h>
+#define SDL_MAIN_HANDLED
 #include <SDL3/SDL_main.h>
 
 module draconic.shell.desktop;

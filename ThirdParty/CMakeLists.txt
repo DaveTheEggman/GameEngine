@@ -133,6 +133,11 @@ set_target_properties(draconic_jolt PROPERTIES POSITION_INDEPENDENT_CODE ON)
 # deliberately not vendored (needs scriptarray). scriptbuilder parses [metadata] ahead of
 # declarations (the AngelScript editor cook harvests behavior properties through it).
 file(GLOB draconic_angelscript_sources ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/source/*.cpp)
+# Clang on Windows (x86_64-pc-windows-msvc) needs the .S native-call trampoline for x64.
+if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+    list(APPEND draconic_angelscript_sources
+        ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/source/as_callfunc_x64_msvc_clang.S)
+endif()
 add_library(draconic_angelscript STATIC
     ${draconic_angelscript_sources}
     ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/add_on/scriptstdstring/scriptstdstring.cpp

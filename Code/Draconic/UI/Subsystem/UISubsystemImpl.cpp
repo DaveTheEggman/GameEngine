@@ -3,6 +3,7 @@
 // in the interface's global fragment / partitions - see physics for the precedent).
 
 module;
+#define _CRT_SECURE_NO_WARNINGS
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 #include "Core/Reflection/Reflect.h"

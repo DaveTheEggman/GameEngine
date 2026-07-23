@@ -8,6 +8,13 @@ module;
 #include "Core/Prelude.h"
 #include "Core/System/SystemBackend.h"
 
+// SystemBackend.h defines constants (kInvalidSocket) that are TU-local but safe
+// to re-export as inline constexpr from the module interface.
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-WTU-local-entity-exposure"
+#endif
+
 export module draconic.core:system;
 
 import :base;
