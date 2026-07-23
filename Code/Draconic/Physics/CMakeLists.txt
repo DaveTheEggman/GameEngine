@@ -9,11 +9,11 @@ target_link_libraries(DraconicPhysics
 
 target_sources(DraconicPhysics
     PRIVATE
-        WorldImpl.cpp   # module IMPLEMENTATION unit: all Jolt contact (see World.cppm)
+        PhysicsWorldImpl.cpp   # module IMPLEMENTATION unit: all Jolt contact (see PhysicsWorld.cppm)
     PUBLIC
         FILE_SET physics_modules TYPE CXX_MODULES FILES
             PhysicsModule.cppm
-            World.cppm)
+            PhysicsWorld.cppm)
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)

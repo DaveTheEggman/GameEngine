@@ -12,11 +12,11 @@ target_sources(DraconicNet
     PUBLIC
         FILE_SET net_modules TYPE CXX_MODULES FILES
             WireStream.cppm
-            Transport.cppm
+            NetTransport.cppm
             Datagram.cppm
             Reliable.cppm
-            Session.cppm
-            Rpc.cppm
+            NetSession.cppm
+            RpcTable.cppm
             UdpSocket.cppm
             TcpSocket.cppm
             NetModule.cppm)
