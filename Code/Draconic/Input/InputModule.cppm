@@ -8,5 +8,5 @@
 
 export module draconic.input;
 
-export import :model;
-export import :runtime;
+export import :input_map;
+export import :action_runtime;

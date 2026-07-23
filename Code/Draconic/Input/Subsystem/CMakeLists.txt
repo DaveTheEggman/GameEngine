@@ -8,4 +8,4 @@ target_link_libraries(DraconicInputSubsystem
 target_sources(DraconicInputSubsystem
     PUBLIC
         FILE_SET input_subsystem_modules TYPE CXX_MODULES FILES
-            Subsystem.cppm)
+            InputSubsystem.cppm)

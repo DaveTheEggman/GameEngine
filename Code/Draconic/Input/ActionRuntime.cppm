@@ -15,17 +15,17 @@ module;
 #include "Core/Prelude.h"
 #include <cmath>
 
-export module draconic.input:runtime;
+export module draconic.input:action_runtime;
 
 import draconic.core;
 import draconic.shell;
-import :model;
+import :input_map;
 
 using namespace draconic::core;
 
 export namespace draconic::input
 {
-    namespace dshell = draconic::shell;
+    namespace shell = draconic::shell;
 
     // The per-context script service key: the Input facade resolves an ActionRuntime under this key
     // (each context can read a DIFFERENT runtime - the shared editor runtime, or a per-GameInstance
@@ -39,32 +39,32 @@ export namespace draconic::input
     {
     public:
         virtual ~IInputSourceProvider() = default;
-        [[nodiscard]] virtual dshell::IKeyboard* Keyboard() = 0;
-        [[nodiscard]] virtual dshell::IMouse* Mouse() = 0;
+        [[nodiscard]] virtual shell::IKeyboard* Keyboard() = 0;
+        [[nodiscard]] virtual shell::IMouse* Mouse() = 0;
         [[nodiscard]] virtual i32 GamepadCount() const = 0;
-        [[nodiscard]] virtual dshell::IGamepad* Gamepad(i32 index) = 0;
+        [[nodiscard]] virtual shell::IGamepad* Gamepad(i32 index) = 0;
         // Defaulted (not every provider has one): touch coordinates are NORMALIZED window
         // space, matching the touch bindings' region model.
-        [[nodiscard]] virtual dshell::ITouch* Touch() { return nullptr; }
+        [[nodiscard]] virtual shell::ITouch* Touch() { return nullptr; }
         // This frame's tagged shell event stream, gated like the device facades (a
         // viewport provider returns it only while it owns keyboard focus). Consumers
         // needing ORDER or PAYLOADS polling cannot carry - key sequence, TextInput
         // characters - read these; the span is valid until the next shell pump.
         // Defaulted empty: pure-polling providers (tests, fakes) stay valid.
-        [[nodiscard]] virtual Span<const dshell::InputEvent> Events() { return {}; }
+        [[nodiscard]] virtual Span<const shell::InputEvent> Events() { return {}; }
     };
 
     // The common case: the whole app's devices, straight off the shell.
     class ShellInputSource final : public IInputSourceProvider
     {
     public:
-        explicit ShellInputSource(dshell::IInputManager* input) : m_input(input) {}
-        void SetInput(dshell::IInputManager* input) noexcept { m_input = input; }
-        [[nodiscard]] dshell::IKeyboard* Keyboard() override
+        explicit ShellInputSource(shell::IInputManager* input) : m_input(input) {}
+        void SetInput(shell::IInputManager* input) noexcept { m_input = input; }
+        [[nodiscard]] shell::IKeyboard* Keyboard() override
         {
             return m_input != nullptr ? m_input->Keyboard() : nullptr;
         }
-        [[nodiscard]] dshell::IMouse* Mouse() override
+        [[nodiscard]] shell::IMouse* Mouse() override
         {
             return m_input != nullptr ? m_input->Mouse() : nullptr;
         }
@@ -72,21 +72,21 @@ export namespace draconic::input
         {
             return m_input != nullptr ? m_input->GamepadCount() : 0;
         }
-        [[nodiscard]] dshell::IGamepad* Gamepad(i32 index) override
+        [[nodiscard]] shell::IGamepad* Gamepad(i32 index) override
         {
             return m_input != nullptr ? m_input->GetGamepad(index) : nullptr;
         }
-        [[nodiscard]] dshell::ITouch* Touch() override
+        [[nodiscard]] shell::ITouch* Touch() override
         {
             return m_input != nullptr ? m_input->Touch() : nullptr;
         }
-        [[nodiscard]] Span<const dshell::InputEvent> Events() override
+        [[nodiscard]] Span<const shell::InputEvent> Events() override
         {
-            return m_input != nullptr ? m_input->Events() : Span<const dshell::InputEvent>{};
+            return m_input != nullptr ? m_input->Events() : Span<const shell::InputEvent>{};
         }
 
     private:
-        dshell::IInputManager* m_input = nullptr; // borrowed
+        shell::IInputManager* m_input = nullptr; // borrowed
     };
 
     // A resolved action name: hash computed once, candidates (same name across sets) cached
@@ -118,11 +118,11 @@ export namespace draconic::input
         constexpr f32 kActivate = 0.6f;
         if (filter.keys)
         {
-            if (dshell::IKeyboard* keyboard = devices.Keyboard())
+            if (shell::IKeyboard* keyboard = devices.Keyboard())
             {
-                for (u32 code = 1; code < static_cast<u32>(dshell::KeyCode::Count); ++code)
+                for (u32 code = 1; code < static_cast<u32>(shell::KeyCode::Count); ++code)
                 {
-                    if (keyboard->IsKeyPressed(static_cast<dshell::KeyCode>(code)))
+                    if (keyboard->IsKeyPressed(static_cast<shell::KeyCode>(code)))
                     {
                         out = Binding{};
                         out.source = BindingSource::Key;
@@ -134,11 +134,11 @@ export namespace draconic::input
         }
         if (filter.mouseButtons)
         {
-            if (dshell::IMouse* mouse = devices.Mouse())
+            if (shell::IMouse* mouse = devices.Mouse())
             {
-                for (u32 code = 0; code < static_cast<u32>(dshell::MouseButton::Count); ++code)
+                for (u32 code = 0; code < static_cast<u32>(shell::MouseButton::Count); ++code)
                 {
-                    if (mouse->IsButtonPressed(static_cast<dshell::MouseButton>(code)))
+                    if (mouse->IsButtonPressed(static_cast<shell::MouseButton>(code)))
                     {
                         out = Binding{};
                         out.source = BindingSource::MouseButton;
@@ -151,16 +151,16 @@ export namespace draconic::input
         const i32 pads = devices.GamepadCount();
         for (i32 p = 0; p < pads; ++p)
         {
-            dshell::IGamepad* pad = devices.Gamepad(p);
+            shell::IGamepad* pad = devices.Gamepad(p);
             if (pad == nullptr || !pad->Connected())
             {
                 continue;
             }
             if (filter.gamepadButtons)
             {
-                for (u32 code = 0; code < static_cast<u32>(dshell::GamepadButton::Count); ++code)
+                for (u32 code = 0; code < static_cast<u32>(shell::GamepadButton::Count); ++code)
                 {
-                    if (pad->IsButtonPressed(static_cast<dshell::GamepadButton>(code)))
+                    if (pad->IsButtonPressed(static_cast<shell::GamepadButton>(code)))
                     {
                         out = Binding{};
                         out.source = BindingSource::GamepadButton;
@@ -171,10 +171,10 @@ export namespace draconic::input
             }
             if (filter.gamepadSticks)
             {
-                const f32 lx = pad->Axis(dshell::GamepadAxis::LeftX);
-                const f32 ly = pad->Axis(dshell::GamepadAxis::LeftY);
-                const f32 rx = pad->Axis(dshell::GamepadAxis::RightX);
-                const f32 ry = pad->Axis(dshell::GamepadAxis::RightY);
+                const f32 lx = pad->Axis(shell::GamepadAxis::LeftX);
+                const f32 ly = pad->Axis(shell::GamepadAxis::LeftY);
+                const f32 rx = pad->Axis(shell::GamepadAxis::RightX);
+                const f32 ry = pad->Axis(shell::GamepadAxis::RightY);
                 if (lx * lx + ly * ly > kActivate * kActivate)
                 {
                     out = Binding{};
@@ -192,9 +192,9 @@ export namespace draconic::input
             }
             if (filter.gamepadAxes)
             {
-                for (u32 code = 0; code < static_cast<u32>(dshell::GamepadAxis::Count); ++code)
+                for (u32 code = 0; code < static_cast<u32>(shell::GamepadAxis::Count); ++code)
                 {
-                    if (std::fabs(pad->Axis(static_cast<dshell::GamepadAxis>(code))) > kActivate)
+                    if (std::fabs(pad->Axis(static_cast<shell::GamepadAxis>(code))) > kActivate)
                     {
                         out = Binding{};
                         out.source = BindingSource::GamepadAxis;
@@ -517,13 +517,13 @@ export namespace draconic::input
             bool digitalDown = false;
         };
 
-        [[nodiscard]] static bool KeyDown(dshell::IKeyboard* keyboard, u32 code, u32 modifiers)
+        [[nodiscard]] static bool KeyDown(shell::IKeyboard* keyboard, u32 code, u32 modifiers)
         {
             if (keyboard == nullptr)
             {
                 return false;
             }
-            if (!keyboard->IsKeyDown(static_cast<dshell::KeyCode>(code)))
+            if (!keyboard->IsKeyDown(static_cast<shell::KeyCode>(code)))
             {
                 return false;
             }
@@ -553,9 +553,9 @@ export namespace draconic::input
             }
             case BindingSource::MouseButton:
             {
-                dshell::IMouse* mouse = devices.Mouse();
+                shell::IMouse* mouse = devices.Mouse();
                 if (mouse != nullptr &&
-                    mouse->IsButtonDown(static_cast<dshell::MouseButton>(b.code)))
+                    mouse->IsButtonDown(static_cast<shell::MouseButton>(b.code)))
                 {
                     out.value.x = b.scale * sign;
                     out.digitalDown = true;
@@ -564,7 +564,7 @@ export namespace draconic::input
             }
             case BindingSource::MouseAxis:
             {
-                dshell::IMouse* mouse = devices.Mouse();
+                shell::IMouse* mouse = devices.Mouse();
                 if (mouse != nullptr)
                 {
                     f32 v = 0.0f;
@@ -586,7 +586,7 @@ export namespace draconic::input
             }
             case BindingSource::MouseDelta:
             {
-                dshell::IMouse* mouse = devices.Mouse();
+                shell::IMouse* mouse = devices.Mouse();
                 if (mouse != nullptr)
                 {
                     out.value.x = mouse->DeltaX() * b.scale;
@@ -597,9 +597,9 @@ export namespace draconic::input
             case BindingSource::GamepadButton:
             {
                 ForEachPad(devices, b.device,
-                           [&](dshell::IGamepad& pad)
+                           [&](shell::IGamepad& pad)
                            {
-                               if (pad.IsButtonDown(static_cast<dshell::GamepadButton>(b.code)))
+                               if (pad.IsButtonDown(static_cast<shell::GamepadButton>(b.code)))
                                {
                                    out.value.x = b.scale * sign;
                                    out.digitalDown = true;
@@ -610,10 +610,10 @@ export namespace draconic::input
             case BindingSource::GamepadAxis:
             {
                 ForEachPad(devices, b.device,
-                           [&](dshell::IGamepad& pad)
+                           [&](shell::IGamepad& pad)
                            {
                                const f32 v =
-                                   ApplyDeadZone(pad.Axis(static_cast<dshell::GamepadAxis>(b.code)),
+                                   ApplyDeadZone(pad.Axis(static_cast<shell::GamepadAxis>(b.code)),
                                                  b.deadZone) *
                                    b.scale * sign;
                                if (std::fabs(v) > std::fabs(out.value.x))
@@ -625,14 +625,14 @@ export namespace draconic::input
             }
             case BindingSource::GamepadStick:
             {
-                const dshell::GamepadAxis axisX = static_cast<StickCode>(b.code) == StickCode::Left
-                                                      ? dshell::GamepadAxis::LeftX
-                                                      : dshell::GamepadAxis::RightX;
-                const dshell::GamepadAxis axisY = static_cast<StickCode>(b.code) == StickCode::Left
-                                                      ? dshell::GamepadAxis::LeftY
-                                                      : dshell::GamepadAxis::RightY;
+                const shell::GamepadAxis axisX = static_cast<StickCode>(b.code) == StickCode::Left
+                                                      ? shell::GamepadAxis::LeftX
+                                                      : shell::GamepadAxis::RightX;
+                const shell::GamepadAxis axisY = static_cast<StickCode>(b.code) == StickCode::Left
+                                                      ? shell::GamepadAxis::LeftY
+                                                      : shell::GamepadAxis::RightY;
                 ForEachPad(devices, b.device,
-                           [&](dshell::IGamepad& pad)
+                           [&](shell::IGamepad& pad)
                            {
                                Float2 v = ApplyCircularDeadZone(
                                    Float2{pad.Axis(axisX), pad.Axis(axisY)}, b.deadZone);
@@ -651,7 +651,7 @@ export namespace draconic::input
                 break; // stateful: handled by EvaluateTouchBinding at the call site
             case BindingSource::Composite2D:
             {
-                dshell::IKeyboard* keyboard = devices.Keyboard();
+                shell::IKeyboard* keyboard = devices.Keyboard();
                 const f32 x = (KeyDown(keyboard, b.posX, 0u) ? 1.0f : 0.0f) -
                               (KeyDown(keyboard, b.negX, 0u) ? 1.0f : 0.0f);
                 const f32 y = (KeyDown(keyboard, b.posY, 0u) ? 1.0f : 0.0f) -
@@ -680,7 +680,7 @@ export namespace draconic::input
             const i32 count = devices.GamepadCount();
             for (i32 i = 0; i < count; ++i)
             {
-                dshell::IGamepad* pad = devices.Gamepad(i);
+                shell::IGamepad* pad = devices.Gamepad(i);
                 if (pad == nullptr || !pad->Connected())
                 {
                     continue;
@@ -699,7 +699,7 @@ export namespace draconic::input
         EvaluateTouchBinding(const Binding& b, IInputSourceProvider& devices, ActionState& state)
         {
             Contribution out;
-            dshell::ITouch* touch = devices.Touch();
+            shell::ITouch* touch = devices.Touch();
             if (touch == nullptr)
             {
                 state.touchId = 0;
@@ -715,7 +715,7 @@ export namespace draconic::input
                 const i32 count = touch->TouchCount();
                 for (i32 i = 0; i < count; ++i)
                 {
-                    dshell::TouchPoint point;
+                    shell::TouchPoint point;
                     if (touch->GetTouchPoint(i, point) && inRegion(point.x, point.y))
                     {
                         out.value.x = b.scale;
@@ -731,7 +731,7 @@ export namespace draconic::input
             if (state.touchId != 0)
             {
                 bool alive = false;
-                dshell::TouchPoint point;
+                shell::TouchPoint point;
                 for (i32 i = 0; i < count; ++i)
                 {
                     if (touch->GetTouchPoint(i, point) && point.id == state.touchId)
@@ -765,7 +765,7 @@ export namespace draconic::input
             {
                 for (i32 i = 0; i < count; ++i)
                 {
-                    dshell::TouchPoint point;
+                    shell::TouchPoint point;
                     if (touch->GetTouchPoint(i, point) && inRegion(point.x, point.y))
                     {
                         state.touchId = point.id;

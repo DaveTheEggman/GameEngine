@@ -17,31 +17,31 @@ import draconic.xml.serialization;
 
 using namespace draconic::core;
 using namespace draconic::input;
-namespace dshell = draconic::shell;
+namespace shell = draconic::shell;
 
 namespace
 {
     // ---- synthetic devices --------------------------------------------------------------
-    class FakeKeyboard final : public dshell::IKeyboard
+    class FakeKeyboard final : public shell::IKeyboard
     {
     public:
         bool down[512] = {};
         bool pressed[512] = {};
-        dshell::KeyModifiers mods = dshell::KeyModifiers::None;
-        [[nodiscard]] bool IsKeyDown(dshell::KeyCode key) const override
+        shell::KeyModifiers mods = shell::KeyModifiers::None;
+        [[nodiscard]] bool IsKeyDown(shell::KeyCode key) const override
         {
             return down[static_cast<u32>(key) & 511];
         }
-        [[nodiscard]] bool IsKeyPressed(dshell::KeyCode key) const override
+        [[nodiscard]] bool IsKeyPressed(shell::KeyCode key) const override
         {
             return pressed[static_cast<u32>(key) & 511];
         }
-        [[nodiscard]] bool IsKeyReleased(dshell::KeyCode) const override { return false; }
-        [[nodiscard]] dshell::KeyModifiers Modifiers() const override { return mods; }
-        void Set(dshell::KeyCode key, bool value) { down[static_cast<u32>(key) & 511] = value; }
+        [[nodiscard]] bool IsKeyReleased(shell::KeyCode) const override { return false; }
+        [[nodiscard]] shell::KeyModifiers Modifiers() const override { return mods; }
+        void Set(shell::KeyCode key, bool value) { down[static_cast<u32>(key) & 511] = value; }
     };
 
-    class FakeMouse final : public dshell::IMouse
+    class FakeMouse final : public shell::IMouse
     {
     public:
         f32 dx = 0, dy = 0, wheel = 0;
@@ -54,21 +54,21 @@ namespace
         [[nodiscard]] f32 DeltaY() const override { return dy; }
         [[nodiscard]] f32 ScrollX() const override { return 0; }
         [[nodiscard]] f32 ScrollY() const override { return wheel; }
-        [[nodiscard]] bool IsButtonDown(dshell::MouseButton b) const override
+        [[nodiscard]] bool IsButtonDown(shell::MouseButton b) const override
         {
             return buttons[static_cast<u32>(b) & 7];
         }
-        [[nodiscard]] bool IsButtonPressed(dshell::MouseButton) const override { return false; }
-        [[nodiscard]] bool IsButtonReleased(dshell::MouseButton) const override { return false; }
+        [[nodiscard]] bool IsButtonPressed(shell::MouseButton) const override { return false; }
+        [[nodiscard]] bool IsButtonReleased(shell::MouseButton) const override { return false; }
         [[nodiscard]] bool RelativeMode() const override { return false; }
         void SetRelativeMode(bool) override {}
         [[nodiscard]] bool CursorVisible() const override { return true; }
         void SetCursorVisible(bool) override {}
-        void SetCursor(dshell::CursorType) override {}
+        void SetCursor(shell::CursorType) override {}
         void SetGlobalCapture(bool) override {}
     };
 
-    class FakeGamepad final : public dshell::IGamepad
+    class FakeGamepad final : public shell::IGamepad
     {
     public:
         i32 index = 0;
@@ -79,28 +79,28 @@ namespace
         [[nodiscard]] StringView Name() const override { return u8"fake"; }
         [[nodiscard]] bool Connected() const override { return connected; }
         bool buttonsPressed[32] = {};
-        [[nodiscard]] bool IsButtonDown(dshell::GamepadButton b) const override
+        [[nodiscard]] bool IsButtonDown(shell::GamepadButton b) const override
         {
             return buttons[static_cast<u32>(b) & 31];
         }
-        [[nodiscard]] bool IsButtonPressed(dshell::GamepadButton b) const override
+        [[nodiscard]] bool IsButtonPressed(shell::GamepadButton b) const override
         {
             return buttonsPressed[static_cast<u32>(b) & 31];
         }
-        [[nodiscard]] bool IsButtonReleased(dshell::GamepadButton) const override { return false; }
-        [[nodiscard]] f32 Axis(dshell::GamepadAxis a) const override
+        [[nodiscard]] bool IsButtonReleased(shell::GamepadButton) const override { return false; }
+        [[nodiscard]] f32 Axis(shell::GamepadAxis a) const override
         {
             return axes[static_cast<u32>(a) % 6];
         }
         void SetRumble(f32, f32, u32) override {}
     };
 
-    class FakeTouch final : public dshell::ITouch
+    class FakeTouch final : public shell::ITouch
     {
     public:
-        Array<dshell::TouchPoint> points;
+        Array<shell::TouchPoint> points;
         [[nodiscard]] i32 TouchCount() const override { return static_cast<i32>(points.Size()); }
-        [[nodiscard]] bool GetTouchPoint(i32 index, dshell::TouchPoint& out) const override
+        [[nodiscard]] bool GetTouchPoint(i32 index, shell::TouchPoint& out) const override
         {
             if (index < 0 || static_cast<usize>(index) >= points.Size())
             {
@@ -121,7 +121,7 @@ namespace
                     return;
                 }
             }
-            points.PushBack(dshell::TouchPoint{id, x, y, 1.0f});
+            points.PushBack(shell::TouchPoint{id, x, y, 1.0f});
         }
         void Remove(u64 id)
         {
@@ -143,15 +143,15 @@ namespace
         FakeMouse mouse;
         FakeTouch touch;
         Array<FakeGamepad*> pads;
-        [[nodiscard]] dshell::IKeyboard* Keyboard() override { return &keyboard; }
-        [[nodiscard]] dshell::IMouse* Mouse() override { return &mouse; }
+        [[nodiscard]] shell::IKeyboard* Keyboard() override { return &keyboard; }
+        [[nodiscard]] shell::IMouse* Mouse() override { return &mouse; }
         [[nodiscard]] i32 GamepadCount() const override { return static_cast<i32>(pads.Size()); }
-        [[nodiscard]] dshell::IGamepad* Gamepad(i32 i) override
+        [[nodiscard]] shell::IGamepad* Gamepad(i32 i) override
         {
             return (i >= 0 && i < static_cast<i32>(pads.Size())) ? pads[static_cast<usize>(i)]
                                                                  : nullptr;
         }
-        [[nodiscard]] dshell::ITouch* Touch() override { return &touch; }
+        [[nodiscard]] shell::ITouch* Touch() override { return &touch; }
     };
 
     // ---- a representative map ----------------------------------------------------------
@@ -167,7 +167,7 @@ namespace
             jump.kind = ActionKind::Button;
             Binding key;
             key.source = BindingSource::Key;
-            key.code = static_cast<u32>(dshell::KeyCode::Space);
+            key.code = static_cast<u32>(shell::KeyCode::Space);
             jump.bindings.PushBack(key);
             Binding pad;
             pad.source = BindingSource::GamepadButton;
@@ -181,10 +181,10 @@ namespace
             move.kind = ActionKind::Axis2D;
             Binding wasd;
             wasd.source = BindingSource::Composite2D;
-            wasd.negX = static_cast<u32>(dshell::KeyCode::A);
-            wasd.posX = static_cast<u32>(dshell::KeyCode::D);
-            wasd.negY = static_cast<u32>(dshell::KeyCode::S);
-            wasd.posY = static_cast<u32>(dshell::KeyCode::W);
+            wasd.negX = static_cast<u32>(shell::KeyCode::A);
+            wasd.posX = static_cast<u32>(shell::KeyCode::D);
+            wasd.negY = static_cast<u32>(shell::KeyCode::S);
+            wasd.posY = static_cast<u32>(shell::KeyCode::W);
             move.bindings.PushBack(wasd);
             Binding stick;
             stick.source = BindingSource::GamepadStick;
@@ -204,7 +204,7 @@ namespace
             confirm.kind = ActionKind::Button;
             Binding key;
             key.source = BindingSource::Key;
-            key.code = static_cast<u32>(dshell::KeyCode::Space); // deliberately shared with Jump
+            key.code = static_cast<u32>(shell::KeyCode::Space); // deliberately shared with Jump
             confirm.bindings.PushBack(key);
             menu.actions.PushBack(static_cast<Action&&>(confirm));
         }
@@ -230,7 +230,7 @@ TEST_CASE("input: map round-trips through binary AND xml serializers")
         CHECK(move.kind == ActionKind::Axis2D);
         REQUIRE(move.bindings.Size() == 2);
         CHECK(move.bindings[0].source == BindingSource::Composite2D);
-        CHECK(move.bindings[0].posY == static_cast<u32>(dshell::KeyCode::W));
+        CHECK(move.bindings[0].posY == static_cast<u32>(shell::KeyCode::W));
         CHECK(move.bindings[1].deadZone == doctest::Approx(0.2f));
         CHECK(move.processors.sensitivity == doctest::Approx(4.0f));
         CHECK(move.processors.snap);
@@ -299,7 +299,7 @@ TEST_CASE("input: buttons - edges, device folding, and key modifiers")
     CHECK_FALSE(runtime.IsDown(jump));
 
     // Keyboard press: down + a pressed edge exactly this frame, held next frame.
-    devices.keyboard.Set(dshell::KeyCode::Space, true);
+    devices.keyboard.Set(shell::KeyCode::Space, true);
     runtime.Update(devices, 1.0f / 60.0f);
     CHECK(runtime.IsDown(jump));
     CHECK(runtime.WasPressed(jump));
@@ -308,7 +308,7 @@ TEST_CASE("input: buttons - edges, device folding, and key modifiers")
     CHECK_FALSE(runtime.WasPressed(jump));
 
     // Release edge; then the GAMEPAD binding drives the same action (device folding).
-    devices.keyboard.Set(dshell::KeyCode::Space, false);
+    devices.keyboard.Set(shell::KeyCode::Space, false);
     runtime.Update(devices, 1.0f / 60.0f);
     CHECK_FALSE(runtime.IsDown(jump));
     CHECK(runtime.WasReleased(jump));
@@ -326,22 +326,22 @@ TEST_CASE("input: buttons - edges, device folding, and key modifiers")
     save.kind = ActionKind::Button;
     Binding ctrlS;
     ctrlS.source = BindingSource::Key;
-    ctrlS.code = static_cast<u32>(dshell::KeyCode::S);
-    ctrlS.modifiers = static_cast<u32>(dshell::KeyModifiers::LeftCtrl);
+    ctrlS.code = static_cast<u32>(shell::KeyCode::S);
+    ctrlS.modifiers = static_cast<u32>(shell::KeyModifiers::LeftCtrl);
     save.bindings.PushBack(ctrlS);
     set.actions.PushBack(static_cast<Action&&>(save));
     modMap.sets.PushBack(static_cast<ActionSet&&>(set));
     ActionRuntime modRuntime;
     modRuntime.SetMap(modMap);
     const ActionRef quickSave = modRuntime.Resolve(u8"QuickSave");
-    devices.keyboard.Set(dshell::KeyCode::S, true);
+    devices.keyboard.Set(shell::KeyCode::S, true);
     modRuntime.Update(devices, 1.0f / 60.0f);
     CHECK_FALSE(modRuntime.IsDown(quickSave));
-    devices.keyboard.mods = dshell::KeyModifiers::LeftCtrl;
+    devices.keyboard.mods = shell::KeyModifiers::LeftCtrl;
     modRuntime.Update(devices, 1.0f / 60.0f);
     CHECK(modRuntime.IsDown(quickSave));
-    devices.keyboard.Set(dshell::KeyCode::S, false);
-    devices.keyboard.mods = dshell::KeyModifiers::None;
+    devices.keyboard.Set(shell::KeyCode::S, false);
+    devices.keyboard.mods = shell::KeyModifiers::None;
 }
 
 TEST_CASE("input: axes - composite, stick dead zone, and folding by magnitude")
@@ -355,34 +355,34 @@ TEST_CASE("input: axes - composite, stick dead zone, and folding by magnitude")
     const ActionRef move = runtime.Resolve(u8"Move");
 
     // WASD: diagonal normalizes to unit length.
-    devices.keyboard.Set(dshell::KeyCode::W, true);
-    devices.keyboard.Set(dshell::KeyCode::D, true);
+    devices.keyboard.Set(shell::KeyCode::W, true);
+    devices.keyboard.Set(shell::KeyCode::D, true);
     runtime.Update(devices, 1.0f / 60.0f);
     Float2 v = runtime.Value2D(move);
     CHECK(v.x == doctest::Approx(0.7071f).epsilon(0.01));
     CHECK(v.y == doctest::Approx(0.7071f).epsilon(0.01));
     CHECK(runtime.IsDown(move));
-    devices.keyboard.Set(dshell::KeyCode::W, false);
-    devices.keyboard.Set(dshell::KeyCode::D, false);
+    devices.keyboard.Set(shell::KeyCode::W, false);
+    devices.keyboard.Set(shell::KeyCode::D, false);
 
     // Stick inside the dead zone reads zero; outside it rescales from the edge.
-    pad.axes[static_cast<u32>(dshell::GamepadAxis::LeftX)] = 0.1f;
+    pad.axes[static_cast<u32>(shell::GamepadAxis::LeftX)] = 0.1f;
     runtime.Update(devices, 1.0f / 60.0f);
     CHECK(runtime.Value2D(move).x == doctest::Approx(0.0f));
-    pad.axes[static_cast<u32>(dshell::GamepadAxis::LeftX)] = 1.0f;
+    pad.axes[static_cast<u32>(shell::GamepadAxis::LeftX)] = 1.0f;
     runtime.Update(devices, 1.0f / 60.0f);
     CHECK(runtime.Value2D(move).x == doctest::Approx(1.0f).epsilon(0.01));
 
     // Keyboard (0.7) vs stick (1.0): the larger magnitude wins the fold.
-    devices.keyboard.Set(dshell::KeyCode::A,
+    devices.keyboard.Set(shell::KeyCode::A,
                          true); // x = -1 from keys, +1 from stick... stick larger? equal
-    pad.axes[static_cast<u32>(dshell::GamepadAxis::LeftX)] = 0.4f;
+    pad.axes[static_cast<u32>(shell::GamepadAxis::LeftX)] = 0.4f;
     runtime.Update(devices, 1.0f / 60.0f);
     v = runtime.Value2D(move);
     CHECK(v.x ==
           doctest::Approx(-1.0f).epsilon(0.01)); // the full-press key out-magnitudes 0.25-ish stick
-    devices.keyboard.Set(dshell::KeyCode::A, false);
-    pad.axes[static_cast<u32>(dshell::GamepadAxis::LeftX)] = 0.0f;
+    devices.keyboard.Set(shell::KeyCode::A, false);
+    pad.axes[static_cast<u32>(shell::GamepadAxis::LeftX)] = 0.0f;
 }
 
 TEST_CASE("input: exclusive sets - priority resolution, suppression, and held latching")
@@ -394,7 +394,7 @@ TEST_CASE("input: exclusive sets - priority resolution, suppression, and held la
     const ActionRef confirm = runtime.Resolve(u8"Confirm");
 
     // Hold Space in gameplay: Jump is down.
-    devices.keyboard.Set(dshell::KeyCode::Space, true);
+    devices.keyboard.Set(shell::KeyCode::Space, true);
     runtime.Update(devices, 1.0f / 60.0f);
     CHECK(runtime.IsDown(jump));
 
@@ -409,9 +409,9 @@ TEST_CASE("input: exclusive sets - priority resolution, suppression, and held la
     CHECK_FALSE(runtime.IsDown(confirm)); // latched: held from before the menu opened
 
     // Releasing and re-pressing INSIDE the menu activates Confirm, not Jump.
-    devices.keyboard.Set(dshell::KeyCode::Space, false);
+    devices.keyboard.Set(shell::KeyCode::Space, false);
     runtime.Update(devices, 1.0f / 60.0f);
-    devices.keyboard.Set(dshell::KeyCode::Space, true);
+    devices.keyboard.Set(shell::KeyCode::Space, true);
     runtime.Update(devices, 1.0f / 60.0f);
     CHECK(runtime.IsDown(confirm));
     CHECK(runtime.WasPressed(confirm));
@@ -422,9 +422,9 @@ TEST_CASE("input: exclusive sets - priority resolution, suppression, and held la
     runtime.PopExclusiveSet();
     runtime.Update(devices, 1.0f / 60.0f);
     CHECK_FALSE(runtime.IsDown(jump)); // the held key must not re-fire
-    devices.keyboard.Set(dshell::KeyCode::Space, false);
+    devices.keyboard.Set(shell::KeyCode::Space, false);
     runtime.Update(devices, 1.0f / 60.0f);
-    devices.keyboard.Set(dshell::KeyCode::Space, true);
+    devices.keyboard.Set(shell::KeyCode::Space, true);
     runtime.Update(devices, 1.0f / 60.0f);
     CHECK(runtime.IsDown(jump));
     CHECK(runtime.WasPressed(jump));
@@ -441,7 +441,7 @@ TEST_CASE("input: rebind overlay - apply over a pristine copy, clear restores, p
         Array<Binding> replacement;
         Binding j;
         j.source = BindingSource::Key;
-        j.code = static_cast<u32>(dshell::KeyCode::J);
+        j.code = static_cast<u32>(shell::KeyCode::J);
         replacement.PushBack(j);
         overlay.Set(u8"Gameplay", u8"Jump", static_cast<Array<Binding>&&>(replacement));
     }
@@ -449,7 +449,7 @@ TEST_CASE("input: rebind overlay - apply over a pristine copy, clear restores, p
     InputMap effective = asset; // pristine copy
     ApplyBindingOverrides(effective, overlay);
     REQUIRE(effective.sets[0].actions[0].bindings.Size() == 1);
-    CHECK(effective.sets[0].actions[0].bindings[0].code == static_cast<u32>(dshell::KeyCode::J));
+    CHECK(effective.sets[0].actions[0].bindings[0].code == static_cast<u32>(shell::KeyCode::J));
     CHECK(asset.sets[0].actions[0].bindings.Size() == 2); // the asset never mutates
 
     ActionRuntime runtime;
@@ -457,10 +457,10 @@ TEST_CASE("input: rebind overlay - apply over a pristine copy, clear restores, p
     runtime.DisableSet(u8"Menu");
     FakeDevices devices;
     const ActionRef jump = runtime.Resolve(u8"Jump");
-    devices.keyboard.Set(dshell::KeyCode::Space, true); // the OLD binding: dead
+    devices.keyboard.Set(shell::KeyCode::Space, true); // the OLD binding: dead
     runtime.Update(devices, 1.0f / 60.0f);
     CHECK_FALSE(runtime.IsDown(jump));
-    devices.keyboard.Set(dshell::KeyCode::J, true);
+    devices.keyboard.Set(shell::KeyCode::J, true);
     runtime.Update(devices, 1.0f / 60.0f);
     CHECK(runtime.IsDown(jump));
 
@@ -475,7 +475,7 @@ TEST_CASE("input: rebind overlay - apply over a pristine copy, clear restores, p
         Array<Binding> replacement;
         Binding k;
         k.source = BindingSource::Key;
-        k.code = static_cast<u32>(dshell::KeyCode::K);
+        k.code = static_cast<u32>(shell::KeyCode::K);
         replacement.PushBack(k);
         overlay.Set(u8"Gameplay", u8"Jump", static_cast<Array<Binding>&&>(replacement));
     }
@@ -490,7 +490,7 @@ TEST_CASE("input: rebind overlay - apply over a pristine copy, clear restores, p
     const InputBindingOverrides* loaded = loadedStore.Find<InputBindingOverrides>();
     REQUIRE(loaded != nullptr);
     REQUIRE(loaded->overrides.Size() == 1);
-    CHECK(loaded->overrides[0].bindings[0].code == static_cast<u32>(dshell::KeyCode::K));
+    CHECK(loaded->overrides[0].bindings[0].code == static_cast<u32>(shell::KeyCode::K));
 }
 
 TEST_CASE("input: the Wren Input facade resolves PER-CONTEXT services")
@@ -507,8 +507,8 @@ TEST_CASE("input: the Wren Input facade resolves PER-CONTEXT services")
     runtimeB.DisableSet(u8"Menu");
 
     FakeDevices devices;
-    devices.keyboard.Set(dshell::KeyCode::Space, true);
-    devices.keyboard.Set(dshell::KeyCode::W, true);
+    devices.keyboard.Set(shell::KeyCode::Space, true);
+    devices.keyboard.Set(shell::KeyCode::W, true);
     runtimeA.Update(devices, 1.0f / 60.0f); // A sees the press...
     FakeDevices idle;
     runtimeB.Update(idle, 1.0f / 60.0f); // ...B sees nothing
@@ -559,14 +559,14 @@ TEST_CASE("input: rebind capture - first activated input matching the filter")
     CHECK_FALSE(CaptureBinding(devices, keysOnly, captured));
 
     // A key press captures as a Key binding.
-    devices.keyboard.pressed[static_cast<u32>(dshell::KeyCode::F)] = true;
+    devices.keyboard.pressed[static_cast<u32>(shell::KeyCode::F)] = true;
     REQUIRE(CaptureBinding(devices, keysOnly, captured));
     CHECK(captured.source == BindingSource::Key);
-    CHECK(captured.code == static_cast<u32>(dshell::KeyCode::F));
-    devices.keyboard.pressed[static_cast<u32>(dshell::KeyCode::F)] = false;
+    CHECK(captured.code == static_cast<u32>(shell::KeyCode::F));
+    devices.keyboard.pressed[static_cast<u32>(shell::KeyCode::F)] = false;
 
     // Stick noise is IGNORED for a key rebind; an opted-in stick filter captures it.
-    pad.axes[static_cast<u32>(dshell::GamepadAxis::RightX)] = 0.9f;
+    pad.axes[static_cast<u32>(shell::GamepadAxis::RightX)] = 0.9f;
     CHECK_FALSE(CaptureBinding(devices, keysOnly, captured));
     CaptureFilter stickFilter;
     stickFilter.keys = false;
@@ -578,7 +578,7 @@ TEST_CASE("input: rebind capture - first activated input matching the filter")
     CHECK(captured.code == static_cast<u32>(StickCode::Right));
 
     // Gamepad button (must-not-have keys still capturing pads).
-    pad.axes[static_cast<u32>(dshell::GamepadAxis::RightX)] = 0.0f;
+    pad.axes[static_cast<u32>(shell::GamepadAxis::RightX)] = 0.0f;
     pad.buttonsPressed[3] = true;
     CaptureFilter padButtons;
     padButtons.keys = false;
@@ -591,18 +591,18 @@ TEST_CASE("input: rebind capture - first activated input matching the filter")
 TEST_CASE("input: SurfaceTouch transforms + spatially gates through the ContentFit")
 {
     // A minimal IInputManager over the fakes (the surface polls through it).
-    class Manager final : public dshell::IInputManager
+    class Manager final : public shell::IInputManager
     {
     public:
         FakeKeyboard keyboard;
         FakeMouse mouse;
         FakeTouch touch;
-        [[nodiscard]] dshell::IKeyboard* Keyboard() override { return &keyboard; }
-        [[nodiscard]] dshell::IMouse* Mouse() override { return &mouse; }
-        [[nodiscard]] dshell::ITouch* Touch() override { return &touch; }
+        [[nodiscard]] shell::IKeyboard* Keyboard() override { return &keyboard; }
+        [[nodiscard]] shell::IMouse* Mouse() override { return &mouse; }
+        [[nodiscard]] shell::ITouch* Touch() override { return &touch; }
         [[nodiscard]] i32 GamepadCount() const override { return 0; }
-        [[nodiscard]] dshell::IGamepad* GetGamepad(i32) override { return nullptr; }
-        [[nodiscard]] Span<const dshell::InputEvent> Events() const override { return {}; }
+        [[nodiscard]] shell::IGamepad* GetGamepad(i32) override { return nullptr; }
+        [[nodiscard]] Span<const shell::InputEvent> Events() const override { return {}; }
         [[nodiscard]] u32 HoverWindow() const override { return 1u; }
         [[nodiscard]] u32 FocusedWindow() const override { return 1u; }
         void Update() override {}
@@ -611,11 +611,11 @@ TEST_CASE("input: SurfaceTouch transforms + spatially gates through the ContentF
 
     // A 1920x1080 window hosting a viewport at (100,100)-(900,700): 800x600 region showing
     // 800x600 content (stretch = identity within the region).
-    dshell::InputSurface surface(&manager, 1u, ContentFit{});
+    shell::InputSurface surface(&manager, 1u, ContentFit{});
     surface.SetRegion(Rectangle{100.0f, 100.0f, 800.0f, 600.0f});
     surface.SetContentSize(Float2{800.0f, 600.0f});
     surface.SetWindowSize(Float2{1920.0f, 1080.0f});
-    dshell::ITouch* touch = surface.Touch();
+    shell::ITouch* touch = surface.Touch();
     REQUIRE(touch != nullptr);
 
     // A finger OUTSIDE the region (window-normalized 0.01, 0.01 = 19,10 px): filtered.
@@ -627,7 +627,7 @@ TEST_CASE("input: SurfaceTouch transforms + spatially gates through the ContentF
     // (0.5, 0.5).
     manager.touch.Set(1, 500.0f / 1920.0f, 400.0f / 1080.0f);
     REQUIRE(touch->TouchCount() == 1);
-    dshell::TouchPoint mapped;
+    shell::TouchPoint mapped;
     REQUIRE(touch->GetTouchPoint(0, mapped));
     CHECK(mapped.x == doctest::Approx(0.5f).epsilon(0.01));
     CHECK(mapped.y == doctest::Approx(0.5f).epsilon(0.01));
@@ -756,7 +756,7 @@ TEST_CASE("input: the timeScale processor scales flagged action VALUES only")
         axis.kind = ActionKind::Axis1D;
         Binding key;
         key.source = BindingSource::Key;
-        key.code = static_cast<u32>(dshell::KeyCode::W);
+        key.code = static_cast<u32>(shell::KeyCode::W);
         axis.bindings.PushBack(key);
         axis.processors.timeScale = scaled;
         set.actions.PushBack(static_cast<Action&&>(axis));
@@ -768,7 +768,7 @@ TEST_CASE("input: the timeScale processor scales flagged action VALUES only")
     ActionRuntime runtime;
     runtime.SetMap(map);
     FakeDevices devices;
-    devices.keyboard.Set(dshell::KeyCode::W, true);
+    devices.keyboard.Set(shell::KeyCode::W, true);
     const ActionRef scaled = runtime.Resolve(u8"Scaled");
     const ActionRef raw = runtime.Resolve(u8"Raw");
 
@@ -796,7 +796,7 @@ TEST_CASE("input: interactions - hold, tap, and double tap")
         action.kind = ActionKind::Button;
         Binding key;
         key.source = BindingSource::Key;
-        key.code = static_cast<u32>(dshell::KeyCode::Space);
+        key.code = static_cast<u32>(shell::KeyCode::Space);
         action.bindings.PushBack(key);
         action.interaction.kind = kind;
         action.interaction.seconds = seconds;
@@ -813,7 +813,7 @@ TEST_CASE("input: interactions - hold, tap, and double tap")
         ActionRuntime runtime;
         runtime.SetMap(makeButtonMap(InteractionKind::Hold, 0.2f));
         const ActionRef act = runtime.Resolve(u8"Act");
-        devices.keyboard.Set(dshell::KeyCode::Space, true);
+        devices.keyboard.Set(shell::KeyCode::Space, true);
         for (int i = 0; i < 6; ++i)
         {
             runtime.Update(devices, step);
@@ -830,7 +830,7 @@ TEST_CASE("input: interactions - hold, tap, and double tap")
         }
         CHECK(edged);
         CHECK(runtime.IsDown(act));
-        devices.keyboard.Set(dshell::KeyCode::Space, false);
+        devices.keyboard.Set(shell::KeyCode::Space, false);
         runtime.Update(devices, step);
         CHECK_FALSE(runtime.IsDown(act));
         CHECK(runtime.WasReleased(act));
@@ -841,13 +841,13 @@ TEST_CASE("input: interactions - hold, tap, and double tap")
         ActionRuntime runtime;
         runtime.SetMap(makeButtonMap(InteractionKind::Tap, 0.15f));
         const ActionRef act = runtime.Resolve(u8"Act");
-        devices.keyboard.Set(dshell::KeyCode::Space, true);
+        devices.keyboard.Set(shell::KeyCode::Space, true);
         for (int i = 0; i < 4; ++i)
         {
             runtime.Update(devices, step);
             CHECK_FALSE(runtime.IsDown(act));
         }
-        devices.keyboard.Set(dshell::KeyCode::Space, false);
+        devices.keyboard.Set(shell::KeyCode::Space, false);
         runtime.Update(devices, step);
         CHECK(runtime.WasPressed(act)); // the pulse
         CHECK(runtime.IsDown(act));
@@ -855,12 +855,12 @@ TEST_CASE("input: interactions - hold, tap, and double tap")
         CHECK_FALSE(runtime.IsDown(act));
         CHECK(runtime.WasReleased(act));
 
-        devices.keyboard.Set(dshell::KeyCode::Space, true); // long press: no fire
+        devices.keyboard.Set(shell::KeyCode::Space, true); // long press: no fire
         for (int i = 0; i < 20; ++i)
         {
             runtime.Update(devices, step);
         }
-        devices.keyboard.Set(dshell::KeyCode::Space, false);
+        devices.keyboard.Set(shell::KeyCode::Space, false);
         runtime.Update(devices, step);
         CHECK_FALSE(runtime.WasPressed(act));
     }
@@ -872,10 +872,10 @@ TEST_CASE("input: interactions - hold, tap, and double tap")
         const ActionRef act = runtime.Resolve(u8"Act");
         auto tap = [&](int gapFrames)
         {
-            devices.keyboard.Set(dshell::KeyCode::Space, true);
+            devices.keyboard.Set(shell::KeyCode::Space, true);
             runtime.Update(devices, step);
             const bool fired = runtime.WasPressed(act);
-            devices.keyboard.Set(dshell::KeyCode::Space, false);
+            devices.keyboard.Set(shell::KeyCode::Space, false);
             runtime.Update(devices, step);
             for (int i = 0; i < gapFrames; ++i)
             {
@@ -900,11 +900,11 @@ TEST_CASE("input: smoothing - sensitivity ramp, gravity recenter, snap on flip")
     axis.kind = ActionKind::Axis1D;
     Binding key;
     key.source = BindingSource::Key;
-    key.code = static_cast<u32>(dshell::KeyCode::W);
+    key.code = static_cast<u32>(shell::KeyCode::W);
     axis.bindings.PushBack(key);
     Binding back;
     back.source = BindingSource::Key;
-    back.code = static_cast<u32>(dshell::KeyCode::S);
+    back.code = static_cast<u32>(shell::KeyCode::S);
     back.scale = -1.0f;
     axis.bindings.PushBack(back);
     axis.processors.sensitivity = 5.0f; // 0.2s to full
@@ -919,7 +919,7 @@ TEST_CASE("input: smoothing - sensitivity ramp, gravity recenter, snap on flip")
     const ActionRef throttle = runtime.Resolve(u8"Throttle");
 
     // Ramp: after 0.1s at sensitivity 5, value is ~0.5, not 1.
-    devices.keyboard.Set(dshell::KeyCode::W, true);
+    devices.keyboard.Set(shell::KeyCode::W, true);
     for (int i = 0; i < 6; ++i)
     {
         runtime.Update(devices, 1.0f / 60.0f);
@@ -932,13 +932,13 @@ TEST_CASE("input: smoothing - sensitivity ramp, gravity recenter, snap on flip")
     CHECK(runtime.Value(throttle) == doctest::Approx(1.0f));
 
     // Snap: flipping to S zeroes first, then ramps negative (never crossfades through).
-    devices.keyboard.Set(dshell::KeyCode::W, false);
-    devices.keyboard.Set(dshell::KeyCode::S, true);
+    devices.keyboard.Set(shell::KeyCode::W, false);
+    devices.keyboard.Set(shell::KeyCode::S, true);
     runtime.Update(devices, 1.0f / 60.0f);
     CHECK(runtime.Value(throttle) <= 0.0f);
 
     // Gravity: releasing recenters at 10/sec - ~0.1s to zero from full.
-    devices.keyboard.Set(dshell::KeyCode::S, false);
+    devices.keyboard.Set(shell::KeyCode::S, false);
     for (int i = 0; i < 8; ++i)
     {
         runtime.Update(devices, 1.0f / 60.0f);
@@ -958,7 +958,7 @@ TEST_CASE("input: the UI consumption mask gates device classes independently")
         jump.kind = ActionKind::Button;
         Binding key;
         key.source = BindingSource::Key;
-        key.code = static_cast<u32>(dshell::KeyCode::Space);
+        key.code = static_cast<u32>(shell::KeyCode::Space);
         jump.bindings.PushBack(key);
         set.actions.PushBack(static_cast<Action&&>(jump));
     }
@@ -968,7 +968,7 @@ TEST_CASE("input: the UI consumption mask gates device classes independently")
         shoot.kind = ActionKind::Button;
         Binding button;
         button.source = BindingSource::MouseButton;
-        button.code = static_cast<u32>(dshell::MouseButton::Left);
+        button.code = static_cast<u32>(shell::MouseButton::Left);
         shoot.bindings.PushBack(button);
         set.actions.PushBack(static_cast<Action&&>(shoot));
     }
@@ -977,8 +977,8 @@ TEST_CASE("input: the UI consumption mask gates device classes independently")
     ActionRuntime runtime;
     runtime.SetMap(map);
     FakeDevices devices;
-    devices.keyboard.Set(dshell::KeyCode::Space, true);
-    devices.mouse.buttons[static_cast<u32>(dshell::MouseButton::Left)] = true;
+    devices.keyboard.Set(shell::KeyCode::Space, true);
+    devices.mouse.buttons[static_cast<u32>(shell::MouseButton::Left)] = true;
     runtime.Update(devices, 1.0f / 60.0f);
     const ActionRef jump = runtime.Resolve(u8"Jump");
     const ActionRef shoot = runtime.Resolve(u8"Shoot");

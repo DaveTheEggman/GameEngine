@@ -11,7 +11,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.input:model;
+export module draconic.input:input_map;
 
 import draconic.core;
 
