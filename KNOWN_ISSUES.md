@@ -5,6 +5,40 @@ and the plan. Keep newest first.
 
 ---
 
+## clang 21.1 frontend crash compiling `Samples/Sandbox/main.cpp` - PRE-EXISTING
+
+**Status:** OPEN, triaged 2026-07-22. Pre-existing; NOT introduced by the code-quality
+pass (proven by reverting the only structural Core change and rebuilding - the crash
+reproduces identically).
+
+**What:** the clang 21.1 frontend crashes (varying SIGSEGV / SIGABRT, exit 139 / 134,
+`Stack dump` with no source diagnostic) while compiling `Code/Samples/Sandbox/main.cpp`.
+It is a *compile-time* crash, not a compile error and not runtime - the linked
+`Bin/.../Sandbox` binary builds (when a compile succeeds) and runs fine.
+
+**Where:** `Code/Samples/Sandbox/main.cpp` - a very large module TU (the resulting debug
+binary is ~60 MB from one TU). Same fragility the runtime-host work hit before, worked
+around via `DefaultApplication::PrimaryScenes()` returning `SceneManager&` to avoid
+materializing `GameInstance` in huge sample TUs. `Tools/Export/Main.cpp` (RaptorExport)
+is likely the same class of TU.
+
+**Impact:** intermittent - it compiled successfully earlier the same day (binary
+timestamp confirms), then crashes on retry, i.e. resource/memory-sensitive (the frontend
+peaks very high on this TU; SIGABRT is consistent with `bad_alloc`). Breaks the *full*
+build, not any engine/editor target. The cleanup pass verifies each module via that
+module's own build + tests, so this does not gate it.
+
+**Plan / options:**
+1. **Reduce peak memory** on that TU: build samples with fewer parallel jobs (`-j2`) or
+   split `Sandbox/main.cpp` into smaller TUs so the frontend's working set stays bounded.
+2. **Shrink the materialized surface** in the sample the way the runtime host did
+   (return references instead of by-value `GameInstance`-heavy types across the seam).
+3. Upstream: a minimal reproducer for the LLVM frontend crash if it persists after (1).
+
+Recommendation: (1) first (cheap, likely sufficient), then (2) if it recurs.
+
+---
+
 ## ctest: intermittent `DraconicEditorCoreTests` failure under parallel load — FIXED
 
 **Status:** FIXED 2026-07-20. Was the recurring "1 tests failed on the first run after a
