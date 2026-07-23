@@ -10,6 +10,8 @@ target_link_libraries(DraconicShellDesktop
     PRIVATE SDL3::SDL3)
 
 target_sources(DraconicShellDesktop
+    PRIVATE
+        SDL3ShellImpl.cpp   # out-of-line SDL backend defs (see SDL3Shell.cppm)
     PUBLIC
         FILE_SET shell_desktop_modules TYPE CXX_MODULES FILES
             SDL3Shell.cppm)
