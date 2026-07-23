@@ -1,0 +1,502 @@
+// Draconic Runtime - draconic.runtime.defaultapp implementation unit.
+//
+// Out-of-line definitions for DefaultApplication's member functions (sec 3.2 / sec 10.6).
+// The class declaration + trivial inline accessors stay in DefaultApplication.cppm.
+
+module;
+#include "Core/Prelude.h"
+#include "Core/Log/Log.h"
+
+module draconic.runtime.defaultapp;
+
+import draconic.core;
+import draconic.rhi;
+import draconic.runtime.client;       // IApplication, IApplicationHost
+import draconic.runtime.gameinstance; // GameInstance - this app's running game (scene + script bracket)
+import draconic.shell;                // IShell, IKeyboard, KeyCode (the profile-dump hotkey)
+import draconic.graphics;             // GraphicsDevice, FrameContext
+import draconic.scene;                // Scene
+import draconic.scene.subsystem;      // SceneSubsystem (the standard scene driver)
+import draconic.render.subsystem;     // RenderSubsystem (the standard renderer)
+import draconic.animation.subsystem; // AnimationSubsystem (drives skeletal animation from the scene)
+import draconic.particles.subsystem; // ParticleSubsystem (scene-driven CPU sim)
+import draconic.physics;             // ContactKind/EntityContact (the contact bridge)
+import draconic.physics.subsystem;   // PhysicsSubsystem (Jolt worlds + interpolation)
+import draconic.input;               // the action model/runtime
+import draconic.input.subsystem;     // InputSubsystem + the Wren Input facade
+import draconic.script;              // IScriptManager/Context (the game script)
+import draconic.script.wren;         // the Wren backend
+import draconic.script.angelscript;  // the AngelScript backend (opt-in second backend)
+import draconic.script.resource;     // cooked script classes + factory (entity behaviors)
+import draconic.script.subsystem;    // ScriptSubsystem (behaviors + the run's shared context)
+import draconic.resource;            // ResourceManager (owned or borrowed - see the preset seam)
+import draconic.content;             // IContentDatabase (preset by the entry point)
+import draconic.scene.resource;      // SceneDocument (product-type registration)
+import draconic.geometry.resource;   // mesh factories
+import draconic.materials.resource;  // material factory
+import draconic.animation.resource;  // skeleton/clip/graph factories
+import draconic.particles.resource;  // particle-effect factory
+import draconic.input.resource;      // input-map factory
+import draconic.physics.resource;    // collision-shape/physical-material factories
+import draconic.texture.resource;    // texture factory (device-backed)
+import draconic.image.resource;      // image resource registration
+import draconic.model.resource;      // cooked-model family types + registration
+import draconic.ui.resource;         // cooked UI documents/themes (game-ui)
+import draconic.ui.subsystem;        // the game screen tier (canvases + overlay + consumption)
+import draconic.audio;               // AudioEngine (owned by the audio subsystem)
+import draconic.audio.resource;      // cooked audio clips + factory
+import draconic.audio.subsystem;     // AudioSubsystem (voices/buses/one-shots + scene sync)
+import draconic.net;                 // UdpSocket / DatagramEndpoint (the transport)
+import draconic.net.replication;     // NetworkId / StateReplication (the spawn-handler seam)
+import draconic.net.manager;   // NetworkManager + NetworkStartup/StartNetworking + the Net facade
+import draconic.net.subsystem; // NetworkSubsystem (injects the NetworkComponentManager into scenes)
+import draconic.profiler;      // the CPU scope profiler (P-key dump)
+
+namespace rhi = draconic::rhi;
+namespace core = draconic::core;
+namespace net = draconic::net;
+using namespace draconic::shell;
+using namespace draconic::graphics;
+
+namespace draconic::runtime
+{
+    void DefaultApplication::OnUpdate(IApplicationHost& host, core::f32 deltaTime)
+    {
+        // Drive + tick EVERY instance (primary + any extras - multi-instance PIE / headless server).
+        // Input FIRST (so the game script sees this frame's keys), then the run host clock, then tick.
+        const core::f32 contextScale = host.Ctx().TimeScale();
+        ForEachInstance(
+            [&](GameInstance& gi)
+            {
+                gi.DriveInput(deltaTime, contextScale);
+                gi.DriveRunHost(deltaTime);
+                gi.TickScript(deltaTime, contextScale);
+            });
+        IShell* plat = host.Shell();
+        IInputManager* input = (plat != nullptr) ? plat->Input() : nullptr;
+        IKeyboard* kb = (input != nullptr) ? input->Keyboard() : nullptr;
+        if (kb == nullptr || !kb->IsKeyPressed(KeyCode::P))
+        {
+            return;
+        }
+
+        core::ConsoleWrite(draconic::profiler::Profiler::Get().BuildReport().AsView());
+        if (auto* renderer = host.Ctx().GetSubsystem<draconic::render::RenderSubsystem>())
+        {
+            core::String gpu;
+            renderer->BuildGpuProfileReport(gpu);
+            core::ConsoleWrite(gpu.AsView());
+        }
+    }
+
+    void DefaultApplication::TickGameScript(IApplicationHost& host, core::f32 deltaTime)
+    {
+        m_instance.TickScript(deltaTime, host.Ctx().TimeScale());
+    }
+
+    void DefaultApplication::Configure(IApplicationHost& host)
+    {
+        m_scenes = host.Ctx().AddSubsystem<draconic::scene::SceneSubsystem>();
+        // The run's scene group lives on the GameInstance (game-instance.md §11): wire it to the
+        // app-wide aware registry and register it so it ticks on the Context lane beside the default
+        // (editor/loose) group. WireInstance centralizes this so extra instances wire the same way.
+        m_scenes->RegisterManager(&m_instance.Scenes());
+        m_instance.Scenes().SetAwareRegistry(&m_scenes->AwareRegistry());
+        if (GraphicsDevice* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
+        {
+            host.Ctx().AddSubsystem<draconic::render::RenderSubsystem>(*gfx->Raw(),
+                                                                       gfx->FramesInFlight());
+            // Drives skeletal animation from the scene tick (injects the SkeletalAnimation manager,
+            // ticks players, feeds bone matrices to mesh components). Needs the render managers.
+            host.Ctx().AddSubsystem<draconic::animation::AnimationSubsystem>();
+            host.Ctx().AddSubsystem<draconic::particles::ParticleSubsystem>();
+        }
+        m_physics = host.Ctx().AddSubsystem<draconic::physics::PhysicsSubsystem>();
+        // Networking scene integration: injects the NetworkComponentManager into every scene so
+        // authored NetworkComponents work (the per-instance endpoint replicates over it).
+        host.Ctx().AddSubsystem<draconic::net::NetworkSubsystem>();
+        m_audio = host.Ctx().AddSubsystem<draconic::audio::AudioSubsystem>(m_audioEngineSettings);
+        m_input = host.Ctx().AddSubsystem<draconic::input::InputSubsystem>(
+            host.Shell() != nullptr ? host.Shell()->Input() : nullptr);
+        // The primary instance's per-instance input reads the shell devices by default (the player
+        // path); the editor Game tab overrides this to its gated viewport source per tab.
+        m_instance.SetInputSource(&m_input->ShellSource());
+        m_ui = host.Ctx().AddSubsystem<draconic::ui::UISubsystem>();
+        if (!m_uiFontPath.IsEmpty())
+        {
+            m_ui->SetFontPath(m_uiFontPath.AsView());
+        }
+
+        // Entity behaviors (scripting.md P1). Facade/backend registration is
+        // batteries-included here (idempotent - entry points may register more);
+        // the run context itself is created lazily by the subsystem and SHARED
+        // with the game script (one gameplay context per run, the locked rule).
+        m_scripts = host.Ctx().AddSubsystem<draconic::script::ScriptSubsystem>();
+        // The instance owns its run host (game-instance.md §11.10); wire it with the app's facades
+        // + Scene.spawn + entity.send routing so its context has them when the game script starts.
+        // (The subsystem's own default host - for editor scenes - is wired in its OnReady.)
+        m_scripts->ConfigureRunHost(m_instance.RunHost());
+        draconic::input::RegisterInputScriptApi();
+        draconic::physics::RegisterPhysicsScriptApi();
+        draconic::audio::RegisterAudioScriptApi();
+        // Both backends are registered (batteries-included); a run resolves by the
+        // script's language - one gameplay context per run stays the locked rule.
+        draconic::script::wren::RegisterWrenScriptBackend();
+        draconic::script::angelscript::RegisterAngelScriptBackend();
+        // Networking (net.md §6): the Net facade type is registered here; each GameInstance owns
+        // its OWN endpoint and goes online at RUNTIME via the facade (Net.startServer/connect from
+        // the game's menu) - no app-owned socket. The primary instance carries the online hook (the
+        // prefab net-spawn resolver) + the optional startup preset below; extras get the hook in
+        // CreateInstance. The per-instance net binding is installed by GameInstance itself.
+        net::RegisterNetScriptFacade();
+        m_instance.SetEndpointOnlineHook(MakeEndpointOnlineHook());
+        ApplyNetworkStartup(
+            m_instance); // enter a preset server/client role at startup (None = offline)
+
+        DefaultApplication* self = this;
+
+        m_scripts->SetContextConfigurator(core::Function<void(draconic::script::IScriptContext&)>{
+            [self](draconic::script::IScriptContext& context)
+            {
+                if (self->m_input != nullptr)
+                {
+                    self->m_input->ExposeToScript(context);
+                }
+                if (self->m_physics != nullptr)
+                {
+                    self->m_physics->ExposeToScript(context);
+                }
+                if (self->m_audio != nullptr)
+                {
+                    self->m_audio->ExposeToScript(context, self->Resources());
+                }
+            }});
+        // Scene.spawn: resolve the prefab payload from the content DB the entry point
+        // preset, spawn it, place the root at the requested world position, and bind
+        // the freshly spawned entities' resources.
+        m_scripts->SetPrefabSpawner(
+            core::Function<draconic::scene::EntityHandle(draconic::scene::Scene*, const core::Guid&,
+                                                         const core::Float3&)>{
+                [self](draconic::scene::Scene* scene, const core::Guid& prefabId,
+                       const core::Float3& position) -> draconic::scene::EntityHandle
+                {
+                    if (scene == nullptr || self->m_contentDatabase == nullptr)
+                    {
+                        return draconic::scene::EntityHandle::Invalid();
+                    }
+                    draconic::content::Instance* prefab =
+                        self->m_contentDatabase->GetInstance(prefabId);
+                    core::UniquePtr<core::IStream> payload = (prefab != nullptr)
+                                                                 ? prefab->ReadData(u8"scene")
+                                                                 : core::UniquePtr<core::IStream>{};
+                    if (!payload)
+                    {
+                        return draconic::scene::EntityHandle::Invalid();
+                    }
+                    const draconic::scene::EntityHandle root =
+                        draconic::scene::SpawnPrefab(*scene, *payload, prefabId);
+                    if (root.IsAssigned())
+                    {
+                        core::Transform transform = scene->GetLocalTransform(root);
+                        transform.position = position;
+                        scene->SetLocalTransform(root, transform);
+                        if (self->Resources() != nullptr)
+                        {
+                            draconic::scene::ResolveSceneResources(*scene, *self->Resources());
+                        }
+                    }
+                    return root;
+                }});
+
+        // Composition-root bridge: forward physics contacts to the script subsystem's
+        // neutral ingress. Keeps the two subsystems independent - neither depends on the
+        // other for scripting; the wiring lives here, where integration belongs.
+        if (m_physics != nullptr && m_scripts != nullptr)
+        {
+            m_contactBridge.scripts = m_scripts;
+            m_physics->RegisterContactListener(&m_contactBridge);
+        }
+    }
+
+    draconic::script::ScriptSubsystem* DefaultApplication::Scripts() const noexcept
+    {
+        return m_scripts;
+    }
+
+    draconic::scene::SceneManager& DefaultApplication::PrimaryScenes() noexcept
+    {
+        return m_instance.Scenes();
+    }
+
+    GameInstance* DefaultApplication::CreateInstance(bool headless)
+    {
+        if (m_scenes == nullptr || m_scripts == nullptr)
+        {
+            return nullptr;
+        }
+        core::UniquePtr<GameInstance> owned =
+            core::MakeUnique<GameInstance>(core::DefaultAllocator());
+        GameInstance* gi = owned.Get();
+        gi->SetHeadless(headless);
+        gi->Scenes().SetAwareRegistry(&m_scenes->AwareRegistry());
+        m_scenes->RegisterManager(&gi->Scenes());
+        m_scripts->ConfigureRunHost(gi->RunHost());
+        gi->SetEndpointOnlineHook(
+            MakeEndpointOnlineHook()); // its own endpoint, wired like the primary
+        if (m_input != nullptr)
+        {
+            gi->SetInputSource(&m_input->ShellSource());
+        } // editor tabs override to their viewport
+        m_extraInstances.PushBack(Move(owned));
+        return gi;
+    }
+
+    void DefaultApplication::ReleaseInstance(GameInstance* instance)
+    {
+        if (instance == nullptr || instance == &m_instance)
+        {
+            return;
+        }
+        for (core::usize i = 0; i < m_extraInstances.Size(); ++i)
+        {
+            if (m_extraInstances[i].Get() != instance)
+            {
+                continue;
+            }
+            if (m_scenes != nullptr)
+            {
+                m_scenes->UnregisterManager(&instance->Scenes());
+            }
+            instance->Scenes().Clear(); // destroy any remaining scenes (aware subsystems notified)
+            instance->RunHost().Teardown();
+            m_extraInstances.RemoveAt(i); // frees the GameInstance
+            return;
+        }
+    }
+
+    draconic::physics::PhysicsSubsystem* DefaultApplication::Physics() const noexcept
+    {
+        return m_physics;
+    }
+
+    void DefaultApplication::OnFixedUpdate(IApplicationHost& host, core::f32 fixedDeltaTime)
+    {
+        (void)host;
+        const core::f32 fixedMs = fixedDeltaTime * 1000.0f; // seconds -> ms
+        ForEachInstance([fixedMs](GameInstance& gi) { gi.DriveNetwork(fixedMs); });
+    }
+
+    void
+    DefaultApplication::SetAudioEngineSettings(const draconic::audio::AudioEngineSettings& settings)
+    {
+        m_audioEngineSettings = settings;
+    }
+
+    void
+    DefaultApplication::SetResourceManager(draconic::resource::ResourceManager* borrowed) noexcept
+    {
+        m_borrowedResources = borrowed;
+    }
+
+    void
+    DefaultApplication::SetContentDatabase(draconic::content::IContentDatabase* database) noexcept
+    {
+        m_contentDatabase = database;
+    }
+
+    draconic::resource::ResourceManager* DefaultApplication::Resources() const noexcept
+    {
+        return m_borrowedResources != nullptr ? m_borrowedResources : m_ownedResources.Get();
+    }
+
+    void DefaultApplication::OnStartup(IApplicationHost& host)
+    {
+        // Product/runtime types: factories construct cooked products BY TYPE NAME.
+        draconic::model::RegisterModelResourceTypes();
+        draconic::image::RegisterImageResource();
+        draconic::particles::RegisterParticleEffectResource();
+        draconic::input::RegisterInputMapResource();
+        draconic::physics::RegisterPhysicsResource();
+        draconic::audio::RegisterAudioResource();
+        draconic::script::RegisterScriptResource();
+        draconic::ui::RegisterUIResource();
+        core::GlobalTypeRegistry().Register(draconic::scene::SceneDocument::StaticType());
+        core::RegisterSerializable<draconic::scene::SceneDocument>();
+        draconic::ui::RegisterUIComponentReflection();
+        if (GraphicsDevice* gfx = host.Graphics();
+            gfx != nullptr && gfx->Raw() != nullptr && m_ui != nullptr)
+        {
+            m_ui->EnsureRenderReady(*gfx->Raw(), gfx->FramesInFlight());
+        }
+
+        if (m_borrowedResources == nullptr && m_contentDatabase != nullptr)
+        {
+            m_ownedResources = core::MakeUnique<draconic::resource::ResourceManager>(
+                core::DefaultAllocator(), *m_contentDatabase);
+        }
+        draconic::resource::ResourceManager* resources = Resources();
+        if (resources == nullptr)
+        {
+            return;
+        } // headless/no-content apps
+        resources->AddFactory(&m_meshFactory);
+        resources->AddFactory(&m_skinnedMeshFactory);
+        resources->AddFactory(&m_materialFactory);
+        resources->AddFactory(&m_skeletonFactory);
+        resources->AddFactory(&m_animationClipFactory);
+        resources->AddFactory(&m_animationGraphFactory);
+        resources->AddFactory(&m_particleEffectFactory);
+        resources->AddFactory(&m_inputMapFactory);
+        resources->AddFactory(&m_collisionShapeFactory);
+        resources->AddFactory(&m_physicalMaterialFactory);
+        resources->AddFactory(&m_audioClipFactory);
+        resources->AddFactory(&m_busLayoutFactory);
+        resources->AddFactory(&m_soundCueFactory);
+        resources->AddFactory(&m_scriptClassFactory);
+        resources->AddFactory(&m_modelFactory);
+        resources->AddFactory(&m_uiDocumentFactory);
+        resources->AddFactory(&m_uiThemeFactory);
+        if (GraphicsDevice* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
+        {
+            m_textureFactory = core::MakeUnique<draconic::texture::TextureFactory>(
+                core::DefaultAllocator(), *gfx->Raw());
+            resources->AddFactory(m_textureFactory.Get());
+        }
+    }
+
+    void DefaultApplication::OnShutdown(IApplicationHost&)
+    {
+        // Destroy the run's scenes while the aware subsystems are still alive (they get
+        // OnSceneDestroyed). The editor's GamePage already cleared them per Stop; this covers the
+        // player + any leftover. Do it FIRST, before subsystem teardown, for EVERY instance.
+        ForEachInstance(
+            [](GameInstance& gi)
+            {
+                gi.StopNetworking();
+                gi.Scenes().Clear();
+                gi.RunHost().Teardown();
+            });
+        if (m_physics != nullptr)
+        {
+            m_physics->UnregisterContactListener(&m_contactBridge);
+        }
+        m_ownedResources = nullptr; // release products while the device is alive
+        m_textureFactory = nullptr;
+    }
+
+    void DefaultApplication::SetPrimaryScene(draconic::scene::Scene* scene) noexcept
+    {
+        m_instance.SetScene(scene); // also repoints the instance's replicated scene when online
+    }
+
+    draconic::scene::Scene* DefaultApplication::PrimaryScene() const noexcept
+    {
+        return m_instance.GetScene();
+    }
+
+    void DefaultApplication::SetGameScriptErrorHandler(
+        draconic::script::IScriptErrorHandler* handler) noexcept
+    {
+        m_instance.SetScriptErrorHandler(handler);
+    }
+
+    bool DefaultApplication::StartGameScript(core::StringView source, core::StringView name)
+    {
+        return m_instance.StartScript(source, name);
+    }
+
+    void DefaultApplication::OnRenderWindow(IApplicationHost& host, FrameContext& frame)
+    {
+        auto* render = host.Ctx().GetSubsystem<draconic::render::RenderSubsystem>();
+        auto* scenes = host.Ctx().GetSubsystem<draconic::scene::SceneSubsystem>();
+        if (render == nullptr || !render->IsReady() || scenes == nullptr ||
+            frame.encoder == nullptr || frame.backbufferView == nullptr || frame.window == nullptr)
+        {
+            frame.Clear(0.08f, 0.09f, 0.12f, 1.0f); // no renderer - present a clear
+            return;
+        }
+
+        const rhi::TextureFormat colorFormat = frame.window->Swap()->Format();
+        // RenderTexture canvases draw BEFORE the scene so materials sampling them
+        // see this frame's UI (the RenderCanvasTextures host seam).
+        if (m_ui != nullptr)
+        {
+            m_ui->RenderCanvasTextures(*frame.encoder, static_cast<core::i32>(frame.frameIndex));
+        }
+        render->BeginRendering(*frame.encoder, frame.frameIndex);
+        // Render every NON-headless instance's scenes (game-instance.md §11 - a headless dedicated
+        // server simulates but isn't drawn) + the default group's loose scenes. Clear comes from
+        // the scene's camera.
+        ForEachInstance(
+            [&](GameInstance& gi)
+            {
+                if (gi.IsHeadless())
+                {
+                    return;
+                }
+                for (draconic::scene::Scene* scene : gi.Scenes().ActiveScenes())
+                {
+                    render->RenderScene(*scene, frame.backbufferView, colorFormat, frame.width,
+                                        frame.height);
+                }
+            });
+        render->EndRendering(); // scene-tier overlays (HUD/billboards) draw inside the compose
+
+        // Window-space overlays (screen-tier UI, diagnostics, ...) composite over the
+        // finished frame through the generic registry - the host names no source.
+        render->RenderOverlays(*frame.encoder, frame.backbufferView, colorFormat, frame.width,
+                               frame.height, frame.frameIndex);
+    }
+
+    EndpointOnlineHook DefaultApplication::MakeEndpointOnlineHook()
+    {
+        DefaultApplication* self = this;
+        return EndpointOnlineHook{
+            [self](net::NetworkManager& endpoint)
+            {
+                endpoint.Replication().SetSpawnHandler(
+                    core::Function<draconic::scene::EntityHandle(
+                        draconic::scene::Scene&, const core::Guid&, net::NetworkId)>{
+                        [self](draconic::scene::Scene& scene, const core::Guid& prefabId,
+                               net::NetworkId) -> draconic::scene::EntityHandle
+                        {
+                            if (self->m_contentDatabase == nullptr)
+                            {
+                                return draconic::scene::EntityHandle::Invalid();
+                            }
+                            draconic::content::Instance* prefab =
+                                self->m_contentDatabase->GetInstance(prefabId);
+                            core::UniquePtr<core::IStream> payload =
+                                (prefab != nullptr) ? prefab->ReadData(u8"scene")
+                                                    : core::UniquePtr<core::IStream>{};
+                            if (!payload)
+                            {
+                                return draconic::scene::EntityHandle::Invalid();
+                            }
+                            const draconic::scene::EntityHandle root =
+                                draconic::scene::SpawnPrefab(scene, *payload, prefabId);
+                            if (root.IsAssigned() && self->Resources() != nullptr)
+                            {
+                                draconic::scene::ResolveSceneResources(scene, *self->Resources());
+                            }
+                            return root;
+                        }});
+            }};
+    }
+
+    void DefaultApplication::ApplyNetworkStartup(GameInstance& instance)
+    {
+        switch (m_netStartup.role)
+        {
+        case net::NetworkRole::Server:
+            (void)instance.StartServer(m_netStartup.listenPort, m_netStartup.dedicated);
+            break;
+        case net::NetworkRole::Client:
+            (void)instance.Connect(m_netStartup.serverHost.AsView(), m_netStartup.serverPort);
+            break;
+        case net::NetworkRole::None:
+        default:
+            break;
+        }
+    }
+}

@@ -23,6 +23,8 @@ target_link_libraries(DraconicRuntimeDefaultApp
            Draconic::Profiler Draconic::Policy)
 
 target_sources(DraconicRuntimeDefaultApp
+    PRIVATE
+        DefaultApplicationImpl.cpp   # out-of-line defs (see DefaultApplication.cppm)
     PUBLIC
         FILE_SET runtime_defaultapp_modules TYPE CXX_MODULES FILES
             DefaultApplication.cppm)
