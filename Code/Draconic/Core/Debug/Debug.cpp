@@ -12,15 +12,9 @@ namespace draconic::core
         AssertHandler g_assertHandler = nullptr;
     }
 
-    AssertHandler GetAssertHandler() noexcept
-    {
-        return g_assertHandler;
-    }
+    AssertHandler GetAssertHandler() noexcept { return g_assertHandler; }
 
-    void SetAssertHandler(AssertHandler handler) noexcept
-    {
-        g_assertHandler = handler;
-    }
+    void SetAssertHandler(AssertHandler handler) noexcept { g_assertHandler = handler; }
 
     void DebugBreak() noexcept
     {
@@ -31,8 +25,8 @@ namespace draconic::core
 #endif
     }
 
-    bool ReportAssertFailure(const char* expression, const char* message,
-                             const char* file, int line, const char* function) noexcept
+    bool ReportAssertFailure(const char* expression, const char* message, const char* file,
+                             int line, const char* function) noexcept
     {
         if (g_assertHandler != nullptr)
         {
@@ -45,9 +39,7 @@ namespace draconic::core
                      "  message   : %s\n"
                      "  location  : %s:%d\n"
                      "  function  : %s\n",
-                     expression,
-                     (message != nullptr) ? message : "(none)",
-                     file, line, function);
+                     expression, (message != nullptr) ? message : "(none)", file, line, function);
         std::fflush(stderr);
         return true; // break into the debugger / trap
     }

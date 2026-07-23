@@ -47,14 +47,14 @@ TEST_CASE("string: construct, append, compare")
 TEST_CASE("string: copy and move")
 {
     String a = u8"original";
-    String b = a;                 // deep copy
+    String b = a; // deep copy
     CHECK(a == b);
 
     b += u8"-modified";
     CHECK_FALSE(a == b);
     CHECK(a == u8"original");
 
-    String c = Move(a);           // steal buffer
+    String c = Move(a); // steal buffer
     CHECK(c == u8"original");
     CHECK(a.IsEmpty());
 }
@@ -92,7 +92,10 @@ TEST_CASE("string: honours a custom allocator")
 
     // Long enough to spill past the small-string buffer and hit the arena.
     String s(arena);
-    for (int i = 0; i < 200; ++i) { s.PushBack(u8'a'); }
+    for (int i = 0; i < 200; ++i)
+    {
+        s.PushBack(u8'a');
+    }
     CHECK(s.Size() == 200u);
     CHECK_FALSE(s.IsSmall());
     CHECK(arena.Used() > 0u);
@@ -148,7 +151,10 @@ TEST_CASE("string: small-string optimization avoids heap until it grows")
 
     // Build up a long string -> spills to the heap, content preserved.
     String big;
-    for (int i = 0; i < 100; ++i) { big.PushBack(u'x'); }
+    for (int i = 0; i < 100; ++i)
+    {
+        big.PushBack(u'x');
+    }
     CHECK_FALSE(big.IsSmall());
     CHECK(big.Size() == 100u);
     CHECK(big[0] == u'x');
@@ -175,13 +181,13 @@ TEST_CASE("string: small-string optimization avoids heap until it grows")
 TEST_CASE("string: Insert opens a gap at the given index")
 {
     String s = u8"Helo";
-    s.Insert(2, u8"l");          // -> "Hello"
+    s.Insert(2, u8"l"); // -> "Hello"
     CHECK(s == u8"Hello");
 
-    s.Insert(0, u8">> ");        // prepend
+    s.Insert(0, u8">> "); // prepend
     CHECK(s == u8">> Hello");
 
-    s.Insert(s.Size(), u8"!");   // append at end
+    s.Insert(s.Size(), u8"!"); // append at end
     CHECK(s == u8">> Hello!");
 
     // Index past the end clamps to the end; empty insert is a no-op.
@@ -193,7 +199,10 @@ TEST_CASE("string: Insert opens a gap at the given index")
 
     // Terminator stays intact after inserts that spill to the heap.
     String big;
-    for (int i = 0; i < 40; ++i) { big.PushBack(u'x'); }
+    for (int i = 0; i < 40; ++i)
+    {
+        big.PushBack(u'x');
+    }
     big.Insert(20, u8"MID");
     CHECK(big.Size() == 43u);
     CHECK(big.CStr()[big.Size()] == u'\0');
@@ -203,10 +212,10 @@ TEST_CASE("string: Insert opens a gap at the given index")
 TEST_CASE("string: Remove closes the gap and clamps ranges")
 {
     String s = u8"Hello";
-    s.Remove(4, 1);              // drop trailing 'o' -> "Hell"
+    s.Remove(4, 1); // drop trailing 'o' -> "Hell"
     CHECK(s == u8"Hell");
 
-    s.Remove(0, 1);              // drop leading 'H' -> "ell"
+    s.Remove(0, 1); // drop leading 'H' -> "ell"
     CHECK(s == u8"ell");
 
     // count past the end is clamped.
@@ -229,8 +238,8 @@ TEST_CASE("string: Replace swaps every matching code unit in place")
     const usize n = s.Replace(u8'\\', u8'/');
     CHECK(n == 3u);
     CHECK(s == u8"C:/a/b/c");
-    CHECK(s.Size() == 8u);                 // size-preserving
-    CHECK(s.CStr()[s.Size()] == u'\0');    // still null-terminated
+    CHECK(s.Size() == 8u);              // size-preserving
+    CHECK(s.CStr()[s.Size()] == u'\0'); // still null-terminated
 
     // No match => zero replaced, string untouched.
     String t = u8"nothing";
@@ -249,20 +258,24 @@ TEST_CASE("string: DecodeUtf8 walks Unicode scalars")
 {
     StringView v = u8"aé\U0001F600z"; // 'a'(1) 'é'(2) emoji(4) 'z'(1) = 8 bytes, 4 codepoints
     usize i = 0;
-    CHECK(DecodeUtf8(v, i) == 0x61u); CHECK(i == 1u);
-    CHECK(DecodeUtf8(v, i) == 0xE9u); CHECK(i == 3u);
-    CHECK(DecodeUtf8(v, i) == 0x1F600u); CHECK(i == 7u);
-    CHECK(DecodeUtf8(v, i) == 0x7Au); CHECK(i == 8u);
+    CHECK(DecodeUtf8(v, i) == 0x61u);
+    CHECK(i == 1u);
+    CHECK(DecodeUtf8(v, i) == 0xE9u);
+    CHECK(i == 3u);
+    CHECK(DecodeUtf8(v, i) == 0x1F600u);
+    CHECK(i == 7u);
+    CHECK(DecodeUtf8(v, i) == 0x7Au);
+    CHECK(i == 8u);
     CHECK(i == v.Size());
 }
 
 TEST_CASE("string: AppendUtf8 encodes each scalar range")
 {
     String s;
-    AppendUtf8(s, 0x61u);     // 'a' 1 byte
-    AppendUtf8(s, 0xE9u);     // 'é' 2 bytes
-    AppendUtf8(s, 0x1F600u);  // emoji 4 bytes
-    AppendUtf8(s, 0x7Au);     // 'z' 1 byte
+    AppendUtf8(s, 0x61u);    // 'a' 1 byte
+    AppendUtf8(s, 0xE9u);    // 'é' 2 bytes
+    AppendUtf8(s, 0x1F600u); // emoji 4 bytes
+    AppendUtf8(s, 0x7Au);    // 'z' 1 byte
     CHECK(s == u8"aé\U0001F600z");
     CHECK(s.Size() == 8u);
 }
@@ -291,7 +304,7 @@ TEST_CASE("string: ParseFloat parses full numbers, rejects junk")
     CHECK(ParseFloat(u8"3.14").Value() == doctest::Approx(3.14));
     CHECK(ParseFloat(u8"  -2.5 ").Value() == doctest::Approx(-2.5)); // trims first
     CHECK(ParseFloat(u8"42").Value() == doctest::Approx(42.0));
-    CHECK(!ParseFloat(u8"3.14x").HasValue());   // trailing junk
+    CHECK(!ParseFloat(u8"3.14x").HasValue()); // trailing junk
     CHECK(!ParseFloat(u8"abc").HasValue());
     CHECK(!ParseFloat(u8"").HasValue());
     CHECK(!ParseFloat(u8"   ").HasValue());
@@ -301,7 +314,7 @@ TEST_CASE("string: ParseInt parses full integers")
 {
     CHECK(ParseInt(u8"123").Value() == 123);
     CHECK(ParseInt(u8" -7 ").Value() == -7);
-    CHECK(!ParseInt(u8"1.5").HasValue());  // not an integer
+    CHECK(!ParseInt(u8"1.5").HasValue()); // not an integer
     CHECK(!ParseInt(u8"x").HasValue());
 }
 
@@ -309,7 +322,7 @@ TEST_CASE("string: FormatFixed formats with N decimals")
 {
     CHECK(FormatFixed(3.14159, 2) == u8"3.14");
     CHECK(FormatFixed(3.14159, 4) == u8"3.1416");
-    CHECK(FormatFixed(3.7, 0) == u8"4");       // rounds, no decimal point
+    CHECK(FormatFixed(3.7, 0) == u8"4"); // rounds, no decimal point
     CHECK(FormatFixed(-2.5, 1) == u8"-2.5");
     CHECK(FormatFixed(0.0, 2) == u8"0.00");
 }

@@ -6,11 +6,11 @@
 
 module;
 #include "Core/Prelude.h"
-#include "Core/Debug/Assert.h"  // classic header - no module cycle (see Assert.h)
-#include <bit>          // std::byteswap
+#include "Core/Debug/Assert.h" // classic header - no module cycle (see Assert.h)
+#include <bit>                 // std::byteswap
 #include <cstdint>
 #include <cstddef>
-#include <new>          // placement new
+#include <new> // placement new
 #include <type_traits>
 
 export module draconic.core:base;
@@ -20,12 +20,12 @@ export namespace draconic::core
     // =======================================================================
     // Fundamental integer / floating types
     // =======================================================================
-    using i8  = std::int8_t;
+    using i8 = std::int8_t;
     using i16 = std::int16_t;
     using i32 = std::int32_t;
     using i64 = std::int64_t;
 
-    using u8  = std::uint8_t;
+    using u8 = std::uint8_t;
     using u16 = std::uint16_t;
     using u32 = std::uint32_t;
     using u64 = std::uint64_t;
@@ -65,13 +65,14 @@ export namespace draconic::core
     template <typename T>
     [[nodiscard]] constexpr T&& Forward(std::remove_reference_t<T>&& value) noexcept
     {
-        static_assert(!std::is_lvalue_reference_v<T>, "Forward must not be used to forward an rvalue as an lvalue.");
+        static_assert(!std::is_lvalue_reference_v<T>,
+                      "Forward must not be used to forward an rvalue as an lvalue.");
         return static_cast<T&&>(value);
     }
 
     template <typename T>
-    constexpr void Swap(T& a, T& b)
-        noexcept(std::is_nothrow_move_constructible_v<T> && std::is_nothrow_move_assignable_v<T>)
+    constexpr void Swap(T& a, T& b) noexcept(std::is_nothrow_move_constructible_v<T> &&
+                                             std::is_nothrow_move_assignable_v<T>)
     {
         T tmp = Move(a);
         a = Move(b);
@@ -112,29 +113,50 @@ export namespace draconic::core
 
     template <typename T>
         requires std::is_integral_v<T>
-    [[nodiscard]] constexpr T ByteSwap(T value) noexcept { return std::byteswap(value); }
+    [[nodiscard]] constexpr T ByteSwap(T value) noexcept
+    {
+        return std::byteswap(value);
+    }
 
     template <typename T>
         requires std::is_integral_v<T>
     [[nodiscard]] constexpr T NativeToLittle(T value) noexcept
     {
-        if constexpr (kIsLittleEndian) { return value; }
-        else { return ByteSwap(value); }
+        if constexpr (kIsLittleEndian)
+        {
+            return value;
+        }
+        else
+        {
+            return ByteSwap(value);
+        }
     }
 
     template <typename T>
         requires std::is_integral_v<T>
     [[nodiscard]] constexpr T NativeToBig(T value) noexcept
     {
-        if constexpr (kIsLittleEndian) { return ByteSwap(value); }
-        else { return value; }
+        if constexpr (kIsLittleEndian)
+        {
+            return ByteSwap(value);
+        }
+        else
+        {
+            return value;
+        }
     }
 
     // Conversions are symmetric (swap-or-not), so reuse them by name.
     template <typename T>
-    [[nodiscard]] constexpr T LittleToNative(T value) noexcept { return NativeToLittle(value); }
+    [[nodiscard]] constexpr T LittleToNative(T value) noexcept
+    {
+        return NativeToLittle(value);
+    }
     template <typename T>
-    [[nodiscard]] constexpr T BigToNative(T value) noexcept { return NativeToBig(value); }
+    [[nodiscard]] constexpr T BigToNative(T value) noexcept
+    {
+        return NativeToBig(value);
+    }
 
     // =======================================================================
     // Ownership mixins
@@ -210,7 +232,7 @@ export namespace draconic::core
     template <typename E>
     [[nodiscard]] constexpr Failure<std::remove_cvref_t<E>> Err(E&& error)
     {
-        return Failure<std::remove_cvref_t<E>>{ Forward<E>(error) };
+        return Failure<std::remove_cvref_t<E>>{Forward<E>(error)};
     }
 
     template <typename T, typename E = ErrorCode>
@@ -231,16 +253,28 @@ export namespace draconic::core
 
         Result(const Result& other) : m_hasValue(other.m_hasValue)
         {
-            if (m_hasValue) { ::new (&m_value) T(other.m_value); }
-            else            { ::new (&m_error) E(other.m_error); }
+            if (m_hasValue)
+            {
+                ::new (&m_value) T(other.m_value);
+            }
+            else
+            {
+                ::new (&m_error) E(other.m_error);
+            }
         }
 
-        Result(Result&& other)
-            noexcept(std::is_nothrow_move_constructible_v<T> && std::is_nothrow_move_constructible_v<E>)
+        Result(Result&& other) noexcept(std::is_nothrow_move_constructible_v<T> &&
+                                        std::is_nothrow_move_constructible_v<E>)
             : m_hasValue(other.m_hasValue)
         {
-            if (m_hasValue) { ::new (&m_value) T(Move(other.m_value)); }
-            else            { ::new (&m_error) E(Move(other.m_error)); }
+            if (m_hasValue)
+            {
+                ::new (&m_value) T(Move(other.m_value));
+            }
+            else
+            {
+                ::new (&m_error) E(Move(other.m_error));
+            }
         }
 
         Result& operator=(const Result& other)
@@ -249,21 +283,33 @@ export namespace draconic::core
             {
                 Destroy();
                 m_hasValue = other.m_hasValue;
-                if (m_hasValue) { ::new (&m_value) T(other.m_value); }
-                else            { ::new (&m_error) E(other.m_error); }
+                if (m_hasValue)
+                {
+                    ::new (&m_value) T(other.m_value);
+                }
+                else
+                {
+                    ::new (&m_error) E(other.m_error);
+                }
             }
             return *this;
         }
 
-        Result& operator=(Result&& other)
-            noexcept(std::is_nothrow_move_constructible_v<T> && std::is_nothrow_move_constructible_v<E>)
+        Result& operator=(Result&& other) noexcept(std::is_nothrow_move_constructible_v<T> &&
+                                                   std::is_nothrow_move_constructible_v<E>)
         {
             if (this != &other)
             {
                 Destroy();
                 m_hasValue = other.m_hasValue;
-                if (m_hasValue) { ::new (&m_value) T(Move(other.m_value)); }
-                else            { ::new (&m_error) E(Move(other.m_error)); }
+                if (m_hasValue)
+                {
+                    ::new (&m_value) T(Move(other.m_value));
+                }
+                else
+                {
+                    ::new (&m_error) E(Move(other.m_error));
+                }
             }
             return *this;
         }
@@ -300,16 +346,19 @@ export namespace draconic::core
             return m_error;
         }
 
-        [[nodiscard]] T ValueOr(T fallback) const&
-        {
-            return m_hasValue ? m_value : Move(fallback);
-        }
+        [[nodiscard]] T ValueOr(T fallback) const& { return m_hasValue ? m_value : Move(fallback); }
 
     private:
         void Destroy()
         {
-            if (m_hasValue) { m_value.~T(); }
-            else            { m_error.~E(); }
+            if (m_hasValue)
+            {
+                m_value.~T();
+            }
+            else
+            {
+                m_error.~E();
+            }
         }
 
         bool m_hasValue;
@@ -342,13 +391,19 @@ export namespace draconic::core
 
         Optional(const Optional& other) : m_hasValue(other.m_hasValue)
         {
-            if (m_hasValue) { ::new (&m_value) T(other.m_value); }
+            if (m_hasValue)
+            {
+                ::new (&m_value) T(other.m_value);
+            }
         }
 
         Optional(Optional&& other) noexcept(std::is_nothrow_move_constructible_v<T>)
             : m_hasValue(other.m_hasValue)
         {
-            if (m_hasValue) { ::new (&m_value) T(Move(other.m_value)); }
+            if (m_hasValue)
+            {
+                ::new (&m_value) T(Move(other.m_value));
+            }
         }
 
         Optional& operator=(const Optional& other)
@@ -357,7 +412,10 @@ export namespace draconic::core
             {
                 Reset();
                 m_hasValue = other.m_hasValue;
-                if (m_hasValue) { ::new (&m_value) T(other.m_value); }
+                if (m_hasValue)
+                {
+                    ::new (&m_value) T(other.m_value);
+                }
             }
             return *this;
         }
@@ -368,7 +426,10 @@ export namespace draconic::core
             {
                 Reset();
                 m_hasValue = other.m_hasValue;
-                if (m_hasValue) { ::new (&m_value) T(Move(other.m_value)); }
+                if (m_hasValue)
+                {
+                    ::new (&m_value) T(Move(other.m_value));
+                }
             }
             return *this;
         }
@@ -377,7 +438,11 @@ export namespace draconic::core
 
         void Reset() noexcept
         {
-            if (m_hasValue) { m_value.~T(); m_hasValue = false; }
+            if (m_hasValue)
+            {
+                m_value.~T();
+                m_hasValue = false;
+            }
         }
 
         template <typename... Args>
@@ -401,10 +466,7 @@ export namespace draconic::core
         [[nodiscard]] T& operator*() & noexcept { return m_value; }
         [[nodiscard]] const T& operator*() const& noexcept { return m_value; }
 
-        [[nodiscard]] T ValueOr(T fallback) const&
-        {
-            return m_hasValue ? m_value : Move(fallback);
-        }
+        [[nodiscard]] T ValueOr(T fallback) const& { return m_hasValue ? m_value : Move(fallback); }
 
     private:
         bool m_hasValue;
@@ -419,9 +481,15 @@ export namespace draconic::core
     template <typename T>
     [[nodiscard]] inline bool operator==(const Optional<T>& a, const Optional<T>& b)
     {
-        if (a.HasValue() != b.HasValue()) { return false; }
+        if (a.HasValue() != b.HasValue())
+        {
+            return false;
+        }
         return !a.HasValue() || a.Value() == b.Value();
     }
     template <typename T>
-    [[nodiscard]] inline bool operator!=(const Optional<T>& a, const Optional<T>& b) { return !(a == b); }
+    [[nodiscard]] inline bool operator!=(const Optional<T>& a, const Optional<T>& b)
+    {
+        return !(a == b);
+    }
 }

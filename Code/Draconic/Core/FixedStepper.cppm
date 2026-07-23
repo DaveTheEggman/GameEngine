@@ -24,11 +24,25 @@ export namespace draconic::core
 
         [[nodiscard]] u32 Advance(f32 deltaTime)
         {
-            if (step <= 0.0f) { accumulator = 0.0f; return 0; }   // a zero step must not spin
-            if (deltaTime > 0.0f) { accumulator += deltaTime; }
+            if (step <= 0.0f)
+            {
+                accumulator = 0.0f;
+                return 0;
+            } // a zero step must not spin
+            if (deltaTime > 0.0f)
+            {
+                accumulator += deltaTime;
+            }
             u32 steps = 0;
-            while (accumulator >= step) { accumulator -= step; ++steps; }
-            if (steps > maxSteps) { steps = maxSteps; }   // the excess was already drained: dropped
+            while (accumulator >= step)
+            {
+                accumulator -= step;
+                ++steps;
+            }
+            if (steps > maxSteps)
+            {
+                steps = maxSteps;
+            } // the excess was already drained: dropped
             return steps;
         }
 

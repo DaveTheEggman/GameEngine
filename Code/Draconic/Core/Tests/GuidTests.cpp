@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-#include "Core/Prelude.h"  // brings <new> into reach for container instantiation (GCC)
+#include "Core/Prelude.h" // brings <new> into reach for container instantiation (GCC)
 
 import draconic.core;
 
@@ -12,7 +12,7 @@ TEST_CASE("guid: nil and default")
     CHECK(Guid::Nil.IsNil());
     CHECK(!static_cast<bool>(Guid::Nil));
 
-    const Guid g{ 1, 2 };
+    const Guid g{1, 2};
     CHECK(!g.IsNil());
     CHECK(static_cast<bool>(g));
 }
@@ -27,8 +27,8 @@ TEST_CASE("guid: generation is deterministic per seed and v4-tagged")
     const Guid gb = Guid::Generate(b);
     const Guid gc = Guid::Generate(c);
 
-    CHECK(ga == gb);   // same seed -> same id
-    CHECK(ga != gc);   // different seed -> different id
+    CHECK(ga == gb); // same seed -> same id
+    CHECK(ga != gc); // different seed -> different id
     CHECK(!ga.IsNil());
 
     // Version nibble (4) and variant bits (10xx) per RFC 4122.
@@ -58,13 +58,13 @@ TEST_CASE("guid: ToChars / TryParse round-trip")
 
 TEST_CASE("guid: TryParse rejects malformed input")
 {
-    Guid out{ 9, 9 };
+    Guid out{9, 9};
     CHECK(!Guid::TryParse(StringView{}, out));
     CHECK(!Guid::TryParse(u8"not-a-guid", out));
-    CHECK(!Guid::TryParse(u8"00000000-0000-0000-0000-00000000000", out));   // too short
-    CHECK(!Guid::TryParse(u8"00000000+0000-0000-0000-000000000000", out));  // wrong separator
-    CHECK(!Guid::TryParse(u8"0000000g-0000-0000-0000-000000000000", out));  // non-hex
-    CHECK(out == Guid{ 9, 9 });  // unchanged on failure
+    CHECK(!Guid::TryParse(u8"00000000-0000-0000-0000-00000000000", out));  // too short
+    CHECK(!Guid::TryParse(u8"00000000+0000-0000-0000-000000000000", out)); // wrong separator
+    CHECK(!Guid::TryParse(u8"0000000g-0000-0000-0000-000000000000", out)); // non-hex
+    CHECK(out == Guid{9, 9});                                              // unchanged on failure
 
     // Accepts uppercase hex.
     Guid ok{};
@@ -84,7 +84,7 @@ TEST_CASE("guid: formats via {} to its canonical string")
     FormatBuffer buffer;
     FormatTo(buffer, u8"id={}", g);
 
-    CHECK(buffer.Size() == 3 + 36);  // "id=" + 36-char guid
+    CHECK(buffer.Size() == 3 + 36); // "id=" + 36-char guid
     CHECK(buffer.View().SubStr(0, 3) == StringView(u8"id="));
 
     // The format buffer is UTF-8, matching the guid's UTF-8 ToChars output.
@@ -99,10 +99,13 @@ TEST_CASE("guid: usable as a hashed-container key")
     for (int i = 0; i < 64; ++i)
     {
         const Guid g = Guid::Generate(rng);
-        if (i == 0) { first = g; }
+        if (i == 0)
+        {
+            first = g;
+        }
         set.Insert(g);
     }
-    CHECK(set.Size() == 64);     // all distinct
+    CHECK(set.Size() == 64); // all distinct
     CHECK(set.Contains(first));
     CHECK(!set.Contains(Guid::Nil));
 }

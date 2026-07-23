@@ -7,14 +7,16 @@ module;
 
 export module draconic.core:scoped_lock;
 
-
 export namespace draconic::core
 {
     template <typename Lockable>
     class ScopedLock
     {
     public:
-        explicit ScopedLock(Lockable& lockable) noexcept : m_lockable(&lockable) { m_lockable->Lock(); }
+        explicit ScopedLock(Lockable& lockable) noexcept : m_lockable(&lockable)
+        {
+            m_lockable->Lock();
+        }
         ~ScopedLock() { m_lockable->Unlock(); }
 
         ScopedLock(const ScopedLock&) = delete;

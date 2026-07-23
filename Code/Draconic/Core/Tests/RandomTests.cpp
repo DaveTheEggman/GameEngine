@@ -15,11 +15,17 @@ TEST_CASE("random: deterministic and seed-dependent")
     for (int i = 0; i < 16; ++i)
     {
         const u32 va = a.NextU32();
-        if (va != b.NextU32()) { sameAB = false; }
-        if (va != c.NextU32()) { differsC = true; }
+        if (va != b.NextU32())
+        {
+            sameAB = false;
+        }
+        if (va != c.NextU32())
+        {
+            differsC = true;
+        }
     }
-    CHECK(sameAB);     // same seed -> identical stream
-    CHECK(differsC);   // different seed -> diverges
+    CHECK(sameAB);   // same seed -> identical stream
+    CHECK(differsC); // different seed -> diverges
 }
 
 TEST_CASE("random: ranges are respected")

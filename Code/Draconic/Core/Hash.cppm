@@ -16,7 +16,8 @@ import :base;
 export namespace draconic::core
 {
     // FNV-1a, 64-bit.
-    [[nodiscard]] inline u64 HashBytes(const void* data, usize size, u64 seed = 1469598103934665603ull) noexcept
+    [[nodiscard]] inline u64 HashBytes(const void* data, usize size,
+                                       u64 seed = 1469598103934665603ull) noexcept
     {
         const auto* bytes = static_cast<const u8*>(data);
         u64 hash = seed;

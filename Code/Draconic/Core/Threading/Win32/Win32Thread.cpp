@@ -35,14 +35,23 @@ namespace draconic::core::sys
             return 0;
         }
 
-        CRITICAL_SECTION* AsCriticalSection(void* storage) noexcept { return static_cast<CRITICAL_SECTION*>(storage); }
-        CONDITION_VARIABLE* AsConditionVariable(void* storage) noexcept { return static_cast<CONDITION_VARIABLE*>(storage); }
+        CRITICAL_SECTION* AsCriticalSection(void* storage) noexcept
+        {
+            return static_cast<CRITICAL_SECTION*>(storage);
+        }
+        CONDITION_VARIABLE* AsConditionVariable(void* storage) noexcept
+        {
+            return static_cast<CONDITION_VARIABLE*>(storage);
+        }
     }
 
     ThreadHandle ThreadCreate(void (*entry)(void*), void* arg) noexcept
     {
         auto* data = static_cast<TrampolineData*>(std::malloc(sizeof(TrampolineData)));
-        if (data == nullptr) { return kInvalidThread; }
+        if (data == nullptr)
+        {
+            return kInvalidThread;
+        }
         data->entry = entry;
         data->arg = arg;
 
@@ -72,18 +81,30 @@ namespace draconic::core::sys
         return static_cast<std::uint64_t>(GetCurrentThreadId());
     }
 
-    void MutexInit(void* storage) noexcept { InitializeCriticalSection(AsCriticalSection(storage)); }
+    void MutexInit(void* storage) noexcept
+    {
+        InitializeCriticalSection(AsCriticalSection(storage));
+    }
     void MutexDestroy(void* storage) noexcept { DeleteCriticalSection(AsCriticalSection(storage)); }
     void MutexLock(void* storage) noexcept { EnterCriticalSection(AsCriticalSection(storage)); }
-    bool MutexTryLock(void* storage) noexcept { return TryEnterCriticalSection(AsCriticalSection(storage)) != 0; }
+    bool MutexTryLock(void* storage) noexcept
+    {
+        return TryEnterCriticalSection(AsCriticalSection(storage)) != 0;
+    }
     void MutexUnlock(void* storage) noexcept { LeaveCriticalSection(AsCriticalSection(storage)); }
 
-    void CondInit(void* storage) noexcept { InitializeConditionVariable(AsConditionVariable(storage)); }
+    void CondInit(void* storage) noexcept
+    {
+        InitializeConditionVariable(AsConditionVariable(storage));
+    }
     void CondDestroy(void* /*storage*/) noexcept { /* CONDITION_VARIABLE needs no destruction */ }
     void CondWait(void* cond, void* mutex) noexcept
     {
         SleepConditionVariableCS(AsConditionVariable(cond), AsCriticalSection(mutex), INFINITE);
     }
     void CondSignal(void* storage) noexcept { WakeConditionVariable(AsConditionVariable(storage)); }
-    void CondBroadcast(void* storage) noexcept { WakeAllConditionVariable(AsConditionVariable(storage)); }
+    void CondBroadcast(void* storage) noexcept
+    {
+        WakeAllConditionVariable(AsConditionVariable(storage));
+    }
 }

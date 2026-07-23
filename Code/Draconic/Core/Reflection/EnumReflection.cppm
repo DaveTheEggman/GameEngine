@@ -33,7 +33,10 @@ export namespace draconic::core
         [[nodiscard]] inline bool NameEquals(const char* a, const char* b) noexcept
         {
             usize i = 0;
-            while (a[i] != '\0' && a[i] == b[i]) { ++i; }
+            while (a[i] != '\0' && a[i] == b[i])
+            {
+                ++i;
+            }
             return a[i] == b[i];
         }
     }
@@ -43,11 +46,13 @@ export namespace draconic::core
     {
     public:
         EnumBuilder(const char* name, const char* namespaceName) noexcept
-            : m_name(name), m_namespace(namespaceName) {}
+            : m_name(name), m_namespace(namespaceName)
+        {
+        }
 
         EnumBuilder& Value(const char* name, E value)
         {
-            m_values.PushBack(EnumValue{ name, static_cast<i64>(value) });
+            m_values.PushBack(EnumValue{name, static_cast<i64>(value)});
             return *this;
         }
 
@@ -70,14 +75,20 @@ export namespace draconic::core
         Array<EnumValue> m_values;
     };
 
-    [[nodiscard]] inline bool IsEnum(const TypeInfo& type) noexcept { return type.enumeratorCount > 0; }
+    [[nodiscard]] inline bool IsEnum(const TypeInfo& type) noexcept
+    {
+        return type.enumeratorCount > 0;
+    }
 
     [[nodiscard]] inline Span<const EnumValue> Enumerators(const TypeInfo& type) noexcept
     {
-        return Span<const EnumValue>{ type.enumerators, type.enumeratorCount };
+        return Span<const EnumValue>{type.enumerators, type.enumeratorCount};
     }
 
-    [[nodiscard]] inline usize EnumeratorCount(const TypeInfo& type) noexcept { return type.enumeratorCount; }
+    [[nodiscard]] inline usize EnumeratorCount(const TypeInfo& type) noexcept
+    {
+        return type.enumeratorCount;
+    }
     [[nodiscard]] inline const EnumValue& EnumeratorAt(const TypeInfo& type, usize index) noexcept
     {
         DRACONIC_ASSERT(index < type.enumeratorCount);
@@ -89,13 +100,17 @@ export namespace draconic::core
     {
         for (u32 i = 0; i < type.enumeratorCount; ++i)
         {
-            if (type.enumerators[i].value == value) { return type.enumerators[i].name; }
+            if (type.enumerators[i].value == value)
+            {
+                return type.enumerators[i].name;
+            }
         }
         return nullptr;
     }
 
     // Looks up the integer value for an enumerator name; false if not found.
-    [[nodiscard]] inline bool EnumValueByName(const TypeInfo& type, const char* name, i64& outValue) noexcept
+    [[nodiscard]] inline bool EnumValueByName(const TypeInfo& type, const char* name,
+                                              i64& outValue) noexcept
     {
         for (u32 i = 0; i < type.enumeratorCount; ++i)
         {

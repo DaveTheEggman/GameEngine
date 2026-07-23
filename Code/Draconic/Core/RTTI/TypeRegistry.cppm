@@ -36,7 +36,8 @@ export namespace draconic::core
             return (found != nullptr) ? *found : nullptr;
         }
 
-        [[nodiscard]] const TypeInfo* FindByName(const char* namespaceName, const char* name) const noexcept
+        [[nodiscard]] const TypeInfo* FindByName(const char* namespaceName,
+                                                 const char* name) const noexcept
         {
             return FindById(ComputeTypeId(namespaceName, name));
         }

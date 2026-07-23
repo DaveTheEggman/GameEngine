@@ -25,7 +25,10 @@ export namespace draconic::core
         {
             ScopedLock lock(m_mutex);
             ++m_writersWaiting;
-            while (m_writeActive || m_readers > 0) { m_gate.Wait(m_mutex); }
+            while (m_writeActive || m_readers > 0)
+            {
+                m_gate.Wait(m_mutex);
+            }
             --m_writersWaiting;
             m_writeActive = true;
         }
@@ -40,14 +43,20 @@ export namespace draconic::core
         void LockShared() noexcept // read
         {
             ScopedLock lock(m_mutex);
-            while (m_writeActive || m_writersWaiting > 0) { m_gate.Wait(m_mutex); }
+            while (m_writeActive || m_writersWaiting > 0)
+            {
+                m_gate.Wait(m_mutex);
+            }
             ++m_readers;
         }
 
         void UnlockShared() noexcept
         {
             ScopedLock lock(m_mutex);
-            if (--m_readers == 0) { m_gate.NotifyAll(); }
+            if (--m_readers == 0)
+            {
+                m_gate.NotifyAll();
+            }
         }
 
     private:
@@ -61,7 +70,10 @@ export namespace draconic::core
     class ScopedSharedLock
     {
     public:
-        explicit ScopedSharedLock(SharedMutex& mutex) noexcept : m_mutex(&mutex) { m_mutex->LockShared(); }
+        explicit ScopedSharedLock(SharedMutex& mutex) noexcept : m_mutex(&mutex)
+        {
+            m_mutex->LockShared();
+        }
         ~ScopedSharedLock() { m_mutex->UnlockShared(); }
 
         ScopedSharedLock(const ScopedSharedLock&) = delete;

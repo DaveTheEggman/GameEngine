@@ -47,12 +47,21 @@ export namespace draconic::core
 
         void Free(void* /*pointer*/) override {}
 
-        [[nodiscard]] Marker GetMarker() const noexcept { return static_cast<Marker>(m_current - m_begin); }
+        [[nodiscard]] Marker GetMarker() const noexcept
+        {
+            return static_cast<Marker>(m_current - m_begin);
+        }
         void FreeToMarker(Marker marker) noexcept { m_current = m_begin + marker; }
         void Reset() noexcept { m_current = m_begin; }
 
-        [[nodiscard]] usize Used() const noexcept { return static_cast<usize>(m_current - m_begin); }
-        [[nodiscard]] usize Capacity() const noexcept { return static_cast<usize>(m_end - m_begin); }
+        [[nodiscard]] usize Used() const noexcept
+        {
+            return static_cast<usize>(m_current - m_begin);
+        }
+        [[nodiscard]] usize Capacity() const noexcept
+        {
+            return static_cast<usize>(m_end - m_begin);
+        }
 
     private:
         byte* m_begin = nullptr;

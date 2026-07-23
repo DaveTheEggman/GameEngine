@@ -21,17 +21,19 @@ export namespace draconic::core
         UniquePtr(decltype(nullptr)) noexcept {}
 
         UniquePtr(T* pointer, IAllocator& allocator) noexcept
-            : m_ptr(pointer), m_allocator(&allocator) {}
+            : m_ptr(pointer), m_allocator(&allocator)
+        {
+        }
 
-        UniquePtr(UniquePtr&& other) noexcept
-            : m_ptr(other.m_ptr), m_allocator(other.m_allocator)
+        UniquePtr(UniquePtr&& other) noexcept : m_ptr(other.m_ptr), m_allocator(other.m_allocator)
         {
             other.m_ptr = nullptr;
         }
 
         // Converting move from UniquePtr<U> where U derives from T (e.g. a derived node -> its
         // interface). T must have a virtual destructor so Reset() frees the derived object.
-        template <typename U> requires (__is_base_of(T, U))
+        template <typename U>
+            requires(__is_base_of(T, U))
         UniquePtr(UniquePtr<U>&& other) noexcept
             : m_ptr(other.m_ptr), m_allocator(other.m_allocator)
         {
@@ -77,7 +79,8 @@ export namespace draconic::core
         [[nodiscard]] explicit operator bool() const noexcept { return m_ptr != nullptr; }
 
     private:
-        template <typename> friend class UniquePtr;   // converting move accesses another instantiation's members
+        template <typename>
+        friend class UniquePtr; // converting move accesses another instantiation's members
 
         T* m_ptr = nullptr;
         IAllocator* m_allocator = nullptr;
@@ -87,6 +90,6 @@ export namespace draconic::core
     [[nodiscard]] UniquePtr<T> MakeUnique(IAllocator& allocator, Args&&... args)
     {
         T* object = allocator.New<T>(Forward<Args>(args)...);
-        return UniquePtr<T>{ object, allocator };
+        return UniquePtr<T>{object, allocator};
     }
 }

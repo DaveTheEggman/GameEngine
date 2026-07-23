@@ -14,7 +14,7 @@ using namespace draconic::core;
 // is now UTF-8, so wrap in a StringView directly.
 static StringView PluginPath()
 {
-    return StringView{ reinterpret_cast<const utf8char*>(DRACONIC_TEST_PLUGIN_PATH) };
+    return StringView{reinterpret_cast<const utf8char*>(DRACONIC_TEST_PLUGIN_PATH)};
 }
 
 // --- Library ---------------------------------------------------------------

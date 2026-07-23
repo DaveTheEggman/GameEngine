@@ -8,7 +8,6 @@ module;
 
 export module draconic.core:atomic;
 
-
 export namespace draconic::core
 {
     template <typename T>

@@ -39,17 +39,15 @@ export namespace draconic::core
 
         [[nodiscard]] static constexpr Float3x3 Identity() noexcept
         {
-            return Float3x3{ { { 1.0f, 0.0f, 0.0f },
-                           { 0.0f, 1.0f, 0.0f },
-                           { 0.0f, 0.0f, 1.0f } } };
+            return Float3x3{{{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}};
         }
 
         // Upper-left 3x3 of a Float4x4 (drops translation; the rotation/scale part).
         [[nodiscard]] static constexpr Float3x3 FromMat4(const Float4x4& mat) noexcept
         {
-            return Float3x3{ { { mat.m[0][0], mat.m[0][1], mat.m[0][2] },
-                           { mat.m[1][0], mat.m[1][1], mat.m[1][2] },
-                           { mat.m[2][0], mat.m[2][1], mat.m[2][2] } } };
+            return Float3x3{{{mat.m[0][0], mat.m[0][1], mat.m[0][2]},
+                             {mat.m[1][0], mat.m[1][1], mat.m[1][2]},
+                             {mat.m[2][0], mat.m[2][1], mat.m[2][2]}}};
         }
     };
 
@@ -61,7 +59,10 @@ export namespace draconic::core
             for (usize col = 0; col < 3; ++col)
             {
                 f32 sum = 0.0f;
-                for (usize k = 0; k < 3; ++k) { sum += a.m[row][k] * b.m[k][col]; }
+                for (usize k = 0; k < 3; ++k)
+                {
+                    sum += a.m[row][k] * b.m[k][col];
+                }
                 result.m[row][col] = sum;
             }
         }
@@ -71,9 +72,9 @@ export namespace draconic::core
     // Row-vector transform: v' = v * M.
     [[nodiscard]] constexpr Float3 operator*(Float3 v, const Float3x3& m) noexcept
     {
-        return { v.x * m.m[0][0] + v.y * m.m[1][0] + v.z * m.m[2][0],
-                 v.x * m.m[0][1] + v.y * m.m[1][1] + v.z * m.m[2][1],
-                 v.x * m.m[0][2] + v.y * m.m[1][2] + v.z * m.m[2][2] };
+        return {v.x * m.m[0][0] + v.y * m.m[1][0] + v.z * m.m[2][0],
+                v.x * m.m[0][1] + v.y * m.m[1][1] + v.z * m.m[2][1],
+                v.x * m.m[0][2] + v.y * m.m[1][2] + v.z * m.m[2][2]};
     }
 
     [[nodiscard]] constexpr Float3x3 Transpose(const Float3x3& a) noexcept
@@ -81,23 +82,29 @@ export namespace draconic::core
         Float3x3 result{};
         for (usize row = 0; row < 3; ++row)
         {
-            for (usize col = 0; col < 3; ++col) { result.m[row][col] = a.m[col][row]; }
+            for (usize col = 0; col < 3; ++col)
+            {
+                result.m[row][col] = a.m[col][row];
+            }
         }
         return result;
     }
 
     [[nodiscard]] constexpr f32 Determinant(const Float3x3& m) noexcept
     {
-        return m.m[0][0] * (m.m[1][1] * m.m[2][2] - m.m[1][2] * m.m[2][1])
-             - m.m[0][1] * (m.m[1][0] * m.m[2][2] - m.m[1][2] * m.m[2][0])
-             + m.m[0][2] * (m.m[1][0] * m.m[2][1] - m.m[1][1] * m.m[2][0]);
+        return m.m[0][0] * (m.m[1][1] * m.m[2][2] - m.m[1][2] * m.m[2][1]) -
+               m.m[0][1] * (m.m[1][0] * m.m[2][2] - m.m[1][2] * m.m[2][0]) +
+               m.m[0][2] * (m.m[1][0] * m.m[2][1] - m.m[1][1] * m.m[2][0]);
     }
 
     // 3x3 inverse (adjugate / determinant). Returns Identity if singular.
     [[nodiscard]] inline Float3x3 Inverse(const Float3x3& m) noexcept
     {
         const f32 det = Determinant(m);
-        if (NearlyZero(det)) { return Float3x3::Identity(); }
+        if (NearlyZero(det))
+        {
+            return Float3x3::Identity();
+        }
         const f32 invDet = 1.0f / det;
 
         Float3x3 result{};
@@ -113,13 +120,17 @@ export namespace draconic::core
         return result;
     }
 
-    [[nodiscard]] inline bool NearlyEqual(const Float3x3& a, const Float3x3& b, f32 epsilon = kEpsilon) noexcept
+    [[nodiscard]] inline bool NearlyEqual(const Float3x3& a, const Float3x3& b,
+                                          f32 epsilon = kEpsilon) noexcept
     {
         for (usize row = 0; row < 3; ++row)
         {
             for (usize col = 0; col < 3; ++col)
             {
-                if (!NearlyEqual(a.m[row][col], b.m[row][col], epsilon)) { return false; }
+                if (!NearlyEqual(a.m[row][col], b.m[row][col], epsilon))
+                {
+                    return false;
+                }
             }
         }
         return true;

@@ -49,27 +49,48 @@ export namespace draconic::core
             }
         }
 
-        [[nodiscard]] u64 LiveAllocations() const noexcept { return m_liveCount.load(std::memory_order_relaxed); }
-        [[nodiscard]] u64 TotalAllocations() const noexcept { return m_totalAllocations.load(std::memory_order_relaxed); }
-        [[nodiscard]] u64 TotalFrees() const noexcept { return m_totalFrees.load(std::memory_order_relaxed); }
-        [[nodiscard]] u64 LiveBytes() const noexcept { return m_liveBytes.load(std::memory_order_relaxed); }
-        [[nodiscard]] u64 TotalBytesAllocated() const noexcept { return m_totalBytes.load(std::memory_order_relaxed); }
-        [[nodiscard]] u64 PeakBytes() const noexcept { return m_peakBytes.load(std::memory_order_relaxed); }
+        [[nodiscard]] u64 LiveAllocations() const noexcept
+        {
+            return m_liveCount.load(std::memory_order_relaxed);
+        }
+        [[nodiscard]] u64 TotalAllocations() const noexcept
+        {
+            return m_totalAllocations.load(std::memory_order_relaxed);
+        }
+        [[nodiscard]] u64 TotalFrees() const noexcept
+        {
+            return m_totalFrees.load(std::memory_order_relaxed);
+        }
+        [[nodiscard]] u64 LiveBytes() const noexcept
+        {
+            return m_liveBytes.load(std::memory_order_relaxed);
+        }
+        [[nodiscard]] u64 TotalBytesAllocated() const noexcept
+        {
+            return m_totalBytes.load(std::memory_order_relaxed);
+        }
+        [[nodiscard]] u64 PeakBytes() const noexcept
+        {
+            return m_peakBytes.load(std::memory_order_relaxed);
+        }
         [[nodiscard]] bool HasLeaks() const noexcept { return LiveAllocations() != 0; }
 
     private:
         void UpdatePeak(u64 live) noexcept
         {
             u64 peak = m_peakBytes.load(std::memory_order_relaxed);
-            while (live > peak && !m_peakBytes.compare_exchange_weak(peak, live, std::memory_order_relaxed)) {}
+            while (live > peak &&
+                   !m_peakBytes.compare_exchange_weak(peak, live, std::memory_order_relaxed))
+            {
+            }
         }
 
         IAllocator* m_backing;
-        std::atomic<u64> m_liveCount{ 0 };
-        std::atomic<u64> m_totalAllocations{ 0 };
-        std::atomic<u64> m_totalFrees{ 0 };
-        std::atomic<u64> m_liveBytes{ 0 };
-        std::atomic<u64> m_totalBytes{ 0 };
-        std::atomic<u64> m_peakBytes{ 0 };
+        std::atomic<u64> m_liveCount{0};
+        std::atomic<u64> m_totalAllocations{0};
+        std::atomic<u64> m_totalFrees{0};
+        std::atomic<u64> m_liveBytes{0};
+        std::atomic<u64> m_totalBytes{0};
+        std::atomic<u64> m_peakBytes{0};
     };
 }

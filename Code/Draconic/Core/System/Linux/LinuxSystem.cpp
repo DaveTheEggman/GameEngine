@@ -16,9 +16,9 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
-#include <cstdio>   // std::rename
-#include <cstdlib>  // std::getenv
-#include <cstring>  // std::strlen, std::memcpy
+#include <cstdio>  // std::rename
+#include <cstdlib> // std::getenv
+#include <cstring> // std::strlen, std::memcpy
 
 namespace draconic::core::sys
 {
@@ -26,8 +26,8 @@ namespace draconic::core::sys
     {
         timespec ts{};
         clock_gettime(CLOCK_MONOTONIC, &ts);
-        return static_cast<std::uint64_t>(ts.tv_sec) * 1'000'000'000ull
-             + static_cast<std::uint64_t>(ts.tv_nsec);
+        return static_cast<std::uint64_t>(ts.tv_sec) * 1'000'000'000ull +
+               static_cast<std::uint64_t>(ts.tv_nsec);
     }
 
     std::uint64_t GetTickFrequency() noexcept
@@ -63,7 +63,10 @@ namespace draconic::core::sys
     std::size_t GetEnvironmentVariable(const char* name, char* out, std::size_t outSize) noexcept
     {
         const char* value = std::getenv(name);
-        if (value == nullptr) { return 0; }
+        if (value == nullptr)
+        {
+            return 0;
+        }
         const std::size_t length = std::strlen(value);
         if (out != nullptr && outSize > 0)
         {
@@ -98,7 +101,10 @@ namespace draconic::core::sys
     {
         char buffer[4096];
         const ssize_t n = readlink("/proc/self/exe", buffer, sizeof(buffer));
-        if (n <= 0) { return 0; }
+        if (n <= 0)
+        {
+            return 0;
+        }
         const std::size_t length = static_cast<std::size_t>(n);
         if (out != nullptr && outSize > 0)
         {
@@ -111,12 +117,18 @@ namespace draconic::core::sys
 
     bool OpenPathInFileManager(const char* path) noexcept
     {
-        if (path == nullptr || path[0] == '\0') { return false; }
+        if (path == nullptr || path[0] == '\0')
+        {
+            return false;
+        }
         // Double-fork so the grandchild (xdg-open) reparents to init and is reaped there - no zombie,
         // no global SIGCHLD change. The parent only waits on the intermediate child, which exits
         // immediately, so this never blocks the UI thread. xdg-open detaches from our stdio via setsid.
         const pid_t child = fork();
-        if (child < 0) { return false; }
+        if (child < 0)
+        {
+            return false;
+        }
         if (child == 0)
         {
             const pid_t grandchild = fork();
@@ -124,19 +136,22 @@ namespace draconic::core::sys
             {
                 setsid();
                 execlp("xdg-open", "xdg-open", path, static_cast<char*>(nullptr));
-                _exit(127);   // exec failed
+                _exit(127); // exec failed
             }
-            _exit(0);         // intermediate exits right away
+            _exit(0); // intermediate exits right away
         }
         int status = 0;
         (void)waitpid(child, &status, 0);
-        return true;          // launch initiated (xdg-open's own success isn't observable here)
+        return true; // launch initiated (xdg-open's own success isn't observable here)
     }
 
     std::size_t GetCurrentDirectory(char* out, std::size_t outSize) noexcept
     {
         char buffer[4096];
-        if (getcwd(buffer, sizeof(buffer)) == nullptr) { return 0; }
+        if (getcwd(buffer, sizeof(buffer)) == nullptr)
+        {
+            return 0;
+        }
         const std::size_t length = std::strlen(buffer);
         if (out != nullptr && outSize > 0)
         {
@@ -154,8 +169,8 @@ namespace draconic::core::sys
             return nullptr;
         }
 
-        void* memory = mmap(nullptr, size, PROT_READ | PROT_WRITE,
-                            MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        void* memory =
+            mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
         return (memory == MAP_FAILED) ? nullptr : memory;
     }
 
@@ -172,10 +187,18 @@ namespace draconic::core::sys
         int flags = 0;
         switch (mode)
         {
-            case FileMode::Read:      flags = O_RDONLY; break;
-            case FileMode::Write:     flags = O_WRONLY | O_CREAT | O_TRUNC; break;
-            case FileMode::ReadWrite: flags = O_RDWR | O_CREAT; break;
-            case FileMode::Append:    flags = O_WRONLY | O_CREAT | O_APPEND; break;
+        case FileMode::Read:
+            flags = O_RDONLY;
+            break;
+        case FileMode::Write:
+            flags = O_WRONLY | O_CREAT | O_TRUNC;
+            break;
+        case FileMode::ReadWrite:
+            flags = O_RDWR | O_CREAT;
+            break;
+        case FileMode::Append:
+            flags = O_WRONLY | O_CREAT | O_APPEND;
+            break;
         }
 
         const int fd = open(path, flags, 0644);
@@ -207,9 +230,15 @@ namespace draconic::core::sys
         int whence = SEEK_SET;
         switch (origin)
         {
-            case SeekOrigin::Begin:   whence = SEEK_SET; break;
-            case SeekOrigin::Current: whence = SEEK_CUR; break;
-            case SeekOrigin::End:     whence = SEEK_END; break;
+        case SeekOrigin::Begin:
+            whence = SEEK_SET;
+            break;
+        case SeekOrigin::Current:
+            whence = SEEK_CUR;
+            break;
+        case SeekOrigin::End:
+            whence = SEEK_END;
+            break;
         }
 
         const off_t pos = lseek(static_cast<int>(handle), static_cast<off_t>(offset), whence);
@@ -226,56 +255,80 @@ namespace draconic::core::sys
         return static_cast<std::int64_t>(st.st_size);
     }
 
-    bool FileExists(const char* path) noexcept
-    {
-        return access(path, F_OK) == 0;
-    }
+    bool FileExists(const char* path) noexcept { return access(path, F_OK) == 0; }
 
-    bool FileStat(const char* path, unsigned long long& outSize, long long& outModifiedTime) noexcept
+    bool FileStat(const char* path, unsigned long long& outSize,
+                  long long& outModifiedTime) noexcept
     {
         struct stat st{};
-        if (stat(path, &st) != 0 || !S_ISREG(st.st_mode)) { return false; }
+        if (stat(path, &st) != 0 || !S_ISREG(st.st_mode))
+        {
+            return false;
+        }
         outSize = static_cast<unsigned long long>(st.st_size);
         outModifiedTime = static_cast<long long>(st.st_mtime);
         return true;
     }
 
-    bool FileDelete(const char* path) noexcept
-    {
-        return unlink(path) == 0;
-    }
+    bool FileDelete(const char* path) noexcept { return unlink(path) == 0; }
 
-    bool FileMove(const char* from, const char* to) noexcept
-    {
-        return std::rename(from, to) == 0;
-    }
+    bool FileMove(const char* from, const char* to) noexcept { return std::rename(from, to) == 0; }
 
     bool FileCopyPreserving(const char* from, const char* to) noexcept
     {
         const int src = ::open(from, O_RDONLY);
-        if (src < 0) { return false; }
+        if (src < 0)
+        {
+            return false;
+        }
         struct stat st{};
-        if (::fstat(src, &st) != 0) { ::close(src); return false; }
+        if (::fstat(src, &st) != 0)
+        {
+            ::close(src);
+            return false;
+        }
         const int dst = ::open(to, O_WRONLY | O_CREAT | O_TRUNC, st.st_mode & 07777);
-        if (dst < 0) { ::close(src); return false; }
+        if (dst < 0)
+        {
+            ::close(src);
+            return false;
+        }
         bool ok = true;
         char buffer[64 * 1024];
         for (;;)
         {
             const ssize_t got = ::read(src, buffer, sizeof(buffer));
-            if (got == 0) { break; }
-            if (got < 0) { ok = false; break; }
+            if (got == 0)
+            {
+                break;
+            }
+            if (got < 0)
+            {
+                ok = false;
+                break;
+            }
             ssize_t written = 0;
             while (written < got)
             {
-                const ssize_t put = ::write(dst, buffer + written, static_cast<size_t>(got - written));
-                if (put <= 0) { ok = false; break; }
+                const ssize_t put =
+                    ::write(dst, buffer + written, static_cast<size_t>(got - written));
+                if (put <= 0)
+                {
+                    ok = false;
+                    break;
+                }
                 written += put;
             }
-            if (!ok) { break; }
+            if (!ok)
+            {
+                break;
+            }
         }
         // O_CREAT mode is masked by umask - re-apply the exact source mode (the +x bit).
-        if (ok && ::fchmod(dst, st.st_mode & 07777) != 0) { ok = false; }
+        if (ok && ::fchmod(dst, st.st_mode & 07777) != 0)
+        {
+            ok = false;
+        }
         ::close(src);
         ::close(dst);
         return ok;
@@ -289,19 +342,22 @@ namespace draconic::core::sys
 
     bool CreateDirectory(const char* path) noexcept
     {
-        if (mkdir(path, 0755) == 0) { return true; }
+        if (mkdir(path, 0755) == 0)
+        {
+            return true;
+        }
         return DirectoryExists(path); // already exists is success
     }
 
-    bool RemoveDirectory(const char* path) noexcept
-    {
-        return rmdir(path) == 0;
-    }
+    bool RemoveDirectory(const char* path) noexcept { return rmdir(path) == 0; }
 
     bool ListDirectory(const char* path, DirEntryCallback cb, void* ctx) noexcept
     {
         DIR* dir = opendir(path);
-        if (dir == nullptr) { return false; }
+        if (dir == nullptr)
+        {
+            return false;
+        }
 
         for (struct dirent* entry = readdir(dir); entry != nullptr; entry = readdir(dir))
         {
@@ -312,11 +368,17 @@ namespace draconic::core::sys
             }
 
             bool isDir = false;
-            if (entry->d_type == DT_DIR) { isDir = true; }
+            if (entry->d_type == DT_DIR)
+            {
+                isDir = true;
+            }
             else if (entry->d_type == DT_UNKNOWN) // some filesystems don't fill d_type
             {
                 struct stat st{};
-                if (fstatat(dirfd(dir), name, &st, 0) == 0) { isDir = S_ISDIR(st.st_mode); }
+                if (fstatat(dirfd(dir), name, &st, 0) == 0)
+                {
+                    isDir = S_ISDIR(st.st_mode);
+                }
             }
             cb(ctx, name, isDir);
         }
@@ -349,18 +411,24 @@ namespace draconic::core::sys
 
     void LibraryClose(LibraryHandle handle) noexcept
     {
-        if (handle != nullptr) { dlclose(handle); }
+        if (handle != nullptr)
+        {
+            dlclose(handle);
+        }
     }
 
     // --- UDP sockets -------------------------------------------------------
 
-    bool InitializeNetworking() noexcept { return true; }   // POSIX needs no init
+    bool InitializeNetworking() noexcept { return true; } // POSIX needs no init
     void ShutdownNetworking() noexcept {}
 
     SocketHandle UdpOpen(std::uint16_t port, std::uint16_t* outBoundPort) noexcept
     {
         const int fd = ::socket(AF_INET, SOCK_DGRAM, 0);
-        if (fd < 0) { return kInvalidSocket; }
+        if (fd < 0)
+        {
+            return kInvalidSocket;
+        }
         const int flags = ::fcntl(fd, F_GETFL, 0);
         ::fcntl(fd, F_SETFL, flags | O_NONBLOCK);
         const int yes = 1;
@@ -369,54 +437,87 @@ namespace draconic::core::sys
         addr.sin_family = AF_INET;
         addr.sin_addr.s_addr = htonl(INADDR_ANY);
         addr.sin_port = htons(port);
-        if (::bind(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) { ::close(fd); return kInvalidSocket; }
+        if (::bind(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0)
+        {
+            ::close(fd);
+            return kInvalidSocket;
+        }
         if (outBoundPort != nullptr)
         {
             sockaddr_in bound{};
             socklen_t len = sizeof(bound);
-            *outBoundPort = (::getsockname(fd, reinterpret_cast<sockaddr*>(&bound), &len) == 0) ? ntohs(bound.sin_port) : port;
+            *outBoundPort = (::getsockname(fd, reinterpret_cast<sockaddr*>(&bound), &len) == 0)
+                                ? ntohs(bound.sin_port)
+                                : port;
         }
         return static_cast<SocketHandle>(fd);
     }
 
     void SocketClose(SocketHandle socket) noexcept
     {
-        if (socket != kInvalidSocket) { ::close(static_cast<int>(socket)); }
+        if (socket != kInvalidSocket)
+        {
+            ::close(static_cast<int>(socket));
+        }
     }
 
     bool ParseIPv4(const char* dottedQuad, std::uint32_t* outIp) noexcept
     {
         in_addr a{};
-        if (::inet_pton(AF_INET, dottedQuad, &a) != 1) { return false; }
-        if (outIp != nullptr) { *outIp = ntohl(a.s_addr); }
+        if (::inet_pton(AF_INET, dottedQuad, &a) != 1)
+        {
+            return false;
+        }
+        if (outIp != nullptr)
+        {
+            *outIp = ntohl(a.s_addr);
+        }
         return true;
     }
 
     std::int64_t UdpSendTo(SocketHandle socket, std::uint32_t ip, std::uint16_t port,
                            const void* data, std::size_t size) noexcept
     {
-        if (socket == kInvalidSocket) { return -1; }
+        if (socket == kInvalidSocket)
+        {
+            return -1;
+        }
         sockaddr_in addr{};
         addr.sin_family = AF_INET;
         addr.sin_addr.s_addr = htonl(ip);
         addr.sin_port = htons(port);
         const ssize_t n = ::sendto(static_cast<int>(socket), data, size, 0,
                                    reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
-        if (n < 0) { return (errno == EWOULDBLOCK || errno == EAGAIN) ? 0 : -1; }
+        if (n < 0)
+        {
+            return (errno == EWOULDBLOCK || errno == EAGAIN) ? 0 : -1;
+        }
         return static_cast<std::int64_t>(n);
     }
 
     std::int64_t UdpRecvFrom(SocketHandle socket, void* out, std::size_t outCap,
                              std::uint32_t* fromIp, std::uint16_t* fromPort) noexcept
     {
-        if (socket == kInvalidSocket) { return -1; }
+        if (socket == kInvalidSocket)
+        {
+            return -1;
+        }
         sockaddr_in addr{};
         socklen_t len = sizeof(addr);
         const ssize_t n = ::recvfrom(static_cast<int>(socket), out, outCap, 0,
                                      reinterpret_cast<sockaddr*>(&addr), &len);
-        if (n < 0) { return (errno == EWOULDBLOCK || errno == EAGAIN) ? 0 : -1; }
-        if (fromIp != nullptr) { *fromIp = ntohl(addr.sin_addr.s_addr); }
-        if (fromPort != nullptr) { *fromPort = ntohs(addr.sin_port); }
+        if (n < 0)
+        {
+            return (errno == EWOULDBLOCK || errno == EAGAIN) ? 0 : -1;
+        }
+        if (fromIp != nullptr)
+        {
+            *fromIp = ntohl(addr.sin_addr.s_addr);
+        }
+        if (fromPort != nullptr)
+        {
+            *fromPort = ntohs(addr.sin_port);
+        }
         return static_cast<std::int64_t>(n);
     }
 
@@ -431,7 +532,10 @@ namespace draconic::core::sys
     SocketHandle TcpListen(std::uint16_t port, std::uint16_t* outBoundPort) noexcept
     {
         const int fd = ::socket(AF_INET, SOCK_STREAM, 0);
-        if (fd < 0) { return kInvalidSocket; }
+        if (fd < 0)
+        {
+            return kInvalidSocket;
+        }
         SetNonBlocking(fd);
         const int yes = 1;
         ::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
@@ -439,59 +543,105 @@ namespace draconic::core::sys
         addr.sin_family = AF_INET;
         addr.sin_addr.s_addr = htonl(INADDR_ANY);
         addr.sin_port = htons(port);
-        if (::bind(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) { ::close(fd); return kInvalidSocket; }
-        if (::listen(fd, 16) < 0) { ::close(fd); return kInvalidSocket; }
+        if (::bind(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0)
+        {
+            ::close(fd);
+            return kInvalidSocket;
+        }
+        if (::listen(fd, 16) < 0)
+        {
+            ::close(fd);
+            return kInvalidSocket;
+        }
         if (outBoundPort != nullptr)
         {
             sockaddr_in bound{};
             socklen_t len = sizeof(bound);
-            *outBoundPort = (::getsockname(fd, reinterpret_cast<sockaddr*>(&bound), &len) == 0) ? ntohs(bound.sin_port) : port;
+            *outBoundPort = (::getsockname(fd, reinterpret_cast<sockaddr*>(&bound), &len) == 0)
+                                ? ntohs(bound.sin_port)
+                                : port;
         }
         return static_cast<SocketHandle>(fd);
     }
 
-    SocketHandle TcpAccept(SocketHandle listener, std::uint32_t* fromIp, std::uint16_t* fromPort) noexcept
+    SocketHandle TcpAccept(SocketHandle listener, std::uint32_t* fromIp,
+                           std::uint16_t* fromPort) noexcept
     {
-        if (listener == kInvalidSocket) { return kInvalidSocket; }
+        if (listener == kInvalidSocket)
+        {
+            return kInvalidSocket;
+        }
         sockaddr_in addr{};
         socklen_t len = sizeof(addr);
-        const int fd = ::accept(static_cast<int>(listener), reinterpret_cast<sockaddr*>(&addr), &len);
-        if (fd < 0) { return kInvalidSocket; }   // EWOULDBLOCK => none pending
+        const int fd =
+            ::accept(static_cast<int>(listener), reinterpret_cast<sockaddr*>(&addr), &len);
+        if (fd < 0)
+        {
+            return kInvalidSocket;
+        } // EWOULDBLOCK => none pending
         SetNonBlocking(fd);
-        if (fromIp != nullptr) { *fromIp = ntohl(addr.sin_addr.s_addr); }
-        if (fromPort != nullptr) { *fromPort = ntohs(addr.sin_port); }
+        if (fromIp != nullptr)
+        {
+            *fromIp = ntohl(addr.sin_addr.s_addr);
+        }
+        if (fromPort != nullptr)
+        {
+            *fromPort = ntohs(addr.sin_port);
+        }
         return static_cast<SocketHandle>(fd);
     }
 
     SocketHandle TcpConnect(std::uint32_t ip, std::uint16_t port) noexcept
     {
         const int fd = ::socket(AF_INET, SOCK_STREAM, 0);
-        if (fd < 0) { return kInvalidSocket; }
+        if (fd < 0)
+        {
+            return kInvalidSocket;
+        }
         SetNonBlocking(fd);
         sockaddr_in addr{};
         addr.sin_family = AF_INET;
         addr.sin_addr.s_addr = htonl(ip);
         addr.sin_port = htons(port);
         const int r = ::connect(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
-        if (r < 0 && errno != EINPROGRESS) { ::close(fd); return kInvalidSocket; }
+        if (r < 0 && errno != EINPROGRESS)
+        {
+            ::close(fd);
+            return kInvalidSocket;
+        }
         return static_cast<SocketHandle>(fd);
     }
 
     int TcpConnectStatus(SocketHandle socket) noexcept
     {
-        if (socket == kInvalidSocket) { return -1; }
+        if (socket == kInvalidSocket)
+        {
+            return -1;
+        }
         pollfd pfd{};
         pfd.fd = static_cast<int>(socket);
         pfd.events = POLLOUT;
         const int r = ::poll(&pfd, 1, 0);
-        if (r == 0) { return 0; }    // still connecting
-        if (r < 0) { return -1; }
-        if ((pfd.revents & (POLLERR | POLLHUP)) != 0) { return -1; }
+        if (r == 0)
+        {
+            return 0;
+        } // still connecting
+        if (r < 0)
+        {
+            return -1;
+        }
+        if ((pfd.revents & (POLLERR | POLLHUP)) != 0)
+        {
+            return -1;
+        }
         if ((pfd.revents & POLLOUT) != 0)
         {
             int err = 0;
             socklen_t len = sizeof(err);
-            if (::getsockopt(static_cast<int>(socket), SOL_SOCKET, SO_ERROR, &err, &len) < 0) { return -1; }
+            if (::getsockopt(static_cast<int>(socket), SOL_SOCKET, SO_ERROR, &err, &len) < 0)
+            {
+                return -1;
+            }
             return (err == 0) ? 1 : -1;
         }
         return 0;
@@ -499,18 +649,33 @@ namespace draconic::core::sys
 
     std::int64_t TcpSend(SocketHandle socket, const void* data, std::size_t size) noexcept
     {
-        if (socket == kInvalidSocket) { return -1; }
+        if (socket == kInvalidSocket)
+        {
+            return -1;
+        }
         const ssize_t n = ::send(static_cast<int>(socket), data, size, MSG_NOSIGNAL);
-        if (n < 0) { return (errno == EWOULDBLOCK || errno == EAGAIN) ? 0 : -1; }
+        if (n < 0)
+        {
+            return (errno == EWOULDBLOCK || errno == EAGAIN) ? 0 : -1;
+        }
         return static_cast<std::int64_t>(n);
     }
 
     std::int64_t TcpRecv(SocketHandle socket, void* out, std::size_t outCap) noexcept
     {
-        if (socket == kInvalidSocket) { return -1; }
+        if (socket == kInvalidSocket)
+        {
+            return -1;
+        }
         const ssize_t n = ::recv(static_cast<int>(socket), out, outCap, 0);
-        if (n > 0) { return static_cast<std::int64_t>(n); }
-        if (n == 0) { return -1; }   // peer closed the connection
+        if (n > 0)
+        {
+            return static_cast<std::int64_t>(n);
+        }
+        if (n == 0)
+        {
+            return -1;
+        } // peer closed the connection
         return (errno == EWOULDBLOCK || errno == EAGAIN) ? 0 : -1;
     }
 }

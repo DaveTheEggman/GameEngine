@@ -16,7 +16,10 @@ export namespace draconic::core
 {
     inline constexpr utf8char kPathSeparator = utf8char('/');
 
-    [[nodiscard]] inline bool PathIsSeparator(utf8char c) noexcept { return c == utf8char('/') || c == utf8char('\\'); }
+    [[nodiscard]] inline bool PathIsSeparator(utf8char c) noexcept
+    {
+        return c == utf8char('/') || c == utf8char('\\');
+    }
 
     [[nodiscard]] inline bool PathIsAbsolute(StringView path) noexcept
     {
@@ -29,7 +32,10 @@ export namespace draconic::core
         usize start = 0;
         for (usize i = 0; i < path.Size(); ++i)
         {
-            if (PathIsSeparator(path[i])) { start = i + 1; }
+            if (PathIsSeparator(path[i]))
+            {
+                start = i + 1;
+            }
         }
         return path.SubStr(start, path.Size() - start);
     }
@@ -42,9 +48,15 @@ export namespace draconic::core
         usize dot = name.Size();
         for (usize i = 0; i < name.Size(); ++i)
         {
-            if (name[i] == utf8char('.')) { dot = i; }
+            if (name[i] == utf8char('.'))
+            {
+                dot = i;
+            }
         }
-        if (dot == name.Size() || dot == 0) { return StringView{}; }
+        if (dot == name.Size() || dot == 0)
+        {
+            return StringView{};
+        }
         return name.SubStr(dot, name.Size() - dot);
     }
 
@@ -62,18 +74,28 @@ export namespace draconic::core
         usize lastSep = path.Size();
         for (usize i = 0; i < path.Size(); ++i)
         {
-            if (PathIsSeparator(path[i])) { lastSep = i; }
+            if (PathIsSeparator(path[i]))
+            {
+                lastSep = i;
+            }
         }
-        if (lastSep == path.Size()) { return StringView{}; }
+        if (lastSep == path.Size())
+        {
+            return StringView{};
+        }
         return path.SubStr(0, lastSep);
     }
 
     // Joins two paths with a single separator. If `b` is absolute it wins.
-    [[nodiscard]] inline String PathJoin(StringView a, StringView b, IAllocator& allocator = DefaultAllocator())
+    [[nodiscard]] inline String PathJoin(StringView a, StringView b,
+                                         IAllocator& allocator = DefaultAllocator())
     {
-        if (a.IsEmpty() || PathIsAbsolute(b)) { return String{ b, allocator }; }
+        if (a.IsEmpty() || PathIsAbsolute(b))
+        {
+            return String{b, allocator};
+        }
 
-        String result{ a, allocator };
+        String result{a, allocator};
         if (!PathIsSeparator(a[a.Size() - 1]))
         {
             result.PushBack(kPathSeparator);

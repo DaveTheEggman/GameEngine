@@ -25,16 +25,16 @@ namespace draconic::core
     // Reports a failed assertion. Returns true if the caller should break into
     // the debugger / trap. Plain const char* keeps this dependency-free and
     // safe to include in any global module fragment.
-    bool ReportAssertFailure(const char* expression, const char* message,
-                             const char* file, int line, const char* function) noexcept;
+    bool ReportAssertFailure(const char* expression, const char* message, const char* file,
+                             int line, const char* function) noexcept;
 
     // Reports a fatal error and terminates. Never returns.
-    [[noreturn]] void ReportFatal(const char* message,
-                                  const char* file, int line, const char* function) noexcept;
+    [[noreturn]] void ReportFatal(const char* message, const char* file, int line,
+                                  const char* function) noexcept;
 
     // Custom assertion handler. Return true to break/trap, false to continue.
-    using AssertHandler = bool (*)(const char* expression, const char* message,
-                                   const char* file, int line, const char* function) noexcept;
+    using AssertHandler = bool (*)(const char* expression, const char* message, const char* file,
+                                   int line, const char* function) noexcept;
 
     AssertHandler GetAssertHandler() noexcept;
     void SetAssertHandler(AssertHandler handler) noexcept;
@@ -49,36 +49,36 @@ namespace draconic::core
 
 // Core check expression: evaluates `cond`; on failure reports and, if the
 // handler requests it, breaks. Yields void.
-#define DRACONIC_ASSERT_IMPL(cond, msg)                                                   \
-    (DRACONIC_LIKELY(!!(cond))                                                            \
-         ? (void)0                                                                      \
-         : (::draconic::core::ReportAssertFailure(#cond, (msg), __FILE__, __LINE__, __func__) \
-                ? DRACONIC_DEBUGBREAK()                                                   \
+#define DRACONIC_ASSERT_IMPL(cond, msg)                                                            \
+    (DRACONIC_LIKELY(!!(cond))                                                                     \
+         ? (void)0                                                                                 \
+         : (::draconic::core::ReportAssertFailure(#cond, (msg), __FILE__, __LINE__, __func__)      \
+                ? DRACONIC_DEBUGBREAK()                                                            \
                 : (void)0))
 
 #if DRACONIC_SHIPPING
-    #define DRACONIC_ASSERT(cond)          ((void)0)
-    #define DRACONIC_ASSERT_MSG(cond, msg) ((void)0)
-    #define DRACONIC_VERIFY(cond)          ((void)(cond))
+#define DRACONIC_ASSERT(cond) ((void)0)
+#define DRACONIC_ASSERT_MSG(cond, msg) ((void)0)
+#define DRACONIC_VERIFY(cond) ((void)(cond))
 #else
-    #define DRACONIC_ASSERT(cond)          DRACONIC_ASSERT_IMPL(cond, nullptr)
-    #define DRACONIC_ASSERT_MSG(cond, msg) DRACONIC_ASSERT_IMPL(cond, msg)
-    #define DRACONIC_VERIFY(cond)          DRACONIC_ASSERT_IMPL(cond, nullptr)
+#define DRACONIC_ASSERT(cond) DRACONIC_ASSERT_IMPL(cond, nullptr)
+#define DRACONIC_ASSERT_MSG(cond, msg) DRACONIC_ASSERT_IMPL(cond, msg)
+#define DRACONIC_VERIFY(cond) DRACONIC_ASSERT_IMPL(cond, nullptr)
 #endif
 
 // Always-on, every build configuration.
-#define DRACONIC_CHECK(cond)          DRACONIC_ASSERT_IMPL(cond, nullptr)
+#define DRACONIC_CHECK(cond) DRACONIC_ASSERT_IMPL(cond, nullptr)
 #define DRACONIC_CHECK_MSG(cond, msg) DRACONIC_ASSERT_IMPL(cond, msg)
 
 // Non-fatal: reports on failure but does not break; evaluates to the condition,
 // so it composes:  if (!DRACONIC_ENSURE(ptr != nullptr)) { return; }
-#define DRACONIC_ENSURE(cond)                                                             \
-    (DRACONIC_LIKELY(!!(cond))                                                            \
-         ? true                                                                         \
-         : (::draconic::core::ReportAssertFailure(#cond, nullptr, __FILE__, __LINE__, __func__), \
+#define DRACONIC_ENSURE(cond)                                                                      \
+    (DRACONIC_LIKELY(!!(cond))                                                                     \
+         ? true                                                                                    \
+         : (::draconic::core::ReportAssertFailure(#cond, nullptr, __FILE__, __LINE__, __func__),   \
             false))
 
-#define DRACONIC_UNREACHABLE() \
+#define DRACONIC_UNREACHABLE()                                                                     \
     (::draconic::core::ReportFatal("reached unreachable code", __FILE__, __LINE__, __func__))
 
 #endif // DRACONIC_CORE_DEBUG_ASSERT_H

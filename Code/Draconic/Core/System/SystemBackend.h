@@ -15,8 +15,8 @@
 namespace draconic::core::sys
 {
     // --- Time --------------------------------------------------------------
-    std::uint64_t GetTicks() noexcept;          // high-resolution monotonic counter
-    std::uint64_t GetTickFrequency() noexcept;  // counter ticks per second
+    std::uint64_t GetTicks() noexcept;         // high-resolution monotonic counter
+    std::uint64_t GetTickFrequency() noexcept; // counter ticks per second
     void SleepMilliseconds(std::uint32_t milliseconds) noexcept;
 
     // --- System info -------------------------------------------------------
@@ -56,7 +56,7 @@ namespace draconic::core::sys
     bool OpenPathInFileManager(const char* path) noexcept;
 
     // --- Virtual memory (page-granular) ------------------------------------
-    void* PageAllocate(std::size_t size) noexcept;   // nullptr on failure
+    void* PageAllocate(std::size_t size) noexcept; // nullptr on failure
     void PageFree(void* pointer, std::size_t size) noexcept;
 
     // --- Files (low-level primitives; IO wraps these) ----------------------
@@ -66,10 +66,10 @@ namespace draconic::core::sys
 
     enum class FileMode
     {
-        Read,       // existing file, read-only
-        Write,      // create/truncate, write-only
-        ReadWrite,  // create if needed, read+write
-        Append,     // create if needed, write at end
+        Read,      // existing file, read-only
+        Write,     // create/truncate, write-only
+        ReadWrite, // create if needed, read+write
+        Append,    // create if needed, write at end
     };
 
     enum class SeekOrigin
@@ -81,10 +81,12 @@ namespace draconic::core::sys
 
     FileHandle FileOpen(const char* path, FileMode mode) noexcept;
     void FileClose(FileHandle handle) noexcept;
-    std::int64_t FileRead(FileHandle handle, void* buffer, std::uint64_t bytes) noexcept;   // -1 on error
+    std::int64_t FileRead(FileHandle handle, void* buffer,
+                          std::uint64_t bytes) noexcept; // -1 on error
     std::int64_t FileWrite(FileHandle handle, const void* buffer, std::uint64_t bytes) noexcept;
-    std::int64_t FileSeek(FileHandle handle, std::int64_t offset, SeekOrigin origin) noexcept; // new pos, -1 error
-    std::int64_t FileSize(FileHandle handle) noexcept;                                      // -1 on error
+    std::int64_t FileSeek(FileHandle handle, std::int64_t offset,
+                          SeekOrigin origin) noexcept; // new pos, -1 error
+    std::int64_t FileSize(FileHandle handle) noexcept; // -1 on error
     bool FileExists(const char* path) noexcept;
     bool FileDelete(const char* path) noexcept;
     // Rename/move a file OR directory (same volume). True on success.
@@ -93,9 +95,10 @@ namespace draconic::core::sys
     // natively, POSIX re-applies the source mode). True on success; overwrites dst.
     bool FileCopyPreserving(const char* from, const char* to) noexcept;
     // File size + last-write time (seconds since epoch). False if the file doesn't exist.
-    bool FileStat(const char* path, unsigned long long& outSize, long long& outModifiedTime) noexcept;
+    bool FileStat(const char* path, unsigned long long& outSize,
+                  long long& outModifiedTime) noexcept;
     bool DirectoryExists(const char* path) noexcept;
-    bool CreateDirectory(const char* path) noexcept;  // true if created or already exists
+    bool CreateDirectory(const char* path) noexcept; // true if created or already exists
     bool RemoveDirectory(const char* path) noexcept;
 
     // Lists the immediate children of a directory, invoking `cb` once per entry
@@ -105,8 +108,8 @@ namespace draconic::core::sys
     bool ListDirectory(const char* path, DirEntryCallback cb, void* ctx) noexcept;
 
     // --- Console -----------------------------------------------------------
-    void ConsoleWrite(const char* text, std::uint64_t length) noexcept;       // stdout
-    void ConsoleWriteError(const char* text, std::uint64_t length) noexcept;   // stderr
+    void ConsoleWrite(const char* text, std::uint64_t length) noexcept;      // stdout
+    void ConsoleWriteError(const char* text, std::uint64_t length) noexcept; // stderr
 
     // --- Dynamic libraries (raw; the Library module wraps these) -----------
     using LibraryHandle = void*; // HMODULE on Win32
@@ -151,7 +154,8 @@ namespace draconic::core::sys
     // Accept one pending connection on `listener`. Returns kInvalidSocket when none is pending
     // (non-blocking). Fills the peer's (ip,port) host-order when non-null. The accepted socket is
     // non-blocking.
-    SocketHandle TcpAccept(SocketHandle listener, std::uint32_t* fromIp, std::uint16_t* fromPort) noexcept;
+    SocketHandle TcpAccept(SocketHandle listener, std::uint32_t* fromIp,
+                           std::uint16_t* fromPort) noexcept;
     // Begin a NON-BLOCKING connect to (ip,port host-order). Returns a handle immediately (poll
     // readiness with TcpConnectStatus) or kInvalidSocket if the socket could not be created.
     SocketHandle TcpConnect(std::uint32_t ip, std::uint16_t port) noexcept;

@@ -32,13 +32,18 @@ export namespace draconic::core
     {
     public:
         // Idempotent by qualified name.
-        void Register(const char* namespaceName, const char* name, const TypeInfo* type, Variant value)
+        void Register(const char* namespaceName, const char* name, const TypeInfo* type,
+                      Variant value)
         {
-            if (Find(namespaceName, name) != nullptr) { return; }
-            m_constants.PushBack(NamedConstant{ name, namespaceName, type, Move(value) });
+            if (Find(namespaceName, name) != nullptr)
+            {
+                return;
+            }
+            m_constants.PushBack(NamedConstant{name, namespaceName, type, Move(value)});
         }
 
-        [[nodiscard]] const NamedConstant* Find(const char* namespaceName, const char* name) const noexcept
+        [[nodiscard]] const NamedConstant* Find(const char* namespaceName,
+                                                const char* name) const noexcept
         {
             for (usize i = 0; i < m_constants.Size(); ++i)
             {
@@ -59,14 +64,17 @@ export namespace draconic::core
         }
         [[nodiscard]] Span<const NamedConstant> All() const noexcept
         {
-            return Span<const NamedConstant>{ m_constants.Data(), m_constants.Size() };
+            return Span<const NamedConstant>{m_constants.Data(), m_constants.Size()};
         }
 
     private:
         [[nodiscard]] static bool NameEquals(const char* a, const char* b) noexcept
         {
             usize i = 0;
-            while (a[i] != '\0' && a[i] == b[i]) { ++i; }
+            while (a[i] != '\0' && a[i] == b[i])
+            {
+                ++i;
+            }
             return a[i] == b[i];
         }
 

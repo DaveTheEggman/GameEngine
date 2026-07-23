@@ -25,7 +25,7 @@ export namespace draconic::core
         template <typename T>
         [[nodiscard]] static Instance From(T* pointer) noexcept
         {
-            return Instance{ pointer, &TypeOf<T>() };
+            return Instance{pointer, &TypeOf<T>()};
         }
 
         [[nodiscard]] bool IsEmpty() const noexcept { return m_ptr == nullptr; }

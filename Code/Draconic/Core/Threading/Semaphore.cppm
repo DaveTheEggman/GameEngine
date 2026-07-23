@@ -25,14 +25,20 @@ export namespace draconic::core
         void Acquire() noexcept
         {
             ScopedLock lock(m_mutex);
-            while (m_count == 0) { m_available.Wait(m_mutex); }
+            while (m_count == 0)
+            {
+                m_available.Wait(m_mutex);
+            }
             --m_count;
         }
 
         [[nodiscard]] bool TryAcquire() noexcept
         {
             ScopedLock lock(m_mutex);
-            if (m_count == 0) { return false; }
+            if (m_count == 0)
+            {
+                return false;
+            }
             --m_count;
             return true;
         }

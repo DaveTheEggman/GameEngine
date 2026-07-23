@@ -16,7 +16,7 @@ import :unique_ptr;
 import :allocator;
 import :function;
 import :io;
-import :array;   // data-version scope stack
+import :array; // data-version scope stack
 
 export namespace draconic::core
 {
@@ -32,31 +32,49 @@ export namespace draconic::core
         // type is always entry 0 of its scope.
         [[nodiscard]] u32 Version() const noexcept override
         {
-            if (m_scopeStarts.IsEmpty()) { return 0; }
+            if (m_scopeStarts.IsEmpty())
+            {
+                return 0;
+            }
             const usize start = m_scopeStarts[m_scopeStarts.Size() - 1];
             return (start < m_versionStack.Size()) ? m_versionStack[start].version : 0;
         }
         [[nodiscard]] u32 Version(u64 typeId) const noexcept override
         {
-            if (m_scopeStarts.IsEmpty()) { return 0; }
+            if (m_scopeStarts.IsEmpty())
+            {
+                return 0;
+            }
             const usize start = m_scopeStarts[m_scopeStarts.Size() - 1];
             for (usize i = start; i < m_versionStack.Size(); ++i)
             {
-                if (m_versionStack[i].typeId == typeId) { return m_versionStack[i].version; }
+                if (m_versionStack[i].typeId == typeId)
+                {
+                    return m_versionStack[i].version;
+                }
             }
             return 0;
         }
         void PushVersionScope(const SerializedDataVersion* chain, usize count) override
         {
             m_scopeStarts.PushBack(m_versionStack.Size());
-            for (usize i = 0; i < count; ++i) { m_versionStack.PushBack(chain[i]); }
+            for (usize i = 0; i < count; ++i)
+            {
+                m_versionStack.PushBack(chain[i]);
+            }
         }
         void PopVersionScope() override
         {
-            if (m_scopeStarts.IsEmpty()) { return; }
+            if (m_scopeStarts.IsEmpty())
+            {
+                return;
+            }
             const usize start = m_scopeStarts[m_scopeStarts.Size() - 1];
             m_scopeStarts.PopBack();
-            while (m_versionStack.Size() > start) { m_versionStack.PopBack(); }
+            while (m_versionStack.Size() > start)
+            {
+                m_versionStack.PopBack();
+            }
         }
 
         [[nodiscard]] Status GetStatus() const noexcept { return m_status; }
@@ -82,25 +100,31 @@ export namespace draconic::core
             {
                 utf8char buffer[37];
                 value.ToChars(buffer);
-                text = String{ StringView{ buffer, 36 } };
+                text = String{StringView{buffer, 36}};
             }
             Text(text);
             if (m_mode == SerializeMode::Read)
             {
                 Guid parsed{};
-                if (Guid::TryParse(text.AsView(), parsed)) { value = parsed; }
+                if (Guid::TryParse(text.AsView(), parsed))
+                {
+                    value = parsed;
+                }
             }
         }
 
     protected:
         void Fail(ErrorCode code) noexcept
         {
-            if (m_status.IsOk()) { m_status = code; }
+            if (m_status.IsOk())
+            {
+                m_status = code;
+            }
         }
 
         SerializeMode m_mode;
-        Array<SerializedDataVersion> m_versionStack;   // flat entries of all open scopes
-        Array<usize> m_scopeStarts;                    // per-scope start index into the stack
+        Array<SerializedDataVersion> m_versionStack; // flat entries of all open scopes
+        Array<usize> m_scopeStarts;                  // per-scope start index into the stack
         Status m_status{};
     };
 

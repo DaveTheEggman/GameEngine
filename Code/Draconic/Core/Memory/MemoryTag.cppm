@@ -29,7 +29,7 @@ export namespace draconic::core
         u32 value = 0;
     };
 
-    inline constexpr MemoryTag kDefaultMemoryTag{ 0 };
+    inline constexpr MemoryTag kDefaultMemoryTag{0};
 
     namespace detail
     {
@@ -40,7 +40,7 @@ export namespace draconic::core
             const char* names[kMaxMemoryTags]{};
             std::atomic<u64> bytes[kMaxMemoryTags]{};
             std::atomic<u64> counts[kMaxMemoryTags]{};
-            std::atomic<u32> registered{ 1 }; // slot 0 reserved for Default
+            std::atomic<u32> registered{1}; // slot 0 reserved for Default
 
             MemoryTagRegistry() { names[0] = "Default"; }
         };
@@ -54,7 +54,10 @@ export namespace draconic::core
         [[nodiscard]] inline bool TagNameEquals(const char* a, const char* b) noexcept
         {
             usize i = 0;
-            while (a[i] != '\0' && a[i] == b[i]) { ++i; }
+            while (a[i] != '\0' && a[i] == b[i])
+            {
+                ++i;
+            }
             return a[i] == b[i];
         }
     }
@@ -69,7 +72,7 @@ export namespace draconic::core
         {
             if (registry.names[i] != nullptr && detail::TagNameEquals(registry.names[i], name))
             {
-                return MemoryTag{ i };
+                return MemoryTag{i};
             }
         }
         const u32 index = registry.registered.fetch_add(1, std::memory_order_acq_rel);
@@ -79,13 +82,15 @@ export namespace draconic::core
             return kDefaultMemoryTag;
         }
         registry.names[index] = name;
-        return MemoryTag{ index };
+        return MemoryTag{index};
     }
 
     [[nodiscard]] inline const char* MemoryTagName(MemoryTag tag) noexcept
     {
         const detail::MemoryTagRegistry& registry = detail::MemoryTags();
-        return (tag.value < registry.registered.load(std::memory_order_relaxed)) ? registry.names[tag.value] : "?";
+        return (tag.value < registry.registered.load(std::memory_order_relaxed))
+                   ? registry.names[tag.value]
+                   : "?";
     }
 
     [[nodiscard]] inline u32 MemoryTagCount() noexcept
@@ -106,7 +111,10 @@ export namespace draconic::core
     class TaggedAllocator final : public IAllocator
     {
     public:
-        TaggedAllocator(IAllocator& backing, MemoryTag tag) noexcept : m_backing(&backing), m_tag(tag.value) {}
+        TaggedAllocator(IAllocator& backing, MemoryTag tag) noexcept
+            : m_backing(&backing), m_tag(tag.value)
+        {
+        }
 
         [[nodiscard]] void* Allocate(usize size, usize alignment = kDefaultAlignment) override
         {

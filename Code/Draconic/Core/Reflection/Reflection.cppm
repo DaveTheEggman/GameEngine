@@ -48,7 +48,7 @@ namespace draconic::core::detail
         const M* typed = value.TryGet<M>();
         if (typed == nullptr)
         {
-            return Status{ ErrorCode::InvalidArgument };
+            return Status{ErrorCode::InvalidArgument};
         }
         T* object = static_cast<T*>(instance.Pointer());
         object->*Member = *typed;
@@ -65,7 +65,10 @@ namespace draconic::core::detail
     [[nodiscard]] inline bool CStringEquals(const char* a, const char* b) noexcept
     {
         usize i = 0;
-        while (a[i] != '\0' && a[i] == b[i]) { ++i; }
+        while (a[i] != '\0' && a[i] == b[i])
+        {
+            ++i;
+        }
         return a[i] == b[i];
     }
 }
@@ -101,7 +104,8 @@ export namespace draconic::core
         return property.get(instance);
     }
 
-    [[nodiscard]] inline Status SetProperty(const PropertyInfo& property, const Instance& instance, const Variant& value)
+    [[nodiscard]] inline Status SetProperty(const PropertyInfo& property, const Instance& instance,
+                                            const Variant& value)
     {
         return property.set(instance, value);
     }
@@ -109,12 +113,15 @@ export namespace draconic::core
     // Properties declared directly on `type` (not inherited).
     [[nodiscard]] inline Span<const PropertyInfo> Properties(const TypeInfo& type) noexcept
     {
-        return Span<const PropertyInfo>{ type.properties, type.propertyCount };
+        return Span<const PropertyInfo>{type.properties, type.propertyCount};
     }
 
     // Count / by-index access (own properties only) for binding generators that
     // enumerate rather than search.
-    [[nodiscard]] inline usize PropertyCount(const TypeInfo& type) noexcept { return type.propertyCount; }
+    [[nodiscard]] inline usize PropertyCount(const TypeInfo& type) noexcept
+    {
+        return type.propertyCount;
+    }
     [[nodiscard]] inline const PropertyInfo& PropertyAt(const TypeInfo& type, usize index) noexcept
     {
         DRACONIC_ASSERT(index < type.propertyCount);
@@ -122,7 +129,8 @@ export namespace draconic::core
     }
 
     // Searches `type` and its base chain for a property by name.
-    [[nodiscard]] inline const PropertyInfo* FindProperty(const TypeInfo& type, const char* name) noexcept
+    [[nodiscard]] inline const PropertyInfo* FindProperty(const TypeInfo& type,
+                                                          const char* name) noexcept
     {
         for (const TypeInfo* t = &type; t != nullptr; t = t->base)
         {
@@ -159,7 +167,8 @@ export namespace draconic::core
         Result<Variant> (*invoke)(const Instance&, Span<Variant>);
     };
 
-    [[nodiscard]] inline Result<Variant> InvokeMethod(const MethodInfo& method, const Instance& instance, Span<Variant> args)
+    [[nodiscard]] inline Result<Variant> InvokeMethod(const MethodInfo& method,
+                                                      const Instance& instance, Span<Variant> args)
     {
         return method.invoke(instance, args);
     }
@@ -172,10 +181,13 @@ export namespace draconic::core
 
     [[nodiscard]] inline Span<const MethodInfo> Methods(const TypeInfo& type) noexcept
     {
-        return Span<const MethodInfo>{ type.methods, type.methodCount };
+        return Span<const MethodInfo>{type.methods, type.methodCount};
     }
 
-    [[nodiscard]] inline usize MethodCount(const TypeInfo& type) noexcept { return type.methodCount; }
+    [[nodiscard]] inline usize MethodCount(const TypeInfo& type) noexcept
+    {
+        return type.methodCount;
+    }
     [[nodiscard]] inline const MethodInfo& MethodAt(const TypeInfo& type, usize index) noexcept
     {
         DRACONIC_ASSERT(index < type.methodCount);
@@ -183,7 +195,10 @@ export namespace draconic::core
     }
 
     // A method's parameters by count / index (for binding each overload's signature).
-    [[nodiscard]] inline usize ParamCount(const MethodInfo& method) noexcept { return method.paramCount; }
+    [[nodiscard]] inline usize ParamCount(const MethodInfo& method) noexcept
+    {
+        return method.paramCount;
+    }
     [[nodiscard]] inline const ParamInfo& ParamAt(const MethodInfo& method, usize index) noexcept
     {
         DRACONIC_ASSERT(index < method.paramCount);
@@ -204,11 +219,15 @@ export namespace draconic::core
 
     [[nodiscard]] inline Span<const ConstructorInfo> Constructors(const TypeInfo& type) noexcept
     {
-        return Span<const ConstructorInfo>{ type.constructors, type.constructorCount };
+        return Span<const ConstructorInfo>{type.constructors, type.constructorCount};
     }
 
-    [[nodiscard]] inline usize ConstructorCount(const TypeInfo& type) noexcept { return type.constructorCount; }
-    [[nodiscard]] inline const ConstructorInfo& ConstructorAt(const TypeInfo& type, usize index) noexcept
+    [[nodiscard]] inline usize ConstructorCount(const TypeInfo& type) noexcept
+    {
+        return type.constructorCount;
+    }
+    [[nodiscard]] inline const ConstructorInfo& ConstructorAt(const TypeInfo& type,
+                                                              usize index) noexcept
     {
         DRACONIC_ASSERT(index < type.constructorCount);
         return type.constructors[index];
@@ -218,7 +237,10 @@ export namespace draconic::core
     // layers that call properties/methods on a reflected Variant).
     [[nodiscard]] inline Instance ToInstance(Variant& value) noexcept
     {
-        if (value.IsObject()) { return Instance(value.AsObject(), value.Type()); }
+        if (value.IsObject())
+        {
+            return Instance(value.AsObject(), value.Type());
+        }
         return Instance(value.ValuePointer(), value.Type());
     }
 
@@ -229,14 +251,21 @@ export namespace draconic::core
         for (u32 i = 0; i < type.constructorCount; ++i)
         {
             const ConstructorInfo& ctor = type.constructors[i];
-            if (ctor.paramCount != args.Size()) { continue; }
+            if (ctor.paramCount != args.Size())
+            {
+                continue;
+            }
             Result<Variant> result = ctor.invoke(args);
-            if (result.HasValue()) { return result; }
+            if (result.HasValue())
+            {
+                return result;
+            }
         }
         return Err(ErrorCode::InvalidArgument);
     }
 
-    [[nodiscard]] inline const MethodInfo* FindMethod(const TypeInfo& type, const char* name) noexcept
+    [[nodiscard]] inline const MethodInfo* FindMethod(const TypeInfo& type,
+                                                      const char* name) noexcept
     {
         for (const TypeInfo* t = &type; t != nullptr; t = t->base)
         {
@@ -254,22 +283,36 @@ export namespace draconic::core
     // Overload-aware lookup: matches name + exact parameter types (using the
     // ParamInfo type info each method carries). Lets several same-named methods
     // coexist and be resolved by signature.
-    [[nodiscard]] inline const MethodInfo* FindMethod(
-        const TypeInfo& type, const char* name, Span<const TypeInfo* const> paramTypes) noexcept
+    [[nodiscard]] inline const MethodInfo*
+    FindMethod(const TypeInfo& type, const char* name,
+               Span<const TypeInfo* const> paramTypes) noexcept
     {
         for (const TypeInfo* t = &type; t != nullptr; t = t->base)
         {
             for (u32 i = 0; i < t->methodCount; ++i)
             {
                 const MethodInfo& method = t->methods[i];
-                if (!detail::CStringEquals(method.name, name)) { continue; }
-                if (method.paramCount != paramTypes.Size()) { continue; }
+                if (!detail::CStringEquals(method.name, name))
+                {
+                    continue;
+                }
+                if (method.paramCount != paramTypes.Size())
+                {
+                    continue;
+                }
                 bool match = true;
                 for (u32 p = 0; p < method.paramCount; ++p)
                 {
-                    if (method.params[p].type() != paramTypes[p]) { match = false; break; }
+                    if (method.params[p].type() != paramTypes[p])
+                    {
+                        match = false;
+                        break;
+                    }
                 }
-                if (match) { return &method; }
+                if (match)
+                {
+                    return &method;
+                }
             }
         }
         return nullptr;
@@ -286,10 +329,11 @@ export namespace draconic::core
 
     [[nodiscard]] inline Span<const Attribute> Attributes(const PropertyInfo& property) noexcept
     {
-        return Span<const Attribute>{ property.attributes, property.attributeCount };
+        return Span<const Attribute>{property.attributes, property.attributeCount};
     }
 
-    [[nodiscard]] inline const Attribute* FindAttribute(const PropertyInfo& property, StringView key) noexcept
+    [[nodiscard]] inline const Attribute* FindAttribute(const PropertyInfo& property,
+                                                        StringView key) noexcept
     {
         for (u32 i = 0; i < property.attributeCount; ++i)
         {
@@ -303,17 +347,21 @@ export namespace draconic::core
 
     [[nodiscard]] inline Span<const Attribute> Attributes(const TypeInfo& type) noexcept
     {
-        return Span<const Attribute>{ type.attributes, type.attributeCount };
+        return Span<const Attribute>{type.attributes, type.attributeCount};
     }
 
-    [[nodiscard]] inline usize AttributeCount(const TypeInfo& type) noexcept { return type.attributeCount; }
+    [[nodiscard]] inline usize AttributeCount(const TypeInfo& type) noexcept
+    {
+        return type.attributeCount;
+    }
     [[nodiscard]] inline const Attribute& AttributeAt(const TypeInfo& type, usize index) noexcept
     {
         DRACONIC_ASSERT(index < type.attributeCount);
         return type.attributes[index];
     }
 
-    [[nodiscard]] inline const Variant* FindAttribute(const TypeInfo& type, const char* key) noexcept
+    [[nodiscard]] inline const Variant* FindAttribute(const TypeInfo& type,
+                                                      const char* key) noexcept
     {
         for (u32 i = 0; i < type.attributeCount; ++i)
         {
@@ -338,17 +386,21 @@ export namespace draconic::core
 
     [[nodiscard]] inline Span<const ConstantInfo> Constants(const TypeInfo& type) noexcept
     {
-        return Span<const ConstantInfo>{ type.constants, type.constantCount };
+        return Span<const ConstantInfo>{type.constants, type.constantCount};
     }
 
-    [[nodiscard]] inline usize ConstantCount(const TypeInfo& type) noexcept { return type.constantCount; }
+    [[nodiscard]] inline usize ConstantCount(const TypeInfo& type) noexcept
+    {
+        return type.constantCount;
+    }
     [[nodiscard]] inline const ConstantInfo& ConstantAt(const TypeInfo& type, usize index) noexcept
     {
         DRACONIC_ASSERT(index < type.constantCount);
         return type.constants[index];
     }
 
-    [[nodiscard]] inline const ConstantInfo* FindConstant(const TypeInfo& type, const char* name) noexcept
+    [[nodiscard]] inline const ConstantInfo* FindConstant(const TypeInfo& type,
+                                                          const char* name) noexcept
     {
         for (u32 i = 0; i < type.constantCount; ++i)
         {
@@ -372,19 +424,25 @@ export namespace draconic::core
         Status (*setAt)(const Instance&, usize index, const Variant& value);
     };
 
-    [[nodiscard]] inline bool IsContainer(const TypeInfo& type) noexcept { return type.container != nullptr; }
+    [[nodiscard]] inline bool IsContainer(const TypeInfo& type) noexcept
+    {
+        return type.container != nullptr;
+    }
 
-    [[nodiscard]] inline usize ContainerSize(const ContainerInfo& container, const Instance& instance)
+    [[nodiscard]] inline usize ContainerSize(const ContainerInfo& container,
+                                             const Instance& instance)
     {
         return container.size(instance);
     }
 
-    [[nodiscard]] inline Variant ContainerGetAt(const ContainerInfo& container, const Instance& instance, usize index)
+    [[nodiscard]] inline Variant ContainerGetAt(const ContainerInfo& container,
+                                                const Instance& instance, usize index)
     {
         return container.getAt(instance, index);
     }
 
-    inline Status ContainerSetAt(const ContainerInfo& container, const Instance& instance, usize index, const Variant& value)
+    inline Status ContainerSetAt(const ContainerInfo& container, const Instance& instance,
+                                 usize index, const Variant& value)
     {
         return container.setAt(instance, index, value);
     }
@@ -394,18 +452,20 @@ export namespace draconic::core
     void RegisterArrayType()
     {
         static const ContainerInfo info{
-            &TypeOf<T>(),
-            [](const Instance& i) -> usize { return static_cast<const Array<T>*>(i.Pointer())->Size(); },
+            &TypeOf<T>(), [](const Instance& i) -> usize
+            { return static_cast<const Array<T>*>(i.Pointer())->Size(); },
             [](const Instance& i, usize index) -> Variant
             { return Variant::From<T>((*static_cast<const Array<T>*>(i.Pointer()))[index]); },
             [](const Instance& i, usize index, const Variant& value) -> Status
             {
                 const T* typed = value.TryGet<T>();
-                if (typed == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
+                if (typed == nullptr)
+                {
+                    return Status{ErrorCode::InvalidArgument};
+                }
                 (*static_cast<Array<T>*>(i.Pointer()))[index] = *typed;
                 return Status{};
-            }
-        };
+            }};
         const_cast<TypeInfo&>(TypeOf<Array<T>>()).container = &info;
     }
 }
@@ -415,8 +475,17 @@ namespace draconic::core::detail
     // Object-argument support: a parameter A may be a value type, or an object
     // form (RefPtr<U>, U*, or U&/const U& with U deriving Object). Object args
     // are extracted from an object-mode Variant via AsObject<U>().
-    template <typename T> struct ArgRefPtr { static constexpr bool value = false; };
-    template <typename U> struct ArgRefPtr<RefPtr<U>> { static constexpr bool value = true; using Pointee = U; };
+    template <typename T>
+    struct ArgRefPtr
+    {
+        static constexpr bool value = false;
+    };
+    template <typename U>
+    struct ArgRefPtr<RefPtr<U>>
+    {
+        static constexpr bool value = true;
+        using Pointee = U;
+    };
 
     template <typename A>
     [[nodiscard]] const TypeInfo* ParamTypeOf() noexcept
@@ -500,24 +569,31 @@ namespace draconic::core::detail
         }
         else
         {
-            static const ParamInfo params[] = { ParamInfo{ &ParamTypeOf<A>, "" }... };
-            return Span<const ParamInfo>{ params, sizeof...(A) };
+            static const ParamInfo params[] = {ParamInfo{&ParamTypeOf<A>, ""}...};
+            return Span<const ParamInfo>{params, sizeof...(A)};
         }
     }
 
     template <typename... A, usize... I>
     [[nodiscard]] bool ArgsMatch(Span<Variant>& args, std::index_sequence<I...>)
     {
-        return ( ... && AcceptArg<A>(args[I]) );
+        return (... && AcceptArg<A>(args[I]));
     }
 
     template <auto Member, typename C, typename R, bool Const, typename... A, usize... I>
-    Result<Variant> InvokeMemberImpl(const Instance& instance, Span<Variant> args, std::index_sequence<I...> seq)
+    Result<Variant> InvokeMemberImpl(const Instance& instance, Span<Variant> args,
+                                     std::index_sequence<I...> seq)
     {
-        if (args.Size() != sizeof...(A)) { return Err(ErrorCode::InvalidArgument); }
+        if (args.Size() != sizeof...(A))
+        {
+            return Err(ErrorCode::InvalidArgument);
+        }
         if constexpr (sizeof...(A) > 0)
         {
-            if (!ArgsMatch<A...>(args, seq)) { return Err(ErrorCode::InvalidArgument); }
+            if (!ArgsMatch<A...>(args, seq))
+            {
+                return Err(ErrorCode::InvalidArgument);
+            }
         }
         using ObjectType = std::conditional_t<Const, const C, C>;
         ObjectType* object = static_cast<ObjectType*>(instance.Pointer());
@@ -536,10 +612,16 @@ namespace draconic::core::detail
     template <auto Func, typename R, typename... A, usize... I>
     Result<Variant> InvokeFreeImpl(Span<Variant> args, std::index_sequence<I...> seq)
     {
-        if (args.Size() != sizeof...(A)) { return Err(ErrorCode::InvalidArgument); }
+        if (args.Size() != sizeof...(A))
+        {
+            return Err(ErrorCode::InvalidArgument);
+        }
         if constexpr (sizeof...(A) > 0)
         {
-            if (!ArgsMatch<A...>(args, seq)) { return Err(ErrorCode::InvalidArgument); }
+            if (!ArgsMatch<A...>(args, seq))
+            {
+                return Err(ErrorCode::InvalidArgument);
+            }
         }
         if constexpr (std::is_void_v<R>)
         {
@@ -555,23 +637,34 @@ namespace draconic::core::detail
     template <typename R>
     [[nodiscard]] const TypeInfo* ReturnTypeInfo() noexcept
     {
-        if constexpr (std::is_void_v<R>) { return nullptr; }
-        else { return ParamTypeOf<R>(); } // object-aware (StaticType for objects)
+        if constexpr (std::is_void_v<R>)
+        {
+            return nullptr;
+        }
+        else
+        {
+            return ParamTypeOf<R>();
+        } // object-aware (StaticType for objects)
     }
 
     template <typename T, typename... A, usize... I>
     Result<Variant> ConstructImpl(Span<Variant> args, std::index_sequence<I...> seq)
     {
-        if (args.Size() != sizeof...(A)) { return Err(ErrorCode::InvalidArgument); }
+        if (args.Size() != sizeof...(A))
+        {
+            return Err(ErrorCode::InvalidArgument);
+        }
         if constexpr (sizeof...(A) > 0)
         {
-            if (!ArgsMatch<A...>(args, seq)) { return Err(ErrorCode::InvalidArgument); }
+            if (!ArgsMatch<A...>(args, seq))
+            {
+                return Err(ErrorCode::InvalidArgument);
+            }
         }
         if constexpr (std::is_base_of_v<Object, T>)
         {
             // Object-derived: heap-allocate via MakeRef -> Variant object mode.
-            return Variant::From(MakeRef<T>(DefaultAllocator(),
-                ConvertArg<A>(args[I])...));
+            return Variant::From(MakeRef<T>(DefaultAllocator(), ConvertArg<A>(args[I])...));
         }
         else
         {
@@ -601,7 +694,8 @@ namespace draconic::core::detail
         static Span<const ParamInfo> Params() { return MakeParams<A...>(); }
         static Result<Variant> Invoke(const Instance& i, Span<Variant> a)
         {
-            return InvokeMemberImpl<Member, C, R, false, A...>(i, a, std::index_sequence_for<A...>{});
+            return InvokeMemberImpl<Member, C, R, false, A...>(i, a,
+                                                               std::index_sequence_for<A...>{});
         }
     };
 
@@ -614,7 +708,8 @@ namespace draconic::core::detail
         static Span<const ParamInfo> Params() { return MakeParams<A...>(); }
         static Result<Variant> Invoke(const Instance& i, Span<Variant> a)
         {
-            return InvokeMemberImpl<Member, C, R, true, A...>(i, a, std::index_sequence_for<A...>{});
+            return InvokeMemberImpl<Member, C, R, true, A...>(i, a,
+                                                              std::index_sequence_for<A...>{});
         }
     };
 
@@ -642,11 +737,13 @@ namespace draconic::core::detail
         static Span<const ParamInfo> Params() { return MakeParams<A...>(); }
         static Result<Variant> Invoke(const Instance& i, Span<Variant> a)
         {
-            return InvokeMemberImpl<Member, C, R, false, A...>(i, a, std::index_sequence_for<A...>{});
+            return InvokeMemberImpl<Member, C, R, false, A...>(i, a,
+                                                               std::index_sequence_for<A...>{});
         }
     };
 
-    template <auto Member, typename C, typename R, typename... A> // const instance method (noexcept)
+    template <auto Member, typename C, typename R,
+              typename... A> // const instance method (noexcept)
     struct MethodReflect<Member, R (C::*)(A...) const noexcept>
     {
         static constexpr bool isStatic = false;
@@ -655,7 +752,8 @@ namespace draconic::core::detail
         static Span<const ParamInfo> Params() { return MakeParams<A...>(); }
         static Result<Variant> Invoke(const Instance& i, Span<Variant> a)
         {
-            return InvokeMemberImpl<Member, C, R, true, A...>(i, a, std::index_sequence_for<A...>{});
+            return InvokeMemberImpl<Member, C, R, true, A...>(i, a,
+                                                              std::index_sequence_for<A...>{});
         }
     };
 
@@ -681,7 +779,7 @@ export namespace draconic::core
     struct TypeData
     {
         Array<PropertyInfo> properties;
-        Array<Array<Attribute>> propertyAttributes;   // parallel to `properties`
+        Array<Array<Attribute>> propertyAttributes; // parallel to `properties`
         Array<MethodInfo> methods;
         Array<Attribute> attributes;
         Array<ConstantInfo> constants;
@@ -694,7 +792,9 @@ export namespace draconic::core
     {
     public:
         TypeBuilder(const char* name, const char* namespaceName, const TypeInfo* base) noexcept
-            : m_name(name), m_namespace(namespaceName), m_base(base) {}
+            : m_name(name), m_namespace(namespaceName), m_base(base)
+        {
+        }
 
         /// Serialization data version (migration): bump when the serialized layout changes.
         TypeBuilder& DataVersion(u32 version)
@@ -708,10 +808,8 @@ export namespace draconic::core
         {
             using M = typename detail::MemberTraits<decltype(Member)>::Member;
             m_data.properties.PushBack(PropertyInfo{
-                name, &TypeOf<M>(), flags,
-                &detail::PropertyGet<T, M, Member>,
-                &detail::PropertySet<T, M, Member>,
-                &detail::PropertyAddress<T, M, Member> });
+                name, &TypeOf<M>(), flags, &detail::PropertyGet<T, M, Member>,
+                &detail::PropertySet<T, M, Member>, &detail::PropertyAddress<T, M, Member>});
             return *this;
         }
 
@@ -720,16 +818,17 @@ export namespace draconic::core
         {
             using Reflect = detail::MethodReflect<Member>;
             const Span<const ParamInfo> params = Reflect::Params();
-            m_data.methods.PushBack(MethodInfo{
-                name, &Reflect::ReturnType, params.Data(), static_cast<u32>(params.Size()),
-                Reflect::isStatic, Reflect::isConst, &Reflect::Invoke });
+            m_data.methods.PushBack(MethodInfo{name, &Reflect::ReturnType, params.Data(),
+                                               static_cast<u32>(params.Size()), Reflect::isStatic,
+                                               Reflect::isConst, &Reflect::Invoke});
             return *this;
         }
 
         template <typename V>
         TypeBuilder& Attribute(const char* key, V value)
         {
-            m_data.attributes.PushBack(draconic::core::Attribute{ key, Variant::From<V>(Move(value)) });
+            m_data.attributes.PushBack(
+                draconic::core::Attribute{key, Variant::From<V>(Move(value))});
             return *this;
         }
 
@@ -739,21 +838,24 @@ export namespace draconic::core
         template <typename V>
         TypeBuilder& PropAttribute(const char* key, V value)
         {
-            if (m_data.properties.IsEmpty()) { return *this; }
+            if (m_data.properties.IsEmpty())
+            {
+                return *this;
+            }
             while (m_data.propertyAttributes.Size() < m_data.properties.Size())
             {
                 m_data.propertyAttributes.PushBack(Array<draconic::core::Attribute>{});
             }
             m_data.propertyAttributes[m_data.properties.Size() - 1].PushBack(
-                draconic::core::Attribute{ key, Variant::From<V>(Move(value)) });
+                draconic::core::Attribute{key, Variant::From<V>(Move(value))});
             return *this;
         }
 
         template <typename V>
         TypeBuilder& Constant(const char* name, V value)
         {
-            m_data.constants.PushBack(draconic::core::ConstantInfo{
-                name, &TypeOf<V>(), Variant::From<V>(Move(value)) });
+            m_data.constants.PushBack(
+                draconic::core::ConstantInfo{name, &TypeOf<V>(), Variant::From<V>(Move(value))});
             return *this;
         }
 
@@ -763,8 +865,8 @@ export namespace draconic::core
         {
             using Reflect = detail::ConstructorReflect<T, Args...>;
             const Span<const ParamInfo> params = Reflect::Params();
-            m_data.constructors.PushBack(ConstructorInfo{
-                params.Data(), static_cast<u32>(params.Size()), &Reflect::Invoke });
+            m_data.constructors.PushBack(
+                ConstructorInfo{params.Data(), static_cast<u32>(params.Size()), &Reflect::Invoke});
             return *this;
         }
 
@@ -780,7 +882,8 @@ export namespace draconic::core
             for (usize i = 0; i < m_data.properties.Size(); ++i)
             {
                 m_data.properties[i].attributes = m_data.propertyAttributes[i].Data();
-                m_data.properties[i].attributeCount = static_cast<u32>(m_data.propertyAttributes[i].Size());
+                m_data.properties[i].attributeCount =
+                    static_cast<u32>(m_data.propertyAttributes[i].Size());
             }
             m_data.info.properties = m_data.properties.Data();
             m_data.info.propertyCount = static_cast<u32>(m_data.properties.Size());

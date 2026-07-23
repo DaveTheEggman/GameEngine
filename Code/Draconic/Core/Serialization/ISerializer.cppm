@@ -27,11 +27,16 @@ export namespace draconic::core
     enum class ScalarKind : u8
     {
         Bool,
-        Int8, UInt8,
-        Int16, UInt16,
-        Int32, UInt32,
-        Int64, UInt64,
-        Float32, Float64,
+        Int8,
+        UInt8,
+        Int16,
+        UInt16,
+        Int32,
+        UInt32,
+        Int64,
+        UInt64,
+        Float32,
+        Float64,
     };
 
     // Format-agnostic pure interface. Backends extend Serializer, not this

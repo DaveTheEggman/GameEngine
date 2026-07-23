@@ -30,8 +30,14 @@ export namespace draconic::core
         // Raw bytes. Sticks to !IsOk() on a short write.
         bool WriteBytes(const void* data, usize size)
         {
-            if (size == 0) { return m_ok; }
-            if (m_stream->Write(data, size) != size) { m_ok = false; }
+            if (size == 0)
+            {
+                return m_ok;
+            }
+            if (m_stream->Write(data, size) != size)
+            {
+                m_ok = false;
+            }
             return m_ok;
         }
 
@@ -39,7 +45,8 @@ export namespace draconic::core
         template <typename T>
         bool Write(const T& value)
         {
-            static_assert(std::is_trivially_copyable_v<T>, "BinaryWriter::Write requires a trivially-copyable type.");
+            static_assert(std::is_trivially_copyable_v<T>,
+                          "BinaryWriter::Write requires a trivially-copyable type.");
             return WriteBytes(&value, sizeof(T));
         }
 
@@ -48,7 +55,10 @@ export namespace draconic::core
         {
             const u32 length = static_cast<u32>(value.Size());
             Write(length);
-            if (length > 0) { WriteBytes(value.Data(), static_cast<usize>(length) * sizeof(utf8char)); }
+            if (length > 0)
+            {
+                WriteBytes(value.Data(), static_cast<usize>(length) * sizeof(utf8char));
+            }
             return m_ok;
         }
 
@@ -70,8 +80,14 @@ export namespace draconic::core
         // Raw bytes. Sticks to !IsOk() on a short read.
         bool ReadBytes(void* data, usize size)
         {
-            if (size == 0) { return m_ok; }
-            if (m_stream->Read(data, size) != size) { m_ok = false; }
+            if (size == 0)
+            {
+                return m_ok;
+            }
+            if (m_stream->Read(data, size) != size)
+            {
+                m_ok = false;
+            }
             return m_ok;
         }
 
@@ -79,7 +95,8 @@ export namespace draconic::core
         template <typename T>
         bool Read(T& outValue)
         {
-            static_assert(std::is_trivially_copyable_v<T>, "BinaryReader::Read requires a trivially-copyable type.");
+            static_assert(std::is_trivially_copyable_v<T>,
+                          "BinaryReader::Read requires a trivially-copyable type.");
             return ReadBytes(&outValue, sizeof(T));
         }
 
@@ -89,13 +106,19 @@ export namespace draconic::core
             u32 length = 0;
             Read(length);
             outValue.Clear();
-            if (!m_ok) { return false; }
+            if (!m_ok)
+            {
+                return false;
+            }
 
             outValue.Reserve(length);
             for (u32 i = 0; i < length; ++i)
             {
                 utf8char ch{};
-                if (!ReadBytes(&ch, sizeof(utf8char))) { break; }
+                if (!ReadBytes(&ch, sizeof(utf8char)))
+                {
+                    break;
+                }
                 outValue.PushBack(ch);
             }
             return m_ok;

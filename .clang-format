@@ -1,8 +1,11 @@
 # Draconic C++ style - Allman braces, 4-space indent, 100-col.
+# Decided 2026-07-22 (docs/design/code-standard.md sec 7/8). Enforced per-module.
+# clang-format owns the FORMATTING layer only; namespace aliases, file renames,
+# splits, naming and TODO/comment content are hand-done (semantic - see sec 10).
 ---
 Language: Cpp
 BasedOnStyle: LLVM
-Standard: c++20
+Standard: Latest             # C++23 modules: parse import/export/module correctly.
 
 ColumnLimit: 100
 IndentWidth: 4
@@ -10,7 +13,9 @@ TabWidth: 4
 UseTab: Never
 
 BreakBeforeBraces: Allman
-AllowShortFunctionsOnASingleLine: Empty
+# Keep trivial one-liner bodies inline (in-class AND free functions), matching the
+# compact math-type style and Traktor. 'Empty' would explode every one-liner.
+AllowShortFunctionsOnASingleLine: All
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
 
@@ -20,11 +25,16 @@ IndentAccessModifiers: false
 PointerAlignment: Left
 ReferenceAlignment: Left
 
-NamespaceIndentation: All
-FixNamespaceComments: true
+NamespaceIndentation: All    # matches existing code - keeps the format diff minimal.
+FixNamespaceComments: false  # bare `}` close, no `} // namespace` trailer (Traktor-consistent).
 
 AlwaysBreakTemplateDeclarations: Yes
 SpaceAfterTemplateKeyword: true
 
+# Guardrails (code-standard sec 5.4, sec 8): never rewrap comments (could disturb a
+# TODO), and do NOT auto-sort includes - the global-module-fragment #include order can
+# be load-bearing (macro-defining headers like Core/Prelude.h); include ordering is a
+# hand-maintained convention, not a clang-format concern.
 IncludeBlocks: Preserve
-SortIncludes: CaseInsensitive
+ReflowComments: false
+SortIncludes: false

@@ -63,7 +63,9 @@ export namespace draconic::core
     template <typename T, typename... Args>
     [[nodiscard]] RefPtr<T> MakeRef(IAllocator& allocator, Args&&... args);
 
-    struct AdoptRef {}; // tag: take ownership of an already-counted reference
+    struct AdoptRef
+    {
+    }; // tag: take ownership of an already-counted reference
 
     // =======================================================================
     // RefCounted - intrusive strong+weak base. Heap-allocate via MakeRef.
@@ -127,7 +129,10 @@ export namespace draconic::core
 
         explicit RefPtr(T* pointer) noexcept : m_ptr(pointer)
         {
-            if (m_ptr != nullptr) { m_ptr->AddRef(); }
+            if (m_ptr != nullptr)
+            {
+                m_ptr->AddRef();
+            }
         }
 
         // Adopt an already-incremented strong reference (no extra AddRef).
@@ -135,7 +140,10 @@ export namespace draconic::core
 
         RefPtr(const RefPtr& other) noexcept : m_ptr(other.m_ptr)
         {
-            if (m_ptr != nullptr) { m_ptr->AddRef(); }
+            if (m_ptr != nullptr)
+            {
+                m_ptr->AddRef();
+            }
         }
 
         RefPtr(RefPtr&& other) noexcept : m_ptr(other.m_ptr) { other.m_ptr = nullptr; }
@@ -144,20 +152,32 @@ export namespace draconic::core
             requires std::is_convertible_v<U*, T*>
         RefPtr(const RefPtr<U>& other) noexcept : m_ptr(other.Get())
         {
-            if (m_ptr != nullptr) { m_ptr->AddRef(); }
+            if (m_ptr != nullptr)
+            {
+                m_ptr->AddRef();
+            }
         }
 
         ~RefPtr()
         {
-            if (m_ptr != nullptr) { m_ptr->Release(); }
+            if (m_ptr != nullptr)
+            {
+                m_ptr->Release();
+            }
         }
 
         RefPtr& operator=(const RefPtr& other) noexcept
         {
             if (this != &other)
             {
-                if (other.m_ptr != nullptr) { other.m_ptr->AddRef(); }
-                if (m_ptr != nullptr) { m_ptr->Release(); }
+                if (other.m_ptr != nullptr)
+                {
+                    other.m_ptr->AddRef();
+                }
+                if (m_ptr != nullptr)
+                {
+                    m_ptr->Release();
+                }
                 m_ptr = other.m_ptr;
             }
             return *this;
@@ -167,7 +187,10 @@ export namespace draconic::core
         {
             if (this != &other)
             {
-                if (m_ptr != nullptr) { m_ptr->Release(); }
+                if (m_ptr != nullptr)
+                {
+                    m_ptr->Release();
+                }
                 m_ptr = other.m_ptr;
                 other.m_ptr = nullptr;
             }
@@ -176,7 +199,10 @@ export namespace draconic::core
 
         void Reset() noexcept
         {
-            if (m_ptr != nullptr) { m_ptr->Release(); }
+            if (m_ptr != nullptr)
+            {
+                m_ptr->Release();
+            }
             m_ptr = nullptr;
         }
 
@@ -200,10 +226,11 @@ export namespace draconic::core
     template <typename T, typename... Args>
     RefPtr<T> MakeRef(IAllocator& allocator, Args&&... args)
     {
-        static_assert(std::is_base_of_v<RefCounted, T>, "MakeRef requires a RefCounted-derived type.");
+        static_assert(std::is_base_of_v<RefCounted, T>,
+                      "MakeRef requires a RefCounted-derived type.");
 
-        constexpr usize alignment = (alignof(detail::RefControl) > alignof(T))
-                                        ? alignof(detail::RefControl) : alignof(T);
+        constexpr usize alignment =
+            (alignof(detail::RefControl) > alignof(T)) ? alignof(detail::RefControl) : alignof(T);
         const usize objectOffset = AlignUp(sizeof(detail::RefControl), alignof(T));
         const usize total = objectOffset + sizeof(T);
 
@@ -224,7 +251,7 @@ export namespace draconic::core
         control->destroyObject = [](void* p) noexcept { Destruct(static_cast<T*>(p)); };
 
         static_cast<RefCounted*>(object)->m_control = control;
-        return RefPtr<T>{ object, AdoptRef{} };
+        return RefPtr<T>{object, AdoptRef{}};
     }
 
     // =======================================================================
@@ -247,9 +274,13 @@ export namespace draconic::core
             }
         }
 
-        WeakRefPtr(const WeakRefPtr& other) noexcept : m_ptr(other.m_ptr), m_control(other.m_control)
+        WeakRefPtr(const WeakRefPtr& other) noexcept
+            : m_ptr(other.m_ptr), m_control(other.m_control)
         {
-            if (m_control != nullptr) { m_control->weak.fetch_add(1, std::memory_order_relaxed); }
+            if (m_control != nullptr)
+            {
+                m_control->weak.fetch_add(1, std::memory_order_relaxed);
+            }
         }
 
         WeakRefPtr(WeakRefPtr&& other) noexcept : m_ptr(other.m_ptr), m_control(other.m_control)
@@ -260,15 +291,24 @@ export namespace draconic::core
 
         ~WeakRefPtr()
         {
-            if (m_control != nullptr) { detail::ReleaseWeak(m_control); }
+            if (m_control != nullptr)
+            {
+                detail::ReleaseWeak(m_control);
+            }
         }
 
         WeakRefPtr& operator=(const WeakRefPtr& other) noexcept
         {
             if (this != &other)
             {
-                if (other.m_control != nullptr) { other.m_control->weak.fetch_add(1, std::memory_order_relaxed); }
-                if (m_control != nullptr) { detail::ReleaseWeak(m_control); }
+                if (other.m_control != nullptr)
+                {
+                    other.m_control->weak.fetch_add(1, std::memory_order_relaxed);
+                }
+                if (m_control != nullptr)
+                {
+                    detail::ReleaseWeak(m_control);
+                }
                 m_ptr = other.m_ptr;
                 m_control = other.m_control;
             }
@@ -279,7 +319,10 @@ export namespace draconic::core
         {
             if (this != &other)
             {
-                if (m_control != nullptr) { detail::ReleaseWeak(m_control); }
+                if (m_control != nullptr)
+                {
+                    detail::ReleaseWeak(m_control);
+                }
                 m_ptr = other.m_ptr;
                 m_control = other.m_control;
                 other.m_ptr = nullptr;
@@ -290,7 +333,10 @@ export namespace draconic::core
 
         void Reset() noexcept
         {
-            if (m_control != nullptr) { detail::ReleaseWeak(m_control); }
+            if (m_control != nullptr)
+            {
+                detail::ReleaseWeak(m_control);
+            }
             m_ptr = nullptr;
             m_control = nullptr;
         }
@@ -312,10 +358,9 @@ export namespace draconic::core
             while (strong != 0)
             {
                 if (m_control->strong.compare_exchange_weak(
-                        strong, strong + 1,
-                        std::memory_order_acq_rel, std::memory_order_relaxed))
+                        strong, strong + 1, std::memory_order_acq_rel, std::memory_order_relaxed))
                 {
-                    return RefPtr<T>{ static_cast<T*>(m_ptr), AdoptRef{} };
+                    return RefPtr<T>{static_cast<T*>(m_ptr), AdoptRef{}};
                 }
             }
             return RefPtr<T>{};

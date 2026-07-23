@@ -30,10 +30,10 @@ TEST_CASE("debug: assert handler hook")
     SetAssertHandler(&RecordingHandler);
     g_assertCount = 0;
 
-    DRACONIC_ASSERT(true);            // passes -> no report
+    DRACONIC_ASSERT(true); // passes -> no report
     CHECK(g_assertCount == 0);
 
-    DRACONIC_ASSERT(1 + 1 == 3);      // fails -> one report (no trap)
+    DRACONIC_ASSERT(1 + 1 == 3); // fails -> one report (no trap)
     CHECK(g_assertCount == 1);
 
     DRACONIC_ASSERT_MSG(false, "explanatory message");
@@ -48,7 +48,7 @@ TEST_CASE("debug: DRACONIC_ENSURE returns the condition and reports on failure")
     SetAssertHandler(&RecordingHandler);
     g_assertCount = 0;
 
-    CHECK(DRACONIC_ENSURE(true));     // true, no report
+    CHECK(DRACONIC_ENSURE(true)); // true, no report
     CHECK(g_assertCount == 0);
 
     CHECK_FALSE(DRACONIC_ENSURE(false)); // false, one report
@@ -64,7 +64,7 @@ TEST_CASE("debug: Result::Value() asserts on the error case")
     g_assertCount = 0;
 
     Result<int> r = Err(ErrorCode::NotFound);
-    (void)r.Value();                // precondition violated -> reported, no trap
+    (void)r.Value(); // precondition violated -> reported, no trap
     CHECK(g_assertCount == 1);
 
     SetAssertHandler(previous);

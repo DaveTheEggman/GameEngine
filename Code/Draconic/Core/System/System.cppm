@@ -107,9 +107,15 @@ export namespace draconic::core
 
     [[nodiscard]] inline i64 FileSize(FileHandle handle) noexcept { return sys::FileSize(handle); }
 
-    [[nodiscard]] inline bool FileExists(StringView path) noexcept { return sys::FileExists(detail::NullTerminated(path).CStr()); }
+    [[nodiscard]] inline bool FileExists(StringView path) noexcept
+    {
+        return sys::FileExists(detail::NullTerminated(path).CStr());
+    }
 
-    inline bool FileDelete(StringView path) noexcept { return sys::FileDelete(detail::NullTerminated(path).CStr()); }
+    inline bool FileDelete(StringView path) noexcept
+    {
+        return sys::FileDelete(detail::NullTerminated(path).CStr());
+    }
     /// Rename/move a file OR directory (same volume).
     /// Copy PRESERVING permissions (staged executables keep their +x bit). Overwrites.
     inline bool FileCopyPreserving(StringView from, StringView to) noexcept
@@ -120,7 +126,8 @@ export namespace draconic::core
 
     inline bool FileMove(StringView from, StringView to) noexcept
     {
-        return sys::FileMove(detail::NullTerminated(from).CStr(), detail::NullTerminated(to).CStr());
+        return sys::FileMove(detail::NullTerminated(from).CStr(),
+                             detail::NullTerminated(to).CStr());
     }
 
     /// File size + last-write time (seconds since epoch). False when `path` is not a regular file.
@@ -128,30 +135,51 @@ export namespace draconic::core
     {
         unsigned long long size = 0;
         long long mtime = 0;
-        if (!sys::FileStat(detail::NullTerminated(path).CStr(), size, mtime)) { return false; }
+        if (!sys::FileStat(detail::NullTerminated(path).CStr(), size, mtime))
+        {
+            return false;
+        }
         outSize = static_cast<u64>(size);
         outModifiedTime = static_cast<i64>(mtime);
         return true;
     }
 
-    [[nodiscard]] inline bool DirectoryExists(StringView path) noexcept { return sys::DirectoryExists(detail::NullTerminated(path).CStr()); }
-    inline bool CreateDirectory(StringView path) noexcept { return sys::CreateDirectory(detail::NullTerminated(path).CStr()); }
+    [[nodiscard]] inline bool DirectoryExists(StringView path) noexcept
+    {
+        return sys::DirectoryExists(detail::NullTerminated(path).CStr());
+    }
+    inline bool CreateDirectory(StringView path) noexcept
+    {
+        return sys::CreateDirectory(detail::NullTerminated(path).CStr());
+    }
     /// Recursive mkdir: creates every missing segment (true if the full path exists after).
     inline bool CreateDirectories(StringView path) noexcept
     {
-        if (path.IsEmpty()) { return false; }
+        if (path.IsEmpty())
+        {
+            return false;
+        }
         const utf8char* d = path.Data();
         for (usize i = 1; i < path.Size(); ++i)
         {
             if (d[i] == u8'/' || d[i] == u8'\\')
             {
-                if (i > 0 && (d[i - 1] == u8'/' || d[i - 1] == u8'\\' || d[i - 1] == u8':')) { continue; }
-                if (!CreateDirectory(path.SubStr(0, i))) { return false; }
+                if (i > 0 && (d[i - 1] == u8'/' || d[i - 1] == u8'\\' || d[i - 1] == u8':'))
+                {
+                    continue;
+                }
+                if (!CreateDirectory(path.SubStr(0, i)))
+                {
+                    return false;
+                }
             }
         }
         return CreateDirectory(path);
     }
-    inline bool RemoveDirectory(StringView path) noexcept { return sys::RemoveDirectory(detail::NullTerminated(path).CStr()); }
+    inline bool RemoveDirectory(StringView path) noexcept
+    {
+        return sys::RemoveDirectory(detail::NullTerminated(path).CStr());
+    }
 
     // Lists immediate children of a directory, invoking `cb(ctx, name, isDir)`
     // per entry (excluding "." and ".."). `name` is a UTF-8 view valid only for
@@ -159,7 +187,11 @@ export namespace draconic::core
     using DirEntryCallback = void (*)(void* ctx, StringView name, bool isDirectory);
     inline bool ListDirectory(StringView path, DirEntryCallback cb, void* ctx) noexcept
     {
-        struct Bridge { DirEntryCallback cb; void* ctx; } bridge{ cb, ctx };
+        struct Bridge
+        {
+            DirEntryCallback cb;
+            void* ctx;
+        } bridge{cb, ctx};
         return sys::ListDirectory(
             detail::NullTerminated(path).CStr(),
             [](void* c, const char* name, bool isDir) noexcept
@@ -186,7 +218,10 @@ export namespace draconic::core
 
     using LibraryHandle = sys::LibraryHandle;
 
-    [[nodiscard]] inline LibraryHandle OpenLibrary(StringView path) noexcept { return sys::LibraryOpen(detail::NullTerminated(path).CStr()); }
+    [[nodiscard]] inline LibraryHandle OpenLibrary(StringView path) noexcept
+    {
+        return sys::LibraryOpen(detail::NullTerminated(path).CStr());
+    }
     [[nodiscard]] inline void* GetLibrarySymbol(LibraryHandle handle, StringView name) noexcept
     {
         return sys::LibrarySymbol(handle, detail::NullTerminated(name).CStr());
@@ -203,7 +238,10 @@ export namespace draconic::core
         detail::NullTerminated n(name);
         char buffer[1024];
         const usize length = sys::GetEnvironmentVariable(n.CStr(), buffer, sizeof(buffer));
-        if (length == 0) { return {}; }   // unset (or empty - treated the same for our uses)
+        if (length == 0)
+        {
+            return {};
+        } // unset (or empty - treated the same for our uses)
         // Env values in practice are short (paths); anything past the buffer is truncated.
         const usize got = (length < sizeof(buffer)) ? length : sizeof(buffer) - 1;
         return String(StringView(reinterpret_cast<const utf8char*>(buffer), got));
@@ -220,7 +258,10 @@ export namespace draconic::core
     {
         char buffer[1024];
         const usize length = sys::GetUserDataDirectory(buffer, sizeof(buffer));
-        if (length == 0 || length >= sizeof(buffer)) { return String(appName); }   // unresolved/truncated
+        if (length == 0 || length >= sizeof(buffer))
+        {
+            return String(appName);
+        } // unresolved/truncated
         return PathJoin(StringView(reinterpret_cast<const utf8char*>(buffer), length), appName);
     }
 
@@ -267,7 +308,10 @@ export namespace draconic::core
     {
         char buffer[4096];
         const usize length = sys::GetExecutablePath(buffer, sizeof(buffer));
-        if (length == 0) { return String{}; }
+        if (length == 0)
+        {
+            return String{};
+        }
         const usize got = (length < sizeof(buffer)) ? length : sizeof(buffer) - 1;
         return String(StringView(reinterpret_cast<const utf8char*>(buffer), got));
     }
@@ -277,7 +321,10 @@ export namespace draconic::core
     {
         char buffer[4096];
         const usize length = sys::GetCurrentDirectory(buffer, sizeof(buffer));
-        if (length == 0) { return String{}; }
+        if (length == 0)
+        {
+            return String{};
+        }
         const usize got = (length < sizeof(buffer)) ? length : sizeof(buffer) - 1;
         return String(StringView(reinterpret_cast<const utf8char*>(buffer), got));
     }
@@ -291,7 +338,11 @@ export namespace draconic::core
         bool found = false;
         for (usize i = 0; i < path.Size(); ++i)
         {
-            if (path[i] == utf8char('/') || path[i] == utf8char('\\')) { slash = i; found = true; }
+            if (path[i] == utf8char('/') || path[i] == utf8char('\\'))
+            {
+                slash = i;
+                found = true;
+            }
         }
         return found ? String(path.AsView().SubStr(0, slash)) : String{};
     }
@@ -321,11 +372,13 @@ export namespace draconic::core
         return sys::ParseIPv4(detail::NullTerminated(dottedQuad).CStr(), &outIp);
     }
 
-    [[nodiscard]] inline i64 UdpSendTo(SocketHandle socket, u32 ip, u16 port, const void* data, usize size) noexcept
+    [[nodiscard]] inline i64 UdpSendTo(SocketHandle socket, u32 ip, u16 port, const void* data,
+                                       usize size) noexcept
     {
         return sys::UdpSendTo(socket, ip, port, data, size);
     }
-    [[nodiscard]] inline i64 UdpRecvFrom(SocketHandle socket, void* out, usize outCap, u32& fromIp, u16& fromPort) noexcept
+    [[nodiscard]] inline i64 UdpRecvFrom(SocketHandle socket, void* out, usize outCap, u32& fromIp,
+                                         u16& fromPort) noexcept
     {
         return sys::UdpRecvFrom(socket, out, outCap, &fromIp, &fromPort);
     }
@@ -335,12 +388,19 @@ export namespace draconic::core
     {
         return sys::TcpListen(port, outBoundPort);
     }
-    [[nodiscard]] inline SocketHandle TcpAccept(SocketHandle listener, u32* fromIp = nullptr, u16* fromPort = nullptr) noexcept
+    [[nodiscard]] inline SocketHandle TcpAccept(SocketHandle listener, u32* fromIp = nullptr,
+                                                u16* fromPort = nullptr) noexcept
     {
         return sys::TcpAccept(listener, fromIp, fromPort);
     }
-    [[nodiscard]] inline SocketHandle TcpConnect(u32 ip, u16 port) noexcept { return sys::TcpConnect(ip, port); }
-    [[nodiscard]] inline int TcpConnectStatus(SocketHandle socket) noexcept { return sys::TcpConnectStatus(socket); }
+    [[nodiscard]] inline SocketHandle TcpConnect(u32 ip, u16 port) noexcept
+    {
+        return sys::TcpConnect(ip, port);
+    }
+    [[nodiscard]] inline int TcpConnectStatus(SocketHandle socket) noexcept
+    {
+        return sys::TcpConnectStatus(socket);
+    }
     [[nodiscard]] inline i64 TcpSend(SocketHandle socket, const void* data, usize size) noexcept
     {
         return sys::TcpSend(socket, data, size);

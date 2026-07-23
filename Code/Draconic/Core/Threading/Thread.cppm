@@ -57,7 +57,8 @@ export namespace draconic::core
         {
             if (m_joinable)
             {
-                DRACONIC_ASSERT_MSG(false, "Thread destroyed while still joinable; call Join or Detach");
+                DRACONIC_ASSERT_MSG(false,
+                                    "Thread destroyed while still joinable; call Join or Detach");
                 sys::ThreadDetach(m_handle);
             }
         }

@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-#include "Core/Prelude.h"  // brings <new> into reach for container instantiation (GCC)
+#include "Core/Prelude.h" // brings <new> into reach for container instantiation (GCC)
 #include "Core/Reflection/Reflect.h"
 
 import draconic.core;
@@ -35,7 +35,7 @@ TEST_CASE("core-reflection: get / set a property through an Instance")
 {
     EnsureRegistered();
 
-    Float3 v{ 1.0f, 2.0f, 3.0f };
+    Float3 v{1.0f, 2.0f, 3.0f};
     Instance inst = Instance::From(&v);
 
     const PropertyInfo* y = FindProperty(TypeOf<Float3>(), "y");
@@ -54,7 +54,7 @@ TEST_CASE("core-reflection: PropertyInfo::address exposes the raw field")
 {
     EnsureRegistered();
 
-    Float3 v{ 1.0f, 2.0f, 3.0f };
+    Float3 v{1.0f, 2.0f, 3.0f};
     Instance inst = Instance::From(&v);
 
     const PropertyInfo* y = FindProperty(TypeOf<Float3>(), "y");
@@ -86,9 +86,9 @@ TEST_CASE("core-reflection: nested value-type properties (Transform)")
 
     Transform t;
     Instance inst = Instance::From(&t);
-    CHECK(SetProperty(*position, inst, Variant::From(Float3{ 4.0f, 5.0f, 6.0f })).IsOk());
-    CHECK(t.position == Float3{ 4.0f, 5.0f, 6.0f });
-    CHECK(GetProperty(*position, inst).Get<Float3>() == Float3{ 4.0f, 5.0f, 6.0f });
+    CHECK(SetProperty(*position, inst, Variant::From(Float3{4.0f, 5.0f, 6.0f})).IsOk());
+    CHECK(t.position == Float3{4.0f, 5.0f, 6.0f});
+    CHECK(GetProperty(*position, inst).Get<Float3>() == Float3{4.0f, 5.0f, 6.0f});
 }
 
 TEST_CASE("core-reflection: named constants are reflected")
@@ -108,7 +108,8 @@ TEST_CASE("core-reflection: named constants are reflected")
     CHECK(FindConstant(vec3, "Nope") == nullptr);
 
     // Constants on other types.
-    CHECK(NearlyEqual(FindConstant(TypeOf<Quaternion>(), "Identity")->value.Get<Quaternion>(), Quaternion::Identity));
+    CHECK(NearlyEqual(FindConstant(TypeOf<Quaternion>(), "Identity")->value.Get<Quaternion>(),
+                      Quaternion::Identity));
     CHECK(FindConstant(TypeOf<Color>(), "Red")->value.Get<Color>() == Color::Red);
     CHECK(FindConstant(TypeOf<Guid>(), "Nil")->value.Get<Guid>() == Guid::Nil);
 }
@@ -118,13 +119,14 @@ TEST_CASE("core-reflection: member, const, and static methods invoke")
     EnsureRegistered();
 
     // const member returning a value type
-    Float4 v{ 1.0f, 2.0f, 3.0f, 4.0f };
+    Float4 v{1.0f, 2.0f, 3.0f, 4.0f};
     Instance vi = Instance::From(&v);
     const MethodInfo* xyz = FindMethod(TypeOf<Float4>(), "XYZ");
     REQUIRE(xyz != nullptr);
     CHECK_FALSE(xyz->isStatic);
     CHECK(xyz->isConst);
-    CHECK(InvokeMethod(*xyz, vi, Span<Variant>{}).Value().Get<Float3>() == Float3{ 1.0f, 2.0f, 3.0f });
+    CHECK(InvokeMethod(*xyz, vi, Span<Variant>{}).Value().Get<Float3>() ==
+          Float3{1.0f, 2.0f, 3.0f});
 
     // const member returning a scalar
     Color white = Color::White;
@@ -137,13 +139,15 @@ TEST_CASE("core-reflection: member, const, and static methods invoke")
     const MethodInfo* fromRGBA = FindMethod(TypeOf<Color>(), "FromRGBA8");
     REQUIRE(fromRGBA != nullptr);
     CHECK(fromRGBA->isStatic);
-    Variant fromArgs[] = { Variant::From<u32>(0xFFFFFFFFu) };
-    CHECK(InvokeStatic(*fromRGBA, Span<Variant>{ fromArgs, 1 }).Value().Get<Color>() == Color::White);
+    Variant fromArgs[] = {Variant::From<u32>(0xFFFFFFFFu)};
+    CHECK(InvokeStatic(*fromRGBA, Span<Variant>{fromArgs, 1}).Value().Get<Color>() == Color::White);
 
     // member taking an argument
     Guid nil = Guid::Nil;
     Instance gi = Instance::From(&nil);
-    CHECK(InvokeMethod(*FindMethod(TypeOf<Guid>(), "IsNil"), gi, Span<Variant>{}).Value().Get<bool>());
+    CHECK(InvokeMethod(*FindMethod(TypeOf<Guid>(), "IsNil"), gi, Span<Variant>{})
+              .Value()
+              .Get<bool>());
 }
 
 TEST_CASE("core-reflection: overloaded free functions reflect (disambiguated by cast)")
@@ -157,37 +161,38 @@ TEST_CASE("core-reflection: overloaded free functions reflect (disambiguated by 
     CHECK(dot->returnType() == &TypeOf<f32>());
     REQUIRE(dot->paramCount == 2u);
     CHECK(dot->params[0].type() == &TypeOf<Float3>());
-    Variant dotArgs[] = { Variant::From(Float3{ 1.0f, 2.0f, 3.0f }), Variant::From(Float3{ 4.0f, 5.0f, 6.0f }) };
-    CHECK(InvokeStatic(*dot, Span<Variant>{ dotArgs, 2 }).Value().Get<f32>() == 32.0f);
+    Variant dotArgs[] = {Variant::From(Float3{1.0f, 2.0f, 3.0f}),
+                         Variant::From(Float3{4.0f, 5.0f, 6.0f})};
+    CHECK(InvokeStatic(*dot, Span<Variant>{dotArgs, 2}).Value().Get<f32>() == 32.0f);
 }
 
 TEST_CASE("core-reflection: same-named overloads resolved by parameter type")
 {
     EnsureRegistered();
 
-    const Float3 a{ 2.0f, 3.0f, 4.0f };
+    const Float3 a{2.0f, 3.0f, 4.0f};
 
     // Float3 * f32
-    const TypeInfo* const scalarSig[] = { &TypeOf<Float3>(), &TypeOf<f32>() };
-    const MethodInfo* mulScalar = FindMethod(TypeOf<Float3>(), "Mul",
-        Span<const TypeInfo* const>{ scalarSig, 2 });
+    const TypeInfo* const scalarSig[] = {&TypeOf<Float3>(), &TypeOf<f32>()};
+    const MethodInfo* mulScalar =
+        FindMethod(TypeOf<Float3>(), "Mul", Span<const TypeInfo* const>{scalarSig, 2});
     REQUIRE(mulScalar != nullptr);
 
     // Float3 * Float3
-    const TypeInfo* const vecSig[] = { &TypeOf<Float3>(), &TypeOf<Float3>() };
-    const MethodInfo* mulVec = FindMethod(TypeOf<Float3>(), "Mul",
-        Span<const TypeInfo* const>{ vecSig, 2 });
+    const TypeInfo* const vecSig[] = {&TypeOf<Float3>(), &TypeOf<Float3>()};
+    const MethodInfo* mulVec =
+        FindMethod(TypeOf<Float3>(), "Mul", Span<const TypeInfo* const>{vecSig, 2});
     REQUIRE(mulVec != nullptr);
 
-    CHECK(mulScalar != mulVec);  // distinct overloads selected by signature
+    CHECK(mulScalar != mulVec); // distinct overloads selected by signature
 
-    Variant scalarArgs[] = { Variant::From(a), Variant::From(2.0f) };
-    CHECK(InvokeStatic(*mulScalar, Span<Variant>{ scalarArgs, 2 }).Value().Get<Float3>()
-          == Float3{ 4.0f, 6.0f, 8.0f });
+    Variant scalarArgs[] = {Variant::From(a), Variant::From(2.0f)};
+    CHECK(InvokeStatic(*mulScalar, Span<Variant>{scalarArgs, 2}).Value().Get<Float3>() ==
+          Float3{4.0f, 6.0f, 8.0f});
 
-    Variant vecArgs[] = { Variant::From(a), Variant::From(Float3{ 1.0f, 2.0f, 3.0f }) };
-    CHECK(InvokeStatic(*mulVec, Span<Variant>{ vecArgs, 2 }).Value().Get<Float3>()
-          == Float3{ 2.0f, 6.0f, 12.0f });
+    Variant vecArgs[] = {Variant::From(a), Variant::From(Float3{1.0f, 2.0f, 3.0f})};
+    CHECK(InvokeStatic(*mulVec, Span<Variant>{vecArgs, 2}).Value().Get<Float3>() ==
+          Float3{2.0f, 6.0f, 12.0f});
 
     // Name-only lookup still returns the first overload.
     CHECK(FindMethod(TypeOf<Float3>(), "Mul") != nullptr);
@@ -207,24 +212,28 @@ TEST_CASE("core-reflection: matrix elements via container + ops as methods")
     Float4x4 m = Float4x4::Identity();
     Instance inst = Instance::From(&m);
     CHECK(ContainerSize(*c, inst) == 16u);
-    CHECK(ContainerGetAt(*c, inst, 0).Get<f32>() == 1.0f);  // m(0,0)
-    CHECK(ContainerGetAt(*c, inst, 1).Get<f32>() == 0.0f);  // m(0,1)
-    CHECK(ContainerSetAt(*c, inst, 5, Variant::From(7.0f)).IsOk());  // m(1,1)
+    CHECK(ContainerGetAt(*c, inst, 0).Get<f32>() == 1.0f);          // m(0,0)
+    CHECK(ContainerGetAt(*c, inst, 1).Get<f32>() == 0.0f);          // m(0,1)
+    CHECK(ContainerSetAt(*c, inst, 5, Variant::From(7.0f)).IsOk()); // m(1,1)
     CHECK(m.m[1][1] == 7.0f);
 
     CHECK(ContainerSize(*TypeOf<Float3x3>().container, Instance::From(&m)) == 9u);
 
     // Static factory + free ops reflected as methods.
-    Float4x4 id = InvokeStatic(*FindMethod(mat4, "Identity"), Span<Variant>{}).Value().Get<Float4x4>();
+    Float4x4 id =
+        InvokeStatic(*FindMethod(mat4, "Identity"), Span<Variant>{}).Value().Get<Float4x4>();
     CHECK(NearlyEqual(id, Float4x4::Identity()));
 
-    const Float4x4 t = Float4x4::Translation(Float3{ 1.0f, 2.0f, 3.0f });
-    Variant mulArgs[] = { Variant::From(t), Variant::From(Float4x4::Identity()) };
-    Float4x4 product = InvokeStatic(*FindMethod(mat4, "Mul"), Span<Variant>{ mulArgs, 2 }).Value().Get<Float4x4>();
+    const Float4x4 t = Float4x4::Translation(Float3{1.0f, 2.0f, 3.0f});
+    Variant mulArgs[] = {Variant::From(t), Variant::From(Float4x4::Identity())};
+    Float4x4 product =
+        InvokeStatic(*FindMethod(mat4, "Mul"), Span<Variant>{mulArgs, 2}).Value().Get<Float4x4>();
     CHECK(NearlyEqual(product, t));
 
-    Variant detArgs[] = { Variant::From(Float4x4::Identity()) };
-    CHECK(InvokeStatic(*FindMethod(mat4, "Determinant"), Span<Variant>{ detArgs, 1 }).Value().Get<f32>() == 1.0f);
+    Variant detArgs[] = {Variant::From(Float4x4::Identity())};
+    CHECK(InvokeStatic(*FindMethod(mat4, "Determinant"), Span<Variant>{detArgs, 1})
+              .Value()
+              .Get<f32>() == 1.0f);
 }
 
 TEST_CASE("core-reflection: count / by-index accessors (binding-generator style)")
@@ -240,7 +249,7 @@ TEST_CASE("core-reflection: count / by-index accessors (binding-generator style)
     CHECK(ConstantAt(vec3, 0).value.Get<Float3>() == Float3::Zero);
 
     REQUIRE(MethodCount(vec3) == Methods(vec3).Size());
-    CHECK(MethodCount(vec3) >= 5u);  // Dot, Length, Normalized, Mul x2
+    CHECK(MethodCount(vec3) >= 5u); // Dot, Length, Normalized, Mul x2
 
     // Iterate methods by index and read each signature via ParamCount/ParamAt
     // - exactly how a binding generator would walk the type. Two 2-arg methods
@@ -251,7 +260,7 @@ TEST_CASE("core-reflection: count / by-index accessors (binding-generator style)
         const MethodInfo& m = MethodAt(vec3, i);
         for (usize p = 0; p < ParamCount(m); ++p)
         {
-            CHECK(ParamAt(m, p).type() != nullptr);  // every param carries type info
+            CHECK(ParamAt(m, p).type() != nullptr); // every param carries type info
         }
         if (ParamCount(m) >= 1 && ParamAt(m, 0).type() == &TypeOf<Float3>())
         {
@@ -265,28 +274,30 @@ TEST_CASE("core-reflection: construct value types via reflection")
 {
     EnsureRegistered();
     const TypeInfo& vec3 = TypeOf<Float3>();
-    CHECK(ConstructorCount(vec3) == 2u);  // default + (f32,f32,f32)
+    CHECK(ConstructorCount(vec3) == 2u); // default + (f32,f32,f32)
 
     // Parameterized constructor.
-    Variant args[] = { Variant::From(1.0f), Variant::From(2.0f), Variant::From(3.0f) };
-    Result<Variant> made = Construct(vec3, Span<Variant>{ args, 3 });
+    Variant args[] = {Variant::From(1.0f), Variant::From(2.0f), Variant::From(3.0f)};
+    Result<Variant> made = Construct(vec3, Span<Variant>{args, 3});
     REQUIRE(made.HasValue());
-    CHECK(made.Value().Get<Float3>() == Float3{ 1.0f, 2.0f, 3.0f });
+    CHECK(made.Value().Get<Float3>() == Float3{1.0f, 2.0f, 3.0f});
 
     // Default constructor (overload picked by arity).
     CHECK(Construct(vec3, Span<Variant>{}).Value().Get<Float3>() == Float3::Zero);
 
     // No matching overload -> InvalidArgument.
-    Variant bad[] = { Variant::From(1.0f) };
-    CHECK(Construct(vec3, Span<Variant>{ bad, 1 }).Error() == ErrorCode::InvalidArgument);
+    Variant bad[] = {Variant::From(1.0f)};
+    CHECK(Construct(vec3, Span<Variant>{bad, 1}).Error() == ErrorCode::InvalidArgument);
 
     // Wrong arg type at a matching arity is also rejected.
-    Variant wrong[] = { Variant::From(1), Variant::From(2), Variant::From(3) };  // int, not f32
-    CHECK_FALSE(Construct(vec3, Span<Variant>{ wrong, 3 }).HasValue());
+    Variant wrong[] = {Variant::From(1), Variant::From(2), Variant::From(3)}; // int, not f32
+    CHECK_FALSE(Construct(vec3, Span<Variant>{wrong, 3}).HasValue());
 
     // Aggregate value type (parenthesized aggregate init).
-    Variant rectArgs[] = { Variant::From(1.0f), Variant::From(2.0f), Variant::From(3.0f), Variant::From(4.0f) };
-    Rectangle r = Construct(TypeOf<Rectangle>(), Span<Variant>{ rectArgs, 4 }).Value().Get<Rectangle>();
+    Variant rectArgs[] = {Variant::From(1.0f), Variant::From(2.0f), Variant::From(3.0f),
+                          Variant::From(4.0f)};
+    Rectangle r =
+        Construct(TypeOf<Rectangle>(), Span<Variant>{rectArgs, 4}).Value().Get<Rectangle>();
     CHECK(r.width == 3.0f);
 }
 
@@ -362,12 +373,12 @@ namespace
 DRACONIC_REFLECT_VALUE(AttrWidget, "draconic::tests")
 {
     builder.Property<&AttrWidget::speed>("speed")
-               .PropAttribute("range", Float4{ 0.0f, 10.0f, 0.5f, 0.0f })
-               .PropAttribute("description", String(u8"How fast"))
-           .Property<&AttrWidget::mode>("mode")
-           .Property<&AttrWidget::active>("active")
-               .PropAttribute("visibleWhen", String(u8"mode=1"));
-    builder.Attribute("category", String(u8"testing"));   // type-level coexists
+        .PropAttribute("range", Float4{0.0f, 10.0f, 0.5f, 0.0f})
+        .PropAttribute("description", String(u8"How fast"))
+        .Property<&AttrWidget::mode>("mode")
+        .Property<&AttrWidget::active>("active")
+        .PropAttribute("visibleWhen", String(u8"mode=1"));
+    builder.Attribute("category", String(u8"testing")); // type-level coexists
 }
 
 TEST_CASE("core-reflection: per-property attributes via PropAttribute")

@@ -38,7 +38,7 @@ TEST_CASE("format: brace escapes and extra/missing args")
     CHECK(FormatEquals(u8"{literal}", u8"{{literal}}"));
     CHECK(FormatEquals(u8"set {x} = 7", u8"set {{x}} = {}", 7));
     CHECK(FormatEquals(u8"only 1", u8"only {}", 1, 2, 3)); // extra args ignored
-    CHECK(FormatEquals(u8"missing {}", u8"missing {}"));    // unmatched placeholder left as-is
+    CHECK(FormatEquals(u8"missing {}", u8"missing {}"));   // unmatched placeholder left as-is
 }
 
 // --- Log -------------------------------------------------------------------
@@ -101,11 +101,8 @@ namespace
 {
     struct CountingSink : ILogSink
     {
-        Atomic<int> count{ 0 };
-        void Write(LogLevel, StringView, StringView) noexcept override
-        {
-            count.fetch_add(1);
-        }
+        Atomic<int> count{0};
+        void Write(LogLevel, StringView, StringView) noexcept override { count.fetch_add(1); }
     };
 }
 
@@ -124,11 +121,19 @@ TEST_CASE("log: concurrent logging is serialized by the logger")
     Array<Thread> threads;
     for (int i = 0; i < kThreads; ++i)
     {
-        threads.PushBack(Thread([]() {
-            for (int j = 0; j < kPerThread; ++j) { DRACONIC_LOG_INFO(u8"Worker", u8"tick {}", j); }
-        }));
+        threads.PushBack(Thread(
+            []()
+            {
+                for (int j = 0; j < kPerThread; ++j)
+                {
+                    DRACONIC_LOG_INFO(u8"Worker", u8"tick {}", j);
+                }
+            }));
     }
-    for (Thread& t : threads) { t.Join(); }
+    for (Thread& t : threads)
+    {
+        t.Join();
+    }
 
     logger.RemoveSink(&sink);
     logger.SetMinLevel(previous);

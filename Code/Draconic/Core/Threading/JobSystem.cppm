@@ -42,10 +42,10 @@ export namespace draconic::core
         // set) is decremented when the job completes (driving dependencies + waits).
         struct JobItem
         {
-            void   (*invoke)(void*) = nullptr;
-            void   (*destroy)(void*) = nullptr;
-            void*    data            = nullptr;
-            Counter* signal          = nullptr;
+            void (*invoke)(void*) = nullptr;
+            void (*destroy)(void*) = nullptr;
+            void* data = nullptr;
+            Counter* signal = nullptr;
         };
     }
 
@@ -65,9 +65,9 @@ export namespace draconic::core
 
     private:
         friend class JobSystem;
-        std::atomic<i32>          m_count{ 0 };
-        Mutex                     m_lock;            // guards m_continuations
-        Array<detail::JobItem>    m_continuations;   // jobs to schedule when m_count hits 0
+        std::atomic<i32> m_count{0};
+        Mutex m_lock;                           // guards m_continuations
+        Array<detail::JobItem> m_continuations; // jobs to schedule when m_count hits 0
     };
 
     class JobSystem
@@ -81,7 +81,7 @@ export namespace draconic::core
             if (count == 0)
             {
                 const u32 cores = LogicalCoreCount();
-                count = (cores > 1) ? (cores - 1) : 0;   // 0 cores-extra => inline fallback
+                count = (cores > 1) ? (cores - 1) : 0; // 0 cores-extra => inline fallback
             }
             m_workerCount = count;
             for (u32 i = 0; i < count; ++i)
@@ -104,7 +104,10 @@ export namespace draconic::core
                 m_stop = true;
             }
             m_jobAvailable.NotifyAll();
-            for (Thread& worker : m_workers) { worker.Join(); }
+            for (Thread& worker : m_workers)
+            {
+                worker.Join();
+            }
         }
 
         [[nodiscard]] u32 WorkerCount() const noexcept { return m_workerCount; }
@@ -142,10 +145,19 @@ export namespace draconic::core
             bool runNow = false;
             {
                 ScopedLock lock(dep.m_lock);
-                if (dep.m_count.load(std::memory_order_acquire) == 0) { runNow = true; }
-                else { dep.m_continuations.PushBack(job); }
+                if (dep.m_count.load(std::memory_order_acquire) == 0)
+                {
+                    runNow = true;
+                }
+                else
+                {
+                    dep.m_continuations.PushBack(job);
+                }
             }
-            if (runNow) { Schedule(job); }
+            if (runNow)
+            {
+                Schedule(job);
+            }
         }
 
         // Runs fn(u32 i) for i in [0, count), in parallel across the pool, BLOCKING (with
@@ -153,7 +165,10 @@ export namespace draconic::core
         template <typename Fn>
         void ParallelFor(u32 count, Fn&& fn, u32 grainSize = 0)
         {
-            if (count == 0) { return; }
+            if (count == 0)
+            {
+                return;
+            }
 
             const u32 workers = (m_workerCount > 0) ? m_workerCount : 1;
             u32 grain = grainSize;
@@ -161,19 +176,28 @@ export namespace draconic::core
             {
                 // ~4 chunks per worker for load balancing; at least 1 item per chunk.
                 grain = (count + (4u * workers) - 1u) / (4u * workers);
-                if (grain == 0) { grain = 1; }
+                if (grain == 0)
+                {
+                    grain = 1;
+                }
             }
             const u32 chunks = (count + grain - 1u) / grain;
 
-            Counter done{ static_cast<i32>(chunks) };
+            Counter done{static_cast<i32>(chunks)};
             for (u32 c = 0; c < chunks; ++c)
             {
                 const u32 begin = c * grain;
                 const u32 end = (begin + grain < count) ? (begin + grain) : count;
                 // `fn` outlives this call (we Wait below), so chunk jobs reference it.
-                Schedule(MakeJob([&fn, begin, end]() {
-                    for (u32 i = begin; i < end; ++i) { fn(i); }
-                }, &done));
+                Schedule(MakeJob(
+                    [&fn, begin, end]()
+                    {
+                        for (u32 i = begin; i < end; ++i)
+                        {
+                            fn(i);
+                        }
+                    },
+                    &done));
             }
             Wait(done);
         }
@@ -185,14 +209,19 @@ export namespace draconic::core
         {
             while (counter.Value() != 0)
             {
-                if (!RunOneJob()) { YieldThread(); }
+                if (!RunOneJob())
+                {
+                    YieldThread();
+                }
             }
             // Lifetime fence: the thread that drove the count to 0 decremented it WHILE holding
             // m_lock (see RunJob) and may still be inside that critical section. Acquiring the
             // lock here blocks until it has released it, so a caller that destroys `counter`
             // right after Wait returns (e.g. ParallelFor's stack `done`) can't free it out from
             // under that signaling thread.
-            { ScopedLock lock(counter.m_lock); }
+            {
+                ScopedLock lock(counter.m_lock);
+            }
         }
 
         // Runs jobs until every submitted job has completed.
@@ -200,14 +229,17 @@ export namespace draconic::core
         {
             while (m_pending.load(std::memory_order_acquire) != 0)
             {
-                if (!RunOneJob()) { YieldThread(); }
+                if (!RunOneJob())
+                {
+                    YieldThread();
+                }
             }
         }
 
     private:
         struct Deque
         {
-            Mutex                  mutex;
+            Mutex mutex;
             Array<detail::JobItem> items;
         };
 
@@ -217,12 +249,9 @@ export namespace draconic::core
         {
             using Stored = std::decay_t<Fn>;
             Stored* held = DefaultAllocator().New<Stored>(static_cast<Fn&&>(fn));
-            return detail::JobItem{
-                [](void* p) { (*static_cast<Stored*>(p))(); },
-                [](void* p) { DefaultAllocator().Delete(static_cast<Stored*>(p)); },
-                held,
-                signal
-            };
+            return detail::JobItem{[](void* p) { (*static_cast<Stored*>(p))(); }, [](void* p)
+                                   { DefaultAllocator().Delete(static_cast<Stored*>(p)); }, held,
+                                   signal};
         }
 
         // Push a job onto a deque (the submitter's own if it is a worker, else round-robin)
@@ -244,8 +273,14 @@ export namespace draconic::core
 
             const i32 self = WorkerSlot();
             u32 target;
-            if (self >= 0) { target = static_cast<u32>(self); }
-            else { target = m_nextExternal.fetch_add(1, std::memory_order_relaxed) % m_workerCount; }
+            if (self >= 0)
+            {
+                target = static_cast<u32>(self);
+            }
+            else
+            {
+                target = m_nextExternal.fetch_add(1, std::memory_order_relaxed) % m_workerCount;
+            }
 
             {
                 ScopedLock lock(m_deques[target]->mutex);
@@ -253,7 +288,9 @@ export namespace draconic::core
             }
             // Fence against the wait/sleep decision (see WorkerLoop): acquiring m_idleMutex
             // here closes the lost-wakeup window.
-            { ScopedLock lock(m_idleMutex); }
+            {
+                ScopedLock lock(m_idleMutex);
+            }
             m_jobAvailable.NotifyOne();
         }
 
@@ -262,7 +299,10 @@ export namespace draconic::core
         bool RunOneJob()
         {
             detail::JobItem job{};
-            if (!TryGetJob(job)) { return false; }
+            if (!TryGetJob(job))
+            {
+                return false;
+            }
             RunJob(job);
             return true;
         }
@@ -276,22 +316,40 @@ export namespace draconic::core
             {
                 Deque& d = *m_deques[static_cast<u32>(self)];
                 ScopedLock lock(d.mutex);
-                if (!d.items.IsEmpty()) { out = d.items.Back(); d.items.PopBack(); return true; }
+                if (!d.items.IsEmpty())
+                {
+                    out = d.items.Back();
+                    d.items.PopBack();
+                    return true;
+                }
             }
 
             // 2) steal from other worker deques (FIFO - take the oldest, least contended)
             for (u32 k = 0; k < m_workerCount; ++k)
             {
-                if (self >= 0 && k == static_cast<u32>(self)) { continue; }
+                if (self >= 0 && k == static_cast<u32>(self))
+                {
+                    continue;
+                }
                 Deque& d = *m_deques[k];
                 ScopedLock lock(d.mutex);
-                if (!d.items.IsEmpty()) { out = d.items.Front(); d.items.RemoveAt(0); return true; }
+                if (!d.items.IsEmpty())
+                {
+                    out = d.items.Front();
+                    d.items.RemoveAt(0);
+                    return true;
+                }
             }
 
             // 3) external list (jobs submitted by non-workers, and the 0-worker fallback)
             {
                 ScopedLock lock(m_externalMutex);
-                if (!m_external.IsEmpty()) { out = m_external.Front(); m_external.RemoveAt(0); return true; }
+                if (!m_external.IsEmpty())
+                {
+                    out = m_external.Front();
+                    m_external.RemoveAt(0);
+                    return true;
+                }
             }
             return false;
         }
@@ -317,13 +375,16 @@ export namespace draconic::core
                     ScopedLock lock(signal->m_lock);
                     if (signal->m_count.fetch_sub(1, std::memory_order_acq_rel) == 1)
                     {
-                        last  = true;
+                        last = true;
                         ready = Move(signal->m_continuations);
                     }
                 }
                 if (last)
                 {
-                    for (const detail::JobItem& cont : ready) { Schedule(cont); }
+                    for (const detail::JobItem& cont : ready)
+                    {
+                        Schedule(cont);
+                    }
                 }
             }
 
@@ -335,15 +396,27 @@ export namespace draconic::core
             WorkerSlot() = static_cast<i32>(index);
             for (;;)
             {
-                if (RunOneJob()) { continue; }
+                if (RunOneJob())
+                {
+                    continue;
+                }
 
                 // No work found - sleep until notified or stopped (re-check under the lock
                 // to close the lost-wakeup window; Schedule fences on m_idleMutex).
                 ScopedLock lock(m_idleMutex);
-                if (m_stop) { return; }
-                if (HasAnyWork()) { continue; }     // a job arrived between the failed run and the lock
+                if (m_stop)
+                {
+                    return;
+                }
+                if (HasAnyWork())
+                {
+                    continue;
+                } // a job arrived between the failed run and the lock
                 m_jobAvailable.Wait(m_idleMutex);
-                if (m_stop && !HasAnyWork()) { return; }
+                if (m_stop && !HasAnyWork())
+                {
+                    return;
+                }
             }
         }
 
@@ -352,7 +425,10 @@ export namespace draconic::core
             for (u32 k = 0; k < m_workerCount; ++k)
             {
                 ScopedLock lock(m_deques[k]->mutex);
-                if (!m_deques[k]->items.IsEmpty()) { return true; }
+                if (!m_deques[k]->items.IsEmpty())
+                {
+                    return true;
+                }
             }
             ScopedLock lock(m_externalMutex);
             return !m_external.IsEmpty();
@@ -370,16 +446,16 @@ export namespace draconic::core
             return slot;
         }
 
-        u32                     m_workerCount = 0;
-        Array<UniquePtr<Deque>> m_deques;          // one per worker
-        Mutex                   m_externalMutex;
-        Array<detail::JobItem>  m_external;         // non-worker submissions / 0-worker fallback
-        Array<Thread>           m_workers;
-        Mutex                   m_idleMutex;        // guards sleep/wake decision
-        ConditionVariable       m_jobAvailable;
-        std::atomic<i64>        m_pending{ 0 };
-        std::atomic<u32>        m_nextExternal{ 0 };
-        bool                    m_stop = false;
+        u32 m_workerCount = 0;
+        Array<UniquePtr<Deque>> m_deques; // one per worker
+        Mutex m_externalMutex;
+        Array<detail::JobItem> m_external; // non-worker submissions / 0-worker fallback
+        Array<Thread> m_workers;
+        Mutex m_idleMutex; // guards sleep/wake decision
+        ConditionVariable m_jobAvailable;
+        std::atomic<i64> m_pending{0};
+        std::atomic<u32> m_nextExternal{0};
+        bool m_stop = false;
     };
 
     // ---- process-global JobSystem -----------------------------------------------------------
@@ -392,23 +468,33 @@ export namespace draconic::core
     // never initialized. The JobSystem class itself stays instance-constructible (tests build
     // their own); this is just a managed global instance.
 
-    namespace detail { inline JobSystem* g_globalJobs = nullptr; }
+    namespace detail
+    {
+        inline JobSystem* g_globalJobs = nullptr;
+    }
 
     // Create the global JobSystem (no-op if already created). workerCount 0 => cores-1.
-    inline void InitGlobalJobSystem(u32 workerCount = 0) {
-        if (detail::g_globalJobs == nullptr) {
+    inline void InitGlobalJobSystem(u32 workerCount = 0)
+    {
+        if (detail::g_globalJobs == nullptr)
+        {
             detail::g_globalJobs = DefaultAllocator().New<JobSystem>(workerCount);
         }
     }
 
     // Destroy the global JobSystem (joins its workers; no-op if absent).
-    inline void ShutdownGlobalJobSystem() {
-        if (detail::g_globalJobs != nullptr) {
+    inline void ShutdownGlobalJobSystem()
+    {
+        if (detail::g_globalJobs != nullptr)
+        {
             DefaultAllocator().Delete(detail::g_globalJobs);
             detail::g_globalJobs = nullptr;
         }
     }
 
-    [[nodiscard]] inline bool       HasGlobalJobSystem() noexcept { return detail::g_globalJobs != nullptr; }
-    [[nodiscard]] inline JobSystem& GlobalJobs()         noexcept { return *detail::g_globalJobs; }
+    [[nodiscard]] inline bool HasGlobalJobSystem() noexcept
+    {
+        return detail::g_globalJobs != nullptr;
+    }
+    [[nodiscard]] inline JobSystem& GlobalJobs() noexcept { return *detail::g_globalJobs; }
 }

@@ -46,8 +46,14 @@ export namespace draconic::core
         using ValueType = CharT;
 
         constexpr BasicStringView() noexcept = default;
-        constexpr BasicStringView(const CharT* data, usize size) noexcept : m_data(data), m_size(size) {}
-        constexpr BasicStringView(const CharT* str) noexcept : m_data(str), m_size(CStringLength(str)) {}
+        constexpr BasicStringView(const CharT* data, usize size) noexcept
+            : m_data(data), m_size(size)
+        {
+        }
+        constexpr BasicStringView(const CharT* str) noexcept
+            : m_data(str), m_size(CStringLength(str))
+        {
+        }
 
         [[nodiscard]] constexpr const CharT* Data() const noexcept { return m_data; }
         [[nodiscard]] constexpr usize Size() const noexcept { return m_size; }
@@ -66,18 +72,18 @@ export namespace draconic::core
         [[nodiscard]] constexpr BasicStringView SubStr(usize offset, usize count) const noexcept
         {
             DRACONIC_ASSERT(offset + count <= m_size);
-            return BasicStringView{ m_data + offset, count };
+            return BasicStringView{m_data + offset, count};
         }
 
         [[nodiscard]] constexpr bool StartsWith(BasicStringView prefix) const noexcept
         {
-            return prefix.m_size <= m_size && BasicStringView{ m_data, prefix.m_size } == prefix;
+            return prefix.m_size <= m_size && BasicStringView{m_data, prefix.m_size} == prefix;
         }
 
         [[nodiscard]] constexpr bool EndsWith(BasicStringView suffix) const noexcept
         {
-            return suffix.m_size <= m_size
-                && BasicStringView{ m_data + (m_size - suffix.m_size), suffix.m_size } == suffix;
+            return suffix.m_size <= m_size &&
+                   BasicStringView{m_data + (m_size - suffix.m_size), suffix.m_size} == suffix;
         }
 
     private:
@@ -96,8 +102,14 @@ export namespace draconic::core
         using ValueType = CharT;
         using View = BasicStringView<CharT>;
 
-        BasicString() noexcept : m_allocator(&DefaultAllocator()) { m_storage.inlineBuf[0] = CharT(0); }
-        explicit BasicString(IAllocator& allocator) noexcept : m_allocator(&allocator) { m_storage.inlineBuf[0] = CharT(0); }
+        BasicString() noexcept : m_allocator(&DefaultAllocator())
+        {
+            m_storage.inlineBuf[0] = CharT(0);
+        }
+        explicit BasicString(IAllocator& allocator) noexcept : m_allocator(&allocator)
+        {
+            m_storage.inlineBuf[0] = CharT(0);
+        }
 
         BasicString(const CharT* str, IAllocator& allocator = DefaultAllocator())
             : m_allocator(&allocator)
@@ -106,8 +118,7 @@ export namespace draconic::core
             Append(str, CStringLength(str));
         }
 
-        BasicString(View view, IAllocator& allocator = DefaultAllocator())
-            : m_allocator(&allocator)
+        BasicString(View view, IAllocator& allocator = DefaultAllocator()) : m_allocator(&allocator)
         {
             m_storage.inlineBuf[0] = CharT(0);
             Append(view.Data(), view.Size());
@@ -150,7 +161,10 @@ export namespace draconic::core
         // --- capacity ------------------------------------------------------
         [[nodiscard]] usize Size() const noexcept { return m_size; }
         [[nodiscard]] usize Length() const noexcept { return m_size; }
-        [[nodiscard]] usize Capacity() const noexcept { return m_isHeap ? m_storage.heap.capacity : kInlineCapacity; }
+        [[nodiscard]] usize Capacity() const noexcept
+        {
+            return m_isHeap ? m_storage.heap.capacity : kInlineCapacity;
+        }
         [[nodiscard]] bool IsEmpty() const noexcept { return m_size == 0; }
         [[nodiscard]] bool IsSmall() const noexcept { return !m_isHeap; }
 
@@ -207,17 +221,35 @@ export namespace draconic::core
         // format sink alongside its Append(view)/Append(ptr,len) overloads.
         void Append(CharT ch) { PushBack(ch); }
 
-        BasicString& operator+=(View view) { Append(view); return *this; }
-        BasicString& operator+=(const CharT* str) { Append(str, CStringLength(str)); return *this; }
-        BasicString& operator+=(CharT ch) { PushBack(ch); return *this; }
+        BasicString& operator+=(View view)
+        {
+            Append(view);
+            return *this;
+        }
+        BasicString& operator+=(const CharT* str)
+        {
+            Append(str, CStringLength(str));
+            return *this;
+        }
+        BasicString& operator+=(CharT ch)
+        {
+            PushBack(ch);
+            return *this;
+        }
 
         // --- insert / remove ----------------------------------------------
         // Inserts `view`'s code units at code-unit position `index` (clamped to [0, Size()]).
         void Insert(usize index, View view)
         {
             const usize count = view.Size();
-            if (count == 0) { return; }
-            if (index > m_size) { index = m_size; }
+            if (count == 0)
+            {
+                return;
+            }
+            if (index > m_size)
+            {
+                index = m_size;
+            }
             EnsureCapacity(m_size + count);
             CharT* data = Data();
             // Shift the tail (incl. terminator) right to open a gap.
@@ -229,11 +261,18 @@ export namespace draconic::core
         // Removes `count` code units starting at `index`. Out-of-range portions are clamped.
         void Remove(usize index, usize count)
         {
-            if (index >= m_size || count == 0) { return; }
-            if (count > m_size - index) { count = m_size - index; }
+            if (index >= m_size || count == 0)
+            {
+                return;
+            }
+            if (count > m_size - index)
+            {
+                count = m_size - index;
+            }
             CharT* data = Data();
             // Shift the tail (incl. terminator) left to close the gap.
-            MemMove(data + index, data + index + count, (m_size - index - count + 1) * sizeof(CharT));
+            MemMove(data + index, data + index + count,
+                    (m_size - index - count + 1) * sizeof(CharT));
             m_size -= count;
         }
 
@@ -245,7 +284,11 @@ export namespace draconic::core
             usize replaced = 0;
             for (usize i = 0; i < m_size; ++i)
             {
-                if (data[i] == from) { data[i] = to; ++replaced; }
+                if (data[i] == from)
+                {
+                    data[i] = to;
+                    ++replaced;
+                }
             }
             return replaced;
         }
@@ -263,11 +306,17 @@ export namespace draconic::core
         }
 
         // Always null-terminated.
-        [[nodiscard]] CharT* Data() noexcept { return m_isHeap ? m_storage.heap.data : m_storage.inlineBuf; }
-        [[nodiscard]] const CharT* Data() const noexcept { return m_isHeap ? m_storage.heap.data : m_storage.inlineBuf; }
+        [[nodiscard]] CharT* Data() noexcept
+        {
+            return m_isHeap ? m_storage.heap.data : m_storage.inlineBuf;
+        }
+        [[nodiscard]] const CharT* Data() const noexcept
+        {
+            return m_isHeap ? m_storage.heap.data : m_storage.inlineBuf;
+        }
         [[nodiscard]] const CharT* CStr() const noexcept { return Data(); }
 
-        [[nodiscard]] View AsView() const noexcept { return View{ Data(), m_size }; }
+        [[nodiscard]] View AsView() const noexcept { return View{Data(), m_size}; }
         operator View() const noexcept { return AsView(); }
 
         [[nodiscard]] CharT* begin() noexcept { return Data(); }
@@ -278,7 +327,8 @@ export namespace draconic::core
     private:
         static constexpr usize kInlineBytes = 3 * sizeof(void*);
         static constexpr usize kInlineCapacity = (kInlineBytes / sizeof(CharT)) > 1
-                                                      ? (kInlineBytes / sizeof(CharT)) - 1 : 1;
+                                                     ? (kInlineBytes / sizeof(CharT)) - 1
+                                                     : 1;
         static constexpr usize kInitialHeapCapacity = (kInlineCapacity + 1) * 2;
 
         void EnsureCapacity(usize required)
@@ -313,7 +363,8 @@ export namespace draconic::core
             else
             {
                 m_isHeap = false;
-                MemCopy(m_storage.inlineBuf, other.m_storage.inlineBuf, (other.m_size + 1) * sizeof(CharT));
+                MemCopy(m_storage.inlineBuf, other.m_storage.inlineBuf,
+                        (other.m_size + 1) * sizeof(CharT));
             }
             m_size = other.m_size;
             other.m_isHeap = false;
@@ -341,12 +392,19 @@ export namespace draconic::core
     // defined in an exported module class can get strong per-TU symbols under
     // GCC, colliding at link; template free functions have COMDAT linkage.
     template <typename CharT>
-    [[nodiscard]] constexpr bool operator==(BasicStringView<CharT> a, BasicStringView<CharT> b) noexcept
+    [[nodiscard]] constexpr bool operator==(BasicStringView<CharT> a,
+                                            BasicStringView<CharT> b) noexcept
     {
-        if (a.Size() != b.Size()) { return false; }
+        if (a.Size() != b.Size())
+        {
+            return false;
+        }
         for (usize i = 0; i < a.Size(); ++i)
         {
-            if (a.Data()[i] != b.Data()[i]) { return false; }
+            if (a.Data()[i] != b.Data()[i])
+            {
+                return false;
+            }
         }
         return true;
     }
@@ -356,7 +414,7 @@ export namespace draconic::core
     template <typename CharT>
     [[nodiscard]] constexpr bool operator==(BasicStringView<CharT> a, const CharT* b) noexcept
     {
-        return a == BasicStringView<CharT>{ b };
+        return a == BasicStringView<CharT>{b};
     }
     template <typename CharT>
     [[nodiscard]] bool operator==(const BasicString<CharT>& a, const BasicString<CharT>& b) noexcept
@@ -371,7 +429,7 @@ export namespace draconic::core
     template <typename CharT>
     [[nodiscard]] bool operator==(const BasicString<CharT>& a, const CharT* b) noexcept
     {
-        return a.AsView() == BasicStringView<CharT>{ b };
+        return a.AsView() == BasicStringView<CharT>{b};
     }
 
     // =======================================================================
@@ -395,9 +453,21 @@ export namespace draconic::core
         BasicStringBuilder() = default;
         explicit BasicStringBuilder(IAllocator& allocator) : m_string(allocator) {}
 
-        BasicStringBuilder& Append(BasicStringView<CharT> view) { m_string.Append(view); return *this; }
-        BasicStringBuilder& Append(const CharT* str) { m_string.Append(BasicStringView<CharT>{ str }); return *this; }
-        BasicStringBuilder& Append(CharT ch) { m_string.PushBack(ch); return *this; }
+        BasicStringBuilder& Append(BasicStringView<CharT> view)
+        {
+            m_string.Append(view);
+            return *this;
+        }
+        BasicStringBuilder& Append(const CharT* str)
+        {
+            m_string.Append(BasicStringView<CharT>{str});
+            return *this;
+        }
+        BasicStringBuilder& Append(CharT ch)
+        {
+            m_string.PushBack(ch);
+            return *this;
+        }
 
         // Appends an ASCII C-string (each byte maps to one code unit).
         BasicStringBuilder& AppendAscii(const char* str)
@@ -444,7 +514,8 @@ export namespace draconic::core
     // =======================================================================
     // UTF-8 <-> UTF-16 transcoding. Invalid sequences become U+FFFD.
     // =======================================================================
-    [[nodiscard]] inline WideString ToWide(StringView utf8, IAllocator& allocator = DefaultAllocator())
+    [[nodiscard]] inline WideString ToWide(StringView utf8,
+                                           IAllocator& allocator = DefaultAllocator())
     {
         WideString result(allocator);
         const usize size = utf8.Size();
@@ -454,21 +525,48 @@ export namespace draconic::core
             const u8 lead = static_cast<u8>(utf8[i]);
             u32 codepoint;
             usize extra;
-            if (lead < 0x80u) { codepoint = lead; extra = 0; }
-            else if ((lead & 0xE0u) == 0xC0u) { codepoint = lead & 0x1Fu; extra = 1; }
-            else if ((lead & 0xF0u) == 0xE0u) { codepoint = lead & 0x0Fu; extra = 2; }
-            else if ((lead & 0xF8u) == 0xF0u) { codepoint = lead & 0x07u; extra = 3; }
-            else { codepoint = 0xFFFDu; extra = 0; }
+            if (lead < 0x80u)
+            {
+                codepoint = lead;
+                extra = 0;
+            }
+            else if ((lead & 0xE0u) == 0xC0u)
+            {
+                codepoint = lead & 0x1Fu;
+                extra = 1;
+            }
+            else if ((lead & 0xF0u) == 0xE0u)
+            {
+                codepoint = lead & 0x0Fu;
+                extra = 2;
+            }
+            else if ((lead & 0xF8u) == 0xF0u)
+            {
+                codepoint = lead & 0x07u;
+                extra = 3;
+            }
+            else
+            {
+                codepoint = 0xFFFDu;
+                extra = 0;
+            }
             ++i;
 
             bool valid = true;
             for (usize k = 0; k < extra; ++k)
             {
-                if (i >= size || (static_cast<u8>(utf8[i]) & 0xC0u) != 0x80u) { valid = false; break; }
+                if (i >= size || (static_cast<u8>(utf8[i]) & 0xC0u) != 0x80u)
+                {
+                    valid = false;
+                    break;
+                }
                 codepoint = (codepoint << 6) | (static_cast<u8>(utf8[i]) & 0x3Fu);
                 ++i;
             }
-            if (!valid) { codepoint = 0xFFFDu; }
+            if (!valid)
+            {
+                codepoint = 0xFFFDu;
+            }
 
             if (codepoint <= 0xFFFFu)
             {
@@ -484,7 +582,8 @@ export namespace draconic::core
         return result;
     }
 
-    [[nodiscard]] inline String ToUTF8(WideStringView wide, IAllocator& allocator = DefaultAllocator())
+    [[nodiscard]] inline String ToUTF8(WideStringView wide,
+                                       IAllocator& allocator = DefaultAllocator())
     {
         String result(allocator);
         const usize size = wide.Size();
@@ -503,11 +602,20 @@ export namespace draconic::core
                         codepoint = 0x10000u + ((codepoint - 0xD800u) << 10) + (low - 0xDC00u);
                         ++i;
                     }
-                    else { codepoint = 0xFFFDu; }
+                    else
+                    {
+                        codepoint = 0xFFFDu;
+                    }
                 }
-                else { codepoint = 0xFFFDu; }
+                else
+                {
+                    codepoint = 0xFFFDu;
+                }
             }
-            else if (codepoint >= 0xDC00u && codepoint <= 0xDFFFu) { codepoint = 0xFFFDu; } // lone low
+            else if (codepoint >= 0xDC00u && codepoint <= 0xDFFFu)
+            {
+                codepoint = 0xFFFDu;
+            } // lone low
 
             if (codepoint < 0x80u)
             {
@@ -551,17 +659,41 @@ export namespace draconic::core
 
         u32 codepoint;
         int extra;
-        if (lead < 0x80u) { return lead; }
-        else if ((lead & 0xE0u) == 0xC0u) { codepoint = lead & 0x1Fu; extra = 1; }
-        else if ((lead & 0xF0u) == 0xE0u) { codepoint = lead & 0x0Fu; extra = 2; }
-        else if ((lead & 0xF8u) == 0xF0u) { codepoint = lead & 0x07u; extra = 3; }
-        else { return 0xFFFDu; } // invalid lead byte
+        if (lead < 0x80u)
+        {
+            return lead;
+        }
+        else if ((lead & 0xE0u) == 0xC0u)
+        {
+            codepoint = lead & 0x1Fu;
+            extra = 1;
+        }
+        else if ((lead & 0xF0u) == 0xE0u)
+        {
+            codepoint = lead & 0x0Fu;
+            extra = 2;
+        }
+        else if ((lead & 0xF8u) == 0xF0u)
+        {
+            codepoint = lead & 0x07u;
+            extra = 3;
+        }
+        else
+        {
+            return 0xFFFDu;
+        } // invalid lead byte
 
         for (int k = 0; k < extra; ++k)
         {
-            if (index >= text.Size()) { return 0xFFFDu; }
+            if (index >= text.Size())
+            {
+                return 0xFFFDu;
+            }
             const u8 cont = static_cast<u8>(text[index]);
-            if ((cont & 0xC0u) != 0x80u) { return 0xFFFDu; } // not a continuation byte
+            if ((cont & 0xC0u) != 0x80u)
+            {
+                return 0xFFFDu;
+            } // not a continuation byte
             codepoint = (codepoint << 6) | (cont & 0x3Fu);
             ++index;
         }
@@ -600,7 +732,11 @@ export namespace draconic::core
     {
         usize count = 0;
         usize i = 0;
-        while (i < text.Size()) { (void)DecodeUtf8(text, i); ++count; }
+        while (i < text.Size())
+        {
+            (void)DecodeUtf8(text, i);
+            ++count;
+        }
         return count;
     }
 
@@ -612,10 +748,19 @@ export namespace draconic::core
     [[nodiscard]] inline StringView Trimmed(StringView s) noexcept
     {
         const auto isWs = [](utf8char c) noexcept
-        { return c == utf8char(' ') || c == utf8char('\t') || c == utf8char('\n') || c == utf8char('\r'); };
+        {
+            return c == utf8char(' ') || c == utf8char('\t') || c == utf8char('\n') ||
+                   c == utf8char('\r');
+        };
         usize start = 0, end = s.Size();
-        while (start < end && isWs(s[start])) { ++start; }
-        while (end > start && isWs(s[end - 1])) { --end; }
+        while (start < end && isWs(s[start]))
+        {
+            ++start;
+        }
+        while (end > start && isWs(s[end - 1]))
+        {
+            --end;
+        }
         return s.SubStr(start, end - start);
     }
 
@@ -624,12 +769,18 @@ export namespace draconic::core
     [[nodiscard]] inline Optional<f64> ParseFloat(StringView s) noexcept
     {
         const StringView t = Trimmed(s);
-        if (t.IsEmpty()) { return {}; }
+        if (t.IsEmpty())
+        {
+            return {};
+        }
         const char* begin = reinterpret_cast<const char*>(t.Data());
         const char* end = begin + t.Size();
         f64 value = 0.0;
         const std::from_chars_result r = std::from_chars(begin, end, value);
-        if (r.ec != std::errc{} || r.ptr != end) { return {}; }
+        if (r.ec != std::errc{} || r.ptr != end)
+        {
+            return {};
+        }
         return value;
     }
 
@@ -637,21 +788,29 @@ export namespace draconic::core
     [[nodiscard]] inline Optional<i64> ParseInt(StringView s) noexcept
     {
         const StringView t = Trimmed(s);
-        if (t.IsEmpty()) { return {}; }
+        if (t.IsEmpty())
+        {
+            return {};
+        }
         const char* begin = reinterpret_cast<const char*>(t.Data());
         const char* end = begin + t.Size();
         i64 value = 0;
         const std::from_chars_result r = std::from_chars(begin, end, value);
-        if (r.ec != std::errc{} || r.ptr != end) { return {}; }
+        if (r.ec != std::errc{} || r.ptr != end)
+        {
+            return {};
+        }
         return value;
     }
 
     /// Format `value` with a fixed number of decimal places (like printf %.*f; `decimals` 0 = integer).
-    [[nodiscard]] inline String FormatFixed(f64 value, i32 decimals, IAllocator& allocator = DefaultAllocator())
+    [[nodiscard]] inline String FormatFixed(f64 value, i32 decimals,
+                                            IAllocator& allocator = DefaultAllocator())
     {
         char temp[64];
-        const std::to_chars_result r = std::to_chars(temp, temp + sizeof(temp), value,
-                                                     std::chars_format::fixed, decimals < 0 ? 0 : decimals);
+        const std::to_chars_result r =
+            std::to_chars(temp, temp + sizeof(temp), value, std::chars_format::fixed,
+                          decimals < 0 ? 0 : decimals);
         String out(allocator);
         out.Append(reinterpret_cast<const utf8char*>(temp), static_cast<usize>(r.ptr - temp));
         return out;

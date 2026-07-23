@@ -48,7 +48,11 @@ TEST_CASE("memory: New / Delete construct and destroy")
 {
     struct Tracked
     {
-        static int& Live() { static int n = 0; return n; }
+        static int& Live()
+        {
+            static int n = 0;
+            return n;
+        }
         int value;
         explicit Tracked(int v) : value(v) { ++Live(); }
         ~Tracked() { --Live(); }
@@ -157,7 +161,11 @@ namespace
 {
     struct Widget : RefCounted
     {
-        static int& Live() { static int n = 0; return n; }
+        static int& Live()
+        {
+            static int n = 0;
+            return n;
+        }
         int value;
         explicit Widget(int v) : value(v) { ++Live(); }
         ~Widget() override { --Live(); }
@@ -284,7 +292,10 @@ TEST_CASE("memory: TrackingAllocator counts live allocations and detects leaks")
     CHECK_FALSE(tracker.HasLeaks());
 
     // Works as a drop-in IAllocator for New/Delete.
-    struct Probe { int v = 3; };
+    struct Probe
+    {
+        int v = 3;
+    };
     Probe* p = tracker.New<Probe>();
     CHECK(tracker.LiveAllocations() == 1u);
     CHECK(p->v == 3);

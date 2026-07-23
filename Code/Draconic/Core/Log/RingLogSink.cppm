@@ -29,7 +29,9 @@ export namespace draconic::core
     {
     public:
         explicit RingLogSink(usize capacity, IAllocator& allocator = DefaultAllocator())
-            : m_records(capacity, allocator) {}
+            : m_records(capacity, allocator)
+        {
+        }
 
         void Write(LogLevel level, StringView category, StringView message) noexcept override
         {
@@ -47,7 +49,10 @@ export namespace draconic::core
         }
 
         [[nodiscard]] usize Count() const noexcept { return m_records.Size(); }
-        [[nodiscard]] const LogRecord& Record(usize index) const noexcept { return m_records[index]; }
+        [[nodiscard]] const LogRecord& Record(usize index) const noexcept
+        {
+            return m_records[index];
+        }
 
     private:
         static void CopyTruncated(utf8char* dst, usize dstCount, StringView src) noexcept

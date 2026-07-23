@@ -27,11 +27,12 @@ export namespace draconic::core
 
         [[nodiscard]] static const TypeInfo& StaticType() noexcept
         {
-            static const TypeInfo info{ ComputeTypeId("draconic::core", "Object"),
-                                        "Object", "draconic::core",
-                                        static_cast<u32>(sizeof(Object)),
-                                        static_cast<u32>(alignof(Object)),
-                                        nullptr };
+            static const TypeInfo info{ComputeTypeId("draconic::core", "Object"),
+                                       "Object",
+                                       "draconic::core",
+                                       static_cast<u32>(sizeof(Object)),
+                                       static_cast<u32>(alignof(Object)),
+                                       nullptr};
             return info;
         }
     };
@@ -43,7 +44,10 @@ export namespace draconic::core
     {
         for (const TypeInfo* t = type; t != nullptr; t = t->base)
         {
-            if (t == base) { return true; }
+            if (t == base)
+            {
+                return true;
+            }
         }
         return false;
     }

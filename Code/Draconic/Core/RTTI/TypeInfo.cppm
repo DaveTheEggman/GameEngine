@@ -17,11 +17,11 @@ export namespace draconic::core
 {
     using TypeId = u64;
 
-    struct PropertyInfo; // fully defined in :reflection
-    struct MethodInfo;   // fully defined in :reflection
-    struct Attribute;    // fully defined in :reflection
-    struct ContainerInfo; // fully defined in :reflection
-    struct ConstantInfo; // fully defined in :reflection (named static values)
+    struct PropertyInfo;    // fully defined in :reflection
+    struct MethodInfo;      // fully defined in :reflection
+    struct Attribute;       // fully defined in :reflection
+    struct ContainerInfo;   // fully defined in :reflection
+    struct ConstantInfo;    // fully defined in :reflection (named static values)
     struct ConstructorInfo; // fully defined in :reflection
 
     struct EnumValue
@@ -37,7 +37,7 @@ export namespace draconic::core
         const char* namespaceName; // e.g. "draconic::game"
         u32 size;
         u32 align;
-        const TypeInfo* base;       // single-inheritance chain; null at the root
+        const TypeInfo* base;                     // single-inheritance chain; null at the root
         const PropertyInfo* properties = nullptr; // declared in this type (not inherited)
         u32 propertyCount = 0;
         const MethodInfo* methods = nullptr;
@@ -47,7 +47,7 @@ export namespace draconic::core
         const Attribute* attributes = nullptr;
         u32 attributeCount = 0;
         const ContainerInfo* container = nullptr; // non-null for reflected containers
-        const ConstantInfo* constants = nullptr; // named static values (e.g. Float3::Zero)
+        const ConstantInfo* constants = nullptr;  // named static values (e.g. Float3::Zero)
         u32 constantCount = 0;
         const ConstructorInfo* constructors = nullptr; // reflected constructors (overloads)
         u32 constructorCount = 0;
@@ -68,11 +68,12 @@ export namespace draconic::core
     }
 
     template <typename T>
-    [[nodiscard]] TypeInfo MakeTypeInfo(const char* name, const char* namespaceName, const TypeInfo* base,
-                                        u32 dataVersion = 0) noexcept
+    [[nodiscard]] TypeInfo MakeTypeInfo(const char* name, const char* namespaceName,
+                                        const TypeInfo* base, u32 dataVersion = 0) noexcept
     {
-        TypeInfo info{ ComputeTypeId(namespaceName, name), name, namespaceName,
-                       static_cast<u32>(sizeof(T)), static_cast<u32>(alignof(T)), base };
+        TypeInfo info{
+            ComputeTypeId(namespaceName, name), name, namespaceName, static_cast<u32>(sizeof(T)),
+            static_cast<u32>(alignof(T)),       base};
         info.dataVersion = dataVersion;
         return info;
     }

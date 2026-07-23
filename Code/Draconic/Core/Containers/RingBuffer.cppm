@@ -31,8 +31,8 @@ export namespace draconic::core
         }
 
         RingBuffer(RingBuffer&& other) noexcept
-            : m_data(other.m_data), m_capacity(other.m_capacity),
-              m_head(other.m_head), m_count(other.m_count), m_allocator(other.m_allocator)
+            : m_data(other.m_data), m_capacity(other.m_capacity), m_head(other.m_head),
+              m_count(other.m_count), m_allocator(other.m_allocator)
         {
             other.m_data = nullptr;
             other.m_capacity = 0;
@@ -70,7 +70,10 @@ export namespace draconic::core
 
         bool PushBack(const T& value)
         {
-            if (IsFull()) { return false; }
+            if (IsFull())
+            {
+                return false;
+            }
             Construct<T>(&m_data[TailIndex()], value);
             ++m_count;
             return true;
@@ -78,7 +81,10 @@ export namespace draconic::core
 
         bool PushBack(T&& value)
         {
-            if (IsFull()) { return false; }
+            if (IsFull())
+            {
+                return false;
+            }
             Construct<T>(&m_data[TailIndex()], Move(value));
             ++m_count;
             return true;
@@ -87,7 +93,10 @@ export namespace draconic::core
         // Moves the front element into `out` and removes it; false if empty.
         bool PopFront(T& out)
         {
-            if (IsEmpty()) { return false; }
+            if (IsEmpty())
+            {
+                return false;
+            }
             out = Move(m_data[m_head]);
             Destruct(&m_data[m_head]);
             m_head = (m_head + 1) % m_capacity;
@@ -95,7 +104,11 @@ export namespace draconic::core
             return true;
         }
 
-        [[nodiscard]] T& Front() noexcept { DRACONIC_ASSERT(m_count > 0); return m_data[m_head]; }
+        [[nodiscard]] T& Front() noexcept
+        {
+            DRACONIC_ASSERT(m_count > 0);
+            return m_data[m_head];
+        }
         [[nodiscard]] T& Back() noexcept
         {
             DRACONIC_ASSERT(m_count > 0);

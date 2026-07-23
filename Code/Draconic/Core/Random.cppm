@@ -14,7 +14,8 @@ export namespace draconic::core
     class Random
     {
     public:
-        explicit Random(u64 seed = 0x853c49e6748fea9bull, u64 sequence = 0xda3e39cb94b95bdbull) noexcept
+        explicit Random(u64 seed = 0x853c49e6748fea9bull,
+                        u64 sequence = 0xda3e39cb94b95bdbull) noexcept
         {
             m_state = 0;
             m_inc = (sequence << 1u) | 1u;

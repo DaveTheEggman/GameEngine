@@ -37,13 +37,20 @@ export namespace draconic::core
     {
         switch (level)
         {
-            case LogLevel::Trace:   return u8"Trace";
-            case LogLevel::Debug:   return u8"Debug";
-            case LogLevel::Info:    return u8"Info";
-            case LogLevel::Warning: return u8"Warning";
-            case LogLevel::Error:   return u8"Error";
-            case LogLevel::Fatal:   return u8"Fatal";
-            case LogLevel::Off:     return u8"Off";
+        case LogLevel::Trace:
+            return u8"Trace";
+        case LogLevel::Debug:
+            return u8"Debug";
+        case LogLevel::Info:
+            return u8"Info";
+        case LogLevel::Warning:
+            return u8"Warning";
+        case LogLevel::Error:
+            return u8"Error";
+        case LogLevel::Fatal:
+            return u8"Fatal";
+        case LogLevel::Off:
+            return u8"Off";
         }
         return u8"?";
     }
@@ -60,7 +67,8 @@ export namespace draconic::core
 
     namespace detail
     {
-        inline void FormatLine(String& line, LogLevel level, StringView category, StringView message)
+        inline void FormatLine(String& line, LogLevel level, StringView category,
+                               StringView message)
         {
             // "[Level] category: message\n"
             line.Clear();
@@ -87,7 +95,10 @@ export namespace draconic::core
         // Sinks are non-owning; the caller manages their lifetime.
         void AddSink(ILogSink* sink)
         {
-            if (sink == nullptr) { return; }
+            if (sink == nullptr)
+            {
+                return;
+            }
             ScopedLock lock(m_mutex);
             m_sinks.PushBack(sink);
         }
@@ -124,7 +135,7 @@ export namespace draconic::core
 
     private:
         Array<ILogSink*> m_sinks;
-        Atomic<LogLevel> m_minLevel{ LogLevel::Info };
+        Atomic<LogLevel> m_minLevel{LogLevel::Info};
         Mutex m_mutex;
     };
 

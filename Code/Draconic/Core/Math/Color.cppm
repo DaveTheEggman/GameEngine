@@ -20,24 +20,25 @@ export namespace draconic::core
         f32 a = 1.0f;
 
         constexpr Color() noexcept = default;
-        constexpr Color(f32 inR, f32 inG, f32 inB, f32 inA = 1.0f) noexcept : r(inR), g(inG), b(inB), a(inA) {}
+        constexpr Color(f32 inR, f32 inG, f32 inB, f32 inA = 1.0f) noexcept
+            : r(inR), g(inG), b(inB), a(inA)
+        {
+        }
 
         // Packs to 0xRRGGBBAA (components clamped to 0..1).
         [[nodiscard]] u32 ToRGBA8() const noexcept
         {
             const auto byteOf = [](f32 c) -> u32
-            {
-                return static_cast<u32>(Clamp(c, 0.0f, 1.0f) * 255.0f + 0.5f);
-            };
+            { return static_cast<u32>(Clamp(c, 0.0f, 1.0f) * 255.0f + 0.5f); };
             return (byteOf(r) << 24) | (byteOf(g) << 16) | (byteOf(b) << 8) | byteOf(a);
         }
 
         [[nodiscard]] static Color FromRGBA8(u32 packed) noexcept
         {
-            return Color{ static_cast<f32>((packed >> 24) & 0xFFu) / 255.0f,
-                          static_cast<f32>((packed >> 16) & 0xFFu) / 255.0f,
-                          static_cast<f32>((packed >> 8) & 0xFFu) / 255.0f,
-                          static_cast<f32>(packed & 0xFFu) / 255.0f };
+            return Color{static_cast<f32>((packed >> 24) & 0xFFu) / 255.0f,
+                         static_cast<f32>((packed >> 16) & 0xFFu) / 255.0f,
+                         static_cast<f32>((packed >> 8) & 0xFFu) / 255.0f,
+                         static_cast<f32>(packed & 0xFFu) / 255.0f};
         }
 
         static const Color White;
@@ -48,15 +49,21 @@ export namespace draconic::core
         static const Color Transparent;
     };
 
-    inline constexpr Color Color::White{ 1.0f, 1.0f, 1.0f, 1.0f };
-    inline constexpr Color Color::Black{ 0.0f, 0.0f, 0.0f, 1.0f };
-    inline constexpr Color Color::Red{ 1.0f, 0.0f, 0.0f, 1.0f };
-    inline constexpr Color Color::Green{ 0.0f, 1.0f, 0.0f, 1.0f };
-    inline constexpr Color Color::Blue{ 0.0f, 0.0f, 1.0f, 1.0f };
-    inline constexpr Color Color::Transparent{ 0.0f, 0.0f, 0.0f, 0.0f };
+    inline constexpr Color Color::White{1.0f, 1.0f, 1.0f, 1.0f};
+    inline constexpr Color Color::Black{0.0f, 0.0f, 0.0f, 1.0f};
+    inline constexpr Color Color::Red{1.0f, 0.0f, 0.0f, 1.0f};
+    inline constexpr Color Color::Green{0.0f, 1.0f, 0.0f, 1.0f};
+    inline constexpr Color Color::Blue{0.0f, 0.0f, 1.0f, 1.0f};
+    inline constexpr Color Color::Transparent{0.0f, 0.0f, 0.0f, 0.0f};
 
-    [[nodiscard]] constexpr Color operator*(Color c, f32 s) noexcept { return { c.r * s, c.g * s, c.b * s, c.a * s }; }
-    [[nodiscard]] constexpr Color operator+(Color a, Color b) noexcept { return { a.r + b.r, a.g + b.g, a.b + b.b, a.a + b.a }; }
+    [[nodiscard]] constexpr Color operator*(Color c, f32 s) noexcept
+    {
+        return {c.r * s, c.g * s, c.b * s, c.a * s};
+    }
+    [[nodiscard]] constexpr Color operator+(Color a, Color b) noexcept
+    {
+        return {a.r + b.r, a.g + b.g, a.b + b.b, a.a + b.a};
+    }
     [[nodiscard]] constexpr bool operator==(Color a, Color b) noexcept
     {
         return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
@@ -64,13 +71,13 @@ export namespace draconic::core
 
     [[nodiscard]] constexpr Color Lerp(Color a, Color b, f32 t) noexcept
     {
-        return { Lerp(a.r, b.r, t), Lerp(a.g, b.g, t), Lerp(a.b, b.b, t), Lerp(a.a, b.a, t) };
+        return {Lerp(a.r, b.r, t), Lerp(a.g, b.g, t), Lerp(a.b, b.b, t), Lerp(a.a, b.a, t)};
     }
 
     [[nodiscard]] inline bool NearlyEqual(Color a, Color b, f32 epsilon = kEpsilon) noexcept
     {
-        return NearlyEqual(a.r, b.r, epsilon) && NearlyEqual(a.g, b.g, epsilon)
-            && NearlyEqual(a.b, b.b, epsilon) && NearlyEqual(a.a, b.a, epsilon);
+        return NearlyEqual(a.r, b.r, epsilon) && NearlyEqual(a.g, b.g, epsilon) &&
+               NearlyEqual(a.b, b.b, epsilon) && NearlyEqual(a.a, b.a, epsilon);
     }
 
     // =======================================================================
@@ -88,21 +95,23 @@ export namespace draconic::core
         u8 a = 255;
 
         constexpr Color32() noexcept = default;
-        constexpr Color32(u8 inR, u8 inG, u8 inB, u8 inA = 255) noexcept : r(inR), g(inG), b(inB), a(inA) {}
+        constexpr Color32(u8 inR, u8 inG, u8 inB, u8 inA = 255) noexcept
+            : r(inR), g(inG), b(inB), a(inA)
+        {
+        }
 
         // Packs to 0xRRGGBBAA.
         [[nodiscard]] constexpr u32 ToRGBA8() const noexcept
         {
-            return (static_cast<u32>(r) << 24) | (static_cast<u32>(g) << 16)
-                 | (static_cast<u32>(b) << 8) | static_cast<u32>(a);
+            return (static_cast<u32>(r) << 24) | (static_cast<u32>(g) << 16) |
+                   (static_cast<u32>(b) << 8) | static_cast<u32>(a);
         }
 
         [[nodiscard]] static constexpr Color32 FromRGBA8(u32 packed) noexcept
         {
-            return Color32{ static_cast<u8>((packed >> 24) & 0xFFu),
-                            static_cast<u8>((packed >> 16) & 0xFFu),
-                            static_cast<u8>((packed >> 8) & 0xFFu),
-                            static_cast<u8>(packed & 0xFFu) };
+            return Color32{static_cast<u8>((packed >> 24) & 0xFFu),
+                           static_cast<u8>((packed >> 16) & 0xFFu),
+                           static_cast<u8>((packed >> 8) & 0xFFu), static_cast<u8>(packed & 0xFFu)};
         }
 
         static const Color32 White;
@@ -113,12 +122,12 @@ export namespace draconic::core
         static const Color32 Transparent;
     };
 
-    inline constexpr Color32 Color32::White{ 255, 255, 255, 255 };
-    inline constexpr Color32 Color32::Black{ 0, 0, 0, 255 };
-    inline constexpr Color32 Color32::Red{ 255, 0, 0, 255 };
-    inline constexpr Color32 Color32::Green{ 0, 255, 0, 255 };
-    inline constexpr Color32 Color32::Blue{ 0, 0, 255, 255 };
-    inline constexpr Color32 Color32::Transparent{ 0, 0, 0, 0 };
+    inline constexpr Color32 Color32::White{255, 255, 255, 255};
+    inline constexpr Color32 Color32::Black{0, 0, 0, 255};
+    inline constexpr Color32 Color32::Red{255, 0, 0, 255};
+    inline constexpr Color32 Color32::Green{0, 255, 0, 255};
+    inline constexpr Color32 Color32::Blue{0, 0, 255, 255};
+    inline constexpr Color32 Color32::Transparent{0, 0, 0, 0};
 
     [[nodiscard]] constexpr bool operator==(Color32 a, Color32 b) noexcept
     {
@@ -129,17 +138,15 @@ export namespace draconic::core
     [[nodiscard]] constexpr Color32 ToColor32(Color c) noexcept
     {
         const auto byteOf = [](f32 v) -> u8
-        {
-            return static_cast<u8>(Clamp(v, 0.0f, 1.0f) * 255.0f + 0.5f);
-        };
-        return Color32{ byteOf(c.r), byteOf(c.g), byteOf(c.b), byteOf(c.a) };
+        { return static_cast<u8>(Clamp(v, 0.0f, 1.0f) * 255.0f + 0.5f); };
+        return Color32{byteOf(c.r), byteOf(c.g), byteOf(c.b), byteOf(c.a)};
     }
 
     // Packed bytes -> float Color (exact 0..255 -> 0..1; round-trips ToColor32).
     [[nodiscard]] constexpr Color ToColor(Color32 c) noexcept
     {
-        return Color{ static_cast<f32>(c.r) / 255.0f, static_cast<f32>(c.g) / 255.0f,
-                      static_cast<f32>(c.b) / 255.0f, static_cast<f32>(c.a) / 255.0f };
+        return Color{static_cast<f32>(c.r) / 255.0f, static_cast<f32>(c.g) / 255.0f,
+                     static_cast<f32>(c.b) / 255.0f, static_cast<f32>(c.a) / 255.0f};
     }
 
     // sRGB <-> linear transfer functions (the standard IEC 61966-2-1 EOTF). For
@@ -158,9 +165,8 @@ export namespace draconic::core
     // alpha is linear). For uploading UI/SVG colors to a linear/sRGB pipeline.
     [[nodiscard]] inline Color ToLinear(Color32 c) noexcept
     {
-        return Color{ SrgbToLinear(static_cast<f32>(c.r) / 255.0f),
-                      SrgbToLinear(static_cast<f32>(c.g) / 255.0f),
-                      SrgbToLinear(static_cast<f32>(c.b) / 255.0f),
-                      static_cast<f32>(c.a) / 255.0f };
+        return Color{SrgbToLinear(static_cast<f32>(c.r) / 255.0f),
+                     SrgbToLinear(static_cast<f32>(c.g) / 255.0f),
+                     SrgbToLinear(static_cast<f32>(c.b) / 255.0f), static_cast<f32>(c.a) / 255.0f};
     }
 }

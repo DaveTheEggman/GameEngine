@@ -22,11 +22,17 @@ export namespace draconic::core
 
         // Sized construction: `count` value-initialized elements.
         explicit Array(usize count, IAllocator& allocator = DefaultAllocator())
-            : m_allocator(&allocator) { Resize(count); }
+            : m_allocator(&allocator)
+        {
+            Resize(count);
+        }
 
         // Sized construction: `count` elements copy-initialized from `value`.
         Array(usize count, const T& value, IAllocator& allocator = DefaultAllocator())
-            : m_allocator(&allocator) { Resize(count, value); }
+            : m_allocator(&allocator)
+        {
+            Resize(count, value);
+        }
 
         Array(const Array& other) : m_allocator(other.m_allocator)
         {
@@ -39,8 +45,8 @@ export namespace draconic::core
         }
 
         Array(Array&& other) noexcept
-            : m_data(other.m_data), m_size(other.m_size),
-              m_capacity(other.m_capacity), m_allocator(other.m_allocator)
+            : m_data(other.m_data), m_size(other.m_size), m_capacity(other.m_capacity),
+              m_allocator(other.m_allocator)
         {
             other.m_data = nullptr;
             other.m_size = 0;
@@ -92,7 +98,8 @@ export namespace draconic::core
                 return;
             }
 
-            T* newData = static_cast<T*>(m_allocator->Allocate(newCapacity * sizeof(T), alignof(T)));
+            T* newData =
+                static_cast<T*>(m_allocator->Allocate(newCapacity * sizeof(T), alignof(T)));
             DRACONIC_ASSERT_MSG(newData != nullptr, "Array allocation failed");
 
             for (usize i = 0; i < m_size; ++i)
@@ -134,12 +141,18 @@ export namespace draconic::core
         {
             if (newSize < m_size)
             {
-                for (usize i = newSize; i < m_size; ++i) { Destruct(&m_data[i]); }
+                for (usize i = newSize; i < m_size; ++i)
+                {
+                    Destruct(&m_data[i]);
+                }
             }
             else if (newSize > m_size)
             {
                 Reserve(newSize);
-                for (usize i = m_size; i < newSize; ++i) { Construct<T>(&m_data[i], value); }
+                for (usize i = m_size; i < newSize; ++i)
+                {
+                    Construct<T>(&m_data[i], value);
+                }
             }
             m_size = newSize;
         }
@@ -166,10 +179,26 @@ export namespace draconic::core
             return m_data[index];
         }
 
-        [[nodiscard]] T& Front() noexcept { DRACONIC_ASSERT(m_size > 0); return m_data[0]; }
-        [[nodiscard]] const T& Front() const noexcept { DRACONIC_ASSERT(m_size > 0); return m_data[0]; }
-        [[nodiscard]] T& Back() noexcept { DRACONIC_ASSERT(m_size > 0); return m_data[m_size - 1]; }
-        [[nodiscard]] const T& Back() const noexcept { DRACONIC_ASSERT(m_size > 0); return m_data[m_size - 1]; }
+        [[nodiscard]] T& Front() noexcept
+        {
+            DRACONIC_ASSERT(m_size > 0);
+            return m_data[0];
+        }
+        [[nodiscard]] const T& Front() const noexcept
+        {
+            DRACONIC_ASSERT(m_size > 0);
+            return m_data[0];
+        }
+        [[nodiscard]] T& Back() noexcept
+        {
+            DRACONIC_ASSERT(m_size > 0);
+            return m_data[m_size - 1];
+        }
+        [[nodiscard]] const T& Back() const noexcept
+        {
+            DRACONIC_ASSERT(m_size > 0);
+            return m_data[m_size - 1];
+        }
 
         [[nodiscard]] T* Data() noexcept { return m_data; }
         [[nodiscard]] const T* Data() const noexcept { return m_data; }
@@ -230,9 +259,16 @@ export namespace draconic::core
         {
             DRACONIC_ASSERT(index <= m_size);
             EnsureCapacityForOne();
-            if (index == m_size) { Construct<T>(&m_data[m_size], value); return m_data[m_size++]; }
+            if (index == m_size)
+            {
+                Construct<T>(&m_data[m_size], value);
+                return m_data[m_size++];
+            }
             Construct<T>(&m_data[m_size], Move(m_data[m_size - 1]));
-            for (usize i = m_size - 1; i > index; --i) { m_data[i] = Move(m_data[i - 1]); }
+            for (usize i = m_size - 1; i > index; --i)
+            {
+                m_data[i] = Move(m_data[i - 1]);
+            }
             m_data[index] = value;
             ++m_size;
             return m_data[index];
@@ -242,9 +278,16 @@ export namespace draconic::core
         {
             DRACONIC_ASSERT(index <= m_size);
             EnsureCapacityForOne();
-            if (index == m_size) { Construct<T>(&m_data[m_size], Move(value)); return m_data[m_size++]; }
+            if (index == m_size)
+            {
+                Construct<T>(&m_data[m_size], Move(value));
+                return m_data[m_size++];
+            }
             Construct<T>(&m_data[m_size], Move(m_data[m_size - 1]));
-            for (usize i = m_size - 1; i > index; --i) { m_data[i] = Move(m_data[i - 1]); }
+            for (usize i = m_size - 1; i > index; --i)
+            {
+                m_data[i] = Move(m_data[i - 1]);
+            }
             m_data[index] = Move(value);
             ++m_size;
             return m_data[index];
@@ -269,8 +312,11 @@ export namespace draconic::core
         }
 
         // --- views / iteration ---------------------------------------------
-        [[nodiscard]] Span<T> AsSpan() noexcept { return Span<T>{ m_data, m_size }; }
-        [[nodiscard]] Span<const T> AsSpan() const noexcept { return Span<const T>{ m_data, m_size }; }
+        [[nodiscard]] Span<T> AsSpan() noexcept { return Span<T>{m_data, m_size}; }
+        [[nodiscard]] Span<const T> AsSpan() const noexcept
+        {
+            return Span<const T>{m_data, m_size};
+        }
 
         [[nodiscard]] T* begin() noexcept { return m_data; }
         [[nodiscard]] T* end() noexcept { return m_data + m_size; }

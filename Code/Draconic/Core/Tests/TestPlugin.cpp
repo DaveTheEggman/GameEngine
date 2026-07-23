@@ -2,9 +2,9 @@
 // Plain C ABI exports so symbol names are unmangled.
 
 #if defined(_WIN32)
-    #define DRACONIC_PLUGIN_EXPORT __declspec(dllexport)
+#define DRACONIC_PLUGIN_EXPORT __declspec(dllexport)
 #else
-    #define DRACONIC_PLUGIN_EXPORT __attribute__((visibility("default")))
+#define DRACONIC_PLUGIN_EXPORT __attribute__((visibility("default")))
 #endif
 
 extern "C"

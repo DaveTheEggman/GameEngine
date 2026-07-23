@@ -95,7 +95,8 @@ TEST_CASE("io: FileStream writes then reads a file")
         CHECK(value == 3.25);
 
         // Seek back to the float and re-read.
-        CHECK(in.Seek(static_cast<i64>(sizeof(u32)), SeekOrigin::Begin) == static_cast<i64>(sizeof(u32)));
+        CHECK(in.Seek(static_cast<i64>(sizeof(u32)), SeekOrigin::Begin) ==
+              static_cast<i64>(sizeof(u32)));
         f64 again = 0.0;
         CHECK(in.ReadValue(again));
         CHECK(again == 3.25);
@@ -141,7 +142,7 @@ TEST_CASE("serialization: primitives and math round-trip")
 
         i32 a = -7;
         f64 b = 1.5;
-        Float3 v{ 1.0f, 2.0f, 3.0f };
+        Float3 v{1.0f, 2.0f, 3.0f};
         Serialize(saver, a);
         Serialize(saver, b);
         Serialize(saver, v);
@@ -163,7 +164,7 @@ TEST_CASE("serialization: primitives and math round-trip")
 
         CHECK(a == -7);
         CHECK(b == 1.5);
-        CHECK(v == Float3{ 1.0f, 2.0f, 3.0f });
+        CHECK(v == Float3{1.0f, 2.0f, 3.0f});
     }
 }
 
@@ -174,7 +175,10 @@ TEST_CASE("serialization: String and Array round-trip")
         BinarySerializer saver(stream, SerializeMode::Write);
         String name = u8"draconic";
         Array<i32> values;
-        for (i32 i = 0; i < 5; ++i) { values.PushBack(i * 11); }
+        for (i32 i = 0; i < 5; ++i)
+        {
+            values.PushBack(i * 11);
+        }
         Serialize(saver, name);
         Serialize(saver, values);
         CHECK(saver.IsOk());
@@ -202,7 +206,7 @@ TEST_CASE("serialization: a user type serialized once for both directions")
 
     Particle original;
     original.id = 99;
-    original.position = Float3{ 4.0f, 5.0f, 6.0f };
+    original.position = Float3{4.0f, 5.0f, 6.0f};
     original.mass = 2.25f;
 
     {
@@ -221,7 +225,7 @@ TEST_CASE("serialization: a user type serialized once for both directions")
     }
 
     CHECK(loaded.id == 99);
-    CHECK(loaded.position == Float3{ 4.0f, 5.0f, 6.0f });
+    CHECK(loaded.position == Float3{4.0f, 5.0f, 6.0f});
     CHECK(loaded.mass == 2.25f);
 }
 
@@ -275,7 +279,10 @@ TEST_CASE("io: BufferedStream write then read round-trip (small buffer)")
     MemoryStream backing;
     {
         BufferedStream buffered(backing, 8); // tiny buffer forces many flushes
-        for (i32 i = 0; i < 100; ++i) { CHECK(buffered.WriteValue<i32>(i)); }
+        for (i32 i = 0; i < 100; ++i)
+        {
+            CHECK(buffered.WriteValue<i32>(i));
+        }
         buffered.Flush();
     }
 
@@ -293,7 +300,10 @@ TEST_CASE("io: BufferedStream write then read round-trip (small buffer)")
 TEST_CASE("io: BufferedStream read refills across the buffer boundary")
 {
     MemoryStream backing;
-    for (i32 i = 0; i < 50; ++i) { CHECK(backing.WriteValue<i32>(i * 2)); }
+    for (i32 i = 0; i < 50; ++i)
+    {
+        CHECK(backing.WriteValue<i32>(i * 2));
+    }
     CHECK(backing.Seek(0, SeekOrigin::Begin) == 0);
 
     BufferedStream buffered(backing, 8);
@@ -312,7 +322,10 @@ TEST_CASE("io: BufferedStream write-then-seek-then-read on one stream")
     MemoryStream backing;
     BufferedStream buffered(backing, 16);
 
-    for (i32 i = 0; i < 20; ++i) { CHECK(buffered.WriteValue<i32>(i + 100)); }
+    for (i32 i = 0; i < 20; ++i)
+    {
+        CHECK(buffered.WriteValue<i32>(i + 100));
+    }
 
     // Seek flushes pending writes, then we read back from the start.
     CHECK(buffered.Seek(0, SeekOrigin::Begin) == 0);
@@ -354,9 +367,9 @@ TEST_CASE("io: PathJoin")
 TEST_CASE("io: ReadFile / WriteFile round-trip")
 {
     const StringView path = u8"draconic_fs_roundtrip.tmp";
-    const byte payload[] = { byte{ 1 }, byte{ 2 }, byte{ 3 }, byte{ 0xFF }, byte{ 0 }, byte{ 42 } };
+    const byte payload[] = {byte{1}, byte{2}, byte{3}, byte{0xFF}, byte{0}, byte{42}};
 
-    CHECK(WriteFile(path, Span<const byte>{ payload, ArrayCount(payload) }).IsOk());
+    CHECK(WriteFile(path, Span<const byte>{payload, ArrayCount(payload)}).IsOk());
 
     Result<Array<byte>> result = ReadFile(path);
     REQUIRE(result.HasValue());
@@ -422,9 +435,9 @@ TEST_CASE("serialization: ISerializable round-trips through BinarySerializer")
         Widget w;
         w.id = 42;
         w.label = u8"hello";
-        w.position = Float3{ 1.0f, 2.0f, 3.0f };
+        w.position = Float3{1.0f, 2.0f, 3.0f};
         BinarySerializer saver(stream, SerializeMode::Write);
-        Serialize(saver, w);                 // free fn dispatches to w.Serialize(ar)
+        Serialize(saver, w); // free fn dispatches to w.Serialize(ar)
         CHECK(saver.IsOk());
     }
 
@@ -432,13 +445,13 @@ TEST_CASE("serialization: ISerializable round-trips through BinarySerializer")
     {
         Widget w;
         BinarySerializer loader(stream, SerializeMode::Read);
-        ISerializable& asBase = w;           // through the base reference
+        ISerializable& asBase = w; // through the base reference
         Serialize(loader, asBase);
         CHECK(loader.IsOk());
 
         CHECK(w.id == 42);
         CHECK(w.label == u8"hello");
-        CHECK(w.position == Float3{ 1.0f, 2.0f, 3.0f });
+        CHECK(w.position == Float3{1.0f, 2.0f, 3.0f});
     }
 }
 
@@ -451,7 +464,10 @@ TEST_CASE("serialization: SerializableRegistry creates by type id, then deserial
 
     MemoryStream stream;
     {
-        Widget w; w.id = 7; w.label = u8"reg"; w.position = Float3{ 9, 8, 7 };
+        Widget w;
+        w.id = 7;
+        w.label = u8"reg";
+        w.position = Float3{9, 8, 7};
         BinarySerializer saver(stream, SerializeMode::Write);
         Serialize(saver, w);
     }
@@ -465,7 +481,7 @@ TEST_CASE("serialization: SerializableRegistry creates by type id, then deserial
     CHECK(loader.IsOk());
 
     Widget* w = Cast<Widget>(obj.Get());
-    REQUIRE(w != nullptr);                    // GetType() reports the concrete type
+    REQUIRE(w != nullptr); // GetType() reports the concrete type
     CHECK(w->id == 7);
     CHECK(w->label == u8"reg");
 

@@ -32,14 +32,14 @@ export namespace draconic::core
 
         // Construct from any callable invocable as R(Args...).
         template <typename F>
-            requires (!std::is_same_v<std::decay_t<F>, Function>
-                      && std::is_invocable_r_v<R, std::decay_t<F>&, Args...>)
+            requires(!std::is_same_v<std::decay_t<F>, Function> &&
+                     std::is_invocable_r_v<R, std::decay_t<F>&, Args...>)
         Function(F&& callable, IAllocator& allocator = DefaultAllocator())
         {
             using Target = std::decay_t<F>;
 
-            if constexpr (sizeof(Target) <= kInlineSize && alignof(Target) <= kInlineAlign
-                          && std::is_nothrow_move_constructible_v<Target>)
+            if constexpr (sizeof(Target) <= kInlineSize && alignof(Target) <= kInlineAlign &&
+                          std::is_nothrow_move_constructible_v<Target>)
             {
                 m_object = ::new (static_cast<void*>(&m_storage)) Target(Forward<F>(callable));
                 m_move = [](void* dst, void* src) noexcept
@@ -57,10 +57,8 @@ export namespace draconic::core
                 m_allocator = &allocator;
             }
 
-            m_invoke  = [](void* obj, Args&&... args) -> R
-            {
-                return (*static_cast<Target*>(obj))(static_cast<Args&&>(args)...);
-            };
+            m_invoke = [](void* obj, Args&&... args) -> R
+            { return (*static_cast<Target*>(obj))(static_cast<Args&&>(args)...); };
             m_destroy = [](void* obj) noexcept { static_cast<Target*>(obj)->~Target(); };
         }
 
@@ -76,7 +74,11 @@ export namespace draconic::core
             return *this;
         }
 
-        Function& operator=(decltype(nullptr)) noexcept { Destroy(); return *this; }
+        Function& operator=(decltype(nullptr)) noexcept
+        {
+            Destroy();
+            return *this;
+        }
 
         Function(const Function&) = delete;
         Function& operator=(const Function&) = delete;
@@ -94,11 +96,11 @@ export namespace draconic::core
         void Reset() noexcept { Destroy(); }
 
     private:
-        static constexpr usize kInlineSize  = 3 * sizeof(void*);
+        static constexpr usize kInlineSize = 3 * sizeof(void*);
         static constexpr usize kInlineAlign = alignof(void*) > 16 ? alignof(void*) : 16;
 
-        using InvokeFn  = R (*)(void*, Args&&...);
-        using MoveFn    = void (*)(void* dst, void* src) noexcept; // SBO targets only
+        using InvokeFn = R (*)(void*, Args&&...);
+        using MoveFn = void (*)(void* dst, void* src) noexcept; // SBO targets only
         using DestroyFn = void (*)(void*) noexcept;
 
         void Destroy() noexcept
@@ -106,7 +108,10 @@ export namespace draconic::core
             if (m_object != nullptr)
             {
                 m_destroy(m_object);
-                if (m_allocator != nullptr) { m_allocator->Free(m_object); }
+                if (m_allocator != nullptr)
+                {
+                    m_allocator->Free(m_object);
+                }
             }
             m_object = nullptr;
             m_allocator = nullptr;
@@ -117,7 +122,10 @@ export namespace draconic::core
 
         void MoveFrom(Function& other) noexcept
         {
-            if (other.m_object == nullptr) { return; }
+            if (other.m_object == nullptr)
+            {
+                return;
+            }
 
             m_invoke = other.m_invoke;
             m_destroy = other.m_destroy;

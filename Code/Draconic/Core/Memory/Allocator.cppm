@@ -9,10 +9,10 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Debug/Assert.h"
-#include <cstddef>      // std::max_align_t
-#include <cstdlib>      // aligned_alloc / free
-#include <cstring>      // memcpy / memmove / memset
-#include <new>          // placement new
+#include <cstddef> // std::max_align_t
+#include <cstdlib> // aligned_alloc / free
+#include <cstring> // memcpy / memmove / memset
+#include <new>     // placement new
 
 export module draconic.core:allocator;
 
@@ -64,10 +64,7 @@ export namespace draconic::core
         return std::memset(dst, value, bytes);
     }
 
-    inline void MemZero(void* dst, usize bytes) noexcept
-    {
-        std::memset(dst, 0, bytes);
-    }
+    inline void MemZero(void* dst, usize bytes) noexcept { std::memset(dst, 0, bytes); }
 
     // =======================================================================
     // Placement construct / destroy
@@ -181,7 +178,8 @@ export namespace draconic::core
         // user pointer (aligned to >= alignment), or nullptr.
         [[nodiscard]] inline void* AllocWithHeader(IAllocator& backing, usize size, usize alignment)
         {
-            const usize effectiveAlign = (alignment >= alignof(AllocHeader)) ? alignment : alignof(AllocHeader);
+            const usize effectiveAlign =
+                (alignment >= alignof(AllocHeader)) ? alignment : alignof(AllocHeader);
             const usize prefix = AlignUp(sizeof(AllocHeader), effectiveAlign);
             void* base = backing.Allocate(prefix + size, effectiveAlign);
             if (base == nullptr)
@@ -198,7 +196,8 @@ export namespace draconic::core
         // Frees a headered allocation; returns the size that was recorded.
         inline usize FreeWithHeader(IAllocator& backing, void* user)
         {
-            auto* header = reinterpret_cast<AllocHeader*>(static_cast<byte*>(user) - sizeof(AllocHeader));
+            auto* header =
+                reinterpret_cast<AllocHeader*>(static_cast<byte*>(user) - sizeof(AllocHeader));
             const usize size = header->size;
             backing.Free(header->base);
             return size;

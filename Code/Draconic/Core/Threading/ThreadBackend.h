@@ -17,7 +17,8 @@ namespace draconic::core::sys
     using ThreadHandle = std::uintptr_t;
     inline constexpr ThreadHandle kInvalidThread = 0;
 
-    ThreadHandle ThreadCreate(void (*entry)(void*), void* arg) noexcept; // kInvalidThread on failure
+    ThreadHandle ThreadCreate(void (*entry)(void*),
+                              void* arg) noexcept; // kInvalidThread on failure
     void ThreadJoin(ThreadHandle handle) noexcept;
     void ThreadDetach(ThreadHandle handle) noexcept;
     [[nodiscard]] std::uint64_t CurrentThreadId() noexcept;

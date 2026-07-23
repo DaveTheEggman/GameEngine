@@ -39,14 +39,16 @@ export namespace draconic::core
         template <typename T>
         [[nodiscard]] bool WriteValue(const T& value)
         {
-            static_assert(std::is_trivially_copyable_v<T>, "WriteValue requires a trivially-copyable type.");
+            static_assert(std::is_trivially_copyable_v<T>,
+                          "WriteValue requires a trivially-copyable type.");
             return Write(&value, sizeof(T)) == sizeof(T);
         }
 
         template <typename T>
         [[nodiscard]] bool ReadValue(T& outValue)
         {
-            static_assert(std::is_trivially_copyable_v<T>, "ReadValue requires a trivially-copyable type.");
+            static_assert(std::is_trivially_copyable_v<T>,
+                          "ReadValue requires a trivially-copyable type.");
             return Read(&outValue, sizeof(T)) == sizeof(T);
         }
     };
@@ -61,7 +63,10 @@ export namespace draconic::core
 
         ~FileStream() override
         {
-            if (FileIsValid(m_file)) { FileClose(m_file); }
+            if (FileIsValid(m_file))
+            {
+                FileClose(m_file);
+            }
         }
 
         FileStream(const FileStream&) = delete;
@@ -110,7 +115,8 @@ export namespace draconic::core
             const u64 toRead = (bytes < available) ? bytes : available;
             if (toRead > 0)
             {
-                MemCopy(destination, &m_data[static_cast<usize>(m_position)], static_cast<usize>(toRead));
+                MemCopy(destination, &m_data[static_cast<usize>(m_position)],
+                        static_cast<usize>(toRead));
                 m_position += toRead;
             }
             return toRead;
@@ -118,7 +124,10 @@ export namespace draconic::core
 
         [[nodiscard]] u64 Write(const void* source, u64 bytes) override
         {
-            if (bytes == 0) { return 0; }
+            if (bytes == 0)
+            {
+                return 0;
+            }
 
             const u64 end = m_position + bytes;
             if (end > static_cast<u64>(m_data.Size()))
@@ -129,7 +138,10 @@ export namespace draconic::core
                 if (end > static_cast<u64>(m_data.Capacity()))
                 {
                     usize cap = (m_data.Capacity() == 0) ? 64u : m_data.Capacity();
-                    while (static_cast<u64>(cap) < end) { cap *= 2u; }
+                    while (static_cast<u64>(cap) < end)
+                    {
+                        cap *= 2u;
+                    }
                     m_data.Reserve(cap);
                 }
                 m_data.Resize(static_cast<usize>(end));
@@ -144,9 +156,15 @@ export namespace draconic::core
             i64 base = 0;
             switch (origin)
             {
-                case SeekOrigin::Begin:   base = 0; break;
-                case SeekOrigin::Current: base = static_cast<i64>(m_position); break;
-                case SeekOrigin::End:     base = static_cast<i64>(m_data.Size()); break;
+            case SeekOrigin::Begin:
+                base = 0;
+                break;
+            case SeekOrigin::Current:
+                base = static_cast<i64>(m_position);
+                break;
+            case SeekOrigin::End:
+                base = static_cast<i64>(m_data.Size());
+                break;
             }
             const i64 target = base + offset;
             if (target < 0 || target > static_cast<i64>(m_data.Size()))
@@ -162,7 +180,7 @@ export namespace draconic::core
 
         [[nodiscard]] Span<const byte> Bytes() const noexcept
         {
-            return Span<const byte>{ m_data.Data(), m_data.Size() };
+            return Span<const byte>{m_data.Data(), m_data.Size()};
         }
 
         void Clear() noexcept
@@ -185,8 +203,7 @@ export namespace draconic::core
     class BufferedStream final : public IStream
     {
     public:
-        explicit BufferedStream(IStream& stream, usize bufferSize = 4096)
-            : m_stream(&stream)
+        explicit BufferedStream(IStream& stream, usize bufferSize = 4096) : m_stream(&stream)
         {
             m_buffer.Resize(bufferSize == 0 ? 1 : bufferSize);
         }
@@ -203,7 +220,10 @@ export namespace draconic::core
 
         [[nodiscard]] u64 Write(const void* source, u64 bytes) override
         {
-            if (m_mode == Mode::Read) { SyncForSeek(); }
+            if (m_mode == Mode::Read)
+            {
+                SyncForSeek();
+            }
             m_mode = Mode::Write;
 
             const byte* src = static_cast<const byte*>(source);
@@ -216,14 +236,20 @@ export namespace draconic::core
                 m_pos += chunk;
                 src += chunk;
                 remaining -= chunk;
-                if (m_pos == m_buffer.Size()) { FlushWrites(); }
+                if (m_pos == m_buffer.Size())
+                {
+                    FlushWrites();
+                }
             }
             return bytes;
         }
 
         [[nodiscard]] u64 Read(void* destination, u64 bytes) override
         {
-            if (m_mode == Mode::Write) { FlushWrites(); }
+            if (m_mode == Mode::Write)
+            {
+                FlushWrites();
+            }
             m_mode = Mode::Read;
 
             byte* dst = static_cast<byte*>(destination);
@@ -234,7 +260,10 @@ export namespace draconic::core
                 {
                     m_len = static_cast<usize>(m_stream->Read(m_buffer.Data(), m_buffer.Size()));
                     m_pos = 0;
-                    if (m_len == 0) { break; } // EOF
+                    if (m_len == 0)
+                    {
+                        break;
+                    } // EOF
                 }
                 const usize available = m_len - m_pos;
                 const u64 want = bytes - produced;
@@ -255,8 +284,14 @@ export namespace draconic::core
         [[nodiscard]] i64 Tell() const override
         {
             const i64 base = m_stream->Tell();
-            if (m_mode == Mode::Write) { return base + static_cast<i64>(m_pos); }
-            if (m_mode == Mode::Read) { return base - static_cast<i64>(m_len - m_pos); }
+            if (m_mode == Mode::Write)
+            {
+                return base + static_cast<i64>(m_pos);
+            }
+            if (m_mode == Mode::Read)
+            {
+                return base - static_cast<i64>(m_len - m_pos);
+            }
             return base;
         }
 
@@ -264,7 +299,12 @@ export namespace draconic::core
         [[nodiscard]] i64 Size() const override { return m_stream->Size(); }
 
     private:
-        enum class Mode { None, Read, Write };
+        enum class Mode
+        {
+            None,
+            Read,
+            Write
+        };
 
         void FlushWrites()
         {
@@ -286,7 +326,10 @@ export namespace draconic::core
             else if (m_mode == Mode::Read)
             {
                 const i64 unread = static_cast<i64>(m_len - m_pos);
-                if (unread > 0) { (void)m_stream->Seek(-unread, SeekOrigin::Current); }
+                if (unread > 0)
+                {
+                    (void)m_stream->Seek(-unread, SeekOrigin::Current);
+                }
             }
             m_pos = 0;
             m_len = 0;
@@ -295,8 +338,8 @@ export namespace draconic::core
 
         IStream* m_stream;
         Array<byte> m_buffer;
-        usize m_pos = 0;  // write: bytes pending; read: cursor into buffer
-        usize m_len = 0;  // read: valid bytes prefetched
+        usize m_pos = 0; // write: bytes pending; read: cursor into buffer
+        usize m_len = 0; // read: valid bytes prefetched
         Mode m_mode = Mode::None;
     };
 }

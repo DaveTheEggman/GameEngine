@@ -20,7 +20,8 @@ import :io;
 export namespace draconic::core
 {
     // Reads an entire file into a byte buffer.
-    [[nodiscard]] inline Result<Array<byte>> ReadFile(StringView path, IAllocator& allocator = DefaultAllocator())
+    [[nodiscard]] inline Result<Array<byte>> ReadFile(StringView path,
+                                                      IAllocator& allocator = DefaultAllocator())
     {
         FileStream file(path, FileMode::Read);
         if (!file.IsValid())
@@ -53,14 +54,14 @@ export namespace draconic::core
         FileStream file(path, FileMode::Write);
         if (!file.IsValid())
         {
-            return Status{ ErrorCode::Internal };
+            return Status{ErrorCode::Internal};
         }
         if (!data.IsEmpty())
         {
             const u64 written = file.Write(data.Data(), data.Size());
             if (written != data.Size())
             {
-                return Status{ ErrorCode::Internal };
+                return Status{ErrorCode::Internal};
             }
         }
         return Status{};

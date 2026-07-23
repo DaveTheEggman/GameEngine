@@ -27,26 +27,31 @@ export namespace draconic::core
     {
     public:
         BinarySerializer(IStream& stream, SerializeMode mode) noexcept
-            : Serializer(mode), m_reader(stream), m_writer(stream) {}
+            : Serializer(mode), m_reader(stream), m_writer(stream)
+        {
+        }
 
         // Naming and object scopes are inherited as no-ops from Serializer; a
         // flat byte stream carries no names. Arrays are length-prefixed.
         void BeginArray(u32& count) override { Scalar(&count, ScalarKind::UInt32); }
 
-        void Scalar(void* value, ScalarKind kind) override
-        {
-            RawBytes(value, ScalarSize(kind));
-        }
+        void Scalar(void* value, ScalarKind kind) override { RawBytes(value, ScalarSize(kind)); }
 
         void Text(String& value) override
         {
             if (IsWriting())
             {
-                if (!m_writer.WriteString(value)) { Fail(ErrorCode::Internal); }
+                if (!m_writer.WriteString(value))
+                {
+                    Fail(ErrorCode::Internal);
+                }
             }
             else
             {
-                if (!m_reader.ReadString(value)) { Fail(ErrorCode::Internal); }
+                if (!m_reader.ReadString(value))
+                {
+                    Fail(ErrorCode::Internal);
+                }
             }
         }
 
@@ -59,15 +64,24 @@ export namespace draconic::core
         // Moves `size` bytes in whichever direction this serializer runs.
         void RawBytes(void* data, usize size)
         {
-            if (size == 0) { return; }
+            if (size == 0)
+            {
+                return;
+            }
 
             if (IsWriting())
             {
-                if (!m_writer.WriteBytes(data, size)) { Fail(ErrorCode::Internal); }
+                if (!m_writer.WriteBytes(data, size))
+                {
+                    Fail(ErrorCode::Internal);
+                }
             }
             else
             {
-                if (!m_reader.ReadBytes(data, size)) { Fail(ErrorCode::Internal); }
+                if (!m_reader.ReadBytes(data, size))
+                {
+                    Fail(ErrorCode::Internal);
+                }
             }
         }
 
@@ -75,13 +89,22 @@ export namespace draconic::core
         {
             switch (kind)
             {
-                case ScalarKind::Bool:    return sizeof(bool);
-                case ScalarKind::Int8:    case ScalarKind::UInt8:    return 1;
-                case ScalarKind::Int16:   case ScalarKind::UInt16:   return 2;
-                case ScalarKind::Int32:   case ScalarKind::UInt32:
-                case ScalarKind::Float32:                            return 4;
-                case ScalarKind::Int64:   case ScalarKind::UInt64:
-                case ScalarKind::Float64:                            return 8;
+            case ScalarKind::Bool:
+                return sizeof(bool);
+            case ScalarKind::Int8:
+            case ScalarKind::UInt8:
+                return 1;
+            case ScalarKind::Int16:
+            case ScalarKind::UInt16:
+                return 2;
+            case ScalarKind::Int32:
+            case ScalarKind::UInt32:
+            case ScalarKind::Float32:
+                return 4;
+            case ScalarKind::Int64:
+            case ScalarKind::UInt64:
+            case ScalarKind::Float64:
+                return 8;
             }
             return 0;
         }
@@ -96,14 +119,20 @@ export namespace draconic::core
         struct BinarySerializerContext final : SerializerContext
         {
             BinarySerializer impl;
-            BinarySerializerContext(IStream& stream, SerializeMode mode) : impl(stream, mode) { serializer = &impl; }
+            BinarySerializerContext(IStream& stream, SerializeMode mode) : impl(stream, mode)
+            {
+                serializer = &impl;
+            }
         };
     }
 
     [[nodiscard]] inline SerializerFactory BinarySerializerFactory()
     {
-        return SerializerFactory{ [](IStream& stream, SerializeMode mode) -> UniquePtr<SerializerContext> {
-            return MakeUnique<detail::BinarySerializerContext>(DefaultAllocator(), stream, mode);
-        }};
+        return SerializerFactory{
+            [](IStream& stream, SerializeMode mode) -> UniquePtr<SerializerContext>
+            {
+                return MakeUnique<detail::BinarySerializerContext>(DefaultAllocator(), stream,
+                                                                   mode);
+            }};
     }
 }

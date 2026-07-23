@@ -23,7 +23,8 @@ export namespace draconic::core
     template <typename T>
     class IntrusiveList
     {
-        static_assert(std::is_base_of_v<IntrusiveListNode, T>, "T must derive from IntrusiveListNode.");
+        static_assert(std::is_base_of_v<IntrusiveListNode, T>,
+                      "T must derive from IntrusiveListNode.");
 
     public:
         IntrusiveList() noexcept { Reset(); }
@@ -75,15 +76,22 @@ export namespace draconic::core
         public:
             explicit Iterator(IntrusiveListNode* node) noexcept : m_node(node) {}
             [[nodiscard]] T& operator*() const noexcept { return *static_cast<T*>(m_node); }
-            Iterator& operator++() noexcept { m_node = m_node->next; return *this; }
-            [[nodiscard]] bool operator!=(const Iterator& other) const noexcept { return m_node != other.m_node; }
+            Iterator& operator++() noexcept
+            {
+                m_node = m_node->next;
+                return *this;
+            }
+            [[nodiscard]] bool operator!=(const Iterator& other) const noexcept
+            {
+                return m_node != other.m_node;
+            }
 
         private:
             IntrusiveListNode* m_node;
         };
 
-        [[nodiscard]] Iterator begin() noexcept { return Iterator{ m_sentinel.next }; }
-        [[nodiscard]] Iterator end() noexcept { return Iterator{ &m_sentinel }; }
+        [[nodiscard]] Iterator begin() noexcept { return Iterator{m_sentinel.next}; }
+        [[nodiscard]] Iterator end() noexcept { return Iterator{&m_sentinel}; }
 
     private:
         void Reset() noexcept

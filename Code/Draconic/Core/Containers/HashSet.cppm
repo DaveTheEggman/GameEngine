@@ -27,7 +27,7 @@ export namespace draconic::core
         bool Insert(const K& key)
         {
             const bool existed = m_map.Contains(key);
-            m_map.InsertOrAssign(key, u8{ 0 });
+            m_map.InsertOrAssign(key, u8{0});
             return !existed;
         }
 
@@ -45,8 +45,15 @@ export namespace draconic::core
         public:
             explicit BasicIterator(MapIterator it) noexcept : m_it(it) {}
             [[nodiscard]] const K& operator*() const noexcept { return (*m_it).key; }
-            BasicIterator& operator++() noexcept { ++m_it; return *this; }
-            [[nodiscard]] bool operator!=(const BasicIterator& other) const noexcept { return m_it != other.m_it; }
+            BasicIterator& operator++() noexcept
+            {
+                ++m_it;
+                return *this;
+            }
+            [[nodiscard]] bool operator!=(const BasicIterator& other) const noexcept
+            {
+                return m_it != other.m_it;
+            }
 
         private:
             MapIterator m_it;
@@ -58,10 +65,10 @@ export namespace draconic::core
         using Iterator = BasicIterator<typename MapType::Iterator>;
         using ConstIterator = BasicIterator<typename MapType::ConstIterator>;
 
-        [[nodiscard]] Iterator begin() noexcept { return Iterator{ m_map.begin() }; }
-        [[nodiscard]] Iterator end() noexcept { return Iterator{ m_map.end() }; }
-        [[nodiscard]] ConstIterator begin() const noexcept { return ConstIterator{ m_map.begin() }; }
-        [[nodiscard]] ConstIterator end() const noexcept { return ConstIterator{ m_map.end() }; }
+        [[nodiscard]] Iterator begin() noexcept { return Iterator{m_map.begin()}; }
+        [[nodiscard]] Iterator end() noexcept { return Iterator{m_map.end()}; }
+        [[nodiscard]] ConstIterator begin() const noexcept { return ConstIterator{m_map.begin()}; }
+        [[nodiscard]] ConstIterator end() const noexcept { return ConstIterator{m_map.end()}; }
 
     private:
         MapType m_map;

@@ -19,7 +19,11 @@ namespace
     public:
         int legs = 4;
 
-        int AddLegs(int n) { legs += n; return legs; }
+        int AddLegs(int n)
+        {
+            legs += n;
+            return legs;
+        }
         int GetLegs() const { return legs; }
         static int DefaultLegs() { return 4; }
 
@@ -47,8 +51,8 @@ DRACONIC_REFLECT(Animal, "draconic::test")
     builder.Method<&Animal::AddLegs>("AddLegs");
     builder.Method<&Animal::GetLegs>("GetLegs");
     builder.Method<&Animal::DefaultLegs>("DefaultLegs");
-    builder.Method<&Animal::LegsOf>("LegsOf");   // takes Animal*
-    builder.Method<&Animal::IsSame>("IsSame");   // takes RefPtr<Animal>
+    builder.Method<&Animal::LegsOf>("LegsOf"); // takes Animal*
+    builder.Method<&Animal::IsSame>("IsSame"); // takes RefPtr<Animal>
     builder.Attribute("scriptName", "Critter");
     builder.Attribute("maxLegs", 8);
     builder.Constructor(); // default ctor -> RefPtr<Animal> via MakeRef
@@ -56,7 +60,12 @@ DRACONIC_REFLECT(Animal, "draconic::test")
 DRACONIC_DEFINE_OBJECT(Dog, "draconic::test")
 DRACONIC_DEFINE_OBJECT(Cat, "draconic::test")
 
-enum class TestColor : int { Red = 1, Green = 2, Blue = 4 };
+enum class TestColor : int
+{
+    Red = 1,
+    Green = 2,
+    Blue = 4
+};
 
 DRACONIC_REFLECT_ENUM(TestColor, "draconic::test")
 {
@@ -99,23 +108,24 @@ TEST_CASE("rtti: object arguments marshal through reflected methods")
     // U* parameter: pass an object-mode Variant.
     const MethodInfo* legsOf = FindMethod(Animal::StaticType(), "LegsOf");
     REQUIRE(legsOf != nullptr);
-    CHECK(ParamAt(*legsOf, 0).type() == &Animal::StaticType());  // object's static type
-    Variant otherArg[] = { Variant::From(other) };
-    CHECK(InvokeMethod(*legsOf, inst, Span<Variant>{ otherArg, 1 }).Value().Get<int>() == 4);
+    CHECK(ParamAt(*legsOf, 0).type() == &Animal::StaticType()); // object's static type
+    Variant otherArg[] = {Variant::From(other)};
+    CHECK(InvokeMethod(*legsOf, inst, Span<Variant>{otherArg, 1}).Value().Get<int>() == 4);
 
     // Polymorphic: a Dog is accepted where Animal* is expected.
     RefPtr<Dog> dog = MakeRef<Dog>(DefaultAllocator()); // legs == 4
-    Variant dogArg[] = { Variant::From(dog) };
-    CHECK(InvokeMethod(*legsOf, inst, Span<Variant>{ dogArg, 1 }).Value().Get<int>() == 4);
+    Variant dogArg[] = {Variant::From(dog)};
+    CHECK(InvokeMethod(*legsOf, inst, Span<Variant>{dogArg, 1}).Value().Get<int>() == 4);
 
     // RefPtr<U> parameter (owning): IsSame(self) -> true.
-    Variant selfArg[] = { Variant::From(self) };
-    CHECK(InvokeMethod(*FindMethod(Animal::StaticType(), "IsSame"), inst,
-                       Span<Variant>{ selfArg, 1 }).Value().Get<bool>());
+    Variant selfArg[] = {Variant::From(self)};
+    CHECK(InvokeMethod(*FindMethod(Animal::StaticType(), "IsSame"), inst, Span<Variant>{selfArg, 1})
+              .Value()
+              .Get<bool>());
 
     // A non-object (value) argument is rejected.
-    Variant valueArg[] = { Variant::From(5) };
-    CHECK_FALSE(InvokeMethod(*legsOf, inst, Span<Variant>{ valueArg, 1 }).HasValue());
+    Variant valueArg[] = {Variant::From(5)};
+    CHECK_FALSE(InvokeMethod(*legsOf, inst, Span<Variant>{valueArg, 1}).HasValue());
 
     // No leak from the call: self is held only by `self` and `selfArg` (== 2);
     // the RefPtr<Animal> param copy made during the call was released (else 3).
@@ -127,12 +137,12 @@ TEST_CASE("rtti: Construct an Object-derived type via reflection")
     Result<Variant> created = Construct(Animal::StaticType(), Span<Variant>{});
     REQUIRE(created.HasValue());
     Variant& v = created.Value();
-    CHECK(v.IsObject());                       // object mode (RefPtr<Animal>)
+    CHECK(v.IsObject()); // object mode (RefPtr<Animal>)
     CHECK(v.Type() == &Animal::StaticType());
     Animal* animal = v.AsObject<Animal>();
     REQUIRE(animal != nullptr);
     CHECK(animal->legs == 4);
-    CHECK(animal->RefCount() == 1u);           // the Variant owns the only ref
+    CHECK(animal->RefCount() == 1u); // the Variant owns the only ref
 }
 
 TEST_CASE("variant: object mode owns a ref and reports the dynamic type")
@@ -144,24 +154,24 @@ TEST_CASE("variant: object mode owns a ref and reports the dynamic type")
         // From a RefPtr<Dog> -> object mode (auto-detected).
         Variant v = Variant::From(dog);
         CHECK(v.IsObject());
-        CHECK(dog->RefCount() == 2u);                 // Variant owns a strong ref
-        CHECK(v.Type() == &Dog::StaticType());         // dynamic type, not RefPtr<Object>
+        CHECK(dog->RefCount() == 2u);          // Variant owns a strong ref
+        CHECK(v.Type() == &Dog::StaticType()); // dynamic type, not RefPtr<Object>
 
         // Borrowed access, with down/up-cast.
         CHECK(v.AsObject() != nullptr);
-        CHECK(v.AsObject<Animal>() != nullptr);        // upcast
+        CHECK(v.AsObject<Animal>() != nullptr); // upcast
         CHECK(v.AsObject<Dog>() != nullptr);
-        CHECK(v.AsObject<Cat>() == nullptr);           // wrong branch
+        CHECK(v.AsObject<Cat>() == nullptr); // wrong branch
 
         // Copy shares ownership; move transfers it.
         Variant copy = v;
         CHECK(dog->RefCount() == 3u);
         CHECK(copy.Type() == &Dog::StaticType());
         Variant moved = Move(copy);
-        CHECK(dog->RefCount() == 3u);                  // moved, not added
+        CHECK(dog->RefCount() == 3u); // moved, not added
         CHECK(moved.AsObject<Dog>() != nullptr);
     }
-    CHECK(dog->RefCount() == 1u);                      // all Variants released
+    CHECK(dog->RefCount() == 1u); // all Variants released
 }
 
 TEST_CASE("variant: a null object ref falls back to the static type")
@@ -237,11 +247,11 @@ TEST_CASE("variant: holds small values inline")
 
 TEST_CASE("variant: holds a Float3 and a large (heap) value")
 {
-    Variant small = Variant::From(Float3{ 1.0f, 2.0f, 3.0f });
+    Variant small = Variant::From(Float3{1.0f, 2.0f, 3.0f});
     REQUIRE(small.Is<Float3>());
-    CHECK(*small.TryGet<Float3>() == Float3{ 1.0f, 2.0f, 3.0f });
+    CHECK(*small.TryGet<Float3>() == Float3{1.0f, 2.0f, 3.0f});
 
-    Variant large = Variant::From(Float4x4::Translation(Float3{ 5.0f, 0.0f, 0.0f }));
+    Variant large = Variant::From(Float4x4::Translation(Float3{5.0f, 0.0f, 0.0f}));
     REQUIRE(large.Is<Float4x4>());
     CHECK(large.TryGet<Float4x4>()->m[3][0] == 5.0f);
 }
@@ -249,12 +259,12 @@ TEST_CASE("variant: holds a Float3 and a large (heap) value")
 TEST_CASE("variant: copy and move are independent")
 {
     Variant a = Variant::From(7);
-    Variant b = a;            // copy
+    Variant b = a; // copy
     *b.TryGet<int>() = 99;
     CHECK(*a.TryGet<int>() == 7);
     CHECK(*b.TryGet<int>() == 99);
 
-    Variant c = Move(b);      // move
+    Variant c = Move(b); // move
     CHECK(*c.TryGet<int>() == 99);
     CHECK(b.IsEmpty());
 
@@ -266,7 +276,11 @@ TEST_CASE("variant: manages non-trivial payload lifetimes")
 {
     struct Tracked
     {
-        static int& Live() { static int n = 0; return n; }
+        static int& Live()
+        {
+            static int n = 0;
+            return n;
+        }
         int value;
         explicit Tracked(int v = 0) : value(v) { ++Live(); }
         Tracked(const Tracked& o) : value(o.value) { ++Live(); }
@@ -276,7 +290,7 @@ TEST_CASE("variant: manages non-trivial payload lifetimes")
 
     Tracked::Live() = 0;
     {
-        Variant v = Variant::From(Tracked{ 5 });
+        Variant v = Variant::From(Tracked{5});
         CHECK(Tracked::Live() == 1);
         Variant copy = v;
         CHECK(Tracked::Live() == 2);
@@ -366,8 +380,8 @@ TEST_CASE("rtti: instance method invoke with an argument and a return value")
     CHECK(add->paramCount == 1u);
     CHECK(add->params[0].type() == &TypeOf<int>());
 
-    Variant args[] = { Variant::From(3) };
-    Result<Variant> r = InvokeMethod(*add, inst, Span<Variant>{ args, 1 });
+    Variant args[] = {Variant::From(3)};
+    Result<Variant> r = InvokeMethod(*add, inst, Span<Variant>{args, 1});
     REQUIRE(r.HasValue());
     CHECK(r.Value().Get<int>() == 7);
     CHECK(animal->legs == 7); // mutated the real object
@@ -412,8 +426,8 @@ TEST_CASE("rtti: method invoke rejects wrong arity and arg types")
     CHECK(noArgs.Error() == ErrorCode::InvalidArgument);
 
     // Wrong argument type.
-    Variant wrong[] = { Variant::From(2.5f) };
-    Result<Variant> badType = InvokeMethod(*add, inst, Span<Variant>{ wrong, 1 });
+    Variant wrong[] = {Variant::From(2.5f)};
+    Result<Variant> badType = InvokeMethod(*add, inst, Span<Variant>{wrong, 1});
     CHECK_FALSE(badType.HasValue());
     CHECK(badType.Error() == ErrorCode::InvalidArgument);
 
@@ -505,5 +519,6 @@ TEST_CASE("rtti: Array reflected as a container, iterated generically")
     CHECK(values[0] == 99);
 
     // Type-checked: wrong element type rejected.
-    CHECK(ContainerSetAt(*container, inst, 0, Variant::From(1.5f)).Code() == ErrorCode::InvalidArgument);
+    CHECK(ContainerSetAt(*container, inst, 0, Variant::From(1.5f)).Code() ==
+          ErrorCode::InvalidArgument);
 }

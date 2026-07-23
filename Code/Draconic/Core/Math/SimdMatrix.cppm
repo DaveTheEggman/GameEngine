@@ -46,7 +46,10 @@ export namespace draconic::core
         }
         Matrix4(simd::f32x4 r0, simd::f32x4 r1, simd::f32x4 r2, simd::f32x4 r3) noexcept
         {
-            row[0] = r0; row[1] = r1; row[2] = r2; row[3] = r3;
+            row[0] = r0;
+            row[1] = r1;
+            row[2] = r2;
+            row[3] = r3;
         }
         explicit Matrix4(const Float4x4& m) noexcept
         {
@@ -59,7 +62,15 @@ export namespace draconic::core
         [[nodiscard]] Float4x4 ToFloat4x4() const noexcept
         {
             Float4x4 out{};
-            for (int i = 0; i < 4; ++i) { f32 b[4]; simd::Store(row[i], b); out.m[i][0] = b[0]; out.m[i][1] = b[1]; out.m[i][2] = b[2]; out.m[i][3] = b[3]; }
+            for (int i = 0; i < 4; ++i)
+            {
+                f32 b[4];
+                simd::Store(row[i], b);
+                out.m[i][0] = b[0];
+                out.m[i][1] = b[1];
+                out.m[i][2] = b[2];
+                out.m[i][3] = b[3];
+            }
             return out;
         }
 
@@ -69,8 +80,7 @@ export namespace draconic::core
     // Matrix * matrix (row-major, row-vector): result row i = (a row i) * b.
     [[nodiscard]] inline Matrix4 operator*(const Matrix4& a, const Matrix4& b) noexcept
     {
-        return Matrix4(detail::TransformRow(a.row[0], b.row),
-                       detail::TransformRow(a.row[1], b.row),
+        return Matrix4(detail::TransformRow(a.row[0], b.row), detail::TransformRow(a.row[1], b.row),
                        detail::TransformRow(a.row[2], b.row),
                        detail::TransformRow(a.row[3], b.row));
     }
@@ -87,7 +97,7 @@ export namespace draconic::core
         simd::f32x4 res = simd::Mul(simd::SplatX(p.r), m.row[0]);
         res = simd::Add(res, simd::Mul(simd::SplatY(p.r), m.row[1]));
         res = simd::Add(res, simd::Mul(simd::SplatZ(p.r), m.row[2]));
-        res = simd::Add(res, m.row[3]);                                // implicit w = 1
+        res = simd::Add(res, m.row[3]); // implicit w = 1
         return Vector3(res);
     }
 
@@ -101,5 +111,8 @@ export namespace draconic::core
     }
 
     // Transpose (infrequent; delegates to the tested packed path).
-    [[nodiscard]] inline Matrix4 Transpose(const Matrix4& m) noexcept { return Matrix4(Transpose(m.ToFloat4x4())); }
+    [[nodiscard]] inline Matrix4 Transpose(const Matrix4& m) noexcept
+    {
+        return Matrix4(Transpose(m.ToFloat4x4()));
+    }
 }

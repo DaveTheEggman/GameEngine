@@ -21,7 +21,10 @@ export namespace draconic::core
         explicit FileSink(StringView path) noexcept { m_file = FileOpen(path, FileMode::Append); }
         ~FileSink() override
         {
-            if (FileIsValid(m_file)) { FileClose(m_file); }
+            if (FileIsValid(m_file))
+            {
+                FileClose(m_file);
+            }
         }
 
         FileSink(const FileSink&) = delete;
@@ -31,7 +34,10 @@ export namespace draconic::core
 
         void Write(LogLevel level, StringView category, StringView message) noexcept override
         {
-            if (!FileIsValid(m_file)) { return; }
+            if (!FileIsValid(m_file))
+            {
+                return;
+            }
 
             String line;
             detail::FormatLine(line, level, category, message);

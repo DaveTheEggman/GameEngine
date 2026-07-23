@@ -23,7 +23,7 @@ export namespace draconic::core
 
         [[nodiscard]] static Plane FromPointNormal(Float3 point, Float3 unitNormal) noexcept
         {
-            return Plane{ unitNormal, -Dot(unitNormal, point) };
+            return Plane{unitNormal, -Dot(unitNormal, point)};
         }
 
         // Signed distance: > 0 in front (normal side), < 0 behind, ~0 on the plane.
@@ -32,9 +32,12 @@ export namespace draconic::core
         [[nodiscard]] Plane Normalized() const noexcept
         {
             const f32 length = Length(normal);
-            if (length <= kEpsilon) { return *this; }
+            if (length <= kEpsilon)
+            {
+                return *this;
+            }
             const f32 inv = 1.0f / length;
-            return Plane{ normal * inv, d * inv };
+            return Plane{normal * inv, d * inv};
         }
     };
 }

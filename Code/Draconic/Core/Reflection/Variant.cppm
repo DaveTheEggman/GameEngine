@@ -27,8 +27,14 @@ namespace draconic::core::detail
     template <typename T>
     struct VariantOps
     {
-        static void Copy(void* dst, const void* src) { Construct<T>(dst, *static_cast<const T*>(src)); }
-        static void Move(void* dst, void* src) { Construct<T>(dst, draconic::core::Move(*static_cast<T*>(src))); }
+        static void Copy(void* dst, const void* src)
+        {
+            Construct<T>(dst, *static_cast<const T*>(src));
+        }
+        static void Move(void* dst, void* src)
+        {
+            Construct<T>(dst, draconic::core::Move(*static_cast<T*>(src)));
+        }
         static void Destroy(void* obj) { Destruct(static_cast<T*>(obj)); }
     };
 
@@ -43,17 +49,22 @@ namespace draconic::core::detail
     };
 
     template <typename T>
-    const TypeInfo* VariantTypeInfo() noexcept { return &TypeOf<T>(); }
+    const TypeInfo* VariantTypeInfo() noexcept
+    {
+        return &TypeOf<T>();
+    }
 
     template <typename T>
     inline constexpr VariantVTable kVariantVTable{
-        &VariantOps<T>::Copy, &VariantOps<T>::Move, &VariantOps<T>::Destroy,
-        &VariantTypeInfo<T>, static_cast<u32>(sizeof(T)), static_cast<u32>(alignof(T))
-    };
+        &VariantOps<T>::Copy, &VariantOps<T>::Move,        &VariantOps<T>::Destroy,
+        &VariantTypeInfo<T>,  static_cast<u32>(sizeof(T)), static_cast<u32>(alignof(T))};
 
     // Detects RefPtr<U> where U derives Object - routed to Variant's object mode.
     template <typename T>
-    struct ObjectRef { static constexpr bool value = false; };
+    struct ObjectRef
+    {
+        static constexpr bool value = false;
+    };
     template <typename U>
     struct ObjectRef<RefPtr<U>>
     {
@@ -77,7 +88,8 @@ export namespace draconic::core
                 using U = typename detail::ObjectRef<T>::Pointee;
                 Variant v;
                 // Dynamic type for non-null; static type as a fallback for null.
-                v.m_dynamicType = (value.Get() != nullptr) ? value.Get()->GetType() : &U::StaticType();
+                v.m_dynamicType =
+                    (value.Get() != nullptr) ? value.Get()->GetType() : &U::StaticType();
                 v.m_vtable = &detail::kVariantVTable<RefPtr<Object>>;
                 void* dst = v.AllocateStorage(sizeof(RefPtr<Object>), alignof(RefPtr<Object>));
                 Construct<RefPtr<Object>>(dst, RefPtr<Object>(value));
@@ -108,7 +120,8 @@ export namespace draconic::core
             }
         }
 
-        Variant(Variant&& other) noexcept : m_dynamicType(other.m_dynamicType), m_vtable(other.m_vtable)
+        Variant(Variant&& other) noexcept
+            : m_dynamicType(other.m_dynamicType), m_vtable(other.m_vtable)
         {
             if (m_vtable != nullptr)
             {
@@ -198,20 +211,29 @@ export namespace draconic::core
 
         [[nodiscard]] const TypeInfo* Type() const noexcept
         {
-            if (m_dynamicType != nullptr) { return m_dynamicType; } // object: dynamic type
+            if (m_dynamicType != nullptr)
+            {
+                return m_dynamicType;
+            } // object: dynamic type
             return m_vtable != nullptr ? m_vtable->typeInfo() : nullptr;
         }
 
         // Borrowed view of the held object, or null if empty / not an object.
         [[nodiscard]] Object* AsObject() const noexcept
         {
-            if (m_dynamicType == nullptr) { return nullptr; }
+            if (m_dynamicType == nullptr)
+            {
+                return nullptr;
+            }
             return static_cast<const RefPtr<Object>*>(Data())->Get();
         }
 
         // Borrowed, down-cast view; null if not an object or not a T.
         template <typename T>
-        [[nodiscard]] T* AsObject() const noexcept { return Cast<T>(AsObject()); }
+        [[nodiscard]] T* AsObject() const noexcept
+        {
+            return Cast<T>(AsObject());
+        }
 
         // Address of the stored value (value mode). For the reflection/binding
         // layer to build an Instance over a value a Variant owns. For objects use
@@ -219,7 +241,10 @@ export namespace draconic::core
         [[nodiscard]] void* ValuePointer() noexcept { return Data(); }
 
         template <typename T>
-        [[nodiscard]] bool Is() const noexcept { return m_vtable == &detail::kVariantVTable<T>; }
+        [[nodiscard]] bool Is() const noexcept
+        {
+            return m_vtable == &detail::kVariantVTable<T>;
+        }
 
         template <typename T>
         [[nodiscard]] T* TryGet() noexcept
@@ -280,7 +305,7 @@ export namespace draconic::core
 
         Storage m_storage{};
         bool m_isHeap = false;
-        const TypeInfo* m_dynamicType = nullptr;  // non-null => object mode (dynamic type)
+        const TypeInfo* m_dynamicType = nullptr; // non-null => object mode (dynamic type)
         const detail::VariantVTable* m_vtable = nullptr;
     };
 }

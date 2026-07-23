@@ -32,7 +32,10 @@ export namespace draconic::core
 
         ~FormatBuffer()
         {
-            if (m_data != nullptr) { m_allocator->Free(m_data); }
+            if (m_data != nullptr)
+            {
+                m_allocator->Free(m_data);
+            }
         }
 
         void Append(utf8char c)
@@ -44,7 +47,10 @@ export namespace draconic::core
 
         void Append(const utf8char* text, usize length)
         {
-            if (length == 0) { return; }
+            if (length == 0)
+            {
+                return;
+            }
             EnsureCapacity(m_size + length);
             MemCopy(m_data + m_size, text, length * sizeof(utf8char));
             m_size += length;
@@ -54,29 +60,44 @@ export namespace draconic::core
         void Append(const utf8char* cstr)
         {
             usize length = 0;
-            while (cstr[length] != u8'\0') { ++length; }
+            while (cstr[length] != u8'\0')
+            {
+                ++length;
+            }
             Append(cstr, length);
         }
 
         void Clear() noexcept
         {
             m_size = 0;
-            if (m_data != nullptr) { m_data[0] = u8'\0'; }
+            if (m_data != nullptr)
+            {
+                m_data[0] = u8'\0';
+            }
         }
 
-        [[nodiscard]] const utf8char* Data() const noexcept { return m_data != nullptr ? m_data : u8""; }
+        [[nodiscard]] const utf8char* Data() const noexcept
+        {
+            return m_data != nullptr ? m_data : u8"";
+        }
         [[nodiscard]] const utf8char* CStr() const noexcept { return Data(); }
-        [[nodiscard]] StringView View() const noexcept { return StringView{ Data(), m_size }; }
+        [[nodiscard]] StringView View() const noexcept { return StringView{Data(), m_size}; }
         [[nodiscard]] usize Size() const noexcept { return m_size; }
         [[nodiscard]] bool IsEmpty() const noexcept { return m_size == 0; }
 
     private:
         void EnsureCapacity(usize required)
         {
-            if (required + 1 <= m_capacity) { return; }
+            if (required + 1 <= m_capacity)
+            {
+                return;
+            }
 
             usize newCapacity = (m_capacity == 0) ? 64 : m_capacity * 2;
-            if (newCapacity < required + 1) { newCapacity = required + 1; }
+            if (newCapacity < required + 1)
+            {
+                newCapacity = required + 1;
+            }
 
             utf8char* newData = static_cast<utf8char*>(
                 m_allocator->Allocate(newCapacity * sizeof(utf8char), alignof(utf8char)));
@@ -121,7 +142,10 @@ export namespace draconic::core
         template <typename Sink>
         void AppendCodepoint(Sink& out, u32 cp)
         {
-            if (cp < 0x80u) { out.Append(static_cast<utf8char>(cp)); }
+            if (cp < 0x80u)
+            {
+                out.Append(static_cast<utf8char>(cp));
+            }
             else if (cp < 0x800u)
             {
                 out.Append(static_cast<utf8char>(0xC0u | (cp >> 6)));
@@ -157,7 +181,10 @@ export namespace draconic::core
     }
 
     template <typename Sink>
-    void AppendValue(Sink& out, utf8char value) { out.Append(value); }
+    void AppendValue(Sink& out, utf8char value)
+    {
+        out.Append(value);
+    }
 
     // A wide code unit (UTF-16): encode to UTF-8.
     template <typename Sink>
@@ -173,9 +200,8 @@ export namespace draconic::core
     }
 
     template <typename Sink, typename T>
-        requires (std::is_integral_v<T> && !std::is_same_v<T, bool>
-                  && !std::is_same_v<T, char> && !std::is_same_v<T, widechar>
-                  && !std::is_same_v<T, char8_t>)
+        requires(std::is_integral_v<T> && !std::is_same_v<T, bool> && !std::is_same_v<T, char> &&
+                 !std::is_same_v<T, widechar> && !std::is_same_v<T, char8_t>)
     void AppendValue(Sink& out, T value)
     {
         char temp[32];
@@ -233,9 +259,20 @@ export namespace draconic::core
         // No remaining args: copy the rest, honouring {{ and }} escapes.
         while (*fmt != u8'\0')
         {
-            if (fmt[0] == u8'{' && fmt[1] == u8'{') { out.Append(u8'{'); fmt += 2; }
-            else if (fmt[0] == u8'}' && fmt[1] == u8'}') { out.Append(u8'}'); fmt += 2; }
-            else { out.Append(*fmt++); }
+            if (fmt[0] == u8'{' && fmt[1] == u8'{')
+            {
+                out.Append(u8'{');
+                fmt += 2;
+            }
+            else if (fmt[0] == u8'}' && fmt[1] == u8'}')
+            {
+                out.Append(u8'}');
+                fmt += 2;
+            }
+            else
+            {
+                out.Append(*fmt++);
+            }
         }
     }
 
@@ -250,8 +287,18 @@ export namespace draconic::core
                 FormatToV(out, fmt + 2, rest...);
                 return;
             }
-            if (fmt[0] == u8'{' && fmt[1] == u8'{') { out.Append(u8'{'); fmt += 2; continue; }
-            if (fmt[0] == u8'}' && fmt[1] == u8'}') { out.Append(u8'}'); fmt += 2; continue; }
+            if (fmt[0] == u8'{' && fmt[1] == u8'{')
+            {
+                out.Append(u8'{');
+                fmt += 2;
+                continue;
+            }
+            if (fmt[0] == u8'}' && fmt[1] == u8'}')
+            {
+                out.Append(u8'}');
+                fmt += 2;
+                continue;
+            }
             out.Append(*fmt++);
         }
         // More args than `{}` placeholders: extra args are ignored.
@@ -281,10 +328,23 @@ export namespace draconic::core
             {
                 const utf8char c0 = str[i];
                 const utf8char c1 = str[i + 1];
-                if (c0 == u8'{' && c1 == u8'{') { i += 2; }
-                else if (c0 == u8'}' && c1 == u8'}') { i += 2; }
-                else if (c0 == u8'{' && c1 == u8'}') { ++placeholders; i += 2; }
-                else { ++i; }
+                if (c0 == u8'{' && c1 == u8'{')
+                {
+                    i += 2;
+                }
+                else if (c0 == u8'}' && c1 == u8'}')
+                {
+                    i += 2;
+                }
+                else if (c0 == u8'{' && c1 == u8'}')
+                {
+                    ++placeholders;
+                    i += 2;
+                }
+                else
+                {
+                    ++i;
+                }
             }
             if (placeholders != sizeof...(Args))
             {

@@ -9,9 +9,10 @@
 // gap. The scalar path is also what the equivalence tests validate the SSE path against.
 #pragma once
 
-#if defined(__SSE2__) || defined(_M_X64) || defined(__x86_64__) || (defined(_M_IX86_FP) && _M_IX86_FP >= 2)
-    #define DRACONIC_MATH_SSE 1
-    #include <emmintrin.h>   // SSE2 (pulls in SSE/xmmintrin)
+#if defined(__SSE2__) || defined(_M_X64) || defined(__x86_64__) ||                                 \
+    (defined(_M_IX86_FP) && _M_IX86_FP >= 2)
+#define DRACONIC_MATH_SSE 1
+#include <emmintrin.h> // SSE2 (pulls in SSE/xmmintrin)
 #else
-    #define DRACONIC_MATH_SSE 0
+#define DRACONIC_MATH_SSE 0
 #endif

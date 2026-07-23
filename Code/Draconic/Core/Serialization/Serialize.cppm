@@ -15,7 +15,7 @@ export module draconic.core:serialize;
 import :base;
 import :serializer;
 import :iserializable;
-import :type_info;   // versioned payloads (data-version chains)
+import :type_info; // versioned payloads (data-version chains)
 import :math;
 import :color;
 import :float2;
@@ -50,17 +50,41 @@ export namespace draconic::core
         }
         else if constexpr (std::is_signed_v<T>)
         {
-            if constexpr (sizeof(T) == 1) { return ScalarKind::Int8; }
-            else if constexpr (sizeof(T) == 2) { return ScalarKind::Int16; }
-            else if constexpr (sizeof(T) == 4) { return ScalarKind::Int32; }
-            else { return ScalarKind::Int64; }
+            if constexpr (sizeof(T) == 1)
+            {
+                return ScalarKind::Int8;
+            }
+            else if constexpr (sizeof(T) == 2)
+            {
+                return ScalarKind::Int16;
+            }
+            else if constexpr (sizeof(T) == 4)
+            {
+                return ScalarKind::Int32;
+            }
+            else
+            {
+                return ScalarKind::Int64;
+            }
         }
         else
         {
-            if constexpr (sizeof(T) == 1) { return ScalarKind::UInt8; }
-            else if constexpr (sizeof(T) == 2) { return ScalarKind::UInt16; }
-            else if constexpr (sizeof(T) == 4) { return ScalarKind::UInt32; }
-            else { return ScalarKind::UInt64; }
+            if constexpr (sizeof(T) == 1)
+            {
+                return ScalarKind::UInt8;
+            }
+            else if constexpr (sizeof(T) == 2)
+            {
+                return ScalarKind::UInt16;
+            }
+            else if constexpr (sizeof(T) == 4)
+            {
+                return ScalarKind::UInt32;
+            }
+            else
+            {
+                return ScalarKind::UInt64;
+            }
         }
     }
 
@@ -70,7 +94,7 @@ export namespace draconic::core
 
     // Arithmetic and enum types: one typed scalar.
     template <typename T>
-        requires (std::is_arithmetic_v<T> || std::is_enum_v<T>)
+        requires(std::is_arithmetic_v<T> || std::is_enum_v<T>)
     void Serialize(ISerializer& ar, T& value)
     {
         ar.Scalar(&value, ScalarKindOf<T>());
@@ -81,43 +105,60 @@ export namespace draconic::core
     inline void Serialize(ISerializer& ar, Float2& v)
     {
         ar.BeginObject();
-        ar.Key("x"); Serialize(ar, v.x);
-        ar.Key("y"); Serialize(ar, v.y);
+        ar.Key("x");
+        Serialize(ar, v.x);
+        ar.Key("y");
+        Serialize(ar, v.y);
         ar.EndObject();
     }
     inline void Serialize(ISerializer& ar, Float3& v)
     {
         ar.BeginObject();
-        ar.Key("x"); Serialize(ar, v.x);
-        ar.Key("y"); Serialize(ar, v.y);
-        ar.Key("z"); Serialize(ar, v.z);
+        ar.Key("x");
+        Serialize(ar, v.x);
+        ar.Key("y");
+        Serialize(ar, v.y);
+        ar.Key("z");
+        Serialize(ar, v.z);
         ar.EndObject();
     }
     inline void Serialize(ISerializer& ar, Float4& v)
     {
         ar.BeginObject();
-        ar.Key("x"); Serialize(ar, v.x);
-        ar.Key("y"); Serialize(ar, v.y);
-        ar.Key("z"); Serialize(ar, v.z);
-        ar.Key("w"); Serialize(ar, v.w);
+        ar.Key("x");
+        Serialize(ar, v.x);
+        ar.Key("y");
+        Serialize(ar, v.y);
+        ar.Key("z");
+        Serialize(ar, v.z);
+        ar.Key("w");
+        Serialize(ar, v.w);
         ar.EndObject();
     }
     inline void Serialize(ISerializer& ar, Color& c)
     {
         ar.BeginObject();
-        ar.Key("r"); Serialize(ar, c.r);
-        ar.Key("g"); Serialize(ar, c.g);
-        ar.Key("b"); Serialize(ar, c.b);
-        ar.Key("a"); Serialize(ar, c.a);
+        ar.Key("r");
+        Serialize(ar, c.r);
+        ar.Key("g");
+        Serialize(ar, c.g);
+        ar.Key("b");
+        Serialize(ar, c.b);
+        ar.Key("a");
+        Serialize(ar, c.a);
         ar.EndObject();
     }
     inline void Serialize(ISerializer& ar, Quaternion& q)
     {
         ar.BeginObject();
-        ar.Key("x"); Serialize(ar, q.x);
-        ar.Key("y"); Serialize(ar, q.y);
-        ar.Key("z"); Serialize(ar, q.z);
-        ar.Key("w"); Serialize(ar, q.w);
+        ar.Key("x");
+        Serialize(ar, q.x);
+        ar.Key("y");
+        Serialize(ar, q.y);
+        ar.Key("z");
+        Serialize(ar, q.z);
+        ar.Key("w");
+        Serialize(ar, q.w);
         ar.EndObject();
     }
     inline void Serialize(ISerializer& ar, Float4x4& m)
@@ -126,7 +167,10 @@ export namespace draconic::core
         u32 count = 16;
         ar.BeginArray(count);
         const u32 n = count < 16u ? count : 16u;
-        for (u32 i = 0; i < n; ++i) { Serialize(ar, m.Data()[i]); }
+        for (u32 i = 0; i < n; ++i)
+        {
+            Serialize(ar, m.Data()[i]);
+        }
         ar.EndArray();
     }
 
@@ -197,12 +241,12 @@ export namespace draconic::core
         u32 count = 0;
         if (ar.Mode() == SerializeMode::Write)
         {
-            chain[count++] = SerializedDataVersion{ type.id, type.dataVersion };
+            chain[count++] = SerializedDataVersion{type.id, type.dataVersion};
             for (const TypeInfo* base = type.base; base != nullptr && count < 16; base = base->base)
             {
                 if (base->dataVersion > 0)
                 {
-                    chain[count++] = SerializedDataVersion{ base->id, base->dataVersion };
+                    chain[count++] = SerializedDataVersion{base->id, base->dataVersion};
                 }
             }
         }
@@ -210,15 +254,14 @@ export namespace draconic::core
         ar.BeginArray(count);
         for (u32 i = 0; i < count && i < 16; ++i)
         {
-            ar.Key("type");    ar.Scalar(&chain[i].typeId, ScalarKind::UInt64);
-            ar.Key("version"); ar.Scalar(&chain[i].version, ScalarKind::UInt32);
+            ar.Key("type");
+            ar.Scalar(&chain[i].typeId, ScalarKind::UInt64);
+            ar.Key("version");
+            ar.Scalar(&chain[i].version, ScalarKind::UInt32);
         }
         ar.EndArray();
         ar.PushVersionScope(chain, count < 16 ? count : 16);
     }
 
-    inline void EndVersionedPayload(ISerializer& ar)
-    {
-        ar.PopVersionScope();
-    }
+    inline void EndVersionedPayload(ISerializer& ar) { ar.PopVersionScope(); }
 }

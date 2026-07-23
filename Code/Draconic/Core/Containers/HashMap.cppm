@@ -39,9 +39,9 @@ export namespace draconic::core
         }
 
         HashMap(HashMap&& other) noexcept
-            : m_entries(other.m_entries), m_states(other.m_states),
-              m_size(other.m_size), m_tombstones(other.m_tombstones),
-              m_capacity(other.m_capacity), m_allocator(other.m_allocator)
+            : m_entries(other.m_entries), m_states(other.m_states), m_size(other.m_size),
+              m_tombstones(other.m_tombstones), m_capacity(other.m_capacity),
+              m_allocator(other.m_allocator)
         {
             other.m_entries = nullptr;
             other.m_states = nullptr;
@@ -95,7 +95,7 @@ export namespace draconic::core
             EnsureCapacityForInsert();
 
             const usize mask = m_capacity - 1;
-            usize index = Hasher{}(key) & mask;
+            usize index = Hasher{}(key)&mask;
             usize tombstone = kNoSlot;
 
             while (m_states[index] != State::Empty)
@@ -130,7 +130,7 @@ export namespace draconic::core
             EnsureCapacityForInsert();
 
             const usize mask = m_capacity - 1;
-            usize index = Hasher{}(key) & mask;
+            usize index = Hasher{}(key)&mask;
             usize tombstone = kNoSlot;
 
             while (m_states[index] != State::Empty)
@@ -170,7 +170,10 @@ export namespace draconic::core
             return (index != kNoSlot) ? &m_entries[index].value : nullptr;
         }
 
-        [[nodiscard]] bool Contains(const K& key) const noexcept { return FindIndex(key) != kNoSlot; }
+        [[nodiscard]] bool Contains(const K& key) const noexcept
+        {
+            return FindIndex(key) != kNoSlot;
+        }
 
         bool Remove(const K& key) noexcept
         {
@@ -208,7 +211,10 @@ export namespace draconic::core
             using MapPtr = std::conditional_t<Const, const HashMap*, HashMap*>;
             using EntryRef = std::conditional_t<Const, const Entry&, Entry&>;
 
-            BasicIterator(MapPtr map, usize index) noexcept : m_map(map), m_index(index) { Advance(); }
+            BasicIterator(MapPtr map, usize index) noexcept : m_map(map), m_index(index)
+            {
+                Advance();
+            }
 
             [[nodiscard]] EntryRef operator*() const noexcept { return m_map->m_entries[m_index]; }
 
@@ -240,10 +246,10 @@ export namespace draconic::core
         using Iterator = BasicIterator<false>;
         using ConstIterator = BasicIterator<true>;
 
-        [[nodiscard]] Iterator begin() noexcept { return Iterator{ this, 0 }; }
-        [[nodiscard]] Iterator end() noexcept { return Iterator{ this, m_capacity }; }
-        [[nodiscard]] ConstIterator begin() const noexcept { return ConstIterator{ this, 0 }; }
-        [[nodiscard]] ConstIterator end() const noexcept { return ConstIterator{ this, m_capacity }; }
+        [[nodiscard]] Iterator begin() noexcept { return Iterator{this, 0}; }
+        [[nodiscard]] Iterator end() noexcept { return Iterator{this, m_capacity}; }
+        [[nodiscard]] ConstIterator begin() const noexcept { return ConstIterator{this, 0}; }
+        [[nodiscard]] ConstIterator end() const noexcept { return ConstIterator{this, m_capacity}; }
 
     private:
         enum class State : u8
@@ -263,7 +269,7 @@ export namespace draconic::core
                 return kNoSlot;
             }
             const usize mask = m_capacity - 1;
-            usize index = Hasher{}(key) & mask;
+            usize index = Hasher{}(key)&mask;
             while (m_states[index] != State::Empty)
             {
                 if (m_states[index] == State::Occupied && m_entries[index].key == key)
@@ -314,7 +320,8 @@ export namespace draconic::core
                 m_allocator->Allocate(newCapacity * sizeof(Entry), alignof(Entry)));
             m_states = static_cast<State*>(
                 m_allocator->Allocate(newCapacity * sizeof(State), alignof(State)));
-            DRACONIC_ASSERT_MSG(m_entries != nullptr && m_states != nullptr, "HashMap allocation failed");
+            DRACONIC_ASSERT_MSG(m_entries != nullptr && m_states != nullptr,
+                                "HashMap allocation failed");
 
             for (usize i = 0; i < newCapacity; ++i)
             {
@@ -334,8 +341,14 @@ export namespace draconic::core
                 }
             }
 
-            if (oldEntries != nullptr) { m_allocator->Free(oldEntries); }
-            if (oldStates != nullptr) { m_allocator->Free(oldStates); }
+            if (oldEntries != nullptr)
+            {
+                m_allocator->Free(oldEntries);
+            }
+            if (oldStates != nullptr)
+            {
+                m_allocator->Free(oldStates);
+            }
         }
 
         // Inserts a moved entry during rehash; the key is known to be unique

@@ -24,12 +24,14 @@ export namespace draconic::core
     public:
         PoolAllocator() noexcept = default;
 
-        PoolAllocator(void* buffer, usize bufferSize, usize blockSize, usize blockAlign = kDefaultAlignment) noexcept
+        PoolAllocator(void* buffer, usize bufferSize, usize blockSize,
+                      usize blockAlign = kDefaultAlignment) noexcept
         {
             Init(buffer, bufferSize, blockSize, blockAlign);
         }
 
-        void Init(void* buffer, usize bufferSize, usize blockSize, usize blockAlign = kDefaultAlignment) noexcept
+        void Init(void* buffer, usize bufferSize, usize blockSize,
+                  usize blockAlign = kDefaultAlignment) noexcept
         {
             DRACONIC_ASSERT(IsPowerOfTwo(blockAlign));
 

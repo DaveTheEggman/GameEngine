@@ -23,10 +23,7 @@ export namespace draconic::core
     public:
         LinearAllocator() noexcept = default;
 
-        LinearAllocator(void* buffer, usize size) noexcept
-        {
-            Init(buffer, size);
-        }
+        LinearAllocator(void* buffer, usize size) noexcept { Init(buffer, size); }
 
         void Init(void* buffer, usize size) noexcept
         {

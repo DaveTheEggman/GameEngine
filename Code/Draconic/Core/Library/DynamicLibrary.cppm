@@ -47,7 +47,7 @@ export namespace draconic::core
         {
             Unload();
             m_handle = OpenLibrary(path);
-            return IsLoaded() ? Status{} : Status{ ErrorCode::NotFound };
+            return IsLoaded() ? Status{} : Status{ErrorCode::NotFound};
         }
 
         void Unload() noexcept

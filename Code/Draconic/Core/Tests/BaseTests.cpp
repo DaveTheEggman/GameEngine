@@ -68,7 +68,7 @@ TEST_CASE("base: Status")
     CHECK(bad.Code() == ErrorCode::NotFound);
 
     CHECK(ok == Status{});
-    CHECK(bad == Status{ ErrorCode::NotFound });
+    CHECK(bad == Status{ErrorCode::NotFound});
 }
 
 TEST_CASE("base: Result value case")
@@ -93,7 +93,11 @@ TEST_CASE("base: Result manages a non-trivial payload")
 {
     struct Counter
     {
-        static int& Live() { static int n = 0; return n; }
+        static int& Live()
+        {
+            static int n = 0;
+            return n;
+        }
         Counter() { ++Live(); }
         Counter(const Counter&) { ++Live(); }
         Counter(Counter&&) { ++Live(); }
@@ -102,7 +106,7 @@ TEST_CASE("base: Result manages a non-trivial payload")
 
     CHECK(Counter::Live() == 0);
     {
-        Result<Counter> r{ Counter{} };
+        Result<Counter> r{Counter{}};
         CHECK(r.HasValue());
         CHECK(Counter::Live() == 1);
 
@@ -137,13 +141,13 @@ TEST_CASE("base: Optional")
 TEST_CASE("base: Optional equality")
 {
     Optional<int> a, b;
-    CHECK(a == b);                 // both empty
+    CHECK(a == b); // both empty
     a = 5;
-    CHECK(a != b);                 // engaged vs empty
+    CHECK(a != b); // engaged vs empty
     b = 5;
-    CHECK(a == b);                 // equal values
+    CHECK(a == b); // equal values
     b = 6;
-    CHECK(a != b);                 // differing values
+    CHECK(a != b); // differing values
     b.Reset();
     CHECK(a != b);
 }
@@ -152,7 +156,11 @@ TEST_CASE("base: Optional manages non-trivial payload lifetimes")
 {
     struct Tracked
     {
-        static int& Live() { static int n = 0; return n; }
+        static int& Live()
+        {
+            static int n = 0;
+            return n;
+        }
         int v;
         explicit Tracked(int x) : v(x) { ++Live(); }
         Tracked(const Tracked& o) : v(o.v) { ++Live(); }
@@ -162,7 +170,7 @@ TEST_CASE("base: Optional manages non-trivial payload lifetimes")
 
     Tracked::Live() = 0;
     {
-        Optional<Tracked> opt{ Tracked{ 5 } };
+        Optional<Tracked> opt{Tracked{5}};
         CHECK(Tracked::Live() == 1);
         Optional<Tracked> copy = opt;
         CHECK(Tracked::Live() == 2);

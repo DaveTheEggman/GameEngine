@@ -20,8 +20,14 @@ namespace
     void Serialize(ISerializer& ar, Soldier& s)
     {
         draconic::core::Serialize(ar, "health", s.health);
-        if (ar.Version() >= 2) { draconic::core::Serialize(ar, "armor", s.armor); }
-        else if (ar.Mode() == SerializeMode::Read) { s.armor = 10.0f; }   // migration default
+        if (ar.Version() >= 2)
+        {
+            draconic::core::Serialize(ar, "armor", s.armor);
+        }
+        else if (ar.Mode() == SerializeMode::Read)
+        {
+            s.armor = 10.0f;
+        } // migration default
     }
 }
 
@@ -29,22 +35,22 @@ TEST_CASE("versioning: scopes stack and expose the concrete + base versions")
 {
     MemoryStream stream;
     BinarySerializer ar(stream, SerializeMode::Write);
-    CHECK(ar.Version() == 0u);   // no scope
+    CHECK(ar.Version() == 0u); // no scope
 
-    const SerializedDataVersion outer[] = { { 111u, 3u }, { 222u, 5u } };   // concrete + base
+    const SerializedDataVersion outer[] = {{111u, 3u}, {222u, 5u}}; // concrete + base
     ar.PushVersionScope(outer, 2);
     CHECK(ar.Version() == 3u);
     CHECK(ar.Version(111u) == 3u);
     CHECK(ar.Version(222u) == 5u);
-    CHECK(ar.Version(999u) == 0u);   // not in the chain
+    CHECK(ar.Version(999u) == 0u); // not in the chain
 
-    const SerializedDataVersion inner[] = { { 333u, 7u } };                 // nested object
+    const SerializedDataVersion inner[] = {{333u, 7u}}; // nested object
     ar.PushVersionScope(inner, 1);
     CHECK(ar.Version() == 7u);
-    CHECK(ar.Version(222u) == 0u);   // outer scope masked while inner is active
+    CHECK(ar.Version(222u) == 0u); // outer scope masked while inner is active
 
     ar.PopVersionScope();
-    CHECK(ar.Version() == 3u);       // outer restored
+    CHECK(ar.Version() == 3u); // outer restored
     ar.PopVersionScope();
     CHECK(ar.Version() == 0u);
 }
@@ -56,16 +62,18 @@ TEST_CASE("versioning: a versioned payload round-trips its stored version (binar
     {
         BinarySerializer ar(stream, SerializeMode::Write);
         u32 count = 1;
-        SerializedDataVersion v1{ TypeOf<Soldier>().id, 1u };
+        SerializedDataVersion v1{TypeOf<Soldier>().id, 1u};
         ar.Key("dataVersions");
         ar.BeginArray(count);
-        ar.Key("type");    ar.Scalar(&v1.typeId, ScalarKind::UInt64);
-        ar.Key("version"); ar.Scalar(&v1.version, ScalarKind::UInt32);
+        ar.Key("type");
+        ar.Scalar(&v1.typeId, ScalarKind::UInt64);
+        ar.Key("version");
+        ar.Scalar(&v1.version, ScalarKind::UInt32);
         ar.EndArray();
         ar.PushVersionScope(&v1, 1);
         Soldier old;
         old.health = 40.0f;
-        Serialize(ar, old);    // v1 layout: health only (the branch sees Version()==1)
+        Serialize(ar, old); // v1 layout: health only (the branch sees Version()==1)
         ar.PopVersionScope();
         REQUIRE(ar.IsOk());
     }
@@ -75,13 +83,13 @@ TEST_CASE("versioning: a versioned payload round-trips its stored version (binar
     {
         BinarySerializer ar(stream, SerializeMode::Read);
         BeginVersionedPayload(ar, TypeOf<Soldier>());
-        CHECK(ar.Version() == 1u);   // the DATA's version, not the type's current one
+        CHECK(ar.Version() == 1u); // the DATA's version, not the type's current one
         Soldier loaded;
         Serialize(ar, loaded);
         EndVersionedPayload(ar);
         REQUIRE(ar.IsOk());
         CHECK(loaded.health == doctest::Approx(40.0f));
-        CHECK(loaded.armor == doctest::Approx(10.0f));   // migration default applied
+        CHECK(loaded.armor == doctest::Approx(10.0f)); // migration default applied
     }
 }
 
@@ -96,7 +104,7 @@ TEST_CASE("versioning: current-version data round-trips through BeginVersionedPa
         BeginVersionedPayload(ar, TypeOf<Soldier>());
         Soldier s;
         s.health = 70.0f;
-        s.armor = 25.0f;   // written only when Version() >= 2... which is 0 here
+        s.armor = 25.0f; // written only when Version() >= 2... which is 0 here
         Serialize(ar, s);
         EndVersionedPayload(ar);
         REQUIRE(ar.IsOk());

@@ -8,7 +8,6 @@ module;
 
 export module draconic.core:spin_lock;
 
-
 export namespace draconic::core
 {
     class SpinLock
@@ -18,7 +17,9 @@ export namespace draconic::core
         {
             while (m_locked.exchange(true, std::memory_order_acquire))
             {
-                while (m_locked.load(std::memory_order_relaxed)) {} // spin without RMW
+                while (m_locked.load(std::memory_order_relaxed))
+                {
+                } // spin without RMW
             }
         }
 
@@ -30,6 +31,6 @@ export namespace draconic::core
         void Unlock() noexcept { m_locked.store(false, std::memory_order_release); }
 
     private:
-        std::atomic<bool> m_locked{ false };
+        std::atomic<bool> m_locked{false};
     };
 }
