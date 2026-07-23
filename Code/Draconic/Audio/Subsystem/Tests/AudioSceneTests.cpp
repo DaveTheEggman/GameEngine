@@ -23,7 +23,7 @@ import draconic.script.wren;
 
 using namespace draconic::core;
 using namespace draconic::audio;
-namespace dscene = draconic::scene;
+namespace scene = draconic::scene;
 
 namespace
 {
@@ -59,7 +59,7 @@ namespace
     struct PlayScene
     {
         AudioEngine engine;
-        dscene::Scene scene{u8"audio-test"};
+        scene::Scene scene{u8"audio-test"};
         AudioSceneSystem* audio = nullptr;
 
         PlayScene()
@@ -80,10 +80,10 @@ namespace
             audio->SetEngine(&engine);
         }
 
-        dscene::EntityHandle AddSource(const RefPtr<AudioClip>& clip, Float3 position,
+        scene::EntityHandle AddSource(const RefPtr<AudioClip>& clip, Float3 position,
                                        bool autoPlay = true, bool loop = true)
         {
-            dscene::EntityHandle e = scene.CreateEntity(u8"source");
+            scene::EntityHandle e = scene.CreateEntity(u8"source");
             scene.SetLocalPosition(e, position);
             AudioSourceComponent& c = scene.GetSystem<AudioSourceComponentManager>()->Add(e);
             c.clip = clip;
@@ -111,7 +111,7 @@ TEST_CASE("audio.scene: autoplay sources start voices at scene start, positioned
 {
     PlayScene play;
     RefPtr<AudioClip> clip = MakeToneClip(1.0f);
-    const dscene::EntityHandle e = play.AddSource(clip, Float3{3.0f, 1.0f, -2.0f});
+    const scene::EntityHandle e = play.AddSource(clip, Float3{3.0f, 1.0f, -2.0f});
     play.Start();
 
     auto* sources = play.scene.GetSystem<AudioSourceComponentManager>();
@@ -139,12 +139,12 @@ TEST_CASE("audio.scene: per-frame sync pushes position AND velocity (the doppler
 {
     PlayScene play;
     RefPtr<AudioClip> clip = MakeToneClip(1.0f);
-    const dscene::EntityHandle e = play.AddSource(clip, Float3{0.0f, 0.0f, 0.0f});
+    const scene::EntityHandle e = play.AddSource(clip, Float3{0.0f, 0.0f, 0.0f});
     play.Start();
     play.Frame(); // primes previousPosition
 
     // Move 1 unit in x over one 60 Hz frame = 60 u/s along x.
-    dscene::EntityHandle entity = e;
+    scene::EntityHandle entity = e;
     play.scene.SetLocalPosition(entity, Float3{1.0f, 0.0f, 0.0f});
     play.Frame();
 
@@ -180,7 +180,7 @@ TEST_CASE("audio.scene: a finished one-shot reaps and the component handle clear
 {
     PlayScene play;
     RefPtr<AudioClip> clip = MakeToneClip(0.1f);
-    const dscene::EntityHandle e =
+    const scene::EntityHandle e =
         play.AddSource(clip, Float3{0, 0, 0}, /*autoPlay=*/true, /*loop=*/false);
     play.Start();
 
@@ -200,7 +200,7 @@ TEST_CASE("audio.scene: the component control surface - Play/Stop/SetPaused/IsPl
 {
     PlayScene play;
     RefPtr<AudioClip> clip = MakeToneClip(1.0f);
-    const dscene::EntityHandle e = play.AddSource(clip, Float3{1, 2, 3}, /*autoPlay=*/false);
+    const scene::EntityHandle e = play.AddSource(clip, Float3{1, 2, 3}, /*autoPlay=*/false);
     play.Start();
 
     AudioSourceComponent* c = play.scene.GetSystem<AudioSourceComponentManager>()->Get(e);
@@ -222,7 +222,7 @@ TEST_CASE("audio.scene: the component control surface - Play/Stop/SetPaused/IsPl
     CHECK(play.engine.ActiveVoiceCount() == 0u);
 
     // Entities without a source are inert.
-    dscene::EntityHandle bare = play.scene.CreateEntity(u8"bare");
+    scene::EntityHandle bare = play.scene.CreateEntity(u8"bare");
     CHECK_FALSE(play.audio->Play(bare).IsValid());
     CHECK_FALSE(play.audio->IsPlaying(bare));
 }
@@ -231,11 +231,11 @@ TEST_CASE("audio.scene: the first ACTIVE listener component drives the scene's l
           "pose (position + forward + velocity)")
 {
     PlayScene play;
-    dscene::EntityHandle inactive = play.scene.CreateEntity(u8"inactive-listener");
+    scene::EntityHandle inactive = play.scene.CreateEntity(u8"inactive-listener");
     play.scene.GetSystem<AudioListenerComponentManager>()->Add(inactive).isActive = false;
     play.scene.SetLocalPosition(inactive, Float3{100.0f, 0.0f, 0.0f});
 
-    dscene::EntityHandle listener = play.scene.CreateEntity(u8"listener");
+    scene::EntityHandle listener = play.scene.CreateEntity(u8"listener");
     play.scene.GetSystem<AudioListenerComponentManager>()->Add(listener);
     play.scene.SetLocalPosition(listener, Float3{5.0f, 2.0f, 0.0f});
 
@@ -256,11 +256,11 @@ TEST_CASE("audio.scene: components round-trip through SerializeScene (authored f
           "kept, runtime voice handles NOT serialized)")
 {
     RegisterAudioComponentReflection();
-    dscene::Scene a(u8"level");
+    scene::Scene a(u8"level");
     a.AddSystem<AudioSourceComponentManager>();
     a.AddSystem<AudioListenerComponentManager>();
 
-    dscene::EntityHandle source = a.CreateEntity(u8"emitter");
+    scene::EntityHandle source = a.CreateEntity(u8"emitter");
     AudioSourceComponent& sc = a.GetSystem<AudioSourceComponentManager>()->Add(source);
     Guid clipId;
     REQUIRE(Guid::TryParse(u8"12345678-1234-4234-8234-123456789abc", clipId));
@@ -284,25 +284,25 @@ TEST_CASE("audio.scene: components round-trip through SerializeScene (authored f
     sc.coneOuterGain = 0.25f;
     sc.voice = VoiceHandle{7, 3}; // runtime junk that must NOT survive
 
-    dscene::EntityHandle listener = a.CreateEntity(u8"ears");
+    scene::EntityHandle listener = a.CreateEntity(u8"ears");
     a.GetSystem<AudioListenerComponentManager>()->Add(listener).isActive = false;
 
     MemoryStream stream;
     {
         BinarySerializer writer(stream, SerializeMode::Write);
-        dscene::SerializeScene(writer, a);
+        scene::SerializeScene(writer, a);
     }
     (void)stream.Seek(0, SeekOrigin::Begin);
 
-    dscene::Scene b;
+    scene::Scene b;
     b.AddSystem<AudioSourceComponentManager>();
     b.AddSystem<AudioListenerComponentManager>();
     {
         BinarySerializer reader(stream, SerializeMode::Read);
-        dscene::SerializeScene(reader, b);
+        scene::SerializeScene(reader, b);
     }
 
-    dscene::EntityHandle loadedSource = b.FindEntity(a.GetEntityId(source));
+    scene::EntityHandle loadedSource = b.FindEntity(a.GetEntityId(source));
     REQUIRE(loadedSource.IsAssigned());
     AudioSourceComponent* loaded = b.GetSystem<AudioSourceComponentManager>()->Get(loadedSource);
     REQUIRE(loaded != nullptr);
@@ -326,7 +326,7 @@ TEST_CASE("audio.scene: components round-trip through SerializeScene (authored f
     CHECK(loaded->coneOuterGain == doctest::Approx(0.25f));
     CHECK_FALSE(loaded->voice.IsValid()); // runtime handle did not travel
 
-    dscene::EntityHandle loadedListener = b.FindEntity(a.GetEntityId(listener));
+    scene::EntityHandle loadedListener = b.FindEntity(a.GetEntityId(listener));
     REQUIRE(loadedListener.IsAssigned());
     AudioListenerComponent* loadedEars =
         b.GetSystem<AudioListenerComponentManager>()->Get(loadedListener);
@@ -346,7 +346,7 @@ TEST_CASE("audio.scene: sources sharing one clip each get their OWN voice (dedup
     settings.dedupeWindowSeconds = 1.0f / 30.0f;
     AudioEngine engine(settings);
     RegisterAudioComponentReflection();
-    dscene::Scene scene{u8"audio-dedupe"};
+    scene::Scene scene{u8"audio-dedupe"};
     scene.AddSystem<AudioSourceComponentManager>();
     scene.AddSystem<AudioListenerComponentManager>();
     AudioSceneSystem* audio = scene.AddSystem<AudioSceneSystem>();
@@ -354,7 +354,7 @@ TEST_CASE("audio.scene: sources sharing one clip each get their OWN voice (dedup
 
     RefPtr<AudioClip> clip = MakeToneClip(1.0f);
     auto* sources = scene.GetSystem<AudioSourceComponentManager>();
-    dscene::EntityHandle entities[4];
+    scene::EntityHandle entities[4];
     for (int i = 0; i < 4; ++i)
     {
         entities[i] = scene.CreateEntity(u8"emitter");
@@ -389,7 +389,7 @@ TEST_CASE("audio.scene: a source's reverbSend feeds the scene send reverb from P
 {
     PlayScene play;
     RefPtr<AudioClip> clip = MakeToneClip(1.0f);
-    const dscene::EntityHandle e = play.AddSource(clip, Float3{1.0f, 0.0f, 0.0f});
+    const scene::EntityHandle e = play.AddSource(clip, Float3{1.0f, 0.0f, 0.0f});
     play.scene.GetSystem<AudioSourceComponentManager>()->Get(e)->reverbSend = 0.4f;
     play.Start();
 
@@ -415,7 +415,7 @@ TEST_CASE("audio.scene: a source's busName routes its voice onto the layout's cu
     play.engine.ApplyBusLayout(layout);
 
     RefPtr<AudioClip> clip = MakeToneClip(1.0f);
-    const dscene::EntityHandle e = play.AddSource(clip, Float3{0.0f, 0.0f, 0.0f});
+    const scene::EntityHandle e = play.AddSource(clip, Float3{0.0f, 0.0f, 0.0f});
     play.scene.GetSystem<AudioSourceComponentManager>()->Get(e)->busName = String(u8"drums");
     play.Start();
 
@@ -572,7 +572,7 @@ TEST_CASE("audio.scene: a cue on the source wins over the clip and varies per tr
     cue->pitchMin = 0.8f;
     cue->pitchMax = 1.2f;
 
-    const dscene::EntityHandle e = play.AddSource(fallback, Float3{0, 0, 0},
+    const scene::EntityHandle e = play.AddSource(fallback, Float3{0, 0, 0},
                                                   /*autoPlay=*/false, /*loop=*/false);
     auto* sources = play.scene.GetSystem<AudioSourceComponentManager>();
     sources->Get(e)->cue = cue;
@@ -610,18 +610,18 @@ TEST_CASE("audio.scene: reverb zones - wet follows listener occupancy, wettest z
     play.AddSource(clip, Float3{0, 0, 0});
 
     // Listener entity at the origin.
-    dscene::EntityHandle listener = play.scene.CreateEntity(u8"ears");
+    scene::EntityHandle listener = play.scene.CreateEntity(u8"ears");
     play.scene.GetSystem<AudioListenerComponentManager>()->Add(listener);
 
     // Zone A centered at origin (r=10, wet .5); zone B overlapping, wetter (r=4, wet .9).
-    dscene::EntityHandle za = play.scene.CreateEntity(u8"hall");
+    scene::EntityHandle za = play.scene.CreateEntity(u8"hall");
     auto* zones = play.scene.GetSystem<AudioReverbZoneComponentManager>();
     REQUIRE(zones != nullptr);
     AudioReverbZoneComponent& zoneA = zones->Add(za);
     zoneA.radius = 10.0f;
     zoneA.wetLevel = 0.5f;
     zoneA.edgeFade = 0.5f;
-    dscene::EntityHandle zb = play.scene.CreateEntity(u8"cave");
+    scene::EntityHandle zb = play.scene.CreateEntity(u8"cave");
     AudioReverbZoneComponent& zoneB = zones->Add(zb);
     zoneB.radius = 4.0f;
     zoneB.wetLevel = 0.9f;
@@ -657,13 +657,13 @@ TEST_CASE("audio.scene: multi-listener - every active listener collects, first i
     play.AddSource(clip, Float3{0, 0, 0});
 
     auto* listeners = play.scene.GetSystem<AudioListenerComponentManager>();
-    dscene::EntityHandle earsA = play.scene.CreateEntity(u8"p1");
+    scene::EntityHandle earsA = play.scene.CreateEntity(u8"p1");
     play.scene.SetLocalPosition(earsA, Float3{-5.0f, 0.0f, 0.0f});
     listeners->Add(earsA);
-    dscene::EntityHandle earsB = play.scene.CreateEntity(u8"p2");
+    scene::EntityHandle earsB = play.scene.CreateEntity(u8"p2");
     play.scene.SetLocalPosition(earsB, Float3{5.0f, 0.0f, 0.0f});
     listeners->Add(earsB);
-    dscene::EntityHandle earsOff = play.scene.CreateEntity(u8"spectator");
+    scene::EntityHandle earsOff = play.scene.CreateEntity(u8"spectator");
     listeners->Add(earsOff).isActive = false; // inactive: never collected
 
     play.Start();

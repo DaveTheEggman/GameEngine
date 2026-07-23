@@ -25,7 +25,7 @@ import draconic.content;
 import draconic.audio;
 
 using namespace draconic::core;
-using namespace draconic::resource;
+namespace resource = draconic::resource;
 
 export namespace draconic::audio
 {
@@ -82,7 +82,7 @@ export namespace draconic::audio
         draconic::content::Instance* m_instance;
     };
 
-    class AudioClipFactory final : public IResourceFactory
+    class AudioClipFactory final : public resource::IResourceFactory
     {
     public:
         [[nodiscard]] const TypeInfo* ProductType() const override
@@ -90,7 +90,7 @@ export namespace draconic::audio
             return &AudioClip::StaticType();
         }
 
-        [[nodiscard]] RefPtr<Object> Create(ResourceManager&,
+        [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager&,
                                             draconic::content::Instance& instance) override
         {
             RefPtr<ISerializable> object = instance.ReadObject();
@@ -215,7 +215,7 @@ export namespace draconic::audio
         AudioBusLayout layout;
     };
 
-    class AudioBusLayoutFactory final : public IResourceFactory
+    class AudioBusLayoutFactory final : public resource::IResourceFactory
     {
     public:
         [[nodiscard]] const TypeInfo* ProductType() const override
@@ -223,7 +223,7 @@ export namespace draconic::audio
             return &AudioBusLayoutResource::StaticType();
         }
 
-        [[nodiscard]] RefPtr<Object> Create(ResourceManager&,
+        [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager&,
                                             draconic::content::Instance& instance) override
         {
             RefPtr<ISerializable> object = instance.ReadObject();
@@ -279,7 +279,7 @@ export namespace draconic::audio
         }
     };
 
-    class SoundCueFactory final : public IResourceFactory
+    class SoundCueFactory final : public resource::IResourceFactory
     {
     public:
         [[nodiscard]] const TypeInfo* ProductType() const override
@@ -287,7 +287,7 @@ export namespace draconic::audio
             return &SoundCue::StaticType();
         }
 
-        [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
+        [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager& manager,
                                             draconic::content::Instance& instance) override
         {
             RefPtr<ISerializable> object = instance.ReadObject();

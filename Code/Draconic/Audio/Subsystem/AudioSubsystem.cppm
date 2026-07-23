@@ -36,7 +36,7 @@ using namespace draconic::core;
 
 export namespace draconic::audio
 {
-    namespace dscene = draconic::scene;
+    namespace scene = draconic::scene;
 
     class AudioSubsystem; // forward (the script binding carries it)
 
@@ -111,17 +111,17 @@ export namespace draconic::audio
         RegisterSerializable<AudioUserSettings>();
     }
 
-    class AudioSceneSystem final : public dscene::SceneSystem
+    class AudioSceneSystem final : public scene::SceneSystem
     {
     public:
-        void OnSceneCreate(dscene::Scene& scene) override { m_scene = &scene; }
+        void OnSceneCreate(scene::Scene& scene) override { m_scene = &scene; }
 
         /// The subsystem wires its engine in right after AddSystem (tests may inject a
         /// headless engine directly).
         void SetEngine(AudioEngine* engine) noexcept { m_engine = engine; }
         [[nodiscard]] AudioEngine* Engine() const noexcept { return m_engine; }
         [[nodiscard]] u64 SceneGroup() const noexcept { return m_sceneGroup; }
-        [[nodiscard]] dscene::Scene* ScenePtr() const noexcept { return m_scene; }
+        [[nodiscard]] scene::Scene* ScenePtr() const noexcept { return m_scene; }
         [[nodiscard]] bool Started() const noexcept { return m_started; }
 
         // ---- play lifecycle ----
@@ -141,7 +141,7 @@ export namespace draconic::audio
             if (auto* sources = m_scene->GetSystem<AudioSourceComponentManager>())
             {
                 sources->ForEach(
-                    [&](AudioSourceComponent& c, dscene::EntityHandle e)
+                    [&](AudioSourceComponent& c, scene::EntityHandle e)
                     {
                         if (c.autoPlay)
                         {
@@ -157,7 +157,7 @@ export namespace draconic::audio
             if (auto* sources = m_scene->GetSystem<AudioSourceComponentManager>())
             {
                 sources->ForEach(
-                    [](AudioSourceComponent& c, dscene::EntityHandle)
+                    [](AudioSourceComponent& c, scene::EntityHandle)
                     {
                         c.voice = VoiceHandle{};
                         c.hasPreviousPosition = false;
@@ -174,7 +174,7 @@ export namespace draconic::audio
         // ---- component control surface (the runtime controls Sedulous never had) ----
 
         /// Starts (or restarts) the entity's source. Returns the voice handle.
-        VoiceHandle Play(dscene::EntityHandle entity)
+        VoiceHandle Play(scene::EntityHandle entity)
         {
             auto* sources =
                 m_scene != nullptr ? m_scene->GetSystem<AudioSourceComponentManager>() : nullptr;
@@ -186,7 +186,7 @@ export namespace draconic::audio
             return PlayComponent(*component, entity);
         }
 
-        void Stop(dscene::EntityHandle entity)
+        void Stop(scene::EntityHandle entity)
         {
             if (AudioSourceComponent* component = Component(entity))
             {
@@ -199,7 +199,7 @@ export namespace draconic::audio
             }
         }
 
-        void SetPaused(dscene::EntityHandle entity, bool paused)
+        void SetPaused(scene::EntityHandle entity, bool paused)
         {
             if (AudioSourceComponent* component = Component(entity))
             {
@@ -210,7 +210,7 @@ export namespace draconic::audio
             }
         }
 
-        [[nodiscard]] bool IsPlaying(dscene::EntityHandle entity)
+        [[nodiscard]] bool IsPlaying(scene::EntityHandle entity)
         {
             AudioSourceComponent* component = Component(entity);
             return component != nullptr && m_engine != nullptr &&
@@ -219,9 +219,9 @@ export namespace draconic::audio
 
         // ---- per-frame sync (PostTransform: final transforms are ready) ----
 
-        void OnUpdate(dscene::ScenePhase phase, f32 deltaTime) override
+        void OnUpdate(scene::ScenePhase phase, f32 deltaTime) override
         {
-            if (phase != dscene::ScenePhase::PostTransform)
+            if (phase != scene::ScenePhase::PostTransform)
             {
                 return;
             }
@@ -245,7 +245,7 @@ export namespace draconic::audio
             if (auto* sources = m_scene->GetSystem<AudioSourceComponentManager>())
             {
                 sources->ForEach(
-                    [&](AudioSourceComponent& c, dscene::EntityHandle e)
+                    [&](AudioSourceComponent& c, scene::EntityHandle e)
                     {
                         if (!c.voice.IsValid())
                         {
@@ -291,20 +291,20 @@ export namespace draconic::audio
         }
 
     private:
-        [[nodiscard]] AudioSourceComponent* Component(dscene::EntityHandle entity)
+        [[nodiscard]] AudioSourceComponent* Component(scene::EntityHandle entity)
         {
             auto* sources =
                 m_scene != nullptr ? m_scene->GetSystem<AudioSourceComponentManager>() : nullptr;
             return sources != nullptr ? sources->Get(entity) : nullptr;
         }
 
-        [[nodiscard]] Float3 EntityPosition(dscene::EntityHandle entity) const
+        [[nodiscard]] Float3 EntityPosition(scene::EntityHandle entity) const
         {
             const Float4x4 world = m_scene->GetWorldMatrix(entity);
             return TransformPoint(Float3{0.0f, 0.0f, 0.0f}, world);
         }
 
-        VoiceHandle PlayComponent(AudioSourceComponent& c, dscene::EntityHandle e)
+        VoiceHandle PlayComponent(AudioSourceComponent& c, scene::EntityHandle e)
         {
             if (m_engine == nullptr)
             {
@@ -389,7 +389,7 @@ export namespace draconic::audio
             if (m_listenerValid && zones != nullptr)
             {
                 zones->ForEach(
-                    [&](AudioReverbZoneComponent& zone, dscene::EntityHandle e)
+                    [&](AudioReverbZoneComponent& zone, scene::EntityHandle e)
                     {
                         if (!zone.enabled || zone.radius <= 0.0f || zone.wetLevel <= 0.0f)
                         {
@@ -431,7 +431,7 @@ export namespace draconic::audio
                 return;
             }
             listeners->ForEach(
-                [&](AudioListenerComponent& c, dscene::EntityHandle e)
+                [&](AudioListenerComponent& c, scene::EntityHandle e)
                 {
                     if (!c.isActive)
                     {
@@ -464,7 +464,7 @@ export namespace draconic::audio
                 });
         }
 
-        dscene::Scene* m_scene = nullptr;
+        scene::Scene* m_scene = nullptr;
         AudioEngine* m_engine = nullptr;
         u64 m_sceneGroup = 0;
         bool m_started = false;
@@ -481,7 +481,7 @@ export namespace draconic::audio
     // The runtime subsystem: owns the ONE AudioEngine, injects the managers + system
     // into every scene (ISceneAware), pushes the winning listener, and exposes the
     // engine-global one-shot API (docs/design/audio.md §6).
-    class AudioSubsystem final : public draconic::runtime::Subsystem, public dscene::ISceneAware
+    class AudioSubsystem final : public draconic::runtime::Subsystem, public scene::ISceneAware
     {
     public:
         explicit AudioSubsystem(const AudioEngineSettings& engineSettings = {})
@@ -495,7 +495,7 @@ export namespace draconic::audio
         // PostTransform phase; here the engine reaps + pumps and the listener lands.
         [[nodiscard]] i32 UpdateOrder() const noexcept override { return -100; }
 
-        void OnSceneCreated(dscene::Scene& scene) override
+        void OnSceneCreated(scene::Scene& scene) override
         {
             scene.AddSystem<AudioSourceComponentManager>();
             scene.AddSystem<AudioListenerComponentManager>();
@@ -504,7 +504,7 @@ export namespace draconic::audio
             system->SetEngine(m_engine.Get());
             m_systems.PushBack(SceneEntry{&scene, system});
         }
-        void OnSceneDestroyed(dscene::Scene& scene) override
+        void OnSceneDestroyed(scene::Scene& scene) override
         {
             for (usize i = 0; i < m_systems.Size(); ++i)
             {
@@ -720,7 +720,7 @@ export namespace draconic::audio
         {
             if (draconic::runtime::Context* context = GetContext())
             {
-                if (auto* scenes = context->GetSubsystem<dscene::SceneSubsystem>())
+                if (auto* scenes = context->GetSubsystem<scene::SceneSubsystem>())
                 {
                     scenes->RegisterSceneAware(this);
                 }
@@ -730,7 +730,7 @@ export namespace draconic::audio
         {
             if (draconic::runtime::Context* context = GetContext())
             {
-                if (auto* scenes = context->GetSubsystem<dscene::SceneSubsystem>())
+                if (auto* scenes = context->GetSubsystem<scene::SceneSubsystem>())
                 {
                     scenes->UnregisterSceneAware(this);
                 }
@@ -740,7 +740,7 @@ export namespace draconic::audio
 
         struct SceneEntry
         {
-            dscene::Scene* scene = nullptr;
+            scene::Scene* scene = nullptr;
             AudioSceneSystem* system = nullptr;
         };
         [[nodiscard]] Span<const SceneEntry> Systems() const noexcept

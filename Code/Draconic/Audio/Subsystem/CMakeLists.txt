@@ -10,10 +10,10 @@ target_link_libraries(DraconicAudioSubsystem
 
 target_sources(DraconicAudioSubsystem
     PRIVATE
-        SubsystemImpl.cpp   # implementation unit: listener push + reflection (render dep stays out of the interface)
+        AudioSubsystemImpl.cpp   # implementation unit: listener push + reflection (render dep stays out of the interface)
     PUBLIC
         FILE_SET audio_subsystem_modules TYPE CXX_MODULES FILES
-            Subsystem.cppm
+            AudioSubsystem.cppm
             Components.cppm)
 
 if(DRACONIC_BUILD_TESTS)
