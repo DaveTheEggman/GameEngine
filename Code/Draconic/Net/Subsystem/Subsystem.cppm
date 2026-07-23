@@ -17,40 +17,55 @@ module;
 export module draconic.net.subsystem;
 
 import draconic.core;
-import draconic.runtime;            // Subsystem, Context
-import draconic.scene;              // Scene, ISceneAware
-import draconic.scene.subsystem;    // SceneSubsystem (to register as scene-aware)
-import draconic.net.replication;    // NetworkComponentManager + RegisterReplicationComponents
+import draconic.runtime;         // Subsystem, Context
+import draconic.scene;           // Scene, ISceneAware
+import draconic.scene.subsystem; // SceneSubsystem (to register as scene-aware)
+import draconic.net.replication; // NetworkComponentManager + RegisterReplicationComponents
 
-export namespace draconic::net {
+export namespace draconic::net
+{
 
-class NetworkSubsystem final : public draconic::runtime::Subsystem,
-                               public draconic::scene::ISceneAware {
-public:
-    // Inject the NetworkComponent manager into each new scene so authored NetworkComponents (and
-    // the server's runtime AssignNetworkId) have a home. Replicated-state component managers (e.g.
-    // the transform) are injected by their own subsystems - this adds only the identity tag pool.
-    void OnSceneCreated(draconic::scene::Scene& scene) override {
-        scene.AddSystem<NetworkComponentManager>();     // identity (NetworkId + authority + prefab)
-        scene.AddSystem<NetworkedTransformComponentManager>();   // replicated transform (the common case)
-    }
-
-protected:
-    void OnInit() override {
-        RegisterReplicationComponents();   // tooling: the reflected NetworkComponent (idempotent)
-    }
-
-    void OnReady() override {
-        if (draconic::runtime::Context* ctx = GetContext()) {
-            if (auto* scenes = ctx->GetSubsystem<draconic::scene::SceneSubsystem>()) { scenes->RegisterSceneAware(this); }
+    class NetworkSubsystem final : public draconic::runtime::Subsystem,
+                                   public draconic::scene::ISceneAware
+    {
+    public:
+        // Inject the NetworkComponent manager into each new scene so authored NetworkComponents (and
+        // the server's runtime AssignNetworkId) have a home. Replicated-state component managers (e.g.
+        // the transform) are injected by their own subsystems - this adds only the identity tag pool.
+        void OnSceneCreated(draconic::scene::Scene& scene) override
+        {
+            scene.AddSystem<NetworkComponentManager>(); // identity (NetworkId + authority + prefab)
+            scene.AddSystem<
+                NetworkedTransformComponentManager>(); // replicated transform (the common case)
         }
-    }
 
-    void OnShutdown() override {
-        if (draconic::runtime::Context* ctx = GetContext()) {
-            if (auto* scenes = ctx->GetSubsystem<draconic::scene::SceneSubsystem>()) { scenes->UnregisterSceneAware(this); }
+    protected:
+        void OnInit() override
+        {
+            RegisterReplicationComponents(); // tooling: the reflected NetworkComponent (idempotent)
         }
-    }
-};
+
+        void OnReady() override
+        {
+            if (draconic::runtime::Context* ctx = GetContext())
+            {
+                if (auto* scenes = ctx->GetSubsystem<draconic::scene::SceneSubsystem>())
+                {
+                    scenes->RegisterSceneAware(this);
+                }
+            }
+        }
+
+        void OnShutdown() override
+        {
+            if (draconic::runtime::Context* ctx = GetContext())
+            {
+                if (auto* scenes = ctx->GetSubsystem<draconic::scene::SceneSubsystem>())
+                {
+                    scenes->UnregisterSceneAware(this);
+                }
+            }
+        }
+    };
 
 } // namespace draconic::net

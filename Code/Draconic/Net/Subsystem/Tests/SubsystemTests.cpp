@@ -5,7 +5,7 @@
 
 import draconic.core;
 import draconic.scene;
-import draconic.net.replication;   // NetworkComponentManager identity ("net.Network")
+import draconic.net.replication; // NetworkComponentManager identity ("net.Network")
 import draconic.net.subsystem;
 
 using namespace draconic::core;
@@ -23,7 +23,7 @@ TEST_CASE("net-subsystem: OnSceneCreated injects the NetworkComponentManager")
     CHECK(scene.FindManagerBySerializationId(u8"net.Network") == nullptr);
     CHECK(scene.FindManagerBySerializationId(u8"net.Transform") == nullptr);
 
-    subsystem.OnSceneCreated(scene);   // the ISceneAware pass-1 injection the SceneManager fans out
+    subsystem.OnSceneCreated(scene); // the ISceneAware pass-1 injection the SceneManager fans out
 
     // Now an authored/assigned NetworkComponent (identity) + NetworkedTransform (replicated movement)
     // both have a home in this scene.

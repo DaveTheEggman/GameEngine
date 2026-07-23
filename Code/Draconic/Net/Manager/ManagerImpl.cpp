@@ -10,7 +10,7 @@ module draconic.net.manager;
 import draconic.core;
 import draconic.net;
 import draconic.script;
-import draconic.script.facades;   // RegisterExtraFacadeName (the Wren prelude hook)
+import draconic.script.facades; // RegisterExtraFacadeName (the Wren prelude hook)
 
 using namespace draconic::core;
 using namespace draconic::script;
@@ -31,14 +31,16 @@ namespace draconic::net
         builder.Method<&Net::rpc>("rpc");
         builder.Method<&Net::rpcNumber>("rpcNumber");
         builder.Method<&Net::rpcText>("rpcText");
-        builder.Constructor();   // Wren only materializes constructible foreign classes
+        builder.Constructor(); // Wren only materializes constructible foreign classes
     }
 
     void RegisterNetScriptFacade()
     {
-        static const bool once = []() {
+        static const bool once = []()
+        {
             GlobalTypeRegistry().Register(Net::StaticType());
-            RegisterExtraFacadeName(u8"Net");   // so the Wren behavior prelude imports it (AngelScript binds by registry)
+            RegisterExtraFacadeName(
+                u8"Net"); // so the Wren behavior prelude imports it (AngelScript binds by registry)
             return true;
         }();
         (void)once;
@@ -48,20 +50,27 @@ namespace draconic::net
                                                                const ReliableConfig& config)
     {
         UniquePtr<UdpSocket> socket = MakeUnique<UdpSocket>(DefaultAllocator(), port);
-        if (!socket->IsOpen()) { return {}; }   // caller logs + runs offline
-        UniquePtr<NetworkManager> manager =
-            MakeUnique<NetworkManager>(DefaultAllocator(), static_cast<UniquePtr<UdpSocket>&&>(socket), config);
+        if (!socket->IsOpen())
+        {
+            return {};
+        } // caller logs + runs offline
+        UniquePtr<NetworkManager> manager = MakeUnique<NetworkManager>(
+            DefaultAllocator(), static_cast<UniquePtr<UdpSocket>&&>(socket), config);
         manager->StartServer(dedicated);
         return manager;
     }
 
     core::UniquePtr<NetworkManager> NetworkManager::JoinServer(StringView host, u16 port,
-                                                              const ReliableConfig& config)
+                                                               const ReliableConfig& config)
     {
-        UniquePtr<UdpSocket> socket = MakeUnique<UdpSocket>(DefaultAllocator(), u16{ 0 });   // ephemeral
-        if (!socket->IsOpen()) { return {}; }
-        UniquePtr<NetworkManager> manager =
-            MakeUnique<NetworkManager>(DefaultAllocator(), static_cast<UniquePtr<UdpSocket>&&>(socket), config);
+        UniquePtr<UdpSocket> socket =
+            MakeUnique<UdpSocket>(DefaultAllocator(), u16{0}); // ephemeral
+        if (!socket->IsOpen())
+        {
+            return {};
+        }
+        UniquePtr<NetworkManager> manager = MakeUnique<NetworkManager>(
+            DefaultAllocator(), static_cast<UniquePtr<UdpSocket>&&>(socket), config);
         manager->ConnectTo(ResolveEndpoint(host, port));
         return manager;
     }
@@ -69,22 +78,27 @@ namespace draconic::net
     NetworkRuntime StartNetworking(const NetworkStartup& config)
     {
         NetworkRuntime runtime;
-        if (config.role == NetworkRole::None) { return runtime; }
+        if (config.role == NetworkRole::None)
+        {
+            return runtime;
+        }
 
         // The facade is bound wherever networking actually runs (idempotent).
         RegisterNetScriptFacade();
 
         // Server binds the listen port; a client binds ephemeral (0) unless a port is forced.
         runtime.socket = MakeUnique<UdpSocket>(DefaultAllocator(), config.listenPort);
-        runtime.manager = MakeUnique<NetworkManager>(DefaultAllocator(), *runtime.socket, config.reliable);
+        runtime.manager =
+            MakeUnique<NetworkManager>(DefaultAllocator(), *runtime.socket, config.reliable);
 
         if (config.role == NetworkRole::Server)
         {
             runtime.manager->StartServer(config.dedicated);
         }
-        else   // Client
+        else // Client
         {
-            const DatagramEndpoint server = ResolveEndpoint(config.serverHost.AsView(), config.serverPort);
+            const DatagramEndpoint server =
+                ResolveEndpoint(config.serverHost.AsView(), config.serverPort);
             runtime.manager->ConnectTo(server);
         }
         return runtime;

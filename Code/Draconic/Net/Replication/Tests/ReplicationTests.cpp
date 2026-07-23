@@ -6,9 +6,9 @@
 #include "Core/Reflection/Reflect.h"
 
 import draconic.core;
-import draconic.net;              // BitWriter / BitReader
+import draconic.net; // BitWriter / BitReader
 import draconic.net.replication;
-import draconic.scene;            // Scene / EntityHandle / SerializableComponentManager
+import draconic.scene; // Scene / EntityHandle / SerializableComponentManager
 
 using namespace draconic::core;
 namespace net = draconic::net;
@@ -20,13 +20,13 @@ namespace
     // marked-but-unsupported field (String) to exercise layout exclusion.
     struct Mover
     {
-        Float3 position{ 0.0f, 0.0f, 0.0f };      // replicated
-        Quaternion rotation{ 0.0f, 0.0f, 0.0f, 1.0f };  // replicated
-        f32 speed = 0.0f;                          // replicated
-        bool grounded = false;                     // replicated
-        i32 health = 0;                            // replicated
-        f32 localOnly = 0.0f;                      // NOT replicated (no marker)
-        String label;                              // marked replicated but unsupported type -> excluded
+        Float3 position{0.0f, 0.0f, 0.0f};           // replicated
+        Quaternion rotation{0.0f, 0.0f, 0.0f, 1.0f}; // replicated
+        f32 speed = 0.0f;                            // replicated
+        bool grounded = false;                       // replicated
+        i32 health = 0;                              // replicated
+        f32 localOnly = 0.0f;                        // NOT replicated (no marker)
+        String label; // marked replicated but unsupported type -> excluded
     };
 
     // ADL serialization (required to instantiate SerializableComponentManager<Mover>).
@@ -56,16 +56,17 @@ DRACONIC_REFLECT_VALUE(Mover, "draconic::net::test")
     builder.Property<&Mover::speed>("speed").PropAttribute(net::kReplicatedAttribute, true);
     builder.Property<&Mover::grounded>("grounded").PropAttribute(net::kReplicatedAttribute, true);
     builder.Property<&Mover::health>("health").PropAttribute(net::kReplicatedAttribute, true);
-    builder.Property<&Mover::localOnly>("localOnly");   // no marker -> local
-    builder.Property<&Mover::label>("label").PropAttribute(net::kReplicatedAttribute, true);  // unsupported
+    builder.Property<&Mover::localOnly>("localOnly"); // no marker -> local
+    builder.Property<&Mover::label>("label").PropAttribute(net::kReplicatedAttribute,
+                                                           true); // unsupported
 }
 
 TEST_CASE("replication: NetworkId validity + equality")
 {
     CHECK_FALSE(net::NetworkId::Invalid().IsValid());
-    CHECK(net::NetworkId{ 7 }.IsValid());
-    CHECK(net::NetworkId{ 7 } == net::NetworkId{ 7 });
-    CHECK(net::NetworkId{ 7 } != net::NetworkId{ 8 });
+    CHECK(net::NetworkId{7}.IsValid());
+    CHECK(net::NetworkId{7} == net::NetworkId{7});
+    CHECK(net::NetworkId{7} != net::NetworkId{8});
 }
 
 TEST_CASE("replication: layout harvest picks marked + supported fields only")
@@ -83,19 +84,19 @@ TEST_CASE("replication: a component round-trips its replicated fields through th
     DraconicRegisterValue_Mover();
 
     Mover source;
-    source.position = Float3{ 1.5f, -2.0f, 3.25f };
-    source.rotation = Quaternion{ 0.1f, 0.2f, 0.3f, 0.9f };
+    source.position = Float3{1.5f, -2.0f, 3.25f};
+    source.rotation = Quaternion{0.1f, 0.2f, 0.3f, 0.9f};
     source.speed = 12.5f;
     source.grounded = true;
     source.health = 77;
-    source.localOnly = 999.0f;   // must NOT cross the wire
+    source.localOnly = 999.0f; // must NOT cross the wire
     source.label = String(u8"ignored");
 
     net::BitWriter writer;
     const usize wrote = net::WriteReplicatedState(writer, Instance::From(&source));
     CHECK(wrote == 5u);
 
-    Mover dest;                  // all defaults
+    Mover dest; // all defaults
     net::BitReader reader(writer.Data());
     const usize read = net::ReadReplicatedState(reader, Instance::From(&dest));
     CHECK(read == 5u);
@@ -107,8 +108,8 @@ TEST_CASE("replication: a component round-trips its replicated fields through th
     CHECK(dest.speed == doctest::Approx(12.5f));
     CHECK(dest.grounded == true);
     CHECK(dest.health == 77);
-    CHECK(dest.localOnly == doctest::Approx(0.0f));   // local field untouched by replication
-    CHECK(dest.label.IsEmpty());                       // unsupported field never replicated
+    CHECK(dest.localOnly == doctest::Approx(0.0f)); // local field untouched by replication
+    CHECK(dest.label.IsEmpty());                    // unsupported field never replicated
 }
 
 TEST_CASE("replication: field codec round-trips supported scalars + rejects unsupported")
@@ -116,7 +117,7 @@ TEST_CASE("replication: field codec round-trips supported scalars + rejects unsu
     // f64 (full precision), Float3, i32.
     net::BitWriter writer;
     CHECK(net::WriteFieldValue(writer, Variant::From<f64>(3.141592653589793)));
-    CHECK(net::WriteFieldValue(writer, Variant::From<Float3>(Float3{ 4.0f, 5.0f, 6.0f })));
+    CHECK(net::WriteFieldValue(writer, Variant::From<Float3>(Float3{4.0f, 5.0f, 6.0f})));
     CHECK(net::WriteFieldValue(writer, Variant::From<i32>(-42)));
     // A String value has no codec support -> false, nothing written.
     CHECK_FALSE(net::WriteFieldValue(writer, Variant::From<String>(String(u8"nope"))));
@@ -127,7 +128,7 @@ TEST_CASE("replication: field codec round-trips supported scalars + rejects unsu
     REQUIRE(net::ReadFieldValue(reader, &TypeOf<Float3>(), b));
     REQUIRE(net::ReadFieldValue(reader, &TypeOf<i32>(), c));
     CHECK(*a.TryGet<f64>() == doctest::Approx(3.141592653589793));
-    CHECK(*b.TryGet<Float3>() == Float3{ 4.0f, 5.0f, 6.0f });
+    CHECK(*b.TryGet<Float3>() == Float3{4.0f, 5.0f, 6.0f});
     CHECK(*c.TryGet<i32>() == -42);
     // Reading an unsupported type consumes nothing and reports false.
     Variant d;
@@ -147,15 +148,22 @@ TEST_CASE("replication: a full snapshot round-trips networked entities server ->
 
     const dscene::EntityHandle a = server.CreateEntity(u8"A");
     Mover& ma = serverMovers->Add(a);
-    ma.position = Float3{ 1.0f, 2.0f, 3.0f }; ma.speed = 10.0f; ma.health = 100; ma.grounded = true;
+    ma.position = Float3{1.0f, 2.0f, 3.0f};
+    ma.speed = 10.0f;
+    ma.health = 100;
+    ma.grounded = true;
     const net::NetworkId idA = serverRep.AssignNetworkId(server, a);
 
     const dscene::EntityHandle b = server.CreateEntity(u8"B");
     Mover& mb = serverMovers->Add(b);
-    mb.position = Float3{ -4.0f, 0.0f, 9.0f }; mb.speed = 2.5f; mb.health = 42;
+    mb.position = Float3{-4.0f, 0.0f, 9.0f};
+    mb.speed = 2.5f;
+    mb.health = 42;
     const net::NetworkId idB = serverRep.AssignNetworkId(server, b);
 
-    REQUIRE(idA.IsValid()); REQUIRE(idB.IsValid()); REQUIRE(idA != idB);
+    REQUIRE(idA.IsValid());
+    REQUIRE(idB.IsValid());
+    REQUIRE(idA != idB);
     CHECK(serverRep.NetworkedCount() == 2u);
 
     // --- capture on the server ---
@@ -176,15 +184,17 @@ TEST_CASE("replication: a full snapshot round-trips networked entities server ->
     // --- the client now mirrors the server's replicated state, keyed by NetworkId ---
     const dscene::EntityHandle ca = clientRep.FindEntity(idA);
     const dscene::EntityHandle cb = clientRep.FindEntity(idB);
-    REQUIRE(client.IsValid(ca)); REQUIRE(client.IsValid(cb));
+    REQUIRE(client.IsValid(ca));
+    REQUIRE(client.IsValid(cb));
     const Mover* rca = clientMovers->Get(ca);
     const Mover* rcb = clientMovers->Get(cb);
-    REQUIRE(rca != nullptr); REQUIRE(rcb != nullptr);
-    CHECK(rca->position == Float3{ 1.0f, 2.0f, 3.0f });
+    REQUIRE(rca != nullptr);
+    REQUIRE(rcb != nullptr);
+    CHECK(rca->position == Float3{1.0f, 2.0f, 3.0f});
     CHECK(rca->speed == doctest::Approx(10.0f));
     CHECK(rca->health == 100);
     CHECK(rca->grounded == true);
-    CHECK(rcb->position == Float3{ -4.0f, 0.0f, 9.0f });
+    CHECK(rcb->position == Float3{-4.0f, 0.0f, 9.0f});
     CHECK(rcb->speed == doctest::Approx(2.5f));
     CHECK(rcb->health == 42);
 
@@ -194,11 +204,12 @@ TEST_CASE("replication: a full snapshot round-trips networked entities server ->
     serverRep.CaptureSnapshot(server, writer2);
     net::BitReader reader2(writer2.Data());
     clientRep.ApplySnapshot(client, reader2);
-    CHECK(clientRep.NetworkedCount() == 2u);          // no new entities minted
+    CHECK(clientRep.NetworkedCount() == 2u); // no new entities minted
     CHECK(clientMovers->Get(clientRep.FindEntity(idA))->health == 55);
 }
 
-TEST_CASE("replication: NetworkedTransform bridges the entity transform through capture -> wire -> apply")
+TEST_CASE(
+    "replication: NetworkedTransform bridges the entity transform through capture -> wire -> apply")
 {
     net::RegisterReplicationComponents();
 
@@ -210,15 +221,16 @@ TEST_CASE("replication: NetworkedTransform bridges the entity transform through 
     const dscene::EntityHandle e = server.CreateEntity(u8"E");
     server.GetSystem<net::NetworkedTransformComponentManager>()->Add(e);
     Transform t;
-    t.position = Float3{ 5.0f, 6.0f, 7.0f };
-    t.scale = Float3{ 2.0f, 2.0f, 2.0f };
+    t.position = Float3{5.0f, 6.0f, 7.0f};
+    t.scale = Float3{2.0f, 2.0f, 2.0f};
     server.SetLocalTransform(e, t);
     const net::NetworkId id = serverRep.AssignNetworkId(server, e);
     REQUIRE(id.IsValid());
 
     // Server: pull the entity's transform into the component, then snapshot.
     net::CaptureEntityTransforms(server);
-    CHECK(server.GetSystem<net::NetworkedTransformComponentManager>()->Get(e)->position == Float3{ 5.0f, 6.0f, 7.0f });
+    CHECK(server.GetSystem<net::NetworkedTransformComponentManager>()->Get(e)->position ==
+          Float3{5.0f, 6.0f, 7.0f});
     net::BitWriter writer;
     serverRep.CaptureSnapshot(server, writer);
 
@@ -235,11 +247,12 @@ TEST_CASE("replication: NetworkedTransform bridges the entity transform through 
     REQUIRE(client.IsValid(ce));
     net::ApplyEntityTransforms(client);
     const Transform ct = client.GetLocalTransform(ce);
-    CHECK(ct.position == Float3{ 5.0f, 6.0f, 7.0f });
-    CHECK(ct.scale == Float3{ 2.0f, 2.0f, 2.0f });
+    CHECK(ct.position == Float3{5.0f, 6.0f, 7.0f});
+    CHECK(ct.scale == Float3{2.0f, 2.0f, 2.0f});
 }
 
-TEST_CASE("replication: AssignSceneNetworkIds assigns ids to authored-networked entities (idempotent)")
+TEST_CASE(
+    "replication: AssignSceneNetworkIds assigns ids to authored-networked entities (idempotent)")
 {
     net::RegisterReplicationComponents();
 
@@ -251,7 +264,7 @@ TEST_CASE("replication: AssignSceneNetworkIds assigns ids to authored-networked 
     netMgr->Add(a);
     const dscene::EntityHandle b = scene.CreateEntity(u8"B");
     netMgr->Add(b);
-    scene.CreateEntity(u8"plain");   // no NetworkComponent -> never assigned
+    scene.CreateEntity(u8"plain"); // no NetworkComponent -> never assigned
 
     CHECK_FALSE(netMgr->Get(a)->id.IsValid());
     rep.AssignSceneNetworkIds(scene);
@@ -276,10 +289,14 @@ TEST_CASE("replication: per-peer delta sends only what changed since the peer's 
     net::StateReplication rep;
 
     const dscene::EntityHandle a = server.CreateEntity(u8"A");
-    Mover& ma = movers->Add(a); ma.position = Float3{ 1.0f, 0.0f, 0.0f }; ma.health = 10;
+    Mover& ma = movers->Add(a);
+    ma.position = Float3{1.0f, 0.0f, 0.0f};
+    ma.health = 10;
     const net::NetworkId idA = rep.AssignNetworkId(server, a);
     const dscene::EntityHandle b = server.CreateEntity(u8"B");
-    Mover& mb = movers->Add(b); mb.position = Float3{ 0.0f, 1.0f, 0.0f }; mb.health = 20;
+    Mover& mb = movers->Add(b);
+    mb.position = Float3{0.0f, 1.0f, 0.0f};
+    mb.health = 20;
     const net::NetworkId idB = rep.AssignNetworkId(server, b);
 
     const u32 peer = 1;
@@ -291,37 +308,55 @@ TEST_CASE("replication: per-peer delta sends only what changed since the peer's 
 
     // First delta: everything new for this peer -> 2 entries, and the client mirrors it.
     {
-        net::BitWriter w; const usize n = rep.CaptureDelta(server, peer, w); CHECK(n == 2u);
-        net::BitReader r(w.Data()); crep.ApplyDelta(client, r); CHECK(r.Ok());
+        net::BitWriter w;
+        const usize n = rep.CaptureDelta(server, peer, w);
+        CHECK(n == 2u);
+        net::BitReader r(w.Data());
+        crep.ApplyDelta(client, r);
+        CHECK(r.Ok());
     }
     CHECK(crep.NetworkedCount() == 2u);
     CHECK(cmovers->Get(crep.FindEntity(idA))->health == 10);
     CHECK(cmovers->Get(crep.FindEntity(idB))->health == 20);
 
     // Nothing changed -> empty delta.
-    { net::BitWriter w; const usize n = rep.CaptureDelta(server, peer, w); CHECK(n == 0u); }
+    {
+        net::BitWriter w;
+        const usize n = rep.CaptureDelta(server, peer, w);
+        CHECK(n == 0u);
+    }
 
     // Change only A -> the delta carries just A.
     ma.health = 99;
     {
-        net::BitWriter w; const usize n = rep.CaptureDelta(server, peer, w); CHECK(n == 1u);
-        net::BitReader r(w.Data()); crep.ApplyDelta(client, r);
+        net::BitWriter w;
+        const usize n = rep.CaptureDelta(server, peer, w);
+        CHECK(n == 1u);
+        net::BitReader r(w.Data());
+        crep.ApplyDelta(client, r);
     }
     CHECK(cmovers->Get(crep.FindEntity(idA))->health == 99);
-    CHECK(cmovers->Get(crep.FindEntity(idB))->health == 20);   // B untouched by A's delta
+    CHECK(cmovers->Get(crep.FindEntity(idB))->health == 20); // B untouched by A's delta
 
     // Despawn B on the server -> the delta marks it removed -> the client destroys it.
     const dscene::EntityHandle cb = crep.FindEntity(idB);
     server.DestroyEntity(b);
     {
-        net::BitWriter w; const usize n = rep.CaptureDelta(server, peer, w); CHECK(n == 1u);
-        net::BitReader r(w.Data()); crep.ApplyDelta(client, r);
+        net::BitWriter w;
+        const usize n = rep.CaptureDelta(server, peer, w);
+        CHECK(n == 1u);
+        net::BitReader r(w.Data());
+        crep.ApplyDelta(client, r);
     }
     CHECK_FALSE(client.IsValid(cb));
 
     // ForgetPeer (disconnect) -> the next delta re-sends everything (only A remains -> 1 new entry).
     rep.ForgetPeer(peer);
-    { net::BitWriter w; const usize n = rep.CaptureDelta(server, peer, w); CHECK(n == 1u); }
+    {
+        net::BitWriter w;
+        const usize n = rep.CaptureDelta(server, peer, w);
+        CHECK(n == 1u);
+    }
 }
 
 TEST_CASE("replication: late-join full snapshot spawns prefabs via the spawn handler")
@@ -335,8 +370,8 @@ TEST_CASE("replication: late-join full snapshot spawns prefabs via the spawn han
     MoverManager* movers = server.AddSystem<MoverManager>();
     net::StateReplication rep;
 
-    const Guid pfxA{ 0xAAAA, 0x1111 };
-    const Guid pfxB{ 0xBBBB, 0x2222 };
+    const Guid pfxA{0xAAAA, 0x1111};
+    const Guid pfxB{0xBBBB, 0x2222};
     const dscene::EntityHandle a = server.CreateEntity(u8"A");
     movers->Add(a).health = 7;
     const net::NetworkId idA = rep.AssignNetworkId(server, a, pfxA);
@@ -351,22 +386,37 @@ TEST_CASE("replication: late-join full snapshot spawns prefabs via the spawn han
     MoverManager* cmovers = client.AddSystem<MoverManager>();
     net::StateReplication crep;
     Array<Guid> spawned;
-    crep.SetSpawnHandler([&](dscene::Scene& s, const Guid& p, net::NetworkId) -> dscene::EntityHandle {
-        spawned.PushBack(p);
-        const dscene::EntityHandle e = s.CreateEntity();
-        s.GetSystem<MoverManager>()->Add(e);
-        return e;
-    });
+    crep.SetSpawnHandler(
+        [&](dscene::Scene& s, const Guid& p, net::NetworkId) -> dscene::EntityHandle
+        {
+            spawned.PushBack(p);
+            const dscene::EntityHandle e = s.CreateEntity();
+            s.GetSystem<MoverManager>()->Add(e);
+            return e;
+        });
 
-    net::BitWriter w; rep.CaptureSnapshot(server, w);
-    net::BitReader r(w.Data()); crep.ApplySnapshot(client, r);
+    net::BitWriter w;
+    rep.CaptureSnapshot(server, w);
+    net::BitReader r(w.Data());
+    crep.ApplySnapshot(client, r);
     CHECK(r.Ok());
 
     // The handler ran once per entity with the right prefab id, and the client mirrors the state.
     REQUIRE(spawned.Size() == 2u);
     bool haveA = false, haveB = false;
-    for (const Guid& g : spawned) { if (g == pfxA) { haveA = true; } if (g == pfxB) { haveB = true; } }
-    CHECK(haveA); CHECK(haveB);
+    for (const Guid& g : spawned)
+    {
+        if (g == pfxA)
+        {
+            haveA = true;
+        }
+        if (g == pfxB)
+        {
+            haveB = true;
+        }
+    }
+    CHECK(haveA);
+    CHECK(haveB);
     CHECK(cmovers->Get(crep.FindEntity(idA))->health == 7);
     CHECK(cmovers->Get(crep.FindEntity(idB))->health == 8);
     // The client recorded the source prefab on the tag (host-migration / re-spawn use it later).
@@ -390,30 +440,40 @@ TEST_CASE("replication: a delta spawns a newly-added networked entity via its pr
     client.AddSystem<MoverManager>();
     net::StateReplication crep;
     Array<Guid> spawned;
-    crep.SetSpawnHandler([&](dscene::Scene& s, const Guid& p, net::NetworkId) -> dscene::EntityHandle {
-        spawned.PushBack(p);
-        const dscene::EntityHandle e = s.CreateEntity();
-        s.GetSystem<MoverManager>()->Add(e);
-        return e;
-    });
+    crep.SetSpawnHandler(
+        [&](dscene::Scene& s, const Guid& p, net::NetworkId) -> dscene::EntityHandle
+        {
+            spawned.PushBack(p);
+            const dscene::EntityHandle e = s.CreateEntity();
+            s.GetSystem<MoverManager>()->Add(e);
+            return e;
+        });
 
     // First delta: one prefab-spawned entity.
-    const Guid pfx1{ 1, 2 };
+    const Guid pfx1{1, 2};
     const dscene::EntityHandle a = server.CreateEntity();
     movers->Add(a).health = 1;
     rep.AssignNetworkId(server, a, pfx1);
-    { net::BitWriter w; rep.CaptureDelta(server, peer, w); net::BitReader r(w.Data()); crep.ApplyDelta(client, r); }
+    {
+        net::BitWriter w;
+        rep.CaptureDelta(server, peer, w);
+        net::BitReader r(w.Data());
+        crep.ApplyDelta(client, r);
+    }
     REQUIRE(spawned.Size() == 1u);
     CHECK(spawned[0] == pfx1);
 
     // A second entity added later -> the next delta carries just its spawn.
-    const Guid pfx2{ 3, 4 };
+    const Guid pfx2{3, 4};
     const dscene::EntityHandle b = server.CreateEntity();
     movers->Add(b).health = 2;
     rep.AssignNetworkId(server, b, pfx2);
     {
-        net::BitWriter w; const usize n = rep.CaptureDelta(server, peer, w); CHECK(n == 1u);
-        net::BitReader r(w.Data()); crep.ApplyDelta(client, r);
+        net::BitWriter w;
+        const usize n = rep.CaptureDelta(server, peer, w);
+        CHECK(n == 1u);
+        net::BitReader r(w.Data());
+        crep.ApplyDelta(client, r);
     }
     REQUIRE(spawned.Size() == 2u);
     CHECK(spawned[1] == pfx2);
@@ -422,30 +482,37 @@ TEST_CASE("replication: a delta spawns a newly-added networked entity via its pr
 
 TEST_CASE("replication: LerpFieldValue interpolates floats/vectors and snaps discrete types")
 {
-    CHECK(*net::LerpFieldValue(Variant::From<f32>(0.0f), Variant::From<f32>(10.0f), 0.5f).TryGet<f32>()
-          == doctest::Approx(5.0f));
-    const Variant v = net::LerpFieldValue(Variant::From<Float3>(Float3{ 0, 0, 0 }),
-                                          Variant::From<Float3>(Float3{ 2, 4, 6 }), 0.25f);
-    CHECK(*v.TryGet<Float3>() == Float3{ 0.5f, 1.0f, 1.5f });
+    CHECK(*net::LerpFieldValue(Variant::From<f32>(0.0f), Variant::From<f32>(10.0f), 0.5f)
+               .TryGet<f32>() == doctest::Approx(5.0f));
+    const Variant v = net::LerpFieldValue(Variant::From<Float3>(Float3{0, 0, 0}),
+                                          Variant::From<Float3>(Float3{2, 4, 6}), 0.25f);
+    CHECK(*v.TryGet<Float3>() == Float3{0.5f, 1.0f, 1.5f});
     // bool is discrete -> snaps to `a`.
-    CHECK(*net::LerpFieldValue(Variant::From<bool>(false), Variant::From<bool>(true), 0.9f).TryGet<bool>()
-          == false);
+    CHECK(*net::LerpFieldValue(Variant::From<bool>(false), Variant::From<bool>(true), 0.9f)
+               .TryGet<bool>() == false);
     CHECK(net::IsInterpolatableType(&TypeOf<Float3>()));
     CHECK(net::IsInterpolatableType(&TypeOf<Quaternion>()));
     CHECK_FALSE(net::IsInterpolatableType(&TypeOf<i32>()));
 }
 
-TEST_CASE("replication: interpolation buffer lerps transforms and snaps discrete fields at render time")
+TEST_CASE(
+    "replication: interpolation buffer lerps transforms and snaps discrete fields at render time")
 {
     DraconicRegisterValue_Mover();
     net::InterpolationBuffer buf;
-    const net::NetworkId id{ 1 };
+    const net::NetworkId id{1};
     const u32 typeHash = 0xABCDu;
 
     // Two states 100 ms apart.
-    Mover s0; s0.position = Float3{ 0, 0, 0 }; s0.speed = 0.0f; s0.health = 10;
+    Mover s0;
+    s0.position = Float3{0, 0, 0};
+    s0.speed = 0.0f;
+    s0.health = 10;
     buf.Record(id, typeHash, 0.0, Instance::From(&s0));
-    Mover s1; s1.position = Float3{ 10, 0, 0 }; s1.speed = 5.0f; s1.health = 20;
+    Mover s1;
+    s1.position = Float3{10, 0, 0};
+    s1.speed = 5.0f;
+    s1.health = 20;
     buf.Record(id, typeHash, 100.0, Instance::From(&s1));
     CHECK(buf.TrackedEntities() == 1u);
 
@@ -470,7 +537,8 @@ TEST_CASE("replication: interpolation buffer lerps transforms and snaps discrete
     CHECK(buf.TrackedEntities() == 0u);
 }
 
-TEST_CASE("replication: per-peer relevancy hides non-relevant entities and removes them on exit (fog of war)")
+TEST_CASE("replication: per-peer relevancy hides non-relevant entities and removes them on exit "
+          "(fog of war)")
 {
     DraconicRegisterValue_Mover();
     net::RegisterReplicationComponents();
@@ -489,45 +557,82 @@ TEST_CASE("replication: per-peer relevancy hides non-relevant entities and remov
 
     // Peer 1 can currently see A; peer 2 sees everything. A flag lets A leave peer-1 relevance later.
     bool peer1SeesA = true;
-    rep.SetRelevance([&](u32 peerId, net::NetworkId id, dscene::EntityHandle) -> bool {
-        if (peerId == 1u) { return id == idA && peer1SeesA; }
-        return true;   // peer 2: full visibility
-    });
+    rep.SetRelevance(
+        [&](u32 peerId, net::NetworkId id, dscene::EntityHandle) -> bool
+        {
+            if (peerId == 1u)
+            {
+                return id == idA && peer1SeesA;
+            }
+            return true; // peer 2: full visibility
+        });
 
     // Two client scenes.
-    auto makeClient = [](dscene::Scene& s) { s.AddSystem<net::NetworkComponentManager>(); s.AddSystem<MoverManager>(); };
-    dscene::Scene c1; makeClient(c1); net::StateReplication crep1;
-    dscene::Scene c2; makeClient(c2); net::StateReplication crep2;
+    auto makeClient = [](dscene::Scene& s)
+    {
+        s.AddSystem<net::NetworkComponentManager>();
+        s.AddSystem<MoverManager>();
+    };
+    dscene::Scene c1;
+    makeClient(c1);
+    net::StateReplication crep1;
+    dscene::Scene c2;
+    makeClient(c2);
+    net::StateReplication crep2;
     MoverManager* c1movers = c1.GetSystem<MoverManager>();
 
     // Peer 1's delta: only A crosses (B is hidden).
-    { net::BitWriter w; const usize n = rep.CaptureDelta(server, 1u, w); CHECK(n == 1u);
-      net::BitReader r(w.Data()); crep1.ApplyDelta(c1, r); }
+    {
+        net::BitWriter w;
+        const usize n = rep.CaptureDelta(server, 1u, w);
+        CHECK(n == 1u);
+        net::BitReader r(w.Data());
+        crep1.ApplyDelta(c1, r);
+    }
     CHECK(crep1.NetworkedCount() == 1u);
     CHECK(c1.IsValid(crep1.FindEntity(idA)));
-    CHECK_FALSE(c1.IsValid(crep1.FindEntity(idB)));   // B never sent to peer 1
+    CHECK_FALSE(c1.IsValid(crep1.FindEntity(idB))); // B never sent to peer 1
 
     // Peer 2's delta: both A and B.
-    { net::BitWriter w; const usize n = rep.CaptureDelta(server, 2u, w); CHECK(n == 2u);
-      net::BitReader r(w.Data()); crep2.ApplyDelta(c2, r); }
+    {
+        net::BitWriter w;
+        const usize n = rep.CaptureDelta(server, 2u, w);
+        CHECK(n == 2u);
+        net::BitReader r(w.Data());
+        crep2.ApplyDelta(c2, r);
+    }
     CHECK(crep2.NetworkedCount() == 2u);
 
     // A leaves peer 1's relevance -> peer 1's next delta REMOVES A (client destroys it).
     const dscene::EntityHandle localA = crep1.FindEntity(idA);
     REQUIRE(c1.IsValid(localA));
     peer1SeesA = false;
-    { net::BitWriter w; const usize n = rep.CaptureDelta(server, 1u, w); CHECK(n == 1u);
-      net::BitReader r(w.Data()); crep1.ApplyDelta(c1, r); }
-    CHECK_FALSE(c1.IsValid(localA));                  // hidden state actively destroyed on the client
+    {
+        net::BitWriter w;
+        const usize n = rep.CaptureDelta(server, 1u, w);
+        CHECK(n == 1u);
+        net::BitReader r(w.Data());
+        crep1.ApplyDelta(c1, r);
+    }
+    CHECK_FALSE(c1.IsValid(localA)); // hidden state actively destroyed on the client
     CHECK(crep1.NetworkedCount() == 0u);
 
     // Peer 2 is unaffected by peer 1's relevance and sees no change -> empty delta.
-    { net::BitWriter w; const usize n = rep.CaptureDelta(server, 2u, w); CHECK(n == 0u); }
+    {
+        net::BitWriter w;
+        const usize n = rep.CaptureDelta(server, 2u, w);
+        CHECK(n == 0u);
+    }
 
     // A re-enters peer 1's relevance -> it re-spawns as a fresh entry.
     peer1SeesA = true;
-    { net::BitWriter w; const usize n = rep.CaptureDelta(server, 1u, w); CHECK(n == 1u);
-      net::BitReader r(w.Data()); crep1.ApplyDelta(c1, r); }
+    {
+        net::BitWriter w;
+        const usize n = rep.CaptureDelta(server, 1u, w);
+        CHECK(n == 1u);
+        net::BitReader r(w.Data());
+        crep1.ApplyDelta(c1, r);
+    }
     CHECK(crep1.NetworkedCount() == 1u);
     CHECK(c1movers->Get(crep1.FindEntity(idA))->health == 1);
 }
@@ -542,7 +647,9 @@ TEST_CASE("replication: ApplyDelta records interpolatable state, SampleInterpola
     MoverManager* smovers = server.AddSystem<MoverManager>();
     net::StateReplication srep;
     const dscene::EntityHandle a = server.CreateEntity();
-    Mover& sm = smovers->Add(a); sm.position = Float3{ 0, 0, 0 }; sm.health = 5;
+    Mover& sm = smovers->Add(a);
+    sm.position = Float3{0, 0, 0};
+    sm.health = 5;
     const net::NetworkId id = srep.AssignNetworkId(server, a);
 
     dscene::Scene client;
@@ -553,14 +660,24 @@ TEST_CASE("replication: ApplyDelta records interpolatable state, SampleInterpola
     const u32 peer = 1;
 
     // Delta 1 recorded at server time 0 (position 0).
-    { net::BitWriter w; srep.CaptureDelta(server, peer, w); net::BitReader r(w.Data()); crep.ApplyDelta(client, r, buf, 0.0); }
+    {
+        net::BitWriter w;
+        srep.CaptureDelta(server, peer, w);
+        net::BitReader r(w.Data());
+        crep.ApplyDelta(client, r, buf, 0.0);
+    }
     // Move, delta 2 recorded at server time 100 (position 10).
-    sm.position = Float3{ 10, 0, 0 };
-    { net::BitWriter w; srep.CaptureDelta(server, peer, w); net::BitReader r(w.Data()); crep.ApplyDelta(client, r, buf, 100.0); }
+    sm.position = Float3{10, 0, 0};
+    {
+        net::BitWriter w;
+        srep.CaptureDelta(server, peer, w);
+        net::BitReader r(w.Data());
+        crep.ApplyDelta(client, r, buf, 100.0);
+    }
 
     const dscene::EntityHandle ce = crep.FindEntity(id);
     REQUIRE(client.IsValid(ce));
-    CHECK(cmovers->Get(ce)->position.x == doctest::Approx(10.0f));   // direct apply = latest
+    CHECK(cmovers->Get(ce)->position.x == doctest::Approx(10.0f)); // direct apply = latest
 
     // Render halfway between the two samples -> interpolated to the midpoint.
     crep.SampleInterpolation(client, buf, 50.0);

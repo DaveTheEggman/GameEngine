@@ -12,9 +12,9 @@ TEST_CASE("wire: arbitrary bit widths round-trip in order")
 {
     net::BitWriter w;
     w.WriteBits(1u, 1);
-    w.WriteBits(5u, 3);       // 101
+    w.WriteBits(5u, 3); // 101
     w.WriteBits(0u, 4);
-    w.WriteBits(0x2AAu, 10);  // spans a byte boundary
+    w.WriteBits(0x2AAu, 10); // spans a byte boundary
     w.WriteBits(0xFFFFFFFFu, 32);
 
     net::BitReader r(w.Data());
@@ -30,8 +30,11 @@ TEST_CASE("wire: arbitrary bit widths round-trip in order")
 TEST_CASE("wire: typed helpers round-trip (bool/int/float/u64)")
 {
     net::BitWriter w;
-    w.WriteBool(true); w.WriteBool(false);
-    w.WriteU8(0xABu); w.WriteU16(0x1234u); w.WriteU32(0xDEADBEEFu);
+    w.WriteBool(true);
+    w.WriteBool(false);
+    w.WriteU8(0xABu);
+    w.WriteU16(0x1234u);
+    w.WriteU32(0xDEADBEEFu);
     w.WriteU64(0x1122334455667788ull);
     w.WriteI32(-42);
     w.WriteFloat(3.14159f);
@@ -54,8 +57,8 @@ TEST_CASE("wire: varint packs small values in one byte and round-trips large one
 {
     net::BitWriter w;
     w.WriteVarU32(0u);
-    w.WriteVarU32(127u);        // 1 byte
-    w.WriteVarU32(128u);        // 2 bytes
+    w.WriteVarU32(127u); // 1 byte
+    w.WriteVarU32(128u); // 2 bytes
     w.WriteVarU32(300u);
     w.WriteVarU32(0xFFFFFFFFu); // 5 bytes
     // 0(1) + 127(1) + 128(2) + 300(2) + max(5) = 11 bytes
@@ -75,8 +78,8 @@ TEST_CASE("wire: ranged-float quantization stays within the bit-width's resoluti
     net::BitWriter w;
     w.WriteFloatRanged(0.0f, -1.0f, 1.0f, 16);
     w.WriteFloatRanged(0.5f, 0.0f, 1.0f, 16);
-    w.WriteFloatRanged(2.0f, 0.0f, 1.0f, 8);    // clamps to max
-    w.WriteFloatRanged(-9.0f, 0.0f, 1.0f, 8);   // clamps to min
+    w.WriteFloatRanged(2.0f, 0.0f, 1.0f, 8);  // clamps to max
+    w.WriteFloatRanged(-9.0f, 0.0f, 1.0f, 8); // clamps to min
 
     net::BitReader r(w.Data());
     CHECK(r.ReadFloatRanged(-1.0f, 1.0f, 16) == doctest::Approx(0.0f).epsilon(0.001));
@@ -88,16 +91,19 @@ TEST_CASE("wire: ranged-float quantization stays within the bit-width's resoluti
 
 TEST_CASE("wire: WriteBytes/ReadBytes round-trip a payload")
 {
-    const u8 payload[] = { 0x00, 0x7F, 0x80, 0xFF, 0x42, 0x13 };
+    const u8 payload[] = {0x00, 0x7F, 0x80, 0xFF, 0x42, 0x13};
     net::BitWriter w;
-    w.WriteBool(true);   // force a non-byte-aligned start
+    w.WriteBool(true); // force a non-byte-aligned start
     w.WriteBytes(Span<const byte>(reinterpret_cast<const byte*>(payload), sizeof(payload)));
 
     net::BitReader r(w.Data());
     CHECK(r.ReadBool() == true);
     byte out[sizeof(payload)] = {};
     r.ReadBytes(Span<byte>(out, sizeof(out)));
-    for (usize i = 0; i < sizeof(payload); ++i) { CHECK(static_cast<u8>(out[i]) == payload[i]); }
+    for (usize i = 0; i < sizeof(payload); ++i)
+    {
+        CHECK(static_cast<u8>(out[i]) == payload[i]);
+    }
     CHECK(r.Ok());
 }
 
@@ -110,6 +116,6 @@ TEST_CASE("wire: reading past the end degrades safely (Ok() == false)")
     CHECK(r.ReadU16() == 0xBEEFu);
     CHECK(r.Ok());
     CHECK(r.AtEnd());
-    (void)r.ReadU32();     // past the end
-    CHECK_FALSE(r.Ok());   // overflow flagged, not garbage read
+    (void)r.ReadU32();   // past the end
+    CHECK_FALSE(r.Ok()); // overflow flagged, not garbage read
 }
