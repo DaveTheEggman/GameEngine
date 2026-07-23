@@ -28,8 +28,14 @@ namespace
         bool down[512] = {};
         bool pressed[512] = {};
         dshell::KeyModifiers mods = dshell::KeyModifiers::None;
-        [[nodiscard]] bool IsKeyDown(dshell::KeyCode key) const override { return down[static_cast<u32>(key) & 511]; }
-        [[nodiscard]] bool IsKeyPressed(dshell::KeyCode key) const override { return pressed[static_cast<u32>(key) & 511]; }
+        [[nodiscard]] bool IsKeyDown(dshell::KeyCode key) const override
+        {
+            return down[static_cast<u32>(key) & 511];
+        }
+        [[nodiscard]] bool IsKeyPressed(dshell::KeyCode key) const override
+        {
+            return pressed[static_cast<u32>(key) & 511];
+        }
         [[nodiscard]] bool IsKeyReleased(dshell::KeyCode) const override { return false; }
         [[nodiscard]] dshell::KeyModifiers Modifiers() const override { return mods; }
         void Set(dshell::KeyCode key, bool value) { down[static_cast<u32>(key) & 511] = value; }
@@ -48,7 +54,10 @@ namespace
         [[nodiscard]] f32 DeltaY() const override { return dy; }
         [[nodiscard]] f32 ScrollX() const override { return 0; }
         [[nodiscard]] f32 ScrollY() const override { return wheel; }
-        [[nodiscard]] bool IsButtonDown(dshell::MouseButton b) const override { return buttons[static_cast<u32>(b) & 7]; }
+        [[nodiscard]] bool IsButtonDown(dshell::MouseButton b) const override
+        {
+            return buttons[static_cast<u32>(b) & 7];
+        }
         [[nodiscard]] bool IsButtonPressed(dshell::MouseButton) const override { return false; }
         [[nodiscard]] bool IsButtonReleased(dshell::MouseButton) const override { return false; }
         [[nodiscard]] bool RelativeMode() const override { return false; }
@@ -70,10 +79,19 @@ namespace
         [[nodiscard]] StringView Name() const override { return u8"fake"; }
         [[nodiscard]] bool Connected() const override { return connected; }
         bool buttonsPressed[32] = {};
-        [[nodiscard]] bool IsButtonDown(dshell::GamepadButton b) const override { return buttons[static_cast<u32>(b) & 31]; }
-        [[nodiscard]] bool IsButtonPressed(dshell::GamepadButton b) const override { return buttonsPressed[static_cast<u32>(b) & 31]; }
+        [[nodiscard]] bool IsButtonDown(dshell::GamepadButton b) const override
+        {
+            return buttons[static_cast<u32>(b) & 31];
+        }
+        [[nodiscard]] bool IsButtonPressed(dshell::GamepadButton b) const override
+        {
+            return buttonsPressed[static_cast<u32>(b) & 31];
+        }
         [[nodiscard]] bool IsButtonReleased(dshell::GamepadButton) const override { return false; }
-        [[nodiscard]] f32 Axis(dshell::GamepadAxis a) const override { return axes[static_cast<u32>(a) % 6]; }
+        [[nodiscard]] f32 Axis(dshell::GamepadAxis a) const override
+        {
+            return axes[static_cast<u32>(a) % 6];
+        }
         void SetRumble(f32, f32, u32) override {}
     };
 
@@ -84,21 +102,36 @@ namespace
         [[nodiscard]] i32 TouchCount() const override { return static_cast<i32>(points.Size()); }
         [[nodiscard]] bool GetTouchPoint(i32 index, dshell::TouchPoint& out) const override
         {
-            if (index < 0 || static_cast<usize>(index) >= points.Size()) { return false; }
+            if (index < 0 || static_cast<usize>(index) >= points.Size())
+            {
+                return false;
+            }
             out = points[static_cast<usize>(index)];
             return true;
         }
         [[nodiscard]] bool HasTouch() const override { return !points.IsEmpty(); }
         void Set(u64 id, f32 x, f32 y)
         {
-            for (auto& p : points) { if (p.id == id) { p.x = x; p.y = y; return; } }
-            points.PushBack(dshell::TouchPoint{ id, x, y, 1.0f });
+            for (auto& p : points)
+            {
+                if (p.id == id)
+                {
+                    p.x = x;
+                    p.y = y;
+                    return;
+                }
+            }
+            points.PushBack(dshell::TouchPoint{id, x, y, 1.0f});
         }
         void Remove(u64 id)
         {
             for (usize i = 0; i < points.Size(); ++i)
             {
-                if (points[i].id == id) { points.RemoveAt(i); return; }
+                if (points[i].id == id)
+                {
+                    points.RemoveAt(i);
+                    return;
+                }
             }
         }
     };
@@ -115,7 +148,8 @@ namespace
         [[nodiscard]] i32 GamepadCount() const override { return static_cast<i32>(pads.Size()); }
         [[nodiscard]] dshell::IGamepad* Gamepad(i32 i) override
         {
-            return (i >= 0 && i < static_cast<i32>(pads.Size())) ? pads[static_cast<usize>(i)] : nullptr;
+            return (i >= 0 && i < static_cast<i32>(pads.Size())) ? pads[static_cast<usize>(i)]
+                                                                 : nullptr;
         }
         [[nodiscard]] dshell::ITouch* Touch() override { return &touch; }
     };
@@ -137,7 +171,7 @@ namespace
             jump.bindings.PushBack(key);
             Binding pad;
             pad.source = BindingSource::GamepadButton;
-            pad.code = 0;   // "south" button
+            pad.code = 0; // "south" button
             jump.bindings.PushBack(pad);
             gameplay.actions.PushBack(static_cast<Action&&>(jump));
         }
@@ -170,7 +204,7 @@ namespace
             confirm.kind = ActionKind::Button;
             Binding key;
             key.source = BindingSource::Key;
-            key.code = static_cast<u32>(dshell::KeyCode::Space);   // deliberately shared with Jump
+            key.code = static_cast<u32>(dshell::KeyCode::Space); // deliberately shared with Jump
             confirm.bindings.PushBack(key);
             menu.actions.PushBack(static_cast<Action&&>(confirm));
         }
@@ -186,7 +220,8 @@ TEST_CASE("input: map round-trips through binary AND xml serializers")
     map.sets[0].actions[1].processors.gravity = 8.0f;
     map.sets[0].actions[1].processors.snap = true;
 
-    auto verify = [&](InputMap& loaded) {
+    auto verify = [&](InputMap& loaded)
+    {
         REQUIRE(loaded.sets.Size() == 2);
         CHECK(loaded.sets[0].name == u8"Gameplay");
         CHECK(loaded.sets[1].priority == 10);
@@ -239,7 +274,7 @@ TEST_CASE("input: validation refuses kind mismatches and empty names")
     InputMap bad = MakeGameplayMap();
     Binding stick;
     stick.source = BindingSource::GamepadStick;
-    bad.sets[0].actions[0].bindings.PushBack(stick);   // 2D binding on the Jump BUTTON
+    bad.sets[0].actions[0].bindings.PushBack(stick); // 2D binding on the Jump BUTTON
     String error;
     CHECK_FALSE(ValidateInputMap(bad, &error));
     CHECK(!error.IsEmpty());
@@ -253,7 +288,7 @@ TEST_CASE("input: buttons - edges, device folding, and key modifiers")
 {
     ActionRuntime runtime;
     runtime.SetMap(MakeGameplayMap());
-    runtime.DisableSet(u8"Menu");   // Space resolves to Gameplay/Jump
+    runtime.DisableSet(u8"Menu"); // Space resolves to Gameplay/Jump
     FakeDevices devices;
     FakeGamepad pad;
     devices.pads.PushBack(&pad);
@@ -339,11 +374,13 @@ TEST_CASE("input: axes - composite, stick dead zone, and folding by magnitude")
     CHECK(runtime.Value2D(move).x == doctest::Approx(1.0f).epsilon(0.01));
 
     // Keyboard (0.7) vs stick (1.0): the larger magnitude wins the fold.
-    devices.keyboard.Set(dshell::KeyCode::A, true);   // x = -1 from keys, +1 from stick... stick larger? equal
+    devices.keyboard.Set(dshell::KeyCode::A,
+                         true); // x = -1 from keys, +1 from stick... stick larger? equal
     pad.axes[static_cast<u32>(dshell::GamepadAxis::LeftX)] = 0.4f;
     runtime.Update(devices, 1.0f / 60.0f);
     v = runtime.Value2D(move);
-    CHECK(v.x == doctest::Approx(-1.0f).epsilon(0.01));   // the full-press key out-magnitudes 0.25-ish stick
+    CHECK(v.x ==
+          doctest::Approx(-1.0f).epsilon(0.01)); // the full-press key out-magnitudes 0.25-ish stick
     devices.keyboard.Set(dshell::KeyCode::A, false);
     pad.axes[static_cast<u32>(dshell::GamepadAxis::LeftX)] = 0.0f;
 }
@@ -369,7 +406,7 @@ TEST_CASE("input: exclusive sets - priority resolution, suppression, and held la
     runtime.Update(devices, 1.0f / 60.0f);
     CHECK_FALSE(runtime.IsDown(jump));
     CHECK(runtime.WasReleased(jump));
-    CHECK_FALSE(runtime.IsDown(confirm));   // latched: held from before the menu opened
+    CHECK_FALSE(runtime.IsDown(confirm)); // latched: held from before the menu opened
 
     // Releasing and re-pressing INSIDE the menu activates Confirm, not Jump.
     devices.keyboard.Set(dshell::KeyCode::Space, false);
@@ -384,7 +421,7 @@ TEST_CASE("input: exclusive sets - priority resolution, suppression, and held la
     // physical release; the next press works normally.
     runtime.PopExclusiveSet();
     runtime.Update(devices, 1.0f / 60.0f);
-    CHECK_FALSE(runtime.IsDown(jump));   // the held key must not re-fire
+    CHECK_FALSE(runtime.IsDown(jump)); // the held key must not re-fire
     devices.keyboard.Set(dshell::KeyCode::Space, false);
     runtime.Update(devices, 1.0f / 60.0f);
     devices.keyboard.Set(dshell::KeyCode::Space, true);
@@ -409,18 +446,18 @@ TEST_CASE("input: rebind overlay - apply over a pristine copy, clear restores, p
         overlay.Set(u8"Gameplay", u8"Jump", static_cast<Array<Binding>&&>(replacement));
     }
 
-    InputMap effective = asset;   // pristine copy
+    InputMap effective = asset; // pristine copy
     ApplyBindingOverrides(effective, overlay);
     REQUIRE(effective.sets[0].actions[0].bindings.Size() == 1);
     CHECK(effective.sets[0].actions[0].bindings[0].code == static_cast<u32>(dshell::KeyCode::J));
-    CHECK(asset.sets[0].actions[0].bindings.Size() == 2);   // the asset never mutates
+    CHECK(asset.sets[0].actions[0].bindings.Size() == 2); // the asset never mutates
 
     ActionRuntime runtime;
     runtime.SetMap(effective);
     runtime.DisableSet(u8"Menu");
     FakeDevices devices;
     const ActionRef jump = runtime.Resolve(u8"Jump");
-    devices.keyboard.Set(dshell::KeyCode::Space, true);   // the OLD binding: dead
+    devices.keyboard.Set(dshell::KeyCode::Space, true); // the OLD binding: dead
     runtime.Update(devices, 1.0f / 60.0f);
     CHECK_FALSE(runtime.IsDown(jump));
     devices.keyboard.Set(dshell::KeyCode::J, true);
@@ -443,7 +480,8 @@ TEST_CASE("input: rebind overlay - apply over a pristine copy, clear restores, p
         overlay.Set(u8"Gameplay", u8"Jump", static_cast<Array<Binding>&&>(replacement));
     }
     draconic::settings::Settings store;
-    store.Section<InputBindingOverrides>().overrides = overlay.overrides;   // sections are non-copyable objects
+    store.Section<InputBindingOverrides>().overrides =
+        overlay.overrides; // sections are non-copyable objects
     MemoryStream file;
     REQUIRE(store.Save(file, BinarySerializerFactory()).IsOk());
     (void)file.Seek(0, SeekOrigin::Begin);
@@ -471,9 +509,9 @@ TEST_CASE("input: the Wren Input facade resolves PER-CONTEXT services")
     FakeDevices devices;
     devices.keyboard.Set(dshell::KeyCode::Space, true);
     devices.keyboard.Set(dshell::KeyCode::W, true);
-    runtimeA.Update(devices, 1.0f / 60.0f);   // A sees the press...
+    runtimeA.Update(devices, 1.0f / 60.0f); // A sees the press...
     FakeDevices idle;
-    runtimeB.Update(idle, 1.0f / 60.0f);      // ...B sees nothing
+    runtimeB.Update(idle, 1.0f / 60.0f); // ...B sees nothing
 
     RefPtr<draconic::script::IScriptManager> manager =
         draconic::script::wren::CreateScriptManager();
@@ -486,15 +524,14 @@ TEST_CASE("input: the Wren Input facade resolves PER-CONTEXT services")
     ctxA->SetService(draconic::input::kInputRuntimeService, &runtimeA);
     ctxB->SetService(draconic::input::kInputRuntimeService, &runtimeB);
 
-    const StringView script =
-        u8"var Down = Input.isDown(\"Jump\")\n"
-        u8"var MoveY = Input.valueY(\"Move\")\n";
+    const StringView script = u8"var Down = Input.isDown(\"Jump\")\n"
+                              u8"var MoveY = Input.valueY(\"Move\")\n";
     REQUIRE(ctxA->Load(script, u8"main").IsOk());
     CHECK(ctxA->GetGlobal(u8"Down").Get<bool>() == true);
     CHECK(ctxA->GetGlobal(u8"MoveY").Get<f64>() == doctest::Approx(1.0));
 
     REQUIRE(ctxB->Load(script, u8"main").IsOk());
-    CHECK(ctxB->GetGlobal(u8"Down").Get<bool>() == false);   // B's runtime saw nothing
+    CHECK(ctxB->GetGlobal(u8"Down").Get<bool>() == false); // B's runtime saw nothing
     CHECK(ctxB->GetGlobal(u8"MoveY").Get<f64>() == doctest::Approx(0.0));
 
     // No service bound: released, never a crash.
@@ -575,9 +612,9 @@ TEST_CASE("input: SurfaceTouch transforms + spatially gates through the ContentF
     // A 1920x1080 window hosting a viewport at (100,100)-(900,700): 800x600 region showing
     // 800x600 content (stretch = identity within the region).
     dshell::InputSurface surface(&manager, 1u, ContentFit{});
-    surface.SetRegion(Rectangle{ 100.0f, 100.0f, 800.0f, 600.0f });
-    surface.SetContentSize(Float2{ 800.0f, 600.0f });
-    surface.SetWindowSize(Float2{ 1920.0f, 1080.0f });
+    surface.SetRegion(Rectangle{100.0f, 100.0f, 800.0f, 600.0f});
+    surface.SetContentSize(Float2{800.0f, 600.0f});
+    surface.SetWindowSize(Float2{1920.0f, 1080.0f});
     dshell::ITouch* touch = surface.Touch();
     REQUIRE(touch != nullptr);
 
@@ -599,20 +636,20 @@ TEST_CASE("input: SurfaceTouch transforms + spatially gates through the ContentF
     // Letterbox: 800x600 region showing 1280x800 content (16:10 in 4:3) - vertical bars
     // ABOVE/BELOW? 16:10 content in 4:3 region: content wider -> bars top+bottom. A
     // finger in the bar band is filtered ("no hit" contract); one in the content maps.
-    surface.SetContentSize(Float2{ 1280.0f, 800.0f });
+    surface.SetContentSize(Float2{1280.0f, 800.0f});
     surface.SetFitMode(FitMode::Letterbox);
     // dst: width 800, height 800*800/1280 = 500, centered in the 600-tall region ->
     // region-local y in [50, 550) = window px [150, 650). Content center = window (500, 400).
-    manager.touch.Set(1, 500.0f / 1920.0f, 130.0f / 1080.0f);   // in the top bar (region y 30)
+    manager.touch.Set(1, 500.0f / 1920.0f, 130.0f / 1080.0f); // in the top bar (region y 30)
     CHECK(touch->TouchCount() == 0);
-    manager.touch.Set(1, 500.0f / 1920.0f, 400.0f / 1080.0f);   // content center
+    manager.touch.Set(1, 500.0f / 1920.0f, 400.0f / 1080.0f); // content center
     REQUIRE(touch->TouchCount() == 1);
     REQUIRE(touch->GetTouchPoint(0, mapped));
     CHECK(mapped.x == doctest::Approx(0.5f).epsilon(0.01));
     CHECK(mapped.y == doctest::Approx(0.5f).epsilon(0.01));
 
     // No window size published: everything filters (never a divide-by-zero).
-    surface.SetWindowSize(Float2{ 0.0f, 0.0f });
+    surface.SetWindowSize(Float2{0.0f, 0.0f});
     CHECK(touch->TouchCount() == 0);
 }
 
@@ -627,8 +664,10 @@ TEST_CASE("input: touch - region buttons and the floating virtual stick")
         fire.kind = ActionKind::Button;
         Binding region;
         region.source = BindingSource::TouchButton;
-        region.regionX = 0.5f; region.regionY = 0.5f;   // bottom-right quadrant
-        region.regionW = 0.5f; region.regionH = 0.5f;
+        region.regionX = 0.5f;
+        region.regionY = 0.5f; // bottom-right quadrant
+        region.regionW = 0.5f;
+        region.regionH = 0.5f;
         fire.bindings.PushBack(region);
         set.actions.PushBack(static_cast<Action&&>(fire));
     }
@@ -638,8 +677,10 @@ TEST_CASE("input: touch - region buttons and the floating virtual stick")
         move.kind = ActionKind::Axis2D;
         Binding stick;
         stick.source = BindingSource::TouchStick;
-        stick.regionX = 0.0f; stick.regionY = 0.0f;     // left half
-        stick.regionW = 0.5f; stick.regionH = 1.0f;
+        stick.regionX = 0.0f;
+        stick.regionY = 0.0f; // left half
+        stick.regionW = 0.5f;
+        stick.regionH = 1.0f;
         stick.stickRadius = 0.1f;
         stick.deadZone = 0.1f;
         move.bindings.PushBack(stick);
@@ -670,13 +711,13 @@ TEST_CASE("input: touch - region buttons and the floating virtual stick")
     // Stick: a touch starting in-region anchors (value 0), deflection scales over the
     // radius, clamps at 1, and a touch that STARTED OUTSIDE never captures.
     devices.touch.Set(2, 0.25f, 0.5f);
-    runtime.Update(devices, step);   // capture frame: anchor == position
+    runtime.Update(devices, step); // capture frame: anchor == position
     CHECK(runtime.Value2D(move).x == doctest::Approx(0.0f));
-    devices.touch.Set(2, 0.30f, 0.5f);   // +0.05 over radius 0.1 = half deflection...
+    devices.touch.Set(2, 0.30f, 0.5f); // +0.05 over radius 0.1 = half deflection...
     runtime.Update(devices, step);
-    CHECK(runtime.Value2D(move).x > 0.30f);   // ...minus the dead-zone rescale
+    CHECK(runtime.Value2D(move).x > 0.30f); // ...minus the dead-zone rescale
     CHECK(runtime.Value2D(move).x < 0.60f);
-    devices.touch.Set(2, 0.60f, 0.5f);   // way past the radius: clamped
+    devices.touch.Set(2, 0.60f, 0.5f); // way past the radius: clamped
     runtime.Update(devices, step);
     CHECK(runtime.Value2D(move).x == doctest::Approx(1.0f));
     CHECK(runtime.Value2D(move).y == doctest::Approx(0.0f));
@@ -692,7 +733,8 @@ TEST_CASE("input: touch - region buttons and the floating virtual stick")
     runtime.Update(devices, step);
     // NOTE: with the capture-scan running each frame a formerly-outside touch inside
     // the region WILL capture (we scan current positions). Assert the ACTUAL contract:
-    CHECK(runtime.Value2D(move).x == doctest::Approx(0.0f));   // anchor = entry point, so value starts at 0
+    CHECK(runtime.Value2D(move).x ==
+          doctest::Approx(0.0f)); // anchor = entry point, so value starts at 0
 
     // Kind mismatch validation: a TouchStick on a Button action is refused.
     InputMap bad = map;
@@ -707,7 +749,8 @@ TEST_CASE("input: the timeScale processor scales flagged action VALUES only")
     InputMap map;
     ActionSet set;
     set.name = String(u8"S");
-    auto addAxis = [&](StringView name, bool scaled) {
+    auto addAxis = [&](StringView name, bool scaled)
+    {
         Action axis;
         axis.name = String(name);
         axis.kind = ActionKind::Axis1D;
@@ -735,15 +778,16 @@ TEST_CASE("input: the timeScale processor scales flagged action VALUES only")
     CHECK(runtime.Value(raw) == doctest::Approx(1.0f));
     CHECK(runtime.IsDown(raw));
 
-    runtime.SetTimeScale(0.0f);   // paused world: flagged values zero, digital press intact
+    runtime.SetTimeScale(0.0f); // paused world: flagged values zero, digital press intact
     runtime.Update(devices, 1.0f / 60.0f);
     CHECK(runtime.Value(scaled) == doctest::Approx(0.0f));
-    CHECK(runtime.IsDown(scaled));   // the PRESS is physical; only the value scales
+    CHECK(runtime.IsDown(scaled)); // the PRESS is physical; only the value scales
 }
 
 TEST_CASE("input: interactions - hold, tap, and double tap")
 {
-    auto makeButtonMap = [](InteractionKind kind, f32 seconds) {
+    auto makeButtonMap = [](InteractionKind kind, f32 seconds)
+    {
         InputMap map;
         ActionSet set;
         set.name = String(u8"S");
@@ -773,13 +817,16 @@ TEST_CASE("input: interactions - hold, tap, and double tap")
         for (int i = 0; i < 6; ++i)
         {
             runtime.Update(devices, step);
-            CHECK_FALSE(runtime.IsDown(act));   // 6 frames = 0.1s, below the threshold
+            CHECK_FALSE(runtime.IsDown(act)); // 6 frames = 0.1s, below the threshold
         }
         bool edged = false;
         for (int i = 0; i < 8; ++i)
         {
             runtime.Update(devices, step);
-            if (runtime.WasPressed(act)) { edged = true; }
+            if (runtime.WasPressed(act))
+            {
+                edged = true;
+            }
         }
         CHECK(edged);
         CHECK(runtime.IsDown(act));
@@ -795,17 +842,24 @@ TEST_CASE("input: interactions - hold, tap, and double tap")
         runtime.SetMap(makeButtonMap(InteractionKind::Tap, 0.15f));
         const ActionRef act = runtime.Resolve(u8"Act");
         devices.keyboard.Set(dshell::KeyCode::Space, true);
-        for (int i = 0; i < 4; ++i) { runtime.Update(devices, step); CHECK_FALSE(runtime.IsDown(act)); }
+        for (int i = 0; i < 4; ++i)
+        {
+            runtime.Update(devices, step);
+            CHECK_FALSE(runtime.IsDown(act));
+        }
         devices.keyboard.Set(dshell::KeyCode::Space, false);
         runtime.Update(devices, step);
-        CHECK(runtime.WasPressed(act));   // the pulse
+        CHECK(runtime.WasPressed(act)); // the pulse
         CHECK(runtime.IsDown(act));
         runtime.Update(devices, step);
         CHECK_FALSE(runtime.IsDown(act));
         CHECK(runtime.WasReleased(act));
 
-        devices.keyboard.Set(dshell::KeyCode::Space, true);   // long press: no fire
-        for (int i = 0; i < 20; ++i) { runtime.Update(devices, step); }
+        devices.keyboard.Set(dshell::KeyCode::Space, true); // long press: no fire
+        for (int i = 0; i < 20; ++i)
+        {
+            runtime.Update(devices, step);
+        }
         devices.keyboard.Set(dshell::KeyCode::Space, false);
         runtime.Update(devices, step);
         CHECK_FALSE(runtime.WasPressed(act));
@@ -816,19 +870,23 @@ TEST_CASE("input: interactions - hold, tap, and double tap")
         ActionRuntime runtime;
         runtime.SetMap(makeButtonMap(InteractionKind::DoubleTap, 0.25f));
         const ActionRef act = runtime.Resolve(u8"Act");
-        auto tap = [&](int gapFrames) {
+        auto tap = [&](int gapFrames)
+        {
             devices.keyboard.Set(dshell::KeyCode::Space, true);
             runtime.Update(devices, step);
             const bool fired = runtime.WasPressed(act);
             devices.keyboard.Set(dshell::KeyCode::Space, false);
             runtime.Update(devices, step);
-            for (int i = 0; i < gapFrames; ++i) { runtime.Update(devices, step); }
+            for (int i = 0; i < gapFrames; ++i)
+            {
+                runtime.Update(devices, step);
+            }
             return fired;
         };
-        CHECK_FALSE(tap(2));   // first tap arms
-        CHECK(tap(2));         // second within the window fires
-        CHECK_FALSE(tap(30));  // slow: arms again (previous consumed), gap too long...
-        CHECK_FALSE(tap(30));  // ...and a second slow tap still does not fire
+        CHECK_FALSE(tap(2));  // first tap arms
+        CHECK(tap(2));        // second within the window fires
+        CHECK_FALSE(tap(30)); // slow: arms again (previous consumed), gap too long...
+        CHECK_FALSE(tap(30)); // ...and a second slow tap still does not fire
     }
 }
 
@@ -849,8 +907,8 @@ TEST_CASE("input: smoothing - sensitivity ramp, gravity recenter, snap on flip")
     back.code = static_cast<u32>(dshell::KeyCode::S);
     back.scale = -1.0f;
     axis.bindings.PushBack(back);
-    axis.processors.sensitivity = 5.0f;   // 0.2s to full
-    axis.processors.gravity = 10.0f;      // 0.1s back to zero
+    axis.processors.sensitivity = 5.0f; // 0.2s to full
+    axis.processors.gravity = 10.0f;    // 0.1s back to zero
     axis.processors.snap = true;
     set.actions.PushBack(static_cast<Action&&>(axis));
     map.sets.PushBack(static_cast<ActionSet&&>(set));
@@ -862,9 +920,15 @@ TEST_CASE("input: smoothing - sensitivity ramp, gravity recenter, snap on flip")
 
     // Ramp: after 0.1s at sensitivity 5, value is ~0.5, not 1.
     devices.keyboard.Set(dshell::KeyCode::W, true);
-    for (int i = 0; i < 6; ++i) { runtime.Update(devices, 1.0f / 60.0f); }
+    for (int i = 0; i < 6; ++i)
+    {
+        runtime.Update(devices, 1.0f / 60.0f);
+    }
     CHECK(runtime.Value(throttle) == doctest::Approx(0.5f).epsilon(0.05));
-    for (int i = 0; i < 12; ++i) { runtime.Update(devices, 1.0f / 60.0f); }
+    for (int i = 0; i < 12; ++i)
+    {
+        runtime.Update(devices, 1.0f / 60.0f);
+    }
     CHECK(runtime.Value(throttle) == doctest::Approx(1.0f));
 
     // Snap: flipping to S zeroes first, then ramps negative (never crossfades through).
@@ -875,7 +939,10 @@ TEST_CASE("input: smoothing - sensitivity ramp, gravity recenter, snap on flip")
 
     // Gravity: releasing recenters at 10/sec - ~0.1s to zero from full.
     devices.keyboard.Set(dshell::KeyCode::S, false);
-    for (int i = 0; i < 8; ++i) { runtime.Update(devices, 1.0f / 60.0f); }
+    for (int i = 0; i < 8; ++i)
+    {
+        runtime.Update(devices, 1.0f / 60.0f);
+    }
     CHECK(runtime.Value(throttle) == doctest::Approx(0.0f));
 }
 
@@ -919,13 +986,13 @@ TEST_CASE("input: the UI consumption mask gates device classes independently")
     CHECK(runtime.IsDown(shoot));
 
     // Pointer consumed (menu under the mouse): Shoot mutes, Jump keeps working.
-    runtime.SetConsumptionMask(ActionRuntime::ConsumptionMask{ .pointer = true, .keyboard = false });
+    runtime.SetConsumptionMask(ActionRuntime::ConsumptionMask{.pointer = true, .keyboard = false});
     runtime.Update(devices, 1.0f / 60.0f);
     CHECK(runtime.IsDown(jump));
     CHECK_FALSE(runtime.IsDown(shoot));
 
     // Keyboard consumed too (text field focused): both mute.
-    runtime.SetConsumptionMask(ActionRuntime::ConsumptionMask{ .pointer = true, .keyboard = true });
+    runtime.SetConsumptionMask(ActionRuntime::ConsumptionMask{.pointer = true, .keyboard = true});
     runtime.Update(devices, 1.0f / 60.0f);
     CHECK_FALSE(runtime.IsDown(jump));
     CHECK_FALSE(runtime.IsDown(shoot));
@@ -944,10 +1011,10 @@ TEST_CASE("input.subsystem: the per-surface scene binding rides the source overr
     // routing/consumption to it. Un-bound sources follow the policy knob.
     InputSubsystem input(nullptr);
     CHECK(input.BoundSceneKey() == nullptr);
-    CHECK(input.UnboundScenePolicy() == UnboundInputScenePolicy::AllScenes);   // player default
+    CHECK(input.UnboundScenePolicy() == UnboundInputScenePolicy::AllScenes); // player default
 
     FakeDevices devices;
-    int sceneStandIn = 0;   // any stable address works as a key
+    int sceneStandIn = 0; // any stable address works as a key
     input.SetSourceProvider(&devices, &sceneStandIn);
     CHECK(input.BoundSceneKey() == &sceneStandIn);
     CHECK(&input.ActiveSource() == static_cast<IInputSourceProvider*>(&devices));

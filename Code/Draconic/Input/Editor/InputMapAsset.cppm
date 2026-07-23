@@ -30,7 +30,7 @@ export namespace draconic::input
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::editor::Asset::Serialize(ar);   // fileName (unused - authored in-editor)
+            draconic::editor::Asset::Serialize(ar); // fileName (unused - authored in-editor)
             SerializeInputMap(ar, m_map);
         }
 
@@ -40,9 +40,9 @@ export namespace draconic::input
         {
             ActionSet gameplay;
             gameplay.name = String(u8"Gameplay");
-            const StringView names[] = { u8"Move", u8"Look", u8"Jump", u8"Fire" };
-            const ActionKind kinds[] = { ActionKind::Axis2D, ActionKind::Axis2D,
-                                         ActionKind::Button, ActionKind::Button };
+            const StringView names[] = {u8"Move", u8"Look", u8"Jump", u8"Fire"};
+            const ActionKind kinds[] = {ActionKind::Axis2D, ActionKind::Axis2D, ActionKind::Button,
+                                        ActionKind::Button};
             for (usize i = 0; i < 4; ++i)
             {
                 Action action;
@@ -60,18 +60,27 @@ export namespace draconic::input
     class InputMapAssetBuilder final : public draconic::editor::DefaultAssetBuilder
     {
     public:
-        [[nodiscard]] const TypeInfo* AssetType() const override { return &InputMapAsset::StaticType(); }
-        [[nodiscard]] const TypeInfo* ProductType() const override { return &InputMapResource::StaticType(); }
+        [[nodiscard]] const TypeInfo* AssetType() const override
+        {
+            return &InputMapAsset::StaticType();
+        }
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &InputMapResource::StaticType();
+        }
         [[nodiscard]] Status Build(const draconic::editor::Asset& asset,
                                    draconic::editor::AssetBuildContext& ctx) override
         {
-            if (ctx.output == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
+            if (ctx.output == nullptr)
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
             const InputMapAsset& source = static_cast<const InputMapAsset&>(asset);
             String error;
             if (!ValidateInputMap(source.Map(), &error))
             {
                 DRACONIC_LOG_ERROR(u8"Cook", u8"input map invalid: {}", error);
-                return Status{ ErrorCode::InvalidArgument };
+                return Status{ErrorCode::InvalidArgument};
             }
             InputMapResource cooked;
             cooked.Map() = source.Map();

@@ -30,35 +30,46 @@ export namespace draconic::input
 
     enum class BindingSource : u8
     {
-        Key,             // code = shell::KeyCode; optional modifier mask
-        MouseButton,     // code = shell::MouseButton
-        MouseAxis,       // Axis1D rate: code = MouseAxisCode; NEVER time-scaled (ez rule)
-        MouseDelta,      // Axis2D rate: (dx, dy)
-        GamepadButton,   // code = shell::GamepadButton; device -1 = any
-        GamepadAxis,     // Axis1D: code = shell::GamepadAxis; deadZone/invert/scale
-        GamepadStick,    // Axis2D: code = StickCode; circular dead zone
-        Composite2D,     // Axis2D from four digital keys (WASD); normalize flag
-        TouchButton,     // Button: any touch inside the normalized screen region
-        TouchStick,      // Axis2D: a floating virtual stick - the touch that STARTS inside
-                         // the region anchors there; deflection/stickRadius = the value
+        Key,           // code = shell::KeyCode; optional modifier mask
+        MouseButton,   // code = shell::MouseButton
+        MouseAxis,     // Axis1D rate: code = MouseAxisCode; NEVER time-scaled (ez rule)
+        MouseDelta,    // Axis2D rate: (dx, dy)
+        GamepadButton, // code = shell::GamepadButton; device -1 = any
+        GamepadAxis,   // Axis1D: code = shell::GamepadAxis; deadZone/invert/scale
+        GamepadStick,  // Axis2D: code = StickCode; circular dead zone
+        Composite2D,   // Axis2D from four digital keys (WASD); normalize flag
+        TouchButton,   // Button: any touch inside the normalized screen region
+        TouchStick,    // Axis2D: a floating virtual stick - the touch that STARTS inside
+                       // the region anchors there; deflection/stickRadius = the value
     };
 
-    enum class MouseAxisCode : u32 { DeltaX = 0, DeltaY = 1, Wheel = 2 };
-    enum class StickCode : u32 { Left = 0, Right = 1 };
+    enum class MouseAxisCode : u32
+    {
+        DeltaX = 0,
+        DeltaY = 1,
+        Wheel = 2
+    };
+    enum class StickCode : u32
+    {
+        Left = 0,
+        Right = 1
+    };
 
     // One physical binding, flat + tagged: only the fields the source uses are meaningful,
     // the rest stay at defaults (they serialize compactly and the editor grid hides them).
     struct Binding
     {
         BindingSource source = BindingSource::Key;
-        u32 code = 0;            // KeyCode / MouseButton / MouseAxisCode / GamepadButton / GamepadAxis / StickCode
-        u32 modifiers = 0;       // Key only: required shell::KeyModifiers mask (0 = none required)
-        i32 device = -1;         // gamepad index; -1 = any connected pad
-        f32 deadZone = 0.15f;    // analog sources; circular for sticks
-        f32 scale = 1.0f;        // response scale (a key bound to an axis uses -1 for the negative direction)
-        bool invert = false;     // flips the value (sticks: flips Y)
-        bool normalize = true;   // Composite2D: clamp diagonal length to 1
-        u32 negX = 0;            // Composite2D key codes
+        u32 code =
+            0; // KeyCode / MouseButton / MouseAxisCode / GamepadButton / GamepadAxis / StickCode
+        u32 modifiers = 0;    // Key only: required shell::KeyModifiers mask (0 = none required)
+        i32 device = -1;      // gamepad index; -1 = any connected pad
+        f32 deadZone = 0.15f; // analog sources; circular for sticks
+        f32 scale =
+            1.0f; // response scale (a key bound to an axis uses -1 for the negative direction)
+        bool invert = false;   // flips the value (sticks: flips Y)
+        bool normalize = true; // Composite2D: clamp diagonal length to 1
+        u32 negX = 0;          // Composite2D key codes
         u32 posX = 0;
         u32 negY = 0;
         u32 posY = 0;
@@ -76,7 +87,13 @@ export namespace draconic::input
     //   Hold:      the pressed edge fires only once the press has been HELD `seconds`.
     //   Tap:       a one-frame pulse at RELEASE, only if the press lasted <= `seconds`.
     //   DoubleTap: a one-frame pulse on the second press within `seconds` of the first.
-    enum class InteractionKind : u8 { None, Hold, Tap, DoubleTap };
+    enum class InteractionKind : u8
+    {
+        None,
+        Hold,
+        Tap,
+        DoubleTap
+    };
 
     struct Interaction
     {
@@ -87,12 +104,13 @@ export namespace draconic::input
     // Per-action value conditioning (applied to the folded target each frame).
     struct ActionProcessors
     {
-        f32 sensitivity = 0.0f;      // >0: key-driven axes RAMP toward the target at this rate/sec (Flax)
-        f32 gravity = 0.0f;          // >0: recenter rate/sec when the target is 0 (else sensitivity)
-        bool snap = false;           // zero first on direction flip (Flax)
+        f32 sensitivity =
+            0.0f;           // >0: key-driven axes RAMP toward the target at this rate/sec (Flax)
+        f32 gravity = 0.0f; // >0: recenter rate/sec when the target is 0 (else sensitivity)
+        bool snap = false;  // zero first on direction flip (Flax)
         f32 responseExponent = 1.0f; // analog curve: sign(v)*|v|^e (ez)
         bool timeScale = false;      // value multiplies by a global time scale when one exists (ez;
-                                     // stored now, applied when the engine grows a time-scale system)
+        // stored now, applied when the engine grows a time-scale system)
     };
 
     struct Action
@@ -101,7 +119,7 @@ export namespace draconic::input
         ActionKind kind = ActionKind::Button;
         Array<Binding> bindings;
         ActionProcessors processors;
-        Interaction interaction;   // Button actions only (validated)
+        Interaction interaction; // Button actions only (validated)
     };
 
     // A context: "Gameplay" / "Menu" / "Vehicle". Priority orders QUERY resolution when the
@@ -120,7 +138,7 @@ export namespace draconic::input
 
     // ---- serialization (shared by the source asset and the cooked resource) ----
 
-    inline constexpr u32 kInputMapVersion = 2;   // v2: touch sources + region fields
+    inline constexpr u32 kInputMapVersion = 2; // v2: touch sources + region fields
 
     inline void SerializeBinding(ISerializer& ar, Binding& b, u32 version = kInputMapVersion)
     {
@@ -157,7 +175,11 @@ export namespace draconic::input
         u32 setCount = writing ? static_cast<u32>(map.sets.Size()) : 0;
         ar.Key("sets");
         ar.BeginArray(setCount);
-        if (!writing) { map.sets.Clear(); map.sets.Resize(setCount); }
+        if (!writing)
+        {
+            map.sets.Clear();
+            map.sets.Resize(setCount);
+        }
         for (u32 s = 0; s < setCount; ++s)
         {
             ActionSet& set = map.sets[s];
@@ -166,7 +188,10 @@ export namespace draconic::input
             u32 actionCount = writing ? static_cast<u32>(set.actions.Size()) : 0;
             ar.Key("actions");
             ar.BeginArray(actionCount);
-            if (!writing) { set.actions.Resize(actionCount); }
+            if (!writing)
+            {
+                set.actions.Resize(actionCount);
+            }
             for (u32 a = 0; a < actionCount; ++a)
             {
                 Action& action = set.actions[a];
@@ -177,7 +202,8 @@ export namespace draconic::input
                 draconic::core::Serialize(ar, "sensitivity", action.processors.sensitivity);
                 draconic::core::Serialize(ar, "gravity", action.processors.gravity);
                 draconic::core::Serialize(ar, "snap", action.processors.snap);
-                draconic::core::Serialize(ar, "responseExponent", action.processors.responseExponent);
+                draconic::core::Serialize(ar, "responseExponent",
+                                          action.processors.responseExponent);
                 draconic::core::Serialize(ar, "timeScale", action.processors.timeScale);
                 u8 interaction = static_cast<u8>(action.interaction.kind);
                 draconic::core::Serialize(ar, "interaction", interaction);
@@ -186,7 +212,10 @@ export namespace draconic::input
                 u32 bindingCount = writing ? static_cast<u32>(action.bindings.Size()) : 0;
                 ar.Key("bindings");
                 ar.BeginArray(bindingCount);
-                if (!writing) { action.bindings.Resize(bindingCount); }
+                if (!writing)
+                {
+                    action.bindings.Resize(bindingCount);
+                }
                 for (u32 b = 0; b < bindingCount; ++b)
                 {
                     SerializeBinding(ar, action.bindings[b], version);
@@ -221,7 +250,11 @@ export namespace draconic::input
             u32 count = writing ? static_cast<u32>(overrides.Size()) : 0;
             ar.Key("overrides");
             ar.BeginArray(count);
-            if (!writing) { overrides.Clear(); overrides.Resize(count); }
+            if (!writing)
+            {
+                overrides.Clear();
+                overrides.Resize(count);
+            }
             for (u32 i = 0; i < count; ++i)
             {
                 InputBindingOverride& o = overrides[i];
@@ -230,8 +263,14 @@ export namespace draconic::input
                 u32 bindingCount = writing ? static_cast<u32>(o.bindings.Size()) : 0;
                 ar.Key("bindings");
                 ar.BeginArray(bindingCount);
-                if (!writing) { o.bindings.Resize(bindingCount); }
-                for (u32 b = 0; b < bindingCount; ++b) { SerializeBinding(ar, o.bindings[b]); }   // current version
+                if (!writing)
+                {
+                    o.bindings.Resize(bindingCount);
+                }
+                for (u32 b = 0; b < bindingCount; ++b)
+                {
+                    SerializeBinding(ar, o.bindings[b]);
+                } // current version
                 ar.EndArray();
             }
             ar.EndArray();
@@ -260,8 +299,8 @@ export namespace draconic::input
         {
             for (usize i = 0; i < overrides.Size(); ++i)
             {
-                if (overrides[i].setName.AsView() == set
-                    && overrides[i].actionName.AsView() == action)
+                if (overrides[i].setName.AsView() == set &&
+                    overrides[i].actionName.AsView() == action)
                 {
                     overrides.RemoveAt(i);
                     return;
@@ -279,7 +318,10 @@ export namespace draconic::input
         {
             for (ActionSet& set : map.sets)
             {
-                if (set.name.AsView() != o.setName.AsView()) { continue; }
+                if (set.name.AsView() != o.setName.AsView())
+                {
+                    continue;
+                }
                 for (Action& action : set.actions)
                 {
                     if (action.name.AsView() == o.actionName.AsView())
@@ -295,40 +337,59 @@ export namespace draconic::input
     // Kind mismatches are DATA errors: surfaced here, not silently zeroed at runtime.
     [[nodiscard]] inline bool ValidateInputMap(const InputMap& map, String* firstError = nullptr)
     {
-        auto fail = [&](StringView message) {
-            if (firstError != nullptr) { *firstError = String(message); }
+        auto fail = [&](StringView message)
+        {
+            if (firstError != nullptr)
+            {
+                *firstError = String(message);
+            }
             return false;
         };
         for (const ActionSet& set : map.sets)
         {
-            if (set.name.IsEmpty()) { return fail(u8"action set with an empty name"); }
+            if (set.name.IsEmpty())
+            {
+                return fail(u8"action set with an empty name");
+            }
             for (const Action& action : set.actions)
             {
-                if (action.name.IsEmpty()) { return fail(u8"action with an empty name"); }
-                if (action.interaction.kind != InteractionKind::None
-                    && action.kind != ActionKind::Button)
+                if (action.name.IsEmpty())
+                {
+                    return fail(u8"action with an empty name");
+                }
+                if (action.interaction.kind != InteractionKind::None &&
+                    action.kind != ActionKind::Button)
                 {
                     return fail(u8"interaction on a non-Button action");
                 }
                 for (const Binding& b : action.bindings)
                 {
-                    const bool is2D = b.source == BindingSource::GamepadStick
-                                   || b.source == BindingSource::Composite2D
-                                   || b.source == BindingSource::MouseDelta
-                                   || b.source == BindingSource::TouchStick;
-                    const bool isAxis = b.source == BindingSource::MouseAxis
-                                     || b.source == BindingSource::GamepadAxis;
+                    const bool is2D = b.source == BindingSource::GamepadStick ||
+                                      b.source == BindingSource::Composite2D ||
+                                      b.source == BindingSource::MouseDelta ||
+                                      b.source == BindingSource::TouchStick;
+                    const bool isAxis = b.source == BindingSource::MouseAxis ||
+                                        b.source == BindingSource::GamepadAxis;
                     switch (action.kind)
                     {
-                        case ActionKind::Button:
-                            if (is2D || isAxis) { return fail(u8"analog binding on a Button action"); }
-                            break;
-                        case ActionKind::Axis1D:
-                            if (is2D) { return fail(u8"2D binding on an Axis1D action"); }
-                            break;
-                        case ActionKind::Axis2D:
-                            if (!is2D) { return fail(u8"non-2D binding on an Axis2D action"); }
-                            break;
+                    case ActionKind::Button:
+                        if (is2D || isAxis)
+                        {
+                            return fail(u8"analog binding on a Button action");
+                        }
+                        break;
+                    case ActionKind::Axis1D:
+                        if (is2D)
+                        {
+                            return fail(u8"2D binding on an Axis1D action");
+                        }
+                        break;
+                    case ActionKind::Axis2D:
+                        if (!is2D)
+                        {
+                            return fail(u8"non-2D binding on an Axis2D action");
+                        }
+                        break;
                     }
                 }
             }

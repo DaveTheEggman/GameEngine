@@ -35,8 +35,12 @@ export namespace draconic::input
     class InputMapFactory final : public resource::IResourceFactory
     {
     public:
-        [[nodiscard]] const TypeInfo* ProductType() const override { return &InputMapResource::StaticType(); }
-        [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager&, content::Instance& instance) override
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &InputMapResource::StaticType();
+        }
+        [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager&,
+                                            content::Instance& instance) override
         {
             return instance.ReadObject();
         }

@@ -35,16 +35,15 @@ export namespace draconic::input
     /// their HUDs stay VISIBLE (WYSIWYG) but deliberately not interactive.
     enum class UnboundInputScenePolicy : u8
     {
-        AllScenes = 0,     // un-bound input reaches every scene's UI (player default)
-        ScreenTierOnly,    // un-bound input reaches only the scene-less screen tier (editor)
+        AllScenes = 0,  // un-bound input reaches every scene's UI (player default)
+        ScreenTierOnly, // un-bound input reaches only the scene-less screen tier (editor)
     };
 
     class InputSubsystem final : public draconic::runtime::Subsystem
     {
     public:
         /// `input` = the shell's device hub (null tolerated: headless runs read released).
-        explicit InputSubsystem(draconic::shell::IInputManager* input)
-            : m_shellSource(input) {}
+        explicit InputSubsystem(draconic::shell::IInputManager* input) : m_shellSource(input) {}
 
         [[nodiscard]] ActionRuntime& Runtime() noexcept { return m_runtime; }
 
@@ -80,7 +79,11 @@ export namespace draconic::input
         /// PumpInput/Update. Guarded so it never clears a DIFFERENT still-open tab's active source.
         void ClearSourceProviderIf(const IInputSourceProvider* source) noexcept
         {
-            if (m_override == source) { m_override = nullptr; m_boundSceneKey = nullptr; }
+            if (m_override == source)
+            {
+                m_override = nullptr;
+                m_boundSceneKey = nullptr;
+            }
         }
 
         /// The active source's scene binding (null = un-bound; see SetSourceProvider).
@@ -121,16 +124,16 @@ export namespace draconic::input
             {
                 m_runtime.SetTimeScale(context->TimeScale());
             }
-            IInputSourceProvider& devices =
-                (m_override != nullptr) ? *m_override
-                                        : static_cast<IInputSourceProvider&>(m_shellSource);
+            IInputSourceProvider& devices = (m_override != nullptr)
+                                                ? *m_override
+                                                : static_cast<IInputSourceProvider&>(m_shellSource);
             m_runtime.Update(devices, deltaTime);
         }
 
     private:
         ShellInputSource m_shellSource;
-        IInputSourceProvider* m_override = nullptr;   // borrowed
-        const void* m_boundSceneKey = nullptr;        // the override's scene binding (comparison only)
+        IInputSourceProvider* m_override = nullptr; // borrowed
+        const void* m_boundSceneKey = nullptr; // the override's scene binding (comparison only)
         UnboundInputScenePolicy m_unboundScenePolicy = UnboundInputScenePolicy::AllScenes;
         ActionRuntime m_runtime;
     };
@@ -149,8 +152,8 @@ export namespace draconic::input
         {
             draconic::script::IScriptContext* context = draconic::script::CurrentScriptContext();
             return context != nullptr
-                ? static_cast<ActionRuntime*>(context->GetService(kInputRuntimeService))
-                : nullptr;
+                       ? static_cast<ActionRuntime*>(context->GetService(kInputRuntimeService))
+                       : nullptr;
         }
 
         [[nodiscard]] static bool isDown(String name)
@@ -181,15 +184,24 @@ export namespace draconic::input
         }
         static void pushSet(String name)
         {
-            if (ActionRuntime* rt = Resolve()) { rt->PushExclusiveSet(name.AsView()); }
+            if (ActionRuntime* rt = Resolve())
+            {
+                rt->PushExclusiveSet(name.AsView());
+            }
         }
         static void popSet()
         {
-            if (ActionRuntime* rt = Resolve()) { rt->PopExclusiveSet(); }
+            if (ActionRuntime* rt = Resolve())
+            {
+                rt->PopExclusiveSet();
+            }
         }
         static void enableSet(String name, bool enabled)
         {
-            if (ActionRuntime* rt = Resolve()) { rt->EnableSet(name.AsView(), enabled); }
+            if (ActionRuntime* rt = Resolve())
+            {
+                rt->EnableSet(name.AsView(), enabled);
+            }
         }
     };
 
@@ -215,8 +227,5 @@ namespace draconic::input
         builder.Constructor();
     }
 
-    void RegisterInputScriptApi()
-    {
-        GlobalTypeRegistry().Register(Input::StaticType());
-    }
+    void RegisterInputScriptApi() { GlobalTypeRegistry().Register(Input::StaticType()); }
 }
