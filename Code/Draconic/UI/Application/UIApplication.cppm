@@ -29,7 +29,7 @@ import draconic.ui.runtime;
 namespace core     = draconic::core;
 namespace shell    = draconic::shell;
 namespace graphics = draconic::graphics;
-namespace uirt     = draconic::ui::runtime;     // UIHost (distinct from draconic::runtime)
+namespace ui = draconic::ui;
 
 // draconic::ui::application nests in draconic::ui, so View / RootView resolve unqualified and
 // toolkit::* / runtime-host types resolve via the parent namespace.
@@ -45,7 +45,7 @@ export namespace draconic::ui::application
     class RuntimeDockableWindowHost final : public toolkit::IDockableWindowHost
     {
     public:
-        RuntimeDockableWindowHost(draconic::runtime::IApplicationHost& host, uirt::UIHost& uiHost) noexcept
+        RuntimeDockableWindowHost(draconic::runtime::IApplicationHost& host, ui::runtime::UIHost& uiHost) noexcept
             : m_host(&host), m_uiHost(&uiHost) {}
 
         RuntimeDockableWindowHost(const RuntimeDockableWindowHost&) = delete;
@@ -232,7 +232,7 @@ export namespace draconic::ui::application
         }
 
         draconic::runtime::IApplicationHost* m_host;    // borrowed
-        uirt::UIHost*              m_uiHost;  // borrowed (the app owns it)
+        ui::runtime::UIHost*              m_uiHost;  // borrowed (the app owns it)
         core::Array<Entry>         m_entries;
 
         // Drag-follow state (Tick): the OS window currently being dragged + the grab offset.
