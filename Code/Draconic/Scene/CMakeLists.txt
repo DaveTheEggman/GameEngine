@@ -8,6 +8,8 @@ target_link_libraries(DraconicScene
     PUBLIC Draconic::Core Draconic::Resource Draconic::Policy)
 
 target_sources(DraconicScene
+    PRIVATE
+        SceneImpl.cpp   # out-of-line Scene member definitions (see Scene.cppm)
     PUBLIC
         FILE_SET scene_modules TYPE CXX_MODULES FILES
             Entity.cppm
