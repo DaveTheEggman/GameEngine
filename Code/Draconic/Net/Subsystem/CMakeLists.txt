@@ -11,7 +11,7 @@ target_link_libraries(DraconicNetSubsystem
 target_sources(DraconicNetSubsystem
     PUBLIC
         FILE_SET net_subsystem_modules TYPE CXX_MODULES FILES
-            Subsystem.cppm)
+            NetworkSubsystem.cppm)
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)

@@ -426,7 +426,7 @@ namespace draconic::net
                                                                             true);
     }
 
-    void CaptureEntityTransforms(dscene::Scene& scene)
+    void CaptureEntityTransforms(scene::Scene& scene)
     {
         auto* mgr = scene.GetSystem<NetworkedTransformComponentManager>();
         if (mgr == nullptr)
@@ -434,7 +434,7 @@ namespace draconic::net
             return;
         }
         mgr->ForEach(
-            [&](NetworkedTransform& nt, dscene::EntityHandle e)
+            [&](NetworkedTransform& nt, scene::EntityHandle e)
             {
                 const Transform t = scene.GetLocalTransform(e);
                 nt.position = t.position;
@@ -443,7 +443,7 @@ namespace draconic::net
             });
     }
 
-    void ApplyEntityTransforms(dscene::Scene& scene)
+    void ApplyEntityTransforms(scene::Scene& scene)
     {
         auto* mgr = scene.GetSystem<NetworkedTransformComponentManager>();
         if (mgr == nullptr)
@@ -451,7 +451,7 @@ namespace draconic::net
             return;
         }
         mgr->ForEach(
-            [&](NetworkedTransform& nt, dscene::EntityHandle e)
+            [&](NetworkedTransform& nt, scene::EntityHandle e)
             {
                 Transform t;
                 t.position = nt.position;
@@ -479,7 +479,7 @@ namespace draconic::net
     void StateReplication::SetSpawnHandler(SpawnHandler handler) { m_spawnHandler = Move(handler); }
     void StateReplication::SetRelevance(RelevanceFn fn) { m_relevance = Move(fn); }
 
-    NetworkId StateReplication::AssignNetworkId(dscene::Scene& scene, dscene::EntityHandle entity,
+    NetworkId StateReplication::AssignNetworkId(scene::Scene& scene, scene::EntityHandle entity,
                                                 const Guid& prefab)
     {
         auto* netMgr = scene.GetSystem<NetworkComponentManager>();
@@ -514,7 +514,7 @@ namespace draconic::net
         }
     }
 
-    void StateReplication::AssignSceneNetworkIds(dscene::Scene& scene)
+    void StateReplication::AssignSceneNetworkIds(scene::Scene& scene)
     {
         auto* netMgr = scene.GetSystem<NetworkComponentManager>();
         if (netMgr == nullptr)
@@ -523,7 +523,7 @@ namespace draconic::net
         }
         // Safe during ForEach: only the existing NetworkComponents are mutated (no structural change).
         netMgr->ForEach(
-            [&](NetworkComponent& nc, dscene::EntityHandle e)
+            [&](NetworkComponent& nc, scene::EntityHandle e)
             {
                 if (!nc.id.IsValid())
                 {
@@ -537,7 +537,7 @@ namespace draconic::net
             });
     }
 
-    void StateReplication::RegisterAuthoredEntities(dscene::Scene& scene)
+    void StateReplication::RegisterAuthoredEntities(scene::Scene& scene)
     {
         auto* netMgr = scene.GetSystem<NetworkComponentManager>();
         if (netMgr == nullptr)
@@ -547,7 +547,7 @@ namespace draconic::net
         // Compute the SAME Guid-derived id the server did, so incoming replication resolves to the
         // client's own authored entity (not a duplicate).
         netMgr->ForEach(
-            [&](NetworkComponent& nc, dscene::EntityHandle e)
+            [&](NetworkComponent& nc, scene::EntityHandle e)
             {
                 if (!nc.id.IsValid())
                 {
@@ -557,19 +557,19 @@ namespace draconic::net
             });
     }
 
-    dscene::EntityHandle StateReplication::FindEntity(NetworkId id) const
+    scene::EntityHandle StateReplication::FindEntity(NetworkId id) const
     {
-        if (const dscene::EntityHandle* found = m_netIdToEntity.Find(id.value))
+        if (const scene::EntityHandle* found = m_netIdToEntity.Find(id.value))
         {
             return *found;
         }
-        return dscene::EntityHandle::Invalid();
+        return scene::EntityHandle::Invalid();
     }
 
-    dscene::EntityHandle StateReplication::FindOrCreateEntity(dscene::Scene& scene, u32 networkId,
+    scene::EntityHandle StateReplication::FindOrCreateEntity(scene::Scene& scene, u32 networkId,
                                                               const Guid& prefab, bool spawn)
     {
-        if (const dscene::EntityHandle* found = m_netIdToEntity.Find(networkId))
+        if (const scene::EntityHandle* found = m_netIdToEntity.Find(networkId))
         {
             if (scene.IsValid(*found))
             {
@@ -577,7 +577,7 @@ namespace draconic::net
             }
         }
         // A spawn record with a prefab id + a wired handler => a full prefab instance; else a bare entity.
-        dscene::EntityHandle e = dscene::EntityHandle::Invalid();
+        scene::EntityHandle e = scene::EntityHandle::Invalid();
         if (spawn && !prefab.IsNil() && m_spawnHandler)
         {
             e = m_spawnHandler(scene, prefab, NetworkId{networkId});
@@ -598,7 +598,7 @@ namespace draconic::net
         return e;
     }
 
-    void StateReplication::CaptureSnapshot(dscene::Scene& scene, BitWriter& out)
+    void StateReplication::CaptureSnapshot(scene::Scene& scene, BitWriter& out)
     {
         auto* netMgr = scene.GetSystem<NetworkComponentManager>();
         if (netMgr == nullptr)
@@ -612,11 +612,11 @@ namespace draconic::net
         {
             u32 id;
             Guid prefab;
-            dscene::EntityHandle handle;
+            scene::EntityHandle handle;
         };
         Array<Ent> entities;
         netMgr->ForEach(
-            [&](NetworkComponent& nc, dscene::EntityHandle e)
+            [&](NetworkComponent& nc, scene::EntityHandle e)
             {
                 if (nc.id.IsValid())
                 {
@@ -633,9 +633,9 @@ namespace draconic::net
             out.WriteU8(kFlagSpawn);
             WriteGuid(out, ent.prefab);
             // Gather this entity's serializable components that carry replicated fields.
-            Array<dscene::ComponentManagerBase*> comps;
+            Array<scene::ComponentManagerBase*> comps;
             scene.ForEachManager(
-                [&](dscene::ComponentManagerBase& m)
+                [&](scene::ComponentManagerBase& m)
                 {
                     const Instance inst = m.GetComponentInstance(ent.handle);
                     if (inst.Type() == nullptr)
@@ -653,7 +653,7 @@ namespace draconic::net
                     comps.PushBack(&m);
                 });
             out.WriteVarU32(static_cast<u32>(comps.Size()));
-            for (dscene::ComponentManagerBase* m : comps)
+            for (scene::ComponentManagerBase* m : comps)
             {
                 // Length-prefix each component blob so a peer lacking the type can skip it (forward-compat).
                 BitWriter fields;
@@ -666,7 +666,7 @@ namespace draconic::net
         }
     }
 
-    void StateReplication::ApplyComponentRecords(dscene::Scene& scene, dscene::EntityHandle entity,
+    void StateReplication::ApplyComponentRecords(scene::Scene& scene, scene::EntityHandle entity,
                                                  NetworkId id, u32 count, BitReader& in,
                                                  InterpolationBuffer* interp, f64 timestampMs)
     {
@@ -685,7 +685,7 @@ namespace draconic::net
                 break;
             }
 
-            dscene::ComponentManagerBase* m = scene.FindManagerBySerializationId(typeId.AsView());
+            scene::ComponentManagerBase* m = scene.FindManagerBySerializationId(typeId.AsView());
             if (m == nullptr)
             {
                 continue;
@@ -710,7 +710,7 @@ namespace draconic::net
         }
     }
 
-    void StateReplication::ApplyEntries(dscene::Scene& scene, BitReader& in,
+    void StateReplication::ApplyEntries(scene::Scene& scene, BitReader& in,
                                         InterpolationBuffer* interp, f64 timestampMs)
     {
         // The unified snapshot/delta payload: count, then per entity { id, flags, [prefab if spawn],
@@ -727,7 +727,7 @@ namespace draconic::net
 
             if ((flags & kFlagRemoved) != 0u)
             { // despawn
-                if (const dscene::EntityHandle* h = m_netIdToEntity.Find(networkId))
+                if (const scene::EntityHandle* h = m_netIdToEntity.Find(networkId))
                 {
                     if (scene.IsValid(*h))
                     {
@@ -748,7 +748,7 @@ namespace draconic::net
             {
                 break;
             }
-            const dscene::EntityHandle entity = FindOrCreateEntity(scene, networkId, prefab, spawn);
+            const scene::EntityHandle entity = FindOrCreateEntity(scene, networkId, prefab, spawn);
             const u32 componentCount = in.ReadVarU32();
             ApplyComponentRecords(scene, entity, NetworkId{networkId}, componentCount, in, interp,
                                   timestampMs);
@@ -757,21 +757,21 @@ namespace draconic::net
 
     // Both the full snapshot (late-join) and the per-peer delta share the entry payload; the only
     // difference is what the CAPTURE side emits (all-spawn+full vs changed-only), so apply is one path.
-    void StateReplication::ApplySnapshot(dscene::Scene& scene, BitReader& in)
+    void StateReplication::ApplySnapshot(scene::Scene& scene, BitReader& in)
     {
         ApplyEntries(scene, in, nullptr, 0.0);
     }
-    void StateReplication::ApplyDelta(dscene::Scene& scene, BitReader& in)
+    void StateReplication::ApplyDelta(scene::Scene& scene, BitReader& in)
     {
         ApplyEntries(scene, in, nullptr, 0.0);
     }
-    void StateReplication::ApplyDelta(dscene::Scene& scene, BitReader& in,
+    void StateReplication::ApplyDelta(scene::Scene& scene, BitReader& in,
                                       InterpolationBuffer& interp, f64 timestampMs)
     {
         ApplyEntries(scene, in, &interp, timestampMs);
     }
 
-    void StateReplication::SampleInterpolation(dscene::Scene& scene, InterpolationBuffer& interp,
+    void StateReplication::SampleInterpolation(scene::Scene& scene, InterpolationBuffer& interp,
                                                f64 renderTimeMs) const
     {
         auto* netMgr = scene.GetSystem<NetworkComponentManager>();
@@ -780,14 +780,14 @@ namespace draconic::net
             return;
         }
         netMgr->ForEach(
-            [&](NetworkComponent& nc, dscene::EntityHandle e)
+            [&](NetworkComponent& nc, scene::EntityHandle e)
             {
                 if (!nc.id.IsValid())
                 {
                     return;
                 }
                 scene.ForEachManager(
-                    [&](dscene::ComponentManagerBase& m)
+                    [&](scene::ComponentManagerBase& m)
                     {
                         const Instance inst = m.GetComponentInstance(e);
                         if (inst.Type() == nullptr)
@@ -810,7 +810,7 @@ namespace draconic::net
 
     void StateReplication::ForgetPeer(u32 peerId) { (void)m_peerBaselines.Remove(peerId); }
 
-    usize StateReplication::CaptureDelta(dscene::Scene& scene, u32 peerId, BitWriter& out)
+    usize StateReplication::CaptureDelta(scene::Scene& scene, u32 peerId, BitWriter& out)
     {
         auto* netMgr = scene.GetSystem<NetworkComponentManager>();
         if (netMgr == nullptr)
@@ -848,7 +848,7 @@ namespace draconic::net
             present; // all present networked ids (despawn detection, relevance-independent)
 
         netMgr->ForEach(
-            [&](NetworkComponent& nc, dscene::EntityHandle e)
+            [&](NetworkComponent& nc, scene::EntityHandle e)
             {
                 if (!nc.id.IsValid())
                 {
@@ -872,7 +872,7 @@ namespace draconic::net
                 EntityBaseline newEb;
                 Array<CompRecord> changed;
                 scene.ForEachManager(
-                    [&](dscene::ComponentManagerBase& m)
+                    [&](scene::ComponentManagerBase& m)
                     {
                         const Instance inst = m.GetComponentInstance(e);
                         if (inst.Type() == nullptr)

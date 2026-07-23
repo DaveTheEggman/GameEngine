@@ -10,14 +10,14 @@ import draconic.net.subsystem;
 
 using namespace draconic::core;
 namespace net = draconic::net;
-namespace dscene = draconic::scene;
+namespace scene = draconic::scene;
 
 TEST_CASE("net-subsystem: OnSceneCreated injects the NetworkComponentManager")
 {
     net::RegisterReplicationComponents();
 
     net::NetworkSubsystem subsystem;
-    dscene::Scene scene;
+    scene::Scene scene;
 
     // No net managers until the subsystem injects them (a bare scene is not networked).
     CHECK(scene.FindManagerBySerializationId(u8"net.Network") == nullptr);

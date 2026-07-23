@@ -21,7 +21,7 @@ import draconic.script;          // Object / IScriptContext / CurrentScriptConte
 
 using namespace draconic::core;
 using namespace draconic::script; // Object, IScriptContext, CurrentScriptContext (the facade base)
-namespace dscene = draconic::scene;
+namespace scene = draconic::scene;
 
 export namespace draconic::net
 {
@@ -175,7 +175,7 @@ export namespace draconic::net
         // no replication (session + RPC still run). The host sets the gameplay scene here. On a SERVER,
         // authored-networked entities in the scene are assigned NetworkIds now (so a designer marks an
         // entity networked and it "just replicates" on host); the client receives ids over the wire.
-        void SetReplicatedScene(dscene::Scene* scene)
+        void SetReplicatedScene(scene::Scene* scene)
         {
             m_scene = scene;
             if (scene == nullptr)
@@ -209,7 +209,7 @@ export namespace draconic::net
         RpcTable m_rpc;
         StateReplication m_replication;
         InterpolationBuffer m_interp;     // client-side smoothing of received states
-        dscene::Scene* m_scene = nullptr; // the replicated world (null = no replication)
+        scene::Scene* m_scene = nullptr; // the replicated world (null = no replication)
         f64 m_interpDelayMs = 100.0;
     };
 

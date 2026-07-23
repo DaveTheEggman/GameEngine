@@ -18,7 +18,7 @@ import draconic.scene;    // Scene / EntityHandle / ComponentManagerBase (snapsh
 import draconic.resource; // ResourceManager (SerializableComponentManager's ResolveResources seam)
 
 using namespace draconic::core;
-namespace dscene = draconic::scene;
+namespace scene = draconic::scene;
 
 export namespace draconic::net
 {
@@ -123,7 +123,7 @@ export namespace draconic::net
     }
 
     class NetworkComponentManager final
-        : public dscene::SerializableComponentManager<NetworkComponent>
+        : public scene::SerializableComponentManager<NetworkComponent>
     {
     public:
         NetworkComponentManager() : SerializableComponentManager(u8"net.Network") {}
@@ -153,7 +153,7 @@ export namespace draconic::net
     }
 
     class NetworkedTransformComponentManager final
-        : public dscene::SerializableComponentManager<NetworkedTransform>
+        : public scene::SerializableComponentManager<NetworkedTransform>
     {
     public:
         NetworkedTransformComponentManager() : SerializableComponentManager(u8"net.Transform") {}
@@ -161,10 +161,10 @@ export namespace draconic::net
 
     // Server: copy each entity's live LOCAL transform INTO its NetworkedTransform component, so the
     // replication capture that follows sends the authoritative pose. Call before CaptureDelta/Snapshot.
-    void CaptureEntityTransforms(dscene::Scene& scene);
+    void CaptureEntityTransforms(scene::Scene& scene);
     // Client: write each NetworkedTransform component (already interpolated by SampleInterpolation) BACK
     // onto its entity's LOCAL transform, so the visual follows the replicated pose. Call after sampling.
-    void ApplyEntityTransforms(dscene::Scene& scene);
+    void ApplyEntityTransforms(scene::Scene& scene);
 
     // Registers NetworkComponent + NetworkedTransform reflection (call once before a networked scene is
     // built; the snapshot path needs the patched TypeInfo for its versioned records). Idempotent.
@@ -223,8 +223,8 @@ export namespace draconic::net
     {
     public:
         virtual ~IReplicationModel() = default;
-        virtual void CaptureSnapshot(dscene::Scene& scene, BitWriter& out) = 0;
-        virtual void ApplySnapshot(dscene::Scene& scene, BitReader& in) = 0;
+        virtual void CaptureSnapshot(scene::Scene& scene, BitWriter& out) = 0;
+        virtual void ApplySnapshot(scene::Scene& scene, BitReader& in) = 0;
     };
 
     // Server-authoritative state replication. This slice does the FULL snapshot (every networked
@@ -242,7 +242,7 @@ export namespace draconic::net
         // wires this to its content DB via SpawnPrefab). Null (or a nil prefab id) => a bare entity is
         // created instead - enough to round-trip state, but no prefab structure/visuals.
         using SpawnHandler =
-            core::Function<dscene::EntityHandle(dscene::Scene&, const Guid&, NetworkId)>;
+            core::Function<scene::EntityHandle(scene::Scene&, const Guid&, NetworkId)>;
         void SetSpawnHandler(SpawnHandler handler);
 
         // Per-peer RELEVANCY / interest (§5.6 - fog-of-war is SECURITY, not just bandwidth): return true
@@ -250,64 +250,64 @@ export namespace draconic::net
         // entity LEAVES a peer's relevance, its next delta actively REMOVES it on that client (destroyed,
         // so hidden state can't be memory-read to cheat) - the server never sends what a peer may not see.
         using RelevanceFn =
-            core::Function<bool(u32 peerId, NetworkId id, dscene::EntityHandle entity)>;
+            core::Function<bool(u32 peerId, NetworkId id, scene::EntityHandle entity)>;
         void SetRelevance(RelevanceFn fn);
 
         // Server: give an entity a NetworkId (adds the NetworkComponent if absent), returning it. A
         // re-registered entity keeps its id. `prefab` records the source prefab so a client can network-
         // spawn it (nil for a bare networked entity). Records the id->entity mapping for capture.
-        NetworkId AssignNetworkId(dscene::Scene& scene, dscene::EntityHandle entity,
+        NetworkId AssignNetworkId(scene::Scene& scene, scene::EntityHandle entity,
                                   const Guid& prefab = {});
 
         // Server: give every authored-networked entity (a NetworkComponent) a NetworkId derived from its
         // authored Guid, and register id -> entity. A designer just adds a NetworkComponent in the editor
         // and the server "replicates" the entity on start - no hand-authored ids. Idempotent.
-        void AssignSceneNetworkIds(dscene::Scene& scene);
+        void AssignSceneNetworkIds(scene::Scene& scene);
 
         // Client: compute the SAME Guid-derived id the server did (both peers load the same authored
         // scene, so the same entity Guid -> the same id) and register id -> local entity, so incoming
         // replication UPDATES the authored entity instead of creating a duplicate.
-        void RegisterAuthoredEntities(dscene::Scene& scene);
+        void RegisterAuthoredEntities(scene::Scene& scene);
 
-        void CaptureSnapshot(dscene::Scene& scene, BitWriter& out) override;
-        void ApplySnapshot(dscene::Scene& scene, BitReader& in) override;
+        void CaptureSnapshot(scene::Scene& scene, BitWriter& out) override;
+        void ApplySnapshot(scene::Scene& scene, BitReader& in) override;
 
         // Server: write the DELTA for one peer - only the entities/components that changed since this
         // peer's last delta, plus removed entities. Returns the number of entries written (0 = nothing
         // changed). The baseline is "what was last sent this peer", so this rides RELIABLE-ORDERED
         // delivery (§5.6): send the output reliably or the baseline diverges. Updates the peer baseline.
-        usize CaptureDelta(dscene::Scene& scene, u32 peerId, BitWriter& out);
+        usize CaptureDelta(scene::Scene& scene, u32 peerId, BitWriter& out);
         // Client: apply a delta - changed components applied in place, removed entities destroyed.
-        void ApplyDelta(dscene::Scene& scene, BitReader& in);
+        void ApplyDelta(scene::Scene& scene, BitReader& in);
         // Same, but also RECORD each applied interpolatable component into `interp` at `timestampMs`
         // (the server's capture time), for smooth playback. Sample it back each frame via
         // SampleInterpolation. Components with no interpolatable field are applied directly (not buffered).
-        void ApplyDelta(dscene::Scene& scene, BitReader& in, InterpolationBuffer& interp,
+        void ApplyDelta(scene::Scene& scene, BitReader& in, InterpolationBuffer& interp,
                         f64 timestampMs);
         // Client, per render frame: write each networked interpolatable component's value at `renderTimeMs`
         // (= synced network time - interpolation delay) from the buffer onto the live scene.
-        void SampleInterpolation(dscene::Scene& scene, InterpolationBuffer& interp,
+        void SampleInterpolation(scene::Scene& scene, InterpolationBuffer& interp,
                                  f64 renderTimeMs) const;
         // Drop a peer's baseline on disconnect; its next CaptureDelta re-sends everything as new.
         void ForgetPeer(u32 peerId);
 
         // The local entity for a NetworkId (invalid if unknown) - the id->entity map, populated by
         // AssignNetworkId (server) or ApplySnapshot's find-or-create (client).
-        [[nodiscard]] dscene::EntityHandle FindEntity(NetworkId id) const;
+        [[nodiscard]] scene::EntityHandle FindEntity(NetworkId id) const;
         [[nodiscard]] usize NetworkedCount() const noexcept { return m_netIdToEntity.Size(); }
 
     private:
         // Client: the entity for this id. First sight of a spawn record with a prefab id routes through
         // the spawn handler (prefab instance); otherwise a bare tagged entity is created.
-        dscene::EntityHandle FindOrCreateEntity(dscene::Scene& scene, u32 networkId,
+        scene::EntityHandle FindOrCreateEntity(scene::Scene& scene, u32 networkId,
                                                 const Guid& prefab, bool spawn);
         // Shared apply loop: read `count` component records (tag + length-prefixed blob) onto an entity.
         // If `interp` is set, records each applied interpolatable component at `timestampMs`.
-        void ApplyComponentRecords(dscene::Scene& scene, dscene::EntityHandle entity, NetworkId id,
+        void ApplyComponentRecords(scene::Scene& scene, scene::EntityHandle entity, NetworkId id,
                                    u32 count, BitReader& in, InterpolationBuffer* interp,
                                    f64 timestampMs);
         // Read a count-prefixed run of entity records (the unified snapshot/delta payload) and apply them.
-        void ApplyEntries(dscene::Scene& scene, BitReader& in, InterpolationBuffer* interp,
+        void ApplyEntries(scene::Scene& scene, BitReader& in, InterpolationBuffer* interp,
                           f64 timestampMs);
 
         // A peer's last-sent state (the delta baseline), per networked entity, per component.
@@ -326,7 +326,7 @@ export namespace draconic::net
         }; // networkId -> its components
 
         u32 m_nextNetworkId = 0; // server-side monotonic id allocator (0 stays "unassigned")
-        HashMap<u32, dscene::EntityHandle> m_netIdToEntity;
+        HashMap<u32, scene::EntityHandle> m_netIdToEntity;
         HashMap<u32, PeerBaseline> m_peerBaselines; // peerId -> baseline
         SpawnHandler m_spawnHandler; // client-side prefab resolver (null = bare create)
         RelevanceFn m_relevance;     // server-side per-peer interest filter (null = all)

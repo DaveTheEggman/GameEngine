@@ -12,7 +12,7 @@ import draconic.scene; // Scene / EntityHandle / SerializableComponentManager
 
 using namespace draconic::core;
 namespace net = draconic::net;
-namespace dscene = draconic::scene;
+namespace scene = draconic::scene;
 
 namespace
 {
@@ -42,7 +42,7 @@ namespace
     }
 
     // A serializable pool so Mover can live in a scene + carry the wire type tag "test.Mover".
-    class MoverManager final : public dscene::SerializableComponentManager<Mover>
+    class MoverManager final : public scene::SerializableComponentManager<Mover>
     {
     public:
         MoverManager() : SerializableComponentManager(u8"test.Mover") {}
@@ -141,12 +141,12 @@ TEST_CASE("replication: a full snapshot round-trips networked entities server ->
     net::RegisterReplicationComponents();
 
     // --- server scene: two networked entities, each with a Mover ---
-    dscene::Scene server;
+    scene::Scene server;
     server.AddSystem<net::NetworkComponentManager>();
     MoverManager* serverMovers = server.AddSystem<MoverManager>();
     net::StateReplication serverRep;
 
-    const dscene::EntityHandle a = server.CreateEntity(u8"A");
+    const scene::EntityHandle a = server.CreateEntity(u8"A");
     Mover& ma = serverMovers->Add(a);
     ma.position = Float3{1.0f, 2.0f, 3.0f};
     ma.speed = 10.0f;
@@ -154,7 +154,7 @@ TEST_CASE("replication: a full snapshot round-trips networked entities server ->
     ma.grounded = true;
     const net::NetworkId idA = serverRep.AssignNetworkId(server, a);
 
-    const dscene::EntityHandle b = server.CreateEntity(u8"B");
+    const scene::EntityHandle b = server.CreateEntity(u8"B");
     Mover& mb = serverMovers->Add(b);
     mb.position = Float3{-4.0f, 0.0f, 9.0f};
     mb.speed = 2.5f;
@@ -171,7 +171,7 @@ TEST_CASE("replication: a full snapshot round-trips networked entities server ->
     serverRep.CaptureSnapshot(server, writer);
 
     // --- apply into a fresh client scene with the SAME managers ---
-    dscene::Scene client;
+    scene::Scene client;
     client.AddSystem<net::NetworkComponentManager>();
     MoverManager* clientMovers = client.AddSystem<MoverManager>();
     net::StateReplication clientRep;
@@ -182,8 +182,8 @@ TEST_CASE("replication: a full snapshot round-trips networked entities server ->
     CHECK(clientRep.NetworkedCount() == 2u);
 
     // --- the client now mirrors the server's replicated state, keyed by NetworkId ---
-    const dscene::EntityHandle ca = clientRep.FindEntity(idA);
-    const dscene::EntityHandle cb = clientRep.FindEntity(idB);
+    const scene::EntityHandle ca = clientRep.FindEntity(idA);
+    const scene::EntityHandle cb = clientRep.FindEntity(idB);
     REQUIRE(client.IsValid(ca));
     REQUIRE(client.IsValid(cb));
     const Mover* rca = clientMovers->Get(ca);
@@ -213,12 +213,12 @@ TEST_CASE(
 {
     net::RegisterReplicationComponents();
 
-    dscene::Scene server;
+    scene::Scene server;
     server.AddSystem<net::NetworkComponentManager>();
     server.AddSystem<net::NetworkedTransformComponentManager>();
     net::StateReplication serverRep;
 
-    const dscene::EntityHandle e = server.CreateEntity(u8"E");
+    const scene::EntityHandle e = server.CreateEntity(u8"E");
     server.GetSystem<net::NetworkedTransformComponentManager>()->Add(e);
     Transform t;
     t.position = Float3{5.0f, 6.0f, 7.0f};
@@ -235,7 +235,7 @@ TEST_CASE(
     serverRep.CaptureSnapshot(server, writer);
 
     // Client: apply the snapshot (fills the component), then push it onto the entity's transform.
-    dscene::Scene client;
+    scene::Scene client;
     client.AddSystem<net::NetworkComponentManager>();
     client.AddSystem<net::NetworkedTransformComponentManager>();
     net::StateReplication clientRep;
@@ -243,7 +243,7 @@ TEST_CASE(
     clientRep.ApplySnapshot(client, reader);
     REQUIRE(reader.Ok());
 
-    const dscene::EntityHandle ce = clientRep.FindEntity(id);
+    const scene::EntityHandle ce = clientRep.FindEntity(id);
     REQUIRE(client.IsValid(ce));
     net::ApplyEntityTransforms(client);
     const Transform ct = client.GetLocalTransform(ce);
@@ -256,13 +256,13 @@ TEST_CASE(
 {
     net::RegisterReplicationComponents();
 
-    dscene::Scene scene;
+    scene::Scene scene;
     auto* netMgr = scene.AddSystem<net::NetworkComponentManager>();
     net::StateReplication rep;
 
-    const dscene::EntityHandle a = scene.CreateEntity(u8"A");
+    const scene::EntityHandle a = scene.CreateEntity(u8"A");
     netMgr->Add(a);
-    const dscene::EntityHandle b = scene.CreateEntity(u8"B");
+    const scene::EntityHandle b = scene.CreateEntity(u8"B");
     netMgr->Add(b);
     scene.CreateEntity(u8"plain"); // no NetworkComponent -> never assigned
 
@@ -283,17 +283,17 @@ TEST_CASE("replication: per-peer delta sends only what changed since the peer's 
     DraconicRegisterValue_Mover();
     net::RegisterReplicationComponents();
 
-    dscene::Scene server;
+    scene::Scene server;
     server.AddSystem<net::NetworkComponentManager>();
     MoverManager* movers = server.AddSystem<MoverManager>();
     net::StateReplication rep;
 
-    const dscene::EntityHandle a = server.CreateEntity(u8"A");
+    const scene::EntityHandle a = server.CreateEntity(u8"A");
     Mover& ma = movers->Add(a);
     ma.position = Float3{1.0f, 0.0f, 0.0f};
     ma.health = 10;
     const net::NetworkId idA = rep.AssignNetworkId(server, a);
-    const dscene::EntityHandle b = server.CreateEntity(u8"B");
+    const scene::EntityHandle b = server.CreateEntity(u8"B");
     Mover& mb = movers->Add(b);
     mb.position = Float3{0.0f, 1.0f, 0.0f};
     mb.health = 20;
@@ -301,7 +301,7 @@ TEST_CASE("replication: per-peer delta sends only what changed since the peer's 
 
     const u32 peer = 1;
 
-    dscene::Scene client;
+    scene::Scene client;
     client.AddSystem<net::NetworkComponentManager>();
     MoverManager* cmovers = client.AddSystem<MoverManager>();
     net::StateReplication crep;
@@ -339,7 +339,7 @@ TEST_CASE("replication: per-peer delta sends only what changed since the peer's 
     CHECK(cmovers->Get(crep.FindEntity(idB))->health == 20); // B untouched by A's delta
 
     // Despawn B on the server -> the delta marks it removed -> the client destroys it.
-    const dscene::EntityHandle cb = crep.FindEntity(idB);
+    const scene::EntityHandle cb = crep.FindEntity(idB);
     server.DestroyEntity(b);
     {
         net::BitWriter w;
@@ -365,32 +365,32 @@ TEST_CASE("replication: late-join full snapshot spawns prefabs via the spawn han
     net::RegisterReplicationComponents();
 
     // Server: two entities network-spawned from prefabs, each with replicated Mover state.
-    dscene::Scene server;
+    scene::Scene server;
     server.AddSystem<net::NetworkComponentManager>();
     MoverManager* movers = server.AddSystem<MoverManager>();
     net::StateReplication rep;
 
     const Guid pfxA{0xAAAA, 0x1111};
     const Guid pfxB{0xBBBB, 0x2222};
-    const dscene::EntityHandle a = server.CreateEntity(u8"A");
+    const scene::EntityHandle a = server.CreateEntity(u8"A");
     movers->Add(a).health = 7;
     const net::NetworkId idA = rep.AssignNetworkId(server, a, pfxA);
-    const dscene::EntityHandle b = server.CreateEntity(u8"B");
+    const scene::EntityHandle b = server.CreateEntity(u8"B");
     movers->Add(b).health = 8;
     const net::NetworkId idB = rep.AssignNetworkId(server, b, pfxB);
 
     // A late-joining client whose spawn handler stands in for SpawnPrefab: it records the prefab id
     // and produces a Mover-bearing entity (as the real prefab would).
-    dscene::Scene client;
+    scene::Scene client;
     client.AddSystem<net::NetworkComponentManager>();
     MoverManager* cmovers = client.AddSystem<MoverManager>();
     net::StateReplication crep;
     Array<Guid> spawned;
     crep.SetSpawnHandler(
-        [&](dscene::Scene& s, const Guid& p, net::NetworkId) -> dscene::EntityHandle
+        [&](scene::Scene& s, const Guid& p, net::NetworkId) -> scene::EntityHandle
         {
             spawned.PushBack(p);
-            const dscene::EntityHandle e = s.CreateEntity();
+            const scene::EntityHandle e = s.CreateEntity();
             s.GetSystem<MoverManager>()->Add(e);
             return e;
         });
@@ -429,29 +429,29 @@ TEST_CASE("replication: a delta spawns a newly-added networked entity via its pr
     DraconicRegisterValue_Mover();
     net::RegisterReplicationComponents();
 
-    dscene::Scene server;
+    scene::Scene server;
     server.AddSystem<net::NetworkComponentManager>();
     MoverManager* movers = server.AddSystem<MoverManager>();
     net::StateReplication rep;
     const u32 peer = 1;
 
-    dscene::Scene client;
+    scene::Scene client;
     client.AddSystem<net::NetworkComponentManager>();
     client.AddSystem<MoverManager>();
     net::StateReplication crep;
     Array<Guid> spawned;
     crep.SetSpawnHandler(
-        [&](dscene::Scene& s, const Guid& p, net::NetworkId) -> dscene::EntityHandle
+        [&](scene::Scene& s, const Guid& p, net::NetworkId) -> scene::EntityHandle
         {
             spawned.PushBack(p);
-            const dscene::EntityHandle e = s.CreateEntity();
+            const scene::EntityHandle e = s.CreateEntity();
             s.GetSystem<MoverManager>()->Add(e);
             return e;
         });
 
     // First delta: one prefab-spawned entity.
     const Guid pfx1{1, 2};
-    const dscene::EntityHandle a = server.CreateEntity();
+    const scene::EntityHandle a = server.CreateEntity();
     movers->Add(a).health = 1;
     rep.AssignNetworkId(server, a, pfx1);
     {
@@ -465,7 +465,7 @@ TEST_CASE("replication: a delta spawns a newly-added networked entity via its pr
 
     // A second entity added later -> the next delta carries just its spawn.
     const Guid pfx2{3, 4};
-    const dscene::EntityHandle b = server.CreateEntity();
+    const scene::EntityHandle b = server.CreateEntity();
     movers->Add(b).health = 2;
     rep.AssignNetworkId(server, b, pfx2);
     {
@@ -543,22 +543,22 @@ TEST_CASE("replication: per-peer relevancy hides non-relevant entities and remov
     DraconicRegisterValue_Mover();
     net::RegisterReplicationComponents();
 
-    dscene::Scene server;
+    scene::Scene server;
     server.AddSystem<net::NetworkComponentManager>();
     MoverManager* movers = server.AddSystem<MoverManager>();
     net::StateReplication rep;
 
-    const dscene::EntityHandle a = server.CreateEntity(u8"A");
+    const scene::EntityHandle a = server.CreateEntity(u8"A");
     movers->Add(a).health = 1;
     const net::NetworkId idA = rep.AssignNetworkId(server, a);
-    const dscene::EntityHandle b = server.CreateEntity(u8"B");
+    const scene::EntityHandle b = server.CreateEntity(u8"B");
     movers->Add(b).health = 2;
     const net::NetworkId idB = rep.AssignNetworkId(server, b);
 
     // Peer 1 can currently see A; peer 2 sees everything. A flag lets A leave peer-1 relevance later.
     bool peer1SeesA = true;
     rep.SetRelevance(
-        [&](u32 peerId, net::NetworkId id, dscene::EntityHandle) -> bool
+        [&](u32 peerId, net::NetworkId id, scene::EntityHandle) -> bool
         {
             if (peerId == 1u)
             {
@@ -568,15 +568,15 @@ TEST_CASE("replication: per-peer relevancy hides non-relevant entities and remov
         });
 
     // Two client scenes.
-    auto makeClient = [](dscene::Scene& s)
+    auto makeClient = [](scene::Scene& s)
     {
         s.AddSystem<net::NetworkComponentManager>();
         s.AddSystem<MoverManager>();
     };
-    dscene::Scene c1;
+    scene::Scene c1;
     makeClient(c1);
     net::StateReplication crep1;
-    dscene::Scene c2;
+    scene::Scene c2;
     makeClient(c2);
     net::StateReplication crep2;
     MoverManager* c1movers = c1.GetSystem<MoverManager>();
@@ -604,7 +604,7 @@ TEST_CASE("replication: per-peer relevancy hides non-relevant entities and remov
     CHECK(crep2.NetworkedCount() == 2u);
 
     // A leaves peer 1's relevance -> peer 1's next delta REMOVES A (client destroys it).
-    const dscene::EntityHandle localA = crep1.FindEntity(idA);
+    const scene::EntityHandle localA = crep1.FindEntity(idA);
     REQUIRE(c1.IsValid(localA));
     peer1SeesA = false;
     {
@@ -642,17 +642,17 @@ TEST_CASE("replication: ApplyDelta records interpolatable state, SampleInterpola
     DraconicRegisterValue_Mover();
     net::RegisterReplicationComponents();
 
-    dscene::Scene server;
+    scene::Scene server;
     server.AddSystem<net::NetworkComponentManager>();
     MoverManager* smovers = server.AddSystem<MoverManager>();
     net::StateReplication srep;
-    const dscene::EntityHandle a = server.CreateEntity();
+    const scene::EntityHandle a = server.CreateEntity();
     Mover& sm = smovers->Add(a);
     sm.position = Float3{0, 0, 0};
     sm.health = 5;
     const net::NetworkId id = srep.AssignNetworkId(server, a);
 
-    dscene::Scene client;
+    scene::Scene client;
     client.AddSystem<net::NetworkComponentManager>();
     MoverManager* cmovers = client.AddSystem<MoverManager>();
     net::StateReplication crep;
@@ -675,7 +675,7 @@ TEST_CASE("replication: ApplyDelta records interpolatable state, SampleInterpola
         crep.ApplyDelta(client, r, buf, 100.0);
     }
 
-    const dscene::EntityHandle ce = crep.FindEntity(id);
+    const scene::EntityHandle ce = crep.FindEntity(id);
     REQUIRE(client.IsValid(ce));
     CHECK(cmovers->Get(ce)->position.x == doctest::Approx(10.0f)); // direct apply = latest
 

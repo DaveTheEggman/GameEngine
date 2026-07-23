@@ -10,9 +10,9 @@ target_link_libraries(DraconicNetManager PUBLIC Draconic::Core Draconic::Net Dra
 target_sources(DraconicNetManager
     PUBLIC
         FILE_SET net_manager_modules TYPE CXX_MODULES FILES
-            Manager.cppm
+            NetworkManager.cppm
     PRIVATE
-        ManagerImpl.cpp)
+        NetworkManagerImpl.cpp)
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)

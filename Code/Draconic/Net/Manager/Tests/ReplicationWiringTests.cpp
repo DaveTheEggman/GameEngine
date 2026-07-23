@@ -12,7 +12,7 @@ import draconic.scene;
 
 using namespace draconic::core;
 namespace net = draconic::net;
-namespace dscene = draconic::scene;
+namespace scene = draconic::scene;
 
 namespace
 {
@@ -28,7 +28,7 @@ namespace
         draconic::core::Serialize(ar, "health", m.health);
     }
 
-    class RepMoverManager final : public dscene::SerializableComponentManager<RepMover>
+    class RepMoverManager final : public scene::SerializableComponentManager<RepMover>
     {
     public:
         RepMoverManager() : SerializableComponentManager(u8"test.RepMover") {}
@@ -56,12 +56,12 @@ TEST_CASE("net-manager: state replicates server -> client through the manager + 
     net::NetworkManager server(*sv);
     net::NetworkManager client(*network.CreateSocket());
 
-    dscene::Scene serverScene;
+    scene::Scene serverScene;
     serverScene.AddSystem<net::NetworkComponentManager>();
     RepMoverManager* serverMovers = serverScene.AddSystem<RepMoverManager>();
     server.SetReplicatedScene(&serverScene);
 
-    dscene::Scene clientScene;
+    scene::Scene clientScene;
     clientScene.AddSystem<net::NetworkComponentManager>();
     clientScene.AddSystem<RepMoverManager>();
     client.SetReplicatedScene(&clientScene);
@@ -79,7 +79,7 @@ TEST_CASE("net-manager: state replicates server -> client through the manager + 
     REQUIRE(server.Session().PeerCount() == 1u);
 
     // Server spawns a networked entity with replicated state.
-    const dscene::EntityHandle e = serverScene.CreateEntity(u8"Unit");
+    const scene::EntityHandle e = serverScene.CreateEntity(u8"Unit");
     RepMover& m = serverMovers->Add(e);
     m.position = Float3{3, 0, -2};
     m.health = 42;
@@ -87,7 +87,7 @@ TEST_CASE("net-manager: state replicates server -> client through the manager + 
     REQUIRE(id.IsValid());
 
     // Drive until the client's scene mirrors it (reliable-ordered => converges).
-    dscene::EntityHandle ce = dscene::EntityHandle::Invalid();
+    scene::EntityHandle ce = scene::EntityHandle::Invalid();
     for (int i = 0; i < 400; ++i)
     {
         network.Advance(10.0f);
@@ -134,17 +134,17 @@ TEST_CASE("net-manager: a NetworkedTransform replicates an entity's movement ser
     // Server scene: an AUTHORED networked entity (NetworkComponent + NetworkedTransform), not yet
     // assigned an id - SetReplicatedScene on the server auto-assigns it (the "author + auto-assign"
     // path the demo uses; no manual AssignNetworkId).
-    dscene::Scene serverScene;
+    scene::Scene serverScene;
     serverScene.AddSystem<net::NetworkComponentManager>();
     serverScene.AddSystem<net::NetworkedTransformComponentManager>();
-    const dscene::EntityHandle e = serverScene.CreateEntity(u8"Mover");
+    const scene::EntityHandle e = serverScene.CreateEntity(u8"Mover");
     serverScene.GetSystem<net::NetworkComponentManager>()->Add(e);
     serverScene.GetSystem<net::NetworkedTransformComponentManager>()->Add(e);
     Transform t0;
     t0.position = Float3{1, 0, 0};
     serverScene.SetLocalTransform(e, t0);
 
-    dscene::Scene clientScene;
+    scene::Scene clientScene;
     clientScene.AddSystem<net::NetworkComponentManager>();
     clientScene.AddSystem<net::NetworkedTransformComponentManager>();
 
@@ -157,7 +157,7 @@ TEST_CASE("net-manager: a NetworkedTransform replicates an entity's movement ser
     REQUIRE(id.IsValid()); // auto-assigned on SetReplicatedScene (server)
 
     // Drive until the client mirrors the entity.
-    dscene::EntityHandle ce = dscene::EntityHandle::Invalid();
+    scene::EntityHandle ce = scene::EntityHandle::Invalid();
     for (int i = 0; i < 400 && !clientScene.IsValid(ce); ++i)
     {
         network.Advance(10.0f);
@@ -199,19 +199,19 @@ TEST_CASE("net-manager: a shared authored scene matches by stable id (no duplica
     // Both peers author the same entity with the SAME authored Guid (as both Game tabs loading one
     // scene from disk do). No hand-authored id - the id is derived from the Guid on both sides.
     const Guid sharedGuid{0x0123456789ABCDEFull, 0xFEDCBA9876543210ull};
-    const auto authorEntity = [&](dscene::Scene& s) -> dscene::EntityHandle
+    const auto authorEntity = [&](scene::Scene& s) -> scene::EntityHandle
     {
         s.AddSystem<net::NetworkComponentManager>();
         s.AddSystem<net::NetworkedTransformComponentManager>();
-        const dscene::EntityHandle e = s.CreateEntity(sharedGuid, u8"Shared");
+        const scene::EntityHandle e = s.CreateEntity(sharedGuid, u8"Shared");
         s.GetSystem<net::NetworkComponentManager>()->Add(e); // id 0 -> derived from sharedGuid
         s.GetSystem<net::NetworkedTransformComponentManager>()->Add(e);
         return e;
     };
-    dscene::Scene serverScene;
-    const dscene::EntityHandle se = authorEntity(serverScene);
-    dscene::Scene clientScene;
-    const dscene::EntityHandle ce = authorEntity(clientScene);
+    scene::Scene serverScene;
+    const scene::EntityHandle se = authorEntity(serverScene);
+    scene::Scene clientScene;
+    const scene::EntityHandle ce = authorEntity(clientScene);
 
     server.StartServer(/*dedicated=*/true);
     server.SetReplicatedScene(&serverScene); // derives + registers the id for se
