@@ -18,10 +18,10 @@ import draconic.modelimporter;
 import draconic.editor.scene;
 
 using namespace draconic::core;
-namespace dscene = draconic::scene;
-namespace drender = draconic::render;
-namespace danim = draconic::animation;
-namespace mi = draconic::modelimporter;
+namespace scene = draconic::scene;
+namespace render = draconic::render;
+namespace animation = draconic::animation;
+namespace modelimporter = draconic::modelimporter;
 
 namespace
 {
@@ -58,9 +58,9 @@ namespace
 
 TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the instance")
 {
-    mi::RegisterModelManifestAsset();
-    GlobalTypeRegistry().Register(dscene::PrefabDocument::StaticType());
-    RegisterSerializable<dscene::PrefabDocument>();
+    modelimporter::RegisterModelManifestAsset();
+    GlobalTypeRegistry().Register(scene::PrefabDocument::StaticType());
+    RegisterSerializable<scene::PrefabDocument>();
 
     const StringView dir = u8"draconic_model_prefab_test_db";
     RemoveTreeMP(dir);
@@ -76,7 +76,7 @@ TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the i
     const Guid skeleton{ 0x71, 0x1 };
     const Guid clip{ 0x72, 0x1 };
 
-    mi::ModelManifestAsset asset;
+    modelimporter::ModelManifestAsset asset;
     asset.manifest.meshGuids.PushBack(meshStatic);
     asset.manifest.meshGuids.PushBack(meshSkinned);
     asset.manifest.meshSkinned.PushBack(0);
@@ -108,7 +108,7 @@ TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the i
     draconic::content::Group* group = db.RootGroup()->CreateGroup(u8"Fox");
     REQUIRE(group != nullptr);
     draconic::content::Instance* manifestInst =
-        group->CreateInstance(u8"Fox", mi::ModelManifestAsset::StaticType());
+        group->CreateInstance(u8"Fox", modelimporter::ModelManifestAsset::StaticType());
     REQUIRE(manifestInst != nullptr);
     REQUIRE(manifestInst->WriteObject(asset).IsOk());
 
@@ -123,20 +123,20 @@ TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the i
     // Spawn the payload: hierarchy + refs mirror the manifest.
     UniquePtr<IStream> payload = generated.instance->ReadData(u8"scene");
     REQUIRE(payload.Get() != nullptr);
-    dscene::Scene level(u8"level");
-    auto* meshes = level.AddSystem<drender::MeshComponentManager>();
-    auto* anims = level.AddSystem<danim::SkeletalAnimationComponentManager>();
-    dscene::EntityHandle root = dscene::SpawnPrefab(level, *payload, prefabId);
+    scene::Scene level(u8"level");
+    auto* meshes = level.AddSystem<render::MeshComponentManager>();
+    auto* anims = level.AddSystem<animation::SkeletalAnimationComponentManager>();
+    scene::EntityHandle root = scene::SpawnPrefab(level, *payload, prefabId);
     REQUIRE(root.IsAssigned());
     CHECK(level.GetEntityName(root) == StringView(u8"Fox"));
 
-    dscene::EntityHandle armature = level.GetFirstChild(root);
+    scene::EntityHandle armature = level.GetFirstChild(root);
     REQUIRE(armature.IsAssigned());
     CHECK(level.GetEntityName(armature) == StringView(u8"Armature"));
 
     usize meshCount = 0;
     bool sawStatic = false, sawSkinned = false;
-    meshes->ForEach([&](drender::MeshComponent& c, dscene::EntityHandle e) {
+    meshes->ForEach([&](render::MeshComponent& c, scene::EntityHandle e) {
         ++meshCount;
         if (c.mesh.id == meshStatic)
         {
@@ -158,7 +158,7 @@ TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the i
     CHECK(sawSkinned);
 
     usize animCount = 0;
-    anims->ForEach([&](danim::SkeletalAnimationComponent& c, dscene::EntityHandle) {
+    anims->ForEach([&](animation::SkeletalAnimationComponent& c, scene::EntityHandle) {
         ++animCount;
         CHECK(c.skeleton.id == skeleton);
         CHECK(c.clip.id == clip);

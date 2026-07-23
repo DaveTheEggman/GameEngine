@@ -20,14 +20,14 @@ using namespace draconic::core;
 
 export namespace draconic::editor::app
 {
-    namespace tk = draconic::ui::toolkit;
+    namespace ui = draconic::ui;
 
     inline constexpr StringView kDockLayoutFile = u8"layout.xml";
     inline constexpr StringView kFavoritesFile = u8"favorites.bin";
     inline constexpr StringView kOpenPagesFile = u8"pages.bin";
 
     // Bidirectional field walk of one node (children recurse via presence flags).
-    inline void SerializeLayoutNode(ISerializer& ar, tk::DockLayoutNode& node)
+    inline void SerializeLayoutNode(ISerializer& ar, ui::toolkit::DockLayoutNode& node)
     {
         ar.BeginObject();
         draconic::core::Serialize(ar, "type", node.Type);
@@ -42,13 +42,13 @@ export namespace draconic::editor::app
         draconic::core::Serialize(ar, "hasSecond", hasSecond);
         if (hasFirst)
         {
-            if (ar.Mode() == SerializeMode::Read) { node.First = MakeUnique<tk::DockLayoutNode>(DefaultAllocator()); }
+            if (ar.Mode() == SerializeMode::Read) { node.First = MakeUnique<ui::toolkit::DockLayoutNode>(DefaultAllocator()); }
             ar.Key("first");
             SerializeLayoutNode(ar, *node.First);
         }
         if (hasSecond)
         {
-            if (ar.Mode() == SerializeMode::Read) { node.Second = MakeUnique<tk::DockLayoutNode>(DefaultAllocator()); }
+            if (ar.Mode() == SerializeMode::Read) { node.Second = MakeUnique<ui::toolkit::DockLayoutNode>(DefaultAllocator()); }
             ar.Key("second");
             SerializeLayoutNode(ar, *node.Second);
         }
@@ -56,10 +56,10 @@ export namespace draconic::editor::app
     }
 
     // Export `dock`'s current layout to <directory>/<fileName>.
-    [[nodiscard]] inline Status SaveDockLayout(tk::DockManager& dock, StringView directory,
+    [[nodiscard]] inline Status SaveDockLayout(ui::toolkit::DockManager& dock, StringView directory,
                                                StringView fileName = kDockLayoutFile)
     {
-        UniquePtr<tk::DockLayoutNode> layout = dock.ExportLayout();
+        UniquePtr<ui::toolkit::DockLayoutNode> layout = dock.ExportLayout();
         if (!layout) { return Status{ ErrorCode::NotFound } ; }   // empty dock tree - nothing to save
 
         MemoryStream buffer;
@@ -78,7 +78,7 @@ export namespace draconic::editor::app
 
     // Rebuild `dock`'s layout from <directory>/<fileName> (panels matched by PersistenceId).
     // NotFound if the file doesn't exist (caller keeps its default layout).
-    [[nodiscard]] inline Status LoadDockLayout(tk::DockManager& dock, StringView directory,
+    [[nodiscard]] inline Status LoadDockLayout(ui::toolkit::DockManager& dock, StringView directory,
                                                StringView fileName = kDockLayoutFile)
     {
         vfs::NativeFileSystem root(directory);
@@ -89,7 +89,7 @@ export namespace draconic::editor::app
         UniquePtr<SerializerContext> ctx = factory(*stream, SerializeMode::Read);
         if (!ctx || ctx->serializer == nullptr) { return Status{ ErrorCode::Internal }; }
 
-        tk::DockLayoutNode layout;
+        ui::toolkit::DockLayoutNode layout;
         SerializeLayoutNode(*ctx->serializer, layout);
         if (!ctx->serializer->IsOk()) { return ctx->serializer->GetStatus(); }
 

@@ -25,26 +25,26 @@ using namespace draconic::core;
 
 export namespace draconic::editor
 {
-    namespace grt = draconic::runtime;
-    namespace gui = draconic::ui;
-    namespace gaudio = draconic::audio;
+    namespace runtime = draconic::runtime;
+    namespace ui = draconic::ui;
+    namespace audio = draconic::audio;
 
     class SoundCueEditorPage final : public app::UIEditorPage
     {
     public:
-        SoundCueEditorPage(EditorContext& context, grt::IApplicationHost& host,
+        SoundCueEditorPage(EditorContext& context, runtime::IApplicationHost& host,
                            draconic::content::Instance& instance)
             : m_context(&context), m_title(instance.Name())
         {
             SetInstanceId(instance.Id());
-            m_audio = host.Ctx().GetSubsystem<gaudio::AudioSubsystem>();
+            m_audio = host.Ctx().GetSubsystem<audio::AudioSubsystem>();
             if (RefPtr<ISerializable> object = instance.ReadObject())
             {
-                if (auto* asset = Cast<gaudio::SoundCueAsset>(object.Get()))
+                if (auto* asset = Cast<audio::SoundCueAsset>(object.Get()))
                 {
                     // Field-wise copy (the Asset base is non-copyable).
                     m_asset.fileName = String(asset->fileName.AsView());
-                    for (usize i = 0; i < gaudio::kSoundCueSlotCount; ++i)
+                    for (usize i = 0; i < audio::kSoundCueSlotCount; ++i)
                     {
                         m_asset.clipIds[i] = asset->clipIds[i];
                         m_asset.weights[i] = asset->weights[i];
@@ -57,70 +57,70 @@ export namespace draconic::editor
                 }
             }
 
-            auto column = MakeRef<gui::FlexLayout>(DefaultAllocator());
-            column->Direction = gui::Orientation::Vertical;
+            auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            column->Direction = ui::Orientation::Vertical;
             column->Spacing = 6.0f;
 
             // Slot rows: "<clip name>" [Pick...] [Clear] weight [field]
-            for (usize i = 0; i < gaudio::kSoundCueSlotCount; ++i)
+            for (usize i = 0; i < audio::kSoundCueSlotCount; ++i)
             {
-                auto row = MakeRef<gui::FlexLayout>(DefaultAllocator());
-                row->Direction = gui::Orientation::Horizontal;
+                auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+                row->Direction = ui::Orientation::Horizontal;
                 row->Spacing = 6.0f;
 
-                m_slotLabels[i] = MakeRef<gui::Label>(DefaultAllocator(), StringView(u8"(empty)"));
+                m_slotLabels[i] = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"(empty)"));
                 m_slotLabels[i]->FontSize.SetValue(13.0f);
                 {
-                    auto lp = MakeRef<gui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                     lp->Grow = 1.0f;
-                    lp->AlignSelf = gui::Align::Center;
+                    lp->AlignSelf = ui::Align::Center;
                     row->AddView(m_slotLabels[i].Get(), lp);
                 }
                 SoundCueEditorPage* self = this;
                 const usize slot = i;
-                auto pick = MakeRef<gui::Button>(DefaultAllocator(), StringView(u8"Pick..."));
-                pick->OnClick.Add([self, slot](gui::ButtonBase*) { self->PickClip(slot); });
+                auto pick = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Pick..."));
+                pick->OnClick.Add([self, slot](ui::ButtonBase*) { self->PickClip(slot); });
                 row->AddView(pick.Get());
-                auto clear = MakeRef<gui::Button>(DefaultAllocator(), StringView(u8"Clear"));
-                clear->OnClick.Add([self, slot](gui::ButtonBase*) {
+                auto clear = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Clear"));
+                clear->OnClick.Add([self, slot](ui::ButtonBase*) {
                     self->m_asset.clipIds[slot] = Guid{};
                     self->RefreshSlot(slot);
                     self->MarkDirty();
                 });
                 row->AddView(clear.Get());
 
-                auto weightLabel = MakeRef<gui::Label>(DefaultAllocator(), StringView(u8"weight"));
+                auto weightLabel = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"weight"));
                 weightLabel->FontSize.SetValue(12.0f);
                 {
-                    auto lp = MakeRef<gui::FlexLayoutParams>(DefaultAllocator());
-                    lp->AlignSelf = gui::Align::Center;
+                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    lp->AlignSelf = ui::Align::Center;
                     row->AddView(weightLabel.Get(), lp);
                 }
-                m_weightFields[i] = MakeRef<gui::NumericField>(DefaultAllocator());
+                m_weightFields[i] = MakeRef<ui::NumericField>(DefaultAllocator());
                 m_weightFields[i]->SetMin(0.0);
                 m_weightFields[i]->SetMax(100.0);
                 m_weightFields[i]->SetValue(m_asset.weights[i]);
-                m_weightFields[i]->OnValueChanged.Add([self, slot](gui::NumericField*, f64 value) {
+                m_weightFields[i]->OnValueChanged.Add([self, slot](ui::NumericField*, f64 value) {
                     self->m_asset.weights[slot] = static_cast<f32>(value);
                     self->MarkDirty();
                 });
                 row->AddView(m_weightFields[i].Get());
 
                 {
-                    auto lp = MakeRef<gui::FlexLayoutParams>(DefaultAllocator());
-                    lp->Width = gui::SizeSpec::Match();
+                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    lp->Width = ui::SizeSpec::Match();
                     column->AddView(row.Get(), lp);
                 }
             }
 
             // Cue-level: mode + pitch/volume jitter.
             {
-                auto row = MakeRef<gui::FlexLayout>(DefaultAllocator());
-                row->Direction = gui::Orientation::Horizontal;
+                auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+                row->Direction = ui::Orientation::Horizontal;
                 row->Spacing = 6.0f;
                 SoundCueEditorPage* self = this;
-                m_modeButton = MakeRef<gui::Button>(DefaultAllocator(), StringView(u8""));
-                m_modeButton->OnClick.Add([self](gui::ButtonBase*) {
+                m_modeButton = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8""));
+                m_modeButton->OnClick.Add([self](ui::ButtonBase*) {
                     self->m_asset.mode = static_cast<u8>((self->m_asset.mode + 1) % 3);
                     self->RefreshModeButton();
                     self->MarkDirty();
@@ -131,44 +131,44 @@ export namespace draconic::editor
                 AddJitterField(*row, u8"vol min", m_asset.volumeMin);
                 AddJitterField(*row, u8"vol max", m_asset.volumeMax);
                 {
-                    auto lp = MakeRef<gui::FlexLayoutParams>(DefaultAllocator());
-                    lp->Width = gui::SizeSpec::Match();
+                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    lp->Width = ui::SizeSpec::Match();
                     column->AddView(row.Get(), lp);
                 }
             }
 
             // Audition: resolve + play, exactly what the game does per trigger.
             {
-                auto row = MakeRef<gui::FlexLayout>(DefaultAllocator());
-                row->Direction = gui::Orientation::Horizontal;
+                auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+                row->Direction = ui::Orientation::Horizontal;
                 row->Spacing = 6.0f;
                 SoundCueEditorPage* self = this;
-                auto play = MakeRef<gui::Button>(DefaultAllocator(), StringView(u8"Audition"));
-                play->OnClick.Add([self](gui::ButtonBase*) { self->Audition(); });
+                auto play = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Audition"));
+                play->OnClick.Add([self](ui::ButtonBase*) { self->Audition(); });
                 row->AddView(play.Get());
-                m_status = MakeRef<gui::Label>(DefaultAllocator(), StringView(u8""));
+                m_status = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8""));
                 m_status->FontSize.SetValue(12.0f);
                 {
-                    auto lp = MakeRef<gui::FlexLayoutParams>(DefaultAllocator());
-                    lp->AlignSelf = gui::Align::Center;
+                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    lp->AlignSelf = ui::Align::Center;
                     row->AddView(m_status.Get(), lp);
                 }
                 {
-                    auto lp = MakeRef<gui::FlexLayoutParams>(DefaultAllocator());
-                    lp->Width = gui::SizeSpec::Match();
+                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    lp->Width = ui::SizeSpec::Match();
                     column->AddView(row.Get(), lp);
                 }
             }
 
             m_content = column;
-            for (usize i = 0; i < gaudio::kSoundCueSlotCount; ++i) { RefreshSlot(i); }
+            for (usize i = 0; i < audio::kSoundCueSlotCount; ++i) { RefreshSlot(i); }
             RefreshModeButton();
         }
 
         [[nodiscard]] StringView Title() const override { return m_title.AsView(); }
-        [[nodiscard]] gui::View* ContentView() override { return m_content.Get(); }
+        [[nodiscard]] ui::View* ContentView() override { return m_content.Get(); }
 
-        void OnUpdate(grt::IApplicationHost&, f32) override
+        void OnUpdate(runtime::IApplicationHost&, f32) override
         {
             // Status line: append the auditioning voice's TRUE cursor (item: voice-
             // cursor playhead) while it plays; restore the plain pick line after.
@@ -176,7 +176,7 @@ export namespace draconic::editor
             {
                 return;
             }
-            gaudio::VoiceStatus status;
+            audio::VoiceStatus status;
             if (m_audio->Engine()->GetVoiceStatus(m_voice, status) && status.playing)
             {
                 String text = Format(u8"{}  |  {} s", m_pickText,
@@ -185,7 +185,7 @@ export namespace draconic::editor
             }
             else
             {
-                m_voice = gaudio::VoiceHandle{};
+                m_voice = audio::VoiceHandle{};
                 m_status->SetText(m_pickText.AsView());
             }
         }
@@ -214,23 +214,23 @@ export namespace draconic::editor
         }
 
     private:
-        void AddJitterField(gui::FlexLayout& row, StringView label, f32& target)
+        void AddJitterField(ui::FlexLayout& row, StringView label, f32& target)
         {
-            auto text = MakeRef<gui::Label>(DefaultAllocator(), label);
+            auto text = MakeRef<ui::Label>(DefaultAllocator(), label);
             text->FontSize.SetValue(12.0f);
             {
-                auto lp = MakeRef<gui::FlexLayoutParams>(DefaultAllocator());
-                lp->AlignSelf = gui::Align::Center;
+                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                lp->AlignSelf = ui::Align::Center;
                 row.AddView(text.Get(), lp);
             }
-            auto field = MakeRef<gui::NumericField>(DefaultAllocator());
+            auto field = MakeRef<ui::NumericField>(DefaultAllocator());
             field->SetMin(0.0);
             field->SetMax(4.0);
             field->SetDecimalPlaces(2);
             field->SetValue(target);
             SoundCueEditorPage* self = this;
             f32* slot = &target;   // points into m_asset (stable for the page's lifetime)
-            field->OnValueChanged.Add([self, slot](gui::NumericField*, f64 value) {
+            field->OnValueChanged.Add([self, slot](ui::NumericField*, f64 value) {
                 *slot = static_cast<f32>(value);
                 self->MarkDirty();
             });
@@ -240,7 +240,7 @@ export namespace draconic::editor
 
         void PickClip(usize slot)
         {
-            gui::UIContext* uiContext = m_content.Get() != nullptr ? m_content->Context : nullptr;
+            ui::UIContext* uiContext = m_content.Get() != nullptr ? m_content->Context : nullptr;
             if (uiContext == nullptr) { return; }
             Array<String> typeNames;
             typeNames.PushBack(String(u8"AudioClipAsset"));
@@ -280,28 +280,28 @@ export namespace draconic::editor
         void Audition()
         {
             if (m_audio == nullptr || m_audio->Engine() == nullptr) { return; }
-            gaudio::SoundCue cue;
-            cue.mode = static_cast<gaudio::SoundCueMode>(m_asset.mode);
+            audio::SoundCue cue;
+            cue.mode = static_cast<audio::SoundCueMode>(m_asset.mode);
             cue.pitchMin = m_asset.pitchMin;
             cue.pitchMax = m_asset.pitchMax;
             cue.volumeMin = m_asset.volumeMin;
             cue.volumeMax = m_asset.volumeMax;
-            for (usize i = 0; i < gaudio::kSoundCueSlotCount; ++i)
+            for (usize i = 0; i < audio::kSoundCueSlotCount; ++i)
             {
-                gaudio::SoundCueVariant variant;
+                audio::SoundCueVariant variant;
                 variant.clip = LoadSlotClip(i);
                 variant.weight = m_asset.weights[i];
                 cue.variants.PushBack(Move(variant));
             }
-            const gaudio::SoundCuePick pick =
-                gaudio::ResolveSoundCue(cue, m_rng, m_lastVariant, m_sequentialCursor);
+            const audio::SoundCuePick pick =
+                audio::ResolveSoundCue(cue, m_rng, m_lastVariant, m_sequentialCursor);
             if (pick.variantIndex < 0)
             {
                 m_status->SetText(u8"No playable variant.");
                 return;
             }
             m_lastVariant = pick.variantIndex;
-            gaudio::AudioPlayParams params;
+            audio::AudioPlayParams params;
             params.pitch = pick.pitch;
             params.volume = pick.volume;
             params.allowDedupe = false;
@@ -312,28 +312,28 @@ export namespace draconic::editor
             m_status->SetText(m_pickText.AsView());
         }
 
-        [[nodiscard]] RefPtr<gaudio::AudioClip> LoadSlotClip(usize slot)
+        [[nodiscard]] RefPtr<audio::AudioClip> LoadSlotClip(usize slot)
         {
             const Guid& id = m_asset.clipIds[slot];
             if (id.IsNil() || m_context->Project() == nullptr) { return {}; }
-            if (RefPtr<gaudio::AudioClip>* cached = m_clipCache.Find(id)) { return *cached; }
+            if (RefPtr<audio::AudioClip>* cached = m_clipCache.Find(id)) { return *cached; }
             draconic::content::Instance* instance =
                 m_context->Project()->SourceDb().GetInstance(id);
             RefPtr<ISerializable> object =
                 instance != nullptr ? instance->ReadObject() : RefPtr<ISerializable>{};
-            auto* asset = Cast<gaudio::AudioClipAsset>(object.Get());
+            auto* asset = Cast<audio::AudioClipAsset>(object.Get());
             if (asset == nullptr) { return {}; }
             const String path = PathJoin(m_context->Project()->SourcesRoot().AsView(),
                                          asset->fileName.AsView());
             Result<Array<byte>> bytes = ReadFile(path.AsView());
             if (!bytes.HasValue()) { return {}; }
-            gaudio::AudioClipMetadata metadata;
-            if (!gaudio::ProbeAudioClipMetadata(
+            audio::AudioClipMetadata metadata;
+            if (!audio::ProbeAudioClipMetadata(
                     Span<const byte>(bytes.Value().Data(), bytes.Value().Size()), metadata))
             {
                 return {};
             }
-            RefPtr<gaudio::AudioClip> clip = MakeRef<gaudio::AudioClip>(DefaultAllocator());
+            RefPtr<audio::AudioClip> clip = MakeRef<audio::AudioClip>(DefaultAllocator());
             clip->channels = metadata.channels;
             clip->sampleRate = metadata.sampleRate;
             clip->frameCount = metadata.frameCount;
@@ -345,30 +345,30 @@ export namespace draconic::editor
         }
 
         EditorContext* m_context = nullptr;
-        gaudio::AudioSubsystem* m_audio = nullptr;
+        audio::AudioSubsystem* m_audio = nullptr;
         String m_title;
-        gaudio::SoundCueAsset m_asset;
+        audio::SoundCueAsset m_asset;
         Random m_rng;
         i32 m_lastVariant = -1;
         u32 m_sequentialCursor = 0;
-        gaudio::VoiceHandle m_voice;
+        audio::VoiceHandle m_voice;
         String m_pickText;
-        HashMap<Guid, RefPtr<gaudio::AudioClip>> m_clipCache;
-        RefPtr<gui::View> m_content;
-        RefPtr<gui::Label> m_slotLabels[gaudio::kSoundCueSlotCount];
-        RefPtr<gui::NumericField> m_weightFields[gaudio::kSoundCueSlotCount];
-        Array<RefPtr<gui::NumericField>> m_jitterFields;
-        RefPtr<gui::Button> m_modeButton;
-        RefPtr<gui::Label> m_status;
+        HashMap<Guid, RefPtr<audio::AudioClip>> m_clipCache;
+        RefPtr<ui::View> m_content;
+        RefPtr<ui::Label> m_slotLabels[audio::kSoundCueSlotCount];
+        RefPtr<ui::NumericField> m_weightFields[audio::kSoundCueSlotCount];
+        Array<RefPtr<ui::NumericField>> m_jitterFields;
+        RefPtr<ui::Button> m_modeButton;
+        RefPtr<ui::Label> m_status;
     };
 
     class SoundCuePageFactory final : public IEditorPageFactory
     {
     public:
-        explicit SoundCuePageFactory(grt::IApplicationHost& host) : m_host(&host) {}
+        explicit SoundCuePageFactory(runtime::IApplicationHost& host) : m_host(&host) {}
         [[nodiscard]] const TypeInfo* PrimaryType() const override
         {
-            return &gaudio::SoundCueAsset::StaticType();
+            return &audio::SoundCueAsset::StaticType();
         }
         [[nodiscard]] UniquePtr<EditorPage> CreatePage(EditorContext& context,
                                                        draconic::content::Instance& instance) override
@@ -378,6 +378,6 @@ export namespace draconic::editor
         }
 
     private:
-        grt::IApplicationHost* m_host;
+        runtime::IApplicationHost* m_host;
     };
 }

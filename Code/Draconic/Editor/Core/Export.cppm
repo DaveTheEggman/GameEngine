@@ -501,7 +501,6 @@ export namespace draconic::editor
                                               const Array<ExportRoot>* roots = nullptr,
                                               PruningReport* outReport = nullptr)
     {
-        namespace proj = draconic::project;
 
         // --- stage scenes ---
         if (onProgress) { onProgress(u8"Staging scenes...", 0.65f); }
@@ -512,7 +511,7 @@ export namespace draconic::editor
         Array<String> droppedScenes;   // for the pruning report
         {
             draconic::content::ContentDatabase staging(stagingMount, BinarySerializerFactory(),
-                                                       proj::kCookedAssetExtension);
+                                                       draconic::project::kCookedAssetExtension);
             Array<draconic::content::Instance*> scenes;
             detail::CollectScenes(*project.SourceDb().RootGroup(), scenes);
             usize staged = 0;
@@ -572,7 +571,7 @@ export namespace draconic::editor
         if (onProgress) { onProgress(u8"Packing Content.pak...", 0.78f); }
         draconic::vfs::PakBuilder pak;
         draconic::vfs::NativeFileSystem cookedMount(
-            PathJoin(project.Directory(), proj::kProjectCookedDir).AsView());
+            PathJoin(project.Directory(), draconic::project::kProjectCookedDir).AsView());
         if (!detail::PackTree(cookedMount, *cookedMount.AsEnumerable(), u8"", pak, stats.filesPacked,
                               reachablePaths.Get())
             || !detail::PackTree(stagingMount, *stagingMount.AsEnumerable(), u8"", pak, stats.filesPacked))
@@ -583,7 +582,7 @@ export namespace draconic::editor
         // The startup game script needs no special staging - it is a cooked ScriptClass asset in the
         // reachability closure, so it already rides in the content DB pak like every other asset. The
         // dist manifest carries its guid (below); the player binds it from the content DB.
-        const String pakPath = PathJoin(outDir, proj::kDistContentPak);
+        const String pakPath = PathJoin(outDir, draconic::project::kDistContentPak);
         if (!pak.Write(pakPath.AsView()).IsOk())
         {
             DRACONIC_LOG_ERROR(u8"Export", u8"failed to write Content.pak");
@@ -594,13 +593,13 @@ export namespace draconic::editor
         if (onProgress) { onProgress(u8"Writing manifest...", 0.9f); }
         {
             draconic::vfs::NativeFileSystem outMount(outDir);
-            proj::ProjectSettings dist;
+            draconic::project::ProjectSettings dist;
             dist.name = String(project.Settings().name.AsView());
             dist.defaultSceneId = project.Settings().defaultSceneId;
             dist.defaultScene = String(project.Settings().defaultScene.AsView());
             dist.startupScriptId = project.Settings().startupScriptId;
             dist.startupScript = String(project.Settings().startupScript.AsView());   // display mirror
-            if (!proj::SaveProjectSettings(*outMount.AsWritable(), dist, proj::kDistManifestFile).IsOk())
+            if (!draconic::project::SaveProjectSettings(*outMount.AsWritable(), dist, draconic::project::kDistManifestFile).IsOk())
             {
                 DRACONIC_LOG_ERROR(u8"Export", u8"failed to write the dist manifest");
                 return Status{ ErrorCode::Internal };

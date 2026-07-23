@@ -24,15 +24,14 @@ using namespace draconic::core;
 
 export namespace draconic::editor
 {
-    namespace dscene = draconic::scene;
-    namespace ddebug = draconic::render::debug;
-    namespace drender = draconic::render;
+    namespace scene = draconic::scene;
+    namespace render = draconic::render;
 
     /// Drawing context passed to gizmo renderers.
     struct GizmoContext
     {
-        ddebug::DebugDraw* debug = nullptr;
-        dscene::Scene* scene = nullptr;
+        render::debug::DebugDraw* debug = nullptr;
+        scene::Scene* scene = nullptr;
         Float3 cameraPosition{};
     };
 
@@ -44,7 +43,7 @@ export namespace draconic::editor
     public:
         virtual ~IGizmoRenderer() = default;
         [[nodiscard]] virtual const TypeInfo* ComponentType() const = 0;
-        virtual void Draw(const Instance& component, dscene::EntityHandle owner, GizmoContext& ctx) = 0;
+        virtual void Draw(const Instance& component, scene::EntityHandle owner, GizmoContext& ctx) = 0;
         [[nodiscard]] virtual bool DrawWhenUnselected() const { return false; }
     };
 
@@ -67,10 +66,10 @@ export namespace draconic::editor
 
         /// Draw gizmos for `entity`'s components; when `selected` is false only renderers with
         /// DrawWhenUnselected participate.
-        void DrawEntity(dscene::EntityHandle entity, bool selected, GizmoContext& ctx) const
+        void DrawEntity(scene::EntityHandle entity, bool selected, GizmoContext& ctx) const
         {
             if (ctx.scene == nullptr || ctx.debug == nullptr || !entity.IsAssigned()) { return; }
-            ctx.scene->ForEachManager([&](dscene::ComponentManagerBase& mgr) {
+            ctx.scene->ForEachManager([&](scene::ComponentManagerBase& mgr) {
                 if (!mgr.HasComponent(entity)) { return; }
                 IGizmoRenderer* renderer = Find(mgr.ComponentType());
                 if (renderer == nullptr) { return; }
@@ -98,7 +97,7 @@ export namespace draconic::editor
             return Normalized(Float3{ -world.m[2][0], -world.m[2][1], -world.m[2][2] });
         }
 
-        inline void DrawCenterCross(ddebug::DebugDraw& dd, Float3 p, f32 r, Color color)
+        inline void DrawCenterCross(render::debug::DebugDraw& dd, Float3 p, f32 r, Color color)
         {
             dd.DrawLine(p - Float3{ r, 0, 0 }, p + Float3{ r, 0, 0 }, color);
             dd.DrawLine(p - Float3{ 0, r, 0 }, p + Float3{ 0, r, 0 }, color);
@@ -113,37 +112,37 @@ export namespace draconic::editor
     public:
         [[nodiscard]] const TypeInfo* ComponentType() const override
         {
-            return &TypeOf<drender::LightComponent>();
+            return &TypeOf<render::LightComponent>();
         }
 
-        void Draw(const Instance& component, dscene::EntityHandle owner, GizmoContext& ctx) override
+        void Draw(const Instance& component, scene::EntityHandle owner, GizmoContext& ctx) override
         {
-            const auto* light = component.TryGet<drender::LightComponent>();
+            const auto* light = component.TryGet<render::LightComponent>();
             if (light == nullptr) { return; }
 
             const Float4x4 world = ctx.scene->GetWorldMatrix(owner);
             const Float3 position = detail::WorldPosition(world);
             const Float3 forward = detail::WorldForward(world);
-            ddebug::DebugDraw& dd = *ctx.debug;
+            render::debug::DebugDraw& dd = *ctx.debug;
             const Color color{ Clamp(light->color.r, 0.0f, 1.0f), Clamp(light->color.g, 0.0f, 1.0f),
                                Clamp(light->color.b, 0.0f, 1.0f), 1.0f };
 
             switch (light->type)
             {
-                case drender::LightType::Directional:
+                case render::LightType::Directional:
                 {
                     detail::DrawCenterCross(dd, position, 0.3f, color);
                     const Float3 tip = position + forward * 1.5f;
                     dd.DrawArrow(position, tip, color, 0.2f);
                     break;
                 }
-                case drender::LightType::Point:
+                case render::LightType::Point:
                 {
                     dd.DrawWireSphere(position, light->range, color, 24);
                     detail::DrawCenterCross(dd, position, 0.15f, color);
                     break;
                 }
-                case drender::LightType::Spot:
+                case render::LightType::Spot:
                 {
                     const f32 tipDist = Max(light->range, 0.1f);
                     const Float3 tipCenter = position + forward * tipDist;
@@ -170,17 +169,17 @@ export namespace draconic::editor
     public:
         [[nodiscard]] const TypeInfo* ComponentType() const override
         {
-            return &TypeOf<drender::ReflectionProbeComponent>();
+            return &TypeOf<render::ReflectionProbeComponent>();
         }
 
-        void Draw(const Instance& component, dscene::EntityHandle owner, GizmoContext& ctx) override
+        void Draw(const Instance& component, scene::EntityHandle owner, GizmoContext& ctx) override
         {
-            const auto* probe = component.TryGet<drender::ReflectionProbeComponent>();
+            const auto* probe = component.TryGet<render::ReflectionProbeComponent>();
             if (probe == nullptr) { return; }
 
             const Float4x4 world = ctx.scene->GetWorldMatrix(owner);
             const Float3 position = detail::WorldPosition(world);
-            ddebug::DebugDraw& dd = *ctx.debug;
+            render::debug::DebugDraw& dd = *ctx.debug;
             const Color color{ 0.4f, 0.8f, 1.0f, 1.0f };
 
             dd.DrawTransformedBox(Float3{} - probe->halfExtents, probe->halfExtents, world, color);
@@ -197,17 +196,17 @@ export namespace draconic::editor
     public:
         [[nodiscard]] const TypeInfo* ComponentType() const override
         {
-            return &TypeOf<drender::DecalComponent>();
+            return &TypeOf<render::DecalComponent>();
         }
 
-        void Draw(const Instance& component, dscene::EntityHandle owner, GizmoContext& ctx) override
+        void Draw(const Instance& component, scene::EntityHandle owner, GizmoContext& ctx) override
         {
-            const auto* decal = component.TryGet<drender::DecalComponent>();
+            const auto* decal = component.TryGet<render::DecalComponent>();
             if (decal == nullptr) { return; }
 
             const Float4x4 world = ctx.scene->GetWorldMatrix(owner);
             const Float3 position = detail::WorldPosition(world);
-            ddebug::DebugDraw& dd = *ctx.debug;
+            render::debug::DebugDraw& dd = *ctx.debug;
             const Color color{ 1.0f, 0.75f, 0.2f, 1.0f };
 
             const Float3 he = decal->size * 0.5f;
@@ -224,12 +223,12 @@ export namespace draconic::editor
     public:
         [[nodiscard]] const TypeInfo* ComponentType() const override
         {
-            return &TypeOf<drender::CameraComponent>();
+            return &TypeOf<render::CameraComponent>();
         }
 
-        void Draw(const Instance& component, dscene::EntityHandle owner, GizmoContext& ctx) override
+        void Draw(const Instance& component, scene::EntityHandle owner, GizmoContext& ctx) override
         {
-            const auto* camera = component.TryGet<drender::CameraComponent>();
+            const auto* camera = component.TryGet<render::CameraComponent>();
             if (camera == nullptr) { return; }
 
             const Float4x4 world = ctx.scene->GetWorldMatrix(owner);

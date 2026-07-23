@@ -131,7 +131,7 @@ TEST_CASE("editor-scene: CreateSceneInstance makes uniquely-named SceneDocument 
 
 TEST_CASE("hierarchy: collapse state survives snapshot rebuilds")
 {
-    dscene::Scene scene;
+    scene::Scene scene;
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
     SceneHierarchyView hierarchy(edit);
@@ -168,7 +168,7 @@ TEST_CASE("hierarchy: collapse state survives snapshot rebuilds")
 // Repro: switching the selected entity must rebuild the inspector for the NEW entity.
 TEST_CASE("inspector: rebuilds when the selection switches entities")
 {
-    dscene::Scene scene;
+    scene::Scene scene;
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
     EditorContext editor;
@@ -203,7 +203,7 @@ TEST_CASE("inspector: rebuilds when the selection switches entities")
 // trigger must preserve it.)
 TEST_CASE("hierarchy: selection survives snapshot rebuilds")
 {
-    dscene::Scene scene;
+    scene::Scene scene;
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
     SceneHierarchyView hierarchy(edit);

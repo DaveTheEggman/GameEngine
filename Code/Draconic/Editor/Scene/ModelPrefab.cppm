@@ -36,10 +36,10 @@ using namespace draconic::core;
 
 export namespace draconic::editor
 {
-    namespace dscene = draconic::scene;
-    namespace drender = draconic::render;
-    namespace danim = draconic::animation;
-    namespace mi = draconic::modelimporter;
+    namespace scene = draconic::scene;
+    namespace render = draconic::render;
+    namespace animation = draconic::animation;
+    namespace modelimporter = draconic::modelimporter;
 
     struct ModelPrefabResult
     {
@@ -54,26 +54,26 @@ export namespace draconic::editor
     {
         ModelPrefabResult result;
         RefPtr<ISerializable> object = manifestInstance.ReadObject();
-        auto* asset = Cast<mi::ModelManifestAsset>(object.Get());
+        auto* asset = Cast<modelimporter::ModelManifestAsset>(object.Get());
         if (asset == nullptr) { return result; }
         const draconic::model::ModelManifestSource& manifest = asset->manifest;
 
         // Author the hierarchy in a throwaway scene, then capture it as a prefab payload.
-        dscene::Scene scene(manifestInstance.Name());
-        auto* meshes = scene.AddSystem<drender::MeshComponentManager>();
-        auto* anims = scene.AddSystem<danim::SkeletalAnimationComponentManager>();
+        scene::Scene scene(manifestInstance.Name());
+        auto* meshes = scene.AddSystem<render::MeshComponentManager>();
+        auto* anims = scene.AddSystem<animation::SkeletalAnimationComponentManager>();
         const bool hasCollision = !manifest.collisionGuids.IsEmpty();
         auto* rigidBodies = hasCollision
             ? scene.AddSystem<draconic::physics::RigidBodyComponentManager>() : nullptr;
         auto* colliders = hasCollision
             ? scene.AddSystem<draconic::physics::ColliderComponentManager>() : nullptr;
 
-        dscene::EntityHandle root = scene.CreateEntity(manifestInstance.Name());
-        Array<dscene::EntityHandle> entities;
+        scene::EntityHandle root = scene.CreateEntity(manifestInstance.Name());
+        Array<scene::EntityHandle> entities;
         entities.Reserve(manifest.nodes.Size());
         for (const draconic::model::ModelNode& node : manifest.nodes)
         {
-            dscene::EntityHandle e = scene.CreateEntity(node.name.AsView());
+            scene::EntityHandle e = scene.CreateEntity(node.name.AsView());
             scene.SetLocalTransform(e, node.localTransform);
             entities.PushBack(e);
         }
@@ -95,7 +95,7 @@ export namespace draconic::editor
                 continue;
             }
             const usize meshIndex = static_cast<usize>(node.meshIndex);
-            drender::MeshComponent& mc = meshes->Add(entities[i]);
+            render::MeshComponent& mc = meshes->Add(entities[i]);
             mc.mesh.SetId(manifest.meshGuids[meshIndex]);
 
             // The unified material list: submeshes index it by SubMesh::materialIndex, and
@@ -122,7 +122,7 @@ export namespace draconic::editor
             if (skinned && animated)
             {
                 // Feeds its OWN entity (meshEntities stays empty - it doesn't serialize yet).
-                danim::SkeletalAnimationComponent& ac = anims->Add(entities[i]);
+                animation::SkeletalAnimationComponent& ac = anims->Add(entities[i]);
                 ac.skeleton.SetId(manifest.skeletonGuid);
                 ac.clip.SetId(manifest.animationGuids[0]);
             }
@@ -144,7 +144,7 @@ export namespace draconic::editor
         }
 
         MemoryStream payload;
-        if (!dscene::CapturePrefab(scene, root, payload).IsOk()) { return result; }
+        if (!scene::CapturePrefab(scene, root, payload).IsOk()) { return result; }
 
         // "Prefab" beside the manifest; an existing one is REUSED so its guid (and every
         // placed instance) survives re-import. A non-prefab squatting on the name loses to
@@ -156,17 +156,17 @@ export namespace draconic::editor
             prefab = group.GetInstance(u8"Prefab.2");
             if (prefab == nullptr)
             {
-                prefab = group.CreateInstance(u8"Prefab.2", dscene::PrefabDocument::StaticType());
+                prefab = group.CreateInstance(u8"Prefab.2", scene::PrefabDocument::StaticType());
             }
         }
         result.regenerated = prefab != nullptr;
         if (prefab == nullptr)
         {
-            prefab = group.CreateInstance(u8"Prefab", dscene::PrefabDocument::StaticType());
+            prefab = group.CreateInstance(u8"Prefab", scene::PrefabDocument::StaticType());
         }
         if (prefab == nullptr) { return result; }
 
-        dscene::PrefabDocument doc;
+        scene::PrefabDocument doc;
         doc.name = String(manifestInstance.Name());
         if (!prefab->WriteObject(doc).IsOk()
             || !prefab->WriteData(u8"scene", payload.Bytes()).IsOk())

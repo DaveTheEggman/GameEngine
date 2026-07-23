@@ -29,13 +29,13 @@ using namespace draconic::core;
 
 export namespace draconic::editor
 {
-    namespace grt = draconic::runtime;
-    namespace gui = draconic::ui;
-    namespace gaudio = draconic::audio;
+    namespace runtime = draconic::runtime;
+    namespace ui = draconic::ui;
+    namespace audio = draconic::audio;
 
     /// The peak waveform strip: symmetric per-bucket bars around the midline plus an
     /// optional playhead (fraction of the clip; < 0 hides it).
-    class WaveformView final : public gui::View
+    class WaveformView final : public ui::View
     {
     public:
         void SetPeaks(Array<f32> peaks)
@@ -52,7 +52,7 @@ export namespace draconic::editor
             }
         }
 
-        void OnDraw(gui::UIDrawContext& ctx) override
+        void OnDraw(ui::UIDrawContext& ctx) override
         {
             const Rectangle bounds{ 0.0f, 0.0f, Width(), Height() };
             ctx.VG().FillRect(bounds, Color{ 0.10f, 0.11f, 0.13f, 1.0f });
@@ -86,50 +86,50 @@ export namespace draconic::editor
     class AudioClipEditorPage final : public app::UIEditorPage
     {
     public:
-        AudioClipEditorPage(EditorContext& context, grt::IApplicationHost& host,
+        AudioClipEditorPage(EditorContext& context, runtime::IApplicationHost& host,
                             draconic::content::Instance& instance)
             : m_context(&context), m_title(instance.Name())
         {
             SetInstanceId(instance.Id());
-            m_audio = host.Ctx().GetSubsystem<gaudio::AudioSubsystem>();
+            m_audio = host.Ctx().GetSubsystem<audio::AudioSubsystem>();
             LoadClip(instance);
 
-            auto column = MakeRef<gui::FlexLayout>(DefaultAllocator());
-            column->Direction = gui::Orientation::Vertical;
+            auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            column->Direction = ui::Orientation::Vertical;
             column->Spacing = 8.0f;
 
-            m_info = MakeRef<gui::Label>(DefaultAllocator(), StringView(u8""));
+            m_info = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8""));
             m_info->FontSize.SetValue(13.0f);
             {
-                auto lp = MakeRef<gui::FlexLayoutParams>(DefaultAllocator());
-                lp->Width = gui::SizeSpec::Match();
+                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Width = ui::SizeSpec::Match();
                 column->AddView(m_info.Get(), lp);
             }
 
             m_waveform = MakeRef<WaveformView>(DefaultAllocator());
             {
-                auto lp = MakeRef<gui::FlexLayoutParams>(DefaultAllocator());
-                lp->Width = gui::SizeSpec::Match();
-                lp->Height = gui::SizeSpec::Fixed(gui::Unit::Px(160));
+                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Width = ui::SizeSpec::Match();
+                lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(160));
                 column->AddView(m_waveform.Get(), lp);
             }
 
-            auto controls = MakeRef<gui::FlexLayout>(DefaultAllocator());
-            controls->Direction = gui::Orientation::Horizontal;
+            auto controls = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            controls->Direction = ui::Orientation::Horizontal;
             controls->Spacing = 8.0f;
             AudioClipEditorPage* self = this;
-            m_playButton = MakeRef<gui::Button>(DefaultAllocator(), StringView(u8"Play"));
-            m_playButton->OnClick.Add([self](gui::ButtonBase*) { self->Audition(); });
+            m_playButton = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Play"));
+            m_playButton->OnClick.Add([self](ui::ButtonBase*) { self->Audition(); });
             controls->AddView(m_playButton.Get());
-            m_stopButton = MakeRef<gui::Button>(DefaultAllocator(), StringView(u8"Stop"));
-            m_stopButton->OnClick.Add([self](gui::ButtonBase*) { self->StopAudition(); });
+            m_stopButton = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Stop"));
+            m_stopButton->OnClick.Add([self](ui::ButtonBase*) { self->StopAudition(); });
             controls->AddView(m_stopButton.Get());
-            m_status = MakeRef<gui::Label>(DefaultAllocator(), StringView(u8""));
+            m_status = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8""));
             m_status->FontSize.SetValue(12.0f);
             controls->AddView(m_status.Get());
             {
-                auto lp = MakeRef<gui::FlexLayoutParams>(DefaultAllocator());
-                lp->Width = gui::SizeSpec::Match();
+                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Width = ui::SizeSpec::Match();
                 column->AddView(controls.Get(), lp);
             }
 
@@ -138,10 +138,10 @@ export namespace draconic::editor
         }
 
         [[nodiscard]] StringView Title() const override { return m_title.AsView(); }
-        [[nodiscard]] gui::View* ContentView() override { return m_content.Get(); }
+        [[nodiscard]] ui::View* ContentView() override { return m_content.Get(); }
         [[nodiscard]] Status Save() override { return Status{}; }   // audition-only (options edit via inspector)
 
-        void OnUpdate(grt::IApplicationHost&, f32) override
+        void OnUpdate(runtime::IApplicationHost&, f32) override
         {
             // Playhead: the voice's TRUE cursor (VoiceStatus::cursorSeconds) - honors
             // pitch and loop wraps, unlike the old elapsed-time approximation. The
@@ -155,7 +155,7 @@ export namespace draconic::editor
                 StopAudition();
                 return;
             }
-            gaudio::VoiceStatus status;
+            audio::VoiceStatus status;
             if (!m_audio->Engine()->GetVoiceStatus(m_voice, status)) { return; }
             const f32 duration = m_clip.Get() != nullptr ? m_clip->durationSeconds : 0.0f;
             if (duration <= 0.0f) { return; }
@@ -172,7 +172,7 @@ export namespace draconic::editor
         void LoadClip(draconic::content::Instance& instance)
         {
             RefPtr<ISerializable> object = instance.ReadObject();
-            auto* asset = Cast<gaudio::AudioClipAsset>(object.Get());
+            auto* asset = Cast<audio::AudioClipAsset>(object.Get());
             if (asset == nullptr || m_context->Project() == nullptr) { return; }
             m_loop = asset->loop;
             const String path = PathJoin(m_context->Project()->SourcesRoot().AsView(),
@@ -183,13 +183,13 @@ export namespace draconic::editor
                 DRACONIC_LOG_WARNING(u8"Editor", u8"audio source missing: {}", path);
                 return;
             }
-            gaudio::AudioClipMetadata metadata;
-            if (!gaudio::ProbeAudioClipMetadata(
+            audio::AudioClipMetadata metadata;
+            if (!audio::ProbeAudioClipMetadata(
                     Span<const byte>(bytes.Value().Data(), bytes.Value().Size()), metadata))
             {
                 return;
             }
-            m_clip = MakeRef<gaudio::AudioClip>(DefaultAllocator());
+            m_clip = MakeRef<audio::AudioClip>(DefaultAllocator());
             m_clip->channels = metadata.channels;
             m_clip->sampleRate = metadata.sampleRate;
             m_clip->frameCount = metadata.frameCount;
@@ -215,7 +215,7 @@ export namespace draconic::editor
                                  m_loop ? StringView(u8"  |  loops") : StringView(u8""));
             m_info->SetText(text.AsView());
             Array<f32> peaks;
-            if (gaudio::BuildWaveformPeaks(
+            if (audio::BuildWaveformPeaks(
                     Span<const byte>(m_clip->encodedData.Data(), m_clip->encodedData.Size()),
                     256, peaks))
             {
@@ -230,7 +230,7 @@ export namespace draconic::editor
                 return;
             }
             StopAudition();
-            gaudio::AudioPlayParams params;
+            audio::AudioPlayParams params;
             params.loop = m_loop;
             params.allowDedupe = false;   // rapid re-audition must restart, never merge
             m_voice = m_audio->Engine()->Play(m_clip, params);
@@ -244,32 +244,32 @@ export namespace draconic::editor
             {
                 m_audio->Engine()->Stop(m_voice);
             }
-            m_voice = gaudio::VoiceHandle{};
+            m_voice = audio::VoiceHandle{};
             m_waveform->SetPlayheadFraction(-1.0f);
             m_status->SetText(u8"");
         }
 
         EditorContext* m_context = nullptr;
-        gaudio::AudioSubsystem* m_audio = nullptr;   // the RUNTIME context's subsystem
+        audio::AudioSubsystem* m_audio = nullptr;   // the RUNTIME context's subsystem
         String m_title;
         bool m_loop = false;
-        RefPtr<gaudio::AudioClip> m_clip;
-        gaudio::VoiceHandle m_voice;
-        RefPtr<gui::View> m_content;
-        RefPtr<gui::Label> m_info;
-        RefPtr<gui::Label> m_status;
-        RefPtr<gui::Button> m_playButton;
-        RefPtr<gui::Button> m_stopButton;
+        RefPtr<audio::AudioClip> m_clip;
+        audio::VoiceHandle m_voice;
+        RefPtr<ui::View> m_content;
+        RefPtr<ui::Label> m_info;
+        RefPtr<ui::Label> m_status;
+        RefPtr<ui::Button> m_playButton;
+        RefPtr<ui::Button> m_stopButton;
         RefPtr<WaveformView> m_waveform;
     };
 
     class AudioClipPageFactory final : public IEditorPageFactory
     {
     public:
-        explicit AudioClipPageFactory(grt::IApplicationHost& host) : m_host(&host) {}
+        explicit AudioClipPageFactory(runtime::IApplicationHost& host) : m_host(&host) {}
         [[nodiscard]] const TypeInfo* PrimaryType() const override
         {
-            return &gaudio::AudioClipAsset::StaticType();
+            return &audio::AudioClipAsset::StaticType();
         }
         [[nodiscard]] UniquePtr<EditorPage> CreatePage(EditorContext& context,
                                                        draconic::content::Instance& instance) override
@@ -279,10 +279,10 @@ export namespace draconic::editor
         }
 
     private:
-        grt::IApplicationHost* m_host;
+        runtime::IApplicationHost* m_host;
     };
 
-    inline void RegisterAudioClipEditor(EditorContext& context, grt::IApplicationHost& host)
+    inline void RegisterAudioClipEditor(EditorContext& context, runtime::IApplicationHost& host)
     {
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
             DefaultAllocator().New<AudioClipPageFactory>(host), DefaultAllocator()));

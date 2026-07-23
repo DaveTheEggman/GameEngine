@@ -32,7 +32,6 @@ using namespace draconic::core;
 export namespace draconic::editor::app
 {
     namespace ui = draconic::ui;
-    namespace tk = draconic::ui::toolkit;
     namespace content = draconic::content;
 
     class AssetPickerDialog final : public ui::Dialog
@@ -67,7 +66,7 @@ export namespace draconic::editor::app
                 column->AddView(m_filterEdit.Get(), lp);
             }
 
-            auto split = MakeRef<tk::SplitView>(DefaultAllocator());
+            auto split = MakeRef<ui::toolkit::SplitView>(DefaultAllocator());
             split->SetSplitRatio(0.32f);
             m_treeAdapter = MakeUnique<TreeAdapter>(DefaultAllocator(), *this);
             m_tree = MakeRef<ui::TreeView>(DefaultAllocator());

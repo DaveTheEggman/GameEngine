@@ -54,18 +54,17 @@ using namespace draconic::core;
 
 export namespace draconic::editor
 {
-    namespace rt = draconic::runtime;
-    namespace uirt = draconic::ui::runtime;
-    namespace uivp = draconic::ui::viewport;
-    namespace vgr = draconic::vg::renderer;
-    namespace dscene = draconic::scene;
-    namespace drender = draconic::render;
-    namespace mats = draconic::materials;
+    namespace runtime = draconic::runtime;
+    namespace ui = draconic::ui;
+    namespace vg = draconic::vg;
+    namespace scene = draconic::scene;
+    namespace render = draconic::render;
+    namespace materials = draconic::materials;
 
     class MaterialEditorPage final : public app::UIEditorPage
     {
     public:
-        MaterialEditorPage(EditorContext& context, rt::IApplicationHost& host, uirt::UIHost& uiHost,
+        MaterialEditorPage(EditorContext& context, runtime::IApplicationHost& host, ui::runtime::UIHost& uiHost,
                            draconic::content::Instance& instance)
             : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
         {
@@ -76,20 +75,20 @@ export namespace draconic::editor
 
             // The edited object: the instance's MaterialAsset (kept live; Save writes it back).
             RefPtr<ISerializable> object = instance.ReadObject();
-            m_asset = RefPtr<mats::MaterialAsset>(Cast<mats::MaterialAsset>(object.Get()));
+            m_asset = RefPtr<materials::MaterialAsset>(Cast<materials::MaterialAsset>(object.Get()));
             if (m_asset.Get() != nullptr)
             {
                 // Pre-emissive assets gain the factor in memory (black default); saving the
                 // page persists the upgraded table (the load-time upgrade covers unsaved ones).
-                mats::UpgradeForwardMaterialSource(m_asset->source);
+                materials::UpgradeForwardMaterialSource(m_asset->source);
             }
             if (m_asset.Get() == nullptr)
             {
                 DRACONIC_LOG_ERROR(u8"Editor", u8"material '{}' failed to read - page opens empty", m_title);
             }
 
-            m_scenes = host.Ctx().GetSubsystem<dscene::SceneSubsystem>();
-            m_render = host.Ctx().GetSubsystem<drender::RenderSubsystem>();
+            m_scenes = host.Ctx().GetSubsystem<scene::SceneSubsystem>();
+            m_render = host.Ctx().GetSubsystem<render::RenderSubsystem>();
 
             BuildPreviewScene();
 
@@ -103,7 +102,7 @@ export namespace draconic::editor
             LoadPreviewPref();
             if (m_previewShape != 0 || !m_previewMeshGuid.IsNil()) { ApplyPreviewMesh(); }
 
-            m_viewport = MakeRef<uivp::ViewportView>(DefaultAllocator());
+            m_viewport = MakeRef<ui::viewport::ViewportView>(DefaultAllocator());
             m_viewport->ClearColor = rhi::ClearColor{ 0.10f, 0.11f, 0.13f, 1.0f };
 
             m_grid = MakeRef<draconic::ui::toolkit::PropertyGrid>(DefaultAllocator());
@@ -131,7 +130,7 @@ export namespace draconic::editor
         [[nodiscard]] draconic::ui::View* ContentView() override { return m_content.Get(); }
         [[nodiscard]] StringView Title() const override { return m_title.AsView(); }
 
-        void OnUpdate(rt::IApplicationHost&, f32 dt) override
+        void OnUpdate(runtime::IApplicationHost&, f32 dt) override
         {
             EnsureViewportBound();
             if (m_hostWindow == nullptr) { return; }
@@ -155,7 +154,7 @@ export namespace draconic::editor
             for (const Function<void()>& refresher : m_refreshers) { refresher(); }
         }
 
-        void OnRenderWindow(rt::IApplicationHost&, draconic::graphics::FrameContext& frame) override
+        void OnRenderWindow(runtime::IApplicationHost&, draconic::graphics::FrameContext& frame) override
         {
             if (!m_viewport->IsReady() || !frame.valid) { return; }
             if (m_render == nullptr || !m_render->IsReady() || m_scene == nullptr) { return; }
@@ -163,7 +162,7 @@ export namespace draconic::editor
             const u32 h = m_viewport->RenderHeight();
             if (w == 0 || h == 0 || !m_viewport->IsEffectivelyVisible()) { return; }
 
-            drender::ViewCamera camera;
+            render::ViewCamera camera;
             camera.view = Float4x4::LookAtRH(m_camera.position,
                                              m_camera.position + m_camera.Forward(), m_camera.Up());
             camera.projection = Float4x4::PerspectiveFovRH(
@@ -171,18 +170,18 @@ export namespace draconic::editor
             camera.position = m_camera.position;
             camera.farZ = 100.0f;
 
-            drender::CameraOverride cameraOverride;
+            render::CameraOverride cameraOverride;
             cameraOverride.camera = camera;
             cameraOverride.clearColor = Color{ m_viewport->ClearColor.r, m_viewport->ClearColor.g,
                                                m_viewport->ClearColor.b, m_viewport->ClearColor.a };
 
-            drender::TargetState targetState;
+            render::TargetState targetState;
             targetState.texture = m_viewport->ColorTexture();
             targetState.currentState = m_viewport->ColorState();
             targetState.finalState = rhi::ResourceState::ShaderRead;
 
             m_render->RenderScene(*m_scene, m_viewport->ColorTargetView(), m_viewport->ColorFormat(), w, h,
-                                  drender::ViewportRect{ 0, 0, w, h }, &cameraOverride, targetState);
+                                  render::ViewportRect{ 0, 0, w, h }, &cameraOverride, targetState);
             m_viewport->SetColorState(rhi::ResourceState::ShaderRead);
         }
 
@@ -232,7 +231,7 @@ export namespace draconic::editor
             if (m_asset.Get() == nullptr) { return blob; }
             MemoryStream stream;
             BinarySerializer ar(stream, SerializeMode::Write);
-            const_cast<mats::MaterialSource&>(m_asset->source).Serialize(ar);
+            const_cast<materials::MaterialSource&>(m_asset->source).Serialize(ar);
             const Span<const byte> bytes = stream.Bytes();
             blob.Reserve(bytes.Size());
             for (byte b : bytes) { blob.PushBack(b); }
@@ -268,7 +267,7 @@ export namespace draconic::editor
         };
 
         // Run one edit as an undoable command: snapshot -> mutate -> snapshot -> push.
-        void ApplyEdit(StringView mergeKey, Function<void(mats::MaterialSource&)> mutate)
+        void ApplyEdit(StringView mergeKey, Function<void(materials::MaterialSource&)> mutate)
         {
             if (m_asset.Get() == nullptr) { return; }
             Array<byte> before = SnapshotSource();
@@ -292,20 +291,20 @@ export namespace draconic::editor
 
             m_sphere = m_scene->CreateEntity(u8"PreviewSphere");
             m_previewMesh = draconic::geometry::Primitives::Sphere(1.0f, 48, 24);
-            if (auto* meshes = m_scene->GetSystem<drender::MeshComponentManager>())
+            if (auto* meshes = m_scene->GetSystem<render::MeshComponentManager>())
             {
-                drender::MeshComponent& mc = meshes->Add(m_sphere);
+                render::MeshComponent& mc = meshes->Add(m_sphere);
                 mc.mesh = m_previewMesh.Get();   // direct override (runtime-built, not an asset)
             }
 
-            const dscene::EntityHandle sun = m_scene->CreateEntity(u8"Sun");
+            const scene::EntityHandle sun = m_scene->CreateEntity(u8"Sun");
             Transform t;
             t.rotation = Quaternion::FromAxisAngle(Float3{ 0, 1, 0 }, 0.35f)
                        * Quaternion::FromAxisAngle(Float3{ 1, 0, 0 }, -1.05f);
             m_scene->SetLocalTransform(sun, t);
-            if (auto* lights = m_scene->GetSystem<drender::LightComponentManager>())
+            if (auto* lights = m_scene->GetSystem<render::LightComponentManager>())
             {
-                drender::LightComponent& light = lights->Add(sun);
+                render::LightComponent& light = lights->Add(sun);
                 light.castsShadows = false;   // a lone sphere has nothing to shadow
             }
         }
@@ -316,17 +315,17 @@ export namespace draconic::editor
         void RebuildPreviewMaterial()
         {
             if (m_asset.Get() == nullptr || m_scene == nullptr || !m_sphere.IsAssigned()) { return; }
-            const mats::MaterialSource& src = m_asset->source;
+            const materials::MaterialSource& src = m_asset->source;
 
-            RefPtr<mats::Material> material = MakeRef<mats::Material>(DefaultAllocator());
+            RefPtr<materials::Material> material = MakeRef<materials::Material>(DefaultAllocator());
             material->name = String(src.name.AsView());
             material->shaderName = String(src.shaderName.AsView());
             material->shaderFlags = static_cast<draconic::shaders::ShaderFlags>(src.shaderFlags);
             for (usize i = 0; i < src.propNames.Size(); ++i)
             {
-                mats::MaterialPropertyDef d{};
+                materials::MaterialPropertyDef d{};
                 d.name    = src.propNames[i].AsView();
-                d.type    = static_cast<mats::MaterialPropertyType>(src.propTypes[i]);
+                d.type    = static_cast<materials::MaterialPropertyType>(src.propTypes[i]);
                 d.binding = (i < src.propBindings.Size()) ? src.propBindings[i] : 0u;
                 d.offset  = (i < src.propOffsets.Size())  ? src.propOffsets[i]  : 0u;
                 d.size    = (i < src.propSizes.Size())    ? src.propSizes[i]    : 0u;
@@ -334,13 +333,13 @@ export namespace draconic::editor
             }
             material->AllocateDefaultUniformData();
             material->SetRawDefaultUniformData(Span<const u8>{ src.uniformDefaults.Data(), src.uniformDefaults.Size() });
-            material->pipeline = mats::PipelineConfig{};
+            material->pipeline = materials::PipelineConfig{};
             material->pipeline.shaderName   = material->shaderName.AsView();
             material->pipeline.shaderFlags  = material->shaderFlags;
-            material->pipeline.blendMode    = static_cast<mats::BlendMode>(src.blendMode);
-            material->pipeline.depthMode    = static_cast<mats::DepthMode>(src.depthMode);
-            material->pipeline.cullMode     = static_cast<mats::CullModeConfig>(src.cullMode);
-            material->pipeline.vertexLayout = static_cast<mats::VertexLayoutType>(src.vertexLayout);
+            material->pipeline.blendMode    = static_cast<materials::BlendMode>(src.blendMode);
+            material->pipeline.depthMode    = static_cast<materials::DepthMode>(src.depthMode);
+            material->pipeline.cullMode     = static_cast<materials::CullModeConfig>(src.cullMode);
+            material->pipeline.vertexLayout = static_cast<materials::VertexLayoutType>(src.vertexLayout);
             material->samplerU = static_cast<rhi::AddressMode>(src.samplerU);
             material->samplerV = static_cast<rhi::AddressMode>(src.samplerV);
 
@@ -367,9 +366,9 @@ export namespace draconic::editor
             }
 
             m_previewMaterial = material;
-            if (auto* meshes = m_scene->GetSystem<drender::MeshComponentManager>())
+            if (auto* meshes = m_scene->GetSystem<render::MeshComponentManager>())
             {
-                if (drender::MeshComponent* mc = meshes->Get(m_sphere))
+                if (render::MeshComponent* mc = meshes->Get(m_sphere))
                 {
                     mc->SetMaterial(RefPtr<draconic::materials::Material>(m_previewMaterial.Get()));   // direct override
                 }
@@ -476,8 +475,8 @@ export namespace draconic::editor
         void ApplyPreviewMesh()
         {
             if (m_scene == nullptr || !m_sphere.IsAssigned()) { return; }
-            auto* meshes = m_scene->GetSystem<drender::MeshComponentManager>();
-            drender::MeshComponent* mc = (meshes != nullptr) ? meshes->Get(m_sphere) : nullptr;
+            auto* meshes = m_scene->GetSystem<render::MeshComponentManager>();
+            render::MeshComponent* mc = (meshes != nullptr) ? meshes->Get(m_sphere) : nullptr;
             if (mc == nullptr) { return; }
 
             if (!m_previewMeshGuid.IsNil() && m_context->Resources() != nullptr)
@@ -490,15 +489,15 @@ export namespace draconic::editor
                 return;
             }
 
-            namespace geo = draconic::geometry;
+            namespace geometry = draconic::geometry;
             switch (m_previewShape)
             {
-                case 1:  m_previewMesh = geo::Primitives::Cube(1.4f); break;
-                case 2:  m_previewMesh = geo::Primitives::Plane(2.0f, 2.0f); break;
-                case 3:  m_previewMesh = geo::Primitives::Cylinder(0.7f, 1.6f, 48); break;
-                case 4:  m_previewMesh = geo::Primitives::Torus(0.8f, 0.35f, 48, 24); break;
-                case 5:  m_previewMesh = geo::Primitives::Cone(0.8f, 1.6f, 48); break;
-                default: m_previewMesh = geo::Primitives::Sphere(1.0f, 48, 24); break;
+                case 1:  m_previewMesh = geometry::Primitives::Cube(1.4f); break;
+                case 2:  m_previewMesh = geometry::Primitives::Plane(2.0f, 2.0f); break;
+                case 3:  m_previewMesh = geometry::Primitives::Cylinder(0.7f, 1.6f, 48); break;
+                case 4:  m_previewMesh = geometry::Primitives::Torus(0.8f, 0.35f, 48, 24); break;
+                case 5:  m_previewMesh = geometry::Primitives::Cone(0.8f, 1.6f, 48); break;
+                default: m_previewMesh = geometry::Primitives::Sphere(1.0f, 48, 24); break;
             }
             mc->mesh.SetId(Guid{});
             mc->mesh = m_previewMesh.Get();   // direct override (runtime-built, not an asset)
@@ -524,22 +523,21 @@ export namespace draconic::editor
             m_grid->Clear();
             m_refreshers.Clear();
             if (m_asset.Get() == nullptr) { return; }
-            namespace tk = draconic::ui::toolkit;
             MaterialEditorPage* self = this;
-            const mats::MaterialSource& src = m_asset->source;
+            const materials::MaterialSource& src = m_asset->source;
 
             // --- Material: shader + pipeline state ---
             const StringView shaderShown = src.shaderName.IsEmpty() ? StringView(u8"(shader asset)")
                                                                     : src.shaderName.AsView();
-            auto shader = MakeRef<tk::StringEditor>(DefaultAllocator(), StringView(u8"Shader"),
+            auto shader = MakeRef<ui::toolkit::StringEditor>(DefaultAllocator(), StringView(u8"Shader"),
                 shaderShown, Function<void(StringView)>{}, StringView(u8"Material"));
-            m_grid->AddProperty(RefPtr<tk::PropertyEditor>(shader.Get()));
+            m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(shader.Get()));
 
             // --- Preview: geometry the material is shown on (page-local, not saved) ---
             {
                 static constexpr StringView kShapes[] = { u8"Sphere", u8"Cube", u8"Plane",
                                                           u8"Cylinder", u8"Torus", u8"Cone" };
-                auto shape = MakeRef<tk::EnumEditor>(DefaultAllocator(), StringView(u8"Shape"),
+                auto shape = MakeRef<ui::toolkit::EnumEditor>(DefaultAllocator(), StringView(u8"Shape"),
                     static_cast<i32>(m_previewShape), Span<const StringView>{ kShapes, 6 },
                     Function<void(i32)>{ [self](i32 index) {
                         self->m_previewShape = static_cast<u32>(core::Max(0, index));
@@ -548,7 +546,7 @@ export namespace draconic::editor
                         self->SavePreviewPref();
                     } },
                     StringView(u8"Preview"));
-                m_grid->AddProperty(RefPtr<tk::PropertyEditor>(shape.Get()));
+                m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(shape.Get()));
 
                 auto meshName = [self]() -> StringView {
                     if (self->m_previewMeshGuid.IsNil()) { return u8"(primitive)"; }
@@ -580,7 +578,7 @@ export namespace draconic::editor
                     };
                     dialog->Show(self->m_content->Context);
                 };
-                m_grid->AddProperty(RefPtr<tk::PropertyEditor>(meshRow.Get()));
+                m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(meshRow.Get()));
             }
 
             static constexpr StringView kBlendItems[] = { u8"Opaque", u8"Masked", u8"AlphaBlend",
@@ -588,18 +586,18 @@ export namespace draconic::editor
             static constexpr StringView kDepthItems[] = { u8"Disabled", u8"ReadWrite", u8"ReadOnly", u8"WriteOnly" };
             static constexpr StringView kCullItems[]  = { u8"None", u8"Back", u8"Front" };
             AddPipelineEnumRow(u8"Blend", Span<const StringView>{ kBlendItems, 6 },
-                               [](mats::MaterialSource& s) -> u8& { return s.blendMode; });
+                               [](materials::MaterialSource& s) -> u8& { return s.blendMode; });
             AddPipelineEnumRow(u8"Depth", Span<const StringView>{ kDepthItems, 4 },
-                               [](mats::MaterialSource& s) -> u8& { return s.depthMode; });
+                               [](materials::MaterialSource& s) -> u8& { return s.depthMode; });
             AddPipelineEnumRow(u8"Cull", Span<const StringView>{ kCullItems, 3 },
-                               [](mats::MaterialSource& s) -> u8& { return s.cullMode; });
+                               [](materials::MaterialSource& s) -> u8& { return s.cullMode; });
 
             // --- Properties: the source's uniform table (Float / Float4-as-color today) ---
             for (usize i = 0; i < src.propNames.Size(); ++i)
             {
-                const auto type = static_cast<mats::MaterialPropertyType>(src.propTypes[i]);
+                const auto type = static_cast<materials::MaterialPropertyType>(src.propTypes[i]);
                 const String name = src.propNames[i];   // copy: the grid outlives rebuilds of src arrays
-                if (type == mats::MaterialPropertyType::Float)
+                if (type == materials::MaterialPropertyType::Float)
                 {
                     auto value = [self, name]() -> f64 {
                         f32 v = 0.0f;
@@ -607,8 +605,8 @@ export namespace draconic::editor
                         return static_cast<f64>(v);
                     };
                     auto write = [self, name](f32 f) {
-                        self->ApplyEdit(name.AsView(), Function<void(mats::MaterialSource&)>{
-                            [self, name, f](mats::MaterialSource&) {
+                        self->ApplyEdit(name.AsView(), Function<void(materials::MaterialSource&)>{
+                            [self, name, f](materials::MaterialSource&) {
                                 self->WriteUniform(name.AsView(), &f, sizeof(f));
                             } });
                     };
@@ -620,7 +618,7 @@ export namespace draconic::editor
                     const bool zeroToTwo = name.AsView() == u8"NormalScale";
                     if (zeroToOne || zeroToTwo)
                     {
-                        auto editor = MakeRef<tk::RangeEditor>(DefaultAllocator(), name.AsView(),
+                        auto editor = MakeRef<ui::toolkit::RangeEditor>(DefaultAllocator(), name.AsView(),
                             static_cast<f32>(value()), 0.0f, zeroToTwo ? 2.0f : 1.0f, 0.01f,
                             Function<void(f32)>{ [write](f32 v) { write(v); } },
                             StringView(u8"Properties"));
@@ -631,7 +629,7 @@ export namespace draconic::editor
                     }
                     else
                     {
-                        auto editor = MakeRef<tk::FloatEditor>(DefaultAllocator(), name.AsView(), value(),
+                        auto editor = MakeRef<ui::toolkit::FloatEditor>(DefaultAllocator(), name.AsView(), value(),
                             0.0, 1e9, 0.01, 3,
                             Function<void(f64)>{ [write](f64 v) { write(static_cast<f32>(v)); } },
                             StringView(u8"Properties"));
@@ -639,17 +637,17 @@ export namespace draconic::editor
                         AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
                     }
                 }
-                else if (type == mats::MaterialPropertyType::Float4)
+                else if (type == materials::MaterialPropertyType::Float4)
                 {
                     auto value = [self, name]() -> Color {
                         Float4 v{ 1, 1, 1, 1 };
                         self->ReadUniform(name.AsView(), &v, sizeof(v));
                         return Color{ v.x, v.y, v.z, v.w };
                     };
-                    auto editor = MakeRef<tk::ColorEditor>(DefaultAllocator(), name.AsView(), value(),
+                    auto editor = MakeRef<ui::toolkit::ColorEditor>(DefaultAllocator(), name.AsView(), value(),
                         Function<void(Color)>{ [self, name](Color c) {
-                            self->ApplyEdit(name.AsView(), Function<void(mats::MaterialSource&)>{
-                                [self, name, c](mats::MaterialSource&) {
+                            self->ApplyEdit(name.AsView(), Function<void(materials::MaterialSource&)>{
+                                [self, name, c](materials::MaterialSource&) {
                                     const Float4 v{ c.r, c.g, c.b, c.a };
                                     self->WriteUniform(name.AsView(), &v, sizeof(v));
                                 } });
@@ -658,8 +656,8 @@ export namespace draconic::editor
                     editor->SetDisplayName(PrettifyPropertyName(name.AsView()).AsView());
                     AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
                 }
-                else if (type == mats::MaterialPropertyType::Texture2D
-                         || type == mats::MaterialPropertyType::TextureCube)
+                else if (type == materials::MaterialPropertyType::Texture2D
+                         || type == materials::MaterialPropertyType::TextureCube)
                 {
                     AddTextureRow(name);
                 }
@@ -669,19 +667,18 @@ export namespace draconic::editor
 
         // A pipeline-state dropdown writing one of the source's u8 mode fields.
         void AddPipelineEnumRow(StringView label, Span<const StringView> items,
-                                u8& (*field)(mats::MaterialSource&))
+                                u8& (*field)(materials::MaterialSource&))
         {
-            namespace tk = draconic::ui::toolkit;
             MaterialEditorPage* self = this;
             auto read = [self, field]() -> i32 {
                 return (self->m_asset.Get() != nullptr)
                     ? static_cast<i32>(field(self->m_asset->source)) : 0;
             };
             const String key(label);
-            auto editor = MakeRef<tk::EnumEditor>(DefaultAllocator(), label, read(), items,
+            auto editor = MakeRef<ui::toolkit::EnumEditor>(DefaultAllocator(), label, read(), items,
                 Function<void(i32)>{ [self, field, key](i32 index) {
-                    self->ApplyEdit(key.AsView(), Function<void(mats::MaterialSource&)>{
-                        [field, index](mats::MaterialSource& s) {
+                    self->ApplyEdit(key.AsView(), Function<void(materials::MaterialSource&)>{
+                        [field, index](materials::MaterialSource& s) {
                             field(s) = static_cast<u8>(index);
                         } });
                 } },
@@ -695,7 +692,7 @@ export namespace draconic::editor
             MaterialEditorPage* self = this;
             auto target = [self, slot]() -> Guid {
                 if (self->m_asset.Get() == nullptr) { return Guid{}; }
-                const mats::MaterialSource& s = self->m_asset->source;
+                const materials::MaterialSource& s = self->m_asset->source;
                 for (usize i = 0; i < s.textureSlots.Size() && i < s.textureIds.Size(); ++i)
                 {
                     if (s.textureSlots[i].AsView() == slot.AsView()) { return s.textureIds[i]; }
@@ -713,8 +710,8 @@ export namespace draconic::editor
                 auto dialog = MakeRef<draconic::editor::app::AssetPickerDialog>(
                     DefaultAllocator(), *self->m_context, Move(typeNames));
                 dialog->OnPicked = [self, slot](const Guid& picked) {
-                    self->ApplyEdit(slot.AsView(), Function<void(mats::MaterialSource&)>{
-                        [slot, picked](mats::MaterialSource& s) {
+                    self->ApplyEdit(slot.AsView(), Function<void(materials::MaterialSource&)>{
+                        [slot, picked](materials::MaterialSource& s) {
                             for (usize i = 0; i < s.textureSlots.Size(); ++i)
                             {
                                 if (s.textureSlots[i].AsView() != slot.AsView()) { continue; }
@@ -766,7 +763,7 @@ export namespace draconic::editor
         // Uniform blob access by property name (offset/size from the source's tables).
         void ReadUniform(StringView name, void* out, usize bytes) const
         {
-            const mats::MaterialSource& s = m_asset->source;
+            const materials::MaterialSource& s = m_asset->source;
             for (usize i = 0; i < s.propNames.Size(); ++i)
             {
                 if (s.propNames[i].AsView() != name) { continue; }
@@ -780,7 +777,7 @@ export namespace draconic::editor
         }
         void WriteUniform(StringView name, const void* value, usize bytes)
         {
-            mats::MaterialSource& s = m_asset->source;
+            materials::MaterialSource& s = m_asset->source;
             for (usize i = 0; i < s.propNames.Size(); ++i)
             {
                 if (s.propNames[i].AsView() != name) { continue; }
@@ -799,7 +796,7 @@ export namespace draconic::editor
             if (root == nullptr) { return; }
             draconic::graphics::RenderWindow* window = m_uiHost->WindowForRoot(root);
             if (window == nullptr || window == m_hostWindow) { return; }
-            vgr::VGRenderer* renderer = m_uiHost->RendererFor(window);
+            vg::renderer::VGRenderer* renderer = m_uiHost->RendererFor(window);
             if (renderer == nullptr) { return; }
             if (m_hostWindow == nullptr)
             {
@@ -815,19 +812,19 @@ export namespace draconic::editor
         }
 
         EditorContext* m_context;
-        rt::IApplicationHost* m_host;
-        uirt::UIHost* m_uiHost;
+        runtime::IApplicationHost* m_host;
+        ui::runtime::UIHost* m_uiHost;
         String m_title;
 
-        RefPtr<mats::MaterialAsset> m_asset;
+        RefPtr<materials::MaterialAsset> m_asset;
 
-        dscene::SceneSubsystem* m_scenes = nullptr;
-        dscene::SceneManager m_sceneManager;   // this page's OWN preview scene group (registered with m_scenes)
-        drender::RenderSubsystem* m_render = nullptr;
-        dscene::Scene* m_scene = nullptr;
-        dscene::EntityHandle m_sphere;
+        scene::SceneSubsystem* m_scenes = nullptr;
+        scene::SceneManager m_sceneManager;   // this page's OWN preview scene group (registered with m_scenes)
+        render::RenderSubsystem* m_render = nullptr;
+        scene::Scene* m_scene = nullptr;
+        scene::EntityHandle m_sphere;
         RefPtr<draconic::geometry::StaticMesh> m_previewMesh;
-        RefPtr<mats::Material> m_previewMaterial;
+        RefPtr<materials::Material> m_previewMaterial;
         EditorCamera m_camera;
         UniquePtr<draconic::shell::InputRouter> m_router;
         u32 m_previewShape = 0;      // index into the Shape enum row
@@ -835,7 +832,7 @@ export namespace draconic::editor
         Array<draconic::resource::Proxy<draconic::texture::Texture>> m_previewTextures;
         Array<rhi::TextureView*> m_previewTextureViews;   // views captured into the material
 
-        RefPtr<uivp::ViewportView> m_viewport;
+        RefPtr<ui::viewport::ViewportView> m_viewport;
         RefPtr<draconic::ui::toolkit::PropertyGrid> m_grid;
         RefPtr<draconic::ui::toolkit::SplitView> m_content;
         Array<Function<void()>> m_refreshers;
@@ -845,12 +842,12 @@ export namespace draconic::editor
     class MaterialEditorPageFactory final : public IEditorPageFactory
     {
     public:
-        MaterialEditorPageFactory(rt::IApplicationHost& host, uirt::UIHost& uiHost)
+        MaterialEditorPageFactory(runtime::IApplicationHost& host, ui::runtime::UIHost& uiHost)
             : m_host(&host), m_uiHost(&uiHost) {}
 
         [[nodiscard]] const TypeInfo* PrimaryType() const override
         {
-            return &mats::MaterialAsset::StaticType();
+            return &materials::MaterialAsset::StaticType();
         }
 
         [[nodiscard]] UniquePtr<EditorPage> CreatePage(EditorContext& context,
@@ -862,8 +859,8 @@ export namespace draconic::editor
         }
 
     private:
-        rt::IApplicationHost* m_host;
-        uirt::UIHost* m_uiHost;
+        runtime::IApplicationHost* m_host;
+        ui::runtime::UIHost* m_uiHost;
     };
 
     // Create a preset material instance in `group` (or Materials/ from the File menu).
@@ -890,14 +887,14 @@ export namespace draconic::editor
         }
 
         draconic::content::Instance* instance =
-            target->CreateInstance(name.AsView(), mats::MaterialAsset::StaticType());
+            target->CreateInstance(name.AsView(), materials::MaterialAsset::StaticType());
         if (instance == nullptr) { return nullptr; }
 
-        RefPtr<mats::Material> built = unlit
-            ? mats::CreateUnlit(name.AsView())
-            : mats::CreatePBR(name.AsView());
-        mats::MaterialAsset asset;
-        mats::MaterialImporter::Import(*built, Guid{}, asset);
+        RefPtr<materials::Material> built = unlit
+            ? materials::CreateUnlit(name.AsView())
+            : materials::CreatePBR(name.AsView());
+        materials::MaterialAsset asset;
+        materials::MaterialImporter::Import(*built, Guid{}, asset);
         if (!instance->WriteObject(asset).IsOk()) { return nullptr; }
         DRACONIC_LOG_INFO(u8"Editor", u8"created {} material '{}'", unlit ? u8"unlit" : u8"PBR",
                           instance->Path());
@@ -905,11 +902,11 @@ export namespace draconic::editor
         return instance;
     }
 
-    inline void RegisterMaterialEditor(EditorContext& context, rt::IApplicationHost& host,
-                                       uirt::UIHost& uiHost)
+    inline void RegisterMaterialEditor(EditorContext& context, runtime::IApplicationHost& host,
+                                       ui::runtime::UIHost& uiHost)
     {
-        GlobalTypeRegistry().Register(mats::MaterialAsset::StaticType());
-        RegisterSerializable<mats::MaterialAsset>();
+        GlobalTypeRegistry().Register(materials::MaterialAsset::StaticType());
+        RegisterSerializable<materials::MaterialAsset>();
 
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
             DefaultAllocator().New<MaterialEditorPageFactory>(host, uiHost), DefaultAllocator()));

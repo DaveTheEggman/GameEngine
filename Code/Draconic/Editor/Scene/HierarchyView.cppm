@@ -33,8 +33,7 @@ using namespace draconic::core;
 export namespace draconic::editor
 {
     namespace ui = draconic::ui;
-    namespace tk = draconic::ui::toolkit;
-    namespace dscene = draconic::scene;
+    namespace scene = draconic::scene;
 
     class SceneHierarchyView : public ui::ViewGroup
     {
@@ -77,7 +76,7 @@ export namespace draconic::editor
             column->AddView(header.Get());
 
             m_adapter = MakeUnique<Adapter>(DefaultAllocator(), *this);
-            m_tree = MakeRef<tk::DraggableTreeView>(DefaultAllocator());
+            m_tree = MakeRef<ui::toolkit::DraggableTreeView>(DefaultAllocator());
             m_tree->SetItemHeight(22.0f);
             m_tree->SetAdapter(m_adapter.Get());
             {
@@ -122,7 +121,7 @@ export namespace draconic::editor
             }
         }
 
-        [[nodiscard]] tk::DraggableTreeView* Tree() const noexcept { return m_tree.Get(); }
+        [[nodiscard]] ui::toolkit::DraggableTreeView* Tree() const noexcept { return m_tree.Get(); }
         [[nodiscard]] usize NodeCount() const noexcept { return m_nodes.Size(); }
 
         // Right-click on empty space (below the rows): create a root entity.
@@ -184,7 +183,7 @@ export namespace draconic::editor
             Guid m_entity;
         };
 
-        class Adapter final : public tk::IReorderableTreeAdapter
+        class Adapter final : public ui::toolkit::IReorderableTreeAdapter
         {
         public:
             explicit Adapter(SceneHierarchyView& owner) : m_owner(&owner) {}
@@ -227,9 +226,9 @@ export namespace draconic::editor
             {
                 if (!InRange(nodeId)) { return; }
                 const Node& node = m_owner->m_nodes[static_cast<usize>(nodeId)];
-                dscene::PrefabMemberInfo member;
+                scene::PrefabMemberInfo member;
                 const bool prefabMember =
-                    dscene::FindPrefabMember(m_owner->m_edit->Scene(), node.id, member);
+                    scene::FindPrefabMember(m_owner->m_edit->Scene(), node.id, member);
                 static_cast<Row*>(view)->Bind(node.id, node.name.AsView(), depth, prefabMember);
             }
 
@@ -243,7 +242,7 @@ export namespace draconic::editor
                 const Guid before = m_owner->GuidAtFlat(toPosition);
                 if (before == Guid{} || before == from) { return false; }
                 // Cycle: the slot's parent lies inside the moved entity's subtree.
-                const dscene::EntityHandle parent =
+                const scene::EntityHandle parent =
                     m_owner->m_edit->Scene().GetParent(m_owner->m_edit->Resolve(before));
                 if (parent.IsAssigned()
                     && m_owner->m_edit->IsSelfOrAncestor(m_owner->m_edit->Scene().GetEntityId(parent), from))
@@ -321,8 +320,8 @@ export namespace draconic::editor
                 menu->AddItem(u8"Spawn Prefab at Root", [self]() {
                     if (self->OnSpawnPrefab) { self->OnSpawnPrefab(Guid{}); }
                 });
-                dscene::PrefabMemberInfo member;
-                if (dscene::FindPrefabMember(edit->Scene(), id, member))
+                scene::PrefabMemberInfo member;
+                if (scene::FindPrefabMember(edit->Scene(), id, member))
                 {
                     // Reachable from ANY member, acting on the whole owning instance.
                     const Guid rootId = member.state->rootEntityId;
@@ -414,10 +413,10 @@ export namespace draconic::editor
         }
 
         // True if the entity or ANY descendant matches (so ancestors of matches stay visible).
-        [[nodiscard]] bool SubtreeMatches(dscene::Scene& scene, dscene::EntityHandle e) const
+        [[nodiscard]] bool SubtreeMatches(scene::Scene& scene, scene::EntityHandle e) const
         {
             if (MatchesFilter(scene.GetEntityName(e), m_filter.AsView())) { return true; }
-            for (dscene::EntityHandle c = scene.GetFirstChild(e); c.IsAssigned();
+            for (scene::EntityHandle c = scene.GetFirstChild(e); c.IsAssigned();
                  c = scene.GetNextSibling(c))
             {
                 if (SubtreeMatches(scene, c)) { return true; }
@@ -445,12 +444,12 @@ export namespace draconic::editor
             CaptureCollapseState();
             m_nodes.Clear();
             m_roots.Clear();
-            dscene::Scene& scene = m_edit->Scene();
+            scene::Scene& scene = m_edit->Scene();
 
             // Roots in LIST order (the order reorder edits maintain and serialization
             // preserves), then depth-first children. With a filter, keep nodes whose subtree
             // contains a match.
-            for (dscene::EntityHandle r = scene.GetFirstRoot(); r.IsAssigned();
+            for (scene::EntityHandle r = scene.GetFirstRoot(); r.IsAssigned();
                  r = scene.GetNextSibling(r))
             {
                 if (SubtreeMatches(scene, r)) { m_roots.PushBack(AddNode(scene, r, 0)); }
@@ -470,7 +469,7 @@ export namespace draconic::editor
             SyncSelectionToTree();
         }
 
-        i32 AddNode(dscene::Scene& scene, dscene::EntityHandle e, i32 depth)
+        i32 AddNode(scene::Scene& scene, scene::EntityHandle e, i32 depth)
         {
             const i32 nodeId = static_cast<i32>(m_nodes.Size());
             Node node;
@@ -480,7 +479,7 @@ export namespace draconic::editor
             node.depth = depth;
             m_nodes.PushBack(Move(node));
 
-            for (dscene::EntityHandle c = scene.GetFirstChild(e); c.IsAssigned();
+            for (scene::EntityHandle c = scene.GetFirstChild(e); c.IsAssigned();
                  c = scene.GetNextSibling(c))
             {
                 if (!SubtreeMatches(scene, c)) { continue; }
@@ -533,7 +532,7 @@ export namespace draconic::editor
 
         SceneEditContext* m_edit;            // borrowed (the page owns it)
         EditorContext* m_editor = nullptr;   // borrowed; clipboard home (optional)
-        RefPtr<tk::DraggableTreeView> m_tree;
+        RefPtr<ui::toolkit::DraggableTreeView> m_tree;
         RefPtr<ui::EditText> m_filterEdit;
         UniquePtr<Adapter> m_adapter;
         Array<Node> m_nodes;    // pre-order snapshot of the scene (nodeId = index)

@@ -42,7 +42,6 @@ using namespace draconic::core;
 export namespace draconic::editor::app
 {
     namespace ui = draconic::ui;
-    namespace tk = draconic::ui::toolkit;
     namespace content = draconic::content;
 
     class AssetsView final : public ui::ViewGroup
@@ -62,7 +61,7 @@ export namespace draconic::editor::app
                    draconic::editor::EditorJobService* jobs = nullptr)
             : m_context(&context), m_cook(&cook), m_jobs(jobs)
         {
-            auto split = MakeRef<tk::SplitView>(DefaultAllocator());
+            auto split = MakeRef<ui::toolkit::SplitView>(DefaultAllocator());
             split->SetSplitRatio(0.3f);
 
             // Left: the group tree.
@@ -113,9 +112,9 @@ export namespace draconic::editor::app
                 auto header = MakeRef<ui::FlexLayout>(DefaultAllocator());
                 header->Direction = ui::Orientation::Horizontal;
                 header->Spacing = 4;
-                m_breadcrumb = MakeRef<tk::BreadcrumbBar>(DefaultAllocator());
+                m_breadcrumb = MakeRef<ui::toolkit::BreadcrumbBar>(DefaultAllocator());
                 m_breadcrumb->OnSegmentClicked.Add(
-                    ui::Event<void(tk::BreadcrumbBar*, i32)>::Handler{ [self](tk::BreadcrumbBar*, i32 segment) {
+                    ui::Event<void(ui::toolkit::BreadcrumbBar*, i32)>::Handler{ [self](ui::toolkit::BreadcrumbBar*, i32 segment) {
                         self->NavigateToBreadcrumb(segment);
                     } });
                 {
@@ -1643,7 +1642,7 @@ export namespace draconic::editor::app
         RefPtr<ui::ListView> m_list;
         RefPtr<ui::GridView> m_grid;
         RefPtr<ui::EditText> m_filterEdit;
-        RefPtr<tk::BreadcrumbBar> m_breadcrumb;
+        RefPtr<ui::toolkit::BreadcrumbBar> m_breadcrumb;
         RefPtr<ui::ToggleButton> m_listToggle;
         RefPtr<ui::ToggleButton> m_gridToggle;
         UniquePtr<TreeAdapter> m_treeAdapter;

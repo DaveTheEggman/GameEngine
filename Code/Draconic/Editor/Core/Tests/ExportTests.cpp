@@ -32,10 +32,10 @@ import draconic.script.editor;        // ScriptClassAsset + ScriptClassAssetBuil
 import draconic.script.resource;      // RegisterScriptResource + ScriptClass + ScriptClassFactory
 
 using namespace draconic::core;
-namespace ed = draconic::editor;
-namespace proj = draconic::project;
-namespace dscene = draconic::scene;
-namespace geo = draconic::geometry;
+namespace editor = draconic::editor;
+namespace project = draconic::project;
+namespace scene = draconic::scene;
+namespace geometry = draconic::geometry;
 
 namespace
 {
@@ -48,12 +48,12 @@ namespace
 
 TEST_CASE("export: a startup script asset cooks into the dist pak and binds like the player")
 {
-    namespace dscript = draconic::script;
-    dscript::wren::RegisterWrenScriptBackend();
-    dscript::RegisterWrenScriptCook();
-    dscript::RegisterScriptResource();
-    GlobalTypeRegistry().Register(dscript::ScriptClassAsset::StaticType());
-    RegisterSerializable<dscript::ScriptClassAsset>();
+    namespace script = draconic::script;
+    script::wren::RegisterWrenScriptBackend();
+    script::RegisterWrenScriptCook();
+    script::RegisterScriptResource();
+    GlobalTypeRegistry().Register(script::ScriptClassAsset::StaticType());
+    RegisterSerializable<script::ScriptClassAsset>();
 
     const StringView projectDir = u8"draconic_export_script_project";
     const StringView distDir = u8"draconic_export_script_dist";
@@ -62,8 +62,8 @@ TEST_CASE("export: a startup script asset cooks into the dist pak and binds like
 
     Guid scriptId;
     {
-        REQUIRE(ed::EditorProject::Create(projectDir, u8"S").IsOk());
-        UniquePtr<ed::EditorProject> project = ed::EditorProject::Open(projectDir);
+        REQUIRE(editor::EditorProject::Create(projectDir, u8"S").IsOk());
+        UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir);
         REQUIRE(static_cast<bool>(project));
 
         // The game script SOURCE in Sources/ (what New-Asset writes).
@@ -75,9 +75,9 @@ TEST_CASE("export: a startup script asset cooks into the dist pak and binds like
 
         // The ScriptClassAsset instance recording file + language (the picker's target).
         draconic::content::Instance* scriptAsset = project->SourceDb().RootGroup()->CreateInstance(
-            u8"NetGame", dscript::ScriptClassAsset::StaticType());
+            u8"NetGame", script::ScriptClassAsset::StaticType());
         REQUIRE(scriptAsset != nullptr);
-        dscript::ScriptClassAsset asset;
+        script::ScriptClassAsset asset;
         asset.fileName = String(u8"game.wren");
         asset.language = String(u8"wren");
         REQUIRE(scriptAsset->WriteObject(asset).IsOk());
@@ -88,30 +88,30 @@ TEST_CASE("export: a startup script asset cooks into the dist pak and binds like
     }
 
     // Export (cooks the reachable closure - here the startup script) with the script builder.
-    ed::BuilderRegistry registry;
-    registry.Register(UniquePtr<ed::IAssetBuilder>(
-        DefaultAllocator().New<dscript::ScriptClassAssetBuilder>(), DefaultAllocator()));
-    ed::ExportStats stats;
+    editor::BuilderRegistry registry;
+    registry.Register(UniquePtr<editor::IAssetBuilder>(
+        DefaultAllocator().New<script::ScriptClassAssetBuilder>(), DefaultAllocator()));
+    editor::ExportStats stats;
     {
-        UniquePtr<ed::EditorProject> project = ed::EditorProject::Open(projectDir);
-        REQUIRE(ed::ExportProject(*project, distDir, registry, /*rebuild=*/false, &stats).IsOk());
+        UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir);
+        REQUIRE(editor::ExportProject(*project, distDir, registry, /*rebuild=*/false, &stats).IsOk());
         CHECK(stats.cooked >= 1u);   // the script cooked
     }
 
     // Consume the dist exactly like the player: manifest guid -> Bind<ScriptClass> from the pak.
     draconic::vfs::NativeFileSystem distRoot(distDir);
-    proj::ProjectSettings manifest;
-    REQUIRE(proj::LoadProjectSettings(distRoot, manifest, proj::kDistManifestFile).IsOk());
+    project::ProjectSettings manifest;
+    REQUIRE(project::LoadProjectSettings(distRoot, manifest, project::kDistManifestFile).IsOk());
     CHECK(manifest.startupScriptId == scriptId);
 
-    draconic::vfs::PakFileSystem pak(PathJoin(distDir, proj::kDistContentPak).AsView());
+    draconic::vfs::PakFileSystem pak(PathJoin(distDir, project::kDistContentPak).AsView());
     REQUIRE(pak.IsValid());
-    draconic::content::ContentDatabase db(pak, BinarySerializerFactory(), proj::kCookedAssetExtension);
+    draconic::content::ContentDatabase db(pak, BinarySerializerFactory(), project::kCookedAssetExtension);
     draconic::resource::ResourceManager resources(db);
-    dscript::ScriptClassFactory scriptFactory;
+    script::ScriptClassFactory scriptFactory;
     resources.AddFactory(&scriptFactory);
 
-    draconic::resource::Proxy<dscript::ScriptClass> proxy = resources.Bind<dscript::ScriptClass>(manifest.startupScriptId);
+    draconic::resource::Proxy<script::ScriptClass> proxy = resources.Bind<script::ScriptClass>(manifest.startupScriptId);
     REQUIRE(static_cast<bool>(proxy));
     CHECK(proxy->className == u8"Game");        // the cook harvested the class
     CHECK(proxy->source.Size() > 0u);           // the source rode into the pak
@@ -122,11 +122,11 @@ TEST_CASE("export: a startup script asset cooks into the dist pak and binds like
 
 TEST_CASE("export: project -> dist pak -> player-style load-back (versioned formats)")
 {
-    GlobalTypeRegistry().Register(dscene::SceneDocument::StaticType());
-    RegisterSerializable<dscene::SceneDocument>();
-    geo::RegisterMeshAssets();
-    GlobalTypeRegistry().Register(geo::StaticMeshSource::StaticType());
-    RegisterSerializable<geo::StaticMeshSource>();
+    GlobalTypeRegistry().Register(scene::SceneDocument::StaticType());
+    RegisterSerializable<scene::SceneDocument>();
+    geometry::RegisterMeshAssets();
+    GlobalTypeRegistry().Register(geometry::StaticMeshSource::StaticType());
+    RegisterSerializable<geometry::StaticMeshSource>();
 
     const StringView projectDir = u8"draconic_export_e2e_project";
     const StringView distDir = u8"draconic_export_e2e_dist";
@@ -138,37 +138,37 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
     const Guid scriptId = Guid{ 0xABCD1234ull, 0x5678EF90ull };   // stand-in startup-script asset id
     // --- author the project ---
     {
-        REQUIRE(ed::EditorProject::Create(projectDir, u8"E2E").IsOk());
-        UniquePtr<ed::EditorProject> project = ed::EditorProject::Open(projectDir);
+        REQUIRE(editor::EditorProject::Create(projectDir, u8"E2E").IsOk());
+        UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir);
         REQUIRE(static_cast<bool>(project));
 
         // A cooked-pipeline asset: a cube mesh (what the primitive creators produce).
         draconic::content::Group* meshes = project->SourceDb().RootGroup()->CreateGroup(u8"Meshes");
         draconic::content::Instance* meshAsset =
-            meshes->CreateInstance(u8"Cube", geo::StaticMeshAsset::StaticType());
+            meshes->CreateInstance(u8"Cube", geometry::StaticMeshAsset::StaticType());
         REQUIRE(meshAsset != nullptr);
-        geo::StaticMeshAsset asset;
-        geo::MeshImporter::Import(*geo::Primitives::Cube(2.0f), asset);
+        geometry::StaticMeshAsset asset;
+        geometry::MeshImporter::Import(*geometry::Primitives::Cube(2.0f), asset);
         REQUIRE(meshAsset->WriteObject(asset).IsOk());
         meshId = meshAsset->Id();
 
         // A scene whose entity references the mesh by guid.
         draconic::content::Group* scenes = project->SourceDb().RootGroup()->CreateGroup(u8"Scenes");
         draconic::content::Instance* sceneInstance =
-            scenes->CreateInstance(u8"Main", dscene::SceneDocument::StaticType());
+            scenes->CreateInstance(u8"Main", scene::SceneDocument::StaticType());
         REQUIRE(sceneInstance != nullptr);
-        dscene::SceneDocument doc;
+        scene::SceneDocument doc;
         doc.name = String(u8"Main");
         REQUIRE(sceneInstance->WriteObject(doc).IsOk());
         sceneId = sceneInstance->Id();
         {
-            dscene::Scene scene(u8"Main");
+            scene::Scene scene(u8"Main");
             scene.AddSystem<draconic::render::MeshComponentManager>();
-            const dscene::EntityHandle e = scene.CreateEntity(u8"Box");
+            const scene::EntityHandle e = scene.CreateEntity(u8"Box");
             draconic::render::MeshComponent& mc =
                 scene.GetSystem<draconic::render::MeshComponentManager>()->Add(e);
             mc.mesh.SetId(meshId);
-            REQUIRE(dscene::SaveScene(scene, *sceneInstance).IsOk());
+            REQUIRE(scene::SaveScene(scene, *sceneInstance).IsOk());
         }
 
         // The startup script is a guid-authoritative ScriptClass asset now (bound from the content DB
@@ -180,26 +180,26 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
         REQUIRE(project->SaveSettings().IsOk());
 
         // --- export ---
-        ed::BuilderRegistry registry;
-        registry.Register(UniquePtr<ed::IAssetBuilder>(
-            DefaultAllocator().New<geo::StaticMeshAssetBuilder>(), DefaultAllocator()));
+        editor::BuilderRegistry registry;
+        registry.Register(UniquePtr<editor::IAssetBuilder>(
+            DefaultAllocator().New<geometry::StaticMeshAssetBuilder>(), DefaultAllocator()));
         // Pre-transcode the scene stream like the editor/CLI do: the staged pak carries
         // the BINARY wire even though the source (SaveScene) is XML now.
         HashMap<Guid, Array<byte>> sceneStreams;
         {
             UniquePtr<IStream> src = sceneInstance->ReadData(u8"scene");
             REQUIRE(src.Get() != nullptr);
-            dscene::Scene scratch(u8"scratch");
+            scene::Scene scratch(u8"scratch");
             scratch.AddSystem<draconic::render::MeshComponentManager>();
             Result<Array<byte>> bytes =
-                dscene::TranscodeSceneStreamToBinary(*src, scratch, /*includeSettings=*/true);
+                scene::TranscodeSceneStreamToBinary(*src, scratch, /*includeSettings=*/true);
             REQUIRE(bytes.HasValue());
             REQUIRE(bytes.Value().Size() > 0);
             CHECK(bytes.Value()[0] != static_cast<byte>(u8'<'));   // binary, not the XML source
             sceneStreams.InsertOrAssign(sceneId, Move(bytes.Value()));
         }
-        ed::ExportStats stats;
-        REQUIRE(ed::ExportProject(*project, distDir, registry, false, &stats, {}, &sceneStreams).IsOk());
+        editor::ExportStats stats;
+        REQUIRE(editor::ExportProject(*project, distDir, registry, false, &stats, {}, &sceneStreams).IsOk());
         CHECK(stats.cooked == 1u);        // the cube
         CHECK(stats.scenesStaged == 1u);
         CHECK(stats.filesPacked >= 2u);   // product + scene envelope + scene stream
@@ -207,15 +207,15 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
 
     // --- consume the dist exactly like RaptorPlayer's dist mode ---
     draconic::vfs::NativeFileSystem distRoot(distDir);
-    proj::ProjectSettings manifest;
-    REQUIRE(proj::LoadProjectSettings(distRoot, manifest, proj::kDistManifestFile).IsOk());
+    project::ProjectSettings manifest;
+    REQUIRE(project::LoadProjectSettings(distRoot, manifest, project::kDistManifestFile).IsOk());
     CHECK(manifest.defaultScene == u8"Scenes/Main");
     CHECK(manifest.defaultSceneId == sceneId);   // dist manifest carries the guid too
     CHECK(manifest.startupScriptId == scriptId);   // the startup script rides as a guid (bound from the DB)
 
-    draconic::vfs::PakFileSystem pak(PathJoin(distDir, proj::kDistContentPak).AsView());
+    draconic::vfs::PakFileSystem pak(PathJoin(distDir, project::kDistContentPak).AsView());
     REQUIRE(pak.IsValid());
-    draconic::content::ContentDatabase db(pak, BinarySerializerFactory(), proj::kCookedAssetExtension);
+    draconic::content::ContentDatabase db(pak, BinarySerializerFactory(), project::kCookedAssetExtension);
 
     // The scene loads from the pak under its ORIGINAL guid/path, and its mesh ref resolves
     // against the pak-hosted product through the CPU mesh factory.
@@ -233,19 +233,19 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
         REQUIRE(packed->Read(&first, 1) == 1u);
         CHECK(first != static_cast<byte>(u8'<'));
     }
-    dscene::Scene scene;
+    scene::Scene scene;
     auto* meshes = scene.AddSystem<draconic::render::MeshComponentManager>();
-    REQUIRE(dscene::LoadScene(*sceneInstance, scene).IsOk());
+    REQUIRE(scene::LoadScene(*sceneInstance, scene).IsOk());
     draconic::resource::ResourceManager resources(db);
-    geo::StaticMeshFactory meshFactory;
+    geometry::StaticMeshFactory meshFactory;
     resources.AddFactory(&meshFactory);
-    dscene::ResolveSceneResources(scene, resources);
+    scene::ResolveSceneResources(scene, resources);
 
     draconic::render::MeshComponent* mc = nullptr;
-    meshes->ForEach([&](draconic::render::MeshComponent& c, dscene::EntityHandle) { mc = &c; });
+    meshes->ForEach([&](draconic::render::MeshComponent& c, scene::EntityHandle) { mc = &c; });
     REQUIRE(mc != nullptr);
     CHECK(mc->mesh.id == meshId);
-    geo::StaticMesh* mesh = mc->mesh.Get();
+    geometry::StaticMesh* mesh = mc->mesh.Get();
     REQUIRE(mesh != nullptr);
     CHECK(mesh->bounds.max.x == doctest::Approx(1.0f));   // the 2.0 cube
 
@@ -265,22 +265,22 @@ TEST_CASE("export: preset set round-trips through export_presets.xml")
 
     // Absent file => NotFound, so callers know to fall back to defaults.
     {
-        ed::ExportPresetSet loaded;
-        CHECK_FALSE(ed::LoadExportPresets(root, loaded).IsOk());
+        editor::ExportPresetSet loaded;
+        CHECK_FALSE(editor::LoadExportPresets(root, loaded).IsOk());
     }
 
     // The built-in default names the host platform and leaves templateId blank (resolve by platform).
-    ed::ExportPresetSet defaults;
-    ed::DefaultExportPresets(defaults);
+    editor::ExportPresetSet defaults;
+    editor::DefaultExportPresets(defaults);
     REQUIRE(defaults.presets.Size() == 1u);
     CHECK(defaults.presets[0].platform == GetHostPlatformName());
     CHECK(defaults.presets[0].templateId.IsEmpty());
 
     // Author a two-preset set (one blank-template, one explicit-template with extra files) and save it.
-    ed::ExportPresetSet out;
-    ed::ExportPreset a;
+    editor::ExportPresetSet out;
+    editor::ExportPreset a;
     a.name = String(u8"Linux Desktop"); a.platform = String(u8"Linux64"); a.outputSubdir = String(u8"Linux64");
-    ed::ExportPreset b;
+    editor::ExportPreset b;
     b.name = String(u8"Windows Desktop"); b.platform = String(u8"Win64");
     b.config = String(u8"RelWithDebInfo"); b.stageSymbols = true;
     b.pruneToReachable = true;
@@ -290,11 +290,11 @@ TEST_CASE("export: preset set round-trips through export_presets.xml")
     b.additionalFiles.PushBack(String(u8"config.xml"));
     out.presets.PushBack(Move(a));
     out.presets.PushBack(Move(b));
-    REQUIRE(ed::SaveExportPresets(*root.AsWritable(), out).IsOk());
+    REQUIRE(editor::SaveExportPresets(*root.AsWritable(), out).IsOk());
 
     // Load back and check every field survived, including the additionalFiles array + lookup.
-    ed::ExportPresetSet loaded;
-    REQUIRE(ed::LoadExportPresets(root, loaded).IsOk());
+    editor::ExportPresetSet loaded;
+    REQUIRE(editor::LoadExportPresets(root, loaded).IsOk());
     REQUIRE(loaded.presets.Size() == 2u);
     CHECK(loaded.presets[0].name == u8"Linux Desktop");
     CHECK(loaded.presets[0].templateId.IsEmpty());
@@ -302,7 +302,7 @@ TEST_CASE("export: preset set round-trips through export_presets.xml")
 
     CHECK_FALSE(loaded.presets[0].pruneToReachable);   // default (unset) stays false
 
-    const ed::ExportPreset* win = loaded.Find(u8"Windows Desktop");
+    const editor::ExportPreset* win = loaded.Find(u8"Windows Desktop");
     REQUIRE(win != nullptr);
     CHECK(win->platform == u8"Win64");
     CHECK(win->config == u8"RelWithDebInfo");   // config axis round-trips
@@ -335,18 +335,18 @@ namespace
     // with just the manager these tests use). Loads the instance, resolves its Refs through a
     // factory-less ResourceManager so every bound id lands in CollectUnresolved, and reads back the
     // parked prefab instances (the scene->prefab->asset chain).
-    ed::SceneReferenceScanner MakePruningScanner()
+    editor::SceneReferenceScanner MakePruningScanner()
     {
         return [](draconic::content::Instance& instance, draconic::content::ContentDatabase& db,
-                  ed::SceneReferences& out)
+                  editor::SceneReferences& out)
         {
-            dscene::Scene scene;
+            scene::Scene scene;
             scene.AddSystem<draconic::render::MeshComponentManager>();
-            if (!dscene::LoadScene(instance, scene).IsOk()) { return; }
+            if (!scene::LoadScene(instance, scene).IsOk()) { return; }
             draconic::resource::ResourceManager collector(db);
-            dscene::ResolveSceneResources(scene, collector);
+            scene::ResolveSceneResources(scene, collector);
             collector.CollectUnresolved(out.resources);
-            scene.ForEachPendingPrefabInstance([&out](dscene::Scene::PendingPrefabInstance& pending)
+            scene.ForEachPendingPrefabInstance([&out](scene::Scene::PendingPrefabInstance& pending)
             {
                 out.prefabs.PushBack(pending.prefabId);
             });
@@ -356,17 +356,17 @@ namespace
     // Author a cube StaticMeshAsset under `group` and return its guid.
     Guid AuthorMesh(draconic::content::Group& group, StringView name)
     {
-        draconic::content::Instance* inst = group.CreateInstance(name, geo::StaticMeshAsset::StaticType());
+        draconic::content::Instance* inst = group.CreateInstance(name, geometry::StaticMeshAsset::StaticType());
         REQUIRE(inst != nullptr);
-        geo::StaticMeshAsset asset;
-        geo::MeshImporter::Import(*geo::Primitives::Cube(2.0f), asset);
+        geometry::StaticMeshAsset asset;
+        geometry::MeshImporter::Import(*geometry::Primitives::Cube(2.0f), asset);
         REQUIRE(inst->WriteObject(asset).IsOk());
         return inst->Id();
     }
 
     // A minimal host export template in `toolDir` (fake player + no sidecars). Returns a preset
     // targeting it (blank templateId => resolve by host platform).
-    void SetupHostTemplate(StringView toolDir, ed::TemplateRegistry& registry)
+    void SetupHostTemplate(StringView toolDir, editor::TemplateRegistry& registry)
     {
         REQUIRE(CreateDirectory(toolDir));
         draconic::vfs::NativeFileSystem toolFs(toolDir);
@@ -383,7 +383,7 @@ TEST_CASE("export: template.xml round-trips + host synthesis reads its runtime-l
     draconic::vfs::NativeFileSystem root(dir.AsView());
 
     // template.xml round-trip, including the v2 (platform, config) axis: config + compiler + symbols[].
-    ed::ExportTemplate t;
+    editor::ExportTemplate t;
     t.id = String(u8"raptor-win64-release-0.1.0"); t.name = String(u8"Windows Desktop Release 0.1.0");
     t.platform = String(u8"Win64"); t.config = String(u8"Release"); t.compiler = String(u8"MSVC");
     t.engineVersion = String(u8"0.1.0");
@@ -391,10 +391,10 @@ TEST_CASE("export: template.xml round-trips + host synthesis reads its runtime-l
     t.sidecars.PushBack(String(u8"SDL3.dll"));
     t.sidecars.PushBack(String(u8"dxcompiler.dll"));
     t.symbols.PushBack(String(u8"RaptorPlayer.pdb"));
-    REQUIRE(ed::SaveTemplateManifest(*root.AsWritable(), t).IsOk());
+    REQUIRE(editor::SaveTemplateManifest(*root.AsWritable(), t).IsOk());
 
-    ed::ExportTemplate loaded;
-    REQUIRE(ed::LoadTemplateManifest(root, loaded).IsOk());
+    editor::ExportTemplate loaded;
+    REQUIRE(editor::LoadTemplateManifest(root, loaded).IsOk());
     CHECK(loaded.id == u8"raptor-win64-release-0.1.0");
     CHECK(loaded.platform == u8"Win64");
     CHECK(loaded.config == u8"Release");
@@ -408,8 +408,8 @@ TEST_CASE("export: template.xml round-trips + host synthesis reads its runtime-l
 
     // Host synthesis: id/platform/config/player from the host; sidecars from "<player>.runtime-libs".
     SaveText(root, u8"RaptorPlayer.runtime-libs", u8"SDL3.dll\r\n\n  dxil.dll  \n");
-    ed::ExportTemplate host;
-    ed::SynthesizeHostTemplate(dir.AsView(), &root, host);
+    editor::ExportTemplate host;
+    editor::SynthesizeHostTemplate(dir.AsView(), &root, host);
     CHECK(host.isHost);
     CHECK(host.platform == GetHostPlatformName());
     CHECK(host.config == GetBuildConfigName());   // the config that built this test binary
@@ -450,8 +450,8 @@ TEST_CASE("export: a v1 template.xml without a config field reads as Release (ba
         u8"</root>";
     SaveText(root, u8"template.xml", v1);
 
-    ed::ExportTemplate loaded;
-    REQUIRE(ed::LoadTemplateManifest(root, loaded).IsOk());
+    editor::ExportTemplate loaded;
+    REQUIRE(editor::LoadTemplateManifest(root, loaded).IsOk());
     CHECK(loaded.id == u8"raptor-legacy");
     CHECK(loaded.platform == u8"Win64");
     CHECK(loaded.config == u8"Release");           // absent config normalizes to Release
@@ -483,17 +483,17 @@ TEST_CASE("export: template registry resolves by id, by platform, and host-falls
     const String foreignPlatform = (hostPlatform == StringView(u8"Win64"))
         ? String(u8"Linux64") : String(u8"Win64");
 
-    ed::ExportTemplate foreign;
+    editor::ExportTemplate foreign;
     foreign.id = String(u8"raptor-foreign-0.1.0"); foreign.platform = foreignPlatform;
     foreign.playerBinary = String(u8"RaptorPlayer");
-    REQUIRE(ed::SaveTemplateManifest(*rootFs.AsWritable(), foreign, u8"foreign-template/template.xml").IsOk());
+    REQUIRE(editor::SaveTemplateManifest(*rootFs.AsWritable(), foreign, u8"foreign-template/template.xml").IsOk());
 
-    ed::TemplateRegistry reg;
+    editor::TemplateRegistry reg;
     reg.Refresh(rootDir.AsView(), &rootFs, hostDir.AsView(), &hostFs);
     CHECK(reg.Count() == 2u);   // imported foreign + synthesized host
 
     // Explicit id.
-    const ed::ExportTemplate* byId = reg.FindById(u8"raptor-foreign-0.1.0");
+    const editor::ExportTemplate* byId = reg.FindById(u8"raptor-foreign-0.1.0");
     REQUIRE(byId != nullptr);
     CHECK(byId->directory == PathJoin(rootDir.AsView(), u8"foreign-template"));
 
@@ -501,17 +501,17 @@ TEST_CASE("export: template registry resolves by id, by platform, and host-falls
     // platform falls back to the synthesized host template (whatever config built this binary).
     CHECK(reg.FindBy(foreignPlatform.AsView(), u8"Release") == byId);
     CHECK(reg.FindBy(foreignPlatform.AsView(), u8"") == byId);   // empty config => Release
-    const ed::ExportTemplate* hostT = reg.FindBy(hostPlatform, GetBuildConfigName());
+    const editor::ExportTemplate* hostT = reg.FindBy(hostPlatform, GetBuildConfigName());
     REQUIRE(hostT != nullptr);
     CHECK(hostT->isHost);
 
     // Resolve a preset: blank-id-by-(platform,config), explicit id, and no-match => null.
-    ed::ExportPreset p;
+    editor::ExportPreset p;
     p.platform = foreignPlatform;   // blank config -> Release, which the imported foreign template is
     CHECK(reg.Resolve(p) == byId);                 // blank templateId -> by (platform, config)
     p.templateId = String(u8"raptor-foreign-0.1.0");
     CHECK(reg.Resolve(p) == byId);                 // explicit id
-    ed::ExportPreset none; none.platform = String(u8"Nonexistent64");
+    editor::ExportPreset none; none.platform = String(u8"Nonexistent64");
     CHECK(reg.Resolve(none) == nullptr);
 
     NukeTree(rootDir.AsView()); NukeTree(hostDir.AsView());
@@ -531,19 +531,19 @@ TEST_CASE("export: an imported template out-ranks the synthesized host for the h
 
     // An imported template for the SAME platform AND config as this host build - so the exact-match
     // pass returns both, and the imported (non-host) bundle must win the tiebreak.
-    ed::ExportTemplate imported;
+    editor::ExportTemplate imported;
     imported.id = String(u8"raptor-host-import"); imported.platform = String(GetHostPlatformName());
     imported.config = String(GetBuildConfigName());
     imported.playerBinary = String(u8"RaptorPlayer");
-    REQUIRE(ed::SaveTemplateManifest(*rootFs.AsWritable(), imported, u8"host-template/template.xml").IsOk());
+    REQUIRE(editor::SaveTemplateManifest(*rootFs.AsWritable(), imported, u8"host-template/template.xml").IsOk());
 
-    ed::TemplateRegistry reg;
+    editor::TemplateRegistry reg;
     reg.Refresh(rootDir.AsView(), &rootFs, hostDir.AsView(), &hostFs);
     CHECK(reg.Count() == 2u);   // imported + synthesized host (same platform)
 
     // FindBy prefers the real imported bundle over the synthesized host template (platform-only
     // fallback: the imported template has no config => Release, and outranks the host).
-    const ed::ExportTemplate* byPlatform = reg.FindBy(GetHostPlatformName(), GetBuildConfigName());
+    const editor::ExportTemplate* byPlatform = reg.FindBy(GetHostPlatformName(), GetBuildConfigName());
     REQUIRE(byPlatform != nullptr);
     CHECK_FALSE(byPlatform->isHost);
     CHECK(byPlatform->id == u8"raptor-host-import");
@@ -551,7 +551,7 @@ TEST_CASE("export: an imported template out-ranks the synthesized host for the h
     // The synthesized host template is still present, reachable by its "host-<platform>-<config>" id.
     String hostId(u8"host-"); hostId += GetHostPlatformName();
     hostId += u8"-"; hostId += GetBuildConfigName();
-    const ed::ExportTemplate* host = reg.FindById(hostId.AsView());
+    const editor::ExportTemplate* host = reg.FindById(hostId.AsView());
     REQUIRE(host != nullptr);
     CHECK(host->isHost);
 
@@ -567,8 +567,8 @@ TEST_CASE("export: ExportOne stages the resolved template's player + sidecars al
 
     // A minimal (asset-less) project - enough for the content pipeline; the driver test is about the
     // player/sidecar staging on top of it.
-    REQUIRE(ed::EditorProject::Create(projectDir.AsView(), u8"ExportOneTest").IsOk());
-    UniquePtr<ed::EditorProject> project = ed::EditorProject::Open(projectDir.AsView());
+    REQUIRE(editor::EditorProject::Create(projectDir.AsView(), u8"ExportOneTest").IsOk());
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
     REQUIRE(static_cast<bool>(project));
     REQUIRE(project->SaveSettings().IsOk());
 
@@ -579,17 +579,17 @@ TEST_CASE("export: ExportOne stages the resolved template's player + sidecars al
     SaveText(toolFs, u8"RaptorPlayer.runtime-libs", u8"libfoo.so\n");
     SaveText(toolFs, u8"libfoo.so", u8"foo\n");
 
-    ed::TemplateRegistry registry;
+    editor::TemplateRegistry registry;
     registry.Refresh(StringView{}, nullptr, toolDir.AsView(), &toolFs);   // host template only
 
-    ed::ExportPreset preset;
+    editor::ExportPreset preset;
     preset.name = String(u8"Host Build");
     preset.platform = String(GetHostPlatformName());   // -> the host template
     preset.outputSubdir = String(u8"host");
 
-    ed::BuilderRegistry builders;   // no assets -> no builders needed
-    ed::ExportResult result;
-    REQUIRE(ed::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result).IsOk());
+    editor::BuilderRegistry builders;   // no assets -> no builders needed
+    editor::ExportResult result;
+    REQUIRE(editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result).IsOk());
 
     // The dist carries the player, the sidecar, and the content (Content.pak + player.xml).
     draconic::vfs::NativeFileSystem distFs(result.outputDir.AsView());
@@ -613,8 +613,8 @@ TEST_CASE("export: a template built against a different engine version warns but
     NukeTree(projectDir.AsView()); NukeTree(rootDir.AsView());
     NukeTree(toolDir.AsView()); NukeTree(outRoot.AsView());
 
-    REQUIRE(ed::EditorProject::Create(projectDir.AsView(), u8"EngineVersionTest").IsOk());
-    UniquePtr<ed::EditorProject> project = ed::EditorProject::Open(projectDir.AsView());
+    REQUIRE(editor::EditorProject::Create(projectDir.AsView(), u8"EngineVersionTest").IsOk());
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
     REQUIRE(static_cast<bool>(project));
     REQUIRE(project->SaveSettings().IsOk());
 
@@ -622,29 +622,29 @@ TEST_CASE("export: a template built against a different engine version warns but
     REQUIRE(CreateDirectory(rootDir.AsView()));
     REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), u8"old-template").AsView()));
     draconic::vfs::NativeFileSystem rootFs(rootDir.AsView());
-    ed::ExportTemplate old;
+    editor::ExportTemplate old;
     old.id = String(u8"raptor-old-engine"); old.platform = String(GetHostPlatformName());
     old.engineVersion = String(u8"0.0.0-ancient");
     old.playerBinary = GetExecutableName(u8"RaptorPlayer");
-    REQUIRE(ed::SaveTemplateManifest(*rootFs.AsWritable(), old, u8"old-template/template.xml").IsOk());
+    REQUIRE(editor::SaveTemplateManifest(*rootFs.AsWritable(), old, u8"old-template/template.xml").IsOk());
     // The player file the driver stages from the template dir.
     draconic::vfs::NativeFileSystem oldDirFs(PathJoin(rootDir.AsView(), u8"old-template").AsView());
     SaveText(oldDirFs, GetExecutableName(u8"RaptorPlayer").AsView(), u8"#!player\n");
 
     REQUIRE(CreateDirectory(toolDir.AsView()));
     draconic::vfs::NativeFileSystem toolFs(toolDir.AsView());
-    ed::TemplateRegistry registry;
+    editor::TemplateRegistry registry;
     registry.Refresh(rootDir.AsView(), &rootFs, toolDir.AsView(), &toolFs);
 
-    ed::ExportPreset preset;
+    editor::ExportPreset preset;
     preset.name = String(u8"Old Engine Build");
     preset.templateId = String(u8"raptor-old-engine");   // resolve to the mismatched template
     preset.outputSubdir = String(u8"old");
 
-    ed::BuilderRegistry builders;
-    ed::ExportResult result;
+    editor::BuilderRegistry builders;
+    editor::ExportResult result;
     // Export still SUCCEEDS (soft match) ...
-    REQUIRE(ed::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result).IsOk());
+    REQUIRE(editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result).IsOk());
     // ... but records the version mismatch for the caller to surface.
     CHECK_FALSE(result.engineVersionWarning.IsEmpty());
 
@@ -661,23 +661,23 @@ TEST_CASE("export: ImportTemplate installs a bundle the registry then resolves")
 
     // A source bundle: template.xml + a fake player + a sidecar.
     draconic::vfs::NativeFileSystem srcFs(src.AsView());
-    ed::ExportTemplate t;
+    editor::ExportTemplate t;
     t.id = String(u8"raptor-win64-import"); t.platform = String(u8"Win64");
     t.playerBinary = String(u8"RaptorPlayer.exe"); t.sidecars.PushBack(String(u8"SDL3.dll"));
-    REQUIRE(ed::SaveTemplateManifest(*srcFs.AsWritable(), t).IsOk());
+    REQUIRE(editor::SaveTemplateManifest(*srcFs.AsWritable(), t).IsOk());
     SaveText(srcFs, u8"RaptorPlayer.exe", u8"exe\n");
     SaveText(srcFs, u8"SDL3.dll", u8"dll\n");
 
     String importedId;
-    REQUIRE(ed::ImportTemplate(src.AsView(), root.AsView(), &importedId).IsOk());
+    REQUIRE(editor::ImportTemplate(src.AsView(), root.AsView(), &importedId).IsOk());
     CHECK(importedId == u8"raptor-win64-import");
 
     // The registry over the root now resolves it (alongside the synthesized host template).
     draconic::vfs::NativeFileSystem rootFs(root.AsView());
     draconic::vfs::NativeFileSystem toolFs(src.AsView());   // any dir for the host template
-    ed::TemplateRegistry reg;
+    editor::TemplateRegistry reg;
     reg.Refresh(root.AsView(), &rootFs, src.AsView(), &toolFs);
-    const ed::ExportTemplate* found = reg.FindById(u8"raptor-win64-import");
+    const editor::ExportTemplate* found = reg.FindById(u8"raptor-win64-import");
     REQUIRE(found != nullptr);
     CHECK(found->platform == u8"Win64");
     REQUIRE(found->sidecars.Size() == 1u);
@@ -687,7 +687,7 @@ TEST_CASE("export: ImportTemplate installs a bundle the registry then resolves")
     // A source with no template.xml fails.
     const String empty = TempDir(u8"draconic_tmpl_empty");
     NukeTree(empty.AsView()); REQUIRE(CreateDirectory(empty.AsView()));
-    CHECK_FALSE(ed::ImportTemplate(empty.AsView(), root.AsView()).IsOk());
+    CHECK_FALSE(editor::ImportTemplate(empty.AsView(), root.AsView()).IsOk());
 
     NukeTree(src.AsView()); NukeTree(root.AsView()); NukeTree(empty.AsView());
 }
@@ -711,11 +711,11 @@ TEST_CASE("export: CreateTemplate packages a Bin/<Config> dir and the registry t
 
     // Install mode: writes into <root>/<id>. config/compiler come from the packaged dir path.
     String createdId, createdDir;
-    REQUIRE(ed::CreateTemplate(binDir.AsView(), root.AsView(), ed::TemplateOutput::Install,
+    REQUIRE(editor::CreateTemplate(binDir.AsView(), root.AsView(), editor::TemplateOutput::Install,
                                &createdId, &createdDir).IsOk());
     // id = raptor-<platform>-<config>-<engineVersion> (lowercased platform/config).
     String expectedId(u8"raptor-");
-    expectedId += ed::AsciiLower(GetHostPlatformName());
+    expectedId += editor::AsciiLower(GetHostPlatformName());
     expectedId += u8"-release-";
     expectedId += draconic::project::kEngineVersionString;
     CHECK(createdId == expectedId.AsView());
@@ -728,8 +728,8 @@ TEST_CASE("export: CreateTemplate packages a Bin/<Config> dir and the registry t
     CHECK(bundleFs.Exists(u8"libfoo.so"));
 
     // The manifest stamped config = Release (from the dir), compiler = Clang (from the leaf).
-    ed::ExportTemplate manifest;
-    REQUIRE(ed::LoadTemplateManifest(bundleFs, manifest).IsOk());
+    editor::ExportTemplate manifest;
+    REQUIRE(editor::LoadTemplateManifest(bundleFs, manifest).IsOk());
     CHECK(manifest.config == u8"Release");
     CHECK(manifest.compiler == u8"Clang");
     CHECK(manifest.platform == GetHostPlatformName());
@@ -739,9 +739,9 @@ TEST_CASE("export: CreateTemplate packages a Bin/<Config> dir and the registry t
     // The registry over the root now finds the created template.
     draconic::vfs::NativeFileSystem rootFs(root.AsView());
     draconic::vfs::NativeFileSystem toolFs(base.AsView());   // any dir for the host template
-    ed::TemplateRegistry reg;
+    editor::TemplateRegistry reg;
     reg.Refresh(root.AsView(), &rootFs, base.AsView(), &toolFs);
-    const ed::ExportTemplate* found = reg.FindById(createdId.AsView());
+    const editor::ExportTemplate* found = reg.FindById(createdId.AsView());
     REQUIRE(found != nullptr);
     CHECK_FALSE(found->isHost);
     CHECK(found->config == u8"Release");
@@ -765,7 +765,7 @@ TEST_CASE("export: CreateTemplate --out mode writes a self-contained bundle to t
     // No runtime-libs manifest => no sidecars (an rpath-style build); the player alone still packages.
 
     String createdId, createdDir;
-    REQUIRE(ed::CreateTemplate(binDir.AsView(), outFolder.AsView(), ed::TemplateOutput::ExportFolder,
+    REQUIRE(editor::CreateTemplate(binDir.AsView(), outFolder.AsView(), editor::TemplateOutput::ExportFolder,
                                &createdId, &createdDir).IsOk());
     // ExportFolder writes straight into the given folder (zip it to distribute).
     CHECK(createdDir == outFolder);
@@ -773,16 +773,16 @@ TEST_CASE("export: CreateTemplate --out mode writes a self-contained bundle to t
     CHECK(bundleFs.Exists(u8"template.xml"));
     CHECK(bundleFs.Exists(GetExecutableName(u8"RaptorPlayer").AsView()));
 
-    ed::ExportTemplate manifest;
-    REQUIRE(ed::LoadTemplateManifest(bundleFs, manifest).IsOk());
+    editor::ExportTemplate manifest;
+    REQUIRE(editor::LoadTemplateManifest(bundleFs, manifest).IsOk());
     CHECK(manifest.config == u8"Debug");   // from the Bin/Debug path
     CHECK(manifest.compiler == u8"GCC");
 
     // A missing player binary is a hard failure (nothing to package).
     const String emptyBin = PathJoin(base.AsView(), u8"empty");
     REQUIRE(CreateDirectories(emptyBin.AsView()));
-    CHECK_FALSE(ed::CreateTemplate(emptyBin.AsView(), outFolder.AsView(),
-                                   ed::TemplateOutput::ExportFolder).IsOk());
+    CHECK_FALSE(editor::CreateTemplate(emptyBin.AsView(), outFolder.AsView(),
+                                   editor::TemplateOutput::ExportFolder).IsOk());
 
     NukeTree(base.AsView()); NukeTree(outFolder.AsView());
 }
@@ -803,23 +803,23 @@ TEST_CASE("export: FindBy resolves exact (platform,config) and falls back prefer
     {
         REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), subdir).AsView()));
         draconic::vfs::NativeFileSystem rootFs(rootDir.AsView());
-        ed::ExportTemplate t;
+        editor::ExportTemplate t;
         t.id = String(id); t.platform = plat; t.config = String(cfg);
         t.playerBinary = String(u8"RaptorPlayer");
         const String manifestPath = PathJoin(subdir, u8"template.xml");
-        REQUIRE(ed::SaveTemplateManifest(*rootFs.AsWritable(), t, manifestPath.AsView()).IsOk());
+        REQUIRE(editor::SaveTemplateManifest(*rootFs.AsWritable(), t, manifestPath.AsView()).IsOk());
     };
     writeTemplate(u8"raptor-dbg", u8"Debug", u8"dbg");
     writeTemplate(u8"raptor-rel", u8"Release", u8"rel");
 
     draconic::vfs::NativeFileSystem rootFs(rootDir.AsView());
     draconic::vfs::NativeFileSystem hostFs(hostDir.AsView());
-    ed::TemplateRegistry reg;
+    editor::TemplateRegistry reg;
     reg.Refresh(rootDir.AsView(), &rootFs, hostDir.AsView(), &hostFs);
 
     // Exact match by config.
-    const ed::ExportTemplate* dbg = reg.FindById(u8"raptor-dbg");
-    const ed::ExportTemplate* rel = reg.FindById(u8"raptor-rel");
+    const editor::ExportTemplate* dbg = reg.FindById(u8"raptor-dbg");
+    const editor::ExportTemplate* rel = reg.FindById(u8"raptor-rel");
     REQUIRE(dbg != nullptr); REQUIRE(rel != nullptr);
     CHECK(reg.FindBy(plat.AsView(), u8"Debug") == dbg);
     CHECK(reg.FindBy(plat.AsView(), u8"Release") == rel);
@@ -830,7 +830,7 @@ TEST_CASE("export: FindBy resolves exact (platform,config) and falls back prefer
     CHECK(reg.FindBy(plat.AsView(), u8"") == rel);
 
     // A preset selecting (platform, Debug) resolves to the Debug template.
-    ed::ExportPreset p; p.platform = plat; p.config = String(u8"Debug");
+    editor::ExportPreset p; p.platform = plat; p.config = String(u8"Debug");
     CHECK(reg.Resolve(p) == dbg);
     p.config = String(u8"Release");
     CHECK(reg.Resolve(p) == rel);
@@ -849,8 +849,8 @@ TEST_CASE("export: ExportOne stages template symbols only when the preset opts i
     NukeTree(projectDir.AsView()); NukeTree(rootDir.AsView());
     NukeTree(toolDir.AsView()); NukeTree(outRoot.AsView());
 
-    REQUIRE(ed::EditorProject::Create(projectDir.AsView(), u8"SymbolsTest").IsOk());
-    UniquePtr<ed::EditorProject> project = ed::EditorProject::Open(projectDir.AsView());
+    REQUIRE(editor::EditorProject::Create(projectDir.AsView(), u8"SymbolsTest").IsOk());
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
     REQUIRE(static_cast<bool>(project));
     REQUIRE(project->SaveSettings().IsOk());
 
@@ -858,12 +858,12 @@ TEST_CASE("export: ExportOne stages template symbols only when the preset opts i
     REQUIRE(CreateDirectory(rootDir.AsView()));
     REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), u8"sym-template").AsView()));
     draconic::vfs::NativeFileSystem rootFs(rootDir.AsView());
-    ed::ExportTemplate t;
+    editor::ExportTemplate t;
     t.id = String(u8"raptor-sym"); t.platform = String(GetHostPlatformName());
     t.playerBinary = GetExecutableName(u8"RaptorPlayer");
     t.sidecars.PushBack(String(u8"libfoo.so"));
     t.symbols.PushBack(String(u8"RaptorPlayer.debug"));
-    REQUIRE(ed::SaveTemplateManifest(*rootFs.AsWritable(), t, u8"sym-template/template.xml").IsOk());
+    REQUIRE(editor::SaveTemplateManifest(*rootFs.AsWritable(), t, u8"sym-template/template.xml").IsOk());
     draconic::vfs::NativeFileSystem tmplDirFs(PathJoin(rootDir.AsView(), u8"sym-template").AsView());
     SaveText(tmplDirFs, GetExecutableName(u8"RaptorPlayer").AsView(), u8"#!player\n");
     SaveText(tmplDirFs, u8"libfoo.so", u8"foo\n");
@@ -871,18 +871,18 @@ TEST_CASE("export: ExportOne stages template symbols only when the preset opts i
 
     REQUIRE(CreateDirectory(toolDir.AsView()));
     draconic::vfs::NativeFileSystem toolFs(toolDir.AsView());
-    ed::TemplateRegistry registry;
+    editor::TemplateRegistry registry;
     registry.Refresh(rootDir.AsView(), &rootFs, toolDir.AsView(), &toolFs);
 
-    ed::BuilderRegistry builders;
+    editor::BuilderRegistry builders;
 
     // Default preset: symbols stripped from the dist (sidecar staged, symbol not).
     {
-        ed::ExportPreset preset;
+        editor::ExportPreset preset;
         preset.name = String(u8"Stripped"); preset.templateId = String(u8"raptor-sym");
         preset.outputSubdir = String(u8"stripped");
-        ed::ExportResult result;
-        REQUIRE(ed::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result).IsOk());
+        editor::ExportResult result;
+        REQUIRE(editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result).IsOk());
         draconic::vfs::NativeFileSystem distFs(result.outputDir.AsView());
         CHECK(distFs.Exists(GetExecutableName(u8"RaptorPlayer").AsView()));
         CHECK(distFs.Exists(u8"libfoo.so"));                 // required sidecar always staged
@@ -892,11 +892,11 @@ TEST_CASE("export: ExportOne stages template symbols only when the preset opts i
 
     // Opt-in preset: symbols staged too.
     {
-        ed::ExportPreset preset;
+        editor::ExportPreset preset;
         preset.name = String(u8"WithSymbols"); preset.templateId = String(u8"raptor-sym");
         preset.outputSubdir = String(u8"symbols"); preset.stageSymbols = true;
-        ed::ExportResult result;
-        REQUIRE(ed::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result).IsOk());
+        editor::ExportResult result;
+        REQUIRE(editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result).IsOk());
         draconic::vfs::NativeFileSystem distFs(result.outputDir.AsView());
         CHECK(distFs.Exists(u8"RaptorPlayer.debug"));        // opted in
         CHECK(result.filesStaged == 3u);                     // player + sidecar + symbol
@@ -932,8 +932,8 @@ TEST_CASE("export: a v1 export_presets.xml without config/stageSymbols reads as 
         u8"</root>";
     SaveText(root, u8"export_presets.xml", v1);
 
-    ed::ExportPresetSet loaded;
-    REQUIRE(ed::LoadExportPresets(root, loaded).IsOk());
+    editor::ExportPresetSet loaded;
+    REQUIRE(editor::LoadExportPresets(root, loaded).IsOk());
     REQUIRE(loaded.presets.Size() == 1u);
     CHECK(loaded.presets[0].name == u8"Legacy");
     CHECK(loaded.presets[0].config.IsEmpty());          // absent => resolves as Release
@@ -946,18 +946,18 @@ TEST_CASE("export: a v1 export_presets.xml without config/stageSymbols reads as 
 TEST_CASE("export: ResolveTemplatesRoot prefers an explicit override")
 {
     // An explicit override (the editor's EditorExportSettings::templatesRoot) wins verbatim.
-    CHECK(ed::ResolveTemplatesRoot(u8"/shared/templates") == u8"/shared/templates");
+    CHECK(editor::ResolveTemplatesRoot(u8"/shared/templates") == u8"/shared/templates");
     // An empty override falls through to env/default - a non-empty root, same as the no-arg form
     // the CLI uses (the two surfaces resolve identically when no setting is present).
-    const String fallback = ed::ResolveTemplatesRoot(u8"");
+    const String fallback = editor::ResolveTemplatesRoot(u8"");
     CHECK_FALSE(fallback.IsEmpty());
-    CHECK(fallback == ed::ResolveTemplatesRoot());
+    CHECK(fallback == editor::ResolveTemplatesRoot());
 }
 
 TEST_CASE("export: EditorExportSettings round-trips through the editor settings store")
 {
     namespace settings = draconic::settings;
-    ed::RegisterEditorSettingsTypes();   // so Settings::Load can instantiate the section
+    editor::RegisterEditorSettingsTypes();   // so Settings::Load can instantiate the section
 
     const String dir = TempDir(u8"draconic_editor_settings");
     NukeTree(dir.AsView());
@@ -967,22 +967,22 @@ TEST_CASE("export: EditorExportSettings round-trips through the editor settings 
     // First run: no file => NotFound, and the section is absent (reads as its defaults on access).
     {
         settings::Settings store;
-        CHECK_FALSE(ed::LoadEditorSettings(root, store).IsOk());
-        CHECK(store.Find<ed::EditorExportSettings>() == nullptr);
+        CHECK_FALSE(editor::LoadEditorSettings(root, store).IsOk());
+        CHECK(store.Find<editor::EditorExportSettings>() == nullptr);
     }
 
     // Author a store with a custom templates root and persist it.
     {
         settings::Settings store;
-        store.Section<ed::EditorExportSettings>().templatesRoot = String(u8"/shared/templates");
-        REQUIRE(ed::SaveEditorSettings(*root.AsWritable(), store).IsOk());
+        store.Section<editor::EditorExportSettings>().templatesRoot = String(u8"/shared/templates");
+        REQUIRE(editor::SaveEditorSettings(*root.AsWritable(), store).IsOk());
     }
 
     // Load it back into a fresh store - the override survives the XML round-trip.
     {
         settings::Settings store;
-        REQUIRE(ed::LoadEditorSettings(root, store).IsOk());
-        const ed::EditorExportSettings* s = store.Find<ed::EditorExportSettings>();
+        REQUIRE(editor::LoadEditorSettings(root, store).IsOk());
+        const editor::EditorExportSettings* s = store.Find<editor::EditorExportSettings>();
         REQUIRE(s != nullptr);
         CHECK(s->templatesRoot == u8"/shared/templates");
     }
@@ -992,19 +992,19 @@ TEST_CASE("export: EditorExportSettings round-trips through the editor settings 
 
 TEST_CASE("export: pruned dist keeps the referenced closure, drops the rest, and reports both")
 {
-    GlobalTypeRegistry().Register(dscene::SceneDocument::StaticType());
-    RegisterSerializable<dscene::SceneDocument>();
-    geo::RegisterMeshAssets();
-    GlobalTypeRegistry().Register(geo::StaticMeshSource::StaticType());
-    RegisterSerializable<geo::StaticMeshSource>();
+    GlobalTypeRegistry().Register(scene::SceneDocument::StaticType());
+    RegisterSerializable<scene::SceneDocument>();
+    geometry::RegisterMeshAssets();
+    GlobalTypeRegistry().Register(geometry::StaticMeshSource::StaticType());
+    RegisterSerializable<geometry::StaticMeshSource>();
 
     const String projectDir = TempDir(u8"draconic_prune_proj");
     const String toolDir    = TempDir(u8"draconic_prune_tool");
     const String outRoot    = TempDir(u8"draconic_prune_out");
     NukeTree(projectDir.AsView()); NukeTree(toolDir.AsView()); NukeTree(outRoot.AsView());
 
-    REQUIRE(ed::EditorProject::Create(projectDir.AsView(), u8"Prune").IsOk());
-    UniquePtr<ed::EditorProject> project = ed::EditorProject::Open(projectDir.AsView());
+    REQUIRE(editor::EditorProject::Create(projectDir.AsView(), u8"Prune").IsOk());
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
     REQUIRE(static_cast<bool>(project));
 
     // Two authored meshes; the scene references only the first.
@@ -1014,39 +1014,39 @@ TEST_CASE("export: pruned dist keeps the referenced closure, drops the rest, and
 
     draconic::content::Group* scenes = project->SourceDb().RootGroup()->CreateGroup(u8"Scenes");
     draconic::content::Instance* sceneInst =
-        scenes->CreateInstance(u8"Main", dscene::SceneDocument::StaticType());
+        scenes->CreateInstance(u8"Main", scene::SceneDocument::StaticType());
     REQUIRE(sceneInst != nullptr);
-    { dscene::SceneDocument doc; doc.name = String(u8"Main"); REQUIRE(sceneInst->WriteObject(doc).IsOk()); }
+    { scene::SceneDocument doc; doc.name = String(u8"Main"); REQUIRE(sceneInst->WriteObject(doc).IsOk()); }
     const Guid sceneId = sceneInst->Id();
     {
-        dscene::Scene scene(u8"Main");
+        scene::Scene scene(u8"Main");
         scene.AddSystem<draconic::render::MeshComponentManager>();
-        const dscene::EntityHandle e = scene.CreateEntity(u8"Box");
+        const scene::EntityHandle e = scene.CreateEntity(u8"Box");
         scene.GetSystem<draconic::render::MeshComponentManager>()->Add(e).mesh.SetId(meshRefId);
-        REQUIRE(dscene::SaveScene(scene, *sceneInst).IsOk());
+        REQUIRE(scene::SaveScene(scene, *sceneInst).IsOk());
     }
     project->Settings().defaultSceneId = sceneId;
     project->Settings().defaultScene = String(u8"Scenes/Main");
     REQUIRE(project->SaveSettings().IsOk());
 
-    ed::BuilderRegistry builders;
-    builders.Register(UniquePtr<ed::IAssetBuilder>(
-        DefaultAllocator().New<geo::StaticMeshAssetBuilder>(), DefaultAllocator()));
-    ed::TemplateRegistry registry;
+    editor::BuilderRegistry builders;
+    builders.Register(UniquePtr<editor::IAssetBuilder>(
+        DefaultAllocator().New<geometry::StaticMeshAssetBuilder>(), DefaultAllocator()));
+    editor::TemplateRegistry registry;
     SetupHostTemplate(toolDir.AsView(), registry);
-    const ed::SceneReferenceScanner scanner = MakePruningScanner();
+    const editor::SceneReferenceScanner scanner = MakePruningScanner();
 
     // --- pruned export: only the reachable closure ships ---
-    ed::ExportPreset preset;
+    editor::ExportPreset preset;
     preset.name = String(u8"Pruned"); preset.platform = String(GetHostPlatformName());
     preset.outputSubdir = String(u8"pruned"); preset.pruneToReachable = true;
-    ed::ExportResult result;
-    REQUIRE(ed::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result,
+    editor::ExportResult result;
+    REQUIRE(editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result,
                           {}, true, nullptr, &scanner).IsOk());
 
-    draconic::vfs::PakFileSystem pak(PathJoin(result.outputDir.AsView(), proj::kDistContentPak).AsView());
+    draconic::vfs::PakFileSystem pak(PathJoin(result.outputDir.AsView(), project::kDistContentPak).AsView());
     REQUIRE(pak.IsValid());
-    draconic::content::ContentDatabase db(pak, BinarySerializerFactory(), proj::kCookedAssetExtension);
+    draconic::content::ContentDatabase db(pak, BinarySerializerFactory(), project::kCookedAssetExtension);
     CHECK(db.GetInstance(sceneId) != nullptr);      // scene staged
     CHECK(db.GetInstance(meshRefId) != nullptr);    // referenced mesh kept
     CHECK(db.GetInstance(meshDeadId) == nullptr);   // unreferenced mesh pruned
@@ -1054,7 +1054,7 @@ TEST_CASE("export: pruned dist keeps the referenced closure, drops the rest, and
     // The report is loud: pruned, one default-scene root, the unreferenced mesh named as dropped.
     CHECK(result.pruning.pruned);
     REQUIRE(result.pruning.roots.Size() == 1u);
-    CHECK(result.pruning.roots[0].reason == ed::ExportRootReason::DefaultScene);
+    CHECK(result.pruning.roots[0].reason == editor::ExportRootReason::DefaultScene);
     CHECK(result.pruning.roots[0].id == sceneId);
     bool droppedDead = false;
     for (const String& d : result.pruning.dropped) { if (d == u8"Meshes/Unreferenced") { droppedDead = true; } }
@@ -1063,16 +1063,16 @@ TEST_CASE("export: pruned dist keeps the referenced closure, drops the rest, and
     CHECK(distFs.Exists(u8"export-report.txt"));    // report written beside the dist
 
     // --- non-pruned (default) export: EVERYTHING ships, no report (escape hatch, no regression) ---
-    ed::ExportPreset full;
+    editor::ExportPreset full;
     full.name = String(u8"Full"); full.platform = String(GetHostPlatformName());
     full.outputSubdir = String(u8"full");   // pruneToReachable defaults false
-    ed::ExportResult fullResult;
-    REQUIRE(ed::ExportOne(*project, full, registry, builders, outRoot.AsView(), false, &fullResult,
+    editor::ExportResult fullResult;
+    REQUIRE(editor::ExportOne(*project, full, registry, builders, outRoot.AsView(), false, &fullResult,
                           {}, true, nullptr, &scanner).IsOk());
     draconic::vfs::PakFileSystem fullPak(
-        PathJoin(fullResult.outputDir.AsView(), proj::kDistContentPak).AsView());
+        PathJoin(fullResult.outputDir.AsView(), project::kDistContentPak).AsView());
     REQUIRE(fullPak.IsValid());
-    draconic::content::ContentDatabase fullDb(fullPak, BinarySerializerFactory(), proj::kCookedAssetExtension);
+    draconic::content::ContentDatabase fullDb(fullPak, BinarySerializerFactory(), project::kCookedAssetExtension);
     CHECK(fullDb.GetInstance(meshRefId) != nullptr);
     CHECK(fullDb.GetInstance(meshDeadId) != nullptr);   // unreferenced ships when not pruning
     CHECK_FALSE(fullResult.pruning.pruned);
@@ -1084,19 +1084,19 @@ TEST_CASE("export: pruned dist keeps the referenced closure, drops the rest, and
 
 TEST_CASE("export: precomputed reachable roots prune like an inline scanner (editor main-thread path)")
 {
-    GlobalTypeRegistry().Register(dscene::SceneDocument::StaticType());
-    RegisterSerializable<dscene::SceneDocument>();
-    geo::RegisterMeshAssets();
-    GlobalTypeRegistry().Register(geo::StaticMeshSource::StaticType());
-    RegisterSerializable<geo::StaticMeshSource>();
+    GlobalTypeRegistry().Register(scene::SceneDocument::StaticType());
+    RegisterSerializable<scene::SceneDocument>();
+    geometry::RegisterMeshAssets();
+    GlobalTypeRegistry().Register(geometry::StaticMeshSource::StaticType());
+    RegisterSerializable<geometry::StaticMeshSource>();
 
     const String projectDir = TempDir(u8"draconic_prune_pre_proj");
     const String toolDir    = TempDir(u8"draconic_prune_pre_tool");
     const String outRoot    = TempDir(u8"draconic_prune_pre_out");
     NukeTree(projectDir.AsView()); NukeTree(toolDir.AsView()); NukeTree(outRoot.AsView());
 
-    REQUIRE(ed::EditorProject::Create(projectDir.AsView(), u8"PrunePre").IsOk());
-    UniquePtr<ed::EditorProject> project = ed::EditorProject::Open(projectDir.AsView());
+    REQUIRE(editor::EditorProject::Create(projectDir.AsView(), u8"PrunePre").IsOk());
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
     REQUIRE(static_cast<bool>(project));
 
     draconic::content::Group* meshes = project->SourceDb().RootGroup()->CreateGroup(u8"Meshes");
@@ -1105,45 +1105,45 @@ TEST_CASE("export: precomputed reachable roots prune like an inline scanner (edi
 
     draconic::content::Group* scenes = project->SourceDb().RootGroup()->CreateGroup(u8"Scenes");
     draconic::content::Instance* sceneInst =
-        scenes->CreateInstance(u8"Main", dscene::SceneDocument::StaticType());
+        scenes->CreateInstance(u8"Main", scene::SceneDocument::StaticType());
     REQUIRE(sceneInst != nullptr);
-    { dscene::SceneDocument doc; doc.name = String(u8"Main"); REQUIRE(sceneInst->WriteObject(doc).IsOk()); }
+    { scene::SceneDocument doc; doc.name = String(u8"Main"); REQUIRE(sceneInst->WriteObject(doc).IsOk()); }
     const Guid sceneId = sceneInst->Id();
     {
-        dscene::Scene scene(u8"Main");
+        scene::Scene scene(u8"Main");
         scene.AddSystem<draconic::render::MeshComponentManager>();
-        const dscene::EntityHandle e = scene.CreateEntity(u8"Box");
+        const scene::EntityHandle e = scene.CreateEntity(u8"Box");
         scene.GetSystem<draconic::render::MeshComponentManager>()->Add(e).mesh.SetId(meshRefId);
-        REQUIRE(dscene::SaveScene(scene, *sceneInst).IsOk());
+        REQUIRE(scene::SaveScene(scene, *sceneInst).IsOk());
     }
     project->Settings().defaultSceneId = sceneId;
     project->Settings().defaultScene = String(u8"Scenes/Main");
     REQUIRE(project->SaveSettings().IsOk());
 
-    ed::BuilderRegistry builders;
-    builders.Register(UniquePtr<ed::IAssetBuilder>(
-        DefaultAllocator().New<geo::StaticMeshAssetBuilder>(), DefaultAllocator()));
-    ed::TemplateRegistry registry;
+    editor::BuilderRegistry builders;
+    builders.Register(UniquePtr<editor::IAssetBuilder>(
+        DefaultAllocator().New<geometry::StaticMeshAssetBuilder>(), DefaultAllocator()));
+    editor::TemplateRegistry registry;
     SetupHostTemplate(toolDir.AsView(), registry);
 
     // MAIN-THREAD pre-scan: expand the reachable closure with a scanner (as the editor does before
     // submitting the background job), then export with scanner=null + the precomputed guid set - the
     // scene loading (unsafe off the main thread) has already happened.
-    const ed::SceneReferenceScanner scanner = MakePruningScanner();
-    const Array<ed::ExportRoot> seeds = ed::CollectExportRoots(*project);
-    const Array<Guid> reachable = ed::ExpandReachableRoots(*project, seeds, scanner);
+    const editor::SceneReferenceScanner scanner = MakePruningScanner();
+    const Array<editor::ExportRoot> seeds = editor::CollectExportRoots(*project);
+    const Array<Guid> reachable = editor::ExpandReachableRoots(*project, seeds, scanner);
     CHECK(reachable.Size() >= 2u);   // at least the scene + its referenced mesh
 
-    ed::ExportPreset preset;
+    editor::ExportPreset preset;
     preset.name = String(u8"Pruned"); preset.platform = String(GetHostPlatformName());
     preset.outputSubdir = String(u8"pruned"); preset.pruneToReachable = true;
-    ed::ExportResult result;
-    REQUIRE(ed::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result,
+    editor::ExportResult result;
+    REQUIRE(editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result,
                           {}, true, nullptr, /*scanner*/ nullptr, &reachable).IsOk());
 
-    draconic::vfs::PakFileSystem pak(PathJoin(result.outputDir.AsView(), proj::kDistContentPak).AsView());
+    draconic::vfs::PakFileSystem pak(PathJoin(result.outputDir.AsView(), project::kDistContentPak).AsView());
     REQUIRE(pak.IsValid());
-    draconic::content::ContentDatabase db(pak, BinarySerializerFactory(), proj::kCookedAssetExtension);
+    draconic::content::ContentDatabase db(pak, BinarySerializerFactory(), project::kCookedAssetExtension);
     CHECK(db.GetInstance(sceneId) != nullptr);
     CHECK(db.GetInstance(meshRefId) != nullptr);
     CHECK(db.GetInstance(meshDeadId) == nullptr);   // pruned via the precomputed set, no live scanner
@@ -1151,16 +1151,16 @@ TEST_CASE("export: precomputed reachable roots prune like an inline scanner (edi
 
     // Guard: pruning requested but NEITHER a scanner NOR a precomputed set -> safe fallback (pack
     // everything, no prune) rather than a silently-broken dist.
-    ed::ExportPreset noHelp;
+    editor::ExportPreset noHelp;
     noHelp.name = String(u8"NoHelp"); noHelp.platform = String(GetHostPlatformName());
     noHelp.outputSubdir = String(u8"nohelp"); noHelp.pruneToReachable = true;
-    ed::ExportResult noHelpResult;
-    REQUIRE(ed::ExportOne(*project, noHelp, registry, builders, outRoot.AsView(), false,
+    editor::ExportResult noHelpResult;
+    REQUIRE(editor::ExportOne(*project, noHelp, registry, builders, outRoot.AsView(), false,
                           &noHelpResult).IsOk());
     draconic::vfs::PakFileSystem noHelpPak(
-        PathJoin(noHelpResult.outputDir.AsView(), proj::kDistContentPak).AsView());
+        PathJoin(noHelpResult.outputDir.AsView(), project::kDistContentPak).AsView());
     REQUIRE(noHelpPak.IsValid());
-    draconic::content::ContentDatabase noHelpDb(noHelpPak, BinarySerializerFactory(), proj::kCookedAssetExtension);
+    draconic::content::ContentDatabase noHelpDb(noHelpPak, BinarySerializerFactory(), project::kCookedAssetExtension);
     CHECK(noHelpDb.GetInstance(meshDeadId) != nullptr);   // fell back to pack-everything
     CHECK_FALSE(noHelpResult.pruning.pruned);
 
@@ -1169,21 +1169,21 @@ TEST_CASE("export: precomputed reachable roots prune like an inline scanner (edi
 
 TEST_CASE("export: pruning keeps a scene -> prefab -> asset chain")
 {
-    GlobalTypeRegistry().Register(dscene::SceneDocument::StaticType());
-    RegisterSerializable<dscene::SceneDocument>();
-    GlobalTypeRegistry().Register(dscene::PrefabDocument::StaticType());
-    RegisterSerializable<dscene::PrefabDocument>();
-    geo::RegisterMeshAssets();
-    GlobalTypeRegistry().Register(geo::StaticMeshSource::StaticType());
-    RegisterSerializable<geo::StaticMeshSource>();
+    GlobalTypeRegistry().Register(scene::SceneDocument::StaticType());
+    RegisterSerializable<scene::SceneDocument>();
+    GlobalTypeRegistry().Register(scene::PrefabDocument::StaticType());
+    RegisterSerializable<scene::PrefabDocument>();
+    geometry::RegisterMeshAssets();
+    GlobalTypeRegistry().Register(geometry::StaticMeshSource::StaticType());
+    RegisterSerializable<geometry::StaticMeshSource>();
 
     const String projectDir = TempDir(u8"draconic_prunepf_proj");
     const String toolDir    = TempDir(u8"draconic_prunepf_tool");
     const String outRoot    = TempDir(u8"draconic_prunepf_out");
     NukeTree(projectDir.AsView()); NukeTree(toolDir.AsView()); NukeTree(outRoot.AsView());
 
-    REQUIRE(ed::EditorProject::Create(projectDir.AsView(), u8"PrunePrefab").IsOk());
-    UniquePtr<ed::EditorProject> project = ed::EditorProject::Open(projectDir.AsView());
+    REQUIRE(editor::EditorProject::Create(projectDir.AsView(), u8"PrunePrefab").IsOk());
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
     REQUIRE(static_cast<bool>(project));
 
     draconic::content::Group* meshes = project->SourceDb().RootGroup()->CreateGroup(u8"Meshes");
@@ -1194,17 +1194,17 @@ TEST_CASE("export: pruning keeps a scene -> prefab -> asset chain")
     // instance's "scene" stream. meshInPrefab is reachable ONLY through this prefab.
     draconic::content::Group* prefabsGroup = project->SourceDb().RootGroup()->CreateGroup(u8"Prefabs");
     draconic::content::Instance* prefabInst =
-        prefabsGroup->CreateInstance(u8"Barrel", dscene::PrefabDocument::StaticType());
+        prefabsGroup->CreateInstance(u8"Barrel", scene::PrefabDocument::StaticType());
     REQUIRE(prefabInst != nullptr);
-    { dscene::PrefabDocument doc; doc.name = String(u8"Barrel"); REQUIRE(prefabInst->WriteObject(doc).IsOk()); }
+    { scene::PrefabDocument doc; doc.name = String(u8"Barrel"); REQUIRE(prefabInst->WriteObject(doc).IsOk()); }
     const Guid prefabId = prefabInst->Id();
     {
-        dscene::Scene author(u8"Barrel");
+        scene::Scene author(u8"Barrel");
         author.AddSystem<draconic::render::MeshComponentManager>();
-        const dscene::EntityHandle e = author.CreateEntity(u8"Body");
+        const scene::EntityHandle e = author.CreateEntity(u8"Body");
         author.GetSystem<draconic::render::MeshComponentManager>()->Add(e).mesh.SetId(meshInPrefab);
         MemoryStream payload;
-        REQUIRE(dscene::CapturePrefab(author, e, payload).IsOk());
+        REQUIRE(scene::CapturePrefab(author, e, payload).IsOk());
         const Span<const byte> bytes = payload.Bytes();
         REQUIRE(prefabInst->WriteData(u8"scene", bytes).IsOk());
     }
@@ -1213,43 +1213,43 @@ TEST_CASE("export: pruning keeps a scene -> prefab -> asset chain")
     // PendingPrefabInstance on load, NOT a flattened mesh).
     draconic::content::Group* scenes = project->SourceDb().RootGroup()->CreateGroup(u8"Scenes");
     draconic::content::Instance* sceneInst =
-        scenes->CreateInstance(u8"Main", dscene::SceneDocument::StaticType());
+        scenes->CreateInstance(u8"Main", scene::SceneDocument::StaticType());
     REQUIRE(sceneInst != nullptr);
-    { dscene::SceneDocument doc; doc.name = String(u8"Main"); REQUIRE(sceneInst->WriteObject(doc).IsOk()); }
+    { scene::SceneDocument doc; doc.name = String(u8"Main"); REQUIRE(sceneInst->WriteObject(doc).IsOk()); }
     const Guid sceneId = sceneInst->Id();
     {
-        dscene::Scene scene(u8"Main");
+        scene::Scene scene(u8"Main");
         scene.AddSystem<draconic::render::MeshComponentManager>();
         UniquePtr<IStream> payloadStream = prefabInst->ReadData(u8"scene");
         REQUIRE(payloadStream.Get() != nullptr);
-        const dscene::EntityHandle spawned = dscene::SpawnPrefab(scene, *payloadStream, prefabId);
+        const scene::EntityHandle spawned = scene::SpawnPrefab(scene, *payloadStream, prefabId);
         REQUIRE(spawned.IsAssigned());
         REQUIRE(scene.PrefabInstanceCount() == 1u);
-        REQUIRE(dscene::SaveScene(scene, *sceneInst).IsOk());
+        REQUIRE(scene::SaveScene(scene, *sceneInst).IsOk());
     }
     project->Settings().defaultSceneId = sceneId;
     project->Settings().defaultScene = String(u8"Scenes/Main");
     REQUIRE(project->SaveSettings().IsOk());
 
-    ed::BuilderRegistry builders;
-    builders.Register(UniquePtr<ed::IAssetBuilder>(
-        DefaultAllocator().New<geo::StaticMeshAssetBuilder>(), DefaultAllocator()));
-    ed::TemplateRegistry registry;
+    editor::BuilderRegistry builders;
+    builders.Register(UniquePtr<editor::IAssetBuilder>(
+        DefaultAllocator().New<geometry::StaticMeshAssetBuilder>(), DefaultAllocator()));
+    editor::TemplateRegistry registry;
     SetupHostTemplate(toolDir.AsView(), registry);
-    const ed::SceneReferenceScanner scanner = MakePruningScanner();
+    const editor::SceneReferenceScanner scanner = MakePruningScanner();
 
-    ed::ExportPreset preset;
+    editor::ExportPreset preset;
     preset.name = String(u8"Pruned"); preset.platform = String(GetHostPlatformName());
     preset.outputSubdir = String(u8"pruned"); preset.pruneToReachable = true;
-    ed::ExportResult result;
-    REQUIRE(ed::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result,
+    editor::ExportResult result;
+    REQUIRE(editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result,
                           {}, true, nullptr, &scanner).IsOk());
 
     // The whole chain is kept: scene staged, prefab staged (scene->prefab), the prefab's mesh cooked
     // in (prefab->asset); the unreferenced mesh is gone.
-    draconic::vfs::PakFileSystem pak(PathJoin(result.outputDir.AsView(), proj::kDistContentPak).AsView());
+    draconic::vfs::PakFileSystem pak(PathJoin(result.outputDir.AsView(), project::kDistContentPak).AsView());
     REQUIRE(pak.IsValid());
-    draconic::content::ContentDatabase db(pak, BinarySerializerFactory(), proj::kCookedAssetExtension);
+    draconic::content::ContentDatabase db(pak, BinarySerializerFactory(), project::kCookedAssetExtension);
     CHECK(db.GetInstance(sceneId) != nullptr);
     CHECK(db.GetInstance(prefabId) != nullptr);       // prefab staged
     CHECK(db.GetInstance(meshInPrefab) != nullptr);   // reachable only through the prefab
@@ -1266,23 +1266,23 @@ TEST_CASE("export: ExportPresetsController round-trips add/edit/duplicate/delete
     draconic::vfs::NativeFileSystem root(dir.AsView());
 
     // First load, no file yet => seeded with the built-in default (one host-platform preset).
-    ed::ExportPresetsController ctl;
+    editor::ExportPresetsController ctl;
     ctl.Load(root);
     REQUIRE(ctl.Count() == 1u);
     CHECK(ctl.At(0).platform == GetHostPlatformName());
 
     // Add two presets; the second collides on name and is auto-uniqued to "Windows Copy".
-    ed::ExportPreset a; a.name = String(u8"Windows"); a.platform = String(u8"Win64");
+    editor::ExportPreset a; a.name = String(u8"Windows"); a.platform = String(u8"Win64");
     a.config = String(u8"Release"); a.stageSymbols = true;
     const usize ia = ctl.Add(a);
     CHECK(ctl.At(ia).name == u8"Windows");
-    ed::ExportPreset dup; dup.name = String(u8"Windows"); dup.platform = String(u8"Win64");
+    editor::ExportPreset dup; dup.name = String(u8"Windows"); dup.platform = String(u8"Win64");
     const usize idup = ctl.Add(dup);
     CHECK(ctl.At(idup).name == u8"Windows Copy");   // name collision resolved on Add
     REQUIRE(ctl.Count() == 3u);
 
     // Edit: rename + change fields on the "Windows" preset.
-    ed::ExportPreset edited = ctl.At(ia);
+    editor::ExportPreset edited = ctl.At(ia);
     edited.name = String(u8"Windows Ship"); edited.playerName = String(u8"MyGame.exe");
     edited.additionalFiles.PushBack(String(u8"icon.ico"));
     ctl.Update(ia, edited);
@@ -1297,10 +1297,10 @@ TEST_CASE("export: ExportPresetsController round-trips add/edit/duplicate/delete
 
     // Persist and reload into a fresh controller: every mutation survives the XML round-trip.
     REQUIRE(ctl.Save(*root.AsWritable()).IsOk());
-    ed::ExportPresetsController reloaded;
+    editor::ExportPresetsController reloaded;
     reloaded.Load(root);
     REQUIRE(reloaded.Count() == ctl.Count());
-    const ed::ExportPreset* ship = reloaded.Set().Find(u8"Windows Ship");
+    const editor::ExportPreset* ship = reloaded.Set().Find(u8"Windows Ship");
     REQUIRE(ship != nullptr);
     CHECK(ship->playerName == u8"MyGame.exe");
     CHECK(ship->stageSymbols);
@@ -1314,7 +1314,7 @@ TEST_CASE("export: ExportPresetsController round-trips add/edit/duplicate/delete
         if (reloaded.At(i).name == u8"Windows Ship Copy") { reloaded.Remove(i); break; }
     }
     REQUIRE(reloaded.Save(*root.AsWritable()).IsOk());
-    ed::ExportPresetsController afterDelete;
+    editor::ExportPresetsController afterDelete;
     afterDelete.Load(root);
     CHECK(afterDelete.Set().Find(u8"Windows Ship Copy") == nullptr);
     CHECK(afterDelete.Set().Find(u8"Windows Ship") != nullptr);
@@ -1333,31 +1333,31 @@ TEST_CASE("export: RemoveTemplate deletes an installed bundle the registry then 
 
     draconic::vfs::NativeFileSystem rootFs(rootDir.AsView());
     draconic::vfs::NativeFileSystem hostFs(hostDir.AsView());
-    ed::ExportTemplate t;
+    editor::ExportTemplate t;
     t.id = String(u8"raptor-remove-me"); t.platform = String(u8"Win64");
     t.playerBinary = String(u8"RaptorPlayer.exe");
-    REQUIRE(ed::SaveTemplateManifest(*rootFs.AsWritable(), t, u8"raptor-remove-me/template.xml").IsOk());
+    REQUIRE(editor::SaveTemplateManifest(*rootFs.AsWritable(), t, u8"raptor-remove-me/template.xml").IsOk());
 
     // Present before removal.
     {
-        ed::TemplateRegistry reg;
+        editor::TemplateRegistry reg;
         reg.Refresh(rootDir.AsView(), &rootFs, hostDir.AsView(), &hostFs);
         REQUIRE(reg.FindById(u8"raptor-remove-me") != nullptr);
     }
 
     // Remove the bundle dir; a fresh registry no longer sees it (host template remains).
-    REQUIRE(ed::RemoveTemplate(rootDir.AsView(), u8"raptor-remove-me").IsOk());
+    REQUIRE(editor::RemoveTemplate(rootDir.AsView(), u8"raptor-remove-me").IsOk());
     {
         draconic::vfs::NativeFileSystem rootFs2(rootDir.AsView());
-        ed::TemplateRegistry reg;
+        editor::TemplateRegistry reg;
         reg.Refresh(rootDir.AsView(), &rootFs2, hostDir.AsView(), &hostFs);
         CHECK(reg.FindById(u8"raptor-remove-me") == nullptr);
         CHECK(reg.Count() == 1u);   // just the synthesized host template
     }
 
     // Removing a non-existent id fails softly (NotFound), never crashes; empty id is rejected.
-    CHECK_FALSE(ed::RemoveTemplate(rootDir.AsView(), u8"raptor-remove-me").IsOk());
-    CHECK_FALSE(ed::RemoveTemplate(rootDir.AsView(), u8"").IsOk());
+    CHECK_FALSE(editor::RemoveTemplate(rootDir.AsView(), u8"raptor-remove-me").IsOk());
+    CHECK_FALSE(editor::RemoveTemplate(rootDir.AsView(), u8"").IsOk());
 
     NukeTree(rootDir.AsView()); NukeTree(hostDir.AsView());
 }
@@ -1365,18 +1365,18 @@ TEST_CASE("export: RemoveTemplate deletes an installed bundle the registry then 
 TEST_CASE("export: TemplateEngineMatches flags a version mismatch, passes host + unstamped")
 {
     // The synthesized host template carries this build's engine version => matches.
-    ed::ExportTemplate host;
+    editor::ExportTemplate host;
     host.engineVersion = String(draconic::project::kEngineVersionString);
-    CHECK(ed::TemplateEngineMatches(host));
+    CHECK(editor::TemplateEngineMatches(host));
 
     // A stamped, differing version => mismatch (the "!" note in the templates manager).
-    ed::ExportTemplate old; old.engineVersion = String(u8"0.0.0-ancient");
-    CHECK_FALSE(ed::TemplateEngineMatches(old));
+    editor::ExportTemplate old; old.engineVersion = String(u8"0.0.0-ancient");
+    CHECK_FALSE(editor::TemplateEngineMatches(old));
 
     // An unstamped (hand-written) manifest is treated as a match (driver only soft-warns on a real
     // differing stamp).
-    ed::ExportTemplate blank;
-    CHECK(ed::TemplateEngineMatches(blank));
+    editor::ExportTemplate blank;
+    CHECK(editor::TemplateEngineMatches(blank));
 }
 
 // === Reachability Phase 2: the "Always Export" roots set (docs/design/export-reachability.md) ===
@@ -1388,7 +1388,7 @@ TEST_CASE("export: ExportRootsSet membership toggle is idempotent and round-trip
     REQUIRE(CreateDirectory(dir.AsView()));
     draconic::vfs::NativeFileSystem root(dir.AsView());
 
-    ed::ExportRootsSet set;
+    editor::ExportRootsSet set;
     CHECK(set.IsEmpty());
 
     const Guid a{ 0x1111111111111111ull, 0x2222222222222222ull };
@@ -1406,10 +1406,10 @@ TEST_CASE("export: ExportRootsSet membership toggle is idempotent and round-trip
     CHECK(set.HasGroup(u8"Weapons/Runtime"));
     CHECK_FALSE(set.IsEmpty());
 
-    REQUIRE(ed::SaveExportRoots(*root.AsWritable(), set).IsOk());
+    REQUIRE(editor::SaveExportRoots(*root.AsWritable(), set).IsOk());
 
-    ed::ExportRootsSet loaded;
-    REQUIRE(ed::LoadExportRoots(root, loaded).IsOk());
+    editor::ExportRootsSet loaded;
+    REQUIRE(editor::LoadExportRoots(root, loaded).IsOk());
     REQUIRE(loaded.instances.Size() == 1u);
     REQUIRE(loaded.groups.Size() == 1u);
     CHECK(loaded.HasInstance(a));
@@ -1422,8 +1422,8 @@ TEST_CASE("export: ExportRootsSet membership toggle is idempotent and round-trip
     CHECK(loaded.IsEmpty());
 
     // A project with no export_roots.xml => NotFound (caller treats as the empty set).
-    ed::ExportRootsSet none;
-    CHECK(ed::LoadExportRoots(root, none, u8"does_not_exist.xml").Code() == ErrorCode::NotFound);
+    editor::ExportRootsSet none;
+    CHECK(editor::LoadExportRoots(root, none, u8"does_not_exist.xml").Code() == ErrorCode::NotFound);
 
     NukeTree(dir.AsView());
 }
@@ -1432,12 +1432,12 @@ TEST_CASE("export: CollectGroupInstances enumerates a group subtree, not its sib
 {
     const String projectDir = TempDir(u8"draconic_export_roots_group");
     NukeTree(projectDir.AsView());
-    REQUIRE(ed::EditorProject::Create(projectDir.AsView(), u8"Roots").IsOk());
-    UniquePtr<ed::EditorProject> project = ed::EditorProject::Open(projectDir.AsView());
+    REQUIRE(editor::EditorProject::Create(projectDir.AsView(), u8"Roots").IsOk());
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
     REQUIRE(static_cast<bool>(project));
 
     draconic::content::ContentDatabase& db = project->SourceDb();
-    const TypeInfo& ty = dscene::SceneDocument::StaticType();   // any type; enumeration ignores it
+    const TypeInfo& ty = scene::SceneDocument::StaticType();   // any type; enumeration ignores it
 
     draconic::content::Group* weapons = db.RootGroup()->CreateGroup(u8"Weapons");
     const Guid sword = weapons->CreateInstance(u8"Sword", ty)->Id();
@@ -1450,7 +1450,7 @@ TEST_CASE("export: CollectGroupInstances enumerates a group subtree, not its sib
 
     // "Weapons" pulls its own instances AND the nested Rare subtree, but not the Props sibling.
     Array<Guid> got;
-    ed::CollectGroupInstances(db, u8"Weapons", got);
+    editor::CollectGroupInstances(db, u8"Weapons", got);
     const auto has = [&](const Guid& id) {
         for (const Guid& g : got) { if (g == id) { return true; } } return false;
     };
@@ -1459,9 +1459,9 @@ TEST_CASE("export: CollectGroupInstances enumerates a group subtree, not its sib
     CHECK_FALSE(has(crate));
 
     // Empty path = the whole DB (root subtree); a missing group contributes nothing.
-    Array<Guid> all; ed::CollectGroupInstances(db, u8"", all);
+    Array<Guid> all; editor::CollectGroupInstances(db, u8"", all);
     CHECK(all.Size() == 4u);
-    Array<Guid> missing; ed::CollectGroupInstances(db, u8"NoSuchGroup", missing);
+    Array<Guid> missing; editor::CollectGroupInstances(db, u8"NoSuchGroup", missing);
     CHECK(missing.IsEmpty());
 
     NukeTree(projectDir.AsView());
@@ -1471,12 +1471,12 @@ TEST_CASE("export: CollectExportRoots seeds Always-Export flags + group members,
 {
     const String projectDir = TempDir(u8"draconic_export_roots_seed");
     NukeTree(projectDir.AsView());
-    REQUIRE(ed::EditorProject::Create(projectDir.AsView(), u8"Roots").IsOk());
-    UniquePtr<ed::EditorProject> project = ed::EditorProject::Open(projectDir.AsView());
+    REQUIRE(editor::EditorProject::Create(projectDir.AsView(), u8"Roots").IsOk());
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
     REQUIRE(static_cast<bool>(project));
 
     draconic::content::ContentDatabase& db = project->SourceDb();
-    const TypeInfo& ty = dscene::SceneDocument::StaticType();
+    const TypeInfo& ty = scene::SceneDocument::StaticType();
 
     draconic::content::Group* scenes = db.RootGroup()->CreateGroup(u8"Scenes");
     const Guid mainScene = scenes->CreateInstance(u8"Main", ty)->Id();
@@ -1490,24 +1490,24 @@ TEST_CASE("export: CollectExportRoots seeds Always-Export flags + group members,
     // The default scene ALSO flagged directly => must dedupe to one root, keeping DefaultScene.
     project->ExportRoots().SetInstance(mainScene, true);
 
-    const Array<ed::ExportRoot> roots = ed::CollectExportRoots(*project);
+    const Array<editor::ExportRoot> roots = editor::CollectExportRoots(*project);
 
-    const auto reasonOf = [&](const Guid& id) -> const ed::ExportRoot* {
-        for (const ed::ExportRoot& r : roots) { if (r.id == id) { return &r; } } return nullptr;
+    const auto reasonOf = [&](const Guid& id) -> const editor::ExportRoot* {
+        for (const editor::ExportRoot& r : roots) { if (r.id == id) { return &r; } } return nullptr;
     };
     // Exactly three distinct roots (default scene deduped despite the redundant flag).
     CHECK(roots.Size() == 3u);
     REQUIRE(reasonOf(mainScene) != nullptr);
-    CHECK(reasonOf(mainScene)->reason == ed::ExportRootReason::DefaultScene);   // wins over Flag
+    CHECK(reasonOf(mainScene)->reason == editor::ExportRootReason::DefaultScene);   // wins over Flag
     REQUIRE(reasonOf(weaponMesh) != nullptr);
-    CHECK(reasonOf(weaponMesh)->reason == ed::ExportRootReason::Flag);
+    CHECK(reasonOf(weaponMesh)->reason == editor::ExportRootReason::Flag);
     REQUIRE(reasonOf(table) != nullptr);
-    CHECK(reasonOf(table)->reason == ed::ExportRootReason::Group);
+    CHECK(reasonOf(table)->reason == editor::ExportRootReason::Group);
 
     // The set persists: save it, reopen the project, the flags survive (Open reads export_roots.xml).
     REQUIRE(project->SaveExportRoots().IsOk());
     project.Reset();
-    UniquePtr<ed::EditorProject> reopened = ed::EditorProject::Open(projectDir.AsView());
+    UniquePtr<editor::EditorProject> reopened = editor::EditorProject::Open(projectDir.AsView());
     REQUIRE(static_cast<bool>(reopened));
     CHECK(reopened->ExportRoots().HasInstance(weaponMesh));
     CHECK(reopened->ExportRoots().HasGroup(u8"RuntimeLoaded"));

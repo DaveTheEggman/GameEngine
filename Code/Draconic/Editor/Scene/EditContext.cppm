@@ -30,18 +30,18 @@ using namespace draconic::core;
 
 export namespace draconic::editor
 {
-    namespace dscene = draconic::scene;
+    namespace scene = draconic::scene;
 
     class SceneEditContext
     {
     public:
-        SceneEditContext(dscene::Scene& scene, EditorCommandStack& commands)
+        SceneEditContext(scene::Scene& scene, EditorCommandStack& commands)
             : m_scene(&scene), m_commands(&commands) {}
 
         SceneEditContext(const SceneEditContext&) = delete;
         SceneEditContext& operator=(const SceneEditContext&) = delete;
 
-        [[nodiscard]] dscene::Scene& Scene() noexcept { return *m_scene; }
+        [[nodiscard]] scene::Scene& Scene() noexcept { return *m_scene; }
         [[nodiscard]] EditorCommandStack& Commands() noexcept { return *m_commands; }
 
         /// The runtime resource manager (optional; wired by the page). When set, commands that
@@ -51,16 +51,16 @@ export namespace draconic::editor
         void SetResources(draconic::resource::ResourceManager* resources) noexcept { m_resources = resources; }
         void ResolveRestoredResources()
         {
-            if (m_resources != nullptr) { dscene::ResolveSceneResources(*m_scene, *m_resources); }
+            if (m_resources != nullptr) { scene::ResolveSceneResources(*m_scene, *m_resources); }
         }
 
         /// Payload resolver for NESTED prefab records (wired by the page from the source DB).
         /// Without it, spawning a prefab that contains other prefabs skips the nested parts.
-        void SetPrefabResolver(dscene::PrefabPayloadResolver resolver)
+        void SetPrefabResolver(scene::PrefabPayloadResolver resolver)
         {
-            m_prefabResolver = static_cast<dscene::PrefabPayloadResolver&&>(resolver);
+            m_prefabResolver = static_cast<scene::PrefabPayloadResolver&&>(resolver);
         }
-        [[nodiscard]] const dscene::PrefabPayloadResolver* PrefabResolver() const noexcept
+        [[nodiscard]] const scene::PrefabPayloadResolver* PrefabResolver() const noexcept
         {
             return m_prefabResolver ? &m_prefabResolver : nullptr;
         }
@@ -81,7 +81,7 @@ export namespace draconic::editor
         [[nodiscard]] Array<byte> CopyEntity(const Guid& entity)
         {
             Array<byte> blob;
-            const dscene::EntityHandle root = Resolve(entity);
+            const scene::EntityHandle root = Resolve(entity);
             if (!root.IsAssigned()) { return blob; }
             Array<SubtreeRecord> records;
             CaptureSubtreeRecords(root, records);
@@ -108,7 +108,7 @@ export namespace draconic::editor
         /// Guid (nil on failure); it becomes the selection. One undo step.
         Guid DuplicateEntity(const Guid& entity)
         {
-            const dscene::EntityHandle root = Resolve(entity);
+            const scene::EntityHandle root = Resolve(entity);
             if (!root.IsAssigned()) { return Guid{}; }
             Array<SubtreeRecord> records;
             CaptureSubtreeRecords(root, records);
@@ -120,7 +120,7 @@ export namespace draconic::editor
             return RunPasteCommand(Move(records), parent);
         }
 
-        [[nodiscard]] String UniqueSiblingName(StringView base, dscene::EntityHandle parent)
+        [[nodiscard]] String UniqueSiblingName(StringView base, scene::EntityHandle parent)
         {
             // Strip an existing " (n)" suffix so "Box (2)" duplicates to "Box (3)", not
             // "Box (2) (2)".
@@ -144,7 +144,7 @@ export namespace draconic::editor
                 while (n > 0) { candidate.PushBack(digits[--n]); }
                 candidate += u8")";
                 bool taken = false;
-                m_scene->ForEachEntity([&](dscene::EntityHandle e) {
+                m_scene->ForEachEntity([&](scene::EntityHandle e) {
                     if (m_scene->GetParent(e) == parent
                         && m_scene->GetEntityName(e) == candidate.AsView()) { taken = true; }
                 });
@@ -159,8 +159,8 @@ export namespace draconic::editor
         [[nodiscard]] Array<byte> CopyComponent(const Guid& entity, const TypeInfo* componentType)
         {
             Array<byte> blob;
-            const dscene::EntityHandle e = Resolve(entity);
-            dscene::ComponentManagerBase* mgr = FindManager(componentType);
+            const scene::EntityHandle e = Resolve(entity);
+            scene::ComponentManagerBase* mgr = FindManager(componentType);
             if (!e.IsAssigned() || mgr == nullptr || !mgr->IsSerializable() || !mgr->HasComponent(e))
             {
                 return blob;
@@ -199,7 +199,7 @@ export namespace draconic::editor
         }
 
         /// Resolve a selected/stored Guid to a live handle (Invalid if the entity is gone).
-        [[nodiscard]] dscene::EntityHandle Resolve(const Guid& id) { return m_scene->FindEntity(id); }
+        [[nodiscard]] scene::EntityHandle Resolve(const Guid& id) { return m_scene->FindEntity(id); }
 
         // === Mutations (each an undoable command; failed executes are dropped by the stack) ===
 
@@ -223,7 +223,7 @@ export namespace draconic::editor
             if (!Resolve(entity).IsAssigned()) { return; }
             // Deselect the whole doomed subtree up front (selection is not undoable).
             m_selection.Remove(entity);
-            CollectSubtree(Resolve(entity), [this](dscene::EntityHandle e) {
+            CollectSubtree(Resolve(entity), [this](scene::EntityHandle e) {
                 m_selection.Remove(m_scene->GetEntityId(e));
             });
             (void)m_commands->Execute(UniquePtr<IEditorCommand>(
@@ -352,10 +352,10 @@ export namespace draconic::editor
         }
 
         /// The scene system whose SettingsType() is `settingsType` (null if none).
-        [[nodiscard]] dscene::SceneSystem* FindSystemBySettingsType(const TypeInfo* settingsType)
+        [[nodiscard]] scene::SceneSystem* FindSystemBySettingsType(const TypeInfo* settingsType)
         {
-            dscene::SceneSystem* found = nullptr;
-            m_scene->ForEachSystem([&](dscene::SceneSystem& s) {
+            scene::SceneSystem* found = nullptr;
+            m_scene->ForEachSystem([&](scene::SceneSystem& s) {
                 if (found == nullptr && s.SettingsType() == settingsType) { found = &s; }
             });
             return found;
@@ -377,10 +377,10 @@ export namespace draconic::editor
         }
 
         /// The scene manager whose component type is `type` (null if none).
-        [[nodiscard]] dscene::ComponentManagerBase* FindManager(const TypeInfo* type)
+        [[nodiscard]] scene::ComponentManagerBase* FindManager(const TypeInfo* type)
         {
-            dscene::ComponentManagerBase* found = nullptr;
-            m_scene->ForEachManager([&](dscene::ComponentManagerBase& mgr) {
+            scene::ComponentManagerBase* found = nullptr;
+            m_scene->ForEachManager([&](scene::ComponentManagerBase& mgr) {
                 if (mgr.ComponentType() == type) { found = &mgr; }
             });
             return found;
@@ -389,8 +389,8 @@ export namespace draconic::editor
         /// True if `possibleAncestor` is `entity` itself or one of its ancestors.
         [[nodiscard]] bool IsSelfOrAncestor(const Guid& entity, const Guid& possibleAncestor)
         {
-            dscene::EntityHandle e = Resolve(entity);
-            const dscene::EntityHandle anc = Resolve(possibleAncestor);
+            scene::EntityHandle e = Resolve(entity);
+            const scene::EntityHandle anc = Resolve(possibleAncestor);
             if (!anc.IsAssigned()) { return false; }
             for (; e.IsAssigned(); e = m_scene->GetParent(e))
             {
@@ -402,11 +402,11 @@ export namespace draconic::editor
     private:
         // Depth-first visit of a live subtree (root included).
         template <typename Fn>
-        void CollectSubtree(dscene::EntityHandle root, Fn&& fn)
+        void CollectSubtree(scene::EntityHandle root, Fn&& fn)
         {
             if (!root.IsAssigned()) { return; }
             fn(root);
-            for (dscene::EntityHandle c = m_scene->GetFirstChild(root); c.IsAssigned();
+            for (scene::EntityHandle c = m_scene->GetFirstChild(root); c.IsAssigned();
                  c = m_scene->GetNextSibling(c))
             {
                 CollectSubtree(c, fn);
@@ -423,12 +423,12 @@ export namespace draconic::editor
 
             [[nodiscard]] bool Execute() override
             {
-                dscene::Scene& scene = m_ctx->Scene();
-                const dscene::EntityHandle parent = m_ctx->Resolve(m_parent);
+                scene::Scene& scene = m_ctx->Scene();
+                const scene::EntityHandle parent = m_ctx->Resolve(m_parent);
                 if (m_parent != Guid{} && !parent.IsAssigned()) { return false; }   // parent gone
 
                 // First execute records the generated Guid; redo recreates the SAME identity.
-                const dscene::EntityHandle entity = (m_id != Guid{})
+                const scene::EntityHandle entity = (m_id != Guid{})
                     ? scene.CreateEntity(m_id, m_name.AsView())
                     : scene.CreateEntity(m_name.AsView());
                 if (!entity.IsAssigned()) { return false; }
@@ -470,11 +470,11 @@ export namespace draconic::editor
         };
 
         // Pre-order capture (parents before children), components via the serializable managers.
-        void CaptureSubtreeRecords(dscene::EntityHandle root, Array<SubtreeRecord>& out)
+        void CaptureSubtreeRecords(scene::EntityHandle root, Array<SubtreeRecord>& out)
         {
-            dscene::Scene& scene = *m_scene;
+            scene::Scene& scene = *m_scene;
             const Guid rootParent = scene.GetEntityId(scene.GetParent(root));
-            CollectSubtree(root, [&scene, &out, &rootParent](dscene::EntityHandle e) {
+            CollectSubtree(root, [&scene, &out, &rootParent](scene::EntityHandle e) {
                 SubtreeRecord record;
                 record.id     = scene.GetEntityId(e);
                 const Guid parent = scene.GetEntityId(scene.GetParent(e));
@@ -482,7 +482,7 @@ export namespace draconic::editor
                 record.name   = String(scene.GetEntityName(e));
                 record.local  = scene.GetLocalTransform(e);
                 record.active = scene.IsActive(e);
-                scene.ForEachManager([&](dscene::ComponentManagerBase& mgr) {
+                scene.ForEachManager([&](scene::ComponentManagerBase& mgr) {
                     if (!mgr.IsSerializable() || !mgr.HasComponent(e)) { return; }
                     SubtreeComponentRecord component;
                     component.typeId = String(mgr.SerializationTypeId());
@@ -581,9 +581,9 @@ export namespace draconic::editor
         /// second half): one undo group [spawn at the same parent/transform, destroy original].
         Guid ReplaceWithPrefabInstance(const Guid& entity, const Guid& prefabId, Array<byte> payload)
         {
-            const dscene::EntityHandle live = Resolve(entity);
+            const scene::EntityHandle live = Resolve(entity);
             if (!live.IsAssigned()) { return Guid{}; }
-            const dscene::EntityHandle parentHandle = m_scene->GetParent(live);
+            const scene::EntityHandle parentHandle = m_scene->GetParent(live);
             const Guid parent = parentHandle.IsAssigned() ? m_scene->GetEntityId(parentHandle) : Guid{};
             const Transform placement = m_scene->GetLocalTransform(live);
 
@@ -602,17 +602,17 @@ export namespace draconic::editor
         /// them), user-ADDED components (no baseline) are removed. No-op for non-members.
         bool RevertComponentToBaseline(const Guid& entity, const TypeInfo* componentType)
         {
-            dscene::PrefabMemberInfo member;
-            if (!dscene::FindPrefabMember(*m_scene, entity, member)) { return false; }
-            dscene::ComponentManagerBase* manager = FindManager(componentType);
+            scene::PrefabMemberInfo member;
+            if (!scene::FindPrefabMember(*m_scene, entity, member)) { return false; }
+            scene::ComponentManagerBase* manager = FindManager(componentType);
             if (manager == nullptr) { return false; }
             const Guid sourceId = member.state->sourceIds[member.memberIndex];
-            const dscene::Scene::PrefabComponentBaseline* baseline =
-                dscene::FindPrefabBaseline(*member.state, sourceId, manager->SerializationTypeId());
+            const scene::Scene::PrefabComponentBaseline* baseline =
+                scene::FindPrefabBaseline(*member.state, sourceId, manager->SerializationTypeId());
             if (baseline == nullptr)
             {
                 // Added by the user: revert = remove (undoable through the existing command).
-                const dscene::EntityHandle live = Resolve(entity);
+                const scene::EntityHandle live = Resolve(entity);
                 if (live.IsAssigned() && manager->HasComponent(live)) { RemoveComponent(entity, componentType); }
                 return true;
             }
@@ -642,14 +642,14 @@ export namespace draconic::editor
 
             [[nodiscard]] bool Execute() override
             {
-                dscene::Scene& scene = m_ctx->Scene();
+                scene::Scene& scene = m_ctx->Scene();
                 MemoryStream stream;
                 (void)stream.Write(m_payload.Data(), m_payload.Size());
                 (void)stream.Seek(0, SeekOrigin::Begin);
-                const dscene::EntityHandle parent = m_ctx->Resolve(m_parent);
-                Array<const dscene::Scene::PendingPrefabInstance*> subPtrs;
+                const scene::EntityHandle parent = m_ctx->Resolve(m_parent);
+                Array<const scene::Scene::PendingPrefabInstance*> subPtrs;
                 for (const auto& sub : m_nestedPins) { subPtrs.PushBack(sub.Get()); }
-                const dscene::EntityHandle root = dscene::SpawnPrefab(
+                const scene::EntityHandle root = scene::SpawnPrefab(
                     scene, stream, m_prefabId, parent,
                     m_preassigned.Size() > 0 ? &m_preassigned : nullptr,
                     m_ctx->PrefabResolver(),
@@ -658,7 +658,7 @@ export namespace draconic::editor
                 if (m_hasTransform) { scene.SetLocalTransform(root, m_rootTransform); }
                 if (m_placeBefore != Guid{})
                 {
-                    const dscene::EntityHandle before = m_ctx->Resolve(m_placeBefore);
+                    const scene::EntityHandle before = m_ctx->Resolve(m_placeBefore);
                     if (before.IsAssigned()) { scene.MoveBefore(root, before); }
                 }
                 m_rootId = scene.GetEntityId(root);
@@ -667,22 +667,22 @@ export namespace draconic::editor
                     // First run: pin the minted member guids so redo recreates them exactly -
                     // including every NESTED instance's members (as sub-records with the
                     // template placement).
-                    if (dscene::Scene::PrefabInstanceState* state = scene.FindPrefabInstanceByRoot(m_rootId))
+                    if (scene::Scene::PrefabInstanceState* state = scene.FindPrefabInstanceByRoot(m_rootId))
                     {
                         for (usize i = 0; i < state->sourceIds.Size(); ++i)
                         {
                             m_preassigned.InsertOrAssign(state->sourceIds[i], state->liveIds[i]);
                         }
                     }
-                    scene.ForEachPrefabInstance([&](dscene::Scene::PrefabInstanceState& nested) {
+                    scene.ForEachPrefabInstance([&](scene::Scene::PrefabInstanceState& nested) {
                         if (nested.ownerRootEntityId != m_rootId) { return; }
-                        auto pin = MakeUnique<dscene::Scene::PendingPrefabInstance>(DefaultAllocator());
+                        auto pin = MakeUnique<scene::Scene::PendingPrefabInstance>(DefaultAllocator());
                         pin->prefabId = nested.prefabId;
                         pin->sourceIds = nested.sourceIds;
                         pin->liveIds = nested.liveIds;
                         pin->nestedRootSourceId = nested.nestedRootSourceId;
                         pin->applyPlacement = false;
-                        m_nestedPins.PushBack(static_cast<UniquePtr<dscene::Scene::PendingPrefabInstance>&&>(pin));
+                        m_nestedPins.PushBack(static_cast<UniquePtr<scene::Scene::PendingPrefabInstance>&&>(pin));
                     });
                 }
                 m_ctx->ResolveRestoredResources();   // spawned refs render this frame
@@ -691,12 +691,12 @@ export namespace draconic::editor
 
             void Undo() override
             {
-                dscene::Scene& scene = m_ctx->Scene();
+                scene::Scene& scene = m_ctx->Scene();
                 // Destroy every live member (the root takes its subtree; FindEntity guards
                 // members already gone), then the bookkeeping.
                 for (const auto& kv : m_preassigned)
                 {
-                    const dscene::EntityHandle e = scene.FindEntity(kv.value);
+                    const scene::EntityHandle e = scene.FindEntity(kv.value);
                     if (e.IsAssigned()) { scene.DestroyEntity(e); }
                 }
                 scene.RemovePrefabInstance(m_rootId);
@@ -715,7 +715,7 @@ export namespace draconic::editor
             bool m_hasTransform = false;
             Guid m_rootId;
             HashMap<Guid, Guid> m_preassigned;
-            Array<UniquePtr<dscene::Scene::PendingPrefabInstance>> m_nestedPins;   // source -> live; pinned on first Execute
+            Array<UniquePtr<scene::Scene::PendingPrefabInstance>> m_nestedPins;   // source -> live; pinned on first Execute
         };
 
     private:
@@ -743,14 +743,14 @@ export namespace draconic::editor
             [[nodiscard]] bool Execute() override
             {
                 if (m_records.IsEmpty()) { return false; }
-                dscene::Scene& scene = m_ctx->Scene();
+                scene::Scene& scene = m_ctx->Scene();
 
                 if (m_newIds.IsEmpty())
                 {
                     // First run: mint the fresh identities through the scene (re-rolls until free).
                     for (const SubtreeRecord& record : m_records)
                     {
-                        const dscene::EntityHandle e = scene.CreateEntity(record.name.AsView());
+                        const scene::EntityHandle e = scene.CreateEntity(record.name.AsView());
                         m_newIds.PushBack(scene.GetEntityId(e));
                     }
                 }
@@ -766,11 +766,11 @@ export namespace draconic::editor
                 for (usize i = 0; i < m_records.Size(); ++i)
                 {
                     const SubtreeRecord& record = m_records[i];
-                    const dscene::EntityHandle e = m_ctx->Resolve(m_newIds[i]);
+                    const scene::EntityHandle e = m_ctx->Resolve(m_newIds[i]);
                     scene.SetLocalTransform(e, record.local);
                     scene.SetActive(e, record.active);
                     // Parent: nil = the paste target; else the remapped intra-subtree parent.
-                    dscene::EntityHandle parent{};
+                    scene::EntityHandle parent{};
                     if (record.parent == Guid{}) { parent = m_ctx->Resolve(m_parent); }
                     else
                     {
@@ -782,7 +782,7 @@ export namespace draconic::editor
                     if (parent.IsAssigned()) { scene.SetParent(e, parent); }
                     for (const SubtreeComponentRecord& component : record.components)
                     {
-                        dscene::ComponentManagerBase* mgr =
+                        scene::ComponentManagerBase* mgr =
                             scene.FindManagerBySerializationId(component.typeId.AsView());
                         if (mgr == nullptr) { continue; }
                         MemoryStream buffer;
@@ -800,7 +800,7 @@ export namespace draconic::editor
             {
                 // Destroying the pasted ROOT takes the whole subtree with it (records are
                 // pre-order: index 0 is the root).
-                const dscene::EntityHandle root = m_ctx->Resolve(m_newIds[0]);
+                const scene::EntityHandle root = m_ctx->Resolve(m_newIds[0]);
                 if (root.IsAssigned()) { m_ctx->Scene().DestroyEntity(root); }
             }
 
@@ -828,8 +828,8 @@ export namespace draconic::editor
 
             [[nodiscard]] bool Execute() override
             {
-                dscene::Scene& scene = m_ctx->Scene();
-                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
+                scene::Scene& scene = m_ctx->Scene();
+                const scene::EntityHandle e = m_ctx->Resolve(m_entity);
                 if (!e.IsAssigned()) { return false; }
 
                 MemoryStream buffer;
@@ -837,7 +837,7 @@ export namespace draconic::editor
                 (void)buffer.Seek(0, SeekOrigin::Begin);
                 BinarySerializer ar(buffer, SerializeMode::Read);
                 draconic::core::Serialize(ar, "type", m_typeId);
-                dscene::ComponentManagerBase* mgr =
+                scene::ComponentManagerBase* mgr =
                     scene.FindManagerBySerializationId(m_typeId.AsView());
                 if (mgr == nullptr || !ar.IsOk()) { return false; }
 
@@ -864,9 +864,9 @@ export namespace draconic::editor
 
             void Undo() override
             {
-                dscene::Scene& scene = m_ctx->Scene();
-                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
-                dscene::ComponentManagerBase* mgr =
+                scene::Scene& scene = m_ctx->Scene();
+                const scene::EntityHandle e = m_ctx->Resolve(m_entity);
+                scene::ComponentManagerBase* mgr =
                     scene.FindManagerBySerializationId(m_typeId.AsView());
                 if (!e.IsAssigned() || mgr == nullptr) { return; }
                 if (!m_hadComponent) { mgr->RemoveComponent(e); return; }
@@ -898,21 +898,21 @@ export namespace draconic::editor
 
             [[nodiscard]] bool Execute() override
             {
-                dscene::Scene& scene = m_ctx->Scene();
-                const dscene::EntityHandle root = m_ctx->Resolve(m_entity);
+                scene::Scene& scene = m_ctx->Scene();
+                const scene::EntityHandle root = m_ctx->Resolve(m_entity);
                 if (!root.IsAssigned()) { return false; }
 
                 // Snapshot the subtree PRE-ORDER (parents before children) so Undo can recreate
                 // top-down and parent immediately.
                 m_records.Clear();
-                m_ctx->CollectSubtree(root, [this, &scene](dscene::EntityHandle e) {
+                m_ctx->CollectSubtree(root, [this, &scene](scene::EntityHandle e) {
                     EntityRecord record;
                     record.id     = scene.GetEntityId(e);
                     record.parent = scene.GetEntityId(scene.GetParent(e));
                     record.name   = String(scene.GetEntityName(e));
                     record.local  = scene.GetLocalTransform(e);
                     record.active = scene.IsActive(e);
-                    scene.ForEachManager([&](dscene::ComponentManagerBase& mgr) {
+                    scene.ForEachManager([&](scene::ComponentManagerBase& mgr) {
                         if (!mgr.IsSerializable() || !mgr.HasComponent(e)) { return; }
                         ComponentRecord component;
                         component.typeId = String(mgr.SerializationTypeId());
@@ -933,18 +933,18 @@ export namespace draconic::editor
 
             void Undo() override
             {
-                dscene::Scene& scene = m_ctx->Scene();
+                scene::Scene& scene = m_ctx->Scene();
                 // Pre-order records: parent entities are recreated before their children.
                 for (const EntityRecord& record : m_records)
                 {
-                    const dscene::EntityHandle e = scene.CreateEntity(record.id, record.name.AsView());
+                    const scene::EntityHandle e = scene.CreateEntity(record.id, record.name.AsView());
                     scene.SetLocalTransform(e, record.local);
                     scene.SetActive(e, record.active);
-                    const dscene::EntityHandle parent = m_ctx->Resolve(record.parent);
+                    const scene::EntityHandle parent = m_ctx->Resolve(record.parent);
                     if (parent.IsAssigned()) { scene.SetParent(e, parent); }
                     for (const ComponentRecord& component : record.components)
                     {
-                        dscene::ComponentManagerBase* mgr =
+                        scene::ComponentManagerBase* mgr =
                             scene.FindManagerBySerializationId(component.typeId.AsView());
                         if (mgr == nullptr) { continue; }
                         MemoryStream buffer;
@@ -988,7 +988,7 @@ export namespace draconic::editor
 
             [[nodiscard]] bool Execute() override
             {
-                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
+                const scene::EntityHandle e = m_ctx->Resolve(m_entity);
                 if (!e.IsAssigned()) { return false; }
                 if (!m_hasOld)
                 {
@@ -1001,7 +1001,7 @@ export namespace draconic::editor
 
             void Undo() override
             {
-                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
+                const scene::EntityHandle e = m_ctx->Resolve(m_entity);
                 if (e.IsAssigned()) { m_ctx->Scene().SetEntityName(e, m_oldName.AsView()); }
             }
 
@@ -1031,10 +1031,10 @@ export namespace draconic::editor
 
             [[nodiscard]] bool Execute() override
             {
-                dscene::Scene& scene = m_ctx->Scene();
-                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
+                scene::Scene& scene = m_ctx->Scene();
+                const scene::EntityHandle e = m_ctx->Resolve(m_entity);
                 if (!e.IsAssigned()) { return false; }
-                const dscene::EntityHandle parent = m_ctx->Resolve(m_newParent);
+                const scene::EntityHandle parent = m_ctx->Resolve(m_newParent);
                 if (m_newParent != Guid{} && !parent.IsAssigned()) { return false; }
                 // Refuse cycles (reparenting onto self or a descendant).
                 if (m_newParent != Guid{} && m_ctx->IsSelfOrAncestor(m_newParent, m_entity)) { return false; }
@@ -1056,13 +1056,13 @@ export namespace draconic::editor
 
             void Undo() override
             {
-                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
+                const scene::EntityHandle e = m_ctx->Resolve(m_entity);
                 if (!e.IsAssigned()) { return; }
-                dscene::Scene& scene = m_ctx->Scene();
+                scene::Scene& scene = m_ctx->Scene();
                 scene.SetParent(e, m_ctx->Resolve(m_oldParent));
                 // SetParent appends to the END of the sibling list; restore the exact slot
                 // (otherwise the undone entity visibly jumps to the bottom of its list).
-                const dscene::EntityHandle before = m_ctx->Resolve(m_oldNextSibling);
+                const scene::EntityHandle before = m_ctx->Resolve(m_oldNextSibling);
                 if (before.IsAssigned()) { scene.MoveBefore(e, before); }
                 scene.SetLocalTransform(e, m_oldLocal);   // exact, no decompose drift
             }
@@ -1090,16 +1090,16 @@ export namespace draconic::editor
 
             [[nodiscard]] bool Execute() override
             {
-                dscene::Scene& scene = m_ctx->Scene();
-                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
+                scene::Scene& scene = m_ctx->Scene();
+                const scene::EntityHandle e = m_ctx->Resolve(m_entity);
                 if (!e.IsAssigned()) { return false; }
-                const dscene::EntityHandle sibling = m_ctx->Resolve(m_sibling);
+                const scene::EntityHandle sibling = m_ctx->Resolve(m_sibling);
                 if (m_sibling != Guid{} && !sibling.IsAssigned()) { return false; }
                 if (m_sibling == m_entity) { return false; }
                 // Cycle: the target slot's PARENT lies inside the moved entity's own subtree.
                 if (sibling.IsAssigned())
                 {
-                    const dscene::EntityHandle parent = scene.GetParent(sibling);
+                    const scene::EntityHandle parent = scene.GetParent(sibling);
                     if (parent.IsAssigned()
                         && m_ctx->IsSelfOrAncestor(scene.GetEntityId(parent), m_entity))
                     {
@@ -1117,22 +1117,22 @@ export namespace draconic::editor
 
                 // Keep the world transform only when the PARENT changes; a same-parent reorder
                 // keeps the exact local (no decompose round-trip noise).
-                const dscene::EntityHandle newParent = sibling.IsAssigned()
-                    ? scene.GetParent(sibling) : dscene::EntityHandle::Invalid();
+                const scene::EntityHandle newParent = sibling.IsAssigned()
+                    ? scene.GetParent(sibling) : scene::EntityHandle::Invalid();
                 const bool parentChanges = scene.GetEntityId(newParent) != m_oldParent;
 
                 const u64 before = scene.Revision();
                 if (sibling.IsAssigned()) { scene.MoveBefore(e, sibling, parentChanges); }
-                else { scene.SetParent(e, dscene::EntityHandle::Invalid(), parentChanges); }
+                else { scene.SetParent(e, scene::EntityHandle::Invalid(), parentChanges); }
                 return scene.Revision() != before;   // unchanged position = no-op, drop
             }
 
             void Undo() override
             {
-                dscene::Scene& scene = m_ctx->Scene();
-                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
+                scene::Scene& scene = m_ctx->Scene();
+                const scene::EntityHandle e = m_ctx->Resolve(m_entity);
                 if (!e.IsAssigned()) { return; }
-                const dscene::EntityHandle oldNext = m_ctx->Resolve(m_oldNext);
+                const scene::EntityHandle oldNext = m_ctx->Resolve(m_oldNext);
                 if (oldNext.IsAssigned()) { scene.MoveBefore(e, oldNext); }
                 else { scene.SetParent(e, m_ctx->Resolve(m_oldParent)); }   // was last: append
                 scene.SetLocalTransform(e, m_oldLocal);   // exact, no decompose drift
@@ -1158,7 +1158,7 @@ export namespace draconic::editor
 
             [[nodiscard]] bool Execute() override
             {
-                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
+                const scene::EntityHandle e = m_ctx->Resolve(m_entity);
                 if (!e.IsAssigned()) { return false; }
                 m_old = m_ctx->Scene().IsActive(e);
                 if (m_old == m_active) { return false; }   // no-op
@@ -1167,7 +1167,7 @@ export namespace draconic::editor
             }
             void Undo() override
             {
-                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
+                const scene::EntityHandle e = m_ctx->Resolve(m_entity);
                 if (e.IsAssigned()) { m_ctx->Scene().SetActive(e, m_old); }
             }
             [[nodiscard]] StringView TypeId() const override { return u8"set_active"; }
@@ -1213,7 +1213,7 @@ export namespace draconic::editor
         private:
             [[nodiscard]] draconic::resource::Ref<T>* ResolveRef()
             {
-                dscene::SceneSystem* system = m_ctx->FindSystemBySettingsType(m_settingsType);
+                scene::SceneSystem* system = m_ctx->FindSystemBySettingsType(m_settingsType);
                 if (system == nullptr) { return nullptr; }
                 const Instance settings{ system->SettingsInstance(), m_settingsType };
                 const PropertyInfo* prop = FindProperty(*m_settingsType, m_property);
@@ -1263,8 +1263,8 @@ export namespace draconic::editor
             // Component pools move on add/remove, so the address re-derives every apply.
             [[nodiscard]] draconic::resource::Ref<T>* ResolveRef()
             {
-                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
-                dscene::ComponentManagerBase* mgr = m_ctx->FindManager(m_type);
+                const scene::EntityHandle e = m_ctx->Resolve(m_entity);
+                scene::ComponentManagerBase* mgr = m_ctx->FindManager(m_type);
                 if (!e.IsAssigned() || mgr == nullptr) { return nullptr; }
                 const Instance component = mgr->GetComponentInstance(e);
                 const PropertyInfo* prop = component.IsEmpty() ? nullptr : FindProperty(*m_type, m_property);
@@ -1290,7 +1290,7 @@ export namespace draconic::editor
 
             [[nodiscard]] bool Execute() override
             {
-                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
+                const scene::EntityHandle e = m_ctx->Resolve(m_entity);
                 if (!e.IsAssigned()) { return false; }
                 if (!m_hasOld)
                 {
@@ -1302,7 +1302,7 @@ export namespace draconic::editor
             }
             void Undo() override
             {
-                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
+                const scene::EntityHandle e = m_ctx->Resolve(m_entity);
                 if (e.IsAssigned()) { m_ctx->Scene().SetLocalTransform(e, m_old); }
             }
             [[nodiscard]] StringView TypeId() const override { return u8"set_transform"; }
@@ -1338,7 +1338,7 @@ export namespace draconic::editor
 
             [[nodiscard]] bool Execute() override
             {
-                dscene::SceneSystem* system = m_ctx->FindSystemBySettingsType(m_settingsType);
+                scene::SceneSystem* system = m_ctx->FindSystemBySettingsType(m_settingsType);
                 if (system == nullptr) { return false; }
                 if (m_old.IsEmpty())
                 {
@@ -1353,13 +1353,13 @@ export namespace draconic::editor
             }
             void Undo() override
             {
-                dscene::SceneSystem* system = m_ctx->FindSystemBySettingsType(m_settingsType);
+                scene::SceneSystem* system = m_ctx->FindSystemBySettingsType(m_settingsType);
                 if (system != nullptr) { (void)Apply(*system, m_old); }
             }
             [[nodiscard]] StringView TypeId() const override { return u8"set_scene_settings_block"; }
 
         private:
-            static bool Apply(dscene::SceneSystem& system, const Array<byte>& blob)
+            static bool Apply(scene::SceneSystem& system, const Array<byte>& blob)
             {
                 MemoryStream buffer;
                 if (buffer.Write(blob.Data(), blob.Size()) != blob.Size()) { return false; }
@@ -1468,7 +1468,7 @@ export namespace draconic::editor
 
             [[nodiscard]] Instance ResolveSettings(const PropertyInfo** outProp)
             {
-                dscene::SceneSystem* system = m_ctx->FindSystemBySettingsType(m_settingsType);
+                scene::SceneSystem* system = m_ctx->FindSystemBySettingsType(m_settingsType);
                 if (system == nullptr) { return {}; }
                 *outProp = FindProperty(*m_settingsType, m_property);
                 return Instance{ system->SettingsInstance(), m_settingsType };
@@ -1581,9 +1581,9 @@ export namespace draconic::editor
 
             [[nodiscard]] Instance ResolveComponent(const PropertyInfo** outProperty)
             {
-                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
+                const scene::EntityHandle e = m_ctx->Resolve(m_entity);
                 if (!e.IsAssigned()) { return {}; }
-                dscene::ComponentManagerBase* mgr = m_ctx->FindManager(m_componentType);
+                scene::ComponentManagerBase* mgr = m_ctx->FindManager(m_componentType);
                 if (mgr == nullptr) { return {}; }
                 const Instance component = mgr->GetComponentInstance(e);
                 if (component.IsEmpty()) { return {}; }
@@ -1611,15 +1611,15 @@ export namespace draconic::editor
 
             [[nodiscard]] bool Execute() override
             {
-                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
-                dscene::ComponentManagerBase* mgr = m_ctx->FindManager(m_type);
+                const scene::EntityHandle e = m_ctx->Resolve(m_entity);
+                scene::ComponentManagerBase* mgr = m_ctx->FindManager(m_type);
                 if (!e.IsAssigned() || mgr == nullptr) { return false; }
                 return mgr->AddDefaultComponent(e);
             }
             void Undo() override
             {
-                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
-                dscene::ComponentManagerBase* mgr = m_ctx->FindManager(m_type);
+                const scene::EntityHandle e = m_ctx->Resolve(m_entity);
+                scene::ComponentManagerBase* mgr = m_ctx->FindManager(m_type);
                 if (e.IsAssigned() && mgr != nullptr) { mgr->RemoveComponent(e); }
             }
             [[nodiscard]] StringView TypeId() const override { return u8"add_component"; }
@@ -1638,8 +1638,8 @@ export namespace draconic::editor
 
             [[nodiscard]] bool Execute() override
             {
-                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
-                dscene::ComponentManagerBase* mgr = m_ctx->FindManager(m_type);
+                const scene::EntityHandle e = m_ctx->Resolve(m_entity);
+                scene::ComponentManagerBase* mgr = m_ctx->FindManager(m_type);
                 if (!e.IsAssigned() || mgr == nullptr || !mgr->HasComponent(e)) { return false; }
 
                 // Snapshot for undo: the serialization blob when the manager persists (full
@@ -1670,8 +1670,8 @@ export namespace draconic::editor
 
             void Undo() override
             {
-                const dscene::EntityHandle e = m_ctx->Resolve(m_entity);
-                dscene::ComponentManagerBase* mgr = m_ctx->FindManager(m_type);
+                const scene::EntityHandle e = m_ctx->Resolve(m_entity);
+                scene::ComponentManagerBase* mgr = m_ctx->FindManager(m_type);
                 if (!e.IsAssigned() || mgr == nullptr) { return; }
                 if (mgr->IsSerializable() && !m_blob.IsEmpty())
                 {
@@ -1708,9 +1708,9 @@ export namespace draconic::editor
             Array<PropertySnapshot> m_properties;
         };
 
-        dscene::Scene* m_scene;
+        scene::Scene* m_scene;
         draconic::resource::ResourceManager* m_resources = nullptr;
-        dscene::PrefabPayloadResolver m_prefabResolver;   // borrowed (optional)              // borrowed (SceneSubsystem owns it via the page)
+        scene::PrefabPayloadResolver m_prefabResolver;   // borrowed (optional)              // borrowed (SceneSubsystem owns it via the page)
         EditorCommandStack* m_commands;      // borrowed (the page owns its stack)
         Selection<Guid> m_selection;
     };

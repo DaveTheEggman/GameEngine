@@ -8,12 +8,12 @@ import draconic.core;
 import draconic.editor.core;
 
 using namespace draconic::core;
-namespace ed = draconic::editor;
+namespace editor = draconic::editor;
 
 namespace
 {
     // Pump Update() until no job is in flight (bounded, so a hang fails instead of spinning forever).
-    void PumpUntilIdle(ed::EditorJobService& jobs, const Function<void(StringView)>& log = {})
+    void PumpUntilIdle(editor::EditorJobService& jobs, const Function<void(StringView)>& log = {})
     {
         int guard = 0;
         while (jobs.IsBusy() && guard++ < 2'000'000) { jobs.Update(log); }
@@ -23,12 +23,12 @@ namespace
 
 TEST_CASE("jobs: a submitted job runs on a worker, reports, and completes on Update")
 {
-    ed::EditorJobService jobs;
+    editor::EditorJobService jobs;
 
     bool doneFired = false;
     bool okStatus = false;
     jobs.Submit(u8"Work",
-        [](ed::JobContext& ctx) -> Status
+        [](editor::JobContext& ctx) -> Status
         {
             ctx.SetStep(u8"phase one", 1, 2);
             ctx.SetFraction(0.5f);
@@ -56,10 +56,10 @@ TEST_CASE("jobs: a submitted job runs on a worker, reports, and completes on Upd
 
 TEST_CASE("jobs: a failing job propagates its Status to onDone")
 {
-    ed::EditorJobService jobs;
+    editor::EditorJobService jobs;
     bool failed = false;
     jobs.Submit(u8"Bad",
-        [](ed::JobContext&) -> Status { return Status{ ErrorCode::Internal }; },
+        [](editor::JobContext&) -> Status { return Status{ ErrorCode::Internal }; },
         [&](Status s) { failed = !s.IsOk(); });
     PumpUntilIdle(jobs);
     CHECK(failed);
@@ -67,12 +67,12 @@ TEST_CASE("jobs: a failing job propagates its Status to onDone")
 
 TEST_CASE("jobs: submissions run one at a time, in order")
 {
-    ed::EditorJobService jobs;
+    editor::EditorJobService jobs;
     Array<int> order;
     // The completion callbacks run on the main thread (from Update), so appending is race-free.
     for (int i = 0; i < 3; ++i)
     {
-        jobs.Submit(u8"n", [](ed::JobContext&) -> Status { return Status{}; },
+        jobs.Submit(u8"n", [](editor::JobContext&) -> Status { return Status{}; },
                     [&order, i](Status) { order.PushBack(i); });
     }
     PumpUntilIdle(jobs);

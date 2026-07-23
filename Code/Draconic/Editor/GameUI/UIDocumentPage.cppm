@@ -34,74 +34,72 @@ using namespace draconic::core;
 
 export namespace draconic::editor
 {
-    namespace grt = draconic::runtime;
-    namespace gui = draconic::ui;
-    namespace guirt = draconic::ui::runtime;
-    namespace guivp = draconic::ui::viewport;
-    namespace gvgr = draconic::vg::renderer;
+    namespace runtime = draconic::runtime;
+    namespace ui = draconic::ui;
+    namespace vg = draconic::vg;
     namespace rhi = draconic::rhi;
 
     class UIDocumentEditorPage final : public app::UIEditorPage
     {
     public:
-        UIDocumentEditorPage(EditorContext& context, grt::IApplicationHost& host,
-                             guirt::UIHost& uiHost, draconic::content::Instance& instance)
+        UIDocumentEditorPage(EditorContext& context, runtime::IApplicationHost& host,
+                             ui::runtime::UIHost& uiHost, draconic::content::Instance& instance)
             : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
         {
-            m_ui = host.Ctx().GetSubsystem<gui::UISubsystem>();
+            m_ui = host.Ctx().GetSubsystem<ui::UISubsystem>();
             SetInstanceId(instance.Id());
             RefPtr<ISerializable> object = instance.ReadObject();
-            if (auto* asset = Cast<gui::UIDocumentAsset>(object.Get()))
+            if (auto* asset = Cast<ui::UIDocumentAsset>(object.Get()))
             {
                 m_markup = String(asset->markup.AsView());
             }
 
-            auto row = MakeRef<gui::FlexLayout>(DefaultAllocator());
-            row->Direction = gui::Orientation::Horizontal;
+            auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            row->Direction = ui::Orientation::Horizontal;
             row->Spacing = 8.0f;
 
             // Left: the text pane (v1 = the multi-line EditText).
-            m_editor = MakeRef<gui::EditText>(DefaultAllocator());
+            m_editor = MakeRef<ui::EditText>(DefaultAllocator());
             m_editor->Multiline.SetValue(true);
             m_editor->SetText(m_markup.AsView());
             UIDocumentEditorPage* self = this;
-            m_editor->OnTextChanged.Add([self](gui::EditText* edit) {
+            m_editor->OnTextChanged.Add([self](ui::EditText* edit) {
                 self->m_markup = String(edit->Text());
                 self->MarkDirty();
                 self->m_previewDelay = 0.35f;   // debounce: rebuild shortly after typing stops
             });
             {
-                auto lp = MakeRef<gui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                 lp->Grow = 1.0f;
-                lp->Height = gui::SizeSpec::Match();
+                lp->Height = ui::SizeSpec::Match();
                 row->AddView(m_editor.Get(), lp);
             }
 
             // Right: inline status over the live preview.
-            auto right = MakeRef<gui::FlexLayout>(DefaultAllocator());
-            right->Direction = gui::Orientation::Vertical;
+            auto right = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            right->Direction = ui::Orientation::Vertical;
             right->Spacing = 4.0f;
-            m_status = MakeRef<gui::Label>(DefaultAllocator(), StringView(u8""));
+            m_status = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8""));
             m_status->FontSize.SetValue(12.0f);
             {
-                auto lp = MakeRef<gui::FlexLayoutParams>(DefaultAllocator());
-                lp->Width = gui::SizeSpec::Match();
+                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Width = ui::SizeSpec::Match();
                 right->AddView(m_status.Get(), lp);
             }
             // The preview surface: an offscreen target the RUNTIME UI subsystem renders
             // into (the editor UI just displays the texture).
-            m_viewport = MakeRef<guivp::ViewportView>(DefaultAllocator());
+            m_viewport = MakeRef<ui::viewport::ViewportView>(DefaultAllocator());
             m_viewport->ClearColor = rhi::ClearColor{ 0.08f, 0.09f, 0.11f, 1.0f };
             {
-                auto lp = MakeRef<gui::FlexLayoutParams>(DefaultAllocator());
-                lp->Width = gui::SizeSpec::Match();
+                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Width = ui::SizeSpec::Match();
                 lp->Grow = 1.0f;
                 right->AddView(m_viewport.Get(), lp);
             }
             {
-                auto lp = MakeRef<gui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                 lp->Grow = 1.0f;
-                lp->Height = gui::SizeSpec::Match();
+                lp->Height = ui::SizeSpec::Match();
                 row->AddView(right.Get(), lp);
             }
             m_content = row;
@@ -109,7 +107,7 @@ export namespace draconic::editor
         }
 
         [[nodiscard]] StringView Title() const override { return m_title.AsView(); }
-        [[nodiscard]] gui::View* ContentView() override { return m_content.Get(); }
+        [[nodiscard]] ui::View* ContentView() override { return m_content.Get(); }
 
         [[nodiscard]] Status Save() override
         {
@@ -117,7 +115,7 @@ export namespace draconic::editor
                 (m_context->Project() != nullptr)
                     ? m_context->Project()->SourceDb().GetInstance(InstanceId()) : nullptr;
             if (instance == nullptr) { return Status{ ErrorCode::NotFound }; }
-            gui::UIDocumentAsset asset;
+            ui::UIDocumentAsset asset;
             asset.markup = String(m_markup.AsView());
             const Status written = instance->WriteObject(asset);
             if (written.IsOk())
@@ -129,7 +127,7 @@ export namespace draconic::editor
             return written;
         }
 
-        void OnUpdate(grt::IApplicationHost&, f32 dt) override
+        void OnUpdate(runtime::IApplicationHost&, f32 dt) override
         {
             EnsureViewportBound();
             if (m_previewDelay > 0.0f)
@@ -139,7 +137,7 @@ export namespace draconic::editor
             }
         }
 
-        void OnAfterSceneRender(grt::IApplicationHost&,
+        void OnAfterSceneRender(runtime::IApplicationHost&,
                                 draconic::graphics::FrameContext& frame) override
         {
             if (!m_viewport->IsReady() || !frame.valid) { return; }
@@ -175,11 +173,11 @@ export namespace draconic::editor
         // the page's hosting window + its VG renderer.
         void EnsureViewportBound()
         {
-            gui::RootView* root = m_viewport->Root();
+            ui::RootView* root = m_viewport->Root();
             if (root == nullptr) { return; }
             draconic::graphics::RenderWindow* window = m_uiHost->WindowForRoot(root);
             if (window == nullptr || window == m_hostWindow) { return; }
-            gvgr::VGRenderer* renderer = m_uiHost->RendererFor(window);
+            vg::renderer::VGRenderer* renderer = m_uiHost->RendererFor(window);
             if (renderer == nullptr) { return; }
             if (m_hostWindow == nullptr)
             {
@@ -196,10 +194,10 @@ export namespace draconic::editor
         void RebuildPreview()
         {
             // Validation pass for the inline status (warnings + parse result)...
-            gui::MarkupLoader::Initialize();
+            ui::MarkupLoader::Initialize();
             Array<String> warnings;
-            RefPtr<gui::View> parsed =
-                gui::MarkupLoader::LoadFromString(m_markup.AsView(), nullptr, &warnings);
+            RefPtr<ui::View> parsed =
+                ui::MarkupLoader::LoadFromString(m_markup.AsView(), nullptr, &warnings);
             if (parsed.Get() == nullptr)
             {
                 m_status->SetText(u8"Parse FAILED - showing the last good preview.");
@@ -212,9 +210,9 @@ export namespace draconic::editor
                 m_status->SetText(u8"No runtime UI subsystem - preview unavailable.");
                 return;
             }
-            gui::UIDocument document;
+            ui::UIDocument document;
             document.markup = String(m_markup.AsView());
-            RefPtr<gui::RootView> fresh = m_ui->CreatePreview(document);
+            RefPtr<ui::RootView> fresh = m_ui->CreatePreview(document);
             if (fresh.Get() == nullptr)
             {
                 m_status->SetText(u8"Parse FAILED - showing the last good preview.");
@@ -233,28 +231,28 @@ export namespace draconic::editor
         }
 
         EditorContext* m_context = nullptr;
-        grt::IApplicationHost* m_host = nullptr;
-        guirt::UIHost* m_uiHost = nullptr;
-        gui::UISubsystem* m_ui = nullptr;   // the RUNTIME context's subsystem
+        runtime::IApplicationHost* m_host = nullptr;
+        ui::runtime::UIHost* m_uiHost = nullptr;
+        ui::UISubsystem* m_ui = nullptr;   // the RUNTIME context's subsystem
         draconic::graphics::RenderWindow* m_hostWindow = nullptr;
         String m_title;
         String m_markup;
         f32 m_previewDelay = 0.0f;
-        RefPtr<gui::View> m_content;
-        RefPtr<gui::EditText> m_editor;
-        RefPtr<gui::Label> m_status;
-        RefPtr<guivp::ViewportView> m_viewport;
-        RefPtr<gui::RootView> m_previewRoot;   // lives in the RUNTIME context
+        RefPtr<ui::View> m_content;
+        RefPtr<ui::EditText> m_editor;
+        RefPtr<ui::Label> m_status;
+        RefPtr<ui::viewport::ViewportView> m_viewport;
+        RefPtr<ui::RootView> m_previewRoot;   // lives in the RUNTIME context
     };
 
     class UIDocumentPageFactory final : public IEditorPageFactory
     {
     public:
-        UIDocumentPageFactory(grt::IApplicationHost& host, guirt::UIHost& uiHost)
+        UIDocumentPageFactory(runtime::IApplicationHost& host, ui::runtime::UIHost& uiHost)
             : m_host(&host), m_uiHost(&uiHost) {}
         [[nodiscard]] const TypeInfo* PrimaryType() const override
         {
-            return &gui::UIDocumentAsset::StaticType();
+            return &ui::UIDocumentAsset::StaticType();
         }
         [[nodiscard]] UniquePtr<EditorPage> CreatePage(EditorContext& context,
                                                        draconic::content::Instance& instance) override
@@ -265,13 +263,13 @@ export namespace draconic::editor
         }
 
     private:
-        grt::IApplicationHost* m_host;
-        guirt::UIHost* m_uiHost;
+        runtime::IApplicationHost* m_host;
+        ui::runtime::UIHost* m_uiHost;
     };
 
     /// The editor executable's entry point for the game-UI plugin.
-    inline void RegisterGameUIEditor(EditorContext& context, grt::IApplicationHost& host,
-                                     guirt::UIHost& uiHost)
+    inline void RegisterGameUIEditor(EditorContext& context, runtime::IApplicationHost& host,
+                                     ui::runtime::UIHost& uiHost)
     {
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
             DefaultAllocator().New<UIDocumentPageFactory>(host, uiHost), DefaultAllocator()));

@@ -18,7 +18,7 @@ using namespace draconic::core;
 using namespace draconic::editor;
 using namespace draconic::editor::app;
 
-namespace tk = draconic::ui::toolkit;
+namespace ui = draconic::ui;
 
 namespace
 {
@@ -60,7 +60,7 @@ TEST_CASE("editor-shell: page panels dock into the center document area as closa
     shell.Build(ctx, nullptr, 1280, 720);
 
     auto content = MakeRef<draconic::ui::Label>(DefaultAllocator(), StringView(u8"scene content"));
-    tk::DockablePanel* page = shell.AddPagePanel(u8"Scene 1", content.Get());
+    ui::toolkit::DockablePanel* page = shell.AddPagePanel(u8"Scene 1", content.Get());
     REQUIRE(page != nullptr);
 
     // The page tabs with the Welcome panel in the center group (same parent tab group).
@@ -78,7 +78,7 @@ TEST_CASE("editor-shell: dock layout survives a save/restore round-trip")
     shell.Build(ctx, nullptr, 1280, 720);
 
     // Capture the default arrangement, save it.
-    UniquePtr<tk::DockLayoutNode> before = shell.Docks()->ExportLayout();
+    UniquePtr<ui::toolkit::DockLayoutNode> before = shell.Docks()->ExportLayout();
     REQUIRE(static_cast<bool>(before));
     REQUIRE(shell.SaveLayout(dir).IsOk());
     CHECK(FileExists(PathJoin(dir, u8"layout.xml")));
@@ -87,18 +87,18 @@ TEST_CASE("editor-shell: dock layout survives a save/restore round-trip")
     shell.Docks()->UndockPanel(shell.AssetsPanel());
     CHECK(shell.Docks()->FindPanelById(u8"assets") != nullptr);   // still registered while undocked
     REQUIRE(shell.RestoreLayout(dir).IsOk());
-    UniquePtr<tk::DockLayoutNode> after = shell.Docks()->ExportLayout();
+    UniquePtr<ui::toolkit::DockLayoutNode> after = shell.Docks()->ExportLayout();
     REQUIRE(static_cast<bool>(after));
 
     // Structural comparison: same node types, same panel ids in the same tab order.
     struct Compare
     {
-        static bool Nodes(const tk::DockLayoutNode* a, const tk::DockLayoutNode* b)
+        static bool Nodes(const ui::toolkit::DockLayoutNode* a, const ui::toolkit::DockLayoutNode* b)
         {
             if ((a == nullptr) != (b == nullptr)) { return false; }
             if (a == nullptr) { return true; }
             if (a->Type != b->Type) { return false; }
-            if (a->Type == tk::DockLayoutNodeType::TabGroup)
+            if (a->Type == ui::toolkit::DockLayoutNodeType::TabGroup)
             {
                 if (a->PanelIds.Size() != b->PanelIds.Size()) { return false; }
                 for (usize i = 0; i < a->PanelIds.Size(); ++i)
@@ -134,21 +134,21 @@ TEST_CASE("editor-layout: restore from a missing file reports NotFound")
 TEST_CASE("editor-layout: layout node round-trips nested splits through XML")
 {
     // A hand-built split tree: [A | (B tabbed C)] over D - exercises nesting, ratios, tab order.
-    tk::DockLayoutNode root;
-    root.Type = tk::DockLayoutNodeType::Split;
+    ui::toolkit::DockLayoutNode root;
+    root.Type = ui::toolkit::DockLayoutNodeType::Split;
     root.Direction = draconic::ui::Orientation::Vertical;
     root.SplitRatio = 0.75f;
-    root.First = MakeUnique<tk::DockLayoutNode>(DefaultAllocator());
-    root.First->Type = tk::DockLayoutNodeType::Split;
+    root.First = MakeUnique<ui::toolkit::DockLayoutNode>(DefaultAllocator());
+    root.First->Type = ui::toolkit::DockLayoutNodeType::Split;
     root.First->Direction = draconic::ui::Orientation::Horizontal;
     root.First->SplitRatio = 0.25f;
-    root.First->First = MakeUnique<tk::DockLayoutNode>(DefaultAllocator());
+    root.First->First = MakeUnique<ui::toolkit::DockLayoutNode>(DefaultAllocator());
     root.First->First->PanelIds.PushBack(String(u8"a"));
-    root.First->Second = MakeUnique<tk::DockLayoutNode>(DefaultAllocator());
+    root.First->Second = MakeUnique<ui::toolkit::DockLayoutNode>(DefaultAllocator());
     root.First->Second->PanelIds.PushBack(String(u8"b"));
     root.First->Second->PanelIds.PushBack(String(u8"c"));
     root.First->Second->ActiveTabIndex = 1;
-    root.Second = MakeUnique<tk::DockLayoutNode>(DefaultAllocator());
+    root.Second = MakeUnique<ui::toolkit::DockLayoutNode>(DefaultAllocator());
     root.Second->PanelIds.PushBack(String(u8"d"));
 
     // Write to XML text, read back.
@@ -162,7 +162,7 @@ TEST_CASE("editor-layout: layout node round-trips nested splits through XML")
         ctx->Flush(buffer);
     }
 
-    tk::DockLayoutNode loaded;
+    ui::toolkit::DockLayoutNode loaded;
     {
         (void)buffer.Seek(0, SeekOrigin::Begin);   // reuse the write stream for reading
         SerializerFactory factory = draconic::xml::XmlSerializerFactory();
@@ -172,7 +172,7 @@ TEST_CASE("editor-layout: layout node round-trips nested splits through XML")
         REQUIRE(ctx->serializer->IsOk());
     }
 
-    CHECK(loaded.Type == tk::DockLayoutNodeType::Split);
+    CHECK(loaded.Type == ui::toolkit::DockLayoutNodeType::Split);
     CHECK(loaded.Direction == draconic::ui::Orientation::Vertical);
     CHECK(loaded.SplitRatio == doctest::Approx(0.75f));
     REQUIRE(static_cast<bool>(loaded.First));

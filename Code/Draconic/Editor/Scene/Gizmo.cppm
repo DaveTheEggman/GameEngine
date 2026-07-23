@@ -41,8 +41,8 @@ using namespace draconic::core;
 
 export namespace draconic::editor
 {
-    namespace dscene = draconic::scene;
-    namespace ddebug = draconic::render::debug;
+    namespace scene = draconic::scene;
+    namespace render = draconic::render;
 
     enum class GizmoMode : u8 { Translate, Rotate, Scale };
     enum class GizmoSpace : u8 { World, Local };
@@ -318,7 +318,7 @@ export namespace draconic::editor
 
         // === Drawing (debug-draw overlay; the gizmo stays visible through geometry) ===
 
-        void Draw(ddebug::DebugDraw& dd, GizmoMode mode)
+        void Draw(render::debug::DebugDraw& dd, GizmoMode mode)
         {
             switch (mode)
             {
@@ -519,7 +519,7 @@ export namespace draconic::editor
         }
 
         /// A line as a screen-facing overlay quad (ribbon) so it has constant apparent width.
-        void DrawThickLine(ddebug::DebugDraw& dd, Float3 from, Float3 to, Color color, f32 thickness) const
+        void DrawThickLine(render::debug::DebugDraw& dd, Float3 from, Float3 to, Color color, f32 thickness) const
         {
             const Float3 lineDir = to - from;
             if (Dot(lineDir, lineDir) < 0.0001f) { return; }
@@ -531,7 +531,7 @@ export namespace draconic::editor
             dd.DrawQuad(from - side, from + side, to + side, to - side, color, true);
         }
 
-        void DrawAxisArrow(ddebug::DebugDraw& dd, GizmoAxis axis, GizmoMode mode) const
+        void DrawAxisArrow(render::debug::DebugDraw& dd, GizmoAxis axis, GizmoMode mode) const
         {
             const Float3 dir = AxisDirection(axis);
             const Color color = AxisColor(axis, mode);
@@ -552,7 +552,7 @@ export namespace draconic::editor
             }
         }
 
-        void DrawSpanLine(ddebug::DebugDraw& dd) const
+        void DrawSpanLine(render::debug::DebugDraw& dd) const
         {
             // Full-length reference line across the scene during an axis drag: depth-tested
             // solid + faint overlay so the occluded part still reads (PlayCanvas span line).
@@ -565,7 +565,7 @@ export namespace draconic::editor
                         Color{ c.r, c.g, c.b, 0.25f }, true);
         }
 
-        void DrawTranslate(ddebug::DebugDraw& dd)
+        void DrawTranslate(render::debug::DebugDraw& dd)
         {
             for (GizmoAxis a : { GizmoAxis::X, GizmoAxis::Y, GizmoAxis::Z }) { DrawAxisArrow(dd, a, GizmoMode::Translate); }
 
@@ -591,7 +591,7 @@ export namespace draconic::editor
             if (m_dragging) { DrawSpanLine(dd); }
         }
 
-        void DrawScale(ddebug::DebugDraw& dd)
+        void DrawScale(render::debug::DebugDraw& dd)
         {
             const f32 thickness = size * 0.02f;
             for (GizmoAxis a : { GizmoAxis::X, GizmoAxis::Y, GizmoAxis::Z })
@@ -607,7 +607,7 @@ export namespace draconic::editor
             if (m_dragging) { DrawSpanLine(dd); }
         }
 
-        void DrawRotate(ddebug::DebugDraw& dd)
+        void DrawRotate(render::debug::DebugDraw& dd)
         {
             const f32 radius = size * 0.8f;
             const f32 thickness = size * 0.02f;
@@ -637,7 +637,7 @@ export namespace draconic::editor
         }
 
         /// Ring from thick segments; cullBackHalf skips segments on the far side of the camera.
-        void DrawRing(ddebug::DebugDraw& dd, Float3 u, Float3 v, f32 radius, Color color,
+        void DrawRing(render::debug::DebugDraw& dd, Float3 u, Float3 v, f32 radius, Color color,
                       f32 thickness, i32 segments, bool cullBackHalf) const
         {
             const Float3 uN = Normalized(u);
@@ -657,7 +657,7 @@ export namespace draconic::editor
             }
         }
 
-        void DrawAngleGuide(ddebug::DebugDraw& dd, f32 radius)
+        void DrawAngleGuide(render::debug::DebugDraw& dd, f32 radius)
         {
             // Faint start-reference line + solid current line + degree readout (PlayCanvas).
             const Float3 startDir = m_dragRotationU * Cos(m_dragStartAngle) + m_dragRotationV * Sin(m_dragStartAngle);
@@ -751,8 +751,8 @@ export namespace draconic::editor
             }
 
             const Guid* primary = m_edit->EntitySelection().Primary();
-            const dscene::EntityHandle entity = (primary != nullptr) ? m_edit->Resolve(*primary)
-                                                                     : dscene::EntityHandle{};
+            const scene::EntityHandle entity = (primary != nullptr) ? m_edit->Resolve(*primary)
+                                                                     : scene::EntityHandle{};
             if (!entity.IsAssigned())
             {
                 AbortDrag();
@@ -760,7 +760,7 @@ export namespace draconic::editor
                 return false;
             }
 
-            dscene::Scene& scene = m_edit->Scene();
+            scene::Scene& scene = m_edit->Scene();
             m_gizmo.SetCamera(in.cameraPosition, in.cameraForward);
 
             // Pose: position always at the entity's world origin. Orientation = entity WORLD
@@ -816,7 +816,7 @@ export namespace draconic::editor
                 m_dragStartLocal = scene.GetLocalTransform(entity);
 
                 // Parent frame captured once: world deltas convert into parent space.
-                const dscene::EntityHandle parent = scene.GetParent(entity);
+                const scene::EntityHandle parent = scene.GetParent(entity);
                 m_parentInverseWorld = Float4x4::Identity();
                 m_parentRotation = Quaternion::Identity;
                 if (parent.IsAssigned())
@@ -836,7 +836,7 @@ export namespace draconic::editor
         }
 
         /// Draw the gizmo + a mode/space/snap readout into the page's debug-draw list.
-        void Draw(ddebug::DebugDraw& dd)
+        void Draw(render::debug::DebugDraw& dd)
         {
             if (!m_active) { return; }
             m_gizmo.Draw(dd, m_mode);
@@ -860,7 +860,7 @@ export namespace draconic::editor
     private:
         void UpdateDrag(const GizmoFrameInput& in)
         {
-            const dscene::EntityHandle entity = m_edit->Resolve(m_dragEntity);
+            const scene::EntityHandle entity = m_edit->Resolve(m_dragEntity);
             if (!entity.IsAssigned()) { AbortDrag(); return; }
 
             core::Transform t = m_dragStartLocal;

@@ -53,19 +53,18 @@ namespace core = draconic::core;
 export namespace draconic::editor
 {
     namespace ui = draconic::ui;
-    namespace tk = draconic::ui::toolkit;
-    namespace dscene = draconic::scene;
+    namespace scene = draconic::scene;
 
     // A property row for resource::Ref fields: [name | button showing the current asset,
     // click = picker menu]. The value text refreshes from the ref's Guid each frame.
-    class ResourceRefEditor final : public tk::PropertyEditor
+    class ResourceRefEditor final : public ui::toolkit::PropertyEditor
     {
-        DRACONIC_OBJECT(ResourceRefEditor, tk::PropertyEditor)
+        DRACONIC_OBJECT(ResourceRefEditor, ui::toolkit::PropertyEditor)
     public:
         Function<void()> OnPick;   // opens the picker (wired by the inspector)
 
         ResourceRefEditor(StringView name, StringView valueText, StringView category)
-            : tk::PropertyEditor(name, category), m_valueText(valueText) {}
+            : ui::toolkit::PropertyEditor(name, category), m_valueText(valueText) {}
 
         void SetValueText(StringView text)
         {
@@ -171,9 +170,9 @@ export namespace draconic::editor
     // can't express): one row per named group - name field + a toggle per column group.
     // Symmetric by construction (a toggle writes BOTH directions); every edit is one
     // whole-block undoable command, and the inspector's structural rebuild re-reads.
-    class CollisionMatrixEditor final : public tk::PropertyEditor
+    class CollisionMatrixEditor final : public ui::toolkit::PropertyEditor
     {
-        DRACONIC_OBJECT(CollisionMatrixEditor, tk::PropertyEditor)
+        DRACONIC_OBJECT(CollisionMatrixEditor, ui::toolkit::PropertyEditor)
     public:
         Array<String> names;                     // display names (index = group)
         Array<u32> matrix;                       // parallel collide masks
@@ -182,7 +181,7 @@ export namespace draconic::editor
         Function<void()> OnAddGroup;
 
         CollisionMatrixEditor(StringView name, StringView category)
-            : tk::PropertyEditor(name, category) {}
+            : ui::toolkit::PropertyEditor(name, category) {}
 
         void RefreshView() override {}
 
@@ -255,9 +254,9 @@ export namespace draconic::editor
     // Bespoke editor for MeshComponent's material SLOTS (one grid row whose editor view is
     // a column): per slot a picker button + remove + reorder, plus an add button. Rebuilt by
     // the inspector's structural rebuild after every mutation, so it never needs live sync.
-    class MaterialSlotsEditor final : public tk::PropertyEditor
+    class MaterialSlotsEditor final : public ui::toolkit::PropertyEditor
     {
-        DRACONIC_OBJECT(MaterialSlotsEditor, tk::PropertyEditor)
+        DRACONIC_OBJECT(MaterialSlotsEditor, ui::toolkit::PropertyEditor)
     public:
         Function<void(usize)> OnPickSlot;
         Function<void(usize)> OnRemoveSlot;
@@ -266,7 +265,7 @@ export namespace draconic::editor
         Array<String> slotNames;   // display names, set before the row builds
 
         MaterialSlotsEditor(StringView name, StringView category)
-            : tk::PropertyEditor(name, category) {}
+            : ui::toolkit::PropertyEditor(name, category) {}
 
         void RefreshView() override {}
 
@@ -344,7 +343,7 @@ export namespace draconic::editor
             column->Direction = ui::Orientation::Vertical;
             column->Padding = ui::Thickness{ 8, 6 };   // inset the content off the panel edge (like the hierarchy)
 
-            m_grid = MakeRef<tk::PropertyGrid>(DefaultAllocator());
+            m_grid = MakeRef<ui::toolkit::PropertyGrid>(DefaultAllocator());
             {
                 auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                 grow->Grow = 1.0f;
@@ -379,7 +378,7 @@ export namespace draconic::editor
             }
         }
 
-        [[nodiscard]] tk::PropertyGrid* Grid() const noexcept { return m_grid.Get(); }
+        [[nodiscard]] ui::toolkit::PropertyGrid* Grid() const noexcept { return m_grid.Get(); }
 
         // Fill the available space (wrap-to-children would collapse the scrolling grid).
         void OnMeasure(ui::BoxConstraints constraints) override
@@ -415,11 +414,11 @@ export namespace draconic::editor
         {
             const Guid id = SelectedEntity();
             u64 signature = id.high ^ (id.low * 0x9E3779B97F4A7C15ull) ^ m_edit->Scene().Revision();
-            const dscene::EntityHandle e = m_edit->Resolve(id);
+            const scene::EntityHandle e = m_edit->Resolve(id);
             if (e.IsAssigned())
             {
                 u64 bit = 1;
-                m_edit->Scene().ForEachManager([&](dscene::ComponentManagerBase& mgr) {
+                m_edit->Scene().ForEachManager([&](scene::ComponentManagerBase& mgr) {
                     if (mgr.HasComponent(e)) { signature ^= bit * 0xBF58476D1CE4E5B9ull; }
                     bit <<= 1;
                 });
@@ -433,7 +432,7 @@ export namespace draconic::editor
             m_refreshers.Clear();
 
             const Guid id = SelectedEntity();
-            const dscene::EntityHandle e = m_edit->Resolve(id);
+            const scene::EntityHandle e = m_edit->Resolve(id);
             m_addButton->Visibility = e.IsAssigned() ? ui::VisibilityValue::Visible
                                                      : ui::VisibilityValue::Gone;
             // No entity selected: the SCENE's settings (Sedulous scene-modules pattern) -
@@ -443,8 +442,8 @@ export namespace draconic::editor
             BuildEntitySection(id);
             BuildTransformSection(id);
 
-            m_edit->Scene().ForEachManager([&](dscene::ComponentManagerBase& mgr) {
-                const dscene::EntityHandle live = m_edit->Resolve(id);
+            m_edit->Scene().ForEachManager([&](scene::ComponentManagerBase& mgr) {
+                const scene::EntityHandle live = m_edit->Resolve(id);
                 if (live.IsAssigned() && mgr.HasComponent(live)) { BuildComponentSection(id, mgr); }
             });
             Invalidate();
@@ -454,7 +453,7 @@ export namespace draconic::editor
         {
             SceneEditContext* edit = m_edit;
 
-            auto name = MakeRef<tk::StringEditor>(DefaultAllocator(),
+            auto name = MakeRef<ui::toolkit::StringEditor>(DefaultAllocator(),
                 StringView(u8"Name"), m_edit->Scene().GetEntityName(m_edit->Resolve(id)),
                 Function<void(StringView)>{ [edit, id](StringView v) { edit->RenameEntity(id, v); } },
                 StringView(u8"Entity"));
@@ -462,7 +461,7 @@ export namespace draconic::editor
                 raw->SetValue(edit->Scene().GetEntityName(edit->Resolve(id)));
             });
 
-            auto active = MakeRef<tk::BoolEditor>(DefaultAllocator(),
+            auto active = MakeRef<ui::toolkit::BoolEditor>(DefaultAllocator(),
                 StringView(u8"Active"), m_edit->Scene().IsActive(m_edit->Resolve(id)),
                 Function<void(bool)>{ [edit, id](bool v) { edit->SetEntityActive(id, v); } },
                 StringView(u8"Entity"));
@@ -477,7 +476,7 @@ export namespace draconic::editor
             const StringView category = u8"Transform";
             const core::Transform t = m_edit->Scene().GetLocalTransform(m_edit->Resolve(id));
 
-            auto position = MakeRef<tk::Float3Editor>(DefaultAllocator(),
+            auto position = MakeRef<ui::toolkit::Float3Editor>(DefaultAllocator(),
                 StringView(u8"Position"), t.position, -100000.0f, 100000.0f, 0.1f,
                 Function<void(Float3)>{ [edit, id](Float3 v) {
                     core::Transform current = edit->Scene().GetLocalTransform(edit->Resolve(id));
@@ -489,7 +488,7 @@ export namespace draconic::editor
             });
 
             // Rotation displayed as euler DEGREES (x = pitch, y = yaw, z = roll).
-            auto rotation = MakeRef<tk::Float3Editor>(DefaultAllocator(),
+            auto rotation = MakeRef<ui::toolkit::Float3Editor>(DefaultAllocator(),
                 StringView(u8"Rotation"), EulerDegrees(t.rotation), -360.0f, 360.0f, 1.0f,
                 Function<void(Float3)>{ [edit, id](Float3 v) {
                     core::Transform current = edit->Scene().GetLocalTransform(edit->Resolve(id));
@@ -502,7 +501,7 @@ export namespace draconic::editor
                 raw->SetValue(EulerDegrees(edit->Scene().GetLocalTransform(edit->Resolve(id)).rotation));
             });
 
-            auto scale = MakeRef<tk::Float3Editor>(DefaultAllocator(),
+            auto scale = MakeRef<ui::toolkit::Float3Editor>(DefaultAllocator(),
                 StringView(u8"Scale"), t.scale, -100000.0f, 100000.0f, 0.1f,
                 Function<void(Float3)>{ [edit, id](Float3 v) {
                     core::Transform current = edit->Scene().GetLocalTransform(edit->Resolve(id));
@@ -516,7 +515,7 @@ export namespace draconic::editor
 
         void BuildSceneSettingsSections()
         {
-            m_edit->Scene().ForEachSystem([&](dscene::SceneSystem& system) {
+            m_edit->Scene().ForEachSystem([&](scene::SceneSystem& system) {
                 const TypeInfo* type = system.SettingsType();
                 if (type == nullptr || !IsRegisteredType(type)) { return; }
                 // Category = the settings type minus a trailing "Settings"
@@ -534,7 +533,7 @@ export namespace draconic::editor
                     BuildSettingRow(type, prop, category);
                     ApplyPropertyPresentation(type, prop, firstRow,
                         [edit = m_edit, type]() -> Instance {
-                            dscene::SceneSystem* system = edit->FindSystemBySettingsType(type);
+                            scene::SceneSystem* system = edit->FindSystemBySettingsType(type);
                             return (system != nullptr)
                                 ? Instance{ system->SettingsInstance(), type } : Instance{};
                         });
@@ -552,7 +551,7 @@ export namespace draconic::editor
         {
             using draconic::physics::PhysicsSceneSettings;
             SceneEditContext* edit = m_edit;
-            dscene::SceneSystem* system = edit->FindSystemBySettingsType(type);
+            scene::SceneSystem* system = edit->FindSystemBySettingsType(type);
             if (system == nullptr) { return; }
             auto* live = static_cast<PhysicsSceneSettings*>(system->SettingsInstance());
 
@@ -628,7 +627,7 @@ export namespace draconic::editor
             const char* propName = prop.name;
 
             auto getInstance = [edit, type]() -> Instance {
-                dscene::SceneSystem* system = edit->FindSystemBySettingsType(type);
+                scene::SceneSystem* system = edit->FindSystemBySettingsType(type);
                 return (system != nullptr) ? Instance{ system->SettingsInstance(), type } : Instance{};
             };
 
@@ -672,7 +671,7 @@ export namespace draconic::editor
                     }
                     return 0;
                 };
-                auto editor = MakeRef<tk::EnumEditor>(DefaultAllocator(), name, indexOf(rawRead()),
+                auto editor = MakeRef<ui::toolkit::EnumEditor>(DefaultAllocator(), name, indexOf(rawRead()),
                     Span<const StringView>{ items.Data(), items.Size() },
                     readOnly ? Function<void(i32)>{} : Function<void(i32)>{
                         [edit, type, propName, values](i32 index) {
@@ -698,7 +697,7 @@ export namespace draconic::editor
                 // "range" attribute -> bounded slider+field instead of a bare numeric field.
                 if (const Float4* range = RangeOf(prop))
                 {
-                    auto editor = MakeRef<tk::RangeEditor>(DefaultAllocator(), name,
+                    auto editor = MakeRef<ui::toolkit::RangeEditor>(DefaultAllocator(), name,
                         static_cast<f32>(value()), range->x, range->y, range->z,
                         readOnly ? Function<void(f32)>{} : Function<void(f32)>{
                             [edit, type, propName](f32 v) {
@@ -710,7 +709,7 @@ export namespace draconic::editor
                     });
                     return;
                 }
-                auto editor = MakeRef<tk::FloatEditor>(DefaultAllocator(), name, value(),
+                auto editor = MakeRef<ui::toolkit::FloatEditor>(DefaultAllocator(), name, value(),
                     -1e9, 1e9, 0.1, 2,
                     readOnly ? Function<void(f64)>{} : Function<void(f64)>{
                         [edit, type, propName](f64 v) {
@@ -728,7 +727,7 @@ export namespace draconic::editor
                     const Color* c = v.TryGet<Color>();
                     return (c != nullptr) ? *c : Color{ 1, 1, 1, 1 };
                 };
-                auto editor = MakeRef<tk::ColorEditor>(DefaultAllocator(), name, value(),
+                auto editor = MakeRef<ui::toolkit::ColorEditor>(DefaultAllocator(), name, value(),
                     readOnly ? Function<void(Color)>{} : Function<void(Color)>{
                         [edit, type, propName](Color v) {
                             edit->SetSceneSettingProperty(type, propName, Variant::From<Color>(v));
@@ -745,7 +744,7 @@ export namespace draconic::editor
                     const bool* b = v.TryGet<bool>();
                     return (b != nullptr) && *b;
                 };
-                auto editor = MakeRef<tk::BoolEditor>(DefaultAllocator(), name, value(),
+                auto editor = MakeRef<ui::toolkit::BoolEditor>(DefaultAllocator(), name, value(),
                     readOnly ? Function<void(bool)>{} : Function<void(bool)>{
                         [edit, type, propName](bool v) {
                             edit->SetSceneSettingProperty(type, propName, Variant::From<bool>(v));
@@ -762,7 +761,7 @@ export namespace draconic::editor
                     const Float3* f = v.TryGet<Float3>();
                     return (f != nullptr) ? *f : Float3{};
                 };
-                auto editor = MakeRef<tk::Float3Editor>(DefaultAllocator(), name, value(),
+                auto editor = MakeRef<ui::toolkit::Float3Editor>(DefaultAllocator(), name, value(),
                     -100000.0f, 100000.0f, 0.1f,
                     readOnly ? Function<void(Float3)>{} : Function<void(Float3)>{
                         [edit, type, propName](Float3 v) {
@@ -775,7 +774,7 @@ export namespace draconic::editor
             // Other kinds: extend when a settings block needs them.
         }
 
-        void BuildComponentSection(const Guid& id, dscene::ComponentManagerBase& mgr)
+        void BuildComponentSection(const Guid& id, scene::ComponentManagerBase& mgr)
         {
             const TypeInfo* type = mgr.ComponentType();
             if (type == nullptr) { return; }
@@ -806,8 +805,8 @@ export namespace draconic::editor
                 BuildPropertyRow(id, type, prop, category);
                 ApplyPropertyPresentation(type, prop, firstRow,
                     [edit = m_edit, id, type]() -> Instance {
-                        dscene::ComponentManagerBase* mgr = edit->FindManager(type);
-                        const dscene::EntityHandle e = edit->Resolve(id);
+                        scene::ComponentManagerBase* mgr = edit->FindManager(type);
+                        const scene::EntityHandle e = edit->Resolve(id);
                         return (mgr != nullptr && e.IsAssigned())
                             ? mgr->GetComponentInstance(e) : Instance{};
                     });
@@ -833,21 +832,21 @@ export namespace draconic::editor
             // dot (recomputed by the refresher, so it tracks edits and undo without grid
             // rebuilds). Revert rides the undoable paste-component path.
             {
-                dscene::PrefabMemberInfo member;
-                if (mgr.IsSerializable() && dscene::FindPrefabMember(edit->Scene(), id, member))
+                scene::PrefabMemberInfo member;
+                if (mgr.IsSerializable() && scene::FindPrefabMember(edit->Scene(), id, member))
                 {
-                    auto revert = MakeRef<tk::ButtonEditor>(DefaultAllocator(),
+                    auto revert = MakeRef<ui::toolkit::ButtonEditor>(DefaultAllocator(),
                         StringView(u8"Revert to Prefab"),
                         Function<void()>{ [edit, id, type]() {
                             (void)edit->RevertComponentToBaseline(id, type);
                         } }, category);
                     revert->SetTooltip(u8"Reverts this component to the prefab's values (undoable).");
                     revert->SetButtonEnabled(false);   // refresher enables it on an override
-                    dscene::ComponentManagerBase* manager = &mgr;
+                    scene::ComponentManagerBase* manager = &mgr;
                     AddEditor(revert.Get(), [edit, id, manager, raw = revert.Get()]() {
-                        dscene::PrefabMemberInfo m;
-                        const bool overridden = dscene::FindPrefabMember(edit->Scene(), id, m)
-                            && dscene::IsPrefabComponentOverridden(edit->Scene(), m, *manager);
+                        scene::PrefabMemberInfo m;
+                        const bool overridden = scene::FindPrefabMember(edit->Scene(), id, m)
+                            && scene::IsPrefabComponentOverridden(edit->Scene(), m, *manager);
                         raw->SetButtonEnabled(overridden);
                         // " *" matches the dirty-tab convention AND stays inside the editor
                         // font's rasterized range (ExtendedLatin = codepoints <= 255; a
@@ -858,15 +857,15 @@ export namespace draconic::editor
                 }
             }
 
-            auto copy = MakeRef<tk::ButtonEditor>(DefaultAllocator(), StringView(u8"Copy"),
+            auto copy = MakeRef<ui::toolkit::ButtonEditor>(DefaultAllocator(), StringView(u8"Copy"),
                 Function<void()>{ [edit, editor, id, type]() {
                     Array<byte> blob = edit->CopyComponent(id, type);
                     if (!blob.IsEmpty()) { editor->SetClipboard(u8"component", Move(blob)); }
                 } }, category);
-            m_grid->AddProperty(RefPtr<tk::PropertyEditor>(copy.Get()));
-            auto remove = MakeRef<tk::ButtonEditor>(DefaultAllocator(), StringView(u8"Remove"),
+            m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(copy.Get()));
+            auto remove = MakeRef<ui::toolkit::ButtonEditor>(DefaultAllocator(), StringView(u8"Remove"),
                 Function<void()>{ [edit, id, type]() { edit->RemoveComponent(id, type); } }, category);
-            m_grid->AddProperty(RefPtr<tk::PropertyEditor>(remove.Get()));
+            m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(remove.Get()));
         }
 
         // Raw integral value of a bool/enum/int property via the address escape hatch.
@@ -917,7 +916,7 @@ export namespace draconic::editor
 
             for (usize i = firstRow; i < m_grid->PropertyCount(); ++i)
             {
-                tk::PropertyEditor* editor = m_grid->PropertyAt(i);
+                ui::toolkit::PropertyEditor* editor = m_grid->PropertyAt(i);
                 const String* label = (displayName != nullptr) ? displayName->value.TryGet<String>() : nullptr;
                 editor->SetDisplayName(label != nullptr ? label->AsView()
                                                         : PrettifyPropertyName(editor->Name()).AsView());
@@ -1032,8 +1031,8 @@ export namespace draconic::editor
 
             // Pulls the current Variant (empty component -> default Variant guards below).
             auto getVariant = [edit, id, type, propName]() -> Variant {
-                dscene::ComponentManagerBase* mgr = edit->FindManager(type);
-                const dscene::EntityHandle e = edit->Resolve(id);
+                scene::ComponentManagerBase* mgr = edit->FindManager(type);
+                const scene::EntityHandle e = edit->Resolve(id);
                 if (mgr == nullptr || !e.IsAssigned()) { return {}; }
                 const Instance component = mgr->GetComponentInstance(e);
                 const PropertyInfo* p = component.IsEmpty() ? nullptr : FindProperty(*type, propName);
@@ -1047,8 +1046,8 @@ export namespace draconic::editor
                 for (const EnumValue& v : values) { items.PushBack(StringView(reinterpret_cast<const utf8char*>(v.name))); }
 
                 auto rawRead = [edit, id, type, propName]() -> i64 {
-                    dscene::ComponentManagerBase* mgr = edit->FindManager(type);
-                    const dscene::EntityHandle e = edit->Resolve(id);
+                    scene::ComponentManagerBase* mgr = edit->FindManager(type);
+                    const scene::EntityHandle e = edit->Resolve(id);
                     if (mgr == nullptr || !e.IsAssigned()) { return 0; }
                     const Instance component = mgr->GetComponentInstance(e);
                     const PropertyInfo* p = component.IsEmpty() ? nullptr : FindProperty(*type, propName);
@@ -1070,7 +1069,7 @@ export namespace draconic::editor
                     return 0;
                 };
 
-                auto editor = MakeRef<tk::EnumEditor>(DefaultAllocator(), name, indexOf(rawRead()),
+                auto editor = MakeRef<ui::toolkit::EnumEditor>(DefaultAllocator(), name, indexOf(rawRead()),
                     Span<const StringView>{ items.Data(), items.Size() },
                     readOnly ? Function<void(i32)>{} : Function<void(i32)>{
                         [edit, id, type, propName, values](i32 index) {
@@ -1096,7 +1095,7 @@ export namespace draconic::editor
                 // "range" attribute -> bounded slider+field instead of a bare numeric field.
                 if (const Float4* range = RangeOf(prop))
                 {
-                    auto editor = MakeRef<tk::RangeEditor>(DefaultAllocator(), name,
+                    auto editor = MakeRef<ui::toolkit::RangeEditor>(DefaultAllocator(), name,
                         static_cast<f32>(value()), range->x, range->y, range->z,
                         readOnly ? Function<void(f32)>{} : Function<void(f32)>{
                             [edit, id, type, propName](f32 v) {
@@ -1108,7 +1107,7 @@ export namespace draconic::editor
                     });
                     return;
                 }
-                auto editor = MakeRef<tk::FloatEditor>(DefaultAllocator(), name, value(),
+                auto editor = MakeRef<ui::toolkit::FloatEditor>(DefaultAllocator(), name, value(),
                     -1e9, 1e9, 0.1, 2,
                     readOnly ? Function<void(f64)>{} : Function<void(f64)>{
                         [edit, id, type, propName](f64 v) {
@@ -1126,7 +1125,7 @@ export namespace draconic::editor
                     const bool* b = v.TryGet<bool>();
                     return b != nullptr && *b;
                 };
-                auto editor = MakeRef<tk::BoolEditor>(DefaultAllocator(), name, value(),
+                auto editor = MakeRef<ui::toolkit::BoolEditor>(DefaultAllocator(), name, value(),
                     readOnly ? Function<void(bool)>{} : Function<void(bool)>{
                         [edit, id, type, propName](bool v) {
                             edit->SetComponentProperty(id, type, propName, Variant::From<bool>(v));
@@ -1154,7 +1153,7 @@ export namespace draconic::editor
                     else if (intType == &TypeOf<u64>()) { edit->SetComponentProperty(id, type, propName, Variant::From<u64>(static_cast<u64>(v))); }
                     else { edit->SetComponentProperty(id, type, propName, Variant::From<i64>(v)); }
                 };
-                auto editor = MakeRef<tk::IntEditor>(DefaultAllocator(), name, value(),
+                auto editor = MakeRef<ui::toolkit::IntEditor>(DefaultAllocator(), name, value(),
                     std::numeric_limits<i64>::min(), std::numeric_limits<i64>::max(),
                     readOnly ? Function<void(i64)>{} : Function<void(i64)>{ Move(setter) },
                     category);
@@ -1169,7 +1168,7 @@ export namespace draconic::editor
                     const String* s = v.TryGet<String>();
                     return (s != nullptr) ? String(*s) : String{};
                 };
-                auto editor = MakeRef<tk::StringEditor>(DefaultAllocator(), name, value().AsView(),
+                auto editor = MakeRef<ui::toolkit::StringEditor>(DefaultAllocator(), name, value().AsView(),
                     readOnly ? Function<void(StringView)>{} : Function<void(StringView)>{
                         [edit, id, type, propName](StringView v) {
                             edit->SetComponentProperty(id, type, propName, Variant::From<String>(String(v)));
@@ -1186,7 +1185,7 @@ export namespace draconic::editor
                     const Float3* f = v.TryGet<Float3>();
                     return (f != nullptr) ? *f : Float3{};
                 };
-                auto editor = MakeRef<tk::Float3Editor>(DefaultAllocator(), name, value(),
+                auto editor = MakeRef<ui::toolkit::Float3Editor>(DefaultAllocator(), name, value(),
                     -100000.0f, 100000.0f, 0.1f,
                     readOnly ? Function<void(Float3)>{} : Function<void(Float3)>{
                         [edit, id, type, propName](Float3 v) {
@@ -1204,7 +1203,7 @@ export namespace draconic::editor
                     const Color* c = v.TryGet<Color>();
                     return (c != nullptr) ? *c : Color{ 1, 1, 1, 1 };
                 };
-                auto editor = MakeRef<tk::ColorEditor>(DefaultAllocator(), name, value(),
+                auto editor = MakeRef<ui::toolkit::ColorEditor>(DefaultAllocator(), name, value(),
                     readOnly ? Function<void(Color)>{} : Function<void(Color)>{
                         [edit, id, type, propName](Color v) {
                             edit->SetComponentProperty(id, type, propName, Variant::From<Color>(v));
@@ -1221,7 +1220,7 @@ export namespace draconic::editor
                     const Float2* f = v.TryGet<Float2>();
                     return (f != nullptr) ? *f : Float2{};
                 };
-                auto editor = MakeRef<tk::Float2Editor>(DefaultAllocator(), name, value(),
+                auto editor = MakeRef<ui::toolkit::Float2Editor>(DefaultAllocator(), name, value(),
                     -100000.0f, 100000.0f, 0.1f,
                     readOnly ? Function<void(Float2)>{} : Function<void(Float2)>{
                         [edit, id, type, propName](Float2 v) {
@@ -1239,7 +1238,7 @@ export namespace draconic::editor
                     const Float4* f = v.TryGet<Float4>();
                     return (f != nullptr) ? *f : Float4{};
                 };
-                auto editor = MakeRef<tk::Float4Editor>(DefaultAllocator(), name, value(),
+                auto editor = MakeRef<ui::toolkit::Float4Editor>(DefaultAllocator(), name, value(),
                     -100000.0f, 100000.0f, 0.1f,
                     readOnly ? Function<void(Float4)>{} : Function<void(Float4)>{
                         [edit, id, type, propName](Float4 v) {
@@ -1257,8 +1256,8 @@ export namespace draconic::editor
         template <typename T>
         [[nodiscard]] Guid RefTarget(const Guid& id, const TypeInfo* type, const char* propName)
         {
-            dscene::ComponentManagerBase* mgr = m_edit->FindManager(type);
-            const dscene::EntityHandle e = m_edit->Resolve(id);
+            scene::ComponentManagerBase* mgr = m_edit->FindManager(type);
+            const scene::EntityHandle e = m_edit->Resolve(id);
             if (mgr == nullptr || !e.IsAssigned()) { return Guid{}; }
             const Instance component = mgr->GetComponentInstance(e);
             const PropertyInfo* p = component.IsEmpty() ? nullptr : FindProperty(*type, propName);
@@ -1272,7 +1271,7 @@ export namespace draconic::editor
         void MutateMeshMaterials(const Guid& id,
                                  const Function<void(draconic::render::MeshComponent&)>& mutate)
         {
-            const dscene::EntityHandle e = m_edit->Resolve(id);
+            const scene::EntityHandle e = m_edit->Resolve(id);
             auto* manager = m_edit->Scene().GetSystem<draconic::render::MeshComponentManager>();
             draconic::render::MeshComponent* live =
                 (manager != nullptr && e.IsAssigned()) ? manager->Get(e) : nullptr;
@@ -1315,7 +1314,7 @@ export namespace draconic::editor
 
         void BuildMaterialSlots(const Guid& id, StringView category)
         {
-            const dscene::EntityHandle e = m_edit->Resolve(id);
+            const scene::EntityHandle e = m_edit->Resolve(id);
             auto* manager = m_edit->Scene().GetSystem<draconic::render::MeshComponentManager>();
             draconic::render::MeshComponent* mc =
                 (manager != nullptr && e.IsAssigned()) ? manager->Get(e) : nullptr;
@@ -1367,7 +1366,7 @@ export namespace draconic::editor
             };
             RefPtr<MaterialSlotsEditor> slotsRef = slots;
             AddEditor(slots.Get(), [self, id, slotsRef]() {
-                const dscene::EntityHandle live = self->m_edit->Resolve(id);
+                const scene::EntityHandle live = self->m_edit->Resolve(id);
                 auto* mgr = self->m_edit->Scene().GetSystem<draconic::render::MeshComponentManager>();
                 draconic::render::MeshComponent* c =
                     (mgr != nullptr && live.IsAssigned()) ? mgr->Get(live) : nullptr;
@@ -1388,7 +1387,7 @@ export namespace draconic::editor
         void MutateScriptComponent(const Guid& id,
                                    const Function<void(draconic::script::ScriptComponent&)>& mutate)
         {
-            const dscene::EntityHandle e = m_edit->Resolve(id);
+            const scene::EntityHandle e = m_edit->Resolve(id);
             auto* manager = m_edit->Scene().GetSystem<draconic::script::ScriptComponentManager>();
             draconic::script::ScriptComponent* live =
                 (manager != nullptr && e.IsAssigned()) ? manager->Get(e) : nullptr;
@@ -1434,7 +1433,7 @@ export namespace draconic::editor
 
         void BuildScriptBehaviors(const Guid& id, StringView category)
         {
-            const dscene::EntityHandle e = m_edit->Resolve(id);
+            const scene::EntityHandle e = m_edit->Resolve(id);
             auto* manager = m_edit->Scene().GetSystem<draconic::script::ScriptComponentManager>();
             draconic::script::ScriptComponent* component =
                 (manager != nullptr && e.IsAssigned()) ? manager->Get(e) : nullptr;
@@ -1446,22 +1445,22 @@ export namespace draconic::editor
                 BuildScriptBehaviorRows(id, category, i);
             }
 
-            auto add = MakeRef<tk::ButtonEditor>(DefaultAllocator(),
+            auto add = MakeRef<ui::toolkit::ButtonEditor>(DefaultAllocator(),
                 StringView(u8"+ Add Behavior"),
                 Function<void()>{ [self, id]() {
                     self->MutateScriptComponent(id, [](draconic::script::ScriptComponent& c) {
                         c.behaviors.PushBack(draconic::script::ScriptBehavior{});
                     });
                 } }, category);
-            m_grid->AddProperty(RefPtr<tk::PropertyEditor>(add.Get()));
+            m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(add.Get()));
 
             // Shape-change watcher (add/remove/reorder/pick/override toggle rebuilds).
             const u64 signature = ScriptBehaviorsSignature(*component);
-            auto watcher = MakeRef<tk::ButtonEditor>(DefaultAllocator(), StringView(u8""),
+            auto watcher = MakeRef<ui::toolkit::ButtonEditor>(DefaultAllocator(), StringView(u8""),
                 Function<void()>{ []() {} }, category);
             watcher->SetRowVisible(false);
             AddEditor(watcher.Get(), [self, id, signature]() {
-                const dscene::EntityHandle live = self->m_edit->Resolve(id);
+                const scene::EntityHandle live = self->m_edit->Resolve(id);
                 auto* mgr =
                     self->m_edit->Scene().GetSystem<draconic::script::ScriptComponentManager>();
                 draconic::script::ScriptComponent* c =
@@ -1475,7 +1474,7 @@ export namespace draconic::editor
 
         void BuildScriptBehaviorRows(const Guid& id, StringView category, usize index)
         {
-            const dscene::EntityHandle e = m_edit->Resolve(id);
+            const scene::EntityHandle e = m_edit->Resolve(id);
             auto* manager = m_edit->Scene().GetSystem<draconic::script::ScriptComponentManager>();
             draconic::script::ScriptComponent* component =
                 (manager != nullptr && e.IsAssigned()) ? manager->Get(e) : nullptr;
@@ -1507,7 +1506,7 @@ export namespace draconic::editor
                 dialog->Show(self->Context);
             };
             AddEditor(pickerRaw, [self, id, index, pickerRaw]() {
-                const dscene::EntityHandle live = self->m_edit->Resolve(id);
+                const scene::EntityHandle live = self->m_edit->Resolve(id);
                 auto* mgr =
                     self->m_edit->Scene().GetSystem<draconic::script::ScriptComponentManager>();
                 draconic::script::ScriptComponent* c =
@@ -1519,17 +1518,17 @@ export namespace draconic::editor
             });
 
             // Enabled toggle.
-            auto enabled = MakeRef<tk::BoolEditor>(DefaultAllocator(), StringView(u8"Enabled"),
+            auto enabled = MakeRef<ui::toolkit::BoolEditor>(DefaultAllocator(), StringView(u8"Enabled"),
                 behavior.enabled, Function<void(bool)>{ [self, id, index](bool value) {
                     self->MutateScriptComponent(id, [index, value](
                         draconic::script::ScriptComponent& c) {
                         if (index < c.behaviors.Size()) { c.behaviors[index].enabled = value; }
                     });
                 } }, category);
-            m_grid->AddProperty(RefPtr<tk::PropertyEditor>(enabled.Get()));
+            m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(enabled.Get()));
 
             // Update interval (P3 throttling): seconds between onUpdate; 0 = every tick.
-            auto interval = MakeRef<tk::FloatEditor>(DefaultAllocator(),
+            auto interval = MakeRef<ui::toolkit::FloatEditor>(DefaultAllocator(),
                 StringView(u8"Update Interval"), static_cast<f64>(behavior.updateInterval),
                 0.0, 3600.0, 0.05, 3,
                 Function<void(f64)>{ [self, id, index](f64 value) {
@@ -1543,10 +1542,10 @@ export namespace draconic::editor
                     });
                 } }, category);
             interval->SetTooltip(StringView(u8"Seconds between onUpdate calls (0 = every frame)"));
-            m_grid->AddProperty(RefPtr<tk::PropertyEditor>(interval.Get()));
+            m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(interval.Get()));
 
             // Reorder / remove.
-            auto up = MakeRef<tk::ButtonEditor>(DefaultAllocator(), StringView(u8"Move Up"),
+            auto up = MakeRef<ui::toolkit::ButtonEditor>(DefaultAllocator(), StringView(u8"Move Up"),
                 Function<void()>{ [self, id, index]() {
                     self->MutateScriptComponent(id, [index](draconic::script::ScriptComponent& c) {
                         if (index > 0 && index < c.behaviors.Size())
@@ -1558,14 +1557,14 @@ export namespace draconic::editor
                     });
                 } }, category);
             up->SetButtonEnabled(index > 0);
-            m_grid->AddProperty(RefPtr<tk::PropertyEditor>(up.Get()));
-            auto remove = MakeRef<tk::ButtonEditor>(DefaultAllocator(), StringView(u8"Remove Behavior"),
+            m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(up.Get()));
+            auto remove = MakeRef<ui::toolkit::ButtonEditor>(DefaultAllocator(), StringView(u8"Remove Behavior"),
                 Function<void()>{ [self, id, index]() {
                     self->MutateScriptComponent(id, [index](draconic::script::ScriptComponent& c) {
                         if (index < c.behaviors.Size()) { c.behaviors.RemoveAt(index); }
                     });
                 } }, category);
-            m_grid->AddProperty(RefPtr<tk::PropertyEditor>(remove.Get()));
+            m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(remove.Get()));
 
             // Property rows from the cooked ScriptClass metadata (data-driven; no VM).
             draconic::script::ScriptClass* scriptClass = BehaviorClass(behavior);
@@ -1587,7 +1586,7 @@ export namespace draconic::editor
 
             // The effective value = override if present, else the harvested default.
             auto effective = [self, id, index, hash, property]() -> ScriptPropertyValue {
-                const dscene::EntityHandle live = self->m_edit->Resolve(id);
+                const scene::EntityHandle live = self->m_edit->Resolve(id);
                 auto* mgr =
                     self->m_edit->Scene().GetSystem<draconic::script::ScriptComponentManager>();
                 ScriptComponent* c =
@@ -1612,7 +1611,7 @@ export namespace draconic::editor
             {
                 case ScriptPropertyType::Float:
                 {
-                    auto editor = MakeRef<tk::FloatEditor>(DefaultAllocator(), name,
+                    auto editor = MakeRef<ui::toolkit::FloatEditor>(DefaultAllocator(), name,
                         effective().number, -1e9, 1e9, 0.1, 3,
                         Function<void(f64)>{ [setOverride](f64 v) {
                             ScriptPropertyValue value;
@@ -1631,7 +1630,7 @@ export namespace draconic::editor
                 }
                 case ScriptPropertyType::Int:
                 {
-                    auto editor = MakeRef<tk::IntEditor>(DefaultAllocator(), name,
+                    auto editor = MakeRef<ui::toolkit::IntEditor>(DefaultAllocator(), name,
                         static_cast<i64>(effective().number),
                         std::numeric_limits<i64>::min(), std::numeric_limits<i64>::max(),
                         Function<void(i64)>{ [setOverride](i64 v) {
@@ -1651,7 +1650,7 @@ export namespace draconic::editor
                 }
                 case ScriptPropertyType::Bool:
                 {
-                    auto editor = MakeRef<tk::BoolEditor>(DefaultAllocator(), name,
+                    auto editor = MakeRef<ui::toolkit::BoolEditor>(DefaultAllocator(), name,
                         effective().boolean, Function<void(bool)>{ [setOverride](bool v) {
                             ScriptPropertyValue value;
                             value.kind = ScriptPropertyType::Bool;
@@ -1669,7 +1668,7 @@ export namespace draconic::editor
                 }
                 case ScriptPropertyType::String:
                 {
-                    auto editor = MakeRef<tk::StringEditor>(DefaultAllocator(), name,
+                    auto editor = MakeRef<ui::toolkit::StringEditor>(DefaultAllocator(), name,
                         effective().text.AsView(),
                         Function<void(StringView)>{ [setOverride](StringView v) {
                             ScriptPropertyValue value;
@@ -1688,7 +1687,7 @@ export namespace draconic::editor
                 }
                 case ScriptPropertyType::Color:
                 {
-                    auto editor = MakeRef<tk::ColorEditor>(DefaultAllocator(), name,
+                    auto editor = MakeRef<ui::toolkit::ColorEditor>(DefaultAllocator(), name,
                         effective().color, Function<void(Color)>{ [setOverride](Color v) {
                             ScriptPropertyValue value;
                             value.kind = ScriptPropertyType::Color;
@@ -1706,7 +1705,7 @@ export namespace draconic::editor
                 }
                 case ScriptPropertyType::Vec3:
                 {
-                    auto editor = MakeRef<tk::Float3Editor>(DefaultAllocator(), name,
+                    auto editor = MakeRef<ui::toolkit::Float3Editor>(DefaultAllocator(), name,
                         effective().vector, -1e9f, 1e9f, 0.1f,
                         Function<void(Float3)>{ [setOverride](Float3 v) {
                             ScriptPropertyValue value;
@@ -1751,7 +1750,7 @@ export namespace draconic::editor
             const u64 hash = property.hash;
 
             auto currentTarget = [self, id, index, hash]() -> Guid {
-                const dscene::EntityHandle live = self->m_edit->Resolve(id);
+                const scene::EntityHandle live = self->m_edit->Resolve(id);
                 auto* mgr =
                     self->m_edit->Scene().GetSystem<draconic::script::ScriptComponentManager>();
                 ScriptComponent* c =
@@ -1767,7 +1766,7 @@ export namespace draconic::editor
             };
             auto nameOf = [self](const Guid& target) -> StringView {
                 if (target.IsNil()) { return u8"(none)"; }
-                const dscene::EntityHandle h = self->m_edit->Scene().FindEntity(target);
+                const scene::EntityHandle h = self->m_edit->Scene().FindEntity(target);
                 return h.IsAssigned() ? self->m_edit->Scene().GetEntityName(h)
                                       : StringView(u8"(missing)");
             };
@@ -1787,7 +1786,7 @@ export namespace draconic::editor
                 });
                 menu->AddSeparator();
                 self->m_edit->Scene().ForEachEntity([self, id, index, hash, &menu](
-                    dscene::EntityHandle handle) {
+                    scene::EntityHandle handle) {
                     const Guid target = self->m_edit->Scene().GetEntityId(handle);
                     String label(self->m_edit->Scene().GetEntityName(handle));
                     menu->AddItem(label.AsView(), [self, id, index, hash, target]() {
@@ -1824,7 +1823,7 @@ export namespace draconic::editor
                 ? String(u8"") : property.assetType;
 
             auto currentTarget = [self, id, index, hash]() -> Guid {
-                const dscene::EntityHandle live = self->m_edit->Resolve(id);
+                const scene::EntityHandle live = self->m_edit->Resolve(id);
                 auto* mgr =
                     self->m_edit->Scene().GetSystem<draconic::script::ScriptComponentManager>();
                 ScriptComponent* c =
@@ -1886,7 +1885,7 @@ export namespace draconic::editor
         template <typename T>
         [[nodiscard]] Guid SettingRefTarget(const TypeInfo* type, const char* propName)
         {
-            dscene::SceneSystem* system = m_edit->FindSystemBySettingsType(type);
+            scene::SceneSystem* system = m_edit->FindSystemBySettingsType(type);
             if (system == nullptr) { return Guid{}; }
             const Instance settings{ system->SettingsInstance(), type };
             const PropertyInfo* p = FindProperty(*type, propName);
@@ -1964,10 +1963,10 @@ export namespace draconic::editor
             return (attr != nullptr) ? attr->value.TryGet<Float4>() : nullptr;
         }
 
-        void AddEditor(tk::PropertyEditor* editor, Function<void()> refresher)
+        void AddEditor(ui::toolkit::PropertyEditor* editor, Function<void()> refresher)
         {
-            m_grid->AddProperty(RefPtr<tk::PropertyEditor>(editor));
-            tk::PropertyEditor* raw = editor;
+            m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(editor));
+            ui::toolkit::PropertyEditor* raw = editor;
             m_refreshers.PushBack(Function<void()>{
                 [raw, pull = Move(refresher)]() {
                     if (!raw->IsEditing()) { pull(); }
@@ -1984,12 +1983,12 @@ export namespace draconic::editor
         void ShowAddComponentMenu()
         {
             const Guid id = SelectedEntity();
-            const dscene::EntityHandle e = m_edit->Resolve(id);
+            const scene::EntityHandle e = m_edit->Resolve(id);
             if (!e.IsAssigned() || Context == nullptr) { return; }
 
             SceneEditContext* edit = m_edit;
             auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
-            m_edit->Scene().ForEachManager([&](dscene::ComponentManagerBase& mgr) {
+            m_edit->Scene().ForEachManager([&](scene::ComponentManagerBase& mgr) {
                 const TypeInfo* type = mgr.ComponentType();
                 if (!IsRegisteredType(type) || mgr.HasComponent(e)) { return; }   // skip unreflected
                 menu->AddItem(StringView(reinterpret_cast<const utf8char*>(type->name)),
@@ -2013,7 +2012,7 @@ export namespace draconic::editor
 
         EditorContext* m_editor;    // borrowed (project + resources)
         SceneEditContext* m_edit;   // borrowed (the page owns it)
-        RefPtr<tk::PropertyGrid> m_grid;
+        RefPtr<ui::toolkit::PropertyGrid> m_grid;
         RefPtr<ui::Button> m_addButton;
         Array<Function<void()>> m_refreshers;
         u64 m_signature = ~0ull;

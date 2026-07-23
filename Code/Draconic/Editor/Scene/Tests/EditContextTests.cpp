@@ -21,7 +21,7 @@ import draconic.materials.editor;
 
 using namespace draconic::core;
 using namespace draconic::editor;
-namespace dscene = draconic::scene;
+namespace scene = draconic::scene;
 
 namespace
 {
@@ -35,7 +35,7 @@ namespace
         draconic::core::Serialize(ar, "amount", c.amount);
     }
 
-    class HealthManager final : public dscene::SerializableComponentManager<HealthComponent>
+    class HealthManager final : public scene::SerializableComponentManager<HealthComponent>
     {
     public:
         HealthManager() : SerializableComponentManager(u8"test.health") {}
@@ -44,7 +44,7 @@ namespace
 
 TEST_CASE("scene-edit: create entity - undo/redo keeps the same Guid, parents apply")
 {
-    dscene::Scene scene(u8"t");
+    scene::Scene scene(u8"t");
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
 
@@ -69,7 +69,7 @@ TEST_CASE("scene-edit: create entity - undo/redo keeps the same Guid, parents ap
 
 TEST_CASE("scene-edit: rename merges and undoes to the original")
 {
-    dscene::Scene scene;
+    scene::Scene scene;
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
 
@@ -86,7 +86,7 @@ TEST_CASE("scene-edit: rename merges and undoes to the original")
 
 TEST_CASE("scene-edit: reparent - undo restores, cycles and no-ops are refused")
 {
-    dscene::Scene scene;
+    scene::Scene scene;
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
 
@@ -106,7 +106,7 @@ TEST_CASE("scene-edit: reparent - undo restores, cycles and no-ops are refused")
     edit.ReparentEntity(a, b);   // a's descendant?? b is not under a anymore, so this is LEGAL
     CHECK(scene.GetParent(edit.Resolve(a)) == edit.Resolve(b));
     edit.ReparentEntity(c, a);   // c is now an ancestor of a?? a is under b under c: cycle -> refused
-    CHECK(scene.GetParent(edit.Resolve(c)) == dscene::EntityHandle::Invalid());
+    CHECK(scene.GetParent(edit.Resolve(c)) == scene::EntityHandle::Invalid());
 
     // Self-parenting refused; no-op reparent (same parent) refused.
     edit.ReparentEntity(b, b);
@@ -119,7 +119,7 @@ TEST_CASE("scene-edit: reparent - undo restores, cycles and no-ops are refused")
 
 TEST_CASE("scene-edit: destroy undo restores the full subtree with components")
 {
-    dscene::Scene scene;
+    scene::Scene scene;
     auto* health = scene.AddSystem<HealthManager>();
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
@@ -176,7 +176,7 @@ TEST_CASE("scene-edit: destroy undo restores the full subtree with components")
 
 TEST_CASE("scene-edit: destroying a missing entity is a safe no-op")
 {
-    dscene::Scene scene;
+    scene::Scene scene;
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
 
@@ -188,7 +188,7 @@ TEST_CASE("scene-edit: destroying a missing entity is a safe no-op")
 
 TEST_CASE("scene-edit: sibling reorder command with undo/redo")
 {
-    dscene::Scene scene;
+    scene::Scene scene;
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
 
@@ -229,7 +229,7 @@ TEST_CASE("scene-edit: sibling reorder command with undo/redo")
 
 TEST_CASE("scene-edit: reparent preserves the world transform; undo restores the exact local")
 {
-    dscene::Scene scene;
+    scene::Scene scene;
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
 
@@ -256,7 +256,7 @@ TEST_CASE("scene-edit: reparent preserves the world transform; undo restores the
     commands.Undo();
     CHECK(scene.GetLocalTransform(edit.Resolve(child)).position.x == 1.0f);
     CHECK(scene.GetLocalTransform(edit.Resolve(child)).position.y == 2.0f);
-    CHECK(scene.GetParent(edit.Resolve(child)) == dscene::EntityHandle::Invalid());
+    CHECK(scene.GetParent(edit.Resolve(child)) == scene::EntityHandle::Invalid());
 
     // Redo reproduces the preserved world again.
     commands.Redo();
@@ -289,7 +289,7 @@ namespace
         TestMode mode = TestMode::Off;
     };
 
-    class WidgetManager final : public dscene::ComponentManager<WidgetComponent>
+    class WidgetManager final : public scene::ComponentManager<WidgetComponent>
     {
     };
 }
@@ -311,7 +311,7 @@ DRACONIC_REFLECT_VALUE(WidgetComponent, "draconic::editor::test")
 
 TEST_CASE("scene-edit: transform + active commands (merge, undo)")
 {
-    dscene::Scene scene;
+    scene::Scene scene;
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
     const Guid id = edit.CreateEntity(u8"E");
@@ -342,7 +342,7 @@ TEST_CASE("scene-edit: component property commands (variant + raw enum, merge, u
     DraconicRegisterEnum_TestMode();
     DraconicRegisterValue_WidgetComponent();
 
-    dscene::Scene scene;
+    scene::Scene scene;
     auto* widgets = scene.AddSystem<WidgetManager>();
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
@@ -392,7 +392,7 @@ TEST_CASE("scene-edit: component property commands (variant + raw enum, merge, u
 
 TEST_CASE("scene-edit: remove-component undo via serialization blob (serializable manager)")
 {
-    dscene::Scene scene;
+    scene::Scene scene;
     auto* health = scene.AddSystem<HealthManager>();
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
@@ -412,7 +412,7 @@ TEST_CASE("scene-edit: remove-component undo via serialization blob (serializabl
 // scene saves).
 TEST_CASE("edit-context: destroy-undo restores light components (and their values)")
 {
-    dscene::Scene scene;
+    scene::Scene scene;
     scene.AddSystem<draconic::render::LightComponentManager>();
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
@@ -432,7 +432,7 @@ TEST_CASE("edit-context: destroy-undo restores light components (and their value
     CHECK_FALSE(edit.Resolve(id).IsAssigned());
 
     commands.Undo();
-    const dscene::EntityHandle restored = edit.Resolve(id);
+    const scene::EntityHandle restored = edit.Resolve(id);
     REQUIRE(restored.IsAssigned());
     draconic::render::LightComponent* light = lights->Get(restored);
     REQUIRE(light != nullptr);   // the component came back...
@@ -444,7 +444,7 @@ TEST_CASE("edit-context: destroy-undo restores light components (and their value
 
 TEST_CASE("edit-context: duplicate entity - fresh guids, subtree + components, one undo")
 {
-    dscene::Scene scene;
+    scene::Scene scene;
     scene.AddSystem<draconic::render::LightComponentManager>();
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
@@ -461,7 +461,7 @@ TEST_CASE("edit-context: duplicate entity - fresh guids, subtree + components, o
     const Guid copy = edit.DuplicateEntity(parent);
     REQUIRE(copy != Guid{});
     CHECK(copy != parent);                                       // fresh identity
-    const dscene::EntityHandle copyRoot = edit.Resolve(copy);
+    const scene::EntityHandle copyRoot = edit.Resolve(copy);
     REQUIRE(copyRoot.IsAssigned());
     CHECK(scene.GetEntityName(copyRoot) == u8"Rig (2)");   // copies are distinguishable
     CHECK(scene.GetLocalTransform(copyRoot).position.x == doctest::Approx(3.0f));
@@ -471,7 +471,7 @@ TEST_CASE("edit-context: duplicate entity - fresh guids, subtree + components, o
 
     // The child came along, with its component values, under the COPY (not the original).
     REQUIRE(scene.GetChildCount(copyRoot) == 1u);
-    const dscene::EntityHandle copyChild = scene.GetFirstChild(copyRoot);
+    const scene::EntityHandle copyChild = scene.GetFirstChild(copyRoot);
     CHECK(scene.GetEntityName(copyChild) == u8"Lamp");
     CHECK(scene.GetEntityId(copyChild) != child);
     draconic::render::LightComponent* light = lights->Get(copyChild);
@@ -489,7 +489,7 @@ TEST_CASE("edit-context: duplicate entity - fresh guids, subtree + components, o
 
 TEST_CASE("edit-context: copy/paste entities across scenes with fresh guids")
 {
-    dscene::Scene sceneA;
+    scene::Scene sceneA;
     sceneA.AddSystem<draconic::render::LightComponentManager>();
     EditorCommandStack commandsA;
     SceneEditContext editA(sceneA, commandsA);
@@ -504,7 +504,7 @@ TEST_CASE("edit-context: copy/paste entities across scenes with fresh guids")
     REQUIRE(!blob.IsEmpty());
 
     // Paste into a DIFFERENT scene (its own command stack), under a chosen parent.
-    dscene::Scene sceneB;
+    scene::Scene sceneB;
     sceneB.AddSystem<draconic::render::LightComponentManager>();
     EditorCommandStack commandsB;
     SceneEditContext editB(sceneB, commandsB);
@@ -512,7 +512,7 @@ TEST_CASE("edit-context: copy/paste entities across scenes with fresh guids")
 
     const Guid pasted = editB.PasteEntities(Span<const byte>{ blob.Data(), blob.Size() }, target);
     REQUIRE(pasted != Guid{});
-    const dscene::EntityHandle root = editB.Resolve(pasted);
+    const scene::EntityHandle root = editB.Resolve(pasted);
     REQUIRE(root.IsAssigned());
     CHECK(sceneB.GetEntityName(root) == u8"Prop");
     CHECK(sceneB.GetEntityId(sceneB.GetParent(root)) == target);
@@ -536,7 +536,7 @@ TEST_CASE("edit-context: copy/paste entities across scenes with fresh guids")
 
 TEST_CASE("edit-context: copy/paste component - add, overwrite, and exact undo")
 {
-    dscene::Scene scene;
+    scene::Scene scene;
     scene.AddSystem<draconic::render::LightComponentManager>();
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
@@ -579,7 +579,7 @@ namespace
         f32 speed = 1.0f;
     };
 
-    class WindSystem final : public dscene::SceneSystem
+    class WindSystem final : public scene::SceneSystem
     {
     public:
         [[nodiscard]] const TypeInfo* SettingsType() const noexcept override { return &TypeOf<WindSettings>(); }
@@ -607,7 +607,7 @@ namespace
 TEST_CASE("edit-context: scene-setting edits are undoable commands and merge like scrubs")
 {
     RegisterWindReflection();
-    dscene::Scene scene(u8"s");
+    scene::Scene scene(u8"s");
     WindSystem* wind = scene.AddSystem<WindSystem>();
     draconic::editor::EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
@@ -774,16 +774,16 @@ TEST_CASE("scene-edit: render components carry the inspector attribute annotatio
 TEST_CASE("scene-edit: spawn prefab instance - undoable, redo recreates the SAME guids")
 {
     // Author a template in a scratch scene and capture its payload.
-    dscene::Scene author(u8"author");
+    scene::Scene author(u8"author");
     HealthManager* authorHealth = author.AddSystem<HealthManager>();
-    dscene::EntityHandle root = author.CreateEntity(u8"Barrel");
+    scene::EntityHandle root = author.CreateEntity(u8"Barrel");
     authorHealth->Add(root).amount = 12;
     MemoryStream payload;
-    REQUIRE(dscene::CapturePrefab(author, root, payload).IsOk());
+    REQUIRE(scene::CapturePrefab(author, root, payload).IsOk());
     Array<byte> bytes;
     for (byte b : payload.Bytes()) { bytes.PushBack(b); }
 
-    dscene::Scene scene(u8"level");
+    scene::Scene scene(u8"level");
     HealthManager* health = scene.AddSystem<HealthManager>();
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
@@ -792,7 +792,7 @@ TEST_CASE("scene-edit: spawn prefab instance - undoable, redo recreates the SAME
     Array<byte> spawnBytes = bytes;
     const Guid rootId = edit.SpawnPrefabInstance(prefabId, Move(spawnBytes));
     REQUIRE(!rootId.IsNil());
-    dscene::EntityHandle live = edit.Resolve(rootId);
+    scene::EntityHandle live = edit.Resolve(rootId);
     REQUIRE(live.IsAssigned());
     CHECK(health->Has(live));
     CHECK(scene.PrefabInstanceCount() == 1u);
@@ -802,7 +802,7 @@ TEST_CASE("scene-edit: spawn prefab instance - undoable, redo recreates the SAME
     CHECK(scene.PrefabInstanceCount() == 0u);
 
     commands.Redo();
-    dscene::EntityHandle back = edit.Resolve(rootId);   // the SAME guid
+    scene::EntityHandle back = edit.Resolve(rootId);   // the SAME guid
     REQUIRE(back.IsAssigned());
     CHECK(health->Has(back));
     CHECK(scene.PrefabInstanceCount() == 1u);
@@ -810,15 +810,15 @@ TEST_CASE("scene-edit: spawn prefab instance - undoable, redo recreates the SAME
 
 TEST_CASE("scene-edit: replace entity with prefab instance is ONE undo step")
 {
-    dscene::Scene author(u8"author");
+    scene::Scene author(u8"author");
     (void)author.AddSystem<HealthManager>();
-    dscene::EntityHandle tmpl = author.CreateEntity(u8"Crate");
+    scene::EntityHandle tmpl = author.CreateEntity(u8"Crate");
     MemoryStream payload;
-    REQUIRE(dscene::CapturePrefab(author, tmpl, payload).IsOk());
+    REQUIRE(scene::CapturePrefab(author, tmpl, payload).IsOk());
     Array<byte> bytes;
     for (byte b : payload.Bytes()) { bytes.PushBack(b); }
 
-    dscene::Scene scene(u8"level");
+    scene::Scene scene(u8"level");
     (void)scene.AddSystem<HealthManager>();
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
@@ -828,7 +828,7 @@ TEST_CASE("scene-edit: replace entity with prefab instance is ONE undo step")
     const Guid original = edit.CreateEntity(u8"OldCrate", parent);
     const Guid after = edit.CreateEntity(u8"After", parent);
     {
-        dscene::EntityHandle h = edit.Resolve(original);
+        scene::EntityHandle h = edit.Resolve(original);
         draconic::core::Transform t = scene.GetLocalTransform(h);
         t.position = Float3{ 4, 5, 6 };
         scene.SetLocalTransform(h, t);
@@ -838,12 +838,12 @@ TEST_CASE("scene-edit: replace entity with prefab instance is ONE undo step")
     const Guid instanceRoot = edit.ReplaceWithPrefabInstance(original, prefabId, Move(bytes));
     REQUIRE(!instanceRoot.IsNil());
     CHECK(!edit.Resolve(original).IsAssigned());   // original replaced
-    dscene::EntityHandle inst = edit.Resolve(instanceRoot);
+    scene::EntityHandle inst = edit.Resolve(instanceRoot);
     REQUIRE(inst.IsAssigned());
     CHECK(scene.GetParent(inst) == edit.Resolve(parent));       // same parent
     CHECK(Abs(scene.GetLocalTransform(inst).position.x - 4.0f) < 1e-4f);   // same placement
     // Same SIBLING SLOT: Before -> instance -> After (spawn otherwise appends at the end).
-    dscene::EntityHandle first = scene.GetFirstChild(edit.Resolve(parent));
+    scene::EntityHandle first = scene.GetFirstChild(edit.Resolve(parent));
     CHECK(first == edit.Resolve(before));
     CHECK(scene.GetNextSibling(first) == inst);
     CHECK(scene.GetNextSibling(inst) == edit.Resolve(after));
@@ -856,22 +856,22 @@ TEST_CASE("scene-edit: replace entity with prefab instance is ONE undo step")
 
 TEST_CASE("scene-edit: revert component to prefab baseline is undoable")
 {
-    dscene::Scene author(u8"author");
+    scene::Scene author(u8"author");
     HealthManager* authorHealth = author.AddSystem<HealthManager>();
-    dscene::EntityHandle tmpl = author.CreateEntity(u8"Guard");
+    scene::EntityHandle tmpl = author.CreateEntity(u8"Guard");
     authorHealth->Add(tmpl).amount = 30;
     MemoryStream payload;
-    REQUIRE(dscene::CapturePrefab(author, tmpl, payload).IsOk());
+    REQUIRE(scene::CapturePrefab(author, tmpl, payload).IsOk());
     Array<byte> bytes;
     for (byte b : payload.Bytes()) { bytes.PushBack(b); }
 
-    dscene::Scene scene(u8"level");
+    scene::Scene scene(u8"level");
     HealthManager* health = scene.AddSystem<HealthManager>();
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
     const Guid rootId = edit.SpawnPrefabInstance(Guid{ 0x5, 0x6 }, Move(bytes));
     REQUIRE(!rootId.IsNil());
-    dscene::EntityHandle live = edit.Resolve(rootId);
+    scene::EntityHandle live = edit.Resolve(rootId);
 
     // Override, then revert (undoable), then undo the revert.
     health->Get(live)->amount = 31;
@@ -882,6 +882,6 @@ TEST_CASE("scene-edit: revert component to prefab baseline is undoable")
     CHECK(health->Get(live)->amount == 31);   // the override is restored
 
     // A user-ADDED component reverts by removal.
-    dscene::EntityHandle plain = scene.CreateEntity(u8"NotAMember");
+    scene::EntityHandle plain = scene.CreateEntity(u8"NotAMember");
     CHECK(!edit.RevertComponentToBaseline(scene.GetEntityId(plain), type));   // non-member no-op
 }
