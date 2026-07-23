@@ -13,10 +13,10 @@ target_link_libraries(DraconicScriptSubsystem
 
 target_sources(DraconicScriptSubsystem
     PRIVATE
-        SubsystemImpl.cpp   # implementation unit: the DRACONIC_REFLECT_* bodies (GCC gcm rule)
+        ScriptSubsystemImpl.cpp   # implementation unit: the DRACONIC_REFLECT_* bodies (GCC gcm rule)
     PUBLIC
         FILE_SET script_subsystem_modules TYPE CXX_MODULES FILES
-            Subsystem.cppm
+            ScriptSubsystem.cppm
             Components.cppm)
 
 if(DRACONIC_BUILD_TESTS)

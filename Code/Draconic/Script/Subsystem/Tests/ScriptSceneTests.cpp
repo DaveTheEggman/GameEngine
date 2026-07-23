@@ -27,8 +27,8 @@ import draconic.physics.subsystem;
 
 using namespace draconic::core;
 using namespace draconic::script;
-namespace dscene = draconic::scene;
-namespace dphysics = draconic::physics;
+namespace scene = draconic::scene;
+namespace physics = draconic::physics;
 
 namespace
 {
@@ -99,7 +99,7 @@ namespace
 
     struct ScriptedScene
     {
-        dscene::Scene scene{u8"script-test"};
+        scene::Scene scene{u8"script-test"};
         ScriptRunHost host;
         ScriptComponentManager* components = nullptr;
         ScriptSceneSystem* scripts = nullptr;
@@ -125,16 +125,16 @@ namespace
             // Wire the single-scene message route (the ScriptSubsystem installs a
             // scene-multiplexer in a real run; here one system owns every entity).
             ScriptSceneSystem* system = scripts;
-            host.Binding().dispatchMessage = Function<void(dscene::Scene*, dscene::EntityHandle,
+            host.Binding().dispatchMessage = Function<void(scene::Scene*, scene::EntityHandle,
                                                            StringView, Span<const Variant>)>{
-                [system](dscene::Scene*, dscene::EntityHandle target, StringView message,
+                [system](scene::Scene*, scene::EntityHandle target, StringView message,
                          Span<const Variant> args)
                 { system->EnqueueMessage(target, message, args); }};
         }
 
-        dscene::EntityHandle AddScripted(const RefPtr<ScriptClass>& cls, StringView name)
+        scene::EntityHandle AddScripted(const RefPtr<ScriptClass>& cls, StringView name)
         {
-            dscene::EntityHandle e = scene.CreateEntity(name);
+            scene::EntityHandle e = scene.CreateEntity(name);
             ScriptComponent& c = components->Add(e);
             ScriptBehavior behavior;
             behavior.script = cls;
@@ -180,7 +180,7 @@ TEST_CASE("script.scene: lifecycle - onStart once (deferred to the first simulat
                   u8"}\n",
                   {u8"onStart", u8"onUpdate"}, {FloatProperty(u8"speed", 2.0)});
 
-    const dscene::EntityHandle e = bed.AddScripted(mover, u8"walker");
+    const scene::EntityHandle e = bed.AddScripted(mover, u8"walker");
 
     // Not simulating yet: nothing instantiates, nothing runs.
     bed.scene.Start();
@@ -217,8 +217,8 @@ TEST_CASE("script.scene: harvested defaults apply; hash-keyed overrides win")
                   u8"}\n",
                   {u8"onUpdate"}, {FloatProperty(u8"speed", 2.0)});
 
-    const dscene::EntityHandle defaulted = bed.AddScripted(mover, u8"defaulted");
-    const dscene::EntityHandle overridden = bed.AddScripted(mover, u8"overridden");
+    const scene::EntityHandle defaulted = bed.AddScripted(mover, u8"defaulted");
+    const scene::EntityHandle overridden = bed.AddScripted(mover, u8"overridden");
     {
         ScriptComponent* c = bed.components->Get(overridden);
         ScriptPropertyValue ten;
@@ -250,7 +250,7 @@ TEST_CASE("script.scene: enable/disable edges dispatch onEnable/onDisable; disab
                   u8"}\n",
                   {u8"onEnable", u8"onDisable", u8"onUpdate"});
 
-    const dscene::EntityHandle e = bed.AddScripted(toggler, u8"t");
+    const scene::EntityHandle e = bed.AddScripted(toggler, u8"t");
     bed.Start();
     bed.Frame();
     CHECK(bed.scene.GetEntityName(e) == StringView(u8"t+on"));
@@ -283,7 +283,7 @@ TEST_CASE("script.scene: onDestroy fires on entity destroy AND on scene stop; st
                   u8"}\n",
                   {u8"onUpdate", u8"onDestroy"});
 
-    const dscene::EntityHandle a = bed.AddScripted(counter, u8"a");
+    const scene::EntityHandle a = bed.AddScripted(counter, u8"a");
     (void)bed.AddScripted(counter, u8"b");
     bed.Start();
     bed.Frame();
@@ -327,7 +327,7 @@ TEST_CASE("script.scene: a faulting behavior is disabled and logged; siblings ke
                                            u8"}\n",
                                            {u8"onUpdate"});
 
-    const dscene::EntityHandle e = bed.scene.CreateEntity(u8"both");
+    const scene::EntityHandle e = bed.scene.CreateEntity(u8"both");
     ScriptComponent& c = bed.components->Add(e);
     {
         ScriptBehavior first;
@@ -381,7 +381,7 @@ TEST_CASE("script.scene: hot reload - product swap re-instantiates, re-applies "
     RefPtr<ScriptClass> v1 =
         MakeClass(u8"Mover", moverV1, {u8"onStart", u8"onUpdate"}, {FloatProperty(u8"speed", 1.0)});
 
-    const dscene::EntityHandle e = bed.AddScripted(v1, u8"m");
+    const scene::EntityHandle e = bed.AddScripted(v1, u8"m");
     {
         ScriptPropertyValue three;
         three.kind = ScriptPropertyType::Float;
@@ -424,9 +424,9 @@ TEST_CASE("script.scene: entity-typed properties resolve guids to live entity ha
                                            u8"}\n",
                                            {u8"onUpdate"}, {EntityProperty(u8"target")});
 
-    const dscene::EntityHandle goal = bed.scene.CreateEntity(u8"goal");
+    const scene::EntityHandle goal = bed.scene.CreateEntity(u8"goal");
     bed.scene.SetLocalPosition(goal, Float3{7.0f, 8.0f, 9.0f});
-    const dscene::EntityHandle e = bed.AddScripted(chaser, u8"chaser");
+    const scene::EntityHandle e = bed.AddScripted(chaser, u8"chaser");
     {
         ScriptPropertyValue target;
         target.kind = ScriptPropertyType::Entity;
@@ -463,7 +463,7 @@ TEST_CASE("script.scene: Log/Time/Random facades are callable (service-bound per
         u8"}\n",
         {u8"onUpdate"});
 
-    const dscene::EntityHandle e = bed.AddScripted(user, u8"f");
+    const scene::EntityHandle e = bed.AddScripted(user, u8"f");
     bed.Start();
     bed.Frame();
     bed.Frame();
@@ -476,10 +476,10 @@ TEST_CASE("script.scene: component wire round-trips through SerializeScene (scri
           "refs, enabled flags, every override kind; symmetric + count-guarded)")
 {
     RegisterScriptComponentReflection();
-    dscene::Scene scene(u8"wire");
+    scene::Scene scene(u8"wire");
     auto* manager = scene.AddSystem<ScriptComponentManager>();
 
-    const dscene::EntityHandle e = scene.CreateEntity(u8"scripted");
+    const scene::EntityHandle e = scene.CreateEntity(u8"scripted");
     ScriptComponent& c = manager->Add(e);
     {
         ScriptBehavior first;
@@ -516,19 +516,19 @@ TEST_CASE("script.scene: component wire round-trips through SerializeScene (scri
     MemoryStream stream;
     {
         BinarySerializer w(stream, SerializeMode::Write);
-        dscene::SerializeScene(w, scene);
+        scene::SerializeScene(w, scene);
         REQUIRE(w.IsOk());
     }
     (void)stream.Seek(0, SeekOrigin::Begin);
 
-    dscene::Scene loaded(u8"loaded");
+    scene::Scene loaded(u8"loaded");
     auto* loadedManager = loaded.AddSystem<ScriptComponentManager>();
     {
         BinarySerializer r(stream, SerializeMode::Read);
-        dscene::SerializeScene(r, loaded);
+        scene::SerializeScene(r, loaded);
         REQUIRE(r.IsOk());
     }
-    const dscene::EntityHandle le = loaded.FindEntity(entityId);
+    const scene::EntityHandle le = loaded.FindEntity(entityId);
     REQUIRE(le.IsAssigned());
     ScriptComponent* lc = loadedManager->Get(le);
     REQUIRE(lc != nullptr);
@@ -571,9 +571,9 @@ TEST_CASE("script.scene: a prefab-instance override on a behavior property round
     RegisterScriptComponentReflection();
 
     // Author the prefab: one entity with a scripted behavior, default speed.
-    dscene::Scene author(u8"author");
+    scene::Scene author(u8"author");
     auto* authorScripts = author.AddSystem<ScriptComponentManager>();
-    const dscene::EntityHandle root = author.CreateEntity(u8"Bot");
+    const scene::EntityHandle root = author.CreateEntity(u8"Bot");
     {
         ScriptComponent& c = authorScripts->Add(root);
         ScriptBehavior behavior;
@@ -581,16 +581,16 @@ TEST_CASE("script.scene: a prefab-instance override on a behavior property round
         c.behaviors.PushBack(Move(behavior));
     }
     MemoryStream payload;
-    REQUIRE(dscene::CapturePrefab(author, root, payload).IsOk());
+    REQUIRE(scene::CapturePrefab(author, root, payload).IsOk());
 
     // Level: two instances; ONE overrides the behavior's speed.
-    dscene::Scene level(u8"level");
+    scene::Scene level(u8"level");
     auto* levelScripts = level.AddSystem<ScriptComponentManager>();
     (void)payload.Seek(0, SeekOrigin::Begin);
     const Guid prefabId{0xBB, 0x02};
-    const dscene::EntityHandle inst1 = dscene::SpawnPrefab(level, payload, prefabId);
+    const scene::EntityHandle inst1 = scene::SpawnPrefab(level, payload, prefabId);
     (void)payload.Seek(0, SeekOrigin::Begin);
-    const dscene::EntityHandle inst2 = dscene::SpawnPrefab(level, payload, prefabId);
+    const scene::EntityHandle inst2 = scene::SpawnPrefab(level, payload, prefabId);
     REQUIRE(inst1.IsAssigned());
     REQUIRE(inst2.IsAssigned());
     {
@@ -606,19 +606,19 @@ TEST_CASE("script.scene: a prefab-instance override on a behavior property round
     MemoryStream saved;
     {
         BinarySerializer w(saved, SerializeMode::Write);
-        dscene::SerializeScene(w, level);
+        scene::SerializeScene(w, level);
         REQUIRE(w.IsOk());
     }
-    dscene::Scene loaded(u8"loaded");
+    scene::Scene loaded(u8"loaded");
     auto* loadedScripts = loaded.AddSystem<ScriptComponentManager>();
     (void)saved.Seek(0, SeekOrigin::Begin);
     {
         BinarySerializer r(saved, SerializeMode::Read);
-        dscene::SerializeScene(r, loaded, &saved);
+        scene::SerializeScene(r, loaded, &saved);
         REQUIRE(r.IsOk());
     }
     const Span<const byte> payloadBytes = payload.Bytes();
-    dscene::ResolveScenePrefabs(
+    scene::ResolveScenePrefabs(
         loaded,
         Function<UniquePtr<IStream>(const Guid&)>{
             [&payloadBytes, prefabId](const Guid& id) -> UniquePtr<IStream>
@@ -633,8 +633,8 @@ TEST_CASE("script.scene: a prefab-instance override on a behavior property round
                 return UniquePtr<IStream>(stream.Release(), DefaultAllocator());
             }});
 
-    const dscene::EntityHandle l1 = loaded.FindEntity(inst1Id);
-    const dscene::EntityHandle l2 = loaded.FindEntity(inst2Id);
+    const scene::EntityHandle l1 = loaded.FindEntity(inst1Id);
+    const scene::EntityHandle l2 = loaded.FindEntity(inst2Id);
     REQUIRE(l1.IsAssigned());
     REQUIRE(l2.IsAssigned());
     ScriptComponent* c1 = loadedScripts->Get(l1);
@@ -701,7 +701,7 @@ TEST_CASE("script.scene: entity.send invokes on<Message>(arg) on every declaring
                                            u8"}\n",
                                            {u8"onStart"});
 
-    dscene::EntityHandle target = bed.scene.CreateEntity(u8"target");
+    scene::EntityHandle target = bed.scene.CreateEntity(u8"target");
     ScriptComponent& component = bed.components->Add(target);
     {
         ScriptBehavior b;
@@ -730,7 +730,7 @@ TEST_CASE("script.scene: entity.send to a target with no matching handler is a s
                                            u8"    onStart() { _entity.send(\"noHandler\", 1) }\n"
                                            u8"}\n",
                                            {u8"onStart"});
-    dscene::EntityHandle e = bed.AddScripted(sender, u8"lone");
+    scene::EntityHandle e = bed.AddScripted(sender, u8"lone");
     bed.Start();
     bed.Frame(); // must not fault the sender
     ScriptComponent* c = bed.components->Get(e);
@@ -752,7 +752,7 @@ TEST_CASE("script.scene: updateInterval throttles onUpdate and delivers the accu
         u8"    }\n"
         u8"}\n",
         {u8"onUpdate"});
-    const dscene::EntityHandle e = bed.AddScripted(ticker, u8"ticker");
+    const scene::EntityHandle e = bed.AddScripted(ticker, u8"ticker");
     bed.components->Get(e)->behaviors[0].updateInterval = 1.0f;
 
     bed.Start();
@@ -769,9 +769,9 @@ TEST_CASE("script.scene: updateInterval throttles onUpdate and delivers the accu
 TEST_CASE("script.scene: updateInterval survives the SerializeScene wire (P3 symmetry)")
 {
     RegisterScriptComponentReflection();
-    dscene::Scene scene(u8"interval-wire");
+    scene::Scene scene(u8"interval-wire");
     auto* manager = scene.AddSystem<ScriptComponentManager>();
-    const dscene::EntityHandle e = scene.CreateEntity(u8"scripted");
+    const scene::EntityHandle e = scene.CreateEntity(u8"scripted");
     ScriptComponent& c = manager->Add(e);
     ScriptBehavior behavior;
     behavior.script.SetId(Guid{0x77, 0x88});
@@ -782,16 +782,16 @@ TEST_CASE("script.scene: updateInterval survives the SerializeScene wire (P3 sym
     MemoryStream stream;
     {
         BinarySerializer w(stream, SerializeMode::Write);
-        dscene::SerializeScene(w, scene);
+        scene::SerializeScene(w, scene);
         REQUIRE(w.IsOk());
     }
     (void)stream.Seek(0, SeekOrigin::Begin);
 
-    dscene::Scene loaded(u8"loaded");
+    scene::Scene loaded(u8"loaded");
     auto* loadedManager = loaded.AddSystem<ScriptComponentManager>();
     {
         BinarySerializer r(stream, SerializeMode::Read);
-        dscene::SerializeScene(r, loaded);
+        scene::SerializeScene(r, loaded);
         REQUIRE(r.IsOk());
     }
     ScriptComponent* lc = loadedManager->Get(loaded.FindEntity(entityId));
@@ -810,11 +810,11 @@ TEST_CASE("script.scene: Scene.spawn routes through the run spawner to the curre
     // is under test here). Records the last call.
     int spawnCalls = 0;
     Guid lastPrefab;
-    dscene::EntityHandle spawnedHandle;
+    scene::EntityHandle spawnedHandle;
     bed.host.Binding().spawnPrefab =
-        Function<dscene::EntityHandle(dscene::Scene*, const Guid&, const Float3&)>{
-            [&](dscene::Scene* scene, const Guid& prefabId,
-                const Float3& position) -> dscene::EntityHandle
+        Function<scene::EntityHandle(scene::Scene*, const Guid&, const Float3&)>{
+            [&](scene::Scene* scene, const Guid& prefabId,
+                const Float3& position) -> scene::EntityHandle
             {
                 ++spawnCalls;
                 lastPrefab = prefabId;
@@ -844,7 +844,7 @@ TEST_CASE("script.scene: Scene.spawn routes through the run spawner to the curre
     prefabProp.defaultValue.guid = Guid{0xABC, 0xDEF};
     spawner->properties.PushBack(prefabProp);
 
-    const dscene::EntityHandle e = bed.AddScripted(spawner, u8"spawner");
+    const scene::EntityHandle e = bed.AddScripted(spawner, u8"spawner");
     (void)e;
     bed.Start();
     bed.Frame();
@@ -864,9 +864,9 @@ TEST_CASE("script.scene: Scene.find / Scene.findByPath resolve entities in the c
 {
     ScriptedScene bed;
     // Build a small hierarchy the behavior will look up: Target (root) and Player/Weapon.
-    dscene::EntityHandle target = bed.scene.CreateEntity(u8"Target");
-    dscene::EntityHandle player = bed.scene.CreateEntity(u8"Player");
-    dscene::EntityHandle weapon = bed.scene.CreateEntity(u8"Weapon");
+    scene::EntityHandle target = bed.scene.CreateEntity(u8"Target");
+    scene::EntityHandle player = bed.scene.CreateEntity(u8"Player");
+    scene::EntityHandle weapon = bed.scene.CreateEntity(u8"Weapon");
     bed.scene.SetParent(weapon, player);
     (void)target;
 
@@ -884,7 +884,7 @@ TEST_CASE("script.scene: Scene.find / Scene.findByPath resolve entities in the c
                   u8"    }\n"
                   u8"}\n",
                   {u8"onStart"});
-    const dscene::EntityHandle e = bed.AddScripted(finder, u8"finder");
+    const scene::EntityHandle e = bed.AddScripted(finder, u8"finder");
     bed.Start();
     bed.Frame();
 
@@ -916,7 +916,7 @@ TEST_CASE("script.scene: an AngelScript behavior runs the neutral lifecycle path
                       u8"}\n",
                       {u8"onStart", u8"onUpdate"});
 
-    const dscene::EntityHandle e = bed.AddScripted(mover, u8"walker");
+    const scene::EntityHandle e = bed.AddScripted(mover, u8"walker");
     bed.Start();
     bed.Frame(); // instantiate + onStart + first onUpdate (dt 0.5): x = 1.0
     CHECK(bed.host.Language() == StringView(u8"angelscript"));
@@ -958,7 +958,7 @@ TEST_CASE("script.scene: a breakpoint in a behavior handler pauses the game and 
 
     bed.host.RequestDebugger(Function<void(IScriptDebugger&)>{}); // debuggable run
 
-    const dscene::EntityHandle e = bed.AddScripted(breaker, u8"walker");
+    const scene::EntityHandle e = bed.AddScripted(breaker, u8"walker");
     bed.Start();
     bed.Frame(); // instantiate + onUpdate (no breakpoint yet): x = 1
     CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 1.0f));
@@ -1040,7 +1040,7 @@ TEST_CASE("script.scene: an AngelScript harvested float property applies (defaul
     SUBCASE("the harvested default applies")
     {
         ScriptedScene bed;
-        const dscene::EntityHandle e = bed.AddScripted(makeSpeeder(), u8"walker");
+        const scene::EntityHandle e = bed.AddScripted(makeSpeeder(), u8"walker");
         bed.Start();
         bed.Frame(); // default speed 2.0 applied (overrides the ctor's 0.0): x = 2.0 * 0.5
         CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 1.0f));
@@ -1050,7 +1050,7 @@ TEST_CASE("script.scene: an AngelScript harvested float property applies (defaul
     SUBCASE("a hash-keyed override wins over the default")
     {
         ScriptedScene bed;
-        const dscene::EntityHandle e = bed.AddScripted(makeSpeeder(), u8"runner");
+        const scene::EntityHandle e = bed.AddScripted(makeSpeeder(), u8"runner");
         ScriptPropertyValue five;
         five.kind = ScriptPropertyType::Float;
         five.number = 5.0;
@@ -1083,7 +1083,7 @@ TEST_CASE("script.scene: a coroutine wait(1.0) runs its body only after ~1s of t
                                            {u8"onStart"});
     waiter->usesCoroutines = true;
 
-    const dscene::EntityHandle e = bed.AddScripted(waiter, u8"w");
+    const scene::EntityHandle e = bed.AddScripted(waiter, u8"w");
     bed.Start();
     bed.Frame(0.5f); // onStart registers wait 1.0; +0.5s -> still pending
     CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 0.0f));
@@ -1120,7 +1120,7 @@ TEST_CASE("script.scene: a coroutine waitUntil resumes when the predicate flips"
                                           {u8"onStart", u8"onUpdate"});
     gater->usesCoroutines = true;
 
-    const dscene::EntityHandle e = bed.AddScripted(gater, u8"g");
+    const scene::EntityHandle e = bed.AddScripted(gater, u8"g");
     bed.Start();
     bed.Frame(0.5f); // tick 1, gate closed
     bed.Frame(0.5f); // tick 2, gate closed
@@ -1148,7 +1148,7 @@ TEST_CASE("script.scene: destroying a behavior cancels its pending coroutine (ne
                                           {u8"onStart"});
     ghost->usesCoroutines = true;
 
-    const dscene::EntityHandle e = bed.AddScripted(ghost, u8"ghost");
+    const scene::EntityHandle e = bed.AddScripted(ghost, u8"ghost");
     bed.Start();
     bed.Frame(0.5f);            // registers wait 1.0; +0.5s pending
     bed.scene.DestroyEntity(e); // onDestroy path cancels the coroutine
@@ -1181,7 +1181,7 @@ TEST_CASE("script.scene: disabling a behavior cancels its pending coroutine (nev
                                           {u8"onStart", u8"onUpdate"});
     ghost->usesCoroutines = true;
 
-    const dscene::EntityHandle e = bed.AddScripted(ghost, u8"s");
+    const scene::EntityHandle e = bed.AddScripted(ghost, u8"s");
     bed.Start();
     bed.Frame(0.5f); // registers wait 1.0; +0.5s pending
     bed.components->Get(e)->behaviors[0].enabled = false;
@@ -1202,34 +1202,34 @@ TEST_CASE("script.scene: disabling a behavior cancels its pending coroutine (nev
 
 namespace
 {
-    namespace rt = draconic::runtime;
+    namespace runtime = draconic::runtime;
 
     // Builds a Context with all three subsystems started + a live scene, returns the scene.
     // Acts as its OWN composition root: bridges physics contacts to the script subsystem's
     // neutral DeliverContact ingress (exactly what DefaultApplication does in a real run) -
     // the script subsystem itself has no physics dependency.
-    struct ContactWorld final : public dphysics::IContactListener
+    struct ContactWorld final : public physics::IContactListener
     {
-        rt::Context ctx;
-        dscene::SceneSubsystem* scenes = nullptr;
-        dphysics::PhysicsSubsystem* physics = nullptr;
+        runtime::Context ctx;
+        scene::SceneSubsystem* scenes = nullptr;
+        physics::PhysicsSubsystem* physics = nullptr;
         ScriptSubsystem* scripts = nullptr;
-        dscene::Scene* scene = nullptr;
-        UniquePtr<dscene::SceneManager> sm; // this bed's scene group (subsystem owns none)
+        scene::Scene* scene = nullptr;
+        UniquePtr<scene::SceneManager> sm; // this bed's scene group (subsystem owns none)
 
         ContactWorld()
         {
             draconic::script::wren::RegisterWrenScriptBackend();
             RegisterCoreTypes();
-            dphysics::RegisterPhysicsComponentReflection();
+            physics::RegisterPhysicsComponentReflection();
             RegisterScriptComponentReflection();
             RegisterScriptFacadeReflection();
-            scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
-            physics = ctx.AddSubsystem<dphysics::PhysicsSubsystem>();
+            scenes = ctx.AddSubsystem<scene::SceneSubsystem>();
+            physics = ctx.AddSubsystem<physics::PhysicsSubsystem>();
             scripts = ctx.AddSubsystem<ScriptSubsystem>();
             ctx.Startup();
             physics->RegisterContactListener(this); // the composition-root bridge
-            sm = MakeUnique<dscene::SceneManager>(DefaultAllocator(), &scenes->AwareRegistry());
+            sm = MakeUnique<scene::SceneManager>(DefaultAllocator(), &scenes->AwareRegistry());
             scenes->RegisterManager(sm.Get());
             scene = sm->CreateScene(u8"level");
         }
@@ -1239,44 +1239,44 @@ namespace
             ctx.Shutdown();
         }
 
-        void OnContact(const dphysics::EntityContact& c) override
+        void OnContact(const physics::EntityContact& c) override
         {
             ScriptContactKind kind = ScriptContactKind::Begin;
             switch (c.kind)
             {
-            case dphysics::ContactKind::Begin:
+            case physics::ContactKind::Begin:
                 kind = ScriptContactKind::Begin;
                 break;
-            case dphysics::ContactKind::End:
+            case physics::ContactKind::End:
                 kind = ScriptContactKind::End;
                 break;
-            case dphysics::ContactKind::TriggerEnter:
+            case physics::ContactKind::TriggerEnter:
                 kind = ScriptContactKind::TriggerEnter;
                 break;
-            case dphysics::ContactKind::TriggerExit:
+            case physics::ContactKind::TriggerExit:
                 kind = ScriptContactKind::TriggerExit;
                 break;
             }
             scripts->DeliverContact(c.scene, c.a, c.b, kind, c.point, c.normal, c.speed);
         }
 
-        dscene::EntityHandle AddBody(StringView name, Float3 position, dphysics::MotionKind motion,
+        scene::EntityHandle AddBody(StringView name, Float3 position, physics::MotionKind motion,
                                      Float3 halfExtents, bool trigger = false)
         {
-            dscene::EntityHandle e = scene->CreateEntity(name);
+            scene::EntityHandle e = scene->CreateEntity(name);
             scene->SetLocalPosition(e, position);
-            auto& body = scene->GetSystem<dphysics::RigidBodyComponentManager>()->Add(e);
+            auto& body = scene->GetSystem<physics::RigidBodyComponentManager>()->Add(e);
             body.motion = motion;
-            body.layer = motion == dphysics::MotionKind::Static ? dphysics::PhysicsLayer::Static
-                         : motion == dphysics::MotionKind::Kinematic
-                             ? dphysics::PhysicsLayer::Kinematic
-                             : dphysics::PhysicsLayer::Dynamic;
+            body.layer = motion == physics::MotionKind::Static ? physics::PhysicsLayer::Static
+                         : motion == physics::MotionKind::Kinematic
+                             ? physics::PhysicsLayer::Kinematic
+                             : physics::PhysicsLayer::Dynamic;
             body.halfExtents = halfExtents;
             body.isTrigger = trigger;
             return e;
         }
 
-        void Attach(dscene::EntityHandle e, const RefPtr<ScriptClass>& cls)
+        void Attach(scene::EntityHandle e, const RefPtr<ScriptClass>& cls)
         {
             auto& component = scene->GetSystem<ScriptComponentManager>()->Add(e);
             ScriptBehavior behavior;
@@ -1302,11 +1302,11 @@ TEST_CASE("script.scene: a physics collision dispatches onContactBegin(other, po
           "speed) to the behavior on the colliding entity")
 {
     ContactWorld world;
-    const dscene::EntityHandle floor = world.AddBody(
-        u8"floor", Float3{0, -0.5f, 0}, dphysics::MotionKind::Static, Float3{50, 0.5f, 50});
+    const scene::EntityHandle floor = world.AddBody(
+        u8"floor", Float3{0, -0.5f, 0}, physics::MotionKind::Static, Float3{50, 0.5f, 50});
     (void)floor;
-    const dscene::EntityHandle box = world.AddBody(
-        u8"box", Float3{0, 1.4f, 0}, dphysics::MotionKind::Dynamic, Float3{0.5f, 0.5f, 0.5f});
+    const scene::EntityHandle box = world.AddBody(
+        u8"box", Float3{0, 1.4f, 0}, physics::MotionKind::Dynamic, Float3{0.5f, 0.5f, 0.5f});
 
     // Records the OTHER entity's name only if speed is non-negative and the normal is unit-ish
     // - proving all four args crossed the boundary intact.
@@ -1330,14 +1330,14 @@ TEST_CASE("script.scene: a physics collision dispatches onContactBegin(other, po
 TEST_CASE("script.scene: a physics trigger dispatches onTriggerEnter(other) to a behavior")
 {
     ContactWorld world;
-    (void)world.AddBody(u8"floor", Float3{0, -0.5f, 0}, dphysics::MotionKind::Static,
+    (void)world.AddBody(u8"floor", Float3{0, -0.5f, 0}, physics::MotionKind::Static,
                         Float3{50, 0.5f, 50});
     // A kinematic sensor volume with a behavior; a box falls through it.
-    const dscene::EntityHandle volume =
-        world.AddBody(u8"volume", Float3{0, 2.0f, 0}, dphysics::MotionKind::Kinematic,
+    const scene::EntityHandle volume =
+        world.AddBody(u8"volume", Float3{0, 2.0f, 0}, physics::MotionKind::Kinematic,
                       Float3{1, 1, 1}, /*trigger*/ true);
-    const dscene::EntityHandle faller = world.AddBody(
-        u8"faller", Float3{0, 6.0f, 0}, dphysics::MotionKind::Dynamic, Float3{0.5f, 0.5f, 0.5f});
+    const scene::EntityHandle faller = world.AddBody(
+        u8"faller", Float3{0, 6.0f, 0}, physics::MotionKind::Dynamic, Float3{0.5f, 0.5f, 0.5f});
     (void)faller;
 
     RefPtr<ScriptClass> sensor =
@@ -1357,10 +1357,10 @@ TEST_CASE("script.scene: a physics trigger dispatches onTriggerEnter(other) to a
 TEST_CASE("script.scene: behaviors tick without error when no physics subsystem is present "
           "(contact-listener registration is guarded)")
 {
-    namespace rt2 = draconic::runtime;
-    rt2::Context ctx;
-    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
-    dscene::SceneManager sm(&scenes->AwareRegistry());
+    namespace runtime = draconic::runtime;
+    runtime::Context ctx;
+    auto* scenes = ctx.AddSubsystem<scene::SceneSubsystem>();
+    scene::SceneManager sm(&scenes->AwareRegistry());
     scenes->RegisterManager(&sm);
     ctx.AddSubsystem<ScriptSubsystem>(); // NO physics subsystem
     draconic::script::wren::RegisterWrenScriptBackend();
@@ -1369,7 +1369,7 @@ TEST_CASE("script.scene: behaviors tick without error when no physics subsystem 
     RegisterScriptFacadeReflection();
     ctx.Startup(); // OnReady must not crash resolving the (absent) physics subsystem
 
-    dscene::Scene* scene = sm.CreateScene(u8"no-physics");
+    scene::Scene* scene = sm.CreateScene(u8"no-physics");
     RefPtr<ScriptClass> mover = MakeClass(u8"Mover",
                                           u8"class Mover {\n"
                                           u8"    construct new(entity) { _entity = entity }\n"
@@ -1379,7 +1379,7 @@ TEST_CASE("script.scene: behaviors tick without error when no physics subsystem 
                                           u8"    }\n"
                                           u8"}\n",
                                           {u8"onUpdate"});
-    dscene::EntityHandle e = scene->CreateEntity(u8"m");
+    scene::EntityHandle e = scene->CreateEntity(u8"m");
     {
         auto& component = scene->GetSystem<ScriptComponentManager>()->Add(e);
         ScriptBehavior behavior;

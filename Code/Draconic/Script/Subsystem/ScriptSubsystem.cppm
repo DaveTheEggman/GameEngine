@@ -44,7 +44,7 @@ using namespace draconic::core;
 
 export namespace draconic::script
 {
-    namespace dscene = draconic::scene;
+    namespace scene = draconic::scene;
 
     // ---- the run's script host (ONE gameplay context per run) ----
 
@@ -416,10 +416,10 @@ export namespace draconic::script
 
     // ---- per-scene dispatch ----
 
-    class ScriptSceneSystem final : public dscene::SceneSystem
+    class ScriptSceneSystem final : public scene::SceneSystem
     {
     public:
-        void OnSceneCreate(dscene::Scene& scene) override { m_scene = &scene; }
+        void OnSceneCreate(scene::Scene& scene) override { m_scene = &scene; }
 
         /// The subsystem (or a headless test) wires the shared run host in.
         void SetRunHost(ScriptRunHost* host) noexcept { m_host = host; }
@@ -428,7 +428,7 @@ export namespace draconic::script
         void SetRunObserver(Function<void()> observer) { m_runObserver = Move(observer); }
 
         [[nodiscard]] bool Started() const noexcept { return m_started; }
-        [[nodiscard]] dscene::Scene* ScenePtr() const noexcept { return m_scene; }
+        [[nodiscard]] scene::Scene* ScenePtr() const noexcept { return m_scene; }
 
         // Behaviors tick ONLY under simulation (Simulate toggle and PIE both count).
         [[nodiscard]] bool IsSimulationOnly() const noexcept override { return true; }
@@ -445,9 +445,9 @@ export namespace draconic::script
             }
         }
 
-        void OnUpdate(dscene::ScenePhase phase, f32 deltaTime) override
+        void OnUpdate(scene::ScenePhase phase, f32 deltaTime) override
         {
-            if (phase != dscene::ScenePhase::Update)
+            if (phase != scene::ScenePhase::Update)
             {
                 return;
             }
@@ -487,7 +487,7 @@ export namespace draconic::script
             }
             u32 count = 0;
             components->ForEach(
-                [&count](ScriptComponent& component, dscene::EntityHandle)
+                [&count](ScriptComponent& component, scene::EntityHandle)
                 {
                     for (const ScriptBehavior& behavior : component.behaviors)
                     {
@@ -501,7 +501,7 @@ export namespace draconic::script
         }
 
         /// onDestroy + release for one component's behaviors (entity/component removal).
-        void ReleaseComponentInstances(ScriptComponent& component, dscene::EntityHandle entity)
+        void ReleaseComponentInstances(ScriptComponent& component, scene::EntityHandle entity)
         {
             for (ScriptBehavior& behavior : component.behaviors)
             {
@@ -514,7 +514,7 @@ export namespace draconic::script
         /// facade via the run binding's route. Delivery is DEFERRED (drained at the tick's
         /// top level) because a send happens INSIDE a running script call and Wren forbids
         /// re-entrant VM calls - so messages arrive later the same frame, never nested.
-        void EnqueueMessage(dscene::EntityHandle target, StringView message,
+        void EnqueueMessage(scene::EntityHandle target, StringView message,
                             Span<const Variant> args)
         {
             if (message.IsEmpty())
@@ -537,7 +537,7 @@ export namespace draconic::script
         /// with pre-marshalled args. Reuses the SAME deferred queue as entity.send so it drains
         /// at the tick's top level: the physics tick pushes contacts (never nested in a script
         /// call), and delivery is gated by HasHandler in InvokeHandler exactly like messages.
-        void EnqueueContact(dscene::EntityHandle target, StringView handler, Array<Variant> args)
+        void EnqueueContact(scene::EntityHandle target, StringView handler, Array<Variant> args)
         {
             if (handler.IsEmpty())
             {
@@ -573,7 +573,7 @@ export namespace draconic::script
                     break;
                 }
                 // Copy out before dispatch: delivering may append (reallocating m_messages).
-                const dscene::EntityHandle target = m_messages[m].target;
+                const scene::EntityHandle target = m_messages[m].target;
                 const String handler = m_messages[m].handler;
                 Array<Variant> args = m_messages[m].args;
                 if (components == nullptr)
@@ -650,12 +650,12 @@ export namespace draconic::script
             // Snapshot the owner list: scripts may destroy entities (swap-remove moves
             // pool slots) or spawn new ones (picked up next tick - the deferred start).
             m_tickOwners.Clear();
-            for (dscene::EntityHandle owner : components->Owners())
+            for (scene::EntityHandle owner : components->Owners())
             {
                 m_tickOwners.PushBack(owner);
             }
 
-            for (dscene::EntityHandle entity : m_tickOwners)
+            for (scene::EntityHandle entity : m_tickOwners)
             {
                 // Re-resolve per behavior: any dispatch can mutate the pool.
                 for (usize i = 0;; ++i)
@@ -676,7 +676,7 @@ export namespace draconic::script
             }
         }
 
-        void TickBehavior(ScriptBehavior& behavior, dscene::EntityHandle entity, f32 deltaTime)
+        void TickBehavior(ScriptBehavior& behavior, scene::EntityHandle entity, f32 deltaTime)
         {
             ScriptClass* scriptClass = behavior.script.Get();
             if (scriptClass == nullptr)
@@ -765,7 +765,7 @@ export namespace draconic::script
             }
         }
 
-        void InstantiateBehavior(ScriptBehavior& behavior, dscene::EntityHandle entity,
+        void InstantiateBehavior(ScriptBehavior& behavior, scene::EntityHandle entity,
                                  ScriptClass& scriptClass)
         {
             if (scriptClass.className.IsEmpty())
@@ -799,7 +799,7 @@ export namespace draconic::script
         // Defaults first, then hash-keyed overrides win; pushed through the class's
         // per-property setter ("<name>=") - Invoke builds the setter call.
         void ApplyProperties(ScriptBehavior& behavior, const ScriptClass& scriptClass,
-                             dscene::EntityHandle entity)
+                             scene::EntityHandle entity)
         {
             for (const ScriptPropertyDesc& property : scriptClass.properties)
             {
@@ -847,7 +847,7 @@ export namespace draconic::script
                 {
                     return Variant{};
                 }
-                const dscene::EntityHandle target = m_scene->FindEntity(value.guid);
+                const scene::EntityHandle target = m_scene->FindEntity(value.guid);
                 if (!target.IsAssigned())
                 {
                     return Variant{};
@@ -873,7 +873,7 @@ export namespace draconic::script
         // to completion and normal flow resumes.
         [[nodiscard]] HandlerOutcome InvokeHandler(ScriptBehavior& behavior,
                                                    const ScriptClass& scriptClass,
-                                                   dscene::EntityHandle entity, StringView method,
+                                                   scene::EntityHandle entity, StringView method,
                                                    Span<Variant> args)
         {
             if (behavior.instance.Get() == nullptr || !scriptClass.HasHandler(method))
@@ -917,7 +917,7 @@ export namespace draconic::script
             manager->CancelCoroutinesFor(*behavior.instance);
         }
 
-        void StopBehavior(ScriptBehavior& behavior, dscene::EntityHandle entity, bool invokeDestroy)
+        void StopBehavior(ScriptBehavior& behavior, scene::EntityHandle entity, bool invokeDestroy)
         {
             if (behavior.instance.Get() != nullptr && invokeDestroy && behavior.started &&
                 behavior.boundClass != nullptr && !behavior.faulted)
@@ -939,22 +939,22 @@ export namespace draconic::script
             {
                 return;
             }
-            components->ForEach([this](ScriptComponent& component, dscene::EntityHandle entity)
+            components->ForEach([this](ScriptComponent& component, scene::EntityHandle entity)
                                 { ReleaseComponentInstances(component, entity); });
         }
 
         struct PendingMessage
         {
-            dscene::EntityHandle target;
+            scene::EntityHandle target;
             String handler;      // prebuilt "on<Message>"
             Array<Variant> args; // marshalled at send time
         };
         static constexpr usize kMaxMessagesPerDrain = 4096;
 
-        dscene::Scene* m_scene = nullptr;
+        scene::Scene* m_scene = nullptr;
         ScriptRunHost* m_host = nullptr;
         Function<void()> m_runObserver;
-        Array<dscene::EntityHandle> m_tickOwners; // per-tick snapshot (reused)
+        Array<scene::EntityHandle> m_tickOwners; // per-tick snapshot (reused)
         Array<PendingMessage> m_messages;         // deferred entity.send queue
         bool m_started = false;
     };
@@ -972,7 +972,7 @@ export namespace draconic::script
         TriggerExit
     };
 
-    class ScriptSubsystem final : public draconic::runtime::Subsystem, public dscene::ISceneAware
+    class ScriptSubsystem final : public draconic::runtime::Subsystem, public scene::ISceneAware
     {
     public:
         /// The DEFAULT run host - the one for the editor's editing/loose scenes (game-instance.md
@@ -997,16 +997,16 @@ export namespace draconic::script
                                                     }
                                                 }});
             host.Binding().spawnPrefab =
-                Function<dscene::EntityHandle(dscene::Scene*, const Guid&, const Float3&)>{
-                    [self](dscene::Scene* scene, const Guid& prefab,
-                           const Float3& position) -> dscene::EntityHandle
+                Function<scene::EntityHandle(scene::Scene*, const Guid&, const Float3&)>{
+                    [self](scene::Scene* scene, const Guid& prefab,
+                           const Float3& position) -> scene::EntityHandle
                     {
                         return self->m_spawner ? self->m_spawner(scene, prefab, position)
-                                               : dscene::EntityHandle::Invalid();
+                                               : scene::EntityHandle::Invalid();
                     }};
-            host.Binding().dispatchMessage = Function<void(dscene::Scene*, dscene::EntityHandle,
+            host.Binding().dispatchMessage = Function<void(scene::Scene*, scene::EntityHandle,
                                                            StringView, Span<const Variant>)>{
-                [self](dscene::Scene* scene, dscene::EntityHandle target, StringView message,
+                [self](scene::Scene* scene, scene::EntityHandle target, StringView message,
                        Span<const Variant> args)
                 {
                     for (const SceneEntry& entry : self->m_systems)
@@ -1059,7 +1059,7 @@ export namespace draconic::script
         /// kinds get (other). Physics-agnostic: the host bridges physics contacts to this.
         /// Only ENQUEUES onto the owning scene's deferred queue - drained at the scene
         /// tick's top level, so no re-entrancy even though physics stepped this frame.
-        void DeliverContact(dscene::Scene* scene, dscene::EntityHandle a, dscene::EntityHandle b,
+        void DeliverContact(scene::Scene* scene, scene::EntityHandle a, scene::EntityHandle b,
                             ScriptContactKind kind, const Float3& point, const Float3& normal,
                             f32 speed)
         {
@@ -1100,7 +1100,7 @@ export namespace draconic::script
         /// Host-app wiring: the prefab spawner behind `Scene.spawn` (the host owns the content DB that
         /// resolves a prefab id). Applied to every run host by ConfigureRunHost's live wrapper.
         void SetPrefabSpawner(
-            Function<dscene::EntityHandle(dscene::Scene*, const Guid&, const Float3&)> spawner)
+            Function<scene::EntityHandle(scene::Scene*, const Guid&, const Float3&)> spawner)
         {
             m_spawner = Move(spawner);
         }
@@ -1110,7 +1110,7 @@ export namespace draconic::script
 
         // ---- scene integration ----
 
-        void OnSceneCreated(dscene::Scene& scene) override
+        void OnSceneCreated(scene::Scene& scene) override
         {
             auto* components = scene.AddSystem<ScriptComponentManager>();
             ScriptSceneSystem* system = scene.AddSystem<ScriptSceneSystem>();
@@ -1129,7 +1129,7 @@ export namespace draconic::script
                                                     }});
             m_systems.PushBack(SceneEntry{&scene, system});
         }
-        void OnSceneDestroyed(dscene::Scene& scene) override
+        void OnSceneDestroyed(scene::Scene& scene) override
         {
             ScriptRunHost* host = nullptr;
             for (usize i = 0; i < m_systems.Size(); ++i)
@@ -1173,7 +1173,7 @@ export namespace draconic::script
             ConfigureRunHost(m_ownedRunHost); // wire the default (editor-scene) run host once
             if (draconic::runtime::Context* context = GetContext())
             {
-                if (auto* scenes = context->GetSubsystem<dscene::SceneSubsystem>())
+                if (auto* scenes = context->GetSubsystem<scene::SceneSubsystem>())
                 {
                     scenes->RegisterSceneAware(this);
                 }
@@ -1183,7 +1183,7 @@ export namespace draconic::script
         {
             if (draconic::runtime::Context* context = GetContext())
             {
-                if (auto* scenes = context->GetSubsystem<dscene::SceneSubsystem>())
+                if (auto* scenes = context->GetSubsystem<scene::SceneSubsystem>())
                 {
                     scenes->UnregisterSceneAware(this);
                 }
@@ -1202,11 +1202,11 @@ export namespace draconic::script
     private:
         struct SceneEntry
         {
-            dscene::Scene* scene = nullptr;
+            scene::Scene* scene = nullptr;
             ScriptSceneSystem* system = nullptr;
         };
 
-        [[nodiscard]] ScriptSceneSystem* SystemForScene(dscene::Scene* scene)
+        [[nodiscard]] ScriptSceneSystem* SystemForScene(scene::Scene* scene)
         {
             for (const SceneEntry& entry : m_systems)
             {
@@ -1221,8 +1221,8 @@ export namespace draconic::script
         // Enqueue one side of a contact: `self` receives the handler with `other` marshalled as
         // an Entity (collision handlers also get point/normal/speed). Skips a side whose entity
         // didn't resolve (invalid `self`); a stale `other` marshals to a safe no-op Entity.
-        void DeliverContactSide(ScriptSceneSystem& system, dscene::Scene* scene,
-                                dscene::EntityHandle self, dscene::EntityHandle other,
+        void DeliverContactSide(ScriptSceneSystem& system, scene::Scene* scene,
+                                scene::EntityHandle self, scene::EntityHandle other,
                                 StringView handler, const Float3& point, const Float3& normal,
                                 f32 speed, bool trigger)
         {
@@ -1250,7 +1250,7 @@ export namespace draconic::script
         Array<SceneEntry> m_systems;
         Function<void(IScriptContext&)>
             m_configurator; // app services, applied to every host via ConfigureRunHost
-        Function<dscene::EntityHandle(dscene::Scene*, const Guid&, const Float3&)>
+        Function<scene::EntityHandle(scene::Scene*, const Guid&, const Float3&)>
             m_spawner; // Scene.spawn
     };
 }

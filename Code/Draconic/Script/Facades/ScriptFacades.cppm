@@ -28,7 +28,7 @@ using namespace draconic::core;
 
 export namespace draconic::script
 {
-    namespace dscene = draconic::scene;
+    namespace scene = draconic::scene;
 
     /// The service key the gameplay facades (Time/Random) resolve per context.
     inline constexpr StringView kScriptRuntimeService = u8"script.runtime";
@@ -58,7 +58,7 @@ export namespace draconic::script
         // The subsystem installs this; it invokes `on<Heal>(amount)` on every behavior of
         // the target entity that declares the handler. Args are already marshalled. Null
         // when no subsystem is driving the run (a bare cook VM) - send becomes a no-op.
-        core::Function<void(dscene::Scene*, dscene::EntityHandle, StringView,
+        core::Function<void(scene::Scene*, scene::EntityHandle, StringView,
                             core::Span<const core::Variant>)>
             dispatchMessage;
 
@@ -66,8 +66,8 @@ export namespace draconic::script
         // sets `currentScene` around each scene's tick so the static facade knows WHERE to
         // spawn; the host app installs `spawnPrefab` (it owns the content DB that resolves
         // a prefab id to its payload). Null spawner (bare cook VM / no host) = safe no-op.
-        dscene::Scene* currentScene = nullptr;
-        core::Function<dscene::EntityHandle(dscene::Scene*, const core::Guid&, const core::Float3&)>
+        scene::Scene* currentScene = nullptr;
+        core::Function<scene::EntityHandle(scene::Scene*, const core::Guid&, const core::Float3&)>
             spawnPrefab;
     };
 
@@ -79,13 +79,13 @@ export namespace draconic::script
     /// handle (entity destroyed) turns every call into a safe no-op.
     struct Entity
     {
-        dscene::Scene* scene = nullptr;
-        u32 entityIndex = dscene::EntityHandle::kInvalidIndex;
+        scene::Scene* scene = nullptr;
+        u32 entityIndex = scene::EntityHandle::kInvalidIndex;
         u32 entityGeneration = 0;
 
-        [[nodiscard]] dscene::EntityHandle Handle() const noexcept
+        [[nodiscard]] scene::EntityHandle Handle() const noexcept
         {
-            return dscene::EntityHandle{entityIndex, entityGeneration};
+            return scene::EntityHandle{entityIndex, entityGeneration};
         }
         [[nodiscard]] bool Live() const noexcept
         {
@@ -264,7 +264,7 @@ export namespace draconic::script
                                       : nullptr;
         }
 
-        [[nodiscard]] static Entity Wrap(dscene::Scene* scene, dscene::EntityHandle handle)
+        [[nodiscard]] static Entity Wrap(scene::Scene* scene, scene::EntityHandle handle)
         {
             Entity result;
             if (scene != nullptr && handle.IsAssigned())
