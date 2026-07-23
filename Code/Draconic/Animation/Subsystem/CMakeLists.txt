@@ -10,10 +10,10 @@ target_link_libraries(DraconicAnimationSubsystem
 
 target_sources(DraconicAnimationSubsystem
     PRIVATE
-        AnimationSubsystemImpl.cpp   # DRACONIC_REFLECT_VALUE bodies (see Components.cppm)
+        AnimationSubsystemImpl.cpp   # DRACONIC_REFLECT_VALUE bodies (see AnimationComponents.cppm)
     PUBLIC
         FILE_SET animation_subsystem_modules TYPE CXX_MODULES FILES
-            Components.cppm
+            AnimationComponents.cppm
             AnimationSubsystem.cppm
             AnimationSubsystemModule.cppm)
 

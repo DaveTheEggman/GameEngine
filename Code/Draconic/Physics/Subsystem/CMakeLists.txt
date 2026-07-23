@@ -14,7 +14,7 @@ target_sources(DraconicPhysicsSubsystem
     PUBLIC
         FILE_SET physics_subsystem_modules TYPE CXX_MODULES FILES
             PhysicsSubsystem.cppm
-            Components.cppm)
+            PhysicsComponents.cppm)
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)

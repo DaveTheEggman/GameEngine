@@ -17,7 +17,7 @@ target_sources(DraconicScriptSubsystem
     PUBLIC
         FILE_SET script_subsystem_modules TYPE CXX_MODULES FILES
             ScriptSubsystem.cppm
-            Components.cppm)
+            ScriptComponents.cppm)
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)

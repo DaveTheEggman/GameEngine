@@ -14,7 +14,7 @@ target_sources(DraconicAudioSubsystem
     PUBLIC
         FILE_SET audio_subsystem_modules TYPE CXX_MODULES FILES
             AudioSubsystem.cppm
-            Components.cppm)
+            AudioComponents.cppm)
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)
