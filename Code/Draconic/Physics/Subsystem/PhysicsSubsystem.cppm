@@ -35,7 +35,7 @@ using namespace draconic::core;
 
 export namespace draconic::physics
 {
-    namespace dscene = draconic::scene;
+    namespace scene = draconic::scene;
 
     // The body user word carries the owning entity handle. EntityHandle is {u32 index,
     // u32 generation} = exactly 64 bits and unique BY CONSTRUCTION (the generation rejects
@@ -43,13 +43,13 @@ export namespace draconic::physics
     // is a lossy projection of the 128-bit guid that two distinct entities can share. This
     // subsystem is the ONLY place that packs and unpacks the word (the World-level u64 stays
     // an opaque handle), so the helpers live here.
-    [[nodiscard]] inline u64 PackEntity(dscene::EntityHandle handle) noexcept
+    [[nodiscard]] inline u64 PackEntity(scene::EntityHandle handle) noexcept
     {
         return (static_cast<u64>(handle.index) << 32) | static_cast<u64>(handle.generation);
     }
-    [[nodiscard]] inline dscene::EntityHandle UnpackEntity(u64 value) noexcept
+    [[nodiscard]] inline scene::EntityHandle UnpackEntity(u64 value) noexcept
     {
-        return dscene::EntityHandle{static_cast<u32>(value >> 32),
+        return scene::EntityHandle{static_cast<u32>(value >> 32),
                                     static_cast<u32>(value & 0xFFFFFFFFu)};
     }
 
@@ -60,9 +60,9 @@ export namespace draconic::physics
     struct EntityContact
     {
         ContactKind kind = ContactKind::Begin;
-        dscene::Scene* scene = nullptr;
-        dscene::EntityHandle a;
-        dscene::EntityHandle b;
+        scene::Scene* scene = nullptr;
+        scene::EntityHandle a;
+        scene::EntityHandle b;
         Float3 point{0, 0, 0};
         Float3 normal{0, 0, 0};
         f32 speed = 0.0f;
@@ -78,12 +78,12 @@ export namespace draconic::physics
         virtual void OnContact(const EntityContact& contact) = 0;
     };
 
-    class PhysicsSceneSystem final : public dscene::SceneSystem
+    class PhysicsSceneSystem final : public scene::SceneSystem
     {
     public:
         [[nodiscard]] bool IsSimulationOnly() const noexcept override { return true; }
 
-        void OnSceneCreate(dscene::Scene& scene) override { m_scene = &scene; }
+        void OnSceneCreate(scene::Scene& scene) override { m_scene = &scene; }
 
         // Scene-settings seam (edited in the scene inspector, persisted with the scene).
         [[nodiscard]] const TypeInfo* SettingsType() const noexcept override
@@ -135,17 +135,17 @@ export namespace draconic::physics
             auto* bodies = m_scene->GetSystem<RigidBodyComponentManager>();
             if (bodies != nullptr)
             {
-                bodies->ForEach([](RigidBodyComponent& c, dscene::EntityHandle)
+                bodies->ForEach([](RigidBodyComponent& c, scene::EntityHandle)
                                 { c.body = BodyId{}; });
             }
             if (auto* joints = m_scene->GetSystem<JointComponentManager>())
             {
-                joints->ForEach([](JointComponent& c, dscene::EntityHandle)
+                joints->ForEach([](JointComponent& c, scene::EntityHandle)
                                 { c.joint = JointId{}; });
             }
             if (auto* characters = m_scene->GetSystem<CharacterComponentManager>())
             {
-                characters->ForEach([](CharacterComponent& c, dscene::EntityHandle)
+                characters->ForEach([](CharacterComponent& c, scene::EntityHandle)
                                     { c.character = CharacterId{}; });
             }
             m_events.Clear();
@@ -158,7 +158,7 @@ export namespace draconic::physics
             {
                 return;
             }
-            dscene::Scene& scene = *m_scene;
+            scene::Scene& scene = *m_scene;
             auto* bodies = scene.GetSystem<RigidBodyComponentManager>();
             if (bodies == nullptr)
             {
@@ -167,7 +167,7 @@ export namespace draconic::physics
 
             // Kinematics follow the SCENE (velocity-correct move toward this step's target).
             bodies->ForEach(
-                [&](RigidBodyComponent& c, dscene::EntityHandle e)
+                [&](RigidBodyComponent& c, scene::EntityHandle e)
                 {
                     if (!c.body.IsValid() || c.motion != MotionKind::Kinematic)
                     {
@@ -186,7 +186,7 @@ export namespace draconic::physics
             if (auto* joints = scene.GetSystem<JointComponentManager>())
             {
                 joints->ForEach(
-                    [&](JointComponent& c, dscene::EntityHandle)
+                    [&](JointComponent& c, scene::EntityHandle)
                     {
                         if (c.joint.IsValid())
                         {
@@ -212,7 +212,7 @@ export namespace draconic::physics
             {
                 const Float3 gravity = m_world->Gravity();
                 characters->ForEach(
-                    [&](CharacterComponent& c, dscene::EntityHandle)
+                    [&](CharacterComponent& c, scene::EntityHandle)
                     {
                         if (!c.character.IsValid())
                         {
@@ -242,7 +242,7 @@ export namespace draconic::physics
 
             // Dynamic poses into the double-buffer (prev <- curr <- world).
             bodies->ForEach(
-                [&](RigidBodyComponent& c, dscene::EntityHandle)
+                [&](RigidBodyComponent& c, scene::EntityHandle)
                 {
                     if (!c.body.IsValid() || c.motion != MotionKind::Dynamic)
                     {
@@ -263,14 +263,14 @@ export namespace draconic::physics
             {
                 return;
             }
-            dscene::Scene& scene = *m_scene;
+            scene::Scene& scene = *m_scene;
             auto* bodies = scene.GetSystem<RigidBodyComponentManager>();
             if (bodies == nullptr)
             {
                 return;
             }
             bodies->ForEach(
-                [&](RigidBodyComponent& c, dscene::EntityHandle e)
+                [&](RigidBodyComponent& c, scene::EntityHandle e)
                 {
                     if (!c.body.IsValid() || c.motion != MotionKind::Dynamic)
                     {
@@ -284,7 +284,7 @@ export namespace draconic::physics
 
                     // World -> local against the parent (scale preserved from the current local).
                     Transform local = scene.GetLocalTransform(e);
-                    dscene::EntityHandle parent = scene.GetParent(e);
+                    scene::EntityHandle parent = scene.GetParent(e);
                     if (parent.IsAssigned())
                     {
                         const Float4x4 world =
@@ -309,7 +309,7 @@ export namespace draconic::physics
             if (auto* characters = scene.GetSystem<CharacterComponentManager>())
             {
                 characters->ForEach(
-                    [&](CharacterComponent& c, dscene::EntityHandle e)
+                    [&](CharacterComponent& c, scene::EntityHandle e)
                     {
                         if (!c.character.IsValid())
                         {
@@ -320,7 +320,7 @@ export namespace draconic::physics
                             c.prevPosition.y + (c.currPosition.y - c.prevPosition.y) * alpha,
                             c.prevPosition.z + (c.currPosition.z - c.prevPosition.z) * alpha};
                         Transform local = scene.GetLocalTransform(e);
-                        dscene::EntityHandle parent = scene.GetParent(e);
+                        scene::EntityHandle parent = scene.GetParent(e);
                         if (parent.IsAssigned())
                         {
                             const Float4x4 world =
@@ -342,13 +342,13 @@ export namespace draconic::physics
             }
         }
 
-        [[nodiscard]] dscene::Scene* ScenePtr() const noexcept { return m_scene; }
+        [[nodiscard]] scene::Scene* ScenePtr() const noexcept { return m_scene; }
 
     private:
         // After BuildBodies: joints reference the already-created bodies.
         void BuildJoints()
         {
-            dscene::Scene& scene = *m_scene;
+            scene::Scene& scene = *m_scene;
             auto* joints = scene.GetSystem<JointComponentManager>();
             auto* bodies = scene.GetSystem<RigidBodyComponentManager>();
             if (joints == nullptr || bodies == nullptr)
@@ -356,7 +356,7 @@ export namespace draconic::physics
                 return;
             }
             joints->ForEach(
-                [&](JointComponent& c, dscene::EntityHandle e)
+                [&](JointComponent& c, scene::EntityHandle e)
                 {
                     RigidBodyComponent* own = bodies->Get(e);
                     if (own == nullptr || !own->body.IsValid())
@@ -369,7 +369,7 @@ export namespace draconic::physics
                     BodyId target; // invalid = world attachment
                     if (!c.targetEntity.IsNil())
                     {
-                        dscene::EntityHandle t = scene.FindEntity(c.targetEntity);
+                        scene::EntityHandle t = scene.FindEntity(c.targetEntity);
                         RigidBodyComponent* targetBody = t.IsAssigned() ? bodies->Get(t) : nullptr;
                         if (targetBody == nullptr || !targetBody->body.IsValid())
                         {
@@ -383,7 +383,7 @@ export namespace draconic::physics
                     }
                     else
                     {
-                        for (dscene::EntityHandle p = scene.GetParent(e); p.IsAssigned();
+                        for (scene::EntityHandle p = scene.GetParent(e); p.IsAssigned();
                              p = scene.GetParent(p))
                         {
                             RigidBodyComponent* parentBody = bodies->Get(p);
@@ -424,14 +424,14 @@ export namespace draconic::physics
 
         void BuildCharacters()
         {
-            dscene::Scene& scene = *m_scene;
+            scene::Scene& scene = *m_scene;
             auto* characters = scene.GetSystem<CharacterComponentManager>();
             if (characters == nullptr)
             {
                 return;
             }
             characters->ForEach(
-                [&](CharacterComponent& c, dscene::EntityHandle e)
+                [&](CharacterComponent& c, scene::EntityHandle e)
                 {
                     Float3 position, scale;
                     Quaternion rotation;
@@ -459,7 +459,7 @@ export namespace draconic::physics
 
         void BuildBodies()
         {
-            dscene::Scene& scene = *m_scene;
+            scene::Scene& scene = *m_scene;
             auto* bodies = scene.GetSystem<RigidBodyComponentManager>();
             auto* colliders = scene.GetSystem<ColliderComponentManager>();
             if (bodies == nullptr)
@@ -468,7 +468,7 @@ export namespace draconic::physics
             }
 
             bodies->ForEach(
-                [&](RigidBodyComponent& c, dscene::EntityHandle e)
+                [&](RigidBodyComponent& c, scene::EntityHandle e)
                 {
                     BodyDesc desc;
                     desc.motion = c.motion;
@@ -519,7 +519,7 @@ export namespace draconic::physics
                     {
                         const Float4x4 bodyInverse = Inverse(scene.GetWorldMatrix(e));
                         colliders->ForEach(
-                            [&](ColliderComponent& extra, dscene::EntityHandle child)
+                            [&](ColliderComponent& extra, scene::EntityHandle child)
                             {
                                 if (!IsDescendantOf(scene, child, e))
                                 {
@@ -588,13 +588,13 @@ export namespace draconic::physics
             }
             for (const ContactEvent& event : m_events)
             {
-                const dscene::EntityHandle a = UnpackEntity(event.userA);
-                const dscene::EntityHandle b = UnpackEntity(event.userB);
+                const scene::EntityHandle a = UnpackEntity(event.userA);
+                const scene::EntityHandle b = UnpackEntity(event.userB);
                 EntityContact contact;
                 contact.kind = event.kind;
                 contact.scene = m_scene;
-                contact.a = m_scene->IsValid(a) ? a : dscene::EntityHandle::Invalid();
-                contact.b = m_scene->IsValid(b) ? b : dscene::EntityHandle::Invalid();
+                contact.a = m_scene->IsValid(a) ? a : scene::EntityHandle::Invalid();
+                contact.b = m_scene->IsValid(b) ? b : scene::EntityHandle::Invalid();
                 if (!contact.a.IsAssigned() && !contact.b.IsAssigned())
                 {
                     continue;
@@ -612,10 +612,10 @@ export namespace draconic::physics
             }
         }
 
-        [[nodiscard]] static bool IsDescendantOf(dscene::Scene& scene, dscene::EntityHandle child,
-                                                 dscene::EntityHandle ancestor)
+        [[nodiscard]] static bool IsDescendantOf(scene::Scene& scene, scene::EntityHandle child,
+                                                 scene::EntityHandle ancestor)
         {
-            for (dscene::EntityHandle e = child; e.IsAssigned(); e = scene.GetParent(e))
+            for (scene::EntityHandle e = child; e.IsAssigned(); e = scene.GetParent(e))
             {
                 if (e == ancestor)
                 {
@@ -625,7 +625,7 @@ export namespace draconic::physics
             return false;
         }
 
-        dscene::Scene* m_scene = nullptr; // set by OnSceneCreate
+        scene::Scene* m_scene = nullptr; // set by OnSceneCreate
         PhysicsSceneSettings m_settings;
         UniquePtr<PhysicsWorld> m_world;
         Array<ContactEvent> m_events;
@@ -646,7 +646,7 @@ export namespace draconic::physics
         bool lastHitValid = false;
     };
 
-    class PhysicsSubsystem final : public draconic::runtime::Subsystem, public dscene::ISceneAware
+    class PhysicsSubsystem final : public draconic::runtime::Subsystem, public scene::ISceneAware
     {
     public:
         /// Binds THIS subsystem's script seam into `context` - the Physics facade acts on
@@ -690,7 +690,7 @@ export namespace draconic::physics
         // extracts world matrices) would lag the physics poses by a frame.
         [[nodiscard]] i32 UpdateOrder() const noexcept override { return -600; }
 
-        void OnSceneCreated(dscene::Scene& scene) override
+        void OnSceneCreated(scene::Scene& scene) override
         {
             scene.AddSystem<RigidBodyComponentManager>();
             scene.AddSystem<ColliderComponentManager>();
@@ -700,7 +700,7 @@ export namespace draconic::physics
             system->SetContactListeners(&m_contactListeners); // shared list, stable address
             m_systems.PushBack(SceneEntry{&scene, system});
         }
-        void OnSceneDestroyed(dscene::Scene& scene) override
+        void OnSceneDestroyed(scene::Scene& scene) override
         {
             for (usize i = 0; i < m_systems.Size(); ++i)
             {
@@ -722,7 +722,7 @@ export namespace draconic::physics
         {
             if (draconic::runtime::Context* context = GetContext())
             {
-                if (auto* scenes = context->GetSubsystem<dscene::SceneSubsystem>())
+                if (auto* scenes = context->GetSubsystem<scene::SceneSubsystem>())
                 {
                     scenes->RegisterSceneAware(this);
                 }
@@ -732,7 +732,7 @@ export namespace draconic::physics
         {
             if (draconic::runtime::Context* context = GetContext())
             {
-                if (auto* scenes = context->GetSubsystem<dscene::SceneSubsystem>())
+                if (auto* scenes = context->GetSubsystem<scene::SceneSubsystem>())
                 {
                     scenes->UnregisterSceneAware(this);
                 }
@@ -741,7 +741,7 @@ export namespace draconic::physics
 
         struct SceneEntry
         {
-            dscene::Scene* scene = nullptr;
+            scene::Scene* scene = nullptr;
             PhysicsSceneSystem* system = nullptr;
         };
         [[nodiscard]] Span<const SceneEntry> Systems() const noexcept
@@ -841,12 +841,12 @@ export namespace draconic::physics
             {
                 return draconic::script::Entity{};
             }
-            dscene::Scene* scene = binding->system->ScenePtr();
+            scene::Scene* scene = binding->system->ScenePtr();
             if (scene == nullptr)
             {
                 return draconic::script::Entity{};
             }
-            const dscene::EntityHandle handle = UnpackEntity(binding->lastHit.userData);
+            const scene::EntityHandle handle = UnpackEntity(binding->lastHit.userData);
             if (!scene->IsValid(handle))
             {
                 return draconic::script::Entity{};
@@ -897,7 +897,7 @@ export namespace draconic::physics
             {
                 return nullptr;
             }
-            dscene::Scene* scene = binding->system->ScenePtr();
+            scene::Scene* scene = binding->system->ScenePtr();
             auto* characters =
                 scene != nullptr ? scene->GetSystem<CharacterComponentManager>() : nullptr;
             if (characters == nullptr)
@@ -906,7 +906,7 @@ export namespace draconic::physics
             }
             CharacterComponent* found = nullptr;
             characters->ForEach(
-                [&](CharacterComponent& c, dscene::EntityHandle)
+                [&](CharacterComponent& c, scene::EntityHandle)
                 {
                     if (found == nullptr && c.character.IsValid())
                     {

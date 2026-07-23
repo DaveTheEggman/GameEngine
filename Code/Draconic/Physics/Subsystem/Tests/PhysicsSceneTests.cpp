@@ -17,13 +17,13 @@ import draconic.script.wren;
 
 using namespace draconic::core;
 using namespace draconic::physics;
-namespace dscene = draconic::scene;
+namespace scene = draconic::scene;
 
 namespace
 {
     struct PlayScene
     {
-        dscene::Scene scene{u8"physics-test"};
+        scene::Scene scene{u8"physics-test"};
         PhysicsSceneSystem* physics = nullptr;
 
         PlayScene()
@@ -34,9 +34,9 @@ namespace
             physics = scene.AddSystem<PhysicsSceneSystem>();
         }
 
-        dscene::EntityHandle AddFloor()
+        scene::EntityHandle AddFloor()
         {
-            dscene::EntityHandle e = scene.CreateEntity(u8"floor");
+            scene::EntityHandle e = scene.CreateEntity(u8"floor");
             scene.SetLocalPosition(e, Float3{0.0f, -0.5f, 0.0f});
             RigidBodyComponent& body = scene.GetSystem<RigidBodyComponentManager>()->Add(e);
             body.motion = MotionKind::Static;
@@ -45,9 +45,9 @@ namespace
             return e;
         }
 
-        dscene::EntityHandle AddBox(f32 y, MotionKind motion = MotionKind::Dynamic)
+        scene::EntityHandle AddBox(f32 y, MotionKind motion = MotionKind::Dynamic)
         {
-            dscene::EntityHandle e = scene.CreateEntity(u8"box");
+            scene::EntityHandle e = scene.CreateEntity(u8"box");
             scene.SetLocalPosition(e, Float3{0.0f, y, 0.0f});
             RigidBodyComponent& body = scene.GetSystem<RigidBodyComponentManager>()->Add(e);
             body.motion = motion;
@@ -78,7 +78,7 @@ TEST_CASE("physics.scene: components build bodies at Start; dynamics fall and la
 {
     PlayScene play;
     (void)play.AddFloor();
-    const dscene::EntityHandle box = play.AddBox(5.0f);
+    const scene::EntityHandle box = play.AddBox(5.0f);
     play.Start();
     REQUIRE(play.physics->World() != nullptr);
     CHECK(play.physics->World()->BodyCount() == 2u);
@@ -98,7 +98,7 @@ TEST_CASE("physics.scene: components build bodies at Start; dynamics fall and la
 TEST_CASE("physics.scene: interpolation blends between the last two fixed poses")
 {
     PlayScene play;
-    const dscene::EntityHandle box = play.AddBox(10.0f); // free fall, no floor
+    const scene::EntityHandle box = play.AddBox(10.0f); // free fall, no floor
     play.Start();
     play.Step(30); // let it pick up speed
 
@@ -125,8 +125,8 @@ TEST_CASE("physics.scene: interpolation blends between the last two fixed poses"
 TEST_CASE("physics.scene: kinematic bodies follow the scene; dynamics rest on them")
 {
     PlayScene play;
-    const dscene::EntityHandle platform = play.AddBox(0.0f, MotionKind::Kinematic);
-    const dscene::EntityHandle rider = play.AddBox(1.5f);
+    const scene::EntityHandle platform = play.AddBox(0.0f, MotionKind::Kinematic);
+    const scene::EntityHandle rider = play.AddBox(1.5f);
     play.Start();
 
     // Land the rider on the platform, then slide the platform sideways: the rider rides.
@@ -152,8 +152,8 @@ TEST_CASE("physics.scene: descendant colliders compound into the ancestor body")
     (void)play.AddFloor();
     // An L-piece: the body box at origin + a child collider offset +x. Its compound
     // should topple/rest unlike a lone cube - assert the child shape EXISTS by ray.
-    const dscene::EntityHandle body = play.AddBox(0.5f, MotionKind::Static);
-    dscene::EntityHandle arm = play.scene.CreateEntity(u8"arm");
+    const scene::EntityHandle body = play.AddBox(0.5f, MotionKind::Static);
+    scene::EntityHandle arm = play.scene.CreateEntity(u8"arm");
     play.scene.SetParent(arm, body);
     play.scene.SetLocalPosition(arm, Float3{2.0f, 0.0f, 0.0f});
     ColliderComponent& extra = play.scene.GetSystem<ColliderComponentManager>()->Add(arm);
@@ -181,11 +181,11 @@ TEST_CASE("physics.scene: trigger components raise enter events resolved to enti
 {
     PlayScene play;
     (void)play.AddFloor();
-    const dscene::EntityHandle volume = play.AddBox(2.0f, MotionKind::Kinematic);
+    const scene::EntityHandle volume = play.AddBox(2.0f, MotionKind::Kinematic);
     RigidBodyComponent* sensor = play.scene.GetSystem<RigidBodyComponentManager>()->Get(volume);
     sensor->isTrigger = true;
     sensor->halfExtents = Float3{1.0f, 1.0f, 1.0f};
-    const dscene::EntityHandle faller = play.AddBox(6.0f);
+    const scene::EntityHandle faller = play.AddBox(6.0f);
     play.Start();
 
     RecordingListener recorder;
@@ -213,8 +213,8 @@ TEST_CASE("physics.scene: a real Jolt collision reaches a registered listener wi
           "entities + geometry")
 {
     PlayScene play;
-    const dscene::EntityHandle floor = play.AddFloor();
-    const dscene::EntityHandle box = play.AddBox(1.4f); // drops onto the floor
+    const scene::EntityHandle floor = play.AddFloor();
+    const scene::EntityHandle box = play.AddBox(1.4f); // drops onto the floor
     play.Start();
 
     RecordingListener recorder;
@@ -265,7 +265,7 @@ TEST_CASE("physics.scene: cooked collision shape drives a body via the component
 
     PlayScene play;
     play.AddFloor();
-    dscene::EntityHandle crate = play.AddBox(3.0f);
+    scene::EntityHandle crate = play.AddBox(3.0f);
     {
         RigidBodyComponent* body = play.scene.GetSystem<RigidBodyComponentManager>()->Get(crate);
         REQUIRE(body != nullptr);
@@ -291,7 +291,7 @@ TEST_CASE("physics.scene: a referenced PhysicalMaterial overrides inline surface
 
     PlayScene play;
     play.AddFloor();
-    dscene::EntityHandle ball = play.AddBox(3.0f);
+    scene::EntityHandle ball = play.AddBox(3.0f);
     {
         RigidBodyComponent* body = play.scene.GetSystem<RigidBodyComponentManager>()->Get(ball);
         REQUIRE(body != nullptr);
@@ -324,7 +324,7 @@ TEST_CASE("physics.scene: a referenced PhysicalMaterial overrides inline surface
 TEST_CASE("physics.scene: a tilted plane entity makes boxes slide downhill")
 {
     PlayScene play;
-    dscene::EntityHandle ground = play.scene.CreateEntity(u8"ramp");
+    scene::EntityHandle ground = play.scene.CreateEntity(u8"ramp");
     {
         RigidBodyComponent& body = play.scene.GetSystem<RigidBodyComponentManager>()->Add(ground);
         body.motion = MotionKind::Static;
@@ -335,7 +335,7 @@ TEST_CASE("physics.scene: a tilted plane entity makes boxes slide downhill")
         t.rotation = Quaternion::FromAxisAngle(Float3{0.0f, 0.0f, 1.0f}, 0.3f);
         play.scene.SetLocalTransform(ground, t);
     }
-    dscene::EntityHandle box = play.AddBox(3.0f);
+    scene::EntityHandle box = play.AddBox(3.0f);
     {
         RigidBodyComponent* body = play.scene.GetSystem<RigidBodyComponentManager>()->Get(box);
         body->friction = 0.0f;
@@ -357,7 +357,7 @@ TEST_CASE("physics.scene: the Wren Physics facade raycasts + pushes through the 
 
     PlayScene play;
     play.AddFloor();
-    dscene::EntityHandle box = play.AddBox(0.5f); // resting on the floor at y=0.5
+    scene::EntityHandle box = play.AddBox(0.5f); // resting on the floor at y=0.5
     play.Start();
     play.Step(10);
 
@@ -404,8 +404,8 @@ TEST_CASE(
     // and depenetration blasts the stack apart (the PhysicsPlayground startup bug).
     PlayScene play;
     play.AddFloor();
-    dscene::EntityHandle left = play.AddBox(0.5f);
-    dscene::EntityHandle right = play.AddBox(0.5f);
+    scene::EntityHandle left = play.AddBox(0.5f);
+    scene::EntityHandle right = play.AddBox(0.5f);
     play.scene.SetLocalPosition(left, Float3{-3.0f, 0.5f, 0.0f});
     play.scene.SetLocalPosition(right, Float3{3.0f, 0.5f, 0.0f});
 
@@ -424,7 +424,7 @@ TEST_CASE("physics.scene: a motorized hinge joint spins a door to the world")
 {
     PlayScene play;
     play.scene.AddSystem<JointComponentManager>();
-    dscene::EntityHandle door = play.scene.CreateEntity(u8"door");
+    scene::EntityHandle door = play.scene.CreateEntity(u8"door");
     play.scene.SetLocalPosition(door, Float3{0.0f, 2.0f, 0.0f});
     {
         RigidBodyComponent& body = play.scene.GetSystem<RigidBodyComponentManager>()->Add(door);
@@ -455,7 +455,7 @@ TEST_CASE("physics.scene: nil-target joints attach to the nearest ancestor body;
     play.AddFloor();
 
     // anchor (static, elevated) > bob (dynamic child on a distance rope, nil target).
-    dscene::EntityHandle anchor = play.scene.CreateEntity(u8"anchor");
+    scene::EntityHandle anchor = play.scene.CreateEntity(u8"anchor");
     play.scene.SetLocalPosition(anchor, Float3{0.0f, 6.0f, 0.0f});
     {
         RigidBodyComponent& body = play.scene.GetSystem<RigidBodyComponentManager>()->Add(anchor);
@@ -463,7 +463,7 @@ TEST_CASE("physics.scene: nil-target joints attach to the nearest ancestor body;
         body.layer = PhysicsLayer::Static;
         body.halfExtents = Float3{0.2f, 0.2f, 0.2f};
     }
-    dscene::EntityHandle bob = play.scene.CreateEntity(u8"bob");
+    scene::EntityHandle bob = play.scene.CreateEntity(u8"bob");
     play.scene.SetParent(bob, anchor);
     play.scene.SetLocalPosition(bob, Float3{0.0f, -1.0f, 0.0f}); // world y = 5
     {
@@ -477,8 +477,8 @@ TEST_CASE("physics.scene: nil-target joints attach to the nearest ancestor body;
     }
 
     // Explicit-guid pair on the floor: two boxes fixed together side by side.
-    dscene::EntityHandle left = play.AddBox(0.5f);
-    dscene::EntityHandle right = play.AddBox(0.5f);
+    scene::EntityHandle left = play.AddBox(0.5f);
+    scene::EntityHandle right = play.AddBox(0.5f);
     play.scene.SetLocalPosition(left, Float3{4.0f, 0.5f, 0.0f});
     play.scene.SetLocalPosition(right, Float3{5.2f, 0.5f, 0.0f});
     {
@@ -514,7 +514,7 @@ TEST_CASE("physics.scene: the character component walks, jumps, and lands (inter
     PlayScene play;
     play.scene.AddSystem<CharacterComponentManager>();
     play.AddFloor();
-    dscene::EntityHandle hero = play.scene.CreateEntity(u8"hero");
+    scene::EntityHandle hero = play.scene.CreateEntity(u8"hero");
     play.scene.SetLocalPosition(hero, Float3{0.0f, 0.9f, 0.0f});
     CharacterComponent& character = play.scene.GetSystem<CharacterComponentManager>()->Add(hero);
     play.Start();
@@ -558,17 +558,17 @@ import draconic.scene.resource;
 
 TEST_CASE("physics.scene: the editor simulate cycle (capture/start/stop/restore) terminates")
 {
-    namespace rt = draconic::runtime;
-    rt::Context ctx;
-    auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
-    dscene::SceneManager sm(&scenes->AwareRegistry());
+    namespace runtime = draconic::runtime;
+    runtime::Context ctx;
+    auto* scenes = ctx.AddSubsystem<scene::SceneSubsystem>();
+    scene::SceneManager sm(&scenes->AwareRegistry());
     scenes->RegisterManager(&sm);
     ctx.AddSubsystem<PhysicsSubsystem>();
     ctx.Startup();
 
-    dscene::Scene* scene = sm.CreateScene(u8"level");
+    scene::Scene* scene = sm.CreateScene(u8"level");
     {
-        dscene::EntityHandle floor = scene->CreateEntity(u8"floor");
+        scene::EntityHandle floor = scene->CreateEntity(u8"floor");
         scene->SetLocalPosition(floor, Float3{0.0f, -0.5f, 0.0f});
         auto& body = scene->GetSystem<RigidBodyComponentManager>()->Add(floor);
         body.motion = MotionKind::Static;
@@ -577,7 +577,7 @@ TEST_CASE("physics.scene: the editor simulate cycle (capture/start/stop/restore)
     }
     for (int i = 0; i < 8; ++i)
     {
-        dscene::EntityHandle box = scene->CreateEntity(u8"box");
+        scene::EntityHandle box = scene->CreateEntity(u8"box");
         scene->SetLocalPosition(
             box, Float3{static_cast<f32>(i) * 0.5f, 3.0f + static_cast<f32>(i), 0.0f});
         auto& body = scene->GetSystem<RigidBodyComponentManager>()->Add(box);
@@ -589,7 +589,7 @@ TEST_CASE("physics.scene: the editor simulate cycle (capture/start/stop/restore)
     for (int cycle = 0; cycle < 2; ++cycle)
     {
         MESSAGE("cycle ", cycle, ": capture");
-        auto snapshot = dscene::SceneSnapshot::Capture(*scene);
+        auto snapshot = scene::SceneSnapshot::Capture(*scene);
         REQUIRE(snapshot);
         MESSAGE("cycle ", cycle, ": start");
         scene->Start();

@@ -10,10 +10,10 @@ target_link_libraries(DraconicPhysicsSubsystem
 
 target_sources(DraconicPhysicsSubsystem
     PRIVATE
-        SubsystemImpl.cpp   # implementation unit: render-frame drive (render dep stays out of the interface)
+        PhysicsSubsystemImpl.cpp   # implementation unit: render-frame drive (render dep stays out of the interface)
     PUBLIC
         FILE_SET physics_subsystem_modules TYPE CXX_MODULES FILES
-            Subsystem.cppm
+            PhysicsSubsystem.cppm
             Components.cppm)
 
 if(DRACONIC_BUILD_TESTS)

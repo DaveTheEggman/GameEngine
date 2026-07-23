@@ -20,7 +20,7 @@ import draconic.resource;
 import draconic.content;
 
 using namespace draconic::core;
-using namespace draconic::resource;
+namespace resource = draconic::resource;
 
 export namespace draconic::physics
 {
@@ -57,14 +57,14 @@ export namespace draconic::physics
         }
     };
 
-    class CollisionShapeFactory final : public IResourceFactory
+    class CollisionShapeFactory final : public resource::IResourceFactory
     {
     public:
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
             return &CollisionShape::StaticType();
         }
-        [[nodiscard]] RefPtr<Object> Create(ResourceManager&,
+        [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager&,
                                             draconic::content::Instance& instance) override
         {
             RefPtr<ISerializable> object = instance.ReadObject();
@@ -118,14 +118,14 @@ export namespace draconic::physics
         f32 density = 1000.0f;
     };
 
-    class PhysicalMaterialFactory final : public IResourceFactory
+    class PhysicalMaterialFactory final : public resource::IResourceFactory
     {
     public:
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
             return &PhysicalMaterial::StaticType();
         }
-        [[nodiscard]] RefPtr<Object> Create(ResourceManager&,
+        [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager&,
                                             draconic::content::Instance& instance) override
         {
             RefPtr<ISerializable> object = instance.ReadObject();
