@@ -10,6 +10,8 @@ target_link_libraries(DraconicRender
            Draconic::Shaders Draconic::ShaderSystem Draconic::PipelineCache Draconic::Profiler Draconic::Policy)
 
 target_sources(DraconicRender
+    PRIVATE
+        MeshRendererImpl.cpp   # out-of-line MeshRenderer defs (see MeshRenderer.cppm)
     PUBLIC
         FILE_SET render_modules TYPE CXX_MODULES FILES
             RenderData.cppm
