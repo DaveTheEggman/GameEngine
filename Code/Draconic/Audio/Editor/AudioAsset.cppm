@@ -41,11 +41,11 @@ export namespace draconic::audio
     {
         DRACONIC_OBJECT(AudioClipAsset, draconic::editor::Asset)
     public:
-        bool stream = false;              // decode on the fly at runtime (music/ambience)
-        bool keepCompressed = false;      // in-memory clips: decode on play, not on load
-        bool forceMono = false;           // downmix at cook (the 3D-intent default)
+        bool stream = false;         // decode on the fly at runtime (music/ambience)
+        bool keepCompressed = false; // in-memory clips: decode on play, not on load
+        bool forceMono = false;      // downmix at cook (the 3D-intent default)
         bool loop = false;
-        u64 loopStartFrame = 0;           // loopEndFrame 0 = clip end
+        u64 loopStartFrame = 0; // loopEndFrame 0 = clip end
         u64 loopEndFrame = 0;
         bool trimTrailingSilence = false; // Traktor trick: drop the silent tail
         bool normalize = false;           // peak-normalize to -1 dBFS
@@ -53,7 +53,7 @@ export namespace draconic::audio
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::editor::Asset::Serialize(ar);   // fileName
+            draconic::editor::Asset::Serialize(ar); // fileName
             draconic::core::Serialize(ar, "stream", stream);
             draconic::core::Serialize(ar, "keepCompressed", keepCompressed);
             draconic::core::Serialize(ar, "forceMono", forceMono);
@@ -77,22 +77,27 @@ export namespace draconic::audio
 
     /// Scans a RIFF/WAVE container for the first `smpl` sampler loop. True when found,
     /// with the loop's start/end sample frames. Pure byte walk - no decoder involved.
-    [[nodiscard]] inline bool ParseWavSampleLoop(Span<const byte> wavBytes,
-                                                 u64& outLoopStartFrame, u64& outLoopEndFrame)
+    [[nodiscard]] inline bool ParseWavSampleLoop(Span<const byte> wavBytes, u64& outLoopStartFrame,
+                                                 u64& outLoopEndFrame)
     {
-        auto readU32 = [&](usize offset) -> u32 {
-            return static_cast<u32>(static_cast<u8>(wavBytes[offset]))
-                 | static_cast<u32>(static_cast<u8>(wavBytes[offset + 1])) << 8
-                 | static_cast<u32>(static_cast<u8>(wavBytes[offset + 2])) << 16
-                 | static_cast<u32>(static_cast<u8>(wavBytes[offset + 3])) << 24;
+        auto readU32 = [&](usize offset) -> u32
+        {
+            return static_cast<u32>(static_cast<u8>(wavBytes[offset])) |
+                   static_cast<u32>(static_cast<u8>(wavBytes[offset + 1])) << 8 |
+                   static_cast<u32>(static_cast<u8>(wavBytes[offset + 2])) << 16 |
+                   static_cast<u32>(static_cast<u8>(wavBytes[offset + 3])) << 24;
         };
-        auto tagIs = [&](usize offset, const char* tag) -> bool {
-            return static_cast<char>(wavBytes[offset]) == tag[0]
-                && static_cast<char>(wavBytes[offset + 1]) == tag[1]
-                && static_cast<char>(wavBytes[offset + 2]) == tag[2]
-                && static_cast<char>(wavBytes[offset + 3]) == tag[3];
+        auto tagIs = [&](usize offset, const char* tag) -> bool
+        {
+            return static_cast<char>(wavBytes[offset]) == tag[0] &&
+                   static_cast<char>(wavBytes[offset + 1]) == tag[1] &&
+                   static_cast<char>(wavBytes[offset + 2]) == tag[2] &&
+                   static_cast<char>(wavBytes[offset + 3]) == tag[3];
         };
-        if (wavBytes.Size() < 12 || !tagIs(0, "RIFF") || !tagIs(8, "WAVE")) { return false; }
+        if (wavBytes.Size() < 12 || !tagIs(0, "RIFF") || !tagIs(8, "WAVE"))
+        {
+            return false;
+        }
         usize cursor = 12;
         while (cursor + 8 <= wavBytes.Size())
         {
@@ -102,8 +107,8 @@ export namespace draconic::audio
                 // smpl layout: 36 bytes of sampler fields (numLoops at +28), then
                 // 24-byte loop records (start at +8, end at +12 within the record).
                 const usize body = cursor + 8;
-                if (chunkSize >= 36 + 24 && body + 36 + 24 <= wavBytes.Size()
-                    && readU32(body + 28) >= 1)
+                if (chunkSize >= 36 + 24 && body + 36 + 24 <= wavBytes.Size() &&
+                    readU32(body + 28) >= 1)
                 {
                     outLoopStartFrame = readU32(body + 36 + 8);
                     outLoopEndFrame = readU32(body + 36 + 12);
@@ -111,7 +116,7 @@ export namespace draconic::audio
                 }
                 return false;
             }
-            cursor += 8 + chunkSize + (chunkSize & 1);   // chunks are word-aligned
+            cursor += 8 + chunkSize + (chunkSize & 1); // chunks are word-aligned
         }
         return false;
     }
@@ -134,10 +139,16 @@ export namespace draconic::audio
                                    draconic::editor::AssetBuildContext& ctx) override
         {
             const AudioClipAsset& audioAsset = static_cast<const AudioClipAsset&>(asset);
-            if (ctx.output == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
+            if (ctx.output == nullptr)
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
 
             Result<Array<byte>> bytes = ReadSourceBytes(ctx, audioAsset.fileName.AsView());
-            if (!bytes.HasValue()) { return Status{ bytes.Error() }; }
+            if (!bytes.HasValue())
+            {
+                return Status{bytes.Error()};
+            }
             Array<byte>& container = bytes.Value();
 
             // Validate: undecodable sources fail the cook, they never reach runtime.
@@ -147,19 +158,22 @@ export namespace draconic::audio
             {
                 DRACONIC_LOG_ERROR(u8"Audio", u8"'{}' is not decodable audio - cook failed",
                                    audioAsset.fileName);
-                return Status{ ErrorCode::InvalidArgument };
+                return Status{ErrorCode::InvalidArgument};
             }
 
             String extension = draconic::editor::FileExtensionLower(audioAsset.fileName.AsView());
 
             // Destructive options re-encode (decode -> process -> WAV). Everything else
             // writes the original container bytes through untouched.
-            const bool transform = audioAsset.forceMono || audioAsset.trimTrailingSilence
-                                || audioAsset.normalize;
+            const bool transform =
+                audioAsset.forceMono || audioAsset.trimTrailingSilence || audioAsset.normalize;
             if (transform)
             {
                 const Status processed = ApplyTransforms(audioAsset, container, metadata);
-                if (!processed.IsOk()) { return processed; }
+                if (!processed.IsOk())
+                {
+                    return processed;
+                }
                 extension = String(u8"wav");
             }
 
@@ -177,7 +191,10 @@ export namespace draconic::audio
             cooked.containerExtension = extension;
 
             const Status wrote = ctx.output->WriteObject(cooked);
-            if (!wrote.IsOk()) { return wrote; }
+            if (!wrote.IsOk())
+            {
+                return wrote;
+            }
             return ctx.output->WriteData(u8"data",
                                          Span<const byte>(container.Data(), container.Size()));
         }
@@ -192,7 +209,7 @@ export namespace draconic::audio
             if (!DecodeAudioClipToPcm16(Span<const byte>(container.Data(), container.Size()),
                                         asset.forceMono ? 1u : 0u, samples, decoded))
             {
-                return Status{ ErrorCode::InvalidArgument };
+                return Status{ErrorCode::InvalidArgument};
             }
 
             if (asset.trimTrailingSilence)
@@ -208,17 +225,30 @@ export namespace draconic::audio
                     {
                         const i16 sample = samples[(frame - 1) * decoded.channels + channel];
                         const i16 magnitude = sample < 0 ? static_cast<i16>(-sample) : sample;
-                        if (magnitude > kSilenceThreshold) { audible = true; break; }
+                        if (magnitude > kSilenceThreshold)
+                        {
+                            audible = true;
+                            break;
+                        }
                     }
-                    if (audible) { lastAudibleFrame = frame; break; }
+                    if (audible)
+                    {
+                        lastAudibleFrame = frame;
+                        break;
+                    }
                 }
                 const usize pad = decoded.sampleRate / 100;
                 usize keepFrames = lastAudibleFrame + pad;
-                if (keepFrames > frameCount) { keepFrames = frameCount; }
+                if (keepFrames > frameCount)
+                {
+                    keepFrames = frameCount;
+                }
                 samples.Resize(keepFrames * decoded.channels);
                 decoded.frameCount = keepFrames;
-                decoded.durationSeconds = decoded.sampleRate > 0
-                    ? static_cast<f32>(static_cast<f64>(keepFrames) / decoded.sampleRate) : 0.0f;
+                decoded.durationSeconds =
+                    decoded.sampleRate > 0
+                        ? static_cast<f32>(static_cast<f64>(keepFrames) / decoded.sampleRate)
+                        : 0.0f;
             }
 
             if (asset.normalize && !samples.IsEmpty())
@@ -227,17 +257,26 @@ export namespace draconic::audio
                 for (i16 sample : samples)
                 {
                     const i32 magnitude = sample < 0 ? -static_cast<i32>(sample) : sample;
-                    if (magnitude > peak) { peak = magnitude; }
+                    if (magnitude > peak)
+                    {
+                        peak = magnitude;
+                    }
                 }
                 if (peak > 0)
                 {
-                    const f32 target = 0.891f * 32767.0f;   // -1 dBFS headroom
+                    const f32 target = 0.891f * 32767.0f; // -1 dBFS headroom
                     const f32 scale = target / static_cast<f32>(peak);
                     for (i16& sample : samples)
                     {
                         f32 scaled = static_cast<f32>(sample) * scale;
-                        if (scaled > 32767.0f) { scaled = 32767.0f; }
-                        if (scaled < -32768.0f) { scaled = -32768.0f; }
+                        if (scaled > 32767.0f)
+                        {
+                            scaled = 32767.0f;
+                        }
+                        if (scaled < -32768.0f)
+                        {
+                            scaled = -32768.0f;
+                        }
                         sample = static_cast<i16>(scaled);
                     }
                 }
@@ -247,7 +286,7 @@ export namespace draconic::audio
             if (!EncodeWavFromPcm16(Span<const i16>(samples.Data(), samples.Size()),
                                     decoded.channels, decoded.sampleRate, wav))
             {
-                return Status{ ErrorCode::InvalidArgument };
+                return Status{ErrorCode::InvalidArgument};
             }
             container = Move(wav);
             metadata = decoded;
@@ -270,19 +309,22 @@ export namespace draconic::audio
         [[nodiscard]] Array<Toggle> Toggles() override
         {
             Array<Toggle> toggles;
-            toggles.PushBack(Toggle{ u8"Stream",
-                u8"Decode on the fly at runtime (auto-enabled for sources over 10 s / 2 MB)",
-                &stream });
-            toggles.PushBack(Toggle{ u8"Force mono",
-                u8"Downmix to one channel at cook (recommended for 3D-positioned sounds)",
-                &forceMono });
-            toggles.PushBack(Toggle{ u8"Loop",
+            toggles.PushBack(
+                Toggle{u8"Stream",
+                       u8"Decode on the fly at runtime (auto-enabled for sources over 10 s / 2 MB)",
+                       &stream});
+            toggles.PushBack(
+                Toggle{u8"Force mono",
+                       u8"Downmix to one channel at cook (recommended for 3D-positioned sounds)",
+                       &forceMono});
+            toggles.PushBack(Toggle{
+                u8"Loop",
                 u8"Loop by default when played (WAV smpl loop points are detected automatically)",
-                &loop });
-            toggles.PushBack(Toggle{ u8"Trim trailing silence",
-                u8"Drop the silent tail at cook", &trimTrailingSilence });
-            toggles.PushBack(Toggle{ u8"Normalize",
-                u8"Peak-normalize to -1 dBFS at cook", &normalize });
+                &loop});
+            toggles.PushBack(Toggle{u8"Trim trailing silence", u8"Drop the silent tail at cook",
+                                    &trimTrailingSilence});
+            toggles.PushBack(
+                Toggle{u8"Normalize", u8"Peak-normalize to -1 dBFS at cook", &normalize});
             return toggles;
         }
     };
@@ -296,9 +338,12 @@ export namespace draconic::audio
 
         [[nodiscard]] bool Accepts(StringView extension) const override
         {
-            for (StringView candidate : { u8"wav", u8"ogg", u8"mp3", u8"flac" })
+            for (StringView candidate : {u8"wav", u8"ogg", u8"mp3", u8"flac"})
             {
-                if (extension == candidate) { return true; }
+                if (extension == candidate)
+                {
+                    return true;
+                }
             }
             return false;
         }
@@ -308,13 +353,16 @@ export namespace draconic::audio
             return MakeRef<AudioImportOptions>(DefaultAllocator());
         }
 
-        [[nodiscard]] Result<content::Instance*> Import(
-            StringView sourcePath, draconic::editor::EditorProject& project,
-            content::Group& group, const draconic::editor::ImportOptions* options,
-            Object*, Array<draconic::editor::DeferredImportWrite>*) override
+        [[nodiscard]] Result<content::Instance*>
+        Import(StringView sourcePath, draconic::editor::EditorProject& project,
+               content::Group& group, const draconic::editor::ImportOptions* options, Object*,
+               Array<draconic::editor::DeferredImportWrite>*) override
         {
             Result<Array<byte>> bytes = ReadFile(sourcePath);
-            if (!bytes.HasValue()) { return Err(bytes.Error()); }
+            if (!bytes.HasValue())
+            {
+                return Err(bytes.Error());
+            }
 
             AudioClipMetadata metadata;
             if (!ProbeAudioClipMetadata(
@@ -326,18 +374,24 @@ export namespace draconic::audio
             }
 
             Result<String> fileName = draconic::editor::CopyIntoSources(project, sourcePath);
-            if (!fileName.HasValue()) { return Err(fileName.Error()); }
+            if (!fileName.HasValue())
+            {
+                return Err(fileName.Error());
+            }
 
             const StringView stem = draconic::editor::FileStemOf(fileName.Value().AsView());
-            content::Instance* instance =
-                group.CreateInstance(stem, AudioClipAsset::StaticType());
-            if (instance == nullptr) { return Err(ErrorCode::Unknown); }
+            content::Instance* instance = group.CreateInstance(stem, AudioClipAsset::StaticType());
+            if (instance == nullptr)
+            {
+                return Err(ErrorCode::Unknown);
+            }
 
             const auto* audioOptions = static_cast<const AudioImportOptions*>(options);
             AudioClipAsset asset;
             asset.fileName = fileName.Value();
-            asset.stream = (audioOptions != nullptr && audioOptions->stream)
-                || ShouldStreamAudioByDefault(metadata.durationSeconds, bytes.Value().Size());
+            asset.stream =
+                (audioOptions != nullptr && audioOptions->stream) ||
+                ShouldStreamAudioByDefault(metadata.durationSeconds, bytes.Value().Size());
             if (audioOptions != nullptr)
             {
                 asset.forceMono = audioOptions->forceMono;
@@ -349,10 +403,9 @@ export namespace draconic::audio
             // WAV smpl loop points: authored loops win over the checkbox default.
             u64 loopStart = 0;
             u64 loopEnd = 0;
-            if (draconic::editor::FileExtensionLower(sourcePath) == u8"wav"
-                && ParseWavSampleLoop(
-                       Span<const byte>(bytes.Value().Data(), bytes.Value().Size()),
-                       loopStart, loopEnd))
+            if (draconic::editor::FileExtensionLower(sourcePath) == u8"wav" &&
+                ParseWavSampleLoop(Span<const byte>(bytes.Value().Data(), bytes.Value().Size()),
+                                   loopStart, loopEnd))
             {
                 asset.loop = true;
                 asset.loopStartFrame = loopStart;
@@ -360,7 +413,10 @@ export namespace draconic::audio
             }
 
             const Status written = instance->WriteObject(asset);
-            if (!written.IsOk()) { return Err(written.Code()); }
+            if (!written.IsOk())
+            {
+                return Err(written.Code());
+            }
             return instance;
         }
     };
@@ -384,11 +440,11 @@ export namespace draconic::audio
         {
             f32 volume = 1.0f;
             bool muted = false;
-            f32 lowpassHz = 0.0f;      // 0 = off
-            f32 highpassHz = 0.0f;     // 0 = off
-            f32 delaySeconds = 0.0f;   // 0 = off
+            f32 lowpassHz = 0.0f;    // 0 = off
+            f32 highpassHz = 0.0f;   // 0 = off
+            f32 delaySeconds = 0.0f; // 0 = off
             f32 delayDecay = 0.3f;
-            f32 reverbWet = 0.0f;      // 0 = off
+            f32 reverbWet = 0.0f; // 0 = off
             f32 reverbRoomSize = 0.6f;
             f32 reverbDamping = 0.4f;
         };
@@ -397,7 +453,7 @@ export namespace draconic::audio
         // slots FAIL the cook.
         struct CustomBusSlot
         {
-            String name;               // empty = slot unused
+            String name; // empty = slot unused
             String parent;
             Bus bus;
         };
@@ -410,7 +466,8 @@ export namespace draconic::audio
         void Serialize(ISerializer& ar) override
         {
             draconic::editor::Asset::Serialize(ar);
-            auto serializeBus = [&ar](Bus& bus) {
+            auto serializeBus = [&ar](Bus& bus)
+            {
                 draconic::core::Serialize(ar, "volume", bus.volume);
                 draconic::core::Serialize(ar, "muted", bus.muted);
                 draconic::core::Serialize(ar, "lowpassHz", bus.lowpassHz);
@@ -425,7 +482,7 @@ export namespace draconic::audio
             serializeBus(effects);
             serializeBus(music);
             serializeBus(ui);
-            if (ar.Version() >= 2)   // v2: the custom-bus slot bank
+            if (ar.Version() >= 2) // v2: the custom-bus slot bank
             {
                 u32 slots = kAudioCustomBusSlotCount;
                 draconic::core::Serialize(ar, "customSlots", slots);
@@ -451,13 +508,16 @@ export namespace draconic::audio
         {
             return &AudioBusLayoutSource::StaticType();
         }
-        [[nodiscard]] u32 Version() const override { return 2; }   // v2: custom buses
+        [[nodiscard]] u32 Version() const override { return 2; } // v2: custom buses
 
         [[nodiscard]] Status Build(const draconic::editor::Asset& asset,
                                    draconic::editor::AssetBuildContext& ctx) override
         {
             const auto& layoutAsset = static_cast<const AudioBusLayoutAsset&>(asset);
-            if (ctx.output == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
+            if (ctx.output == nullptr)
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
 
             AudioBusLayoutSource source;
             const AudioBusLayoutAsset::Bus* buses[static_cast<usize>(AudioBus::Count)] = {};
@@ -476,11 +536,15 @@ export namespace draconic::audio
             for (usize i = 0; i < kAudioCustomBusSlotCount; ++i)
             {
                 const AudioBusLayoutAsset::CustomBusSlot& slot = layoutAsset.custom[i];
-                if (slot.name.IsEmpty()) { continue; }
+                if (slot.name.IsEmpty())
+                {
+                    continue;
+                }
                 AudioBus fixedAlias{};
                 if (AudioBusFromName(slot.name.AsView(), fixedAlias))
                 {
-                    DRACONIC_LOG_WARNING(u8"Audio",
+                    DRACONIC_LOG_WARNING(
+                        u8"Audio",
                         u8"bus layout '{}': custom bus '{}' shadows a fixed bus - skipped",
                         asset.fileName, slot.name);
                     continue;
@@ -488,12 +552,16 @@ export namespace draconic::audio
                 bool duplicate = false;
                 for (const AudioNamedBus& existing : source.layout.customBuses)
                 {
-                    if (existing.name.AsView() == slot.name.AsView()) { duplicate = true; break; }
+                    if (existing.name.AsView() == slot.name.AsView())
+                    {
+                        duplicate = true;
+                        break;
+                    }
                 }
                 if (duplicate)
                 {
-                    DRACONIC_LOG_WARNING(u8"Audio",
-                        u8"bus layout '{}': duplicate custom bus '{}' - slot skipped",
+                    DRACONIC_LOG_WARNING(
+                        u8"Audio", u8"bus layout '{}': duplicate custom bus '{}' - slot skipped",
                         asset.fileName, slot.name);
                     continue;
                 }
@@ -511,10 +579,12 @@ export namespace draconic::audio
                 usize steps = 0;
                 for (;;)
                 {
-                    const StringView parent =
-                        source.layout.customBuses[cursor].parent.AsView();
+                    const StringView parent = source.layout.customBuses[cursor].parent.AsView();
                     AudioBus fixed{};
-                    if (parent.IsEmpty() || AudioBusFromName(parent, fixed)) { break; }
+                    if (parent.IsEmpty() || AudioBusFromName(parent, fixed))
+                    {
+                        break;
+                    }
                     bool found = false;
                     for (usize j = 0; j < source.layout.customBuses.Size(); ++j)
                     {
@@ -525,14 +595,17 @@ export namespace draconic::audio
                             break;
                         }
                     }
-                    if (!found) { break; }   // unknown parent: warned at apply, not a cycle
+                    if (!found)
+                    {
+                        break;
+                    } // unknown parent: warned at apply, not a cycle
                     if (cursor == i || ++steps > source.layout.customBuses.Size())
                     {
                         DRACONIC_LOG_ERROR(u8"Audio",
-                            u8"bus layout '{}': custom bus '{}' is part of a parent "
-                            u8"CYCLE - cook failed", asset.fileName,
-                            source.layout.customBuses[i].name);
-                        return Status{ ErrorCode::InvalidArgument };
+                                           u8"bus layout '{}': custom bus '{}' is part of a parent "
+                                           u8"CYCLE - cook failed",
+                                           asset.fileName, source.layout.customBuses[i].name);
+                        return Status{ErrorCode::InvalidArgument};
                     }
                 }
             }
@@ -544,8 +617,8 @@ export namespace draconic::audio
     private:
         // The flat editor fields -> the generic wire chain (lowpass -> highpass ->
         // delay -> reverb, when enabled). Shared by the fixed buses and custom slots.
-        static void FoldBusSettings(const AudioBusLayoutAsset::Bus& bus,
-                                    const String& assetName, AudioBusSettings& out)
+        static void FoldBusSettings(const AudioBusLayoutAsset::Bus& bus, const String& assetName,
+                                    AudioBusSettings& out)
         {
             out.volume = Clamp(bus.volume, 0.0f, 4.0f);
             out.muted = bus.muted;
@@ -571,7 +644,8 @@ export namespace draconic::audio
                 effect.delayDecay = Clamp(bus.delayDecay, 0.0f, 0.99f);
                 if (bus.delayDecay >= 1.0f)
                 {
-                    DRACONIC_LOG_WARNING(u8"Audio",
+                    DRACONIC_LOG_WARNING(
+                        u8"Audio",
                         u8"bus layout '{}': delayDecay >= 1 self-oscillates - clamped to 0.99",
                         assetName);
                 }
@@ -598,8 +672,8 @@ export namespace draconic::audio
         DRACONIC_OBJECT(SoundCueAsset, draconic::editor::Asset)
     public:
         Guid clipIds[kSoundCueSlotCount]{};
-        f32 weights[kSoundCueSlotCount] = { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
-        u8 mode = 0;               // SoundCueMode
+        f32 weights[kSoundCueSlotCount] = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
+        u8 mode = 0; // SoundCueMode
         f32 pitchMin = 1.0f;
         f32 pitchMax = 1.0f;
         f32 volumeMin = 1.0f;
@@ -642,16 +716,23 @@ export namespace draconic::audio
                                    draconic::editor::AssetBuildContext& ctx) override
         {
             const auto& cueAsset = static_cast<const SoundCueAsset&>(asset);
-            if (ctx.output == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
+            if (ctx.output == nullptr)
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
 
             SoundCueSource source;
             for (usize i = 0; i < kSoundCueSlotCount; ++i)
             {
-                if (cueAsset.clipIds[i].IsNil()) { continue; }
+                if (cueAsset.clipIds[i].IsNil())
+                {
+                    continue;
+                }
                 if (cueAsset.weights[i] <= 0.0f)
                 {
-                    DRACONIC_LOG_WARNING(u8"Audio",
-                        u8"sound cue slot {} has a clip but weight <= 0 - slot disabled", i);
+                    DRACONIC_LOG_WARNING(
+                        u8"Audio", u8"sound cue slot {} has a clip but weight <= 0 - slot disabled",
+                        i);
                     continue;
                 }
                 SoundCueSource::Variant variant;
@@ -662,9 +743,10 @@ export namespace draconic::audio
             // Validate: a cue with no playable variant is a broken trigger - fail the cook.
             if (source.variants.IsEmpty())
             {
-                DRACONIC_LOG_ERROR(u8"Audio",
+                DRACONIC_LOG_ERROR(
+                    u8"Audio",
                     u8"sound cue has no playable variant (assign at least one clip) - cook failed");
-                return Status{ ErrorCode::InvalidArgument };
+                return Status{ErrorCode::InvalidArgument};
             }
             source.mode = cueAsset.mode;
             source.pitchMin = Min(cueAsset.pitchMin, cueAsset.pitchMax);

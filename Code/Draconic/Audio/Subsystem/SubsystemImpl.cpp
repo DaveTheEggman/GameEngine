@@ -14,7 +14,7 @@ import draconic.core;
 import draconic.runtime;
 import draconic.scene;
 import draconic.audio;
-import draconic.render.subsystem;   // CameraComponentManager (listener fallback)
+import draconic.render.subsystem; // CameraComponentManager (listener fallback)
 
 using namespace draconic::core;
 
@@ -28,17 +28,24 @@ namespace draconic::audio
                                               Float3& outForward, Float3& outUp)
         {
             auto* cameras = scene.GetSystem<draconic::render::CameraComponentManager>();
-            if (cameras == nullptr) { return false; }
+            if (cameras == nullptr)
+            {
+                return false;
+            }
             bool found = false;
-            cameras->ForEach([&](draconic::render::CameraComponent&,
-                                 draconic::scene::EntityHandle e) {
-                if (found) { return; }
-                const Float4x4 world = scene.GetWorldMatrix(e);
-                outPosition = TransformPoint(Float3{ 0.0f, 0.0f, 0.0f }, world);
-                outForward = Normalized(Float3{ -world.m[2][0], -world.m[2][1], -world.m[2][2] });
-                outUp = Normalized(Float3{ world.m[1][0], world.m[1][1], world.m[1][2] });
-                found = true;
-            });
+            cameras->ForEach(
+                [&](draconic::render::CameraComponent&, draconic::scene::EntityHandle e)
+                {
+                    if (found)
+                    {
+                        return;
+                    }
+                    const Float4x4 world = scene.GetWorldMatrix(e);
+                    outPosition = TransformPoint(Float3{0.0f, 0.0f, 0.0f}, world);
+                    outForward = Normalized(Float3{-world.m[2][0], -world.m[2][1], -world.m[2][2]});
+                    outUp = Normalized(Float3{world.m[1][0], world.m[1][1], world.m[1][2]});
+                    found = true;
+                });
             return found;
         }
     }
@@ -46,7 +53,10 @@ namespace draconic::audio
     void AudioSubsystem::Update(f32 deltaTime)
     {
         AudioEngine* engine = Engine();
-        if (engine == nullptr) { return; }
+        if (engine == nullptr)
+        {
+            return;
+        }
 
         // Listeners (multi-listener, P3): every active listener COMPONENT across the
         // started scenes fills an engine listener slot, in scene order, up to the
@@ -57,12 +67,18 @@ namespace draconic::audio
         u32 used = 0;
         for (const SceneEntry& entry : Systems())
         {
-            if (!entry.system->Started() || used >= capacity) { continue; }
+            if (!entry.system->Started() || used >= capacity)
+            {
+                continue;
+            }
             for (const ListenerPose& pose : entry.system->ListenerPoses())
             {
-                if (used >= capacity) { break; }
-                engine->SetListenerTransformIndexed(used, pose.position, pose.forward,
-                                                    pose.up, pose.velocity);
+                if (used >= capacity)
+                {
+                    break;
+                }
+                engine->SetListenerTransformIndexed(used, pose.position, pose.forward, pose.up,
+                                                    pose.velocity);
                 engine->SetListenerEnabled(used, true);
                 ++used;
             }
@@ -71,24 +87,27 @@ namespace draconic::audio
         {
             for (const SceneEntry& entry : Systems())
             {
-                if (!entry.system->Started()) { continue; }
+                if (!entry.system->Started())
+                {
+                    continue;
+                }
                 Float3 position, forward, up;
                 if (CameraListenerPose(*entry.scene, position, forward, up))
                 {
                     engine->SetListenerTransformIndexed(0, position, forward, up,
-                                                        Float3{ 0.0f, 0.0f, 0.0f });
+                                                        Float3{0.0f, 0.0f, 0.0f});
                     engine->SetListenerEnabled(0, true);
                     used = 1;
                     break;
                 }
             }
         }
-        for (u32 i = Max(used, 1u); i < capacity; ++i)   // slot 0 always stays enabled
+        for (u32 i = Max(used, 1u); i < capacity; ++i) // slot 0 always stays enabled
         {
             engine->SetListenerEnabled(i, false);
         }
 
-        engine->Update(deltaTime);   // reap + dedupe clock (+ headless pump)
+        engine->Update(deltaTime); // reap + dedupe clock (+ headless pump)
     }
 }
 
@@ -113,7 +132,7 @@ namespace draconic::audio
 
     DRACONIC_REFLECT_VALUE(AudioSourceComponent, "draconic::audio")
     {
-        builder.DataVersion(3);   // v2: busName (custom buses); v3: reverbSend
+        builder.DataVersion(3); // v2: busName (custom buses); v3: reverbSend
         builder.Property<&AudioSourceComponent::clip>("clip");
         builder.Property<&AudioSourceComponent::bus>("bus");
         builder.Property<&AudioSourceComponent::busName>("busName");
@@ -156,13 +175,10 @@ namespace draconic::audio
         builder.Method<&Audio::playOneShot3D>("playOneShot3D");
         builder.Method<&Audio::playCue>("playCue");
         builder.Method<&Audio::playMusic>("playMusic");
-        builder.Constructor();   // Wren only materializes constructible foreign classes
+        builder.Constructor(); // Wren only materializes constructible foreign classes
     }
 
-    void RegisterAudioScriptApi()
-    {
-        GlobalTypeRegistry().Register(Audio::StaticType());
-    }
+    void RegisterAudioScriptApi() { GlobalTypeRegistry().Register(Audio::StaticType()); }
 
     DRACONIC_REFLECT_VALUE(AudioReverbZoneComponent, "draconic::audio")
     {
@@ -177,7 +193,8 @@ namespace draconic::audio
 
     void RegisterAudioComponentReflection()
     {
-        static const bool once = []() {
+        static const bool once = []()
+        {
             DraconicRegisterEnum_AudioBus();
             DraconicRegisterEnum_AudioAttenuationModel();
             DraconicRegisterValue_AudioSourceComponent();

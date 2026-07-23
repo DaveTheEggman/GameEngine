@@ -27,7 +27,10 @@ namespace
             const f32 t = static_cast<f32>(frame) / static_cast<f32>(sampleRate);
             const f32 value = amplitude * std::sin(2.0f * 3.14159265f * frequency * t);
             const i16 sample = static_cast<i16>(value * 32000.0f);
-            for (u32 channel = 0; channel < channels; ++channel) { samples.PushBack(sample); }
+            for (u32 channel = 0; channel < channels; ++channel)
+            {
+                samples.PushBack(sample);
+            }
         }
         return samples;
     }
@@ -37,8 +40,8 @@ namespace
     {
         const Array<i16> samples = MakeTone(seconds, sampleRate, channels);
         Array<byte> wav;
-        REQUIRE(EncodeWavFromPcm16(Span<const i16>(samples.Data(), samples.Size()),
-                                   channels, sampleRate, wav));
+        REQUIRE(EncodeWavFromPcm16(Span<const i16>(samples.Data(), samples.Size()), channels,
+                                   sampleRate, wav));
         RefPtr<AudioClip> clip = MakeRef<AudioClip>(DefaultAllocator());
         AudioClipMetadata metadata;
         REQUIRE(ProbeAudioClipMetadata(Span<const byte>(wav.Data(), wav.Size()), metadata));
@@ -69,7 +72,10 @@ namespace
         [[nodiscard]] UniquePtr<IStream> OpenStream() override
         {
             UniquePtr<MemoryStream> stream = MakeUnique<MemoryStream>(DefaultAllocator());
-            if (stream->Write(m_bytes.Data(), m_bytes.Size()) != m_bytes.Size()) { return {}; }
+            if (stream->Write(m_bytes.Data(), m_bytes.Size()) != m_bytes.Size())
+            {
+                return {};
+            }
             (void)stream->Seek(0, SeekOrigin::Begin);
             return UniquePtr<IStream>(stream.Release(), DefaultAllocator());
         }
@@ -103,14 +109,18 @@ TEST_CASE("audio.codec: wav encode -> probe -> decode round-trip")
     // Force-mono downmix halves the sample count and keeps the frame count.
     Array<i16> mono;
     AudioClipMetadata monoMetadata;
-    REQUIRE(DecodeAudioClipToPcm16(Span<const byte>(wav.Data(), wav.Size()), 1, mono, monoMetadata));
+    REQUIRE(
+        DecodeAudioClipToPcm16(Span<const byte>(wav.Data(), wav.Size()), 1, mono, monoMetadata));
     CHECK(monoMetadata.channels == 1u);
     CHECK(monoMetadata.frameCount == metadata.frameCount);
     CHECK(mono.Size() == metadata.frameCount);
 
     // Garbage bytes are rejected, not misread.
     Array<byte> garbage;
-    for (int i = 0; i < 64; ++i) { garbage.PushBack(static_cast<byte>(i * 7)); }
+    for (int i = 0; i < 64; ++i)
+    {
+        garbage.PushBack(static_cast<byte>(i * 7));
+    }
     AudioClipMetadata rejected;
     CHECK_FALSE(ProbeAudioClipMetadata(Span<const byte>(garbage.Data(), garbage.Size()), rejected));
 }
@@ -126,18 +136,21 @@ TEST_CASE("audio.engine: headless construction, empty/invalid plays are safely r
     CHECK_FALSE(engine.Play(empty).IsValid());
 
     RefPtr<AudioClip> garbage = MakeRef<AudioClip>(DefaultAllocator());
-    for (int i = 0; i < 64; ++i) { garbage->encodedData.PushBack(static_cast<byte>(i)); }
+    for (int i = 0; i < 64; ++i)
+    {
+        garbage->encodedData.PushBack(static_cast<byte>(i));
+    }
     garbage->channels = 1;
     CHECK_FALSE(engine.Play(garbage).IsValid());
 
     // Stale/foreign handles are inert everywhere.
-    VoiceHandle bogus{ 3, 7 };
+    VoiceHandle bogus{3, 7};
     CHECK_FALSE(engine.IsValidHandle(bogus));
     CHECK_FALSE(engine.IsPlaying(bogus));
     engine.Stop(bogus);
     engine.SetPaused(bogus, true);
     engine.SetVoiceVolume(bogus, 0.5f);
-    engine.SetVoicePosition(bogus, Float3{ 1, 2, 3 }, Float3{ 0, 0, 0 });
+    engine.SetVoicePosition(bogus, Float3{1, 2, 3}, Float3{0, 0, 0});
     engine.Update(0.1f);
 }
 
@@ -152,7 +165,10 @@ TEST_CASE("audio.engine: a one-shot plays, reaches its end, and reaps - the slot
     CHECK(engine.IsPlaying(first));
     CHECK(engine.ActiveVoiceCount() == 1u);
 
-    for (int i = 0; i < 6 && engine.IsValidHandle(first); ++i) { engine.Update(0.05f); }
+    for (int i = 0; i < 6 && engine.IsValidHandle(first); ++i)
+    {
+        engine.Update(0.05f);
+    }
     CHECK_FALSE(engine.IsValidHandle(first));
     CHECK(engine.ActiveVoiceCount() == 0u);
 
@@ -181,11 +197,11 @@ TEST_CASE("audio.engine: stop always fades (~10 ms) then reaps - the fade-then-r
     engine.Stop(voice);
     VoiceStatus status;
     REQUIRE(engine.GetVoiceStatus(voice, status));
-    CHECK(status.stopping);              // fading out, not yet reaped
+    CHECK(status.stopping); // fading out, not yet reaped
     CHECK_FALSE(engine.IsPlaying(voice));
     CHECK(engine.IsValidHandle(voice));
 
-    engine.Update(0.1f);                 // 100 ms >> the 10 ms fade
+    engine.Update(0.1f); // 100 ms >> the 10 ms fade
     CHECK_FALSE(engine.IsValidHandle(voice));
     CHECK(engine.ActiveVoiceCount() == 0u);
 }
@@ -204,7 +220,10 @@ TEST_CASE("audio.engine: pause fades out but keeps the voice; resume fades back 
     CHECK(engine.IsValidHandle(voice));
 
     // A paused voice never reaps, no matter how long the engine runs.
-    for (int i = 0; i < 10; ++i) { engine.Update(0.1f); }
+    for (int i = 0; i < 10; ++i)
+    {
+        engine.Update(0.1f);
+    }
     VoiceStatus status;
     REQUIRE(engine.GetVoiceStatus(voice, status));
     CHECK(status.paused);
@@ -246,11 +265,14 @@ TEST_CASE("audio.engine: steal policy - free slot, then lowest lower priority, t
     REQUIRE(voiceC.IsValid());
     CHECK_FALSE(engine.IsValidHandle(voiceA));
     CHECK(engine.IsValidHandle(voiceB));
-    CHECK(engine.ActiveVoiceCount() == 2u);   // addressable voices only
-    CHECK(engine.DyingVoiceCount() == 1u);    // A's tail is still mixing
+    CHECK(engine.ActiveVoiceCount() == 2u); // addressable voices only
+    CHECK(engine.DyingVoiceCount() == 1u);  // A's tail is still mixing
 
     // The steal fade (~30 ms) lands and the tail reaps.
-    for (int i = 0; i < 10; ++i) { engine.Update(0.05f); }
+    for (int i = 0; i < 10; ++i)
+    {
+        engine.Update(0.05f);
+    }
     CHECK(engine.DyingVoiceCount() == 0u);
 
     // Pool full of strictly-higher priorities: the new play is REJECTED.
@@ -264,8 +286,8 @@ TEST_CASE("audio.engine: steal policy - free slot, then lowest lower priority, t
 TEST_CASE("audio.engine: same-priority contention steals the voice FARTHEST from the listener")
 {
     AudioEngine engine(HeadlessSettings(/*voiceCount=*/2, /*streamVoiceCount=*/0));
-    engine.SetListenerTransform(Float3{ 0, 0, 0 }, Float3{ 0, 0, -1 }, Float3{ 0, 1, 0 },
-                                Float3{ 0, 0, 0 });
+    engine.SetListenerTransform(Float3{0, 0, 0}, Float3{0, 0, -1}, Float3{0, 1, 0},
+                                Float3{0, 0, 0});
     RefPtr<AudioClip> clipNear = MakeToneClip(2.0f);
     RefPtr<AudioClip> clipFar = MakeToneClip(2.0f, 8000, 1);
     RefPtr<AudioClip> clipNew = MakeToneClip(2.0f, 4000, 1);
@@ -274,19 +296,19 @@ TEST_CASE("audio.engine: same-priority contention steals the voice FARTHEST from
     spatial.loop = true;
     spatial.spatial = true;
     spatial.priority = 50;
-    spatial.position = Float3{ 1.0f, 0.0f, 0.0f };
+    spatial.position = Float3{1.0f, 0.0f, 0.0f};
     const VoiceHandle nearVoice = engine.Play(clipNear, spatial);
-    spatial.position = Float3{ 60.0f, 0.0f, 0.0f };
+    spatial.position = Float3{60.0f, 0.0f, 0.0f};
     const VoiceHandle farVoice = engine.Play(clipFar, spatial);
     REQUIRE(nearVoice.IsValid());
     REQUIRE(farVoice.IsValid());
 
-    spatial.position = Float3{ 2.0f, 0.0f, 0.0f };
+    spatial.position = Float3{2.0f, 0.0f, 0.0f};
     const VoiceHandle newVoice = engine.Play(clipNew, spatial);
     REQUIRE(newVoice.IsValid());
-    CHECK(engine.IsValidHandle(nearVoice));       // near survived
-    CHECK_FALSE(engine.IsValidHandle(farVoice));  // far was stolen
-    CHECK(engine.DyingVoiceCount() == 1u);        // ... but its tail fades, no hard cut
+    CHECK(engine.IsValidHandle(nearVoice));      // near survived
+    CHECK_FALSE(engine.IsValidHandle(farVoice)); // far was stolen
+    CHECK(engine.DyingVoiceCount() == 1u);       // ... but its tail fades, no hard cut
 }
 
 TEST_CASE("audio.engine: faded steal - the dying list is capacity-bounded (oldest "
@@ -295,8 +317,8 @@ TEST_CASE("audio.engine: faded steal - the dying list is capacity-bounded (oldes
     AudioEngineSettings settings = HeadlessSettings(/*voiceCount=*/1, /*streamVoiceCount=*/0);
     settings.dyingVoiceCapacity = 2;
     AudioEngine engine(settings);
-    RefPtr<AudioClip> clips[4] = { MakeToneClip(1.0f), MakeToneClip(1.0f, 4000, 1),
-                                   MakeToneClip(1.0f, 16000, 1), MakeToneClip(1.0f, 12000, 1) };
+    RefPtr<AudioClip> clips[4] = {MakeToneClip(1.0f), MakeToneClip(1.0f, 4000, 1),
+                                  MakeToneClip(1.0f, 16000, 1), MakeToneClip(1.0f, 12000, 1)};
 
     // Four same-frame plays through a 1-slot pool: each steals the incumbent. The
     // dying list holds at most 2 tails; the overflow hard-cut the oldest.
@@ -313,7 +335,10 @@ TEST_CASE("audio.engine: faded steal - the dying list is capacity-bounded (oldes
     CHECK(engine.DyingVoiceCount() == 2u);
 
     // All tails reap once their fades land; the survivor keeps playing.
-    for (int i = 0; i < 10; ++i) { engine.Update(0.05f); }
+    for (int i = 0; i < 10; ++i)
+    {
+        engine.Update(0.05f);
+    }
     CHECK(engine.DyingVoiceCount() == 0u);
     CHECK(engine.IsPlaying(last));
 
@@ -344,12 +369,12 @@ TEST_CASE("audio.engine: recent-play dedupe merges same-clip plays inside the wi
     params.loop = true;
 
     const VoiceHandle first = engine.Play(clip, params);
-    const VoiceHandle merged = engine.Play(clip, params);   // same frame: merges
+    const VoiceHandle merged = engine.Play(clip, params); // same frame: merges
     REQUIRE(first.IsValid());
     CHECK(merged == first);
     CHECK(engine.ActiveVoiceCount() == 1u);
 
-    engine.Update(0.1f);                                     // window expired
+    engine.Update(0.1f); // window expired
     const VoiceHandle second = engine.Play(clip, params);
     REQUIRE(second.IsValid());
     CHECK_FALSE(second == first);
@@ -373,19 +398,25 @@ TEST_CASE("audio.engine: dedupe opt-out - persistent sources sharing a clip stay
     VoiceHandle voices[4];
     for (int i = 0; i < 4; ++i)
     {
-        params.position = Float3{ static_cast<f32>(i) * 10.0f, 0.0f, 0.0f };
+        params.position = Float3{static_cast<f32>(i) * 10.0f, 0.0f, 0.0f};
         voices[i] = engine.Play(clip, params);
         REQUIRE(voices[i].IsValid());
     }
     CHECK(engine.ActiveVoiceCount() == 4u);
-    for (int i = 1; i < 4; ++i) { CHECK_FALSE(voices[i] == voices[0]); }
+    for (int i = 1; i < 4; ++i)
+    {
+        CHECK_FALSE(voices[i] == voices[0]);
+    }
 
     // Opt-out plays must not ARM the window either: a later defaulted (dedupe-eligible)
     // play still creates a fresh voice instead of merging into a persistent source.
     AudioPlayParams oneShot;
     const VoiceHandle shot = engine.Play(clip, oneShot);
     REQUIRE(shot.IsValid());
-    for (int i = 0; i < 4; ++i) { CHECK_FALSE(shot == voices[i]); }
+    for (int i = 0; i < 4; ++i)
+    {
+        CHECK_FALSE(shot == voices[i]);
+    }
     CHECK(engine.ActiveVoiceCount() == 5u);
 }
 
@@ -396,7 +427,7 @@ TEST_CASE("audio.engine: voice parameter setters land (volume/pitch/pan/position
     AudioPlayParams params;
     params.spatial = true;
     params.loop = true;
-    params.pitch = 1.5f;                     // real resampling, not stored-and-ignored
+    params.pitch = 1.5f; // real resampling, not stored-and-ignored
     params.volume = 0.75f;
 
     const VoiceHandle voice = engine.Play(clip, params);
@@ -409,7 +440,7 @@ TEST_CASE("audio.engine: voice parameter setters land (volume/pitch/pan/position
 
     engine.SetVoicePitch(voice, 0.5f);
     engine.SetVoiceVolume(voice, 0.25f);
-    engine.SetVoicePosition(voice, Float3{ 3, 4, 5 }, Float3{ 1, 0, 0 });
+    engine.SetVoicePosition(voice, Float3{3, 4, 5}, Float3{1, 0, 0});
     REQUIRE(engine.GetVoiceStatus(voice, status));
     CHECK(status.pitch == doctest::Approx(0.5f));
     CHECK(status.volume == doctest::Approx(0.25f));
@@ -417,8 +448,11 @@ TEST_CASE("audio.engine: voice parameter setters land (volume/pitch/pan/position
     CHECK(status.position.z == doctest::Approx(5.0f));
 
     engine.SetVoiceLooping(voice, false);
-    for (int i = 0; i < 20 && engine.IsValidHandle(voice); ++i) { engine.Update(0.1f); }
-    CHECK_FALSE(engine.IsValidHandle(voice));   // un-looped voice runs out and reaps
+    for (int i = 0; i < 20 && engine.IsValidHandle(voice); ++i)
+    {
+        engine.Update(0.1f);
+    }
+    CHECK_FALSE(engine.IsValidHandle(voice)); // un-looped voice runs out and reaps
 }
 
 TEST_CASE("audio.engine: spatializing a stereo clip downmixes with a one-time warning "
@@ -447,7 +481,7 @@ TEST_CASE("audio.engine: bus volumes and mutes are independent and re-appliable"
 
     engine.SetBusMuted(AudioBus::Music, true);
     CHECK(engine.BusMuted(AudioBus::Music));
-    CHECK(engine.BusVolume(AudioBus::Music) == doctest::Approx(0.3f));   // remembered
+    CHECK(engine.BusVolume(AudioBus::Music) == doctest::Approx(0.3f)); // remembered
     engine.SetBusMuted(AudioBus::Music, false);
     CHECK_FALSE(engine.BusMuted(AudioBus::Music));
 }
@@ -473,9 +507,12 @@ TEST_CASE("audio.engine: per-scene groups - pause halts the scene's voices in pl
 
     engine.SetSceneGroupPaused(sceneGroup, true);
     CHECK(engine.IsSceneGroupPaused(sceneGroup));
-    for (int i = 0; i < 5; ++i) { engine.Update(0.1f); }
-    CHECK(engine.IsValidHandle(voice));           // held, not reaped
-    CHECK(engine.IsValidHandle(globalVoice));     // untouched by the scene pause
+    for (int i = 0; i < 5; ++i)
+    {
+        engine.Update(0.1f);
+    }
+    CHECK(engine.IsValidHandle(voice));       // held, not reaped
+    CHECK(engine.IsValidHandle(globalVoice)); // untouched by the scene pause
 
     engine.SetSceneGroupPaused(sceneGroup, false);
     CHECK_FALSE(engine.IsSceneGroupPaused(sceneGroup));
@@ -488,7 +525,7 @@ TEST_CASE("audio.engine: per-scene groups - pause halts the scene's voices in pl
     const VoiceHandle again = engine.Play(clip, params);
     REQUIRE(again.IsValid());
     engine.DestroySceneGroup(sceneGroup);
-    CHECK_FALSE(engine.IsValidHandle(again));     // immediate teardown
+    CHECK_FALSE(engine.IsValidHandle(again)); // immediate teardown
     CHECK(engine.IsValidHandle(globalVoice));
 }
 
@@ -516,7 +553,7 @@ TEST_CASE("audio.engine: streamed clips play from an IAudioStreamSource through 
     params.loop = true;
     const VoiceHandle voice = engine.Play(clip, params);
     REQUIRE(voice.IsValid());
-    CHECK(voice.slot == 2u);                      // stream slots sit after the main pool
+    CHECK(voice.slot == 2u); // stream slots sit after the main pool
     CHECK(engine.IsPlaying(voice));
     engine.Update(0.1f);
     CHECK(engine.IsPlaying(voice));
@@ -567,19 +604,22 @@ TEST_CASE("audio.waveform: peaks bucket the decoded signal; silence reads near z
     const u32 rate = 8000;
     Array<i16> samples = MakeTone(0.5f, rate, 1);
     const usize toneCount = samples.Size();
-    for (usize i = 0; i < toneCount; ++i) { samples.PushBack(0); }
+    for (usize i = 0; i < toneCount; ++i)
+    {
+        samples.PushBack(0);
+    }
     Array<byte> wav;
     REQUIRE(EncodeWavFromPcm16(Span<const i16>(samples.Data(), samples.Size()), 1, rate, wav));
 
     Array<f32> peaks;
     REQUIRE(BuildWaveformPeaks(Span<const byte>(wav.Data(), wav.Size()), 16, peaks));
     REQUIRE(peaks.Size() == 16u);
-    for (usize i = 0; i < 7; ++i)    // tone half (skip the boundary bucket)
+    for (usize i = 0; i < 7; ++i) // tone half (skip the boundary bucket)
     {
         CHECK(peaks[i] > 0.4f);
         CHECK(peaks[i] <= 1.0f);
     }
-    for (usize i = 9; i < 16; ++i)   // silent half
+    for (usize i = 9; i < 16; ++i) // silent half
     {
         CHECK(peaks[i] < 0.01f);
     }
@@ -595,8 +635,8 @@ TEST_CASE("audio.waveform: peaks bucket the decoded signal; silence reads near z
 TEST_CASE("audio.engine: distance low-pass glides open -> floor across [min, max] distance")
 {
     AudioEngine engine(HeadlessSettings());
-    engine.SetListenerTransform(Float3{ 0, 0, 0 }, Float3{ 0, 0, -1 }, Float3{ 0, 1, 0 },
-                                Float3{ 0, 0, 0 });
+    engine.SetListenerTransform(Float3{0, 0, 0}, Float3{0, 0, -1}, Float3{0, 1, 0},
+                                Float3{0, 0, 0});
     RefPtr<AudioClip> clip = MakeToneClip(2.0f);
 
     AudioPlayParams params;
@@ -605,7 +645,7 @@ TEST_CASE("audio.engine: distance low-pass glides open -> floor across [min, max
     params.minDistance = 2.0f;
     params.maxDistance = 20.0f;
     params.distanceLowpassHz = 4000.0f;
-    params.position = Float3{ 0.0f, 0.0f, -2.0f };   // at minDistance: fully open
+    params.position = Float3{0.0f, 0.0f, -2.0f}; // at minDistance: fully open
     const VoiceHandle voice = engine.Play(clip, params);
     REQUIRE(voice.IsValid());
     engine.Update(1.0f / 60.0f);
@@ -613,16 +653,16 @@ TEST_CASE("audio.engine: distance low-pass glides open -> floor across [min, max
     VoiceStatus status;
     REQUIRE(engine.GetVoiceStatus(voice, status));
     const f32 openCutoff = status.lowpassCutoffHz;
-    CHECK(openCutoff > 15000.0f);   // inside minDistance = no audible muffling
+    CHECK(openCutoff > 15000.0f); // inside minDistance = no audible muffling
 
     // Far: the cutoff lands on the floor.
-    engine.SetVoicePosition(voice, Float3{ 0.0f, 0.0f, -20.0f }, Float3{});
+    engine.SetVoicePosition(voice, Float3{0.0f, 0.0f, -20.0f}, Float3{});
     engine.Update(1.0f / 60.0f);
     REQUIRE(engine.GetVoiceStatus(voice, status));
     CHECK(status.lowpassCutoffHz == doctest::Approx(4000.0f).epsilon(0.02));
 
     // Midway: strictly between the endpoints (the glide is monotonic).
-    engine.SetVoicePosition(voice, Float3{ 0.0f, 0.0f, -11.0f }, Float3{});
+    engine.SetVoicePosition(voice, Float3{0.0f, 0.0f, -11.0f}, Float3{});
     engine.Update(1.0f / 60.0f);
     REQUIRE(engine.GetVoiceStatus(voice, status));
     CHECK(status.lowpassCutoffHz > 4100.0f);
@@ -665,7 +705,10 @@ TEST_CASE("audio.engine: PlayMusic cross-fades - old voice fades out while the n
     CHECK(engine.ActiveVoiceCount() == 2u);
 
     // The fade lands: A reaps; B keeps playing.
-    for (int i = 0; i < 40; ++i) { engine.Update(1.0f / 60.0f); }   // ~0.66 s
+    for (int i = 0; i < 40; ++i)
+    {
+        engine.Update(1.0f / 60.0f);
+    } // ~0.66 s
     CHECK_FALSE(engine.GetVoiceStatus(first, status));
     REQUIRE(engine.GetVoiceStatus(second, status));
     CHECK(status.playing);
@@ -673,7 +716,10 @@ TEST_CASE("audio.engine: PlayMusic cross-fades - old voice fades out while the n
     // StopMusic fades the tracked voice and forgets it.
     engine.StopMusic(0.1f);
     CHECK_FALSE(engine.MusicVoice().IsValid());
-    for (int i = 0; i < 30; ++i) { engine.Update(1.0f / 60.0f); }
+    for (int i = 0; i < 30; ++i)
+    {
+        engine.Update(1.0f / 60.0f);
+    }
     CHECK(engine.ActiveVoiceCount() == 0u);
 }
 
@@ -719,7 +765,7 @@ TEST_CASE("audio.engine: VoiceStatus.cursorSeconds is the TRUE voice cursor - it
           "advances with the mixer and wraps on loop")
 {
     AudioEngine engine(HeadlessSettings());
-    RefPtr<AudioClip> clip = MakeToneClip(1.0f);   // 1 s one-shot
+    RefPtr<AudioClip> clip = MakeToneClip(1.0f); // 1 s one-shot
     AudioPlayParams params;
     params.allowDedupe = false;
     const VoiceHandle voice = engine.Play(clip, params);
@@ -732,7 +778,10 @@ TEST_CASE("audio.engine: VoiceStatus.cursorSeconds is the TRUE voice cursor - it
     CHECK(start < 0.05f);
 
     // Pump ~0.3 s of mixing: the cursor advances with the DATA, not wall time.
-    for (int i = 0; i < 18; ++i) { engine.Update(1.0f / 60.0f); }
+    for (int i = 0; i < 18; ++i)
+    {
+        engine.Update(1.0f / 60.0f);
+    }
     REQUIRE(engine.GetVoiceStatus(voice, status));
     CHECK(status.cursorSeconds > start + 0.2f);
     CHECK(status.cursorSeconds < 0.6f);
@@ -740,7 +789,10 @@ TEST_CASE("audio.engine: VoiceStatus.cursorSeconds is the TRUE voice cursor - it
 
     // A paused voice's cursor holds still.
     engine.SetPaused(voice, true);
-    for (int i = 0; i < 12; ++i) { engine.Update(1.0f / 60.0f); }
+    for (int i = 0; i < 12; ++i)
+    {
+        engine.Update(1.0f / 60.0f);
+    }
     REQUIRE(engine.GetVoiceStatus(voice, status));
     CHECK(status.cursorSeconds == doctest::Approx(mid).epsilon(0.02));
     engine.SetPaused(voice, false);
@@ -752,11 +804,14 @@ TEST_CASE("audio.engine: VoiceStatus.cursorSeconds is the TRUE voice cursor - it
     loopParams.allowDedupe = false;
     const VoiceHandle looping = engine.Play(shortClip, loopParams);
     REQUIRE(looping.IsValid());
-    for (int i = 0; i < 36; ++i) { engine.Update(1.0f / 60.0f); }
+    for (int i = 0; i < 36; ++i)
+    {
+        engine.Update(1.0f / 60.0f);
+    }
     REQUIRE(engine.GetVoiceStatus(looping, status));
     CHECK(engine.IsPlaying(looping));
     CHECK(status.cursorSeconds >= 0.0f);
-    CHECK(status.cursorSeconds < 0.26f);   // wrapped, not 0.6
+    CHECK(status.cursorSeconds < 0.26f); // wrapped, not 0.6
 }
 
 TEST_CASE("audio.engine: named custom buses - layout realizes the tree, voices route by "
@@ -774,7 +829,7 @@ TEST_CASE("audio.engine: named custom buses - layout realizes the tree, voices r
     drums.settings.effects.PushBack(lowpass);
     AudioNamedBus quiet;
     quiet.name = String(u8"quiet");
-    quiet.parent = String(u8"drums");   // custom-under-custom nesting
+    quiet.parent = String(u8"drums"); // custom-under-custom nesting
     quiet.settings.muted = true;
     layout.customBuses.PushBack(drums);
     layout.customBuses.PushBack(quiet);
@@ -787,7 +842,7 @@ TEST_CASE("audio.engine: named custom buses - layout realizes the tree, voices r
     CHECK(engine.NamedBusVolume(u8"drums") == doctest::Approx(0.5f));
     CHECK(engine.NamedBusMuted(u8"quiet"));
     CHECK(engine.NamedBusEffectCount(u8"drums") == 1u);
-    CHECK(engine.BusEffectCount(AudioBus::Effects) == 0u);   // fixed buses untouched
+    CHECK(engine.BusEffectCount(AudioBus::Effects) == 0u); // fixed buses untouched
 
     // Voices address the custom bus by name; unknown names fall back to the enum bus.
     RefPtr<AudioClip> clip = MakeToneClip(1.0f);
@@ -816,7 +871,7 @@ TEST_CASE("audio.engine: named custom buses - layout realizes the tree, voices r
     engine.SetNamedBusMuted(u8"drums", true);
     CHECK(engine.NamedBusMuted(u8"drums"));
     engine.SetNamedBusMuted(u8"drums", false);
-    CHECK(engine.NamedBusVolume(u8"drums") == doctest::Approx(0.25f));   // remembered
+    CHECK(engine.NamedBusVolume(u8"drums") == doctest::Approx(0.25f)); // remembered
 
     engine.Update(1.0f / 60.0f);
     CHECK(engine.IsPlaying(onDrums));
@@ -853,7 +908,7 @@ TEST_CASE("audio.engine: a layout rebuild keeps voices ALIVE - kept buses update
     AudioBusLayout rebuilt;
     AudioNamedBus drumsKept;
     drumsKept.name = String(u8"drums");
-    drumsKept.parent = String(u8"Music");   // re-parent while live
+    drumsKept.parent = String(u8"Music"); // re-parent while live
     drumsKept.settings.volume = 0.8f;
     rebuilt.customBuses.PushBack(drumsKept);
     engine.ApplyBusLayout(rebuilt);
@@ -867,7 +922,7 @@ TEST_CASE("audio.engine: a layout rebuild keeps voices ALIVE - kept buses update
     REQUIRE(engine.GetVoiceStatus(onDrums, status));
     CHECK(status.busName.AsView() == StringView(u8"drums"));
     REQUIRE(engine.GetVoiceStatus(onVoices, status));
-    CHECK(status.busName.IsEmpty());   // re-homed to the fixed bus
+    CHECK(status.busName.IsEmpty()); // re-homed to the fixed bus
     engine.Update(1.0f / 60.0f);
     CHECK(engine.IsPlaying(onVoices));
 }
@@ -882,14 +937,14 @@ TEST_CASE("audio.engine: custom-bus degenerates defuse - parent cycles land on M
     a.parent = String(u8"b");
     AudioNamedBus b;
     b.name = String(u8"b");
-    b.parent = String(u8"a");            // a <-> b cycle
+    b.parent = String(u8"a"); // a <-> b cycle
     AudioNamedBus orphan;
     orphan.name = String(u8"orphan");
-    orphan.parent = String(u8"ghost");   // unknown parent -> Master
+    orphan.parent = String(u8"ghost"); // unknown parent -> Master
     AudioNamedBus dupe;
-    dupe.name = String(u8"a");           // duplicate -> skipped
+    dupe.name = String(u8"a"); // duplicate -> skipped
     AudioNamedBus shadow;
-    shadow.name = String(u8"Effects");   // shadows a fixed bus -> skipped
+    shadow.name = String(u8"Effects"); // shadows a fixed bus -> skipped
     layout.customBuses.PushBack(a);
     layout.customBuses.PushBack(b);
     layout.customBuses.PushBack(orphan);
@@ -897,7 +952,7 @@ TEST_CASE("audio.engine: custom-bus degenerates defuse - parent cycles land on M
     layout.customBuses.PushBack(shadow);
     engine.ApplyBusLayout(layout);
 
-    CHECK(engine.NamedBusCount() == 3u);   // a, b, orphan
+    CHECK(engine.NamedBusCount() == 3u); // a, b, orphan
     CHECK(engine.HasNamedBus(u8"a"));
     CHECK(engine.HasNamedBus(u8"b"));
     CHECK(engine.HasNamedBus(u8"orphan"));
@@ -908,7 +963,7 @@ TEST_CASE("audio.engine: custom-bus degenerates defuse - parent cycles land on M
     AudioPlayParams params;
     params.loop = true;
     params.allowDedupe = false;
-    const StringView names[3] = { u8"a", u8"b", u8"orphan" };
+    const StringView names[3] = {u8"a", u8"b", u8"orphan"};
     for (StringView name : names)
     {
         params.busName = String(name);
@@ -940,8 +995,11 @@ TEST_CASE("audio.engine: scene-group pause freezes custom-bus voices too (they b
     REQUIRE(voice.IsValid());
 
     engine.SetSceneGroupPaused(sceneGroup, true);
-    for (int i = 0; i < 5; ++i) { engine.Update(0.1f); }
-    CHECK(engine.IsValidHandle(voice));   // held, not reaped
+    for (int i = 0; i < 5; ++i)
+    {
+        engine.Update(0.1f);
+    }
+    CHECK(engine.IsValidHandle(voice)); // held, not reaped
     VoiceStatus status;
     REQUIRE(engine.GetVoiceStatus(voice, status));
     CHECK(status.busName.AsView() == StringView(u8"drums"));
@@ -961,10 +1019,10 @@ TEST_CASE("audio.cue: weighted resolution - no-repeat, sequential, jitter, degen
     RefPtr<AudioClip> c = MakeToneClip(0.1f);
 
     SoundCue cue;
-    cue.variants.PushBack(SoundCueVariant{ a, 1.0f });
-    cue.variants.PushBack(SoundCueVariant{ RefPtr<AudioClip>{}, 5.0f });   // empty: skipped
-    cue.variants.PushBack(SoundCueVariant{ b, 0.0f });                     // zero weight: skipped
-    cue.variants.PushBack(SoundCueVariant{ c, 3.0f });
+    cue.variants.PushBack(SoundCueVariant{a, 1.0f});
+    cue.variants.PushBack(SoundCueVariant{RefPtr<AudioClip>{}, 5.0f}); // empty: skipped
+    cue.variants.PushBack(SoundCueVariant{b, 0.0f});                   // zero weight: skipped
+    cue.variants.PushBack(SoundCueVariant{c, 3.0f});
     cue.pitchMin = 0.9f;
     cue.pitchMax = 1.1f;
 
@@ -978,7 +1036,10 @@ TEST_CASE("audio.cue: weighted resolution - no-repeat, sequential, jitter, degen
     {
         const SoundCuePick pick = ResolveSoundCue(cue, rng, last, cursor);
         REQUIRE((pick.variantIndex == 0 || pick.variantIndex == 3));
-        if (last >= 0) { CHECK(pick.variantIndex != last); }
+        if (last >= 0)
+        {
+            CHECK(pick.variantIndex != last);
+        }
         CHECK(pick.pitch >= 0.9f);
         CHECK(pick.pitch <= 1.1f);
         CHECK(pick.volume == doctest::Approx(1.0f));
@@ -991,11 +1052,17 @@ TEST_CASE("audio.cue: weighted resolution - no-repeat, sequential, jitter, degen
     for (int i = 0; i < 400; ++i)
     {
         const SoundCuePick pick = ResolveSoundCue(cue, rng, -1, cursor);
-        if (pick.variantIndex == 0) { ++hits0; }
-        if (pick.variantIndex == 3) { ++hits3; }
+        if (pick.variantIndex == 0)
+        {
+            ++hits0;
+        }
+        if (pick.variantIndex == 3)
+        {
+            ++hits3;
+        }
     }
     CHECK(hits0 + hits3 == 400);
-    CHECK(hits3 > hits0 * 2);   // ~3x expected; 2x is a generous statistical floor
+    CHECK(hits3 > hits0 * 2); // ~3x expected; 2x is a generous statistical floor
 
     // Sequential: round-robin over the eligible set in slot order.
     cue.mode = SoundCueMode::Sequential;
@@ -1006,7 +1073,7 @@ TEST_CASE("audio.cue: weighted resolution - no-repeat, sequential, jitter, degen
 
     // No playable variant -> -1.
     SoundCue empty;
-    empty.variants.PushBack(SoundCueVariant{ RefPtr<AudioClip>{}, 1.0f });
+    empty.variants.PushBack(SoundCueVariant{RefPtr<AudioClip>{}, 1.0f});
     CHECK(ResolveSoundCue(empty, rng, -1, cursor).variantIndex == -1);
 }
 
@@ -1028,7 +1095,10 @@ TEST_CASE("audio.reverb: freeverb - dry passthrough at wet 0, a tail past the im
     reverb.ProcessStereo(impulse, output, 512);
     CHECK(output[0] == doctest::Approx(1.0f));
     f32 tail = 0.0f;
-    for (usize i = 2; i < 512 * 2; ++i) { tail += output[i] * output[i]; }
+    for (usize i = 2; i < 512 * 2; ++i)
+    {
+        tail += output[i] * output[i];
+    }
     CHECK(tail == doctest::Approx(0.0f));
 
     // wet > 0: energy exists WELL past the impulse (the reverb tail), for seconds.
@@ -1041,12 +1111,15 @@ TEST_CASE("audio.reverb: freeverb - dry passthrough at wet 0, a tail past the im
     f32 silent[512 * 2] = {};
     wetReverb.ProcessStereo(impulse, output, 512);
     f32 longTail = 0.0f;
-    for (int block = 0; block < 40; ++block)   // ~0.46 s after the impulse
+    for (int block = 0; block < 40; ++block) // ~0.46 s after the impulse
     {
         wetReverb.ProcessStereo(silent, output, 512);
         if (block > 20)
         {
-            for (usize i = 0; i < 512 * 2; ++i) { longTail += output[i] * output[i]; }
+            for (usize i = 0; i < 512 * 2; ++i)
+            {
+                longTail += output[i] * output[i];
+            }
         }
     }
     CHECK(longTail > 1.0e-6f);
@@ -1064,7 +1137,10 @@ TEST_CASE("audio.reverb: freeverb - dry passthrough at wet 0, a tail past the im
         dampedReverb.ProcessStereo(silent, output, 512);
         if (block > 20)
         {
-            for (usize i = 0; i < 512 * 2; ++i) { dampedTail += output[i] * output[i]; }
+            for (usize i = 0; i < 512 * 2; ++i)
+            {
+                dampedTail += output[i] * output[i];
+            }
         }
     }
     CHECK(dampedTail < longTail * 0.5f);
@@ -1088,7 +1164,7 @@ TEST_CASE("audio.reverb: wet-only send mode - dry pinned to 0 passes NO dry sign
     impulse[1] = 1.0f;
     f32 output[512 * 2] = {};
     send.ProcessStereo(impulse, output, 512);
-    CHECK(output[0] == doctest::Approx(0.0f));   // no dry passthrough
+    CHECK(output[0] == doctest::Approx(0.0f)); // no dry passthrough
     CHECK(output[1] == doctest::Approx(0.0f));
 
     f32 silent[512 * 2] = {};
@@ -1096,9 +1172,12 @@ TEST_CASE("audio.reverb: wet-only send mode - dry pinned to 0 passes NO dry sign
     for (int block = 0; block < 20; ++block)
     {
         send.ProcessStereo(silent, output, 512);
-        for (usize i = 0; i < 512 * 2; ++i) { tail += output[i] * output[i]; }
+        for (usize i = 0; i < 512 * 2; ++i)
+        {
+            tail += output[i] * output[i];
+        }
     }
-    CHECK(tail > 1.0e-6f);   // the send tail rings
+    CHECK(tail > 1.0e-6f); // the send tail rings
 
     // Default dry (< 0) keeps tracking 1 - wet (the classic insert mix).
     AudioReverbParams insert;
@@ -1120,7 +1199,7 @@ TEST_CASE("audio.engine: per-voice reverb sends - splitter splices per voice, li
     wet.sceneGroup = sceneGroup;
     wet.reverbSend = 0.5f;
     wet.spatial = true;
-    wet.distanceLowpassHz = 4000.0f;   // send + low-pass coexist in one chain
+    wet.distanceLowpassHz = 4000.0f; // send + low-pass coexist in one chain
     const VoiceHandle sending = engine.Play(clip, wet);
     REQUIRE(sending.IsValid());
     VoiceStatus status;
@@ -1135,10 +1214,13 @@ TEST_CASE("audio.engine: per-voice reverb sends - splitter splices per voice, li
     const VoiceHandle drier = engine.Play(other, dry);
     REQUIRE(drier.IsValid());
     REQUIRE(engine.GetVoiceStatus(drier, status));
-    CHECK(status.reverbSend == doctest::Approx(0.0f));   // no splitter, no send
+    CHECK(status.reverbSend == doctest::Approx(0.0f)); // no splitter, no send
 
     // The graph mixes cleanly with the send spliced in.
-    for (int i = 0; i < 10; ++i) { engine.Update(1.0f / 60.0f); }
+    for (int i = 0; i < 10; ++i)
+    {
+        engine.Update(1.0f / 60.0f);
+    }
     CHECK(engine.IsPlaying(sending));
 
     // Live scaling lands (and clamps); dry voices ignore it.
@@ -1168,7 +1250,10 @@ TEST_CASE("audio.engine: per-voice reverb sends - splitter splices per voice, li
     const VoiceHandle stealer = engine.Play(third, high);
     REQUIRE(stealer.IsValid());
     CHECK(engine.DyingVoiceCount() == 1u);
-    for (int i = 0; i < 10; ++i) { engine.Update(0.05f); }
+    for (int i = 0; i < 10; ++i)
+    {
+        engine.Update(0.05f);
+    }
     CHECK(engine.DyingVoiceCount() == 0u);
 
     // Scene teardown destroys the send reverb with the group.
@@ -1204,9 +1289,12 @@ TEST_CASE("audio.engine: a Reverb bus effect splices and the headless mixer surv
     params.loop = true;
     const VoiceHandle voice = engine.Play(clip, params);
     REQUIRE(voice.IsValid());
-    for (int i = 0; i < 30; ++i) { engine.Update(1.0f / 60.0f); }   // pumps through the tail
+    for (int i = 0; i < 30; ++i)
+    {
+        engine.Update(1.0f / 60.0f);
+    } // pumps through the tail
     CHECK(engine.IsPlaying(voice));
-    engine.ApplyBusLayout(AudioBusLayout{});   // teardown mid-play stays clean
+    engine.ApplyBusLayout(AudioBusLayout{}); // teardown mid-play stays clean
     engine.Update(1.0f / 60.0f);
     CHECK(engine.IsPlaying(voice));
 }

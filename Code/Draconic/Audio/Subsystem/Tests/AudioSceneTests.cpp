@@ -13,7 +13,7 @@ import draconic.scene;
 import draconic.scene.resource;
 import draconic.audio;
 import draconic.audio.subsystem;
-import draconic.audio.resource;   // cooked records (the Wren path-play test's DB)
+import draconic.audio.resource; // cooked records (the Wren path-play test's DB)
 import draconic.settings;
 import draconic.vfs;
 import draconic.content;
@@ -37,11 +37,14 @@ namespace
             const f32 t = static_cast<f32>(frame) / static_cast<f32>(sampleRate);
             const i16 sample =
                 static_cast<i16>(0.5f * std::sin(2.0f * 3.14159265f * 440.0f * t) * 32000.0f);
-            for (u32 channel = 0; channel < channels; ++channel) { samples.PushBack(sample); }
+            for (u32 channel = 0; channel < channels; ++channel)
+            {
+                samples.PushBack(sample);
+            }
         }
         Array<byte> wav;
-        REQUIRE(EncodeWavFromPcm16(Span<const i16>(samples.Data(), samples.Size()),
-                                   channels, sampleRate, wav));
+        REQUIRE(EncodeWavFromPcm16(Span<const i16>(samples.Data(), samples.Size()), channels,
+                                   sampleRate, wav));
         RefPtr<AudioClip> clip = MakeRef<AudioClip>(DefaultAllocator());
         AudioClipMetadata metadata;
         REQUIRE(ProbeAudioClipMetadata(Span<const byte>(wav.Data(), wav.Size()), metadata));
@@ -56,16 +59,18 @@ namespace
     struct PlayScene
     {
         AudioEngine engine;
-        dscene::Scene scene{ u8"audio-test" };
+        dscene::Scene scene{u8"audio-test"};
         AudioSceneSystem* audio = nullptr;
 
         PlayScene()
-            : engine([] {
-                  AudioEngineSettings settings;
-                  settings.headless = true;
-                  settings.dedupeWindowSeconds = 0.0f;   // scene tests place explicit voices
-                  return settings;
-              }())
+            : engine(
+                  []
+                  {
+                      AudioEngineSettings settings;
+                      settings.headless = true;
+                      settings.dedupeWindowSeconds = 0.0f; // scene tests place explicit voices
+                      return settings;
+                  }())
         {
             RegisterAudioComponentReflection();
             scene.AddSystem<AudioSourceComponentManager>();
@@ -106,7 +111,7 @@ TEST_CASE("audio.scene: autoplay sources start voices at scene start, positioned
 {
     PlayScene play;
     RefPtr<AudioClip> clip = MakeToneClip(1.0f);
-    const dscene::EntityHandle e = play.AddSource(clip, Float3{ 3.0f, 1.0f, -2.0f });
+    const dscene::EntityHandle e = play.AddSource(clip, Float3{3.0f, 1.0f, -2.0f});
     play.Start();
 
     auto* sources = play.scene.GetSystem<AudioSourceComponentManager>();
@@ -124,8 +129,8 @@ TEST_CASE("audio.scene: autoplay sources start voices at scene start, positioned
 
     const VoiceHandle handle = c->voice;
     play.scene.Stop();
-    CHECK_FALSE(c->voice.IsValid());              // component handle cleared
-    CHECK_FALSE(play.engine.IsValidHandle(handle));   // group teardown freed the voice
+    CHECK_FALSE(c->voice.IsValid());                // component handle cleared
+    CHECK_FALSE(play.engine.IsValidHandle(handle)); // group teardown freed the voice
     CHECK(play.audio->SceneGroup() == 0u);
 }
 
@@ -134,13 +139,13 @@ TEST_CASE("audio.scene: per-frame sync pushes position AND velocity (the doppler
 {
     PlayScene play;
     RefPtr<AudioClip> clip = MakeToneClip(1.0f);
-    const dscene::EntityHandle e = play.AddSource(clip, Float3{ 0.0f, 0.0f, 0.0f });
+    const dscene::EntityHandle e = play.AddSource(clip, Float3{0.0f, 0.0f, 0.0f});
     play.Start();
-    play.Frame();   // primes previousPosition
+    play.Frame(); // primes previousPosition
 
     // Move 1 unit in x over one 60 Hz frame = 60 u/s along x.
     dscene::EntityHandle entity = e;
-    play.scene.SetLocalPosition(entity, Float3{ 1.0f, 0.0f, 0.0f });
+    play.scene.SetLocalPosition(entity, Float3{1.0f, 0.0f, 0.0f});
     play.Frame();
 
     AudioSourceComponent* c = play.scene.GetSystem<AudioSourceComponentManager>()->Get(e);
@@ -157,7 +162,7 @@ TEST_CASE("audio.scene: pausing scene simulation pauses the scene's voice group;
 {
     PlayScene play;
     RefPtr<AudioClip> clip = MakeToneClip(1.0f);
-    (void)play.AddSource(clip, Float3{ 0, 0, 0 });
+    (void)play.AddSource(clip, Float3{0, 0, 0});
     play.Start();
     play.Frame();
     CHECK_FALSE(play.engine.IsSceneGroupPaused(play.audio->SceneGroup()));
@@ -176,14 +181,17 @@ TEST_CASE("audio.scene: a finished one-shot reaps and the component handle clear
     PlayScene play;
     RefPtr<AudioClip> clip = MakeToneClip(0.1f);
     const dscene::EntityHandle e =
-        play.AddSource(clip, Float3{ 0, 0, 0 }, /*autoPlay=*/true, /*loop=*/false);
+        play.AddSource(clip, Float3{0, 0, 0}, /*autoPlay=*/true, /*loop=*/false);
     play.Start();
 
     AudioSourceComponent* c = play.scene.GetSystem<AudioSourceComponentManager>()->Get(e);
     REQUIRE(c != nullptr);
     REQUIRE(c->voice.IsValid());
 
-    for (int i = 0; i < 30 && c->voice.IsValid(); ++i) { play.Frame(0.05f); }
+    for (int i = 0; i < 30 && c->voice.IsValid(); ++i)
+    {
+        play.Frame(0.05f);
+    }
     CHECK_FALSE(c->voice.IsValid());
     CHECK(play.engine.ActiveVoiceCount() == 0u);
 }
@@ -192,13 +200,12 @@ TEST_CASE("audio.scene: the component control surface - Play/Stop/SetPaused/IsPl
 {
     PlayScene play;
     RefPtr<AudioClip> clip = MakeToneClip(1.0f);
-    const dscene::EntityHandle e =
-        play.AddSource(clip, Float3{ 1, 2, 3 }, /*autoPlay=*/false);
+    const dscene::EntityHandle e = play.AddSource(clip, Float3{1, 2, 3}, /*autoPlay=*/false);
     play.Start();
 
     AudioSourceComponent* c = play.scene.GetSystem<AudioSourceComponentManager>()->Get(e);
     REQUIRE(c != nullptr);
-    CHECK_FALSE(c->voice.IsValid());              // no autoplay
+    CHECK_FALSE(c->voice.IsValid()); // no autoplay
 
     const VoiceHandle voice = play.audio->Play(e);
     REQUIRE(voice.IsValid());
@@ -226,21 +233,21 @@ TEST_CASE("audio.scene: the first ACTIVE listener component drives the scene's l
     PlayScene play;
     dscene::EntityHandle inactive = play.scene.CreateEntity(u8"inactive-listener");
     play.scene.GetSystem<AudioListenerComponentManager>()->Add(inactive).isActive = false;
-    play.scene.SetLocalPosition(inactive, Float3{ 100.0f, 0.0f, 0.0f });
+    play.scene.SetLocalPosition(inactive, Float3{100.0f, 0.0f, 0.0f});
 
     dscene::EntityHandle listener = play.scene.CreateEntity(u8"listener");
     play.scene.GetSystem<AudioListenerComponentManager>()->Add(listener);
-    play.scene.SetLocalPosition(listener, Float3{ 5.0f, 2.0f, 0.0f });
+    play.scene.SetLocalPosition(listener, Float3{5.0f, 2.0f, 0.0f});
 
     play.Start();
     play.Frame();
     REQUIRE(play.audio->ListenerValid());
-    CHECK(play.audio->ListenerPosition().x == doctest::Approx(5.0f));   // inactive skipped
-    CHECK(play.audio->ListenerForward().z == doctest::Approx(-1.0f));   // identity: -Z
+    CHECK(play.audio->ListenerPosition().x == doctest::Approx(5.0f)); // inactive skipped
+    CHECK(play.audio->ListenerForward().z == doctest::Approx(-1.0f)); // identity: -Z
     CHECK(play.audio->ListenerUp().y == doctest::Approx(1.0f));
 
     // Velocity from transform deltas: 0.6 units over 1/60 s = 36 u/s.
-    play.scene.SetLocalPosition(listener, Float3{ 5.6f, 2.0f, 0.0f });
+    play.scene.SetLocalPosition(listener, Float3{5.6f, 2.0f, 0.0f});
     play.Frame();
     CHECK(play.audio->ListenerVelocity().x == doctest::Approx(36.0f).epsilon(0.05));
 }
@@ -275,7 +282,7 @@ TEST_CASE("audio.scene: components round-trip through SerializeScene (authored f
     sc.coneInnerAngleDegrees = 45.0f;
     sc.coneOuterAngleDegrees = 90.0f;
     sc.coneOuterGain = 0.25f;
-    sc.voice = VoiceHandle{ 7, 3 };   // runtime junk that must NOT survive
+    sc.voice = VoiceHandle{7, 3}; // runtime junk that must NOT survive
 
     dscene::EntityHandle listener = a.CreateEntity(u8"ears");
     a.GetSystem<AudioListenerComponentManager>()->Add(listener).isActive = false;
@@ -297,8 +304,7 @@ TEST_CASE("audio.scene: components round-trip through SerializeScene (authored f
 
     dscene::EntityHandle loadedSource = b.FindEntity(a.GetEntityId(source));
     REQUIRE(loadedSource.IsAssigned());
-    AudioSourceComponent* loaded =
-        b.GetSystem<AudioSourceComponentManager>()->Get(loadedSource);
+    AudioSourceComponent* loaded = b.GetSystem<AudioSourceComponentManager>()->Get(loadedSource);
     REQUIRE(loaded != nullptr);
     CHECK(loaded->clip.id == clipId);
     CHECK(loaded->bus == AudioBus::Music);
@@ -318,7 +324,7 @@ TEST_CASE("audio.scene: components round-trip through SerializeScene (authored f
     CHECK(loaded->coneInnerAngleDegrees == doctest::Approx(45.0f));
     CHECK(loaded->coneOuterAngleDegrees == doctest::Approx(90.0f));
     CHECK(loaded->coneOuterGain == doctest::Approx(0.25f));
-    CHECK_FALSE(loaded->voice.IsValid());   // runtime handle did not travel
+    CHECK_FALSE(loaded->voice.IsValid()); // runtime handle did not travel
 
     dscene::EntityHandle loadedListener = b.FindEntity(a.GetEntityId(listener));
     REQUIRE(loadedListener.IsAssigned());
@@ -328,7 +334,8 @@ TEST_CASE("audio.scene: components round-trip through SerializeScene (authored f
     CHECK_FALSE(loadedEars->isActive);
 }
 
-TEST_CASE("audio.scene: sources sharing one clip each get their OWN voice (dedupe never merges components)")
+TEST_CASE("audio.scene: sources sharing one clip each get their OWN voice (dedupe never merges "
+          "components)")
 {
     // The AudioPlayground bug: four emitters sharing a clip autoplayed in the same
     // instant and the one-shot dedupe window collapsed them into ONE voice - three
@@ -339,7 +346,7 @@ TEST_CASE("audio.scene: sources sharing one clip each get their OWN voice (dedup
     settings.dedupeWindowSeconds = 1.0f / 30.0f;
     AudioEngine engine(settings);
     RegisterAudioComponentReflection();
-    dscene::Scene scene{ u8"audio-dedupe" };
+    dscene::Scene scene{u8"audio-dedupe"};
     scene.AddSystem<AudioSourceComponentManager>();
     scene.AddSystem<AudioListenerComponentManager>();
     AudioSceneSystem* audio = scene.AddSystem<AudioSceneSystem>();
@@ -351,7 +358,7 @@ TEST_CASE("audio.scene: sources sharing one clip each get their OWN voice (dedup
     for (int i = 0; i < 4; ++i)
     {
         entities[i] = scene.CreateEntity(u8"emitter");
-        scene.SetLocalPosition(entities[i], Float3{ static_cast<f32>(i) * 10.0f, 0.0f, 0.0f });
+        scene.SetLocalPosition(entities[i], Float3{static_cast<f32>(i) * 10.0f, 0.0f, 0.0f});
         AudioSourceComponent& c = sources->Add(entities[i]);
         c.clip = clip;
         c.autoPlay = true;
@@ -370,7 +377,10 @@ TEST_CASE("audio.scene: sources sharing one clip each get their OWN voice (dedup
         CHECK(engine.IsPlaying(c->voice));
         voices[i] = c->voice;
     }
-    for (int i = 1; i < 4; ++i) { CHECK_FALSE(voices[i] == voices[0]); }
+    for (int i = 1; i < 4; ++i)
+    {
+        CHECK_FALSE(voices[i] == voices[0]);
+    }
     CHECK(engine.ActiveVoiceCount() == 4u);
     scene.Stop();
 }
@@ -379,7 +389,7 @@ TEST_CASE("audio.scene: a source's reverbSend feeds the scene send reverb from P
 {
     PlayScene play;
     RefPtr<AudioClip> clip = MakeToneClip(1.0f);
-    const dscene::EntityHandle e = play.AddSource(clip, Float3{ 1.0f, 0.0f, 0.0f });
+    const dscene::EntityHandle e = play.AddSource(clip, Float3{1.0f, 0.0f, 0.0f});
     play.scene.GetSystem<AudioSourceComponentManager>()->Get(e)->reverbSend = 0.4f;
     play.Start();
 
@@ -405,7 +415,7 @@ TEST_CASE("audio.scene: a source's busName routes its voice onto the layout's cu
     play.engine.ApplyBusLayout(layout);
 
     RefPtr<AudioClip> clip = MakeToneClip(1.0f);
-    const dscene::EntityHandle e = play.AddSource(clip, Float3{ 0.0f, 0.0f, 0.0f });
+    const dscene::EntityHandle e = play.AddSource(clip, Float3{0.0f, 0.0f, 0.0f});
     play.scene.GetSystem<AudioSourceComponentManager>()->Get(e)->busName = String(u8"drums");
     play.Start();
 
@@ -453,8 +463,9 @@ TEST_CASE("audio.scene: the Wren Audio facade plays clips/cues/music by CONTENT 
     clipRecord.frameCount = tone->frameCount;
     clipRecord.durationSeconds = tone->durationSeconds;
     REQUIRE(beep->WriteObject(clipRecord).IsOk());
-    REQUIRE(beep->WriteData(u8"data", Span<const byte>(tone->encodedData.Data(),
-                                                       tone->encodedData.Size())).IsOk());
+    REQUIRE(beep->WriteData(u8"data",
+                            Span<const byte>(tone->encodedData.Data(), tone->encodedData.Size()))
+                .IsOk());
 
     auto* steps = sfx->CreateInstance(u8"steps", SoundCueSource::StaticType());
     REQUIRE(steps != nullptr);
@@ -474,7 +485,7 @@ TEST_CASE("audio.scene: the Wren Audio facade plays clips/cues/music by CONTENT 
     // A headless subsystem (Init is the public lifecycle seam) + the script binding.
     AudioEngineSettings engineSettings;
     engineSettings.headless = true;
-    engineSettings.dedupeWindowSeconds = 0.0f;   // each facade call = its own voice
+    engineSettings.dedupeWindowSeconds = 0.0f; // each facade call = its own voice
     AudioSubsystem subsystem(engineSettings);
     subsystem.Init();
     REQUIRE(subsystem.Engine() != nullptr);
@@ -492,7 +503,7 @@ TEST_CASE("audio.scene: the Wren Audio facade plays clips/cues/music by CONTENT 
         u8"var Cue = Audio.playCue(\"sfx/steps\")\n"
         u8"var Music = Audio.playMusic(\"sfx/beep\", 0.1)\n"
         u8"var Missing = Audio.playOneShot(\"sfx/nope\")\n"
-        u8"var MissingAgain = Audio.playOneShot(\"sfx/nope\")\n";   // warn-once path
+        u8"var MissingAgain = Audio.playOneShot(\"sfx/nope\")\n"; // warn-once path
     REQUIRE(ctx->Load(script, u8"main").IsOk());
     CHECK(ctx->GetGlobal(u8"Played").Get<bool>());
     CHECK(ctx->GetGlobal(u8"Spatial").Get<bool>());
@@ -556,12 +567,12 @@ TEST_CASE("audio.scene: a cue on the source wins over the clip and varies per tr
     RefPtr<AudioClip> stepA = MakeToneClip(0.2f);
     RefPtr<AudioClip> stepB = MakeToneClip(0.2f);
     RefPtr<SoundCue> cue = MakeRef<SoundCue>(DefaultAllocator());
-    cue->variants.PushBack(SoundCueVariant{ stepA, 1.0f });
-    cue->variants.PushBack(SoundCueVariant{ stepB, 1.0f });
+    cue->variants.PushBack(SoundCueVariant{stepA, 1.0f});
+    cue->variants.PushBack(SoundCueVariant{stepB, 1.0f});
     cue->pitchMin = 0.8f;
     cue->pitchMax = 1.2f;
 
-    const dscene::EntityHandle e = play.AddSource(fallback, Float3{ 0, 0, 0 },
+    const dscene::EntityHandle e = play.AddSource(fallback, Float3{0, 0, 0},
                                                   /*autoPlay=*/false, /*loop=*/false);
     auto* sources = play.scene.GetSystem<AudioSourceComponentManager>();
     sources->Get(e)->cue = cue;
@@ -579,10 +590,16 @@ TEST_CASE("audio.scene: a cue on the source wins over the clip and varies per tr
         CHECK(status.pitch <= 1.2f);
         AudioSourceComponent* c = sources->Get(e);
         REQUIRE(c != nullptr);
-        if (first >= 0) { CHECK(c->lastCueVariant != first); }
+        if (first >= 0)
+        {
+            CHECK(c->lastCueVariant != first);
+        }
         first = c->lastCueVariant;
         play.engine.Stop(voice);
-        for (int f = 0; f < 5; ++f) { play.Frame(); }
+        for (int f = 0; f < 5; ++f)
+        {
+            play.Frame();
+        }
     }
 }
 
@@ -590,7 +607,7 @@ TEST_CASE("audio.scene: reverb zones - wet follows listener occupancy, wettest z
 {
     PlayScene play;
     RefPtr<AudioClip> clip = MakeToneClip(1.0f);
-    play.AddSource(clip, Float3{ 0, 0, 0 });
+    play.AddSource(clip, Float3{0, 0, 0});
 
     // Listener entity at the origin.
     dscene::EntityHandle listener = play.scene.CreateEntity(u8"ears");
@@ -619,7 +636,7 @@ TEST_CASE("audio.scene: reverb zones - wet follows listener occupancy, wettest z
     CHECK(play.engine.SceneReverbWet(group) == doctest::Approx(0.9f).epsilon(0.02));
 
     // Move the listener outside B but into A's edge band: partial A wet.
-    play.scene.SetLocalPosition(listener, Float3{ 8.0f, 0.0f, 0.0f });
+    play.scene.SetLocalPosition(listener, Float3{8.0f, 0.0f, 0.0f});
     play.scene.UpdateTransforms();
     play.Frame();
     const f32 edgeWet = play.engine.SceneReverbWet(group);
@@ -627,7 +644,7 @@ TEST_CASE("audio.scene: reverb zones - wet follows listener occupancy, wettest z
     CHECK(edgeWet < 0.45f);
 
     // Far outside every zone: dry.
-    play.scene.SetLocalPosition(listener, Float3{ 50.0f, 0.0f, 0.0f });
+    play.scene.SetLocalPosition(listener, Float3{50.0f, 0.0f, 0.0f});
     play.scene.UpdateTransforms();
     play.Frame();
     CHECK(play.engine.SceneReverbWet(group) == doctest::Approx(0.0f));
@@ -637,17 +654,17 @@ TEST_CASE("audio.scene: multi-listener - every active listener collects, first i
 {
     PlayScene play;
     RefPtr<AudioClip> clip = MakeToneClip(0.5f);
-    play.AddSource(clip, Float3{ 0, 0, 0 });
+    play.AddSource(clip, Float3{0, 0, 0});
 
     auto* listeners = play.scene.GetSystem<AudioListenerComponentManager>();
     dscene::EntityHandle earsA = play.scene.CreateEntity(u8"p1");
-    play.scene.SetLocalPosition(earsA, Float3{ -5.0f, 0.0f, 0.0f });
+    play.scene.SetLocalPosition(earsA, Float3{-5.0f, 0.0f, 0.0f});
     listeners->Add(earsA);
     dscene::EntityHandle earsB = play.scene.CreateEntity(u8"p2");
-    play.scene.SetLocalPosition(earsB, Float3{ 5.0f, 0.0f, 0.0f });
+    play.scene.SetLocalPosition(earsB, Float3{5.0f, 0.0f, 0.0f});
     listeners->Add(earsB);
     dscene::EntityHandle earsOff = play.scene.CreateEntity(u8"spectator");
-    listeners->Add(earsOff).isActive = false;   // inactive: never collected
+    listeners->Add(earsOff).isActive = false; // inactive: never collected
 
     play.Start();
     play.scene.UpdateTransforms();
@@ -655,7 +672,7 @@ TEST_CASE("audio.scene: multi-listener - every active listener collects, first i
 
     const Span<const ListenerPose> poses = play.audio->ListenerPoses();
     REQUIRE(poses.Size() == 2u);
-    CHECK(poses[0].position.x == doctest::Approx(-5.0f));   // first component = primary
+    CHECK(poses[0].position.x == doctest::Approx(-5.0f)); // first component = primary
     CHECK(poses[1].position.x == doctest::Approx(5.0f));
     CHECK(play.audio->ListenerPosition().x == doctest::Approx(-5.0f));
 }
@@ -667,10 +684,10 @@ TEST_CASE("audio.engine: listener slots honor the configured count and reject OO
     settings.listenerCount = 3;
     AudioEngine engine(settings);
     CHECK(engine.ListenerCount() == 3u);
-    engine.SetListenerTransformIndexed(2, Float3{ 1, 2, 3 }, Float3{ 0, 0, -1 },
-                                       Float3{ 0, 1, 0 }, Float3{});
-    engine.SetListenerTransformIndexed(7, Float3{}, Float3{ 0, 0, -1 },
-                                       Float3{ 0, 1, 0 }, Float3{});   // OOB: no-op
+    engine.SetListenerTransformIndexed(2, Float3{1, 2, 3}, Float3{0, 0, -1}, Float3{0, 1, 0},
+                                       Float3{});
+    engine.SetListenerTransformIndexed(7, Float3{}, Float3{0, 0, -1}, Float3{0, 1, 0},
+                                       Float3{}); // OOB: no-op
     engine.SetListenerEnabled(1, false);
-    engine.Update(1.0f / 60.0f);   // pump survives partial listener config
+    engine.Update(1.0f / 60.0f); // pump survives partial listener config
 }

@@ -21,10 +21,10 @@
 #endif
 
 #define STB_VORBIS_HEADER_ONLY
-#include "stb_vorbis.c"   // header-only pass: enables miniaudio's built-in vorbis backend
+#include "stb_vorbis.c" // header-only pass: enables miniaudio's built-in vorbis backend
 
 #define MINIAUDIO_IMPLEMENTATION
 #include "miniaudio.h"
 
 #undef STB_VORBIS_HEADER_ONLY
-#include "stb_vorbis.c"   // implementation pass
+#include "stb_vorbis.c" // implementation pass

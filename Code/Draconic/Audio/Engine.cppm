@@ -28,7 +28,7 @@ export module draconic.audio:engine;
 import draconic.core;
 import draconic.vfs;
 import :clip;
-import :reverb;   // AudioReverbParams (the scene-reverb seam)
+import :reverb; // AudioReverbParams (the scene-reverb seam)
 
 using namespace draconic::core;
 
@@ -39,15 +39,15 @@ export namespace draconic::audio
     enum class AudioBus : u8
     {
         Master = 0,
-        Effects,     // one-shots / world sounds ("SFX")
-        Music,       // streamed music - routed through the graph like everything else
-        UI,          // interface sounds
+        Effects, // one-shots / world sounds ("SFX")
+        Music,   // streamed music - routed through the graph like everything else
+        UI,      // interface sounds
         Count,
     };
 
     enum class AudioAttenuationModel : u8
     {
-        None = 0,       // no distance attenuation (still panned/dopplered)
+        None = 0, // no distance attenuation (still panned/dopplered)
         Inverse,
         Linear,
         Exponential,
@@ -72,12 +72,12 @@ export namespace draconic::audio
         // of this name, the voice routes there instead of `bus`. Unknown names fall
         // back to `bus` (warned once per engine) - content never faults playback.
         String busName;
-        f32 volume = 1.0f;             // multiplied with the clip's authored gain
-        f32 pitch = 1.0f;              // real resampling (not stored-and-ignored)
-        f32 pan = 0.0f;                // -1 left .. +1 right (non-spatial voices)
-        bool loop = false;             // OR-ed with the clip's loop intent
-        u8 priority = 128;             // higher wins pool contention (Traktor stealing)
-        u64 sceneGroup = 0;            // per-scene pause/teardown group id (0 = global)
+        f32 volume = 1.0f;  // multiplied with the clip's authored gain
+        f32 pitch = 1.0f;   // real resampling (not stored-and-ignored)
+        f32 pan = 0.0f;     // -1 left .. +1 right (non-spatial voices)
+        bool loop = false;  // OR-ed with the clip's loop intent
+        u8 priority = 128;  // higher wins pool contention (Traktor stealing)
+        u64 sceneGroup = 0; // per-scene pause/teardown group id (0 = global)
         bool startPaused = false;
         // Recent-play merging (shotgun pellets / particle bursts). PERSISTENT sources
         // (scene components) must opt OUT: distinct authored sources playing the same
@@ -97,8 +97,8 @@ export namespace draconic::audio
         // left dead): the cutoff glides from fully open at minDistance down to THIS
         // frequency at maxDistance. 0 disables the filter (no node in the chain).
         f32 distanceLowpassHz = 4000.0f;
-        Float3 position{ 0.0f, 0.0f, 0.0f };
-        Float3 velocity{ 0.0f, 0.0f, 0.0f };   // feeds doppler (per-frame transform deltas)
+        Float3 position{0.0f, 0.0f, 0.0f};
+        Float3 velocity{0.0f, 0.0f, 0.0f}; // feeds doppler (per-frame transform deltas)
         f32 minDistance = 1.0f;
         f32 maxDistance = 100.0f;
         AudioAttenuationModel attenuationModel = AudioAttenuationModel::Inverse;
@@ -115,10 +115,10 @@ export namespace draconic::audio
     enum class AudioBusEffectKind : u8
     {
         None = 0,
-        Lowpass,    // frequencyHz = cutoff
-        Highpass,   // frequencyHz = cutoff
-        Delay,      // delaySeconds + delayDecay (feedback 0..1)
-        Reverb,     // roomSize + damping + wetLevel (Freeverb tail)
+        Lowpass,  // frequencyHz = cutoff
+        Highpass, // frequencyHz = cutoff
+        Delay,    // delaySeconds + delayDecay (feedback 0..1)
+        Reverb,   // roomSize + damping + wetLevel (Freeverb tail)
     };
 
     struct AudioBusEffectDesc
@@ -136,7 +136,7 @@ export namespace draconic::audio
     {
         f32 volume = 1.0f;
         bool muted = false;
-        Array<AudioBusEffectDesc> effects;   // applied in order; None entries skip
+        Array<AudioBusEffectDesc> effects; // applied in order; None entries skip
     };
 
     // A named CUSTOM bus (the additive topology freedom over the fixed four): realized
@@ -145,17 +145,17 @@ export namespace draconic::audio
     // (AudioPlayParams::busName / AudioSourceComponent::busName).
     struct AudioNamedBus
     {
-        String name;      // unique per layout (case-sensitive); empty = ignored
-        String parent;    // a fixed bus name ("Master"/"Effects"/"Music"/"UI",
-                          // case-insensitive) or another custom bus's name; empty =
-                          // Master. Cycles are rejected at cook AND defused at apply.
+        String name;   // unique per layout (case-sensitive); empty = ignored
+        String parent; // a fixed bus name ("Master"/"Effects"/"Music"/"UI",
+                       // case-insensitive) or another custom bus's name; empty =
+                       // Master. Cycles are rejected at cook AND defused at apply.
         AudioBusSettings settings;
     };
 
     struct AudioBusLayout
     {
         AudioBusSettings buses[static_cast<usize>(AudioBus::Count)];
-        Array<AudioNamedBus> customBuses;   // additive named tree (may be empty)
+        Array<AudioNamedBus> customBuses; // additive named tree (may be empty)
     };
 
     /// Fixed-bus lookup by name, ASCII case-insensitive ("effects" == "Effects").
@@ -163,29 +163,52 @@ export namespace draconic::audio
     /// facade's string addressing. False = not one of the four fixed buses.
     [[nodiscard]] inline bool AudioBusFromName(StringView name, AudioBus& out)
     {
-        auto equals = [](StringView a, const utf8char* b) {
+        auto equals = [](StringView a, const utf8char* b)
+        {
             usize i = 0;
             for (; i < a.Size(); ++i)
             {
                 utf8char c = a[i];
-                if (c >= u8'A' && c <= u8'Z') { c = static_cast<utf8char>(c + 32); }
-                if (b[i] == 0 || c != b[i]) { return false; }
+                if (c >= u8'A' && c <= u8'Z')
+                {
+                    c = static_cast<utf8char>(c + 32);
+                }
+                if (b[i] == 0 || c != b[i])
+                {
+                    return false;
+                }
             }
             return b[i] == 0;
         };
-        if (equals(name, u8"master")) { out = AudioBus::Master; return true; }
-        if (equals(name, u8"effects")) { out = AudioBus::Effects; return true; }
-        if (equals(name, u8"music")) { out = AudioBus::Music; return true; }
-        if (equals(name, u8"ui")) { out = AudioBus::UI; return true; }
+        if (equals(name, u8"master"))
+        {
+            out = AudioBus::Master;
+            return true;
+        }
+        if (equals(name, u8"effects"))
+        {
+            out = AudioBus::Effects;
+            return true;
+        }
+        if (equals(name, u8"music"))
+        {
+            out = AudioBus::Music;
+            return true;
+        }
+        if (equals(name, u8"ui"))
+        {
+            out = AudioBus::UI;
+            return true;
+        }
         return false;
     }
 
     struct VoiceStatus
     {
-        bool active = false;      // slot owned by this generation
-        bool playing = false;     // audible and advancing (not paused, not fading out)
+        bool active = false;  // slot owned by this generation
+        bool playing = false; // audible and advancing (not paused, not fading out)
         bool paused = false;
-        bool stopping = false;    // fade-to-stop in flight; reaped when the fade lands
+        bool stopping = false; // fade-to-stop in flight; reaped when the fade lands
         bool spatial = false;
         f32 volume = 1.0f;
         f32 pitch = 1.0f;
@@ -194,7 +217,7 @@ export namespace draconic::audio
         // when a layout rebuild removes the bus and the voice falls back to `bus`.
         String busName;
         u8 priority = 0;
-        Float3 position{ 0.0f, 0.0f, 0.0f };
+        Float3 position{0.0f, 0.0f, 0.0f};
         // Distance low-pass state: the cutoff currently applied (0 = no filter node).
         f32 lowpassCutoffHz = 0.0f;
         // TRUE playback cursor (seconds into the clip's data, from the voice itself -
@@ -210,19 +233,19 @@ export namespace draconic::audio
         /// False = open the default playback device; on FAILURE the engine logs a warning
         /// and falls back to headless mixing - handles stay valid either way (Null mode).
         bool headless = false;
-        u32 voiceCount = 64;           // fixed in-memory voice pool
-        u32 streamVoiceCount = 8;      // fixed streamed-voice pool (music etc.)
-        u32 sampleRate = 48000;        // headless mixing rate (a real device uses its own)
-        u32 listenerCount = 1;         // spatial listeners (1..4; split-screen); voices
-                                       // auto-attach to the CLOSEST listener
-        f32 stopFadeSeconds = 0.010f;  // the always-fade on stop/pause (Godot rule)
+        u32 voiceCount = 64;          // fixed in-memory voice pool
+        u32 streamVoiceCount = 8;     // fixed streamed-voice pool (music etc.)
+        u32 sampleRate = 48000;       // headless mixing rate (a real device uses its own)
+        u32 listenerCount = 1;        // spatial listeners (1..4; split-screen); voices
+                                      // auto-attach to the CLOSEST listener
+        f32 stopFadeSeconds = 0.010f; // the always-fade on stop/pause (Godot rule)
         // Faded steal: a stolen voice's ma_sound moves to a bounded "dying" side list
         // and fades out over THIS window while the newcomer starts at once - no click.
         // The mixer briefly carries pool + dying voices; the ADDRESSABLE pool never
         // exceeds voiceCount (see ActiveVoiceCount/DyingVoiceCount).
         f32 stealFadeSeconds = 0.030f;
-        u32 dyingVoiceCapacity = 8;    // 0 = legacy immediate cut; full = oldest hard-cuts
-        f32 dedupeWindowSeconds = 1.0f / 30.0f;   // recent-play merge window (Traktor)
+        u32 dyingVoiceCapacity = 8;             // 0 = legacy immediate cut; full = oldest hard-cuts
+        f32 dedupeWindowSeconds = 1.0f / 30.0f; // recent-play merge window (Traktor)
         /// Optional mount for path-addressed streaming (clip stream sources don't need it).
         draconic::vfs::IFileSystem* fileSystem = nullptr;
     };
@@ -253,7 +276,7 @@ export namespace draconic::audio
         void StopAll();
         /// Pause fades out but keeps the cursor; resume fades back in.
         void SetPaused(VoiceHandle handle, bool paused);
-        [[nodiscard]] bool IsPlaying(VoiceHandle handle) const;   // active && !paused && !stopping
+        [[nodiscard]] bool IsPlaying(VoiceHandle handle) const; // active && !paused && !stopping
         [[nodiscard]] bool IsValidHandle(VoiceHandle handle) const;
         [[nodiscard]] bool GetVoiceStatus(VoiceHandle handle, VoiceStatus& out) const;
 
@@ -279,8 +302,8 @@ export namespace draconic::audio
         void SetListenerTransform(Float3 position, Float3 forward, Float3 up, Float3 velocity);
         /// Multi-listener (P3, split-screen): move listener `index` (< ListenerCount()).
         /// Spatial voices attenuate/pan against the CLOSEST enabled listener.
-        void SetListenerTransformIndexed(u32 index, Float3 position, Float3 forward,
-                                         Float3 up, Float3 velocity);
+        void SetListenerTransformIndexed(u32 index, Float3 position, Float3 forward, Float3 up,
+                                         Float3 velocity);
         void SetListenerEnabled(u32 index, bool enabled);
         [[nodiscard]] u32 ListenerCount() const;
 
@@ -308,7 +331,7 @@ export namespace draconic::audio
         [[nodiscard]] bool HasNamedBus(StringView name) const;
         [[nodiscard]] u32 NamedBusCount() const;
         void SetNamedBusVolume(StringView name, f32 volume);
-        [[nodiscard]] f32 NamedBusVolume(StringView name) const;   // 0 when unknown
+        [[nodiscard]] f32 NamedBusVolume(StringView name) const; // 0 when unknown
         void SetNamedBusMuted(StringView name, bool muted);
         [[nodiscard]] bool NamedBusMuted(StringView name) const;
         [[nodiscard]] u32 NamedBusEffectCount(StringView name) const;

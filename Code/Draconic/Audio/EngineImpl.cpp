@@ -38,10 +38,14 @@ namespace draconic::audio
         {
             switch (model)
             {
-                case AudioAttenuationModel::None:        return ma_attenuation_model_none;
-                case AudioAttenuationModel::Inverse:     return ma_attenuation_model_inverse;
-                case AudioAttenuationModel::Linear:      return ma_attenuation_model_linear;
-                case AudioAttenuationModel::Exponential: return ma_attenuation_model_exponential;
+            case AudioAttenuationModel::None:
+                return ma_attenuation_model_none;
+            case AudioAttenuationModel::Inverse:
+                return ma_attenuation_model_inverse;
+            case AudioAttenuationModel::Linear:
+                return ma_attenuation_model_linear;
+            case AudioAttenuationModel::Exponential:
+                return ma_attenuation_model_exponential;
             }
             return ma_attenuation_model_inverse;
         }
@@ -53,7 +57,7 @@ namespace draconic::audio
             Free = 0,
             Playing,
             Paused,
-            Stopping,   // fade-to-stop in flight; reaped when the fade lands
+            Stopping, // fade-to-stop in flight; reaped when the fade lands
         };
 
         // Registered in-memory payload handed to miniaudio's resource manager. The
@@ -62,11 +66,11 @@ namespace draconic::audio
         struct RegisteredClip
         {
             RefPtr<AudioClip> keepAlive;
-            Array<f32> decodedFrames;      // decode-on-load payload (empty = encoded)
+            Array<f32> decodedFrames; // decode-on-load payload (empty = encoded)
             u64 decodedFrameCount = 0;
             u32 decodedChannels = 0;
-            bool registered = false;       // full-quality registration succeeded
-            bool monoRegistered = false;   // spatial downmix variant ("dclipm:")
+            bool registered = false;     // full-quality registration succeeded
+            bool monoRegistered = false; // spatial downmix variant ("dclipm:")
             Array<f32> monoFrames;
             u64 monoFrameCount = 0;
         };
@@ -93,7 +97,7 @@ namespace draconic::audio
         // CONTINUOUS processing so the tail keeps ringing after inputs stop.
         struct ReverbNode
         {
-            ma_node_base base;   // FIRST: a ReverbNode* is a valid ma_node*
+            ma_node_base base; // FIRST: a ReverbNode* is a valid ma_node*
             FreeverbState* state = nullptr;
             u32 channels = 0;
         };
@@ -102,8 +106,8 @@ namespace draconic::audio
                                float** framesOut, ma_uint32* frameCountOut)
         {
             auto* reverb = reinterpret_cast<ReverbNode*>(node);
-            const ma_uint32 frames = *frameCountOut < *frameCountIn ? *frameCountOut
-                                                                    : *frameCountIn;
+            const ma_uint32 frames =
+                *frameCountOut < *frameCountIn ? *frameCountOut : *frameCountIn;
             if (reverb->channels == 2 && reverb->state != nullptr)
             {
                 reverb->state->ProcessStereo(framesIn[0], framesOut[0], frames);
@@ -117,8 +121,8 @@ namespace draconic::audio
             *frameCountOut = frames;
         }
 
-        ma_node_vtable g_reverbNodeVtable = { ReverbNodeProcess, nullptr, 1, 1,
-                                              MA_NODE_FLAG_CONTINUOUS_PROCESSING };
+        ma_node_vtable g_reverbNodeVtable = {ReverbNodeProcess, nullptr, 1, 1,
+                                             MA_NODE_FLAG_CONTINUOUS_PROCESSING};
 
         [[nodiscard]] ReverbNode* CreateReverbNode(ma_engine& engine,
                                                    const AudioReverbParams& params)
@@ -128,13 +132,13 @@ namespace draconic::audio
             node->state = DefaultAllocator().New<FreeverbState>();
             node->state->Initialize(ma_engine_get_sample_rate(&engine));
             node->state->SetParams(params);
-            const ma_uint32 channels[1] = { node->channels };
+            const ma_uint32 channels[1] = {node->channels};
             ma_node_config config = ma_node_config_init();
             config.vtable = &g_reverbNodeVtable;
             config.pInputChannels = channels;
             config.pOutputChannels = channels;
-            if (ma_node_init(ma_engine_get_node_graph(&engine), &config, nullptr,
-                             &node->base) != MA_SUCCESS)
+            if (ma_node_init(ma_engine_get_node_graph(&engine), &config, nullptr, &node->base) !=
+                MA_SUCCESS)
             {
                 DefaultAllocator().Delete(node->state);
                 DefaultAllocator().Delete(node);
@@ -145,7 +149,10 @@ namespace draconic::audio
 
         void DestroyReverbNode(ReverbNode* node)
         {
-            if (node == nullptr) { return; }
+            if (node == nullptr)
+            {
+                return;
+            }
             ma_node_uninit(&node->base, nullptr);
             DefaultAllocator().Delete(node->state);
             DefaultAllocator().Delete(node);
@@ -165,8 +172,8 @@ namespace draconic::audio
     struct CustomBusData
     {
         String name;
-        AudioBus fixedParent = AudioBus::Master;   // parent when parentCustom < 0
-        i32 parentCustom = -1;                     // index into Impl::customBuses
+        AudioBus fixedParent = AudioBus::Master; // parent when parentCustom < 0
+        i32 parentCustom = -1;                   // index into Impl::customBuses
         f32 volume = 1.0f;
         bool muted = false;
         ma_sound_group group{};
@@ -187,8 +194,8 @@ namespace draconic::audio
         u8 priority = 0;
         bool spatial = false;
         bool looping = false;
-        String customBusName;   // non-empty = routed through a named custom bus
-        Float3 position{ 0.0f, 0.0f, 0.0f };
+        String customBusName; // non-empty = routed through a named custom bus
+        Float3 position{0.0f, 0.0f, 0.0f};
         f32 volume = 1.0f;
         f32 pitch = 1.0f;
         AudioBus bus = AudioBus::Effects;
@@ -214,7 +221,7 @@ namespace draconic::audio
         ma_sound_group group[static_cast<usize>(AudioBus::Count)]{};
         bool initialized[static_cast<usize>(AudioBus::Count)] = {};
         bool paused = false;
-        ReverbNode* reverb = nullptr;   // zone reverb on the Effects child group
+        ReverbNode* reverb = nullptr; // zone reverb on the Effects child group
         f32 reverbWet = 0.0f;
         // The per-voice send target: a WET-ONLY Freeverb (dry pinned to 0) fed by
         // voice splitters, straight into the Effects bus. Zones retune roomSize/
@@ -241,10 +248,10 @@ namespace draconic::audio
 
         ma_sound_group busGroups[static_cast<usize>(AudioBus::Count)]{};
         bool busGroupInitialized[static_cast<usize>(AudioBus::Count)] = {};
-        f32 busVolume[static_cast<usize>(AudioBus::Count)] = { 1.0f, 1.0f, 1.0f, 1.0f };
+        f32 busVolume[static_cast<usize>(AudioBus::Count)] = {1.0f, 1.0f, 1.0f, 1.0f};
         bool busMuted[static_cast<usize>(AudioBus::Count)] = {};
 
-        Array<VoiceSlot> voices;       // [0, voiceCount) in-memory, then stream slots
+        Array<VoiceSlot> voices; // [0, voiceCount) in-memory, then stream slots
         u32 voiceCount = 0;
         u32 streamVoiceCount = 0;
 
@@ -265,15 +272,15 @@ namespace draconic::audio
         };
         Array<DyingVoice> dyingVoices;
 
-        HashMap<u64, SceneGroupData*> sceneGroups;   // owned via DefaultAllocator New/Delete
+        HashMap<u64, SceneGroupData*> sceneGroups; // owned via DefaultAllocator New/Delete
         u64 nextSceneGroupId = 1;
 
-        HashMap<void*, RegisteredClip> registeredClips;   // key = AudioClip*
-        HashMap<void*, RefPtr<AudioClip>> streamClips;    // ma_vfs name -> clip keep-alive
-        HashMap<void*, DedupeEntry> recentPlays;          // key = AudioClip*
+        HashMap<void*, RegisteredClip> registeredClips; // key = AudioClip*
+        HashMap<void*, RefPtr<AudioClip>> streamClips;  // ma_vfs name -> clip keep-alive
+        HashMap<void*, DedupeEntry> recentPlays;        // key = AudioClip*
 
-        Float3 listenerPosition{ 0.0f, 0.0f, 0.0f };
-        VoiceHandle musicVoice;        // the PlayMusic cross-fade tracks ONE music voice
+        Float3 listenerPosition{0.0f, 0.0f, 0.0f};
+        VoiceHandle musicVoice; // the PlayMusic cross-fade tracks ONE music voice
 
         Array<BusEffectNode> busEffects[static_cast<usize>(AudioBus::Count)];
         // Named custom buses (heap entries: ma_sound_group is address-stable).
@@ -282,16 +289,23 @@ namespace draconic::audio
         bool warnedMonoDownmix = false;
         bool warnedStreamStereoSpatial = false;
         bool warnedUnknownBusName = false;
-        Array<f32> pumpScratch;        // headless mixing scratch
+        Array<f32> pumpScratch; // headless mixing scratch
 
         // ---------------- ma_vfs callbacks ----------------
 
-        static ma_result VfsOpen(ma_vfs* vfs, const char* path, ma_uint32 openMode, ma_vfs_file* outFile)
+        static ma_result VfsOpen(ma_vfs* vfs, const char* path, ma_uint32 openMode,
+                                 ma_vfs_file* outFile)
         {
-            if ((openMode & MA_OPEN_MODE_WRITE) != 0) { return MA_NOT_IMPLEMENTED; }
+            if ((openMode & MA_OPEN_MODE_WRITE) != 0)
+            {
+                return MA_NOT_IMPLEMENTED;
+            }
             Impl* impl = reinterpret_cast<Bridge*>(vfs)->impl;
             UniquePtr<IStream> stream = impl->OpenBridgedStream(path);
-            if (stream.Get() == nullptr) { return MA_DOES_NOT_EXIST; }
+            if (stream.Get() == nullptr)
+            {
+                return MA_DOES_NOT_EXIST;
+            }
             auto* file = DefaultAllocator().New<BridgedFile>();
             file->stream = Move(stream);
             *outFile = reinterpret_cast<ma_vfs_file>(file);
@@ -303,26 +317,34 @@ namespace draconic::audio
             DefaultAllocator().Delete(bridged);
             return MA_SUCCESS;
         }
-        static ma_result VfsRead(ma_vfs*, ma_vfs_file file, void* destination, size_t bytes, size_t* outRead)
+        static ma_result VfsRead(ma_vfs*, ma_vfs_file file, void* destination, size_t bytes,
+                                 size_t* outRead)
         {
             auto* bridged = reinterpret_cast<BridgedFile*>(file);
             const u64 read = bridged->stream->Read(destination, static_cast<u64>(bytes));
-            if (outRead != nullptr) { *outRead = static_cast<size_t>(read); }
+            if (outRead != nullptr)
+            {
+                *outRead = static_cast<size_t>(read);
+            }
             return read == 0 && bytes > 0 ? MA_AT_END : MA_SUCCESS;
         }
         static ma_result VfsSeek(ma_vfs*, ma_vfs_file file, ma_int64 offset, ma_seek_origin origin)
         {
             auto* bridged = reinterpret_cast<BridgedFile*>(file);
-            const SeekOrigin mapped = origin == ma_seek_origin_start ? SeekOrigin::Begin
-                                    : origin == ma_seek_origin_current ? SeekOrigin::Current
-                                                                       : SeekOrigin::End;
-            return bridged->stream->Seek(static_cast<i64>(offset), mapped) < 0 ? MA_ERROR : MA_SUCCESS;
+            const SeekOrigin mapped = origin == ma_seek_origin_start     ? SeekOrigin::Begin
+                                      : origin == ma_seek_origin_current ? SeekOrigin::Current
+                                                                         : SeekOrigin::End;
+            return bridged->stream->Seek(static_cast<i64>(offset), mapped) < 0 ? MA_ERROR
+                                                                               : MA_SUCCESS;
         }
         static ma_result VfsTell(ma_vfs*, ma_vfs_file file, ma_int64* outCursor)
         {
             auto* bridged = reinterpret_cast<BridgedFile*>(file);
             const i64 cursor = bridged->stream->Tell();
-            if (cursor < 0) { return MA_ERROR; }
+            if (cursor < 0)
+            {
+                return MA_ERROR;
+            }
             *outCursor = static_cast<ma_int64>(cursor);
             return MA_SUCCESS;
         }
@@ -330,7 +352,10 @@ namespace draconic::audio
         {
             auto* bridged = reinterpret_cast<BridgedFile*>(file);
             const i64 size = bridged->stream->Size();
-            if (size < 0) { return MA_ERROR; }
+            if (size < 0)
+            {
+                return MA_ERROR;
+            }
             outInfo->sizeInBytes = static_cast<ma_uint64>(size);
             return MA_SUCCESS;
         }
@@ -342,8 +367,10 @@ namespace draconic::audio
             if (std::strncmp(path, "dstream:", 8) == 0)
             {
                 const unsigned long long key = std::strtoull(path + 8, nullptr, 16);
-                RefPtr<AudioClip>* clip = streamClips.Find(reinterpret_cast<void*>(static_cast<uptr>(key)));
-                if (clip == nullptr || clip->Get() == nullptr || clip->Get()->streamSource.Get() == nullptr)
+                RefPtr<AudioClip>* clip =
+                    streamClips.Find(reinterpret_cast<void*>(static_cast<uptr>(key)));
+                if (clip == nullptr || clip->Get() == nullptr ||
+                    clip->Get()->streamSource.Get() == nullptr)
                 {
                     return {};
                 }
@@ -359,8 +386,7 @@ namespace draconic::audio
 
         // ---------------- construction ----------------
 
-        explicit Impl(const AudioEngineSettings& engineSettings)
-            : settings(engineSettings)
+        explicit Impl(const AudioEngineSettings& engineSettings) : settings(engineSettings)
         {
             bridge.callbacks.onOpen = &VfsOpen;
             bridge.callbacks.onClose = &VfsClose;
@@ -374,7 +400,8 @@ namespace draconic::audio
             headless = settings.headless;
             if (!InitializeEngine(headless) && !headless)
             {
-                DRACONIC_LOG_WARNING(u8"Audio",
+                DRACONIC_LOG_WARNING(
+                    u8"Audio",
                     u8"no playback device available - running headless (Null mode: voices "
                     u8"advance silently, handles stay valid)");
                 headless = true;
@@ -382,7 +409,8 @@ namespace draconic::audio
             }
             if (!engineInitialized)
             {
-                DRACONIC_LOG_ERROR(u8"Audio", u8"audio engine failed to initialize - audio disabled");
+                DRACONIC_LOG_ERROR(u8"Audio",
+                                   u8"audio engine failed to initialize - audio disabled");
                 return;
             }
 
@@ -393,8 +421,8 @@ namespace draconic::audio
             voices.Resize(static_cast<usize>(voiceCount) + streamVoiceCount);
             // Storage for every pool slot PLUS the dying headroom (a steal briefly
             // needs both the victim's fading sound and the newcomer's).
-            soundArena.Resize(static_cast<usize>(voiceCount) + streamVoiceCount
-                              + settings.dyingVoiceCapacity);
+            soundArena.Resize(static_cast<usize>(voiceCount) + streamVoiceCount +
+                              settings.dyingVoiceCapacity);
             for (usize i = soundArena.Size(); i > 0; --i)
             {
                 freeSounds.PushBack(static_cast<u32>(i - 1));
@@ -403,7 +431,10 @@ namespace draconic::audio
 
         [[nodiscard]] ma_sound* AcquireSound()
         {
-            if (freeSounds.IsEmpty()) { return nullptr; }   // unreachable by construction
+            if (freeSounds.IsEmpty())
+            {
+                return nullptr;
+            } // unreachable by construction
             const u32 index = freeSounds.Back();
             freeSounds.PopBack();
             return &soundArena[index];
@@ -411,7 +442,10 @@ namespace draconic::audio
 
         void ReleaseSound(ma_sound* sound)
         {
-            if (sound == nullptr) { return; }
+            if (sound == nullptr)
+            {
+                return;
+            }
             freeSounds.PushBack(static_cast<u32>(sound - soundArena.Data()));
         }
 
@@ -435,8 +469,9 @@ namespace draconic::audio
         [[nodiscard]] ma_node* BusParentNode(usize bus)
         {
             return bus == static_cast<usize>(AudioBus::Master)
-                ? ma_node_graph_get_endpoint(ma_engine_get_node_graph(&engine))
-                : reinterpret_cast<ma_node*>(&busGroups[static_cast<usize>(AudioBus::Master)]);
+                       ? ma_node_graph_get_endpoint(ma_engine_get_node_graph(&engine))
+                       : reinterpret_cast<ma_node*>(
+                             &busGroups[static_cast<usize>(AudioBus::Master)]);
         }
 
         // Frees every node in `chain` (the caller re-attaches the source first).
@@ -446,22 +481,23 @@ namespace draconic::audio
             {
                 switch (effect.kind)
                 {
-                    case AudioBusEffectKind::Lowpass:
-                        ma_lpf_node_uninit(static_cast<ma_lpf_node*>(effect.node), nullptr);
-                        DefaultAllocator().Delete(static_cast<ma_lpf_node*>(effect.node));
-                        break;
-                    case AudioBusEffectKind::Highpass:
-                        ma_hpf_node_uninit(static_cast<ma_hpf_node*>(effect.node), nullptr);
-                        DefaultAllocator().Delete(static_cast<ma_hpf_node*>(effect.node));
-                        break;
-                    case AudioBusEffectKind::Delay:
-                        ma_delay_node_uninit(static_cast<ma_delay_node*>(effect.node), nullptr);
-                        DefaultAllocator().Delete(static_cast<ma_delay_node*>(effect.node));
-                        break;
-                    case AudioBusEffectKind::Reverb:
-                        DestroyReverbNode(static_cast<ReverbNode*>(effect.node));
-                        break;
-                    case AudioBusEffectKind::None: break;
+                case AudioBusEffectKind::Lowpass:
+                    ma_lpf_node_uninit(static_cast<ma_lpf_node*>(effect.node), nullptr);
+                    DefaultAllocator().Delete(static_cast<ma_lpf_node*>(effect.node));
+                    break;
+                case AudioBusEffectKind::Highpass:
+                    ma_hpf_node_uninit(static_cast<ma_hpf_node*>(effect.node), nullptr);
+                    DefaultAllocator().Delete(static_cast<ma_hpf_node*>(effect.node));
+                    break;
+                case AudioBusEffectKind::Delay:
+                    ma_delay_node_uninit(static_cast<ma_delay_node*>(effect.node), nullptr);
+                    DefaultAllocator().Delete(static_cast<ma_delay_node*>(effect.node));
+                    break;
+                case AudioBusEffectKind::Reverb:
+                    DestroyReverbNode(static_cast<ReverbNode*>(effect.node));
+                    break;
+                case AudioBusEffectKind::None:
+                    break;
                 }
             }
             chain.Clear();
@@ -480,7 +516,10 @@ namespace draconic::audio
         void BuildBusEffects(usize bus, Span<const AudioBusEffectDesc> effects)
         {
             ClearBusEffects(bus);
-            if (!busGroupInitialized[bus]) { return; }
+            if (!busGroupInitialized[bus])
+            {
+                return;
+            }
             BuildEffectChain(reinterpret_cast<ma_node*>(&busGroups[bus]), busEffects[bus],
                              BusParentNode(bus), effects);
         }
@@ -501,60 +540,63 @@ namespace draconic::audio
                 effect.kind = desc.kind;
                 switch (desc.kind)
                 {
-                    case AudioBusEffectKind::Lowpass:
+                case AudioBusEffectKind::Lowpass:
+                {
+                    auto* node = DefaultAllocator().New<ma_lpf_node>();
+                    ma_lpf_node_config config = ma_lpf_node_config_init(
+                        channels, sampleRate, Max(desc.frequencyHz, 10.0f), kLowpassOrder);
+                    if (ma_lpf_node_init(graph, &config, nullptr, node) != MA_SUCCESS)
                     {
-                        auto* node = DefaultAllocator().New<ma_lpf_node>();
-                        ma_lpf_node_config config = ma_lpf_node_config_init(
-                            channels, sampleRate, Max(desc.frequencyHz, 10.0f), kLowpassOrder);
-                        if (ma_lpf_node_init(graph, &config, nullptr, node) != MA_SUCCESS)
-                        {
-                            DefaultAllocator().Delete(node);
-                            continue;
-                        }
-                        effect.node = node;
-                        break;
+                        DefaultAllocator().Delete(node);
+                        continue;
                     }
-                    case AudioBusEffectKind::Highpass:
+                    effect.node = node;
+                    break;
+                }
+                case AudioBusEffectKind::Highpass:
+                {
+                    auto* node = DefaultAllocator().New<ma_hpf_node>();
+                    ma_hpf_node_config config = ma_hpf_node_config_init(
+                        channels, sampleRate, Max(desc.frequencyHz, 10.0f), kLowpassOrder);
+                    if (ma_hpf_node_init(graph, &config, nullptr, node) != MA_SUCCESS)
                     {
-                        auto* node = DefaultAllocator().New<ma_hpf_node>();
-                        ma_hpf_node_config config = ma_hpf_node_config_init(
-                            channels, sampleRate, Max(desc.frequencyHz, 10.0f), kLowpassOrder);
-                        if (ma_hpf_node_init(graph, &config, nullptr, node) != MA_SUCCESS)
-                        {
-                            DefaultAllocator().Delete(node);
-                            continue;
-                        }
-                        effect.node = node;
-                        break;
+                        DefaultAllocator().Delete(node);
+                        continue;
                     }
-                    case AudioBusEffectKind::Delay:
+                    effect.node = node;
+                    break;
+                }
+                case AudioBusEffectKind::Delay:
+                {
+                    auto* node = DefaultAllocator().New<ma_delay_node>();
+                    const u32 delayFrames = static_cast<u32>(Max(desc.delaySeconds, 0.001f) *
+                                                             static_cast<f32>(sampleRate));
+                    ma_delay_node_config config = ma_delay_node_config_init(
+                        channels, sampleRate, delayFrames, Clamp(desc.delayDecay, 0.0f, 0.99f));
+                    if (ma_delay_node_init(graph, &config, nullptr, node) != MA_SUCCESS)
                     {
-                        auto* node = DefaultAllocator().New<ma_delay_node>();
-                        const u32 delayFrames = static_cast<u32>(
-                            Max(desc.delaySeconds, 0.001f) * static_cast<f32>(sampleRate));
-                        ma_delay_node_config config = ma_delay_node_config_init(
-                            channels, sampleRate, delayFrames,
-                            Clamp(desc.delayDecay, 0.0f, 0.99f));
-                        if (ma_delay_node_init(graph, &config, nullptr, node) != MA_SUCCESS)
-                        {
-                            DefaultAllocator().Delete(node);
-                            continue;
-                        }
-                        effect.node = node;
-                        break;
+                        DefaultAllocator().Delete(node);
+                        continue;
                     }
-                    case AudioBusEffectKind::Reverb:
+                    effect.node = node;
+                    break;
+                }
+                case AudioBusEffectKind::Reverb:
+                {
+                    AudioReverbParams params;
+                    params.roomSize = desc.roomSize;
+                    params.damping = desc.damping;
+                    params.wet = desc.wetLevel;
+                    ReverbNode* node = CreateReverbNode(engine, params);
+                    if (node == nullptr)
                     {
-                        AudioReverbParams params;
-                        params.roomSize = desc.roomSize;
-                        params.damping = desc.damping;
-                        params.wet = desc.wetLevel;
-                        ReverbNode* node = CreateReverbNode(engine, params);
-                        if (node == nullptr) { continue; }
-                        effect.node = node;
-                        break;
+                        continue;
                     }
-                    case AudioBusEffectKind::None: continue;
+                    effect.node = node;
+                    break;
+                }
+                case AudioBusEffectKind::None:
+                    continue;
                 }
                 (void)ma_node_attach_output_bus(upstream, 0, effect.node, 0);
                 upstream = effect.node;
@@ -569,24 +611,26 @@ namespace draconic::audio
         {
             for (usize i = 0; i < customBuses.Size(); ++i)
             {
-                if (customBuses[i]->name.AsView() == name) { return static_cast<i32>(i); }
+                if (customBuses[i]->name.AsView() == name)
+                {
+                    return static_cast<i32>(i);
+                }
             }
             return -1;
         }
 
         [[nodiscard]] ma_node* CustomBusParentNode(const CustomBusData& bus)
         {
-            if (bus.parentCustom >= 0
-                && static_cast<usize>(bus.parentCustom) < customBuses.Size()
-                && customBuses[static_cast<usize>(bus.parentCustom)]->initialized)
+            if (bus.parentCustom >= 0 &&
+                static_cast<usize>(bus.parentCustom) < customBuses.Size() &&
+                customBuses[static_cast<usize>(bus.parentCustom)]->initialized)
             {
                 return reinterpret_cast<ma_node*>(
                     &customBuses[static_cast<usize>(bus.parentCustom)]->group);
             }
             const usize fixed = static_cast<usize>(bus.fixedParent);
-            return busGroupInitialized[fixed]
-                ? reinterpret_cast<ma_node*>(&busGroups[fixed])
-                : BusParentNode(static_cast<usize>(AudioBus::Master));
+            return busGroupInitialized[fixed] ? reinterpret_cast<ma_node*>(&busGroups[fixed])
+                                              : BusParentNode(static_cast<usize>(AudioBus::Master));
         }
 
         // A removed custom bus hands its live voices back to their fixed fallback bus
@@ -595,8 +639,8 @@ namespace draconic::audio
         {
             for (VoiceSlot& slot : voices)
             {
-                if (slot.state == VoiceState::Free
-                    || slot.customBusName.AsView() != bus.name.AsView())
+                if (slot.state == VoiceState::Free ||
+                    slot.customBusName.AsView() != bus.name.AsView())
                 {
                     continue;
                 }
@@ -612,7 +656,10 @@ namespace draconic::audio
         // 0) if present, else the distance low-pass, else the sound itself.
         [[nodiscard]] static ma_node* VoiceOutputNode(VoiceSlot& slot)
         {
-            if (slot.splitterNode != nullptr) { return slot.splitterNode; }
+            if (slot.splitterNode != nullptr)
+            {
+                return slot.splitterNode;
+            }
             if (slot.lowpassNode != nullptr)
             {
                 return reinterpret_cast<ma_node*>(slot.lowpassNode);
@@ -625,20 +672,22 @@ namespace draconic::audio
         [[nodiscard]] ReverbNode* EnsureSceneSendReverb(u64 sceneGroup)
         {
             SceneGroupData** found = sceneGroups.Find(sceneGroup);
-            if (found == nullptr) { return nullptr; }
+            if (found == nullptr)
+            {
+                return nullptr;
+            }
             SceneGroupData& data = **found;
             if (data.sendReverb == nullptr)
             {
                 AudioReverbParams params;
-                params.wet = 1.0f;   // full tail; the SEND level is the voice's knob
-                params.dry = 0.0f;   // wet-only: the dry path already reaches the bus
+                params.wet = 1.0f; // full tail; the SEND level is the voice's knob
+                params.dry = 0.0f; // wet-only: the dry path already reaches the bus
                 data.sendReverb = CreateReverbNode(engine, params);
-                if (data.sendReverb != nullptr
-                    && busGroupInitialized[static_cast<usize>(AudioBus::Effects)])
+                if (data.sendReverb != nullptr &&
+                    busGroupInitialized[static_cast<usize>(AudioBus::Effects)])
                 {
                     (void)ma_node_attach_output_bus(
-                        data.sendReverb, 0,
-                        &busGroups[static_cast<usize>(AudioBus::Effects)], 0);
+                        data.sendReverb, 0, &busGroups[static_cast<usize>(AudioBus::Effects)], 0);
                 }
             }
             return data.sendReverb;
@@ -648,7 +697,10 @@ namespace draconic::audio
         {
             DetachVoicesFromCustomBus(*bus);
             ClearEffectChain(bus->effects);
-            if (bus->initialized) { ma_sound_group_uninit(&bus->group); }
+            if (bus->initialized)
+            {
+                ma_sound_group_uninit(&bus->group);
+            }
             DefaultAllocator().Delete(bus);
         }
 
@@ -662,23 +714,30 @@ namespace draconic::audio
             Array<const AudioNamedBus*> wanted;
             for (const AudioNamedBus& named : desired)
             {
-                if (named.name.IsEmpty()) { continue; }
+                if (named.name.IsEmpty())
+                {
+                    continue;
+                }
                 bool duplicate = false;
                 for (const AudioNamedBus* seen : wanted)
                 {
-                    if (seen->name.AsView() == named.name.AsView()) { duplicate = true; break; }
+                    if (seen->name.AsView() == named.name.AsView())
+                    {
+                        duplicate = true;
+                        break;
+                    }
                 }
                 if (duplicate)
                 {
-                    DRACONIC_LOG_WARNING(u8"Audio",
-                        u8"bus layout: duplicate custom bus '{}' ignored", named.name);
+                    DRACONIC_LOG_WARNING(
+                        u8"Audio", u8"bus layout: duplicate custom bus '{}' ignored", named.name);
                     continue;
                 }
                 AudioBus fixedAlias{};
                 if (AudioBusFromName(named.name.AsView(), fixedAlias))
                 {
-                    DRACONIC_LOG_WARNING(u8"Audio",
-                        u8"bus layout: custom bus '{}' shadows a fixed bus - ignored",
+                    DRACONIC_LOG_WARNING(
+                        u8"Audio", u8"bus layout: custom bus '{}' shadows a fixed bus - ignored",
                         named.name);
                     continue;
                 }
@@ -692,7 +751,11 @@ namespace draconic::audio
                 bool keep = false;
                 for (const AudioNamedBus* named : wanted)
                 {
-                    if (named->name.AsView() == bus->name.AsView()) { keep = true; break; }
+                    if (named->name.AsView() == bus->name.AsView())
+                    {
+                        keep = true;
+                        break;
+                    }
                 }
                 if (!keep)
                 {
@@ -704,12 +767,15 @@ namespace draconic::audio
             // Create the missing groups (parented to Master; re-parented below).
             for (const AudioNamedBus* named : wanted)
             {
-                if (FindCustomBus(named->name.AsView()) >= 0) { continue; }
+                if (FindCustomBus(named->name.AsView()) >= 0)
+                {
+                    continue;
+                }
                 auto* bus = DefaultAllocator().New<CustomBusData>();
                 bus->name = String(named->name.AsView());
                 bus->initialized = ma_sound_group_init(
-                    &engine, 0, &busGroups[static_cast<usize>(AudioBus::Master)],
-                    &bus->group) == MA_SUCCESS;
+                                       &engine, 0, &busGroups[static_cast<usize>(AudioBus::Master)],
+                                       &bus->group) == MA_SUCCESS;
                 customBuses.PushBack(bus);
             }
 
@@ -717,7 +783,10 @@ namespace draconic::audio
             for (const AudioNamedBus* named : wanted)
             {
                 const i32 index = FindCustomBus(named->name.AsView());
-                if (index < 0) { continue; }
+                if (index < 0)
+                {
+                    continue;
+                }
                 CustomBusData& bus = *customBuses[static_cast<usize>(index)];
                 bus.fixedParent = AudioBus::Master;
                 bus.parentCustom = -1;
@@ -735,9 +804,11 @@ namespace draconic::audio
                     }
                     else
                     {
-                        DRACONIC_LOG_WARNING(u8"Audio",
+                        DRACONIC_LOG_WARNING(
+                            u8"Audio",
                             u8"bus layout: custom bus '{}' has unknown parent '{}' - "
-                            u8"parented to Master", named->name, named->parent);
+                            u8"parented to Master",
+                            named->name, named->parent);
                     }
                 }
             }
@@ -751,9 +822,11 @@ namespace draconic::audio
                 {
                     if (cursor == static_cast<i32>(i))
                     {
-                        DRACONIC_LOG_WARNING(u8"Audio",
+                        DRACONIC_LOG_WARNING(
+                            u8"Audio",
                             u8"bus layout: custom bus '{}' is part of a parent CYCLE - "
-                            u8"parented to Master", customBuses[i]->name);
+                            u8"parented to Master",
+                            customBuses[i]->name);
                         customBuses[i]->parentCustom = -1;
                         customBuses[i]->fixedParent = AudioBus::Master;
                         break;
@@ -767,19 +840,24 @@ namespace draconic::audio
             for (const AudioNamedBus* named : wanted)
             {
                 const i32 index = FindCustomBus(named->name.AsView());
-                if (index < 0) { continue; }
+                if (index < 0)
+                {
+                    continue;
+                }
                 CustomBusData& bus = *customBuses[static_cast<usize>(index)];
                 bus.volume = named->settings.volume < 0.0f ? 0.0f : named->settings.volume;
                 bus.muted = named->settings.muted;
-                if (!bus.initialized) { continue; }
+                if (!bus.initialized)
+                {
+                    continue;
+                }
                 ma_sound_group_set_volume(&bus.group, bus.muted ? 0.0f : bus.volume);
                 (void)ma_node_attach_output_bus(&bus.group, 0, CustomBusParentNode(bus), 0);
                 ClearEffectChain(bus.effects);
                 BuildEffectChain(reinterpret_cast<ma_node*>(&bus.group), bus.effects,
                                  CustomBusParentNode(bus),
-                                 Span<const AudioBusEffectDesc>(
-                                     named->settings.effects.Data(),
-                                     named->settings.effects.Size()));
+                                 Span<const AudioBusEffectDesc>(named->settings.effects.Data(),
+                                                                named->settings.effects.Size()));
             }
         }
 
@@ -789,8 +867,8 @@ namespace draconic::audio
             for (usize bus = 0; bus < static_cast<usize>(AudioBus::Count); ++bus)
             {
                 ma_sound_group* parent = bus == static_cast<usize>(AudioBus::Master)
-                    ? nullptr
-                    : &busGroups[static_cast<usize>(AudioBus::Master)];
+                                             ? nullptr
+                                             : &busGroups[static_cast<usize>(AudioBus::Master)];
                 busGroupInitialized[bus] =
                     ma_sound_group_init(&engine, 0, parent, &busGroups[bus]) == MA_SUCCESS;
             }
@@ -800,12 +878,27 @@ namespace draconic::audio
         {
             if (engineInitialized)
             {
-                while (!dyingVoices.IsEmpty()) { ReapDyingVoice(dyingVoices.Size() - 1); }
-                for (VoiceSlot& slot : voices) { ReleaseSlot(slot); }
+                while (!dyingVoices.IsEmpty())
+                {
+                    ReapDyingVoice(dyingVoices.Size() - 1);
+                }
+                for (VoiceSlot& slot : voices)
+                {
+                    ReleaseSlot(slot);
+                }
                 Array<u64> groupIds;
-                for (auto& entry : sceneGroups) { groupIds.PushBack(entry.key); }
-                for (u64 id : groupIds) { DestroySceneGroupData(id); }
-                for (CustomBusData* bus : customBuses) { DestroyCustomBus(bus); }
+                for (auto& entry : sceneGroups)
+                {
+                    groupIds.PushBack(entry.key);
+                }
+                for (u64 id : groupIds)
+                {
+                    DestroySceneGroupData(id);
+                }
+                for (CustomBusData* bus : customBuses)
+                {
+                    DestroyCustomBus(bus);
+                }
                 customBuses.Clear();
                 for (usize bus = 0; bus < static_cast<usize>(AudioBus::Count); ++bus)
                 {
@@ -844,8 +937,8 @@ namespace draconic::audio
                 {
                     // Compressed-in-memory: decode on the fly while the voice plays.
                     result = ma_resource_manager_register_encoded_data(
-                        ma_engine_get_resource_manager(&engine), name,
-                        clip->encodedData.Data(), clip->encodedData.Size());
+                        ma_engine_get_resource_manager(&engine), name, clip->encodedData.Data(),
+                        clip->encodedData.Size());
                 }
                 else
                 {
@@ -855,14 +948,15 @@ namespace draconic::audio
                     {
                         result = ma_resource_manager_register_decoded_data(
                             ma_engine_get_resource_manager(&engine), name,
-                            entry->decodedFrames.Data(), entry->decodedFrameCount,
-                            ma_format_f32, entry->decodedChannels, clip->sampleRate);
+                            entry->decodedFrames.Data(), entry->decodedFrameCount, ma_format_f32,
+                            entry->decodedChannels, clip->sampleRate);
                     }
                 }
                 entry->registered = result == MA_SUCCESS;
                 if (!entry->registered)
                 {
-                    DRACONIC_LOG_WARNING(u8"Audio", u8"clip failed to decode/register - not playable");
+                    DRACONIC_LOG_WARNING(u8"Audio",
+                                         u8"clip failed to decode/register - not playable");
                     return nullptr;
                 }
             }
@@ -872,11 +966,10 @@ namespace draconic::audio
                 FormatClipName(name, sizeof(name), "dclipm:", key);
                 u32 channels = 0;
                 if (DecodeToF32(clip->EncodedBytes(), 1, entry->monoFrames, channels,
-                                entry->monoFrameCount)
-                    && ma_resource_manager_register_decoded_data(
-                           ma_engine_get_resource_manager(&engine), name,
-                           entry->monoFrames.Data(), entry->monoFrameCount,
-                           ma_format_f32, 1, clip->sampleRate) == MA_SUCCESS)
+                                entry->monoFrameCount) &&
+                    ma_resource_manager_register_decoded_data(
+                        ma_engine_get_resource_manager(&engine), name, entry->monoFrames.Data(),
+                        entry->monoFrameCount, ma_format_f32, 1, clip->sampleRate) == MA_SUCCESS)
                 {
                     entry->monoRegistered = true;
                 }
@@ -890,7 +983,8 @@ namespace draconic::audio
         {
             ma_decoder_config config = ma_decoder_config_init(ma_format_f32, targetChannels, 0);
             ma_decoder decoder;
-            if (ma_decoder_init_memory(encoded.Data(), encoded.Size(), &config, &decoder) != MA_SUCCESS)
+            if (ma_decoder_init_memory(encoded.Data(), encoded.Size(), &config, &decoder) !=
+                MA_SUCCESS)
             {
                 return false;
             }
@@ -909,7 +1003,10 @@ namespace draconic::audio
                     outFrames.PushBack(chunk[i]);
                 }
                 outFrameCount += read;
-                if (result != MA_SUCCESS || read < chunkFrames) { break; }
+                if (result != MA_SUCCESS || read < chunkFrames)
+                {
+                    break;
+                }
             }
             ma_decoder_uninit(&decoder);
             return outFrameCount > 0;
@@ -919,12 +1016,15 @@ namespace draconic::audio
 
         [[nodiscard]] VoiceHandle HandleFor(usize slotIndex) const
         {
-            return VoiceHandle{ static_cast<u32>(slotIndex), voices[slotIndex].generation };
+            return VoiceHandle{static_cast<u32>(slotIndex), voices[slotIndex].generation};
         }
 
         [[nodiscard]] VoiceSlot* Resolve(VoiceHandle handle)
         {
-            if (!handle.IsValid() || handle.slot >= voices.Size()) { return nullptr; }
+            if (!handle.IsValid() || handle.slot >= voices.Size())
+            {
+                return nullptr;
+            }
             VoiceSlot& slot = voices[handle.slot];
             if (slot.state == VoiceState::Free || slot.generation != handle.generation)
             {
@@ -978,15 +1078,15 @@ namespace draconic::audio
         // (paused) release immediately - nothing audible to protect.
         void StealSlot(VoiceSlot& slot)
         {
-            if (!slot.soundInitialized || slot.state == VoiceState::Paused
-                || settings.dyingVoiceCapacity == 0)
+            if (!slot.soundInitialized || slot.state == VoiceState::Paused ||
+                settings.dyingVoiceCapacity == 0)
             {
                 ReleaseSlot(slot);
                 return;
             }
             while (dyingVoices.Size() >= settings.dyingVoiceCapacity)
             {
-                ReapDyingVoice(0);   // full: hard-cut the OLDEST tail
+                ReapDyingVoice(0); // full: hard-cut the OLDEST tail
             }
             (void)ma_sound_stop_with_fade_in_milliseconds(slot.sound, StealFadeMilliseconds());
             DyingVoice dying;
@@ -1025,18 +1125,20 @@ namespace draconic::audio
 
         [[nodiscard]] u64 StealFadeMilliseconds() const
         {
-            const f32 seconds = settings.stealFadeSeconds > 0.0f ? settings.stealFadeSeconds
-                                                                 : 0.0f;
+            const f32 seconds = settings.stealFadeSeconds > 0.0f ? settings.stealFadeSeconds : 0.0f;
             return static_cast<u64>(seconds * 1000.0f + 0.5f);
         }
 
         [[nodiscard]] f32 DistanceToListener(const VoiceSlot& slot) const
         {
-            if (!slot.spatial) { return 0.0f; }
+            if (!slot.spatial)
+            {
+                return 0.0f;
+            }
             const f32 dx = slot.position.x - listenerPosition.x;
             const f32 dy = slot.position.y - listenerPosition.y;
             const f32 dz = slot.position.z - listenerPosition.z;
-            return dx * dx + dy * dy + dz * dz;   // squared is fine for ordering
+            return dx * dx + dy * dy + dz * dz; // squared is fine for ordering
         }
 
         // Traktor policy: free slot -> lowest priority strictly below the new voice ->
@@ -1044,20 +1146,23 @@ namespace draconic::audio
         [[nodiscard]] usize AcquireSlot(bool streamPool, u8 priority)
         {
             const usize begin = streamPool ? voiceCount : 0;
-            const usize end = streamPool ? voiceCount + streamVoiceCount
-                                         : static_cast<usize>(voiceCount);
+            const usize end =
+                streamPool ? voiceCount + streamVoiceCount : static_cast<usize>(voiceCount);
             for (usize i = begin; i < end; ++i)
             {
-                if (voices[i].state == VoiceState::Free) { return i; }
+                if (voices[i].state == VoiceState::Free)
+                {
+                    return i;
+                }
             }
 
             usize victim = voices.Size();
-            u8 victimPriority = priority;      // must be < priority to steal outright
+            u8 victimPriority = priority; // must be < priority to steal outright
             for (usize i = begin; i < end; ++i)
             {
-                if (voices[i].priority < victimPriority
-                    || (victim < voices.Size() && voices[i].priority == victimPriority
-                        && DistanceToListener(voices[i]) > DistanceToListener(voices[victim])))
+                if (voices[i].priority < victimPriority ||
+                    (victim < voices.Size() && voices[i].priority == victimPriority &&
+                     DistanceToListener(voices[i]) > DistanceToListener(voices[victim])))
                 {
                     victim = i;
                     victimPriority = voices[i].priority;
@@ -1068,9 +1173,12 @@ namespace draconic::audio
                 // No lower-priority victim; try the farthest voice of EQUAL priority.
                 for (usize i = begin; i < end; ++i)
                 {
-                    if (voices[i].priority != priority) { continue; }
-                    if (victim == voices.Size()
-                        || DistanceToListener(voices[i]) > DistanceToListener(voices[victim]))
+                    if (voices[i].priority != priority)
+                    {
+                        continue;
+                    }
+                    if (victim == voices.Size() ||
+                        DistanceToListener(voices[i]) > DistanceToListener(voices[victim]))
                     {
                         victim = i;
                     }
@@ -1093,7 +1201,10 @@ namespace draconic::audio
         // reconfiguration is not free.
         void UpdateVoiceLowpass(VoiceSlot& slot)
         {
-            if (slot.lowpassNode == nullptr) { return; }
+            if (slot.lowpassNode == nullptr)
+            {
+                return;
+            }
             const f32 dx = slot.position.x - listenerPosition.x;
             const f32 dy = slot.position.y - listenerPosition.y;
             const f32 dz = slot.position.z - listenerPosition.z;
@@ -1102,14 +1213,14 @@ namespace draconic::audio
             const f32 range = Max(slot.lowpassMaxDistance - slot.lowpassMinDistance, 0.001f);
             const f32 t = Clamp((distance - slot.lowpassMinDistance) / range, 0.0f, 1.0f);
             const f32 cutoff = open + (slot.lowpassFloorHz - open) * t;
-            if (slot.lowpassCutoffHz > 0.0f
-                && Abs(cutoff - slot.lowpassCutoffHz) < slot.lowpassCutoffHz * 0.01f)
+            if (slot.lowpassCutoffHz > 0.0f &&
+                Abs(cutoff - slot.lowpassCutoffHz) < slot.lowpassCutoffHz * 0.01f)
             {
                 return;
             }
-            ma_lpf_config config = ma_lpf_config_init(
-                ma_format_f32, ma_engine_get_channels(&engine),
-                ma_engine_get_sample_rate(&engine), cutoff, kLowpassOrder);
+            ma_lpf_config config =
+                ma_lpf_config_init(ma_format_f32, ma_engine_get_channels(&engine),
+                                   ma_engine_get_sample_rate(&engine), cutoff, kLowpassOrder);
             if (ma_lpf_node_reinit(&config, slot.lowpassNode) == MA_SUCCESS)
             {
                 slot.lowpassCutoffHz = cutoff;
@@ -1119,8 +1230,9 @@ namespace draconic::audio
         [[nodiscard]] f32 OpenCutoffHz() const
         {
             // "No muffling" = just under Nyquist (a 20 kHz ceiling on high rates).
-            return Min(20000.0f, static_cast<f32>(ma_engine_get_sample_rate(
-                                     const_cast<ma_engine*>(&engine))) * 0.45f);
+            return Min(20000.0f, static_cast<f32>(
+                                     ma_engine_get_sample_rate(const_cast<ma_engine*>(&engine))) *
+                                     0.45f);
         }
 
         static constexpr u32 kLowpassOrder = 2;
@@ -1130,7 +1242,8 @@ namespace draconic::audio
         [[nodiscard]] ma_sound_group* GroupFor(u64 sceneGroup, AudioBus bus)
         {
             const usize busIndex = static_cast<usize>(bus) < static_cast<usize>(AudioBus::Count)
-                ? static_cast<usize>(bus) : static_cast<usize>(AudioBus::Effects);
+                                       ? static_cast<usize>(bus)
+                                       : static_cast<usize>(AudioBus::Effects);
             if (sceneGroup != 0)
             {
                 if (SceneGroupData** data = sceneGroups.Find(sceneGroup))
@@ -1146,7 +1259,10 @@ namespace draconic::audio
                             (void)ma_sound_group_stop(&groups.group[busIndex]);
                         }
                     }
-                    if (groups.initialized[busIndex]) { return &groups.group[busIndex]; }
+                    if (groups.initialized[busIndex])
+                    {
+                        return &groups.group[busIndex];
+                    }
                 }
             }
             return busGroupInitialized[busIndex] ? &busGroups[busIndex] : nullptr;
@@ -1155,7 +1271,10 @@ namespace draconic::audio
         void DestroySceneGroupData(u64 sceneGroup)
         {
             SceneGroupData** data = sceneGroups.Find(sceneGroup);
-            if (data == nullptr) { return; }
+            if (data == nullptr)
+            {
+                return;
+            }
             for (VoiceSlot& slot : voices)
             {
                 if (slot.state != VoiceState::Free && slot.sceneGroup == sceneGroup)
@@ -1167,7 +1286,10 @@ namespace draconic::audio
             DestroyReverbNode((*data)->sendReverb);
             for (usize bus = 0; bus < static_cast<usize>(AudioBus::Count); ++bus)
             {
-                if ((*data)->initialized[bus]) { ma_sound_group_uninit(&(*data)->group[bus]); }
+                if ((*data)->initialized[bus])
+                {
+                    ma_sound_group_uninit(&(*data)->group[bus]);
+                }
             }
             DefaultAllocator().Delete(*data);
             sceneGroups.Remove(sceneGroup);
@@ -1194,9 +1316,18 @@ namespace draconic::audio
     void AudioEngine::Update(f32 deltaTime)
     {
         Impl& impl = *m_impl;
-        if (!impl.engineInitialized) { return; }
-        if (deltaTime < 0.0f) { deltaTime = 0.0f; }
-        if (deltaTime > 0.25f) { deltaTime = 0.25f; }   // hitch clamp
+        if (!impl.engineInitialized)
+        {
+            return;
+        }
+        if (deltaTime < 0.0f)
+        {
+            deltaTime = 0.0f;
+        }
+        if (deltaTime > 0.25f)
+        {
+            deltaTime = 0.25f;
+        } // hitch clamp
         impl.timeSeconds += deltaTime;
 
         if (impl.headless && deltaTime > 0.0f)
@@ -1215,7 +1346,8 @@ namespace draconic::audio
                 const u64 frames = remaining < kChunkFrames ? remaining : kChunkFrames;
                 ma_uint64 read = 0;
                 if (ma_engine_read_pcm_frames(&impl.engine, impl.pumpScratch.Data(), frames,
-                                              &read) != MA_SUCCESS || read == 0)
+                                              &read) != MA_SUCCESS ||
+                    read == 0)
                 {
                     break;
                 }
@@ -1237,13 +1369,19 @@ namespace draconic::audio
         // moving listener - voices the scene sync never repositions).
         for (VoiceSlot& slot : impl.voices)
         {
-            if (slot.state != VoiceState::Free) { impl.UpdateVoiceLowpass(slot); }
+            if (slot.state != VoiceState::Free)
+            {
+                impl.UpdateVoiceLowpass(slot);
+            }
             if (slot.state == VoiceState::Stopping)
             {
-                if (ma_sound_is_playing(slot.sound) == MA_FALSE) { impl.ReleaseSlot(slot); }
+                if (ma_sound_is_playing(slot.sound) == MA_FALSE)
+                {
+                    impl.ReleaseSlot(slot);
+                }
             }
-            else if (slot.state == VoiceState::Playing && !slot.looping
-                     && ma_sound_at_end(slot.sound) == MA_TRUE)
+            else if (slot.state == VoiceState::Playing && !slot.looping &&
+                     ma_sound_at_end(slot.sound) == MA_TRUE)
             {
                 impl.ReleaseSlot(slot);
             }
@@ -1254,9 +1392,18 @@ namespace draconic::audio
     {
         Impl& impl = *m_impl;
         AudioClip* clipPtr = clip.Get();
-        if (!impl.engineInitialized || clipPtr == nullptr) { return {}; }
-        if (!clipPtr->stream && clipPtr->encodedData.IsEmpty()) { return {}; }
-        if (clipPtr->stream && clipPtr->streamSource.Get() == nullptr) { return {}; }
+        if (!impl.engineInitialized || clipPtr == nullptr)
+        {
+            return {};
+        }
+        if (!clipPtr->stream && clipPtr->encodedData.IsEmpty())
+        {
+            return {};
+        }
+        if (clipPtr->stream && clipPtr->streamSource.Get() == nullptr)
+        {
+            return {};
+        }
 
         // Recent-play dedupe: a same-clip play inside the window merges into the
         // existing voice instead of stacking (shotgun pellets, particle bursts).
@@ -1266,8 +1413,8 @@ namespace draconic::audio
         {
             if (DedupeEntry* recent = impl.recentPlays.Find(clipPtr))
             {
-                if (impl.timeSeconds - recent->time < impl.settings.dedupeWindowSeconds
-                    && impl.Resolve(recent->handle) != nullptr)
+                if (impl.timeSeconds - recent->time < impl.settings.dedupeWindowSeconds &&
+                    impl.Resolve(recent->handle) != nullptr)
                 {
                     return recent->handle;
                 }
@@ -1284,15 +1431,16 @@ namespace draconic::audio
                 if (!impl.warnedStreamStereoSpatial)
                 {
                     impl.warnedStreamStereoSpatial = true;
-                    DRACONIC_LOG_WARNING(u8"Audio",
-                        u8"spatializing a STREAMED multi-channel clip - reimport with "
-                        u8"force-mono for correct 3D imaging (warned once)");
+                    DRACONIC_LOG_WARNING(
+                        u8"Audio", u8"spatializing a STREAMED multi-channel clip - reimport with "
+                                   u8"force-mono for correct 3D imaging (warned once)");
                 }
             }
             else if (!impl.warnedMonoDownmix)
             {
                 impl.warnedMonoDownmix = true;
-                DRACONIC_LOG_WARNING(u8"Audio",
+                DRACONIC_LOG_WARNING(
+                    u8"Audio",
                     u8"spatializing a multi-channel clip - downmixing to mono at play; "
                     u8"reimport with force-mono to avoid the runtime cost (warned once)");
             }
@@ -1308,16 +1456,25 @@ namespace draconic::audio
         else
         {
             RegisteredClip* registered = impl.EnsureRegistered(clip, wantMonoDownmix);
-            if (registered == nullptr) { return {}; }
+            if (registered == nullptr)
+            {
+                return {};
+            }
             useMonoVariant = wantMonoDownmix && registered->monoRegistered;
             FormatClipName(name, sizeof(name), useMonoVariant ? "dclipm:" : "dclip:", clipPtr);
         }
 
         const usize slotIndex = impl.AcquireSlot(clipPtr->stream, params.priority);
-        if (slotIndex >= impl.voices.Size()) { return {}; }   // pool full of higher priority
+        if (slotIndex >= impl.voices.Size())
+        {
+            return {};
+        } // pool full of higher priority
         VoiceSlot& slot = impl.voices[slotIndex];
         slot.sound = impl.AcquireSound();
-        if (slot.sound == nullptr) { return {}; }   // unreachable: arena covers pool + dying
+        if (slot.sound == nullptr)
+        {
+            return {};
+        } // unreachable: arena covers pool + dying
 
         // Named-bus addressing: a known custom bus overrides the enum bus. Unknown
         // names warn once and fall back - content typos never silence a game.
@@ -1326,8 +1483,8 @@ namespace draconic::audio
         if (!params.busName.IsEmpty())
         {
             customBusIndex = impl.FindCustomBus(params.busName.AsView());
-            if (customBusIndex >= 0
-                && impl.customBuses[static_cast<usize>(customBusIndex)]->initialized)
+            if (customBusIndex >= 0 &&
+                impl.customBuses[static_cast<usize>(customBusIndex)]->initialized)
             {
                 group = &impl.customBuses[static_cast<usize>(customBusIndex)]->group;
             }
@@ -1337,15 +1494,17 @@ namespace draconic::audio
                 if (!impl.warnedUnknownBusName)
                 {
                     impl.warnedUnknownBusName = true;
-                    DRACONIC_LOG_WARNING(u8"Audio",
+                    DRACONIC_LOG_WARNING(
+                        u8"Audio",
                         u8"play addressed unknown custom bus '{}' - using the fixed bus "
-                        u8"(warned once)", params.busName);
+                        u8"(warned once)",
+                        params.busName);
                 }
             }
         }
         const ma_uint32 flags = clipPtr->stream ? MA_SOUND_FLAG_STREAM : 0;
-        if (ma_sound_init_from_file(&impl.engine, name, flags, group, nullptr,
-                                    slot.sound) != MA_SUCCESS)
+        if (ma_sound_init_from_file(&impl.engine, name, flags, group, nullptr, slot.sound) !=
+            MA_SUCCESS)
         {
             impl.ReleaseSound(slot.sound);
             slot.sound = nullptr;
@@ -1374,16 +1533,16 @@ namespace draconic::audio
             ma_lpf_node_config config = ma_lpf_node_config_init(
                 ma_engine_get_channels(&impl.engine), ma_engine_get_sample_rate(&impl.engine),
                 impl.OpenCutoffHz(), Impl::kLowpassOrder);
-            if (ma_lpf_node_init(ma_engine_get_node_graph(&impl.engine), &config, nullptr,
-                                 node) == MA_SUCCESS
-                && ma_node_attach_output_bus(node, 0, group, 0) == MA_SUCCESS
-                && ma_node_attach_output_bus(slot.sound, 0, node, 0) == MA_SUCCESS)
+            if (ma_lpf_node_init(ma_engine_get_node_graph(&impl.engine), &config, nullptr, node) ==
+                    MA_SUCCESS &&
+                ma_node_attach_output_bus(node, 0, group, 0) == MA_SUCCESS &&
+                ma_node_attach_output_bus(slot.sound, 0, node, 0) == MA_SUCCESS)
             {
                 slot.lowpassNode = node;
                 slot.lowpassFloorHz = params.distanceLowpassHz;
                 slot.lowpassMinDistance = params.minDistance;
                 slot.lowpassMaxDistance = params.maxDistance;
-                slot.lowpassCutoffHz = 0.0f;   // forces the first mapping to land
+                slot.lowpassCutoffHz = 0.0f; // forces the first mapping to land
             }
             else
             {
@@ -1402,19 +1561,19 @@ namespace draconic::audio
             {
                 const f32 send = Clamp(params.reverbSend, 0.0f, 1.0f);
                 ma_node* tail = slot.lowpassNode != nullptr
-                    ? reinterpret_cast<ma_node*>(slot.lowpassNode)
-                    : reinterpret_cast<ma_node*>(slot.sound);
+                                    ? reinterpret_cast<ma_node*>(slot.lowpassNode)
+                                    : reinterpret_cast<ma_node*>(slot.sound);
                 auto* splitter = DefaultAllocator().New<ma_splitter_node>();
                 ma_splitter_node_config config =
                     ma_splitter_node_config_init(ma_engine_get_channels(&impl.engine));
-                if (ma_splitter_node_init(ma_engine_get_node_graph(&impl.engine), &config,
-                                          nullptr, splitter) != MA_SUCCESS)
+                if (ma_splitter_node_init(ma_engine_get_node_graph(&impl.engine), &config, nullptr,
+                                          splitter) != MA_SUCCESS)
                 {
                     DefaultAllocator().Delete(splitter);
                 }
-                else if (ma_node_attach_output_bus(splitter, 0, group, 0) == MA_SUCCESS
-                         && ma_node_attach_output_bus(splitter, 1, sendReverb, 0) == MA_SUCCESS
-                         && ma_node_attach_output_bus(tail, 0, splitter, 0) == MA_SUCCESS)
+                else if (ma_node_attach_output_bus(splitter, 0, group, 0) == MA_SUCCESS &&
+                         ma_node_attach_output_bus(splitter, 1, sendReverb, 0) == MA_SUCCESS &&
+                         ma_node_attach_output_bus(tail, 0, splitter, 0) == MA_SUCCESS)
                 {
                     (void)ma_node_set_output_bus_volume(splitter, 1, send);
                     slot.splitterNode = splitter;
@@ -1433,18 +1592,20 @@ namespace draconic::audio
         ma_sound_set_looping(slot.sound, slot.looping ? MA_TRUE : MA_FALSE);
         if (slot.looping && (clipPtr->loopStartFrame > 0 || clipPtr->loopEndFrame > 0))
         {
-            const u64 loopEnd = clipPtr->loopEndFrame > 0 ? clipPtr->loopEndFrame
-                                                          : clipPtr->frameCount;
-            (void)ma_data_source_set_loop_point_in_pcm_frames(
-                ma_sound_get_data_source(slot.sound), clipPtr->loopStartFrame, loopEnd);
+            const u64 loopEnd =
+                clipPtr->loopEndFrame > 0 ? clipPtr->loopEndFrame : clipPtr->frameCount;
+            (void)ma_data_source_set_loop_point_in_pcm_frames(ma_sound_get_data_source(slot.sound),
+                                                              clipPtr->loopStartFrame, loopEnd);
         }
 
         if (params.spatial)
         {
             ma_sound_set_spatialization_enabled(slot.sound, MA_TRUE);
             ma_sound_set_positioning(slot.sound, ma_positioning_absolute);
-            ma_sound_set_position(slot.sound, params.position.x, params.position.y, params.position.z);
-            ma_sound_set_velocity(slot.sound, params.velocity.x, params.velocity.y, params.velocity.z);
+            ma_sound_set_position(slot.sound, params.position.x, params.position.y,
+                                  params.position.z);
+            ma_sound_set_velocity(slot.sound, params.velocity.x, params.velocity.y,
+                                  params.velocity.z);
             ma_sound_set_attenuation_model(slot.sound, ToMiniaudio(params.attenuationModel));
             ma_sound_set_min_distance(slot.sound, params.minDistance);
             ma_sound_set_max_distance(slot.sound, params.maxDistance);
@@ -1452,8 +1613,7 @@ namespace draconic::audio
             ma_sound_set_doppler_factor(slot.sound, params.dopplerFactor);
             if (params.coneInnerAngleDegrees < 360.0f || params.coneOuterAngleDegrees < 360.0f)
             {
-                ma_sound_set_cone(slot.sound,
-                                  params.coneInnerAngleDegrees * kDegreesToRadians,
+                ma_sound_set_cone(slot.sound, params.coneInnerAngleDegrees * kDegreesToRadians,
                                   params.coneOuterAngleDegrees * kDegreesToRadians,
                                   params.coneOuterGain);
             }
@@ -1474,13 +1634,16 @@ namespace draconic::audio
                 sceneFrozen = (*sceneData)->paused;
             }
         }
-        if (!params.startPaused && !sceneFrozen) { (void)ma_sound_start(slot.sound); }
+        if (!params.startPaused && !sceneFrozen)
+        {
+            (void)ma_sound_start(slot.sound);
+        }
 
         const VoiceHandle handle = impl.HandleFor(slotIndex);
         if (params.allowDedupe)
         {
             impl.recentPlays.InsertOrAssign(static_cast<void*>(clipPtr),
-                                            DedupeEntry{ impl.timeSeconds, handle });
+                                            DedupeEntry{impl.timeSeconds, handle});
         }
         (void)useMonoVariant;
         return handle;
@@ -1489,10 +1652,13 @@ namespace draconic::audio
     void AudioEngine::Stop(VoiceHandle handle)
     {
         VoiceSlot* slot = m_impl->Resolve(handle);
-        if (slot == nullptr) { return; }
+        if (slot == nullptr)
+        {
+            return;
+        }
         if (slot->state == VoiceState::Paused)
         {
-            m_impl->ReleaseSlot(*slot);   // silent already - no fade needed
+            m_impl->ReleaseSlot(*slot); // silent already - no fade needed
             return;
         }
         if (slot->state != VoiceState::Stopping)
@@ -1523,9 +1689,9 @@ namespace draconic::audio
 
         AudioPlayParams params;
         params.bus = AudioBus::Music;
-        params.loop = true;             // music loops unless the clip says otherwise anyway
+        params.loop = true; // music loops unless the clip says otherwise anyway
         params.volume = volume;
-        params.allowDedupe = false;     // replaying the same track restarts it
+        params.allowDedupe = false; // replaying the same track restarts it
         const VoiceHandle handle = Play(clip, params);
         if (VoiceSlot* slot = impl.Resolve(handle); slot != nullptr && fadeMs > 0)
         {
@@ -1557,17 +1723,20 @@ namespace draconic::audio
     void AudioEngine::ApplyBusLayout(const AudioBusLayout& layout)
     {
         Impl& impl = *m_impl;
-        if (!impl.engineInitialized) { return; }
+        if (!impl.engineInitialized)
+        {
+            return;
+        }
         for (usize bus = 0; bus < static_cast<usize>(AudioBus::Count); ++bus)
         {
             const AudioBusSettings& settings = layout.buses[bus];
             SetBusVolume(static_cast<AudioBus>(bus), settings.volume);
             SetBusMuted(static_cast<AudioBus>(bus), settings.muted);
-            impl.BuildBusEffects(bus, Span<const AudioBusEffectDesc>(
-                                          settings.effects.Data(), settings.effects.Size()));
+            impl.BuildBusEffects(bus, Span<const AudioBusEffectDesc>(settings.effects.Data(),
+                                                                     settings.effects.Size()));
         }
-        impl.RebuildCustomBuses(Span<const AudioNamedBus>(
-            layout.customBuses.Data(), layout.customBuses.Size()));
+        impl.RebuildCustomBuses(
+            Span<const AudioNamedBus>(layout.customBuses.Data(), layout.customBuses.Size()));
     }
 
     // ---- named custom buses ----
@@ -1577,15 +1746,15 @@ namespace draconic::audio
         return m_impl->FindCustomBus(name) >= 0;
     }
 
-    u32 AudioEngine::NamedBusCount() const
-    {
-        return static_cast<u32>(m_impl->customBuses.Size());
-    }
+    u32 AudioEngine::NamedBusCount() const { return static_cast<u32>(m_impl->customBuses.Size()); }
 
     void AudioEngine::SetNamedBusVolume(StringView name, f32 volume)
     {
         const i32 index = m_impl->FindCustomBus(name);
-        if (index < 0) { return; }
+        if (index < 0)
+        {
+            return;
+        }
         CustomBusData& bus = *m_impl->customBuses[static_cast<usize>(index)];
         bus.volume = volume < 0.0f ? 0.0f : volume;
         if (bus.initialized && !bus.muted)
@@ -1603,7 +1772,10 @@ namespace draconic::audio
     void AudioEngine::SetNamedBusMuted(StringView name, bool muted)
     {
         const i32 index = m_impl->FindCustomBus(name);
-        if (index < 0) { return; }
+        if (index < 0)
+        {
+            return;
+        }
         CustomBusData& bus = *m_impl->customBuses[static_cast<usize>(index)];
         bus.muted = muted;
         if (bus.initialized)
@@ -1621,15 +1793,18 @@ namespace draconic::audio
     u32 AudioEngine::NamedBusEffectCount(StringView name) const
     {
         const i32 index = m_impl->FindCustomBus(name);
-        return index >= 0
-            ? static_cast<u32>(m_impl->customBuses[static_cast<usize>(index)]->effects.Size())
-            : 0u;
+        return index >= 0 ? static_cast<u32>(
+                                m_impl->customBuses[static_cast<usize>(index)]->effects.Size())
+                          : 0u;
     }
 
     u32 AudioEngine::BusEffectCount(AudioBus bus) const
     {
         const usize index = static_cast<usize>(bus);
-        if (index >= static_cast<usize>(AudioBus::Count)) { return 0; }
+        if (index >= static_cast<usize>(AudioBus::Count))
+        {
+            return 0;
+        }
         return static_cast<u32>(m_impl->busEffects[index].Size());
     }
 
@@ -1647,7 +1822,10 @@ namespace draconic::audio
     void AudioEngine::SetPaused(VoiceHandle handle, bool paused)
     {
         VoiceSlot* slot = m_impl->Resolve(handle);
-        if (slot == nullptr || slot->state == VoiceState::Stopping) { return; }
+        if (slot == nullptr || slot->state == VoiceState::Stopping)
+        {
+            return;
+        }
         if (paused && slot->state == VoiceState::Playing)
         {
             (void)ma_sound_stop_with_fade_in_milliseconds(slot->sound, m_impl->FadeMilliseconds());
@@ -1709,7 +1887,10 @@ namespace draconic::audio
     void AudioEngine::SetVoiceReverbSend(VoiceHandle handle, f32 send)
     {
         VoiceSlot* slot = m_impl->Resolve(handle);
-        if (slot == nullptr || slot->splitterNode == nullptr) { return; }
+        if (slot == nullptr || slot->splitterNode == nullptr)
+        {
+            return;
+        }
         slot->reverbSend = Clamp(send, 0.0f, 1.0f);
         (void)ma_node_set_output_bus_volume(slot->splitterNode, 1, slot->reverbSend);
     }
@@ -1765,17 +1946,18 @@ namespace draconic::audio
         usize count = 0;
         for (const VoiceSlot& slot : m_impl->voices)
         {
-            if (slot.state != VoiceState::Free) { ++count; }
+            if (slot.state != VoiceState::Free)
+            {
+                ++count;
+            }
         }
         return count;
     }
 
-    usize AudioEngine::DyingVoiceCount() const
-    {
-        return m_impl->dyingVoices.Size();
-    }
+    usize AudioEngine::DyingVoiceCount() const { return m_impl->dyingVoices.Size(); }
 
-    void AudioEngine::SetListenerTransform(Float3 position, Float3 forward, Float3 up, Float3 velocity)
+    void AudioEngine::SetListenerTransform(Float3 position, Float3 forward, Float3 up,
+                                           Float3 velocity)
     {
         SetListenerTransformIndexed(0, position, forward, up, velocity);
     }
@@ -1789,7 +1971,10 @@ namespace draconic::audio
             return;
         }
         // The steal-farthest heuristic + distance low-pass track listener 0 (primary).
-        if (index == 0) { impl.listenerPosition = position; }
+        if (index == 0)
+        {
+            impl.listenerPosition = position;
+        }
         ma_engine_listener_set_position(&impl.engine, index, position.x, position.y, position.z);
         ma_engine_listener_set_direction(&impl.engine, index, forward.x, forward.y, forward.z);
         ma_engine_listener_set_world_up(&impl.engine, index, up.x, up.y, up.z);
@@ -1815,7 +2000,10 @@ namespace draconic::audio
     {
         Impl& impl = *m_impl;
         const usize index = static_cast<usize>(bus);
-        if (index >= static_cast<usize>(AudioBus::Count)) { return; }
+        if (index >= static_cast<usize>(AudioBus::Count))
+        {
+            return;
+        }
         impl.busVolume[index] = volume < 0.0f ? 0.0f : volume;
         if (impl.busGroupInitialized[index] && !impl.busMuted[index])
         {
@@ -1833,12 +2021,14 @@ namespace draconic::audio
     {
         Impl& impl = *m_impl;
         const usize index = static_cast<usize>(bus);
-        if (index >= static_cast<usize>(AudioBus::Count)) { return; }
+        if (index >= static_cast<usize>(AudioBus::Count))
+        {
+            return;
+        }
         impl.busMuted[index] = muted;
         if (impl.busGroupInitialized[index])
         {
-            ma_sound_group_set_volume(&impl.busGroups[index],
-                                      muted ? 0.0f : impl.busVolume[index]);
+            ma_sound_group_set_volume(&impl.busGroups[index], muted ? 0.0f : impl.busVolume[index]);
         }
     }
 
@@ -1851,7 +2041,10 @@ namespace draconic::audio
     u64 AudioEngine::CreateSceneGroup()
     {
         Impl& impl = *m_impl;
-        if (!impl.engineInitialized) { return 0; }
+        if (!impl.engineInitialized)
+        {
+            return 0;
+        }
         const u64 id = impl.nextSceneGroupId++;
         impl.sceneGroups.InsertOrAssign(id, DefaultAllocator().New<SceneGroupData>());
         return id;
@@ -1859,18 +2052,27 @@ namespace draconic::audio
 
     void AudioEngine::DestroySceneGroup(u64 sceneGroup)
     {
-        if (sceneGroup != 0) { m_impl->DestroySceneGroupData(sceneGroup); }
+        if (sceneGroup != 0)
+        {
+            m_impl->DestroySceneGroupData(sceneGroup);
+        }
     }
 
     void AudioEngine::SetSceneGroupPaused(u64 sceneGroup, bool paused)
     {
         Impl& impl = *m_impl;
         SceneGroupData** data = impl.sceneGroups.Find(sceneGroup);
-        if (data == nullptr || (*data)->paused == paused) { return; }
+        if (data == nullptr || (*data)->paused == paused)
+        {
+            return;
+        }
         (*data)->paused = paused;
         for (usize bus = 0; bus < static_cast<usize>(AudioBus::Count); ++bus)
         {
-            if (!(*data)->initialized[bus]) { continue; }
+            if (!(*data)->initialized[bus])
+            {
+                continue;
+            }
             ma_sound_group* group = &(*data)->group[bus];
             if (paused)
             {
@@ -1890,21 +2092,19 @@ namespace draconic::audio
         // Playing, mirroring the group behavior; user-paused voices are untouched.
         for (VoiceSlot& slot : impl.voices)
         {
-            if (slot.sceneGroup != sceneGroup || slot.customBusName.IsEmpty()
-                || slot.state != VoiceState::Playing)
+            if (slot.sceneGroup != sceneGroup || slot.customBusName.IsEmpty() ||
+                slot.state != VoiceState::Playing)
             {
                 continue;
             }
             if (paused)
             {
-                (void)ma_sound_stop_with_fade_in_milliseconds(slot.sound,
-                                                              impl.FadeMilliseconds());
+                (void)ma_sound_stop_with_fade_in_milliseconds(slot.sound, impl.FadeMilliseconds());
             }
             else
             {
                 ma_sound_reset_stop_time_and_fade(slot.sound);
-                ma_sound_set_fade_in_milliseconds(slot.sound, 0.0f, 1.0f,
-                                                  impl.FadeMilliseconds());
+                ma_sound_set_fade_in_milliseconds(slot.sound, 0.0f, 1.0f, impl.FadeMilliseconds());
                 (void)ma_sound_start(slot.sound);
             }
         }
@@ -1920,22 +2120,31 @@ namespace draconic::audio
     {
         Impl& impl = *m_impl;
         SceneGroupData** found = impl.sceneGroups.Find(sceneGroup);
-        if (found == nullptr) { return; }
+        if (found == nullptr)
+        {
+            return;
+        }
         SceneGroupData& data = **found;
         if (data.reverb == nullptr)
         {
-            if (params.wet <= 0.0f) { data.reverbWet = 0.0f; return; }   // nothing to build
+            if (params.wet <= 0.0f)
+            {
+                data.reverbWet = 0.0f;
+                return;
+            } // nothing to build
             // Splice on the scene's Effects child group: group -> reverb -> Effects bus.
-            ma_sound_group* group =
-                impl.GroupFor(sceneGroup, AudioBus::Effects);
+            ma_sound_group* group = impl.GroupFor(sceneGroup, AudioBus::Effects);
             if (group == nullptr || group == &impl.busGroups[static_cast<usize>(AudioBus::Effects)])
             {
-                return;   // no per-scene child group available
+                return; // no per-scene child group available
             }
             data.reverb = CreateReverbNode(impl.engine, params);
-            if (data.reverb == nullptr) { return; }
-            (void)ma_node_attach_output_bus(data.reverb, 0,
-                                            &impl.busGroups[static_cast<usize>(AudioBus::Effects)], 0);
+            if (data.reverb == nullptr)
+            {
+                return;
+            }
+            (void)ma_node_attach_output_bus(
+                data.reverb, 0, &impl.busGroups[static_cast<usize>(AudioBus::Effects)], 0);
             (void)ma_node_attach_output_bus(group, 0, data.reverb, 0);
         }
         else
@@ -1968,11 +2177,14 @@ namespace draconic::audio
 
     void AudioEngine::StopSceneGroup(u64 sceneGroup)
     {
-        if (sceneGroup == 0) { return; }
+        if (sceneGroup == 0)
+        {
+            return;
+        }
         for (usize i = 0; i < m_impl->voices.Size(); ++i)
         {
-            if (m_impl->voices[i].state != VoiceState::Free
-                && m_impl->voices[i].sceneGroup == sceneGroup)
+            if (m_impl->voices[i].state != VoiceState::Free &&
+                m_impl->voices[i].sceneGroup == sceneGroup)
             {
                 Stop(m_impl->HandleFor(i));
             }
@@ -1986,8 +2198,8 @@ namespace draconic::audio
         outMetadata = AudioClipMetadata{};
         ma_decoder_config config = ma_decoder_config_init(ma_format_s16, 0, 0);
         ma_decoder decoder;
-        if (ma_decoder_init_memory(encodedBytes.Data(), encodedBytes.Size(), &config,
-                                   &decoder) != MA_SUCCESS)
+        if (ma_decoder_init_memory(encodedBytes.Data(), encodedBytes.Size(), &config, &decoder) !=
+            MA_SUCCESS)
         {
             return false;
         }
@@ -1997,8 +2209,10 @@ namespace draconic::audio
         if (ma_decoder_get_length_in_pcm_frames(&decoder, &frames) == MA_SUCCESS)
         {
             outMetadata.frameCount = frames;
-            outMetadata.durationSeconds = decoder.outputSampleRate > 0
-                ? static_cast<f32>(static_cast<f64>(frames) / decoder.outputSampleRate) : 0.0f;
+            outMetadata.durationSeconds =
+                decoder.outputSampleRate > 0
+                    ? static_cast<f32>(static_cast<f64>(frames) / decoder.outputSampleRate)
+                    : 0.0f;
         }
         ma_decoder_uninit(&decoder);
         return outMetadata.channels > 0 && outMetadata.sampleRate > 0;
@@ -2011,8 +2225,8 @@ namespace draconic::audio
         outInterleavedSamples.Clear();
         ma_decoder_config config = ma_decoder_config_init(ma_format_s16, targetChannels, 0);
         ma_decoder decoder;
-        if (ma_decoder_init_memory(encodedBytes.Data(), encodedBytes.Size(), &config,
-                                   &decoder) != MA_SUCCESS)
+        if (ma_decoder_init_memory(encodedBytes.Data(), encodedBytes.Size(), &config, &decoder) !=
+            MA_SUCCESS)
         {
             return false;
         }
@@ -2023,18 +2237,23 @@ namespace draconic::audio
         for (;;)
         {
             ma_uint64 read = 0;
-            const ma_result result = ma_decoder_read_pcm_frames(&decoder, chunk, chunkFrames, &read);
+            const ma_result result =
+                ma_decoder_read_pcm_frames(&decoder, chunk, chunkFrames, &read);
             for (u64 i = 0; i < read * decoder.outputChannels; ++i)
             {
                 outInterleavedSamples.PushBack(chunk[i]);
             }
             outMetadata.frameCount += read;
-            if (result != MA_SUCCESS || read < chunkFrames) { break; }
+            if (result != MA_SUCCESS || read < chunkFrames)
+            {
+                break;
+            }
         }
         ma_decoder_uninit(&decoder);
-        outMetadata.durationSeconds = outMetadata.sampleRate > 0
-            ? static_cast<f32>(static_cast<f64>(outMetadata.frameCount) / outMetadata.sampleRate)
-            : 0.0f;
+        outMetadata.durationSeconds =
+            outMetadata.sampleRate > 0 ? static_cast<f32>(static_cast<f64>(outMetadata.frameCount) /
+                                                          outMetadata.sampleRate)
+                                       : 0.0f;
         return outMetadata.frameCount > 0;
     }
 
@@ -2053,9 +2272,13 @@ namespace draconic::audio
 
         outWavBytes.Clear();
         outWavBytes.Reserve(44 + dataBytes);
-        auto pushBytes = [&](const void* source, usize size) {
+        auto pushBytes = [&](const void* source, usize size)
+        {
             const byte* p = static_cast<const byte*>(source);
-            for (usize i = 0; i < size; ++i) { outWavBytes.PushBack(p[i]); }
+            for (usize i = 0; i < size; ++i)
+            {
+                outWavBytes.PushBack(p[i]);
+            }
         };
         auto pushU32 = [&](u32 value) { pushBytes(&value, 4); };
         auto pushU16 = [&](u16 value) { pushBytes(&value, 2); };
@@ -2065,12 +2288,12 @@ namespace draconic::audio
         pushBytes("WAVE", 4);
         pushBytes("fmt ", 4);
         pushU32(16);
-        pushU16(1);                               // PCM
+        pushU16(1); // PCM
         pushU16(static_cast<u16>(channels));
         pushU32(sampleRate);
         pushU32(byteRate);
         pushU16(blockAlign);
-        pushU16(16);                              // bits per sample
+        pushU16(16); // bits per sample
         pushBytes("data", 4);
         pushU32(dataBytes);
         pushBytes(interleavedSamples.Data(), dataBytes);
@@ -2081,7 +2304,10 @@ namespace draconic::audio
     bool BuildWaveformPeaks(Span<const byte> encoded, u32 buckets, Array<f32>& outPeaks)
     {
         outPeaks.Clear();
-        if (encoded.IsEmpty() || buckets == 0) { return false; }
+        if (encoded.IsEmpty() || buckets == 0)
+        {
+            return false;
+        }
 
         ma_decoder_config config = ma_decoder_config_init(ma_format_f32, 0, 0);
         ma_decoder decoder;
@@ -2097,28 +2323,35 @@ namespace draconic::audio
         (void)ma_decoder_get_length_in_pcm_frames(&decoder, &totalFrames);
 
         outPeaks.Resize(buckets);
-        for (u32 i = 0; i < buckets; ++i) { outPeaks[i] = 0.0f; }
+        for (u32 i = 0; i < buckets; ++i)
+        {
+            outPeaks[i] = 0.0f;
+        }
 
         f32 chunk[4096];
         const u64 chunkFrames = 4096 / (channels == 0 ? 1 : channels);
         u64 frameCursor = 0;
-        Array<f32> unknownLengthPeaks;   // per-CHUNK peaks when length is unknown
+        Array<f32> unknownLengthPeaks; // per-CHUNK peaks when length is unknown
         for (;;)
         {
             ma_uint64 read = 0;
-            const ma_result result = ma_decoder_read_pcm_frames(&decoder, chunk, chunkFrames, &read);
+            const ma_result result =
+                ma_decoder_read_pcm_frames(&decoder, chunk, chunkFrames, &read);
             for (u64 frame = 0; frame < read; ++frame)
             {
                 f32 peak = 0.0f;
                 for (u32 c = 0; c < channels; ++c)
                 {
                     const f32 magnitude = Abs(chunk[frame * channels + c]);
-                    if (magnitude > peak) { peak = magnitude; }
+                    if (magnitude > peak)
+                    {
+                        peak = magnitude;
+                    }
                 }
                 if (totalFrames > 0)
                 {
-                    const u64 bucket = Min<u64>((frameCursor + frame) * buckets / totalFrames,
-                                                buckets - 1);
+                    const u64 bucket =
+                        Min<u64>((frameCursor + frame) * buckets / totalFrames, buckets - 1);
                     if (peak > outPeaks[static_cast<usize>(bucket)])
                     {
                         outPeaks[static_cast<usize>(bucket)] = peak;
@@ -2130,10 +2363,17 @@ namespace draconic::audio
                 }
             }
             frameCursor += read;
-            if (result != MA_SUCCESS || read < chunkFrames) { break; }
+            if (result != MA_SUCCESS || read < chunkFrames)
+            {
+                break;
+            }
         }
         ma_decoder_uninit(&decoder);
-        if (frameCursor == 0) { outPeaks.Clear(); return false; }
+        if (frameCursor == 0)
+        {
+            outPeaks.Clear();
+            return false;
+        }
 
         if (totalFrames == 0)
         {
@@ -2143,13 +2383,18 @@ namespace draconic::audio
             for (u64 i = 0; i < total; ++i)
             {
                 const u64 bucket = Min<u64>(i * buckets / total, buckets - 1);
-                if (unknownLengthPeaks[static_cast<usize>(i)] > outPeaks[static_cast<usize>(bucket)])
+                if (unknownLengthPeaks[static_cast<usize>(i)] >
+                    outPeaks[static_cast<usize>(bucket)])
                 {
-                    outPeaks[static_cast<usize>(bucket)] = unknownLengthPeaks[static_cast<usize>(i)];
+                    outPeaks[static_cast<usize>(bucket)] =
+                        unknownLengthPeaks[static_cast<usize>(i)];
                 }
             }
         }
-        for (u32 i = 0; i < buckets; ++i) { outPeaks[i] = Min(outPeaks[i], 1.0f); }
+        for (u32 i = 0; i < buckets; ++i)
+        {
+            outPeaks[i] = Min(outPeaks[i], 1.0f);
+        }
         return true;
     }
 

@@ -22,15 +22,15 @@ export namespace draconic::audio
 {
     enum class SoundCueMode : u8
     {
-        RandomNoRepeat = 0,   // weighted random, never the SAME variant twice in a row
-        Random,               // weighted random, repeats allowed
-        Sequential,           // round-robin in slot order
+        RandomNoRepeat = 0, // weighted random, never the SAME variant twice in a row
+        Random,             // weighted random, repeats allowed
+        Sequential,         // round-robin in slot order
     };
 
     struct SoundCueVariant
     {
-        RefPtr<AudioClip> clip;   // null = empty slot (skipped)
-        f32 weight = 1.0f;        // <= 0 = disabled
+        RefPtr<AudioClip> clip; // null = empty slot (skipped)
+        f32 weight = 1.0f;      // <= 0 = disabled
     };
 
     /// The runtime cue product (resource-factory built; also hand-buildable in tests).
@@ -51,7 +51,7 @@ export namespace draconic::audio
     /// MULTIPLIERS (fold them onto the caller's base params).
     struct SoundCuePick
     {
-        i32 variantIndex = -1;   // -1 = no playable variant
+        i32 variantIndex = -1; // -1 = no playable variant
         f32 pitch = 1.0f;
         f32 volume = 1.0f;
     };
@@ -60,8 +60,7 @@ export namespace draconic::audio
     /// none) for RandomNoRepeat; `sequentialCursor` advances in Sequential mode. Both
     /// are caller-owned play state (per component / per one-shot cue identity).
     [[nodiscard]] inline SoundCuePick ResolveSoundCue(const SoundCue& cue, Random& rng,
-                                                      i32 lastVariantIndex,
-                                                      u32& sequentialCursor)
+                                                      i32 lastVariantIndex, u32& sequentialCursor)
     {
         SoundCuePick pick;
 
@@ -73,11 +72,17 @@ export namespace draconic::audio
         for (usize i = 0; i < slotCount; ++i)
         {
             const SoundCueVariant& variant = cue.variants[i];
-            if (variant.clip.Get() == nullptr || variant.weight <= 0.0f) { continue; }
+            if (variant.clip.Get() == nullptr || variant.weight <= 0.0f)
+            {
+                continue;
+            }
             eligible[eligibleCount++] = static_cast<i32>(i);
             totalWeight += variant.weight;
         }
-        if (eligibleCount == 0) { return pick; }
+        if (eligibleCount == 0)
+        {
+            return pick;
+        }
 
         if (cue.mode == SoundCueMode::Sequential)
         {
@@ -87,8 +92,8 @@ export namespace draconic::audio
         else
         {
             // No-repeat with >1 choice: excise the previous pick from the wheel.
-            const bool avoidLast = cue.mode == SoundCueMode::RandomNoRepeat
-                                && eligibleCount > 1 && lastVariantIndex >= 0;
+            const bool avoidLast = cue.mode == SoundCueMode::RandomNoRepeat && eligibleCount > 1 &&
+                                   lastVariantIndex >= 0;
             f32 wheelWeight = totalWeight;
             if (avoidLast)
             {
@@ -105,16 +110,24 @@ export namespace draconic::audio
             for (usize i = 0; i < eligibleCount; ++i)
             {
                 const i32 index = eligible[i];
-                if (avoidLast && index == lastVariantIndex) { continue; }
-                pick.variantIndex = index;   // numeric-drift fallback = last VALID candidate
+                if (avoidLast && index == lastVariantIndex)
+                {
+                    continue;
+                }
+                pick.variantIndex = index; // numeric-drift fallback = last VALID candidate
                 const f32 weight = cue.variants[static_cast<usize>(index)].weight;
-                if (roll < weight) { break; }
+                if (roll < weight)
+                {
+                    break;
+                }
                 roll -= weight;
             }
         }
 
-        pick.pitch = rng.NextFloat(Min(cue.pitchMin, cue.pitchMax), Max(cue.pitchMin, cue.pitchMax));
-        pick.volume = rng.NextFloat(Min(cue.volumeMin, cue.volumeMax), Max(cue.volumeMin, cue.volumeMax));
+        pick.pitch =
+            rng.NextFloat(Min(cue.pitchMin, cue.pitchMax), Max(cue.pitchMin, cue.pitchMax));
+        pick.volume =
+            rng.NextFloat(Min(cue.volumeMin, cue.volumeMax), Max(cue.volumeMin, cue.volumeMax));
         return pick;
     }
 

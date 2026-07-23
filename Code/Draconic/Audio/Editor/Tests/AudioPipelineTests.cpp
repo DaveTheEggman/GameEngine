@@ -36,9 +36,12 @@ namespace
         for (usize frame = 0; frame < frameCount; ++frame)
         {
             const f32 t = static_cast<f32>(frame) / static_cast<f32>(sampleRate);
-            const i16 sample = static_cast<i16>(
-                amplitude * std::sin(2.0f * 3.14159265f * 440.0f * t) * 32000.0f);
-            for (u32 channel = 0; channel < channels; ++channel) { samples.PushBack(sample); }
+            const i16 sample =
+                static_cast<i16>(amplitude * std::sin(2.0f * 3.14159265f * 440.0f * t) * 32000.0f);
+            for (u32 channel = 0; channel < channels; ++channel)
+            {
+                samples.PushBack(sample);
+            }
         }
         return samples;
     }
@@ -48,34 +51,42 @@ namespace
     {
         const Array<i16> samples = MakeTone(seconds, sampleRate, channels, amplitude);
         Array<byte> wav;
-        REQUIRE(EncodeWavFromPcm16(Span<const i16>(samples.Data(), samples.Size()),
-                                   channels, sampleRate, wav));
+        REQUIRE(EncodeWavFromPcm16(Span<const i16>(samples.Data(), samples.Size()), channels,
+                                   sampleRate, wav));
         return wav;
     }
 
     // Appends an `smpl` chunk with one loop and patches the RIFF size.
     void AppendSampleLoopChunk(Array<byte>& wav, u32 loopStart, u32 loopEnd)
     {
-        auto pushU32 = [&](u32 value) {
+        auto pushU32 = [&](u32 value)
+        {
             wav.PushBack(static_cast<byte>(value & 0xFF));
             wav.PushBack(static_cast<byte>((value >> 8) & 0xFF));
             wav.PushBack(static_cast<byte>((value >> 16) & 0xFF));
             wav.PushBack(static_cast<byte>((value >> 24) & 0xFF));
         };
-        auto pushTag = [&](const char* tag) {
-            for (int i = 0; i < 4; ++i) { wav.PushBack(static_cast<byte>(tag[i])); }
+        auto pushTag = [&](const char* tag)
+        {
+            for (int i = 0; i < 4; ++i)
+            {
+                wav.PushBack(static_cast<byte>(tag[i]));
+            }
         };
         pushTag("smpl");
-        pushU32(36 + 24);                 // chunk size: sampler fields + one loop record
-        for (int i = 0; i < 7; ++i) { pushU32(0); }   // manufacturer .. SMPTE offset
-        pushU32(1);                       // numLoops
-        pushU32(0);                       // sampler data
-        pushU32(0);                       // loop id
-        pushU32(0);                       // loop type (forward)
+        pushU32(36 + 24); // chunk size: sampler fields + one loop record
+        for (int i = 0; i < 7; ++i)
+        {
+            pushU32(0);
+        }           // manufacturer .. SMPTE offset
+        pushU32(1); // numLoops
+        pushU32(0); // sampler data
+        pushU32(0); // loop id
+        pushU32(0); // loop type (forward)
         pushU32(loopStart);
         pushU32(loopEnd);
-        pushU32(0);                       // fraction
-        pushU32(0);                       // play count (infinite)
+        pushU32(0); // fraction
+        pushU32(0); // play count (infinite)
         // Patch the RIFF size field (bytes 4..7) = file size - 8.
         const u32 riffSize = static_cast<u32>(wav.Size()) - 8;
         wav[4] = static_cast<byte>(riffSize & 0xFF);
@@ -86,9 +97,9 @@ namespace
 
     void RemoveDbTree(StringView dir)
     {
-        for (const utf8char* name : { u8"clip.rasset", u8"cooked.rasset", u8"cooked.data.bin",
-                                      u8"tone.wav", u8"mixer.rasset", u8"tree.rasset",
-                                      u8"cyclic.rasset" })
+        for (const utf8char* name :
+             {u8"clip.rasset", u8"cooked.rasset", u8"cooked.data.bin", u8"tone.wav",
+              u8"mixer.rasset", u8"tree.rasset", u8"cyclic.rasset"})
         {
             String path(dir);
             path.Append(u8"/");
@@ -120,9 +131,12 @@ TEST_CASE("audio.pipeline: WAV smpl loop points parse (and absent/garbage inputs
     CHECK(loopEnd == 1500u);
 
     Array<byte> garbage;
-    for (int i = 0; i < 128; ++i) { garbage.PushBack(static_cast<byte>(i)); }
-    CHECK_FALSE(ParseWavSampleLoop(Span<const byte>(garbage.Data(), garbage.Size()),
-                                   loopStart, loopEnd));
+    for (int i = 0; i < 128; ++i)
+    {
+        garbage.PushBack(static_cast<byte>(i));
+    }
+    CHECK_FALSE(
+        ParseWavSampleLoop(Span<const byte>(garbage.Data(), garbage.Size()), loopStart, loopEnd));
 }
 
 TEST_CASE("audio.pipeline: wav -> AudioClipAsset cook -> AudioClip keeps the ORIGINAL "
@@ -139,8 +153,8 @@ TEST_CASE("audio.pipeline: wav -> AudioClipAsset cook -> AudioClip keeps the ORI
 
     const Array<byte> wav = MakeToneWav(0.25f, 8000, 2);
     REQUIRE(CreateDirectory(u8"draconic_audiopipe_src"));
-    REQUIRE(WriteFile(u8"draconic_audiopipe_src/tone.wav",
-                      Span<const byte>(wav.Data(), wav.Size())).IsOk());
+    REQUIRE(WriteFile(u8"draconic_audiopipe_src/tone.wav", Span<const byte>(wav.Data(), wav.Size()))
+                .IsOk());
 
     AudioClipAsset asset;
     asset.fileName = String(u8"tone.wav");
@@ -170,11 +184,15 @@ TEST_CASE("audio.pipeline: wav -> AudioClipAsset cook -> AudioClip keeps the ORI
     CHECK(clip->loopStartFrame == 10u);
     CHECK(clip->loopEndFrame == 900u);
     CHECK_FALSE(clip->stream);
-    REQUIRE(clip->encodedData.Size() == wav.Size());   // byte-identical write-through
+    REQUIRE(clip->encodedData.Size() == wav.Size()); // byte-identical write-through
     bool identical = true;
     for (usize i = 0; i < wav.Size(); ++i)
     {
-        if (clip->encodedData[i] != wav[i]) { identical = false; break; }
+        if (clip->encodedData[i] != wav[i])
+        {
+            identical = false;
+            break;
+        }
     }
     CHECK(identical);
 
@@ -196,7 +214,8 @@ TEST_CASE("audio.pipeline: stream-flagged cooks bind a re-openable content strea
     const Array<byte> wav = MakeToneWav(0.5f);
     REQUIRE(CreateDirectory(u8"draconic_audiopipe_stream_src"));
     REQUIRE(WriteFile(u8"draconic_audiopipe_stream_src/tone.wav",
-                      Span<const byte>(wav.Data(), wav.Size())).IsOk());
+                      Span<const byte>(wav.Data(), wav.Size()))
+                .IsOk());
 
     AudioClipAsset asset;
     asset.fileName = String(u8"tone.wav");
@@ -216,7 +235,7 @@ TEST_CASE("audio.pipeline: stream-flagged cooks bind a re-openable content strea
     Proxy<AudioClip> clip = manager.Bind<AudioClip>(outputInstance->Id());
     REQUIRE(clip);
     CHECK(clip->stream);
-    CHECK(clip->encodedData.IsEmpty());              // no bytes held in memory
+    CHECK(clip->encodedData.IsEmpty()); // no bytes held in memory
     REQUIRE(clip->streamSource.Get() != nullptr);
 
     // The source re-opens independently and serves the exact container bytes.
@@ -247,10 +266,14 @@ TEST_CASE("audio.pipeline: the builder VALIDATES - undecodable sources fail the 
     content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
 
     Array<byte> garbage;
-    for (int i = 0; i < 256; ++i) { garbage.PushBack(static_cast<byte>(i * 3)); }
+    for (int i = 0; i < 256; ++i)
+    {
+        garbage.PushBack(static_cast<byte>(i * 3));
+    }
     REQUIRE(CreateDirectory(u8"draconic_audiopipe_bad_src"));
     REQUIRE(WriteFile(u8"draconic_audiopipe_bad_src/tone.wav",
-                      Span<const byte>(garbage.Data(), garbage.Size())).IsOk());
+                      Span<const byte>(garbage.Data(), garbage.Size()))
+                .IsOk());
 
     AudioClipAsset asset;
     asset.fileName = String(u8"tone.wav");
@@ -279,12 +302,16 @@ TEST_CASE("audio.pipeline: destructive options - force-mono downmixes, trim drop
     // A quiet stereo tone with half a second of pure silence appended.
     Array<i16> samples = MakeTone(0.25f, 8000, 2, 0.1f);
     const usize toneFrames = samples.Size() / 2;
-    for (usize i = 0; i < 8000 / 2 * 2; ++i) { samples.PushBack(0); }
+    for (usize i = 0; i < 8000 / 2 * 2; ++i)
+    {
+        samples.PushBack(0);
+    }
     Array<byte> wav;
     REQUIRE(EncodeWavFromPcm16(Span<const i16>(samples.Data(), samples.Size()), 2, 8000, wav));
     REQUIRE(CreateDirectory(u8"draconic_audiopipe_fx_src"));
-    REQUIRE(WriteFile(u8"draconic_audiopipe_fx_src/tone.wav",
-                      Span<const byte>(wav.Data(), wav.Size())).IsOk());
+    REQUIRE(
+        WriteFile(u8"draconic_audiopipe_fx_src/tone.wav", Span<const byte>(wav.Data(), wav.Size()))
+            .IsOk());
 
     AudioClipAsset asset;
     asset.fileName = String(u8"tone.wav");
@@ -305,9 +332,9 @@ TEST_CASE("audio.pipeline: destructive options - force-mono downmixes, trim drop
     manager.AddFactory(&factory);
     Proxy<AudioClip> clip = manager.Bind<AudioClip>(outputInstance->Id());
     REQUIRE(clip);
-    CHECK(clip->channels == 1u);                              // downmixed
-    CHECK(clip->frameCount < toneFrames + 4000u / 2u);        // tail trimmed
-    CHECK(clip->frameCount >= toneFrames);                    // tone kept
+    CHECK(clip->channels == 1u);                       // downmixed
+    CHECK(clip->frameCount < toneFrames + 4000u / 2u); // tail trimmed
+    CHECK(clip->frameCount >= toneFrames);             // tone kept
 
     Array<i16> cookedSamples;
     AudioClipMetadata cookedMetadata;
@@ -316,9 +343,12 @@ TEST_CASE("audio.pipeline: destructive options - force-mono downmixes, trim drop
     for (i16 sample : cookedSamples)
     {
         const i32 magnitude = sample < 0 ? -static_cast<i32>(sample) : sample;
-        if (magnitude > peak) { peak = magnitude; }
+        if (magnitude > peak)
+        {
+            peak = magnitude;
+        }
     }
-    CHECK(peak > 27000);                                      // ~-1 dBFS (was ~3200)
+    CHECK(peak > 27000); // ~-1 dBFS (was ~3200)
 
     RemoveDbTree(u8"draconic_audiopipe_fx_src");
     RemoveDbTree(u8"draconic_audiopipe_fx_out");
@@ -330,13 +360,14 @@ TEST_CASE("audio.pipeline: the file importer creates an AudioClipAsset with prob
     RegisterAudioResource();
     RegisterAudioAssets();
     const StringView projectDir = u8"draconic_audiopipe_project";
-    auto cleanProject = [&]() {
+    auto cleanProject = [&]()
+    {
         FileDelete(PathJoin(projectDir, u8"Project.xml"));
         FileDelete(PathJoin(projectDir, u8"Sources/short.wav"));
         FileDelete(PathJoin(projectDir, u8"Sources/long.wav"));
         FileDelete(PathJoin(projectDir, u8"Content/draconic_audiopipe_short.xasset"));
         FileDelete(PathJoin(projectDir, u8"Content/draconic_audiopipe_long.xasset"));
-        for (StringView sub : { u8"Content", u8"Sources", u8"Cooked", u8"Editor", u8".cache" })
+        for (StringView sub : {u8"Content", u8"Sources", u8"Cooked", u8"Editor", u8".cache"})
         {
             RemoveDirectory(PathJoin(projectDir, sub));
         }
@@ -359,26 +390,30 @@ TEST_CASE("audio.pipeline: the file importer creates an AudioClipAsset with prob
     Array<byte> shortWav = MakeToneWav(0.25f, 8000, 1);
     AppendSampleLoopChunk(shortWav, 50, 1900);
     REQUIRE(WriteFile(u8"draconic_audiopipe_short.wav",
-                      Span<const byte>(shortWav.Data(), shortWav.Size())).IsOk());
-    Result<content::Instance*> shortImport = importer.Import(
-        u8"draconic_audiopipe_short.wav", *project, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
+                      Span<const byte>(shortWav.Data(), shortWav.Size()))
+                .IsOk());
+    Result<content::Instance*> shortImport =
+        importer.Import(u8"draconic_audiopipe_short.wav", *project,
+                        *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
     REQUIRE(shortImport.HasValue());
     {
         RefPtr<ISerializable> object = shortImport.Value()->ReadObject();
         auto* imported = Cast<AudioClipAsset>(object.Get());
         REQUIRE(imported != nullptr);
-        CHECK_FALSE(imported->stream);          // small + short = in-memory
-        CHECK(imported->loop);                  // smpl chunk detected
+        CHECK_FALSE(imported->stream); // small + short = in-memory
+        CHECK(imported->loop);         // smpl chunk detected
         CHECK(imported->loopStartFrame == 50u);
         CHECK(imported->loopEndFrame == 1900u);
     }
 
     // An 11-second source crosses the duration line: stream pre-checks on.
     const Array<byte> longWav = MakeToneWav(11.0f, 8000, 1);
-    REQUIRE(WriteFile(u8"draconic_audiopipe_long.wav",
-                      Span<const byte>(longWav.Data(), longWav.Size())).IsOk());
-    Result<content::Instance*> longImport = importer.Import(
-        u8"draconic_audiopipe_long.wav", *project, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
+    REQUIRE(
+        WriteFile(u8"draconic_audiopipe_long.wav", Span<const byte>(longWav.Data(), longWav.Size()))
+            .IsOk());
+    Result<content::Instance*> longImport =
+        importer.Import(u8"draconic_audiopipe_long.wav", *project, *project->SourceDb().RootGroup(),
+                        nullptr, nullptr, nullptr);
     REQUIRE(longImport.HasValue());
     {
         RefPtr<ISerializable> object = longImport.Value()->ReadObject();
@@ -389,11 +424,17 @@ TEST_CASE("audio.pipeline: the file importer creates an AudioClipAsset with prob
 
     // Garbage is refused before anything lands in the project.
     Array<byte> garbage;
-    for (int i = 0; i < 100; ++i) { garbage.PushBack(static_cast<byte>(i)); }
+    for (int i = 0; i < 100; ++i)
+    {
+        garbage.PushBack(static_cast<byte>(i));
+    }
     REQUIRE(WriteFile(u8"draconic_audiopipe_garbage.wav",
-                      Span<const byte>(garbage.Data(), garbage.Size())).IsOk());
-    CHECK_FALSE(importer.Import(u8"draconic_audiopipe_garbage.wav", *project,
-                                *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr).HasValue());
+                      Span<const byte>(garbage.Data(), garbage.Size()))
+                .IsOk());
+    CHECK_FALSE(importer
+                    .Import(u8"draconic_audiopipe_garbage.wav", *project,
+                            *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr)
+                    .HasValue());
 
     // Import options object exposes the five toggles.
     RefPtr<draconic::editor::ImportOptions> options = importer.CreateOptions();
@@ -423,9 +464,9 @@ TEST_CASE("audio.pipeline: bus layout asset cooks flat fields into the effect-ch
     AudioBusLayoutAsset asset;
     asset.music.volume = 0.5f;
     asset.ui.muted = true;
-    asset.effects.lowpassHz = 3000.0f;      // slot order: lowpass -> highpass -> delay
+    asset.effects.lowpassHz = 3000.0f; // slot order: lowpass -> highpass -> delay
     asset.effects.delaySeconds = 0.2f;
-    asset.effects.delayDecay = 1.5f;        // out of range: the builder clamps to 0.99
+    asset.effects.delayDecay = 1.5f; // out of range: the builder clamps to 0.99
 
     AudioBusLayoutAssetBuilder builder;
     draconic::editor::AssetBuildContext ctx;
@@ -444,8 +485,7 @@ TEST_CASE("audio.pipeline: bus layout asset cooks flat fields into the effect-ch
     CHECK(music.volume == doctest::Approx(0.5f));
     const AudioBusSettings& ui = layout->layout.buses[static_cast<usize>(AudioBus::UI)];
     CHECK(ui.muted);
-    const AudioBusSettings& effects =
-        layout->layout.buses[static_cast<usize>(AudioBus::Effects)];
+    const AudioBusSettings& effects = layout->layout.buses[static_cast<usize>(AudioBus::Effects)];
     REQUIRE(effects.effects.Size() == 2u);
     CHECK(effects.effects[0].kind == AudioBusEffectKind::Lowpass);
     CHECK(effects.effects[0].frequencyHz == doctest::Approx(3000.0f));
@@ -475,14 +515,14 @@ TEST_CASE("audio.pipeline: custom-bus slots cook into the NAMED wire section and
 
     AudioBusLayoutAsset asset;
     asset.custom[0].name = String(u8"drums");
-    asset.custom[0].parent = String(u8"effects");   // case-insensitive fixed parent
+    asset.custom[0].parent = String(u8"effects"); // case-insensitive fixed parent
     asset.custom[0].bus.volume = 0.6f;
     asset.custom[0].bus.lowpassHz = 2500.0f;
-    asset.custom[2].name = String(u8"quiet");       // sparse slots fold down
-    asset.custom[2].parent = String(u8"drums");     // custom-under-custom
+    asset.custom[2].name = String(u8"quiet");   // sparse slots fold down
+    asset.custom[2].parent = String(u8"drums"); // custom-under-custom
     asset.custom[2].bus.muted = true;
-    asset.custom[4].name = String(u8"drums");       // duplicate: skipped with a warning
-    asset.custom[5].name = String(u8"Music");       // fixed-name shadow: skipped
+    asset.custom[4].name = String(u8"drums"); // duplicate: skipped with a warning
+    asset.custom[5].name = String(u8"Music"); // fixed-name shadow: skipped
 
     AudioBusLayoutAssetBuilder builder;
     draconic::editor::AssetBuildContext ctx;
@@ -502,8 +542,7 @@ TEST_CASE("audio.pipeline: custom-bus slots cook into the NAMED wire section and
     CHECK(layout->layout.customBuses[0].parent.AsView() == StringView(u8"effects"));
     CHECK(layout->layout.customBuses[0].settings.volume == doctest::Approx(0.6f));
     REQUIRE(layout->layout.customBuses[0].settings.effects.Size() == 1u);
-    CHECK(layout->layout.customBuses[0].settings.effects[0].kind
-          == AudioBusEffectKind::Lowpass);
+    CHECK(layout->layout.customBuses[0].settings.effects[0].kind == AudioBusEffectKind::Lowpass);
     CHECK(layout->layout.customBuses[1].name.AsView() == StringView(u8"quiet"));
     CHECK(layout->layout.customBuses[1].settings.muted);
 
@@ -566,7 +605,7 @@ TEST_CASE("audio.pipeline: bus layout wire is version-tolerant - v0 payloads (no
     MemoryStream oldStream;
     {
         BinarySerializer ar(oldStream, SerializeMode::Write);
-        SerializedDataVersion v0{ AudioBusLayoutSource::StaticType().id, 0u };
+        SerializedDataVersion v0{AudioBusLayoutSource::StaticType().id, 0u};
         ar.PushVersionScope(&v0, 1);
         oldSource.Serialize(ar);
         ar.PopVersionScope();
@@ -575,14 +614,14 @@ TEST_CASE("audio.pipeline: bus layout wire is version-tolerant - v0 payloads (no
     REQUIRE(oldStream.Seek(0, SeekOrigin::Begin) == 0);
     {
         BinarySerializer ar(oldStream, SerializeMode::Read);
-        SerializedDataVersion v0{ AudioBusLayoutSource::StaticType().id, 0u };
+        SerializedDataVersion v0{AudioBusLayoutSource::StaticType().id, 0u};
         ar.PushVersionScope(&v0, 1);
         AudioBusLayoutSource loaded;
         loaded.Serialize(ar);
         ar.PopVersionScope();
         REQUIRE(ar.IsOk());
-        CHECK(loaded.layout.buses[static_cast<usize>(AudioBus::Music)].volume
-              == doctest::Approx(0.4f));
+        CHECK(loaded.layout.buses[static_cast<usize>(AudioBus::Music)].volume ==
+              doctest::Approx(0.4f));
         CHECK(loaded.layout.customBuses.IsEmpty());
     }
 
@@ -632,8 +671,7 @@ TEST_CASE("audio.pipeline: sound cue cooks slots -> variants and resolves clip r
     for (int i = 0; i < 2; ++i)
     {
         auto* clipInstance = outputDb.RootGroup()->CreateInstance(
-            i == 0 ? StringView(u8"stepA") : StringView(u8"stepB"),
-            AudioClipSource::StaticType());
+            i == 0 ? StringView(u8"stepA") : StringView(u8"stepB"), AudioClipSource::StaticType());
         AudioClipSource clipSource;
         clipSource.channels = 1;
         clipSource.sampleRate = 8000;
@@ -646,12 +684,12 @@ TEST_CASE("audio.pipeline: sound cue cooks slots -> variants and resolves clip r
     SoundCueAsset asset;
     asset.clipIds[0] = clipIds[0];
     asset.weights[0] = 2.0f;
-    asset.clipIds[3] = clipIds[1];   // sparse slots fold down
+    asset.clipIds[3] = clipIds[1]; // sparse slots fold down
     asset.weights[3] = 1.0f;
     asset.clipIds[5] = clipIds[1];
-    asset.weights[5] = 0.0f;         // weighted-out slot: warned + dropped
+    asset.weights[5] = 0.0f; // weighted-out slot: warned + dropped
     asset.pitchMin = 1.2f;
-    asset.pitchMax = 0.8f;           // reversed range: builder normalizes
+    asset.pitchMax = 0.8f; // reversed range: builder normalizes
 
     SoundCueAssetBuilder builder;
     draconic::editor::AssetBuildContext ctx;

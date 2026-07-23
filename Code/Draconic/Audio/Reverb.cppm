@@ -18,9 +18,9 @@ export namespace draconic::audio
 {
     struct AudioReverbParams
     {
-        f32 roomSize = 0.6f;   // 0..1 (comb feedback)
-        f32 damping = 0.4f;    // 0..1 (high-frequency decay inside the tail)
-        f32 wet = 0.4f;        // 0..1 mix (0 = fully dry passthrough)
+        f32 roomSize = 0.6f; // 0..1 (comb feedback)
+        f32 damping = 0.4f;  // 0..1 (high-frequency decay inside the tail)
+        f32 wet = 0.4f;      // 0..1 mix (0 = fully dry passthrough)
         // Dry passthrough level: < 0 = the classic INSERT mix (1 - wet); an explicit
         // 0 makes a WET-ONLY node (aux-send reverb: per-voice sends feed it in
         // parallel with the dry path, so the dry signal must not pass through again).
@@ -33,9 +33,9 @@ export namespace draconic::audio
     public:
         void Initialize(u32 sampleRate)
         {
-            static constexpr u32 kCombTunings[kCombCount] = { 1116, 1188, 1277, 1356,
-                                                              1422, 1491, 1557, 1617 };
-            static constexpr u32 kAllpassTunings[kAllpassCount] = { 556, 441, 341, 225 };
+            static constexpr u32 kCombTunings[kCombCount] = {1116, 1188, 1277, 1356,
+                                                             1422, 1491, 1557, 1617};
+            static constexpr u32 kAllpassTunings[kAllpassCount] = {556, 441, 341, 225};
             static constexpr u32 kStereoSpread = 23;
 
             const f32 scale = static_cast<f32>(sampleRate) / 44100.0f;
@@ -47,7 +47,10 @@ export namespace draconic::audio
                     const u32 length = Max<u32>(
                         4, static_cast<u32>(static_cast<f32>(kCombTunings[i] + spread) * scale));
                     m_comb[channel][i].buffer.Resize(length);
-                    for (f32& sample : m_comb[channel][i].buffer) { sample = 0.0f; }
+                    for (f32& sample : m_comb[channel][i].buffer)
+                    {
+                        sample = 0.0f;
+                    }
                     m_comb[channel][i].cursor = 0;
                     m_comb[channel][i].filterStore = 0.0f;
                 }
@@ -56,7 +59,10 @@ export namespace draconic::audio
                     const u32 length = Max<u32>(
                         2, static_cast<u32>(static_cast<f32>(kAllpassTunings[i] + spread) * scale));
                     m_allpass[channel][i].buffer.Resize(length);
-                    for (f32& sample : m_allpass[channel][i].buffer) { sample = 0.0f; }
+                    for (f32& sample : m_allpass[channel][i].buffer)
+                    {
+                        sample = 0.0f;
+                    }
                     m_allpass[channel][i].cursor = 0;
                 }
             }
@@ -81,7 +87,7 @@ export namespace draconic::audio
         /// Mono callers duplicate the channel. Denormal-flushed.
         void ProcessStereo(const f32* input, f32* output, u32 frameCount)
         {
-            constexpr f32 kFixedGain = 0.015f;   // canonical freeverb input gain
+            constexpr f32 kFixedGain = 0.015f; // canonical freeverb input gain
             for (u32 frame = 0; frame < frameCount; ++frame)
             {
                 const f32 inL = input[frame * 2 + 0];
@@ -130,7 +136,10 @@ export namespace draconic::audio
             const f32 output = comb.buffer[comb.cursor];
             comb.filterStore = Undenormal(output * (1.0f - m_damp) + comb.filterStore * m_damp);
             comb.buffer[comb.cursor] = Undenormal(input + comb.filterStore * m_feedback);
-            if (++comb.cursor >= comb.buffer.Size()) { comb.cursor = 0; }
+            if (++comb.cursor >= comb.buffer.Size())
+            {
+                comb.cursor = 0;
+            }
             return output;
         }
 
@@ -139,7 +148,10 @@ export namespace draconic::audio
             const f32 buffered = allpass.buffer[allpass.cursor];
             const f32 output = buffered - input;
             allpass.buffer[allpass.cursor] = Undenormal(input + buffered * 0.5f);
-            if (++allpass.cursor >= allpass.buffer.Size()) { allpass.cursor = 0; }
+            if (++allpass.cursor >= allpass.buffer.Size())
+            {
+                allpass.cursor = 0;
+            }
             return output;
         }
 
@@ -148,7 +160,7 @@ export namespace draconic::audio
         f32 m_feedback = 0.84f;
         f32 m_damp = 0.2f;
         f32 m_wet = 0.4f;
-        f32 m_dry = 0.6f;    // tracks 1 - wet unless params.dry pins it (send mode)
+        f32 m_dry = 0.6f; // tracks 1 - wet unless params.dry pins it (send mode)
         bool m_initialized = false;
     };
 }

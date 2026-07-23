@@ -32,31 +32,31 @@ export namespace draconic::audio
         // custom bus of this name, the voice routes there; unknown/empty = `bus`.
         String busName;
         f32 volume = 1.0f;
-        f32 pitch = 1.0f;               // real resampling at runtime
-        bool loop = false;              // OR-ed with the clip's authored loop intent
+        f32 pitch = 1.0f;  // real resampling at runtime
+        bool loop = false; // OR-ed with the clip's authored loop intent
         bool spatial = true;
-        bool autoPlay = false;          // starts when scene simulation starts
+        bool autoPlay = false; // starts when scene simulation starts
         // Distance low-pass floor (Hz) for spatial sources: the cutoff glides from
         // open at minDistance to this at maxDistance. 0 = no muffling filter.
         f32 distanceLowpassHz = 4000.0f;
         // Per-voice reverb send (v3): 0..1 scaling this source's feed into the
         // scene's send reverb (zones drive the room character). 0 = dry only.
         f32 reverbSend = 0.0f;
-        u8 priority = 128;              // pool contention (higher survives)
+        u8 priority = 128; // pool contention (higher survives)
         f32 minDistance = 1.0f;
         f32 maxDistance = 100.0f;
         AudioAttenuationModel attenuationModel = AudioAttenuationModel::Inverse;
         f32 rolloff = 1.0f;
-        f32 dopplerFactor = 1.0f;       // velocities feed the spatializer per frame
+        f32 dopplerFactor = 1.0f; // velocities feed the spatializer per frame
         f32 coneInnerAngleDegrees = 360.0f;
         f32 coneOuterAngleDegrees = 360.0f;
         f32 coneOuterGain = 0.0f;
 
         // Runtime (transient):
         VoiceHandle voice;
-        i32 lastCueVariant = -1;      // cue no-repeat state (runtime)
+        i32 lastCueVariant = -1; // cue no-repeat state (runtime)
         u32 cueSequentialCursor = 0;
-        Float3 previousPosition{ 0.0f, 0.0f, 0.0f };
+        Float3 previousPosition{0.0f, 0.0f, 0.0f};
         bool hasPreviousPosition = false;
     };
 
@@ -84,11 +84,11 @@ export namespace draconic::audio
         draconic::core::Serialize(ar, "coneInnerAngleDegrees", c.coneInnerAngleDegrees);
         draconic::core::Serialize(ar, "coneOuterAngleDegrees", c.coneOuterAngleDegrees);
         draconic::core::Serialize(ar, "coneOuterGain", c.coneOuterGain);
-        if (ar.Version() >= 2)   // v2: named custom-bus routing
+        if (ar.Version() >= 2) // v2: named custom-bus routing
         {
             draconic::core::Serialize(ar, "busName", c.busName);
         }
-        if (ar.Version() >= 3)   // v3: per-voice reverb send
+        if (ar.Version() >= 3) // v3: per-voice reverb send
         {
             draconic::core::Serialize(ar, "reverbSend", c.reverbSend);
         }
@@ -106,7 +106,9 @@ export namespace draconic::audio
     {
     public:
         AudioSourceComponentManager()
-            : SerializableComponentManager<AudioSourceComponent>(u8"audio.Source") {}
+            : SerializableComponentManager<AudioSourceComponent>(u8"audio.Source")
+        {
+        }
     };
 
     // First ACTIVE listener wins; entities beyond the first are ignored that frame.
@@ -115,7 +117,7 @@ export namespace draconic::audio
         bool isActive = true;
 
         // Runtime (transient):
-        Float3 previousPosition{ 0.0f, 0.0f, 0.0f };
+        Float3 previousPosition{0.0f, 0.0f, 0.0f};
         bool hasPreviousPosition = false;
     };
 
@@ -130,7 +132,7 @@ export namespace draconic::audio
     struct AudioReverbZoneComponent
     {
         f32 radius = 8.0f;
-        f32 edgeFade = 0.25f;      // fraction of the radius that fades wet 0 -> full
+        f32 edgeFade = 0.25f; // fraction of the radius that fades wet 0 -> full
         f32 roomSize = 0.6f;
         f32 damping = 0.4f;
         f32 wetLevel = 0.5f;
@@ -152,7 +154,9 @@ export namespace draconic::audio
     {
     public:
         AudioReverbZoneComponentManager()
-            : SerializableComponentManager<AudioReverbZoneComponent>(u8"audio.ReverbZone") {}
+            : SerializableComponentManager<AudioReverbZoneComponent>(u8"audio.ReverbZone")
+        {
+        }
     };
 
     class AudioListenerComponentManager final
@@ -160,7 +164,9 @@ export namespace draconic::audio
     {
     public:
         AudioListenerComponentManager()
-            : SerializableComponentManager<AudioListenerComponent>(u8"audio.Listener") {}
+            : SerializableComponentManager<AudioListenerComponent>(u8"audio.Listener")
+        {
+        }
     };
 
     // Defined in SubsystemImpl.cpp: the DRACONIC_REFLECT_* bodies live there because

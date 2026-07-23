@@ -24,10 +24,10 @@ import draconic.runtime;
 import draconic.scene;
 import draconic.scene.subsystem;
 import draconic.audio;
-import draconic.script;    // ExposeToScript + the Audio facade's service seam
-import draconic.settings;  // AudioUserSettings section (persisted volumes)
-import draconic.resource;  // ResourceManager (script content-path playback)
-import draconic.content;   // Instance lookup by content path
+import draconic.script;   // ExposeToScript + the Audio facade's service seam
+import draconic.settings; // AudioUserSettings section (persisted volumes)
+import draconic.resource; // ResourceManager (script content-path playback)
+import draconic.content;  // Instance lookup by content path
 // NOTE: no render imports HERE - the camera-fallback listener lives in SubsystemImpl.cpp
 // (a module implementation unit), keeping heavyweight imports out of the interface for
 // GCC's -fno-module-lazy consumers.
@@ -38,7 +38,7 @@ export namespace draconic::audio
 {
     namespace dscene = draconic::scene;
 
-    class AudioSubsystem;   // forward (the script binding carries it)
+    class AudioSubsystem; // forward (the script binding carries it)
 
     /// The service key ExposeToScript binds and the scripting Audio facade resolves.
     /// Payload = AudioScriptBinding (the physics-binding precedent): ONE service
@@ -49,17 +49,17 @@ export namespace draconic::audio
     struct AudioScriptBinding
     {
         AudioEngine* engine = nullptr;
-        AudioSubsystem* subsystem = nullptr;                        // cue state + helpers
-        draconic::resource::ResourceManager* resources = nullptr;   // path -> product
+        AudioSubsystem* subsystem = nullptr;                      // cue state + helpers
+        draconic::resource::ResourceManager* resources = nullptr; // path -> product
     };
 
     /// One listener's world pose this frame (multi-listener collection).
     struct ListenerPose
     {
-        Float3 position{ 0.0f, 0.0f, 0.0f };
-        Float3 forward{ 0.0f, 0.0f, -1.0f };
-        Float3 up{ 0.0f, 1.0f, 0.0f };
-        Float3 velocity{ 0.0f, 0.0f, 0.0f };
+        Float3 position{0.0f, 0.0f, 0.0f};
+        Float3 forward{0.0f, 0.0f, -1.0f};
+        Float3 up{0.0f, 1.0f, 0.0f};
+        Float3 velocity{0.0f, 0.0f, 0.0f};
     };
 
     // ---- persisted user volumes (P2): a draconic.settings SECTION ----
@@ -71,7 +71,7 @@ export namespace draconic::audio
     {
         DRACONIC_OBJECT(AudioUserSettings, ISerializable)
     public:
-        f32 volumes[static_cast<usize>(AudioBus::Count)] = { 1.0f, 1.0f, 1.0f, 1.0f };
+        f32 volumes[static_cast<usize>(AudioBus::Count)] = {1.0f, 1.0f, 1.0f, 1.0f};
         bool muted[static_cast<usize>(AudioBus::Count)] = {};
 
         void Serialize(ISerializer& ar) override
@@ -130,16 +130,24 @@ export namespace draconic::audio
         {
             m_started = true;
             m_wasSimulating = true;
-            if (m_engine == nullptr) { return; }
+            if (m_engine == nullptr)
+            {
+                return;
+            }
             m_sceneGroup = m_engine->CreateSceneGroup();
 
             // Autoplay: world matrices are current before this fires (Scene::Start
             // guarantee) - positional voices start where they were authored.
             if (auto* sources = m_scene->GetSystem<AudioSourceComponentManager>())
             {
-                sources->ForEach([&](AudioSourceComponent& c, dscene::EntityHandle e) {
-                    if (c.autoPlay) { PlayComponent(c, e); }
-                });
+                sources->ForEach(
+                    [&](AudioSourceComponent& c, dscene::EntityHandle e)
+                    {
+                        if (c.autoPlay)
+                        {
+                            PlayComponent(c, e);
+                        }
+                    });
             }
         }
 
@@ -148,14 +156,16 @@ export namespace draconic::audio
             m_started = false;
             if (auto* sources = m_scene->GetSystem<AudioSourceComponentManager>())
             {
-                sources->ForEach([](AudioSourceComponent& c, dscene::EntityHandle) {
-                    c.voice = VoiceHandle{};
-                    c.hasPreviousPosition = false;
-                });
+                sources->ForEach(
+                    [](AudioSourceComponent& c, dscene::EntityHandle)
+                    {
+                        c.voice = VoiceHandle{};
+                        c.hasPreviousPosition = false;
+                    });
             }
             if (m_engine != nullptr && m_sceneGroup != 0)
             {
-                m_engine->DestroySceneGroup(m_sceneGroup);   // stops the scene's voices
+                m_engine->DestroySceneGroup(m_sceneGroup); // stops the scene's voices
             }
             m_sceneGroup = 0;
             m_listenerValid = false;
@@ -166,11 +176,13 @@ export namespace draconic::audio
         /// Starts (or restarts) the entity's source. Returns the voice handle.
         VoiceHandle Play(dscene::EntityHandle entity)
         {
-            auto* sources = m_scene != nullptr
-                ? m_scene->GetSystem<AudioSourceComponentManager>() : nullptr;
-            AudioSourceComponent* component =
-                sources != nullptr ? sources->Get(entity) : nullptr;
-            if (component == nullptr) { return {}; }
+            auto* sources =
+                m_scene != nullptr ? m_scene->GetSystem<AudioSourceComponentManager>() : nullptr;
+            AudioSourceComponent* component = sources != nullptr ? sources->Get(entity) : nullptr;
+            if (component == nullptr)
+            {
+                return {};
+            }
             return PlayComponent(*component, entity);
         }
 
@@ -178,7 +190,10 @@ export namespace draconic::audio
         {
             if (AudioSourceComponent* component = Component(entity))
             {
-                if (m_engine != nullptr) { m_engine->Stop(component->voice); }
+                if (m_engine != nullptr)
+                {
+                    m_engine->Stop(component->voice);
+                }
                 component->voice = VoiceHandle{};
                 component->hasPreviousPosition = false;
             }
@@ -188,23 +203,32 @@ export namespace draconic::audio
         {
             if (AudioSourceComponent* component = Component(entity))
             {
-                if (m_engine != nullptr) { m_engine->SetPaused(component->voice, paused); }
+                if (m_engine != nullptr)
+                {
+                    m_engine->SetPaused(component->voice, paused);
+                }
             }
         }
 
         [[nodiscard]] bool IsPlaying(dscene::EntityHandle entity)
         {
             AudioSourceComponent* component = Component(entity);
-            return component != nullptr && m_engine != nullptr
-                && m_engine->IsPlaying(component->voice);
+            return component != nullptr && m_engine != nullptr &&
+                   m_engine->IsPlaying(component->voice);
         }
 
         // ---- per-frame sync (PostTransform: final transforms are ready) ----
 
         void OnUpdate(dscene::ScenePhase phase, f32 deltaTime) override
         {
-            if (phase != dscene::ScenePhase::PostTransform) { return; }
-            if (m_engine == nullptr || m_scene == nullptr || !m_started) { return; }
+            if (phase != dscene::ScenePhase::PostTransform)
+            {
+                return;
+            }
+            if (m_engine == nullptr || m_scene == nullptr || !m_started)
+            {
+                return;
+            }
 
             // Scene simulation pause/resume maps onto the per-scene group (fade both ways).
             const bool simulating = m_scene->SimulationEnabled();
@@ -213,29 +237,41 @@ export namespace draconic::audio
                 m_engine->SetSceneGroupPaused(m_sceneGroup, !simulating);
             }
             m_wasSimulating = simulating;
-            if (!simulating) { return; }
+            if (!simulating)
+            {
+                return;
+            }
 
             if (auto* sources = m_scene->GetSystem<AudioSourceComponentManager>())
             {
-                sources->ForEach([&](AudioSourceComponent& c, dscene::EntityHandle e) {
-                    if (!c.voice.IsValid()) { return; }
-                    if (!m_engine->IsValidHandle(c.voice))
+                sources->ForEach(
+                    [&](AudioSourceComponent& c, dscene::EntityHandle e)
                     {
-                        c.voice = VoiceHandle{};        // finished one-shot: reap the handle
-                        c.hasPreviousPosition = false;
-                        return;
-                    }
-                    if (!c.spatial) { return; }
-                    const Float3 position = EntityPosition(e);
-                    const Float3 velocity = (c.hasPreviousPosition && deltaTime > 0.0f)
-                        ? Float3{ (position.x - c.previousPosition.x) / deltaTime,
-                                  (position.y - c.previousPosition.y) / deltaTime,
-                                  (position.z - c.previousPosition.z) / deltaTime }
-                        : Float3{ 0.0f, 0.0f, 0.0f };
-                    m_engine->SetVoicePosition(c.voice, position, velocity);
-                    c.previousPosition = position;
-                    c.hasPreviousPosition = true;
-                });
+                        if (!c.voice.IsValid())
+                        {
+                            return;
+                        }
+                        if (!m_engine->IsValidHandle(c.voice))
+                        {
+                            c.voice = VoiceHandle{}; // finished one-shot: reap the handle
+                            c.hasPreviousPosition = false;
+                            return;
+                        }
+                        if (!c.spatial)
+                        {
+                            return;
+                        }
+                        const Float3 position = EntityPosition(e);
+                        const Float3 velocity =
+                            (c.hasPreviousPosition && deltaTime > 0.0f)
+                                ? Float3{(position.x - c.previousPosition.x) / deltaTime,
+                                         (position.y - c.previousPosition.y) / deltaTime,
+                                         (position.z - c.previousPosition.z) / deltaTime}
+                                : Float3{0.0f, 0.0f, 0.0f};
+                        m_engine->SetVoicePosition(c.voice, position, velocity);
+                        c.previousPosition = position;
+                        c.hasPreviousPosition = true;
+                    });
             }
 
             UpdateListenerPose(deltaTime);
@@ -251,34 +287,37 @@ export namespace draconic::audio
         [[nodiscard]] Float3 ListenerVelocity() const noexcept { return m_listenerVelocity; }
         [[nodiscard]] Span<const ListenerPose> ListenerPoses() const noexcept
         {
-            return Span<const ListenerPose>{ m_listenerPoses.Data(), m_listenerPoses.Size() };
+            return Span<const ListenerPose>{m_listenerPoses.Data(), m_listenerPoses.Size()};
         }
 
     private:
         [[nodiscard]] AudioSourceComponent* Component(dscene::EntityHandle entity)
         {
-            auto* sources = m_scene != nullptr
-                ? m_scene->GetSystem<AudioSourceComponentManager>() : nullptr;
+            auto* sources =
+                m_scene != nullptr ? m_scene->GetSystem<AudioSourceComponentManager>() : nullptr;
             return sources != nullptr ? sources->Get(entity) : nullptr;
         }
 
         [[nodiscard]] Float3 EntityPosition(dscene::EntityHandle entity) const
         {
             const Float4x4 world = m_scene->GetWorldMatrix(entity);
-            return TransformPoint(Float3{ 0.0f, 0.0f, 0.0f }, world);
+            return TransformPoint(Float3{0.0f, 0.0f, 0.0f}, world);
         }
 
         VoiceHandle PlayComponent(AudioSourceComponent& c, dscene::EntityHandle e)
         {
-            if (m_engine == nullptr) { return {}; }
+            if (m_engine == nullptr)
+            {
+                return {};
+            }
             // Cue wins over clip: resolve one weighted variant + this trigger's jitter.
             AudioClip* clip = nullptr;
             f32 cuePitch = 1.0f;
             f32 cueVolume = 1.0f;
             if (const SoundCue* cue = c.cue.Get())
             {
-                const SoundCuePick pick = ResolveSoundCue(
-                    *cue, m_cueRandom, c.lastCueVariant, c.cueSequentialCursor);
+                const SoundCuePick pick =
+                    ResolveSoundCue(*cue, m_cueRandom, c.lastCueVariant, c.cueSequentialCursor);
                 if (pick.variantIndex >= 0)
                 {
                     c.lastCueVariant = pick.variantIndex;
@@ -287,14 +326,20 @@ export namespace draconic::audio
                     cueVolume = pick.volume;
                 }
             }
-            if (clip == nullptr) { clip = c.clip.Get(); }
+            if (clip == nullptr)
+            {
+                clip = c.clip.Get();
+            }
             if (clip == nullptr)
             {
                 DRACONIC_LOG_WARNING(u8"Audio", u8"'{}': audio source has no clip or cue",
                                      m_scene->GetEntityName(e));
                 return {};
             }
-            if (m_engine->IsValidHandle(c.voice)) { m_engine->Stop(c.voice); }
+            if (m_engine->IsValidHandle(c.voice))
+            {
+                m_engine->Stop(c.voice);
+            }
 
             AudioPlayParams params;
             params.bus = c.bus;
@@ -334,31 +379,42 @@ export namespace draconic::audio
         // No listener / no zone = wet 0 (the node bypasses; the tail decays naturally).
         void UpdateReverbZones()
         {
-            if (m_engine == nullptr || m_sceneGroup == 0) { return; }
+            if (m_engine == nullptr || m_sceneGroup == 0)
+            {
+                return;
+            }
             AudioReverbParams best;
             best.wet = 0.0f;
             auto* zones = m_scene->GetSystem<AudioReverbZoneComponentManager>();
             if (m_listenerValid && zones != nullptr)
             {
-                zones->ForEach([&](AudioReverbZoneComponent& zone, dscene::EntityHandle e) {
-                    if (!zone.enabled || zone.radius <= 0.0f || zone.wetLevel <= 0.0f) { return; }
-                    const Float3 center = EntityPosition(e);
-                    const Float3 delta{ m_listenerPosition.x - center.x,
-                                        m_listenerPosition.y - center.y,
-                                        m_listenerPosition.z - center.z };
-                    const f32 distance = Sqrt(delta.x * delta.x + delta.y * delta.y
-                                              + delta.z * delta.z);
-                    if (distance >= zone.radius) { return; }
-                    const f32 fadeWidth = Max(zone.edgeFade * zone.radius, 0.001f);
-                    const f32 blend = Clamp((zone.radius - distance) / fadeWidth, 0.0f, 1.0f);
-                    const f32 wet = zone.wetLevel * blend;
-                    if (wet > best.wet)
+                zones->ForEach(
+                    [&](AudioReverbZoneComponent& zone, dscene::EntityHandle e)
                     {
-                        best.wet = wet;
-                        best.roomSize = zone.roomSize;
-                        best.damping = zone.damping;
-                    }
-                });
+                        if (!zone.enabled || zone.radius <= 0.0f || zone.wetLevel <= 0.0f)
+                        {
+                            return;
+                        }
+                        const Float3 center = EntityPosition(e);
+                        const Float3 delta{m_listenerPosition.x - center.x,
+                                           m_listenerPosition.y - center.y,
+                                           m_listenerPosition.z - center.z};
+                        const f32 distance =
+                            Sqrt(delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
+                        if (distance >= zone.radius)
+                        {
+                            return;
+                        }
+                        const f32 fadeWidth = Max(zone.edgeFade * zone.radius, 0.001f);
+                        const f32 blend = Clamp((zone.radius - distance) / fadeWidth, 0.0f, 1.0f);
+                        const f32 wet = zone.wetLevel * blend;
+                        if (wet > best.wet)
+                        {
+                            best.wet = wet;
+                            best.roomSize = zone.roomSize;
+                            best.damping = zone.damping;
+                        }
+                    });
             }
             m_engine->SetSceneReverb(m_sceneGroup, best);
         }
@@ -370,33 +426,42 @@ export namespace draconic::audio
             m_listenerValid = false;
             m_listenerPoses.Clear();
             auto* listeners = m_scene->GetSystem<AudioListenerComponentManager>();
-            if (listeners == nullptr) { return; }
-            listeners->ForEach([&](AudioListenerComponent& c, dscene::EntityHandle e) {
-                if (!c.isActive) { return; }
-                const Float4x4 world = m_scene->GetWorldMatrix(e);
-                ListenerPose pose;
-                pose.position = TransformPoint(Float3{ 0.0f, 0.0f, 0.0f }, world);
-                // Forward is -Z (row 2 negated), up is +Y (row 1) - row-vector convention.
-                pose.forward = Normalized(
-                    Float3{ -world.m[2][0], -world.m[2][1], -world.m[2][2] });
-                pose.up = Normalized(Float3{ world.m[1][0], world.m[1][1], world.m[1][2] });
-                pose.velocity = (c.hasPreviousPosition && deltaTime > 0.0f)
-                    ? Float3{ (pose.position.x - c.previousPosition.x) / deltaTime,
-                              (pose.position.y - c.previousPosition.y) / deltaTime,
-                              (pose.position.z - c.previousPosition.z) / deltaTime }
-                    : Float3{ 0.0f, 0.0f, 0.0f };
-                c.previousPosition = pose.position;
-                c.hasPreviousPosition = true;
-                if (!m_listenerValid)
+            if (listeners == nullptr)
+            {
+                return;
+            }
+            listeners->ForEach(
+                [&](AudioListenerComponent& c, dscene::EntityHandle e)
                 {
-                    m_listenerPosition = pose.position;
-                    m_listenerForward = pose.forward;
-                    m_listenerUp = pose.up;
-                    m_listenerVelocity = pose.velocity;
-                    m_listenerValid = true;
-                }
-                m_listenerPoses.PushBack(pose);
-            });
+                    if (!c.isActive)
+                    {
+                        return;
+                    }
+                    const Float4x4 world = m_scene->GetWorldMatrix(e);
+                    ListenerPose pose;
+                    pose.position = TransformPoint(Float3{0.0f, 0.0f, 0.0f}, world);
+                    // Forward is -Z (row 2 negated), up is +Y (row 1) - row-vector convention.
+                    pose.forward =
+                        Normalized(Float3{-world.m[2][0], -world.m[2][1], -world.m[2][2]});
+                    pose.up = Normalized(Float3{world.m[1][0], world.m[1][1], world.m[1][2]});
+                    pose.velocity =
+                        (c.hasPreviousPosition && deltaTime > 0.0f)
+                            ? Float3{(pose.position.x - c.previousPosition.x) / deltaTime,
+                                     (pose.position.y - c.previousPosition.y) / deltaTime,
+                                     (pose.position.z - c.previousPosition.z) / deltaTime}
+                            : Float3{0.0f, 0.0f, 0.0f};
+                    c.previousPosition = pose.position;
+                    c.hasPreviousPosition = true;
+                    if (!m_listenerValid)
+                    {
+                        m_listenerPosition = pose.position;
+                        m_listenerForward = pose.forward;
+                        m_listenerUp = pose.up;
+                        m_listenerVelocity = pose.velocity;
+                        m_listenerValid = true;
+                    }
+                    m_listenerPoses.PushBack(pose);
+                });
         }
 
         dscene::Scene* m_scene = nullptr;
@@ -404,24 +469,25 @@ export namespace draconic::audio
         u64 m_sceneGroup = 0;
         bool m_started = false;
         bool m_wasSimulating = true;
-        Random m_cueRandom;   // cue variant selection (per scene system)
+        Random m_cueRandom; // cue variant selection (per scene system)
         bool m_listenerValid = false;
-        Float3 m_listenerPosition{ 0.0f, 0.0f, 0.0f };
-        Float3 m_listenerForward{ 0.0f, 0.0f, -1.0f };
-        Float3 m_listenerUp{ 0.0f, 1.0f, 0.0f };
-        Float3 m_listenerVelocity{ 0.0f, 0.0f, 0.0f };
+        Float3 m_listenerPosition{0.0f, 0.0f, 0.0f};
+        Float3 m_listenerForward{0.0f, 0.0f, -1.0f};
+        Float3 m_listenerUp{0.0f, 1.0f, 0.0f};
+        Float3 m_listenerVelocity{0.0f, 0.0f, 0.0f};
         Array<ListenerPose> m_listenerPoses;
     };
 
     // The runtime subsystem: owns the ONE AudioEngine, injects the managers + system
     // into every scene (ISceneAware), pushes the winning listener, and exposes the
     // engine-global one-shot API (docs/design/audio.md §6).
-    class AudioSubsystem final : public draconic::runtime::Subsystem,
-                                 public dscene::ISceneAware
+    class AudioSubsystem final : public draconic::runtime::Subsystem, public dscene::ISceneAware
     {
     public:
         explicit AudioSubsystem(const AudioEngineSettings& engineSettings = {})
-            : m_engineSettings(engineSettings) {}
+            : m_engineSettings(engineSettings)
+        {
+        }
 
         [[nodiscard]] AudioEngine* Engine() const noexcept { return m_engine.Get(); }
 
@@ -436,13 +502,17 @@ export namespace draconic::audio
             scene.AddSystem<AudioReverbZoneComponentManager>();
             AudioSceneSystem* system = scene.AddSystem<AudioSceneSystem>();
             system->SetEngine(m_engine.Get());
-            m_systems.PushBack(SceneEntry{ &scene, system });
+            m_systems.PushBack(SceneEntry{&scene, system});
         }
         void OnSceneDestroyed(dscene::Scene& scene) override
         {
             for (usize i = 0; i < m_systems.Size(); ++i)
             {
-                if (m_systems[i].scene == &scene) { m_systems.RemoveAt(i); return; }
+                if (m_systems[i].scene == &scene)
+                {
+                    m_systems.RemoveAt(i);
+                    return;
+                }
             }
         }
 
@@ -453,10 +523,13 @@ export namespace draconic::audio
         // ---- engine-global one-shots (docs/design/audio.md §6) ----
 
         [[nodiscard]] VoiceHandle PlayOneShot(const RefPtr<AudioClip>& clip,
-                                              AudioBus bus = AudioBus::Effects,
-                                              f32 volume = 1.0f, f32 pitch = 1.0f)
+                                              AudioBus bus = AudioBus::Effects, f32 volume = 1.0f,
+                                              f32 pitch = 1.0f)
         {
-            if (m_engine.Get() == nullptr) { return {}; }
+            if (m_engine.Get() == nullptr)
+            {
+                return {};
+            }
             AudioPlayParams params;
             params.bus = bus;
             params.volume = volume;
@@ -467,7 +540,10 @@ export namespace draconic::audio
         [[nodiscard]] VoiceHandle PlayOneShot3D(const RefPtr<AudioClip>& clip, Float3 position,
                                                 const AudioPlayParams& baseParams = {})
         {
-            if (m_engine.Get() == nullptr) { return {}; }
+            if (m_engine.Get() == nullptr)
+            {
+                return {};
+            }
             AudioPlayParams params = baseParams;
             params.spatial = true;
             params.position = position;
@@ -523,7 +599,10 @@ export namespace draconic::audio
                 params.bus = bus;
                 return PlayCueResolved(content.cue, params);
             }
-            if (content.clip.Get() == nullptr) { return {}; }
+            if (content.clip.Get() == nullptr)
+            {
+                return {};
+            }
             return PlayOneShot(content.clip, bus);
         }
 
@@ -538,21 +617,30 @@ export namespace draconic::audio
                 params.position = position;
                 return PlayCueResolved(content.cue, params);
             }
-            if (content.clip.Get() == nullptr) { return {}; }
+            if (content.clip.Get() == nullptr)
+            {
+                return {};
+            }
             return PlayOneShot3D(content.clip, position);
         }
 
-        VoiceHandle PlayCueByPath(draconic::resource::ResourceManager& resources,
-                                  StringView path, AudioBus bus = AudioBus::Effects)
+        VoiceHandle PlayCueByPath(draconic::resource::ResourceManager& resources, StringView path,
+                                  AudioBus bus = AudioBus::Effects)
         {
             const ResolvedPathContent content = ResolveContentPath(resources, path);
-            if (content.cue.Get() != nullptr) { return PlayCueOneShot(content.cue, bus); }
-            if (content.clip.Get() != nullptr) { return PlayOneShot(content.clip, bus); }
+            if (content.cue.Get() != nullptr)
+            {
+                return PlayCueOneShot(content.cue, bus);
+            }
+            if (content.clip.Get() != nullptr)
+            {
+                return PlayOneShot(content.clip, bus);
+            }
             return {};
         }
 
-        VoiceHandle PlayMusicByPath(draconic::resource::ResourceManager& resources,
-                                    StringView path, f32 crossFadeSeconds = 1.0f)
+        VoiceHandle PlayMusicByPath(draconic::resource::ResourceManager& resources, StringView path,
+                                    f32 crossFadeSeconds = 1.0f)
         {
             const ResolvedPathContent content = ResolveContentPath(resources, path);
             RefPtr<AudioClip> clip = content.clip;
@@ -560,19 +648,22 @@ export namespace draconic::audio
             {
                 // Music from a cue: resolve ONE variant and cross-fade to it.
                 CueOneShotState* found = m_cueOneShotState.Find(content.cue.Get());
-                CueOneShotState& state = found != nullptr
-                    ? *found
-                    : m_cueOneShotState.InsertOrAssign(content.cue.Get(), CueOneShotState{});
-                const SoundCuePick pick = ResolveSoundCue(*content.cue, m_cueRandom,
-                                                          state.lastVariant,
-                                                          state.sequentialCursor);
+                CueOneShotState& state =
+                    found != nullptr
+                        ? *found
+                        : m_cueOneShotState.InsertOrAssign(content.cue.Get(), CueOneShotState{});
+                const SoundCuePick pick = ResolveSoundCue(
+                    *content.cue, m_cueRandom, state.lastVariant, state.sequentialCursor);
                 if (pick.variantIndex >= 0)
                 {
                     state.lastVariant = pick.variantIndex;
                     clip = content.cue->variants[static_cast<usize>(pick.variantIndex)].clip;
                 }
             }
-            if (clip.Get() == nullptr) { return {}; }
+            if (clip.Get() == nullptr)
+            {
+                return {};
+            }
             return PlayMusic(clip, crossFadeSeconds);
         }
 
@@ -580,17 +671,23 @@ export namespace draconic::audio
         VoiceHandle PlayMusic(const RefPtr<AudioClip>& clip, f32 crossFadeSeconds = 1.0f,
                               f32 volume = 1.0f)
         {
-            return m_engine.Get() != nullptr
-                ? m_engine->PlayMusic(clip, crossFadeSeconds, volume) : VoiceHandle{};
+            return m_engine.Get() != nullptr ? m_engine->PlayMusic(clip, crossFadeSeconds, volume)
+                                             : VoiceHandle{};
         }
         void StopMusic(f32 fadeSeconds = 1.0f)
         {
-            if (m_engine.Get() != nullptr) { m_engine->StopMusic(fadeSeconds); }
+            if (m_engine.Get() != nullptr)
+            {
+                m_engine->StopMusic(fadeSeconds);
+            }
         }
 
         void Stop(VoiceHandle handle)
         {
-            if (m_engine.Get() != nullptr) { m_engine->Stop(handle); }
+            if (m_engine.Get() != nullptr)
+            {
+                m_engine->Stop(handle);
+            }
         }
         [[nodiscard]] bool IsPlaying(VoiceHandle handle) const
         {
@@ -599,7 +696,10 @@ export namespace draconic::audio
 
         void SetBusVolume(AudioBus bus, f32 volume)
         {
-            if (m_engine.Get() != nullptr) { m_engine->SetBusVolume(bus, volume); }
+            if (m_engine.Get() != nullptr)
+            {
+                m_engine->SetBusVolume(bus, volume);
+            }
         }
         [[nodiscard]] f32 BusVolume(AudioBus bus) const
         {
@@ -612,7 +712,7 @@ export namespace draconic::audio
             m_engine = MakeUnique<AudioEngine>(DefaultAllocator(), m_engineSettings);
             for (const SceneEntry& entry : m_systems)
             {
-                entry.system->SetEngine(m_engine.Get());   // scenes created pre-init
+                entry.system->SetEngine(m_engine.Get()); // scenes created pre-init
             }
             RegisterAudioComponentReflection();
         }
@@ -645,7 +745,7 @@ export namespace draconic::audio
         };
         [[nodiscard]] Span<const SceneEntry> Systems() const noexcept
         {
-            return Span<const SceneEntry>{ m_systems.Data(), m_systems.Size() };
+            return Span<const SceneEntry>{m_systems.Data(), m_systems.Size()};
         }
 
     private:
@@ -657,8 +757,8 @@ export namespace draconic::audio
 
         // Path -> cooked product, sniffed by the instance's TYPE name. Binding through
         // the manager caches the product exactly like component refs do.
-        [[nodiscard]] ResolvedPathContent ResolveContentPath(
-            draconic::resource::ResourceManager& resources, StringView path)
+        [[nodiscard]] ResolvedPathContent
+        ResolveContentPath(draconic::resource::ResourceManager& resources, StringView path)
         {
             ResolvedPathContent result;
             draconic::content::Instance* instance = resources.Database().GetInstance(path);
@@ -677,8 +777,7 @@ export namespace draconic::audio
             }
             else if (instance->TypeName() == u8"AudioClipSource")
             {
-                result.clip =
-                    RefPtr<AudioClip>(resources.Bind<AudioClip>(instance->Id()).Get());
+                result.clip = RefPtr<AudioClip>(resources.Bind<AudioClip>(instance->Id()).Get());
                 if (result.clip.Get() == nullptr)
                 {
                     WarnPathOnce(path, u8"audio clip failed to load (uncooked?)");
@@ -694,26 +793,38 @@ export namespace draconic::audio
         void WarnPathOnce(StringView path, StringView reason)
         {
             String key(path);
-            if (m_warnedScriptPaths.Find(key) != nullptr) { return; }
+            if (m_warnedScriptPaths.Find(key) != nullptr)
+            {
+                return;
+            }
             m_warnedScriptPaths.InsertOrAssign(Move(key), true);
-            DRACONIC_LOG_WARNING(u8"Audio", u8"script audio play '{}': {} - call ignored "
-                                 u8"(warned once per path)", path, reason);
+            DRACONIC_LOG_WARNING(u8"Audio",
+                                 u8"script audio play '{}': {} - call ignored "
+                                 u8"(warned once per path)",
+                                 path, reason);
         }
 
         [[nodiscard]] VoiceHandle PlayCueResolved(const RefPtr<SoundCue>& cue,
                                                   AudioPlayParams params)
         {
-            if (m_engine.Get() == nullptr || cue.Get() == nullptr) { return {}; }
+            if (m_engine.Get() == nullptr || cue.Get() == nullptr)
+            {
+                return {};
+            }
             CueOneShotState* found = m_cueOneShotState.Find(cue.Get());
-            CueOneShotState& state = found != nullptr
-                ? *found : m_cueOneShotState.InsertOrAssign(cue.Get(), CueOneShotState{});
+            CueOneShotState& state =
+                found != nullptr ? *found
+                                 : m_cueOneShotState.InsertOrAssign(cue.Get(), CueOneShotState{});
             const SoundCuePick pick =
                 ResolveSoundCue(*cue, m_cueRandom, state.lastVariant, state.sequentialCursor);
-            if (pick.variantIndex < 0) { return {}; }
+            if (pick.variantIndex < 0)
+            {
+                return {};
+            }
             state.lastVariant = pick.variantIndex;
             params.pitch *= pick.pitch;
             params.volume *= pick.volume;
-            params.allowDedupe = false;   // distinct triggers, never merged
+            params.allowDedupe = false; // distinct triggers, never merged
             return m_engine->Play(cue->variants[static_cast<usize>(pick.variantIndex)].clip,
                                   params);
         }
@@ -729,8 +840,8 @@ export namespace draconic::audio
         Array<SceneEntry> m_systems;
         Random m_cueRandom;
         HashMap<const SoundCue*, CueOneShotState> m_cueOneShotState;
-        AudioScriptBinding m_scriptBinding;          // the bound script service payload
-        HashMap<String, bool> m_warnedScriptPaths;   // warn-once per content path
+        AudioScriptBinding m_scriptBinding;        // the bound script service payload
+        HashMap<String, bool> m_warnedScriptPaths; // warn-once per content path
     };
     // The scripting facade (the Input facade's twin): statics on a foreign class
     // resolving the CURRENT script context's bound AudioScriptBinding. Bus addressing
@@ -746,8 +857,8 @@ export namespace draconic::audio
         {
             draconic::script::IScriptContext* context = draconic::script::CurrentScriptContext();
             return context != nullptr
-                ? static_cast<AudioScriptBinding*>(context->GetService(kAudioScriptService))
-                : nullptr;
+                       ? static_cast<AudioScriptBinding*>(context->GetService(kAudioScriptService))
+                       : nullptr;
         }
 
         [[nodiscard]] static AudioEngine* Resolve()
@@ -758,12 +869,13 @@ export namespace draconic::audio
 
         // Playback binding: subsystem + resource manager both required (the binding
         // carries them when the host wired a manager into ExposeToScript).
-        [[nodiscard]] static bool ResolvePlayback(AudioSubsystem*& outSubsystem,
-                                                  draconic::resource::ResourceManager*& outResources)
+        [[nodiscard]] static bool
+        ResolvePlayback(AudioSubsystem*& outSubsystem,
+                        draconic::resource::ResourceManager*& outResources)
         {
             AudioScriptBinding* binding = ResolveBinding();
-            if (binding == nullptr || binding->subsystem == nullptr
-                || binding->resources == nullptr)
+            if (binding == nullptr || binding->subsystem == nullptr ||
+                binding->resources == nullptr)
             {
                 return false;
             }
@@ -777,38 +889,48 @@ export namespace draconic::audio
         {
             AudioSubsystem* subsystem = nullptr;
             draconic::resource::ResourceManager* resources = nullptr;
-            if (!ResolvePlayback(subsystem, resources)) { return false; }
+            if (!ResolvePlayback(subsystem, resources))
+            {
+                return false;
+            }
             return subsystem->PlayOneShotByPath(*resources, path.AsView()).IsValid();
         }
         static bool playOneShot3D(String path, f32 x, f32 y, f32 z)
         {
             AudioSubsystem* subsystem = nullptr;
             draconic::resource::ResourceManager* resources = nullptr;
-            if (!ResolvePlayback(subsystem, resources)) { return false; }
-            return subsystem
-                ->PlayOneShot3DByPath(*resources, path.AsView(), Float3{ x, y, z })
+            if (!ResolvePlayback(subsystem, resources))
+            {
+                return false;
+            }
+            return subsystem->PlayOneShot3DByPath(*resources, path.AsView(), Float3{x, y, z})
                 .IsValid();
         }
         static bool playCue(String path)
         {
             AudioSubsystem* subsystem = nullptr;
             draconic::resource::ResourceManager* resources = nullptr;
-            if (!ResolvePlayback(subsystem, resources)) { return false; }
+            if (!ResolvePlayback(subsystem, resources))
+            {
+                return false;
+            }
             return subsystem->PlayCueByPath(*resources, path.AsView()).IsValid();
         }
         static bool playMusic(String path, f32 fadeSeconds)
         {
             AudioSubsystem* subsystem = nullptr;
             draconic::resource::ResourceManager* resources = nullptr;
-            if (!ResolvePlayback(subsystem, resources)) { return false; }
-            return subsystem
-                ->PlayMusicByPath(*resources, path.AsView(), Max(fadeSeconds, 0.0f))
+            if (!ResolvePlayback(subsystem, resources))
+            {
+                return false;
+            }
+            return subsystem->PlayMusicByPath(*resources, path.AsView(), Max(fadeSeconds, 0.0f))
                 .IsValid();
         }
 
         [[nodiscard]] static bool BusFromName(StringView name, AudioBus& out)
         {
-            return AudioBusFromName(name, out);   // the shared case-insensitive seam
+            return AudioBusFromName(name, out); // the shared case-insensitive seam
         }
 
         // Bus addressing: the four fixed names first, then the applied layout's NAMED
@@ -816,40 +938,72 @@ export namespace draconic::audio
         static void setBusVolume(String bus, f32 volume)
         {
             AudioEngine* engine = Resolve();
-            if (engine == nullptr) { return; }
+            if (engine == nullptr)
+            {
+                return;
+            }
             AudioBus which{};
             const f32 clamped = Clamp(volume, 0.0f, 4.0f);
-            if (BusFromName(bus.AsView(), which)) { engine->SetBusVolume(which, clamped); }
-            else { engine->SetNamedBusVolume(bus.AsView(), clamped); }
+            if (BusFromName(bus.AsView(), which))
+            {
+                engine->SetBusVolume(which, clamped);
+            }
+            else
+            {
+                engine->SetNamedBusVolume(bus.AsView(), clamped);
+            }
         }
         [[nodiscard]] static f32 busVolume(String bus)
         {
             AudioEngine* engine = Resolve();
-            if (engine == nullptr) { return 1.0f; }
+            if (engine == nullptr)
+            {
+                return 1.0f;
+            }
             AudioBus which{};
-            if (BusFromName(bus.AsView(), which)) { return engine->BusVolume(which); }
-            return engine->HasNamedBus(bus.AsView())
-                ? engine->NamedBusVolume(bus.AsView()) : 1.0f;
+            if (BusFromName(bus.AsView(), which))
+            {
+                return engine->BusVolume(which);
+            }
+            return engine->HasNamedBus(bus.AsView()) ? engine->NamedBusVolume(bus.AsView()) : 1.0f;
         }
         static void setBusMuted(String bus, bool muted)
         {
             AudioEngine* engine = Resolve();
-            if (engine == nullptr) { return; }
+            if (engine == nullptr)
+            {
+                return;
+            }
             AudioBus which{};
-            if (BusFromName(bus.AsView(), which)) { engine->SetBusMuted(which, muted); }
-            else { engine->SetNamedBusMuted(bus.AsView(), muted); }
+            if (BusFromName(bus.AsView(), which))
+            {
+                engine->SetBusMuted(which, muted);
+            }
+            else
+            {
+                engine->SetNamedBusMuted(bus.AsView(), muted);
+            }
         }
         [[nodiscard]] static bool busMuted(String bus)
         {
             AudioEngine* engine = Resolve();
-            if (engine == nullptr) { return false; }
+            if (engine == nullptr)
+            {
+                return false;
+            }
             AudioBus which{};
-            if (BusFromName(bus.AsView(), which)) { return engine->BusMuted(which); }
+            if (BusFromName(bus.AsView(), which))
+            {
+                return engine->BusMuted(which);
+            }
             return engine->NamedBusMuted(bus.AsView());
         }
         static void stopMusic(f32 fadeSeconds)
         {
-            if (AudioEngine* engine = Resolve()) { engine->StopMusic(fadeSeconds); }
+            if (AudioEngine* engine = Resolve())
+            {
+                engine->StopMusic(fadeSeconds);
+            }
         }
     };
 

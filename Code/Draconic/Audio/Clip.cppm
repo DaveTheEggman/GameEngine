@@ -54,14 +54,14 @@ export namespace draconic::audio
         u32 sampleRate = 0;
         u64 frameCount = 0;
         f32 durationSeconds = 0.0f;
-        f32 gain = 1.0f;            // authored gain, folded into every voice's volume
-        bool loop = false;          // default loop intent (a play request may override)
-        u64 loopStartFrame = 0;     // loop points (loopEndFrame 0 = clip end)
+        f32 gain = 1.0f;        // authored gain, folded into every voice's volume
+        bool loop = false;      // default loop intent (a play request may override)
+        u64 loopStartFrame = 0; // loop points (loopEndFrame 0 = clip end)
         u64 loopEndFrame = 0;
-        bool stream = false;        // decode on the fly from `streamSource`
+        bool stream = false; // decode on the fly from `streamSource`
         bool keepCompressed = false;
-        Array<byte> encodedData;                     // original container bytes (!stream)
-        UniquePtr<IAudioStreamSource> streamSource;  // re-openable source (stream)
+        Array<byte> encodedData;                    // original container bytes (!stream)
+        UniquePtr<IAudioStreamSource> streamSource; // re-openable source (stream)
 
         [[nodiscard]] Span<const byte> EncodedBytes() const noexcept
         {

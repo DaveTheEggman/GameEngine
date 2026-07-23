@@ -41,10 +41,10 @@ export namespace draconic::audio
         f32 gain = 1.0f;
         bool loop = false;
         u64 loopStartFrame = 0;
-        u64 loopEndFrame = 0;        // 0 = clip end
+        u64 loopEndFrame = 0; // 0 = clip end
         bool stream = false;
         bool keepCompressed = false;
-        String containerExtension;   // recorded decoder hint ("wav"/"ogg"/"mp3"/"flac")
+        String containerExtension; // recorded decoder hint ("wav"/"ogg"/"mp3"/"flac")
 
         void Serialize(ISerializer& ar) override
         {
@@ -69,7 +69,9 @@ export namespace draconic::audio
     {
     public:
         explicit ContentInstanceStreamSource(draconic::content::Instance& instance) noexcept
-            : m_instance(&instance) {}
+            : m_instance(&instance)
+        {
+        }
 
         [[nodiscard]] UniquePtr<IStream> OpenStream() override
         {
@@ -93,7 +95,10 @@ export namespace draconic::audio
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             AudioClipSource* source = Cast<AudioClipSource>(object.Get());
-            if (source == nullptr) { return RefPtr<Object>{}; }
+            if (source == nullptr)
+            {
+                return RefPtr<Object>{};
+            }
 
             RefPtr<AudioClip> clip = MakeRef<AudioClip>(DefaultAllocator());
             clip->channels = source->channels;
@@ -116,12 +121,18 @@ export namespace draconic::audio
             else
             {
                 UniquePtr<IStream> data = instance.ReadData(u8"data");
-                if (data.Get() == nullptr) { return RefPtr<Object>{}; }
+                if (data.Get() == nullptr)
+                {
+                    return RefPtr<Object>{};
+                }
                 const i64 size = data->Size();
-                if (size <= 0) { return RefPtr<Object>{}; }
+                if (size <= 0)
+                {
+                    return RefPtr<Object>{};
+                }
                 clip->encodedData.Resize(static_cast<usize>(size));
-                if (data->Read(clip->encodedData.Data(), static_cast<u64>(size))
-                    != static_cast<u64>(size))
+                if (data->Read(clip->encodedData.Data(), static_cast<u64>(size)) !=
+                    static_cast<u64>(size))
                 {
                     return RefPtr<Object>{};
                 }
@@ -144,12 +155,16 @@ export namespace draconic::audio
 
         void Serialize(ISerializer& ar) override
         {
-            auto serializeSettings = [&ar](AudioBusSettings& settings) {
+            auto serializeSettings = [&ar](AudioBusSettings& settings)
+            {
                 draconic::core::Serialize(ar, "volume", settings.volume);
                 draconic::core::Serialize(ar, "muted", settings.muted);
                 u32 effectCount = static_cast<u32>(settings.effects.Size());
                 draconic::core::Serialize(ar, "effectCount", effectCount);
-                if (ar.Mode() == SerializeMode::Read) { settings.effects.Resize(effectCount); }
+                if (ar.Mode() == SerializeMode::Read)
+                {
+                    settings.effects.Resize(effectCount);
+                }
                 for (u32 i = 0; i < effectCount; ++i)
                 {
                     AudioBusEffectDesc& effect = settings.effects[i];
@@ -173,7 +188,7 @@ export namespace draconic::audio
                 serializeSettings(layout.buses[bus]);
             }
 
-            if (ar.Version() >= 2)   // v2: named custom buses (generic, growable)
+            if (ar.Version() >= 2) // v2: named custom buses (generic, growable)
             {
                 u32 customCount = static_cast<u32>(layout.customBuses.Size());
                 draconic::core::Serialize(ar, "customBusCount", customCount);
@@ -213,7 +228,10 @@ export namespace draconic::audio
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             AudioBusLayoutSource* source = Cast<AudioBusLayoutSource>(object.Get());
-            if (source == nullptr) { return RefPtr<Object>{}; }
+            if (source == nullptr)
+            {
+                return RefPtr<Object>{};
+            }
             RefPtr<AudioBusLayoutResource> resource =
                 MakeRef<AudioBusLayoutResource>(DefaultAllocator());
             resource->layout = source->layout;
@@ -233,7 +251,7 @@ export namespace draconic::audio
             f32 weight = 1.0f;
         };
         Array<Variant> variants;
-        u8 mode = 0;              // SoundCueMode
+        u8 mode = 0; // SoundCueMode
         f32 pitchMin = 1.0f;
         f32 pitchMax = 1.0f;
         f32 volumeMin = 1.0f;
@@ -243,7 +261,10 @@ export namespace draconic::audio
         {
             u32 count = static_cast<u32>(variants.Size());
             draconic::core::Serialize(ar, "variantCount", count);
-            if (ar.Mode() == SerializeMode::Read) { variants.Resize(count); }
+            if (ar.Mode() == SerializeMode::Read)
+            {
+                variants.Resize(count);
+            }
             for (u32 i = 0; i < count; ++i)
             {
                 ar.Key("clip");
@@ -271,7 +292,10 @@ export namespace draconic::audio
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             SoundCueSource* source = Cast<SoundCueSource>(object.Get());
-            if (source == nullptr) { return RefPtr<Object>{}; }
+            if (source == nullptr)
+            {
+                return RefPtr<Object>{};
+            }
             RefPtr<SoundCue> cue = MakeRef<SoundCue>(DefaultAllocator());
             cue->mode = static_cast<SoundCueMode>(source->mode);
             cue->pitchMin = source->pitchMin;
