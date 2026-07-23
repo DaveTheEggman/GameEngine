@@ -92,82 +92,21 @@ export namespace draconic::editor
         }
 
         /// Per-frame: rebuild the snapshot when the scene changed, keep selection in sync.
-        void Refresh()
-        {
-            if (m_edit->Scene().Revision() != m_revision)
-            {
-                m_revision = m_edit->Scene().Revision();
-                RebuildSnapshot();
-            }
-        }
+        void Refresh();
 
         /// Begin the in-place rename of an entity (F2 / context menu; double-click and
         /// slow-click on the row do the same via the EditableLabel itself).
-        void BeginRename(const Guid& entity)
-        {
-            ui::FlattenedTreeAdapter* flat = m_tree->InternalTreeView()->FlatAdapter();
-            if (flat == nullptr)
-            {
-                return;
-            }
-            for (i32 pos = 0; pos < flat->ItemCount(); ++pos)
-            {
-                if (GuidOfNode(flat->GetNodeId(pos)) == entity)
-                {
-                    m_tree->InternalTreeView()->InternalListView()->ScrollToPosition(pos);
-                    if (auto* row = static_cast<Row*>(
-                            m_tree->InternalTreeView()->InternalListView()->GetActiveView(pos)))
-                    {
-                        row->BeginEdit();
-                    }
-                    return;
-                }
-            }
-        }
+        void BeginRename(const Guid& entity);
 
         [[nodiscard]] ui::toolkit::DraggableTreeView* Tree() const noexcept { return m_tree.Get(); }
         [[nodiscard]] usize NodeCount() const noexcept { return m_nodes.Size(); }
 
         // Right-click on empty space (below the rows): create a root entity.
-        void OnMouseDown(ui::MouseEventArgs& e) override
-        {
-            if (e.Button == ui::MouseButton::Right && Context != nullptr)
-            {
-                auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
-                SceneEditContext* edit = m_edit;
-                SceneHierarchyView* self = this;
-                menu->AddItem(u8"Create Entity",
-                              [edit]() { (void)edit->CreateEntity(u8"Entity"); });
-                menu->AddItem(u8"Spawn Prefab...",
-                              [self]()
-                              {
-                                  if (self->OnSpawnPrefab)
-                                  {
-                                      self->OnSpawnPrefab(Guid{});
-                                  }
-                              });
-                const Float2 screenPos = LocalToScreen(Float2{e.X, e.Y});
-                menu->Show(Context, screenPos.x, screenPos.y);
-                e.Handled = true;
-            }
-        }
+        void OnMouseDown(ui::MouseEventArgs& e) override;
 
         // Fill the available space (wrap-to-children would fight the virtualized tree).
-        void OnMeasure(ui::BoxConstraints constraints) override
-        {
-            for (usize i = 0; i < ChildCount(); ++i)
-            {
-                GetChildAt(i)->Measure(constraints);
-            }
-            MeasuredSize = Float2{constraints.MaxWidth, constraints.MaxHeight};
-        }
-        void OnLayout(f32, f32, f32 width, f32 height) override
-        {
-            for (usize i = 0; i < ChildCount(); ++i)
-            {
-                GetChildAt(i)->Layout(0, 0, width, height);
-            }
-        }
+        void OnMeasure(ui::BoxConstraints constraints) override;
+        void OnLayout(f32, f32, f32 width, f32 height) override;
 
     private:
         struct Node
@@ -345,375 +284,30 @@ export namespace draconic::editor
             SceneHierarchyView* m_owner;
         };
 
-        void WireEvents()
-        {
-            ui::TreeView* tree = m_tree->InternalTreeView();
-            SceneHierarchyView* self = this;
-
-            tree->OnItemClick.Add(
-                [self](ui::TreeView::ItemClickInfo info)
-                {
-                    if (self->m_syncing)
-                    {
-                        return;
-                    }
-                    const Guid id = self->GuidOfNode(info.NodeId);
-                    if (id != Guid{})
-                    {
-                        self->m_syncing = true;
-                        self->m_edit->EntitySelection().Set(id);
-                        self->m_syncing = false;
-                    }
-                });
-
-            tree->OnItemRightClick.Add(
-                [self](i32 nodeId, f32 x, f32 y)
-                {
-                    const Guid id = self->GuidOfNode(nodeId);
-                    if (id == Guid{} || self->Context == nullptr)
-                    {
-                        return;
-                    }
-                    self->m_edit->EntitySelection().Set(id);
-
-                    SceneEditContext* edit = self->m_edit;
-                    auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
-                    menu->AddItem(u8"Create Child",
-                                  [edit, id]() { (void)edit->CreateEntity(u8"Entity", id); });
-                    menu->AddItem(u8"Rename", [self, id]() { self->BeginRename(id); });
-                    menu->AddSeparator();
-                    menu->AddItem(u8"Duplicate", [edit, id]() { (void)edit->DuplicateEntity(id); });
-                    menu->AddItem(u8"Create Prefab from Selection",
-                                  [self, id]()
-                                  {
-                                      if (self->OnCreatePrefab)
-                                      {
-                                          self->OnCreatePrefab(id);
-                                      }
-                                  });
-                    menu->AddItem(u8"Spawn Prefab as Child",
-                                  [self, id]()
-                                  {
-                                      if (self->OnSpawnPrefab)
-                                      {
-                                          self->OnSpawnPrefab(id);
-                                      }
-                                  });
-                    menu->AddItem(u8"Spawn Prefab at Root",
-                                  [self]()
-                                  {
-                                      if (self->OnSpawnPrefab)
-                                      {
-                                          self->OnSpawnPrefab(Guid{});
-                                      }
-                                  });
-                    scene::PrefabMemberInfo member;
-                    if (scene::FindPrefabMember(edit->Scene(), id, member))
-                    {
-                        // Reachable from ANY member, acting on the whole owning instance.
-                        const Guid rootId = member.state->rootEntityId;
-                        menu->AddSeparator();
-                        menu->AddItem(u8"Apply to Prefab",
-                                      [self, rootId]()
-                                      {
-                                          if (self->OnApplyPrefab)
-                                          {
-                                              self->OnApplyPrefab(rootId);
-                                          }
-                                      });
-                        menu->AddItem(u8"Revert Instance",
-                                      [self, rootId]()
-                                      {
-                                          if (self->OnRevertPrefab)
-                                          {
-                                              self->OnRevertPrefab(rootId);
-                                          }
-                                      });
-                    }
-                    if (EditorContext* editor = self->m_editor)
-                    {
-                        menu->AddItem(u8"Copy",
-                                      [edit, editor, id]()
-                                      {
-                                          Array<byte> blob = edit->CopyEntity(id);
-                                          if (!blob.IsEmpty())
-                                          {
-                                              editor->SetClipboard(u8"entities", Move(blob));
-                                          }
-                                      });
-                        const Span<const byte> clip = editor->ClipboardData(u8"entities");
-                        menu->AddItem(
-                            u8"Paste as Child", [edit, editor, id]()
-                            { (void)edit->PasteEntities(editor->ClipboardData(u8"entities"), id); },
-                            !clip.IsEmpty());
-                    }
-                    menu->AddSeparator();
-                    menu->AddItem(u8"Delete", [edit, id]() { edit->DestroyEntity(id); });
-                    const Float2 screenPos =
-                        self->m_tree->InternalTreeView()->LocalToScreen(Float2{x, y});
-                    menu->Show(self->Context, screenPos.x, screenPos.y);
-                });
-
-            // Right-click on empty space below the rows: the ListView consumes ALL right-clicks
-            // (its contract) and routes background ones here - the OnMouseDown fallback on this
-            // view never fires while the tree fills the pane.
-            tree->InternalListView()->OnBackgroundRightClicked.Add(
-                [self](f32 x, f32 y)
-                {
-                    if (self->Context == nullptr)
-                    {
-                        return;
-                    }
-                    SceneEditContext* edit = self->m_edit;
-                    auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
-                    menu->AddItem(u8"Create Entity",
-                                  [edit]() { (void)edit->CreateEntity(u8"Entity"); });
-                    menu->AddItem(u8"Spawn Prefab...",
-                                  [self]()
-                                  {
-                                      if (self->OnSpawnPrefab)
-                                      {
-                                          self->OnSpawnPrefab(Guid{});
-                                      }
-                                  });
-                    if (EditorContext* editor = self->m_editor)
-                    {
-                        const Span<const byte> clip = editor->ClipboardData(u8"entities");
-                        menu->AddItem(
-                            u8"Paste", [edit, editor]()
-                            { (void)edit->PasteEntities(editor->ClipboardData(u8"entities")); },
-                            !clip.IsEmpty());
-                    }
-                    const Float2 screenPos =
-                        self->m_tree->InternalTreeView()->InternalListView()->LocalToScreen(
-                            Float2{x, y});
-                    menu->Show(self->Context, screenPos.x, screenPos.y);
-                });
-
-            tree->OnItemKeyDown.Add(
-                [self](i32 nodeId, ui::KeyEventArgs& e)
-                {
-                    const Guid id = self->GuidOfNode(nodeId);
-                    if (id == Guid{})
-                    {
-                        return;
-                    }
-                    if (e.Key == ui::KeyCode::F2)
-                    {
-                        self->BeginRename(id);
-                        e.Handled = true;
-                    }
-                    else if (e.Key == ui::KeyCode::Delete)
-                    {
-                        self->m_edit->DestroyEntity(id);
-                        e.Handled = true;
-                    }
-                });
-
-            m_filterEdit->OnTextChanged.Add(
-                [self](ui::EditText* edit)
-                {
-                    self->m_filter = String(edit->Text());
-                    self->RebuildSnapshot(); // filter changes rebuild regardless of revision
-                });
-
-            // Tree selection -> context selection is on click above; context -> tree here.
-            m_edit->EntitySelection().OnChanged = [self]()
-            {
-                if (self->m_syncing)
-                {
-                    return;
-                }
-                self->SyncSelectionToTree();
-            };
-        }
+        void WireEvents();
 
         // ASCII-case-insensitive substring match (v1 filter; UTF-8 folding later if needed).
-        [[nodiscard]] static bool MatchesFilter(StringView name, StringView filter)
-        {
-            if (filter.IsEmpty())
-            {
-                return true;
-            }
-            if (name.Size() < filter.Size())
-            {
-                return false;
-            }
-            auto lower = [](utf8char c)
-            {
-                return (c >= utf8char('A') && c <= utf8char('Z')) ? static_cast<utf8char>(c + 32)
-                                                                  : c;
-            };
-            for (usize i = 0; i + filter.Size() <= name.Size(); ++i)
-            {
-                bool match = true;
-                for (usize j = 0; j < filter.Size(); ++j)
-                {
-                    if (lower(name[i + j]) != lower(filter[j]))
-                    {
-                        match = false;
-                        break;
-                    }
-                }
-                if (match)
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
+        [[nodiscard]] static bool MatchesFilter(StringView name, StringView filter);
 
         // True if the entity or ANY descendant matches (so ancestors of matches stay visible).
-        [[nodiscard]] bool SubtreeMatches(scene::Scene& scene, scene::EntityHandle e) const
-        {
-            if (MatchesFilter(scene.GetEntityName(e), m_filter.AsView()))
-            {
-                return true;
-            }
-            for (scene::EntityHandle c = scene.GetFirstChild(e); c.IsAssigned();
-                 c = scene.GetNextSibling(c))
-            {
-                if (SubtreeMatches(scene, c))
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
+        [[nodiscard]] bool SubtreeMatches(scene::Scene& scene, scene::EntityHandle e) const;
 
         // Collapse state is keyed by entity Guid so it survives rebuilds: before the snapshot
         // is thrown away, fold the current expand state into m_collapsed (entities absent from
         // the snapshot - e.g. filtered out - keep their remembered state).
-        void CaptureCollapseState()
-        {
-            ui::FlattenedTreeAdapter* flat = m_tree->InternalTreeView()->FlatAdapter();
-            if (flat == nullptr)
-            {
-                return;
-            }
-            for (usize i = 0; i < m_nodes.Size(); ++i)
-            {
-                if (m_nodes[i].children.IsEmpty())
-                {
-                    continue;
-                }
-                if (flat->IsExpanded(static_cast<i32>(i)))
-                {
-                    m_collapsed.Remove(m_nodes[i].id);
-                }
-                else
-                {
-                    m_collapsed.Insert(m_nodes[i].id);
-                }
-            }
-        }
+        void CaptureCollapseState();
 
-        void RebuildSnapshot()
-        {
-            CaptureCollapseState();
-            m_nodes.Clear();
-            m_roots.Clear();
-            scene::Scene& scene = m_edit->Scene();
+        void RebuildSnapshot();
 
-            // Roots in LIST order (the order reorder edits maintain and serialization
-            // preserves), then depth-first children. With a filter, keep nodes whose subtree
-            // contains a match.
-            for (scene::EntityHandle r = scene.GetFirstRoot(); r.IsAssigned();
-                 r = scene.GetNextSibling(r))
-            {
-                if (SubtreeMatches(scene, r))
-                {
-                    m_roots.PushBack(AddNode(scene, r, 0));
-                }
-            }
+        i32 AddNode(scene::Scene& scene, scene::EntityHandle e, i32 depth);
 
-            // Rebuild the flat view (SetAdapter recreates the flattened tree). New entities
-            // default to expanded so structural edits stay visible; entities the user collapsed
-            // stay collapsed (state captured above, keyed by Guid).
-            m_tree->SetAdapter(m_adapter.Get());
-            ui::FlattenedTreeAdapter* flat = m_tree->InternalTreeView()->FlatAdapter();
-            for (usize i = 0; i < m_nodes.Size(); ++i)
-            {
-                if (m_nodes[i].children.IsEmpty())
-                {
-                    continue;
-                }
-                if (!m_collapsed.Contains(m_nodes[i].id))
-                {
-                    flat->Expand(static_cast<i32>(i));
-                }
-            }
-            m_tree->InternalTreeView()->InternalListView()->NotifyDataChanged();
-            SyncSelectionToTree();
-        }
+        [[nodiscard]] Guid GuidOfNode(i32 nodeId) const;
 
-        i32 AddNode(scene::Scene& scene, scene::EntityHandle e, i32 depth)
-        {
-            const i32 nodeId = static_cast<i32>(m_nodes.Size());
-            Node node;
-            node.id = scene.GetEntityId(e);
-            node.name = String(scene.GetEntityName(e));
-            if (node.name.IsEmpty())
-            {
-                node.name = String(u8"(unnamed)");
-            }
-            node.depth = depth;
-            m_nodes.PushBack(Move(node));
+        [[nodiscard]] Guid GuidAtFlat(i32 flatPosition) const;
 
-            for (scene::EntityHandle c = scene.GetFirstChild(e); c.IsAssigned();
-                 c = scene.GetNextSibling(c))
-            {
-                if (!SubtreeMatches(scene, c))
-                {
-                    continue;
-                }
-                const i32 child = AddNode(scene, c, depth + 1);
-                m_nodes[static_cast<usize>(nodeId)].children.PushBack(child);
-            }
-            return nodeId;
-        }
+        [[nodiscard]] i32 FlatCount() const;
 
-        [[nodiscard]] Guid GuidOfNode(i32 nodeId) const
-        {
-            return (nodeId >= 0 && nodeId < static_cast<i32>(m_nodes.Size()))
-                       ? m_nodes[static_cast<usize>(nodeId)].id
-                       : Guid{};
-        }
-
-        [[nodiscard]] Guid GuidAtFlat(i32 flatPosition) const
-        {
-            ui::FlattenedTreeAdapter* flat = m_tree->InternalTreeView()->FlatAdapter();
-            return (flat != nullptr) ? GuidOfNode(flat->GetNodeId(flatPosition)) : Guid{};
-        }
-
-        [[nodiscard]] i32 FlatCount() const
-        {
-            ui::FlattenedTreeAdapter* flat = m_tree->InternalTreeView()->FlatAdapter();
-            return (flat != nullptr) ? flat->ItemCount() : 0;
-        }
-
-        void SyncSelectionToTree()
-        {
-            const Guid* primary = m_edit->EntitySelection().Primary();
-            ui::SelectionModel& sel = m_tree->Selection();
-            m_syncing = true;
-            if (primary == nullptr)
-            {
-                sel.ClearSelection();
-            }
-            else if (ui::FlattenedTreeAdapter* flat = m_tree->InternalTreeView()->FlatAdapter())
-            {
-                for (i32 pos = 0; pos < flat->ItemCount(); ++pos)
-                {
-                    if (GuidOfNode(flat->GetNodeId(pos)) == *primary)
-                    {
-                        sel.Select(pos);
-                        break;
-                    }
-                }
-            }
-            m_syncing = false;
-        }
+        void SyncSelectionToTree();
 
         SceneEditContext* m_edit;          // borrowed (the page owns it)
         EditorContext* m_editor = nullptr; // borrowed; clipboard home (optional)

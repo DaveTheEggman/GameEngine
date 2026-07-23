@@ -50,28 +50,13 @@ export namespace draconic::editor
         /// materialize components from blobs (paste, duplicate, destroy-undo) resolve the
         /// scene's resource refs immediately - without it, a pasted mesh ref stays unbound and
         /// nothing renders until the next scene load runs the resolve pass.
-        void SetResources(draconic::resource::ResourceManager* resources) noexcept
-        {
-            m_resources = resources;
-        }
-        void ResolveRestoredResources()
-        {
-            if (m_resources != nullptr)
-            {
-                scene::ResolveSceneResources(*m_scene, *m_resources);
-            }
-        }
+        void SetResources(draconic::resource::ResourceManager* resources) noexcept;
+        void ResolveRestoredResources();
 
         /// Payload resolver for NESTED prefab records (wired by the page from the source DB).
         /// Without it, spawning a prefab that contains other prefabs skips the nested parts.
-        void SetPrefabResolver(scene::PrefabPayloadResolver resolver)
-        {
-            m_prefabResolver = static_cast<scene::PrefabPayloadResolver&&>(resolver);
-        }
-        [[nodiscard]] const scene::PrefabPayloadResolver* PrefabResolver() const noexcept
-        {
-            return m_prefabResolver ? &m_prefabResolver : nullptr;
-        }
+        void SetPrefabResolver(scene::PrefabPayloadResolver resolver);
+        [[nodiscard]] const scene::PrefabPayloadResolver* PrefabResolver() const noexcept;
 
         /// Per-page entity selection, by persistent Guid (survives destroy/undo round-trips).
         [[nodiscard]] Selection<Guid>& EntitySelection() noexcept { return m_selection; }
@@ -85,265 +70,66 @@ export namespace draconic::editor
         // repeatedly and across scenes/pages. Blob kind for the editor clipboard: "entities".
 
         /// Capture `entity`'s subtree into a clipboard blob (empty on failure).
-        [[nodiscard]] Array<byte> CopyEntity(const Guid& entity)
-        {
-            Array<byte> blob;
-            const scene::EntityHandle root = Resolve(entity);
-            if (!root.IsAssigned())
-            {
-                return blob;
-            }
-            Array<SubtreeRecord> records;
-            CaptureSubtreeRecords(root, records);
-            MemoryStream buffer;
-            BinarySerializer ar(buffer, SerializeMode::Write);
-            WriteSubtreeRecords(ar, records);
-            if (!ar.IsOk())
-            {
-                return blob;
-            }
-            const Span<const byte> bytes = buffer.Bytes();
-            blob.Reserve(bytes.Size());
-            for (byte b : bytes)
-            {
-                blob.PushBack(b);
-            }
-            return blob;
-        }
+        [[nodiscard]] Array<byte> CopyEntity(const Guid& entity);
 
         /// Paste a captured subtree as a child of `parent` (root when nil/unresolvable).
         /// Returns the new root entity's Guid (nil on failure); it becomes the selection.
-        Guid PasteEntities(Span<const byte> blob, const Guid& parent = Guid{})
-        {
-            Array<SubtreeRecord> records = ParseSubtreeBlob(blob);
-            if (records.IsEmpty())
-            {
-                return Guid{};
-            }
-            return RunPasteCommand(Move(records), parent);
-        }
+        Guid PasteEntities(Span<const byte> blob, const Guid& parent = Guid{});
 
         /// Duplicate an entity subtree as a sibling (same parent). Returns the copy's root
         /// Guid (nil on failure); it becomes the selection. One undo step.
-        Guid DuplicateEntity(const Guid& entity)
-        {
-            const scene::EntityHandle root = Resolve(entity);
-            if (!root.IsAssigned())
-            {
-                return Guid{};
-            }
-            Array<SubtreeRecord> records;
-            CaptureSubtreeRecords(root, records);
-            if (records.IsEmpty())
-            {
-                return Guid{};
-            }
-            const Guid parent = m_scene->GetEntityId(m_scene->GetParent(root));
-            // "Box" -> "Box (2)" (first free counter among the copy's future siblings), so
-            // original and copy are distinguishable at a glance.
-            records[0].name = UniqueSiblingName(records[0].name.AsView(), m_scene->GetParent(root));
-            return RunPasteCommand(Move(records), parent);
-        }
+        Guid DuplicateEntity(const Guid& entity);
 
-        [[nodiscard]] String UniqueSiblingName(StringView base, scene::EntityHandle parent)
-        {
-            // Strip an existing " (n)" suffix so "Box (2)" duplicates to "Box (3)", not
-            // "Box (2) (2)".
-            StringView stem = base;
-            if (!stem.IsEmpty() && stem[stem.Size() - 1] == utf8char(')'))
-            {
-                usize open = stem.Size();
-                for (usize i = stem.Size(); i > 0; --i)
-                {
-                    if (stem[i - 1] == utf8char('('))
-                    {
-                        open = i - 1;
-                        break;
-                    }
-                }
-                if (open >= 2 && stem[open - 1] == utf8char(' '))
-                {
-                    stem = stem.SubStr(0, open - 1);
-                }
-            }
-            for (u32 counter = 2;; ++counter)
-            {
-                String candidate(stem);
-                candidate += u8" (";
-                utf8char digits[12];
-                u32 value = counter, n = 0;
-                do
-                {
-                    digits[n++] = static_cast<utf8char>('0' + (value % 10));
-                    value /= 10;
-                } while (value != 0);
-                while (n > 0)
-                {
-                    candidate.PushBack(digits[--n]);
-                }
-                candidate += u8")";
-                bool taken = false;
-                m_scene->ForEachEntity(
-                    [&](scene::EntityHandle e)
-                    {
-                        if (m_scene->GetParent(e) == parent &&
-                            m_scene->GetEntityName(e) == candidate.AsView())
-                        {
-                            taken = true;
-                        }
-                    });
-                if (!taken)
-                {
-                    return candidate;
-                }
-            }
-        }
+        [[nodiscard]] String UniqueSiblingName(StringView base, scene::EntityHandle parent);
 
         // === Component clipboard ===
         // Blob: typeId string + the manager's WriteComponent payload. Kind: "component".
 
         /// Capture one serializable component into a clipboard blob (empty on failure).
-        [[nodiscard]] Array<byte> CopyComponent(const Guid& entity, const TypeInfo* componentType)
-        {
-            Array<byte> blob;
-            const scene::EntityHandle e = Resolve(entity);
-            scene::ComponentManagerBase* mgr = FindManager(componentType);
-            if (!e.IsAssigned() || mgr == nullptr || !mgr->IsSerializable() ||
-                !mgr->HasComponent(e))
-            {
-                return blob;
-            }
-            MemoryStream buffer;
-            BinarySerializer ar(buffer, SerializeMode::Write);
-            String typeId = String(mgr->SerializationTypeId());
-            draconic::core::Serialize(ar, "type", typeId);
-            mgr->WriteComponent(ar, e);
-            if (!ar.IsOk())
-            {
-                return blob;
-            }
-            const Span<const byte> bytes = buffer.Bytes();
-            blob.Reserve(bytes.Size());
-            for (byte b : bytes)
-            {
-                blob.PushBack(b);
-            }
-            return blob;
-        }
+        [[nodiscard]] Array<byte> CopyComponent(const Guid& entity, const TypeInfo* componentType);
 
         /// The component type id a clipboard blob carries ("" when unreadable) - for menu labels.
-        [[nodiscard]] static String PeekComponentTypeId(Span<const byte> blob)
-        {
-            MemoryStream buffer;
-            (void)buffer.Write(blob.Data(), blob.Size());
-            (void)buffer.Seek(0, SeekOrigin::Begin);
-            BinarySerializer ar(buffer, SerializeMode::Read);
-            String typeId;
-            draconic::core::Serialize(ar, "type", typeId);
-            return ar.IsOk() ? typeId : String{};
-        }
+        [[nodiscard]] static String PeekComponentTypeId(Span<const byte> blob);
 
         /// Paste a copied component onto `entity` (adds it, or overwrites the existing one).
         /// Undo restores the prior state exactly. False when the blob/manager doesn't apply.
-        bool PasteComponent(const Guid& entity, Span<const byte> blob)
-        {
-            PasteComponentCommand* raw =
-                DefaultAllocator().New<PasteComponentCommand>(*this, entity, blob);
-            return m_commands->Execute(UniquePtr<IEditorCommand>(raw, DefaultAllocator()));
-        }
+        bool PasteComponent(const Guid& entity, Span<const byte> blob);
 
         /// Resolve a selected/stored Guid to a live handle (Invalid if the entity is gone).
-        [[nodiscard]] scene::EntityHandle Resolve(const Guid& id)
-        {
-            return m_scene->FindEntity(id);
-        }
+        [[nodiscard]] scene::EntityHandle Resolve(const Guid& id);
 
         // === Mutations (each an undoable command; failed executes are dropped by the stack) ===
 
         /// Create an empty entity (child of `parent` when valid). Returns its Guid (empty on
         /// failure). Redo recreates the SAME Guid. The new entity becomes the selection.
-        Guid CreateEntity(StringView name, const Guid& parent = Guid{})
-        {
-            CreateEntityCommand* raw =
-                DefaultAllocator().New<CreateEntityCommand>(*this, name, parent);
-            if (!m_commands->Execute(UniquePtr<IEditorCommand>(raw, DefaultAllocator())))
-            {
-                return Guid{}; // raw was destroyed by the failed Execute
-            }
-            const Guid id = raw->CreatedId();
-            m_selection.Set(id);
-            return id;
-        }
+        Guid CreateEntity(StringView name, const Guid& parent = Guid{});
 
         /// Destroy an entity and its subtree (undo restores everything, components included).
-        void DestroyEntity(const Guid& entity)
-        {
-            if (!Resolve(entity).IsAssigned())
-            {
-                return;
-            }
-            // Deselect the whole doomed subtree up front (selection is not undoable).
-            m_selection.Remove(entity);
-            CollectSubtree(Resolve(entity), [this](scene::EntityHandle e)
-                           { m_selection.Remove(m_scene->GetEntityId(e)); });
-            (void)m_commands->Execute(UniquePtr<IEditorCommand>(
-                DefaultAllocator().New<DestroyEntityCommand>(*this, entity), DefaultAllocator()));
-        }
+        void DestroyEntity(const Guid& entity);
 
         /// Rename an entity (consecutive renames of the same entity merge into one undo entry).
-        void RenameEntity(const Guid& entity, StringView newName)
-        {
-            (void)m_commands->Execute(UniquePtr<IEditorCommand>(
-                DefaultAllocator().New<RenameEntityCommand>(*this, entity, newName),
-                DefaultAllocator()));
-        }
+        void RenameEntity(const Guid& entity, StringView newName);
 
         /// Reparent an entity (`newParent` empty = make root; appended at the END of the new
         /// parent's children). Cycles are refused (the command's Execute fails and drops).
-        void ReparentEntity(const Guid& entity, const Guid& newParent)
-        {
-            (void)m_commands->Execute(UniquePtr<IEditorCommand>(
-                DefaultAllocator().New<ReparentEntityCommand>(*this, entity, newParent),
-                DefaultAllocator()));
-        }
+        void ReparentEntity(const Guid& entity, const Guid& newParent);
 
         /// Sibling reorder: move an entity immediately BEFORE `sibling` (under sibling's
         /// parent), or - when `sibling` is empty - to the END of the root list. Undo restores
         /// the previous parent AND position. Cycles/no-ops are refused.
-        void MoveEntityBefore(const Guid& entity, const Guid& sibling)
-        {
-            (void)m_commands->Execute(UniquePtr<IEditorCommand>(
-                DefaultAllocator().New<MoveEntityCommand>(*this, entity, sibling),
-                DefaultAllocator()));
-        }
+        void MoveEntityBefore(const Guid& entity, const Guid& sibling);
 
         /// Set an entity's active flag (undoable).
-        void SetEntityActive(const Guid& entity, bool active)
-        {
-            (void)m_commands->Execute(UniquePtr<IEditorCommand>(
-                DefaultAllocator().New<SetActiveCommand>(*this, entity, active),
-                DefaultAllocator()));
-        }
+        void SetEntityActive(const Guid& entity, bool active);
 
         /// Set an entity's local transform. Consecutive edits of the same entity MERGE into one
         /// undo entry (inspector field scrubs, gizmo drags).
-        void SetLocalTransform(const Guid& entity, const Transform& transform)
-        {
-            (void)m_commands->Execute(UniquePtr<IEditorCommand>(
-                DefaultAllocator().New<SetTransformCommand>(*this, entity, transform),
-                DefaultAllocator()));
-        }
+        void SetLocalTransform(const Guid& entity, const Transform& transform);
 
         /// Set a reflected component property by Variant. Consecutive edits of the same
         /// entity+component+property MERGE.
         void SetComponentProperty(const Guid& entity, const TypeInfo* componentType,
-                                  const char* property, const Variant& value)
-        {
-            (void)m_commands->Execute(
-                UniquePtr<IEditorCommand>(DefaultAllocator().New<SetComponentPropertyCommand>(
-                                              *this, entity, componentType, property, value),
-                                          DefaultAllocator()));
-        }
+                                  const char* property, const Variant& value);
 
         /// Point a component's resource::Ref<T> property at a new asset (the inspector's
         /// picker): writes the Guid through PropertyInfo::address and rebinds through the
@@ -364,26 +150,14 @@ export namespace draconic::editor
         /// (enums known only by TypeInfo): writes the underlying integer through
         /// PropertyInfo::address. Merges like SetComponentProperty.
         void SetComponentPropertyRaw(const Guid& entity, const TypeInfo* componentType,
-                                     const char* property, i64 value)
-        {
-            (void)m_commands->Execute(
-                UniquePtr<IEditorCommand>(DefaultAllocator().New<SetComponentPropertyCommand>(
-                                              *this, entity, componentType, property, value),
-                                          DefaultAllocator()));
-        }
+                                     const char* property, i64 value);
 
         /// Set a reflected property on a SCENE SYSTEM's settings block (the scene inspector,
         /// shown when no entity is selected). Same merge semantics as SetComponentProperty
         /// (scrubs collapse into one undo entry); the settings instance is re-derived from
         /// the scene each apply.
         void SetSceneSettingProperty(const TypeInfo* settingsType, const char* property,
-                                     const Variant& value)
-        {
-            (void)m_commands->Execute(
-                UniquePtr<IEditorCommand>(DefaultAllocator().New<SetSceneSettingCommand>(
-                                              *this, settingsType, property, value),
-                                          DefaultAllocator()));
-        }
+                                     const Variant& value);
 
         /// Point a scene-system setting's resource::Ref<T> at a new asset (the scene
         /// inspector's picker) - the settings twin of SetComponentResourceRef. NOT merged.
@@ -403,90 +177,28 @@ export namespace draconic::editor
         /// system's own SerializeSettings; undo restores the prior serialized state.
         /// The caller builds the blob from an EDITED COPY - the live settings are only
         /// touched through the command (so undo/redo replay cleanly).
-        bool ApplySceneSettingsBlock(const TypeInfo* settingsType, Array<byte> newBlob)
-        {
-            SetSceneSettingsBlockCommand* raw =
-                DefaultAllocator().New<SetSceneSettingsBlockCommand>(
-                    *this, settingsType, static_cast<Array<byte>&&>(newBlob));
-            return m_commands->Execute(UniquePtr<IEditorCommand>(raw, DefaultAllocator()));
-        }
+        bool ApplySceneSettingsBlock(const TypeInfo* settingsType, Array<byte> newBlob);
 
         /// Enum flavor of SetSceneSettingProperty (underlying integer through
         /// PropertyInfo::address - same reason as SetComponentPropertyRaw).
         void SetSceneSettingPropertyRaw(const TypeInfo* settingsType, const char* property,
-                                        i64 value)
-        {
-            (void)m_commands->Execute(
-                UniquePtr<IEditorCommand>(DefaultAllocator().New<SetSceneSettingCommand>(
-                                              *this, settingsType, property, value),
-                                          DefaultAllocator()));
-        }
+                                        i64 value);
 
         /// The scene system whose SettingsType() is `settingsType` (null if none).
-        [[nodiscard]] scene::SceneSystem* FindSystemBySettingsType(const TypeInfo* settingsType)
-        {
-            scene::SceneSystem* found = nullptr;
-            m_scene->ForEachSystem(
-                [&](scene::SceneSystem& s)
-                {
-                    if (found == nullptr && s.SettingsType() == settingsType)
-                    {
-                        found = &s;
-                    }
-                });
-            return found;
-        }
+        [[nodiscard]] scene::SceneSystem* FindSystemBySettingsType(const TypeInfo* settingsType);
 
         /// Add a default-constructed component (undoable; fails if already present).
-        void AddComponent(const Guid& entity, const TypeInfo* componentType)
-        {
-            (void)m_commands->Execute(UniquePtr<IEditorCommand>(
-                DefaultAllocator().New<AddComponentCommand>(*this, entity, componentType),
-                DefaultAllocator()));
-        }
+        void AddComponent(const Guid& entity, const TypeInfo* componentType);
 
         /// Remove a component (undo restores it - full fidelity via the manager's serialization
         /// when available, else the reflected properties).
-        void RemoveComponent(const Guid& entity, const TypeInfo* componentType)
-        {
-            (void)m_commands->Execute(UniquePtr<IEditorCommand>(
-                DefaultAllocator().New<RemoveComponentCommand>(*this, entity, componentType),
-                DefaultAllocator()));
-        }
+        void RemoveComponent(const Guid& entity, const TypeInfo* componentType);
 
         /// The scene manager whose component type is `type` (null if none).
-        [[nodiscard]] scene::ComponentManagerBase* FindManager(const TypeInfo* type)
-        {
-            scene::ComponentManagerBase* found = nullptr;
-            m_scene->ForEachManager(
-                [&](scene::ComponentManagerBase& mgr)
-                {
-                    if (mgr.ComponentType() == type)
-                    {
-                        found = &mgr;
-                    }
-                });
-            return found;
-        }
+        [[nodiscard]] scene::ComponentManagerBase* FindManager(const TypeInfo* type);
 
         /// True if `possibleAncestor` is `entity` itself or one of its ancestors.
-        [[nodiscard]] bool IsSelfOrAncestor(const Guid& entity, const Guid& possibleAncestor)
-        {
-            scene::EntityHandle e = Resolve(entity);
-            const scene::EntityHandle anc = Resolve(possibleAncestor);
-            if (!anc.IsAssigned())
-            {
-                return false;
-            }
-            for (; e.IsAssigned(); e = m_scene->GetParent(e))
-            {
-                if (e == anc)
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
+        [[nodiscard]] bool IsSelfOrAncestor(const Guid& entity, const Guid& possibleAncestor);
 
     private:
         // Depth-first visit of a live subtree (root included).
@@ -573,108 +285,11 @@ export namespace draconic::editor
         };
 
         // Pre-order capture (parents before children), components via the serializable managers.
-        void CaptureSubtreeRecords(scene::EntityHandle root, Array<SubtreeRecord>& out)
-        {
-            scene::Scene& scene = *m_scene;
-            const Guid rootParent = scene.GetEntityId(scene.GetParent(root));
-            CollectSubtree(root,
-                           [&scene, &out, &rootParent](scene::EntityHandle e)
-                           {
-                               SubtreeRecord record;
-                               record.id = scene.GetEntityId(e);
-                               const Guid parent = scene.GetEntityId(scene.GetParent(e));
-                               record.parent =
-                                   (parent == rootParent && out.IsEmpty()) ? Guid{} : parent;
-                               record.name = String(scene.GetEntityName(e));
-                               record.local = scene.GetLocalTransform(e);
-                               record.active = scene.IsActive(e);
-                               scene.ForEachManager(
-                                   [&](scene::ComponentManagerBase& mgr)
-                                   {
-                                       if (!mgr.IsSerializable() || !mgr.HasComponent(e))
-                                       {
-                                           return;
-                                       }
-                                       SubtreeComponentRecord component;
-                                       component.typeId = String(mgr.SerializationTypeId());
-                                       MemoryStream buffer;
-                                       BinarySerializer ar(buffer, SerializeMode::Write);
-                                       mgr.WriteComponent(ar, e);
-                                       const Span<const byte> bytes = buffer.Bytes();
-                                       component.blob.Reserve(bytes.Size());
-                                       for (byte b : bytes)
-                                       {
-                                           component.blob.PushBack(b);
-                                       }
-                                       record.components.PushBack(Move(component));
-                                   });
-                               out.PushBack(Move(record));
-                           });
-        }
+        void CaptureSubtreeRecords(scene::EntityHandle root, Array<SubtreeRecord>& out);
 
-        static void WriteSubtreeRecords(BinarySerializer& ar, Array<SubtreeRecord>& records)
-        {
-            u32 count = static_cast<u32>(records.Size());
-            draconic::core::Serialize(ar, "count", count);
-            for (SubtreeRecord& r : records)
-            {
-                ar.Key("id");
-                ar.GuidValue(r.id);
-                ar.Key("parent");
-                ar.GuidValue(r.parent);
-                draconic::core::Serialize(ar, "name", r.name);
-                draconic::core::Serialize(ar, "position", r.local.position);
-                draconic::core::Serialize(ar, "rotation", r.local.rotation);
-                draconic::core::Serialize(ar, "scale", r.local.scale);
-                draconic::core::Serialize(ar, "active", r.active);
-                u32 componentCount = static_cast<u32>(r.components.Size());
-                draconic::core::Serialize(ar, "components", componentCount);
-                for (SubtreeComponentRecord& c : r.components)
-                {
-                    draconic::core::Serialize(ar, "type", c.typeId);
-                    draconic::core::Serialize(ar, "blob", c.blob);
-                }
-            }
-        }
+        static void WriteSubtreeRecords(BinarySerializer& ar, Array<SubtreeRecord>& records);
 
-        [[nodiscard]] static Array<SubtreeRecord> ParseSubtreeBlob(Span<const byte> blob)
-        {
-            Array<SubtreeRecord> records;
-            MemoryStream buffer;
-            (void)buffer.Write(blob.Data(), blob.Size());
-            (void)buffer.Seek(0, SeekOrigin::Begin);
-            BinarySerializer ar(buffer, SerializeMode::Read);
-            u32 count = 0;
-            draconic::core::Serialize(ar, "count", count);
-            for (u32 i = 0; i < count && ar.IsOk(); ++i)
-            {
-                SubtreeRecord r;
-                ar.Key("id");
-                ar.GuidValue(r.id);
-                ar.Key("parent");
-                ar.GuidValue(r.parent);
-                draconic::core::Serialize(ar, "name", r.name);
-                draconic::core::Serialize(ar, "position", r.local.position);
-                draconic::core::Serialize(ar, "rotation", r.local.rotation);
-                draconic::core::Serialize(ar, "scale", r.local.scale);
-                draconic::core::Serialize(ar, "active", r.active);
-                u32 componentCount = 0;
-                draconic::core::Serialize(ar, "components", componentCount);
-                for (u32 c = 0; c < componentCount && ar.IsOk(); ++c)
-                {
-                    SubtreeComponentRecord component;
-                    draconic::core::Serialize(ar, "type", component.typeId);
-                    draconic::core::Serialize(ar, "blob", component.blob);
-                    r.components.PushBack(Move(component));
-                }
-                records.PushBack(Move(r));
-            }
-            if (!ar.IsOk())
-            {
-                records.Clear();
-            }
-            return records;
-        }
+        [[nodiscard]] static Array<SubtreeRecord> ParseSubtreeBlob(Span<const byte> blob);
 
     public:
         // === Prefab instances ===
@@ -686,94 +301,17 @@ export namespace draconic::editor
         Guid SpawnPrefabInstance(const Guid& prefabId, Array<byte> payload,
                                  const Guid& parent = Guid{},
                                  const Transform* rootTransform = nullptr,
-                                 const Guid& placeBefore = Guid{})
-        {
-            SpawnPrefabCommand* raw = DefaultAllocator().New<SpawnPrefabCommand>(
-                *this, prefabId, Move(payload), parent, rootTransform, placeBefore);
-            if (!m_commands->Execute(UniquePtr<IEditorCommand>(raw, DefaultAllocator())))
-            {
-                return Guid{};
-            }
-            const Guid created = raw->RootGuid();
-            m_selection.Set(created);
-            return created;
-        }
+                                 const Guid& placeBefore = Guid{});
 
         /// Replaces `entity`'s subtree with an instance of `prefabId` (create-from-selection's
         /// second half): one undo group [spawn at the same parent/transform, destroy original].
         Guid ReplaceWithPrefabInstance(const Guid& entity, const Guid& prefabId,
-                                       Array<byte> payload)
-        {
-            const scene::EntityHandle live = Resolve(entity);
-            if (!live.IsAssigned())
-            {
-                return Guid{};
-            }
-            const scene::EntityHandle parentHandle = m_scene->GetParent(live);
-            const Guid parent =
-                parentHandle.IsAssigned() ? m_scene->GetEntityId(parentHandle) : Guid{};
-            const Transform placement = m_scene->GetLocalTransform(live);
-
-            m_commands->BeginGroup(u8"prefab_replace");
-            // placeBefore = the original itself: the instance takes its exact sibling slot
-            // (spawn otherwise appends, dropping the replaced entity to the hierarchy's end).
-            const Guid root =
-                SpawnPrefabInstance(prefabId, Move(payload), parent, &placement, entity);
-            if (!root.IsNil())
-            {
-                DestroyEntity(entity);
-            }
-            m_commands->EndGroup();
-            if (!root.IsNil())
-            {
-                m_selection.Set(root);
-            }
-            return root;
-        }
+                                       Array<byte> payload);
 
         /// Reverts a prefab member's component to its spawn-time baseline, UNDOABLY:
         /// template components restore their baseline payload (re-added if the user removed
         /// them), user-ADDED components (no baseline) are removed. No-op for non-members.
-        bool RevertComponentToBaseline(const Guid& entity, const TypeInfo* componentType)
-        {
-            scene::PrefabMemberInfo member;
-            if (!scene::FindPrefabMember(*m_scene, entity, member))
-            {
-                return false;
-            }
-            scene::ComponentManagerBase* manager = FindManager(componentType);
-            if (manager == nullptr)
-            {
-                return false;
-            }
-            const Guid sourceId = member.state->sourceIds[member.memberIndex];
-            const scene::Scene::PrefabComponentBaseline* baseline =
-                scene::FindPrefabBaseline(*member.state, sourceId, manager->SerializationTypeId());
-            if (baseline == nullptr)
-            {
-                // Added by the user: revert = remove (undoable through the existing command).
-                const scene::EntityHandle live = Resolve(entity);
-                if (live.IsAssigned() && manager->HasComponent(live))
-                {
-                    RemoveComponent(entity, componentType);
-                }
-                return true;
-            }
-            // The clipboard blob format (typeId + payload) rides the undoable paste path.
-            MemoryStream buffer;
-            BinarySerializer ar(buffer, SerializeMode::Write);
-            String typeId = String(manager->SerializationTypeId());
-            draconic::core::Serialize(ar, "type", typeId);
-            if (!ar.IsOk())
-            {
-                return false;
-            }
-            const usize headerSize = buffer.Bytes().Size();
-            (void)headerSize;
-            (void)buffer.Write(reinterpret_cast<const byte*>(baseline->blob.Data()),
-                               baseline->blob.Size());
-            return PasteComponent(entity, buffer.Bytes());
-        }
+        bool RevertComponentToBaseline(const Guid& entity, const TypeInfo* componentType);
 
         class SpawnPrefabCommand final : public IEditorCommand
         {
@@ -893,18 +431,7 @@ export namespace draconic::editor
         };
 
     private:
-        Guid RunPasteCommand(Array<SubtreeRecord> records, const Guid& parent)
-        {
-            PasteEntitiesCommand* raw =
-                DefaultAllocator().New<PasteEntitiesCommand>(*this, Move(records), parent);
-            if (!m_commands->Execute(UniquePtr<IEditorCommand>(raw, DefaultAllocator())))
-            {
-                return Guid{};
-            }
-            const Guid created = raw->RootGuid();
-            m_selection.Set(created);
-            return created;
-        }
+        Guid RunPasteCommand(Array<SubtreeRecord> records, const Guid& parent);
 
         // Instantiate captured records with FRESH guids; the old->new map relinks intra-subtree
         // parents. Redo recreates the SAME fresh guids (minted once, on the first Execute).

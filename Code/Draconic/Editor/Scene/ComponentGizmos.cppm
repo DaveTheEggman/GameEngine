@@ -51,57 +51,13 @@ export namespace draconic::editor
     class GizmoRendererRegistry
     {
     public:
-        void Register(UniquePtr<IGizmoRenderer> renderer)
-        {
-            if (renderer)
-            {
-                m_renderers.PushBack(Move(renderer));
-            }
-        }
+        void Register(UniquePtr<IGizmoRenderer> renderer);
 
-        [[nodiscard]] IGizmoRenderer* Find(const TypeInfo* componentType) const
-        {
-            for (const UniquePtr<IGizmoRenderer>& r : m_renderers)
-            {
-                if (r->ComponentType() == componentType)
-                {
-                    return r.Get();
-                }
-            }
-            return nullptr;
-        }
+        [[nodiscard]] IGizmoRenderer* Find(const TypeInfo* componentType) const;
 
         /// Draw gizmos for `entity`'s components; when `selected` is false only renderers with
         /// DrawWhenUnselected participate.
-        void DrawEntity(scene::EntityHandle entity, bool selected, GizmoContext& ctx) const
-        {
-            if (ctx.scene == nullptr || ctx.debug == nullptr || !entity.IsAssigned())
-            {
-                return;
-            }
-            ctx.scene->ForEachManager(
-                [&](scene::ComponentManagerBase& mgr)
-                {
-                    if (!mgr.HasComponent(entity))
-                    {
-                        return;
-                    }
-                    IGizmoRenderer* renderer = Find(mgr.ComponentType());
-                    if (renderer == nullptr)
-                    {
-                        return;
-                    }
-                    if (!selected && !renderer->DrawWhenUnselected())
-                    {
-                        return;
-                    }
-                    const Instance component = mgr.GetComponentInstance(entity);
-                    if (!component.IsEmpty())
-                    {
-                        renderer->Draw(component, entity, ctx);
-                    }
-                });
-        }
+        void DrawEntity(scene::EntityHandle entity, bool selected, GizmoContext& ctx) const;
 
         [[nodiscard]] usize Count() const noexcept { return m_renderers.Size(); }
 
@@ -134,87 +90,18 @@ export namespace draconic::editor
     class LightGizmoRenderer final : public IGizmoRenderer
     {
     public:
-        [[nodiscard]] const TypeInfo* ComponentType() const override
-        {
-            return &TypeOf<render::LightComponent>();
-        }
+        [[nodiscard]] const TypeInfo* ComponentType() const override;
 
-        void Draw(const Instance& component, scene::EntityHandle owner, GizmoContext& ctx) override
-        {
-            const auto* light = component.TryGet<render::LightComponent>();
-            if (light == nullptr)
-            {
-                return;
-            }
-
-            const Float4x4 world = ctx.scene->GetWorldMatrix(owner);
-            const Float3 position = detail::WorldPosition(world);
-            const Float3 forward = detail::WorldForward(world);
-            render::debug::DebugDraw& dd = *ctx.debug;
-            const Color color{Clamp(light->color.r, 0.0f, 1.0f), Clamp(light->color.g, 0.0f, 1.0f),
-                              Clamp(light->color.b, 0.0f, 1.0f), 1.0f};
-
-            switch (light->type)
-            {
-            case render::LightType::Directional:
-            {
-                detail::DrawCenterCross(dd, position, 0.3f, color);
-                const Float3 tip = position + forward * 1.5f;
-                dd.DrawArrow(position, tip, color, 0.2f);
-                break;
-            }
-            case render::LightType::Point:
-            {
-                dd.DrawWireSphere(position, light->range, color, 24);
-                detail::DrawCenterCross(dd, position, 0.15f, color);
-                break;
-            }
-            case render::LightType::Spot:
-            {
-                const f32 tipDist = Max(light->range, 0.1f);
-                const Float3 tipCenter = position + forward * tipDist;
-                const f32 tipRadius = tipDist * Tan(light->outerAngle);
-
-                const Float3 up = (Abs(forward.y) < 0.99f) ? Float3{0, 1, 0} : Float3{0, 0, 1};
-                const Float3 right = Normalized(Cross(forward, up));
-                const Float3 trueUp = Cross(right, forward);
-
-                dd.DrawCircle(tipCenter, right, trueUp, tipRadius, color, 24);
-                dd.DrawLine(position, tipCenter + right * tipRadius, color);
-                dd.DrawLine(position, tipCenter - right * tipRadius, color);
-                dd.DrawLine(position, tipCenter + trueUp * tipRadius, color);
-                dd.DrawLine(position, tipCenter - trueUp * tipRadius, color);
-                break;
-            }
-            }
-        }
+        void Draw(const Instance& component, scene::EntityHandle owner, GizmoContext& ctx) override;
     };
 
     /// Reflection probe: wire influence box from halfExtents (entity-oriented) + center cross.
     class ReflectionProbeGizmoRenderer final : public IGizmoRenderer
     {
     public:
-        [[nodiscard]] const TypeInfo* ComponentType() const override
-        {
-            return &TypeOf<render::ReflectionProbeComponent>();
-        }
+        [[nodiscard]] const TypeInfo* ComponentType() const override;
 
-        void Draw(const Instance& component, scene::EntityHandle owner, GizmoContext& ctx) override
-        {
-            const auto* probe = component.TryGet<render::ReflectionProbeComponent>();
-            if (probe == nullptr)
-            {
-                return;
-            }
-
-            const Float4x4 world = ctx.scene->GetWorldMatrix(owner);
-            const Float3 position = detail::WorldPosition(world);
-            render::debug::DebugDraw& dd = *ctx.debug;
-            const Color color{0.4f, 0.8f, 1.0f, 1.0f};
-
-            dd.DrawTransformedBox(Float3{} - probe->halfExtents, probe->halfExtents, world, color);
-            detail::DrawCenterCross(dd, position, 0.2f, color);
-        }
+        void Draw(const Instance& component, scene::EntityHandle owner, GizmoContext& ctx) override;
     };
 
     /// Decal projection volume: the oriented box the decal clips to (local [-size/2, size/2],
@@ -224,61 +111,18 @@ export namespace draconic::editor
     class DecalGizmoRenderer final : public IGizmoRenderer
     {
     public:
-        [[nodiscard]] const TypeInfo* ComponentType() const override
-        {
-            return &TypeOf<render::DecalComponent>();
-        }
+        [[nodiscard]] const TypeInfo* ComponentType() const override;
 
-        void Draw(const Instance& component, scene::EntityHandle owner, GizmoContext& ctx) override
-        {
-            const auto* decal = component.TryGet<render::DecalComponent>();
-            if (decal == nullptr)
-            {
-                return;
-            }
-
-            const Float4x4 world = ctx.scene->GetWorldMatrix(owner);
-            const Float3 position = detail::WorldPosition(world);
-            render::debug::DebugDraw& dd = *ctx.debug;
-            const Color color{1.0f, 0.75f, 0.2f, 1.0f};
-
-            const Float3 he = decal->size * 0.5f;
-            dd.DrawTransformedBox(Float3{} - he, he, world, color);
-            // Projection direction: local +Z (the opposite of the camera-style forward).
-            const Float3 projDir = Float3{} - detail::WorldForward(world);
-            dd.DrawArrow(position, position + projDir * (he.z + 0.35f), color, 0.12f);
-        }
+        void Draw(const Instance& component, scene::EntityHandle owner, GizmoContext& ctx) override;
     };
 
     /// Camera frustum wireframe from the component's projection at the entity's pose.
     class CameraGizmoRenderer final : public IGizmoRenderer
     {
     public:
-        [[nodiscard]] const TypeInfo* ComponentType() const override
-        {
-            return &TypeOf<render::CameraComponent>();
-        }
+        [[nodiscard]] const TypeInfo* ComponentType() const override;
 
-        void Draw(const Instance& component, scene::EntityHandle owner, GizmoContext& ctx) override
-        {
-            const auto* camera = component.TryGet<render::CameraComponent>();
-            if (camera == nullptr)
-            {
-                return;
-            }
-
-            const Float4x4 world = ctx.scene->GetWorldMatrix(owner);
-            const Float3 position = detail::WorldPosition(world);
-            const Float3 forward = detail::WorldForward(world);
-            const Float3 up = (Abs(forward.y) < 0.99f) ? Float3{0, 1, 0} : Float3{0, 0, 1};
-
-            // Short preview frustum (clamped far) so scene cameras stay readable.
-            const f32 farZ = Min(camera->farZ, 8.0f);
-            const Float4x4 view = Float4x4::LookAtRH(position, position + forward, up);
-            const Float4x4 proj = Float4x4::PerspectiveFovRH(camera->fovYRadians, camera->aspect,
-                                                             Max(camera->nearZ, 0.01f), farZ);
-            ctx.debug->DrawFrustum(Inverse(view * proj), Color{0.9f, 0.9f, 0.9f, 1.0f});
-        }
+        void Draw(const Instance& component, scene::EntityHandle owner, GizmoContext& ctx) override;
     };
 
     /// Register the built-in component gizmos (called from RegisterSceneEditor).

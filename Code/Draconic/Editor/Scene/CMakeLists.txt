@@ -20,6 +20,15 @@ target_link_libraries(DraconicEditorScene
         Draconic::EditorCore Draconic::EditorApp Draconic::Policy)
 
 target_sources(DraconicEditorScene
+    PRIVATE
+        EditContextImpl.cpp
+        GizmoImpl.cpp
+        ComponentGizmosImpl.cpp
+        HierarchyViewImpl.cpp
+        InspectorViewImpl.cpp
+        ScenePageImpl.cpp
+        GamePageImpl.cpp
+        MaterialPageImpl.cpp
     PUBLIC
         FILE_SET editorscene_modules TYPE CXX_MODULES FILES
             EditorCamera.cppm
