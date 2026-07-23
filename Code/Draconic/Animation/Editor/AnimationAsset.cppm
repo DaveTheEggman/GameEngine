@@ -19,81 +19,116 @@ import draconic.animation.resource;
 
 using namespace draconic::core;
 
-export namespace draconic::animation {
+export namespace draconic::animation
+{
 
-class SkeletonAsset final : public draconic::editor::Asset {
-    DRACONIC_OBJECT(SkeletonAsset, draconic::editor::Asset)
-public:
-    SkeletonSource source;
-    void Serialize(ISerializer& ar) override {
-        draconic::editor::Asset::Serialize(ar);   // fileName (source model note)
-        source.Serialize(ar);
+    class SkeletonAsset final : public draconic::editor::Asset
+    {
+        DRACONIC_OBJECT(SkeletonAsset, draconic::editor::Asset)
+    public:
+        SkeletonSource source;
+        void Serialize(ISerializer& ar) override
+        {
+            draconic::editor::Asset::Serialize(ar); // fileName (source model note)
+            source.Serialize(ar);
+        }
+    };
+
+    class AnimationClipAsset final : public draconic::editor::Asset
+    {
+        DRACONIC_OBJECT(AnimationClipAsset, draconic::editor::Asset)
+    public:
+        AnimationClipSource source;
+        void Serialize(ISerializer& ar) override
+        {
+            draconic::editor::Asset::Serialize(ar);
+            source.Serialize(ar);
+        }
+    };
+
+    // The animation graph is authored directly into its source (state machine, blend trees, clip refs).
+    class AnimationGraphAsset final : public draconic::editor::Asset
+    {
+        DRACONIC_OBJECT(AnimationGraphAsset, draconic::editor::Asset)
+    public:
+        AnimationGraphSource source;
+        void Serialize(ISerializer& ar) override
+        {
+            draconic::editor::Asset::Serialize(ar);
+            source.Serialize(ar);
+        }
+    };
+
+    class SkeletonAssetBuilder final : public draconic::editor::DefaultAssetBuilder
+    {
+    public:
+        [[nodiscard]] const TypeInfo* AssetType() const override
+        {
+            return &SkeletonAsset::StaticType();
+        }
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &SkeletonSource::StaticType();
+        }
+        [[nodiscard]] Status Build(const draconic::editor::Asset& asset,
+                                   draconic::editor::AssetBuildContext& ctx) override
+        {
+            const SkeletonAsset& a = static_cast<const SkeletonAsset&>(asset);
+            return ctx.output->WriteObject(const_cast<SkeletonSource&>(a.source));
+        }
+    };
+
+    class AnimationClipAssetBuilder final : public draconic::editor::DefaultAssetBuilder
+    {
+    public:
+        [[nodiscard]] const TypeInfo* AssetType() const override
+        {
+            return &AnimationClipAsset::StaticType();
+        }
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &AnimationClipSource::StaticType();
+        }
+        [[nodiscard]] Status Build(const draconic::editor::Asset& asset,
+                                   draconic::editor::AssetBuildContext& ctx) override
+        {
+            const AnimationClipAsset& a = static_cast<const AnimationClipAsset&>(asset);
+            return ctx.output->WriteObject(const_cast<AnimationClipSource&>(a.source));
+        }
+    };
+
+    // Registers the animation asset types for content-DB construction + deserialization.
+    inline void RegisterAnimationAssets()
+    {
+        GlobalTypeRegistry().Register(SkeletonAsset::StaticType());
+        GlobalTypeRegistry().Register(AnimationClipAsset::StaticType());
+        GlobalTypeRegistry().Register(AnimationGraphAsset::StaticType());
+        RegisterSerializable<SkeletonAsset>();
+        RegisterSerializable<AnimationClipAsset>();
+        RegisterSerializable<AnimationGraphAsset>();
     }
-};
 
-class AnimationClipAsset final : public draconic::editor::Asset {
-    DRACONIC_OBJECT(AnimationClipAsset, draconic::editor::Asset)
-public:
-    AnimationClipSource source;
-    void Serialize(ISerializer& ar) override {
-        draconic::editor::Asset::Serialize(ar);
-        source.Serialize(ar);
-    }
-};
+    class AnimationGraphAssetBuilder final : public draconic::editor::DefaultAssetBuilder
+    {
+    public:
+        [[nodiscard]] const TypeInfo* AssetType() const override
+        {
+            return &AnimationGraphAsset::StaticType();
+        }
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &AnimationGraphSource::StaticType();
+        }
+        [[nodiscard]] Status Build(const draconic::editor::Asset& asset,
+                                   draconic::editor::AssetBuildContext& ctx) override
+        {
+            const AnimationGraphAsset& a = static_cast<const AnimationGraphAsset&>(asset);
+            return ctx.output->WriteObject(const_cast<AnimationGraphSource&>(a.source));
+        }
+    };
 
-// The animation graph is authored directly into its source (state machine, blend trees, clip refs).
-class AnimationGraphAsset final : public draconic::editor::Asset {
-    DRACONIC_OBJECT(AnimationGraphAsset, draconic::editor::Asset)
-public:
-    AnimationGraphSource source;
-    void Serialize(ISerializer& ar) override {
-        draconic::editor::Asset::Serialize(ar);
-        source.Serialize(ar);
-    }
-};
-
-class SkeletonAssetBuilder final : public draconic::editor::DefaultAssetBuilder {
-public:
-    [[nodiscard]] const TypeInfo* AssetType() const override { return &SkeletonAsset::StaticType(); }
-        [[nodiscard]] const TypeInfo* ProductType() const override { return &SkeletonSource::StaticType(); }
-    [[nodiscard]] Status Build(const draconic::editor::Asset& asset, draconic::editor::AssetBuildContext& ctx) override {
-        const SkeletonAsset& a = static_cast<const SkeletonAsset&>(asset);
-        return ctx.output->WriteObject(const_cast<SkeletonSource&>(a.source));
-    }
-};
-
-class AnimationClipAssetBuilder final : public draconic::editor::DefaultAssetBuilder {
-public:
-    [[nodiscard]] const TypeInfo* AssetType() const override { return &AnimationClipAsset::StaticType(); }
-        [[nodiscard]] const TypeInfo* ProductType() const override { return &AnimationClipSource::StaticType(); }
-    [[nodiscard]] Status Build(const draconic::editor::Asset& asset, draconic::editor::AssetBuildContext& ctx) override {
-        const AnimationClipAsset& a = static_cast<const AnimationClipAsset&>(asset);
-        return ctx.output->WriteObject(const_cast<AnimationClipSource&>(a.source));
-    }
-};
-
-// Registers the animation asset types for content-DB construction + deserialization.
-inline void RegisterAnimationAssets() {
-    GlobalTypeRegistry().Register(SkeletonAsset::StaticType());
-    GlobalTypeRegistry().Register(AnimationClipAsset::StaticType());
-    GlobalTypeRegistry().Register(AnimationGraphAsset::StaticType());
-    RegisterSerializable<SkeletonAsset>();
-    RegisterSerializable<AnimationClipAsset>();
-    RegisterSerializable<AnimationGraphAsset>();
-}
-
-class AnimationGraphAssetBuilder final : public draconic::editor::DefaultAssetBuilder {
-public:
-    [[nodiscard]] const TypeInfo* AssetType() const override { return &AnimationGraphAsset::StaticType(); }
-        [[nodiscard]] const TypeInfo* ProductType() const override { return &AnimationGraphSource::StaticType(); }
-    [[nodiscard]] Status Build(const draconic::editor::Asset& asset, draconic::editor::AssetBuildContext& ctx) override {
-        const AnimationGraphAsset& a = static_cast<const AnimationGraphAsset&>(asset);
-        return ctx.output->WriteObject(const_cast<AnimationGraphSource&>(a.source));
-    }
-};
-
-DRACONIC_DEFINE_OBJECT(SkeletonAsset, "draconic::animation")
-DRACONIC_DEFINE_OBJECT(AnimationClipAsset, "draconic::animation")
-DRACONIC_DEFINE_OBJECT(AnimationGraphAsset, "draconic::animation")
+    DRACONIC_DEFINE_OBJECT(SkeletonAsset, "draconic::animation")
+    DRACONIC_DEFINE_OBJECT(AnimationClipAsset, "draconic::animation")
+    DRACONIC_DEFINE_OBJECT(AnimationGraphAsset, "draconic::animation")
 
 } // namespace draconic::animation

@@ -28,7 +28,7 @@ TEST_CASE("easing: ToFunction non-null + Apply boundary values for all types")
 
 TEST_CASE("easing: in/out shape at midpoint")
 {
-    CHECK(ApplyEasing(EasingType::EaseInQuadratic, 0.5f) < 0.5f);    // slow start
-    CHECK(ApplyEasing(EasingType::EaseOutQuadratic, 0.5f) > 0.5f);   // fast start
-    CHECK(Abs(ApplyEasing(EasingType::EaseInOutCubic, 0.5f) - 0.5f) < 0.01f);   // symmetric
+    CHECK(ApplyEasing(EasingType::EaseInQuadratic, 0.5f) < 0.5f);             // slow start
+    CHECK(ApplyEasing(EasingType::EaseOutQuadratic, 0.5f) > 0.5f);            // fast start
+    CHECK(Abs(ApplyEasing(EasingType::EaseInOutCubic, 0.5f) - 0.5f) < 0.01f); // symmetric
 }

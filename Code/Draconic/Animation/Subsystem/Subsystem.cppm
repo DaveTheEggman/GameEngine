@@ -13,40 +13,54 @@ module;
 export module draconic.animation.subsystem:subsystem;
 
 import draconic.core;
-import draconic.runtime;            // Subsystem, Context
-import draconic.scene;              // Scene, ISceneAware
-import draconic.scene.subsystem;    // SceneSubsystem (to register as scene-aware)
+import draconic.runtime;         // Subsystem, Context
+import draconic.scene;           // Scene, ISceneAware
+import draconic.scene.subsystem; // SceneSubsystem (to register as scene-aware)
 import :components;
 
-export namespace draconic::animation {
+export namespace draconic::animation
+{
 
-class AnimationSubsystem final : public draconic::runtime::Subsystem,
-                                 public draconic::scene::ISceneAware {
-public:
-    // Injects the animation managers into each new scene (they tick in PostUpdate): the graph
-    // manager (state machines / blend trees) runs first, then the simple single-clip manager.
-    void OnSceneCreated(draconic::scene::Scene& scene) override {
-        scene.AddSystem<AnimationGraphComponentManager>();
-        scene.AddSystem<SkeletalAnimationComponentManager>();
-        scene.AddSystem<InstancedSkinningManager>();   // crowd skinning (shared pose pool)
-    }
-
-protected:
-    void OnInit() override {
-        RegisterAnimationComponentReflection();   // tooling: reflected components (idempotent)
-    }
-
-    void OnReady() override {
-        if (draconic::runtime::Context* ctx = GetContext()) {
-            if (auto* scenes = ctx->GetSubsystem<draconic::scene::SceneSubsystem>()) { scenes->RegisterSceneAware(this); }
+    class AnimationSubsystem final : public draconic::runtime::Subsystem,
+                                     public draconic::scene::ISceneAware
+    {
+    public:
+        // Injects the animation managers into each new scene (they tick in PostUpdate): the graph
+        // manager (state machines / blend trees) runs first, then the simple single-clip manager.
+        void OnSceneCreated(draconic::scene::Scene& scene) override
+        {
+            scene.AddSystem<AnimationGraphComponentManager>();
+            scene.AddSystem<SkeletalAnimationComponentManager>();
+            scene.AddSystem<InstancedSkinningManager>(); // crowd skinning (shared pose pool)
         }
-    }
 
-    void OnShutdown() override {
-        if (draconic::runtime::Context* ctx = GetContext()) {
-            if (auto* scenes = ctx->GetSubsystem<draconic::scene::SceneSubsystem>()) { scenes->UnregisterSceneAware(this); }
+    protected:
+        void OnInit() override
+        {
+            RegisterAnimationComponentReflection(); // tooling: reflected components (idempotent)
         }
-    }
-};
+
+        void OnReady() override
+        {
+            if (draconic::runtime::Context* ctx = GetContext())
+            {
+                if (auto* scenes = ctx->GetSubsystem<draconic::scene::SceneSubsystem>())
+                {
+                    scenes->RegisterSceneAware(this);
+                }
+            }
+        }
+
+        void OnShutdown() override
+        {
+            if (draconic::runtime::Context* ctx = GetContext())
+            {
+                if (auto* scenes = ctx->GetSubsystem<draconic::scene::SceneSubsystem>())
+                {
+                    scenes->UnregisterSceneAware(this);
+                }
+            }
+        }
+    };
 
 } // namespace draconic::animation

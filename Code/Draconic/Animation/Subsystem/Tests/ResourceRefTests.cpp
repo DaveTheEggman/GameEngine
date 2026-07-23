@@ -14,7 +14,7 @@ import draconic.resource;
 import draconic.animation;
 import draconic.animation.resource;
 import draconic.animation.subsystem;
-import draconic.render.subsystem;   // MeshComponentManager (the skeletal tick's feed target)
+import draconic.render.subsystem; // MeshComponentManager (the skeletal tick's feed target)
 import draconic.scene;
 import draconic.scene.resource;
 
@@ -33,7 +33,10 @@ namespace
         {
             for (const auto& e : entries)
             {
-                if (!e.isDirectory) { (void)fs.AsWritable()->Delete(e.name.AsView()); }
+                if (!e.isDirectory)
+                {
+                    (void)fs.AsWritable()->Delete(e.name.AsView());
+                }
             }
         }
         (void)RemoveDirectory(root);
@@ -43,9 +46,13 @@ namespace
     void BuildSkeleton(anim::Skeleton& s)
     {
         Array<anim::Bone>& bones = s.Bones();
-        bones[0].index = 0; bones[0].parentIndex = -1; bones[0].name = String{ u8"root" };
-        bones[1].index = 1; bones[1].parentIndex = 0;  bones[1].name = String{ u8"child" };
-        bones[1].localBindPose.position = Float3{ 0, 5, 0 };
+        bones[0].index = 0;
+        bones[0].parentIndex = -1;
+        bones[0].name = String{u8"root"};
+        bones[1].index = 1;
+        bones[1].parentIndex = 0;
+        bones[1].name = String{u8"child"};
+        bones[1].localBindPose.position = Float3{0, 5, 0};
         s.BuildNameMap();
         s.FindRootBones();
         s.BuildChildIndices();
@@ -69,7 +76,7 @@ TEST_CASE("resource-ref: scene round-trip resolves skeleton + clip refs through 
     Guid skeletonId;
     Guid clipId;
     {
-        anim::Skeleton skel{ 2 };
+        anim::Skeleton skel{2};
         BuildSkeleton(skel);
         anim::SkeletonSource source;
         anim::SkeletonSource::FromSkeleton(skel, source);
@@ -81,12 +88,12 @@ TEST_CASE("resource-ref: scene round-trip resolves skeleton + clip refs through 
     }
     {
         anim::AnimationClip clip;
-        clip.Name() = String{ u8"walk" };
+        clip.Name() = String{u8"walk"};
         clip.duration = 2.0f;
         clip.isLooping = true;
         anim::AnimationTrack<Float3>* track = clip.GetOrCreatePositionTrack(1);
-        track->AddKeyframe(0.0f, Float3{ 0, 0, 0 });
-        track->AddKeyframe(2.0f, Float3{ 0, 1, 0 });
+        track->AddKeyframe(0.0f, Float3{0, 0, 0});
+        track->AddKeyframe(2.0f, Float3{0, 1, 0});
         anim::AnimationClipSource source;
         anim::AnimationClipSource::FromClip(clip, source);
         draconic::content::Instance* inst =
@@ -177,7 +184,7 @@ TEST_CASE("resource-ref: raw runtime skeleton/clip pointers still assign (sample
 
     anim::SkeletalAnimationComponent a;
     a.skeleton = skel.Get();
-    a.clip     = clip.Get();
+    a.clip = clip.Get();
     CHECK(a.skeleton.Get() == skel.Get());
     CHECK(a.clip.Get() == clip.Get());
     CHECK(a.skeleton.id.IsNil());
