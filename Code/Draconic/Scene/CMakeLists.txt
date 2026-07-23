@@ -12,7 +12,7 @@ target_sources(DraconicScene
         FILE_SET scene_modules TYPE CXX_MODULES FILES
             Entity.cppm
             Phase.cppm
-            System.cppm
+            SceneSystem.cppm
             Component.cppm
             Aware.cppm
             Scene.cppm
