@@ -111,162 +111,21 @@ export namespace draconic::editor
         [[nodiscard]] StringView Title() const override { return m_title.AsView(); }
         [[nodiscard]] ui::View* ContentView() override { return m_content.Get(); }
 
-        [[nodiscard]] Status Save() override
-        {
-            draconic::content::Instance* instance =
-                (m_context->Project() != nullptr)
-                    ? m_context->Project()->SourceDb().GetInstance(InstanceId())
-                    : nullptr;
-            if (instance == nullptr)
-            {
-                return Status{ErrorCode::NotFound};
-            }
-            ui::UIDocumentAsset asset;
-            asset.markup = String(m_markup.AsView());
-            const Status written = instance->WriteObject(asset);
-            if (written.IsOk())
-            {
-                ClearDirty();
-                // The VALIDATING cook reports errors/warnings; hot reload updates canvases.
-                if (m_context->OnCookRequested)
-                {
-                    m_context->OnCookRequested(false);
-                }
-            }
-            return written;
-        }
+        [[nodiscard]] Status Save() override;
 
-        void OnUpdate(runtime::IApplicationHost&, f32 dt) override
-        {
-            EnsureViewportBound();
-            if (m_previewDelay > 0.0f)
-            {
-                m_previewDelay -= dt;
-                if (m_previewDelay <= 0.0f)
-                {
-                    RebuildPreview();
-                }
-            }
-        }
+        void OnUpdate(runtime::IApplicationHost&, f32 dt) override;
 
         void OnAfterSceneRender(runtime::IApplicationHost&,
-                                draconic::graphics::FrameContext& frame) override
-        {
-            if (!m_viewport->IsReady() || !frame.valid)
-            {
-                return;
-            }
-            // Always define the target's layout (the editor UI samples it every frame).
-            m_viewport->ClearContent(*frame.encoder);
-            if (m_ui == nullptr || m_previewRoot.Get() == nullptr)
-            {
-                return;
-            }
-            const u32 w = m_viewport->RenderWidth();
-            const u32 h = m_viewport->RenderHeight();
-            if (w == 0 || h == 0)
-            {
-                return;
-            }
-            frame.encoder->TransitionTexture(m_viewport->ColorTexture(), m_viewport->ColorState(),
-                                             rhi::ResourceState::RenderTarget);
-            m_ui->RenderPreview(*m_previewRoot, *frame.encoder, m_viewport->ColorTargetView(),
-                                m_viewport->ColorFormat(), w, h, frame.frameIndex);
-            frame.encoder->TransitionTexture(m_viewport->ColorTexture(),
-                                             rhi::ResourceState::RenderTarget,
-                                             rhi::ResourceState::ShaderRead);
-            m_viewport->SetColorState(rhi::ResourceState::ShaderRead);
-        }
+                                draconic::graphics::FrameContext& frame) override;
 
-        void OnClose() override
-        {
-            if (m_ui != nullptr && m_previewRoot.Get() != nullptr)
-            {
-                m_ui->DestroyPreview(m_previewRoot.Get());
-            }
-            m_previewRoot = nullptr;
-            m_viewport->Shutdown();
-        }
+        void OnClose() override;
 
     private:
         // Same lazy dance as ScenePage: the DISPLAY side of the offscreen target needs
         // the page's hosting window + its VG renderer.
-        void EnsureViewportBound()
-        {
-            ui::RootView* root = m_viewport->Root();
-            if (root == nullptr)
-            {
-                return;
-            }
-            draconic::graphics::RenderWindow* window = m_uiHost->WindowForRoot(root);
-            if (window == nullptr || window == m_hostWindow)
-            {
-                return;
-            }
-            vg::renderer::VGRenderer* renderer = m_uiHost->RendererFor(window);
-            if (renderer == nullptr)
-            {
-                return;
-            }
-            if (m_hostWindow == nullptr)
-            {
-                m_viewport->Initialize(m_host->Graphics()->Raw(), renderer,
-                                       m_host->Shell()->Input(), window->Window().Id());
-            }
-            else
-            {
-                m_viewport->AttachToWindow(renderer, window->Window().Id());
-            }
-            m_hostWindow = window;
-        }
+        void EnsureViewportBound();
 
-        void RebuildPreview()
-        {
-            // Validation pass for the inline status (warnings + parse result)...
-            ui::MarkupLoader::Initialize();
-            Array<String> warnings;
-            RefPtr<ui::View> parsed =
-                ui::MarkupLoader::LoadFromString(m_markup.AsView(), nullptr, &warnings);
-            if (parsed.Get() == nullptr)
-            {
-                m_status->SetText(u8"Parse FAILED - showing the last good preview.");
-                return;
-            }
-            // ...then the REAL preview instantiates in the runtime context (game fonts,
-            // GameTheme, style resolution - the subsystem's CreatePreview).
-            if (m_ui == nullptr)
-            {
-                m_status->SetText(u8"No runtime UI subsystem - preview unavailable.");
-                return;
-            }
-            ui::UIDocument document;
-            document.markup = String(m_markup.AsView());
-            RefPtr<ui::RootView> fresh = m_ui->CreatePreview(document);
-            if (fresh.Get() == nullptr)
-            {
-                m_status->SetText(u8"Parse FAILED - showing the last good preview.");
-                return;
-            }
-            if (m_previewRoot.Get() != nullptr)
-            {
-                m_ui->DestroyPreview(m_previewRoot.Get());
-            }
-            m_previewRoot = fresh;
-            if (warnings.IsEmpty())
-            {
-                m_status->SetText(u8"OK");
-            }
-            else
-            {
-                String text(u8"Warnings: ");
-                text.Append(warnings[0].AsView());
-                if (warnings.Size() > 1)
-                {
-                    text.Append(u8" (+more)");
-                }
-                m_status->SetText(text.AsView());
-            }
-        }
+        void RebuildPreview();
 
         EditorContext* m_context = nullptr;
         runtime::IApplicationHost* m_host = nullptr;
@@ -290,17 +149,9 @@ export namespace draconic::editor
             : m_host(&host), m_uiHost(&uiHost)
         {
         }
-        [[nodiscard]] const TypeInfo* PrimaryType() const override
-        {
-            return &ui::UIDocumentAsset::StaticType();
-        }
+        [[nodiscard]] const TypeInfo* PrimaryType() const override;
         [[nodiscard]] UniquePtr<EditorPage>
-        CreatePage(EditorContext& context, draconic::content::Instance& instance) override
-        {
-            auto* page =
-                DefaultAllocator().New<UIDocumentEditorPage>(context, *m_host, *m_uiHost, instance);
-            return UniquePtr<EditorPage>(page, DefaultAllocator());
-        }
+        CreatePage(EditorContext& context, draconic::content::Instance& instance) override;
 
     private:
         runtime::IApplicationHost* m_host;

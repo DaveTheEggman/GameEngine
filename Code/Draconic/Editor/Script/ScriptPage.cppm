@@ -45,61 +45,11 @@ export namespace draconic::editor
         ui::EditText* editor = nullptr;   // line-metric source (borrowed)
         String file;                      // the source file these breakpoints key on
 
-        void OnMeasure(ui::BoxConstraints constraints) override
-        {
-            MeasuredSize = Float2{24.0f, constraints.ConstrainHeight(0.0f)};
-        }
+        void OnMeasure(ui::BoxConstraints constraints) override;
 
-        void OnDraw(ui::UIDrawContext& ctx) override
-        {
-            ctx.VG().FillRect(Rectangle{0, 0, Width(), Height()}, Color{0.12f, 0.13f, 0.16f, 1.0f});
-            if (context == nullptr || editor == nullptr)
-            {
-                return;
-            }
-            const f32 lineHeight = editor->LineHeight();
-            if (lineHeight <= 0.0f)
-            {
-                return;
-            }
-            const f32 scrollY = editor->ScrollOffsetY();
-            for (const EditorContext::ScriptBreakpoint& breakpoint : context->Breakpoints())
-            {
-                if (breakpoint.file.AsView() != file.AsView())
-                {
-                    continue;
-                }
-                const f32 centreY =
-                    kTopPad + (static_cast<f32>(breakpoint.line) - 0.5f) * lineHeight - scrollY;
-                if (centreY < 0.0f || centreY > Height())
-                {
-                    continue;
-                }
-                ctx.VG().FillCircle(Float2{Width() * 0.5f, centreY}, 4.5f,
-                                    Color{0.85f, 0.2f, 0.2f, 1.0f});
-            }
-        }
+        void OnDraw(ui::UIDrawContext& ctx) override;
 
-        void OnMouseDown(ui::MouseEventArgs& e) override
-        {
-            if (e.Button != ui::MouseButton::Left || context == nullptr || editor == nullptr)
-            {
-                return;
-            }
-            const f32 lineHeight = editor->LineHeight();
-            if (lineHeight <= 0.0f)
-            {
-                return;
-            }
-            const i32 line =
-                static_cast<i32>((e.Y - kTopPad + editor->ScrollOffsetY()) / lineHeight) + 1;
-            if (line >= 1)
-            {
-                context->ToggleBreakpoint(file.AsView(), line);
-                Invalidate();
-            }
-            e.Handled = true;
-        }
+        void OnMouseDown(ui::MouseEventArgs& e) override;
 
     private:
         static constexpr f32 kTopPad = 4.0f; // the editor's top text padding (Thickness{6,4})
@@ -200,103 +150,17 @@ export namespace draconic::editor
         [[nodiscard]] StringView Title() const override { return m_title.AsView(); }
         [[nodiscard]] ui::View* ContentView() override { return m_content.Get(); }
 
-        [[nodiscard]] Status Save() override
-        {
-            const Status written = m_doc.Save();
-            if (written.IsOk())
-            {
-                ClearDirty();
-                // Reuse the external-edit path: the incremental cook rebuilds this asset's
-                // product and the app hot-reloads it (ScriptSceneSystem re-instantiates live
-                // behaviors + re-applies overrides). A failing cook keeps the last-good product.
-                m_context->RequestCook(false);
-                // Compile-check now for the inline error surface (the async cook only logs).
-                RefreshCompileStatus();
-                if (m_doc.LastCompileOk())
-                {
-                    m_context->Notify(NoticeKind::Success, u8"Script saved - recooking");
-                }
-                else
-                {
-                    m_context->Notify(NoticeKind::Warning,
-                                      u8"Script saved with compile errors - last good kept");
-                }
-            }
-            return written;
-        }
+        [[nodiscard]] Status Save() override;
 
-        void OnUpdate(draconic::runtime::IApplicationHost&, f32 dt) override
-        {
-            if (m_validateDelay > 0.0f)
-            {
-                m_validateDelay -= dt;
-                if (m_validateDelay <= 0.0f)
-                {
-                    RefreshCompileStatus();
-                }
-            }
-        }
+        void OnUpdate(draconic::runtime::IApplicationHost&, f32 dt) override;
 
     private:
         // Compile-check the current buffer and repaint the status line + error list. Never
         // touches the edit views' identity (only SetText on the read-only surfaces), so it is
         // safe to call from an event dispatch without the UI mutation queue.
-        void RefreshCompileStatus()
-        {
-            const bool ok = m_doc.Validate();
-            Span<const draconic::script::ScriptSourceDocument::CompileError> errors =
-                m_doc.Errors();
-            if (ok)
-            {
-                String line(u8"Compiled OK");
-                if (!m_doc.ClassName().IsEmpty())
-                {
-                    line.Append(u8" - class ");
-                    line.Append(m_doc.ClassName());
-                }
-                m_status->SetText(line.AsView());
-                m_errorView->SetText(StringView(u8""));
-                return;
-            }
-            String summary;
-            AppendCount(summary, errors.Size());
-            summary.Append(errors.Size() == 1 ? u8" compile error" : u8" compile errors");
-            m_status->SetText(summary.AsView());
+        void RefreshCompileStatus();
 
-            String detail;
-            for (const draconic::script::ScriptSourceDocument::CompileError& e : errors)
-            {
-                if (!detail.IsEmpty())
-                {
-                    detail.PushBack(utf8char('\n'));
-                }
-                detail.Append(e.module.IsEmpty() ? m_doc.FileName() : e.module.AsView());
-                if (e.line > 0)
-                {
-                    detail.PushBack(utf8char(':'));
-                    AppendCount(detail, static_cast<usize>(e.line));
-                }
-                detail.Append(u8": ");
-                detail.Append(e.message.AsView());
-            }
-            m_errorView->SetText(detail.AsView());
-        }
-
-        static void AppendCount(String& out, usize value)
-        {
-            utf8char digits[24];
-            i32 n = 0;
-            usize v = value;
-            do
-            {
-                digits[n++] = static_cast<utf8char>('0' + v % 10);
-                v /= 10;
-            } while (v > 0 && n < 24);
-            while (n > 0)
-            {
-                out.PushBack(digits[--n]);
-            }
-        }
+        static void AppendCount(String& out, usize value);
 
         EditorContext* m_context = nullptr;
         draconic::script::ScriptSourceDocument m_doc;
@@ -312,16 +176,9 @@ export namespace draconic::editor
     class ScriptClassPageFactory final : public IEditorPageFactory
     {
     public:
-        [[nodiscard]] const TypeInfo* PrimaryType() const override
-        {
-            return &draconic::script::ScriptClassAsset::StaticType();
-        }
+        [[nodiscard]] const TypeInfo* PrimaryType() const override;
         [[nodiscard]] UniquePtr<EditorPage> CreatePage(EditorContext& context,
-                                                       content::Instance& instance) override
-        {
-            auto* page = DefaultAllocator().New<ScriptEditorPage>(context, instance);
-            return UniquePtr<EditorPage>(page, DefaultAllocator());
-        }
+                                                       content::Instance& instance) override;
     };
 
     // Seeds a fresh script asset: a starter source file (the language cook's NewAssetTemplate -

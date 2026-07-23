@@ -6,4 +6,4 @@ target_link_libraries(DraconicEditorGameUI PUBLIC
     Draconic::UIResource Draconic::UIEditor Draconic::UISubsystem Draconic::UIRuntime Draconic::UIViewport
     Draconic::Graphics Draconic::RHI Draconic::VGRenderer
     Draconic::EditorCore Draconic::EditorApp Draconic::Policy)
-target_sources(DraconicEditorGameUI PUBLIC FILE_SET editor_gameui_modules TYPE CXX_MODULES FILES UIDocumentPage.cppm)
+target_sources(DraconicEditorGameUI PRIVATE UIDocumentPageImpl.cpp PUBLIC FILE_SET editor_gameui_modules TYPE CXX_MODULES FILES UIDocumentPage.cppm)

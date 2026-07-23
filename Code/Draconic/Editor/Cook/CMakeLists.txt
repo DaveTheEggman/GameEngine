@@ -8,6 +8,8 @@ target_link_libraries(DraconicEditorCook PUBLIC
     Draconic::Core Draconic::Content Draconic::VFS Draconic::Editor Draconic::Policy)
 
 target_sources(DraconicEditorCook
+    PRIVATE
+        CookDriverImpl.cpp
     PUBLIC
         FILE_SET editorcook_modules TYPE CXX_MODULES FILES
             CookDriver.cppm)

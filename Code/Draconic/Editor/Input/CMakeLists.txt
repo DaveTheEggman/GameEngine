@@ -12,6 +12,8 @@ target_link_libraries(DraconicEditorInput
         Draconic::EditorCore Draconic::EditorApp Draconic::Policy)
 
 target_sources(DraconicEditorInput
+    PRIVATE
+        InputMapPageImpl.cpp
     PUBLIC
         FILE_SET editorinput_modules TYPE CXX_MODULES FILES
             InputMapPage.cppm)
