@@ -223,19 +223,9 @@ export namespace draconic::render
         // Ensure this frame's shadow array exists with enough layers for `viewCount` views' cascades
         // (called before the mesh renderer builds set 0, so the map view is available to bind). Returns
         // the array sample view, or null on failure.
-        rhi::TextureView* PrepareFrame(u32 frameIndex, u32 viewCount)
-        {
-            const u32 slot = frameIndex % m_framesInFlight;
-            const u32 views =
-                (viewCount < 1) ? 1u : (viewCount > kMaxShadowViews ? kMaxShadowViews : viewCount);
-            const u32 layers = views * kCascadeCount;
-            return EnsureTexture(slot, layers) ? m_sampleViews[slot] : nullptr;
-        }
+        rhi::TextureView* PrepareFrame(u32 frameIndex, u32 viewCount);
 
-        [[nodiscard]] rhi::TextureView* SampleView(u32 frameIndex) const noexcept
-        {
-            return m_sampleViews[frameIndex % m_framesInFlight];
-        }
+        [[nodiscard]] rhi::TextureView* SampleView(u32 frameIndex) const noexcept;
 
         // Bumped whenever a shadow texture is (re)created (lazily in 5.1; on resolution/atlas changes in
         // 5.2+). A consumer caching a bind group over SampleView keys on this so a reused-address view
@@ -244,19 +234,7 @@ export namespace draconic::render
 
         // Import this frame's shadow texture into the graph: the depth pass writes it, then it barriers to
         // DepthStencilRead so the forward pass samples it. Returns the graph handle (invalid if no texture).
-        rendergraph::RGHandle ImportTarget(rendergraph::RenderGraph& graph, u32 frameIndex)
-        {
-            const u32 slot = frameIndex % m_framesInFlight;
-            if (m_textures[slot] == nullptr)
-            {
-                return {};
-            } // PrepareFrame creates it (sized for the views)
-            const rendergraph::RGHandle h = graph.ImportTarget(
-                u8"shadow.map", m_textures[slot], m_attachViews[slot], m_sampleViews[slot],
-                rhi::ResourceState::DepthStencilRead, m_states[slot]);
-            m_states[slot] = rhi::ResourceState::DepthStencilRead;
-            return h;
-        }
+        rendergraph::RGHandle ImportTarget(rendergraph::RenderGraph& graph, u32 frameIndex);
 
         [[nodiscard]] u32 CascadeCount() const noexcept { return kCascadeCount; }
 
@@ -280,28 +258,11 @@ export namespace draconic::render
 
         // Ensure this frame's atlas exists; returns its sample view (null on failure). Created lazily and
         // once (fixed size), so it costs nothing after the first shadowed frame.
-        rhi::TextureView* PrepareAtlas(u32 frameIndex)
-        {
-            const u32 slot = frameIndex % m_framesInFlight;
-            return EnsureAtlas(slot) ? m_atlasSampleViews[slot] : nullptr;
-        }
+        rhi::TextureView* PrepareAtlas(u32 frameIndex);
 
         // Import this frame's atlas into the graph: the atlas depth pass writes it, then it barriers to
         // DepthStencilRead for the forward sample. Returns the handle (invalid if no atlas).
-        rendergraph::RGHandle ImportAtlas(rendergraph::RenderGraph& graph, u32 frameIndex)
-        {
-            const u32 slot = frameIndex % m_framesInFlight;
-            if (m_atlasTextures[slot] == nullptr)
-            {
-                return {};
-            }
-            const rendergraph::RGHandle h =
-                graph.ImportTarget(u8"shadow.atlas", m_atlasTextures[slot],
-                                   m_atlasAttachViews[slot], m_atlasSampleViews[slot],
-                                   rhi::ResourceState::DepthStencilRead, m_atlasStates[slot]);
-            m_atlasStates[slot] = rhi::ResourceState::DepthStencilRead;
-            return h;
-        }
+        rendergraph::RGHandle ImportAtlas(rendergraph::RenderGraph& graph, u32 frameIndex);
 
     private:
         static constexpr rhi::TextureFormat kShadowFormat = rhi::TextureFormat::Depth32Float;
@@ -312,148 +273,14 @@ export namespace draconic::render
         // Create one frame-slot's shadow depth ARRAY (one layer per view-cascade) + an array sample view
         // for the forward. Recreated when the needed layer count grows (more views). Per-layer attachment
         // views are derived by the graph (subresource) at pass time.
-        bool EnsureTexture(u32 slot, u32 layerCount)
-        {
-            if (m_textures[slot] != nullptr && m_layerCounts[slot] >= layerCount)
-            {
-                return true;
-            }
-            if (m_textures[slot] != nullptr)
-            { // grow: free the old array + its views (GPU idle at startup/resize)
-                m_device->WaitIdle();
-                if (m_sampleViews[slot] != nullptr)
-                {
-                    m_device->DestroyTextureView(m_sampleViews[slot]);
-                    m_sampleViews[slot] = nullptr;
-                }
-                if (m_attachViews[slot] != nullptr)
-                {
-                    m_device->DestroyTextureView(m_attachViews[slot]);
-                    m_attachViews[slot] = nullptr;
-                }
-                m_device->DestroyTexture(m_textures[slot]);
-                m_textures[slot] = nullptr;
-            }
-            rhi::TextureDesc td{};
-            td.format = kShadowFormat;
-            td.width = kShadowResolution;
-            td.height = kShadowResolution;
-            td.arrayLayerCount = layerCount;
-            td.usage = rhi::TextureUsage::DepthStencil | rhi::TextureUsage::Sampled;
-            td.label = u8"shadow.cascades";
-            if (!m_device->CreateTexture(td, m_textures[slot]).IsOk())
-            {
-                m_textures[slot] = nullptr;
-                return false;
-            }
-
-            // Whole-array views (the import's attachment fallback + the forward's Texture2DArray sample).
-            rhi::TextureViewDesc av{};
-            av.format = kShadowFormat;
-            av.aspect = rhi::TextureAspect::DepthOnly;
-            av.dimension = rhi::TextureViewDimension::Texture2DArray;
-            av.arrayLayerCount = layerCount;
-            if (!m_device->CreateTextureView(m_textures[slot], av, m_attachViews[slot]).IsOk())
-            {
-                return false;
-            }
-            rhi::TextureViewDesc sv{};
-            sv.format = kShadowFormat;
-            sv.aspect = rhi::TextureAspect::DepthOnly;
-            sv.dimension = rhi::TextureViewDimension::Texture2DArray;
-            sv.arrayLayerCount = layerCount;
-            if (!m_device->CreateTextureView(m_textures[slot], sv, m_sampleViews[slot]).IsOk())
-            {
-                return false;
-            }
-            m_layerCounts[slot] = layerCount;
-            m_states[slot] = rhi::ResourceState::Undefined;
-            ++m_generation; // a new physical shadow texture exists -> invalidate consumer bind-group caches
-            return true;
-        }
+        bool EnsureTexture(u32 slot, u32 layerCount);
 
         // Create one frame-slot's local-shadow atlas (a 2-LAYER depth array: realtime + static) + its
         // whole-array attachment/sample views. Per-layer attachment views are derived by the graph
         // (subresource) at pass time. Fixed size - runs once per slot (++generation invalidates caches).
-        bool EnsureAtlas(u32 slot)
-        {
-            if (m_atlasTextures[slot] != nullptr)
-            {
-                return true;
-            }
-            rhi::TextureDesc td{};
-            td.format = kShadowFormat;
-            td.width = kAtlasResolution;
-            td.height = kAtlasResolution;
-            td.arrayLayerCount = kAtlasLayers;
-            td.usage = rhi::TextureUsage::DepthStencil | rhi::TextureUsage::Sampled;
-            td.label = u8"shadow.atlas";
-            if (!m_device->CreateTexture(td, m_atlasTextures[slot]).IsOk())
-            {
-                m_atlasTextures[slot] = nullptr;
-                return false;
-            }
-            rhi::TextureViewDesc av{};
-            av.format = kShadowFormat;
-            av.aspect = rhi::TextureAspect::DepthOnly;
-            av.dimension = rhi::TextureViewDimension::Texture2DArray;
-            av.arrayLayerCount = kAtlasLayers;
-            if (!m_device->CreateTextureView(m_atlasTextures[slot], av, m_atlasAttachViews[slot])
-                     .IsOk())
-            {
-                return false;
-            }
-            rhi::TextureViewDesc sv{};
-            sv.format = kShadowFormat;
-            sv.aspect = rhi::TextureAspect::DepthOnly;
-            sv.dimension = rhi::TextureViewDimension::Texture2DArray;
-            sv.arrayLayerCount = kAtlasLayers;
-            if (!m_device->CreateTextureView(m_atlasTextures[slot], sv, m_atlasSampleViews[slot])
-                     .IsOk())
-            {
-                return false;
-            }
-            m_atlasStates[slot] = rhi::ResourceState::Undefined;
-            ++m_generation;
-            return true;
-        }
+        bool EnsureAtlas(u32 slot);
 
-        void Shutdown()
-        {
-            for (u32 i = 0; i < kMaxFramesInFlight; ++i)
-            {
-                if (m_sampleViews[i] != nullptr)
-                {
-                    m_device->DestroyTextureView(m_sampleViews[i]);
-                    m_sampleViews[i] = nullptr;
-                }
-                if (m_attachViews[i] != nullptr)
-                {
-                    m_device->DestroyTextureView(m_attachViews[i]);
-                    m_attachViews[i] = nullptr;
-                }
-                if (m_textures[i] != nullptr)
-                {
-                    m_device->DestroyTexture(m_textures[i]);
-                    m_textures[i] = nullptr;
-                }
-                if (m_atlasSampleViews[i] != nullptr)
-                {
-                    m_device->DestroyTextureView(m_atlasSampleViews[i]);
-                    m_atlasSampleViews[i] = nullptr;
-                }
-                if (m_atlasAttachViews[i] != nullptr)
-                {
-                    m_device->DestroyTextureView(m_atlasAttachViews[i]);
-                    m_atlasAttachViews[i] = nullptr;
-                }
-                if (m_atlasTextures[i] != nullptr)
-                {
-                    m_device->DestroyTexture(m_atlasTextures[i]);
-                    m_atlasTextures[i] = nullptr;
-                }
-            }
-        }
+        void Shutdown();
 
         rhi::Device* m_device;
         u32 m_framesInFlight = 2;

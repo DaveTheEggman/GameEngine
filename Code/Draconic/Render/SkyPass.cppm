@@ -36,47 +36,7 @@ export namespace draconic::render
         SkyPass(const SkyPass&) = delete;
         SkyPass& operator=(const SkyPass&) = delete;
 
-        Status Initialize()
-        {
-            m_shaders->RegisterSource(u8"sky", shaders::ShaderStage::Vertex,
-                                      Concat(SkyCommon(), SkyVS()));
-            m_shaders->RegisterSource(u8"sky", shaders::ShaderStage::Fragment,
-                                      Concat(SkyCommon(), SkyPS()));
-            rhi::BindGroupLayoutEntry uboE = rhi::BindGroupLayoutEntry::UniformBuffer(
-                0, rhi::ShaderStage::Vertex | rhi::ShaderStage::Fragment);
-            rhi::BindGroupLayoutEntry texE = rhi::BindGroupLayoutEntry::SampledTexture(
-                0, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::TextureCube);
-            rhi::BindGroupLayoutEntry sampE =
-                rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment);
-            rhi::BindGroupLayoutEntry set0[] = {uboE, texE, sampE};
-            rhi::BindGroupLayoutDesc ld{};
-            ld.entries = Span<const rhi::BindGroupLayoutEntry>{set0, 3};
-            if (!m_device->CreateBindGroupLayout(ld, m_layout).IsOk())
-            {
-                return Status{ErrorCode::Unknown};
-            }
-            rhi::BindGroupLayout* layouts[] = {m_layout};
-            rhi::PipelineLayoutDesc pld{};
-            pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{layouts, 1};
-            if (!m_device->CreatePipelineLayout(pld, m_pipelineLayout).IsOk())
-            {
-                return Status{ErrorCode::Unknown};
-            }
-
-            rhi::SamplerDesc ss{};
-            ss.minFilter = rhi::FilterMode::Linear;
-            ss.magFilter = rhi::FilterMode::Linear;
-            ss.mipmapFilter = rhi::MipmapFilterMode::Linear;
-            ss.addressU = rhi::AddressMode::ClampToEdge;
-            ss.addressV = rhi::AddressMode::ClampToEdge;
-            ss.addressW = rhi::AddressMode::ClampToEdge;
-            ss.label = u8"sky.sampler";
-            if (!m_device->CreateSampler(ss, m_sampler).IsOk())
-            {
-                return Status{ErrorCode::Unknown};
-            }
-            return Status{};
-        }
+        Status Initialize();
 
         // Declare the sky pass: load `color`, depth-test (read-only) against `depth`, read `envH`, draw a
         // fullscreen triangle sampling the env cube along the per-pixel world ray. `invViewProj` = inverse
@@ -89,50 +49,7 @@ export namespace draconic::render
                         Float2 prevJitter, const Float3& camPos, f32 intensity,
                         const Float3& sunDir, f32 sunSize, const Float3& sunColor, f32 sunIntensity,
                         i32 vpX, i32 vpY, u32 vpW, u32 vpH, u32 frameIndex, u32 viewIndex,
-                        u64 envUid, rendergraph::RGSubresourceRange colorSub = {})
-        {
-            rhi::RenderPipeline* pipeline = EnsurePipeline(colorFormat, depthFormat);
-            if (pipeline == nullptr || envView == nullptr)
-            {
-                return;
-            }
-            const u32 slot = (viewIndex % kMaxViews) * m_fif + (frameIndex % m_fif);
-            const u64 uid = envUid;
-            SkyUniform u{};
-            u.invViewProj = invViewProj;
-            u.prevViewProj = prevViewProj;
-            u.camPosIntensity = Float4{camPos.x, camPos.y, camPos.z, intensity};
-            u.sunDir = Float4{sunDir.x, sunDir.y, sunDir.z, sunSize};
-            u.sunColor = Float4{sunColor.x, sunColor.y, sunColor.z, sunIntensity};
-            u.jitter = Float4{jitter.x, jitter.y, prevJitter.x, prevJitter.y};
-
-            graph.AddRenderPass(
-                u8"sky",
-                [this, color, velocity, depth, envH, envView, pipeline, slot, uid, u, vpX, vpY, vpW,
-                 vpH, colorSub](rendergraph::PassBuilder& b)
-                {
-                    b.SetColorTarget(0, color, rhi::LoadOp::Load, rhi::StoreOp::Store,
-                                     rhi::ClearColor::Black(), colorSub);
-                    b.SetColorTarget(1, velocity, rhi::LoadOp::Load,
-                                     rhi::StoreOp::Store); // camera-motion velocity for TAA
-                    b.SetReadOnlyDepthTarget(depth);       // depth test on, no write
-                    b.ReadTexture(envH); // order precompute -> sky + barrier readable
-                    b.SetViewport(vpX, vpY, vpW, vpH);
-                    b.NeverCull();
-                    b.SetExecute(
-                        [this, envView, pipeline, slot, uid, u](rhi::RenderPassEncoder& rp)
-                        {
-                            rhi::BindGroup* bg = EnsureBindGroup(slot, envView, uid, u);
-                            if (bg == nullptr)
-                            {
-                                return;
-                            }
-                            rp.SetPipeline(pipeline);
-                            rp.SetBindGroup(0, bg, Span<const u32>{});
-                            rp.Draw(3, 1, 0, 0);
-                        });
-                });
-        }
+                        u64 envUid, rendergraph::RGSubresourceRange colorSub = {});
 
     private:
         static constexpr u32 kMaxFIF = 4;
@@ -148,156 +65,17 @@ export namespace draconic::render
             Float4 jitter;
         };
 
-        static String Concat(StringView a, StringView b)
-        {
-            String s(a);
-            s.Append(b);
-            return s;
-        }
+        static String Concat(StringView a, StringView b);
 
         rhi::RenderPipeline* EnsurePipeline(rhi::TextureFormat colorFmt,
-                                            rhi::TextureFormat depthFmt)
-        {
-            if (m_pipeline != nullptr && m_colorFormat == colorFmt && m_depthFormat == depthFmt)
-            {
-                return m_pipeline;
-            }
-            rhi::ShaderModule* vs = m_shaders->GetVariant(u8"sky", shaders::ShaderStage::Vertex,
-                                                          shaders::ShaderFlags::None);
-            rhi::ShaderModule* ps = m_shaders->GetVariant(u8"sky", shaders::ShaderStage::Fragment,
-                                                          shaders::ShaderFlags::None);
-            if (vs == nullptr || ps == nullptr)
-            {
-                return nullptr;
-            }
-            if (m_pipeline != nullptr)
-            {
-                m_device->DestroyRenderPipeline(m_pipeline);
-                m_pipeline = nullptr;
-            }
-
-            // 2 targets: color (matches the HDR target) + velocity (camera-motion, for TAA). No blend.
-            rhi::ColorTargetState targets[2] = {};
-            targets[0].format = colorFmt;
-            targets[1].format = kGVelocityFormat;
-            rhi::FragmentState frag{};
-            frag.shader = rhi::ProgrammableStage{ps, u8"main", rhi::ShaderStage::Fragment};
-            frag.targets = Span<const rhi::ColorTargetState>{targets, 2};
-            rhi::DepthStencilState ds{};
-            ds.format = depthFmt;
-            ds.depthTestEnabled = true;
-            ds.depthWriteEnabled = false;
-            ds.depthCompare =
-                rhi::CompareFunction::LessEqual; // pass at the far plane (background only)
-
-            rhi::RenderPipelineDesc pd{};
-            pd.layout = m_pipelineLayout;
-            pd.vertex.shader = rhi::ProgrammableStage{vs, u8"main", rhi::ShaderStage::Vertex};
-            pd.fragment = frag;
-            pd.depthStencil = ds;
-            pd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
-            pd.primitive.cullMode = rhi::CullMode::None;
-            pd.label = u8"sky";
-            if (!m_device->CreateRenderPipeline(pd, m_pipeline).IsOk())
-            {
-                m_pipeline = nullptr;
-                return nullptr;
-            }
-            m_colorFormat = colorFmt;
-            m_depthFormat = depthFmt;
-            return m_pipeline;
-        }
+                                            rhi::TextureFormat depthFmt);
 
         // Env identity = (view pointer, context uid): the uid catches pointer REUSE after an IBL
         // context eviction, per the versioned-cache rule.
         rhi::BindGroup* EnsureBindGroup(u32 slot, rhi::TextureView* envView, u64 envUid,
-                                        const SkyUniform& u)
-        {
-            if (slot >= kMaxSlots)
-            {
-                return nullptr;
-            }
-            Slot& s = m_slots[slot];
-            if (s.ubo == nullptr)
-            {
-                rhi::BufferDesc bd{};
-                bd.size = sizeof(SkyUniform);
-                bd.usage = rhi::BufferUsage::Uniform;
-                bd.memory = rhi::MemoryLocation::CpuToGpu;
-                bd.label = u8"sky.ubo";
-                if (!m_device->CreateBuffer(bd, s.ubo).IsOk())
-                {
-                    s.ubo = nullptr;
-                    return nullptr;
-                }
-            }
-            if (void* p = s.ubo->Map())
-            {
-                MemCopy(p, &u, sizeof(SkyUniform));
-                s.ubo->Unmap();
-            }
-            if (s.bindGroup == nullptr || s.env != envView || s.envUid != envUid)
-            {
-                if (s.bindGroup != nullptr)
-                {
-                    m_device->DestroyBindGroup(s.bindGroup);
-                    s.bindGroup = nullptr;
-                }
-                rhi::BindGroupEntry be[] = {
-                    rhi::BindGroupEntry::BufferEntry(s.ubo, 0, sizeof(SkyUniform)),
-                    rhi::BindGroupEntry::TextureEntry(envView),
-                    rhi::BindGroupEntry::SamplerEntry(m_sampler),
-                };
-                rhi::BindGroupDesc bgd{};
-                bgd.layout = m_layout;
-                bgd.entries = Span<const rhi::BindGroupEntry>{be, 3};
-                if (!m_device->CreateBindGroup(bgd, s.bindGroup).IsOk())
-                {
-                    s.bindGroup = nullptr;
-                    return nullptr;
-                }
-                s.env = envView;
-                s.envUid = envUid;
-            }
-            return s.bindGroup;
-        }
+                                        const SkyUniform& u);
 
-        void Shutdown()
-        {
-            for (u32 i = 0; i < kMaxSlots; ++i)
-            {
-                if (m_slots[i].bindGroup)
-                {
-                    m_device->DestroyBindGroup(m_slots[i].bindGroup);
-                    m_slots[i].bindGroup = nullptr;
-                }
-                if (m_slots[i].ubo)
-                {
-                    m_device->DestroyBuffer(m_slots[i].ubo);
-                    m_slots[i].ubo = nullptr;
-                }
-            }
-            if (m_pipeline)
-            {
-                m_device->DestroyRenderPipeline(m_pipeline);
-                m_pipeline = nullptr;
-            }
-            if (m_sampler)
-            {
-                m_device->DestroySampler(m_sampler);
-                m_sampler = nullptr;
-            }
-            if (m_pipelineLayout)
-            {
-                m_device->DestroyPipelineLayout(m_pipelineLayout);
-                m_pipelineLayout = nullptr;
-            }
-            if (m_layout)
-            {
-                m_device->DestroyBindGroupLayout(m_layout);
-                m_layout = nullptr;
-            }
-        }
+        void Shutdown();
 
         struct Slot
         {

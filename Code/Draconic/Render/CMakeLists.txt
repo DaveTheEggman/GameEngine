@@ -19,6 +19,15 @@ target_sources(DraconicRender
         SsrPassImpl.cpp
         AoPassImpl.cpp
         RenderDataImpl.cpp
+        ShadowSystemImpl.cpp
+        ClusterSystemImpl.cpp
+        SpriteRendererImpl.cpp
+        DecalPassImpl.cpp
+        TaaPassImpl.cpp
+        BloomPassImpl.cpp
+        SkyPassImpl.cpp
+        TonemapPassImpl.cpp
+        Debug/DebugDrawImpl.cpp
     PUBLIC
         FILE_SET render_modules TYPE CXX_MODULES FILES
             RenderData.cppm
