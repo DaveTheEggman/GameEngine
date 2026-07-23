@@ -14,6 +14,11 @@ target_link_libraries(DraconicCore PUBLIC Draconic::Policy)
 target_sources(DraconicCore PRIVATE
     Debug/Debug.cpp)
 
+# Module IMPLEMENTATION units (`module draconic.core;`): definitions kept out of the
+# interface partitions. Listed as regular sources, NOT in the CXX_MODULES file set.
+target_sources(DraconicCore PRIVATE
+    Reflection/CoreReflectionImpl.cpp)   # DRACONIC_REFLECT_* bodies (see CoreReflection.cppm)
+
 # Module interface units. The primary unit (CoreModule.cppm) must be listed;
 # partitions are added here as subsystems land.
 target_sources(DraconicCore
