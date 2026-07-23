@@ -142,10 +142,7 @@ export namespace draconic::editor
         /// then handed to Import on the MAIN thread for the fast DB fan-out. Default: no
         /// worker phase (Import does everything inline).
         [[nodiscard]] virtual bool WantsWorkerPrepare() const { return false; }
-        [[nodiscard]] virtual RefPtr<Object> PrepareOnWorker(StringView /*sourcePath*/)
-        {
-            return {};
-        }
+        [[nodiscard]] virtual RefPtr<Object> PrepareOnWorker(StringView /*sourcePath*/);
 
         /// Import `sourcePath` (absolute OS path): copy the source under Sources/ and create
         /// the typed Asset instance(s) in `group`. Returns the primary created instance.
@@ -166,26 +163,10 @@ export namespace draconic::editor
     class ImporterRegistry
     {
     public:
-        void Register(UniquePtr<IFileImporter> importer)
-        {
-            if (importer)
-            {
-                m_importers.PushBack(Move(importer));
-            }
-        }
+        void Register(UniquePtr<IFileImporter> importer);
 
         /// First importer claiming the extension (v1 routing), or null.
-        [[nodiscard]] IFileImporter* FindFor(StringView extension) const
-        {
-            for (const UniquePtr<IFileImporter>& importer : m_importers)
-            {
-                if (importer->Accepts(extension))
-                {
-                    return importer.Get();
-                }
-            }
-            return nullptr;
-        }
+        [[nodiscard]] IFileImporter* FindFor(StringView extension) const;
 
         [[nodiscard]] usize Count() const noexcept { return m_importers.Size(); }
 

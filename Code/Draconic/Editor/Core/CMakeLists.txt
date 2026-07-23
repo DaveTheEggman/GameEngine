@@ -10,6 +10,13 @@ target_link_libraries(DraconicEditorCore
            Draconic::Editor Draconic::EditorCook Draconic::Resource Draconic::Policy)
 
 target_sources(DraconicEditorCore
+    PRIVATE
+        CookServiceImpl.cpp
+        ContextImpl.cpp
+        CommandImpl.cpp
+        ImporterImpl.cpp
+        ExportTemplateImpl.cpp
+        ExportImpl.cpp
     PUBLIC
         FILE_SET editorcore_modules TYPE CXX_MODULES FILES
             Command.cppm

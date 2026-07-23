@@ -51,34 +51,9 @@ export namespace draconic::editor
         bool isHost = false; // NOT serialized: synthesized host template vs imported from disk
 
         // The config for identity/resolution, treating an unstamped (v1) template as Release.
-        [[nodiscard]] StringView EffectiveConfig() const noexcept
-        {
-            return config.IsEmpty() ? StringView(u8"Release") : config.AsView();
-        }
+        [[nodiscard]] StringView EffectiveConfig() const noexcept;
 
-        void Serialize(ISerializer& ar) override
-        {
-            draconic::core::Serialize(ar, "id", id);
-            draconic::core::Serialize(ar, "name", name);
-            draconic::core::Serialize(ar, "platform", platform);
-            draconic::core::Serialize(ar, "engineVersion", engineVersion);
-            draconic::core::Serialize(ar, "playerBinary", playerBinary);
-            draconic::core::Serialize(ar, "sidecars", sidecars);
-            draconic::core::Serialize(ar, "notes", notes);
-            // v2 added the (platform, config) axis: config + compiler metadata + a parallel symbols
-            // group. A v1 template.xml lacks these fields, so gate them on the stored data version -
-            // reading an old manifest leaves config empty (normalized to Release below) and works.
-            if (ar.Version() >= 2)
-            {
-                draconic::core::Serialize(ar, "config", config);
-                draconic::core::Serialize(ar, "compiler", compiler);
-                draconic::core::Serialize(ar, "symbols", symbols);
-            }
-            if (ar.Mode() == SerializeMode::Read && config.IsEmpty())
-            {
-                config = String(u8"Release"); // back-compat: absent config => Release
-            }
-        }
+        void Serialize(ISerializer& ar) override;
     };
 
     // Read a template.xml (relative path `fileName`) from `root`. NotFound when absent.
@@ -560,79 +535,12 @@ export namespace draconic::editor
         //   2. platform-only fallback (config mismatch/absent): the nearest config, preferring Release,
         //      again imported over host - so an old preset with no config still resolves.
         // An empty `config` means Release (the product default).
-        [[nodiscard]] const ExportTemplate* FindBy(StringView platform, StringView config) const
-        {
-            const StringView wantConfig = config.IsEmpty() ? StringView(u8"Release") : config;
-
-            // Pass 1: exact (platform, config).
-            const ExportTemplate* exactHost = nullptr;
-            for (const UniquePtr<ExportTemplate>& t : m_templates)
-            {
-                if (t->platform.AsView() != platform || t->EffectiveConfig() != wantConfig)
-                {
-                    continue;
-                }
-                if (t->isHost)
-                {
-                    exactHost = t.Get();
-                }
-                else
-                {
-                    return t.Get();
-                }
-            }
-            if (exactHost != nullptr)
-            {
-                return exactHost;
-            }
-
-            // Pass 2: platform-only fallback, preferring a Release config, imported over host.
-            const ExportTemplate* bestImported = nullptr;
-            bool bestImportedRelease = false;
-            const ExportTemplate* bestHost = nullptr;
-            bool bestHostRelease = false;
-            for (const UniquePtr<ExportTemplate>& t : m_templates)
-            {
-                if (t->platform.AsView() != platform)
-                {
-                    continue;
-                }
-                const bool isRelease = t->EffectiveConfig() == StringView(u8"Release");
-                if (t->isHost)
-                {
-                    if (bestHost == nullptr || (isRelease && !bestHostRelease))
-                    {
-                        bestHost = t.Get();
-                        bestHostRelease = isRelease;
-                    }
-                }
-                else
-                {
-                    if (bestImported == nullptr || (isRelease && !bestImportedRelease))
-                    {
-                        bestImported = t.Get();
-                        bestImportedRelease = isRelease;
-                    }
-                }
-            }
-            if (bestImported != nullptr)
-            {
-                return bestImported;
-            }
-            return bestHost;
-        }
+        [[nodiscard]] const ExportTemplate* FindBy(StringView platform, StringView config) const;
 
         // export.md §6: an explicit templateId wins; otherwise the installed template for the preset's
         // (platform, config) - the preset's config defaults to Release when blank. Null when nothing
         // matches (caller: "import a template").
-        [[nodiscard]] const ExportTemplate* Resolve(const ExportPreset& preset) const
-        {
-            if (!preset.templateId.IsEmpty())
-            {
-                return FindById(preset.templateId.AsView());
-            }
-            return FindBy(preset.platform.AsView(), preset.config.AsView());
-        }
+        [[nodiscard]] const ExportTemplate* Resolve(const ExportPreset& preset) const;
 
     private:
         Array<UniquePtr<ExportTemplate>> m_templates;

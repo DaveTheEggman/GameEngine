@@ -49,39 +49,19 @@ export namespace draconic::editor
         /// call this after saving a builder-backed asset so the cooked product (and every
         /// live proxy bound to it) refreshes without a manual Build > Cook All.
         Function<void(bool /*rebuild*/)> OnCookRequested;
-        void RequestCook(bool rebuild = false)
-        {
-            if (OnCookRequested)
-            {
-                OnCookRequested(rebuild);
-            }
-        }
+        void RequestCook(bool rebuild = false);
         /// Transient status-bar text.
         Function<void(StringView)> OnStatus;
 
         /// Transient user-facing notification (toast). Unwired = falls back to the status bar,
         /// so pages can Notify unconditionally.
         Function<void(NoticeKind, StringView)> OnNotice;
-        void Notify(NoticeKind kind, StringView message)
-        {
-            if (OnNotice)
-            {
-                OnNotice(kind, message);
-            }
-            else
-            {
-                SetStatus(message);
-            }
-        }
+        void Notify(NoticeKind kind, StringView message);
 
         // === Project ===
 
         /// The app owns the project; the context borrows it (null = no project open).
-        void SetProject(EditorProject* project)
-        {
-            m_project = project;
-            m_assetSelection.Clear();
-        }
+        void SetProject(EditorProject* project);
         [[nodiscard]] EditorProject* Project() const noexcept { return m_project; }
 
         // === Importers (OS file -> Sources/ + typed Asset instance; exe-registered) ===
@@ -90,14 +70,8 @@ export namespace draconic::editor
         // === Resources (runtime products over the project's cooked DB) ===
         // Owned by the application (created at project open); pages resolve scene refs and the
         // inspector's pickers bind through it. Null until a project is open.
-        void SetResources(draconic::resource::ResourceManager* resources) noexcept
-        {
-            m_resources = resources;
-        }
-        [[nodiscard]] draconic::resource::ResourceManager* Resources() const noexcept
-        {
-            return m_resources;
-        }
+        void SetResources(draconic::resource::ResourceManager* resources) noexcept;
+        [[nodiscard]] draconic::resource::ResourceManager* Resources() const noexcept;
 
         // === Registries ===
 
@@ -122,41 +96,9 @@ export namespace draconic::editor
 
         // === Favorites (pinned asset instances - the browser + picker surface them first) ===
 
-        [[nodiscard]] bool IsFavorite(const Guid& id) const
-        {
-            for (const Guid& f : m_favorites)
-            {
-                if (f == id)
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
-        void ToggleFavorite(const Guid& id)
-        {
-            for (usize i = 0; i < m_favorites.Size(); ++i)
-            {
-                if (m_favorites[i] == id)
-                {
-                    m_favorites.RemoveAt(i);
-                    if (OnFavoritesChanged)
-                    {
-                        OnFavoritesChanged();
-                    }
-                    return;
-                }
-            }
-            m_favorites.PushBack(id);
-            if (OnFavoritesChanged)
-            {
-                OnFavoritesChanged();
-            }
-        }
-        [[nodiscard]] Span<const Guid> Favorites() const noexcept
-        {
-            return Span<const Guid>{m_favorites.Data(), m_favorites.Size()};
-        }
+        [[nodiscard]] bool IsFavorite(const Guid& id) const;
+        void ToggleFavorite(const Guid& id);
+        [[nodiscard]] Span<const Guid> Favorites() const noexcept;
         void SetFavorites(Array<Guid> favorites) { m_favorites = Move(favorites); }
         /// Fired on every toggle (the app persists to the project's Editor/ state).
         Function<void()> OnFavoritesChanged;
@@ -165,160 +107,45 @@ export namespace draconic::editor
         // One typed slot: `kind` says what the blob is ("entities", "component"); consumers
         // check the kind before parsing. Cleared by overwrite only.
 
-        void SetClipboard(StringView kind, Array<byte> data)
-        {
-            m_clipboardKind = String(kind);
-            m_clipboard = Move(data);
-        }
+        void SetClipboard(StringView kind, Array<byte> data);
         [[nodiscard]] StringView ClipboardKind() const noexcept { return m_clipboardKind.AsView(); }
-        [[nodiscard]] Span<const byte> ClipboardData(StringView kind) const noexcept
-        {
-            return (m_clipboardKind == kind)
-                       ? Span<const byte>{m_clipboard.Data(), m_clipboard.Size()}
-                       : Span<const byte>{};
-        }
+        [[nodiscard]] Span<const byte> ClipboardData(StringView kind) const noexcept;
 
-        void RegisterCreator(AssetCreator creator)
-        {
-            if (creator.create)
-            {
-                m_creators.PushBack(Move(creator));
-            }
-        }
+        void RegisterCreator(AssetCreator creator);
 
-        [[nodiscard]] Span<const AssetCreator> Creators() const noexcept
-        {
-            return Span<const AssetCreator>{m_creators.Data(), m_creators.Size()};
-        }
+        [[nodiscard]] Span<const AssetCreator> Creators() const noexcept;
 
         // === Open pages ===
 
         /// Open (or focus) a page editing `instance`: an existing page for the same instance is
         /// activated; otherwise the registry's nearest-type factory creates one. Null if no
         /// factory matches or the instance's type isn't registered.
-        EditorPage* OpenPage(draconic::content::Instance& instance)
-        {
-            for (const UniquePtr<EditorPage>& page : m_pages)
-            {
-                if (page->InstanceId() == instance.Id())
-                {
-                    SetActivePage(page.Get());
-                    return page.Get();
-                }
-            }
-
-            const TypeInfo* type = GlobalTypeRegistry().FindByName(
-                reinterpret_cast<const char*>(String(instance.TypeNamespace()).CStr()),
-                reinterpret_cast<const char*>(String(instance.TypeName()).CStr()));
-            if (type == nullptr)
-            {
-                return nullptr;
-            }
-
-            IEditorPageFactory* factory = m_pageRegistry.FindFactory(*type);
-            if (factory == nullptr)
-            {
-                return nullptr;
-            }
-
-            UniquePtr<EditorPage> page = factory->CreatePage(*this, instance);
-            if (!page)
-            {
-                return nullptr;
-            }
-            page->SetInstanceId(instance.Id());
-
-            EditorPage* raw = page.Get();
-            m_pages.PushBack(Move(page));
-            m_activePage = raw;
-            NotifyPagesChanged();
-            return raw;
-        }
+        EditorPage* OpenPage(draconic::content::Instance& instance);
 
         /// Adopt an instance-LESS page (the Game tab): same ownership + active-page flow as
         /// OpenPage, but the caller constructs it (no instance, no factory dispatch).
-        EditorPage* AdoptPage(UniquePtr<EditorPage> page)
-        {
-            if (!page)
-            {
-                return nullptr;
-            }
-            EditorPage* raw = page.Get();
-            m_pages.PushBack(Move(page));
-            m_activePage = raw;
-            NotifyPagesChanged();
-            return raw;
-        }
+        EditorPage* AdoptPage(UniquePtr<EditorPage> page);
 
         /// Close a page (the caller is responsible for save-prompting dirty pages first).
-        void ClosePage(EditorPage* page)
-        {
-            for (usize i = 0; i < m_pages.Size(); ++i)
-            {
-                if (m_pages[i].Get() == page)
-                {
-                    if (m_activePage == page)
-                    {
-                        m_activePage = m_pages.Size() > 1
-                                           ? m_pages[i + 1 < m_pages.Size() ? i + 1 : i - 1].Get()
-                                           : nullptr;
-                    }
-                    m_pages.RemoveAt(i);
-                    NotifyPagesChanged();
-                    return;
-                }
-            }
-        }
+        void ClosePage(EditorPage* page);
 
-        [[nodiscard]] Span<const UniquePtr<EditorPage>> OpenPages() const noexcept
-        {
-            return Span<const UniquePtr<EditorPage>>{m_pages.Data(), m_pages.Size()};
-        }
+        [[nodiscard]] Span<const UniquePtr<EditorPage>> OpenPages() const noexcept;
 
         [[nodiscard]] EditorPage* ActivePage() const noexcept { return m_activePage; }
-        void SetActivePage(EditorPage* page)
-        {
-            if (m_activePage == page)
-            {
-                return;
-            }
-            m_activePage = page;
-            NotifyPagesChanged();
-        }
+        void SetActivePage(EditorPage* page);
 
         // === Edit routing (menu Edit>Undo/Redo -> the active page's stack) ===
 
-        [[nodiscard]] bool CanUndo() const
-        {
-            return m_activePage != nullptr && m_activePage->Commands().CanUndo();
-        }
-        [[nodiscard]] bool CanRedo() const
-        {
-            return m_activePage != nullptr && m_activePage->Commands().CanRedo();
-        }
-        void Undo()
-        {
-            if (m_activePage != nullptr)
-            {
-                m_activePage->Commands().Undo();
-            }
-        }
-        void Redo()
-        {
-            if (m_activePage != nullptr)
-            {
-                m_activePage->Commands().Redo();
-            }
-        }
+        [[nodiscard]] bool CanUndo() const;
+        [[nodiscard]] bool CanRedo() const;
+        void Undo();
+        void Redo();
 
         // === Selection ===
 
         /// Global asset selection (asset browser / instance pickers). Entity selection is
         /// per-scene-page (phase 3).
-        [[nodiscard]] Selection<const draconic::content::Instance*>& AssetSelection() noexcept
-        {
-            return m_assetSelection;
-        }
+        [[nodiscard]] Selection<const draconic::content::Instance*>& AssetSelection() noexcept;
 
         // === Import notifications ===
 
@@ -327,10 +154,7 @@ export namespace draconic::editor
         /// post-import steps that live above the importer's layer - e.g. model->prefab
         /// generation, which needs scene machinery the importer library never links.
         void AddImportListener(
-            Function<void(draconic::content::Instance&, const ImportOptions*)> listener)
-        {
-            m_importListeners.PushBack(Move(listener));
-        }
+            Function<void(draconic::content::Instance&, const ImportOptions*)> listener);
 
         /// Play-in-editor seam: creates the singleton Game page (the player behavior in a
         /// tab). Registered by the scene editor plugin; unset = the Game menu item notifies.
@@ -359,13 +183,7 @@ export namespace draconic::editor
                       Array<Guid>& /*outResources*/, Array<Guid>& /*outPrefabs*/)>
             SceneRefScanner;
 
-        void NotifyImported(draconic::content::Instance& instance, const ImportOptions* options)
-        {
-            for (const auto& listener : m_importListeners)
-            {
-                listener(instance, options);
-            }
-        }
+        void NotifyImported(draconic::content::Instance& instance, const ImportOptions* options);
 
         // === Script breakpoints (the debugger, script-debugger.md P1) ===
         // Shared editor state: the ScriptPage gutter toggles them per source file+line, and a
@@ -379,62 +197,18 @@ export namespace draconic::editor
         };
 
         /// Toggle a breakpoint at `file:line`; fires OnBreakpointsChanged.
-        void ToggleBreakpoint(StringView file, i32 line)
-        {
-            for (usize i = 0; i < m_breakpoints.Size(); ++i)
-            {
-                if (m_breakpoints[i].line == line && m_breakpoints[i].file.AsView() == file)
-                {
-                    m_breakpoints.RemoveAt(i);
-                    if (OnBreakpointsChanged)
-                    {
-                        OnBreakpointsChanged();
-                    }
-                    return;
-                }
-            }
-            m_breakpoints.PushBack(ScriptBreakpoint{String(file), line});
-            if (OnBreakpointsChanged)
-            {
-                OnBreakpointsChanged();
-            }
-        }
-        [[nodiscard]] bool HasBreakpoint(StringView file, i32 line) const
-        {
-            for (const ScriptBreakpoint& breakpoint : m_breakpoints)
-            {
-                if (breakpoint.line == line && breakpoint.file.AsView() == file)
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
-        [[nodiscard]] Span<const ScriptBreakpoint> Breakpoints() const noexcept
-        {
-            return Span<const ScriptBreakpoint>{m_breakpoints.Data(), m_breakpoints.Size()};
-        }
+        void ToggleBreakpoint(StringView file, i32 line);
+        [[nodiscard]] bool HasBreakpoint(StringView file, i32 line) const;
+        [[nodiscard]] Span<const ScriptBreakpoint> Breakpoints() const noexcept;
         /// Fired on every breakpoint toggle (the gutter repaints; a live run re-applies).
         Function<void()> OnBreakpointsChanged;
 
         // === Status ===
 
-        void SetStatus(StringView text)
-        {
-            if (OnStatus)
-            {
-                OnStatus(text);
-            }
-        }
+        void SetStatus(StringView text);
 
     private:
-        void NotifyPagesChanged()
-        {
-            if (OnPagesChanged)
-            {
-                OnPagesChanged();
-            }
-        }
+        void NotifyPagesChanged();
 
         EditorProject* m_project = nullptr;
         draconic::resource::ResourceManager* m_resources = nullptr; // borrowed (app-owned)
