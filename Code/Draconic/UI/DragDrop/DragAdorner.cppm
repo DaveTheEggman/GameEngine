@@ -25,12 +25,14 @@ export namespace draconic::ui
     {
         DRACONIC_OBJECT(DragAdorner, ViewGroup)
     public:
-        DragAdorner(View* visual, f32 offsetX, f32 offsetY)
-            : m_offsetX(offsetX), m_offsetY(offsetY)
+        DragAdorner(View* visual, f32 offsetX, f32 offsetY) : m_offsetX(offsetX), m_offsetY(offsetY)
         {
             IsInteractionEnabled = false;
             Opacity = 0.7f;
-            if (visual != nullptr) { AddView(visual); }
+            if (visual != nullptr)
+            {
+                AddView(visual);
+            }
         }
 
         /// Offset from the cursor position.
@@ -39,12 +41,16 @@ export namespace draconic::ui
 
         void OnDraw(UIDrawContext& ctx) override
         {
-            if (ChildCount() > 0) { ViewGroup::OnDraw(ctx); }
+            if (ChildCount() > 0)
+            {
+                ViewGroup::OnDraw(ctx);
+            }
             else
             {
                 // Default: semi-transparent rounded rect.
-                ctx.VG().FillRoundedRect(Rectangle{ 0, 0, Width(), Height() }, 4.0f,
-                    Color{ 128.0f / 255.0f, 128.0f / 255.0f, 128.0f / 255.0f, 128.0f / 255.0f });
+                ctx.VG().FillRoundedRect(
+                    Rectangle{0, 0, Width(), Height()}, 4.0f,
+                    Color{128.0f / 255.0f, 128.0f / 255.0f, 128.0f / 255.0f, 128.0f / 255.0f});
             }
         }
 
@@ -60,28 +66,37 @@ export namespace draconic::ui
                 for (usize i = 0; i < ChildCount(); ++i)
                 {
                     View* child = GetChildAt(i);
-                    if (child->Visibility == VisibilityValue::Gone) { continue; }
+                    if (child->Visibility == VisibilityValue::Gone)
+                    {
+                        continue;
+                    }
                     child->Measure(inner);
                     maxW = Max(maxW, child->MeasuredSize.x);
                     maxH = Max(maxH, child->MeasuredSize.y);
                 }
-                MeasuredSize = Float2{ constraints.ConstrainWidth(maxW + Padding.Left + Padding.Right),
-                                       constraints.ConstrainHeight(maxH + Padding.Top + Padding.Bottom) };
+                MeasuredSize =
+                    Float2{constraints.ConstrainWidth(maxW + Padding.Left + Padding.Right),
+                           constraints.ConstrainHeight(maxH + Padding.Top + Padding.Bottom)};
             }
             else
             {
                 // Default size when no visual provided.
-                MeasuredSize = Float2{ constraints.ConstrainWidth(32), constraints.ConstrainHeight(32) };
+                MeasuredSize =
+                    Float2{constraints.ConstrainWidth(32), constraints.ConstrainHeight(32)};
             }
         }
 
         void OnLayout(f32 left, f32 top, f32 width, f32 height) override
         {
-            (void)left; (void)top;
+            (void)left;
+            (void)top;
             // Layout children to fill the adorner bounds.
             for (usize i = 0; i < ChildCount(); ++i)
             {
-                if (View* child = GetChildAt(i)) { child->Layout(0, 0, width, height); }
+                if (View* child = GetChildAt(i))
+                {
+                    child->Layout(0, 0, width, height);
+                }
             }
         }
 

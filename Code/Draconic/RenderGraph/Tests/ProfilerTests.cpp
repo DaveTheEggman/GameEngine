@@ -20,7 +20,7 @@ TEST_CASE("rg.profiler: uninitialized is safe and reports zero")
     CHECK(profiler.GetPassTimeMs(-1) == 0.0f);
     CHECK(profiler.GetPassTimeMs(1000) == 0.0f);
 
-    profiler.SetTimestampPeriod(1.0f);   // no-op without GPU state
-    profiler.Destroy();                  // safe with no device
+    profiler.SetTimestampPeriod(1.0f); // no-op without GPU state
+    profiler.Destroy();                // safe with no device
     CHECK(profiler.GetPassTimeMs(0) == 0.0f);
 }

@@ -45,22 +45,29 @@ export namespace draconic::ui
         DrawableView(DrawablePtr drawable, f32 width, f32 height) : DrawableView()
         {
             Drawable = Move(drawable);
-            DesiredWidth.SetSilent(Optional<f32>{ width });
-            DesiredHeight.SetSilent(Optional<f32>{ height });
+            DesiredWidth.SetSilent(Optional<f32>{width});
+            DesiredHeight.SetSilent(Optional<f32>{height});
         }
 
         void OnDraw(UIDrawContext& ctx) override
         {
-            if (Drawable) { Drawable->Draw(ctx, Rectangle{ 0, 0, Width(), Height() }, GetControlState()); }
+            if (Drawable)
+            {
+                Drawable->Draw(ctx, Rectangle{0, 0, Width(), Height()}, GetControlState());
+            }
         }
 
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
             Optional<Float2> intrinsic = Drawable ? Drawable->IntrinsicSize() : Optional<Float2>{};
-            const f32 w = DesiredWidth.Value().HasValue() ? DesiredWidth.Value().Value() : (intrinsic.HasValue() ? intrinsic.Value().x : 0.0f);
-            const f32 h = DesiredHeight.Value().HasValue() ? DesiredHeight.Value().Value() : (intrinsic.HasValue() ? intrinsic.Value().y : 0.0f);
-            MeasuredSize = Float2{ constraints.ConstrainWidth(w), constraints.ConstrainHeight(h) };
+            const f32 w = DesiredWidth.Value().HasValue()
+                              ? DesiredWidth.Value().Value()
+                              : (intrinsic.HasValue() ? intrinsic.Value().x : 0.0f);
+            const f32 h = DesiredHeight.Value().HasValue()
+                              ? DesiredHeight.Value().Value()
+                              : (intrinsic.HasValue() ? intrinsic.Value().y : 0.0f);
+            MeasuredSize = Float2{constraints.ConstrainWidth(w), constraints.ConstrainHeight(h)};
         }
     };
 

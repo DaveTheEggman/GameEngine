@@ -22,10 +22,17 @@ namespace draconic::ui
         m_state = DragState::Idle;
     }
 
-    bool DragDropManager::BeginPotentialDrag(View* sourceView, IDragSource* source, f32 screenX, f32 screenY, MouseButton button)
+    bool DragDropManager::BeginPotentialDrag(View* sourceView, IDragSource* source, f32 screenX,
+                                             f32 screenY, MouseButton button)
     {
-        if (m_state != DragState::Idle) { return false; }
-        if (button != MouseButton::Left) { return false; }
+        if (m_state != DragState::Idle)
+        {
+            return false;
+        }
+        if (button != MouseButton::Left)
+        {
+            return false;
+        }
 
         m_sourceView = sourceView;
         m_dragSource = source;
@@ -38,7 +45,10 @@ namespace draconic::ui
 
     bool DragDropManager::UpdateDrag(f32 screenX, f32 screenY)
     {
-        if (m_state == DragState::Idle) { return false; }
+        if (m_state == DragState::Idle)
+        {
+            return false;
+        }
 
         m_lastScreenX = screenX;
         m_lastScreenY = screenY;
@@ -49,7 +59,10 @@ namespace draconic::ui
             const f32 dy = screenY - m_startScreenY;
             const f32 dist = Sqrt(dx * dx + dy * dy);
 
-            if (dist < DragThreshold) { return false; } // Not yet - let normal mouse processing continue.
+            if (dist < DragThreshold)
+            {
+                return false;
+            } // Not yet - let normal mouse processing continue.
 
             // Threshold exceeded - activate drag.
             if (!ActivateDrag())
@@ -69,7 +82,10 @@ namespace draconic::ui
 
     bool DragDropManager::EndDrag(f32 screenX, f32 screenY)
     {
-        if (m_state == DragState::Idle) { return false; }
+        if (m_state == DragState::Idle)
+        {
+            return false;
+        }
 
         m_lastScreenX = screenX;
         m_lastScreenY = screenY;
@@ -89,7 +105,10 @@ namespace draconic::ui
         // Close adorner BEFORE OnDrop. OnDrop may destroy views (and their PopupLayer) as part of re-docking.
         if (m_adorner != nullptr)
         {
-            if (m_adornerPopupLayer != nullptr) { m_adornerPopupLayer->ClosePopup(m_adorner); }
+            if (m_adornerPopupLayer != nullptr)
+            {
+                m_adornerPopupLayer->ClosePopup(m_adorner);
+            }
             m_adorner = nullptr;
             m_adornerPopupLayer = nullptr;
         }
@@ -102,7 +121,7 @@ namespace draconic::ui
         DragDropEffects effect = DragDropEffects::None;
         if (m_currentDropTarget != nullptr && m_currentEffect != DragDropEffects::None)
         {
-            const Float2 local = m_currentDropTargetView->ScreenToLocal(Float2{ screenX, screenY });
+            const Float2 local = m_currentDropTargetView->ScreenToLocal(Float2{screenX, screenY});
             effect = m_currentDropTarget->OnDrop(m_dragData.Get(), local.x, local.y);
         }
 
@@ -113,9 +132,15 @@ namespace draconic::ui
 
     void DragDropManager::CancelDrag()
     {
-        if (m_state == DragState::Idle) { return; }
+        if (m_state == DragState::Idle)
+        {
+            return;
+        }
 
-        if (m_state == DragState::Active) { CompleteDrag(DragDropEffects::None, true); }
+        if (m_state == DragState::Active)
+        {
+            CompleteDrag(DragDropEffects::None, true);
+        }
         else
         {
             m_state = DragState::Idle;
@@ -126,11 +151,17 @@ namespace draconic::ui
 
     void DragDropManager::OnViewDeleted(View* view)
     {
-        if (m_state == DragState::Idle) { return; }
+        if (m_state == DragState::Idle)
+        {
+            return;
+        }
 
         if (view == m_sourceView)
         {
-            if (m_state == DragState::Active) { CompleteDrag(DragDropEffects::None, true); }
+            if (m_state == DragState::Active)
+            {
+                CompleteDrag(DragDropEffects::None, true);
+            }
             else
             {
                 m_state = DragState::Idle;
@@ -159,7 +190,10 @@ namespace draconic::ui
 
         // Ask source for data.
         m_dragData = m_dragSource->CreateDragData();
-        if (!m_dragData) { return false; }
+        if (!m_dragData)
+        {
+            return false;
+        }
 
         // Ask source for visual.
         RefPtr<View> visual = m_dragSource->CreateDragVisual(m_dragData.Get());
@@ -168,17 +202,21 @@ namespace draconic::ui
         m_dragSource->OnDragStarted(m_dragData.Get());
 
         // Create adorner with final offset values.
-        RefPtr<DragAdorner> adorner = MakeRef<DragAdorner>(DefaultAllocator(), visual.Get(), AdornerOffsetX, AdornerOffsetY);
+        RefPtr<DragAdorner> adorner =
+            MakeRef<DragAdorner>(DefaultAllocator(), visual.Get(), AdornerOffsetX, AdornerOffsetY);
         m_adorner = adorner.Get();
 
         // Show adorner via PopupLayer.
         RootView* root = m_context->ActiveInputRoot();
-        if (root == nullptr) { m_adorner = nullptr; return false; }
+        if (root == nullptr)
+        {
+            m_adorner = nullptr;
+            return false;
+        }
 
         m_adornerPopupLayer = root->GetPopupLayer();
-        m_adornerPopupLayer->ShowPopup(adorner.Get(), nullptr,
-            m_startScreenX + AdornerOffsetX, m_startScreenY + AdornerOffsetY,
-            false, false, true);
+        m_adornerPopupLayer->ShowPopup(adorner.Get(), nullptr, m_startScreenX + AdornerOffsetX,
+                                       m_startScreenY + AdornerOffsetY, false, false, true);
 
         // Set mouse capture on the source view.
         m_context->GetFocusManager()->SetCapture(m_sourceView);
@@ -189,17 +227,19 @@ namespace draconic::ui
 
     void DragDropManager::UpdateAdornerPosition(f32 screenX, f32 screenY)
     {
-        if (m_adorner == nullptr || m_adornerPopupLayer == nullptr) { return; }
+        if (m_adorner == nullptr || m_adornerPopupLayer == nullptr)
+        {
+            return;
+        }
 
-        m_adornerPopupLayer->UpdatePopupPosition(m_adorner,
-            screenX + m_adorner->OffsetX(),
-            screenY + m_adorner->OffsetY());
+        m_adornerPopupLayer->UpdatePopupPosition(m_adorner, screenX + m_adorner->OffsetX(),
+                                                 screenY + m_adorner->OffsetY());
     }
 
     void DragDropManager::UpdateDropTarget(f32 screenX, f32 screenY)
     {
         RootView* root = m_context->ActiveInputRoot();
-        View* hitView = (root != nullptr) ? root->HitTest(Float2{ screenX, screenY }) : nullptr;
+        View* hitView = (root != nullptr) ? root->HitTest(Float2{screenX, screenY}) : nullptr;
 
         // Walk parent chain to find an IDropTarget.
         View* newTargetView = nullptr;
@@ -209,7 +249,10 @@ namespace draconic::ui
         if (newTarget != m_currentDropTarget)
         {
             // Leave old target.
-            if (m_currentDropTarget != nullptr) { m_currentDropTarget->OnDragLeave(m_dragData.Get()); }
+            if (m_currentDropTarget != nullptr)
+            {
+                m_currentDropTarget->OnDragLeave(m_dragData.Get());
+            }
 
             m_currentDropTargetView = newTargetView;
             m_currentDropTarget = newTarget;
@@ -217,9 +260,10 @@ namespace draconic::ui
             // Enter new target.
             if (m_currentDropTarget != nullptr)
             {
-                const Float2 local = newTargetView->ScreenToLocal(Float2{ screenX, screenY });
+                const Float2 local = newTargetView->ScreenToLocal(Float2{screenX, screenY});
                 m_currentDropTarget->OnDragEnter(m_dragData.Get(), local.x, local.y);
-                m_currentEffect = m_currentDropTarget->CanAcceptDrop(m_dragData.Get(), local.x, local.y);
+                m_currentEffect =
+                    m_currentDropTarget->CanAcceptDrop(m_dragData.Get(), local.x, local.y);
             }
             else
             {
@@ -229,9 +273,10 @@ namespace draconic::ui
         else if (m_currentDropTarget != nullptr)
         {
             // Same target - fire over.
-            const Float2 local = m_currentDropTargetView->ScreenToLocal(Float2{ screenX, screenY });
+            const Float2 local = m_currentDropTargetView->ScreenToLocal(Float2{screenX, screenY});
             m_currentDropTarget->OnDragOver(m_dragData.Get(), local.x, local.y);
-            m_currentEffect = m_currentDropTarget->CanAcceptDrop(m_dragData.Get(), local.x, local.y);
+            m_currentEffect =
+                m_currentDropTarget->CanAcceptDrop(m_dragData.Get(), local.x, local.y);
         }
     }
 
@@ -270,13 +315,19 @@ namespace draconic::ui
         // Remove adorner (PopupLayer owns it, will drop it).
         if (m_adorner != nullptr)
         {
-            if (m_adornerPopupLayer != nullptr) { m_adornerPopupLayer->ClosePopup(m_adorner); }
+            if (m_adornerPopupLayer != nullptr)
+            {
+                m_adornerPopupLayer->ClosePopup(m_adorner);
+            }
             m_adorner = nullptr;
             m_adornerPopupLayer = nullptr;
         }
 
         // Notify source.
-        if (m_dragSource != nullptr) { m_dragSource->OnDragCompleted(m_dragData.Get(), effect, cancelled); }
+        if (m_dragSource != nullptr)
+        {
+            m_dragSource->OnDragCompleted(m_dragData.Get(), effect, cancelled);
+        }
 
         // Clean up.
         m_dragData = nullptr;

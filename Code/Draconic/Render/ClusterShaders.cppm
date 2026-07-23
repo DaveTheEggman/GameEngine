@@ -12,16 +12,17 @@ export module draconic.render:cluster_shaders;
 
 import draconic.core;
 
-export namespace draconic::render {
-
-// The cluster build compute kernel. One thread per cluster: build the cluster's view-space AABB
-// from the inverse projection (screen tile x log-Z slice), then assign each light whose bounding
-// sphere intersects it (directional lights affect every cluster). Writes a per-cluster (offset,
-// count) into ClusterOffsetsRW + the light indices into the flat ClusterLightIndicesRW. The stored
-// index is the light's position in the view's light list (the forward shader adds its own base).
-[[nodiscard]] inline core::StringView ClusterBuildCS() noexcept
+export namespace draconic::render
 {
-    return core::StringView(u8R"(
+
+    // The cluster build compute kernel. One thread per cluster: build the cluster's view-space AABB
+    // from the inverse projection (screen tile x log-Z slice), then assign each light whose bounding
+    // sphere intersects it (directional lights affect every cluster). Writes a per-cluster (offset,
+    // count) into ClusterOffsetsRW + the light indices into the flat ClusterLightIndicesRW. The stored
+    // index is the light's position in the view's light list (the forward shader adds its own base).
+    [[nodiscard]] inline core::StringView ClusterBuildCS() noexcept
+    {
+        return core::StringView(u8R"(
 #pragma pack_matrix(row_major)
 static const uint MAX_PER_CLUSTER = 64;
 
@@ -100,6 +101,6 @@ void main(uint3 dtid : SV_DispatchThreadID) {
     ClusterOffsetsRW[clusterIdx] = uint2(base, count);
 }
 )");
-}
+    }
 
 }

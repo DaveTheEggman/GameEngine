@@ -9,7 +9,7 @@ module;
 
 export module draconic.gui:string_list_model;
 
-import draconic.core;   // Array, String, StringView, Move
+import draconic.core; // Array, String, StringView, Move
 import :variant;
 import :model_index;
 import :model;
@@ -25,20 +25,37 @@ export namespace draconic::gui
         StringListModel() = default;
         explicit StringListModel(Array<core::String> items) : m_items(core::Move(items)) {}
 
-        void SetItems(Array<core::String> items) { m_items = core::Move(items); DidUpdate(); }
-        void AddItem(core::StringView item) { m_items.PushBack(core::String(item)); DidUpdate(); }
-        void Clear() { m_items.Clear(); DidUpdate(); }
+        void SetItems(Array<core::String> items)
+        {
+            m_items = core::Move(items);
+            DidUpdate();
+        }
+        void AddItem(core::StringView item)
+        {
+            m_items.PushBack(core::String(item));
+            DidUpdate();
+        }
+        void Clear()
+        {
+            m_items.Clear();
+            DidUpdate();
+        }
 
         [[nodiscard]] core::StringView ItemAt(usize row) const
         {
             return row < m_items.Size() ? m_items[row].AsView() : core::StringView{};
         }
 
-        [[nodiscard]] usize RowCount(const ModelIndex& parent = {}) const override { return parent.IsValid() ? 0 : m_items.Size(); }
-        [[nodiscard]] usize ColumnCount() const override { return 1; }
-        [[nodiscard]] Variant Data(const ModelIndex& index, ModelRole role = ModelRole::Display) const override
+        [[nodiscard]] usize RowCount(const ModelIndex& parent = {}) const override
         {
-            if (!IsValidIndex(index)) return Variant{};
+            return parent.IsValid() ? 0 : m_items.Size();
+        }
+        [[nodiscard]] usize ColumnCount() const override { return 1; }
+        [[nodiscard]] Variant Data(const ModelIndex& index,
+                                   ModelRole role = ModelRole::Display) const override
+        {
+            if (!IsValidIndex(index))
+                return Variant{};
             if (role == ModelRole::Display || role == ModelRole::Sort)
                 return Variant(m_items[static_cast<usize>(index.Row)].AsView());
             return Variant{};

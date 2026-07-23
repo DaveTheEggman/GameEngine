@@ -10,7 +10,11 @@ namespace core = draconic::core;
 
 namespace
 {
-    template <typename T> core::RefPtr<T> Make() { return core::MakeRef<T>(core::DefaultAllocator()); }
+    template <typename T>
+    core::RefPtr<T> Make()
+    {
+        return core::MakeRef<T>(core::DefaultAllocator());
+    }
 
     core::RefPtr<UIWidget> Widget(const char8_t* tag)
     {
@@ -60,8 +64,8 @@ TEST_CASE("stylesheet: higher specificity wins")
     sheet.AddRule(core::Move(classRule));
 
     ResolvedStyle rs = sheet.Resolve(*w.Get());
-    CHECK(rs.Get(SV(u8"color")) == SV(u8"white"));  // from .primary
-    CHECK(rs.Get(SV(u8"padding")) == SV(u8"4"));    // only in the tag rule
+    CHECK(rs.Get(SV(u8"color")) == SV(u8"white")); // from .primary
+    CHECK(rs.Get(SV(u8"padding")) == SV(u8"4"));   // only in the tag rule
     CHECK_FALSE(rs.Has(SV(u8"margin")));
 }
 
@@ -72,9 +76,12 @@ TEST_CASE("stylesheet: id beats class beats tag")
     w->AddClass(SV(u8"primary"));
 
     StyleSheet sheet;
-    StyleRule t = Rule(u8"button"); t.SetProperty(SV(u8"color"), SV(u8"tag"));
-    StyleRule c = Rule(u8".primary"); c.SetProperty(SV(u8"color"), SV(u8"class"));
-    StyleRule i = Rule(u8"#ok"); i.SetProperty(SV(u8"color"), SV(u8"id"));
+    StyleRule t = Rule(u8"button");
+    t.SetProperty(SV(u8"color"), SV(u8"tag"));
+    StyleRule c = Rule(u8".primary");
+    c.SetProperty(SV(u8"color"), SV(u8"class"));
+    StyleRule i = Rule(u8"#ok");
+    i.SetProperty(SV(u8"color"), SV(u8"id"));
     sheet.AddRule(core::Move(t));
     sheet.AddRule(core::Move(i)); // add id before class to prove ordering is by specificity
     sheet.AddRule(core::Move(c));
@@ -89,8 +96,10 @@ TEST_CASE("stylesheet: equal specificity resolves by source order (last wins)")
     w->AddClass(SV(u8"x"));
 
     StyleSheet sheet;
-    StyleRule a = Rule(u8".x"); a.SetProperty(SV(u8"color"), SV(u8"red"));
-    StyleRule b = Rule(u8".x"); b.SetProperty(SV(u8"color"), SV(u8"blue"));
+    StyleRule a = Rule(u8".x");
+    a.SetProperty(SV(u8"color"), SV(u8"red"));
+    StyleRule b = Rule(u8".x");
+    b.SetProperty(SV(u8"color"), SV(u8"blue"));
     sheet.AddRule(core::Move(a));
     sheet.AddRule(core::Move(b));
 
@@ -102,7 +111,8 @@ TEST_CASE("stylesheet: non-matching rules contribute nothing")
 {
     auto w = Widget(u8"button");
     StyleSheet sheet;
-    StyleRule other = Rule(u8"span"); other.SetProperty(SV(u8"color"), SV(u8"nope"));
+    StyleRule other = Rule(u8"span");
+    other.SetProperty(SV(u8"color"), SV(u8"nope"));
     sheet.AddRule(core::Move(other));
 
     ResolvedStyle rs = sheet.Resolve(*w.Get());

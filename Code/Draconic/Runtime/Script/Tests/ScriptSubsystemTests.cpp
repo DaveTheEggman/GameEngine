@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-#include "Core/Prelude.h"  // <new> reachability for container instantiation (GCC)
+#include "Core/Prelude.h" // <new> reachability for container instantiation (GCC)
 
 import draconic.core;
 import draconic.runtime;
@@ -15,19 +15,18 @@ using namespace draconic::script;
 namespace
 {
     // A driver class that accumulates the per-frame dt and reports the total.
-    constexpr StringView kDriverSource =
-        u8"class Game {\n"
-        u8"  construct new() { _total = 0 }\n"
-        u8"  update(dt) { _total = _total + dt }\n"
-        u8"  total() { _total }\n"
-        u8"}\n";
+    constexpr StringView kDriverSource = u8"class Game {\n"
+                                         u8"  construct new() { _total = 0 }\n"
+                                         u8"  update(dt) { _total = _total + dt }\n"
+                                         u8"  total() { _total }\n"
+                                         u8"}\n";
 }
 
 TEST_CASE("runtime.script: subsystem hosts a context after startup")
 {
     Context ctx;
     ScriptSubsystem* scripts = ctx.AddSubsystem<ScriptSubsystem>(wren::CreateScriptManager());
-    CHECK(scripts->Context() == nullptr);  // not created until Init
+    CHECK(scripts->Context() == nullptr); // not created until Init
 
     ctx.Startup();
     CHECK(scripts->Manager() != nullptr);
@@ -58,7 +57,7 @@ TEST_CASE("runtime.script: no driver set -> update is a harmless no-op")
     Context ctx;
     ctx.AddSubsystem<ScriptSubsystem>(wren::CreateScriptManager());
     ctx.Startup();
-    ctx.Update(0.016f);  // must not crash with no driver
+    ctx.Update(0.016f); // must not crash with no driver
     ctx.Shutdown();
     CHECK_FALSE(ctx.IsRunning());
 }

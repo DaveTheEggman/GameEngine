@@ -26,7 +26,7 @@ import draconic.shell;
 import draconic.runtime;
 import draconic.runtime.client;
 import draconic.runtime.defaultapp;
-import draconic.runtime.gameinstance;   // GameInstance (the Game tab's run; multi-instance factory)
+import draconic.runtime.gameinstance; // GameInstance (the Game tab's run; multi-instance factory)
 import draconic.scene;
 import draconic.scene.subsystem;
 import draconic.scene.resource;
@@ -36,7 +36,7 @@ import draconic.render.subsystem;
 import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.ui.runtime;
-import draconic.ui.subsystem;   // game-UI RenderTexture canvases (live in editing viewports)
+import draconic.ui.subsystem; // game-UI RenderTexture canvases (live in editing viewports)
 import draconic.ui.viewport;
 import draconic.vg.renderer;
 import draconic.editor.core;
@@ -63,8 +63,8 @@ export namespace draconic::editor
     class SceneEditorPage final : public app::UIEditorPage
     {
     public:
-        SceneEditorPage(EditorContext& context, runtime::IApplicationHost& host, ui::runtime::UIHost& uiHost,
-                        draconic::content::Instance& instance)
+        SceneEditorPage(EditorContext& context, runtime::IApplicationHost& host,
+                        ui::runtime::UIHost& uiHost, draconic::content::Instance& instance)
             : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
         {
             m_scenes = host.Ctx().GetSubsystem<scene::SceneSubsystem>();
@@ -78,7 +78,7 @@ export namespace draconic::editor
                 m_sceneManager.SetAwareRegistry(&m_scenes->AwareRegistry());
                 m_scenes->RegisterManager(&m_sceneManager);
                 m_scene = m_sceneManager.CreateScene(instance.Name());
-                m_scene->SetSimulationEnabled(false);   // edit mode is frozen; Simulate un-freezes
+                m_scene->SetSimulationEnabled(false); // edit mode is frozen; Simulate un-freezes
                 const Status loaded = scene::LoadScene(instance, *m_scene);
                 if (loaded.IsOk())
                 {
@@ -94,14 +94,16 @@ export namespace draconic::editor
                     if (m_scene->PendingPrefabInstanceCount() > 0 && context.Project() != nullptr)
                     {
                         EditorContext* editorContext = &context;
-                        scene::ResolveScenePrefabs(*m_scene,
+                        scene::ResolveScenePrefabs(
+                            *m_scene,
                             Function<UniquePtr<IStream>(const Guid&)>{
-                                [editorContext](const Guid& prefabId) -> UniquePtr<IStream> {
+                                [editorContext](const Guid& prefabId) -> UniquePtr<IStream>
+                                {
                                     draconic::content::Instance* prefab =
                                         editorContext->Project()->SourceDb().GetInstance(prefabId);
                                     return (prefab != nullptr) ? prefab->ReadData(u8"scene")
                                                                : UniquePtr<IStream>{};
-                                } });
+                                }});
                         if (context.Resources() != nullptr)
                         {
                             scene::ResolveSceneResources(*m_scene, *context.Resources());
@@ -111,7 +113,8 @@ export namespace draconic::editor
                 }
                 else if (loaded.Code() == ErrorCode::NotFound)
                 {
-                    DRACONIC_LOG_INFO(u8"Editor", u8"new scene '{}' (no scene stream yet)", m_title);
+                    DRACONIC_LOG_INFO(u8"Editor", u8"new scene '{}' (no scene stream yet)",
+                                      m_title);
                 }
                 else
                 {
@@ -123,33 +126,43 @@ export namespace draconic::editor
             // and manages its transitions via TargetState (ColorState()/SetColorState tracking),
             // inside the app's single per-frame bracket.
             m_viewport = MakeRef<ui::viewport::ViewportView>(DefaultAllocator());
-            m_viewport->ClearColor = rhi::ClearColor{ 0.10f, 0.11f, 0.13f, 1.0f };
+            m_viewport->ClearColor = rhi::ClearColor{0.10f, 0.11f, 0.13f, 1.0f};
 
             // Everything scene-scoped is PER PAGE (multi-scene): mutation mediator (all edits
             // are commands on THIS page's stack), selection, hierarchy + inspector views.
             if (m_scene != nullptr)
             {
-                m_editContext = MakeUnique<SceneEditContext>(DefaultAllocator(), *m_scene, Commands());
+                m_editContext =
+                    MakeUnique<SceneEditContext>(DefaultAllocator(), *m_scene, Commands());
                 m_editContext->SetResources(context.Resources());
                 EditorContext* resolverContext = &context;
                 m_editContext->SetPrefabResolver(scene::PrefabPayloadResolver{
-                    [resolverContext](const Guid& prefabId) -> UniquePtr<IStream> {
-                        if (resolverContext->Project() == nullptr) { return UniquePtr<IStream>{}; }
+                    [resolverContext](const Guid& prefabId) -> UniquePtr<IStream>
+                    {
+                        if (resolverContext->Project() == nullptr)
+                        {
+                            return UniquePtr<IStream>{};
+                        }
                         draconic::content::Instance* prefab =
                             resolverContext->Project()->SourceDb().GetInstance(prefabId);
                         return (prefab != nullptr) ? prefab->ReadData(u8"scene")
                                                    : UniquePtr<IStream>{};
-                    } });
+                    }});
                 m_hierarchy = MakeRef<SceneHierarchyView>(DefaultAllocator(), *m_editContext);
                 m_hierarchy->SetEditorContext(&context);
                 {
                     SceneEditorPage* page = this;
-                    m_hierarchy->OnCreatePrefab = [page](const Guid& entity) { page->CreatePrefabFromEntity(entity); };
-                    m_hierarchy->OnSpawnPrefab = [page](const Guid& parent) { page->PickAndSpawnPrefab(parent); };
-                    m_hierarchy->OnApplyPrefab = [page](const Guid& root) { page->ApplyInstanceToPrefab(root); };
-                    m_hierarchy->OnRevertPrefab = [page](const Guid& root) { page->RevertInstance(root); };
+                    m_hierarchy->OnCreatePrefab = [page](const Guid& entity)
+                    { page->CreatePrefabFromEntity(entity); };
+                    m_hierarchy->OnSpawnPrefab = [page](const Guid& parent)
+                    { page->PickAndSpawnPrefab(parent); };
+                    m_hierarchy->OnApplyPrefab = [page](const Guid& root)
+                    { page->ApplyInstanceToPrefab(root); };
+                    m_hierarchy->OnRevertPrefab = [page](const Guid& root)
+                    { page->RevertInstance(root); };
                 }
-                m_inspector = MakeRef<SceneInspectorView>(DefaultAllocator(), context, *m_editContext);
+                m_inspector =
+                    MakeRef<SceneInspectorView>(DefaultAllocator(), context, *m_editContext);
                 m_gizmos = MakeUnique<GizmoController>(DefaultAllocator(), *m_editContext);
                 RegisterBuiltinGizmoRenderers(m_componentGizmos);
             }
@@ -181,10 +194,11 @@ export namespace draconic::editor
             m_content->SetSplitRatio(0.2f);
             m_content->SetPanes(m_hierarchy.Get(), inner.Get());
 
-            m_router = MakeUnique<draconic::shell::InputRouter>(DefaultAllocator(), host.Shell()->Input());
+            m_router =
+                MakeUnique<draconic::shell::InputRouter>(DefaultAllocator(), host.Shell()->Input());
 
             // Start framed on the origin (grid center), orbit pivot there, horizon level.
-            m_camera.LookAt(Float3{ 0.0f, 0.0f, 0.0f });
+            m_camera.LookAt(Float3{0.0f, 0.0f, 0.0f});
         }
 
         // === UIEditorPage ===
@@ -195,10 +209,19 @@ export namespace draconic::editor
         void OnUpdate(runtime::IApplicationHost&, f32 dt) override
         {
             EnsureViewportBound();
-            if (m_hostWindow == nullptr) { return; }
+            if (m_hostWindow == nullptr)
+            {
+                return;
+            }
 
-            if (m_hierarchy) { m_hierarchy->Refresh(); }   // scene revision -> tree rebuild
-            if (m_inspector) { m_inspector->Refresh(); }   // selection/structure -> grid rebuild
+            if (m_hierarchy)
+            {
+                m_hierarchy->Refresh();
+            } // scene revision -> tree rebuild
+            if (m_inspector)
+            {
+                m_inspector->Refresh();
+            } // selection/structure -> grid rebuild
 
             m_viewport->SyncInputRegion();
             m_router->Update();
@@ -208,7 +231,10 @@ export namespace draconic::editor
                 m_camera.Update(m_viewport->Keyboard(), m_viewport->Mouse(), dt);
             }
             const bool gizmoConsumedMouse = UpdateGizmos(viewportActive);
-            if (m_viewport->IsHovered() && !gizmoConsumedMouse) { PickOnClick(); }
+            if (m_viewport->IsHovered() && !gizmoConsumedMouse)
+            {
+                PickOnClick();
+            }
 
             // Per-scene debug draw (shows only where THIS scene renders; lists clear in
             // EndRendering, so re-accumulate every frame): ground grid + origin axes + entity
@@ -218,10 +244,10 @@ export namespace draconic::editor
                 render::debug::DebugDraw& dd = m_render->DebugScene(*m_scene);
                 if (m_showGrid)
                 {
-                    dd.DrawGrid(Float3{ 0, 0, 0 }, 20.0f, 20, Color{ 0.35f, 0.35f, 0.38f, 1.0f });
-                    dd.DrawLine(Float3{ 0, 0, 0 }, Float3{ 1, 0, 0 }, Color{ 0.9f, 0.2f, 0.2f, 1.0f });
-                    dd.DrawLine(Float3{ 0, 0, 0 }, Float3{ 0, 1, 0 }, Color{ 0.2f, 0.9f, 0.2f, 1.0f });
-                    dd.DrawLine(Float3{ 0, 0, 0 }, Float3{ 0, 0, 1 }, Color{ 0.2f, 0.4f, 0.95f, 1.0f });
+                    dd.DrawGrid(Float3{0, 0, 0}, 20.0f, 20, Color{0.35f, 0.35f, 0.38f, 1.0f});
+                    dd.DrawLine(Float3{0, 0, 0}, Float3{1, 0, 0}, Color{0.9f, 0.2f, 0.2f, 1.0f});
+                    dd.DrawLine(Float3{0, 0, 0}, Float3{0, 1, 0}, Color{0.2f, 0.9f, 0.2f, 1.0f});
+                    dd.DrawLine(Float3{0, 0, 0}, Float3{0, 0, 1}, Color{0.2f, 0.4f, 0.95f, 1.0f});
                 }
                 DrawEntityMarkers(dd);
                 DrawGizmos(dd);
@@ -232,22 +258,36 @@ export namespace draconic::editor
         // Called only for the MAIN window's frame, inside the app-level scene-renderer bracket
         // (Sedulous structure): the offscreen target is window-agnostic, so this renders no
         // matter which OS window hosts the panel; that window's UI samples the result.
-        void OnRenderWindow(runtime::IApplicationHost&, draconic::graphics::FrameContext& frame) override
+        void OnRenderWindow(runtime::IApplicationHost&,
+                            draconic::graphics::FrameContext& frame) override
         {
-            if (!m_viewport->IsReady() || !frame.valid) { return; }
-            if (m_render == nullptr || !m_render->IsReady() || m_scene == nullptr) { return; }
+            if (!m_viewport->IsReady() || !frame.valid)
+            {
+                return;
+            }
+            if (m_render == nullptr || !m_render->IsReady() || m_scene == nullptr)
+            {
+                return;
+            }
             const u32 w = m_viewport->RenderWidth();
             const u32 h = m_viewport->RenderHeight();
-            if (w == 0 || h == 0) { return; }
+            if (w == 0 || h == 0)
+            {
+                return;
+            }
 
             // Skip hidden viewports (inactive dock tabs set Visibility=Gone up the ancestor
             // chain) - no GPU work for content nobody can see (Sedulous does the same).
-            if (!m_viewport->IsEffectivelyVisible()) { return; }
+            if (!m_viewport->IsEffectivelyVisible())
+            {
+                return;
+            }
 
             if (!m_renderedOnce)
             {
                 m_renderedOnce = true;
-                DRACONIC_LOG_DEBUG(u8"Editor", u8"scene page '{}' first frame ({}x{})", m_title, w, h);
+                DRACONIC_LOG_DEBUG(u8"Editor", u8"scene page '{}' first frame ({}x{})", m_title, w,
+                                   h);
             }
 
             // RenderTexture canvases stay LIVE in editing viewports too (WYSIWYG - an
@@ -270,8 +310,8 @@ export namespace draconic::editor
 
             render::CameraOverride cameraOverride;
             cameraOverride.camera = camera;
-            cameraOverride.clearColor = Color{ m_viewport->ClearColor.r, m_viewport->ClearColor.g,
-                                               m_viewport->ClearColor.b, m_viewport->ClearColor.a };
+            cameraOverride.clearColor = Color{m_viewport->ClearColor.r, m_viewport->ClearColor.g,
+                                              m_viewport->ClearColor.b, m_viewport->ClearColor.a};
 
             // The graph imports the color target and owns its transitions: from the viewport's
             // tracked state (Undefined right after create/resize) to ShaderRead for the UI's
@@ -281,8 +321,9 @@ export namespace draconic::editor
             targetState.currentState = m_viewport->ColorState();
             targetState.finalState = rhi::ResourceState::ShaderRead;
 
-            m_render->RenderScene(*m_scene, m_viewport->ColorTargetView(), m_viewport->ColorFormat(), w, h,
-                                  render::ViewportRect{ 0, 0, w, h }, &cameraOverride, targetState, &m_postOverride);
+            m_render->RenderScene(*m_scene, m_viewport->ColorTargetView(),
+                                  m_viewport->ColorFormat(), w, h, render::ViewportRect{0, 0, w, h},
+                                  &cameraOverride, targetState, &m_postOverride);
             m_viewport->SetColorState(rhi::ResourceState::ShaderRead);
         }
 
@@ -291,9 +332,15 @@ export namespace draconic::editor
         // group). The payload keeps the captured guids as its stable source ids.
         void CreatePrefabFromEntity(const Guid& entityId)
         {
-            if (m_scene == nullptr || m_context->Project() == nullptr) { return; }
+            if (m_scene == nullptr || m_context->Project() == nullptr)
+            {
+                return;
+            }
             const scene::EntityHandle live = m_editContext->Resolve(entityId);
-            if (!live.IsAssigned()) { return; }
+            if (!live.IsAssigned())
+            {
+                return;
+            }
 
             MemoryStream payload;
             if (!scene::CapturePrefab(*m_scene, live, payload).IsOk())
@@ -304,34 +351,54 @@ export namespace draconic::editor
 
             draconic::content::Group* root = m_context->Project()->SourceDb().RootGroup();
             draconic::content::Group* prefabs = root->GetGroup(u8"Prefabs");
-            if (prefabs == nullptr) { prefabs = root->CreateGroup(u8"Prefabs"); }
+            if (prefabs == nullptr)
+            {
+                prefabs = root->CreateGroup(u8"Prefabs");
+            }
             String name(m_scene->GetEntityName(live));
-            if (name.IsEmpty()) { name = String(u8"Prefab"); }
+            if (name.IsEmpty())
+            {
+                name = String(u8"Prefab");
+            }
             for (u32 n = 2; prefabs->GetInstance(name.AsView()) != nullptr; ++n)
             {
                 name = String(m_scene->GetEntityName(live));
                 name += u8".";
                 utf8char digits[12];
                 u32 value = n, count = 0;
-                do { digits[count++] = static_cast<utf8char>('0' + (value % 10)); value /= 10; } while (value != 0);
-                while (count > 0) { name.PushBack(digits[--count]); }
+                do
+                {
+                    digits[count++] = static_cast<utf8char>('0' + (value % 10));
+                    value /= 10;
+                } while (value != 0);
+                while (count > 0)
+                {
+                    name.PushBack(digits[--count]);
+                }
             }
             draconic::content::Instance* asset =
                 prefabs->CreateInstance(name.AsView(), scene::PrefabDocument::StaticType());
-            if (asset == nullptr) { return; }
+            if (asset == nullptr)
+            {
+                return;
+            }
             scene::PrefabDocument doc;
             doc.name = name;
-            if (!asset->WriteObject(doc).IsOk()
-                || !asset->WriteData(u8"scene", payload.Bytes()).IsOk())
+            if (!asset->WriteObject(doc).IsOk() ||
+                !asset->WriteData(u8"scene", payload.Bytes()).IsOk())
             {
-                m_context->Notify(draconic::editor::NoticeKind::Error, u8"Prefab asset write failed.");
+                m_context->Notify(draconic::editor::NoticeKind::Error,
+                                  u8"Prefab asset write failed.");
                 return;
             }
 
             Array<byte> bytes;
             const Span<const byte> view = payload.Bytes();
             bytes.Reserve(view.Size());
-            for (byte b : view) { bytes.PushBack(b); }
+            for (byte b : view)
+            {
+                bytes.PushBack(b);
+            }
             const Guid instanceRoot =
                 m_editContext->ReplaceWithPrefabInstance(entityId, asset->Id(), Move(bytes));
             if (!instanceRoot.IsNil())
@@ -347,13 +414,16 @@ export namespace draconic::editor
         // no undo - so it confirms first (mirror of RevertInstance).
         void ApplyInstanceToPrefab(const Guid& rootId)
         {
-            if (m_scene == nullptr || m_context->Project() == nullptr
-                || m_content->Context == nullptr)
+            if (m_scene == nullptr || m_context->Project() == nullptr ||
+                m_content->Context == nullptr)
             {
                 return;
             }
             scene::Scene::PrefabInstanceState* state = m_scene->FindPrefabInstanceByRoot(rootId);
-            if (state == nullptr) { return; }
+            if (state == nullptr)
+            {
+                return;
+            }
             draconic::content::Instance* asset =
                 m_context->Project()->SourceDb().GetInstance(state->prefabId);
             if (asset == nullptr)
@@ -372,17 +442,24 @@ export namespace draconic::editor
             SceneEditorPage* page = this;
             RefPtr<draconic::ui::Dialog> dialog =
                 draconic::ui::Dialog::Confirm(u8"Apply to Prefab", message.AsView());
-            dialog->OnClosed.Add(
-                draconic::ui::Event<void(draconic::ui::Dialog*, draconic::ui::DialogResult)>::Handler{
-                    [page, rootId](draconic::ui::Dialog*, draconic::ui::DialogResult result) {
-                        if (result != draconic::ui::DialogResult::OK) { return; }
-                        // Deferred: rebuilding instances destroys + respawns entities (and
-                        // their hierarchy rows), never mid-event-dispatch.
-                        draconic::ui::UIContext* ctx = page->m_content->Context;
-                        if (ctx == nullptr) { return; }
-                        ctx->MutationQueueRef().QueueAction(Function<void()>{
-                            [page, rootId]() { page->ApplyInstanceToPrefabNow(rootId); } });
-                    } });
+            dialog->OnClosed.Add(draconic::ui::Event<void(draconic::ui::Dialog*,
+                                                          draconic::ui::DialogResult)>::Handler{
+                [page, rootId](draconic::ui::Dialog*, draconic::ui::DialogResult result)
+                {
+                    if (result != draconic::ui::DialogResult::OK)
+                    {
+                        return;
+                    }
+                    // Deferred: rebuilding instances destroys + respawns entities (and
+                    // their hierarchy rows), never mid-event-dispatch.
+                    draconic::ui::UIContext* ctx = page->m_content->Context;
+                    if (ctx == nullptr)
+                    {
+                        return;
+                    }
+                    ctx->MutationQueueRef().QueueAction(Function<void()>{
+                        [page, rootId]() { page->ApplyInstanceToPrefabNow(rootId); }});
+                }});
             dialog->Show(m_content->Context);
         }
 
@@ -391,9 +468,15 @@ export namespace draconic::editor
         // rebuilds from it - including this one, which re-baselines to clean.
         void ApplyInstanceToPrefabNow(const Guid& rootId)
         {
-            if (m_scene == nullptr || m_context->Project() == nullptr) { return; }
+            if (m_scene == nullptr || m_context->Project() == nullptr)
+            {
+                return;
+            }
             scene::Scene::PrefabInstanceState* state = m_scene->FindPrefabInstanceByRoot(rootId);
-            if (state == nullptr) { return; }
+            if (state == nullptr)
+            {
+                return;
+            }
             draconic::content::Instance* asset =
                 m_context->Project()->SourceDb().GetInstance(state->prefabId);
             if (asset == nullptr)
@@ -404,33 +487,42 @@ export namespace draconic::editor
             }
             MemoryStream payload;
             if (!scene::CaptureInstanceAsTemplate(*m_scene, *state, payload,
-                                                   m_editContext->PrefabResolver()).IsOk()
-                || !asset->WriteData(u8"scene", payload.Bytes()).IsOk())
+                                                  m_editContext->PrefabResolver())
+                     .IsOk() ||
+                !asset->WriteData(u8"scene", payload.Bytes()).IsOk())
             {
                 m_context->Notify(draconic::editor::NoticeKind::Error, u8"Apply to Prefab failed.");
                 return;
             }
             Array<byte> bytes;
-            for (byte b : payload.Bytes()) { bytes.PushBack(b); }
+            for (byte b : payload.Bytes())
+            {
+                bytes.PushBack(b);
+            }
             const Guid prefabId = state->prefabId;
             EditorContext* context = m_context;
             if (m_scenes != nullptr)
             {
-                m_scenes->ForEachScene([&](scene::Scene& scene) {
-                    const u32 rebuilt = scene::RebuildPrefabInstances(
-                        scene, prefabId, Span<const byte>{ bytes.Data(), bytes.Size() },
-                        m_editContext->PrefabResolver());
-                    if (rebuilt > 0 && context->Resources() != nullptr)
+                m_scenes->ForEachScene(
+                    [&](scene::Scene& scene)
                     {
-                        scene::ResolveSceneResources(scene, *context->Resources());
-                    }
-                });
+                        const u32 rebuilt = scene::RebuildPrefabInstances(
+                            scene, prefabId, Span<const byte>{bytes.Data(), bytes.Size()},
+                            m_editContext->PrefabResolver());
+                        if (rebuilt > 0 && context->Resources() != nullptr)
+                        {
+                            scene::ResolveSceneResources(scene, *context->Resources());
+                        }
+                    });
             }
             // An open editor page on the prefab itself shows the TEMPLATE (plain entities,
             // not an instance) - the rebuild above can't reach it; tell it to refresh.
             for (const UniquePtr<draconic::editor::EditorPage>& open : m_context->OpenPages())
             {
-                if (open->InstanceId() == prefabId) { open->OnAssetExternallyModified(); }
+                if (open->InstanceId() == prefabId)
+                {
+                    open->OnAssetExternallyModified();
+                }
             }
             String message(u8"Applied to prefab '");
             message += asset->Name();
@@ -442,12 +534,15 @@ export namespace draconic::editor
         // Non-member children under the instance are destroyed too - the dialog says so.
         void RevertInstance(const Guid& rootId)
         {
-            if (m_scene == nullptr || m_context->Project() == nullptr
-                || m_content->Context == nullptr)
+            if (m_scene == nullptr || m_context->Project() == nullptr ||
+                m_content->Context == nullptr)
             {
                 return;
             }
-            if (m_scene->FindPrefabInstanceByRoot(rootId) == nullptr) { return; }
+            if (m_scene->FindPrefabInstanceByRoot(rootId) == nullptr)
+            {
+                return;
+            }
             scene::EntityHandle root = m_scene->FindEntity(rootId);
             String message(u8"Revert '");
             message += m_scene->GetEntityName(root);
@@ -457,17 +552,24 @@ export namespace draconic::editor
             SceneEditorPage* page = this;
             RefPtr<draconic::ui::Dialog> dialog =
                 draconic::ui::Dialog::Confirm(u8"Revert Instance", message.AsView());
-            dialog->OnClosed.Add(
-                draconic::ui::Event<void(draconic::ui::Dialog*, draconic::ui::DialogResult)>::Handler{
-                    [page, rootId](draconic::ui::Dialog*, draconic::ui::DialogResult result) {
-                        if (result != draconic::ui::DialogResult::OK) { return; }
-                        // Deferred: the revert destroys entities (and their hierarchy rows),
-                        // never mid-event-dispatch.
-                        draconic::ui::UIContext* ctx = page->m_content->Context;
-                        if (ctx == nullptr) { return; }
-                        ctx->MutationQueueRef().QueueAction(Function<void()>{
-                            [page, rootId]() { page->RevertInstanceNow(rootId); } });
-                    } });
+            dialog->OnClosed.Add(draconic::ui::Event<void(draconic::ui::Dialog*,
+                                                          draconic::ui::DialogResult)>::Handler{
+                [page, rootId](draconic::ui::Dialog*, draconic::ui::DialogResult result)
+                {
+                    if (result != draconic::ui::DialogResult::OK)
+                    {
+                        return;
+                    }
+                    // Deferred: the revert destroys entities (and their hierarchy rows),
+                    // never mid-event-dispatch.
+                    draconic::ui::UIContext* ctx = page->m_content->Context;
+                    if (ctx == nullptr)
+                    {
+                        return;
+                    }
+                    ctx->MutationQueueRef().QueueAction(
+                        Function<void()>{[page, rootId]() { page->RevertInstanceNow(rootId); }});
+                }});
             dialog->Show(m_content->Context);
         }
 
@@ -475,13 +577,19 @@ export namespace draconic::editor
         // placement kept). Not undoable.
         void RevertInstanceNow(const Guid& rootId)
         {
-            if (m_scene == nullptr || m_context->Project() == nullptr) { return; }
+            if (m_scene == nullptr || m_context->Project() == nullptr)
+            {
+                return;
+            }
             scene::Scene::PrefabInstanceState* state = m_scene->FindPrefabInstanceByRoot(rootId);
-            if (state == nullptr) { return; }
+            if (state == nullptr)
+            {
+                return;
+            }
             draconic::content::Instance* asset =
                 m_context->Project()->SourceDb().GetInstance(state->prefabId);
-            UniquePtr<IStream> payload = (asset != nullptr) ? asset->ReadData(u8"scene")
-                                                            : UniquePtr<IStream>{};
+            UniquePtr<IStream> payload =
+                (asset != nullptr) ? asset->ReadData(u8"scene") : UniquePtr<IStream>{};
             if (payload.Get() == nullptr)
             {
                 m_context->Notify(draconic::editor::NoticeKind::Warning,
@@ -492,8 +600,8 @@ export namespace draconic::editor
             bytes.Resize(static_cast<usize>(payload->Size()));
             (void)payload->Read(bytes.Data(), bytes.Size());
             if (scene::RevertPrefabInstance(*m_scene, rootId,
-                                             Span<const byte>{ bytes.Data(), bytes.Size() },
-                                             m_editContext->PrefabResolver()))
+                                            Span<const byte>{bytes.Data(), bytes.Size()},
+                                            m_editContext->PrefabResolver()))
             {
                 if (m_context->Resources() != nullptr)
                 {
@@ -507,14 +615,21 @@ export namespace draconic::editor
         // Spawn an instance under `parent` (nil = scene root) via the asset picker.
         void PickAndSpawnPrefab(const Guid& parent)
         {
-            if (m_context->Project() == nullptr || m_content->Context == nullptr) { return; }
+            if (m_context->Project() == nullptr || m_content->Context == nullptr)
+            {
+                return;
+            }
             Array<String> typeNames;
             typeNames.PushBack(String(u8"PrefabDocument"));
             auto dialog = MakeRef<draconic::editor::app::AssetPickerDialog>(
                 DefaultAllocator(), *m_context, Move(typeNames));
             SceneEditorPage* page = this;
-            dialog->OnPicked = [page, parent](const Guid& picked) {
-                if (picked.IsNil() || page->m_context->Project() == nullptr) { return; }
+            dialog->OnPicked = [page, parent](const Guid& picked)
+            {
+                if (picked.IsNil() || page->m_context->Project() == nullptr)
+                {
+                    return;
+                }
                 draconic::content::Instance* prefab =
                     page->m_context->Project()->SourceDb().GetInstance(picked);
                 UniquePtr<IStream> payload =
@@ -531,7 +646,7 @@ export namespace draconic::editor
                 if (picked == page->InstanceId())
                 {
                     page->m_context->Notify(draconic::editor::NoticeKind::Warning,
-                        u8"A prefab cannot contain an instance of itself.");
+                                            u8"A prefab cannot contain an instance of itself.");
                     return;
                 }
                 (void)page->m_editContext->SpawnPrefabInstance(picked, Move(bytes), parent);
@@ -544,10 +659,16 @@ export namespace draconic::editor
         // never clobbered - the page just warns instead.
         void OnAssetExternallyModified() override
         {
-            if (m_scene == nullptr || m_context->Project() == nullptr) { return; }
+            if (m_scene == nullptr || m_context->Project() == nullptr)
+            {
+                return;
+            }
             draconic::content::Instance* instance =
                 m_context->Project()->SourceDb().GetInstance(InstanceId());
-            if (instance == nullptr) { return; }
+            if (instance == nullptr)
+            {
+                return;
+            }
             if (IsDirty())
             {
                 String message(u8"'");
@@ -576,21 +697,23 @@ export namespace draconic::editor
                 if (m_scene->PendingPrefabInstanceCount() > 0)
                 {
                     EditorContext* context = m_context;
-                    scene::ResolveScenePrefabs(*m_scene,
+                    scene::ResolveScenePrefabs(
+                        *m_scene,
                         Function<UniquePtr<IStream>(const Guid&)>{
-                            [context](const Guid& prefabId) -> UniquePtr<IStream> {
+                            [context](const Guid& prefabId) -> UniquePtr<IStream>
+                            {
                                 draconic::content::Instance* prefab =
                                     context->Project()->SourceDb().GetInstance(prefabId);
                                 return (prefab != nullptr) ? prefab->ReadData(u8"scene")
                                                            : UniquePtr<IStream>{};
-                            } });
+                            }});
                     if (m_context->Resources() != nullptr)
                     {
                         scene::ResolveSceneResources(*m_scene, *m_context->Resources());
                     }
                 }
             }
-            ClearDirty();   // Commands().Clear() notifies OnChanged, which marks dirty
+            ClearDirty(); // Commands().Clear() notifies OnChanged, which marks dirty
         }
 
         void OnSavedAs(draconic::content::Instance& instance) override
@@ -598,14 +721,24 @@ export namespace draconic::editor
             draconic::editor::EditorPage::OnSavedAs(instance);
             m_title = String(instance.Name());
             // SavePrefab stamps the document name from the scene, so the fork gets its own.
-            if (m_scene != nullptr) { m_scene->SetName(instance.Name()); }
+            if (m_scene != nullptr)
+            {
+                m_scene->SetName(instance.Name());
+            }
         }
 
         [[nodiscard]] Status Save() override
         {
-            if (m_scene == nullptr || m_context->Project() == nullptr) { return Status{ ErrorCode::NotFound }; }
-            draconic::content::Instance* instance = m_context->Project()->SourceDb().GetInstance(InstanceId());
-            if (instance == nullptr) { return Status{ ErrorCode::NotFound }; }
+            if (m_scene == nullptr || m_context->Project() == nullptr)
+            {
+                return Status{ErrorCode::NotFound};
+            }
+            draconic::content::Instance* instance =
+                m_context->Project()->SourceDb().GetInstance(InstanceId());
+            if (instance == nullptr)
+            {
+                return Status{ErrorCode::NotFound};
+            }
 
             const bool isPrefab = instance->TypeName() == StringView(u8"PrefabDocument");
             if (isPrefab)
@@ -621,18 +754,23 @@ export namespace draconic::editor
                     m_context->Notify(draconic::editor::NoticeKind::Warning,
                                       u8"A prefab needs exactly one root entity - parent "
                                       u8"everything under a single root, then save.");
-                    return Status{ ErrorCode::InvalidArgument };
+                    return Status{ErrorCode::InvalidArgument};
                 }
                 bool selfReference = false;
-                m_scene->ForEachPrefabInstance([&](scene::Scene::PrefabInstanceState& state) {
-                    if (state.prefabId == InstanceId()) { selfReference = true; }
-                });
+                m_scene->ForEachPrefabInstance(
+                    [&](scene::Scene::PrefabInstanceState& state)
+                    {
+                        if (state.prefabId == InstanceId())
+                        {
+                            selfReference = true;
+                        }
+                    });
                 if (selfReference)
                 {
                     m_context->Notify(draconic::editor::NoticeKind::Warning,
                                       u8"A prefab cannot contain an instance of itself - "
                                       u8"remove it, then save.");
-                    return Status{ ErrorCode::InvalidArgument };
+                    return Status{ErrorCode::InvalidArgument};
                 }
             }
             const Status saved = isPrefab ? scene::SavePrefab(*m_scene, *instance)
@@ -641,7 +779,8 @@ export namespace draconic::editor
             {
                 ClearDirty();
                 DRACONIC_LOG_INFO(u8"Editor", u8"saved {} '{}'",
-                                  isPrefab ? StringView(u8"prefab") : StringView(u8"scene"), m_title);
+                                  isPrefab ? StringView(u8"prefab") : StringView(u8"scene"),
+                                  m_title);
                 // Template changed: rebuild this prefab's instances in every OTHER open
                 // scene, preserving their deltas (capture -> respawn -> reapply).
                 if (isPrefab && m_scenes != nullptr)
@@ -655,16 +794,21 @@ export namespace draconic::editor
                         const Guid prefabId = InstanceId();
                         scene::Scene* self = m_scene;
                         EditorContext* context = m_context;
-                        m_scenes->ForEachScene([&](scene::Scene& other) {
-                            if (&other == self) { return; }
-                            const u32 rebuilt = scene::RebuildPrefabInstances(
-                                other, prefabId, Span<const byte>{ bytes.Data(), bytes.Size() },
-                                m_editContext->PrefabResolver());
-                            if (rebuilt > 0 && context->Resources() != nullptr)
+                        m_scenes->ForEachScene(
+                            [&](scene::Scene& other)
                             {
-                                scene::ResolveSceneResources(other, *context->Resources());
-                            }
-                        });
+                                if (&other == self)
+                                {
+                                    return;
+                                }
+                                const u32 rebuilt = scene::RebuildPrefabInstances(
+                                    other, prefabId, Span<const byte>{bytes.Data(), bytes.Size()},
+                                    m_editContext->PrefabResolver());
+                                if (rebuilt > 0 && context->Resources() != nullptr)
+                                {
+                                    scene::ResolveSceneResources(other, *context->Resources());
+                                }
+                            });
                     }
                 }
             }
@@ -677,10 +821,13 @@ export namespace draconic::editor
             m_viewport->Shutdown();
             if (m_scene != nullptr)
             {
-                m_sceneManager.DestroyScene(m_scene);   // aware subsystems get OnSceneDestroyed
+                m_sceneManager.DestroyScene(m_scene); // aware subsystems get OnSceneDestroyed
                 m_scene = nullptr;
             }
-            if (m_scenes != nullptr) { m_scenes->UnregisterManager(&m_sceneManager); }
+            if (m_scenes != nullptr)
+            {
+                m_scenes->UnregisterManager(&m_sceneManager);
+            }
         }
 
         [[nodiscard]] scene::Scene* ScenePtr() const noexcept { return m_scene; }
@@ -688,7 +835,7 @@ export namespace draconic::editor
         [[nodiscard]] SceneEditContext* EditContext() const noexcept { return m_editContext.Get(); }
 
     private:
-        static constexpr f32 kFovY = 1.0472f;   // must match OnRenderWindow's projection
+        static constexpr f32 kFovY = 1.0472f; // must match OnRenderWindow's projection
 
         // Camera ray through the mouse position, built from the camera basis (no matrix inverse).
         [[nodiscard]] bool MakeMouseRay(GizmoRay& out) const
@@ -696,15 +843,17 @@ export namespace draconic::editor
             draconic::shell::IMouse* mouse = m_viewport->Mouse();
             const u32 w = m_viewport->RenderWidth();
             const u32 h = m_viewport->RenderHeight();
-            if (mouse == nullptr || w == 0 || h == 0) { return false; }
+            if (mouse == nullptr || w == 0 || h == 0)
+            {
+                return false;
+            }
             const f32 ndcX = 2.0f * (mouse->X() / static_cast<f32>(w)) - 1.0f;
             const f32 ndcY = 1.0f - 2.0f * (mouse->Y() / static_cast<f32>(h));
             const f32 tanY = Tan(kFovY * 0.5f);
             const f32 tanX = tanY * (static_cast<f32>(w) / static_cast<f32>(h));
             out.origin = m_camera.position;
-            out.direction = Normalized(m_camera.Forward()
-                                     + m_camera.Right() * (ndcX * tanX)
-                                     + m_camera.Up() * (ndcY * tanY));
+            out.direction = Normalized(m_camera.Forward() + m_camera.Right() * (ndcX * tanX) +
+                                       m_camera.Up() * (ndcY * tanY));
             return true;
         }
 
@@ -716,7 +865,10 @@ export namespace draconic::editor
         // drag) - click-picking must skip.
         [[nodiscard]] bool UpdateGizmos(bool viewportActive)
         {
-            if (!m_gizmos) { return false; }
+            if (!m_gizmos)
+            {
+                return false;
+            }
             // Simulate mode: transforms belong to the running systems, so the gizmo goes
             // READ-ONLY - a pointer-less update refreshes its anchor from the live world
             // matrix every frame (it follows what physics/animation move) but can never
@@ -736,16 +888,19 @@ export namespace draconic::editor
             in.cameraForward = m_camera.Forward();
             in.fovY = kFovY;
             in.pointerValid = viewportActive && MakeMouseRay(in.ray);
-            if (!in.pointerValid) { return m_gizmos->Update(in); }
+            if (!in.pointerValid)
+            {
+                return m_gizmos->Update(in);
+            }
 
             draconic::shell::IMouse* mouse = m_viewport->Mouse();
             draconic::shell::IKeyboard* kb = m_viewport->Keyboard();
 
             const bool cameraOwnsMouse =
-                (kb != nullptr && (kb->IsKeyDown(draconic::shell::KeyCode::LeftAlt)
-                                || kb->IsKeyDown(draconic::shell::KeyCode::RightAlt)))
-                || mouse->IsButtonDown(draconic::shell::MouseButton::Right)
-                || m_camera.mouseCaptured;   // Tab-captured fly mode owns WASD too
+                (kb != nullptr && (kb->IsKeyDown(draconic::shell::KeyCode::LeftAlt) ||
+                                   kb->IsKeyDown(draconic::shell::KeyCode::RightAlt))) ||
+                mouse->IsButtonDown(draconic::shell::MouseButton::Right) ||
+                m_camera.mouseCaptured; // Tab-captured fly mode owns WASD too
             if (!cameraOwnsMouse)
             {
                 in.leftPressed = mouse->IsButtonPressed(draconic::shell::MouseButton::Left);
@@ -753,13 +908,13 @@ export namespace draconic::editor
             }
             // Release always reaches the controller so an in-flight drag can finish even if a
             // modifier goes down mid-drag.
-            in.leftReleased = mouse->IsButtonReleased(draconic::shell::MouseButton::Left)
-                           || !mouse->IsButtonDown(draconic::shell::MouseButton::Left);
+            in.leftReleased = mouse->IsButtonReleased(draconic::shell::MouseButton::Left) ||
+                              !mouse->IsButtonDown(draconic::shell::MouseButton::Left);
             if (kb != nullptr)
             {
-                in.snap = kb->IsKeyDown(draconic::shell::KeyCode::LeftCtrl)
-                       || kb->IsKeyDown(draconic::shell::KeyCode::RightCtrl);
-                if (!cameraOwnsMouse)   // W/E/R fly keys belong to the camera while flying
+                in.snap = kb->IsKeyDown(draconic::shell::KeyCode::LeftCtrl) ||
+                          kb->IsKeyDown(draconic::shell::KeyCode::RightCtrl);
+                if (!cameraOwnsMouse) // W/E/R fly keys belong to the camera while flying
                 {
                     in.keyTranslate = kb->IsKeyPressed(draconic::shell::KeyCode::W);
                     in.keyRotate = kb->IsKeyPressed(draconic::shell::KeyCode::E);
@@ -778,41 +933,54 @@ export namespace draconic::editor
                 if (m_gizmos->IsActive())
                 {
                     dd.DrawScreenText(12.0f, 12.0f, m_gizmos->StatusText(),
-                                      Color{ 0.85f, 0.85f, 0.85f, 1.0f });
+                                      Color{0.85f, 0.85f, 0.85f, 1.0f});
                 }
             }
 
             // Component gizmos: full set for the selected entity; opted-in renderers for the rest.
-            if (!m_editContext) { return; }
+            if (!m_editContext)
+            {
+                return;
+            }
             GizmoContext ctx;
             ctx.debug = &dd;
             ctx.scene = m_scene;
             ctx.cameraPosition = m_camera.position;
             Selection<Guid>& selection = m_editContext->EntitySelection();
-            m_scene->ForEachEntity([&](scene::EntityHandle e) {
-                m_componentGizmos.DrawEntity(e, selection.Contains(m_scene->GetEntityId(e)), ctx);
-            });
+            m_scene->ForEachEntity(
+                [&](scene::EntityHandle e)
+                {
+                    m_componentGizmos.DrawEntity(e, selection.Contains(m_scene->GetEntityId(e)),
+                                                 ctx);
+                });
         }
 
         // The viewport's ephemeral post "show flags" popup (checkable). Toggling a flag re-renders
         // this page's viewport with that effect stripped; the scene asset is never touched.
         void ShowPostFlagsMenu(draconic::ui::View* anchor)
         {
-            if (anchor == nullptr) { return; }
+            if (anchor == nullptr)
+            {
+                return;
+            }
             auto menu = MakeRef<draconic::ui::ContextMenu>(DefaultAllocator());
             SceneEditorPage* self = this;
-            const auto mark = [](bool on) { return on ? StringView(u8"[x] ") : StringView(u8"[ ] "); };
-            const auto add = [&](StringView label, bool render::ViewPostOverride::* field) {
-                String text(mark(m_postOverride.*field)); text += label;
-                menu->AddItem(text.AsView(), [self, field]() { self->m_postOverride.*field = !(self->m_postOverride.*field); });
+            const auto mark = [](bool on)
+            { return on ? StringView(u8"[x] ") : StringView(u8"[ ] "); };
+            const auto add = [&](StringView label, bool render::ViewPostOverride::* field)
+            {
+                String text(mark(m_postOverride.*field));
+                text += label;
+                menu->AddItem(text.AsView(), [self, field]()
+                              { self->m_postOverride.*field = !(self->m_postOverride.*field); });
             };
             add(u8"No Post (bloom/AO/SSR/AA off)", &render::ViewPostOverride::disablePost);
             menu->AddSeparator();
             add(u8"No Bloom", &render::ViewPostOverride::disableBloom);
-            add(u8"No AO",    &render::ViewPostOverride::disableAo);
-            add(u8"No SSR",   &render::ViewPostOverride::disableSsr);
+            add(u8"No AO", &render::ViewPostOverride::disableAo);
+            add(u8"No SSR", &render::ViewPostOverride::disableSsr);
             add(u8"No AA (crisp)", &render::ViewPostOverride::disableAa);
-            const Float2 pos = anchor->LocalToScreen(Float2{ 0.0f, anchor->Height() });
+            const Float2 pos = anchor->LocalToScreen(Float2{0.0f, anchor->Height()});
             menu->Show(anchor->Context, pos.x, pos.y);
         }
 
@@ -824,43 +992,70 @@ export namespace draconic::editor
             m_toolbar = MakeRef<ui::toolkit::Toolbar>(DefaultAllocator());
             editor::app::EditorIcons& icons = editor::app::EditorIcons::Get();
             GizmoController* gizmos = m_gizmos.Get();
-            auto icon = [](draconic::ui::SVGDrawable* drawable) {
+            auto icon = [](draconic::ui::SVGDrawable* drawable)
+            {
                 return Function<void(draconic::ui::UIDrawContext&, Rectangle)>{
-                    [drawable](draconic::ui::UIDrawContext& ctx, Rectangle rect) {
-                        if (drawable != nullptr) { drawable->Draw(ctx, rect); }
-                    } };
+                    [drawable](draconic::ui::UIDrawContext& ctx, Rectangle rect)
+                    {
+                        if (drawable != nullptr)
+                        {
+                            drawable->Draw(ctx, rect);
+                        }
+                    }};
             };
 
             m_translateToggle = m_toolbar->AddToggle(u8"");
             m_translateToggle->SetIcon(icon(icons.translate.Get()));
-            m_translateToggle->OnCheckedChanged.Add([gizmos](ui::toolkit::ToolbarToggle*, bool value) {
-                if (value) { gizmos->SetMode(GizmoMode::Translate); }
-            });
+            m_translateToggle->OnCheckedChanged.Add(
+                [gizmos](ui::toolkit::ToolbarToggle*, bool value)
+                {
+                    if (value)
+                    {
+                        gizmos->SetMode(GizmoMode::Translate);
+                    }
+                });
             m_rotateToggle = m_toolbar->AddToggle(u8"");
             m_rotateToggle->SetIcon(icon(icons.rotate.Get()));
-            m_rotateToggle->OnCheckedChanged.Add([gizmos](ui::toolkit::ToolbarToggle*, bool value) {
-                if (value) { gizmos->SetMode(GizmoMode::Rotate); }
-            });
+            m_rotateToggle->OnCheckedChanged.Add(
+                [gizmos](ui::toolkit::ToolbarToggle*, bool value)
+                {
+                    if (value)
+                    {
+                        gizmos->SetMode(GizmoMode::Rotate);
+                    }
+                });
             m_scaleToggle = m_toolbar->AddToggle(u8"");
             m_scaleToggle->SetIcon(icon(icons.scale.Get()));
-            m_scaleToggle->OnCheckedChanged.Add([gizmos](ui::toolkit::ToolbarToggle*, bool value) {
-                if (value) { gizmos->SetMode(GizmoMode::Scale); }
-            });
+            m_scaleToggle->OnCheckedChanged.Add(
+                [gizmos](ui::toolkit::ToolbarToggle*, bool value)
+                {
+                    if (value)
+                    {
+                        gizmos->SetMode(GizmoMode::Scale);
+                    }
+                });
 
             m_toolbar->AddSeparator();
 
             // One toggle whose icon + label read the LIVE space (checked = world).
             m_spaceToggle = m_toolbar->AddToggle(u8"World");
             m_spaceToggle->SetIcon(Function<void(draconic::ui::UIDrawContext&, Rectangle)>{
-                [gizmos, &icons](draconic::ui::UIDrawContext& ctx, Rectangle rect) {
+                [gizmos, &icons](draconic::ui::UIDrawContext& ctx, Rectangle rect)
+                {
                     draconic::ui::SVGDrawable* drawable = (gizmos->Space() == GizmoSpace::World)
-                        ? icons.worldSpace.Get() : icons.localSpace.Get();
-                    if (drawable != nullptr) { drawable->Draw(ctx, rect); }
-                } });
-            m_spaceToggle->OnCheckedChanged.Add([gizmos](ui::toolkit::ToolbarToggle* toggle, bool value) {
-                gizmos->SetSpace(value ? GizmoSpace::World : GizmoSpace::Local);
-                toggle->SetText(value ? StringView(u8"World") : StringView(u8"Local"));
-            });
+                                                              ? icons.worldSpace.Get()
+                                                              : icons.localSpace.Get();
+                    if (drawable != nullptr)
+                    {
+                        drawable->Draw(ctx, rect);
+                    }
+                }});
+            m_spaceToggle->OnCheckedChanged.Add(
+                [gizmos](ui::toolkit::ToolbarToggle* toggle, bool value)
+                {
+                    gizmos->SetSpace(value ? GizmoSpace::World : GizmoSpace::Local);
+                    toggle->SetText(value ? StringView(u8"World") : StringView(u8"Local"));
+                });
 
             m_toolbar->AddSeparator();
 
@@ -871,7 +1066,8 @@ export namespace draconic::editor
             {
                 SceneEditorPage* self = this;
                 ui::toolkit::ToolbarButton* postButton = m_toolbar->AddButton(u8"Post");
-                postButton->OnClick.Add([self](ui::toolkit::ToolbarButton* btn) { self->ShowPostFlagsMenu(btn); });
+                postButton->OnClick.Add([self](ui::toolkit::ToolbarButton* btn)
+                                        { self->ShowPostFlagsMenu(btn); });
             }
 
             // Spacer pushes the simulation cluster to the right edge (Sedulous toolbar shape).
@@ -885,13 +1081,14 @@ export namespace draconic::editor
             // === Simulate (snapshot -> run -> restore; phase-8a half of play-in-editor) ===
             SceneEditorPage* self = this;
             m_playButton = m_toolbar->AddButton(u8"Play");
-            m_playButton->OnClick.Add([self](ui::toolkit::ToolbarButton*) { self->StartSimulation(); });
+            m_playButton->OnClick.Add([self](ui::toolkit::ToolbarButton*)
+                                      { self->StartSimulation(); });
             m_pauseToggle = m_toolbar->AddToggle(u8"Pause");
-            m_pauseToggle->OnCheckedChanged.Add([self](ui::toolkit::ToolbarToggle*, bool value) {
-                self->PauseSimulation(value);
-            });
+            m_pauseToggle->OnCheckedChanged.Add([self](ui::toolkit::ToolbarToggle*, bool value)
+                                                { self->PauseSimulation(value); });
             m_stopButton = m_toolbar->AddButton(u8"Stop");
-            m_stopButton->OnClick.Add([self](ui::toolkit::ToolbarButton*) { self->StopSimulation(); });
+            m_stopButton->OnClick.Add([self](ui::toolkit::ToolbarButton*)
+                                      { self->StopSimulation(); });
             // The at-a-glance state readout (user report: Play gave no visual indication).
             m_simLabel = MakeRef<draconic::ui::Label>(DefaultAllocator(), StringView(u8""));
             m_simLabel->FontSize.SetValue(13.0f);
@@ -918,7 +1115,10 @@ export namespace draconic::editor
         /// the Game tab is the interactive-run surface and binds its scene on Play.
         void StartSimulation()
         {
-            if (m_isSimulating || m_scene == nullptr) { return; }
+            if (m_isSimulating || m_scene == nullptr)
+            {
+                return;
+            }
             m_simSnapshot = scene::SceneSnapshot::Capture(*m_scene);
             if (!m_simSnapshot)
             {
@@ -937,7 +1137,10 @@ export namespace draconic::editor
         /// system callbacks are for the big transitions, not the per-frame pause).
         void PauseSimulation(bool paused)
         {
-            if (!m_isSimulating || m_scene == nullptr) { return; }
+            if (!m_isSimulating || m_scene == nullptr)
+            {
+                return;
+            }
             m_isPaused = paused;
             m_scene->SetSimulationEnabled(!paused);
             RefreshSimToolbar();
@@ -948,7 +1151,10 @@ export namespace draconic::editor
         /// entities - runtime-spawned ones drop out naturally). No-op if not simulating.
         void StopSimulation()
         {
-            if (!m_isSimulating || m_scene == nullptr) { return; }
+            if (!m_isSimulating || m_scene == nullptr)
+            {
+                return;
+            }
             m_scene->Stop();
             if (m_simSnapshot)
             {
@@ -971,21 +1177,27 @@ export namespace draconic::editor
 
         void RefreshSimToolbar()
         {
-            if (m_playButton == nullptr) { return; }
+            if (m_playButton == nullptr)
+            {
+                return;
+            }
             m_playButton->IsEnabled = !m_isSimulating;
             m_pauseToggle->IsEnabled = m_isSimulating;
             m_stopButton->IsEnabled = m_isSimulating;
             m_pauseToggle->SetIsChecked(m_isPaused);
             if (m_simLabel.Get() != nullptr)
             {
-                if (!m_isSimulating) { m_simLabel->SetText(u8""); }
+                if (!m_isSimulating)
+                {
+                    m_simLabel->SetText(u8"");
+                }
                 else
                 {
                     m_simLabel->SetText(m_isPaused ? StringView(u8" PAUSED ")
                                                    : StringView(u8" SIMULATING "));
-                    m_simLabel->TextColor.SetValue(Optional<Color>(m_isPaused
-                        ? Color{ 0.95f, 0.85f, 0.4f, 1.0f }     // amber
-                        : Color{ 0.95f, 0.55f, 0.35f, 1.0f })); // orange
+                    m_simLabel->TextColor.SetValue(
+                        Optional<Color>(m_isPaused ? Color{0.95f, 0.85f, 0.4f, 1.0f}     // amber
+                                                   : Color{0.95f, 0.55f, 0.35f, 1.0f})); // orange
                 }
             }
             m_playButton->Invalidate();
@@ -998,13 +1210,16 @@ export namespace draconic::editor
         {
             m_gridToggle = m_toolbar->AddToggle(u8"");
             m_gridToggle->SetIcon(Function<void(draconic::ui::UIDrawContext&, Rectangle)>{
-                [](draconic::ui::UIDrawContext& ctx, Rectangle rect) {
-                    if (auto* drawable = editor::app::EditorIcons::Get().grid.Get()) { drawable->Draw(ctx, rect); }
-                } });
+                [](draconic::ui::UIDrawContext& ctx, Rectangle rect)
+                {
+                    if (auto* drawable = editor::app::EditorIcons::Get().grid.Get())
+                    {
+                        drawable->Draw(ctx, rect);
+                    }
+                }});
             SceneEditorPage* self = this;
-            m_gridToggle->OnCheckedChanged.Add([self](ui::toolkit::ToolbarToggle*, bool value) {
-                self->m_showGrid = value;
-            });
+            m_gridToggle->OnCheckedChanged.Add([self](ui::toolkit::ToolbarToggle*, bool value)
+                                               { self->m_showGrid = value; });
         }
 
         // Reflect externally-driven state (the W/E/R keys, X space toggle) back into the
@@ -1012,7 +1227,10 @@ export namespace draconic::editor
         // true, so this settles without feedback loops.
         void SyncToolbar()
         {
-            if (m_toolbar.Get() == nullptr || !m_gizmos) { return; }
+            if (m_toolbar.Get() == nullptr || !m_gizmos)
+            {
+                return;
+            }
             const GizmoMode mode = m_gizmos->Mode();
             m_translateToggle->SetIsChecked(mode == GizmoMode::Translate);
             m_rotateToggle->SetIsChecked(mode == GizmoMode::Rotate);
@@ -1029,49 +1247,59 @@ export namespace draconic::editor
         // fixed cube remains the meshless fallback.
         void DrawEntityMarkers(render::debug::DebugDraw& dd)
         {
-            if (!m_editContext) { return; }
+            if (!m_editContext)
+            {
+                return;
+            }
             Selection<Guid>& selection = m_editContext->EntitySelection();
             scene::Scene& scene = *m_scene;
             auto* meshes = scene.GetSystem<render::MeshComponentManager>();
             auto* instanced = scene.GetSystem<render::InstancedMeshComponentManager>();
-            scene.ForEachEntity([&](scene::EntityHandle e) {
-                const Float4x4 world = scene.GetWorldMatrix(e);
-                const Float3 p{ world.m[3][0], world.m[3][1], world.m[3][2] };
-                const bool selected = selection.Contains(scene.GetEntityId(e));
-                const f32 s = 0.25f;
-                const Color color = selected ? Color{ 1.0f, 0.85f, 0.25f, 1.0f }
-                                             : Color{ 0.75f, 0.75f, 0.80f, 1.0f };
-                dd.DrawLine(p - Float3{ s, 0, 0 }, p + Float3{ s, 0, 0 }, color);
-                dd.DrawLine(p - Float3{ 0, s, 0 }, p + Float3{ 0, s, 0 }, color);
-                dd.DrawLine(p - Float3{ 0, 0, s }, p + Float3{ 0, 0, s }, color);
-                if (!selected) { return; }
+            scene.ForEachEntity(
+                [&](scene::EntityHandle e)
+                {
+                    const Float4x4 world = scene.GetWorldMatrix(e);
+                    const Float3 p{world.m[3][0], world.m[3][1], world.m[3][2]};
+                    const bool selected = selection.Contains(scene.GetEntityId(e));
+                    const f32 s = 0.25f;
+                    const Color color = selected ? Color{1.0f, 0.85f, 0.25f, 1.0f}
+                                                 : Color{0.75f, 0.75f, 0.80f, 1.0f};
+                    dd.DrawLine(p - Float3{s, 0, 0}, p + Float3{s, 0, 0}, color);
+                    dd.DrawLine(p - Float3{0, s, 0}, p + Float3{0, s, 0}, color);
+                    dd.DrawLine(p - Float3{0, 0, s}, p + Float3{0, 0, s}, color);
+                    if (!selected)
+                    {
+                        return;
+                    }
 
-                if (meshes != nullptr)
-                {
-                    if (render::MeshComponent* mc = meshes->Get(e))
+                    if (meshes != nullptr)
                     {
-                        if (draconic::geometry::StaticMesh* mesh = mc->mesh.Get())
+                        if (render::MeshComponent* mc = meshes->Get(e))
                         {
-                            dd.DrawTransformedBox(mesh->bounds.min, mesh->bounds.max, world, color);
-                            return;
+                            if (draconic::geometry::StaticMesh* mesh = mc->mesh.Get())
+                            {
+                                dd.DrawTransformedBox(mesh->bounds.min, mesh->bounds.max, world,
+                                                      color);
+                                return;
+                            }
                         }
                     }
-                }
-                if (instanced != nullptr)
-                {
-                    if (render::InstancedMeshComponent* imc = instanced->Get(e))
+                    if (instanced != nullptr)
                     {
-                        if (imc->mesh.Get() != nullptr && imc->Count() > 0 && imc->cachedRadius > 0.0f)
+                        if (render::InstancedMeshComponent* imc = instanced->Get(e))
                         {
-                            // Merged world bounds (kept current by extraction's compose pass).
-                            const f32 r = imc->cachedRadius;
-                            dd.DrawWireBoxCenter(imc->cachedCenter, Float3{ r, r, r }, color);
-                            return;
+                            if (imc->mesh.Get() != nullptr && imc->Count() > 0 &&
+                                imc->cachedRadius > 0.0f)
+                            {
+                                // Merged world bounds (kept current by extraction's compose pass).
+                                const f32 r = imc->cachedRadius;
+                                dd.DrawWireBoxCenter(imc->cachedCenter, Float3{r, r, r}, color);
+                                return;
+                            }
                         }
                     }
-                }
-                dd.DrawWireBoxCenter(p, Float3{ 0.35f, 0.35f, 0.35f }, color);
-            });
+                    dd.DrawWireBoxCenter(p, Float3{0.35f, 0.35f, 0.35f}, color);
+                });
         }
 
         // Click-to-select in the viewport: a camera ray through the clicked pixel against small
@@ -1079,46 +1307,69 @@ export namespace draconic::editor
         // Left click only, and not while Alt-orbiting; Ctrl toggles; empty space clears.
         void PickOnClick()
         {
-            if (!m_editContext) { return; }
+            if (!m_editContext)
+            {
+                return;
+            }
             draconic::shell::IMouse* mouse = m_viewport->Mouse();
             draconic::shell::IKeyboard* kb = m_viewport->Keyboard();
-            if (mouse == nullptr || !mouse->IsButtonPressed(draconic::shell::MouseButton::Left)) { return; }
-            const bool alt = kb != nullptr && (kb->IsKeyDown(draconic::shell::KeyCode::LeftAlt)
-                                            || kb->IsKeyDown(draconic::shell::KeyCode::RightAlt));
-            if (alt) { return; }   // Alt+LMB = camera orbit
+            if (mouse == nullptr || !mouse->IsButtonPressed(draconic::shell::MouseButton::Left))
+            {
+                return;
+            }
+            const bool alt = kb != nullptr && (kb->IsKeyDown(draconic::shell::KeyCode::LeftAlt) ||
+                                               kb->IsKeyDown(draconic::shell::KeyCode::RightAlt));
+            if (alt)
+            {
+                return;
+            } // Alt+LMB = camera orbit
 
             GizmoRay pickRay;
-            if (!MakeMouseRay(pickRay)) { return; }
+            if (!MakeMouseRay(pickRay))
+            {
+                return;
+            }
             const Float3 origin = pickRay.origin;
             const Float3 dir = pickRay.direction;
 
             scene::Scene& scene = *m_scene;
             Guid best;
             f32 bestT = kFloatMax;
-            scene.ForEachEntity([&](scene::EntityHandle e) {
-                const Float4x4 world = scene.GetWorldMatrix(e);
-                const Float3 p{ world.m[3][0], world.m[3][1], world.m[3][2] };
-                const Float3 toCenter = p - origin;
-                const f32 t = Dot(toCenter, dir);
-                if (t <= 0.0f || t >= bestT) { return; }
-                const Float3 closest = origin + dir * t;
-                const Float3 d = p - closest;
-                // Screen-constant-ish pick radius: grows with distance, floors for close-ups.
-                const f32 radius = Max(0.15f, t * 0.02f);
-                if (Dot(d, d) <= radius * radius)
+            scene.ForEachEntity(
+                [&](scene::EntityHandle e)
                 {
-                    bestT = t;
-                    best = scene.GetEntityId(e);
-                }
-            });
+                    const Float4x4 world = scene.GetWorldMatrix(e);
+                    const Float3 p{world.m[3][0], world.m[3][1], world.m[3][2]};
+                    const Float3 toCenter = p - origin;
+                    const f32 t = Dot(toCenter, dir);
+                    if (t <= 0.0f || t >= bestT)
+                    {
+                        return;
+                    }
+                    const Float3 closest = origin + dir * t;
+                    const Float3 d = p - closest;
+                    // Screen-constant-ish pick radius: grows with distance, floors for close-ups.
+                    const f32 radius = Max(0.15f, t * 0.02f);
+                    if (Dot(d, d) <= radius * radius)
+                    {
+                        bestT = t;
+                        best = scene.GetEntityId(e);
+                    }
+                });
 
             Selection<Guid>& selection = m_editContext->EntitySelection();
-            const bool ctrl = kb != nullptr && (kb->IsKeyDown(draconic::shell::KeyCode::LeftCtrl)
-                                             || kb->IsKeyDown(draconic::shell::KeyCode::RightCtrl));
+            const bool ctrl = kb != nullptr && (kb->IsKeyDown(draconic::shell::KeyCode::LeftCtrl) ||
+                                                kb->IsKeyDown(draconic::shell::KeyCode::RightCtrl));
             if (best != Guid{})
             {
-                if (ctrl) { selection.Toggle(best); }
-                else { selection.Set(best); }
+                if (ctrl)
+                {
+                    selection.Toggle(best);
+                }
+                else
+                {
+                    selection.Set(best);
+                }
             }
             else if (!ctrl)
             {
@@ -1132,18 +1383,30 @@ export namespace draconic::editor
         void EnsureViewportBound()
         {
             draconic::ui::RootView* root = m_viewport->Root();
-            if (root == nullptr) { return; }
+            if (root == nullptr)
+            {
+                return;
+            }
             draconic::graphics::RenderWindow* window = m_uiHost->WindowForRoot(root);
-            if (window == nullptr || window == m_hostWindow) { return; }
+            if (window == nullptr || window == m_hostWindow)
+            {
+                return;
+            }
 
             vg::renderer::VGRenderer* renderer = m_uiHost->RendererFor(window);
-            if (renderer == nullptr) { return; }   // float's AttachWindow hasn't run yet
+            if (renderer == nullptr)
+            {
+                return;
+            } // float's AttachWindow hasn't run yet
 
             if (m_hostWindow == nullptr)
             {
                 m_viewport->Initialize(m_host->Graphics()->Raw(), renderer,
                                        m_host->Shell()->Input(), window->Window().Id());
-                if (m_viewport->Surface() != nullptr) { m_router->AddSurface(m_viewport->Surface()); }
+                if (m_viewport->Surface() != nullptr)
+                {
+                    m_router->AddSurface(m_viewport->Surface());
+                }
             }
             else
             {
@@ -1152,29 +1415,31 @@ export namespace draconic::editor
             m_hostWindow = window;
         }
 
-        EditorContext* m_context;                    // borrowed
-        runtime::IApplicationHost* m_host;                // borrowed
-        ui::runtime::UIHost* m_uiHost;                      // borrowed
-        scene::SceneSubsystem* m_scenes = nullptr;  // borrowed (context subsystem: registry + tick)
-        scene::SceneManager m_sceneManager;         // this page's OWN scene group (registered with m_scenes)
+        EditorContext* m_context;                  // borrowed
+        runtime::IApplicationHost* m_host;         // borrowed
+        ui::runtime::UIHost* m_uiHost;             // borrowed
+        scene::SceneSubsystem* m_scenes = nullptr; // borrowed (context subsystem: registry + tick)
+        scene::SceneManager
+            m_sceneManager; // this page's OWN scene group (registered with m_scenes)
         render::RenderSubsystem* m_render = nullptr;
-        draconic::ui::UISubsystem* m_gameUI = nullptr;   // RT-canvas host seam (borrowed)
+        draconic::ui::UISubsystem* m_gameUI = nullptr; // RT-canvas host seam (borrowed)
 
         String m_title;
-        scene::Scene* m_scene = nullptr;            // owned by the SceneSubsystem
-        UniquePtr<SceneEditContext> m_editContext;   // per-page mutation mediator + selection
-        RefPtr<draconic::ui::toolkit::SplitView> m_content;   // hierarchy | viewport
+        scene::Scene* m_scene = nullptr;           // owned by the SceneSubsystem
+        UniquePtr<SceneEditContext> m_editContext; // per-page mutation mediator + selection
+        RefPtr<draconic::ui::toolkit::SplitView> m_content; // hierarchy | viewport
         RefPtr<SceneHierarchyView> m_hierarchy;
         RefPtr<ui::toolkit::Toolbar> m_toolbar;
-        render::ViewPostOverride m_postOverride;   // ephemeral viewport post show-flags (not serialized)
-        ui::toolkit::ToolbarButton* m_playButton = nullptr;   // borrowed (toolbar-owned)
+        render::ViewPostOverride
+            m_postOverride; // ephemeral viewport post show-flags (not serialized)
+        ui::toolkit::ToolbarButton* m_playButton = nullptr; // borrowed (toolbar-owned)
         ui::toolkit::ToolbarToggle* m_pauseToggle = nullptr;
         ui::toolkit::ToolbarButton* m_stopButton = nullptr;
         RefPtr<draconic::ui::Label> m_simLabel;
         UniquePtr<scene::SceneSnapshot> m_simSnapshot;
         bool m_isSimulating = false;
         bool m_isPaused = false;
-        ui::toolkit::ToolbarToggle* m_translateToggle = nullptr;   // borrowed (toolbar-owned)
+        ui::toolkit::ToolbarToggle* m_translateToggle = nullptr; // borrowed (toolbar-owned)
         ui::toolkit::ToolbarToggle* m_rotateToggle = nullptr;
         ui::toolkit::ToolbarToggle* m_scaleToggle = nullptr;
         ui::toolkit::ToolbarToggle* m_spaceToggle = nullptr;
@@ -1186,8 +1451,9 @@ export namespace draconic::editor
         RefPtr<ui::viewport::ViewportView> m_viewport;
         UniquePtr<draconic::shell::InputRouter> m_router;
         EditorCamera m_camera;
-        draconic::graphics::RenderWindow* m_hostWindow = nullptr;   // borrowed; tracks dock/float moves
-        bool m_renderedOnce = false;   // first-frame debug log
+        draconic::graphics::RenderWindow* m_hostWindow =
+            nullptr;                 // borrowed; tracks dock/float moves
+        bool m_renderedOnce = false; // first-frame debug log
     };
 
     // === Factory + registration (the module's RegisterEditor entry point, §3.1) ===
@@ -1196,15 +1462,17 @@ export namespace draconic::editor
     {
     public:
         SceneEditorPageFactory(runtime::IApplicationHost& host, ui::runtime::UIHost& uiHost)
-            : m_host(&host), m_uiHost(&uiHost) {}
+            : m_host(&host), m_uiHost(&uiHost)
+        {
+        }
 
         [[nodiscard]] const TypeInfo* PrimaryType() const override
         {
             return &scene::SceneDocument::StaticType();
         }
 
-        [[nodiscard]] UniquePtr<EditorPage> CreatePage(EditorContext& context,
-                                                       draconic::content::Instance& instance) override
+        [[nodiscard]] UniquePtr<EditorPage>
+        CreatePage(EditorContext& context, draconic::content::Instance& instance) override
         {
             return UniquePtr<EditorPage>(
                 DefaultAllocator().New<SceneEditorPage>(context, *m_host, *m_uiHost, instance),
@@ -1222,15 +1490,17 @@ export namespace draconic::editor
     {
     public:
         PrefabEditorPageFactory(runtime::IApplicationHost& host, ui::runtime::UIHost& uiHost)
-            : m_host(&host), m_uiHost(&uiHost) {}
+            : m_host(&host), m_uiHost(&uiHost)
+        {
+        }
 
         [[nodiscard]] const TypeInfo* PrimaryType() const override
         {
             return &scene::PrefabDocument::StaticType();
         }
 
-        [[nodiscard]] UniquePtr<EditorPage> CreatePage(EditorContext& context,
-                                                       draconic::content::Instance& instance) override
+        [[nodiscard]] UniquePtr<EditorPage>
+        CreatePage(EditorContext& context, draconic::content::Instance& instance) override
         {
             return UniquePtr<EditorPage>(
                 DefaultAllocator().New<SceneEditorPage>(context, *m_host, *m_uiHost, instance),
@@ -1245,35 +1515,53 @@ export namespace draconic::editor
     // Create a fresh empty prefab instance under "Prefabs/", named uniquely (Prefab,
     // Prefab2, ...). Content arrives when the user saves the opened page (an unsaved prefab
     // has no payload; spawning one warns).
-    inline draconic::content::Instance* CreatePrefabInstance(EditorContext& context,
-                                                             draconic::content::Group* target = nullptr)
+    inline draconic::content::Instance*
+    CreatePrefabInstance(EditorContext& context, draconic::content::Group* target = nullptr)
     {
         EditorProject* project = context.Project();
-        if (project == nullptr) { return nullptr; }
+        if (project == nullptr)
+        {
+            return nullptr;
+        }
 
         draconic::content::Group* prefabs = target;
         if (prefabs == nullptr)
         {
             draconic::content::Group* root = project->SourceDb().RootGroup();
             prefabs = root->GetGroup(u8"Prefabs");
-            if (prefabs == nullptr) { prefabs = root->CreateGroup(u8"Prefabs"); }
+            if (prefabs == nullptr)
+            {
+                prefabs = root->CreateGroup(u8"Prefabs");
+            }
         }
-        if (prefabs == nullptr) { return nullptr; }
+        if (prefabs == nullptr)
+        {
+            return nullptr;
+        }
 
         String name(u8"Prefab");
         for (i32 counter = 2; prefabs->GetInstance(name.AsView()) != nullptr; ++counter)
         {
             name = String(u8"Prefab");
             name.PushBack(static_cast<utf8char>('0' + (counter % 10)));
-            if (counter >= 10) { name.PushBack(static_cast<utf8char>('0' + (counter / 10 % 10))); }
+            if (counter >= 10)
+            {
+                name.PushBack(static_cast<utf8char>('0' + (counter / 10 % 10)));
+            }
         }
 
         draconic::content::Instance* instance =
             prefabs->CreateInstance(name.AsView(), scene::PrefabDocument::StaticType());
-        if (instance == nullptr) { return nullptr; }
+        if (instance == nullptr)
+        {
+            return nullptr;
+        }
         scene::PrefabDocument doc;
         doc.name = name;
-        if (!instance->WriteObject(doc).IsOk()) { return nullptr; }
+        if (!instance->WriteObject(doc).IsOk())
+        {
+            return nullptr;
+        }
 
         // Seed one root entity so the prefab opens in the enforced single-root shape and is
         // spawnable immediately (an empty payload can't spawn).
@@ -1290,36 +1578,54 @@ export namespace draconic::editor
     // Create a fresh scene instance in the project's source DB under "Scenes/", named uniquely
     // (Scene, Scene2, ...). Writes the SceneDocument primary so the instance materializes; the
     // page treats the missing "scene" stream as an empty scene.
-    inline draconic::content::Instance* CreateSceneInstance(EditorContext& context,
-                                                             draconic::content::Group* target = nullptr)
+    inline draconic::content::Instance*
+    CreateSceneInstance(EditorContext& context, draconic::content::Group* target = nullptr)
     {
         EditorProject* project = context.Project();
-        if (project == nullptr) { return nullptr; }
+        if (project == nullptr)
+        {
+            return nullptr;
+        }
 
         draconic::content::Group* scenes = target;
         if (scenes == nullptr)
         {
             draconic::content::Group* root = project->SourceDb().RootGroup();
             scenes = root->GetGroup(u8"Scenes");
-            if (scenes == nullptr) { scenes = root->CreateGroup(u8"Scenes"); }
+            if (scenes == nullptr)
+            {
+                scenes = root->CreateGroup(u8"Scenes");
+            }
         }
-        if (scenes == nullptr) { return nullptr; }
+        if (scenes == nullptr)
+        {
+            return nullptr;
+        }
 
         String name(u8"Scene");
         for (i32 counter = 2; scenes->GetInstance(name.AsView()) != nullptr; ++counter)
         {
             name = String(u8"Scene");
             name.PushBack(static_cast<utf8char>('0' + (counter % 10)));
-            if (counter >= 10) { name.PushBack(static_cast<utf8char>('0' + (counter / 10 % 10))); }
+            if (counter >= 10)
+            {
+                name.PushBack(static_cast<utf8char>('0' + (counter / 10 % 10)));
+            }
         }
 
         draconic::content::Instance* instance =
             scenes->CreateInstance(name.AsView(), scene::SceneDocument::StaticType());
-        if (instance == nullptr) { return nullptr; }
+        if (instance == nullptr)
+        {
+            return nullptr;
+        }
 
         scene::SceneDocument doc;
         doc.name = name;
-        if (!instance->WriteObject(doc).IsOk()) { return nullptr; }
+        if (!instance->WriteObject(doc).IsOk())
+        {
+            return nullptr;
+        }
 
         // Seed default content: a directional Sun so a fresh scene is LIT out of the box
         // (with no light, meshes render in the dim flat ambient fallback and read as broken -
@@ -1332,21 +1638,21 @@ export namespace draconic::editor
             Transform t;
             // Shines along the entity's forward (-Z): tilt ~60 deg down, a slight compass yaw
             // (the Sandbox key-light default) so shading has direction.
-            t.rotation = Quaternion::FromAxisAngle(Float3{ 0, 1, 0 }, 0.35f)
-                       * Quaternion::FromAxisAngle(Float3{ 1, 0, 0 }, -1.05f);
+            t.rotation = Quaternion::FromAxisAngle(Float3{0, 1, 0}, 0.35f) *
+                         Quaternion::FromAxisAngle(Float3{1, 0, 0}, -1.05f);
             seeded.SetLocalTransform(sun, t);
             draconic::render::LightComponent& light =
                 seeded.GetSystem<draconic::render::LightComponentManager>()->Add(sun);
-            light.castsShadows = true;   // intensity stays the component default (the value the
-                                         // duck-scene fix was verified with)
+            light.castsShadows = true; // intensity stays the component default (the value the
+                                       // duck-scene fix was verified with)
             (void)scene::SaveScene(seeded, *instance);
         }
         return instance;
     }
 
     inline void RegisterSceneEditor(EditorContext& context, runtime::IApplicationHost& host,
-                             ui::runtime::UIHost& uiHost,
-                             draconic::runtime::DefaultApplication* embeddedApp = nullptr)
+                                    ui::runtime::UIHost& uiHost,
+                                    draconic::runtime::DefaultApplication* embeddedApp = nullptr)
     {
         GlobalTypeRegistry().Register(scene::SceneDocument::StaticType());
         RegisterSerializable<scene::SceneDocument>();
@@ -1360,17 +1666,15 @@ export namespace draconic::editor
 
         EditorContext::AssetCreator creator;
         creator.label = String(u8"Scene");
-        creator.create = [](EditorContext& ctx, draconic::content::Group* group) {
-            return CreateSceneInstance(ctx, group);
-        };
+        creator.create = [](EditorContext& ctx, draconic::content::Group* group)
+        { return CreateSceneInstance(ctx, group); };
         creator.setsDefaultScene = true;
         context.RegisterCreator(Move(creator));
 
         EditorContext::AssetCreator prefabCreator;
         prefabCreator.label = String(u8"Prefab");
-        prefabCreator.create = [](EditorContext& ctx, draconic::content::Group* group) {
-            return CreatePrefabInstance(ctx, group);
-        };
+        prefabCreator.create = [](EditorContext& ctx, draconic::content::Group* group)
+        { return CreatePrefabInstance(ctx, group); };
         context.RegisterCreator(Move(prefabCreator));
 
         // Model imports: generate/refresh the hierarchy prefab beside the manifest (the
@@ -1382,13 +1686,15 @@ export namespace draconic::editor
         runtime::IApplicationHost* appHost = &host;
 
         // Play-in-editor: the singleton Game tab (player behavior in-process).
-        context.GamePageFactory = [editorContext, appHost, appUiHost = &uiHost, embeddedApp](bool newInstance)
-            -> UniquePtr<EditorPage> {
+        context.GamePageFactory = [editorContext, appHost, appUiHost = &uiHost,
+                                   embeddedApp](bool newInstance) -> UniquePtr<EditorPage>
+        {
             // Reuse the primary instance for the normal Play; spin up an extra for "Play New Instance".
-            runtime::GameInstance* instance = newInstance ? embeddedApp->CreateInstance()
-                                                      : &embeddedApp->Instance();
+            runtime::GameInstance* instance =
+                newInstance ? embeddedApp->CreateInstance() : &embeddedApp->Instance();
             return UniquePtr<EditorPage>(
-                DefaultAllocator().New<GameEditorPage>(*editorContext, *appHost, *appUiHost, embeddedApp, instance),
+                DefaultAllocator().New<GameEditorPage>(*editorContext, *appHost, *appUiHost,
+                                                       embeddedApp, instance),
                 DefaultAllocator());
         };
 
@@ -1397,23 +1703,39 @@ export namespace draconic::editor
         // ISceneAware injection gives it the app's FULL manager set - a hand-listed set
         // would silently drop component types.
         context.SceneStreamStager = [appHost](draconic::content::Instance& instance,
-                                              Array<byte>& out) -> bool {
+                                              Array<byte>& out) -> bool
+        {
             const bool isScene = instance.TypeName() == StringView(u8"SceneDocument");
             const bool isPrefab = instance.TypeName() == StringView(u8"PrefabDocument");
-            if (!isScene && !isPrefab) { return false; }
+            if (!isScene && !isPrefab)
+            {
+                return false;
+            }
             UniquePtr<IStream> stream = instance.ReadData(u8"scene");
-            if (stream.Get() == nullptr) { return false; }
+            if (stream.Get() == nullptr)
+            {
+                return false;
+            }
             auto* scenes = appHost->Ctx().GetSubsystem<scene::SceneSubsystem>();
-            if (scenes == nullptr) { return false; }
+            if (scenes == nullptr)
+            {
+                return false;
+            }
             // A transient scratch group over the app's aware registry, so OnSceneCreated injects the
             // FULL component-manager set (no type silently skipped). Destructs at scope end.
             scene::SceneManager scratchMgr(&scenes->AwareRegistry());
             scene::Scene* scratch = scratchMgr.CreateScene(u8"__export_transcode");
-            if (scratch == nullptr) { return false; }
+            if (scratch == nullptr)
+            {
+                return false;
+            }
             Result<Array<byte>> bytes =
                 scene::TranscodeSceneStreamToBinary(*stream, *scratch, /*includeSettings=*/isScene);
             scratchMgr.DestroyScene(scratch);
-            if (!bytes.HasValue()) { return false; }
+            if (!bytes.HasValue())
+            {
+                return false;
+            }
             out = Move(bytes.Value());
             return true;
         };
@@ -1424,87 +1746,117 @@ export namespace draconic::editor
         // manager set via ISceneAware, so no component type is silently skipped); resolves the scene's
         // Refs through a factory-less ResourceManager (nothing builds, so every bound id lands in
         // CollectUnresolved) and reads back the parked prefab instances. MAIN-THREAD only.
-        context.SceneRefScanner = [appHost](draconic::content::Instance& instance,
-                                            draconic::content::ContentDatabase& db,
-                                            Array<Guid>& outResources, Array<Guid>& outPrefabs) -> bool {
+        context.SceneRefScanner =
+            [appHost](draconic::content::Instance& instance, draconic::content::ContentDatabase& db,
+                      Array<Guid>& outResources, Array<Guid>& outPrefabs) -> bool
+        {
             const bool isScene = instance.TypeName() == StringView(u8"SceneDocument");
             const bool isPrefab = instance.TypeName() == StringView(u8"PrefabDocument");
-            if (!isScene && !isPrefab) { return false; }
+            if (!isScene && !isPrefab)
+            {
+                return false;
+            }
             auto* scenes = appHost->Ctx().GetSubsystem<scene::SceneSubsystem>();
-            if (scenes == nullptr) { return false; }
-            scene::SceneManager scratchMgr(&scenes->AwareRegistry());   // full manager set via ISceneAware
+            if (scenes == nullptr)
+            {
+                return false;
+            }
+            scene::SceneManager scratchMgr(
+                &scenes->AwareRegistry()); // full manager set via ISceneAware
             scene::Scene* scratch = scratchMgr.CreateScene(u8"__export_scan");
-            if (scratch == nullptr) { return false; }
+            if (scratch == nullptr)
+            {
+                return false;
+            }
             const bool loaded = scene::LoadScene(instance, *scratch).IsOk();
             if (loaded)
             {
-                draconic::resource::ResourceManager collector(db);   // no factories -> all binds unresolved
+                draconic::resource::ResourceManager collector(
+                    db); // no factories -> all binds unresolved
                 scene::ResolveSceneResources(*scratch, collector);
                 collector.CollectUnresolved(outResources);
-                scratch->ForEachPendingPrefabInstance([&outPrefabs](scene::Scene::PendingPrefabInstance& pending)
-                {
-                    outPrefabs.PushBack(pending.prefabId);
-                });
+                scratch->ForEachPendingPrefabInstance(
+                    [&outPrefabs](scene::Scene::PendingPrefabInstance& pending)
+                    { outPrefabs.PushBack(pending.prefabId); });
             }
             scratchMgr.DestroyScene(scratch);
             return loaded;
         };
 
-        context.AddImportListener([editorContext, appHost](draconic::content::Instance& instance,
-                                                           const ImportOptions* options) {
-            if (instance.TypeName() != StringView(u8"ModelManifestAsset")) { return; }
-            if (options != nullptr)
+        context.AddImportListener(
+            [editorContext, appHost](draconic::content::Instance& instance,
+                                     const ImportOptions* options)
             {
-                auto* modelOptions = Cast<draconic::modelimporter::ModelImportOptions>(
-                    const_cast<ImportOptions*>(options));
-                if (modelOptions != nullptr && !modelOptions->generatePrefab) { return; }
-            }
-            ModelPrefabResult generated = GenerateModelPrefab(instance);
-            if (generated.instance == nullptr)
-            {
-                editorContext->Notify(NoticeKind::Error, u8"Model prefab generation failed.");
-                return;
-            }
-            if (generated.regenerated)
-            {
-                UniquePtr<IStream> payload = generated.instance->ReadData(u8"scene");
-                if (payload.Get() != nullptr)
+                if (instance.TypeName() != StringView(u8"ModelManifestAsset"))
                 {
-                    Array<byte> bytes;
-                    bytes.Resize(static_cast<usize>(payload->Size()));
-                    (void)payload->Read(bytes.Data(), bytes.Size());
-                    const Guid prefabId = generated.instance->Id();
-                    scene::PrefabPayloadResolver resolver{
-                        [editorContext](const Guid& id) -> UniquePtr<IStream> {
-                            if (editorContext->Project() == nullptr) { return UniquePtr<IStream>{}; }
-                            draconic::content::Instance* prefab =
-                                editorContext->Project()->SourceDb().GetInstance(id);
-                            return (prefab != nullptr) ? prefab->ReadData(u8"scene")
-                                                       : UniquePtr<IStream>{};
-                        } };
-                    if (auto* scenes = appHost->Ctx().GetSubsystem<scene::SceneSubsystem>())
+                    return;
+                }
+                if (options != nullptr)
+                {
+                    auto* modelOptions = Cast<draconic::modelimporter::ModelImportOptions>(
+                        const_cast<ImportOptions*>(options));
+                    if (modelOptions != nullptr && !modelOptions->generatePrefab)
                     {
-                        scenes->ForEachScene([&](scene::Scene& scene) {
-                            const u32 rebuilt = scene::RebuildPrefabInstances(
-                                scene, prefabId, Span<const byte>{ bytes.Data(), bytes.Size() },
-                                &resolver);
-                            if (rebuilt > 0 && editorContext->Resources() != nullptr)
-                            {
-                                scene::ResolveSceneResources(scene, *editorContext->Resources());
-                            }
-                        });
-                    }
-                    for (const UniquePtr<EditorPage>& open : editorContext->OpenPages())
-                    {
-                        if (open->InstanceId() == prefabId) { open->OnAssetExternallyModified(); }
+                        return;
                     }
                 }
-            }
-            String message(u8"Prefab '");
-            message += generated.instance->Name();
-            message += generated.regenerated ? StringView(u8"' regenerated (placed instances updated).")
-                                             : StringView(u8"' generated.");
-            editorContext->Notify(NoticeKind::Success, message.AsView());
-        });
+                ModelPrefabResult generated = GenerateModelPrefab(instance);
+                if (generated.instance == nullptr)
+                {
+                    editorContext->Notify(NoticeKind::Error, u8"Model prefab generation failed.");
+                    return;
+                }
+                if (generated.regenerated)
+                {
+                    UniquePtr<IStream> payload = generated.instance->ReadData(u8"scene");
+                    if (payload.Get() != nullptr)
+                    {
+                        Array<byte> bytes;
+                        bytes.Resize(static_cast<usize>(payload->Size()));
+                        (void)payload->Read(bytes.Data(), bytes.Size());
+                        const Guid prefabId = generated.instance->Id();
+                        scene::PrefabPayloadResolver resolver{
+                            [editorContext](const Guid& id) -> UniquePtr<IStream>
+                            {
+                                if (editorContext->Project() == nullptr)
+                                {
+                                    return UniquePtr<IStream>{};
+                                }
+                                draconic::content::Instance* prefab =
+                                    editorContext->Project()->SourceDb().GetInstance(id);
+                                return (prefab != nullptr) ? prefab->ReadData(u8"scene")
+                                                           : UniquePtr<IStream>{};
+                            }};
+                        if (auto* scenes = appHost->Ctx().GetSubsystem<scene::SceneSubsystem>())
+                        {
+                            scenes->ForEachScene(
+                                [&](scene::Scene& scene)
+                                {
+                                    const u32 rebuilt = scene::RebuildPrefabInstances(
+                                        scene, prefabId,
+                                        Span<const byte>{bytes.Data(), bytes.Size()}, &resolver);
+                                    if (rebuilt > 0 && editorContext->Resources() != nullptr)
+                                    {
+                                        scene::ResolveSceneResources(scene,
+                                                                     *editorContext->Resources());
+                                    }
+                                });
+                        }
+                        for (const UniquePtr<EditorPage>& open : editorContext->OpenPages())
+                        {
+                            if (open->InstanceId() == prefabId)
+                            {
+                                open->OnAssetExternallyModified();
+                            }
+                        }
+                    }
+                }
+                String message(u8"Prefab '");
+                message += generated.instance->Name();
+                message += generated.regenerated
+                               ? StringView(u8"' regenerated (placed instances updated).")
+                               : StringView(u8"' generated.");
+                editorContext->Notify(NoticeKind::Success, message.AsView());
+            });
     }
 }

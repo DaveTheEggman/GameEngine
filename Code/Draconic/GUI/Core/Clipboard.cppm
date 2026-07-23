@@ -12,7 +12,7 @@ module;
 
 export module draconic.gui:clipboard;
 
-import draconic.core;   // String, StringView
+import draconic.core; // String, StringView
 
 using namespace draconic::core;
 namespace core = draconic::core;

@@ -30,7 +30,7 @@ export namespace draconic::editor::app
     // Stable persistence ids for the GLOBAL panels (LoadDockLayout match keys - do not rename).
     inline constexpr StringView kPanelWelcome = u8"welcome";
     inline constexpr StringView kPanelConsole = u8"console";
-    inline constexpr StringView kPanelAssets  = u8"assets";
+    inline constexpr StringView kPanelAssets = u8"assets";
 
     class EditorShell
     {
@@ -40,11 +40,11 @@ export namespace draconic::editor::app
         EditorShell& operator=(const EditorShell&) = delete;
 
         // Build the chrome. `dockHost` (nullable) lets panels float into real OS windows.
-        void Build(draconic::editor::EditorContext& context, ui::toolkit::IDockableWindowHost* dockHost,
-                   u32 width, u32 height)
+        void Build(draconic::editor::EditorContext& context,
+                   ui::toolkit::IDockableWindowHost* dockHost, u32 width, u32 height)
         {
             m_root = MakeRef<ui::RootView>(DefaultAllocator());
-            m_root->ViewportSize = Float2{ static_cast<f32>(width), static_cast<f32>(height) };
+            m_root->ViewportSize = Float2{static_cast<f32>(width), static_cast<f32>(height)};
             m_root->DpiScale = 1.0f;
 
             auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
@@ -75,18 +75,30 @@ export namespace draconic::editor::app
 
         [[nodiscard]] ui::RootView* Root() const noexcept { return m_root.Get(); }
         [[nodiscard]] ui::toolkit::MenuBar* Menus() const noexcept { return m_menuBar.Get(); }
-        [[nodiscard]] ui::toolkit::StatusBar* StatusBar() const noexcept { return m_statusBar.Get(); }
+        [[nodiscard]] ui::toolkit::StatusBar* StatusBar() const noexcept
+        {
+            return m_statusBar.Get();
+        }
         [[nodiscard]] ui::toolkit::DockManager* Docks() const noexcept { return m_dock.Get(); }
 
-        [[nodiscard]] ui::toolkit::DockablePanel* WelcomePanel() const noexcept { return m_welcome; }
-        [[nodiscard]] ui::toolkit::DockablePanel* ConsolePanel() const noexcept { return m_console; }
+        [[nodiscard]] ui::toolkit::DockablePanel* WelcomePanel() const noexcept
+        {
+            return m_welcome;
+        }
+        [[nodiscard]] ui::toolkit::DockablePanel* ConsolePanel() const noexcept
+        {
+            return m_console;
+        }
         [[nodiscard]] ui::toolkit::DockablePanel* AssetsPanel() const noexcept { return m_assets; }
 
         /// Replace the Assets panel's placeholder with the real browser (once the project +
         /// cook service exist).
         void SetAssetsContent(draconic::ui::View* content)
         {
-            if (m_assets != nullptr) { m_assets->SetContent(content); }
+            if (m_assets != nullptr)
+            {
+                m_assets->SetContent(content);
+            }
         }
 
         /// The Console panel's log view (fed by the app's EditorLogBuffer drain).
@@ -101,7 +113,8 @@ export namespace draconic::editor::app
         {
             ui::toolkit::DockablePanel* panel = m_dock->AddPanel(title, content);
             panel->SetClosable(true);
-            m_dock->DockPanelRelativeTo(panel, ui::toolkit::DockPosition::Center, m_welcome->Parent);
+            m_dock->DockPanelRelativeTo(panel, ui::toolkit::DockPosition::Center,
+                                        m_welcome->Parent);
             return panel;
         }
 
@@ -117,17 +130,16 @@ export namespace draconic::editor::app
         }
 
         /// Rebuild the default arrangement (View > Reset Layout).
-        void ResetLayout()
-        {
-            DockDefaults();
-        }
+        void ResetLayout() { DockDefaults(); }
 
     private:
         void BuildPanels()
         {
-            m_welcome = m_dock->AddPanel(u8"Welcome",
+            m_welcome = m_dock->AddPanel(
+                u8"Welcome",
                 MakeRef<ui::Label>(DefaultAllocator(),
-                    StringView(u8"Draconic Editor - open an asset to begin")).Get());
+                                   StringView(u8"Draconic Editor - open an asset to begin"))
+                    .Get());
             m_welcome->SetPersistenceId(kPanelWelcome);
             m_welcome->SetClosable(false);
 
@@ -135,8 +147,10 @@ export namespace draconic::editor::app
             m_console = m_dock->AddPanel(u8"Console", m_logView.Get());
             m_console->SetPersistenceId(kPanelConsole);
 
-            m_assets = m_dock->AddPanel(u8"Assets",
-                MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Asset browser (phase 6)")).Get());
+            m_assets = m_dock->AddPanel(
+                u8"Assets",
+                MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Asset browser (phase 6)"))
+                    .Get());
             m_assets->SetPersistenceId(kPanelAssets);
 
             DockDefaults();
@@ -148,7 +162,8 @@ export namespace draconic::editor::app
             // south-stacked tool pane; scene-scoped views live inside the pages).
             m_dock->DockPanel(m_welcome, ui::toolkit::DockPosition::Center);
             m_dock->DockPanel(m_console, ui::toolkit::DockPosition::Bottom);
-            m_dock->DockPanelRelativeTo(m_assets, ui::toolkit::DockPosition::Center, m_console->Parent);
+            m_dock->DockPanelRelativeTo(m_assets, ui::toolkit::DockPosition::Center,
+                                        m_console->Parent);
             // Docking activates the docked tab, so Assets ended up in front - the default
             // layout leads with the Console (logs visible immediately).
             m_dock->ActivatePanel(m_console);

@@ -61,12 +61,12 @@ export namespace draconic::ui::toolkit
 
             const Color borderColor = Rgb(65, 70, 85, 255);
             const Color contentBg = Rgb(42, 44, 54, 255);
-            ctx.VG().FillRoundedRect(Rectangle{ 0, 0, Width(), Height() }, 4, contentBg);
+            ctx.VG().FillRoundedRect(Rectangle{0, 0, Width(), Height()}, 4, contentBg);
 
             const Color headerBg = Rgb(40, 44, 55, 255);
-            ctx.VG().FillRoundedRect(Rectangle{ 0, 0, Width(), headerH }, 4, headerBg);
+            ctx.VG().FillRoundedRect(Rectangle{0, 0, Width(), headerH}, 4, headerBg);
             // Square off header bottom corners.
-            ctx.VG().FillRect(Rectangle{ 0, headerH - 4, Width(), 4 }, headerBg);
+            ctx.VG().FillRect(Rectangle{0, headerH - 4, Width(), 4}, headerBg);
 
             // Title text.
             if (ctx.FontService() != nullptr)
@@ -75,25 +75,27 @@ export namespace draconic::ui::toolkit
                 if (font != nullptr)
                 {
                     const Color textColor = Rgb(220, 225, 235, 255);
-                    ctx.VG().DrawText(m_title, font, Rectangle{ 8, 0, Width() - 16, headerH },
-                        fonts::TextAlignment::Left, fonts::VerticalAlignment::Middle, textColor);
+                    ctx.VG().DrawText(m_title, font, Rectangle{8, 0, Width() - 16, headerH},
+                                      fonts::TextAlignment::Left, fonts::VerticalAlignment::Middle,
+                                      textColor);
                 }
             }
 
             // Border outline.
-            ctx.VG().StrokeRoundedRect(Rectangle{ 0, 0, Width(), Height() }, 4, borderColor, 1);
+            ctx.VG().StrokeRoundedRect(Rectangle{0, 0, Width(), Height()}, 4, borderColor, 1);
         }
 
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
-            MeasuredSize = Float2{ constraints.ConstrainWidth(m_previewWidth), constraints.ConstrainHeight(m_previewHeight) };
+            MeasuredSize = Float2{constraints.ConstrainWidth(m_previewWidth),
+                                  constraints.ConstrainHeight(m_previewHeight)};
         }
 
     private:
         [[nodiscard]] static Color Rgb(u8 r, u8 g, u8 b, u8 a = 255) noexcept
         {
-            return Color{ r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f };
+            return Color{r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f};
         }
 
         String m_title;
@@ -151,7 +153,10 @@ export namespace draconic::ui::toolkit
         /// close event. Programmatic closers that must not be vetoed invoke the event directly.
         void RequestClose()
         {
-            if (OnCloseInterceptor && !OnCloseInterceptor(this)) { return; }
+            if (OnCloseInterceptor && !OnCloseInterceptor(this))
+            {
+                return;
+            }
             OnCloseRequested.Invoke(this);
         }
 
@@ -160,30 +165,44 @@ export namespace draconic::ui::toolkit
         /// ACTIVE panel follow interaction - with side-by-side tab groups, a panel can be
         /// visible (already its group's selected tab, so SetSelectedIndex early-outs) while a
         /// DIFFERENT panel is the app-active one; tab clicks alone can't re-announce it.
-        void OnMouseDownCapture(MouseEventArgs&) override;   // out-of-line (needs DockManager)
+        void OnMouseDownCapture(MouseEventArgs&) override; // out-of-line (needs DockManager)
 
         /// Stable identifier for layout persistence.
         [[nodiscard]] StringView PersistenceId() const { return m_persistenceId.AsView(); }
         void SetPersistenceId(StringView id) { m_persistenceId = String(id); }
 
         [[nodiscard]] StringView Title() const { return m_title.AsView(); }
-        void SetTitle(StringView title) { m_title = String(title); Invalidate(); }
+        void SetTitle(StringView title)
+        {
+            m_title = String(title);
+            Invalidate();
+        }
 
         [[nodiscard]] bool Closable() const { return m_closable; }
         void SetClosable(bool value) { m_closable = value; }
 
         /// Whether to show the panel's own header bar (false when inside a DockTabGroup).
         [[nodiscard]] bool ShowHeader() const { return m_showHeader; }
-        void SetShowHeader(bool value) { m_showHeader = value; Invalidate(); }
+        void SetShowHeader(bool value)
+        {
+            m_showHeader = value;
+            Invalidate();
+        }
 
         [[nodiscard]] View* ContentView() const { return m_content; }
 
         /// Set the content view (replaces existing).
         void SetContent(View* content, LayoutParamsPtr lp = {})
         {
-            if (m_content != nullptr) { RemoveView(m_content, true); }
+            if (m_content != nullptr)
+            {
+                RemoveView(m_content, true);
+            }
             m_content = content;
-            if (content != nullptr) { AddView(content, Move(lp)); }
+            if (content != nullptr)
+            {
+                AddView(content, Move(lp));
+            }
             Invalidate();
         }
 
@@ -204,13 +223,14 @@ export namespace draconic::ui::toolkit
             if (m_showHeader)
             {
                 // Header background.
-                if (Drawable* headerDrawable = ResolvePartDrawable(u8"header", StyleProperty::Background, ControlState::Normal))
+                if (Drawable* headerDrawable = ResolvePartDrawable(
+                        u8"header", StyleProperty::Background, ControlState::Normal))
                 {
-                    headerDrawable->Draw(ctx, Rectangle{ 0, 0, w, HeaderHeight });
+                    headerDrawable->Draw(ctx, Rectangle{0, 0, w, HeaderHeight});
                 }
                 else
                 {
-                    ctx.VG().FillRect(Rectangle{ 0, 0, w, HeaderHeight }, Rgb(40, 44, 55, 255));
+                    ctx.VG().FillRect(Rectangle{0, 0, w, HeaderHeight}, Rgb(40, 44, 55, 255));
                 }
 
                 // Header text.
@@ -219,9 +239,11 @@ export namespace draconic::ui::toolkit
                     fonts::CachedFont* font = ctx.FontService()->GetFont(12.0f);
                     if (font != nullptr)
                     {
-                        const Color textColor = ResolveStyleColor(StyleProperty::TextColor, Rgb(220, 225, 235, 255));
-                        ctx.VG().DrawText(m_title, font, Rectangle{ 8, 0, w - 30, HeaderHeight },
-                            fonts::TextAlignment::Left, fonts::VerticalAlignment::Middle, textColor);
+                        const Color textColor =
+                            ResolveStyleColor(StyleProperty::TextColor, Rgb(220, 225, 235, 255));
+                        ctx.VG().DrawText(m_title, font, Rectangle{8, 0, w - 30, HeaderHeight},
+                                          fonts::TextAlignment::Left,
+                                          fonts::VerticalAlignment::Middle, textColor);
                     }
                 }
 
@@ -232,20 +254,26 @@ export namespace draconic::ui::toolkit
                     const f32 cy = HeaderHeight * 0.5f;
                     const f32 sz = 4.0f;
 
-                    const Color closeColor = ResolvePartColor(u8"close-button", StyleProperty::TextColor, ControlState::Normal, Rgb(180, 185, 200, 150));
-                    ctx.VG().DrawLine(Float2{ cx - sz, cy - sz }, Float2{ cx + sz, cy + sz }, closeColor, 1.5f);
-                    ctx.VG().DrawLine(Float2{ cx + sz, cy - sz }, Float2{ cx - sz, cy + sz }, closeColor, 1.5f);
+                    const Color closeColor =
+                        ResolvePartColor(u8"close-button", StyleProperty::TextColor,
+                                         ControlState::Normal, Rgb(180, 185, 200, 150));
+                    ctx.VG().DrawLine(Float2{cx - sz, cy - sz}, Float2{cx + sz, cy + sz},
+                                      closeColor, 1.5f);
+                    ctx.VG().DrawLine(Float2{cx + sz, cy - sz}, Float2{cx - sz, cy + sz},
+                                      closeColor, 1.5f);
                 }
             }
 
             // Content background.
-            if (Drawable* contentDrawable = ResolvePartDrawable(u8"content", StyleProperty::Background, ControlState::Normal))
+            if (Drawable* contentDrawable = ResolvePartDrawable(
+                    u8"content", StyleProperty::Background, ControlState::Normal))
             {
-                contentDrawable->Draw(ctx, Rectangle{ 0, headerH, w, Height() - headerH });
+                contentDrawable->Draw(ctx, Rectangle{0, headerH, w, Height() - headerH});
             }
             else
             {
-                ctx.VG().FillRect(Rectangle{ 0, headerH, w, Height() - headerH }, Rgb(42, 44, 54, 255));
+                ctx.VG().FillRect(Rectangle{0, headerH, w, Height() - headerH},
+                                  Rgb(42, 44, 54, 255));
             }
 
             DrawChildren(ctx);
@@ -255,7 +283,10 @@ export namespace draconic::ui::toolkit
 
         void OnMouseDown(MouseEventArgs& e) override
         {
-            if (!IsEffectivelyEnabled() || e.Button != MouseButton::Left) { return; }
+            if (!IsEffectivelyEnabled() || e.Button != MouseButton::Left)
+            {
+                return;
+            }
 
             if (m_showHeader)
             {
@@ -284,12 +315,16 @@ export namespace draconic::ui::toolkit
 
         [[nodiscard]] RefPtr<DragData> CreateDragData() override
         {
-            if (!m_headerDrag) { return RefPtr<DragData>{}; }
+            if (!m_headerDrag)
+            {
+                return RefPtr<DragData>{};
+            }
             return MakeRef<DockPanelDragData>(DefaultAllocator(), this);
         }
 
-        [[nodiscard]] RefPtr<View> CreateDragVisual(DragData* data) override; // out-of-line (needs DockableWindow)
-        void OnDragStarted(DragData* data) override;                          // out-of-line (needs DockableWindow)
+        [[nodiscard]] RefPtr<View>
+        CreateDragVisual(DragData* data) override;   // out-of-line (needs DockableWindow)
+        void OnDragStarted(DragData* data) override; // out-of-line (needs DockableWindow)
 
         void OnDragCompleted(DragData* data, DragDropEffects effect, bool cancelled) override
         {
@@ -317,12 +352,11 @@ export namespace draconic::ui::toolkit
             {
                 // A docked panel fills its dock-allocated region; measure content within the incoming
                 // constraints (minus the header), never unbounded.
-                m_content->Measure(BoxConstraints(
-                    constraints.MinWidth, constraints.MaxWidth,
-                    Max(0.0f, constraints.MinHeight - headerH),
-                    Max(0.0f, constraints.MaxHeight - headerH)));
+                m_content->Measure(BoxConstraints(constraints.MinWidth, constraints.MaxWidth,
+                                                  Max(0.0f, constraints.MinHeight - headerH),
+                                                  Max(0.0f, constraints.MaxHeight - headerH)));
             }
-            MeasuredSize = Float2{ constraints.ConstrainWidth(0), constraints.ConstrainHeight(0) };
+            MeasuredSize = Float2{constraints.ConstrainWidth(0), constraints.ConstrainHeight(0)};
         }
 
         void OnLayout(f32 left, f32 top, f32 width, f32 height) override
@@ -341,7 +375,7 @@ export namespace draconic::ui::toolkit
     private:
         [[nodiscard]] static Color Rgb(u8 r, u8 g, u8 b, u8 a = 255) noexcept
         {
-            return Color{ r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f };
+            return Color{r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f};
         }
 
         // Defined out-of-line (needs DockableWindow complete).
@@ -363,8 +397,14 @@ export namespace draconic::ui::toolkit
     enum class ResizeEdge
     {
         None,
-        Top, Bottom, Left, Right,
-        TopLeft, TopRight, BottomLeft, BottomRight
+        Top,
+        Bottom,
+        Left,
+        Right,
+        TopLeft,
+        TopRight,
+        BottomLeft,
+        BottomRight
     };
 
     class DockableWindow : public ViewGroup
@@ -377,10 +417,12 @@ export namespace draconic::ui::toolkit
         Event<void(DockableWindow*)> OnDockRequested;
         Event<void(DockableWindow*)> OnCloseRequested;
 
-        explicit DockableWindow(DockablePanel* panel)
-            : m_panel(panel)
+        explicit DockableWindow(DockablePanel* panel) : m_panel(panel)
         {
-            if (panel != nullptr) { AddView(panel); }
+            if (panel != nullptr)
+            {
+                AddView(panel);
+            }
         }
 
         /// The panel contained in this floating window.
@@ -388,10 +430,18 @@ export namespace draconic::ui::toolkit
 
         /// Explicit size for the window. Set during resize or initial float.
         [[nodiscard]] f32 RequestedWidth() const { return m_requestedWidth; }
-        void SetRequestedWidth(f32 value) { m_requestedWidth = Max(value, kMinWidth); Invalidate(); }
+        void SetRequestedWidth(f32 value)
+        {
+            m_requestedWidth = Max(value, kMinWidth);
+            Invalidate();
+        }
 
         [[nodiscard]] f32 RequestedHeight() const { return m_requestedHeight; }
-        void SetRequestedHeight(f32 value) { m_requestedHeight = Max(value, kMinHeight); Invalidate(); }
+        void SetRequestedHeight(f32 value)
+        {
+            m_requestedHeight = Max(value, kMinHeight);
+            Invalidate();
+        }
 
         // === Drawing ===
 
@@ -401,15 +451,16 @@ export namespace draconic::ui::toolkit
             {
                 if (Drawable* bgDrawable = ResolveStyleDrawable(StyleProperty::Background))
                 {
-                    bgDrawable->Draw(ctx, Rectangle{ 0, 0, Width(), Height() });
+                    bgDrawable->Draw(ctx, Rectangle{0, 0, Width(), Height()});
                 }
                 else
                 {
-                    ctx.VG().FillRect(Rectangle{ 0, 0, Width(), Height() }, Rgb(42, 44, 54, 255));
+                    ctx.VG().FillRect(Rectangle{0, 0, Width(), Height()}, Rgb(42, 44, 54, 255));
                 }
 
-                const Color borderColor = ResolveStyleColor(StyleProperty::BorderColor, Rgb(65, 70, 85, 255));
-                ctx.VG().StrokeRect(Rectangle{ 0, 0, Width(), Height() }, borderColor, 2);
+                const Color borderColor =
+                    ResolveStyleColor(StyleProperty::BorderColor, Rgb(65, 70, 85, 255));
+                ctx.VG().StrokeRect(Rectangle{0, 0, Width(), Height()}, borderColor, 2);
             }
 
             DrawChildren(ctx);
@@ -419,7 +470,10 @@ export namespace draconic::ui::toolkit
 
         void OnMouseDown(MouseEventArgs& e) override
         {
-            if (!IsEffectivelyEnabled() || e.Button != MouseButton::Left) { return; }
+            if (!IsEffectivelyEnabled() || e.Button != MouseButton::Left)
+            {
+                return;
+            }
 
             // Title bar double-click to re-dock.
             if (e.Y < m_titleBarHeight && e.ClickCount >= 2)
@@ -437,24 +491,27 @@ export namespace draconic::ui::toolkit
                 m_resizeEdge = edge;
 
                 if (IsOSWindow && WindowHost != nullptr &&
-                    WindowHost->TryGetDockableWindowBounds(this,
-                        m_resizeStartX, m_resizeStartY, m_resizeStartW, m_resizeStartH))
+                    WindowHost->TryGetDockableWindowBounds(this, m_resizeStartX, m_resizeStartY,
+                                                           m_resizeStartW, m_resizeStartH))
                 {
                     WindowHost->GetGlobalMousePosition(m_resizeStartMouseX, m_resizeStartMouseY);
                 }
                 else
                 {
-                    const Float2 screenPos = LocalToScreen(Float2{ 0, 0 });
+                    const Float2 screenPos = LocalToScreen(Float2{0, 0});
                     m_resizeStartX = screenPos.x;
                     m_resizeStartY = screenPos.y;
                     m_resizeStartW = Width();
                     m_resizeStartH = Height();
-                    const Float2 screenMouse = LocalToScreen(Float2{ e.X, e.Y });
+                    const Float2 screenMouse = LocalToScreen(Float2{e.X, e.Y});
                     m_resizeStartMouseX = screenMouse.x;
                     m_resizeStartMouseY = screenMouse.y;
                 }
 
-                if (Context != nullptr) { Context->GetFocusManager()->SetCapture(this); }
+                if (Context != nullptr)
+                {
+                    Context->GetFocusManager()->SetCapture(this);
+                }
                 e.Handled = true;
             }
         }
@@ -470,7 +527,7 @@ export namespace draconic::ui::toolkit
                 }
                 else
                 {
-                    const Float2 screenMouse = LocalToScreen(Float2{ e.X, e.Y });
+                    const Float2 screenMouse = LocalToScreen(Float2{e.X, e.Y});
                     curX = screenMouse.x;
                     curY = screenMouse.y;
                 }
@@ -543,13 +600,19 @@ export namespace draconic::ui::toolkit
 
                 if (IsOSWindow)
                 {
-                    if (WindowHost != nullptr) { WindowHost->ResizeDockableWindow(this, newX, newY, newW, newH); }
+                    if (WindowHost != nullptr)
+                    {
+                        WindowHost->ResizeDockableWindow(this, newX, newY, newW, newH);
+                    }
                 }
                 else
                 {
                     if (RootView* root = Root())
                     {
-                        if (PopupLayer* pl = root->GetPopupLayer()) { pl->UpdatePopupPosition(this, newX, newY); }
+                        if (PopupLayer* pl = root->GetPopupLayer())
+                        {
+                            pl->UpdatePopupPosition(this, newX, newY);
+                        }
                     }
                 }
 
@@ -568,31 +631,47 @@ export namespace draconic::ui::toolkit
             {
                 m_resizing = false;
                 m_resizeEdge = ResizeEdge::None;
-                if (Context != nullptr) { Context->GetFocusManager()->ReleaseCapture(); }
+                if (Context != nullptr)
+                {
+                    Context->GetFocusManager()->ReleaseCapture();
+                }
                 e.Handled = true;
             }
         }
 
         void OnMouseLeave() override
         {
-            if (!m_resizing) { Cursor = CursorType::Default; }
+            if (!m_resizing)
+            {
+                Cursor = CursorType::Default;
+            }
         }
 
         // === Hit testing ===
 
         [[nodiscard]] View* HitTest(Float2 localPoint) override
         {
-            if (!IsInteractionEnabled || Visibility != VisibilityValue::Visible) { return nullptr; }
-            if (localPoint.x < 0 || localPoint.y < 0 || localPoint.x >= Width() || localPoint.y >= Height())
+            if (!IsInteractionEnabled || Visibility != VisibilityValue::Visible)
+            {
+                return nullptr;
+            }
+            if (localPoint.x < 0 || localPoint.y < 0 || localPoint.x >= Width() ||
+                localPoint.y >= Height())
             {
                 return nullptr;
             }
 
             // During active resize, consume all input.
-            if (m_resizing) { return this; }
+            if (m_resizing)
+            {
+                return this;
+            }
 
             // Intercept edge zones for resize.
-            if (HitTestEdge(localPoint.x, localPoint.y) != ResizeEdge::None) { return this; }
+            if (HitTestEdge(localPoint.x, localPoint.y) != ResizeEdge::None)
+            {
+                return this;
+            }
 
             // Otherwise delegate to children normally.
             return ViewGroup::HitTest(localPoint);
@@ -615,29 +694,33 @@ export namespace draconic::ui::toolkit
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
-            const f32 w = (m_requestedWidth > 0)
-                ? constraints.ConstrainWidth(m_requestedWidth)
-                : constraints.ConstrainWidth(250);
-            const f32 h = (m_requestedHeight > 0)
-                ? constraints.ConstrainHeight(m_requestedHeight)
-                : constraints.ConstrainHeight(200);
+            const f32 w = (m_requestedWidth > 0) ? constraints.ConstrainWidth(m_requestedWidth)
+                                                 : constraints.ConstrainWidth(250);
+            const f32 h = (m_requestedHeight > 0) ? constraints.ConstrainHeight(m_requestedHeight)
+                                                  : constraints.ConstrainHeight(200);
 
-            if (m_panel != nullptr) { m_panel->Measure(BoxConstraints::Tight(w, h)); }
+            if (m_panel != nullptr)
+            {
+                m_panel->Measure(BoxConstraints::Tight(w, h));
+            }
 
-            MeasuredSize = Float2{ w, h };
+            MeasuredSize = Float2{w, h};
         }
 
         void OnLayout(f32 left, f32 top, f32 width, f32 height) override
         {
             (void)left;
             (void)top;
-            if (m_panel != nullptr) { m_panel->Layout(0, 0, width, height); }
+            if (m_panel != nullptr)
+            {
+                m_panel->Layout(0, 0, width, height);
+            }
         }
 
     private:
         [[nodiscard]] static Color Rgb(u8 r, u8 g, u8 b, u8 a = 255) noexcept
         {
-            return Color{ r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f };
+            return Color{r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f};
         }
 
         [[nodiscard]] ResizeEdge HitTestEdge(f32 x, f32 y) const
@@ -648,14 +731,38 @@ export namespace draconic::ui::toolkit
             const bool onTop = y < s;
             const bool onBottom = y >= Height() - s;
 
-            if (onTop && onLeft) { return ResizeEdge::TopLeft; }
-            if (onTop && onRight) { return ResizeEdge::TopRight; }
-            if (onBottom && onLeft) { return ResizeEdge::BottomLeft; }
-            if (onBottom && onRight) { return ResizeEdge::BottomRight; }
-            if (onLeft) { return ResizeEdge::Left; }
-            if (onRight) { return ResizeEdge::Right; }
-            if (onTop) { return ResizeEdge::Top; }
-            if (onBottom) { return ResizeEdge::Bottom; }
+            if (onTop && onLeft)
+            {
+                return ResizeEdge::TopLeft;
+            }
+            if (onTop && onRight)
+            {
+                return ResizeEdge::TopRight;
+            }
+            if (onBottom && onLeft)
+            {
+                return ResizeEdge::BottomLeft;
+            }
+            if (onBottom && onRight)
+            {
+                return ResizeEdge::BottomRight;
+            }
+            if (onLeft)
+            {
+                return ResizeEdge::Left;
+            }
+            if (onRight)
+            {
+                return ResizeEdge::Right;
+            }
+            if (onTop)
+            {
+                return ResizeEdge::Top;
+            }
+            if (onBottom)
+            {
+                return ResizeEdge::Bottom;
+            }
             return ResizeEdge::None;
         }
 
@@ -664,14 +771,19 @@ export namespace draconic::ui::toolkit
             switch (edge)
             {
             case ResizeEdge::Top:
-            case ResizeEdge::Bottom: return CursorType::SizeNS;
+            case ResizeEdge::Bottom:
+                return CursorType::SizeNS;
             case ResizeEdge::Left:
-            case ResizeEdge::Right: return CursorType::SizeWE;
+            case ResizeEdge::Right:
+                return CursorType::SizeWE;
             case ResizeEdge::TopLeft:
-            case ResizeEdge::BottomRight: return CursorType::SizeNWSE;
+            case ResizeEdge::BottomRight:
+                return CursorType::SizeNWSE;
             case ResizeEdge::TopRight:
-            case ResizeEdge::BottomLeft: return CursorType::SizeNESW;
-            case ResizeEdge::None: return CursorType::Default;
+            case ResizeEdge::BottomLeft:
+                return CursorType::SizeNESW;
+            case ResizeEdge::None:
+                return CursorType::Default;
             }
             return CursorType::Default;
         }
@@ -699,7 +811,10 @@ export namespace draconic::ui::toolkit
     {
         (void)data;
         // If dragging from a dockable window, suppress the adorner (we'll move the window instead).
-        if (Cast<DockableWindow>(Parent) != nullptr) { return RefPtr<View>{}; }
+        if (Cast<DockableWindow>(Parent) != nullptr)
+        {
+            return RefPtr<View>{};
+        }
 
         RefPtr<DockDragPreview> preview = MakeRef<DockDragPreview>(DefaultAllocator());
         preview->SetTitle(m_title);
@@ -728,7 +843,7 @@ export namespace draconic::ui::toolkit
                     }
                     else
                     {
-                        const Float2 windowPos = fw->LocalToScreen(Float2{ 0, 0 });
+                        const Float2 windowPos = fw->LocalToScreen(Float2{0, 0});
                         panelData->DragOffsetX = ddm->LastScreenX() - windowPos.x;
                         panelData->DragOffsetY = ddm->LastScreenY() - windowPos.y;
                     }
@@ -772,12 +887,17 @@ export namespace draconic::ui::toolkit
 
         [[nodiscard]] i32 PanelCount() const { return static_cast<i32>(m_panels.Size()); }
         [[nodiscard]] f32 TabHeight() const { return m_tabHeight; }
-        void SetTabHeight(f32 value) { m_tabHeight = Max(16.0f, value); Invalidate(); }
+        void SetTabHeight(f32 value)
+        {
+            m_tabHeight = Max(16.0f, value);
+            Invalidate();
+        }
 
         [[nodiscard]] DockablePanel* SelectedPanel() const
         {
             return (m_selectedIndex >= 0 && m_selectedIndex < static_cast<i32>(m_panels.Size()))
-                ? m_panels[static_cast<usize>(m_selectedIndex)] : nullptr;
+                       ? m_panels[static_cast<usize>(m_selectedIndex)]
+                       : nullptr;
         }
 
         /// Add a panel as a tab. DockTabGroup does NOT take ownership (tree holds it via AddView).
@@ -788,8 +908,14 @@ export namespace draconic::ui::toolkit
             panel->SetShowHeader(false); // Tab strip replaces panel header.
             AddView(panel);
 
-            if (m_selectedIndex < 0) { SetSelectedIndex(0); }
-            else { Invalidate(); }
+            if (m_selectedIndex < 0)
+            {
+                SetSelectedIndex(0);
+            }
+            else
+            {
+                Invalidate();
+            }
         }
 
         /// Insert a panel at a specific index.
@@ -807,7 +933,10 @@ export namespace draconic::ui::toolkit
             }
             else
             {
-                if (idx <= m_selectedIndex) { m_selectedIndex++; }
+                if (idx <= m_selectedIndex)
+                {
+                    m_selectedIndex++;
+                }
                 Invalidate();
             }
         }
@@ -816,7 +945,10 @@ export namespace draconic::ui::toolkit
         DockablePanel* RemovePanel(DockablePanel* panel)
         {
             const i32 idx = IndexOfPanel(panel);
-            if (idx < 0) { return nullptr; }
+            if (idx < 0)
+            {
+                return nullptr;
+            }
 
             m_panels.RemoveAt(static_cast<usize>(idx));
             RemoveView(panel);
@@ -841,7 +973,10 @@ export namespace draconic::ui::toolkit
         /// Get the panel at the given index.
         [[nodiscard]] DockablePanel* GetPanel(i32 index) const
         {
-            if (index >= 0 && index < static_cast<i32>(m_panels.Size())) { return m_panels[static_cast<usize>(index)]; }
+            if (index >= 0 && index < static_cast<i32>(m_panels.Size()))
+            {
+                return m_panels[static_cast<usize>(index)];
+            }
             return nullptr;
         }
 
@@ -853,23 +988,25 @@ export namespace draconic::ui::toolkit
             const f32 contentH = Height() - m_tabHeight;
 
             // Tab bar background (top).
-            if (Drawable* stripDrawable = ResolvePartDrawable(u8"strip", StyleProperty::Background, ControlState::Normal))
+            if (Drawable* stripDrawable =
+                    ResolvePartDrawable(u8"strip", StyleProperty::Background, ControlState::Normal))
             {
-                stripDrawable->Draw(ctx, Rectangle{ 0, 0, Width(), m_tabHeight });
+                stripDrawable->Draw(ctx, Rectangle{0, 0, Width(), m_tabHeight});
             }
             else
             {
-                ctx.VG().FillRect(Rectangle{ 0, 0, Width(), m_tabHeight }, Rgb(35, 37, 46, 255));
+                ctx.VG().FillRect(Rectangle{0, 0, Width(), m_tabHeight}, Rgb(35, 37, 46, 255));
             }
 
             // Content area (below tabs).
-            if (Drawable* contentDrawable = ResolvePartDrawable(u8"content", StyleProperty::Background, ControlState::Normal))
+            if (Drawable* contentDrawable = ResolvePartDrawable(
+                    u8"content", StyleProperty::Background, ControlState::Normal))
             {
-                contentDrawable->Draw(ctx, Rectangle{ 0, contentY, Width(), contentH });
+                contentDrawable->Draw(ctx, Rectangle{0, contentY, Width(), contentH});
             }
             else
             {
-                ctx.VG().FillRect(Rectangle{ 0, contentY, Width(), contentH }, Rgb(42, 44, 54, 255));
+                ctx.VG().FillRect(Rectangle{0, contentY, Width(), contentH}, Rgb(42, 44, 54, 255));
             }
 
             // Draw selected panel.
@@ -888,16 +1025,26 @@ export namespace draconic::ui::toolkit
             // Draw tabs.
             m_tabRects.Clear();
             m_closeRects.Clear();
-            if (ctx.FontService() == nullptr) { return; }
+            if (ctx.FontService() == nullptr)
+            {
+                return;
+            }
 
             // Tab label font from the theme (family + size). The theme sets a compact per-type FontSize
             // on DockTabGroup (12px) which now overrides the global View default via CSS tie-breaking.
             const f32 fontSize = ResolveStyleFloat(StyleProperty::FontSize, 14.0f);
-            fonts::CachedFont* font = ctx.FontService()->GetFont(ResolveStyleFontFamily(), fontSize);
-            if (font == nullptr) { return; }
+            fonts::CachedFont* font =
+                ctx.FontService()->GetFont(ResolveStyleFontFamily(), fontSize);
+            if (font == nullptr)
+            {
+                return;
+            }
 
-            const Color borderColor = ResolveStyleColor(StyleProperty::BorderColor, Rgb(35, 37, 46, 255));
-            const Color closeColor = ResolvePartColor(u8"close-button", StyleProperty::TextColor, ControlState::Normal, Rgb(180, 185, 200, 150));
+            const Color borderColor =
+                ResolveStyleColor(StyleProperty::BorderColor, Rgb(35, 37, 46, 255));
+            const Color closeColor =
+                ResolvePartColor(u8"close-button", StyleProperty::TextColor, ControlState::Normal,
+                                 Rgb(180, 185, 200, 150));
 
             // Overflow handling: measure the full strip first, clamp the scroll offset (and
             // bring the selected tab into view when selection just changed), THEN draw every
@@ -909,26 +1056,38 @@ export namespace draconic::ui::toolkit
             {
                 DockablePanel* panel = m_panels[static_cast<usize>(i)];
                 f32 tabW = font->font->MeasureString(panel->Title()) + 16;
-                if (panel->Closable()) { tabW += kCloseButtonWidth; }
+                if (panel->Closable())
+                {
+                    tabW += kCloseButtonWidth;
+                }
                 tabWidths.PushBack(tabW);
                 stripWidth += tabW + 2;
             }
             const f32 maxScroll = Max(0.0f, stripWidth - Width());
             m_tabScroll = Clamp(m_tabScroll, 0.0f, maxScroll);
-            if (m_scrollSelectedIntoView && m_selectedIndex >= 0
-                && m_selectedIndex < static_cast<i32>(tabWidths.Size()))
+            if (m_scrollSelectedIntoView && m_selectedIndex >= 0 &&
+                m_selectedIndex < static_cast<i32>(tabWidths.Size()))
             {
                 f32 selX = 2.0f;
-                for (i32 i = 0; i < m_selectedIndex; ++i) { selX += tabWidths[static_cast<usize>(i)] + 2; }
+                for (i32 i = 0; i < m_selectedIndex; ++i)
+                {
+                    selX += tabWidths[static_cast<usize>(i)] + 2;
+                }
                 const f32 selW = tabWidths[static_cast<usize>(m_selectedIndex)];
-                if (selX - m_tabScroll < 0.0f) { m_tabScroll = selX - 2.0f; }
-                else if (selX + selW - m_tabScroll > Width()) { m_tabScroll = selX + selW - Width(); }
+                if (selX - m_tabScroll < 0.0f)
+                {
+                    m_tabScroll = selX - 2.0f;
+                }
+                else if (selX + selW - m_tabScroll > Width())
+                {
+                    m_tabScroll = selX + selW - Width();
+                }
                 m_tabScroll = Clamp(m_tabScroll, 0.0f, maxScroll);
             }
             m_scrollSelectedIntoView = false;
             m_tabOverflow = maxScroll > 0.0f;
 
-            ctx.VG().PushClipRect(Rectangle{ 0, 0, Width(), m_tabHeight });
+            ctx.VG().PushClipRect(Rectangle{0, 0, Width(), m_tabHeight});
             // Draw a tab background masked to top-rounded corners at the theme's resolved CornerRadius
             // (matches ui::TabView: rounded in the rounded theme, square in the flat one).
             const f32 tabCr = ResolveStyleFloat(StyleProperty::CornerRadius, 0.0f);
@@ -937,12 +1096,18 @@ export namespace draconic::ui::toolkit
                 if (RoundedRectDrawable* rrd = Cast<RoundedRectDrawable>(d))
                 {
                     const draconic::vg::CornerRadii saved = rrd->Radii;
-                    rrd->Radii = draconic::vg::CornerRadii{ tabCr, tabCr, 0.0f, 0.0f };
+                    rrd->Radii = draconic::vg::CornerRadii{tabCr, tabCr, 0.0f, 0.0f};
                     rrd->Draw(ctx, rect);
                     rrd->Radii = saved;
                 }
-                else if (d != nullptr) { d->Draw(ctx, rect); }
-                else { ctx.VG().FillRect(rect, fallback); }
+                else if (d != nullptr)
+                {
+                    d->Draw(ctx, rect);
+                }
+                else
+                {
+                    ctx.VG().FillRect(rect, fallback);
+                }
             };
             f32 tabX = 2 - m_tabScroll;
             for (i32 i = 0; i < static_cast<i32>(m_panels.Size()); ++i)
@@ -950,49 +1115,60 @@ export namespace draconic::ui::toolkit
                 DockablePanel* panel = m_panels[static_cast<usize>(i)];
                 const f32 tabW = tabWidths[static_cast<usize>(i)];
                 const f32 textW = tabW - 16 - (panel->Closable() ? kCloseButtonWidth : 0.0f);
-                const Rectangle tabRect{ tabX, 0, tabW, m_tabHeight };
+                const Rectangle tabRect{tabX, 0, tabW, m_tabHeight};
                 m_tabRects.PushBack(tabRect);
 
                 // Tab background.
                 if (i == m_selectedIndex)
                 {
-                    drawTabBg(ResolvePartDrawable(u8"tab", StyleProperty::Background, ControlState::Checked),
+                    drawTabBg(ResolvePartDrawable(u8"tab", StyleProperty::Background,
+                                                  ControlState::Checked),
                               tabRect, Rgb(42, 44, 54, 255));
                     // Selected-tab accent strip (the same 2px indicator ui::TabView draws) -
                     // dock tabs read as "active" the way regular tabs do.
-                    const Color accentColor = ResolveStyleColor(StyleProperty::AccentColor,
-                        Color{ 80.0f / 255.0f, 150.0f / 255.0f, 240.0f / 255.0f, 1.0f });
-                    ctx.VG().FillRect(Rectangle{ tabRect.x, tabRect.y + tabRect.height - 2.0f,
-                                                 tabRect.width, 2.0f }, accentColor);
+                    const Color accentColor = ResolveStyleColor(
+                        StyleProperty::AccentColor,
+                        Color{80.0f / 255.0f, 150.0f / 255.0f, 240.0f / 255.0f, 1.0f});
+                    ctx.VG().FillRect(Rectangle{tabRect.x, tabRect.y + tabRect.height - 2.0f,
+                                                tabRect.width, 2.0f},
+                                      accentColor);
                 }
                 else if (i == m_hoveredTabIndex)
                 {
-                    drawTabBg(ResolvePartDrawable(u8"tab", StyleProperty::Background, ControlState::Hover),
+                    drawTabBg(ResolvePartDrawable(u8"tab", StyleProperty::Background,
+                                                  ControlState::Hover),
                               tabRect, Palette::Lighten(borderColor, 0.1f));
                 }
 
                 // Tab text.
-                const Color textColor = (i == m_selectedIndex)
-                    ? ResolvePartColor(u8"tab", StyleProperty::TextColor, ControlState::Checked, Rgb(220, 225, 235, 255))
-                    : ResolvePartColor(u8"tab", StyleProperty::TextColor, ControlState::Normal, Rgb(180, 185, 200, 153));
-                ctx.VG().DrawText(panel->Title(), font, Rectangle{ tabX + 8, 0, textW, m_tabHeight },
-                    fonts::TextAlignment::Left, fonts::VerticalAlignment::Middle, textColor);
+                const Color textColor =
+                    (i == m_selectedIndex)
+                        ? ResolvePartColor(u8"tab", StyleProperty::TextColor, ControlState::Checked,
+                                           Rgb(220, 225, 235, 255))
+                        : ResolvePartColor(u8"tab", StyleProperty::TextColor, ControlState::Normal,
+                                           Rgb(180, 185, 200, 153));
+                ctx.VG().DrawText(panel->Title(), font, Rectangle{tabX + 8, 0, textW, m_tabHeight},
+                                  fonts::TextAlignment::Left, fonts::VerticalAlignment::Middle,
+                                  textColor);
 
                 // Close button - show on active tab always, on hovered inactive tab.
                 if (panel->Closable())
                 {
                     const f32 cbX = tabX + tabW - kCloseButtonPadding - kCloseButtonSize;
                     const f32 cbY = (m_tabHeight - kCloseButtonSize) * 0.5f;
-                    const Rectangle closeRect{ tabX + tabW - kCloseButtonWidth, 0, kCloseButtonWidth, m_tabHeight };
+                    const Rectangle closeRect{tabX + tabW - kCloseButtonWidth, 0, kCloseButtonWidth,
+                                              m_tabHeight};
                     m_closeRects.PushBack(closeRect);
 
                     const bool showClose = (i == m_selectedIndex) || (i == m_hoveredTabIndex);
                     if (showClose)
                     {
-                        if (Drawable* closeIcon = ResolvePartDrawable(u8"close-button", StyleProperty::Background, ControlState::Normal))
+                        if (Drawable* closeIcon = ResolvePartDrawable(
+                                u8"close-button", StyleProperty::Background, ControlState::Normal))
                         {
                             ctx.VG().PushOpacity(closeColor.a);
-                            closeIcon->Draw(ctx, Rectangle{ cbX, cbY, kCloseButtonSize, kCloseButtonSize });
+                            closeIcon->Draw(
+                                ctx, Rectangle{cbX, cbY, kCloseButtonSize, kCloseButtonSize});
                             ctx.VG().PopOpacity();
                         }
                         else
@@ -1001,8 +1177,10 @@ export namespace draconic::ui::toolkit
                             const f32 cx = cbX + kCloseButtonSize * 0.5f;
                             const f32 cy = cbY + kCloseButtonSize * 0.5f;
                             const f32 sz = 3.0f;
-                            ctx.VG().DrawLine(Float2{ cx - sz, cy - sz }, Float2{ cx + sz, cy + sz }, closeColor, 1.5f);
-                            ctx.VG().DrawLine(Float2{ cx + sz, cy - sz }, Float2{ cx - sz, cy + sz }, closeColor, 1.5f);
+                            ctx.VG().DrawLine(Float2{cx - sz, cy - sz}, Float2{cx + sz, cy + sz},
+                                              closeColor, 1.5f);
+                            ctx.VG().DrawLine(Float2{cx + sz, cy - sz}, Float2{cx - sz, cy + sz},
+                                              closeColor, 1.5f);
                         }
                     }
                 }
@@ -1024,14 +1202,20 @@ export namespace draconic::ui::toolkit
         {
             // Wheel args arrive in ROOT space (unlike the localized mouse events) - convert
             // before testing the strip band, or the check only passes at the window's top.
-            const Float2 origin = LocalToScreen(Float2{ 0.0f, 0.0f });
+            const Float2 origin = LocalToScreen(Float2{0.0f, 0.0f});
             const f32 localX = e.X - origin.x;
             const f32 localY = e.Y - origin.y;
-            if (!m_tabOverflow || localY < 0.0f || localY >= m_tabHeight
-                || localX < 0.0f || localX >= Width()) { return; }
+            if (!m_tabOverflow || localY < 0.0f || localY >= m_tabHeight || localX < 0.0f ||
+                localX >= Width())
+            {
+                return;
+            }
             const f32 delta = (e.DeltaY != 0.0f) ? e.DeltaY : e.DeltaX;
-            if (delta == 0.0f) { return; }
-            m_tabScroll -= delta * 40.0f;   // clamped in the next draw's pre-pass
+            if (delta == 0.0f)
+            {
+                return;
+            }
+            m_tabScroll -= delta * 40.0f; // clamped in the next draw's pre-pass
             m_hoveredTabIndex = -1;
             Invalidate();
             e.Handled = true;
@@ -1039,15 +1223,20 @@ export namespace draconic::ui::toolkit
 
         void OnMouseDown(MouseEventArgs& e) override
         {
-            if (!IsEffectivelyEnabled() || e.Button != MouseButton::Left) { return; }
+            if (!IsEffectivelyEnabled() || e.Button != MouseButton::Left)
+            {
+                return;
+            }
 
             // Check close buttons first.
             for (i32 i = 0; i < static_cast<i32>(m_closeRects.Size()); ++i)
             {
                 const Rectangle cr = m_closeRects[static_cast<usize>(i)];
-                if (cr.width > 0 && i < static_cast<i32>(m_panels.Size()) && m_panels[static_cast<usize>(i)]->Closable())
+                if (cr.width > 0 && i < static_cast<i32>(m_panels.Size()) &&
+                    m_panels[static_cast<usize>(i)]->Closable())
                 {
-                    if (e.X >= cr.x && e.X < cr.x + cr.width && e.Y >= cr.y && e.Y < cr.y + cr.height)
+                    if (e.X >= cr.x && e.X < cr.x + cr.width && e.Y >= cr.y &&
+                        e.Y < cr.y + cr.height)
                     {
                         m_panels[static_cast<usize>(i)]->RequestClose();
                         e.Handled = true;
@@ -1110,7 +1299,8 @@ export namespace draconic::ui::toolkit
             {
                 return RefPtr<DragData>{};
             }
-            return MakeRef<DockPanelDragData>(DefaultAllocator(), m_panels[static_cast<usize>(m_dragTabIndex)]);
+            return MakeRef<DockPanelDragData>(DefaultAllocator(),
+                                              m_panels[static_cast<usize>(m_dragTabIndex)]);
         }
 
         [[nodiscard]] RefPtr<View> CreateDragVisual(DragData* data) override
@@ -1142,7 +1332,8 @@ export namespace draconic::ui::toolkit
             }
         }
 
-        void OnDragCompleted(DragData* data, DragDropEffects effect, bool cancelled) override; // out-of-line (needs IDockHost use)
+        void OnDragCompleted(DragData* data, DragDropEffects effect,
+                             bool cancelled) override; // out-of-line (needs IDockHost use)
 
     protected:
         void OnMeasure(BoxConstraints constraints) override
@@ -1161,7 +1352,7 @@ export namespace draconic::ui::toolkit
                 }
             }
 
-            MeasuredSize = Float2{ w, h };
+            MeasuredSize = Float2{w, h};
         }
 
         void OnLayout(f32 left, f32 top, f32 width, f32 height) override
@@ -1192,14 +1383,17 @@ export namespace draconic::ui::toolkit
     private:
         [[nodiscard]] static Color Rgb(u8 r, u8 g, u8 b, u8 a = 255) noexcept
         {
-            return Color{ r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f };
+            return Color{r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f};
         }
 
         [[nodiscard]] i32 IndexOfPanel(DockablePanel* panel) const
         {
             for (i32 i = 0; i < static_cast<i32>(m_panels.Size()); ++i)
             {
-                if (m_panels[static_cast<usize>(i)] == panel) { return i; }
+                if (m_panels[static_cast<usize>(i)] == panel)
+                {
+                    return i;
+                }
             }
             return -1;
         }
@@ -1223,19 +1417,20 @@ export namespace draconic::ui::toolkit
             }
         }
 
-        static constexpr f32 kCloseButtonSize = 8.0f;   // Icon size (half-extent of X lines).
+        static constexpr f32 kCloseButtonSize = 8.0f;    // Icon size (half-extent of X lines).
         static constexpr f32 kCloseButtonPadding = 6.0f; // Space reserved for close area.
-        static constexpr f32 kCloseButtonWidth = kCloseButtonSize + kCloseButtonPadding * 2; // Total width.
+        static constexpr f32 kCloseButtonWidth =
+            kCloseButtonSize + kCloseButtonPadding * 2; // Total width.
 
-        Array<DockablePanel*> m_panels;    // Non-owning refs (tree owns via AddView).
+        Array<DockablePanel*> m_panels; // Non-owning refs (tree owns via AddView).
         i32 m_selectedIndex = -1;
         f32 m_tabHeight = 24;
-        f32 m_tabScroll = 0;                  // horizontal strip scroll (0 = leftmost)
-        bool m_tabOverflow = false;           // strip wider than the group (from last draw)
+        f32 m_tabScroll = 0;        // horizontal strip scroll (0 = leftmost)
+        bool m_tabOverflow = false; // strip wider than the group (from last draw)
         bool m_scrollSelectedIntoView = false;
         i32 m_hoveredTabIndex = -1;
         Array<Rectangle> m_tabRects;
-        Array<Rectangle> m_closeRects;     // Per-tab close button rects.
+        Array<Rectangle> m_closeRects; // Per-tab close button rects.
 
         // Drag state for tab dragging.
         i32 m_dragTabIndex = -1;
@@ -1273,7 +1468,8 @@ export namespace draconic::ui::toolkit
         /// Create and add a new dockable panel with content.
         DockablePanel* AddPanel(StringView title, View* content)
         {
-            RefPtr<DockablePanel> panel = MakeRef<DockablePanel>(DefaultAllocator(), title, content);
+            RefPtr<DockablePanel> panel =
+                MakeRef<DockablePanel>(DefaultAllocator(), title, content);
             panel->OnCloseRequested.Add([this](DockablePanel* p) { ClosePanel(p); });
             panel->DockHost = this;
             DockablePanel* raw = panel.Get();
@@ -1311,8 +1507,14 @@ export namespace draconic::ui::toolkit
             if (relativeToId.IsValid() && Context != nullptr)
             {
                 View* resolved = Context->GetViewById(relativeToId);
-                if (resolved != nullptr && !resolved->IsPendingDeletion) { target = resolved; }
-                else { target = m_rootNode; }
+                if (resolved != nullptr && !resolved->IsPendingDeletion)
+                {
+                    target = resolved;
+                }
+                else
+                {
+                    target = m_rootNode;
+                }
             }
             else if (target != nullptr && target->IsPendingDeletion)
             {
@@ -1344,8 +1546,14 @@ export namespace draconic::ui::toolkit
                 {
                     // Target is a DockSplit or null - find first tab group in subtree.
                     DockTabGroup* targetGroup = nullptr;
-                    if (target != nullptr) { targetGroup = FindFirstTabGroup(target); }
-                    if (targetGroup == nullptr && m_rootNode != nullptr) { targetGroup = FindFirstTabGroup(m_rootNode); }
+                    if (target != nullptr)
+                    {
+                        targetGroup = FindFirstTabGroup(target);
+                    }
+                    if (targetGroup == nullptr && m_rootNode != nullptr)
+                    {
+                        targetGroup = FindFirstTabGroup(m_rootNode);
+                    }
 
                     if (targetGroup != nullptr)
                     {
@@ -1398,15 +1606,21 @@ export namespace draconic::ui::toolkit
             dockable->OnCloseRequested.Add([this](DockableWindow* fw) { CloseDockableWindow(fw); });
             dockable->WindowHost = DockableWindowHost;
 
-            const bool useOSWindow = (DockableWindowHost != nullptr && DockableWindowHost->SupportsOSWindows());
+            const bool useOSWindow =
+                (DockableWindowHost != nullptr && DockableWindowHost->SupportsOSWindows());
 
             if (useOSWindow)
             {
                 dockable->IsOSWindow = true;
                 DockableWindowHost->CreateDockableWindow(dockable.Get(), floatW, floatH, x, y,
-                    [this](View* view) {
-                        if (auto* fw = Cast<DockableWindow>(view)) { CloseDockableWindow(fw); }
-                    });
+                                                         [this](View* view)
+                                                         {
+                                                             if (auto* fw =
+                                                                     Cast<DockableWindow>(view))
+                                                             {
+                                                                 CloseDockableWindow(fw);
+                                                             }
+                                                         });
             }
             else if (Context != nullptr)
             {
@@ -1452,7 +1666,10 @@ export namespace draconic::ui::toolkit
         void RedockDockableWindow(DockableWindow* dockable)
         {
             DockablePanel* panel = dockable->DetachPanel();
-            if (panel == nullptr) { return; }
+            if (panel == nullptr)
+            {
+                return;
+            }
 
             DestroyDockableWindow(dockable);
 
@@ -1462,8 +1679,14 @@ export namespace draconic::ui::toolkit
                 relativeTo = Context->GetViewById(panel->mLastRelativeToId);
             }
 
-            if (relativeTo != nullptr) { DockPanelRelativeTo(panel, panel->mLastDockPosition, relativeTo); }
-            else { DockPanel(panel, DockPosition::Center); }
+            if (relativeTo != nullptr)
+            {
+                DockPanelRelativeTo(panel, panel->mLastDockPosition, relativeTo);
+            }
+            else
+            {
+                DockPanel(panel, DockPosition::Center);
+            }
         }
 
         /// Close a dockable window.
@@ -1494,7 +1717,10 @@ export namespace draconic::ui::toolkit
                 // ClosePopup handles deletion (ownsView=true).
                 if (RootView* root = Root())
                 {
-                    if (PopupLayer* pl = root->GetPopupLayer()) { pl->ClosePopup(dockable); }
+                    if (PopupLayer* pl = root->GetPopupLayer())
+                    {
+                        pl->ClosePopup(dockable);
+                    }
                 }
             }
         }
@@ -1504,20 +1730,29 @@ export namespace draconic::ui::toolkit
         /// Exports the current dock tree as a serializable data structure. Returns null if empty.
         [[nodiscard]] UniquePtr<DockLayoutNode> ExportLayout()
         {
-            if (m_rootNode == nullptr) { return UniquePtr<DockLayoutNode>{}; }
+            if (m_rootNode == nullptr)
+            {
+                return UniquePtr<DockLayoutNode>{};
+            }
             return ExportNode(m_rootNode);
         }
 
         /// Rebuilds the dock tree from a previously exported layout (matched by PersistenceId).
         void ApplyLayout(DockLayoutNode* layout)
         {
-            if (layout == nullptr) { return; }
+            if (layout == nullptr)
+            {
+                return;
+            }
 
             // Collect all registered panels by PersistenceId.
             HashMap<StringView, DockablePanel*> panelMap;
             for (RefPtr<DockablePanel>& panel : m_panels)
             {
-                if (panel->PersistenceId().Size() > 0) { panelMap.InsertOrAssign(panel->PersistenceId(), panel.Get()); }
+                if (panel->PersistenceId().Size() > 0)
+                {
+                    panelMap.InsertOrAssign(panel->PersistenceId(), panel.Get());
+                }
             }
 
             // Detach all panels from the current tree (don't delete them).
@@ -1525,8 +1760,14 @@ export namespace draconic::ui::toolkit
             {
                 if (panel->Parent != nullptr)
                 {
-                    if (auto* tabGroup = Cast<DockTabGroup>(panel->Parent)) { tabGroup->RemovePanel(panel.Get()); }
-                    else if (panel->Parent == this) { RemoveView(panel.Get()); }
+                    if (auto* tabGroup = Cast<DockTabGroup>(panel->Parent))
+                    {
+                        tabGroup->RemovePanel(panel.Get());
+                    }
+                    else if (panel->Parent == this)
+                    {
+                        RemoveView(panel.Get());
+                    }
                 }
             }
 
@@ -1540,7 +1781,10 @@ export namespace draconic::ui::toolkit
             // Rebuild from layout.
             RefPtr<View> newRoot = BuildNode(layout, panelMap);
             m_rootNode = newRoot.Get();
-            if (m_rootNode != nullptr) { AddView(m_rootNode); }
+            if (m_rootNode != nullptr)
+            {
+                AddView(m_rootNode);
+            }
 
             // Float any panels that weren't placed by the layout.
             f32 floatX = 100, floatY = 100;
@@ -1562,7 +1806,10 @@ export namespace draconic::ui::toolkit
         {
             for (RefPtr<DockablePanel>& panel : m_panels)
             {
-                if (panel->PersistenceId() == persistenceId) { return panel.Get(); }
+                if (panel->PersistenceId() == persistenceId)
+                {
+                    return panel.Get();
+                }
             }
             return nullptr;
         }
@@ -1573,11 +1820,11 @@ export namespace draconic::ui::toolkit
         {
             if (Drawable* bgDrawable = ResolveStyleDrawable(StyleProperty::Background))
             {
-                bgDrawable->Draw(ctx, Rectangle{ 0, 0, Width(), Height() });
+                bgDrawable->Draw(ctx, Rectangle{0, 0, Width(), Height()});
             }
             else
             {
-                ctx.VG().FillRect(Rectangle{ 0, 0, Width(), Height() }, Rgb(30, 30, 35, 255));
+                ctx.VG().FillRect(Rectangle{0, 0, Width(), Height()}, Rgb(30, 30, 35, 255));
             }
 
             DrawChildren(ctx);
@@ -1599,12 +1846,16 @@ export namespace draconic::ui::toolkit
         {
             (void)localX;
             (void)localY;
-            return (data->Format() == u8"dock/panel") ? DragDropEffects::Move : DragDropEffects::None;
+            return (data->Format() == u8"dock/panel") ? DragDropEffects::Move
+                                                      : DragDropEffects::None;
         }
 
         void OnDragEnter(DragData* data, f32 localX, f32 localY) override
         {
-            if (data->Format() == u8"dock/panel") { ShowZoneIndicators(localX, localY); }
+            if (data->Format() == u8"dock/panel")
+            {
+                ShowZoneIndicators(localX, localY);
+            }
         }
 
         void OnDragOver(DragData* data, f32 localX, f32 localY) override
@@ -1612,7 +1863,8 @@ export namespace draconic::ui::toolkit
             // Move virtual dockable window to follow cursor (PopupLayer mode).
             if (auto* panelData = Cast<DockPanelDragData>(data))
             {
-                if (panelData->SourceWindow != nullptr && !panelData->SourceWindow->IsOSWindow && Context != nullptr)
+                if (panelData->SourceWindow != nullptr && !panelData->SourceWindow->IsOSWindow &&
+                    Context != nullptr)
                 {
                     if (RootView* root = Root())
                     {
@@ -1621,8 +1873,8 @@ export namespace draconic::ui::toolkit
                             const f32 screenX = Context->DragDrop()->LastScreenX();
                             const f32 screenY = Context->DragDrop()->LastScreenY();
                             pl->UpdatePopupPosition(panelData->SourceWindow,
-                                screenX - panelData->DragOffsetX,
-                                screenY - panelData->DragOffsetY);
+                                                    screenX - panelData->DragOffsetX,
+                                                    screenY - panelData->DragOffsetY);
                         }
                     }
                 }
@@ -1660,8 +1912,14 @@ export namespace draconic::ui::toolkit
                 if (target.HasValue())
                 {
                     const DockTarget t = target.Value();
-                    if (t.Position == DockPosition::Float) { FloatPanel(panelData->Panel, floatX, floatY); }
-                    else { DockPanelRelativeTo(panelData->Panel, t.Position, t.RelativeTo); }
+                    if (t.Position == DockPosition::Float)
+                    {
+                        FloatPanel(panelData->Panel, floatX, floatY);
+                    }
+                    else
+                    {
+                        DockPanelRelativeTo(panelData->Panel, t.Position, t.RelativeTo);
+                    }
                     return DragDropEffects::Move;
                 }
                 else
@@ -1706,29 +1964,39 @@ export namespace draconic::ui::toolkit
             const f32 w = constraints.ConstrainWidth(0);
             const f32 h = constraints.ConstrainHeight(0);
 
-            if (m_rootNode != nullptr) { m_rootNode->Measure(BoxConstraints::Tight(w, h)); }
+            if (m_rootNode != nullptr)
+            {
+                m_rootNode->Measure(BoxConstraints::Tight(w, h));
+            }
 
-            MeasuredSize = Float2{ w, h };
+            MeasuredSize = Float2{w, h};
         }
 
         void OnLayout(f32 left, f32 top, f32 width, f32 height) override
         {
             (void)left;
             (void)top;
-            if (m_rootNode != nullptr) { m_rootNode->Layout(0, 0, width, height); }
+            if (m_rootNode != nullptr)
+            {
+                m_rootNode->Layout(0, 0, width, height);
+            }
         }
 
     private:
         [[nodiscard]] static Color Rgb(u8 r, u8 g, u8 b, u8 a = 255) noexcept
         {
-            return Color{ r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f };
+            return Color{r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f};
         }
 
         void ErasePanel(DockablePanel* panel)
         {
             for (usize i = 0; i < m_panels.Size(); ++i)
             {
-                if (m_panels[i].Get() == panel) { m_panels.RemoveAt(i); return; }
+                if (m_panels[i].Get() == panel)
+                {
+                    m_panels.RemoveAt(i);
+                    return;
+                }
             }
         }
 
@@ -1736,7 +2004,11 @@ export namespace draconic::ui::toolkit
         {
             for (usize i = 0; i < m_dockableWindows.Size(); ++i)
             {
-                if (m_dockableWindows[i] == dw) { m_dockableWindows.RemoveAt(i); return; }
+                if (m_dockableWindows[i] == dw)
+                {
+                    m_dockableWindows.RemoveAt(i);
+                    return;
+                }
             }
         }
 
@@ -1746,16 +2018,22 @@ export namespace draconic::ui::toolkit
         {
             // If the target is a panel inside a DockTabGroup, split relative to the tab group instead.
             View* target = existingNode;
-            if (target != nullptr && Cast<DockTabGroup>(target->Parent) != nullptr) { target = target->Parent; }
+            if (target != nullptr && Cast<DockTabGroup>(target->Parent) != nullptr)
+            {
+                target = target->Parent;
+            }
 
-            const ::draconic::ui::Orientation orientation = (position == DockPosition::Left || position == DockPosition::Right)
-                ? ::draconic::ui::Orientation::Horizontal : ::draconic::ui::Orientation::Vertical;
+            const ::draconic::ui::Orientation orientation =
+                (position == DockPosition::Left || position == DockPosition::Right)
+                    ? ::draconic::ui::Orientation::Horizontal
+                    : ::draconic::ui::Orientation::Vertical;
             RefPtr<DockSplit> split = MakeRef<DockSplit>(DefaultAllocator(), orientation);
 
             RefPtr<DockTabGroup> group = MakeRef<DockTabGroup>(DefaultAllocator());
             group->AddPanel(panel);
 
-            const bool panelFirst = (position == DockPosition::Left || position == DockPosition::Top);
+            const bool panelFirst =
+                (position == DockPosition::Left || position == DockPosition::Top);
 
             if (target == nullptr)
             {
@@ -1763,8 +2041,14 @@ export namespace draconic::ui::toolkit
                 {
                     RefPtr<View> pinRoot(m_rootNode); // pin across detach
                     RemoveView(m_rootNode);
-                    if (panelFirst) { split->SetChildren(group.Get(), m_rootNode); }
-                    else { split->SetChildren(m_rootNode, group.Get()); }
+                    if (panelFirst)
+                    {
+                        split->SetChildren(group.Get(), m_rootNode);
+                    }
+                    else
+                    {
+                        split->SetChildren(m_rootNode, group.Get());
+                    }
                 }
                 else
                 {
@@ -1780,8 +2064,14 @@ export namespace draconic::ui::toolkit
                 {
                     RefPtr<View> pinTarget(target);
                     RemoveView(target);
-                    if (panelFirst) { split->SetChildren(group.Get(), target); }
-                    else { split->SetChildren(target, group.Get()); }
+                    if (panelFirst)
+                    {
+                        split->SetChildren(group.Get(), target);
+                    }
+                    else
+                    {
+                        split->SetChildren(target, group.Get());
+                    }
                     m_rootNode = split.Get();
                     AddView(split.Get());
                 }
@@ -1794,13 +2084,28 @@ export namespace draconic::ui::toolkit
                     RefPtr<View> pinTarget(target);
                     RefPtr<View> pinOther(otherChild);
                     parentSplit->RemoveView(target);
-                    if (otherChild != nullptr) { parentSplit->RemoveView(otherChild); }
+                    if (otherChild != nullptr)
+                    {
+                        parentSplit->RemoveView(otherChild);
+                    }
 
-                    if (panelFirst) { split->SetChildren(group.Get(), target); }
-                    else { split->SetChildren(target, group.Get()); }
+                    if (panelFirst)
+                    {
+                        split->SetChildren(group.Get(), target);
+                    }
+                    else
+                    {
+                        split->SetChildren(target, group.Get());
+                    }
 
-                    if (isFirst) { parentSplit->SetChildren(split.Get(), otherChild); }
-                    else { parentSplit->SetChildren(otherChild, split.Get()); }
+                    if (isFirst)
+                    {
+                        parentSplit->SetChildren(split.Get(), otherChild);
+                    }
+                    else
+                    {
+                        parentSplit->SetChildren(otherChild, split.Get());
+                    }
                 }
             }
 
@@ -1854,16 +2159,28 @@ export namespace draconic::ui::toolkit
                 RefPtr<View> pinOld(oldNode);
                 RefPtr<View> pinOther(other);
                 parentSplit->RemoveView(oldNode);
-                if (other != nullptr) { parentSplit->RemoveView(other); }
+                if (other != nullptr)
+                {
+                    parentSplit->RemoveView(other);
+                }
 
-                if (isFirst) { parentSplit->SetChildren(newNode, other); }
-                else { parentSplit->SetChildren(other, newNode); }
+                if (isFirst)
+                {
+                    parentSplit->SetChildren(newNode, other);
+                }
+                else
+                {
+                    parentSplit->SetChildren(other, newNode);
+                }
             }
         }
 
         void CleanupEmptyNodes()
         {
-            if (m_isCleaningUp) { return; } // Prevent re-entrancy.
+            if (m_isCleaningUp)
+            {
+                return;
+            } // Prevent re-entrancy.
             m_isCleaningUp = true;
             if (m_rootNode != nullptr)
             {
@@ -1883,15 +2200,28 @@ export namespace draconic::ui::toolkit
                 RefPtr<View> pinFirst(first);
                 RefPtr<View> pinSecond(second);
 
-                if (second != nullptr) { split->RemoveView(second); }
-                if (first != nullptr) { split->RemoveView(first); }
+                if (second != nullptr)
+                {
+                    split->RemoveView(second);
+                }
+                if (first != nullptr)
+                {
+                    split->RemoveView(first);
+                }
 
                 RefPtr<View> cleanFirst = (first != nullptr) ? CleanupNode(first) : RefPtr<View>{};
-                RefPtr<View> cleanSecond = (second != nullptr) ? CleanupNode(second) : RefPtr<View>{};
+                RefPtr<View> cleanSecond =
+                    (second != nullptr) ? CleanupNode(second) : RefPtr<View>{};
 
                 // Queue originals for deletion if they were replaced.
-                if (first != nullptr && cleanFirst.Get() != first) { QueueDeleteNode(first); }
-                if (second != nullptr && cleanSecond.Get() != second) { QueueDeleteNode(second); }
+                if (first != nullptr && cleanFirst.Get() != first)
+                {
+                    QueueDeleteNode(first);
+                }
+                if (second != nullptr && cleanSecond.Get() != second)
+                {
+                    QueueDeleteNode(second);
+                }
 
                 if (cleanFirst && cleanSecond)
                 {
@@ -1956,13 +2286,28 @@ export namespace draconic::ui::toolkit
                 RefPtr<View> pinFirst(first);
                 RefPtr<View> pinSecond(second);
 
-                if (second != nullptr) { split->RemoveView(second); }
-                if (first != nullptr) { split->RemoveView(first); }
+                if (second != nullptr)
+                {
+                    split->RemoveView(second);
+                }
+                if (first != nullptr)
+                {
+                    split->RemoveView(first);
+                }
 
-                if (first != nullptr) { ClearTreeStructure(first); }
-                if (second != nullptr) { ClearTreeStructure(second); }
+                if (first != nullptr)
+                {
+                    ClearTreeStructure(first);
+                }
+                if (second != nullptr)
+                {
+                    ClearTreeStructure(second);
+                }
 
-                if (node->Parent == this) { RemoveView(node); }
+                if (node->Parent == this)
+                {
+                    RemoveView(node);
+                }
                 QueueDeleteNode(split);
             }
             else if (auto* tabGroup = Cast<DockTabGroup>(node))
@@ -1973,7 +2318,10 @@ export namespace draconic::ui::toolkit
                     tabGroup->RemovePanel(tabGroup->GetPanel(tabGroup->PanelCount() - 1));
                 }
 
-                if (node->Parent == this) { RemoveView(node); }
+                if (node->Parent == this)
+                {
+                    RemoveView(node);
+                }
                 QueueDeleteNode(tabGroup);
             }
         }
@@ -1983,7 +2331,10 @@ export namespace draconic::ui::toolkit
         // Context, dropping the caller's last ref frees it via RAII.
         void QueueDeleteNode(View* node)
         {
-            if (node == nullptr || node->IsPendingDeletion) { return; }
+            if (node == nullptr || node->IsPendingDeletion)
+            {
+                return;
+            }
             if (Context != nullptr)
             {
                 node->IsPendingDeletion = true;
@@ -1993,7 +2344,10 @@ export namespace draconic::ui::toolkit
                     {
                         if (keep && keep->Parent != nullptr)
                         {
-                            if (auto* pg = Cast<ViewGroup>(keep->Parent)) { pg->RemoveView(keep.Get(), false); }
+                            if (auto* pg = Cast<ViewGroup>(keep->Parent))
+                            {
+                                pg->RemoveView(keep.Get(), false);
+                            }
                         }
                         keep = nullptr; // release (deferred destruction)
                     });
@@ -2011,8 +2365,14 @@ export namespace draconic::ui::toolkit
                 ln->Type = DockLayoutNodeType::Split;
                 ln->Direction = split->Orientation();
                 ln->SplitRatio = split->SplitRatio();
-                if (split->First() != nullptr) { ln->First = ExportNode(split->First()); }
-                if (split->Second() != nullptr) { ln->Second = ExportNode(split->Second()); }
+                if (split->First() != nullptr)
+                {
+                    ln->First = ExportNode(split->First());
+                }
+                if (split->Second() != nullptr)
+                {
+                    ln->Second = ExportNode(split->Second());
+                }
                 return ln;
             }
             else if (auto* tabGroup = Cast<DockTabGroup>(node))
@@ -2023,7 +2383,10 @@ export namespace draconic::ui::toolkit
                 for (i32 i = 0; i < tabGroup->PanelCount(); ++i)
                 {
                     DockablePanel* panel = tabGroup->GetPanel(i);
-                    if (panel->PersistenceId().Size() > 0) { ln->PanelIds.PushBack(String(panel->PersistenceId())); }
+                    if (panel->PersistenceId().Size() > 0)
+                    {
+                        ln->PanelIds.PushBack(String(panel->PersistenceId()));
+                    }
                 }
                 return ln;
             }
@@ -2033,31 +2396,49 @@ export namespace draconic::ui::toolkit
                 UniquePtr<DockLayoutNode> ln = MakeUnique<DockLayoutNode>(DefaultAllocator());
                 ln->Type = DockLayoutNodeType::TabGroup;
                 ln->ActiveTabIndex = 0;
-                if (panel->PersistenceId().Size() > 0) { ln->PanelIds.PushBack(String(panel->PersistenceId())); }
+                if (panel->PersistenceId().Size() > 0)
+                {
+                    ln->PanelIds.PushBack(String(panel->PersistenceId()));
+                }
                 return ln;
             }
 
             return UniquePtr<DockLayoutNode>{};
         }
 
-        RefPtr<View> BuildNode(DockLayoutNode* layoutNode, HashMap<StringView, DockablePanel*>& panelMap)
+        RefPtr<View> BuildNode(DockLayoutNode* layoutNode,
+                               HashMap<StringView, DockablePanel*>& panelMap)
         {
             if (layoutNode->Type == DockLayoutNodeType::Split)
             {
-                RefPtr<DockSplit> split = MakeRef<DockSplit>(DefaultAllocator(), layoutNode->Direction);
+                RefPtr<DockSplit> split =
+                    MakeRef<DockSplit>(DefaultAllocator(), layoutNode->Direction);
                 split->SetSplitRatio(layoutNode->SplitRatio);
 
-                RefPtr<View> first = layoutNode->First ? BuildNode(layoutNode->First.Get(), panelMap) : RefPtr<View>{};
-                RefPtr<View> second = layoutNode->Second ? BuildNode(layoutNode->Second.Get(), panelMap) : RefPtr<View>{};
+                RefPtr<View> first = layoutNode->First
+                                         ? BuildNode(layoutNode->First.Get(), panelMap)
+                                         : RefPtr<View>{};
+                RefPtr<View> second = layoutNode->Second
+                                          ? BuildNode(layoutNode->Second.Get(), panelMap)
+                                          : RefPtr<View>{};
 
                 if (first && second)
                 {
                     split->SetChildren(first.Get(), second.Get());
                     return split;
                 }
-                else if (first) { return first; }
-                else if (second) { return second; }
-                else { return RefPtr<View>{}; }
+                else if (first)
+                {
+                    return first;
+                }
+                else if (second)
+                {
+                    return second;
+                }
+                else
+                {
+                    return RefPtr<View>{};
+                }
             }
             else // TabGroup
             {
@@ -2065,12 +2446,19 @@ export namespace draconic::ui::toolkit
 
                 for (const String& id : layoutNode->PanelIds)
                 {
-                    if (DockablePanel** found = panelMap.Find(id.AsView())) { tabGroup->AddPanel(*found); }
+                    if (DockablePanel** found = panelMap.Find(id.AsView()))
+                    {
+                        tabGroup->AddPanel(*found);
+                    }
                 }
 
-                if (tabGroup->PanelCount() == 0) { return RefPtr<View>{}; }
+                if (tabGroup->PanelCount() == 0)
+                {
+                    return RefPtr<View>{};
+                }
 
-                if (layoutNode->ActiveTabIndex >= 0 && layoutNode->ActiveTabIndex < tabGroup->PanelCount())
+                if (layoutNode->ActiveTabIndex >= 0 &&
+                    layoutNode->ActiveTabIndex < tabGroup->PanelCount())
                 {
                     tabGroup->SetSelectedIndex(layoutNode->ActiveTabIndex);
                 }
@@ -2090,8 +2478,10 @@ export namespace draconic::ui::toolkit
             {
                 const f32 cx = Width() * 0.5f;
                 const f32 cy = Height() * 0.5f;
-                m_zoneIndicator->AddTarget(DockPosition::Center,
-                    Rectangle{ cx - zoneSize * 0.5f, cy - zoneSize * 0.5f, zoneSize, zoneSize }, nullptr);
+                m_zoneIndicator->AddTarget(
+                    DockPosition::Center,
+                    Rectangle{cx - zoneSize * 0.5f, cy - zoneSize * 0.5f, zoneSize, zoneSize},
+                    nullptr);
             }
             else
             {
@@ -2099,10 +2489,20 @@ export namespace draconic::ui::toolkit
                 const f32 cy = Height() * 0.5f;
 
                 // Root-level edge zones.
-                m_zoneIndicator->AddTarget(DockPosition::Top, Rectangle{ cx - zoneSize * 0.5f, 8, zoneSize, zoneSize }, m_rootNode);
-                m_zoneIndicator->AddTarget(DockPosition::Bottom, Rectangle{ cx - zoneSize * 0.5f, Height() - zoneSize - 8, zoneSize, zoneSize }, m_rootNode);
-                m_zoneIndicator->AddTarget(DockPosition::Left, Rectangle{ 8, cy - zoneSize * 0.5f, zoneSize, zoneSize }, m_rootNode);
-                m_zoneIndicator->AddTarget(DockPosition::Right, Rectangle{ Width() - zoneSize - 8, cy - zoneSize * 0.5f, zoneSize, zoneSize }, m_rootNode);
+                m_zoneIndicator->AddTarget(DockPosition::Top,
+                                           Rectangle{cx - zoneSize * 0.5f, 8, zoneSize, zoneSize},
+                                           m_rootNode);
+                m_zoneIndicator->AddTarget(
+                    DockPosition::Bottom,
+                    Rectangle{cx - zoneSize * 0.5f, Height() - zoneSize - 8, zoneSize, zoneSize},
+                    m_rootNode);
+                m_zoneIndicator->AddTarget(DockPosition::Left,
+                                           Rectangle{8, cy - zoneSize * 0.5f, zoneSize, zoneSize},
+                                           m_rootNode);
+                m_zoneIndicator->AddTarget(
+                    DockPosition::Right,
+                    Rectangle{Width() - zoneSize - 8, cy - zoneSize * 0.5f, zoneSize, zoneSize},
+                    m_rootNode);
 
                 // Walk tree to find hovered leaf node and add its zones.
                 View* hoveredNode = FindHoveredDockNode(m_rootNode, cursorX, cursorY);
@@ -2115,20 +2515,41 @@ export namespace draconic::ui::toolkit
                         const f32 ncy = bounds.y + bounds.height * 0.5f;
                         const f32 smallZone = 32;
 
-                        m_zoneIndicator->AddTarget(DockPosition::Center, Rectangle{ ncx - smallZone * 0.5f, ncy - smallZone * 0.5f, smallZone, smallZone }, hoveredNode);
+                        m_zoneIndicator->AddTarget(DockPosition::Center,
+                                                   Rectangle{ncx - smallZone * 0.5f,
+                                                             ncy - smallZone * 0.5f, smallZone,
+                                                             smallZone},
+                                                   hoveredNode);
 
                         const f32 edgeOffset = smallZone + 4;
-                        m_zoneIndicator->AddTarget(DockPosition::Top, Rectangle{ ncx - smallZone * 0.5f, ncy - edgeOffset - smallZone * 0.5f, smallZone, smallZone }, hoveredNode);
-                        m_zoneIndicator->AddTarget(DockPosition::Bottom, Rectangle{ ncx - smallZone * 0.5f, ncy + edgeOffset - smallZone * 0.5f, smallZone, smallZone }, hoveredNode);
-                        m_zoneIndicator->AddTarget(DockPosition::Left, Rectangle{ ncx - edgeOffset - smallZone * 0.5f, ncy - smallZone * 0.5f, smallZone, smallZone }, hoveredNode);
-                        m_zoneIndicator->AddTarget(DockPosition::Right, Rectangle{ ncx + edgeOffset - smallZone * 0.5f, ncy - smallZone * 0.5f, smallZone, smallZone }, hoveredNode);
+                        m_zoneIndicator->AddTarget(DockPosition::Top,
+                                                   Rectangle{ncx - smallZone * 0.5f,
+                                                             ncy - edgeOffset - smallZone * 0.5f,
+                                                             smallZone, smallZone},
+                                                   hoveredNode);
+                        m_zoneIndicator->AddTarget(DockPosition::Bottom,
+                                                   Rectangle{ncx - smallZone * 0.5f,
+                                                             ncy + edgeOffset - smallZone * 0.5f,
+                                                             smallZone, smallZone},
+                                                   hoveredNode);
+                        m_zoneIndicator->AddTarget(DockPosition::Left,
+                                                   Rectangle{ncx - edgeOffset - smallZone * 0.5f,
+                                                             ncy - smallZone * 0.5f, smallZone,
+                                                             smallZone},
+                                                   hoveredNode);
+                        m_zoneIndicator->AddTarget(DockPosition::Right,
+                                                   Rectangle{ncx + edgeOffset - smallZone * 0.5f,
+                                                             ncy - smallZone * 0.5f, smallZone,
+                                                             smallZone},
+                                                   hoveredNode);
                     }
                 }
             }
 
             // Hand the indicator our resolved theme accent (it's drawn manually, outside the styled tree).
-            m_zoneIndicator->Accent = ResolveStyleColor(StyleProperty::AccentColor,
-                                                        Color{ 80.0f / 255.0f, 150.0f / 255.0f, 240.0f / 255.0f, 1.0f });
+            m_zoneIndicator->Accent =
+                ResolveStyleColor(StyleProperty::AccentColor,
+                                  Color{80.0f / 255.0f, 150.0f / 255.0f, 240.0f / 255.0f, 1.0f});
             m_zoneIndicator->Visibility = VisibilityValue::Visible;
             m_zoneIndicator->Layout(0, 0, Width(), Height());
         }
@@ -2170,15 +2591,24 @@ export namespace draconic::ui::toolkit
         /// Find the first DockTabGroup in a subtree (depth-first).
         DockTabGroup* FindFirstTabGroup(View* node)
         {
-            if (auto* tabGroup = Cast<DockTabGroup>(node)) { return tabGroup; }
+            if (auto* tabGroup = Cast<DockTabGroup>(node))
+            {
+                return tabGroup;
+            }
 
             if (auto* split = Cast<DockSplit>(node))
             {
                 if (split->First() != nullptr)
                 {
-                    if (DockTabGroup* result = FindFirstTabGroup(split->First())) { return result; }
+                    if (DockTabGroup* result = FindFirstTabGroup(split->First()))
+                    {
+                        return result;
+                    }
                 }
-                if (split->Second() != nullptr) { return FindFirstTabGroup(split->Second()); }
+                if (split->Second() != nullptr)
+                {
+                    return FindFirstTabGroup(split->Second());
+                }
             }
 
             return nullptr;
@@ -2195,13 +2625,15 @@ export namespace draconic::ui::toolkit
                 y += current->Bounds.y;
                 current = current->Parent;
             }
-            return Rectangle{ x, y, node->Width(), node->Height() };
+            return Rectangle{x, y, node->Width(), node->Height()};
         }
 
         View* m_rootNode = nullptr;
-        Array<RefPtr<DockablePanel>> m_panels;      // Owning registry (survives undock; tree shares the ref).
-        Array<DockableWindow*> m_dockableWindows;   // Non-owning tracking (PopupLayer owns floating windows).
-        RefPtr<DockZoneIndicator> m_zoneIndicator;  // Owned, drawn manually, never AddView'd.
+        Array<RefPtr<DockablePanel>>
+            m_panels; // Owning registry (survives undock; tree shares the ref).
+        Array<DockableWindow*>
+            m_dockableWindows; // Non-owning tracking (PopupLayer owns floating windows).
+        RefPtr<DockZoneIndicator> m_zoneIndicator; // Owned, drawn manually, never AddView'd.
         bool m_isCleaningUp = false;
     };
 
@@ -2228,11 +2660,12 @@ export namespace draconic::ui::toolkit
             }
 
             m_selectedIndex = value;
-            m_scrollSelectedIntoView = true;   // clipped tab strips scroll the new tab into view
+            m_scrollSelectedIntoView = true; // clipped tab strips scroll the new tab into view
 
             if (m_selectedIndex >= 0 && m_selectedIndex < static_cast<i32>(m_panels.Size()))
             {
-                m_panels[static_cast<usize>(m_selectedIndex)]->Visibility = VisibilityValue::Visible;
+                m_panels[static_cast<usize>(m_selectedIndex)]->Visibility =
+                    VisibilityValue::Visible;
             }
 
             Invalidate();
@@ -2253,7 +2686,8 @@ export namespace draconic::ui::toolkit
     }
 
     // --- DockTabGroup::OnDragCompleted needs IDockHost use -------------------------------------
-    inline void DockTabGroup::OnDragCompleted(DragData* data, DragDropEffects effect, bool cancelled)
+    inline void DockTabGroup::OnDragCompleted(DragData* data, DragDropEffects effect,
+                                              bool cancelled)
     {
         (void)data;
         (void)effect;

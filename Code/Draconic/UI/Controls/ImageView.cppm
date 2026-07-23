@@ -12,7 +12,7 @@ export module draconic.ui:image_view;
 
 import draconic.core;
 import draconic.vg;
-import draconic.image;   // ImageData
+import draconic.image; // ImageData
 import :view;
 import :property;
 import :box_constraints;
@@ -25,14 +25,20 @@ namespace image = draconic::image;
 export namespace draconic::ui
 {
     /// How an ImageView scales its source to fit its bounds.
-    enum class ScaleType { None, FitCenter, FillBounds, CenterCrop };
+    enum class ScaleType
+    {
+        None,
+        FitCenter,
+        FillBounds,
+        CenterCrop
+    };
 
     class ImageView : public View
     {
         DRACONIC_OBJECT(ImageView, View)
     public:
-        Property<::draconic::ui::ScaleType> ScaleType{ ::draconic::ui::ScaleType::FitCenter };
-        Property<core::Color> Tint{ core::Color::White };
+        Property<::draconic::ui::ScaleType> ScaleType{::draconic::ui::ScaleType::FitCenter};
+        Property<core::Color> Tint{core::Color::White};
 
         ImageView()
         {
@@ -42,29 +48,43 @@ export namespace draconic::ui
         explicit ImageView(const image::ImageData* img) : ImageView() { SetImage(img); }
 
         [[nodiscard]] const image::ImageData* GetImage() const noexcept { return m_image; }
-        void SetImage(const image::ImageData* img) { if (m_image == img) { return; } m_image = img; Invalidate(); }
+        void SetImage(const image::ImageData* img)
+        {
+            if (m_image == img)
+            {
+                return;
+            }
+            m_image = img;
+            Invalidate();
+        }
 
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
             if (m_image != nullptr)
-                MeasuredSize = Float2{ constraints.ConstrainWidth(static_cast<f32>(m_image->Width())), constraints.ConstrainHeight(static_cast<f32>(m_image->Height())) };
+                MeasuredSize =
+                    Float2{constraints.ConstrainWidth(static_cast<f32>(m_image->Width())),
+                           constraints.ConstrainHeight(static_cast<f32>(m_image->Height()))};
             else
-                MeasuredSize = Float2{ constraints.ConstrainWidth(0.0f), constraints.ConstrainHeight(0.0f) };
+                MeasuredSize =
+                    Float2{constraints.ConstrainWidth(0.0f), constraints.ConstrainHeight(0.0f)};
         }
 
         void OnDraw(UIDrawContext& ctx) override
         {
-            if (m_image == nullptr) { return; }
+            if (m_image == nullptr)
+            {
+                return;
+            }
             const f32 iw = static_cast<f32>(m_image->Width());
             const f32 ih = static_cast<f32>(m_image->Height());
-            const Rectangle srcRect{ 0, 0, iw, ih };
-            const Rectangle dstRect{ 0, 0, Width(), Height() };
+            const Rectangle srcRect{0, 0, iw, ih};
+            const Rectangle dstRect{0, 0, Width(), Height()};
 
             switch (ScaleType.Value())
             {
             case ::draconic::ui::ScaleType::None:
-                ctx.VG().DrawImage(m_image, Rectangle{ 0, 0, iw, ih }, srcRect, Tint.Value());
+                ctx.VG().DrawImage(m_image, Rectangle{0, 0, iw, ih}, srcRect, Tint.Value());
                 break;
             case ::draconic::ui::ScaleType::FillBounds:
                 ctx.VG().DrawImage(m_image, dstRect, srcRect, Tint.Value());
@@ -73,14 +93,20 @@ export namespace draconic::ui
             {
                 const f32 scale = Min(Width() / iw, Height() / ih);
                 const f32 fitW = iw * scale, fitH = ih * scale;
-                ctx.VG().DrawImage(m_image, Rectangle{ (Width() - fitW) * 0.5f, (Height() - fitH) * 0.5f, fitW, fitH }, srcRect, Tint.Value());
+                ctx.VG().DrawImage(
+                    m_image,
+                    Rectangle{(Width() - fitW) * 0.5f, (Height() - fitH) * 0.5f, fitW, fitH},
+                    srcRect, Tint.Value());
                 break;
             }
             case ::draconic::ui::ScaleType::CenterCrop:
             {
                 const f32 scale = Max(Width() / iw, Height() / ih);
                 const f32 cropW = Width() / scale, cropH = Height() / scale;
-                ctx.VG().DrawImage(m_image, dstRect, Rectangle{ (iw - cropW) * 0.5f, (ih - cropH) * 0.5f, cropW, cropH }, Tint.Value());
+                ctx.VG().DrawImage(
+                    m_image, dstRect,
+                    Rectangle{(iw - cropW) * 0.5f, (ih - cropH) * 0.5f, cropW, cropH},
+                    Tint.Value());
                 break;
             }
             }

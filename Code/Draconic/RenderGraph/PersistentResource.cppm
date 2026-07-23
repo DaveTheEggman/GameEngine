@@ -31,16 +31,24 @@ export namespace draconic::rendergraph
         }
 
         // Ping-pong (double-buffered) variant.
-        PersistentResource(rhi::Texture* tex0, rhi::Texture* tex1,
-                           rhi::TextureView* view0, rhi::TextureView* view1) noexcept
+        PersistentResource(rhi::Texture* tex0, rhi::Texture* tex1, rhi::TextureView* view0,
+                           rhi::TextureView* view1) noexcept
             : m_isPingPong(true)
         {
-            m_textures[0] = tex0; m_textures[1] = tex1;
-            m_views[0] = view0;   m_views[1] = view1;
+            m_textures[0] = tex0;
+            m_textures[1] = tex1;
+            m_views[0] = view0;
+            m_views[1] = view1;
         }
 
-        [[nodiscard]] rhi::Texture* CurrentTexture() const noexcept { return m_textures[m_currentIndex]; }
-        [[nodiscard]] rhi::TextureView* CurrentView() const noexcept { return m_views[m_currentIndex]; }
+        [[nodiscard]] rhi::Texture* CurrentTexture() const noexcept
+        {
+            return m_textures[m_currentIndex];
+        }
+        [[nodiscard]] rhi::TextureView* CurrentView() const noexcept
+        {
+            return m_views[m_currentIndex];
+        }
         [[nodiscard]] rhi::Texture* PreviousTexture() const noexcept
         {
             return m_isPingPong ? m_textures[(m_currentIndex + kSlotCount - 1) % kSlotCount]
@@ -55,7 +63,10 @@ export namespace draconic::rendergraph
 
         void Swap() noexcept
         {
-            if (m_isPingPong) { m_currentIndex = (m_currentIndex + 1) % kSlotCount; }
+            if (m_isPingPong)
+            {
+                m_currentIndex = (m_currentIndex + 1) % kSlotCount;
+            }
         }
 
         // Re-point the active slot (e.g. when the external texture is recreated on resize).

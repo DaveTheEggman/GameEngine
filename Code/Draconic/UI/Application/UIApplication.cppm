@@ -14,7 +14,7 @@
 
 module;
 #include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"   // Cast<DockPanelDragData> for the drag-follow
+#include "Core/Reflection/Reflect.h" // Cast<DockPanelDragData> for the drag-follow
 
 export module draconic.ui.application;
 
@@ -26,8 +26,8 @@ import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.ui.runtime;
 
-namespace core     = draconic::core;
-namespace shell    = draconic::shell;
+namespace core = draconic::core;
+namespace shell = draconic::shell;
 namespace graphics = draconic::graphics;
 namespace ui = draconic::ui;
 
@@ -45,8 +45,11 @@ export namespace draconic::ui::application
     class RuntimeDockableWindowHost final : public toolkit::IDockableWindowHost
     {
     public:
-        RuntimeDockableWindowHost(draconic::runtime::IApplicationHost& host, ui::runtime::UIHost& uiHost) noexcept
-            : m_host(&host), m_uiHost(&uiHost) {}
+        RuntimeDockableWindowHost(draconic::runtime::IApplicationHost& host,
+                                  ui::runtime::UIHost& uiHost) noexcept
+            : m_host(&host), m_uiHost(&uiHost)
+        {
+        }
 
         RuntimeDockableWindowHost(const RuntimeDockableWindowHost&) = delete;
         RuntimeDockableWindowHost& operator=(const RuntimeDockableWindowHost&) = delete;
@@ -56,30 +59,37 @@ export namespace draconic::ui::application
         void CreateDockableWindow(View* dockableWindow, f32 width, f32 height, f32 x, f32 y,
                                   core::Function<void(View*)> onCloseRequested = {}) override
         {
-            if (dockableWindow == nullptr || m_host == nullptr) { return; }
+            if (dockableWindow == nullptr || m_host == nullptr)
+            {
+                return;
+            }
 
             i32 mainX = 0, mainY = 0;
             MainOrigin(mainX, mainY);
 
             shell::WindowSettings ws;
-            ws.title      = u8"Panel";
-            ws.width      = static_cast<u32>(width  > 1.0f ? width  : 1.0f);
-            ws.height     = static_cast<u32>(height > 1.0f ? height : 1.0f);
+            ws.title = u8"Panel";
+            ws.width = static_cast<u32>(width > 1.0f ? width : 1.0f);
+            ws.height = static_cast<u32>(height > 1.0f ? height : 1.0f);
             ws.positioned = true;
-            ws.x          = mainX + static_cast<i32>(x);
-            ws.y          = mainY + static_cast<i32>(y);
-            ws.borderless = true;   // the DockablePanel draws its own title bar
-            ws.resizable  = true;
+            ws.x = mainX + static_cast<i32>(x);
+            ws.y = mainY + static_cast<i32>(y);
+            ws.borderless = true; // the DockablePanel draws its own title bar
+            ws.resizable = true;
 
             graphics::RenderWindow* rw = m_host->OpenWindow(ws, graphics::RenderWindowDesc{});
-            if (rw == nullptr) { return; }
+            if (rw == nullptr)
+            {
+                return;
+            }
 
             // The OS window's RootView owns the dockable-window view (the DockManager keeps only a raw ref).
             core::RefPtr<RootView> root = core::MakeRef<RootView>(core::DefaultAllocator());
             root->AddView(dockableWindow);
             m_uiHost->AttachWindow(rw, root);
 
-            m_entries.PushBack(Entry{ dockableWindow, rw, root, static_cast<core::Function<void(View*)>&&>(onCloseRequested) });
+            m_entries.PushBack(Entry{dockableWindow, rw, root,
+                                     static_cast<core::Function<void(View*)>&&>(onCloseRequested)});
         }
 
         void DestroyDockableWindow(View* dockableWindow) override
@@ -89,9 +99,12 @@ export namespace draconic::ui::application
                 if (m_entries[i].view == dockableWindow)
                 {
                     graphics::RenderWindow* rw = m_entries[i].rw;
-                    m_uiHost->DetachWindow(rw);     // logical detach; payload stays for the window teardown
-                    m_host->CloseWindow(rw);       // deferred: RenderWindow dtor WaitIdles + frees the payload
-                    m_entries.RemoveAt(i);         // drops our root ref (the payload still holds one until close)
+                    m_uiHost->DetachWindow(
+                        rw); // logical detach; payload stays for the window teardown
+                    m_host->CloseWindow(
+                        rw); // deferred: RenderWindow dtor WaitIdles + frees the payload
+                    m_entries.RemoveAt(
+                        i); // drops our root ref (the payload still holds one until close)
                     return;
                 }
             }
@@ -103,36 +116,43 @@ export namespace draconic::ui::application
             {
                 i32 mainX = 0, mainY = 0;
                 MainOrigin(mainX, mainY);
-                e->rw->Window().SetPosition(mainX + static_cast<i32>(x), mainY + static_cast<i32>(y));   // atomic
+                e->rw->Window().SetPosition(mainX + static_cast<i32>(x),
+                                            mainY + static_cast<i32>(y)); // atomic
             }
         }
 
-        void ResizeDockableWindow(View* dockableWindow, f32 x, f32 y, f32 width, f32 height) override
+        void ResizeDockableWindow(View* dockableWindow, f32 x, f32 y, f32 width,
+                                  f32 height) override
         {
             if (Entry* e = Find(dockableWindow))
             {
                 i32 mainX = 0, mainY = 0;
                 MainOrigin(mainX, mainY);
-                e->rw->Window().SetPosition(mainX + static_cast<i32>(x), mainY + static_cast<i32>(y));   // atomic
+                e->rw->Window().SetPosition(mainX + static_cast<i32>(x),
+                                            mainY + static_cast<i32>(y)); // atomic
                 e->rw->Window().SetSize(static_cast<u32>(width > 1.0f ? width : 1.0f),
-                                        static_cast<u32>(height > 1.0f ? height : 1.0f));                // atomic
+                                        static_cast<u32>(height > 1.0f ? height : 1.0f)); // atomic
             }
         }
 
-        [[nodiscard]] bool TryGetDockableWindowBounds(View* dockableWindow, f32& x, f32& y, f32& width, f32& height) override
+        [[nodiscard]] bool TryGetDockableWindowBounds(View* dockableWindow, f32& x, f32& y,
+                                                      f32& width, f32& height) override
         {
             if (Entry* e = Find(dockableWindow))
             {
                 i32 mainX = 0, mainY = 0;
                 MainOrigin(mainX, mainY);
                 shell::IWindow& win = e->rw->Window();
-                x      = static_cast<f32>(win.X() - mainX);
-                y      = static_cast<f32>(win.Y() - mainY);
-                width  = static_cast<f32>(win.Width());
+                x = static_cast<f32>(win.X() - mainX);
+                y = static_cast<f32>(win.Y() - mainY);
+                width = static_cast<f32>(win.Width());
                 height = static_cast<f32>(win.Height());
                 return true;
             }
-            x = 0; y = 0; width = 0; height = 0;
+            x = 0;
+            y = 0;
+            width = 0;
+            height = 0;
             return false;
         }
 
@@ -165,11 +185,14 @@ export namespace draconic::ui::application
         void Tick()
         {
             DragDropManager* dd = m_uiHost->Context().DragDrop();
-            if (dd == nullptr) { return; }
+            if (dd == nullptr)
+            {
+                return;
+            }
 
             if (!dd->IsDragging())
             {
-                m_dragWindow = nullptr;   // drag ended (or none active)
+                m_dragWindow = nullptr; // drag ended (or none active)
                 return;
             }
 
@@ -198,42 +221,54 @@ export namespace draconic::ui::application
             {
                 f32 gx = 0.0f, gy = 0.0f;
                 GetGlobalMousePosition(gx, gy);
-                m_dragWindow->Window().SetPosition(static_cast<i32>(gx - m_dragOffX),
-                                                   static_cast<i32>(gy - m_dragOffY));   // atomic, global coords
+                m_dragWindow->Window().SetPosition(
+                    static_cast<i32>(gx - m_dragOffX),
+                    static_cast<i32>(gy - m_dragOffY)); // atomic, global coords
             }
         }
 
     private:
         struct Entry
         {
-            View*                        view = nullptr;   // borrowed (RootView owns it)
-            graphics::RenderWindow*      rw   = nullptr;   // borrowed (IApplicationHost owns it)
-            core::RefPtr<RootView>       root;
-            core::Function<void(View*)>  onClose;
+            View* view = nullptr;                 // borrowed (RootView owns it)
+            graphics::RenderWindow* rw = nullptr; // borrowed (IApplicationHost owns it)
+            core::RefPtr<RootView> root;
+            core::Function<void(View*)> onClose;
         };
 
         [[nodiscard]] Entry* Find(View* view)
         {
-            for (Entry& e : m_entries) { if (e.view == view) { return &e; } }
+            for (Entry& e : m_entries)
+            {
+                if (e.view == view)
+                {
+                    return &e;
+                }
+            }
             return nullptr;
         }
 
         // The main window's screen-space top-left; dockable-window positions are relative to it.
         void MainOrigin(i32& x, i32& y) const
         {
-            x = 0; y = 0;
+            x = 0;
+            y = 0;
             if (m_host != nullptr)
             {
                 if (shell::IShell* sh = m_host->Shell())
                 {
-                    if (shell::IWindow* mw = sh->MainWindow()) { x = mw->X(); y = mw->Y(); }
+                    if (shell::IWindow* mw = sh->MainWindow())
+                    {
+                        x = mw->X();
+                        y = mw->Y();
+                    }
                 }
             }
         }
 
-        draconic::runtime::IApplicationHost* m_host;    // borrowed
-        ui::runtime::UIHost*              m_uiHost;  // borrowed (the app owns it)
-        core::Array<Entry>         m_entries;
+        draconic::runtime::IApplicationHost* m_host; // borrowed
+        ui::runtime::UIHost* m_uiHost;               // borrowed (the app owns it)
+        core::Array<Entry> m_entries;
 
         // Drag-follow state (Tick): the OS window currently being dragged + the grab offset.
         graphics::RenderWindow* m_dragWindow = nullptr;

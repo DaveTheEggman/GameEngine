@@ -52,7 +52,6 @@ TEST_CASE("view-id: GetHashCode_SameForEqual")
     CHECK(a.GetHashCode() == b.GetHashCode());
 }
 
-
 TEST_CASE("view-id: ToString_ContainsValue")
 {
     ViewId id = ViewId::Create();
@@ -66,8 +65,17 @@ TEST_CASE("view-id: ToString_ContainsValue")
         for (usize i = 0; i + needle.Size() <= s.Size(); ++i)
         {
             bool m = true;
-            for (usize j = 0; j < needle.Size(); ++j) if (s[i + j] != needle[j]) { m = false; break; }
-            if (m) { found = true; break; }
+            for (usize j = 0; j < needle.Size(); ++j)
+                if (s[i + j] != needle[j])
+                {
+                    m = false;
+                    break;
+                }
+            if (m)
+            {
+                found = true;
+                break;
+            }
         }
     CHECK(found);
 }

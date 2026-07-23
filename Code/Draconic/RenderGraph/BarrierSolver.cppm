@@ -43,15 +43,20 @@ export namespace draconic::rendergraph
             for (i32 i = 0; i < static_cast<i32>(resources.Size()); ++i)
             {
                 RenderGraphResource* res = resources[static_cast<usize>(i)];
-                if (res == nullptr) { continue; }
+                if (res == nullptr)
+                {
+                    continue;
+                }
 
                 rhi::ResourceState initialState = rhi::ResourceState::Undefined;
 
-                if (res->lifetime == RGResourceLifetime::Persistent && res->persistentData.Get() != nullptr)
+                if (res->lifetime == RGResourceLifetime::Persistent &&
+                    res->persistentData.Get() != nullptr)
                 {
                     initialState = res->persistentData->firstFrame
-                        ? (res->texture != nullptr ? res->texture->initialState : rhi::ResourceState::Undefined)
-                        : res->persistentData->lastKnownState;
+                                       ? (res->texture != nullptr ? res->texture->initialState
+                                                                  : rhi::ResourceState::Undefined)
+                                       : res->persistentData->lastKnownState;
                 }
                 else if (res->lifetime == RGResourceLifetime::Imported)
                 {
@@ -73,8 +78,8 @@ export namespace draconic::rendergraph
                     {
                         // Same GPU texture via another handle - unify.
                         SubresourceStateTracker* tracker = *existing;
-                        if (initialState == rhi::ResourceState::Undefined && tracker->IsUniform()
-                            && tracker->UniformState() != rhi::ResourceState::Undefined)
+                        if (initialState == rhi::ResourceState::Undefined && tracker->IsUniform() &&
+                            tracker->UniformState() != rhi::ResourceState::Undefined)
                         {
                             m_resourceStates.InsertOrAssign(i, tracker->UniformState());
                         }
@@ -88,13 +93,16 @@ export namespace draconic::rendergraph
                         const u32 mipCount = res->texture->desc.mipLevelCount;
                         const u32 layerCount = res->texture->desc.arrayLayerCount;
                         SubresourceStateTracker* tracker =
-                            DefaultAllocator().New<SubresourceStateTracker>(mipCount, layerCount, initialState);
+                            DefaultAllocator().New<SubresourceStateTracker>(mipCount, layerCount,
+                                                                            initialState);
 
-                        if (res->lifetime == RGResourceLifetime::Persistent && res->persistentData.Get() != nullptr
-                            && !res->persistentData->firstFrame
-                            && !res->persistentData->subresourceStates.IsEmpty())
+                        if (res->lifetime == RGResourceLifetime::Persistent &&
+                            res->persistentData.Get() != nullptr &&
+                            !res->persistentData->firstFrame &&
+                            !res->persistentData->subresourceStates.IsEmpty())
                         {
-                            tracker->InitFromStates(res->persistentData->subresourceStates, initialState);
+                            tracker->InitFromStates(res->persistentData->subresourceStates,
+                                                    initialState);
                         }
 
                         m_textureStates.InsertOrAssign(res->texture, tracker);
@@ -112,12 +120,21 @@ export namespace draconic::rendergraph
 
             for (const RGResourceAccess& access : pass.accesses)
             {
-                if (!access.handle.IsValid()) { continue; }
+                if (!access.handle.IsValid())
+                {
+                    continue;
+                }
                 const i32 resIdx = static_cast<i32>(access.handle.index);
-                if (static_cast<usize>(resIdx) >= resources.Size()) { continue; }
+                if (static_cast<usize>(resIdx) >= resources.Size())
+                {
+                    continue;
+                }
 
                 RenderGraphResource* res = resources[static_cast<usize>(resIdx)];
-                if (res == nullptr) { continue; }
+                if (res == nullptr)
+                {
+                    continue;
+                }
 
                 const rhi::ResourceState requiredState = access.ToResourceState();
                 const bool accessIsReadWrite = IsRead(access.type) && IsWrite(access.type);
@@ -125,18 +142,28 @@ export namespace draconic::rendergraph
                 if (res->resourceType == RGResourceType::Texture && res->texture != nullptr)
                 {
                     SubresourceStateTracker** found = m_textureStates.Find(res->texture);
-                    if (found == nullptr) { continue; }
+                    if (found == nullptr)
+                    {
+                        continue;
+                    }
                     SubresourceStateTracker* tracker = *found;
 
-                    EmitTextureBarriers(*tracker, res->texture, access.subresource, requiredState, accessIsReadWrite);
+                    EmitTextureBarriers(*tracker, res->texture, access.subresource, requiredState,
+                                        accessIsReadWrite);
                     tracker->SetState(access.subresource, requiredState);
                     m_resourceStates.InsertOrAssign(resIdx, requiredState);
                 }
                 else if (res->resourceType == RGResourceType::Buffer && res->buffer != nullptr)
                 {
                     rhi::ResourceState currentState = rhi::ResourceState::Undefined;
-                    if (rhi::ResourceState* p = m_resourceStates.Find(resIdx)) { currentState = *p; }
-                    if (currentState == requiredState) { continue; }
+                    if (rhi::ResourceState* p = m_resourceStates.Find(resIdx))
+                    {
+                        currentState = *p;
+                    }
+                    if (currentState == requiredState)
+                    {
+                        continue;
+                    }
 
                     rhi::BufferBarrier bb{};
                     bb.buffer = res->buffer;
@@ -162,19 +189,35 @@ export namespace draconic::rendergraph
 
             for (const RGResourceAccess& access : pass.accesses)
             {
-                if (!access.IsWrite() || !access.handle.IsValid()) { continue; }
+                if (!access.IsWrite() || !access.handle.IsValid())
+                {
+                    continue;
+                }
                 const i32 resIdx = static_cast<i32>(access.handle.index);
-                if (static_cast<usize>(resIdx) >= resources.Size()) { continue; }
+                if (static_cast<usize>(resIdx) >= resources.Size())
+                {
+                    continue;
+                }
 
                 RenderGraphResource* res = resources[static_cast<usize>(resIdx)];
-                if (res == nullptr || !res->readableAfterWrite) { continue; }
-                if (res->resourceType != RGResourceType::Texture || res->texture == nullptr) { continue; }
+                if (res == nullptr || !res->readableAfterWrite)
+                {
+                    continue;
+                }
+                if (res->resourceType != RGResourceType::Texture || res->texture == nullptr)
+                {
+                    continue;
+                }
 
                 SubresourceStateTracker** found = m_textureStates.Find(res->texture);
-                if (found == nullptr) { continue; }
+                if (found == nullptr)
+                {
+                    continue;
+                }
                 SubresourceStateTracker* tracker = *found;
 
-                EmitTextureBarriers(*tracker, res->texture, access.subresource, rhi::ResourceState::ShaderRead, false);
+                EmitTextureBarriers(*tracker, res->texture, access.subresource,
+                                    rhi::ResourceState::ShaderRead, false);
                 tracker->SetState(access.subresource, rhi::ResourceState::ShaderRead);
                 m_resourceStates.InsertOrAssign(resIdx, rhi::ResourceState::ShaderRead);
             }
@@ -183,7 +226,8 @@ export namespace draconic::rendergraph
         }
 
         // Transition imported resources to their requested final state.
-        void EmitFinalTransitions(Span<RenderGraphResource* const> resources, rhi::CommandEncoder& encoder)
+        void EmitFinalTransitions(Span<RenderGraphResource* const> resources,
+                                  rhi::CommandEncoder& encoder)
         {
             m_textureBarriers.Clear();
             m_bufferBarriers.Clear();
@@ -191,16 +235,23 @@ export namespace draconic::rendergraph
             for (i32 i = 0; i < static_cast<i32>(resources.Size()); ++i)
             {
                 RenderGraphResource* res = resources[static_cast<usize>(i)];
-                if (res == nullptr || !res->finalState.HasValue()) { continue; }
+                if (res == nullptr || !res->finalState.HasValue())
+                {
+                    continue;
+                }
 
                 const rhi::ResourceState finalState = res->finalState.Value();
                 if (res->texture != nullptr)
                 {
                     SubresourceStateTracker** found = m_textureStates.Find(res->texture);
-                    if (found == nullptr) { continue; }
+                    if (found == nullptr)
+                    {
+                        continue;
+                    }
                     SubresourceStateTracker* tracker = *found;
 
-                    EmitTextureBarriers(*tracker, res->texture, RGSubresourceRange::All(), finalState, false);
+                    EmitTextureBarriers(*tracker, res->texture, RGSubresourceRange::All(),
+                                        finalState, false);
                     tracker->SetAll(finalState);
                     m_resourceStates.InsertOrAssign(i, finalState);
                 }
@@ -215,12 +266,18 @@ export namespace draconic::rendergraph
             for (i32 i = 0; i < static_cast<i32>(resources.Size()); ++i)
             {
                 RenderGraphResource* res = resources[static_cast<usize>(i)];
-                if (res == nullptr) { continue; }
+                if (res == nullptr)
+                {
+                    continue;
+                }
 
                 if (res->resourceType == RGResourceType::Texture && res->texture != nullptr)
                 {
                     SubresourceStateTracker** found = m_textureStates.Find(res->texture);
-                    if (found == nullptr) { continue; }
+                    if (found == nullptr)
+                    {
+                        continue;
+                    }
                     SubresourceStateTracker* tracker = *found;
 
                     if (tracker->IsUniform())
@@ -258,13 +315,19 @@ export namespace draconic::rendergraph
 
         [[nodiscard]] rhi::ResourceState GetState(i32 resourceIndex)
         {
-            if (rhi::ResourceState* p = m_resourceStates.Find(resourceIndex)) { return *p; }
+            if (rhi::ResourceState* p = m_resourceStates.Find(resourceIndex))
+            {
+                return *p;
+            }
             return rhi::ResourceState::Undefined;
         }
 
         [[nodiscard]] rhi::ResourceState GetTextureState(rhi::Texture* texture)
         {
-            if (texture == nullptr) { return rhi::ResourceState::Undefined; }
+            if (texture == nullptr)
+            {
+                return rhi::ResourceState::Undefined;
+            }
             if (SubresourceStateTracker** found = m_textureStates.Find(texture))
             {
                 SubresourceStateTracker* tracker = *found;
@@ -275,7 +338,10 @@ export namespace draconic::rendergraph
 
         [[nodiscard]] SubresourceStateTracker* GetTextureTracker(rhi::Texture* texture)
         {
-            if (texture == nullptr) { return nullptr; }
+            if (texture == nullptr)
+            {
+                return nullptr;
+            }
             SubresourceStateTracker** found = m_textureStates.Find(texture);
             return found != nullptr ? *found : nullptr;
         }
@@ -291,7 +357,10 @@ export namespace draconic::rendergraph
             if (tracker.IsUniform())
             {
                 const rhi::ResourceState currentState = tracker.UniformState();
-                if (currentState == requiredState && !accessIsReadWrite) { return; }
+                if (currentState == requiredState && !accessIsReadWrite)
+                {
+                    return;
+                }
 
                 rhi::TextureBarrier barrier{};
                 barrier.texture = texture;
@@ -300,27 +369,36 @@ export namespace draconic::rendergraph
                 if (!subresource.IsAll())
                 {
                     barrier.baseMipLevel = subresource.baseMipLevel;
-                    barrier.mipLevelCount = subresource.mipLevelCount == 0 ? 0xFFFFFFFFu : subresource.mipLevelCount;
+                    barrier.mipLevelCount =
+                        subresource.mipLevelCount == 0 ? 0xFFFFFFFFu : subresource.mipLevelCount;
                     barrier.baseArrayLayer = subresource.baseArrayLayer;
-                    barrier.arrayLayerCount = subresource.arrayLayerCount == 0 ? 0xFFFFFFFFu : subresource.arrayLayerCount;
+                    barrier.arrayLayerCount = subresource.arrayLayerCount == 0
+                                                  ? 0xFFFFFFFFu
+                                                  : subresource.arrayLayerCount;
                 }
                 m_textureBarriers.PushBack(barrier);
             }
             else
             {
                 const u32 baseMip = subresource.baseMipLevel;
-                const u32 mipEnd = subresource.mipLevelCount == 0 ? totalMips
-                                                                  : Min(baseMip + subresource.mipLevelCount, totalMips);
+                const u32 mipEnd = subresource.mipLevelCount == 0
+                                       ? totalMips
+                                       : Min(baseMip + subresource.mipLevelCount, totalMips);
                 const u32 baseLayer = subresource.baseArrayLayer;
-                const u32 layerEnd = subresource.arrayLayerCount == 0 ? totalLayers
-                                                                      : Min(baseLayer + subresource.arrayLayerCount, totalLayers);
+                const u32 layerEnd =
+                    subresource.arrayLayerCount == 0
+                        ? totalLayers
+                        : Min(baseLayer + subresource.arrayLayerCount, totalLayers);
 
                 for (u32 layer = baseLayer; layer < layerEnd; ++layer)
                 {
                     for (u32 mip = baseMip; mip < mipEnd; ++mip)
                     {
                         const rhi::ResourceState currentState = tracker.GetState(mip, layer);
-                        if (currentState == requiredState && !accessIsReadWrite) { continue; }
+                        if (currentState == requiredState && !accessIsReadWrite)
+                        {
+                            continue;
+                        }
 
                         rhi::TextureBarrier barrier{};
                         barrier.texture = texture;
@@ -338,18 +416,21 @@ export namespace draconic::rendergraph
 
         void FlushBarriers(rhi::CommandEncoder& encoder)
         {
-            if (m_textureBarriers.IsEmpty() && m_bufferBarriers.IsEmpty()) { return; }
+            if (m_textureBarriers.IsEmpty() && m_bufferBarriers.IsEmpty())
+            {
+                return;
+            }
 
             rhi::BarrierGroup group{};
             if (!m_textureBarriers.IsEmpty())
             {
-                group.textureBarriers =
-                    Span<const rhi::TextureBarrier>(m_textureBarriers.Data(), m_textureBarriers.Size());
+                group.textureBarriers = Span<const rhi::TextureBarrier>(m_textureBarriers.Data(),
+                                                                        m_textureBarriers.Size());
             }
             if (!m_bufferBarriers.IsEmpty())
             {
-                group.bufferBarriers =
-                    Span<const rhi::BufferBarrier>(m_bufferBarriers.Data(), m_bufferBarriers.Size());
+                group.bufferBarriers = Span<const rhi::BufferBarrier>(m_bufferBarriers.Data(),
+                                                                      m_bufferBarriers.Size());
             }
             encoder.Barrier(group);
         }

@@ -10,8 +10,8 @@ module;
 
 export module draconic.gui:rectangle_drawable;
 
-import draconic.core;    // Color
-import draconic.vg;      // CornerRadii
+import draconic.core; // Color
+import draconic.vg;   // CornerRadii
 import :rect;
 import :draw_context;
 import :drawable;
@@ -42,8 +42,8 @@ export namespace draconic::gui
     private:
         [[nodiscard]] static bool IsSharp(const vg::CornerRadii& r) noexcept
         {
-            return r.topLeft == 0.0f && r.topRight == 0.0f
-                && r.bottomRight == 0.0f && r.bottomLeft == 0.0f;
+            return r.topLeft == 0.0f && r.topRight == 0.0f && r.bottomRight == 0.0f &&
+                   r.bottomLeft == 0.0f;
         }
 
         vg::CornerRadii m_radii{};

@@ -10,7 +10,7 @@ module;
 
 export module draconic.ui:absolute_layout;
 
-import draconic.core;   // Max, RefPtr, kFloatMax
+import draconic.core; // Max, RefPtr, kFloatMax
 import :view;
 import :layout_params;
 import :box_constraints;
@@ -38,7 +38,10 @@ export namespace draconic::ui
         AbsoluteLayout() = default;
 
     protected:
-        LayoutParamsPtr CreateDefaultLayoutParams() override { return MakeRef<AbsoluteLayoutParams>(DefaultAllocator()); }
+        LayoutParamsPtr CreateDefaultLayoutParams() override
+        {
+            return MakeRef<AbsoluteLayoutParams>(DefaultAllocator());
+        }
 
         void OnMeasure(BoxConstraints constraints) override
         {
@@ -46,7 +49,10 @@ export namespace draconic::ui
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 View* child = GetChildAt(i);
-                if (child->Visibility == Visibility::Gone) { continue; }
+                if (child->Visibility == Visibility::Gone)
+                {
+                    continue;
+                }
 
                 child->Measure(MakeAbsoluteChildConstraints(constraints, child));
 
@@ -56,17 +62,21 @@ export namespace draconic::ui
                 maxR = Max(maxR, x + child->MeasuredSize.x);
                 maxB = Max(maxB, y + child->MeasuredSize.y);
             }
-            MeasuredSize = Float2{ constraints.ConstrainWidth(maxR + Padding.TotalHorizontal()),
-                                   constraints.ConstrainHeight(maxB + Padding.TotalVertical()) };
+            MeasuredSize = Float2{constraints.ConstrainWidth(maxR + Padding.TotalHorizontal()),
+                                  constraints.ConstrainHeight(maxB + Padding.TotalVertical())};
         }
 
         void OnLayout(f32 left, f32 top, f32 width, f32 height) override
         {
-            (void)left; (void)top;
+            (void)left;
+            (void)top;
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 View* child = GetChildAt(i);
-                if (child->Visibility == Visibility::Gone) { continue; }
+                if (child->Visibility == Visibility::Gone)
+                {
+                    continue;
+                }
 
                 const LayoutParamsPtr& lp = child->LayoutParams;
                 AbsoluteLayoutParams* alp = Cast<AbsoluteLayoutParams>(lp.Get());
@@ -89,7 +99,8 @@ export namespace draconic::ui
         }
 
     private:
-        BoxConstraints MakeAbsoluteChildConstraints(BoxConstraints parentConstraints, View* child) const
+        BoxConstraints MakeAbsoluteChildConstraints(BoxConstraints parentConstraints,
+                                                    View* child) const
         {
             const LayoutParamsPtr& lp = child->LayoutParams;
             f32 minW = 0, maxW = kFloatMax, minH = 0, maxH = kFloatMax;
@@ -97,18 +108,46 @@ export namespace draconic::ui
             {
                 switch (lp->Width.kind)
                 {
-                case SizeSpec::Kind::Fixed: { const f32 v = lp->Width.ResolveFixed(1.0f); minW = v; maxW = v; break; }
-                case SizeSpec::Kind::Match: { const f32 avail = Max(0.0f, parentConstraints.MaxWidth - Padding.TotalHorizontal()); minW = avail; maxW = avail; break; }
-                case SizeSpec::Kind::Wrap: break;
+                case SizeSpec::Kind::Fixed:
+                {
+                    const f32 v = lp->Width.ResolveFixed(1.0f);
+                    minW = v;
+                    maxW = v;
+                    break;
+                }
+                case SizeSpec::Kind::Match:
+                {
+                    const f32 avail =
+                        Max(0.0f, parentConstraints.MaxWidth - Padding.TotalHorizontal());
+                    minW = avail;
+                    maxW = avail;
+                    break;
+                }
+                case SizeSpec::Kind::Wrap:
+                    break;
                 }
                 switch (lp->Height.kind)
                 {
-                case SizeSpec::Kind::Fixed: { const f32 v = lp->Height.ResolveFixed(1.0f); minH = v; maxH = v; break; }
-                case SizeSpec::Kind::Match: { const f32 avail = Max(0.0f, parentConstraints.MaxHeight - Padding.TotalVertical()); minH = avail; maxH = avail; break; }
-                case SizeSpec::Kind::Wrap: break;
+                case SizeSpec::Kind::Fixed:
+                {
+                    const f32 v = lp->Height.ResolveFixed(1.0f);
+                    minH = v;
+                    maxH = v;
+                    break;
+                }
+                case SizeSpec::Kind::Match:
+                {
+                    const f32 avail =
+                        Max(0.0f, parentConstraints.MaxHeight - Padding.TotalVertical());
+                    minH = avail;
+                    maxH = avail;
+                    break;
+                }
+                case SizeSpec::Kind::Wrap:
+                    break;
                 }
             }
-            return BoxConstraints{ minW, maxW, minH, maxH };
+            return BoxConstraints{minW, maxW, minH, maxH};
         }
     };
 

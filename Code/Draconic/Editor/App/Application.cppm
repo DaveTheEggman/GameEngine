@@ -22,10 +22,10 @@ import draconic.fonts;
 import draconic.fonts.ttf;
 import draconic.runtime;
 import draconic.runtime.client;
-import draconic.runtime.defaultapp;   // the embedded game application (v3)
-import draconic.ui.resource;          // UITheme (the manifest's default game-UI theme)
-import draconic.ui.subsystem;         // UISubsystem (SetDefaultTheme)
-import draconic.input.subsystem;      // InputSubsystem (the embedded runtime's scene-input policy)
+import draconic.runtime.defaultapp; // the embedded game application (v3)
+import draconic.ui.resource;        // UITheme (the manifest's default game-UI theme)
+import draconic.ui.subsystem;       // UISubsystem (SetDefaultTheme)
+import draconic.input.subsystem;    // InputSubsystem (the embedded runtime's scene-input policy)
 import draconic.render.api;
 import draconic.ui;
 import draconic.ui.toolkit;
@@ -58,9 +58,9 @@ export namespace draconic::editor::app
 
     struct EditorAppConfig
     {
-        String projectDirectory;               // opened on startup; scaffolded if no manifest yet
-        String projectName = String(u8"Untitled");   // name used when scaffolding
-        String fontPath;                       // UI font (.ttf); empty = no text (debug only)
+        String projectDirectory; // opened on startup; scaffolded if no manifest yet
+        String projectName = String(u8"Untitled"); // name used when scaffolding
+        String fontPath;                           // UI font (.ttf); empty = no text (debug only)
 
         // Log capture registered on GlobalLogger by main() BEFORE anything else runs, so early
         // startup logs reach the console panel. Borrowed; main owns it (outlives the app).
@@ -79,7 +79,8 @@ export namespace draconic::editor::app
         Function<void(runtime::IApplicationHost&)> configureEngine;
         /// Called at the end of OnStartup - per-subsystem RegisterEditor entry points, plus
         /// wiring the app to engine INTERFACES it drives (app.SetSceneRenderer(...)).
-        Function<void(EditorApplication&, runtime::IApplicationHost&, ui::runtime::UIHost&)> registerEditors;
+        Function<void(EditorApplication&, runtime::IApplicationHost&, ui::runtime::UIHost&)>
+            registerEditors;
     };
 
     class EditorApplication : public runtime::IApplication
@@ -88,22 +89,37 @@ export namespace draconic::editor::app
         explicit EditorApplication(EditorAppConfig config) : m_config(Move(config)) {}
 
         [[nodiscard]] draconic::editor::EditorContext& Context() noexcept { return m_context; }
-        [[nodiscard]] draconic::editor::EditorProject* Project() const noexcept { return m_project.Get(); }
+        [[nodiscard]] draconic::editor::EditorProject* Project() const noexcept
+        {
+            return m_project.Get();
+        }
         [[nodiscard]] EditorShell& Shell() noexcept { return m_shell; }
         /// The exe registers every engine builder here (from registerEditors), mirroring the
         /// RaptorCook CLI's set - the cook service routes through it.
         [[nodiscard]] draconic::editor::BuilderRegistry& Builders() noexcept { return m_builders; }
-        [[nodiscard]] draconic::editor::EditorCookService& CookService() noexcept { return m_cookService; }
+        [[nodiscard]] draconic::editor::EditorCookService& CookService() noexcept
+        {
+            return m_cookService;
+        }
 
         /// The exe registers runtime resource factories here (from registerEditors); the app
         /// owns them + the ResourceManager over the project's cooked DB.
         void AddResourceFactory(UniquePtr<draconic::resource::IResourceFactory> factory)
         {
-            if (!factory) { return; }
-            if (m_resources) { m_resources->AddFactory(factory.Get()); }
+            if (!factory)
+            {
+                return;
+            }
+            if (m_resources)
+            {
+                m_resources->AddFactory(factory.Get());
+            }
             m_resourceFactories.PushBack(Move(factory));
         }
-        [[nodiscard]] draconic::resource::ResourceManager* Resources() const noexcept { return m_resources.Get(); }
+        [[nodiscard]] draconic::resource::ResourceManager* Resources() const noexcept
+        {
+            return m_resources.Get();
+        }
         /// The embedded game application (valid after OnStartup; the Game page drives its
         /// play bracket through it).
         [[nodiscard]] runtime::DefaultApplication* EmbeddedApplication() const noexcept
@@ -113,7 +129,10 @@ export namespace draconic::editor::app
 
         void Configure(runtime::IApplicationHost& host) override
         {
-            if (m_config.configureEngine) { m_config.configureEngine(host); }
+            if (m_config.configureEngine)
+            {
+                m_config.configureEngine(host);
+            }
         }
 
         /// The renderer interface the app drives its per-frame scene bracket through (injected
@@ -127,7 +146,10 @@ export namespace draconic::editor::app
         {
             m_host = &host;
             graphics::RenderWindow* mainRw = host.MainRenderWindow();
-            if (mainRw == nullptr) { return; }
+            if (mainRw == nullptr)
+            {
+                return;
+            }
 
             // Fonts (CPU rasterization; no device needed).
             m_fontService = MakeUnique<fonts::TrueTypeFontService>(DefaultAllocator());
@@ -136,7 +158,8 @@ export namespace draconic::editor::app
                 fonts::FontLoadOptions options = fonts::FontLoadOptions::ExtendedLatin();
                 // A full ramp so styles can pick small (property fields), regular, and
                 // heading sizes without falling back to a mismatched rasterization.
-                const f32 sizes[] = { 10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 16.0f, 18.0f, 20.0f, 24.0f, 32.0f };
+                const f32 sizes[] = {10.0f, 11.0f, 12.0f, 13.0f, 14.0f,
+                                     16.0f, 18.0f, 20.0f, 24.0f, 32.0f};
                 for (f32 size : sizes)
                 {
                     options.pixelHeight = size;
@@ -144,48 +167,62 @@ export namespace draconic::editor::app
                 }
             }
 
-            LoadEditorSettings();              // per-user prefs (templates root, ...); absent on first run
-            EditorIcons::Get().Initialize();   // shared SVG drawables (toolbar + asset types)
-            m_uiHost = MakeUnique<ui::runtime::UIHost>(DefaultAllocator(), *host.Graphics(), *host.Shell(), *m_fontService);
-            m_dockHost = MakeUnique<ui::application::RuntimeDockableWindowHost>(DefaultAllocator(), host, *m_uiHost);
+            LoadEditorSettings(); // per-user prefs (templates root, ...); absent on first run
+            EditorIcons::Get().Initialize(); // shared SVG drawables (toolbar + asset types)
+            m_uiHost = MakeUnique<ui::runtime::UIHost>(DefaultAllocator(), *host.Graphics(),
+                                                       *host.Shell(), *m_fontService);
+            m_dockHost = MakeUnique<ui::application::RuntimeDockableWindowHost>(DefaultAllocator(),
+                                                                                host, *m_uiHost);
 
             // Theme: register the toolkit extension BEFORE creating the stylesheet (extensions
             // only apply to themes built afterward), then the editor defaults to dark.
             draconic::ui::ThemeRegistry::RegisterExtension(&m_toolkitTheme);
             // Editor theme: the warm "Graphite & Orange" palette on the rounded theme (soft corners
             // everywhere) - a crafted, less-bland alternative to the stock flat/square cool-grey dark.
-            m_styleSheet = draconic::ui::RoundedDarkTheme::Create(draconic::ui::ThemePalette::GraphiteOrange());
+            m_styleSheet = draconic::ui::RoundedDarkTheme::Create(
+                draconic::ui::ThemePalette::GraphiteOrange());
             // Editor-specific overrides on top of the stock theme: property-grid fields read
             // better noticeably smaller and tighter than the theme's 14px/6x4 control chrome
             // (a full inspector column of them is the densest text in the editor).
             m_styleSheet->ForClass(u8"property-field")
                 .Set(draconic::ui::StyleProperty::FontSize, 12.0f)
-                .Set(draconic::ui::StyleProperty::Padding, draconic::ui::Thickness{ 5, 2 });
+                .Set(draconic::ui::StyleProperty::Padding, draconic::ui::Thickness{5, 2});
             m_uiHost->Context().SetStyleSheet(m_styleSheet);
 
             // Exit goes through the dirty check: the shell consults this before honoring the
             // main window's close button / OS quit; File>Exit routes through the same helper.
             host.Shell()->OnMainWindowCloseRequested = [this]() { return ConfirmExitAllowed(); };
 
-            m_shell.Build(m_context, m_dockHost.Get(), mainRw->Window().Width(), mainRw->Window().Height());
+            m_shell.Build(m_context, m_dockHost.Get(), mainRw->Window().Width(),
+                          mainRw->Window().Height());
             // The ACTIVE page follows dock-tab activation, not just OpenPage/ClosePage - with
             // side-by-side tab groups, Save was hitting whichever page opened last, not the tab
             // the user selected. Non-page panels (Console, Assets) leave the active page alone.
             m_shell.Docks()->OnPanelActivated.Add(
-                draconic::ui::Event<void(ui::toolkit::DockablePanel*)>::Handler{ [this](ui::toolkit::DockablePanel* panel) {
-                    if (panel == nullptr) { return; }
-                    for (const PagePanel& entry : m_pagePanels)
+                draconic::ui::Event<void(ui::toolkit::DockablePanel*)>::Handler{
+                    [this](ui::toolkit::DockablePanel* panel)
                     {
-                        if (entry.panel == panel) { m_context.SetActivePage(entry.page); return; }
-                    }
-                } });
+                        if (panel == nullptr)
+                        {
+                            return;
+                        }
+                        for (const PagePanel& entry : m_pagePanels)
+                        {
+                            if (entry.panel == panel)
+                            {
+                                m_context.SetActivePage(entry.page);
+                                return;
+                            }
+                        }
+                    }});
             m_uiHost->AttachWindow(mainRw, RefPtr<draconic::ui::RootView>(m_shell.Root()));
 
             // Toast overlay on the main window root (input passes through outside the cards);
             // EditorContext::Notify routes here, and also mirrors to the status bar.
             m_toastHost = MakeRef<ui::toolkit::ToastHost>(DefaultAllocator());
             m_shell.Root()->AddView(m_toastHost.Get());
-            m_context.OnNotice = [this](editor::NoticeKind kind, StringView message) {
+            m_context.OnNotice = [this](editor::NoticeKind kind, StringView message)
+            {
                 ShowToast(kind, message);
                 m_context.SetStatus(message);
             };
@@ -195,7 +232,8 @@ export namespace draconic::editor::app
             {
                 // Per-user pinned assets (browser + picker surface them first).
                 (void)LoadFavorites(m_context, m_project->EditorStateRoot().AsView());
-                m_context.OnFavoritesChanged = [this]() {
+                m_context.OnFavoritesChanged = [this]()
+                {
                     if (m_project)
                     {
                         (void)SaveFavorites(m_context, m_project->EditorStateRoot().AsView());
@@ -212,23 +250,34 @@ export namespace draconic::editor::app
             // DB would load every product twice), so it must exist first.
             if (m_project)
             {
-                m_resources = MakeUnique<draconic::resource::ResourceManager>(DefaultAllocator(),
-                    m_project->CookedDb());
-                for (const auto& factory : m_resourceFactories) { m_resources->AddFactory(factory.Get()); }
+                m_resources = MakeUnique<draconic::resource::ResourceManager>(
+                    DefaultAllocator(), m_project->CookedDb());
+                for (const auto& factory : m_resourceFactories)
+                {
+                    m_resources->AddFactory(factory.Get());
+                }
                 m_context.SetResources(m_resources.Get());
             }
-            m_embeddedHost = MakeUnique<runtime::EmbeddedApplicationHost>(DefaultAllocator(),
-                host, m_runtimeContext);
-            m_embeddedHost->SetExitHandler(Function<void(int)>{ [this](int code) {
-                // "Exit" from embedded game code = stop the play session. DEFERRED to
-                // after the page-update loop: the request usually fires from inside the
-                // game script's update(), and Stop tears the script down.
-                DRACONIC_LOG_INFO(u8"Editor", u8"embedded app requested exit({})", code);
-                m_stopGameRequested = true;
-            } });
+            m_embeddedHost = MakeUnique<runtime::EmbeddedApplicationHost>(DefaultAllocator(), host,
+                                                                          m_runtimeContext);
+            m_embeddedHost->SetExitHandler(Function<void(int)>{
+                [this](int code)
+                {
+                    // "Exit" from embedded game code = stop the play session. DEFERRED to
+                    // after the page-update loop: the request usually fires from inside the
+                    // game script's update(), and Stop tears the script down.
+                    DRACONIC_LOG_INFO(u8"Editor", u8"embedded app requested exit({})", code);
+                    m_stopGameRequested = true;
+                }});
             m_embeddedApp = MakeUnique<runtime::DefaultApplication>(DefaultAllocator());
-            if (!m_config.fontPath.IsEmpty()) { m_embeddedApp->SetUIFontPath(m_config.fontPath.AsView()); }
-            if (m_resources) { m_embeddedApp->SetResourceManager(m_resources.Get()); }
+            if (!m_config.fontPath.IsEmpty())
+            {
+                m_embeddedApp->SetUIFontPath(m_config.fontPath.AsView());
+            }
+            if (m_resources)
+            {
+                m_embeddedApp->SetResourceManager(m_resources.Get());
+            }
             m_embeddedApp->Configure(*m_embeddedHost);
             // Embedded-runtime input policy (game-ui.md §9): UN-BOUND input must never
             // reach scene-tier game UI here. The player's shell source owns its whole
@@ -262,7 +311,10 @@ export namespace draconic::editor::app
             // Per-subsystem editor plugins register here (page factories, creators, ...), and
             // the exe injects the engine interfaces the app drives (SetSceneRenderer). They
             // receive the EMBEDDED host: every page's Ctx() resolves to the runtime context.
-            if (m_config.registerEditors) { m_config.registerEditors(*this, *m_embeddedHost, *m_uiHost); }
+            if (m_config.registerEditors)
+            {
+                m_config.registerEditors(*this, *m_embeddedHost, *m_uiHost);
+            }
 
             // Cook service + the real Assets panel, once the project AND the exe-registered
             // builders both exist.
@@ -270,24 +322,25 @@ export namespace draconic::editor::app
             {
                 m_cookService.Initialize(*m_project, m_builders);
                 // Pages request re-cooks after saving builder-backed assets (materials etc.).
-                m_context.OnCookRequested = [this](bool rebuild) { m_cookService.RequestCook(rebuild); };
+                m_context.OnCookRequested = [this](bool rebuild)
+                { m_cookService.RequestCook(rebuild); };
                 // Background jobs (export) read the source DB structure and pack cooked FILES
                 // from their worker - DB mutations and new cooks must hold off while one runs,
                 // exactly like during a cook. The cook service folds this into MutationLocked.
                 m_cookService.ExternalMutationLock = [this]() { return m_jobService.IsBusy(); };
-                m_assetsView = MakeRef<AssetsView>(DefaultAllocator(), m_context, m_cookService, &m_jobService);
+                m_assetsView = MakeRef<AssetsView>(DefaultAllocator(), m_context, m_cookService,
+                                                   &m_jobService);
                 AssetsView* assets = m_assetsView.Get();
-                m_assetsView->OnOpenInstance = [this](draconic::content::Instance& instance) {
-                    (void)OpenInstancePage(instance);
-                };
-                m_assetsView->OnCreate = [this](const draconic::editor::EditorContext::AssetCreator& creator,
-                                                draconic::content::Group* group) {
-                    CreateAndOpen(creator, group);
-                };
+                m_assetsView->OnOpenInstance = [this](draconic::content::Instance& instance)
+                { (void)OpenInstancePage(instance); };
+                m_assetsView->OnCreate =
+                    [this](const draconic::editor::EditorContext::AssetCreator& creator,
+                           draconic::content::Group* group) { CreateAndOpen(creator, group); };
                 // Delete-while-open policy: close-then-delete. Called from a mutation-queue
                 // action (never mid-event-dispatch), so synchronous panel + page teardown is
                 // safe here - the same pair of steps the tab close button triggers.
-                m_assetsView->OnCloseInstancePage = [this](const Guid& id) {
+                m_assetsView->OnCloseInstancePage = [this](const Guid& id)
+                {
                     for (usize i = 0; i < m_pagePanels.Size(); ++i)
                     {
                         if (m_pagePanels[i].page->InstanceId() == id)
@@ -300,7 +353,8 @@ export namespace draconic::editor::app
                         }
                     }
                 };
-                m_cookService.OnCookFinished = [this, assets]() {
+                m_cookService.OnCookFinished = [this, assets]()
+                {
                     assets->Rebuild();
                     // Result toast: failures are sticky (Console has the log); silent when the
                     // cook was a no-op (the watcher fires those constantly).
@@ -308,8 +362,10 @@ export namespace draconic::editor::app
                     const usize cooked = m_cookService.LastCookedCount();
                     if (failed > 0)
                     {
-                        ShowToast(editor::NoticeKind::Error,
-                                  Format(u8"Cook: {} failed, {} cooked (see Console).", failed, cooked).AsView());
+                        ShowToast(
+                            editor::NoticeKind::Error,
+                            Format(u8"Cook: {} failed, {} cooked (see Console).", failed, cooked)
+                                .AsView());
                     }
                     else if (cooked > 0)
                     {
@@ -344,13 +400,20 @@ export namespace draconic::editor::app
                     UIEditorPage* toActivate = nullptr;
                     for (const Guid& id : pages)
                     {
-                        if (draconic::content::Instance* instance = m_project->SourceDb().GetInstance(id))
+                        if (draconic::content::Instance* instance =
+                                m_project->SourceDb().GetInstance(id))
                         {
                             UIEditorPage* page = OpenInstancePage(*instance);
-                            if (page != nullptr && id == activePage) { toActivate = page; }
+                            if (page != nullptr && id == activePage)
+                            {
+                                toActivate = page;
+                            }
                         }
                     }
-                    if (toActivate != nullptr) { m_context.SetActivePage(toActivate); }
+                    if (toActivate != nullptr)
+                    {
+                        m_context.SetActivePage(toActivate);
+                    }
                 }
                 else
                 {
@@ -359,13 +422,18 @@ export namespace draconic::editor::app
                     draconic::content::Instance* instance = nullptr;
                     if (!m_project->Settings().defaultSceneId.IsNil())
                     {
-                        instance = m_project->SourceDb().GetInstance(m_project->Settings().defaultSceneId);
+                        instance =
+                            m_project->SourceDb().GetInstance(m_project->Settings().defaultSceneId);
                     }
                     if (instance == nullptr && !m_project->Settings().defaultScene.IsEmpty())
                     {
-                        instance = m_project->SourceDb().GetInstance(m_project->Settings().defaultScene.AsView());
+                        instance = m_project->SourceDb().GetInstance(
+                            m_project->Settings().defaultScene.AsView());
                     }
-                    if (instance != nullptr) { (void)OpenInstancePage(*instance); }
+                    if (instance != nullptr)
+                    {
+                        (void)OpenInstancePage(*instance);
+                    }
                 }
                 (void)m_shell.RestoreLayout(m_project->EditorStateRoot().AsView());
             }
@@ -380,22 +448,34 @@ export namespace draconic::editor::app
         /// otherwise).
         void CookMissingForPage(draconic::content::Instance& instance)
         {
-            if (m_project.Get() == nullptr) { return; }
+            if (m_project.Get() == nullptr)
+            {
+                return;
+            }
             Array<Guid> unresolved;
-            if (m_resources) { m_resources->CollectUnresolved(unresolved); }
+            if (m_resources)
+            {
+                m_resources->CollectUnresolved(unresolved);
+            }
             // Only ids with a live SOURCE instance can cook - a stale ref to a deleted
             // asset stays unresolved forever and must not re-request a cook on every open.
             Array<Guid> roots;
             for (const Guid& id : unresolved)
             {
-                if (m_project->SourceDb().GetInstance(id) != nullptr) { roots.PushBack(id); }
+                if (m_project->SourceDb().GetInstance(id) != nullptr)
+                {
+                    roots.PushBack(id);
+                }
             }
             const CookBadge badge = m_cookService.BadgeFor(instance);
             if (badge == CookBadge::Missing || badge == CookBadge::Failed)
             {
                 roots.PushBack(instance.Id());
             }
-            if (roots.IsEmpty()) { return; }
+            if (roots.IsEmpty())
+            {
+                return;
+            }
             m_cookService.RequestCookFor(Move(roots), false);
         }
 
@@ -421,29 +501,45 @@ export namespace draconic::editor::app
             }
             if (!m_context.GamePageFactory)
             {
-                m_context.Notify(editor::NoticeKind::Info, u8"No game page registered in this build.");
+                m_context.Notify(editor::NoticeKind::Info,
+                                 u8"No game page registered in this build.");
                 return;
             }
             UniquePtr<draconic::editor::EditorPage> page = m_context.GamePageFactory(newInstance);
-            if (!page) { return; }
+            if (!page)
+            {
+                return;
+            }
             // All pages in this app are UIEditorPages (:ui_page contract), the Game page too.
             UIEditorPage* uiPage = static_cast<UIEditorPage*>(m_context.AdoptPage(Move(page)));
-            if (uiPage == nullptr) { return; }
-            if (!newInstance) { m_gamePage = uiPage; }   // only the primary tab is the focus target
+            if (uiPage == nullptr)
+            {
+                return;
+            }
+            if (!newInstance)
+            {
+                m_gamePage = uiPage;
+            } // only the primary tab is the focus target
 
-            ui::toolkit::DockablePanel* panel = m_shell.AddPagePanel(uiPage->Title(), uiPage->ContentView());
+            ui::toolkit::DockablePanel* panel =
+                m_shell.AddPagePanel(uiPage->Title(), uiPage->ContentView());
             // Unique persistence id per tab (extras get a counter so a docking restore can't collide).
             if (newInstance)
             {
                 const String id = Format(u8"game-page-{}", ++m_gamePageCounter);
                 panel->SetPersistenceId(id.AsView());
             }
-            else { panel->SetPersistenceId(u8"game-page"); }
-            panel->OnCloseRequested.Add([this, uiPage](ui::toolkit::DockablePanel*) {
-                m_uiHost->Context().MutationQueueRef().QueueAction(
-                    Function<void()>{ [this, uiPage]() { ClosePage(uiPage); } });
-            });
-            m_pagePanels.PushBack(PagePanel{ uiPage, panel });
+            else
+            {
+                panel->SetPersistenceId(u8"game-page");
+            }
+            panel->OnCloseRequested.Add(
+                [this, uiPage](ui::toolkit::DockablePanel*)
+                {
+                    m_uiHost->Context().MutationQueueRef().QueueAction(
+                        Function<void()>{[this, uiPage]() { ClosePage(uiPage); }});
+                });
+            m_pagePanels.PushBack(PagePanel{uiPage, panel});
         }
 
         /// Open (or focus) a page for `instance` and dock its content as a center tab.
@@ -453,7 +549,8 @@ export namespace draconic::editor::app
             draconic::editor::EditorPage* page = m_context.OpenPage(instance);
             if (page == nullptr)
             {
-                m_context.Notify(editor::NoticeKind::Warning, u8"No editor registered for this asset type.");
+                m_context.Notify(editor::NoticeKind::Warning,
+                                 u8"No editor registered for this asset type.");
                 return nullptr;
             }
             // All factories in this app produce UIEditorPages (:ui_page contract).
@@ -463,12 +560,17 @@ export namespace draconic::editor::app
                 // Focused an existing page - select its tab.
                 for (const PagePanel& entry : m_pagePanels)
                 {
-                    if (entry.page == uiPage) { m_shell.Docks()->ActivatePanel(entry.panel); break; }
+                    if (entry.page == uiPage)
+                    {
+                        m_shell.Docks()->ActivatePanel(entry.panel);
+                        break;
+                    }
                 }
                 return uiPage;
             }
 
-            ui::toolkit::DockablePanel* panel = m_shell.AddPagePanel(uiPage->Title(), uiPage->ContentView());
+            ui::toolkit::DockablePanel* panel =
+                m_shell.AddPagePanel(uiPage->Title(), uiPage->ContentView());
             {
                 // Guid-keyed persistence id: the saved dock layout re-places this page's panel
                 // when the page reopens on the next launch.
@@ -480,20 +582,26 @@ export namespace draconic::editor::app
             // The DockManager's own close handling (wired in AddPanel) destroys the panel through
             // its deferred-delete queue; we additionally tear down the PAGE - deferred through the
             // UI mutation queue, since destroying views mid-event-dispatch is unsafe.
-            panel->OnCloseRequested.Add([this, uiPage](ui::toolkit::DockablePanel*) {
-                m_uiHost->Context().MutationQueueRef().QueueAction(
-                    Function<void()>{ [this, uiPage]() { ClosePage(uiPage); } });
-            });
+            panel->OnCloseRequested.Add(
+                [this, uiPage](ui::toolkit::DockablePanel*)
+                {
+                    m_uiHost->Context().MutationQueueRef().QueueAction(
+                        Function<void()>{[this, uiPage]() { ClosePage(uiPage); }});
+                });
             // Dirty pages don't close silently: veto the gesture and prompt Save / Discard /
             // Cancel. The dialog's buttons invoke OnCloseRequested DIRECTLY (bypassing this
             // veto), which runs the normal dock + page teardown.
-            panel->OnCloseInterceptor = [this, uiPage](ui::toolkit::DockablePanel* p) -> bool {
-                if (!uiPage->IsDirty()) { return true; }
+            panel->OnCloseInterceptor = [this, uiPage](ui::toolkit::DockablePanel* p) -> bool
+            {
+                if (!uiPage->IsDirty())
+                {
+                    return true;
+                }
                 ShowDirtyCloseDialog(uiPage, p);
                 return false;
             };
-            m_pagePanels.PushBack(PagePanel{ uiPage, panel });
-            CookMissingForPage(instance);   // uncooked dependencies cook without a manual step
+            m_pagePanels.PushBack(PagePanel{uiPage, panel});
+            CookMissingForPage(instance); // uncooked dependencies cook without a manual step
             return uiPage;
         }
 
@@ -502,25 +610,40 @@ export namespace draconic::editor::app
         /// Maps a context notice to a toast (errors stick until closed; the rest self-expire).
         void ShowToast(editor::NoticeKind kind, StringView message)
         {
-            if (m_toastHost.Get() == nullptr) { return; }
+            if (m_toastHost.Get() == nullptr)
+            {
+                return;
+            }
             ui::toolkit::ToastRequest request;
             request.message = String(message);
             switch (kind)
             {
-                case editor::NoticeKind::Success: request.severity = ui::toolkit::ToastSeverity::Success; break;
-                case editor::NoticeKind::Warning: request.severity = ui::toolkit::ToastSeverity::Warning; break;
-                case editor::NoticeKind::Error:   request.severity = ui::toolkit::ToastSeverity::Error; break;
-                case editor::NoticeKind::Info:
-                default:                      request.severity = ui::toolkit::ToastSeverity::Info; break;
+            case editor::NoticeKind::Success:
+                request.severity = ui::toolkit::ToastSeverity::Success;
+                break;
+            case editor::NoticeKind::Warning:
+                request.severity = ui::toolkit::ToastSeverity::Warning;
+                break;
+            case editor::NoticeKind::Error:
+                request.severity = ui::toolkit::ToastSeverity::Error;
+                break;
+            case editor::NoticeKind::Info:
+            default:
+                request.severity = ui::toolkit::ToastSeverity::Info;
+                break;
             }
-            request.durationSeconds = (kind == editor::NoticeKind::Error) ? 0.0f : 5.0f;   // errors stick
+            request.durationSeconds =
+                (kind == editor::NoticeKind::Error) ? 0.0f : 5.0f; // errors stick
             (void)m_toastHost->Show(Move(request));
         }
 
         void SaveActivePage()
         {
             auto* page = m_context.ActivePage();
-            if (page == nullptr) { return; }
+            if (page == nullptr)
+            {
+                return;
+            }
             if (page->Save().IsOk())
             {
                 String message(u8"Saved '");
@@ -536,18 +659,22 @@ export namespace draconic::editor::app
 
         void ClosePage(UIEditorPage* page)
         {
-            if (page == m_gamePage) { m_gamePage = nullptr; }
+            if (page == m_gamePage)
+            {
+                m_gamePage = nullptr;
+            }
             for (usize i = 0; i < m_pagePanels.Size(); ++i)
             {
                 if (m_pagePanels[i].page == page)
                 {
                     if (page->IsDirty())
                     {
-                        m_context.SetStatus(u8"Closed page had unsaved changes.");   // save-prompt = later phase
+                        m_context.SetStatus(
+                            u8"Closed page had unsaved changes."); // save-prompt = later phase
                     }
-                    page->OnClose();   // release GPU/scene resources while device + window live
+                    page->OnClose(); // release GPU/scene resources while device + window live
                     m_pagePanels.RemoveAt(i);
-                    m_context.ClosePage(page);   // destroys the page
+                    m_context.ClosePage(page); // destroys the page
                     return;
                 }
             }
@@ -590,8 +717,8 @@ export namespace draconic::editor::app
                 {
                     host.Shell()->RequestExit();
                 }
-                if (m_config.autoRebuildSeconds > 0.0f && !m_autoRebuilt
-                    && m_elapsed >= m_config.autoRebuildSeconds)
+                if (m_config.autoRebuildSeconds > 0.0f && !m_autoRebuilt &&
+                    m_elapsed >= m_config.autoRebuildSeconds)
                 {
                     m_autoRebuilt = true;
                     m_cookService.RequestCook(true);
@@ -600,10 +727,11 @@ export namespace draconic::editor::app
             // Headless-debug hook: RAPTOR_TEST_OPEN=<guid> opens that instance's page ~2s in
             // and opens it AGAIN ~4s in (the focus-existing branch) - reproduces the asset
             // browser's double-click paths in unattended (ASAN/gdb) runs.
-            if (const char* testOpen = std::getenv("RAPTOR_TEST_OPEN"); testOpen != nullptr && m_project)
+            if (const char* testOpen = std::getenv("RAPTOR_TEST_OPEN");
+                testOpen != nullptr && m_project)
             {
                 m_testOpenElapsed += dt;
-                const bool first  = m_testOpenStage == 0 && m_testOpenElapsed >= 2.0f;
+                const bool first = m_testOpenStage == 0 && m_testOpenElapsed >= 2.0f;
                 const bool second = m_testOpenStage == 1 && m_testOpenElapsed >= 4.0f;
                 if (first || second)
                 {
@@ -611,7 +739,8 @@ export namespace draconic::editor::app
                     Guid id;
                     if (Guid::TryParse(StringView(reinterpret_cast<const utf8char*>(testOpen)), id))
                     {
-                        if (draconic::content::Instance* instance = m_project->SourceDb().GetInstance(id))
+                        if (draconic::content::Instance* instance =
+                                m_project->SourceDb().GetInstance(id))
                         {
                             (void)OpenInstancePage(*instance);
                         }
@@ -622,12 +751,21 @@ export namespace draconic::editor::app
             // Headless-debug hook: RAPTOR_TEST_REIMPORT="<group>;<file>" deletes the named
             // source group ~2s in and reimports <file> ~4s in (the watcher recook follows) -
             // scripts the delete->reimport crash repro for unattended ASAN runs.
-            if (const char* reimport = std::getenv("RAPTOR_TEST_REIMPORT"); reimport != nullptr && m_project)
+            if (const char* reimport = std::getenv("RAPTOR_TEST_REIMPORT");
+                reimport != nullptr && m_project)
             {
-                m_testOpenElapsed += dt;   // shared timer with RAPTOR_TEST_OPEN (use one hook per run)
+                m_testOpenElapsed +=
+                    dt; // shared timer with RAPTOR_TEST_OPEN (use one hook per run)
                 const StringView spec(reinterpret_cast<const utf8char*>(reimport));
                 usize semi = spec.Size();
-                for (usize i = 0; i < spec.Size(); ++i) { if (spec.Data()[i] == u8';') { semi = i; break; } }
+                for (usize i = 0; i < spec.Size(); ++i)
+                {
+                    if (spec.Data()[i] == u8';')
+                    {
+                        semi = i;
+                        break;
+                    }
+                }
                 if (semi < spec.Size())
                 {
                     if (m_testOpenStage == 0 && m_testOpenElapsed >= 2.0f)
@@ -637,14 +775,19 @@ export namespace draconic::editor::app
                         if (draconic::content::Group* group =
                                 m_project->SourceDb().RootGroup()->GetGroup(groupName.AsView()))
                         {
-                            m_cookService.RunWhenIdle(Function<void()>{ [this, group]() {
-                                (void)m_project->SourceDb().DeleteGroup(*group);
-                                m_context.SetStatus(u8"[test] deleted group");
-                                // Mirror DeleteGroupNow: the assets tree holds raw Group*
-                                // rows - EVERY source-DB group mutation must Rebuild before
-                                // the next layout binds stale pointers.
-                                if (m_assetsView) { m_assetsView->Rebuild(); }
-                            } });
+                            m_cookService.RunWhenIdle(Function<void()>{
+                                [this, group]()
+                                {
+                                    (void)m_project->SourceDb().DeleteGroup(*group);
+                                    m_context.SetStatus(u8"[test] deleted group");
+                                    // Mirror DeleteGroupNow: the assets tree holds raw Group*
+                                    // rows - EVERY source-DB group mutation must Rebuild before
+                                    // the next layout binds stale pointers.
+                                    if (m_assetsView)
+                                    {
+                                        m_assetsView->Rebuild();
+                                    }
+                                }});
                         }
                     }
                     else if (m_testOpenStage == 1 && m_testOpenElapsed >= 4.0f)
@@ -652,7 +795,10 @@ export namespace draconic::editor::app
                         ++m_testOpenStage;
                         const String file(spec.SubStr(semi + 1, spec.Size() - semi - 1));
                         m_context.SetStatus(u8"[test] reimporting");
-                        if (m_assetsView) { m_assetsView->ImportFile(file.AsView()); }
+                        if (m_assetsView)
+                        {
+                            m_assetsView->ImportFile(file.AsView());
+                        }
                     }
                 }
             }
@@ -661,20 +807,18 @@ export namespace draconic::editor::app
             SyncPageTitles();
             // Background-cook progress -> status bar (log lines reach the Console via the
             // logger); a finished cook refreshes the Assets badges through OnCookFinished.
-            m_cookService.Update(Function<void(StringView)>{ [this](StringView line) {
-                m_context.SetStatus(line);
-            } });
+            m_cookService.Update(
+                Function<void(StringView)>{[this](StringView line) { m_context.SetStatus(line); }});
 
             // Background jobs: pump, drain job logs, and once an export's pre-cook has finished, submit
             // the export's pack/stage job. Show the running job's step + percent in the status bar.
-            m_jobService.Update(Function<void(StringView)>{ [this](StringView line) {
-                m_context.SetStatus(line);
-            } });
+            m_jobService.Update(
+                Function<void(StringView)>{[this](StringView line) { m_context.SetStatus(line); }});
             if (m_pendingExport.active && m_pendingExport.waitingCook && !m_cookService.IsCooking())
             {
                 m_pendingExport.waitingCook = false;
                 SubmitExportJob(m_pendingExport.presetName, m_pendingExport.all);
-                m_pendingExport.active = false;   // the job owns it now
+                m_pendingExport.active = false; // the job owns it now
             }
             if (m_jobService.IsBusy())
             {
@@ -682,14 +826,26 @@ export namespace draconic::editor::app
                 if (p.active)
                 {
                     String s(p.title.AsView());
-                    if (!p.step.IsEmpty()) { s += u8": "; s += p.step; }
-                    s += u8" ("; AppendCountTo(s, static_cast<usize>(p.fraction * 100.0f + 0.5f)); s += u8"%)";
+                    if (!p.step.IsEmpty())
+                    {
+                        s += u8": ";
+                        s += p.step;
+                    }
+                    s += u8" (";
+                    AppendCountTo(s, static_cast<usize>(p.fraction * 100.0f + 0.5f));
+                    s += u8"%)";
                     m_context.SetStatus(s.AsView());
                 }
             }
 
-            if (m_assetsView) { m_assetsView->Refresh(); }
-            if (m_resources) { m_resources->CollectGarbage(); }   // release hot-reloaded-away products
+            if (m_assetsView)
+            {
+                m_assetsView->Refresh();
+            }
+            if (m_resources)
+            {
+                m_resources->CollectGarbage();
+            } // release hot-reloaded-away products
 
             // OS file drops -> the import pipeline (any editor window; imports land in the
             // Assets panel's selected group).
@@ -702,18 +858,33 @@ export namespace draconic::editor::app
                     m_assetsView->ImportFile(drop.path.AsView());
                 }
             }
-            if (m_uiHost) { m_uiHost->Update(dt); }
-            if (m_toastHost) { m_toastHost->Update(dt); }
-            if (m_dockHost) { m_dockHost->Tick(); }   // drag-follow for floating OS windows
+            if (m_uiHost)
+            {
+                m_uiHost->Update(dt);
+            }
+            if (m_toastHost)
+            {
+                m_toastHost->Update(dt);
+            }
+            if (m_dockHost)
+            {
+                m_dockHost->Tick();
+            } // drag-follow for floating OS windows
 
             // Page hooks AFTER the UI laid out (viewport rects are current for input gating).
-            for (const PagePanel& entry : m_pagePanels) { entry.page->OnUpdate(host, dt); }
+            for (const PagePanel& entry : m_pagePanels)
+            {
+                entry.page->OnUpdate(host, dt);
+            }
 
             // Deferred embedded-exit: safe here - no script dispatch is on the stack.
             if (m_stopGameRequested)
             {
                 m_stopGameRequested = false;
-                if (m_context.StopGameRun) { m_context.StopGameRun(); }
+                if (m_context.StopGameRun)
+                {
+                    m_context.StopGameRun();
+                }
             }
         }
 
@@ -727,29 +898,50 @@ export namespace draconic::editor::app
             {
                 // Through the ISceneRenderer INTERFACE (render.api) - editor.app never links the
                 // renderer. Begin/EndRendering self-guard while the renderer isn't ready.
-                if (m_sceneRenderer != nullptr) { m_sceneRenderer->BeginRendering(*frame.encoder, frame.frameIndex); }
-                for (const PagePanel& entry : m_pagePanels) { entry.page->OnRenderWindow(host, frame); }
-                if (m_sceneRenderer != nullptr) { m_sceneRenderer->EndRendering(); }
+                if (m_sceneRenderer != nullptr)
+                {
+                    m_sceneRenderer->BeginRendering(*frame.encoder, frame.frameIndex);
+                }
+                for (const PagePanel& entry : m_pagePanels)
+                {
+                    entry.page->OnRenderWindow(host, frame);
+                }
+                if (m_sceneRenderer != nullptr)
+                {
+                    m_sceneRenderer->EndRendering();
+                }
                 // Post-compose overlays (the Game tab's screen-tier UI onto its viewport).
-                for (const PagePanel& entry : m_pagePanels) { entry.page->OnAfterSceneRender(host, frame); }
-                if (m_embeddedApp) { m_runtimeContext.EndFrame(); }
+                for (const PagePanel& entry : m_pagePanels)
+                {
+                    entry.page->OnAfterSceneRender(host, frame);
+                }
+                if (m_embeddedApp)
+                {
+                    m_runtimeContext.EndFrame();
+                }
             }
-            if (m_uiHost) { m_uiHost->RenderWindow(frame); }
+            if (m_uiHost)
+            {
+                m_uiHost->RenderWindow(frame);
+            }
         }
 
         void OnShutdown(runtime::IApplicationHost&) override
         {
-            m_cookService.Shutdown();   // joins any in-flight cook before the DBs go away
+            m_cookService.Shutdown(); // joins any in-flight cook before the DBs go away
             // Release page resources while the device and windows are still alive. Pages
             // destroy their scenes in the RUNTIME context, so it must outlive them.
-            for (const PagePanel& entry : m_pagePanels) { entry.page->OnClose(); }
+            for (const PagePanel& entry : m_pagePanels)
+            {
+                entry.page->OnClose();
+            }
             SaveLayout();
             if (m_embeddedApp)
             {
                 m_embeddedApp->OnShutdown(*m_embeddedHost);
                 m_runtimeContext.Shutdown();
             }
-            EditorIcons::Get().Shutdown();   // release drawables deterministically
+            EditorIcons::Get().Shutdown(); // release drawables deterministically
         }
 
     private:
@@ -763,9 +955,8 @@ export namespace draconic::editor::app
             if (m_cookService.MutationLocked())
             {
                 const draconic::editor::EditorContext::AssetCreator* entry = &creator;
-                m_cookService.RunWhenIdle(Function<void()>{ [this, entry, group]() {
-                    CreateAndOpen(*entry, group);
-                } });
+                m_cookService.RunWhenIdle(
+                    Function<void()>{[this, entry, group]() { CreateAndOpen(*entry, group); }});
                 m_context.Notify(editor::NoticeKind::Info,
                                  u8"Create queued until the current cook finishes.");
                 return;
@@ -776,8 +967,9 @@ export namespace draconic::editor::app
                 m_context.Notify(editor::NoticeKind::Error, u8"Create failed (no project open?).");
                 return;
             }
-            if (creator.setsDefaultScene && m_project && m_project->Settings().defaultSceneId.IsNil()
-                && m_project->Settings().defaultScene.IsEmpty())
+            if (creator.setsDefaultScene && m_project &&
+                m_project->Settings().defaultSceneId.IsNil() &&
+                m_project->Settings().defaultScene.IsEmpty())
             {
                 m_project->Settings().defaultSceneId = instance->Id();
                 m_project->Settings().defaultScene = instance->Path();
@@ -786,7 +978,10 @@ export namespace draconic::editor::app
             // Surface the new row immediately (the File-menu path bypasses the assets view's own
             // rebuild) and cook it so builder-backed assets become pickable without a manual
             // Cook All (a no-op for builder-less scenes: nothing is dirty).
-            if (m_assetsView) { m_assetsView->Rebuild(); }
+            if (m_assetsView)
+            {
+                m_assetsView->Rebuild();
+            }
             if (m_builders.FindByTypeName(instance->TypeName()) != nullptr)
             {
                 m_cookService.RequestCook(false);
@@ -801,9 +996,15 @@ export namespace draconic::editor::app
             usize dirtyCount = 0;
             for (const PagePanel& entry : m_pagePanels)
             {
-                if (entry.page->IsDirty()) { ++dirtyCount; }
+                if (entry.page->IsDirty())
+                {
+                    ++dirtyCount;
+                }
             }
-            if (dirtyCount == 0) { return true; }
+            if (dirtyCount == 0)
+            {
+                return true;
+            }
 
             String message;
             AppendCountTo(message, dirtyCount);
@@ -819,27 +1020,37 @@ export namespace draconic::editor::app
             draconic::ui::Dialog* rawDialog = dialog.Get();
             draconic::ui::Button* saveAll =
                 dialog->AddButton(u8"Save All & Exit", draconic::ui::DialogResult::None);
-            saveAll->OnClick.Add([this, rawDialog](draconic::ui::ButtonBase*) {
-                bool allSaved = true;
-                for (const PagePanel& entry : m_pagePanels)
+            saveAll->OnClick.Add(
+                [this, rawDialog](draconic::ui::ButtonBase*)
                 {
-                    if (entry.page->IsDirty() && !entry.page->Save().IsOk()) { allSaved = false; }
-                }
-                if (allSaved) { m_host->RequestExit(); }
-                else
-                {
-                    m_context.Notify(editor::NoticeKind::Error,
-                                     u8"Save FAILED (see console) - staying open.");
-                }
-                rawDialog->Close(allSaved ? draconic::ui::DialogResult::OK
-                                          : draconic::ui::DialogResult::Cancel);
-            });
+                    bool allSaved = true;
+                    for (const PagePanel& entry : m_pagePanels)
+                    {
+                        if (entry.page->IsDirty() && !entry.page->Save().IsOk())
+                        {
+                            allSaved = false;
+                        }
+                    }
+                    if (allSaved)
+                    {
+                        m_host->RequestExit();
+                    }
+                    else
+                    {
+                        m_context.Notify(editor::NoticeKind::Error,
+                                         u8"Save FAILED (see console) - staying open.");
+                    }
+                    rawDialog->Close(allSaved ? draconic::ui::DialogResult::OK
+                                              : draconic::ui::DialogResult::Cancel);
+                });
             draconic::ui::Button* discard =
                 dialog->AddButton(u8"Exit Without Saving", draconic::ui::DialogResult::None);
-            discard->OnClick.Add([this, rawDialog](draconic::ui::ButtonBase*) {
-                m_host->RequestExit();
-                rawDialog->Close(draconic::ui::DialogResult::OK);
-            });
+            discard->OnClick.Add(
+                [this, rawDialog](draconic::ui::ButtonBase*)
+                {
+                    m_host->RequestExit();
+                    rawDialog->Close(draconic::ui::DialogResult::OK);
+                });
             dialog->AddButton(u8"Cancel", draconic::ui::DialogResult::Cancel);
             dialog->Show(&m_uiHost->Context());
             return false;
@@ -849,8 +1060,15 @@ export namespace draconic::editor::app
         {
             utf8char digits[20];
             usize n = 0;
-            do { digits[n++] = static_cast<utf8char>('0' + (value % 10)); value /= 10; } while (value != 0);
-            while (n > 0) { out.PushBack(digits[--n]); }
+            do
+            {
+                digits[n++] = static_cast<utf8char>('0' + (value % 10));
+                value /= 10;
+            } while (value != 0);
+            while (n > 0)
+            {
+                out.PushBack(digits[--n]);
+            }
         }
 
         // === Export ===
@@ -864,15 +1082,21 @@ export namespace draconic::editor::app
         // (polled in OnUpdate), a background JobService job packs/stages/player (reader-only, cook=false).
         void RunExport(StringView presetName, bool all)
         {
-            if (!m_project) { m_context.Notify(editor::NoticeKind::Info, u8"Open a project first."); return; }
+            if (!m_project)
+            {
+                m_context.Notify(editor::NoticeKind::Info, u8"Open a project first.");
+                return;
+            }
             if (m_jobService.IsBusy() || m_pendingExport.active)
             {
                 m_context.Notify(editor::NoticeKind::Info, u8"An export is already in progress.");
                 return;
             }
-            m_pendingExport = PendingExport{ String(presetName), all, /*waitingCook*/ true, /*active*/ true };
+            m_pendingExport =
+                PendingExport{String(presetName), all, /*waitingCook*/ true, /*active*/ true};
             m_context.Notify(editor::NoticeKind::Info, u8"Cooking before export...");
-            m_cookService.RequestCook(false);   // safe background cook; OnUpdate fires the export job after it
+            m_cookService.RequestCook(
+                false); // safe background cook; OnUpdate fires the export job after it
         }
 
         // Phase 2: pack/stage/player as a background job (the cook already ran). File I/O only - no
@@ -891,13 +1115,17 @@ export namespace draconic::editor::app
                     m_exportSceneStreams.InsertOrAssign(instance->Id(), Move(bytes));
                 }
             }
-            for (draconic::content::Group* child : group.Groups()) { CollectSceneStreams(*child); }
+            for (draconic::content::Group* child : group.Groups())
+            {
+                CollectSceneStreams(*child);
+            }
         }
 
         void LoadEditorSettings()
         {
             editor::RegisterEditorSettingsTypes();
-            (void)editor::LoadEditorSettingsFromUserData(m_editorSettings);   // NotFound on first run is fine
+            (void)editor::LoadEditorSettingsFromUserData(
+                m_editorSettings); // NotFound on first run is fine
         }
 
         // The editor's export templates root: the EditorExportSettings override when set, else
@@ -905,7 +1133,8 @@ export namespace draconic::editor::app
         [[nodiscard]] String TemplatesRoot() const
         {
             StringView overrideRoot;
-            if (const editor::EditorExportSettings* s = m_editorSettings.Find<editor::EditorExportSettings>())
+            if (const editor::EditorExportSettings* s =
+                    m_editorSettings.Find<editor::EditorExportSettings>())
             {
                 overrideRoot = s->templatesRoot.AsView();
             }
@@ -918,7 +1147,10 @@ export namespace draconic::editor::app
         // PathJoin degrades to the original relative path.
         [[nodiscard]] static String Absolutize(StringView path)
         {
-            if (PathIsAbsolute(path)) { return String(path); }
+            if (PathIsAbsolute(path))
+            {
+                return String(path);
+            }
             return PathJoin(GetCurrentDirectory().AsView(), path);
         }
 
@@ -930,7 +1162,10 @@ export namespace draconic::editor::app
             {
                 for (const editor::ExportPreset& p : m_exportPresets.presets)
                 {
-                    if (p.pruneToReachable) { return true; }
+                    if (p.pruneToReachable)
+                    {
+                        return true;
+                    }
                 }
                 return false;
             }
@@ -975,53 +1210,67 @@ export namespace draconic::editor::app
             {
                 EditorApplication* self = this;
                 const editor::SceneReferenceScanner adapter =
-                    [self](draconic::content::Instance& inst, draconic::content::ContentDatabase& db,
-                           editor::SceneReferences& refs) {
-                        self->m_context.SceneRefScanner(inst, db, refs.resources, refs.prefabs);
-                    };
+                    [self](draconic::content::Instance& inst,
+                           draconic::content::ContentDatabase& db, editor::SceneReferences& refs)
+                { self->m_context.SceneRefScanner(inst, db, refs.resources, refs.prefabs); };
                 const Array<editor::ExportRoot> seeds = editor::CollectExportRoots(*project);
                 m_exportReachableRoots = editor::ExpandReachableRoots(*project, seeds, adapter);
                 m_exportReachableValid = true;
             }
-            const Array<Guid>* reachableRoots = m_exportReachableValid ? &m_exportReachableRoots : nullptr;
+            const Array<Guid>* reachableRoots =
+                m_exportReachableValid ? &m_exportReachableRoots : nullptr;
             const editor::ExportPresetSet* presetsPtr = &m_exportPresets;
 
             const String toolDir = GetExecutableDirectory();
-            const String templatesRoot = TemplatesRoot();   // resolve on the main thread (reads settings)
+            const String templatesRoot =
+                TemplatesRoot(); // resolve on the main thread (reads settings)
             const String outRoot = Absolutize(PathJoin(m_project->Directory(), u8"Dist").AsView());
             const String title(all ? StringView(u8"Export All") : StringView(u8"Export"));
 
-            m_jobService.Submit(title.AsView(),
+            m_jobService.Submit(
+                title.AsView(),
                 [project, builders, toolDir, templatesRoot, presetName, all, outRoot, sceneStreams,
                  reachableRoots, presetsPtr](editor::JobContext& ctx) -> Status
                 {
                     draconic::vfs::NativeFileSystem toolFs(toolDir.AsView());
-                    draconic::vfs::NativeFileSystem rootFs(templatesRoot.AsView());   // imported templates
+                    draconic::vfs::NativeFileSystem rootFs(
+                        templatesRoot.AsView()); // imported templates
                     editor::TemplateRegistry registry;
                     registry.Refresh(templatesRoot.AsView(), &rootFs, toolDir.AsView(), &toolFs);
-                    const editor::ExportPresetSet& presets = *presetsPtr;   // loaded on the main thread
+                    const editor::ExportPresetSet& presets =
+                        *presetsPtr; // loaded on the main thread
                     const editor::ExportProgress onProgress = [&ctx](StringView step, f32 frac)
-                    { ctx.SetStep(step); ctx.SetFraction(frac); };
+                    {
+                        ctx.SetStep(step);
+                        ctx.SetFraction(frac);
+                    };
 
                     if (all)
                     {
-                        const Span<const editor::ExportPreset> span(presets.presets.Data(), presets.presets.Size());
-                        return editor::ExportAll(*project, span, registry, *builders, outRoot.AsView(),
-                                             /*rebuild*/ false, onProgress, /*cook*/ false, sceneStreams,
-                                             /*scanner*/ nullptr, reachableRoots);
+                        const Span<const editor::ExportPreset> span(presets.presets.Data(),
+                                                                    presets.presets.Size());
+                        return editor::ExportAll(
+                            *project, span, registry, *builders, outRoot.AsView(),
+                            /*rebuild*/ false, onProgress, /*cook*/ false, sceneStreams,
+                            /*scanner*/ nullptr, reachableRoots);
                     }
                     const editor::ExportPreset* preset = presets.Find(presetName.AsView());
-                    if (preset == nullptr) { return Status{ ErrorCode::NotFound }; }
+                    if (preset == nullptr)
+                    {
+                        return Status{ErrorCode::NotFound};
+                    }
                     editor::ExportResult result;
-                    return editor::ExportOne(*project, *preset, registry, *builders, outRoot.AsView(),
-                                         /*rebuild*/ false, &result, onProgress, /*cook*/ false, sceneStreams,
-                                         /*scanner*/ nullptr, reachableRoots);
+                    return editor::ExportOne(
+                        *project, *preset, registry, *builders, outRoot.AsView(),
+                        /*rebuild*/ false, &result, onProgress, /*cook*/ false, sceneStreams,
+                        /*scanner*/ nullptr, reachableRoots);
                 },
-                [this, outRoot](Status s)   // main thread
+                [this, outRoot](Status s) // main thread
                 {
                     if (!s.IsOk())
                     {
-                        m_context.Notify(editor::NoticeKind::Error, u8"Export failed (see Console).");
+                        m_context.Notify(editor::NoticeKind::Error,
+                                         u8"Export failed (see Console).");
                         return;
                     }
                     m_context.SetStatus(u8"Export complete.");
@@ -1032,19 +1281,21 @@ export namespace draconic::editor::app
                         ui::toolkit::ToastRequest request;
                         request.message = String(u8"Export complete.");
                         request.severity = ui::toolkit::ToastSeverity::Success;
-                        request.durationSeconds = 0.0f;   // sticky
+                        request.durationSeconds = 0.0f; // sticky
                         request.actionLabel = String(u8"Open Folder");
                         request.onAction = [this, outRoot]()
                         {
-                            DRACONIC_LOG_DEBUG(u8"Editor", u8"Open Folder clicked -> reveal '{}'", outRoot.AsView());
-                            if (m_host != nullptr && m_host->Shell() != nullptr
-                                && m_host->Shell()->Dialogs() != nullptr)
+                            DRACONIC_LOG_DEBUG(u8"Editor", u8"Open Folder clicked -> reveal '{}'",
+                                               outRoot.AsView());
+                            if (m_host != nullptr && m_host->Shell() != nullptr &&
+                                m_host->Shell()->Dialogs() != nullptr)
                             {
                                 m_host->Shell()->Dialogs()->OpenPath(outRoot.AsView());
                             }
                             else
                             {
-                                DRACONIC_LOG_WARNING(u8"Editor", u8"Open Folder: no shell dialog service available");
+                                DRACONIC_LOG_WARNING(
+                                    u8"Editor", u8"Open Folder: no shell dialog service available");
                             }
                         };
                         (void)m_toastHost->Show(Move(request));
@@ -1105,31 +1356,38 @@ export namespace draconic::editor::app
         // `open`, all on the UI mutation queue (never destroy/rebuild views mid-event-dispatch).
         void QueueReplaceDialog(ui::Dialog* current, Function<void()> open)
         {
-            m_uiHost->Context().MutationQueueRef().QueueAction(Function<void()>{
-                [current, open = Move(open)]()
-            {
-                if (current != nullptr) { current->Close(); }
-                open();
-            } });
+            m_uiHost->Context().MutationQueueRef().QueueAction(
+                Function<void()>{[current, open = Move(open)]()
+                                 {
+                                     if (current != nullptr)
+                                     {
+                                         current->Close();
+                                     }
+                                     open();
+                                 }});
         }
 
         void ReopenExportPresetsPanel(ui::Dialog* current)
         {
-            QueueReplaceDialog(current, Function<void()>{ [this]() { OpenExportPresetsPanel(); } });
+            QueueReplaceDialog(current, Function<void()>{[this]() { OpenExportPresetsPanel(); }});
         }
         void ReopenTemplatesManager(ui::Dialog* current)
         {
-            QueueReplaceDialog(current, Function<void()>{ [this]() { OpenTemplatesManager(); } });
+            QueueReplaceDialog(current, Function<void()>{[this]() { OpenTemplatesManager(); }});
         }
 
         // Persist the in-memory preset set to the project's export_presets.xml.
         void SavePresetsController()
         {
-            if (!m_project) { return; }
+            if (!m_project)
+            {
+                return;
+            }
             draconic::vfs::NativeFileSystem projectFs(m_project->Directory());
             if (!m_presetsController.Save(*projectFs.AsWritable()).IsOk())
             {
-                m_context.Notify(editor::NoticeKind::Error, u8"Saving export presets FAILED (see console).");
+                m_context.Notify(editor::NoticeKind::Error,
+                                 u8"Saving export presets FAILED (see console).");
             }
         }
 
@@ -1140,22 +1398,38 @@ export namespace draconic::editor::app
             String out;
             for (usize i = 0; i < items.Size(); ++i)
             {
-                if (i > 0) { out += u8";"; }
+                if (i > 0)
+                {
+                    out += u8";";
+                }
                 out += items[i].AsView();
             }
             return out;
         }
         static void SplitSemicolons(StringView text, Array<String>& out)
         {
-            const auto isSpace = [](utf8char c) { return c == utf8char(' ') || c == utf8char('\t'); };
+            const auto isSpace = [](utf8char c)
+            { return c == utf8char(' ') || c == utf8char('\t'); };
             usize start = 0;
             for (usize i = 0; i <= text.Size(); ++i)
             {
-                if (i != text.Size() && text[i] != utf8char(';')) { continue; }
+                if (i != text.Size() && text[i] != utf8char(';'))
+                {
+                    continue;
+                }
                 usize s = start, e = i;
-                while (s < e && isSpace(text[s])) { ++s; }
-                while (e > s && isSpace(text[e - 1])) { --e; }
-                if (e > s) { out.PushBack(String(text.SubStr(s, e - s))); }
+                while (s < e && isSpace(text[s]))
+                {
+                    ++s;
+                }
+                while (e > s && isSpace(text[e - 1]))
+                {
+                    --e;
+                }
+                if (e > s)
+                {
+                    out.PushBack(String(text.SubStr(s, e - s)));
+                }
                 start = i + 1;
             }
         }
@@ -1165,43 +1439,58 @@ export namespace draconic::editor::app
         // dialog resolves (SetText on a detached view is harmless); no view hierarchy is rebuilt.
         void PickAdditionalFiles(RefPtr<ui::EditText> target)
         {
-            if (m_host == nullptr || m_host->Shell() == nullptr || m_host->Shell()->Dialogs() == nullptr)
+            if (m_host == nullptr || m_host->Shell() == nullptr ||
+                m_host->Shell()->Dialogs() == nullptr)
             {
                 m_context.Notify(editor::NoticeKind::Error, u8"File dialogs are unavailable.");
                 return;
             }
             m_host->Shell()->Dialogs()->ShowOpenFile(
-                draconic::shell::DialogResultCallback{ [target](Span<const String> paths)
-                {
-                    if (paths.Size() == 0) { return; }   // cancelled
-                    String text(target->Text());
-                    for (usize i = 0; i < paths.Size(); ++i)
+                draconic::shell::DialogResultCallback{
+                    [target](Span<const String> paths)
                     {
-                        if (!text.IsEmpty() && text[text.Size() - 1] != utf8char(';')) { text += u8";"; }
-                        text += paths[i].AsView();
-                    }
-                    target->SetText(text.AsView());
-                } }, {}, {}, /*allowMultiple*/ true);
+                        if (paths.Size() == 0)
+                        {
+                            return;
+                        } // cancelled
+                        String text(target->Text());
+                        for (usize i = 0; i < paths.Size(); ++i)
+                        {
+                            if (!text.IsEmpty() && text[text.Size() - 1] != utf8char(';'))
+                            {
+                                text += u8";";
+                            }
+                            text += paths[i].AsView();
+                        }
+                        target->SetText(text.AsView());
+                    }},
+                {}, {}, /*allowMultiple*/ true);
         }
 
         // Import a template bundle (folder with a template.xml) into the templates root, then rebuild
         // the manager. Async: the picked path is copied into ImportTemplate before any UI mutation.
         void ImportTemplateThenRefresh(ui::Dialog* current)
         {
-            if (m_host == nullptr || m_host->Shell() == nullptr || m_host->Shell()->Dialogs() == nullptr)
+            if (m_host == nullptr || m_host->Shell() == nullptr ||
+                m_host->Shell()->Dialogs() == nullptr)
             {
                 m_context.Notify(editor::NoticeKind::Error, u8"File dialogs are unavailable.");
                 return;
             }
-            m_host->Shell()->Dialogs()->ShowOpenFolder(
-                draconic::shell::DialogResultCallback{ [this, current](Span<const String> paths)
+            m_host->Shell()->Dialogs()->ShowOpenFolder(draconic::shell::DialogResultCallback{
+                [this, current](Span<const String> paths)
                 {
-                    if (paths.Size() == 0) { return; }   // cancelled - leave the manager open
+                    if (paths.Size() == 0)
+                    {
+                        return;
+                    } // cancelled - leave the manager open
                     const String root = TemplatesRoot();
                     String id;
                     if (editor::ImportTemplate(paths[0].AsView(), root.AsView(), &id).IsOk())
                     {
-                        String msg(u8"Imported template '"); msg += id; msg += u8"'.";
+                        String msg(u8"Imported template '");
+                        msg += id;
+                        msg += u8"'.";
                         m_context.Notify(editor::NoticeKind::Success, msg.AsView());
                     }
                     else
@@ -1210,37 +1499,45 @@ export namespace draconic::editor::app
                                          u8"Import failed - the folder has no valid template.xml.");
                     }
                     ReopenTemplatesManager(current);
-                } });
+                }});
         }
 
         // Create a template bundle from a "Bin/<Config>/<Platform>-<Compiler>" build dir (packaging the
         // player + its runtime-libs), installing it into the templates root, then rebuild the manager.
         void CreateTemplateThenRefresh(ui::Dialog* current)
         {
-            if (m_host == nullptr || m_host->Shell() == nullptr || m_host->Shell()->Dialogs() == nullptr)
+            if (m_host == nullptr || m_host->Shell() == nullptr ||
+                m_host->Shell()->Dialogs() == nullptr)
             {
                 m_context.Notify(editor::NoticeKind::Error, u8"File dialogs are unavailable.");
                 return;
             }
-            m_host->Shell()->Dialogs()->ShowOpenFolder(
-                draconic::shell::DialogResultCallback{ [this, current](Span<const String> paths)
+            m_host->Shell()->Dialogs()->ShowOpenFolder(draconic::shell::DialogResultCallback{
+                [this, current](Span<const String> paths)
                 {
-                    if (paths.Size() == 0) { return; }   // cancelled
+                    if (paths.Size() == 0)
+                    {
+                        return;
+                    } // cancelled
                     const String root = TemplatesRoot();
                     String id, dir;
-                    if (editor::CreateTemplate(paths[0].AsView(), root.AsView(), editor::TemplateOutput::Install,
-                                           &id, &dir).IsOk())
+                    if (editor::CreateTemplate(paths[0].AsView(), root.AsView(),
+                                               editor::TemplateOutput::Install, &id, &dir)
+                            .IsOk())
                     {
-                        String msg(u8"Created template '"); msg += id; msg += u8"'.";
+                        String msg(u8"Created template '");
+                        msg += id;
+                        msg += u8"'.";
                         m_context.Notify(editor::NoticeKind::Success, msg.AsView());
                     }
                     else
                     {
                         m_context.Notify(editor::NoticeKind::Error,
-                            u8"Create failed - pick a Bin/<Config> build dir containing RaptorPlayer.");
+                                         u8"Create failed - pick a Bin/<Config> build dir "
+                                         u8"containing RaptorPlayer.");
                     }
                     ReopenTemplatesManager(current);
-                } });
+                }});
         }
 
         // Templates manager: list every registry template (imported + the synthesized host), each with
@@ -1248,12 +1545,16 @@ export namespace draconic::editor::app
         // Remove (non-host only) mutate the templates root and rebuild this dialog.
         void OpenTemplatesManager()
         {
-            if (!m_uiHost) { return; }
+            if (!m_uiHost)
+            {
+                return;
+            }
 
             editor::TemplateRegistry registry;
             BuildTemplateRegistryMainThread(registry);
 
-            auto dialog = MakeRef<ui::Dialog>(DefaultAllocator(), StringView(u8"Manage Export Templates"));
+            auto dialog =
+                MakeRef<ui::Dialog>(DefaultAllocator(), StringView(u8"Manage Export Templates"));
             dialog->MinWidth.SetValue(560.0f);
             dialog->MaxWidth.SetValue(780.0f);
             dialog->MinHeight.SetValue(240.0f);
@@ -1264,20 +1565,37 @@ export namespace draconic::editor::app
             column->Direction = ui::Orientation::Vertical;
             column->Spacing = 6;
 
-            auto header = MakeRef<ui::Label>(DefaultAllocator(),
+            auto header = MakeRef<ui::Label>(
+                DefaultAllocator(),
                 StringView(u8"Installed export templates (the host build is always available):"));
             column->AddView(header.Get());
 
             for (usize i = 0; i < registry.Count(); ++i)
             {
                 const editor::ExportTemplate* t = registry.At(i);
-                if (t == nullptr) { continue; }
+                if (t == nullptr)
+                {
+                    continue;
+                }
                 String text(t->name.AsView());
-                text += u8"  ["; text += t->platform.AsView();
-                text += u8"/";  text += t->EffectiveConfig(); text += u8"]";
-                if (!t->engineVersion.IsEmpty()) { text += u8"  v"; text += t->engineVersion.AsView(); }
-                if (t->isHost) { text += u8"  (host)"; }
-                if (!editor::TemplateEngineMatches(*t)) { text += u8"  (!) engine mismatch"; }
+                text += u8"  [";
+                text += t->platform.AsView();
+                text += u8"/";
+                text += t->EffectiveConfig();
+                text += u8"]";
+                if (!t->engineVersion.IsEmpty())
+                {
+                    text += u8"  v";
+                    text += t->engineVersion.AsView();
+                }
+                if (t->isHost)
+                {
+                    text += u8"  (host)";
+                }
+                if (!editor::TemplateEngineMatches(*t))
+                {
+                    text += u8"  (!) engine mismatch";
+                }
 
                 auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
                 row->Direction = ui::Orientation::Horizontal;
@@ -1289,21 +1607,28 @@ export namespace draconic::editor::app
                     lp->AlignSelf = ui::Align::Center;
                     row->AddView(label.Get(), lp);
                 }
-                if (!t->isHost)   // the host template is synthesized, never on disk => not removable
+                if (!t->isHost) // the host template is synthesized, never on disk => not removable
                 {
                     const String id(t->id.AsView());
                     auto remove = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Remove"));
-                    remove->OnClick.Add([this, raw, id](ui::ButtonBase*)
-                    {
-                        const String root = TemplatesRoot();
-                        if (editor::RemoveTemplate(root.AsView(), id.AsView()).IsOk())
+                    remove->OnClick.Add(
+                        [this, raw, id](ui::ButtonBase*)
                         {
-                            String msg(u8"Removed template '"); msg += id; msg += u8"'.";
-                            m_context.Notify(editor::NoticeKind::Success, msg.AsView());
-                        }
-                        else { m_context.Notify(editor::NoticeKind::Error, u8"Remove failed (see console)."); }
-                        ReopenTemplatesManager(raw);
-                    });
+                            const String root = TemplatesRoot();
+                            if (editor::RemoveTemplate(root.AsView(), id.AsView()).IsOk())
+                            {
+                                String msg(u8"Removed template '");
+                                msg += id;
+                                msg += u8"'.";
+                                m_context.Notify(editor::NoticeKind::Success, msg.AsView());
+                            }
+                            else
+                            {
+                                m_context.Notify(editor::NoticeKind::Error,
+                                                 u8"Remove failed (see console).");
+                            }
+                            ReopenTemplatesManager(raw);
+                        });
                     row->AddView(remove.Get());
                 }
                 column->AddView(row.Get());
@@ -1324,12 +1649,19 @@ export namespace draconic::editor::app
         // Templates in the footer. Edit/Add open the preset-editor form (swapping this dialog).
         void OpenExportPresetsPanel()
         {
-            if (!m_project) { m_context.Notify(editor::NoticeKind::Info, u8"Open a project first."); return; }
-            if (!m_uiHost) { return; }
+            if (!m_project)
+            {
+                m_context.Notify(editor::NoticeKind::Info, u8"Open a project first.");
+                return;
+            }
+            if (!m_uiHost)
+            {
+                return;
+            }
 
             {
                 draconic::vfs::NativeFileSystem projectFs(m_project->Directory());
-                m_presetsController.Load(projectFs);   // reflects edits persisted by the editor form
+                m_presetsController.Load(projectFs); // reflects edits persisted by the editor form
             }
 
             auto dialog = MakeRef<ui::Dialog>(DefaultAllocator(), StringView(u8"Export"));
@@ -1343,7 +1675,8 @@ export namespace draconic::editor::app
             column->Direction = ui::Orientation::Vertical;
             column->Spacing = 6;
 
-            auto info = MakeRef<ui::Label>(DefaultAllocator(),
+            auto info = MakeRef<ui::Label>(
+                DefaultAllocator(),
                 StringView(u8"Export presets (output directory: <project>/Dist):"));
             column->AddView(info.Get());
 
@@ -1371,41 +1704,48 @@ export namespace draconic::editor::app
                 const usize index = i;
                 {
                     auto b = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Export"));
-                    b->OnClick.Add([this, raw, name](ui::ButtonBase*)
-                    {
-                        RunExport(name.AsView(), false);
-                        raw->Close(ui::DialogResult::OK);
-                    });
+                    b->OnClick.Add(
+                        [this, raw, name](ui::ButtonBase*)
+                        {
+                            RunExport(name.AsView(), false);
+                            raw->Close(ui::DialogResult::OK);
+                        });
                     row->AddView(b.Get());
                 }
                 {
                     auto b = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Edit"));
-                    b->OnClick.Add([this, raw, index](ui::ButtonBase*)
-                    {
-                        editor::ExportPreset current = m_presetsController.At(index);
-                        QueueReplaceDialog(raw, Function<void()>{ [this, current, index]()
-                            { OpenPresetEditor(current, static_cast<isize>(index)); } });
-                    });
+                    b->OnClick.Add(
+                        [this, raw, index](ui::ButtonBase*)
+                        {
+                            editor::ExportPreset current = m_presetsController.At(index);
+                            QueueReplaceDialog(
+                                raw,
+                                Function<void()>{
+                                    [this, current, index]()
+                                    { OpenPresetEditor(current, static_cast<isize>(index)); }});
+                        });
                     row->AddView(b.Get());
                 }
                 {
                     auto b = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Duplicate"));
-                    b->OnClick.Add([this, raw, index](ui::ButtonBase*)
-                    {
-                        m_presetsController.Duplicate(index);
-                        SavePresetsController();
-                        ReopenExportPresetsPanel(raw);
-                    });
+                    b->OnClick.Add(
+                        [this, raw, index](ui::ButtonBase*)
+                        {
+                            m_presetsController.Duplicate(index);
+                            SavePresetsController();
+                            ReopenExportPresetsPanel(raw);
+                        });
                     row->AddView(b.Get());
                 }
                 {
                     auto b = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Delete"));
-                    b->OnClick.Add([this, raw, index](ui::ButtonBase*)
-                    {
-                        m_presetsController.Remove(index);
-                        SavePresetsController();
-                        ReopenExportPresetsPanel(raw);
-                    });
+                    b->OnClick.Add(
+                        [this, raw, index](ui::ButtonBase*)
+                        {
+                            m_presetsController.Remove(index);
+                            SavePresetsController();
+                            ReopenExportPresetsPanel(raw);
+                        });
                     row->AddView(b.Get());
                 }
                 column->AddView(row.Get());
@@ -1414,24 +1754,29 @@ export namespace draconic::editor::app
             dialog->SetContent(column.Get());
 
             ui::Button* add = dialog->AddButton(u8"Add...", ui::DialogResult::None);
-            add->OnClick.Add([this, raw](ui::ButtonBase*)
-            {
-                editor::ExportPreset fresh;
-                fresh.name = String(u8"New Preset");
-                fresh.platform = String(GetHostPlatformName());
-                QueueReplaceDialog(raw, Function<void()>{ [this, fresh]() { OpenPresetEditor(fresh, -1); } });
-            });
+            add->OnClick.Add(
+                [this, raw](ui::ButtonBase*)
+                {
+                    editor::ExportPreset fresh;
+                    fresh.name = String(u8"New Preset");
+                    fresh.platform = String(GetHostPlatformName());
+                    QueueReplaceDialog(
+                        raw, Function<void()>{[this, fresh]() { OpenPresetEditor(fresh, -1); }});
+                });
             ui::Button* exportAll = dialog->AddButton(u8"Export All", ui::DialogResult::None);
-            exportAll->OnClick.Add([this, raw](ui::ButtonBase*)
-            {
-                RunExport(StringView{}, true);
-                raw->Close(ui::DialogResult::OK);
-            });
-            ui::Button* templates = dialog->AddButton(u8"Manage Templates...", ui::DialogResult::None);
-            templates->OnClick.Add([this, raw](ui::ButtonBase*)
-            {
-                QueueReplaceDialog(raw, Function<void()>{ [this]() { OpenTemplatesManager(); } });
-            });
+            exportAll->OnClick.Add(
+                [this, raw](ui::ButtonBase*)
+                {
+                    RunExport(StringView{}, true);
+                    raw->Close(ui::DialogResult::OK);
+                });
+            ui::Button* templates =
+                dialog->AddButton(u8"Manage Templates...", ui::DialogResult::None);
+            templates->OnClick.Add(
+                [this, raw](ui::ButtonBase*)
+                {
+                    QueueReplaceDialog(raw, Function<void()>{[this]() { OpenTemplatesManager(); }});
+                });
             dialog->AddButton(u8"Close", ui::DialogResult::Cancel);
             dialog->Show(&m_uiHost->Context());
         }
@@ -1443,12 +1788,16 @@ export namespace draconic::editor::app
         // Update), persists, and returns to the presets panel; Cancel just returns.
         void OpenPresetEditor(editor::ExportPreset initial, isize editIndex)
         {
-            if (!m_uiHost) { return; }
+            if (!m_uiHost)
+            {
+                return;
+            }
 
             editor::TemplateRegistry registry;
             BuildTemplateRegistryMainThread(registry);
 
-            auto dialog = MakeRef<ui::Dialog>(DefaultAllocator(),
+            auto dialog = MakeRef<ui::Dialog>(
+                DefaultAllocator(),
                 StringView(editIndex < 0 ? u8"Add Export Preset" : u8"Edit Export Preset"));
             dialog->MinWidth.SetValue(600.0f);
             dialog->MaxWidth.SetValue(820.0f);
@@ -1469,16 +1818,27 @@ export namespace draconic::editor::app
             auto templateCombo = MakeRef<ui::ComboBox>(DefaultAllocator());
             templateCombo->AddItem(u8"(resolve by platform + config below)");
             Array<String> comboIds, comboPlatforms, comboConfigs;
-            comboIds.PushBack(String{}); comboPlatforms.PushBack(String{}); comboConfigs.PushBack(String{});
+            comboIds.PushBack(String{});
+            comboPlatforms.PushBack(String{});
+            comboConfigs.PushBack(String{});
             i32 selectedCombo = 0;
             for (usize i = 0; i < registry.Count(); ++i)
             {
                 const editor::ExportTemplate* t = registry.At(i);
-                if (t == nullptr) { continue; }
+                if (t == nullptr)
+                {
+                    continue;
+                }
                 String item(t->name.AsView());
-                item += u8" ["; item += t->platform.AsView();
-                item += u8"/"; item += t->EffectiveConfig(); item += u8"]";
-                if (t->isHost) { item += u8" (host)"; }
+                item += u8" [";
+                item += t->platform.AsView();
+                item += u8"/";
+                item += t->EffectiveConfig();
+                item += u8"]";
+                if (t->isHost)
+                {
+                    item += u8" (host)";
+                }
                 const i32 idx = templateCombo->AddItem(item.AsView());
                 comboIds.PushBack(String(t->id.AsView()));
                 comboPlatforms.PushBack(String(t->platform.AsView()));
@@ -1518,15 +1878,18 @@ export namespace draconic::editor::app
             {
                 RefPtr<ui::EditText> filesRef = filesEdit;
                 auto browse = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Add Files..."));
-                browse->OnClick.Add([this, filesRef](ui::ButtonBase*) { PickAdditionalFiles(filesRef); });
+                browse->OnClick.Add([this, filesRef](ui::ButtonBase*)
+                                    { PickAdditionalFiles(filesRef); });
                 filesRow->AddView(browse.Get());
             }
 
-            auto symbolsCheck = MakeRef<ui::CheckBox>(DefaultAllocator(),
-                StringView(u8"Stage debug symbols into the dist"), initial.stageSymbols);
+            auto symbolsCheck = MakeRef<ui::CheckBox>(
+                DefaultAllocator(), StringView(u8"Stage debug symbols into the dist"),
+                initial.stageSymbols);
             column->AddView(symbolsCheck.Get());
             auto pruneCheck = MakeRef<ui::CheckBox>(DefaultAllocator(),
-                StringView(u8"Prune to reachable content only"), initial.pruneToReachable);
+                                                    StringView(u8"Prune to reachable content only"),
+                                                    initial.pruneToReachable);
             column->AddView(pruneCheck.Get());
 
             dialog->SetContent(column.Get());
@@ -1542,35 +1905,42 @@ export namespace draconic::editor::app
             ui::CheckBox* pruneRaw = pruneCheck.Get();
 
             ui::Button* save = dialog->AddButton(u8"Save", ui::DialogResult::None);
-            save->OnClick.Add([this, raw, editIndex, nameRaw, comboRaw, platformRaw, configRaw, playerRaw,
-                               subdirRaw, filesRaw, symbolsRaw, pruneRaw,
-                               comboIds, comboPlatforms, comboConfigs](ui::ButtonBase*)
-            {
-                editor::ExportPreset result;
-                result.name = String(nameRaw->Text());
-                const i32 sel = comboRaw->SelectedIndex();
-                if (sel > 0 && static_cast<usize>(sel) < comboIds.Size())
+            save->OnClick.Add(
+                [this, raw, editIndex, nameRaw, comboRaw, platformRaw, configRaw, playerRaw,
+                 subdirRaw, filesRaw, symbolsRaw, pruneRaw, comboIds, comboPlatforms,
+                 comboConfigs](ui::ButtonBase*)
                 {
-                    result.templateId = comboIds[static_cast<usize>(sel)];
-                    result.platform = comboPlatforms[static_cast<usize>(sel)];
-                    result.config = comboConfigs[static_cast<usize>(sel)];
-                }
-                else
-                {
-                    result.platform = String(platformRaw->Text());
-                    result.config = String(configRaw->Text());
-                }
-                result.playerName = String(playerRaw->Text());
-                result.outputSubdir = String(subdirRaw->Text());
-                result.stageSymbols = symbolsRaw->IsChecked.Value();
-                result.pruneToReachable = pruneRaw->IsChecked.Value();
-                SplitSemicolons(filesRaw->Text(), result.additionalFiles);
+                    editor::ExportPreset result;
+                    result.name = String(nameRaw->Text());
+                    const i32 sel = comboRaw->SelectedIndex();
+                    if (sel > 0 && static_cast<usize>(sel) < comboIds.Size())
+                    {
+                        result.templateId = comboIds[static_cast<usize>(sel)];
+                        result.platform = comboPlatforms[static_cast<usize>(sel)];
+                        result.config = comboConfigs[static_cast<usize>(sel)];
+                    }
+                    else
+                    {
+                        result.platform = String(platformRaw->Text());
+                        result.config = String(configRaw->Text());
+                    }
+                    result.playerName = String(playerRaw->Text());
+                    result.outputSubdir = String(subdirRaw->Text());
+                    result.stageSymbols = symbolsRaw->IsChecked.Value();
+                    result.pruneToReachable = pruneRaw->IsChecked.Value();
+                    SplitSemicolons(filesRaw->Text(), result.additionalFiles);
 
-                if (editIndex < 0) { m_presetsController.Add(result); }
-                else { m_presetsController.Update(static_cast<usize>(editIndex), result); }
-                SavePresetsController();
-                ReopenExportPresetsPanel(raw);
-            });
+                    if (editIndex < 0)
+                    {
+                        m_presetsController.Add(result);
+                    }
+                    else
+                    {
+                        m_presetsController.Update(static_cast<usize>(editIndex), result);
+                    }
+                    SavePresetsController();
+                    ReopenExportPresetsPanel(raw);
+                });
             ui::Button* cancel = dialog->AddButton(u8"Cancel", ui::DialogResult::None);
             cancel->OnClick.Add([this, raw](ui::ButtonBase*) { ReopenExportPresetsPanel(raw); });
             dialog->Show(&m_uiHost->Context());
@@ -1582,12 +1952,16 @@ export namespace draconic::editor::app
         void SaveActivePageAs()
         {
             editor::EditorPage* page = m_context.ActivePage();
-            if (page == nullptr || m_project.Get() == nullptr || m_uiHost.Get() == nullptr) { return; }
+            if (page == nullptr || m_project.Get() == nullptr || m_uiHost.Get() == nullptr)
+            {
+                return;
+            }
             draconic::content::Instance* original =
                 m_project->SourceDb().GetInstance(page->InstanceId());
             if (original == nullptr)
             {
-                m_context.Notify(editor::NoticeKind::Warning, u8"This page has no source asset to copy.");
+                m_context.Notify(editor::NoticeKind::Warning,
+                                 u8"This page has no source asset to copy.");
                 return;
             }
             const TypeInfo* type = GlobalTypeRegistry().FindByName(
@@ -1602,7 +1976,10 @@ export namespace draconic::editor::app
             draconic::content::Group* group = &original->OwningGroup();
             String suggested(original->Name());
             suggested += u8" Copy";
-            while (group->GetInstance(suggested.AsView()) != nullptr) { suggested += u8" Copy"; }
+            while (group->GetInstance(suggested.AsView()) != nullptr)
+            {
+                suggested += u8" Copy";
+            }
 
             String prompt(u8"New name (created next to '");
             prompt += original->Name();
@@ -1630,7 +2007,7 @@ export namespace draconic::editor::app
             // Inline validation line: empty until a rejected attempt; the dialog stays up.
             auto errorLabel = MakeRef<draconic::ui::Label>(DefaultAllocator());
             errorLabel->WordWrap.SetValue(true);
-            errorLabel->TextColor.SetValue(Color{ 0.90f, 0.35f, 0.35f, 1.0f });
+            errorLabel->TextColor.SetValue(Color{0.90f, 0.35f, 0.35f, 1.0f});
             {
                 auto lp = MakeRef<draconic::ui::FlexLayoutParams>(DefaultAllocator());
                 lp->Width = draconic::ui::SizeSpec::Match();
@@ -1644,50 +2021,57 @@ export namespace draconic::editor::app
             const Guid pageId = page->InstanceId();
             draconic::ui::Button* save =
                 dialog->AddButton(u8"Save", draconic::ui::DialogResult::None);
-            save->OnClick.Add([this, pageId, group, type, rawDialog, rawEdit, rawError](draconic::ui::ButtonBase*) {
-                const StringView newName = rawEdit->Text();
-                if (newName.IsEmpty())
+            save->OnClick.Add(
+                [this, pageId, group, type, rawDialog, rawEdit, rawError](draconic::ui::ButtonBase*)
                 {
-                    rawError->SetText(u8"NOT saved: enter a name.");
-                    return;   // dialog stays up for the retry
-                }
-                if (group->GetInstance(newName) != nullptr)
-                {
-                    rawError->SetText(u8"NOT saved: that name already exists in the group.");
-                    return;   // dialog stays up for the retry
-                }
-                // Re-resolve the page: the dialog is modal-ish but pages can close under it.
-                editor::EditorPage* target = nullptr;
-                for (const UniquePtr<editor::EditorPage>& open : m_context.OpenPages())
-                {
-                    if (open->InstanceId() == pageId) { target = open.Get(); break; }
-                }
-                if (target == nullptr)
-                {
-                    rawDialog->Close(draconic::ui::DialogResult::Cancel);
-                    return;
-                }
-                draconic::content::Instance* fresh = group->CreateInstance(newName, *type);
-                if (fresh == nullptr)
-                {
-                    m_context.Notify(editor::NoticeKind::Error,
-                                     u8"NOT saved: could not create the new asset.");
-                    return;
-                }
-                target->OnSavedAs(*fresh);
-                if (target->Save().IsOk())
-                {
-                    String message(u8"Saved as '");
-                    message += fresh->Name();
-                    message += u8"'.";
-                    m_context.Notify(editor::NoticeKind::Success, message.AsView());
-                }
-                else
-                {
-                    m_context.Notify(editor::NoticeKind::Error, u8"Save As FAILED (see Console).");
-                }
-                rawDialog->Close(draconic::ui::DialogResult::OK);
-            });
+                    const StringView newName = rawEdit->Text();
+                    if (newName.IsEmpty())
+                    {
+                        rawError->SetText(u8"NOT saved: enter a name.");
+                        return; // dialog stays up for the retry
+                    }
+                    if (group->GetInstance(newName) != nullptr)
+                    {
+                        rawError->SetText(u8"NOT saved: that name already exists in the group.");
+                        return; // dialog stays up for the retry
+                    }
+                    // Re-resolve the page: the dialog is modal-ish but pages can close under it.
+                    editor::EditorPage* target = nullptr;
+                    for (const UniquePtr<editor::EditorPage>& open : m_context.OpenPages())
+                    {
+                        if (open->InstanceId() == pageId)
+                        {
+                            target = open.Get();
+                            break;
+                        }
+                    }
+                    if (target == nullptr)
+                    {
+                        rawDialog->Close(draconic::ui::DialogResult::Cancel);
+                        return;
+                    }
+                    draconic::content::Instance* fresh = group->CreateInstance(newName, *type);
+                    if (fresh == nullptr)
+                    {
+                        m_context.Notify(editor::NoticeKind::Error,
+                                         u8"NOT saved: could not create the new asset.");
+                        return;
+                    }
+                    target->OnSavedAs(*fresh);
+                    if (target->Save().IsOk())
+                    {
+                        String message(u8"Saved as '");
+                        message += fresh->Name();
+                        message += u8"'.";
+                        m_context.Notify(editor::NoticeKind::Success, message.AsView());
+                    }
+                    else
+                    {
+                        m_context.Notify(editor::NoticeKind::Error,
+                                         u8"Save As FAILED (see Console).");
+                    }
+                    rawDialog->Close(draconic::ui::DialogResult::OK);
+                });
             dialog->AddButton(u8"Cancel", draconic::ui::DialogResult::Cancel);
             dialog->Show(&m_uiHost->Context());
         }
@@ -1705,25 +2089,31 @@ export namespace draconic::editor::app
             dialog->SetContent(label.Get());
 
             draconic::ui::Dialog* rawDialog = dialog.Get();
-            draconic::ui::Button* save = dialog->AddButton(u8"Save", draconic::ui::DialogResult::None);
-            save->OnClick.Add([this, page, panel, rawDialog](draconic::ui::ButtonBase*) {
-                if (page->Save().IsOk())
+            draconic::ui::Button* save =
+                dialog->AddButton(u8"Save", draconic::ui::DialogResult::None);
+            save->OnClick.Add(
+                [this, page, panel, rawDialog](draconic::ui::ButtonBase*)
+                {
+                    if (page->Save().IsOk())
+                    {
+                        panel->OnCloseRequested.Invoke(panel);
+                        rawDialog->Close(draconic::ui::DialogResult::OK);
+                    }
+                    else
+                    {
+                        m_context.Notify(editor::NoticeKind::Error,
+                                         u8"Save FAILED (see console) - page stays open.");
+                        rawDialog->Close(draconic::ui::DialogResult::Cancel);
+                    }
+                });
+            draconic::ui::Button* discard =
+                dialog->AddButton(u8"Discard", draconic::ui::DialogResult::None);
+            discard->OnClick.Add(
+                [panel, rawDialog](draconic::ui::ButtonBase*)
                 {
                     panel->OnCloseRequested.Invoke(panel);
                     rawDialog->Close(draconic::ui::DialogResult::OK);
-                }
-                else
-                {
-                    m_context.Notify(editor::NoticeKind::Error,
-                                     u8"Save FAILED (see console) - page stays open.");
-                    rawDialog->Close(draconic::ui::DialogResult::Cancel);
-                }
-            });
-            draconic::ui::Button* discard = dialog->AddButton(u8"Discard", draconic::ui::DialogResult::None);
-            discard->OnClick.Add([panel, rawDialog](draconic::ui::ButtonBase*) {
-                panel->OnCloseRequested.Invoke(panel);
-                rawDialog->Close(draconic::ui::DialogResult::OK);
-            });
+                });
             dialog->AddButton(u8"Cancel", draconic::ui::DialogResult::Cancel);
             dialog->Show(&m_uiHost->Context());
         }
@@ -1736,24 +2126,41 @@ export namespace draconic::editor::app
             for (const PagePanel& entry : m_pagePanels)
             {
                 String title;
-                draconic::content::Instance* instance = m_project
-                    ? m_project->SourceDb().GetInstance(entry.page->InstanceId()) : nullptr;
-                if (instance != nullptr) { title = String(instance->Name()); }
-                else { title = String(entry.page->Title()); }
-                if (entry.page->IsDirty()) { title += u8" *"; }
-                if (entry.panel->Title() != title.AsView()) { entry.panel->SetTitle(title.AsView()); }
+                draconic::content::Instance* instance =
+                    m_project ? m_project->SourceDb().GetInstance(entry.page->InstanceId())
+                              : nullptr;
+                if (instance != nullptr)
+                {
+                    title = String(instance->Name());
+                }
+                else
+                {
+                    title = String(entry.page->Title());
+                }
+                if (entry.page->IsDirty())
+                {
+                    title += u8" *";
+                }
+                if (entry.panel->Title() != title.AsView())
+                {
+                    entry.panel->SetTitle(title.AsView());
+                }
             }
         }
 
         // Buffered engine logs -> the Console panel, once per frame on the main thread.
         void DrainLog()
         {
-            if (m_config.logBuffer == nullptr || m_shell.Console() == nullptr) { return; }
+            if (m_config.logBuffer == nullptr || m_shell.Console() == nullptr)
+            {
+                return;
+            }
             m_pendingLog.Clear();
             m_logSequence = m_config.logBuffer->CollectSince(m_logSequence, m_pendingLog);
             for (const draconic::editor::EditorLogEntry& entry : m_pendingLog)
             {
-                m_shell.Console()->AddEntry(entry.level, entry.category.AsView(), entry.message.AsView());
+                m_shell.Console()->AddEntry(entry.level, entry.category.AsView(),
+                                            entry.message.AsView());
             }
         }
 
@@ -1773,7 +2180,8 @@ export namespace draconic::editor::app
                     m_config.projectDirectory.AsView(), m_config.projectName.AsView());
                 if (created.IsOk())
                 {
-                    m_project = draconic::editor::EditorProject::Open(m_config.projectDirectory.AsView());
+                    m_project =
+                        draconic::editor::EditorProject::Open(m_config.projectDirectory.AsView());
                 }
             }
 
@@ -1809,9 +2217,15 @@ export namespace draconic::editor::app
                 {
                     // Instance-less pages (the Game tab) don't persist in the page set - a
                     // nil guid would just fail the restore lookup.
-                    if (entry.page->InstanceId().IsNil()) { continue; }
+                    if (entry.page->InstanceId().IsNil())
+                    {
+                        continue;
+                    }
                     pages.PushBack(entry.page->InstanceId());
-                    if (m_context.ActivePage() == entry.page) { activePage = entry.page->InstanceId(); }
+                    if (m_context.ActivePage() == entry.page)
+                    {
+                        activePage = entry.page->InstanceId();
+                    }
                 }
                 (void)SaveOpenPages(m_project->EditorStateRoot().AsView(), pages, activePage);
             }
@@ -1839,7 +2253,8 @@ export namespace draconic::editor::app
                 // File > New <creator> from the registry (per-subsystem editor modules).
                 // Categorized creators (e.g. "Primitives") nest in a submenu of that name.
                 Array<StringView> categories;
-                for (const draconic::editor::EditorContext::AssetCreator& creator : m_context.Creators())
+                for (const draconic::editor::EditorContext::AssetCreator& creator :
+                     m_context.Creators())
                 {
                     if (creator.category.IsEmpty())
                     {
@@ -1850,48 +2265,82 @@ export namespace draconic::editor::app
                         continue;
                     }
                     bool seen = false;
-                    for (StringView c : categories) { if (c == creator.category.AsView()) { seen = true; break; } }
-                    if (!seen) { categories.PushBack(creator.category.AsView()); }
+                    for (StringView c : categories)
+                    {
+                        if (c == creator.category.AsView())
+                        {
+                            seen = true;
+                            break;
+                        }
+                    }
+                    if (!seen)
+                    {
+                        categories.PushBack(creator.category.AsView());
+                    }
                 }
                 for (StringView category : categories)
                 {
                     draconic::ui::MenuItem* submenuItem = file->AddSubmenu(category);
                     auto* submenu = Cast<draconic::ui::ContextMenu>(submenuItem->Submenu.Get());
-                    if (submenu == nullptr) { continue; }
-                    for (const draconic::editor::EditorContext::AssetCreator& creator : m_context.Creators())
+                    if (submenu == nullptr)
                     {
-                        if (creator.category.AsView() != category) { continue; }
+                        continue;
+                    }
+                    for (const draconic::editor::EditorContext::AssetCreator& creator :
+                         m_context.Creators())
+                    {
+                        if (creator.category.AsView() != category)
+                        {
+                            continue;
+                        }
                         const auto* entry = &creator;
-                        submenu->AddItem(creator.label.AsView(), [this, entry]() { CreateAndOpen(*entry); });
+                        submenu->AddItem(creator.label.AsView(),
+                                         [this, entry]() { CreateAndOpen(*entry); });
                     }
                 }
-                if (!m_context.Creators().IsEmpty()) { file->AddSeparator(); }
+                if (!m_context.Creators().IsEmpty())
+                {
+                    file->AddSeparator();
+                }
 
                 file->AddItem(u8"Save", [this]() { SaveActivePage(); });
                 file->AddItem(u8"Save As...", [this]() { SaveActivePageAs(); });
                 file->AddSeparator();
-                file->AddItem(u8"Save Layout", [this]() {
-                    SaveLayout();
-                    m_context.SetStatus(u8"Layout saved.");
-                });
+                file->AddItem(u8"Save Layout",
+                              [this]()
+                              {
+                                  SaveLayout();
+                                  m_context.SetStatus(u8"Layout saved.");
+                              });
                 file->AddSeparator();
-                file->AddItem(u8"Project Settings...", [this]() {
-                    if (m_project)
-                    {
-                        auto dialog = MakeRef<ProjectSettingsDialog>(DefaultAllocator(), m_context);
-                        dialog->Show(&m_uiHost->Context());
-                    }
-                });
-                file->AddItem(u8"Preferences...", [this]() {
-                    auto dialog = MakeRef<EditorPreferencesDialog>(DefaultAllocator(), m_context, m_editorSettings);
-                    dialog->Show(&m_uiHost->Context());
-                });
+                file->AddItem(u8"Project Settings...",
+                              [this]()
+                              {
+                                  if (m_project)
+                                  {
+                                      auto dialog = MakeRef<ProjectSettingsDialog>(
+                                          DefaultAllocator(), m_context);
+                                      dialog->Show(&m_uiHost->Context());
+                                  }
+                              });
+                file->AddItem(u8"Preferences...",
+                              [this]()
+                              {
+                                  auto dialog = MakeRef<EditorPreferencesDialog>(
+                                      DefaultAllocator(), m_context, m_editorSettings);
+                                  dialog->Show(&m_uiHost->Context());
+                              });
                 file->AddSeparator();
                 file->AddItem(u8"Export...", [this]() { OpenExportPresetsPanel(); });
                 file->AddItem(u8"Manage Templates...", [this]() { OpenTemplatesManager(); });
-                file->AddItem(u8"Exit", [this, host]() {
-                    if (host != nullptr && ConfirmExitAllowed()) { host->RequestExit(); }
-                });
+                file->AddItem(u8"Exit",
+                              [this, host]()
+                              {
+                                  if (host != nullptr && ConfirmExitAllowed())
+                                  {
+                                      host->RequestExit();
+                                  }
+                              });
             }
 
             if (draconic::ui::ContextMenu* edit = bar->AddMenu(u8"Edit"))
@@ -1907,7 +2356,8 @@ export namespace draconic::editor::app
             shortcuts->AddGlobal(draconic::ui::KeyCode::Z, draconic::ui::KeyModifiers::Ctrl,
                                  [this]() { m_context.Undo(); });
             shortcuts->AddGlobal(draconic::ui::KeyCode::Z,
-                                 draconic::ui::KeyModifiers::Ctrl | draconic::ui::KeyModifiers::Shift,
+                                 draconic::ui::KeyModifiers::Ctrl |
+                                     draconic::ui::KeyModifiers::Shift,
                                  [this]() { m_context.Redo(); });
             shortcuts->AddGlobal(draconic::ui::KeyCode::Y, draconic::ui::KeyModifiers::Ctrl,
                                  [this]() { m_context.Redo(); });
@@ -1921,29 +2371,35 @@ export namespace draconic::editor::app
             }
             if (draconic::ui::ContextMenu* view = bar->AddMenu(u8"View"))
             {
-                view->AddItem(u8"Reset Layout", [this]() {
-                    m_shell.ResetLayout();
-                    m_context.SetStatus(u8"Layout reset to default.");
-                });
+                view->AddItem(u8"Reset Layout",
+                              [this]()
+                              {
+                                  m_shell.ResetLayout();
+                                  m_context.SetStatus(u8"Layout reset to default.");
+                              });
             }
 
             if (draconic::ui::ContextMenu* help = bar->AddMenu(u8"Help"))
             {
-                help->AddItem(u8"About", [this]() {
-                    m_context.SetStatus(u8"Draconic Editor - phase 1 shell (docs/design/editor.md)");
-                });
+                help->AddItem(u8"About",
+                              [this]()
+                              {
+                                  m_context.SetStatus(
+                                      u8"Draconic Editor - phase 1 shell (docs/design/editor.md)");
+                              });
             }
         }
 
         EditorAppConfig m_config;
-        runtime::IApplicationHost* m_host = nullptr;   // borrowed
+        runtime::IApplicationHost* m_host = nullptr; // borrowed
         draconic::render::ISceneRenderer* m_sceneRenderer = nullptr;
         // The embedded runtime (v3): gameplay subsystems + ALL scene hosting live here.
         runtime::Context m_runtimeContext;
         UniquePtr<runtime::EmbeddedApplicationHost> m_embeddedHost;
-        runtime::FixedStepper m_embeddedFixedStepper;   // drives the embedded app's OnFixedUpdate (net) in-editor
+        runtime::FixedStepper
+            m_embeddedFixedStepper; // drives the embedded app's OnFixedUpdate (net) in-editor
         UniquePtr<runtime::DefaultApplication> m_embeddedApp;
-        bool m_stopGameRequested = false;   // borrowed (exe injects)
+        bool m_stopGameRequested = false; // borrowed (exe injects)
 
         // Log drain state (see DrainLog).
         Array<draconic::editor::EditorLogEntry> m_pendingLog;
@@ -1952,30 +2408,39 @@ export namespace draconic::editor::app
         // Open pages and their center-tab panels (panels owned by the DockManager).
         struct PagePanel
         {
-            UIEditorPage* page = nullptr;         // borrowed (context owns the page)
-            ui::toolkit::DockablePanel* panel = nullptr;   // borrowed (dock manager owns the panel)
+            UIEditorPage* page = nullptr;                // borrowed (context owns the page)
+            ui::toolkit::DockablePanel* panel = nullptr; // borrowed (dock manager owns the panel)
         };
         draconic::editor::EditorContext m_context;
         UniquePtr<draconic::editor::EditorProject> m_project;
-        draconic::editor::BuilderRegistry m_builders;        // exe-assembled (registerEditors)
+        draconic::editor::BuilderRegistry m_builders; // exe-assembled (registerEditors)
         draconic::editor::EditorCookService m_cookService;
-        draconic::editor::EditorJobService m_jobService;     // generic background jobs (export, ...)
-        draconic::settings::Settings m_editorSettings;       // per-user editor prefs (<userdata>/editor.settings.xml)
-        struct PendingExport { String presetName; bool all = false; bool waitingCook = false; bool active = false; };
+        draconic::editor::EditorJobService m_jobService; // generic background jobs (export, ...)
+        draconic::settings::Settings
+            m_editorSettings; // per-user editor prefs (<userdata>/editor.settings.xml)
+        struct PendingExport
+        {
+            String presetName;
+            bool all = false;
+            bool waitingCook = false;
+            bool active = false;
+        };
         PendingExport m_pendingExport;
-        editor::ExportPresetsController m_presetsController;   // backs the Export presets panel + editor form
-        HashMap<Guid, Array<byte>> m_exportSceneStreams;   // export pre-transcoded scene wires
-        editor::ExportPresetSet m_exportPresets;               // main-thread-loaded presets for the running job
-        Array<Guid> m_exportReachableRoots;                // main-thread pre-scan result (reachable closure roots)
-        bool m_exportReachableValid = false;               // true when the pre-scan ran (else no pruning this run)
-        UIEditorPage* m_gamePage = nullptr;                // the PRIMARY game tab (focus target); extras untracked
-        u32 m_gamePageCounter = 0;                         // unique persistence id for "Play New Instance" tabs
-        f32 m_elapsed = 0.0f;   // autoExit/autoRebuild accumulator
-        f32 m_testOpenElapsed = 0.0f;   // RAPTOR_TEST_OPEN hook
+        editor::ExportPresetsController
+            m_presetsController; // backs the Export presets panel + editor form
+        HashMap<Guid, Array<byte>> m_exportSceneStreams; // export pre-transcoded scene wires
+        editor::ExportPresetSet m_exportPresets; // main-thread-loaded presets for the running job
+        Array<Guid> m_exportReachableRoots; // main-thread pre-scan result (reachable closure roots)
+        bool m_exportReachableValid =
+            false;                          // true when the pre-scan ran (else no pruning this run)
+        UIEditorPage* m_gamePage = nullptr; // the PRIMARY game tab (focus target); extras untracked
+        u32 m_gamePageCounter = 0;          // unique persistence id for "Play New Instance" tabs
+        f32 m_elapsed = 0.0f;               // autoExit/autoRebuild accumulator
+        f32 m_testOpenElapsed = 0.0f;       // RAPTOR_TEST_OPEN hook
         u32 m_testOpenStage = 0;
         bool m_autoRebuilt = false;
-        Array<draconic::shell::DroppedFile> m_droppedFiles;   // per-frame drain buffer
-        Array<UniquePtr<draconic::resource::IResourceFactory>> m_resourceFactories;   // exe-assembled
+        Array<draconic::shell::DroppedFile> m_droppedFiles; // per-frame drain buffer
+        Array<UniquePtr<draconic::resource::IResourceFactory>> m_resourceFactories; // exe-assembled
         UniquePtr<draconic::resource::ResourceManager> m_resources;
 
         UniquePtr<fonts::TrueTypeFontService> m_fontService;
@@ -1988,7 +2453,8 @@ export namespace draconic::editor::app
         // SetAdapter(nullptr) in its dtor), which is a use-after-free once the host is gone.
         // ASAN caught exactly that with the previous declared-last ordering.
         UniquePtr<ui::runtime::UIHost> m_uiHost;
-        UniquePtr<ui::application::RuntimeDockableWindowHost> m_dockHost;   // references m_uiHost: dies first
+        UniquePtr<ui::application::RuntimeDockableWindowHost>
+            m_dockHost; // references m_uiHost: dies first
         EditorShell m_shell;
         RefPtr<AssetsView> m_assetsView;
         RefPtr<ui::toolkit::ToastHost> m_toastHost;

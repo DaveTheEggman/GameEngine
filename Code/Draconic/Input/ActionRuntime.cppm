@@ -626,11 +626,11 @@ export namespace draconic::input
             case BindingSource::GamepadStick:
             {
                 const shell::GamepadAxis axisX = static_cast<StickCode>(b.code) == StickCode::Left
-                                                      ? shell::GamepadAxis::LeftX
-                                                      : shell::GamepadAxis::RightX;
+                                                     ? shell::GamepadAxis::LeftX
+                                                     : shell::GamepadAxis::RightX;
                 const shell::GamepadAxis axisY = static_cast<StickCode>(b.code) == StickCode::Left
-                                                      ? shell::GamepadAxis::LeftY
-                                                      : shell::GamepadAxis::RightY;
+                                                     ? shell::GamepadAxis::LeftY
+                                                     : shell::GamepadAxis::RightY;
                 ForEachPad(devices, b.device,
                            [&](shell::IGamepad& pad)
                            {

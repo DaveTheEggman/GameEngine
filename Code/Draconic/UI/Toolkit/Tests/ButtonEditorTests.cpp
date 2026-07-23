@@ -14,7 +14,7 @@ TEST_CASE("toolkit-buttoneditor: ClickInvokesAction")
 {
     int clicks = 0;
     auto ed = core::MakeRef<ButtonEditor>(core::DefaultAllocator(), StringView(u8"Add Condition"),
-        Function<void()>{ [&clicks]() { ++clicks; } });
+                                          Function<void()>{[&clicks]() { ++clicks; }});
 
     auto* btn = core::Cast<Button>(ed->EditorView());
     REQUIRE(btn != nullptr);
@@ -27,8 +27,8 @@ TEST_CASE("toolkit-buttoneditor: ClickInvokesAction")
 
 TEST_CASE("toolkit-buttoneditor: SetButtonEnabled applies before and after view creation")
 {
-    auto editor = core::MakeRef<ButtonEditor>(core::DefaultAllocator(),
-        StringView(u8"Revert"), core::Function<void()>{});
+    auto editor = core::MakeRef<ButtonEditor>(core::DefaultAllocator(), StringView(u8"Revert"),
+                                              core::Function<void()>{});
     CHECK(editor->ButtonEnabled());
 
     // Set BEFORE the lazy view exists: the created button starts disabled.

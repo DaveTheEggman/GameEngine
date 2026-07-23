@@ -25,9 +25,9 @@ export namespace draconic::ui
     {
         DRACONIC_OBJECT(ColorView, View)
     public:
-        Property<core::Color> Color{ core::Color::White };
-        Property<f32> PreferredWidth{ 0.0f };
-        Property<f32> PreferredHeight{ 0.0f };
+        Property<core::Color> Color{core::Color::White};
+        Property<f32> PreferredWidth{0.0f};
+        Property<f32> PreferredHeight{0.0f};
 
         ColorView()
         {
@@ -36,16 +36,24 @@ export namespace draconic::ui
             PreferredHeight.SetOwner(this);
         }
         explicit ColorView(core::Color color) : ColorView() { Color.SetSilent(color); }
-        ColorView(core::Color color, f32 w, f32 h) : ColorView() { Color.SetSilent(color); PreferredWidth.SetSilent(w); PreferredHeight.SetSilent(h); }
+        ColorView(core::Color color, f32 w, f32 h) : ColorView()
+        {
+            Color.SetSilent(color);
+            PreferredWidth.SetSilent(w);
+            PreferredHeight.SetSilent(h);
+        }
 
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
             const f32 w = PreferredWidth.Value() > 0 ? PreferredWidth.Value() : 0.0f;
             const f32 h = PreferredHeight.Value() > 0 ? PreferredHeight.Value() : 0.0f;
-            MeasuredSize = Float2{ constraints.ConstrainWidth(w), constraints.ConstrainHeight(h) };
+            MeasuredSize = Float2{constraints.ConstrainWidth(w), constraints.ConstrainHeight(h)};
         }
-        void OnDraw(UIDrawContext& ctx) override { ctx.VG().FillRect(Rectangle{ 0, 0, Width(), Height() }, Color.Value()); }
+        void OnDraw(UIDrawContext& ctx) override
+        {
+            ctx.VG().FillRect(Rectangle{0, 0, Width(), Height()}, Color.Value());
+        }
     };
 
     DRACONIC_DEFINE_OBJECT(ColorView, "draconic::ui")

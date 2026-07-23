@@ -30,22 +30,27 @@ export namespace draconic::gui
 
         constexpr Rect() noexcept = default;
         constexpr Rect(f32 inX, f32 inY, f32 inWidth, f32 inHeight) noexcept
-            : x(inX), y(inY), width(inWidth), height(inHeight) {}
+            : x(inX), y(inY), width(inWidth), height(inHeight)
+        {
+        }
         constexpr Rect(core::Float2 position, core::Float2 size) noexcept
-            : x(position.x), y(position.y), width(size.x), height(size.y) {}
+            : x(position.x), y(position.y), width(size.x), height(size.y)
+        {
+        }
 
         // Build from edges (eepp Rectf's Left/Top/Right/Bottom layout).
-        [[nodiscard]] static constexpr Rect FromLTRB(f32 left, f32 top, f32 right, f32 bottom) noexcept
+        [[nodiscard]] static constexpr Rect FromLTRB(f32 left, f32 top, f32 right,
+                                                     f32 bottom) noexcept
         {
-            return Rect{ left, top, right - left, bottom - top };
+            return Rect{left, top, right - left, bottom - top};
         }
         [[nodiscard]] static constexpr Rect FromMinMax(core::Float2 min, core::Float2 max) noexcept
         {
-            return Rect{ min.x, min.y, max.x - min.x, max.y - min.y };
+            return Rect{min.x, min.y, max.x - min.x, max.y - min.y};
         }
         [[nodiscard]] static constexpr Rect FromRectangle(const core::Rectangle& r) noexcept
         {
-            return Rect{ r.x, r.y, r.width, r.height };
+            return Rect{r.x, r.y, r.width, r.height};
         }
 
         // Edge accessors (eepp field reads).
@@ -54,14 +59,23 @@ export namespace draconic::gui
         [[nodiscard]] constexpr f32 Right() const noexcept { return x + width; }
         [[nodiscard]] constexpr f32 Bottom() const noexcept { return y + height; }
 
-        [[nodiscard]] constexpr core::Float2 Position() const noexcept { return core::Float2{ x, y }; }
-        [[nodiscard]] constexpr core::Float2 Size() const noexcept { return core::Float2{ width, height }; }
+        [[nodiscard]] constexpr core::Float2 Position() const noexcept
+        {
+            return core::Float2{x, y};
+        }
+        [[nodiscard]] constexpr core::Float2 Size() const noexcept
+        {
+            return core::Float2{width, height};
+        }
         [[nodiscard]] constexpr core::Float2 Center() const noexcept
         {
-            return core::Float2{ x + width * 0.5f, y + height * 0.5f };
+            return core::Float2{x + width * 0.5f, y + height * 0.5f};
         }
 
-        [[nodiscard]] constexpr bool IsEmpty() const noexcept { return width <= 0.0f || height <= 0.0f; }
+        [[nodiscard]] constexpr bool IsEmpty() const noexcept
+        {
+            return width <= 0.0f || height <= 0.0f;
+        }
 
         [[nodiscard]] constexpr bool Contains(core::Float2 p) const noexcept
         {
@@ -74,13 +88,13 @@ export namespace draconic::gui
 
         [[nodiscard]] constexpr bool Intersects(const Rect& other) const noexcept
         {
-            return x < other.Right() && Right() > other.x
-                && y < other.Bottom() && Bottom() > other.y;
+            return x < other.Right() && Right() > other.x && y < other.Bottom() &&
+                   Bottom() > other.y;
         }
 
         [[nodiscard]] constexpr core::Rectangle ToRectangle() const noexcept
         {
-            return core::Rectangle{ x, y, width, height };
+            return core::Rectangle{x, y, width, height};
         }
 
         // The overlapping rectangle of two rects; empty (zero size) if disjoint.
@@ -94,7 +108,7 @@ export namespace draconic::gui
             const f32 y1 = ab < bb ? ab : bb;
             const f32 w = (x1 - x0) > 0.0f ? (x1 - x0) : 0.0f;
             const f32 h = (y1 - y0) > 0.0f ? (y1 - y0) : 0.0f;
-            return Rect{ x0, y0, w, h };
+            return Rect{x0, y0, w, h};
         }
 
         // The smallest rectangle enclosing both.
@@ -106,7 +120,7 @@ export namespace draconic::gui
             const f32 ab = a.Bottom(), bb = b.Bottom();
             const f32 x1 = ar > br ? ar : br;
             const f32 y1 = ab > bb ? ab : bb;
-            return Rect{ x0, y0, x1 - x0, y1 - y0 };
+            return Rect{x0, y0, x1 - x0, y1 - y0};
         }
     };
 

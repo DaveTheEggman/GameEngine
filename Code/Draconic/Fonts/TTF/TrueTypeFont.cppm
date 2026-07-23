@@ -52,8 +52,8 @@ export namespace draconic::fonts
             int ascent = 0, descent = 0, lineGap = 0;
             stbtt_GetFontVMetrics(&m_fontInfo, &ascent, &descent, &lineGap);
 
-            m_metrics = FontMetrics(
-                ascent * m_scale, descent * m_scale, lineGap * m_scale, pixelHeight, m_scale);
+            m_metrics = FontMetrics(ascent * m_scale, descent * m_scale, lineGap * m_scale,
+                                    pixelHeight, m_scale);
 
             ExtractFamilyName(&m_fontInfo, m_familyName);
             return FontLoadResult::Success;
@@ -80,14 +80,16 @@ export namespace draconic::fonts
             if (info.glyphIndex > 0)
             {
                 int advanceWidth = 0, leftSideBearing = 0;
-                stbtt_GetGlyphHMetrics(&m_fontInfo, info.glyphIndex, &advanceWidth, &leftSideBearing);
+                stbtt_GetGlyphHMetrics(&m_fontInfo, info.glyphIndex, &advanceWidth,
+                                       &leftSideBearing);
                 info.advanceWidth = advanceWidth * m_scale;
                 info.leftSideBearing = leftSideBearing * m_scale;
 
                 int x0 = 0, y0 = 0, x1 = 0, y1 = 0;
-                stbtt_GetGlyphBitmapBox(&m_fontInfo, info.glyphIndex, m_scale, m_scale, &x0, &y0, &x1, &y1);
+                stbtt_GetGlyphBitmapBox(&m_fontInfo, info.glyphIndex, m_scale, m_scale, &x0, &y0,
+                                        &x1, &y1);
                 info.boundingBox = Rectangle(static_cast<f32>(x0), static_cast<f32>(y0),
-                                        static_cast<f32>(x1 - x0), static_cast<f32>(y1 - y0));
+                                             static_cast<f32>(x1 - x0), static_cast<f32>(y1 - y0));
                 info.hasBitmap = (x1 - x0) > 0 && (y1 - y0) > 0;
             }
 
@@ -97,7 +99,8 @@ export namespace draconic::fonts
 
         [[nodiscard]] f32 GetKerning(i32 firstCodepoint, i32 secondCodepoint) const override
         {
-            const int kern = stbtt_GetCodepointKernAdvance(&m_fontInfo, firstCodepoint, secondCodepoint);
+            const int kern =
+                stbtt_GetCodepointKernAdvance(&m_fontInfo, firstCodepoint, secondCodepoint);
             return kern * m_scale;
         }
 
@@ -123,7 +126,8 @@ export namespace draconic::fonts
             return width;
         }
 
-        [[nodiscard]] f32 MeasureString(StringView text, Array<GlyphPosition>& outPositions) const override
+        [[nodiscard]] f32 MeasureString(StringView text,
+                                        Array<GlyphPosition>& outPositions) const override
         {
             f32 x = 0;
             i32 prevCodepoint = 0;
@@ -136,7 +140,8 @@ export namespace draconic::fonts
                 const GlyphInfo info = GetGlyphInfo(codepoint);
                 if (prevCodepoint != 0)
                     x += GetKerning(prevCodepoint, codepoint);
-                outPositions.PushBack(GlyphPosition(index, codepoint, x, 0, info.advanceWidth, info));
+                outPositions.PushBack(
+                    GlyphPosition(index, codepoint, x, 0, info.advanceWidth, info));
                 x += info.advanceWidth;
                 prevCodepoint = codepoint;
                 ++index;
@@ -153,9 +158,12 @@ export namespace draconic::fonts
             outName.Clear();
             constexpr int NAME_ID_FAMILY = 1;
 
-            if (TryReadUtf16Name(font, 3, 1, 0x0409, NAME_ID_FAMILY, outName)) return;
-            if (TryReadUtf16NameAnyLanguage(font, 3, 1, NAME_ID_FAMILY, outName)) return;
-            if (TryReadLatin1Name(font, 1, 0, 0, NAME_ID_FAMILY, outName)) return;
+            if (TryReadUtf16Name(font, 3, 1, 0x0409, NAME_ID_FAMILY, outName))
+                return;
+            if (TryReadUtf16NameAnyLanguage(font, 3, 1, NAME_ID_FAMILY, outName))
+                return;
+            if (TryReadLatin1Name(font, 1, 0, 0, NAME_ID_FAMILY, outName))
+                return;
 
             outName = String(u8"TrueType Font");
         }
@@ -164,8 +172,8 @@ export namespace draconic::fonts
                                      int languageID, int nameID, String& outName)
         {
             int byteLen = 0;
-            const char* bytes = stbtt_GetFontNameString(
-                font, &byteLen, platformID, encodingID, languageID, nameID);
+            const char* bytes =
+                stbtt_GetFontNameString(font, &byteLen, platformID, encodingID, languageID, nameID);
             if (bytes == nullptr || byteLen <= 0)
                 return false;
             AppendBigEndianUtf16(bytes, byteLen, outName);
@@ -175,7 +183,7 @@ export namespace draconic::fonts
         static bool TryReadUtf16NameAnyLanguage(const stbtt_fontinfo* font, int platformID,
                                                 int encodingID, int nameID, String& outName)
         {
-            const int languages[] = { 0x0809, 0x0c09, 0x1009, 0x1409, 0 };
+            const int languages[] = {0x0809, 0x0c09, 0x1009, 0x1409, 0};
             for (const int lang : languages)
                 if (TryReadUtf16Name(font, platformID, encodingID, lang, nameID, outName))
                     return true;
@@ -186,15 +194,16 @@ export namespace draconic::fonts
                                       int languageID, int nameID, String& outName)
         {
             int byteLen = 0;
-            const char* bytes = stbtt_GetFontNameString(
-                font, &byteLen, platformID, encodingID, languageID, nameID);
+            const char* bytes =
+                stbtt_GetFontNameString(font, &byteLen, platformID, encodingID, languageID, nameID);
             if (bytes == nullptr || byteLen <= 0)
                 return false;
             outName.Clear();
             for (int i = 0; i < byteLen; ++i)
             {
                 const u8 b = static_cast<u8>(bytes[i]);
-                if (b == 0) continue;
+                if (b == 0)
+                    continue;
                 AppendUtf8(outName, b); // Latin-1 == first 256 code points
             }
             return !outName.IsEmpty();
@@ -210,7 +219,8 @@ export namespace draconic::fonts
             {
                 const u16 cp = static_cast<u16>((static_cast<u16>(p[i]) << 8) | p[i + 1]);
                 i += 2;
-                if (cp == 0) continue;
+                if (cp == 0)
+                    continue;
                 AppendUtf8(out, cp); // BMP only; lone surrogates pass through as their unit value
             }
         }

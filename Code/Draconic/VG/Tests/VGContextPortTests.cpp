@@ -97,7 +97,8 @@ TEST_CASE("vgcontext: clear resets everything")
 TEST_CASE("vgcontext: FillStar produces output")
 {
     VGContext ctx;
-    ctx.FillStar(Float2{50, 50}, 30, 15, 5, ToColor(Color32{255, 255, 0, 255})); // Sedulous Color32.Yellow
+    ctx.FillStar(Float2{50, 50}, 30, 15, 5,
+                 ToColor(Color32{255, 255, 0, 255})); // Sedulous Color32.Yellow
     VGBatch& batch = ctx.GetBatch();
     CHECK(batch.VertexCount() > 0u);
 }

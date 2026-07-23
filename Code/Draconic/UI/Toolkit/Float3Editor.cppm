@@ -32,13 +32,21 @@ export namespace draconic::ui::toolkit
         Function<void(Float3)> Setter;
 
         Float3Editor(StringView name, Float3 value, f32 min = -100000, f32 max = 100000,
-            f32 step = 0.1f, Function<void(Float3)> setter = {}, StringView category = {})
-            : PropertyEditor(name, category), Setter(Move(setter)), m_value(value), m_min(min), m_max(max), m_step(step)
+                     f32 step = 0.1f, Function<void(Float3)> setter = {}, StringView category = {})
+            : PropertyEditor(name, category), Setter(Move(setter)), m_value(value), m_min(min),
+              m_max(max), m_step(step)
         {
         }
 
         [[nodiscard]] Float3 Value() const noexcept { return m_value; }
-        void SetValue(Float3 value) { m_value = value; if (!m_syncing) { RefreshView(); } }
+        void SetValue(Float3 value)
+        {
+            m_value = value;
+            if (!m_syncing)
+            {
+                RefreshView();
+            }
+        }
 
         void RefreshView() override
         {
@@ -76,40 +84,80 @@ export namespace draconic::ui::toolkit
 
             Float3Editor* self = this;
 
-            RefPtr<VectorNumericField> x = MakeField(0, StringView(u8"X"), AxisColors::X, m_value.x);
+            RefPtr<VectorNumericField> x =
+                MakeField(0, StringView(u8"X"), AxisColors::X, m_value.x);
             m_xField = x.Get();
-            m_xField->OnValueChanged.Add([self](NumericField*, f64 val)
-            {
-                if (!self->m_syncing) { self->m_syncing = true; self->m_value.x = static_cast<f32>(val); if (self->Setter) { self->Setter(self->m_value); } self->NotifyValueChanged(); self->m_syncing = false; }
-            });
+            m_xField->OnValueChanged.Add(
+                [self](NumericField*, f64 val)
+                {
+                    if (!self->m_syncing)
+                    {
+                        self->m_syncing = true;
+                        self->m_value.x = static_cast<f32>(val);
+                        if (self->Setter)
+                        {
+                            self->Setter(self->m_value);
+                        }
+                        self->NotifyValueChanged();
+                        self->m_syncing = false;
+                    }
+                });
             row->AddView(x.Get(), GrowParams());
 
-            RefPtr<VectorNumericField> y = MakeField(1, StringView(u8"Y"), AxisColors::Y, m_value.y);
+            RefPtr<VectorNumericField> y =
+                MakeField(1, StringView(u8"Y"), AxisColors::Y, m_value.y);
             m_yField = y.Get();
-            m_yField->OnValueChanged.Add([self](NumericField*, f64 val)
-            {
-                if (!self->m_syncing) { self->m_syncing = true; self->m_value.y = static_cast<f32>(val); if (self->Setter) { self->Setter(self->m_value); } self->NotifyValueChanged(); self->m_syncing = false; }
-            });
+            m_yField->OnValueChanged.Add(
+                [self](NumericField*, f64 val)
+                {
+                    if (!self->m_syncing)
+                    {
+                        self->m_syncing = true;
+                        self->m_value.y = static_cast<f32>(val);
+                        if (self->Setter)
+                        {
+                            self->Setter(self->m_value);
+                        }
+                        self->NotifyValueChanged();
+                        self->m_syncing = false;
+                    }
+                });
             row->AddView(y.Get(), GrowParams());
 
-            RefPtr<VectorNumericField> z = MakeField(2, StringView(u8"Z"), AxisColors::Z, m_value.z);
+            RefPtr<VectorNumericField> z =
+                MakeField(2, StringView(u8"Z"), AxisColors::Z, m_value.z);
             m_zField = z.Get();
-            m_zField->OnValueChanged.Add([self](NumericField*, f64 val)
-            {
-                if (!self->m_syncing) { self->m_syncing = true; self->m_value.z = static_cast<f32>(val); if (self->Setter) { self->Setter(self->m_value); } self->NotifyValueChanged(); self->m_syncing = false; }
-            });
+            m_zField->OnValueChanged.Add(
+                [self](NumericField*, f64 val)
+                {
+                    if (!self->m_syncing)
+                    {
+                        self->m_syncing = true;
+                        self->m_value.z = static_cast<f32>(val);
+                        if (self->Setter)
+                        {
+                            self->Setter(self->m_value);
+                        }
+                        self->NotifyValueChanged();
+                        self->m_syncing = false;
+                    }
+                });
             row->AddView(z.Get(), GrowParams());
 
             return row;
         }
 
     private:
-        RefPtr<VectorNumericField> MakeField(i32 axis, StringView axisText, Color axisColor, f32 initial)
+        RefPtr<VectorNumericField> MakeField(i32 axis, StringView axisText, Color axisColor,
+                                             f32 initial)
         {
-            RefPtr<VectorNumericField> f = MakeRef<VectorNumericField>(DefaultAllocator(), this, axis);
+            RefPtr<VectorNumericField> f =
+                MakeRef<VectorNumericField>(DefaultAllocator(), this, axis);
             f->AddClass(u8"property-field");
             f->ShowSpinButtons.SetValue(false);
-            f->SetMin(m_min); f->SetMax(m_max); f->SetStep(m_step);
+            f->SetMin(m_min);
+            f->SetMax(m_max);
+            f->SetStep(m_step);
             f->SetDecimalPlaces(3);
             f->SetValue(initial);
             RefPtr<AxisLabel> label = MakeRef<AxisLabel>(DefaultAllocator(), axisText, axisColor);
@@ -139,13 +187,19 @@ export namespace draconic::ui::toolkit
     inline void Float3Editor::VectorNumericField::OnFocusGained()
     {
         NumericField::OnFocusGained();
-        if (!m_editor->IsEditing()) { m_editor->BeginEdit(); }
+        if (!m_editor->IsEditing())
+        {
+            m_editor->BeginEdit();
+        }
     }
 
     inline void Float3Editor::VectorNumericField::OnFocusLost()
     {
         NumericField::OnFocusLost();
-        if (m_editor->IsEditing()) { m_editor->EndEdit(); }
+        if (m_editor->IsEditing())
+        {
+            m_editor->EndEdit();
+        }
     }
 
     DRACONIC_DEFINE_OBJECT(Float3Editor, "draconic::ui::toolkit")

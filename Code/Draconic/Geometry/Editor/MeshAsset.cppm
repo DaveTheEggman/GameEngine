@@ -26,73 +26,109 @@ import draconic.geometry.resource;
 
 using namespace draconic::core;
 
-export namespace draconic::geometry {
+export namespace draconic::geometry
+{
 
-class StaticMeshAsset final : public draconic::editor::Asset {
-    DRACONIC_OBJECT(StaticMeshAsset, draconic::editor::Asset)
-public:
-    StaticMeshSource source;
+    class StaticMeshAsset final : public draconic::editor::Asset
+    {
+        DRACONIC_OBJECT(StaticMeshAsset, draconic::editor::Asset)
+    public:
+        StaticMeshSource source;
 
-    void Serialize(ISerializer& ar) override {
-        draconic::editor::Asset::Serialize(ar);   // fileName (source model note)
-        source.Serialize(ar);
+        void Serialize(ISerializer& ar) override
+        {
+            draconic::editor::Asset::Serialize(ar); // fileName (source model note)
+            source.Serialize(ar);
+        }
+    };
+
+    class SkinnedMeshAsset final : public draconic::editor::Asset
+    {
+        DRACONIC_OBJECT(SkinnedMeshAsset, draconic::editor::Asset)
+    public:
+        SkinnedMeshSource source;
+
+        void Serialize(ISerializer& ar) override
+        {
+            draconic::editor::Asset::Serialize(ar);
+            source.Serialize(ar);
+        }
+    };
+
+    // Cooks a StaticMeshAsset -> StaticMeshSource in the output DB.
+    class StaticMeshAssetBuilder final : public draconic::editor::DefaultAssetBuilder
+    {
+    public:
+        [[nodiscard]] const TypeInfo* AssetType() const override
+        {
+            return &StaticMeshAsset::StaticType();
+        }
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &StaticMeshSource::StaticType();
+        }
+        [[nodiscard]] Status Build(const draconic::editor::Asset& asset,
+                                   draconic::editor::AssetBuildContext& ctx) override
+        {
+            const StaticMeshAsset& ma = static_cast<const StaticMeshAsset&>(asset);
+            if (ctx.output == nullptr)
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
+            return ctx.output->WriteObject(
+                const_cast<StaticMeshSource&>(ma.source)); // write pass doesn't mutate
+        }
+    };
+
+    // Cooks a SkinnedMeshAsset -> SkinnedMeshSource in the output DB.
+    class SkinnedMeshAssetBuilder final : public draconic::editor::DefaultAssetBuilder
+    {
+    public:
+        [[nodiscard]] const TypeInfo* AssetType() const override
+        {
+            return &SkinnedMeshAsset::StaticType();
+        }
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &SkinnedMeshSource::StaticType();
+        }
+        [[nodiscard]] Status Build(const draconic::editor::Asset& asset,
+                                   draconic::editor::AssetBuildContext& ctx) override
+        {
+            const SkinnedMeshAsset& ma = static_cast<const SkinnedMeshAsset&>(asset);
+            if (ctx.output == nullptr)
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
+            return ctx.output->WriteObject(const_cast<SkinnedMeshSource&>(ma.source));
+        }
+    };
+
+    // Authoring helpers: capture a mesh built in code into an asset.
+    class MeshImporter
+    {
+    public:
+        static void Import(const StaticMesh& mesh, StaticMeshAsset& outAsset)
+        {
+            StaticMeshSource::FromMesh(mesh, outAsset.source);
+        }
+        static void Import(const SkinnedMesh& mesh, SkinnedMeshAsset& outAsset)
+        {
+            SkinnedMeshSource::FromMesh(mesh, outAsset.source);
+        }
+    };
+
+    inline void RegisterMeshAssets()
+    {
+        GlobalTypeRegistry().Register(StaticMeshAsset::StaticType());
+        RegisterSerializable<StaticMeshAsset>();
+        GlobalTypeRegistry().Register(SkinnedMeshAsset::StaticType());
+        RegisterSerializable<SkinnedMeshAsset>();
     }
-};
 
-class SkinnedMeshAsset final : public draconic::editor::Asset {
-    DRACONIC_OBJECT(SkinnedMeshAsset, draconic::editor::Asset)
-public:
-    SkinnedMeshSource source;
-
-    void Serialize(ISerializer& ar) override {
-        draconic::editor::Asset::Serialize(ar);
-        source.Serialize(ar);
-    }
-};
-
-// Cooks a StaticMeshAsset -> StaticMeshSource in the output DB.
-class StaticMeshAssetBuilder final : public draconic::editor::DefaultAssetBuilder {
-public:
-    [[nodiscard]] const TypeInfo* AssetType() const override { return &StaticMeshAsset::StaticType(); }
-        [[nodiscard]] const TypeInfo* ProductType() const override { return &StaticMeshSource::StaticType(); }
-    [[nodiscard]] Status Build(const draconic::editor::Asset& asset, draconic::editor::AssetBuildContext& ctx) override {
-        const StaticMeshAsset& ma = static_cast<const StaticMeshAsset&>(asset);
-        if (ctx.output == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
-        return ctx.output->WriteObject(const_cast<StaticMeshSource&>(ma.source));   // write pass doesn't mutate
-    }
-};
-
-// Cooks a SkinnedMeshAsset -> SkinnedMeshSource in the output DB.
-class SkinnedMeshAssetBuilder final : public draconic::editor::DefaultAssetBuilder {
-public:
-    [[nodiscard]] const TypeInfo* AssetType() const override { return &SkinnedMeshAsset::StaticType(); }
-        [[nodiscard]] const TypeInfo* ProductType() const override { return &SkinnedMeshSource::StaticType(); }
-    [[nodiscard]] Status Build(const draconic::editor::Asset& asset, draconic::editor::AssetBuildContext& ctx) override {
-        const SkinnedMeshAsset& ma = static_cast<const SkinnedMeshAsset&>(asset);
-        if (ctx.output == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
-        return ctx.output->WriteObject(const_cast<SkinnedMeshSource&>(ma.source));
-    }
-};
-
-// Authoring helpers: capture a mesh built in code into an asset.
-class MeshImporter {
-public:
-    static void Import(const StaticMesh& mesh, StaticMeshAsset& outAsset) {
-        StaticMeshSource::FromMesh(mesh, outAsset.source);
-    }
-    static void Import(const SkinnedMesh& mesh, SkinnedMeshAsset& outAsset) {
-        SkinnedMeshSource::FromMesh(mesh, outAsset.source);
-    }
-};
-
-inline void RegisterMeshAssets() {
-    GlobalTypeRegistry().Register(StaticMeshAsset::StaticType());
-    RegisterSerializable<StaticMeshAsset>();
-    GlobalTypeRegistry().Register(SkinnedMeshAsset::StaticType());
-    RegisterSerializable<SkinnedMeshAsset>();
-}
-
-DRACONIC_DEFINE_OBJECT_VERSIONED(StaticMeshAsset, "draconic::geometry", 2)   // v2 = Float4 tangent vertex blobs
-DRACONIC_DEFINE_OBJECT_VERSIONED(SkinnedMeshAsset, "draconic::geometry", 2)   // v2 = Float4 tangent vertex blobs
+    DRACONIC_DEFINE_OBJECT_VERSIONED(StaticMeshAsset, "draconic::geometry",
+                                     2) // v2 = Float4 tangent vertex blobs
+    DRACONIC_DEFINE_OBJECT_VERSIONED(SkinnedMeshAsset, "draconic::geometry",
+                                     2) // v2 = Float4 tangent vertex blobs
 
 } // namespace draconic::geometry

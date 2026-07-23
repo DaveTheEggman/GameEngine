@@ -22,8 +22,8 @@ module;
 
 export module draconic.runtime.client;
 
-export import :app;   // ApplicationSettings, IApplicationHost, IApplication
-export import :embedded_host;   // EmbeddedApplicationHost (editor-embedded runtime)
+export import :app;           // ApplicationSettings, IApplicationHost, IApplication
+export import :embedded_host; // EmbeddedApplicationHost (editor-embedded runtime)
 
 import draconic.core;
 import draconic.runtime;
@@ -32,8 +32,9 @@ import draconic.graphics;
 import draconic.profiler;
 
 namespace core = draconic::core;
-using namespace draconic::shell;   // IShell + input/window types (moved from draconic::runtime)
-using namespace draconic::graphics;   // GraphicsDevice/RenderWindow/FrameContext (moved from draconic::runtime)
+using namespace draconic::shell; // IShell + input/window types (moved from draconic::runtime)
+using namespace draconic::
+    graphics; // GraphicsDevice/RenderWindow/FrameContext (moved from draconic::runtime)
 
 export namespace draconic::runtime
 {
@@ -53,7 +54,10 @@ export namespace draconic::runtime
         // shell/graphics stay null for headless runs.
         void Start(IApplication& app, IShell* shell = nullptr, GraphicsDevice* graphics = nullptr)
         {
-            if (m_started) { return; }
+            if (m_started)
+            {
+                return;
+            }
             m_app = &app;
             m_shell = shell;
             m_graphics = graphics;
@@ -71,14 +75,19 @@ export namespace draconic::runtime
             {
                 if (IWindow* main = m_shell->WindowManager()->MainWindow())
                 {
-                    const RenderWindowDesc mainDesc = app.MainRenderWindow();   // app's main-window render config
+                    const RenderWindowDesc mainDesc =
+                        app.MainRenderWindow(); // app's main-window render config
                     auto rw = m_graphics->CreateRenderWindow(*main, mainDesc);
-                    if (rw.HasValue()) { m_windows.PushBack(static_cast<core::UniquePtr<RenderWindow>&&>(rw.Value())); }
+                    if (rw.HasValue())
+                    {
+                        m_windows.PushBack(
+                            static_cast<core::UniquePtr<RenderWindow>&&>(rw.Value()));
+                    }
                 }
             }
 
             m_app->OnStartup(*this);
-            m_app->OnLaunch(*this);   // standalone enters play immediately
+            m_app->OnLaunch(*this); // standalone enters play immediately
 
             m_started = true;
             m_running = true;
@@ -128,15 +137,19 @@ export namespace draconic::runtime
                         DRACONIC_PROFILE_SCOPE("Render.Acquire");
                         frame = rw->BeginFrame();
                     }
-                    if (!frame.valid) { continue; }
+                    if (!frame.valid)
+                    {
+                        continue;
+                    }
                     m_app->OnRenderWindow(*this, frame);
                     {
-                        DRACONIC_PROFILE_SCOPE("Render.Present");   // record submit + queue present
+                        DRACONIC_PROFILE_SCOPE("Render.Present"); // record submit + queue present
                         rw->EndFrame(frame);
                     }
                 }
                 {
-                    DRACONIC_PROFILE_SCOPE("Render.Advance");   // ring step; may wait on the frame fence
+                    DRACONIC_PROFILE_SCOPE(
+                        "Render.Advance"); // ring step; may wait on the frame fence
                     m_graphics->AdvanceFrame();
                 }
             }
@@ -150,13 +163,16 @@ export namespace draconic::runtime
         // Idempotent.
         void Stop()
         {
-            if (!m_started) { return; }
+            if (!m_started)
+            {
+                return;
+            }
             m_app->OnExit(*this);
             m_context.Shutdown();
             m_app->OnShutdown(*this);
 
             m_pendingClose.Clear();
-            m_windows.Clear();  // RenderWindow dtors WaitIdle + free GPU resources
+            m_windows.Clear(); // RenderWindow dtors WaitIdle + free GPU resources
 
             // Tear down the engine-wide JobSystem last - after every subsystem (Context.Shutdown)
             // and all GPU resource frees (window dtors), so nothing references it afterward.
@@ -167,7 +183,11 @@ export namespace draconic::runtime
         }
 
         // --- IApplicationHost ---
-        void RequestExit(int code = 0) noexcept override { m_running = false; m_exitCode = code; }
+        void RequestExit(int code = 0) noexcept override
+        {
+            m_running = false;
+            m_exitCode = code;
+        }
 
         [[nodiscard]] Context& Ctx() noexcept override { return m_context; }
         [[nodiscard]] IShell* Shell() noexcept override { return m_shell; }
@@ -178,14 +198,24 @@ export namespace draconic::runtime
             return m_windows.IsEmpty() ? nullptr : m_windows[0].Get();
         }
 
-        RenderWindow* OpenWindow(const WindowSettings& windowSettings, const RenderWindowDesc& renderDesc) override
+        RenderWindow* OpenWindow(const WindowSettings& windowSettings,
+                                 const RenderWindowDesc& renderDesc) override
         {
-            if (m_shell == nullptr || m_graphics == nullptr) { return nullptr; }
+            if (m_shell == nullptr || m_graphics == nullptr)
+            {
+                return nullptr;
+            }
             IWindowManager* wm = m_shell->WindowManager();
-            if (wm == nullptr) { return nullptr; }
+            if (wm == nullptr)
+            {
+                return nullptr;
+            }
 
             auto osWindow = wm->CreateWindow(windowSettings);
-            if (!osWindow.HasValue()) { return nullptr; }
+            if (!osWindow.HasValue())
+            {
+                return nullptr;
+            }
 
             auto rw = m_graphics->CreateRenderWindow(*osWindow.Value(), renderDesc);
             if (!rw.HasValue())
@@ -202,8 +232,17 @@ export namespace draconic::runtime
 
         void CloseWindow(RenderWindow* window) override
         {
-            if (window == nullptr) { return; }
-            for (RenderWindow* p : m_pendingClose) { if (p == window) { return; } }  // already queued
+            if (window == nullptr)
+            {
+                return;
+            }
+            for (RenderWindow* p : m_pendingClose)
+            {
+                if (p == window)
+                {
+                    return;
+                }
+            } // already queued
             m_pendingClose.PushBack(window);
         }
 
@@ -212,7 +251,8 @@ export namespace draconic::runtime
         [[nodiscard]] int ExitCode() const noexcept { return m_exitCode; }
         [[nodiscard]] core::Span<const core::UniquePtr<RenderWindow>> Windows() const noexcept
         {
-            return core::Span<const core::UniquePtr<RenderWindow>>(m_windows.Data(), m_windows.Size());
+            return core::Span<const core::UniquePtr<RenderWindow>>(m_windows.Data(),
+                                                                   m_windows.Size());
         }
 
     private:
@@ -220,7 +260,10 @@ export namespace draconic::runtime
         // the OS window. Runs at frame end, after the GPU finished the frame.
         void FlushPendingCloses()
         {
-            if (m_pendingClose.IsEmpty()) { return; }
+            if (m_pendingClose.IsEmpty())
+            {
+                return;
+            }
             IWindowManager* wm = (m_shell != nullptr) ? m_shell->WindowManager() : nullptr;
 
             for (RenderWindow* dead : m_pendingClose)
@@ -228,20 +271,30 @@ export namespace draconic::runtime
                 IWindow* osWindow = &dead->Window();
                 for (core::usize i = 0; i < m_windows.Size(); ++i)
                 {
-                    if (m_windows[i].Get() == dead) { m_windows.RemoveAt(i); break; }  // dtor frees GPU resources
+                    if (m_windows[i].Get() == dead)
+                    {
+                        m_windows.RemoveAt(i);
+                        break;
+                    } // dtor frees GPU resources
                 }
-                if (wm != nullptr) { wm->DestroyWindow(osWindow); }
+                if (wm != nullptr)
+                {
+                    wm->DestroyWindow(osWindow);
+                }
             }
             m_pendingClose.Clear();
-            if (wm != nullptr) { wm->FlushDestroyed(); }
+            if (wm != nullptr)
+            {
+                wm->FlushDestroyed();
+            }
         }
 
         Context m_context;
         ApplicationSettings m_settings;
-        IApplication* m_app = nullptr;         // borrowed; owned by the entry point
-        IShell* m_shell = nullptr;       // borrowed; owned by the entry point
-        GraphicsDevice* m_graphics = nullptr;  // borrowed; owned by the entry point
-        core::Array<core::UniquePtr<RenderWindow>> m_windows;   // [0] == main
+        IApplication* m_app = nullptr;                        // borrowed; owned by the entry point
+        IShell* m_shell = nullptr;                            // borrowed; owned by the entry point
+        GraphicsDevice* m_graphics = nullptr;                 // borrowed; owned by the entry point
+        core::Array<core::UniquePtr<RenderWindow>> m_windows; // [0] == main
         core::Array<RenderWindow*> m_pendingClose;            // deferred destroy
         bool m_started = false;
         bool m_running = false;

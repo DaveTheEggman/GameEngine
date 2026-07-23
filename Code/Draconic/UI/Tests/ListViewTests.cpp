@@ -12,12 +12,20 @@ using namespace draconic::ui::tests;
 using namespace draconic::core;
 namespace core = draconic::core;
 
-static core::RefPtr<RootView> MakeRoot() { return core::MakeRef<RootView>(core::DefaultAllocator()); }
-static core::RefPtr<ListView> MakeList() { return core::MakeRef<ListView>(core::DefaultAllocator()); }
+static core::RefPtr<RootView> MakeRoot()
+{
+    return core::MakeRef<RootView>(core::DefaultAllocator());
+}
+static core::RefPtr<ListView> MakeList()
+{
+    return core::MakeRef<ListView>(core::DefaultAllocator());
+}
 
 TEST_CASE("list-view: NoAdapter_NoViews")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 200, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 200, 300);
     auto lv = MakeList();
     root->AddView(lv.Get());
     LayoutPass(ctx, root.Get());
@@ -35,7 +43,9 @@ TEST_CASE("list-view: IsFocusable")
 
 TEST_CASE("list-view: SetAdapter_CreatesVisibleViews")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 200, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 200, 300);
     SimpleListAdapter adapter(100);
     auto lv = MakeList();
     lv->ItemHeight.SetValue(30);
@@ -49,7 +59,9 @@ TEST_CASE("list-view: SetAdapter_CreatesVisibleViews")
 
 TEST_CASE("list-view: ScrollBy_ClampsBounds")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 200, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 200, 300);
     SimpleListAdapter adapter(100);
     auto lv = MakeList();
     lv->ItemHeight.SetValue(30);
@@ -66,7 +78,9 @@ TEST_CASE("list-view: ScrollBy_ClampsBounds")
 
 TEST_CASE("list-view: GetItemAtY")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 200, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 200, 300);
     SimpleListAdapter adapter(100);
     auto lv = MakeList();
     lv->ItemHeight.SetValue(30);
@@ -96,7 +110,9 @@ TEST_CASE("list-view: Selection_SingleMode")
 
 TEST_CASE("list-view: AdapterObserver_OnDataSetChanged")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 200, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 200, 300);
     SimpleListAdapter adapter(10);
     auto lv = MakeList();
     lv->SetAdapter(&adapter);

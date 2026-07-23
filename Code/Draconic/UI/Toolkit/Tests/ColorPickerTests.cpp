@@ -21,14 +21,14 @@ TEST_CASE("toolkit-colorpicker: ConstructAndRoundTrip")
     CHECK(initial.a == doctest::Approx(1.0f));
 
     // Round-trip a known color through set/get.
-    const Color target{ 0.25f, 0.5f, 0.75f, 1.0f };
+    const Color target{0.25f, 0.5f, 0.75f, 1.0f};
     picker->SetColor(target);
     const Color got = picker->CurrentColor();
     CHECK(got.r == doctest::Approx(target.r).epsilon(0.01f));
     CHECK(got.g == doctest::Approx(target.g).epsilon(0.01f));
     CHECK(got.b == doctest::Approx(target.b).epsilon(0.01f));
 
-    picker->SetOriginalColor(Color{ 1.0f, 0.0f, 0.0f, 1.0f });
+    picker->SetOriginalColor(Color{1.0f, 0.0f, 0.0f, 1.0f});
 }
 
 TEST_CASE("toolkit-colorpicker: HSVMathIsInvertible")

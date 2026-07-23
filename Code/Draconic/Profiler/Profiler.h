@@ -10,19 +10,22 @@
 #endif
 
 #define DRACONIC_PROFILE_CONCAT_(a, b) a##b
-#define DRACONIC_PROFILE_CONCAT(a, b)  DRACONIC_PROFILE_CONCAT_(a, b)
+#define DRACONIC_PROFILE_CONCAT(a, b) DRACONIC_PROFILE_CONCAT_(a, b)
 
 #if DRACONIC_PROFILING
 
-#define DRACONIC_PROFILE_SCOPE(name) \
-    ::draconic::profiler::ScopedProfile DRACONIC_PROFILE_CONCAT(draconicProfScope_, __LINE__){ (name) }
+#define DRACONIC_PROFILE_SCOPE(name)                                                               \
+    ::draconic::profiler::ScopedProfile DRACONIC_PROFILE_CONCAT(draconicProfScope_, __LINE__)      \
+    {                                                                                              \
+        (name)                                                                                     \
+    }
 #define DRACONIC_PROFILE_FRAME_BEGIN() ::draconic::profiler::Profiler::Get().BeginFrame()
-#define DRACONIC_PROFILE_FRAME_END()   ::draconic::profiler::Profiler::Get().EndFrame()
+#define DRACONIC_PROFILE_FRAME_END() ::draconic::profiler::Profiler::Get().EndFrame()
 
 #else
 
-#define DRACONIC_PROFILE_SCOPE(name)   ((void)0)
+#define DRACONIC_PROFILE_SCOPE(name) ((void)0)
 #define DRACONIC_PROFILE_FRAME_BEGIN() ((void)0)
-#define DRACONIC_PROFILE_FRAME_END()   ((void)0)
+#define DRACONIC_PROFILE_FRAME_END() ((void)0)
 
 #endif

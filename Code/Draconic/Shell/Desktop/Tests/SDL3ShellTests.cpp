@@ -2,15 +2,15 @@
 
 #include "Core/Prelude.h"
 
-#include <cstdlib>           // setenv
+#include <cstdlib> // setenv
 #define SDL_MAIN_HANDLED
-#include <SDL3/SDL.h>        // synthetic events + window id (tests exercise the close path)
+#include <SDL3/SDL.h> // synthetic events + window id (tests exercise the close path)
 
 import draconic.core;
 import draconic.runtime;
 import draconic.shell;
 import draconic.runtime.client;
-import draconic.runtime.desktop;   // RunApplication (the desktop runner)
+import draconic.runtime.desktop; // RunApplication (the desktop runner)
 import draconic.shell.desktop;
 
 using namespace draconic::core;
@@ -23,7 +23,8 @@ namespace
     // display and never flash a real window. Set before any SDL_Init.
     struct ForceDummyDriver
     {
-        ForceDummyDriver() {
+        ForceDummyDriver()
+        {
 #ifdef _WIN32
             _putenv_s("SDL_VIDEODRIVER", "dummy");
 #else
@@ -38,7 +39,13 @@ namespace
     {
     public:
         int frames = 0;
-        void OnUpdate(IApplicationHost& host, f32) override { if (++frames == 5) { host.RequestExit(3); } }
+        void OnUpdate(IApplicationHost& host, f32) override
+        {
+            if (++frames == 5)
+            {
+                host.RequestExit(3);
+            }
+        }
     };
 }
 
@@ -71,14 +78,17 @@ TEST_CASE("shell.desktop: SDL3 shell creates a window and reports state")
     CHECK(native.system == WindowSystem::Unknown);
 #endif
 
-    shell.ProcessEvents();   // pump (no pending events) - must not change state
+    shell.ProcessEvents(); // pump (no pending events) - must not change state
     CHECK(shell.IsRunning());
 }
 
 TEST_CASE("shell.desktop: a window-close event stops the shell")
 {
     SDL3Shell shell;
-    if (shell.MainWindow() == nullptr) { return; }
+    if (shell.MainWindow() == nullptr)
+    {
+        return;
+    }
 
     auto* window = static_cast<SDL3Window*>(shell.MainWindow())->Handle();
     REQUIRE(window != nullptr);
@@ -96,16 +106,21 @@ TEST_CASE("shell.desktop: a window-close event stops the shell")
 TEST_CASE("shell.desktop: keyboard events drive double-buffered key state")
 {
     SDL3Shell shell;
-    if (shell.MainWindow() == nullptr) { return; }
+    if (shell.MainWindow() == nullptr)
+    {
+        return;
+    }
 
     IInputManager* input = shell.Input();
     REQUIRE(input != nullptr);
     REQUIRE(input->Keyboard() != nullptr);
     IKeyboard* kb = input->Keyboard();
 
-    const SDL_WindowID winId = SDL_GetWindowID(static_cast<SDL3Window*>(shell.MainWindow())->Handle());
+    const SDL_WindowID winId =
+        SDL_GetWindowID(static_cast<SDL3Window*>(shell.MainWindow())->Handle());
 
-    auto pushKey = [winId](bool down) {
+    auto pushKey = [winId](bool down)
+    {
         SDL_Event e{};
         e.type = down ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
         e.key.windowID = winId;
@@ -137,26 +152,32 @@ TEST_CASE("shell.desktop: keyboard events drive double-buffered key state")
 TEST_CASE("shell.desktop: mouse motion and buttons are tracked")
 {
     SDL3Shell shell;
-    if (shell.MainWindow() == nullptr) { return; }
+    if (shell.MainWindow() == nullptr)
+    {
+        return;
+    }
 
     IInputManager* input = shell.Input();
     REQUIRE(input != nullptr);
     IMouse* mouse = input->Mouse();
     REQUIRE(mouse != nullptr);
 
-    const SDL_WindowID winId = SDL_GetWindowID(static_cast<SDL3Window*>(shell.MainWindow())->Handle());
+    const SDL_WindowID winId =
+        SDL_GetWindowID(static_cast<SDL3Window*>(shell.MainWindow())->Handle());
 
     SDL_Event motion{};
     motion.type = SDL_EVENT_MOUSE_MOTION;
     motion.motion.windowID = winId;
-    motion.motion.x = 12.0f; motion.motion.y = 34.0f;
-    motion.motion.xrel = 12.0f; motion.motion.yrel = 34.0f;
+    motion.motion.x = 12.0f;
+    motion.motion.y = 34.0f;
+    motion.motion.xrel = 12.0f;
+    motion.motion.yrel = 34.0f;
     SDL_PushEvent(&motion);
 
     SDL_Event button{};
     button.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
     button.button.windowID = winId;
-    button.button.button = SDL_BUTTON_LEFT;  // 1-based; maps to MouseButton::Left
+    button.button.button = SDL_BUTTON_LEFT; // 1-based; maps to MouseButton::Left
     button.button.down = true;
     SDL_PushEvent(&button);
 
@@ -177,7 +198,10 @@ TEST_CASE("shell.desktop: mouse motion and buttons are tracked")
 TEST_CASE("shell.desktop: cursor state is settable")
 {
     SDL3Shell shell;
-    if (shell.MainWindow() == nullptr) { return; }
+    if (shell.MainWindow() == nullptr)
+    {
+        return;
+    }
 
     IMouse* mouse = shell.Input()->Mouse();
     REQUIRE(mouse != nullptr);
@@ -193,14 +217,17 @@ TEST_CASE("shell.desktop: cursor state is settable")
     mouse->SetCursor(CursorType::Pointer);
     mouse->SetCursor(CursorType::Text);
     mouse->SetCursor(CursorType::ResizeNWSE);
-    mouse->SetCursor(CursorType::Pointer);  // cached on second use
+    mouse->SetCursor(CursorType::Pointer); // cached on second use
     mouse->SetCursor(CursorType::Default);
 }
 
 TEST_CASE("shell.desktop: input exposes a gamepad list")
 {
     SDL3Shell shell;
-    if (shell.MainWindow() == nullptr) { return; }
+    if (shell.MainWindow() == nullptr)
+    {
+        return;
+    }
 
     IInputManager* input = shell.Input();
     REQUIRE(input != nullptr);
@@ -212,7 +239,10 @@ TEST_CASE("shell.desktop: input exposes a gamepad list")
 TEST_CASE("shell.desktop: RequestExit stops the shell")
 {
     SDL3Shell shell;
-    if (shell.MainWindow() == nullptr) { return; }
+    if (shell.MainWindow() == nullptr)
+    {
+        return;
+    }
     CHECK(shell.IsRunning());
     shell.RequestExit();
     CHECK_FALSE(shell.IsRunning());
@@ -221,21 +251,27 @@ TEST_CASE("shell.desktop: RequestExit stops the shell")
 TEST_CASE("shell.desktop: RunApplication drives the app until it exits")
 {
     SDL3Shell shell;
-    if (shell.MainWindow() == nullptr) { return; }
+    if (shell.MainWindow() == nullptr)
+    {
+        return;
+    }
 
     FrameCountApp app;
-    const int code = RunApplication(app, shell);   // the desktop runner (draconic.runtime.desktop)
+    const int code = RunApplication(app, shell); // the desktop runner (draconic.runtime.desktop)
 
     CHECK(code == 3);
-    CHECK(app.frames == 5);            // RequestExit(3) ended the loop
+    CHECK(app.frames == 5); // RequestExit(3) ended the loop
 }
 
 TEST_CASE("shell.desktop: window geometry accessors + global mouse are callable")
 {
     WindowSettings settings;
-    settings.width = 500; settings.height = 400;
-    settings.positioned = true; settings.x = 64; settings.y = 48;
-    settings.borderless = true;   // exercise the borderless-flag creation path
+    settings.width = 500;
+    settings.height = 400;
+    settings.positioned = true;
+    settings.x = 64;
+    settings.y = 48;
+    settings.borderless = true; // exercise the borderless-flag creation path
 
     SDL3Shell shell(settings);
     if (shell.MainWindow() == nullptr)
@@ -268,11 +304,16 @@ TEST_CASE("shell.desktop: window geometry accessors + global mouse are callable"
 TEST_CASE("shell.desktop: keypad and function scancodes map (KP_ENTER was silently Unknown)")
 {
     SDL3Shell shell;
-    if (shell.MainWindow() == nullptr) { return; }
+    if (shell.MainWindow() == nullptr)
+    {
+        return;
+    }
     IKeyboard* kb = shell.Input()->Keyboard();
-    const SDL_WindowID winId = SDL_GetWindowID(static_cast<SDL3Window*>(shell.MainWindow())->Handle());
+    const SDL_WindowID winId =
+        SDL_GetWindowID(static_cast<SDL3Window*>(shell.MainWindow())->Handle());
 
-    auto push = [winId](SDL_Scancode sc, bool down) {
+    auto push = [winId](SDL_Scancode sc, bool down)
+    {
         SDL_Event e{};
         e.type = down ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
         e.key.windowID = winId;
@@ -281,15 +322,19 @@ TEST_CASE("shell.desktop: keypad and function scancodes map (KP_ENTER was silent
         SDL_PushEvent(&e);
     };
 
-    struct Expect { SDL_Scancode sc; KeyCode key; };
+    struct Expect
+    {
+        SDL_Scancode sc;
+        KeyCode key;
+    };
     const Expect cases[] = {
-        { SDL_SCANCODE_KP_ENTER,    KeyCode::KeypadEnter },
-        { SDL_SCANCODE_KP_0,        KeyCode::Keypad0 },
-        { SDL_SCANCODE_KP_5,        KeyCode::Keypad5 },
-        { SDL_SCANCODE_KP_PLUS,     KeyCode::KeypadPlus },
-        { SDL_SCANCODE_F13,         KeyCode::F13 },
-        { SDL_SCANCODE_GRAVE,       KeyCode::Grave },
-        { SDL_SCANCODE_PRINTSCREEN, KeyCode::PrintScreen },
+        {SDL_SCANCODE_KP_ENTER, KeyCode::KeypadEnter},
+        {SDL_SCANCODE_KP_0, KeyCode::Keypad0},
+        {SDL_SCANCODE_KP_5, KeyCode::Keypad5},
+        {SDL_SCANCODE_KP_PLUS, KeyCode::KeypadPlus},
+        {SDL_SCANCODE_F13, KeyCode::F13},
+        {SDL_SCANCODE_GRAVE, KeyCode::Grave},
+        {SDL_SCANCODE_PRINTSCREEN, KeyCode::PrintScreen},
     };
     for (const Expect& c : cases)
     {

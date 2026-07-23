@@ -26,7 +26,12 @@ TEST_CASE("toolkit-splitview: PanesRatioAndLayout")
     // Ratio clamps to [0,1] and fires OnSplitChanged.
     bool fired = false;
     f32 lastRatio = -1.0f;
-    split->OnSplitChanged.Add([&](SplitView*, f32 r) { fired = true; lastRatio = r; });
+    split->OnSplitChanged.Add(
+        [&](SplitView*, f32 r)
+        {
+            fired = true;
+            lastRatio = r;
+        });
     split->SetSplitRatio(2.0f);
     CHECK(split->SplitRatio() == doctest::Approx(1.0f));
     CHECK(fired);

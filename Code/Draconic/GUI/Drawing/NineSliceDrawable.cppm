@@ -10,8 +10,8 @@ module;
 
 export module draconic.gui:nine_slice_drawable;
 
-import draconic.core;    // Color, Rectangle, Float2, Optional
-import draconic.image;   // ImageData, NineSlice
+import draconic.core;  // Color, Rectangle, Float2, Optional
+import draconic.image; // ImageData, NineSlice
 import :rect;
 import :draw_context;
 import :drawable;
@@ -31,24 +31,28 @@ export namespace draconic::gui
         Color Tint = Color::White;
 
         NineSliceDrawable() = default;
-        NineSliceDrawable(const image::ImageData* image, image::NineSlice slices, Color tint = Color::White) noexcept
-            : Image(image), Slices(slices), Tint(tint) {}
+        NineSliceDrawable(const image::ImageData* image, image::NineSlice slices,
+                          Color tint = Color::White) noexcept
+            : Image(image), Slices(slices), Tint(tint)
+        {
+        }
 
         void Draw(DrawContext& ctx, const Rect& dest) override
         {
             if (Image == nullptr)
                 return;
             ctx.VG().DrawNineSlice(Image, dest.ToRectangle(),
-                core::Rectangle{ 0.0f, 0.0f,
-                    static_cast<f32>(Image->Width()), static_cast<f32>(Image->Height()) },
-                Slices, Tint);
+                                   core::Rectangle{0.0f, 0.0f, static_cast<f32>(Image->Width()),
+                                                   static_cast<f32>(Image->Height())},
+                                   Slices, Tint);
         }
 
         [[nodiscard]] Optional<Float2> IntrinsicSize() const override
         {
             if (Image == nullptr)
                 return {};
-            return core::Float2{ static_cast<f32>(Image->Width()), static_cast<f32>(Image->Height()) };
+            return core::Float2{static_cast<f32>(Image->Width()),
+                                static_cast<f32>(Image->Height())};
         }
     };
 

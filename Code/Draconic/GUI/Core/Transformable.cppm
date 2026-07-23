@@ -10,7 +10,7 @@ module;
 
 export module draconic.gui:transformable;
 
-import draconic.core;   // Float2
+import draconic.core; // Float2
 import :transform2d;
 
 using namespace draconic::core;
@@ -24,12 +24,32 @@ export namespace draconic::gui
         Transformable() = default;
         virtual ~Transformable() = default;
 
-        virtual void SetPosition(core::Float2 position) { m_position = position; MarkDirty(); }
-        virtual void SetRotation(f32 radians) { m_rotation = radians; MarkDirty(); }
-        virtual void SetScale(core::Float2 factors) { m_scale = factors; MarkDirty(); }
-        void SetScale(f32 x, f32 y) { SetScale(core::Float2{ x, y }); }
-        virtual void SetScaleOrigin(core::Float2 origin) { m_scaleOrigin = origin; MarkDirty(); }
-        virtual void SetRotationOrigin(core::Float2 origin) { m_rotationOrigin = origin; MarkDirty(); }
+        virtual void SetPosition(core::Float2 position)
+        {
+            m_position = position;
+            MarkDirty();
+        }
+        virtual void SetRotation(f32 radians)
+        {
+            m_rotation = radians;
+            MarkDirty();
+        }
+        virtual void SetScale(core::Float2 factors)
+        {
+            m_scale = factors;
+            MarkDirty();
+        }
+        void SetScale(f32 x, f32 y) { SetScale(core::Float2{x, y}); }
+        virtual void SetScaleOrigin(core::Float2 origin)
+        {
+            m_scaleOrigin = origin;
+            MarkDirty();
+        }
+        virtual void SetRotationOrigin(core::Float2 origin)
+        {
+            m_rotationOrigin = origin;
+            MarkDirty();
+        }
 
         [[nodiscard]] core::Float2 GetPosition() const noexcept { return m_position; }
         [[nodiscard]] f32 GetRotation() const noexcept { return m_rotation; }
@@ -79,12 +99,16 @@ export namespace draconic::gui
         }
 
     protected:
-        void MarkDirty() noexcept { m_transformDirty = true; m_inverseDirty = true; }
+        void MarkDirty() noexcept
+        {
+            m_transformDirty = true;
+            m_inverseDirty = true;
+        }
 
-        core::Float2 m_position{ 0.0f, 0.0f };
-        core::Float2 m_scale{ 1.0f, 1.0f };
-        core::Float2 m_scaleOrigin{ 0.0f, 0.0f };
-        core::Float2 m_rotationOrigin{ 0.0f, 0.0f };
+        core::Float2 m_position{0.0f, 0.0f};
+        core::Float2 m_scale{1.0f, 1.0f};
+        core::Float2 m_scaleOrigin{0.0f, 0.0f};
+        core::Float2 m_rotationOrigin{0.0f, 0.0f};
         f32 m_rotation = 0.0f; // radians
 
         mutable Transform2D m_transform{};

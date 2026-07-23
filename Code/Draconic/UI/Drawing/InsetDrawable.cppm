@@ -10,7 +10,7 @@ module;
 
 export module draconic.ui:inset_drawable;
 
-import draconic.core;   // RefPtr, Rectangle, Max
+import draconic.core; // RefPtr, Rectangle, Max
 import :thickness;
 import :control_state;
 import :drawable;
@@ -26,17 +26,25 @@ export namespace draconic::ui
     public:
         Thickness Inset{};
 
-        InsetDrawable(RefPtr<Drawable> inner, Thickness inset) : Inset(inset), m_inner(Move(inner)) {}
+        InsetDrawable(RefPtr<Drawable> inner, Thickness inset) : Inset(inset), m_inner(Move(inner))
+        {
+        }
 
         [[nodiscard]] Drawable* Inner() const noexcept { return m_inner.Get(); }
 
         void Draw(UIDrawContext& ctx, const Rectangle& bounds) override
         {
-            if (m_inner) { m_inner->Draw(ctx, InsetBounds(bounds)); }
+            if (m_inner)
+            {
+                m_inner->Draw(ctx, InsetBounds(bounds));
+            }
         }
         void Draw(UIDrawContext& ctx, const Rectangle& bounds, ControlState state) override
         {
-            if (m_inner) { m_inner->Draw(ctx, InsetBounds(bounds), state); }
+            if (m_inner)
+            {
+                m_inner->Draw(ctx, InsetBounds(bounds), state);
+            }
         }
 
         [[nodiscard]] Thickness DrawablePadding() const override { return Inset; }
@@ -44,9 +52,9 @@ export namespace draconic::ui
     private:
         [[nodiscard]] Rectangle InsetBounds(const Rectangle& b) const noexcept
         {
-            return Rectangle{ b.x + Inset.Left, b.y + Inset.Top,
-                              Max(0.0f, b.width - Inset.TotalHorizontal()),
-                              Max(0.0f, b.height - Inset.TotalVertical()) };
+            return Rectangle{b.x + Inset.Left, b.y + Inset.Top,
+                             Max(0.0f, b.width - Inset.TotalHorizontal()),
+                             Max(0.0f, b.height - Inset.TotalVertical())};
         }
 
         RefPtr<Drawable> m_inner;

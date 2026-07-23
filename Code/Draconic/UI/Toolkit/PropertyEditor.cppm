@@ -48,10 +48,12 @@ export namespace draconic::ui::toolkit
         /// EditText. The delegate receives the new name.
         Function<void(StringView)> OnLabelRenamed;
 
-        explicit PropertyEditor(StringView name, StringView category = {})
-            : m_name(name)
+        explicit PropertyEditor(StringView name, StringView category = {}) : m_name(name)
         {
-            if (category.Size() > 0) { m_category = String(category); }
+            if (category.Size() > 0)
+            {
+                m_category = String(category);
+            }
         }
 
         ~PropertyEditor() override = default;
@@ -60,14 +62,20 @@ export namespace draconic::ui::toolkit
         [[nodiscard]] StringView Name() const { return m_name; }
 
         /// Display label shown in the inspector UI. Falls back to Name if not set.
-        [[nodiscard]] StringView DisplayName() const { return m_displayName.IsEmpty() ? StringView(m_name) : StringView(m_displayName); }
+        [[nodiscard]] StringView DisplayName() const
+        {
+            return m_displayName.IsEmpty() ? StringView(m_name) : StringView(m_displayName);
+        }
 
         /// Sets the display label (for pretty names like "Casts Shadows"). Live: a built
         /// row's label follows (PropertyGrid binds the sink like it binds row visibility).
         void SetDisplayName(StringView displayName)
         {
             m_displayName = String(displayName);
-            if (m_displayNameSink) { m_displayNameSink(DisplayName()); }
+            if (m_displayNameSink)
+            {
+                m_displayNameSink(DisplayName());
+            }
         }
 
         /// Called by PropertyGrid each time it (re)builds this editor's row: keeps the row's
@@ -87,7 +95,10 @@ export namespace draconic::ui::toolkit
         [[nodiscard]] bool RowVisible() const noexcept { return m_rowVisible; }
         void SetRowVisible(bool visible)
         {
-            if (m_rowVisible == visible) { return; }
+            if (m_rowVisible == visible)
+            {
+                return;
+            }
             m_rowVisible = visible;
             ApplyRowVisibility();
         }
@@ -108,7 +119,10 @@ export namespace draconic::ui::toolkit
         /// Get or create the editor view (lazy).
         [[nodiscard]] View* EditorView()
         {
-            if (m_editorView.Get() == nullptr) { m_editorView = CreateEditorView(); }
+            if (m_editorView.Get() == nullptr)
+            {
+                m_editorView = CreateEditorView();
+            }
             return m_editorView.Get();
         }
 
@@ -155,14 +169,18 @@ export namespace draconic::ui::toolkit
     private:
         void ApplyRowVisibility()
         {
-            if (m_rowView == nullptr) { return; }
+            if (m_rowView == nullptr)
+            {
+                return;
+            }
             m_rowView->Visibility = m_rowVisible ? VisibilityValue::Visible : VisibilityValue::Gone;
             m_rowView->Invalidate();
         }
 
-        String m_name;             // machine-readable identity
+        String m_name; // machine-readable identity
         String m_displayName;
-        Function<void(StringView)> m_displayNameSink;   // row label binding (PropertyGrid)      // empty == "use Name"
+        Function<void(StringView)>
+            m_displayNameSink;     // row label binding (PropertyGrid)      // empty == "use Name"
         String m_category;         // empty == uncategorized
         String m_tooltip;          // empty == none
         RefPtr<View> m_editorView; // owned; the view tree also refs it once added

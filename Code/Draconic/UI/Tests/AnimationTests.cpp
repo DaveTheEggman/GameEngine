@@ -66,7 +66,8 @@ TEST_CASE("animation: Float_Completes_ReturnsTrue")
 TEST_CASE("animation: Color_Interpolates")
 {
     Color result = Color::Black;
-    ColorAnimation anim(Color{ 0, 0, 0, 1 }, Color{ 1, 1, 1, 1 }, 1.0f, [&result](Color v) { result = v; });
+    ColorAnimation anim(Color{0, 0, 0, 1}, Color{1, 1, 1, 1}, 1.0f,
+                        [&result](Color v) { result = v; });
     anim.Start();
     anim.Update(0.5f);
     CHECK(result.r > 0.3f);
@@ -77,8 +78,8 @@ TEST_CASE("animation: Color_Interpolates")
 
 TEST_CASE("animation: Float2_Interpolates")
 {
-    Float2 result = Float2{ 0, 0 };
-    Float2Animation anim(Float2{ 0, 0 }, Float2{ 100, 200 }, 1.0f, [&result](Float2 v) { result = v; });
+    Float2 result = Float2{0, 0};
+    Float2Animation anim(Float2{0, 0}, Float2{100, 200}, 1.0f, [&result](Float2 v) { result = v; });
     anim.Start();
     anim.Update(0.5f);
     CHECK(result.x == doctest::Approx(50).epsilon(0.0001));
@@ -136,7 +137,10 @@ TEST_CASE("animation: RepeatInfinite_NeverCompletes")
     anim.SetRepeatCount(-1);
     anim.Start();
 
-    for (i32 i = 0; i < 100; ++i) { anim.Update(0.1f); }
+    for (i32 i = 0; i < 100; ++i)
+    {
+        anim.Update(0.1f);
+    }
 
     CHECK(!anim.IsComplete());
     CHECK(anim.IsRunning());
@@ -148,7 +152,7 @@ TEST_CASE("animation: OnComplete_FiresWhenDone")
 {
     bool fired = false;
     FloatAnimation anim(0, 1, 0.5f, [](f32) {});
-    anim.OnComplete.Add(Event<void(Animation*)>::Handler{ [&fired](Animation*) { fired = true; } });
+    anim.OnComplete.Add(Event<void(Animation*)>::Handler{[&fired](Animation*) { fired = true; }});
     anim.Start();
     anim.Update(1.0f);
     CHECK(fired);
@@ -194,9 +198,21 @@ TEST_CASE("animation: Storyboard_Sequential_RunsInOrder")
 
     Storyboard sb(Storyboard::Mode::Sequential);
     sb.Add(core::MakeUnique<FloatAnimation>(core::DefaultAllocator(), 0.0f, 1.0f, 0.1f,
-        Function<void(f32)>{ [&first, &order](f32) { if (first < 0) { first = order++; } } }));
+                                            Function<void(f32)>{[&first, &order](f32)
+                                                                {
+                                                                    if (first < 0)
+                                                                    {
+                                                                        first = order++;
+                                                                    }
+                                                                }}));
     sb.Add(core::MakeUnique<FloatAnimation>(core::DefaultAllocator(), 0.0f, 1.0f, 0.1f,
-        Function<void(f32)>{ [&second, &order](f32) { if (second < 0) { second = order++; } } }));
+                                            Function<void(f32)>{[&second, &order](f32)
+                                                                {
+                                                                    if (second < 0)
+                                                                    {
+                                                                        second = order++;
+                                                                    }
+                                                                }}));
     sb.Start();
 
     sb.Update(0.05f);
@@ -214,9 +230,9 @@ TEST_CASE("animation: Storyboard_Parallel_RunsSimultaneously")
 
     Storyboard sb(Storyboard::Mode::Parallel);
     sb.Add(core::MakeUnique<FloatAnimation>(core::DefaultAllocator(), 0.0f, 1.0f, 0.2f,
-        Function<void(f32)>{ [&aRan](f32) { aRan = true; } }));
+                                            Function<void(f32)>{[&aRan](f32) { aRan = true; }}));
     sb.Add(core::MakeUnique<FloatAnimation>(core::DefaultAllocator(), 0.0f, 1.0f, 0.1f,
-        Function<void(f32)>{ [&bRan](f32) { bRan = true; } }));
+                                            Function<void(f32)>{[&bRan](f32) { bRan = true; }}));
     sb.Start();
 
     sb.Update(0.05f);
@@ -229,7 +245,8 @@ TEST_CASE("animation: Storyboard_Parallel_RunsSimultaneously")
 TEST_CASE("animation: Manager_DeletesOnComplete")
 {
     AnimationManager mgr;
-    mgr.Add(core::MakeUnique<FloatAnimation>(core::DefaultAllocator(), 0.0f, 1.0f, 0.1f, Function<void(f32)>{ [](f32) {} }));
+    mgr.Add(core::MakeUnique<FloatAnimation>(core::DefaultAllocator(), 0.0f, 1.0f, 0.1f,
+                                             Function<void(f32)>{[](f32) {}}));
     CHECK(mgr.ActiveCount() == 1);
 
     mgr.Update(0.2f);
@@ -239,8 +256,10 @@ TEST_CASE("animation: Manager_DeletesOnComplete")
 TEST_CASE("animation: Manager_CancelAll")
 {
     AnimationManager mgr;
-    mgr.Add(core::MakeUnique<FloatAnimation>(core::DefaultAllocator(), 0.0f, 1.0f, 1.0f, Function<void(f32)>{ [](f32) {} }));
-    mgr.Add(core::MakeUnique<FloatAnimation>(core::DefaultAllocator(), 0.0f, 1.0f, 1.0f, Function<void(f32)>{ [](f32) {} }));
+    mgr.Add(core::MakeUnique<FloatAnimation>(core::DefaultAllocator(), 0.0f, 1.0f, 1.0f,
+                                             Function<void(f32)>{[](f32) {}}));
+    mgr.Add(core::MakeUnique<FloatAnimation>(core::DefaultAllocator(), 0.0f, 1.0f, 1.0f,
+                                             Function<void(f32)>{[](f32) {}}));
     CHECK(mgr.ActiveCount() == 2);
 
     mgr.CancelAll();
@@ -249,13 +268,15 @@ TEST_CASE("animation: Manager_CancelAll")
 
 TEST_CASE("animation: Manager_CancelForView")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
 
     auto view = core::MakeRef<TestView>(core::DefaultAllocator(), 50.0f, 30.0f);
     root->AddView(view.Get());
 
-    auto anim = core::MakeUnique<FloatAnimation>(core::DefaultAllocator(), 0.0f, 1.0f, 1.0f, Function<void(f32)>{ [](f32) {} });
+    auto anim = core::MakeUnique<FloatAnimation>(core::DefaultAllocator(), 0.0f, 1.0f, 1.0f,
+                                                 Function<void(f32)>{[](f32) {}});
     anim->SetTarget(view.Get());
     ctx.Animations()->Add(Move(anim));
     CHECK(ctx.Animations()->ActiveCount() == 1);
@@ -266,13 +287,15 @@ TEST_CASE("animation: Manager_CancelForView")
 
 TEST_CASE("animation: Manager_AutoCancelOnViewDelete")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
 
     auto view = core::MakeRef<TestView>(core::DefaultAllocator(), 50.0f, 30.0f);
     root->AddView(view.Get());
 
-    auto anim = core::MakeUnique<FloatAnimation>(core::DefaultAllocator(), 0.0f, 1.0f, 1.0f, Function<void(f32)>{ [](f32) {} });
+    auto anim = core::MakeUnique<FloatAnimation>(core::DefaultAllocator(), 0.0f, 1.0f, 1.0f,
+                                                 Function<void(f32)>{[](f32) {}});
     anim->SetTarget(view.Get());
     ctx.Animations()->Add(Move(anim));
 

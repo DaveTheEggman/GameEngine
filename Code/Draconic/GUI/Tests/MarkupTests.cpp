@@ -52,7 +52,8 @@ TEST_CASE("markup: inflates a nested tree with identity + structural attributes"
 
 TEST_CASE("markup: unclaimed attributes are applied as inline CSS")
 {
-    auto root = Load(u8R"(<Label text="Hi" width="120" height="30" background-color="#ff0000" padding="4"/>)");
+    auto root = Load(
+        u8R"(<Label text="Hi" width="120" height="30" background-color="#ff0000" padding="4"/>)");
     REQUIRE(root.Get() != nullptr);
     auto* label = core::Cast<Label>(root.Get());
     REQUIRE(label != nullptr);
@@ -80,7 +81,8 @@ TEST_CASE("markup: an unknown root element yields null; unknown children are ski
 {
     CHECK(Load(u8R"(<NotAWidget/>)").Get() == nullptr);
 
-    auto root = Load(u8R"(<LinearLayout><Label text="a"/><Bogus/><Label text="b"/></LinearLayout>)");
+    auto root =
+        Load(u8R"(<LinearLayout><Label text="a"/><Bogus/><Label text="b"/></LinearLayout>)");
     REQUIRE(root.Get() != nullptr);
     CHECK(root->ChildCount() == 2); // the <Bogus/> child was skipped
 }

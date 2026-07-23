@@ -30,7 +30,13 @@ namespace fonts = draconic::fonts;
 
 export namespace draconic::ui::toolkit
 {
-    enum class ToastSeverity : u8 { Info, Success, Warning, Error };
+    enum class ToastSeverity : u8
+    {
+        Info,
+        Success,
+        Warning,
+        Error
+    };
 
     /// One notification. `durationSeconds <= 0` = sticky (until closed/dismissed).
     struct ToastRequest
@@ -38,8 +44,8 @@ export namespace draconic::ui::toolkit
         String message;
         ToastSeverity severity = ToastSeverity::Info;
         f32 durationSeconds = 5.0f;
-        String actionLabel;          // empty = no action button
-        Function<void()> onAction;   // fired on action click (the toast then closes)
+        String actionLabel;        // empty = no action button
+        Function<void()> onAction; // fired on action click (the toast then closes)
     };
 
     /// A single toast card: severity accent bar + message + optional action + close button.
@@ -47,7 +53,7 @@ export namespace draconic::ui::toolkit
     {
         DRACONIC_OBJECT(ToastCard, FlexLayout)
     public:
-        Color Accent{ 0.35f, 0.55f, 0.95f, 1.0f };
+        Color Accent{0.35f, 0.55f, 0.95f, 1.0f};
 
         ToastCard()
         {
@@ -58,23 +64,23 @@ export namespace draconic::ui::toolkit
 
         void OnDraw(UIDrawContext& ctx) override
         {
-            const Color bg = ResolveStyleColor(StyleProperty::Background,
-                                               Color{ 0.13f, 0.14f, 0.17f, 0.97f });
+            const Color bg =
+                ResolveStyleColor(StyleProperty::Background, Color{0.13f, 0.14f, 0.17f, 0.97f});
             const f32 r = ResolveStyleFloat(StyleProperty::CornerRadius, 0.0f);
-            const Rectangle bounds{ 0, 0, Width(), Height() };
+            const Rectangle bounds{0, 0, Width(), Height()};
             if (r > 0.0f)
             {
                 ctx.VG().FillRoundedRect(bounds, r, bg);
                 // Accent trim drawn OVER the card's left edge. Its width equals the corner radius so its
                 // rounded left corners coincide exactly with the card's - a thinner bar can't match a
                 // larger radius and reads as a separate rounded box floating inside the card.
-                ctx.VG().FillRoundedRect(Rectangle{ 0, 0, r, Height() },
-                                         draconic::vg::CornerRadii{ r, 0.0f, 0.0f, r }, Accent);
+                ctx.VG().FillRoundedRect(Rectangle{0, 0, r, Height()},
+                                         draconic::vg::CornerRadii{r, 0.0f, 0.0f, r}, Accent);
             }
             else
             {
                 ctx.VG().FillRect(bounds, bg);
-                ctx.VG().FillRect(Rectangle{ 0, 0, 3.0f, Height() }, Accent);
+                ctx.VG().FillRect(Rectangle{0, 0, 3.0f, Height()}, Accent);
             }
             DrawChildren(ctx);
         }
@@ -90,7 +96,7 @@ export namespace draconic::ui::toolkit
         f32 CornerMargin = 12.0f;
         f32 Spacing = 8.0f;
 
-        ToastHost() { IsHitTestVisible = false; }   // only the cards take input
+        ToastHost() { IsHitTestVisible = false; } // only the cards take input
 
         /// Adds a toast; returns its id (for Dismiss / Contains).
         u64 Show(ToastRequest request)
@@ -99,9 +105,10 @@ export namespace draconic::ui::toolkit
 
             RefPtr<ToastCard> card = MakeRef<ToastCard>(DefaultAllocator());
             // Info uses the theme accent; Success/Warning/Error keep their semantic colors.
-            card->Accent = (request.severity == ToastSeverity::Info)
-                ? ResolveStyleColor(StyleProperty::AccentColor, AccentFor(request.severity))
-                : AccentFor(request.severity);
+            card->Accent =
+                (request.severity == ToastSeverity::Info)
+                    ? ResolveStyleColor(StyleProperty::AccentColor, AccentFor(request.severity))
+                    : AccentFor(request.severity);
 
             RefPtr<Label> message = MakeRef<Label>(DefaultAllocator());
             message->SetText(request.message.AsView());
@@ -117,11 +124,14 @@ export namespace draconic::ui::toolkit
             ToastHost* self = this;
             if (!request.actionLabel.IsEmpty())
             {
-                RefPtr<Button> action = MakeRef<Button>(DefaultAllocator(), request.actionLabel.AsView());
-                action->OnClick.Add([self, id](ButtonBase*) {
-                    self->InvokeAction(id);
-                    self->MarkClosing(id);
-                });
+                RefPtr<Button> action =
+                    MakeRef<Button>(DefaultAllocator(), request.actionLabel.AsView());
+                action->OnClick.Add(
+                    [self, id](ButtonBase*)
+                    {
+                        self->InvokeAction(id);
+                        self->MarkClosing(id);
+                    });
                 card->AddView(action.Get());
             }
 
@@ -149,7 +159,13 @@ export namespace draconic::ui::toolkit
 
         [[nodiscard]] bool Contains(u64 id) const noexcept
         {
-            for (const Entry& e : m_entries) { if (e.id == id) { return true; } }
+            for (const Entry& e : m_entries)
+            {
+                if (e.id == id)
+                {
+                    return true;
+                }
+            }
             return false;
         }
 
@@ -162,7 +178,10 @@ export namespace draconic::ui::toolkit
                 if (!e.closing && e.duration > 0.0f)
                 {
                     e.age += dt;
-                    if (e.age >= e.duration) { e.closing = true; }
+                    if (e.age >= e.duration)
+                    {
+                        e.closing = true;
+                    }
                 }
             }
             for (usize i = m_entries.Size(); i-- > 0;)
@@ -174,15 +193,21 @@ export namespace draconic::ui::toolkit
                     changed = true;
                 }
             }
-            if (changed) { Invalidate(); }
+            if (changed)
+            {
+                Invalidate();
+            }
         }
 
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
-            const BoxConstraints cardConstraints{ ToastWidth, ToastWidth, 0.0f, 200.0f };
-            for (const Entry& e : m_entries) { e.card->Measure(cardConstraints); }
-            MeasuredSize = Float2{ constraints.MaxWidth, constraints.MaxHeight };
+            const BoxConstraints cardConstraints{ToastWidth, ToastWidth, 0.0f, 200.0f};
+            for (const Entry& e : m_entries)
+            {
+                e.card->Measure(cardConstraints);
+            }
+            MeasuredSize = Float2{constraints.MaxWidth, constraints.MaxHeight};
         }
 
         void OnLayout(f32, f32, f32 width, f32 height) override
@@ -206,20 +231,34 @@ export namespace draconic::ui::toolkit
             f32 age = 0.0f;
             f32 duration = 0.0f;
             bool closing = false;
-            View* card = nullptr;        // borrowed; the child tree owns it
+            View* card = nullptr; // borrowed; the child tree owns it
             Function<void()> onAction;
         };
 
         void MarkClosing(u64 id)
         {
-            for (Entry& e : m_entries) { if (e.id == id) { e.closing = true; return; } }
+            for (Entry& e : m_entries)
+            {
+                if (e.id == id)
+                {
+                    e.closing = true;
+                    return;
+                }
+            }
         }
 
         void InvokeAction(u64 id)
         {
             for (Entry& e : m_entries)
             {
-                if (e.id == id) { if (e.onAction) { e.onAction(); } return; }
+                if (e.id == id)
+                {
+                    if (e.onAction)
+                    {
+                        e.onAction();
+                    }
+                    return;
+                }
             }
         }
 
@@ -227,11 +266,15 @@ export namespace draconic::ui::toolkit
         {
             switch (severity)
             {
-                case ToastSeverity::Success: return Color{ 0.30f, 0.75f, 0.40f, 1.0f };
-                case ToastSeverity::Warning: return Color{ 0.95f, 0.70f, 0.25f, 1.0f };
-                case ToastSeverity::Error:   return Color{ 0.90f, 0.30f, 0.30f, 1.0f };
-                case ToastSeverity::Info:
-                default:                     return Color{ 0.35f, 0.55f, 0.95f, 1.0f };
+            case ToastSeverity::Success:
+                return Color{0.30f, 0.75f, 0.40f, 1.0f};
+            case ToastSeverity::Warning:
+                return Color{0.95f, 0.70f, 0.25f, 1.0f};
+            case ToastSeverity::Error:
+                return Color{0.90f, 0.30f, 0.30f, 1.0f};
+            case ToastSeverity::Info:
+            default:
+                return Color{0.35f, 0.55f, 0.95f, 1.0f};
             }
         }
 

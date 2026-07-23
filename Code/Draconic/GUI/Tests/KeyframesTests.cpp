@@ -11,7 +11,11 @@ namespace core = draconic::core;
 
 namespace
 {
-    template <typename T> core::RefPtr<T> Make() { return core::MakeRef<T>(core::DefaultAllocator()); }
+    template <typename T>
+    core::RefPtr<T> Make()
+    {
+        return core::MakeRef<T>(core::DefaultAllocator());
+    }
     core::Duration Secs(double s) { return core::Duration::FromSeconds(s); }
 }
 
@@ -40,8 +44,8 @@ TEST_CASE("keyframes: parse names, offsets (%, from/to), and stop declarations")
 
 TEST_CASE("keyframes: a comma offset list shares the block")
 {
-    StyleSheet sheet = CSSParser::Parse(core::StringView(
-        u8"@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }"));
+    StyleSheet sheet = CSSParser::Parse(
+        core::StringView(u8"@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }"));
     const Keyframes* blink = sheet.FindKeyframes(core::StringView(u8"blink"));
     REQUIRE(blink != nullptr);
     CHECK(blink->Stops.Size() == 3); // 0%, 100%, 50%
@@ -109,8 +113,8 @@ TEST_CASE("keyframes: the animation is spawned once, not re-spawned each ApplyTr
         u8".anim { animation: fade 2s; }")));
 
     mgr.ApplyTree(*root.Get());
-    root->Update(Secs(1.0)); // t=0.5 -> 0
-    mgr.ApplyTree(*root.Get()); // re-apply must NOT restart the animation
+    root->Update(Secs(1.0));                       // t=0.5 -> 0
+    mgr.ApplyTree(*root.Get());                    // re-apply must NOT restart the animation
     CHECK(w->GetAlpha() == doctest::Approx(0.0f)); // still mid-animation, not reset to t=0
 }
 
@@ -128,7 +132,8 @@ TEST_CASE("keyframes: animates background-color across the stops")
     mgr.ApplyTree(*root.Get());
 
     // At t=0 the background is black; halfway it's mid-grey; at the end white.
-    auto grey = [&](float expect) {
+    auto grey = [&](float expect)
+    {
         Drawable* bg = w->GetBackground();
         RectangleDrawable* r = core::Cast<RectangleDrawable>(bg);
         REQUIRE(r != nullptr);

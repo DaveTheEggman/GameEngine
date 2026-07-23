@@ -27,7 +27,10 @@ export namespace draconic::ui
     public:
         Property() = default;
         explicit Property(T initialValue) : m_value(Move(initialValue)) {}
-        Property(T initialValue, InvalidationKind kind) : m_value(Move(initialValue)), m_invalidationKind(kind) {}
+        Property(T initialValue, InvalidationKind kind)
+            : m_value(Move(initialValue)), m_invalidationKind(kind)
+        {
+        }
 
         /// The current value.
         [[nodiscard]] const T& Value() const noexcept { return m_value; }
@@ -36,13 +39,22 @@ export namespace draconic::ui
         /// A loop guard prevents infinite recursion from two-way bindings.
         void SetValue(T value)
         {
-            if (m_isUpdating) { return; }
-            if (m_value == value) { return; }
+            if (m_isUpdating)
+            {
+                return;
+            }
+            if (m_value == value)
+            {
+                return;
+            }
 
             m_isUpdating = true;
             m_value = Move(value);
             Changed(m_value);
-            if (m_owner != nullptr) { m_owner->OnPropertyChanged(m_invalidationKind); }
+            if (m_owner != nullptr)
+            {
+                m_owner->OnPropertyChanged(m_invalidationKind);
+            }
             m_isUpdating = false;
         }
 
@@ -60,7 +72,7 @@ export namespace draconic::ui
         void BindTo(Property<T>& target)
         {
             Property<T>* t = &target;
-            Changed.Add(typename Event<void(T)>::Handler{ [t](T val) { t->SetValue(Move(val)); } });
+            Changed.Add(typename Event<void(T)>::Handler{[t](T val) { t->SetValue(Move(val)); }});
         }
 
         /// Two-way: changes to either side update the other (loop guard prevents recursion).
@@ -68,8 +80,9 @@ export namespace draconic::ui
         {
             Property<T>* o = &other;
             Property<T>* self = this;
-            Changed.Add(typename Event<void(T)>::Handler{ [o](T val) { o->SetValue(Move(val)); } });
-            other.Changed.Add(typename Event<void(T)>::Handler{ [self](T val) { self->SetValue(Move(val)); } });
+            Changed.Add(typename Event<void(T)>::Handler{[o](T val) { o->SetValue(Move(val)); }});
+            other.Changed.Add(
+                typename Event<void(T)>::Handler{[self](T val) { self->SetValue(Move(val)); }});
         }
 
         /// Fired with the new value whenever it changes.

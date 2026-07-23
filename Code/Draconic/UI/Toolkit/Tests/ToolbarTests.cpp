@@ -28,7 +28,12 @@ TEST_CASE("toolkit-toolbar: AddsItemsAndToggles")
     // Toggle round-trip fires OnCheckedChanged.
     bool fired = false;
     bool lastValue = false;
-    toggle->OnCheckedChanged.Add([&](ToolbarToggle*, bool v) { fired = true; lastValue = v; });
+    toggle->OnCheckedChanged.Add(
+        [&](ToolbarToggle*, bool v)
+        {
+            fired = true;
+            lastValue = v;
+        });
     CHECK(toggle->IsChecked() == false);
     toggle->SetIsChecked(true);
     CHECK(toggle->IsChecked() == true);

@@ -12,8 +12,8 @@ module;
 
 export module draconic.gui:slider;
 
-import draconic.core;   // Color, Function, Move, Max, Min, Float2, Rectangle
-import draconic.vg;     // CornerRadii
+import draconic.core; // Color, Function, Move, Max, Min, Float2, Rectangle
+import draconic.vg;   // CornerRadii
 import :rect;
 import :event;
 import :draw_context;
@@ -29,23 +29,44 @@ export namespace draconic::gui
     {
         DRACONIC_OBJECT(Slider, UIWidget)
     public:
-        Slider() { SetTag(core::StringView(u8"slider")); SetTabFocusable(true); }
+        Slider()
+        {
+            SetTag(core::StringView(u8"slider"));
+            SetTabFocusable(true);
+        }
 
         [[nodiscard]] f32 GetValue() const noexcept { return m_value; }
         void SetValue(f32 value)
         {
             value = core::Max(0.0f, core::Min(1.0f, value));
-            if (value == m_value) return;
+            if (value == m_value)
+                return;
             m_value = value;
             Invalidate();
-            if (m_onChanged) m_onChanged(m_value);
+            if (m_onChanged)
+                m_onChanged(m_value);
         }
 
-        void SetOnValueChanged(core::Function<void(f32)> callback) { m_onChanged = core::Move(callback); }
+        void SetOnValueChanged(core::Function<void(f32)> callback)
+        {
+            m_onChanged = core::Move(callback);
+        }
 
-        void SetTrackColor(Color color)  { m_trackColor = color; Invalidate(); }
-        void SetFillColor(Color color)   { m_fillColor = color; Invalidate(); }
-        void SetHandleColor(Color color) { m_handleColor = color; Invalidate(); }
+        void SetTrackColor(Color color)
+        {
+            m_trackColor = color;
+            Invalidate();
+        }
+        void SetFillColor(Color color)
+        {
+            m_fillColor = color;
+            Invalidate();
+        }
+        void SetHandleColor(Color color)
+        {
+            m_handleColor = color;
+            Invalidate();
+        }
 
         // Theming parts: slider::track / ::fill / ::thumb.
         void CollectStyleParts(core::Array<core::StringView>& out) const override
@@ -56,9 +77,12 @@ export namespace draconic::gui
         }
         void SetThemePartColor(core::StringView part, Color color) override
         {
-            if (part == core::StringView(u8"track")) SetTrackColor(color);
-            else if (part == core::StringView(u8"fill")) SetFillColor(color);
-            else if (part == core::StringView(u8"thumb")) SetHandleColor(color);
+            if (part == core::StringView(u8"track"))
+                SetTrackColor(color);
+            else if (part == core::StringView(u8"fill"))
+                SetFillColor(color);
+            else if (part == core::StringView(u8"thumb"))
+                SetHandleColor(color);
         }
 
     protected:
@@ -67,9 +91,24 @@ export namespace draconic::gui
         // BEFORE the routed OnMouseMove, so gating the move on IsPressed() would stop the
         // drag the instant the cursor left. Pointer capture guarantees the release reaches
         // us, so OnMouseUp reliably clears m_dragging.
-        void OnMouseDown(const MouseEvent& event) override { UINode::OnMouseDown(event); if (event.Button != MouseButton::Left) return; m_dragging = true; UpdateFromEvent(event); }
-        void OnMouseMove(const MouseEvent& event) override { if (m_dragging) UpdateFromEvent(event); }
-        void OnMouseUp(const MouseEvent& event) override { m_dragging = false; UINode::OnMouseUp(event); }
+        void OnMouseDown(const MouseEvent& event) override
+        {
+            UINode::OnMouseDown(event);
+            if (event.Button != MouseButton::Left)
+                return;
+            m_dragging = true;
+            UpdateFromEvent(event);
+        }
+        void OnMouseMove(const MouseEvent& event) override
+        {
+            if (m_dragging)
+                UpdateFromEvent(event);
+        }
+        void OnMouseUp(const MouseEvent& event) override
+        {
+            m_dragging = false;
+            UINode::OnMouseUp(event);
+        }
 
         void OnDraw(DrawContext& ctx, const Rect& localBounds) override
         {
@@ -83,9 +122,11 @@ export namespace draconic::gui
             const f32 x1 = b.x + b.width - handleR;
             const f32 handleX = x0 + (x1 - x0) * m_value;
 
-            ctx.VG().FillRoundedRect(core::Rectangle{ b.x, trackTop, b.width, trackH }, vg::CornerRadii(trackH * 0.5f), m_trackColor);
-            ctx.VG().FillRoundedRect(core::Rectangle{ b.x, trackTop, handleX - b.x, trackH }, vg::CornerRadii(trackH * 0.5f), m_fillColor);
-            ctx.VG().FillCircle(core::Float2{ handleX, cy }, handleR, m_handleColor);
+            ctx.VG().FillRoundedRect(core::Rectangle{b.x, trackTop, b.width, trackH},
+                                     vg::CornerRadii(trackH * 0.5f), m_trackColor);
+            ctx.VG().FillRoundedRect(core::Rectangle{b.x, trackTop, handleX - b.x, trackH},
+                                     vg::CornerRadii(trackH * 0.5f), m_fillColor);
+            ctx.VG().FillCircle(core::Float2{handleX, cy}, handleR, m_handleColor);
         }
 
     private:
@@ -101,9 +142,9 @@ export namespace draconic::gui
 
         f32 m_value = 0.0f;
         bool m_dragging = false;
-        Color m_trackColor{ 0.28f, 0.30f, 0.35f, 1.0f };
-        Color m_fillColor{ 0.31f, 0.63f, 0.85f, 1.0f };
-        Color m_handleColor{ 0.86f, 0.89f, 0.93f, 1.0f };
+        Color m_trackColor{0.28f, 0.30f, 0.35f, 1.0f};
+        Color m_fillColor{0.31f, 0.63f, 0.85f, 1.0f};
+        Color m_handleColor{0.86f, 0.89f, 0.93f, 1.0f};
         core::Function<void(f32)> m_onChanged;
     };
 

@@ -11,15 +11,21 @@ namespace core = draconic::core;
 
 namespace
 {
-    template <typename T> core::RefPtr<T> Make() { return core::MakeRef<T>(core::DefaultAllocator()); }
+    template <typename T>
+    core::RefPtr<T> Make()
+    {
+        return core::MakeRef<T>(core::DefaultAllocator());
+    }
 
-    core::RefPtr<UIWidget> Zone(SceneNode* root, core::Float2 pos, core::Float2 size, const char8_t* accept)
+    core::RefPtr<UIWidget> Zone(SceneNode* root, core::Float2 pos, core::Float2 size,
+                                const char8_t* accept)
     {
         auto z = core::MakeRef<UIWidget>(core::DefaultAllocator());
         z->SetSize(size);
         z->SetPosition(pos);
         const core::String want(accept);
-        z->SetDropAcceptor([want](const DragPayload& p) { return p.Type.AsView() == want.AsView(); });
+        z->SetDropAcceptor([want](const DragPayload& p)
+                           { return p.Type.AsView() == want.AsView(); });
         root->AddChild(z.Get());
         return z;
     }
@@ -36,8 +42,9 @@ namespace
 TEST_CASE("dnd: drag delivers enter/over then drop on an accepting target")
 {
     auto root = Make<SceneNode>();
-    root->SetSize(core::Float2{ 300.0f, 300.0f });
-    auto target = Zone(root.Get(), core::Float2{ 100.0f, 0.0f }, core::Float2{ 100.0f, 100.0f }, u8"item");
+    root->SetSize(core::Float2{300.0f, 300.0f});
+    auto target =
+        Zone(root.Get(), core::Float2{100.0f, 0.0f}, core::Float2{100.0f, 100.0f}, u8"item");
     EventDispatcher* d = root->GetEventDispatcher();
 
     int enters = 0, overs = 0, leaves = 0, drops = 0;
@@ -45,22 +52,28 @@ TEST_CASE("dnd: drag delivers enter/over then drop on an accepting target")
     target->AddEventListener(EventType::DragEnter, [&](const Event&) { ++enters; });
     target->AddEventListener(EventType::DragOver, [&](const Event&) { ++overs; });
     target->AddEventListener(EventType::DragLeave, [&](const Event&) { ++leaves; });
-    target->AddEventListener(EventType::Drop, [&](const Event& e) { ++drops; dropped = core::String(static_cast<const DragEvent&>(e).Payload.Value); });
+    target->AddEventListener(EventType::Drop,
+                             [&](const Event& e)
+                             {
+                                 ++drops;
+                                 dropped =
+                                     core::String(static_cast<const DragEvent&>(e).Payload.Value);
+                             });
 
     // Cursor starts outside the target; begin the drag.
-    d->InjectMouseMove(core::Float2{ 10.0f, 10.0f });
+    d->InjectMouseMove(core::Float2{10.0f, 10.0f});
     d->BeginDrag(nullptr, Payload(u8"item", u8"apple"));
     CHECK(d->IsDragging());
     CHECK(enters == 0); // not over the target yet
 
     // Move onto the target -> enter + over.
-    d->InjectMouseMove(core::Float2{ 150.0f, 50.0f });
+    d->InjectMouseMove(core::Float2{150.0f, 50.0f});
     CHECK(enters == 1);
     CHECK(overs == 1);
     CHECK(d->GetDropTarget() == target.Get());
 
     // Release over the target -> drop, drag ends.
-    d->InjectMouseUp(core::Float2{ 150.0f, 50.0f }, MouseButton::Left);
+    d->InjectMouseUp(core::Float2{150.0f, 50.0f}, MouseButton::Left);
     CHECK(drops == 1);
     CHECK(dropped.AsView() == core::StringView(u8"apple"));
     CHECK_FALSE(d->IsDragging());
@@ -69,9 +82,10 @@ TEST_CASE("dnd: drag delivers enter/over then drop on an accepting target")
 TEST_CASE("dnd: moving off the target fires leave; a non-matching target is not entered")
 {
     auto root = Make<SceneNode>();
-    root->SetSize(core::Float2{ 300.0f, 300.0f });
-    auto good = Zone(root.Get(), core::Float2{ 0.0f, 0.0f }, core::Float2{ 100.0f, 100.0f }, u8"item");
-    auto bad = Zone(root.Get(), core::Float2{ 150.0f, 0.0f }, core::Float2{ 100.0f, 100.0f }, u8"other");
+    root->SetSize(core::Float2{300.0f, 300.0f});
+    auto good = Zone(root.Get(), core::Float2{0.0f, 0.0f}, core::Float2{100.0f, 100.0f}, u8"item");
+    auto bad =
+        Zone(root.Get(), core::Float2{150.0f, 0.0f}, core::Float2{100.0f, 100.0f}, u8"other");
     EventDispatcher* d = root->GetEventDispatcher();
 
     int goodEnter = 0, goodLeave = 0, badEnter = 0;
@@ -79,19 +93,19 @@ TEST_CASE("dnd: moving off the target fires leave; a non-matching target is not 
     good->AddEventListener(EventType::DragLeave, [&](const Event&) { ++goodLeave; });
     bad->AddEventListener(EventType::DragEnter, [&](const Event&) { ++badEnter; });
 
-    d->InjectMouseMove(core::Float2{ 50.0f, 50.0f });
+    d->InjectMouseMove(core::Float2{50.0f, 50.0f});
     d->BeginDrag(nullptr, Payload(u8"item", u8"x")); // starts over good -> enter
     CHECK(goodEnter == 1);
 
-    d->InjectMouseMove(core::Float2{ 200.0f, 50.0f }); // over the non-matching zone
-    CHECK(goodLeave == 1);           // left good
-    CHECK(badEnter == 0);            // bad rejects "item" -> no enter
+    d->InjectMouseMove(core::Float2{200.0f, 50.0f}); // over the non-matching zone
+    CHECK(goodLeave == 1);                           // left good
+    CHECK(badEnter == 0);                            // bad rejects "item" -> no enter
     CHECK(d->GetDropTarget() == nullptr);
 
     // Dropping over a non-accepting area does nothing and ends the drag.
     int goodDrop = 0;
     good->AddEventListener(EventType::Drop, [&](const Event&) { ++goodDrop; });
-    d->InjectMouseUp(core::Float2{ 200.0f, 50.0f }, MouseButton::Left);
+    d->InjectMouseUp(core::Float2{200.0f, 50.0f}, MouseButton::Left);
     CHECK(goodDrop == 0);
     CHECK_FALSE(d->IsDragging());
 }
@@ -99,37 +113,39 @@ TEST_CASE("dnd: moving off the target fires leave; a non-matching target is not 
 TEST_CASE("dnd: drop bubbles to the nearest accepting ancestor")
 {
     auto root = Make<SceneNode>();
-    root->SetSize(core::Float2{ 300.0f, 300.0f });
-    auto container = Zone(root.Get(), core::Float2{ 0.0f, 0.0f }, core::Float2{ 200.0f, 200.0f }, u8"item");
+    root->SetSize(core::Float2{300.0f, 300.0f});
+    auto container =
+        Zone(root.Get(), core::Float2{0.0f, 0.0f}, core::Float2{200.0f, 200.0f}, u8"item");
     // A non-accepting child inside the container (the cursor lands on it).
     auto child = Make<UIWidget>();
-    child->SetSize(core::Float2{ 50.0f, 50.0f });
-    child->SetPosition(core::Float2{ 20.0f, 20.0f });
+    child->SetSize(core::Float2{50.0f, 50.0f});
+    child->SetPosition(core::Float2{20.0f, 20.0f});
     container->AddChild(child.Get());
     EventDispatcher* d = root->GetEventDispatcher();
 
     int drops = 0;
     container->AddEventListener(EventType::Drop, [&](const Event&) { ++drops; });
 
-    d->InjectMouseMove(core::Float2{ 5.0f, 5.0f });
+    d->InjectMouseMove(core::Float2{5.0f, 5.0f});
     d->BeginDrag(nullptr, Payload(u8"item", u8"x"));
-    d->InjectMouseMove(core::Float2{ 40.0f, 40.0f }); // over the child (non-accepting)
-    CHECK(d->GetDropTarget() == container.Get());      // bubbled to the accepting container
-    d->InjectMouseUp(core::Float2{ 40.0f, 40.0f }, MouseButton::Left);
+    d->InjectMouseMove(core::Float2{40.0f, 40.0f}); // over the child (non-accepting)
+    CHECK(d->GetDropTarget() == container.Get());   // bubbled to the accepting container
+    d->InjectMouseUp(core::Float2{40.0f, 40.0f}, MouseButton::Left);
     CHECK(drops == 1);
 }
 
 TEST_CASE("dnd: CancelDrag ends the drag and leaves the current target")
 {
     auto root = Make<SceneNode>();
-    root->SetSize(core::Float2{ 300.0f, 300.0f });
-    auto target = Zone(root.Get(), core::Float2{ 0.0f, 0.0f }, core::Float2{ 100.0f, 100.0f }, u8"item");
+    root->SetSize(core::Float2{300.0f, 300.0f});
+    auto target =
+        Zone(root.Get(), core::Float2{0.0f, 0.0f}, core::Float2{100.0f, 100.0f}, u8"item");
     EventDispatcher* d = root->GetEventDispatcher();
 
     int leaves = 0;
     target->AddEventListener(EventType::DragLeave, [&](const Event&) { ++leaves; });
 
-    d->InjectMouseMove(core::Float2{ 50.0f, 50.0f });
+    d->InjectMouseMove(core::Float2{50.0f, 50.0f});
     d->BeginDrag(nullptr, Payload(u8"item", u8"x"));
     CHECK(d->GetDropTarget() == target.Get());
     d->CancelDrag();

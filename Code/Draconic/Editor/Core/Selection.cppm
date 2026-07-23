@@ -26,16 +26,28 @@ export namespace draconic::editor
         /// Fired after any change to the set.
         Function<void()> OnChanged;
 
-        [[nodiscard]] Span<const T> Items() const noexcept { return Span<const T>{ m_items.Data(), m_items.Size() }; }
+        [[nodiscard]] Span<const T> Items() const noexcept
+        {
+            return Span<const T>{m_items.Data(), m_items.Size()};
+        }
         [[nodiscard]] bool IsEmpty() const noexcept { return m_items.IsEmpty(); }
         [[nodiscard]] usize Size() const noexcept { return m_items.Size(); }
 
         /// The primary element (pivot) - the first item, or null when empty.
-        [[nodiscard]] const T* Primary() const noexcept { return m_items.IsEmpty() ? nullptr : &m_items[0]; }
+        [[nodiscard]] const T* Primary() const noexcept
+        {
+            return m_items.IsEmpty() ? nullptr : &m_items[0];
+        }
 
         [[nodiscard]] bool Contains(const T& item) const
         {
-            for (const T& existing : m_items) { if (existing == item) { return true; } }
+            for (const T& existing : m_items)
+            {
+                if (existing == item)
+                {
+                    return true;
+                }
+            }
             return false;
         }
 
@@ -52,14 +64,20 @@ export namespace draconic::editor
             m_items.Clear();
             for (const T& item : items)
             {
-                if (!Contains(item)) { m_items.PushBack(item); }
+                if (!Contains(item))
+                {
+                    m_items.PushBack(item);
+                }
             }
             Notify();
         }
 
         void Add(const T& item)
         {
-            if (Contains(item)) { return; }
+            if (Contains(item))
+            {
+                return;
+            }
             m_items.PushBack(item);
             Notify();
         }
@@ -80,12 +98,22 @@ export namespace draconic::editor
         /// Add if absent, remove if present (ctrl-click).
         void Toggle(const T& item)
         {
-            if (Contains(item)) { Remove(item); } else { Add(item); }
+            if (Contains(item))
+            {
+                Remove(item);
+            }
+            else
+            {
+                Add(item);
+            }
         }
 
         void Clear()
         {
-            if (m_items.IsEmpty()) { return; }
+            if (m_items.IsEmpty())
+            {
+                return;
+            }
             m_items.Clear();
             Notify();
         }
@@ -93,7 +121,10 @@ export namespace draconic::editor
     private:
         void Notify()
         {
-            if (OnChanged) { OnChanged(); }
+            if (OnChanged)
+            {
+                OnChanged();
+            }
         }
 
         Array<T> m_items;

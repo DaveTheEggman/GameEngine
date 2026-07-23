@@ -126,10 +126,10 @@ export namespace draconic::shell
     {
         WindowEventType type = WindowEventType::Resized;
         core::u32 windowId = 0;
-        core::u32 width = 0;   // Resized
-        core::u32 height = 0;  // Resized
-        core::i32 x = 0;       // Moved
-        core::i32 y = 0;       // Moved
+        core::u32 width = 0;  // Resized
+        core::u32 height = 0; // Resized
+        core::i32 x = 0;      // Moved
+        core::i32 y = 0;      // Moved
     };
 
     // Owns the set of OS windows for a shell run. One manager per shell;
@@ -143,7 +143,8 @@ export namespace draconic::shell
     public:
         virtual ~IWindowManager() = default;
 
-        [[nodiscard]] virtual core::Result<IWindow*> CreateWindow(const WindowSettings& settings) = 0;
+        [[nodiscard]] virtual core::Result<IWindow*>
+        CreateWindow(const WindowSettings& settings) = 0;
         // Mark a window for destruction at the next FlushDestroyed(). Safe to call
         // mid-frame. No-op if the window is unknown.
         virtual void DestroyWindow(IWindow* window) = 0;

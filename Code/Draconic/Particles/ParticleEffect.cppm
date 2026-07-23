@@ -345,7 +345,7 @@ export namespace draconic::particles
             if (trail.IsActive())
             {
                 RecordTrailPoints();
-            }                     // 8 (after positions integrated)
+            } // 8 (after positions integrated)
             CollectDeathEvents(); // 9 (before compaction)
             if (trail.IsActive())
             {

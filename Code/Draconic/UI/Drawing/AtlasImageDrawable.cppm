@@ -9,8 +9,8 @@ module;
 
 export module draconic.ui:atlas_image_drawable;
 
-import draconic.core;    // Color, Rectangle, Float2, Optional
-import draconic.image;   // ImageData
+import draconic.core;  // Color, Rectangle, Float2, Optional
+import draconic.image; // ImageData
 import :drawable;
 import :draw_context;
 
@@ -28,17 +28,23 @@ export namespace draconic::ui
         Color Tint = Color::White;
 
         AtlasImageDrawable() = default;
-        AtlasImageDrawable(const image::ImageData* atlas, Rectangle sourceRect, Color tint = Color::White)
-            : AtlasImage(atlas), SourceRect(sourceRect), Tint(tint) {}
+        AtlasImageDrawable(const image::ImageData* atlas, Rectangle sourceRect,
+                           Color tint = Color::White)
+            : AtlasImage(atlas), SourceRect(sourceRect), Tint(tint)
+        {
+        }
 
         void Draw(UIDrawContext& ctx, const Rectangle& bounds) override
         {
-            if (AtlasImage != nullptr) { ctx.VG().DrawImage(AtlasImage, bounds, SourceRect, Tint); }
+            if (AtlasImage != nullptr)
+            {
+                ctx.VG().DrawImage(AtlasImage, bounds, SourceRect, Tint);
+            }
         }
 
         [[nodiscard]] Optional<Float2> IntrinsicSize() const override
         {
-            return Float2{ SourceRect.width, SourceRect.height };
+            return Float2{SourceRect.width, SourceRect.height};
         }
     };
 

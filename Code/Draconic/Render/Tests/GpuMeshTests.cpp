@@ -25,7 +25,7 @@ TEST_CASE("mesh GPU cache: uploads on first use, reuses after, frees on clear")
     REQUIRE(g != nullptr);
     CHECK(g->vertexBuffer != nullptr);
     CHECK(g->indexBuffer != nullptr);
-    CHECK(g->indexCount == cube->IndexCount());          // 36
+    CHECK(g->indexCount == cube->IndexCount()); // 36
     CHECK(g->indexFormat == rhi::IndexFormat::UInt32);
     CHECK(cache.Size() == 1);
 
@@ -51,6 +51,6 @@ TEST_CASE("mesh GPU cache: null + empty meshes upload nothing")
     GpuMeshCache cache(device);
     CHECK(cache.GetOrUpload(nullptr) == nullptr);
     geometry::StaticMesh empty;
-    CHECK(cache.GetOrUpload(&empty) == nullptr);          // no vertices/indices
+    CHECK(cache.GetOrUpload(&empty) == nullptr); // no vertices/indices
     CHECK(cache.Size() == 0);
 }

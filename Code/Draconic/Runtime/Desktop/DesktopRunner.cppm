@@ -14,18 +14,19 @@ module;
 export module draconic.runtime.desktop;
 
 import draconic.core;
-import draconic.shell;              // IShell (interface only - the concrete shell is handed in)
-import draconic.graphics;   // GraphicsDevice (handed to the app)
-import draconic.runtime.client;     // IApplication + ApplicationHost (the runner drives these)
+import draconic.shell;          // IShell (interface only - the concrete shell is handed in)
+import draconic.graphics;       // GraphicsDevice (handed to the app)
+import draconic.runtime.client; // IApplication + ApplicationHost (the runner drives these)
 
 namespace core = draconic::core;
-using namespace draconic::graphics;   // GraphicsDevice (moved from draconic::runtime)
+using namespace draconic::graphics; // GraphicsDevice (moved from draconic::runtime)
 
 export namespace draconic::runtime
 {
     // Desktop runner: block-loop the app against the shell until either stops, clamped to
     // maxFrameTime. DRACONIC_APP_MAIN calls it on desktop; returns the app's exit code.
-    inline int RunApplication(IApplication& app, shell::IShell& shell, GraphicsDevice* graphics = nullptr)
+    inline int RunApplication(IApplication& app, shell::IShell& shell,
+                              GraphicsDevice* graphics = nullptr)
     {
         ApplicationHost host;
         host.Start(app, &shell, graphics);
@@ -36,7 +37,10 @@ export namespace draconic::runtime
             const core::TimePoint now = core::Clock::Now();
             core::f32 dt = (now - previous).AsSecondsF();
             previous = now;
-            if (dt > host.Settings().maxFrameTime) { dt = host.Settings().maxFrameTime; }
+            if (dt > host.Settings().maxFrameTime)
+            {
+                dt = host.Settings().maxFrameTime;
+            }
             host.Tick(dt);
         }
         host.Stop();

@@ -13,7 +13,7 @@ module;
 
 export module draconic.ui:style_value_parser;
 
-import draconic.core;   // Color, StringView, Optional
+import draconic.core; // Color, StringView, Optional
 import :thickness;
 import :unit;
 
@@ -26,7 +26,10 @@ export namespace draconic::ui
         /// Parse a hex color string: #rrggbb or #rrggbbaa (with leading #).
         [[nodiscard]] static Optional<Color> ParseHexColor(StringView text)
         {
-            if (text.Size() < 2 || text[0] != u8'#') { return {}; }
+            if (text.Size() < 2 || text[0] != u8'#')
+            {
+                return {};
+            }
 
             const StringView hex = text.SubStr(1, text.Size() - 1);
             if (hex.Size() == 6)
@@ -35,7 +38,7 @@ export namespace draconic::ui
                 Optional<u8> g = ParseHexByte(hex, 2);
                 Optional<u8> b = ParseHexByte(hex, 4);
                 if (r.HasValue() && g.HasValue() && b.HasValue())
-                    return Color{ r.Value() / 255.0f, g.Value() / 255.0f, b.Value() / 255.0f, 1.0f };
+                    return Color{r.Value() / 255.0f, g.Value() / 255.0f, b.Value() / 255.0f, 1.0f};
             }
             else if (hex.Size() == 8)
             {
@@ -44,7 +47,8 @@ export namespace draconic::ui
                 Optional<u8> b = ParseHexByte(hex, 4);
                 Optional<u8> a = ParseHexByte(hex, 6);
                 if (r.HasValue() && g.HasValue() && b.HasValue() && a.HasValue())
-                    return Color{ r.Value() / 255.0f, g.Value() / 255.0f, b.Value() / 255.0f, a.Value() / 255.0f };
+                    return Color{r.Value() / 255.0f, g.Value() / 255.0f, b.Value() / 255.0f,
+                                 a.Value() / 255.0f};
             }
             return {};
         }
@@ -52,17 +56,28 @@ export namespace draconic::ui
         /// Parse a named color.
         [[nodiscard]] static Optional<Color> ParseNamedColor(StringView name)
         {
-            if (name == StringView(u8"white"))       return Color::White;
-            if (name == StringView(u8"black"))       return Color::Black;
-            if (name == StringView(u8"transparent")) return Color::Transparent;
-            if (name == StringView(u8"red"))         return Color::Red;
-            if (name == StringView(u8"green"))       return Color{ 0.0f, 128.0f / 255.0f, 0.0f, 1.0f };
-            if (name == StringView(u8"blue"))        return Color::Blue;
-            if (name == StringView(u8"yellow"))      return Color{ 1.0f, 1.0f, 0.0f, 1.0f };
-            if (name == StringView(u8"cyan"))        return Color{ 0.0f, 1.0f, 1.0f, 1.0f };
-            if (name == StringView(u8"magenta"))     return Color{ 1.0f, 0.0f, 1.0f, 1.0f };
-            if (name == StringView(u8"gray"))        return Color{ 128.0f / 255.0f, 128.0f / 255.0f, 128.0f / 255.0f, 1.0f };
-            if (name == StringView(u8"grey"))        return Color{ 128.0f / 255.0f, 128.0f / 255.0f, 128.0f / 255.0f, 1.0f };
+            if (name == StringView(u8"white"))
+                return Color::White;
+            if (name == StringView(u8"black"))
+                return Color::Black;
+            if (name == StringView(u8"transparent"))
+                return Color::Transparent;
+            if (name == StringView(u8"red"))
+                return Color::Red;
+            if (name == StringView(u8"green"))
+                return Color{0.0f, 128.0f / 255.0f, 0.0f, 1.0f};
+            if (name == StringView(u8"blue"))
+                return Color::Blue;
+            if (name == StringView(u8"yellow"))
+                return Color{1.0f, 1.0f, 0.0f, 1.0f};
+            if (name == StringView(u8"cyan"))
+                return Color{0.0f, 1.0f, 1.0f, 1.0f};
+            if (name == StringView(u8"magenta"))
+                return Color{1.0f, 0.0f, 1.0f, 1.0f};
+            if (name == StringView(u8"gray"))
+                return Color{128.0f / 255.0f, 128.0f / 255.0f, 128.0f / 255.0f, 1.0f};
+            if (name == StringView(u8"grey"))
+                return Color{128.0f / 255.0f, 128.0f / 255.0f, 128.0f / 255.0f, 1.0f};
             return {};
         }
 
@@ -71,11 +86,12 @@ export namespace draconic::ui
         [[nodiscard]] static Thickness ParseThickness(const f32* values, i32 count)
         {
             if (count == 1)
-                return Thickness{ values[0] };
+                return Thickness{values[0]};
             if (count == 2)
-                return Thickness{ values[1], values[0], values[1], values[0] }; // horiz, vert
+                return Thickness{values[1], values[0], values[1], values[0]}; // horiz, vert
             if (count == 4)
-                return Thickness{ values[3], values[0], values[1], values[2] }; // left=3, top=0, right=1, bottom=2
+                return Thickness{values[3], values[0], values[1],
+                                 values[2]}; // left=3, top=0, right=1, bottom=2
             return Thickness{};
         }
 
@@ -83,24 +99,33 @@ export namespace draconic::ui
         /// Unitless = dp (default), "px" = Px, "dp" = Dp, "pt" = Pt.
         [[nodiscard]] static Unit ParseUnit(f32 value, StringView suffix)
         {
-            if (suffix == StringView(u8"px")) return Unit::Px(value);
-            if (suffix == StringView(u8"pt")) return Unit::Pt(value);
+            if (suffix == StringView(u8"px"))
+                return Unit::Px(value);
+            if (suffix == StringView(u8"pt"))
+                return Unit::Pt(value);
             return Unit::Dp(value); // default: dp (includes "dp" and unitless)
         }
 
     private:
         [[nodiscard]] static Optional<u8> ParseHexByte(StringView hex, i32 offset)
         {
-            if (static_cast<usize>(offset + 2) > hex.Size()) { return {}; }
+            if (static_cast<usize>(offset + 2) > hex.Size())
+            {
+                return {};
+            }
             i32 val = 0;
             for (i32 i = 0; i < 2; ++i)
             {
                 const utf8char ch = hex[static_cast<usize>(offset + i)];
                 val <<= 4;
-                if (ch >= u8'0' && ch <= u8'9') val |= ch - u8'0';
-                else if (ch >= u8'a' && ch <= u8'f') val |= ch - u8'a' + 10;
-                else if (ch >= u8'A' && ch <= u8'F') val |= ch - u8'A' + 10;
-                else return {};
+                if (ch >= u8'0' && ch <= u8'9')
+                    val |= ch - u8'0';
+                else if (ch >= u8'a' && ch <= u8'f')
+                    val |= ch - u8'a' + 10;
+                else if (ch >= u8'A' && ch <= u8'F')
+                    val |= ch - u8'A' + 10;
+                else
+                    return {};
             }
             return static_cast<u8>(val);
         }

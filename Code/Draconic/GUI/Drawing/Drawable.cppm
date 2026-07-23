@@ -12,7 +12,7 @@ module;
 
 export module draconic.gui:drawable;
 
-import draconic.core;    // Object, Optional, Float2, Color
+import draconic.core; // Object, Optional, Float2, Color
 import :rect;
 import :draw_context;
 import :control_state;

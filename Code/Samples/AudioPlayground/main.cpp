@@ -30,7 +30,7 @@ import draconic.imgui;
 import draconic.audio;
 import draconic.audio.subsystem;
 
-#include "../Common/FlyCamera.h"   // after the imports: uses draconic::core/runtime types
+#include "../Common/FlyCamera.h" // after the imports: uses draconic::core/runtime types
 
 namespace core = draconic::core;
 namespace runtime = draconic::runtime;
@@ -56,12 +56,12 @@ namespace
         }
         audio::AudioClipMetadata metadata;
         if (!audio::ProbeAudioClipMetadata(
-                core::Span<const core::byte>(bytes.Value().Data(), bytes.Value().Size()),
-                metadata))
+                core::Span<const core::byte>(bytes.Value().Data(), bytes.Value().Size()), metadata))
         {
             return {};
         }
-        core::RefPtr<audio::AudioClip> clip = core::MakeRef<audio::AudioClip>(core::DefaultAllocator());
+        core::RefPtr<audio::AudioClip> clip =
+            core::MakeRef<audio::AudioClip>(core::DefaultAllocator());
         clip->channels = metadata.channels;
         clip->sampleRate = metadata.sampleRate;
         clip->frameCount = metadata.frameCount;
@@ -76,7 +76,7 @@ namespace
     public:
         void Configure(runtime::IApplicationHost& host) override
         {
-            runtime::DefaultApplication::Configure(host);   // registers AudioSubsystem
+            runtime::DefaultApplication::Configure(host); // registers AudioSubsystem
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
                 host.Ctx().AddSubsystem<imgui::ImguiSubsystem>(*gfx->Raw(), gfx->FramesInFlight());
@@ -86,11 +86,15 @@ namespace
         void OnLaunch(runtime::IApplicationHost& host) override
         {
             auto* scenes = host.Ctx().GetSubsystem<scene::SceneSubsystem>();
-            if (scenes == nullptr || Audio() == nullptr) { return; }
+            if (scenes == nullptr || Audio() == nullptr)
+            {
+                return;
+            }
             m_scene = PrimaryScenes().CreateScene(u8"audio-playground");
 
             const core::String dataDir(u8"" DRACONIC_AUDIO_SAMPLE_DATA_DIR);
-            m_ambient = LoadClipFromFile(core::PathJoin(dataDir.AsView(), u8"ambient_loop.wav"), true);
+            m_ambient =
+                LoadClipFromFile(core::PathJoin(dataDir.AsView(), u8"ambient_loop.wav"), true);
             m_beepHigh = LoadClipFromFile(core::PathJoin(dataDir.AsView(), u8"beep_high.wav"));
             m_beepLow = LoadClipFromFile(core::PathJoin(dataDir.AsView(), u8"beep_low.wav"), true);
             m_click = LoadClipFromFile(core::PathJoin(dataDir.AsView(), u8"click.wav"));
@@ -102,7 +106,7 @@ namespace
                 cameras->Add(m_camera);
             }
             m_scene->GetSystem<audio::AudioListenerComponentManager>()->Add(m_camera);
-            m_fly.position = core::Float3{ 0.0f, 2.0f, 14.0f };
+            m_fly.position = core::Float3{0.0f, 2.0f, 14.0f};
             m_fly.moveSpeed = 8.0f;
             m_fly.fastSpeed = 25.0f;
 
@@ -125,13 +129,13 @@ namespace
             // (real resampling), looping, positioned - fly past to hear pan/attenuation
             // and strafe quickly for doppler.
             // Pitches keep every emitter >= ~250 Hz (laptop-speaker floor) and distinct.
-            const f32 pitches[4] = { 0.75f, 1.0f, 1.5f, 2.0f };
+            const f32 pitches[4] = {0.75f, 1.0f, 1.5f, 2.0f};
             for (int i = 0; i < 4; ++i)
             {
                 const f32 angle = 3.14159265f * 0.5f * static_cast<f32>(i);
                 scene::EntityHandle e = m_scene->CreateEntity(u8"emitter");
                 m_scene->SetLocalPosition(
-                    e, core::Float3{ 10.0f * std::cos(angle), 1.5f, 10.0f * std::sin(angle) });
+                    e, core::Float3{10.0f * std::cos(angle), 1.5f, 10.0f * std::sin(angle)});
                 audio::AudioSourceComponent& c =
                     m_scene->GetSystem<audio::AudioSourceComponentManager>()->Add(e);
                 c.clip = m_beepLow;
@@ -162,9 +166,9 @@ namespace
             // LMB one-shots fire through a CUE (P3): three weighted variants with
             // pitch jitter - no two consecutive shots pick the same clip.
             m_shotCue = core::MakeRef<audio::SoundCue>(core::DefaultAllocator());
-            m_shotCue->variants.PushBack(audio::SoundCueVariant{ m_beepHigh, 3.0f });
-            m_shotCue->variants.PushBack(audio::SoundCueVariant{ m_click, 2.0f });
-            m_shotCue->variants.PushBack(audio::SoundCueVariant{ m_beepLow, 1.0f });
+            m_shotCue->variants.PushBack(audio::SoundCueVariant{m_beepHigh, 3.0f});
+            m_shotCue->variants.PushBack(audio::SoundCueVariant{m_click, 2.0f});
+            m_shotCue->variants.PushBack(audio::SoundCueVariant{m_beepLow, 1.0f});
             m_shotCue->pitchMin = 0.85f;
             m_shotCue->pitchMax = 1.25f;
 
@@ -172,7 +176,8 @@ namespace
             m_scene->SetSimulationEnabled(true);
             if (Audio()->Engine() != nullptr && Audio()->Engine()->IsHeadless())
             {
-                core::ConsoleWrite(u8"AudioPlayground: NO audio device - running silent (Null mode).\n");
+                core::ConsoleWrite(
+                    u8"AudioPlayground: NO audio device - running silent (Null mode).\n");
             }
             core::ConsoleWrite(
                 u8"AudioPlayground: WASD/RMB-look fly. LMB = positional one-shot at the\n"
@@ -187,8 +192,14 @@ namespace
             PushCameraToEntity();
 
             auto* input = host.Shell() != nullptr ? host.Shell()->Input() : nullptr;
-            if (input == nullptr || m_scene == nullptr) { return; }
-            if (input->Keyboard()->IsKeyPressed(shell::KeyCode::Escape)) { host.RequestExit(0); }
+            if (input == nullptr || m_scene == nullptr)
+            {
+                return;
+            }
+            if (input->Keyboard()->IsKeyPressed(shell::KeyCode::Escape))
+            {
+                host.RequestExit(0);
+            }
 
             // LMB: a positional one-shot ahead of the camera with random pitch/offset -
             // engine-global PlayOneShot3D on the Effects bus.
@@ -199,7 +210,7 @@ namespace
                 const core::Float3 position{
                     m_fly.position.x + forward.x * distance + (Random01() - 0.5f) * 4.0f,
                     m_fly.position.y + forward.y * distance,
-                    m_fly.position.z + forward.z * distance + (Random01() - 0.5f) * 4.0f };
+                    m_fly.position.z + forward.z * distance + (Random01() - 0.5f) * 4.0f};
                 audio::AudioPlayParams params;
                 params.minDistance = 1.5f;
                 params.maxDistance = 50.0f;
@@ -242,7 +253,10 @@ namespace
                 }
             }
             runtime::DefaultApplication::OnRenderWindow(host, frame);
-            if (auto* gui = host.Ctx().GetSubsystem<imgui::ImguiSubsystem>()) { gui->Render(frame); }
+            if (auto* gui = host.Ctx().GetSubsystem<imgui::ImguiSubsystem>())
+            {
+                gui->Render(frame);
+            }
         }
 
     private:
@@ -255,17 +269,20 @@ namespace
         void DrawEmitterGizmos(runtime::IApplicationHost& host)
         {
             auto* renderer = host.Ctx().GetSubsystem<render::RenderSubsystem>();
-            if (renderer == nullptr || m_scene == nullptr) { return; }
+            if (renderer == nullptr || m_scene == nullptr)
+            {
+                return;
+            }
             auto& draw = renderer->DebugScene(*m_scene);
             for (scene::EntityHandle e : m_emitters)
             {
                 const core::Float3 position = m_scene->GetWorldPosition(e);
-                draw.DrawWireSphere(position, 0.5f, core::Color{ 0.3f, 0.9f, 1.0f, 1.0f });
+                draw.DrawWireSphere(position, 0.5f, core::Color{0.3f, 0.9f, 1.0f, 1.0f});
             }
             if (m_haveOneShot && Audio() != nullptr && Audio()->IsPlaying(m_lastOneShot))
             {
                 draw.DrawWireSphere(m_lastOneShotPosition, 0.35f,
-                                    core::Color{ 1.0f, 0.8f, 0.2f, 1.0f });
+                                    core::Color{1.0f, 0.8f, 0.2f, 1.0f});
             }
         }
 
@@ -278,11 +295,15 @@ namespace
             {
                 ImGui::Text("voices: %zu%s", engine->ActiveVoiceCount(),
                             engine->IsHeadless() ? "  (NULL mode - no device)" : "");
-                struct BusRow { audio::AudioBus bus; const char* label; };
-                const BusRow rows[4] = { { audio::AudioBus::Master, "Master" },
-                                         { audio::AudioBus::Effects, "Effects" },
-                                         { audio::AudioBus::Music, "Music" },
-                                         { audio::AudioBus::UI, "UI" } };
+                struct BusRow
+                {
+                    audio::AudioBus bus;
+                    const char* label;
+                };
+                const BusRow rows[4] = {{audio::AudioBus::Master, "Master"},
+                                        {audio::AudioBus::Effects, "Effects"},
+                                        {audio::AudioBus::Music, "Music"},
+                                        {audio::AudioBus::UI, "UI"}};
                 for (const BusRow& row : rows)
                 {
                     f32 volume = engine->BusVolume(row.bus);
@@ -303,7 +324,10 @@ namespace
 
         void PushCameraToEntity()
         {
-            if (m_scene == nullptr) { return; }
+            if (m_scene == nullptr)
+            {
+                return;
+            }
             core::Transform t = m_scene->GetLocalTransform(m_camera);
             t.position = m_fly.position;
             t.rotation = m_fly.Rotation();
@@ -319,7 +343,7 @@ namespace
         core::RefPtr<audio::AudioClip> m_beepLow;
         core::RefPtr<audio::AudioClip> m_click;
         audio::VoiceHandle m_lastOneShot;
-        core::Float3 m_lastOneShotPosition{ 0, 0, 0 };
+        core::Float3 m_lastOneShotPosition{0, 0, 0};
         bool m_haveOneShot = false;
         core::u32 m_randomState = 0x12345678u;
         draconic::samples::FlyCamera m_fly;

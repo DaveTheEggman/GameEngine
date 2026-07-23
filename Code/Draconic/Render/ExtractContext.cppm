@@ -20,42 +20,64 @@ import :data;
 
 using namespace draconic::core;
 
-export namespace draconic::render {
+export namespace draconic::render
+{
 
-class RenderContext {
-public:
-    // Ensure `slotCount` (>= 1) per-worker slots exist, then reset every arena + item list for a
-    // new frame. Call once at frame start (before any extraction).
-    void BeginFrame(u32 slotCount) {
-        if (slotCount < 1) { slotCount = 1; }
-        while (static_cast<u32>(m_arenas.Size()) < slotCount) {
-            m_arenas.PushBack(MakeUnique<FrameArena>(DefaultAllocator()));
-            m_lists.PushBack(MakeUnique<Array<RenderData*>>(DefaultAllocator()));
+    class RenderContext
+    {
+    public:
+        // Ensure `slotCount` (>= 1) per-worker slots exist, then reset every arena + item list for a
+        // new frame. Call once at frame start (before any extraction).
+        void BeginFrame(u32 slotCount)
+        {
+            if (slotCount < 1)
+            {
+                slotCount = 1;
+            }
+            while (static_cast<u32>(m_arenas.Size()) < slotCount)
+            {
+                m_arenas.PushBack(MakeUnique<FrameArena>(DefaultAllocator()));
+                m_lists.PushBack(MakeUnique<Array<RenderData*>>(DefaultAllocator()));
+            }
+            m_slots = slotCount;
+            for (u32 s = 0; s < m_slots; ++s)
+            {
+                m_arenas[s]->Reset();
+                m_lists[s]->Clear();
+            }
         }
-        m_slots = slotCount;
-        for (u32 s = 0; s < m_slots; ++s) { m_arenas[s]->Reset(); m_lists[s]->Clear(); }
-    }
 
-    // Clear the per-slot item lists for a fresh extraction (arenas keep accumulating this frame).
-    void ResetItems() { for (u32 s = 0; s < m_slots; ++s) { m_lists[s]->Clear(); } }
-
-    [[nodiscard]] FrameArena&         Arena(u32 slot) noexcept { return *m_arenas[slot]; }
-    [[nodiscard]] Array<RenderData*>& Items(u32 slot) noexcept { return *m_lists[slot]; }
-    [[nodiscard]] u32                 SlotCount() const noexcept { return m_slots; }
-
-    // Gather every slot's items into `out` (single-threaded, after the parallel fill).
-    void MergeInto(ExtractedScene& out) const {
-        for (u32 s = 0; s < m_slots; ++s) {
-            for (RenderData* rd : *m_lists[s]) { out.AddExternal(rd); }
+        // Clear the per-slot item lists for a fresh extraction (arenas keep accumulating this frame).
+        void ResetItems()
+        {
+            for (u32 s = 0; s < m_slots; ++s)
+            {
+                m_lists[s]->Clear();
+            }
         }
-    }
 
-private:
-    // UniquePtr slots so growing the pools never moves a live FrameArena / item list (the
-    // FrameArena is non-movable, and parallel writers hold references for the extraction).
-    Array<UniquePtr<FrameArena>>         m_arenas;
-    Array<UniquePtr<Array<RenderData*>>> m_lists;
-    u32                                  m_slots = 0;
-};
+        [[nodiscard]] FrameArena& Arena(u32 slot) noexcept { return *m_arenas[slot]; }
+        [[nodiscard]] Array<RenderData*>& Items(u32 slot) noexcept { return *m_lists[slot]; }
+        [[nodiscard]] u32 SlotCount() const noexcept { return m_slots; }
+
+        // Gather every slot's items into `out` (single-threaded, after the parallel fill).
+        void MergeInto(ExtractedScene& out) const
+        {
+            for (u32 s = 0; s < m_slots; ++s)
+            {
+                for (RenderData* rd : *m_lists[s])
+                {
+                    out.AddExternal(rd);
+                }
+            }
+        }
+
+    private:
+        // UniquePtr slots so growing the pools never moves a live FrameArena / item list (the
+        // FrameArena is non-movable, and parallel writers hold references for the extraction).
+        Array<UniquePtr<FrameArena>> m_arenas;
+        Array<UniquePtr<Array<RenderData*>>> m_lists;
+        u32 m_slots = 0;
+    };
 
 } // namespace draconic::render

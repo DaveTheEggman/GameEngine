@@ -43,20 +43,22 @@ export namespace draconic::vg
             const f32 len = Length(tangent);
             if (len > 0.0001f)
                 return tangent / len;
-            return Float2{ 1.0f, 0.0f };
+            return Float2{1.0f, 0.0f};
         }
 
         /// Get the tangent (normalized direction) of a cubic Bezier at parameter t.
-        [[nodiscard]] static Float2 CubicTangentAt(Float2 p0, Float2 p1, Float2 p2, Float2 p3, f32 t)
+        [[nodiscard]] static Float2 CubicTangentAt(Float2 p0, Float2 p1, Float2 p2, Float2 p3,
+                                                   f32 t)
         {
             const f32 mt = 1.0f - t;
             const f32 mt2 = mt * mt;
             const f32 t2 = t * t;
-            const Float2 tangent = (p1 - p0) * (3.0f * mt2) + (p2 - p1) * (6.0f * mt * t) + (p3 - p2) * (3.0f * t2);
+            const Float2 tangent =
+                (p1 - p0) * (3.0f * mt2) + (p2 - p1) * (6.0f * mt * t) + (p3 - p2) * (3.0f * t2);
             const f32 len = Length(tangent);
             if (len > 0.0001f)
                 return tangent / len;
-            return Float2{ 1.0f, 0.0f };
+            return Float2{1.0f, 0.0f};
         }
 
         /// Approximate the arc length of a quadratic Bezier using subdivision.
@@ -75,7 +77,8 @@ export namespace draconic::vg
         }
 
         /// Approximate the arc length of a cubic Bezier using subdivision.
-        [[nodiscard]] static f32 CubicLength(Float2 p0, Float2 p1, Float2 p2, Float2 p3, i32 steps = 16)
+        [[nodiscard]] static f32 CubicLength(Float2 p0, Float2 p1, Float2 p2, Float2 p3,
+                                             i32 steps = 16)
         {
             f32 length = 0.0f;
             Float2 prev = p0;
@@ -90,21 +93,24 @@ export namespace draconic::vg
         }
 
         /// Flatten a quadratic Bezier into line segments using adaptive subdivision.
-        static void FlattenQuadratic(Float2 p0, Float2 p1, Float2 p2, f32 tolerance, Array<Float2>& output)
+        static void FlattenQuadratic(Float2 p0, Float2 p1, Float2 p2, f32 tolerance,
+                                     Array<Float2>& output)
         {
             FlattenQuadraticRecursive(p0, p1, p2, tolerance * tolerance, 0, output);
             output.PushBack(p2);
         }
 
         /// Flatten a cubic Bezier into line segments using adaptive subdivision.
-        static void FlattenCubic(Float2 p0, Float2 p1, Float2 p2, Float2 p3, f32 tolerance, Array<Float2>& output)
+        static void FlattenCubic(Float2 p0, Float2 p1, Float2 p2, Float2 p3, f32 tolerance,
+                                 Array<Float2>& output)
         {
             FlattenCubicRecursive(p0, p1, p2, p3, tolerance * tolerance, 0, output);
             output.PushBack(p3);
         }
 
         /// Convert an SVG endpoint arc to cubic Bezier curves (groups of 3 points: cp1, cp2, end).
-        static void ArcToCubics(Float2 from, f32 rx, f32 ry, f32 xAxisRotation, bool largeArc, bool sweep, Float2 to, Array<Float2>& controlPoints)
+        static void ArcToCubics(Float2 from, f32 rx, f32 ry, f32 xAxisRotation, bool largeArc,
+                                bool sweep, Float2 to, Array<Float2>& controlPoints)
         {
             // Handle degenerate cases.
             if (Distance(from, to) < 0.0001f)
@@ -149,7 +155,8 @@ export namespace draconic::vg
             ry2 = ry * ry;
 
             f32 sq = (rx2 * ry2 - rx2 * y1p2 - ry2 * x1p2) / (rx2 * y1p2 + ry2 * x1p2);
-            if (sq < 0.0f) sq = 0.0f;
+            if (sq < 0.0f)
+                sq = 0.0f;
             f32 coeff = Sqrt(sq);
             if (largeArc == sweep)
                 coeff = -coeff;
@@ -165,7 +172,8 @@ export namespace draconic::vg
 
             // Step 4: Compute angles.
             const f32 startAngle = VectorAngle(1.0f, 0.0f, (x1p - cxp) / rx, (y1p - cyp) / ry);
-            f32 deltaAngle = VectorAngle((x1p - cxp) / rx, (y1p - cyp) / ry, (-x1p - cxp) / rx, (-y1p - cyp) / ry);
+            f32 deltaAngle = VectorAngle((x1p - cxp) / rx, (y1p - cyp) / ry, (-x1p - cxp) / rx,
+                                         (-y1p - cyp) / ry);
 
             if (!sweep && deltaAngle > 0.0f)
                 deltaAngle -= kTwoPi;
@@ -185,7 +193,8 @@ export namespace draconic::vg
         }
 
     private:
-        static void FlattenQuadraticRecursive(Float2 p0, Float2 p1, Float2 p2, f32 toleranceSq, i32 depth, Array<Float2>& output)
+        static void FlattenQuadraticRecursive(Float2 p0, Float2 p1, Float2 p2, f32 toleranceSq,
+                                              i32 depth, Array<Float2>& output)
         {
             if (depth > 16)
             {
@@ -211,7 +220,8 @@ export namespace draconic::vg
             FlattenQuadraticRecursive(p012, p12, p2, toleranceSq, depth + 1, output);
         }
 
-        static void FlattenCubicRecursive(Float2 p0, Float2 p1, Float2 p2, Float2 p3, f32 toleranceSq, i32 depth, Array<Float2>& output)
+        static void FlattenCubicRecursive(Float2 p0, Float2 p1, Float2 p2, Float2 p3,
+                                          f32 toleranceSq, i32 depth, Array<Float2>& output)
         {
             if (depth > 16)
             {
@@ -240,7 +250,8 @@ export namespace draconic::vg
             FlattenCubicRecursive(p0123, p123, p23, p3, toleranceSq, depth + 1, output);
         }
 
-        [[nodiscard]] static f32 PointToLineDistanceSq(Float2 point, Float2 lineStart, Float2 lineEnd)
+        [[nodiscard]] static f32 PointToLineDistanceSq(Float2 point, Float2 lineStart,
+                                                       Float2 lineEnd)
         {
             const f32 dx = lineEnd.x - lineStart.x;
             const f32 dy = lineEnd.y - lineStart.y;
@@ -259,9 +270,12 @@ export namespace draconic::vg
             return Atan2(cross, dot);
         }
 
-        static void ArcSegmentToCubic(f32 cx, f32 cy, f32 rx, f32 ry, f32 phi, f32 a1, f32 a2, Array<Float2>& controlPoints)
+        static void ArcSegmentToCubic(f32 cx, f32 cy, f32 rx, f32 ry, f32 phi, f32 a1, f32 a2,
+                                      Array<Float2>& controlPoints)
         {
-            const f32 alpha = Sin(a2 - a1) * (Sqrt(4.0f + 3.0f * Tan((a2 - a1) * 0.5f) * Tan((a2 - a1) * 0.5f)) - 1.0f) / 3.0f;
+            const f32 alpha =
+                Sin(a2 - a1) *
+                (Sqrt(4.0f + 3.0f * Tan((a2 - a1) * 0.5f) * Tan((a2 - a1) * 0.5f)) - 1.0f) / 3.0f;
 
             const f32 sinPhi = Sin(phi);
             const f32 cosPhi = Cos(phi);
@@ -287,9 +301,9 @@ export namespace draconic::vg
             const f32 dx2 = -cosPhi * rx * sinA2 - sinPhi * ry * cosA2;
             const f32 dy2 = -sinPhi * rx * sinA2 + cosPhi * ry * cosA2;
 
-            controlPoints.PushBack(Float2{ x1 + alpha * dx1, y1 + alpha * dy1 }); // CP1
-            controlPoints.PushBack(Float2{ x4 - alpha * dx2, y4 - alpha * dy2 }); // CP2
-            controlPoints.PushBack(Float2{ x4, y4 });                            // End point
+            controlPoints.PushBack(Float2{x1 + alpha * dx1, y1 + alpha * dy1}); // CP1
+            controlPoints.PushBack(Float2{x4 - alpha * dx2, y4 - alpha * dy2}); // CP2
+            controlPoints.PushBack(Float2{x4, y4});                             // End point
         }
     };
 }

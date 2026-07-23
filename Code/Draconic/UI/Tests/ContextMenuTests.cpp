@@ -10,7 +10,10 @@ using namespace draconic::ui;
 using namespace draconic::core;
 namespace core = draconic::core;
 
-static core::RefPtr<ContextMenu> MakeMenu() { return core::MakeRef<ContextMenu>(core::DefaultAllocator()); }
+static core::RefPtr<ContextMenu> MakeMenu()
+{
+    return core::MakeRef<ContextMenu>(core::DefaultAllocator());
+}
 
 TEST_CASE("context-menu: MenuItem_Properties")
 {

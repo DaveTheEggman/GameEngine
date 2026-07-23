@@ -25,17 +25,30 @@ export namespace draconic::shell
     public:
         NullWindow(core::u32 id, const WindowSettings& settings) noexcept
             : m_id(id), m_width(settings.width), m_height(settings.height),
-              m_x(settings.positioned ? settings.x : 0), m_y(settings.positioned ? settings.y : 0) {}
+              m_x(settings.positioned ? settings.x : 0), m_y(settings.positioned ? settings.y : 0)
+        {
+        }
 
         [[nodiscard]] core::u32 Id() const noexcept override { return m_id; }
         [[nodiscard]] core::u32 Width() const noexcept override { return m_width; }
         [[nodiscard]] core::u32 Height() const noexcept override { return m_height; }
         [[nodiscard]] core::i32 X() const noexcept override { return m_x; }
         [[nodiscard]] core::i32 Y() const noexcept override { return m_y; }
-        void SetPosition(core::i32 x, core::i32 y) override { m_x = x; m_y = y; }  // headless: just record
-        void SetSize(core::u32 width, core::u32 height) override { m_width = width; m_height = height; }
+        void SetPosition(core::i32 x, core::i32 y) override
+        {
+            m_x = x;
+            m_y = y;
+        } // headless: just record
+        void SetSize(core::u32 width, core::u32 height) override
+        {
+            m_width = width;
+            m_height = height;
+        }
         [[nodiscard]] core::f32 ContentScale() const noexcept override { return 1.0f; }
-        [[nodiscard]] NativeWindow Native() const noexcept override { return {}; }  // headless: no handles
+        [[nodiscard]] NativeWindow Native() const noexcept override
+        {
+            return {};
+        } // headless: no handles
         [[nodiscard]] bool IsOpen() const noexcept override { return m_open; }
         [[nodiscard]] bool IsMinimized() const noexcept override { return m_minimized; }
         void Close() override { m_open = false; }
@@ -45,7 +58,11 @@ export namespace draconic::shell
         [[nodiscard]] bool IsTextInputActive() const noexcept override { return m_textInputActive; }
 
         // --- test/headless controls (no OS to drive these) ---
-        void Resize(core::u32 w, core::u32 h) noexcept { m_width = w; m_height = h; }
+        void Resize(core::u32 w, core::u32 h) noexcept
+        {
+            m_width = w;
+            m_height = h;
+        }
         void SetMinimized(bool m) noexcept { m_minimized = m; }
 
     private:
@@ -71,13 +88,19 @@ export namespace draconic::shell
             IWindow* borrowed = window.Get();
             m_owned.PushBack(static_cast<core::UniquePtr<NullWindow>&&>(window));
             m_live.PushBack(borrowed);
-            if (m_mainWindowId == 0) { m_mainWindowId = id; }   // the first window created is the main window
+            if (m_mainWindowId == 0)
+            {
+                m_mainWindowId = id;
+            } // the first window created is the main window
             return borrowed;
         }
 
         void DestroyWindow(IWindow* window) override
         {
-            if (!Owns(window)) { return; }   // no-op for null or windows this manager does not own
+            if (!Owns(window))
+            {
+                return;
+            } // no-op for null or windows this manager does not own
             window->Close();
             m_pendingDestroy.PushBack(window->Id());
         }
@@ -94,7 +117,13 @@ export namespace draconic::shell
         }
         [[nodiscard]] IWindow* GetWindow(core::u32 id) const noexcept override
         {
-            for (IWindow* w : m_live) { if (w->Id() == id) { return w; } }
+            for (IWindow* w : m_live)
+            {
+                if (w->Id() == id)
+                {
+                    return w;
+                }
+            }
             return nullptr;
         }
         [[nodiscard]] core::Span<const WindowEvent> Events() const noexcept override
@@ -108,11 +137,19 @@ export namespace draconic::shell
             {
                 for (core::usize i = 0; i < m_live.Size(); ++i)
                 {
-                    if (m_live[i]->Id() == id) { m_live.RemoveAt(i); break; }
+                    if (m_live[i]->Id() == id)
+                    {
+                        m_live.RemoveAt(i);
+                        break;
+                    }
                 }
                 for (core::usize i = 0; i < m_owned.Size(); ++i)
                 {
-                    if (m_owned[i]->Id() == id) { m_owned.RemoveAt(i); break; }
+                    if (m_owned[i]->Id() == id)
+                    {
+                        m_owned.RemoveAt(i);
+                        break;
+                    }
                 }
             }
             m_pendingDestroy.Clear();
@@ -124,16 +161,22 @@ export namespace draconic::shell
         // a window from another manager can share an id, and acting on it would corrupt bookkeeping.
         [[nodiscard]] bool Owns(IWindow* window) const noexcept
         {
-            for (IWindow* w : m_live) { if (w == window) { return true; } }
+            for (IWindow* w : m_live)
+            {
+                if (w == window)
+                {
+                    return true;
+                }
+            }
             return false;
         }
 
         core::Array<core::UniquePtr<NullWindow>> m_owned;
-        core::Array<IWindow*> m_live;          // borrowed parallel pointers for the span
+        core::Array<IWindow*> m_live;            // borrowed parallel pointers for the span
         core::Array<core::u32> m_pendingDestroy; // window ids
-        core::Array<WindowEvent> m_events;     // always empty (no OS event source)
+        core::Array<WindowEvent> m_events;       // always empty (no OS event source)
         core::u32 m_nextId = 1;
-        core::u32 m_mainWindowId = 0;          // id of the main window (first created); 0 = none
+        core::u32 m_mainWindowId = 0; // id of the main window (first created); 0 = none
     };
 
     // No-op input devices: report nothing held/pressed so headless callers can
@@ -181,19 +224,19 @@ export namespace draconic::shell
     {
     public:
         [[nodiscard]] IKeyboard* Keyboard() override { return &m_keyboard; }
-        [[nodiscard]] IMouse*    Mouse()    override { return &m_mouse; }
-        [[nodiscard]] ITouch*    Touch()    override { return &m_touch; }
-        [[nodiscard]] core::i32    GamepadCount() const override { return 0; }
-        [[nodiscard]] IGamepad*  GetGamepad(core::i32) override { return nullptr; }
+        [[nodiscard]] IMouse* Mouse() override { return &m_mouse; }
+        [[nodiscard]] ITouch* Touch() override { return &m_touch; }
+        [[nodiscard]] core::i32 GamepadCount() const override { return 0; }
+        [[nodiscard]] IGamepad* GetGamepad(core::i32) override { return nullptr; }
         [[nodiscard]] core::Span<const InputEvent> Events() const override { return {}; }
-        [[nodiscard]] core::u32    HoverWindow()   const override { return 0; }
-        [[nodiscard]] core::u32    FocusedWindow() const override { return 0; }
+        [[nodiscard]] core::u32 HoverWindow() const override { return 0; }
+        [[nodiscard]] core::u32 FocusedWindow() const override { return 0; }
         void Update() override {}
 
     private:
         NullKeyboard m_keyboard;
-        NullMouse    m_mouse;
-        NullTouch    m_touch;
+        NullMouse m_mouse;
+        NullTouch m_touch;
     };
 
     // No-op dialogs: cancel immediately (empty result) so headless callers can drive the dialog
@@ -202,17 +245,29 @@ export namespace draconic::shell
     {
     public:
         void ShowOpenFile(DialogResultCallback callback, core::Span<const FileFilter> = {},
-                          core::StringView = {}, bool = false, core::u32 = 0) override { Cancel(callback); }
+                          core::StringView = {}, bool = false, core::u32 = 0) override
+        {
+            Cancel(callback);
+        }
         void ShowSaveFile(DialogResultCallback callback, core::Span<const FileFilter> = {},
-                          core::StringView = {}, core::u32 = 0) override { Cancel(callback); }
-        void ShowOpenFolder(DialogResultCallback callback, core::StringView = {},
-                            bool = false, core::u32 = 0) override { Cancel(callback); }
-        void OpenPath(core::StringView) override {}   // headless: no OS file manager
+                          core::StringView = {}, core::u32 = 0) override
+        {
+            Cancel(callback);
+        }
+        void ShowOpenFolder(DialogResultCallback callback, core::StringView = {}, bool = false,
+                            core::u32 = 0) override
+        {
+            Cancel(callback);
+        }
+        void OpenPath(core::StringView) override {} // headless: no OS file manager
 
     private:
         static void Cancel(DialogResultCallback& callback)
         {
-            if (callback) { callback(core::Span<const core::String>{}); }
+            if (callback)
+            {
+                callback(core::Span<const core::String>{});
+            }
         }
     };
 
@@ -225,11 +280,12 @@ export namespace draconic::shell
         [[nodiscard]] IWindow* MainWindow() noexcept override { return m_windows.MainWindow(); }
         [[nodiscard]] IInputManager* Input() noexcept override { return &m_input; }
         [[nodiscard]] IDialogService* Dialogs() noexcept override { return &m_dialogs; }
-        void ProcessEvents() override {}  // no OS event source
+        void ProcessEvents() override {} // no OS event source
         [[nodiscard]] bool IsRunning() const noexcept override
         {
             // Running until RequestExit() or the main window is closed/destroyed.
-            IWindow* main = m_windows.MainWindow();   // MainWindow() is const now - no const_cast needed
+            IWindow* main =
+                m_windows.MainWindow(); // MainWindow() is const now - no const_cast needed
             return m_running && main != nullptr && main->IsOpen();
         }
         void RequestExit() override { m_running = false; }
@@ -238,7 +294,10 @@ export namespace draconic::shell
         // GUI clipboard path (cut/copy/paste) work without a windowing system.
         void SetClipboardText(core::StringView text) override { m_clipboard = core::String(text); }
         [[nodiscard]] core::String GetClipboardText() const override { return m_clipboard; }
-        [[nodiscard]] bool HasClipboardText() const noexcept override { return m_clipboard.Size() > 0; }
+        [[nodiscard]] bool HasClipboardText() const noexcept override
+        {
+            return m_clipboard.Size() > 0;
+        }
 
     private:
         NullWindowManager m_windows;

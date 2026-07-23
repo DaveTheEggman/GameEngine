@@ -20,10 +20,10 @@ export namespace draconic::vg
     /// Vertex structure for vector graphics with analytical AA support.
     struct VGVertex
     {
-        Float2 position;    ///< Position in screen/world coordinates.
-        Float2 texCoord;    ///< Texture coordinates (UV).
-        Color32 color;    ///< Vertex color, stored packed RGBA (byte). The API/math
-                          ///< work in float Color; conversion happens here at emission.
+        Float2 position;     ///< Position in screen/world coordinates.
+        Float2 texCoord;     ///< Texture coordinates (UV).
+        Color32 color;       ///< Vertex color, stored packed RGBA (byte). The API/math
+                             ///< work in float Color; conversion happens here at emission.
         f32 coverage = 1.0f; ///< Analytical-AA coverage (0 = transparent fringe, 1 = opaque).
 
         /// Size in bytes of this vertex structure.
@@ -35,24 +35,34 @@ export namespace draconic::vg
         constexpr VGVertex() noexcept = default;
 
         // Constructors take float Color and pack to Color32 at emission.
-        constexpr VGVertex(Float2 inPosition, Float2 inTexCoord, Color inColor, f32 inCoverage = 1.0f) noexcept
-            : position(inPosition), texCoord(inTexCoord), color(ToColor32(inColor)), coverage(inCoverage) {}
-
-        constexpr VGVertex(f32 x, f32 y, f32 u, f32 v, Color inColor, f32 inCoverage = 1.0f) noexcept
-            : position(x, y), texCoord(u, v), color(ToColor32(inColor)), coverage(inCoverage) {}
-
-        /// Create a solid-color vertex (no texture).
-        [[nodiscard]] static constexpr VGVertex Solid(Float2 position, Color color, f32 coverage = 1.0f) noexcept
+        constexpr VGVertex(Float2 inPosition, Float2 inTexCoord, Color inColor,
+                           f32 inCoverage = 1.0f) noexcept
+            : position(inPosition), texCoord(inTexCoord), color(ToColor32(inColor)),
+              coverage(inCoverage)
         {
-            return VGVertex(position, Float2{ SolidUV, SolidUV }, color, coverage);
+        }
+
+        constexpr VGVertex(f32 x, f32 y, f32 u, f32 v, Color inColor,
+                           f32 inCoverage = 1.0f) noexcept
+            : position(x, y), texCoord(u, v), color(ToColor32(inColor)), coverage(inCoverage)
+        {
         }
 
         /// Create a solid-color vertex (no texture).
-        [[nodiscard]] static constexpr VGVertex Solid(f32 x, f32 y, Color color, f32 coverage = 1.0f) noexcept
+        [[nodiscard]] static constexpr VGVertex Solid(Float2 position, Color color,
+                                                      f32 coverage = 1.0f) noexcept
+        {
+            return VGVertex(position, Float2{SolidUV, SolidUV}, color, coverage);
+        }
+
+        /// Create a solid-color vertex (no texture).
+        [[nodiscard]] static constexpr VGVertex Solid(f32 x, f32 y, Color color,
+                                                      f32 coverage = 1.0f) noexcept
         {
             return VGVertex(x, y, SolidUV, SolidUV, color, coverage);
         }
     };
 
-    static_assert(sizeof(VGVertex) == VGVertex::SizeInBytes, "VGVertex must stay 24 bytes for the renderer layout");
+    static_assert(sizeof(VGVertex) == VGVertex::SizeInBytes,
+                  "VGVertex must stay 24 bytes for the renderer layout");
 }

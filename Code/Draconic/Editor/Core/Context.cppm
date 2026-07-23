@@ -25,7 +25,13 @@ using namespace draconic::core;
 export namespace draconic::editor
 {
     /// User-facing notification severity (the application maps these to UI toasts).
-    enum class NoticeKind : u8 { Info, Success, Warning, Error };
+    enum class NoticeKind : u8
+    {
+        Info,
+        Success,
+        Warning,
+        Error
+    };
 
     class EditorContext
     {
@@ -45,7 +51,10 @@ export namespace draconic::editor
         Function<void(bool /*rebuild*/)> OnCookRequested;
         void RequestCook(bool rebuild = false)
         {
-            if (OnCookRequested) { OnCookRequested(rebuild); }
+            if (OnCookRequested)
+            {
+                OnCookRequested(rebuild);
+            }
         }
         /// Transient status-bar text.
         Function<void(StringView)> OnStatus;
@@ -55,8 +64,14 @@ export namespace draconic::editor
         Function<void(NoticeKind, StringView)> OnNotice;
         void Notify(NoticeKind kind, StringView message)
         {
-            if (OnNotice) { OnNotice(kind, message); }
-            else { SetStatus(message); }
+            if (OnNotice)
+            {
+                OnNotice(kind, message);
+            }
+            else
+            {
+                SetStatus(message);
+            }
         }
 
         // === Project ===
@@ -75,8 +90,14 @@ export namespace draconic::editor
         // === Resources (runtime products over the project's cooked DB) ===
         // Owned by the application (created at project open); pages resolve scene refs and the
         // inspector's pickers bind through it. Null until a project is open.
-        void SetResources(draconic::resource::ResourceManager* resources) noexcept { m_resources = resources; }
-        [[nodiscard]] draconic::resource::ResourceManager* Resources() const noexcept { return m_resources; }
+        void SetResources(draconic::resource::ResourceManager* resources) noexcept
+        {
+            m_resources = resources;
+        }
+        [[nodiscard]] draconic::resource::ResourceManager* Resources() const noexcept
+        {
+            return m_resources;
+        }
 
         // === Registries ===
 
@@ -92,7 +113,8 @@ export namespace draconic::editor
             String category;
             // `group` = the browser group the user invoked the creator FROM (null = no context,
             // e.g. the File menu - the creator picks its own default group).
-            Function<draconic::content::Instance*(EditorContext&, draconic::content::Group*)> create;
+            Function<draconic::content::Instance*(EditorContext&, draconic::content::Group*)>
+                create;
             // Only document-like creations (scenes) become the project's default scene when it
             // is unset; data assets (primitive meshes, materials) never should.
             bool setsDefaultScene = false;
@@ -102,7 +124,13 @@ export namespace draconic::editor
 
         [[nodiscard]] bool IsFavorite(const Guid& id) const
         {
-            for (const Guid& f : m_favorites) { if (f == id) { return true; } }
+            for (const Guid& f : m_favorites)
+            {
+                if (f == id)
+                {
+                    return true;
+                }
+            }
             return false;
         }
         void ToggleFavorite(const Guid& id)
@@ -112,16 +140,22 @@ export namespace draconic::editor
                 if (m_favorites[i] == id)
                 {
                     m_favorites.RemoveAt(i);
-                    if (OnFavoritesChanged) { OnFavoritesChanged(); }
+                    if (OnFavoritesChanged)
+                    {
+                        OnFavoritesChanged();
+                    }
                     return;
                 }
             }
             m_favorites.PushBack(id);
-            if (OnFavoritesChanged) { OnFavoritesChanged(); }
+            if (OnFavoritesChanged)
+            {
+                OnFavoritesChanged();
+            }
         }
         [[nodiscard]] Span<const Guid> Favorites() const noexcept
         {
-            return Span<const Guid>{ m_favorites.Data(), m_favorites.Size() };
+            return Span<const Guid>{m_favorites.Data(), m_favorites.Size()};
         }
         void SetFavorites(Array<Guid> favorites) { m_favorites = Move(favorites); }
         /// Fired on every toggle (the app persists to the project's Editor/ state).
@@ -140,17 +174,21 @@ export namespace draconic::editor
         [[nodiscard]] Span<const byte> ClipboardData(StringView kind) const noexcept
         {
             return (m_clipboardKind == kind)
-                ? Span<const byte>{ m_clipboard.Data(), m_clipboard.Size() } : Span<const byte>{};
+                       ? Span<const byte>{m_clipboard.Data(), m_clipboard.Size()}
+                       : Span<const byte>{};
         }
 
         void RegisterCreator(AssetCreator creator)
         {
-            if (creator.create) { m_creators.PushBack(Move(creator)); }
+            if (creator.create)
+            {
+                m_creators.PushBack(Move(creator));
+            }
         }
 
         [[nodiscard]] Span<const AssetCreator> Creators() const noexcept
         {
-            return Span<const AssetCreator>{ m_creators.Data(), m_creators.Size() };
+            return Span<const AssetCreator>{m_creators.Data(), m_creators.Size()};
         }
 
         // === Open pages ===
@@ -172,13 +210,22 @@ export namespace draconic::editor
             const TypeInfo* type = GlobalTypeRegistry().FindByName(
                 reinterpret_cast<const char*>(String(instance.TypeNamespace()).CStr()),
                 reinterpret_cast<const char*>(String(instance.TypeName()).CStr()));
-            if (type == nullptr) { return nullptr; }
+            if (type == nullptr)
+            {
+                return nullptr;
+            }
 
             IEditorPageFactory* factory = m_pageRegistry.FindFactory(*type);
-            if (factory == nullptr) { return nullptr; }
+            if (factory == nullptr)
+            {
+                return nullptr;
+            }
 
             UniquePtr<EditorPage> page = factory->CreatePage(*this, instance);
-            if (!page) { return nullptr; }
+            if (!page)
+            {
+                return nullptr;
+            }
             page->SetInstanceId(instance.Id());
 
             EditorPage* raw = page.Get();
@@ -192,7 +239,10 @@ export namespace draconic::editor
         /// OpenPage, but the caller constructs it (no instance, no factory dispatch).
         EditorPage* AdoptPage(UniquePtr<EditorPage> page)
         {
-            if (!page) { return nullptr; }
+            if (!page)
+            {
+                return nullptr;
+            }
             EditorPage* raw = page.Get();
             m_pages.PushBack(Move(page));
             m_activePage = raw;
@@ -210,8 +260,8 @@ export namespace draconic::editor
                     if (m_activePage == page)
                     {
                         m_activePage = m_pages.Size() > 1
-                            ? m_pages[i + 1 < m_pages.Size() ? i + 1 : i - 1].Get()
-                            : nullptr;
+                                           ? m_pages[i + 1 < m_pages.Size() ? i + 1 : i - 1].Get()
+                                           : nullptr;
                     }
                     m_pages.RemoveAt(i);
                     NotifyPagesChanged();
@@ -222,23 +272,44 @@ export namespace draconic::editor
 
         [[nodiscard]] Span<const UniquePtr<EditorPage>> OpenPages() const noexcept
         {
-            return Span<const UniquePtr<EditorPage>>{ m_pages.Data(), m_pages.Size() };
+            return Span<const UniquePtr<EditorPage>>{m_pages.Data(), m_pages.Size()};
         }
 
         [[nodiscard]] EditorPage* ActivePage() const noexcept { return m_activePage; }
         void SetActivePage(EditorPage* page)
         {
-            if (m_activePage == page) { return; }
+            if (m_activePage == page)
+            {
+                return;
+            }
             m_activePage = page;
             NotifyPagesChanged();
         }
 
         // === Edit routing (menu Edit>Undo/Redo -> the active page's stack) ===
 
-        [[nodiscard]] bool CanUndo() const { return m_activePage != nullptr && m_activePage->Commands().CanUndo(); }
-        [[nodiscard]] bool CanRedo() const { return m_activePage != nullptr && m_activePage->Commands().CanRedo(); }
-        void Undo() { if (m_activePage != nullptr) { m_activePage->Commands().Undo(); } }
-        void Redo() { if (m_activePage != nullptr) { m_activePage->Commands().Redo(); } }
+        [[nodiscard]] bool CanUndo() const
+        {
+            return m_activePage != nullptr && m_activePage->Commands().CanUndo();
+        }
+        [[nodiscard]] bool CanRedo() const
+        {
+            return m_activePage != nullptr && m_activePage->Commands().CanRedo();
+        }
+        void Undo()
+        {
+            if (m_activePage != nullptr)
+            {
+                m_activePage->Commands().Undo();
+            }
+        }
+        void Redo()
+        {
+            if (m_activePage != nullptr)
+            {
+                m_activePage->Commands().Redo();
+            }
+        }
 
         // === Selection ===
 
@@ -255,7 +326,8 @@ export namespace draconic::editor
         /// returned; `options` is the dialog-edited options object, null when none). Used for
         /// post-import steps that live above the importer's layer - e.g. model->prefab
         /// generation, which needs scene machinery the importer library never links.
-        void AddImportListener(Function<void(draconic::content::Instance&, const ImportOptions*)> listener)
+        void AddImportListener(
+            Function<void(draconic::content::Instance&, const ImportOptions*)> listener)
         {
             m_importListeners.PushBack(Move(listener));
         }
@@ -284,11 +356,15 @@ export namespace draconic::editor
         /// scene through the SceneSubsystem), which is exactly why the editor pre-scans with this on
         /// the main thread and hands the resulting guid set to the background export job.
         Function<bool(draconic::content::Instance&, draconic::content::ContentDatabase&,
-                      Array<Guid>& /*outResources*/, Array<Guid>& /*outPrefabs*/)> SceneRefScanner;
+                      Array<Guid>& /*outResources*/, Array<Guid>& /*outPrefabs*/)>
+            SceneRefScanner;
 
         void NotifyImported(draconic::content::Instance& instance, const ImportOptions* options)
         {
-            for (const auto& listener : m_importListeners) { listener(instance, options); }
+            for (const auto& listener : m_importListeners)
+            {
+                listener(instance, options);
+            }
         }
 
         // === Script breakpoints (the debugger, script-debugger.md P1) ===
@@ -298,8 +374,8 @@ export namespace draconic::editor
 
         struct ScriptBreakpoint
         {
-            String file;   // source file name (the section the runtime reports)
-            i32 line = 0;   // 1-based
+            String file;  // source file name (the section the runtime reports)
+            i32 line = 0; // 1-based
         };
 
         /// Toggle a breakpoint at `file:line`; fires OnBreakpointsChanged.
@@ -310,24 +386,33 @@ export namespace draconic::editor
                 if (m_breakpoints[i].line == line && m_breakpoints[i].file.AsView() == file)
                 {
                     m_breakpoints.RemoveAt(i);
-                    if (OnBreakpointsChanged) { OnBreakpointsChanged(); }
+                    if (OnBreakpointsChanged)
+                    {
+                        OnBreakpointsChanged();
+                    }
                     return;
                 }
             }
-            m_breakpoints.PushBack(ScriptBreakpoint{ String(file), line });
-            if (OnBreakpointsChanged) { OnBreakpointsChanged(); }
+            m_breakpoints.PushBack(ScriptBreakpoint{String(file), line});
+            if (OnBreakpointsChanged)
+            {
+                OnBreakpointsChanged();
+            }
         }
         [[nodiscard]] bool HasBreakpoint(StringView file, i32 line) const
         {
             for (const ScriptBreakpoint& breakpoint : m_breakpoints)
             {
-                if (breakpoint.line == line && breakpoint.file.AsView() == file) { return true; }
+                if (breakpoint.line == line && breakpoint.file.AsView() == file)
+                {
+                    return true;
+                }
             }
             return false;
         }
         [[nodiscard]] Span<const ScriptBreakpoint> Breakpoints() const noexcept
         {
-            return Span<const ScriptBreakpoint>{ m_breakpoints.Data(), m_breakpoints.Size() };
+            return Span<const ScriptBreakpoint>{m_breakpoints.Data(), m_breakpoints.Size()};
         }
         /// Fired on every breakpoint toggle (the gutter repaints; a live run re-applies).
         Function<void()> OnBreakpointsChanged;
@@ -336,18 +421,24 @@ export namespace draconic::editor
 
         void SetStatus(StringView text)
         {
-            if (OnStatus) { OnStatus(text); }
+            if (OnStatus)
+            {
+                OnStatus(text);
+            }
         }
 
     private:
         void NotifyPagesChanged()
         {
-            if (OnPagesChanged) { OnPagesChanged(); }
+            if (OnPagesChanged)
+            {
+                OnPagesChanged();
+            }
         }
 
         EditorProject* m_project = nullptr;
-        draconic::resource::ResourceManager* m_resources = nullptr;   // borrowed (app-owned)
-        ImporterRegistry m_importers;   // borrowed
+        draconic::resource::ResourceManager* m_resources = nullptr; // borrowed (app-owned)
+        ImporterRegistry m_importers;                               // borrowed
         EditorPageRegistry m_pageRegistry;
         Array<AssetCreator> m_creators;
         String m_clipboardKind;
@@ -357,7 +448,6 @@ export namespace draconic::editor
         Array<UniquePtr<EditorPage>> m_pages;
         EditorPage* m_activePage = nullptr;
         Selection<const draconic::content::Instance*> m_assetSelection;
-        Array<ScriptBreakpoint> m_breakpoints;   // shared script debugger breakpoints
-
+        Array<ScriptBreakpoint> m_breakpoints; // shared script debugger breakpoints
     };
 }

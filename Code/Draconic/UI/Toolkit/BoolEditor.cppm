@@ -27,17 +27,28 @@ export namespace draconic::ui::toolkit
     public:
         Function<void(bool)> Setter;
 
-        BoolEditor(StringView name, bool initialValue, Function<void(bool)> setter = {}, StringView category = {})
+        BoolEditor(StringView name, bool initialValue, Function<void(bool)> setter = {},
+                   StringView category = {})
             : PropertyEditor(name, category), Setter(Move(setter)), m_value(initialValue)
         {
         }
 
         [[nodiscard]] bool Value() const noexcept { return m_value; }
-        void SetValue(bool value) { m_value = value; if (m_checkBox != nullptr) { m_checkBox->IsChecked.SetValue(value); } }
+        void SetValue(bool value)
+        {
+            m_value = value;
+            if (m_checkBox != nullptr)
+            {
+                m_checkBox->IsChecked.SetValue(value);
+            }
+        }
 
         void RefreshView() override
         {
-            if (m_checkBox != nullptr) { m_checkBox->IsChecked.SetValue(m_value); }
+            if (m_checkBox != nullptr)
+            {
+                m_checkBox->IsChecked.SetValue(m_value);
+            }
         }
 
     protected:
@@ -47,14 +58,18 @@ export namespace draconic::ui::toolkit
             m_checkBox = checkBox.Get();
             m_checkBox->IsChecked.SetValue(m_value);
             BoolEditor* self = this;
-            m_checkBox->OnCheckedChanged.Add([self](CheckBox*, bool val)
-            {
-                self->BeginEdit();
-                self->m_value = val;
-                if (self->Setter) { self->Setter(val); }
-                self->NotifyValueChanged();
-                self->EndEdit();
-            });
+            m_checkBox->OnCheckedChanged.Add(
+                [self](CheckBox*, bool val)
+                {
+                    self->BeginEdit();
+                    self->m_value = val;
+                    if (self->Setter)
+                    {
+                        self->Setter(val);
+                    }
+                    self->NotifyValueChanged();
+                    self->EndEdit();
+                });
             return checkBox;
         }
 

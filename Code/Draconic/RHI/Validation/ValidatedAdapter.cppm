@@ -11,23 +11,28 @@ import draconic.rhi;
 
 using namespace draconic::core;
 
-export namespace draconic::rhi::validation {
+export namespace draconic::rhi::validation
+{
 
-class ValidatedDevice;
+    class ValidatedDevice;
 
-class ValidatedAdapter : public Adapter {
-public:
-    explicit ValidatedAdapter(Adapter* inner, IAllocator& allocator) : m_inner(inner), m_allocator(allocator) {}
+    class ValidatedAdapter : public Adapter
+    {
+    public:
+        explicit ValidatedAdapter(Adapter* inner, IAllocator& allocator)
+            : m_inner(inner), m_allocator(allocator)
+        {
+        }
 
-    void GetInfo(AdapterInfo& out) override { m_inner->GetInfo(out); }
+        void GetInfo(AdapterInfo& out) override { m_inner->GetInfo(out); }
 
-    Status CreateDevice(const DeviceDesc& desc, Device*& out) override;
+        Status CreateDevice(const DeviceDesc& desc, Device*& out) override;
 
-    Adapter* inner() const { return m_inner; }
+        Adapter* inner() const { return m_inner; }
 
-private:
-    Adapter* m_inner;
-    IAllocator& m_allocator;
-};
+    private:
+        Adapter* m_inner;
+        IAllocator& m_allocator;
+    };
 
 } // namespace draconic::rhi::validation

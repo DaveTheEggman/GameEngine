@@ -10,7 +10,10 @@ namespace core = draconic::core;
 
 namespace
 {
-    core::RefPtr<SceneNode> MakeScene() { return core::MakeRef<SceneNode>(core::DefaultAllocator()); }
+    core::RefPtr<SceneNode> MakeScene()
+    {
+        return core::MakeRef<SceneNode>(core::DefaultAllocator());
+    }
     core::RefPtr<Node> MakeNode() { return core::MakeRef<Node>(core::DefaultAllocator()); }
 }
 
@@ -34,11 +37,11 @@ TEST_CASE("scene: Close defers removal until update drains the queue")
     root->AddChild(child.Get());
 
     child->Close();
-    CHECK(root->ChildCount() == 1);          // not yet - deferred
+    CHECK(root->ChildCount() == 1); // not yet - deferred
     CHECK_FALSE(root->GetMutationQueue()->IsEmpty());
 
     root->Update(core::Duration::FromSeconds(0.016));
-    CHECK(root->ChildCount() == 0);          // drained
+    CHECK(root->ChildCount() == 0); // drained
     CHECK(root->GetMutationQueue()->IsEmpty());
 }
 

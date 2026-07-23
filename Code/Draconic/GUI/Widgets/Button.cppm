@@ -14,9 +14,9 @@ module;
 
 export module draconic.gui:button;
 
-import draconic.core;   // Function, Move
-import :event;          // MouseEvent
-import :text;           // TextHAlign / TextVAlign
+import draconic.core; // Function, Move
+import :event;        // MouseEvent
+import :text;         // TextHAlign / TextVAlign
 import :label;
 
 using namespace draconic::core;
@@ -43,7 +43,8 @@ export namespace draconic::gui
         void OnMouseClick(const MouseEvent& event) override
         {
             (void)event;
-            if (m_onClick) m_onClick();
+            if (m_onClick)
+                m_onClick();
         }
 
         core::Function<void()> m_onClick;

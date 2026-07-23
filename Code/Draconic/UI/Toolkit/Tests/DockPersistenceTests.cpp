@@ -12,16 +12,19 @@ using namespace draconic::core;
 namespace core = draconic::core;
 
 // new Label("...") -> a RefPtr<Label>; pass .Get() to AddPanel (the panel/tree adopts a ref).
-static RefPtr<Label> MakeLabel(StringView text)
-{
-    return MakeRef<Label>(DefaultAllocator(), text);
-}
+static RefPtr<Label> MakeLabel(StringView text) { return MakeRef<Label>(DefaultAllocator(), text); }
 
 // Beef private helper CountPanels(DockLayoutNode) -> recurse over the value struct via raw pointers.
 static int CountPanels(const DockLayoutNode* node)
 {
-    if (node == nullptr) { return 0; }
-    if (node->Type == DockLayoutNodeType::TabGroup) { return static_cast<int>(node->PanelIds.Size()); }
+    if (node == nullptr)
+    {
+        return 0;
+    }
+    if (node->Type == DockLayoutNodeType::TabGroup)
+    {
+        return static_cast<int>(node->PanelIds.Size());
+    }
     return CountPanels(node->First.Get()) + CountPanels(node->Second.Get());
 }
 
@@ -44,7 +47,7 @@ TEST_CASE("dock-persistence: FindPanelById_Found")
 {
     UIContext ctx;
     auto root = MakeRef<RootView>(DefaultAllocator());
-    root->ViewportSize = Float2{ 800, 600 };
+    root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
 
     auto dm = MakeRef<DockManager>(DefaultAllocator());
@@ -62,7 +65,7 @@ TEST_CASE("dock-persistence: FindPanelById_NotFound")
 {
     UIContext ctx;
     auto root = MakeRef<RootView>(DefaultAllocator());
-    root->ViewportSize = Float2{ 800, 600 };
+    root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
 
     auto dm = MakeRef<DockManager>(DefaultAllocator());
@@ -81,7 +84,7 @@ TEST_CASE("dock-persistence: ExportLayout_EmptyTree_ReturnsNull")
 {
     UIContext ctx;
     auto root = MakeRef<RootView>(DefaultAllocator());
-    root->ViewportSize = Float2{ 800, 600 };
+    root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
 
     auto dm = MakeRef<DockManager>(DefaultAllocator());
@@ -95,7 +98,7 @@ TEST_CASE("dock-persistence: ExportLayout_SinglePanel")
 {
     UIContext ctx;
     auto root = MakeRef<RootView>(DefaultAllocator());
-    root->ViewportSize = Float2{ 800, 600 };
+    root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
 
     auto dm = MakeRef<DockManager>(DefaultAllocator());
@@ -118,7 +121,7 @@ TEST_CASE("dock-persistence: ExportLayout_TwoTabs")
 {
     UIContext ctx;
     auto root = MakeRef<RootView>(DefaultAllocator());
-    root->ViewportSize = Float2{ 800, 600 };
+    root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
 
     auto dm = MakeRef<DockManager>(DefaultAllocator());
@@ -145,7 +148,7 @@ TEST_CASE("dock-persistence: ExportLayout_HorizontalSplit")
 {
     UIContext ctx;
     auto root = MakeRef<RootView>(DefaultAllocator());
-    root->ViewportSize = Float2{ 800, 600 };
+    root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
 
     auto dm = MakeRef<DockManager>(DefaultAllocator());
@@ -176,7 +179,7 @@ TEST_CASE("dock-persistence: ExportLayout_PreservesSplitRatio")
 {
     UIContext ctx;
     auto root = MakeRef<RootView>(DefaultAllocator());
-    root->ViewportSize = Float2{ 800, 600 };
+    root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
 
     auto dm = MakeRef<DockManager>(DefaultAllocator());
@@ -191,7 +194,10 @@ TEST_CASE("dock-persistence: ExportLayout_PreservesSplitRatio")
     dm->DockPanel(p2, DockPosition::Right);
 
     // Adjust split ratio.
-    if (auto* split = Cast<DockSplit>(dm->RootNode())) { split->SetSplitRatio(0.3f); }
+    if (auto* split = Cast<DockSplit>(dm->RootNode()))
+    {
+        split->SetSplitRatio(0.3f);
+    }
 
     auto layout = dm->ExportLayout();
 
@@ -202,7 +208,7 @@ TEST_CASE("dock-persistence: ExportLayout_NestedSplit")
 {
     UIContext ctx;
     auto root = MakeRef<RootView>(DefaultAllocator());
-    root->ViewportSize = Float2{ 800, 600 };
+    root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
 
     auto dm = MakeRef<DockManager>(DefaultAllocator());
@@ -235,7 +241,7 @@ TEST_CASE("dock-persistence: ApplyLayout_SinglePanel")
 {
     UIContext ctx;
     auto root = MakeRef<RootView>(DefaultAllocator());
-    root->ViewportSize = Float2{ 800, 600 };
+    root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
 
     auto dm = MakeRef<DockManager>(DefaultAllocator());
@@ -261,7 +267,7 @@ TEST_CASE("dock-persistence: ApplyLayout_TwoTabs")
 {
     UIContext ctx;
     auto root = MakeRef<RootView>(DefaultAllocator());
-    root->ViewportSize = Float2{ 800, 600 };
+    root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
 
     auto dm = MakeRef<DockManager>(DefaultAllocator());
@@ -290,7 +296,7 @@ TEST_CASE("dock-persistence: ApplyLayout_Split")
 {
     UIContext ctx;
     auto root = MakeRef<RootView>(DefaultAllocator());
-    root->ViewportSize = Float2{ 800, 600 };
+    root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
 
     auto dm = MakeRef<DockManager>(DefaultAllocator());
@@ -330,7 +336,7 @@ TEST_CASE("dock-persistence: ApplyLayout_UnknownPanelId_Skipped")
 {
     UIContext ctx;
     auto root = MakeRef<RootView>(DefaultAllocator());
-    root->ViewportSize = Float2{ 800, 600 };
+    root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
 
     auto dm = MakeRef<DockManager>(DefaultAllocator());
@@ -356,7 +362,7 @@ TEST_CASE("dock-persistence: ApplyLayout_EmptySplitBranch_Collapsed")
 {
     UIContext ctx;
     auto root = MakeRef<RootView>(DefaultAllocator());
-    root->ViewportSize = Float2{ 800, 600 };
+    root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
 
     auto dm = MakeRef<DockManager>(DefaultAllocator());
@@ -393,7 +399,7 @@ TEST_CASE("dock-persistence: Roundtrip_SinglePanel")
 {
     UIContext ctx;
     auto root = MakeRef<RootView>(DefaultAllocator());
-    root->ViewportSize = Float2{ 800, 600 };
+    root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
 
     auto dm = MakeRef<DockManager>(DefaultAllocator());
@@ -415,7 +421,7 @@ TEST_CASE("dock-persistence: Roundtrip_ComplexLayout")
 {
     UIContext ctx;
     auto root = MakeRef<RootView>(DefaultAllocator());
-    root->ViewportSize = Float2{ 800, 600 };
+    root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
 
     auto dm = MakeRef<DockManager>(DefaultAllocator());
@@ -454,7 +460,7 @@ TEST_CASE("dock-persistence: Roundtrip_PreservesSplitRatio")
 {
     UIContext ctx;
     auto root = MakeRef<RootView>(DefaultAllocator());
-    root->ViewportSize = Float2{ 800, 600 };
+    root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
 
     auto dm = MakeRef<DockManager>(DefaultAllocator());
@@ -468,7 +474,10 @@ TEST_CASE("dock-persistence: Roundtrip_PreservesSplitRatio")
     dm->DockPanel(p1, DockPosition::Center);
     dm->DockPanel(p2, DockPosition::Right);
 
-    if (auto* split = Cast<DockSplit>(dm->RootNode())) { split->SetSplitRatio(0.35f); }
+    if (auto* split = Cast<DockSplit>(dm->RootNode()))
+    {
+        split->SetSplitRatio(0.35f);
+    }
 
     auto layout = dm->ExportLayout();
 
@@ -484,7 +493,7 @@ TEST_CASE("dock-persistence: Roundtrip_PreservesActiveTab")
 {
     UIContext ctx;
     auto root = MakeRef<RootView>(DefaultAllocator());
-    root->ViewportSize = Float2{ 800, 600 };
+    root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
 
     auto dm = MakeRef<DockManager>(DefaultAllocator());
@@ -499,11 +508,17 @@ TEST_CASE("dock-persistence: Roundtrip_PreservesActiveTab")
     dm->DockPanelRelativeTo(p2, DockPosition::Center, p1->Parent);
 
     // Select second tab.
-    if (auto* group = Cast<DockTabGroup>(dm->RootNode())) { group->SetSelectedIndex(1); }
+    if (auto* group = Cast<DockTabGroup>(dm->RootNode()))
+    {
+        group->SetSelectedIndex(1);
+    }
 
     auto layout = dm->ExportLayout();
 
     dm->ApplyLayout(layout.Get());
 
-    if (auto* group = Cast<DockTabGroup>(dm->RootNode())) { CHECK(group->SelectedIndex() == 1); }
+    if (auto* group = Cast<DockTabGroup>(dm->RootNode()))
+    {
+        CHECK(group->SelectedIndex() == 1);
+    }
 }

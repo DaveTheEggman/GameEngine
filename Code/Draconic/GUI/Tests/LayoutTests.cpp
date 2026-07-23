@@ -10,12 +10,16 @@ namespace core = draconic::core;
 
 namespace
 {
-    template <typename T> core::RefPtr<T> Make() { return core::MakeRef<T>(core::DefaultAllocator()); }
+    template <typename T>
+    core::RefPtr<T> Make()
+    {
+        return core::MakeRef<T>(core::DefaultAllocator());
+    }
 
     core::RefPtr<UIWidget> Cell(float w, float h)
     {
         auto n = core::MakeRef<UIWidget>(core::DefaultAllocator());
-        n->SetSize(core::Float2{ w, h });
+        n->SetSize(core::Float2{w, h});
         return n;
     }
 }
@@ -23,7 +27,7 @@ namespace
 TEST_CASE("grid: flows children into columns and wraps rows")
 {
     auto grid = Make<GridLayout>();
-    grid->SetSize(core::Float2{ 100.0f, 100.0f }); // no padding -> content 100x100
+    grid->SetSize(core::Float2{100.0f, 100.0f}); // no padding -> content 100x100
     grid->SetColumns(2);
     grid->SetSpacing(0.0f, 0.0f); // cellW = 50
 
@@ -48,7 +52,7 @@ TEST_CASE("grid: flows children into columns and wraps rows")
 TEST_CASE("grid: spacing splits the content width and offsets columns")
 {
     auto grid = Make<GridLayout>();
-    grid->SetSize(core::Float2{ 100.0f, 100.0f });
+    grid->SetSize(core::Float2{100.0f, 100.0f});
     grid->SetColumns(2);
     grid->SetSpacing(10.0f, 4.0f); // cellW = (100 - 10) / 2 = 45
 
@@ -65,8 +69,8 @@ TEST_CASE("grid: spacing splits the content width and offsets columns")
 TEST_CASE("grid: respects padding and skips hidden children")
 {
     auto grid = Make<GridLayout>();
-    grid->SetSize(core::Float2{ 120.0f, 120.0f });
-    grid->SetPadding(Thickness{ 10.0f }); // content origin (10,10), width 100
+    grid->SetSize(core::Float2{120.0f, 120.0f});
+    grid->SetPadding(Thickness{10.0f}); // content origin (10,10), width 100
     grid->SetColumns(2);
 
     auto a = Cell(10.0f, 10.0f);
@@ -88,7 +92,7 @@ TEST_CASE("grid: respects padding and skips hidden children")
 TEST_CASE("grid: columns clamp to at least one")
 {
     auto grid = Make<GridLayout>();
-    grid->SetSize(core::Float2{ 60.0f, 100.0f });
+    grid->SetSize(core::Float2{60.0f, 100.0f});
     grid->SetColumns(0); // clamps to 1
     CHECK(grid->GetColumns() == 1);
 
@@ -104,7 +108,7 @@ TEST_CASE("grid: columns clamp to at least one")
 TEST_CASE("relative: anchors pin children to edges, corners, and center")
 {
     auto rel = Make<RelativeLayout>();
-    rel->SetSize(core::Float2{ 100.0f, 100.0f }); // content 100x100
+    rel->SetSize(core::Float2{100.0f, 100.0f}); // content 100x100
 
     auto tl = Cell(20.0f, 20.0f); // default top-left
     auto br = Cell(20.0f, 20.0f);
@@ -127,7 +131,7 @@ TEST_CASE("relative: anchors pin children to edges, corners, and center")
 TEST_CASE("relative: mixed horizontal/vertical anchors and re-layout on resize")
 {
     auto rel = Make<RelativeLayout>();
-    rel->SetSize(core::Float2{ 200.0f, 100.0f });
+    rel->SetSize(core::Float2{200.0f, 100.0f});
 
     auto topRight = Cell(40.0f, 10.0f);
     rel->AddChild(topRight.Get());
@@ -136,14 +140,14 @@ TEST_CASE("relative: mixed horizontal/vertical anchors and re-layout on resize")
     CHECK(topRight->GetPosition().y == doctest::Approx(0.0f));
 
     // Growing the layout re-anchors (OnSizeChange -> PerformLayout).
-    rel->SetSize(core::Float2{ 300.0f, 100.0f });
+    rel->SetSize(core::Float2{300.0f, 100.0f});
     CHECK(topRight->GetPosition().x == doctest::Approx(260.0f)); // 300 - 40
 }
 
 TEST_CASE("relative: clearing an anchor returns a child to the top-left")
 {
     auto rel = Make<RelativeLayout>();
-    rel->SetSize(core::Float2{ 100.0f, 100.0f });
+    rel->SetSize(core::Float2{100.0f, 100.0f});
     auto c = Cell(20.0f, 20.0f);
     rel->AddChild(c.Get());
 

@@ -16,8 +16,8 @@ export namespace draconic::ui
     {
         DRACONIC_OBJECT(Spacer, View)
     public:
-        Property<f32> SpacerWidth{ 0.0f };
-        Property<f32> SpacerHeight{ 0.0f };
+        Property<f32> SpacerWidth{0.0f};
+        Property<f32> SpacerHeight{0.0f};
 
         explicit Spacer(f32 width = 0.0f, f32 height = 0.0f)
         {
@@ -26,10 +26,12 @@ export namespace draconic::ui
             SpacerWidth.SetSilent(width);
             SpacerHeight.SetSilent(height);
         }
+
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
-            MeasuredSize = Float2{ constraints.ConstrainWidth(SpacerWidth.Value()), constraints.ConstrainHeight(SpacerHeight.Value()) };
+            MeasuredSize = Float2{constraints.ConstrainWidth(SpacerWidth.Value()),
+                                  constraints.ConstrainHeight(SpacerHeight.Value())};
         }
     };
     DRACONIC_DEFINE_OBJECT(Spacer, "draconic::ui")

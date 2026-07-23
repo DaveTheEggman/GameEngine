@@ -11,12 +11,13 @@ export module draconic.render:ssr_shaders;
 
 import draconic.core;
 
-export namespace draconic::render {
-
-// Fullscreen-triangle VS, top-origin uv (matches the other post passes under the negative-viewport flip).
-[[nodiscard]] inline core::StringView SsrVS() noexcept
+export namespace draconic::render
 {
-    return core::StringView(u8R"(
+
+    // Fullscreen-triangle VS, top-origin uv (matches the other post passes under the negative-viewport flip).
+    [[nodiscard]] inline core::StringView SsrVS() noexcept
+    {
+        return core::StringView(u8R"(
 struct VSOut { float4 pos : SV_Position; float2 uv : TEXCOORD0; };
 VSOut main(uint vid : SV_VertexID) {
     VSOut o;
@@ -26,17 +27,17 @@ VSOut main(uint vid : SV_VertexID) {
     return o;
 }
 )");
-}
+    }
 
-// The march + composite. A screen-space, perspective-correct ray march (traktor/McGuire form): project
-// both ray endpoints to the view's UV rect, march a uniform parameter j along that screen segment while
-// interpolating 1/w LINEARLY IN SCREEN SPACE (recovering ray depth as 1/mix(iz0,iz1,j)), then binary-
-// refine the crossing. Even screen coverage (no "cut up" gaps), and VIEWPORT-AWARE: reconstruction /
-// projection happen in the view's local uv (so split-screen sub-rects project correctly), while texture
-// sampling uses full-texture uv. Depth-buffer NDC + top-origin uv conventions match `:ao`.
-[[nodiscard]] inline core::StringView SsrPS() noexcept
-{
-    return core::StringView(u8R"(
+    // The march + composite. A screen-space, perspective-correct ray march (traktor/McGuire form): project
+    // both ray endpoints to the view's UV rect, march a uniform parameter j along that screen segment while
+    // interpolating 1/w LINEARLY IN SCREEN SPACE (recovering ray depth as 1/mix(iz0,iz1,j)), then binary-
+    // refine the crossing. Even screen coverage (no "cut up" gaps), and VIEWPORT-AWARE: reconstruction /
+    // projection happen in the view's local uv (so split-screen sub-rects project correctly), while texture
+    // sampling uses full-texture uv. Depth-buffer NDC + top-origin uv conventions match `:ao`.
+    [[nodiscard]] inline core::StringView SsrPS() noexcept
+    {
+        return core::StringView(u8R"(
 Texture2D<float4> SceneTex    : register(t0, space0);   // lit HDR (reflected + composited into)
 Texture2D         DepthTex    : register(t1, space0);
 Texture2D         NormalTex   : register(t2, space0);   // octahedral view-space normal
@@ -198,15 +199,15 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     return float4(refl, weight);   // rgb = reflected radiance, a = confidence
 }
 )");
-}
+    }
 
-// Temporal resolve + composite. Reprojects the previous accumulated reflection by surface velocity
-// (viewport-aware), YCoCg variance-clips it to the current neighborhood (kills ghosting/ fireflies),
-// blends toward history (motion-adaptive), then LERP-composites the accumulated reflection into the HDR.
-// MRT: SV_Target0 = composited HDR (downstream), SV_Target1 = next-frame reflection history.
-[[nodiscard]] inline core::StringView SsrResolvePS() noexcept
-{
-    return core::StringView(u8R"(
+    // Temporal resolve + composite. Reprojects the previous accumulated reflection by surface velocity
+    // (viewport-aware), YCoCg variance-clips it to the current neighborhood (kills ghosting/ fireflies),
+    // blends toward history (motion-adaptive), then LERP-composites the accumulated reflection into the HDR.
+    // MRT: SV_Target0 = composited HDR (downstream), SV_Target1 = next-frame reflection history.
+    [[nodiscard]] inline core::StringView SsrResolvePS() noexcept
+    {
+        return core::StringView(u8R"(
 Texture2D<float4> ReflTex     : register(t0, space0);   // current reflection (rgb + confidence)
 Texture2D<float4> HistoryTex  : register(t1, space0);   // previous accumulated reflection
 Texture2D         VelocityTex : register(t2, space0);   // screen-space motion (viewport-local uv delta)
@@ -286,6 +287,6 @@ PSOut main(float4 pos : SV_Position, float2 uv : TEXCOORD0) {
     return o;
 }
 )");
-}
+    }
 
 }

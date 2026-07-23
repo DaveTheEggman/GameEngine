@@ -19,8 +19,16 @@ using namespace draconic::core;
 
 namespace draconic::fonts
 {
-    TrueTypeFontParser*& ParserSlot() { static TrueTypeFontParser* p = nullptr; return p; }
-    TrueTypeFontAtlasBaker*& BakerSlot() { static TrueTypeFontAtlasBaker* b = nullptr; return b; }
+    TrueTypeFontParser*& ParserSlot()
+    {
+        static TrueTypeFontParser* p = nullptr;
+        return p;
+    }
+    TrueTypeFontAtlasBaker*& BakerSlot()
+    {
+        static TrueTypeFontAtlasBaker* b = nullptr;
+        return b;
+    }
 }
 
 export namespace draconic::fonts
@@ -60,6 +68,9 @@ export namespace draconic::fonts
             }
         }
 
-        [[nodiscard]] static bool IsInitialized() { return ParserSlot() != nullptr && BakerSlot() != nullptr; }
+        [[nodiscard]] static bool IsInitialized()
+        {
+            return ParserSlot() != nullptr && BakerSlot() != nullptr;
+        }
     };
 }

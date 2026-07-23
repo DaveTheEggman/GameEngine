@@ -72,7 +72,7 @@ TEST_CASE("rg.descriptor: half size clamps to at least one")
 TEST_CASE("rg.descriptor: color target defaults")
 {
     RGColorTarget target{};
-    target.handle = RGHandle{ 0, 1 };
+    target.handle = RGHandle{0, 1};
     CHECK(target.loadOp == rhi::LoadOp::Clear);
     CHECK(target.storeOp == rhi::StoreOp::Store);
 }
@@ -80,7 +80,7 @@ TEST_CASE("rg.descriptor: color target defaults")
 TEST_CASE("rg.descriptor: depth target defaults")
 {
     RGDepthTarget target{};
-    target.handle = RGHandle{ 0, 1 };
+    target.handle = RGHandle{0, 1};
     CHECK(target.depthLoadOp == rhi::LoadOp::Clear);
     CHECK(target.depthStoreOp == rhi::StoreOp::Store);
     CHECK(target.depthClearValue == 1.0f);

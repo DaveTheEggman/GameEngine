@@ -23,9 +23,11 @@ export namespace draconic::vg::svg
     {
     public:
         /// Render scaled to fit `bounds`. `tint` (if set) overrides all colors.
-        static void Render(draconic::vg::VGContext& vg, const SVGDocument& document, Rectangle bounds, Optional<Color> tint = {})
+        static void Render(draconic::vg::VGContext& vg, const SVGDocument& document,
+                           Rectangle bounds, Optional<Color> tint = {})
         {
-            if (document.elements.IsEmpty()) return;
+            if (document.elements.IsEmpty())
+                return;
 
             const f32 scaleX = (document.width > 0.0f) ? bounds.width / document.width : 1.0f;
             const f32 scaleY = (document.height > 0.0f) ? bounds.height / document.height : 1.0f;
@@ -41,9 +43,11 @@ export namespace draconic::vg::svg
         }
 
         /// Render a single element and its children.
-        static void RenderElement(draconic::vg::VGContext& vg, const SVGElement& element, Optional<Color> tint = {})
+        static void RenderElement(draconic::vg::VGContext& vg, const SVGElement& element,
+                                  Optional<Color> tint = {})
         {
-            if (element.opacity <= 0.0f) return;
+            if (element.opacity <= 0.0f)
+                return;
 
             vg.PushState();
 
@@ -65,10 +69,12 @@ export namespace draconic::vg::svg
             else if (element.path.HasValue())
             {
                 if (element.fillColor.HasValue())
-                    vg.FillPath(element.path.Value(), tint.HasValue() ? tint.Value() : element.fillColor.Value());
+                    vg.FillPath(element.path.Value(),
+                                tint.HasValue() ? tint.Value() : element.fillColor.Value());
 
                 if (element.strokeColor.HasValue() && element.strokeWidth > 0.0f)
-                    vg.StrokePath(element.path.Value(), tint.HasValue() ? tint.Value() : element.strokeColor.Value(),
+                    vg.StrokePath(element.path.Value(),
+                                  tint.HasValue() ? tint.Value() : element.strokeColor.Value(),
                                   StrokeStyle(element.strokeWidth));
             }
 
@@ -79,7 +85,8 @@ export namespace draconic::vg::svg
         }
 
     private:
-        static void RenderText(draconic::vg::VGContext& vg, const SVGElement& element, Optional<Color> tint)
+        static void RenderText(draconic::vg::VGContext& vg, const SVGElement& element,
+                               Optional<Color> tint)
         {
             if (element.textContent.AsView().IsEmpty() || vg.FontService() == nullptr)
                 return;
@@ -88,33 +95,44 @@ export namespace draconic::vg::svg
             // rasterized at a fixed pixel size, so: compute the effective pixel font
             // size, convert position to screen space, and draw without the SVG scale.
             const Float4x4 transform = vg.GetTransform();
-            const f32 scaleY = Sqrt(transform.m[1][0] * transform.m[1][0] + transform.m[1][1] * transform.m[1][1]);
+            const f32 scaleY =
+                Sqrt(transform.m[1][0] * transform.m[1][0] + transform.m[1][1] * transform.m[1][1]);
             const f32 effectiveFontSize = element.fontSize * scaleY;
 
             draconic::fonts::CachedFont* font = vg.FontService()->GetFont(effectiveFontSize);
-            if (font == nullptr) return;
+            if (font == nullptr)
+                return;
 
-            const Color color = tint.HasValue() ? tint.Value()
-                                : (element.fillColor.HasValue() ? element.fillColor.Value() : Color::Black);
+            const Color color =
+                tint.HasValue()
+                    ? tint.Value()
+                    : (element.fillColor.HasValue() ? element.fillColor.Value() : Color::Black);
 
             // SVG position -> screen pixels via the current transform.
-            const f32 screenX = transform.m[0][0] * element.textX + transform.m[1][0] * element.textY + transform.m[3][0];
-            const f32 screenY = transform.m[0][1] * element.textX + transform.m[1][1] * element.textY + transform.m[3][1];
+            const f32 screenX = transform.m[0][0] * element.textX +
+                                transform.m[1][0] * element.textY + transform.m[3][0];
+            const f32 screenY = transform.m[0][1] * element.textX +
+                                transform.m[1][1] * element.textY + transform.m[3][1];
 
             // text-anchor alignment in screen space.
             const f32 textW = font->font->MeasureString(element.textContent.AsView());
             f32 x = screenX;
             switch (element.textAnchor)
             {
-            case SVGTextAnchor::Middle: x -= textW * 0.5f; break;
-            case SVGTextAnchor::End:    x -= textW; break;
-            case SVGTextAnchor::Start:  break;
+            case SVGTextAnchor::Middle:
+                x -= textW * 0.5f;
+                break;
+            case SVGTextAnchor::End:
+                x -= textW;
+                break;
+            case SVGTextAnchor::Start:
+                break;
             }
 
             // Draw with identity transform so glyph pixels aren't double-scaled.
             vg.PushState();
             vg.SetTransform(Float4x4::Identity());
-            vg.DrawText(element.textContent.AsView(), font, Float2{ x, screenY }, color);
+            vg.DrawText(element.textContent.AsView(), font, Float2{x, screenY}, color);
             vg.PopState();
         }
     };

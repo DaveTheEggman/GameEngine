@@ -22,7 +22,10 @@ export namespace draconic::fonts
     class TrueTypeFontParser final : public IFontParser
     {
     public:
-        [[nodiscard]] Span<const StringView> SupportedExtensions() const override { return TrueTypeExtensions(); }
+        [[nodiscard]] Span<const StringView> SupportedExtensions() const override
+        {
+            return TrueTypeExtensions();
+        }
 
         [[nodiscard]] bool SupportsExtension(StringView fileExtension) const override
         {
@@ -32,7 +35,8 @@ export namespace draconic::fonts
             return false;
         }
 
-        [[nodiscard]] Result<IFont*, FontLoadResult> ParseFromStream(IStream& stream, FontLoadOptions options) override
+        [[nodiscard]] Result<IFont*, FontLoadResult>
+        ParseFromStream(IStream& stream, FontLoadOptions options) override
         {
             // stb_truetype needs the whole buffer addressable, so copy the
             // remaining stream contents into a fresh owned array.
@@ -48,7 +52,8 @@ export namespace draconic::fonts
             return Build(Move(fontData), options);
         }
 
-        [[nodiscard]] Result<IFont*, FontLoadResult> ParseFromMemory(Span<const u8> data, FontLoadOptions options) override
+        [[nodiscard]] Result<IFont*, FontLoadResult>
+        ParseFromMemory(Span<const u8> data, FontLoadOptions options) override
         {
             Array<u8> fontData;
             fontData.Resize(data.Size());
@@ -57,7 +62,8 @@ export namespace draconic::fonts
             return Build(Move(fontData), options);
         }
 
-        [[nodiscard]] Result<IFont*, FontLoadResult> ParseFromFile(StringView filePath, FontLoadOptions options) override
+        [[nodiscard]] Result<IFont*, FontLoadResult> ParseFromFile(StringView filePath,
+                                                                   FontLoadOptions options) override
         {
             FileStream file(filePath, FileMode::Read);
             if (!file.IsValid())

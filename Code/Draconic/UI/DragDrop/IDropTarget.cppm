@@ -26,7 +26,8 @@ export namespace draconic::ui
 
         /// Check if this target can accept the given drag data at this position. Called each frame while
         /// dragging over this target.
-        [[nodiscard]] virtual DragDropEffects CanAcceptDrop(DragData* data, f32 localX, f32 localY) = 0;
+        [[nodiscard]] virtual DragDropEffects CanAcceptDrop(DragData* data, f32 localX,
+                                                            f32 localY) = 0;
 
         /// Called when a drag enters this target's bounds.
         virtual void OnDragEnter(DragData* data, f32 localX, f32 localY) = 0;

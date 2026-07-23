@@ -13,11 +13,11 @@ module;
 
 export module draconic.gui.vfs;
 
-import draconic.core;      // IStream, FileMode, SeekOrigin, Array, Span, UniquePtr, MakeUnique
-import draconic.image;     // ImageData, Image, OwnedImageData
-import draconic.image.io;  // LoadImageFromMemory
-import draconic.vfs;       // IFileSystem
-import draconic.gui;       // IResourceProvider
+import draconic.core;     // IStream, FileMode, SeekOrigin, Array, Span, UniquePtr, MakeUnique
+import draconic.image;    // ImageData, Image, OwnedImageData
+import draconic.image.io; // LoadImageFromMemory
+import draconic.vfs;      // IFileSystem
+import draconic.gui;      // IResourceProvider
 
 using namespace draconic::core;
 namespace image = draconic::image;
@@ -35,23 +35,29 @@ export namespace draconic::gui::vfs
         // (cached in m_images), or null if the file is missing or fails to decode.
         const image::ImageData* LoadImage(core::StringView path) override
         {
-            if (m_fs == nullptr) return nullptr;
+            if (m_fs == nullptr)
+                return nullptr;
             UniquePtr<IStream> stream = m_fs->Open(path, FileMode::Read);
-            if (!stream) return nullptr;
+            if (!stream)
+                return nullptr;
 
             const i64 length = stream->Size();
-            if (length <= 0) return nullptr;
+            if (length <= 0)
+                return nullptr;
 
             Array<u8> buf;
             buf.Resize(static_cast<usize>(length));
             const u64 read = stream->Read(buf.Data(), static_cast<u64>(length));
 
             image::Image decoded;
-            if (!image::io::LoadImageFromMemory(Span<const u8>(buf.Data(), static_cast<usize>(read)), decoded).IsOk())
+            if (!image::io::LoadImageFromMemory(
+                     Span<const u8>(buf.Data(), static_cast<usize>(read)), decoded)
+                     .IsOk())
                 return nullptr;
 
             UniquePtr<image::OwnedImageData> owned = MakeUnique<image::OwnedImageData>(
-                DefaultAllocator(), decoded.Width(), decoded.Height(), decoded.Format(), decoded.PixelData());
+                DefaultAllocator(), decoded.Width(), decoded.Height(), decoded.Format(),
+                decoded.PixelData());
             image::OwnedImageData* raw = owned.Get();
             m_images.PushBack(Move(owned));
             return raw;

@@ -11,7 +11,7 @@ module;
 
 export module draconic.gui:state_list_drawable;
 
-import draconic.core;    // RefPtr, HashMap, Move
+import draconic.core; // RefPtr, HashMap, Move
 import :rect;
 import :draw_context;
 import :drawable;
@@ -37,7 +37,8 @@ export namespace draconic::gui
         {
             if (const RefPtr<Drawable>* found = m_states.Find(static_cast<u32>(state)))
                 return found->Get();
-            if (const RefPtr<Drawable>* normal = m_states.Find(static_cast<u32>(ControlState::Normal)))
+            if (const RefPtr<Drawable>* normal =
+                    m_states.Find(static_cast<u32>(ControlState::Normal)))
                 return normal->Get();
             return nullptr;
         }

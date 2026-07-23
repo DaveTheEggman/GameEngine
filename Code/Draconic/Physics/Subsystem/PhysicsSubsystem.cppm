@@ -50,7 +50,7 @@ export namespace draconic::physics
     [[nodiscard]] inline scene::EntityHandle UnpackEntity(u64 value) noexcept
     {
         return scene::EntityHandle{static_cast<u32>(value >> 32),
-                                    static_cast<u32>(value & 0xFFFFFFFFu)};
+                                   static_cast<u32>(value & 0xFFFFFFFFu)};
     }
 
     /// A contact whose bodies have been resolved back to scene entities (invalid handles for

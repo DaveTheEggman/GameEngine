@@ -13,7 +13,7 @@ module;
 
 export module draconic.ui:drawable;
 
-import draconic.core;      // Object, Optional, Float2, Rectangle
+import draconic.core; // Object, Optional, Float2, Rectangle
 import :thickness;
 import :control_state;
 import :draw_context;

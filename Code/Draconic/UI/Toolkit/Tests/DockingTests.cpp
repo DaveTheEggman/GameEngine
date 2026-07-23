@@ -11,10 +11,7 @@ using namespace draconic::core;
 namespace core = draconic::core;
 
 // new Label("Content") -> a RefPtr<Label>; pass .Get() to AddPanel (the panel/tree adopts a ref).
-static RefPtr<Label> MakeLabel(StringView text)
-{
-    return MakeRef<Label>(DefaultAllocator(), text);
-}
+static RefPtr<Label> MakeLabel(StringView text) { return MakeRef<Label>(DefaultAllocator(), text); }
 
 TEST_CASE("docking: DockablePanel_Title")
 {
@@ -53,8 +50,8 @@ TEST_CASE("docking: DockZoneIndicator_AddTargets")
     auto indicator = MakeRef<DockZoneIndicator>(DefaultAllocator());
     CHECK(indicator->TargetCount() == 0);
 
-    indicator->AddTarget(DockPosition::Left, Rectangle{ 0, 0, 100, 400 }, nullptr);
-    indicator->AddTarget(DockPosition::Right, Rectangle{ 300, 0, 100, 400 }, nullptr);
+    indicator->AddTarget(DockPosition::Left, Rectangle{0, 0, 100, 400}, nullptr);
+    indicator->AddTarget(DockPosition::Right, Rectangle{300, 0, 100, 400}, nullptr);
     CHECK(indicator->TargetCount() == 2);
 
     indicator->ClearTargets();
@@ -64,8 +61,8 @@ TEST_CASE("docking: DockZoneIndicator_AddTargets")
 TEST_CASE("docking: DockZoneIndicator_UpdateHover")
 {
     auto indicator = MakeRef<DockZoneIndicator>(DefaultAllocator());
-    indicator->AddTarget(DockPosition::Left, Rectangle{ 0, 0, 100, 400 }, nullptr);
-    indicator->AddTarget(DockPosition::Right, Rectangle{ 300, 0, 100, 400 }, nullptr);
+    indicator->AddTarget(DockPosition::Left, Rectangle{0, 0, 100, 400}, nullptr);
+    indicator->AddTarget(DockPosition::Right, Rectangle{300, 0, 100, 400}, nullptr);
 
     indicator->UpdateHover(50, 200);
     CHECK(indicator->HoveredTarget().HasValue());
@@ -148,7 +145,7 @@ TEST_CASE("docking: DockManager_AddPanel")
 {
     UIContext ctx;
     auto root = MakeRef<RootView>(DefaultAllocator());
-    root->ViewportSize = Float2{ 800, 600 };
+    root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
 
     auto dm = MakeRef<DockManager>(DefaultAllocator());
@@ -170,7 +167,7 @@ TEST_CASE("docking: DockManager_DockPanel_Center")
 {
     UIContext ctx;
     auto root = MakeRef<RootView>(DefaultAllocator());
-    root->ViewportSize = Float2{ 800, 600 };
+    root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
 
     auto dm = MakeRef<DockManager>(DefaultAllocator());
@@ -189,7 +186,7 @@ TEST_CASE("docking: DockManager_DockPanel_Split")
 {
     UIContext ctx;
     auto root = MakeRef<RootView>(DefaultAllocator());
-    root->ViewportSize = Float2{ 800, 600 };
+    root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
 
     auto dm = MakeRef<DockManager>(DefaultAllocator());
@@ -214,7 +211,7 @@ TEST_CASE("docking: DockPanel_Center_ActivatesDockedTab")
 {
     UIContext ctx;
     auto root = MakeRef<RootView>(DefaultAllocator());
-    root->ViewportSize = Float2{ 800, 600 };
+    root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
 
     auto dm = MakeRef<DockManager>(DefaultAllocator());
@@ -225,7 +222,7 @@ TEST_CASE("docking: DockPanel_Center_ActivatesDockedTab")
     DockablePanel* p3 = dm->AddPanel(StringView(u8"P3"), MakeLabel(u8"Content 3").Get());
 
     dm->DockPanel(p1, DockPosition::Center);
-    dm->DockPanel(p2, DockPosition::Center);   // tabs with p1 - and becomes the active tab
+    dm->DockPanel(p2, DockPosition::Center); // tabs with p1 - and becomes the active tab
 
     auto* group = Cast<DockTabGroup>(p2->Parent);
     REQUIRE(group != nullptr);
@@ -261,12 +258,23 @@ TEST_CASE("docking: DraggableTreeView_DropIntoZones")
         }
         [[nodiscard]] i32 GetDepth(i32) const override { return 0; }
         [[nodiscard]] bool HasChildren(i32) const override { return false; }
-        [[nodiscard]] RefPtr<View> CreateView(i32) override { return MakeRef<Label>(DefaultAllocator(), StringView{}); }
+        [[nodiscard]] RefPtr<View> CreateView(i32) override
+        {
+            return MakeRef<Label>(DefaultAllocator(), StringView{});
+        }
         void BindView(View*, i32, i32, bool) override {}
         [[nodiscard]] bool CanMove(i32, i32) override { return allowMove; }
-        void MoveItem(i32 from, i32 to) override { movedFrom = from; movedTo = to; }
+        void MoveItem(i32 from, i32 to) override
+        {
+            movedFrom = from;
+            movedTo = to;
+        }
         [[nodiscard]] bool CanDropInto(i32, i32) override { return allowInto; }
-        void DropInto(i32 from, i32 to) override { intoFrom = from; intoTo = to; }
+        void DropInto(i32 from, i32 to) override
+        {
+            intoFrom = from;
+            intoTo = to;
+        }
     };
 
     RecordingAdapter adapter;
@@ -280,7 +288,7 @@ TEST_CASE("docking: DraggableTreeView_DropIntoZones")
     CHECK(tree->OnDrop(drag.Get(), 0, 50.0f) == DragDropEffects::Move);
     CHECK(adapter.intoFrom == 0);
     CHECK(adapter.intoTo == 2);
-    CHECK(adapter.movedFrom == -1);   // reorder path untouched
+    CHECK(adapter.movedFrom == -1); // reorder path untouched
 
     // Top edge of row 2 (y = 41) = reorder boundary BEFORE row 2.
     CHECK(tree->OnDrop(drag.Get(), 0, 41.0f) == DragDropEffects::Move);
@@ -315,7 +323,7 @@ TEST_CASE("docking: press inside panel content activates the panel")
 {
     UIContext ctx;
     auto root = MakeRef<RootView>(DefaultAllocator());
-    root->ViewportSize = Float2{ 800, 600 };
+    root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
 
     auto dock = MakeRef<DockManager>(DefaultAllocator());
@@ -336,13 +344,14 @@ TEST_CASE("docking: press inside panel content activates the panel")
     ctx.UpdateRootView(root.Get());
 
     DockablePanel* activated = nullptr;
-    dock->OnPanelActivated.Add(Event<void(DockablePanel*)>::Handler{
-        [&activated](DockablePanel* p) { activated = p; } });
+    dock->OnPanelActivated.Add(
+        Event<void(DockablePanel*)>::Handler{[&activated](DockablePanel* p) { activated = p; }});
 
     // Press in the middle of each panel's CONTENT area (not the tab strip).
-    auto pressInside = [&](DockablePanel* panel) {
-        const Float2 screen = panel->LocalToScreen(Float2{ panel->Width() * 0.5f,
-                                                           panel->Height() * 0.7f });
+    auto pressInside = [&](DockablePanel* panel)
+    {
+        const Float2 screen =
+            panel->LocalToScreen(Float2{panel->Width() * 0.5f, panel->Height() * 0.7f});
         (void)ctx.GetInputManager()->ProcessMouseDown(MouseButton::Left, screen.x, screen.y, 0.0f);
         (void)ctx.GetInputManager()->ProcessMouseUp(MouseButton::Left, screen.x, screen.y);
     };
@@ -366,19 +375,23 @@ TEST_CASE("docking: close interceptor vetoes gestures but not direct closes")
 
     bool allow = false;
     i32 asked = 0;
-    panel->OnCloseInterceptor = [&](DockablePanel*) { ++asked; return allow; };
+    panel->OnCloseInterceptor = [&](DockablePanel*)
+    {
+        ++asked;
+        return allow;
+    };
 
-    panel->RequestClose();          // vetoed
+    panel->RequestClose(); // vetoed
     CHECK(asked == 1);
     CHECK(closed == 0);
 
     allow = true;
-    panel->RequestClose();          // allowed through
+    panel->RequestClose(); // allowed through
     CHECK(asked == 2);
     CHECK(closed == 1);
 
     allow = false;
-    panel->OnCloseRequested.Invoke(panel.Get());   // direct: no veto consulted
+    panel->OnCloseRequested.Invoke(panel.Get()); // direct: no veto consulted
     CHECK(asked == 2);
     CHECK(closed == 2);
 }

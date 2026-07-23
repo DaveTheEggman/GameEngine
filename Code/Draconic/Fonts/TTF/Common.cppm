@@ -24,8 +24,10 @@ export namespace draconic::fonts
         for (usize i = 0; i < a.Size(); ++i)
         {
             utf8char ca = a[i], cb = b[i];
-            if (ca >= utf8char('A') && ca <= utf8char('Z')) ca = static_cast<utf8char>(static_cast<u8>(ca) - 'A' + 'a');
-            if (cb >= utf8char('A') && cb <= utf8char('Z')) cb = static_cast<utf8char>(static_cast<u8>(cb) - 'A' + 'a');
+            if (ca >= utf8char('A') && ca <= utf8char('Z'))
+                ca = static_cast<utf8char>(static_cast<u8>(ca) - 'A' + 'a');
+            if (cb >= utf8char('A') && cb <= utf8char('Z'))
+                cb = static_cast<utf8char>(static_cast<u8>(cb) - 'A' + 'a');
             if (ca != cb)
                 return false;
         }
@@ -35,7 +37,8 @@ export namespace draconic::fonts
     // .ttf / .ttc / .otf - the formats the TTF backend handles.
     [[nodiscard]] inline Span<const StringView> TrueTypeExtensions()
     {
-        static const StringView exts[] = { StringView(u8".ttf"), StringView(u8".ttc"), StringView(u8".otf") };
+        static const StringView exts[] = {StringView(u8".ttf"), StringView(u8".ttc"),
+                                          StringView(u8".otf")};
         return Span<const StringView>(exts, 3);
     }
 }

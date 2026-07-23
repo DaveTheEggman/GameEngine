@@ -9,7 +9,7 @@ module;
 
 export module draconic.ui:view_transform;
 
-import draconic.core;   // Float2
+import draconic.core; // Float2
 
 using namespace draconic::core;
 namespace core = draconic::core;
@@ -19,20 +19,19 @@ export namespace draconic::ui
     struct ViewTransform
     {
         /// Translation offset (pixels).
-        core::Float2 Translation{ 0.0f, 0.0f };
+        core::Float2 Translation{0.0f, 0.0f};
         /// Rotation angle (radians).
         f32 Rotation = 0.0f;
         /// Scale factors. Default (1, 1).
-        core::Float2 Scale{ 1.0f, 1.0f };
+        core::Float2 Scale{1.0f, 1.0f};
         /// Transform origin as a fraction of the view's size (0,0 = top-left, 0.5,0.5 = center).
         /// The pivot for rotation and scale.
-        core::Float2 Origin{ 0.5f, 0.5f };
+        core::Float2 Origin{0.5f, 0.5f};
 
         /// True if this transform has no visual effect.
         [[nodiscard]] constexpr bool IsIdentity() const noexcept
         {
-            return Translation.x == 0.0f && Translation.y == 0.0f &&
-                   Rotation == 0.0f &&
+            return Translation.x == 0.0f && Translation.y == 0.0f && Rotation == 0.0f &&
                    Scale.x == 1.0f && Scale.y == 1.0f;
         }
 

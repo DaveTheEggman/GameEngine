@@ -22,7 +22,7 @@ import draconic.graphics.gpu;
 namespace core = draconic::core;
 namespace runtime = draconic::runtime;
 namespace graphics = draconic::graphics;
-        namespace shell = draconic::shell;
+namespace shell = draconic::shell;
 namespace rhi = draconic::rhi;
 
 namespace
@@ -36,8 +36,8 @@ namespace
             // Open a second OS window at runtime - the same call a detachable UI
             // panel would make.
             shell::WindowSettings ws;
-            ws.title  = u8"Draconic - Detached";
-            ws.width  = 480;
+            ws.title = u8"Draconic - Detached";
+            ws.width = 480;
             ws.height = 360;
             m_second = host.OpenWindow(ws, graphics::RenderWindowDesc{});
             core::ConsoleWrite(u8"MultiWindow: two windows up - close the main window to exit.\n");
@@ -48,8 +48,8 @@ namespace
             // Each window clears to its own color, proving independent per-window
             // presentation through the shared device.
             const rhi::ClearColor color = (frame.window == m_second)
-                ? rhi::ClearColor{ 0.85f, 0.45f, 0.20f, 1.0f }   // warm
-                : rhi::ClearColor::CornflowerBlue();             // main
+                                              ? rhi::ClearColor{0.85f, 0.45f, 0.20f, 1.0f} // warm
+                                              : rhi::ClearColor::CornflowerBlue();         // main
             frame.BeginBackbufferPass(color);
             frame.EndBackbufferPass();
         }
@@ -67,8 +67,8 @@ namespace
 int main(int /*argc*/, char** /*argv*/)
 {
     shell::WindowSettings ws;
-    ws.title  = u8"Draconic - Main";
-    ws.width  = 800;
+    ws.title = u8"Draconic - Main";
+    ws.width = 800;
     ws.height = 600;
 
     auto shell = shell::CreateShell(ws);
@@ -79,7 +79,7 @@ int main(int /*argc*/, char** /*argv*/)
     }
 
     graphics::GraphicsDeviceDesc gdd;
-    gdd.backend          = graphics::BackendType::Vulkan;
+    gdd.backend = graphics::BackendType::Vulkan;
     gdd.enableValidation = true;
     auto gpu = graphics::CreateGraphicsDevice(gdd);
     if (!gpu.HasValue())

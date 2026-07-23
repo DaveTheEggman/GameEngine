@@ -58,7 +58,7 @@ TEST_CASE("editor-log: bounded ring drops oldest and counts drops")
     Array<EditorLogEntry> out;
     (void)buffer.CollectSince(0, out);
     REQUIRE(out.Size() == 4);
-    CHECK(out[0].message == u8"m6");   // oldest surviving
+    CHECK(out[0].message == u8"m6"); // oldest surviving
     CHECK(out[3].message == u8"m9");
     // Sequences reveal the gap (entries 1..6 were dropped before collection).
     CHECK(out[0].sequence == 7);
@@ -68,13 +68,16 @@ TEST_CASE("editor-log: messages are not truncated")
 {
     EditorLogBuffer buffer(4);
     String longMessage;
-    for (i32 i = 0; i < 100; ++i) { longMessage += u8"0123456789"; }   // 1000 chars
+    for (i32 i = 0; i < 100; ++i)
+    {
+        longMessage += u8"0123456789";
+    } // 1000 chars
     buffer.Write(LogLevel::Error, u8"Build", longMessage.AsView());
 
     Array<EditorLogEntry> out;
     (void)buffer.CollectSince(0, out);
     REQUIRE(out.Size() == 1);
-    CHECK(out[0].message.Size() == longMessage.Size());   // core RingLogSink would cap at 192
+    CHECK(out[0].message.Size() == longMessage.Size()); // core RingLogSink would cap at 192
 }
 
 TEST_CASE("editor-log: registered on the global logger it captures DRACONIC_LOG output")
@@ -101,14 +104,19 @@ TEST_CASE("editor-log: concurrent writers do not lose or corrupt entries")
     Thread threads[kThreads];
     for (i32 t = 0; t < kThreads; ++t)
     {
-        threads[t] = Thread([&buffer]() {
-            for (i32 i = 0; i < kPerThread; ++i)
+        threads[t] = Thread(
+            [&buffer]()
             {
-                buffer.Write(LogLevel::Info, u8"Thread", u8"message");
-            }
-        });
+                for (i32 i = 0; i < kPerThread; ++i)
+                {
+                    buffer.Write(LogLevel::Info, u8"Thread", u8"message");
+                }
+            });
     }
-    for (i32 t = 0; t < kThreads; ++t) { threads[t].Join(); }
+    for (i32 t = 0; t < kThreads; ++t)
+    {
+        threads[t].Join();
+    }
 
     CHECK(buffer.Count() == static_cast<usize>(kThreads * kPerThread));
     CHECK(buffer.DroppedCount() == 0);

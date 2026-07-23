@@ -41,31 +41,42 @@ export namespace draconic::editor
     class BreakpointGutter final : public ui::View
     {
     public:
-        EditorContext* context = nullptr;   // the shared breakpoint store (borrowed)
-        ui::EditText* editor = nullptr;     // line-metric source (borrowed)
-        String file;                         // the source file these breakpoints key on
+        EditorContext* context = nullptr; // the shared breakpoint store (borrowed)
+        ui::EditText* editor = nullptr;   // line-metric source (borrowed)
+        String file;                      // the source file these breakpoints key on
 
         void OnMeasure(ui::BoxConstraints constraints) override
         {
-            MeasuredSize = Float2{ 24.0f, constraints.ConstrainHeight(0.0f) };
+            MeasuredSize = Float2{24.0f, constraints.ConstrainHeight(0.0f)};
         }
 
         void OnDraw(ui::UIDrawContext& ctx) override
         {
-            ctx.VG().FillRect(Rectangle{ 0, 0, Width(), Height() },
-                              Color{ 0.12f, 0.13f, 0.16f, 1.0f });
-            if (context == nullptr || editor == nullptr) { return; }
+            ctx.VG().FillRect(Rectangle{0, 0, Width(), Height()}, Color{0.12f, 0.13f, 0.16f, 1.0f});
+            if (context == nullptr || editor == nullptr)
+            {
+                return;
+            }
             const f32 lineHeight = editor->LineHeight();
-            if (lineHeight <= 0.0f) { return; }
+            if (lineHeight <= 0.0f)
+            {
+                return;
+            }
             const f32 scrollY = editor->ScrollOffsetY();
             for (const EditorContext::ScriptBreakpoint& breakpoint : context->Breakpoints())
             {
-                if (breakpoint.file.AsView() != file.AsView()) { continue; }
-                const f32 centreY = kTopPad + (static_cast<f32>(breakpoint.line) - 0.5f)
-                                    * lineHeight - scrollY;
-                if (centreY < 0.0f || centreY > Height()) { continue; }
-                ctx.VG().FillCircle(Float2{ Width() * 0.5f, centreY }, 4.5f,
-                                    Color{ 0.85f, 0.2f, 0.2f, 1.0f });
+                if (breakpoint.file.AsView() != file.AsView())
+                {
+                    continue;
+                }
+                const f32 centreY =
+                    kTopPad + (static_cast<f32>(breakpoint.line) - 0.5f) * lineHeight - scrollY;
+                if (centreY < 0.0f || centreY > Height())
+                {
+                    continue;
+                }
+                ctx.VG().FillCircle(Float2{Width() * 0.5f, centreY}, 4.5f,
+                                    Color{0.85f, 0.2f, 0.2f, 1.0f});
             }
         }
 
@@ -76,9 +87,12 @@ export namespace draconic::editor
                 return;
             }
             const f32 lineHeight = editor->LineHeight();
-            if (lineHeight <= 0.0f) { return; }
-            const i32 line = static_cast<i32>(
-                (e.Y - kTopPad + editor->ScrollOffsetY()) / lineHeight) + 1;
+            if (lineHeight <= 0.0f)
+            {
+                return;
+            }
+            const i32 line =
+                static_cast<i32>((e.Y - kTopPad + editor->ScrollOffsetY()) / lineHeight) + 1;
             if (line >= 1)
             {
                 context->ToggleBreakpoint(file.AsView(), line);
@@ -88,7 +102,7 @@ export namespace draconic::editor
         }
 
     private:
-        static constexpr f32 kTopPad = 4.0f;   // the editor's top text padding (Thickness{6,4})
+        static constexpr f32 kTopPad = 4.0f; // the editor's top text padding (Thickness{6,4})
     };
 
     // The in-editor script text page. Pure UI over ScriptSourceDocument (the headless save +
@@ -103,13 +117,17 @@ export namespace draconic::editor
 
             // The asset carries only the file name + language; the source lives in Sources/.
             String sourcesRoot;
-            if (m_context->Project() != nullptr) { sourcesRoot = m_context->Project()->SourcesRoot(); }
+            if (m_context->Project() != nullptr)
+            {
+                sourcesRoot = m_context->Project()->SourcesRoot();
+            }
             RefPtr<ISerializable> object = instance.ReadObject();
             if (auto* asset = Cast<draconic::script::ScriptClassAsset>(object.Get()))
             {
-                m_doc.Bind(sourcesRoot.AsView(), asset->fileName.AsView(), asset->language.AsView());
+                m_doc.Bind(sourcesRoot.AsView(), asset->fileName.AsView(),
+                           asset->language.AsView());
             }
-            (void)m_doc.Load();   // an unreadable file just leaves an empty buffer
+            (void)m_doc.Load(); // an unreadable file just leaves an empty buffer
 
             auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
             column->Direction = ui::Orientation::Vertical;
@@ -120,11 +138,13 @@ export namespace draconic::editor
             m_editor->Multiline.SetValue(true);
             m_editor->SetText(m_doc.Source());
             ScriptEditorPage* self = this;
-            m_editor->OnTextChanged.Add([self](ui::EditText* edit) {
-                self->m_doc.SetSource(edit->Text());
-                self->MarkDirty();
-                self->m_validateDelay = 0.6f;   // debounce a background compile-check
-            });
+            m_editor->OnTextChanged.Add(
+                [self](ui::EditText* edit)
+                {
+                    self->m_doc.SetSource(edit->Text());
+                    self->MarkDirty();
+                    self->m_validateDelay = 0.6f; // debounce a background compile-check
+                });
 
             // A horizontal row: [breakpoint gutter | source editor]. The gutter toggles
             // breakpoints in the shared store; a Game run applies them to its debugger.
@@ -174,7 +194,7 @@ export namespace draconic::editor
             }
 
             m_content = column;
-            RefreshCompileStatus();   // initial pass so the page opens with live state
+            RefreshCompileStatus(); // initial pass so the page opens with live state
         }
 
         [[nodiscard]] StringView Title() const override { return m_title.AsView(); }
@@ -210,7 +230,10 @@ export namespace draconic::editor
             if (m_validateDelay > 0.0f)
             {
                 m_validateDelay -= dt;
-                if (m_validateDelay <= 0.0f) { RefreshCompileStatus(); }
+                if (m_validateDelay <= 0.0f)
+                {
+                    RefreshCompileStatus();
+                }
             }
         }
 
@@ -221,7 +244,8 @@ export namespace draconic::editor
         void RefreshCompileStatus()
         {
             const bool ok = m_doc.Validate();
-            Span<const draconic::script::ScriptSourceDocument::CompileError> errors = m_doc.Errors();
+            Span<const draconic::script::ScriptSourceDocument::CompileError> errors =
+                m_doc.Errors();
             if (ok)
             {
                 String line(u8"Compiled OK");
@@ -242,7 +266,10 @@ export namespace draconic::editor
             String detail;
             for (const draconic::script::ScriptSourceDocument::CompileError& e : errors)
             {
-                if (!detail.IsEmpty()) { detail.PushBack(utf8char('\n')); }
+                if (!detail.IsEmpty())
+                {
+                    detail.PushBack(utf8char('\n'));
+                }
                 detail.Append(e.module.IsEmpty() ? m_doc.FileName() : e.module.AsView());
                 if (e.line > 0)
                 {
@@ -260,8 +287,15 @@ export namespace draconic::editor
             utf8char digits[24];
             i32 n = 0;
             usize v = value;
-            do { digits[n++] = static_cast<utf8char>('0' + v % 10); v /= 10; } while (v > 0 && n < 24);
-            while (n > 0) { out.PushBack(digits[--n]); }
+            do
+            {
+                digits[n++] = static_cast<utf8char>('0' + v % 10);
+                v /= 10;
+            } while (v > 0 && n < 24);
+            while (n > 0)
+            {
+                out.PushBack(digits[--n]);
+            }
         }
 
         EditorContext* m_context = nullptr;
@@ -297,14 +331,21 @@ export namespace draconic::editor
     inline content::Instance* CreateScriptInstance(EditorContext& context, content::Group* group,
                                                    StringView languageId, StringView extension)
     {
-        if (context.Project() == nullptr) { return nullptr; }
-        content::Group* target = group != nullptr ? group : context.Project()->SourceDb().RootGroup();
+        if (context.Project() == nullptr)
+        {
+            return nullptr;
+        }
+        content::Group* target =
+            group != nullptr ? group : context.Project()->SourceDb().RootGroup();
 
         String name(u8"NewBehavior");
         for (i32 counter = 2; target->GetInstance(name.AsView()) != nullptr; ++counter)
         {
             name = String(u8"NewBehavior");
-            if (counter >= 10) { name.PushBack(static_cast<utf8char>('0' + (counter / 10 % 10))); }
+            if (counter >= 10)
+            {
+                name.PushBack(static_cast<utf8char>('0' + (counter / 10 % 10)));
+            }
             name.PushBack(static_cast<utf8char>('0' + (counter % 10)));
         }
 
@@ -314,25 +355,35 @@ export namespace draconic::editor
 
         draconic::script::IScriptLanguageCook* cook =
             draconic::script::ScriptLanguageCookRegistry::Get().FindByLanguage(languageId);
-        if (cook == nullptr) { return nullptr; }
+        if (cook == nullptr)
+        {
+            return nullptr;
+        }
         const StringView starter = cook->NewAssetTemplate();
 
         const String path = PathJoin(context.Project()->SourcesRoot().AsView(), fileName.AsView());
-        if (!WriteFile(path.AsView(),
-                       Span<const byte>(reinterpret_cast<const byte*>(starter.Data()),
-                                        starter.Size())).IsOk())
+        if (!WriteFile(
+                 path.AsView(),
+                 Span<const byte>(reinterpret_cast<const byte*>(starter.Data()), starter.Size()))
+                 .IsOk())
         {
             return nullptr;
         }
 
         content::Instance* instance =
             target->CreateInstance(name.AsView(), draconic::script::ScriptClassAsset::StaticType());
-        if (instance == nullptr) { return nullptr; }
+        if (instance == nullptr)
+        {
+            return nullptr;
+        }
         draconic::script::ScriptClassAsset asset;
         asset.fileName = fileName;
         asset.language = String(languageId);
-        if (!instance->WriteObject(asset).IsOk()) { return nullptr; }
-        context.RequestCook(false);   // cook now so the new class is pickable + attachable
+        if (!instance->WriteObject(asset).IsOk())
+        {
+            return nullptr;
+        }
+        context.RequestCook(false); // cook now so the new class is pickable + attachable
         return instance;
     }
 
@@ -345,7 +396,8 @@ export namespace draconic::editor
 
         const auto backends = draconic::script::ScriptBackendRegistry::Get().All();
         DRACONIC_LOG_INFO(u8"Editor",
-            u8"RegisterScriptEditor: {} script backend(s) in the registry", backends.Size());
+                          u8"RegisterScriptEditor: {} script backend(s) in the registry",
+                          backends.Size());
         core::u32 registeredCreators = 0;
         for (const draconic::script::ScriptBackendDesc& backend : backends)
         {
@@ -353,13 +405,15 @@ export namespace draconic::editor
             if (draconic::script::ScriptLanguageCookRegistry::Get().FindByLanguage(
                     backend.languageId.AsView()) == nullptr)
             {
-                DRACONIC_LOG_WARNING(u8"Editor",
+                DRACONIC_LOG_WARNING(
+                    u8"Editor",
                     u8"  script backend '{}' has NO registered cook - no New-Asset creator",
                     backend.languageId);
                 continue;
             }
             String extension = backend.fileExtensions.IsEmpty()
-                ? String(backend.languageId.AsView()) : String(backend.fileExtensions[0].AsView());
+                                   ? String(backend.languageId.AsView())
+                                   : String(backend.fileExtensions[0].AsView());
             String label(backend.displayName.IsEmpty() ? backend.languageId.AsView()
                                                        : backend.displayName.AsView());
             label.Append(u8" Script");
@@ -368,14 +422,14 @@ export namespace draconic::editor
             creator.label = Move(label);
             creator.category = String(u8"Scripts");
             String languageId(backend.languageId.AsView());
-            creator.create = [languageId = Move(languageId), extension = Move(extension)](
-                                 EditorContext& ctx, content::Group* g) {
-                return CreateScriptInstance(ctx, g, languageId.AsView(), extension.AsView());
-            };
+            creator.create = [languageId = Move(languageId),
+                              extension = Move(extension)](EditorContext& ctx, content::Group* g)
+            { return CreateScriptInstance(ctx, g, languageId.AsView(), extension.AsView()); };
             context.RegisterCreator(Move(creator));
             ++registeredCreators;
         }
         DRACONIC_LOG_INFO(u8"Editor",
-            u8"RegisterScriptEditor: {} script New-Asset creator(s) registered", registeredCreators);
+                          u8"RegisterScriptEditor: {} script New-Asset creator(s) registered",
+                          registeredCreators);
     }
 }

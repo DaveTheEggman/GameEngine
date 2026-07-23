@@ -48,8 +48,9 @@ export namespace draconic::editor::app
             column->Direction = ui::Orientation::Vertical;
             column->Spacing = 8;
 
-            m_nameEdit = AddTextRow(*column, u8"Name", project != nullptr
-                ? project->Settings().name.AsView() : StringView(u8""));
+            m_nameEdit = AddTextRow(*column, u8"Name",
+                                    project != nullptr ? project->Settings().name.AsView()
+                                                       : StringView(u8""));
 
             // Default scene: read-only path + [Pick...] (the picker owns clearing too).
             {
@@ -72,7 +73,8 @@ export namespace draconic::editor::app
                     m_sceneId = project->Settings().defaultSceneId;
                     // Prefer the live instance's path over the stored mirror (never lies).
                     if (content::Instance* scene = !m_sceneId.IsNil()
-                            ? project->SourceDb().GetInstance(m_sceneId) : nullptr)
+                                                       ? project->SourceDb().GetInstance(m_sceneId)
+                                                       : nullptr)
                     {
                         m_sceneLabel->SetText(scene->Path().AsView());
                     }
@@ -103,17 +105,20 @@ export namespace draconic::editor::app
                 auto clear = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Clear"));
                 {
                     ProjectSettingsDialog* self = this;
-                    clear->OnClick.Add([self](ui::ButtonBase*) {
-                        self->m_scriptId = Guid{};
-                        self->m_scriptLabel->SetText(u8"(none)");
-                    });
+                    clear->OnClick.Add(
+                        [self](ui::ButtonBase*)
+                        {
+                            self->m_scriptId = Guid{};
+                            self->m_scriptLabel->SetText(u8"(none)");
+                        });
                     row->AddView(clear.Get());
                 }
                 if (project != nullptr)
                 {
                     m_scriptId = project->Settings().startupScriptId;
-                    if (content::Instance* script = !m_scriptId.IsNil()
-                            ? project->SourceDb().GetInstance(m_scriptId) : nullptr)
+                    if (content::Instance* script =
+                            !m_scriptId.IsNil() ? project->SourceDb().GetInstance(m_scriptId)
+                                                : nullptr)
                     {
                         m_scriptLabel->SetText(script->Path().AsView());
                     }
@@ -140,17 +145,20 @@ export namespace draconic::editor::app
                 auto clear = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Clear"));
                 {
                     ProjectSettingsDialog* self = this;
-                    clear->OnClick.Add([self](ui::ButtonBase*) {
-                        self->m_inputMapId = Guid{};
-                        self->m_inputMapLabel->SetText(u8"(none)");
-                    });
+                    clear->OnClick.Add(
+                        [self](ui::ButtonBase*)
+                        {
+                            self->m_inputMapId = Guid{};
+                            self->m_inputMapLabel->SetText(u8"(none)");
+                        });
                     row->AddView(clear.Get());
                 }
                 if (project != nullptr)
                 {
                     m_inputMapId = project->Settings().defaultInputMapId;
                     if (content::Instance* map = !m_inputMapId.IsNil()
-                            ? project->SourceDb().GetInstance(m_inputMapId) : nullptr)
+                                                     ? project->SourceDb().GetInstance(m_inputMapId)
+                                                     : nullptr)
                     {
                         m_inputMapLabel->SetText(map->Path().AsView());
                     }
@@ -161,7 +169,8 @@ export namespace draconic::editor::app
             // play-in-editor) - nil = the built-in neutral four-bus layout.
             {
                 ui::FlexLayout* row = AddRow(*column, u8"Default bus layout");
-                m_busLayoutLabel = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"(built-in)"));
+                m_busLayoutLabel =
+                    MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"(built-in)"));
                 {
                     auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                     lp->Grow = 1.0f;
@@ -177,17 +186,20 @@ export namespace draconic::editor::app
                 auto clear = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Clear"));
                 {
                     ProjectSettingsDialog* self = this;
-                    clear->OnClick.Add([self](ui::ButtonBase*) {
-                        self->m_busLayoutId = Guid{};
-                        self->m_busLayoutLabel->SetText(u8"(built-in)");
-                    });
+                    clear->OnClick.Add(
+                        [self](ui::ButtonBase*)
+                        {
+                            self->m_busLayoutId = Guid{};
+                            self->m_busLayoutLabel->SetText(u8"(built-in)");
+                        });
                     row->AddView(clear.Get());
                 }
                 if (project != nullptr)
                 {
                     m_busLayoutId = project->Settings().defaultBusLayoutId;
-                    if (content::Instance* layout = !m_busLayoutId.IsNil()
-                            ? project->SourceDb().GetInstance(m_busLayoutId) : nullptr)
+                    if (content::Instance* layout =
+                            !m_busLayoutId.IsNil() ? project->SourceDb().GetInstance(m_busLayoutId)
+                                                   : nullptr)
                     {
                         m_busLayoutLabel->SetText(layout->Path().AsView());
                     }
@@ -214,17 +226,20 @@ export namespace draconic::editor::app
                 auto clear = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Clear"));
                 {
                     ProjectSettingsDialog* self = this;
-                    clear->OnClick.Add([self](ui::ButtonBase*) {
-                        self->m_uiThemeId = Guid{};
-                        self->m_uiThemeLabel->SetText(u8"(built-in)");
-                    });
+                    clear->OnClick.Add(
+                        [self](ui::ButtonBase*)
+                        {
+                            self->m_uiThemeId = Guid{};
+                            self->m_uiThemeLabel->SetText(u8"(built-in)");
+                        });
                     row->AddView(clear.Get());
                 }
                 if (project != nullptr)
                 {
                     m_uiThemeId = project->Settings().defaultUiThemeId;
-                    if (content::Instance* theme = !m_uiThemeId.IsNil()
-                            ? project->SourceDb().GetInstance(m_uiThemeId) : nullptr)
+                    if (content::Instance* theme =
+                            !m_uiThemeId.IsNil() ? project->SourceDb().GetInstance(m_uiThemeId)
+                                                 : nullptr)
                     {
                         m_uiThemeLabel->SetText(theme->Path().AsView());
                     }
@@ -234,8 +249,8 @@ export namespace draconic::editor::app
             // Engine stamp - informational; re-stamped by every save.
             {
                 ui::FlexLayout* row = AddRow(*column, u8"Engine version");
-                auto value = MakeRef<ui::Label>(DefaultAllocator(),
-                                                draconic::editor::kEngineVersionString);
+                auto value =
+                    MakeRef<ui::Label>(DefaultAllocator(), draconic::editor::kEngineVersionString);
                 auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                 lp->AlignSelf = ui::Align::Center;
                 row->AddView(value.Get(), lp);
@@ -288,15 +303,22 @@ export namespace draconic::editor::app
 
         void PickBusLayout()
         {
-            if (Context == nullptr) { return; }
+            if (Context == nullptr)
+            {
+                return;
+            }
             Array<String> typeNames;
             typeNames.PushBack(String(u8"AudioBusLayoutAsset"));
-            auto picker = MakeRef<AssetPickerDialog>(DefaultAllocator(), *m_context, Move(typeNames));
+            auto picker =
+                MakeRef<AssetPickerDialog>(DefaultAllocator(), *m_context, Move(typeNames));
             ProjectSettingsDialog* self = this;
-            picker->OnPicked = [self](const Guid& id) {
+            picker->OnPicked = [self](const Guid& id)
+            {
                 self->m_busLayoutId = id;
-                if (content::Instance* layout = !id.IsNil() && self->m_context->Project() != nullptr
-                        ? self->m_context->Project()->SourceDb().GetInstance(id) : nullptr)
+                if (content::Instance* layout =
+                        !id.IsNil() && self->m_context->Project() != nullptr
+                            ? self->m_context->Project()->SourceDb().GetInstance(id)
+                            : nullptr)
                 {
                     self->m_busLayoutLabel->SetText(layout->Path().AsView());
                 }
@@ -310,15 +332,22 @@ export namespace draconic::editor::app
 
         void PickStartupScript()
         {
-            if (Context == nullptr) { return; }
+            if (Context == nullptr)
+            {
+                return;
+            }
             Array<String> typeNames;
             typeNames.PushBack(String(u8"ScriptClassAsset"));
-            auto picker = MakeRef<AssetPickerDialog>(DefaultAllocator(), *m_context, Move(typeNames));
+            auto picker =
+                MakeRef<AssetPickerDialog>(DefaultAllocator(), *m_context, Move(typeNames));
             ProjectSettingsDialog* self = this;
-            picker->OnPicked = [self](const Guid& id) {
+            picker->OnPicked = [self](const Guid& id)
+            {
                 self->m_scriptId = id;
-                if (content::Instance* script = !id.IsNil() && self->m_context->Project() != nullptr
-                        ? self->m_context->Project()->SourceDb().GetInstance(id) : nullptr)
+                if (content::Instance* script =
+                        !id.IsNil() && self->m_context->Project() != nullptr
+                            ? self->m_context->Project()->SourceDb().GetInstance(id)
+                            : nullptr)
                 {
                     self->m_scriptLabel->SetText(script->Path().AsView());
                 }
@@ -332,15 +361,22 @@ export namespace draconic::editor::app
 
         void PickInputMap()
         {
-            if (Context == nullptr) { return; }
+            if (Context == nullptr)
+            {
+                return;
+            }
             Array<String> typeNames;
             typeNames.PushBack(String(u8"InputMapAsset"));
-            auto picker = MakeRef<AssetPickerDialog>(DefaultAllocator(), *m_context, Move(typeNames));
+            auto picker =
+                MakeRef<AssetPickerDialog>(DefaultAllocator(), *m_context, Move(typeNames));
             ProjectSettingsDialog* self = this;
-            picker->OnPicked = [self](const Guid& id) {
+            picker->OnPicked = [self](const Guid& id)
+            {
                 self->m_inputMapId = id;
-                if (content::Instance* map = !id.IsNil() && self->m_context->Project() != nullptr
-                        ? self->m_context->Project()->SourceDb().GetInstance(id) : nullptr)
+                if (content::Instance* map =
+                        !id.IsNil() && self->m_context->Project() != nullptr
+                            ? self->m_context->Project()->SourceDb().GetInstance(id)
+                            : nullptr)
                 {
                     self->m_inputMapLabel->SetText(map->Path().AsView());
                 }
@@ -354,15 +390,22 @@ export namespace draconic::editor::app
 
         void PickUiTheme()
         {
-            if (Context == nullptr) { return; }
+            if (Context == nullptr)
+            {
+                return;
+            }
             Array<String> typeNames;
             typeNames.PushBack(String(u8"UIThemeAsset"));
-            auto picker = MakeRef<AssetPickerDialog>(DefaultAllocator(), *m_context, Move(typeNames));
+            auto picker =
+                MakeRef<AssetPickerDialog>(DefaultAllocator(), *m_context, Move(typeNames));
             ProjectSettingsDialog* self = this;
-            picker->OnPicked = [self](const Guid& id) {
+            picker->OnPicked = [self](const Guid& id)
+            {
                 self->m_uiThemeId = id;
-                if (content::Instance* theme = !id.IsNil() && self->m_context->Project() != nullptr
-                        ? self->m_context->Project()->SourceDb().GetInstance(id) : nullptr)
+                if (content::Instance* theme =
+                        !id.IsNil() && self->m_context->Project() != nullptr
+                            ? self->m_context->Project()->SourceDb().GetInstance(id)
+                            : nullptr)
                 {
                     self->m_uiThemeLabel->SetText(theme->Path().AsView());
                 }
@@ -376,15 +419,22 @@ export namespace draconic::editor::app
 
         void PickScene()
         {
-            if (Context == nullptr) { return; }
+            if (Context == nullptr)
+            {
+                return;
+            }
             Array<String> typeNames;
             typeNames.PushBack(String(u8"SceneDocument"));
-            auto picker = MakeRef<AssetPickerDialog>(DefaultAllocator(), *m_context, Move(typeNames));
+            auto picker =
+                MakeRef<AssetPickerDialog>(DefaultAllocator(), *m_context, Move(typeNames));
             ProjectSettingsDialog* self = this;
-            picker->OnPicked = [self](const Guid& id) {
+            picker->OnPicked = [self](const Guid& id)
+            {
                 self->m_sceneId = id;
-                if (content::Instance* scene = !id.IsNil() && self->m_context->Project() != nullptr
-                        ? self->m_context->Project()->SourceDb().GetInstance(id) : nullptr)
+                if (content::Instance* scene =
+                        !id.IsNil() && self->m_context->Project() != nullptr
+                            ? self->m_context->Project()->SourceDb().GetInstance(id)
+                            : nullptr)
                 {
                     self->m_sceneLabel->SetText(scene->Path().AsView());
                 }
@@ -393,7 +443,7 @@ export namespace draconic::editor::app
                     self->m_sceneLabel->SetText(u8"(none)");
                 }
             };
-            picker->Show(Context);   // stacks above this dialog on the popup layer
+            picker->Show(Context); // stacks above this dialog on the popup layer
         }
 
         void Apply()
@@ -406,9 +456,10 @@ export namespace draconic::editor::app
             }
             project->Settings().name = String(m_nameEdit->Text());
             project->Settings().startupScriptId = m_scriptId;
-            project->Settings().startupScript = String();   // the source-DB path mirror (display / v<6 fallback)
-            if (content::Instance* script = !m_scriptId.IsNil()
-                    ? project->SourceDb().GetInstance(m_scriptId) : nullptr)
+            project->Settings().startupScript =
+                String(); // the source-DB path mirror (display / v<6 fallback)
+            if (content::Instance* script =
+                    !m_scriptId.IsNil() ? project->SourceDb().GetInstance(m_scriptId) : nullptr)
             {
                 project->Settings().startupScript = script->Path();
             }
@@ -417,8 +468,8 @@ export namespace draconic::editor::app
             project->Settings().defaultBusLayoutId = m_busLayoutId;
             project->Settings().defaultUiThemeId = m_uiThemeId;
             project->Settings().defaultScene = String();
-            if (content::Instance* scene = !m_sceneId.IsNil()
-                    ? project->SourceDb().GetInstance(m_sceneId) : nullptr)
+            if (content::Instance* scene =
+                    !m_sceneId.IsNil() ? project->SourceDb().GetInstance(m_sceneId) : nullptr)
             {
                 project->Settings().defaultScene = scene->Path();
             }

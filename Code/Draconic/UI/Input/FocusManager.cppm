@@ -10,9 +10,9 @@ module;
 
 export module draconic.ui:focus_manager;
 
-import draconic.core;   // Array, ViewId-compatible
+import draconic.core; // Array, ViewId-compatible
 import :view_id;
-import :input_enums;    // FocusDirection
+import :input_enums; // FocusDirection
 
 using namespace draconic::core;
 
@@ -27,29 +27,29 @@ export namespace draconic::ui
         explicit FocusManager(UIContext* context) : m_context(context) {}
 
         // === Focus ===
-        [[nodiscard]] View* FocusedView() const;            // impl unit
+        [[nodiscard]] View* FocusedView() const; // impl unit
         [[nodiscard]] ViewId FocusedId() const noexcept { return m_focusedId; }
-        void SetFocus(View* view);                          // impl unit
-        void ClearFocus();                                  // impl unit
+        void SetFocus(View* view); // impl unit
+        void ClearFocus();         // impl unit
 
         // === Focus stack (for popups) ===
-        void PushFocus();                                   // impl unit
-        void PopFocus();                                    // impl unit
+        void PushFocus(); // impl unit
+        void PopFocus();  // impl unit
         [[nodiscard]] usize FocusStackDepth() const noexcept { return m_focusStack.Size(); }
 
         // === Mouse capture ===
-        [[nodiscard]] View* CapturedView() const;           // impl unit
-        [[nodiscard]] bool HasCapture() const;              // impl unit
-        void SetCapture(View* view);                        // impl unit
+        [[nodiscard]] View* CapturedView() const; // impl unit
+        [[nodiscard]] bool HasCapture() const;    // impl unit
+        void SetCapture(View* view);              // impl unit
         void ReleaseCapture() { m_capturedId = ViewId::Invalid; }
 
         // === Navigation ===
-        void FocusNext();                                   // impl unit
-        void FocusPrev();                                   // impl unit
-        bool MoveFocus(FocusDirection direction);           // impl unit
+        void FocusNext();                         // impl unit
+        void FocusPrev();                         // impl unit
+        bool MoveFocus(FocusDirection direction); // impl unit
 
         // === Deletion safety ===
-        void OnViewDeleted(View* view);                     // impl unit
+        void OnViewDeleted(View* view); // impl unit
 
     private:
         // Internal helpers (impl unit).

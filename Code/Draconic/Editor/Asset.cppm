@@ -51,10 +51,11 @@ export namespace draconic::editor
     // resolve cross-asset references during the bake).
     struct AssetBuildContext
     {
-        draconic::vfs::IFileSystem* sources = nullptr;       // mount for Asset::fileName + extra files
-        draconic::content::Instance* source = nullptr;       // the SOURCE instance being cooked (embedded data streams)
-        draconic::content::Instance* output = nullptr;       // cooked resource is written here
-        draconic::content::IContentDatabase* db = nullptr;   // for resolving referenced assets
+        draconic::vfs::IFileSystem* sources = nullptr; // mount for Asset::fileName + extra files
+        draconic::content::Instance* source =
+            nullptr; // the SOURCE instance being cooked (embedded data streams)
+        draconic::content::Instance* output = nullptr;     // cooked resource is written here
+        draconic::content::IContentDatabase* db = nullptr; // for resolving referenced assets
     };
 
     // What one build consumes beyond the implicit Asset::fileName. The cook driver hashes files
@@ -65,8 +66,8 @@ export namespace draconic::editor
         Array<String> sourceStreams; // the source instance's data streams the build reads
                                      // (embedded payloads live in SIDECAR files the envelope
                                      // hash doesn't cover - declaring them chains their bytes)
-        Array<Guid>   reads;         // instances whose CONTENT this build consumes (hash-chained)
-        Array<Guid>   references;    // instances the product refers to at runtime (existence only)
+        Array<Guid> reads;           // instances whose CONTENT this build consumes (hash-chained)
+        Array<Guid> references;      // instances the product refers to at runtime (existence only)
     };
 
     // Cooks one source asset type into a runtime resource (source -> product).
@@ -90,7 +91,9 @@ export namespace draconic::editor
         virtual void ScanDependencies(const Asset& asset, AssetBuildContext& ctx,
                                       AssetDependencies& out)
         {
-            (void)asset; (void)ctx; (void)out;
+            (void)asset;
+            (void)ctx;
+            (void)out;
         }
 
         // Cook `asset` into ctx.output. Returns Ok or a failure status.
@@ -105,15 +108,25 @@ export namespace draconic::editor
         [[nodiscard]] static Result<Array<byte>> ReadSourceBytes(const AssetBuildContext& ctx,
                                                                  StringView fileName)
         {
-            if (ctx.sources == nullptr) { return Err(ErrorCode::InvalidArgument); }
+            if (ctx.sources == nullptr)
+            {
+                return Err(ErrorCode::InvalidArgument);
+            }
             UniquePtr<IStream> stream = ctx.sources->Open(fileName, FileMode::Read);
-            if (stream.Get() == nullptr) { return Err(ErrorCode::NotFound); }
+            if (stream.Get() == nullptr)
+            {
+                return Err(ErrorCode::NotFound);
+            }
 
             const i64 size = stream->Size();
-            if (size < 0) { return Err(ErrorCode::Unknown); }
+            if (size < 0)
+            {
+                return Err(ErrorCode::Unknown);
+            }
             Array<byte> buf;
             buf.Resize(static_cast<usize>(size));
-            if (size > 0 && stream->Read(buf.Data(), static_cast<u64>(size)) != static_cast<u64>(size))
+            if (size > 0 &&
+                stream->Read(buf.Data(), static_cast<u64>(size)) != static_cast<u64>(size))
             {
                 return Err(ErrorCode::Unknown);
             }
@@ -125,7 +138,10 @@ export namespace draconic::editor
                                                    StringView fileName, String& out)
         {
             Result<Array<byte>> bytes = ReadSourceBytes(ctx, fileName);
-            if (!bytes.HasValue()) { return Status{ bytes.Error() }; }
+            if (!bytes.HasValue())
+            {
+                return Status{bytes.Error()};
+            }
             out = String(StringView(reinterpret_cast<const utf8char*>(bytes.Value().Data()),
                                     bytes.Value().Size()));
             return Status{};
@@ -139,14 +155,20 @@ export namespace draconic::editor
     public:
         void Register(UniquePtr<IAssetBuilder> builder)
         {
-            if (builder) { m_builders.PushBack(Move(builder)); }
+            if (builder)
+            {
+                m_builders.PushBack(Move(builder));
+            }
         }
 
         [[nodiscard]] IAssetBuilder* Find(const TypeInfo* assetType) const
         {
             for (const UniquePtr<IAssetBuilder>& b : m_builders)
             {
-                if (b->AssetType() == assetType) { return b.Get(); }
+                if (b->AssetType() == assetType)
+                {
+                    return b.Get();
+                }
             }
             return nullptr;
         }
@@ -156,8 +178,8 @@ export namespace draconic::editor
             for (const UniquePtr<IAssetBuilder>& b : m_builders)
             {
                 const TypeInfo* type = b->AssetType();
-                if (type != nullptr && type->name != nullptr
-                    && StringView(reinterpret_cast<const utf8char*>(type->name)) == typeName)
+                if (type != nullptr && type->name != nullptr &&
+                    StringView(reinterpret_cast<const utf8char*>(type->name)) == typeName)
                 {
                     return b.Get();
                 }

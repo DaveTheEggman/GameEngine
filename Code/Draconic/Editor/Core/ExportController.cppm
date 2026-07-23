@@ -32,7 +32,10 @@ export namespace draconic::editor
         void Load(vfs::IFileSystem& projectFs)
         {
             m_set.presets.Clear();
-            if (!LoadExportPresets(projectFs, m_set).IsOk()) { DefaultExportPresets(m_set); }
+            if (!LoadExportPresets(projectFs, m_set).IsOk())
+            {
+                DefaultExportPresets(m_set);
+            }
         }
 
         // Persist the current set to export_presets.xml (the panel calls this after every mutation
@@ -62,7 +65,10 @@ export namespace draconic::editor
         // (a no-op rename when the name is unchanged, since `index` is excluded from the check).
         void Update(usize index, const ExportPreset& preset)
         {
-            if (index >= m_set.presets.Size()) { return; }
+            if (index >= m_set.presets.Size())
+            {
+                return;
+            }
             ExportPreset copy = preset;
             copy.name = UniqueName(copy.name.AsView(), static_cast<isize>(index));
             m_set.presets[index] = Move(copy);
@@ -72,9 +78,13 @@ export namespace draconic::editor
         // index (or `index` unchanged when out of range).
         usize Duplicate(usize index)
         {
-            if (index >= m_set.presets.Size()) { return index; }
+            if (index >= m_set.presets.Size())
+            {
+                return index;
+            }
             ExportPreset copy = m_set.presets[index];
-            copy.name = UniqueName(copy.name.AsView(), -1);   // original still present => gets " Copy"
+            copy.name =
+                UniqueName(copy.name.AsView(), -1); // original still present => gets " Copy"
             m_set.presets.PushBack(Move(copy));
             return m_set.presets.Size() - 1;
         }
@@ -82,7 +92,10 @@ export namespace draconic::editor
         // Drop the preset at `index` (out-of-range = no-op).
         void Remove(usize index)
         {
-            if (index < m_set.presets.Size()) { m_set.presets.RemoveAt(index); }
+            if (index < m_set.presets.Size())
+            {
+                m_set.presets.RemoveAt(index);
+            }
         }
 
         // A name unique among the presets (excluding index `skip`, or -1 for none): `base` verbatim
@@ -94,22 +107,43 @@ export namespace draconic::editor
             {
                 for (usize i = 0; i < m_set.presets.Size(); ++i)
                 {
-                    if (static_cast<isize>(i) == skip) { continue; }
-                    if (m_set.presets[i].name.AsView() == candidate) { return true; }
+                    if (static_cast<isize>(i) == skip)
+                    {
+                        continue;
+                    }
+                    if (m_set.presets[i].name.AsView() == candidate)
+                    {
+                        return true;
+                    }
                 }
                 return false;
             };
 
             String root(base);
-            if (root.IsEmpty()) { root = String(u8"Preset"); }
-            if (!taken(root.AsView())) { return root; }
-
-            String first(root); first += u8" Copy";
-            if (!taken(first.AsView())) { return first; }
-            for (u32 n = 2; ; ++n)
+            if (root.IsEmpty())
             {
-                String candidate(root); candidate += u8" Copy "; candidate += Format(u8"{}", n);
-                if (!taken(candidate.AsView())) { return candidate; }
+                root = String(u8"Preset");
+            }
+            if (!taken(root.AsView()))
+            {
+                return root;
+            }
+
+            String first(root);
+            first += u8" Copy";
+            if (!taken(first.AsView()))
+            {
+                return first;
+            }
+            for (u32 n = 2;; ++n)
+            {
+                String candidate(root);
+                candidate += u8" Copy ";
+                candidate += Format(u8"{}", n);
+                if (!taken(candidate.AsView()))
+                {
+                    return candidate;
+                }
             }
         }
 

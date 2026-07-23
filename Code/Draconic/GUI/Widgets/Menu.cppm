@@ -22,9 +22,9 @@ module;
 
 export module draconic.gui:menu;
 
-import draconic.core;   // RefPtr, MakeRef, Array, Function, Move, Max, Cast
-import draconic.fonts;  // CachedFont
-import draconic.vg;     // PathBuilder, StrokeStyle
+import draconic.core;  // RefPtr, MakeRef, Array, Function, Move, Max, Cast
+import draconic.fonts; // CachedFont
+import draconic.vg;    // PathBuilder, StrokeStyle
 import :rect;
 import :event;
 import :draw_context;
@@ -60,7 +60,8 @@ export namespace draconic::gui
         void OnMouseEnter(const MouseEvent& event) override
         {
             UINode::OnMouseEnter(event);
-            if (m_onHovered) m_onHovered();
+            if (m_onHovered)
+                m_onHovered();
         }
 
     private:
@@ -75,13 +76,21 @@ export namespace draconic::gui
         MenuSeparator() { SetTag(core::StringView(u8"menuseparator")); }
 
         [[nodiscard]] f32 RowHeight() const override { return m_height; }
-        void SetLineColor(Color color) { m_line = color; Invalidate(); }
+        void SetLineColor(Color color)
+        {
+            m_line = color;
+            Invalidate();
+        }
 
         // Theming part: menuseparator::line.
-        void CollectStyleParts(core::Array<core::StringView>& out) const override { out.PushBack(core::StringView(u8"line")); }
+        void CollectStyleParts(core::Array<core::StringView>& out) const override
+        {
+            out.PushBack(core::StringView(u8"line"));
+        }
         void SetThemePartColor(core::StringView part, Color color) override
         {
-            if (part == core::StringView(u8"line")) m_line = color;
+            if (part == core::StringView(u8"line"))
+                m_line = color;
         }
 
     protected:
@@ -90,12 +99,13 @@ export namespace draconic::gui
             (void)localBounds;
             const Rect b = GetLocalBounds();
             const f32 y = b.y + b.height * 0.5f;
-            ctx.VG().FillRect(core::Rectangle{ b.x + 8.0f, y, core::Max(0.0f, b.width - 16.0f), 1.0f }, m_line);
+            ctx.VG().FillRect(
+                core::Rectangle{b.x + 8.0f, y, core::Max(0.0f, b.width - 16.0f), 1.0f}, m_line);
         }
 
     private:
         f32 m_height = 9.0f;
-        Color m_line{ 0.32f, 0.34f, 0.40f, 1.0f };
+        Color m_line{0.32f, 0.34f, 0.40f, 1.0f};
     };
 
     // === Activatable item ======================================================
@@ -111,35 +121,73 @@ export namespace draconic::gui
         }
 
         // Content.
-        void SetText(core::StringView text) { m_text.SetString(text); Invalidate(); }
+        void SetText(core::StringView text)
+        {
+            m_text.SetString(text);
+            Invalidate();
+        }
         [[nodiscard]] core::StringView GetText() const { return m_text.GetString(); }
-        void SetShortcut(core::StringView text) { m_shortcut.SetString(text); Invalidate(); }
+        void SetShortcut(core::StringView text)
+        {
+            m_shortcut.SetString(text);
+            Invalidate();
+        }
         [[nodiscard]] core::StringView GetShortcut() const { return m_shortcut.GetString(); }
-        void SetIcon(core::RefPtr<Drawable> icon) { m_icon = core::Move(icon); Invalidate(); }
+        void SetIcon(core::RefPtr<Drawable> icon)
+        {
+            m_icon = core::Move(icon);
+            Invalidate();
+        }
 
-        void SetFont(fonts::CachedFont* font) { m_text.SetFont(font); m_shortcut.SetFont(font); Invalidate(); }
-        void SetTextColor(Color color) { m_text.SetColor(color); m_shortcut.SetColor(color); Invalidate(); }
+        void SetFont(fonts::CachedFont* font)
+        {
+            m_text.SetFont(font);
+            m_shortcut.SetFont(font);
+            Invalidate();
+        }
+        void SetTextColor(Color color)
+        {
+            m_text.SetColor(color);
+            m_shortcut.SetColor(color);
+            Invalidate();
+        }
         void SetHighlightColor(Color color) { m_highlight = color; }
         void SetRowHeight(f32 height) { m_rowHeight = core::Max(1.0f, height); }
 
         // Checkable state (a leading check mark). SetChecked fires the toggle callback.
-        void SetCheckable(bool checkable) { m_checkable = checkable; Invalidate(); }
+        void SetCheckable(bool checkable)
+        {
+            m_checkable = checkable;
+            Invalidate();
+        }
         [[nodiscard]] bool IsCheckable() const noexcept { return m_checkable; }
         void SetChecked(bool checked)
         {
-            if (m_checked == checked) return;
+            if (m_checked == checked)
+                return;
             m_checked = checked;
             Invalidate();
-            if (m_onToggled) m_onToggled(m_checked);
+            if (m_onToggled)
+                m_onToggled(m_checked);
         }
         [[nodiscard]] bool IsChecked() const noexcept { return m_checked; }
-        void SetCheckedSilently(bool checked) { m_checked = checked; Invalidate(); } // no callback (init)
-        void SetOnToggled(core::Function<void(bool)> callback) { m_onToggled = core::Move(callback); }
+        void SetCheckedSilently(bool checked)
+        {
+            m_checked = checked;
+            Invalidate();
+        } // no callback (init)
+        void SetOnToggled(core::Function<void(bool)> callback)
+        {
+            m_onToggled = core::Move(callback);
+        }
 
         // The user's action (run before the menu closes).
         void SetOnPicked(core::Function<void()> callback) { m_onPicked = core::Move(callback); }
         // The menu installs this to close the whole chain after activation.
-        void SetOnActivated(core::Function<void()> callback) { m_onActivated = core::Move(callback); }
+        void SetOnActivated(core::Function<void()> callback)
+        {
+            m_onActivated = core::Move(callback);
+        }
 
         [[nodiscard]] f32 RowHeight() const override { return m_rowHeight; }
         [[nodiscard]] bool IsSelectable() const override { return true; }
@@ -148,15 +196,20 @@ export namespace draconic::gui
         [[nodiscard]] f32 PreferredWidth() const
         {
             const f32 textW = m_text.Measure().x;
-            const f32 shortcutW = m_shortcut.GetString().Size() > 0 ? m_shortcut.Measure().x + 24.0f : 0.0f;
+            const f32 shortcutW =
+                m_shortcut.GetString().Size() > 0 ? m_shortcut.Measure().x + 24.0f : 0.0f;
             return kGutter + textW + shortcutW + kRightPad;
         }
 
         // Theming: menuitem::highlight (hover row background); text via the hook below.
-        void CollectStyleParts(core::Array<core::StringView>& out) const override { out.PushBack(core::StringView(u8"highlight")); }
+        void CollectStyleParts(core::Array<core::StringView>& out) const override
+        {
+            out.PushBack(core::StringView(u8"highlight"));
+        }
         void SetThemePartColor(core::StringView part, Color color) override
         {
-            if (part == core::StringView(u8"highlight")) m_highlight = color;
+            if (part == core::StringView(u8"highlight"))
+                m_highlight = color;
         }
         void SetThemeTextColor(Color color) override { SetTextColor(color); }
         void SetThemeFont(fonts::CachedFont* font) override { SetFont(font); }
@@ -167,16 +220,20 @@ export namespace draconic::gui
         // Run the item: toggle (if checkable), fire the user's action, then close the chain.
         virtual void Activate()
         {
-            if (m_checkable) SetChecked(!m_checked);
-            if (m_onPicked) m_onPicked();
-            if (m_onActivated) m_onActivated();
+            if (m_checkable)
+                SetChecked(!m_checked);
+            if (m_onPicked)
+                m_onPicked();
+            if (m_onActivated)
+                m_onActivated();
         }
 
         void OnDraw(DrawContext& ctx, const Rect& localBounds) override
         {
             (void)localBounds;
             const Rect b = GetLocalBounds();
-            if (IsHovered()) ctx.VG().FillRect(b.ToRectangle(), m_highlight);
+            if (IsHovered())
+                ctx.VG().FillRect(b.ToRectangle(), m_highlight);
 
             // Left gutter: a check mark (if checked) else an icon (if set).
             if (m_checkable && m_checked)
@@ -186,13 +243,15 @@ export namespace draconic::gui
             else if (m_icon)
             {
                 const f32 s = core::Max(0.0f, core::Max(0.0f, kGutter - 8.0f));
-                m_icon->Draw(ctx, Rect{ b.x + 4.0f, b.y + (b.height - s) * 0.5f, s, s });
+                m_icon->Draw(ctx, Rect{b.x + 4.0f, b.y + (b.height - s) * 0.5f, s, s});
             }
 
             // Text + shortcut share the inner rect (opposite alignments).
-            const Rect inner{ b.x + kGutter, b.y, core::Max(0.0f, b.width - kGutter - kRightPad), b.height };
+            const Rect inner{b.x + kGutter, b.y, core::Max(0.0f, b.width - kGutter - kRightPad),
+                             b.height};
             m_text.Draw(ctx, inner);
-            if (m_shortcut.GetString().Size() > 0) m_shortcut.Draw(ctx, inner);
+            if (m_shortcut.GetString().Size() > 0)
+                m_shortcut.Draw(ctx, inner);
         }
 
         // Draw a check mark stroked inside the left gutter.
@@ -217,8 +276,8 @@ export namespace draconic::gui
         bool m_checkable = false;
         bool m_checked = false;
         f32 m_rowHeight = 26.0f;
-        Color m_highlight{ 0.24f, 0.40f, 0.62f, 1.0f };
-        Color m_checkColor{ 0.88f, 0.90f, 0.94f, 1.0f };
+        Color m_highlight{0.24f, 0.40f, 0.62f, 1.0f};
+        Color m_checkColor{0.88f, 0.90f, 0.94f, 1.0f};
         core::Function<void()> m_onPicked;
         core::Function<void()> m_onActivated;
         core::Function<void(bool)> m_onToggled;
@@ -245,7 +304,11 @@ export namespace draconic::gui
         [[nodiscard]] Color ArrowColor() const noexcept { return m_arrowColor; }
 
     protected:
-        void Activate() override { if (m_onOpen) m_onOpen(); } // open, never close
+        void Activate() override
+        {
+            if (m_onOpen)
+                m_onOpen();
+        } // open, never close
 
         void OnDraw(DrawContext& ctx, const Rect& localBounds) override
         {
@@ -264,9 +327,9 @@ export namespace draconic::gui
         }
 
     private:
-        Menu* m_subMenu = nullptr;             // non-owning; owned as a RefPtr by the Menu
+        Menu* m_subMenu = nullptr; // non-owning; owned as a RefPtr by the Menu
         core::Function<void()> m_onOpen;
-        Color m_arrowColor{ 0.80f, 0.84f, 0.90f, 1.0f };
+        Color m_arrowColor{0.80f, 0.84f, 0.90f, 1.0f};
     };
 
     // === Menu ==================================================================
@@ -283,13 +346,29 @@ export namespace draconic::gui
         void SetFont(fonts::CachedFont* font)
         {
             m_font = font;
-            for (MenuRow* row : m_rows) if (MenuItem* it = core::Cast<MenuItem>(row)) it->SetFont(font);
+            for (MenuRow* row : m_rows)
+                if (MenuItem* it = core::Cast<MenuItem>(row))
+                    it->SetFont(font);
         }
-        void SetWidth(f32 width) { m_width = core::Max(1.0f, width); m_autoWidth = false; Relayout(); }
-        void SetItemHeight(f32 height) { m_itemHeight = core::Max(1.0f, height); ApplyItemHeights(); Relayout(); }
+        void SetWidth(f32 width)
+        {
+            m_width = core::Max(1.0f, width);
+            m_autoWidth = false;
+            Relayout();
+        }
+        void SetItemHeight(f32 height)
+        {
+            m_itemHeight = core::Max(1.0f, height);
+            ApplyItemHeights();
+            Relayout();
+        }
 
         // Auto-size the menu width to its widest item (default off; SetWidth turns it off).
-        void SetAutoWidth(bool enabled) { m_autoWidth = enabled; Relayout(); }
+        void SetAutoWidth(bool enabled)
+        {
+            m_autoWidth = enabled;
+            Relayout();
+        }
 
         // Add a plain activatable item. Activating runs `action`, then closes the whole chain.
         MenuItem* AddItem(core::StringView text, core::Function<void()> action)
@@ -297,14 +376,20 @@ export namespace draconic::gui
             auto item = core::MakeRef<MenuItem>(core::DefaultAllocator());
             item->SetText(text);
             core::Function<void()> act = core::Move(action);
-            item->SetOnPicked([act = core::Move(act)]() { if (act) act(); });
+            item->SetOnPicked(
+                [act = core::Move(act)]()
+                {
+                    if (act)
+                        act();
+                });
             MenuItem* raw = item.Get();
             AddItemNode(item.Get(), raw);
             return raw;
         }
 
         // Add a checkable item. Activating toggles it (firing `onToggled`) and closes the chain.
-        MenuItem* AddCheckItem(core::StringView text, bool checked, core::Function<void(bool)> onToggled)
+        MenuItem* AddCheckItem(core::StringView text, bool checked,
+                               core::Function<void(bool)> onToggled)
         {
             auto item = core::MakeRef<MenuItem>(core::DefaultAllocator());
             item->SetText(text);
@@ -352,7 +437,9 @@ export namespace draconic::gui
         [[nodiscard]] usize ItemCount() const noexcept
         {
             usize n = 0;
-            for (MenuRow* row : m_rows) if (row->IsSelectable()) ++n;
+            for (MenuRow* row : m_rows)
+                if (row->IsSelectable())
+                    ++n;
             return n;
         }
         [[nodiscard]] usize RowCount() const noexcept { return m_rows.Size(); }
@@ -364,7 +451,11 @@ export namespace draconic::gui
         void SetOnClosed(core::Function<void()> callback) { m_onClosed = core::Move(callback); }
 
         // Close this menu if it is open as a popup (used by a MenuBar toggle).
-        void Close() { if (m_open) CloseSelf(); }
+        void Close()
+        {
+            if (m_open)
+                CloseSelf();
+        }
 
         // Show the menu at `position` (root-local) as a popup, attached under `owner`'s root.
         // `popupOwner` (optional) is a node whose clicks do NOT dismiss the menu - a MenuBar
@@ -375,14 +466,19 @@ export namespace draconic::gui
         {
             Node* root = owner.GetRootNode();
             EventDispatcher* dispatcher = owner.GetEventDispatcher();
-            if (root == nullptr || dispatcher == nullptr) return;
-            if (m_open) { SetPosition(position); return; } // already open: just move it
+            if (root == nullptr || dispatcher == nullptr)
+                return;
+            if (m_open)
+            {
+                SetPosition(position);
+                return;
+            } // already open: just move it
             SetPosition(position);
             root->AddChild(this);
             m_open = true;
             Menu* self = this;
-            dispatcher->OpenPopup(this, popupOwner,
-                [self]() { self->OnClosed(); },
+            dispatcher->OpenPopup(
+                this, popupOwner, [self]() { self->OnClosed(); },
                 [self](Node* n) { return self->ChainContains(n); });
         }
 
@@ -409,7 +505,9 @@ export namespace draconic::gui
 
         void ApplyItemHeights()
         {
-            for (MenuRow* row : m_rows) if (MenuItem* it = core::Cast<MenuItem>(row)) it->SetRowHeight(m_itemHeight);
+            for (MenuRow* row : m_rows)
+                if (MenuItem* it = core::Cast<MenuItem>(row))
+                    it->SetRowHeight(m_itemHeight);
         }
 
         void Relayout()
@@ -419,7 +517,8 @@ export namespace draconic::gui
             {
                 f32 widest = 1.0f;
                 for (MenuRow* row : m_rows)
-                    if (MenuItem* it = core::Cast<MenuItem>(row)) widest = core::Max(widest, it->PreferredWidth());
+                    if (MenuItem* it = core::Cast<MenuItem>(row))
+                        widest = core::Max(widest, it->PreferredWidth());
                 width = widest;
             }
 
@@ -427,25 +526,32 @@ export namespace draconic::gui
             for (MenuRow* row : m_rows)
             {
                 const f32 h = row->RowHeight();
-                row->SetPosition(core::Float2{ 0.0f, y });
-                row->SetSize(core::Float2{ width, h });
+                row->SetPosition(core::Float2{0.0f, y});
+                row->SetSize(core::Float2{width, h});
                 y += h;
             }
-            SetSize(core::Float2{ width, y });
+            SetSize(core::Float2{width, y});
         }
 
         // === Submenu chain ===
         void OpenSubMenuFor(MenuSubItem* item)
         {
             Menu* sub = item->GetSubMenu();
-            if (sub == nullptr || sub == m_currentSubMenu) return; // already open
-            if (m_currentSubMenu != nullptr) { m_currentSubMenu->HideAsSubMenu(); m_currentSubMenu = nullptr; }
+            if (sub == nullptr || sub == m_currentSubMenu)
+                return; // already open
+            if (m_currentSubMenu != nullptr)
+            {
+                m_currentSubMenu->HideAsSubMenu();
+                m_currentSubMenu = nullptr;
+            }
 
             Node* root = GetRootNode();
-            if (root == nullptr) return;
+            if (root == nullptr)
+                return;
             // Assume identity root transforms (menus attach directly to the root): the item's
             // root-local y = this menu's position + the item's local position.
-            const core::Float2 pos{ GetPosition().x + GetSize().x, GetPosition().y + item->GetPosition().y };
+            const core::Float2 pos{GetPosition().x + GetSize().x,
+                                   GetPosition().y + item->GetPosition().y};
             sub->m_ownerItem = item;
             sub->SetPosition(pos);
             root->AddChild(sub);
@@ -456,7 +562,11 @@ export namespace draconic::gui
         // Hide this menu when shown as a submenu (recursively hides its own open submenus).
         void HideAsSubMenu()
         {
-            if (m_currentSubMenu != nullptr) { m_currentSubMenu->HideAsSubMenu(); m_currentSubMenu = nullptr; }
+            if (m_currentSubMenu != nullptr)
+            {
+                m_currentSubMenu->HideAsSubMenu();
+                m_currentSubMenu = nullptr;
+            }
             m_open = false;
             m_ownerItem = nullptr;
             RemoveFromParent();
@@ -471,7 +581,8 @@ export namespace draconic::gui
                 m_currentSubMenu->HideAsSubMenu();
                 m_currentSubMenu = nullptr;
             }
-            if (MenuSubItem* sub = core::Cast<MenuSubItem>(row)) OpenSubMenuFor(sub);
+            if (MenuSubItem* sub = core::Cast<MenuSubItem>(row))
+                OpenSubMenuFor(sub);
         }
 
         // The root of the open chain (walk owner links up).
@@ -481,7 +592,8 @@ export namespace draconic::gui
             while (menu->m_ownerItem != nullptr)
             {
                 Menu* parent = core::Cast<Menu>(menu->m_ownerItem->GetParent());
-                if (parent == nullptr) break;
+                if (parent == nullptr)
+                    break;
                 menu = parent;
             }
             return menu;
@@ -490,37 +602,50 @@ export namespace draconic::gui
         // True if `node` is inside this menu or any menu in its open submenu chain.
         [[nodiscard]] bool ChainContains(Node* node) const
         {
-            if (IsInSubtree(node, this)) return true;
+            if (IsInSubtree(node, this))
+                return true;
             return m_currentSubMenu != nullptr && m_currentSubMenu->ChainContains(node);
         }
 
-        void CloseSelf() { if (EventDispatcher* d = GetEventDispatcher()) d->ClosePopup(); else OnClosed(); }
+        void CloseSelf()
+        {
+            if (EventDispatcher* d = GetEventDispatcher())
+                d->ClosePopup();
+            else
+                OnClosed();
+        }
         void OnClosed()
         {
             m_open = false;
-            if (m_currentSubMenu != nullptr) { m_currentSubMenu->HideAsSubMenu(); m_currentSubMenu = nullptr; }
+            if (m_currentSubMenu != nullptr)
+            {
+                m_currentSubMenu->HideAsSubMenu();
+                m_currentSubMenu = nullptr;
+            }
             RemoveFromParent();
-            if (m_onClosed) m_onClosed();
+            if (m_onClosed)
+                m_onClosed();
         }
 
         [[nodiscard]] static bool IsInSubtree(Node* node, const Node* ancestor)
         {
             for (Node* n = node; n != nullptr; n = n->GetParent())
-                if (n == ancestor) return true;
+                if (n == ancestor)
+                    return true;
             return false;
         }
 
-        Array<MenuRow*> m_rows;                     // rows, owned as children
-        Array<core::RefPtr<Menu>> m_ownedSubMenus;  // keep submenus alive (they live under the root)
-        MenuSubItem* m_ownerItem = nullptr;         // set when shown AS a submenu
-        Menu* m_currentSubMenu = nullptr;           // the open child submenu (non-owning; a sibling)
+        Array<MenuRow*> m_rows;                    // rows, owned as children
+        Array<core::RefPtr<Menu>> m_ownedSubMenus; // keep submenus alive (they live under the root)
+        MenuSubItem* m_ownerItem = nullptr;        // set when shown AS a submenu
+        Menu* m_currentSubMenu = nullptr;          // the open child submenu (non-owning; a sibling)
         fonts::CachedFont* m_font = nullptr;
         bool m_open = false;
         bool m_autoWidth = false;
         f32 m_width = 160.0f;
         f32 m_itemHeight = 26.0f;
-        Color m_panelColor{ 0.16f, 0.17f, 0.21f, 1.0f };
-        Color m_textColor{ 0.88f, 0.90f, 0.94f, 1.0f };
+        Color m_panelColor{0.16f, 0.17f, 0.21f, 1.0f};
+        Color m_textColor{0.88f, 0.90f, 0.94f, 1.0f};
         core::Function<void()> m_onClosed;
     };
 

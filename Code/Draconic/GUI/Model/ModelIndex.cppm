@@ -9,7 +9,7 @@ module;
 
 export module draconic.gui:model_index;
 
-import draconic.core;   // i32
+import draconic.core; // i32
 
 using namespace draconic::core;
 namespace core = draconic::core;
@@ -17,13 +17,19 @@ namespace core = draconic::core;
 export namespace draconic::gui
 {
     // Which aspect of a cell a view is requesting (display text, a sort key, an icon, ...).
-    enum class ModelRole { Display, Sort, Icon, Custom };
+    enum class ModelRole
+    {
+        Display,
+        Sort,
+        Icon,
+        Custom
+    };
 
     struct ModelIndex
     {
-        i32 Row = -1;          // -1 = invalid
+        i32 Row = -1; // -1 = invalid
         i32 Column = 0;
-        i64 InternalId = -1;   // opaque node identity a tree model uses to locate the node
+        i64 InternalId = -1; // opaque node identity a tree model uses to locate the node
 
         [[nodiscard]] bool IsValid() const noexcept { return Row >= 0 && Column >= 0; }
         [[nodiscard]] bool operator==(const ModelIndex& other) const noexcept
@@ -32,8 +38,9 @@ export namespace draconic::gui
         }
     };
 
-    [[nodiscard]] inline ModelIndex MakeModelIndex(i32 row, i32 column = 0, i64 internalId = -1) noexcept
+    [[nodiscard]] inline ModelIndex MakeModelIndex(i32 row, i32 column = 0,
+                                                   i64 internalId = -1) noexcept
     {
-        return ModelIndex{ row, column, internalId };
+        return ModelIndex{row, column, internalId};
     }
 }

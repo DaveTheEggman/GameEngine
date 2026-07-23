@@ -10,7 +10,7 @@ module;
 
 export module draconic.ui:ilist_adapter;
 
-import draconic.core;   // RefPtr
+import draconic.core; // RefPtr
 import :view;
 
 using namespace draconic::core;
@@ -37,7 +37,11 @@ export namespace draconic::ui
         /// Total number of items.
         [[nodiscard]] virtual i32 ItemCount() const = 0;
         /// View type for an item (for recycling pools). Default 0.
-        [[nodiscard]] virtual i32 GetItemViewType(i32 position) const { (void)position; return 0; }
+        [[nodiscard]] virtual i32 GetItemViewType(i32 position) const
+        {
+            (void)position;
+            return 0;
+        }
         /// Create a new view for the given type (owning ref).
         [[nodiscard]] virtual RefPtr<View> CreateView(i32 viewType) = 0;
         /// Bind data at `position` into an existing view.
@@ -45,7 +49,11 @@ export namespace draconic::ui
         /// Number of distinct view types (for recycler pool sizing). Default 1.
         [[nodiscard]] virtual i32 ViewTypeCount() const { return 1; }
         /// Height for a specific item; <= 0 uses ListView.ItemHeight (variable-height override).
-        [[nodiscard]] virtual f32 GetItemHeight(i32 position) const { (void)position; return -1.0f; }
+        [[nodiscard]] virtual f32 GetItemHeight(i32 position) const
+        {
+            (void)position;
+            return -1.0f;
+        }
         /// Set the observer for data-change notifications.
         virtual void SetObserver(IListAdapterObserver* observer) = 0;
     };
@@ -57,9 +65,21 @@ export namespace draconic::ui
         void SetObserver(IListAdapterObserver* observer) override { m_observer = observer; }
 
         /// Notify that the entire data set changed.
-        void NotifyDataSetChanged() { if (m_observer != nullptr) { m_observer->OnDataSetChanged(); } }
+        void NotifyDataSetChanged()
+        {
+            if (m_observer != nullptr)
+            {
+                m_observer->OnDataSetChanged();
+            }
+        }
         /// Notify that items in [start, start+count) changed.
-        void NotifyRangeChanged(i32 start, i32 count) { if (m_observer != nullptr) { m_observer->OnItemRangeChanged(start, count); } }
+        void NotifyRangeChanged(i32 start, i32 count)
+        {
+            if (m_observer != nullptr)
+            {
+                m_observer->OnItemRangeChanged(start, count);
+            }
+        }
 
     private:
         IListAdapterObserver* m_observer = nullptr;

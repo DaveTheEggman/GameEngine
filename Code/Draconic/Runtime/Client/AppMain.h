@@ -28,16 +28,16 @@
 // later want wWinMain (no console); main is correct for console/CI builds and is
 // a fine starting point. Emscripten/Android targets provide their own entry.
 // If GPU device creation fails (no Vulkan), the app still runs windowless-headless.
-#define DRACONIC_APP_MAIN(AppType)                                                      \
-    int main(int /*argc*/, char** /*argv*/)                                           \
-    {                                                                                 \
-        auto shell = ::draconic::shell::CreateShell();                                \
-        ::draconic::graphics::GraphicsDeviceDesc draconicGpuDesc{};                        \
-        auto draconicGpu = ::draconic::graphics::CreateGraphicsDevice(draconicGpuDesc);      \
-        ::draconic::graphics::GraphicsDevice* draconicDevice =                             \
-            draconicGpu.HasValue() ? draconicGpu.Value().Get() : nullptr;                 \
-        AppType app;                                                                  \
-        return ::draconic::runtime::RunApplication(app, *shell, draconicDevice);       \
+#define DRACONIC_APP_MAIN(AppType)                                                                 \
+    int main(int /*argc*/, char** /*argv*/)                                                        \
+    {                                                                                              \
+        auto shell = ::draconic::shell::CreateShell();                                             \
+        ::draconic::graphics::GraphicsDeviceDesc draconicGpuDesc{};                                \
+        auto draconicGpu = ::draconic::graphics::CreateGraphicsDevice(draconicGpuDesc);            \
+        ::draconic::graphics::GraphicsDevice* draconicDevice =                                     \
+            draconicGpu.HasValue() ? draconicGpu.Value().Get() : nullptr;                          \
+        AppType app;                                                                               \
+        return ::draconic::runtime::RunApplication(app, *shell, draconicDevice);                   \
     }
 
 #endif // DRACONIC_RUNTIME_CLIENT_APPMAIN_H

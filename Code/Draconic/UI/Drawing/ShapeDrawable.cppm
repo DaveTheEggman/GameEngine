@@ -9,7 +9,7 @@ module;
 
 export module draconic.ui:shape_drawable;
 
-import draconic.core;   // Function, Rectangle
+import draconic.core; // Function, Rectangle
 import :drawable;
 import :draw_context;
 
@@ -27,7 +27,10 @@ export namespace draconic::ui
 
         void Draw(UIDrawContext& ctx, const Rectangle& bounds) override
         {
-            if (m_drawFn) { m_drawFn(ctx, bounds); }
+            if (m_drawFn)
+            {
+                m_drawFn(ctx, bounds);
+            }
         }
 
     private:

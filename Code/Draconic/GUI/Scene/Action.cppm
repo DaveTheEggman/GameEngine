@@ -14,7 +14,7 @@ module;
 
 export module draconic.gui:action;
 
-import draconic.core;   // Object, Function, Duration, Max, Min
+import draconic.core; // Object, Function, Duration, Max, Min
 
 using namespace draconic::core;
 namespace core = draconic::core;
@@ -23,7 +23,13 @@ export namespace draconic::gui
 {
     class Node;
 
-    enum class ActionType { OnStart, OnStop, OnUpdate, OnDone };
+    enum class ActionType
+    {
+        OnStart,
+        OnStop,
+        OnUpdate,
+        OnDone
+    };
 
     class Action : public Object
     {
@@ -38,7 +44,11 @@ export namespace draconic::gui
         [[nodiscard]] virtual f32 GetCurrentProgress() = 0;
         [[nodiscard]] virtual core::Duration GetTotalTime() = 0;
 
-        void SetTarget(Node* target) { m_target = target; OnTargetChange(); }
+        void SetTarget(Node* target)
+        {
+            m_target = target;
+            OnTargetChange();
+        }
         [[nodiscard]] Node* GetTarget() const noexcept { return m_target; }
 
         void SetId(u64 id) noexcept { m_id = id; }
@@ -50,7 +60,11 @@ export namespace draconic::gui
 
     protected:
         virtual void OnTargetChange() {}
-        void FireDone() { if (m_onDone) m_onDone(*this); }
+        void FireDone()
+        {
+            if (m_onDone)
+                m_onDone(*this);
+        }
 
         Node* m_target = nullptr; // non-owning
         Callback m_onDone;
@@ -68,13 +82,21 @@ export namespace draconic::gui
     public:
         explicit ActionInterpolation(core::Duration duration) noexcept : m_duration(duration) {}
 
-        void Start() override { m_elapsed = core::Duration{}; m_started = true; m_done = false; OnStep(0.0f); }
+        void Start() override
+        {
+            m_elapsed = core::Duration{};
+            m_started = true;
+            m_done = false;
+            OnStep(0.0f);
+        }
         void Stop() override { m_done = true; }
 
         void Update(core::Duration elapsed) override
         {
-            if (m_done) return;
-            if (!m_started) Start();
+            if (m_done)
+                return;
+            if (!m_started)
+                Start();
             m_elapsed += elapsed;
 
             const f32 total = m_duration.AsSecondsF();
@@ -83,7 +105,11 @@ export namespace draconic::gui
             m_progress = t;
             OnStep(t);
 
-            if (t >= 1.0f) { m_done = true; FireDone(); }
+            if (t >= 1.0f)
+            {
+                m_done = true;
+                FireDone();
+            }
         }
 
         [[nodiscard]] bool IsDone() override { return m_done; }

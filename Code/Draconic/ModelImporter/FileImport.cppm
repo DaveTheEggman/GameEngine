@@ -45,15 +45,15 @@ import draconic.physics.editor;
 import :mesh_convert;
 import :anim_convert;
 import draconic.model.resource;
-import :cook;   // IsSkinnedMesh + the conversion helpers' home
+import :cook; // IsSkinnedMesh + the conversion helpers' home
 
 using namespace draconic::core;
 
 export namespace draconic::modelimporter
 {
     // The cooked-model runtime types now live in draconic::model (draconic.model.resource).
-    using draconic::model::ModelNode;
     using draconic::model::ModelManifestSource;
+    using draconic::model::ModelNode;
     using draconic::model::ModelResource;
 
     namespace content = draconic::content;
@@ -69,7 +69,7 @@ export namespace draconic::modelimporter
 
         void Serialize(ISerializer& ar) override
         {
-            editor::Asset::Serialize(ar);   // fileName = the imported model file (re-import seed)
+            editor::Asset::Serialize(ar); // fileName = the imported model file (re-import seed)
             manifest.Serialize(ar);
         }
     };
@@ -77,8 +77,14 @@ export namespace draconic::modelimporter
     class ModelManifestAssetBuilder final : public editor::DefaultAssetBuilder
     {
     public:
-        [[nodiscard]] const TypeInfo* AssetType() const override { return &ModelManifestAsset::StaticType(); }
-        [[nodiscard]] const TypeInfo* ProductType() const override { return &ModelManifestSource::StaticType(); }
+        [[nodiscard]] const TypeInfo* AssetType() const override
+        {
+            return &ModelManifestAsset::StaticType();
+        }
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &ModelManifestSource::StaticType();
+        }
 
         // Everything the manifest points at is a runtime REFERENCE: the products must exist,
         // but their content never re-cooks the manifest.
@@ -86,16 +92,38 @@ export namespace draconic::modelimporter
                               editor::AssetDependencies& out) override
         {
             const ModelManifestAsset& ma = static_cast<const ModelManifestAsset&>(asset);
-            for (const Guid& g : ma.manifest.meshGuids) { out.references.PushBack(g); }
-            for (const Guid& g : ma.manifest.materialGuids) { out.references.PushBack(g); }
-            for (const Guid& g : ma.manifest.materialAlbedo) { if (!g.IsNil()) { out.references.PushBack(g); } }
-            for (const Guid& g : ma.manifest.animationGuids) { out.references.PushBack(g); }
-            if (!ma.manifest.skeletonGuid.IsNil()) { out.references.PushBack(ma.manifest.skeletonGuid); }
+            for (const Guid& g : ma.manifest.meshGuids)
+            {
+                out.references.PushBack(g);
+            }
+            for (const Guid& g : ma.manifest.materialGuids)
+            {
+                out.references.PushBack(g);
+            }
+            for (const Guid& g : ma.manifest.materialAlbedo)
+            {
+                if (!g.IsNil())
+                {
+                    out.references.PushBack(g);
+                }
+            }
+            for (const Guid& g : ma.manifest.animationGuids)
+            {
+                out.references.PushBack(g);
+            }
+            if (!ma.manifest.skeletonGuid.IsNil())
+            {
+                out.references.PushBack(ma.manifest.skeletonGuid);
+            }
         }
 
-        [[nodiscard]] Status Build(const editor::Asset& asset, editor::AssetBuildContext& ctx) override
+        [[nodiscard]] Status Build(const editor::Asset& asset,
+                                   editor::AssetBuildContext& ctx) override
         {
-            if (ctx.output == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
+            if (ctx.output == nullptr)
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
             const ModelManifestAsset& ma = static_cast<const ModelManifestAsset&>(asset);
             return ctx.output->WriteObject(const_cast<ModelManifestSource&>(ma.manifest));
         }
@@ -116,12 +144,25 @@ export namespace draconic::modelimporter
         [[nodiscard]] Array<Toggle> Toggles() override
         {
             Array<Toggle> toggles;
-            toggles.PushBack(Toggle{ u8"Textures", u8"Import the model's images as texture assets", &importTextures });
-            toggles.PushBack(Toggle{ u8"Materials", u8"Import PBR materials (textures wire in when they import too)", &importMaterials });
-            toggles.PushBack(Toggle{ u8"Animations", u8"Import the skeleton and animation clips", &importAnimations });
-            toggles.PushBack(Toggle{ u8"Generate prefab", u8"Create a spawnable prefab of the model's node hierarchy; re-import regenerates it", &generatePrefab });
-            toggles.PushBack(Toggle{ u8"Generate collision", u8"Cook a collision shape per mesh and add colliders (+ a static rigid body) to the generated prefab", &generateCollision });
-            toggles.PushBack(Toggle{ u8"Convex collision", u8"Simplified convex hulls (dynamic-capable) instead of exact triangle meshes", &collisionConvex });
+            toggles.PushBack(Toggle{u8"Textures", u8"Import the model's images as texture assets",
+                                    &importTextures});
+            toggles.PushBack(Toggle{
+                u8"Materials", u8"Import PBR materials (textures wire in when they import too)",
+                &importMaterials});
+            toggles.PushBack(Toggle{u8"Animations", u8"Import the skeleton and animation clips",
+                                    &importAnimations});
+            toggles.PushBack(Toggle{u8"Generate prefab",
+                                    u8"Create a spawnable prefab of the model's node hierarchy; "
+                                    u8"re-import regenerates it",
+                                    &generatePrefab});
+            toggles.PushBack(Toggle{u8"Generate collision",
+                                    u8"Cook a collision shape per mesh and add colliders (+ a "
+                                    u8"static rigid body) to the generated prefab",
+                                    &generateCollision});
+            toggles.PushBack(Toggle{
+                u8"Convex collision",
+                u8"Simplified convex hulls (dynamic-capable) instead of exact triangle meshes",
+                &collisionConvex});
             return toggles;
         }
 
@@ -166,7 +207,8 @@ export namespace draconic::modelimporter
 
         [[nodiscard]] RefPtr<editor::ImportOptions> CreateOptions() const override
         {
-            return RefPtr<editor::ImportOptions>(MakeRef<ModelImportOptions>(DefaultAllocator()).Get());
+            return RefPtr<editor::ImportOptions>(
+                MakeRef<ModelImportOptions>(DefaultAllocator()).Get());
         }
 
         [[nodiscard]] bool WantsWorkerPrepare() const override { return true; }
@@ -174,8 +216,7 @@ export namespace draconic::modelimporter
         [[nodiscard]] RefPtr<Object> PrepareOnWorker(StringView sourcePath) override
         {
             RefPtr<LoadedModel> loaded = MakeRef<LoadedModel>(DefaultAllocator());
-            if (LoadModelFrom(sourcePath, loaded->model)
-                != draconic::model::ModelLoadResult::Ok)
+            if (LoadModelFrom(sourcePath, loaded->model) != draconic::model::ModelLoadResult::Ok)
             {
                 return {};
             }
@@ -184,27 +225,31 @@ export namespace draconic::modelimporter
 
         [[nodiscard]] bool Accepts(StringView extension) const override
         {
-            for (StringView ext : { u8"glb", u8"gltf", u8"fbx" })
+            for (StringView ext : {u8"glb", u8"gltf", u8"fbx"})
             {
-                if (extension == ext) { return true; }
+                if (extension == ext)
+                {
+                    return true;
+                }
             }
             return false;
         }
 
-        [[nodiscard]] Result<content::Instance*> Import(StringView sourcePath,
-                                                        editor::EditorProject& project,
-                                                        content::Group& group,
-                                                        const editor::ImportOptions* options,
-                                                        Object* prepared,
-                                                        Array<editor::DeferredImportWrite>* deferredWrites) override
+        [[nodiscard]] Result<content::Instance*>
+        Import(StringView sourcePath, editor::EditorProject& project, content::Group& group,
+               const editor::ImportOptions* options, Object* prepared,
+               Array<editor::DeferredImportWrite>* deferredWrites) override
         {
             const ModelImportOptions defaults;
-            const ModelImportOptions& opt = (options != nullptr)
-                ? static_cast<const ModelImportOptions&>(*options) : defaults;
+            const ModelImportOptions& opt =
+                (options != nullptr) ? static_cast<const ModelImportOptions&>(*options) : defaults;
             // Source provenance copy: the file NAME is known without copying; the copy
             // itself (and the .gltf sidecars below) is bulk file IO - deferred when possible.
             const StringView sourceFileName = editor::FileNameOf(sourcePath);
-            if (sourceFileName.IsEmpty()) { return Err(ErrorCode::InvalidArgument); }
+            if (sourceFileName.IsEmpty())
+            {
+                return Err(ErrorCode::InvalidArgument);
+            }
             Result<String> fileName = Result<String>(String(sourceFileName));
             if (deferredWrites != nullptr)
             {
@@ -216,7 +261,10 @@ export namespace draconic::modelimporter
             else
             {
                 fileName = editor::CopyIntoSources(project, sourcePath);
-                if (!fileName.HasValue()) { return Err(fileName.Error()); }
+                if (!fileName.HasValue())
+                {
+                    return Err(fileName.Error());
+                }
             }
 
             // The slow load either arrived pre-baked from the worker phase, or runs inline
@@ -248,7 +296,10 @@ export namespace draconic::modelimporter
 
             const StringView stem = editor::FileStemOf(fileName.Value().AsView());
             content::Group* modelGroup = group.CreateGroup(stem);
-            if (modelGroup == nullptr) { return Err(ErrorCode::Unknown); }
+            if (modelGroup == nullptr)
+            {
+                return Err(ErrorCode::Unknown);
+            }
 
             ModelManifestAsset manifestAsset;
             manifestAsset.fileName = fileName.Value();
@@ -256,14 +307,34 @@ export namespace draconic::modelimporter
             manifest.boundsMin = model.bounds().min;
             manifest.boundsMax = model.bounds().max;
 
-            Array<String> claimed;   // names claimed THIS run (ClaimInstance's dedup scope)
+            Array<String> claimed; // names claimed THIS run (ClaimInstance's dedup scope)
             Array<Guid> textureGuids;
-            if (opt.importTextures) { ImportTextures(model, *modelGroup, textureGuids, claimed, deferredWrites); }
-            else { for (usize i = 0; i < model.textures().Size(); ++i) { textureGuids.PushBack(Guid{}); } }
-            if (opt.importMaterials) { ImportMaterials(model, *modelGroup, textureGuids, manifest, claimed, deferredWrites); }
-            if (opt.importAnimations) { ImportSkeletonAndClips(model, *modelGroup, manifest, claimed); }
-            const Status meshes = ImportMeshes(model, *modelGroup, manifest, claimed, deferredWrites);
-            if (!meshes.IsOk()) { return Err(meshes.Code()); }
+            if (opt.importTextures)
+            {
+                ImportTextures(model, *modelGroup, textureGuids, claimed, deferredWrites);
+            }
+            else
+            {
+                for (usize i = 0; i < model.textures().Size(); ++i)
+                {
+                    textureGuids.PushBack(Guid{});
+                }
+            }
+            if (opt.importMaterials)
+            {
+                ImportMaterials(model, *modelGroup, textureGuids, manifest, claimed,
+                                deferredWrites);
+            }
+            if (opt.importAnimations)
+            {
+                ImportSkeletonAndClips(model, *modelGroup, manifest, claimed);
+            }
+            const Status meshes =
+                ImportMeshes(model, *modelGroup, manifest, claimed, deferredWrites);
+            if (!meshes.IsOk())
+            {
+                return Err(meshes.Code());
+            }
             if (opt.generateCollision)
             {
                 ImportCollisionShapes(*modelGroup, manifest, opt.collisionConvex, claimed);
@@ -272,15 +343,21 @@ export namespace draconic::modelimporter
 
             content::Instance* instance =
                 modelGroup->CreateInstance(stem, ModelManifestAsset::StaticType());
-            if (instance == nullptr) { return Err(ErrorCode::Unknown); }
+            if (instance == nullptr)
+            {
+                return Err(ErrorCode::Unknown);
+            }
             const Status written = instance->WriteObject(manifestAsset);
-            if (!written.IsOk()) { return Err(written.Code()); }
+            if (!written.IsOk())
+            {
+                return Err(written.Code());
+            }
             return instance;
         }
 
     private:
-        [[nodiscard]] static draconic::model::ModelLoadResult LoadModelFrom(
-            StringView sourcePath, draconic::model::Model& model)
+        [[nodiscard]] static draconic::model::ModelLoadResult
+        LoadModelFrom(StringView sourcePath, draconic::model::Model& model)
         {
             draconic::model::gltf::GltfLoader gltfLoader;
             draconic::model::fbx::FbxLoader fbxLoader;
@@ -290,7 +367,10 @@ export namespace draconic::modelimporter
                 draconic::model::io::loadModel(sourcePath, model);
             draconic::model::io::unregisterLoader(&fbxLoader);
             draconic::model::io::unregisterLoader(&gltfLoader);
-            if (loaded == draconic::model::ModelLoadResult::Ok) { model.calculateBounds(); }
+            if (loaded == draconic::model::ModelLoadResult::Ok)
+            {
+                model.calculateBounds();
+            }
             return loaded;
         }
 
@@ -302,7 +382,10 @@ export namespace draconic::modelimporter
                                      Array<editor::DeferredImportWrite>* deferredWrites)
         {
             Result<Array<byte>> bytes = ReadFile(originalPath);
-            if (!bytes.HasValue()) { return; }
+            if (!bytes.HasValue())
+            {
+                return;
+            }
             const StringView text(reinterpret_cast<const utf8char*>(bytes.Value().Data()),
                                   bytes.Value().Size());
 
@@ -311,7 +394,11 @@ export namespace draconic::modelimporter
             for (usize i = originalPath.Size(); i > 0; --i)
             {
                 const utf8char c = originalPath[i - 1];
-                if (c == utf8char('/') || c == utf8char('\\')) { dirEnd = i; break; }
+                if (c == utf8char('/') || c == utf8char('\\'))
+                {
+                    dirEnd = i;
+                    break;
+                }
             }
             const StringView dir = originalPath.SubStr(0, dirEnd);
 
@@ -319,25 +406,53 @@ export namespace draconic::modelimporter
             const StringView key = u8"\"uri\"";
             for (usize i = 0; i + key.Size() < text.Size(); ++i)
             {
-                if (text.SubStr(i, key.Size()) != key) { continue; }
+                if (text.SubStr(i, key.Size()) != key)
+                {
+                    continue;
+                }
                 usize j = i + key.Size();
-                while (j < text.Size() && (text[j] == utf8char(':') || text[j] == utf8char(' ')
-                                        || text[j] == utf8char('\t'))) { ++j; }
-                if (j >= text.Size() || text[j] != utf8char('"')) { continue; }
+                while (j < text.Size() && (text[j] == utf8char(':') || text[j] == utf8char(' ') ||
+                                           text[j] == utf8char('\t')))
+                {
+                    ++j;
+                }
+                if (j >= text.Size() || text[j] != utf8char('"'))
+                {
+                    continue;
+                }
                 const usize begin = ++j;
-                while (j < text.Size() && text[j] != utf8char('"')) { ++j; }
-                if (j >= text.Size()) { break; }
+                while (j < text.Size() && text[j] != utf8char('"'))
+                {
+                    ++j;
+                }
+                if (j >= text.Size())
+                {
+                    break;
+                }
                 const StringView uri = text.SubStr(begin, j - begin);
                 i = j;
 
-                if (uri.IsEmpty()) { continue; }
-                if (uri.Size() >= 5 && uri.SubStr(0, 5) == StringView(u8"data:")) { continue; }
+                if (uri.IsEmpty())
+                {
+                    continue;
+                }
+                if (uri.Size() >= 5 && uri.SubStr(0, 5) == StringView(u8"data:"))
+                {
+                    continue;
+                }
                 bool escapes = false;
                 for (usize k = 0; k + 1 < uri.Size(); ++k)
                 {
-                    if (uri[k] == utf8char('.') && uri[k + 1] == utf8char('.')) { escapes = true; break; }
+                    if (uri[k] == utf8char('.') && uri[k + 1] == utf8char('.'))
+                    {
+                        escapes = true;
+                        break;
+                    }
                 }
-                if (escapes) { continue; }
+                if (escapes)
+                {
+                    continue;
+                }
 
                 String from(dir);
                 from.Append(uri);
@@ -355,8 +470,8 @@ export namespace draconic::modelimporter
                     DRACONIC_LOG_WARNING(u8"Import", u8"gltf sidecar missing: {}", uri);
                     continue;
                 }
-                const Status saved = sources.AsWritable()->Save(uri,
-                    Span<const byte>(payload.Value().Data(), payload.Value().Size()));
+                const Status saved = sources.AsWritable()->Save(
+                    uri, Span<const byte>(payload.Value().Data(), payload.Value().Size()));
                 if (!saved.IsOk())
                 {
                     DRACONIC_LOG_WARNING(u8"Import", u8"gltf sidecar copy failed: {}", uri);
@@ -369,8 +484,8 @@ export namespace draconic::modelimporter
         // and everything referencing it (materials, prefabs, placed scenes) follows the
         // re-imported content. Names already claimed THIS run (two source textures named
         // alike) or squatted by a DIFFERENT type get numeric suffixes, like UniqueName did.
-        [[nodiscard]] static content::Instance* ClaimInstance(content::Group& group, StringView base,
-                                                              const TypeInfo& type,
+        [[nodiscard]] static content::Instance* ClaimInstance(content::Group& group,
+                                                              StringView base, const TypeInfo& type,
                                                               Array<String>& claimed)
         {
             String name(base);
@@ -379,7 +494,11 @@ export namespace draconic::modelimporter
                 bool taken = false;
                 for (const String& c : claimed)
                 {
-                    if (c.AsView() == name.AsView()) { taken = true; break; }
+                    if (c.AsView() == name.AsView())
+                    {
+                        taken = true;
+                        break;
+                    }
                 }
                 if (!taken)
                 {
@@ -387,9 +506,13 @@ export namespace draconic::modelimporter
                     const StringView typeName(reinterpret_cast<const utf8char*>(type.name));
                     if (existing == nullptr || existing->TypeName() == typeName)
                     {
-                        content::Instance* instance = (existing != nullptr)
-                            ? existing : group.CreateInstance(name.AsView(), type);
-                        if (instance != nullptr) { claimed.PushBack(Move(name)); }
+                        content::Instance* instance =
+                            (existing != nullptr) ? existing
+                                                  : group.CreateInstance(name.AsView(), type);
+                        if (instance != nullptr)
+                        {
+                            claimed.PushBack(Move(name));
+                        }
                         return instance;
                     }
                 }
@@ -412,24 +535,34 @@ export namespace draconic::modelimporter
                 const draconic::model::ModelTexture& t = *textures[i];
                 const u8* data = t.getData();
                 const i32 size = t.getDataSize();
-                const bool rgba8 = (data != nullptr && t.width > 0 && t.height > 0
-                                 && size == t.width * t.height * 4);
-                if (!rgba8) { outGuids.PushBack(Guid{}); continue; }
+                const bool rgba8 = (data != nullptr && t.width > 0 && t.height > 0 &&
+                                    size == t.width * t.height * 4);
+                if (!rgba8)
+                {
+                    outGuids.PushBack(Guid{});
+                    continue;
+                }
 
                 draconic::texture::TextureAsset asset;
                 asset.embeddedWidth = static_cast<u32>(t.width);
                 asset.embeddedHeight = static_cast<u32>(t.height);
-                asset.colorSpace = (i < linear.Size() && linear[i])
-                    ? draconic::image::ImageColorSpace::Linear   // data maps (normal/MR/AO)
-                    : draconic::image::ImageColorSpace::Srgb;    // color maps (albedo/emissive)
+                asset.colorSpace =
+                    (i < linear.Size() && linear[i])
+                        ? draconic::image::ImageColorSpace::Linear // data maps (normal/MR/AO)
+                        : draconic::image::ImageColorSpace::Srgb;  // color maps (albedo/emissive)
                 asset.generateMipmaps = false;
 
                 // Real names when the source has them (rules out slot mix-ups at a glance).
-                content::Instance* inst = ClaimInstance(group, ImportedTextureName(t, i).AsView(),
-                    draconic::texture::TextureAsset::StaticType(), claimed);
-                if (inst == nullptr || !inst->WriteObject(asset).IsOk()) { outGuids.PushBack(Guid{}); continue; }
-                const Span<const byte> pixels{ reinterpret_cast<const byte*>(data),
-                                               static_cast<usize>(size) };
+                content::Instance* inst =
+                    ClaimInstance(group, ImportedTextureName(t, i).AsView(),
+                                  draconic::texture::TextureAsset::StaticType(), claimed);
+                if (inst == nullptr || !inst->WriteObject(asset).IsOk())
+                {
+                    outGuids.PushBack(Guid{});
+                    continue;
+                }
+                const Span<const byte> pixels{reinterpret_cast<const byte*>(data),
+                                              static_cast<usize>(size)};
                 if (deferredWrites != nullptr)
                 {
                     // Decoded pixels are the import's bulk (100s of MB for a big model) -
@@ -455,22 +588,29 @@ export namespace draconic::modelimporter
                                       Array<String>& claimed,
                                       Array<editor::DeferredImportWrite>* deferredWrites)
         {
-            const u64 key = (static_cast<u64>(static_cast<u32>(roughIdx)) << 32)
-                          | static_cast<u64>(static_cast<u32>(metalIdx));
-            if (const Guid* hit = cache.Find(key)) { return *hit; }
+            const u64 key = (static_cast<u64>(static_cast<u32>(roughIdx)) << 32) |
+                            static_cast<u64>(static_cast<u32>(metalIdx));
+            if (const Guid* hit = cache.Find(key))
+            {
+                return *hit;
+            }
 
             u32 w = 0, h = 0;
             Array<u8> pixels = BakePackedMetallicRoughness(model, roughIdx, metalIdx, w, h);
-            if (pixels.IsEmpty()) { cache.InsertOrAssign(key, Guid{}); return Guid{}; }
+            if (pixels.IsEmpty())
+            {
+                cache.InsertOrAssign(key, Guid{});
+                return Guid{};
+            }
 
             draconic::texture::TextureAsset asset;
             asset.embeddedWidth = w;
             asset.embeddedHeight = h;
-            asset.colorSpace = draconic::image::ImageColorSpace::Linear;   // data map
+            asset.colorSpace = draconic::image::ImageColorSpace::Linear; // data map
             asset.generateMipmaps = false;
             const String name = Format(u8"mr.packed.{}.{}", roughIdx, metalIdx);
-            content::Instance* inst = ClaimInstance(group, name.AsView(),
-                draconic::texture::TextureAsset::StaticType(), claimed);
+            content::Instance* inst = ClaimInstance(
+                group, name.AsView(), draconic::texture::TextureAsset::StaticType(), claimed);
             if (inst == nullptr || !inst->WriteObject(asset).IsOk())
             {
                 cache.InsertOrAssign(key, Guid{});
@@ -482,11 +622,16 @@ export namespace draconic::modelimporter
                 editor::DeferredImportWrite write;
                 write.instance = inst;
                 write.streamName = String(u8"pixels");
-                for (u8 b : pixels) { write.owned.PushBack(static_cast<byte>(b)); }
+                for (u8 b : pixels)
+                {
+                    write.owned.PushBack(static_cast<byte>(b));
+                }
                 deferredWrites->PushBack(static_cast<editor::DeferredImportWrite&&>(write));
             }
             else if (!inst->WriteData(u8"pixels",
-                         Span<const byte>{ reinterpret_cast<const byte*>(pixels.Data()), pixels.Size() }).IsOk())
+                                      Span<const byte>{reinterpret_cast<const byte*>(pixels.Data()),
+                                                       pixels.Size()})
+                          .IsOk())
             {
                 cache.InsertOrAssign(key, Guid{});
                 return Guid{};
@@ -500,16 +645,17 @@ export namespace draconic::modelimporter
                                     Array<String>& claimed,
                                     Array<editor::DeferredImportWrite>* deferredWrites)
         {
-            HashMap<u64, Guid> bakedMR;   // per-pair bake cache (see GetOrBakePackedMR)
+            HashMap<u64, Guid> bakedMR; // per-pair bake cache (see GetOrBakePackedMR)
             const Span<draconic::model::ModelMaterial* const> materials = model.materials();
             for (usize i = 0; i < materials.Size(); ++i)
             {
                 const draconic::model::ModelMaterial& m = *materials[i];
                 RefPtr<draconic::materials::Material> built = draconic::materials::CreatePBR(
-                    ImportedAssetName(m.name(), u8"mat", i).AsView(),
-                    m.baseColorFactor, m.metallicFactor, m.roughnessFactor);
-                built->SetDefaultColor(u8"EmissiveColor",
-                    Float4{ m.emissiveFactor.x, m.emissiveFactor.y, m.emissiveFactor.z, 1.0f });
+                    ImportedAssetName(m.name(), u8"mat", i).AsView(), m.baseColorFactor,
+                    m.metallicFactor, m.roughnessFactor);
+                built->SetDefaultColor(
+                    u8"EmissiveColor",
+                    Float4{m.emissiveFactor.x, m.emissiveFactor.y, m.emissiveFactor.z, 1.0f});
                 built->SetDefaultFloat(u8"OcclusionStrength", m.occlusionStrength);
                 built->SetDefaultFloat(u8"NormalScale", m.normalScale);
                 built->SetDefaultFloat(u8"AlphaCutoff", m.alphaCutoff);
@@ -521,18 +667,19 @@ export namespace draconic::modelimporter
                 // Wire EVERY authored texture INTO the material source (self-contained cooked
                 // material - a directly-picked material renders fully textured, not just via
                 // the model-spawn composite). Previously only the albedo made it across.
-                const auto wire = [&](i32 texIdx, StringView slot) {
-                    if (texIdx >= 0 && static_cast<usize>(texIdx) < textureGuids.Size()
-                        && !textureGuids[static_cast<usize>(texIdx)].IsNil())
+                const auto wire = [&](i32 texIdx, StringView slot)
+                {
+                    if (texIdx >= 0 && static_cast<usize>(texIdx) < textureGuids.Size() &&
+                        !textureGuids[static_cast<usize>(texIdx)].IsNil())
                     {
                         asset.source.textureSlots.PushBack(String(slot));
                         asset.source.textureIds.PushBack(textureGuids[static_cast<usize>(texIdx)]);
                     }
                 };
-                wire(m.baseColorTextureIndex,         u8"AlbedoMap");
-                wire(m.normalTextureIndex,            u8"NormalMap");
-                wire(m.occlusionTextureIndex,         u8"OcclusionMap");
-                wire(m.emissiveTextureIndex,          u8"EmissiveMap");
+                wire(m.baseColorTextureIndex, u8"AlbedoMap");
+                wire(m.normalTextureIndex, u8"NormalMap");
+                wire(m.occlusionTextureIndex, u8"OcclusionMap");
+                wire(m.emissiveTextureIndex, u8"EmissiveMap");
                 // Metallic-roughness: glTF's packed texture wires directly; FBX's separate
                 // grayscale maps BAKE into a packed one (G=rough, B=metal) - feeding either
                 // into the packed slot directly would bleed across channels.
@@ -540,12 +687,12 @@ export namespace draconic::modelimporter
                 {
                     wire(m.metallicRoughnessTextureIndex, u8"MetallicRoughnessMap");
                 }
-                else if (m.separateRoughnessTextureIndex >= 0 || m.separateMetalnessTextureIndex >= 0)
+                else if (m.separateRoughnessTextureIndex >= 0 ||
+                         m.separateMetalnessTextureIndex >= 0)
                 {
-                    const Guid packed = GetOrBakePackedMR(model, group, bakedMR,
-                                                          m.separateRoughnessTextureIndex,
-                                                          m.separateMetalnessTextureIndex, claimed,
-                                                          deferredWrites);
+                    const Guid packed =
+                        GetOrBakePackedMR(model, group, bakedMR, m.separateRoughnessTextureIndex,
+                                          m.separateMetalnessTextureIndex, claimed, deferredWrites);
                     if (!packed.IsNil())
                     {
                         asset.source.textureSlots.PushBack(String(u8"MetallicRoughnessMap"));
@@ -554,18 +701,25 @@ export namespace draconic::modelimporter
                 }
                 // Authored pipeline state: alpha mode -> blend (Mask = alpha-tested cutout w/ holey
                 // shadows; Blend = transparent pass) and double-sided -> no culling.
-                if (m.alphaMode == draconic::model::AlphaMode::Mask) {
-                    asset.source.blendMode = static_cast<u8>(draconic::materials::BlendMode::Masked);
-                } else if (m.alphaMode == draconic::model::AlphaMode::Blend) {
-                    asset.source.blendMode = static_cast<u8>(draconic::materials::BlendMode::AlphaBlend);
+                if (m.alphaMode == draconic::model::AlphaMode::Mask)
+                {
+                    asset.source.blendMode =
+                        static_cast<u8>(draconic::materials::BlendMode::Masked);
                 }
-                if (m.doubleSided) {
-                    asset.source.cullMode = static_cast<u8>(draconic::materials::CullModeConfig::None);
+                else if (m.alphaMode == draconic::model::AlphaMode::Blend)
+                {
+                    asset.source.blendMode =
+                        static_cast<u8>(draconic::materials::BlendMode::AlphaBlend);
+                }
+                if (m.doubleSided)
+                {
+                    asset.source.cullMode =
+                        static_cast<u8>(draconic::materials::CullModeConfig::None);
                 }
 
-                content::Instance* inst = ClaimInstance(group,
-                    ImportedAssetName(m.name(), u8"mat", i).AsView(),
-                    draconic::materials::MaterialAsset::StaticType(), claimed);
+                content::Instance* inst =
+                    ClaimInstance(group, ImportedAssetName(m.name(), u8"mat", i).AsView(),
+                                  draconic::materials::MaterialAsset::StaticType(), claimed);
                 if (inst == nullptr || !inst->WriteObject(asset).IsOk())
                 {
                     manifest.materialGuids.PushBack(Guid{});
@@ -577,20 +731,26 @@ export namespace draconic::modelimporter
                 const i32 tIdx = m.baseColorTextureIndex;
                 manifest.materialAlbedo.PushBack(
                     (tIdx >= 0 && static_cast<usize>(tIdx) < textureGuids.Size())
-                        ? textureGuids[static_cast<usize>(tIdx)] : Guid{});
+                        ? textureGuids[static_cast<usize>(tIdx)]
+                        : Guid{});
             }
         }
 
-        static void ImportSkeletonAndClips(const draconic::model::Model& model, content::Group& group,
-                                           ModelManifestSource& manifest, Array<String>& claimed)
+        static void ImportSkeletonAndClips(const draconic::model::Model& model,
+                                           content::Group& group, ModelManifestSource& manifest,
+                                           Array<String>& claimed)
         {
-            if (model.skins().Size() == 0) { return; }
+            if (model.skins().Size() == 0)
+            {
+                return;
+            }
             const draconic::model::ModelSkin& skin = *model.skins()[0];
             const HashMap<i32, i32> boneToJoint = BuildBoneToJoint(skin);
 
             draconic::animation::SkeletonAsset skeleton;
             SkeletonSourceFromModel(model, skin, boneToJoint, skeleton.source);
-            content::Instance* skelInst = ClaimInstance(group,
+            content::Instance* skelInst = ClaimInstance(
+                group,
                 skin.name().IsEmpty() ? StringView(u8"skeleton")
                                       : ImportedAssetName(skin.name(), u8"skeleton", 0).AsView(),
                 draconic::animation::SkeletonAsset::StaticType(), claimed);
@@ -602,11 +762,12 @@ export namespace draconic::modelimporter
             const Span<draconic::model::ModelAnimation* const> animations = model.animations();
             for (usize a = 0; a < animations.Size(); ++a)
             {
-                content::Instance* clipInst = ClaimInstance(group,
-                    ImportedAssetName(animations[a]->name(), u8"anim", a).AsView(),
+                content::Instance* clipInst = ClaimInstance(
+                    group, ImportedAssetName(animations[a]->name(), u8"anim", a).AsView(),
                     draconic::animation::AnimationClipAsset::StaticType(), claimed);
                 draconic::animation::AnimationClipAsset clip;
-                AnimationClipSourceFromModel(*animations[a], boneToJoint,
+                AnimationClipSourceFromModel(
+                    *animations[a], boneToJoint,
                     (clipInst != nullptr) ? clipInst->Name() : StringView(u8"anim"), clip.source);
                 if (clipInst != nullptr && clipInst->WriteObject(clip).IsOk())
                 {
@@ -616,7 +777,8 @@ export namespace draconic::modelimporter
         }
 
         [[nodiscard]] static Status ImportMeshes(const draconic::model::Model& model,
-                                                 content::Group& group, ModelManifestSource& manifest,
+                                                 content::Group& group,
+                                                 ModelManifestSource& manifest,
                                                  Array<String>& claimed,
                                                  Array<editor::DeferredImportWrite>* deferredWrites)
         {
@@ -637,8 +799,12 @@ export namespace draconic::modelimporter
                 {
                     auto asset = MakeRef<draconic::geometry::SkinnedMeshAsset>(DefaultAllocator());
                     SkinnedMeshSourceFromModel(m, 0, asset->source);
-                    inst = ClaimInstance(group, name, draconic::geometry::SkinnedMeshAsset::StaticType(), claimed);
-                    if (inst == nullptr) { return Status{ ErrorCode::Unknown }; }
+                    inst = ClaimInstance(
+                        group, name, draconic::geometry::SkinnedMeshAsset::StaticType(), claimed);
+                    if (inst == nullptr)
+                    {
+                        return Status{ErrorCode::Unknown};
+                    }
                     if (deferredWrites != nullptr)
                     {
                         editor::DeferredImportWrite write;
@@ -646,14 +812,21 @@ export namespace draconic::modelimporter
                         write.object = RefPtr<ISerializable>(asset.Get());
                         deferredWrites->PushBack(static_cast<editor::DeferredImportWrite&&>(write));
                     }
-                    else { written = inst->WriteObject(*asset); }
+                    else
+                    {
+                        written = inst->WriteObject(*asset);
+                    }
                 }
                 else
                 {
                     auto asset = MakeRef<draconic::geometry::StaticMeshAsset>(DefaultAllocator());
                     StaticMeshSourceFromModel(m, asset->source);
-                    inst = ClaimInstance(group, name, draconic::geometry::StaticMeshAsset::StaticType(), claimed);
-                    if (inst == nullptr) { return Status{ ErrorCode::Unknown }; }
+                    inst = ClaimInstance(
+                        group, name, draconic::geometry::StaticMeshAsset::StaticType(), claimed);
+                    if (inst == nullptr)
+                    {
+                        return Status{ErrorCode::Unknown};
+                    }
                     if (deferredWrites != nullptr)
                     {
                         editor::DeferredImportWrite write;
@@ -661,12 +834,18 @@ export namespace draconic::modelimporter
                         write.object = RefPtr<ISerializable>(asset.Get());
                         deferredWrites->PushBack(static_cast<editor::DeferredImportWrite&&>(write));
                     }
-                    else { written = inst->WriteObject(*asset); }
+                    else
+                    {
+                        written = inst->WriteObject(*asset);
+                    }
                 }
-                if (!written.IsOk()) { return written; }
+                if (!written.IsOk())
+                {
+                    return written;
+                }
 
                 manifest.meshGuids.PushBack(inst->Id());
-                manifest.meshSkinned.PushBack(skinned ? u8{ 1 } : u8{ 0 });
+                manifest.meshSkinned.PushBack(skinned ? u8{1} : u8{0});
                 const Span<const draconic::model::ModelMeshPart> parts = m.parts();
                 manifest.meshMaterial.PushBack(parts.Size() > 0 ? parts[0].materialIndex : -1);
             }
@@ -689,12 +868,17 @@ export namespace draconic::modelimporter
                 content::Instance* meshInstance = nullptr;
                 for (content::Instance* candidate : group.Instances())
                 {
-                    if (candidate->Id() == manifest.meshGuids[i]) { meshInstance = candidate; break; }
+                    if (candidate->Id() == manifest.meshGuids[i])
+                    {
+                        meshInstance = candidate;
+                        break;
+                    }
                 }
                 String name(meshInstance != nullptr ? meshInstance->Name() : StringView(u8"mesh"));
                 name.Append(u8".collision");
-                content::Instance* inst = ClaimInstance(
-                    group, name.AsView(), draconic::physics::CollisionShapeAsset::StaticType(), claimed);
+                content::Instance* inst =
+                    ClaimInstance(group, name.AsView(),
+                                  draconic::physics::CollisionShapeAsset::StaticType(), claimed);
                 if (inst == nullptr)
                 {
                     manifest.collisionGuids.PushBack(Guid{});

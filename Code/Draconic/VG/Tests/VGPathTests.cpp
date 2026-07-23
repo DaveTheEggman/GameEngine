@@ -39,10 +39,10 @@ TEST_CASE("vg.path: contains via fill rules")
     b.Close();
     const Path path = b.ToPath();
 
-    CHECK(path.Contains(Float2{ 5.0f, 5.0f }, FillRule::NonZero));
-    CHECK(path.Contains(Float2{ 5.0f, 5.0f }, FillRule::EvenOdd));
-    CHECK_FALSE(path.Contains(Float2{ 20.0f, 5.0f }, FillRule::NonZero));
-    CHECK_FALSE(path.Contains(Float2{ -1.0f, 5.0f }, FillRule::EvenOdd));
+    CHECK(path.Contains(Float2{5.0f, 5.0f}, FillRule::NonZero));
+    CHECK(path.Contains(Float2{5.0f, 5.0f}, FillRule::EvenOdd));
+    CHECK_FALSE(path.Contains(Float2{20.0f, 5.0f}, FillRule::NonZero));
+    CHECK_FALSE(path.Contains(Float2{-1.0f, 5.0f}, FillRule::EvenOdd));
 }
 
 TEST_CASE("vg.path: point/tangent at distance along a line")
@@ -52,14 +52,14 @@ TEST_CASE("vg.path: point/tangent at distance along a line")
     b.LineTo(10.0f, 0.0f);
     const Path path = b.ToPath();
 
-    CHECK(NearlyEqual(path.GetPointAtDistance(4.0f), Float2{ 4.0f, 0.0f }));
-    CHECK(NearlyEqual(path.GetTangentAtDistance(4.0f), Float2{ 1.0f, 0.0f }));
+    CHECK(NearlyEqual(path.GetPointAtDistance(4.0f), Float2{4.0f, 0.0f}));
+    CHECK(NearlyEqual(path.GetTangentAtDistance(4.0f), Float2{1.0f, 0.0f}));
 }
 
 TEST_CASE("vg.shapes: rounded rect flattens to a closed loop")
 {
     PathBuilder b;
-    ShapeBuilder::BuildRoundedRect(Rectangle{ 0.0f, 0.0f, 20.0f, 20.0f }, CornerRadii(4.0f), b);
+    ShapeBuilder::BuildRoundedRect(Rectangle{0.0f, 0.0f, 20.0f, 20.0f}, CornerRadii(4.0f), b);
     const Path path = b.ToPath();
 
     Array<FlattenedSubPath> subPaths;
@@ -76,7 +76,7 @@ TEST_CASE("vg.shapes: rounded rect flattens to a closed loop")
 TEST_CASE("vg.shapes: circle bounds")
 {
     PathBuilder b;
-    ShapeBuilder::BuildCircle(Float2{ 50.0f, 50.0f }, 10.0f, b);
+    ShapeBuilder::BuildCircle(Float2{50.0f, 50.0f}, 10.0f, b);
     const Path path = b.ToPath();
     const Rectangle bounds = path.GetBounds();
     CHECK(bounds.Center().x == doctest::Approx(50.0f));
@@ -86,10 +86,11 @@ TEST_CASE("vg.shapes: circle bounds")
 
 TEST_CASE("vg.dash: splits a line into dashes")
 {
-    Float2 line[] = { Float2{ 0.0f, 0.0f }, Float2{ 10.0f, 0.0f } };
-    f32 pattern[] = { 2.0f, 2.0f }; // 2 on, 2 off
+    Float2 line[] = {Float2{0.0f, 0.0f}, Float2{10.0f, 0.0f}};
+    f32 pattern[] = {2.0f, 2.0f}; // 2 on, 2 off
     Array<Array<Float2>> dashes;
-    DashGenerator::GenerateDashes(Span<const Float2>(line, 2), false, Span<const f32>(pattern, 2), 0.0f, dashes);
+    DashGenerator::GenerateDashes(Span<const Float2>(line, 2), false, Span<const f32>(pattern, 2),
+                                  0.0f, dashes);
 
     // 10 units / 4 per cycle => dashes at [0,2],[4,6],[8,10] = 3 segments.
     CHECK(dashes.Size() == 3u);

@@ -19,7 +19,8 @@ export namespace draconic::fonts
     class TrueTypeTextShaper final : public ITextShaper
     {
     public:
-        [[nodiscard]] Result<f32> ShapeText(IFont& font, StringView text, Array<GlyphPosition>& outPositions) override
+        [[nodiscard]] Result<f32> ShapeText(IFont& font, StringView text,
+                                            Array<GlyphPosition>& outPositions) override
         {
             return ShapeText(font, text, 0, 0, outPositions);
         }
@@ -38,7 +39,8 @@ export namespace draconic::fonts
                 const GlyphInfo glyphInfo = font.GetGlyphInfo(codepoint);
                 if (prevCodepoint != 0)
                     x += font.GetKerning(prevCodepoint, codepoint);
-                outPositions.PushBack(GlyphPosition(index, codepoint, x, startY, glyphInfo.advanceWidth, glyphInfo));
+                outPositions.PushBack(
+                    GlyphPosition(index, codepoint, x, startY, glyphInfo.advanceWidth, glyphInfo));
                 x += glyphInfo.advanceWidth;
                 prevCodepoint = codepoint;
                 ++index;
@@ -47,7 +49,8 @@ export namespace draconic::fonts
         }
 
         [[nodiscard]] Status ShapeTextWrapped(IFont& font, StringView text, f32 maxWidth,
-                                              Array<GlyphPosition>& outPositions, f32& outTotalHeight) override
+                                              Array<GlyphPosition>& outPositions,
+                                              f32& outTotalHeight) override
         {
             outPositions.Clear();
             outTotalHeight = 0;
@@ -100,7 +103,8 @@ export namespace draconic::fonts
                         y += lineHeight;
                         f32 reflowX = 0;
                         i32 lastReflowedCodepoint = 0;
-                        for (i32 j = lastSpaceIdx + 1; j < static_cast<i32>(outPositions.Size()); ++j)
+                        for (i32 j = lastSpaceIdx + 1; j < static_cast<i32>(outPositions.Size());
+                             ++j)
                         {
                             GlyphPosition& pos = outPositions[static_cast<usize>(j)];
                             pos.x = reflowX;
@@ -108,7 +112,9 @@ export namespace draconic::fonts
                             reflowX += pos.advance;
                             lastReflowedCodepoint = pos.codepoint;
                         }
-                        kern = (lastReflowedCodepoint != 0) ? font.GetKerning(lastReflowedCodepoint, codepoint) : 0;
+                        kern = (lastReflowedCodepoint != 0)
+                                   ? font.GetKerning(lastReflowedCodepoint, codepoint)
+                                   : 0;
                         x = reflowX;
                         lineStartIdx = lastSpaceIdx + 1;
                     }
@@ -123,7 +129,8 @@ export namespace draconic::fonts
                     lastSpaceIdx = -1;
                 }
 
-                outPositions.PushBack(GlyphPosition(index, codepoint, x + kern, y, glyphInfo.advanceWidth, glyphInfo));
+                outPositions.PushBack(GlyphPosition(index, codepoint, x + kern, y,
+                                                    glyphInfo.advanceWidth, glyphInfo));
                 x = x + kern + glyphInfo.advanceWidth;
                 prevCodepoint = codepoint;
                 ++index;
@@ -135,7 +142,8 @@ export namespace draconic::fonts
 
         // === UI support ===
 
-        [[nodiscard]] HitTestResult HitTest(IFont&, Span<const GlyphPosition> positions, f32 x, f32 /*y*/) override
+        [[nodiscard]] HitTestResult HitTest(IFont&, Span<const GlyphPosition> positions, f32 x,
+                                            f32 /*y*/) override
         {
             if (positions.Size() == 0)
                 return HitTestResult(0, false, false);
@@ -162,7 +170,8 @@ export namespace draconic::fonts
                 return HitTestResult(0, false, false);
 
             i32 targetLine = static_cast<i32>(y / lineHeight);
-            if (targetLine < 0) targetLine = 0;
+            if (targetLine < 0)
+                targetLine = 0;
 
             i32 lineStart = -1;
             i32 lineEnd = -1;
@@ -179,7 +188,8 @@ export namespace draconic::fonts
                 }
                 if (currentLine == targetLine)
                 {
-                    if (lineStart < 0) lineStart = static_cast<i32>(i);
+                    if (lineStart < 0)
+                        lineStart = static_cast<i32>(i);
                     lineEnd = static_cast<i32>(i);
                 }
                 else if (currentLine > targetLine)
@@ -189,7 +199,8 @@ export namespace draconic::fonts
             }
 
             if (lineStart < 0)
-                return HitTestResult(static_cast<i32>(positions.Size() - 1), true, false, targetLine);
+                return HitTestResult(static_cast<i32>(positions.Size() - 1), true, false,
+                                     targetLine);
 
             for (i32 i = lineStart; i <= lineEnd; ++i)
             {
@@ -207,7 +218,8 @@ export namespace draconic::fonts
             return HitTestResult(lineEnd, true, false, targetLine);
         }
 
-        [[nodiscard]] f32 GetCursorPosition(IFont&, Span<const GlyphPosition> positions, i32 characterIndex) override
+        [[nodiscard]] f32 GetCursorPosition(IFont&, Span<const GlyphPosition> positions,
+                                            i32 characterIndex) override
         {
             if (positions.Size() == 0)
                 return 0;
@@ -221,8 +233,9 @@ export namespace draconic::fonts
             return positions[static_cast<usize>(characterIndex)].x;
         }
 
-        void GetSelectionRects(IFont&, Span<const GlyphPosition> positions, SelectionRange selection,
-                               f32 lineHeight, Array<Rectangle>& outRects) override
+        void GetSelectionRects(IFont&, Span<const GlyphPosition> positions,
+                               SelectionRange selection, f32 lineHeight,
+                               Array<Rectangle>& outRects) override
         {
             outRects.Clear();
             if (positions.Size() == 0 || selection.IsEmpty())
@@ -244,7 +257,8 @@ export namespace draconic::fonts
                 if (Abs(pos.y - currentLineY) > lineHeight * 0.5f)
                 {
                     if (rectEndX > rectStartX)
-                        outRects.PushBack(Rectangle(rectStartX, currentLineY, rectEndX - rectStartX, rectHeight));
+                        outRects.PushBack(
+                            Rectangle(rectStartX, currentLineY, rectEndX - rectStartX, rectHeight));
                     currentLineY = pos.y;
                     rectStartX = pos.x;
                 }
@@ -252,7 +266,8 @@ export namespace draconic::fonts
             }
 
             if (rectEndX > rectStartX)
-                outRects.PushBack(Rectangle(rectStartX, currentLineY, rectEndX - rectStartX, rectHeight));
+                outRects.PushBack(
+                    Rectangle(rectStartX, currentLineY, rectEndX - rectStartX, rectHeight));
         }
     };
 }

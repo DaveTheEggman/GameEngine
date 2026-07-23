@@ -10,7 +10,11 @@ namespace core = draconic::core;
 
 namespace
 {
-    template <typename T> core::RefPtr<T> Make() { return core::MakeRef<T>(core::DefaultAllocator()); }
+    template <typename T>
+    core::RefPtr<T> Make()
+    {
+        return core::MakeRef<T>(core::DefaultAllocator());
+    }
     core::StringView SV(const char8_t* s) { return core::StringView(s); }
 
     core::RefPtr<UIWidget> Widget(const char8_t* tag)
@@ -37,7 +41,7 @@ TEST_CASE("css-values: ParseColor hex / named / rgb")
 {
     CHECK(ParseColor(SV(u8"#ff0000")).Value().r == doctest::Approx(1.0f));
     CHECK(ParseColor(SV(u8"#00ff00")).Value().g == doctest::Approx(1.0f));
-    CHECK(ParseColor(SV(u8"#f00")).Value().r == doctest::Approx(1.0f)); // shorthand
+    CHECK(ParseColor(SV(u8"#f00")).Value().r == doctest::Approx(1.0f));                 // shorthand
     CHECK(ParseColor(SV(u8"#0000ff80")).Value().a == doctest::Approx(128.0f / 255.0f)); // alpha
     CHECK(ParseColor(SV(u8"white")).Value().r == doctest::Approx(1.0f));
     CHECK(ParseColor(SV(u8"blue")).Value().b == doctest::Approx(1.0f));
@@ -59,21 +63,30 @@ TEST_CASE("css-values: ParseBool")
 TEST_CASE("css-values: ParseThickness shorthand (top/right/bottom/left)")
 {
     Thickness one = ParseThickness(SV(u8"4")).Value();
-    CHECK(one.Left == 4.0f); CHECK(one.Top == 4.0f); CHECK(one.Right == 4.0f); CHECK(one.Bottom == 4.0f);
+    CHECK(one.Left == 4.0f);
+    CHECK(one.Top == 4.0f);
+    CHECK(one.Right == 4.0f);
+    CHECK(one.Bottom == 4.0f);
 
     Thickness two = ParseThickness(SV(u8"2 6")).Value(); // vertical=2, horizontal=6
-    CHECK(two.Top == 2.0f); CHECK(two.Bottom == 2.0f);
-    CHECK(two.Left == 6.0f); CHECK(two.Right == 6.0f);
+    CHECK(two.Top == 2.0f);
+    CHECK(two.Bottom == 2.0f);
+    CHECK(two.Left == 6.0f);
+    CHECK(two.Right == 6.0f);
 
     Thickness four = ParseThickness(SV(u8"1 2 3 4")).Value(); // top right bottom left
-    CHECK(four.Top == 1.0f); CHECK(four.Right == 2.0f); CHECK(four.Bottom == 3.0f); CHECK(four.Left == 4.0f);
+    CHECK(four.Top == 1.0f);
+    CHECK(four.Right == 2.0f);
+    CHECK(four.Bottom == 3.0f);
+    CHECK(four.Left == 4.0f);
 }
 
 // === application ===
 
 TEST_CASE("style-applier: background-color / padding / opacity")
 {
-    StyleSheet sheet = CSSParser::Parse(SV(u8"button { background-color: #0000ff; padding: 4; opacity: 0.5; }"));
+    StyleSheet sheet =
+        CSSParser::Parse(SV(u8"button { background-color: #0000ff; padding: 4; opacity: 0.5; }"));
     auto w = Widget(u8"button");
     ApplyStyle(*w.Get(), sheet.Resolve(*w.Get()));
 
@@ -87,8 +100,8 @@ TEST_CASE("style-applier: background-color / padding / opacity")
 
 TEST_CASE("style-applier: width/height, enabled, visibility, margin")
 {
-    StyleSheet sheet = CSSParser::Parse(
-        SV(u8"button { width: 120; height: 40; enabled: false; visibility: hidden; margin: 1 2 3 4; }"));
+    StyleSheet sheet = CSSParser::Parse(SV(u8"button { width: 120; height: 40; enabled: false; "
+                                           u8"visibility: hidden; margin: 1 2 3 4; }"));
     auto w = Widget(u8"button");
     ApplyStyle(*w.Get(), sheet.Resolve(*w.Get(), MediaContext{}, /*applyPseudo*/ false));
 
@@ -116,7 +129,8 @@ TEST_CASE("style-applier: cascade drives the applied value")
 
 TEST_CASE("style-applier: text-align / vertical-align reach a label")
 {
-    StyleSheet sheet = CSSParser::Parse(SV(u8"label { text-align: center; vertical-align: bottom; }"));
+    StyleSheet sheet =
+        CSSParser::Parse(SV(u8"label { text-align: center; vertical-align: bottom; }"));
     auto l = Make<Label>(); // Label's ctor tags it "label"
     ApplyStyle(*l.Get(), sheet.Resolve(*l.Get(), MediaContext{}, /*applyPseudo*/ false));
     CHECK(l->GetTextAlignH() == TextHAlign::Center);
@@ -130,8 +144,8 @@ TEST_CASE("style-applier: text-align / vertical-align reach a label")
 
 TEST_CASE("style-applier: min/max-width/height clamp the applied size")
 {
-    StyleSheet sheet = CSSParser::Parse(
-        SV(u8"box { min-width: 50; max-width: 100; min-height: 20; max-height: 80; width: 200; height: 5; }"));
+    StyleSheet sheet = CSSParser::Parse(SV(u8"box { min-width: 50; max-width: 100; min-height: 20; "
+                                           u8"max-height: 80; width: 200; height: 5; }"));
     auto w = Widget(u8"box");
     ApplyStyle(*w.Get(), sheet.Resolve(*w.Get(), MediaContext{}, /*applyPseudo*/ false));
     CHECK(w->GetSize().x == doctest::Approx(100.0f)); // 200 clamped down to max 100
@@ -143,12 +157,12 @@ TEST_CASE("style-applier: min/max-width/height clamp the applied size")
 TEST_CASE("node: SetSize clamps to min/max size constraints")
 {
     auto w = Make<UIWidget>();
-    w->SetMaxSize(core::Float2{ 100.0f, 100.0f });
-    w->SetSize(core::Float2{ 200.0f, 50.0f });
+    w->SetMaxSize(core::Float2{100.0f, 100.0f});
+    w->SetSize(core::Float2{200.0f, 50.0f});
     CHECK(w->GetSize().x == doctest::Approx(100.0f)); // clamped to max
     CHECK(w->GetSize().y == doctest::Approx(50.0f));  // within bounds
 
-    w->SetMinSize(core::Float2{ 60.0f, 60.0f });
+    w->SetMinSize(core::Float2{60.0f, 60.0f});
     CHECK(w->GetSize().y == doctest::Approx(60.0f)); // re-clamped up when the min grows
 }
 
@@ -239,8 +253,9 @@ TEST_CASE("css-values: ResolveLength resolves units against a context")
     CHECK(ResolveLength(SV(u8"2em"), ctx).Value() == doctest::Approx(40.0f));   // 2 * elem(20)
     CHECK(ResolveLength(SV(u8"50vw"), ctx).Value() == doctest::Approx(500.0f)); // 50% of 1000
     CHECK(ResolveLength(SV(u8"25vh"), ctx).Value() == doctest::Approx(100.0f)); // 25% of 400
-    CHECK(ResolveLength(SV(u8"50%"), ctx, /*percentBase*/ 200.0f).Value() == doctest::Approx(100.0f));
-    CHECK(ResolveLength(SV(u8"12"), ctx).Value() == doctest::Approx(12.0f));    // px passthrough
+    CHECK(ResolveLength(SV(u8"50%"), ctx, /*percentBase*/ 200.0f).Value() ==
+          doctest::Approx(100.0f));
+    CHECK(ResolveLength(SV(u8"12"), ctx).Value() == doctest::Approx(12.0f)); // px passthrough
 }
 
 TEST_CASE("style-applier: width/height resolve rem and vh via the length context")
@@ -248,10 +263,10 @@ TEST_CASE("style-applier: width/height resolve rem and vh via the length context
     StyleSheet sheet = CSSParser::Parse(SV(u8"box { width: 2rem; height: 50vh; }"));
     auto w = Widget(u8"box");
     LengthContext ctx;
-    ctx.RootFontSize = 10.0f;   // 2rem -> 20
+    ctx.RootFontSize = 10.0f;    // 2rem -> 20
     ctx.ViewportHeight = 200.0f; // 50vh -> 100
-    ApplyStyle(*w.Get(), sheet.Resolve(*w.Get(), MediaContext{}, /*applyPseudo*/ false),
-               nullptr, nullptr, ctx);
+    ApplyStyle(*w.Get(), sheet.Resolve(*w.Get(), MediaContext{}, /*applyPseudo*/ false), nullptr,
+               nullptr, ctx);
     CHECK(w->GetSize().x == doctest::Approx(20.0f));
     CHECK(w->GetSize().y == doctest::Approx(100.0f));
 }

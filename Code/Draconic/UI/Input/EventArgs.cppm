@@ -9,7 +9,7 @@ module;
 
 export module draconic.ui:event_args;
 
-import draconic.core;   // Float2
+import draconic.core; // Float2
 import :input_enums;
 
 using namespace draconic::core;
@@ -19,28 +19,40 @@ export namespace draconic::ui
     /// Pooled mouse event args.
     struct MouseEventArgs
     {
-        f32 X = 0.0f;                          ///< Position in UI logical coordinates.
+        f32 X = 0.0f; ///< Position in UI logical coordinates.
         f32 Y = 0.0f;
         MouseButton Button = MouseButton::Left;
-        i32 ClickCount = 0;                    ///< 1 = single, 2 = double, ...
+        i32 ClickCount = 0; ///< 1 = single, 2 = double, ...
         KeyModifiers Modifiers = KeyModifiers::None;
         f32 Timestamp = 0.0f;
-        bool Handled = false;                  ///< Set by a handler to stop propagation.
+        bool Handled = false; ///< Set by a handler to stop propagation.
         EventPhase Phase = EventPhase::Target;
 
-        [[nodiscard]] Float2 Position() const noexcept { return Float2{ X, Y }; }
+        [[nodiscard]] Float2 Position() const noexcept { return Float2{X, Y}; }
 
         void Reset()
         {
-            X = 0; Y = 0; Button = MouseButton::Left; ClickCount = 0;
-            Modifiers = KeyModifiers::None; Timestamp = 0; Handled = false; Phase = EventPhase::Target;
+            X = 0;
+            Y = 0;
+            Button = MouseButton::Left;
+            ClickCount = 0;
+            Modifiers = KeyModifiers::None;
+            Timestamp = 0;
+            Handled = false;
+            Phase = EventPhase::Target;
         }
 
         void Set(f32 x, f32 y, MouseButton button = MouseButton::Left, i32 clickCount = 1,
                  f32 timestamp = 0.0f, KeyModifiers modifiers = KeyModifiers::None)
         {
-            X = x; Y = y; Button = button; ClickCount = clickCount;
-            Modifiers = modifiers; Timestamp = timestamp; Handled = false; Phase = EventPhase::Target;
+            X = x;
+            Y = y;
+            Button = button;
+            ClickCount = clickCount;
+            Modifiers = modifiers;
+            Timestamp = timestamp;
+            Handled = false;
+            Phase = EventPhase::Target;
         }
     };
 
@@ -57,14 +69,25 @@ export namespace draconic::ui
 
         void Reset()
         {
-            Key = KeyCode::Unknown; ScanCode = 0; Modifiers = KeyModifiers::None;
-            IsRepeat = false; Timestamp = 0; Handled = false; Phase = EventPhase::Target;
+            Key = KeyCode::Unknown;
+            ScanCode = 0;
+            Modifiers = KeyModifiers::None;
+            IsRepeat = false;
+            Timestamp = 0;
+            Handled = false;
+            Phase = EventPhase::Target;
         }
 
-        void Set(KeyCode key, KeyModifiers modifiers, bool isRepeat, f32 timestamp = 0.0f, i32 scanCode = 0)
+        void Set(KeyCode key, KeyModifiers modifiers, bool isRepeat, f32 timestamp = 0.0f,
+                 i32 scanCode = 0)
         {
-            Key = key; ScanCode = scanCode; Modifiers = modifiers; IsRepeat = isRepeat;
-            Timestamp = timestamp; Handled = false; Phase = EventPhase::Target;
+            Key = key;
+            ScanCode = scanCode;
+            Modifiers = modifiers;
+            IsRepeat = isRepeat;
+            Timestamp = timestamp;
+            Handled = false;
+            Phase = EventPhase::Target;
         }
     };
 
@@ -73,7 +96,7 @@ export namespace draconic::ui
     {
         f32 X = 0.0f;
         f32 Y = 0.0f;
-        f32 DeltaX = 0.0f;                     ///< Positive = scroll up/right.
+        f32 DeltaX = 0.0f; ///< Positive = scroll up/right.
         f32 DeltaY = 0.0f;
         KeyModifiers Modifiers = KeyModifiers::None;
         bool Handled = false;
@@ -81,18 +104,28 @@ export namespace draconic::ui
 
         void Reset()
         {
-            X = 0; Y = 0; DeltaX = 0; DeltaY = 0;
-            Modifiers = KeyModifiers::None; Handled = false; Phase = EventPhase::Target;
+            X = 0;
+            Y = 0;
+            DeltaX = 0;
+            DeltaY = 0;
+            Modifiers = KeyModifiers::None;
+            Handled = false;
+            Phase = EventPhase::Target;
         }
     };
 
     /// Pooled text input event args (post-IME composition).
     struct TextInputEventArgs
     {
-        char32_t Character = 0;                ///< The Unicode codepoint entered.
+        char32_t Character = 0; ///< The Unicode codepoint entered.
         bool Handled = false;
         EventPhase Phase = EventPhase::Target;
 
-        void Reset() { Character = 0; Handled = false; Phase = EventPhase::Target; }
+        void Reset()
+        {
+            Character = 0;
+            Handled = false;
+            Phase = EventPhase::Target;
+        }
     };
 }

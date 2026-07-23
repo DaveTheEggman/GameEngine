@@ -29,8 +29,10 @@ export namespace draconic::vg::renderer
 
         explicit VGRenderVertex(const draconic::vg::VGVertex& v)
         {
-            position[0] = v.position.x; position[1] = v.position.y;
-            texCoord[0] = v.texCoord.x; texCoord[1] = v.texCoord.y;
+            position[0] = v.position.x;
+            position[1] = v.position.y;
+            texCoord[0] = v.texCoord.x;
+            texCoord[1] = v.texCoord.y;
             color[0] = SrgbToLinear(static_cast<f32>(v.color.r) / 255.0f);
             color[1] = SrgbToLinear(static_cast<f32>(v.color.g) / 255.0f);
             color[2] = SrgbToLinear(static_cast<f32>(v.color.b) / 255.0f);
@@ -39,5 +41,6 @@ export namespace draconic::vg::renderer
         }
     };
 
-    static_assert(sizeof(VGRenderVertex) == 36, "VGRenderVertex must be 36 bytes (8+8+16+4) for the shader layout");
+    static_assert(sizeof(VGRenderVertex) == 36,
+                  "VGRenderVertex must be 36 bytes (8+8+16+4) for the shader layout");
 }

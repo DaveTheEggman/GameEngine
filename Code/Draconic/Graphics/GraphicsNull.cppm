@@ -22,10 +22,14 @@ namespace rhi = draconic::rhi;
 export namespace draconic::graphics
 {
     // Create a headless GraphicsDevice backed by the Null RHI. No Vulkan required.
-    core::Result<core::UniquePtr<GraphicsDevice>> CreateNullGraphicsDevice(core::u32 framesInFlight = 2)
+    core::Result<core::UniquePtr<GraphicsDevice>>
+    CreateNullGraphicsDevice(core::u32 framesInFlight = 2)
     {
         rhi::Backend* raw = nullptr;
-        if (!rhi::null::CreateNullBackend(raw).IsOk()) { return core::Err(core::ErrorCode::Unknown); }
+        if (!rhi::null::CreateNullBackend(raw).IsOk())
+        {
+            return core::Err(core::ErrorCode::Unknown);
+        }
         return GraphicsDevice::FromBackend(raw, framesInFlight);
     }
 }

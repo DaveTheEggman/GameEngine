@@ -15,10 +15,10 @@ module;
 
 export module draconic.gui:style_selector;
 
-import draconic.core;   // String, StringView, Array, i64, Cast
+import draconic.core; // String, StringView, Array, i64, Cast
 import :node;
 import :ui_widget;
-import :parse_util;   // IsIdentChar, ReadIdent
+import :parse_util; // IsIdentChar, ReadIdent
 
 using namespace draconic::core;
 namespace core = draconic::core;
@@ -33,7 +33,11 @@ namespace draconic::gui
 
 export namespace draconic::gui
 {
-    enum class Combinator { Descendant, Child };
+    enum class Combinator
+    {
+        Descendant,
+        Child
+    };
 
     enum PseudoClass : u32
     {
@@ -51,7 +55,10 @@ export namespace draconic::gui
     public:
         StyleSelectorRule() = default;
         StyleSelectorRule(core::StringView fragment, Combinator combinator)
-            : m_combinator(combinator) { Parse(fragment); }
+            : m_combinator(combinator)
+        {
+            Parse(fragment);
+        }
 
         [[nodiscard]] Combinator GetCombinator() const noexcept { return m_combinator; }
         [[nodiscard]] i64 Specificity() const noexcept { return m_specificity; }
@@ -63,17 +70,24 @@ export namespace draconic::gui
 
         [[nodiscard]] bool Matches(const UIWidget& element, bool applyPseudo = true) const
         {
-            if (m_tag.AsView().Size() != 0 && m_tag != element.GetTag()) return false;
-            if (m_id.AsView().Size() != 0 && m_id != element.GetId()) return false;
+            if (m_tag.AsView().Size() != 0 && m_tag != element.GetTag())
+                return false;
+            if (m_id.AsView().Size() != 0 && m_id != element.GetId())
+                return false;
             for (const core::String& cls : m_classes)
-                if (!element.HasClass(cls.AsView())) return false;
+                if (!element.HasClass(cls.AsView()))
+                    return false;
 
             if (applyPseudo && m_pseudo != PseudoNone)
             {
-                if ((m_pseudo & PseudoHover) && !element.IsHovered()) return false;
-                if ((m_pseudo & PseudoActive) && !element.IsPressed()) return false;
-                if ((m_pseudo & PseudoFocus) && !element.IsFocused()) return false;
-                if ((m_pseudo & PseudoDisabled) && element.IsEnabled()) return false;
+                if ((m_pseudo & PseudoHover) && !element.IsHovered())
+                    return false;
+                if ((m_pseudo & PseudoActive) && !element.IsPressed())
+                    return false;
+                if ((m_pseudo & PseudoFocus) && !element.IsFocused())
+                    return false;
+                if ((m_pseudo & PseudoDisabled) && element.IsEnabled())
+                    return false;
             }
             return true;
         }
@@ -86,44 +100,80 @@ export namespace draconic::gui
             while (i < n)
             {
                 const char8_t c = fragment[i];
-                if (c == u8'#') { ++i; m_id = ReadIdent(fragment, i); }
-                else if (c == u8'.') { ++i; m_classes.PushBack(core::String(ReadIdent(fragment, i))); }
+                if (c == u8'#')
+                {
+                    ++i;
+                    m_id = ReadIdent(fragment, i);
+                }
+                else if (c == u8'.')
+                {
+                    ++i;
+                    m_classes.PushBack(core::String(ReadIdent(fragment, i)));
+                }
                 else if (c == u8':')
                 {
-                    if (i + 1 < n && fragment[i + 1] == u8':') { i += 2; m_pseudoElement = core::String(ReadIdent(fragment, i)); } // ::part
-                    else { ++i; ApplyPseudo(ReadIdent(fragment, i)); }                                                             // :pseudo-class
+                    if (i + 1 < n && fragment[i + 1] == u8':')
+                    {
+                        i += 2;
+                        m_pseudoElement = core::String(ReadIdent(fragment, i));
+                    } // ::part
+                    else
+                    {
+                        ++i;
+                        ApplyPseudo(ReadIdent(fragment, i));
+                    } // :pseudo-class
                 }
-                else if (c == u8'*') { ++i; } // universal: no tag constraint
-                else if (IsIdentChar(c)) { m_tag = ReadIdent(fragment, i); }
-                else { ++i; } // skip anything unsupported
+                else if (c == u8'*')
+                {
+                    ++i;
+                } // universal: no tag constraint
+                else if (IsIdentChar(c))
+                {
+                    m_tag = ReadIdent(fragment, i);
+                }
+                else
+                {
+                    ++i;
+                } // skip anything unsupported
             }
             ComputeSpecificity();
         }
 
         void ApplyPseudo(core::StringView name)
         {
-            if (name == core::StringView(u8"hover")) m_pseudo |= PseudoHover;
-            else if (name == core::StringView(u8"focus")) m_pseudo |= PseudoFocus;
-            else if (name == core::StringView(u8"active")) m_pseudo |= PseudoActive;
-            else if (name == core::StringView(u8"disabled")) m_pseudo |= PseudoDisabled;
+            if (name == core::StringView(u8"hover"))
+                m_pseudo |= PseudoHover;
+            else if (name == core::StringView(u8"focus"))
+                m_pseudo |= PseudoFocus;
+            else if (name == core::StringView(u8"active"))
+                m_pseudo |= PseudoActive;
+            else if (name == core::StringView(u8"disabled"))
+                m_pseudo |= PseudoDisabled;
             // unknown pseudo-classes are ignored (deferred)
         }
 
         void ComputeSpecificity() noexcept
         {
             i64 s = 0;
-            if (m_id.AsView().Size() != 0) s += kSpecificityId;
+            if (m_id.AsView().Size() != 0)
+                s += kSpecificityId;
             s += static_cast<i64>(m_classes.Size()) * kSpecificityClass;
             s += static_cast<i64>(PopCount(m_pseudo)) * kSpecificityClass;
-            if (m_tag.AsView().Size() != 0) s += kSpecificityTag;
-            if (m_pseudoElement.AsView().Size() != 0) s += kSpecificityTag; // pseudo-elements count as a type
+            if (m_tag.AsView().Size() != 0)
+                s += kSpecificityTag;
+            if (m_pseudoElement.AsView().Size() != 0)
+                s += kSpecificityTag; // pseudo-elements count as a type
             m_specificity = s;
         }
 
         [[nodiscard]] static u32 PopCount(u32 v) noexcept
         {
             u32 c = 0;
-            while (v != 0) { c += (v & 1u); v >>= 1u; }
+            while (v != 0)
+            {
+                c += (v & 1u);
+                v >>= 1u;
+            }
             return c;
         }
 
@@ -148,17 +198,20 @@ export namespace draconic::gui
         // The pseudo-element of the subject (rightmost) rule; empty for a normal selector.
         [[nodiscard]] core::StringView PseudoElement() const
         {
-            return m_rules.Size() != 0 ? m_rules[m_rules.Size() - 1].GetPseudoElement() : core::StringView{};
+            return m_rules.Size() != 0 ? m_rules[m_rules.Size() - 1].GetPseudoElement()
+                                       : core::StringView{};
         }
 
         // True if `element` matches this selector (the rightmost rule matches the element,
         // and each preceding rule matches an ancestor per its combinator).
         [[nodiscard]] bool Select(const UIWidget& element, bool applyPseudo = true) const
         {
-            if (m_rules.Size() == 0) return false;
+            if (m_rules.Size() == 0)
+                return false;
 
             usize i = m_rules.Size() - 1;
-            if (!m_rules[i].Matches(element, applyPseudo)) return false;
+            if (!m_rules[i].Matches(element, applyPseudo))
+                return false;
 
             const Node* current = &element;
             while (i > 0)
@@ -169,7 +222,8 @@ export namespace draconic::gui
                 if (combinator == Combinator::Child)
                 {
                     const UIWidget* parent = AsWidget(current->GetParent());
-                    if (parent == nullptr || !rule.Matches(*parent, applyPseudo)) return false;
+                    if (parent == nullptr || !rule.Matches(*parent, applyPseudo))
+                        return false;
                     current = parent;
                 }
                 else // Descendant: match any ancestor
@@ -179,37 +233,56 @@ export namespace draconic::gui
                     while (ancestor != nullptr)
                     {
                         if (const UIWidget* w = AsWidget(ancestor))
-                            if (rule.Matches(*w, applyPseudo)) { current = w; found = true; break; }
+                            if (rule.Matches(*w, applyPseudo))
+                            {
+                                current = w;
+                                found = true;
+                                break;
+                            }
                         ancestor = ancestor->GetParent();
                     }
-                    if (!found) return false;
+                    if (!found)
+                        return false;
                 }
             }
             return true;
         }
 
     private:
-        [[nodiscard]] static const UIWidget* AsWidget(Node* n) { return n != nullptr ? core::Cast<UIWidget>(n) : nullptr; }
+        [[nodiscard]] static const UIWidget* AsWidget(Node* n)
+        {
+            return n != nullptr ? core::Cast<UIWidget>(n) : nullptr;
+        }
 
         void Parse(core::StringView selector)
         {
             usize i = 0;
             const usize n = selector.Size();
-            Combinator combinator = Combinator::Descendant; // relates the next fragment to the previous
+            Combinator combinator =
+                Combinator::Descendant; // relates the next fragment to the previous
             while (i < n)
             {
-                while (i < n && IsWhiteSpace(selector[i])) ++i;
-                if (i >= n) break;
-                if (selector[i] == u8'>') { combinator = Combinator::Child; ++i; continue; }
+                while (i < n && IsWhiteSpace(selector[i]))
+                    ++i;
+                if (i >= n)
+                    break;
+                if (selector[i] == u8'>')
+                {
+                    combinator = Combinator::Child;
+                    ++i;
+                    continue;
+                }
 
                 const usize start = i;
-                while (i < n && !IsWhiteSpace(selector[i]) && selector[i] != u8'>') ++i;
+                while (i < n && !IsWhiteSpace(selector[i]) && selector[i] != u8'>')
+                    ++i;
                 m_rules.PushBack(StyleSelectorRule(selector.SubStr(start, i - start), combinator));
                 combinator = Combinator::Descendant;
             }
 
             m_specificity = 0;
-            for (const StyleSelectorRule& rule : m_rules) m_specificity += rule.Specificity();
+            for (const StyleSelectorRule& rule : m_rules)
+                m_specificity += rule.Specificity();
         }
 
         Array<StyleSelectorRule> m_rules;

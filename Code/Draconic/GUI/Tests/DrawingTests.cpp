@@ -15,7 +15,7 @@ namespace vg = draconic::vg;
 
 TEST_CASE("drawing: Drawable color and alpha")
 {
-    RectangleDrawable r{ core::Color::Red };
+    RectangleDrawable r{core::Color::Red};
     CHECK(r.GetColor().r == doctest::Approx(1.0f));
     r.SetColor(core::Color::Blue);
     CHECK(r.GetColor().b == doctest::Approx(1.0f));
@@ -28,7 +28,7 @@ TEST_CASE("drawing: RectangleDrawable corner radii")
 {
     RectangleDrawable r;
     CHECK(r.GetCornerRadii().topLeft == 0.0f);
-    r.SetCornerRadii(vg::CornerRadii{ 8.0f });
+    r.SetCornerRadii(vg::CornerRadii{8.0f});
     CHECK(r.GetCornerRadii().topLeft == doctest::Approx(8.0f));
     CHECK(r.GetCornerRadii().bottomRight == doctest::Approx(8.0f));
 }
@@ -46,20 +46,23 @@ TEST_CASE("drawing: BorderDrawable width")
 TEST_CASE("drawing: StateList falls back to Normal")
 {
     StateListDrawable sl;
-    sl.Set(ControlState::Normal, core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), core::Color::Red));
+    sl.Set(ControlState::Normal,
+           core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), core::Color::Red));
     Drawable* normal = sl.Get(ControlState::Normal);
 
     CHECK(sl.Get(ControlState::Normal) == normal);
-    CHECK(sl.Get(ControlState::Hover) == normal);    // fallback
-    CHECK(sl.Get(ControlState::Pressed) == normal);  // fallback
+    CHECK(sl.Get(ControlState::Hover) == normal);   // fallback
+    CHECK(sl.Get(ControlState::Pressed) == normal); // fallback
     CHECK(sl.IsStateful());
 }
 
 TEST_CASE("drawing: StateList returns specific state")
 {
     StateListDrawable sl;
-    sl.Set(ControlState::Normal, core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), core::Color::Red));
-    sl.Set(ControlState::Hover, core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), core::Color::Blue));
+    sl.Set(ControlState::Normal,
+           core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), core::Color::Red));
+    sl.Set(ControlState::Hover,
+           core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), core::Color::Blue));
     Drawable* normal = sl.Get(ControlState::Normal);
     Drawable* hover = sl.Get(ControlState::Hover);
 
@@ -80,47 +83,48 @@ TEST_CASE("drawing: StateList empty returns null")
 TEST_CASE("drawing: RectangleDrawable produces VG geometry")
 {
     vg::VGContext ctx;
-    DrawContext dc{ ctx };
-    RectangleDrawable r{ core::Color::Red };
-    r.Draw(dc, Rect{ 0.0f, 0.0f, 100.0f, 50.0f });
+    DrawContext dc{ctx};
+    RectangleDrawable r{core::Color::Red};
+    r.Draw(dc, Rect{0.0f, 0.0f, 100.0f, 50.0f});
     CHECK(ctx.GetBatch().vertices.Size() > 0);
 }
 
 TEST_CASE("drawing: rounded RectangleDrawable produces VG geometry")
 {
     vg::VGContext ctx;
-    DrawContext dc{ ctx };
-    RectangleDrawable r{ core::Color::Red };
-    r.SetCornerRadii(vg::CornerRadii{ 10.0f });
-    r.Draw(dc, Rect{ 0.0f, 0.0f, 100.0f, 50.0f });
+    DrawContext dc{ctx};
+    RectangleDrawable r{core::Color::Red};
+    r.SetCornerRadii(vg::CornerRadii{10.0f});
+    r.Draw(dc, Rect{0.0f, 0.0f, 100.0f, 50.0f});
     CHECK(ctx.GetBatch().vertices.Size() > 0);
 }
 
 TEST_CASE("drawing: BorderDrawable produces VG geometry")
 {
     vg::VGContext ctx;
-    DrawContext dc{ ctx };
-    BorderDrawable b{ core::Color{ 0.0f, 0.0f, 0.0f, 1.0f }, 2.0f };
-    b.Draw(dc, Rect{ 0.0f, 0.0f, 100.0f, 50.0f });
+    DrawContext dc{ctx};
+    BorderDrawable b{core::Color{0.0f, 0.0f, 0.0f, 1.0f}, 2.0f};
+    b.Draw(dc, Rect{0.0f, 0.0f, 100.0f, 50.0f});
     CHECK(ctx.GetBatch().vertices.Size() > 0);
 }
 
 TEST_CASE("drawing: zero-width BorderDrawable produces nothing")
 {
     vg::VGContext ctx;
-    DrawContext dc{ ctx };
+    DrawContext dc{ctx};
     BorderDrawable b;
     b.SetWidth(0.0f);
-    b.Draw(dc, Rect{ 0.0f, 0.0f, 100.0f, 50.0f });
+    b.Draw(dc, Rect{0.0f, 0.0f, 100.0f, 50.0f});
     CHECK(ctx.GetBatch().vertices.Size() == 0);
 }
 
 TEST_CASE("drawing: StateList draws via VG")
 {
     vg::VGContext ctx;
-    DrawContext dc{ ctx };
+    DrawContext dc{ctx};
     StateListDrawable sl;
-    sl.Set(ControlState::Normal, core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), core::Color::Red));
-    sl.Draw(dc, Rect{ 0.0f, 0.0f, 20.0f, 20.0f }, ControlState::Hover); // falls back to Normal
+    sl.Set(ControlState::Normal,
+           core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), core::Color::Red));
+    sl.Draw(dc, Rect{0.0f, 0.0f, 20.0f, 20.0f}, ControlState::Hover); // falls back to Normal
     CHECK(ctx.GetBatch().vertices.Size() > 0);
 }

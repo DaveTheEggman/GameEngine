@@ -10,7 +10,7 @@ module;
 
 export module draconic.gui:mutation_queue;
 
-import draconic.core;   // Function, Array, Move
+import draconic.core; // Function, Array, Move
 
 using namespace draconic::core;
 namespace core = draconic::core;

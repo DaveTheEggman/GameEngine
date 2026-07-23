@@ -28,8 +28,10 @@ export namespace draconic::fonts
 
         ~BakedFontData()
         {
-            if (font != nullptr) DefaultAllocator().Delete(font);
-            if (atlas != nullptr) DefaultAllocator().Delete(atlas);
+            if (font != nullptr)
+                DefaultAllocator().Delete(font);
+            if (atlas != nullptr)
+                DefaultAllocator().Delete(atlas);
         }
 
         BakedFontData(const BakedFontData&) = delete;
@@ -55,8 +57,8 @@ export namespace draconic::fonts
         // Bake a font from raw TTF/OTF/TTC bytes. Caller owns the returned
         // BakedFontData (delete it or call TakeOwnership). Errors cleanly on
         // bad input.
-        [[nodiscard]] static Result<BakedFontData*, FontLoadResult> Bake(
-            Span<const u8> data, FontLoadOptions options = FontLoadOptions::Default())
+        [[nodiscard]] static Result<BakedFontData*, FontLoadResult>
+        Bake(Span<const u8> data, FontLoadOptions options = FontLoadOptions::Default())
         {
             // Reuse TrueTypeFont as the parser; it owns its byte buffer, so
             // copy the input into a fresh array.
@@ -66,7 +68,8 @@ export namespace draconic::fonts
                 MemCopy(bytesCopy.Data(), data.Data(), data.Size());
 
             TrueTypeFont* ttFont = DefaultAllocator().New<TrueTypeFont>();
-            const FontLoadResult initResult = ttFont->Initialize(Move(bytesCopy), options.pixelHeight);
+            const FontLoadResult initResult =
+                ttFont->Initialize(Move(bytesCopy), options.pixelHeight);
             if (initResult != FontLoadResult::Success)
             {
                 DefaultAllocator().Delete(ttFont);
@@ -96,7 +99,8 @@ export namespace draconic::fonts
             Array<u8> pixelCopy;
             pixelCopy.Resize(static_cast<usize>(atlasW) * atlasH);
             if (srcPixels.Size() > 0)
-                MemCopy(pixelCopy.Data(), srcPixels.Data(), Min(srcPixels.Size(), pixelCopy.Size()));
+                MemCopy(pixelCopy.Data(), srcPixels.Data(),
+                        Min(srcPixels.Size(), pixelCopy.Size()));
             bakedAtlas->SetPixels(atlasW, atlasH, Move(pixelCopy));
 
             const Float2 white = ttAtlas->WhitePixelUV();
@@ -116,10 +120,12 @@ export namespace draconic::fonts
             // trivial per pair; ~9k lookups for the default ASCII range).
             for (i32 a = options.firstCodepoint; a <= options.lastCodepoint; ++a)
             {
-                if (!ttAtlas->Contains(a)) continue;
+                if (!ttAtlas->Contains(a))
+                    continue;
                 for (i32 b = options.firstCodepoint; b <= options.lastCodepoint; ++b)
                 {
-                    if (!ttAtlas->Contains(b)) continue;
+                    if (!ttAtlas->Contains(b))
+                        continue;
                     const f32 adj = ttFont->GetKerning(a, b);
                     if (adj != 0)
                         baked->SetKerning(a, b, adj);

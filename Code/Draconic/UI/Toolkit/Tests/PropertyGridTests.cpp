@@ -17,8 +17,10 @@ TEST_CASE("toolkit-propertygrid: AddQueryRemoveClear")
     CHECK(grid->ChildCount() == 1u);
     CHECK(grid->PropertyCount() == 0u);
 
-    grid->AddProperty(core::MakeRef<BoolEditor>(core::DefaultAllocator(), StringView(u8"Visible"), true));
-    grid->AddProperty(core::MakeRef<FloatEditor>(core::DefaultAllocator(), StringView(u8"Mass"), 1.0));
+    grid->AddProperty(
+        core::MakeRef<BoolEditor>(core::DefaultAllocator(), StringView(u8"Visible"), true));
+    grid->AddProperty(
+        core::MakeRef<FloatEditor>(core::DefaultAllocator(), StringView(u8"Mass"), 1.0));
     grid->AddProperty(core::MakeRef<IntEditor>(core::DefaultAllocator(), StringView(u8"Layer"), 0));
     CHECK(grid->PropertyCount() == 3u);
 
@@ -38,8 +40,8 @@ TEST_CASE("toolkit-propertygrid: AddQueryRemoveClear")
 TEST_CASE("toolkit-propertygrid: CategoriesAndDisplayName")
 {
     auto grid = core::MakeRef<PropertyGrid>(core::DefaultAllocator());
-    auto ed = core::MakeRef<BoolEditor>(core::DefaultAllocator(), StringView(u8"CastsShadows"), false,
-        Function<void(bool)>{}, StringView(u8"Rendering"));
+    auto ed = core::MakeRef<BoolEditor>(core::DefaultAllocator(), StringView(u8"CastsShadows"),
+                                        false, Function<void(bool)>{}, StringView(u8"Rendering"));
     ed->SetDisplayName(StringView(u8"Casts Shadows"));
     CHECK(ed->DisplayName() == StringView(u8"Casts Shadows"));
     CHECK(ed->Category() == StringView(u8"Rendering"));
@@ -58,9 +60,9 @@ TEST_CASE("toolkit-propertyeditor: TooltipAndRowVisibility")
     // Visibility state applies to the wired row view (PropertyGrid wires it on build).
     auto row = core::MakeRef<Label>(core::DefaultAllocator());
     CHECK(ed->RowVisible());
-    ed->SetRowVisible(false);      // before wiring: state only
+    ed->SetRowVisible(false); // before wiring: state only
     CHECK(!ed->RowVisible());
-    ed->SetRowView(row.Get());     // wiring applies the current state
+    ed->SetRowView(row.Get()); // wiring applies the current state
     CHECK(row->Visibility == VisibilityValue::Gone);
     ed->SetRowVisible(true);
     CHECK(row->Visibility == VisibilityValue::Visible);
@@ -72,8 +74,8 @@ TEST_CASE("toolkit-propertyeditor: display-name changes reach the bound label si
     // PropertyGrid binds each row's label view through BindDisplayNameSink so a later
     // SetDisplayName (e.g. the inspector's prefab-override dot) updates the LIVE label
     // instead of a string nobody re-reads.
-    auto editor = core::MakeRef<ButtonEditor>(core::DefaultAllocator(),
-        StringView(u8"Revert to Prefab"), core::Function<void()>{});
+    auto editor = core::MakeRef<ButtonEditor>(
+        core::DefaultAllocator(), StringView(u8"Revert to Prefab"), core::Function<void()>{});
     String seen;
     editor->BindDisplayNameSink([&seen](StringView text) { seen = String(text); });
     editor->SetDisplayName(StringView(u8"Revert to Prefab \u25cf"));

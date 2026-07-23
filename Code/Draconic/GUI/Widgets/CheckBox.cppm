@@ -12,8 +12,8 @@ module;
 
 export module draconic.gui:check_box;
 
-import draconic.core;   // Color, Function, Move, Max
-import draconic.vg;     // CornerRadii
+import draconic.core; // Color, Function, Move, Max
+import draconic.vg;   // CornerRadii
 import :rect;
 import :event;
 import :draw_context;
@@ -29,22 +29,39 @@ export namespace draconic::gui
     {
         DRACONIC_OBJECT(CheckBox, UIWidget)
     public:
-        CheckBox() { SetTag(core::StringView(u8"checkbox")); SetTabFocusable(true); }
+        CheckBox()
+        {
+            SetTag(core::StringView(u8"checkbox"));
+            SetTabFocusable(true);
+        }
 
         [[nodiscard]] bool IsChecked() const noexcept { return m_checked; }
         void SetChecked(bool checked)
         {
-            if (checked == m_checked) return;
+            if (checked == m_checked)
+                return;
             m_checked = checked;
             Invalidate();
-            if (m_onChanged) m_onChanged(m_checked);
+            if (m_onChanged)
+                m_onChanged(m_checked);
         }
         void Toggle() { SetChecked(!m_checked); }
 
-        void SetOnCheckedChanged(core::Function<void(bool)> callback) { m_onChanged = core::Move(callback); }
+        void SetOnCheckedChanged(core::Function<void(bool)> callback)
+        {
+            m_onChanged = core::Move(callback);
+        }
 
-        void SetBoxColor(Color color) { m_boxColor = color; Invalidate(); }
-        void SetCheckColor(Color color) { m_checkColor = color; Invalidate(); }
+        void SetBoxColor(Color color)
+        {
+            m_boxColor = color;
+            Invalidate();
+        }
+        void SetCheckColor(Color color)
+        {
+            m_checkColor = color;
+            Invalidate();
+        }
 
         // Theming parts: checkbox::box (outline) / ::mark (inner fill).
         void CollectStyleParts(core::Array<core::StringView>& out) const override
@@ -54,12 +71,18 @@ export namespace draconic::gui
         }
         void SetThemePartColor(core::StringView part, Color color) override
         {
-            if (part == core::StringView(u8"box")) SetBoxColor(color);
-            else if (part == core::StringView(u8"mark")) SetCheckColor(color);
+            if (part == core::StringView(u8"box"))
+                SetBoxColor(color);
+            else if (part == core::StringView(u8"mark"))
+                SetCheckColor(color);
         }
 
     protected:
-        void OnMouseClick(const MouseEvent& event) override { (void)event; Toggle(); }
+        void OnMouseClick(const MouseEvent& event) override
+        {
+            (void)event;
+            Toggle();
+        }
 
         void OnDraw(DrawContext& ctx, const Rect& localBounds) override
         {
@@ -69,16 +92,16 @@ export namespace draconic::gui
             if (m_checked)
             {
                 const f32 inset = 4.0f;
-                const Rect inner{ box.x + inset, box.y + inset,
-                                  core::Max(0.0f, box.width - inset * 2.0f),
-                                  core::Max(0.0f, box.height - inset * 2.0f) };
+                const Rect inner{box.x + inset, box.y + inset,
+                                 core::Max(0.0f, box.width - inset * 2.0f),
+                                 core::Max(0.0f, box.height - inset * 2.0f)};
                 ctx.VG().FillRoundedRect(inner.ToRectangle(), vg::CornerRadii(2.0f), m_checkColor);
             }
         }
 
         bool m_checked = false;
-        Color m_boxColor{ 0.60f, 0.65f, 0.72f, 1.0f };
-        Color m_checkColor{ 0.31f, 0.63f, 0.85f, 1.0f };
+        Color m_boxColor{0.60f, 0.65f, 0.72f, 1.0f};
+        Color m_checkColor{0.31f, 0.63f, 0.85f, 1.0f};
         core::Function<void(bool)> m_onChanged;
     };
 

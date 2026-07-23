@@ -12,13 +12,13 @@ import draconic.runtime.client;
 import draconic.shell;
 import draconic.runtime.desktop;
 import draconic.shell.desktop;
-import draconic.graphics;       // GraphicsDevice + FrameContext (DRACONIC_APP_MAIN sets up the device)
-import draconic.graphics.gpu;   // CreateGraphicsDevice
+import draconic.graphics; // GraphicsDevice + FrameContext (DRACONIC_APP_MAIN sets up the device)
+import draconic.graphics.gpu; // CreateGraphicsDevice
 
 namespace core = draconic::core;
 namespace runtime = draconic::runtime;
 namespace graphics = draconic::graphics;
-        namespace shell = draconic::shell;
+namespace shell = draconic::shell;
 
 namespace
 {
@@ -38,7 +38,7 @@ namespace
 
         void OnRenderWindow(runtime::IApplicationHost&, graphics::FrameContext& frame) override
         {
-            frame.Clear(0.10f, 0.10f, 0.12f, 1.0f);   // a calm dark grey
+            frame.Clear(0.10f, 0.10f, 0.12f, 1.0f); // a calm dark grey
         }
 
         void OnShutdown(runtime::IApplicationHost&) override

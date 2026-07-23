@@ -74,34 +74,56 @@ export namespace draconic::texture
         // Presets (subset of Sedulous's).
         void SetupForUI()
         {
-            shape = TextureShape::Texture2D; minFilter = TextureFilter::Linear; magFilter = TextureFilter::Linear;
-            wrapU = TextureWrap::ClampToEdge; wrapV = TextureWrap::ClampToEdge;
-            generateMipmaps = false; anisotropy = 1.0f;
+            shape = TextureShape::Texture2D;
+            minFilter = TextureFilter::Linear;
+            magFilter = TextureFilter::Linear;
+            wrapU = TextureWrap::ClampToEdge;
+            wrapV = TextureWrap::ClampToEdge;
+            generateMipmaps = false;
+            anisotropy = 1.0f;
         }
         void SetupForSprite()
         {
-            shape = TextureShape::Texture2D; minFilter = TextureFilter::Nearest; magFilter = TextureFilter::Nearest;
-            wrapU = TextureWrap::ClampToEdge; wrapV = TextureWrap::ClampToEdge;
-            generateMipmaps = false; anisotropy = 1.0f;
+            shape = TextureShape::Texture2D;
+            minFilter = TextureFilter::Nearest;
+            magFilter = TextureFilter::Nearest;
+            wrapU = TextureWrap::ClampToEdge;
+            wrapV = TextureWrap::ClampToEdge;
+            generateMipmaps = false;
+            anisotropy = 1.0f;
         }
         void SetupFor3D()
         {
-            shape = TextureShape::Texture2D; minFilter = TextureFilter::MipmapLinear; magFilter = TextureFilter::Linear;
-            wrapU = TextureWrap::Repeat; wrapV = TextureWrap::Repeat;
-            generateMipmaps = true; anisotropy = 16.0f;
+            shape = TextureShape::Texture2D;
+            minFilter = TextureFilter::MipmapLinear;
+            magFilter = TextureFilter::Linear;
+            wrapU = TextureWrap::Repeat;
+            wrapV = TextureWrap::Repeat;
+            generateMipmaps = true;
+            anisotropy = 16.0f;
         }
         void SetupForEquirectangularSkybox()
         {
             colorSpace = image::ImageColorSpace::Linear;
-            shape = TextureShape::Texture2D; minFilter = TextureFilter::Linear; magFilter = TextureFilter::Linear;
-            wrapU = TextureWrap::ClampToEdge; wrapV = TextureWrap::ClampToEdge; wrapW = TextureWrap::ClampToEdge;
-            generateMipmaps = false; anisotropy = 1.0f;
+            shape = TextureShape::Texture2D;
+            minFilter = TextureFilter::Linear;
+            magFilter = TextureFilter::Linear;
+            wrapU = TextureWrap::ClampToEdge;
+            wrapV = TextureWrap::ClampToEdge;
+            wrapW = TextureWrap::ClampToEdge;
+            generateMipmaps = false;
+            anisotropy = 1.0f;
         }
         void SetupForCubemapSkybox()
         {
-            shape = TextureShape::Cubemap; minFilter = TextureFilter::Linear; magFilter = TextureFilter::Linear;
-            wrapU = TextureWrap::ClampToEdge; wrapV = TextureWrap::ClampToEdge; wrapW = TextureWrap::ClampToEdge;
-            generateMipmaps = false; anisotropy = 1.0f;
+            shape = TextureShape::Cubemap;
+            minFilter = TextureFilter::Linear;
+            magFilter = TextureFilter::Linear;
+            wrapU = TextureWrap::ClampToEdge;
+            wrapV = TextureWrap::ClampToEdge;
+            wrapW = TextureWrap::ClampToEdge;
+            generateMipmaps = false;
+            anisotropy = 1.0f;
         }
     };
 
@@ -111,7 +133,8 @@ export namespace draconic::texture
     {
     public:
         // A standard 2D texture (3D preset: mips + anisotropy).
-        static void Import2D(StringView path, image::ImageColorSpace colorSpace, TextureAsset& outAsset)
+        static void Import2D(StringView path, image::ImageColorSpace colorSpace,
+                             TextureAsset& outAsset)
         {
             outAsset.fileName = String(path);
             outAsset.SetupFor3D();
@@ -135,23 +158,46 @@ export namespace draconic::texture
         // Load 6 cubemap faces into one combined buffer, faces concatenated in +X,-X,+Y,-Y,+Z,-Z order
         // (the layout a 6-layer cube texture expects). All faces must be square, the same size, and the
         // same format; the caller supplies the explicit paths. `outPixels` = 6 * faceSize*faceSize*bpp.
-        [[nodiscard]] static Status LoadCubemap(Span<const StringView> facePaths, Array<u8>& outPixels, u32& outFaceSize)
+        [[nodiscard]] static Status LoadCubemap(Span<const StringView> facePaths,
+                                                Array<u8>& outPixels, u32& outFaceSize)
         {
-            if (facePaths.Size() != 6) { return ErrorCode::InvalidArgument; }
+            if (facePaths.Size() != 6)
+            {
+                return ErrorCode::InvalidArgument;
+            }
             image::Image faces[6];
             u32 faceSize = 0;
             usize faceBytes = 0;
             for (usize i = 0; i < 6; ++i)
             {
-                if (!image::io::LoadImage(facePaths[i], faces[i]).IsOk()) { return ErrorCode::Unknown; }
-                if (faces[i].Width() != faces[i].Height()) { return ErrorCode::Unknown; }   // cube faces are square
-                if (i == 0) { faceSize = faces[0].Width(); faceBytes = faces[0].PixelData().Size(); }
+                if (!image::io::LoadImage(facePaths[i], faces[i]).IsOk())
+                {
+                    return ErrorCode::Unknown;
+                }
+                if (faces[i].Width() != faces[i].Height())
+                {
+                    return ErrorCode::Unknown;
+                } // cube faces are square
+                if (i == 0)
+                {
+                    faceSize = faces[0].Width();
+                    faceBytes = faces[0].PixelData().Size();
+                }
                 else if (faces[i].Width() != faceSize || faces[i].PixelData().Size() != faceBytes ||
-                         faces[i].Format() != faces[0].Format()) { return ErrorCode::Unknown; }   // all faces must match
+                         faces[i].Format() != faces[0].Format())
+                {
+                    return ErrorCode::Unknown;
+                } // all faces must match
             }
-            if (faceSize == 0 || faceBytes == 0) { return ErrorCode::Unknown; }
+            if (faceSize == 0 || faceBytes == 0)
+            {
+                return ErrorCode::Unknown;
+            }
             outPixels.Resize(faceBytes * 6u);
-            for (usize i = 0; i < 6; ++i) { MemCopy(outPixels.Data() + faceBytes * i, faces[i].PixelData().Data(), faceBytes); }
+            for (usize i = 0; i < 6; ++i)
+            {
+                MemCopy(outPixels.Data() + faceBytes * i, faces[i].PixelData().Data(), faceBytes);
+            }
             outFaceSize = faceSize;
             return Status{};
         }
@@ -160,28 +206,41 @@ export namespace draconic::texture
         // naming convention (px/nx/..., _posx/..., right/left/...) and rebuilding the set in
         // +X,-X,+Y,-Y,+Z,-Z order. Pure string derivation (no filesystem); pair with LoadCubemap, which
         // validates the files actually load. Returns Unknown if the path matches no known convention.
-        [[nodiscard]] static Status DetectCubemapFaces(StringView oneFacePath, Array<String>& outPaths)
+        [[nodiscard]] static Status DetectCubemapFaces(StringView oneFacePath,
+                                                       Array<String>& outPaths)
         {
-            const StringView dir  = PathParent(oneFacePath);
+            const StringView dir = PathParent(oneFacePath);
             const StringView stem = PathStem(oneFacePath);
-            const StringView ext  = PathExtension(oneFacePath);
+            const StringView ext = PathExtension(oneFacePath);
             static const StringView conv[5][6] = {
-                { u8"px",    u8"nx",    u8"py",    u8"ny",     u8"pz",    u8"nz"    },
-                { u8"_px",   u8"_nx",   u8"_py",   u8"_ny",    u8"_pz",   u8"_nz"   },
-                { u8"_posx", u8"_negx", u8"_posy", u8"_negy",  u8"_posz", u8"_negz" },
-                { u8"_right",u8"_left", u8"_top",  u8"_bottom",u8"_front",u8"_back" },
-                { u8"right", u8"left",  u8"top",   u8"bottom", u8"front", u8"back"  },
+                {u8"px", u8"nx", u8"py", u8"ny", u8"pz", u8"nz"},
+                {u8"_px", u8"_nx", u8"_py", u8"_ny", u8"_pz", u8"_nz"},
+                {u8"_posx", u8"_negx", u8"_posy", u8"_negy", u8"_posz", u8"_negz"},
+                {u8"_right", u8"_left", u8"_top", u8"_bottom", u8"_front", u8"_back"},
+                {u8"right", u8"left", u8"top", u8"bottom", u8"front", u8"back"},
             };
             for (const auto& c : conv)
             {
                 int matched = -1;
-                for (int i = 0; i < 6; ++i) { if (EndsWithCI(stem, c[i])) { matched = i; break; } }
-                if (matched < 0) { continue; }
+                for (int i = 0; i < 6; ++i)
+                {
+                    if (EndsWithCI(stem, c[i]))
+                    {
+                        matched = i;
+                        break;
+                    }
+                }
+                if (matched < 0)
+                {
+                    continue;
+                }
                 const StringView prefix = stem.SubStr(0, stem.Size() - c[matched].Size());
                 outPaths.Clear();
                 for (int i = 0; i < 6; ++i)
                 {
-                    String name{ prefix }; name.Append(c[i]); name.Append(ext);
+                    String name{prefix};
+                    name.Append(c[i]);
+                    name.Append(ext);
                     outPaths.PushBack(dir.IsEmpty() ? name : PathJoin(dir, name.AsView()));
                 }
                 return Status{};
@@ -192,14 +251,26 @@ export namespace draconic::texture
     private:
         [[nodiscard]] static bool EndsWithCI(StringView s, StringView suffix) noexcept
         {
-            if (s.Size() < suffix.Size()) { return false; }
+            if (s.Size() < suffix.Size())
+            {
+                return false;
+            }
             const usize off = s.Size() - suffix.Size();
             for (usize i = 0; i < suffix.Size(); ++i)
             {
                 utf8char a = s[off + i], b = suffix[i];
-                if (a >= u8'A' && a <= u8'Z') { a = static_cast<utf8char>(a + 32); }
-                if (b >= u8'A' && b <= u8'Z') { b = static_cast<utf8char>(b + 32); }
-                if (a != b) { return false; }
+                if (a >= u8'A' && a <= u8'Z')
+                {
+                    a = static_cast<utf8char>(a + 32);
+                }
+                if (b >= u8'A' && b <= u8'Z')
+                {
+                    b = static_cast<utf8char>(b + 32);
+                }
+                if (a != b)
+                {
+                    return false;
+                }
             }
             return true;
         }
@@ -210,12 +281,19 @@ export namespace draconic::texture
     class TextureAssetBuilder final : public draconic::editor::DefaultAssetBuilder
     {
     public:
-        [[nodiscard]] const TypeInfo* AssetType() const override { return &TextureAsset::StaticType(); }
-        [[nodiscard]] const TypeInfo* ProductType() const override { return &TextureResource::StaticType(); }
+        [[nodiscard]] const TypeInfo* AssetType() const override
+        {
+            return &TextureAsset::StaticType();
+        }
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &TextureResource::StaticType();
+        }
 
         // Embedded-mode textures read the "pixels" sidecar stream - declare it so the recipe
         // hash chains its bytes (the envelope hash doesn't cover sidecars).
-        void ScanDependencies(const draconic::editor::Asset& asset, draconic::editor::AssetBuildContext&,
+        void ScanDependencies(const draconic::editor::Asset& asset,
+                              draconic::editor::AssetBuildContext&,
                               draconic::editor::AssetDependencies& out) override
         {
             const TextureAsset& ta = static_cast<const TextureAsset&>(asset);
@@ -232,16 +310,24 @@ export namespace draconic::texture
                 {
                     for (usize i = 0; i < faces.Size(); ++i)
                     {
-                        if (faces[i].AsView() != ta.fileName.AsView()) { out.files.PushBack(Move(faces[i])); }
+                        if (faces[i].AsView() != ta.fileName.AsView())
+                        {
+                            out.files.PushBack(Move(faces[i]));
+                        }
                     }
                 }
             }
         }
 
-        [[nodiscard]] Status Build(const draconic::editor::Asset& asset, draconic::editor::AssetBuildContext& ctx) override
+        [[nodiscard]] Status Build(const draconic::editor::Asset& asset,
+                                   draconic::editor::AssetBuildContext& ctx) override
         {
-            const TextureAsset& ta = static_cast<const TextureAsset&>(asset); // guarded by AssetType()
-            if (ctx.output == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
+            const TextureAsset& ta =
+                static_cast<const TextureAsset&>(asset); // guarded by AssetType()
+            if (ctx.output == nullptr)
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
 
             // Embedded mode: the pixels stream IS the decoded RGBA8 image (model imports).
             if (ta.fileName.IsEmpty() && ta.embeddedWidth > 0 && ta.embeddedHeight > 0)
@@ -251,14 +337,25 @@ export namespace draconic::texture
 
             // Cube-shaped assets load 6 face files (fileName = the +X face; the rest derive
             // from its naming convention) and cook them concatenated +X,-X,+Y,-Y,+Z,-Z.
-            if (ta.shape == TextureShape::Cubemap) { return BuildCubemap(ta, ctx); }
+            if (ta.shape == TextureShape::Cubemap)
+            {
+                return BuildCubemap(ta, ctx);
+            }
 
             Result<Array<byte>> bytes = ReadSourceBytes(ctx, ta.fileName.AsView());
-            if (!bytes.HasValue()) { return Status{ bytes.Error() }; }
+            if (!bytes.HasValue())
+            {
+                return Status{bytes.Error()};
+            }
             image::Image image;
             const Status loaded = image::io::LoadImageFromMemory(
-                Span<const u8>(reinterpret_cast<const u8*>(bytes.Value().Data()), bytes.Value().Size()), image);
-            if (!loaded.IsOk()) { return loaded; }
+                Span<const u8>(reinterpret_cast<const u8*>(bytes.Value().Data()),
+                               bytes.Value().Size()),
+                image);
+            if (!loaded.IsOk())
+            {
+                return loaded;
+            }
 
             TextureResource resource;
             resource.width = image.Width();
@@ -276,11 +373,14 @@ export namespace draconic::texture
             resource.anisotropy = ta.anisotropy;
 
             const Status wrote = ctx.output->WriteObject(resource);
-            if (!wrote.IsOk()) { return wrote; }
+            if (!wrote.IsOk())
+            {
+                return wrote;
+            }
 
             const Span<const u8> px = image.PixelData();
-            return ctx.output->WriteData(u8"data",
-                Span<const byte>(reinterpret_cast<const byte*>(px.Data()), px.Size()));
+            return ctx.output->WriteData(
+                u8"data", Span<const byte>(reinterpret_cast<const byte*>(px.Data()), px.Size()));
         }
 
     private:
@@ -290,10 +390,10 @@ export namespace draconic::texture
                                                  draconic::editor::AssetBuildContext& ctx)
         {
             Array<String> facePaths;
-            if (!TextureImporter::DetectCubemapFaces(ta.fileName.AsView(), facePaths).IsOk()
-                || facePaths.Size() != 6)
+            if (!TextureImporter::DetectCubemapFaces(ta.fileName.AsView(), facePaths).IsOk() ||
+                facePaths.Size() != 6)
             {
-                return Status{ ErrorCode::InvalidArgument };   // fileName matches no face convention
+                return Status{ErrorCode::InvalidArgument}; // fileName matches no face convention
             }
 
             image::Image faces[6];
@@ -302,25 +402,37 @@ export namespace draconic::texture
             for (usize i = 0; i < 6; ++i)
             {
                 Result<Array<byte>> bytes = ReadSourceBytes(ctx, facePaths[i].AsView());
-                if (!bytes.HasValue()) { return Status{ bytes.Error() }; }
+                if (!bytes.HasValue())
+                {
+                    return Status{bytes.Error()};
+                }
                 const Status loaded = image::io::LoadImageFromMemory(
-                    Span<const u8>(reinterpret_cast<const u8*>(bytes.Value().Data()), bytes.Value().Size()),
+                    Span<const u8>(reinterpret_cast<const u8*>(bytes.Value().Data()),
+                                   bytes.Value().Size()),
                     faces[i]);
-                if (!loaded.IsOk()) { return loaded; }
-                if (faces[i].Width() != faces[i].Height()) { return Status{ ErrorCode::InvalidArgument }; }
+                if (!loaded.IsOk())
+                {
+                    return loaded;
+                }
+                if (faces[i].Width() != faces[i].Height())
+                {
+                    return Status{ErrorCode::InvalidArgument};
+                }
                 if (i == 0)
                 {
-                    faceSize  = faces[0].Width();
+                    faceSize = faces[0].Width();
                     faceBytes = faces[0].PixelData().Size();
                 }
-                else if (faces[i].Width() != faceSize
-                         || faces[i].PixelData().Size() != faceBytes
-                         || faces[i].Format() != faces[0].Format())
+                else if (faces[i].Width() != faceSize || faces[i].PixelData().Size() != faceBytes ||
+                         faces[i].Format() != faces[0].Format())
                 {
-                    return Status{ ErrorCode::InvalidArgument };   // all faces must match
+                    return Status{ErrorCode::InvalidArgument}; // all faces must match
                 }
             }
-            if (faceSize == 0 || faceBytes == 0) { return Status{ ErrorCode::InvalidArgument }; }
+            if (faceSize == 0 || faceBytes == 0)
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
 
             TextureResource resource;
             resource.width = faceSize;
@@ -338,7 +450,10 @@ export namespace draconic::texture
             resource.anisotropy = ta.anisotropy;
 
             const Status wrote = ctx.output->WriteObject(resource);
-            if (!wrote.IsOk()) { return wrote; }
+            if (!wrote.IsOk())
+            {
+                return wrote;
+            }
 
             Array<byte> pixels;
             pixels.Resize(faceBytes * 6u);
@@ -352,17 +467,26 @@ export namespace draconic::texture
         [[nodiscard]] static Status BuildEmbedded(const TextureAsset& ta,
                                                   draconic::editor::AssetBuildContext& ctx)
         {
-            if (ctx.source == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
+            if (ctx.source == nullptr)
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
             UniquePtr<IStream> stream = ctx.source->ReadData(u8"pixels");
-            if (stream.Get() == nullptr) { return Status{ ErrorCode::NotFound }; }
+            if (stream.Get() == nullptr)
+            {
+                return Status{ErrorCode::NotFound};
+            }
             const i64 size = stream->Size();
             const i64 expected = static_cast<i64>(ta.embeddedWidth) * ta.embeddedHeight * 4;
-            if (size != expected) { return Status{ ErrorCode::InvalidArgument }; }
+            if (size != expected)
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
             Array<byte> pixels;
             pixels.Resize(static_cast<usize>(size));
             if (stream->Read(pixels.Data(), static_cast<u64>(size)) != static_cast<u64>(size))
             {
-                return Status{ ErrorCode::Unknown };
+                return Status{ErrorCode::Unknown};
             }
 
             TextureResource resource;
@@ -371,7 +495,8 @@ export namespace draconic::texture
             resource.depthOrArrayLayers = 1;
             resource.mipLevels = 1;
             resource.format = (ta.colorSpace == image::ImageColorSpace::Srgb)
-                ? rhi::TextureFormat::RGBA8UnormSrgb : rhi::TextureFormat::RGBA8Unorm;
+                                  ? rhi::TextureFormat::RGBA8UnormSrgb
+                                  : rhi::TextureFormat::RGBA8Unorm;
             resource.shape = ta.shape;
             resource.minFilter = ta.minFilter;
             resource.magFilter = ta.magFilter;
@@ -382,7 +507,10 @@ export namespace draconic::texture
             resource.anisotropy = ta.anisotropy;
 
             const Status wrote = ctx.output->WriteObject(resource);
-            if (!wrote.IsOk()) { return wrote; }
+            if (!wrote.IsOk())
+            {
+                return wrote;
+            }
             return ctx.output->WriteData(u8"data", Span<const byte>(pixels.Data(), pixels.Size()));
         }
     };
@@ -400,19 +528,20 @@ export namespace draconic::texture
 
         [[nodiscard]] bool Accepts(StringView extension) const override
         {
-            for (StringView ext : { u8"png", u8"jpg", u8"jpeg", u8"tga", u8"bmp", u8"hdr" })
+            for (StringView ext : {u8"png", u8"jpg", u8"jpeg", u8"tga", u8"bmp", u8"hdr"})
             {
-                if (extension == ext) { return true; }
+                if (extension == ext)
+                {
+                    return true;
+                }
             }
             return false;
         }
 
-        [[nodiscard]] Result<content::Instance*> Import(StringView sourcePath,
-                                                        draconic::editor::EditorProject& project,
-                                                        content::Group& group,
-                                                        const draconic::editor::ImportOptions*,
-                                                        Object*,
-                                                        Array<draconic::editor::DeferredImportWrite>*) override
+        [[nodiscard]] Result<content::Instance*>
+        Import(StringView sourcePath, draconic::editor::EditorProject& project,
+               content::Group& group, const draconic::editor::ImportOptions*, Object*,
+               Array<draconic::editor::DeferredImportWrite>*) override
         {
             // Cubemap intent: the dropped file's stem matches a face convention (px/nx/...,
             // _posx/..., right/left/...) AND all 6 sibling faces exist beside it. Any one
@@ -424,47 +553,70 @@ export namespace draconic::texture
                     bool allPresent = facePaths.Size() == 6;
                     for (const String& face : facePaths)
                     {
-                        if (!FileExists(face.AsView())) { allPresent = false; break; }
+                        if (!FileExists(face.AsView()))
+                        {
+                            allPresent = false;
+                            break;
+                        }
                     }
-                    if (allPresent) { return ImportCube(facePaths, project, group); }
+                    if (allPresent)
+                    {
+                        return ImportCube(facePaths, project, group);
+                    }
                 }
             }
 
             Result<String> fileName = draconic::editor::CopyIntoSources(project, sourcePath);
-            if (!fileName.HasValue()) { return Err(fileName.Error()); }
+            if (!fileName.HasValue())
+            {
+                return Err(fileName.Error());
+            }
 
             const StringView stem = draconic::editor::FileStemOf(fileName.Value().AsView());
             content::Instance* instance = group.CreateInstance(stem, TextureAsset::StaticType());
-            if (instance == nullptr) { return Err(ErrorCode::Unknown); }
+            if (instance == nullptr)
+            {
+                return Err(ErrorCode::Unknown);
+            }
 
             TextureAsset asset;
             asset.fileName = fileName.Value();
             if (draconic::editor::FileExtensionLower(sourcePath) == u8"hdr")
             {
-                asset.SetupForEquirectangularSkybox();   // .hdr = an environment, not a surface map
+                asset.SetupForEquirectangularSkybox(); // .hdr = an environment, not a surface map
             }
             else
             {
                 asset.SetupFor3D();
             }
             const Status written = instance->WriteObject(asset);
-            if (!written.IsOk()) { return Err(written.Code()); }
+            if (!written.IsOk())
+            {
+                return Err(written.Code());
+            }
             return instance;
         }
 
     private:
         // Copy all 6 faces into Sources/ and create ONE cube TextureAsset. fileName = the
         // +X face; the builder re-derives the face set from its naming convention at cook.
-        [[nodiscard]] static Result<content::Instance*> ImportCube(
-            const Array<String>& facePaths, draconic::editor::EditorProject& project,
-            content::Group& group)
+        [[nodiscard]] static Result<content::Instance*>
+        ImportCube(const Array<String>& facePaths, draconic::editor::EditorProject& project,
+                   content::Group& group)
         {
             String posXName;
             for (usize i = 0; i < facePaths.Size(); ++i)
             {
-                Result<String> copied = draconic::editor::CopyIntoSources(project, facePaths[i].AsView());
-                if (!copied.HasValue()) { return Err(copied.Error()); }
-                if (i == 0) { posXName = copied.Value(); }
+                Result<String> copied =
+                    draconic::editor::CopyIntoSources(project, facePaths[i].AsView());
+                if (!copied.HasValue())
+                {
+                    return Err(copied.Error());
+                }
+                if (i == 0)
+                {
+                    posXName = copied.Value();
+                }
             }
 
             // "sky_px" -> "sky" (strip the face suffix + a trailing separator); fall back to
@@ -478,24 +630,37 @@ export namespace draconic::texture
                 usize common = 0;
                 const StringView a = derived[0].AsView();
                 const StringView b = derived[1].AsView();
-                while (common < a.Size() && common < b.Size() && a[common] == b[common]) { ++common; }
+                while (common < a.Size() && common < b.Size() && a[common] == b[common])
+                {
+                    ++common;
+                }
                 StringView prefix = draconic::editor::FileStemOf(a.SubStr(0, common));
-                while (!prefix.IsEmpty()
-                       && (prefix[prefix.Size() - 1] == utf8char('_') || prefix[prefix.Size() - 1] == utf8char('-')))
+                while (!prefix.IsEmpty() && (prefix[prefix.Size() - 1] == utf8char('_') ||
+                                             prefix[prefix.Size() - 1] == utf8char('-')))
                 {
                     prefix = prefix.SubStr(0, prefix.Size() - 1);
                 }
                 name = String(prefix);
             }
-            if (name.IsEmpty()) { name = String(posXStem); }
+            if (name.IsEmpty())
+            {
+                name = String(posXStem);
+            }
 
-            content::Instance* instance = group.CreateInstance(name.AsView(), TextureAsset::StaticType());
-            if (instance == nullptr) { return Err(ErrorCode::Unknown); }
+            content::Instance* instance =
+                group.CreateInstance(name.AsView(), TextureAsset::StaticType());
+            if (instance == nullptr)
+            {
+                return Err(ErrorCode::Unknown);
+            }
             TextureAsset asset;
             asset.fileName = posXName;
             asset.SetupForCubemapSkybox();
             const Status written = instance->WriteObject(asset);
-            if (!written.IsOk()) { return Err(written.Code()); }
+            if (!written.IsOk())
+            {
+                return Err(written.Code());
+            }
             return instance;
         }
     };

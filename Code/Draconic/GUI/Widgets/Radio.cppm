@@ -12,7 +12,7 @@ module;
 
 export module draconic.gui:radio;
 
-import draconic.core;   // Color, Function, Move, Array
+import draconic.core; // Color, Function, Move, Array
 import :rect;
 import :event;
 import :draw_context;
@@ -29,21 +29,40 @@ export namespace draconic::gui
     {
         DRACONIC_OBJECT(RadioButton, UIWidget)
         friend class RadioGroup;
+
     public:
-        RadioButton() { SetTag(core::StringView(u8"radio")); SetTabFocusable(true); }
+        RadioButton()
+        {
+            SetTag(core::StringView(u8"radio"));
+            SetTabFocusable(true);
+        }
 
         [[nodiscard]] bool IsSelected() const noexcept { return m_selected; }
 
         // Select this button (routes through the group so the others clear). Selecting an
         // already-selected button is a no-op.
         void Select();
-        void SetSelected(bool selected) { if (selected) Select(); else SetSelectedState(false); }
+        void SetSelected(bool selected)
+        {
+            if (selected)
+                Select();
+            else
+                SetSelectedState(false);
+        }
 
         // Fired when this button becomes selected.
         void SetOnSelected(core::Function<void()> callback) { m_onSelected = core::Move(callback); }
 
-        void SetRingColor(Color color) { m_ringColor = color; Invalidate(); }
-        void SetDotColor(Color color) { m_dotColor = color; Invalidate(); }
+        void SetRingColor(Color color)
+        {
+            m_ringColor = color;
+            Invalidate();
+        }
+        void SetDotColor(Color color)
+        {
+            m_dotColor = color;
+            Invalidate();
+        }
 
         // Theming parts: radio::ring (outline) / ::dot (inner fill).
         void CollectStyleParts(core::Array<core::StringView>& out) const override
@@ -53,21 +72,28 @@ export namespace draconic::gui
         }
         void SetThemePartColor(core::StringView part, Color color) override
         {
-            if (part == core::StringView(u8"ring")) SetRingColor(color);
-            else if (part == core::StringView(u8"dot")) SetDotColor(color);
+            if (part == core::StringView(u8"ring"))
+                SetRingColor(color);
+            else if (part == core::StringView(u8"dot"))
+                SetDotColor(color);
         }
 
     protected:
-        void OnMouseClick(const MouseEvent& event) override { (void)event; Select(); }
+        void OnMouseClick(const MouseEvent& event) override
+        {
+            (void)event;
+            Select();
+        }
 
         void OnDraw(DrawContext& ctx, const Rect& localBounds) override
         {
             (void)localBounds;
             const Rect box = GetContentBounds();
             const f32 r = core::Min(box.width, box.height) * 0.5f;
-            const core::Float2 c{ box.x + box.width * 0.5f, box.y + box.height * 0.5f };
+            const core::Float2 c{box.x + box.width * 0.5f, box.y + box.height * 0.5f};
             ctx.VG().StrokeCircle(c, r - 1.0f, m_ringColor, 2.0f);
-            if (m_selected) ctx.VG().FillCircle(c, r * 0.5f, m_dotColor);
+            if (m_selected)
+                ctx.VG().FillCircle(c, r * 0.5f, m_dotColor);
         }
 
     private:
@@ -75,16 +101,18 @@ export namespace draconic::gui
         // false->true transition.
         void SetSelectedState(bool selected)
         {
-            if (selected == m_selected) return;
+            if (selected == m_selected)
+                return;
             m_selected = selected;
             Invalidate();
-            if (m_selected && m_onSelected) m_onSelected();
+            if (m_selected && m_onSelected)
+                m_onSelected();
         }
 
         RadioGroup* m_group = nullptr; // non-owning; set by RadioGroup::Add
         bool m_selected = false;
-        Color m_ringColor{ 0.60f, 0.65f, 0.72f, 1.0f };
-        Color m_dotColor{ 0.31f, 0.63f, 0.85f, 1.0f };
+        Color m_ringColor{0.60f, 0.65f, 0.72f, 1.0f};
+        Color m_dotColor{0.31f, 0.63f, 0.85f, 1.0f};
         core::Function<void(void)> m_onSelected;
     };
 
@@ -95,7 +123,8 @@ export namespace draconic::gui
         // Register a button (non-owning). It becomes part of the mutual-exclusion set.
         void Add(RadioButton* button)
         {
-            if (button == nullptr) return;
+            if (button == nullptr)
+                return;
             button->m_group = this;
             m_buttons.PushBack(button);
         }
@@ -109,12 +138,14 @@ export namespace draconic::gui
             {
                 const bool isTarget = (m_buttons[i] == button);
                 m_buttons[i]->SetSelectedState(isTarget);
-                if (isTarget) index = static_cast<i32>(i);
+                if (isTarget)
+                    index = static_cast<i32>(i);
             }
             if (index != m_selectedIndex)
             {
                 m_selectedIndex = index;
-                if (m_onChanged) m_onChanged(index);
+                if (m_onChanged)
+                    m_onChanged(index);
             }
         }
 
@@ -122,11 +153,15 @@ export namespace draconic::gui
         [[nodiscard]] RadioButton* GetSelected() const
         {
             return (m_selectedIndex >= 0 && static_cast<usize>(m_selectedIndex) < m_buttons.Size())
-                ? m_buttons[static_cast<usize>(m_selectedIndex)] : nullptr;
+                       ? m_buttons[static_cast<usize>(m_selectedIndex)]
+                       : nullptr;
         }
         [[nodiscard]] usize Count() const noexcept { return m_buttons.Size(); }
 
-        void SetOnSelectionChanged(core::Function<void(i32)> callback) { m_onChanged = core::Move(callback); }
+        void SetOnSelectionChanged(core::Function<void(i32)> callback)
+        {
+            m_onChanged = core::Move(callback);
+        }
 
     private:
         core::Array<RadioButton*> m_buttons; // non-owning (the tree owns the buttons)
@@ -136,8 +171,10 @@ export namespace draconic::gui
 
     inline void RadioButton::Select()
     {
-        if (m_group != nullptr) m_group->Select(this);
-        else SetSelectedState(true);
+        if (m_group != nullptr)
+            m_group->Select(this);
+        else
+            SetSelectedState(true);
     }
 
     DRACONIC_DEFINE_OBJECT(RadioButton, "draconic::gui")

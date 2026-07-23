@@ -44,17 +44,36 @@ export namespace draconic::editor
     namespace scene = draconic::scene;
     namespace render = draconic::render;
 
-    enum class GizmoMode : u8 { Translate, Rotate, Scale };
-    enum class GizmoSpace : u8 { World, Local };
+    enum class GizmoMode : u8
+    {
+        Translate,
+        Rotate,
+        Scale
+    };
+    enum class GizmoSpace : u8
+    {
+        World,
+        Local
+    };
 
     /// A handle on the gizmo. PlaneX = the YZ plane quad (normal X), etc. View = the center
     /// handle (free move / uniform scale) or the screen-space rotation ring.
-    enum class GizmoAxis : u8 { None, X, Y, Z, PlaneX, PlaneY, PlaneZ, View };
+    enum class GizmoAxis : u8
+    {
+        None,
+        X,
+        Y,
+        Z,
+        PlaneX,
+        PlaneY,
+        PlaneZ,
+        View
+    };
 
     struct GizmoRay
     {
         Float3 origin{};
-        Float3 direction{ 0.0f, 0.0f, -1.0f };
+        Float3 direction{0.0f, 0.0f, -1.0f};
     };
 
     class TransformGizmo
@@ -96,10 +115,17 @@ export namespace draconic::editor
         {
             switch (axis)
             {
-                case GizmoAxis::X: case GizmoAxis::PlaneX: return RotateVector(orientation, Float3{ 1, 0, 0 });
-                case GizmoAxis::Y: case GizmoAxis::PlaneY: return RotateVector(orientation, Float3{ 0, 1, 0 });
-                case GizmoAxis::Z: case GizmoAxis::PlaneZ: return RotateVector(orientation, Float3{ 0, 0, 1 });
-                default: return Float3{};
+            case GizmoAxis::X:
+            case GizmoAxis::PlaneX:
+                return RotateVector(orientation, Float3{1, 0, 0});
+            case GizmoAxis::Y:
+            case GizmoAxis::PlaneY:
+                return RotateVector(orientation, Float3{0, 1, 0});
+            case GizmoAxis::Z:
+            case GizmoAxis::PlaneZ:
+                return RotateVector(orientation, Float3{0, 0, 1});
+            default:
+                return Float3{};
             }
         }
 
@@ -110,13 +136,20 @@ export namespace draconic::editor
             const Float3 viewDir = ViewDir();
             switch (axis)
             {
-                case GizmoAxis::X: case GizmoAxis::Y: case GizmoAxis::Z:
-                    if (mode == GizmoMode::Rotate) { return true; }   // rings stay pickable
-                    return 1.0f - Abs(Dot(AxisDirection(axis), viewDir)) > 0.01f;
-                case GizmoAxis::PlaneX: case GizmoAxis::PlaneY: case GizmoAxis::PlaneZ:
-                    return Abs(Dot(AxisDirection(axis), viewDir)) > 0.05f;
-                default:
+            case GizmoAxis::X:
+            case GizmoAxis::Y:
+            case GizmoAxis::Z:
+                if (mode == GizmoMode::Rotate)
+                {
                     return true;
+                } // rings stay pickable
+                return 1.0f - Abs(Dot(AxisDirection(axis), viewDir)) > 0.01f;
+            case GizmoAxis::PlaneX:
+            case GizmoAxis::PlaneY:
+            case GizmoAxis::PlaneZ:
+                return Abs(Dot(AxisDirection(axis), viewDir)) > 0.05f;
+            default:
+                return true;
             }
         }
 
@@ -126,13 +159,20 @@ export namespace draconic::editor
         /// handles (0); distance only breaks ties inside a priority class.
         GizmoAxis UpdateHover(const GizmoRay& ray, GizmoMode mode)
         {
-            if (m_dragging) { return m_hovered; }
+            if (m_dragging)
+            {
+                return m_hovered;
+            }
             m_hovered = GizmoAxis::None;
 
             i32 bestPriority = -1;
             f32 bestDist = kFloatMax;
-            auto consider = [&](GizmoAxis axis, i32 priority, f32 dist, f32 threshold) {
-                if (dist >= threshold) { return; }
+            auto consider = [&](GizmoAxis axis, i32 priority, f32 dist, f32 threshold)
+            {
+                if (dist >= threshold)
+                {
+                    return;
+                }
                 if (priority > bestPriority || (priority == bestPriority && dist < bestDist))
                 {
                     bestPriority = priority;
@@ -141,20 +181,24 @@ export namespace draconic::editor
                 }
             };
 
-            const f32 axisThreshold = size * 0.12f;   // inflated vs the drawn ribbon
+            const f32 axisThreshold = size * 0.12f; // inflated vs the drawn ribbon
             if (mode == GizmoMode::Rotate)
             {
                 const f32 radius = size * 0.8f;
-                for (GizmoAxis a : { GizmoAxis::X, GizmoAxis::Y, GizmoAxis::Z })
+                for (GizmoAxis a : {GizmoAxis::X, GizmoAxis::Y, GizmoAxis::Z})
                 {
                     // Only the camera-facing half of a ring is pickable (the far half isn't drawn).
                     Float3 hit;
                     const f32 d = RayRingDistance(ray, position, AxisDirection(a), radius, &hit);
-                    if (d < kFloatMax && Dot(hit - position, ViewDir()) > 0.0f) { continue; }
+                    if (d < kFloatMax && Dot(hit - position, ViewDir()) > 0.0f)
+                    {
+                        continue;
+                    }
                     consider(a, 0, d, axisThreshold);
                 }
                 // Screen-space ring (outer).
-                const f32 dv = RayRingDistance(ray, position, m_cameraForward, size * 1.0f, nullptr);
+                const f32 dv =
+                    RayRingDistance(ray, position, m_cameraForward, size * 1.0f, nullptr);
                 consider(GizmoAxis::View, 1, dv, axisThreshold);
                 return m_hovered;
             }
@@ -163,19 +207,29 @@ export namespace draconic::editor
             // biases overlaps toward the axis more perpendicular to the ray: an axis nearly
             // parallel to the ray shadows a whole screen region at ~zero 3D distance (its shaft
             // overlaps others on screen) while being the worst one to drag (degenerate plane).
-            for (GizmoAxis a : { GizmoAxis::X, GizmoAxis::Y, GizmoAxis::Z })
+            for (GizmoAxis a : {GizmoAxis::X, GizmoAxis::Y, GizmoAxis::Z})
             {
-                if (!IsAxisEnabled(a, mode)) { continue; }
+                if (!IsAxisEnabled(a, mode))
+                {
+                    continue;
+                }
                 const f32 dist = RayAxisDistance(ray, position, AxisDirection(a), size);
-                const f32 penalty = Abs(Dot(ray.direction, AxisDirection(a))) * axisThreshold * 0.5f;
+                const f32 penalty =
+                    Abs(Dot(ray.direction, AxisDirection(a))) * axisThreshold * 0.5f;
                 consider(a, 0, dist + penalty, axisThreshold);
             }
             if (mode == GizmoMode::Translate)
             {
-                for (GizmoAxis p : { GizmoAxis::PlaneX, GizmoAxis::PlaneY, GizmoAxis::PlaneZ })
+                for (GizmoAxis p : {GizmoAxis::PlaneX, GizmoAxis::PlaneY, GizmoAxis::PlaneZ})
                 {
-                    if (!IsAxisEnabled(p, mode)) { continue; }
-                    if (PlaneQuadHit(ray, p, nullptr)) { consider(p, 1, 0.0f, 1.0f); }
+                    if (!IsAxisEnabled(p, mode))
+                    {
+                        continue;
+                    }
+                    if (PlaneQuadHit(ray, p, nullptr))
+                    {
+                        consider(p, 1, 0.0f, 1.0f);
+                    }
                 }
             }
             // Center handle: free move (translate) / uniform scale (scale).
@@ -188,7 +242,10 @@ export namespace draconic::editor
 
         [[nodiscard]] bool BeginDrag(const GizmoRay& ray, GizmoMode mode)
         {
-            if (m_hovered == GizmoAxis::None) { return false; }
+            if (m_hovered == GizmoAxis::None)
+            {
+                return false;
+            }
             m_selected = m_hovered;
             m_dragging = true;
             m_dragStartPosition = position;
@@ -208,13 +265,22 @@ export namespace draconic::editor
                     m_dragRotationAxis = AxisDirection(m_selected);
                     switch (m_selected)
                     {
-                        case GizmoAxis::X: m_dragRotationU = AxisDirection(GizmoAxis::Y); m_dragRotationV = AxisDirection(GizmoAxis::Z); break;
-                        case GizmoAxis::Y: m_dragRotationU = AxisDirection(GizmoAxis::Z); m_dragRotationV = AxisDirection(GizmoAxis::X); break;
-                        default:           m_dragRotationU = AxisDirection(GizmoAxis::X); m_dragRotationV = AxisDirection(GizmoAxis::Y); break;
+                    case GizmoAxis::X:
+                        m_dragRotationU = AxisDirection(GizmoAxis::Y);
+                        m_dragRotationV = AxisDirection(GizmoAxis::Z);
+                        break;
+                    case GizmoAxis::Y:
+                        m_dragRotationU = AxisDirection(GizmoAxis::Z);
+                        m_dragRotationV = AxisDirection(GizmoAxis::X);
+                        break;
+                    default:
+                        m_dragRotationU = AxisDirection(GizmoAxis::X);
+                        m_dragRotationV = AxisDirection(GizmoAxis::Y);
+                        break;
                     }
                 }
-                m_dragStartAngle = ComputeRotateAngle(ray, m_dragStartPosition,
-                                                      m_dragRotationAxis, m_dragRotationU, m_dragRotationV);
+                m_dragStartAngle = ComputeRotateAngle(ray, m_dragStartPosition, m_dragRotationAxis,
+                                                      m_dragRotationU, m_dragRotationV);
                 m_currentAngleDelta = 0.0f;
             }
             else
@@ -229,31 +295,40 @@ export namespace draconic::editor
         /// the delta (per axis scalar) to translateSnap.
         [[nodiscard]] Float3 UpdateTranslateDrag(const GizmoRay& ray, bool snap = false)
         {
-            if (!m_dragging || m_selected == GizmoAxis::None) { return Float3{}; }
-            const Float3 delta = DragHitPoint(ray, m_selected, m_dragStartPosition) - m_dragStartHitPoint;
+            if (!m_dragging || m_selected == GizmoAxis::None)
+            {
+                return Float3{};
+            }
+            const Float3 delta =
+                DragHitPoint(ray, m_selected, m_dragStartPosition) - m_dragStartHitPoint;
 
             switch (m_selected)
             {
-                case GizmoAxis::X: case GizmoAxis::Y: case GizmoAxis::Z:
-                {
-                    const Float3 axis = AxisDirection(m_selected);
-                    return axis * Snap(Dot(delta, axis), snap ? translateSnap : 0.0f);
-                }
-                case GizmoAxis::PlaneX: case GizmoAxis::PlaneY: case GizmoAxis::PlaneZ:
-                {
-                    Float3 u, v;
-                    PlaneBasis(m_selected, u, v);
-                    return u * Snap(Dot(delta, u), snap ? translateSnap : 0.0f)
-                         + v * Snap(Dot(delta, v), snap ? translateSnap : 0.0f);
-                }
-                case GizmoAxis::View:
-                {
-                    const Float3 r = CameraRight();
-                    const Float3 up = Cross(r, m_cameraForward);
-                    return r * Snap(Dot(delta, r), snap ? translateSnap : 0.0f)
-                         + up * Snap(Dot(delta, up), snap ? translateSnap : 0.0f);
-                }
-                default: return Float3{};
+            case GizmoAxis::X:
+            case GizmoAxis::Y:
+            case GizmoAxis::Z:
+            {
+                const Float3 axis = AxisDirection(m_selected);
+                return axis * Snap(Dot(delta, axis), snap ? translateSnap : 0.0f);
+            }
+            case GizmoAxis::PlaneX:
+            case GizmoAxis::PlaneY:
+            case GizmoAxis::PlaneZ:
+            {
+                Float3 u, v;
+                PlaneBasis(m_selected, u, v);
+                return u * Snap(Dot(delta, u), snap ? translateSnap : 0.0f) +
+                       v * Snap(Dot(delta, v), snap ? translateSnap : 0.0f);
+            }
+            case GizmoAxis::View:
+            {
+                const Float3 r = CameraRight();
+                const Float3 up = Cross(r, m_cameraForward);
+                return r * Snap(Dot(delta, r), snap ? translateSnap : 0.0f) +
+                       up * Snap(Dot(delta, up), snap ? translateSnap : 0.0f);
+            }
+            default:
+                return Float3{};
             }
         }
 
@@ -267,41 +342,57 @@ export namespace draconic::editor
         /// past +/-pi stays continuous. `snap` quantizes to rotateSnapDegrees.
         [[nodiscard]] RotateDelta UpdateRotateDrag(const GizmoRay& ray, bool snap = false)
         {
-            if (!m_dragging || m_selected == GizmoAxis::None) { return {}; }
-            const f32 current = ComputeRotateAngle(ray, m_dragStartPosition,
-                                                   m_dragRotationAxis, m_dragRotationU, m_dragRotationV);
+            if (!m_dragging || m_selected == GizmoAxis::None)
+            {
+                return {};
+            }
+            const f32 current = ComputeRotateAngle(ray, m_dragStartPosition, m_dragRotationAxis,
+                                                   m_dragRotationU, m_dragRotationV);
             f32 delta = current - m_dragStartAngle;
-            if (delta > kPi) { delta -= kTwoPi; }
-            if (delta < -kPi) { delta += kTwoPi; }
+            if (delta > kPi)
+            {
+                delta -= kTwoPi;
+            }
+            if (delta < -kPi)
+            {
+                delta += kTwoPi;
+            }
             delta = Snap(delta, snap ? DegreesToRadians(rotateSnapDegrees) : 0.0f);
-            m_currentAngleDelta = delta;   // angle-guide readout
-            return RotateDelta{ m_dragRotationAxis, delta };
+            m_currentAngleDelta = delta; // angle-guide readout
+            return RotateDelta{m_dragRotationAxis, delta};
         }
 
         /// Per-local-axis scale delta; the center handle scales uniformly by the camera-plane
         /// drag projected onto the screen diagonal (PlayCanvas). `snap` quantizes to scaleSnap.
         [[nodiscard]] Float3 UpdateScaleDrag(const GizmoRay& ray, bool snap = false)
         {
-            if (!m_dragging || m_selected == GizmoAxis::None) { return Float3{}; }
-            const Float3 delta = DragHitPoint(ray, m_selected, m_dragStartPosition) - m_dragStartHitPoint;
+            if (!m_dragging || m_selected == GizmoAxis::None)
+            {
+                return Float3{};
+            }
+            const Float3 delta =
+                DragHitPoint(ray, m_selected, m_dragStartPosition) - m_dragStartHitPoint;
 
             if (m_selected == GizmoAxis::View)
             {
                 const Float3 r = CameraRight();
                 const Float3 up = Cross(r, m_cameraForward);
-                const f32 s = Snap(Dot(delta, Normalized(r + up)) / size,
-                                   snap ? scaleSnap : 0.0f);
-                return Float3{ s, s, s };
+                const f32 s = Snap(Dot(delta, Normalized(r + up)) / size, snap ? scaleSnap : 0.0f);
+                return Float3{s, s, s};
             }
 
             const Float3 axis = AxisDirection(m_selected);
             const f32 s = Snap(Dot(delta, axis) / size, snap ? scaleSnap : 0.0f);
             switch (m_selected)
             {
-                case GizmoAxis::X: return Float3{ s, 0, 0 };
-                case GizmoAxis::Y: return Float3{ 0, s, 0 };
-                case GizmoAxis::Z: return Float3{ 0, 0, s };
-                default: return Float3{};
+            case GizmoAxis::X:
+                return Float3{s, 0, 0};
+            case GizmoAxis::Y:
+                return Float3{0, s, 0};
+            case GizmoAxis::Z:
+                return Float3{0, 0, s};
+            default:
+                return Float3{};
             }
         }
 
@@ -313,7 +404,10 @@ export namespace draconic::editor
 
         void ClearHover()
         {
-            if (!m_dragging) { m_hovered = GizmoAxis::None; }
+            if (!m_dragging)
+            {
+                m_hovered = GizmoAxis::None;
+            }
         }
 
         // === Drawing (debug-draw overlay; the gizmo stays visible through geometry) ===
@@ -322,9 +416,15 @@ export namespace draconic::editor
         {
             switch (mode)
             {
-                case GizmoMode::Translate: DrawTranslate(dd); break;
-                case GizmoMode::Rotate: DrawRotate(dd); break;
-                case GizmoMode::Scale: DrawScale(dd); break;
+            case GizmoMode::Translate:
+                DrawTranslate(dd);
+                break;
+            case GizmoMode::Rotate:
+                DrawRotate(dd);
+                break;
+            case GizmoMode::Scale:
+                DrawScale(dd);
+                break;
             }
         }
 
@@ -345,7 +445,11 @@ export namespace draconic::editor
             const f32 denom = a * c - b * b;
 
             f32 t1, t2;
-            if (Abs(denom) < 0.0001f) { t1 = 0.0f; t2 = e / c; }
+            if (Abs(denom) < 0.0001f)
+            {
+                t1 = 0.0f;
+                t2 = e / c;
+            }
             else
             {
                 t1 = (b * e - c * d) / denom;
@@ -374,9 +478,15 @@ export namespace draconic::editor
                 return Sqrt(h * h + dr * dr);
             }
             const f32 t = Dot(normal, center - ray.origin) / denom;
-            if (t < 0.0f) { return kFloatMax; }
+            if (t < 0.0f)
+            {
+                return kFloatMax;
+            }
             const Float3 hit = ray.origin + ray.direction * t;
-            if (outHit != nullptr) { *outHit = hit; }
+            if (outHit != nullptr)
+            {
+                *outHit = hit;
+            }
             return Abs(Length(hit - center) - radius);
         }
 
@@ -390,13 +500,17 @@ export namespace draconic::editor
         [[nodiscard]] Float3 ViewDir() const { return Normalized(position - m_cameraPos); }
         [[nodiscard]] Float3 CameraRight() const
         {
-            const Float3 worldUp = (Abs(m_cameraForward.y) < 0.99f) ? Float3{ 0, 1, 0 } : Float3{ 1, 0, 0 };
+            const Float3 worldUp =
+                (Abs(m_cameraForward.y) < 0.99f) ? Float3{0, 1, 0} : Float3{1, 0, 0};
             return Normalized(Cross(m_cameraForward, worldUp));
         }
 
         [[nodiscard]] static f32 Snap(f32 value, f32 increment)
         {
-            if (increment <= 0.0f) { return value; }
+            if (increment <= 0.0f)
+            {
+                return value;
+            }
             return Round(value / increment) * increment;
         }
 
@@ -405,9 +519,18 @@ export namespace draconic::editor
         {
             switch (plane)
             {
-                case GizmoAxis::PlaneX: u = AxisDirection(GizmoAxis::Y); v = AxisDirection(GizmoAxis::Z); break;
-                case GizmoAxis::PlaneY: u = AxisDirection(GizmoAxis::X); v = AxisDirection(GizmoAxis::Z); break;
-                default:                u = AxisDirection(GizmoAxis::X); v = AxisDirection(GizmoAxis::Y); break;
+            case GizmoAxis::PlaneX:
+                u = AxisDirection(GizmoAxis::Y);
+                v = AxisDirection(GizmoAxis::Z);
+                break;
+            case GizmoAxis::PlaneY:
+                u = AxisDirection(GizmoAxis::X);
+                v = AxisDirection(GizmoAxis::Z);
+                break;
+            default:
+                u = AxisDirection(GizmoAxis::X);
+                v = AxisDirection(GizmoAxis::Y);
+                break;
             }
         }
 
@@ -427,11 +550,20 @@ export namespace draconic::editor
         {
             const Float3 normal = AxisDirection(plane);
             const f32 denom = Dot(normal, ray.direction);
-            if (Abs(denom) < 0.0001f) { return false; }
+            if (Abs(denom) < 0.0001f)
+            {
+                return false;
+            }
             const f32 t = Dot(normal, position - ray.origin) / denom;
-            if (t < 0.0f) { return false; }
+            if (t < 0.0f)
+            {
+                return false;
+            }
             const Float3 hit = ray.origin + ray.direction * t;
-            if (outHit != nullptr) { *outHit = hit; }
+            if (outHit != nullptr)
+            {
+                *outHit = hit;
+            }
 
             Float3 u, v;
             f32 su, sv;
@@ -440,40 +572,59 @@ export namespace draconic::editor
             const Float3 offset = hit - position;
             const f32 cu = Dot(offset, u) * su;
             const f32 cv = Dot(offset, v) * sv;
-            return cu >= size * 0.25f && cu <= size * 0.55f && cv >= size * 0.25f && cv <= size * 0.55f;
+            return cu >= size * 0.25f && cu <= size * 0.55f && cv >= size * 0.25f &&
+                   cv <= size * 0.55f;
         }
 
         /// Hit point on the drag plane for the selected handle. Axis handles use the plane that
         /// contains the axis and is most perpendicular to the view (Sedulous); plane handles use
         /// their own plane; the center handle uses the camera plane.
-        [[nodiscard]] Float3 DragHitPoint(const GizmoRay& ray, GizmoAxis axis, Float3 planeOrigin) const
+        [[nodiscard]] Float3 DragHitPoint(const GizmoRay& ray, GizmoAxis axis,
+                                          Float3 planeOrigin) const
         {
             Float3 planeNormal;
             switch (axis)
             {
-                case GizmoAxis::X: case GizmoAxis::Y: case GizmoAxis::Z:
+            case GizmoAxis::X:
+            case GizmoAxis::Y:
+            case GizmoAxis::Z:
+            {
+                Float3 otherA, otherB;
+                switch (axis)
                 {
-                    Float3 otherA, otherB;
-                    switch (axis)
-                    {
-                        case GizmoAxis::X: otherA = AxisDirection(GizmoAxis::Y); otherB = AxisDirection(GizmoAxis::Z); break;
-                        case GizmoAxis::Y: otherA = AxisDirection(GizmoAxis::X); otherB = AxisDirection(GizmoAxis::Z); break;
-                        default:           otherA = AxisDirection(GizmoAxis::X); otherB = AxisDirection(GizmoAxis::Y); break;
-                    }
-                    planeNormal = (Abs(Dot(ray.direction, otherA)) > Abs(Dot(ray.direction, otherB)))
-                        ? otherA : otherB;
+                case GizmoAxis::X:
+                    otherA = AxisDirection(GizmoAxis::Y);
+                    otherB = AxisDirection(GizmoAxis::Z);
                     break;
-                }
-                case GizmoAxis::PlaneX: case GizmoAxis::PlaneY: case GizmoAxis::PlaneZ:
-                    planeNormal = AxisDirection(axis);
+                case GizmoAxis::Y:
+                    otherA = AxisDirection(GizmoAxis::X);
+                    otherB = AxisDirection(GizmoAxis::Z);
                     break;
                 default:
-                    planeNormal = m_cameraForward;
+                    otherA = AxisDirection(GizmoAxis::X);
+                    otherB = AxisDirection(GizmoAxis::Y);
                     break;
+                }
+                planeNormal = (Abs(Dot(ray.direction, otherA)) > Abs(Dot(ray.direction, otherB)))
+                                  ? otherA
+                                  : otherB;
+                break;
+            }
+            case GizmoAxis::PlaneX:
+            case GizmoAxis::PlaneY:
+            case GizmoAxis::PlaneZ:
+                planeNormal = AxisDirection(axis);
+                break;
+            default:
+                planeNormal = m_cameraForward;
+                break;
             }
 
             const f32 denom = Dot(planeNormal, ray.direction);
-            if (Abs(denom) < 0.0001f) { return planeOrigin; }
+            if (Abs(denom) < 0.0001f)
+            {
+                return planeOrigin;
+            }
             const f32 t = Dot(planeNormal, planeOrigin - ray.origin) / denom;
             return ray.origin + ray.direction * t;
         }
@@ -484,9 +635,15 @@ export namespace draconic::editor
                                                     Float3 normal, Float3 u, Float3 v)
         {
             const f32 denom = Dot(normal, ray.direction);
-            if (Abs(denom) < 0.0001f) { return 0.0f; }
+            if (Abs(denom) < 0.0001f)
+            {
+                return 0.0f;
+            }
             f32 t = Dot(normal, center - ray.origin) / denom;
-            if (t < 0.0f) { t = -t; }   // reversed-ray retry
+            if (t < 0.0f)
+            {
+                t = -t;
+            } // reversed-ray retry
             const Float3 offset = ray.origin + ray.direction * t - center;
             return Atan2(Dot(offset, v), Dot(offset, u));
         }
@@ -495,38 +652,59 @@ export namespace draconic::editor
 
         [[nodiscard]] Color AxisColor(GizmoAxis axis, GizmoMode mode) const
         {
-            static constexpr Color kSelected{ 1.0f, 1.0f, 0.4f, 1.0f };
-            if (m_selected == axis) { return kSelected; }
+            static constexpr Color kSelected{1.0f, 1.0f, 0.4f, 1.0f};
+            if (m_selected == axis)
+            {
+                return kSelected;
+            }
 
             Color base;
             switch (axis)
             {
-                case GizmoAxis::X: case GizmoAxis::PlaneX: base = Color{ 0.86f, 0.20f, 0.20f, 1.0f }; break;
-                case GizmoAxis::Y: case GizmoAxis::PlaneY: base = Color{ 0.20f, 0.86f, 0.20f, 1.0f }; break;
-                case GizmoAxis::Z: case GizmoAxis::PlaneZ: base = Color{ 0.20f, 0.40f, 0.86f, 1.0f }; break;
-                default: base = Color{ 0.8f, 0.8f, 0.8f, 1.0f }; break;
+            case GizmoAxis::X:
+            case GizmoAxis::PlaneX:
+                base = Color{0.86f, 0.20f, 0.20f, 1.0f};
+                break;
+            case GizmoAxis::Y:
+            case GizmoAxis::PlaneY:
+                base = Color{0.20f, 0.86f, 0.20f, 1.0f};
+                break;
+            case GizmoAxis::Z:
+            case GizmoAxis::PlaneZ:
+                base = Color{0.20f, 0.40f, 0.86f, 1.0f};
+                break;
+            default:
+                base = Color{0.8f, 0.8f, 0.8f, 1.0f};
+                break;
             }
-            if (!IsAxisEnabled(axis, mode))   // grazing fade
+            if (!IsAxisEnabled(axis, mode)) // grazing fade
             {
-                return Color{ base.r * 0.5f, base.g * 0.5f, base.b * 0.5f, 0.35f };
+                return Color{base.r * 0.5f, base.g * 0.5f, base.b * 0.5f, 0.35f};
             }
-            if (m_hovered == axis)   // 75% lerp toward white (PlayCanvas)
+            if (m_hovered == axis) // 75% lerp toward white (PlayCanvas)
             {
-                return Color{ base.r + (1.0f - base.r) * 0.75f, base.g + (1.0f - base.g) * 0.75f,
-                              base.b + (1.0f - base.b) * 0.75f, 1.0f };
+                return Color{base.r + (1.0f - base.r) * 0.75f, base.g + (1.0f - base.g) * 0.75f,
+                             base.b + (1.0f - base.b) * 0.75f, 1.0f};
             }
             return base;
         }
 
         /// A line as a screen-facing overlay quad (ribbon) so it has constant apparent width.
-        void DrawThickLine(render::debug::DebugDraw& dd, Float3 from, Float3 to, Color color, f32 thickness) const
+        void DrawThickLine(render::debug::DebugDraw& dd, Float3 from, Float3 to, Color color,
+                           f32 thickness) const
         {
             const Float3 lineDir = to - from;
-            if (Dot(lineDir, lineDir) < 0.0001f) { return; }
+            if (Dot(lineDir, lineDir) < 0.0001f)
+            {
+                return;
+            }
             const Float3 mid = (from + to) * 0.5f;
             Float3 side = Cross(lineDir, mid - m_cameraPos);
             const f32 lenSq = Dot(side, side);
-            if (lenSq < 0.0001f) { return; }   // pointing at the camera: zero apparent width
+            if (lenSq < 0.0001f)
+            {
+                return;
+            } // pointing at the camera: zero apparent width
             side = side * (thickness * 0.5f / Sqrt(lenSq));
             dd.DrawQuad(from - side, from + side, to + side, to - side, color, true);
         }
@@ -556,23 +734,33 @@ export namespace draconic::editor
         {
             // Full-length reference line across the scene during an axis drag: depth-tested
             // solid + faint overlay so the occluded part still reads (PlayCanvas span line).
-            if (m_selected != GizmoAxis::X && m_selected != GizmoAxis::Y && m_selected != GizmoAxis::Z) { return; }
+            if (m_selected != GizmoAxis::X && m_selected != GizmoAxis::Y &&
+                m_selected != GizmoAxis::Z)
+            {
+                return;
+            }
             const Float3 dir = AxisDirection(m_selected);
             const Color c = AxisColor(m_selected, GizmoMode::Translate);
             const f32 span = size * 1000.0f;
             dd.DrawLine(position - dir * span, position + dir * span, c, false);
-            dd.DrawLine(position - dir * span, position + dir * span,
-                        Color{ c.r, c.g, c.b, 0.25f }, true);
+            dd.DrawLine(position - dir * span, position + dir * span, Color{c.r, c.g, c.b, 0.25f},
+                        true);
         }
 
         void DrawTranslate(render::debug::DebugDraw& dd)
         {
-            for (GizmoAxis a : { GizmoAxis::X, GizmoAxis::Y, GizmoAxis::Z }) { DrawAxisArrow(dd, a, GizmoMode::Translate); }
+            for (GizmoAxis a : {GizmoAxis::X, GizmoAxis::Y, GizmoAxis::Z})
+            {
+                DrawAxisArrow(dd, a, GizmoMode::Translate);
+            }
 
             // Plane quads in the camera-facing quadrant.
-            for (GizmoAxis p : { GizmoAxis::PlaneX, GizmoAxis::PlaneY, GizmoAxis::PlaneZ })
+            for (GizmoAxis p : {GizmoAxis::PlaneX, GizmoAxis::PlaneY, GizmoAxis::PlaneZ})
             {
-                if (!IsAxisEnabled(p, GizmoMode::Translate)) { continue; }
+                if (!IsAxisEnabled(p, GizmoMode::Translate))
+                {
+                    continue;
+                }
                 Float3 u, v;
                 f32 su, sv;
                 PlaneBasis(p, u, v);
@@ -588,23 +776,31 @@ export namespace draconic::editor
 
             const Color center = AxisColor(GizmoAxis::View, GizmoMode::Translate);
             dd.DrawWireSphereOverlay(position, size * 0.1f, center, 16);
-            if (m_dragging) { DrawSpanLine(dd); }
+            if (m_dragging)
+            {
+                DrawSpanLine(dd);
+            }
         }
 
         void DrawScale(render::debug::DebugDraw& dd)
         {
             const f32 thickness = size * 0.02f;
-            for (GizmoAxis a : { GizmoAxis::X, GizmoAxis::Y, GizmoAxis::Z })
+            for (GizmoAxis a : {GizmoAxis::X, GizmoAxis::Y, GizmoAxis::Z})
             {
                 const Float3 dir = AxisDirection(a);
                 const Color color = AxisColor(a, GizmoMode::Scale);
                 DrawThickLine(dd, position, position + dir * size, color, thickness);
-                dd.DrawFilledBoxCenter(position + dir * size, Float3{ size * 0.05f, size * 0.05f, size * 0.05f },
-                                       color, true);
+                dd.DrawFilledBoxCenter(position + dir * size,
+                                       Float3{size * 0.05f, size * 0.05f, size * 0.05f}, color,
+                                       true);
             }
             const Color center = AxisColor(GizmoAxis::View, GizmoMode::Scale);
-            dd.DrawFilledBoxCenter(position, Float3{ size * 0.07f, size * 0.07f, size * 0.07f }, center, true);
-            if (m_dragging) { DrawSpanLine(dd); }
+            dd.DrawFilledBoxCenter(position, Float3{size * 0.07f, size * 0.07f, size * 0.07f},
+                                   center, true);
+            if (m_dragging)
+            {
+                DrawSpanLine(dd);
+            }
         }
 
         void DrawRotate(render::debug::DebugDraw& dd)
@@ -613,17 +809,27 @@ export namespace draconic::editor
             const f32 thickness = size * 0.02f;
             constexpr i32 kSegments = 48;
 
-            for (GizmoAxis a : { GizmoAxis::X, GizmoAxis::Y, GizmoAxis::Z })
+            for (GizmoAxis a : {GizmoAxis::X, GizmoAxis::Y, GizmoAxis::Z})
             {
                 Float3 u, v;
                 switch (a)
                 {
-                    case GizmoAxis::X: u = AxisDirection(GizmoAxis::Y); v = AxisDirection(GizmoAxis::Z); break;
-                    case GizmoAxis::Y: u = AxisDirection(GizmoAxis::X); v = AxisDirection(GizmoAxis::Z); break;
-                    default:           u = AxisDirection(GizmoAxis::X); v = AxisDirection(GizmoAxis::Y); break;
+                case GizmoAxis::X:
+                    u = AxisDirection(GizmoAxis::Y);
+                    v = AxisDirection(GizmoAxis::Z);
+                    break;
+                case GizmoAxis::Y:
+                    u = AxisDirection(GizmoAxis::X);
+                    v = AxisDirection(GizmoAxis::Z);
+                    break;
+                default:
+                    u = AxisDirection(GizmoAxis::X);
+                    v = AxisDirection(GizmoAxis::Y);
+                    break;
                 }
                 const Color color = AxisColor(a, GizmoMode::Rotate);
-                const bool fullRing = m_dragging && m_selected == a;   // active axis shows the whole ring
+                const bool fullRing =
+                    m_dragging && m_selected == a; // active axis shows the whole ring
                 DrawRing(dd, u, v, radius, color, thickness, kSegments, !fullRing);
             }
 
@@ -633,7 +839,10 @@ export namespace draconic::editor
             DrawRing(dd, r, up, size * 1.0f, AxisColor(GizmoAxis::View, GizmoMode::Rotate),
                      thickness, kSegments, false);
 
-            if (m_dragging) { DrawAngleGuide(dd, radius); }
+            if (m_dragging)
+            {
+                DrawAngleGuide(dd, radius);
+            }
         }
 
         /// Ring from thick segments; cullBackHalf skips segments on the far side of the camera.
@@ -660,29 +869,46 @@ export namespace draconic::editor
         void DrawAngleGuide(render::debug::DebugDraw& dd, f32 radius)
         {
             // Faint start-reference line + solid current line + degree readout (PlayCanvas).
-            const Float3 startDir = m_dragRotationU * Cos(m_dragStartAngle) + m_dragRotationV * Sin(m_dragStartAngle);
+            const Float3 startDir =
+                m_dragRotationU * Cos(m_dragStartAngle) + m_dragRotationV * Sin(m_dragStartAngle);
             const f32 current = m_dragStartAngle + m_currentAngleDelta;
-            const Float3 currentDir = m_dragRotationU * Cos(current) + m_dragRotationV * Sin(current);
-            const Color solid{ 1.0f, 1.0f, 0.4f, 1.0f };
-            dd.DrawLine(position, position + startDir * radius, Color{ 1.0f, 1.0f, 0.4f, 0.35f }, true);
+            const Float3 currentDir =
+                m_dragRotationU * Cos(current) + m_dragRotationV * Sin(current);
+            const Color solid{1.0f, 1.0f, 0.4f, 1.0f};
+            dd.DrawLine(position, position + startDir * radius, Color{1.0f, 1.0f, 0.4f, 0.35f},
+                        true);
             dd.DrawLine(position, position + currentDir * radius, solid, true);
 
             // Integer-degree readout past the current line's tip.
-            i32 degrees = static_cast<i32>(RadiansToDegrees(m_currentAngleDelta) + (m_currentAngleDelta >= 0 ? 0.5f : -0.5f));
+            i32 degrees = static_cast<i32>(RadiansToDegrees(m_currentAngleDelta) +
+                                           (m_currentAngleDelta >= 0 ? 0.5f : -0.5f));
             utf8char text[16];
             i32 n = 0;
-            if (degrees < 0) { text[n++] = utf8char('-'); degrees = -degrees; }
+            if (degrees < 0)
+            {
+                text[n++] = utf8char('-');
+                degrees = -degrees;
+            }
             utf8char digits[8];
             i32 d = 0;
-            do { digits[d++] = static_cast<utf8char>('0' + degrees % 10); degrees /= 10; } while (degrees > 0 && d < 8);
-            while (d > 0) { text[n++] = digits[--d]; }
-            text[n++] = utf8char(0xC2); text[n++] = utf8char(0xB0);   // degree sign U+00B0
-            dd.DrawText3D(position + currentDir * (radius * 1.15f), StringView(text, static_cast<usize>(n)), solid);
+            do
+            {
+                digits[d++] = static_cast<utf8char>('0' + degrees % 10);
+                degrees /= 10;
+            } while (degrees > 0 && d < 8);
+            while (d > 0)
+            {
+                text[n++] = digits[--d];
+            }
+            text[n++] = utf8char(0xC2);
+            text[n++] = utf8char(0xB0); // degree sign U+00B0
+            dd.DrawText3D(position + currentDir * (radius * 1.15f),
+                          StringView(text, static_cast<usize>(n)), solid);
         }
 
         // Camera facts for the frame.
         Float3 m_cameraPos{};
-        Float3 m_cameraForward{ 0, 0, -1 };
+        Float3 m_cameraForward{0, 0, -1};
 
         GizmoAxis m_hovered = GizmoAxis::None;
         GizmoAxis m_selected = GizmoAxis::None;
@@ -705,16 +931,16 @@ export namespace draconic::editor
     {
         GizmoRay ray{};
         Float3 cameraPosition{};
-        Float3 cameraForward{ 0, 0, -1 };
+        Float3 cameraForward{0, 0, -1};
         f32 fovY = 1.0472f;
         bool leftPressed = false;
         bool leftDown = false;
         bool leftReleased = false;
-        bool snap = false;            // held Ctrl
-        bool keyTranslate = false;    // W (edge)
-        bool keyRotate = false;       // E (edge)
-        bool keyScale = false;        // R (edge)
-        bool keyToggleSpace = false;  // X (edge)
+        bool snap = false;           // held Ctrl
+        bool keyTranslate = false;   // W (edge)
+        bool keyRotate = false;      // E (edge)
+        bool keyScale = false;       // R (edge)
+        bool keyToggleSpace = false; // X (edge)
 
         /// False when the pointer isn't over the viewport this frame: the controller still
         /// syncs the gizmo pose/size to the selection (so it tracks tree selections and
@@ -731,9 +957,21 @@ export namespace draconic::editor
         explicit GizmoController(SceneEditContext& edit) : m_edit(&edit) {}
 
         [[nodiscard]] GizmoMode Mode() const noexcept { return m_mode; }
-        void SetMode(GizmoMode mode) noexcept { if (!m_gizmo.IsDragging()) { m_mode = mode; } }
+        void SetMode(GizmoMode mode) noexcept
+        {
+            if (!m_gizmo.IsDragging())
+            {
+                m_mode = mode;
+            }
+        }
         [[nodiscard]] GizmoSpace Space() const noexcept { return m_space; }
-        void SetSpace(GizmoSpace space) noexcept { if (!m_gizmo.IsDragging()) { m_space = space; } }
+        void SetSpace(GizmoSpace space) noexcept
+        {
+            if (!m_gizmo.IsDragging())
+            {
+                m_space = space;
+            }
+        }
         [[nodiscard]] TransformGizmo& Gizmo() noexcept { return m_gizmo; }
         [[nodiscard]] bool IsActive() const noexcept { return m_active; }
 
@@ -741,18 +979,28 @@ export namespace draconic::editor
         {
             if (!m_gizmo.IsDragging() && in.pointerValid)
             {
-                if (in.keyTranslate) { m_mode = GizmoMode::Translate; }
-                if (in.keyRotate) { m_mode = GizmoMode::Rotate; }
-                if (in.keyScale) { m_mode = GizmoMode::Scale; }
+                if (in.keyTranslate)
+                {
+                    m_mode = GizmoMode::Translate;
+                }
+                if (in.keyRotate)
+                {
+                    m_mode = GizmoMode::Rotate;
+                }
+                if (in.keyScale)
+                {
+                    m_mode = GizmoMode::Scale;
+                }
                 if (in.keyToggleSpace)
                 {
-                    m_space = (m_space == GizmoSpace::World) ? GizmoSpace::Local : GizmoSpace::World;
+                    m_space =
+                        (m_space == GizmoSpace::World) ? GizmoSpace::Local : GizmoSpace::World;
                 }
             }
 
             const Guid* primary = m_edit->EntitySelection().Primary();
-            const scene::EntityHandle entity = (primary != nullptr) ? m_edit->Resolve(*primary)
-                                                                     : scene::EntityHandle{};
+            const scene::EntityHandle entity =
+                (primary != nullptr) ? m_edit->Resolve(*primary) : scene::EntityHandle{};
             if (!entity.IsAssigned())
             {
                 AbortDrag();
@@ -769,21 +1017,25 @@ export namespace draconic::editor
             // local chain (GetWorldMatrix is the cached value from the last UpdateTransforms -
             // stale right after undo/redo and in headless tests).
             const Float4x4 world = scene.ComposeWorldMatrix(entity);
-            m_gizmo.position = Float3{ world.m[3][0], world.m[3][1], world.m[3][2] };
-            if (!m_gizmo.IsDragging())   // rotation frame is captured at BeginDrag; don't drift the handles
+            m_gizmo.position = Float3{world.m[3][0], world.m[3][1], world.m[3][2]};
+            if (!m_gizmo
+                     .IsDragging()) // rotation frame is captured at BeginDrag; don't drift the handles
             {
                 m_gizmo.orientation = Quaternion::Identity;
                 if (m_space == GizmoSpace::Local || m_mode == GizmoMode::Scale)
                 {
                     Float3 t, s;
                     Quaternion r;
-                    if (Decompose(world, t, r, s)) { m_gizmo.orientation = r; }
+                    if (Decompose(world, t, r, s))
+                    {
+                        m_gizmo.orientation = r;
+                    }
                 }
             }
 
             const f32 scale = TransformGizmo::ScreenScale(in.cameraPosition, in.cameraForward,
                                                           in.fovY, m_gizmo.position);
-            if (scale <= 0.0001f)   // at/behind the camera plane
+            if (scale <= 0.0001f) // at/behind the camera plane
             {
                 AbortDrag();
                 m_active = false;
@@ -795,9 +1047,19 @@ export namespace draconic::editor
             // === Drag session ===
             if (m_gizmo.IsDragging())
             {
-                if (!in.pointerValid) { FinishDrag(); return true; }   // pointer lost mid-drag
-                if (in.leftDown) { UpdateDrag(in); }
-                if (in.leftReleased || !in.leftDown) { FinishDrag(); }
+                if (!in.pointerValid)
+                {
+                    FinishDrag();
+                    return true;
+                } // pointer lost mid-drag
+                if (in.leftDown)
+                {
+                    UpdateDrag(in);
+                }
+                if (in.leftReleased || !in.leftDown)
+                {
+                    FinishDrag();
+                }
                 return true;
             }
 
@@ -809,8 +1071,8 @@ export namespace draconic::editor
             }
 
             m_gizmo.UpdateHover(in.ray, m_mode);
-            if (in.leftPressed && m_gizmo.Hovered() != GizmoAxis::None
-                && m_gizmo.BeginDrag(in.ray, m_mode))
+            if (in.leftPressed && m_gizmo.Hovered() != GizmoAxis::None &&
+                m_gizmo.BeginDrag(in.ray, m_mode))
             {
                 m_dragEntity = *primary;
                 m_dragStartLocal = scene.GetLocalTransform(entity);
@@ -825,7 +1087,10 @@ export namespace draconic::editor
                     m_parentInverseWorld = Inverse(parentWorld);
                     Float3 t, s;
                     Quaternion r;
-                    if (Decompose(parentWorld, t, r, s)) { m_parentRotation = r; }
+                    if (Decompose(parentWorld, t, r, s))
+                    {
+                        m_parentRotation = r;
+                    }
                 }
 
                 m_edit->Commands().BeginGroup(u8"gizmo_drag");
@@ -838,7 +1103,10 @@ export namespace draconic::editor
         /// Draw the gizmo + a mode/space/snap readout into the page's debug-draw list.
         void Draw(render::debug::DebugDraw& dd)
         {
-            if (!m_active) { return; }
+            if (!m_active)
+            {
+                return;
+            }
             m_gizmo.Draw(dd, m_mode);
         }
 
@@ -846,14 +1114,16 @@ export namespace draconic::editor
         {
             switch (m_mode)
             {
-                case GizmoMode::Translate:
-                    return (m_space == GizmoSpace::World) ? StringView(u8"Move [World]  (W/E/R mode, X space, Ctrl snap)")
-                                                          : StringView(u8"Move [Local]  (W/E/R mode, X space, Ctrl snap)");
-                case GizmoMode::Rotate:
-                    return (m_space == GizmoSpace::World) ? StringView(u8"Rotate [World]  (W/E/R mode, X space, Ctrl snap)")
-                                                          : StringView(u8"Rotate [Local]  (W/E/R mode, X space, Ctrl snap)");
-                default:
-                    return StringView(u8"Scale [Local]  (W/E/R mode, X space, Ctrl snap)");
+            case GizmoMode::Translate:
+                return (m_space == GizmoSpace::World)
+                           ? StringView(u8"Move [World]  (W/E/R mode, X space, Ctrl snap)")
+                           : StringView(u8"Move [Local]  (W/E/R mode, X space, Ctrl snap)");
+            case GizmoMode::Rotate:
+                return (m_space == GizmoSpace::World)
+                           ? StringView(u8"Rotate [World]  (W/E/R mode, X space, Ctrl snap)")
+                           : StringView(u8"Rotate [Local]  (W/E/R mode, X space, Ctrl snap)");
+            default:
+                return StringView(u8"Scale [Local]  (W/E/R mode, X space, Ctrl snap)");
             }
         }
 
@@ -861,35 +1131,39 @@ export namespace draconic::editor
         void UpdateDrag(const GizmoFrameInput& in)
         {
             const scene::EntityHandle entity = m_edit->Resolve(m_dragEntity);
-            if (!entity.IsAssigned()) { AbortDrag(); return; }
+            if (!entity.IsAssigned())
+            {
+                AbortDrag();
+                return;
+            }
 
             core::Transform t = m_dragStartLocal;
             switch (m_mode)
             {
-                case GizmoMode::Translate:
-                {
-                    const Float3 worldDelta = m_gizmo.UpdateTranslateDrag(in.ray, in.snap);
-                    t.position = m_dragStartLocal.position
-                               + TransformDirection(worldDelta, m_parentInverseWorld);
-                    break;
-                }
-                case GizmoMode::Rotate:
-                {
-                    const TransformGizmo::RotateDelta d = m_gizmo.UpdateRotateDrag(in.ray, in.snap);
-                    const Quaternion worldDelta = Quaternion::FromAxisAngle(d.axis, d.angle);
-                    // Conjugate the world delta into parent space, then compose with the start.
-                    t.rotation = Normalized(Inverse(m_parentRotation) * worldDelta * m_parentRotation
-                                            * m_dragStartLocal.rotation);
-                    break;
-                }
-                case GizmoMode::Scale:
-                {
-                    const Float3 d = m_gizmo.UpdateScaleDrag(in.ray, in.snap);
-                    t.scale.x = Max(m_dragStartLocal.scale.x + d.x, 0.001f);
-                    t.scale.y = Max(m_dragStartLocal.scale.y + d.y, 0.001f);
-                    t.scale.z = Max(m_dragStartLocal.scale.z + d.z, 0.001f);
-                    break;
-                }
+            case GizmoMode::Translate:
+            {
+                const Float3 worldDelta = m_gizmo.UpdateTranslateDrag(in.ray, in.snap);
+                t.position = m_dragStartLocal.position +
+                             TransformDirection(worldDelta, m_parentInverseWorld);
+                break;
+            }
+            case GizmoMode::Rotate:
+            {
+                const TransformGizmo::RotateDelta d = m_gizmo.UpdateRotateDrag(in.ray, in.snap);
+                const Quaternion worldDelta = Quaternion::FromAxisAngle(d.axis, d.angle);
+                // Conjugate the world delta into parent space, then compose with the start.
+                t.rotation = Normalized(Inverse(m_parentRotation) * worldDelta * m_parentRotation *
+                                        m_dragStartLocal.rotation);
+                break;
+            }
+            case GizmoMode::Scale:
+            {
+                const Float3 d = m_gizmo.UpdateScaleDrag(in.ray, in.snap);
+                t.scale.x = Max(m_dragStartLocal.scale.x + d.x, 0.001f);
+                t.scale.y = Max(m_dragStartLocal.scale.y + d.y, 0.001f);
+                t.scale.z = Max(m_dragStartLocal.scale.z + d.z, 0.001f);
+                break;
+            }
             }
             m_edit->SetLocalTransform(m_dragEntity, t);
         }
@@ -900,7 +1174,7 @@ export namespace draconic::editor
             if (m_inGroup)
             {
                 m_edit->Commands().EndGroup();
-                m_edit->Commands().LockGroup();   // the next drag is its own undo entry
+                m_edit->Commands().LockGroup(); // the next drag is its own undo entry
                 m_inGroup = false;
             }
             m_dragEntity = Guid{};
@@ -908,14 +1182,17 @@ export namespace draconic::editor
 
         void AbortDrag()
         {
-            if (m_gizmo.IsDragging()) { FinishDrag(); }
+            if (m_gizmo.IsDragging())
+            {
+                FinishDrag();
+            }
         }
 
-        SceneEditContext* m_edit;   // borrowed (the page owns it)
+        SceneEditContext* m_edit; // borrowed (the page owns it)
         TransformGizmo m_gizmo;
         GizmoMode m_mode = GizmoMode::Translate;
         GizmoSpace m_space = GizmoSpace::World;
-        bool m_active = false;      // false while nothing is selected / behind the camera
+        bool m_active = false; // false while nothing is selected / behind the camera
         bool m_inGroup = false;
 
         // Drag session capture.

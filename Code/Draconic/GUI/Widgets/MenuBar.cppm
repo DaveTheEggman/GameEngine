@@ -15,8 +15,8 @@ module;
 
 export module draconic.gui:menu_bar;
 
-import draconic.core;   // RefPtr, MakeRef, Array, Function, Move, Max, Float2
-import draconic.fonts;  // CachedFont
+import draconic.core;  // RefPtr, MakeRef, Array, Function, Move, Max, Float2
+import draconic.fonts; // CachedFont
 import :event;
 import :node;
 import :rectangle_drawable;
@@ -43,11 +43,20 @@ export namespace draconic::gui
         void SetFont(fonts::CachedFont* font)
         {
             m_font = font;
-            for (BarEntry& e : m_entries) e.button->SetFont(font);
+            for (BarEntry& e : m_entries)
+                e.button->SetFont(font);
             Relayout();
         }
-        void SetBarHeight(f32 height) { m_barHeight = core::Max(1.0f, height); Relayout(); }
-        void SetItemPadding(f32 padding) { m_hpad = core::Max(0.0f, padding); Relayout(); }
+        void SetBarHeight(f32 height)
+        {
+            m_barHeight = core::Max(1.0f, height);
+            Relayout();
+        }
+        void SetItemPadding(f32 padding)
+        {
+            m_hpad = core::Max(0.0f, padding);
+            Relayout();
+        }
 
         // Add a top-level menu with its button label; returns the (empty) Menu to populate.
         Menu* AddMenu(core::StringView text)
@@ -55,7 +64,8 @@ export namespace draconic::gui
             auto button = core::MakeRef<Button>(core::DefaultAllocator());
             button->SetText(text);
             button->SetFont(m_font);
-            button->AddClass(core::StringView(u8"menubutton")); // flat bar styling (class beats the button tag)
+            button->AddClass(
+                core::StringView(u8"menubutton")); // flat bar styling (class beats the button tag)
 
             auto menu = core::MakeRef<Menu>(core::DefaultAllocator());
             menu->SetFont(m_font);
@@ -63,21 +73,28 @@ export namespace draconic::gui
             Button* rawButton = button.Get();
             Menu* rawMenu = menu.Get();
             MenuBar* self = this;
-            button->SetOnClick([self, rawButton, rawMenu]() { self->ToggleMenu(rawButton, rawMenu); });
-            button->AddEventListener(EventType::MouseEnter,
-                [self, rawButton, rawMenu](const Event&) { self->HoverMenu(rawButton, rawMenu); });
+            button->SetOnClick([self, rawButton, rawMenu]()
+                               { self->ToggleMenu(rawButton, rawMenu); });
+            button->AddEventListener(EventType::MouseEnter, [self, rawButton, rawMenu](const Event&)
+                                     { self->HoverMenu(rawButton, rawMenu); });
             menu->SetOnClosed([self, rawMenu]() { self->OnMenuClosed(rawMenu); });
 
             AddChild(button.Get());
-            m_entries.PushBack(BarEntry{ rawButton, core::Move(menu) });
+            m_entries.PushBack(BarEntry{rawButton, core::Move(menu)});
             Relayout();
             return rawMenu;
         }
 
         [[nodiscard]] usize MenuCount() const noexcept { return m_entries.Size(); }
         [[nodiscard]] Menu* CurrentMenu() const noexcept { return m_current; }
-        [[nodiscard]] Button* ButtonAt(usize index) const { return index < m_entries.Size() ? m_entries[index].button : nullptr; }
-        [[nodiscard]] Menu* MenuAt(usize index) const { return index < m_entries.Size() ? m_entries[index].menu.Get() : nullptr; }
+        [[nodiscard]] Button* ButtonAt(usize index) const
+        {
+            return index < m_entries.Size() ? m_entries[index].button : nullptr;
+        }
+        [[nodiscard]] Menu* MenuAt(usize index) const
+        {
+            return index < m_entries.Size() ? m_entries[index].menu.Get() : nullptr;
+        }
 
     protected:
         void OnSizeChange() override { Relayout(); }
@@ -85,20 +102,23 @@ export namespace draconic::gui
     private:
         void ToggleMenu(Button* button, Menu* menu)
         {
-            if (m_current == menu) menu->Close();   // Close -> OnMenuClosed clears the bar state
-            else                   OpenMenu(button, menu);
+            if (m_current == menu)
+                menu->Close(); // Close -> OnMenuClosed clears the bar state
+            else
+                OpenMenu(button, menu);
         }
         void HoverMenu(Button* button, Menu* menu)
         {
             // Only switch when a menu is already open (a bare hover must not drop a menu).
-            if (m_current != nullptr && m_current != menu) OpenMenu(button, menu);
+            if (m_current != nullptr && m_current != menu)
+                OpenMenu(button, menu);
         }
         void OpenMenu(Button* button, Menu* menu)
         {
             const core::Float2 origin = RootLocalOrigin(button);
             // The button is the popup owner: clicking it again toggles the menu closed instead
             // of the outside-click path dismissing it before the toggle runs.
-            menu->Open(*this, core::Float2{ origin.x, origin.y + button->GetSize().y }, button);
+            menu->Open(*this, core::Float2{origin.x, origin.y + button->GetSize().y}, button);
             // Opening closed any previous menu (its OnMenuClosed cleared m_current + deselected
             // its button); now record the new one.
             m_current = menu;
@@ -107,8 +127,10 @@ export namespace draconic::gui
         }
         void OnMenuClosed(Menu* menu)
         {
-            if (m_current != menu) return;
-            if (m_currentButton != nullptr) m_currentButton->RemoveClass(core::StringView(u8"selected"));
+            if (m_current != menu)
+                return;
+            if (m_currentButton != nullptr)
+                m_currentButton->RemoveClass(core::StringView(u8"selected"));
             m_current = nullptr;
             m_currentButton = nullptr;
         }
@@ -119,31 +141,35 @@ export namespace draconic::gui
             for (BarEntry& e : m_entries)
             {
                 const f32 w = e.button->MeasureText().x + m_hpad * 2.0f;
-                e.button->SetPosition(core::Float2{ x, 0.0f });
-                e.button->SetSize(core::Float2{ w, m_barHeight });
+                e.button->SetPosition(core::Float2{x, 0.0f});
+                e.button->SetSize(core::Float2{w, m_barHeight});
                 x += w;
             }
-            SetSize(core::Float2{ x, m_barHeight });
+            SetSize(core::Float2{x, m_barHeight});
         }
 
         // Top-left of `node` in root-local space (sum of positions up to, but excluding, the
         // root). Assumes identity scale/rotation on the path, matching the menu popup model.
         [[nodiscard]] static core::Float2 RootLocalOrigin(Node* node)
         {
-            core::Float2 p{ 0.0f, 0.0f };
+            core::Float2 p{0.0f, 0.0f};
             for (Node* c = node; c != nullptr && c->GetParent() != nullptr; c = c->GetParent())
                 p += c->GetPosition();
             return p;
         }
 
-        struct BarEntry { Button* button; core::RefPtr<Menu> menu; };
+        struct BarEntry
+        {
+            Button* button;
+            core::RefPtr<Menu> menu;
+        };
         Array<BarEntry> m_entries;
         Menu* m_current = nullptr;         // the open menu (non-owning)
         Button* m_currentButton = nullptr; // its button (non-owning)
         fonts::CachedFont* m_font = nullptr;
         f32 m_barHeight = 28.0f;
         f32 m_hpad = 12.0f;
-        Color m_barColor{ 0.13f, 0.15f, 0.18f, 1.0f };
+        Color m_barColor{0.13f, 0.15f, 0.18f, 1.0f};
     };
 
     DRACONIC_DEFINE_OBJECT(MenuBar, "draconic::gui")

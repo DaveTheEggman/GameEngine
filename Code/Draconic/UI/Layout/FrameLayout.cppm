@@ -14,8 +14,8 @@ module;
 
 export module draconic.ui:frame_layout;
 
-import draconic.core;   // Max, RefPtr, Rectangle
-import :view;           // View, ViewGroup, LayoutParamsPtr
+import draconic.core; // Max, RefPtr, Rectangle
+import :view;         // View, ViewGroup, LayoutParamsPtr
 import :layout_params;
 import :box_constraints;
 import :thickness;
@@ -44,7 +44,10 @@ export namespace draconic::ui
         FrameLayout() = default;
 
     protected:
-        LayoutParamsPtr CreateDefaultLayoutParams() override { return MakeRef<FrameLayoutParams>(DefaultAllocator()); }
+        LayoutParamsPtr CreateDefaultLayoutParams() override
+        {
+            return MakeRef<FrameLayoutParams>(DefaultAllocator());
+        }
 
         void OnMeasure(BoxConstraints constraints) override
         {
@@ -52,36 +55,47 @@ export namespace draconic::ui
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 View* child = GetChildAt(i);
-                if (child->Visibility == Visibility::Gone) { continue; }
+                if (child->Visibility == Visibility::Gone)
+                {
+                    continue;
+                }
 
-                const Thickness margin = child->LayoutParams ? child->LayoutParams->Margin : Thickness{};
-                const BoxConstraints inner = MakeChildConstraints(constraints.Deflate(Padding), child);
+                const Thickness margin =
+                    child->LayoutParams ? child->LayoutParams->Margin : Thickness{};
+                const BoxConstraints inner =
+                    MakeChildConstraints(constraints.Deflate(Padding), child);
                 child->Measure(inner);
 
                 maxW = Max(maxW, child->MeasuredSize.x + margin.TotalHorizontal());
                 maxH = Max(maxH, child->MeasuredSize.y + margin.TotalVertical());
             }
-            MeasuredSize = Float2{ constraints.ConstrainWidth(maxW + Padding.TotalHorizontal()),
-                                   constraints.ConstrainHeight(maxH + Padding.TotalVertical()) };
+            MeasuredSize = Float2{constraints.ConstrainWidth(maxW + Padding.TotalHorizontal()),
+                                  constraints.ConstrainHeight(maxH + Padding.TotalVertical())};
         }
 
         void OnLayout(f32 left, f32 top, f32 width, f32 height) override
         {
-            (void)left; (void)top;
+            (void)left;
+            (void)top;
             const f32 contentW = width - Padding.TotalHorizontal();
             const f32 contentH = height - Padding.TotalVertical();
 
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 View* child = GetChildAt(i);
-                if (child->Visibility == Visibility::Gone) { continue; }
+                if (child->Visibility == Visibility::Gone)
+                {
+                    continue;
+                }
 
                 FrameLayoutParams* flp = Cast<FrameLayoutParams>(child->LayoutParams.Get());
                 const GravityValue gravity = flp != nullptr ? flp->Gravity : GravityValue::None;
-                const Thickness margin = child->LayoutParams ? child->LayoutParams->Margin : Thickness{};
+                const Thickness margin =
+                    child->LayoutParams ? child->LayoutParams->Margin : Thickness{};
 
-                Rectangle rect = GravityHelper::Apply(gravity, contentW, contentH,
-                    child->MeasuredSize.x, child->MeasuredSize.y, margin);
+                Rectangle rect =
+                    GravityHelper::Apply(gravity, contentW, contentH, child->MeasuredSize.x,
+                                         child->MeasuredSize.y, margin);
                 rect.x += Padding.Left;
                 rect.y += Padding.Top;
                 child->Layout(rect.x, rect.y, rect.width, rect.height);

@@ -21,7 +21,9 @@ export namespace draconic::runtime
     {
     public:
         explicit Context(core::IAllocator& allocator = core::DefaultAllocator()) noexcept
-            : m_allocator(&allocator) {}
+            : m_allocator(&allocator)
+        {
+        }
 
         ~Context() { Dispose(); }
 
@@ -38,7 +40,8 @@ export namespace draconic::runtime
         {
             static_assert(std::is_base_of_v<Subsystem, T>, "T must derive from Subsystem");
             T* subsystem = m_allocator->New<T>(core::Forward<Args>(args)...);
-            m_owned.PushBack(core::UniquePtr<Subsystem>(static_cast<Subsystem*>(subsystem), *m_allocator));
+            m_owned.PushBack(
+                core::UniquePtr<Subsystem>(static_cast<Subsystem*>(subsystem), *m_allocator));
             RegisterInternal(&core::TypeOf<T>(), static_cast<Subsystem*>(subsystem));
             return subsystem;
         }
@@ -78,8 +81,14 @@ export namespace draconic::runtime
         // Init then Ready, in UpdateOrder; marks the context running.
         void Startup()
         {
-            for (Subsystem* s : m_sorted) { s->Init(); }
-            for (Subsystem* s : m_sorted) { s->Ready(); }
+            for (Subsystem* s : m_sorted)
+            {
+                s->Init();
+            }
+            for (Subsystem* s : m_sorted)
+            {
+                s->Ready();
+            }
             m_running = true;
         }
 
@@ -100,26 +109,68 @@ export namespace draconic::runtime
         [[nodiscard]] core::f32 FixedTimeStep() const noexcept { return m_fixedStep; }
         [[nodiscard]] core::f32 FixedAlpha() const noexcept { return m_fixedAlpha; }
 
-        void BeginFrame(core::f32 dt)  { for (Subsystem* s : m_sorted) { s->BeginFrame(dt); } }
-        void FixedUpdate(core::f32 dt) { for (Subsystem* s : m_sorted) { s->FixedUpdate(dt); } }
-        void Update(core::f32 dt)      { for (Subsystem* s : m_sorted) { s->Update(dt); } }
-        void PostUpdate(core::f32 dt)  { for (Subsystem* s : m_sorted) { s->PostUpdate(dt); } }
-        void EndFrame()              { for (Subsystem* s : m_sorted) { s->EndFrame(); } }
+        void BeginFrame(core::f32 dt)
+        {
+            for (Subsystem* s : m_sorted)
+            {
+                s->BeginFrame(dt);
+            }
+        }
+        void FixedUpdate(core::f32 dt)
+        {
+            for (Subsystem* s : m_sorted)
+            {
+                s->FixedUpdate(dt);
+            }
+        }
+        void Update(core::f32 dt)
+        {
+            for (Subsystem* s : m_sorted)
+            {
+                s->Update(dt);
+            }
+        }
+        void PostUpdate(core::f32 dt)
+        {
+            for (Subsystem* s : m_sorted)
+            {
+                s->PostUpdate(dt);
+            }
+        }
+        void EndFrame()
+        {
+            for (Subsystem* s : m_sorted)
+            {
+                s->EndFrame();
+            }
+        }
 
         // PrepareShutdown then Shutdown, in reverse UpdateOrder.
         void Shutdown()
         {
             m_running = false;
-            for (core::usize i = m_sorted.Size(); i-- > 0;) { m_sorted[i]->PrepareShutdown(); }
-            for (core::usize i = m_sorted.Size(); i-- > 0;) { m_sorted[i]->Shutdown(); }
+            for (core::usize i = m_sorted.Size(); i-- > 0;)
+            {
+                m_sorted[i]->PrepareShutdown();
+            }
+            for (core::usize i = m_sorted.Size(); i-- > 0;)
+            {
+                m_sorted[i]->Shutdown();
+            }
         }
 
         // Shuts down (if running) and destroys all subsystems. Idempotent.
         void Dispose()
         {
-            if (m_disposed) { return; }
+            if (m_disposed)
+            {
+                return;
+            }
             m_disposed = true;
-            if (m_running) { Shutdown(); }
+            if (m_running)
+            {
+                Shutdown();
+            }
             m_sorted.Clear();
             m_owned.Clear(); // UniquePtr<Subsystem> destroys each via the allocator
         }
@@ -132,7 +183,11 @@ export namespace draconic::runtime
             m_byType.InsertOrAssign(type, subsystem);
             InsertSorted(subsystem);
             subsystem->OnRegister(this);
-            if (m_running) { subsystem->Init(); subsystem->Ready(); }
+            if (m_running)
+            {
+                subsystem->Init();
+                subsystem->Ready();
+            }
         }
 
         // Detaches a subsystem by type: shut it down (if running), unregister,
@@ -140,23 +195,37 @@ export namespace draconic::runtime
         void RemoveByType(const core::TypeInfo* type)
         {
             Subsystem* const* found = m_byType.Find(type);
-            if (found == nullptr) { return; }
+            if (found == nullptr)
+            {
+                return;
+            }
             Subsystem* subsystem = *found;
 
-            if (m_running) { subsystem->PrepareShutdown(); }
+            if (m_running)
+            {
+                subsystem->PrepareShutdown();
+            }
             subsystem->Shutdown();
             subsystem->OnUnregister();
 
             for (core::usize i = 0; i < m_sorted.Size(); ++i)
             {
-                if (m_sorted[i] == subsystem) { m_sorted.RemoveAt(i); break; }
+                if (m_sorted[i] == subsystem)
+                {
+                    m_sorted.RemoveAt(i);
+                    break;
+                }
             }
             m_byType.Remove(type);
 
             // If the Context owns it, destroying the UniquePtr frees the object.
             for (core::usize i = 0; i < m_owned.Size(); ++i)
             {
-                if (m_owned[i].Get() == subsystem) { m_owned.RemoveAt(i); break; }
+                if (m_owned[i].Get() == subsystem)
+                {
+                    m_owned.RemoveAt(i);
+                    break;
+                }
             }
         }
 
@@ -176,8 +245,8 @@ export namespace draconic::runtime
 
         core::IAllocator* m_allocator;
         core::HashMap<const core::TypeInfo*, Subsystem*> m_byType;
-        core::Array<Subsystem*> m_sorted;                 // non-owning, UpdateOrder-sorted
-        core::Array<core::UniquePtr<Subsystem>> m_owned;    // ownership
+        core::Array<Subsystem*> m_sorted;                // non-owning, UpdateOrder-sorted
+        core::Array<core::UniquePtr<Subsystem>> m_owned; // ownership
         bool m_running = false;
         core::f32 m_fixedStep = 1.0f / 60.0f;
         core::f32 m_fixedAlpha = 0.0f;

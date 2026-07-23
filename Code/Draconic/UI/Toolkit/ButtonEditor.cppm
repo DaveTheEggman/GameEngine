@@ -52,13 +52,20 @@ export namespace draconic::ui::toolkit
             RefPtr<Button> btn = MakeRef<Button>(DefaultAllocator(), Name());
             btn->IsEnabled = m_buttonEnabled;
             ButtonEditor* self = this;
-            btn->OnClick.Add([self](ButtonBase*) { if (self->Action) { self->Action(); } });
+            btn->OnClick.Add(
+                [self](ButtonBase*)
+                {
+                    if (self->Action)
+                    {
+                        self->Action();
+                    }
+                });
             m_button = btn.Get();
             return btn;
         }
 
     private:
-        Button* m_button = nullptr;   // borrowed; the cached editor view owns it
+        Button* m_button = nullptr; // borrowed; the cached editor view owns it
         bool m_buttonEnabled = true;
     };
 

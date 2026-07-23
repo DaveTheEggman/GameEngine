@@ -32,7 +32,8 @@ export namespace draconic::rendergraph
         // Acquire a matching texture from the pool; true if one was found. `generation` receives the
         // physical texture's stable id (preserved while it lives in the pool), so consumers can detect
         // when a transient is backed by a DIFFERENT physical texture (a freed view address can reuse).
-        [[nodiscard]] bool TryAcquire(const rhi::TextureDesc& desc, rhi::Texture*& texture, rhi::TextureView*& view, u64& generation)
+        [[nodiscard]] bool TryAcquire(const rhi::TextureDesc& desc, rhi::Texture*& texture,
+                                      rhi::TextureView*& view, u64& generation)
         {
             for (usize i = 0; i < m_pool.Size(); ++i)
             {
@@ -51,9 +52,10 @@ export namespace draconic::rendergraph
             return false;
         }
 
-        void ReturnToPool(const rhi::TextureDesc& desc, rhi::Texture* texture, rhi::TextureView* view, u64 generation)
+        void ReturnToPool(const rhi::TextureDesc& desc, rhi::Texture* texture,
+                          rhi::TextureView* view, u64 generation)
         {
-            m_pool.PushBack(PooledTexture{ desc, texture, view, generation, 0 });
+            m_pool.PushBack(PooledTexture{desc, texture, view, generation, 0});
         }
 
         // Age out entries unused for more than maxUnusedFrames.
@@ -66,8 +68,14 @@ export namespace draconic::rendergraph
                 {
                     rhi::Texture* tex = m_pool[i].texture;
                     rhi::TextureView* view = m_pool[i].view;
-                    if (view != nullptr) { m_device->DestroyTextureView(view); }
-                    if (tex != nullptr) { m_device->DestroyTexture(tex); }
+                    if (view != nullptr)
+                    {
+                        m_device->DestroyTextureView(view);
+                    }
+                    if (tex != nullptr)
+                    {
+                        m_device->DestroyTexture(tex);
+                    }
                     m_pool.RemoveAt(i);
                 }
             }
@@ -77,8 +85,14 @@ export namespace draconic::rendergraph
         {
             for (PooledTexture& entry : m_pool)
             {
-                if (entry.view != nullptr) { m_device->DestroyTextureView(entry.view); }
-                if (entry.texture != nullptr) { m_device->DestroyTexture(entry.texture); }
+                if (entry.view != nullptr)
+                {
+                    m_device->DestroyTextureView(entry.view);
+                }
+                if (entry.texture != nullptr)
+                {
+                    m_device->DestroyTexture(entry.texture);
+                }
             }
             m_pool.Clear();
         }
@@ -89,21 +103,16 @@ export namespace draconic::rendergraph
             rhi::TextureDesc desc;
             rhi::Texture* texture = nullptr;
             rhi::TextureView* view = nullptr;
-            u64 generation = 0;     // stable id of this physical texture (carried across pool reuse)
+            u64 generation = 0; // stable id of this physical texture (carried across pool reuse)
             i32 unusedFrames = 0;
         };
 
         static bool DescriptorsMatch(const rhi::TextureDesc& a, const rhi::TextureDesc& b) noexcept
         {
-            return a.dimension == b.dimension
-                && a.format == b.format
-                && a.width == b.width
-                && a.height == b.height
-                && a.depth == b.depth
-                && a.arrayLayerCount == b.arrayLayerCount
-                && a.mipLevelCount == b.mipLevelCount
-                && a.sampleCount == b.sampleCount
-                && a.usage == b.usage;
+            return a.dimension == b.dimension && a.format == b.format && a.width == b.width &&
+                   a.height == b.height && a.depth == b.depth &&
+                   a.arrayLayerCount == b.arrayLayerCount && a.mipLevelCount == b.mipLevelCount &&
+                   a.sampleCount == b.sampleCount && a.usage == b.usage;
         }
 
         rhi::Device* m_device;

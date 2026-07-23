@@ -10,7 +10,11 @@ namespace core = draconic::core;
 
 namespace
 {
-    template <typename T> core::RefPtr<T> Make() { return core::MakeRef<T>(core::DefaultAllocator()); }
+    template <typename T>
+    core::RefPtr<T> Make()
+    {
+        return core::MakeRef<T>(core::DefaultAllocator());
+    }
 
     core::RefPtr<UIWidget> Child(core::Float2 size)
     {
@@ -23,11 +27,11 @@ namespace
 TEST_CASE("linear-layout: vertical stacks children on add")
 {
     auto layout = Make<LinearLayout>();
-    layout->SetSize(core::Float2{ 100.0f, 200.0f });
+    layout->SetSize(core::Float2{100.0f, 200.0f});
     layout->SetSpacing(5.0f);
 
-    auto a = Child(core::Float2{ 80.0f, 20.0f });
-    auto b = Child(core::Float2{ 80.0f, 30.0f });
+    auto a = Child(core::Float2{80.0f, 20.0f});
+    auto b = Child(core::Float2{80.0f, 30.0f});
     layout->AddChild(a.Get());
     layout->AddChild(b.Get());
 
@@ -40,12 +44,12 @@ TEST_CASE("linear-layout: vertical stacks children on add")
 TEST_CASE("linear-layout: horizontal stacks along x")
 {
     auto layout = Make<LinearLayout>();
-    layout->SetSize(core::Float2{ 300.0f, 50.0f });
+    layout->SetSize(core::Float2{300.0f, 50.0f});
     layout->SetOrientation(Orientation::Horizontal);
     layout->SetSpacing(10.0f);
 
-    auto a = Child(core::Float2{ 40.0f, 40.0f });
-    auto b = Child(core::Float2{ 60.0f, 40.0f });
+    auto a = Child(core::Float2{40.0f, 40.0f});
+    auto b = Child(core::Float2{60.0f, 40.0f});
     layout->AddChild(a.Get());
     layout->AddChild(b.Get());
 
@@ -56,10 +60,10 @@ TEST_CASE("linear-layout: horizontal stacks along x")
 TEST_CASE("linear-layout: padding offsets the start")
 {
     auto layout = Make<LinearLayout>();
-    layout->SetSize(core::Float2{ 100.0f, 200.0f });
-    layout->SetPadding(Thickness{ 8.0f });
+    layout->SetSize(core::Float2{100.0f, 200.0f});
+    layout->SetPadding(Thickness{8.0f});
 
-    auto a = Child(core::Float2{ 50.0f, 20.0f });
+    auto a = Child(core::Float2{50.0f, 20.0f});
     layout->AddChild(a.Get());
     CHECK(a->GetPosition().x == doctest::Approx(8.0f));
     CHECK(a->GetPosition().y == doctest::Approx(8.0f));
@@ -68,11 +72,11 @@ TEST_CASE("linear-layout: padding offsets the start")
 TEST_CASE("linear-layout: hidden children are skipped")
 {
     auto layout = Make<LinearLayout>();
-    layout->SetSize(core::Float2{ 100.0f, 200.0f });
+    layout->SetSize(core::Float2{100.0f, 200.0f});
 
-    auto a = Child(core::Float2{ 50.0f, 20.0f });
-    auto b = Child(core::Float2{ 50.0f, 30.0f });
-    auto c = Child(core::Float2{ 50.0f, 40.0f });
+    auto a = Child(core::Float2{50.0f, 20.0f});
+    auto b = Child(core::Float2{50.0f, 30.0f});
+    auto c = Child(core::Float2{50.0f, 40.0f});
     layout->AddChild(a.Get());
     layout->AddChild(b.Get());
     layout->AddChild(c.Get());
@@ -87,9 +91,9 @@ TEST_CASE("linear-layout: hidden children are skipped")
 TEST_CASE("linear-layout: relayouts on orientation change")
 {
     auto layout = Make<LinearLayout>();
-    layout->SetSize(core::Float2{ 200.0f, 200.0f });
-    auto a = Child(core::Float2{ 30.0f, 30.0f });
-    auto b = Child(core::Float2{ 30.0f, 30.0f });
+    layout->SetSize(core::Float2{200.0f, 200.0f});
+    auto a = Child(core::Float2{30.0f, 30.0f});
+    auto b = Child(core::Float2{30.0f, 30.0f});
     layout->AddChild(a.Get());
     layout->AddChild(b.Get());
     CHECK(b->GetPosition().y == doctest::Approx(30.0f)); // vertical default
@@ -102,13 +106,13 @@ TEST_CASE("linear-layout: relayouts on orientation change")
 TEST_CASE("linear-layout: wrap-content sizes the layout to its stacked children + padding")
 {
     auto layout = Make<LinearLayout>();
-    layout->SetSize(core::Float2{ 100.0f, 500.0f }); // starts tall
+    layout->SetSize(core::Float2{100.0f, 500.0f}); // starts tall
     layout->SetSpacing(5.0f);
-    layout->SetPadding(Thickness{ 10.0f });          // 10 on every side
+    layout->SetPadding(Thickness{10.0f}); // 10 on every side
     layout->SetWrapContent(true);
 
-    layout->AddChild(Child(core::Float2{ 40.0f, 20.0f }).Get());
-    layout->AddChild(Child(core::Float2{ 40.0f, 30.0f }).Get());
+    layout->AddChild(Child(core::Float2{40.0f, 20.0f}).Get());
+    layout->AddChild(Child(core::Float2{40.0f, 30.0f}).Get());
 
     // Height = padding(10) + 20 + spacing(5) + 30 + padding(10) = 75; width unchanged.
     CHECK(layout->GetSize().y == doctest::Approx(75.0f));
@@ -119,12 +123,12 @@ TEST_CASE("linear-layout: horizontal wrap-content sizes width to children")
 {
     auto layout = Make<LinearLayout>();
     layout->SetOrientation(Orientation::Horizontal);
-    layout->SetSize(core::Float2{ 500.0f, 40.0f });
+    layout->SetSize(core::Float2{500.0f, 40.0f});
     layout->SetSpacing(4.0f);
     layout->SetWrapContent(true);
 
-    layout->AddChild(Child(core::Float2{ 30.0f, 20.0f }).Get());
-    layout->AddChild(Child(core::Float2{ 50.0f, 20.0f }).Get());
+    layout->AddChild(Child(core::Float2{30.0f, 20.0f}).Get());
+    layout->AddChild(Child(core::Float2{50.0f, 20.0f}).Get());
 
     // Width = 30 + spacing(4) + 50 = 84 (no padding); height unchanged.
     CHECK(layout->GetSize().x == doctest::Approx(84.0f));

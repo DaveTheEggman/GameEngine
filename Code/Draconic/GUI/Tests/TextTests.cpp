@@ -23,21 +23,33 @@ namespace
         fonts::FontMetrics Metrics() const override
         {
             fonts::FontMetrics m;
-            m.ascent = 10.0f; m.descent = -2.0f; m.lineGap = 0.0f;
-            m.lineHeight = 12.0f; m.pixelHeight = 10.0f; m.scale = 1.0f;
+            m.ascent = 10.0f;
+            m.descent = -2.0f;
+            m.lineGap = 0.0f;
+            m.lineHeight = 12.0f;
+            m.pixelHeight = 10.0f;
+            m.scale = 1.0f;
             return m;
         }
         core::f32 PixelHeight() const override { return 10.0f; }
         fonts::GlyphInfo GetGlyphInfo(core::i32 cp) const override
         {
-            fonts::GlyphInfo g; g.codepoint = cp; g.advanceWidth = 6.0f; return g;
+            fonts::GlyphInfo g;
+            g.codepoint = cp;
+            g.advanceWidth = 6.0f;
+            return g;
         }
         core::f32 GetKerning(core::i32, core::i32) const override { return 0.0f; }
         bool HasGlyph(core::i32) const override { return true; }
-        core::f32 MeasureString(core::StringView text) const override { return static_cast<core::f32>(text.Size()) * 6.0f; }
-        core::f32 MeasureString(core::StringView text, core::Array<fonts::GlyphPosition>& out) const override
+        core::f32 MeasureString(core::StringView text) const override
         {
-            (void)out; return static_cast<core::f32>(text.Size()) * 6.0f;
+            return static_cast<core::f32>(text.Size()) * 6.0f;
+        }
+        core::f32 MeasureString(core::StringView text,
+                                core::Array<fonts::GlyphPosition>& out) const override
+        {
+            (void)out;
+            return static_cast<core::f32>(text.Size()) * 6.0f;
         }
     };
 
@@ -47,8 +59,8 @@ namespace
 TEST_CASE("text: measurement uses font metrics")
 {
     fonts::CachedFont cf(NewMock(), nullptr, nullptr); // owns + deletes the mock on scope exit
-    Text t{ core::StringView(u8"Hello"), &cf };
-    CHECK(t.GetWidth() == doctest::Approx(30.0f));   // 5 * 6
+    Text t{core::StringView(u8"Hello"), &cf};
+    CHECK(t.GetWidth() == doctest::Approx(30.0f)); // 5 * 6
     CHECK(t.GetLineHeight() == doctest::Approx(12.0f));
     CHECK(t.Measure().x == doctest::Approx(30.0f));
     CHECK(t.Measure().y == doctest::Approx(12.0f));
@@ -78,8 +90,8 @@ TEST_CASE("text: string/color/alignment accessors")
 TEST_CASE("text: alignment within bounds")
 {
     fonts::CachedFont cf(NewMock(), nullptr, nullptr);
-    Text t{ core::StringView(u8"Hello"), &cf }; // width 30, height 12
-    const Rect bounds{ 0.0f, 0.0f, 100.0f, 50.0f };
+    Text t{core::StringView(u8"Hello"), &cf}; // width 30, height 12
+    const Rect bounds{0.0f, 0.0f, 100.0f, 50.0f};
 
     t.SetAlignment(TextHAlign::Left, TextVAlign::Top);
     CHECK(t.AlignedPosition(bounds).x == doctest::Approx(0.0f));
@@ -97,23 +109,23 @@ TEST_CASE("text: alignment within bounds")
 TEST_CASE("text: draw guards - no font or empty produces no geometry")
 {
     vg::VGContext ctx; // no font service -> VG DrawText early-returns anyway
-    DrawContext dc{ ctx };
+    DrawContext dc{ctx};
 
     Text noFont;
     noFont.SetString(core::StringView(u8"Hello"));
-    noFont.Draw(dc, core::Float2{ 0.0f, 0.0f });
+    noFont.Draw(dc, core::Float2{0.0f, 0.0f});
     CHECK(ctx.GetBatch().vertices.Size() == 0);
 
     fonts::CachedFont cf(NewMock(), nullptr, nullptr);
-    Text empty{ core::StringView(u8""), &cf };
-    empty.Draw(dc, core::Float2{ 0.0f, 0.0f });
+    Text empty{core::StringView(u8""), &cf};
+    empty.Draw(dc, core::Float2{0.0f, 0.0f});
     CHECK(ctx.GetBatch().vertices.Size() == 0);
 }
 
 TEST_CASE("text: word wrap breaks at whitespace to fit the width")
 {
     fonts::CachedFont cf(NewMock(), nullptr, nullptr); // 6px/byte, 12px line height
-    Text t{ core::StringView(u8"hello world foo"), &cf };
+    Text t{core::StringView(u8"hello world foo"), &cf};
     t.SetWordWrap(true);
 
     core::Array<core::StringView> lines;
@@ -130,7 +142,7 @@ TEST_CASE("text: word wrap breaks at whitespace to fit the width")
 TEST_CASE("text: explicit newlines always break")
 {
     fonts::CachedFont cf(NewMock(), nullptr, nullptr);
-    Text t{ core::StringView(u8"a\nbc\nd"), &cf };
+    Text t{core::StringView(u8"a\nbc\nd"), &cf};
     t.SetWordWrap(true);
 
     core::Array<core::StringView> lines;
@@ -144,7 +156,7 @@ TEST_CASE("text: explicit newlines always break")
 TEST_CASE("text: a word longer than the width takes its own line (overflows)")
 {
     fonts::CachedFont cf(NewMock(), nullptr, nullptr);
-    Text t{ core::StringView(u8"abcdefghij k"), &cf }; // first word 10 bytes = 60px
+    Text t{core::StringView(u8"abcdefghij k"), &cf}; // first word 10 bytes = 60px
     t.SetWordWrap(true);
 
     core::Array<core::StringView> lines;
@@ -157,12 +169,12 @@ TEST_CASE("text: a word longer than the width takes its own line (overflows)")
 TEST_CASE("text: word wrap draws one DrawText per non-empty line")
 {
     fonts::CachedFont cf(NewMock(), nullptr, nullptr);
-    Text t{ core::StringView(u8"hello world foo"), &cf };
+    Text t{core::StringView(u8"hello world foo"), &cf};
     t.SetWordWrap(true);
 
     vg::VGContext ctx; // no font service -> DrawText early-returns, but exercises the layout path
-    DrawContext dc{ ctx };
-    t.Draw(dc, Rect{ 0.0f, 0.0f, 60.0f, 100.0f });
+    DrawContext dc{ctx};
+    t.Draw(dc, Rect{0.0f, 0.0f, 60.0f, 100.0f});
     // No atlas -> no geometry, but the multi-line path must not crash and must produce no verts.
     CHECK(ctx.GetBatch().vertices.Size() == 0);
 }

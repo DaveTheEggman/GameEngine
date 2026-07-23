@@ -13,8 +13,8 @@ module;
 
 export module draconic.gui:tooltip;
 
-import draconic.core;   // RefPtr, MakeRef, String, StringView, Float2, Max
-import draconic.fonts;  // CachedFont
+import draconic.core;  // RefPtr, MakeRef, String, StringView, Float2, Max
+import draconic.fonts; // CachedFont
 import :rect;
 import :draw_context;
 import :text;
@@ -37,21 +37,33 @@ export namespace draconic::gui
         {
             SetTag(core::StringView(u8"tooltip"));
             SetHitTestVisible(false); // never steals pointer events
-            SetPadding(Thickness{ 6.0f, 3.0f, 6.0f, 3.0f });
+            SetPadding(Thickness{6.0f, 3.0f, 6.0f, 3.0f});
             SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), m_bgColor));
             m_text.SetAlignment(TextHAlign::Left, TextVAlign::Middle);
         }
 
-        void SetText(core::StringView text) { m_text.SetString(text); Invalidate(); }
-        void SetFont(fonts::CachedFont* font) { m_text.SetFont(font); Invalidate(); }
-        void SetTextColor(Color color) { m_text.SetColor(color); Invalidate(); }
+        void SetText(core::StringView text)
+        {
+            m_text.SetString(text);
+            Invalidate();
+        }
+        void SetFont(fonts::CachedFont* font)
+        {
+            m_text.SetFont(font);
+            Invalidate();
+        }
+        void SetTextColor(Color color)
+        {
+            m_text.SetColor(color);
+            Invalidate();
+        }
 
         // Natural size for the text plus padding.
         [[nodiscard]] core::Float2 MeasureContent() const
         {
             const core::Float2 t = m_text.Measure();
             const Thickness pad = GetPadding();
-            return core::Float2{ t.x + pad.TotalHorizontal(), t.y + pad.TotalVertical() };
+            return core::Float2{t.x + pad.TotalHorizontal(), t.y + pad.TotalVertical()};
         }
 
     protected:
@@ -63,7 +75,7 @@ export namespace draconic::gui
 
     private:
         Text m_text;
-        Color m_bgColor{ 0.10f, 0.11f, 0.14f, 0.96f };
+        Color m_bgColor{0.10f, 0.11f, 0.14f, 0.96f};
     };
 
     // Drives tooltip show/hide from the dispatcher's hover state. Tick it each frame.
@@ -88,13 +100,19 @@ export namespace draconic::gui
                 Hide();
             }
 
-            const core::StringView text = (over != nullptr) ? over->GetTooltipText() : core::StringView{};
-            if (text.Size() == 0) { Hide(); return; }
+            const core::StringView text =
+                (over != nullptr) ? over->GetTooltipText() : core::StringView{};
+            if (text.Size() == 0)
+            {
+                Hide();
+                return;
+            }
 
             if (!m_shown)
             {
                 m_timer += dt;
-                if (m_timer >= m_delay) Show(root, dispatcher.GetMousePosition(), text);
+                if (m_timer >= m_delay)
+                    Show(root, dispatcher.GetMousePosition(), text);
             }
         }
 
@@ -106,13 +124,14 @@ export namespace draconic::gui
             m_tooltip->SetText(text);
             const core::Float2 size = m_tooltip->MeasureContent();
             m_tooltip->SetSize(size);
-            m_tooltip->SetPosition(core::Float2{ mouse.x + 12.0f, mouse.y + 18.0f });
+            m_tooltip->SetPosition(core::Float2{mouse.x + 12.0f, mouse.y + 18.0f});
             root.AddChild(m_tooltip.Get());
             m_shown = true;
         }
         void Hide()
         {
-            if (!m_shown) return;
+            if (!m_shown)
+                return;
             m_tooltip->RemoveFromParent();
             m_shown = false;
         }

@@ -57,12 +57,13 @@ TEST_CASE("mutation-queue: Drain_HandlesReentrantEnqueue")
 {
     MutationQueue queue;
     int counter = 0;
-    queue.QueueAction([&]()
-    {
-        counter++;
-        // Enqueue another action during drain
-        queue.QueueAction([&counter]() { counter++; });
-    });
+    queue.QueueAction(
+        [&]()
+        {
+            counter++;
+            // Enqueue another action during drain
+            queue.QueueAction([&counter]() { counter++; });
+        });
 
     queue.Drain();
     CHECK(counter == 2); // Both original and re-entrant executed
@@ -80,9 +81,12 @@ TEST_CASE("mutation-queue: Drain_IntegratedWithBeginFrame")
 
 TEST_CASE("mutation-queue: QueueDelete_PreventsDoubleDelete")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
 
-    auto view = core::MakeRef<TestView>(core::DefaultAllocator()); root->AddView(view.Get());
+    auto view = core::MakeRef<TestView>(core::DefaultAllocator());
+    root->AddView(view.Get());
 
     ctx.MutationQueueRef().QueueDelete(view.Get());
     CHECK(view->IsPendingDeletion);

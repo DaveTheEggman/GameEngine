@@ -12,7 +12,7 @@ module;
 
 export module draconic.ui:theme_icons;
 
-import draconic.core;   // StringView
+import draconic.core; // StringView
 
 using namespace draconic::core;
 

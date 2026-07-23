@@ -35,10 +35,16 @@ namespace draconic::script::conformance
         // Fire the event with one value; returns the handler's result (0 if unconnected).
         f64 Emit(f64 value)
         {
-            if (m_handler.Get() == nullptr) { return 0.0; }
-            Variant args[] = { Variant::From<f64>(value) };
-            Result<Variant> result = m_handler->Invoke(Span<Variant>{ args, 1 });
-            if (!result.HasValue()) { return 0.0; }
+            if (m_handler.Get() == nullptr)
+            {
+                return 0.0;
+            }
+            Variant args[] = {Variant::From<f64>(value)};
+            Result<Variant> result = m_handler->Invoke(Span<Variant>{args, 1});
+            if (!result.HasValue())
+            {
+                return 0.0;
+            }
             const f64* returned = result.Value().TryGet<f64>();
             return (returned != nullptr) ? *returned : 0.0;
         }
@@ -71,7 +77,7 @@ namespace draconic::script::conformance
         StringView counterClass;
         StringView compileBroken;
         StringView runtimeFault;
-        StringView coroutineClass;   // optional - see the Coroutines section below
+        StringView coroutineClass; // optional - see the Coroutines section below
         // Optional (certified only when the backend declares the Delegates capability):
         // source that creates a global `signal` of the native DelegateSignal type and
         // subscribes a function computing value * 2 (via the backend's own callable syntax -
@@ -107,7 +113,10 @@ namespace draconic::script::conformance
         const StringView wanted(reinterpret_cast<const utf8char*>(scriptName));
         for (const ScriptApiType& type : surface)
         {
-            if (StringView(type.scriptName) == wanted) { return true; }
+            if (StringView(type.scriptName) == wanted)
+            {
+                return true;
+            }
         }
         return false;
     }
@@ -129,11 +138,11 @@ namespace draconic::script::conformance
                                             const Dialect& dialect)
     {
         // --- manager + two-phase type registration (collect, then finalize) ---
-        RegisterCoreTypes();                // self-contained: the introspection diff below
-                                            // needs the global registry populated (idempotent)
+        RegisterCoreTypes(); // self-contained: the introspection diff below
+                             // needs the global registry populated (idempotent)
         RefPtr<IScriptManager> manager = factory();
         REQUIRE(manager.Get() != nullptr);
-        RegisterReflectedTypes(*manager);   // walks the registry + FinalizeTypes()
+        RegisterReflectedTypes(*manager); // walks the registry + FinalizeTypes()
 
         // --- context + valid load ---
         RefPtr<IScriptContext> context = manager->CreateContext();
@@ -142,8 +151,8 @@ namespace draconic::script::conformance
 
         // --- Variant marshalling: numbers in/out, strings out, missing = NotFound ---
         {
-            Variant args[] = { Variant::From(2), Variant::From(3) };
-            auto sum = context->Call(u8"add", Span<Variant>{ args, 2 });
+            Variant args[] = {Variant::From(2), Variant::From(3)};
+            auto sum = context->Call(u8"add", Span<Variant>{args, 2});
             REQUIRE(sum.HasValue());
             CHECK(sum.Value().Get<f64>() == doctest::Approx(5.0));
         }
@@ -152,8 +161,7 @@ namespace draconic::script::conformance
             REQUIRE(text.HasValue());
             CHECK(text.Value().Get<String>() == u8"hi");
         }
-        CHECK(context->Call(u8"no_such_function", Span<Variant>{}).Error()
-              == ErrorCode::NotFound);
+        CHECK(context->Call(u8"no_such_function", Span<Variant>{}).Error() == ErrorCode::NotFound);
 
         // --- module globals surface as Variants ---
         CHECK(context->GetGlobal(u8"answer").Get<f64>() == doctest::Approx(42.0));
@@ -164,8 +172,8 @@ namespace draconic::script::conformance
         CHECK(context->Load(dialect.counterClass, u8"conformance.counter").IsOk());
         RefPtr<ScriptObject> counter;
         {
-            Variant ctorArgs[] = { Variant::From(10) };
-            counter = context->CreateInstance(u8"Counter", Span<Variant>{ ctorArgs, 1 });
+            Variant ctorArgs[] = {Variant::From(10)};
+            counter = context->CreateInstance(u8"Counter", Span<Variant>{ctorArgs, 1});
             REQUIRE(counter.Get() != nullptr);
             CHECK(counter->Invoke(u8"increment", Span<Variant>{}).HasValue());
             auto value = counter->Invoke(u8"value", Span<Variant>{});
@@ -215,10 +223,11 @@ namespace draconic::script::conformance
 
         // --- Coroutines (certified ONLY when the backend advertises the capability;
         // the flag advertises, this section certifies the behavior) ---
-        if (HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Coroutines)
-            && !dialect.coroutineClass.IsEmpty())
+        if (HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Coroutines) &&
+            !dialect.coroutineClass.IsEmpty())
         {
-            const auto progressOf = [](const RefPtr<ScriptObject>& coro) -> f64 {
+            const auto progressOf = [](const RefPtr<ScriptObject>& coro) -> f64
+            {
                 auto p = coro->Invoke(u8"progress", Span<Variant>{});
                 REQUIRE(p.HasValue());
                 return p.Value().Get<f64>();
@@ -232,10 +241,16 @@ namespace draconic::script::conformance
                 RefPtr<ScriptObject> coro = ctx->CreateInstance(u8"Coro", Span<Variant>{});
                 REQUIRE(coro.Get() != nullptr);
                 REQUIRE(coro->Invoke(u8"begin", Span<Variant>{}).HasValue());
-                for (int i = 0; i < 3; ++i) { manager->AdvanceCoroutines(0.1); }   // 0.3s
-                CHECK(progressOf(coro) == doctest::Approx(0.0));                    // still waiting
-                for (int i = 0; i < 12; ++i) { manager->AdvanceCoroutines(0.1); }  // +1.2s past 1.0
-                CHECK(progressOf(coro) == doctest::Approx(1.0));                    // resumed + ran
+                for (int i = 0; i < 3; ++i)
+                {
+                    manager->AdvanceCoroutines(0.1);
+                } // 0.3s
+                CHECK(progressOf(coro) == doctest::Approx(0.0)); // still waiting
+                for (int i = 0; i < 12; ++i)
+                {
+                    manager->AdvanceCoroutines(0.1);
+                } // +1.2s past 1.0
+                CHECK(progressOf(coro) == doctest::Approx(1.0)); // resumed + ran
             }
 
             // (2) waitUntil resumes when the predicate flips (not before).
@@ -245,11 +260,17 @@ namespace draconic::script::conformance
                 RefPtr<ScriptObject> coro = ctx->CreateInstance(u8"Coro", Span<Variant>{});
                 REQUIRE(coro.Get() != nullptr);
                 REQUIRE(coro->Invoke(u8"beginUntil", Span<Variant>{}).HasValue());
-                for (int i = 0; i < 5; ++i) { manager->AdvanceCoroutines(0.1); }
-                CHECK(progressOf(coro) == doctest::Approx(0.0));   // predicate false -> pending
+                for (int i = 0; i < 5; ++i)
+                {
+                    manager->AdvanceCoroutines(0.1);
+                }
+                CHECK(progressOf(coro) == doctest::Approx(0.0)); // predicate false -> pending
                 REQUIRE(coro->Invoke(u8"flip", Span<Variant>{}).HasValue());
-                for (int i = 0; i < 3; ++i) { manager->AdvanceCoroutines(0.1); }
-                CHECK(progressOf(coro) == doctest::Approx(1.0));   // predicate flipped -> resumed
+                for (int i = 0; i < 3; ++i)
+                {
+                    manager->AdvanceCoroutines(0.1);
+                }
+                CHECK(progressOf(coro) == doctest::Approx(1.0)); // predicate flipped -> resumed
             }
 
             // (3) CancelCoroutinesFor stops a pending coroutine (it never completes after).
@@ -259,11 +280,17 @@ namespace draconic::script::conformance
                 RefPtr<ScriptObject> coro = ctx->CreateInstance(u8"Coro", Span<Variant>{});
                 REQUIRE(coro.Get() != nullptr);
                 REQUIRE(coro->Invoke(u8"begin", Span<Variant>{}).HasValue());
-                for (int i = 0; i < 3; ++i) { manager->AdvanceCoroutines(0.1); }   // 0.3s, pending
+                for (int i = 0; i < 3; ++i)
+                {
+                    manager->AdvanceCoroutines(0.1);
+                } // 0.3s, pending
                 CHECK(progressOf(coro) == doctest::Approx(0.0));
                 manager->CancelCoroutinesFor(*coro);
-                for (int i = 0; i < 20; ++i) { manager->AdvanceCoroutines(0.1); }  // 2s must not run
-                CHECK(progressOf(coro) == doctest::Approx(0.0));   // cancelled -> never completes
+                for (int i = 0; i < 20; ++i)
+                {
+                    manager->AdvanceCoroutines(0.1);
+                } // 2s must not run
+                CHECK(progressOf(coro) == doctest::Approx(0.0)); // cancelled -> never completes
             }
         }
 
@@ -274,38 +301,50 @@ namespace draconic::script::conformance
         // (constructible, valid identifier, not a primitive / enum / container).
         {
             const Array<ScriptApiType> surface = manager->DescribeBoundApi();
-            CHECK_FALSE(surface.IsEmpty());   // a backend that registered types bound something
+            CHECK_FALSE(surface.IsEmpty()); // a backend that registered types bound something
             int checked = 0;
             for (const TypeInfo* type : GlobalTypeRegistry().All())
             {
-                if (type == nullptr || type->name == nullptr) { continue; }
-                const bool bindable = type->constructorCount > 0
-                    && type->enumeratorCount == 0 && type->container == nullptr
-                    && &TypeOf<f32>() != type && &TypeOf<f64>() != type;
-                if (!bindable) { continue; }
+                if (type == nullptr || type->name == nullptr)
+                {
+                    continue;
+                }
+                const bool bindable = type->constructorCount > 0 && type->enumeratorCount == 0 &&
+                                      type->container == nullptr && &TypeOf<f32>() != type &&
+                                      &TypeOf<f64>() != type;
+                if (!bindable)
+                {
+                    continue;
+                }
                 INFO("reflected type absent from backend surface: ", type->name);
                 CHECK(SurfaceHasType(surface, type->name));
                 ++checked;
             }
-            CHECK(checked > 0);   // the diff actually exercised some types
+            CHECK(checked > 0); // the diff actually exercised some types
             // Spot-check a known type is spelled with its members (not just present).
             for (const ScriptApiType& api : surface)
             {
-                if (StringView(api.scriptName) != u8"Float3") { continue; }
+                if (StringView(api.scriptName) != u8"Float3")
+                {
+                    continue;
+                }
                 bool hasDot = false;
                 for (const ScriptApiMember& member : api.members)
                 {
-                    if (StringView(member.name) == u8"Dot") { hasDot = true; }
+                    if (StringView(member.name) == u8"Dot")
+                    {
+                        hasDot = true;
+                    }
                 }
-                CHECK(hasDot);   // Float3::Dot is bound and reported
+                CHECK(hasDot); // Float3::Dot is bound and reported
             }
         }
 
         // --- Script delegates (certified only when the backend declares the capability) ---
-        if (HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Delegates)
-            && !dialect.delegateModule.IsEmpty())
+        if (HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Delegates) &&
+            !dialect.delegateModule.IsEmpty())
         {
-            manager->RegisterType(DelegateSignal::StaticType());   // late registration is supported
+            manager->RegisterType(DelegateSignal::StaticType()); // late registration is supported
             RefPtr<IScriptContext> ctx = manager->CreateContext();
             REQUIRE(ctx.Get() != nullptr);
             // Reflected foreign types live in the "main" module (Wren); load there so the
@@ -325,8 +364,8 @@ namespace draconic::script::conformance
             RefPtr<IScriptDelegate> handler = signal->Handler();
             REQUIRE(handler.Get() != nullptr);
             {
-                Variant callArgs[] = { Variant::From<f64>(10.0) };
-                Result<Variant> returned = handler->Invoke(Span<Variant>{ callArgs, 1 });
+                Variant callArgs[] = {Variant::From<f64>(10.0)};
+                Result<Variant> returned = handler->Invoke(Span<Variant>{callArgs, 1});
                 REQUIRE(returned.HasValue());
                 CHECK(returned.Value().Get<f64>() == doctest::Approx(20.0));
             }

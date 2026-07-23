@@ -8,12 +8,12 @@ module;
 
 export module draconic.ui:color_drawable;
 
-import draconic.core;      // Color, Rectangle
+import draconic.core; // Color, Rectangle
 import :drawable;
 import :draw_context;
 
 using namespace draconic::core;
-namespace core = draconic::core;   // to name core::Color where the field shadows the type
+namespace core = draconic::core; // to name core::Color where the field shadows the type
 
 export namespace draconic::ui
 {
@@ -28,7 +28,10 @@ export namespace draconic::ui
 
         void Draw(UIDrawContext& ctx, const Rectangle& bounds) override
         {
-            if (Color.a > 0.0f) { ctx.VG().FillRect(bounds, Color); }
+            if (Color.a > 0.0f)
+            {
+                ctx.VG().FillRect(bounds, Color);
+            }
         }
     };
 

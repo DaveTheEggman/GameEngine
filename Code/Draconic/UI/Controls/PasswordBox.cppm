@@ -9,11 +9,11 @@ module;
 
 export module draconic.ui:password_box;
 
-import draconic.core;   // String, StringView, DecodeUtf8, AppendUtf8
+import draconic.core; // String, StringView, DecodeUtf8, AppendUtf8
 import :edit_text;
 import :property;
 import :event_args;
-import :input_enums;    // KeyCode, KeyModifiers, HasFlag
+import :input_enums; // KeyCode, KeyModifiers, HasFlag
 
 using namespace draconic::core;
 
@@ -24,7 +24,7 @@ export namespace draconic::ui
         DRACONIC_OBJECT(PasswordBox, EditText)
     public:
         /// The character used to mask each real character.
-        Property<char32_t> PasswordChar{ U'*' };
+        Property<char32_t> PasswordChar{U'*'};
 
         PasswordBox()
         {
@@ -48,7 +48,8 @@ export namespace draconic::ui
         void OnKeyDown(KeyEventArgs& e) override
         {
             // Block copy and cut.
-            if (HasFlag(e.Modifiers, KeyModifiers::Ctrl) && (e.Key == KeyCode::C || e.Key == KeyCode::X))
+            if (HasFlag(e.Modifiers, KeyModifiers::Ctrl) &&
+                (e.Key == KeyCode::C || e.Key == KeyCode::X))
             {
                 e.Handled = true;
                 return;

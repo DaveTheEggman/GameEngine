@@ -20,8 +20,10 @@ namespace
     String AssetPath(const char* rel)
     {
         String p;
-        for (const char* s = DRACONIC_FONTS_ASSET_DIR; *s != '\0'; ++s) p.PushBack(static_cast<utf8char>(static_cast<unsigned char>(*s)));
-        for (const char* s = rel; *s != '\0'; ++s) p.PushBack(static_cast<utf8char>(static_cast<unsigned char>(*s)));
+        for (const char* s = DRACONIC_FONTS_ASSET_DIR; *s != '\0'; ++s)
+            p.PushBack(static_cast<utf8char>(static_cast<unsigned char>(*s)));
+        for (const char* s = rel; *s != '\0'; ++s)
+            p.PushBack(static_cast<utf8char>(static_cast<unsigned char>(*s)));
         return p;
     }
 
@@ -29,7 +31,8 @@ namespace
     IFont* LoadRoboto()
     {
         const String path = AssetPath("/roboto/Roboto-Regular.ttf");
-        Result<IFont*, FontLoadResult> parsed = FontParserFactory::ParseFromFile(path, FontLoadOptions::Default());
+        Result<IFont*, FontLoadResult> parsed =
+            FontParserFactory::ParseFromFile(path, FontLoadOptions::Default());
         return parsed.HasValue() ? parsed.Value() : nullptr;
     }
 }
@@ -74,7 +77,8 @@ TEST_CASE("ttf.loader: Initialize/Shutdown wires both factories")
 TEST_CASE("ttf.loader: parser factory errors with no parsers")
 {
     FontParserFactory::Shutdown();
-    Result<IFont*, FontLoadResult> result = FontParserFactory::ParseFromFile(u8"nonexistent.ttf", FontLoadOptions::Default());
+    Result<IFont*, FontLoadResult> result =
+        FontParserFactory::ParseFromFile(u8"nonexistent.ttf", FontLoadOptions::Default());
     CHECK_FALSE(result.HasValue());
     CHECK(result.Error() == FontLoadResult::UnsupportedFormat);
 }
@@ -89,7 +93,7 @@ TEST_CASE("ttf.font: load + metrics")
 
     CHECK(font->PixelHeight() == FontLoadOptions::Default().pixelHeight);
     CHECK(font->Metrics().ascent > 0);
-    CHECK(font->Metrics().descent < 0);   // descent is typically negative
+    CHECK(font->Metrics().descent < 0); // descent is typically negative
     CHECK(font->Metrics().lineHeight > 0);
     CHECK_FALSE(font->FamilyName().IsEmpty());
 
@@ -156,7 +160,8 @@ TEST_CASE("ttf.atlas: creation + dimensions")
     IFont* font = LoadRoboto();
     REQUIRE(font != nullptr);
 
-    Result<IFontAtlas*, FontLoadResult> baked = FontAtlasBakerFactory::Bake(*font, FontLoadOptions::Default());
+    Result<IFontAtlas*, FontLoadResult> baked =
+        FontAtlasBakerFactory::Bake(*font, FontLoadOptions::Default());
     REQUIRE(baked.HasValue());
     IFontAtlas* atlas = baked.Value();
 
@@ -175,7 +180,8 @@ TEST_CASE("ttf.atlas: Contains respects the codepoint range")
     IFont* font = LoadRoboto();
     REQUIRE(font != nullptr);
 
-    Result<IFontAtlas*, FontLoadResult> baked = FontAtlasBakerFactory::Bake(*font, FontLoadOptions::Default());
+    Result<IFontAtlas*, FontLoadResult> baked =
+        FontAtlasBakerFactory::Bake(*font, FontLoadOptions::Default());
     REQUIRE(baked.HasValue());
     IFontAtlas* atlas = baked.Value();
 
@@ -198,7 +204,8 @@ TEST_CASE("ttf.atlas: GetGlyphQuad")
     IFont* font = LoadRoboto();
     REQUIRE(font != nullptr);
 
-    Result<IFontAtlas*, FontLoadResult> baked = FontAtlasBakerFactory::Bake(*font, FontLoadOptions::Default());
+    Result<IFontAtlas*, FontLoadResult> baked =
+        FontAtlasBakerFactory::Bake(*font, FontLoadOptions::Default());
     REQUIRE(baked.HasValue());
     IFontAtlas* atlas = baked.Value();
 
@@ -279,7 +286,11 @@ TEST_CASE("ttf.shaper: ShapeTextWrapped wraps on width")
     CHECK(totalHeight > font->Metrics().lineHeight);
     bool hasSecondLine = false;
     for (const GlyphPosition& pos : positions)
-        if (pos.y > 0) { hasSecondLine = true; break; }
+        if (pos.y > 0)
+        {
+            hasSecondLine = true;
+            break;
+        }
     CHECK(hasSecondLine);
 
     DefaultAllocator().Delete(font);
@@ -300,7 +311,11 @@ TEST_CASE("ttf.shaper: ShapeTextWrapped honors explicit newlines")
 
     bool foundSecondLine = false;
     for (const GlyphPosition& pos : positions)
-        if (pos.y > 0) { foundSecondLine = true; break; }
+        if (pos.y > 0)
+        {
+            foundSecondLine = true;
+            break;
+        }
     CHECK(foundSecondLine);
 
     DefaultAllocator().Delete(font);

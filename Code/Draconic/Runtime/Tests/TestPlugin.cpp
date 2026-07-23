@@ -11,9 +11,9 @@ using namespace draconic::core;
 using namespace draconic::runtime;
 
 #if defined(_WIN32)
-    #define DRACONIC_PLUGIN_EXPORT __declspec(dllexport)
+#define DRACONIC_PLUGIN_EXPORT __declspec(dllexport)
 #else
-    #define DRACONIC_PLUGIN_EXPORT __attribute__((visibility("default")))
+#define DRACONIC_PLUGIN_EXPORT __attribute__((visibility("default")))
 #endif
 
 namespace
@@ -33,7 +33,10 @@ namespace
 
         // The plugin owns its subsystem; it registers it non-owningly and removes
         // it on unload, before the host closes this library.
-        void OnLoad(Context& context) override { context.RegisterSubsystem<PluginSubsystem>(&m_subsystem); }
+        void OnLoad(Context& context) override
+        {
+            context.RegisterSubsystem<PluginSubsystem>(&m_subsystem);
+        }
         void OnUnload(Context& context) override { context.RemoveSubsystem<PluginSubsystem>(); }
 
     private:

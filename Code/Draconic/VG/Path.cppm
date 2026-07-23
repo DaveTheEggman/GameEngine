@@ -33,8 +33,8 @@ export namespace draconic::vg
     struct PathSegment
     {
         PathCommand command = PathCommand::MoveTo; ///< The command type for this segment.
-        Span<const Float2> points;                   ///< Points for this command (not the start point).
-        Float2 startPoint;                           ///< The pen position before this segment.
+        Span<const Float2> points; ///< Points for this command (not the start point).
+        Float2 startPoint;         ///< The pen position before this segment.
     };
 
     /// Iterates over a Path, yielding PathSegment values.
@@ -43,7 +43,9 @@ export namespace draconic::vg
     public:
         PathIterator() = default;
         PathIterator(Span<const PathCommand> commands, Span<const Float2> points)
-            : m_commands(commands), m_points(points) {}
+            : m_commands(commands), m_points(points)
+        {
+        }
 
         /// Get the next segment. Returns false when iteration is complete.
         bool GetNext(PathSegment& segment)
@@ -103,8 +105,8 @@ export namespace draconic::vg
     class FlattenedSubPath
     {
     public:
-        Array<Float2> points;       ///< The points forming this polyline.
-        bool isClosed = false;    ///< Whether this sub-path is closed.
+        Array<Float2> points;  ///< The points forming this polyline.
+        bool isClosed = false; ///< Whether this sub-path is closed.
 
         FlattenedSubPath() = default;
         explicit FlattenedSubPath(bool inIsClosed) : isClosed(inIsClosed) {}
@@ -119,18 +121,29 @@ export namespace draconic::vg
 
         /// Create a path from pre-built command and point lists (takes ownership).
         Path(Array<PathCommand> commands, Array<Float2> points)
-            : m_commands(Move(commands)), m_points(Move(points)) {}
+            : m_commands(Move(commands)), m_points(Move(points))
+        {
+        }
 
         /// The commands that define this path.
-        [[nodiscard]] Span<const PathCommand> Commands() const { return Span<const PathCommand>(m_commands.Data(), m_commands.Size()); }
+        [[nodiscard]] Span<const PathCommand> Commands() const
+        {
+            return Span<const PathCommand>(m_commands.Data(), m_commands.Size());
+        }
         /// The points referenced by commands.
-        [[nodiscard]] Span<const Float2> Points() const { return Span<const Float2>(m_points.Data(), m_points.Size()); }
+        [[nodiscard]] Span<const Float2> Points() const
+        {
+            return Span<const Float2>(m_points.Data(), m_points.Size());
+        }
 
         [[nodiscard]] usize CommandCount() const { return m_commands.Size(); }
         [[nodiscard]] usize PointCount() const { return m_points.Size(); }
 
         /// Create an iterator over this path's segments.
-        [[nodiscard]] PathIterator GetIterator() const { return PathIterator(Commands(), Points()); }
+        [[nodiscard]] PathIterator GetIterator() const
+        {
+            return PathIterator(Commands(), Points());
+        }
 
         /// Count of sub-paths (number of MoveTo commands).
         [[nodiscard]] usize SubPathCount() const
@@ -156,13 +169,17 @@ export namespace draconic::vg
             for (usize i = 0; i < m_points.Size(); ++i)
             {
                 const Float2 p = m_points[i];
-                if (p.x < minX) minX = p.x;
-                if (p.y < minY) minY = p.y;
-                if (p.x > maxX) maxX = p.x;
-                if (p.y > maxY) maxY = p.y;
+                if (p.x < minX)
+                    minX = p.x;
+                if (p.y < minY)
+                    minY = p.y;
+                if (p.x > maxX)
+                    maxX = p.x;
+                if (p.y > maxY)
+                    maxY = p.y;
             }
 
-            return Rectangle{ minX, minY, maxX - minX, maxY - minY };
+            return Rectangle{minX, minY, maxX - minX, maxY - minY};
         }
 
         /// Test whether a point is inside this path using the given fill rule.
@@ -231,8 +248,10 @@ export namespace draconic::vg
 
             switch (fillRule)
             {
-            case FillRule::EvenOdd: return (windingNumber & 1) != 0;
-            case FillRule::NonZero: return windingNumber != 0;
+            case FillRule::EvenOdd:
+                return (windingNumber & 1) != 0;
+            case FillRule::NonZero:
+                return windingNumber != 0;
             }
             return false;
         }
@@ -248,17 +267,21 @@ export namespace draconic::vg
             {
                 switch (seg.command)
                 {
-                case PathCommand::MoveTo: break; // No length.
+                case PathCommand::MoveTo:
+                    break; // No length.
                 case PathCommand::LineTo:
                     totalLength += Distance(seg.startPoint, seg.points[0]);
                     break;
                 case PathCommand::QuadTo:
-                    totalLength += CurveUtils::QuadraticLength(seg.startPoint, seg.points[0], seg.points[1]);
+                    totalLength +=
+                        CurveUtils::QuadraticLength(seg.startPoint, seg.points[0], seg.points[1]);
                     break;
                 case PathCommand::CubicTo:
-                    totalLength += CurveUtils::CubicLength(seg.startPoint, seg.points[0], seg.points[1], seg.points[2]);
+                    totalLength += CurveUtils::CubicLength(seg.startPoint, seg.points[0],
+                                                           seg.points[1], seg.points[2]);
                     break;
-                case PathCommand::Close: break; // Close segment has implicit line.
+                case PathCommand::Close:
+                    break; // Close segment has implicit line.
                 }
             }
             return totalLength;
@@ -276,23 +299,30 @@ export namespace draconic::vg
                 f32 segLen = 0.0f;
                 switch (seg.command)
                 {
-                case PathCommand::MoveTo: continue;
+                case PathCommand::MoveTo:
+                    continue;
                 case PathCommand::LineTo:
                     segLen = Distance(seg.startPoint, seg.points[0]);
                     if (remaining <= segLen)
                         return Lerp(seg.startPoint, seg.points[0], remaining / segLen);
                     break;
                 case PathCommand::QuadTo:
-                    segLen = CurveUtils::QuadraticLength(seg.startPoint, seg.points[0], seg.points[1]);
+                    segLen =
+                        CurveUtils::QuadraticLength(seg.startPoint, seg.points[0], seg.points[1]);
                     if (remaining <= segLen)
-                        return CurveUtils::QuadraticPointAt(seg.startPoint, seg.points[0], seg.points[1], remaining / segLen);
+                        return CurveUtils::QuadraticPointAt(seg.startPoint, seg.points[0],
+                                                            seg.points[1], remaining / segLen);
                     break;
                 case PathCommand::CubicTo:
-                    segLen = CurveUtils::CubicLength(seg.startPoint, seg.points[0], seg.points[1], seg.points[2]);
+                    segLen = CurveUtils::CubicLength(seg.startPoint, seg.points[0], seg.points[1],
+                                                     seg.points[2]);
                     if (remaining <= segLen)
-                        return CurveUtils::CubicPointAt(seg.startPoint, seg.points[0], seg.points[1], seg.points[2], remaining / segLen);
+                        return CurveUtils::CubicPointAt(seg.startPoint, seg.points[0],
+                                                        seg.points[1], seg.points[2],
+                                                        remaining / segLen);
                     break;
-                case PathCommand::Close: continue;
+                case PathCommand::Close:
+                    continue;
                 }
                 remaining -= segLen;
             }
@@ -315,7 +345,8 @@ export namespace draconic::vg
                 f32 segLen = 0.0f;
                 switch (seg.command)
                 {
-                case PathCommand::MoveTo: continue;
+                case PathCommand::MoveTo:
+                    continue;
                 case PathCommand::LineTo:
                     segLen = Distance(seg.startPoint, seg.points[0]);
                     if (remaining <= segLen)
@@ -324,25 +355,31 @@ export namespace draconic::vg
                         const f32 len = Length(tangent);
                         if (len > 0.0001f)
                             return tangent / len;
-                        return Float2{ 1.0f, 0.0f };
+                        return Float2{1.0f, 0.0f};
                     }
                     break;
                 case PathCommand::QuadTo:
-                    segLen = CurveUtils::QuadraticLength(seg.startPoint, seg.points[0], seg.points[1]);
+                    segLen =
+                        CurveUtils::QuadraticLength(seg.startPoint, seg.points[0], seg.points[1]);
                     if (remaining <= segLen)
-                        return CurveUtils::QuadraticTangentAt(seg.startPoint, seg.points[0], seg.points[1], remaining / segLen);
+                        return CurveUtils::QuadraticTangentAt(seg.startPoint, seg.points[0],
+                                                              seg.points[1], remaining / segLen);
                     break;
                 case PathCommand::CubicTo:
-                    segLen = CurveUtils::CubicLength(seg.startPoint, seg.points[0], seg.points[1], seg.points[2]);
+                    segLen = CurveUtils::CubicLength(seg.startPoint, seg.points[0], seg.points[1],
+                                                     seg.points[2]);
                     if (remaining <= segLen)
-                        return CurveUtils::CubicTangentAt(seg.startPoint, seg.points[0], seg.points[1], seg.points[2], remaining / segLen);
+                        return CurveUtils::CubicTangentAt(seg.startPoint, seg.points[0],
+                                                          seg.points[1], seg.points[2],
+                                                          remaining / segLen);
                     break;
-                case PathCommand::Close: continue;
+                case PathCommand::Close:
+                    continue;
                 }
                 remaining -= segLen;
             }
 
-            return Float2{ 1.0f, 0.0f };
+            return Float2{1.0f, 0.0f};
         }
 
     private:
@@ -384,8 +421,8 @@ export namespace draconic::vg
         void MoveTo(f32 x, f32 y)
         {
             m_commands.PushBack(PathCommand::MoveTo);
-            m_points.PushBack(Float2{ x, y });
-            m_currentPoint = Float2{ x, y };
+            m_points.PushBack(Float2{x, y});
+            m_currentPoint = Float2{x, y};
             m_subPathStart = m_currentPoint;
             m_hasMoveTo = true;
         }
@@ -396,8 +433,8 @@ export namespace draconic::vg
         {
             EnsureMoveTo();
             m_commands.PushBack(PathCommand::LineTo);
-            m_points.PushBack(Float2{ x, y });
-            m_currentPoint = Float2{ x, y };
+            m_points.PushBack(Float2{x, y});
+            m_currentPoint = Float2{x, y};
         }
         void LineTo(Float2 point) { LineTo(point.x, point.y); }
 
@@ -406,9 +443,9 @@ export namespace draconic::vg
         {
             EnsureMoveTo();
             m_commands.PushBack(PathCommand::QuadTo);
-            m_points.PushBack(Float2{ cx, cy });
-            m_points.PushBack(Float2{ x, y });
-            m_currentPoint = Float2{ x, y };
+            m_points.PushBack(Float2{cx, cy});
+            m_points.PushBack(Float2{x, y});
+            m_currentPoint = Float2{x, y};
         }
         void QuadTo(Float2 control, Float2 end) { QuadTo(control.x, control.y, end.x, end.y); }
 
@@ -417,20 +454,24 @@ export namespace draconic::vg
         {
             EnsureMoveTo();
             m_commands.PushBack(PathCommand::CubicTo);
-            m_points.PushBack(Float2{ c1x, c1y });
-            m_points.PushBack(Float2{ c2x, c2y });
-            m_points.PushBack(Float2{ x, y });
-            m_currentPoint = Float2{ x, y };
+            m_points.PushBack(Float2{c1x, c1y});
+            m_points.PushBack(Float2{c2x, c2y});
+            m_points.PushBack(Float2{x, y});
+            m_currentPoint = Float2{x, y};
         }
-        void CubicTo(Float2 control1, Float2 control2, Float2 end) { CubicTo(control1.x, control1.y, control2.x, control2.y, end.x, end.y); }
+        void CubicTo(Float2 control1, Float2 control2, Float2 end)
+        {
+            CubicTo(control1.x, control1.y, control2.x, control2.y, end.x, end.y);
+        }
 
         /// Draw an SVG-style endpoint arc.
         void ArcTo(f32 rx, f32 ry, f32 xAxisRotation, bool largeArc, bool sweep, f32 x, f32 y)
         {
             EnsureMoveTo();
-            const Float2 to{ x, y };
+            const Float2 to{x, y};
             Array<Float2> cubicPoints;
-            CurveUtils::ArcToCubics(m_currentPoint, rx, ry, xAxisRotation, largeArc, sweep, to, cubicPoints);
+            CurveUtils::ArcToCubics(m_currentPoint, rx, ry, xAxisRotation, largeArc, sweep, to,
+                                    cubicPoints);
 
             // Each 3 points = one cubic segment (cp1, cp2, endpoint).
             for (usize i = 0; i + 2 < cubicPoints.Size(); i += 3)
@@ -443,7 +484,10 @@ export namespace draconic::vg
 
             m_currentPoint = to;
         }
-        void ArcTo(f32 rx, f32 ry, f32 xAxisRotation, bool largeArc, bool sweep, Float2 to) { ArcTo(rx, ry, xAxisRotation, largeArc, sweep, to.x, to.y); }
+        void ArcTo(f32 rx, f32 ry, f32 xAxisRotation, bool largeArc, bool sweep, Float2 to)
+        {
+            ArcTo(rx, ry, xAxisRotation, largeArc, sweep, to.x, to.y);
+        }
 
         /// Close the current sub-path.
         void Close()
@@ -515,7 +559,8 @@ export namespace draconic::vg
                     if (current != nullptr)
                     {
                         const usize prevCount = current->points.Size();
-                        CurveUtils::FlattenQuadratic(seg.startPoint, seg.points[0], seg.points[1], tolerance, current->points);
+                        CurveUtils::FlattenQuadratic(seg.startPoint, seg.points[0], seg.points[1],
+                                                     tolerance, current->points);
                         DeduplicateFrom(current->points, prevCount);
                     }
                     break;
@@ -523,7 +568,8 @@ export namespace draconic::vg
                     if (current != nullptr)
                     {
                         const usize prevCount = current->points.Size();
-                        CurveUtils::FlattenCubic(seg.startPoint, seg.points[0], seg.points[1], seg.points[2], tolerance, current->points);
+                        CurveUtils::FlattenCubic(seg.startPoint, seg.points[0], seg.points[1],
+                                                 seg.points[2], tolerance, current->points);
                         DeduplicateFrom(current->points, prevCount);
                     }
                     break;
@@ -536,7 +582,8 @@ export namespace draconic::vg
                         if (current->points.Size() > 2)
                         {
                             const Float2 first = current->points[0];
-                            while (current->points.Size() > 2 && PointsEqual(current->points[current->points.Size() - 1], first))
+                            while (current->points.Size() > 2 &&
+                                   PointsEqual(current->points[current->points.Size() - 1], first))
                                 current->points.RemoveAt(current->points.Size() - 1);
                         }
                     }

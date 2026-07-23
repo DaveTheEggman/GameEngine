@@ -54,11 +54,20 @@ export namespace draconic::ui
     /// Factory for creating the default dark theme as a StyleSheet.
     struct DarkTheme
     {
-        [[nodiscard]] static RefPtr<StyleSheet> Create() { return BuildTheme(ThemePalette::Dark()); }
-        [[nodiscard]] static RefPtr<StyleSheet> Create(ThemePalette palette) { return BuildTheme(palette); }
+        [[nodiscard]] static RefPtr<StyleSheet> Create()
+        {
+            return BuildTheme(ThemePalette::Dark());
+        }
+        [[nodiscard]] static RefPtr<StyleSheet> Create(ThemePalette palette)
+        {
+            return BuildTheme(palette);
+        }
 
     private:
-        [[nodiscard]] static Color C(f32 r, f32 g, f32 b, f32 a) { return Color{ r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f }; }
+        [[nodiscard]] static Color C(f32 r, f32 g, f32 b, f32 a)
+        {
+            return Color{r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f};
+        }
 
         [[nodiscard]] static RefPtr<StyleSheet> BuildTheme(ThemePalette p)
         {
@@ -79,11 +88,12 @@ export namespace draconic::ui
                 .Set(StyleProperty::Background, btnBg)
                 .Set(StyleProperty::CheckedBackground, btnChecked)
                 .Set(StyleProperty::TextColor, C(240, 240, 245, 255))
-                .Set(StyleProperty::Padding, Thickness{ 12, 8 })
+                .Set(StyleProperty::Padding, Thickness{12, 8})
                 .Set(StyleProperty::CornerRadius, 0.0f);
 
             // === Panel ===
-            RefPtr<Drawable> panelBg = MakeRef<RoundedRectDrawable>(DefaultAllocator(), p.Surface, 0.0f, p.Border, 1.0f);
+            RefPtr<Drawable> panelBg =
+                MakeRef<RoundedRectDrawable>(DefaultAllocator(), p.Surface, 0.0f, p.Border, 1.0f);
             sheet.OwnDrawable(panelBg);
             sheet.ForClass(u8"panel").Set(StyleProperty::Background, panelBg);
 
@@ -92,14 +102,15 @@ export namespace draconic::ui
             sheet.ForClass(u8"label-dim").Set(StyleProperty::TextColor, p.TextDim);
 
             // === EditText ===
-            RefPtr<Drawable> editBg = MakeRef<RoundedRectDrawable>(DefaultAllocator(), C(30, 32, 42, 255), 0.0f, p.Border, 1.0f);
+            RefPtr<Drawable> editBg = MakeRef<RoundedRectDrawable>(
+                DefaultAllocator(), C(30, 32, 42, 255), 0.0f, p.Border, 1.0f);
             sheet.OwnDrawable(editBg);
             sheet.ForType(&EditText::StaticType())
                 .Set(StyleProperty::Background, editBg)
                 .Set(StyleProperty::TextColor, p.Text)
                 .Set(StyleProperty::PlaceholderColor, p.TextDim)
                 .Set(StyleProperty::FontSize, 14.0f)
-                .Set(StyleProperty::Padding, Thickness{ 6, 4 })
+                .Set(StyleProperty::Padding, Thickness{6, 4})
                 .Set(StyleProperty::CursorColor, p.PrimaryAccent)
                 .Set(StyleProperty::SelectionColor, C(60, 120, 200, 80));
 
@@ -111,95 +122,132 @@ export namespace draconic::ui
                 .Set(StyleProperty::TextColor, p.Text)
                 .Set(StyleProperty::PlaceholderColor, p.TextDim)
                 .Set(StyleProperty::FontSize, 14.0f)
-                .Set(StyleProperty::Padding, Thickness{ 6, 4 })
+                .Set(StyleProperty::Padding, Thickness{6, 4})
                 .Set(StyleProperty::CursorColor, p.PrimaryAccent)
                 .Set(StyleProperty::SelectionColor, C(60, 120, 200, 80));
-            sheet.ForTypePseudo(&NumericField::StaticType(), u8"spin-up").Set(StyleProperty::Background, spinBg);
-            sheet.ForTypePseudo(&NumericField::StaticType(), u8"spin-down").Set(StyleProperty::Background, spinBg);
+            sheet.ForTypePseudo(&NumericField::StaticType(), u8"spin-up")
+                .Set(StyleProperty::Background, spinBg);
+            sheet.ForTypePseudo(&NumericField::StaticType(), u8"spin-down")
+                .Set(StyleProperty::Background, spinBg);
 
             // === CheckBox ===
             const Color cbBorder = C(100, 105, 120, 255);
-            RefPtr<Drawable> cbUnchecked = MakeRef<RoundedRectDrawable>(DefaultAllocator(), C(30, 32, 42, 255), 0.0f, cbBorder, 1.0f);
-            RefPtr<Drawable> cbChecked = MakeRef<RoundedRectDrawable>(DefaultAllocator(), p.PrimaryAccent, 0.0f, cbBorder, 1.0f);
+            RefPtr<Drawable> cbUnchecked = MakeRef<RoundedRectDrawable>(
+                DefaultAllocator(), C(30, 32, 42, 255), 0.0f, cbBorder, 1.0f);
+            RefPtr<Drawable> cbChecked = MakeRef<RoundedRectDrawable>(
+                DefaultAllocator(), p.PrimaryAccent, 0.0f, cbBorder, 1.0f);
             sheet.OwnDrawable(cbUnchecked);
             sheet.OwnDrawable(cbChecked);
             sheet.ForTypePseudo(&CheckBox::StaticType(), u8"box")
                 .Set(StyleProperty::Background, cbUnchecked)
                 .Set(StyleProperty::Width, 18.0f);
-            sheet.ForTypePseudoState(&CheckBox::StaticType(), u8"box", ControlState::Checked).Set(StyleProperty::Background, cbChecked);
+            sheet.ForTypePseudoState(&CheckBox::StaticType(), u8"box", ControlState::Checked)
+                .Set(StyleProperty::Background, cbChecked);
             sheet.ForType(&CheckBox::StaticType()).Set(StyleProperty::Spacing, 6.0f);
 
             // === RadioButton ===
             const Color rbBorder = C(100, 105, 120, 255);
-            RefPtr<Drawable> rbUnchecked = MakeRef<RoundedRectDrawable>(DefaultAllocator(), C(30, 32, 42, 255), 0.0f, rbBorder, 1.0f);
-            RefPtr<Drawable> rbChecked = MakeRef<RoundedRectDrawable>(DefaultAllocator(), p.PrimaryAccent, 0.0f, rbBorder, 1.0f);
+            RefPtr<Drawable> rbUnchecked = MakeRef<RoundedRectDrawable>(
+                DefaultAllocator(), C(30, 32, 42, 255), 0.0f, rbBorder, 1.0f);
+            RefPtr<Drawable> rbChecked = MakeRef<RoundedRectDrawable>(
+                DefaultAllocator(), p.PrimaryAccent, 0.0f, rbBorder, 1.0f);
             sheet.OwnDrawable(rbUnchecked);
             sheet.OwnDrawable(rbChecked);
-            sheet.ForTypePseudo(&RadioButton::StaticType(), u8"box").Set(StyleProperty::Background, rbUnchecked);
-            sheet.ForTypePseudoState(&RadioButton::StaticType(), u8"box", ControlState::Checked).Set(StyleProperty::Background, rbChecked);
+            sheet.ForTypePseudo(&RadioButton::StaticType(), u8"box")
+                .Set(StyleProperty::Background, rbUnchecked);
+            sheet.ForTypePseudoState(&RadioButton::StaticType(), u8"box", ControlState::Checked)
+                .Set(StyleProperty::Background, rbChecked);
 
             // === Slider ===
             sheet.ForTypePseudo(&Slider::StaticType(), u8"track")
                 .Set(StyleProperty::Background, sheet.OwnColor(C(50, 52, 62, 255)))
                 .Set(StyleProperty::Height, 4.0f);
-            sheet.ForTypePseudo(&Slider::StaticType(), u8"fill").Set(StyleProperty::Background, sheet.OwnColor(p.PrimaryAccent));
+            sheet.ForTypePseudo(&Slider::StaticType(), u8"fill")
+                .Set(StyleProperty::Background, sheet.OwnColor(p.PrimaryAccent));
             sheet.ForTypePseudo(&Slider::StaticType(), u8"thumb")
                 .Set(StyleProperty::Background, sheet.OwnColor(C(220, 220, 230, 255)))
                 .Set(StyleProperty::Width, 16.0f);
 
             // === ProgressBar ===
-            sheet.ForTypePseudo(&ProgressBar::StaticType(), u8"track").Set(StyleProperty::Background, sheet.OwnColor(C(50, 52, 62, 255)));
-            sheet.ForTypePseudo(&ProgressBar::StaticType(), u8"fill").Set(StyleProperty::Background, sheet.OwnColor(p.PrimaryAccent));
+            sheet.ForTypePseudo(&ProgressBar::StaticType(), u8"track")
+                .Set(StyleProperty::Background, sheet.OwnColor(C(50, 52, 62, 255)));
+            sheet.ForTypePseudo(&ProgressBar::StaticType(), u8"fill")
+                .Set(StyleProperty::Background, sheet.OwnColor(p.PrimaryAccent));
 
             // === ToggleSwitch ===
             {
-                RefPtr<Drawable> swOff = MakeRef<RoundedRectDrawable>(DefaultAllocator(), p.Surface, 0.0f, p.Border, 1.0f);
-                RefPtr<Drawable> swOn = MakeRef<RoundedRectDrawable>(DefaultAllocator(), p.PrimaryAccent, 0.0f, p.Border, 1.0f);
+                RefPtr<Drawable> swOff = MakeRef<RoundedRectDrawable>(DefaultAllocator(), p.Surface,
+                                                                      0.0f, p.Border, 1.0f);
+                RefPtr<Drawable> swOn = MakeRef<RoundedRectDrawable>(
+                    DefaultAllocator(), p.PrimaryAccent, 0.0f, p.Border, 1.0f);
                 sheet.OwnDrawable(swOff);
                 sheet.OwnDrawable(swOn);
-                sheet.ForTypePseudo(&ToggleSwitch::StaticType(), u8"track").Set(StyleProperty::Background, swOff);
-                sheet.ForTypePseudoState(&ToggleSwitch::StaticType(), u8"track", ControlState::Checked).Set(StyleProperty::Background, swOn);
-                sheet.ForTypePseudo(&ToggleSwitch::StaticType(), u8"knob").Set(StyleProperty::Background, sheet.OwnColor(C(230, 230, 235, 255)));
+                sheet.ForTypePseudo(&ToggleSwitch::StaticType(), u8"track")
+                    .Set(StyleProperty::Background, swOff);
+                sheet
+                    .ForTypePseudoState(&ToggleSwitch::StaticType(), u8"track",
+                                        ControlState::Checked)
+                    .Set(StyleProperty::Background, swOn);
+                sheet.ForTypePseudo(&ToggleSwitch::StaticType(), u8"knob")
+                    .Set(StyleProperty::Background, sheet.OwnColor(C(230, 230, 235, 255)));
             }
 
             // === ComboBox ===
-            RefPtr<Drawable> comboBg = MakeRef<RoundedRectDrawable>(DefaultAllocator(), C(40, 42, 52, 255), 0.0f, p.Border, 1.0f);
+            RefPtr<Drawable> comboBg = MakeRef<RoundedRectDrawable>(
+                DefaultAllocator(), C(40, 42, 52, 255), 0.0f, p.Border, 1.0f);
             sheet.OwnDrawable(comboBg);
             sheet.ForType(&ComboBox::StaticType()).Set(StyleProperty::Background, comboBg);
-            sheet.ForTypePseudo(&ComboBox::StaticType(), u8"arrow").Set(StyleProperty::TextColor, C(180, 185, 200, 255));
+            sheet.ForTypePseudo(&ComboBox::StaticType(), u8"arrow")
+                .Set(StyleProperty::TextColor, C(180, 185, 200, 255));
 
             // === ScrollBar ===
-            sheet.ForTypePseudo(&ScrollBar::StaticType(), u8"track").Set(StyleProperty::Background, sheet.OwnColor(C(40, 42, 50, 150)));
-            sheet.ForTypePseudo(&ScrollBar::StaticType(), u8"thumb").Set(StyleProperty::Background, sheet.OwnColor(C(100, 110, 130, 200)));
+            sheet.ForTypePseudo(&ScrollBar::StaticType(), u8"track")
+                .Set(StyleProperty::Background, sheet.OwnColor(C(40, 42, 50, 150)));
+            sheet.ForTypePseudo(&ScrollBar::StaticType(), u8"thumb")
+                .Set(StyleProperty::Background, sheet.OwnColor(C(100, 110, 130, 200)));
 
             // === Separator ===
             sheet.ForType(&Separator::StaticType()).Set(StyleProperty::BorderColor, p.Border);
 
             // === Expander ===
-            sheet.ForTypePseudo(&Expander::StaticType(), u8"header").Set(StyleProperty::Background, sheet.OwnColor(C(50, 55, 68, 255)));
-            sheet.ForTypePseudoState(&Expander::StaticType(), u8"header", ControlState::Hover).Set(StyleProperty::Background, sheet.OwnColor(Palette::Lighten(C(50, 55, 68, 255), 0.1f)));
-            sheet.ForTypePseudo(&Expander::StaticType(), u8"chevron").Set(StyleProperty::TextColor, C(180, 185, 200, 255));
+            sheet.ForTypePseudo(&Expander::StaticType(), u8"header")
+                .Set(StyleProperty::Background, sheet.OwnColor(C(50, 55, 68, 255)));
+            sheet.ForTypePseudoState(&Expander::StaticType(), u8"header", ControlState::Hover)
+                .Set(StyleProperty::Background,
+                     sheet.OwnColor(Palette::Lighten(C(50, 55, 68, 255), 0.1f)));
+            sheet.ForTypePseudo(&Expander::StaticType(), u8"chevron")
+                .Set(StyleProperty::TextColor, C(180, 185, 200, 255));
 
             // === TabView ===
-            sheet.ForTypePseudo(&TabView::StaticType(), u8"strip").Set(StyleProperty::Background, sheet.OwnColor(Palette::Darken(p.Surface, 0.15f)));
-            sheet.ForTypePseudo(&TabView::StaticType(), u8"content").Set(StyleProperty::Background, sheet.OwnColor(p.Surface));
-            sheet.ForTypePseudoState(&TabView::StaticType(), u8"tab", ControlState::Checked).Set(StyleProperty::Background, sheet.OwnColor(p.Surface));
-            sheet.ForTypePseudoState(&TabView::StaticType(), u8"tab", ControlState::Hover).Set(StyleProperty::Background, sheet.OwnColor(Palette::Lighten(p.Surface, 0.05f)));
-            sheet.ForTypePseudo(&TabView::StaticType(), u8"tab").Set(StyleProperty::TextColor, p.TextDim);
-            sheet.ForTypePseudoState(&TabView::StaticType(), u8"tab", ControlState::Checked).Set(StyleProperty::TextColor, p.Text);
-            sheet.ForTypePseudoState(&TabView::StaticType(), u8"tab", ControlState::Hover).Set(StyleProperty::TextColor, Palette::Lighten(p.TextDim, 0.3f));
+            sheet.ForTypePseudo(&TabView::StaticType(), u8"strip")
+                .Set(StyleProperty::Background, sheet.OwnColor(Palette::Darken(p.Surface, 0.15f)));
+            sheet.ForTypePseudo(&TabView::StaticType(), u8"content")
+                .Set(StyleProperty::Background, sheet.OwnColor(p.Surface));
+            sheet.ForTypePseudoState(&TabView::StaticType(), u8"tab", ControlState::Checked)
+                .Set(StyleProperty::Background, sheet.OwnColor(p.Surface));
+            sheet.ForTypePseudoState(&TabView::StaticType(), u8"tab", ControlState::Hover)
+                .Set(StyleProperty::Background, sheet.OwnColor(Palette::Lighten(p.Surface, 0.05f)));
+            sheet.ForTypePseudo(&TabView::StaticType(), u8"tab")
+                .Set(StyleProperty::TextColor, p.TextDim);
+            sheet.ForTypePseudoState(&TabView::StaticType(), u8"tab", ControlState::Checked)
+                .Set(StyleProperty::TextColor, p.Text);
+            sheet.ForTypePseudoState(&TabView::StaticType(), u8"tab", ControlState::Hover)
+                .Set(StyleProperty::TextColor, Palette::Lighten(p.TextDim, 0.3f));
             sheet.ForTypePseudo(&TabView::StaticType(), u8"close-button")
                 .Set(StyleProperty::TextColor, p.TextDim)
                 .Set(StyleProperty::Width, 12.0f);
-            sheet.ForTypePseudoState(&TabView::StaticType(), u8"close-button", ControlState::Hover).Set(StyleProperty::TextColor, p.Text);
+            sheet.ForTypePseudoState(&TabView::StaticType(), u8"close-button", ControlState::Hover)
+                .Set(StyleProperty::TextColor, p.Text);
             sheet.ForType(&TabView::StaticType())
                 .Set(StyleProperty::BorderColor, p.Border)
                 .Set(StyleProperty::AccentColor, p.PrimaryAccent);
 
             // === ContextMenu ===
-            RefPtr<Drawable> menuBg = MakeRef<RoundedRectDrawable>(DefaultAllocator(), C(45, 48, 58, 255), 0.0f, C(70, 75, 90, 255), 1.0f);
+            RefPtr<Drawable> menuBg = MakeRef<RoundedRectDrawable>(
+                DefaultAllocator(), C(45, 48, 58, 255), 0.0f, C(70, 75, 90, 255), 1.0f);
             sheet.OwnDrawable(menuBg);
-            RefPtr<Drawable> menuHover = MakeRef<RoundedRectDrawable>(DefaultAllocator(), C(60, 120, 200, 100), 0.0f);
+            RefPtr<Drawable> menuHover =
+                MakeRef<RoundedRectDrawable>(DefaultAllocator(), C(60, 120, 200, 100), 0.0f);
             sheet.OwnDrawable(menuHover);
             sheet.ForClass(u8"contextmenu")
                 .Set(StyleProperty::Background, menuBg)
@@ -209,12 +257,14 @@ export namespace draconic::ui
                 .Set(StyleProperty::AccentColor, C(60, 120, 200, 100));
 
             // === Dialog ===
-            RefPtr<Drawable> dialogBg = MakeRef<RoundedRectDrawable>(DefaultAllocator(), C(50, 52, 62, 255), 0.0f, C(80, 85, 100, 255), 1.0f);
+            RefPtr<Drawable> dialogBg = MakeRef<RoundedRectDrawable>(
+                DefaultAllocator(), C(50, 52, 62, 255), 0.0f, C(80, 85, 100, 255), 1.0f);
             sheet.OwnDrawable(dialogBg);
             sheet.ForType(&Dialog::StaticType()).Set(StyleProperty::Background, dialogBg);
 
             // === Tooltip ===
-            RefPtr<Drawable> tooltipBg = MakeRef<RoundedRectDrawable>(DefaultAllocator(), C(40, 42, 50, 230), 0.0f, C(70, 75, 85, 255), 1.0f);
+            RefPtr<Drawable> tooltipBg = MakeRef<RoundedRectDrawable>(
+                DefaultAllocator(), C(40, 42, 50, 230), 0.0f, C(70, 75, 85, 255), 1.0f);
             sheet.OwnDrawable(tooltipBg);
             sheet.ForType(&TooltipView::StaticType())
                 .Set(StyleProperty::Background, tooltipBg)
@@ -224,7 +274,8 @@ export namespace draconic::ui
             sheet.ForType(&ListView::StaticType())
                 .Set(StyleProperty::Background, sheet.OwnColor(p.Background))
                 .Set(StyleProperty::SelectionColor, C(60, 120, 200, 80));
-            sheet.ForType(&TreeView::StaticType()).Set(StyleProperty::Background, sheet.OwnColor(p.Background));
+            sheet.ForType(&TreeView::StaticType())
+                .Set(StyleProperty::Background, sheet.OwnColor(p.Background));
             sheet.ForType(&GridView::StaticType())
                 .Set(StyleProperty::Background, sheet.OwnColor(p.Background))
                 .Set(StyleProperty::SelectionColor, C(60, 120, 200, 80));
@@ -240,13 +291,53 @@ export namespace draconic::ui
 
         static void RegisterIcons(StyleSheet& sheet)
         {
-            if (RefPtr<Drawable> checkmark = SVGDrawable::FromString(ThemeIcons::Checkmark())) { sheet.OwnDrawable(checkmark); sheet.ForTypePseudo(&CheckBox::StaticType(), u8"checkmark").Set(StyleProperty::Background, checkmark); }
-            if (RefPtr<Drawable> radioMark = SVGDrawable::FromString(ThemeIcons::RadioMarkSquare())) { sheet.OwnDrawable(radioMark); sheet.ForTypePseudo(&RadioButton::StaticType(), u8"mark").Set(StyleProperty::Background, radioMark); }
-            if (RefPtr<Drawable> closeIcon = SVGDrawable::FromString(ThemeIcons::Close())) { sheet.OwnDrawable(closeIcon); sheet.ForTypePseudo(&TabView::StaticType(), u8"close-button").Set(StyleProperty::Background, closeIcon); }
-            if (RefPtr<Drawable> chevExpanded = SVGDrawable::FromString(ThemeIcons::ChevronDown())) { sheet.OwnDrawable(chevExpanded); sheet.ForTypePseudoState(&Expander::StaticType(), u8"chevron", ControlState::Checked).Set(StyleProperty::Background, chevExpanded); }
-            if (RefPtr<Drawable> chevCollapsed = SVGDrawable::FromString(ThemeIcons::ChevronRight())) { sheet.OwnDrawable(chevCollapsed); sheet.ForTypePseudo(&Expander::StaticType(), u8"chevron").Set(StyleProperty::Background, chevCollapsed); }
-            if (RefPtr<Drawable> tvChevExpanded = SVGDrawable::FromString(ThemeIcons::ChevronDown())) { sheet.OwnDrawable(tvChevExpanded); sheet.ForTypePseudoState(&TreeView::StaticType(), u8"chevron", ControlState::Checked).Set(StyleProperty::Background, tvChevExpanded); }
-            if (RefPtr<Drawable> tvChevCollapsed = SVGDrawable::FromString(ThemeIcons::ChevronRight())) { sheet.OwnDrawable(tvChevCollapsed); sheet.ForTypePseudo(&TreeView::StaticType(), u8"chevron").Set(StyleProperty::Background, tvChevCollapsed); }
+            if (RefPtr<Drawable> checkmark = SVGDrawable::FromString(ThemeIcons::Checkmark()))
+            {
+                sheet.OwnDrawable(checkmark);
+                sheet.ForTypePseudo(&CheckBox::StaticType(), u8"checkmark")
+                    .Set(StyleProperty::Background, checkmark);
+            }
+            if (RefPtr<Drawable> radioMark = SVGDrawable::FromString(ThemeIcons::RadioMarkSquare()))
+            {
+                sheet.OwnDrawable(radioMark);
+                sheet.ForTypePseudo(&RadioButton::StaticType(), u8"mark")
+                    .Set(StyleProperty::Background, radioMark);
+            }
+            if (RefPtr<Drawable> closeIcon = SVGDrawable::FromString(ThemeIcons::Close()))
+            {
+                sheet.OwnDrawable(closeIcon);
+                sheet.ForTypePseudo(&TabView::StaticType(), u8"close-button")
+                    .Set(StyleProperty::Background, closeIcon);
+            }
+            if (RefPtr<Drawable> chevExpanded = SVGDrawable::FromString(ThemeIcons::ChevronDown()))
+            {
+                sheet.OwnDrawable(chevExpanded);
+                sheet
+                    .ForTypePseudoState(&Expander::StaticType(), u8"chevron", ControlState::Checked)
+                    .Set(StyleProperty::Background, chevExpanded);
+            }
+            if (RefPtr<Drawable> chevCollapsed =
+                    SVGDrawable::FromString(ThemeIcons::ChevronRight()))
+            {
+                sheet.OwnDrawable(chevCollapsed);
+                sheet.ForTypePseudo(&Expander::StaticType(), u8"chevron")
+                    .Set(StyleProperty::Background, chevCollapsed);
+            }
+            if (RefPtr<Drawable> tvChevExpanded =
+                    SVGDrawable::FromString(ThemeIcons::ChevronDown()))
+            {
+                sheet.OwnDrawable(tvChevExpanded);
+                sheet
+                    .ForTypePseudoState(&TreeView::StaticType(), u8"chevron", ControlState::Checked)
+                    .Set(StyleProperty::Background, tvChevExpanded);
+            }
+            if (RefPtr<Drawable> tvChevCollapsed =
+                    SVGDrawable::FromString(ThemeIcons::ChevronRight()))
+            {
+                sheet.OwnDrawable(tvChevCollapsed);
+                sheet.ForTypePseudo(&TreeView::StaticType(), u8"chevron")
+                    .Set(StyleProperty::Background, tvChevCollapsed);
+            }
             if (RefPtr<Drawable> subArrow = SVGDrawable::FromString(ThemeIcons::ChevronRight()))
             {
                 sheet.OwnDrawable(subArrow);
@@ -256,9 +347,24 @@ export namespace draconic::ui
                 rule->Set(StyleProperty::Background, subArrow);
                 sheet.AddRule(Move(rule));
             }
-            if (RefPtr<Drawable> arrowDown = SVGDrawable::FromString(ThemeIcons::ArrowDown())) { sheet.OwnDrawable(arrowDown); sheet.ForTypePseudo(&ComboBox::StaticType(), u8"arrow").Set(StyleProperty::Background, arrowDown); }
-            if (RefPtr<Drawable> arrowUp = SVGDrawable::FromString(ThemeIcons::ArrowUp())) { sheet.OwnDrawable(arrowUp); sheet.ForTypePseudo(&NumericField::StaticType(), u8"arrow-up").Set(StyleProperty::Background, arrowUp); }
-            if (RefPtr<Drawable> arrowDn2 = SVGDrawable::FromString(ThemeIcons::ArrowDown())) { sheet.OwnDrawable(arrowDn2); sheet.ForTypePseudo(&NumericField::StaticType(), u8"arrow-down").Set(StyleProperty::Background, arrowDn2); }
+            if (RefPtr<Drawable> arrowDown = SVGDrawable::FromString(ThemeIcons::ArrowDown()))
+            {
+                sheet.OwnDrawable(arrowDown);
+                sheet.ForTypePseudo(&ComboBox::StaticType(), u8"arrow")
+                    .Set(StyleProperty::Background, arrowDown);
+            }
+            if (RefPtr<Drawable> arrowUp = SVGDrawable::FromString(ThemeIcons::ArrowUp()))
+            {
+                sheet.OwnDrawable(arrowUp);
+                sheet.ForTypePseudo(&NumericField::StaticType(), u8"arrow-up")
+                    .Set(StyleProperty::Background, arrowUp);
+            }
+            if (RefPtr<Drawable> arrowDn2 = SVGDrawable::FromString(ThemeIcons::ArrowDown()))
+            {
+                sheet.OwnDrawable(arrowDn2);
+                sheet.ForTypePseudo(&NumericField::StaticType(), u8"arrow-down")
+                    .Set(StyleProperty::Background, arrowDn2);
+            }
         }
     };
 }

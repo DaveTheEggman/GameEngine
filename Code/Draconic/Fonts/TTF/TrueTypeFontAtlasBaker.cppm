@@ -24,7 +24,10 @@ export namespace draconic::fonts
     class TrueTypeFontAtlasBaker final : public IFontAtlasBaker
     {
     public:
-        [[nodiscard]] Span<const StringView> SupportedExtensions() const override { return TrueTypeExtensions(); }
+        [[nodiscard]] Span<const StringView> SupportedExtensions() const override
+        {
+            return TrueTypeExtensions();
+        }
 
         [[nodiscard]] bool SupportsExtension(StringView fileExtension) const override
         {
@@ -39,7 +42,8 @@ export namespace draconic::fonts
             return font.BackendTypeId() == kTrueTypeFontTypeId;
         }
 
-        [[nodiscard]] Result<IFontAtlas*, FontLoadResult> Bake(IFont& font, FontLoadOptions options) override
+        [[nodiscard]] Result<IFontAtlas*, FontLoadResult> Bake(IFont& font,
+                                                               FontLoadOptions options) override
         {
             if (font.BackendTypeId() != kTrueTypeFontTypeId)
                 return Err(FontLoadResult::UnsupportedFormat);

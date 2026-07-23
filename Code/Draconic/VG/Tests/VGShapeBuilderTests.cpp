@@ -14,7 +14,8 @@ namespace
         i32 count = 0;
         const Span<const PathCommand> cmds = path.Commands();
         for (usize i = 0; i < cmds.Size(); ++i)
-            if (cmds[i] == which) ++count;
+            if (cmds[i] == which)
+                ++count;
         return count;
     }
 }

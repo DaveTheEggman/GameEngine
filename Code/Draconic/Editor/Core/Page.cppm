@@ -22,7 +22,7 @@ using namespace draconic::core;
 
 export namespace draconic::editor
 {
-    class EditorContext;   // defined in :context (pages receive it on creation)
+    class EditorContext; // defined in :context (pages receive it on creation)
 
     // One open document. Owns its command stack; the context routes Edit>Undo/Redo to the
     // active page's stack. `Commands().OnChanged` is wired by the base to mark the page dirty.
@@ -56,7 +56,10 @@ export namespace draconic::editor
         /// Rebind this page to a DIFFERENT source instance (Save As): the caller created
         /// `instance` and invokes Save() next, so the page's current content lands there.
         /// Pages that cache the asset's name override (calling the base) to refresh it.
-        virtual void OnSavedAs(draconic::content::Instance& instance) { m_instanceId = instance.Id(); }
+        virtual void OnSavedAs(draconic::content::Instance& instance)
+        {
+            m_instanceId = instance.Id();
+        }
 
         /// The source-DB instance this page edits (zero Guid for instance-less pages).
         [[nodiscard]] const Guid& InstanceId() const noexcept { return m_instanceId; }
@@ -79,8 +82,8 @@ export namespace draconic::editor
         [[nodiscard]] virtual const TypeInfo* PrimaryType() const = 0;
 
         /// Create a page editing `instance`. Null on failure (unreadable object etc.).
-        [[nodiscard]] virtual UniquePtr<EditorPage> CreatePage(EditorContext& context,
-                                                               draconic::content::Instance& instance) = 0;
+        [[nodiscard]] virtual UniquePtr<EditorPage>
+        CreatePage(EditorContext& context, draconic::content::Instance& instance) = 0;
     };
 
     // Factory registry with Traktor-style nearest-type dispatch: the factory whose
@@ -94,7 +97,10 @@ export namespace draconic::editor
 
         void Register(UniquePtr<IEditorPageFactory> factory)
         {
-            if (factory && factory->PrimaryType() != nullptr) { m_factories.PushBack(Move(factory)); }
+            if (factory && factory->PrimaryType() != nullptr)
+            {
+                m_factories.PushBack(Move(factory));
+            }
         }
 
         [[nodiscard]] IEditorPageFactory* FindFactory(const TypeInfo& type) const

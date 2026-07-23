@@ -56,9 +56,8 @@ export namespace draconic::ui
         void Hide();
         [[nodiscard]] bool IsTooltipOrDescendant(View* view) const;
 
-        static Float2 PositionTooltip(TooltipPlacement placement,
-            f32 targetX, f32 targetY, f32 targetW, f32 targetH,
-            Float2 popupSize, Rectangle screen);
+        static Float2 PositionTooltip(TooltipPlacement placement, f32 targetX, f32 targetY,
+                                      f32 targetW, f32 targetH, Float2 popupSize, Rectangle screen);
 
         UIContext* m_context = nullptr;
         RefPtr<TooltipView> m_tooltipView;

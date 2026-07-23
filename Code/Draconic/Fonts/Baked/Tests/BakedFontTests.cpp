@@ -23,7 +23,7 @@ TEST_CASE("baked.font: metrics round-trip")
     CHECK(font.Metrics().ascent == 20.0f);
     CHECK(font.Metrics().descent == -5.0f);
     CHECK(font.Metrics().lineGap == 2.0f);
-    CHECK(font.Metrics().lineHeight == 27.0f);   // ascent - descent + lineGap
+    CHECK(font.Metrics().lineHeight == 27.0f); // ascent - descent + lineGap
     CHECK(font.Metrics().pixelHeight == 24);
     CHECK(font.Metrics().scale == 0.0625f);
 }
@@ -69,8 +69,10 @@ TEST_CASE("baked.font: kerning")
 TEST_CASE("baked.font: MeasureString uses kerning")
 {
     BakedFont font;
-    GlyphInfo a; a.advanceWidth = 10.0f;
-    GlyphInfo b; b.advanceWidth = 10.0f;
+    GlyphInfo a;
+    a.advanceWidth = 10.0f;
+    GlyphInfo b;
+    b.advanceWidth = 10.0f;
     font.SetGlyph(static_cast<i32>('A'), a);
     font.SetGlyph(static_cast<i32>('B'), b);
     font.SetKerning(static_cast<i32>('A'), static_cast<i32>('B'), -3.0f);
@@ -84,8 +86,10 @@ TEST_CASE("baked.font: MeasureString uses kerning")
 TEST_CASE("baked.font: MeasureString with glyph positions")
 {
     BakedFont font;
-    GlyphInfo a; a.advanceWidth = 10.0f;
-    GlyphInfo b; b.advanceWidth = 10.0f;
+    GlyphInfo a;
+    a.advanceWidth = 10.0f;
+    GlyphInfo b;
+    b.advanceWidth = 10.0f;
     font.SetGlyph(static_cast<i32>('A'), a);
     font.SetGlyph(static_cast<i32>('B'), b);
     font.SetKerning(static_cast<i32>('A'), static_cast<i32>('B'), -3.0f);
@@ -97,7 +101,7 @@ TEST_CASE("baked.font: MeasureString with glyph positions")
     CHECK(positions.Size() == 2);
     CHECK(positions[0].x == 0);
     CHECK(positions[0].codepoint == static_cast<i32>('A'));
-    CHECK(positions[1].x == 7.0f);   // first advance + kerning
+    CHECK(positions[1].x == 7.0f); // first advance + kerning
     CHECK(positions[1].codepoint == static_cast<i32>('B'));
 }
 
@@ -121,7 +125,8 @@ TEST_CASE("baked.atlas: SetPixels takes ownership")
 TEST_CASE("baked.atlas: region table")
 {
     BakedFontAtlas atlas;
-    Array<u8> px; px.Resize(128 * 128);
+    Array<u8> px;
+    px.Resize(128 * 128);
     atlas.SetPixels(128, 128, Move(px));
     atlas.SetWhitePixelUV(0.99f, 0.99f);
 
@@ -147,7 +152,8 @@ TEST_CASE("baked.atlas: region table")
 TEST_CASE("baked.atlas: GetGlyphQuad advances cursor")
 {
     BakedFontAtlas atlas;
-    Array<u8> px; px.Resize(128 * 128);
+    Array<u8> px;
+    px.Resize(128 * 128);
     atlas.SetPixels(128, 128, Move(px));
     const AtlasRegion region(16, 32, 12, 14, 1.0f, -10.0f, 13.5f);
     atlas.SetRegion(static_cast<i32>('A'), region);
@@ -156,17 +162,18 @@ TEST_CASE("baked.atlas: GetGlyphQuad advances cursor")
     GlyphQuad quad;
     CHECK(atlas.GetGlyphQuad(static_cast<i32>('A'), cursorX, 50.0f, quad));
 
-    CHECK(quad.x0 == 101.0f);   // 100 + 1
-    CHECK(quad.y0 == 40.0f);    // 50 + -10
-    CHECK(quad.x1 == 113.0f);   // 101 + 12
-    CHECK(quad.y1 == 54.0f);    // 40 + 14
-    CHECK(cursorX == 113.5f);   // 100 + 13.5
+    CHECK(quad.x0 == 101.0f); // 100 + 1
+    CHECK(quad.y0 == 40.0f);  // 50 + -10
+    CHECK(quad.x1 == 113.0f); // 101 + 12
+    CHECK(quad.y1 == 54.0f);  // 40 + 14
+    CHECK(cursorX == 113.5f); // 100 + 13.5
 }
 
 TEST_CASE("baked.atlas: GetGlyphQuadAt does not advance")
 {
     BakedFontAtlas atlas;
-    Array<u8> px; px.Resize(64 * 64);
+    Array<u8> px;
+    px.Resize(64 * 64);
     atlas.SetPixels(64, 64, Move(px));
     atlas.SetRegion(static_cast<i32>('A'), AtlasRegion(0, 0, 16, 16, 0, -16, 18));
 
@@ -179,7 +186,8 @@ TEST_CASE("baked.atlas: GetGlyphQuadAt does not advance")
 TEST_CASE("baked.atlas: missing glyph returns false")
 {
     BakedFontAtlas atlas;
-    Array<u8> px; px.Resize(64 * 64);
+    Array<u8> px;
+    px.Resize(64 * 64);
     atlas.SetPixels(64, 64, Move(px));
 
     f32 cursorX = 0;

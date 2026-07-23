@@ -57,10 +57,12 @@ export namespace draconic::editor::app
             m_filterEdit->SetPlaceholder(u8"Filter all groups...");
             {
                 AssetPickerDialog* self = this;
-                m_filterEdit->OnTextChanged.Add([self](ui::EditText* edit) {
-                    self->m_filter = String(edit->Text());
-                    self->RebuildList();
-                });
+                m_filterEdit->OnTextChanged.Add(
+                    [self](ui::EditText* edit)
+                    {
+                        self->m_filter = String(edit->Text());
+                        self->RebuildList();
+                    });
                 auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 column->AddView(m_filterEdit.Get(), lp);
@@ -74,13 +76,17 @@ export namespace draconic::editor::app
             m_tree->SetAdapter(m_treeAdapter.Get());
             {
                 AssetPickerDialog* self = this;
-                m_tree->OnItemClick.Add([self](ui::TreeView::ItemClickInfo info) {
-                    if (info.NodeId >= 0 && info.NodeId < static_cast<i32>(self->m_groups.Size()))
+                m_tree->OnItemClick.Add(
+                    [self](ui::TreeView::ItemClickInfo info)
                     {
-                        self->m_selectedGroup = self->m_groups[static_cast<usize>(info.NodeId)].group;
-                        self->RebuildList();
-                    }
-                });
+                        if (info.NodeId >= 0 &&
+                            info.NodeId < static_cast<i32>(self->m_groups.Size()))
+                        {
+                            self->m_selectedGroup =
+                                self->m_groups[static_cast<usize>(info.NodeId)].group;
+                            self->RebuildList();
+                        }
+                    });
             }
             m_listAdapter = MakeUnique<ListAdapter>(DefaultAllocator(), *this);
             m_list = MakeRef<ui::ListView>(DefaultAllocator());
@@ -88,12 +94,16 @@ export namespace draconic::editor::app
             m_list->SetAdapter(m_listAdapter.Get());
             {
                 AssetPickerDialog* self = this;
-                m_list->OnItemClicked.Add([self](i32 position, i32 clickCount, f32, f32) {
-                    if (clickCount >= 2) { self->ConfirmAt(position); }
-                });
-                m_list->OnItemRightClicked.Add([self](i32 position, f32 x, f32 y) {
-                    self->ShowRowMenu(position, x, y);
-                });
+                m_list->OnItemClicked.Add(
+                    [self](i32 position, i32 clickCount, f32, f32)
+                    {
+                        if (clickCount >= 2)
+                        {
+                            self->ConfirmAt(position);
+                        }
+                    });
+                m_list->OnItemRightClicked.Add([self](i32 position, f32 x, f32 y)
+                                               { self->ShowRowMenu(position, x, y); });
             }
             split->SetPanes(m_tree.Get(), m_list.Get());
             {
@@ -107,14 +117,18 @@ export namespace draconic::editor::app
             {
                 AssetPickerDialog* self = this;
                 ui::Button* select = AddButton(u8"Select", ui::DialogResult::None);
-                select->OnClick.Add([self](ui::ButtonBase*) {
-                    self->ConfirmAt(self->m_list->Selection.FirstSelected());
-                });
+                select->OnClick.Add([self](ui::ButtonBase*)
+                                    { self->ConfirmAt(self->m_list->Selection.FirstSelected()); });
                 ui::Button* clear = AddButton(u8"Clear", ui::DialogResult::None);
-                clear->OnClick.Add([self](ui::ButtonBase*) {
-                    if (self->OnPicked) { self->OnPicked(Guid{}); }
-                    self->Close(ui::DialogResult::OK);
-                });
+                clear->OnClick.Add(
+                    [self](ui::ButtonBase*)
+                    {
+                        if (self->OnPicked)
+                        {
+                            self->OnPicked(Guid{});
+                        }
+                        self->Close(ui::DialogResult::OK);
+                    });
                 AddButton(u8"Cancel", ui::DialogResult::Cancel);
             }
 
@@ -139,25 +153,41 @@ export namespace draconic::editor::app
         {
         public:
             explicit TreeAdapter(AssetPickerDialog& owner) : m_owner(&owner) {}
-            [[nodiscard]] i32 RootCount() const override { return m_owner->m_groups.IsEmpty() ? 0 : 1; }
+            [[nodiscard]] i32 RootCount() const override
+            {
+                return m_owner->m_groups.IsEmpty() ? 0 : 1;
+            }
             [[nodiscard]] i32 GetChildCount(i32 nodeId) const override
             {
-                if (nodeId == -1) { return RootCount(); }
+                if (nodeId == -1)
+                {
+                    return RootCount();
+                }
                 return InRange(nodeId) ? static_cast<i32>(Node(nodeId).children.Size()) : 0;
             }
             [[nodiscard]] i32 GetChildId(i32 parentId, i32 childIndex) const override
             {
-                if (parentId == -1) { return childIndex == 0 && !m_owner->m_groups.IsEmpty() ? 0 : -1; }
-                if (!InRange(parentId)) { return -1; }
+                if (parentId == -1)
+                {
+                    return childIndex == 0 && !m_owner->m_groups.IsEmpty() ? 0 : -1;
+                }
+                if (!InRange(parentId))
+                {
+                    return -1;
+                }
                 const Array<i32>& kids = Node(parentId).children;
                 return (childIndex >= 0 && childIndex < static_cast<i32>(kids.Size()))
-                    ? kids[static_cast<usize>(childIndex)] : -1;
+                           ? kids[static_cast<usize>(childIndex)]
+                           : -1;
             }
             [[nodiscard]] i32 GetDepth(i32 nodeId) const override
             {
                 return InRange(nodeId) ? Node(nodeId).depth : 0;
             }
-            [[nodiscard]] bool HasChildren(i32 nodeId) const override { return GetChildCount(nodeId) > 0; }
+            [[nodiscard]] bool HasChildren(i32 nodeId) const override
+            {
+                return GetChildCount(nodeId) > 0;
+            }
             [[nodiscard]] RefPtr<ui::View> CreateView(i32) override
             {
                 auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
@@ -171,12 +201,18 @@ export namespace draconic::editor::app
             void BindView(ui::View* view, i32 nodeId, i32 depth, bool) override
             {
                 auto* row = Cast<ui::FlexLayout>(view);
-                if (row == nullptr || row->ChildCount() == 0 || !InRange(nodeId)) { return; }
+                if (row == nullptr || row->ChildCount() == 0 || !InRange(nodeId))
+                {
+                    return;
+                }
                 auto* label = Cast<ui::Label>(row->GetChildAt(0));
                 const StringView name = Node(nodeId).group->Name();
                 label->SetText(name.IsEmpty() ? StringView(u8"Content") : name);
-                row->Padding = ui::Thickness{ static_cast<f32>(depth + 1) * 18.0f, 0, 0, 0 };   // match the asset browser: clear the 20px chevron column + gap
+                row->Padding = ui::Thickness{
+                    static_cast<f32>(depth + 1) * 18.0f, 0, 0,
+                    0}; // match the asset browser: clear the 20px chevron column + gap
             }
+
         private:
             [[nodiscard]] bool InRange(i32 nodeId) const
             {
@@ -202,7 +238,7 @@ export namespace draconic::editor::app
                 auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
                 row->Direction = ui::Orientation::Horizontal;
                 row->Spacing = 6;
-                row->Padding = ui::Thickness{ 4, 2 };
+                row->Padding = ui::Thickness{4, 2};
                 auto iconView = MakeRef<ui::DrawableView>(DefaultAllocator());
                 iconView->DesiredWidth.SetValue(Optional<f32>(14.0f));
                 iconView->DesiredHeight.SetValue(Optional<f32>(14.0f));
@@ -217,25 +253,40 @@ export namespace draconic::editor::app
             void BindView(ui::View* view, i32 position) override
             {
                 auto* row = Cast<ui::FlexLayout>(view);
-                if (row == nullptr || row->ChildCount() < 2 || position < 0
-                    || position >= static_cast<i32>(m_owner->m_rows.Size())) { return; }
+                if (row == nullptr || row->ChildCount() < 2 || position < 0 ||
+                    position >= static_cast<i32>(m_owner->m_rows.Size()))
+                {
+                    return;
+                }
                 auto* iconView = Cast<ui::DrawableView>(row->GetChildAt(0));
                 auto* label = Cast<ui::Label>(row->GetChildAt(1));
-                if (iconView == nullptr || label == nullptr) { return; }
-                content::Instance* instance = m_owner->Resolve(m_owner->m_rows[static_cast<usize>(position)]);
-                if (instance == nullptr) { return; }
-                iconView->Drawable = ui::DrawablePtr(EditorIcons::Get().ForAssetType(instance->TypeName()));
+                if (iconView == nullptr || label == nullptr)
+                {
+                    return;
+                }
+                content::Instance* instance =
+                    m_owner->Resolve(m_owner->m_rows[static_cast<usize>(position)]);
+                if (instance == nullptr)
+                {
+                    return;
+                }
+                iconView->Drawable =
+                    ui::DrawablePtr(EditorIcons::Get().ForAssetType(instance->TypeName()));
                 const bool favorite = m_owner->m_context->IsFavorite(instance->Id());
                 String text;
-                if (favorite) { text.Append(u8"* "); }
+                if (favorite)
+                {
+                    text.Append(u8"* ");
+                }
                 // Full path keeps same-named assets across groups distinguishable.
                 text.Append(instance->Path());
                 text.Append(u8"   -   ");
                 text.Append(instance->TypeName());
                 label->SetText(text.AsView());
-                label->TextColor.SetValue(Optional<Color>(favorite
-                    ? Color{ 1.0f, 0.85f, 0.45f, 1.0f } : Color{ 0.85f, 0.85f, 0.85f, 1.0f }));
+                label->TextColor.SetValue(Optional<Color>(
+                    favorite ? Color{1.0f, 0.85f, 0.45f, 1.0f} : Color{0.85f, 0.85f, 0.85f, 1.0f}));
             }
+
         private:
             AssetPickerDialog* m_owner;
         };
@@ -246,7 +297,10 @@ export namespace draconic::editor::app
         {
             for (const String& typeName : m_typeNames)
             {
-                if (instance.TypeName() == typeName.AsView()) { return true; }
+                if (instance.TypeName() == typeName.AsView())
+                {
+                    return true;
+                }
             }
             return false;
         }
@@ -270,14 +324,24 @@ export namespace draconic::editor::app
         {
             m_groups.Clear();
             content::Group* root = (m_context->Project() != nullptr)
-                ? m_context->Project()->SourceDb().RootGroup() : nullptr;
-            if (root != nullptr) { AddGroupNode(root, 0); }
-            if (m_selectedGroup == nullptr) { m_selectedGroup = root; }
+                                       ? m_context->Project()->SourceDb().RootGroup()
+                                       : nullptr;
+            if (root != nullptr)
+            {
+                AddGroupNode(root, 0);
+            }
+            if (m_selectedGroup == nullptr)
+            {
+                m_selectedGroup = root;
+            }
             m_tree->SetAdapter(m_treeAdapter.Get());
             ui::FlattenedTreeAdapter* flat = m_tree->FlatAdapter();
             for (usize i = 0; i < m_groups.Size(); ++i)
             {
-                if (!m_groups[i].children.IsEmpty()) { flat->Expand(static_cast<i32>(i)); }
+                if (!m_groups[i].children.IsEmpty())
+                {
+                    flat->Expand(static_cast<i32>(i));
+                }
             }
             RebuildList();
         }
@@ -290,17 +354,19 @@ export namespace draconic::editor::app
                 // Favorites first (matching type, any group), then the scoped/filtered rest.
                 for (const Guid& id : m_context->Favorites())
                 {
-                    content::Instance* instance =
-                        m_context->Project()->SourceDb().GetInstance(id);
-                    if (instance != nullptr && TypeMatches(*instance)
-                        && MatchesFilter(instance->Name(), m_filter.AsView()))
+                    content::Instance* instance = m_context->Project()->SourceDb().GetInstance(id);
+                    if (instance != nullptr && TypeMatches(*instance) &&
+                        MatchesFilter(instance->Name(), m_filter.AsView()))
                     {
                         m_rows.PushBack(id);
                     }
                 }
                 if (m_filter.IsEmpty())
                 {
-                    if (m_selectedGroup != nullptr) { CollectGroup(*m_selectedGroup, false); }
+                    if (m_selectedGroup != nullptr)
+                    {
+                        CollectGroup(*m_selectedGroup, false);
+                    }
                 }
                 else
                 {
@@ -315,41 +381,74 @@ export namespace draconic::editor::app
         {
             for (content::Instance* instance : group.Instances())
             {
-                if (!TypeMatches(*instance) || m_context->IsFavorite(instance->Id())) { continue; }
+                if (!TypeMatches(*instance) || m_context->IsFavorite(instance->Id()))
+                {
+                    continue;
+                }
                 m_rows.PushBack(instance->Id());
             }
             if (recurse)
             {
-                for (content::Group* child : group.Groups()) { CollectGroup(*child, true); }
+                for (content::Group* child : group.Groups())
+                {
+                    CollectGroup(*child, true);
+                }
             }
         }
 
         void CollectFiltered(content::Group* group)
         {
-            if (group == nullptr) { return; }
+            if (group == nullptr)
+            {
+                return;
+            }
             for (content::Instance* instance : group->Instances())
             {
-                if (!TypeMatches(*instance) || m_context->IsFavorite(instance->Id())) { continue; }
-                if (MatchesFilter(instance->Name(), m_filter.AsView())) { m_rows.PushBack(instance->Id()); }
+                if (!TypeMatches(*instance) || m_context->IsFavorite(instance->Id()))
+                {
+                    continue;
+                }
+                if (MatchesFilter(instance->Name(), m_filter.AsView()))
+                {
+                    m_rows.PushBack(instance->Id());
+                }
             }
-            for (content::Group* child : group->Groups()) { CollectFiltered(child); }
+            for (content::Group* child : group->Groups())
+            {
+                CollectFiltered(child);
+            }
         }
 
         [[nodiscard]] static bool MatchesFilter(StringView name, StringView filter)
         {
-            if (filter.IsEmpty()) { return true; }
-            if (name.Size() < filter.Size()) { return false; }
-            auto lower = [](utf8char c) {
-                return (c >= utf8char('A') && c <= utf8char('Z')) ? static_cast<utf8char>(c + 32) : c;
+            if (filter.IsEmpty())
+            {
+                return true;
+            }
+            if (name.Size() < filter.Size())
+            {
+                return false;
+            }
+            auto lower = [](utf8char c)
+            {
+                return (c >= utf8char('A') && c <= utf8char('Z')) ? static_cast<utf8char>(c + 32)
+                                                                  : c;
             };
             for (usize i = 0; i + filter.Size() <= name.Size(); ++i)
             {
                 bool match = true;
                 for (usize j = 0; j < filter.Size(); ++j)
                 {
-                    if (lower(name[i + j]) != lower(filter[j])) { match = false; break; }
+                    if (lower(name[i + j]) != lower(filter[j]))
+                    {
+                        match = false;
+                        break;
+                    }
                 }
-                if (match) { return true; }
+                if (match)
+                {
+                    return true;
+                }
             }
             return false;
         }
@@ -357,36 +456,47 @@ export namespace draconic::editor::app
         [[nodiscard]] content::Instance* Resolve(const Guid& id)
         {
             return (m_context->Project() != nullptr)
-                ? m_context->Project()->SourceDb().GetInstance(id) : nullptr;
+                       ? m_context->Project()->SourceDb().GetInstance(id)
+                       : nullptr;
         }
 
         // === actions ===
 
         void ConfirmAt(i32 position)
         {
-            if (position < 0 || position >= static_cast<i32>(m_rows.Size())) { return; }
+            if (position < 0 || position >= static_cast<i32>(m_rows.Size()))
+            {
+                return;
+            }
             const Guid id = m_rows[static_cast<usize>(position)];
-            if (OnPicked) { OnPicked(id); }
+            if (OnPicked)
+            {
+                OnPicked(id);
+            }
             Close(ui::DialogResult::OK);
         }
 
         void ShowRowMenu(i32 position, f32 x, f32 y)
         {
-            if (position < 0 || position >= static_cast<i32>(m_rows.Size()) || Context == nullptr) { return; }
+            if (position < 0 || position >= static_cast<i32>(m_rows.Size()) || Context == nullptr)
+            {
+                return;
+            }
             const Guid id = m_rows[static_cast<usize>(position)];
             AssetPickerDialog* self = this;
             auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
             menu->AddItem(m_context->IsFavorite(id) ? StringView(u8"Unpin favorite")
                                                     : StringView(u8"Pin favorite"),
-                          [self, id]() {
+                          [self, id]()
+                          {
                               self->m_context->ToggleFavorite(id);
                               self->RebuildList();
                           });
-            const Float2 screenPos = m_list->LocalToScreen(Float2{ x, y });
+            const Float2 screenPos = m_list->LocalToScreen(Float2{x, y});
             menu->Show(Context, screenPos.x, screenPos.y);
         }
 
-        draconic::editor::EditorContext* m_context;   // borrowed
+        draconic::editor::EditorContext* m_context; // borrowed
         Array<String> m_typeNames;
         RefPtr<ui::TreeView> m_tree;
         RefPtr<ui::ListView> m_list;

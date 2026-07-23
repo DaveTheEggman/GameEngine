@@ -32,7 +32,7 @@ export namespace draconic::ui::toolkit
         /// Create a real OS window to host the given dockable window view. `onCloseRequested` is called
         /// when the OS window close button is clicked.
         virtual void CreateDockableWindow(View* dockableWindow, f32 width, f32 height, f32 x, f32 y,
-            Function<void(View*)> onCloseRequested = {}) = 0;
+                                          Function<void(View*)> onCloseRequested = {}) = 0;
 
         /// Destroy the OS window hosting the given dockable window view.
         virtual void DestroyDockableWindow(View* dockableWindow) = 0;
@@ -41,11 +41,13 @@ export namespace draconic::ui::toolkit
         virtual void MoveDockableWindow(View* dockableWindow, f32 x, f32 y) = 0;
 
         /// Resize and reposition the OS window hosting the given dockable window.
-        virtual void ResizeDockableWindow(View* dockableWindow, f32 x, f32 y, f32 width, f32 height) = 0;
+        virtual void ResizeDockableWindow(View* dockableWindow, f32 x, f32 y, f32 width,
+                                          f32 height) = 0;
 
         /// Read the OS window's current logical-px position (main-window-relative) AND size. Returns false
         /// when the view isn't OS-hosted.
-        [[nodiscard]] virtual bool TryGetDockableWindowBounds(View* dockableWindow, f32& x, f32& y, f32& width, f32& height) = 0;
+        [[nodiscard]] virtual bool TryGetDockableWindowBounds(View* dockableWindow, f32& x, f32& y,
+                                                              f32& width, f32& height) = 0;
 
         /// Current desktop-global mouse position in logical px.
         virtual void GetGlobalMousePosition(f32& globalX, f32& globalY) = 0;

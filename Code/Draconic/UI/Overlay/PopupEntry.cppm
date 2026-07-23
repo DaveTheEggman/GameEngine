@@ -9,7 +9,7 @@ module;
 
 export module draconic.ui:popup_entry;
 
-import draconic.core;   // RefPtr
+import draconic.core; // RefPtr
 import :view;
 import :ipopup_owner;
 
@@ -19,11 +19,11 @@ export namespace draconic::ui
 {
     struct PopupEntry
     {
-        RefPtr<View> Popup;              ///< The popup view.
-        IPopupOwner* Owner = nullptr;    ///< Notified when this popup closes (borrowed).
-        bool CloseOnClickOutside = false;///< Clicking outside dismisses it.
-        bool IsModal = false;            ///< Blocks input to underlying content.
-        bool OwnsView = true;            ///< PopupLayer is the primary owner (delete-on-close semantics).
-        f32 X = 0.0f, Y = 0.0f;          ///< Position in PopupLayer coordinates.
+        RefPtr<View> Popup;               ///< The popup view.
+        IPopupOwner* Owner = nullptr;     ///< Notified when this popup closes (borrowed).
+        bool CloseOnClickOutside = false; ///< Clicking outside dismisses it.
+        bool IsModal = false;             ///< Blocks input to underlying content.
+        bool OwnsView = true;   ///< PopupLayer is the primary owner (delete-on-close semantics).
+        f32 X = 0.0f, Y = 0.0f; ///< Position in PopupLayer coordinates.
     };
 }

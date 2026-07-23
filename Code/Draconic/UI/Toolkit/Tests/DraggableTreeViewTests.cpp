@@ -24,11 +24,19 @@ namespace
         [[nodiscard]] i32 GetChildId(i32, i32 childIndex) const override { return childIndex; }
         [[nodiscard]] i32 GetDepth(i32) const override { return 0; }
         [[nodiscard]] bool HasChildren(i32) const override { return false; }
-        [[nodiscard]] RefPtr<View> CreateView(i32) override { return MakeRef<Label>(DefaultAllocator()); }
+        [[nodiscard]] RefPtr<View> CreateView(i32) override
+        {
+            return MakeRef<Label>(DefaultAllocator());
+        }
         void BindView(View*, i32, i32, bool) override {}
 
         [[nodiscard]] bool CanMove(i32, i32) override { return true; }
-        void MoveItem(i32 from, i32 to) override { LastFrom = from; LastTo = to; MoveCount++; }
+        void MoveItem(i32 from, i32 to) override
+        {
+            LastFrom = from;
+            LastTo = to;
+            MoveCount++;
+        }
 
         i32 LastFrom = -1;
         i32 LastTo = -1;
@@ -40,7 +48,7 @@ TEST_CASE("toolkit-draggabletreeview: construct + property round-trips")
 {
     auto view = core::MakeRef<DraggableTreeView>(core::DefaultAllocator());
 
-    CHECK(view->DragEnabled());              // default true
+    CHECK(view->DragEnabled()); // default true
     view->SetDragEnabled(false);
     CHECK_FALSE(view->DragEnabled());
     view->SetDragEnabled(true);
@@ -89,8 +97,13 @@ TEST_CASE("toolkit-draggabletreeview: OnDrop invokes MoveItem + fires OnItemReor
     i32 firedFrom = -1;
     i32 firedTo = -1;
     i32 fireCount = 0;
-    view->OnItemReordered.Add(Event<void(DraggableTreeView*, i32, i32)>::Handler{
-        [&](DraggableTreeView*, i32 from, i32 to) { firedFrom = from; firedTo = to; fireCount++; } });
+    view->OnItemReordered.Add(
+        Event<void(DraggableTreeView*, i32, i32)>::Handler{[&](DraggableTreeView*, i32 from, i32 to)
+                                                           {
+                                                               firedFrom = from;
+                                                               firedTo = to;
+                                                               fireCount++;
+                                                           }});
 
     IDropTarget* target = view->AsDropTarget();
     auto dragData = core::MakeRef<TreeDragData>(core::DefaultAllocator(), 0);

@@ -26,28 +26,39 @@ export namespace draconic::rendergraph
     {
     public:
         RenderGraphResource(StringView resourceName, RGResourceType type, RGResourceLifetime life)
-            : name(resourceName), resourceType(type), lifetime(life) {}
+            : name(resourceName), resourceType(type), lifetime(life)
+        {
+        }
 
         // Allocate GPU resources for a transient texture.
         [[nodiscard]] Status AllocateTexture(rhi::Device& device)
         {
             rhi::TextureDesc rhiDesc = textureDesc.ToTextureDesc(name.AsView());
             rhiDesc.usage = rhiDesc.usage | rhi::TextureUsage::Sampled; // may be sampled
-            if (rhi::IsDepthFormat(textureDesc.format)) { rhiDesc.usage = rhiDesc.usage | rhi::TextureUsage::DepthStencil; }
-            else                                        { rhiDesc.usage = rhiDesc.usage | rhi::TextureUsage::RenderTarget; }
+            if (rhi::IsDepthFormat(textureDesc.format))
+            {
+                rhiDesc.usage = rhiDesc.usage | rhi::TextureUsage::DepthStencil;
+            }
+            else
+            {
+                rhiDesc.usage = rhiDesc.usage | rhi::TextureUsage::RenderTarget;
+            }
 
             // All-or-nothing: assign the members only once every view is created. Leaving `texture`
             // set with a null `textureView` (the old behaviour on a view-create failure) poisons the
             // transient pool and desyncs render-pass attachments (see ReturnTransientResources /
             // ExecuteRenderPass) - the viewport-resize corruption cascade.
             rhi::Texture* tex = nullptr;
-            if (!device.CreateTexture(rhiDesc, tex).IsOk()) { return Status{ ErrorCode::Unknown }; }
+            if (!device.CreateTexture(rhiDesc, tex).IsOk())
+            {
+                return Status{ErrorCode::Unknown};
+            }
 
             rhi::TextureView* view = nullptr;
             if (!device.CreateTextureView(tex, rhi::TextureViewDesc{}, view).IsOk())
             {
                 device.DestroyTexture(tex);
-                return Status{ ErrorCode::Unknown };
+                return Status{ErrorCode::Unknown};
             }
 
             rhi::TextureView* depthOnly = nullptr;
@@ -60,7 +71,7 @@ export namespace draconic::rendergraph
                 {
                     device.DestroyTextureView(view);
                     device.DestroyTexture(tex);
-                    return Status{ ErrorCode::Unknown };
+                    return Status{ErrorCode::Unknown};
                 }
             }
 
@@ -80,7 +91,10 @@ export namespace draconic::rendergraph
             rhiDesc.label = name.AsView();
 
             rhi::Buffer* buf = nullptr;
-            if (!device.CreateBuffer(rhiDesc, buf).IsOk()) { return Status{ ErrorCode::Unknown }; }
+            if (!device.CreateBuffer(rhiDesc, buf).IsOk())
+            {
+                return Status{ErrorCode::Unknown};
+            }
             buffer = buf;
             lastKnownState = rhi::ResourceState::Undefined;
             return Status{};
@@ -89,23 +103,50 @@ export namespace draconic::rendergraph
         // Release GPU resources for a transient resource (no-op otherwise).
         void ReleaseTransient(rhi::Device& device)
         {
-            if (lifetime != RGResourceLifetime::Transient) { return; }
-            if (depthOnlyView != nullptr) { device.DestroyTextureView(depthOnlyView); }
-            if (textureView != nullptr) { device.DestroyTextureView(textureView); }
-            if (texture != nullptr) { device.DestroyTexture(texture); }
-            if (buffer != nullptr) { device.DestroyBuffer(buffer); }
+            if (lifetime != RGResourceLifetime::Transient)
+            {
+                return;
+            }
+            if (depthOnlyView != nullptr)
+            {
+                device.DestroyTextureView(depthOnlyView);
+            }
+            if (textureView != nullptr)
+            {
+                device.DestroyTextureView(textureView);
+            }
+            if (texture != nullptr)
+            {
+                device.DestroyTexture(texture);
+            }
+            if (buffer != nullptr)
+            {
+                device.DestroyBuffer(buffer);
+            }
         }
 
         [[nodiscard]] u32 TotalMipLevels() const
         {
-            if (texture != nullptr) { return texture->desc.mipLevelCount; }
-            if (resourceType == RGResourceType::Texture) { return textureDesc.mipLevelCount; }
+            if (texture != nullptr)
+            {
+                return texture->desc.mipLevelCount;
+            }
+            if (resourceType == RGResourceType::Texture)
+            {
+                return textureDesc.mipLevelCount;
+            }
             return 1;
         }
         [[nodiscard]] u32 TotalArrayLayers() const
         {
-            if (texture != nullptr) { return texture->desc.arrayLayerCount; }
-            if (resourceType == RGResourceType::Texture) { return textureDesc.arrayLayerCount; }
+            if (texture != nullptr)
+            {
+                return texture->desc.arrayLayerCount;
+            }
+            if (resourceType == RGResourceType::Texture)
+            {
+                return textureDesc.arrayLayerCount;
+            }
             return 1;
         }
 
@@ -147,8 +188,8 @@ export namespace draconic::rendergraph
 
         // --- state tracking ---
         rhi::ResourceState lastKnownState = rhi::ResourceState::Undefined;
-        Optional<rhi::ResourceState> finalState;     // transition-to after last use (imported)
-        bool readableAfterWrite = false;             // transition to ShaderRead after last writer
+        Optional<rhi::ResourceState> finalState; // transition-to after last use (imported)
+        bool readableAfterWrite = false;         // transition to ShaderRead after last writer
 
         // --- persistent data (null for transient/imported) ---
         UniquePtr<PersistentResource> persistentData;

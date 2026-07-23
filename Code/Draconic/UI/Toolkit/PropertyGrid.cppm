@@ -53,7 +53,8 @@ export namespace draconic::ui::toolkit
             content->Direction = Orientation::Vertical;
             m_content = content.Get();
             // `LayoutParams` names View's shadowing member here, so the type is spelled draconic::ui::LayoutParams.
-            RefPtr<draconic::ui::LayoutParams> lp = MakeRef<draconic::ui::LayoutParams>(DefaultAllocator());
+            RefPtr<draconic::ui::LayoutParams> lp =
+                MakeRef<draconic::ui::LayoutParams>(DefaultAllocator());
             lp->Width = SizeSpec::Match();
             m_scrollView->AddView(content.Get(), lp);
         }
@@ -86,7 +87,10 @@ export namespace draconic::ui::toolkit
         {
             for (usize i = 0; i < m_editors.Size(); ++i)
             {
-                if (m_editors[i]->Name() == name) { return m_editors[i].Get(); }
+                if (m_editors[i]->Name() == name)
+                {
+                    return m_editors[i].Get();
+                }
             }
             return nullptr;
         }
@@ -103,18 +107,23 @@ export namespace draconic::ui::toolkit
         [[nodiscard]] usize PropertyCount() const noexcept { return m_editors.Size(); }
 
         /// Editor at index (for iteration, e.g. to subscribe to per-editor events).
-        [[nodiscard]] PropertyEditor* PropertyAt(usize index) const { return m_editors[index].Get(); }
+        [[nodiscard]] PropertyEditor* PropertyAt(usize index) const
+        {
+            return m_editors[index].Get();
+        }
 
         void OnDraw(UIDrawContext& ctx) override
         {
             if (Drawable* bgDrawable = ResolveStyleDrawable(StyleProperty::Background))
             {
-                bgDrawable->Draw(ctx, Rectangle{ 0, 0, Width(), Height() });
+                bgDrawable->Draw(ctx, Rectangle{0, 0, Width(), Height()});
             }
             else
             {
-                const Color bgColor = ResolveStyleColor(StyleProperty::Background, Color{ 42.0f / 255.0f, 44.0f / 255.0f, 54.0f / 255.0f, 1.0f });
-                ctx.VG().FillRect(Rectangle{ 0, 0, Width(), Height() }, bgColor);
+                const Color bgColor =
+                    ResolveStyleColor(StyleProperty::Background,
+                                      Color{42.0f / 255.0f, 44.0f / 255.0f, 54.0f / 255.0f, 1.0f});
+                ctx.VG().FillRect(Rectangle{0, 0, Width(), Height()}, bgColor);
             }
             DrawChildren(ctx);
         }
@@ -122,15 +131,19 @@ export namespace draconic::ui::toolkit
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
-            if (m_needsRebuild) { RebuildLayout(); }
+            if (m_needsRebuild)
+            {
+                RebuildLayout();
+            }
             m_scrollView->Measure(constraints);
-            MeasuredSize = Float2{ constraints.ConstrainWidth(m_scrollView->MeasuredSize.x),
-                                   constraints.ConstrainHeight(m_scrollView->MeasuredSize.y) };
+            MeasuredSize = Float2{constraints.ConstrainWidth(m_scrollView->MeasuredSize.x),
+                                  constraints.ConstrainHeight(m_scrollView->MeasuredSize.y)};
         }
 
         void OnLayout(f32 left, f32 top, f32 width, f32 height) override
         {
-            (void)left; (void)top;
+            (void)left;
+            (void)top;
             m_scrollView->Layout(0, 0, width, height);
         }
 
@@ -141,7 +154,10 @@ export namespace draconic::ui::toolkit
             m_content->Spacing = RowSpacing;
 
             // Clear existing content.
-            while (m_content->ChildCount() > 0) { m_content->RemoveView(m_content->GetChildAt(0), true); }
+            while (m_content->ChildCount() > 0)
+            {
+                m_content->RemoveView(m_content->GetChildAt(0), true);
+            }
 
             // Group by category, preserving first-seen order (uncategorized first).
             Array<PropertyEditor*> uncategorized;
@@ -161,7 +177,11 @@ export namespace draconic::ui::toolkit
                     usize catIndex = categoryOrder.Size();
                     for (usize c = 0; c < categoryOrder.Size(); ++c)
                     {
-                        if (StringView(categoryOrder[c]) == category) { catIndex = c; break; }
+                        if (StringView(categoryOrder[c]) == category)
+                        {
+                            catIndex = c;
+                            break;
+                        }
                     }
                     if (catIndex == categoryOrder.Size())
                     {
@@ -173,7 +193,10 @@ export namespace draconic::ui::toolkit
             }
 
             // Add uncategorized first.
-            for (usize i = 0; i < uncategorized.Size(); ++i) { AddEditorRowTo(m_content, uncategorized[i]); }
+            for (usize i = 0; i < uncategorized.Size(); ++i)
+            {
+                AddEditorRowTo(m_content, uncategorized[i]);
+            }
 
             // Add categorized in Expanders.
             for (usize c = 0; c < categoryOrder.Size(); ++c)
@@ -185,7 +208,10 @@ export namespace draconic::ui::toolkit
                 catContent->Direction = Orientation::Vertical;
                 catContent->Spacing = RowSpacing;
 
-                for (usize e = 0; e < categoryLists[c].Size(); ++e) { AddEditorRowTo(catContent.Get(), categoryLists[c][e]); }
+                for (usize e = 0; e < categoryLists[c].Size(); ++e)
+                {
+                    AddEditorRowTo(catContent.Get(), categoryLists[c][e]);
+                }
 
                 RefPtr<FlexLayoutParams> contentLp = MakeRef<FlexLayoutParams>(DefaultAllocator());
                 contentLp->Width = SizeSpec::Match();
@@ -201,7 +227,7 @@ export namespace draconic::ui::toolkit
         {
             RefPtr<FlexLayout> row = MakeRef<FlexLayout>(DefaultAllocator());
             row->Direction = Orientation::Horizontal;
-            row->Spacing = 6.0f;   // gap between the (ellipsized) label column and the value editor
+            row->Spacing = 6.0f; // gap between the (ellipsized) label column and the value editor
 
             // Label - editable if editor has OnLabelRenamed set.
             if (editor->OnLabelRenamed)
@@ -209,13 +235,19 @@ export namespace draconic::ui::toolkit
                 RefPtr<EditableLabel> editableLabel = MakeRef<EditableLabel>(DefaultAllocator());
                 editableLabel->SetText(editor->DisplayName());
                 editableLabel->FontSize.SetValue(12.0f);
-                editableLabel->Ellipsis.SetValue(true);   // truncate instead of overflowing into the value when narrow
+                editableLabel->Ellipsis.SetValue(
+                    true); // truncate instead of overflowing into the value when narrow
                 PropertyEditor* boundEditor = editor;
-                editableLabel->OnRenameCommitted.Add([boundEditor](EditableLabel*, StringView newName)
-                {
-                    if (boundEditor->OnLabelRenamed) { boundEditor->OnLabelRenamed(newName); }
-                });
-                editor->BindDisplayNameSink([raw = editableLabel.Get()](StringView text) { raw->SetText(text); });
+                editableLabel->OnRenameCommitted.Add(
+                    [boundEditor](EditableLabel*, StringView newName)
+                    {
+                        if (boundEditor->OnLabelRenamed)
+                        {
+                            boundEditor->OnLabelRenamed(newName);
+                        }
+                    });
+                editor->BindDisplayNameSink([raw = editableLabel.Get()](StringView text)
+                                            { raw->SetText(text); });
                 RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(DefaultAllocator());
                 lp->Grow = LabelWidthRatio;
                 row->AddView(editableLabel.Get(), lp);
@@ -226,8 +258,10 @@ export namespace draconic::ui::toolkit
                 label->SetText(editor->DisplayName());
                 label->FontSize.SetValue(12.0f);
                 label->VAlign.SetValue(fonts::VerticalAlignment::Middle);
-                label->Ellipsis.SetValue(true);   // truncate instead of overflowing into the value when narrow
-                editor->BindDisplayNameSink([raw = label.Get()](StringView text) { raw->SetText(text); });
+                label->Ellipsis.SetValue(
+                    true); // truncate instead of overflowing into the value when narrow
+                editor->BindDisplayNameSink([raw = label.Get()](StringView text)
+                                            { raw->SetText(text); });
                 RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(DefaultAllocator());
                 lp->Grow = LabelWidthRatio;
                 row->AddView(label.Get(), lp);
@@ -243,7 +277,10 @@ export namespace draconic::ui::toolkit
             }
 
             // Row-level presentation carried by the editor: tooltip + conditional visibility.
-            if (!editor->Tooltip().IsEmpty()) { row->TooltipText = String(editor->Tooltip()); }
+            if (!editor->Tooltip().IsEmpty())
+            {
+                row->TooltipText = String(editor->Tooltip());
+            }
             editor->SetRowView(row.Get());
 
             RefPtr<FlexLayoutParams> rowLp = MakeRef<FlexLayoutParams>(DefaultAllocator());

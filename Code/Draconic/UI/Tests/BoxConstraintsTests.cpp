@@ -40,7 +40,7 @@ TEST_CASE("box-constraints: Expand_IsUnconstrained")
 TEST_CASE("box-constraints: Deflate_ShrinksByPadding")
 {
     BoxConstraints c = BoxConstraints::Tight(200.0f, 100.0f);
-    BoxConstraints d = c.Deflate(Thickness{ 10.0f, 5.0f, 10.0f, 5.0f });
+    BoxConstraints d = c.Deflate(Thickness{10.0f, 5.0f, 10.0f, 5.0f});
     CHECK(d.MinWidth == doctest::Approx(180.0f));
     CHECK(d.MaxWidth == doctest::Approx(180.0f));
     CHECK(d.MinHeight == doctest::Approx(90.0f));
@@ -50,7 +50,7 @@ TEST_CASE("box-constraints: Deflate_ShrinksByPadding")
 TEST_CASE("box-constraints: Deflate_ClampsToZero")
 {
     BoxConstraints c = BoxConstraints::Tight(10.0f, 10.0f);
-    BoxConstraints d = c.Deflate(Thickness{ 20.0f, 20.0f, 20.0f, 20.0f });
+    BoxConstraints d = c.Deflate(Thickness{20.0f, 20.0f, 20.0f, 20.0f});
     CHECK(d.MinWidth == 0.0f);
     CHECK(d.MaxWidth == 0.0f);
     CHECK(d.MinHeight == 0.0f);
@@ -59,7 +59,7 @@ TEST_CASE("box-constraints: Deflate_ClampsToZero")
 
 TEST_CASE("box-constraints: ConstrainWidth_ClampsToRange")
 {
-    BoxConstraints c{ 50.0f, 200.0f, 0.0f, 100.0f };
+    BoxConstraints c{50.0f, 200.0f, 0.0f, 100.0f};
     CHECK(c.ConstrainWidth(30.0f) == 50.0f);   // below min
     CHECK(c.ConstrainWidth(100.0f) == 100.0f); // within range
     CHECK(c.ConstrainWidth(300.0f) == 200.0f); // above max
@@ -67,7 +67,7 @@ TEST_CASE("box-constraints: ConstrainWidth_ClampsToRange")
 
 TEST_CASE("box-constraints: ConstrainHeight_ClampsToRange")
 {
-    BoxConstraints c{ 0.0f, 100.0f, 25.0f, 75.0f };
+    BoxConstraints c{0.0f, 100.0f, 25.0f, 75.0f};
     CHECK(c.ConstrainHeight(10.0f) == 25.0f);
     CHECK(c.ConstrainHeight(50.0f) == 50.0f);
     CHECK(c.ConstrainHeight(100.0f) == 75.0f);
@@ -75,7 +75,7 @@ TEST_CASE("box-constraints: ConstrainHeight_ClampsToRange")
 
 TEST_CASE("box-constraints: Loosen_KeepsMaxZeroesMin")
 {
-    BoxConstraints c{ 50.0f, 200.0f, 30.0f, 100.0f };
+    BoxConstraints c{50.0f, 200.0f, 30.0f, 100.0f};
     BoxConstraints l = c.Loosen();
     CHECK(l.MinWidth == 0.0f);
     CHECK(l.MaxWidth == 200.0f);

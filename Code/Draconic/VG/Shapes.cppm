@@ -89,7 +89,8 @@ export namespace draconic::vg
         /// Build a regular polygon (e.g., hexagon with sides=6).
         static void BuildRegularPolygon(Float2 center, f32 radius, i32 sides, PathBuilder& builder)
         {
-            if (sides < 3) return;
+            if (sides < 3)
+                return;
 
             const f32 angleStep = kTwoPi / static_cast<f32>(sides);
             // Start from top (-PI/2 rotation so a flat side is at bottom for even-sided polygons).
@@ -111,9 +112,11 @@ export namespace draconic::vg
         }
 
         /// Build a star shape.
-        static void BuildStar(Float2 center, f32 outerRadius, f32 innerRadius, i32 points, PathBuilder& builder)
+        static void BuildStar(Float2 center, f32 outerRadius, f32 innerRadius, i32 points,
+                              PathBuilder& builder)
         {
-            if (points < 3) return;
+            if (points < 3)
+                return;
 
             const i32 totalPoints = points * 2;
             const f32 angleStep = kTwoPi / static_cast<f32>(totalPoints);
@@ -137,10 +140,13 @@ export namespace draconic::vg
 
     private:
         /// Add a quarter-arc as a cubic Bezier approximation.
-        static void ArcCorner(PathBuilder& builder, f32 cx, f32 cy, f32 r, f32 startAngle, f32 endAngle)
+        static void ArcCorner(PathBuilder& builder, f32 cx, f32 cy, f32 r, f32 startAngle,
+                              f32 endAngle)
         {
             const f32 sweep = endAngle - startAngle;
-            const f32 alpha = Sin(sweep) * (Sqrt(4.0f + 3.0f * Tan(sweep * 0.5f) * Tan(sweep * 0.5f)) - 1.0f) / 3.0f;
+            const f32 alpha = Sin(sweep) *
+                              (Sqrt(4.0f + 3.0f * Tan(sweep * 0.5f) * Tan(sweep * 0.5f)) - 1.0f) /
+                              3.0f;
 
             const f32 cosStart = Cos(startAngle);
             const f32 sinStart = Sin(startAngle);
@@ -157,10 +163,8 @@ export namespace draconic::vg
             const f32 dx3 = -sinEnd * r;
             const f32 dy3 = cosEnd * r;
 
-            builder.CubicTo(
-                x0 + alpha * dx0, y0 + alpha * dy0,
-                x3 - alpha * dx3, y3 - alpha * dy3,
-                x3, y3);
+            builder.CubicTo(x0 + alpha * dx0, y0 + alpha * dy0, x3 - alpha * dx3, y3 - alpha * dy3,
+                            x3, y3);
         }
     };
 
@@ -170,7 +174,8 @@ export namespace draconic::vg
     public:
         /// Generate dashed segments from a polyline. Pattern alternates
         /// [dash, gap, dash, gap, ...]. Output is a list of polyline segments.
-        static void GenerateDashes(Span<const Float2> points, bool closed, Span<const f32> pattern, f32 offset, Array<Array<Float2>>& output)
+        static void GenerateDashes(Span<const Float2> points, bool closed, Span<const f32> pattern,
+                                   f32 offset, Array<Array<Float2>>& output)
         {
             if (points.Size() < 2 || pattern.Size() == 0)
                 return;

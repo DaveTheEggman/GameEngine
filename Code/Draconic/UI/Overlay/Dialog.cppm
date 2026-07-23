@@ -38,7 +38,12 @@ using namespace draconic::core;
 
 export namespace draconic::ui
 {
-    enum class DialogResult { None, OK, Cancel };
+    enum class DialogResult
+    {
+        None,
+        OK,
+        Cancel
+    };
 
     /// Modal dialog with title, content, and button row. Shown via PopupLayer as a centered modal popup.
     class Dialog : public ViewGroup
@@ -50,13 +55,13 @@ export namespace draconic::ui
         Event<void(Dialog*, DialogResult)> OnClosed;
 
         /// Minimum dialog width.
-        Property<f32> MinWidth{ 250.0f };
+        Property<f32> MinWidth{250.0f};
         /// Minimum dialog height.
-        Property<f32> MinHeight{ 120.0f };
+        Property<f32> MinHeight{120.0f};
         /// Maximum dialog width. Clamped to 80% of viewport if larger.
-        Property<f32> MaxWidth{ 400.0f };
+        Property<f32> MaxWidth{400.0f};
         /// Maximum dialog height. Clamped to 80% of viewport if larger.
-        Property<f32> MaxHeight{ 300.0f };
+        Property<f32> MaxHeight{300.0f};
 
         explicit Dialog(StringView title)
         {
@@ -70,7 +75,7 @@ export namespace draconic::ui
             m_layout = MakeRef<FlexLayout>(DefaultAllocator());
             m_layout->Direction = Orientation::Vertical;
             m_layout->Spacing = 10;
-            m_layout->Padding = Thickness{ 12, 10 };
+            m_layout->Padding = Thickness{12, 10};
             m_layout->Parent = this;
 
             // Title
@@ -99,7 +104,10 @@ export namespace draconic::ui
         /// Set the content view (between title and buttons).
         void SetContent(View* content)
         {
-            if (m_content != nullptr) { m_layout->RemoveView(m_content, true); }
+            if (m_content != nullptr)
+            {
+                m_layout->RemoveView(m_content, true);
+            }
 
             m_content = content;
             m_layout->RemoveView(m_buttonRow.Get(), false);
@@ -127,7 +135,8 @@ export namespace draconic::ui
             {
                 Dialog* self = this;
                 const DialogResult dialogResult = result;
-                btn->OnClick.Add(Event<void(ButtonBase*)>::Handler{ [self, dialogResult](ButtonBase*) { self->Close(dialogResult); } });
+                btn->OnClick.Add(Event<void(ButtonBase*)>::Handler{[self, dialogResult](ButtonBase*)
+                                                                   { self->Close(dialogResult); }});
             }
             Button* raw = btn.Get();
             m_buttonRow->AddView(btn.Get());
@@ -138,7 +147,10 @@ export namespace draconic::ui
         void Show(UIContext* ctx, bool ownsView = true)
         {
             RootView* root = ctx->ActiveInputRoot();
-            if (root == nullptr) { return; }
+            if (root == nullptr)
+            {
+                return;
+            }
 
             // Show at (0,0) first so dialog gets context-attached for measurement. AttachView recurses
             // through VisualChildren, so the internal FlexLayout and its buttons attach automatically.
@@ -166,35 +178,51 @@ export namespace draconic::ui
         /// Close the dialog with a result. Deferred via MutationQueue.
         void Close(DialogResult result = DialogResult::None)
         {
-            if (result != DialogResult::None) { Result = result; }
+            if (result != DialogResult::None)
+            {
+                Result = result;
+            }
             OnClosed.Invoke(this, Result);
             UIContext* ctx = Context;
             if (ctx != nullptr)
             {
                 Dialog* self = this;
-                ctx->MutationQueueRef().QueueAction(Function<void()>{ [ctx, self]()
-                {
-                    if (RootView* root = ctx->ActiveInputRoot()) { root->GetPopupLayer()->ClosePopup(self); }
-                } });
+                ctx->MutationQueueRef().QueueAction(
+                    Function<void()>{[ctx, self]()
+                                     {
+                                         if (RootView* root = ctx->ActiveInputRoot())
+                                         {
+                                             root->GetPopupLayer()->ClosePopup(self);
+                                         }
+                                     }});
             }
         }
 
         // === Visual children: the internal layout ===
 
         [[nodiscard]] usize VisualChildCount() const override { return 1; }
-        [[nodiscard]] View* GetVisualChild(usize index) const override { return (index == 0) ? m_layout.Get() : nullptr; }
+        [[nodiscard]] View* GetVisualChild(usize index) const override
+        {
+            return (index == 0) ? m_layout.Get() : nullptr;
+        }
 
         // === Drawing ===
 
         void OnDraw(UIDrawContext& ctx) override
         {
-            const Rectangle bounds{ 0, 0, Width(), Height() };
+            const Rectangle bounds{0, 0, Width(), Height()};
             Drawable* bg = ResolveStyleDrawable(StyleProperty::Background);
-            if (bg != nullptr) { bg->Draw(ctx, bounds, GetControlState()); }
+            if (bg != nullptr)
+            {
+                bg->Draw(ctx, bounds, GetControlState());
+            }
             else
             {
-                ctx.VG().FillRoundedRect(bounds, 6.0f, Color{ 50.0f / 255.0f, 52.0f / 255.0f, 62.0f / 255.0f, 1.0f });
-                ctx.VG().StrokeRoundedRect(bounds, 6.0f, Color{ 80.0f / 255.0f, 85.0f / 255.0f, 100.0f / 255.0f, 1.0f }, 1.0f);
+                ctx.VG().FillRoundedRect(
+                    bounds, 6.0f, Color{50.0f / 255.0f, 52.0f / 255.0f, 62.0f / 255.0f, 1.0f});
+                ctx.VG().StrokeRoundedRect(
+                    bounds, 6.0f, Color{80.0f / 255.0f, 85.0f / 255.0f, 100.0f / 255.0f, 1.0f},
+                    1.0f);
             }
             DrawChildren(ctx);
         }
@@ -217,7 +245,7 @@ export namespace draconic::ui
         {
             RefPtr<Dialog> dialog = MakeRef<Dialog>(DefaultAllocator(), title);
             RefPtr<Label> label = MakeRef<Label>(DefaultAllocator(), message);
-            label->WordWrap.SetValue(true);   // long messages wrap inside the dialog width
+            label->WordWrap.SetValue(true); // long messages wrap inside the dialog width
             dialog->SetContent(label.Get());
             dialog->AddButton(u8"OK", DialogResult::OK);
             return dialog;
@@ -242,9 +270,11 @@ export namespace draconic::ui
         {
             // Apply Dialog's own min/max, then intersect with input constraints.
             const f32 effMinW = Max(MinWidth.Value(), constraints.MinWidth);
-            const f32 effMaxW = Min(MaxWidth.Value() > 0 ? MaxWidth.Value() : kFloatMax, constraints.MaxWidth);
+            const f32 effMaxW =
+                Min(MaxWidth.Value() > 0 ? MaxWidth.Value() : kFloatMax, constraints.MaxWidth);
             const f32 effMinH = Max(MinHeight.Value(), constraints.MinHeight);
-            const f32 effMaxH = Min(MaxHeight.Value() > 0 ? MaxHeight.Value() : kFloatMax, constraints.MaxHeight);
+            const f32 effMaxH =
+                Min(MaxHeight.Value() > 0 ? MaxHeight.Value() : kFloatMax, constraints.MaxHeight);
 
             // First pass: measure with unconstrained height so simple content (text labels) wraps to its
             // natural size.
@@ -257,14 +287,18 @@ export namespace draconic::ui
 
             // Second pass: if height was clamped (content was larger or smaller than bounds), re-measure
             // with the final bounded height so Grow children distribute space correctly.
-            if (finalH != m_layout->MeasuredSize.y) { m_layout->Measure(BoxConstraints(finalW, finalW, finalH, finalH)); }
+            if (finalH != m_layout->MeasuredSize.y)
+            {
+                m_layout->Measure(BoxConstraints(finalW, finalW, finalH, finalH));
+            }
 
-            MeasuredSize = Float2{ finalW, finalH };
+            MeasuredSize = Float2{finalW, finalH};
         }
 
         void OnLayout(f32 left, f32 top, f32 width, f32 height) override
         {
-            (void)left; (void)top;
+            (void)left;
+            (void)top;
             m_layout->Layout(0, 0, width, height);
         }
 

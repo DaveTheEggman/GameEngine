@@ -20,23 +20,32 @@ export namespace draconic::editor
 {
     struct EditorCamera
     {
-        Float3 position{ 6.0f, 5.0f, 10.0f };
-        f32 yaw   = 0.54f;    // 0 => looking down -Z; defaults aim at the origin (see LookAt)
+        Float3 position{6.0f, 5.0f, 10.0f};
+        f32 yaw = 0.54f; // 0 => looking down -Z; defaults aim at the origin (see LookAt)
         f32 pitch = -0.41f;
         bool mouseCaptured = false;
         f32 moveSpeed = 8.0f, fastSpeed = 30.0f, lookSensitivity = 0.003f;
-        f32 zoomSpeed = 1.5f;        // world units per wheel notch (dolly along forward)
-        f32 focusDistance = 12.0f;   // pivot distance ahead (Alt+LMB turntable orbit)
+        f32 zoomSpeed = 1.5f;      // world units per wheel notch (dolly along forward)
+        f32 focusDistance = 12.0f; // pivot distance ahead (Alt+LMB turntable orbit)
         f32 panSensitivity = 0.0015f;
 
         [[nodiscard]] Quaternion Rotation() const
         {
-            return Quaternion::FromAxisAngle(Float3{ 0.0f, 1.0f, 0.0f }, yaw)
-                 * Quaternion::FromAxisAngle(Float3{ 1.0f, 0.0f, 0.0f }, pitch);
+            return Quaternion::FromAxisAngle(Float3{0.0f, 1.0f, 0.0f}, yaw) *
+                   Quaternion::FromAxisAngle(Float3{1.0f, 0.0f, 0.0f}, pitch);
         }
-        [[nodiscard]] Float3 Forward() const { return RotateVector(Rotation(), Float3{ 0.0f, 0.0f, -1.0f }); }
-        [[nodiscard]] Float3 Right() const { return RotateVector(Rotation(), Float3{ 1.0f, 0.0f, 0.0f }); }
-        [[nodiscard]] Float3 Up() const { return RotateVector(Rotation(), Float3{ 0.0f, 1.0f, 0.0f }); }
+        [[nodiscard]] Float3 Forward() const
+        {
+            return RotateVector(Rotation(), Float3{0.0f, 0.0f, -1.0f});
+        }
+        [[nodiscard]] Float3 Right() const
+        {
+            return RotateVector(Rotation(), Float3{1.0f, 0.0f, 0.0f});
+        }
+        [[nodiscard]] Float3 Up() const
+        {
+            return RotateVector(Rotation(), Float3{0.0f, 1.0f, 0.0f});
+        }
 
         /// Aim at `target` from the current position: solves yaw/pitch (no roll, so the horizon
         /// stays level) and moves the orbit pivot there (focusDistance). Also the future
@@ -45,7 +54,10 @@ export namespace draconic::editor
         {
             const Float3 delta = target - position;
             const f32 length = Sqrt(Dot(delta, delta));
-            if (length < 0.0001f) { return; }
+            if (length < 0.0001f)
+            {
+                return;
+            }
             const Float3 dir = delta * (1.0f / length);
             // forward = (-cos(pitch)*sin(yaw), sin(pitch), -cos(pitch)*cos(yaw))
             pitch = Asin(Clamp(dir.y, -1.0f, 1.0f));
@@ -57,7 +69,10 @@ export namespace draconic::editor
         void Update(draconic::shell::IKeyboard* kb, draconic::shell::IMouse* mouse, f32 dt)
         {
             namespace shell = draconic::shell;
-            if (kb == nullptr) { return; }
+            if (kb == nullptr)
+            {
+                return;
+            }
 
             if (mouse != nullptr)
             {
@@ -67,28 +82,30 @@ export namespace draconic::editor
                     mouse->SetRelativeMode(mouseCaptured);
                     mouse->SetCursorVisible(!mouseCaptured);
                 }
-                const bool alt = kb->IsKeyDown(shell::KeyCode::LeftAlt) || kb->IsKeyDown(shell::KeyCode::RightAlt);
+                const bool alt = kb->IsKeyDown(shell::KeyCode::LeftAlt) ||
+                                 kb->IsKeyDown(shell::KeyCode::RightAlt);
 
                 if (alt && mouse->IsButtonDown(shell::MouseButton::Left))
                 {
                     // Turntable orbit: rotate about the focus point ahead, keeping it fixed.
                     const Float3 focus = position + Forward() * focusDistance;
-                    yaw   -= mouse->DeltaX() * lookSensitivity;
+                    yaw -= mouse->DeltaX() * lookSensitivity;
                     pitch -= mouse->DeltaY() * lookSensitivity;
-                    pitch  = Clamp(pitch, -1.55f, 1.55f);
+                    pitch = Clamp(pitch, -1.55f, 1.55f);
                     position = focus - Forward() * focusDistance;
                 }
                 else if (mouseCaptured || mouse->IsButtonDown(shell::MouseButton::Right))
                 {
-                    yaw   -= mouse->DeltaX() * lookSensitivity;
+                    yaw -= mouse->DeltaX() * lookSensitivity;
                     pitch -= mouse->DeltaY() * lookSensitivity;
-                    pitch  = Clamp(pitch, -1.55f, 1.55f);
+                    pitch = Clamp(pitch, -1.55f, 1.55f);
                 }
 
                 if (mouse->IsButtonDown(shell::MouseButton::Middle))
                 {
                     const f32 s = panSensitivity * focusDistance;
-                    position = position - Right() * (mouse->DeltaX() * s) + Up() * (mouse->DeltaY() * s);
+                    position =
+                        position - Right() * (mouse->DeltaX() * s) + Up() * (mouse->DeltaY() * s);
                 }
 
                 const f32 scroll = mouse->ScrollY();
@@ -101,21 +118,46 @@ export namespace draconic::editor
 
             // WASD/QE fly ONLY while the camera owns the input - RMB held or Tab-captured
             // (the editor convention: with RMB up, W/E/R/X belong to the gizmo shortcuts).
-            const bool flying = mouseCaptured
-                || (mouse != nullptr && mouse->IsButtonDown(shell::MouseButton::Right));
-            if (!flying) { return; }
+            const bool flying = mouseCaptured || (mouse != nullptr &&
+                                                  mouse->IsButtonDown(shell::MouseButton::Right));
+            if (!flying)
+            {
+                return;
+            }
 
             const Float3 fwd = Forward();
             const Float3 right = Right();
-            const f32 speed = (kb->IsKeyDown(shell::KeyCode::LeftShift) ? fastSpeed : moveSpeed) * dt;
-            Float3 move{ 0.0f, 0.0f, 0.0f };
-            if (kb->IsKeyDown(shell::KeyCode::W)) { move = move + fwd; }
-            if (kb->IsKeyDown(shell::KeyCode::S)) { move = move - fwd; }
-            if (kb->IsKeyDown(shell::KeyCode::D)) { move = move + right; }
-            if (kb->IsKeyDown(shell::KeyCode::A)) { move = move - right; }
-            if (kb->IsKeyDown(shell::KeyCode::E)) { move = move + Float3{ 0.0f, 1.0f, 0.0f }; }
-            if (kb->IsKeyDown(shell::KeyCode::Q)) { move = move - Float3{ 0.0f, 1.0f, 0.0f }; }
-            if (Dot(move, move) > 0.0f) { position = position + Normalized(move) * speed; }
+            const f32 speed =
+                (kb->IsKeyDown(shell::KeyCode::LeftShift) ? fastSpeed : moveSpeed) * dt;
+            Float3 move{0.0f, 0.0f, 0.0f};
+            if (kb->IsKeyDown(shell::KeyCode::W))
+            {
+                move = move + fwd;
+            }
+            if (kb->IsKeyDown(shell::KeyCode::S))
+            {
+                move = move - fwd;
+            }
+            if (kb->IsKeyDown(shell::KeyCode::D))
+            {
+                move = move + right;
+            }
+            if (kb->IsKeyDown(shell::KeyCode::A))
+            {
+                move = move - right;
+            }
+            if (kb->IsKeyDown(shell::KeyCode::E))
+            {
+                move = move + Float3{0.0f, 1.0f, 0.0f};
+            }
+            if (kb->IsKeyDown(shell::KeyCode::Q))
+            {
+                move = move - Float3{0.0f, 1.0f, 0.0f};
+            }
+            if (Dot(move, move) > 0.0f)
+            {
+                position = position + Normalized(move) * speed;
+            }
         }
     };
 }

@@ -14,7 +14,7 @@ module;
 
 export module draconic.gui:scene_node;
 
-import draconic.core;   // Duration
+import draconic.core; // Duration
 import :node;
 import :action_manager;
 import :mutation_queue;
@@ -50,7 +50,7 @@ export namespace draconic::gui
     private:
         ActionManager m_actionManager;
         MutationQueue m_mutationQueue;
-        EventDispatcher m_eventDispatcher{ this }; // root = this SceneNode
+        EventDispatcher m_eventDispatcher{this}; // root = this SceneNode
     };
 
     DRACONIC_DEFINE_OBJECT(SceneNode, "draconic::gui")

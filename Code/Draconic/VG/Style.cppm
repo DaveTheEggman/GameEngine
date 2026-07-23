@@ -27,11 +27,17 @@ export namespace draconic::vg
 
         /// All corners with the same radius.
         explicit constexpr CornerRadii(f32 uniform) noexcept
-            : topLeft(uniform), topRight(uniform), bottomRight(uniform), bottomLeft(uniform) {}
+            : topLeft(uniform), topRight(uniform), bottomRight(uniform), bottomLeft(uniform)
+        {
+        }
 
         /// Each corner with a different radius.
-        constexpr CornerRadii(f32 inTopLeft, f32 inTopRight, f32 inBottomRight, f32 inBottomLeft) noexcept
-            : topLeft(inTopLeft), topRight(inTopRight), bottomRight(inBottomRight), bottomLeft(inBottomLeft) {}
+        constexpr CornerRadii(f32 inTopLeft, f32 inTopRight, f32 inBottomRight,
+                              f32 inBottomLeft) noexcept
+            : topLeft(inTopLeft), topRight(inTopRight), bottomRight(inBottomRight),
+              bottomLeft(inBottomLeft)
+        {
+        }
 
         /// Whether all corners have the same radius.
         [[nodiscard]] constexpr bool IsUniform() const noexcept
@@ -49,17 +55,20 @@ export namespace draconic::vg
     /// Style parameters for path stroking.
     struct StrokeStyle
     {
-        f32 width = 1.0f;             ///< Stroke width in pixels.
-        VGLineCap cap = VGLineCap::Butt;    ///< Line cap style.
+        f32 width = 1.0f;                    ///< Stroke width in pixels.
+        VGLineCap cap = VGLineCap::Butt;     ///< Line cap style.
         VGLineJoin join = VGLineJoin::Miter; ///< Line join style.
-        f32 miterLimit = 4.0f;        ///< Miter limit (ratio of miter length to stroke width).
-        f32 dashOffset = 0.0f;        ///< Dash pattern offset.
+        f32 miterLimit = 4.0f; ///< Miter limit (ratio of miter length to stroke width).
+        f32 dashOffset = 0.0f; ///< Dash pattern offset.
 
         constexpr StrokeStyle() noexcept = default;
 
         explicit constexpr StrokeStyle(f32 inWidth) noexcept : width(inWidth) {}
 
-        constexpr StrokeStyle(f32 inWidth, VGLineCap inCap, VGLineJoin inJoin, f32 inMiterLimit = 4.0f) noexcept
-            : width(inWidth), cap(inCap), join(inJoin), miterLimit(inMiterLimit) {}
+        constexpr StrokeStyle(f32 inWidth, VGLineCap inCap, VGLineJoin inJoin,
+                              f32 inMiterLimit = 4.0f) noexcept
+            : width(inWidth), cap(inCap), join(inJoin), miterLimit(inMiterLimit)
+        {
+        }
     };
 }

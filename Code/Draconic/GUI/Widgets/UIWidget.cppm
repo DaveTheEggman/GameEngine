@@ -11,7 +11,7 @@ module;
 
 export module draconic.gui:ui_widget;
 
-import draconic.core;   // String, StringView, Array
+import draconic.core; // String, StringView, Array
 import :thickness;
 import :ui_node;
 
@@ -27,38 +27,69 @@ export namespace draconic::gui
         UIWidget() = default;
 
         // === CSS identity (selector surface) ===
-        void SetTag(core::StringView tag) { m_tag = tag; Invalidate(); }
+        void SetTag(core::StringView tag)
+        {
+            m_tag = tag;
+            Invalidate();
+        }
         [[nodiscard]] core::StringView GetTag() const { return m_tag.AsView(); }
 
-        void SetId(core::StringView id) { m_id = id; Invalidate(); }
+        void SetId(core::StringView id)
+        {
+            m_id = id;
+            Invalidate();
+        }
         [[nodiscard]] core::StringView GetId() const { return m_id.AsView(); }
 
         void AddClass(core::StringView cls)
         {
-            if (cls.Size() != 0 && !HasClass(cls)) { m_classes.PushBack(core::String(cls)); Invalidate(); }
+            if (cls.Size() != 0 && !HasClass(cls))
+            {
+                m_classes.PushBack(core::String(cls));
+                Invalidate();
+            }
         }
         void RemoveClass(core::StringView cls)
         {
             for (usize i = 0; i < m_classes.Size(); ++i)
-                if (m_classes[i] == cls) { m_classes.RemoveAt(i); Invalidate(); return; }
+                if (m_classes[i] == cls)
+                {
+                    m_classes.RemoveAt(i);
+                    Invalidate();
+                    return;
+                }
         }
         [[nodiscard]] bool HasClass(core::StringView cls) const
         {
             for (const core::String& c : m_classes)
-                if (c == cls) return true;
+                if (c == cls)
+                    return true;
             return false;
         }
-        void ToggleClass(core::StringView cls) { if (HasClass(cls)) RemoveClass(cls); else AddClass(cls); }
+        void ToggleClass(core::StringView cls)
+        {
+            if (HasClass(cls))
+                RemoveClass(cls);
+            else
+                AddClass(cls);
+        }
         [[nodiscard]] usize ClassCount() const noexcept { return m_classes.Size(); }
         [[nodiscard]] const Array<core::String>& Classes() const noexcept { return m_classes; }
 
         // === Layout margin ===
-        void SetMargin(Thickness margin) { m_margin = margin; Invalidate(); }
+        void SetMargin(Thickness margin)
+        {
+            m_margin = margin;
+            Invalidate();
+        }
         [[nodiscard]] Thickness GetMargin() const noexcept { return m_margin; }
 
         // === Hover tooltip ===
         void SetTooltip(core::StringView text) { m_tooltip = text; }
-        [[nodiscard]] core::StringView GetTooltipText() const override { return m_tooltip.AsView(); }
+        [[nodiscard]] core::StringView GetTooltipText() const override
+        {
+            return m_tooltip.AsView();
+        }
 
     private:
         core::String m_tag;

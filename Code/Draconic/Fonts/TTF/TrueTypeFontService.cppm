@@ -46,8 +46,9 @@ export namespace draconic::fonts
 
         // Load a font from `locator` and build its atlas texture. The first
         // font loaded becomes the default. Returns Success or a failure.
-        [[nodiscard]] FontLoadResult LoadFont(StringView familyName, StringView locator,
-                                              FontLoadOptions options = FontLoadOptions::ExtendedLatin())
+        [[nodiscard]] FontLoadResult
+        LoadFont(StringView familyName, StringView locator,
+                 FontLoadOptions options = FontLoadOptions::ExtendedLatin())
         {
             IFont* font = nullptr;
             if (m_fileSystem != nullptr)
@@ -57,14 +58,16 @@ export namespace draconic::fonts
                     return FontLoadResult::FileNotFound;
 
                 const StringView ext = PathExtension(locator);
-                Result<IFont*, FontLoadResult> parsed = FontParserFactory::ParseFromStream(*stream, ext, options);
+                Result<IFont*, FontLoadResult> parsed =
+                    FontParserFactory::ParseFromStream(*stream, ext, options);
                 if (!parsed.HasValue())
                     return parsed.Error();
                 font = parsed.Value();
             }
             else
             {
-                Result<IFont*, FontLoadResult> parsed = FontParserFactory::ParseFromFile(locator, options);
+                Result<IFont*, FontLoadResult> parsed =
+                    FontParserFactory::ParseFromFile(locator, options);
                 if (!parsed.HasValue())
                     return parsed.Error();
                 font = parsed.Value();
@@ -101,7 +104,8 @@ export namespace draconic::fonts
             return nullptr;
         }
 
-        [[nodiscard]] draconic::image::ImageData* GetAtlasTexture(StringView familyName, f32 pixelHeight) override
+        [[nodiscard]] draconic::image::ImageData* GetAtlasTexture(StringView familyName,
+                                                                  f32 pixelHeight) override
         {
             if (const FontEntry* exact = FindExact(familyName, pixelHeight))
                 return exact->texture;
@@ -121,13 +125,14 @@ export namespace draconic::fonts
         {
             String family;
             f32 pixelHeight = 0;
-            CachedFont* cachedFont = nullptr;                 // owns font/atlas/shaper
+            CachedFont* cachedFont = nullptr;                   // owns font/atlas/shaper
             draconic::image::OwnedImageData* texture = nullptr; // owned
         };
 
         static void DeleteEntry(FontEntry* entry)
         {
-            if (entry == nullptr) return;
+            if (entry == nullptr)
+                return;
             DefaultAllocator().Delete(entry->cachedFont); // frees font/atlas/shaper
             DefaultAllocator().Delete(entry->texture);
             DefaultAllocator().Delete(entry);
@@ -141,8 +146,10 @@ export namespace draconic::fonts
             for (usize i = 0; i < a.Size(); ++i)
             {
                 utf8char ca = a[i], cb = b[i];
-                if (ca >= u8'A' && ca <= u8'Z') ca = static_cast<utf8char>(ca - u8'A' + u8'a');
-                if (cb >= u8'A' && cb <= u8'Z') cb = static_cast<utf8char>(cb - u8'A' + u8'a');
+                if (ca >= u8'A' && ca <= u8'Z')
+                    ca = static_cast<utf8char>(ca - u8'A' + u8'a');
+                if (cb >= u8'A' && cb <= u8'Z')
+                    cb = static_cast<utf8char>(cb - u8'A' + u8'a');
                 if (ca != cb)
                     return false;
             }
@@ -191,7 +198,8 @@ export namespace draconic::fonts
         [[nodiscard]] const FontEntry* FindExact(StringView family, f32 pixelHeight) const
         {
             for (const FontEntry* entry : m_fonts)
-                if (FamilyEquals(entry->family, family) && Abs(entry->pixelHeight - pixelHeight) < 0.001f)
+                if (FamilyEquals(entry->family, family) &&
+                    Abs(entry->pixelHeight - pixelHeight) < 0.001f)
                     return entry;
             return nullptr;
         }

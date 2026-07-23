@@ -28,14 +28,23 @@ export namespace draconic::ui
         AnimationManager& operator=(const AnimationManager&) = delete;
 
         /// Number of currently active animations.
-        [[nodiscard]] usize ActiveCount() const noexcept { return m_animations.Size() + m_pending.Size(); }
+        [[nodiscard]] usize ActiveCount() const noexcept
+        {
+            return m_animations.Size() + m_pending.Size();
+        }
 
         /// Add an animation and start it. The AnimationManager takes ownership.
         void Add(UniquePtr<Animation> anim)
         {
             anim->Start();
-            if (m_isUpdating) { m_pending.PushBack(Move(anim)); }
-            else { m_animations.PushBack(Move(anim)); }
+            if (m_isUpdating)
+            {
+                m_pending.PushBack(Move(anim));
+            }
+            else
+            {
+                m_animations.PushBack(Move(anim));
+            }
         }
 
         /// Tick all animations. Removes (and deletes) completed ones.
@@ -56,7 +65,10 @@ export namespace draconic::ui
             // Merge pending animations added during Update.
             if (m_pending.Size() > 0)
             {
-                for (UniquePtr<Animation>& anim : m_pending) { m_animations.PushBack(Move(anim)); }
+                for (UniquePtr<Animation>& anim : m_pending)
+                {
+                    m_animations.PushBack(Move(anim));
+                }
                 m_pending.Clear();
             }
         }
@@ -73,11 +85,17 @@ export namespace draconic::ui
         {
             for (i32 i = static_cast<i32>(m_animations.Size()) - 1; i >= 0; --i)
             {
-                if (m_animations[static_cast<usize>(i)]->Target() == view) { m_animations.RemoveAtSwap(static_cast<usize>(i)); }
+                if (m_animations[static_cast<usize>(i)]->Target() == view)
+                {
+                    m_animations.RemoveAtSwap(static_cast<usize>(i));
+                }
             }
             for (i32 i = static_cast<i32>(m_pending.Size()) - 1; i >= 0; --i)
             {
-                if (m_pending[static_cast<usize>(i)]->Target() == view) { m_pending.RemoveAtSwap(static_cast<usize>(i)); }
+                if (m_pending[static_cast<usize>(i)]->Target() == view)
+                {
+                    m_pending.RemoveAtSwap(static_cast<usize>(i));
+                }
             }
         }
 

@@ -10,7 +10,7 @@ module;
 
 export module draconic.gui:table_model;
 
-import draconic.core;   // Array, String, StringView, Move
+import draconic.core; // Array, String, StringView, Move
 import :variant;
 import :model_index;
 import :model;
@@ -25,26 +25,44 @@ export namespace draconic::gui
     public:
         TableModel() = default;
 
-        void SetColumns(Array<core::String> columns) { m_columns = core::Move(columns); DidUpdate(); }
-        void AddRow(Array<Variant> row) { m_rows.PushBack(core::Move(row)); DidUpdate(); }
-        void Clear() { m_rows.Clear(); DidUpdate(); }
+        void SetColumns(Array<core::String> columns)
+        {
+            m_columns = core::Move(columns);
+            DidUpdate();
+        }
+        void AddRow(Array<Variant> row)
+        {
+            m_rows.PushBack(core::Move(row));
+            DidUpdate();
+        }
+        void Clear()
+        {
+            m_rows.Clear();
+            DidUpdate();
+        }
 
         // The raw cell (no display conversion); empty if out of range.
         [[nodiscard]] Variant Cell(usize row, usize column) const
         {
-            if (row >= m_rows.Size() || column >= m_rows[row].Size()) return Variant{};
+            if (row >= m_rows.Size() || column >= m_rows[row].Size())
+                return Variant{};
             return m_rows[row][column];
         }
 
-        [[nodiscard]] usize RowCount(const ModelIndex& parent = {}) const override { return parent.IsValid() ? 0 : m_rows.Size(); }
+        [[nodiscard]] usize RowCount(const ModelIndex& parent = {}) const override
+        {
+            return parent.IsValid() ? 0 : m_rows.Size();
+        }
         [[nodiscard]] usize ColumnCount() const override { return m_columns.Size(); }
         [[nodiscard]] core::String ColumnName(usize column) const override
         {
             return column < m_columns.Size() ? m_columns[column] : core::String{};
         }
-        [[nodiscard]] Variant Data(const ModelIndex& index, ModelRole role = ModelRole::Display) const override
+        [[nodiscard]] Variant Data(const ModelIndex& index,
+                                   ModelRole role = ModelRole::Display) const override
         {
-            if (!IsValidIndex(index)) return Variant{};
+            if (!IsValidIndex(index))
+                return Variant{};
             if (role == ModelRole::Display || role == ModelRole::Sort)
                 return Cell(static_cast<usize>(index.Row), static_cast<usize>(index.Column));
             return Variant{};

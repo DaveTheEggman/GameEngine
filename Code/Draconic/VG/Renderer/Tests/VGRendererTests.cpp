@@ -21,7 +21,7 @@ namespace
 {
     rhi::ShaderModule* MakeModule(rhi::Device& d)
     {
-        const u8 dummy[4] = { 0, 0, 0, 0 };
+        const u8 dummy[4] = {0, 0, 0, 0};
         rhi::ShaderModuleDesc desc{};
         desc.code = Span<const u8>(dummy, 4);
         rhi::ShaderModule* m = nullptr;
@@ -33,7 +33,7 @@ namespace
 TEST_CASE("vg.renderer: render-vertex packs + decodes sRGB")
 {
     // White stays white (1,1,1); opaque alpha passes through.
-    const VGRenderVertex v(VGVertex::Solid(Float2{ 2.0f, 3.0f }, Color::White));
+    const VGRenderVertex v(VGVertex::Solid(Float2{2.0f, 3.0f}, Color::White));
     CHECK(v.position[0] == doctest::Approx(2.0f));
     CHECK(v.position[1] == doctest::Approx(3.0f));
     CHECK(v.color[0] == doctest::Approx(1.0f));
@@ -41,7 +41,7 @@ TEST_CASE("vg.renderer: render-vertex packs + decodes sRGB")
     CHECK(v.coverage == doctest::Approx(1.0f));
 
     // A mid-grey sRGB byte (188) decodes to ~0.5 linear, not 0.737.
-    const VGRenderVertex g(VGVertex::Solid(Float2{}, ToColor(Color32{ 188, 188, 188, 255 })));
+    const VGRenderVertex g(VGVertex::Solid(Float2{}, ToColor(Color32{188, 188, 188, 255})));
     CHECK(g.color[0] > 0.45f);
     CHECK(g.color[0] < 0.55f);
 }
@@ -55,13 +55,15 @@ TEST_CASE("vg.renderer: initialize + prepare a batch (headless Null backend)")
     REQUIRE(fs != nullptr);
 
     VGRenderer renderer;
-    REQUIRE(renderer.Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, /*frameCount*/ 2).IsOk());
+    REQUIRE(
+        renderer.Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, /*frameCount*/ 2)
+            .IsOk());
     CHECK(renderer.IsInitialized());
 
     // Produce a batch with VGContext.
     VGContext ctx;
-    ctx.FillRect(Rectangle{ 10, 10, 100, 50 }, Color::Red);
-    ctx.FillCircle(Float2{ 50, 50 }, 20, Color::Blue);
+    ctx.FillRect(Rectangle{10, 10, 100, 50}, Color::Red);
+    ctx.FillCircle(Float2{50, 50}, 20, Color::Blue);
     VGBatch& batch = ctx.GetBatch();
     REQUIRE(batch.VertexCount() > 0u);
 
@@ -73,7 +75,7 @@ TEST_CASE("vg.renderer: initialize + prepare a batch (headless Null backend)")
 
     // A second batch in the same frame gets a non-overlapping vertex range.
     VGContext ctx2;
-    ctx2.FillRect(Rectangle{ 0, 0, 10, 10 }, Color::Green);
+    ctx2.FillRect(Rectangle{0, 0, 10, 10}, Color::Green);
     const VGRenderSlice slice2 = renderer.Prepare(ctx2.GetBatch(), 0, 800, 600);
     CHECK(slice2.isValid);
     CHECK(slice2.vertexByteOffset > 0u);
@@ -94,7 +96,8 @@ TEST_CASE("vg.renderer: external texture register / rebind / unregister")
     REQUIRE(fs != nullptr);
 
     VGRenderer renderer;
-    REQUIRE(renderer.Initialize(device, *vs, *fs, rhi::TextureFormat::RGBA16Float, /*frameCount*/ 2).IsOk());
+    REQUIRE(renderer.Initialize(device, *vs, *fs, rhi::TextureFormat::RGBA16Float, /*frameCount*/ 2)
+                .IsOk());
 
     // A caller-owned view standing in for a viewport's offscreen color target.
     rhi::TextureDesc td = rhi::TextureDesc::RenderTarget(rhi::TextureFormat::RGBA16Float, 64, 48);
@@ -113,7 +116,7 @@ TEST_CASE("vg.renderer: external texture register / rebind / unregister")
     // DrawImage(key) now Prepares without trying to upload CPU pixels (the ref
     // has none) - the pre-registered external view is used instead.
     VGContext ctx;
-    ctx.DrawImage(&key, Rectangle{ 0, 0, 64, 48 });
+    ctx.DrawImage(&key, Rectangle{0, 0, 64, 48});
     renderer.BeginFrame(0);
     const VGRenderSlice slice = renderer.Prepare(ctx.GetBatch(), 0, 800, 600);
     CHECK(slice.isValid);
@@ -192,8 +195,8 @@ TEST_CASE("vg.renderer: ComputeScissor clamps to content then offsets to the vie
 
     // Fully inside: clamp is a no-op, the viewport origin offsets the rect.
     {
-        const auto s = VGRenderer::ComputeScissor(Rectangle{ 10.0f, 20.0f, 100.0f, 50.0f },
-                                                  400, 300, 400, 300);
+        const auto s =
+            VGRenderer::ComputeScissor(Rectangle{10.0f, 20.0f, 100.0f, 50.0f}, 400, 300, 400, 300);
         CHECK(s.x == 410);
         CHECK(s.y == 320);
         CHECK(s.width == 100u);
@@ -202,8 +205,8 @@ TEST_CASE("vg.renderer: ComputeScissor clamps to content then offsets to the vie
     // Overhanging the content box: clamped to (0..w, 0..h) BEFORE the offset - a clip
     // rect can never reach outside its view's rect (split-screen halves stay sealed).
     {
-        const auto s = VGRenderer::ComputeScissor(Rectangle{ -30.0f, -10.0f, 500.0f, 400.0f },
-                                                  400, 0, 400, 300);
+        const auto s =
+            VGRenderer::ComputeScissor(Rectangle{-30.0f, -10.0f, 500.0f, 400.0f}, 400, 0, 400, 300);
         CHECK(s.x == 400);
         CHECK(s.y == 0);
         CHECK(s.width == 400u);
@@ -211,14 +214,14 @@ TEST_CASE("vg.renderer: ComputeScissor clamps to content then offsets to the vie
     }
     // Entirely outside the content box: degenerates to zero size (nothing drawn).
     {
-        const auto s = VGRenderer::ComputeScissor(Rectangle{ 500.0f, 0.0f, 50.0f, 50.0f },
-                                                  0, 0, 400, 300);
+        const auto s =
+            VGRenderer::ComputeScissor(Rectangle{500.0f, 0.0f, 50.0f, 50.0f}, 0, 0, 400, 300);
         CHECK(s.width == 0u);
     }
     // Full-target viewport (the classic overload's path): identity behavior.
     {
-        const auto s = VGRenderer::ComputeScissor(Rectangle{ 10.0f, 10.0f, 50.0f, 50.0f },
-                                                  0, 0, 800, 600);
+        const auto s =
+            VGRenderer::ComputeScissor(Rectangle{10.0f, 10.0f, 50.0f, 50.0f}, 0, 0, 800, 600);
         CHECK(s.x == 10);
         CHECK(s.y == 10);
         CHECK(s.width == 50u);

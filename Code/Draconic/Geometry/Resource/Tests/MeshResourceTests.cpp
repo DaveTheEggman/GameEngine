@@ -38,7 +38,8 @@ TEST_CASE("static mesh resource: cube round-trips through the resource manager")
 
     Guid id;
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                              u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"cube", StaticMeshSource::StaticType());
         id = inst->Id();
 
@@ -48,7 +49,8 @@ TEST_CASE("static mesh resource: cube round-trips through the resource manager")
         REQUIRE(inst->WriteObject(src).IsOk());
     }
 
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                          u8".rasset");
     StaticMeshFactory factory;
     ResourceManager manager(db);
     manager.AddFactory(&factory);
@@ -78,15 +80,21 @@ TEST_CASE("skinned mesh resource: round-trips the static + skinning streams")
 
     Guid id;
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                              u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"skinned", SkinnedMeshSource::StaticType());
         id = inst->Id();
 
         RefPtr<SkinnedMesh> mesh = MakeRef<SkinnedMesh>(DefaultAllocator());
         mesh->skeletonIndex = 7;
-        for (u32 i = 0; i < 3; ++i) {
-            mesh->vertices.PushBack(StaticMeshVertex{ Float3{ static_cast<f32>(i), 0, 0 }, Float3{ 0, 1, 0 }, Float2{ 0, 0 }, 0xFFFFFFFFu, Float3{ 1, 0, 0 } });
-            VertexSkinning s{}; s.joints[0] = static_cast<u16>(i); s.weights = Float4{ 1, 0, 0, 0 };
+        for (u32 i = 0; i < 3; ++i)
+        {
+            mesh->vertices.PushBack(StaticMeshVertex{Float3{static_cast<f32>(i), 0, 0},
+                                                     Float3{0, 1, 0}, Float2{0, 0}, 0xFFFFFFFFu,
+                                                     Float3{1, 0, 0}});
+            VertexSkinning s{};
+            s.joints[0] = static_cast<u16>(i);
+            s.weights = Float4{1, 0, 0, 0};
             mesh->skinning.PushBack(s);
         }
         mesh->indices.Resize(3);
@@ -97,7 +105,8 @@ TEST_CASE("skinned mesh resource: round-trips the static + skinning streams")
         REQUIRE(inst->WriteObject(src).IsOk());
     }
 
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                          u8".rasset");
     SkinnedMeshFactory factory;
     ResourceManager manager(db);
     manager.AddFactory(&factory);

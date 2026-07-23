@@ -11,17 +11,21 @@ namespace draconic::ui::tests
 {
     void TestView::OnMeasure(BoxConstraints constraints)
     {
-        MeasuredSize = draconic::core::Float2{ constraints.ConstrainWidth(DesiredWidth),
-                                               constraints.ConstrainHeight(DesiredHeight) };
+        MeasuredSize = draconic::core::Float2{constraints.ConstrainWidth(DesiredWidth),
+                                              constraints.ConstrainHeight(DesiredHeight)};
     }
 
     void TestGroup::OnLayout(f32 left, f32 top, f32 width, f32 height)
     {
-        (void)left; (void)top;
+        (void)left;
+        (void)top;
         for (usize i = 0; i < ChildCount(); ++i)
         {
             View* child = GetChildAt(i);
-            if (child->Visibility != Visibility::Gone) { child->Layout(0, 0, width, height); }
+            if (child->Visibility != Visibility::Gone)
+            {
+                child->Layout(0, 0, width, height);
+            }
         }
     }
 

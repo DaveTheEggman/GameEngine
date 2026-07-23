@@ -14,9 +14,9 @@ module;
 
 export module draconic.gui.shell;
 
-import draconic.core;    // ContentFit, Float2, String, StringView, u32
-import draconic.gui;     // EventDispatcher, MouseButton, KeyMod*, IClipboard
-import draconic.shell;   // InputEvent, InputEventKind, MouseButton, KeyModifiers, IWindow, IShell
+import draconic.core;  // ContentFit, Float2, String, StringView, u32
+import draconic.gui;   // EventDispatcher, MouseButton, KeyMod*, IClipboard
+import draconic.shell; // InputEvent, InputEventKind, MouseButton, KeyModifiers, IWindow, IShell
 
 using namespace draconic::core;
 namespace core = draconic::core;
@@ -32,7 +32,11 @@ export namespace draconic::gui
 
         // The content fit maps window/region-space event positions into GUI content space.
         // Without one, positions pass through unchanged (identity).
-        void SetContentFit(const core::ContentFit& fit) noexcept { m_fit = fit; m_hasFit = true; }
+        void SetContentFit(const core::ContentFit& fit) noexcept
+        {
+            m_fit = fit;
+            m_hasFit = true;
+        }
         void ClearContentFit() noexcept { m_hasFit = false; }
 
         // The window whose platform text input (IME) follows GUI focus. Once set, the bridge
@@ -46,10 +50,13 @@ export namespace draconic::gui
         // by other means.
         void SyncTextInput()
         {
-            if (m_textInputTarget == nullptr || m_dispatcher == nullptr) return;
+            if (m_textInputTarget == nullptr || m_dispatcher == nullptr)
+                return;
             const bool want = m_dispatcher->WantsTextInput();
-            if (want && !m_textInputTarget->IsTextInputActive())       m_textInputTarget->StartTextInput();
-            else if (!want && m_textInputTarget->IsTextInputActive())  m_textInputTarget->StopTextInput();
+            if (want && !m_textInputTarget->IsTextInputActive())
+                m_textInputTarget->StartTextInput();
+            else if (!want && m_textInputTarget->IsTextInputActive())
+                m_textInputTarget->StopTextInput();
         }
 
         // Translate one platform input event into a dispatcher injection. Returns true if the
@@ -58,24 +65,27 @@ export namespace draconic::gui
         // can change focus.
         bool Dispatch(const shell::InputEvent& event)
         {
-            if (m_dispatcher == nullptr) return false;
+            if (m_dispatcher == nullptr)
+                return false;
             bool routed = true;
             switch (event.kind)
             {
             case shell::InputEventKind::MouseMove:
-                m_dispatcher->InjectMouseMove(ToContent(core::Float2{ event.x, event.y }));
+                m_dispatcher->InjectMouseMove(ToContent(core::Float2{event.x, event.y}));
                 break;
             case shell::InputEventKind::MouseButtonDown:
-                m_dispatcher->InjectMouseDown(ToContent(core::Float2{ event.x, event.y }),
-                    MapButton(event.button), MapModifiers(event.modifiers));
+                m_dispatcher->InjectMouseDown(ToContent(core::Float2{event.x, event.y}),
+                                              MapButton(event.button),
+                                              MapModifiers(event.modifiers));
                 break;
             case shell::InputEventKind::MouseButtonUp:
-                m_dispatcher->InjectMouseUp(ToContent(core::Float2{ event.x, event.y }),
-                    MapButton(event.button), MapModifiers(event.modifiers));
+                m_dispatcher->InjectMouseUp(ToContent(core::Float2{event.x, event.y}),
+                                            MapButton(event.button), MapModifiers(event.modifiers));
                 break;
             case shell::InputEventKind::MouseWheel:
                 // For wheel, x/y is the scroll delta; position is the last known cursor spot.
-                m_dispatcher->InjectMouseWheel(m_dispatcher->GetMousePosition(), core::Float2{ event.x, event.y });
+                m_dispatcher->InjectMouseWheel(m_dispatcher->GetMousePosition(),
+                                               core::Float2{event.x, event.y});
                 break;
             case shell::InputEventKind::KeyDown:
                 m_dispatcher->InjectKeyDown(MapKey(event.key), MapModifiers(event.modifiers));
@@ -101,11 +111,13 @@ export namespace draconic::gui
         // through the event-based Dispatch() path.)
         void PumpFromSurface(shell::InputSurface& surface)
         {
-            if (m_dispatcher == nullptr) return;
+            if (m_dispatcher == nullptr)
+                return;
             shell::IMouse* mouse = surface.Mouse();
-            if (mouse == nullptr) return;
+            if (mouse == nullptr)
+                return;
 
-            const core::Float2 position{ mouse->X(), mouse->Y() };
+            const core::Float2 position{mouse->X(), mouse->Y()};
             m_dispatcher->InjectMouseMove(position);
 
             // Current keyboard modifiers, so a modified click (Shift+click to extend a text
@@ -114,17 +126,19 @@ export namespace draconic::gui
             const u32 modifiers = keyboard != nullptr ? MapModifiers(keyboard->Modifiers()) : 0u;
 
             const shell::MouseButton buttons[3] = {
-                shell::MouseButton::Left, shell::MouseButton::Middle, shell::MouseButton::Right };
+                shell::MouseButton::Left, shell::MouseButton::Middle, shell::MouseButton::Right};
             for (const shell::MouseButton button : buttons)
             {
-                if (mouse->IsButtonPressed(button))  m_dispatcher->InjectMouseDown(position, MapButton(button), modifiers);
-                if (mouse->IsButtonReleased(button)) m_dispatcher->InjectMouseUp(position, MapButton(button), modifiers);
+                if (mouse->IsButtonPressed(button))
+                    m_dispatcher->InjectMouseDown(position, MapButton(button), modifiers);
+                if (mouse->IsButtonReleased(button))
+                    m_dispatcher->InjectMouseUp(position, MapButton(button), modifiers);
             }
 
             const f32 scrollX = mouse->ScrollX();
             const f32 scrollY = mouse->ScrollY();
             if (scrollX != 0.0f || scrollY != 0.0f)
-                m_dispatcher->InjectMouseWheel(position, core::Float2{ scrollX, scrollY });
+                m_dispatcher->InjectMouseWheel(position, core::Float2{scrollX, scrollY});
 
             SyncTextInput(); // a click this frame may have focused (or blurred) an editable widget
         }
@@ -132,9 +146,11 @@ export namespace draconic::gui
     private:
         [[nodiscard]] core::Float2 ToContent(core::Float2 windowPos) const
         {
-            if (!m_hasFit) return windowPos;
-            core::Float2 out{ 0.0f, 0.0f };
-            [[maybe_unused]] const bool inside = m_fit.ToContent(windowPos, out); // out set regardless
+            if (!m_hasFit)
+                return windowPos;
+            core::Float2 out{0.0f, 0.0f};
+            [[maybe_unused]] const bool inside =
+                m_fit.ToContent(windowPos, out); // out set regardless
             return out;
         }
 
@@ -143,12 +159,18 @@ export namespace draconic::gui
         {
             switch (button)
             {
-            case shell::MouseButton::Left:   return MouseButton::Left;
-            case shell::MouseButton::Right:  return MouseButton::Right;
-            case shell::MouseButton::Middle: return MouseButton::Middle;
-            case shell::MouseButton::X1:     return MouseButton::X1;
-            case shell::MouseButton::X2:     return MouseButton::X2;
-            default:                            return MouseButton::Left;
+            case shell::MouseButton::Left:
+                return MouseButton::Left;
+            case shell::MouseButton::Right:
+                return MouseButton::Right;
+            case shell::MouseButton::Middle:
+                return MouseButton::Middle;
+            case shell::MouseButton::X1:
+                return MouseButton::X1;
+            case shell::MouseButton::X2:
+                return MouseButton::X2;
+            default:
+                return MouseButton::Left;
             }
         }
 
@@ -160,27 +182,67 @@ export namespace draconic::gui
             KeyCode mapped = KeyCode::Unknown;
             switch (key)
             {
-            case shell::KeyCode::Return:    mapped = KeyCode::Return;    break;
-            case shell::KeyCode::Escape:    mapped = KeyCode::Escape;    break;
-            case shell::KeyCode::Backspace: mapped = KeyCode::Backspace; break;
-            case shell::KeyCode::Tab:       mapped = KeyCode::Tab;       break;
-            case shell::KeyCode::Space:     mapped = KeyCode::Space;     break;
-            case shell::KeyCode::Delete:    mapped = KeyCode::Delete;    break;
-            case shell::KeyCode::Insert:    mapped = KeyCode::Insert;    break;
-            case shell::KeyCode::Home:      mapped = KeyCode::Home;      break;
-            case shell::KeyCode::End:       mapped = KeyCode::End;       break;
-            case shell::KeyCode::PageUp:    mapped = KeyCode::PageUp;    break;
-            case shell::KeyCode::PageDown:  mapped = KeyCode::PageDown;  break;
-            case shell::KeyCode::Left:      mapped = KeyCode::Left;      break;
-            case shell::KeyCode::Right:     mapped = KeyCode::Right;     break;
-            case shell::KeyCode::Up:        mapped = KeyCode::Up;        break;
-            case shell::KeyCode::Down:      mapped = KeyCode::Down;      break;
+            case shell::KeyCode::Return:
+                mapped = KeyCode::Return;
+                break;
+            case shell::KeyCode::Escape:
+                mapped = KeyCode::Escape;
+                break;
+            case shell::KeyCode::Backspace:
+                mapped = KeyCode::Backspace;
+                break;
+            case shell::KeyCode::Tab:
+                mapped = KeyCode::Tab;
+                break;
+            case shell::KeyCode::Space:
+                mapped = KeyCode::Space;
+                break;
+            case shell::KeyCode::Delete:
+                mapped = KeyCode::Delete;
+                break;
+            case shell::KeyCode::Insert:
+                mapped = KeyCode::Insert;
+                break;
+            case shell::KeyCode::Home:
+                mapped = KeyCode::Home;
+                break;
+            case shell::KeyCode::End:
+                mapped = KeyCode::End;
+                break;
+            case shell::KeyCode::PageUp:
+                mapped = KeyCode::PageUp;
+                break;
+            case shell::KeyCode::PageDown:
+                mapped = KeyCode::PageDown;
+                break;
+            case shell::KeyCode::Left:
+                mapped = KeyCode::Left;
+                break;
+            case shell::KeyCode::Right:
+                mapped = KeyCode::Right;
+                break;
+            case shell::KeyCode::Up:
+                mapped = KeyCode::Up;
+                break;
+            case shell::KeyCode::Down:
+                mapped = KeyCode::Down;
+                break;
             // Letter keys that back editing shortcuts (Ctrl+A/C/V/X).
-            case shell::KeyCode::A:         mapped = KeyCode::A;         break;
-            case shell::KeyCode::C:         mapped = KeyCode::C;         break;
-            case shell::KeyCode::V:         mapped = KeyCode::V;         break;
-            case shell::KeyCode::X:         mapped = KeyCode::X;         break;
-            default:                           mapped = KeyCode::Unknown;   break;
+            case shell::KeyCode::A:
+                mapped = KeyCode::A;
+                break;
+            case shell::KeyCode::C:
+                mapped = KeyCode::C;
+                break;
+            case shell::KeyCode::V:
+                mapped = KeyCode::V;
+                break;
+            case shell::KeyCode::X:
+                mapped = KeyCode::X;
+                break;
+            default:
+                mapped = KeyCode::Unknown;
+                break;
             }
             return static_cast<u32>(mapped);
         }
@@ -188,15 +250,20 @@ export namespace draconic::gui
         [[nodiscard]] static u32 MapModifiers(shell::KeyModifiers mods) noexcept
         {
             u32 out = 0;
-            if ((mods & shell::KeyModifiers::Shift) != shell::KeyModifiers::None) out |= KeyModShift;
-            if ((mods & shell::KeyModifiers::Ctrl)  != shell::KeyModifiers::None) out |= KeyModCtrl;
-            if ((mods & shell::KeyModifiers::Alt)   != shell::KeyModifiers::None) out |= KeyModAlt;
-            if ((mods & shell::KeyModifiers::Gui)   != shell::KeyModifiers::None) out |= KeyModSuper;
+            if ((mods & shell::KeyModifiers::Shift) != shell::KeyModifiers::None)
+                out |= KeyModShift;
+            if ((mods & shell::KeyModifiers::Ctrl) != shell::KeyModifiers::None)
+                out |= KeyModCtrl;
+            if ((mods & shell::KeyModifiers::Alt) != shell::KeyModifiers::None)
+                out |= KeyModAlt;
+            if ((mods & shell::KeyModifiers::Gui) != shell::KeyModifiers::None)
+                out |= KeyModSuper;
             return out;
         }
 
         EventDispatcher* m_dispatcher;
-        shell::IWindow* m_textInputTarget = nullptr; // window whose IME follows GUI focus (optional)
+        shell::IWindow* m_textInputTarget =
+            nullptr; // window whose IME follows GUI focus (optional)
         core::ContentFit m_fit{};
         bool m_hasFit = false;
     };
@@ -211,9 +278,19 @@ export namespace draconic::gui
     public:
         explicit ShellClipboard(shell::IShell* shell) noexcept : m_shell(shell) {}
 
-        [[nodiscard]] bool HasText() const override { return m_shell != nullptr && m_shell->HasClipboardText(); }
-        [[nodiscard]] core::String GetText() const override { return m_shell != nullptr ? m_shell->GetClipboardText() : core::String{}; }
-        void SetText(core::StringView text) override { if (m_shell != nullptr) m_shell->SetClipboardText(text); }
+        [[nodiscard]] bool HasText() const override
+        {
+            return m_shell != nullptr && m_shell->HasClipboardText();
+        }
+        [[nodiscard]] core::String GetText() const override
+        {
+            return m_shell != nullptr ? m_shell->GetClipboardText() : core::String{};
+        }
+        void SetText(core::StringView text) override
+        {
+            if (m_shell != nullptr)
+                m_shell->SetClipboardText(text);
+        }
 
     private:
         shell::IShell* m_shell; // non-owning

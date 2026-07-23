@@ -11,8 +11,8 @@ module;
 
 export module draconic.gui:draw_context;
 
-import draconic.core;    // Float4x4
-import draconic.vg;      // VGContext
+import draconic.core; // Float4x4
+import draconic.vg;   // VGContext
 import :rect;
 import :transform2d;
 
@@ -25,7 +25,9 @@ export namespace draconic::gui
     {
     public:
         explicit DrawContext(vg::VGContext& context, f32 dpiScale = 1.0f) noexcept
-            : m_vg(&context), m_dpiScale(dpiScale) {}
+            : m_vg(&context), m_dpiScale(dpiScale)
+        {
+        }
 
         // The underlying vector-graphics context (the actual draw surface).
         [[nodiscard]] vg::VGContext& VG() const noexcept { return *m_vg; }

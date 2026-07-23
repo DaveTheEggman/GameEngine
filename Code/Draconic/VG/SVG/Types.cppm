@@ -21,24 +21,37 @@ export namespace draconic::vg::svg
     /// Types of SVG elements.
     enum class SVGElementType
     {
-        Path, Group, Rectangle, Circle, Ellipse, Line, Polygon, Polyline, Text
+        Path,
+        Group,
+        Rectangle,
+        Circle,
+        Ellipse,
+        Line,
+        Polygon,
+        Polyline,
+        Text
     };
 
     /// Text anchor alignment (maps to the SVG text-anchor attribute).
-    enum class SVGTextAnchor { Start, Middle, End };
+    enum class SVGTextAnchor
+    {
+        Start,
+        Middle,
+        End
+    };
 
     /// A parsed SVG element.
     class SVGElement
     {
     public:
         SVGElementType type = SVGElementType::Path;
-        Optional<draconic::vg::Path> path;          ///< Tessellatable geometry (shapes/paths).
-        Float4x4 transform = Float4x4::Identity();        ///< Element transform.
-        Optional<Color> fillColor;              ///< Fill color (empty = none/inherit).
-        Optional<Color> strokeColor;            ///< Stroke color (empty = none).
+        Optional<draconic::vg::Path> path;         ///< Tessellatable geometry (shapes/paths).
+        Float4x4 transform = Float4x4::Identity(); ///< Element transform.
+        Optional<Color> fillColor;                 ///< Fill color (empty = none/inherit).
+        Optional<Color> strokeColor;               ///< Stroke color (empty = none).
         f32 strokeWidth = 1.0f;
         f32 opacity = 1.0f;
-        Array<SVGElement> children;               ///< Children (for group elements).
+        Array<SVGElement> children; ///< Children (for group elements).
 
         // Text-specific fields.
         String textContent;
@@ -52,7 +65,10 @@ export namespace draconic::vg::svg
         explicit SVGElement(SVGElementType inType) : type(inType) {}
 
         /// Whether this element is a non-empty group.
-        [[nodiscard]] bool IsGroup() const { return type == SVGElementType::Group && !children.IsEmpty(); }
+        [[nodiscard]] bool IsGroup() const
+        {
+            return type == SVGElementType::Group && !children.IsEmpty();
+        }
     };
 
     /// A parsed SVG document.

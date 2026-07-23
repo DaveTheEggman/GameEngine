@@ -50,12 +50,20 @@ export namespace draconic::editor::app
             {
                 for (const draconic::editor::ImportOptions::Toggle& toggle : m_options->Toggles())
                 {
-                    if (toggle.value == nullptr) { continue; }
-                    auto check = MakeRef<ui::CheckBox>(DefaultAllocator(), toggle.label, *toggle.value);
+                    if (toggle.value == nullptr)
+                    {
+                        continue;
+                    }
+                    auto check =
+                        MakeRef<ui::CheckBox>(DefaultAllocator(), toggle.label, *toggle.value);
                     check->FontSize.SetValue(12.0f);
-                    if (!toggle.description.IsEmpty()) { check->TooltipText = String(toggle.description); }
+                    if (!toggle.description.IsEmpty())
+                    {
+                        check->TooltipText = String(toggle.description);
+                    }
                     bool* value = toggle.value;
-                    check->OnCheckedChanged.Add([value](ui::CheckBox*, bool checked) { *value = checked; });
+                    check->OnCheckedChanged.Add([value](ui::CheckBox*, bool checked)
+                                                { *value = checked; });
                     auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                     lp->Width = ui::SizeSpec::Match();
                     lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(22.0f));
@@ -67,14 +75,22 @@ export namespace draconic::editor::app
 
             ImportOptionsDialog* self = this;
             ui::Button* import = AddButton(u8"Import", ui::DialogResult::None);
-            import->OnClick.Add([self](ui::ButtonBase*) {
-                if (self->OnImport) { self->OnImport(); }
-                self->Close(ui::DialogResult::OK);
-            });
+            import->OnClick.Add(
+                [self](ui::ButtonBase*)
+                {
+                    if (self->OnImport)
+                    {
+                        self->OnImport();
+                    }
+                    self->Close(ui::DialogResult::OK);
+                });
             AddButton(u8"Cancel", ui::DialogResult::Cancel);
         }
 
-        [[nodiscard]] draconic::editor::ImportOptions* Options() const noexcept { return m_options.Get(); }
+        [[nodiscard]] draconic::editor::ImportOptions* Options() const noexcept
+        {
+            return m_options.Get();
+        }
 
     private:
         void AddInfoRow(ui::FlexLayout& column, StringView label, StringView value)

@@ -12,7 +12,10 @@ using namespace draconic::ui::tests;
 using namespace draconic::core;
 namespace core = draconic::core;
 
-static core::RefPtr<Dialog> MakeDialog(StringView title) { return core::MakeRef<Dialog>(core::DefaultAllocator(), title); }
+static core::RefPtr<Dialog> MakeDialog(StringView title)
+{
+    return core::MakeRef<Dialog>(core::DefaultAllocator(), title);
+}
 
 TEST_CASE("dialog: Dialog_TitleProperty")
 {
@@ -43,7 +46,8 @@ TEST_CASE("dialog: Confirm_Factory")
 
 TEST_CASE("dialog: Close_FiresOnClosed")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
 
     auto dlg = MakeDialog(u8"Test");
@@ -51,11 +55,12 @@ TEST_CASE("dialog: Close_FiresOnClosed")
 
     bool closed = false;
     DialogResult closedResult = DialogResult::None;
-    dlg->OnClosed.Add(Event<void(Dialog*, DialogResult)>::Handler{ [&closed, &closedResult](Dialog*, DialogResult r)
-    {
-        closed = true;
-        closedResult = r;
-    } });
+    dlg->OnClosed.Add(Event<void(Dialog*, DialogResult)>::Handler{
+        [&closed, &closedResult](Dialog*, DialogResult r)
+        {
+            closed = true;
+            closedResult = r;
+        }});
 
     dlg->Show(&ctx, false); // ownsView=false so we control deletion
 
@@ -71,7 +76,8 @@ TEST_CASE("dialog: Close_FiresOnClosed")
 
 TEST_CASE("dialog: Show_CreatesModalPopup")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
 
     auto dlg = MakeDialog(u8"Modal Test");
@@ -89,17 +95,16 @@ TEST_CASE("dialog: Show_CreatesModalPopup")
 
 TEST_CASE("dialog: NoneButton_IsCallerManaged")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
 
     auto dlg = MakeDialog(u8"Test");
     Button* custom = dlg->AddButton(u8"Validate", DialogResult::None);
 
     bool closed = false;
-    dlg->OnClosed.Add(Event<void(Dialog*, DialogResult)>::Handler{ [&closed](Dialog*, DialogResult)
-    {
-        closed = true;
-    } });
+    dlg->OnClosed.Add(Event<void(Dialog*, DialogResult)>::Handler{[&closed](Dialog*, DialogResult)
+                                                                  { closed = true; }});
 
     dlg->Show(&ctx, false);
     CHECK(root->GetPopupLayer()->PopupCount() == 1);

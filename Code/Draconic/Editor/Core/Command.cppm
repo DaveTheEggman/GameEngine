@@ -52,7 +52,7 @@ export namespace draconic::editor
     namespace detail
     {
         inline constexpr StringView kBeginGroupTypeId = u8"__begin_group";
-        inline constexpr StringView kEndGroupTypeId   = u8"__end_group";
+        inline constexpr StringView kEndGroupTypeId = u8"__end_group";
 
         // Group brackets: inert markers on the stack; Undo/Redo unwind between them atomically.
         class BeginGroupCommand final : public IEditorCommand
@@ -77,7 +77,7 @@ export namespace draconic::editor
             [[nodiscard]] StringView TypeId() const override { return kEndGroupTypeId; }
             [[nodiscard]] StringView GroupType() const { return m_groupType.AsView(); }
 
-            bool locked = false;   // a locked group never coalesces with the next same-type group
+            bool locked = false; // a locked group never coalesces with the next same-type group
 
         private:
             String m_groupType;
@@ -106,7 +106,10 @@ export namespace draconic::editor
         // if Execute() failed. May merge into the current top instead of pushing.
         bool Execute(UniquePtr<IEditorCommand> command)
         {
-            if (!command || m_locked) { return false; }
+            if (!command || m_locked)
+            {
+                return false;
+            }
 
             // Same-type merge against the undo top (group markers never match a real TypeId).
             if (m_undoIndex >= 0)
@@ -115,14 +118,17 @@ export namespace draconic::editor
                 if (top.TypeId() == command->TypeId() && command->MergeInto(top))
                 {
                     const bool ok = top.Execute();
-                    DRACONIC_ASSERT(ok);   // re-executing a merged command must not fail
+                    DRACONIC_ASSERT(ok); // re-executing a merged command must not fail
                     (void)ok;
                     Notify();
                     return true;
                 }
             }
 
-            if (!command->Execute()) { return false; }   // dropped, not pushed
+            if (!command->Execute())
+            {
+                return false;
+            } // dropped, not pushed
 
             TruncateRedo();
             m_stack.PushBack(Move(command));
@@ -139,20 +145,24 @@ export namespace draconic::editor
 
         void Undo()
         {
-            if (m_locked || !CanUndo()) { return; }
+            if (m_locked || !CanUndo())
+            {
+                return;
+            }
 
             i64 i = m_undoIndex;
             if (m_stack[static_cast<usize>(i)]->TypeId() == detail::kEndGroupTypeId)
             {
                 // Unwind the whole group: undo every real command back to the begin marker.
                 --i;
-                while (i >= 0 && m_stack[static_cast<usize>(i)]->TypeId() != detail::kBeginGroupTypeId)
+                while (i >= 0 &&
+                       m_stack[static_cast<usize>(i)]->TypeId() != detail::kBeginGroupTypeId)
                 {
                     m_stack[static_cast<usize>(i)]->Undo();
                     --i;
                 }
-                DRACONIC_ASSERT(i >= 0);   // unbalanced group markers
-                m_undoIndex = i - 1;       // step past the begin marker
+                DRACONIC_ASSERT(i >= 0); // unbalanced group markers
+                m_undoIndex = i - 1;     // step past the begin marker
             }
             else
             {
@@ -164,7 +174,10 @@ export namespace draconic::editor
 
         void Redo()
         {
-            if (m_locked || !CanRedo()) { return; }
+            if (m_locked || !CanRedo())
+            {
+                return;
+            }
 
             i64 i = m_undoIndex + 1;
             if (m_stack[static_cast<usize>(i)]->TypeId() == detail::kBeginGroupTypeId)
@@ -175,12 +188,12 @@ export namespace draconic::editor
                        m_stack[static_cast<usize>(i)]->TypeId() != detail::kEndGroupTypeId)
                 {
                     const bool ok = m_stack[static_cast<usize>(i)]->Execute();
-                    DRACONIC_ASSERT(ok);   // replaying a previously-successful command must not fail
+                    DRACONIC_ASSERT(ok); // replaying a previously-successful command must not fail
                     (void)ok;
                     ++i;
                 }
-                DRACONIC_ASSERT(i < static_cast<i64>(m_stack.Size()));   // unbalanced group markers
-                m_undoIndex = i;           // lands on the end marker
+                DRACONIC_ASSERT(i < static_cast<i64>(m_stack.Size())); // unbalanced group markers
+                m_undoIndex = i;                                       // lands on the end marker
             }
             else
             {
@@ -197,7 +210,7 @@ export namespace draconic::editor
         // the previous group was locked. Nesting is not supported.
         void BeginGroup(StringView groupType)
         {
-            DRACONIC_ASSERT(!m_inGroup);   // no nested groups
+            DRACONIC_ASSERT(!m_inGroup); // no nested groups
             TruncateRedo();
 
             // Coalesce: if the undo top is an unlocked end marker of the same group type, pop it
@@ -205,7 +218,8 @@ export namespace draconic::editor
             if (m_undoIndex >= 0)
             {
                 IEditorCommand& top = *m_stack[static_cast<usize>(m_undoIndex)];
-                if (top.TypeId() == detail::kEndGroupTypeId)   // no RTTI: marker identity is its TypeId
+                if (top.TypeId() ==
+                    detail::kEndGroupTypeId) // no RTTI: marker identity is its TypeId
                 {
                     auto& end = static_cast<detail::EndGroupCommand&>(top);
                     if (!end.locked && end.GroupType() == groupType)
@@ -230,7 +244,8 @@ export namespace draconic::editor
         {
             DRACONIC_ASSERT(m_inGroup);
             m_stack.PushBack(UniquePtr<IEditorCommand>(
-                DefaultAllocator().New<detail::EndGroupCommand>(m_groupType.AsView()), DefaultAllocator()));
+                DefaultAllocator().New<detail::EndGroupCommand>(m_groupType.AsView()),
+                DefaultAllocator()));
             ++m_undoIndex;
             m_inGroup = false;
             Notify();
@@ -265,17 +280,23 @@ export namespace draconic::editor
     private:
         void TruncateRedo()
         {
-            while (static_cast<i64>(m_stack.Size()) > m_undoIndex + 1) { m_stack.PopBack(); }
+            while (static_cast<i64>(m_stack.Size()) > m_undoIndex + 1)
+            {
+                m_stack.PopBack();
+            }
         }
 
         void Notify()
         {
-            if (OnChanged) { OnChanged(); }
+            if (OnChanged)
+            {
+                OnChanged();
+            }
         }
 
         Array<UniquePtr<IEditorCommand>> m_stack;
         bool m_locked = false;
-        i64 m_undoIndex = -1;   // index of the last executed (undoable) entry
+        i64 m_undoIndex = -1; // index of the last executed (undoable) entry
         bool m_inGroup = false;
         String m_groupType;
     };

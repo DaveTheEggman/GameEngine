@@ -15,7 +15,8 @@ TEST_CASE("svg.loader: parses viewBox + shapes")
     const StringView svg =
         u8"<svg viewBox=\"0 0 100 100\">"
         u8"  <rect x=\"10\" y=\"10\" width=\"30\" height=\"30\" fill=\"#ff0000\"/>"
-        u8"  <circle cx=\"50\" cy=\"50\" r=\"20\" fill=\"blue\" stroke=\"black\" stroke-width=\"2\"/>"
+        u8"  <circle cx=\"50\" cy=\"50\" r=\"20\" fill=\"blue\" stroke=\"black\" "
+        u8"stroke-width=\"2\"/>"
         u8"</svg>";
 
     const Result<SVGDocument> r = SVGLoader::Load(svg);
@@ -38,12 +39,11 @@ TEST_CASE("svg.loader: parses viewBox + shapes")
 
 TEST_CASE("svg.loader: nested group with transform")
 {
-    const StringView svg =
-        u8"<svg width=\"64\" height=\"64\">"
-        u8"  <g transform=\"translate(10,10)\">"
-        u8"    <path d=\"M0 0 L10 0 L10 10 Z\" fill=\"green\"/>"
-        u8"  </g>"
-        u8"</svg>";
+    const StringView svg = u8"<svg width=\"64\" height=\"64\">"
+                           u8"  <g transform=\"translate(10,10)\">"
+                           u8"    <path d=\"M0 0 L10 0 L10 10 Z\" fill=\"green\"/>"
+                           u8"  </g>"
+                           u8"</svg>";
 
     const Result<SVGDocument> r = SVGLoader::Load(svg);
     REQUIRE(r.HasValue());
@@ -68,7 +68,7 @@ TEST_CASE("svg.renderer: renders a document into a VG batch")
     REQUIRE(r.HasValue());
 
     VGContext ctx;
-    SVGRenderer::Render(ctx, r.Value(), Rectangle{ 0, 0, 200, 200 });
+    SVGRenderer::Render(ctx, r.Value(), Rectangle{0, 0, 200, 200});
 
     VGBatch& batch = ctx.GetBatch();
     CHECK(batch.VertexCount() > 0u);
@@ -77,11 +77,12 @@ TEST_CASE("svg.renderer: renders a document into a VG batch")
 
 TEST_CASE("svg.renderer: tint overrides fill")
 {
-    const StringView svg = u8"<svg viewBox=\"0 0 10 10\"><rect width=\"10\" height=\"10\" fill=\"red\"/></svg>";
+    const StringView svg =
+        u8"<svg viewBox=\"0 0 10 10\"><rect width=\"10\" height=\"10\" fill=\"red\"/></svg>";
     const Result<SVGDocument> r = SVGLoader::Load(svg);
     REQUIRE(r.HasValue());
 
     VGContext ctx;
-    SVGRenderer::Render(ctx, r.Value(), Rectangle{ 0, 0, 10, 10 }, Optional<Color>(Color::Blue));
+    SVGRenderer::Render(ctx, r.Value(), Rectangle{0, 0, 10, 10}, Optional<Color>(Color::Blue));
     CHECK(ctx.GetBatch().VertexCount() > 0u);
 }

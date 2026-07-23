@@ -41,7 +41,14 @@ export namespace draconic::ui::toolkit
     private:
         // ========== Nested types (declared first: used as return types below) ==========
 
-        enum class InteractionMode { None, DraggingNode, DraggingConnection, BoxSelecting, Panning };
+        enum class InteractionMode
+        {
+            None,
+            DraggingNode,
+            DraggingConnection,
+            BoxSelecting,
+            Panning
+        };
 
         struct DragStart
         {
@@ -111,7 +118,10 @@ export namespace draconic::ui::toolkit
         /// Removes a node by index. Also removes all connections to/from it.
         void RemoveNode(i32 index)
         {
-            if (index < 0 || index >= static_cast<i32>(m_nodes.Size())) { return; }
+            if (index < 0 || index >= static_cast<i32>(m_nodes.Size()))
+            {
+                return;
+            }
 
             OnNodeDeleted.Invoke(index);
 
@@ -129,15 +139,24 @@ export namespace draconic::ui::toolkit
             for (i32 i = 0; i < static_cast<i32>(m_connections.Size()); i++)
             {
                 NodeGraphConnection& c = m_connections[static_cast<usize>(i)];
-                if (c.SourceNodeIndex > index) { c.SourceNodeIndex--; }
-                if (c.DestNodeIndex > index) { c.DestNodeIndex--; }
+                if (c.SourceNodeIndex > index)
+                {
+                    c.SourceNodeIndex--;
+                }
+                if (c.DestNodeIndex > index)
+                {
+                    c.DestNodeIndex--;
+                }
             }
 
             // Remove from draw order and remap.
             RemoveValue(m_drawOrder, index);
             for (i32 i = 0; i < static_cast<i32>(m_drawOrder.Size()); i++)
             {
-                if (m_drawOrder[static_cast<usize>(i)] > index) { m_drawOrder[static_cast<usize>(i)]--; }
+                if (m_drawOrder[static_cast<usize>(i)] > index)
+                {
+                    m_drawOrder[static_cast<usize>(i)]--;
+                }
             }
 
             m_nodes.RemoveAt(static_cast<usize>(index)); // UniquePtr frees the node.
@@ -146,14 +165,20 @@ export namespace draconic::ui::toolkit
 
         [[nodiscard]] NodeGraphNode* GetNode(i32 index)
         {
-            if (index >= 0 && index < static_cast<i32>(m_nodes.Size())) { return m_nodes[static_cast<usize>(index)].Get(); }
+            if (index >= 0 && index < static_cast<i32>(m_nodes.Size()))
+            {
+                return m_nodes[static_cast<usize>(index)].Get();
+            }
             return nullptr;
         }
 
         /// Adds a connection. Returns its index, or -1 if validation fails.
         i32 AddConnection(NodeGraphConnection conn)
         {
-            if (!ValidateConnection(conn)) { return -1; }
+            if (!ValidateConnection(conn))
+            {
+                return -1;
+            }
             const i32 idx = static_cast<i32>(m_connections.Size());
             m_connections.PushBack(conn);
             Invalidate();
@@ -162,16 +187,23 @@ export namespace draconic::ui::toolkit
 
         void RemoveConnection(i32 index)
         {
-            if (index < 0 || index >= static_cast<i32>(m_connections.Size())) { return; }
+            if (index < 0 || index >= static_cast<i32>(m_connections.Size()))
+            {
+                return;
+            }
             const NodeGraphConnection c = m_connections[static_cast<usize>(index)];
-            OnConnectionRemoved.Invoke(c.SourceNodeIndex, c.SourcePortIndex, c.DestNodeIndex, c.DestPortIndex);
+            OnConnectionRemoved.Invoke(c.SourceNodeIndex, c.SourcePortIndex, c.DestNodeIndex,
+                                       c.DestPortIndex);
             m_connections.RemoveAt(static_cast<usize>(index));
             Invalidate();
         }
 
         [[nodiscard]] NodeGraphConnection GetConnection(i32 index) const
         {
-            if (index >= 0 && index < static_cast<i32>(m_connections.Size())) { return m_connections[static_cast<usize>(index)]; }
+            if (index >= 0 && index < static_cast<i32>(m_connections.Size()))
+            {
+                return m_connections[static_cast<usize>(index)];
+            }
             return NodeGraphConnection{};
         }
 
@@ -187,13 +219,19 @@ export namespace draconic::ui::toolkit
         {
             for (i32 i = 0; i < static_cast<i32>(m_nodes.Size()); i++)
             {
-                if (m_nodes[static_cast<usize>(i)].Get()->IsSelected) { outIndices.PushBack(i); }
+                if (m_nodes[static_cast<usize>(i)].Get()->IsSelected)
+                {
+                    outIndices.PushBack(i);
+                }
             }
         }
 
         void SelectNode(i32 index, bool addToSelection = false)
         {
-            if (!addToSelection) { ClearSelectionSilent(); }
+            if (!addToSelection)
+            {
+                ClearSelectionSilent();
+            }
             if (index >= 0 && index < static_cast<i32>(m_nodes.Size()))
             {
                 m_nodes[static_cast<usize>(index)].Get()->IsSelected = true;
@@ -213,9 +251,12 @@ export namespace draconic::ui::toolkit
         /// Pans to center all nodes in view.
         void FrameAll()
         {
-            if (m_nodes.Size() == 0) { return; }
-            Float2 minP{ std::numeric_limits<f32>::max(), std::numeric_limits<f32>::max() };
-            Float2 maxP{ std::numeric_limits<f32>::lowest(), std::numeric_limits<f32>::lowest() };
+            if (m_nodes.Size() == 0)
+            {
+                return;
+            }
+            Float2 minP{std::numeric_limits<f32>::max(), std::numeric_limits<f32>::max()};
+            Float2 maxP{std::numeric_limits<f32>::lowest(), std::numeric_limits<f32>::lowest()};
             for (usize i = 0; i < m_nodes.Size(); ++i)
             {
                 const NodeGraphNode* node = m_nodes[i].Get();
@@ -225,17 +266,20 @@ export namespace draconic::ui::toolkit
                 maxP.y = core::Max(maxP.y, node->Position.y + node->Size.y);
             }
             const Float2 center = (minP + maxP) * 0.5f;
-            const Float2 viewCenter{ Width() * 0.5f, Height() * 0.5f };
+            const Float2 viewCenter{Width() * 0.5f, Height() * 0.5f};
             m_panOffset = viewCenter - center * m_zoom;
             Invalidate();
         }
 
         void FrameNode(i32 index)
         {
-            if (index < 0 || index >= static_cast<i32>(m_nodes.Size())) { return; }
+            if (index < 0 || index >= static_cast<i32>(m_nodes.Size()))
+            {
+                return;
+            }
             const NodeGraphNode* node = m_nodes[static_cast<usize>(index)].Get();
             const Float2 center = node->Position + node->Size * 0.5f;
-            const Float2 viewCenter{ Width() * 0.5f, Height() * 0.5f };
+            const Float2 viewCenter{Width() * 0.5f, Height() * 0.5f};
             m_panOffset = viewCenter - center * m_zoom;
             Invalidate();
         }
@@ -244,20 +288,24 @@ export namespace draconic::ui::toolkit
 
         [[nodiscard]] Float2 ScreenToCanvas(Float2 screen) const
         {
-            return Float2{ (screen.x - m_panOffset.x) / m_zoom, (screen.y - m_panOffset.y) / m_zoom };
+            return Float2{(screen.x - m_panOffset.x) / m_zoom, (screen.y - m_panOffset.y) / m_zoom};
         }
 
         [[nodiscard]] Float2 CanvasToScreen(Float2 canvas) const
         {
-            return Float2{ canvas.x * m_zoom + m_panOffset.x, canvas.y * m_zoom + m_panOffset.y };
+            return Float2{canvas.x * m_zoom + m_panOffset.x, canvas.y * m_zoom + m_panOffset.y};
         }
 
         // ========== Hit testing ==========
 
         View* HitTest(Float2 localPoint) override
         {
-            if (!IsInteractionEnabled || Visibility != VisibilityValue::Visible) { return nullptr; }
-            if (localPoint.x < 0 || localPoint.y < 0 || localPoint.x >= Width() || localPoint.y >= Height())
+            if (!IsInteractionEnabled || Visibility != VisibilityValue::Visible)
+            {
+                return nullptr;
+            }
+            if (localPoint.x < 0 || localPoint.y < 0 || localPoint.x >= Width() ||
+                localPoint.y >= Height())
             {
                 return nullptr;
             }
@@ -272,35 +320,42 @@ export namespace draconic::ui::toolkit
             Drawable* bgDrawable = ResolveStyleDrawable(StyleProperty::Background);
             if (bgDrawable != nullptr)
             {
-                bgDrawable->Draw(ctx, Rectangle{ 0, 0, Width(), Height() });
+                bgDrawable->Draw(ctx, Rectangle{0, 0, Width(), Height()});
             }
             else
             {
-                ctx.VG().FillRect(Rectangle{ 0, 0, Width(), Height() }, Rgb(28, 28, 33, 255));
+                ctx.VG().FillRect(Rectangle{0, 0, Width(), Height()}, Rgb(28, 28, 33, 255));
             }
 
-            ctx.VG().PushClipRect(Rectangle{ 0, 0, Width(), Height() });
+            ctx.VG().PushClipRect(Rectangle{0, 0, Width(), Height()});
 
             // Grid.
-            if (ShowGrid) { DrawGrid(ctx); }
+            if (ShowGrid)
+            {
+                DrawGrid(ctx);
+            }
 
             // Connections.
             for (i32 i = 0; i < static_cast<i32>(m_connections.Size()); i++)
             {
-                DrawConnection(ctx, m_connections[static_cast<usize>(i)], i == m_hoveredConnectionIndex);
+                DrawConnection(ctx, m_connections[static_cast<usize>(i)],
+                               i == m_hoveredConnectionIndex);
             }
 
             // Box selection.
             if (m_interaction == InteractionMode::BoxSelecting)
             {
-                const core::Color accentColor = ResolveStyleColor(StyleProperty::AccentColor, Rgb(80, 140, 220, 255));
+                const core::Color accentColor =
+                    ResolveStyleColor(StyleProperty::AccentColor, Rgb(80, 140, 220, 255));
                 const Float2 s1 = CanvasToScreen(m_boxSelectStart);
                 const Float2 s2 = CanvasToScreen(m_boxSelectEnd);
-                const Rectangle rect{
-                    core::Min(s1.x, s2.x), core::Min(s1.y, s2.y),
-                    Abs(s2.x - s1.x), Abs(s2.y - s1.y) };
-                ctx.VG().FillRect(rect, core::Color{ accentColor.r, accentColor.g, accentColor.b, 40.0f / 255.0f });
-                ctx.VG().StrokeRect(rect, core::Color{ accentColor.r, accentColor.g, accentColor.b, 150.0f / 255.0f }, 1);
+                const Rectangle rect{core::Min(s1.x, s2.x), core::Min(s1.y, s2.y), Abs(s2.x - s1.x),
+                                     Abs(s2.y - s1.y)};
+                ctx.VG().FillRect(
+                    rect, core::Color{accentColor.r, accentColor.g, accentColor.b, 40.0f / 255.0f});
+                ctx.VG().StrokeRect(
+                    rect, core::Color{accentColor.r, accentColor.g, accentColor.b, 150.0f / 255.0f},
+                    1);
             }
 
             // Nodes (in draw order).
@@ -312,17 +367,21 @@ export namespace draconic::ui::toolkit
             // Connection being dragged.
             if (m_interaction == InteractionMode::DraggingConnection && m_dragSourceNode >= 0)
             {
-                const Float2 srcPort = GetPortScreenPos(m_dragSourceNode, m_dragSourcePort, m_dragSourceDirection);
+                const Float2 srcPort =
+                    GetPortScreenPos(m_dragSourceNode, m_dragSourcePort, m_dragSourceDirection);
                 const Float2 endPos = m_dragConnectionEnd;
                 const bool isOutput = (m_dragSourceDirection == PortDirection::Output);
-                const core::Color dragColor = ResolveStyleColor(StyleProperty::TextDimColor, Rgb(180, 200, 220, 180));
-                DrawBezier(ctx, isOutput ? srcPort : endPos, isOutput ? endPos : srcPort, dragColor);
+                const core::Color dragColor =
+                    ResolveStyleColor(StyleProperty::TextDimColor, Rgb(180, 200, 220, 180));
+                DrawBezier(ctx, isOutput ? srcPort : endPos, isOutput ? endPos : srcPort,
+                           dragColor);
             }
 
             // Hovered port highlight.
             if (m_hoveredPortNode >= 0 && m_interaction == InteractionMode::None)
             {
-                const Float2 pos = GetPortScreenPos(m_hoveredPortNode, m_hoveredPortIndex, m_hoveredPortDir);
+                const Float2 pos =
+                    GetPortScreenPos(m_hoveredPortNode, m_hoveredPortIndex, m_hoveredPortDir);
                 ctx.VG().FillCircle(pos, PortRadius * m_zoom + 3, Rgb(255, 255, 255, 60));
             }
 
@@ -332,7 +391,8 @@ export namespace draconic::ui::toolkit
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
-            MeasuredSize = Float2{ constraints.ConstrainWidth(400.0f), constraints.ConstrainHeight(300.0f) };
+            MeasuredSize =
+                Float2{constraints.ConstrainWidth(400.0f), constraints.ConstrainHeight(300.0f)};
         }
 
     public:
@@ -340,17 +400,23 @@ export namespace draconic::ui::toolkit
 
         void OnMouseDown(MouseEventArgs& e) override
         {
-            if (!IsEffectivelyEnabled()) { return; }
+            if (!IsEffectivelyEnabled())
+            {
+                return;
+            }
 
-            const Float2 canvasPos = ScreenToCanvas(Float2{ e.X, e.Y });
+            const Float2 canvasPos = ScreenToCanvas(Float2{e.X, e.Y});
 
             // Middle button: pan.
             if (e.Button == MouseButton::Middle)
             {
                 m_interaction = InteractionMode::Panning;
-                m_panStartMouse = Float2{ e.X, e.Y };
+                m_panStartMouse = Float2{e.X, e.Y};
                 m_panStartOffset = m_panOffset;
-                if (Context != nullptr) { Context->GetFocusManager()->SetCapture(this); }
+                if (Context != nullptr)
+                {
+                    Context->GetFocusManager()->SetCapture(this);
+                }
                 e.Handled = true;
                 return;
             }
@@ -361,15 +427,27 @@ export namespace draconic::ui::toolkit
                 const i32 nodeHit = HitTestNode(e.X, e.Y);
                 const i32 connHit = HitTestConnection(e.X, e.Y);
 
-                if (nodeHit >= 0) { OnNodeContextMenu.Invoke(nodeHit); }
-                else if (connHit >= 0) { OnConnectionContextMenu.Invoke(connHit); }
-                else { OnCanvasContextMenu.Invoke(canvasPos.x, canvasPos.y); }
+                if (nodeHit >= 0)
+                {
+                    OnNodeContextMenu.Invoke(nodeHit);
+                }
+                else if (connHit >= 0)
+                {
+                    OnConnectionContextMenu.Invoke(connHit);
+                }
+                else
+                {
+                    OnCanvasContextMenu.Invoke(canvasPos.x, canvasPos.y);
+                }
 
                 e.Handled = true;
                 return;
             }
 
-            if (e.Button != MouseButton::Left) { return; }
+            if (e.Button != MouseButton::Left)
+            {
+                return;
+            }
 
             // Double click.
             if (e.ClickCount >= 2)
@@ -383,7 +461,11 @@ export namespace draconic::ui::toolkit
                 }
             }
 
-            if (ReadOnly) { e.Handled = true; return; }
+            if (ReadOnly)
+            {
+                e.Handled = true;
+                return;
+            }
 
             // Port hit - start connection drag.
             const PortHit portHit = HitTestPort(e.X, e.Y);
@@ -396,7 +478,8 @@ export namespace draconic::ui::toolkit
                     const i32 existingIdx = FindConnectionToInput(portHit.nodeIdx, portHit.portIdx);
                     if (existingIdx >= 0)
                     {
-                        const NodeGraphConnection existing = m_connections[static_cast<usize>(existingIdx)];
+                        const NodeGraphConnection existing =
+                            m_connections[static_cast<usize>(existingIdx)];
                         const i32 srcNode = existing.SourceNodeIndex;
                         const i32 srcPort = existing.SourcePortIndex;
 
@@ -407,8 +490,11 @@ export namespace draconic::ui::toolkit
                         m_dragSourceNode = srcNode;
                         m_dragSourcePort = srcPort;
                         m_dragSourceDirection = PortDirection::Output;
-                        m_dragConnectionEnd = Float2{ e.X, e.Y };
-                        if (Context != nullptr) { Context->GetFocusManager()->SetCapture(this); }
+                        m_dragConnectionEnd = Float2{e.X, e.Y};
+                        if (Context != nullptr)
+                        {
+                            Context->GetFocusManager()->SetCapture(this);
+                        }
                         e.Handled = true;
                         return;
                     }
@@ -418,8 +504,11 @@ export namespace draconic::ui::toolkit
                 m_dragSourceNode = portHit.nodeIdx;
                 m_dragSourcePort = portHit.portIdx;
                 m_dragSourceDirection = portHit.dir;
-                m_dragConnectionEnd = Float2{ e.X, e.Y };
-                if (Context != nullptr) { Context->GetFocusManager()->SetCapture(this); }
+                m_dragConnectionEnd = Float2{e.X, e.Y};
+                if (Context != nullptr)
+                {
+                    Context->GetFocusManager()->SetCapture(this);
+                }
                 e.Handled = true;
                 return;
             }
@@ -455,10 +544,16 @@ export namespace draconic::ui::toolkit
                     for (i32 i = 0; i < static_cast<i32>(m_nodes.Size()); i++)
                     {
                         NodeGraphNode* n = m_nodes[static_cast<usize>(i)].Get();
-                        if (n->IsSelected && n->IsMovable) { m_dragStarts.PushBack(DragStart{ i, n->Position }); }
+                        if (n->IsSelected && n->IsMovable)
+                        {
+                            m_dragStarts.PushBack(DragStart{i, n->Position});
+                        }
                     }
                     BeginGesture();
-                    if (Context != nullptr) { Context->GetFocusManager()->SetCapture(this); }
+                    if (Context != nullptr)
+                    {
+                        Context->GetFocusManager()->SetCapture(this);
+                    }
                 }
 
                 e.Handled = true;
@@ -487,13 +582,16 @@ export namespace draconic::ui::toolkit
             m_interaction = InteractionMode::BoxSelecting;
             m_boxSelectStart = canvasPos;
             m_boxSelectEnd = canvasPos;
-            if (Context != nullptr) { Context->GetFocusManager()->SetCapture(this); }
+            if (Context != nullptr)
+            {
+                Context->GetFocusManager()->SetCapture(this);
+            }
             e.Handled = true;
         }
 
         void OnMouseMove(MouseEventArgs& e) override
         {
-            const Float2 canvasPos = ScreenToCanvas(Float2{ e.X, e.Y });
+            const Float2 canvasPos = ScreenToCanvas(Float2{e.X, e.Y});
 
             switch (m_interaction)
             {
@@ -501,7 +599,7 @@ export namespace draconic::ui::toolkit
             {
                 const f32 dx = e.X - m_panStartMouse.x;
                 const f32 dy = e.Y - m_panStartMouse.y;
-                m_panOffset = Float2{ m_panStartOffset.x + dx, m_panStartOffset.y + dy };
+                m_panOffset = Float2{m_panStartOffset.x + dx, m_panStartOffset.y + dy};
                 Invalidate();
                 e.Handled = true;
                 break;
@@ -521,7 +619,7 @@ export namespace draconic::ui::toolkit
             }
 
             case InteractionMode::DraggingConnection:
-                m_dragConnectionEnd = Float2{ e.X, e.Y };
+                m_dragConnectionEnd = Float2{e.X, e.Y};
                 // Update hover for drop target feedback.
                 UpdatePortHover(e.X, e.Y);
                 Invalidate();
@@ -547,7 +645,10 @@ export namespace draconic::ui::toolkit
             {
             case InteractionMode::Panning:
                 m_interaction = InteractionMode::None;
-                if (Context != nullptr) { Context->GetFocusManager()->ReleaseCapture(); }
+                if (Context != nullptr)
+                {
+                    Context->GetFocusManager()->ReleaseCapture();
+                }
                 e.Handled = true;
                 break;
 
@@ -569,7 +670,10 @@ export namespace draconic::ui::toolkit
                 }
                 EndGesture();
                 m_interaction = InteractionMode::None;
-                if (Context != nullptr) { Context->GetFocusManager()->ReleaseCapture(); }
+                if (Context != nullptr)
+                {
+                    Context->GetFocusManager()->ReleaseCapture();
+                }
                 Invalidate();
                 e.Handled = true;
                 break;
@@ -600,13 +704,19 @@ export namespace draconic::ui::toolkit
                     // BeginGesture may already be active (detach-and-reroute case).
                     BeginGesture();
                     const i32 idx = AddConnection(conn);
-                    if (idx >= 0) { OnConnectionCreated.Invoke(idx); }
+                    if (idx >= 0)
+                    {
+                        OnConnectionCreated.Invoke(idx);
+                    }
                 }
                 // End gesture (covers both fresh connect and detach-reroute).
                 EndGesture();
                 m_dragSourceNode = -1;
                 m_interaction = InteractionMode::None;
-                if (Context != nullptr) { Context->GetFocusManager()->ReleaseCapture(); }
+                if (Context != nullptr)
+                {
+                    Context->GetFocusManager()->ReleaseCapture();
+                }
                 Invalidate();
                 e.Handled = true;
                 break;
@@ -633,7 +743,10 @@ export namespace draconic::ui::toolkit
                 }
                 OnSelectionChanged.Invoke();
                 m_interaction = InteractionMode::None;
-                if (Context != nullptr) { Context->GetFocusManager()->ReleaseCapture(); }
+                if (Context != nullptr)
+                {
+                    Context->GetFocusManager()->ReleaseCapture();
+                }
                 Invalidate();
                 e.Handled = true;
                 break;
@@ -653,7 +766,7 @@ export namespace draconic::ui::toolkit
 
             if (m_zoom != oldZoom)
             {
-                const Float2 mousePos{ e.X, e.Y };
+                const Float2 mousePos{e.X, e.Y};
                 m_panOffset = mousePos - (mousePos - m_panOffset) * (m_zoom / oldZoom);
                 Invalidate();
             }
@@ -662,7 +775,10 @@ export namespace draconic::ui::toolkit
 
         void OnKeyDown(KeyEventArgs& e) override
         {
-            if (ReadOnly) { return; }
+            if (ReadOnly)
+            {
+                return;
+            }
 
             if (e.Key == KeyCode::Delete)
             {
@@ -672,7 +788,10 @@ export namespace draconic::ui::toolkit
             else if (e.Key == KeyCode::A && HasFlag(e.Modifiers, KeyModifiers::Ctrl))
             {
                 // Select all.
-                for (usize i = 0; i < m_nodes.Size(); ++i) { m_nodes[i].Get()->IsSelected = true; }
+                for (usize i = 0; i < m_nodes.Size(); ++i)
+                {
+                    m_nodes[i].Get()->IsSelected = true;
+                }
                 OnSelectionChanged.Invoke();
                 Invalidate();
                 e.Handled = true;
@@ -685,10 +804,15 @@ export namespace draconic::ui::toolkit
         void DrawGrid(UIDrawContext& ctx)
         {
             const f32 gridStep = GridSize * m_zoom;
-            if (gridStep < 4) { return; } // Too zoomed out.
+            if (gridStep < 4)
+            {
+                return;
+            } // Too zoomed out.
 
-            const core::Color borderColor = ResolveStyleColor(StyleProperty::BorderColor, Rgb(55, 55, 60, 255));
-            const core::Color gridColor{ borderColor.r * 0.7f, borderColor.g * 0.7f, borderColor.b * 0.7f, borderColor.a };
+            const core::Color borderColor =
+                ResolveStyleColor(StyleProperty::BorderColor, Rgb(55, 55, 60, 255));
+            const core::Color gridColor{borderColor.r * 0.7f, borderColor.g * 0.7f,
+                                        borderColor.b * 0.7f, borderColor.a};
             const f32 startX = std::fmod(m_panOffset.x, gridStep);
             const f32 startY = std::fmod(m_panOffset.y, gridStep);
 
@@ -698,17 +822,33 @@ export namespace draconic::ui::toolkit
 
             // Minor grid.
             f32 x = startX;
-            while (x < Width()) { ctx.VG().DrawLine(Float2{ x, 0 }, Float2{ x, Height() }, gridColor, 1); x += gridStep; }
+            while (x < Width())
+            {
+                ctx.VG().DrawLine(Float2{x, 0}, Float2{x, Height()}, gridColor, 1);
+                x += gridStep;
+            }
             f32 y = startY;
-            while (y < Height()) { ctx.VG().DrawLine(Float2{ 0, y }, Float2{ Width(), y }, gridColor, 1); y += gridStep; }
+            while (y < Height())
+            {
+                ctx.VG().DrawLine(Float2{0, y}, Float2{Width(), y}, gridColor, 1);
+                y += gridStep;
+            }
 
             // Major grid.
             if (majorStep >= 20)
             {
                 x = majorStartX;
-                while (x < Width()) { ctx.VG().DrawLine(Float2{ x, 0 }, Float2{ x, Height() }, borderColor, 1); x += majorStep; }
+                while (x < Width())
+                {
+                    ctx.VG().DrawLine(Float2{x, 0}, Float2{x, Height()}, borderColor, 1);
+                    x += majorStep;
+                }
                 y = majorStartY;
-                while (y < Height()) { ctx.VG().DrawLine(Float2{ 0, y }, Float2{ Width(), y }, borderColor, 1); y += majorStep; }
+                while (y < Height())
+                {
+                    ctx.VG().DrawLine(Float2{0, y}, Float2{Width(), y}, borderColor, 1);
+                    y += majorStep;
+                }
             }
         }
 
@@ -721,66 +861,81 @@ export namespace draconic::ui::toolkit
             const f32 cornerR = ResolveStyleFloat(StyleProperty::CornerRadius, 4) * m_zoom;
 
             // Body.
-            Drawable* contentDrawable = ResolvePartDrawable(u8"node-body", StyleProperty::Background, ControlState::Normal);
+            Drawable* contentDrawable =
+                ResolvePartDrawable(u8"node-body", StyleProperty::Background, ControlState::Normal);
             if (contentDrawable != nullptr)
             {
-                contentDrawable->Draw(ctx, Rectangle{ pos.x, pos.y, size.x, size.y });
+                contentDrawable->Draw(ctx, Rectangle{pos.x, pos.y, size.x, size.y});
             }
             else
             {
-                ctx.VG().FillRoundedRect(Rectangle{ pos.x, pos.y, size.x, size.y }, cornerR, Rgb(38, 40, 48, 255));
+                ctx.VG().FillRoundedRect(Rectangle{pos.x, pos.y, size.x, size.y}, cornerR,
+                                         Rgb(38, 40, 48, 255));
             }
 
             // Header (uses node's HeaderColor - caller controls this per node).
-            ctx.VG().FillRoundedRect(Rectangle{ pos.x, pos.y, size.x, headerH }, cornerR, node->HeaderColor);
+            ctx.VG().FillRoundedRect(Rectangle{pos.x, pos.y, size.x, headerH}, cornerR,
+                                     node->HeaderColor);
             // Square off bottom corners of header.
-            ctx.VG().FillRect(Rectangle{ pos.x, pos.y + headerH - cornerR, size.x, cornerR }, node->HeaderColor);
+            ctx.VG().FillRect(Rectangle{pos.x, pos.y + headerH - cornerR, size.x, cornerR},
+                              node->HeaderColor);
 
             // Selection highlight.
             if (node->IsSelected)
             {
-                const core::Color accentColor = ResolveStyleColor(StyleProperty::AccentColor, Rgb(100, 180, 255, 200));
-                ctx.VG().StrokeRoundedRect(Rectangle{ pos.x, pos.y, size.x, size.y }, cornerR, accentColor, 2);
+                const core::Color accentColor =
+                    ResolveStyleColor(StyleProperty::AccentColor, Rgb(100, 180, 255, 200));
+                ctx.VG().StrokeRoundedRect(Rectangle{pos.x, pos.y, size.x, size.y}, cornerR,
+                                           accentColor, 2);
             }
 
             // Title text.
             if (ctx.FontService() != nullptr)
             {
-                const core::Color textColor = ResolveStyleColor(StyleProperty::TextColor, Rgb(255, 255, 255, 230));
+                const core::Color textColor =
+                    ResolveStyleColor(StyleProperty::TextColor, Rgb(255, 255, 255, 230));
                 fonts::CachedFont* titleFont = ctx.FontService()->GetFont(11);
                 if (titleFont != nullptr)
                 {
-                    ctx.VG().DrawText(node->Title, titleFont,
-                        Rectangle{ pos.x + 8 * m_zoom, pos.y, size.x - 16 * m_zoom, headerH },
+                    ctx.VG().DrawText(
+                        node->Title, titleFont,
+                        Rectangle{pos.x + 8 * m_zoom, pos.y, size.x - 16 * m_zoom, headerH},
                         fonts::TextAlignment::Left, fonts::VerticalAlignment::Middle, textColor);
                 }
 
                 // Subtitle.
                 if (node->Subtitle.Length() > 0)
                 {
-                    const core::Color dimColor = ResolveStyleColor(StyleProperty::TextDimColor, Rgb(180, 180, 190, 180));
+                    const core::Color dimColor =
+                        ResolveStyleColor(StyleProperty::TextDimColor, Rgb(180, 180, 190, 180));
                     fonts::CachedFont* subFont = ctx.FontService()->GetFont(10);
                     if (subFont != nullptr)
                     {
                         ctx.VG().DrawText(node->Subtitle, subFont,
-                            Rectangle{ pos.x + 8 * m_zoom, pos.y + headerH, size.x - 16 * m_zoom, 16 * m_zoom },
-                            fonts::TextAlignment::Left, fonts::VerticalAlignment::Middle, dimColor);
+                                          Rectangle{pos.x + 8 * m_zoom, pos.y + headerH,
+                                                    size.x - 16 * m_zoom, 16 * m_zoom},
+                                          fonts::TextAlignment::Left,
+                                          fonts::VerticalAlignment::Middle, dimColor);
                     }
                 }
 
                 // Ports.
                 fonts::CachedFont* portFont = ctx.FontService()->GetFont(10);
-                DrawPorts(ctx, nodeIdx, node->InputPorts, PortDirection::Input, pos, size, portFont);
-                DrawPorts(ctx, nodeIdx, node->OutputPorts, PortDirection::Output, pos, size, portFont);
+                DrawPorts(ctx, nodeIdx, node->InputPorts, PortDirection::Input, pos, size,
+                          portFont);
+                DrawPorts(ctx, nodeIdx, node->OutputPorts, PortDirection::Output, pos, size,
+                          portFont);
             }
         }
 
-        void DrawPorts(UIDrawContext& ctx, i32 nodeIdx, const Array<NodeGraphPort>& ports, PortDirection dir,
-            Float2 nodeScreenPos, Float2 nodeScreenSize, fonts::CachedFont* portFont)
+        void DrawPorts(UIDrawContext& ctx, i32 nodeIdx, const Array<NodeGraphPort>& ports,
+                       PortDirection dir, Float2 nodeScreenPos, Float2 nodeScreenSize,
+                       fonts::CachedFont* portFont)
         {
             (void)nodeScreenPos;
             (void)nodeScreenSize;
-            const core::Color portLabelColor = ResolveStyleColor(StyleProperty::TextDimColor, Rgb(200, 200, 210, 200));
+            const core::Color portLabelColor =
+                ResolveStyleColor(StyleProperty::TextDimColor, Rgb(200, 200, 210, 200));
 
             for (i32 i = 0; i < static_cast<i32>(ports.Size()); i++)
             {
@@ -799,16 +954,20 @@ export namespace draconic::ui::toolkit
                     if (dir == PortDirection::Input)
                     {
                         const f32 labelX = portPos.x + r + 4 * m_zoom;
-                        ctx.VG().DrawText(port.Label, portFont,
-                            Rectangle{ labelX, portPos.y - 8 * m_zoom, labelW, 16 * m_zoom },
-                            fonts::TextAlignment::Left, fonts::VerticalAlignment::Middle, portLabelColor);
+                        ctx.VG().DrawText(
+                            port.Label, portFont,
+                            Rectangle{labelX, portPos.y - 8 * m_zoom, labelW, 16 * m_zoom},
+                            fonts::TextAlignment::Left, fonts::VerticalAlignment::Middle,
+                            portLabelColor);
                     }
                     else
                     {
                         const f32 labelX = portPos.x - r - 4 * m_zoom - labelW;
-                        ctx.VG().DrawText(port.Label, portFont,
-                            Rectangle{ labelX, portPos.y - 8 * m_zoom, labelW, 16 * m_zoom },
-                            fonts::TextAlignment::Right, fonts::VerticalAlignment::Middle, portLabelColor);
+                        ctx.VG().DrawText(
+                            port.Label, portFont,
+                            Rectangle{labelX, portPos.y - 8 * m_zoom, labelW, 16 * m_zoom},
+                            fonts::TextAlignment::Right, fonts::VerticalAlignment::Middle,
+                            portLabelColor);
                     }
                 }
             }
@@ -816,18 +975,29 @@ export namespace draconic::ui::toolkit
 
         void DrawConnection(UIDrawContext& ctx, const NodeGraphConnection& conn, bool hovered)
         {
-            if (conn.SourceNodeIndex < 0 || conn.SourceNodeIndex >= static_cast<i32>(m_nodes.Size())) { return; }
-            if (conn.DestNodeIndex < 0 || conn.DestNodeIndex >= static_cast<i32>(m_nodes.Size())) { return; }
+            if (conn.SourceNodeIndex < 0 ||
+                conn.SourceNodeIndex >= static_cast<i32>(m_nodes.Size()))
+            {
+                return;
+            }
+            if (conn.DestNodeIndex < 0 || conn.DestNodeIndex >= static_cast<i32>(m_nodes.Size()))
+            {
+                return;
+            }
 
-            const Float2 startPos = GetPortScreenPos(conn.SourceNodeIndex, conn.SourcePortIndex, PortDirection::Output);
-            const Float2 endPos = GetPortScreenPos(conn.DestNodeIndex, conn.DestPortIndex, PortDirection::Input);
+            const Float2 startPos =
+                GetPortScreenPos(conn.SourceNodeIndex, conn.SourcePortIndex, PortDirection::Output);
+            const Float2 endPos =
+                GetPortScreenPos(conn.DestNodeIndex, conn.DestPortIndex, PortDirection::Input);
 
             // Color from source port type (port types are caller-defined, not themed).
             core::Color color = NodeGraphPortType::Untyped().Color;
             const NodeGraphNode* srcNode = m_nodes[static_cast<usize>(conn.SourceNodeIndex)].Get();
-            if (conn.SourcePortIndex >= 0 && conn.SourcePortIndex < static_cast<i32>(srcNode->OutputPorts.Size()))
+            if (conn.SourcePortIndex >= 0 &&
+                conn.SourcePortIndex < static_cast<i32>(srcNode->OutputPorts.Size()))
             {
-                color = srcNode->OutputPorts[static_cast<usize>(conn.SourcePortIndex)].PortType.Color;
+                color =
+                    srcNode->OutputPorts[static_cast<usize>(conn.SourcePortIndex)].PortType.Color;
             }
 
             if (conn.IsSelected)
@@ -836,11 +1006,9 @@ export namespace draconic::ui::toolkit
             }
             else if (hovered)
             {
-                color = core::Color{
-                    core::Min(1.0f, color.r + 40.0f / 255.0f),
-                    core::Min(1.0f, color.g + 40.0f / 255.0f),
-                    core::Min(1.0f, color.b + 40.0f / 255.0f),
-                    230.0f / 255.0f };
+                color = core::Color{core::Min(1.0f, color.r + 40.0f / 255.0f),
+                                    core::Min(1.0f, color.g + 40.0f / 255.0f),
+                                    core::Min(1.0f, color.b + 40.0f / 255.0f), 230.0f / 255.0f};
             }
 
             DrawBezier(ctx, startPos, endPos, color);
@@ -853,10 +1021,8 @@ export namespace draconic::ui::toolkit
 
             ctx.VG().BeginPath();
             ctx.VG().MoveTo(start);
-            ctx.VG().CubicTo(
-                Float2{ start.x + ctrlDist, start.y },
-                Float2{ end.x - ctrlDist, end.y },
-                end);
+            ctx.VG().CubicTo(Float2{start.x + ctrlDist, start.y}, Float2{end.x - ctrlDist, end.y},
+                             end);
             ctx.VG().Stroke(color, 2);
         }
 
@@ -865,17 +1031,21 @@ export namespace draconic::ui::toolkit
         [[nodiscard]] Float2 GetPortScreenPos(i32 nodeIdx, i32 portIdx, PortDirection dir) const
         {
             const NodeGraphNode* node = m_nodes[static_cast<usize>(nodeIdx)].Get();
-            const f32 canvasX = (dir == PortDirection::Input) ? node->Position.x : node->Position.x + node->Size.x;
-            const f32 canvasY = node->Position.y + HeaderHeight + PortMarginTop + portIdx * PortSpacing + PortSpacing * 0.5f;
-            return CanvasToScreen(Float2{ canvasX, canvasY });
+            const f32 canvasX =
+                (dir == PortDirection::Input) ? node->Position.x : node->Position.x + node->Size.x;
+            const f32 canvasY = node->Position.y + HeaderHeight + PortMarginTop +
+                                portIdx * PortSpacing + PortSpacing * 0.5f;
+            return CanvasToScreen(Float2{canvasX, canvasY});
         }
 
         [[nodiscard]] Float2 GetPortCanvasPos(i32 nodeIdx, i32 portIdx, PortDirection dir) const
         {
             const NodeGraphNode* node = m_nodes[static_cast<usize>(nodeIdx)].Get();
-            const f32 x = (dir == PortDirection::Input) ? node->Position.x : node->Position.x + node->Size.x;
-            const f32 y = node->Position.y + HeaderHeight + PortMarginTop + portIdx * PortSpacing + PortSpacing * 0.5f;
-            return Float2{ x, y };
+            const f32 x =
+                (dir == PortDirection::Input) ? node->Position.x : node->Position.x + node->Size.x;
+            const f32 y = node->Position.y + HeaderHeight + PortMarginTop + portIdx * PortSpacing +
+                          PortSpacing * 0.5f;
+            return Float2{x, y};
         }
 
         // ========== Hit testing ==========
@@ -889,15 +1059,21 @@ export namespace draconic::ui::toolkit
                 for (i32 pi = 0; pi < static_cast<i32>(node->InputPorts.Size()); pi++)
                 {
                     const Float2 pos = GetPortScreenPos(ni, pi, PortDirection::Input);
-                    if (core::Distance(Float2{ screenX, screenY }, pos) <= hitR) { return PortHit{ ni, pi, PortDirection::Input }; }
+                    if (core::Distance(Float2{screenX, screenY}, pos) <= hitR)
+                    {
+                        return PortHit{ni, pi, PortDirection::Input};
+                    }
                 }
                 for (i32 pi = 0; pi < static_cast<i32>(node->OutputPorts.Size()); pi++)
                 {
                     const Float2 pos = GetPortScreenPos(ni, pi, PortDirection::Output);
-                    if (core::Distance(Float2{ screenX, screenY }, pos) <= hitR) { return PortHit{ ni, pi, PortDirection::Output }; }
+                    if (core::Distance(Float2{screenX, screenY}, pos) <= hitR)
+                    {
+                        return PortHit{ni, pi, PortDirection::Output};
+                    }
                 }
             }
-            return PortHit{ -1, -1, PortDirection::Input };
+            return PortHit{-1, -1, PortDirection::Input};
         }
 
         [[nodiscard]] i32 HitTestNode(f32 screenX, f32 screenY) const
@@ -909,8 +1085,8 @@ export namespace draconic::ui::toolkit
                 const NodeGraphNode* node = m_nodes[static_cast<usize>(idx)].Get();
                 const Float2 pos = CanvasToScreen(node->Position);
                 const Float2 size = node->Size * m_zoom;
-                if (screenX >= pos.x && screenX < pos.x + size.x &&
-                    screenY >= pos.y && screenY < pos.y + size.y)
+                if (screenX >= pos.x && screenX < pos.x + size.x && screenY >= pos.y &&
+                    screenY < pos.y + size.y)
                 {
                     return idx;
                 }
@@ -924,13 +1100,26 @@ export namespace draconic::ui::toolkit
             for (i32 i = 0; i < static_cast<i32>(m_connections.Size()); i++)
             {
                 const NodeGraphConnection& conn = m_connections[static_cast<usize>(i)];
-                if (conn.SourceNodeIndex < 0 || conn.SourceNodeIndex >= static_cast<i32>(m_nodes.Size())) { continue; }
-                if (conn.DestNodeIndex < 0 || conn.DestNodeIndex >= static_cast<i32>(m_nodes.Size())) { continue; }
+                if (conn.SourceNodeIndex < 0 ||
+                    conn.SourceNodeIndex >= static_cast<i32>(m_nodes.Size()))
+                {
+                    continue;
+                }
+                if (conn.DestNodeIndex < 0 ||
+                    conn.DestNodeIndex >= static_cast<i32>(m_nodes.Size()))
+                {
+                    continue;
+                }
 
-                const Float2 start = GetPortScreenPos(conn.SourceNodeIndex, conn.SourcePortIndex, PortDirection::Output);
-                const Float2 end = GetPortScreenPos(conn.DestNodeIndex, conn.DestPortIndex, PortDirection::Input);
+                const Float2 start = GetPortScreenPos(conn.SourceNodeIndex, conn.SourcePortIndex,
+                                                      PortDirection::Output);
+                const Float2 end =
+                    GetPortScreenPos(conn.DestNodeIndex, conn.DestPortIndex, PortDirection::Input);
 
-                if (DistanceToBezier(Float2{ screenX, screenY }, start, end) <= hitDist) { return i; }
+                if (DistanceToBezier(Float2{screenX, screenY}, start, end) <= hitDist)
+                {
+                    return i;
+                }
             }
             return -1;
         }
@@ -939,8 +1128,8 @@ export namespace draconic::ui::toolkit
         {
             const f32 dx = Abs(end.x - start.x);
             const f32 ctrlDist = core::Max(dx * 0.5f, 50 * m_zoom);
-            const Float2 cp1{ start.x + ctrlDist, start.y };
-            const Float2 cp2{ end.x - ctrlDist, end.y };
+            const Float2 cp1{start.x + ctrlDist, start.y};
+            const Float2 cp2{end.x - ctrlDist, end.y};
 
             f32 minDist = std::numeric_limits<f32>::max();
             const i32 steps = 24;
@@ -948,9 +1137,13 @@ export namespace draconic::ui::toolkit
             {
                 const f32 t = static_cast<f32>(s) / static_cast<f32>(steps);
                 const f32 it = 1 - t;
-                const Float2 p = start * (it * it * it) + cp1 * (3 * it * it * t) + cp2 * (3 * it * t * t) + end * (t * t * t);
+                const Float2 p = start * (it * it * it) + cp1 * (3 * it * it * t) +
+                                 cp2 * (3 * it * t * t) + end * (t * t * t);
                 const f32 dist = core::Distance(point, p);
-                if (dist < minDist) { minDist = dist; }
+                if (dist < minDist)
+                {
+                    minDist = dist;
+                }
             }
             return minDist;
         }
@@ -969,9 +1162,12 @@ export namespace draconic::ui::toolkit
             m_hoveredPortDir = portHit.dir;
 
             m_hoveredNodeIndex = (portHit.nodeIdx < 0) ? HitTestNode(screenX, screenY) : -1;
-            m_hoveredConnectionIndex = (m_hoveredNodeIndex < 0 && portHit.nodeIdx < 0) ? HitTestConnection(screenX, screenY) : -1;
+            m_hoveredConnectionIndex = (m_hoveredNodeIndex < 0 && portHit.nodeIdx < 0)
+                                           ? HitTestConnection(screenX, screenY)
+                                           : -1;
 
-            if (m_hoveredNodeIndex != oldNode || m_hoveredConnectionIndex != oldConn || m_hoveredPortNode != oldPortNode)
+            if (m_hoveredNodeIndex != oldNode || m_hoveredConnectionIndex != oldConn ||
+                m_hoveredPortNode != oldPortNode)
             {
                 Invalidate();
             }
@@ -984,7 +1180,10 @@ export namespace draconic::ui::toolkit
             m_hoveredPortNode = portHit.nodeIdx;
             m_hoveredPortIndex = portHit.portIdx;
             m_hoveredPortDir = portHit.dir;
-            if (m_hoveredPortNode != oldPortNode) { Invalidate(); }
+            if (m_hoveredPortNode != oldPortNode)
+            {
+                Invalidate();
+            }
         }
 
         /// Finds the index of a connection targeting the given input port, or -1.
@@ -993,7 +1192,10 @@ export namespace draconic::ui::toolkit
             for (i32 i = 0; i < static_cast<i32>(m_connections.Size()); i++)
             {
                 const NodeGraphConnection& c = m_connections[static_cast<usize>(i)];
-                if (c.DestNodeIndex == nodeIdx && c.DestPortIndex == portIdx) { return i; }
+                if (c.DestNodeIndex == nodeIdx && c.DestPortIndex == portIdx)
+                {
+                    return i;
+                }
             }
             return -1;
         }
@@ -1002,7 +1204,8 @@ export namespace draconic::ui::toolkit
 
         void AutoSizeNode(NodeGraphNode* node)
         {
-            const i32 maxPorts = core::Max(static_cast<i32>(node->InputPorts.Size()), static_cast<i32>(node->OutputPorts.Size()));
+            const i32 maxPorts = core::Max(static_cast<i32>(node->InputPorts.Size()),
+                                           static_cast<i32>(node->OutputPorts.Size()));
             const f32 portsH = HeaderHeight + PortMarginTop + maxPorts * PortSpacing + 8;
             node->Size.y = core::Max(node->Size.y, portsH);
             node->Size.x = core::Max(node->Size.x, NodeMinWidth);
@@ -1011,17 +1214,35 @@ export namespace draconic::ui::toolkit
         [[nodiscard]] bool ValidateConnection(const NodeGraphConnection& conn)
         {
             // No self-connections.
-            if (conn.SourceNodeIndex == conn.DestNodeIndex) { return false; }
+            if (conn.SourceNodeIndex == conn.DestNodeIndex)
+            {
+                return false;
+            }
 
             // Bounds check.
-            if (conn.SourceNodeIndex < 0 || conn.SourceNodeIndex >= static_cast<i32>(m_nodes.Size())) { return false; }
-            if (conn.DestNodeIndex < 0 || conn.DestNodeIndex >= static_cast<i32>(m_nodes.Size())) { return false; }
+            if (conn.SourceNodeIndex < 0 ||
+                conn.SourceNodeIndex >= static_cast<i32>(m_nodes.Size()))
+            {
+                return false;
+            }
+            if (conn.DestNodeIndex < 0 || conn.DestNodeIndex >= static_cast<i32>(m_nodes.Size()))
+            {
+                return false;
+            }
 
             const NodeGraphNode* srcNode = m_nodes[static_cast<usize>(conn.SourceNodeIndex)].Get();
             const NodeGraphNode* dstNode = m_nodes[static_cast<usize>(conn.DestNodeIndex)].Get();
 
-            if (conn.SourcePortIndex < 0 || conn.SourcePortIndex >= static_cast<i32>(srcNode->OutputPorts.Size())) { return false; }
-            if (conn.DestPortIndex < 0 || conn.DestPortIndex >= static_cast<i32>(dstNode->InputPorts.Size())) { return false; }
+            if (conn.SourcePortIndex < 0 ||
+                conn.SourcePortIndex >= static_cast<i32>(srcNode->OutputPorts.Size()))
+            {
+                return false;
+            }
+            if (conn.DestPortIndex < 0 ||
+                conn.DestPortIndex >= static_cast<i32>(dstNode->InputPorts.Size()))
+            {
+                return false;
+            }
 
             // No duplicate connections.
             for (usize i = 0; i < m_connections.Size(); ++i)
@@ -1037,24 +1258,38 @@ export namespace draconic::ui::toolkit
             }
 
             // Type validation.
-            const NodeGraphPortType srcType = srcNode->OutputPorts[static_cast<usize>(conn.SourcePortIndex)].PortType;
-            const NodeGraphPortType dstType = dstNode->InputPorts[static_cast<usize>(conn.DestPortIndex)].PortType;
+            const NodeGraphPortType srcType =
+                srcNode->OutputPorts[static_cast<usize>(conn.SourcePortIndex)].PortType;
+            const NodeGraphPortType dstType =
+                dstNode->InputPorts[static_cast<usize>(conn.DestPortIndex)].PortType;
 
-            if (ConnectionValidator) { return ConnectionValidator(srcType, dstType); }
+            if (ConnectionValidator)
+            {
+                return ConnectionValidator(srcType, dstType);
+            }
 
             // Default: same TypeId or either untyped.
-            if (srcType.TypeId == 0 || dstType.TypeId == 0) { return true; }
+            if (srcType.TypeId == 0 || dstType.TypeId == 0)
+            {
+                return true;
+            }
             return srcType.TypeId == dstType.TypeId;
         }
 
         void ClearSelectionSilent()
         {
-            for (usize i = 0; i < m_nodes.Size(); ++i) { m_nodes[i].Get()->IsSelected = false; }
+            for (usize i = 0; i < m_nodes.Size(); ++i)
+            {
+                m_nodes[i].Get()->IsSelected = false;
+            }
         }
 
         void ClearConnectionSelection()
         {
-            for (usize i = 0; i < m_connections.Size(); ++i) { m_connections[i].IsSelected = false; }
+            for (usize i = 0; i < m_connections.Size(); ++i)
+            {
+                m_connections[i].IsSelected = false;
+            }
         }
 
         void BringToFront(i32 nodeIdx)
@@ -1070,14 +1305,20 @@ export namespace draconic::ui::toolkit
             // Delete selected connections first.
             for (i32 i = static_cast<i32>(m_connections.Size()) - 1; i >= 0; i--)
             {
-                if (m_connections[static_cast<usize>(i)].IsSelected) { RemoveConnection(i); }
+                if (m_connections[static_cast<usize>(i)].IsSelected)
+                {
+                    RemoveConnection(i);
+                }
             }
 
             // Delete selected nodes (reverse order to keep indices stable).
             for (i32 i = static_cast<i32>(m_nodes.Size()) - 1; i >= 0; i--)
             {
                 NodeGraphNode* n = m_nodes[static_cast<usize>(i)].Get();
-                if (n->IsSelected && n->IsDeletable) { RemoveNode(i); }
+                if (n->IsSelected && n->IsDeletable)
+                {
+                    RemoveNode(i);
+                }
             }
 
             EndGesture();
@@ -1107,13 +1348,17 @@ export namespace draconic::ui::toolkit
         {
             for (usize i = 0; i < arr.Size(); ++i)
             {
-                if (arr[i] == value) { arr.RemoveAt(i); return; }
+                if (arr[i] == value)
+                {
+                    arr.RemoveAt(i);
+                    return;
+                }
             }
         }
 
         [[nodiscard]] static core::Color Rgb(u8 r, u8 g, u8 b, u8 a = 255) noexcept
         {
-            return core::Color{ r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f };
+            return core::Color{r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f};
         }
 
         // ========== Layout constants ==========

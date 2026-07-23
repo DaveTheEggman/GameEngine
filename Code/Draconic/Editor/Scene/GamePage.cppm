@@ -32,8 +32,8 @@ import draconic.ui.runtime;
 import draconic.vg.renderer;
 import draconic.ui.viewport;
 import draconic.script;
-import draconic.script.resource;    // ScriptClass (the cooked game script, bound from the content DB)
-import draconic.script.subsystem;   // ScriptSubsystem / ScriptRunHost (debugger wiring)
+import draconic.script.resource;  // ScriptClass (the cooked game script, bound from the content DB)
+import draconic.script.subsystem; // ScriptSubsystem / ScriptRunHost (debugger wiring)
 import draconic.shell;
 import draconic.input;
 import draconic.input.resource;
@@ -43,7 +43,7 @@ import draconic.audio;
 import draconic.audio.resource;
 import draconic.audio.subsystem;
 import draconic.runtime.defaultapp;
-import draconic.runtime.gameinstance;   // GameInstance - this tab drives its OWN run (multi-instance PIE)
+import draconic.runtime.gameinstance; // GameInstance - this tab drives its OWN run (multi-instance PIE)
 import draconic.editor.core;
 import draconic.editor.app;
 
@@ -71,24 +71,54 @@ export namespace draconic::editor
             auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
             column->Direction = ui::Orientation::Vertical;
             column->Spacing = 4.0f;
-            column->Padding = ui::Thickness{ 6, 6 };
+            column->Padding = ui::Thickness{6, 6};
 
             auto bar = MakeRef<ui::FlexLayout>(DefaultAllocator());
             bar->Direction = ui::Orientation::Horizontal;
             bar->Spacing = 4.0f;
             DebuggerPanel* self = this;
-            AddToolButton(*bar, u8"Continue", [self]() { if (self->m_debugger) { self->m_debugger->Continue(); } });
-            AddToolButton(*bar, u8"Step Into", [self]() { if (self->m_debugger) { self->m_debugger->StepInto(); } });
-            AddToolButton(*bar, u8"Step Over", [self]() { if (self->m_debugger) { self->m_debugger->StepOver(); } });
-            AddToolButton(*bar, u8"Break", [self]() { if (self->m_debugger) { self->m_debugger->Break(); } });
+            AddToolButton(*bar, u8"Continue",
+                          [self]()
+                          {
+                              if (self->m_debugger)
+                              {
+                                  self->m_debugger->Continue();
+                              }
+                          });
+            AddToolButton(*bar, u8"Step Into",
+                          [self]()
+                          {
+                              if (self->m_debugger)
+                              {
+                                  self->m_debugger->StepInto();
+                              }
+                          });
+            AddToolButton(*bar, u8"Step Over",
+                          [self]()
+                          {
+                              if (self->m_debugger)
+                              {
+                                  self->m_debugger->StepOver();
+                              }
+                          });
+            AddToolButton(*bar, u8"Break",
+                          [self]()
+                          {
+                              if (self->m_debugger)
+                              {
+                                  self->m_debugger->Break();
+                              }
+                          });
             column->AddView(bar.Get(), MatchWidth());
 
-            m_status = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Debugger: not running"));
+            m_status =
+                MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Debugger: not running"));
             m_status->FontSize.SetValue(12.0f);
             column->AddView(m_status.Get(), MatchWidth());
 
-            column->AddView(MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Call Stack")).Get(),
-                            MatchWidth());
+            column->AddView(
+                MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Call Stack")).Get(),
+                MatchWidth());
             m_stackList = MakeRef<ui::FlexLayout>(DefaultAllocator());
             m_stackList->Direction = ui::Orientation::Vertical;
             column->AddView(m_stackList.Get(), MatchWidth());
@@ -113,13 +143,20 @@ export namespace draconic::editor
         {
             m_debugger = debugger;
             m_expanded.Clear();
-            if (debugger == nullptr) { Clear(); }
+            if (debugger == nullptr)
+            {
+                Clear();
+            }
         }
 
         /// Rebuild the stack + locals from the debugger (called at a break, from OnUpdate).
         void Refresh()
         {
-            if (m_debugger == nullptr) { Clear(); return; }
+            if (m_debugger == nullptr)
+            {
+                Clear();
+                return;
+            }
             m_status->SetText(u8"Debugger: paused");
             m_stackList->RemoveAllViews(true);
             for (const script::ScriptStackFrame& frame : m_debugger->CaptureStackFrames())
@@ -187,7 +224,7 @@ export namespace draconic::editor
             label->FontSize.SetValue(12.0f);
             auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
-            lp->Margin = ui::Thickness{ indent, 0, 0, 0 };
+            lp->Margin = ui::Thickness{indent, 0, 0, 0};
             list.AddView(label.Get(), lp);
         }
 
@@ -210,8 +247,8 @@ export namespace draconic::editor
                 auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
                 row->Direction = ui::Orientation::Horizontal;
                 row->Spacing = 4.0f;
-                auto toggle = MakeRef<ui::Button>(DefaultAllocator(),
-                    StringView(expanded ? u8"-" : u8"+"));
+                auto toggle =
+                    MakeRef<ui::Button>(DefaultAllocator(), StringView(expanded ? u8"-" : u8"+"));
                 toggle->FontSize.SetValue(12.0f);
                 DebuggerPanel* self = this;
                 const u64 ref = variable.objectRef;
@@ -222,7 +259,7 @@ export namespace draconic::editor
                 row->AddView(label.Get(), RefPtr<ui::FlexLayoutParams>{});
                 auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                 lp->Width = ui::SizeSpec::Match();
-                lp->Margin = ui::Thickness{ indent, 0, 0, 0 };
+                lp->Margin = ui::Thickness{indent, 0, 0, 0};
                 m_localsList->AddView(row.Get(), lp);
                 if (expanded && m_debugger != nullptr)
                 {
@@ -243,7 +280,13 @@ export namespace draconic::editor
 
         [[nodiscard]] bool IsExpanded(u64 ref) const
         {
-            for (u64 e : m_expanded) { if (e == ref) { return true; } }
+            for (u64 e : m_expanded)
+            {
+                if (e == ref)
+                {
+                    return true;
+                }
+            }
             return false;
         }
 
@@ -251,7 +294,12 @@ export namespace draconic::editor
         {
             for (usize i = 0; i < m_expanded.Size(); ++i)
             {
-                if (m_expanded[i] == ref) { m_expanded.RemoveAt(i); m_dirty = true; return; }
+                if (m_expanded[i] == ref)
+                {
+                    m_expanded.RemoveAt(i);
+                    m_dirty = true;
+                    return;
+                }
             }
             m_expanded.PushBack(ref);
             m_dirty = true;
@@ -259,20 +307,31 @@ export namespace draconic::editor
 
         static void AppendInt(String& out, i32 value)
         {
-            if (value < 0) { out.PushBack(utf8char('-')); value = -value; }
+            if (value < 0)
+            {
+                out.PushBack(utf8char('-'));
+                value = -value;
+            }
             utf8char digits[16];
             i32 n = 0;
             u32 v = static_cast<u32>(value);
-            do { digits[n++] = static_cast<utf8char>('0' + v % 10); v /= 10; } while (v > 0 && n < 16);
-            while (n > 0) { out.PushBack(digits[--n]); }
+            do
+            {
+                digits[n++] = static_cast<utf8char>('0' + v % 10);
+                v /= 10;
+            } while (v > 0 && n < 16);
+            while (n > 0)
+            {
+                out.PushBack(digits[--n]);
+            }
         }
 
         RefPtr<ui::View> m_root;
         RefPtr<ui::Label> m_status;
         RefPtr<ui::FlexLayout> m_stackList;
         RefPtr<ui::FlexLayout> m_localsList;
-        script::IScriptDebugger* m_debugger = nullptr;   // borrowed (owned by the run host)
-        Array<u64> m_expanded;                            // expanded object refs (per break)
+        script::IScriptDebugger* m_debugger = nullptr; // borrowed (owned by the run host)
+        Array<u64> m_expanded;                         // expanded object refs (per break)
         bool m_dirty = false;
     };
 
@@ -301,8 +360,8 @@ export namespace draconic::editor
     class GameViewportInputSource final : public draconic::input::IInputSourceProvider
     {
     public:
-        ui::viewport::ViewportView* viewport = nullptr;          // borrowed
-        draconic::shell::IInputManager* shellInput = nullptr;   // borrowed (count only)
+        ui::viewport::ViewportView* viewport = nullptr;       // borrowed
+        draconic::shell::IInputManager* shellInput = nullptr; // borrowed (count only)
 
         [[nodiscard]] draconic::shell::IKeyboard* Keyboard() override
         {
@@ -331,7 +390,10 @@ export namespace draconic::editor
             // Key/text events stream only while the viewport owns keyboard focus - the
             // same gate SurfaceKeyboard applies to the polled reads.
             auto* surface = viewport != nullptr ? viewport->Surface() : nullptr;
-            if (surface == nullptr || !surface->Focused() || shellInput == nullptr) { return {}; }
+            if (surface == nullptr || !surface->Focused() || shellInput == nullptr)
+            {
+                return {};
+            }
             return shellInput->Events();
         }
     };
@@ -343,7 +405,10 @@ export namespace draconic::editor
         EditorContext* context = nullptr;
         void OnError(const draconic::script::ScriptError& error) override
         {
-            if (context == nullptr) { return; }
+            if (context == nullptr)
+            {
+                return;
+            }
             String message(u8"Game script error: ");
             message += error.message;
             context->Notify(NoticeKind::Error, message.AsView());
@@ -365,11 +430,11 @@ export namespace draconic::editor
             m_shellInput = host.Shell() != nullptr ? host.Shell()->Input() : nullptr;
 
             m_viewport = MakeRef<ui::viewport::ViewportView>(DefaultAllocator());
-            m_viewport->ClearColor = rhi::ClearColor{ 0.05f, 0.05f, 0.06f, 1.0f };
+            m_viewport->ClearColor = rhi::ClearColor{0.05f, 0.05f, 0.06f, 1.0f};
 
             // "Exit" from embedded game code = stop this play session (deferred by the
             // app to after the page-update loop - never torn down mid-script-dispatch).
-            context.StopGameRun = Function<void()>{ [this]() { Stop(); } };
+            context.StopGameRun = Function<void()>{[this]() { Stop(); }};
 
             // Toolbar: Play / Stop / Restart + the run-state readout.
             GameEditorPage* self = this;
@@ -377,23 +442,28 @@ export namespace draconic::editor
             m_playButton = m_toolbar->AddButton(u8"Play");
             m_playButton->OnClick.Add([self](ui::toolkit::ToolbarButton*) { self->Play(); });
             m_pauseToggle = m_toolbar->AddToggle(u8"Pause");
-            m_pauseToggle->OnCheckedChanged.Add([self](ui::toolkit::ToolbarToggle*, bool paused) {
-                if (self->m_scene != nullptr && self->m_running)
+            m_pauseToggle->OnCheckedChanged.Add(
+                [self](ui::toolkit::ToolbarToggle*, bool paused)
                 {
-                    self->m_scene->SetSimulationEnabled(!paused);
-                }
-            });
+                    if (self->m_scene != nullptr && self->m_running)
+                    {
+                        self->m_scene->SetSimulationEnabled(!paused);
+                    }
+                });
             m_stopButton = m_toolbar->AddButton(u8"Stop");
             m_stopButton->OnClick.Add([self](ui::toolkit::ToolbarButton*) { self->Stop(); });
             m_restartButton = m_toolbar->AddButton(u8"Restart");
-            m_restartButton->OnClick.Add([self](ui::toolkit::ToolbarButton*) {
-                self->Stop();
-                self->Play();
-            });
+            m_restartButton->OnClick.Add(
+                [self](ui::toolkit::ToolbarButton*)
+                {
+                    self->Stop();
+                    self->Play();
+                });
             // Preview resolution: Auto (panel size) / Deck 1280x800 / 1080p - letterboxed,
             // with mouse AND touch input mapping through the same fit.
             m_resolutionButton = m_toolbar->AddButton(u8"Res: Auto");
-            m_resolutionButton->OnClick.Add([self](ui::toolkit::ToolbarButton*) { self->CycleResolution(); });
+            m_resolutionButton->OnClick.Add([self](ui::toolkit::ToolbarButton*)
+                                            { self->CycleResolution(); });
             m_statusLabel = MakeRef<draconic::ui::Label>(DefaultAllocator(), StringView(u8""));
             m_statusLabel->FontSize.SetValue(13.0f);
             {
@@ -436,7 +506,7 @@ export namespace draconic::editor
         }
 
         [[nodiscard]] StringView Title() const override { return u8"Game"; }
-        [[nodiscard]] Status Save() override { return Status{}; }   // nothing here is a document
+        [[nodiscard]] Status Save() override { return Status{}; } // nothing here is a document
         [[nodiscard]] draconic::ui::View* ContentView() override { return m_content.Get(); }
 
         // The scene group this tab's game scene belongs to: the embedded app's GameInstance manager
@@ -451,8 +521,14 @@ export namespace draconic::editor
         /// Fresh player run: the project's default scene from the DBs, simulation on.
         void Play()
         {
-            if (m_running) { return; }
-            if (m_scenes == nullptr || m_context->Project() == nullptr) { return; }
+            if (m_running)
+            {
+                return;
+            }
+            if (m_scenes == nullptr || m_context->Project() == nullptr)
+            {
+                return;
+            }
 
             // Resolution order mirrors RaptorPlayer: the manifest's guid (authoritative,
             // rename-proof), then the path mirror.
@@ -468,21 +544,29 @@ export namespace draconic::editor
             }
             if (instance == nullptr)
             {
-                m_context->Notify(NoticeKind::Warning,
+                m_context->Notify(
+                    NoticeKind::Warning,
                     u8"No default scene - set one in Project Settings before playing.");
                 return;
             }
 
             // Nudge a background incremental cook so just-edited content is fresh; the
             // run starts immediately and late products heal via the hot-reload path.
-            if (m_context->OnCookRequested) { m_context->OnCookRequested(false); }
+            if (m_context->OnCookRequested)
+            {
+                m_context->OnCookRequested(false);
+            }
             // Via THIS tab's instance (not just SceneGroup) so behaviors bind to its run host.
             m_scene = (m_gameInstance != nullptr) ? m_gameInstance->CreateScene(instance->Name())
                                                   : m_fallbackScenes.CreateScene(instance->Name());
             if (m_scene == nullptr || !scene::LoadScene(*instance, *m_scene).IsOk())
             {
                 m_context->Notify(NoticeKind::Error, u8"Game: default scene failed to load.");
-                if (m_scene != nullptr) { SceneGroup().DestroyScene(m_scene); m_scene = nullptr; }
+                if (m_scene != nullptr)
+                {
+                    SceneGroup().DestroyScene(m_scene);
+                    m_scene = nullptr;
+                }
                 return;
             }
             // Products bind from the cooked DB (the editor's shared manager); prefab payloads
@@ -494,15 +578,20 @@ export namespace draconic::editor
             if (m_scene->PendingPrefabInstanceCount() > 0)
             {
                 EditorContext* context = m_context;
-                scene::ResolveScenePrefabs(*m_scene,
+                scene::ResolveScenePrefabs(
+                    *m_scene,
                     Function<UniquePtr<IStream>(const Guid&)>{
-                        [context](const Guid& prefabId) -> UniquePtr<IStream> {
-                            if (context->Project() == nullptr) { return UniquePtr<IStream>{}; }
+                        [context](const Guid& prefabId) -> UniquePtr<IStream>
+                        {
+                            if (context->Project() == nullptr)
+                            {
+                                return UniquePtr<IStream>{};
+                            }
                             draconic::content::Instance* prefab =
                                 context->Project()->SourceDb().GetInstance(prefabId);
                             return (prefab != nullptr) ? prefab->ReadData(u8"scene")
                                                        : UniquePtr<IStream>{};
-                        } });
+                        }});
                 if (m_context->Resources() != nullptr)
                 {
                     scene::ResolveSceneResources(*m_scene, *m_context->Resources());
@@ -513,7 +602,10 @@ export namespace draconic::editor
             m_scene->Start();
             m_scene->SetSimulationEnabled(true);
             m_running = true;
-            if (m_pauseToggle != nullptr) { m_pauseToggle->SetIsChecked(false); }
+            if (m_pauseToggle != nullptr)
+            {
+                m_pauseToggle->SetIsChecked(false);
+            }
             m_sceneTitle = String(instance->Name());
             BindInput();
             BindBusLayout(*m_host);
@@ -535,7 +627,10 @@ export namespace draconic::editor
         /// Total teardown - the fresh-run model's whole cleanup story.
         void Stop()
         {
-            if (!m_running && m_scene == nullptr) { return; }
+            if (!m_running && m_scene == nullptr)
+            {
+                return;
+            }
             // The map clears (no actions bound between runs); the SOURCE stays - it is
             // the runtime input's permanent provider (v3) - but its SCENE BINDING drops
             // with the run, returning the editor to inert (ScreenTierOnly) game UI.
@@ -562,7 +657,10 @@ export namespace draconic::editor
             if (m_scene != nullptr)
             {
                 m_scene->Stop();
-                if (m_scenes != nullptr) { SceneGroup().DestroyScene(m_scene); }
+                if (m_scenes != nullptr)
+                {
+                    SceneGroup().DestroyScene(m_scene);
+                }
                 m_scene = nullptr;
             }
             m_running = false;
@@ -575,12 +673,21 @@ export namespace draconic::editor
         void EnsureViewportBound()
         {
             draconic::ui::RootView* root = m_viewport->Root();
-            if (root == nullptr) { return; }
+            if (root == nullptr)
+            {
+                return;
+            }
             draconic::graphics::RenderWindow* window = m_uiHost->WindowForRoot(root);
-            if (window == nullptr || window == m_hostWindow) { return; }
+            if (window == nullptr || window == m_hostWindow)
+            {
+                return;
+            }
 
             vg::renderer::VGRenderer* renderer = m_uiHost->RendererFor(window);
-            if (renderer == nullptr) { return; }   // float's AttachWindow hasn't run yet
+            if (renderer == nullptr)
+            {
+                return;
+            } // float's AttachWindow hasn't run yet
 
             if (m_hostWindow == nullptr)
             {
@@ -598,14 +705,17 @@ export namespace draconic::editor
                 // reads no keyboard - the game viewport must own a router or its input is dead.
                 if (m_router.Get() == nullptr)
                 {
-                    m_router = MakeUnique<draconic::shell::InputRouter>(
-                        DefaultAllocator(), m_host->Shell()->Input());
+                    m_router = MakeUnique<draconic::shell::InputRouter>(DefaultAllocator(),
+                                                                        m_host->Shell()->Input());
                 }
-                if (m_viewport->Surface() != nullptr) { m_router->AddSurface(m_viewport->Surface()); }
+                if (m_viewport->Surface() != nullptr)
+                {
+                    m_router->AddSurface(m_viewport->Surface());
+                }
                 if (m_input != nullptr)
                 {
-                    m_input->SetSourceProvider(&m_viewportSource,
-                                               m_running ? static_cast<const void*>(m_scene) : nullptr);
+                    m_input->SetSourceProvider(
+                        &m_viewportSource, m_running ? static_cast<const void*>(m_scene) : nullptr);
                 }
             }
             else
@@ -619,23 +729,30 @@ export namespace draconic::editor
         {
             EnsureViewportBound();
             m_viewport->SyncInputRegion();
-            if (m_router.Get() != nullptr) { m_router->Update(); }   // gate the surface: hover=mouse, click=keyboard focus
+            if (m_router.Get() != nullptr)
+            {
+                m_router->Update();
+            } // gate the surface: hover=mouse, click=keyboard focus
             // IME follows the GAME UI's focus through the host window: the viewport (the
             // editor context's focused view while playing) forwards the game context's
             // WantsTextInput, and the editor's own input bridge does the Start/Stop.
-            m_viewport->SetHostedTextInputWanted(
-                m_app != nullptr && m_app->UI() != nullptr &&
-                m_app->UI()->Context().WantsTextInput());
+            m_viewport->SetHostedTextInputWanted(m_app != nullptr && m_app->UI() != nullptr &&
+                                                 m_app->UI()->Context().WantsTextInput());
             // The embedded app's OnUpdate (ticking EVERY instance's game script) is driven ONCE by
             // the editor app now (game-instance.md §11 step 5) - not per game tab, or N tabs would
             // tick every instance N times. This tab only drains its own debugger state.
-            (void)host; (void)dt;
+            (void)host;
+            (void)dt;
             DrainDebuggerState();
         }
 
-        void OnRenderWindow(runtime::IApplicationHost&, draconic::graphics::FrameContext& frame) override
+        void OnRenderWindow(runtime::IApplicationHost&,
+                            draconic::graphics::FrameContext& frame) override
         {
-            if (!m_viewport->IsReady() || !frame.valid) { return; }
+            if (!m_viewport->IsReady() || !frame.valid)
+            {
+                return;
+            }
             // Idle (no run): the editor UI still SAMPLES the viewport texture every frame,
             // so it must be in a defined shader-read layout - clear it once per frame.
             // (Every other viewport page renders every frame; only the Game tab idles.)
@@ -644,17 +761,27 @@ export namespace draconic::editor
                 m_viewport->ClearContent(*frame.encoder);
                 return;
             }
-            if (m_render == nullptr || !m_render->IsReady()) { return; }
+            if (m_render == nullptr || !m_render->IsReady())
+            {
+                return;
+            }
             const u32 w = m_viewport->RenderWidth();
             const u32 h = m_viewport->RenderHeight();
-            if (w == 0 || h == 0) { return; }
-            if (!m_viewport->IsEffectivelyVisible()) { return; }
+            if (w == 0 || h == 0)
+            {
+                return;
+            }
+            if (!m_viewport->IsEffectivelyVisible())
+            {
+                return;
+            }
 
             // RenderTexture canvases draw before the scene (the same host seam the
             // player runs in DefaultApplication::OnRenderWindow).
             if (m_app != nullptr && m_app->UI() != nullptr)
             {
-                m_app->UI()->RenderCanvasTextures(*frame.encoder, static_cast<i32>(frame.frameIndex));
+                m_app->UI()->RenderCanvasTextures(*frame.encoder,
+                                                  static_cast<i32>(frame.frameIndex));
             }
 
             // No camera override: the SCENE's primary camera drives the view (its clear
@@ -663,8 +790,9 @@ export namespace draconic::editor
             targetState.texture = m_viewport->ColorTexture();
             targetState.currentState = m_viewport->ColorState();
             targetState.finalState = rhi::ResourceState::ShaderRead;
-            m_render->RenderScene(*m_scene, m_viewport->ColorTargetView(), m_viewport->ColorFormat(),
-                                  w, h, render::ViewportRect{ 0, 0, w, h }, nullptr, targetState);
+            m_render->RenderScene(*m_scene, m_viewport->ColorTargetView(),
+                                  m_viewport->ColorFormat(), w, h, render::ViewportRect{0, 0, w, h},
+                                  nullptr, targetState);
             m_viewport->SetColorState(rhi::ResourceState::ShaderRead);
         }
 
@@ -680,12 +808,17 @@ export namespace draconic::editor
                 return;
             }
             auto* render = host.Ctx().GetSubsystem<render::RenderSubsystem>();
-            if (render == nullptr) { return; }
+            if (render == nullptr)
+            {
+                return;
+            }
             const u32 w = m_viewport->RenderWidth();
             const u32 h = m_viewport->RenderHeight();
-            if (w == 0 || h == 0) { return; }
-            frame.encoder->TransitionTexture(m_viewport->ColorTexture(),
-                                             m_viewport->ColorState(),
+            if (w == 0 || h == 0)
+            {
+                return;
+            }
+            frame.encoder->TransitionTexture(m_viewport->ColorTexture(), m_viewport->ColorState(),
                                              rhi::ResourceState::RenderTarget);
             render->RenderOverlays(*frame.encoder, m_viewport->ColorTargetView(),
                                    m_viewport->ColorFormat(), w, h, frame.frameIndex);
@@ -701,17 +834,24 @@ export namespace draconic::editor
             // Stop leaves this page's viewport source as the input override (by design, so a STOPPED-
             // but-open tab keeps viewport input). On CLOSE the source is about to be freed, so clear it
             // or ActiveSource() dangles and the next PumpInput crashes (guarded: only if it's ours).
-            if (m_input != nullptr) { m_input->ClearSourceProviderIf(&m_viewportSource); }
+            if (m_input != nullptr)
+            {
+                m_input->ClearSourceProviderIf(&m_viewportSource);
+            }
             // The PER-INSTANCE input source (BindInput set it to this tab's viewport) also dangles once
             // m_viewportSource is freed - and ReleaseInstance below is a NO-OP for the PRIMARY instance,
             // so its DriveInput would dereference the freed source next frame. Revert it to the shell.
             if (m_gameInstance != nullptr)
             {
-                m_gameInstance->SetInputSource(m_input != nullptr ? &m_input->ShellSource() : nullptr);
+                m_gameInstance->SetInputSource(m_input != nullptr ? &m_input->ShellSource()
+                                                                  : nullptr);
             }
             // Destroy THIS tab's extra instance (unregisters its scene manager + tears down its run
             // host) so nothing dangling is ticked/rendered after the tab closes. No-op for the primary.
-            if (m_app != nullptr && m_gameInstance != nullptr) { m_app->ReleaseInstance(m_gameInstance); }
+            if (m_app != nullptr && m_gameInstance != nullptr)
+            {
+                m_app->ReleaseInstance(m_gameInstance);
+            }
             m_gameInstance = nullptr;
             m_context->StopGameRun = Function<void()>{};
             m_viewport->Shutdown();
@@ -723,17 +863,24 @@ export namespace draconic::editor
         void EnsureCamera()
         {
             auto* cameras = m_scene->GetSystem<render::CameraComponentManager>();
-            if (cameras == nullptr) { return; }
+            if (cameras == nullptr)
+            {
+                return;
+            }
             bool hasCamera = false;
-            cameras->ForEach([&](render::CameraComponent&, scene::EntityHandle) { hasCamera = true; });
-            if (hasCamera) { return; }
+            cameras->ForEach([&](render::CameraComponent&, scene::EntityHandle)
+                             { hasCamera = true; });
+            if (hasCamera)
+            {
+                return;
+            }
 
             DRACONIC_LOG_WARNING(u8"Editor", u8"Game: scene has no camera - adding a default one");
             const scene::EntityHandle e = m_scene->CreateEntity(u8"PlayerCamera");
             Transform t;
-            t.position = Float3{ 8.0f, 6.0f, 10.0f };
-            t.rotation = Quaternion::FromAxisAngle(Float3{ 0, 1, 0 }, 0.675f)
-                       * Quaternion::FromAxisAngle(Float3{ 1, 0, 0 }, -0.42f);
+            t.position = Float3{8.0f, 6.0f, 10.0f};
+            t.rotation = Quaternion::FromAxisAngle(Float3{0, 1, 0}, 0.675f) *
+                         Quaternion::FromAxisAngle(Float3{1, 0, 0}, -0.42f);
             m_scene->SetLocalTransform(e, t);
             cameras->Add(e);
         }
@@ -742,31 +889,44 @@ export namespace draconic::editor
         // devices swapped to the Game viewport's gated facades. Stop restores the shell.
         void BindInput()
         {
-            if (m_input == nullptr) { return; }
+            if (m_input == nullptr)
+            {
+                return;
+            }
             m_viewportSource.viewport = m_viewport.Get();
             m_viewportSource.shellInput = m_shellInput;
             // Per-surface scene binding (game-ui.md §9): the viewport source represents
             // THIS run's scene, so game-UI routing + consumption confine to it - open
             // editing pages' HUDs can no longer catch the run's clicks/keys, and the
             // run's UI never reacts to another scene's coordinates.
-            m_input->SetSourceProvider(&m_viewportSource, m_scene);   // UI-pump active source (game-UI routing)
+            m_input->SetSourceProvider(&m_viewportSource,
+                                       m_scene); // UI-pump active source (game-UI routing)
             // Per-instance INPUT: this tab's game reads its OWN viewport source through its OWN action
             // runtime, so two Game tabs never cross-feed keys (only the FOCUSED tab's surface reports
             // them). The shared subsystem runtime is no longer the game's input.
-            if (m_gameInstance != nullptr) { m_gameInstance->SetInputSource(&m_viewportSource); }
+            if (m_gameInstance != nullptr)
+            {
+                m_gameInstance->SetInputSource(&m_viewportSource);
+            }
             const Guid mapId = m_context->Project()->Settings().defaultInputMapId;
-            if (mapId.IsNil() || m_context->Resources() == nullptr) { return; }
+            if (mapId.IsNil() || m_context->Resources() == nullptr)
+            {
+                return;
+            }
             auto proxy = m_context->Resources()->Bind<draconic::input::InputMapResource>(mapId);
             if (proxy)
             {
-                if (m_gameInstance != nullptr) { m_gameInstance->SetInputMap(proxy->Map()); }
+                if (m_gameInstance != nullptr)
+                {
+                    m_gameInstance->SetInputMap(proxy->Map());
+                }
                 DRACONIC_LOG_INFO(u8"Editor", u8"Game: input map bound ({} set(s))",
                                   proxy->Map().sets.Size());
             }
             else
             {
                 m_context->Notify(NoticeKind::Warning,
-                    u8"Game: default input map is not cooked yet.");
+                                  u8"Game: default input map is not cooked yet.");
             }
         }
 
@@ -775,9 +935,15 @@ export namespace draconic::editor
         void BindBusLayout(runtime::IApplicationHost& host)
         {
             auto* audio = host.Ctx().GetSubsystem<draconic::audio::AudioSubsystem>();
-            if (audio == nullptr || audio->Engine() == nullptr) { return; }
+            if (audio == nullptr || audio->Engine() == nullptr)
+            {
+                return;
+            }
             const Guid layoutId = m_context->Project()->Settings().defaultBusLayoutId;
-            if (layoutId.IsNil() || m_context->Resources() == nullptr) { return; }
+            if (layoutId.IsNil() || m_context->Resources() == nullptr)
+            {
+                return;
+            }
             auto proxy =
                 m_context->Resources()->Bind<draconic::audio::AudioBusLayoutResource>(layoutId);
             if (proxy)
@@ -788,7 +954,7 @@ export namespace draconic::editor
             else
             {
                 m_context->Notify(NoticeKind::Warning,
-                    u8"Game: default bus layout is not cooked yet.");
+                                  u8"Game: default bus layout is not cooked yet.");
             }
         }
 
@@ -799,18 +965,21 @@ export namespace draconic::editor
             // The startup script is a cooked ScriptClass asset (guid-authoritative), bound from the
             // content DB like every other asset - no raw source path.
             const Guid scriptId = m_context->Project()->Settings().startupScriptId;
-            if (scriptId.IsNil() || m_context->Resources() == nullptr) { return; }
+            if (scriptId.IsNil() || m_context->Resources() == nullptr)
+            {
+                return;
+            }
             auto proxy = m_context->Resources()->Bind<draconic::script::ScriptClass>(scriptId);
             if (!proxy || proxy->source.IsEmpty())
             {
                 m_context->Notify(NoticeKind::Warning, u8"Game: startup script asset not found.");
                 return;
             }
-            if (m_gameInstance == nullptr
-                || !m_gameInstance->StartScript(proxy->source.AsView(), proxy->sourceName.AsView()))
+            if (m_gameInstance == nullptr ||
+                !m_gameInstance->StartScript(proxy->source.AsView(), proxy->sourceName.AsView()))
             {
                 m_context->Notify(NoticeKind::Error,
-                    u8"Game: startup script failed to start (see Console).");
+                                  u8"Game: startup script failed to start (see Console).");
             }
         }
 
@@ -819,19 +988,22 @@ export namespace draconic::editor
         // created when the script context is (first behavior / game script).
         void EnableDebugging()
         {
-            if (m_gameInstance == nullptr) { return; }
+            if (m_gameInstance == nullptr)
+            {
+                return;
+            }
             m_gameInstance->RunHost().SetExternalDebugListener(&m_debugListener);
             EditorContext* context = m_context;
             GameEditorPage* self = this;
-            m_gameInstance->RunHost().RequestDebugger(
-                Function<void(script::IScriptDebugger&)>{
-                    [context, self](script::IScriptDebugger& debugger) {
-                        for (const EditorContext::ScriptBreakpoint& breakpoint : context->Breakpoints())
-                        {
-                            debugger.SetBreakpoint(breakpoint.file.AsView(), breakpoint.line);
-                        }
-                        self->m_debuggerPanel.SetDebugger(&debugger);
-                    } });
+            m_gameInstance->RunHost().RequestDebugger(Function<void(script::IScriptDebugger&)>{
+                [context, self](script::IScriptDebugger& debugger)
+                {
+                    for (const EditorContext::ScriptBreakpoint& breakpoint : context->Breakpoints())
+                    {
+                        debugger.SetBreakpoint(breakpoint.file.AsView(), breakpoint.line);
+                    }
+                    self->m_debuggerPanel.SetDebugger(&debugger);
+                }});
         }
 
         // Drain the debugger's state changes at the top level (never mid-script-dispatch): on a
@@ -839,13 +1011,16 @@ export namespace draconic::editor
         // on resume, thaw and clear it. A locals-expand click also rebuilds here.
         void DrainDebuggerState()
         {
-            if (!m_running) { return; }
+            if (!m_running)
+            {
+                return;
+            }
             if (m_debugListener.changed)
             {
                 m_debugListener.changed = false;
                 const bool paused =
-                    m_debugListener.state == script::ScriptDebuggerState::Breakpoint
-                    || m_debugListener.state == script::ScriptDebuggerState::Stepped;
+                    m_debugListener.state == script::ScriptDebuggerState::Breakpoint ||
+                    m_debugListener.state == script::ScriptDebuggerState::Stepped;
                 if (paused)
                 {
                     if (m_scene != nullptr && !m_simPausedByDebugger)
@@ -865,7 +1040,10 @@ export namespace draconic::editor
                     m_debuggerPanel.Clear();
                 }
             }
-            if (m_debuggerPanel.ConsumeDirty()) { m_debuggerPanel.Refresh(); }
+            if (m_debuggerPanel.ConsumeDirty())
+            {
+                m_debuggerPanel.Refresh();
+            }
         }
 
         void CycleResolution()
@@ -873,22 +1051,23 @@ export namespace draconic::editor
             m_resolutionMode = (m_resolutionMode + 1u) % 3u;
             switch (m_resolutionMode)
             {
-                case 0u:
-                    m_viewport->SetFixedResolution(0, 0);
-                    m_viewport->SetFitMode(FitMode::Stretch);
-                    m_resolutionButton->SetText(u8"Res: Auto");
-                    break;
-                case 1u:
-                    m_viewport->SetFixedResolution(1280, 800);
-                    m_viewport->SetFitMode(FitMode::Letterbox);
-                    m_resolutionButton->SetText(u8"Res: 1280x800");
-                    break;
-                case 2u:
-                    m_viewport->SetFixedResolution(1920, 1080);
-                    m_viewport->SetFitMode(FitMode::Letterbox);
-                    m_resolutionButton->SetText(u8"Res: 1920x1080");
-                    break;
-                default: break;
+            case 0u:
+                m_viewport->SetFixedResolution(0, 0);
+                m_viewport->SetFitMode(FitMode::Stretch);
+                m_resolutionButton->SetText(u8"Res: Auto");
+                break;
+            case 1u:
+                m_viewport->SetFixedResolution(1280, 800);
+                m_viewport->SetFitMode(FitMode::Letterbox);
+                m_resolutionButton->SetText(u8"Res: 1280x800");
+                break;
+            case 2u:
+                m_viewport->SetFixedResolution(1920, 1080);
+                m_viewport->SetFitMode(FitMode::Letterbox);
+                m_resolutionButton->SetText(u8"Res: 1920x1080");
+                break;
+            default:
+                break;
             }
         }
 
@@ -912,9 +1091,11 @@ export namespace draconic::editor
         EditorContext* m_context = nullptr;
         runtime::IApplicationHost* m_host = nullptr;
         ui::runtime::UIHost* m_uiHost = nullptr;
-        runtime::DefaultApplication* m_app = nullptr;   // the embedded game application (v3)
-        runtime::GameInstance* m_gameInstance = nullptr;   // THIS tab's running game (its own run host + scenes)
-        draconic::graphics::RenderWindow* m_hostWindow = nullptr;   // borrowed; tracks dock/float moves
+        runtime::DefaultApplication* m_app = nullptr; // the embedded game application (v3)
+        runtime::GameInstance* m_gameInstance =
+            nullptr; // THIS tab's running game (its own run host + scenes)
+        draconic::graphics::RenderWindow* m_hostWindow =
+            nullptr; // borrowed; tracks dock/float moves
         scene::SceneSubsystem* m_scenes = nullptr;
         render::RenderSubsystem* m_render = nullptr;
         scene::Scene* m_scene = nullptr;
@@ -931,14 +1112,14 @@ export namespace draconic::editor
         ui::toolkit::ToolbarButton* m_resolutionButton = nullptr;
         u32 m_resolutionMode = 0;
         GameScriptErrorSink m_scriptErrors;
-        DebuggerPanel m_debuggerPanel;              // the debugger UI (contract-only)
-        GameDebugListener m_debugListener;          // debugger state sink (drained in OnUpdate)
-        bool m_simPausedByDebugger = false;         // we disabled sim for a breakpoint
+        DebuggerPanel m_debuggerPanel;      // the debugger UI (contract-only)
+        GameDebugListener m_debugListener;  // debugger state sink (drained in OnUpdate)
+        bool m_simPausedByDebugger = false; // we disabled sim for a breakpoint
         RefPtr<draconic::ui::Label> m_statusLabel;
         RefPtr<ui::viewport::ViewportView> m_viewport;
-        UniquePtr<draconic::shell::InputRouter> m_router;   // gates the viewport surface (hover/focus)
-        scene::SceneManager m_fallbackScenes;   // no-embedded-app placeholder group (see SceneGroup)
-
+        UniquePtr<draconic::shell::InputRouter>
+            m_router;                         // gates the viewport surface (hover/focus)
+        scene::SceneManager m_fallbackScenes; // no-embedded-app placeholder group (see SceneGroup)
 
         String m_sceneTitle;
         bool m_running = false;

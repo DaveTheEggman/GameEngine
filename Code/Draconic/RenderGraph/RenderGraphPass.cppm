@@ -25,8 +25,9 @@ export namespace draconic::rendergraph
     class RenderGraphPass
     {
     public:
-        RenderGraphPass(StringView passName, RGPassType passType)
-            : name(passName), type(passType) {}
+        RenderGraphPass(StringView passName, RGPassType passType) : name(passName), type(passType)
+        {
+        }
 
         // Explicitly defaulted so the (move-only, due to Function members) special
         // members are synthesized in this module and usable by importers - GCC's
@@ -42,13 +43,17 @@ export namespace draconic::rendergraph
         {
             for (const RGResourceAccess& access : accesses)
             {
-                if (access.IsRead()) { out.PushBack(access); }
+                if (access.IsRead())
+                {
+                    out.PushBack(access);
+                }
             }
             for (const RGColorTarget& ct : colorTargets)
             {
                 if (ct.loadOp == rhi::LoadOp::Load)
                 {
-                    out.PushBack(RGResourceAccess{ ct.handle, RGAccessType::ReadTexture, ct.subresource });
+                    out.PushBack(
+                        RGResourceAccess{ct.handle, RGAccessType::ReadTexture, ct.subresource});
                 }
             }
             if (depthTarget.HasValue())
@@ -56,7 +61,8 @@ export namespace draconic::rendergraph
                 const RGDepthTarget& dt = depthTarget.Value();
                 if (dt.depthLoadOp == rhi::LoadOp::Load || dt.readOnly)
                 {
-                    out.PushBack(RGResourceAccess{ dt.handle, RGAccessType::ReadDepthStencil, dt.subresource });
+                    out.PushBack(RGResourceAccess{dt.handle, RGAccessType::ReadDepthStencil,
+                                                  dt.subresource});
                 }
             }
         }
@@ -66,13 +72,17 @@ export namespace draconic::rendergraph
         {
             for (const RGResourceAccess& access : accesses)
             {
-                if (access.IsWrite()) { out.PushBack(access); }
+                if (access.IsWrite())
+                {
+                    out.PushBack(access);
+                }
             }
             for (const RGColorTarget& ct : colorTargets)
             {
                 if (ct.storeOp == rhi::StoreOp::Store)
                 {
-                    out.PushBack(RGResourceAccess{ ct.handle, RGAccessType::WriteColorTarget, ct.subresource });
+                    out.PushBack(RGResourceAccess{ct.handle, RGAccessType::WriteColorTarget,
+                                                  ct.subresource});
                 }
             }
             if (depthTarget.HasValue())
@@ -80,12 +90,16 @@ export namespace draconic::rendergraph
                 const RGDepthTarget& dt = depthTarget.Value();
                 if (dt.depthStoreOp == rhi::StoreOp::Store && !dt.readOnly)
                 {
-                    out.PushBack(RGResourceAccess{ dt.handle, RGAccessType::WriteDepthTarget, dt.subresource });
+                    out.PushBack(RGResourceAccess{dt.handle, RGAccessType::WriteDepthTarget,
+                                                  dt.subresource});
                 }
             }
         }
 
-        [[nodiscard]] bool ShouldSurviveCulling() const noexcept { return neverCull || hasSideEffects; }
+        [[nodiscard]] bool ShouldSurviveCulling() const noexcept
+        {
+            return neverCull || hasSideEffects;
+        }
 
         // --- identity ---
         String name;
@@ -100,19 +114,19 @@ export namespace draconic::rendergraph
 
         // --- optional per-pass viewport/scissor override (else the full attachment is used) ---
         bool hasViewport = false;
-        i32  viewportX = 0, viewportY = 0;
-        u32  viewportW = 0, viewportH = 0;
+        i32 viewportX = 0, viewportY = 0;
+        u32 viewportW = 0, viewportH = 0;
 
         // --- compile flags ---
         bool isCulled = false;
         bool neverCull = false;
         bool hasSideEffects = false;
-        Function<bool()> condition;          // optional runtime skip condition
-        i32 executionOrder = -1;             // assigned during topological sort
+        Function<bool()> condition; // optional runtime skip condition
+        i32 executionOrder = -1;    // assigned during topological sort
 
         // --- typed execute callbacks (one is set per pass type) ---
         RenderPassExecuteCallback executeCallback;
-        RenderBundlePassCallback bundleCallback;   // render pass whose body is executed bundles
+        RenderBundlePassCallback bundleCallback; // render pass whose body is executed bundles
         ComputePassExecuteCallback computeCallback;
         CopyPassExecuteCallback copyCallback;
     };

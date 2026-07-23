@@ -10,7 +10,7 @@ module;
 
 export module draconic.ui:state_list_drawable;
 
-import draconic.core;   // HashMap, RefPtr, Rectangle
+import draconic.core; // HashMap, RefPtr, Rectangle
 import :control_state;
 import :drawable;
 import :draw_context;
@@ -38,12 +38,15 @@ export namespace draconic::ui
         [[nodiscard]] Drawable* Get(ControlState state) const
         {
             const u32 key = static_cast<u32>(state);
-            if (const RefPtr<Drawable>* exact = m_drawables.Find(key)) { return exact->Get(); }
+            if (const RefPtr<Drawable>* exact = m_drawables.Find(key))
+            {
+                return exact->Get();
+            }
 
             constexpr u32 kDisabled = static_cast<u32>(ControlState::Disabled);
-            constexpr u32 kInteraction = static_cast<u32>(ControlState::Hover)
-                                       | static_cast<u32>(ControlState::Pressed)
-                                       | static_cast<u32>(ControlState::Focused);
+            constexpr u32 kInteraction = static_cast<u32>(ControlState::Hover) |
+                                         static_cast<u32>(ControlState::Pressed) |
+                                         static_cast<u32>(ControlState::Focused);
             if ((key & kDisabled) != 0u && (key & kInteraction) != 0u)
             {
                 if (const RefPtr<Drawable>* d = m_drawables.Find(key & ~kInteraction))
@@ -53,24 +56,39 @@ export namespace draconic::ui
             }
 
             u32 remaining = key;
-            static constexpr u32 kFlags[] = { 32u, 16u, 8u, 4u, 2u, 1u };
+            static constexpr u32 kFlags[] = {32u, 16u, 8u, 4u, 2u, 1u};
             for (u32 flag : kFlags)
             {
-                if ((remaining & flag) == 0u) { continue; }
+                if ((remaining & flag) == 0u)
+                {
+                    continue;
+                }
                 remaining &= ~flag;
-                if (const RefPtr<Drawable>* fb = m_drawables.Find(remaining)) { return fb->Get(); }
+                if (const RefPtr<Drawable>* fb = m_drawables.Find(remaining))
+                {
+                    return fb->Get();
+                }
             }
-            if (const RefPtr<Drawable>* normal = m_drawables.Find(0u)) { return normal->Get(); }
+            if (const RefPtr<Drawable>* normal = m_drawables.Find(0u))
+            {
+                return normal->Get();
+            }
             return nullptr;
         }
 
         void Draw(UIDrawContext& ctx, const Rectangle& bounds) override
         {
-            if (Drawable* d = Get(ControlState::Normal)) { d->Draw(ctx, bounds); }
+            if (Drawable* d = Get(ControlState::Normal))
+            {
+                d->Draw(ctx, bounds);
+            }
         }
         void Draw(UIDrawContext& ctx, const Rectangle& bounds, ControlState state) override
         {
-            if (Drawable* d = Get(state)) { d->Draw(ctx, bounds); }
+            if (Drawable* d = Get(state))
+            {
+                d->Draw(ctx, bounds);
+            }
         }
 
     private:

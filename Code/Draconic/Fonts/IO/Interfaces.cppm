@@ -33,14 +33,17 @@ export namespace draconic::fonts
         [[nodiscard]] virtual bool SupportsExtension(StringView fileExtension) const = 0;
 
         // Canonical entry point: parse from a borrowed stream (not retained).
-        [[nodiscard]] virtual Result<IFont*, FontLoadResult> ParseFromStream(IStream& stream, FontLoadOptions options) = 0;
+        [[nodiscard]] virtual Result<IFont*, FontLoadResult>
+        ParseFromStream(IStream& stream, FontLoadOptions options) = 0;
 
         // Parse from an in-memory byte span.
-        [[nodiscard]] virtual Result<IFont*, FontLoadResult> ParseFromMemory(Span<const u8> data, FontLoadOptions options) = 0;
+        [[nodiscard]] virtual Result<IFont*, FontLoadResult>
+        ParseFromMemory(Span<const u8> data, FontLoadOptions options) = 0;
 
         // Parse from a file on disk. Engine/shipped-game callers should prefer
         // the VFS-aware stream path.
-        [[nodiscard]] virtual Result<IFont*, FontLoadResult> ParseFromFile(StringView filePath, FontLoadOptions options) = 0;
+        [[nodiscard]] virtual Result<IFont*, FontLoadResult>
+        ParseFromFile(StringView filePath, FontLoadOptions options) = 0;
     };
 
     // Bakes a parsed IFont into a renderable IFontAtlas. Implementations
@@ -60,6 +63,7 @@ export namespace draconic::fonts
         [[nodiscard]] virtual bool CanBake(const IFont& font) const = 0;
 
         // Produce a new atlas for the font + options. Caller takes ownership.
-        [[nodiscard]] virtual Result<IFontAtlas*, FontLoadResult> Bake(IFont& font, FontLoadOptions options) = 0;
+        [[nodiscard]] virtual Result<IFontAtlas*, FontLoadResult> Bake(IFont& font,
+                                                                       FontLoadOptions options) = 0;
     };
 }

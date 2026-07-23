@@ -53,7 +53,8 @@ namespace
     template <typename T>
     void Add(editor::BuilderRegistry& registry)
     {
-        registry.Register(UniquePtr<editor::IAssetBuilder>(DefaultAllocator().New<T>(), DefaultAllocator()));
+        registry.Register(
+            UniquePtr<editor::IAssetBuilder>(DefaultAllocator().New<T>(), DefaultAllocator()));
     }
 
     // Every builder the engine ships (the editor executable assembles the same set).
@@ -122,16 +123,27 @@ int main(int argc, char** argv)
     bool dryRun = false;
     for (int i = 2; i < argc; ++i)
     {
-        if (std::strcmp(argv[i], "--rebuild") == 0) { rebuild = true; }
-        else if (std::strcmp(argv[i], "--dry-run") == 0) { dryRun = true; }
-        else { std::fprintf(stderr, "unknown option: %s\n", argv[i]); return 1; }
+        if (std::strcmp(argv[i], "--rebuild") == 0)
+        {
+            rebuild = true;
+        }
+        else if (std::strcmp(argv[i], "--dry-run") == 0)
+        {
+            dryRun = true;
+        }
+        else
+        {
+            std::fprintf(stderr, "unknown option: %s\n", argv[i]);
+            return 1;
+        }
     }
 
     ConsoleSink consoleSink;
     GlobalLogger().AddSink(&consoleSink);
 
     const StringView projectDir(reinterpret_cast<const utf8char*>(argv[1]));
-    UniquePtr<draconic::editor::EditorProject> project = draconic::editor::EditorProject::Open(projectDir);
+    UniquePtr<draconic::editor::EditorProject> project =
+        draconic::editor::EditorProject::Open(projectDir);
     if (!project)
     {
         std::fprintf(stderr, "RaptorCook: failed to open project '%s'\n", argv[1]);
@@ -145,8 +157,8 @@ int main(int argc, char** argv)
     vfs::NativeFileSystem cacheMount(project->CacheRoot().AsView());
     JobSystem jobs;
 
-    editor::CookDriver driver(project->SourceDb(), project->CookedDb(), registry,
-                          &sourcesMount, &cacheMount, &jobs);
+    editor::CookDriver driver(project->SourceDb(), project->CookedDb(), registry, &sourcesMount,
+                              &cacheMount, &jobs);
 
     editor::CookPlan plan = driver.Plan(rebuild);
     std::printf("cook plan: %zu dirty, %zu up to date, %zu orphan(s), %zu without builders\n",
@@ -162,13 +174,14 @@ int main(int argc, char** argv)
     }
 
     editor::CookProgress progress;
-    progress.onItem = [](usize done, usize total, StringView path, bool ok) {
+    progress.onItem = [](usize done, usize total, StringView path, bool ok)
+    {
         std::printf("[%zu/%zu] %s %.*s\n", done, total, ok ? "ok  " : "FAIL",
                     static_cast<int>(path.Size()), reinterpret_cast<const char*>(path.Data()));
     };
     const editor::CookStats stats = driver.Execute(plan, &progress);
-    std::printf("cooked %zu, failed %zu, swept %zu orphan(s)\n",
-                stats.cooked, stats.failed, stats.orphansSwept);
+    std::printf("cooked %zu, failed %zu, swept %zu orphan(s)\n", stats.cooked, stats.failed,
+                stats.orphansSwept);
 
     GlobalLogger().RemoveSink(&consoleSink);
     return static_cast<int>(stats.failed);

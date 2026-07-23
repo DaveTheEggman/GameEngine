@@ -25,9 +25,12 @@ export namespace draconic::ui
     {
         DRACONIC_OBJECT(ModalBackdrop, View)
     public:
-        ColorValue Color{ 0.0f, 0.0f, 0.0f, 120.0f / 255.0f }; ///< Semi-transparent black.
+        ColorValue Color{0.0f, 0.0f, 0.0f, 120.0f / 255.0f}; ///< Semi-transparent black.
 
-        void OnDraw(UIDrawContext& ctx) override { ctx.VG().FillRect(Rectangle{ 0, 0, Width(), Height() }, Color); }
+        void OnDraw(UIDrawContext& ctx) override
+        {
+            ctx.VG().FillRect(Rectangle{0, 0, Width(), Height()}, Color);
+        }
 
         // Block all mouse input so nothing reaches content behind the modal.
         void OnMouseDown(MouseEventArgs& e) override { e.Handled = true; }

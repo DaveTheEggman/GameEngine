@@ -82,11 +82,13 @@ export namespace draconic::editor
                 pick->OnClick.Add([self, slot](ui::ButtonBase*) { self->PickClip(slot); });
                 row->AddView(pick.Get());
                 auto clear = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Clear"));
-                clear->OnClick.Add([self, slot](ui::ButtonBase*) {
-                    self->m_asset.clipIds[slot] = Guid{};
-                    self->RefreshSlot(slot);
-                    self->MarkDirty();
-                });
+                clear->OnClick.Add(
+                    [self, slot](ui::ButtonBase*)
+                    {
+                        self->m_asset.clipIds[slot] = Guid{};
+                        self->RefreshSlot(slot);
+                        self->MarkDirty();
+                    });
                 row->AddView(clear.Get());
 
                 auto weightLabel = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"weight"));
@@ -100,10 +102,12 @@ export namespace draconic::editor
                 m_weightFields[i]->SetMin(0.0);
                 m_weightFields[i]->SetMax(100.0);
                 m_weightFields[i]->SetValue(m_asset.weights[i]);
-                m_weightFields[i]->OnValueChanged.Add([self, slot](ui::NumericField*, f64 value) {
-                    self->m_asset.weights[slot] = static_cast<f32>(value);
-                    self->MarkDirty();
-                });
+                m_weightFields[i]->OnValueChanged.Add(
+                    [self, slot](ui::NumericField*, f64 value)
+                    {
+                        self->m_asset.weights[slot] = static_cast<f32>(value);
+                        self->MarkDirty();
+                    });
                 row->AddView(m_weightFields[i].Get());
 
                 {
@@ -120,11 +124,13 @@ export namespace draconic::editor
                 row->Spacing = 6.0f;
                 SoundCueEditorPage* self = this;
                 m_modeButton = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8""));
-                m_modeButton->OnClick.Add([self](ui::ButtonBase*) {
-                    self->m_asset.mode = static_cast<u8>((self->m_asset.mode + 1) % 3);
-                    self->RefreshModeButton();
-                    self->MarkDirty();
-                });
+                m_modeButton->OnClick.Add(
+                    [self](ui::ButtonBase*)
+                    {
+                        self->m_asset.mode = static_cast<u8>((self->m_asset.mode + 1) % 3);
+                        self->RefreshModeButton();
+                        self->MarkDirty();
+                    });
                 row->AddView(m_modeButton.Get());
                 AddJitterField(*row, u8"pitch min", m_asset.pitchMin);
                 AddJitterField(*row, u8"pitch max", m_asset.pitchMax);
@@ -161,7 +167,10 @@ export namespace draconic::editor
             }
 
             m_content = column;
-            for (usize i = 0; i < audio::kSoundCueSlotCount; ++i) { RefreshSlot(i); }
+            for (usize i = 0; i < audio::kSoundCueSlotCount; ++i)
+            {
+                RefreshSlot(i);
+            }
             RefreshModeButton();
         }
 
@@ -179,8 +188,8 @@ export namespace draconic::editor
             audio::VoiceStatus status;
             if (m_audio->Engine()->GetVoiceStatus(m_voice, status) && status.playing)
             {
-                String text = Format(u8"{}  |  {} s", m_pickText,
-                                     FormatFixed(status.cursorSeconds, 1));
+                String text =
+                    Format(u8"{}  |  {} s", m_pickText, FormatFixed(status.cursorSeconds, 1));
                 m_status->SetText(text.AsView());
             }
             else
@@ -194,13 +203,20 @@ export namespace draconic::editor
         {
             draconic::content::Instance* instance =
                 (m_context->Project() != nullptr)
-                    ? m_context->Project()->SourceDb().GetInstance(InstanceId()) : nullptr;
-            if (instance == nullptr) { return Status{ ErrorCode::NotFound }; }
+                    ? m_context->Project()->SourceDb().GetInstance(InstanceId())
+                    : nullptr;
+            if (instance == nullptr)
+            {
+                return Status{ErrorCode::NotFound};
+            }
             const Status written = instance->WriteObject(m_asset);
             if (written.IsOk())
             {
                 ClearDirty();
-                if (m_context->OnCookRequested) { m_context->OnCookRequested(false); }
+                if (m_context->OnCookRequested)
+                {
+                    m_context->OnCookRequested(false);
+                }
             }
             return written;
         }
@@ -229,11 +245,13 @@ export namespace draconic::editor
             field->SetDecimalPlaces(2);
             field->SetValue(target);
             SoundCueEditorPage* self = this;
-            f32* slot = &target;   // points into m_asset (stable for the page's lifetime)
-            field->OnValueChanged.Add([self, slot](ui::NumericField*, f64 value) {
-                *slot = static_cast<f32>(value);
-                self->MarkDirty();
-            });
+            f32* slot = &target; // points into m_asset (stable for the page's lifetime)
+            field->OnValueChanged.Add(
+                [self, slot](ui::NumericField*, f64 value)
+                {
+                    *slot = static_cast<f32>(value);
+                    self->MarkDirty();
+                });
             row.AddView(field.Get());
             m_jitterFields.PushBack(field);
         }
@@ -241,13 +259,17 @@ export namespace draconic::editor
         void PickClip(usize slot)
         {
             ui::UIContext* uiContext = m_content.Get() != nullptr ? m_content->Context : nullptr;
-            if (uiContext == nullptr) { return; }
+            if (uiContext == nullptr)
+            {
+                return;
+            }
             Array<String> typeNames;
             typeNames.PushBack(String(u8"AudioClipAsset"));
-            auto picker = MakeRef<app::AssetPickerDialog>(DefaultAllocator(), *m_context,
-                                                          Move(typeNames));
+            auto picker =
+                MakeRef<app::AssetPickerDialog>(DefaultAllocator(), *m_context, Move(typeNames));
             SoundCueEditorPage* self = this;
-            picker->OnPicked = [self, slot](const Guid& id) {
+            picker->OnPicked = [self, slot](const Guid& id)
+            {
                 self->m_asset.clipIds[slot] = id;
                 self->RefreshSlot(slot);
                 self->MarkDirty();
@@ -270,8 +292,8 @@ export namespace draconic::editor
 
         void RefreshModeButton()
         {
-            const StringView names[3] = { u8"Mode: Random (no repeat)", u8"Mode: Random",
-                                          u8"Mode: Sequential" };
+            const StringView names[3] = {u8"Mode: Random (no repeat)", u8"Mode: Random",
+                                         u8"Mode: Sequential"};
             m_modeButton->SetText(names[m_asset.mode % 3]);
         }
 
@@ -279,7 +301,10 @@ export namespace draconic::editor
         // in-memory clips, cached per page), resolve with the page's play state, play.
         void Audition()
         {
-            if (m_audio == nullptr || m_audio->Engine() == nullptr) { return; }
+            if (m_audio == nullptr || m_audio->Engine() == nullptr)
+            {
+                return;
+            }
             audio::SoundCue cue;
             cue.mode = static_cast<audio::SoundCueMode>(m_asset.mode);
             cue.pitchMin = m_asset.pitchMin;
@@ -315,18 +340,30 @@ export namespace draconic::editor
         [[nodiscard]] RefPtr<audio::AudioClip> LoadSlotClip(usize slot)
         {
             const Guid& id = m_asset.clipIds[slot];
-            if (id.IsNil() || m_context->Project() == nullptr) { return {}; }
-            if (RefPtr<audio::AudioClip>* cached = m_clipCache.Find(id)) { return *cached; }
+            if (id.IsNil() || m_context->Project() == nullptr)
+            {
+                return {};
+            }
+            if (RefPtr<audio::AudioClip>* cached = m_clipCache.Find(id))
+            {
+                return *cached;
+            }
             draconic::content::Instance* instance =
                 m_context->Project()->SourceDb().GetInstance(id);
             RefPtr<ISerializable> object =
                 instance != nullptr ? instance->ReadObject() : RefPtr<ISerializable>{};
             auto* asset = Cast<audio::AudioClipAsset>(object.Get());
-            if (asset == nullptr) { return {}; }
-            const String path = PathJoin(m_context->Project()->SourcesRoot().AsView(),
-                                         asset->fileName.AsView());
+            if (asset == nullptr)
+            {
+                return {};
+            }
+            const String path =
+                PathJoin(m_context->Project()->SourcesRoot().AsView(), asset->fileName.AsView());
             Result<Array<byte>> bytes = ReadFile(path.AsView());
-            if (!bytes.HasValue()) { return {}; }
+            if (!bytes.HasValue())
+            {
+                return {};
+            }
             audio::AudioClipMetadata metadata;
             if (!audio::ProbeAudioClipMetadata(
                     Span<const byte>(bytes.Value().Data(), bytes.Value().Size()), metadata))
@@ -370,8 +407,8 @@ export namespace draconic::editor
         {
             return &audio::SoundCueAsset::StaticType();
         }
-        [[nodiscard]] UniquePtr<EditorPage> CreatePage(EditorContext& context,
-                                                       draconic::content::Instance& instance) override
+        [[nodiscard]] UniquePtr<EditorPage>
+        CreatePage(EditorContext& context, draconic::content::Instance& instance) override
         {
             auto* page = DefaultAllocator().New<SoundCueEditorPage>(context, *m_host, instance);
             return UniquePtr<EditorPage>(page, DefaultAllocator());

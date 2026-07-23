@@ -10,8 +10,8 @@ module;
 
 export module draconic.gui:css_values;
 
-import draconic.core;   // Color, Optional, StringView, f32
-import draconic.vg;     // CornerRadii
+import draconic.core; // Color, Optional, StringView, f32
+import draconic.vg;   // CornerRadii
 import :thickness;
 
 using namespace draconic::core;
@@ -26,29 +26,59 @@ export namespace draconic::gui
     [[nodiscard]] inline Optional<f32> ParseLength(core::StringView value)
     {
         const core::StringView s = Trim(value);
-        if (s.Size() == 0) return {};
+        if (s.Size() == 0)
+            return {};
         usize i = 0;
         f32 sign = 1.0f;
-        if (s[i] == u8'+') ++i;
-        else if (s[i] == u8'-') { sign = -1.0f; ++i; }
+        if (s[i] == u8'+')
+            ++i;
+        else if (s[i] == u8'-')
+        {
+            sign = -1.0f;
+            ++i;
+        }
 
         f64 whole = 0.0;
         bool any = false;
-        while (i < s.Size() && IsDigit(s[i])) { whole = whole * 10.0 + static_cast<f64>(s[i] - u8'0'); ++i; any = true; }
+        while (i < s.Size() && IsDigit(s[i]))
+        {
+            whole = whole * 10.0 + static_cast<f64>(s[i] - u8'0');
+            ++i;
+            any = true;
+        }
         f64 frac = 0.0, scale = 1.0;
         if (i < s.Size() && s[i] == u8'.')
         {
             ++i;
-            while (i < s.Size() && IsDigit(s[i])) { frac = frac * 10.0 + static_cast<f64>(s[i] - u8'0'); scale *= 10.0; ++i; any = true; }
+            while (i < s.Size() && IsDigit(s[i]))
+            {
+                frac = frac * 10.0 + static_cast<f64>(s[i] - u8'0');
+                scale *= 10.0;
+                ++i;
+                any = true;
+            }
         }
-        if (!any) return {};
+        if (!any)
+            return {};
         return static_cast<f32>(sign * (whole + frac / scale));
     }
 
     // === Length units (px / em / rem / vw / vh / %) ===
-    enum class LengthUnit { Px, Em, Rem, Vw, Vh, Percent };
+    enum class LengthUnit
+    {
+        Px,
+        Em,
+        Rem,
+        Vw,
+        Vh,
+        Percent
+    };
 
-    struct LengthValue { f32 Value = 0.0f; LengthUnit Unit = LengthUnit::Px; };
+    struct LengthValue
+    {
+        f32 Value = 0.0f;
+        LengthUnit Unit = LengthUnit::Px;
+    };
 
     // Resolution context: root/element font sizes (for rem/em) and the viewport (for vw/vh).
     struct LengthContext
@@ -64,63 +94,93 @@ export namespace draconic::gui
     [[nodiscard]] inline Optional<LengthValue> ParseLengthValue(core::StringView value)
     {
         const core::StringView s = Trim(value);
-        if (s.Size() == 0) return {};
+        if (s.Size() == 0)
+            return {};
         usize i = 0;
-        if (s[i] == u8'+' || s[i] == u8'-') ++i;
-        while (i < s.Size() && IsDigit(s[i])) ++i;
-        if (i < s.Size() && s[i] == u8'.') { ++i; while (i < s.Size() && IsDigit(s[i])) ++i; }
+        if (s[i] == u8'+' || s[i] == u8'-')
+            ++i;
+        while (i < s.Size() && IsDigit(s[i]))
+            ++i;
+        if (i < s.Size() && s[i] == u8'.')
+        {
+            ++i;
+            while (i < s.Size() && IsDigit(s[i]))
+                ++i;
+        }
 
         const Optional<f32> num = ParseLength(s.SubStr(0, i));
-        if (!num.HasValue()) return {};
+        if (!num.HasValue())
+            return {};
 
         const core::StringView suffix = Trim(s.SubStr(i, s.Size() - i));
         LengthUnit unit = LengthUnit::Px;
-        if (suffix.Size() == 0 || suffix == core::StringView(u8"px")) unit = LengthUnit::Px;
-        else if (suffix == core::StringView(u8"rem")) unit = LengthUnit::Rem;
-        else if (suffix == core::StringView(u8"em"))  unit = LengthUnit::Em;
-        else if (suffix == core::StringView(u8"vw"))  unit = LengthUnit::Vw;
-        else if (suffix == core::StringView(u8"vh"))  unit = LengthUnit::Vh;
-        else if (suffix == core::StringView(u8"%"))   unit = LengthUnit::Percent;
-        else return {};
-        return LengthValue{ num.Value(), unit };
+        if (suffix.Size() == 0 || suffix == core::StringView(u8"px"))
+            unit = LengthUnit::Px;
+        else if (suffix == core::StringView(u8"rem"))
+            unit = LengthUnit::Rem;
+        else if (suffix == core::StringView(u8"em"))
+            unit = LengthUnit::Em;
+        else if (suffix == core::StringView(u8"vw"))
+            unit = LengthUnit::Vw;
+        else if (suffix == core::StringView(u8"vh"))
+            unit = LengthUnit::Vh;
+        else if (suffix == core::StringView(u8"%"))
+            unit = LengthUnit::Percent;
+        else
+            return {};
+        return LengthValue{num.Value(), unit};
     }
 
     // Resolve a length to pixels. `percentBase` is the value 100% maps to (the caller supplies
     // the relevant containing dimension); 0 if unknown.
-    [[nodiscard]] inline f32 ResolveLengthValue(LengthValue lv, const LengthContext& ctx, f32 percentBase = 0.0f)
+    [[nodiscard]] inline f32 ResolveLengthValue(LengthValue lv, const LengthContext& ctx,
+                                                f32 percentBase = 0.0f)
     {
         switch (lv.Unit)
         {
-        case LengthUnit::Px:      return lv.Value;
-        case LengthUnit::Em:      return lv.Value * ctx.ElementFontSize;
-        case LengthUnit::Rem:     return lv.Value * ctx.RootFontSize;
-        case LengthUnit::Vw:      return lv.Value * ctx.ViewportWidth / 100.0f;
-        case LengthUnit::Vh:      return lv.Value * ctx.ViewportHeight / 100.0f;
-        case LengthUnit::Percent: return lv.Value * percentBase / 100.0f;
+        case LengthUnit::Px:
+            return lv.Value;
+        case LengthUnit::Em:
+            return lv.Value * ctx.ElementFontSize;
+        case LengthUnit::Rem:
+            return lv.Value * ctx.RootFontSize;
+        case LengthUnit::Vw:
+            return lv.Value * ctx.ViewportWidth / 100.0f;
+        case LengthUnit::Vh:
+            return lv.Value * ctx.ViewportHeight / 100.0f;
+        case LengthUnit::Percent:
+            return lv.Value * percentBase / 100.0f;
         }
         return lv.Value;
     }
 
     // Parse + resolve a length string to pixels.
-    [[nodiscard]] inline Optional<f32> ResolveLength(core::StringView value, const LengthContext& ctx, f32 percentBase = 0.0f)
+    [[nodiscard]] inline Optional<f32>
+    ResolveLength(core::StringView value, const LengthContext& ctx, f32 percentBase = 0.0f)
     {
         const Optional<LengthValue> lv = ParseLengthValue(value);
-        if (!lv.HasValue()) return {};
+        if (!lv.HasValue())
+            return {};
         return ResolveLengthValue(lv.Value(), ctx, percentBase);
     }
 
     [[nodiscard]] inline Optional<bool> ParseBool(core::StringView value)
     {
         const core::StringView s = Trim(value);
-        if (s == core::StringView(u8"true") || s == core::StringView(u8"1") || s == core::StringView(u8"yes")) return true;
-        if (s == core::StringView(u8"false") || s == core::StringView(u8"0") || s == core::StringView(u8"no")) return false;
+        if (s == core::StringView(u8"true") || s == core::StringView(u8"1") ||
+            s == core::StringView(u8"yes"))
+            return true;
+        if (s == core::StringView(u8"false") || s == core::StringView(u8"0") ||
+            s == core::StringView(u8"no"))
+            return false;
         return {};
     }
 
     [[nodiscard]] inline Optional<Color> ParseColor(core::StringView value)
     {
         const core::StringView s = Trim(value);
-        if (s.Size() == 0) return {};
+        if (s.Size() == 0)
+            return {};
 
         // #hex
         if (s[0] == u8'#')
@@ -132,19 +192,28 @@ export namespace draconic::gui
             if (len == 3)
             {
                 const i32 hr = nib(0), hg = nib(1), hb = nib(2);
-                if (hr < 0 || hg < 0 || hb < 0) return {};
-                r = (hr * 17) / 255.0f; g = (hg * 17) / 255.0f; b = (hb * 17) / 255.0f;
+                if (hr < 0 || hg < 0 || hb < 0)
+                    return {};
+                r = (hr * 17) / 255.0f;
+                g = (hg * 17) / 255.0f;
+                b = (hb * 17) / 255.0f;
             }
             else if (len == 6 || len == 8)
             {
-                for (usize k = 0; k < len; ++k) if (nib(k) < 0) return {};
+                for (usize k = 0; k < len; ++k)
+                    if (nib(k) < 0)
+                        return {};
                 r = (nib(0) * 16 + nib(1)) / 255.0f;
                 g = (nib(2) * 16 + nib(3)) / 255.0f;
                 b = (nib(4) * 16 + nib(5)) / 255.0f;
-                if (len == 8) a = (nib(6) * 16 + nib(7)) / 255.0f;
+                if (len == 8)
+                    a = (nib(6) * 16 + nib(7)) / 255.0f;
             }
-            else { return {}; }
-            return Color{ r, g, b, a };
+            else
+            {
+                return {};
+            }
+            return Color{r, g, b, a};
         }
 
         // rgb() / rgba()
@@ -154,22 +223,24 @@ export namespace draconic::gui
         {
             const usize open = rgba ? 5 : 4;
             usize close = open;
-            while (close < s.Size() && s[close] != u8')') ++close;
+            while (close < s.Size() && s[close] != u8')')
+                ++close;
             const core::StringView inside = s.SubStr(open, close - open);
-            f32 comps[4] = { 0, 0, 0, 1.0f };
+            f32 comps[4] = {0, 0, 0, 1.0f};
             usize ci = 0, start = 0;
             for (usize i = 0; i <= inside.Size() && ci < 4; ++i)
             {
                 if (i == inside.Size() || inside[i] == u8',')
                 {
                     const Optional<f32> v = ParseLength(inside.SubStr(start, i - start));
-                    if (!v.HasValue()) return {};
+                    if (!v.HasValue())
+                        return {};
                     comps[ci] = ci < 3 ? (v.Value() / 255.0f) : v.Value(); // alpha is 0..1
                     ++ci;
                     start = i + 1;
                 }
             }
-            return Color{ comps[0], comps[1], comps[2], comps[3] };
+            return Color{comps[0], comps[1], comps[2], comps[3]};
         }
 
         // named
@@ -189,22 +260,43 @@ export namespace draconic::gui
             {
                 if (i > start)
                 {
-                    if (count == 4) return {}; // too many
+                    if (count == 4)
+                        return {}; // too many
                     const Optional<f32> v = ParseLength(s.SubStr(start, i - start));
-                    if (!v.HasValue()) return {};
+                    if (!v.HasValue())
+                        return {};
                     parts[count++] = v.Value();
                 }
                 start = i + 1;
             }
         }
-        if (count == 0) return {};
+        if (count == 0)
+            return {};
 
         f32 top, right, bottom, left;
-        if (count == 1) { top = right = bottom = left = parts[0]; }
-        else if (count == 2) { top = bottom = parts[0]; right = left = parts[1]; }
-        else if (count == 3) { top = parts[0]; right = left = parts[1]; bottom = parts[2]; }
-        else { top = parts[0]; right = parts[1]; bottom = parts[2]; left = parts[3]; }
-        return Thickness{ left, top, right, bottom };
+        if (count == 1)
+        {
+            top = right = bottom = left = parts[0];
+        }
+        else if (count == 2)
+        {
+            top = bottom = parts[0];
+            right = left = parts[1];
+        }
+        else if (count == 3)
+        {
+            top = parts[0];
+            right = left = parts[1];
+            bottom = parts[2];
+        }
+        else
+        {
+            top = parts[0];
+            right = parts[1];
+            bottom = parts[2];
+            left = parts[3];
+        }
+        return Thickness{left, top, right, bottom};
     }
 
     // border-radius: 1-4 lengths in CSS corner order (top-left, top-right, bottom-right,
@@ -221,28 +313,53 @@ export namespace draconic::gui
             {
                 if (i > start)
                 {
-                    if (count == 4) return {};
+                    if (count == 4)
+                        return {};
                     const Optional<f32> v = ParseLength(s.SubStr(start, i - start));
-                    if (!v.HasValue()) return {};
+                    if (!v.HasValue())
+                        return {};
                     parts[count++] = v.Value();
                 }
                 start = i + 1;
             }
         }
-        if (count == 0) return {};
+        if (count == 0)
+            return {};
 
         f32 tl, tr, br, bl;
-        if (count == 1) { tl = tr = br = bl = parts[0]; }
-        else if (count == 2) { tl = br = parts[0]; tr = bl = parts[1]; }
-        else if (count == 3) { tl = parts[0]; tr = bl = parts[1]; br = parts[2]; }
-        else { tl = parts[0]; tr = parts[1]; br = parts[2]; bl = parts[3]; }
-        return vg::CornerRadii{ tl, tr, br, bl };
+        if (count == 1)
+        {
+            tl = tr = br = bl = parts[0];
+        }
+        else if (count == 2)
+        {
+            tl = br = parts[0];
+            tr = bl = parts[1];
+        }
+        else if (count == 3)
+        {
+            tl = parts[0];
+            tr = bl = parts[1];
+            br = parts[2];
+        }
+        else
+        {
+            tl = parts[0];
+            tr = parts[1];
+            br = parts[2];
+            bl = parts[3];
+        }
+        return vg::CornerRadii{tl, tr, br, bl};
     }
 
     // The `border` shorthand: any order of a width (a length), a style keyword (ignored - only
     // solid is drawn), and a color. Missing width defaults to 1; missing color to black. A
     // leading "none"/"0" yields width 0. Returns width + color.
-    struct BorderShorthand { f32 Width = 1.0f; Color LineColor{ 0.0f, 0.0f, 0.0f, 1.0f }; };
+    struct BorderShorthand
+    {
+        f32 Width = 1.0f;
+        Color LineColor{0.0f, 0.0f, 0.0f, 1.0f};
+    };
     [[nodiscard]] inline Optional<BorderShorthand> ParseBorder(core::StringView value)
     {
         BorderShorthand out;
@@ -252,25 +369,44 @@ export namespace draconic::gui
         for (usize i = 0; i <= s.Size(); ++i)
         {
             const bool boundary = (i == s.Size()) || IsWhiteSpace(s[i]);
-            if (!boundary) continue;
+            if (!boundary)
+                continue;
             if (i > start)
             {
                 const core::StringView tok = s.SubStr(start, i - start);
-                if (tok == core::StringView(u8"none")) { out.Width = 0.0f; any = true; }
-                else if (tok == core::StringView(u8"solid") || tok == core::StringView(u8"dashed")
-                      || tok == core::StringView(u8"dotted") || tok == core::StringView(u8"hidden")) { any = true; }
-                else if (Optional<Color> c = ParseColor(tok); c.HasValue()) { out.LineColor = c.Value(); any = true; }
-                else if (Optional<f32> w = ParseLength(tok); w.HasValue()) { out.Width = w.Value(); any = true; }
+                if (tok == core::StringView(u8"none"))
+                {
+                    out.Width = 0.0f;
+                    any = true;
+                }
+                else if (tok == core::StringView(u8"solid") ||
+                         tok == core::StringView(u8"dashed") ||
+                         tok == core::StringView(u8"dotted") || tok == core::StringView(u8"hidden"))
+                {
+                    any = true;
+                }
+                else if (Optional<Color> c = ParseColor(tok); c.HasValue())
+                {
+                    out.LineColor = c.Value();
+                    any = true;
+                }
+                else if (Optional<f32> w = ParseLength(tok); w.HasValue())
+                {
+                    out.Width = w.Value();
+                    any = true;
+                }
             }
             start = i + 1;
         }
-        if (!any) return {};
+        if (!any)
+            return {};
         return out;
     }
 
     // Like ParseThickness, but each component is unit-resolved against `ctx` (no % support -
     // padding/margin percentages are a follow-up needing the containing block).
-    [[nodiscard]] inline Optional<Thickness> ResolveThickness(core::StringView value, const LengthContext& ctx)
+    [[nodiscard]] inline Optional<Thickness> ResolveThickness(core::StringView value,
+                                                              const LengthContext& ctx)
     {
         f32 parts[4];
         usize count = 0, start = 0;
@@ -282,38 +418,70 @@ export namespace draconic::gui
             {
                 if (i > start)
                 {
-                    if (count == 4) return {};
+                    if (count == 4)
+                        return {};
                     const Optional<f32> v = ResolveLength(s.SubStr(start, i - start), ctx);
-                    if (!v.HasValue()) return {};
+                    if (!v.HasValue())
+                        return {};
                     parts[count++] = v.Value();
                 }
                 start = i + 1;
             }
         }
-        if (count == 0) return {};
+        if (count == 0)
+            return {};
 
         f32 top, right, bottom, left;
-        if (count == 1) { top = right = bottom = left = parts[0]; }
-        else if (count == 2) { top = bottom = parts[0]; right = left = parts[1]; }
-        else if (count == 3) { top = parts[0]; right = left = parts[1]; bottom = parts[2]; }
-        else { top = parts[0]; right = parts[1]; bottom = parts[2]; left = parts[3]; }
-        return Thickness{ left, top, right, bottom };
+        if (count == 1)
+        {
+            top = right = bottom = left = parts[0];
+        }
+        else if (count == 2)
+        {
+            top = bottom = parts[0];
+            right = left = parts[1];
+        }
+        else if (count == 3)
+        {
+            top = parts[0];
+            right = left = parts[1];
+            bottom = parts[2];
+        }
+        else
+        {
+            top = parts[0];
+            right = parts[1];
+            bottom = parts[2];
+            left = parts[3];
+        }
+        return Thickness{left, top, right, bottom};
     }
 
     // A small named-color set (core has only White/Black/Red/Green/Blue/Transparent).
     [[nodiscard]] inline Optional<Color> ParseNamedColor(core::StringView s)
     {
-        if (s == core::StringView(u8"white"))       return Color::White;
-        if (s == core::StringView(u8"black"))       return Color::Black;
-        if (s == core::StringView(u8"red"))         return Color::Red;
-        if (s == core::StringView(u8"green"))       return Color::Green;
-        if (s == core::StringView(u8"blue"))        return Color::Blue;
-        if (s == core::StringView(u8"transparent")) return Color::Transparent;
-        if (s == core::StringView(u8"yellow"))      return Color{ 1.0f, 1.0f, 0.0f, 1.0f };
-        if (s == core::StringView(u8"cyan"))        return Color{ 0.0f, 1.0f, 1.0f, 1.0f };
-        if (s == core::StringView(u8"magenta"))     return Color{ 1.0f, 0.0f, 1.0f, 1.0f };
-        if (s == core::StringView(u8"gray") || s == core::StringView(u8"grey")) return Color{ 0.5f, 0.5f, 0.5f, 1.0f };
-        if (s == core::StringView(u8"orange"))      return Color{ 1.0f, 0.647f, 0.0f, 1.0f };
+        if (s == core::StringView(u8"white"))
+            return Color::White;
+        if (s == core::StringView(u8"black"))
+            return Color::Black;
+        if (s == core::StringView(u8"red"))
+            return Color::Red;
+        if (s == core::StringView(u8"green"))
+            return Color::Green;
+        if (s == core::StringView(u8"blue"))
+            return Color::Blue;
+        if (s == core::StringView(u8"transparent"))
+            return Color::Transparent;
+        if (s == core::StringView(u8"yellow"))
+            return Color{1.0f, 1.0f, 0.0f, 1.0f};
+        if (s == core::StringView(u8"cyan"))
+            return Color{0.0f, 1.0f, 1.0f, 1.0f};
+        if (s == core::StringView(u8"magenta"))
+            return Color{1.0f, 0.0f, 1.0f, 1.0f};
+        if (s == core::StringView(u8"gray") || s == core::StringView(u8"grey"))
+            return Color{0.5f, 0.5f, 0.5f, 1.0f};
+        if (s == core::StringView(u8"orange"))
+            return Color{1.0f, 0.647f, 0.0f, 1.0f};
         return {};
     }
 }

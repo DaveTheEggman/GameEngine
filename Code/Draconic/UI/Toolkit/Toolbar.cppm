@@ -27,13 +27,14 @@ namespace draconic::ui::toolkit
     // draws below may reference it under GCC's stricter modules rules).
     [[nodiscard]] inline Color Rgb(u8 r, u8 g, u8 b, u8 a = 255) noexcept
     {
-        return Color{ r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f };
+        return Color{r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f};
     }
 }
 
 export namespace draconic::ui::toolkit
 {
-    class Toolbar; // forward - items resolve styles off their parent Toolbar (OnDraw defined out-of-line)
+    class
+        Toolbar; // forward - items resolve styles off their parent Toolbar (OnDraw defined out-of-line)
 
     /// Base class for items in a Toolbar. Any View can be a toolbar item.
     class ToolbarItem : public View
@@ -48,16 +49,18 @@ export namespace draconic::ui::toolkit
     public:
         void OnDraw(UIDrawContext& ctx) override
         {
-            const Color color = ResolveStyleColor(StyleProperty::BorderColor, Rgb(80, 85, 100, 255));
+            const Color color =
+                ResolveStyleColor(StyleProperty::BorderColor, Rgb(80, 85, 100, 255));
             const f32 cx = Width() * 0.5f;
             const f32 margin = Height() * 0.2f;
-            ctx.VG().FillRect(Rectangle{ cx, margin, 1.0f, Height() - margin * 2.0f }, color);
+            ctx.VG().FillRect(Rectangle{cx, margin, 1.0f, Height() - margin * 2.0f}, color);
         }
 
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
-            MeasuredSize = Float2{ constraints.ConstrainWidth(8.0f), constraints.ConstrainHeight(0.0f) };
+            MeasuredSize =
+                Float2{constraints.ConstrainWidth(8.0f), constraints.ConstrainHeight(0.0f)};
         }
     };
 
@@ -91,14 +94,20 @@ export namespace draconic::ui::toolkit
 
         void OnMouseDown(MouseEventArgs& e) override
         {
-            if (!IsEffectivelyEnabled() || e.Button != MouseButton::Left) { return; }
+            if (!IsEffectivelyEnabled() || e.Button != MouseButton::Left)
+            {
+                return;
+            }
             OnClick.Invoke(this);
             e.Handled = true;
         }
 
         void OnKeyDown(KeyEventArgs& e) override
         {
-            if (!IsEffectivelyEnabled()) { return; }
+            if (!IsEffectivelyEnabled())
+            {
+                return;
+            }
             if (e.Key == KeyCode::Space || e.Key == KeyCode::Return)
             {
                 OnClick.Invoke(this);
@@ -109,14 +118,20 @@ export namespace draconic::ui::toolkit
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
-            f32 w = 8.0f;   // padding
+            f32 w = 8.0f; // padding
             f32 textH = 14.0f;
 
-            if (m_iconDraw) { w += 16.0f; } // icon area
+            if (m_iconDraw)
+            {
+                w += 16.0f;
+            } // icon area
 
             if (!m_text.IsEmpty())
             {
-                if (m_iconDraw) { w += 4.0f; } // gap between icon and text
+                if (m_iconDraw)
+                {
+                    w += 4.0f;
+                } // gap between icon and text
                 if (Context != nullptr && Context->FontService() != nullptr)
                 {
                     fonts::CachedFont* font = Context->FontService()->GetFont(13.0f);
@@ -129,7 +144,8 @@ export namespace draconic::ui::toolkit
             }
 
             w += 8.0f; // right padding
-            MeasuredSize = Float2{ constraints.ConstrainWidth(w), constraints.ConstrainHeight(textH + 8.0f) };
+            MeasuredSize =
+                Float2{constraints.ConstrainWidth(w), constraints.ConstrainHeight(textH + 8.0f)};
         }
 
         String m_text;                                        // empty == "no text"
@@ -159,14 +175,20 @@ export namespace draconic::ui::toolkit
 
         void OnMouseDown(MouseEventArgs& e) override
         {
-            if (!IsEffectivelyEnabled() || e.Button != MouseButton::Left) { return; }
+            if (!IsEffectivelyEnabled() || e.Button != MouseButton::Left)
+            {
+                return;
+            }
             SetIsChecked(!m_isChecked);
             e.Handled = true;
         }
 
         void OnKeyDown(KeyEventArgs& e) override
         {
-            if (!IsEffectivelyEnabled()) { return; }
+            if (!IsEffectivelyEnabled())
+            {
+                return;
+            }
             if (e.Key == KeyCode::Space || e.Key == KeyCode::Return)
             {
                 SetIsChecked(!m_isChecked);
@@ -233,16 +255,17 @@ export namespace draconic::ui::toolkit
             // Background.
             if (Drawable* bgDrawable = ResolveStyleDrawable(StyleProperty::Background))
             {
-                bgDrawable->Draw(ctx, Rectangle{ 0, 0, Width(), Height() });
+                bgDrawable->Draw(ctx, Rectangle{0, 0, Width(), Height()});
             }
             else
             {
-                ctx.VG().FillRect(Rectangle{ 0, 0, Width(), Height() }, Rgb(35, 37, 46, 255));
+                ctx.VG().FillRect(Rectangle{0, 0, Width(), Height()}, Rgb(35, 37, 46, 255));
             }
 
             // Bottom border.
-            const Color borderColor = ResolveStyleColor(StyleProperty::BorderColor, Rgb(65, 70, 85, 255));
-            ctx.VG().FillRect(Rectangle{ 0, Height() - 1.0f, Width(), 1.0f }, borderColor);
+            const Color borderColor =
+                ResolveStyleColor(StyleProperty::BorderColor, Rgb(65, 70, 85, 255));
+            ctx.VG().FillRect(Rectangle{0, Height() - 1.0f, Width(), 1.0f}, borderColor);
 
             DrawChildren(ctx);
         }
@@ -252,22 +275,35 @@ export namespace draconic::ui::toolkit
 
     inline void ToolbarButton::OnDraw(UIDrawContext& ctx)
     {
-        const Rectangle bounds{ 0, 0, Width(), Height() };
+        const Rectangle bounds{0, 0, Width(), Height()};
 
         // Hover background - derive from parent toolbar's background.
         if (IsHovered())
         {
             Color bgColor = Rgb(50, 52, 62, 255);
-            const f32 cornerR = ResolveStyleFloat(StyleProperty::CornerRadius, 0.0f);   // theme radius
+            const f32 cornerR =
+                ResolveStyleFloat(StyleProperty::CornerRadius, 0.0f); // theme radius
             if (Toolbar* toolbar = Cast<Toolbar>(Parent))
             {
                 Drawable* bg = toolbar->ResolveStyleDrawable(StyleProperty::Background);
-                if (RoundedRectDrawable* rrd = Cast<RoundedRectDrawable>(bg)) { bgColor = rrd->FillColor; }
-                else if (ColorDrawable* cd = Cast<ColorDrawable>(bg)) { bgColor = cd->Color; }
+                if (RoundedRectDrawable* rrd = Cast<RoundedRectDrawable>(bg))
+                {
+                    bgColor = rrd->FillColor;
+                }
+                else if (ColorDrawable* cd = Cast<ColorDrawable>(bg))
+                {
+                    bgColor = cd->Color;
+                }
             }
             const Color hoverBg = Palette::ComputeHover(bgColor);
-            if (cornerR > 0.0f) { ctx.VG().FillRoundedRect(bounds, cornerR, hoverBg); }
-            else { ctx.VG().FillRect(bounds, hoverBg); }
+            if (cornerR > 0.0f)
+            {
+                ctx.VG().FillRoundedRect(bounds, cornerR, hoverBg);
+            }
+            else
+            {
+                ctx.VG().FillRect(bounds, hoverBg);
+            }
         }
 
         f32 x = 8.0f;
@@ -275,7 +311,7 @@ export namespace draconic::ui::toolkit
         // Icon.
         if (m_iconDraw)
         {
-            const Rectangle iconRect{ x, (Height() - 16.0f) * 0.5f, 16.0f, 16.0f };
+            const Rectangle iconRect{x, (Height() - 16.0f) * 0.5f, 16.0f, 16.0f};
             m_iconDraw(ctx, iconRect);
             x += 16.0f;
         }
@@ -283,32 +319,44 @@ export namespace draconic::ui::toolkit
         // Text.
         if (!m_text.IsEmpty() && ctx.FontService() != nullptr)
         {
-            if (m_iconDraw) { x += 4.0f; }
+            if (m_iconDraw)
+            {
+                x += 4.0f;
+            }
             fonts::CachedFont* font = ctx.FontService()->GetFont(13.0f);
             if (font != nullptr)
             {
-                const Color textColor = ResolveStyleColor(StyleProperty::TextColor, Rgb(220, 225, 235, 255));
-                ctx.VG().DrawText(m_text, font, Rectangle{ x, 0, Width() - x - 8.0f, Height() },
-                    fonts::TextAlignment::Left, fonts::VerticalAlignment::Middle, textColor);
+                const Color textColor =
+                    ResolveStyleColor(StyleProperty::TextColor, Rgb(220, 225, 235, 255));
+                ctx.VG().DrawText(m_text, font, Rectangle{x, 0, Width() - x - 8.0f, Height()},
+                                  fonts::TextAlignment::Left, fonts::VerticalAlignment::Middle,
+                                  textColor);
             }
         }
     }
 
     inline void ToolbarToggle::OnDraw(UIDrawContext& ctx)
     {
-        const Rectangle bounds{ 0, 0, Width(), Height() };
+        const Rectangle bounds{0, 0, Width(), Height()};
 
         // Active toggle: muted accent background from toolbar's SelectionColor.
         if (m_isChecked)
         {
-            const f32 cornerR = ResolveStyleFloat(StyleProperty::CornerRadius, 0.0f);   // theme radius
+            const f32 cornerR =
+                ResolveStyleFloat(StyleProperty::CornerRadius, 0.0f); // theme radius
             Color onColor = Rgb(40, 80, 160, 255);
             if (Toolbar* toolbar = Cast<Toolbar>(Parent))
             {
                 onColor = toolbar->ResolveStyleColor(StyleProperty::SelectionColor, onColor);
             }
-            if (cornerR > 0.0f) { ctx.VG().FillRoundedRect(bounds, cornerR, onColor); }
-            else { ctx.VG().FillRect(bounds, onColor); }
+            if (cornerR > 0.0f)
+            {
+                ctx.VG().FillRoundedRect(bounds, cornerR, onColor);
+            }
+            else
+            {
+                ctx.VG().FillRect(bounds, onColor);
+            }
         }
 
         ToolbarButton::OnDraw(ctx);

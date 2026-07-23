@@ -24,7 +24,7 @@ export namespace draconic::rendergraph
     {
         rhi::TextureFormat format = rhi::TextureFormat::Undefined;
         SizeMode sizeMode = SizeMode::FullSize;
-        u32 width = 0;                 // used only when sizeMode == Custom
+        u32 width = 0; // used only when sizeMode == Custom
         u32 height = 0;
         u32 arrayLayerCount = 1;
         u32 mipLevelCount = 1;
@@ -33,23 +33,35 @@ export namespace draconic::rendergraph
 
         RGTextureDesc() = default;
         RGTextureDesc(rhi::TextureFormat fmt, SizeMode mode = SizeMode::FullSize) noexcept
-            : format(fmt), sizeMode(mode) {}
+            : format(fmt), sizeMode(mode)
+        {
+        }
         RGTextureDesc(rhi::TextureFormat fmt, u32 w, u32 h) noexcept
-            : format(fmt), sizeMode(SizeMode::Custom), width(w), height(h) {}
+            : format(fmt), sizeMode(SizeMode::Custom), width(w), height(h)
+        {
+        }
 
         // Resolves actual dimensions from the graph output size.
         void Resolve(u32 outputWidth, u32 outputHeight) noexcept
         {
             switch (sizeMode)
             {
-                case SizeMode::FullSize:
-                    width = Max(1u, outputWidth); height = Max(1u, outputHeight); break;
-                case SizeMode::HalfSize:
-                    width = Max(1u, outputWidth / 2u); height = Max(1u, outputHeight / 2u); break;
-                case SizeMode::QuarterSize:
-                    width = Max(1u, outputWidth / 4u); height = Max(1u, outputHeight / 4u); break;
-                case SizeMode::Custom:
-                    width = Max(1u, width); height = Max(1u, height); break;   // never a zero-extent target
+            case SizeMode::FullSize:
+                width = Max(1u, outputWidth);
+                height = Max(1u, outputHeight);
+                break;
+            case SizeMode::HalfSize:
+                width = Max(1u, outputWidth / 2u);
+                height = Max(1u, outputHeight / 2u);
+                break;
+            case SizeMode::QuarterSize:
+                width = Max(1u, outputWidth / 4u);
+                height = Max(1u, outputHeight / 4u);
+                break;
+            case SizeMode::Custom:
+                width = Max(1u, width);
+                height = Max(1u, height);
+                break; // never a zero-extent target
             }
         }
 

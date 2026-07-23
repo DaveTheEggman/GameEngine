@@ -19,15 +19,18 @@ namespace
     String AssetPath(const char* rel)
     {
         String p;
-        for (const char* s = DRACONIC_FONTS_ASSET_DIR; *s != '\0'; ++s) p.PushBack(static_cast<utf8char>(static_cast<unsigned char>(*s)));
-        for (const char* s = rel; *s != '\0'; ++s) p.PushBack(static_cast<utf8char>(static_cast<unsigned char>(*s)));
+        for (const char* s = DRACONIC_FONTS_ASSET_DIR; *s != '\0'; ++s)
+            p.PushBack(static_cast<utf8char>(static_cast<unsigned char>(*s)));
+        for (const char* s = rel; *s != '\0'; ++s)
+            p.PushBack(static_cast<utf8char>(static_cast<unsigned char>(*s)));
         return p;
     }
 
     IFont* LoadRoboto()
     {
         const String path = AssetPath("/roboto/Roboto-Regular.ttf");
-        Result<IFont*, FontLoadResult> parsed = FontParserFactory::ParseFromFile(path, FontLoadOptions::Default());
+        Result<IFont*, FontLoadResult> parsed =
+            FontParserFactory::ParseFromFile(path, FontLoadOptions::Default());
         return parsed.HasValue() ? parsed.Value() : nullptr;
     }
 
@@ -179,7 +182,8 @@ TEST_CASE("ttf.ui: GetCursorPosition at end")
     (void)shaper.ShapeText(*font, u8"Hi", 0, 0, positions);
     REQUIRE(positions.Size() >= 2);
 
-    const f32 cursorX = shaper.GetCursorPosition(*font, AsSpan(positions), static_cast<i32>(positions.Size()));
+    const f32 cursorX =
+        shaper.GetCursorPosition(*font, AsSpan(positions), static_cast<i32>(positions.Size()));
     const GlyphPosition& last = positions[positions.Size() - 1];
     CHECK(Abs(cursorX - (last.x + last.advance)) < 0.01f);
 
@@ -214,7 +218,8 @@ TEST_CASE("ttf.ui: GetSelectionRects empty selection")
     (void)shaper.ShapeText(*font, u8"Hello", positions);
 
     Array<draconic::fonts::Rectangle> rects;
-    shaper.GetSelectionRects(*font, AsSpan(positions), SelectionRange(2, 2), font->Metrics().lineHeight, rects);
+    shaper.GetSelectionRects(*font, AsSpan(positions), SelectionRange(2, 2),
+                             font->Metrics().lineHeight, rects);
     CHECK(rects.Size() == 0);
 
     DefaultAllocator().Delete(font);
@@ -232,7 +237,8 @@ TEST_CASE("ttf.ui: GetSelectionRects single line")
     (void)shaper.ShapeText(*font, u8"Hello", positions);
 
     Array<draconic::fonts::Rectangle> rects;
-    shaper.GetSelectionRects(*font, AsSpan(positions), SelectionRange(1, 4), font->Metrics().lineHeight, rects);
+    shaper.GetSelectionRects(*font, AsSpan(positions), SelectionRange(1, 4),
+                             font->Metrics().lineHeight, rects);
     REQUIRE(rects.Size() == 1);
     CHECK(rects[0].width > 0);
     CHECK(rects[0].height > 0);

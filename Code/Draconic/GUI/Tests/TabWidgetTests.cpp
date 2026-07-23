@@ -10,14 +10,18 @@ namespace core = draconic::core;
 
 namespace
 {
-    template <typename T> core::RefPtr<T> Make() { return core::MakeRef<T>(core::DefaultAllocator()); }
+    template <typename T>
+    core::RefPtr<T> Make()
+    {
+        return core::MakeRef<T>(core::DefaultAllocator());
+    }
     core::RefPtr<Node> Panel() { return core::MakeRef<UIWidget>(core::DefaultAllocator()); }
 }
 
 TEST_CASE("tabwidget: first tab is auto-selected; panels switch visibility")
 {
     auto tw = Make<TabWidget>();
-    tw->SetSize(core::Float2{ 300.0f, 200.0f });
+    tw->SetSize(core::Float2{300.0f, 200.0f});
 
     auto p0 = Panel();
     auto p1 = Panel();
@@ -41,10 +45,15 @@ TEST_CASE("tabwidget: first tab is auto-selected; panels switch visibility")
 TEST_CASE("tabwidget: tab-changed callback fires with the index")
 {
     auto tw = Make<TabWidget>();
-    tw->SetSize(core::Float2{ 300.0f, 200.0f });
+    tw->SetSize(core::Float2{300.0f, 200.0f});
 
     int changes = 0, last = -1;
-    tw->SetOnTabChanged([&](int i) { ++changes; last = i; });
+    tw->SetOnTabChanged(
+        [&](int i)
+        {
+            ++changes;
+            last = i;
+        });
 
     tw->AddTab(core::StringView(u8"A"), Panel().Get()); // auto-select 0 -> callback
     CHECK(changes == 1);
@@ -62,7 +71,7 @@ TEST_CASE("tabwidget: tab-changed callback fires with the index")
 TEST_CASE("tabwidget: content panels are sized to the content host")
 {
     auto tw = Make<TabWidget>();
-    tw->SetSize(core::Float2{ 300.0f, 200.0f });
+    tw->SetSize(core::Float2{300.0f, 200.0f});
     tw->SetTabBarHeight(30.0f);
 
     auto p0 = Panel();
@@ -75,9 +84,9 @@ TEST_CASE("tabwidget: content panels are sized to the content host")
 TEST_CASE("tabwidget: clicking a tab button switches the panel")
 {
     auto root = Make<SceneNode>();
-    root->SetSize(core::Float2{ 400.0f, 300.0f });
+    root->SetSize(core::Float2{400.0f, 300.0f});
     auto tw = Make<TabWidget>();
-    tw->SetSize(core::Float2{ 300.0f, 200.0f });
+    tw->SetSize(core::Float2{300.0f, 200.0f});
     tw->SetTabWidth(100.0f);
     tw->SetTabBarHeight(30.0f);
     root->AddChild(tw.Get());
@@ -89,8 +98,8 @@ TEST_CASE("tabwidget: clicking a tab button switches the panel")
     EventDispatcher* d = root->GetEventDispatcher();
 
     // Tab bar spans y in [0,30); the second tab button is at x in [102, 202) (100 wide + 2 gap).
-    d->InjectMouseDown(core::Float2{ 150.0f, 15.0f }, MouseButton::Left);
-    d->InjectMouseUp(core::Float2{ 150.0f, 15.0f }, MouseButton::Left);
+    d->InjectMouseDown(core::Float2{150.0f, 15.0f}, MouseButton::Left);
+    d->InjectMouseUp(core::Float2{150.0f, 15.0f}, MouseButton::Left);
     CHECK(tw->GetSelectedIndex() == 1);
     CHECK(p1->IsVisible());
     CHECK_FALSE(p0->IsVisible());

@@ -27,18 +27,18 @@ export namespace draconic::project
     inline constexpr u32 kEngineVersionPatch = 0;
     inline constexpr StringView kEngineVersionString = u8"0.1.0";
 
-    inline constexpr StringView kProjectManifestFile   = u8"Project.xml";
-    inline constexpr StringView kProjectContentDir     = u8"Content";
-    inline constexpr StringView kProjectSourcesDir     = u8"Sources";
-    inline constexpr StringView kProjectCookedDir      = u8"Cooked";
-    inline constexpr StringView kProjectEditorDir      = u8"Editor";
-    inline constexpr StringView kProjectCacheDir       = u8".cache";
-    inline constexpr StringView kSourceAssetExtension  = u8".xasset";   // readable/diffable envelopes
-    inline constexpr StringView kCookedAssetExtension  = u8".rasset";   // binary envelopes
+    inline constexpr StringView kProjectManifestFile = u8"Project.xml";
+    inline constexpr StringView kProjectContentDir = u8"Content";
+    inline constexpr StringView kProjectSourcesDir = u8"Sources";
+    inline constexpr StringView kProjectCookedDir = u8"Cooked";
+    inline constexpr StringView kProjectEditorDir = u8"Editor";
+    inline constexpr StringView kProjectCacheDir = u8".cache";
+    inline constexpr StringView kSourceAssetExtension = u8".xasset"; // readable/diffable envelopes
+    inline constexpr StringView kCookedAssetExtension = u8".rasset"; // binary envelopes
 
     // Shipped-dist layout (what the export CLI stages; the player detects dist by the pak).
-    inline constexpr StringView kDistContentPak        = u8"Content.pak";
-    inline constexpr StringView kDistManifestFile      = u8"player.xml";
+    inline constexpr StringView kDistContentPak = u8"Content.pak";
+    inline constexpr StringView kDistManifestFile = u8"player.xml";
 
     // The shared, committed part of a project (Project.xml payload) - also the dist manifest
     // (player.xml), which is the same shape minus editor-only concerns.
@@ -47,29 +47,31 @@ export namespace draconic::project
         DRACONIC_OBJECT(ProjectSettings, ISerializable)
     public:
         String name;
-        String engineVersion;  // engine that last saved this project (launcher/migration routing)
-        Guid defaultSceneId;   // AUTHORITATIVE startup-scene reference (rename/move-proof)
-        String defaultScene;   // its source-DB path - the human-readable mirror (and the
-                               // fallback for v2 manifests that predate the guid)
-        Guid startupScriptId;  // AUTHORITATIVE game-script reference (a cooked ScriptClass asset;
-                               // launch/update/exit), bound from the content DB by the player and
-                               // play-in-editor. nil = none. (v6; supersedes the startupScript path.)
-        String startupScript;  // its source-DB path - the human-readable mirror (and the v<6 fallback)
-        String nativeModule;   // RESERVED: optional native game module (tagged for later planning)
+        String engineVersion; // engine that last saved this project (launcher/migration routing)
+        Guid defaultSceneId;  // AUTHORITATIVE startup-scene reference (rename/move-proof)
+        String defaultScene;  // its source-DB path - the human-readable mirror (and the
+                              // fallback for v2 manifests that predate the guid)
+        Guid startupScriptId; // AUTHORITATIVE game-script reference (a cooked ScriptClass asset;
+                              // launch/update/exit), bound from the content DB by the player and
+        // play-in-editor. nil = none. (v6; supersedes the startupScript path.)
+        String
+            startupScript; // its source-DB path - the human-readable mirror (and the v<6 fallback)
+        String nativeModule;    // RESERVED: optional native game module (tagged for later planning)
         Guid defaultInputMapId; // the input map the player binds at startup (nil = none; v4)
         Guid defaultBusLayoutId; // the audio mixer layout applied at startup (nil = built-in; v5)
-        Guid defaultUiThemeId;   // the cooked UITheme the game UI defaults to (nil = built-in GameTheme; v5)
+        Guid
+            defaultUiThemeId; // the cooked UITheme the game UI defaults to (nil = built-in GameTheme; v5)
 
         // Migration branches on ar.Version() - the type's data version is written/read by
         // the manifest helpers below (DRACONIC_DEFINE_OBJECT_VERSIONED sets the current one).
         void Serialize(ISerializer& ar) override
         {
             draconic::core::Serialize(ar, "name", name);
-            if (ar.Version() >= 2)   // v2 added the engine stamp
+            if (ar.Version() >= 2) // v2 added the engine stamp
             {
                 draconic::core::Serialize(ar, "engineVersion", engineVersion);
             }
-            if (ar.Version() >= 3)   // v3 made the default scene guid-authoritative
+            if (ar.Version() >= 3) // v3 made the default scene guid-authoritative
             {
                 ar.Key("defaultSceneId");
                 ar.GuidValue(defaultSceneId);
@@ -77,19 +79,20 @@ export namespace draconic::project
             draconic::core::Serialize(ar, "defaultScene", defaultScene);
             draconic::core::Serialize(ar, "startupScript", startupScript);
             draconic::core::Serialize(ar, "nativeModule", nativeModule);
-            if (ar.Version() >= 4)   // v4 added the default input map
+            if (ar.Version() >= 4) // v4 added the default input map
             {
                 ar.Key("defaultInputMapId");
                 ar.GuidValue(defaultInputMapId);
             }
-            if (ar.Version() >= 5)   // v5 added the default audio bus layout + UI theme
+            if (ar.Version() >= 5) // v5 added the default audio bus layout + UI theme
             {
                 ar.Key("defaultBusLayoutId");
                 ar.GuidValue(defaultBusLayoutId);
                 ar.Key("defaultUiThemeId");
                 ar.GuidValue(defaultUiThemeId);
             }
-            if (ar.Version() >= 6)   // v6 made the startup script guid-authoritative (a ScriptClass asset)
+            if (ar.Version() >=
+                6) // v6 made the startup script guid-authoritative (a ScriptClass asset)
             {
                 ar.Key("startupScriptId");
                 ar.GuidValue(startupScriptId);
@@ -102,10 +105,16 @@ export namespace draconic::project
                                                     StringView fileName = kProjectManifestFile)
     {
         UniquePtr<IStream> stream = root.Open(fileName, FileMode::Read);
-        if (!stream) { return Status{ ErrorCode::NotFound }; }
+        if (!stream)
+        {
+            return Status{ErrorCode::NotFound};
+        }
         SerializerFactory factory = draconic::xml::XmlSerializerFactory();
         UniquePtr<SerializerContext> ctx = factory(*stream, SerializeMode::Read);
-        if (!ctx || ctx->serializer == nullptr) { return Status{ ErrorCode::Internal }; }
+        if (!ctx || ctx->serializer == nullptr)
+        {
+            return Status{ErrorCode::Internal};
+        }
         BeginVersionedPayload(*ctx->serializer, ProjectSettings::StaticType());
         out.Serialize(*ctx->serializer);
         EndVersionedPayload(*ctx->serializer);
@@ -117,15 +126,21 @@ export namespace draconic::project
                                                     ProjectSettings& settings,
                                                     StringView fileName = kProjectManifestFile)
     {
-        settings.engineVersion = String(kEngineVersionString);   // every save re-stamps
+        settings.engineVersion = String(kEngineVersionString); // every save re-stamps
         MemoryStream buffer;
         SerializerFactory factory = draconic::xml::XmlSerializerFactory();
         UniquePtr<SerializerContext> ctx = factory(buffer, SerializeMode::Write);
-        if (!ctx || ctx->serializer == nullptr) { return Status{ ErrorCode::Internal }; }
+        if (!ctx || ctx->serializer == nullptr)
+        {
+            return Status{ErrorCode::Internal};
+        }
         BeginVersionedPayload(*ctx->serializer, ProjectSettings::StaticType());
         settings.Serialize(*ctx->serializer);
         EndVersionedPayload(*ctx->serializer);
-        if (!ctx->serializer->IsOk()) { return ctx->serializer->GetStatus(); }
+        if (!ctx->serializer->IsOk())
+        {
+            return ctx->serializer->GetStatus();
+        }
         ctx->Flush(buffer);
         return writable.Save(fileName, buffer.Bytes());
     }

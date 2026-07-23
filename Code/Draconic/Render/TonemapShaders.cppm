@@ -11,13 +11,14 @@ export module draconic.render:tonemap_shaders;
 
 import draconic.core;
 
-export namespace draconic::render {
-
-// Fullscreen-triangle VS (no vertex buffer; positions from SV_VertexID). Emits a [0,1] uv for the
-// (half-res, linearly-sampled) bloom composite; the HDR itself is read by texel Load.
-[[nodiscard]] inline core::StringView TonemapVS() noexcept
+export namespace draconic::render
 {
-    return core::StringView(u8R"(
+
+    // Fullscreen-triangle VS (no vertex buffer; positions from SV_VertexID). Emits a [0,1] uv for the
+    // (half-res, linearly-sampled) bloom composite; the HDR itself is read by texel Load.
+    [[nodiscard]] inline core::StringView TonemapVS() noexcept
+    {
+        return core::StringView(u8R"(
 struct VSOut { float4 pos : SV_Position; float2 uv : TEXCOORD0; };
 VSOut main(uint vid : SV_VertexID) {
     VSOut o;
@@ -27,15 +28,15 @@ VSOut main(uint vid : SV_VertexID) {
     return o;
 }
 )");
-}
+    }
 
-// AgX (Troy Sobotka's minimal approximation): a hue-preserving filmic display transform that
-// rolls off bright saturated colors without the hue-shift of the ACES Narkowicz fit (design §12).
-// Linear HDR in -> display-encoded LDR out (written straight to the UNORM target). Matrices are the
-// GLSL minimal-AgX values transposed for HLSL mul(M, v). Exposure is fixed at 1.0 for now.
-[[nodiscard]] inline core::StringView TonemapPS() noexcept
-{
-    return core::StringView(u8R"(
+    // AgX (Troy Sobotka's minimal approximation): a hue-preserving filmic display transform that
+    // rolls off bright saturated colors without the hue-shift of the ACES Narkowicz fit (design §12).
+    // Linear HDR in -> display-encoded LDR out (written straight to the UNORM target). Matrices are the
+    // GLSL minimal-AgX values transposed for HLSL mul(M, v). Exposure is fixed at 1.0 for now.
+    [[nodiscard]] inline core::StringView TonemapPS() noexcept
+    {
+        return core::StringView(u8R"(
 Texture2D<float4> Hdr       : register(t0, space0);
 Texture2D<float4> Bloom     : register(t1, space0);
 Texture2D<float4> Ao        : register(t2, space0);
@@ -107,6 +108,6 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     return float4(saturate(v), 1.0);       // straight to the UNORM display target
 }
 )");
-}
+    }
 
 }

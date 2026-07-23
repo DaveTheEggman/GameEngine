@@ -12,27 +12,28 @@ export module draconic.render:probe_shaders;
 
 import draconic.core;
 
-export namespace draconic::render {
-
-// Fullscreen-triangle VS (uv from SV_VertexID) for the captured->prefiltered blit.
-[[nodiscard]] inline core::StringView ProbeBlitVS() noexcept
+export namespace draconic::render
 {
-    return core::StringView(u8R"(
+
+    // Fullscreen-triangle VS (uv from SV_VertexID) for the captured->prefiltered blit.
+    [[nodiscard]] inline core::StringView ProbeBlitVS() noexcept
+    {
+        return core::StringView(u8R"(
 struct VSOut { float4 pos : SV_Position; float2 uv : TEXCOORD0; };
 VSOut main(uint vid : SV_VertexID) {
     float2 uv = float2((vid << 1) & 2, vid & 2);
     VSOut o; o.uv = uv; o.pos = float4(uv * 2.0 - 1.0, 0.0, 1.0); return o;
 }
 )");
-}
+    }
 
-// Blit PS: copy one captured face into the prefiltered face, correcting the RH-LookAt horizontal mirror
-// by flipping u. Samples the captured face as a plain Texture2D (NOT the cube sampler) so filtering never
-// crosses a face boundary - the cube-sampler path shows the face seams in smooth gradients (sky). This is
-// Sedulous's probe_blit. Image-space flip => winding stays correct (a camera-axis flip breaks culling).
-[[nodiscard]] inline core::StringView ProbeBlitPS() noexcept
-{
-    return core::StringView(u8R"(
+    // Blit PS: copy one captured face into the prefiltered face, correcting the RH-LookAt horizontal mirror
+    // by flipping u. Samples the captured face as a plain Texture2D (NOT the cube sampler) so filtering never
+    // crosses a face boundary - the cube-sampler path shows the face seams in smooth gradients (sky). This is
+    // Sedulous's probe_blit. Image-space flip => winding stays correct (a camera-axis flip breaks culling).
+    [[nodiscard]] inline core::StringView ProbeBlitPS() noexcept
+    {
+        return core::StringView(u8R"(
 Texture2D<float4> SrcFace : register(t0, space0);
 SamplerState      Samp    : register(s0, space0);
 float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target0 {
@@ -42,14 +43,14 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target0 {
     return SrcFace.SampleLevel(Samp, float2(1.0 - uv.x, 1.0 - uv.y), 0.0);
 }
 )");
-}
+    }
 
-// GGX prefilter PS: convolve the CORRECTED probe cube (prefiltered mip 0) into a rougher mip. Karis
-// split-sum importance sampling (same math as IBLSystem). Reads mip 0, writes mip M (roughness=M/(mips-1));
-// the forward samples roughness*maxLod so rough surfaces get progressively blurrier reflections.
-[[nodiscard]] inline core::StringView ProbePrefilterPS() noexcept
-{
-    return core::StringView(u8R"(
+    // GGX prefilter PS: convolve the CORRECTED probe cube (prefiltered mip 0) into a rougher mip. Karis
+    // split-sum importance sampling (same math as IBLSystem). Reads mip 0, writes mip M (roughness=M/(mips-1));
+    // the forward samples roughness*maxLod so rough surfaces get progressively blurrier reflections.
+    [[nodiscard]] inline core::StringView ProbePrefilterPS() noexcept
+    {
+        return core::StringView(u8R"(
 struct Push { int FaceIndex; float Roughness; float2 Pad; };
 [[vk::push_constant]] Push pc;
 TextureCube<float4> Src  : register(t0, space0);
@@ -107,6 +108,6 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target0 {
     return float4(color / max(weight, 1e-4), 1.0);
 }
 )");
-}
+    }
 
 }

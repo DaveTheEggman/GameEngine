@@ -22,7 +22,7 @@ namespace
 {
     void RemoveTree(StringView dir)
     {
-        for (const utf8char* f : { u8"menu.rasset", u8"theme.rasset" })
+        for (const utf8char* f : {u8"menu.rasset", u8"theme.rasset"})
         {
             String path(dir);
             path.Append(u8"/");
@@ -120,12 +120,12 @@ TEST_CASE("ui.pipeline: silent markup drops surface as cook warnings")
     Array<String> warnings;
     RefPtr<View> tree = MarkupLoader::LoadFromString(
         u8"<Flex direction=\"vertical\">"
-        u8"  <Label fontSize=\"20\" text=\"typo\"/>"      // camelCase typo -> warning
-        u8"  <NotARealControl/>"                          // unknown child -> warning (dropped)
+        u8"  <Label fontSize=\"20\" text=\"typo\"/>" // camelCase typo -> warning
+        u8"  <NotARealControl/>"                     // unknown child -> warning (dropped)
         u8"  <Button id=\"ok\" text=\"fine\" height=\"40\"/>"
         u8"</Flex>",
         nullptr, &warnings);
-    REQUIRE(tree.Get() != nullptr);                       // the tree still builds
+    REQUIRE(tree.Get() != nullptr); // the tree still builds
     REQUIRE(warnings.Size() == 2);
     CHECK(warnings[0].AsView().StartsWith(u8"unknown attribute 'fontSize'"));
     CHECK(warnings[1].AsView().StartsWith(u8"unknown element <NotARealControl>"));

@@ -27,5 +27,6 @@ export namespace draconic::graphics
 {
     // Create a GraphicsDevice for the requested backend. Returns an error if the
     // backend is unavailable (e.g. DX12 off this platform) or bring-up fails.
-    core::Result<core::UniquePtr<GraphicsDevice>> CreateGraphicsDevice(const GraphicsDeviceDesc& desc);
+    core::Result<core::UniquePtr<GraphicsDevice>>
+    CreateGraphicsDevice(const GraphicsDeviceDesc& desc);
 }

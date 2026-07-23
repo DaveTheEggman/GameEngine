@@ -29,17 +29,20 @@ export namespace draconic::ui
     {
         DRACONIC_OBJECT(TooltipView, ViewGroup)
     public:
-        TooltipView()
-        {
-            Padding = Thickness{ 8, 4 };
-        }
+        TooltipView() { Padding = Thickness{8, 4}; }
 
         /// Set a custom view as tooltip content.
         void SetContent(View* content)
         {
-            if (m_content != nullptr) { RemoveView(m_content, true); }
+            if (m_content != nullptr)
+            {
+                RemoveView(m_content, true);
+            }
             m_content = content;
-            if (content != nullptr) { AddView(content); }
+            if (content != nullptr)
+            {
+                AddView(content);
+            }
         }
 
         /// Clear content (called before reuse).
@@ -54,15 +57,22 @@ export namespace draconic::ui
 
         void OnDraw(UIDrawContext& ctx) override
         {
-            const Rectangle bounds{ 0, 0, Width(), Height() };
+            const Rectangle bounds{0, 0, Width(), Height()};
 
             // Background from theme.
             Drawable* bg = ResolveStyleDrawable(StyleProperty::Background);
-            if (bg != nullptr) { bg->Draw(ctx, bounds); }
+            if (bg != nullptr)
+            {
+                bg->Draw(ctx, bounds);
+            }
             else
             {
-                ctx.VG().FillRoundedRect(bounds, 4.0f, Color{ 40.0f / 255.0f, 42.0f / 255.0f, 50.0f / 255.0f, 230.0f / 255.0f });
-                ctx.VG().StrokeRoundedRect(bounds, 4.0f, Color{ 70.0f / 255.0f, 75.0f / 255.0f, 85.0f / 255.0f, 1.0f }, 1.0f);
+                ctx.VG().FillRoundedRect(
+                    bounds, 4.0f,
+                    Color{40.0f / 255.0f, 42.0f / 255.0f, 50.0f / 255.0f, 230.0f / 255.0f});
+                ctx.VG().StrokeRoundedRect(
+                    bounds, 4.0f, Color{70.0f / 255.0f, 75.0f / 255.0f, 85.0f / 255.0f, 1.0f},
+                    1.0f);
             }
 
             // Draw content.
@@ -80,19 +90,18 @@ export namespace draconic::ui
                 contentW = m_content->MeasuredSize.x;
                 contentH = m_content->MeasuredSize.y;
             }
-            MeasuredSize = Float2{
-                constraints.ConstrainWidth(contentW + Padding.TotalHorizontal()),
-                constraints.ConstrainHeight(contentH + Padding.TotalVertical()) };
+            MeasuredSize = Float2{constraints.ConstrainWidth(contentW + Padding.TotalHorizontal()),
+                                  constraints.ConstrainHeight(contentH + Padding.TotalVertical())};
         }
 
         void OnLayout(f32 left, f32 top, f32 width, f32 height) override
         {
-            (void)left; (void)top;
+            (void)left;
+            (void)top;
             if (m_content != nullptr)
             {
-                m_content->Layout(Padding.Left, Padding.Top,
-                    width - Padding.TotalHorizontal(),
-                    height - Padding.TotalVertical());
+                m_content->Layout(Padding.Left, Padding.Top, width - Padding.TotalHorizontal(),
+                                  height - Padding.TotalVertical());
             }
         }
 

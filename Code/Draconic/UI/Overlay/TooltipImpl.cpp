@@ -40,7 +40,10 @@ namespace draconic::ui
     {
         for (View* v = view; v != nullptr; v = v->Parent)
         {
-            if (v->AsTooltipProvider() != nullptr || v->TooltipText.Size() > 0) { return v; }
+            if (v->AsTooltipProvider() != nullptr || v->TooltipText.Size() > 0)
+            {
+                return v;
+            }
         }
         return nullptr;
     }
@@ -49,7 +52,10 @@ namespace draconic::ui
     {
         // Hover onto the tooltip itself never dismisses (checked on the RAW view - the
         // tooltip's own content carries no TooltipText).
-        if (m_showing && newTarget != nullptr && IsTooltipOrDescendant(newTarget)) { return; }
+        if (m_showing && newTarget != nullptr && IsTooltipOrDescendant(newTarget))
+        {
+            return;
+        }
 
         View* owner = ResolveTooltipOwner(newTarget);
         const ViewId newId = (owner != nullptr) ? owner->Id : ViewId::Invalid;
@@ -67,14 +73,20 @@ namespace draconic::ui
         {
             const ViewId hoveredId = m_context->GetInputManager()->HoveredId();
             View* hovered = m_context->GetViewById(hoveredId);
-            if (hovered != nullptr && IsTooltipOrDescendant(hovered)) { return; }
+            if (hovered != nullptr && IsTooltipOrDescendant(hovered))
+            {
+                return;
+            }
         }
         Hide();
     }
 
     void TooltipManager::Update(f32 deltaTime)
     {
-        if (!m_hoverTarget.IsValid()) { return; }
+        if (!m_hoverTarget.IsValid())
+        {
+            return;
+        }
 
         if (!m_showing)
         {
@@ -82,20 +94,32 @@ namespace draconic::ui
             if (m_hoverTime >= ShowDelay)
             {
                 View* target = m_context->GetViewById(m_hoverTarget);
-                if (target != nullptr) { Show(target); }
-                else { m_hoverTarget = ViewId::Invalid; } // View was deleted
+                if (target != nullptr)
+                {
+                    Show(target);
+                }
+                else
+                {
+                    m_hoverTarget = ViewId::Invalid;
+                } // View was deleted
             }
         }
         else
         {
             m_showTime += deltaTime;
-            if (m_showTime >= AutoHideDelay) { Hide(); }
+            if (m_showTime >= AutoHideDelay)
+            {
+                Hide();
+            }
         }
     }
 
     void TooltipManager::OnViewDeleted(View* view)
     {
-        if (m_hoverTarget == view->Id) { m_hoverTarget = ViewId::Invalid; }
+        if (m_hoverTarget == view->Id)
+        {
+            m_hoverTarget = ViewId::Invalid;
+        }
     }
 
     void TooltipManager::Show(View* target)
@@ -104,14 +128,20 @@ namespace draconic::ui
         if (ITooltipProvider* provider = target->AsTooltipProvider())
         {
             RefPtr<View> content = provider->CreateTooltipContent();
-            if (!content) { return; }
+            if (!content)
+            {
+                return;
+            }
             m_tooltipView->SetContent(content.Get());
         }
         else
         {
             // Fall back to a plain text label.
             const StringView text = target->TooltipText.AsView();
-            if (text.Size() == 0) { return; }
+            if (text.Size() == 0)
+            {
+                return;
+            }
 
             RefPtr<Label> label = MakeRef<Label>(DefaultAllocator(), text);
             m_tooltipView->SetContent(label.Get());
@@ -122,7 +152,10 @@ namespace draconic::ui
 
         // Get the popup layer from the active root.
         RootView* root = m_context->ActiveInputRoot();
-        if (root == nullptr) { return; }
+        if (root == nullptr)
+        {
+            return;
+        }
         PopupLayer* popupLayer = root->GetPopupLayer();
 
         // Show at (0,0) first so the tooltip gets context-attached (needed for measurement).
@@ -135,21 +168,20 @@ namespace draconic::ui
         const BoxConstraints layerConstraints = BoxConstraints::Loose(logical.x, logical.y);
         m_tooltipView->Measure(layerConstraints);
 
-        const Rectangle screen{ 0, 0, logical.x, logical.y };
+        const Rectangle screen{0, 0, logical.x, logical.y};
         const Float2 popupSize = m_tooltipView->MeasuredSize;
 
         // Compute the screen-space position of the target.
-        const Float2 targetScreen = target->LocalToScreen(Float2{ 0, 0 });
-        const Float2 pos = PositionTooltip(target->TooltipPlacement,
-            targetScreen.x, targetScreen.y, target->Width(), target->Height(),
-            popupSize, screen);
+        const Float2 targetScreen = target->LocalToScreen(Float2{0, 0});
+        const Float2 pos = PositionTooltip(target->TooltipPlacement, targetScreen.x, targetScreen.y,
+                                           target->Width(), target->Height(), popupSize, screen);
 
         popupLayer->UpdatePopupPosition(m_tooltipView.Get(), pos.x, pos.y);
     }
 
-    Float2 TooltipManager::PositionTooltip(TooltipPlacement placement,
-        f32 targetX, f32 targetY, f32 targetW, f32 targetH,
-        Float2 popupSize, Rectangle screen)
+    Float2 TooltipManager::PositionTooltip(TooltipPlacement placement, f32 targetX, f32 targetY,
+                                           f32 targetW, f32 targetH, Float2 popupSize,
+                                           Rectangle screen)
     {
         f32 x = 0, y = 0;
         switch (placement)
@@ -157,29 +189,41 @@ namespace draconic::ui
         case TooltipPlacement::Bottom:
             x = targetX;
             y = targetY + targetH;
-            if (y + popupSize.y > screen.height) { y = targetY - popupSize.y; }
+            if (y + popupSize.y > screen.height)
+            {
+                y = targetY - popupSize.y;
+            }
             break;
         case TooltipPlacement::Top:
             x = targetX;
             y = targetY - popupSize.y;
-            if (y < screen.y) { y = targetY + targetH; }
+            if (y < screen.y)
+            {
+                y = targetY + targetH;
+            }
             break;
         case TooltipPlacement::Right:
             x = targetX + targetW;
             y = targetY;
-            if (x + popupSize.x > screen.width) { x = targetX - popupSize.x; }
+            if (x + popupSize.x > screen.width)
+            {
+                x = targetX - popupSize.x;
+            }
             break;
         case TooltipPlacement::Left:
             x = targetX - popupSize.x;
             y = targetY;
-            if (x < screen.x) { x = targetX + targetW; }
+            if (x < screen.x)
+            {
+                x = targetX + targetW;
+            }
             break;
         }
 
         // Final clamp to screen.
         x = Clamp(x, screen.x, Max(screen.x, screen.x + screen.width - popupSize.x));
         y = Clamp(y, screen.y, Max(screen.y, screen.y + screen.height - popupSize.y));
-        return Float2{ x, y };
+        return Float2{x, y};
     }
 
     void TooltipManager::Hide()
@@ -187,7 +231,10 @@ namespace draconic::ui
         if (m_showing)
         {
             RootView* root = m_context->ActiveInputRoot();
-            if (root != nullptr) { root->GetPopupLayer()->ClosePopup(m_tooltipView.Get()); }
+            if (root != nullptr)
+            {
+                root->GetPopupLayer()->ClosePopup(m_tooltipView.Get());
+            }
             m_showing = false;
         }
         m_hoverTime = 0;
@@ -198,7 +245,10 @@ namespace draconic::ui
         View* v = view;
         while (v != nullptr)
         {
-            if (v == m_tooltipView.Get()) { return true; }
+            if (v == m_tooltipView.Get())
+            {
+                return true;
+            }
             v = v->Parent;
         }
         return false;

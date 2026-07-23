@@ -9,9 +9,15 @@ namespace core = draconic::core;
 
 TEST_CASE("gravity: None_IsZero") { CHECK(static_cast<core::u32>(Gravity::None) == 0u); }
 
-TEST_CASE("gravity: Center_IsCenterHOrCenterV") { CHECK(Gravity::Center == (Gravity::CenterH | Gravity::CenterV)); }
+TEST_CASE("gravity: Center_IsCenterHOrCenterV")
+{
+    CHECK(Gravity::Center == (Gravity::CenterH | Gravity::CenterV));
+}
 
-TEST_CASE("gravity: Fill_IsFillHOrFillV") { CHECK(Gravity::Fill == (Gravity::FillH | Gravity::FillV)); }
+TEST_CASE("gravity: Fill_IsFillHOrFillV")
+{
+    CHECK(Gravity::Fill == (Gravity::FillH | Gravity::FillV));
+}
 
 TEST_CASE("gravity: Combinations_Work")
 {

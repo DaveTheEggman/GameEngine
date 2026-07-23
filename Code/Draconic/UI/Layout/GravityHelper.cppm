@@ -8,7 +8,7 @@ module;
 
 export module draconic.ui:gravity_helper;
 
-import draconic.core;   // Rectangle, Max
+import draconic.core; // Rectangle, Max
 import :thickness;
 import :gravity;
 
@@ -28,18 +28,50 @@ export namespace draconic::ui
             f32 x = 0.0f, y = 0.0f, w = 0.0f, h = 0.0f;
 
             // Horizontal
-            if (HasFlag(gravity, Gravity::FillH)) { x = margin.Left; w = availW; }
-            else if (HasFlag(gravity, Gravity::Right)) { x = containerW - margin.Right - childW; w = childW; }
-            else if (HasFlag(gravity, Gravity::CenterH)) { x = margin.Left + (availW - childW) * 0.5f; w = childW; }
-            else { x = margin.Left; w = childW; } // Left or None
+            if (HasFlag(gravity, Gravity::FillH))
+            {
+                x = margin.Left;
+                w = availW;
+            }
+            else if (HasFlag(gravity, Gravity::Right))
+            {
+                x = containerW - margin.Right - childW;
+                w = childW;
+            }
+            else if (HasFlag(gravity, Gravity::CenterH))
+            {
+                x = margin.Left + (availW - childW) * 0.5f;
+                w = childW;
+            }
+            else
+            {
+                x = margin.Left;
+                w = childW;
+            } // Left or None
 
             // Vertical
-            if (HasFlag(gravity, Gravity::FillV)) { y = margin.Top; h = availH; }
-            else if (HasFlag(gravity, Gravity::Bottom)) { y = containerH - margin.Bottom - childH; h = childH; }
-            else if (HasFlag(gravity, Gravity::CenterV)) { y = margin.Top + (availH - childH) * 0.5f; h = childH; }
-            else { y = margin.Top; h = childH; } // Top or None
+            if (HasFlag(gravity, Gravity::FillV))
+            {
+                y = margin.Top;
+                h = availH;
+            }
+            else if (HasFlag(gravity, Gravity::Bottom))
+            {
+                y = containerH - margin.Bottom - childH;
+                h = childH;
+            }
+            else if (HasFlag(gravity, Gravity::CenterV))
+            {
+                y = margin.Top + (availH - childH) * 0.5f;
+                h = childH;
+            }
+            else
+            {
+                y = margin.Top;
+                h = childH;
+            } // Top or None
 
-            return Rectangle{ x, y, Max(0.0f, w), Max(0.0f, h) };
+            return Rectangle{x, y, Max(0.0f, w), Max(0.0f, h)};
         }
     };
 }

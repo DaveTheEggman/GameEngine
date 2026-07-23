@@ -11,7 +11,7 @@ module;
 
 export module draconic.gui:actions;
 
-import draconic.core;   // Float2, Duration, Lerp, Function, RefPtr, Array, Move, Color, MakeRef
+import draconic.core; // Float2, Duration, Lerp, Function, RefPtr, Array, Move, Color, MakeRef
 import :action;
 import :node;
 import :rectangle_drawable;
@@ -27,9 +27,17 @@ export namespace draconic::gui
         DRACONIC_OBJECT(MoveAction, ActionInterpolation)
     public:
         MoveAction(core::Float2 from, core::Float2 to, core::Duration duration) noexcept
-            : ActionInterpolation(duration), m_from(from), m_to(to) {}
+            : ActionInterpolation(duration), m_from(from), m_to(to)
+        {
+        }
+
     protected:
-        void OnStep(f32 t) override { if (m_target) m_target->SetPosition(core::Lerp(m_from, m_to, t)); }
+        void OnStep(f32 t) override
+        {
+            if (m_target)
+                m_target->SetPosition(core::Lerp(m_from, m_to, t));
+        }
+
     private:
         core::Float2 m_from, m_to;
     };
@@ -41,9 +49,17 @@ export namespace draconic::gui
         DRACONIC_OBJECT(FadeAction, ActionInterpolation)
     public:
         FadeAction(f32 from, f32 to, core::Duration duration) noexcept
-            : ActionInterpolation(duration), m_from(from), m_to(to) {}
+            : ActionInterpolation(duration), m_from(from), m_to(to)
+        {
+        }
+
     protected:
-        void OnStep(f32 t) override { if (m_target) m_target->SetAlpha(m_from + (m_to - m_from) * t); }
+        void OnStep(f32 t) override
+        {
+            if (m_target)
+                m_target->SetAlpha(m_from + (m_to - m_from) * t);
+        }
+
     private:
         f32 m_from, m_to;
     };
@@ -55,9 +71,17 @@ export namespace draconic::gui
         DRACONIC_OBJECT(ScaleAction, ActionInterpolation)
     public:
         ScaleAction(core::Float2 from, core::Float2 to, core::Duration duration) noexcept
-            : ActionInterpolation(duration), m_from(from), m_to(to) {}
+            : ActionInterpolation(duration), m_from(from), m_to(to)
+        {
+        }
+
     protected:
-        void OnStep(f32 t) override { if (m_target) m_target->SetScale(core::Lerp(m_from, m_to, t)); }
+        void OnStep(f32 t) override
+        {
+            if (m_target)
+                m_target->SetScale(core::Lerp(m_from, m_to, t));
+        }
+
     private:
         core::Float2 m_from, m_to;
     };
@@ -69,6 +93,7 @@ export namespace draconic::gui
         DRACONIC_OBJECT(DelayAction, ActionInterpolation)
     public:
         explicit DelayAction(core::Duration duration) noexcept : ActionInterpolation(duration) {}
+
     protected:
         void OnStep(f32) override {}
     };
@@ -79,10 +104,22 @@ export namespace draconic::gui
     {
         DRACONIC_OBJECT(RunnableAction, ActionInterpolation)
     public:
-        explicit RunnableAction(core::Function<void()> fn, core::Duration delay = core::Duration{}) noexcept
-            : ActionInterpolation(delay), m_fn(core::Move(fn)) {}
+        explicit RunnableAction(core::Function<void()> fn,
+                                core::Duration delay = core::Duration{}) noexcept
+            : ActionInterpolation(delay), m_fn(core::Move(fn))
+        {
+        }
+
     protected:
-        void OnStep(f32 t) override { if (t >= 1.0f && !m_ran && m_fn) { m_ran = true; m_fn(); } }
+        void OnStep(f32 t) override
+        {
+            if (t >= 1.0f && !m_ran && m_fn)
+            {
+                m_ran = true;
+                m_fn();
+            }
+        }
+
     private:
         core::Function<void()> m_fn;
         bool m_ran = false;
@@ -90,7 +127,11 @@ export namespace draconic::gui
     DRACONIC_DEFINE_OBJECT(RunnableAction, "draconic::gui")
 
     // One color keyframe stop (offset in [0,1] + a color), for animating background-color.
-    struct ColorKey { f32 Offset = 0.0f; Color Value; };
+    struct ColorKey
+    {
+        f32 Offset = 0.0f;
+        Color Value;
+    };
 
     // Drives a CSS @keyframes animation: interpolates the target's animatable properties across
     // the keyframe stops over `duration`, optionally looping forever. Supported tracks: opacity
@@ -102,39 +143,71 @@ export namespace draconic::gui
     public:
         KeyframeAction(Array<core::Float2> opacityTrack, Array<ColorKey> colorTrack,
                        core::Duration duration, bool loop) noexcept
-            : m_opacity(core::Move(opacityTrack)), m_color(core::Move(colorTrack)), m_duration(duration), m_loop(loop) {}
+            : m_opacity(core::Move(opacityTrack)), m_color(core::Move(colorTrack)),
+              m_duration(duration), m_loop(loop)
+        {
+        }
 
-        void Start() override { m_elapsed = core::Duration{}; m_done = false; Apply(0.0f); }
+        void Start() override
+        {
+            m_elapsed = core::Duration{};
+            m_done = false;
+            Apply(0.0f);
+        }
         void Stop() override { m_done = true; }
 
         void Update(core::Duration elapsed) override
         {
-            if (m_done) return;
+            if (m_done)
+                return;
             m_elapsed += elapsed;
             const f32 total = m_duration.AsSecondsF();
-            if (total <= 0.0f) { Apply(1.0f); m_done = true; FireDone(); return; }
+            if (total <= 0.0f)
+            {
+                Apply(1.0f);
+                m_done = true;
+                FireDone();
+                return;
+            }
 
             const f32 cycles = m_elapsed.AsSecondsF() / total;
-            if (!m_loop && cycles >= 1.0f) { Apply(1.0f); m_done = true; FireDone(); return; }
-            const f32 t = m_loop ? (cycles - static_cast<f32>(static_cast<i64>(cycles))) : core::Min(cycles, 1.0f);
+            if (!m_loop && cycles >= 1.0f)
+            {
+                Apply(1.0f);
+                m_done = true;
+                FireDone();
+                return;
+            }
+            const f32 t = m_loop ? (cycles - static_cast<f32>(static_cast<i64>(cycles)))
+                                 : core::Min(cycles, 1.0f);
             Apply(t);
         }
 
         [[nodiscard]] bool IsDone() override { return m_done; }
-        [[nodiscard]] f32 GetCurrentProgress() override { return m_duration.AsSecondsF() > 0.0f ? core::Min(m_elapsed.AsSecondsF() / m_duration.AsSecondsF(), 1.0f) : 1.0f; }
+        [[nodiscard]] f32 GetCurrentProgress() override
+        {
+            return m_duration.AsSecondsF() > 0.0f
+                       ? core::Min(m_elapsed.AsSecondsF() / m_duration.AsSecondsF(), 1.0f)
+                       : 1.0f;
+        }
         [[nodiscard]] core::Duration GetTotalTime() override { return m_duration; }
 
     private:
         void Apply(f32 t)
         {
-            if (m_target == nullptr) return;
-            if (m_opacity.Size() != 0) m_target->SetAlpha(OpacityAt(t));
-            if (m_color.Size() != 0) m_target->SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), ColorAt(t)));
+            if (m_target == nullptr)
+                return;
+            if (m_opacity.Size() != 0)
+                m_target->SetAlpha(OpacityAt(t));
+            if (m_color.Size() != 0)
+                m_target->SetBackground(
+                    core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), ColorAt(t)));
         }
 
         [[nodiscard]] f32 OpacityAt(f32 t) const
         {
-            if (t <= m_opacity[0].x) return m_opacity[0].y;
+            if (t <= m_opacity[0].x)
+                return m_opacity[0].y;
             for (usize i = 1; i < m_opacity.Size(); ++i)
                 if (t <= m_opacity[i].x)
                 {
@@ -147,7 +220,8 @@ export namespace draconic::gui
 
         [[nodiscard]] Color ColorAt(f32 t) const
         {
-            if (t <= m_color[0].Offset) return m_color[0].Value;
+            if (t <= m_color[0].Offset)
+                return m_color[0].Value;
             for (usize i = 1; i < m_color.Size(); ++i)
                 if (t <= m_color[i].Offset)
                 {
@@ -159,7 +233,8 @@ export namespace draconic::gui
         }
         [[nodiscard]] static Color LerpColor(Color a, Color b, f32 t)
         {
-            return Color{ a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t, a.a + (b.a - a.a) * t };
+            return Color{a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t,
+                         a.a + (b.a - a.a) * t};
         }
 
         Array<core::Float2> m_opacity; // {offset, opacity}
@@ -182,37 +257,51 @@ export namespace draconic::gui
         {
             m_index = 0;
             m_done = m_children.Size() == 0;
-            if (!m_done) StartCurrent();
+            if (!m_done)
+                StartCurrent();
         }
         void Stop() override { m_done = true; }
 
         void Update(core::Duration elapsed) override
         {
-            if (m_done || m_index >= m_children.Size()) return;
+            if (m_done || m_index >= m_children.Size())
+                return;
             Action* current = m_children[m_index].Get();
             current->Update(elapsed);
             if (current->IsDone())
             {
                 ++m_index;
-                if (m_index >= m_children.Size()) { m_done = true; FireDone(); }
-                else StartCurrent();
+                if (m_index >= m_children.Size())
+                {
+                    m_done = true;
+                    FireDone();
+                }
+                else
+                    StartCurrent();
             }
         }
 
         [[nodiscard]] bool IsDone() override { return m_done; }
         [[nodiscard]] f32 GetCurrentProgress() override
         {
-            return m_children.Size() ? static_cast<f32>(m_index) / static_cast<f32>(m_children.Size()) : 1.0f;
+            return m_children.Size()
+                       ? static_cast<f32>(m_index) / static_cast<f32>(m_children.Size())
+                       : 1.0f;
         }
         [[nodiscard]] core::Duration GetTotalTime() override
         {
             core::Duration total{};
-            for (const RefPtr<Action>& c : m_children) total += c->GetTotalTime();
+            for (const RefPtr<Action>& c : m_children)
+                total += c->GetTotalTime();
             return total;
         }
 
     protected:
-        void OnTargetChange() override { for (const RefPtr<Action>& c : m_children) c->SetTarget(m_target); }
+        void OnTargetChange() override
+        {
+            for (const RefPtr<Action>& c : m_children)
+                c->SetTarget(m_target);
+        }
 
     private:
         void StartCurrent()

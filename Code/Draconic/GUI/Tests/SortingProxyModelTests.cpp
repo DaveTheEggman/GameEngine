@@ -11,10 +11,18 @@ namespace core = draconic::core;
 
 namespace
 {
-    template <typename T> core::RefPtr<T> Make() { return core::MakeRef<T>(core::DefaultAllocator()); }
+    template <typename T>
+    core::RefPtr<T> Make()
+    {
+        return core::MakeRef<T>(core::DefaultAllocator());
+    }
     core::StringView SV(const char8_t* s) { return core::StringView(s); }
 
-    struct CountingClient : public IModelClient { int updates = 0; void OnModelUpdated() override { ++updates; } };
+    struct CountingClient : public IModelClient
+    {
+        int updates = 0;
+        void OnModelUpdated() override { ++updates; }
+    };
 
     // Rows: (name, value) = (b,2) (a,10) (c,1).
     void FillBAC(TableModel& model)
@@ -23,8 +31,8 @@ namespace
         cols.PushBack(core::String(SV(u8"Name")));
         cols.PushBack(core::String(SV(u8"Value")));
         model.SetColumns(core::Move(cols));
-        const char8_t* names[3] = { u8"b", u8"a", u8"c" };
-        const core::i64 values[3] = { 2, 10, 1 };
+        const char8_t* names[3] = {u8"b", u8"a", u8"c"};
+        const core::i64 values[3] = {2, 10, 1};
         for (int i = 0; i < 3; ++i)
         {
             core::Array<Variant> row;
@@ -97,7 +105,7 @@ TEST_CASE("sorting-proxy: a source change re-sorts and notifies the proxy's clie
     row.PushBack(Variant(static_cast<core::i64>(0)));
     source.AddRow(core::Move(row));
 
-    CHECK(client.updates == 1);                    // source change propagated
+    CHECK(client.updates == 1); // source change propagated
     CHECK(proxy.RowCount() == 4);
     CHECK(proxy.Data(MakeModelIndex(0, 1)).AsInt() == 0); // re-sorted with the new row first
 }
@@ -109,9 +117,9 @@ TEST_CASE("sorting-proxy: TableView header click wired to ToggleSort re-sorts th
     SortingProxyModel proxy(&source);
 
     auto root = Make<SceneNode>();
-    root->SetSize(core::Float2{ 400.0f, 400.0f });
+    root->SetSize(core::Float2{400.0f, 400.0f});
     auto table = Make<TableView>();
-    table->SetSize(core::Float2{ 300.0f, 200.0f });
+    table->SetSize(core::Float2{300.0f, 200.0f});
     table->SetHeaderHeight(26.0f);
     root->AddChild(table.Get());
     table->SetModel(&proxy);
@@ -119,8 +127,8 @@ TEST_CASE("sorting-proxy: TableView header click wired to ToggleSort re-sorts th
     EventDispatcher* d = root->GetEventDispatcher();
 
     // Click the "Value" header (column 1, x in [150, 300)).
-    d->InjectMouseDown(core::Float2{ 200.0f, 13.0f }, MouseButton::Left);
-    d->InjectMouseUp(core::Float2{ 200.0f, 13.0f }, MouseButton::Left);
+    d->InjectMouseDown(core::Float2{200.0f, 13.0f}, MouseButton::Left);
+    d->InjectMouseUp(core::Float2{200.0f, 13.0f}, MouseButton::Left);
     CHECK(proxy.GetSortColumn() == 1);
     CHECK(proxy.GetSortOrder() == SortOrder::Ascending);
     CHECK(proxy.Data(MakeModelIndex(0, 1)).AsInt() == 1); // ascending: smallest first

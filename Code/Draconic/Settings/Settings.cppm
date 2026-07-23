@@ -65,7 +65,10 @@ export namespace draconic::settings
             }
         }
 
-        void OnChanged(Function<void(StringView)> cb) { m_onChanged = static_cast<Function<void(StringView)>&&>(cb); }
+        void OnChanged(Function<void(StringView)> cb)
+        {
+            m_onChanged = static_cast<Function<void(StringView)>&&>(cb);
+        }
 
         [[nodiscard]] usize SectionCount() const noexcept { return m_sections.Size(); }
 
@@ -74,8 +77,12 @@ export namespace draconic::settings
         [[nodiscard]] Status Save(IStream& out, SerializerFactory factory) const
         {
             UniquePtr<SerializerContext> ctx = factory(out, SerializeMode::Write);
-            if (!ctx || ctx->serializer == nullptr) { return Status{ ErrorCode::Internal }; }
-            auto& ar = *ctx->serializer;   // concrete Serializer (has IsOk/GetStatus, not on ISerializer)
+            if (!ctx || ctx->serializer == nullptr)
+            {
+                return Status{ErrorCode::Internal};
+            }
+            auto& ar =
+                *ctx->serializer; // concrete Serializer (has IsOk/GetStatus, not on ISerializer)
 
             u32 count = static_cast<u32>(m_sections.Size());
             ar.Key("sections");
@@ -87,17 +94,23 @@ export namespace draconic::settings
                 ar.BeginObject();
                 String ns(reinterpret_cast<const utf8char*>(t.namespaceName));
                 String name(reinterpret_cast<const utf8char*>(t.name));
-                ar.Key("typeNamespace"); ar.Text(ns);
-                ar.Key("typeName");      ar.Text(name);
+                ar.Key("typeNamespace");
+                ar.Text(ns);
+                ar.Key("typeName");
+                ar.Text(name);
                 BeginVersionedPayload(ar, t);
-                ar.Key("payload"); ar.BeginObject();
+                ar.Key("payload");
+                ar.BeginObject();
                 obj->Serialize(ar);
                 ar.EndObject();
                 EndVersionedPayload(ar);
                 ar.EndObject();
             }
             ar.EndArray();
-            if (!ar.IsOk()) { return ar.GetStatus(); }
+            if (!ar.IsOk())
+            {
+                return ar.GetStatus();
+            }
             ctx->Flush(out);
             return Status{};
         }
@@ -107,13 +120,17 @@ export namespace draconic::settings
         // section whose type is unknown to this build cannot be skipped on a positional backend, so
         // it aborts the load (unknown-section passthrough is a later phase - docs/design/settings.md
         // §3.4). Registered types must have called RegisterSerializable<T>().
-        [[nodiscard]] Status Load(IStream& in, SerializerFactory factory,
-                                  TypeRegistry& types = GlobalTypeRegistry(),
-                                  SerializableRegistry& serializables = GlobalSerializableRegistry())
+        [[nodiscard]] Status
+        Load(IStream& in, SerializerFactory factory, TypeRegistry& types = GlobalTypeRegistry(),
+             SerializableRegistry& serializables = GlobalSerializableRegistry())
         {
             UniquePtr<SerializerContext> ctx = factory(in, SerializeMode::Read);
-            if (!ctx || ctx->serializer == nullptr) { return Status{ ErrorCode::Internal }; }
-            auto& ar = *ctx->serializer;   // concrete Serializer (has IsOk/GetStatus, not on ISerializer)
+            if (!ctx || ctx->serializer == nullptr)
+            {
+                return Status{ErrorCode::Internal};
+            }
+            auto& ar =
+                *ctx->serializer; // concrete Serializer (has IsOk/GetStatus, not on ISerializer)
 
             u32 count = 0;
             ar.Key("sections");
@@ -123,30 +140,38 @@ export namespace draconic::settings
                 ar.BeginObject();
                 String ns;
                 String name;
-                ar.Key("typeNamespace"); ar.Text(ns);
-                ar.Key("typeName");      ar.Text(name);
-                if (!ar.IsOk()) { return ar.GetStatus(); }
+                ar.Key("typeNamespace");
+                ar.Text(ns);
+                ar.Key("typeName");
+                ar.Text(name);
+                if (!ar.IsOk())
+                {
+                    return ar.GetStatus();
+                }
 
-                const TypeInfo* type = types.FindByName(
-                    reinterpret_cast<const char*>(ns.CStr()),
-                    reinterpret_cast<const char*>(name.CStr()));
-                RefPtr<ISerializable> obj = (type != nullptr) ? serializables.Create(type->id)
-                                                              : RefPtr<ISerializable>{};
+                const TypeInfo* type = types.FindByName(reinterpret_cast<const char*>(ns.CStr()),
+                                                        reinterpret_cast<const char*>(name.CStr()));
+                RefPtr<ISerializable> obj =
+                    (type != nullptr) ? serializables.Create(type->id) : RefPtr<ISerializable>{};
                 if (obj.Get() == nullptr)
                 {
                     // Unknown/unregistered type: can't skip an unknown-shape payload on a positional
                     // backend, so abort (unknown-section passthrough is a later phase; §3.4). The
                     // caller surfaces the error.
-                    return Status{ ErrorCode::NotSupported };
+                    return Status{ErrorCode::NotSupported};
                 }
 
                 BeginVersionedPayload(ar, *type);
-                ar.Key("payload"); ar.BeginObject();
+                ar.Key("payload");
+                ar.BeginObject();
                 obj->Serialize(ar);
                 ar.EndObject();
                 EndVersionedPayload(ar);
                 ar.EndObject();
-                if (!ar.IsOk()) { return ar.GetStatus(); }
+                if (!ar.IsOk())
+                {
+                    return ar.GetStatus();
+                }
 
                 m_sections.InsertOrAssign(type->id, static_cast<RefPtr<ISerializable>&&>(obj));
             }

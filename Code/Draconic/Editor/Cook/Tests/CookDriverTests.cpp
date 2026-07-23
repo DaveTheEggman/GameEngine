@@ -52,20 +52,32 @@ namespace
         static inline u32 version = 1;
         static inline bool fail = false;
 
-        [[nodiscard]] const TypeInfo* AssetType() const override { return &CookWidgetAsset::StaticType(); }
-        [[nodiscard]] const TypeInfo* ProductType() const override { return &CookWidgetProduct::StaticType(); }
+        [[nodiscard]] const TypeInfo* AssetType() const override
+        {
+            return &CookWidgetAsset::StaticType();
+        }
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &CookWidgetProduct::StaticType();
+        }
         [[nodiscard]] u32 Version() const override { return version; }
 
         [[nodiscard]] Status Build(const Asset& asset, AssetBuildContext& ctx) override
         {
-            if (fail) { return Status{ ErrorCode::Unknown }; }
+            if (fail)
+            {
+                return Status{ErrorCode::Unknown};
+            }
             const CookWidgetAsset& wa = static_cast<const CookWidgetAsset&>(asset);
             CookWidgetProduct product;
             product.cookedValue = wa.quality;
             if (!wa.fileName.IsEmpty())
             {
                 Result<Array<byte>> bytes = ReadSourceBytes(ctx, wa.fileName.AsView());
-                if (!bytes.HasValue()) { return Status{ bytes.Error() }; }
+                if (!bytes.HasValue())
+                {
+                    return Status{bytes.Error()};
+                }
                 product.cookedValue += static_cast<i32>(bytes.Value().Size());
             }
             return ctx.output->WriteObject(product);
@@ -90,13 +102,26 @@ namespace
     class ChainBuilder final : public DefaultAssetBuilder
     {
     public:
-        [[nodiscard]] const TypeInfo* AssetType() const override { return &ChainAsset::StaticType(); }
-        [[nodiscard]] const TypeInfo* ProductType() const override { return &CookWidgetProduct::StaticType(); }
-        void ScanDependencies(const Asset& asset, AssetBuildContext&, AssetDependencies& out) override
+        [[nodiscard]] const TypeInfo* AssetType() const override
+        {
+            return &ChainAsset::StaticType();
+        }
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &CookWidgetProduct::StaticType();
+        }
+        void ScanDependencies(const Asset& asset, AssetBuildContext&,
+                              AssetDependencies& out) override
         {
             const ChainAsset& ca = static_cast<const ChainAsset&>(asset);
-            if (ca.readDep != Guid{}) { out.reads.PushBack(ca.readDep); }
-            if (ca.refDep != Guid{}) { out.references.PushBack(ca.refDep); }
+            if (ca.readDep != Guid{})
+            {
+                out.reads.PushBack(ca.readDep);
+            }
+            if (ca.refDep != Guid{})
+            {
+                out.references.PushBack(ca.refDep);
+            }
         }
         [[nodiscard]] Status Build(const Asset&, AssetBuildContext& ctx) override
         {
@@ -109,7 +134,10 @@ namespace
     void EnsureRegistered()
     {
         static bool done = false;
-        if (done) { return; }
+        if (done)
+        {
+            return;
+        }
         done = true;
         GlobalTypeRegistry().Register(CookWidgetAsset::StaticType());
         GlobalTypeRegistry().Register(CookWidgetProduct::StaticType());
@@ -133,19 +161,25 @@ namespace
             EnsureRegistered();
             root = String(name);
             RemoveTree();
-            for (StringView dir : { u8"Content", u8"Cooked", u8"Sources", u8"Cache" })
+            for (StringView dir : {u8"Content", u8"Cooked", u8"Sources", u8"Cache"})
             {
                 (void)CreateDirectory(root.AsView());
                 (void)CreateDirectory(PathJoin(root.AsView(), dir).AsView());
             }
-            contentFs = MakeUnique<vfs::NativeFileSystem>(DefaultAllocator(), PathJoin(root.AsView(), u8"Content").AsView());
-            cookedFs = MakeUnique<vfs::NativeFileSystem>(DefaultAllocator(), PathJoin(root.AsView(), u8"Cooked").AsView());
-            sourcesFs = MakeUnique<vfs::NativeFileSystem>(DefaultAllocator(), PathJoin(root.AsView(), u8"Sources").AsView());
-            cacheFs = MakeUnique<vfs::NativeFileSystem>(DefaultAllocator(), PathJoin(root.AsView(), u8"Cache").AsView());
+            contentFs = MakeUnique<vfs::NativeFileSystem>(
+                DefaultAllocator(), PathJoin(root.AsView(), u8"Content").AsView());
+            cookedFs = MakeUnique<vfs::NativeFileSystem>(
+                DefaultAllocator(), PathJoin(root.AsView(), u8"Cooked").AsView());
+            sourcesFs = MakeUnique<vfs::NativeFileSystem>(
+                DefaultAllocator(), PathJoin(root.AsView(), u8"Sources").AsView());
+            cacheFs = MakeUnique<vfs::NativeFileSystem>(
+                DefaultAllocator(), PathJoin(root.AsView(), u8"Cache").AsView());
             OpenDbs();
 
-            builders.Register(UniquePtr<IAssetBuilder>(DefaultAllocator().New<CookWidgetBuilder>(), DefaultAllocator()));
-            builders.Register(UniquePtr<IAssetBuilder>(DefaultAllocator().New<ChainBuilder>(), DefaultAllocator()));
+            builders.Register(UniquePtr<IAssetBuilder>(DefaultAllocator().New<CookWidgetBuilder>(),
+                                                       DefaultAllocator()));
+            builders.Register(UniquePtr<IAssetBuilder>(DefaultAllocator().New<ChainBuilder>(),
+                                                       DefaultAllocator()));
             CookWidgetBuilder::version = 1;
             CookWidgetBuilder::fail = false;
         }
@@ -154,14 +188,19 @@ namespace
 
         void OpenDbs()
         {
-            sourceDb = MakeUnique<content::ContentDatabase>(DefaultAllocator(),
-                *contentFs, BinarySerializerFactory(), u8".xasset");
-            cookedDb = MakeUnique<content::ContentDatabase>(DefaultAllocator(),
-                *cookedFs, BinarySerializerFactory(), u8".rasset");
+            sourceDb = MakeUnique<content::ContentDatabase>(DefaultAllocator(), *contentFs,
+                                                            BinarySerializerFactory(), u8".xasset");
+            cookedDb = MakeUnique<content::ContentDatabase>(DefaultAllocator(), *cookedFs,
+                                                            BinarySerializerFactory(), u8".rasset");
         }
 
         // Re-open both DBs from disk (a fresh editor session).
-        void Reopen() { sourceDb.Reset(); cookedDb.Reset(); OpenDbs(); }
+        void Reopen()
+        {
+            sourceDb.Reset();
+            cookedDb.Reset();
+            OpenDbs();
+        }
 
         [[nodiscard]] CookDriver MakeDriver()
         {
@@ -170,7 +209,8 @@ namespace
 
         Guid AddWidget(StringView name, i32 quality, StringView file = {})
         {
-            content::Instance* inst = sourceDb->RootGroup()->CreateInstance(name, CookWidgetAsset::StaticType());
+            content::Instance* inst =
+                sourceDb->RootGroup()->CreateInstance(name, CookWidgetAsset::StaticType());
             REQUIRE(inst != nullptr);
             CookWidgetAsset asset;
             asset.quality = quality;
@@ -181,8 +221,10 @@ namespace
 
         void WriteSourceFile(StringView name, StringView text)
         {
-            REQUIRE(sourcesFs->AsWritable()->Save(name,
-                Span<const byte>(reinterpret_cast<const byte*>(text.Data()), text.Size())).IsOk());
+            REQUIRE(sourcesFs->AsWritable()
+                        ->Save(name, Span<const byte>(reinterpret_cast<const byte*>(text.Data()),
+                                                      text.Size()))
+                        .IsOk());
         }
 
         [[nodiscard]] i32 CookedValue(const Guid& id)
@@ -195,7 +237,7 @@ namespace
         void RemoveTree()
         {
             // Best-effort recursive cleanup through the native mounts.
-            for (StringView dir : { u8"Content", u8"Cooked", u8"Sources", u8"Cache" })
+            for (StringView dir : {u8"Content", u8"Cooked", u8"Sources", u8"Cache"})
             {
                 vfs::NativeFileSystem fs(PathJoin(root.AsView(), dir).AsView());
                 Array<vfs::DirEntry> entries;
@@ -203,7 +245,10 @@ namespace
                 {
                     for (const vfs::DirEntry& e : entries)
                     {
-                        if (!e.isDirectory) { (void)fs.AsWritable()->Delete(e.name.AsView()); }
+                        if (!e.isDirectory)
+                        {
+                            (void)fs.AsWritable()->Delete(e.name.AsView());
+                        }
                     }
                 }
                 (void)RemoveDirectory(PathJoin(root.AsView(), dir).AsView());
@@ -212,7 +257,11 @@ namespace
         }
     };
 
-    usize PlanDirty(CookDriver& driver) { CookPlan p = driver.Plan(); return p.dirty.Size(); }
+    usize PlanDirty(CookDriver& driver)
+    {
+        CookPlan p = driver.Plan();
+        return p.dirty.Size();
+    }
 }
 
 DRACONIC_DEFINE_OBJECT(CookWidgetAsset, "draconic::editor::test")
@@ -237,7 +286,11 @@ TEST_CASE("cook: full cook then clean; products carry the source guid + product 
     // The hot-reload handoff lists exactly the rebuilt products.
     REQUIRE(stats.cookedProducts.Size() == 2u);
     bool sawA = false, sawB = false;
-    for (const Guid& g : stats.cookedProducts) { sawA = sawA || g == a; sawB = sawB || g == b; }
+    for (const Guid& g : stats.cookedProducts)
+    {
+        sawA = sawA || g == a;
+        sawB = sawB || g == b;
+    }
     CHECK(sawA);
     CHECK(sawB);
 
@@ -245,7 +298,7 @@ TEST_CASE("cook: full cook then clean; products carry the source guid + product 
     content::Instance* productA = fx.cookedDb->GetInstance(a);
     REQUIRE(productA != nullptr);
     CHECK(productA->TypeName() == StringView(u8"CookWidgetProduct"));
-    CHECK(fx.CookedValue(a) == 15);   // quality 10 + 5 file bytes
+    CHECK(fx.CookedValue(a) == 15); // quality 10 + 5 file bytes
     CHECK(fx.CookedValue(b) == 20);
 
     // Everything clean on the next plan.
@@ -302,14 +355,16 @@ TEST_CASE("cook: read deps chain hashes + order; references never dirty their co
     // Material READS the texture; Scene REFERENCES the texture.
     Guid material, scene;
     {
-        content::Instance* inst = fx.sourceDb->RootGroup()->CreateInstance(u8"Material", ChainAsset::StaticType());
+        content::Instance* inst =
+            fx.sourceDb->RootGroup()->CreateInstance(u8"Material", ChainAsset::StaticType());
         ChainAsset asset;
         asset.readDep = texture;
         REQUIRE(inst->WriteObject(asset).IsOk());
         material = inst->Id();
     }
     {
-        content::Instance* inst = fx.sourceDb->RootGroup()->CreateInstance(u8"Scene", ChainAsset::StaticType());
+        content::Instance* inst =
+            fx.sourceDb->RootGroup()->CreateInstance(u8"Scene", ChainAsset::StaticType());
         ChainAsset asset;
         asset.refDep = texture;
         REQUIRE(inst->WriteObject(asset).IsOk());
@@ -324,8 +379,14 @@ TEST_CASE("cook: read deps chain hashes + order; references never dirty their co
     usize texIndex = 99, matIndex = 99;
     for (usize i = 0; i < plan.dirty.Size(); ++i)
     {
-        if (plan.dirty[i].source == texture) { texIndex = i; }
-        if (plan.dirty[i].source == material) { matIndex = i; }
+        if (plan.dirty[i].source == texture)
+        {
+            texIndex = i;
+        }
+        if (plan.dirty[i].source == material)
+        {
+            matIndex = i;
+        }
     }
     CHECK(texIndex < matIndex);
     (void)driver.Execute(plan);
@@ -336,7 +397,10 @@ TEST_CASE("cook: read deps chain hashes + order; references never dirty their co
     CookPlan p = driver.Plan();
     REQUIRE(p.dirty.Size() == 2u);
     bool sawScene = false;
-    for (const CookItem& item : p.dirty) { sawScene = sawScene || item.source == scene; }
+    for (const CookItem& item : p.dirty)
+    {
+        sawScene = sawScene || item.source == scene;
+    }
     CHECK_FALSE(sawScene);
 }
 
@@ -393,7 +457,7 @@ TEST_CASE("cook: pipeline db persists across sessions; corruption degrades to a 
     }
 
     // Corrupt cook.db: everything re-cooks, nothing crashes, output stays correct.
-    const byte garbage[7] = { byte{1}, byte{2}, byte{3}, byte{4}, byte{5}, byte{6}, byte{7} };
+    const byte garbage[7] = {byte{1}, byte{2}, byte{3}, byte{4}, byte{5}, byte{6}, byte{7}};
     REQUIRE(fx.cacheFs->AsWritable()->Save(u8"cook.db", Span<const byte>(garbage, 7)).IsOk());
     {
         CookDriver driver = fx.MakeDriver();
@@ -422,8 +486,8 @@ TEST_CASE("cook: a wide dependency level cooks in parallel on the JobSystem")
     }
 
     JobSystem jobs;
-    CookDriver driver(*fx.sourceDb, *fx.cookedDb, fx.builders, fx.sourcesFs.Get(),
-                      fx.cacheFs.Get(), &jobs);
+    CookDriver driver(*fx.sourceDb, *fx.cookedDb, fx.builders, fx.sourcesFs.Get(), fx.cacheFs.Get(),
+                      &jobs);
 
     CookPlan plan = driver.Plan();
     REQUIRE(plan.dirty.Size() == static_cast<usize>(kAssets));

@@ -37,12 +37,12 @@ export namespace draconic::shaders
     {
         DRACONIC_OBJECT(ShaderAsset, draconic::editor::Asset)
     public:
-        String name;           // logical shader name (how materials reference it)
-        String fragmentFile;   // fragment-stage HLSL file (vertex = fileName)
+        String name;         // logical shader name (how materials reference it)
+        String fragmentFile; // fragment-stage HLSL file (vertex = fileName)
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::editor::Asset::Serialize(ar);   // fileName (vertex source)
+            draconic::editor::Asset::Serialize(ar); // fileName (vertex source)
             draconic::core::Serialize(ar, "name", name);
             draconic::core::Serialize(ar, "fragmentFile", fragmentFile);
         }
@@ -52,30 +52,51 @@ export namespace draconic::shaders
     class ShaderAssetBuilder final : public draconic::editor::DefaultAssetBuilder
     {
     public:
-        [[nodiscard]] const TypeInfo* AssetType() const override { return &ShaderAsset::StaticType(); }
-        [[nodiscard]] const TypeInfo* ProductType() const override { return &ShaderSource::StaticType(); }
+        [[nodiscard]] const TypeInfo* AssetType() const override
+        {
+            return &ShaderAsset::StaticType();
+        }
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &ShaderSource::StaticType();
+        }
 
         // The fragment file is a second source input (vertex = the implicit fileName): editing
         // it must dirty this shader's recipe hash.
-        void ScanDependencies(const draconic::editor::Asset& asset, draconic::editor::AssetBuildContext&,
+        void ScanDependencies(const draconic::editor::Asset& asset,
+                              draconic::editor::AssetBuildContext&,
                               draconic::editor::AssetDependencies& out) override
         {
             const ShaderAsset& sa = static_cast<const ShaderAsset&>(asset);
-            if (!sa.fragmentFile.IsEmpty()) { out.files.PushBack(String(sa.fragmentFile.AsView())); }
+            if (!sa.fragmentFile.IsEmpty())
+            {
+                out.files.PushBack(String(sa.fragmentFile.AsView()));
+            }
         }
 
-        [[nodiscard]] Status Build(const draconic::editor::Asset& asset, draconic::editor::AssetBuildContext& ctx) override
+        [[nodiscard]] Status Build(const draconic::editor::Asset& asset,
+                                   draconic::editor::AssetBuildContext& ctx) override
         {
-            const ShaderAsset& sa = static_cast<const ShaderAsset&>(asset);   // guarded by AssetType()
-            if (ctx.output == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
+            const ShaderAsset& sa =
+                static_cast<const ShaderAsset&>(asset); // guarded by AssetType()
+            if (ctx.output == nullptr)
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
 
             ShaderSource source;
             source.name = sa.name;
 
             Status read = ReadSourceText(ctx, sa.fileName.AsView(), source.vertexSource);
-            if (!read.IsOk()) { return read; }
+            if (!read.IsOk())
+            {
+                return read;
+            }
             read = ReadSourceText(ctx, sa.fragmentFile.AsView(), source.fragmentSource);
-            if (!read.IsOk()) { return read; }
+            if (!read.IsOk())
+            {
+                return read;
+            }
 
             return ctx.output->WriteObject(source);
         }
@@ -85,7 +106,8 @@ export namespace draconic::shaders
     class ShaderImporter
     {
     public:
-        static void Import(StringView name, StringView vertexFile, StringView fragmentFile, ShaderAsset& outAsset)
+        static void Import(StringView name, StringView vertexFile, StringView fragmentFile,
+                           ShaderAsset& outAsset)
         {
             outAsset.name = String(name);
             outAsset.fileName = String(vertexFile);

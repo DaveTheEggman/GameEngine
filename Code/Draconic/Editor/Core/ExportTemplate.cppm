@@ -9,7 +9,7 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
-#include <filesystem>   // recursive dir copy when importing a template bundle
+#include <filesystem> // recursive dir copy when importing a template bundle
 
 export module draconic.editor.core:export_template;
 
@@ -17,7 +17,7 @@ import draconic.core;
 import draconic.vfs;
 import draconic.xml.serialization;
 import draconic.project;
-import :export_preset;   // ExportPreset, ExportPresetSet
+import :export_preset; // ExportPreset, ExportPresetSet
 
 using namespace draconic::core;
 
@@ -34,19 +34,21 @@ export namespace draconic::editor
     {
         DRACONIC_OBJECT(ExportTemplate, ISerializable)
     public:
-        String id;              // "raptor-win64-release-0.1.0" (unique within the templates root)
-        String name;            // "Windows Desktop Release 0.1.0"
-        String platform;        // "Win64" / "Linux64"
-        String config;          // "Debug" / "Release" / "RelWithDebInfo" (identity); empty read => "Release"
-        String compiler;        // "MSVC" / "Clang" / "GCC" - metadata only, NOT a selector
-        String engineVersion;   // engine this was built against (soft-matched; warn on mismatch)
-        String playerBinary;    // player exe filename within the template dir
-        Array<String> sidecars; // required runtime files (relative to the template dir), always staged
-        Array<String> symbols;  // optional symbol files (PDB/DWARF); staged only when the preset opts in
+        String id;       // "raptor-win64-release-0.1.0" (unique within the templates root)
+        String name;     // "Windows Desktop Release 0.1.0"
+        String platform; // "Win64" / "Linux64"
+        String config; // "Debug" / "Release" / "RelWithDebInfo" (identity); empty read => "Release"
+        String compiler;      // "MSVC" / "Clang" / "GCC" - metadata only, NOT a selector
+        String engineVersion; // engine this was built against (soft-matched; warn on mismatch)
+        String playerBinary;  // player exe filename within the template dir
+        Array<String>
+            sidecars; // required runtime files (relative to the template dir), always staged
+        Array<String>
+            symbols; // optional symbol files (PDB/DWARF); staged only when the preset opts in
         String notes;
 
-        String directory;       // NOT serialized: absolute dir the bundle lives in (host: the Bin dir)
-        bool isHost = false;    // NOT serialized: synthesized host template vs imported from disk
+        String directory;    // NOT serialized: absolute dir the bundle lives in (host: the Bin dir)
+        bool isHost = false; // NOT serialized: synthesized host template vs imported from disk
 
         // The config for identity/resolution, treating an unstamped (v1) template as Release.
         [[nodiscard]] StringView EffectiveConfig() const noexcept
@@ -74,7 +76,7 @@ export namespace draconic::editor
             }
             if (ar.Mode() == SerializeMode::Read && config.IsEmpty())
             {
-                config = String(u8"Release");   // back-compat: absent config => Release
+                config = String(u8"Release"); // back-compat: absent config => Release
             }
         }
     };
@@ -84,10 +86,16 @@ export namespace draconic::editor
                                                      StringView fileName = kTemplateManifestFile)
     {
         UniquePtr<IStream> stream = root.Open(fileName, FileMode::Read);
-        if (!stream) { return Status{ ErrorCode::NotFound }; }
+        if (!stream)
+        {
+            return Status{ErrorCode::NotFound};
+        }
         SerializerFactory factory = draconic::xml::XmlSerializerFactory();
         UniquePtr<SerializerContext> ctx = factory(*stream, SerializeMode::Read);
-        if (!ctx || ctx->serializer == nullptr) { return Status{ ErrorCode::Internal }; }
+        if (!ctx || ctx->serializer == nullptr)
+        {
+            return Status{ErrorCode::Internal};
+        }
         BeginVersionedPayload(*ctx->serializer, ExportTemplate::StaticType());
         out.Serialize(*ctx->serializer);
         EndVersionedPayload(*ctx->serializer);
@@ -95,17 +103,24 @@ export namespace draconic::editor
     }
 
     // Write a template.xml to `root`.
-    [[nodiscard]] inline Status SaveTemplateManifest(vfs::IWritableFileSystem& writable, ExportTemplate& tmpl,
+    [[nodiscard]] inline Status SaveTemplateManifest(vfs::IWritableFileSystem& writable,
+                                                     ExportTemplate& tmpl,
                                                      StringView fileName = kTemplateManifestFile)
     {
         MemoryStream buffer;
         SerializerFactory factory = draconic::xml::XmlSerializerFactory();
         UniquePtr<SerializerContext> ctx = factory(buffer, SerializeMode::Write);
-        if (!ctx || ctx->serializer == nullptr) { return Status{ ErrorCode::Internal }; }
+        if (!ctx || ctx->serializer == nullptr)
+        {
+            return Status{ErrorCode::Internal};
+        }
         BeginVersionedPayload(*ctx->serializer, ExportTemplate::StaticType());
         tmpl.Serialize(*ctx->serializer);
         EndVersionedPayload(*ctx->serializer);
-        if (!ctx->serializer->IsOk()) { return ctx->serializer->GetStatus(); }
+        if (!ctx->serializer->IsOk())
+        {
+            return ctx->serializer->GetStatus();
+        }
         ctx->Flush(buffer);
         return writable.Save(fileName, buffer.Bytes());
     }
@@ -121,23 +136,48 @@ export namespace draconic::editor
     inline void ReadRuntimeLibs(vfs::IFileSystem& fs, StringView fileName, Array<String>& out)
     {
         UniquePtr<IStream> stream = fs.Open(fileName, FileMode::Read);
-        if (!stream) { return; }
+        if (!stream)
+        {
+            return;
+        }
         const usize size = static_cast<usize>(stream->Size());
-        if (size == 0) { return; }
+        if (size == 0)
+        {
+            return;
+        }
         Array<byte> bytes;
         bytes.Resize(size);
-        if (stream->Read(bytes.Data(), size) != size) { return; }
+        if (stream->Read(bytes.Data(), size) != size)
+        {
+            return;
+        }
 
-        const auto isSpace = [](byte b) { return b == static_cast<byte>(' ') || b == static_cast<byte>('\t')
-                                              || b == static_cast<byte>('\r'); };
+        const auto isSpace = [](byte b)
+        {
+            return b == static_cast<byte>(' ') || b == static_cast<byte>('\t') ||
+                   b == static_cast<byte>('\r');
+        };
         usize start = 0;
         for (usize i = 0; i <= size; ++i)
         {
-            if (i != size && bytes[i] != static_cast<byte>('\n')) { continue; }
+            if (i != size && bytes[i] != static_cast<byte>('\n'))
+            {
+                continue;
+            }
             usize s = start, e = i;
-            while (s < e && isSpace(bytes[s])) { ++s; }
-            while (e > s && isSpace(bytes[e - 1])) { --e; }
-            if (e > s) { out.PushBack(String(StringView(reinterpret_cast<const utf8char*>(bytes.Data() + s), e - s))); }
+            while (s < e && isSpace(bytes[s]))
+            {
+                ++s;
+            }
+            while (e > s && isSpace(bytes[e - 1]))
+            {
+                --e;
+            }
+            if (e > s)
+            {
+                out.PushBack(
+                    String(StringView(reinterpret_cast<const utf8char*>(bytes.Data() + s), e - s)));
+            }
             start = i + 1;
         }
     }
@@ -150,7 +190,10 @@ export namespace draconic::editor
         for (usize i = 0; i < out.Size(); ++i)
         {
             utf8char* d = const_cast<utf8char*>(out.Data());
-            if (d[i] >= utf8char('A') && d[i] <= utf8char('Z')) { d[i] = static_cast<utf8char>(d[i] - 'A' + 'a'); }
+            if (d[i] >= utf8char('A') && d[i] <= utf8char('Z'))
+            {
+                d[i] = static_cast<utf8char>(d[i] - 'A' + 'a');
+            }
         }
         return out;
     }
@@ -163,26 +206,53 @@ export namespace draconic::editor
     {
         StringView p = dir;
         const auto isSep = [](utf8char c) { return c == utf8char('/') || c == utf8char('\\'); };
-        while (!p.IsEmpty() && isSep(p[p.Size() - 1])) { p = p.SubStr(0, p.Size() - 1); }
-        if (p.IsEmpty()) { return; }
+        while (!p.IsEmpty() && isSep(p[p.Size() - 1]))
+        {
+            p = p.SubStr(0, p.Size() - 1);
+        }
+        if (p.IsEmpty())
+        {
+            return;
+        }
 
         // Split off the last component (the "<Platform>-<Compiler>" leaf).
         usize leafStart = 0;
-        for (usize i = 0; i < p.Size(); ++i) { if (isSep(p[i])) { leafStart = i + 1; } }
+        for (usize i = 0; i < p.Size(); ++i)
+        {
+            if (isSep(p[i]))
+            {
+                leafStart = i + 1;
+            }
+        }
         const StringView leaf = p.SubStr(leafStart, p.Size() - leafStart);
         const StringView parent = (leafStart > 0) ? p.SubStr(0, leafStart - 1) : StringView{};
 
         // compiler = leaf suffix after the last '-' (strip a trailing "-ASAN"-style suffix's owner:
         // we only take the final '-' segment, matching "<Platform>-<Compiler>").
         usize dash = leaf.Size();
-        for (usize i = 0; i < leaf.Size(); ++i) { if (leaf[i] == utf8char('-')) { dash = i; } }
-        if (dash < leaf.Size()) { outCompiler = String(leaf.SubStr(dash + 1, leaf.Size() - dash - 1)); }
+        for (usize i = 0; i < leaf.Size(); ++i)
+        {
+            if (leaf[i] == utf8char('-'))
+            {
+                dash = i;
+            }
+        }
+        if (dash < leaf.Size())
+        {
+            outCompiler = String(leaf.SubStr(dash + 1, leaf.Size() - dash - 1));
+        }
 
         // config = the parent dir's last component.
         if (!parent.IsEmpty())
         {
             usize cfgStart = 0;
-            for (usize i = 0; i < parent.Size(); ++i) { if (isSep(parent[i])) { cfgStart = i + 1; } }
+            for (usize i = 0; i < parent.Size(); ++i)
+            {
+                if (isSep(parent[i]))
+                {
+                    cfgStart = i + 1;
+                }
+            }
             outConfig = String(parent.SubStr(cfgStart, parent.Size() - cfgStart));
         }
     }
@@ -192,16 +262,27 @@ export namespace draconic::editor
     // "<player>.runtime-libs" in that directory (config-driven; empty on rpath platforms). The host
     // template carries the config/compiler that built the running tool (export-templates.md): a Debug
     // editor synthesizes a Debug host template - so its id is "host-<platform>-<config>".
-    inline void SynthesizeHostTemplate(StringView hostToolDir, vfs::IFileSystem* hostToolFs, ExportTemplate& out)
+    inline void SynthesizeHostTemplate(StringView hostToolDir, vfs::IFileSystem* hostToolFs,
+                                       ExportTemplate& out)
     {
         out.platform = String(GetHostPlatformName());
         out.config = String(GetBuildConfigName());
-        if (out.config.IsEmpty()) { out.config = String(u8"Release"); }
+        if (out.config.IsEmpty())
+        {
+            out.config = String(u8"Release");
+        }
         out.compiler = String(GetBuildCompilerName());
-        out.id = String(u8"host-"); out.id += out.platform; out.id += u8"-"; out.id += out.config;
-        out.name = out.platform; out.name += u8" "; out.name += out.config; out.name += u8" (host build)";
+        out.id = String(u8"host-");
+        out.id += out.platform;
+        out.id += u8"-";
+        out.id += out.config;
+        out.name = out.platform;
+        out.name += u8" ";
+        out.name += out.config;
+        out.name += u8" (host build)";
         out.engineVersion = String(draconic::project::kEngineVersionString);
-        out.playerBinary = GetExecutableName(kPlayerBaseName);   // host-based (this template is the host)
+        out.playerBinary =
+            GetExecutableName(kPlayerBaseName); // host-based (this template is the host)
         out.directory = String(hostToolDir);
         out.isHost = true;
         if (hostToolFs != nullptr)
@@ -224,7 +305,10 @@ export namespace draconic::editor
     // its setting), so both resolve identically.
     [[nodiscard]] inline String ResolveTemplatesRoot(StringView overrideRoot = {})
     {
-        if (!overrideRoot.IsEmpty()) { return String(overrideRoot); }
+        if (!overrideRoot.IsEmpty())
+        {
+            return String(overrideRoot);
+        }
         if (Optional<String> env = GetEnvironmentVariable(u8"DRACONIC_TEMPLATES_DIR");
             env.HasValue() && !env->IsEmpty())
         {
@@ -237,13 +321,14 @@ export namespace draconic::editor
     // `templatesRoot` under its manifest id, so the registry picks it up. Recursive copy (overwrites
     // an existing install of the same id). `outId` receives the imported id. NotFound if the source has
     // no valid template.xml. Shared by the RaptorExport CLI and the editor's Import Template action.
-    [[nodiscard]] inline Status ImportTemplate(StringView srcDir, StringView templatesRoot, String* outId = nullptr)
+    [[nodiscard]] inline Status ImportTemplate(StringView srcDir, StringView templatesRoot,
+                                               String* outId = nullptr)
     {
         vfs::NativeFileSystem srcFs(srcDir);
         ExportTemplate manifest;
         if (!LoadTemplateManifest(srcFs, manifest).IsOk() || manifest.id.IsEmpty())
         {
-            return Status{ ErrorCode::NotFound };
+            return Status{ErrorCode::NotFound};
         }
 
         namespace fs = std::filesystem;
@@ -255,8 +340,14 @@ export namespace draconic::editor
         fs::copy(fs::path(reinterpret_cast<const char*>(srcCopy.CStr())),
                  fs::path(reinterpret_cast<const char*>(dst.CStr())),
                  fs::copy_options::recursive | fs::copy_options::overwrite_existing, ec);
-        if (ec) { return Status{ ErrorCode::Internal }; }
-        if (outId != nullptr) { *outId = manifest.id; }
+        if (ec)
+        {
+            return Status{ErrorCode::Internal};
+        }
+        if (outId != nullptr)
+        {
+            *outId = manifest.id;
+        }
         return Status{};
     }
 
@@ -266,13 +357,21 @@ export namespace draconic::editor
     // must not offer Remove for it. Empty id / a missing dir is a soft error, not a crash.
     [[nodiscard]] inline Status RemoveTemplate(StringView templatesRoot, StringView templateId)
     {
-        if (templateId.IsEmpty()) { return Status{ ErrorCode::InvalidArgument }; }
+        if (templateId.IsEmpty())
+        {
+            return Status{ErrorCode::InvalidArgument};
+        }
         const String dir = PathJoin(templatesRoot, templateId);
         namespace fs = std::filesystem;
         std::error_code ec;
-        const auto removed = fs::remove_all(fs::path(reinterpret_cast<const char*>(dir.CStr())), ec);
-        if (ec) { return Status{ ErrorCode::Internal }; }
-        return (removed > 0) ? Status{} : Status{ ErrorCode::NotFound };   // nothing deleted => not there
+        const auto removed =
+            fs::remove_all(fs::path(reinterpret_cast<const char*>(dir.CStr())), ec);
+        if (ec)
+        {
+            return Status{ErrorCode::Internal};
+        }
+        return (removed > 0) ? Status{}
+                             : Status{ErrorCode::NotFound}; // nothing deleted => not there
     }
 
     // Does a template's engineVersion match this running build's? Empty (an unstamped/hand-written
@@ -280,15 +379,15 @@ export namespace draconic::editor
     // editor's templates-manager surfaces the same "!" note only when a stamped version differs.
     [[nodiscard]] inline bool TemplateEngineMatches(const ExportTemplate& tmpl)
     {
-        return tmpl.engineVersion.IsEmpty()
-            || tmpl.engineVersion.AsView() == draconic::project::kEngineVersionString;
+        return tmpl.engineVersion.IsEmpty() ||
+               tmpl.engineVersion.AsView() == draconic::project::kEngineVersionString;
     }
 
     // Where CreateTemplate writes the bundle it builds.
     enum class TemplateOutput
     {
-        Install,       // into <destRoot>/<id> under the templates root (usable immediately)
-        ExportFolder,  // directly into <destRoot> (a self-contained bundle to zip/distribute)
+        Install,      // into <destRoot>/<id> under the templates root (usable immediately)
+        ExportFolder, // directly into <destRoot> (a self-contained bundle to zip/distribute)
     };
 
     // Synthesize + materialize a template from a "Bin/<Config>/<Platform>-<Compiler>" build dir
@@ -301,60 +400,92 @@ export namespace draconic::editor
     // registry picks it up next Refresh); ExportFolder writes straight into <destRoot> (zip that folder
     // to distribute, then Import it elsewhere). `outId` / `outDir` receive the id and the bundle dir.
     // NotFound if the player binary is missing from `configDir`.
-    [[nodiscard]] inline Status CreateTemplate(StringView configDir, StringView destRoot, TemplateOutput mode,
-                                               String* outId = nullptr, String* outDir = nullptr)
+    [[nodiscard]] inline Status CreateTemplate(StringView configDir, StringView destRoot,
+                                               TemplateOutput mode, String* outId = nullptr,
+                                               String* outDir = nullptr)
     {
         vfs::NativeFileSystem configFs(configDir);
 
         ExportTemplate tmpl;
-        SynthesizeHostTemplate(configDir, &configFs, tmpl);   // platform + player + sidecars + engineVersion
+        SynthesizeHostTemplate(configDir, &configFs,
+                               tmpl); // platform + player + sidecars + engineVersion
         tmpl.isHost = false;
 
         // config/compiler come from WHICH Bin/<Config>/<Platform>-<Compiler> dir is being packaged
         // (not the running tool's), so a Debug editor can still create a Release template.
         String parsedConfig, parsedCompiler;
         DeriveConfigAndCompiler(configDir, parsedConfig, parsedCompiler);
-        if (!parsedConfig.IsEmpty()) { tmpl.config = parsedConfig; }
-        if (tmpl.config.IsEmpty()) { tmpl.config = String(u8"Release"); }
-        if (!parsedCompiler.IsEmpty()) { tmpl.compiler = parsedCompiler; }
+        if (!parsedConfig.IsEmpty())
+        {
+            tmpl.config = parsedConfig;
+        }
+        if (tmpl.config.IsEmpty())
+        {
+            tmpl.config = String(u8"Release");
+        }
+        if (!parsedCompiler.IsEmpty())
+        {
+            tmpl.compiler = parsedCompiler;
+        }
 
         // Canonical id + name (lowercased platform/config for a stable, case-insensitive id).
         tmpl.id = String(u8"raptor-");
         tmpl.id += AsciiLower(tmpl.platform.AsView());
-        tmpl.id += u8"-"; tmpl.id += AsciiLower(tmpl.config.AsView());
-        tmpl.id += u8"-"; tmpl.id += tmpl.engineVersion;
-        tmpl.name = tmpl.platform; tmpl.name += u8" "; tmpl.name += tmpl.config;
-        tmpl.name += u8" "; tmpl.name += tmpl.engineVersion;
+        tmpl.id += u8"-";
+        tmpl.id += AsciiLower(tmpl.config.AsView());
+        tmpl.id += u8"-";
+        tmpl.id += tmpl.engineVersion;
+        tmpl.name = tmpl.platform;
+        tmpl.name += u8" ";
+        tmpl.name += tmpl.config;
+        tmpl.name += u8" ";
+        tmpl.name += tmpl.engineVersion;
 
         // The player must exist in the source dir, or there's nothing to package.
-        if (!configFs.Exists(tmpl.playerBinary.AsView())) { return Status{ ErrorCode::NotFound }; }
+        if (!configFs.Exists(tmpl.playerBinary.AsView()))
+        {
+            return Status{ErrorCode::NotFound};
+        }
 
         const String bundleDir = (mode == TemplateOutput::Install)
-            ? PathJoin(destRoot, tmpl.id.AsView()) : String(destRoot);
-        if (!CreateDirectories(bundleDir.AsView())) { return Status{ ErrorCode::NotSupported }; }
+                                     ? PathJoin(destRoot, tmpl.id.AsView())
+                                     : String(destRoot);
+        if (!CreateDirectories(bundleDir.AsView()))
+        {
+            return Status{ErrorCode::NotSupported};
+        }
 
         // Copy the player, then each required sidecar (a missing sidecar is fatal - the bundle would be
         // incomplete; unlike export-time staging where a stale list only warns).
         if (!FileCopyPreserving(PathJoin(configDir, tmpl.playerBinary.AsView()).AsView(),
                                 PathJoin(bundleDir.AsView(), tmpl.playerBinary.AsView()).AsView()))
         {
-            return Status{ ErrorCode::Internal };
+            return Status{ErrorCode::Internal};
         }
         for (const String& sidecar : tmpl.sidecars)
         {
             if (!FileCopyPreserving(PathJoin(configDir, sidecar.AsView()).AsView(),
                                     PathJoin(bundleDir.AsView(), sidecar.AsView()).AsView()))
             {
-                return Status{ ErrorCode::Internal };
+                return Status{ErrorCode::Internal};
             }
         }
 
         tmpl.directory = bundleDir;
         vfs::NativeFileSystem bundleFs(bundleDir.AsView());
-        if (Status s = SaveTemplateManifest(*bundleFs.AsWritable(), tmpl); !s.IsOk()) { return s; }
+        if (Status s = SaveTemplateManifest(*bundleFs.AsWritable(), tmpl); !s.IsOk())
+        {
+            return s;
+        }
 
-        if (outId != nullptr) { *outId = tmpl.id; }
-        if (outDir != nullptr) { *outDir = bundleDir; }
+        if (outId != nullptr)
+        {
+            *outId = tmpl.id;
+        }
+        if (outDir != nullptr)
+        {
+            *outDir = bundleDir;
+        }
         return Status{};
     }
 
@@ -382,14 +513,21 @@ export namespace draconic::editor
                     {
                         for (const vfs::DirEntry& entry : entries)
                         {
-                            if (!entry.isDirectory) { continue; }
-                            const String manifestPath = PathJoin(entry.name.AsView(), kTemplateManifestFile);
-                            UniquePtr<ExportTemplate> tmpl = MakeUnique<ExportTemplate>(DefaultAllocator());
-                            if (LoadTemplateManifest(*templatesRootFs, *tmpl, manifestPath.AsView()).IsOk())
+                            if (!entry.isDirectory)
+                            {
+                                continue;
+                            }
+                            const String manifestPath =
+                                PathJoin(entry.name.AsView(), kTemplateManifestFile);
+                            UniquePtr<ExportTemplate> tmpl =
+                                MakeUnique<ExportTemplate>(DefaultAllocator());
+                            if (LoadTemplateManifest(*templatesRootFs, *tmpl, manifestPath.AsView())
+                                    .IsOk())
                             {
                                 tmpl->directory = PathJoin(templatesRootPath, entry.name.AsView());
                                 tmpl->isHost = false;
-                                m_templates.PushBack(static_cast<UniquePtr<ExportTemplate>&&>(tmpl));
+                                m_templates.PushBack(
+                                    static_cast<UniquePtr<ExportTemplate>&&>(tmpl));
                             }
                         }
                     }
@@ -408,7 +546,10 @@ export namespace draconic::editor
         {
             for (const UniquePtr<ExportTemplate>& t : m_templates)
             {
-                if (t->id.AsView() == id) { return t.Get(); }
+                if (t->id.AsView() == id)
+                {
+                    return t.Get();
+                }
             }
             return nullptr;
         }
@@ -427,29 +568,57 @@ export namespace draconic::editor
             const ExportTemplate* exactHost = nullptr;
             for (const UniquePtr<ExportTemplate>& t : m_templates)
             {
-                if (t->platform.AsView() != platform || t->EffectiveConfig() != wantConfig) { continue; }
-                if (t->isHost) { exactHost = t.Get(); }
-                else { return t.Get(); }
-            }
-            if (exactHost != nullptr) { return exactHost; }
-
-            // Pass 2: platform-only fallback, preferring a Release config, imported over host.
-            const ExportTemplate* bestImported = nullptr; bool bestImportedRelease = false;
-            const ExportTemplate* bestHost = nullptr;     bool bestHostRelease = false;
-            for (const UniquePtr<ExportTemplate>& t : m_templates)
-            {
-                if (t->platform.AsView() != platform) { continue; }
-                const bool isRelease = t->EffectiveConfig() == StringView(u8"Release");
+                if (t->platform.AsView() != platform || t->EffectiveConfig() != wantConfig)
+                {
+                    continue;
+                }
                 if (t->isHost)
                 {
-                    if (bestHost == nullptr || (isRelease && !bestHostRelease)) { bestHost = t.Get(); bestHostRelease = isRelease; }
+                    exactHost = t.Get();
                 }
                 else
                 {
-                    if (bestImported == nullptr || (isRelease && !bestImportedRelease)) { bestImported = t.Get(); bestImportedRelease = isRelease; }
+                    return t.Get();
                 }
             }
-            if (bestImported != nullptr) { return bestImported; }
+            if (exactHost != nullptr)
+            {
+                return exactHost;
+            }
+
+            // Pass 2: platform-only fallback, preferring a Release config, imported over host.
+            const ExportTemplate* bestImported = nullptr;
+            bool bestImportedRelease = false;
+            const ExportTemplate* bestHost = nullptr;
+            bool bestHostRelease = false;
+            for (const UniquePtr<ExportTemplate>& t : m_templates)
+            {
+                if (t->platform.AsView() != platform)
+                {
+                    continue;
+                }
+                const bool isRelease = t->EffectiveConfig() == StringView(u8"Release");
+                if (t->isHost)
+                {
+                    if (bestHost == nullptr || (isRelease && !bestHostRelease))
+                    {
+                        bestHost = t.Get();
+                        bestHostRelease = isRelease;
+                    }
+                }
+                else
+                {
+                    if (bestImported == nullptr || (isRelease && !bestImportedRelease))
+                    {
+                        bestImported = t.Get();
+                        bestImportedRelease = isRelease;
+                    }
+                }
+            }
+            if (bestImported != nullptr)
+            {
+                return bestImported;
+            }
             return bestHost;
         }
 
@@ -458,7 +627,10 @@ export namespace draconic::editor
         // matches (caller: "import a template").
         [[nodiscard]] const ExportTemplate* Resolve(const ExportPreset& preset) const
         {
-            if (!preset.templateId.IsEmpty()) { return FindById(preset.templateId.AsView()); }
+            if (!preset.templateId.IsEmpty())
+            {
+                return FindById(preset.templateId.AsView());
+            }
             return FindBy(preset.platform.AsView(), preset.config.AsView());
         }
 

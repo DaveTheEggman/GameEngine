@@ -69,16 +69,23 @@ namespace fs = std::filesystem;
 
 namespace
 {
-    [[nodiscard]] StringView Sv(const char* s) { return StringView(reinterpret_cast<const utf8char*>(s)); }
+    [[nodiscard]] StringView Sv(const char* s)
+    {
+        return StringView(reinterpret_cast<const utf8char*>(s));
+    }
     // Takes const String& (not StringView): a StringView argument binds an implicit String temporary to
     // this reference parameter, which lives to the end of the full-expression - so the returned CStr()
     // is valid for the enclosing printf. (A by-value StringView would return a dangling pointer.)
-    [[nodiscard]] const char* Cs(const String& s) { return reinterpret_cast<const char*>(s.CStr()); }
+    [[nodiscard]] const char* Cs(const String& s)
+    {
+        return reinterpret_cast<const char*>(s.CStr());
+    }
 
     template <typename T>
     void Add(editor::BuilderRegistry& registry)
     {
-        registry.Register(UniquePtr<editor::IAssetBuilder>(DefaultAllocator().New<T>(), DefaultAllocator()));
+        registry.Register(
+            UniquePtr<editor::IAssetBuilder>(DefaultAllocator().New<T>(), DefaultAllocator()));
     }
 
     // Same manager set the subsystems inject into every scene (kept in lockstep, like the
@@ -107,7 +114,7 @@ namespace
         scene.AddSystem<physics::ColliderComponentManager>();
         scene.AddSystem<physics::JointComponentManager>();
         scene.AddSystem<physics::CharacterComponentManager>();
-        scene.AddSystem<physics::PhysicsSceneSystem>();   // carries the settings block
+        scene.AddSystem<physics::PhysicsSceneSystem>(); // carries the settings block
     }
 
     // Pre-transcode every scene/prefab TEXT source stream to the binary wire (the editor
@@ -120,16 +127,28 @@ namespace
         {
             const bool isScene = instance->TypeName() == StringView(u8"SceneDocument");
             const bool isPrefab = instance->TypeName() == StringView(u8"PrefabDocument");
-            if (!isScene && !isPrefab) { continue; }
+            if (!isScene && !isPrefab)
+            {
+                continue;
+            }
             UniquePtr<IStream> stream = instance->ReadData(u8"scene");
-            if (stream.Get() == nullptr) { continue; }
+            if (stream.Get() == nullptr)
+            {
+                continue;
+            }
             scene::Scene scratch(u8"__export_transcode");
             AddAllSceneManagers(scratch);
             Result<Array<byte>> bytes =
                 scene::TranscodeSceneStreamToBinary(*stream, scratch, /*includeSettings=*/isScene);
-            if (bytes.HasValue()) { out.InsertOrAssign(instance->Id(), Move(bytes.Value())); }
+            if (bytes.HasValue())
+            {
+                out.InsertOrAssign(instance->Id(), Move(bytes.Value()));
+            }
         }
-        for (draconic::content::Group* child : group.Groups()) { CollectSceneStreams(*child, out); }
+        for (draconic::content::Group* child : group.Groups())
+        {
+            CollectSceneStreams(*child, out);
+        }
     }
 
     // Scene-reference scanner for closure pruning: load a scene/prefab over the full manager set,
@@ -143,14 +162,16 @@ namespace
         {
             scene::Scene scene;
             AddAllSceneManagers(scene);
-            if (!scene::LoadScene(instance, scene).IsOk()) { return; }
-            draconic::resource::ResourceManager collector(db);   // no factories -> all binds unresolved
+            if (!scene::LoadScene(instance, scene).IsOk())
+            {
+                return;
+            }
+            draconic::resource::ResourceManager collector(
+                db); // no factories -> all binds unresolved
             scene::ResolveSceneResources(scene, collector);
             collector.CollectUnresolved(out.resources);
             scene.ForEachPendingPrefabInstance([&out](scene::Scene::PendingPrefabInstance& pending)
-            {
-                out.prefabs.PushBack(pending.prefabId);
-            });
+                                               { out.prefabs.PushBack(pending.prefabId); });
         };
     }
 
@@ -222,7 +243,8 @@ namespace
     [[nodiscard]] String TemplatesRoot() { return editor::ResolveTemplatesRoot(); }
 
     // Build the registry from the templates root (if it exists) + the host template (from toolDir).
-    void BuildRegistry(editor::TemplateRegistry& registry, StringView templatesRoot, StringView toolDir)
+    void BuildRegistry(editor::TemplateRegistry& registry, StringView templatesRoot,
+                       StringView toolDir)
     {
         std::error_code ec;
         UniquePtr<vfs::NativeFileSystem> rootFs;
@@ -231,12 +253,14 @@ namespace
             rootFs = MakeUnique<vfs::NativeFileSystem>(DefaultAllocator(), templatesRoot);
         }
         vfs::NativeFileSystem toolFs(toolDir);
-        registry.Refresh(templatesRoot, rootFs.Get(), toolDir, &toolFs);   // reads runtime-libs synchronously
+        registry.Refresh(templatesRoot, rootFs.Get(), toolDir,
+                         &toolFs); // reads runtime-libs synchronously
     }
 
     int Usage()
     {
-        std::fprintf(stderr,
+        std::fprintf(
+            stderr,
             "usage:\n"
             "  RaptorExport <projectDir> [--out <dir>] [--preset <name> | --all] [--rebuild]\n"
             "  RaptorExport --template list\n"
@@ -269,7 +293,8 @@ namespace
         String importedId;
         if (!editor::ImportTemplate(Sv(srcDir), root.AsView(), &importedId).IsOk())
         {
-            std::fprintf(stderr, "RaptorExport: failed to import '%s' (no valid template.xml?)\n", srcDir);
+            std::fprintf(stderr, "RaptorExport: failed to import '%s' (no valid template.xml?)\n",
+                         srcDir);
             return 1;
         }
         const String dst = PathJoin(root.AsView(), importedId.AsView());
@@ -283,25 +308,43 @@ namespace
     int TemplateCreate(int argc, char** argv)
     {
         // argv[3] = configDir; optional argv[4..] = --install | --out <folder>.
-        if (argc < 4) { return Usage(); }
+        if (argc < 4)
+        {
+            return Usage();
+        }
         const char* configDir = argv[3];
         bool install = true;
         const char* outFolder = nullptr;
         for (int i = 4; i < argc; ++i)
         {
-            if (std::strcmp(argv[i], "--install") == 0) { install = true; }
-            else if (std::strcmp(argv[i], "--out") == 0 && i + 1 < argc) { install = false; outFolder = argv[++i]; }
-            else { std::fprintf(stderr, "unknown option: %s\n", argv[i]); return Usage(); }
+            if (std::strcmp(argv[i], "--install") == 0)
+            {
+                install = true;
+            }
+            else if (std::strcmp(argv[i], "--out") == 0 && i + 1 < argc)
+            {
+                install = false;
+                outFolder = argv[++i];
+            }
+            else
+            {
+                std::fprintf(stderr, "unknown option: %s\n", argv[i]);
+                return Usage();
+            }
         }
 
         const String root = TemplatesRoot();
         const String destRoot = install ? root : String(Sv(outFolder));
-        const editor::TemplateOutput mode = install ? editor::TemplateOutput::Install : editor::TemplateOutput::ExportFolder;
+        const editor::TemplateOutput mode =
+            install ? editor::TemplateOutput::Install : editor::TemplateOutput::ExportFolder;
         String createdId, createdDir;
-        if (!editor::CreateTemplate(Sv(configDir), destRoot.AsView(), mode, &createdId, &createdDir).IsOk())
+        if (!editor::CreateTemplate(Sv(configDir), destRoot.AsView(), mode, &createdId, &createdDir)
+                 .IsOk())
         {
-            std::fprintf(stderr, "RaptorExport: failed to create a template from '%s' "
-                                 "(missing player binary or runtime-libs?)\n", configDir);
+            std::fprintf(stderr,
+                         "RaptorExport: failed to create a template from '%s' "
+                         "(missing player binary or runtime-libs?)\n",
+                         configDir);
             return 1;
         }
         std::printf("created template '%s' -> %s\n", Cs(createdId), Cs(createdDir));
@@ -317,19 +360,34 @@ int main(int argc, char** argv)
     // --- template mode ---
     if (argc >= 2 && std::strcmp(argv[1], "--template") == 0)
     {
-        if (argc < 3) { return Usage(); }
-        if (std::strcmp(argv[2], "list") == 0) { return TemplateList(argv[0]); }
+        if (argc < 3)
+        {
+            return Usage();
+        }
+        if (std::strcmp(argv[2], "list") == 0)
+        {
+            return TemplateList(argv[0]);
+        }
         if (std::strcmp(argv[2], "import") == 0)
         {
-            if (argc < 4) { return Usage(); }
+            if (argc < 4)
+            {
+                return Usage();
+            }
             return TemplateImport(argv[0], argv[3]);
         }
-        if (std::strcmp(argv[2], "create") == 0) { return TemplateCreate(argc, argv); }
+        if (std::strcmp(argv[2], "create") == 0)
+        {
+            return TemplateCreate(argc, argv);
+        }
         return Usage();
     }
 
     // --- export mode ---
-    if (argc < 2) { return Usage(); }
+    if (argc < 2)
+    {
+        return Usage();
+    }
     const char* projectDir = argv[1];
     const char* outArg = nullptr;
     const char* presetName = nullptr;
@@ -337,16 +395,40 @@ int main(int argc, char** argv)
     bool rebuild = false;
     for (int i = 2; i < argc; ++i)
     {
-        if (std::strcmp(argv[i], "--out") == 0 && i + 1 < argc)         { outArg = argv[++i]; }
-        else if (std::strcmp(argv[i], "--preset") == 0 && i + 1 < argc) { presetName = argv[++i]; }
-        else if (std::strcmp(argv[i], "--all") == 0)                    { all = true; }
-        else if (std::strcmp(argv[i], "--rebuild") == 0)               { rebuild = true; }
-        else { std::fprintf(stderr, "unknown option: %s\n", argv[i]); return Usage(); }
+        if (std::strcmp(argv[i], "--out") == 0 && i + 1 < argc)
+        {
+            outArg = argv[++i];
+        }
+        else if (std::strcmp(argv[i], "--preset") == 0 && i + 1 < argc)
+        {
+            presetName = argv[++i];
+        }
+        else if (std::strcmp(argv[i], "--all") == 0)
+        {
+            all = true;
+        }
+        else if (std::strcmp(argv[i], "--rebuild") == 0)
+        {
+            rebuild = true;
+        }
+        else
+        {
+            std::fprintf(stderr, "unknown option: %s\n", argv[i]);
+            return Usage();
+        }
     }
-    if (all && presetName != nullptr) { std::fprintf(stderr, "--all and --preset are mutually exclusive\n"); return 1; }
+    if (all && presetName != nullptr)
+    {
+        std::fprintf(stderr, "--all and --preset are mutually exclusive\n");
+        return 1;
+    }
 
     UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(Sv(projectDir));
-    if (!project) { std::fprintf(stderr, "RaptorExport: failed to open project '%s'\n", projectDir); return 1; }
+    if (!project)
+    {
+        std::fprintf(stderr, "RaptorExport: failed to open project '%s'\n", projectDir);
+        return 1;
+    }
 
     editor::BuilderRegistry builders;
     RegisterAllBuilders(builders);
@@ -363,51 +445,57 @@ int main(int argc, char** argv)
     editor::ExportPresetSet presets;
     {
         vfs::NativeFileSystem projectFs(project->Directory());
-        if (!editor::LoadExportPresets(projectFs, presets).IsOk()) { editor::DefaultExportPresets(presets); }
+        if (!editor::LoadExportPresets(projectFs, presets).IsOk())
+        {
+            editor::DefaultExportPresets(presets);
+        }
     }
 
     editor::TemplateRegistry registry;
     BuildRegistry(registry, TemplatesRoot().AsView(), ToolDir(argv[0]).AsView());
 
-    const String outRoot = (outArg != nullptr) ? String(Sv(outArg))
-                                               : PathJoin(project->Directory(), u8"Dist");
+    const String outRoot =
+        (outArg != nullptr) ? String(Sv(outArg)) : PathJoin(project->Directory(), u8"Dist");
 
     const editor::SceneReferenceScanner scanner = MakeSceneScanner();
 
     if (all)
     {
         const Span<const editor::ExportPreset> span(presets.presets.Data(), presets.presets.Size());
-        if (!editor::ExportAll(*project, span, registry, builders, outRoot.AsView(), rebuild, {}, true,
-                           &sceneStreams, &scanner).IsOk())
+        if (!editor::ExportAll(*project, span, registry, builders, outRoot.AsView(), rebuild, {},
+                               true, &sceneStreams, &scanner)
+                 .IsOk())
         {
             std::fprintf(stderr, "RaptorExport: one or more presets failed (see log)\n");
             return 1;
         }
-        std::printf("export done: %zu preset(s) -> %s\n", presets.presets.Size(), Cs(outRoot.AsView()));
+        std::printf("export done: %zu preset(s) -> %s\n", presets.presets.Size(),
+                    Cs(outRoot.AsView()));
         return 0;
     }
 
-    const editor::ExportPreset* preset = (presetName != nullptr)
-        ? presets.Find(Sv(presetName))
-        : (presets.presets.Size() > 0 ? &presets.presets[0] : nullptr);
+    const editor::ExportPreset* preset =
+        (presetName != nullptr) ? presets.Find(Sv(presetName))
+                                : (presets.presets.Size() > 0 ? &presets.presets[0] : nullptr);
     if (preset == nullptr)
     {
-        std::fprintf(stderr, "RaptorExport: no preset%s%s\n",
-                     presetName ? " named " : "", presetName ? presetName : " defined");
+        std::fprintf(stderr, "RaptorExport: no preset%s%s\n", presetName ? " named " : "",
+                     presetName ? presetName : " defined");
         return 1;
     }
 
     editor::ExportResult result;
-    if (!editor::ExportOne(*project, *preset, registry, builders, outRoot.AsView(), rebuild, &result, {}, true,
-                       &sceneStreams, &scanner).IsOk())
+    if (!editor::ExportOne(*project, *preset, registry, builders, outRoot.AsView(), rebuild,
+                           &result, {}, true, &sceneStreams, &scanner)
+             .IsOk())
     {
         std::fprintf(stderr, "RaptorExport: export failed (see log)\n");
         return 1;
     }
-    std::printf("exported '%s' -> %s\n  cook: %zu cooked, %zu scene(s), %zu packed | staged %zu file(s)\n",
-                Cs(preset->name.AsView()), Cs(result.outputDir.AsView()),
-                result.content.cooked, result.content.scenesStaged, result.content.filesPacked,
-                result.filesStaged);
+    std::printf(
+        "exported '%s' -> %s\n  cook: %zu cooked, %zu scene(s), %zu packed | staged %zu file(s)\n",
+        Cs(preset->name.AsView()), Cs(result.outputDir.AsView()), result.content.cooked,
+        result.content.scenesStaged, result.content.filesPacked, result.filesStaged);
     if (!result.engineVersionWarning.IsEmpty())
     {
         std::printf("  warning: %s\n", Cs(result.engineVersionWarning.AsView()));
@@ -416,7 +504,8 @@ int main(int argc, char** argv)
     {
         const String reportText = editor::FormatPruningReport(result.pruning);
         std::printf("  pruned: %zu kept, %zu dropped -> %s/export-report.txt\n",
-                    result.pruning.keptCount, result.pruning.dropped.Size(), Cs(result.outputDir.AsView()));
+                    result.pruning.keptCount, result.pruning.dropped.Size(),
+                    Cs(result.outputDir.AsView()));
         std::printf("%s", Cs(reportText.AsView()));
     }
 

@@ -32,9 +32,12 @@ export namespace draconic::runtime
         // object) and calls OnLoad immediately. Returns the plugin for chaining.
         IRuntimePlugin* Add(IRuntimePlugin* plugin)
         {
-            if (plugin == nullptr) { return nullptr; }
+            if (plugin == nullptr)
+            {
+                return nullptr;
+            }
             plugin->OnLoad(*m_context);
-            m_entries.PushBack(Entry{ plugin, core::DynamicLibrary{} });
+            m_entries.PushBack(Entry{plugin, core::DynamicLibrary{}});
             return plugin;
         }
 
@@ -61,7 +64,7 @@ export namespace draconic::runtime
             }
 
             plugin->OnLoad(*m_context);
-            m_entries.PushBack(Entry{ plugin, core::Move(library) });
+            m_entries.PushBack(Entry{plugin, core::Move(library)});
             return plugin;
         }
 
@@ -73,7 +76,10 @@ export namespace draconic::runtime
         {
             for (core::usize i = m_entries.Size(); i-- > 0;)
             {
-                if (m_entries[i].plugin != nullptr) { m_entries[i].plugin->OnUnload(*m_context); }
+                if (m_entries[i].plugin != nullptr)
+                {
+                    m_entries[i].plugin->OnUnload(*m_context);
+                }
             }
             m_entries.Clear(); // DynamicLibrary dtors close the shared libraries
         }

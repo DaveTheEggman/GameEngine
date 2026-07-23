@@ -12,16 +12,17 @@ export module draconic.render:mesh_shaders;
 
 import draconic.core;
 
-export namespace draconic::render {
-
-// Built-in forward shader, two permutations selected by INSTANCED. The view-projection is in a
-// per-view UBO (set 0); the world matrix + tint come either from a per-object UBO (set 1) or,
-// in the instanced permutation, from a per-instance StructuredBuffer indexed by the uint4
-// DataOffsets vertex attribute (location 5). Vertex inputs use the RHI's TEXCOORDn convention
-// (semantic index = location), matching VertexLayoutType::Mesh at locations 0..4.
-[[nodiscard]] inline core::StringView ForwardVS() noexcept
+export namespace draconic::render
 {
-    return core::StringView(u8R"(
+
+    // Built-in forward shader, two permutations selected by INSTANCED. The view-projection is in a
+    // per-view UBO (set 0); the world matrix + tint come either from a per-object UBO (set 1) or,
+    // in the instanced permutation, from a per-instance StructuredBuffer indexed by the uint4
+    // DataOffsets vertex attribute (location 5). Vertex inputs use the RHI's TEXCOORDn convention
+    // (semantic index = location), matching VertexLayoutType::Mesh at locations 0..4.
+    [[nodiscard]] inline core::StringView ForwardVS() noexcept
+    {
+        return core::StringView(u8R"(
 #define CASCADE_COUNT 4
 cbuffer View : register(b0, space0) {
     row_major float4x4 ViewProj;   // Draconic matrices are row-major; annotate so HLSL reads them right.
@@ -147,11 +148,11 @@ VSOutput main(VSInput input) {
     return o;
 }
 )");
-}
+    }
 
-[[nodiscard]] inline core::StringView ForwardPS() noexcept
-{
-    return core::StringView(u8R"(
+    [[nodiscard]] inline core::StringView ForwardPS() noexcept
+    {
+        return core::StringView(u8R"(
 #define CASCADE_COUNT 4
 cbuffer View : register(b0, space0) {        // shared with the VS (same layout)
     row_major float4x4 ViewProj;
@@ -605,15 +606,15 @@ float4 main(PSInput input) : SV_Target0 {
 #endif
 }
 )");
-}
+    }
 
-// Unlit fragment: albedo texture * BaseColor * vertex color, no lighting - UI-ish surfaces,
-// stylized looks, debug fills. Shares ForwardVS (registered under the "unlit" shader name), so
-// the PSInput layout matches; the GBUFFER permutation still writes normal/velocity/material so
-// the post stack (TAA/GTAO/SSR) treats unlit surfaces as fully rough, non-metallic geometry.
-[[nodiscard]] inline core::StringView UnlitPS() noexcept
-{
-    return core::StringView(u8R"(
+    // Unlit fragment: albedo texture * BaseColor * vertex color, no lighting - UI-ish surfaces,
+    // stylized looks, debug fills. Shares ForwardVS (registered under the "unlit" shader name), so
+    // the PSInput layout matches; the GBUFFER permutation still writes normal/velocity/material so
+    // the post stack (TAA/GTAO/SSR) treats unlit surfaces as fully rough, non-metallic geometry.
+    [[nodiscard]] inline core::StringView UnlitPS() noexcept
+    {
+        return core::StringView(u8R"(
 cbuffer View : register(b0, space0) {        // shared with the VS (same layout)
     row_major float4x4 ViewProj;
     row_major float4x4 View;
@@ -685,15 +686,15 @@ float4 main(PSInput input) : SV_Target0 {
 #endif
 }
 )");
-}
+    }
 
-// Depth-only shadow caster shader (vertex stage ONLY - the depth-only pipeline omits the
-// fragment). Transforms each vertex by world * LightViewProj into the light's clip space, so the
-// shadow pass writes light-space depth. Two permutations (INSTANCED or not) mirror the forward VS's
-// world-matrix source: a per-object UBO (set 1) or the per-instance StructuredBuffer (set 1).
-[[nodiscard]] inline core::StringView ShadowVS() noexcept
-{
-    return core::StringView(u8R"(
+    // Depth-only shadow caster shader (vertex stage ONLY - the depth-only pipeline omits the
+    // fragment). Transforms each vertex by world * LightViewProj into the light's clip space, so the
+    // shadow pass writes light-space depth. Two permutations (INSTANCED or not) mirror the forward VS's
+    // world-matrix source: a per-object UBO (set 1) or the per-instance StructuredBuffer (set 1).
+    [[nodiscard]] inline core::StringView ShadowVS() noexcept
+    {
+        return core::StringView(u8R"(
 cbuffer ShadowView : register(b0, space0) {
     row_major float4x4 LightViewProj;
 };
@@ -776,19 +777,19 @@ float4 main(VSInput input) : SV_Position {
 #endif
 }
 )");
-}
+    }
 
-// Masked shadow fragment: sample the material's albedo cutout alpha + discard, so alpha-tested casters
-// (foliage/fences) drop holey shadows. Depth-only (no color target); pairs with the ALPHA_TEST VS.
-[[nodiscard]] inline core::StringView ShadowMaskedPS() noexcept
-{
-    return core::StringView(u8R"(
+    // Masked shadow fragment: sample the material's albedo cutout alpha + discard, so alpha-tested casters
+    // (foliage/fences) drop holey shadows. Depth-only (no color target); pairs with the ALPHA_TEST VS.
+    [[nodiscard]] inline core::StringView ShadowMaskedPS() noexcept
+    {
+        return core::StringView(u8R"(
 Texture2D    AlbedoMap   : register(t0, space2);
 SamplerState MainSampler : register(s0, space2);
 void main(float4 pos : SV_Position, float2 uv : TEXCOORD0) {
     if (AlbedoMap.Sample(MainSampler, uv).a < 0.5) { discard; }
 }
 )");
-}
+    }
 
 }

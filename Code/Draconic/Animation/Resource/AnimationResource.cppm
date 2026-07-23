@@ -491,12 +491,13 @@ export namespace draconic::animation
 
     private:
         // Resolve a clip reference (null id -> null clip). Bind records the graph->clip dependency edge.
-        [[nodiscard]] static AnimationClip* ResolveClip(resource::ResourceManager& manager, const Guid& id)
+        [[nodiscard]] static AnimationClip* ResolveClip(resource::ResourceManager& manager,
+                                                        const Guid& id)
         {
             return id.IsNil() ? nullptr : manager.Bind<AnimationClip>(id).Get();
         }
-        [[nodiscard]] static UniquePtr<IAnimationStateNode> BuildNode(resource::ResourceManager& manager,
-                                                                      const GraphNodeData& n)
+        [[nodiscard]] static UniquePtr<IAnimationStateNode>
+        BuildNode(resource::ResourceManager& manager, const GraphNodeData& n)
         {
             if (n.kind == 1)
             { // blend1d

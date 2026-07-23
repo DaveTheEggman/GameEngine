@@ -20,7 +20,10 @@ namespace
         UniquePtr<IStream> Open(StringView path, FileMode) override
         {
             String* content = files.Find(String(path));
-            if (content == nullptr) { return {}; }
+            if (content == nullptr)
+            {
+                return {};
+            }
             auto stream = MakeUnique<MemoryStream>(DefaultAllocator());
             (void)stream->Write(content->Data(), content->Size());
             (void)stream->Seek(0, SeekOrigin::Begin);

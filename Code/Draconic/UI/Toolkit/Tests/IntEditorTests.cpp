@@ -14,7 +14,7 @@ TEST_CASE("toolkit-inteditor: RoundTripAndFieldChange")
 {
     i64 observed = 0;
     auto ed = core::MakeRef<IntEditor>(core::DefaultAllocator(), StringView(u8"Count"), 5, 0, 100,
-        Function<void(i64)>{ [&observed](i64 v) { observed = v; } });
+                                       Function<void(i64)>{[&observed](i64 v) { observed = v; }});
 
     CHECK(ed->Value() == 5);
 

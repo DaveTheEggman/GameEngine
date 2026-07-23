@@ -11,13 +11,14 @@ export module draconic.render:taa_shaders;
 
 import draconic.core;
 
-export namespace draconic::render {
-
-// Fullscreen-triangle VS, top-origin uv (see BloomPass - the negative-viewport flip requires it so RT
-// sampling stays oriented). All TAA inputs are sampled by this uv.
-[[nodiscard]] inline core::StringView TaaVS() noexcept
+export namespace draconic::render
 {
-    return core::StringView(u8R"(
+
+    // Fullscreen-triangle VS, top-origin uv (see BloomPass - the negative-viewport flip requires it so RT
+    // sampling stays oriented). All TAA inputs are sampled by this uv.
+    [[nodiscard]] inline core::StringView TaaVS() noexcept
+    {
+        return core::StringView(u8R"(
 struct VSOut { float4 pos : SV_Position; float2 uv : TEXCOORD0; };
 VSOut main(uint vid : SV_VertexID) {
     VSOut o;
@@ -27,16 +28,16 @@ VSOut main(uint vid : SV_VertexID) {
     return o;
 }
 )");
-}
+    }
 
-// Resolve. Improved over Sedulous taa.frag.hlsl: YCoCg VARIANCE clipping (mean +/- gamma*stddev - a
-// statistically-tight neighborhood box, the key anti-flicker lever, vs a loose min/max AABB), CATMULL-ROM
-// history sampling (sharp - kills the over-blur), closest-depth motion selection, and a luma- AND
-// motion-adaptive blend (max stability on near-static pixels). Outputs the resolved color (SV_Target0,
-// for bloom/tonemap) + next-frame history (SV_Target1). Params in push constants.
-[[nodiscard]] inline core::StringView TaaPS() noexcept
-{
-    return core::StringView(u8R"(
+    // Resolve. Improved over Sedulous taa.frag.hlsl: YCoCg VARIANCE clipping (mean +/- gamma*stddev - a
+    // statistically-tight neighborhood box, the key anti-flicker lever, vs a loose min/max AABB), CATMULL-ROM
+    // history sampling (sharp - kills the over-blur), closest-depth motion selection, and a luma- AND
+    // motion-adaptive blend (max stability on near-static pixels). Outputs the resolved color (SV_Target0,
+    // for bloom/tonemap) + next-frame history (SV_Target1). Params in push constants.
+    [[nodiscard]] inline core::StringView TaaPS() noexcept
+    {
+        return core::StringView(u8R"(
 Texture2D    CurrentColor  : register(t0, space0);
 Texture2D    HistoryColor  : register(t1, space0);
 Texture2D    MotionVectors : register(t2, space0);
@@ -169,6 +170,6 @@ PSOut main(float4 pos : SV_Position, float2 uv : TEXCOORD0) {
     o.Color = float4(result, 1.0); o.History = float4(result, centerLin); return o;
 }
 )");
-}
+    }
 
 }

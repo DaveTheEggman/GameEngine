@@ -14,9 +14,9 @@ export module draconic.ui:drag_drop_manager;
 
 import draconic.core;
 import :drag_drop_effects;
-import :drag_data;       // RefPtr<DragData> member (complete type -> no incomplete-RefPtr gcc issue)
-import :input_enums;     // MouseButton
-import :enums;           // CursorType
+import :drag_data;   // RefPtr<DragData> member (complete type -> no incomplete-RefPtr gcc issue)
+import :input_enums; // MouseButton
+import :enums;       // CursorType
 
 using namespace draconic::core;
 
@@ -67,12 +67,16 @@ export namespace draconic::ui
         [[nodiscard]] f32 LastScreenY() const noexcept { return m_lastScreenY; }
         [[nodiscard]] DragState State() const noexcept { return m_state; }
         [[nodiscard]] bool IsDragging() const noexcept { return m_state == DragState::Active; }
-        [[nodiscard]] bool IsPotentialDrag() const noexcept { return m_state == DragState::Potential; }
+        [[nodiscard]] bool IsPotentialDrag() const noexcept
+        {
+            return m_state == DragState::Potential;
+        }
         [[nodiscard]] DragData* CurrentDragData() const noexcept { return m_dragData.Get(); }
         [[nodiscard]] DragDropEffects CurrentEffect() const noexcept { return m_currentEffect; }
 
         // === Public API (called by InputManager) ===
-        bool BeginPotentialDrag(View* sourceView, IDragSource* source, f32 screenX, f32 screenY, MouseButton button);
+        bool BeginPotentialDrag(View* sourceView, IDragSource* source, f32 screenX, f32 screenY,
+                                MouseButton button);
         bool UpdateDrag(f32 screenX, f32 screenY);
         bool EndDrag(f32 screenX, f32 screenY);
         void CancelDrag();
@@ -93,7 +97,7 @@ export namespace draconic::ui
         View* m_sourceView = nullptr;
         IDragSource* m_dragSource = nullptr;
         RefPtr<DragData> m_dragData;
-        DragAdorner* m_adorner = nullptr;       // owned by PopupLayer (ownsView:true)
+        DragAdorner* m_adorner = nullptr; // owned by PopupLayer (ownsView:true)
         PopupLayer* m_adornerPopupLayer = nullptr;
         MouseButton m_dragButton = MouseButton::Left;
 

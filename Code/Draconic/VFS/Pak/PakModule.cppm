@@ -30,7 +30,7 @@ using namespace draconic::core;
 
 export namespace draconic::vfs
 {
-    inline constexpr u32 kPakMagic   = 0x4B415052u; // 'RPAK'
+    inline constexpr u32 kPakMagic = 0x4B415052u; // 'RPAK'
     inline constexpr u32 kPakVersion = 1u;
     inline constexpr u16 kCompressionNone = 0u;
 
@@ -41,7 +41,10 @@ export namespace draconic::vfs
     {
     public:
         explicit PakFileSystem(StringView pakPath, IAllocator& allocator = DefaultAllocator())
-            : m_path(pakPath, allocator), m_allocator(&allocator) { Load(); }
+            : m_path(pakPath, allocator), m_allocator(&allocator)
+        {
+            Load();
+        }
 
         // True if the archive opened and parsed.
         [[nodiscard]] bool IsValid() const noexcept { return m_valid; }
@@ -50,28 +53,43 @@ export namespace draconic::vfs
         // --- IFileSystem ---
         [[nodiscard]] UniquePtr<IStream> Open(StringView locator, FileMode mode) override
         {
-            if (!m_valid || mode != FileMode::Read) { return UniquePtr<IStream>{}; }
+            if (!m_valid || mode != FileMode::Read)
+            {
+                return UniquePtr<IStream>{};
+            }
 
             const Entry* entry = Find(locator);
-            if (entry == nullptr || entry->compression != kCompressionNone) { return UniquePtr<IStream>{}; }
+            if (entry == nullptr || entry->compression != kCompressionNone)
+            {
+                return UniquePtr<IStream>{};
+            }
 
             // Reopen the archive per Open: a fresh handle, no shared seek lock.
             FileStream file(m_path.AsView(), FileMode::Read);
-            if (!file.IsValid()) { return UniquePtr<IStream>{}; }
-            if (file.Seek(static_cast<i64>(entry->offset), SeekOrigin::Begin) < 0) { return UniquePtr<IStream>{}; }
+            if (!file.IsValid())
+            {
+                return UniquePtr<IStream>{};
+            }
+            if (file.Seek(static_cast<i64>(entry->offset), SeekOrigin::Begin) < 0)
+            {
+                return UniquePtr<IStream>{};
+            }
 
             Array<byte> bytes(static_cast<usize>(entry->storedSize), *m_allocator);
-            if (entry->storedSize > 0
-                && file.Read(bytes.Data(), entry->storedSize) != entry->storedSize)
+            if (entry->storedSize > 0 &&
+                file.Read(bytes.Data(), entry->storedSize) != entry->storedSize)
             {
                 return UniquePtr<IStream>{};
             }
 
             // Hand the bytes to an in-memory stream the caller owns.
             MemoryStream* stream = m_allocator->New<MemoryStream>();
-            if (entry->storedSize > 0) { (void)stream->Write(bytes.Data(), entry->storedSize); }
+            if (entry->storedSize > 0)
+            {
+                (void)stream->Write(bytes.Data(), entry->storedSize);
+            }
             (void)stream->Seek(0, SeekOrigin::Begin);
-            return UniquePtr<IStream>{ stream, *m_allocator };
+            return UniquePtr<IStream>{stream, *m_allocator};
         }
 
         [[nodiscard]] bool Exists(StringView locator) override
@@ -84,25 +102,41 @@ export namespace draconic::vfs
         // --- IEnumerableFileSystem ---
         [[nodiscard]] Status Enumerate(StringView folder, Array<DirEntry>& out) override
         {
-            if (!m_valid) { return Status{ ErrorCode::NotFound }; }
+            if (!m_valid)
+            {
+                return Status{ErrorCode::NotFound};
+            }
 
             for (const Entry& entry : m_entries)
             {
                 StringView rel;
-                if (!RelativeUnder(entry.locator.AsView(), folder, rel)) { continue; }
+                if (!RelativeUnder(entry.locator.AsView(), folder, rel))
+                {
+                    continue;
+                }
 
                 // First path segment of `rel`: a '/' means it's a subdirectory.
                 usize slash = rel.Size();
-                for (usize i = 0; i < rel.Size(); ++i) { if (rel[i] == utf8char('/')) { slash = i; break; } }
+                for (usize i = 0; i < rel.Size(); ++i)
+                {
+                    if (rel[i] == utf8char('/'))
+                    {
+                        slash = i;
+                        break;
+                    }
+                }
 
                 if (slash == rel.Size())
                 {
-                    out.PushBack(DirEntry{ String(rel), false });   // a file
+                    out.PushBack(DirEntry{String(rel), false}); // a file
                 }
                 else
                 {
                     const StringView dir = rel.SubStr(0, slash);
-                    if (!ContainsDir(out, dir)) { out.PushBack(DirEntry{ String(dir), true }); }
+                    if (!ContainsDir(out, dir))
+                    {
+                        out.PushBack(DirEntry{String(dir), true});
+                    }
                 }
             }
             return Status{};
@@ -121,7 +155,10 @@ export namespace draconic::vfs
         void Load()
         {
             FileStream file(m_path.AsView(), FileMode::Read);
-            if (!file.IsValid()) { return; }
+            if (!file.IsValid())
+            {
+                return;
+            }
 
             BinaryReader reader(file);
             u32 magic = 0;
@@ -134,15 +171,24 @@ export namespace draconic::vfs
             reader.Read(entryCount);
             reader.Read(tocOffset);
             reader.Read(tocSize);
-            if (!reader.IsOk() || magic != kPakMagic || version != kPakVersion) { return; }
+            if (!reader.IsOk() || magic != kPakMagic || version != kPakVersion)
+            {
+                return;
+            }
 
-            if (file.Seek(static_cast<i64>(tocOffset), SeekOrigin::Begin) < 0) { return; }
+            if (file.Seek(static_cast<i64>(tocOffset), SeekOrigin::Begin) < 0)
+            {
+                return;
+            }
             for (u64 i = 0; i < entryCount; ++i)
             {
                 u16 locatorLength = 0;
                 reader.Read(locatorLength);
                 Array<byte> locatorBytes(static_cast<usize>(locatorLength), *m_allocator);
-                if (locatorLength > 0 && !reader.ReadBytes(locatorBytes.Data(), locatorLength)) { return; }
+                if (locatorLength > 0 && !reader.ReadBytes(locatorBytes.Data(), locatorLength))
+                {
+                    return;
+                }
 
                 Entry entry;
                 // Locator is stored as UTF-8 on disk; String is already UTF-8.
@@ -152,7 +198,10 @@ export namespace draconic::vfs
                 reader.Read(entry.storedSize);
                 reader.Read(entry.originalSize);
                 reader.Read(entry.compression);
-                if (!reader.IsOk()) { return; }
+                if (!reader.IsOk())
+                {
+                    return;
+                }
                 m_entries.PushBack(static_cast<Entry&&>(entry));
             }
             m_valid = true;
@@ -162,18 +211,35 @@ export namespace draconic::vfs
         {
             for (const Entry& entry : m_entries)
             {
-                if (entry.locator.AsView() == locator) { return &entry; }
+                if (entry.locator.AsView() == locator)
+                {
+                    return &entry;
+                }
             }
             return nullptr;
         }
 
         // Is `locator` under `folder`? If so, `outRel` is the remainder.
-        [[nodiscard]] static bool RelativeUnder(StringView locator, StringView folder, StringView& outRel)
+        [[nodiscard]] static bool RelativeUnder(StringView locator, StringView folder,
+                                                StringView& outRel)
         {
-            if (folder.IsEmpty()) { outRel = locator; return true; }
-            if (locator.Size() <= folder.Size() + 1) { return false; }
-            if (locator.SubStr(0, folder.Size()) != folder) { return false; }
-            if (locator[folder.Size()] != utf8char('/')) { return false; }
+            if (folder.IsEmpty())
+            {
+                outRel = locator;
+                return true;
+            }
+            if (locator.Size() <= folder.Size() + 1)
+            {
+                return false;
+            }
+            if (locator.SubStr(0, folder.Size()) != folder)
+            {
+                return false;
+            }
+            if (locator[folder.Size()] != utf8char('/'))
+            {
+                return false;
+            }
             outRel = locator.SubStr(folder.Size() + 1, locator.Size() - folder.Size() - 1);
             return true;
         }
@@ -182,7 +248,10 @@ export namespace draconic::vfs
         {
             for (const DirEntry& entry : out)
             {
-                if (entry.isDirectory && entry.name.AsView() == name) { return true; }
+                if (entry.isDirectory && entry.name.AsView() == name)
+                {
+                    return true;
+                }
             }
             return false;
         }
@@ -205,7 +274,10 @@ export namespace draconic::vfs
             PendingEntry entry;
             entry.locator = String(locator);
             entry.data.Resize(data.Size());
-            if (data.Size() > 0) { MemCopy(entry.data.Data(), data.Data(), data.Size()); }
+            if (data.Size() > 0)
+            {
+                MemCopy(entry.data.Data(), data.Data(), data.Size());
+            }
             m_entries.PushBack(static_cast<PendingEntry&&>(entry));
         }
 
@@ -228,7 +300,10 @@ export namespace draconic::vfs
             for (const PendingEntry& entry : m_entries)
             {
                 offsets.PushBack(static_cast<u64>(out.Tell()));
-                if (!entry.data.IsEmpty()) { writer.WriteBytes(entry.data.Data(), entry.data.Size()); }
+                if (!entry.data.IsEmpty())
+                {
+                    writer.WriteBytes(entry.data.Data(), entry.data.Size());
+                }
             }
 
             // TOC.
@@ -239,13 +314,16 @@ export namespace draconic::vfs
                 const String& locatorStr = m_entries[i].locator;
                 const u16 locatorLength = static_cast<u16>(locatorStr.Size());
                 writer.Write(locatorLength);
-                if (locatorLength > 0) { writer.WriteBytes(locatorStr.CStr(), locatorStr.Size()); }
+                if (locatorLength > 0)
+                {
+                    writer.WriteBytes(locatorStr.CStr(), locatorStr.Size());
+                }
 
                 const u64 size = m_entries[i].data.Size();
                 const u16 compression = kCompressionNone;
                 writer.Write(offsets[i]);
-                writer.Write(size);     // storedSize
-                writer.Write(size);     // originalSize
+                writer.Write(size); // storedSize
+                writer.Write(size); // originalSize
                 writer.Write(compression);
             }
             tocSize = static_cast<u64>(out.Tell()) - tocOffset;
@@ -254,7 +332,10 @@ export namespace draconic::vfs
             (void)out.Seek(0, SeekOrigin::Begin);
             WriteHeader(writer, magic, version, entryCount, tocOffset, tocSize);
 
-            if (!writer.IsOk()) { return Status{ ErrorCode::Internal }; }
+            if (!writer.IsOk())
+            {
+                return Status{ErrorCode::Internal};
+            }
             return WriteFile(path, out.Bytes());
         }
 
@@ -265,8 +346,8 @@ export namespace draconic::vfs
             Array<byte> data;
         };
 
-        static void WriteHeader(BinaryWriter& writer, u32 magic, u32 version,
-                                u64 entryCount, u64 tocOffset, u64 tocSize)
+        static void WriteHeader(BinaryWriter& writer, u32 magic, u32 version, u64 entryCount,
+                                u64 tocOffset, u64 tocSize)
         {
             writer.Write(magic);
             writer.Write(version);

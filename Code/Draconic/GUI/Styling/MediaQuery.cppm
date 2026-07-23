@@ -11,8 +11,8 @@ module;
 
 export module draconic.gui:media_query;
 
-import draconic.core;   // StringView, Array, f32
-import :css_values;     // ParseLength
+import draconic.core; // StringView, Array, f32
+import :css_values;   // ParseLength
 
 using namespace draconic::core;
 namespace core = draconic::core;
@@ -27,7 +27,15 @@ export namespace draconic::gui
         f32 Dpi = 96.0f;
     };
 
-    enum class MediaFeatureType { MinWidth, MaxWidth, MinHeight, MaxHeight, Width, Height };
+    enum class MediaFeatureType
+    {
+        MinWidth,
+        MaxWidth,
+        MinHeight,
+        MaxHeight,
+        Width,
+        Height
+    };
 
     struct MediaFeature
     {
@@ -48,21 +56,29 @@ export namespace draconic::gui
         [[nodiscard]] bool Evaluate(const MediaContext& context) const
         {
             for (const MediaFeature& f : m_features)
-                if (!EvaluateFeature(f, context)) return false;
+                if (!EvaluateFeature(f, context))
+                    return false;
             return true;
         }
 
     private:
-        [[nodiscard]] static bool EvaluateFeature(const MediaFeature& f, const MediaContext& c) noexcept
+        [[nodiscard]] static bool EvaluateFeature(const MediaFeature& f,
+                                                  const MediaContext& c) noexcept
         {
             switch (f.Type)
             {
-            case MediaFeatureType::MinWidth:  return c.Width >= f.Value;
-            case MediaFeatureType::MaxWidth:  return c.Width <= f.Value;
-            case MediaFeatureType::MinHeight: return c.Height >= f.Value;
-            case MediaFeatureType::MaxHeight: return c.Height <= f.Value;
-            case MediaFeatureType::Width:     return c.Width == f.Value;
-            case MediaFeatureType::Height:    return c.Height == f.Value;
+            case MediaFeatureType::MinWidth:
+                return c.Width >= f.Value;
+            case MediaFeatureType::MaxWidth:
+                return c.Width <= f.Value;
+            case MediaFeatureType::MinHeight:
+                return c.Height >= f.Value;
+            case MediaFeatureType::MaxHeight:
+                return c.Height <= f.Value;
+            case MediaFeatureType::Width:
+                return c.Width == f.Value;
+            case MediaFeatureType::Height:
+                return c.Height == f.Value;
             }
             return true;
         }
@@ -74,36 +90,55 @@ export namespace draconic::gui
             const usize n = text.Size();
             while (i < n)
             {
-                while (i < n && text[i] != u8'(') ++i;
-                if (i >= n) break;
+                while (i < n && text[i] != u8'(')
+                    ++i;
+                if (i >= n)
+                    break;
                 ++i;
                 const usize start = i;
-                while (i < n && text[i] != u8')') ++i;
+                while (i < n && text[i] != u8')')
+                    ++i;
                 ParseFeature(text.SubStr(start, i - start));
-                if (i < n) ++i; // skip ')'
+                if (i < n)
+                    ++i; // skip ')'
             }
         }
 
         void ParseFeature(core::StringView group)
         {
             usize colon = group.Size();
-            for (usize i = 0; i < group.Size(); ++i) if (group[i] == u8':') { colon = i; break; }
-            if (colon >= group.Size()) return;
+            for (usize i = 0; i < group.Size(); ++i)
+                if (group[i] == u8':')
+                {
+                    colon = i;
+                    break;
+                }
+            if (colon >= group.Size())
+                return;
 
             const core::StringView name = core::Trim(group.SubStr(0, colon));
-            const Optional<f32> value = ParseLength(core::Trim(group.SubStr(colon + 1, group.Size() - colon - 1)));
-            if (!value.HasValue()) return;
+            const Optional<f32> value =
+                ParseLength(core::Trim(group.SubStr(colon + 1, group.Size() - colon - 1)));
+            if (!value.HasValue())
+                return;
 
             MediaFeatureType type;
-            if (name == core::StringView(u8"min-width")) type = MediaFeatureType::MinWidth;
-            else if (name == core::StringView(u8"max-width")) type = MediaFeatureType::MaxWidth;
-            else if (name == core::StringView(u8"min-height")) type = MediaFeatureType::MinHeight;
-            else if (name == core::StringView(u8"max-height")) type = MediaFeatureType::MaxHeight;
-            else if (name == core::StringView(u8"width")) type = MediaFeatureType::Width;
-            else if (name == core::StringView(u8"height")) type = MediaFeatureType::Height;
-            else return; // unknown feature ignored
+            if (name == core::StringView(u8"min-width"))
+                type = MediaFeatureType::MinWidth;
+            else if (name == core::StringView(u8"max-width"))
+                type = MediaFeatureType::MaxWidth;
+            else if (name == core::StringView(u8"min-height"))
+                type = MediaFeatureType::MinHeight;
+            else if (name == core::StringView(u8"max-height"))
+                type = MediaFeatureType::MaxHeight;
+            else if (name == core::StringView(u8"width"))
+                type = MediaFeatureType::Width;
+            else if (name == core::StringView(u8"height"))
+                type = MediaFeatureType::Height;
+            else
+                return; // unknown feature ignored
 
-            m_features.PushBack(MediaFeature{ type, value.Value() });
+            m_features.PushBack(MediaFeature{type, value.Value()});
         }
 
         Array<MediaFeature> m_features;

@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-#include "Core/Prelude.h"  // <new> reachability for container instantiation (GCC)
+#include "Core/Prelude.h" // <new> reachability for container instantiation (GCC)
 
 import draconic.core;
 import draconic.runtime;
@@ -16,7 +16,7 @@ namespace
     // Build dirs hand us a narrow UTF-8 path; the IO/Library APIs take StringView.
     [[nodiscard]] StringView PluginPath()
     {
-        return StringView{ reinterpret_cast<const utf8char*>(DRACONIC_TEST_PLUGIN_PATH) };
+        return StringView{reinterpret_cast<const utf8char*>(DRACONIC_TEST_PLUGIN_PATH)};
     }
 
     // Distinct subsystem types (distinct TypeOf<> keys). Each records its tag in a
@@ -29,7 +29,14 @@ namespace
 
         [[nodiscard]] i32 UpdateOrder() const noexcept override { return m_order; }
 
-        void Update(f32) override { if (m_log != nullptr) { m_log->PushBack(Tag); } ++updates; }
+        void Update(f32) override
+        {
+            if (m_log != nullptr)
+            {
+                m_log->PushBack(Tag);
+            }
+            ++updates;
+        }
         void BeginFrame(f32) override { ++beginFrames; }
         void EndFrame() override { ++endFrames; }
 
@@ -52,14 +59,17 @@ TEST_CASE("runtime: time scale clamps at zero and defaults to realtime")
     CHECK(ctx.TimeScale() == 1.0f);
     ctx.SetTimeScale(0.5f);
     CHECK(ctx.TimeScale() == 0.5f);
-    ctx.SetTimeScale(-3.0f);   // negative time is not a thing
+    ctx.SetTimeScale(-3.0f); // negative time is not a thing
     CHECK(ctx.TimeScale() == 0.0f);
 
     // Half-speed feeding the stepper: 60 raw frames at 1/60 yield ~30 fixed steps.
     draconic::runtime::FixedStepper stepper;
     ctx.SetTimeScale(0.5f);
     draconic::core::u32 steps = 0;
-    for (int i = 0; i < 60; ++i) { steps += stepper.Advance((1.0f / 60.0f) * ctx.TimeScale()); }
+    for (int i = 0; i < 60; ++i)
+    {
+        steps += stepper.Advance((1.0f / 60.0f) * ctx.TimeScale());
+    }
     CHECK(steps >= 29u);
     CHECK(steps <= 30u);
 }
@@ -73,8 +83,11 @@ TEST_CASE("runtime: fixed stepper - exact cadence, alpha, and the hitch clamp")
     stepper.step = 1.0f / 60.0f;
     stepper.maxSteps = 4;
     draconic::core::u32 total = 0;
-    for (int i = 0; i < 60; ++i) { total += stepper.Advance(1.0f / 60.0f); }
-    CHECK(total >= 59u);   // float accumulation may defer one step...
+    for (int i = 0; i < 60; ++i)
+    {
+        total += stepper.Advance(1.0f / 60.0f);
+    }
+    CHECK(total >= 59u); // float accumulation may defer one step...
     CHECK(total <= 60u);
     CHECK(stepper.Alpha() >= 0.0f);
     CHECK(stepper.Alpha() < 1.0f);
@@ -104,7 +117,7 @@ TEST_CASE("runtime: fixed stepper - exact cadence, alpha, and the hitch clamp")
     CHECK(degenerate.Advance(0.0f) == 0u);
     degenerate.step = 0.0f;
     CHECK(degenerate.Alpha() == 0.0f);
-    CHECK(degenerate.Advance(1.0f) == 0u);   // zero step: no spin, no steps
+    CHECK(degenerate.Advance(1.0f) == 0u); // zero step: no spin, no steps
 }
 
 TEST_CASE("runtime: register, look up, and own subsystems by type")
@@ -118,8 +131,8 @@ TEST_CASE("runtime: register, look up, and own subsystems by type")
     CHECK(ctx.HasSubsystem<Sys<1>>());
     CHECK(ctx.GetSubsystem<Sys<1>>() == a);
     CHECK(ctx.GetSubsystem<Sys<2>>() == b);
-    CHECK(ctx.GetSubsystem<Sys<3>>() == nullptr);  // never registered
-    CHECK(a->GetContext() == &ctx);                 // OnRegister wired the context
+    CHECK(ctx.GetSubsystem<Sys<3>>() == nullptr); // never registered
+    CHECK(a->GetContext() == &ctx);               // OnRegister wired the context
 }
 
 TEST_CASE("runtime: startup / shutdown lifecycle")
@@ -145,8 +158,8 @@ TEST_CASE("runtime: frame phases run in UpdateOrder")
 {
     Array<int> log;
     Context ctx;
-    Sys<2>* high = ctx.AddSubsystem<Sys<2>>(5, &log);    // runs later
-    Sys<1>* low = ctx.AddSubsystem<Sys<1>>(-10, &log);   // runs earlier
+    Sys<2>* high = ctx.AddSubsystem<Sys<2>>(5, &log);  // runs later
+    Sys<1>* low = ctx.AddSubsystem<Sys<1>>(-10, &log); // runs earlier
 
     ctx.Startup();
     ctx.BeginFrame(0.016f);
@@ -154,8 +167,8 @@ TEST_CASE("runtime: frame phases run in UpdateOrder")
     ctx.EndFrame();
 
     REQUIRE(log.Size() == 2u);
-    CHECK(log[0] == 1);   // Sys<1> (order -10) before
-    CHECK(log[1] == 2);   // Sys<2> (order 5)
+    CHECK(log[0] == 1); // Sys<1> (order -10) before
+    CHECK(log[1] == 2); // Sys<2> (order 5)
     CHECK(low->updates == 1);
     CHECK(high->updates == 1);
     CHECK(low->beginFrames == 1);
@@ -178,7 +191,7 @@ TEST_CASE("runtime: Dispose shuts down running subsystems")
 
 TEST_CASE("runtime: register a caller-owned subsystem; Context does not destroy it")
 {
-    Sys<1> owned(0, nullptr);  // lives on the stack; Context must not free it
+    Sys<1> owned(0, nullptr); // lives on the stack; Context must not free it
     {
         Context ctx;
         Sys<1>* registered = ctx.RegisterSubsystem<Sys<1>>(&owned);
@@ -191,7 +204,7 @@ TEST_CASE("runtime: register a caller-owned subsystem; Context does not destroy 
         CHECK(owned.updates == 1);
         // ctx disposes here: shuts the subsystem down but must NOT destroy it.
     }
-    CHECK(owned.shutdowns == 1);  // object still valid -> reading it is safe
+    CHECK(owned.shutdowns == 1); // object still valid -> reading it is safe
 }
 
 TEST_CASE("runtime: subsystems registered after Startup come up immediately")
@@ -201,12 +214,12 @@ TEST_CASE("runtime: subsystems registered after Startup come up immediately")
     CHECK(ctx.IsRunning());
 
     Sys<1>* late = ctx.AddSubsystem<Sys<1>>(0, nullptr);
-    CHECK(late->inits == 1);    // Init + Ready ran on registration
+    CHECK(late->inits == 1); // Init + Ready ran on registration
     CHECK(late->readys == 1);
     CHECK(late->IsInitialized());
 
     ctx.Update(0.016f);
-    CHECK(late->updates == 1);  // participates in the frame loop right away
+    CHECK(late->updates == 1); // participates in the frame loop right away
 }
 
 TEST_CASE("runtime: RemoveSubsystem shuts down, unregisters, and destroys owned")
@@ -223,7 +236,7 @@ TEST_CASE("runtime: RemoveSubsystem shuts down, unregisters, and destroys owned"
     // The removed subsystem no longer ticks; the survivor still does.
     Array<int> log;
     Sys<2>* b = ctx.GetSubsystem<Sys<2>>();
-    b->Update(0.016f);   // sanity: survivor is live
+    b->Update(0.016f); // sanity: survivor is live
     CHECK(b->updates == 1);
 }
 
@@ -238,7 +251,7 @@ namespace
         void OnLoad(Context& ctx) override { ctx.RegisterSubsystem<Sys<7>>(&m_sys); }
         void OnUnload(Context& ctx) override { ctx.RemoveSubsystem<Sys<7>>(); }
 
-        Sys<7> m_sys{ 0, nullptr };
+        Sys<7> m_sys{0, nullptr};
     };
 }
 
@@ -258,7 +271,7 @@ TEST_CASE("runtime: PluginHost::Add registers a static plugin's subsystem")
 
         host.UnloadAll();
         CHECK(host.Count() == 0u);
-        CHECK_FALSE(ctx.HasSubsystem<Sys<7>>());  // OnUnload removed it
+        CHECK_FALSE(ctx.HasSubsystem<Sys<7>>()); // OnUnload removed it
     }
     // Plugin object outlives the host (caller-owned) and was never freed by it.
     CHECK(plugin.m_sys.shutdowns == 1);
@@ -273,14 +286,14 @@ TEST_CASE("runtime: PluginHost::Load loads a plugin from a shared library")
         auto loaded = host.Load(PluginPath());
         REQUIRE(loaded.HasValue());
         CHECK(host.Count() == 1u);
-        CHECK(loaded.Value()->Name() == StringView{ u8"DraconicTestPlugin" });
+        CHECK(loaded.Value()->Name() == StringView{u8"DraconicTestPlugin"});
 
         ctx.Startup();
         ctx.Update(0.016f);
 
         // Observe the library's subsystem ran via a C symbol it exports. A second
         // handle to the same image shares the counter (dlopen refcounts).
-        DynamicLibrary probe{ PluginPath() };
+        DynamicLibrary probe{PluginPath()};
         REQUIRE(probe.IsLoaded());
         const auto ticks = probe.GetSymbol<int (*)()>(u8"DraconicTestPluginTicks");
         REQUIRE(ticks != nullptr);
@@ -323,8 +336,12 @@ namespace
         draconic::shell::IShell* Shell() noexcept override { return nullptr; }
         draconic::graphics::GraphicsDevice* Graphics() noexcept override { return nullptr; }
         draconic::graphics::RenderWindow* MainRenderWindow() noexcept override { return nullptr; }
-        draconic::graphics::RenderWindow* OpenWindow(const draconic::shell::WindowSettings&,
-            const draconic::graphics::RenderWindowDesc&) override { return nullptr; }
+        draconic::graphics::RenderWindow*
+        OpenWindow(const draconic::shell::WindowSettings&,
+                   const draconic::graphics::RenderWindowDesc&) override
+        {
+            return nullptr;
+        }
         void CloseWindow(draconic::graphics::RenderWindow*) override {}
         void RequestExit(int) override {}
     };
@@ -348,7 +365,8 @@ TEST_CASE("embedded host routes Ctx to the runtime context and exit to the embed
 
     // Exit means "stop the play session" - the embedder's handler receives it.
     int exitCode = -1;
-    embedded.SetExitHandler(draconic::core::Function<void(int)>{ [&](int code) { exitCode = code; } });
+    embedded.SetExitHandler(
+        draconic::core::Function<void(int)>{[&](int code) { exitCode = code; }});
     embedded.RequestExit(7);
     CHECK(exitCode == 7);
 }

@@ -15,19 +15,19 @@ module;
 
 export module draconic.gui:style_manager;
 
-import draconic.core;    // HashMap, Cast, Move, Array, StringView, Float2, Duration, MakeRef
-import draconic.fonts;   // IFontService
+import draconic.core;  // HashMap, Cast, Move, Array, StringView, Float2, Duration, MakeRef
+import draconic.fonts; // IFontService
 import :node;
 import :ui_node;
 import :ui_widget;
-import :style_rule;      // StyleProperty
+import :style_rule; // StyleProperty
 import :style_sheet;
 import :media_query;
 import :style_applier;
 import :transition;
 import :resource_provider;
-import :css_values;      // ParseLength
-import :actions;         // KeyframeAction
+import :css_values; // ParseLength
+import :actions;    // KeyframeAction
 
 using namespace draconic::core;
 namespace core = draconic::core;
@@ -41,7 +41,11 @@ export namespace draconic::gui
         StyleManager() = default;
         explicit StyleManager(StyleSheet sheet) : m_sheet(core::Move(sheet)) {}
 
-        void SetStyleSheet(StyleSheet sheet) { m_sheet = core::Move(sheet); m_cache = {}; } // hot-reload: drop cache
+        void SetStyleSheet(StyleSheet sheet)
+        {
+            m_sheet = core::Move(sheet);
+            m_cache = {};
+        } // hot-reload: drop cache
         [[nodiscard]] const StyleSheet& GetStyleSheet() const noexcept { return m_sheet; }
 
         void SetMediaContext(const MediaContext& context) { m_context = context; }
@@ -53,11 +57,17 @@ export namespace draconic::gui
 
         // Loads background-image assets referenced by the sheet. Null = background-image skipped.
         void SetResourceProvider(IResourceProvider* resources) noexcept { m_resources = resources; }
-        [[nodiscard]] IResourceProvider* GetResourceProvider() const noexcept { return m_resources; }
+        [[nodiscard]] IResourceProvider* GetResourceProvider() const noexcept
+        {
+            return m_resources;
+        }
 
         // Resolves font-family/-size in the sheet (the app's font service - VFS-backed or not;
         // the GUI is agnostic). Null = font-family skipped.
-        void SetFontService(fonts::IFontService* fontService) noexcept { m_fontService = fontService; }
+        void SetFontService(fonts::IFontService* fontService) noexcept
+        {
+            m_fontService = fontService;
+        }
         [[nodiscard]] fonts::IFontService* GetFontService() const noexcept { return m_fontService; }
 
         // Resolve + apply one widget; animate any transitioned change versus its last apply.
@@ -71,11 +81,13 @@ export namespace draconic::gui
             lengths.RootFontSize = m_rootFontSize;
             lengths.ViewportWidth = m_context.Width;
             lengths.ViewportHeight = m_context.Height;
-            lengths.ElementFontSize = ParseLength(resolved.Get(core::StringView(u8"font-size"),
-                core::StringView(u8""))).ValueOr(m_rootFontSize);
+            lengths.ElementFontSize =
+                ParseLength(resolved.Get(core::StringView(u8"font-size"), core::StringView(u8"")))
+                    .ValueOr(m_rootFontSize);
 
             if (const ResolvedStyle* previous = m_cache.Find(&widget))
-                ApplyStyleAnimated(widget, *previous, resolved, m_resources, m_fontService, lengths);
+                ApplyStyleAnimated(widget, *previous, resolved, m_resources, m_fontService,
+                                   lengths);
             else
                 ApplyStyle(widget, resolved, m_resources, m_fontService, lengths);
             m_cache.InsertOrAssign(&widget, core::Move(resolved));
@@ -105,8 +117,16 @@ export namespace draconic::gui
         }
 
         // Drop a widget's cached style (call before it is destroyed).
-        void Forget(Node* widget) { m_cache.Remove(widget); m_animations.Remove(widget); }
-        void Clear() { m_cache = {}; m_animations = {}; }
+        void Forget(Node* widget)
+        {
+            m_cache.Remove(widget);
+            m_animations.Remove(widget);
+        }
+        void Clear()
+        {
+            m_cache = {};
+            m_animations = {};
+        }
 
     private:
         // Spawn the @keyframes animation named by the `animation` property (if any), once.
@@ -114,25 +134,33 @@ export namespace draconic::gui
         {
             if (!style.Has(core::StringView(u8"animation")))
             {
-                m_animations.Remove(&widget); // (a running loop keeps going; re-appearance re-spawns)
+                m_animations.Remove(
+                    &widget); // (a running loop keeps going; re-appearance re-spawns)
                 return;
             }
-            core::String name; f32 durationSecs = 0.0f; bool loop = false;
-            if (!ParseAnimation(style.Get(core::StringView(u8"animation")), name, durationSecs, loop)) return;
+            core::String name;
+            f32 durationSecs = 0.0f;
+            bool loop = false;
+            if (!ParseAnimation(style.Get(core::StringView(u8"animation")), name, durationSecs,
+                                loop))
+                return;
 
             const core::String* running = m_animations.Find(&widget);
-            if (running != nullptr && running->AsView() == name.AsView()) return; // already running this one
+            if (running != nullptr && running->AsView() == name.AsView())
+                return; // already running this one
 
             const Keyframes* kf = m_sheet.FindKeyframes(name.AsView());
-            if (kf == nullptr) return;
-            widget.RunAction(core::MakeRef<KeyframeAction>(core::DefaultAllocator(),
-                ExtractOpacityTrack(*kf), ExtractColorTrack(*kf),
+            if (kf == nullptr)
+                return;
+            widget.RunAction(core::MakeRef<KeyframeAction>(
+                core::DefaultAllocator(), ExtractOpacityTrack(*kf), ExtractColorTrack(*kf),
                 core::Duration::FromSeconds(static_cast<f64>(durationSecs)), loop));
             m_animations.InsertOrAssign(&widget, core::Move(name));
         }
 
         // Parse `animation: name duration [infinite]` (timing/direction/etc. ignored for v1).
-        [[nodiscard]] static bool ParseAnimation(core::StringView value, core::String& name, f32& durationSecs, bool& loop)
+        [[nodiscard]] static bool ParseAnimation(core::StringView value, core::String& name,
+                                                 f32& durationSecs, bool& loop)
         {
             bool haveName = false;
             usize start = 0;
@@ -144,9 +172,15 @@ export namespace draconic::gui
                     if (i > start)
                     {
                         const core::StringView tok = value.SubStr(start, i - start);
-                        if (!haveName) { name = core::String(tok); haveName = true; }
-                        else if (tok == core::StringView(u8"infinite")) loop = true;
-                        else if (Optional<f32> d = ParseLength(tok); d.HasValue()) durationSecs = d.Value();
+                        if (!haveName)
+                        {
+                            name = core::String(tok);
+                            haveName = true;
+                        }
+                        else if (tok == core::StringView(u8"infinite"))
+                            loop = true;
+                        else if (Optional<f32> d = ParseLength(tok); d.HasValue())
+                            durationSecs = d.Value();
                     }
                     start = i + 1;
                 }
@@ -162,13 +196,17 @@ export namespace draconic::gui
                 for (const StyleProperty& p : stop.Properties)
                     if (p.Name.AsView() == core::StringView(u8"opacity"))
                         if (Optional<f32> o = ParseLength(p.Value.AsView()); o.HasValue())
-                            track.PushBack(core::Float2{ stop.Offset, o.Value() });
+                            track.PushBack(core::Float2{stop.Offset, o.Value()});
 
             for (usize a = 1; a < track.Size(); ++a) // insertion sort by offset
             {
                 const core::Float2 key = track[a];
                 usize b = a;
-                while (b > 0 && track[b - 1].x > key.x) { track[b] = track[b - 1]; --b; }
+                while (b > 0 && track[b - 1].x > key.x)
+                {
+                    track[b] = track[b - 1];
+                    --b;
+                }
                 track[b] = key;
             }
             return track;
@@ -182,13 +220,17 @@ export namespace draconic::gui
                 for (const StyleProperty& p : stop.Properties)
                     if (p.Name.AsView() == core::StringView(u8"background-color"))
                         if (Optional<Color> c = ParseColor(p.Value.AsView()); c.HasValue())
-                            track.PushBack(ColorKey{ stop.Offset, c.Value() });
+                            track.PushBack(ColorKey{stop.Offset, c.Value()});
 
             for (usize a = 1; a < track.Size(); ++a) // insertion sort by offset
             {
                 const ColorKey key = track[a];
                 usize b = a;
-                while (b > 0 && track[b - 1].Offset > key.Offset) { track[b] = track[b - 1]; --b; }
+                while (b > 0 && track[b - 1].Offset > key.Offset)
+                {
+                    track[b] = track[b - 1];
+                    --b;
+                }
                 track[b] = key;
             }
             return track;
@@ -196,9 +238,9 @@ export namespace draconic::gui
 
         StyleSheet m_sheet;
         MediaContext m_context;
-        IResourceProvider* m_resources = nullptr;    // non-owning; loads background-image assets
+        IResourceProvider* m_resources = nullptr;     // non-owning; loads background-image assets
         fonts::IFontService* m_fontService = nullptr; // non-owning; resolves font-family
-        f32 m_rootFontSize = 16.0f;            // CSS `rem` base
+        f32 m_rootFontSize = 16.0f;                   // CSS `rem` base
         HashMap<Node*, ResolvedStyle> m_cache; // last-applied style per widget (non-owning keys)
         HashMap<Node*, core::String> m_animations; // widget -> running @keyframes animation name
     };

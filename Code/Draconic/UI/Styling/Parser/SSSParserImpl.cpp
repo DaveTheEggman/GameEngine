@@ -10,7 +10,7 @@ module;
 
 module draconic.ui;
 
-import draconic.image;   // image::ImageData for the (empty) image registry
+import draconic.image; // image::ImageData for the (empty) image registry
 
 using namespace draconic::core;
 

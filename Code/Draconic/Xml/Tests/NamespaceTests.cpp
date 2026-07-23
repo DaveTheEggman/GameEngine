@@ -28,7 +28,8 @@ TEST_CASE("xml.ns: prefixed namespace")
 TEST_CASE("xml.ns: inheritance")
 {
     XmlDocument doc;
-    REQUIRE(doc.Parse(u8R"(<root xmlns:ns="http://example.com"><ns:child/></root>)") == XmlResult::Ok);
+    REQUIRE(doc.Parse(u8R"(<root xmlns:ns="http://example.com"><ns:child/></root>)") ==
+            XmlResult::Ok);
     XmlElement* child = doc.RootElement()->FirstChildElement();
     REQUIRE(child != nullptr);
     CHECK(child->TagName() == StringView(u8"ns:child"));
@@ -38,7 +39,10 @@ TEST_CASE("xml.ns: inheritance")
 TEST_CASE("xml.ns: override")
 {
     XmlDocument doc;
-    REQUIRE(doc.Parse(u8R"(<root xmlns:ns="http://outer.com"><child xmlns:ns="http://inner.com"><ns:leaf/></child></root>)") == XmlResult::Ok);
+    REQUIRE(
+        doc.Parse(
+            u8R"(<root xmlns:ns="http://outer.com"><child xmlns:ns="http://inner.com"><ns:leaf/></child></root>)") ==
+        XmlResult::Ok);
     XmlElement* child = doc.RootElement()->FirstChildElement();
     REQUIRE(child != nullptr);
     CHECK(child->ResolveNamespacePrefix(u8"ns") == StringView(u8"http://inner.com"));
@@ -55,7 +59,8 @@ TEST_CASE("xml.ns: reserved prefixes")
 TEST_CASE("xml.ns: attribute namespaces")
 {
     XmlDocument doc;
-    REQUIRE(doc.Parse(u8"<root xmlns:ns=\"http://example.com\" ns:attr=\"value\"/>") == XmlResult::Ok);
+    REQUIRE(doc.Parse(u8"<root xmlns:ns=\"http://example.com\" ns:attr=\"value\"/>") ==
+            XmlResult::Ok);
     XmlAttribute* attr = doc.RootElement()->GetAttributeNode(u8"ns:attr");
     REQUIRE(attr != nullptr);
     CHECK(attr->Prefix() == StringView(u8"ns"));
@@ -85,20 +90,30 @@ TEST_CASE("xml.ns: helper IsReservedPrefix / Validate / Split / StartsWithXml")
     CHECK_FALSE(XmlNamespaceHelper::IsReservedPrefix(u8"myprefix"));
     CHECK_FALSE(XmlNamespaceHelper::IsReservedPrefix(u8""));
 
-    CHECK(XmlNamespaceHelper::ValidateNamespaceDeclaration(u8"ns", u8"http://example.com") == XmlResult::Ok);
-    CHECK(XmlNamespaceHelper::ValidateNamespaceDeclaration(u8"", u8"http://default.com") == XmlResult::Ok);
-    CHECK(XmlNamespaceHelper::ValidateNamespaceDeclaration(u8"xmlns", u8"http://example.com") == XmlResult::PrefixReserved);
-    CHECK(XmlNamespaceHelper::ValidateNamespaceDeclaration(u8"xml", u8"http://other.com") == XmlResult::PrefixReserved);
-    CHECK(XmlNamespaceHelper::ValidateNamespaceDeclaration(u8"xml", XmlNamespaces::Xml) == XmlResult::Ok);
-    CHECK(XmlNamespaceHelper::ValidateNamespaceDeclaration(u8"other", XmlNamespaces::Xml) == XmlResult::NamespaceInvalid);
-    CHECK(XmlNamespaceHelper::ValidateNamespaceDeclaration(u8"ns", XmlNamespaces::Xmlns) == XmlResult::NamespaceInvalid);
+    CHECK(XmlNamespaceHelper::ValidateNamespaceDeclaration(u8"ns", u8"http://example.com") ==
+          XmlResult::Ok);
+    CHECK(XmlNamespaceHelper::ValidateNamespaceDeclaration(u8"", u8"http://default.com") ==
+          XmlResult::Ok);
+    CHECK(XmlNamespaceHelper::ValidateNamespaceDeclaration(u8"xmlns", u8"http://example.com") ==
+          XmlResult::PrefixReserved);
+    CHECK(XmlNamespaceHelper::ValidateNamespaceDeclaration(u8"xml", u8"http://other.com") ==
+          XmlResult::PrefixReserved);
+    CHECK(XmlNamespaceHelper::ValidateNamespaceDeclaration(u8"xml", XmlNamespaces::Xml) ==
+          XmlResult::Ok);
+    CHECK(XmlNamespaceHelper::ValidateNamespaceDeclaration(u8"other", XmlNamespaces::Xml) ==
+          XmlResult::NamespaceInvalid);
+    CHECK(XmlNamespaceHelper::ValidateNamespaceDeclaration(u8"ns", XmlNamespaces::Xmlns) ==
+          XmlResult::NamespaceInvalid);
 
     String prefix, localName;
     XmlNamespaceHelper::SplitQualifiedName(u8"element", prefix, localName);
-    CHECK(prefix.IsEmpty()); CHECK(localName == StringView(u8"element"));
-    prefix.Clear(); localName.Clear();
+    CHECK(prefix.IsEmpty());
+    CHECK(localName == StringView(u8"element"));
+    prefix.Clear();
+    localName.Clear();
     XmlNamespaceHelper::SplitQualifiedName(u8"ns:element", prefix, localName);
-    CHECK(prefix == StringView(u8"ns")); CHECK(localName == StringView(u8"element"));
+    CHECK(prefix == StringView(u8"ns"));
+    CHECK(localName == StringView(u8"element"));
 
     CHECK(XmlNamespaceHelper::StartsWithXml(u8"xml"));
     CHECK(XmlNamespaceHelper::StartsWithXml(u8"XML"));
@@ -130,7 +145,10 @@ TEST_CASE("xml.ns: ResolveNamespaceUri")
 TEST_CASE("xml.ns: multiple namespaces")
 {
     XmlDocument doc;
-    REQUIRE(doc.Parse(u8R"(<root xmlns="http://default.com" xmlns:a="http://a.com" xmlns:b="http://b.com"><a:element/><b:element/></root>)") == XmlResult::Ok);
+    REQUIRE(
+        doc.Parse(
+            u8R"(<root xmlns="http://default.com" xmlns:a="http://a.com" xmlns:b="http://b.com"><a:element/><b:element/></root>)") ==
+        XmlResult::Ok);
     XmlElement* root = doc.RootElement();
     CHECK(root->ResolveNamespacePrefix(u8"") == StringView(u8"http://default.com"));
     CHECK(root->ResolveNamespacePrefix(u8"a") == StringView(u8"http://a.com"));

@@ -26,7 +26,10 @@ TEST_CASE("pathbuilder: MoveTo/LineTo creates commands")
 TEST_CASE("pathbuilder: Close adds close command")
 {
     PathBuilder builder;
-    builder.MoveTo(0, 0); builder.LineTo(10, 0); builder.LineTo(10, 10); builder.Close();
+    builder.MoveTo(0, 0);
+    builder.LineTo(10, 0);
+    builder.LineTo(10, 10);
+    builder.Close();
     const Path path = builder.ToPath();
     CHECK(path.CommandCount() == 4u);
     CHECK(path.Commands()[3] == PathCommand::Close);
@@ -35,7 +38,8 @@ TEST_CASE("pathbuilder: Close adds close command")
 TEST_CASE("pathbuilder: ToPath returns immutable copy")
 {
     PathBuilder builder;
-    builder.MoveTo(0, 0); builder.LineTo(10, 10);
+    builder.MoveTo(0, 0);
+    builder.LineTo(10, 10);
     const Path path1 = builder.ToPath();
     builder.LineTo(20, 20);
     const Path path2 = builder.ToPath();
@@ -54,14 +58,16 @@ TEST_CASE("pathbuilder: ArcTo generates cubics")
     bool hasCubic = false;
     const Span<const PathCommand> cmds = path.Commands();
     for (usize i = 0; i < cmds.Size(); ++i)
-        if (cmds[i] == PathCommand::CubicTo) hasCubic = true;
+        if (cmds[i] == PathCommand::CubicTo)
+            hasCubic = true;
     CHECK(hasCubic);
 }
 
 TEST_CASE("pathbuilder: Clear resets")
 {
     PathBuilder builder;
-    builder.MoveTo(0, 0); builder.LineTo(10, 10);
+    builder.MoveTo(0, 0);
+    builder.LineTo(10, 10);
     builder.Clear();
     CHECK(builder.CommandCount() == 0u);
     CHECK(builder.CurrentPoint() == Float2::Zero);

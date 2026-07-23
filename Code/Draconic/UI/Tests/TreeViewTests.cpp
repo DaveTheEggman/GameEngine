@@ -13,12 +13,20 @@ using namespace draconic::ui::tests;
 using namespace draconic::core;
 namespace core = draconic::core;
 
-static core::RefPtr<RootView> MakeRoot() { return core::MakeRef<RootView>(core::DefaultAllocator()); }
-static core::RefPtr<TreeView> MakeTree() { return core::MakeRef<TreeView>(core::DefaultAllocator()); }
+static core::RefPtr<RootView> MakeRoot()
+{
+    return core::MakeRef<RootView>(core::DefaultAllocator());
+}
+static core::RefPtr<TreeView> MakeTree()
+{
+    return core::MakeRef<TreeView>(core::DefaultAllocator());
+}
 
 TEST_CASE("tree-view: SetAdapter_ShowsRootItems")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 200, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 200, 300);
     SimpleTreeAdapter adapter;
     auto tv = MakeTree();
     tv->SetAdapter(&adapter);
@@ -36,9 +44,9 @@ TEST_CASE("tree-view: ToggleExpand_ChangesCount")
     tv->SetAdapter(&adapter);
 
     CHECK(tv->FlatAdapter()->ItemCount() == 3);
-    tv->ToggleExpand(0); // expand root 0
+    tv->ToggleExpand(0);                        // expand root 0
     CHECK(tv->FlatAdapter()->ItemCount() == 5); // 3 + 2 children
-    tv->ToggleExpand(0); // collapse
+    tv->ToggleExpand(0);                        // collapse
     CHECK(tv->FlatAdapter()->ItemCount() == 3);
 }
 
@@ -113,12 +121,12 @@ TEST_CASE("tree-view: SetAdapter_Twice_RebuildsSafely")
     tv->SetAdapter(&adapter);
     const i32 before = tv->FlatAdapter()->ItemCount();
 
-    tv->SetAdapter(&adapter);   // rebuild with the same source adapter
+    tv->SetAdapter(&adapter); // rebuild with the same source adapter
     REQUIRE(tv->FlatAdapter() != nullptr);
     CHECK(tv->FlatAdapter()->ItemCount() == before);
 
     SimpleTreeAdapter other;
-    tv->SetAdapter(&other);     // and with a different one
+    tv->SetAdapter(&other); // and with a different one
     REQUIRE(tv->FlatAdapter() != nullptr);
 }
 
@@ -159,10 +167,12 @@ TEST_CASE("tree-view: FocusedInternalList_KeyBubbles_To_OnItemKeyDown")
     ctx.GetFocusManager()->SetFocus(tv->InternalListView());
 
     i32 firedNode = -1;
-    tv->OnItemKeyDown.Add([&firedNode](i32 nodeId, KeyEventArgs& e) {
-        firedNode = nodeId;
-        e.Handled = true;
-    });
+    tv->OnItemKeyDown.Add(
+        [&firedNode](i32 nodeId, KeyEventArgs& e)
+        {
+            firedNode = nodeId;
+            e.Handled = true;
+        });
 
     CHECK(ctx.GetInputManager()->ProcessKeyDown(KeyCode::F2, KeyModifiers::None, false));
     CHECK(firedNode == 0);

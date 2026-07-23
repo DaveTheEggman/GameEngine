@@ -10,8 +10,8 @@ module;
 
 export module draconic.ui:nine_slice_drawable;
 
-import draconic.core;    // Color, Rectangle, Float2, Optional, Max
-import draconic.image;   // ImageData, NineSlice
+import draconic.core;  // Color, Rectangle, Float2, Optional, Max
+import draconic.image; // ImageData, NineSlice
 import :thickness;
 import :drawable;
 import :draw_context;
@@ -31,30 +31,39 @@ export namespace draconic::ui
         Color Tint = Color::White;
 
         NineSliceDrawable() = default;
-        NineSliceDrawable(const image::ImageData* image, image::NineSlice slices, Color tint = Color::White)
-            : Image(image), Slices(slices), Tint(tint) {}
+        NineSliceDrawable(const image::ImageData* image, image::NineSlice slices,
+                          Color tint = Color::White)
+            : Image(image), Slices(slices), Tint(tint)
+        {
+        }
 
         void Draw(UIDrawContext& ctx, const Rectangle& bounds) override
         {
-            if (Image == nullptr) { return; }
-            const Rectangle drawBounds{ bounds.x - Expand.Left, bounds.y - Expand.Top,
-                                        bounds.width + Expand.TotalHorizontal(), bounds.height + Expand.TotalVertical() };
-            const Rectangle srcRect{ 0.0f, 0.0f, static_cast<f32>(Image->Width()), static_cast<f32>(Image->Height()) };
+            if (Image == nullptr)
+            {
+                return;
+            }
+            const Rectangle drawBounds{bounds.x - Expand.Left, bounds.y - Expand.Top,
+                                       bounds.width + Expand.TotalHorizontal(),
+                                       bounds.height + Expand.TotalVertical()};
+            const Rectangle srcRect{0.0f, 0.0f, static_cast<f32>(Image->Width()),
+                                    static_cast<f32>(Image->Height())};
             ctx.VG().DrawNineSlice(Image, drawBounds, srcRect, Slices, Tint);
         }
 
         [[nodiscard]] Thickness DrawablePadding() const override
         {
-            return Thickness{ Max(0.0f, Slices.left - Expand.Left), Max(0.0f, Slices.top - Expand.Top),
-                              Max(0.0f, Slices.right - Expand.Right), Max(0.0f, Slices.bottom - Expand.Bottom) };
+            return Thickness{
+                Max(0.0f, Slices.left - Expand.Left), Max(0.0f, Slices.top - Expand.Top),
+                Max(0.0f, Slices.right - Expand.Right), Max(0.0f, Slices.bottom - Expand.Bottom)};
         }
 
         [[nodiscard]] Optional<Float2> IntrinsicSize() const override
         {
             if (Image != nullptr)
             {
-                return Float2{ static_cast<f32>(Image->Width()) - Expand.TotalHorizontal(),
-                               static_cast<f32>(Image->Height()) - Expand.TotalVertical() };
+                return Float2{static_cast<f32>(Image->Width()) - Expand.TotalHorizontal(),
+                              static_cast<f32>(Image->Height()) - Expand.TotalVertical()};
             }
             return {};
         }

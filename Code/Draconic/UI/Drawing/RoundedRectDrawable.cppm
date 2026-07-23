@@ -9,8 +9,8 @@ module;
 
 export module draconic.ui:rounded_rect_drawable;
 
-import draconic.core;   // Color, Rectangle
-import draconic.vg;     // CornerRadii
+import draconic.core; // Color, Rectangle
+import draconic.vg;   // CornerRadii
 import :drawable;
 import :draw_context;
 
@@ -32,24 +32,43 @@ export namespace draconic::ui
         RoundedRectDrawable() = default;
         /// Uniform corner radius.
         explicit RoundedRectDrawable(core::Color fill, f32 cornerRadius = 0.0f,
-                                     core::Color borderColor = core::Color::Transparent, f32 borderWidth = 0.0f)
-            : FillColor(fill), BorderColor(borderColor), BorderWidth(borderWidth), Radii(cornerRadius) {}
+                                     core::Color borderColor = core::Color::Transparent,
+                                     f32 borderWidth = 0.0f)
+            : FillColor(fill), BorderColor(borderColor), BorderWidth(borderWidth),
+              Radii(cornerRadius)
+        {
+        }
         /// Per-corner radii.
         RoundedRectDrawable(core::Color fill, vg::CornerRadii radii,
-                            core::Color borderColor = core::Color::Transparent, f32 borderWidth = 0.0f)
-            : FillColor(fill), BorderColor(borderColor), BorderWidth(borderWidth), Radii(radii) {}
+                            core::Color borderColor = core::Color::Transparent,
+                            f32 borderWidth = 0.0f)
+            : FillColor(fill), BorderColor(borderColor), BorderWidth(borderWidth), Radii(radii)
+        {
+        }
 
         void Draw(UIDrawContext& ctx, const Rectangle& bounds) override
         {
             if (!Radii.IsZero())
             {
-                if (FillColor.a > 0.0f) { ctx.VG().FillRoundedRect(bounds, Radii, FillColor); }
-                if (BorderColor.a > 0.0f && BorderWidth > 0.0f) { ctx.VG().StrokeRoundedRect(bounds, Radii, BorderColor, BorderWidth); }
+                if (FillColor.a > 0.0f)
+                {
+                    ctx.VG().FillRoundedRect(bounds, Radii, FillColor);
+                }
+                if (BorderColor.a > 0.0f && BorderWidth > 0.0f)
+                {
+                    ctx.VG().StrokeRoundedRect(bounds, Radii, BorderColor, BorderWidth);
+                }
             }
             else
             {
-                if (FillColor.a > 0.0f) { ctx.VG().FillRect(bounds, FillColor); }
-                if (BorderColor.a > 0.0f && BorderWidth > 0.0f) { ctx.VG().StrokeRect(bounds, BorderColor, BorderWidth); }
+                if (FillColor.a > 0.0f)
+                {
+                    ctx.VG().FillRect(bounds, FillColor);
+                }
+                if (BorderColor.a > 0.0f && BorderWidth > 0.0f)
+                {
+                    ctx.VG().StrokeRect(bounds, BorderColor, BorderWidth);
+                }
             }
         }
     };

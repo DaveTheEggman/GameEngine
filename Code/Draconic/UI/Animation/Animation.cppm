@@ -27,7 +27,9 @@ export namespace draconic::ui
         Event<void(Animation*)> OnComplete;
 
         explicit Animation(f32 duration, EasingFunction easing = nullptr)
-            : m_duration(Max(duration, 0.0f)), m_easing(easing) {}
+            : m_duration(Max(duration, 0.0f)), m_easing(easing)
+        {
+        }
         virtual ~Animation() = default;
 
         Animation(const Animation&) = delete;
@@ -62,7 +64,13 @@ export namespace draconic::ui
         [[nodiscard]] f32 Elapsed() const noexcept { return m_elapsed; }
 
         /// Start or resume the animation.
-        void Start() { if (!m_isComplete) { m_isRunning = true; } }
+        void Start()
+        {
+            if (!m_isComplete)
+            {
+                m_isRunning = true;
+            }
+        }
 
         /// Pause the animation without resetting.
         void Stop() { m_isRunning = false; }
@@ -79,12 +87,18 @@ export namespace draconic::ui
         /// Advance the animation by deltaTime. Returns true when fully complete.
         virtual bool Update(f32 deltaTime)
         {
-            if (!m_isRunning || m_isComplete) { return m_isComplete; }
+            if (!m_isRunning || m_isComplete)
+            {
+                return m_isComplete;
+            }
 
             m_elapsed += deltaTime;
 
             // Handle delay.
-            if (m_delay > 0 && m_elapsed < m_delay) { return false; }
+            if (m_delay > 0 && m_elapsed < m_delay)
+            {
+                return false;
+            }
 
             const f32 activeTime = m_elapsed - m_delay;
 
@@ -108,7 +122,10 @@ export namespace draconic::ui
             f32 t = activeTime / m_duration;
 
             // Auto-reverse: play backward on odd repeats.
-            if (m_autoReverse && (m_currentRepeat & 1) != 0) { t = 1.0f - t; }
+            if (m_autoReverse && (m_currentRepeat & 1) != 0)
+            {
+                t = 1.0f - t;
+            }
 
             // Apply easing.
             const f32 easedT = (m_easing != nullptr) ? m_easing(t) : t;
@@ -151,7 +168,7 @@ export namespace draconic::ui
         bool m_isRunning = false;
         bool m_isComplete = false;
         bool m_autoReverse = false;
-        i32 m_repeatCount = 0;   // 0 = play once, -1 = infinite
+        i32 m_repeatCount = 0; // 0 = play once, -1 = infinite
         i32 m_currentRepeat = 0;
         View* m_target = nullptr;
     };

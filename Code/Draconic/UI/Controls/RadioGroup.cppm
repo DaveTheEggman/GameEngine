@@ -39,7 +39,8 @@ export namespace draconic::ui
             AddView(radio);
             RadioGroup* self = this;
             radio->OnCheckedChanged.Add(Event<void(RadioButton*, bool)>::Handler{
-                [self](RadioButton* r, bool isChecked) { self->OnRadioCheckedChanged(r, isChecked); } });
+                [self](RadioButton* r, bool isChecked)
+                { self->OnRadioCheckedChanged(r, isChecked); }});
         }
 
         /// Programmatically select a radio button by index.
@@ -49,7 +50,10 @@ export namespace draconic::ui
             {
                 if (RadioButton* radio = Cast<RadioButton>(GetChildAt(i)))
                 {
-                    if (i == index) { radio->IsChecked.SetValue(true); }
+                    if (i == index)
+                    {
+                        radio->IsChecked.SetValue(true);
+                    }
                 }
             }
         }
@@ -57,11 +61,17 @@ export namespace draconic::ui
         /// Clear selection (all unchecked).
         void ClearCheck()
         {
-            if (m_updating) { return; }
+            if (m_updating)
+            {
+                return;
+            }
             m_updating = true;
             for (usize i = 0; i < ChildCount(); ++i)
             {
-                if (RadioButton* radio = Cast<RadioButton>(GetChildAt(i))) { radio->IsChecked.SetValue(false); }
+                if (RadioButton* radio = Cast<RadioButton>(GetChildAt(i)))
+                {
+                    radio->IsChecked.SetValue(false);
+                }
             }
             m_checkedButton = nullptr;
             m_updating = false;
@@ -70,13 +80,19 @@ export namespace draconic::ui
     private:
         void OnRadioCheckedChanged(RadioButton* radio, bool isChecked)
         {
-            if (m_updating || !isChecked) { return; }
+            if (m_updating || !isChecked)
+            {
+                return;
+            }
             m_updating = true;
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 if (RadioButton* other = Cast<RadioButton>(GetChildAt(i)))
                 {
-                    if (other != radio) { other->IsChecked.SetValue(false); }
+                    if (other != radio)
+                    {
+                        other->IsChecked.SetValue(false);
+                    }
                 }
             }
             m_checkedButton = radio;

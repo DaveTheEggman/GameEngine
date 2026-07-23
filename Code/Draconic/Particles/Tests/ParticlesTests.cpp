@@ -73,12 +73,14 @@ TEST_CASE("ParticleStreamContainer: core streams present, others lazy, typed acc
     CHECK(streams.Lifetimes() != nullptr);
     CHECK(streams.Velocities() == nullptr); // not allocated yet
 
-    streams.EnsureStream(particles::ParticleStreamId::Velocity, particles::StreamElementType::Float3);
+    streams.EnsureStream(particles::ParticleStreamId::Velocity,
+                         particles::StreamElementType::Float3);
     CHECK(streams.Velocities() != nullptr);
 
     // Idempotent: a second EnsureStream keeps the same stream object.
     particles::ParticleStream* before = streams.GetStream(particles::ParticleStreamId::Velocity);
-    streams.EnsureStream(particles::ParticleStreamId::Velocity, particles::StreamElementType::Float3);
+    streams.EnsureStream(particles::ParticleStreamId::Velocity,
+                         particles::StreamElementType::Float3);
     CHECK(streams.GetStream(particles::ParticleStreamId::Velocity) == before);
 
     // Wrong element type -> null (checked cast).
@@ -120,7 +122,8 @@ TEST_CASE("ParticleStreamContainer: swap-remove keeps arrays dense, CompactDead 
 TEST_CASE("GravityBehavior accelerates velocity down; AlphaOverLifetime fades alpha")
 {
     particles::ParticleStreamContainer streams(8);
-    streams.EnsureStream(particles::ParticleStreamId::Velocity, particles::StreamElementType::Float3);
+    streams.EnsureStream(particles::ParticleStreamId::Velocity,
+                         particles::StreamElementType::Float3);
     streams.EnsureStream(particles::ParticleStreamId::Color, particles::StreamElementType::Float4);
     streams.aliveCount = 1;
     (*streams.Velocities())[0] = Float3{0, 0, 0};
@@ -148,7 +151,8 @@ namespace
     // Builds a simple upward fountain: continuous emission, 2s life, gravity.
     void BuildFountain(particles::ParticleSystem& sys, f32 rate = 100.0f)
     {
-        sys.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(2.0f, 2.0f);
+        sys.AddInitializer<particles::LifetimeInitializer>().lifetime =
+            particles::RangeFloat(2.0f, 2.0f);
         sys.AddInitializer<particles::VelocityInitializer>().baseVelocity = Float3{0, 5, 0};
         sys.AddInitializer<particles::SizeInitializer>();
         sys.AddInitializer<particles::ColorInitializer>();
@@ -195,7 +199,8 @@ TEST_CASE("ParticleSystem: never exceeds MaxParticles")
 TEST_CASE("ParticleEmitter: single burst when interval <= 0")
 {
     particles::ParticleSystem sys(1000);
-    sys.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(5.0f, 5.0f);
+    sys.AddInitializer<particles::LifetimeInitializer>().lifetime =
+        particles::RangeFloat(5.0f, 5.0f);
     sys.emitter.mode = particles::EmissionMode::Burst;
     sys.emitter.burstCount = 20;
     sys.emitter.burstInterval = 0.0f; // single burst
@@ -256,8 +261,10 @@ namespace
         sys.trail.maxPoints = maxPoints;
         sys.trail.recordInterval = 0.0f; // record every frame
         sys.trail.minVertexDistance = 0.0f;
-        sys.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(100.0f, 100.0f);
-        sys.AddInitializer<particles::VelocityInitializer>().baseVelocity = Float3{5.0f, 0.0f, 0.0f};
+        sys.AddInitializer<particles::LifetimeInitializer>().lifetime =
+            particles::RangeFloat(100.0f, 100.0f);
+        sys.AddInitializer<particles::VelocityInitializer>().baseVelocity =
+            Float3{5.0f, 0.0f, 0.0f};
         sys.emitter.mode = particles::EmissionMode::Burst;
         sys.emitter.burstCount = burst;
         sys.emitter.burstInterval = 0.0f;
@@ -318,7 +325,8 @@ TEST_CASE("Trails: compaction keeps trail state aligned; dead particles drop cle
     sys.trail.maxPoints = 8;
     sys.trail.recordInterval = 0.0f;
     sys.trail.minVertexDistance = 0.0f;
-    sys.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(0.25f, 0.25f); // short
+    sys.AddInitializer<particles::LifetimeInitializer>().lifetime =
+        particles::RangeFloat(0.25f, 0.25f); // short
     sys.AddInitializer<particles::VelocityInitializer>().baseVelocity = Float3{2.0f, 0.0f, 0.0f};
     sys.emitter.mode = particles::EmissionMode::Continuous;
     sys.emitter.spawnRate = 200.0f;
@@ -350,14 +358,16 @@ TEST_CASE("Sub-emitter: parent death spawns into the child system")
 
     // System 0: short-lived rockets (die quickly -> emit OnDeath events).
     particles::ParticleSystem& rockets = fx.AddSystem(100);
-    rockets.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(0.05f, 0.05f);
+    rockets.AddInitializer<particles::LifetimeInitializer>().lifetime =
+        particles::RangeFloat(0.05f, 0.05f);
     rockets.emitter.mode = particles::EmissionMode::Burst;
     rockets.emitter.burstCount = 4;
     rockets.emitter.burstInterval = 0.0f;
 
     // System 1: sparks, spawned by rocket deaths (no self-emission).
     particles::ParticleSystem& sparks = fx.AddSystem(1000);
-    sparks.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(1.0f, 1.0f);
+    sparks.AddInitializer<particles::LifetimeInitializer>().lifetime =
+        particles::RangeFloat(1.0f, 1.0f);
     sparks.emitter.isEmitting = false;
 
     particles::SubEmitterLink link = particles::SubEmitterLink::Default();
@@ -442,7 +452,8 @@ TEST_CASE("Local space: particles spawn emitter-relative (near origin), not at t
     particles::ParticleSystem& sys = fx.AddSystem(100);
     sys.simulationSpace = particles::ParticleSpace::Local;
     sys.AddInitializer<particles::PositionInitializer>(); // Point shape -> local origin
-    sys.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(5.0f, 5.0f);
+    sys.AddInitializer<particles::LifetimeInitializer>().lifetime =
+        particles::RangeFloat(5.0f, 5.0f);
     sys.emitter.mode = particles::EmissionMode::Burst;
     sys.emitter.burstCount = 8;
 
@@ -477,7 +488,8 @@ TEST_CASE("Prewarm: the effect is already populated on its first Update")
 {
     particles::ParticleEffect fx(u8"prewarm");
     particles::ParticleSystem& sys = fx.AddSystem(500);
-    sys.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(10.0f, 10.0f);
+    sys.AddInitializer<particles::LifetimeInitializer>().lifetime =
+        particles::RangeFloat(10.0f, 10.0f);
     sys.emitter.spawnRate = 100.0f;
     sys.prewarmTime = 1.0f; // ~100 particles simulated before the first visible frame
 
@@ -490,7 +502,8 @@ TEST_CASE("CollisionBehavior: a particle bounces off the ground plane")
 {
     particles::ParticleEffect fx(u8"collide");
     particles::ParticleSystem& sys = fx.AddSystem(10);
-    sys.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(10.0f, 10.0f);
+    sys.AddInitializer<particles::LifetimeInitializer>().lifetime =
+        particles::RangeFloat(10.0f, 10.0f);
     particles::CollisionBehavior& col = sys.AddBehavior<particles::CollisionBehavior>();
     col.planes[0] = particles::CollisionPlane{Float3{0.0f, 1.0f, 0.0f}, 0.0f}; // ground y=0
     col.bounce = 0.5f;
@@ -513,8 +526,10 @@ TEST_CASE("Seeded RNG: same seed reproduces spawns; Reset replays deterministica
 {
     auto build = [](particles::ParticleSystem& s)
     {
-        s.AddInitializer<particles::PositionInitializer>().shape = particles::EmissionShape::Sphere(3.0f);
-        s.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(5.0f, 5.0f);
+        s.AddInitializer<particles::PositionInitializer>().shape =
+            particles::EmissionShape::Sphere(3.0f);
+        s.AddInitializer<particles::LifetimeInitializer>().lifetime =
+            particles::RangeFloat(5.0f, 5.0f);
         s.emitter.mode = particles::EmissionMode::Burst;
         s.emitter.burstCount = 16;
     };
@@ -545,7 +560,8 @@ TEST_CASE("Sub-emitter SpawnAt: inherits (adds) velocity and modulates color")
     child.AddInitializer<particles::VelocityInitializer>().baseVelocity = Float3{1.0f, 0.0f, 0.0f};
     child.AddInitializer<particles::ColorInitializer>().color =
         particles::RangeColor::Constant(Float4{1, 1, 1, 1});
-    child.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(5.0f, 5.0f);
+    child.AddInitializer<particles::LifetimeInitializer>().lifetime =
+        particles::RangeFloat(5.0f, 5.0f);
 
     child.SpawnAt(1, Float3{0, 0, 0}, Float3{0.0f, 5.0f, 0.0f}, Float4{1.0f, 0.0f, 0.0f, 1.0f});
     REQUIRE(child.AliveCount() == 1);
@@ -562,7 +578,8 @@ TEST_CASE("CollisionBehavior: sphere + box obstacles push out and reflect")
 {
     particles::ParticleEffect fx(u8"obstacles");
     particles::ParticleSystem& sys = fx.AddSystem(10);
-    sys.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat(10.0f, 10.0f);
+    sys.AddInitializer<particles::LifetimeInitializer>().lifetime =
+        particles::RangeFloat(10.0f, 10.0f);
     particles::CollisionBehavior& col = sys.AddBehavior<particles::CollisionBehavior>();
     col.planeCount = 0;
     col.spheres[0] = particles::CollisionSphere{Float3{0, 0, 0}, 1.0f};

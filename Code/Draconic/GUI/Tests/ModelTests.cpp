@@ -45,7 +45,7 @@ TEST_CASE("variant: Compare orders numbers and strings")
 
 TEST_CASE("model-index: validity + equality")
 {
-    CHECK_FALSE(ModelIndex{}.IsValid());           // default row -1
+    CHECK_FALSE(ModelIndex{}.IsValid()); // default row -1
     CHECK(MakeModelIndex(0, 0).IsValid());
     CHECK(MakeModelIndex(3, 1) == MakeModelIndex(3, 1));
     CHECK_FALSE(MakeModelIndex(3, 1) == MakeModelIndex(3, 2));

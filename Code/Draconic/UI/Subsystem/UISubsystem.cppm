@@ -31,9 +31,9 @@ import draconic.fonts;
 import draconic.fonts.ttf;
 import draconic.input;
 import draconic.input.subsystem;
-import draconic.render.api;   // the two-tier overlay roles (ISceneOverlay/IScreenOverlay)
+import draconic.render.api; // the two-tier overlay roles (ISceneOverlay/IScreenOverlay)
 import draconic.ui;
-import draconic.ui.shell;     // UiInputBridge (key/text mapping + IME lifecycle)
+import draconic.ui.shell; // UiInputBridge (key/text mapping + IME lifecycle)
 import draconic.ui.resource;
 
 using namespace draconic::core;
@@ -44,14 +44,14 @@ export namespace draconic::ui
 
     enum class CanvasScalerMode : u8
     {
-        ConstantPixel = 0,     // 1 UI px = 1 target px
-        ReferenceResolution,   // uniform-scale so referenceResolution fits the target
+        ConstantPixel = 0,   // 1 UI px = 1 target px
+        ReferenceResolution, // uniform-scale so referenceResolution fits the target
     };
 
     enum class CanvasRenderMode : u8
     {
-        ScreenOverlay = 0,     // drawn in the scene-overlay pass (the screen tier)
-        RenderTexture,         // drawn into an offscreen texture (in-world screens)
+        ScreenOverlay = 0, // drawn in the scene-overlay pass (the screen tier)
+        RenderTexture,     // drawn into an offscreen texture (in-world screens)
     };
 
     // A screen-space UI canvas on an entity: menus/HUD ride in scenes and prefabs
@@ -60,22 +60,22 @@ export namespace draconic::ui
     {
         // Authored:
         draconic::resource::Ref<UIDocument> document;
-        draconic::resource::Ref<UITheme> theme;    // optional override (nil = context theme)
-        i32 order = 0;                             // draw/dispatch order (higher = on top)
+        draconic::resource::Ref<UITheme> theme; // optional override (nil = context theme)
+        i32 order = 0;                          // draw/dispatch order (higher = on top)
         bool visible = true;
         bool interactive = true;
         CanvasScalerMode scalerMode = CanvasScalerMode::ConstantPixel;
-        Float2 referenceResolution{ 1920.0f, 1080.0f };
+        Float2 referenceResolution{1920.0f, 1080.0f};
         CanvasRenderMode renderMode = CanvasRenderMode::ScreenOverlay;
-        u32 renderTextureWidth = 512;              // RenderTexture mode: target size (px)
+        u32 renderTextureWidth = 512; // RenderTexture mode: target size (px)
         u32 renderTextureHeight = 512;
 
         // Runtime (transient):
-        RefPtr<View> root;                         // instantiated tree (template = document)
-        RefPtr<ViewGroup> host;                    // per-canvas host in the scene root (order + scaler)
-        RefPtr<RootView> renderRoot;               // RenderTexture mode: standalone root (never a tier)
-        const UIDocument* builtFrom = nullptr;     // rebuild detector (hot reload)
-        RefPtr<StyleSheet> themeSheet;             // parsed override (built on theme change)
+        RefPtr<View> root;                     // instantiated tree (template = document)
+        RefPtr<ViewGroup> host;                // per-canvas host in the scene root (order + scaler)
+        RefPtr<RootView> renderRoot;           // RenderTexture mode: standalone root (never a tier)
+        const UIDocument* builtFrom = nullptr; // rebuild detector (hot reload)
+        RefPtr<StyleSheet> themeSheet;         // parsed override (built on theme change)
         const UITheme* themeFrom = nullptr;
         // RenderTexture mode accessors (subsystem-owned GPU objects, refreshed by
         // RenderCanvasTextures; null until the first render / outside the mode).
@@ -94,7 +94,7 @@ export namespace draconic::ui
         c.scalerMode = static_cast<CanvasScalerMode>(scaler);
         draconic::core::Serialize(ar, "referenceResolution", c.referenceResolution);
         draconic::core::Serialize(ar, "interactive", c.interactive);
-        if (ar.Version() >= 2)   // v2 added the RenderTexture canvas mode
+        if (ar.Version() >= 2) // v2 added the RenderTexture canvas mode
         {
             u8 render = static_cast<u8>(c.renderMode);
             draconic::core::Serialize(ar, "renderMode", render);
@@ -114,8 +114,9 @@ export namespace draconic::ui
         : public scene::SerializableComponentManager<UICanvasComponent>
     {
     public:
-        UICanvasComponentManager()
-            : SerializableComponentManager<UICanvasComponent>(u8"ui.Canvas") {}
+        UICanvasComponentManager() : SerializableComponentManager<UICanvasComponent>(u8"ui.Canvas")
+        {
+        }
     };
 
     // ---- billboards (P2: nameplates/health bars) - the Sedulous reference's
@@ -125,19 +126,23 @@ export namespace draconic::ui
 
     enum class BillboardOrientation : u8
     {
-        Screen = 0,     // offset in ENTITY-LOCAL space (rides the entity's rotation)
-        Cylindrical,    // offset in WORLD space (a fixed lift above the anchor)
+        Screen = 0,  // offset in ENTITY-LOCAL space (rides the entity's rotation)
+        Cylindrical, // offset in WORLD space (a fixed lift above the anchor)
     };
-    enum class BillboardScale : u8 { Fixed = 0, Distance };
+    enum class BillboardScale : u8
+    {
+        Fixed = 0,
+        Distance
+    };
 
     struct UIBillboardComponent
     {
         // Authored:
         draconic::resource::Ref<UIDocument> document;
-        Float3 offset{ 0.0f, 0.0f, 0.0f };
+        Float3 offset{0.0f, 0.0f, 0.0f};
         BillboardOrientation orientation = BillboardOrientation::Cylindrical;
         BillboardScale scaleMode = BillboardScale::Fixed;
-        f32 referenceDistance = 10.0f;   // Distance mode: scale = clamp(ref/dist, min, max)
+        f32 referenceDistance = 10.0f; // Distance mode: scale = clamp(ref/dist, min, max)
         f32 minScale = 0.3f;
         f32 maxScale = 2.0f;
         bool visible = true;
@@ -163,7 +168,8 @@ export namespace draconic::ui
         draconic::core::Serialize(ar, "visible", c.visible);
     }
 
-    inline void ResolveResources(draconic::resource::ResourceManager& manager, UIBillboardComponent& c)
+    inline void ResolveResources(draconic::resource::ResourceManager& manager,
+                                 UIBillboardComponent& c)
     {
         c.document.Bind(manager);
     }
@@ -173,7 +179,9 @@ export namespace draconic::ui
     {
     public:
         UIBillboardComponentManager()
-            : SerializableComponentManager<UIBillboardComponent>(u8"ui.Billboard") {}
+            : SerializableComponentManager<UIBillboardComponent>(u8"ui.Billboard")
+        {
+        }
     };
 
     // ---- world tier (game-ui.md, decided 2026-07-19: RT-quad panels; direct-draw
@@ -189,19 +197,19 @@ export namespace draconic::ui
     {
         // Authored:
         draconic::resource::Ref<UIDocument> document;
-        draconic::resource::Ref<UITheme> theme;    // optional override (nil = context theme)
-        Float2 sizeMeters{ 1.6f, 0.9f };           // world extent of the quad
-        f32 pixelsPerMeter = 200.0f;               // texture density (target = size * ppm)
+        draconic::resource::Ref<UITheme> theme; // optional override (nil = context theme)
+        Float2 sizeMeters{1.6f, 0.9f};          // world extent of the quad
+        f32 pixelsPerMeter = 200.0f;            // texture density (target = size * ppm)
         bool interactive = true;
         bool visible = true;
 
         // Runtime (transient):
         RefPtr<View> root;
-        RefPtr<RootView> renderRoot;               // standalone (never a tier root)
+        RefPtr<RootView> renderRoot; // standalone (never a tier root)
         const UIDocument* builtFrom = nullptr;
         RefPtr<StyleSheet> themeSheet;
         const UITheme* themeFrom = nullptr;
-        rhi::Texture* renderTexture = nullptr;         // subsystem-owned (accessors)
+        rhi::Texture* renderTexture = nullptr; // subsystem-owned (accessors)
         rhi::TextureView* renderTextureView = nullptr;
     };
 
@@ -215,7 +223,8 @@ export namespace draconic::ui
         draconic::core::Serialize(ar, "visible", c.visible);
     }
 
-    inline void ResolveResources(draconic::resource::ResourceManager& manager, UIWorldPanelComponent& c)
+    inline void ResolveResources(draconic::resource::ResourceManager& manager,
+                                 UIWorldPanelComponent& c)
     {
         c.document.Bind(manager);
         c.theme.Bind(manager);
@@ -226,7 +235,9 @@ export namespace draconic::ui
     {
     public:
         UIWorldPanelComponentManager()
-            : SerializableComponentManager<UIWorldPanelComponent>(u8"ui.WorldPanel") {}
+            : SerializableComponentManager<UIWorldPanelComponent>(u8"ui.WorldPanel")
+        {
+        }
     };
 
     // ---- world-panel pointer math (pure; unit-tested) ----
@@ -239,22 +250,23 @@ export namespace draconic::ui
         const Float4x4 inverseViewProjection = Inverse(camera.ViewProjection());
         const f32 ndcX = (pointerPx.x / viewSize.x) * 2.0f - 1.0f;
         const f32 ndcY = 1.0f - (pointerPx.y / viewSize.y) * 2.0f;
-        auto unproject = [&](f32 z) {
-            const Float4 clip = Float4{ ndcX, ndcY, z, 1.0f } * inverseViewProjection;
+        auto unproject = [&](f32 z)
+        {
+            const Float4 clip = Float4{ndcX, ndcY, z, 1.0f} * inverseViewProjection;
             const f32 w = clip.w != 0.0f ? clip.w : 1.0f;
-            return Float3{ clip.x / w, clip.y / w, clip.z / w };
+            return Float3{clip.x / w, clip.y / w, clip.z / w};
         };
         outOrigin = unproject(0.0f);
         const Float3 far = unproject(1.0f);
-        outDirection = Normalized(Float3{ far.x - outOrigin.x, far.y - outOrigin.y,
-                                          far.z - outOrigin.z });
+        outDirection =
+            Normalized(Float3{far.x - outOrigin.x, far.y - outOrigin.y, far.z - outOrigin.z});
     }
 
     struct WorldPanelHit
     {
         bool hit = false;
         f32 distance = 0.0f;   // along the ray (world units)
-        Float2 uv{ 0.0f, 0.0f };   // 0..1 across the panel (v down, matching UI pixels)
+        Float2 uv{0.0f, 0.0f}; // 0..1 across the panel (v down, matching UI pixels)
     };
 
     /// Ray vs the panel's plane (entity world right/up span the quad; both faces hit).
@@ -263,27 +275,36 @@ export namespace draconic::ui
                                                         Float2 sizeMeters)
     {
         WorldPanelHit result;
-        const Float3 center{ panelWorld.m[3][0], panelWorld.m[3][1], panelWorld.m[3][2] };
-        const Float3 right = Normalized(
-            Float3{ panelWorld.m[0][0], panelWorld.m[0][1], panelWorld.m[0][2] });
-        const Float3 up = Normalized(
-            Float3{ panelWorld.m[1][0], panelWorld.m[1][1], panelWorld.m[1][2] });
+        const Float3 center{panelWorld.m[3][0], panelWorld.m[3][1], panelWorld.m[3][2]};
+        const Float3 right =
+            Normalized(Float3{panelWorld.m[0][0], panelWorld.m[0][1], panelWorld.m[0][2]});
+        const Float3 up =
+            Normalized(Float3{panelWorld.m[1][0], panelWorld.m[1][1], panelWorld.m[1][2]});
         const Float3 normal = Cross(right, up);
         const f32 denominator = Dot(rayDirection, normal);
-        if (Abs(denominator) < 1.0e-6f) { return result; }   // parallel
-        const Float3 toCenter{ center.x - rayOrigin.x, center.y - rayOrigin.y,
-                               center.z - rayOrigin.z };
+        if (Abs(denominator) < 1.0e-6f)
+        {
+            return result;
+        } // parallel
+        const Float3 toCenter{center.x - rayOrigin.x, center.y - rayOrigin.y,
+                              center.z - rayOrigin.z};
         const f32 t = Dot(toCenter, normal) / denominator;
-        if (t <= 0.0f) { return result; }   // behind the pointer
-        const Float3 point{ rayOrigin.x + rayDirection.x * t, rayOrigin.y + rayDirection.y * t,
-                            rayOrigin.z + rayDirection.z * t };
-        const Float3 local{ point.x - center.x, point.y - center.y, point.z - center.z };
+        if (t <= 0.0f)
+        {
+            return result;
+        } // behind the pointer
+        const Float3 point{rayOrigin.x + rayDirection.x * t, rayOrigin.y + rayDirection.y * t,
+                           rayOrigin.z + rayDirection.z * t};
+        const Float3 local{point.x - center.x, point.y - center.y, point.z - center.z};
         const f32 x = Dot(local, right);
         const f32 y = Dot(local, up);
-        if (Abs(x) > sizeMeters.x * 0.5f || Abs(y) > sizeMeters.y * 0.5f) { return result; }
+        if (Abs(x) > sizeMeters.x * 0.5f || Abs(y) > sizeMeters.y * 0.5f)
+        {
+            return result;
+        }
         result.hit = true;
         result.distance = t;
-        result.uv = Float2{ x / sizeMeters.x + 0.5f, 0.5f - y / sizeMeters.y };
+        result.uv = Float2{x / sizeMeters.x + 0.5f, 0.5f - y / sizeMeters.y};
         return result;
     }
 
@@ -295,8 +316,8 @@ export namespace draconic::ui
                               public draconic::render::IScreenOverlay
     {
     public:
-        UISubsystem();   // defined in the impl unit (RenderState is opaque here)
-        ~UISubsystem() override;   // defined in the impl unit (RenderState is opaque here)
+        UISubsystem();           // defined in the impl unit (RenderState is opaque here)
+        ~UISubsystem() override; // defined in the impl unit (RenderState is opaque here)
 
         /// Before the scene subsystem so canvas visibility/trees are current for pages;
         /// lane choice matters more than order: ALL work runs in BeginFrame (raw dt).
@@ -343,9 +364,15 @@ export namespace draconic::ui
         /// Instantiates `document` and attaches it topmost. Null if the markup fails.
         RefPtr<View> PushScreenOverlay(const UIDocument& document)
         {
-            if (document.markup.IsEmpty() || m_overlayLayer.Get() == nullptr) { return {}; }
+            if (document.markup.IsEmpty() || m_overlayLayer.Get() == nullptr)
+            {
+                return {};
+            }
             RefPtr<View> view = MarkupLoader::LoadFromString(document.markup.AsView(), &m_context);
-            if (view.Get() != nullptr) { m_overlayLayer->AddView(view.Get()); }
+            if (view.Get() != nullptr)
+            {
+                m_overlayLayer->AddView(view.Get());
+            }
             return view;
         }
         /// Attaches an already-built view topmost (code-built overlays).
@@ -385,7 +412,7 @@ export namespace draconic::ui
             ui.scene = &scene;
             ui.root = MakeRef<RootView>(DefaultAllocator());
             auto billboards = MakeRef<AbsoluteLayout>(DefaultAllocator());
-            billboards->IsHitTestVisible = false;   // nameplates never eat clicks
+            billboards->IsHitTestVisible = false; // nameplates never eat clicks
             ui.billboardLayer = billboards;
             ui.root->AddView(ui.billboardLayer.Get());
             m_context.AddRootView(ui.root.Get());
@@ -395,7 +422,10 @@ export namespace draconic::ui
         {
             for (usize i = 0; i < m_sceneUIs.Size(); ++i)
             {
-                if (m_sceneUIs[i].scene != &scene) { continue; }
+                if (m_sceneUIs[i].scene != &scene)
+                {
+                    continue;
+                }
                 if (m_sceneUIs[i].root.Get() != nullptr)
                 {
                     m_context.RemoveRootView(m_sceneUIs[i].root.Get());
@@ -411,13 +441,14 @@ export namespace draconic::ui
         // view's REAL camera); the screen tier draws the scene-less overlays once per
         // window target when the host calls IScreenRenderer::RenderOverlays.
 
-        [[nodiscard]] i32 OverlayOrder() const noexcept override { return 0; }   // both roles
+        [[nodiscard]] i32 OverlayOrder() const noexcept override { return 0; } // both roles
         /// Scene tier: draws the view's scene root (matched by SceneKey) into the view's
         /// viewport rect - sub-rect views (split-screen) lay out at the viewport size and
         /// draw through the VG renderer's viewport seam, clipped to their rect.
         void Render(rhi::RenderPassEncoder& encoder, const render::SceneOverlayView& view) override;
         /// Screen tier: draws the global overlay root.
-        void Render(rhi::RenderPassEncoder& encoder, const render::ScreenOverlayView& view) override;
+        void Render(rhi::RenderPassEncoder& encoder,
+                    const render::ScreenOverlayView& view) override;
 
         /// The scene-tier per-view sync, split out for headless tests: canvas visibility
         /// plus billboard projection/scaling through the VIEW's camera (world -> clip ->
@@ -461,9 +492,8 @@ export namespace draconic::ui
         void DestroyPreview(RootView* root);
         /// Draws a preview root into `target` via a Load-op pass on the caller's encoder
         /// (target in RenderTarget state; left there). Lays out at the given size.
-        void RenderPreview(RootView& root, rhi::CommandEncoder& encoder,
-                           rhi::TextureView* target, rhi::TextureFormat format,
-                           u32 width, u32 height, i32 frameIndex);
+        void RenderPreview(RootView& root, rhi::CommandEncoder& encoder, rhi::TextureView* target,
+                           rhi::TextureFormat format, u32 width, u32 height, i32 frameIndex);
 
         /// True when any interactive canvas is under the pointer or holds text focus -
         /// mirrors the published consumption mask (tests + gameplay diagnostics).
@@ -475,11 +505,17 @@ export namespace draconic::ui
         {
             scene::Scene* scene = nullptr;
             RefPtr<RootView> root;
-            RefPtr<ViewGroup> billboardLayer;   // BELOW the scene's canvases; one batch
+            RefPtr<ViewGroup> billboardLayer; // BELOW the scene's canvases; one batch
         };
         [[nodiscard]] SceneUI* FindSceneUI(scene::Scene& scene) noexcept
         {
-            for (SceneUI& ui : m_sceneUIs) { if (ui.scene == &scene) { return &ui; } }
+            for (SceneUI& ui : m_sceneUIs)
+            {
+                if (ui.scene == &scene)
+                {
+                    return &ui;
+                }
+            }
             return nullptr;
         }
 
@@ -502,31 +538,31 @@ export namespace draconic::ui
         // (viewportX, viewportY) places the content rect within the pass's target
         // (split-screen sub-rect views); (0,0) for whole-target draws.
         void DrawRootInPass(RootView& root, rhi::RenderPassEncoder& encoder,
-                            rhi::TextureFormat format, i32 viewportX, i32 viewportY,
-                            u32 width, u32 height, i32 frameIndex);
+                            rhi::TextureFormat format, i32 viewportX, i32 viewportY, u32 width,
+                            u32 height, i32 frameIndex);
 
         String m_fontPath;
         UIContext m_context;
-        UiInputBridge m_bridge{ &m_context };   // key/text event mapping + IME sync
+        UiInputBridge m_bridge{&m_context}; // key/text event mapping + IME sync
         RefPtr<RootView> m_screenRoot;
-        RefPtr<ViewGroup> m_overlayLayer;     // scene-LESS screen tier, ABOVE everything
+        RefPtr<ViewGroup> m_overlayLayer; // scene-LESS screen tier, ABOVE everything
         RefPtr<StyleSheet> m_theme;
         UniquePtr<draconic::fonts::TrueTypeFontService> m_fonts;
         Array<SceneUI> m_sceneUIs;
         draconic::input::InputSubsystem* m_input = nullptr;
-        draconic::render::ISceneRenderer* m_sceneRenderer = nullptr;    // overlay registration seam
+        draconic::render::ISceneRenderer* m_sceneRenderer = nullptr; // overlay registration seam
         draconic::render::IScreenRenderer* m_screenRenderer = nullptr;
-        u64 m_frameSerial = 0;                // gates VGRenderer::BeginFrame to once per frame
-        u64 m_canvasTexturesSerial = ~0ull;   // gates RenderCanvasTextures to once per frame
+        u64 m_frameSerial = 0;              // gates VGRenderer::BeginFrame to once per frame
+        u64 m_canvasTexturesSerial = ~0ull; // gates RenderCanvasTextures to once per frame
 
         // pointer edge tracking for the polled pump
-        bool m_prevButtons[3] = { false, false, false };
+        bool m_prevButtons[3] = {false, false, false};
         f32 m_prevWheel = 0.0f;
         bool m_pointerConsumed = false;
 
         // gamepad focus navigation (hold-repeat per direction)
-        f32 m_navRepeat[4] = { 0.0f, 0.0f, 0.0f, 0.0f };   // Up/Down/Left/Right
-        bool m_navHeld[4] = { false, false, false, false };
+        f32 m_navRepeat[4] = {0.0f, 0.0f, 0.0f, 0.0f}; // Up/Down/Left/Right
+        bool m_navHeld[4] = {false, false, false, false};
         f32 m_navDeltaTime = 0.0f;
 
         // impl-side render state (VG contexts/renderers/shaders), opaque here

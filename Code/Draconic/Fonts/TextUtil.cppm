@@ -11,7 +11,7 @@ module;
 export module draconic.fonts:text_util;
 
 import draconic.core;
-import :interfaces;   // IFont (MeasureString) for TruncateToWidth
+import :interfaces; // IFont (MeasureString) for TruncateToWidth
 
 using namespace draconic::core;
 
@@ -28,17 +28,41 @@ export namespace draconic::fonts
 
         u32 codepoint;
         int extra;
-        if (lead < 0x80u) { return lead; }
-        else if ((lead & 0xE0u) == 0xC0u) { codepoint = lead & 0x1Fu; extra = 1; }
-        else if ((lead & 0xF0u) == 0xE0u) { codepoint = lead & 0x0Fu; extra = 2; }
-        else if ((lead & 0xF8u) == 0xF0u) { codepoint = lead & 0x07u; extra = 3; }
-        else { return 0xFFFDu; } // invalid lead byte
+        if (lead < 0x80u)
+        {
+            return lead;
+        }
+        else if ((lead & 0xE0u) == 0xC0u)
+        {
+            codepoint = lead & 0x1Fu;
+            extra = 1;
+        }
+        else if ((lead & 0xF0u) == 0xE0u)
+        {
+            codepoint = lead & 0x0Fu;
+            extra = 2;
+        }
+        else if ((lead & 0xF8u) == 0xF0u)
+        {
+            codepoint = lead & 0x07u;
+            extra = 3;
+        }
+        else
+        {
+            return 0xFFFDu;
+        } // invalid lead byte
 
         for (int k = 0; k < extra; ++k)
         {
-            if (index >= text.Size()) { return 0xFFFDu; }
+            if (index >= text.Size())
+            {
+                return 0xFFFDu;
+            }
             const u8 cont = static_cast<u8>(text[index]);
-            if ((cont & 0xC0u) != 0x80u) { return 0xFFFDu; } // not a continuation byte
+            if ((cont & 0xC0u) != 0x80u)
+            {
+                return 0xFFFDu;
+            } // not a continuation byte
             codepoint = (codepoint << 6) | (cont & 0x3Fu);
             ++index;
         }
@@ -55,20 +79,30 @@ export namespace draconic::fonts
         const f32 textW = font.MeasureString(text);
         // 1px tolerance: a control sized to exactly fit its text can measure a sub-pixel short after
         // layout rounding. Without this, a snug button collapses to "..." (e.g. "OK" -> "...").
-        if (text.Size() == 0 || textW <= maxWidth + 1.0f) { return String(text); }
+        if (text.Size() == 0 || textW <= maxWidth + 1.0f)
+        {
+            return String(text);
+        }
         const f32 ellipsisW = font.MeasureString(ellipsis);
         // If the text is already no wider than the ellipsis, replacing it with "..." can't make it
         // narrower (and usually makes it WIDER - e.g. a "+" / "x" button) - leave it unchanged.
-        if (textW <= ellipsisW) { return String(text); }
+        if (textW <= ellipsisW)
+        {
+            return String(text);
+        }
         const f32 availW = maxWidth - ellipsisW;
 
         usize fitBytes = 0;
         usize i = 0;
-        while (availW > 0.0f && i < text.Size())   // ellipsis alone doesn't fit -> just draw "..."
+        while (availW > 0.0f && i < text.Size()) // ellipsis alone doesn't fit -> just draw "..."
         {
             usize probe = i;
-            (void)DecodeCodepoint(text, probe);   // advance past one codepoint (only the index matters)
-            if (font.MeasureString(StringView{ text.Data(), probe }) > availW) { break; }
+            (void)DecodeCodepoint(text,
+                                  probe); // advance past one codepoint (only the index matters)
+            if (font.MeasureString(StringView{text.Data(), probe}) > availW)
+            {
+                break;
+            }
             fitBytes = probe;
             i = probe;
         }

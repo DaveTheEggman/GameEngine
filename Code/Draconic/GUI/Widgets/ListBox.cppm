@@ -13,8 +13,8 @@ module;
 
 export module draconic.gui:list_box;
 
-import draconic.core;   // RefPtr, MakeRef, Array, Function, Move, String, Max, Min
-import draconic.fonts;  // CachedFont
+import draconic.core;  // RefPtr, MakeRef, Array, Function, Move, String, Max, Min
+import draconic.fonts; // CachedFont
 import :rect;
 import :event;
 import :drawable;
@@ -42,25 +42,33 @@ export namespace draconic::gui
 
         void SetSelectedRow(bool selected)
         {
-            if (selected == m_selected) return;
+            if (selected == m_selected)
+                return;
             m_selected = selected;
-            SetBackground(selected ? core::RefPtr<Drawable>(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), m_highlight))
+            SetBackground(selected ? core::RefPtr<Drawable>(core::MakeRef<RectangleDrawable>(
+                                         core::DefaultAllocator(), m_highlight))
                                    : core::RefPtr<Drawable>());
             Invalidate();
         }
         void SetHighlightColor(Color color)
         {
             m_highlight = color;
-            if (m_selected) SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), color)); // refresh live
+            if (m_selected)
+                SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(),
+                                                               color)); // refresh live
         }
 
     protected:
-        void OnMouseClick(const MouseEvent&) override { if (m_onPicked) m_onPicked(m_index); }
+        void OnMouseClick(const MouseEvent&) override
+        {
+            if (m_onPicked)
+                m_onPicked(m_index);
+        }
 
     private:
         i32 m_index = -1;
         bool m_selected = false;
-        Color m_highlight{ 0.24f, 0.40f, 0.62f, 1.0f };
+        Color m_highlight{0.24f, 0.40f, 0.62f, 1.0f};
         core::Function<void(i32)> m_onPicked;
     };
 
@@ -79,8 +87,17 @@ export namespace draconic::gui
             AddChild(m_scroll.Get());
         }
 
-        void SetFont(fonts::CachedFont* font) { m_font = font; for (ListBoxItem* it : m_items) it->SetFont(font); }
-        void SetItemHeight(f32 height) { m_itemHeight = core::Max(1.0f, height); Relayout(); }
+        void SetFont(fonts::CachedFont* font)
+        {
+            m_font = font;
+            for (ListBoxItem* it : m_items)
+                it->SetFont(font);
+        }
+        void SetItemHeight(f32 height)
+        {
+            m_itemHeight = core::Max(1.0f, height);
+            Relayout();
+        }
         [[nodiscard]] f32 GetItemHeight() const noexcept { return m_itemHeight; }
 
         void AddItem(core::StringView text)
@@ -90,7 +107,7 @@ export namespace draconic::gui
             item->SetFont(m_font);
             item->SetTextColor(m_textColor);
             item->SetHighlightColor(m_highlightColor);
-            item->SetPadding(Thickness{ 8.0f, 0.0f, 8.0f, 0.0f });
+            item->SetPadding(Thickness{8.0f, 0.0f, 8.0f, 0.0f});
             item->SetIndex(static_cast<i32>(m_items.Size()));
             ListBox* self = this;
             item->SetOnPicked([self](i32 index) { self->SetSelectedIndex(index); });
@@ -116,29 +133,46 @@ export namespace draconic::gui
         [[nodiscard]] i32 GetSelectedIndex() const noexcept { return m_selected; }
         void SetSelectedIndex(i32 index)
         {
-            if (index < -1 || index >= static_cast<i32>(m_items.Size())) return;
-            if (index == m_selected) return;
-            if (m_selected >= 0) m_items[static_cast<usize>(m_selected)]->SetSelectedRow(false);
+            if (index < -1 || index >= static_cast<i32>(m_items.Size()))
+                return;
+            if (index == m_selected)
+                return;
+            if (m_selected >= 0)
+                m_items[static_cast<usize>(m_selected)]->SetSelectedRow(false);
             m_selected = index;
             if (m_selected >= 0)
             {
                 m_items[static_cast<usize>(m_selected)]->SetSelectedRow(true);
                 ScrollIntoView(m_selected);
             }
-            if (m_onChanged) m_onChanged(m_selected);
+            if (m_onChanged)
+                m_onChanged(m_selected);
         }
-        void SetOnSelectionChanged(core::Function<void(i32)> callback) { m_onChanged = core::Move(callback); }
+        void SetOnSelectionChanged(core::Function<void(i32)> callback)
+        {
+            m_onChanged = core::Move(callback);
+        }
 
-        void SetTextColor(Color color) { m_textColor = color; for (ListBoxItem* it : m_items) it->SetTextColor(color); }
+        void SetTextColor(Color color)
+        {
+            m_textColor = color;
+            for (ListBoxItem* it : m_items)
+                it->SetTextColor(color);
+        }
 
         // Theming: text color for all rows; listbox::selection = the row-selection highlight.
         void SetThemeTextColor(Color color) override { SetTextColor(color); }
-        void CollectStyleParts(core::Array<core::StringView>& out) const override { out.PushBack(core::StringView(u8"selection")); }
+        void CollectStyleParts(core::Array<core::StringView>& out) const override
+        {
+            out.PushBack(core::StringView(u8"selection"));
+        }
         void SetThemePartColor(core::StringView part, Color color) override
         {
-            if (part != core::StringView(u8"selection")) return;
+            if (part != core::StringView(u8"selection"))
+                return;
             m_highlightColor = color;
-            for (ListBoxItem* it : m_items) it->SetHighlightColor(color);
+            for (ListBoxItem* it : m_items)
+                it->SetHighlightColor(color);
         }
 
         [[nodiscard]] ScrollView* GetScrollView() const noexcept { return m_scroll.Get(); }
@@ -150,11 +184,25 @@ export namespace draconic::gui
         {
             switch (static_cast<KeyCode>(event.KeyCode))
             {
-            case KeyCode::Down: if (!m_items.IsEmpty()) SetSelectedIndex(core::Min(m_selected + 1, static_cast<i32>(m_items.Size()) - 1)); break;
-            case KeyCode::Up:   if (!m_items.IsEmpty()) SetSelectedIndex(core::Max(m_selected <= 0 ? 0 : m_selected - 1, 0)); break;
-            case KeyCode::Home: if (!m_items.IsEmpty()) SetSelectedIndex(0); break;
-            case KeyCode::End:  if (!m_items.IsEmpty()) SetSelectedIndex(static_cast<i32>(m_items.Size()) - 1); break;
-            default: break;
+            case KeyCode::Down:
+                if (!m_items.IsEmpty())
+                    SetSelectedIndex(
+                        core::Min(m_selected + 1, static_cast<i32>(m_items.Size()) - 1));
+                break;
+            case KeyCode::Up:
+                if (!m_items.IsEmpty())
+                    SetSelectedIndex(core::Max(m_selected <= 0 ? 0 : m_selected - 1, 0));
+                break;
+            case KeyCode::Home:
+                if (!m_items.IsEmpty())
+                    SetSelectedIndex(0);
+                break;
+            case KeyCode::End:
+                if (!m_items.IsEmpty())
+                    SetSelectedIndex(static_cast<i32>(m_items.Size()) - 1);
+                break;
+            default:
+                break;
             }
         }
 
@@ -162,16 +210,17 @@ export namespace draconic::gui
         void Relayout()
         {
             const Rect box = GetContentBounds();
-            m_scroll->SetPosition(core::Float2{ box.x, box.y });
-            m_scroll->SetSize(core::Float2{ box.width, box.height });
+            m_scroll->SetPosition(core::Float2{box.x, box.y});
+            m_scroll->SetSize(core::Float2{box.width, box.height});
 
             const f32 rowW = m_scroll->Viewport().width;
             for (usize i = 0; i < m_items.Size(); ++i)
             {
-                m_items[i]->SetPosition(core::Float2{ 0.0f, static_cast<f32>(i) * m_itemHeight });
-                m_items[i]->SetSize(core::Float2{ rowW, m_itemHeight });
+                m_items[i]->SetPosition(core::Float2{0.0f, static_cast<f32>(i) * m_itemHeight});
+                m_items[i]->SetSize(core::Float2{rowW, m_itemHeight});
             }
-            m_scroll->SetContentSize(core::Float2{ rowW, static_cast<f32>(m_items.Size()) * m_itemHeight });
+            m_scroll->SetContentSize(
+                core::Float2{rowW, static_cast<f32>(m_items.Size()) * m_itemHeight});
         }
 
         void ScrollIntoView(i32 index)
@@ -180,8 +229,10 @@ export namespace draconic::gui
             const f32 bottom = top + m_itemHeight;
             const f32 viewH = m_scroll->Viewport().height;
             const core::Float2 off = m_scroll->GetScrollOffset();
-            if (top < off.y)                 m_scroll->SetScrollOffset(core::Float2{ off.x, top });
-            else if (bottom > off.y + viewH) m_scroll->SetScrollOffset(core::Float2{ off.x, bottom - viewH });
+            if (top < off.y)
+                m_scroll->SetScrollOffset(core::Float2{off.x, top});
+            else if (bottom > off.y + viewH)
+                m_scroll->SetScrollOffset(core::Float2{off.x, bottom - viewH});
         }
 
         RefPtr<ScrollView> m_scroll;
@@ -189,9 +240,9 @@ export namespace draconic::gui
         fonts::CachedFont* m_font = nullptr;
         f32 m_itemHeight = 24.0f;
         i32 m_selected = -1;
-        Color m_panelColor{ 0.13f, 0.14f, 0.17f, 1.0f };
-        Color m_textColor{ 0.88f, 0.90f, 0.94f, 1.0f };
-        Color m_highlightColor{ 0.24f, 0.40f, 0.62f, 1.0f };
+        Color m_panelColor{0.13f, 0.14f, 0.17f, 1.0f};
+        Color m_textColor{0.88f, 0.90f, 0.94f, 1.0f};
+        Color m_highlightColor{0.24f, 0.40f, 0.62f, 1.0f};
         core::Function<void(i32)> m_onChanged;
     };
 

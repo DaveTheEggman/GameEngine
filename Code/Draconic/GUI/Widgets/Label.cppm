@@ -11,8 +11,8 @@ module;
 
 export module draconic.gui:label;
 
-import draconic.core;    // StringView, Color, Float2
-import draconic.fonts;   // CachedFont
+import draconic.core;  // StringView, Color, Float2
+import draconic.fonts; // CachedFont
 import :rect;
 import :draw_context;
 import :text;
@@ -28,28 +28,58 @@ export namespace draconic::gui
     {
         DRACONIC_OBJECT(Label, UIWidget)
     public:
-        Label() { SetTag(core::StringView(u8"label")); m_text.SetAlignment(TextHAlign::Left, TextVAlign::Middle); }
+        Label()
+        {
+            SetTag(core::StringView(u8"label"));
+            m_text.SetAlignment(TextHAlign::Left, TextVAlign::Middle);
+        }
 
-        void SetText(core::StringView text) { m_text.SetString(text); Invalidate(); }
+        void SetText(core::StringView text)
+        {
+            m_text.SetString(text);
+            Invalidate();
+        }
         [[nodiscard]] core::StringView GetText() const { return m_text.GetString(); }
 
-        void SetFont(fonts::CachedFont* font) { m_text.SetFont(font); Invalidate(); }
+        void SetFont(fonts::CachedFont* font)
+        {
+            m_text.SetFont(font);
+            Invalidate();
+        }
         [[nodiscard]] fonts::CachedFont* GetFont() const { return m_text.GetFont(); }
 
-        void SetTextColor(Color color) { m_text.SetColor(color); Invalidate(); }
+        void SetTextColor(Color color)
+        {
+            m_text.SetColor(color);
+            Invalidate();
+        }
         [[nodiscard]] Color GetTextColor() const { return m_text.GetColor(); }
 
         // Theming hooks (CSS color / font-family / text-align reach the text).
         void SetThemeTextColor(Color color) override { SetTextColor(color); }
         void SetThemeFont(fonts::CachedFont* font) override { SetFont(font); }
-        void SetThemeTextAlign(TextHAlign horizontal) override { SetTextAlignment(horizontal, m_text.GetVAlign()); }
-        void SetThemeTextAlignV(TextVAlign vertical) override { SetTextAlignment(m_text.GetHAlign(), vertical); }
+        void SetThemeTextAlign(TextHAlign horizontal) override
+        {
+            SetTextAlignment(horizontal, m_text.GetVAlign());
+        }
+        void SetThemeTextAlignV(TextVAlign vertical) override
+        {
+            SetTextAlignment(m_text.GetHAlign(), vertical);
+        }
 
         // Markup: <Label text="Hello" wrap="true">.
         bool SetMarkupAttribute(core::StringView name, core::StringView value) override
         {
-            if (name == core::StringView(u8"text")) { SetText(value); return true; }
-            if (name == core::StringView(u8"wrap")) { SetWordWrap(value == core::StringView(u8"true")); return true; }
+            if (name == core::StringView(u8"text"))
+            {
+                SetText(value);
+                return true;
+            }
+            if (name == core::StringView(u8"wrap"))
+            {
+                SetWordWrap(value == core::StringView(u8"true"));
+                return true;
+            }
             return UIWidget::SetMarkupAttribute(name, value);
         }
 
@@ -62,13 +92,20 @@ export namespace draconic::gui
         [[nodiscard]] TextVAlign GetTextAlignV() const noexcept { return m_text.GetVAlign(); }
 
         // Word wrap: when on, the label draws multiple lines within its content width.
-        void SetWordWrap(bool enabled) { m_text.SetWordWrap(enabled); Invalidate(); }
+        void SetWordWrap(bool enabled)
+        {
+            m_text.SetWordWrap(enabled);
+            Invalidate();
+        }
         [[nodiscard]] bool IsWordWrap() const { return m_text.IsWordWrap(); }
 
         // The natural size of the text (for layout).
         [[nodiscard]] core::Float2 MeasureText() const { return m_text.Measure(); }
         // The size wrapped text occupies at `maxWidth` (widest line x total height).
-        [[nodiscard]] core::Float2 MeasureWrapped(f32 maxWidth) const { return m_text.MeasureWrapped(maxWidth); }
+        [[nodiscard]] core::Float2 MeasureWrapped(f32 maxWidth) const
+        {
+            return m_text.MeasureWrapped(maxWidth);
+        }
 
     protected:
         void OnDraw(DrawContext& ctx, const Rect& localBounds) override

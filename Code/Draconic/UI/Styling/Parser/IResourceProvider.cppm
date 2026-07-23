@@ -14,8 +14,8 @@ module;
 
 export module draconic.ui:iresource_provider;
 
-import draconic.core;    // StringView, String
-import draconic.image;   // ImageData
+import draconic.core;  // StringView, String
+import draconic.image; // ImageData
 
 using namespace draconic::core;
 namespace image = draconic::image;

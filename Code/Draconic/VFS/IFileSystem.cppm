@@ -46,9 +46,9 @@ export namespace draconic::vfs
         // Capability queries - default null; capable backends override to return
         // `this`. Consumers do `if (auto* w = fs.AsWritable())` rather than cast.
         [[nodiscard]] virtual IEnumerableFileSystem* AsEnumerable() noexcept { return nullptr; }
-        [[nodiscard]] virtual IWritableFileSystem*   AsWritable()   noexcept { return nullptr; }
-        [[nodiscard]] virtual IWatchableFileSystem*  AsWatchable()  noexcept { return nullptr; }
-        [[nodiscard]] virtual IStatFileSystem*       AsStat()       noexcept { return nullptr; }
+        [[nodiscard]] virtual IWritableFileSystem* AsWritable() noexcept { return nullptr; }
+        [[nodiscard]] virtual IWatchableFileSystem* AsWatchable() noexcept { return nullptr; }
+        [[nodiscard]] virtual IStatFileSystem* AsStat() noexcept { return nullptr; }
     };
 
     // Capability: list directory contents.
@@ -74,15 +74,16 @@ export namespace draconic::vfs
         /// and read-only backends).
         [[nodiscard]] virtual Status Move(StringView from, StringView to)
         {
-            (void)from; (void)to;
-            return Status{ ErrorCode::NotSupported };
+            (void)from;
+            (void)to;
+            return Status{ErrorCode::NotSupported};
         }
         /// Remove an EMPTY directory (callers empty it first - deleting a directory tree is
         /// a policy decision that belongs above the mount). Default: unsupported.
         [[nodiscard]] virtual Status DeleteDirectory(StringView path)
         {
             (void)path;
-            return Status{ ErrorCode::NotSupported };
+            return Status{ErrorCode::NotSupported};
         }
     };
 
@@ -90,7 +91,7 @@ export namespace draconic::vfs
     struct FileStatInfo
     {
         u64 size = 0;
-        i64 modifiedTime = 0;   // seconds since the unix epoch
+        i64 modifiedTime = 0; // seconds since the unix epoch
     };
 
     // Capability: cheap file metadata (the cook pipeline's file-hash memo key). Backends whose

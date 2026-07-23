@@ -23,9 +23,9 @@ namespace
         {
             return extension == StringView(u8"fak");
         }
-        [[nodiscard]] Result<draconic::content::Instance*> Import(
-            StringView, EditorProject&, draconic::content::Group&,
-            const ImportOptions*, Object*, Array<DeferredImportWrite>*) override
+        [[nodiscard]] Result<draconic::content::Instance*>
+        Import(StringView, EditorProject&, draconic::content::Group&, const ImportOptions*, Object*,
+               Array<DeferredImportWrite>*) override
         {
             return Err(ErrorCode::NotSupported);
         }
@@ -52,7 +52,8 @@ TEST_CASE("importer: registry routes by extension, first match wins")
     ImporterRegistry registry;
     CHECK(registry.FindFor(u8"fak") == nullptr);
 
-    registry.Register(UniquePtr<IFileImporter>(DefaultAllocator().New<FakeImporter>(), DefaultAllocator()));
+    registry.Register(
+        UniquePtr<IFileImporter>(DefaultAllocator().New<FakeImporter>(), DefaultAllocator()));
     CHECK(registry.Count() == 1u);
 
     IFileImporter* importer = registry.FindFor(u8"fak");
@@ -67,7 +68,7 @@ TEST_CASE("importer: CopyIntoSources lands the bytes in the project's Sources tr
     // Clean slate.
     FileDelete(PathJoin(dir, u8"Project.xml"));
     FileDelete(PathJoin(dir, u8"Sources/payload.bin"));
-    for (StringView sub : { u8"Content", u8"Sources", u8"Cooked", u8"Editor", u8".cache" })
+    for (StringView sub : {u8"Content", u8"Sources", u8"Cooked", u8"Editor", u8".cache"})
     {
         RemoveDirectory(PathJoin(dir, sub));
     }
@@ -78,7 +79,7 @@ TEST_CASE("importer: CopyIntoSources lands the bytes in the project's Sources tr
     REQUIRE(static_cast<bool>(project));
 
     // A loose OS file to import.
-    const byte payload[4] = { byte{9}, byte{8}, byte{7}, byte{6} };
+    const byte payload[4] = {byte{9}, byte{8}, byte{7}, byte{6}};
     REQUIRE(WriteFile(u8"draconic_importer_loose.bin", Span<const byte>(payload, 4)).IsOk());
 
     Result<String> name = CopyIntoSources(*project, u8"draconic_importer_loose.bin");
@@ -99,7 +100,7 @@ TEST_CASE("importer: CopyIntoSources lands the bytes in the project's Sources tr
     FileDelete(u8"draconic_importer_loose.bin");
     FileDelete(copied.AsView());
     FileDelete(PathJoin(dir, u8"Project.xml"));
-    for (StringView sub : { u8"Content", u8"Sources", u8"Cooked", u8"Editor", u8".cache" })
+    for (StringView sub : {u8"Content", u8"Sources", u8"Cooked", u8"Editor", u8".cache"})
     {
         RemoveDirectory(PathJoin(dir, sub));
     }

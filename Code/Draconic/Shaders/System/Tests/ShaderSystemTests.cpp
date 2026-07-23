@@ -17,13 +17,12 @@ namespace rhi = draconic::rhi;
 namespace
 {
     // Fails to compile unless NORMAL_MAP is defined - proves flags->defines apply.
-    constexpr const char8_t* kNeedsNormalMap =
-        u8"float4 main() : SV_Target {\n"
-        u8"#ifndef NORMAL_MAP\n"
-        u8"#error NORMAL_MAP required\n"
-        u8"#endif\n"
-        u8"    return float4(1, 0, 0, 1);\n"
-        u8"}\n";
+    constexpr const char8_t* kNeedsNormalMap = u8"float4 main() : SV_Target {\n"
+                                               u8"#ifndef NORMAL_MAP\n"
+                                               u8"#error NORMAL_MAP required\n"
+                                               u8"#endif\n"
+                                               u8"    return float4(1, 0, 0, 1);\n"
+                                               u8"}\n";
 
     // Compiles regardless of flags.
     constexpr const char8_t* kTrivialVertex =
@@ -32,7 +31,10 @@ namespace
     Compiler* MakeCompiler()
     {
         Compiler* c = nullptr;
-        if (!createCompiler(CompilerDesc{}, c).IsOk()) { return nullptr; }
+        if (!createCompiler(CompilerDesc{}, c).IsOk())
+        {
+            return nullptr;
+        }
         return c;
     }
 }
@@ -40,7 +42,11 @@ namespace
 TEST_CASE("shader system: flags become defines; failures aren't cached")
 {
     Compiler* compiler = MakeCompiler();
-    if (compiler == nullptr) { MESSAGE("DXC unavailable; skipping"); return; }
+    if (compiler == nullptr)
+    {
+        MESSAGE("DXC unavailable; skipping");
+        return;
+    }
 
     rhi::null::NullDevice device{DefaultAllocator()};
     {
@@ -51,7 +57,8 @@ TEST_CASE("shader system: flags become defines; failures aren't cached")
         CHECK(ss.GetVariant(u8"guarded", ShaderStage::Fragment, ShaderFlags::None) == nullptr);
 
         // With NormalMap -> #define NORMAL_MAP -> compiles.
-        rhi::ShaderModule* m = ss.GetVariant(u8"guarded", ShaderStage::Fragment, ShaderFlags::NormalMap);
+        rhi::ShaderModule* m =
+            ss.GetVariant(u8"guarded", ShaderStage::Fragment, ShaderFlags::NormalMap);
         CHECK(m != nullptr);
 
         // Same variant is cached (same module object).
@@ -71,7 +78,10 @@ TEST_CASE("shader system: flags become defines; failures aren't cached")
 TEST_CASE("shader system: distinct variants cache separately; invalidate recompiles")
 {
     Compiler* compiler = MakeCompiler();
-    if (compiler == nullptr) { return; }
+    if (compiler == nullptr)
+    {
+        return;
+    }
 
     rhi::null::NullDevice device{DefaultAllocator()};
     {
@@ -82,8 +92,8 @@ TEST_CASE("shader system: distinct variants cache separately; invalidate recompi
         rhi::ShaderModule* b = ss.GetVariant(u8"vs", ShaderStage::Vertex, ShaderFlags::Skinned);
         REQUIRE(a != nullptr);
         REQUIRE(b != nullptr);
-        CHECK(a != b);                                                              // different variants
-        CHECK(ss.GetVariant(u8"vs", ShaderStage::Vertex, ShaderFlags::None) == a);  // cached
+        CHECK(a != b); // different variants
+        CHECK(ss.GetVariant(u8"vs", ShaderStage::Vertex, ShaderFlags::None) == a); // cached
 
         // Invalidate drops the cached variants; a later request recompiles.
         CHECK(ss.InvalidateShader(u8"vs") == 2u);

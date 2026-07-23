@@ -13,28 +13,37 @@ import draconic.rhi;
 
 using namespace draconic::core;
 
-export namespace draconic::rhi::vk {
+export namespace draconic::rhi::vk
+{
 
-class VkShaderModuleImpl : public ShaderModule {
-public:
-    Status init(VkDevice device, const ShaderModuleDesc& d) {
-        VkShaderModuleCreateInfo ci{};
-        ci.sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-        ci.codeSize = d.code.Size();
-        ci.pCode    = reinterpret_cast<const u32*>(d.code.Data());
+    class VkShaderModuleImpl : public ShaderModule
+    {
+    public:
+        Status init(VkDevice device, const ShaderModuleDesc& d)
+        {
+            VkShaderModuleCreateInfo ci{};
+            ci.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+            ci.codeSize = d.code.Size();
+            ci.pCode = reinterpret_cast<const u32*>(d.code.Data());
 
-        if (vkCreateShaderModule(device, &ci, nullptr, &m_module) != VK_SUCCESS) return ErrorCode::Unknown;
-        return ErrorCode::Ok;
-    }
+            if (vkCreateShaderModule(device, &ci, nullptr, &m_module) != VK_SUCCESS)
+                return ErrorCode::Unknown;
+            return ErrorCode::Ok;
+        }
 
-    void cleanup(VkDevice device) {
-        if (m_module != VK_NULL_HANDLE) { vkDestroyShaderModule(device, m_module, nullptr); m_module = VK_NULL_HANDLE; }
-    }
+        void cleanup(VkDevice device)
+        {
+            if (m_module != VK_NULL_HANDLE)
+            {
+                vkDestroyShaderModule(device, m_module, nullptr);
+                m_module = VK_NULL_HANDLE;
+            }
+        }
 
-    [[nodiscard]] VkShaderModule handle() const { return m_module; }
+        [[nodiscard]] VkShaderModule handle() const { return m_module; }
 
-private:
-    VkShaderModule m_module = VK_NULL_HANDLE;
-};
+    private:
+        VkShaderModule m_module = VK_NULL_HANDLE;
+    };
 
 } // namespace draconic::rhi::vk

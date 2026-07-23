@@ -300,7 +300,7 @@ export namespace draconic::net
         // Client: the entity for this id. First sight of a spawn record with a prefab id routes through
         // the spawn handler (prefab instance); otherwise a bare tagged entity is created.
         scene::EntityHandle FindOrCreateEntity(scene::Scene& scene, u32 networkId,
-                                                const Guid& prefab, bool spawn);
+                                               const Guid& prefab, bool spawn);
         // Shared apply loop: read `count` component records (tag + length-prefixed blob) onto an entity.
         // If `interp` is set, records each applied interpolatable component at `timestampMs`.
         void ApplyComponentRecords(scene::Scene& scene, scene::EntityHandle entity, NetworkId id,

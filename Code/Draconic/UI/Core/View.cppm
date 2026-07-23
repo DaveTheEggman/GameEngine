@@ -24,10 +24,10 @@ module;
 
 export module draconic.ui:view;
 
-import draconic.core;   // Object, RefPtr, Array, HashMap, String, StringView, Float2, Rectangle, Function, Cast, IsDerivedFrom, TypeInfo, Max, Min, Optional
-import draconic.vg;     // VGContext (child draw transforms)
-import draconic.fonts;  // IFontService (UIContext seam + font-family resolution)
-import :enums;          // Visibility, CursorType, InvalidationKind
+import draconic.core; // Object, RefPtr, Array, HashMap, String, StringView, Float2, Rectangle, Function, Cast, IsDerivedFrom, TypeInfo, Max, Min, Optional
+import draconic.vg;   // VGContext (child draw transforms)
+import draconic.fonts; // IFontService (UIContext seam + font-family resolution)
+import :enums;         // Visibility, CursorType, InvalidationKind
 import :control_state;
 import :property_owner; // IPropertyOwner
 import :view_id;
@@ -37,7 +37,7 @@ import :box_constraints;
 import :size_spec;
 import :unit;
 import :layout_params;
-import :draw_context;   // UIDrawContext
+import :draw_context;     // UIDrawContext
 import :ui_debug_overlay; // UIDebugOverlay::DrawOverlays (debug draw after each child)
 import :drawable;
 import :style_property;
@@ -45,16 +45,16 @@ import :style_value;
 import :style_selector;
 import :style_rule;
 import :style_sheet;
-import :event_args;              // MouseEventArgs/KeyEventArgs/MouseWheelEventArgs/TextInputEventArgs
+import :event_args; // MouseEventArgs/KeyEventArgs/MouseWheelEventArgs/TextInputEventArgs
 import :iaccelerator_handler;
-import :itooltip_provider;       // pattern-A tooltip content provider (View::AsTooltipProvider())
-import :tooltip_placement;       // TooltipPlacement enum (View.TooltipPlacement field)
-import :tooltip_manager;         // by-value member of UIContext
-import :idrag_source;            // pattern-A drag source (View::AsDragSource())
-import :idrop_target;            // pattern-A drop target (View::AsDropTarget())
-import :drag_drop_manager;       // by-value member of UIContext
-import :animation_manager;       // by-value member of UIContext
-import :iclipboard;              // clipboard seam (injected by the app; nullable)
+import :itooltip_provider; // pattern-A tooltip content provider (View::AsTooltipProvider())
+import :tooltip_placement; // TooltipPlacement enum (View.TooltipPlacement field)
+import :tooltip_manager;   // by-value member of UIContext
+import :idrag_source;      // pattern-A drag source (View::AsDragSource())
+import :idrop_target;      // pattern-A drop target (View::AsDropTarget())
+import :drag_drop_manager; // by-value member of UIContext
+import :animation_manager; // by-value member of UIContext
+import :iclipboard;        // clipboard seam (injected by the app; nullable)
 import :input_manager;
 import :focus_manager;
 import :shortcut_manager;
@@ -69,7 +69,8 @@ export namespace draconic::ui
     class ViewGroup;
     class RootView;
     class UIContext;
-    class PopupLayer; // defined in :popup_layer; RootView holds one (created lazily in the impl unit).
+    class
+        PopupLayer; // defined in :popup_layer; RootView holds one (created lazily in the impl unit).
 
     using LayoutParamsPtr = RefPtr<LayoutParams>;
     // Aliases so the faithful field names `LayoutParams`/`Visibility` (which shadow their own types
@@ -100,7 +101,10 @@ export namespace draconic::ui
             {
                 Array<Function<void()>> batch = Move(m_queue);
                 m_queue = Array<Function<void()>>{};
-                for (Function<void()>& action : batch) { action(); }
+                for (Function<void()>& action : batch)
+                {
+                    action();
+                }
             }
         }
 
@@ -140,7 +144,8 @@ export namespace draconic::ui
         bool IsPendingDeletion = false;
 
         // === Tooltip (shown by UIContext's TooltipManager) ===
-        String TooltipText{}; ///< Plain-text tooltip (empty = none, unless AsTooltipProvider() is set).
+        String
+            TooltipText{}; ///< Plain-text tooltip (empty = none, unless AsTooltipProvider() is set).
         TooltipPlacementValue TooltipPlacement = TooltipPlacementValue::Bottom;
         bool IsTooltipInteractive = false; ///< Keep the tooltip hit-testable (hoverable/clickable).
 
@@ -169,32 +174,59 @@ export namespace draconic::ui
         [[nodiscard]] CursorType EffectiveCursor() const
         {
             const View* v = this;
-            while (v != nullptr) { if (v->Cursor != CursorType::Default) { return v->Cursor; } v = v->Parent; }
+            while (v != nullptr)
+            {
+                if (v->Cursor != CursorType::Default)
+                {
+                    return v->Cursor;
+                }
+                v = v->Parent;
+            }
             return CursorType::Default;
         }
 
         // === User data (arbitrary void*; non-owning) ===
-        void SetUserData(StringView key, void* data) { m_userData.InsertOrAssign(String(key), data); }
+        void SetUserData(StringView key, void* data)
+        {
+            m_userData.InsertOrAssign(String(key), data);
+        }
         [[nodiscard]] void* GetUserData(StringView key) const
         {
-            if (void* const* v = m_userData.Find(String(key))) { return *v; }
+            if (void* const* v = m_userData.Find(String(key)))
+            {
+                return *v;
+            }
             return nullptr;
         }
-        template <typename T> [[nodiscard]] T* GetUserData(StringView key) const { return static_cast<T*>(GetUserData(key)); }
+        template <typename T>
+        [[nodiscard]] T* GetUserData(StringView key) const
+        {
+            return static_cast<T*>(GetUserData(key));
+        }
 
         // === Coordinate conversion ===
         [[nodiscard]] Float2 LocalToScreen(Float2 local) const
         {
             Float2 result = local;
             const View* v = this;
-            while (v != nullptr) { result.x += v->Bounds.x; result.y += v->Bounds.y; v = v->Parent; }
+            while (v != nullptr)
+            {
+                result.x += v->Bounds.x;
+                result.y += v->Bounds.y;
+                v = v->Parent;
+            }
             return result;
         }
         [[nodiscard]] Float2 ScreenToLocal(Float2 screen) const
         {
             Float2 result = screen;
             const View* v = this;
-            while (v != nullptr) { result.x -= v->Bounds.x; result.y -= v->Bounds.y; v = v->Parent; }
+            while (v != nullptr)
+            {
+                result.x -= v->Bounds.x;
+                result.y -= v->Bounds.y;
+                v = v->Parent;
+            }
             return result;
         }
 
@@ -202,11 +234,19 @@ export namespace draconic::ui
         void Invalidate(); // defined below (touches Context)
         [[nodiscard]] bool NeedsRedraw() const noexcept { return m_needsRedraw; }
         void ClearRedrawFlag() noexcept { m_needsRedraw = false; }
-        void OnPropertyChanged(InvalidationKind kind) override { (void)kind; Invalidate(); }
+        void OnPropertyChanged(InvalidationKind kind) override
+        {
+            (void)kind;
+            Invalidate();
+        }
 
         // === Layout ===
         void Measure(BoxConstraints constraints) { OnMeasure(constraints); }
-        void Layout(f32 x, f32 y, f32 width, f32 height) { Bounds = Rectangle{ x, y, width, height }; OnLayout(x, y, width, height); }
+        void Layout(f32 x, f32 y, f32 width, f32 height)
+        {
+            Bounds = Rectangle{x, y, width, height};
+            OnLayout(x, y, width, height);
+        }
 
         // === Virtual methods ===
         [[nodiscard]] virtual f32 GetBaseline() const { return -1.0f; }
@@ -217,9 +257,18 @@ export namespace draconic::ui
         [[nodiscard]] virtual ControlState GetControlState() const
         {
             ControlState state = ControlState::Normal;
-            if (!IsEffectivelyEnabled()) { state |= ControlState::Disabled; }
-            if (IsFocused()) { state |= ControlState::Focused; }
-            if (IsHovered()) { state |= ControlState::Hover; }
+            if (!IsEffectivelyEnabled())
+            {
+                state |= ControlState::Disabled;
+            }
+            if (IsFocused())
+            {
+                state |= ControlState::Focused;
+            }
+            if (IsHovered())
+            {
+                state |= ControlState::Hover;
+            }
             return state;
         }
 
@@ -249,7 +298,13 @@ export namespace draconic::ui
         /// Activated (Gamepad A / Enter on the focused view). ButtonBase overrides to fire OnClick.
         virtual void OnActivate() {}
         /// Cancel (Gamepad B / Escape). Default: bubbles to parent.
-        virtual void OnCancel() { if (Parent != nullptr) { Parent->OnCancel(); } }
+        virtual void OnCancel()
+        {
+            if (Parent != nullptr)
+            {
+                Parent->OnCancel();
+            }
+        }
 
         // === Capability query (tree-searched, As*() idiom; -fno-rtti-safe) ===
         /// IAcceleratorHandler this view implements, or null. Override to return `this`.
@@ -270,7 +325,14 @@ export namespace draconic::ui
         [[nodiscard]] bool IsEffectivelyEnabled() const
         {
             const View* v = this;
-            while (v != nullptr) { if (!v->IsEnabled) { return false; } v = v->Parent; }
+            while (v != nullptr)
+            {
+                if (!v->IsEnabled)
+                {
+                    return false;
+                }
+                v = v->Parent;
+            }
             return true;
         }
         [[nodiscard]] bool IsEffectivelyVisible() const; // defined below (checks RootView)
@@ -284,12 +346,21 @@ export namespace draconic::ui
         // === Style classes ===
         [[nodiscard]] bool HasClass(StringView name) const
         {
-            for (const String& cls : StyleClasses) { if (cls == name) { return true; } }
+            for (const String& cls : StyleClasses)
+            {
+                if (cls == name)
+                {
+                    return true;
+                }
+            }
             return false;
         }
         void AddClass(StringView name)
         {
-            if (HasClass(name)) { return; }
+            if (HasClass(name))
+            {
+                return;
+            }
             StyleClasses.PushBack(String(name));
             Invalidate();
         }
@@ -297,63 +368,150 @@ export namespace draconic::ui
         {
             for (usize i = 0; i < StyleClasses.Size(); ++i)
             {
-                if (StyleClasses[i] == name) { StyleClasses.RemoveAt(i); Invalidate(); return; }
+                if (StyleClasses[i] == name)
+                {
+                    StyleClasses.RemoveAt(i);
+                    Invalidate();
+                    return;
+                }
             }
         }
-        void ToggleClass(StringView name) { if (HasClass(name)) { RemoveClass(name); } else { AddClass(name); } }
+        void ToggleClass(StringView name)
+        {
+            if (HasClass(name))
+            {
+                RemoveClass(name);
+            }
+            else
+            {
+                AddClass(name);
+            }
+        }
 
         // === Inline / local stylesheets ===
         [[nodiscard]] StyleSheet* InlineSheet() const { return m_inlineSheet.Get(); }
-        [[nodiscard]] bool HasAnyInlineStyles() const { return m_inlineSheet && !m_inlineSheet->IsEmpty(); }
+        [[nodiscard]] bool HasAnyInlineStyles() const
+        {
+            return m_inlineSheet && !m_inlineSheet->IsEmpty();
+        }
         [[nodiscard]] StyleSheet& GetOrCreateInlineSheet() { return EnsureInlineSheet(); }
 
         [[nodiscard]] StyleSheet* GetLocalStyleSheet() const { return m_localStyleSheet.Get(); }
-        void SetLocalStyleSheet(RefPtr<StyleSheet> sheet) { if (m_localStyleSheet.Get() == sheet.Get()) { return; } m_localStyleSheet = Move(sheet); Invalidate(); }
+        void SetLocalStyleSheet(RefPtr<StyleSheet> sheet)
+        {
+            if (m_localStyleSheet.Get() == sheet.Get())
+            {
+                return;
+            }
+            m_localStyleSheet = Move(sheet);
+            Invalidate();
+        }
 
         // Typed inline-style setters (map straight onto the inline element rule).
-        void SetStyle(StyleProperty prop, Color color) { EnsureInlineSheet().GetOrCreateInlineElementRule().Set(prop, color); Invalidate(); }
-        void SetStyle(StyleProperty prop, f32 value) { EnsureInlineSheet().GetOrCreateInlineElementRule().Set(prop, value); Invalidate(); }
-        void SetStyle(StyleProperty prop, Thickness value) { EnsureInlineSheet().GetOrCreateInlineElementRule().Set(prop, value); Invalidate(); }
-        void SetStyle(StyleProperty prop, bool value) { EnsureInlineSheet().GetOrCreateInlineElementRule().Set(prop, value); Invalidate(); }
-        void SetStyle(StyleProperty prop, RefPtr<Drawable> drawable) { EnsureInlineSheet().GetOrCreateInlineElementRule().Set(prop, Move(drawable)); Invalidate(); }
-        void SetStyle(StyleProperty prop, StringView value) { EnsureInlineSheet().GetOrCreateInlineElementRule().Set(prop, value); Invalidate(); }
-        void SetPartStyle(StringView part, StyleProperty prop, Color color) { EnsureInlineSheet().GetOrCreateInlinePartRule(part).Set(prop, color); Invalidate(); }
-        void SetPartStyle(StringView part, StyleProperty prop, f32 value) { EnsureInlineSheet().GetOrCreateInlinePartRule(part).Set(prop, value); Invalidate(); }
-        void SetPartStyle(StringView part, StyleProperty prop, RefPtr<Drawable> drawable) { EnsureInlineSheet().GetOrCreateInlinePartRule(part).Set(prop, Move(drawable)); Invalidate(); }
+        void SetStyle(StyleProperty prop, Color color)
+        {
+            EnsureInlineSheet().GetOrCreateInlineElementRule().Set(prop, color);
+            Invalidate();
+        }
+        void SetStyle(StyleProperty prop, f32 value)
+        {
+            EnsureInlineSheet().GetOrCreateInlineElementRule().Set(prop, value);
+            Invalidate();
+        }
+        void SetStyle(StyleProperty prop, Thickness value)
+        {
+            EnsureInlineSheet().GetOrCreateInlineElementRule().Set(prop, value);
+            Invalidate();
+        }
+        void SetStyle(StyleProperty prop, bool value)
+        {
+            EnsureInlineSheet().GetOrCreateInlineElementRule().Set(prop, value);
+            Invalidate();
+        }
+        void SetStyle(StyleProperty prop, RefPtr<Drawable> drawable)
+        {
+            EnsureInlineSheet().GetOrCreateInlineElementRule().Set(prop, Move(drawable));
+            Invalidate();
+        }
+        void SetStyle(StyleProperty prop, StringView value)
+        {
+            EnsureInlineSheet().GetOrCreateInlineElementRule().Set(prop, value);
+            Invalidate();
+        }
+        void SetPartStyle(StringView part, StyleProperty prop, Color color)
+        {
+            EnsureInlineSheet().GetOrCreateInlinePartRule(part).Set(prop, color);
+            Invalidate();
+        }
+        void SetPartStyle(StringView part, StyleProperty prop, f32 value)
+        {
+            EnsureInlineSheet().GetOrCreateInlinePartRule(part).Set(prop, value);
+            Invalidate();
+        }
+        void SetPartStyle(StringView part, StyleProperty prop, RefPtr<Drawable> drawable)
+        {
+            EnsureInlineSheet().GetOrCreateInlinePartRule(part).Set(prop, Move(drawable));
+            Invalidate();
+        }
 
         /// Remove one inline override. No-op if not set.
         void ClearInlineStyle(StyleProperty prop)
         {
-            if (!m_inlineSheet) { return; }
-            if (StyleRule* rule = m_inlineSheet->FindInlineElementRule()) { if (rule->Remove(prop)) { Invalidate(); } }
+            if (!m_inlineSheet)
+            {
+                return;
+            }
+            if (StyleRule* rule = m_inlineSheet->FindInlineElementRule())
+            {
+                if (rule->Remove(prop))
+                {
+                    Invalidate();
+                }
+            }
         }
         /// Remove ALL inline overrides (element + part). Drops the whole inline sheet, releasing every rule
         /// and every drawable those rules held; a fresh sheet is reallocated on the next SetStyle.
         void ClearInlineStyles()
         {
-            if (!m_inlineSheet || m_inlineSheet->IsEmpty()) { return; }
+            if (!m_inlineSheet || m_inlineSheet->IsEmpty())
+            {
+                return;
+            }
             m_inlineSheet.Reset();
             Invalidate();
         }
         /// Inline override for `prop`, or None.
         [[nodiscard]] StyleValue GetInlineStyle(StyleProperty prop) const
         {
-            if (!m_inlineSheet) { return StyleValue::None(); }
+            if (!m_inlineSheet)
+            {
+                return StyleValue::None();
+            }
             StyleRule* rule = m_inlineSheet->FindInlineElementRule();
-            if (rule == nullptr) { return StyleValue::None(); }
-            if (Optional<StyleValue> v = rule->GetValue(prop); v.HasValue()) { return v.Value(); }
+            if (rule == nullptr)
+            {
+                return StyleValue::None();
+            }
+            if (Optional<StyleValue> v = rule->GetValue(prop); v.HasValue())
+            {
+                return v.Value();
+            }
             return StyleValue::None();
         }
         [[nodiscard]] bool HasInlineStyle(StyleProperty prop) const
         {
-            if (!m_inlineSheet) { return false; }
+            if (!m_inlineSheet)
+            {
+                return false;
+            }
             StyleRule* rule = m_inlineSheet->FindInlineElementRule();
             return rule != nullptr && rule->GetValue(prop).HasValue();
         }
 
         // === Style resolution (orchestrators; defined below - need Context/StyleSheet/inheritance) ===
         [[nodiscard]] StyleValue ResolveStyle(StyleProperty prop);
-        [[nodiscard]] StyleValue ResolvePartStyle(StringView part, StyleProperty prop, ControlState partState);
+        [[nodiscard]] StyleValue ResolvePartStyle(StringView part, StyleProperty prop,
+                                                  ControlState partState);
 
         /// Resolve the effective font family: the .FontFamily style cascade, falling back to the active
         /// font service's default family. Returns by value (our ResolveStyle returns a StyleValue by value,
@@ -364,44 +522,82 @@ export namespace draconic::ui
 
         [[nodiscard]] Color ResolveStyleColor(StyleProperty prop, Color defaultVal = Color::White)
         {
-            if (Optional<Color> c = ResolveStyle(prop).AsColor(); c.HasValue()) { return c.Value(); }
+            if (Optional<Color> c = ResolveStyle(prop).AsColor(); c.HasValue())
+            {
+                return c.Value();
+            }
             return defaultVal;
         }
         [[nodiscard]] f32 ResolveStyleFloat(StyleProperty prop, f32 defaultVal = 0.0f)
         {
-            if (Optional<f32> f = ResolveStyle(prop).AsFloat(); f.HasValue()) { return f.Value(); }
+            if (Optional<f32> f = ResolveStyle(prop).AsFloat(); f.HasValue())
+            {
+                return f.Value();
+            }
             return defaultVal;
         }
         [[nodiscard]] Thickness ResolveStyleThickness(StyleProperty prop, Thickness defaultVal = {})
         {
-            if (Optional<Thickness> t = ResolveStyle(prop).AsThickness(); t.HasValue()) { return t.Value(); }
+            if (Optional<Thickness> t = ResolveStyle(prop).AsThickness(); t.HasValue())
+            {
+                return t.Value();
+            }
             return defaultVal;
         }
-        [[nodiscard]] Drawable* ResolveStyleDrawable(StyleProperty prop) { return ResolveStyle(prop).AsDrawable(); }
+        [[nodiscard]] Drawable* ResolveStyleDrawable(StyleProperty prop)
+        {
+            return ResolveStyle(prop).AsDrawable();
+        }
         [[nodiscard]] StringView ResolveStyleString(StyleProperty prop, StringView defaultVal = {})
         {
-            if (Optional<StringView> s = ResolveStyle(prop).AsString(); s.HasValue()) { return s.Value(); }
+            if (Optional<StringView> s = ResolveStyle(prop).AsString(); s.HasValue())
+            {
+                return s.Value();
+            }
             return defaultVal;
         }
 
-        [[nodiscard]] Drawable* ResolvePartDrawable(StringView part, StyleProperty prop, ControlState partState) { return ResolvePartStyle(part, prop, partState).AsDrawable(); }
-        [[nodiscard]] Color ResolvePartColor(StringView part, StyleProperty prop, ControlState partState, Color defaultVal = Color::White)
+        [[nodiscard]] Drawable* ResolvePartDrawable(StringView part, StyleProperty prop,
+                                                    ControlState partState)
         {
-            if (Optional<Color> c = ResolvePartStyle(part, prop, partState).AsColor(); c.HasValue()) { return c.Value(); }
+            return ResolvePartStyle(part, prop, partState).AsDrawable();
+        }
+        [[nodiscard]] Color ResolvePartColor(StringView part, StyleProperty prop,
+                                             ControlState partState,
+                                             Color defaultVal = Color::White)
+        {
+            if (Optional<Color> c = ResolvePartStyle(part, prop, partState).AsColor(); c.HasValue())
+            {
+                return c.Value();
+            }
             return defaultVal;
         }
-        [[nodiscard]] f32 ResolvePartFloat(StringView part, StyleProperty prop, ControlState partState, f32 defaultVal = 0.0f)
+        [[nodiscard]] f32 ResolvePartFloat(StringView part, StyleProperty prop,
+                                           ControlState partState, f32 defaultVal = 0.0f)
         {
-            if (Optional<f32> f = ResolvePartStyle(part, prop, partState).AsFloat(); f.HasValue()) { return f.Value(); }
+            if (Optional<f32> f = ResolvePartStyle(part, prop, partState).AsFloat(); f.HasValue())
+            {
+                return f.Value();
+            }
             return defaultVal;
         }
 
         // === Hit testing ===
         [[nodiscard]] virtual View* HitTest(Float2 localPoint)
         {
-            if (!IsInteractionEnabled || Visibility != VisibilityValue::Visible) { return nullptr; }
-            if (localPoint.x < 0 || localPoint.y < 0 || localPoint.x >= Width() || localPoint.y >= Height()) { return nullptr; }
-            if (!IsHitTestVisible) { return nullptr; }
+            if (!IsInteractionEnabled || Visibility != VisibilityValue::Visible)
+            {
+                return nullptr;
+            }
+            if (localPoint.x < 0 || localPoint.y < 0 || localPoint.x >= Width() ||
+                localPoint.y >= Height())
+            {
+                return nullptr;
+            }
+            if (!IsHitTestVisible)
+            {
+                return nullptr;
+            }
             return this;
         }
 
@@ -412,13 +608,23 @@ export namespace draconic::ui
     protected:
         virtual void OnMeasure(BoxConstraints constraints)
         {
-            MeasuredSize = Float2{ constraints.ConstrainWidth(0.0f), constraints.ConstrainHeight(0.0f) };
+            MeasuredSize =
+                Float2{constraints.ConstrainWidth(0.0f), constraints.ConstrainHeight(0.0f)};
         }
-        virtual void OnLayout(f32 left, f32 top, f32 width, f32 height) { (void)left; (void)top; (void)width; (void)height; }
+        virtual void OnLayout(f32 left, f32 top, f32 width, f32 height)
+        {
+            (void)left;
+            (void)top;
+            (void)width;
+            (void)height;
+        }
 
         StyleSheet& EnsureInlineSheet()
         {
-            if (!m_inlineSheet) { m_inlineSheet = MakeRef<StyleSheet>(DefaultAllocator()); }
+            if (!m_inlineSheet)
+            {
+                m_inlineSheet = MakeRef<StyleSheet>(DefaultAllocator());
+            }
             return *m_inlineSheet;
         }
 
@@ -442,7 +648,10 @@ export namespace draconic::ui
         [[nodiscard]] usize ChildCount() const noexcept { return m_children.Size(); }
         [[nodiscard]] View* GetChildAt(usize index) const { return m_children[index].Get(); }
         [[nodiscard]] virtual usize VisualChildCount() const { return m_children.Size(); }
-        [[nodiscard]] virtual View* GetVisualChild(usize index) const { return (index < m_children.Size()) ? m_children[index].Get() : nullptr; }
+        [[nodiscard]] virtual View* GetVisualChild(usize index) const
+        {
+            return (index < m_children.Size()) ? m_children[index].Get() : nullptr;
+        }
 
         /// Adds a child with optional layout params. Defined below (uses UIContext::AttachView).
         virtual ViewGroup* AddView(View* child, LayoutParamsPtr lp = {});
@@ -457,9 +666,9 @@ export namespace draconic::ui
 
         [[nodiscard]] Rectangle ContentBounds() const
         {
-            return Rectangle{ Padding.Left, Padding.Top,
-                              Max(0.0f, Width() - Padding.Left - Padding.Right),
-                              Max(0.0f, Height() - Padding.Top - Padding.Bottom) };
+            return Rectangle{Padding.Left, Padding.Top,
+                             Max(0.0f, Width() - Padding.Left - Padding.Right),
+                             Max(0.0f, Height() - Padding.Top - Padding.Bottom)};
         }
 
         /// Find a descendant view by name (recursive).
@@ -468,28 +677,49 @@ export namespace draconic::ui
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 View* child = GetChildAt(i);
-                if (child->Name.Size() > 0 && child->Name.AsView() == name) { return child; }
+                if (child->Name.Size() > 0 && child->Name.AsView() == name)
+                {
+                    return child;
+                }
                 if (ViewGroup* childGroup = Cast<ViewGroup>(child))
                 {
-                    if (View* found = childGroup->FindByName(name)) { return found; }
+                    if (View* found = childGroup->FindByName(name))
+                    {
+                        return found;
+                    }
                 }
             }
             return nullptr;
         }
-        template <typename T> [[nodiscard]] T* FindByName(StringView name) const { return Cast<T>(FindByName(name)); }
+        template <typename T>
+        [[nodiscard]] T* FindByName(StringView name) const
+        {
+            return Cast<T>(FindByName(name));
+        }
 
         View* HitTest(Float2 localPoint) override
         {
-            if (!IsInteractionEnabled || Visibility != VisibilityValue::Visible) { return nullptr; }
-            if (localPoint.x < 0 || localPoint.y < 0 || localPoint.x >= Width() || localPoint.y >= Height()) { return nullptr; }
+            if (!IsInteractionEnabled || Visibility != VisibilityValue::Visible)
+            {
+                return nullptr;
+            }
+            if (localPoint.x < 0 || localPoint.y < 0 || localPoint.x >= Width() ||
+                localPoint.y >= Height())
+            {
+                return nullptr;
+            }
 
             const usize count = VisualChildCount();
             for (usize i = count; i-- > 0;)
             {
                 View* child = GetVisualChild(i);
-                if (child == nullptr || child->Visibility != VisibilityValue::Visible || !child->IsInteractionEnabled) { continue; }
+                if (child == nullptr || child->Visibility != VisibilityValue::Visible ||
+                    !child->IsInteractionEnabled)
+                {
+                    continue;
+                }
 
-                Float2 childLocal{ localPoint.x - child->Bounds.x, localPoint.y - child->Bounds.y };
+                Float2 childLocal{localPoint.x - child->Bounds.x, localPoint.y - child->Bounds.y};
                 // Apply the inverse ViewTransform so a transformed child hit-tests at its drawn position
                 // (the draw path applies translate -> origin -> scale -> rotate -> -origin; undo in reverse).
                 if (!child->Transform.IsIdentity())
@@ -517,20 +747,30 @@ export namespace draconic::ui
                     childLocal.x += ox;
                     childLocal.y += oy;
                 }
-                if (View* hit = child->HitTest(childLocal)) { return hit; }
+                if (View* hit = child->HitTest(childLocal))
+                {
+                    return hit;
+                }
             }
 
-            if (!IsHitTestVisible) { return nullptr; }
+            if (!IsHitTestVisible)
+            {
+                return nullptr;
+            }
             return this;
         }
 
         void OnDraw(UIDrawContext& ctx) override { DrawChildren(ctx); }
 
     protected:
-        virtual LayoutParamsPtr CreateDefaultLayoutParams() { return MakeRef<::draconic::ui::LayoutParams>(DefaultAllocator()); }
+        virtual LayoutParamsPtr CreateDefaultLayoutParams()
+        {
+            return MakeRef<::draconic::ui::LayoutParams>(DefaultAllocator());
+        }
 
         /// Build child constraints from parent constraints and the child's LayoutParams SizeSpec.
-        static BoxConstraints MakeChildConstraints(BoxConstraints parent, View* child, f32 usedW = 0.0f, f32 usedH = 0.0f)
+        static BoxConstraints MakeChildConstraints(BoxConstraints parent, View* child,
+                                                   f32 usedW = 0.0f, f32 usedH = 0.0f)
         {
             const LayoutParamsPtr& lp = child->LayoutParams;
             const Thickness margin = lp ? lp->Margin : Thickness{};
@@ -546,17 +786,41 @@ export namespace draconic::ui
             f32 minW = 0, maxW = 0, minH = 0, maxH = 0;
             switch (widthSpec.kind)
             {
-            case SizeSpec::Kind::Fixed: { const f32 w = widthSpec.ResolveFixed(dpiScale); minW = w; maxW = w; break; }
-            case SizeSpec::Kind::Match: minW = availW; maxW = availW; break;
-            case SizeSpec::Kind::Wrap:  minW = 0; maxW = availW; break;
+            case SizeSpec::Kind::Fixed:
+            {
+                const f32 w = widthSpec.ResolveFixed(dpiScale);
+                minW = w;
+                maxW = w;
+                break;
+            }
+            case SizeSpec::Kind::Match:
+                minW = availW;
+                maxW = availW;
+                break;
+            case SizeSpec::Kind::Wrap:
+                minW = 0;
+                maxW = availW;
+                break;
             }
             switch (heightSpec.kind)
             {
-            case SizeSpec::Kind::Fixed: { const f32 h = heightSpec.ResolveFixed(dpiScale); minH = h; maxH = h; break; }
-            case SizeSpec::Kind::Match: minH = availH; maxH = availH; break;
-            case SizeSpec::Kind::Wrap:  minH = 0; maxH = availH; break;
+            case SizeSpec::Kind::Fixed:
+            {
+                const f32 h = heightSpec.ResolveFixed(dpiScale);
+                minH = h;
+                maxH = h;
+                break;
             }
-            return BoxConstraints{ minW, maxW, minH, maxH };
+            case SizeSpec::Kind::Match:
+                minH = availH;
+                maxH = availH;
+                break;
+            case SizeSpec::Kind::Wrap:
+                minH = 0;
+                maxH = availH;
+                break;
+            }
+            return BoxConstraints{minW, maxW, minH, maxH};
         }
 
         void OnMeasure(BoxConstraints constraints) override
@@ -565,13 +829,16 @@ export namespace draconic::ui
             f32 maxW = 0, maxH = 0;
             for (const RefPtr<View>& child : m_children)
             {
-                if (child->Visibility == VisibilityValue::Gone) { continue; }
+                if (child->Visibility == VisibilityValue::Gone)
+                {
+                    continue;
+                }
                 child->Measure(inner);
                 maxW = Max(maxW, child->MeasuredSize.x);
                 maxH = Max(maxH, child->MeasuredSize.y);
             }
-            MeasuredSize = Float2{ constraints.ConstrainWidth(maxW + Padding.Left + Padding.Right),
-                                   constraints.ConstrainHeight(maxH + Padding.Top + Padding.Bottom) };
+            MeasuredSize = Float2{constraints.ConstrainWidth(maxW + Padding.Left + Padding.Right),
+                                  constraints.ConstrainHeight(maxH + Padding.Top + Padding.Bottom)};
         }
 
         void DrawChildren(UIDrawContext& ctx)
@@ -580,7 +847,10 @@ export namespace draconic::ui
             for (usize i = 0; i < count; ++i)
             {
                 View* child = GetVisualChild(i);
-                if (child == nullptr || child->Visibility != VisibilityValue::Visible) { continue; }
+                if (child == nullptr || child->Visibility != VisibilityValue::Visible)
+                {
+                    continue;
+                }
 
                 ctx.VG().PushState();
                 ctx.VG().Translate(child->Bounds.x, child->Bounds.y);
@@ -590,8 +860,10 @@ export namespace draconic::ui
                     const f32 ox = child->Width() * child->Transform.Origin.x;
                     const f32 oy = child->Height() * child->Transform.Origin.y;
                     if (child->Transform.Translation.x != 0 || child->Transform.Translation.y != 0)
-                        ctx.VG().Translate(child->Transform.Translation.x, child->Transform.Translation.y);
-                    if (child->Transform.Rotation != 0 || child->Transform.Scale.x != 1 || child->Transform.Scale.y != 1)
+                        ctx.VG().Translate(child->Transform.Translation.x,
+                                           child->Transform.Translation.y);
+                    if (child->Transform.Rotation != 0 || child->Transform.Scale.x != 1 ||
+                        child->Transform.Scale.y != 1)
                     {
                         ctx.VG().Translate(ox, oy);
                         if (child->Transform.Scale.x != 1 || child->Transform.Scale.y != 1)
@@ -602,15 +874,30 @@ export namespace draconic::ui
                     }
                 }
 
-                if (child->Opacity < 1.0f) { ctx.VG().PushOpacity(child->Opacity); }
-                if (child->ClipsContent) { ctx.PushClip(Rectangle{ 0, 0, child->Width(), child->Height() }); }
+                if (child->Opacity < 1.0f)
+                {
+                    ctx.VG().PushOpacity(child->Opacity);
+                }
+                if (child->ClipsContent)
+                {
+                    ctx.PushClip(Rectangle{0, 0, child->Width(), child->Height()});
+                }
 
                 child->OnDraw(ctx);
 
-                if (ctx.DebugSettings().AnyEnabled()) { UIDebugOverlay::DrawOverlays(ctx, *child); }
+                if (ctx.DebugSettings().AnyEnabled())
+                {
+                    UIDebugOverlay::DrawOverlays(ctx, *child);
+                }
 
-                if (child->ClipsContent) { ctx.PopClip(); }
-                if (child->Opacity < 1.0f) { ctx.VG().PopOpacity(); }
+                if (child->ClipsContent)
+                {
+                    ctx.PopClip();
+                }
+                if (child->Opacity < 1.0f)
+                {
+                    ctx.VG().PopOpacity();
+                }
                 ctx.VG().PopState();
             }
         }
@@ -638,19 +925,29 @@ export namespace draconic::ui
         [[nodiscard]] Float2 LogicalSize() const
         {
             const f32 dpi = Max(DpiScale, 0.01f);
-            return Float2{ ViewportSize.x / dpi, ViewportSize.y / dpi };
+            return Float2{ViewportSize.x / dpi, ViewportSize.y / dpi};
         }
 
         /// The per-window popup/overlay layer (created on first access).
-        [[nodiscard]] PopupLayer* GetPopupLayer(); // defined in the impl unit (needs the complete type)
+        [[nodiscard]] PopupLayer*
+        GetPopupLayer(); // defined in the impl unit (needs the complete type)
 
         /// Adds a child, keeping the PopupLayer as the last child for z-order.
         ViewGroup* AddView(View* child, LayoutParamsPtr lp = {}) override
         {
-            if (child == nullptr) { return this; }
-            if (child == m_popupLayer.Get()) { return ViewGroup::AddView(child, Move(lp)); } // the popup layer itself
+            if (child == nullptr)
+            {
+                return this;
+            }
+            if (child == m_popupLayer.Get())
+            {
+                return ViewGroup::AddView(child, Move(lp));
+            } // the popup layer itself
             usize insertIndex = ChildCount();
-            if (ChildCount() > 0 && GetChildAt(ChildCount() - 1) == m_popupLayer.Get()) { insertIndex = ChildCount() - 1; }
+            if (ChildCount() > 0 && GetChildAt(ChildCount() - 1) == m_popupLayer.Get())
+            {
+                insertIndex = ChildCount() - 1;
+            }
             InsertView(child, insertIndex, Move(lp));
             return this;
         }
@@ -662,22 +959,29 @@ export namespace draconic::ui
             const f32 dpi = Max(DpiScale, 0.01f);
             const f32 logicalW = ViewportSize.x / dpi;
             const f32 logicalH = ViewportSize.y / dpi;
-            MeasuredSize = Float2{ logicalW, logicalH };
+            MeasuredSize = Float2{logicalW, logicalH};
 
             const BoxConstraints childConstraints = BoxConstraints::Tight(logicalW, logicalH);
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 View* child = GetChildAt(i);
-                if (child->Visibility != VisibilityValue::Gone) { child->Measure(childConstraints); }
+                if (child->Visibility != VisibilityValue::Gone)
+                {
+                    child->Measure(childConstraints);
+                }
             }
         }
         void OnLayout(f32 left, f32 top, f32 width, f32 height) override
         {
-            (void)left; (void)top;
+            (void)left;
+            (void)top;
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 View* child = GetChildAt(i);
-                if (child->Visibility != VisibilityValue::Gone) { child->Layout(0, 0, width, height); }
+                if (child->Visibility != VisibilityValue::Gone)
+                {
+                    child->Layout(0, 0, width, height);
+                }
             }
         }
 
@@ -693,14 +997,26 @@ export namespace draconic::ui
     class UIContext
     {
     public:
-        enum class Phase { Idle, Layout, Drawing };
+        enum class Phase
+        {
+            Idle,
+            Layout,
+            Drawing
+        };
 
-        UIContext() : m_inputManager(this), m_focusManager(this), m_shortcutManager(this), m_tooltipManager(this), m_dragDropManager(this) {}
+        UIContext()
+            : m_inputManager(this), m_focusManager(this), m_shortcutManager(this),
+              m_tooltipManager(this), m_dragDropManager(this)
+        {
+        }
         // (m_animationManager is default-constructed - it holds no back-pointer to the context.)
         ~UIContext()
         {
             m_mutationQueue.Drain();
-            if (m_styleSheet) { m_styleSheet = nullptr; }
+            if (m_styleSheet)
+            {
+                m_styleSheet = nullptr;
+            }
         }
 
         UIContext(const UIContext&) = delete;
@@ -717,15 +1033,24 @@ export namespace draconic::ui
         void SetActiveInputRoot(RootView* root) noexcept { m_activeInputRoot = root; }
 
         /// DPI scale for the active input root.
-        [[nodiscard]] f32 DpiScale() const noexcept { return m_activeInputRoot ? m_activeInputRoot->DpiScale : 1.0f; }
+        [[nodiscard]] f32 DpiScale() const noexcept
+        {
+            return m_activeInputRoot ? m_activeInputRoot->DpiScale : 1.0f;
+        }
 
         [[nodiscard]] MutationQueue& MutationQueueRef() noexcept { return m_mutationQueue; }
 
         // Owned managers (Input/Focus/Shortcut/Tooltip). DragDrop/Animation stay deferred.
         [[nodiscard]] InputManager* GetInputManager() noexcept { return &m_inputManager; }
-        [[nodiscard]] const InputManager* GetInputManager() const noexcept { return &m_inputManager; }
+        [[nodiscard]] const InputManager* GetInputManager() const noexcept
+        {
+            return &m_inputManager;
+        }
         [[nodiscard]] FocusManager* GetFocusManager() noexcept { return &m_focusManager; }
-        [[nodiscard]] const FocusManager* GetFocusManager() const noexcept { return &m_focusManager; }
+        [[nodiscard]] const FocusManager* GetFocusManager() const noexcept
+        {
+            return &m_focusManager;
+        }
         [[nodiscard]] ShortcutManager* GetShortcuts() noexcept { return &m_shortcutManager; }
         [[nodiscard]] TooltipManager* Tooltips() noexcept { return &m_tooltipManager; }
         [[nodiscard]] DragDropManager* DragDrop() noexcept { return &m_dragDropManager; }
@@ -747,7 +1072,10 @@ export namespace draconic::ui
         // Font service, set by the application (non-owning, nullable). Controls resolve fonts through it
         // for measuring (Context->FontService()) and DrawRootView feeds it into the draw context + VG.
         [[nodiscard]] fonts::IFontService* FontService() const noexcept { return m_fontService; }
-        void SetFontService(fonts::IFontService* fontService) noexcept { m_fontService = fontService; }
+        void SetFontService(fonts::IFontService* fontService) noexcept
+        {
+            m_fontService = fontService;
+        }
 
         /// Draw a root view's tree into `vg`. Builds a UIDrawContext over the (caller-supplied) VG and
         /// the font service, then walks the tree via ViewGroup::OnDraw. The caller constructs the VG with
@@ -755,10 +1083,16 @@ export namespace draconic::ui
         /// from Sedulous UIContext.DrawRootView.
         void DrawRootView(RootView* root, vg::VGContext& vg)
         {
-            if (root == nullptr) { return; }
+            if (root == nullptr)
+            {
+                return;
+            }
             m_phase = Phase::Drawing;
-            UIDrawContext ctx{ vg, root->DpiScale, m_fontService };
-            if (root->DpiScale != 1.0f) { vg.Scale(root->DpiScale, root->DpiScale); }
+            UIDrawContext ctx{vg, root->DpiScale, m_fontService};
+            if (root->DpiScale != 1.0f)
+            {
+                vg.Scale(root->DpiScale, root->DpiScale);
+            }
             root->OnDraw(ctx);
             m_phase = Phase::Idle;
             m_needsRedraw = false;
@@ -767,28 +1101,46 @@ export namespace draconic::ui
         // === Root view management ===
         void AddRootView(RootView* root)
         {
-            if (root == nullptr || Contains(m_rootViews, root)) { return; }
+            if (root == nullptr || Contains(m_rootViews, root))
+            {
+                return;
+            }
             m_rootViews.PushBack(root);
             AttachView(root);
-            if (m_activeInputRoot == nullptr) { m_activeInputRoot = root; }
+            if (m_activeInputRoot == nullptr)
+            {
+                m_activeInputRoot = root;
+            }
         }
         void RemoveRootView(RootView* root)
         {
-            if (root == nullptr) { return; }
+            if (root == nullptr)
+            {
+                return;
+            }
             for (usize i = 0; i < m_rootViews.Size(); ++i)
             {
                 if (m_rootViews[i] == root)
                 {
                     DetachView(root);
                     m_rootViews.RemoveAt(i);
-                    if (m_activeInputRoot == root) { m_activeInputRoot = m_rootViews.Size() > 0 ? m_rootViews[0] : nullptr; }
+                    if (m_activeInputRoot == root)
+                    {
+                        m_activeInputRoot = m_rootViews.Size() > 0 ? m_rootViews[0] : nullptr;
+                    }
                     return;
                 }
             }
         }
 
         // === View registry ===
-        void Register(View* view) { if (view != nullptr && view->Id.IsValid()) { m_registry.InsertOrAssign(view->Id.RawValue(), view); } }
+        void Register(View* view)
+        {
+            if (view != nullptr && view->Id.IsValid())
+            {
+                m_registry.InsertOrAssign(view->Id.RawValue(), view);
+            }
+        }
         void Unregister(View* view)
         {
             if (view != nullptr && view->Id.IsValid())
@@ -804,10 +1156,17 @@ export namespace draconic::ui
         }
         [[nodiscard]] View* GetViewById(ViewId id) const
         {
-            if (View* const* v = m_registry.Find(id.RawValue())) { return *v; }
+            if (View* const* v = m_registry.Find(id.RawValue()))
+            {
+                return *v;
+            }
             return nullptr;
         }
-        template <typename T> [[nodiscard]] T* GetViewById(ViewId id) const { return Cast<T>(GetViewById(id)); }
+        template <typename T>
+        [[nodiscard]] T* GetViewById(ViewId id) const
+        {
+            return Cast<T>(GetViewById(id));
+        }
 
         // === Frame lifecycle ===
         void MarkNeedsRedraw() noexcept { m_needsRedraw = true; }
@@ -821,7 +1180,10 @@ export namespace draconic::ui
         }
         void UpdateRootView(RootView* root)
         {
-            if (root == nullptr) { return; }
+            if (root == nullptr)
+            {
+                return;
+            }
             m_phase = Phase::Layout;
             const f32 dpi = Max(root->DpiScale, 0.01f);
             const f32 logicalW = root->ViewportSize.x / dpi;
@@ -839,11 +1201,17 @@ export namespace draconic::ui
             Register(view);
             if (ViewGroup* group = Cast<ViewGroup>(view))
             {
-                for (usize i = 0; i < group->ChildCount(); ++i) { AttachView(group->GetChildAt(i)); }
+                for (usize i = 0; i < group->ChildCount(); ++i)
+                {
+                    AttachView(group->GetChildAt(i));
+                }
                 for (usize i = 0; i < group->VisualChildCount(); ++i)
                 {
                     View* vc = group->GetVisualChild(i);
-                    if (vc != nullptr && vc->Context != this) { AttachView(vc); }
+                    if (vc != nullptr && vc->Context != this)
+                    {
+                        AttachView(vc);
+                    }
                 }
             }
         }
@@ -853,24 +1221,37 @@ export namespace draconic::ui
             view->Context = nullptr;
             if (ViewGroup* group = Cast<ViewGroup>(view))
             {
-                for (usize i = 0; i < group->ChildCount(); ++i) { DetachView(group->GetChildAt(i)); }
+                for (usize i = 0; i < group->ChildCount(); ++i)
+                {
+                    DetachView(group->GetChildAt(i));
+                }
                 for (usize i = 0; i < group->VisualChildCount(); ++i)
                 {
                     View* vc = group->GetVisualChild(i);
-                    if (vc != nullptr && vc->Context != nullptr) { DetachView(vc); }
+                    if (vc != nullptr && vc->Context != nullptr)
+                    {
+                        DetachView(vc);
+                    }
                 }
             }
         }
 
     private:
-        template <typename T> [[nodiscard]] static bool Contains(const Array<T>& arr, const T& value)
+        template <typename T>
+        [[nodiscard]] static bool Contains(const Array<T>& arr, const T& value)
         {
-            for (const T& e : arr) { if (e == value) { return true; } }
+            for (const T& e : arr)
+            {
+                if (e == value)
+                {
+                    return true;
+                }
+            }
             return false;
         }
 
         HashMap<u32, View*> m_registry;
-        Array<RootView*> m_rootViews;       // non-owning
+        Array<RootView*> m_rootViews; // non-owning
         RootView* m_activeInputRoot = nullptr;
         MutationQueue m_mutationQueue;
         InputManager m_inputManager;

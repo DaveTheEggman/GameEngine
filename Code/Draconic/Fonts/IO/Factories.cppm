@@ -74,7 +74,8 @@ export namespace draconic::fonts
             return nullptr;
         }
 
-        [[nodiscard]] static Result<IFont*, FontLoadResult> ParseFromFile(StringView filePath, FontLoadOptions options = FontLoadOptions::Default())
+        [[nodiscard]] static Result<IFont*, FontLoadResult>
+        ParseFromFile(StringView filePath, FontLoadOptions options = FontLoadOptions::Default())
         {
             IFontParser* parser = GetParserForExtension(PathExtension(filePath));
             if (parser == nullptr)
@@ -82,7 +83,9 @@ export namespace draconic::fonts
             return parser->ParseFromFile(filePath, options);
         }
 
-        [[nodiscard]] static Result<IFont*, FontLoadResult> ParseFromMemory(Span<const u8> data, StringView formatHint, FontLoadOptions options = FontLoadOptions::Default())
+        [[nodiscard]] static Result<IFont*, FontLoadResult>
+        ParseFromMemory(Span<const u8> data, StringView formatHint,
+                        FontLoadOptions options = FontLoadOptions::Default())
         {
             IFontParser* parser = GetParserForExtension(formatHint);
             if (parser == nullptr)
@@ -90,7 +93,9 @@ export namespace draconic::fonts
             return parser->ParseFromMemory(data, options);
         }
 
-        [[nodiscard]] static Result<IFont*, FontLoadResult> ParseFromStream(IStream& stream, StringView formatHint, FontLoadOptions options = FontLoadOptions::Default())
+        [[nodiscard]] static Result<IFont*, FontLoadResult>
+        ParseFromStream(IStream& stream, StringView formatHint,
+                        FontLoadOptions options = FontLoadOptions::Default())
         {
             IFontParser* parser = GetParserForExtension(formatHint);
             if (parser == nullptr)
@@ -154,7 +159,8 @@ export namespace draconic::fonts
             return nullptr;
         }
 
-        [[nodiscard]] static Result<IFontAtlas*, FontLoadResult> Bake(IFont& font, FontLoadOptions options = FontLoadOptions::Default())
+        [[nodiscard]] static Result<IFontAtlas*, FontLoadResult>
+        Bake(IFont& font, FontLoadOptions options = FontLoadOptions::Default())
         {
             IFontAtlasBaker* baker = GetBakerForFont(font);
             if (baker == nullptr)
@@ -162,7 +168,9 @@ export namespace draconic::fonts
             return baker->Bake(font, options);
         }
 
-        [[nodiscard]] static Result<IFontAtlas*, FontLoadResult> BakeFromExtension(StringView fileExtension, IFont& font, FontLoadOptions options = FontLoadOptions::Default())
+        [[nodiscard]] static Result<IFontAtlas*, FontLoadResult>
+        BakeFromExtension(StringView fileExtension, IFont& font,
+                          FontLoadOptions options = FontLoadOptions::Default())
         {
             IFontAtlasBaker* baker = GetBakerForExtension(fileExtension);
             if (baker == nullptr)

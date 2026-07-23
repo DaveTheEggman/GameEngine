@@ -16,7 +16,7 @@ TEST_CASE("view-transform: Default_IsIdentity")
 TEST_CASE("view-transform: WithTranslation_NotIdentity")
 {
     ViewTransform t;
-    t.Translation = core::Float2{ 10.0f, 20.0f };
+    t.Translation = core::Float2{10.0f, 20.0f};
     CHECK_FALSE(t.IsIdentity());
 }
 
@@ -30,7 +30,7 @@ TEST_CASE("view-transform: WithRotation_NotIdentity")
 TEST_CASE("view-transform: WithScale_NotIdentity")
 {
     ViewTransform t;
-    t.Scale = core::Float2{ 2.0f, 2.0f };
+    t.Scale = core::Float2{2.0f, 2.0f};
     CHECK_FALSE(t.IsIdentity());
 }
 
@@ -41,7 +41,4 @@ TEST_CASE("view-transform: Identity_DefaultOriginIsCenter")
     CHECK(t.Origin.y == 0.5f);
 }
 
-TEST_CASE("view-transform: Identity_Constant")
-{
-    CHECK(ViewTransform::Identity.IsIdentity());
-}
+TEST_CASE("view-transform: Identity_Constant") { CHECK(ViewTransform::Identity.IsIdentity()); }

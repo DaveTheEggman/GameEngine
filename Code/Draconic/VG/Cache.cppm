@@ -34,17 +34,16 @@ export namespace draconic::vg
         /// Whether the cached fill matches the requested style.
         [[nodiscard]] bool FillMatches(Color color, FillRule fillRule, bool antiAlias) const
         {
-            return m_fillValid && m_fillColor == color && m_fillRule == fillRule && m_fillAA == antiAlias;
+            return m_fillValid && m_fillColor == color && m_fillRule == fillRule &&
+                   m_fillAA == antiAlias;
         }
 
         /// Whether the cached stroke matches the requested style.
         [[nodiscard]] bool StrokeMatches(Color color, StrokeStyle style, bool antiAlias) const
         {
-            return m_strokeValid && m_strokeColor == color
-                && m_strokeStyle.width == style.width
-                && m_strokeStyle.cap == style.cap
-                && m_strokeStyle.join == style.join
-                && m_strokeAA == antiAlias;
+            return m_strokeValid && m_strokeColor == color && m_strokeStyle.width == style.width &&
+                   m_strokeStyle.cap == style.cap && m_strokeStyle.join == style.join &&
+                   m_strokeAA == antiAlias;
         }
 
         /// Cached fill mesh data (empty spans if not valid).
@@ -78,7 +77,8 @@ export namespace draconic::vg
         }
 
         /// Store fill tessellation data.
-        void SetFillData(const Array<VGVertex>& vertices, const Array<u32>& fillIndices, Color color, FillRule fillRule, bool antiAlias)
+        void SetFillData(const Array<VGVertex>& vertices, const Array<u32>& fillIndices,
+                         Color color, FillRule fillRule, bool antiAlias)
         {
             m_fillVertices = vertices;
             m_fillIndices = fillIndices;
@@ -89,7 +89,8 @@ export namespace draconic::vg
         }
 
         /// Store stroke tessellation data.
-        void SetStrokeData(const Array<VGVertex>& vertices, const Array<u32>& strokeIndices, Color color, StrokeStyle style, bool antiAlias)
+        void SetStrokeData(const Array<VGVertex>& vertices, const Array<u32>& strokeIndices,
+                           Color color, StrokeStyle style, bool antiAlias)
         {
             m_strokeVertices = vertices;
             m_strokeIndices = strokeIndices;
@@ -130,42 +131,51 @@ export namespace draconic::vg
 
         /// Get or tessellate a filled path, appending the mesh to the outputs.
         void GetOrTessellateFill(const Path& path, Color color, FillRule fillRule, bool antiAlias,
-                                 Array<VGVertex>& outVertices, Array<u32>& outIndices, f32 tolerance = 0.25f)
+                                 Array<VGVertex>& outVertices, Array<u32>& outIndices,
+                                 f32 tolerance = 0.25f)
         {
             CachedPath& cached = GetOrCreate(path);
             cached.lastAccessTime = m_accessCounter++;
 
             if (cached.FillMatches(color, fillRule, antiAlias))
             {
-                Span<const VGVertex> verts; Span<const u32> idx;
+                Span<const VGVertex> verts;
+                Span<const u32> idx;
                 cached.GetFillMesh(verts, idx);
                 Append(outVertices, outIndices, verts, idx);
                 return;
             }
 
-            Array<VGVertex> tempVerts; Array<u32> tempIndices;
-            FillTessellator::Tessellate(path, fillRule, color, antiAlias, tempVerts, tempIndices, tolerance);
+            Array<VGVertex> tempVerts;
+            Array<u32> tempIndices;
+            FillTessellator::Tessellate(path, fillRule, color, antiAlias, tempVerts, tempIndices,
+                                        tolerance);
             cached.SetFillData(tempVerts, tempIndices, color, fillRule, antiAlias);
-            Append(outVertices, outIndices, Span<const VGVertex>(tempVerts.Data(), tempVerts.Size()),
+            Append(outVertices, outIndices,
+                   Span<const VGVertex>(tempVerts.Data(), tempVerts.Size()),
                    Span<const u32>(tempIndices.Data(), tempIndices.Size()));
         }
 
         /// Get or tessellate a stroked path, appending the mesh to the outputs.
-        void GetOrTessellateStroke(const Path& path, Color color, StrokeStyle style, Span<const f32> dashPattern,
-                                   bool antiAlias, Array<VGVertex>& outVertices, Array<u32>& outIndices, f32 tolerance = 0.25f)
+        void GetOrTessellateStroke(const Path& path, Color color, StrokeStyle style,
+                                   Span<const f32> dashPattern, bool antiAlias,
+                                   Array<VGVertex>& outVertices, Array<u32>& outIndices,
+                                   f32 tolerance = 0.25f)
         {
             CachedPath& cached = GetOrCreate(path);
             cached.lastAccessTime = m_accessCounter++;
 
             if (cached.StrokeMatches(color, style, antiAlias))
             {
-                Span<const VGVertex> verts; Span<const u32> idx;
+                Span<const VGVertex> verts;
+                Span<const u32> idx;
                 cached.GetStrokeMesh(verts, idx);
                 Append(outVertices, outIndices, verts, idx);
                 return;
             }
 
-            Array<VGVertex> tempVerts; Array<u32> tempIndices;
+            Array<VGVertex> tempVerts;
+            Array<u32> tempIndices;
             Array<FlattenedSubPath> subPaths;
             PathFlattener::Flatten(path, tolerance, subPaths);
 
@@ -174,13 +184,16 @@ export namespace draconic::vg
                 const FlattenedSubPath& subPath = subPaths[s];
                 if (subPath.points.Size() >= 2)
                 {
-                    StrokeTessellator::Tessellate(Span<const Float2>(subPath.points.Data(), subPath.points.Size()),
-                                                  subPath.isClosed, style, dashPattern, antiAlias, color, tempVerts, tempIndices);
+                    StrokeTessellator::Tessellate(
+                        Span<const Float2>(subPath.points.Data(), subPath.points.Size()),
+                        subPath.isClosed, style, dashPattern, antiAlias, color, tempVerts,
+                        tempIndices);
                 }
             }
 
             cached.SetStrokeData(tempVerts, tempIndices, color, style, antiAlias);
-            Append(outVertices, outIndices, Span<const VGVertex>(tempVerts.Data(), tempVerts.Size()),
+            Append(outVertices, outIndices,
+                   Span<const VGVertex>(tempVerts.Data(), tempVerts.Size()),
                    Span<const u32>(tempIndices.Data(), tempIndices.Size()));
         }
 

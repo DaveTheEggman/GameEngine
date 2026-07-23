@@ -955,7 +955,7 @@ export namespace draconic::script
         ScriptRunHost* m_host = nullptr;
         Function<void()> m_runObserver;
         Array<scene::EntityHandle> m_tickOwners; // per-tick snapshot (reused)
-        Array<PendingMessage> m_messages;         // deferred entity.send queue
+        Array<PendingMessage> m_messages;        // deferred entity.send queue
         bool m_started = false;
     };
 
@@ -1004,20 +1004,20 @@ export namespace draconic::script
                         return self->m_spawner ? self->m_spawner(scene, prefab, position)
                                                : scene::EntityHandle::Invalid();
                     }};
-            host.Binding().dispatchMessage = Function<void(scene::Scene*, scene::EntityHandle,
-                                                           StringView, Span<const Variant>)>{
-                [self](scene::Scene* scene, scene::EntityHandle target, StringView message,
-                       Span<const Variant> args)
-                {
-                    for (const SceneEntry& entry : self->m_systems)
+            host.Binding().dispatchMessage =
+                Function<void(scene::Scene*, scene::EntityHandle, StringView, Span<const Variant>)>{
+                    [self](scene::Scene* scene, scene::EntityHandle target, StringView message,
+                           Span<const Variant> args)
                     {
-                        if (entry.scene == scene && entry.system != nullptr)
+                        for (const SceneEntry& entry : self->m_systems)
                         {
-                            entry.system->EnqueueMessage(target, message, args);
-                            return;
+                            if (entry.scene == scene && entry.system != nullptr)
+                            {
+                                entry.system->EnqueueMessage(target, message, args);
+                                return;
+                            }
                         }
-                    }
-                }};
+                    }};
         }
 
         /// Tear down `host` if nothing pins it: no game-script hold, no scene BOUND TO IT simulating,

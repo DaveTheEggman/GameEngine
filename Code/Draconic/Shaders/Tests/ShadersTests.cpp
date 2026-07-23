@@ -11,10 +11,9 @@ using namespace draconic::shaders;
 
 namespace
 {
-    constexpr const char* kVertexHlsl =
-        "float4 main(uint id : SV_VertexID) : SV_Position {\n"
-        "    return float4(0.0, 0.0, 0.0, 1.0);\n"
-        "}\n";
+    constexpr const char* kVertexHlsl = "float4 main(uint id : SV_VertexID) : SV_Position {\n"
+                                        "    return float4(0.0, 0.0, 0.0, 1.0);\n"
+                                        "}\n";
 }
 
 TEST_CASE("shaders: DXC compiles HLSL to SPIR-V")
@@ -30,9 +29,8 @@ TEST_CASE("shaders: DXC compiles HLSL to SPIR-V")
     const usize sourceSize = std::strlen(kVertexHlsl);
 
     CompileResult result{};
-    const Status status = compiler->compile(
-        source, sourceSize, ShaderStage::Vertex, u8"main",
-        ShaderTarget::SPIRV, CompileOptions{}, result);
+    const Status status = compiler->compile(source, sourceSize, ShaderStage::Vertex, u8"main",
+                                            ShaderTarget::SPIRV, CompileOptions{}, result);
 
     CHECK(status.IsOk());
     CHECK(result.success);
@@ -52,12 +50,15 @@ TEST_CASE("shaders: DXC compiles HLSL to SPIR-V")
 TEST_CASE("shaders: a compile error is reported, not a crash")
 {
     Compiler* compiler = nullptr;
-    if (!createCompiler(CompilerDesc{}, compiler).IsOk() || compiler == nullptr) { return; }
+    if (!createCompiler(CompilerDesc{}, compiler).IsOk() || compiler == nullptr)
+    {
+        return;
+    }
 
     const char* bad = "this is not valid hlsl @#$";
     CompileResult result{};
-    (void)compiler->compile(reinterpret_cast<const u8*>(bad), std::strlen(bad),
-                            ShaderStage::Vertex, u8"main", ShaderTarget::SPIRV, CompileOptions{}, result);
+    (void)compiler->compile(reinterpret_cast<const u8*>(bad), std::strlen(bad), ShaderStage::Vertex,
+                            u8"main", ShaderTarget::SPIRV, CompileOptions{}, result);
     CHECK_FALSE(result.success);
 
     compiler->Destroy();

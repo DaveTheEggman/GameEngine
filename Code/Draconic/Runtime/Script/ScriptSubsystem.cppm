@@ -28,9 +28,12 @@ export namespace draconic::runtime
     class ScriptSubsystem final : public Subsystem
     {
     public:
-        explicit ScriptSubsystem(core::RefPtr<script::IScriptManager> manager,
-                                 const core::TypeRegistry& registry = core::GlobalTypeRegistry()) noexcept
-            : m_manager(core::Move(manager)), m_registry(&registry) {}
+        explicit ScriptSubsystem(
+            core::RefPtr<script::IScriptManager> manager,
+            const core::TypeRegistry& registry = core::GlobalTypeRegistry()) noexcept
+            : m_manager(core::Move(manager)), m_registry(&registry)
+        {
+        }
 
         [[nodiscard]] script::IScriptManager* Manager() noexcept { return m_manager.Get(); }
         [[nodiscard]] script::IScriptContext* Context() noexcept { return m_context.Get(); }
@@ -40,20 +43,23 @@ export namespace draconic::runtime
         core::Status Load(core::StringView source, core::StringView chunkName = u8"main")
         {
             return (m_context.Get() != nullptr) ? m_context->Load(source, chunkName)
-                                          : core::Status{ core::ErrorCode::Internal };
+                                                : core::Status{core::ErrorCode::Internal};
         }
 
         // Instantiate a script-defined class (see IScriptContext::CreateInstance).
-        [[nodiscard]] core::RefPtr<script::ScriptObject> CreateInstance(
-            core::StringView className, core::Span<core::Variant> args)
+        [[nodiscard]] core::RefPtr<script::ScriptObject>
+        CreateInstance(core::StringView className, core::Span<core::Variant> args)
         {
             return (m_context.Get() != nullptr) ? m_context->CreateInstance(className, args)
-                                          : core::RefPtr<script::ScriptObject>{};
+                                                : core::RefPtr<script::ScriptObject>{};
         }
 
         // Set (or clear, with null) the global driver object. While set, it
         // receives update(dt) each frame. The subsystem holds a strong reference.
-        void SetDriver(core::RefPtr<script::ScriptObject> driver) noexcept { m_driver = core::Move(driver); }
+        void SetDriver(core::RefPtr<script::ScriptObject> driver) noexcept
+        {
+            m_driver = core::Move(driver);
+        }
         [[nodiscard]] script::ScriptObject* Driver() noexcept { return m_driver.Get(); }
 
         // Forward the per-frame update to the driver script (if any).
@@ -61,8 +67,8 @@ export namespace draconic::runtime
         {
             if (m_driver.Get() != nullptr)
             {
-                core::Variant args[] = { core::Variant::From<core::f32>(deltaTime) };
-                (void)m_driver->Invoke(u8"update", core::Span<core::Variant>{ args, 1 });
+                core::Variant args[] = {core::Variant::From<core::f32>(deltaTime)};
+                (void)m_driver->Invoke(u8"update", core::Span<core::Variant>{args, 1});
             }
         }
 
@@ -71,7 +77,10 @@ export namespace draconic::runtime
         // the types registered up to that point).
         void OnInit() override
         {
-            if (m_manager.Get() == nullptr) { return; }
+            if (m_manager.Get() == nullptr)
+            {
+                return;
+            }
             script::RegisterReflectedTypes(*m_manager, *m_registry);
             m_context = m_manager->CreateContext();
         }

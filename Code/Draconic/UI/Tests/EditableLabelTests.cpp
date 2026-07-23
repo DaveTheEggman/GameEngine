@@ -12,18 +12,40 @@ using namespace draconic::ui::tests;
 using namespace draconic::core;
 namespace core = draconic::core;
 
-static core::RefPtr<RootView> MakeRoot() { return core::MakeRef<RootView>(core::DefaultAllocator()); }
-static core::RefPtr<EditableLabel> MakeLabel() { return core::MakeRef<EditableLabel>(core::DefaultAllocator()); }
+static core::RefPtr<RootView> MakeRoot()
+{
+    return core::MakeRef<RootView>(core::DefaultAllocator());
+}
+static core::RefPtr<EditableLabel> MakeLabel()
+{
+    return core::MakeRef<EditableLabel>(core::DefaultAllocator());
+}
 
 static bool Contains(StringView hay, StringView needle)
 {
-    if (needle.Size() == 0) { return true; }
-    if (needle.Size() > hay.Size()) { return false; }
+    if (needle.Size() == 0)
+    {
+        return true;
+    }
+    if (needle.Size() > hay.Size())
+    {
+        return false;
+    }
     for (usize i = 0; i + needle.Size() <= hay.Size(); ++i)
     {
         bool match = true;
-        for (usize j = 0; j < needle.Size(); ++j) { if (hay[i + j] != needle[j]) { match = false; break; } }
-        if (match) { return true; }
+        for (usize j = 0; j < needle.Size(); ++j)
+        {
+            if (hay[i + j] != needle[j])
+            {
+                match = false;
+                break;
+            }
+        }
+        if (match)
+        {
+            return true;
+        }
     }
     return false;
 }
@@ -39,8 +61,13 @@ TEST_CASE("editable-label: StartsInLabelMode")
 
 TEST_CASE("editable-label: BeginEditTransitions")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get());
-    auto el = MakeLabel(); el->SetText(u8"Hello"); root->AddView(el.Get()); LayoutPass(ctx, root.Get());
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
+    auto el = MakeLabel();
+    el->SetText(u8"Hello");
+    root->AddView(el.Get());
+    LayoutPass(ctx, root.Get());
 
     el->BeginEdit();
 
@@ -52,16 +79,30 @@ TEST_CASE("editable-label: BeginEditTransitions")
 
 TEST_CASE("editable-label: CommitEditFiresEvent")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get());
-    auto el = MakeLabel(); el->SetText(u8"Hello"); root->AddView(el.Get()); LayoutPass(ctx, root.Get());
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
+    auto el = MakeLabel();
+    el->SetText(u8"Hello");
+    root->AddView(el.Get());
+    LayoutPass(ctx, root.Get());
 
-    bool committed = false; String committedText;
-    el->OnRenameCommitted.Add(Event<void(EditableLabel*, StringView)>::Handler{ [&committed, &committedText](EditableLabel*, StringView text) { committed = true; committedText = String(text); } });
+    bool committed = false;
+    String committedText;
+    el->OnRenameCommitted.Add(Event<void(EditableLabel*, StringView)>::Handler{
+        [&committed, &committedText](EditableLabel*, StringView text)
+        {
+            committed = true;
+            committedText = String(text);
+        }});
 
     el->BeginEdit();
     el->Behavior().HandleKeyDown(KeyCode::A, KeyModifiers::Ctrl);
-    el->Behavior().HandleTextInput(U'W'); el->Behavior().HandleTextInput(U'o'); el->Behavior().HandleTextInput(U'r');
-    el->Behavior().HandleTextInput(U'l'); el->Behavior().HandleTextInput(U'd');
+    el->Behavior().HandleTextInput(U'W');
+    el->Behavior().HandleTextInput(U'o');
+    el->Behavior().HandleTextInput(U'r');
+    el->Behavior().HandleTextInput(U'l');
+    el->Behavior().HandleTextInput(U'd');
     el->CommitEdit();
 
     CHECK(committed);
@@ -71,11 +112,17 @@ TEST_CASE("editable-label: CommitEditFiresEvent")
 
 TEST_CASE("editable-label: CancelEditRestoresText")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get());
-    auto el = MakeLabel(); el->SetText(u8"Original"); root->AddView(el.Get()); LayoutPass(ctx, root.Get());
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
+    auto el = MakeLabel();
+    el->SetText(u8"Original");
+    root->AddView(el.Get());
+    LayoutPass(ctx, root.Get());
 
     bool cancelled = false;
-    el->OnRenameCancelled.Add(Event<void(EditableLabel*)>::Handler{ [&cancelled](EditableLabel*) { cancelled = true; } });
+    el->OnRenameCancelled.Add(
+        Event<void(EditableLabel*)>::Handler{[&cancelled](EditableLabel*) { cancelled = true; }});
 
     el->BeginEdit();
     el->Behavior().HandleKeyDown(KeyCode::A, KeyModifiers::Ctrl);
@@ -89,12 +136,19 @@ TEST_CASE("editable-label: CancelEditRestoresText")
 
 TEST_CASE("editable-label: EmptyTextRejected")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get());
-    auto el = MakeLabel(); el->SetText(u8"Test"); root->AddView(el.Get()); LayoutPass(ctx, root.Get());
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
+    auto el = MakeLabel();
+    el->SetText(u8"Test");
+    root->AddView(el.Get());
+    LayoutPass(ctx, root.Get());
 
     bool committed = false, cancelled = false;
-    el->OnRenameCommitted.Add(Event<void(EditableLabel*, StringView)>::Handler{ [&committed](EditableLabel*, StringView) { committed = true; } });
-    el->OnRenameCancelled.Add(Event<void(EditableLabel*)>::Handler{ [&cancelled](EditableLabel*) { cancelled = true; } });
+    el->OnRenameCommitted.Add(Event<void(EditableLabel*, StringView)>::Handler{
+        [&committed](EditableLabel*, StringView) { committed = true; }});
+    el->OnRenameCancelled.Add(
+        Event<void(EditableLabel*)>::Handler{[&cancelled](EditableLabel*) { cancelled = true; }});
 
     el->BeginEdit();
     el->Behavior().HandleKeyDown(KeyCode::A, KeyModifiers::Ctrl);
@@ -108,18 +162,27 @@ TEST_CASE("editable-label: EmptyTextRejected")
 
 TEST_CASE("editable-label: ValidateRenameCalled")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get());
-    auto el = MakeLabel(); el->SetText(u8"Hello"); root->AddView(el.Get()); LayoutPass(ctx, root.Get());
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
+    auto el = MakeLabel();
+    el->SetText(u8"Hello");
+    root->AddView(el.Get());
+    LayoutPass(ctx, root.Get());
 
     el->ValidateRename = [](StringView text) { return !Contains(text, u8"bad"); };
 
     bool committed = false, cancelled = false;
-    el->OnRenameCommitted.Add(Event<void(EditableLabel*, StringView)>::Handler{ [&committed](EditableLabel*, StringView) { committed = true; } });
-    el->OnRenameCancelled.Add(Event<void(EditableLabel*)>::Handler{ [&cancelled](EditableLabel*) { cancelled = true; } });
+    el->OnRenameCommitted.Add(Event<void(EditableLabel*, StringView)>::Handler{
+        [&committed](EditableLabel*, StringView) { committed = true; }});
+    el->OnRenameCancelled.Add(
+        Event<void(EditableLabel*)>::Handler{[&cancelled](EditableLabel*) { cancelled = true; }});
 
     el->BeginEdit();
     el->Behavior().HandleKeyDown(KeyCode::A, KeyModifiers::Ctrl);
-    el->Behavior().HandleTextInput(U'b'); el->Behavior().HandleTextInput(U'a'); el->Behavior().HandleTextInput(U'd');
+    el->Behavior().HandleTextInput(U'b');
+    el->Behavior().HandleTextInput(U'a');
+    el->Behavior().HandleTextInput(U'd');
     el->CommitEdit();
 
     CHECK(!committed);
@@ -135,12 +198,19 @@ TEST_CASE("editable-label: DoubleClickToEditDefault")
 
 TEST_CASE("editable-label: UnchangedTextRejected")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get());
-    auto el = MakeLabel(); el->SetText(u8"Same"); root->AddView(el.Get()); LayoutPass(ctx, root.Get());
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
+    auto el = MakeLabel();
+    el->SetText(u8"Same");
+    root->AddView(el.Get());
+    LayoutPass(ctx, root.Get());
 
     bool committed = false, cancelled = false;
-    el->OnRenameCommitted.Add(Event<void(EditableLabel*, StringView)>::Handler{ [&committed](EditableLabel*, StringView) { committed = true; } });
-    el->OnRenameCancelled.Add(Event<void(EditableLabel*)>::Handler{ [&cancelled](EditableLabel*) { cancelled = true; } });
+    el->OnRenameCommitted.Add(Event<void(EditableLabel*, StringView)>::Handler{
+        [&committed](EditableLabel*, StringView) { committed = true; }});
+    el->OnRenameCancelled.Add(
+        Event<void(EditableLabel*)>::Handler{[&cancelled](EditableLabel*) { cancelled = true; }});
 
     el->BeginEdit();
     el->CommitEdit(); // unchanged

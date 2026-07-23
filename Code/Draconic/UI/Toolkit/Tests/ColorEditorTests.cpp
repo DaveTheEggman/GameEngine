@@ -13,7 +13,7 @@ namespace core = draconic::core;
 TEST_CASE("toolkit-coloreditor: RoundTripSwatch")
 {
     auto ed = core::MakeRef<ColorEditor>(core::DefaultAllocator(), StringView(u8"Tint"),
-        core::Color{ 1.0f, 0.0f, 0.0f, 1.0f });
+                                         core::Color{1.0f, 0.0f, 0.0f, 1.0f});
 
     CHECK(ed->Value().r == doctest::Approx(1.0f));
 
@@ -22,7 +22,7 @@ TEST_CASE("toolkit-coloreditor: RoundTripSwatch")
     CHECK(swatch->Color.Value().r == doctest::Approx(1.0f));
 
     // External SetValue updates the swatch (opening the picker dialog needs a live UIContext, skipped).
-    ed->SetValue(core::Color{ 0.0f, 0.5f, 1.0f, 1.0f });
+    ed->SetValue(core::Color{0.0f, 0.5f, 1.0f, 1.0f});
     CHECK(swatch->Color.Value().b == doctest::Approx(1.0f));
     CHECK(swatch->Cursor == CursorType::Hand);
 }

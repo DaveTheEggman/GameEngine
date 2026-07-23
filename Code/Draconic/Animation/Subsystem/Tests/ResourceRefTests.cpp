@@ -96,8 +96,8 @@ TEST_CASE("resource-ref: scene round-trip resolves skeleton + clip refs through 
         track->AddKeyframe(2.0f, Float3{0, 1, 0});
         animation::AnimationClipSource source;
         animation::AnimationClipSource::FromClip(clip, source);
-        draconic::content::Instance* inst =
-            cookedDb.RootGroup()->CreateInstance(u8"Walk", animation::AnimationClipSource::StaticType());
+        draconic::content::Instance* inst = cookedDb.RootGroup()->CreateInstance(
+            u8"Walk", animation::AnimationClipSource::StaticType());
         REQUIRE(inst != nullptr);
         REQUIRE(inst->WriteObject(source).IsOk());
         clipId = inst->Id();

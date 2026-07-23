@@ -11,8 +11,8 @@ module;
 
 export module draconic.gui:border_drawable;
 
-import draconic.core;    // Color
-import draconic.vg;      // CornerRadii
+import draconic.core; // Color
+import draconic.vg;   // CornerRadii
 import :rect;
 import :draw_context;
 import :drawable;
@@ -26,9 +26,11 @@ export namespace draconic::gui
     {
         DRACONIC_OBJECT(BorderDrawable, Drawable)
     public:
-        BorderDrawable() noexcept { m_color = Color{ 0.0f, 0.0f, 0.0f, 1.0f }; }
-        explicit BorderDrawable(Color color, f32 width = 1.0f) noexcept
-            : m_width(width) { m_color = color; }
+        BorderDrawable() noexcept { m_color = Color{0.0f, 0.0f, 0.0f, 1.0f}; }
+        explicit BorderDrawable(Color color, f32 width = 1.0f) noexcept : m_width(width)
+        {
+            m_color = color;
+        }
 
         void SetWidth(f32 width) noexcept { m_width = width; }
         [[nodiscard]] f32 GetWidth() const noexcept { return m_width; }

@@ -38,7 +38,13 @@ using namespace draconic::core;
 
 export namespace draconic::editor
 {
-    enum class CookBadge : u8 { NoBuilder, Cooked, Missing, Failed };
+    enum class CookBadge : u8
+    {
+        NoBuilder,
+        Cooked,
+        Missing,
+        Failed
+    };
 
     class EditorCookService
     {
@@ -56,19 +62,22 @@ export namespace draconic::editor
             m_project = &project;
             m_builders = &builders;
             m_sources = MakeUnique<draconic::vfs::NativeFileSystem>(DefaultAllocator(),
-                project.SourcesRoot().AsView());
+                                                                    project.SourcesRoot().AsView());
             m_cache = MakeUnique<draconic::vfs::NativeFileSystem>(DefaultAllocator(),
-                project.CacheRoot().AsView());
+                                                                  project.CacheRoot().AsView());
             m_jobs = MakeUnique<JobSystem>(DefaultAllocator());
-            m_driver = MakeUnique<CookDriver>(DefaultAllocator(),
-                project.SourceDb(), project.CookedDb(), builders,
-                m_sources.Get(), m_cache.Get(), m_jobs.Get());
+            m_driver =
+                MakeUnique<CookDriver>(DefaultAllocator(), project.SourceDb(), project.CookedDb(),
+                                       builders, m_sources.Get(), m_cache.Get(), m_jobs.Get());
 
             // Watch Sources/ for external edits (stat sweep; throttled from Update).
             if (draconic::vfs::IWatchableFileSystem* watchable = m_sources->AsWatchable())
             {
                 m_watcher = watchable->ChangeSource();
-                if (m_watcher != nullptr) { m_watcher->Track(u8""); }
+                if (m_watcher != nullptr)
+                {
+                    m_watcher->Track(u8"");
+                }
             }
             m_lastWatchPoll = TicksToSeconds(GetTicks());
         }
@@ -76,7 +85,7 @@ export namespace draconic::editor
         void Shutdown()
         {
             JoinWorker();
-            m_watcher = nullptr;   // owned by the sources mount
+            m_watcher = nullptr; // owned by the sources mount
             m_driver.Reset();
             m_jobs.Reset();
             m_cache.Reset();
@@ -108,14 +117,17 @@ export namespace draconic::editor
         /// lost its recook). `force` = rebuild all.
         void RequestCook(bool force = false)
         {
-            if (!IsReady()) { return; }
-            if (MutationLocked())   // cook running OR an external job is reading the DBs
+            if (!IsReady())
+            {
+                return;
+            }
+            if (MutationLocked()) // cook running OR an external job is reading the DBs
             {
                 m_pendingCook = true;
                 m_pendingForce = m_pendingForce || force;
                 return;
             }
-            JoinWorker();   // reap the previous worker's handle
+            JoinWorker(); // reap the previous worker's handle
 
             // Three phases so the UI never stalls AND nothing races:
             //   1. Plan on the WORKER - it only READS the DBs, and their structure is frozen
@@ -129,10 +141,12 @@ export namespace draconic::editor
             m_cooking.store(true);
             CookDriver* driver = m_driver.Get();
             EditorCookService* self = this;
-            m_worker = MakeUnique<Thread>(DefaultAllocator(), [self, driver, force]() {
-                self->m_plan = driver->Plan(force);
-                self->m_planReady.store(true);
-            });
+            m_worker = MakeUnique<Thread>(DefaultAllocator(),
+                                          [self, driver, force]()
+                                          {
+                                              self->m_plan = driver->Plan(force);
+                                              self->m_planReady.store(true);
+                                          });
         }
 
         /// Scoped cook: the given source instances plus their dependency closure (a group's
@@ -140,7 +154,10 @@ export namespace draconic::editor
         /// when a cook is already in flight. No orphan sweep (whole-project concern).
         void RequestCookFor(Array<Guid> roots, bool force = false)
         {
-            if (!IsReady() || roots.IsEmpty()) { return; }
+            if (!IsReady() || roots.IsEmpty())
+            {
+                return;
+            }
             if (MutationLocked())
             {
                 // MERGE, don't queue closures: concurrent requests for overlapping roots
@@ -153,9 +170,16 @@ export namespace draconic::editor
                         bool seen = false;
                         for (const Guid& existing : m_pendingRoots)
                         {
-                            if (existing == id) { seen = true; break; }
+                            if (existing == id)
+                            {
+                                seen = true;
+                                break;
+                            }
                         }
-                        if (!seen) { m_pendingRoots.PushBack(id); }
+                        if (!seen)
+                        {
+                            m_pendingRoots.PushBack(id);
+                        }
                     }
                     m_pendingRootsForce = m_pendingRootsForce || force;
                 }
@@ -165,17 +189,20 @@ export namespace draconic::editor
             m_cooking.store(true);
             CookDriver* driver = m_driver.Get();
             EditorCookService* self = this;
-            m_worker = MakeUnique<Thread>(DefaultAllocator(),
-                                          [self, driver, roots = Move(roots), force]() {
-                self->m_plan = driver->PlanFor(Span<const Guid>{ roots.Data(), roots.Size() }, force);
-                self->m_planReady.store(true);
-            });
+            m_worker =
+                MakeUnique<Thread>(DefaultAllocator(),
+                                   [self, driver, roots = Move(roots), force]()
+                                   {
+                                       self->m_plan = driver->PlanFor(
+                                           Span<const Guid>{roots.Data(), roots.Size()}, force);
+                                       self->m_planReady.store(true);
+                                   });
         }
 
         /// Phase 2+3 hand-off: PrepareProducts on the main thread, then the build worker.
         void StartBuilds()
         {
-            JoinWorker();   // the plan worker has finished (m_planReady was set)
+            JoinWorker(); // the plan worker has finished (m_planReady was set)
             m_driver->PrepareProducts(m_plan);
             const usize total = m_plan.dirty.Size();
             // Zero-work plans run SILENTLY (no "cooking 0 asset(s)" line): page-open and
@@ -187,38 +214,42 @@ export namespace draconic::editor
 
             CookDriver* driver = m_driver.Get();
             EditorCookService* self = this;
-            m_worker = MakeUnique<Thread>(DefaultAllocator(), [self, driver, total]() {
-                CookPlan& plan = self->m_plan;
-                CookProgress progress;
-                progress.onItem = [self, total](usize done, usize, StringView path, bool ok) {
-                    String line(ok ? u8"cooked " : u8"FAILED ");
-                    line.Append(path);
-                    line.Append(u8" (");
-                    AppendCount(line, done);
-                    line.PushBack(utf8char('/'));
-                    AppendCount(line, total);
-                    line.PushBack(utf8char(')'));
-                    self->Post(Move(line));
-                };
-                CookStats stats = driver->ExecuteBuilds(plan, &progress);
-                if (stats.cooked + stats.failed + stats.orphansSwept > 0)
+            m_worker = MakeUnique<Thread>(
+                DefaultAllocator(),
+                [self, driver, total]()
                 {
-                    String done(u8"cook finished: ");
-                    AppendCount(done, stats.cooked);
-                    done.Append(u8" cooked, ");
-                    AppendCount(done, stats.failed);
-                    done.Append(u8" failed");
-                    self->Post(Move(done));
-                }
-                {
-                    ScopedLock lock(self->m_queueMutex);
-                    self->m_lastCooked = Move(stats.cookedProducts);
-                    self->m_lastCookedCount = stats.cooked;
-                    self->m_lastFailedCount = stats.failed;
-                }
-                self->m_cooking.store(false);
-                self->m_finishedPending.store(true);
-            });
+                    CookPlan& plan = self->m_plan;
+                    CookProgress progress;
+                    progress.onItem = [self, total](usize done, usize, StringView path, bool ok)
+                    {
+                        String line(ok ? u8"cooked " : u8"FAILED ");
+                        line.Append(path);
+                        line.Append(u8" (");
+                        AppendCount(line, done);
+                        line.PushBack(utf8char('/'));
+                        AppendCount(line, total);
+                        line.PushBack(utf8char(')'));
+                        self->Post(Move(line));
+                    };
+                    CookStats stats = driver->ExecuteBuilds(plan, &progress);
+                    if (stats.cooked + stats.failed + stats.orphansSwept > 0)
+                    {
+                        String done(u8"cook finished: ");
+                        AppendCount(done, stats.cooked);
+                        done.Append(u8" cooked, ");
+                        AppendCount(done, stats.failed);
+                        done.Append(u8" failed");
+                        self->Post(Move(done));
+                    }
+                    {
+                        ScopedLock lock(self->m_queueMutex);
+                        self->m_lastCooked = Move(stats.cookedProducts);
+                        self->m_lastCookedCount = stats.cooked;
+                        self->m_lastFailedCount = stats.failed;
+                    }
+                    self->m_cooking.store(false);
+                    self->m_finishedPending.store(true);
+                });
         }
 
         /// Main-thread pump: drains progress messages into `status` (e.g. the status bar +
@@ -227,18 +258,27 @@ export namespace draconic::editor
         {
             // Phase hand-off: the plan worker finished - run the main-thread product
             // pre-create and kick the build worker.
-            if (m_planReady.exchange(false)) { StartBuilds(); }
+            if (m_planReady.exchange(false))
+            {
+                StartBuilds();
+            }
 
             Array<String> drained;
             {
                 ScopedLock lock(m_queueMutex);
-                for (String& s : m_queue) { drained.PushBack(Move(s)); }
+                for (String& s : m_queue)
+                {
+                    drained.PushBack(Move(s));
+                }
                 m_queue.Clear();
             }
             for (const String& line : drained)
             {
                 DRACONIC_LOG_INFO(u8"Cook", u8"{}", line);
-                if (status) { status(line.AsView()); }
+                if (status)
+                {
+                    status(line.AsView());
+                }
             }
             if (m_finishedPending.exchange(false))
             {
@@ -249,7 +289,10 @@ export namespace draconic::editor
                     m_lastCookedCountMain = m_lastCookedCount;
                     m_lastFailedCountMain = m_lastFailedCount;
                 }
-                if (OnCookFinished) { OnCookFinished(); }
+                if (OnCookFinished)
+                {
+                    OnCookFinished();
+                }
             }
 
             // Deferred source-DB mutations (imports/deletes queued while the cook worker was
@@ -260,14 +303,17 @@ export namespace draconic::editor
                 {
                     Array<Function<void()>> drained = Move(m_idleQueue);
                     m_idleQueue = Array<Function<void()>>{};
-                    for (Function<void()>& action : drained) { action(); }
+                    for (Function<void()>& action : drained)
+                    {
+                        action();
+                    }
                 }
                 if (m_pendingCook)
                 {
                     m_pendingCook = false;
                     const bool force = m_pendingForce;
                     m_pendingForce = false;
-                    m_pendingRoots.Clear();   // the full plan covers any scoped roots
+                    m_pendingRoots.Clear(); // the full plan covers any scoped roots
                     m_pendingRootsForce = false;
                     RequestCook(force);
                 }
@@ -307,7 +353,14 @@ export namespace draconic::editor
         /// only (like every other DB entry point).
         void RunWhenIdle(Function<void()> action)
         {
-            if (!MutationLocked()) { if (action) { action(); } return; }
+            if (!MutationLocked())
+            {
+                if (action)
+                {
+                    action();
+                }
+                return;
+            }
             m_idleQueue.PushBack(Move(action));
         }
 
@@ -326,14 +379,23 @@ export namespace draconic::editor
         /// Cheap per-instance cook state for the Assets panel (no recipe recompute).
         [[nodiscard]] CookBadge BadgeFor(draconic::content::Instance& instance)
         {
-            if (!IsReady() || m_builders == nullptr) { return CookBadge::NoBuilder; }
+            if (!IsReady() || m_builders == nullptr)
+            {
+                return CookBadge::NoBuilder;
+            }
             if (m_builders->FindByTypeName(instance.TypeName()) == nullptr)
             {
                 return CookBadge::NoBuilder;
             }
-            if (IsCooking()) { return CookBadge::Missing; }   // db is the worker's during a cook
+            if (IsCooking())
+            {
+                return CookBadge::Missing;
+            } // db is the worker's during a cook
             const CookRecord* record = m_driver->Db().Find(instance.Id());
-            if (record != nullptr && record->failed) { return CookBadge::Failed; }
+            if (record != nullptr && record->failed)
+            {
+                return CookBadge::Failed;
+            }
             const bool productExists = m_project->CookedDb().GetInstance(instance.Id()) != nullptr;
             return (record != nullptr && productExists) ? CookBadge::Cooked : CookBadge::Missing;
         }
@@ -359,8 +421,15 @@ export namespace draconic::editor
             utf8char digits[24];
             i32 n = 0;
             usize v = value;
-            do { digits[n++] = static_cast<utf8char>('0' + v % 10); v /= 10; } while (v > 0 && n < 24);
-            while (n > 0) { out.PushBack(digits[--n]); }
+            do
+            {
+                digits[n++] = static_cast<utf8char>('0' + v % 10);
+                v /= 10;
+            } while (v > 0 && n < 24);
+            while (n > 0)
+            {
+                out.PushBack(digits[--n]);
+            }
         }
 
         [[nodiscard]] static String FormatPlanned(usize dirty, usize orphans)
@@ -379,33 +448,33 @@ export namespace draconic::editor
 
         static constexpr f64 kWatchPollSeconds = 2.0;
 
-        EditorProject* m_project = nullptr;       // borrowed
-        BuilderRegistry* m_builders = nullptr;    // borrowed (exe-assembled)
+        EditorProject* m_project = nullptr;    // borrowed
+        BuilderRegistry* m_builders = nullptr; // borrowed (exe-assembled)
         UniquePtr<draconic::vfs::NativeFileSystem> m_sources;
         UniquePtr<draconic::vfs::NativeFileSystem> m_cache;
         UniquePtr<JobSystem> m_jobs;
         UniquePtr<CookDriver> m_driver;
         UniquePtr<Thread> m_worker;
 
-        Atomic<bool> m_cooking{ false };
-        Atomic<bool> m_finishedPending{ false };
+        Atomic<bool> m_cooking{false};
+        Atomic<bool> m_finishedPending{false};
         u64 m_revision = 0;
         Mutex m_queueMutex;
         Array<String> m_queue;
-        Array<Guid> m_lastCooked;        // written by the worker under m_queueMutex
-        Array<Guid> m_lastCookedMain;    // main-thread copy (LastCookedProducts)
-        usize m_lastCookedCount = 0;     // worker-written, under m_queueMutex
+        Array<Guid> m_lastCooked;     // written by the worker under m_queueMutex
+        Array<Guid> m_lastCookedMain; // main-thread copy (LastCookedProducts)
+        usize m_lastCookedCount = 0;  // worker-written, under m_queueMutex
         usize m_lastFailedCount = 0;
         usize m_lastCookedCountMain = 0; // main-thread copies
         usize m_lastFailedCountMain = 0;
-        Array<Function<void()>> m_idleQueue;   // main-thread deferred mutations (RunWhenIdle)
-        bool m_pendingCook = false;            // a RequestCook arrived while cooking
+        Array<Function<void()>> m_idleQueue; // main-thread deferred mutations (RunWhenIdle)
+        bool m_pendingCook = false;          // a RequestCook arrived while cooking
         bool m_pendingForce = false;
-        Array<Guid> m_pendingRoots;            // merged scoped requests that arrived mid-cook
+        Array<Guid> m_pendingRoots; // merged scoped requests that arrived mid-cook
         bool m_pendingRootsForce = false;
-        CookPlan m_plan;                       // worker-planned, main-prepared, worker-built
-        Atomic<bool> m_planReady{ false };
-        draconic::vfs::IChangeSource* m_watcher = nullptr;   // borrowed (sources mount owns it)
+        CookPlan m_plan; // worker-planned, main-prepared, worker-built
+        Atomic<bool> m_planReady{false};
+        draconic::vfs::IChangeSource* m_watcher = nullptr; // borrowed (sources mount owns it)
         Array<String> m_watchChanged;
         f64 m_lastWatchPoll = 0.0;
     };

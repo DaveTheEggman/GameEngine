@@ -14,7 +14,7 @@ TEST_CASE("toolkit-vectorfields: Vector2FieldRoundTrip")
 {
     auto f = core::MakeRef<Vector2Field>(core::DefaultAllocator());
     CHECK(f->ChildCount() == 2u);
-    f->SetValue(Float2{ 3.0f, 4.0f });
+    f->SetValue(Float2{3.0f, 4.0f});
     CHECK(f->Value().x == doctest::Approx(3.0f));
     CHECK(f->Value().y == doctest::Approx(4.0f));
     f->SetRange(-10.0, 10.0);
@@ -26,12 +26,12 @@ TEST_CASE("toolkit-vectorfields: Vector3And4")
 {
     auto f3 = core::MakeRef<Vector3Field>(core::DefaultAllocator());
     CHECK(f3->ChildCount() == 3u);
-    f3->SetValue(Float3{ 1.0f, 2.0f, 3.0f });
+    f3->SetValue(Float3{1.0f, 2.0f, 3.0f});
     CHECK(f3->Value().z == doctest::Approx(3.0f));
 
     auto f4 = core::MakeRef<Vector4Field>(core::DefaultAllocator());
     CHECK(f4->ChildCount() == 4u);
-    f4->SetValue(Float4{ 1.0f, 2.0f, 3.0f, 4.0f });
+    f4->SetValue(Float4{1.0f, 2.0f, 3.0f, 4.0f});
     CHECK(f4->Value().w == doctest::Approx(4.0f));
     f4->SetDecimalPlaces(2);
     CHECK(f4->DecimalPlaces() == 2);

@@ -13,8 +13,9 @@ namespace core = draconic::core;
 TEST_CASE("toolkit-booleditor: RoundTripAndToggle")
 {
     bool observed = false;
-    auto ed = core::MakeRef<BoolEditor>(core::DefaultAllocator(), StringView(u8"Enabled"), false,
-        Function<void(bool)>{ [&observed](bool v) { observed = v; } });
+    auto ed =
+        core::MakeRef<BoolEditor>(core::DefaultAllocator(), StringView(u8"Enabled"), false,
+                                  Function<void(bool)>{[&observed](bool v) { observed = v; }});
 
     CHECK(ed->Name() == StringView(u8"Enabled"));
     CHECK(ed->Value() == false);

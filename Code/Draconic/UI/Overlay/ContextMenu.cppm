@@ -55,7 +55,9 @@ export namespace draconic::ui
 
         MenuItem() = default;
         MenuItem(StringView label, Function<void()> action, bool enabled = true)
-            : Label(label), Action(Move(action)), Enabled(enabled) {}
+            : Label(label), Action(Move(action)), Enabled(enabled)
+        {
+        }
 
         static UniquePtr<MenuItem> CreateSeparator()
         {
@@ -81,13 +83,11 @@ export namespace draconic::ui
 
         void AddItem(StringView label, Function<void()> action, bool enabled = true)
         {
-            m_items.PushBack(MakeUnique<MenuItem>(DefaultAllocator(), label, Move(action), enabled));
+            m_items.PushBack(
+                MakeUnique<MenuItem>(DefaultAllocator(), label, Move(action), enabled));
         }
 
-        void AddSeparator()
-        {
-            m_items.PushBack(MenuItem::CreateSeparator());
-        }
+        void AddSeparator() { m_items.PushBack(MenuItem::CreateSeparator()); }
 
         MenuItem* AddSubmenu(StringView label)
         {
@@ -105,16 +105,25 @@ export namespace draconic::ui
         void Show(UIContext* ctx, f32 x, f32 y, IPopupOwner* owner = nullptr)
         {
             RootView* root = ctx->ActiveInputRoot();
-            if (root == nullptr) { return; }
+            if (root == nullptr)
+            {
+                return;
+            }
 
             const Float2 logical = root->LogicalSize();
             Measure(BoxConstraints::Loose(logical.x, logical.y));
-            const Rectangle screen{ 0, 0, logical.x, logical.y };
+            const Rectangle screen{0, 0, logical.x, logical.y};
 
             f32 px = x;
             f32 py = y;
-            if (px + MeasuredSize.x > screen.width) { px = Max(0.0f, px - MeasuredSize.x); }
-            if (py + MeasuredSize.y > screen.height) { py = Max(0.0f, py - MeasuredSize.y); }
+            if (px + MeasuredSize.x > screen.width)
+            {
+                px = Max(0.0f, px - MeasuredSize.x);
+            }
+            if (py + MeasuredSize.y > screen.height)
+            {
+                py = Max(0.0f, py - MeasuredSize.y);
+            }
 
             root->GetPopupLayer()->ShowPopup(this, owner, px, py, true, false, true);
 
@@ -130,10 +139,14 @@ export namespace draconic::ui
             if (ctx != nullptr)
             {
                 ContextMenu* self = this;
-                ctx->MutationQueueRef().QueueAction(Function<void()>{ [ctx, self]()
-                {
-                    if (RootView* root = ctx->ActiveInputRoot()) { root->GetPopupLayer()->ClosePopup(self); }
-                } });
+                ctx->MutationQueueRef().QueueAction(
+                    Function<void()>{[ctx, self]()
+                                     {
+                                         if (RootView* root = ctx->ActiveInputRoot())
+                                         {
+                                             root->GetPopupLayer()->ClosePopup(self);
+                                         }
+                                     }});
             }
         }
 
@@ -141,15 +154,22 @@ export namespace draconic::ui
         void CloseEntireChain()
         {
             ContextMenu* root = this;
-            while (root->m_parentMenu != nullptr) { root = root->m_parentMenu; }
+            while (root->m_parentMenu != nullptr)
+            {
+                root = root->m_parentMenu;
+            }
             root->CloseOpenSubmenu();
             UIContext* ctx = root->Context;
             if (ctx != nullptr)
             {
-                ctx->MutationQueueRef().QueueAction(Function<void()>{ [ctx, root]()
-                {
-                    if (RootView* r = ctx->ActiveInputRoot()) { r->GetPopupLayer()->ClosePopup(root); }
-                } });
+                ctx->MutationQueueRef().QueueAction(
+                    Function<void()>{[ctx, root]()
+                                     {
+                                         if (RootView* r = ctx->ActiveInputRoot())
+                                         {
+                                             r->GetPopupLayer()->ClosePopup(root);
+                                         }
+                                     }});
             }
         }
 
@@ -157,7 +177,10 @@ export namespace draconic::ui
 
         void OnPopupClosed(View* popup) override
         {
-            if (m_openSubmenu != nullptr && popup == m_openSubmenu) { m_openSubmenu = nullptr; }
+            if (m_openSubmenu != nullptr && popup == m_openSubmenu)
+            {
+                m_openSubmenu = nullptr;
+            }
         }
 
         [[nodiscard]] View* OwnerView() override { return this; }
@@ -168,24 +191,39 @@ export namespace draconic::ui
         {
             const f32 w = Width();
             const f32 h = Height();
-            const Rectangle menuBounds{ 0, 0, w, h };
+            const Rectangle menuBounds{0, 0, w, h};
 
             // Background from theme.
             Drawable* bg = ResolveStyleDrawable(StyleProperty::Background);
-            if (bg != nullptr) { bg->Draw(ctx, menuBounds, GetControlState()); }
+            if (bg != nullptr)
+            {
+                bg->Draw(ctx, menuBounds, GetControlState());
+            }
             else
             {
-                ctx.VG().FillRoundedRect(menuBounds, 4.0f, Color{ 45.0f / 255.0f, 48.0f / 255.0f, 58.0f / 255.0f, 1.0f });
-                ctx.VG().StrokeRoundedRect(menuBounds, 4.0f, Color{ 70.0f / 255.0f, 75.0f / 255.0f, 90.0f / 255.0f, 1.0f }, 1.0f);
+                ctx.VG().FillRoundedRect(
+                    menuBounds, 4.0f, Color{45.0f / 255.0f, 48.0f / 255.0f, 58.0f / 255.0f, 1.0f});
+                ctx.VG().StrokeRoundedRect(
+                    menuBounds, 4.0f, Color{70.0f / 255.0f, 75.0f / 255.0f, 90.0f / 255.0f, 1.0f},
+                    1.0f);
             }
 
-            const Color textColor = ResolveStyleColor(StyleProperty::TextColor, Color{ 220.0f / 255.0f, 225.0f / 255.0f, 235.0f / 255.0f, 1.0f });
+            const Color textColor =
+                ResolveStyleColor(StyleProperty::TextColor,
+                                  Color{220.0f / 255.0f, 225.0f / 255.0f, 235.0f / 255.0f, 1.0f});
             const Color disabledColor = Palette::ComputeDisabled(textColor);
-            const Color separatorColor = ResolveStyleColor(StyleProperty::BorderColor, Color{ 70.0f / 255.0f, 75.0f / 255.0f, 90.0f / 255.0f, 1.0f });
-            const Color hoverColor = ResolveStyleColor(StyleProperty::AccentColor, Color{ 60.0f / 255.0f, 120.0f / 255.0f, 200.0f / 255.0f, 100.0f / 255.0f });
+            const Color separatorColor =
+                ResolveStyleColor(StyleProperty::BorderColor,
+                                  Color{70.0f / 255.0f, 75.0f / 255.0f, 90.0f / 255.0f, 1.0f});
+            const Color hoverColor = ResolveStyleColor(
+                StyleProperty::AccentColor,
+                Color{60.0f / 255.0f, 120.0f / 255.0f, 200.0f / 255.0f, 100.0f / 255.0f});
 
             const f32 fontSize = 14.0f;
-            fonts::CachedFont* font = ctx.FontService() != nullptr ? ctx.FontService()->GetFont(ResolveStyleFontFamily(), fontSize) : nullptr;
+            fonts::CachedFont* font =
+                ctx.FontService() != nullptr
+                    ? ctx.FontService()->GetFont(ResolveStyleFontFamily(), fontSize)
+                    : nullptr;
 
             f32 y = 4;
             for (i32 i = 0; i < static_cast<i32>(m_items.Size()); ++i)
@@ -194,7 +232,7 @@ export namespace draconic::ui
                 if (item->IsSeparator)
                 {
                     const f32 sepY = y + m_separatorHeight * 0.5f;
-                    ctx.VG().DrawLine(Float2{ 8, sepY }, Float2{ w - 8, sepY }, separatorColor, 1.0f);
+                    ctx.VG().DrawLine(Float2{8, sepY}, Float2{w - 8, sepY}, separatorColor, 1.0f);
                     y += m_separatorHeight;
                     continue;
                 }
@@ -202,27 +240,41 @@ export namespace draconic::ui
                 // Hover highlight
                 if (i == m_hoveredIndex)
                 {
-                    const Rectangle hoverRect{ 4, y, w - 8, m_itemHeight };
-                    Drawable* hoverDrawable = ResolveStyleDrawable(StyleProperty::MenuItemHoverDrawable);
-                    if (hoverDrawable != nullptr) { hoverDrawable->Draw(ctx, hoverRect); }
-                    else { ctx.VG().FillRect(hoverRect, hoverColor); }
+                    const Rectangle hoverRect{4, y, w - 8, m_itemHeight};
+                    Drawable* hoverDrawable =
+                        ResolveStyleDrawable(StyleProperty::MenuItemHoverDrawable);
+                    if (hoverDrawable != nullptr)
+                    {
+                        hoverDrawable->Draw(ctx, hoverRect);
+                    }
+                    else
+                    {
+                        ctx.VG().FillRect(hoverRect, hoverColor);
+                    }
                 }
 
                 // Label
                 if (!item->Label.IsEmpty() && font != nullptr)
                 {
                     const Color color = item->Enabled ? textColor : disabledColor;
-                    ctx.VG().DrawText(item->Label, font, Rectangle{ 12, y, w - 24, m_itemHeight }, fonts::TextAlignment::Left, fonts::VerticalAlignment::Middle, color);
+                    ctx.VG().DrawText(item->Label, font, Rectangle{12, y, w - 24, m_itemHeight},
+                                      fonts::TextAlignment::Left, fonts::VerticalAlignment::Middle,
+                                      color);
                 }
 
                 // Submenu arrow
                 if (item->Submenu)
                 {
-                    Drawable* arrowIcon = ResolvePartDrawable(u8"submenu-arrow", StyleProperty::Background, GetControlState());
+                    Drawable* arrowIcon = ResolvePartDrawable(
+                        u8"submenu-arrow", StyleProperty::Background, GetControlState());
                     const f32 arrowX = w - 16;
                     const f32 arrowCY = y + m_itemHeight * 0.5f;
                     const f32 arrowSize = 6.0f;
-                    if (arrowIcon != nullptr) { arrowIcon->Draw(ctx, Rectangle{ arrowX, arrowCY - arrowSize * 0.5f, arrowSize, arrowSize }); }
+                    if (arrowIcon != nullptr)
+                    {
+                        arrowIcon->Draw(ctx, Rectangle{arrowX, arrowCY - arrowSize * 0.5f,
+                                                       arrowSize, arrowSize});
+                    }
                     else
                     {
                         ctx.VG().BeginPath();
@@ -253,7 +305,10 @@ export namespace draconic::ui
                 if (newIndex >= 0 && newIndex < static_cast<i32>(m_items.Size()))
                 {
                     MenuItem* item = m_items[static_cast<usize>(newIndex)].Get();
-                    if (item->Submenu && item->Enabled) { OpenSubmenuAt(newIndex); }
+                    if (item->Submenu && item->Enabled)
+                    {
+                        OpenSubmenuAt(newIndex);
+                    }
                 }
             }
         }
@@ -266,7 +321,10 @@ export namespace draconic::ui
                 MenuItem* item = m_items[static_cast<usize>(index)].Get();
                 if (item->Enabled && !item->IsSeparator && !item->Submenu)
                 {
-                    if (item->Action) { item->Action(); }
+                    if (item->Action)
+                    {
+                        item->Action();
+                    }
                     CloseEntireChain();
                     e.Handled = true;
                 }
@@ -295,7 +353,10 @@ export namespace draconic::ui
                         OpenSubmenuAt(m_hoveredIndex);
                         if (m_openSubmenu != nullptr)
                         {
-                            if (Context != nullptr) { Context->GetFocusManager()->SetFocus(m_openSubmenu); }
+                            if (Context != nullptr)
+                            {
+                                Context->GetFocusManager()->SetFocus(m_openSubmenu);
+                            }
                             m_openSubmenu->MoveFocusNext();
                         }
                     }
@@ -304,7 +365,10 @@ export namespace draconic::ui
                 break;
             case KeyCode::Left:
                 // Close to parent
-                if (m_parentMenu != nullptr) { Close(); }
+                if (m_parentMenu != nullptr)
+                {
+                    Close();
+                }
                 e.Handled = true;
                 break;
             case KeyCode::Return:
@@ -318,13 +382,19 @@ export namespace draconic::ui
                             OpenSubmenuAt(m_hoveredIndex);
                             if (m_openSubmenu != nullptr)
                             {
-                                if (Context != nullptr) { Context->GetFocusManager()->SetFocus(m_openSubmenu); }
+                                if (Context != nullptr)
+                                {
+                                    Context->GetFocusManager()->SetFocus(m_openSubmenu);
+                                }
                                 m_openSubmenu->MoveFocusNext();
                             }
                         }
                         else
                         {
-                            if (item->Action) { item->Action(); }
+                            if (item->Action)
+                            {
+                                item->Action();
+                            }
                             CloseEntireChain();
                         }
                     }
@@ -332,8 +402,14 @@ export namespace draconic::ui
                 e.Handled = true;
                 break;
             case KeyCode::Escape:
-                if (m_parentMenu != nullptr) { Close(); }
-                else { CloseEntireChain(); }
+                if (m_parentMenu != nullptr)
+                {
+                    Close();
+                }
+                else
+                {
+                    CloseEntireChain();
+                }
                 e.Handled = true;
                 break;
             default:
@@ -352,12 +428,20 @@ export namespace draconic::ui
             for (const UniquePtr<MenuItem>& itemPtr : m_items)
             {
                 MenuItem* item = itemPtr.Get();
-                if (item->IsSeparator) { totalH += m_separatorHeight; }
-                else { totalH += m_itemHeight; }
-
-                if (!item->Label.IsEmpty() && Context != nullptr && Context->FontService() != nullptr)
+                if (item->IsSeparator)
                 {
-                    if (fonts::CachedFont* font = Context->FontService()->GetFont(ResolveStyleFontFamily(), 14.0f))
+                    totalH += m_separatorHeight;
+                }
+                else
+                {
+                    totalH += m_itemHeight;
+                }
+
+                if (!item->Label.IsEmpty() && Context != nullptr &&
+                    Context->FontService() != nullptr)
+                {
+                    if (fonts::CachedFont* font =
+                            Context->FontService()->GetFont(ResolveStyleFontFamily(), 14.0f))
                     {
                         const f32 textW = font->font->MeasureString(item->Label) + 40;
                         maxW = Max(maxW, textW);
@@ -366,7 +450,8 @@ export namespace draconic::ui
             }
             totalH += 4; // bottom padding
 
-            MeasuredSize = Float2{ constraints.ConstrainWidth(maxW), constraints.ConstrainHeight(totalH) };
+            MeasuredSize =
+                Float2{constraints.ConstrainWidth(maxW), constraints.ConstrainHeight(totalH)};
         }
 
     private:
@@ -379,7 +464,12 @@ export namespace draconic::ui
             for (i32 i = 1; i <= count; ++i)
             {
                 const i32 idx = (start + i) % count;
-                if (!m_items[static_cast<usize>(idx)]->IsSeparator) { m_hoveredIndex = idx; Invalidate(); return; }
+                if (!m_items[static_cast<usize>(idx)]->IsSeparator)
+                {
+                    m_hoveredIndex = idx;
+                    Invalidate();
+                    return;
+                }
             }
         }
 
@@ -390,7 +480,12 @@ export namespace draconic::ui
             for (i32 i = 1; i <= count; ++i)
             {
                 const i32 idx = (start - i + count) % count;
-                if (!m_items[static_cast<usize>(idx)]->IsSeparator) { m_hoveredIndex = idx; Invalidate(); return; }
+                if (!m_items[static_cast<usize>(idx)]->IsSeparator)
+                {
+                    m_hoveredIndex = idx;
+                    Invalidate();
+                    return;
+                }
             }
         }
 
@@ -401,8 +496,12 @@ export namespace draconic::ui
             f32 y = 4;
             for (i32 i = 0; i < static_cast<i32>(m_items.Size()); ++i)
             {
-                const f32 h = m_items[static_cast<usize>(i)]->IsSeparator ? m_separatorHeight : m_itemHeight;
-                if (localY >= y && localY < y + h) { return m_items[static_cast<usize>(i)]->IsSeparator ? -1 : i; }
+                const f32 h =
+                    m_items[static_cast<usize>(i)]->IsSeparator ? m_separatorHeight : m_itemHeight;
+                if (localY >= y && localY < y + h)
+                {
+                    return m_items[static_cast<usize>(i)]->IsSeparator ? -1 : i;
+                }
                 y += h;
             }
             return -1;
@@ -411,25 +510,36 @@ export namespace draconic::ui
         [[nodiscard]] f32 GetItemY(i32 index) const
         {
             f32 y = 4;
-            for (i32 i = 0; i < index; ++i) { y += m_items[static_cast<usize>(i)]->IsSeparator ? m_separatorHeight : m_itemHeight; }
+            for (i32 i = 0; i < index; ++i)
+            {
+                y += m_items[static_cast<usize>(i)]->IsSeparator ? m_separatorHeight : m_itemHeight;
+            }
             return y;
         }
 
         void OpenSubmenuAt(i32 index)
         {
             MenuItem* item = m_items[static_cast<usize>(index)].Get();
-            if (!item->Submenu || Context == nullptr) { return; }
+            if (!item->Submenu || Context == nullptr)
+            {
+                return;
+            }
             ContextMenu* submenu = Cast<ContextMenu>(item->Submenu.Get());
-            if (submenu == nullptr) { return; }
+            if (submenu == nullptr)
+            {
+                return;
+            }
 
             RootView* root = Context->ActiveInputRoot();
-            if (root == nullptr) { return; }
+            if (root == nullptr)
+            {
+                return;
+            }
 
             const Float2 logical = root->LogicalSize();
             const Float2 pos = PopupPositioner::Submenu(
-                Rectangle{ Bounds.x, Bounds.y + GetItemY(index), Width(), m_itemHeight },
-                Float2{ submenu->m_minWidth, 200 },
-                Rectangle{ 0, 0, logical.x, logical.y });
+                Rectangle{Bounds.x, Bounds.y + GetItemY(index), Width(), m_itemHeight},
+                Float2{submenu->m_minWidth, 200}, Rectangle{0, 0, logical.x, logical.y});
 
             m_openSubmenu = submenu;
             m_submenuLayer = root->GetPopupLayer();
@@ -441,7 +551,10 @@ export namespace draconic::ui
             if (m_openSubmenu != nullptr)
             {
                 m_openSubmenu->CloseOpenSubmenu(); // recursive
-                if (m_submenuLayer != nullptr) { m_submenuLayer->ClosePopup(m_openSubmenu); }
+                if (m_submenuLayer != nullptr)
+                {
+                    m_submenuLayer->ClosePopup(m_openSubmenu);
+                }
                 m_openSubmenu = nullptr;
             }
         }

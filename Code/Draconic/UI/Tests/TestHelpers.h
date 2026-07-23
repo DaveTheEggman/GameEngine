@@ -15,7 +15,9 @@ namespace draconic::ui::tests
         draconic::core::f32 DesiredHeight = 30.0f;
 
         TestView() = default;
-        TestView(draconic::core::f32 w, draconic::core::f32 h) : DesiredWidth(w), DesiredHeight(h) {}
+        TestView(draconic::core::f32 w, draconic::core::f32 h) : DesiredWidth(w), DesiredHeight(h)
+        {
+        }
 
     protected:
         void OnMeasure(draconic::ui::BoxConstraints constraints) override;
@@ -26,8 +28,8 @@ namespace draconic::ui::tests
     {
         DRACONIC_OBJECT(TestGroup, draconic::ui::ViewGroup)
     protected:
-        void OnLayout(draconic::core::f32 left, draconic::core::f32 top,
-                      draconic::core::f32 width, draconic::core::f32 height) override;
+        void OnLayout(draconic::core::f32 left, draconic::core::f32 top, draconic::core::f32 width,
+                      draconic::core::f32 height) override;
     };
 
     /// Simple IListAdapter test double (Sedulous.UI.Tests SimpleListAdapter): a mutable Count and
@@ -38,9 +40,11 @@ namespace draconic::ui::tests
         draconic::core::i32 Count = 0;
         explicit SimpleListAdapter(draconic::core::i32 count) : Count(count) {}
         [[nodiscard]] draconic::core::i32 ItemCount() const override { return Count; }
-        [[nodiscard]] draconic::core::RefPtr<draconic::ui::View> CreateView(draconic::core::i32) override
+        [[nodiscard]] draconic::core::RefPtr<draconic::ui::View>
+        CreateView(draconic::core::i32) override
         {
-            return draconic::core::MakeRef<TestView>(draconic::core::DefaultAllocator(), 100.0f, 30.0f);
+            return draconic::core::MakeRef<TestView>(draconic::core::DefaultAllocator(), 100.0f,
+                                                     30.0f);
         }
         void BindView(draconic::ui::View*, draconic::core::i32) override {}
     };
@@ -53,32 +57,61 @@ namespace draconic::ui::tests
         [[nodiscard]] draconic::core::i32 RootCount() const override { return 3; }
         [[nodiscard]] draconic::core::i32 GetChildCount(draconic::core::i32 nodeId) const override
         {
-            if (nodeId == -1) { return 3; }
-            if (nodeId == 0) { return 2; }
-            if (nodeId == 1) { return 1; }
+            if (nodeId == -1)
+            {
+                return 3;
+            }
+            if (nodeId == 0)
+            {
+                return 2;
+            }
+            if (nodeId == 1)
+            {
+                return 1;
+            }
             return 0;
         }
-        [[nodiscard]] draconic::core::i32 GetChildId(draconic::core::i32 parentId, draconic::core::i32 childIndex) const override
+        [[nodiscard]] draconic::core::i32 GetChildId(draconic::core::i32 parentId,
+                                                     draconic::core::i32 childIndex) const override
         {
-            if (parentId == -1) { return childIndex; }  // roots: 0, 1, 2
-            if (parentId == 0) { return 10 + childIndex; } // 10, 11
-            if (parentId == 1) { return 20 + childIndex; } // 20
+            if (parentId == -1)
+            {
+                return childIndex;
+            } // roots: 0, 1, 2
+            if (parentId == 0)
+            {
+                return 10 + childIndex;
+            } // 10, 11
+            if (parentId == 1)
+            {
+                return 20 + childIndex;
+            } // 20
             return -1;
         }
-        [[nodiscard]] draconic::core::i32 GetDepth(draconic::core::i32 nodeId) const override { return nodeId >= 10 ? 1 : 0; }
-        [[nodiscard]] bool HasChildren(draconic::core::i32 nodeId) const override { return nodeId == 0 || nodeId == 1; }
-        [[nodiscard]] draconic::core::RefPtr<draconic::ui::View> CreateView(draconic::core::i32) override
+        [[nodiscard]] draconic::core::i32 GetDepth(draconic::core::i32 nodeId) const override
         {
-            return draconic::core::MakeRef<TestView>(draconic::core::DefaultAllocator(), 100.0f, 30.0f);
+            return nodeId >= 10 ? 1 : 0;
         }
-        void BindView(draconic::ui::View*, draconic::core::i32, draconic::core::i32, bool) override {}
+        [[nodiscard]] bool HasChildren(draconic::core::i32 nodeId) const override
+        {
+            return nodeId == 0 || nodeId == 1;
+        }
+        [[nodiscard]] draconic::core::RefPtr<draconic::ui::View>
+        CreateView(draconic::core::i32) override
+        {
+            return draconic::core::MakeRef<TestView>(draconic::core::DefaultAllocator(), 100.0f,
+                                                     30.0f);
+        }
+        void BindView(draconic::ui::View*, draconic::core::i32, draconic::core::i32, bool) override
+        {
+        }
     };
 
     /// Sets up a UIContext + RootView (both owned by the caller).
     inline void Init(draconic::ui::UIContext& ctx, draconic::ui::RootView* root,
                      draconic::core::f32 width = 800.0f, draconic::core::f32 height = 600.0f)
     {
-        root->ViewportSize = draconic::core::Float2{ width, height };
+        root->ViewportSize = draconic::core::Float2{width, height};
         ctx.AddRootView(root);
     }
 

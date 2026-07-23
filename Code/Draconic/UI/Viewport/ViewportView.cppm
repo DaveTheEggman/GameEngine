@@ -48,7 +48,8 @@ export namespace draconic::ui::viewport
     /// `encoder` - typically BeginRenderPass on view.ColorTargetView() + DepthTargetView(), clearing
     /// with view.ClearColor, drawing, then End(). The surrounding resource barriers are handled by
     /// RenderContent, so the handler only owns the pass(es) and draws.
-    using ViewportRenderDelegate = Function<void(ViewportView& view, rhi::CommandEncoder& encoder, i32 frameIndex)>;
+    using ViewportRenderDelegate =
+        Function<void(ViewportView& view, rhi::CommandEncoder& encoder, i32 frameIndex)>;
 
     class ViewportView : public View
     {
@@ -63,7 +64,7 @@ export namespace draconic::ui::viewport
         Function<void(u32 width, u32 height)> OnRenderTargetResized;
 
         /// Clear color for the 3D pass background (read by the render callback).
-        rhi::ClearColor ClearColor{ 0.098f, 0.098f, 0.118f, 1.0f };
+        rhi::ClearColor ClearColor{0.098f, 0.098f, 0.118f, 1.0f};
 
         ViewportView() { IsFocusable = true; }
         ~ViewportView() override { ReleaseResources(); }
@@ -85,14 +86,16 @@ export namespace draconic::ui::viewport
         /// Wire the GPU device (graphics::GraphicsDevice::Raw()), the per-window VGRenderer that draws
         /// this view's window (UIHost::RendererFor(window)), and the shell input manager + window id used
         /// to build the gated input surface. Call once before the first layout.
-        void Initialize(rhi::Device* device, vg::renderer::VGRenderer* renderer, shell::IInputManager* input, u32 windowId)
+        void Initialize(rhi::Device* device, vg::renderer::VGRenderer* renderer,
+                        shell::IInputManager* input, u32 windowId)
         {
             m_device = device;
             m_renderer = renderer;
             if (input != nullptr && !m_surface)
             {
-                const ContentFit fit{ Rectangle{ 0, 0, 1, 1 }, Float2{ 1, 1 }, m_fitMode };
-                m_surface = MakeUnique<shell::InputSurface>(DefaultAllocator(), input, windowId, fit);
+                const ContentFit fit{Rectangle{0, 0, 1, 1}, Float2{1, 1}, m_fitMode};
+                m_surface =
+                    MakeUnique<shell::InputSurface>(DefaultAllocator(), input, windowId, fit);
             }
         }
 
@@ -109,7 +112,10 @@ export namespace draconic::ui::viewport
             {
                 if (m_registered && m_renderer != nullptr)
                 {
-                    if (m_device != nullptr) { m_device->WaitIdle(); }
+                    if (m_device != nullptr)
+                    {
+                        m_device->WaitIdle();
+                    }
                     m_renderer->UnregisterExternalTexture(m_imageRef.Get());
                     m_registered = false;
                 }
@@ -120,12 +126,22 @@ export namespace draconic::ui::viewport
                     m_registered = true;
                 }
             }
-            if (m_surface) { m_surface->SetWindow(windowId); }
+            if (m_surface)
+            {
+                m_surface->SetWindow(windowId);
+            }
         }
 
         // === Fit mode ===
         [[nodiscard]] FitMode GetFitMode() const noexcept { return m_fitMode; }
-        void SetFitMode(FitMode mode) noexcept { m_fitMode = mode; if (m_surface) { m_surface->SetFitMode(mode); } }
+        void SetFitMode(FitMode mode) noexcept
+        {
+            m_fitMode = mode;
+            if (m_surface)
+            {
+                m_surface->SetFitMode(mode);
+            }
+        }
 
         // === Render-target formats ===
         // The view owns the offscreen formats (single source of truth): the OnRender delegate builds its
@@ -136,14 +152,23 @@ export namespace draconic::ui::viewport
         [[nodiscard]] rhi::TextureFormat DepthFormat() const noexcept { return m_depthFormat; }
         void SetFormats(rhi::TextureFormat color, rhi::TextureFormat depth)
         {
-            if (color == m_colorFormat && depth == m_depthFormat) { return; }
+            if (color == m_colorFormat && depth == m_depthFormat)
+            {
+                return;
+            }
             m_colorFormat = color;
             m_depthFormat = depth;
-            if (m_textureWidth > 0 && m_textureHeight > 0) { ResizeRenderTarget(m_textureWidth, m_textureHeight); }
+            if (m_textureWidth > 0 && m_textureHeight > 0)
+            {
+                ResizeRenderTarget(m_textureWidth, m_textureHeight);
+            }
         }
 
         // === Render-target queries ===
-        [[nodiscard]] bool IsReady() const noexcept { return m_colorView != nullptr && m_depthView != nullptr; }
+        [[nodiscard]] bool IsReady() const noexcept
+        {
+            return m_colorView != nullptr && m_depthView != nullptr;
+        }
         [[nodiscard]] rhi::TextureView* ColorTargetView() const noexcept { return m_colorView; }
         [[nodiscard]] rhi::TextureView* DepthTargetView() const noexcept { return m_depthView; }
         [[nodiscard]] rhi::Texture* ColorTexture() const noexcept { return m_colorTexture; }
@@ -156,10 +181,16 @@ export namespace draconic::ui::viewport
         // AND input (mouse + touch map through the same ContentFit) stay aspect-correct.
         void SetFixedResolution(u32 fixedWidth, u32 fixedHeight)
         {
-            if (m_fixedWidth == fixedWidth && m_fixedHeight == fixedHeight) { return; }
+            if (m_fixedWidth == fixedWidth && m_fixedHeight == fixedHeight)
+            {
+                return;
+            }
             m_fixedWidth = fixedWidth;
             m_fixedHeight = fixedHeight;
-            if (fixedWidth > 0 && fixedHeight > 0) { ResizeRenderTarget(fixedWidth, fixedHeight); }
+            if (fixedWidth > 0 && fixedHeight > 0)
+            {
+                ResizeRenderTarget(fixedWidth, fixedHeight);
+            }
             else if (Width() > 0.0f && Height() > 0.0f)
             {
                 ResizeRenderTarget(static_cast<u32>(Max(1.0f, Width())),
@@ -187,11 +218,20 @@ export namespace draconic::ui::viewport
         void SetHostedTextInputWanted(bool wanted) noexcept { m_hostedTextInputWanted = wanted; }
         [[nodiscard]] bool WantsTextInput() const override { return m_hostedTextInputWanted; }
         [[nodiscard]] shell::InputSurface* Surface() const noexcept { return m_surface.Get(); }
-        [[nodiscard]] shell::IMouse* Mouse() const noexcept { return m_surface ? m_surface->Mouse() : nullptr; }
-        [[nodiscard]] shell::IKeyboard* Keyboard() const noexcept { return m_surface ? m_surface->Keyboard() : nullptr; }
+        [[nodiscard]] shell::IMouse* Mouse() const noexcept
+        {
+            return m_surface ? m_surface->Mouse() : nullptr;
+        }
+        [[nodiscard]] shell::IKeyboard* Keyboard() const noexcept
+        {
+            return m_surface ? m_surface->Keyboard() : nullptr;
+        }
         /// Content-normalized [0,1] touch points inside the drawn content only (the surface
         /// transforms + spatially gates - see InputSurface).
-        [[nodiscard]] shell::ITouch* Touch() const noexcept { return m_surface ? m_surface->Touch() : nullptr; }
+        [[nodiscard]] shell::ITouch* Touch() const noexcept
+        {
+            return m_surface ? m_surface->Touch() : nullptr;
+        }
 
         /// Sync the input surface's region to this view's laid-out window-space rect (+ content size /
         /// fit). Call each frame after the UI has laid out and before the router's Update(). The region
@@ -199,16 +239,23 @@ export namespace draconic::ui::viewport
         /// actually reads the devices) is the app's IsHovered()/IsFocused() check.
         void SyncInputRegion()
         {
-            if (!m_surface) { return; }
-            const Float2 tl = LocalToScreen(Float2{ 0.0f, 0.0f });
-            m_surface->SetRegion(Rectangle{ tl.x, tl.y, Width(), Height() });
-            m_surface->SetContentSize(Float2{ static_cast<f32>(m_textureWidth), static_cast<f32>(m_textureHeight) });
+            if (!m_surface)
+            {
+                return;
+            }
+            const Float2 tl = LocalToScreen(Float2{0.0f, 0.0f});
+            m_surface->SetRegion(Rectangle{tl.x, tl.y, Width(), Height()});
+            m_surface->SetContentSize(
+                Float2{static_cast<f32>(m_textureWidth), static_cast<f32>(m_textureHeight)});
             m_surface->SetFitMode(m_fitMode);
             // Window pixel size (the root view spans the client area): the touch transform
             // converts normalized finger coords through it.
             const View* root = this;
-            while (root->Parent != nullptr) { root = root->Parent; }
-            m_surface->SetWindowSize(Float2{ root->Width(), root->Height() });
+            while (root->Parent != nullptr)
+            {
+                root = root->Parent;
+            }
+            m_surface->SetWindowSize(Float2{root->Width(), root->Height()});
         }
 
         // === 3D render ===
@@ -218,8 +265,12 @@ export namespace draconic::ui::viewport
         /// texture every frame, so an undrawn frame must still define its layout.
         void ClearContent(rhi::CommandEncoder& encoder)
         {
-            if (!IsReady()) { return; }
-            encoder.TransitionTexture(m_colorTexture, m_colorState, rhi::ResourceState::RenderTarget);
+            if (!IsReady())
+            {
+                return;
+            }
+            encoder.TransitionTexture(m_colorTexture, m_colorState,
+                                      rhi::ResourceState::RenderTarget);
             rhi::RenderPassDesc pass;
             rhi::ColorAttachment color;
             color.view = m_colorView;
@@ -227,7 +278,10 @@ export namespace draconic::ui::viewport
             color.storeOp = rhi::StoreOp::Store;
             color.clearValue = ClearColor;
             pass.colorAttachments.Add(color);
-            if (rhi::RenderPassEncoder* rp = encoder.BeginRenderPass(pass)) { rp->End(); }
+            if (rhi::RenderPassEncoder* rp = encoder.BeginRenderPass(pass))
+            {
+                rp->End();
+            }
             encoder.TransitionTexture(m_colorTexture, rhi::ResourceState::RenderTarget,
                                       rhi::ResourceState::ShaderRead);
             m_colorState = rhi::ResourceState::ShaderRead;
@@ -238,18 +292,24 @@ export namespace draconic::ui::viewport
         /// callback with the required color/depth state transitions.
         void RenderContent(rhi::CommandEncoder& encoder, i32 frameIndex)
         {
-            if (!IsReady() || !OnRender) { return; }
+            if (!IsReady() || !OnRender)
+            {
+                return;
+            }
 
-            encoder.TransitionTexture(m_colorTexture, m_colorState, rhi::ResourceState::RenderTarget);
+            encoder.TransitionTexture(m_colorTexture, m_colorState,
+                                      rhi::ResourceState::RenderTarget);
             if (m_depthState != rhi::ResourceState::DepthStencilWrite)
             {
-                encoder.TransitionTexture(m_depthTexture, m_depthState, rhi::ResourceState::DepthStencilWrite);
+                encoder.TransitionTexture(m_depthTexture, m_depthState,
+                                          rhi::ResourceState::DepthStencilWrite);
                 m_depthState = rhi::ResourceState::DepthStencilWrite;
             }
 
             OnRender(*this, encoder, frameIndex);
 
-            encoder.TransitionTexture(m_colorTexture, rhi::ResourceState::RenderTarget, rhi::ResourceState::ShaderRead);
+            encoder.TransitionTexture(m_colorTexture, rhi::ResourceState::RenderTarget,
+                                      rhi::ResourceState::ShaderRead);
             m_colorState = rhi::ResourceState::ShaderRead;
         }
 
@@ -257,14 +317,18 @@ export namespace draconic::ui::viewport
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
-            MeasuredSize = Float2{ constraints.ConstrainWidth(256.0f), constraints.ConstrainHeight(256.0f) };
+            MeasuredSize =
+                Float2{constraints.ConstrainWidth(256.0f), constraints.ConstrainHeight(256.0f)};
         }
 
         void OnLayout(f32 /*left*/, f32 /*top*/, f32 width, f32 height) override
         {
             const u32 w = m_fixedWidth > 0 ? m_fixedWidth : static_cast<u32>(Max(1.0f, width));
             const u32 h = m_fixedHeight > 0 ? m_fixedHeight : static_cast<u32>(Max(1.0f, height));
-            if (w != m_textureWidth || h != m_textureHeight) { ResizeRenderTarget(w, h); }
+            if (w != m_textureWidth || h != m_textureHeight)
+            {
+                ResizeRenderTarget(w, h);
+            }
         }
 
         // === Draw ===
@@ -273,32 +337,41 @@ export namespace draconic::ui::viewport
         {
             if (m_registered && m_textureWidth > 0 && m_textureHeight > 0)
             {
-                const ContentFit fit{ Rectangle{ 0.0f, 0.0f, Width(), Height() },
-                                      Float2{ static_cast<f32>(m_textureWidth), static_cast<f32>(m_textureHeight) },
-                                      m_fitMode };
+                const ContentFit fit{
+                    Rectangle{0.0f, 0.0f, Width(), Height()},
+                    Float2{static_cast<f32>(m_textureWidth), static_cast<f32>(m_textureHeight)},
+                    m_fitMode};
                 const Rectangle dst = fit.DstRect();
                 // Letterbox/IntegerScale leave bars on one axis - paint them black so they don't show
                 // stale framebuffer content.
                 if (dst.width < Width() || dst.height < Height())
                 {
-                    ctx.VG().FillRect(Rectangle{ 0.0f, 0.0f, Width(), Height() }, Color{ 0.0f, 0.0f, 0.0f, 1.0f });
+                    ctx.VG().FillRect(Rectangle{0.0f, 0.0f, Width(), Height()},
+                                      Color{0.0f, 0.0f, 0.0f, 1.0f});
                 }
                 ctx.VG().DrawImage(m_imageRef.Get(), dst, fit.SrcRect(), Color::White);
             }
             else
             {
-                ctx.VG().FillRect(Rectangle{ 0.0f, 0.0f, Width(), Height() }, Color{ 0.098f, 0.098f, 0.118f, 1.0f });
+                ctx.VG().FillRect(Rectangle{0.0f, 0.0f, Width(), Height()},
+                                  Color{0.098f, 0.098f, 0.118f, 1.0f});
             }
         }
 
     private:
         void ResizeRenderTarget(u32 width, u32 height)
         {
-            if (m_device == nullptr) { return; }
+            if (m_device == nullptr)
+            {
+                return;
+            }
 
             // The GPU must be idle before we free targets it may still be sampling (Sedulous does the
             // same on resize). Also the invalidation point for the external-texture registration.
-            if (m_colorTexture != nullptr || m_depthTexture != nullptr) { m_device->WaitIdle(); }
+            if (m_colorTexture != nullptr || m_depthTexture != nullptr)
+            {
+                m_device->WaitIdle();
+            }
 
             if (m_registered && m_renderer != nullptr)
             {
@@ -316,17 +389,35 @@ export namespace draconic::ui::viewport
             // The identity key the VGRenderer maps to the external color view (dimensions only, no pixels).
             m_imageRef = MakeUnique<image::ImageDataRef>(DefaultAllocator(), width, height);
 
-            rhi::TextureDesc colorDesc = rhi::TextureDesc::RenderTarget(m_colorFormat, width, height, 1, u8"ViewportColor");
-            if (!m_device->CreateTexture(colorDesc, m_colorTexture).IsOk()) { m_colorTexture = nullptr; return; }
+            rhi::TextureDesc colorDesc =
+                rhi::TextureDesc::RenderTarget(m_colorFormat, width, height, 1, u8"ViewportColor");
+            if (!m_device->CreateTexture(colorDesc, m_colorTexture).IsOk())
+            {
+                m_colorTexture = nullptr;
+                return;
+            }
             rhi::TextureViewDesc colorViewDesc{};
             colorViewDesc.format = m_colorFormat;
-            if (!m_device->CreateTextureView(m_colorTexture, colorViewDesc, m_colorView).IsOk()) { m_colorView = nullptr; return; }
+            if (!m_device->CreateTextureView(m_colorTexture, colorViewDesc, m_colorView).IsOk())
+            {
+                m_colorView = nullptr;
+                return;
+            }
 
-            rhi::TextureDesc depthDesc = rhi::TextureDesc::DepthBuffer(m_depthFormat, width, height, 1, u8"ViewportDepth");
-            if (!m_device->CreateTexture(depthDesc, m_depthTexture).IsOk()) { m_depthTexture = nullptr; return; }
+            rhi::TextureDesc depthDesc =
+                rhi::TextureDesc::DepthBuffer(m_depthFormat, width, height, 1, u8"ViewportDepth");
+            if (!m_device->CreateTexture(depthDesc, m_depthTexture).IsOk())
+            {
+                m_depthTexture = nullptr;
+                return;
+            }
             rhi::TextureViewDesc depthViewDesc{};
             depthViewDesc.format = m_depthFormat;
-            if (!m_device->CreateTextureView(m_depthTexture, depthViewDesc, m_depthView).IsOk()) { m_depthView = nullptr; return; }
+            if (!m_device->CreateTextureView(m_depthTexture, depthViewDesc, m_depthView).IsOk())
+            {
+                m_depthView = nullptr;
+                return;
+            }
 
             if (m_renderer != nullptr)
             {
@@ -334,21 +425,46 @@ export namespace draconic::ui::viewport
                 m_registered = true;
             }
 
-            if (OnRenderTargetResized) { OnRenderTargetResized(width, height); }
+            if (OnRenderTargetResized)
+            {
+                OnRenderTargetResized(width, height);
+            }
         }
 
         void DestroyTargets()
         {
-            if (m_device == nullptr) { return; }
-            if (m_depthView != nullptr) { m_device->DestroyTextureView(m_depthView); m_depthView = nullptr; }
-            if (m_depthTexture != nullptr) { m_device->DestroyTexture(m_depthTexture); m_depthTexture = nullptr; }
-            if (m_colorView != nullptr) { m_device->DestroyTextureView(m_colorView); m_colorView = nullptr; }
-            if (m_colorTexture != nullptr) { m_device->DestroyTexture(m_colorTexture); m_colorTexture = nullptr; }
+            if (m_device == nullptr)
+            {
+                return;
+            }
+            if (m_depthView != nullptr)
+            {
+                m_device->DestroyTextureView(m_depthView);
+                m_depthView = nullptr;
+            }
+            if (m_depthTexture != nullptr)
+            {
+                m_device->DestroyTexture(m_depthTexture);
+                m_depthTexture = nullptr;
+            }
+            if (m_colorView != nullptr)
+            {
+                m_device->DestroyTextureView(m_colorView);
+                m_colorView = nullptr;
+            }
+            if (m_colorTexture != nullptr)
+            {
+                m_device->DestroyTexture(m_colorTexture);
+                m_colorTexture = nullptr;
+            }
         }
 
         void ReleaseResources()
         {
-            if (m_device != nullptr && (m_colorTexture != nullptr || m_depthTexture != nullptr)) { m_device->WaitIdle(); }
+            if (m_device != nullptr && (m_colorTexture != nullptr || m_depthTexture != nullptr))
+            {
+                m_device->WaitIdle();
+            }
             if (m_registered && m_renderer != nullptr)
             {
                 m_renderer->UnregisterExternalTexture(m_imageRef.Get());

@@ -5,101 +5,149 @@
 // imported draconic.core + draconic.shell + draconic.runtime.client (this header uses their
 // types via fully-qualified names).
 
-namespace draconic::samples {
+namespace draconic::samples
+{
 
-struct FlyCamera {
-    draconic::core::Float3 position{ 0.0f, 14.0f, 30.0f };
-    draconic::core::f32  yaw   = 0.0f;       // 0 => looking down -Z
-    draconic::core::f32  pitch = -0.3f;      // tilt down a touch
-    bool               mouseCaptured = false;
-    draconic::core::f32  moveSpeed = 50.0f, fastSpeed = 200.0f, lookSensitivity = 0.003f;
-    draconic::core::f32  zoomSpeed = 3.0f;       // world units per wheel notch (dolly along forward)
-    draconic::core::f32  focusDistance = 20.0f;  // pivot distance ahead (Alt+LMB turntable orbit)
-    draconic::core::f32  panSensitivity = 0.0015f;   // MMB pan speed (scaled by focus distance)
+    struct FlyCamera
+    {
+        draconic::core::Float3 position{0.0f, 14.0f, 30.0f};
+        draconic::core::f32 yaw = 0.0f;    // 0 => looking down -Z
+        draconic::core::f32 pitch = -0.3f; // tilt down a touch
+        bool mouseCaptured = false;
+        draconic::core::f32 moveSpeed = 50.0f, fastSpeed = 200.0f, lookSensitivity = 0.003f;
+        draconic::core::f32 zoomSpeed = 3.0f; // world units per wheel notch (dolly along forward)
+        draconic::core::f32 focusDistance = 20.0f; // pivot distance ahead (Alt+LMB turntable orbit)
+        draconic::core::f32 panSensitivity = 0.0015f; // MMB pan speed (scaled by focus distance)
 
-    [[nodiscard]] draconic::core::Float3 Up() const {
-        return draconic::core::RotateVector(Rotation(), draconic::core::Float3{ 0.0f, 1.0f, 0.0f });
-    }
-
-    // Orientation as a quaternion (yaw about world Y, then pitch about local X). Default forward -Z.
-    [[nodiscard]] draconic::core::Quaternion Rotation() const {
-        return draconic::core::Quaternion::FromAxisAngle(draconic::core::Float3{ 0.0f, 1.0f, 0.0f }, yaw)
-             * draconic::core::Quaternion::FromAxisAngle(draconic::core::Float3{ 1.0f, 0.0f, 0.0f }, pitch);
-    }
-    [[nodiscard]] draconic::core::Float3 Forward() const {
-        return draconic::core::RotateVector(Rotation(), draconic::core::Float3{ 0.0f, 0.0f, -1.0f });
-    }
-    [[nodiscard]] draconic::core::Float3 Right() const {
-        return draconic::core::RotateVector(Rotation(), draconic::core::Float3{ 1.0f, 0.0f, 0.0f });
-    }
-
-    // Convenience overload: drive from the shell's global devices.
-    void Update(draconic::runtime::IApplicationHost& host, draconic::core::f32 dt) {
-        namespace runtime = draconic::runtime;
-        namespace shell = draconic::shell;
-        auto* input = (host.Shell() != nullptr) ? host.Shell()->Input() : nullptr;
-        shell::IKeyboard* kb    = (input != nullptr) ? input->Keyboard() : nullptr;
-        shell::IMouse*    mouse = (input != nullptr) ? input->Mouse() : nullptr;
-        Update(kb, mouse, dt);
-    }
-
-    // Apply this frame's input from explicit devices - pass an InputSurface's gated Keyboard()/Mouse()
-    // to confine the camera to one viewport. Mouse: RMB (or Tab-capture) = free look; Alt+LMB = turntable
-    // orbit about the focus point (Maya-style); MMB = pan; wheel = dolly/zoom. Plus WASD/QE move + Shift.
-    void Update(draconic::shell::IKeyboard* kb, draconic::shell::IMouse* mouse, draconic::core::f32 dt) {
-        using draconic::core::Float3;
-        if (kb == nullptr) { return; }
-
-        if (mouse != nullptr) {
-            if (kb->IsKeyPressed(shell::KeyCode::Tab)) {
-                mouseCaptured = !mouseCaptured;
-                mouse->SetRelativeMode(mouseCaptured);
-                mouse->SetCursorVisible(!mouseCaptured);
-            }
-            const bool alt = kb->IsKeyDown(shell::KeyCode::LeftAlt) || kb->IsKeyDown(shell::KeyCode::RightAlt);
-
-            if (alt && mouse->IsButtonDown(shell::MouseButton::Left)) {
-                // Turntable orbit: rotate about the focus point ahead, keeping it fixed.
-                const Float3 focus = position + Forward() * focusDistance;
-                yaw   -= mouse->DeltaX() * lookSensitivity;
-                pitch -= mouse->DeltaY() * lookSensitivity;
-                pitch  = draconic::core::Clamp(pitch, -1.55f, 1.55f);
-                position = focus - Forward() * focusDistance;
-            } else if (mouseCaptured || mouse->IsButtonDown(shell::MouseButton::Right)) {
-                // Free look (rotate in place).
-                yaw   -= mouse->DeltaX() * lookSensitivity;
-                pitch -= mouse->DeltaY() * lookSensitivity;
-                pitch  = draconic::core::Clamp(pitch, -1.55f, 1.55f);
-            }
-
-            // MMB pan: drag moves the view laterally (content follows the cursor). Scaled by the focus
-            // distance so the pan feels consistent regardless of zoom.
-            if (mouse->IsButtonDown(shell::MouseButton::Middle)) {
-                const draconic::core::f32 s = panSensitivity * focusDistance;
-                position = position - Right() * (mouse->DeltaX() * s) + Up() * (mouse->DeltaY() * s);
-            }
-
-            // Wheel dollies along the view forward (zoom) - scroll up = move in, down = move out - and
-            // shrinks the orbit pivot distance so the turntable pivot tracks the zoom.
-            const draconic::core::f32 scroll = mouse->ScrollY();
-            if (scroll != 0.0f) {
-                position = position + Forward() * (scroll * zoomSpeed);
-                focusDistance = draconic::core::Max(1.0f, focusDistance - scroll * zoomSpeed);
-            }
+        [[nodiscard]] draconic::core::Float3 Up() const
+        {
+            return draconic::core::RotateVector(Rotation(),
+                                                draconic::core::Float3{0.0f, 1.0f, 0.0f});
         }
 
-        const Float3 fwd   = Forward();
-        const Float3 right = Right();
-        const draconic::core::f32 speed = (kb->IsKeyDown(shell::KeyCode::LeftShift) ? fastSpeed : moveSpeed) * dt;
-        Float3 move{ 0.0f, 0.0f, 0.0f };
-        if (kb->IsKeyDown(shell::KeyCode::W)) { move = move + fwd; }
-        if (kb->IsKeyDown(shell::KeyCode::S)) { move = move - fwd; }
-        if (kb->IsKeyDown(shell::KeyCode::D)) { move = move + right; }
-        if (kb->IsKeyDown(shell::KeyCode::A)) { move = move - right; }
-        if (kb->IsKeyDown(shell::KeyCode::E)) { move = move + Float3{ 0.0f, 1.0f, 0.0f }; }
-        if (kb->IsKeyDown(shell::KeyCode::Q)) { move = move - Float3{ 0.0f, 1.0f, 0.0f }; }
-        if (draconic::core::Dot(move, move) > 0.0f) { position = position + draconic::core::Normalized(move) * speed; }
-    }
-};
+        // Orientation as a quaternion (yaw about world Y, then pitch about local X). Default forward -Z.
+        [[nodiscard]] draconic::core::Quaternion Rotation() const
+        {
+            return draconic::core::Quaternion::FromAxisAngle(
+                       draconic::core::Float3{0.0f, 1.0f, 0.0f}, yaw) *
+                   draconic::core::Quaternion::FromAxisAngle(
+                       draconic::core::Float3{1.0f, 0.0f, 0.0f}, pitch);
+        }
+        [[nodiscard]] draconic::core::Float3 Forward() const
+        {
+            return draconic::core::RotateVector(Rotation(),
+                                                draconic::core::Float3{0.0f, 0.0f, -1.0f});
+        }
+        [[nodiscard]] draconic::core::Float3 Right() const
+        {
+            return draconic::core::RotateVector(Rotation(),
+                                                draconic::core::Float3{1.0f, 0.0f, 0.0f});
+        }
+
+        // Convenience overload: drive from the shell's global devices.
+        void Update(draconic::runtime::IApplicationHost& host, draconic::core::f32 dt)
+        {
+            namespace runtime = draconic::runtime;
+            namespace shell = draconic::shell;
+            auto* input = (host.Shell() != nullptr) ? host.Shell()->Input() : nullptr;
+            shell::IKeyboard* kb = (input != nullptr) ? input->Keyboard() : nullptr;
+            shell::IMouse* mouse = (input != nullptr) ? input->Mouse() : nullptr;
+            Update(kb, mouse, dt);
+        }
+
+        // Apply this frame's input from explicit devices - pass an InputSurface's gated Keyboard()/Mouse()
+        // to confine the camera to one viewport. Mouse: RMB (or Tab-capture) = free look; Alt+LMB = turntable
+        // orbit about the focus point (Maya-style); MMB = pan; wheel = dolly/zoom. Plus WASD/QE move + Shift.
+        void Update(draconic::shell::IKeyboard* kb, draconic::shell::IMouse* mouse,
+                    draconic::core::f32 dt)
+        {
+            using draconic::core::Float3;
+            if (kb == nullptr)
+            {
+                return;
+            }
+
+            if (mouse != nullptr)
+            {
+                if (kb->IsKeyPressed(shell::KeyCode::Tab))
+                {
+                    mouseCaptured = !mouseCaptured;
+                    mouse->SetRelativeMode(mouseCaptured);
+                    mouse->SetCursorVisible(!mouseCaptured);
+                }
+                const bool alt = kb->IsKeyDown(shell::KeyCode::LeftAlt) ||
+                                 kb->IsKeyDown(shell::KeyCode::RightAlt);
+
+                if (alt && mouse->IsButtonDown(shell::MouseButton::Left))
+                {
+                    // Turntable orbit: rotate about the focus point ahead, keeping it fixed.
+                    const Float3 focus = position + Forward() * focusDistance;
+                    yaw -= mouse->DeltaX() * lookSensitivity;
+                    pitch -= mouse->DeltaY() * lookSensitivity;
+                    pitch = draconic::core::Clamp(pitch, -1.55f, 1.55f);
+                    position = focus - Forward() * focusDistance;
+                }
+                else if (mouseCaptured || mouse->IsButtonDown(shell::MouseButton::Right))
+                {
+                    // Free look (rotate in place).
+                    yaw -= mouse->DeltaX() * lookSensitivity;
+                    pitch -= mouse->DeltaY() * lookSensitivity;
+                    pitch = draconic::core::Clamp(pitch, -1.55f, 1.55f);
+                }
+
+                // MMB pan: drag moves the view laterally (content follows the cursor). Scaled by the focus
+                // distance so the pan feels consistent regardless of zoom.
+                if (mouse->IsButtonDown(shell::MouseButton::Middle))
+                {
+                    const draconic::core::f32 s = panSensitivity * focusDistance;
+                    position =
+                        position - Right() * (mouse->DeltaX() * s) + Up() * (mouse->DeltaY() * s);
+                }
+
+                // Wheel dollies along the view forward (zoom) - scroll up = move in, down = move out - and
+                // shrinks the orbit pivot distance so the turntable pivot tracks the zoom.
+                const draconic::core::f32 scroll = mouse->ScrollY();
+                if (scroll != 0.0f)
+                {
+                    position = position + Forward() * (scroll * zoomSpeed);
+                    focusDistance = draconic::core::Max(1.0f, focusDistance - scroll * zoomSpeed);
+                }
+            }
+
+            const Float3 fwd = Forward();
+            const Float3 right = Right();
+            const draconic::core::f32 speed =
+                (kb->IsKeyDown(shell::KeyCode::LeftShift) ? fastSpeed : moveSpeed) * dt;
+            Float3 move{0.0f, 0.0f, 0.0f};
+            if (kb->IsKeyDown(shell::KeyCode::W))
+            {
+                move = move + fwd;
+            }
+            if (kb->IsKeyDown(shell::KeyCode::S))
+            {
+                move = move - fwd;
+            }
+            if (kb->IsKeyDown(shell::KeyCode::D))
+            {
+                move = move + right;
+            }
+            if (kb->IsKeyDown(shell::KeyCode::A))
+            {
+                move = move - right;
+            }
+            if (kb->IsKeyDown(shell::KeyCode::E))
+            {
+                move = move + Float3{0.0f, 1.0f, 0.0f};
+            }
+            if (kb->IsKeyDown(shell::KeyCode::Q))
+            {
+                move = move - Float3{0.0f, 1.0f, 0.0f};
+            }
+            if (draconic::core::Dot(move, move) > 0.0f)
+            {
+                position = position + draconic::core::Normalized(move) * speed;
+            }
+        }
+    };
 
 } // namespace draconic::samples

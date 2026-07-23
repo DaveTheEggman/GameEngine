@@ -13,27 +13,27 @@ namespace rhi = draconic::rhi;
 
 TEST_CASE("rg.type: handle equality")
 {
-    CHECK(RGHandle{ 1, 1 } == RGHandle{ 1, 1 });
-    CHECK(RGHandle{ 1, 1 } != RGHandle{ 2, 1 });
-    CHECK(RGHandle{ 1, 1 } != RGHandle{ 1, 2 });   // generation matters
+    CHECK(RGHandle{1, 1} == RGHandle{1, 1});
+    CHECK(RGHandle{1, 1} != RGHandle{2, 1});
+    CHECK(RGHandle{1, 1} != RGHandle{1, 2}); // generation matters
 }
 
 TEST_CASE("rg.type: handle validity")
 {
     CHECK_FALSE(RGHandle::Invalid().IsValid());
-    CHECK(RGHandle{ 0, 1 }.IsValid());
+    CHECK(RGHandle{0, 1}.IsValid());
     CHECK_FALSE(PassHandle::Invalid().IsValid());
-    CHECK(PassHandle{ 0 }.IsValid());
+    CHECK(PassHandle{0}.IsValid());
 }
 
 TEST_CASE("rg.type: handle works as a hash-map key")
 {
     HashMap<RGHandle, i32> map;
-    map.InsertOrAssign(RGHandle{ 1, 1 }, 7);
-    const i32* found = map.Find(RGHandle{ 1, 1 });   // equal handle
+    map.InsertOrAssign(RGHandle{1, 1}, 7);
+    const i32* found = map.Find(RGHandle{1, 1}); // equal handle
     REQUIRE(found != nullptr);
     CHECK(*found == 7);
-    CHECK(map.Find(RGHandle{ 2, 1 }) == nullptr);
+    CHECK(map.Find(RGHandle{2, 1}) == nullptr);
 }
 
 TEST_CASE("rg.type: access IsRead / IsWrite")
@@ -79,15 +79,15 @@ TEST_CASE("rg.type: subresource All + overlap")
     CHECK(all.baseMipLevel == 0u);
     CHECK(all.mipLevelCount == 0u);
 
-    const RGSubresourceRange layer0{ 0, 1, 0, 1 };
-    const RGSubresourceRange layer1{ 0, 1, 1, 1 };
+    const RGSubresourceRange layer0{0, 1, 0, 1};
+    const RGSubresourceRange layer1{0, 1, 1, 1};
     CHECK_FALSE(layer0.Overlaps(layer1, 1, 4));
     CHECK(all.Overlaps(layer0, 1, 4));
     CHECK(all.Overlaps(layer1, 1, 4));
     CHECK(layer0.Overlaps(layer0, 1, 4));
 
-    const RGSubresourceRange mip0{ 0, 1, 0, 0 };
-    const RGSubresourceRange mip1{ 1, 1, 0, 0 };
+    const RGSubresourceRange mip0{0, 1, 0, 0};
+    const RGSubresourceRange mip1{1, 1, 0, 0};
     CHECK_FALSE(mip0.Overlaps(mip1, 4, 1));
     CHECK(mip0.Overlaps(mip0, 4, 1));
 }

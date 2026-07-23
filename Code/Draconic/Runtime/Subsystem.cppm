@@ -33,10 +33,24 @@ export namespace draconic::runtime
         virtual void OnUnregister() { m_context = nullptr; }
 
         // --- lifecycle (called by Context; guard once) ---
-        void Init()            { if (!m_initialized) { OnInit(); m_initialized = true; } }
-        void Ready()           { OnReady(); }
+        void Init()
+        {
+            if (!m_initialized)
+            {
+                OnInit();
+                m_initialized = true;
+            }
+        }
+        void Ready() { OnReady(); }
         void PrepareShutdown() { OnPrepareShutdown(); }
-        void Shutdown()        { if (m_initialized) { OnShutdown(); m_initialized = false; } }
+        void Shutdown()
+        {
+            if (m_initialized)
+            {
+                OnShutdown();
+                m_initialized = false;
+            }
+        }
 
         // --- per-frame phases ---
         virtual void BeginFrame(core::f32 /*deltaTime*/) {}

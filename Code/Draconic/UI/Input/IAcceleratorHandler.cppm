@@ -11,7 +11,7 @@ module;
 export module draconic.ui:iaccelerator_handler;
 
 import draconic.core;
-import :input_enums;   // KeyCode, KeyModifiers
+import :input_enums; // KeyCode, KeyModifiers
 
 using namespace draconic::core;
 

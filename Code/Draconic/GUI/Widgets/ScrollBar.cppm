@@ -13,8 +13,8 @@ module;
 
 export module draconic.gui:scroll_bar;
 
-import draconic.core;   // Color, Function, Move, Max, Min, Float2, Rectangle, RefPtr, MakeRef
-import draconic.vg;     // CornerRadii
+import draconic.core; // Color, Function, Move, Max, Min, Float2, Rectangle, RefPtr, MakeRef
+import draconic.vg;   // CornerRadii
 import :rect;
 import :event;
 import :draw_context;
@@ -39,19 +39,28 @@ export namespace draconic::gui
             SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), m_trackColor));
         }
 
-        void SetOrientation(Orientation orientation) { m_orientation = orientation; Invalidate(); }
+        void SetOrientation(Orientation orientation)
+        {
+            m_orientation = orientation;
+            Invalidate();
+        }
         [[nodiscard]] Orientation GetOrientation() const noexcept { return m_orientation; }
 
         [[nodiscard]] f32 GetValue() const noexcept { return m_value; }
         void SetValue(f32 value)
         {
             value = core::Max(0.0f, core::Min(1.0f, value));
-            if (value == m_value) return;
+            if (value == m_value)
+                return;
             m_value = value;
             Invalidate();
-            if (m_onChanged) m_onChanged(m_value);
+            if (m_onChanged)
+                m_onChanged(m_value);
         }
-        void SetOnValueChanged(core::Function<void(f32)> callback) { m_onChanged = core::Move(callback); }
+        void SetOnValueChanged(core::Function<void(f32)> callback)
+        {
+            m_onChanged = core::Move(callback);
+        }
 
         // Fraction of the track the thumb fills = viewport / content (clamped to [0,1]).
         void SetThumbProportion(f32 proportion)
@@ -61,14 +70,26 @@ export namespace draconic::gui
         }
         [[nodiscard]] f32 GetThumbProportion() const noexcept { return m_proportion; }
 
-        void SetTrackColor(Color color) { m_trackColor = color; SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), color)); }
-        void SetThumbColor(Color color) { m_thumbColor = color; Invalidate(); }
+        void SetTrackColor(Color color)
+        {
+            m_trackColor = color;
+            SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), color));
+        }
+        void SetThumbColor(Color color)
+        {
+            m_thumbColor = color;
+            Invalidate();
+        }
 
         // Theming: track = background-color (node background); thumb = scrollbar::thumb part.
-        void CollectStyleParts(core::Array<core::StringView>& out) const override { out.PushBack(core::StringView(u8"thumb")); }
+        void CollectStyleParts(core::Array<core::StringView>& out) const override
+        {
+            out.PushBack(core::StringView(u8"thumb"));
+        }
         void SetThemePartColor(core::StringView part, Color color) override
         {
-            if (part == core::StringView(u8"thumb")) SetThumbColor(color);
+            if (part == core::StringView(u8"thumb"))
+                SetThumbColor(color);
         }
 
     protected:
@@ -78,7 +99,8 @@ export namespace draconic::gui
         void OnMouseDown(const MouseEvent& event) override
         {
             UINode::OnMouseDown(event);
-            if (event.Button != MouseButton::Left) return; // only the left button drags/pages
+            if (event.Button != MouseButton::Left)
+                return; // only the left button drags/pages
             const Rect b = GetContentBounds();
             const f32 track = TrackLength(b);
             const f32 thumbLen = ThumbLength(track);
@@ -99,15 +121,24 @@ export namespace draconic::gui
         }
         void OnMouseMove(const MouseEvent& event) override
         {
-            if (!m_dragging) return;
+            if (!m_dragging)
+                return;
             const Rect b = GetContentBounds();
             const f32 track = TrackLength(b);
             const f32 thumbLen = ThumbLength(track);
             const f32 travel = core::Max(0.0f, track - thumbLen);
-            if (travel <= 0.0f) { SetValue(0.0f); return; }
+            if (travel <= 0.0f)
+            {
+                SetValue(0.0f);
+                return;
+            }
             SetValue((AlongAxis(event, b) - m_grabOffset) / travel);
         }
-        void OnMouseUp(const MouseEvent& event) override { m_dragging = false; UINode::OnMouseUp(event); }
+        void OnMouseUp(const MouseEvent& event) override
+        {
+            m_dragging = false;
+            UINode::OnMouseUp(event);
+        }
 
         void OnDraw(DrawContext& ctx, const Rect& localBounds) override
         {
@@ -121,8 +152,8 @@ export namespace draconic::gui
             // The track is painted by the node background (themable via background-color); we
             // draw only the thumb here.
             const Rect thumb = (m_orientation == Orientation::Vertical)
-                ? Rect{ b.x, b.y + pos, b.width, thumbLen }
-                : Rect{ b.x + pos, b.y, thumbLen, b.height };
+                                   ? Rect{b.x, b.y + pos, b.width, thumbLen}
+                                   : Rect{b.x + pos, b.y, thumbLen, b.height};
             ctx.VG().FillRoundedRect(thumb.ToRectangle(), Radii(thumb), m_thumbColor);
         }
 
@@ -152,8 +183,8 @@ export namespace draconic::gui
         f32 m_proportion = 0.3f;
         bool m_dragging = false;
         f32 m_grabOffset = 0.0f;
-        Color m_trackColor{ 0.18f, 0.19f, 0.23f, 1.0f };
-        Color m_thumbColor{ 0.42f, 0.45f, 0.52f, 1.0f };
+        Color m_trackColor{0.18f, 0.19f, 0.23f, 1.0f};
+        Color m_thumbColor{0.42f, 0.45f, 0.52f, 1.0f};
         core::Function<void(f32)> m_onChanged;
 
         static constexpr f32 kMinThumb = 16.0f;

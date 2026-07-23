@@ -31,182 +31,217 @@ import draconic.scene;
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
 
-export namespace draconic::render {
+export namespace draconic::render
+{
 
-// The camera for a view: world→view and view→clip, plus the world-space eye (for depth
-// sorting / culling). The view matrix is the inverse of the camera entity's world matrix.
-struct ViewCamera {
-    Float4x4 view       = Float4x4::Identity();
-    Float4x4 projection = Float4x4::Identity();
-    Float3 position   = Float3{ 0, 0, 0 };
-    f32  farZ       = 1000.0f;   // for depth-key normalization
+    // The camera for a view: world→view and view→clip, plus the world-space eye (for depth
+    // sorting / culling). The view matrix is the inverse of the camera entity's world matrix.
+    struct ViewCamera
+    {
+        Float4x4 view = Float4x4::Identity();
+        Float4x4 projection = Float4x4::Identity();
+        Float3 position = Float3{0, 0, 0};
+        f32 farZ = 1000.0f; // for depth-key normalization
 
-    [[nodiscard]] Float4x4 ViewProjection() const noexcept { return view * projection; }
-};
+        [[nodiscard]] Float4x4 ViewProjection() const noexcept { return view * projection; }
+    };
 
-// A viewport sub-rect within a render target, in pixels. Width 0 => the full target.
-struct ViewportRect {
-    i32 x = 0, y = 0;
-    u32 width = 0, height = 0;
-};
+    // A viewport sub-rect within a render target, in pixels. Width 0 => the full target.
+    struct ViewportRect
+    {
+        i32 x = 0, y = 0;
+        u32 width = 0, height = 0;
+    };
 
-// An explicit camera for a RenderScene call, bypassing the scene's primary CameraComponent.
-struct CameraOverride {
-    ViewCamera camera;
-    Color      clearColor = Color{ 0.392f, 0.584f, 0.929f, 1.0f };   // the view's backdrop
-};
+    // An explicit camera for a RenderScene call, bypassing the scene's primary CameraComponent.
+    struct CameraOverride
+    {
+        ViewCamera camera;
+        Color clearColor = Color{0.392f, 0.584f, 0.929f, 1.0f}; // the view's backdrop
+    };
 
-// Ephemeral per-view post-processing overrides for a RenderScene call - the editor viewport's
-// "show flags" (docs/design/post-processing-config.md). Applied ON TOP of the view's resolved
-// post config; NEVER touches the scene asset. Lets an editor viewport strip effects for editing
-// clarity (crisp unjittered image for pixel inspection, raw lit image without bloom/AO/SSR)
-// without changing the authored look the game ships.
-struct ViewPostOverride {
-    bool disablePost  = false;   // master: drop bloom + AO + SSR + AA (exposure + tonemap stay, so it still displays)
-    bool disableBloom = false;
-    bool disableAo    = false;
-    bool disableSsr   = false;
-    bool disableAa    = false;   // TAA + FXAA off (crisp + unjittered)
-};
+    // Ephemeral per-view post-processing overrides for a RenderScene call - the editor viewport's
+    // "show flags" (docs/design/post-processing-config.md). Applied ON TOP of the view's resolved
+    // post config; NEVER touches the scene asset. Lets an editor viewport strip effects for editing
+    // clarity (crisp unjittered image for pixel inspection, raw lit image without bloom/AO/SSR)
+    // without changing the authored look the game ships.
+    struct ViewPostOverride
+    {
+        bool disablePost =
+            false; // master: drop bloom + AO + SSR + AA (exposure + tonemap stay, so it still displays)
+        bool disableBloom = false;
+        bool disableAo = false;
+        bool disableSsr = false;
+        bool disableAa = false; // TAA + FXAA off (crisp + unjittered)
+    };
 
-// How the render target's resource state is handled. Default = the host-managed backbuffer (present).
-// For an offscreen target, give its `texture` (so the graph barriers it) + the state it's currently
-// in + the state to leave it in (ShaderRead to sample it next, CopySrc to blit it).
-struct TargetState {
-    rhi::Texture*      texture      = nullptr;
-    rhi::ResourceState currentState = rhi::ResourceState::RenderTarget;
-    rhi::ResourceState finalState   = rhi::ResourceState::RenderTarget;
-};
+    // How the render target's resource state is handled. Default = the host-managed backbuffer (present).
+    // For an offscreen target, give its `texture` (so the graph barriers it) + the state it's currently
+    // in + the state to leave it in (ShaderRead to sample it next, CopySrc to blit it).
+    struct TargetState
+    {
+        rhi::Texture* texture = nullptr;
+        rhi::ResourceState currentState = rhi::ResourceState::RenderTarget;
+        rhi::ResourceState finalState = rhi::ResourceState::RenderTarget;
+    };
 
-// ---- overlay roles (the two-tier overlay coordination model, Sedulous-derived) ----
-//
-// Scene tier (`ISceneOverlay`): content scoped to a SCENE's rendered output - HUD canvases,
-// billboards. Sources register with the scene renderer ONCE; a shared per-view overlay pass
-// inside the compose (after post, before debug draw - gizmos/diagnostics stay on top) calls
-// every source with that view's real camera, so scene UI renders wherever the scene renders
-// (player, editor viewports, camera previews) and projects correctly per view.
-//
-// Screen tier (`IScreenOverlay` + `IScreenRenderer`): window-space chrome - screen UI,
-// profiler HUDs, editor overlays. Sources register with the `IScreenRenderer` (the render
-// subsystem); the HOST makes one `RenderOverlays` call per window target after the scene
-// composed, and every source records into one shared Load-op pass in `OverlayOrder`.
-//
-// Both signatures use only render-level types: the renderer stays unaware of higher-level
-// tech (UI, VG, fonts). Registries are non-owning; callers unregister before destruction.
+    // ---- overlay roles (the two-tier overlay coordination model, Sedulous-derived) ----
+    //
+    // Scene tier (`ISceneOverlay`): content scoped to a SCENE's rendered output - HUD canvases,
+    // billboards. Sources register with the scene renderer ONCE; a shared per-view overlay pass
+    // inside the compose (after post, before debug draw - gizmos/diagnostics stay on top) calls
+    // every source with that view's real camera, so scene UI renders wherever the scene renders
+    // (player, editor viewports, camera previews) and projects correctly per view.
+    //
+    // Screen tier (`IScreenOverlay` + `IScreenRenderer`): window-space chrome - screen UI,
+    // profiler HUDs, editor overlays. Sources register with the `IScreenRenderer` (the render
+    // subsystem); the HOST makes one `RenderOverlays` call per window target after the scene
+    // composed, and every source records into one shared Load-op pass in `OverlayOrder`.
+    //
+    // Both signatures use only render-level types: the renderer stays unaware of higher-level
+    // tech (UI, VG, fonts). Registries are non-owning; callers unregister before destruction.
 
-// Everything an overlay source needs to draw into one view's output.
-struct SceneOverlayView {
-    const void* sceneKey = nullptr;   // opaque scene identity (the driving subsystem sets it;
-                                      // sources that registered per-scene state match on it)
-    Float4x4 viewProjection = Float4x4::Identity();   // the view's UNJITTERED camera VP
-    Float3   cameraPosition = Float3{ 0, 0, 0 };
-    i32 viewportX = 0, viewportY = 0;                 // the view's sub-rect within the target
-    u32 viewportWidth = 0, viewportHeight = 0;
-    u32 targetWidth = 0, targetHeight = 0;            // full target extent (pixels)
-    rhi::TextureFormat targetFormat = rhi::TextureFormat::BGRA8Unorm;
-    u32 frameIndex = 0;
-};
+    // Everything an overlay source needs to draw into one view's output.
+    struct SceneOverlayView
+    {
+        const void* sceneKey = nullptr; // opaque scene identity (the driving subsystem sets it;
+                                        // sources that registered per-scene state match on it)
+        Float4x4 viewProjection = Float4x4::Identity(); // the view's UNJITTERED camera VP
+        Float3 cameraPosition = Float3{0, 0, 0};
+        i32 viewportX = 0, viewportY = 0; // the view's sub-rect within the target
+        u32 viewportWidth = 0, viewportHeight = 0;
+        u32 targetWidth = 0, targetHeight = 0; // full target extent (pixels)
+        rhi::TextureFormat targetFormat = rhi::TextureFormat::BGRA8Unorm;
+        u32 frameIndex = 0;
+    };
 
-// Everything a screen-overlay source needs to draw into one window target.
-struct ScreenOverlayView {
-    u32 width = 0, height = 0;                        // target extent (pixels)
-    rhi::TextureFormat targetFormat = rhi::TextureFormat::BGRA8Unorm;
-    u32 frameIndex = 0;
-};
+    // Everything a screen-overlay source needs to draw into one window target.
+    struct ScreenOverlayView
+    {
+        u32 width = 0, height = 0; // target extent (pixels)
+        rhi::TextureFormat targetFormat = rhi::TextureFormat::BGRA8Unorm;
+        u32 frameIndex = 0;
+    };
 
-// Per-view overlay source (scene-attached UI). The pass and color target are already bound;
-// implementers only record draws (never open their own passes) and configure their own
-// pipeline state. All of a view's overlays share one Load-op pass on the final LDR output.
-class ISceneOverlay {
-public:
-    virtual ~ISceneOverlay() = default;
-    // Sort order: lower draws first (background), higher last (foreground).
-    [[nodiscard]] virtual i32 OverlayOrder() const noexcept { return 0; }
-    virtual void Render(rhi::RenderPassEncoder& encoder, const SceneOverlayView& view) = 0;
-};
+    // Per-view overlay source (scene-attached UI). The pass and color target are already bound;
+    // implementers only record draws (never open their own passes) and configure their own
+    // pipeline state. All of a view's overlays share one Load-op pass on the final LDR output.
+    class ISceneOverlay
+    {
+    public:
+        virtual ~ISceneOverlay() = default;
+        // Sort order: lower draws first (background), higher last (foreground).
+        [[nodiscard]] virtual i32 OverlayOrder() const noexcept { return 0; }
+        virtual void Render(rhi::RenderPassEncoder& encoder, const SceneOverlayView& view) = 0;
+    };
 
-// Window-space overlay source. Same recording contract as ISceneOverlay.
-class IScreenOverlay {
-public:
-    virtual ~IScreenOverlay() = default;
-    [[nodiscard]] virtual i32 OverlayOrder() const noexcept { return 0; }
-    virtual void Render(rhi::RenderPassEncoder& encoder, const ScreenOverlayView& view) = 0;
-};
+    // Window-space overlay source. Same recording contract as ISceneOverlay.
+    class IScreenOverlay
+    {
+    public:
+        virtual ~IScreenOverlay() = default;
+        [[nodiscard]] virtual i32 OverlayOrder() const noexcept { return 0; }
+        virtual void Render(rhi::RenderPassEncoder& encoder, const ScreenOverlayView& view) = 0;
+    };
 
-// A non-owning overlay registry, insertion-sorted by OverlayOrder (stable ties: registration
-// order). Shared by both tiers; pure logic (unit-tested without a device).
-template <typename TOverlay>
-class OverlayRegistry {
-public:
-    // Idempotent: re-registering is a no-op.
-    void Add(TOverlay* overlay) {
-        if (overlay == nullptr || Contains(overlay)) { return; }
-        usize i = 0;
-        while (i < m_items.Size() && m_items[i]->OverlayOrder() <= overlay->OverlayOrder()) { ++i; }
-        m_items.Insert(i, overlay);
-    }
-    void Remove(TOverlay* overlay) {
-        for (usize i = 0; i < m_items.Size(); ++i) {
-            if (m_items[i] == overlay) { m_items.RemoveAt(i); return; }
+    // A non-owning overlay registry, insertion-sorted by OverlayOrder (stable ties: registration
+    // order). Shared by both tiers; pure logic (unit-tested without a device).
+    template <typename TOverlay>
+    class OverlayRegistry
+    {
+    public:
+        // Idempotent: re-registering is a no-op.
+        void Add(TOverlay* overlay)
+        {
+            if (overlay == nullptr || Contains(overlay))
+            {
+                return;
+            }
+            usize i = 0;
+            while (i < m_items.Size() && m_items[i]->OverlayOrder() <= overlay->OverlayOrder())
+            {
+                ++i;
+            }
+            m_items.Insert(i, overlay);
         }
-    }
-    [[nodiscard]] bool Contains(const TOverlay* overlay) const noexcept {
-        for (TOverlay* item : m_items) { if (item == overlay) { return true; } }
-        return false;
-    }
-    [[nodiscard]] bool IsEmpty() const noexcept { return m_items.IsEmpty(); }
-    [[nodiscard]] const Array<TOverlay*>& Items() const noexcept { return m_items; }
+        void Remove(TOverlay* overlay)
+        {
+            for (usize i = 0; i < m_items.Size(); ++i)
+            {
+                if (m_items[i] == overlay)
+                {
+                    m_items.RemoveAt(i);
+                    return;
+                }
+            }
+        }
+        [[nodiscard]] bool Contains(const TOverlay* overlay) const noexcept
+        {
+            for (TOverlay* item : m_items)
+            {
+                if (item == overlay)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+        [[nodiscard]] bool IsEmpty() const noexcept { return m_items.IsEmpty(); }
+        [[nodiscard]] const Array<TOverlay*>& Items() const noexcept { return m_items; }
 
-private:
-    Array<TOverlay*> m_items;
-};
+    private:
+        Array<TOverlay*> m_items;
+    };
 
-// The scene-rendering coordinator. Implemented by RenderSubsystem; queried by the app via
-// the Context (a renderer-agnostic seam for tools/editor that render scenes themselves).
-class ISceneRenderer {
-public:
-    virtual ~ISceneRenderer() = default;
+    // The scene-rendering coordinator. Implemented by RenderSubsystem; queried by the app via
+    // the Context (a renderer-agnostic seam for tools/editor that render scenes themselves).
+    class ISceneRenderer
+    {
+    public:
+        virtual ~ISceneRenderer() = default;
 
-    // Begin a frame. Resets shared per-frame state. `encoder` (caller-owned) receives all
-    // the frame's GPU commands; `frameIndex` is the device ring index.
-    virtual void BeginRendering(rhi::CommandEncoder& encoder, u32 frameIndex) = 0;
+        // Begin a frame. Resets shared per-frame state. `encoder` (caller-owned) receives all
+        // the frame's GPU commands; `frameIndex` is the device ring index.
+        virtual void BeginRendering(rhi::CommandEncoder& encoder, u32 frameIndex) = 0;
 
-    // Collect `scene`, viewed from its primary camera (or `cameraOverride` if given), to be
-    // drawn into `target`. The view's clear color comes from that camera. Must be called
-    // between Begin/EndRendering.
-    // `viewport` is the sub-rect of `target` to render into (default = full target); pass distinct
-    // viewports + camera overrides across multiple RenderScene calls for split-screen.
-    virtual void RenderScene(scene::Scene& scene, rhi::TextureView* target, rhi::TextureFormat targetFormat,
-                             u32 width, u32 height, ViewportRect viewport = {},
-                             const CameraOverride* cameraOverride = nullptr,
-                             const TargetState& targetState = {},
-                             const ViewPostOverride* postOverride = nullptr) = 0;
+        // Collect `scene`, viewed from its primary camera (or `cameraOverride` if given), to be
+        // drawn into `target`. The view's clear color comes from that camera. Must be called
+        // between Begin/EndRendering.
+        // `viewport` is the sub-rect of `target` to render into (default = full target); pass distinct
+        // viewports + camera overrides across multiple RenderScene calls for split-screen.
+        virtual void RenderScene(scene::Scene& scene, rhi::TextureView* target,
+                                 rhi::TextureFormat targetFormat, u32 width, u32 height,
+                                 ViewportRect viewport = {},
+                                 const CameraOverride* cameraOverride = nullptr,
+                                 const TargetState& targetState = {},
+                                 const ViewPostOverride* postOverride = nullptr) = 0;
 
-    // Compose every collected view into the frame's encoder.
-    virtual void EndRendering() = 0;
+        // Compose every collected view into the frame's encoder.
+        virtual void EndRendering() = 0;
 
-    // Scene-tier overlay registry (idempotent; non-owning - unregister before destruction).
-    virtual void RegisterOverlay(ISceneOverlay* overlay) = 0;
-    virtual void UnregisterOverlay(ISceneOverlay* overlay) = 0;
-};
+        // Scene-tier overlay registry (idempotent; non-owning - unregister before destruction).
+        virtual void RegisterOverlay(ISceneOverlay* overlay) = 0;
+        virtual void UnregisterOverlay(ISceneOverlay* overlay) = 0;
+    };
 
-// The window-space overlay coordinator. Implemented by RenderSubsystem. The pair
-// (ISceneRenderer for scenes + per-view overlays, IScreenRenderer for window overlays
-// after the scene blit) forms the engine's two-tier render coordination model.
-class IScreenRenderer {
-public:
-    virtual ~IScreenRenderer() = default;
+    // The window-space overlay coordinator. Implemented by RenderSubsystem. The pair
+    // (ISceneRenderer for scenes + per-view overlays, IScreenRenderer for window overlays
+    // after the scene blit) forms the engine's two-tier render coordination model.
+    class IScreenRenderer
+    {
+    public:
+        virtual ~IScreenRenderer() = default;
 
-    // Screen-tier overlay registry (idempotent; non-owning - unregister before destruction).
-    virtual void RegisterOverlay(IScreenOverlay* overlay) = 0;
-    virtual void UnregisterOverlay(IScreenOverlay* overlay) = 0;
+        // Screen-tier overlay registry (idempotent; non-owning - unregister before destruction).
+        virtual void RegisterOverlay(IScreenOverlay* overlay) = 0;
+        virtual void UnregisterOverlay(IScreenOverlay* overlay) = 0;
 
-    // Open one Load-op render pass against `target` (must be in RenderTarget state; left
-    // there), walk every registered overlay in order, and call each one's Render with the
-    // active encoder. No-op when no overlays are registered or `target` is null.
-    virtual void RenderOverlays(rhi::CommandEncoder& encoder, rhi::TextureView* target,
-                                rhi::TextureFormat targetFormat, u32 width, u32 height,
-                                u32 frameIndex) = 0;
-};
+        // Open one Load-op render pass against `target` (must be in RenderTarget state; left
+        // there), walk every registered overlay in order, and call each one's Render with the
+        // active encoder. No-op when no overlays are registered or `target` is null.
+        virtual void RenderOverlays(rhi::CommandEncoder& encoder, rhi::TextureView* target,
+                                    rhi::TextureFormat targetFormat, u32 width, u32 height,
+                                    u32 frameIndex) = 0;
+    };
 
 } // namespace draconic::render

@@ -10,7 +10,7 @@ module;
 
 export module draconic.gui:style_rule;
 
-import draconic.core;   // String, StringView, Array, i64, Move
+import draconic.core; // String, StringView, Array, i64, Move
 import :style_selector;
 import :media_query;
 
@@ -27,7 +27,9 @@ export namespace draconic::gui
 
         StyleProperty() = default;
         StyleProperty(core::StringView name, core::StringView value, bool important = false)
-            : Name(name), Value(value), Important(important) {}
+            : Name(name), Value(value), Important(important)
+        {
+        }
     };
 
     class StyleRule
@@ -44,11 +46,19 @@ export namespace draconic::gui
         void SetProperty(core::StringView name, core::StringView value, bool important = false)
         {
             for (StyleProperty& p : m_properties)
-                if (p.Name == name) { p.Value = value; p.Important = important; return; }
+                if (p.Name == name)
+                {
+                    p.Value = value;
+                    p.Important = important;
+                    return;
+                }
             m_properties.PushBack(StyleProperty(name, value, important));
         }
 
-        [[nodiscard]] const Array<StyleProperty>& Properties() const noexcept { return m_properties; }
+        [[nodiscard]] const Array<StyleProperty>& Properties() const noexcept
+        {
+            return m_properties;
+        }
         [[nodiscard]] usize PropertyCount() const noexcept { return m_properties.Size(); }
 
         // The @media condition this rule is nested in (empty = always active).

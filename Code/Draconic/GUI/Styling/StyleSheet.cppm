@@ -10,7 +10,7 @@ module;
 
 export module draconic.gui:style_sheet;
 
-import draconic.core;   // String, StringView, Array, i64, Move
+import draconic.core; // String, StringView, Array, i64, Move
 import :style_selector;
 import :style_rule;
 import :media_query;
@@ -31,8 +31,10 @@ export namespace draconic::gui
             for (StyleProperty& p : m_props)
                 if (p.Name == name)
                 {
-                    if (p.Important && !important) return; // important wins over normal
-                    p.Value = value; p.Important = important;
+                    if (p.Important && !important)
+                        return; // important wins over normal
+                    p.Value = value;
+                    p.Important = important;
                     return;
                 }
             m_props.PushBack(StyleProperty(name, value, important));
@@ -41,14 +43,17 @@ export namespace draconic::gui
         [[nodiscard]] bool Has(core::StringView name) const
         {
             for (const StyleProperty& p : m_props)
-                if (p.Name == name) return true;
+                if (p.Name == name)
+                    return true;
             return false;
         }
 
-        [[nodiscard]] core::StringView Get(core::StringView name, core::StringView fallback = core::StringView{}) const
+        [[nodiscard]] core::StringView Get(core::StringView name,
+                                           core::StringView fallback = core::StringView{}) const
         {
             for (const StyleProperty& p : m_props)
-                if (p.Name == name) return p.Value.AsView();
+                if (p.Name == name)
+                    return p.Value.AsView();
             return fallback;
         }
 
@@ -61,18 +66,29 @@ export namespace draconic::gui
         {
             for (StyleProperty& p : m_props)
             {
-                if (IsCustomProperty(p.Name.AsView())) continue;
+                if (IsCustomProperty(p.Name.AsView()))
+                    continue;
                 const core::StringView v = core::Trim(p.Value.AsView());
-                if (v.Size() < 5 || v.SubStr(0, 4) != core::StringView(u8"var(") || v[v.Size() - 1] != u8')') continue;
+                if (v.Size() < 5 || v.SubStr(0, 4) != core::StringView(u8"var(") ||
+                    v[v.Size() - 1] != u8')')
+                    continue;
 
                 const core::StringView inside = v.SubStr(4, v.Size() - 5);
                 usize comma = inside.Size();
-                for (usize i = 0; i < inside.Size(); ++i) if (inside[i] == u8',') { comma = i; break; }
+                for (usize i = 0; i < inside.Size(); ++i)
+                    if (inside[i] == u8',')
+                    {
+                        comma = i;
+                        break;
+                    }
 
                 const core::StringView varName = core::Trim(inside.SubStr(0, comma));
-                const core::StringView fallback = (comma < inside.Size())
-                    ? core::Trim(inside.SubStr(comma + 1, inside.Size() - comma - 1)) : core::StringView{};
-                p.Value = Get(varName, fallback); // Get scans a different element; safe to assign here
+                const core::StringView fallback =
+                    (comma < inside.Size())
+                        ? core::Trim(inside.SubStr(comma + 1, inside.Size() - comma - 1))
+                        : core::StringView{};
+                p.Value =
+                    Get(varName, fallback); // Get scans a different element; safe to assign here
             }
         }
 
@@ -111,24 +127,29 @@ export namespace draconic::gui
         [[nodiscard]] const Keyframes* FindKeyframes(core::StringView name) const
         {
             for (const Keyframes& k : m_keyframes)
-                if (k.Name.AsView() == name) return &k;
+                if (k.Name.AsView() == name)
+                    return &k;
             return nullptr;
         }
 
         // Resolve the cascade for `element`. With `pseudoElement` empty this is the element's
         // own style (rules with no ::part); pass a part name (e.g. "thumb") to resolve the
         // cascade for that widget part (rules written as `tag::part { ... }`).
-        [[nodiscard]] ResolvedStyle Resolve(const UIWidget& element, const MediaContext& context = {},
-                                            bool applyPseudo = true, core::StringView pseudoElement = {}) const
+        [[nodiscard]] ResolvedStyle Resolve(const UIWidget& element,
+                                            const MediaContext& context = {},
+                                            bool applyPseudo = true,
+                                            core::StringView pseudoElement = {}) const
         {
             // Collect indices of matching rules (selector + pseudo-element + media), in source order.
             Array<usize> matches;
             for (usize i = 0; i < m_rules.Size(); ++i)
             {
                 const StyleRule& rule = m_rules[i];
-                if (rule.Selector().PseudoElement() != pseudoElement) continue;
+                if (rule.Selector().PseudoElement() != pseudoElement)
+                    continue;
                 const bool mediaActive = rule.Media().IsEmpty() || rule.Media().Evaluate(context);
-                if (mediaActive && rule.Selector().Select(element, applyPseudo)) matches.PushBack(i);
+                if (mediaActive && rule.Selector().Select(element, applyPseudo))
+                    matches.PushBack(i);
             }
 
             // Stable insertion sort by specificity (ties keep source order -> later wins on apply).
@@ -137,7 +158,11 @@ export namespace draconic::gui
                 const usize key = matches[a];
                 const i64 keySpec = m_rules[key].Specificity();
                 usize b = a;
-                while (b > 0 && m_rules[matches[b - 1]].Specificity() > keySpec) { matches[b] = matches[b - 1]; --b; }
+                while (b > 0 && m_rules[matches[b - 1]].Specificity() > keySpec)
+                {
+                    matches[b] = matches[b - 1];
+                    --b;
+                }
                 matches[b] = key;
             }
 

@@ -78,20 +78,36 @@ export namespace draconic::texture
         {
             if (m_device != nullptr)
             {
-                if (m_view != nullptr)    { m_device->DestroyTextureView(m_view); }
-                if (m_sampler != nullptr) { m_device->DestroySampler(m_sampler); }
-                if (m_texture != nullptr) { m_device->DestroyTexture(m_texture); }
+                if (m_view != nullptr)
+                {
+                    m_device->DestroyTextureView(m_view);
+                }
+                if (m_sampler != nullptr)
+                {
+                    m_device->DestroySampler(m_sampler);
+                }
+                if (m_texture != nullptr)
+                {
+                    m_device->DestroyTexture(m_texture);
+                }
             }
         }
         Texture(const Texture&) = delete;
         Texture& operator=(const Texture&) = delete;
 
-        void Adopt(rhi::Device* device, rhi::Texture* texture, rhi::TextureView* view, rhi::Sampler* sampler,
-                   u32 width, u32 height, rhi::TextureFormat format, bool isCube = false) noexcept
+        void Adopt(rhi::Device* device, rhi::Texture* texture, rhi::TextureView* view,
+                   rhi::Sampler* sampler, u32 width, u32 height, rhi::TextureFormat format,
+                   bool isCube = false) noexcept
         {
-            m_device = device; m_texture = texture; m_view = view; m_sampler = sampler;
-            m_width = width; m_height = height; m_format = format; m_isCube = isCube;
-            m_uid = NextUid();   // consumers key caches/dirty checks on this, never the pointer
+            m_device = device;
+            m_texture = texture;
+            m_view = view;
+            m_sampler = sampler;
+            m_width = width;
+            m_height = height;
+            m_format = format;
+            m_isCube = isCube;
+            m_uid = NextUid(); // consumers key caches/dirty checks on this, never the pointer
         }
 
         /// Monotonic identity: a reloaded product is a NEW uid at (possibly) a reused address.
@@ -100,7 +116,10 @@ export namespace draconic::texture
         [[nodiscard]] bool IsCube() const noexcept { return m_isCube; }
 
         [[nodiscard]] rhi::Texture* GpuTexture() const noexcept { return m_texture; }
-        [[nodiscard]] rhi::TextureView* View() const noexcept { return m_view; }   // default sampled view (full mips)
+        [[nodiscard]] rhi::TextureView* View() const noexcept
+        {
+            return m_view;
+        } // default sampled view (full mips)
         [[nodiscard]] rhi::Sampler* Sampler() const noexcept { return m_sampler; }
         [[nodiscard]] u32 Width() const noexcept { return m_width; }
         [[nodiscard]] u32 Height() const noexcept { return m_height; }
@@ -109,19 +128,19 @@ export namespace draconic::texture
     private:
         [[nodiscard]] static u64 NextUid() noexcept
         {
-            static Atomic<u64> counter{ 0 };
+            static Atomic<u64> counter{0};
             return counter.fetch_add(1) + 1;
         }
 
-        rhi::Device* m_device = nullptr;     // non-owning
-        rhi::Texture* m_texture = nullptr;   // owned (destroyed via device)
-        rhi::TextureView* m_view = nullptr;  // owned (default sampled view)
-        rhi::Sampler* m_sampler = nullptr;   // owned
+        rhi::Device* m_device = nullptr;    // non-owning
+        rhi::Texture* m_texture = nullptr;  // owned (destroyed via device)
+        rhi::TextureView* m_view = nullptr; // owned (default sampled view)
+        rhi::Sampler* m_sampler = nullptr;  // owned
         u32 m_width = 0;
         u32 m_height = 0;
         rhi::TextureFormat m_format = rhi::TextureFormat::RGBA8Unorm;
         bool m_isCube = false;
-        u64  m_uid = 0;
+        u64 m_uid = 0;
     };
 
     // Cooked TextureResource -> live GPU Texture (model A). Device-backed.
@@ -130,14 +149,21 @@ export namespace draconic::texture
     public:
         explicit TextureFactory(rhi::Device& device) noexcept : m_device(&device) {}
 
-        [[nodiscard]] const TypeInfo* ProductType() const override { return &Texture::StaticType(); }
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &Texture::StaticType();
+        }
 
-        [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager, draconic::content::Instance& instance) override
+        [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
+                                            draconic::content::Instance& instance) override
         {
             (void)manager;
             RefPtr<ISerializable> object = instance.ReadObject();
             TextureResource* res = Cast<TextureResource>(object.Get());
-            if (res == nullptr) { return RefPtr<Object>{}; }
+            if (res == nullptr)
+            {
+                return RefPtr<Object>{};
+            }
 
             // Cooked pixels (heavy "data" stream).
             Array<u8> pixels;
@@ -147,7 +173,11 @@ export namespace draconic::texture
                 if (size > 0)
                 {
                     pixels.Resize(static_cast<usize>(size));
-                    if (stream->Read(pixels.Data(), static_cast<u64>(size)) != static_cast<u64>(size)) { pixels.Clear(); }
+                    if (stream->Read(pixels.Data(), static_cast<u64>(size)) !=
+                        static_cast<u64>(size))
+                    {
+                        pixels.Clear();
+                    }
                 }
             }
 
@@ -164,17 +194,25 @@ export namespace draconic::texture
             desc.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst;
 
             rhi::Texture* texture = nullptr;
-            if (!m_device->CreateTexture(desc, texture).IsOk()) { return RefPtr<Object>{}; }
+            if (!m_device->CreateTexture(desc, texture).IsOk())
+            {
+                return RefPtr<Object>{};
+            }
 
             // Default sampled view spanning all mips/layers - the currency the material/renderer bind.
             // Cube-shaped assets (skyboxes) get a real TextureCube view so consumers can sample it as one.
             rhi::TextureViewDesc vd{};
             vd.format = res->format;
-            vd.dimension = isCube ? rhi::TextureViewDimension::TextureCube : rhi::TextureViewDimension::Texture2D;
+            vd.dimension = isCube ? rhi::TextureViewDimension::TextureCube
+                                  : rhi::TextureViewDimension::Texture2D;
             vd.mipLevelCount = res->mipLevels;
             vd.arrayLayerCount = isCube ? 6u : res->depthOrArrayLayers;
             rhi::TextureView* view = nullptr;
-            if (!m_device->CreateTextureView(texture, vd, view).IsOk()) { m_device->DestroyTexture(texture); return RefPtr<Object>{}; }
+            if (!m_device->CreateTextureView(texture, vd, view).IsOk())
+            {
+                m_device->DestroyTexture(texture);
+                return RefPtr<Object>{};
+            }
 
             // Upload mip 0 via a transfer batch (cubes: the cooked stream is the 6 faces
             // concatenated +X,-X,+Y,-Y,+Z,-Z - one layer write each).
@@ -182,26 +220,30 @@ export namespace draconic::texture
             {
                 rhi::Queue* queue = m_device->GetQueue(rhi::QueueType::Graphics, 0);
                 rhi::TransferBatch* batch = nullptr;
-                if (queue != nullptr && queue->CreateTransferBatch(batch).IsOk() && batch != nullptr)
+                if (queue != nullptr && queue->CreateTransferBatch(batch).IsOk() &&
+                    batch != nullptr)
                 {
                     rhi::TextureDataLayout layout{};
                     layout.bytesPerRow = res->width * TextureData::GetBytesPerPixel(res->format);
                     layout.rowsPerImage = res->height;
                     if (isCube)
                     {
-                        const usize faceBytes = static_cast<usize>(layout.bytesPerRow) * res->height;
-                        for (u32 face = 0; face < 6 && (face + 1) * faceBytes <= pixels.Size(); ++face)
+                        const usize faceBytes =
+                            static_cast<usize>(layout.bytesPerRow) * res->height;
+                        for (u32 face = 0; face < 6 && (face + 1) * faceBytes <= pixels.Size();
+                             ++face)
                         {
-                            batch->WriteTexture(texture,
-                                                Span<const u8>(pixels.Data() + face * faceBytes, faceBytes),
-                                                layout, rhi::Extent3D{ res->width, res->height, 1 },
-                                                /*mipLevel*/ 0, /*arrayLayer*/ face);
+                            batch->WriteTexture(
+                                texture,
+                                Span<const u8>(pixels.Data() + face * faceBytes, faceBytes), layout,
+                                rhi::Extent3D{res->width, res->height, 1},
+                                /*mipLevel*/ 0, /*arrayLayer*/ face);
                         }
                     }
                     else
                     {
                         batch->WriteTexture(texture, Span<const u8>(pixels.Data(), pixels.Size()),
-                                            layout, rhi::Extent3D{ res->width, res->height, 1 });
+                                            layout, rhi::Extent3D{res->width, res->height, 1});
                     }
                     (void)batch->Submit();
                     queue->DestroyTransferBatch(batch);
@@ -211,7 +253,9 @@ export namespace draconic::texture
             rhi::SamplerDesc sd{};
             sd.minFilter = ToFilterMode(res->minFilter);
             sd.magFilter = ToFilterMode(res->magFilter);
-            sd.mipmapFilter = (res->minFilter == TextureFilter::MipmapLinear) ? rhi::MipmapFilterMode::Linear : rhi::MipmapFilterMode::Nearest;
+            sd.mipmapFilter = (res->minFilter == TextureFilter::MipmapLinear)
+                                  ? rhi::MipmapFilterMode::Linear
+                                  : rhi::MipmapFilterMode::Nearest;
             sd.addressU = ToAddressMode(res->wrapU);
             sd.addressV = ToAddressMode(res->wrapV);
             sd.addressW = ToAddressMode(res->wrapW);
@@ -220,7 +264,8 @@ export namespace draconic::texture
             (void)m_device->CreateSampler(sd, sampler);
 
             RefPtr<Texture> product = MakeRef<Texture>(DefaultAllocator());
-            product->Adopt(m_device, texture, view, sampler, res->width, res->height, res->format, isCube);
+            product->Adopt(m_device, texture, view, sampler, res->width, res->height, res->format,
+                           isCube);
             return product;
         }
 
@@ -228,16 +273,21 @@ export namespace draconic::texture
         [[nodiscard]] static rhi::FilterMode ToFilterMode(TextureFilter f)
         {
             return (f == TextureFilter::Nearest || f == TextureFilter::MipmapNearest)
-                ? rhi::FilterMode::Nearest : rhi::FilterMode::Linear;
+                       ? rhi::FilterMode::Nearest
+                       : rhi::FilterMode::Linear;
         }
         [[nodiscard]] static rhi::AddressMode ToAddressMode(TextureWrap w)
         {
             switch (w)
             {
-                case TextureWrap::Repeat:         return rhi::AddressMode::Repeat;
-                case TextureWrap::ClampToEdge:    return rhi::AddressMode::ClampToEdge;
-                case TextureWrap::ClampToBorder:  return rhi::AddressMode::ClampToBorder;
-                case TextureWrap::MirroredRepeat: return rhi::AddressMode::MirrorRepeat;
+            case TextureWrap::Repeat:
+                return rhi::AddressMode::Repeat;
+            case TextureWrap::ClampToEdge:
+                return rhi::AddressMode::ClampToEdge;
+            case TextureWrap::ClampToBorder:
+                return rhi::AddressMode::ClampToBorder;
+            case TextureWrap::MirroredRepeat:
+                return rhi::AddressMode::MirrorRepeat;
             }
             return rhi::AddressMode::Repeat;
         }

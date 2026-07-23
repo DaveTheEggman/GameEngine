@@ -23,7 +23,7 @@ namespace
 {
     rhi::ShaderModule* MakeModule(rhi::Device& d)
     {
-        const u8 dummy[4] = { 0, 0, 0, 0 };
+        const u8 dummy[4] = {0, 0, 0, 0};
         rhi::ShaderModuleDesc desc{};
         desc.code = Span<const u8>(dummy, 4);
         rhi::ShaderModule* m = nullptr;
@@ -32,7 +32,8 @@ namespace
     }
 }
 
-TEST_CASE("ui.viewport: layout creates targets + registers an external texture usable by the renderer")
+TEST_CASE(
+    "ui.viewport: layout creates targets + registers an external texture usable by the renderer")
 {
     rhi::null::NullDevice device{DefaultAllocator()};
     rhi::ShaderModule* vs = MakeModule(device);
@@ -41,11 +42,13 @@ TEST_CASE("ui.viewport: layout creates targets + registers an external texture u
     REQUIRE(fs != nullptr);
 
     vg::renderer::VGRenderer renderer;
-    REQUIRE(renderer.Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, /*frameCount*/ 2).IsOk());
+    REQUIRE(
+        renderer.Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, /*frameCount*/ 2)
+            .IsOk());
 
     ViewportView view;
-    CHECK(view.IsFocusable);          // input target
-    CHECK_FALSE(view.IsReady());      // no targets before layout
+    CHECK(view.IsFocusable);     // input target
+    CHECK_FALSE(view.IsReady()); // no targets before layout
     view.Initialize(&device, &renderer, /*input*/ nullptr, /*windowId*/ 0);
 
     // Layout drives ResizeRenderTarget -> color+depth created, color view registered.
@@ -96,7 +99,9 @@ TEST_CASE("ui.viewport: RenderContent fires the callback bracketed by transition
     ViewportView* seenSelf = nullptr;
     view.OnRender = [&](ViewportView& v, rhi::CommandEncoder&, i32 frameIndex)
     {
-        fired = true; seenFrame = frameIndex; seenSelf = &v;
+        fired = true;
+        seenFrame = frameIndex;
+        seenSelf = &v;
     };
     view.RenderContent(*enc, 3);
     CHECK(fired);

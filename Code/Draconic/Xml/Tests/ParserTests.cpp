@@ -25,7 +25,8 @@ TEST_CASE("xml.parse: element with text")
     XmlDocument doc;
     REQUIRE(doc.Parse(u8"<root>Hello World</root>") == XmlResult::Ok);
     CHECK(doc.RootElement()->HasChildren());
-    String text; doc.RootElement()->GetTextContent(text);
+    String text;
+    doc.RootElement()->GetTextContent(text);
     CHECK(text == StringView(u8"Hello World"));
 }
 
@@ -58,7 +59,8 @@ TEST_CASE("xml.parse: declaration")
     CHECK(doc.Declaration()->Version() == StringView(u8"1.0"));
 
     XmlDocument doc2;
-    REQUIRE(doc2.Parse(u8"<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?><root/>") == XmlResult::Ok);
+    REQUIRE(doc2.Parse(u8"<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?><root/>") ==
+            XmlResult::Ok);
     CHECK(doc2.Declaration()->Version() == StringView(u8"1.0"));
     CHECK(doc2.Declaration()->Encoding() == StringView(u8"utf-8"));
     CHECK(doc2.Declaration()->Standalone() == StringView(u8"yes"));
@@ -69,7 +71,8 @@ TEST_CASE("xml.parse: CDATA")
     XmlDocument doc;
     REQUIRE(doc.Parse(u8"<root><![CDATA[<special> & content]]></root>") == XmlResult::Ok);
     CHECK(doc.RootElement()->HasChildren());
-    String text; doc.RootElement()->GetTextContent(text);
+    String text;
+    doc.RootElement()->GetTextContent(text);
     CHECK(text == StringView(u8"<special> & content"));
 }
 
@@ -129,12 +132,14 @@ TEST_CASE("xml.parse: built-in entities + char refs")
 {
     XmlDocument doc;
     REQUIRE(doc.Parse(u8"<root>&amp;&lt;&gt;&apos;&quot;</root>") == XmlResult::Ok);
-    String text; doc.RootElement()->GetTextContent(text);
+    String text;
+    doc.RootElement()->GetTextContent(text);
     CHECK(text == StringView(u8"&<>'\""));
 
     XmlDocument doc2;
     REQUIRE(doc2.Parse(u8"<root>&#65;&#x42;</root>") == XmlResult::Ok);
-    String text2; doc2.RootElement()->GetTextContent(text2);
+    String text2;
+    doc2.RootElement()->GetTextContent(text2);
     CHECK(text2 == StringView(u8"AB"));
 }
 
@@ -154,15 +159,42 @@ TEST_CASE("xml.parse: namespaces")
 
 TEST_CASE("xml.parse: error cases")
 {
-    { XmlDocument d; CHECK(d.Parse(u8"<root></other>") == XmlResult::TagMismatch); }
-    { XmlDocument d; CHECK(d.Parse(u8"<root id=\"1\" id=\"2\"/>") == XmlResult::AttributeDuplicate); }
-    { XmlDocument d; CHECK(d.Parse(u8"<root><child></root>") == XmlResult::TagMismatch); }
-    { XmlDocument d; CHECK(d.Parse(u8"<root1/><root2/>") == XmlResult::MultipleRoots); }
-    { XmlDocument d; CHECK(d.Parse(u8"") == XmlResult::NoRootElement); }
-    { XmlDocument d; CHECK(d.Parse(u8"<!-- comment only -->") == XmlResult::NoRootElement); }
-    { XmlDocument d; CHECK(d.Parse(u8"<root>&unknown;</root>") == XmlResult::EntityUnknown); }
-    { XmlDocument d; CHECK(d.Parse(u8"<root><![CDATA[unclosed</root>") == XmlResult::CDataUnclosed); }
-    { XmlDocument d; CHECK(d.Parse(u8"<root><!-- unclosed</root>") == XmlResult::CommentUnclosed); }
+    {
+        XmlDocument d;
+        CHECK(d.Parse(u8"<root></other>") == XmlResult::TagMismatch);
+    }
+    {
+        XmlDocument d;
+        CHECK(d.Parse(u8"<root id=\"1\" id=\"2\"/>") == XmlResult::AttributeDuplicate);
+    }
+    {
+        XmlDocument d;
+        CHECK(d.Parse(u8"<root><child></root>") == XmlResult::TagMismatch);
+    }
+    {
+        XmlDocument d;
+        CHECK(d.Parse(u8"<root1/><root2/>") == XmlResult::MultipleRoots);
+    }
+    {
+        XmlDocument d;
+        CHECK(d.Parse(u8"") == XmlResult::NoRootElement);
+    }
+    {
+        XmlDocument d;
+        CHECK(d.Parse(u8"<!-- comment only -->") == XmlResult::NoRootElement);
+    }
+    {
+        XmlDocument d;
+        CHECK(d.Parse(u8"<root>&unknown;</root>") == XmlResult::EntityUnknown);
+    }
+    {
+        XmlDocument d;
+        CHECK(d.Parse(u8"<root><![CDATA[unclosed</root>") == XmlResult::CDataUnclosed);
+    }
+    {
+        XmlDocument d;
+        CHECK(d.Parse(u8"<root><!-- unclosed</root>") == XmlResult::CommentUnclosed);
+    }
 }
 
 TEST_CASE("xml.parse: whitespace handling")
@@ -207,6 +239,7 @@ TEST_CASE("xml.parse: complex document")
     CHECK(books[0]->GetAttribute(u8"id") == StringView(u8"1"));
     XmlElement* title = books[0]->GetFirstChildElement(u8"title");
     REQUIRE(title != nullptr);
-    String titleText; title->GetTextContent(titleText);
+    String titleText;
+    title->GetTextContent(titleText);
     CHECK(titleText == StringView(u8"XML Guide"));
 }

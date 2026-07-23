@@ -11,14 +11,15 @@ export module draconic.render:sprite_shaders;
 
 import draconic.core;
 
-export namespace draconic::render {
-
-// Instanced billboard. The quad corners (6 verts) come from SV_VertexID; per-sprite data arrives as
-// four instance-stepped float4 attributes (TEXCOORD0..3). Camera basis is pulled from the view matrix
-// (row-major, row-vector convention): world-space right = column 0, up = column 1.
-[[nodiscard]] inline core::StringView SpriteVS() noexcept
+export namespace draconic::render
 {
-    return core::StringView(u8R"(
+
+    // Instanced billboard. The quad corners (6 verts) come from SV_VertexID; per-sprite data arrives as
+    // four instance-stepped float4 attributes (TEXCOORD0..3). Camera basis is pulled from the view matrix
+    // (row-major, row-vector convention): world-space right = column 0, up = column 1.
+    [[nodiscard]] inline core::StringView SpriteVS() noexcept
+    {
+        return core::StringView(u8R"(
 #pragma pack_matrix(row_major)
 cbuffer SpriteView : register(b0, space0) {
     float4x4 ViewProj;
@@ -73,17 +74,17 @@ VSOut main(VSIn i) {
     return o;
 }
 )");
-}
+    }
 
-[[nodiscard]] inline core::StringView SpritePS() noexcept
-{
-    return core::StringView(u8R"(
+    [[nodiscard]] inline core::StringView SpritePS() noexcept
+    {
+        return core::StringView(u8R"(
 Texture2D    SpriteTexture : register(t0, space1);
 SamplerState SpriteSampler : register(s0, space1);
 float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0, float4 col : COLOR0) : SV_Target {
     return SpriteTexture.Sample(SpriteSampler, uv) * col;
 }
 )");
-}
+    }
 
 }

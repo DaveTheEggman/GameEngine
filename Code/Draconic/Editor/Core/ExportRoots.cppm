@@ -42,8 +42,8 @@ export namespace draconic::editor
     {
         DRACONIC_OBJECT(ExportRootsSet, ISerializable)
     public:
-        Array<Guid> instances;   // flagged asset instances, by guid (rename/move-proof)
-        Array<String> groups;    // flagged group subtrees, by mount-relative path
+        Array<Guid> instances; // flagged asset instances, by guid (rename/move-proof)
+        Array<String> groups;  // flagged group subtrees, by mount-relative path
 
         void Serialize(ISerializer& ar) override
         {
@@ -51,16 +51,31 @@ export namespace draconic::editor
             draconic::core::Serialize(ar, "groups", groups);
         }
 
-        [[nodiscard]] bool IsEmpty() const noexcept { return instances.IsEmpty() && groups.IsEmpty(); }
+        [[nodiscard]] bool IsEmpty() const noexcept
+        {
+            return instances.IsEmpty() && groups.IsEmpty();
+        }
 
         [[nodiscard]] bool HasInstance(const Guid& id) const
         {
-            for (const Guid& g : instances) { if (g == id) { return true; } }
+            for (const Guid& g : instances)
+            {
+                if (g == id)
+                {
+                    return true;
+                }
+            }
             return false;
         }
         [[nodiscard]] bool HasGroup(StringView path) const
         {
-            for (const String& p : groups) { if (p.AsView() == path) { return true; } }
+            for (const String& p : groups)
+            {
+                if (p.AsView() == path)
+                {
+                    return true;
+                }
+            }
             return false;
         }
 
@@ -69,8 +84,14 @@ export namespace draconic::editor
         bool SetInstance(const Guid& id, bool member)
         {
             const bool has = HasInstance(id);
-            if (member && !has) { instances.PushBack(id); }
-            else if (!member && has) { RemoveInstance(id); }
+            if (member && !has)
+            {
+                instances.PushBack(id);
+            }
+            else if (!member && has)
+            {
+                RemoveInstance(id);
+            }
             return member;
         }
         // Flip instance membership; returns the NEW state (true = now a root).
@@ -80,8 +101,14 @@ export namespace draconic::editor
         bool SetGroup(StringView path, bool member)
         {
             const bool has = HasGroup(path);
-            if (member && !has) { groups.PushBack(String(path)); }
-            else if (!member && has) { RemoveGroup(path); }
+            if (member && !has)
+            {
+                groups.PushBack(String(path));
+            }
+            else if (!member && has)
+            {
+                RemoveGroup(path);
+            }
             return member;
         }
         // Flip group membership; returns the NEW state.
@@ -92,34 +119,51 @@ export namespace draconic::editor
         {
             for (usize i = 0; i < instances.Size(); ++i)
             {
-                if (instances[i] == id) { instances.RemoveAt(i); return; }
+                if (instances[i] == id)
+                {
+                    instances.RemoveAt(i);
+                    return;
+                }
             }
         }
         void RemoveGroup(StringView path)
         {
             for (usize i = 0; i < groups.Size(); ++i)
             {
-                if (groups[i].AsView() == path) { groups.RemoveAt(i); return; }
+                if (groups[i].AsView() == path)
+                {
+                    groups.RemoveAt(i);
+                    return;
+                }
             }
         }
     };
 
     // Resolve a group by its mount-relative path ("" = the root group; "a/b" walks child groups).
     // Null when a segment is missing. Mirrors ContentDatabase::GetInstance(path)'s segment walk.
-    [[nodiscard]] inline draconic::content::Group* FindGroupByPath(
-        draconic::content::ContentDatabase& db, StringView path)
+    [[nodiscard]] inline draconic::content::Group*
+    FindGroupByPath(draconic::content::ContentDatabase& db, StringView path)
     {
         draconic::content::Group* group = db.RootGroup();
         usize start = 0;
         for (usize i = 0; i <= path.Size(); ++i)
         {
             const bool atEnd = (i == path.Size());
-            if (!atEnd && path[i] != utf8char('/')) { continue; }
+            if (!atEnd && path[i] != utf8char('/'))
+            {
+                continue;
+            }
             const StringView part = path.SubStr(start, i - start);
             start = i + 1;
-            if (part.IsEmpty()) { continue; }   // leading/trailing/empty segment
+            if (part.IsEmpty())
+            {
+                continue;
+            } // leading/trailing/empty segment
             group = group->GetGroup(part);
-            if (group == nullptr) { return nullptr; }
+            if (group == nullptr)
+            {
+                return nullptr;
+            }
         }
         return group;
     }
@@ -131,7 +175,10 @@ export namespace draconic::editor
                                       Array<Guid>& out)
     {
         draconic::content::Group* start = FindGroupByPath(db, groupPath);
-        if (start == nullptr) { return; }
+        if (start == nullptr)
+        {
+            return;
+        }
 
         Array<draconic::content::Group*> stack;
         stack.PushBack(start);
@@ -141,11 +188,17 @@ export namespace draconic::editor
             stack.RemoveAt(stack.Size() - 1);
             for (draconic::content::Instance* inst : g->Instances())
             {
-                if (inst != nullptr) { out.PushBack(inst->Id()); }
+                if (inst != nullptr)
+                {
+                    out.PushBack(inst->Id());
+                }
             }
             for (draconic::content::Group* child : g->Groups())
             {
-                if (child != nullptr) { stack.PushBack(child); }
+                if (child != nullptr)
+                {
+                    stack.PushBack(child);
+                }
             }
         }
     }
@@ -156,10 +209,16 @@ export namespace draconic::editor
                                                 StringView fileName = kExportRootsFile)
     {
         UniquePtr<IStream> stream = root.Open(fileName, FileMode::Read);
-        if (!stream) { return Status{ ErrorCode::NotFound }; }
+        if (!stream)
+        {
+            return Status{ErrorCode::NotFound};
+        }
         SerializerFactory factory = draconic::xml::XmlSerializerFactory();
         UniquePtr<SerializerContext> ctx = factory(*stream, SerializeMode::Read);
-        if (!ctx || ctx->serializer == nullptr) { return Status{ ErrorCode::Internal }; }
+        if (!ctx || ctx->serializer == nullptr)
+        {
+            return Status{ErrorCode::Internal};
+        }
         BeginVersionedPayload(*ctx->serializer, ExportRootsSet::StaticType());
         out.Serialize(*ctx->serializer);
         EndVersionedPayload(*ctx->serializer);
@@ -174,11 +233,17 @@ export namespace draconic::editor
         MemoryStream buffer;
         SerializerFactory factory = draconic::xml::XmlSerializerFactory();
         UniquePtr<SerializerContext> ctx = factory(buffer, SerializeMode::Write);
-        if (!ctx || ctx->serializer == nullptr) { return Status{ ErrorCode::Internal }; }
+        if (!ctx || ctx->serializer == nullptr)
+        {
+            return Status{ErrorCode::Internal};
+        }
         BeginVersionedPayload(*ctx->serializer, ExportRootsSet::StaticType());
         roots.Serialize(*ctx->serializer);
         EndVersionedPayload(*ctx->serializer);
-        if (!ctx->serializer->IsOk()) { return ctx->serializer->GetStatus(); }
+        if (!ctx->serializer->IsOk())
+        {
+            return ctx->serializer->GetStatus();
+        }
         ctx->Flush(buffer);
         return writable.Save(fileName, buffer.Bytes());
     }

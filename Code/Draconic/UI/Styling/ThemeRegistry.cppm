@@ -12,7 +12,7 @@ module;
 
 export module draconic.ui:theme_registry;
 
-import draconic.core;   // Array
+import draconic.core; // Array
 import :style_sheet;
 import :theme_palette;
 import :theme_extension;
@@ -35,9 +35,18 @@ export namespace draconic::ui
         /// Register an extension (applied to all themes created afterward). No-op if already present.
         static void RegisterExtension(IThemeExtension* ext)
         {
-            if (ext == nullptr) { return; }
+            if (ext == nullptr)
+            {
+                return;
+            }
             Array<IThemeExtension*>& list = detail::ThemeExtensionList();
-            for (IThemeExtension* e : list) { if (e == ext) { return; } }
+            for (IThemeExtension* e : list)
+            {
+                if (e == ext)
+                {
+                    return;
+                }
+            }
             list.PushBack(ext);
         }
 
@@ -47,14 +56,21 @@ export namespace draconic::ui
             Array<IThemeExtension*>& list = detail::ThemeExtensionList();
             for (usize i = 0; i < list.Size(); ++i)
             {
-                if (list[i] == ext) { list.RemoveAt(i); return; }
+                if (list[i] == ext)
+                {
+                    list.RemoveAt(i);
+                    return;
+                }
             }
         }
 
         /// Apply all registered extensions to a theme sheet.
         static void ApplyExtensions(StyleSheet& sheet, ThemePalette palette)
         {
-            for (IThemeExtension* ext : detail::ThemeExtensionList()) { ext->Apply(sheet, palette); }
+            for (IThemeExtension* ext : detail::ThemeExtensionList())
+            {
+                ext->Apply(sheet, palette);
+            }
         }
     };
 }

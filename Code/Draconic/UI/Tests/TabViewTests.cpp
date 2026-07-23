@@ -12,13 +12,21 @@ using namespace draconic::ui::tests;
 using namespace draconic::core;
 namespace core = draconic::core;
 
-static core::RefPtr<RootView> MakeRoot() { return core::MakeRef<RootView>(core::DefaultAllocator()); }
+static core::RefPtr<RootView> MakeRoot()
+{
+    return core::MakeRef<RootView>(core::DefaultAllocator());
+}
 static core::RefPtr<TabView> MakeTabs() { return core::MakeRef<TabView>(core::DefaultAllocator()); }
-static core::RefPtr<TestView> MakeView(f32 w = 50.0f, f32 h = 30.0f) { return core::MakeRef<TestView>(core::DefaultAllocator(), w, h); }
+static core::RefPtr<TestView> MakeView(f32 w = 50.0f, f32 h = 30.0f)
+{
+    return core::MakeRef<TestView>(core::DefaultAllocator(), w, h);
+}
 
 TEST_CASE("tab-view: AddTab_SelectsFirst")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
     auto tabs = MakeTabs();
     tabs->AddTab(u8"Tab 1", MakeView(100, 100).Get());
     root->AddView(tabs.Get());
@@ -30,7 +38,9 @@ TEST_CASE("tab-view: AddTab_SelectsFirst")
 
 TEST_CASE("tab-view: SwitchTab")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
     auto tabs = MakeTabs();
     auto content1 = MakeView(100, 100);
     auto content2 = MakeView(100, 100);
@@ -49,14 +59,17 @@ TEST_CASE("tab-view: SwitchTab")
 
 TEST_CASE("tab-view: TabChangedEvent")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
     auto tabs = MakeTabs();
     tabs->AddTab(u8"A", MakeView().Get());
     tabs->AddTab(u8"B", MakeView().Get());
     root->AddView(tabs.Get());
 
     i32 lastIdx = -1;
-    tabs->OnTabChanged.Add(Event<void(TabView*, i32)>::Handler{ [&lastIdx](TabView*, i32 idx) { lastIdx = idx; } });
+    tabs->OnTabChanged.Add(
+        Event<void(TabView*, i32)>::Handler{[&lastIdx](TabView*, i32 idx) { lastIdx = idx; }});
 
     tabs->SetSelectedIndex(1);
     CHECK(lastIdx == 1);
@@ -64,7 +77,9 @@ TEST_CASE("tab-view: TabChangedEvent")
 
 TEST_CASE("tab-view: RemoveTab")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
     auto tabs = MakeTabs();
     tabs->AddTab(u8"A", MakeView().Get());
     tabs->AddTab(u8"B", MakeView().Get());
@@ -79,7 +94,9 @@ TEST_CASE("tab-view: RemoveTab")
 
 TEST_CASE("tab-view: RemoveTab_AdjustsSelection")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
     auto tabs = MakeTabs();
     tabs->AddTab(u8"A", MakeView().Get());
     tabs->AddTab(u8"B", MakeView().Get());
@@ -93,7 +110,9 @@ TEST_CASE("tab-view: RemoveTab_AdjustsSelection")
 
 TEST_CASE("tab-view: KeyboardNavigation")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
     auto tabs = MakeTabs();
     tabs->AddTab(u8"A", MakeView().Get());
     tabs->AddTab(u8"B", MakeView().Get());
@@ -102,11 +121,13 @@ TEST_CASE("tab-view: KeyboardNavigation")
 
     CHECK(tabs->SelectedIndex() == 0);
 
-    KeyEventArgs right; right.Set(KeyCode::Right, KeyModifiers::None, false);
+    KeyEventArgs right;
+    right.Set(KeyCode::Right, KeyModifiers::None, false);
     tabs->OnKeyDown(right);
     CHECK(tabs->SelectedIndex() == 1);
 
-    KeyEventArgs left; left.Set(KeyCode::Left, KeyModifiers::None, false);
+    KeyEventArgs left;
+    left.Set(KeyCode::Left, KeyModifiers::None, false);
     tabs->OnKeyDown(left);
     CHECK(tabs->SelectedIndex() == 0);
 
@@ -119,7 +140,9 @@ TEST_CASE("tab-view: KeyboardNavigation")
 // Hover state after the mouse moves away; this verifies our OnMouseLeave fix.
 TEST_CASE("tab-view: HoverClearsOnMouseLeave")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
     auto tabs = MakeTabs();
     tabs->AddTab(u8"Tab 1", MakeView(100, 100).Get());
     tabs->AddTab(u8"Tab 2", MakeView(100, 100).Get());
@@ -142,9 +165,14 @@ TEST_CASE("tab-view: HoverClearsOnMouseLeave")
 
 TEST_CASE("tab-view: SelectingHiddenTabScrollsItIntoView")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
     auto tabs = MakeTabs();
-    for (i32 i = 0; i < 6; ++i) { tabs->AddTab(u8"Tab", MakeView(100, 100).Get()); }
+    for (i32 i = 0; i < 6; ++i)
+    {
+        tabs->AddTab(u8"Tab", MakeView(100, 100).Get());
+    }
     root->AddView(tabs.Get());
     LayoutPass(ctx, root.Get());
 
@@ -164,9 +192,14 @@ TEST_CASE("tab-view: SelectingHiddenTabScrollsItIntoView")
 
 TEST_CASE("tab-view: WheelScrollsOverflowingStrip")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
     auto tabs = MakeTabs();
-    for (i32 i = 0; i < 6; ++i) { tabs->AddTab(u8"Tab", MakeView(100, 100).Get()); }
+    for (i32 i = 0; i < 6; ++i)
+    {
+        tabs->AddTab(u8"Tab", MakeView(100, 100).Get());
+    }
     root->AddView(tabs.Get());
     LayoutPass(ctx, root.Get());
 
@@ -174,7 +207,10 @@ TEST_CASE("tab-view: WheelScrollsOverflowingStrip")
     CHECK(tabs->HoveredTabIndex() == 0);
 
     // Wheel down over the strip band scrolls the tabs right (delta * 40, clamped to the 80px overflow).
-    MouseWheelEventArgs wheel; wheel.X = 10; wheel.Y = 10; wheel.DeltaY = -3;
+    MouseWheelEventArgs wheel;
+    wheel.X = 10;
+    wheel.Y = 10;
+    wheel.DeltaY = -3;
     tabs->OnMouseWheel(wheel);
     CHECK(wheel.Handled);
     LayoutPass(ctx, root.Get());
@@ -185,9 +221,14 @@ TEST_CASE("tab-view: WheelScrollsOverflowingStrip")
 
 TEST_CASE("tab-view: WheelIgnoredWithoutOverflow")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
     auto tabs = MakeTabs();
-    for (i32 i = 0; i < 3; ++i) { tabs->AddTab(u8"Tab", MakeView(100, 100).Get()); }
+    for (i32 i = 0; i < 3; ++i)
+    {
+        tabs->AddTab(u8"Tab", MakeView(100, 100).Get());
+    }
     root->AddView(tabs.Get());
     LayoutPass(ctx, root.Get());
 
@@ -196,7 +237,10 @@ TEST_CASE("tab-view: WheelIgnoredWithoutOverflow")
     CHECK(tabs->HoveredTabIndex() == 2);
 
     // Wheel is a no-op when the strip doesn't overflow: not handled, and the hit-rects don't move.
-    MouseWheelEventArgs wheel; wheel.X = 170; wheel.Y = 10; wheel.DeltaY = -3;
+    MouseWheelEventArgs wheel;
+    wheel.X = 170;
+    wheel.Y = 10;
+    wheel.DeltaY = -3;
     tabs->OnMouseWheel(wheel);
     CHECK_FALSE(wheel.Handled);
     LayoutPass(ctx, root.Get());

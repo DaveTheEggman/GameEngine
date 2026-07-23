@@ -12,7 +12,11 @@ namespace vg = draconic::vg;
 
 namespace
 {
-    template <typename T> core::RefPtr<T> Make() { return core::MakeRef<T>(core::DefaultAllocator()); }
+    template <typename T>
+    core::RefPtr<T> Make()
+    {
+        return core::MakeRef<T>(core::DefaultAllocator());
+    }
     core::StringView SV(const char8_t* s) { return core::StringView(s); }
 }
 
@@ -29,12 +33,13 @@ TEST_CASE("label: text properties")
 TEST_CASE("label: draws its background (text is a no-op without a font)")
 {
     auto label = Make<Label>();
-    label->SetSize(core::Float2{ 100.0f, 40.0f });
+    label->SetSize(core::Float2{100.0f, 40.0f});
     label->SetText(SV(u8"Hi"));
-    label->SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), core::Color::Blue));
+    label->SetBackground(
+        core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), core::Color::Blue));
 
     vg::VGContext ctx;
-    DrawContext dc{ ctx };
+    DrawContext dc{ctx};
     label->Draw(dc);
     CHECK(ctx.GetBatch().vertices.Size() > 0); // background geometry
 }
@@ -51,9 +56,9 @@ TEST_CASE("button: defaults - tag and centered text")
 TEST_CASE("button: click callback fires on press+release")
 {
     auto root = Make<SceneNode>();
-    root->SetSize(core::Float2{ 200.0f, 200.0f });
+    root->SetSize(core::Float2{200.0f, 200.0f});
     auto btn = Make<Button>();
-    btn->SetSize(core::Float2{ 100.0f, 100.0f });
+    btn->SetSize(core::Float2{100.0f, 100.0f});
     root->AddChild(btn.Get());
     EventDispatcher* d = root->GetEventDispatcher();
 
@@ -61,46 +66,47 @@ TEST_CASE("button: click callback fires on press+release")
     btn->SetOnClick([&clicks]() { ++clicks; });
     CHECK(btn->HasOnClick());
 
-    d->InjectMouseDown(core::Float2{ 50.0f, 50.0f }, MouseButton::Left);
-    d->InjectMouseUp(core::Float2{ 50.0f, 50.0f }, MouseButton::Left);
+    d->InjectMouseDown(core::Float2{50.0f, 50.0f}, MouseButton::Left);
+    d->InjectMouseUp(core::Float2{50.0f, 50.0f}, MouseButton::Left);
     CHECK(clicks == 1);
 
     // Press on the button, release elsewhere -> not a click.
-    d->InjectMouseDown(core::Float2{ 50.0f, 50.0f }, MouseButton::Left);
-    d->InjectMouseUp(core::Float2{ 300.0f, 300.0f }, MouseButton::Left);
+    d->InjectMouseDown(core::Float2{50.0f, 50.0f}, MouseButton::Left);
+    d->InjectMouseUp(core::Float2{300.0f, 300.0f}, MouseButton::Left);
     CHECK(clicks == 1);
 }
 
 TEST_CASE("button: control state reacts to the pointer")
 {
     auto root = Make<SceneNode>();
-    root->SetSize(core::Float2{ 200.0f, 200.0f });
+    root->SetSize(core::Float2{200.0f, 200.0f});
     auto btn = Make<Button>();
-    btn->SetSize(core::Float2{ 100.0f, 100.0f });
+    btn->SetSize(core::Float2{100.0f, 100.0f});
     root->AddChild(btn.Get());
     EventDispatcher* d = root->GetEventDispatcher();
 
     CHECK(btn->GetControlState() == ControlState::Normal);
-    d->InjectMouseMove(core::Float2{ 50.0f, 50.0f });
+    d->InjectMouseMove(core::Float2{50.0f, 50.0f});
     CHECK(btn->GetControlState() == ControlState::Hover);
-    d->InjectMouseDown(core::Float2{ 50.0f, 50.0f }, MouseButton::Left);
+    d->InjectMouseDown(core::Float2{50.0f, 50.0f}, MouseButton::Left);
     CHECK(btn->GetControlState() == ControlState::Pressed);
 }
 
 TEST_CASE("button: styled by CSS through the default tag")
 {
     auto root = Make<SceneNode>();
-    root->SetSize(core::Float2{ 200.0f, 200.0f });
+    root->SetSize(core::Float2{200.0f, 200.0f});
     auto btn = Make<Button>();
-    btn->SetSize(core::Float2{ 100.0f, 100.0f });
+    btn->SetSize(core::Float2{100.0f, 100.0f});
     root->AddChild(btn.Get());
     EventDispatcher* d = root->GetEventDispatcher();
 
-    StyleManager mgr(CSSParser::Parse(SV(u8"button { opacity: 1; } button:hover { opacity: 0.3; }")));
+    StyleManager mgr(
+        CSSParser::Parse(SV(u8"button { opacity: 1; } button:hover { opacity: 0.3; }")));
     mgr.ApplyTree(*root.Get());
     CHECK(btn->GetAlpha() == doctest::Approx(1.0f));
 
-    d->InjectMouseMove(core::Float2{ 50.0f, 50.0f }); // hover
-    mgr.ApplyTree(*root.Get());                        // re-resolve -> :hover applies
+    d->InjectMouseMove(core::Float2{50.0f, 50.0f}); // hover
+    mgr.ApplyTree(*root.Get());                     // re-resolve -> :hover applies
     CHECK(btn->GetAlpha() == doctest::Approx(0.3f));
 }

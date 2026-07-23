@@ -17,7 +17,7 @@ namespace
 {
     [[nodiscard]] core::Color Rgb(u8 r, u8 g, u8 b, u8 a = 255)
     {
-        return core::Color{ r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f };
+        return core::Color{r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f};
     }
 
     // Exposes PropertyEditor's protected BeginEdit/EndEdit for the transaction test (Beef `[Friend]`).
@@ -127,7 +127,7 @@ TEST_CASE("toolkit: BreadcrumbBar_SetPath")
 TEST_CASE("toolkit: BreadcrumbBar_SetSegments")
 {
     auto bar = MakeRef<BreadcrumbBar>(DefaultAllocator());
-    StringView segs[] = { u8"Home", u8"Documents", u8"File.txt" };
+    StringView segs[] = {u8"Home", u8"Documents", u8"File.txt"};
     bar->SetSegments(Span<StringView>(segs, 3));
 
     CHECK(bar->SegmentCount() == 3);
@@ -152,11 +152,12 @@ TEST_CASE("toolkit: BreadcrumbBar_OnSegmentClicked")
 
     bool fired = false;
     i32 firedIndex = -1;
-    bar->OnSegmentClicked.Add([&fired, &firedIndex](BreadcrumbBar*, i32 idx)
-    {
-        fired = true;
-        firedIndex = idx;
-    });
+    bar->OnSegmentClicked.Add(
+        [&fired, &firedIndex](BreadcrumbBar*, i32 idx)
+        {
+            fired = true;
+            firedIndex = idx;
+        });
 
     // Can't easily simulate click without context, but event should be wired.
     CHECK(!fired);
@@ -292,7 +293,7 @@ TEST_CASE("toolkit: PropertyGrid_Clear")
 {
     auto grid = MakeRef<PropertyGrid>(DefaultAllocator());
     grid->AddProperty(MakeRef<BoolEditor>(DefaultAllocator(), StringView(u8"A"), false));
-    grid->AddProperty(MakeRef<IntEditor>(DefaultAllocator(), StringView(u8"B"), i64{ 42 }));
+    grid->AddProperty(MakeRef<IntEditor>(DefaultAllocator(), StringView(u8"B"), i64{42}));
     grid->Clear();
     CHECK(grid->PropertyCount() == 0);
 }
@@ -317,7 +318,7 @@ TEST_CASE("toolkit: FloatEditor_Value")
 
 TEST_CASE("toolkit: IntEditor_Value")
 {
-    auto editor = MakeRef<IntEditor>(DefaultAllocator(), StringView(u8"Count"), i64{ 42 });
+    auto editor = MakeRef<IntEditor>(DefaultAllocator(), StringView(u8"Count"), i64{42});
     CHECK(editor->Value() == 42);
     editor->SetValue(100);
     CHECK(editor->Value() == 100);
@@ -325,7 +326,8 @@ TEST_CASE("toolkit: IntEditor_Value")
 
 TEST_CASE("toolkit: StringEditor_Value")
 {
-    auto editor = MakeRef<StringEditor>(DefaultAllocator(), StringView(u8"Name"), StringView(u8"Hello"));
+    auto editor =
+        MakeRef<StringEditor>(DefaultAllocator(), StringView(u8"Name"), StringView(u8"Hello"));
     CHECK(editor->Value() == StringView(u8"Hello"));
     editor->SetValue(u8"World");
     CHECK(editor->Value() == StringView(u8"World"));
@@ -333,8 +335,9 @@ TEST_CASE("toolkit: StringEditor_Value")
 
 TEST_CASE("toolkit: EnumEditor_Value")
 {
-    StringView items[] = { u8"Off", u8"On", u8"Auto" };
-    auto editor = MakeRef<EnumEditor>(DefaultAllocator(), StringView(u8"Mode"), i32{ 1 }, Span<const StringView>(items, 3));
+    StringView items[] = {u8"Off", u8"On", u8"Auto"};
+    auto editor = MakeRef<EnumEditor>(DefaultAllocator(), StringView(u8"Mode"), i32{1},
+                                      Span<const StringView>(items, 3));
     CHECK(editor->Value() == 1);
     editor->SetValue(2);
     CHECK(editor->Value() == 2);
@@ -342,7 +345,8 @@ TEST_CASE("toolkit: EnumEditor_Value")
 
 TEST_CASE("toolkit: RangeEditor_Value")
 {
-    auto editor = MakeRef<RangeEditor>(DefaultAllocator(), StringView(u8"Volume"), 0.5f, 0.0f, 1.0f);
+    auto editor =
+        MakeRef<RangeEditor>(DefaultAllocator(), StringView(u8"Volume"), 0.5f, 0.0f, 1.0f);
     CHECK(Abs(editor->Value() - 0.5f) < 0.01f);
     editor->SetValue(0.8f);
     CHECK(Abs(editor->Value() - 0.8f) < 0.01f);
@@ -350,7 +354,8 @@ TEST_CASE("toolkit: RangeEditor_Value")
 
 TEST_CASE("toolkit: ColorEditor_Value")
 {
-    auto editor = MakeRef<ColorEditor>(DefaultAllocator(), StringView(u8"Tint"), Rgb(255, 0, 0, 255));
+    auto editor =
+        MakeRef<ColorEditor>(DefaultAllocator(), StringView(u8"Tint"), Rgb(255, 0, 0, 255));
     CHECK(editor->Value().r == 1.0f);
     CHECK(editor->Value().g == 0);
     editor->SetValue(Rgb(0, 255, 0, 255));
@@ -359,11 +364,12 @@ TEST_CASE("toolkit: ColorEditor_Value")
 
 TEST_CASE("toolkit: Float3Editor_Value")
 {
-    auto editor = MakeRef<Float3Editor>(DefaultAllocator(), StringView(u8"Position"), Float3{ 1, 2, 3 });
+    auto editor =
+        MakeRef<Float3Editor>(DefaultAllocator(), StringView(u8"Position"), Float3{1, 2, 3});
     CHECK(editor->Value().x == 1);
     CHECK(editor->Value().y == 2);
     CHECK(editor->Value().z == 3);
-    editor->SetValue(Float3{ 4, 5, 6 });
+    editor->SetValue(Float3{4, 5, 6});
     CHECK(editor->Value().x == 4);
 }
 

@@ -11,8 +11,8 @@ module;
 
 export module draconic.gui:linear_gradient_drawable;
 
-import draconic.core;    // Color, Float2, Array, Cos/Sin, Max
-import draconic.vg;      // VGLinearGradientFill, GradientStop, PathBuilder
+import draconic.core; // Color, Float2, Array, Cos/Sin, Max
+import draconic.vg;   // VGLinearGradientFill, GradientStop, PathBuilder
 import :rect;
 import :draw_context;
 import :drawable;
@@ -31,7 +31,7 @@ export namespace draconic::gui
 
         LinearGradientDrawable() = default;
 
-        void AddStop(f32 offset, Color color) { m_stops.PushBack(vg::GradientStop{ offset, color }); }
+        void AddStop(f32 offset, Color color) { m_stops.PushBack(vg::GradientStop{offset, color}); }
         void ClearStops() { m_stops.Clear(); }
         [[nodiscard]] usize StopCount() const noexcept { return m_stops.Size(); }
 
@@ -41,14 +41,14 @@ export namespace draconic::gui
                 return;
 
             // Endpoints span the box along the gradient axis (through the center).
-            const core::Float2 dir{ core::Cos(Angle), core::Sin(Angle) };
+            const core::Float2 dir{core::Cos(Angle), core::Sin(Angle)};
             const core::Float2 center = dest.Center();
-            const f32 half = dest.width * 0.5f * (dir.x < 0.0f ? -dir.x : dir.x)
-                           + dest.height * 0.5f * (dir.y < 0.0f ? -dir.y : dir.y);
+            const f32 half = dest.width * 0.5f * (dir.x < 0.0f ? -dir.x : dir.x) +
+                             dest.height * 0.5f * (dir.y < 0.0f ? -dir.y : dir.y);
             const core::Float2 from = center - dir * half;
             const core::Float2 to = center + dir * half;
 
-            vg::VGLinearGradientFill fill{ from, to };
+            vg::VGLinearGradientFill fill{from, to};
             for (const vg::GradientStop& stop : m_stops)
                 fill.AddStop(stop.offset, stop.color);
 

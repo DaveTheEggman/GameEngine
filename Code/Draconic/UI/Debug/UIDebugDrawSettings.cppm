@@ -28,8 +28,8 @@ export namespace draconic::ui
         /// True if any debug flag is enabled.
         [[nodiscard]] constexpr bool AnyEnabled() const noexcept
         {
-            return ShowBounds || ShowPadding || ShowMargin ||
-                   ShowZOrder || ShowHitTarget || ShowFocusPath || ShowTabOrder;
+            return ShowBounds || ShowPadding || ShowMargin || ShowZOrder || ShowHitTarget ||
+                   ShowFocusPath || ShowTabOrder;
         }
     };
 }

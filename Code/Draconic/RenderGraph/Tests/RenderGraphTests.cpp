@@ -44,7 +44,7 @@ TEST_CASE("rg.resource: tracking + totals from descriptor")
     res.textureDesc.mipLevelCount = 4;
     res.textureDesc.arrayLayerCount = 6;
 
-    CHECK(res.TotalMipLevels() == 4u);     // no GPU texture -> from descriptor
+    CHECK(res.TotalMipLevels() == 4u); // no GPU texture -> from descriptor
     CHECK(res.TotalArrayLayers() == 6u);
 
     res.refCount = 3;

@@ -33,7 +33,7 @@ export namespace draconic::ui
     {
         DRACONIC_OBJECT(ButtonBase, View)
     public:
-        ICommand* Command = nullptr;              ///< Optional command binding.
+        ICommand* Command = nullptr; ///< Optional command binding.
         Event<void(ButtonBase*)> OnClick;
 
         [[nodiscard]] bool IsPressed() const noexcept { return m_isPressed; }
@@ -41,25 +41,51 @@ export namespace draconic::ui
         [[nodiscard]] ControlState GetControlState() const override
         {
             ControlState state = ControlState::Normal;
-            if (!IsEffectivelyEnabled() || (Command != nullptr && !Command->CanExecute())) { state |= ControlState::Disabled; }
-            if (m_isPressed) { state |= ControlState::Pressed; }
-            if (IsFocused()) { state |= ControlState::Focused; }
-            if (IsHovered()) { state |= ControlState::Hover; }
+            if (!IsEffectivelyEnabled() || (Command != nullptr && !Command->CanExecute()))
+            {
+                state |= ControlState::Disabled;
+            }
+            if (m_isPressed)
+            {
+                state |= ControlState::Pressed;
+            }
+            if (IsFocused())
+            {
+                state |= ControlState::Focused;
+            }
+            if (IsHovered())
+            {
+                state |= ControlState::Hover;
+            }
             return state;
         }
 
         /// Fire the click event and execute the bound command.
         void FireClick()
         {
-            if (!IsEffectivelyEnabled()) { return; }
-            if (Command != nullptr && !Command->CanExecute()) { return; }
+            if (!IsEffectivelyEnabled())
+            {
+                return;
+            }
+            if (Command != nullptr && !Command->CanExecute())
+            {
+                return;
+            }
             OnClick.Invoke(this);
-            if (Command != nullptr) { Command->Execute(); }
+            if (Command != nullptr)
+            {
+                Command->Execute();
+            }
         }
 
         void OnMouseDown(MouseEventArgs& e) override
         {
-            if (e.Button == MouseButton::Left) { m_isPressed = true; Invalidate(); e.Handled = true; }
+            if (e.Button == MouseButton::Left)
+            {
+                m_isPressed = true;
+                Invalidate();
+                e.Handled = true;
+            }
         }
         void OnMouseUp(MouseEventArgs& e) override
         {
@@ -67,31 +93,64 @@ export namespace draconic::ui
             {
                 m_isPressed = false;
                 Invalidate();
-                if (IsHovered()) { FireClick(); }
+                if (IsHovered())
+                {
+                    FireClick();
+                }
                 e.Handled = true;
             }
         }
         void OnKeyDown(KeyEventArgs& e) override
         {
-            if (e.Key == KeyCode::Return || e.Key == KeyCode::Space) { FireClick(); e.Handled = true; }
+            if (e.Key == KeyCode::Return || e.Key == KeyCode::Space)
+            {
+                FireClick();
+                e.Handled = true;
+            }
         }
         void OnActivate() override { FireClick(); }
 
     protected:
-        ButtonBase() { IsFocusable = true; IsTabStop = true; }
+        ButtonBase()
+        {
+            IsFocusable = true;
+            IsTabStop = true;
+        }
 
         /// Draw button chrome: the resolved Background drawable, or a state-tinted default rounded rect.
         void DrawButtonBackground(UIDrawContext& ctx, const Rectangle& bounds, ControlState state)
         {
-            if (Drawable* bg = ResolveStyleDrawable(StyleProperty::Background)) { bg->Draw(ctx, bounds, state); return; }
+            if (Drawable* bg = ResolveStyleDrawable(StyleProperty::Background))
+            {
+                bg->Draw(ctx, bounds, state);
+                return;
+            }
             const f32 radius = ResolveStyleFloat(StyleProperty::CornerRadius, 4.0f);
-            Color bg{ 55.0f / 255.0f, 58.0f / 255.0f, 70.0f / 255.0f, 1.0f };
-            if (HasFlag(state, ControlState::Disabled))     { bg = Palette::ComputeDisabled(bg); }
-            else if (HasFlag(state, ControlState::Pressed)) { bg = Palette::ComputePressed(bg); }
-            else if (HasFlag(state, ControlState::Focused)) { bg = Palette::ComputeFocused(bg); }
-            else if (HasFlag(state, ControlState::Hover))   { bg = Palette::ComputeHover(bg); }
-            if (radius > 0) { ctx.VG().FillRoundedRect(bounds, radius, bg); }
-            else { ctx.VG().FillRect(bounds, bg); }
+            Color bg{55.0f / 255.0f, 58.0f / 255.0f, 70.0f / 255.0f, 1.0f};
+            if (HasFlag(state, ControlState::Disabled))
+            {
+                bg = Palette::ComputeDisabled(bg);
+            }
+            else if (HasFlag(state, ControlState::Pressed))
+            {
+                bg = Palette::ComputePressed(bg);
+            }
+            else if (HasFlag(state, ControlState::Focused))
+            {
+                bg = Palette::ComputeFocused(bg);
+            }
+            else if (HasFlag(state, ControlState::Hover))
+            {
+                bg = Palette::ComputeHover(bg);
+            }
+            if (radius > 0)
+            {
+                ctx.VG().FillRoundedRect(bounds, radius, bg);
+            }
+            else
+            {
+                ctx.VG().FillRect(bounds, bg);
+            }
         }
 
     private:

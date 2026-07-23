@@ -10,7 +10,7 @@ using namespace draconic::image;
 
 TEST_CASE("image: procedural create + pixel access")
 {
-    Image img = Image::CreateSolidColor(4, 4, Color32{ 10, 20, 30, 255 });
+    Image img = Image::CreateSolidColor(4, 4, Color32{10, 20, 30, 255});
     CHECK(img.Width() == 4u);
     CHECK(img.Height() == 4u);
     CHECK(img.Format() == PixelFormat::RGBA8);
@@ -32,5 +32,5 @@ TEST_CASE("image: save PNG and reload via stb")
     REQUIRE(io::LoadImage(path, loaded).IsOk());
     CHECK(loaded.Width() == 64u);
     CHECK(loaded.Height() == 64u);
-    CHECK(loaded.Format() == PixelFormat::RGBA8);   // stb loads as RGBA8
+    CHECK(loaded.Format() == PixelFormat::RGBA8); // stb loads as RGBA8
 }

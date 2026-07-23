@@ -19,8 +19,11 @@ export namespace draconic::ui
     class ColorAnimation : public Animation
     {
     public:
-        ColorAnimation(Color from, Color to, f32 duration, Function<void(Color)> setter, EasingFunction easing = nullptr)
-            : Animation(duration, easing), m_from(from), m_to(to), m_setter(Move(setter)) {}
+        ColorAnimation(Color from, Color to, f32 duration, Function<void(Color)> setter,
+                       EasingFunction easing = nullptr)
+            : Animation(duration, easing), m_from(from), m_to(to), m_setter(Move(setter))
+        {
+        }
 
         [[nodiscard]] Color From() const noexcept { return m_from; }
         [[nodiscard]] Color To() const noexcept { return m_to; }

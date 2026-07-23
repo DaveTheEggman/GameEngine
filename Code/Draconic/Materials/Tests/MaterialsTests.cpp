@@ -18,23 +18,24 @@ namespace shaders = draconic::shaders;
 
 TEST_CASE("material builder: lays out uniforms + declares properties")
 {
-    RefPtr<Material> mat = MaterialBuilder(u8"pbr")
-        .Shader(u8"forward")
-        .Flags(shaders::ShaderFlags::NormalMap)
-        .Color(u8"baseColor", Float4{ 1, 0, 0, 1 })   // float4 -> 16 bytes, offset 0
-        .Float(u8"roughness", 0.5f)                  // float  ->  4 bytes, offset 16
-        .Texture(u8"albedoMap")
-        .Texture(u8"normalMap")
-        .Sampler(u8"linearSampler")
-        .Build();
+    RefPtr<Material> mat =
+        MaterialBuilder(u8"pbr")
+            .Shader(u8"forward")
+            .Flags(shaders::ShaderFlags::NormalMap)
+            .Color(u8"baseColor", Float4{1, 0, 0, 1}) // float4 -> 16 bytes, offset 0
+            .Float(u8"roughness", 0.5f)               // float  ->  4 bytes, offset 16
+            .Texture(u8"albedoMap")
+            .Texture(u8"normalMap")
+            .Sampler(u8"linearSampler")
+            .Build();
 
     REQUIRE(mat);
     CHECK(mat->IsValid());
     CHECK(mat->shaderName == u8"forward");
     CHECK(mat->shaderFlags == shaders::ShaderFlags::NormalMap);
-    CHECK(mat->pipeline.shaderName == u8"forward");          // pipeline mirrors shader id
+    CHECK(mat->pipeline.shaderName == u8"forward"); // pipeline mirrors shader id
     CHECK(mat->PropertyCount() == 5);
-    CHECK(mat->UniformDataSize() == 20);                     // 16 (float4) + 4 (float)
+    CHECK(mat->UniformDataSize() == 20); // 16 (float4) + 4 (float)
 
     CHECK(mat->GetPropertyIndex(u8"roughness") == 1);
     CHECK(mat->GetPropertyIndex(u8"missing") == -1);
@@ -61,11 +62,11 @@ TEST_CASE("material system: infers bind-group layout from properties + builds in
     CHECK(system.NormalTexture() != nullptr);
 
     RefPtr<Material> mat = MaterialBuilder(u8"lit")
-        .Shader(u8"forward")
-        .Color(u8"tint", Float4{ 1, 1, 1, 1 })
-        .Texture(u8"albedoMap")
-        .Sampler(u8"samp")
-        .Build();
+                               .Shader(u8"forward")
+                               .Color(u8"tint", Float4{1, 1, 1, 1})
+                               .Texture(u8"albedoMap")
+                               .Sampler(u8"samp")
+                               .Build();
     REQUIRE(mat);
 
     // layout is cached: same material -> same pointer
@@ -90,22 +91,22 @@ TEST_CASE("material instance: overrides notify the system + re-prep is driven by
     REQUIRE(system.Initialize(device).IsOk());
 
     RefPtr<Material> mat = MaterialBuilder(u8"lit")
-        .Shader(u8"forward")
-        .Float(u8"roughness", 0.5f)
-        .Texture(u8"albedoMap")
-        .Build();
+                               .Shader(u8"forward")
+                               .Float(u8"roughness", 0.5f)
+                               .Texture(u8"albedoMap")
+                               .Build();
     REQUIRE(mat);
 
     MaterialInstance inst(mat.Get());
-    REQUIRE(system.PrepareInstance(inst) != nullptr);   // clears dirty + registers sink
+    REQUIRE(system.PrepareInstance(inst) != nullptr); // clears dirty + registers sink
 
     // overriding a uniform marks it dirty and enqueues exactly one dirty entry
     inst.SetFloat(u8"roughness", 0.9f);
     CHECK(inst.IsUniformDirty());
-    inst.SetFloat(u8"roughness", 0.8f);                 // second set: still one enqueue
+    inst.SetFloat(u8"roughness", 0.8f); // second set: still one enqueue
 
     system.PrepareDirtyInstances();
-    CHECK_FALSE(inst.IsUniformDirty());                 // drained + re-prepped
+    CHECK_FALSE(inst.IsUniformDirty()); // drained + re-prepped
 
     // the override is the effective value (0.8), not the material default (0.5)
     const Span<const u8> data = inst.UniformData();
@@ -126,9 +127,9 @@ TEST_CASE("pipeline config: content hash + equality distinguish render state")
     CHECK(a.HashCode() == b.HashCode());
 
     PipelineConfig c = PipelineConfig::ForTransparentMesh(u8"forward");
-    CHECK_FALSE(a == c);                                 // blend/depth differ
+    CHECK_FALSE(a == c); // blend/depth differ
     CHECK(a.HashCode() != c.HashCode());
 
-    CHECK(VertexLayoutHelper::Stride(VertexLayoutType::Mesh) == 52);   // Float4 tangent
+    CHECK(VertexLayoutHelper::Stride(VertexLayoutType::Mesh) == 52); // Float4 tangent
     CHECK(VertexLayoutHelper::Attributes(VertexLayoutType::Mesh).Size() == 5);
 }

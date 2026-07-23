@@ -9,10 +9,10 @@ module;
 
 export module draconic.ui:flow_layout;
 
-import draconic.core;   // Max, kFloatMax
+import draconic.core; // Max, kFloatMax
 import :view;
 import :box_constraints;
-import :enums;          // Orientation
+import :enums; // Orientation
 
 using namespace draconic::core;
 
@@ -33,28 +33,46 @@ export namespace draconic::ui
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
-            if (Orientation == OrientationValue::Horizontal) { MeasureHorizontal(constraints); }
-            else { MeasureVertical(constraints); }
+            if (Orientation == OrientationValue::Horizontal)
+            {
+                MeasureHorizontal(constraints);
+            }
+            else
+            {
+                MeasureVertical(constraints);
+            }
         }
 
         void OnLayout(f32 left, f32 top, f32 width, f32 height) override
         {
-            (void)left; (void)top;
-            if (Orientation == OrientationValue::Horizontal) { LayoutHorizontal(width, height); }
-            else { LayoutVertical(width, height); }
+            (void)left;
+            (void)top;
+            if (Orientation == OrientationValue::Horizontal)
+            {
+                LayoutHorizontal(width, height);
+            }
+            else
+            {
+                LayoutVertical(width, height);
+            }
         }
 
     private:
         void MeasureHorizontal(BoxConstraints constraints)
         {
-            const f32 maxWidth = (constraints.MaxWidth < kFloatMax) ? constraints.MaxWidth - Padding.TotalHorizontal() : 100000.0f;
+            const f32 maxWidth = (constraints.MaxWidth < kFloatMax)
+                                     ? constraints.MaxWidth - Padding.TotalHorizontal()
+                                     : 100000.0f;
             f32 lineW = 0, lineH = 0, totalW = 0, totalH = 0;
             bool firstInLine = true;
 
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 View* child = GetChildAt(i);
-                if (child->Visibility == Visibility::Gone) { continue; }
+                if (child->Visibility == Visibility::Gone)
+                {
+                    continue;
+                }
                 child->Measure(BoxConstraints::Expand());
                 const f32 cw = child->MeasuredSize.x;
                 const f32 ch = child->MeasuredSize.y;
@@ -63,9 +81,14 @@ export namespace draconic::ui
                 {
                     totalW = Max(totalW, lineW);
                     totalH += lineH + VSpacing;
-                    lineW = 0; lineH = 0; firstInLine = true;
+                    lineW = 0;
+                    lineH = 0;
+                    firstInLine = true;
                 }
-                if (!firstInLine) { lineW += HSpacing; }
+                if (!firstInLine)
+                {
+                    lineW += HSpacing;
+                }
                 lineW += cw;
                 lineH = Max(lineH, ch);
                 firstInLine = false;
@@ -73,20 +96,25 @@ export namespace draconic::ui
             totalW = Max(totalW, lineW);
             totalH += lineH;
 
-            MeasuredSize = Float2{ constraints.ConstrainWidth(totalW + Padding.TotalHorizontal()),
-                                   constraints.ConstrainHeight(totalH + Padding.TotalVertical()) };
+            MeasuredSize = Float2{constraints.ConstrainWidth(totalW + Padding.TotalHorizontal()),
+                                  constraints.ConstrainHeight(totalH + Padding.TotalVertical())};
         }
 
         void MeasureVertical(BoxConstraints constraints)
         {
-            const f32 maxHeight = (constraints.MaxHeight < kFloatMax) ? constraints.MaxHeight - Padding.TotalVertical() : 100000.0f;
+            const f32 maxHeight = (constraints.MaxHeight < kFloatMax)
+                                      ? constraints.MaxHeight - Padding.TotalVertical()
+                                      : 100000.0f;
             f32 colW = 0, colH = 0, totalW = 0, totalH = 0;
             bool firstInCol = true;
 
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 View* child = GetChildAt(i);
-                if (child->Visibility == Visibility::Gone) { continue; }
+                if (child->Visibility == Visibility::Gone)
+                {
+                    continue;
+                }
                 child->Measure(BoxConstraints::Expand());
                 const f32 cw = child->MeasuredSize.x;
                 const f32 ch = child->MeasuredSize.y;
@@ -95,9 +123,14 @@ export namespace draconic::ui
                 {
                     totalH = Max(totalH, colH);
                     totalW += colW + HSpacing;
-                    colW = 0; colH = 0; firstInCol = true;
+                    colW = 0;
+                    colH = 0;
+                    firstInCol = true;
                 }
-                if (!firstInCol) { colH += VSpacing; }
+                if (!firstInCol)
+                {
+                    colH += VSpacing;
+                }
                 colH += ch;
                 colW = Max(colW, cw);
                 firstInCol = false;
@@ -105,8 +138,8 @@ export namespace draconic::ui
             totalH = Max(totalH, colH);
             totalW += colW;
 
-            MeasuredSize = Float2{ constraints.ConstrainWidth(totalW + Padding.TotalHorizontal()),
-                                   constraints.ConstrainHeight(totalH + Padding.TotalVertical()) };
+            MeasuredSize = Float2{constraints.ConstrainWidth(totalW + Padding.TotalHorizontal()),
+                                  constraints.ConstrainHeight(totalH + Padding.TotalVertical())};
         }
 
         void LayoutHorizontal(f32 width, f32 height)
@@ -121,7 +154,10 @@ export namespace draconic::ui
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 View* child = GetChildAt(i);
-                if (child->Visibility == Visibility::Gone) { continue; }
+                if (child->Visibility == Visibility::Gone)
+                {
+                    continue;
+                }
                 const f32 cw = child->MeasuredSize.x;
                 const f32 ch = child->MeasuredSize.y;
 
@@ -129,9 +165,13 @@ export namespace draconic::ui
                 {
                     yPos += lineH + VSpacing;
                     xPos = Padding.Left;
-                    lineH = 0; firstInLine = true;
+                    lineH = 0;
+                    firstInLine = true;
                 }
-                if (!firstInLine) { xPos += HSpacing; }
+                if (!firstInLine)
+                {
+                    xPos += HSpacing;
+                }
                 child->Layout(xPos, yPos, cw, ch);
                 xPos += cw;
                 lineH = Max(lineH, ch);
@@ -151,7 +191,10 @@ export namespace draconic::ui
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 View* child = GetChildAt(i);
-                if (child->Visibility == Visibility::Gone) { continue; }
+                if (child->Visibility == Visibility::Gone)
+                {
+                    continue;
+                }
                 const f32 cw = child->MeasuredSize.x;
                 const f32 ch = child->MeasuredSize.y;
 
@@ -159,9 +202,13 @@ export namespace draconic::ui
                 {
                     xPos += colW + HSpacing;
                     yPos = Padding.Top;
-                    colW = 0; firstInCol = true;
+                    colW = 0;
+                    firstInCol = true;
                 }
-                if (!firstInCol) { yPos += VSpacing; }
+                if (!firstInCol)
+                {
+                    yPos += VSpacing;
+                }
                 child->Layout(xPos, yPos, cw, ch);
                 yPos += ch;
                 colW = Max(colW, cw);

@@ -25,7 +25,7 @@ TEST_CASE("toolkit-toasthost: TimedExpiryAndStickiness")
     ToastRequest sticky;
     sticky.message = String(u8"cook FAILED");
     sticky.severity = ToastSeverity::Error;
-    sticky.durationSeconds = 0.0f;   // sticky
+    sticky.durationSeconds = 0.0f; // sticky
     const u64 b = host->Show(Move(sticky));
 
     CHECK(host->ToastCount() == 2u);
@@ -34,12 +34,15 @@ TEST_CASE("toolkit-toasthost: TimedExpiryAndStickiness")
     CHECK(host->Contains(b));
 
     host->Update(0.5f);
-    CHECK(host->ToastCount() == 2u);   // not yet
-    host->Update(0.6f);                // a crosses 1s
+    CHECK(host->ToastCount() == 2u); // not yet
+    host->Update(0.6f);              // a crosses 1s
     CHECK(!host->Contains(a));
     CHECK(host->Contains(b));
 
-    for (int i = 0; i < 100; ++i) { host->Update(1.0f); }   // sticky never expires
+    for (int i = 0; i < 100; ++i)
+    {
+        host->Update(1.0f);
+    } // sticky never expires
     CHECK(host->Contains(b));
 
     // Dismiss defers removal to the next Update (mutation-queue rule without the queue).
@@ -59,19 +62,19 @@ TEST_CASE("toolkit-toasthost: ActionAndCloseButtons")
     request.durationSeconds = 0.0f;
     request.actionLabel = String(u8"Show");
     bool fired = false;
-    request.onAction = Function<void()>{ [&fired]() { fired = true; } };
+    request.onAction = Function<void()>{[&fired]() { fired = true; }};
     (void)host->Show(Move(request));
 
     auto* card = Cast<ViewGroup>(host->GetChildAt(0));
     REQUIRE(card != nullptr);
-    REQUIRE(card->ChildCount() == 3u);   // message + action + close
+    REQUIRE(card->ChildCount() == 3u); // message + action + close
     auto* action = Cast<Button>(card->GetChildAt(1));
     REQUIRE(action != nullptr);
     action->OnClick.Invoke(action);
     CHECK(fired);
-    CHECK(host->ToastCount() == 1u);   // still live until Update
+    CHECK(host->ToastCount() == 1u); // still live until Update
     host->Update(0.0f);
-    CHECK(host->ToastCount() == 0u);   // action also closes the toast
+    CHECK(host->ToastCount() == 0u); // action also closes the toast
 
     // Without an action label there is no action button; close works the same way.
     ToastRequest plain;
@@ -80,7 +83,7 @@ TEST_CASE("toolkit-toasthost: ActionAndCloseButtons")
     (void)host->Show(Move(plain));
     card = Cast<ViewGroup>(host->GetChildAt(0));
     REQUIRE(card != nullptr);
-    REQUIRE(card->ChildCount() == 2u);   // message + close
+    REQUIRE(card->ChildCount() == 2u); // message + close
     auto* close = Cast<Button>(card->GetChildAt(1));
     REQUIRE(close != nullptr);
     close->OnClick.Invoke(close);
@@ -91,7 +94,7 @@ TEST_CASE("toolkit-toasthost: ActionAndCloseButtons")
 TEST_CASE("toolkit-toasthost: BottomRightStacking")
 {
     auto host = core::MakeRef<ToastHost>(core::DefaultAllocator());
-    CHECK(!host->IsHitTestVisible);   // pass-through outside the cards
+    CHECK(!host->IsHitTestVisible); // pass-through outside the cards
 
     ToastRequest first;
     first.message = String(u8"older");
@@ -104,7 +107,7 @@ TEST_CASE("toolkit-toasthost: BottomRightStacking")
 
     host->Measure(BoxConstraints::Tight(800.0f, 600.0f));
     host->Layout(0, 0, 800.0f, 600.0f);
-    CHECK(host->Width() == 800.0f);   // fills the viewport
+    CHECK(host->Width() == 800.0f); // fills the viewport
 
     View* older = host->GetChildAt(0);
     View* newest = host->GetChildAt(1);

@@ -60,11 +60,11 @@ TEST_CASE("editor-camera: orientation basis stays orthonormal under yaw/pitch")
 TEST_CASE("editor-camera: LookAt aims forward at the target with a level horizon")
 {
     EditorCamera cam;
-    cam.position = Float3{ 6.0f, 5.0f, 10.0f };
-    cam.LookAt(Float3{ 0.0f, 0.0f, 0.0f });
+    cam.position = Float3{6.0f, 5.0f, 10.0f};
+    cam.LookAt(Float3{0.0f, 0.0f, 0.0f});
 
     // Forward matches the normalized direction to the target.
-    const Float3 toTarget = Normalized(Float3{ -6.0f, -5.0f, -10.0f });
+    const Float3 toTarget = Normalized(Float3{-6.0f, -5.0f, -10.0f});
     const Float3 f = cam.Forward();
     CHECK(f.x == doctest::Approx(toTarget.x).epsilon(0.001f));
     CHECK(f.y == doctest::Approx(toTarget.y).epsilon(0.001f));
@@ -83,9 +83,9 @@ TEST_CASE("editor-camera: LookAt aims forward at the target with a level horizon
 
     // Degenerate target (== position) is a safe no-op.
     EditorCamera still;
-    still.position = Float3{ 1.0f, 2.0f, 3.0f };
+    still.position = Float3{1.0f, 2.0f, 3.0f};
     const f32 yawBefore = still.yaw;
-    still.LookAt(Float3{ 1.0f, 2.0f, 3.0f });
+    still.LookAt(Float3{1.0f, 2.0f, 3.0f});
     CHECK(still.yaw == yawBefore);
 }
 
@@ -143,7 +143,7 @@ TEST_CASE("hierarchy: collapse state survives snapshot rebuilds")
 
     auto* flat = hierarchy.Tree()->InternalTreeView()->FlatAdapter();
     REQUIRE(flat != nullptr);
-    CHECK(flat->ItemCount() == 3);   // Parent (expanded) + Child + Sibling
+    CHECK(flat->ItemCount() == 3); // Parent (expanded) + Child + Sibling
 
     // Collapse Parent (pre-order nodeId 0), then force a rebuild by editing the scene.
     flat->Collapse(0);
@@ -153,7 +153,7 @@ TEST_CASE("hierarchy: collapse state survives snapshot rebuilds")
 
     // SetAdapter recreated the flat view; Parent must STAY collapsed, new root visible.
     flat = hierarchy.Tree()->InternalTreeView()->FlatAdapter();
-    CHECK(flat->ItemCount() == 3);   // Parent (collapsed) + Sibling + Another
+    CHECK(flat->ItemCount() == 3); // Parent (collapsed) + Sibling + Another
     CHECK_FALSE(flat->IsExpanded(0));
 
     // Re-expanding sticks across the next rebuild too.
@@ -213,12 +213,11 @@ TEST_CASE("hierarchy: selection survives snapshot rebuilds")
     const Guid c = edit.CreateEntity(u8"C");
     hierarchy.Refresh();
 
-    auto selectedPos = [&]() {
-        return hierarchy.Tree()->InternalTreeView()->InternalListView()->Selection.FirstSelected();
-    };
+    auto selectedPos = [&]()
+    { return hierarchy.Tree()->InternalTreeView()->InternalListView()->Selection.FirstSelected(); };
 
     edit.EntitySelection().Set(b);
-    REQUIRE(selectedPos() == 1);   // rows: A=0, B=1, C=2
+    REQUIRE(selectedPos() == 1); // rows: A=0, B=1, C=2
 
     // Rename another entity (revision bump).
     edit.RenameEntity(a, u8"A2");
@@ -235,13 +234,13 @@ TEST_CASE("hierarchy: selection survives snapshot rebuilds")
     edit.DestroyEntity(a);
     hierarchy.Refresh();
     CHECK(edit.EntitySelection().Contains(b));
-    CHECK(selectedPos() == 0);   // rows now: B=0, C=1
+    CHECK(selectedPos() == 0); // rows now: B=0, C=1
 
     // Reparent B under C (keep-world): B stays selected at its new position in the tree.
     edit.ReparentEntity(b, c);
     hierarchy.Refresh();
     CHECK(edit.EntitySelection().Contains(b));
-    CHECK(selectedPos() == 1);   // rows: C=0, B (child)=1
+    CHECK(selectedPos() == 1); // rows: C=0, B (child)=1
 
     // Undo the reparent: still selected AND back in its exact old slot (before C) - the
     // undo used to append to the end of the root list, visually teleporting the row.
@@ -274,9 +273,14 @@ TEST_CASE("scene-editor: a new scene instance is seeded with a directional Sun")
     REQUIRE(draconic::scene::LoadScene(*instance, loaded).IsOk());
 
     draconic::scene::EntityHandle sun{};
-    loaded.ForEachEntity([&](draconic::scene::EntityHandle e) {
-        if (loaded.GetEntityName(e) == u8"Sun") { sun = e; }
-    });
+    loaded.ForEachEntity(
+        [&](draconic::scene::EntityHandle e)
+        {
+            if (loaded.GetEntityName(e) == u8"Sun")
+            {
+                sun = e;
+            }
+        });
     REQUIRE(sun.IsAssigned());
     auto* lights = loaded.GetSystem<draconic::render::LightComponentManager>();
     draconic::render::LightComponent* light = lights->Get(sun);
@@ -285,7 +289,7 @@ TEST_CASE("scene-editor: a new scene instance is seeded with a directional Sun")
     CHECK(light->castsShadows);
     // Angled, not identity: the light's forward must have a downward component.
     const Transform t = loaded.GetLocalTransform(sun);
-    const Float3 forward = RotateVector(t.rotation, Float3{ 0, 0, -1 });
+    const Float3 forward = RotateVector(t.rotation, Float3{0, 0, -1});
     CHECK(forward.y < -0.5f);
 
     RemoveProjectTree(dir);

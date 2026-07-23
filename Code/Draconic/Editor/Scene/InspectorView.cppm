@@ -61,16 +61,24 @@ export namespace draconic::editor
     {
         DRACONIC_OBJECT(ResourceRefEditor, ui::toolkit::PropertyEditor)
     public:
-        Function<void()> OnPick;   // opens the picker (wired by the inspector)
+        Function<void()> OnPick; // opens the picker (wired by the inspector)
 
         ResourceRefEditor(StringView name, StringView valueText, StringView category)
-            : ui::toolkit::PropertyEditor(name, category), m_valueText(valueText) {}
+            : ui::toolkit::PropertyEditor(name, category), m_valueText(valueText)
+        {
+        }
 
         void SetValueText(StringView text)
         {
-            if (m_valueText.AsView() == text) { return; }
+            if (m_valueText.AsView() == text)
+            {
+                return;
+            }
             m_valueText = String(text);
-            if (m_button.Get() != nullptr) { m_button->SetText(m_valueText.AsView()); }
+            if (m_button.Get() != nullptr)
+            {
+                m_button->SetText(m_valueText.AsView());
+            }
         }
 
         void RefreshView() override {}
@@ -80,7 +88,14 @@ export namespace draconic::editor
         {
             m_button = MakeRef<ui::Button>(DefaultAllocator(), m_valueText.AsView());
             ResourceRefEditor* self = this;
-            m_button->OnClick.Add([self](ui::ButtonBase*) { if (self->OnPick) { self->OnPick(); } });
+            m_button->OnClick.Add(
+                [self](ui::ButtonBase*)
+                {
+                    if (self->OnPick)
+                    {
+                        self->OnPick();
+                    }
+                });
             return RefPtr<ui::View>(m_button.Get());
         }
 
@@ -88,7 +103,6 @@ export namespace draconic::editor
         String m_valueText;
         RefPtr<ui::Button> m_button;
     };
-
 
     // --- Property-attribute conventions (reflection PropAttribute metadata -> inspector) ---
     //
@@ -101,42 +115,79 @@ export namespace draconic::editor
     /// Parsed "visibleWhen" condition.
     struct PropertyCondition
     {
-        String prop;        // the dependent property's reflected name
-        Array<i64> values;  // empty = truthy test
+        String prop;       // the dependent property's reflected name
+        Array<i64> values; // empty = truthy test
     };
 
     [[nodiscard]] inline bool ParsePropertyCondition(StringView spec, PropertyCondition& out)
     {
         const utf8char* d = spec.Data();
         usize eq = spec.Size();
-        for (usize i = 0; i < spec.Size(); ++i) { if (d[i] == u8'=') { eq = i; break; } }
-        if (eq == 0) { return false; }
+        for (usize i = 0; i < spec.Size(); ++i)
+        {
+            if (d[i] == u8'=')
+            {
+                eq = i;
+                break;
+            }
+        }
+        if (eq == 0)
+        {
+            return false;
+        }
         out.prop = String(spec.SubStr(0, eq));
         out.values.Clear();
-        if (eq == spec.Size()) { return true; }   // truthy form
+        if (eq == spec.Size())
+        {
+            return true;
+        } // truthy form
         i64 value = 0;
         bool negative = false;
         bool any = false;
         for (usize i = eq + 1; i <= spec.Size(); ++i)
         {
-            const utf8char c = (i < spec.Size()) ? d[i] : u8',';   // sentinel comma flushes
+            const utf8char c = (i < spec.Size()) ? d[i] : u8','; // sentinel comma flushes
             if (c == u8',')
             {
-                if (!any) { return false; }
+                if (!any)
+                {
+                    return false;
+                }
                 out.values.PushBack(negative ? -value : value);
-                value = 0; negative = false; any = false;
+                value = 0;
+                negative = false;
+                any = false;
             }
-            else if (c == u8'-' && !any && !negative) { negative = true; }
-            else if (c >= u8'0' && c <= u8'9') { value = value * 10 + (c - u8'0'); any = true; }
-            else { return false; }
+            else if (c == u8'-' && !any && !negative)
+            {
+                negative = true;
+            }
+            else if (c >= u8'0' && c <= u8'9')
+            {
+                value = value * 10 + (c - u8'0');
+                any = true;
+            }
+            else
+            {
+                return false;
+            }
         }
         return !out.values.IsEmpty();
     }
 
     [[nodiscard]] inline bool MatchesPropertyCondition(const PropertyCondition& condition, i64 raw)
     {
-        if (condition.values.IsEmpty()) { return raw != 0; }
-        for (i64 v : condition.values) { if (v == raw) { return true; } }
+        if (condition.values.IsEmpty())
+        {
+            return raw != 0;
+        }
+        for (i64 v : condition.values)
+        {
+            if (v == raw)
+            {
+                return true;
+            }
+        }
         return false;
     }
 
@@ -152,12 +203,18 @@ export namespace draconic::editor
             utf8char c = d[i];
             const bool upper = (c >= u8'A' && c <= u8'Z');
             const bool lower = (c >= u8'a' && c <= u8'z');
-            if (i == 0 && lower) { c = static_cast<utf8char>(c - (u8'a' - u8'A')); }
+            if (i == 0 && lower)
+            {
+                c = static_cast<utf8char>(c - (u8'a' - u8'A'));
+            }
             else if (upper)
             {
-                const bool nextLower = (i + 1 < name.Size())
-                    && (d[i + 1] >= u8'a' && d[i + 1] <= u8'z');
-                if (prevLower || (prevUpper && nextLower)) { out += u8' '; }
+                const bool nextLower =
+                    (i + 1 < name.Size()) && (d[i + 1] >= u8'a' && d[i + 1] <= u8'z');
+                if (prevLower || (prevUpper && nextLower))
+                {
+                    out += u8' ';
+                }
             }
             out += c;
             prevLower = lower;
@@ -174,14 +231,16 @@ export namespace draconic::editor
     {
         DRACONIC_OBJECT(CollisionMatrixEditor, ui::toolkit::PropertyEditor)
     public:
-        Array<String> names;                     // display names (index = group)
-        Array<u32> matrix;                       // parallel collide masks
+        Array<String> names; // display names (index = group)
+        Array<u32> matrix;   // parallel collide masks
         Function<void(usize, String)> OnRename;
-        Function<void(usize, usize)> OnToggle;   // (row group, column group)
+        Function<void(usize, usize)> OnToggle; // (row group, column group)
         Function<void()> OnAddGroup;
 
         CollisionMatrixEditor(StringView name, StringView category)
-            : ui::toolkit::PropertyEditor(name, category) {}
+            : ui::toolkit::PropertyEditor(name, category)
+        {
+        }
 
         void RefreshView() override {}
 
@@ -203,9 +262,14 @@ export namespace draconic::editor
                 auto name = MakeRef<ui::EditText>(DefaultAllocator());
                 name->SetText(names[i].AsView());
                 ui::EditText* nameRaw = name.Get();
-                name->OnSubmit.Add([self, i, nameRaw](ui::EditText*) {
-                    if (self->OnRename) { self->OnRename(i, String(nameRaw->Text())); }
-                });
+                name->OnSubmit.Add(
+                    [self, i, nameRaw](ui::EditText*)
+                    {
+                        if (self->OnRename)
+                        {
+                            self->OnRename(i, String(nameRaw->Text()));
+                        }
+                    });
                 {
                     auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                     lp->Grow = 1.0f;
@@ -215,15 +279,20 @@ export namespace draconic::editor
                 for (usize j = 0; j < count; ++j)
                 {
                     const bool collides = i < matrix.Size() && (matrix[i] & (1u << j)) != 0;
-                    auto cell = MakeRef<ui::Button>(DefaultAllocator(),
-                                                    collides ? StringView(u8"+") : StringView(u8"-"));
-                    cell->FontSize.SetValue(Optional<f32>{ 12.0f });
+                    auto cell = MakeRef<ui::Button>(
+                        DefaultAllocator(), collides ? StringView(u8"+") : StringView(u8"-"));
+                    cell->FontSize.SetValue(Optional<f32>{12.0f});
                     String tip(u8"vs ");
                     tip.Append(names[j].AsView());
                     cell->TooltipText = Move(tip);
-                    cell->OnClick.Add([self, i, j](ui::ButtonBase*) {
-                        if (self->OnToggle) { self->OnToggle(i, j); }
-                    });
+                    cell->OnClick.Add(
+                        [self, i, j](ui::ButtonBase*)
+                        {
+                            if (self->OnToggle)
+                            {
+                                self->OnToggle(i, j);
+                            }
+                        });
                     auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                     lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(22.0f));
                     row->AddView(cell.Get(), lp);
@@ -238,10 +307,15 @@ export namespace draconic::editor
             if (count < draconic::physics::kCollisionGroupCount)
             {
                 auto add = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"+ Add Group"));
-                add->FontSize.SetValue(Optional<f32>{ 12.0f });
-                add->OnClick.Add([self](ui::ButtonBase*) {
-                    if (self->OnAddGroup) { self->OnAddGroup(); }
-                });
+                add->FontSize.SetValue(Optional<f32>{12.0f});
+                add->OnClick.Add(
+                    [self](ui::ButtonBase*)
+                    {
+                        if (self->OnAddGroup)
+                        {
+                            self->OnAddGroup();
+                        }
+                    });
                 auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(22.0f));
@@ -260,12 +334,14 @@ export namespace draconic::editor
     public:
         Function<void(usize)> OnPickSlot;
         Function<void(usize)> OnRemoveSlot;
-        Function<void(usize, bool)> OnMoveSlot;   // true = up
+        Function<void(usize, bool)> OnMoveSlot; // true = up
         Function<void()> OnAddSlot;
-        Array<String> slotNames;   // display names, set before the row builds
+        Array<String> slotNames; // display names, set before the row builds
 
         MaterialSlotsEditor(StringView name, StringView category)
-            : ui::toolkit::PropertyEditor(name, category) {}
+            : ui::toolkit::PropertyEditor(name, category)
+        {
+        }
 
         void RefreshView() override {}
 
@@ -284,10 +360,15 @@ export namespace draconic::editor
                 row->Spacing = 4.0f;
 
                 auto pick = MakeRef<ui::Button>(DefaultAllocator(), slotNames[i].AsView());
-                pick->FontSize.SetValue(Optional<f32>{ 12.0f });
-                pick->OnClick.Add([self, i](ui::ButtonBase*) {
-                    if (self->OnPickSlot) { self->OnPickSlot(i); }
-                });
+                pick->FontSize.SetValue(Optional<f32>{12.0f});
+                pick->OnClick.Add(
+                    [self, i](ui::ButtonBase*)
+                    {
+                        if (self->OnPickSlot)
+                        {
+                            self->OnPickSlot(i);
+                        }
+                    });
                 {
                     auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                     lp->Grow = 1.0f;
@@ -295,20 +376,35 @@ export namespace draconic::editor
                 }
                 auto up = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"^"));
                 up->IsEnabled = i > 0;
-                up->OnClick.Add([self, i](ui::ButtonBase*) {
-                    if (self->OnMoveSlot) { self->OnMoveSlot(i, true); }
-                });
+                up->OnClick.Add(
+                    [self, i](ui::ButtonBase*)
+                    {
+                        if (self->OnMoveSlot)
+                        {
+                            self->OnMoveSlot(i, true);
+                        }
+                    });
                 row->AddView(up.Get());
                 auto down = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"v"));
                 down->IsEnabled = i + 1 < slotNames.Size();
-                down->OnClick.Add([self, i](ui::ButtonBase*) {
-                    if (self->OnMoveSlot) { self->OnMoveSlot(i, false); }
-                });
+                down->OnClick.Add(
+                    [self, i](ui::ButtonBase*)
+                    {
+                        if (self->OnMoveSlot)
+                        {
+                            self->OnMoveSlot(i, false);
+                        }
+                    });
                 row->AddView(down.Get());
                 auto remove = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"x"));
-                remove->OnClick.Add([self, i](ui::ButtonBase*) {
-                    if (self->OnRemoveSlot) { self->OnRemoveSlot(i); }
-                });
+                remove->OnClick.Add(
+                    [self, i](ui::ButtonBase*)
+                    {
+                        if (self->OnRemoveSlot)
+                        {
+                            self->OnRemoveSlot(i);
+                        }
+                    });
                 row->AddView(remove.Get());
 
                 auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
@@ -318,10 +414,15 @@ export namespace draconic::editor
             }
 
             auto add = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"+ Add Material Slot"));
-            add->FontSize.SetValue(Optional<f32>{ 12.0f });
-            add->OnClick.Add([self](ui::ButtonBase*) {
-                if (self->OnAddSlot) { self->OnAddSlot(); }
-            });
+            add->FontSize.SetValue(Optional<f32>{12.0f});
+            add->OnClick.Add(
+                [self](ui::ButtonBase*)
+                {
+                    if (self->OnAddSlot)
+                    {
+                        self->OnAddSlot();
+                    }
+                });
             {
                 auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                 lp->Width = ui::SizeSpec::Match();
@@ -341,7 +442,8 @@ export namespace draconic::editor
         {
             auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
             column->Direction = ui::Orientation::Vertical;
-            column->Padding = ui::Thickness{ 8, 6 };   // inset the content off the panel edge (like the hierarchy)
+            column->Padding =
+                ui::Thickness{8, 6}; // inset the content off the panel edge (like the hierarchy)
 
             m_grid = MakeRef<ui::toolkit::PropertyGrid>(DefaultAllocator());
             {
@@ -374,7 +476,10 @@ export namespace draconic::editor
             }
             else
             {
-                for (const Function<void()>& refresher : m_refreshers) { refresher(); }
+                for (const Function<void()>& refresher : m_refreshers)
+                {
+                    refresher();
+                }
             }
         }
 
@@ -383,12 +488,18 @@ export namespace draconic::editor
         // Fill the available space (wrap-to-children would collapse the scrolling grid).
         void OnMeasure(ui::BoxConstraints constraints) override
         {
-            for (usize i = 0; i < ChildCount(); ++i) { GetChildAt(i)->Measure(constraints); }
-            MeasuredSize = Float2{ constraints.MaxWidth, constraints.MaxHeight };
+            for (usize i = 0; i < ChildCount(); ++i)
+            {
+                GetChildAt(i)->Measure(constraints);
+            }
+            MeasuredSize = Float2{constraints.MaxWidth, constraints.MaxHeight};
         }
         void OnLayout(f32, f32, f32 width, f32 height) override
         {
-            for (usize i = 0; i < ChildCount(); ++i) { GetChildAt(i)->Layout(0, 0, width, height); }
+            for (usize i = 0; i < ChildCount(); ++i)
+            {
+                GetChildAt(i)->Layout(0, 0, width, height);
+            }
         }
 
     private:
@@ -398,7 +509,10 @@ export namespace draconic::editor
         // serialization id when available.
         [[nodiscard]] static bool IsRegisteredType(const TypeInfo* type)
         {
-            if (type == nullptr || type->name == nullptr) { return false; }
+            if (type == nullptr || type->name == nullptr)
+            {
+                return false;
+            }
             const char* n = type->name;
             return !(n[0] == '<');
         }
@@ -418,10 +532,15 @@ export namespace draconic::editor
             if (e.IsAssigned())
             {
                 u64 bit = 1;
-                m_edit->Scene().ForEachManager([&](scene::ComponentManagerBase& mgr) {
-                    if (mgr.HasComponent(e)) { signature ^= bit * 0xBF58476D1CE4E5B9ull; }
-                    bit <<= 1;
-                });
+                m_edit->Scene().ForEachManager(
+                    [&](scene::ComponentManagerBase& mgr)
+                    {
+                        if (mgr.HasComponent(e))
+                        {
+                            signature ^= bit * 0xBF58476D1CE4E5B9ull;
+                        }
+                        bit <<= 1;
+                    });
             }
             return signature;
         }
@@ -433,19 +552,29 @@ export namespace draconic::editor
 
             const Guid id = SelectedEntity();
             const scene::EntityHandle e = m_edit->Resolve(id);
-            m_addButton->Visibility = e.IsAssigned() ? ui::VisibilityValue::Visible
-                                                     : ui::VisibilityValue::Gone;
+            m_addButton->Visibility =
+                e.IsAssigned() ? ui::VisibilityValue::Visible : ui::VisibilityValue::Gone;
             // No entity selected: the SCENE's settings (Sedulous scene-modules pattern) -
             // every scene system exposing a reflected settings block gets a category.
-            if (!e.IsAssigned()) { BuildSceneSettingsSections(); Invalidate(); return; }
+            if (!e.IsAssigned())
+            {
+                BuildSceneSettingsSections();
+                Invalidate();
+                return;
+            }
 
             BuildEntitySection(id);
             BuildTransformSection(id);
 
-            m_edit->Scene().ForEachManager([&](scene::ComponentManagerBase& mgr) {
-                const scene::EntityHandle live = m_edit->Resolve(id);
-                if (live.IsAssigned() && mgr.HasComponent(live)) { BuildComponentSection(id, mgr); }
-            });
+            m_edit->Scene().ForEachManager(
+                [&](scene::ComponentManagerBase& mgr)
+                {
+                    const scene::EntityHandle live = m_edit->Resolve(id);
+                    if (live.IsAssigned() && mgr.HasComponent(live))
+                    {
+                        BuildComponentSection(id, mgr);
+                    }
+                });
             Invalidate();
         }
 
@@ -453,21 +582,21 @@ export namespace draconic::editor
         {
             SceneEditContext* edit = m_edit;
 
-            auto name = MakeRef<ui::toolkit::StringEditor>(DefaultAllocator(),
-                StringView(u8"Name"), m_edit->Scene().GetEntityName(m_edit->Resolve(id)),
-                Function<void(StringView)>{ [edit, id](StringView v) { edit->RenameEntity(id, v); } },
+            auto name = MakeRef<ui::toolkit::StringEditor>(
+                DefaultAllocator(), StringView(u8"Name"),
+                m_edit->Scene().GetEntityName(m_edit->Resolve(id)),
+                Function<void(StringView)>{[edit, id](StringView v) { edit->RenameEntity(id, v); }},
                 StringView(u8"Entity"));
-            AddEditor(name.Get(), [edit, id, raw = name.Get()]() {
-                raw->SetValue(edit->Scene().GetEntityName(edit->Resolve(id)));
-            });
+            AddEditor(name.Get(), [edit, id, raw = name.Get()]()
+                      { raw->SetValue(edit->Scene().GetEntityName(edit->Resolve(id))); });
 
-            auto active = MakeRef<ui::toolkit::BoolEditor>(DefaultAllocator(),
-                StringView(u8"Active"), m_edit->Scene().IsActive(m_edit->Resolve(id)),
-                Function<void(bool)>{ [edit, id](bool v) { edit->SetEntityActive(id, v); } },
+            auto active = MakeRef<ui::toolkit::BoolEditor>(
+                DefaultAllocator(), StringView(u8"Active"),
+                m_edit->Scene().IsActive(m_edit->Resolve(id)),
+                Function<void(bool)>{[edit, id](bool v) { edit->SetEntityActive(id, v); }},
                 StringView(u8"Entity"));
-            AddEditor(active.Get(), [edit, id, raw = active.Get()]() {
-                raw->SetValue(edit->Scene().IsActive(edit->Resolve(id)));
-            });
+            AddEditor(active.Get(), [edit, id, raw = active.Get()]()
+                      { raw->SetValue(edit->Scene().IsActive(edit->Resolve(id))); });
         }
 
         void BuildTransformSection(const Guid& id)
@@ -476,73 +605,94 @@ export namespace draconic::editor
             const StringView category = u8"Transform";
             const core::Transform t = m_edit->Scene().GetLocalTransform(m_edit->Resolve(id));
 
-            auto position = MakeRef<ui::toolkit::Float3Editor>(DefaultAllocator(),
-                StringView(u8"Position"), t.position, -100000.0f, 100000.0f, 0.1f,
-                Function<void(Float3)>{ [edit, id](Float3 v) {
-                    core::Transform current = edit->Scene().GetLocalTransform(edit->Resolve(id));
-                    current.position = v;
-                    edit->SetLocalTransform(id, current);
-                } }, category);
-            AddEditor(position.Get(), [edit, id, raw = position.Get()]() {
-                raw->SetValue(edit->Scene().GetLocalTransform(edit->Resolve(id)).position);
-            });
+            auto position = MakeRef<ui::toolkit::Float3Editor>(
+                DefaultAllocator(), StringView(u8"Position"), t.position, -100000.0f, 100000.0f,
+                0.1f,
+                Function<void(Float3)>{[edit, id](Float3 v)
+                                       {
+                                           core::Transform current =
+                                               edit->Scene().GetLocalTransform(edit->Resolve(id));
+                                           current.position = v;
+                                           edit->SetLocalTransform(id, current);
+                                       }},
+                category);
+            AddEditor(
+                position.Get(), [edit, id, raw = position.Get()]()
+                { raw->SetValue(edit->Scene().GetLocalTransform(edit->Resolve(id)).position); });
 
             // Rotation displayed as euler DEGREES (x = pitch, y = yaw, z = roll).
-            auto rotation = MakeRef<ui::toolkit::Float3Editor>(DefaultAllocator(),
-                StringView(u8"Rotation"), EulerDegrees(t.rotation), -360.0f, 360.0f, 1.0f,
-                Function<void(Float3)>{ [edit, id](Float3 v) {
-                    core::Transform current = edit->Scene().GetLocalTransform(edit->Resolve(id));
-                    current.rotation = FromYawPitchRoll(DegreesToRadians(v.y),
-                                                        DegreesToRadians(v.x),
-                                                        DegreesToRadians(v.z));
-                    edit->SetLocalTransform(id, current);
-                } }, category);
-            AddEditor(rotation.Get(), [edit, id, raw = rotation.Get()]() {
-                raw->SetValue(EulerDegrees(edit->Scene().GetLocalTransform(edit->Resolve(id)).rotation));
-            });
+            auto rotation = MakeRef<ui::toolkit::Float3Editor>(
+                DefaultAllocator(), StringView(u8"Rotation"), EulerDegrees(t.rotation), -360.0f,
+                360.0f, 1.0f,
+                Function<void(Float3)>{[edit, id](Float3 v)
+                                       {
+                                           core::Transform current =
+                                               edit->Scene().GetLocalTransform(edit->Resolve(id));
+                                           current.rotation = FromYawPitchRoll(
+                                               DegreesToRadians(v.y), DegreesToRadians(v.x),
+                                               DegreesToRadians(v.z));
+                                           edit->SetLocalTransform(id, current);
+                                       }},
+                category);
+            AddEditor(rotation.Get(),
+                      [edit, id, raw = rotation.Get()]()
+                      {
+                          raw->SetValue(EulerDegrees(
+                              edit->Scene().GetLocalTransform(edit->Resolve(id)).rotation));
+                      });
 
-            auto scale = MakeRef<ui::toolkit::Float3Editor>(DefaultAllocator(),
-                StringView(u8"Scale"), t.scale, -100000.0f, 100000.0f, 0.1f,
-                Function<void(Float3)>{ [edit, id](Float3 v) {
-                    core::Transform current = edit->Scene().GetLocalTransform(edit->Resolve(id));
-                    current.scale = v;
-                    edit->SetLocalTransform(id, current);
-                } }, category);
-            AddEditor(scale.Get(), [edit, id, raw = scale.Get()]() {
-                raw->SetValue(edit->Scene().GetLocalTransform(edit->Resolve(id)).scale);
-            });
+            auto scale = MakeRef<ui::toolkit::Float3Editor>(
+                DefaultAllocator(), StringView(u8"Scale"), t.scale, -100000.0f, 100000.0f, 0.1f,
+                Function<void(Float3)>{[edit, id](Float3 v)
+                                       {
+                                           core::Transform current =
+                                               edit->Scene().GetLocalTransform(edit->Resolve(id));
+                                           current.scale = v;
+                                           edit->SetLocalTransform(id, current);
+                                       }},
+                category);
+            AddEditor(scale.Get(), [edit, id, raw = scale.Get()]()
+                      { raw->SetValue(edit->Scene().GetLocalTransform(edit->Resolve(id)).scale); });
         }
 
         void BuildSceneSettingsSections()
         {
-            m_edit->Scene().ForEachSystem([&](scene::SceneSystem& system) {
-                const TypeInfo* type = system.SettingsType();
-                if (type == nullptr || !IsRegisteredType(type)) { return; }
-                // Category = the settings type minus a trailing "Settings"
-                // ("EnvironmentSettings" -> "Environment").
-                StringView category(reinterpret_cast<const utf8char*>(type->name));
-                const StringView suffix = u8"Settings";
-                if (category.Size() > suffix.Size()
-                    && category.SubStr(category.Size() - suffix.Size(), suffix.Size()) == suffix)
+            m_edit->Scene().ForEachSystem(
+                [&](scene::SceneSystem& system)
                 {
-                    category = category.SubStr(0, category.Size() - suffix.Size());
-                }
-                for (const PropertyInfo& prop : Properties(*type))
-                {
-                    const usize firstRow = m_grid->PropertyCount();
-                    BuildSettingRow(type, prop, category);
-                    ApplyPropertyPresentation(type, prop, firstRow,
-                        [edit = m_edit, type]() -> Instance {
-                            scene::SceneSystem* system = edit->FindSystemBySettingsType(type);
-                            return (system != nullptr)
-                                ? Instance{ system->SettingsInstance(), type } : Instance{};
-                        });
-                }
-                if (type == &TypeOf<draconic::physics::PhysicsSceneSettings>())
-                {
-                    BuildCollisionMatrixRow(type, category);
-                }
-            });
+                    const TypeInfo* type = system.SettingsType();
+                    if (type == nullptr || !IsRegisteredType(type))
+                    {
+                        return;
+                    }
+                    // Category = the settings type minus a trailing "Settings"
+                    // ("EnvironmentSettings" -> "Environment").
+                    StringView category(reinterpret_cast<const utf8char*>(type->name));
+                    const StringView suffix = u8"Settings";
+                    if (category.Size() > suffix.Size() &&
+                        category.SubStr(category.Size() - suffix.Size(), suffix.Size()) == suffix)
+                    {
+                        category = category.SubStr(0, category.Size() - suffix.Size());
+                    }
+                    for (const PropertyInfo& prop : Properties(*type))
+                    {
+                        const usize firstRow = m_grid->PropertyCount();
+                        BuildSettingRow(type, prop, category);
+                        ApplyPropertyPresentation(
+                            type, prop, firstRow,
+                            [edit = m_edit, type]() -> Instance
+                            {
+                                scene::SceneSystem* system = edit->FindSystemBySettingsType(type);
+                                return (system != nullptr)
+                                           ? Instance{system->SettingsInstance(), type}
+                                           : Instance{};
+                            });
+                    }
+                    if (type == &TypeOf<draconic::physics::PhysicsSceneSettings>())
+                    {
+                        BuildCollisionMatrixRow(type, category);
+                    }
+                });
         }
 
         // The collision-group matrix (physics settings): a bespoke grid row editing the
@@ -552,50 +702,69 @@ export namespace draconic::editor
             using draconic::physics::PhysicsSceneSettings;
             SceneEditContext* edit = m_edit;
             scene::SceneSystem* system = edit->FindSystemBySettingsType(type);
-            if (system == nullptr) { return; }
+            if (system == nullptr)
+            {
+                return;
+            }
             auto* live = static_cast<PhysicsSceneSettings*>(system->SettingsInstance());
 
-            auto matrix = MakeRef<CollisionMatrixEditor>(DefaultAllocator(),
-                StringView(u8"Collision Groups"), category);
+            auto matrix = MakeRef<CollisionMatrixEditor>(
+                DefaultAllocator(), StringView(u8"Collision Groups"), category);
             // Display copy: at least one row ("Default"); rows without a stored mask
             // read as collide-with-everything.
             matrix->names = live->groupNames;
-            if (matrix->names.IsEmpty()) { matrix->names.PushBack(String(u8"Default")); }
+            if (matrix->names.IsEmpty())
+            {
+                matrix->names.PushBack(String(u8"Default"));
+            }
             matrix->matrix = live->groupCollides;
             while (matrix->matrix.Size() < matrix->names.Size())
             {
                 matrix->matrix.PushBack(0xFFFFFFFFu);
             }
 
-            auto commit = [edit, type](PhysicsSceneSettings copy) {
+            auto commit = [edit, type](PhysicsSceneSettings copy)
+            {
                 MemoryStream buffer;
                 BinarySerializer writer(buffer, SerializeMode::Write);
                 draconic::physics::SerializePhysicsSceneSettings(writer, copy);
                 Array<byte> blob;
                 const Span<const byte> bytes = buffer.Bytes();
                 blob.Reserve(bytes.Size());
-                for (byte b : bytes) { blob.PushBack(b); }
+                for (byte b : bytes)
+                {
+                    blob.PushBack(b);
+                }
                 (void)edit->ApplySceneSettingsBlock(type, Move(blob));
             };
-            auto editedCopy = [live, raw = matrix.Get()]() {
+            auto editedCopy = [live, raw = matrix.Get()]()
+            {
                 PhysicsSceneSettings copy = *live;
                 copy.groupNames = raw->names;
                 copy.groupCollides = raw->matrix;
                 return copy;
             };
 
-            matrix->OnRename = [commit, editedCopy, raw = matrix.Get()](usize i, String name) {
-                if (i >= raw->names.Size()) { return; }
+            matrix->OnRename = [commit, editedCopy, raw = matrix.Get()](usize i, String name)
+            {
+                if (i >= raw->names.Size())
+                {
+                    return;
+                }
                 raw->names[i] = Move(name);
                 commit(editedCopy());
             };
-            matrix->OnToggle = [commit, editedCopy, raw = matrix.Get()](usize i, usize j) {
-                if (i >= raw->matrix.Size() || j >= raw->matrix.Size()) { return; }
+            matrix->OnToggle = [commit, editedCopy, raw = matrix.Get()](usize i, usize j)
+            {
+                if (i >= raw->matrix.Size() || j >= raw->matrix.Size())
+                {
+                    return;
+                }
                 const bool collides = (raw->matrix[i] & (1u << j)) != 0;
                 if (collides)
                 {
                     raw->matrix[i] &= ~(1u << j);
-                    raw->matrix[j] &= ~(1u << i);   // symmetric
+                    raw->matrix[j] &= ~(1u << i); // symmetric
                 }
                 else
                 {
@@ -604,10 +773,14 @@ export namespace draconic::editor
                 }
                 commit(editedCopy());
             };
-            matrix->OnAddGroup = [commit, editedCopy, raw = matrix.Get()]() {
+            matrix->OnAddGroup = [commit, editedCopy, raw = matrix.Get()]()
+            {
                 String name(u8"Group ");
                 const usize index = raw->names.Size();
-                if (index >= 10) { name.PushBack(static_cast<utf8char>('0' + index / 10 % 10)); }
+                if (index >= 10)
+                {
+                    name.PushBack(static_cast<utf8char>('0' + index / 10 % 10));
+                }
                 name.PushBack(static_cast<utf8char>('0' + index % 10));
                 raw->names.PushBack(Move(name));
                 raw->matrix.PushBack(0xFFFFFFFFu);
@@ -623,12 +796,15 @@ export namespace draconic::editor
         {
             SceneEditContext* edit = m_edit;
             const StringView name(reinterpret_cast<const utf8char*>(prop.name));
-            const bool readOnly = (static_cast<u32>(prop.flags) & static_cast<u32>(PropertyFlags::ReadOnly)) != 0;
+            const bool readOnly =
+                (static_cast<u32>(prop.flags) & static_cast<u32>(PropertyFlags::ReadOnly)) != 0;
             const char* propName = prop.name;
 
-            auto getInstance = [edit, type]() -> Instance {
+            auto getInstance = [edit, type]() -> Instance
+            {
                 scene::SceneSystem* system = edit->FindSystemBySettingsType(type);
-                return (system != nullptr) ? Instance{ system->SettingsInstance(), type } : Instance{};
+                return (system != nullptr) ? Instance{system->SettingsInstance(), type}
+                                           : Instance{};
             };
 
             // Resource references (the environment's sky texture): the browser-mirroring picker,
@@ -636,12 +812,14 @@ export namespace draconic::editor
             if (prop.type == &TypeOf<draconic::resource::Ref<draconic::texture::Texture>>())
             {
                 BuildSettingResourceRefRow<draconic::texture::Texture>(type, prop, category,
-                    { u8"TextureAsset" });
+                                                                       {u8"TextureAsset"});
                 return;
             }
-            auto getVariant = [getInstance, type, propName]() -> Variant {
+            auto getVariant = [getInstance, type, propName]() -> Variant
+            {
                 const Instance settings = getInstance();
-                const PropertyInfo* p = settings.IsEmpty() ? nullptr : FindProperty(*type, propName);
+                const PropertyInfo* p =
+                    settings.IsEmpty() ? nullptr : FindProperty(*type, propName);
                 return (p != nullptr) ? GetProperty(*p, settings) : Variant{};
             };
 
@@ -649,47 +827,70 @@ export namespace draconic::editor
             {
                 const Span<const EnumValue> values = Enumerators(*prop.type);
                 Array<StringView> items;
-                for (const EnumValue& v : values) { items.PushBack(StringView(reinterpret_cast<const utf8char*>(v.name))); }
+                for (const EnumValue& v : values)
+                {
+                    items.PushBack(StringView(reinterpret_cast<const utf8char*>(v.name)));
+                }
 
-                auto rawRead = [getInstance, type, propName]() -> i64 {
+                auto rawRead = [getInstance, type, propName]() -> i64
+                {
                     const Instance settings = getInstance();
-                    const PropertyInfo* p = settings.IsEmpty() ? nullptr : FindProperty(*type, propName);
-                    void* address = (p != nullptr && p->address != nullptr) ? p->address(settings) : nullptr;
-                    if (address == nullptr) { return 0; }
+                    const PropertyInfo* p =
+                        settings.IsEmpty() ? nullptr : FindProperty(*type, propName);
+                    void* address =
+                        (p != nullptr && p->address != nullptr) ? p->address(settings) : nullptr;
+                    if (address == nullptr)
+                    {
+                        return 0;
+                    }
                     switch (p->type->size)
                     {
-                        case 1: return *static_cast<const i8*>(address);
-                        case 2: return *static_cast<const i16*>(address);
-                        case 8: return *static_cast<const i64*>(address);
-                        default: return *static_cast<const i32*>(address);
+                    case 1:
+                        return *static_cast<const i8*>(address);
+                    case 2:
+                        return *static_cast<const i16*>(address);
+                    case 8:
+                        return *static_cast<const i64*>(address);
+                    default:
+                        return *static_cast<const i32*>(address);
                     }
                 };
-                auto indexOf = [values](i64 value) -> i32 {
+                auto indexOf = [values](i64 value) -> i32
+                {
                     for (usize i = 0; i < values.Size(); ++i)
                     {
-                        if (values[i].value == value) { return static_cast<i32>(i); }
+                        if (values[i].value == value)
+                        {
+                            return static_cast<i32>(i);
+                        }
                     }
                     return 0;
                 };
-                auto editor = MakeRef<ui::toolkit::EnumEditor>(DefaultAllocator(), name, indexOf(rawRead()),
-                    Span<const StringView>{ items.Data(), items.Size() },
-                    readOnly ? Function<void(i32)>{} : Function<void(i32)>{
-                        [edit, type, propName, values](i32 index) {
-                            if (index >= 0 && index < static_cast<i32>(values.Size()))
-                            {
-                                edit->SetSceneSettingPropertyRaw(type, propName, values[static_cast<usize>(index)].value);
-                            }
-                        } },
+                auto editor = MakeRef<ui::toolkit::EnumEditor>(
+                    DefaultAllocator(), name, indexOf(rawRead()),
+                    Span<const StringView>{items.Data(), items.Size()},
+                    readOnly
+                        ? Function<void(i32)>{}
+                        : Function<void(i32)>{[edit, type, propName, values](i32 index)
+                                              {
+                                                  if (index >= 0 &&
+                                                      index < static_cast<i32>(values.Size()))
+                                                  {
+                                                      edit->SetSceneSettingPropertyRaw(
+                                                          type, propName,
+                                                          values[static_cast<usize>(index)].value);
+                                                  }
+                                              }},
                     category);
-                AddEditor(editor.Get(), [rawRead, indexOf, raw = editor.Get()]() {
-                    raw->SetValue(indexOf(rawRead()));
-                });
+                AddEditor(editor.Get(), [rawRead, indexOf, raw = editor.Get()]()
+                          { raw->SetValue(indexOf(rawRead())); });
                 return;
             }
 
             if (prop.type == &TypeOf<f32>())
             {
-                auto value = [getVariant]() -> f64 {
+                auto value = [getVariant]() -> f64
+                {
                     const Variant v = getVariant();
                     const f32* f = v.TryGet<f32>();
                     return (f != nullptr) ? static_cast<f64>(*f) : 0.0;
@@ -697,24 +898,30 @@ export namespace draconic::editor
                 // "range" attribute -> bounded slider+field instead of a bare numeric field.
                 if (const Float4* range = RangeOf(prop))
                 {
-                    auto editor = MakeRef<ui::toolkit::RangeEditor>(DefaultAllocator(), name,
-                        static_cast<f32>(value()), range->x, range->y, range->z,
-                        readOnly ? Function<void(f32)>{} : Function<void(f32)>{
-                            [edit, type, propName](f32 v) {
-                                edit->SetSceneSettingProperty(type, propName, Variant::From<f32>(v));
-                            } },
+                    auto editor = MakeRef<ui::toolkit::RangeEditor>(
+                        DefaultAllocator(), name, static_cast<f32>(value()), range->x, range->y,
+                        range->z,
+                        readOnly
+                            ? Function<void(f32)>{}
+                            : Function<void(f32)>{[edit, type, propName](f32 v)
+                                                  {
+                                                      edit->SetSceneSettingProperty(
+                                                          type, propName, Variant::From<f32>(v));
+                                                  }},
                         category);
-                    AddEditor(editor.Get(), [value, raw = editor.Get()]() {
-                        raw->SetValue(static_cast<f32>(value()));
-                    });
+                    AddEditor(editor.Get(), [value, raw = editor.Get()]()
+                              { raw->SetValue(static_cast<f32>(value())); });
                     return;
                 }
-                auto editor = MakeRef<ui::toolkit::FloatEditor>(DefaultAllocator(), name, value(),
-                    -1e9, 1e9, 0.1, 2,
-                    readOnly ? Function<void(f64)>{} : Function<void(f64)>{
-                        [edit, type, propName](f64 v) {
-                            edit->SetSceneSettingProperty(type, propName, Variant::From<f32>(static_cast<f32>(v)));
-                        } },
+                auto editor = MakeRef<ui::toolkit::FloatEditor>(
+                    DefaultAllocator(), name, value(), -1e9, 1e9, 0.1, 2,
+                    readOnly ? Function<void(f64)>{}
+                             : Function<void(f64)>{[edit, type, propName](f64 v)
+                                                   {
+                                                       edit->SetSceneSettingProperty(
+                                                           type, propName,
+                                                           Variant::From<f32>(static_cast<f32>(v)));
+                                                   }},
                     category);
                 AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
                 return;
@@ -722,16 +929,21 @@ export namespace draconic::editor
 
             if (prop.type == &TypeOf<Color>())
             {
-                auto value = [getVariant]() -> Color {
+                auto value = [getVariant]() -> Color
+                {
                     const Variant v = getVariant();
                     const Color* c = v.TryGet<Color>();
-                    return (c != nullptr) ? *c : Color{ 1, 1, 1, 1 };
+                    return (c != nullptr) ? *c : Color{1, 1, 1, 1};
                 };
-                auto editor = MakeRef<ui::toolkit::ColorEditor>(DefaultAllocator(), name, value(),
-                    readOnly ? Function<void(Color)>{} : Function<void(Color)>{
-                        [edit, type, propName](Color v) {
-                            edit->SetSceneSettingProperty(type, propName, Variant::From<Color>(v));
-                        } },
+                auto editor = MakeRef<ui::toolkit::ColorEditor>(
+                    DefaultAllocator(), name, value(),
+                    readOnly
+                        ? Function<void(Color)>{}
+                        : Function<void(Color)>{[edit, type, propName](Color v)
+                                                {
+                                                    edit->SetSceneSettingProperty(
+                                                        type, propName, Variant::From<Color>(v));
+                                                }},
                     category);
                 AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
                 return;
@@ -739,16 +951,20 @@ export namespace draconic::editor
 
             if (prop.type == &TypeOf<bool>())
             {
-                auto value = [getVariant]() -> bool {
+                auto value = [getVariant]() -> bool
+                {
                     const Variant v = getVariant();
                     const bool* b = v.TryGet<bool>();
                     return (b != nullptr) && *b;
                 };
-                auto editor = MakeRef<ui::toolkit::BoolEditor>(DefaultAllocator(), name, value(),
-                    readOnly ? Function<void(bool)>{} : Function<void(bool)>{
-                        [edit, type, propName](bool v) {
-                            edit->SetSceneSettingProperty(type, propName, Variant::From<bool>(v));
-                        } },
+                auto editor = MakeRef<ui::toolkit::BoolEditor>(
+                    DefaultAllocator(), name, value(),
+                    readOnly ? Function<void(bool)>{}
+                             : Function<void(bool)>{[edit, type, propName](bool v)
+                                                    {
+                                                        edit->SetSceneSettingProperty(
+                                                            type, propName, Variant::From<bool>(v));
+                                                    }},
                     category);
                 AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
                 return;
@@ -756,17 +972,21 @@ export namespace draconic::editor
 
             if (prop.type == &TypeOf<Float3>())
             {
-                auto value = [getVariant]() -> Float3 {
+                auto value = [getVariant]() -> Float3
+                {
                     const Variant v = getVariant();
                     const Float3* f = v.TryGet<Float3>();
                     return (f != nullptr) ? *f : Float3{};
                 };
-                auto editor = MakeRef<ui::toolkit::Float3Editor>(DefaultAllocator(), name, value(),
-                    -100000.0f, 100000.0f, 0.1f,
-                    readOnly ? Function<void(Float3)>{} : Function<void(Float3)>{
-                        [edit, type, propName](Float3 v) {
-                            edit->SetSceneSettingProperty(type, propName, Variant::From<Float3>(v));
-                        } },
+                auto editor = MakeRef<ui::toolkit::Float3Editor>(
+                    DefaultAllocator(), name, value(), -100000.0f, 100000.0f, 0.1f,
+                    readOnly
+                        ? Function<void(Float3)>{}
+                        : Function<void(Float3)>{[edit, type, propName](Float3 v)
+                                                 {
+                                                     edit->SetSceneSettingProperty(
+                                                         type, propName, Variant::From<Float3>(v));
+                                                 }},
                     category);
                 AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
                 return;
@@ -777,7 +997,10 @@ export namespace draconic::editor
         void BuildComponentSection(const Guid& id, scene::ComponentManagerBase& mgr)
         {
             const TypeInfo* type = mgr.ComponentType();
-            if (type == nullptr) { return; }
+            if (type == nullptr)
+            {
+                return;
+            }
             // Category = the type name minus a trailing "Component", prettified
             // ("ReflectionProbeComponent" -> "Reflection Probe").
             const StringView fallback = mgr.SerializationTypeId();
@@ -786,8 +1009,8 @@ export namespace draconic::editor
             {
                 StringView n(reinterpret_cast<const utf8char*>(type->name));
                 const StringView suffix = u8"Component";
-                if (n.Size() > suffix.Size()
-                    && n.SubStr(n.Size() - suffix.Size(), suffix.Size()) == suffix)
+                if (n.Size() > suffix.Size() &&
+                    n.SubStr(n.Size() - suffix.Size(), suffix.Size()) == suffix)
                 {
                     n = n.SubStr(0, n.Size() - suffix.Size());
                 }
@@ -795,7 +1018,8 @@ export namespace draconic::editor
             }
             else
             {
-                categoryStorage = fallback.IsEmpty() ? StringView(u8"(unreflected component)") : fallback;
+                categoryStorage =
+                    fallback.IsEmpty() ? StringView(u8"(unreflected component)") : fallback;
             }
             const StringView category = categoryStorage.AsView();
 
@@ -804,12 +1028,15 @@ export namespace draconic::editor
                 const usize firstRow = m_grid->PropertyCount();
                 BuildPropertyRow(id, type, prop, category);
                 ApplyPropertyPresentation(type, prop, firstRow,
-                    [edit = m_edit, id, type]() -> Instance {
-                        scene::ComponentManagerBase* mgr = edit->FindManager(type);
-                        const scene::EntityHandle e = edit->Resolve(id);
-                        return (mgr != nullptr && e.IsAssigned())
-                            ? mgr->GetComponentInstance(e) : Instance{};
-                    });
+                                          [edit = m_edit, id, type]() -> Instance
+                                          {
+                                              scene::ComponentManagerBase* mgr =
+                                                  edit->FindManager(type);
+                                              const scene::EntityHandle e = edit->Resolve(id);
+                                              return (mgr != nullptr && e.IsAssigned())
+                                                         ? mgr->GetComponentInstance(e)
+                                                         : Instance{};
+                                          });
             }
 
             SceneEditContext* edit = m_edit;
@@ -835,36 +1062,49 @@ export namespace draconic::editor
                 scene::PrefabMemberInfo member;
                 if (mgr.IsSerializable() && scene::FindPrefabMember(edit->Scene(), id, member))
                 {
-                    auto revert = MakeRef<ui::toolkit::ButtonEditor>(DefaultAllocator(),
-                        StringView(u8"Revert to Prefab"),
-                        Function<void()>{ [edit, id, type]() {
-                            (void)edit->RevertComponentToBaseline(id, type);
-                        } }, category);
-                    revert->SetTooltip(u8"Reverts this component to the prefab's values (undoable).");
-                    revert->SetButtonEnabled(false);   // refresher enables it on an override
+                    auto revert = MakeRef<ui::toolkit::ButtonEditor>(
+                        DefaultAllocator(), StringView(u8"Revert to Prefab"),
+                        Function<void()>{[edit, id, type]()
+                                         { (void)edit->RevertComponentToBaseline(id, type); }},
+                        category);
+                    revert->SetTooltip(
+                        u8"Reverts this component to the prefab's values (undoable).");
+                    revert->SetButtonEnabled(false); // refresher enables it on an override
                     scene::ComponentManagerBase* manager = &mgr;
-                    AddEditor(revert.Get(), [edit, id, manager, raw = revert.Get()]() {
-                        scene::PrefabMemberInfo m;
-                        const bool overridden = scene::FindPrefabMember(edit->Scene(), id, m)
-                            && scene::IsPrefabComponentOverridden(edit->Scene(), m, *manager);
-                        raw->SetButtonEnabled(overridden);
-                        // " *" matches the dirty-tab convention AND stays inside the editor
-                        // font's rasterized range (ExtendedLatin = codepoints <= 255; a
-                        // U+25CF dot has no glyph and silently renders as nothing).
-                        raw->SetDisplayName(overridden ? StringView(u8"Revert to Prefab *")
-                                                       : StringView(u8"Revert to Prefab"));
-                    });
+                    AddEditor(
+                        revert.Get(),
+                        [edit, id, manager, raw = revert.Get()]()
+                        {
+                            scene::PrefabMemberInfo m;
+                            const bool overridden =
+                                scene::FindPrefabMember(edit->Scene(), id, m) &&
+                                scene::IsPrefabComponentOverridden(edit->Scene(), m, *manager);
+                            raw->SetButtonEnabled(overridden);
+                            // " *" matches the dirty-tab convention AND stays inside the editor
+                            // font's rasterized range (ExtendedLatin = codepoints <= 255; a
+                            // U+25CF dot has no glyph and silently renders as nothing).
+                            raw->SetDisplayName(overridden ? StringView(u8"Revert to Prefab *")
+                                                           : StringView(u8"Revert to Prefab"));
+                        });
                 }
             }
 
-            auto copy = MakeRef<ui::toolkit::ButtonEditor>(DefaultAllocator(), StringView(u8"Copy"),
-                Function<void()>{ [edit, editor, id, type]() {
-                    Array<byte> blob = edit->CopyComponent(id, type);
-                    if (!blob.IsEmpty()) { editor->SetClipboard(u8"component", Move(blob)); }
-                } }, category);
+            auto copy = MakeRef<ui::toolkit::ButtonEditor>(
+                DefaultAllocator(), StringView(u8"Copy"),
+                Function<void()>{[edit, editor, id, type]()
+                                 {
+                                     Array<byte> blob = edit->CopyComponent(id, type);
+                                     if (!blob.IsEmpty())
+                                     {
+                                         editor->SetClipboard(u8"component", Move(blob));
+                                     }
+                                 }},
+                category);
             m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(copy.Get()));
-            auto remove = MakeRef<ui::toolkit::ButtonEditor>(DefaultAllocator(), StringView(u8"Remove"),
-                Function<void()>{ [edit, id, type]() { edit->RemoveComponent(id, type); } }, category);
+            auto remove = MakeRef<ui::toolkit::ButtonEditor>(
+                DefaultAllocator(), StringView(u8"Remove"),
+                Function<void()>{[edit, id, type]() { edit->RemoveComponent(id, type); }},
+                category);
             m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(remove.Get()));
         }
 
@@ -872,13 +1112,20 @@ export namespace draconic::editor
         [[nodiscard]] static i64 RawIntValue(const Instance& obj, const PropertyInfo& p)
         {
             void* address = (p.address != nullptr) ? p.address(obj) : nullptr;
-            if (address == nullptr) { return 0; }
+            if (address == nullptr)
+            {
+                return 0;
+            }
             switch (p.type->size)
             {
-                case 1: return *static_cast<const i8*>(address);
-                case 2: return *static_cast<const i16*>(address);
-                case 8: return *static_cast<const i64*>(address);
-                default: return *static_cast<const i32*>(address);
+            case 1:
+                return *static_cast<const i8*>(address);
+            case 2:
+                return *static_cast<const i16*>(address);
+            case 8:
+                return *static_cast<const i64*>(address);
+            default:
+                return *static_cast<const i32*>(address);
             }
         }
 
@@ -905,7 +1152,8 @@ export namespace draconic::editor
                 {
                     for (const PropertyInfo& p : Properties(*type))
                     {
-                        if (StringView(reinterpret_cast<const utf8char*>(p.name)) == condition.prop.AsView())
+                        if (StringView(reinterpret_cast<const utf8char*>(p.name)) ==
+                            condition.prop.AsView())
                         {
                             dependent = &p;
                             break;
@@ -917,22 +1165,29 @@ export namespace draconic::editor
             for (usize i = firstRow; i < m_grid->PropertyCount(); ++i)
             {
                 ui::toolkit::PropertyEditor* editor = m_grid->PropertyAt(i);
-                const String* label = (displayName != nullptr) ? displayName->value.TryGet<String>() : nullptr;
-                editor->SetDisplayName(label != nullptr ? label->AsView()
-                                                        : PrettifyPropertyName(editor->Name()).AsView());
+                const String* label =
+                    (displayName != nullptr) ? displayName->value.TryGet<String>() : nullptr;
+                editor->SetDisplayName(label != nullptr
+                                           ? label->AsView()
+                                           : PrettifyPropertyName(editor->Name()).AsView());
                 if (description != nullptr)
                 {
-                    if (const String* s = description->value.TryGet<String>()) { editor->SetTooltip(s->AsView()); }
+                    if (const String* s = description->value.TryGet<String>())
+                    {
+                        editor->SetTooltip(s->AsView());
+                    }
                 }
                 if (dependent != nullptr)
                 {
-                    auto refresh = [editor, dependent, condition, get = instance]() {
+                    auto refresh = [editor, dependent, condition, get = instance]()
+                    {
                         const Instance obj = get();
-                        editor->SetRowVisible(!obj.IsEmpty()
-                            && MatchesPropertyCondition(condition, RawIntValue(obj, *dependent)));
+                        editor->SetRowVisible(
+                            !obj.IsEmpty() &&
+                            MatchesPropertyCondition(condition, RawIntValue(obj, *dependent)));
                     };
                     refresh();
-                    m_refreshers.PushBack(Function<void()>{ Move(refresh) });
+                    m_refreshers.PushBack(Function<void()>{Move(refresh)});
                 }
             }
         }
@@ -942,7 +1197,8 @@ export namespace draconic::editor
         {
             SceneEditContext* edit = m_edit;
             const StringView name(reinterpret_cast<const utf8char*>(prop.name));
-            const bool readOnly = (static_cast<u32>(prop.flags) & static_cast<u32>(PropertyFlags::ReadOnly)) != 0;
+            const bool readOnly =
+                (static_cast<u32>(prop.flags) & static_cast<u32>(PropertyFlags::ReadOnly)) != 0;
             const char* propName = prop.name;
 
             // Resource references: a picker over the source DB's matching assets. Matched by
@@ -952,90 +1208,98 @@ export namespace draconic::editor
             {
                 // SkinnedMeshAsset too: SkinnedMesh IS-A StaticMesh (bind pose when drawn
                 // through the static path), so both asset types are valid targets.
-                BuildResourceRefRow<draconic::geometry::StaticMesh>(id, type, prop, category,
-                    { u8"StaticMeshAsset", u8"SkinnedMeshAsset" });
+                BuildResourceRefRow<draconic::geometry::StaticMesh>(
+                    id, type, prop, category, {u8"StaticMeshAsset", u8"SkinnedMeshAsset"});
                 return;
             }
             if (prop.type == &TypeOf<draconic::resource::Ref<draconic::materials::Material>>())
             {
                 BuildResourceRefRow<draconic::materials::Material>(id, type, prop, category,
-                    { u8"MaterialAsset" });
+                                                                   {u8"MaterialAsset"});
                 return;
             }
             if (prop.type == &TypeOf<draconic::resource::Ref<draconic::animation::Skeleton>>())
             {
                 BuildResourceRefRow<draconic::animation::Skeleton>(id, type, prop, category,
-                    { u8"SkeletonAsset" });
+                                                                   {u8"SkeletonAsset"});
                 return;
             }
             if (prop.type == &TypeOf<draconic::resource::Ref<draconic::animation::AnimationClip>>())
             {
                 BuildResourceRefRow<draconic::animation::AnimationClip>(id, type, prop, category,
-                    { u8"AnimationClipAsset" });
+                                                                        {u8"AnimationClipAsset"});
                 return;
             }
-            if (prop.type == &TypeOf<draconic::resource::Ref<draconic::animation::AnimationGraph>>())
+            if (prop.type ==
+                &TypeOf<draconic::resource::Ref<draconic::animation::AnimationGraph>>())
             {
                 BuildResourceRefRow<draconic::animation::AnimationGraph>(id, type, prop, category,
-                    { u8"AnimationGraphAsset" });
+                                                                         {u8"AnimationGraphAsset"});
                 return;
             }
             if (prop.type == &TypeOf<draconic::resource::Ref<draconic::texture::Texture>>())
             {
                 BuildResourceRefRow<draconic::texture::Texture>(id, type, prop, category,
-                    { u8"TextureAsset" });
+                                                                {u8"TextureAsset"});
                 return;
             }
-            if (prop.type == &TypeOf<draconic::resource::Ref<draconic::particles::ParticleEffectResource>>())
+            if (prop.type ==
+                &TypeOf<draconic::resource::Ref<draconic::particles::ParticleEffectResource>>())
             {
-                BuildResourceRefRow<draconic::particles::ParticleEffectResource>(id, type, prop, category,
-                    { u8"ParticleEffectAsset" });
+                BuildResourceRefRow<draconic::particles::ParticleEffectResource>(
+                    id, type, prop, category, {u8"ParticleEffectAsset"});
                 return;
             }
             if (prop.type == &TypeOf<draconic::resource::Ref<draconic::physics::CollisionShape>>())
             {
                 BuildResourceRefRow<draconic::physics::CollisionShape>(id, type, prop, category,
-                    { u8"CollisionShapeAsset" });
+                                                                       {u8"CollisionShapeAsset"});
                 return;
             }
-            if (prop.type == &TypeOf<draconic::resource::Ref<draconic::physics::PhysicalMaterial>>())
+            if (prop.type ==
+                &TypeOf<draconic::resource::Ref<draconic::physics::PhysicalMaterial>>())
             {
-                BuildResourceRefRow<draconic::physics::PhysicalMaterial>(id, type, prop, category,
-                    { u8"PhysicalMaterialAsset" });
+                BuildResourceRefRow<draconic::physics::PhysicalMaterial>(
+                    id, type, prop, category, {u8"PhysicalMaterialAsset"});
                 return;
             }
             if (prop.type == &TypeOf<draconic::resource::Ref<draconic::audio::AudioClip>>())
             {
                 BuildResourceRefRow<draconic::audio::AudioClip>(id, type, prop, category,
-                    { u8"AudioClipAsset" });
+                                                                {u8"AudioClipAsset"});
                 return;
             }
             if (prop.type == &TypeOf<draconic::resource::Ref<draconic::audio::SoundCue>>())
             {
                 BuildResourceRefRow<draconic::audio::SoundCue>(id, type, prop, category,
-                    { u8"SoundCueAsset" });
+                                                               {u8"SoundCueAsset"});
                 return;
             }
             if (prop.type == &TypeOf<draconic::resource::Ref<draconic::ui::UIDocument>>())
             {
                 BuildResourceRefRow<draconic::ui::UIDocument>(id, type, prop, category,
-                    { u8"UIDocumentAsset" });
+                                                              {u8"UIDocumentAsset"});
                 return;
             }
             if (prop.type == &TypeOf<draconic::resource::Ref<draconic::ui::UITheme>>())
             {
                 BuildResourceRefRow<draconic::ui::UITheme>(id, type, prop, category,
-                    { u8"UIThemeAsset" });
+                                                           {u8"UIThemeAsset"});
                 return;
             }
 
             // Pulls the current Variant (empty component -> default Variant guards below).
-            auto getVariant = [edit, id, type, propName]() -> Variant {
+            auto getVariant = [edit, id, type, propName]() -> Variant
+            {
                 scene::ComponentManagerBase* mgr = edit->FindManager(type);
                 const scene::EntityHandle e = edit->Resolve(id);
-                if (mgr == nullptr || !e.IsAssigned()) { return {}; }
+                if (mgr == nullptr || !e.IsAssigned())
+                {
+                    return {};
+                }
                 const Instance component = mgr->GetComponentInstance(e);
-                const PropertyInfo* p = component.IsEmpty() ? nullptr : FindProperty(*type, propName);
+                const PropertyInfo* p =
+                    component.IsEmpty() ? nullptr : FindProperty(*type, propName);
                 return (p != nullptr) ? GetProperty(*p, component) : Variant{};
             };
 
@@ -1043,51 +1307,77 @@ export namespace draconic::editor
             {
                 const Span<const EnumValue> values = Enumerators(*prop.type);
                 Array<StringView> items;
-                for (const EnumValue& v : values) { items.PushBack(StringView(reinterpret_cast<const utf8char*>(v.name))); }
+                for (const EnumValue& v : values)
+                {
+                    items.PushBack(StringView(reinterpret_cast<const utf8char*>(v.name)));
+                }
 
-                auto rawRead = [edit, id, type, propName]() -> i64 {
+                auto rawRead = [edit, id, type, propName]() -> i64
+                {
                     scene::ComponentManagerBase* mgr = edit->FindManager(type);
                     const scene::EntityHandle e = edit->Resolve(id);
-                    if (mgr == nullptr || !e.IsAssigned()) { return 0; }
+                    if (mgr == nullptr || !e.IsAssigned())
+                    {
+                        return 0;
+                    }
                     const Instance component = mgr->GetComponentInstance(e);
-                    const PropertyInfo* p = component.IsEmpty() ? nullptr : FindProperty(*type, propName);
-                    void* address = (p != nullptr && p->address != nullptr) ? p->address(component) : nullptr;
-                    if (address == nullptr) { return 0; }
+                    const PropertyInfo* p =
+                        component.IsEmpty() ? nullptr : FindProperty(*type, propName);
+                    void* address =
+                        (p != nullptr && p->address != nullptr) ? p->address(component) : nullptr;
+                    if (address == nullptr)
+                    {
+                        return 0;
+                    }
                     switch (p->type->size)
                     {
-                        case 1: return *static_cast<const i8*>(address);
-                        case 2: return *static_cast<const i16*>(address);
-                        case 8: return *static_cast<const i64*>(address);
-                        default: return *static_cast<const i32*>(address);
+                    case 1:
+                        return *static_cast<const i8*>(address);
+                    case 2:
+                        return *static_cast<const i16*>(address);
+                    case 8:
+                        return *static_cast<const i64*>(address);
+                    default:
+                        return *static_cast<const i32*>(address);
                     }
                 };
-                auto indexOf = [values](i64 value) -> i32 {
+                auto indexOf = [values](i64 value) -> i32
+                {
                     for (usize i = 0; i < values.Size(); ++i)
                     {
-                        if (values[i].value == value) { return static_cast<i32>(i); }
+                        if (values[i].value == value)
+                        {
+                            return static_cast<i32>(i);
+                        }
                     }
                     return 0;
                 };
 
-                auto editor = MakeRef<ui::toolkit::EnumEditor>(DefaultAllocator(), name, indexOf(rawRead()),
-                    Span<const StringView>{ items.Data(), items.Size() },
-                    readOnly ? Function<void(i32)>{} : Function<void(i32)>{
-                        [edit, id, type, propName, values](i32 index) {
-                            if (index >= 0 && index < static_cast<i32>(values.Size()))
-                            {
-                                edit->SetComponentPropertyRaw(id, type, propName, values[static_cast<usize>(index)].value);
-                            }
-                        } },
+                auto editor = MakeRef<ui::toolkit::EnumEditor>(
+                    DefaultAllocator(), name, indexOf(rawRead()),
+                    Span<const StringView>{items.Data(), items.Size()},
+                    readOnly
+                        ? Function<void(i32)>{}
+                        : Function<void(i32)>{[edit, id, type, propName, values](i32 index)
+                                              {
+                                                  if (index >= 0 &&
+                                                      index < static_cast<i32>(values.Size()))
+                                                  {
+                                                      edit->SetComponentPropertyRaw(
+                                                          id, type, propName,
+                                                          values[static_cast<usize>(index)].value);
+                                                  }
+                                              }},
                     category);
-                AddEditor(editor.Get(), [rawRead, indexOf, raw = editor.Get()]() {
-                    raw->SetValue(indexOf(rawRead()));
-                });
+                AddEditor(editor.Get(), [rawRead, indexOf, raw = editor.Get()]()
+                          { raw->SetValue(indexOf(rawRead())); });
                 return;
             }
 
             if (prop.type == &TypeOf<f32>())
             {
-                auto value = [getVariant]() -> f64 {
+                auto value = [getVariant]() -> f64
+                {
                     const Variant v = getVariant();
                     const f32* f = v.TryGet<f32>();
                     return (f != nullptr) ? static_cast<f64>(*f) : 0.0;
@@ -1095,24 +1385,30 @@ export namespace draconic::editor
                 // "range" attribute -> bounded slider+field instead of a bare numeric field.
                 if (const Float4* range = RangeOf(prop))
                 {
-                    auto editor = MakeRef<ui::toolkit::RangeEditor>(DefaultAllocator(), name,
-                        static_cast<f32>(value()), range->x, range->y, range->z,
-                        readOnly ? Function<void(f32)>{} : Function<void(f32)>{
-                            [edit, id, type, propName](f32 v) {
-                                edit->SetComponentProperty(id, type, propName, Variant::From<f32>(v));
-                            } },
+                    auto editor = MakeRef<ui::toolkit::RangeEditor>(
+                        DefaultAllocator(), name, static_cast<f32>(value()), range->x, range->y,
+                        range->z,
+                        readOnly ? Function<void(f32)>{}
+                                 : Function<void(f32)>{[edit, id, type, propName](f32 v)
+                                                       {
+                                                           edit->SetComponentProperty(
+                                                               id, type, propName,
+                                                               Variant::From<f32>(v));
+                                                       }},
                         category);
-                    AddEditor(editor.Get(), [value, raw = editor.Get()]() {
-                        raw->SetValue(static_cast<f32>(value()));
-                    });
+                    AddEditor(editor.Get(), [value, raw = editor.Get()]()
+                              { raw->SetValue(static_cast<f32>(value())); });
                     return;
                 }
-                auto editor = MakeRef<ui::toolkit::FloatEditor>(DefaultAllocator(), name, value(),
-                    -1e9, 1e9, 0.1, 2,
-                    readOnly ? Function<void(f64)>{} : Function<void(f64)>{
-                        [edit, id, type, propName](f64 v) {
-                            edit->SetComponentProperty(id, type, propName, Variant::From<f32>(static_cast<f32>(v)));
-                        } },
+                auto editor = MakeRef<ui::toolkit::FloatEditor>(
+                    DefaultAllocator(), name, value(), -1e9, 1e9, 0.1, 2,
+                    readOnly ? Function<void(f64)>{}
+                             : Function<void(f64)>{[edit, id, type, propName](f64 v)
+                                                   {
+                                                       edit->SetComponentProperty(
+                                                           id, type, propName,
+                                                           Variant::From<f32>(static_cast<f32>(v)));
+                                                   }},
                     category);
                 AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
                 return;
@@ -1120,77 +1416,121 @@ export namespace draconic::editor
 
             if (prop.type == &TypeOf<bool>())
             {
-                auto value = [getVariant]() -> bool {
+                auto value = [getVariant]() -> bool
+                {
                     const Variant v = getVariant();
                     const bool* b = v.TryGet<bool>();
                     return b != nullptr && *b;
                 };
-                auto editor = MakeRef<ui::toolkit::BoolEditor>(DefaultAllocator(), name, value(),
-                    readOnly ? Function<void(bool)>{} : Function<void(bool)>{
-                        [edit, id, type, propName](bool v) {
-                            edit->SetComponentProperty(id, type, propName, Variant::From<bool>(v));
-                        } },
+                auto editor = MakeRef<ui::toolkit::BoolEditor>(
+                    DefaultAllocator(), name, value(),
+                    readOnly
+                        ? Function<void(bool)>{}
+                        : Function<void(bool)>{[edit, id, type, propName](bool v)
+                                               {
+                                                   edit->SetComponentProperty(
+                                                       id, type, propName, Variant::From<bool>(v));
+                                               }},
                     category);
                 AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
                 return;
             }
 
-            if (prop.type == &TypeOf<i32>() || prop.type == &TypeOf<u32>()
-                || prop.type == &TypeOf<i64>() || prop.type == &TypeOf<u64>())
+            if (prop.type == &TypeOf<i32>() || prop.type == &TypeOf<u32>() ||
+                prop.type == &TypeOf<i64>() || prop.type == &TypeOf<u64>())
             {
                 const TypeInfo* intType = prop.type;
-                auto value = [getVariant, intType]() -> i64 {
+                auto value = [getVariant, intType]() -> i64
+                {
                     const Variant v = getVariant();
-                    if (intType == &TypeOf<i32>()) { const i32* p = v.TryGet<i32>(); return p ? *p : 0; }
-                    if (intType == &TypeOf<u32>()) { const u32* p = v.TryGet<u32>(); return p ? static_cast<i64>(*p) : 0; }
-                    if (intType == &TypeOf<u64>()) { const u64* p = v.TryGet<u64>(); return p ? static_cast<i64>(*p) : 0; }
+                    if (intType == &TypeOf<i32>())
+                    {
+                        const i32* p = v.TryGet<i32>();
+                        return p ? *p : 0;
+                    }
+                    if (intType == &TypeOf<u32>())
+                    {
+                        const u32* p = v.TryGet<u32>();
+                        return p ? static_cast<i64>(*p) : 0;
+                    }
+                    if (intType == &TypeOf<u64>())
+                    {
+                        const u64* p = v.TryGet<u64>();
+                        return p ? static_cast<i64>(*p) : 0;
+                    }
                     const i64* p = v.TryGet<i64>();
                     return p ? *p : 0;
                 };
-                auto setter = [edit, id, type, propName, intType](i64 v) {
-                    if (intType == &TypeOf<i32>()) { edit->SetComponentProperty(id, type, propName, Variant::From<i32>(static_cast<i32>(v))); }
-                    else if (intType == &TypeOf<u32>()) { edit->SetComponentProperty(id, type, propName, Variant::From<u32>(static_cast<u32>(v))); }
-                    else if (intType == &TypeOf<u64>()) { edit->SetComponentProperty(id, type, propName, Variant::From<u64>(static_cast<u64>(v))); }
-                    else { edit->SetComponentProperty(id, type, propName, Variant::From<i64>(v)); }
+                auto setter = [edit, id, type, propName, intType](i64 v)
+                {
+                    if (intType == &TypeOf<i32>())
+                    {
+                        edit->SetComponentProperty(id, type, propName,
+                                                   Variant::From<i32>(static_cast<i32>(v)));
+                    }
+                    else if (intType == &TypeOf<u32>())
+                    {
+                        edit->SetComponentProperty(id, type, propName,
+                                                   Variant::From<u32>(static_cast<u32>(v)));
+                    }
+                    else if (intType == &TypeOf<u64>())
+                    {
+                        edit->SetComponentProperty(id, type, propName,
+                                                   Variant::From<u64>(static_cast<u64>(v)));
+                    }
+                    else
+                    {
+                        edit->SetComponentProperty(id, type, propName, Variant::From<i64>(v));
+                    }
                 };
-                auto editor = MakeRef<ui::toolkit::IntEditor>(DefaultAllocator(), name, value(),
-                    std::numeric_limits<i64>::min(), std::numeric_limits<i64>::max(),
-                    readOnly ? Function<void(i64)>{} : Function<void(i64)>{ Move(setter) },
-                    category);
+                auto editor = MakeRef<ui::toolkit::IntEditor>(
+                    DefaultAllocator(), name, value(), std::numeric_limits<i64>::min(),
+                    std::numeric_limits<i64>::max(),
+                    readOnly ? Function<void(i64)>{} : Function<void(i64)>{Move(setter)}, category);
                 AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
                 return;
             }
 
             if (prop.type == &TypeOf<String>())
             {
-                auto value = [getVariant]() -> String {
+                auto value = [getVariant]() -> String
+                {
                     const Variant v = getVariant();
                     const String* s = v.TryGet<String>();
                     return (s != nullptr) ? String(*s) : String{};
                 };
-                auto editor = MakeRef<ui::toolkit::StringEditor>(DefaultAllocator(), name, value().AsView(),
-                    readOnly ? Function<void(StringView)>{} : Function<void(StringView)>{
-                        [edit, id, type, propName](StringView v) {
-                            edit->SetComponentProperty(id, type, propName, Variant::From<String>(String(v)));
-                        } },
+                auto editor = MakeRef<ui::toolkit::StringEditor>(
+                    DefaultAllocator(), name, value().AsView(),
+                    readOnly ? Function<void(StringView)>{}
+                             : Function<void(StringView)>{[edit, id, type, propName](StringView v)
+                                                          {
+                                                              edit->SetComponentProperty(
+                                                                  id, type, propName,
+                                                                  Variant::From<String>(String(v)));
+                                                          }},
                     category);
-                AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value().AsView()); });
+                AddEditor(editor.Get(),
+                          [value, raw = editor.Get()]() { raw->SetValue(value().AsView()); });
                 return;
             }
 
             if (prop.type == &TypeOf<Float3>())
             {
-                auto value = [getVariant]() -> Float3 {
+                auto value = [getVariant]() -> Float3
+                {
                     const Variant v = getVariant();
                     const Float3* f = v.TryGet<Float3>();
                     return (f != nullptr) ? *f : Float3{};
                 };
-                auto editor = MakeRef<ui::toolkit::Float3Editor>(DefaultAllocator(), name, value(),
-                    -100000.0f, 100000.0f, 0.1f,
-                    readOnly ? Function<void(Float3)>{} : Function<void(Float3)>{
-                        [edit, id, type, propName](Float3 v) {
-                            edit->SetComponentProperty(id, type, propName, Variant::From<Float3>(v));
-                        } },
+                auto editor = MakeRef<ui::toolkit::Float3Editor>(
+                    DefaultAllocator(), name, value(), -100000.0f, 100000.0f, 0.1f,
+                    readOnly ? Function<void(Float3)>{}
+                             : Function<void(Float3)>{[edit, id, type, propName](Float3 v)
+                                                      {
+                                                          edit->SetComponentProperty(
+                                                              id, type, propName,
+                                                              Variant::From<Float3>(v));
+                                                      }},
                     category);
                 AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
                 return;
@@ -1198,16 +1538,21 @@ export namespace draconic::editor
 
             if (prop.type == &TypeOf<Color>())
             {
-                auto value = [getVariant]() -> Color {
+                auto value = [getVariant]() -> Color
+                {
                     const Variant v = getVariant();
                     const Color* c = v.TryGet<Color>();
-                    return (c != nullptr) ? *c : Color{ 1, 1, 1, 1 };
+                    return (c != nullptr) ? *c : Color{1, 1, 1, 1};
                 };
-                auto editor = MakeRef<ui::toolkit::ColorEditor>(DefaultAllocator(), name, value(),
-                    readOnly ? Function<void(Color)>{} : Function<void(Color)>{
-                        [edit, id, type, propName](Color v) {
-                            edit->SetComponentProperty(id, type, propName, Variant::From<Color>(v));
-                        } },
+                auto editor = MakeRef<ui::toolkit::ColorEditor>(
+                    DefaultAllocator(), name, value(),
+                    readOnly ? Function<void(Color)>{}
+                             : Function<void(Color)>{[edit, id, type, propName](Color v)
+                                                     {
+                                                         edit->SetComponentProperty(
+                                                             id, type, propName,
+                                                             Variant::From<Color>(v));
+                                                     }},
                     category);
                 AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
                 return;
@@ -1215,17 +1560,21 @@ export namespace draconic::editor
 
             if (prop.type == &TypeOf<Float2>())
             {
-                auto value = [getVariant]() -> Float2 {
+                auto value = [getVariant]() -> Float2
+                {
                     const Variant v = getVariant();
                     const Float2* f = v.TryGet<Float2>();
                     return (f != nullptr) ? *f : Float2{};
                 };
-                auto editor = MakeRef<ui::toolkit::Float2Editor>(DefaultAllocator(), name, value(),
-                    -100000.0f, 100000.0f, 0.1f,
-                    readOnly ? Function<void(Float2)>{} : Function<void(Float2)>{
-                        [edit, id, type, propName](Float2 v) {
-                            edit->SetComponentProperty(id, type, propName, Variant::From<Float2>(v));
-                        } },
+                auto editor = MakeRef<ui::toolkit::Float2Editor>(
+                    DefaultAllocator(), name, value(), -100000.0f, 100000.0f, 0.1f,
+                    readOnly ? Function<void(Float2)>{}
+                             : Function<void(Float2)>{[edit, id, type, propName](Float2 v)
+                                                      {
+                                                          edit->SetComponentProperty(
+                                                              id, type, propName,
+                                                              Variant::From<Float2>(v));
+                                                      }},
                     category);
                 AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
                 return;
@@ -1233,17 +1582,21 @@ export namespace draconic::editor
 
             if (prop.type == &TypeOf<Float4>())
             {
-                auto value = [getVariant]() -> Float4 {
+                auto value = [getVariant]() -> Float4
+                {
                     const Variant v = getVariant();
                     const Float4* f = v.TryGet<Float4>();
                     return (f != nullptr) ? *f : Float4{};
                 };
-                auto editor = MakeRef<ui::toolkit::Float4Editor>(DefaultAllocator(), name, value(),
-                    -100000.0f, 100000.0f, 0.1f,
-                    readOnly ? Function<void(Float4)>{} : Function<void(Float4)>{
-                        [edit, id, type, propName](Float4 v) {
-                            edit->SetComponentProperty(id, type, propName, Variant::From<Float4>(v));
-                        } },
+                auto editor = MakeRef<ui::toolkit::Float4Editor>(
+                    DefaultAllocator(), name, value(), -100000.0f, 100000.0f, 0.1f,
+                    readOnly ? Function<void(Float4)>{}
+                             : Function<void(Float4)>{[edit, id, type, propName](Float4 v)
+                                                      {
+                                                          edit->SetComponentProperty(
+                                                              id, type, propName,
+                                                              Variant::From<Float4>(v));
+                                                      }},
                     category);
                 AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
                 return;
@@ -1258,11 +1611,16 @@ export namespace draconic::editor
         {
             scene::ComponentManagerBase* mgr = m_edit->FindManager(type);
             const scene::EntityHandle e = m_edit->Resolve(id);
-            if (mgr == nullptr || !e.IsAssigned()) { return Guid{}; }
+            if (mgr == nullptr || !e.IsAssigned())
+            {
+                return Guid{};
+            }
             const Instance component = mgr->GetComponentInstance(e);
             const PropertyInfo* p = component.IsEmpty() ? nullptr : FindProperty(*type, propName);
-            void* address = (p != nullptr && p->address != nullptr) ? p->address(component) : nullptr;
-            return (address != nullptr) ? static_cast<draconic::resource::Ref<T>*>(address)->id : Guid{};
+            void* address =
+                (p != nullptr && p->address != nullptr) ? p->address(component) : nullptr;
+            return (address != nullptr) ? static_cast<draconic::resource::Ref<T>*>(address)->id
+                                        : Guid{};
         }
 
         // One undoable mutation of the selected entity's MeshComponent materials: copy the
@@ -1275,14 +1633,18 @@ export namespace draconic::editor
             auto* manager = m_edit->Scene().GetSystem<draconic::render::MeshComponentManager>();
             draconic::render::MeshComponent* live =
                 (manager != nullptr && e.IsAssigned()) ? manager->Get(e) : nullptr;
-            if (live == nullptr) { return; }
+            if (live == nullptr)
+            {
+                return;
+            }
             const draconic::render::MeshComponent before = *live;
             mutate(*live);
-            Array<byte> blob = m_edit->CopyComponent(id, &TypeOf<draconic::render::MeshComponent>());
+            Array<byte> blob =
+                m_edit->CopyComponent(id, &TypeOf<draconic::render::MeshComponent>());
             *live = before;
             if (!blob.IsEmpty())
             {
-                (void)m_edit->PasteComponent(id, Span<const byte>{ blob.Data(), blob.Size() });
+                (void)m_edit->PasteComponent(id, Span<const byte>{blob.Data(), blob.Size()});
             }
         }
 
@@ -1318,67 +1680,108 @@ export namespace draconic::editor
             auto* manager = m_edit->Scene().GetSystem<draconic::render::MeshComponentManager>();
             draconic::render::MeshComponent* mc =
                 (manager != nullptr && e.IsAssigned()) ? manager->Get(e) : nullptr;
-            if (mc == nullptr) { return; }
+            if (mc == nullptr)
+            {
+                return;
+            }
 
-            auto slots = MakeRef<MaterialSlotsEditor>(DefaultAllocator(),
-                                                      StringView(u8"Materials"), category);
+            auto slots = MakeRef<MaterialSlotsEditor>(DefaultAllocator(), StringView(u8"Materials"),
+                                                      category);
             slots->SetTooltip(u8"Material slots, indexed by the mesh's submesh material index. "
                               u8"Slot 0 also covers single-material meshes and any submesh "
                               u8"whose index has no slot.");
             slots->slotNames = MaterialSlotNames(*mc);
 
             SceneInspectorView* self = this;
-            slots->OnAddSlot = [self, id]() {
-                self->MutateMeshMaterials(id, [](draconic::render::MeshComponent& c) {
-                    c.materials.PushBack(draconic::resource::Ref<draconic::materials::Material>{});
-                });
-            };
-            slots->OnRemoveSlot = [self, id](usize slot) {
-                self->MutateMeshMaterials(id, [slot](draconic::render::MeshComponent& c) {
-                    if (slot < c.materials.Size()) { c.materials.RemoveAt(slot); }
-                });
-            };
-            slots->OnMoveSlot = [self, id](usize slot, bool up) {
-                self->MutateMeshMaterials(id, [slot, up](draconic::render::MeshComponent& c) {
-                    const usize other = up ? slot - 1 : slot + 1;
-                    if (slot < c.materials.Size() && other < c.materials.Size())
+            slots->OnAddSlot = [self, id]()
+            {
+                self->MutateMeshMaterials(
+                    id,
+                    [](draconic::render::MeshComponent& c)
                     {
-                        draconic::resource::Ref<draconic::materials::Material> tmp = c.materials[slot];
-                        c.materials[slot] = c.materials[other];
-                        c.materials[other] = tmp;
-                    }
-                });
+                        c.materials.PushBack(
+                            draconic::resource::Ref<draconic::materials::Material>{});
+                    });
             };
-            slots->OnPickSlot = [self, id](usize slot) {
-                if (self->Context == nullptr || self->m_editor->Project() == nullptr) { return; }
+            slots->OnRemoveSlot = [self, id](usize slot)
+            {
+                self->MutateMeshMaterials(id,
+                                          [slot](draconic::render::MeshComponent& c)
+                                          {
+                                              if (slot < c.materials.Size())
+                                              {
+                                                  c.materials.RemoveAt(slot);
+                                              }
+                                          });
+            };
+            slots->OnMoveSlot = [self, id](usize slot, bool up)
+            {
+                self->MutateMeshMaterials(
+                    id,
+                    [slot, up](draconic::render::MeshComponent& c)
+                    {
+                        const usize other = up ? slot - 1 : slot + 1;
+                        if (slot < c.materials.Size() && other < c.materials.Size())
+                        {
+                            draconic::resource::Ref<draconic::materials::Material> tmp =
+                                c.materials[slot];
+                            c.materials[slot] = c.materials[other];
+                            c.materials[other] = tmp;
+                        }
+                    });
+            };
+            slots->OnPickSlot = [self, id](usize slot)
+            {
+                if (self->Context == nullptr || self->m_editor->Project() == nullptr)
+                {
+                    return;
+                }
                 Array<String> typeNames;
                 typeNames.PushBack(String(u8"MaterialAsset"));
                 auto picker = MakeRef<draconic::editor::app::AssetPickerDialog>(
                     DefaultAllocator(), *self->m_editor, Move(typeNames));
-                picker->OnPicked = [self, id, slot](const Guid& picked) {
-                    self->MutateMeshMaterials(id, [slot, picked](draconic::render::MeshComponent& c) {
-                        if (slot >= c.materials.Size()) { return; }
-                        c.materials[slot] = draconic::resource::Ref<draconic::materials::Material>{};
-                        c.materials[slot].SetId(picked);
-                    });
+                picker->OnPicked = [self, id, slot](const Guid& picked)
+                {
+                    self->MutateMeshMaterials(
+                        id,
+                        [slot, picked](draconic::render::MeshComponent& c)
+                        {
+                            if (slot >= c.materials.Size())
+                            {
+                                return;
+                            }
+                            c.materials[slot] =
+                                draconic::resource::Ref<draconic::materials::Material>{};
+                            c.materials[slot].SetId(picked);
+                        });
                 };
                 picker->Show(self->Context);
             };
             RefPtr<MaterialSlotsEditor> slotsRef = slots;
-            AddEditor(slots.Get(), [self, id, slotsRef]() {
-                const scene::EntityHandle live = self->m_edit->Resolve(id);
-                auto* mgr = self->m_edit->Scene().GetSystem<draconic::render::MeshComponentManager>();
-                draconic::render::MeshComponent* c =
-                    (mgr != nullptr && live.IsAssigned()) ? mgr->Get(live) : nullptr;
-                if (c == nullptr) { return; }   // presence loss flips the Signature anyway
-                const Array<String> names = self->MaterialSlotNames(*c);
-                bool same = names.Size() == slotsRef->slotNames.Size();
-                for (usize i = 0; same && i < names.Size(); ++i)
+            AddEditor(
+                slots.Get(),
+                [self, id, slotsRef]()
                 {
-                    same = names[i] == slotsRef->slotNames[i];
-                }
-                if (!same) { self->m_forceRebuild = true; }
-            });
+                    const scene::EntityHandle live = self->m_edit->Resolve(id);
+                    auto* mgr =
+                        self->m_edit->Scene().GetSystem<draconic::render::MeshComponentManager>();
+                    draconic::render::MeshComponent* c =
+                        (mgr != nullptr && live.IsAssigned()) ? mgr->Get(live) : nullptr;
+                    if (c == nullptr)
+                    {
+                        return;
+                    } // presence loss flips the Signature anyway
+                    const Array<String> names = self->MaterialSlotNames(*c);
+                    bool same = names.Size() == slotsRef->slotNames.Size();
+                    for (usize i = 0; same && i < names.Size(); ++i)
+                    {
+                        same = names[i] == slotsRef->slotNames[i];
+                    }
+                    if (!same)
+                    {
+                        self->m_forceRebuild = true;
+                    }
+                });
         }
 
         // One undoable mutation of the selected entity's ScriptComponent (the mesh-
@@ -1391,7 +1794,10 @@ export namespace draconic::editor
             auto* manager = m_edit->Scene().GetSystem<draconic::script::ScriptComponentManager>();
             draconic::script::ScriptComponent* live =
                 (manager != nullptr && e.IsAssigned()) ? manager->Get(e) : nullptr;
-            if (live == nullptr) { return; }
+            if (live == nullptr)
+            {
+                return;
+            }
             const draconic::script::ScriptComponent before = *live;
             mutate(*live);
             Array<byte> blob =
@@ -1399,20 +1805,26 @@ export namespace draconic::editor
             *live = before;
             if (!blob.IsEmpty())
             {
-                (void)m_edit->PasteComponent(id, Span<const byte>{ blob.Data(), blob.Size() });
+                (void)m_edit->PasteComponent(id, Span<const byte>{blob.Data(), blob.Size()});
             }
         }
 
         // The cooked ScriptClass a behavior references (bound through the editor's
         // resource manager so the harvested metadata is available; null when unset or
         // not yet cooked).
-        [[nodiscard]] draconic::script::ScriptClass* BehaviorClass(
-            const draconic::script::ScriptBehavior& behavior)
+        [[nodiscard]] draconic::script::ScriptClass*
+        BehaviorClass(const draconic::script::ScriptBehavior& behavior)
         {
-            if (behavior.script.Get() != nullptr) { return behavior.script.Get(); }
-            if (behavior.script.id.IsNil() || m_editor->Resources() == nullptr) { return nullptr; }
-            auto proxy = m_editor->Resources()->Bind<draconic::script::ScriptClass>(
-                behavior.script.id);
+            if (behavior.script.Get() != nullptr)
+            {
+                return behavior.script.Get();
+            }
+            if (behavior.script.id.IsNil() || m_editor->Resources() == nullptr)
+            {
+                return nullptr;
+            }
+            auto proxy =
+                m_editor->Resources()->Bind<draconic::script::ScriptClass>(behavior.script.id);
             return proxy.Get();
         }
 
@@ -1437,7 +1849,10 @@ export namespace draconic::editor
             auto* manager = m_edit->Scene().GetSystem<draconic::script::ScriptComponentManager>();
             draconic::script::ScriptComponent* component =
                 (manager != nullptr && e.IsAssigned()) ? manager->Get(e) : nullptr;
-            if (component == nullptr) { return; }
+            if (component == nullptr)
+            {
+                return;
+            }
 
             SceneInspectorView* self = this;
             for (usize i = 0; i < component->behaviors.Size(); ++i)
@@ -1445,31 +1860,37 @@ export namespace draconic::editor
                 BuildScriptBehaviorRows(id, category, i);
             }
 
-            auto add = MakeRef<ui::toolkit::ButtonEditor>(DefaultAllocator(),
-                StringView(u8"+ Add Behavior"),
-                Function<void()>{ [self, id]() {
-                    self->MutateScriptComponent(id, [](draconic::script::ScriptComponent& c) {
-                        c.behaviors.PushBack(draconic::script::ScriptBehavior{});
-                    });
-                } }, category);
+            auto add = MakeRef<ui::toolkit::ButtonEditor>(
+                DefaultAllocator(), StringView(u8"+ Add Behavior"),
+                Function<void()>{
+                    [self, id]()
+                    {
+                        self->MutateScriptComponent(
+                            id, [](draconic::script::ScriptComponent& c)
+                            { c.behaviors.PushBack(draconic::script::ScriptBehavior{}); });
+                    }},
+                category);
             m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(add.Get()));
 
             // Shape-change watcher (add/remove/reorder/pick/override toggle rebuilds).
             const u64 signature = ScriptBehaviorsSignature(*component);
             auto watcher = MakeRef<ui::toolkit::ButtonEditor>(DefaultAllocator(), StringView(u8""),
-                Function<void()>{ []() {} }, category);
+                                                              Function<void()>{[]() {}}, category);
             watcher->SetRowVisible(false);
-            AddEditor(watcher.Get(), [self, id, signature]() {
-                const scene::EntityHandle live = self->m_edit->Resolve(id);
-                auto* mgr =
-                    self->m_edit->Scene().GetSystem<draconic::script::ScriptComponentManager>();
-                draconic::script::ScriptComponent* c =
-                    (mgr != nullptr && live.IsAssigned()) ? mgr->Get(live) : nullptr;
-                if (c != nullptr && self->ScriptBehaviorsSignature(*c) != signature)
+            AddEditor(
+                watcher.Get(),
+                [self, id, signature]()
                 {
-                    self->m_forceRebuild = true;
-                }
-            });
+                    const scene::EntityHandle live = self->m_edit->Resolve(id);
+                    auto* mgr =
+                        self->m_edit->Scene().GetSystem<draconic::script::ScriptComponentManager>();
+                    draconic::script::ScriptComponent* c =
+                        (mgr != nullptr && live.IsAssigned()) ? mgr->Get(live) : nullptr;
+                    if (c != nullptr && self->ScriptBehaviorsSignature(*c) != signature)
+                    {
+                        self->m_forceRebuild = true;
+                    }
+                });
         }
 
         void BuildScriptBehaviorRows(const Guid& id, StringView category, usize index)
@@ -1478,97 +1899,149 @@ export namespace draconic::editor
             auto* manager = m_edit->Scene().GetSystem<draconic::script::ScriptComponentManager>();
             draconic::script::ScriptComponent* component =
                 (manager != nullptr && e.IsAssigned()) ? manager->Get(e) : nullptr;
-            if (component == nullptr || index >= component->behaviors.Size()) { return; }
+            if (component == nullptr || index >= component->behaviors.Size())
+            {
+                return;
+            }
             draconic::script::ScriptBehavior& behavior = component->behaviors[index];
             SceneInspectorView* self = this;
 
             // Script picker (AssetPickerDialog filtered to ScriptClass).
             const StringView assetName = behavior.script.id.IsNil()
-                ? StringView(u8"(none)") : AssetNameFor(behavior.script.id);
-            auto picker = MakeRef<ResourceRefEditor>(DefaultAllocator(),
-                StringView(u8"Script"), assetName, category);
+                                             ? StringView(u8"(none)")
+                                             : AssetNameFor(behavior.script.id);
+            auto picker = MakeRef<ResourceRefEditor>(DefaultAllocator(), StringView(u8"Script"),
+                                                     assetName, category);
             ResourceRefEditor* pickerRaw = picker.Get();
-            pickerRaw->OnPick = [self, id, index]() {
-                if (self->Context == nullptr || self->m_editor->Project() == nullptr) { return; }
+            pickerRaw->OnPick = [self, id, index]()
+            {
+                if (self->Context == nullptr || self->m_editor->Project() == nullptr)
+                {
+                    return;
+                }
                 Array<String> typeNames;
                 typeNames.PushBack(String(u8"ScriptClassAsset"));
                 auto dialog = MakeRef<draconic::editor::app::AssetPickerDialog>(
                     DefaultAllocator(), *self->m_editor, Move(typeNames));
-                dialog->OnPicked = [self, id, index](const Guid& picked) {
-                    self->MutateScriptComponent(id, [index, picked](
-                        draconic::script::ScriptComponent& c) {
-                        if (index >= c.behaviors.Size()) { return; }
-                        c.behaviors[index].script = draconic::resource::Ref<draconic::script::ScriptClass>{};
-                        c.behaviors[index].script.SetId(picked);
-                        c.behaviors[index].overrides.Clear();   // metadata changed
-                    });
+                dialog->OnPicked = [self, id, index](const Guid& picked)
+                {
+                    self->MutateScriptComponent(
+                        id,
+                        [index, picked](draconic::script::ScriptComponent& c)
+                        {
+                            if (index >= c.behaviors.Size())
+                            {
+                                return;
+                            }
+                            c.behaviors[index].script =
+                                draconic::resource::Ref<draconic::script::ScriptClass>{};
+                            c.behaviors[index].script.SetId(picked);
+                            c.behaviors[index].overrides.Clear(); // metadata changed
+                        });
                 };
                 dialog->Show(self->Context);
             };
-            AddEditor(pickerRaw, [self, id, index, pickerRaw]() {
-                const scene::EntityHandle live = self->m_edit->Resolve(id);
-                auto* mgr =
-                    self->m_edit->Scene().GetSystem<draconic::script::ScriptComponentManager>();
-                draconic::script::ScriptComponent* c =
-                    (mgr != nullptr && live.IsAssigned()) ? mgr->Get(live) : nullptr;
-                if (c == nullptr || index >= c->behaviors.Size()) { return; }
-                const Guid target = c->behaviors[index].script.id;
-                pickerRaw->SetValueText(target.IsNil() ? StringView(u8"(none)")
-                                                       : self->AssetNameFor(target));
-            });
+            AddEditor(
+                pickerRaw,
+                [self, id, index, pickerRaw]()
+                {
+                    const scene::EntityHandle live = self->m_edit->Resolve(id);
+                    auto* mgr =
+                        self->m_edit->Scene().GetSystem<draconic::script::ScriptComponentManager>();
+                    draconic::script::ScriptComponent* c =
+                        (mgr != nullptr && live.IsAssigned()) ? mgr->Get(live) : nullptr;
+                    if (c == nullptr || index >= c->behaviors.Size())
+                    {
+                        return;
+                    }
+                    const Guid target = c->behaviors[index].script.id;
+                    pickerRaw->SetValueText(target.IsNil() ? StringView(u8"(none)")
+                                                           : self->AssetNameFor(target));
+                });
 
             // Enabled toggle.
-            auto enabled = MakeRef<ui::toolkit::BoolEditor>(DefaultAllocator(), StringView(u8"Enabled"),
-                behavior.enabled, Function<void(bool)>{ [self, id, index](bool value) {
-                    self->MutateScriptComponent(id, [index, value](
-                        draconic::script::ScriptComponent& c) {
-                        if (index < c.behaviors.Size()) { c.behaviors[index].enabled = value; }
-                    });
-                } }, category);
+            auto enabled = MakeRef<ui::toolkit::BoolEditor>(
+                DefaultAllocator(), StringView(u8"Enabled"), behavior.enabled,
+                Function<void(bool)>{[self, id, index](bool value)
+                                     {
+                                         self->MutateScriptComponent(
+                                             id,
+                                             [index, value](draconic::script::ScriptComponent& c)
+                                             {
+                                                 if (index < c.behaviors.Size())
+                                                 {
+                                                     c.behaviors[index].enabled = value;
+                                                 }
+                                             });
+                                     }},
+                category);
             m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(enabled.Get()));
 
             // Update interval (P3 throttling): seconds between onUpdate; 0 = every tick.
-            auto interval = MakeRef<ui::toolkit::FloatEditor>(DefaultAllocator(),
-                StringView(u8"Update Interval"), static_cast<f64>(behavior.updateInterval),
-                0.0, 3600.0, 0.05, 3,
-                Function<void(f64)>{ [self, id, index](f64 value) {
-                    self->MutateScriptComponent(id, [index, value](
-                        draconic::script::ScriptComponent& c) {
-                        if (index < c.behaviors.Size())
-                        {
-                            c.behaviors[index].updateInterval =
-                                static_cast<f32>(value < 0.0 ? 0.0 : value);
-                        }
-                    });
-                } }, category);
+            auto interval = MakeRef<ui::toolkit::FloatEditor>(
+                DefaultAllocator(), StringView(u8"Update Interval"),
+                static_cast<f64>(behavior.updateInterval), 0.0, 3600.0, 0.05, 3,
+                Function<void(f64)>{[self, id, index](f64 value)
+                                    {
+                                        self->MutateScriptComponent(
+                                            id,
+                                            [index, value](draconic::script::ScriptComponent& c)
+                                            {
+                                                if (index < c.behaviors.Size())
+                                                {
+                                                    c.behaviors[index].updateInterval =
+                                                        static_cast<f32>(value < 0.0 ? 0.0 : value);
+                                                }
+                                            });
+                                    }},
+                category);
             interval->SetTooltip(StringView(u8"Seconds between onUpdate calls (0 = every frame)"));
             m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(interval.Get()));
 
             // Reorder / remove.
-            auto up = MakeRef<ui::toolkit::ButtonEditor>(DefaultAllocator(), StringView(u8"Move Up"),
-                Function<void()>{ [self, id, index]() {
-                    self->MutateScriptComponent(id, [index](draconic::script::ScriptComponent& c) {
-                        if (index > 0 && index < c.behaviors.Size())
-                        {
-                            draconic::script::ScriptBehavior tmp = Move(c.behaviors[index]);
-                            c.behaviors[index] = Move(c.behaviors[index - 1]);
-                            c.behaviors[index - 1] = Move(tmp);
-                        }
-                    });
-                } }, category);
+            auto up = MakeRef<ui::toolkit::ButtonEditor>(
+                DefaultAllocator(), StringView(u8"Move Up"),
+                Function<void()>{[self, id, index]()
+                                 {
+                                     self->MutateScriptComponent(
+                                         id,
+                                         [index](draconic::script::ScriptComponent& c)
+                                         {
+                                             if (index > 0 && index < c.behaviors.Size())
+                                             {
+                                                 draconic::script::ScriptBehavior tmp =
+                                                     Move(c.behaviors[index]);
+                                                 c.behaviors[index] = Move(c.behaviors[index - 1]);
+                                                 c.behaviors[index - 1] = Move(tmp);
+                                             }
+                                         });
+                                 }},
+                category);
             up->SetButtonEnabled(index > 0);
             m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(up.Get()));
-            auto remove = MakeRef<ui::toolkit::ButtonEditor>(DefaultAllocator(), StringView(u8"Remove Behavior"),
-                Function<void()>{ [self, id, index]() {
-                    self->MutateScriptComponent(id, [index](draconic::script::ScriptComponent& c) {
-                        if (index < c.behaviors.Size()) { c.behaviors.RemoveAt(index); }
-                    });
-                } }, category);
+            auto remove = MakeRef<ui::toolkit::ButtonEditor>(
+                DefaultAllocator(), StringView(u8"Remove Behavior"),
+                Function<void()>{[self, id, index]()
+                                 {
+                                     self->MutateScriptComponent(
+                                         id,
+                                         [index](draconic::script::ScriptComponent& c)
+                                         {
+                                             if (index < c.behaviors.Size())
+                                             {
+                                                 c.behaviors.RemoveAt(index);
+                                             }
+                                         });
+                                 }},
+                category);
             m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(remove.Get()));
 
             // Property rows from the cooked ScriptClass metadata (data-driven; no VM).
             draconic::script::ScriptClass* scriptClass = BehaviorClass(behavior);
-            if (scriptClass == nullptr) { return; }
+            if (scriptClass == nullptr)
+            {
+                return;
+            }
             for (const draconic::script::ScriptPropertyDesc& property : scriptClass->properties)
             {
                 BuildScriptPropertyRow(id, category, index, property);
@@ -1580,12 +2053,13 @@ export namespace draconic::editor
         {
             SceneInspectorView* self = this;
             const u64 hash = property.hash;
+            using draconic::script::ScriptComponent;
             using draconic::script::ScriptPropertyType;
             using draconic::script::ScriptPropertyValue;
-            using draconic::script::ScriptComponent;
 
             // The effective value = override if present, else the harvested default.
-            auto effective = [self, id, index, hash, property]() -> ScriptPropertyValue {
+            auto effective = [self, id, index, hash, property]() -> ScriptPropertyValue
+            {
                 const scene::EntityHandle live = self->m_edit->Resolve(id);
                 auto* mgr =
                     self->m_edit->Scene().GetSystem<draconic::script::ScriptComponentManager>();
@@ -1600,141 +2074,155 @@ export namespace draconic::editor
                 }
                 return property.defaultValue;
             };
-            auto setOverride = [self, id, index, hash](const ScriptPropertyValue& value) {
-                self->MutateScriptComponent(id, [index, hash, value](ScriptComponent& c) {
-                    if (index < c.behaviors.Size()) { c.behaviors[index].SetOverride(hash, value); }
-                });
+            auto setOverride = [self, id, index, hash](const ScriptPropertyValue& value)
+            {
+                self->MutateScriptComponent(id,
+                                            [index, hash, value](ScriptComponent& c)
+                                            {
+                                                if (index < c.behaviors.Size())
+                                                {
+                                                    c.behaviors[index].SetOverride(hash, value);
+                                                }
+                                            });
             };
             const StringView name = property.name.AsView();
 
             switch (property.type)
             {
-                case ScriptPropertyType::Float:
+            case ScriptPropertyType::Float:
+            {
+                auto editor = MakeRef<ui::toolkit::FloatEditor>(
+                    DefaultAllocator(), name, effective().number, -1e9, 1e9, 0.1, 3,
+                    Function<void(f64)>{[setOverride](f64 v)
+                                        {
+                                            ScriptPropertyValue value;
+                                            value.kind = ScriptPropertyType::Float;
+                                            value.number = v;
+                                            setOverride(value);
+                                        }},
+                    category);
+                if (!property.description.IsEmpty())
                 {
-                    auto editor = MakeRef<ui::toolkit::FloatEditor>(DefaultAllocator(), name,
-                        effective().number, -1e9, 1e9, 0.1, 3,
-                        Function<void(f64)>{ [setOverride](f64 v) {
-                            ScriptPropertyValue value;
-                            value.kind = ScriptPropertyType::Float;
-                            value.number = v;
-                            setOverride(value);
-                        } }, category);
-                    if (!property.description.IsEmpty())
-                    {
-                        editor->SetTooltip(property.description.AsView());
-                    }
-                    AddEditor(editor.Get(), [effective, raw = editor.Get()]() {
-                        raw->SetValue(effective().number);
-                    });
-                    break;
+                    editor->SetTooltip(property.description.AsView());
                 }
-                case ScriptPropertyType::Int:
+                AddEditor(editor.Get(),
+                          [effective, raw = editor.Get()]() { raw->SetValue(effective().number); });
+                break;
+            }
+            case ScriptPropertyType::Int:
+            {
+                auto editor = MakeRef<ui::toolkit::IntEditor>(
+                    DefaultAllocator(), name, static_cast<i64>(effective().number),
+                    std::numeric_limits<i64>::min(), std::numeric_limits<i64>::max(),
+                    Function<void(i64)>{[setOverride](i64 v)
+                                        {
+                                            ScriptPropertyValue value;
+                                            value.kind = ScriptPropertyType::Int;
+                                            value.number = static_cast<f64>(v);
+                                            setOverride(value);
+                                        }},
+                    category);
+                if (!property.description.IsEmpty())
                 {
-                    auto editor = MakeRef<ui::toolkit::IntEditor>(DefaultAllocator(), name,
-                        static_cast<i64>(effective().number),
-                        std::numeric_limits<i64>::min(), std::numeric_limits<i64>::max(),
-                        Function<void(i64)>{ [setOverride](i64 v) {
-                            ScriptPropertyValue value;
-                            value.kind = ScriptPropertyType::Int;
-                            value.number = static_cast<f64>(v);
-                            setOverride(value);
-                        } }, category);
-                    if (!property.description.IsEmpty())
-                    {
-                        editor->SetTooltip(property.description.AsView());
-                    }
-                    AddEditor(editor.Get(), [effective, raw = editor.Get()]() {
-                        raw->SetValue(static_cast<i64>(effective().number));
-                    });
-                    break;
+                    editor->SetTooltip(property.description.AsView());
                 }
-                case ScriptPropertyType::Bool:
+                AddEditor(editor.Get(), [effective, raw = editor.Get()]()
+                          { raw->SetValue(static_cast<i64>(effective().number)); });
+                break;
+            }
+            case ScriptPropertyType::Bool:
+            {
+                auto editor = MakeRef<ui::toolkit::BoolEditor>(
+                    DefaultAllocator(), name, effective().boolean,
+                    Function<void(bool)>{[setOverride](bool v)
+                                         {
+                                             ScriptPropertyValue value;
+                                             value.kind = ScriptPropertyType::Bool;
+                                             value.boolean = v;
+                                             setOverride(value);
+                                         }},
+                    category);
+                if (!property.description.IsEmpty())
                 {
-                    auto editor = MakeRef<ui::toolkit::BoolEditor>(DefaultAllocator(), name,
-                        effective().boolean, Function<void(bool)>{ [setOverride](bool v) {
-                            ScriptPropertyValue value;
-                            value.kind = ScriptPropertyType::Bool;
-                            value.boolean = v;
-                            setOverride(value);
-                        } }, category);
-                    if (!property.description.IsEmpty())
-                    {
-                        editor->SetTooltip(property.description.AsView());
-                    }
-                    AddEditor(editor.Get(), [effective, raw = editor.Get()]() {
-                        raw->SetValue(effective().boolean);
-                    });
-                    break;
+                    editor->SetTooltip(property.description.AsView());
                 }
-                case ScriptPropertyType::String:
+                AddEditor(editor.Get(), [effective, raw = editor.Get()]()
+                          { raw->SetValue(effective().boolean); });
+                break;
+            }
+            case ScriptPropertyType::String:
+            {
+                auto editor = MakeRef<ui::toolkit::StringEditor>(
+                    DefaultAllocator(), name, effective().text.AsView(),
+                    Function<void(StringView)>{[setOverride](StringView v)
+                                               {
+                                                   ScriptPropertyValue value;
+                                                   value.kind = ScriptPropertyType::String;
+                                                   value.text = String(v);
+                                                   setOverride(value);
+                                               }},
+                    category);
+                if (!property.description.IsEmpty())
                 {
-                    auto editor = MakeRef<ui::toolkit::StringEditor>(DefaultAllocator(), name,
-                        effective().text.AsView(),
-                        Function<void(StringView)>{ [setOverride](StringView v) {
-                            ScriptPropertyValue value;
-                            value.kind = ScriptPropertyType::String;
-                            value.text = String(v);
-                            setOverride(value);
-                        } }, category);
-                    if (!property.description.IsEmpty())
-                    {
-                        editor->SetTooltip(property.description.AsView());
-                    }
-                    AddEditor(editor.Get(), [effective, raw = editor.Get()]() {
-                        raw->SetValue(effective().text.AsView());
-                    });
-                    break;
+                    editor->SetTooltip(property.description.AsView());
                 }
-                case ScriptPropertyType::Color:
+                AddEditor(editor.Get(), [effective, raw = editor.Get()]()
+                          { raw->SetValue(effective().text.AsView()); });
+                break;
+            }
+            case ScriptPropertyType::Color:
+            {
+                auto editor = MakeRef<ui::toolkit::ColorEditor>(
+                    DefaultAllocator(), name, effective().color,
+                    Function<void(Color)>{[setOverride](Color v)
+                                          {
+                                              ScriptPropertyValue value;
+                                              value.kind = ScriptPropertyType::Color;
+                                              value.color = v;
+                                              setOverride(value);
+                                          }},
+                    category);
+                if (!property.description.IsEmpty())
                 {
-                    auto editor = MakeRef<ui::toolkit::ColorEditor>(DefaultAllocator(), name,
-                        effective().color, Function<void(Color)>{ [setOverride](Color v) {
-                            ScriptPropertyValue value;
-                            value.kind = ScriptPropertyType::Color;
-                            value.color = v;
-                            setOverride(value);
-                        } }, category);
-                    if (!property.description.IsEmpty())
-                    {
-                        editor->SetTooltip(property.description.AsView());
-                    }
-                    AddEditor(editor.Get(), [effective, raw = editor.Get()]() {
-                        raw->SetValue(effective().color);
-                    });
-                    break;
+                    editor->SetTooltip(property.description.AsView());
                 }
-                case ScriptPropertyType::Vec3:
+                AddEditor(editor.Get(),
+                          [effective, raw = editor.Get()]() { raw->SetValue(effective().color); });
+                break;
+            }
+            case ScriptPropertyType::Vec3:
+            {
+                auto editor = MakeRef<ui::toolkit::Float3Editor>(
+                    DefaultAllocator(), name, effective().vector, -1e9f, 1e9f, 0.1f,
+                    Function<void(Float3)>{[setOverride](Float3 v)
+                                           {
+                                               ScriptPropertyValue value;
+                                               value.kind = ScriptPropertyType::Vec3;
+                                               value.vector = v;
+                                               setOverride(value);
+                                           }},
+                    category);
+                if (!property.description.IsEmpty())
                 {
-                    auto editor = MakeRef<ui::toolkit::Float3Editor>(DefaultAllocator(), name,
-                        effective().vector, -1e9f, 1e9f, 0.1f,
-                        Function<void(Float3)>{ [setOverride](Float3 v) {
-                            ScriptPropertyValue value;
-                            value.kind = ScriptPropertyType::Vec3;
-                            value.vector = v;
-                            setOverride(value);
-                        } }, category);
-                    if (!property.description.IsEmpty())
-                    {
-                        editor->SetTooltip(property.description.AsView());
-                    }
-                    AddEditor(editor.Get(), [effective, raw = editor.Get()]() {
-                        raw->SetValue(effective().vector);
-                    });
-                    break;
+                    editor->SetTooltip(property.description.AsView());
                 }
-                case ScriptPropertyType::Entity:
-                {
-                    BuildScriptEntityPropertyRow(id, category, index, property);
-                    break;
-                }
-                case ScriptPropertyType::Asset:
-                {
-                    BuildScriptAssetPropertyRow(id, category, index, property);
-                    break;
-                }
-                case ScriptPropertyType::None:
-                default:
-                    break;
+                AddEditor(editor.Get(),
+                          [effective, raw = editor.Get()]() { raw->SetValue(effective().vector); });
+                break;
+            }
+            case ScriptPropertyType::Entity:
+            {
+                BuildScriptEntityPropertyRow(id, category, index, property);
+                break;
+            }
+            case ScriptPropertyType::Asset:
+            {
+                BuildScriptAssetPropertyRow(id, category, index, property);
+                break;
+            }
+            case ScriptPropertyType::None:
+            default:
+                break;
             }
         }
 
@@ -1743,13 +2231,14 @@ export namespace draconic::editor
         void BuildScriptEntityPropertyRow(const Guid& id, StringView category, usize index,
                                           const draconic::script::ScriptPropertyDesc& property)
         {
+            using draconic::script::ScriptComponent;
             using draconic::script::ScriptPropertyType;
             using draconic::script::ScriptPropertyValue;
-            using draconic::script::ScriptComponent;
             SceneInspectorView* self = this;
             const u64 hash = property.hash;
 
-            auto currentTarget = [self, id, index, hash]() -> Guid {
+            auto currentTarget = [self, id, index, hash]() -> Guid
+            {
                 const scene::EntityHandle live = self->m_edit->Resolve(id);
                 auto* mgr =
                     self->m_edit->Scene().GetSystem<draconic::script::ScriptComponentManager>();
@@ -1764,49 +2253,78 @@ export namespace draconic::editor
                 }
                 return Guid{};
             };
-            auto nameOf = [self](const Guid& target) -> StringView {
-                if (target.IsNil()) { return u8"(none)"; }
+            auto nameOf = [self](const Guid& target) -> StringView
+            {
+                if (target.IsNil())
+                {
+                    return u8"(none)";
+                }
                 const scene::EntityHandle h = self->m_edit->Scene().FindEntity(target);
                 return h.IsAssigned() ? self->m_edit->Scene().GetEntityName(h)
                                       : StringView(u8"(missing)");
             };
 
-            auto editor = MakeRef<ResourceRefEditor>(DefaultAllocator(),
-                property.name.AsView(), nameOf(currentTarget()), category);
+            auto editor = MakeRef<ResourceRefEditor>(DefaultAllocator(), property.name.AsView(),
+                                                     nameOf(currentTarget()), category);
             ResourceRefEditor* raw = editor.Get();
-            if (!property.description.IsEmpty()) { raw->SetTooltip(property.description.AsView()); }
-            raw->OnPick = [self, id, index, hash]() {
-                if (self->Context == nullptr) { return; }
+            if (!property.description.IsEmpty())
+            {
+                raw->SetTooltip(property.description.AsView());
+            }
+            raw->OnPick = [self, id, index, hash]()
+            {
+                if (self->Context == nullptr)
+                {
+                    return;
+                }
                 auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
-                menu->AddItem(StringView(u8"(none)"), [self, id, index, hash]() {
-                    self->MutateScriptComponent(id, [index, hash](
-                        draconic::script::ScriptComponent& c) {
-                        if (index < c.behaviors.Size()) { c.behaviors[index].RemoveOverride(hash); }
-                    });
-                });
+                menu->AddItem(StringView(u8"(none)"),
+                              [self, id, index, hash]()
+                              {
+                                  self->MutateScriptComponent(
+                                      id,
+                                      [index, hash](draconic::script::ScriptComponent& c)
+                                      {
+                                          if (index < c.behaviors.Size())
+                                          {
+                                              c.behaviors[index].RemoveOverride(hash);
+                                          }
+                                      });
+                              });
                 menu->AddSeparator();
-                self->m_edit->Scene().ForEachEntity([self, id, index, hash, &menu](
-                    scene::EntityHandle handle) {
-                    const Guid target = self->m_edit->Scene().GetEntityId(handle);
-                    String label(self->m_edit->Scene().GetEntityName(handle));
-                    menu->AddItem(label.AsView(), [self, id, index, hash, target]() {
-                        self->MutateScriptComponent(id, [index, hash, target](
-                            draconic::script::ScriptComponent& c) {
-                            if (index >= c.behaviors.Size()) { return; }
-                            ScriptPropertyValue value;
-                            value.kind = ScriptPropertyType::Entity;
-                            value.guid = target;
-                            c.behaviors[index].SetOverride(hash, value);
-                        });
+                self->m_edit->Scene().ForEachEntity(
+                    [self, id, index, hash, &menu](scene::EntityHandle handle)
+                    {
+                        const Guid target = self->m_edit->Scene().GetEntityId(handle);
+                        String label(self->m_edit->Scene().GetEntityName(handle));
+                        menu->AddItem(
+                            label.AsView(),
+                            [self, id, index, hash, target]()
+                            {
+                                self->MutateScriptComponent(
+                                    id,
+                                    [index, hash, target](draconic::script::ScriptComponent& c)
+                                    {
+                                        if (index >= c.behaviors.Size())
+                                        {
+                                            return;
+                                        }
+                                        ScriptPropertyValue value;
+                                        value.kind = ScriptPropertyType::Entity;
+                                        value.guid = target;
+                                        c.behaviors[index].SetOverride(hash, value);
+                                    });
+                            });
                     });
-                });
-                const Float2 pos = self->m_addButton->LocalToScreen(Float2{ 0.0f, 0.0f });
+                const Float2 pos = self->m_addButton->LocalToScreen(Float2{0.0f, 0.0f});
                 menu->Show(self->Context, pos.x, pos.y);
             };
-            AddEditor(raw, [self, currentTarget, nameOf, raw]() {
-                (void)self;
-                raw->SetValueText(nameOf(currentTarget()));
-            });
+            AddEditor(raw,
+                      [self, currentTarget, nameOf, raw]()
+                      {
+                          (void)self;
+                          raw->SetValueText(nameOf(currentTarget()));
+                      });
         }
 
         // Asset-typed property (asset:<TypeName>): an AssetPickerDialog over that
@@ -1814,15 +2332,16 @@ export namespace draconic::editor
         void BuildScriptAssetPropertyRow(const Guid& id, StringView category, usize index,
                                          const draconic::script::ScriptPropertyDesc& property)
         {
+            using draconic::script::ScriptComponent;
             using draconic::script::ScriptPropertyType;
             using draconic::script::ScriptPropertyValue;
-            using draconic::script::ScriptComponent;
             SceneInspectorView* self = this;
             const u64 hash = property.hash;
-            const String assetType = property.assetType.IsEmpty()
-                ? String(u8"") : property.assetType;
+            const String assetType =
+                property.assetType.IsEmpty() ? String(u8"") : property.assetType;
 
-            auto currentTarget = [self, id, index, hash]() -> Guid {
+            auto currentTarget = [self, id, index, hash]() -> Guid
+            {
                 const scene::EntityHandle live = self->m_edit->Resolve(id);
                 auto* mgr =
                     self->m_edit->Scene().GetSystem<draconic::script::ScriptComponentManager>();
@@ -1838,12 +2357,19 @@ export namespace draconic::editor
                 return Guid{};
             };
 
-            auto editor = MakeRef<ResourceRefEditor>(DefaultAllocator(),
-                property.name.AsView(), AssetNameFor(currentTarget()), category);
+            auto editor = MakeRef<ResourceRefEditor>(DefaultAllocator(), property.name.AsView(),
+                                                     AssetNameFor(currentTarget()), category);
             ResourceRefEditor* raw = editor.Get();
-            if (!property.description.IsEmpty()) { raw->SetTooltip(property.description.AsView()); }
-            raw->OnPick = [self, id, index, hash, assetType]() {
-                if (self->Context == nullptr || self->m_editor->Project() == nullptr) { return; }
+            if (!property.description.IsEmpty())
+            {
+                raw->SetTooltip(property.description.AsView());
+            }
+            raw->OnPick = [self, id, index, hash, assetType]()
+            {
+                if (self->Context == nullptr || self->m_editor->Project() == nullptr)
+                {
+                    return;
+                }
                 Array<String> typeNames;
                 // The harvested "AudioClip" maps to the "AudioClipAsset" source type.
                 String assetTypeName(assetType.AsView());
@@ -1851,29 +2377,38 @@ export namespace draconic::editor
                 typeNames.PushBack(Move(assetTypeName));
                 auto dialog = MakeRef<draconic::editor::app::AssetPickerDialog>(
                     DefaultAllocator(), *self->m_editor, Move(typeNames));
-                dialog->OnPicked = [self, id, index, hash](const Guid& picked) {
-                    self->MutateScriptComponent(id, [index, hash, picked](
-                        draconic::script::ScriptComponent& c) {
-                        if (index >= c.behaviors.Size()) { return; }
-                        ScriptPropertyValue value;
-                        value.kind = ScriptPropertyType::Asset;
-                        value.guid = picked;
-                        c.behaviors[index].SetOverride(hash, value);
-                    });
+                dialog->OnPicked = [self, id, index, hash](const Guid& picked)
+                {
+                    self->MutateScriptComponent(
+                        id,
+                        [index, hash, picked](draconic::script::ScriptComponent& c)
+                        {
+                            if (index >= c.behaviors.Size())
+                            {
+                                return;
+                            }
+                            ScriptPropertyValue value;
+                            value.kind = ScriptPropertyType::Asset;
+                            value.guid = picked;
+                            c.behaviors[index].SetOverride(hash, value);
+                        });
                 };
                 dialog->Show(self->Context);
             };
-            AddEditor(raw, [self, currentTarget, raw]() {
-                raw->SetValueText(self->AssetNameFor(currentTarget()));
-            });
+            AddEditor(raw, [self, currentTarget, raw]()
+                      { raw->SetValueText(self->AssetNameFor(currentTarget())); });
         }
 
         [[nodiscard]] StringView AssetNameFor(const Guid& target)
         {
-            if (target.IsNil()) { return u8"(none)"; }
+            if (target.IsNil())
+            {
+                return u8"(none)";
+            }
             if (m_editor->Project() != nullptr)
             {
-                if (draconic::content::Instance* inst = m_editor->Project()->SourceDb().GetInstance(target))
+                if (draconic::content::Instance* inst =
+                        m_editor->Project()->SourceDb().GetInstance(target))
                 {
                     return inst->Name();
                 }
@@ -1886,74 +2421,97 @@ export namespace draconic::editor
         [[nodiscard]] Guid SettingRefTarget(const TypeInfo* type, const char* propName)
         {
             scene::SceneSystem* system = m_edit->FindSystemBySettingsType(type);
-            if (system == nullptr) { return Guid{}; }
-            const Instance settings{ system->SettingsInstance(), type };
+            if (system == nullptr)
+            {
+                return Guid{};
+            }
+            const Instance settings{system->SettingsInstance(), type};
             const PropertyInfo* p = FindProperty(*type, propName);
-            void* address = (p != nullptr && p->address != nullptr) ? p->address(settings) : nullptr;
-            return (address != nullptr) ? static_cast<draconic::resource::Ref<T>*>(address)->id : Guid{};
+            void* address =
+                (p != nullptr && p->address != nullptr) ? p->address(settings) : nullptr;
+            return (address != nullptr) ? static_cast<draconic::resource::Ref<T>*>(address)->id
+                                        : Guid{};
         }
 
         // The settings twin of BuildResourceRefRow.
         template <typename T>
         void BuildSettingResourceRefRow(const TypeInfo* type, const PropertyInfo& prop,
-                                        StringView category, std::initializer_list<StringView> assetTypeNames)
+                                        StringView category,
+                                        std::initializer_list<StringView> assetTypeNames)
         {
             SceneInspectorView* self = this;
             SceneEditContext* edit = m_edit;
             const char* propName = prop.name;
             const StringView name(reinterpret_cast<const utf8char*>(prop.name));
 
-            auto editor = MakeRef<ResourceRefEditor>(DefaultAllocator(), name,
-                AssetNameFor(SettingRefTarget<T>(type, propName)), category);
+            auto editor = MakeRef<ResourceRefEditor>(
+                DefaultAllocator(), name, AssetNameFor(SettingRefTarget<T>(type, propName)),
+                category);
             ResourceRefEditor* raw = editor.Get();
             Array<String> assetTypes;
-            for (StringView typeName : assetTypeNames) { assetTypes.PushBack(String(typeName)); }
-            raw->OnPick = [self, edit, type, propName, assetTypes]() {
-                if (self->Context == nullptr || self->m_editor->Project() == nullptr) { return; }
+            for (StringView typeName : assetTypeNames)
+            {
+                assetTypes.PushBack(String(typeName));
+            }
+            raw->OnPick = [self, edit, type, propName, assetTypes]()
+            {
+                if (self->Context == nullptr || self->m_editor->Project() == nullptr)
+                {
+                    return;
+                }
                 draconic::resource::ResourceManager* resources = self->m_editor->Resources();
                 Array<String> typeNames = assetTypes;
                 auto dialog = MakeRef<draconic::editor::app::AssetPickerDialog>(
                     DefaultAllocator(), *self->m_editor, Move(typeNames));
-                dialog->OnPicked = [edit, type, propName, resources](const Guid& target) {
-                    edit->SetSceneSettingResourceRef<T>(type, propName, target, resources);
-                };
+                dialog->OnPicked = [edit, type, propName, resources](const Guid& target)
+                { edit->SetSceneSettingResourceRef<T>(type, propName, target, resources); };
                 dialog->Show(self->Context);
             };
-            AddEditor(raw, [self, type, propName, raw]() {
-                raw->SetValueText(self->AssetNameFor(self->SettingRefTarget<T>(type, propName)));
-            });
+            AddEditor(raw,
+                      [self, type, propName, raw]()
+                      {
+                          raw->SetValueText(
+                              self->AssetNameFor(self->SettingRefTarget<T>(type, propName)));
+                      });
         }
 
         template <typename T>
         void BuildResourceRefRow(const Guid& id, const TypeInfo* type, const PropertyInfo& prop,
-                                 StringView category, std::initializer_list<StringView> assetTypeNames)
+                                 StringView category,
+                                 std::initializer_list<StringView> assetTypeNames)
         {
             SceneInspectorView* self = this;
             SceneEditContext* edit = m_edit;
             const char* propName = prop.name;
             const StringView name(reinterpret_cast<const utf8char*>(prop.name));
 
-            auto editor = MakeRef<ResourceRefEditor>(DefaultAllocator(), name,
-                AssetNameFor(RefTarget<T>(id, type, propName)), category);
+            auto editor = MakeRef<ResourceRefEditor>(
+                DefaultAllocator(), name, AssetNameFor(RefTarget<T>(id, type, propName)), category);
             ResourceRefEditor* raw = editor.Get();
             Array<String> assetTypes;
-            for (StringView typeName : assetTypeNames) { assetTypes.PushBack(String(typeName)); }
-            raw->OnPick = [self, edit, id, type, propName, assetTypes]() {
-                if (self->Context == nullptr || self->m_editor->Project() == nullptr) { return; }
+            for (StringView typeName : assetTypeNames)
+            {
+                assetTypes.PushBack(String(typeName));
+            }
+            raw->OnPick = [self, edit, id, type, propName, assetTypes]()
+            {
+                if (self->Context == nullptr || self->m_editor->Project() == nullptr)
+                {
+                    return;
+                }
                 draconic::resource::ResourceManager* resources = self->m_editor->Resources();
 
                 // The browser-mirroring picker (readonly; favorites pinned first; [Clear] = none).
                 Array<String> typeNames = assetTypes;
                 auto dialog = MakeRef<draconic::editor::app::AssetPickerDialog>(
                     DefaultAllocator(), *self->m_editor, Move(typeNames));
-                dialog->OnPicked = [edit, id, type, propName, resources](const Guid& target) {
-                    edit->SetComponentResourceRef<T>(id, type, propName, target, resources);
-                };
+                dialog->OnPicked = [edit, id, type, propName, resources](const Guid& target)
+                { edit->SetComponentResourceRef<T>(id, type, propName, target, resources); };
                 dialog->Show(self->Context);
             };
-            AddEditor(raw, [self, id, type, propName, raw]() {
-                raw->SetValueText(self->AssetNameFor(self->RefTarget<T>(id, type, propName)));
-            });
+            AddEditor(
+                raw, [self, id, type, propName, raw]()
+                { raw->SetValueText(self->AssetNameFor(self->RefTarget<T>(id, type, propName))); });
         }
 
         // The "range" attribute's {min, max, step} payload, or null when absent/mistyped.
@@ -1967,33 +2525,44 @@ export namespace draconic::editor
         {
             m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(editor));
             ui::toolkit::PropertyEditor* raw = editor;
-            m_refreshers.PushBack(Function<void()>{
-                [raw, pull = Move(refresher)]() {
-                    if (!raw->IsEditing()) { pull(); }
-                } });
+            m_refreshers.PushBack(Function<void()>{[raw, pull = Move(refresher)]()
+                                                   {
+                                                       if (!raw->IsEditing())
+                                                       {
+                                                           pull();
+                                                       }
+                                                   }});
         }
 
         [[nodiscard]] static Float3 EulerDegrees(Quaternion q)
         {
             f32 yaw = 0, pitch = 0, roll = 0;
             ToYawPitchRoll(q, yaw, pitch, roll);
-            return Float3{ RadiansToDegrees(pitch), RadiansToDegrees(yaw), RadiansToDegrees(roll) };
+            return Float3{RadiansToDegrees(pitch), RadiansToDegrees(yaw), RadiansToDegrees(roll)};
         }
 
         void ShowAddComponentMenu()
         {
             const Guid id = SelectedEntity();
             const scene::EntityHandle e = m_edit->Resolve(id);
-            if (!e.IsAssigned() || Context == nullptr) { return; }
+            if (!e.IsAssigned() || Context == nullptr)
+            {
+                return;
+            }
 
             SceneEditContext* edit = m_edit;
             auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
-            m_edit->Scene().ForEachManager([&](scene::ComponentManagerBase& mgr) {
-                const TypeInfo* type = mgr.ComponentType();
-                if (!IsRegisteredType(type) || mgr.HasComponent(e)) { return; }   // skip unreflected
-                menu->AddItem(StringView(reinterpret_cast<const utf8char*>(type->name)),
-                              [edit, id, type]() { edit->AddComponent(id, type); });
-            });
+            m_edit->Scene().ForEachManager(
+                [&](scene::ComponentManagerBase& mgr)
+                {
+                    const TypeInfo* type = mgr.ComponentType();
+                    if (!IsRegisteredType(type) || mgr.HasComponent(e))
+                    {
+                        return;
+                    } // skip unreflected
+                    menu->AddItem(StringView(reinterpret_cast<const utf8char*>(type->name)),
+                                  [edit, id, type]() { edit->AddComponent(id, type); });
+                });
             // Paste a copied component (adds or overwrites; one undo step).
             const Span<const byte> clip = m_editor->ClipboardData(u8"component");
             if (!clip.IsEmpty())
@@ -2002,21 +2571,21 @@ export namespace draconic::editor
                 label += SceneEditContext::PeekComponentTypeId(clip);
                 EditorContext* editor = m_editor;
                 menu->AddSeparator();
-                menu->AddItem(label.AsView(), [edit, editor, id]() {
-                    (void)edit->PasteComponent(id, editor->ClipboardData(u8"component"));
-                });
+                menu->AddItem(
+                    label.AsView(), [edit, editor, id]()
+                    { (void)edit->PasteComponent(id, editor->ClipboardData(u8"component")); });
             }
-            const Float2 screenPos = m_addButton->LocalToScreen(Float2{ 0.0f, 0.0f });
+            const Float2 screenPos = m_addButton->LocalToScreen(Float2{0.0f, 0.0f});
             menu->Show(Context, screenPos.x, screenPos.y);
         }
 
-        EditorContext* m_editor;    // borrowed (project + resources)
-        SceneEditContext* m_edit;   // borrowed (the page owns it)
+        EditorContext* m_editor;  // borrowed (project + resources)
+        SceneEditContext* m_edit; // borrowed (the page owns it)
         RefPtr<ui::toolkit::PropertyGrid> m_grid;
         RefPtr<ui::Button> m_addButton;
         Array<Function<void()>> m_refreshers;
         u64 m_signature = ~0ull;
-        bool m_forceRebuild = false;   // set when a data-only mutation changed a section's SHAPE
+        bool m_forceRebuild = false; // set when a data-only mutation changed a section's SHAPE
     };
 
     DRACONIC_DEFINE_OBJECT(ResourceRefEditor, "draconic::editor")

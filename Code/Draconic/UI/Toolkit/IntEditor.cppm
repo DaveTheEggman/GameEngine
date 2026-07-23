@@ -29,20 +29,32 @@ export namespace draconic::ui::toolkit
     public:
         Function<void(i64)> Setter;
 
-        IntEditor(StringView name, i64 initialValue,
-            i64 min = std::numeric_limits<i64>::min(), i64 max = std::numeric_limits<i64>::max(),
-            Function<void(i64)> setter = {}, StringView category = {})
+        IntEditor(StringView name, i64 initialValue, i64 min = std::numeric_limits<i64>::min(),
+                  i64 max = std::numeric_limits<i64>::max(), Function<void(i64)> setter = {},
+                  StringView category = {})
             : PropertyEditor(name, category), Setter(Move(setter)), m_value(initialValue),
               m_min(static_cast<f64>(min)), m_max(static_cast<f64>(max))
         {
         }
 
         [[nodiscard]] i64 Value() const noexcept { return m_value; }
-        void SetValue(i64 value) { m_value = value; if (!m_syncing) { RefreshView(); } }
+        void SetValue(i64 value)
+        {
+            m_value = value;
+            if (!m_syncing)
+            {
+                RefreshView();
+            }
+        }
 
         void RefreshView() override
         {
-            if (m_field != nullptr && !m_syncing) { m_syncing = true; m_field->SetValue(static_cast<f64>(m_value)); m_syncing = false; }
+            if (m_field != nullptr && !m_syncing)
+            {
+                m_syncing = true;
+                m_field->SetValue(static_cast<f64>(m_value));
+                m_syncing = false;
+            }
         }
 
         /// NumericField subclass that tracks edit transactions via focus.
@@ -66,21 +78,27 @@ export namespace draconic::ui::toolkit
             RefPtr<IntEditorField> field = MakeRef<IntEditorField>(DefaultAllocator(), this);
             field->AddClass(u8"property-field");
             m_field = field.Get();
-            m_field->SetMin(m_min); m_field->SetMax(m_max); m_field->SetStep(1);
+            m_field->SetMin(m_min);
+            m_field->SetMax(m_max);
+            m_field->SetStep(1);
             m_field->SetDecimalPlaces(0);
             m_field->SetValue(static_cast<f64>(m_value));
             IntEditor* self = this;
-            m_field->OnValueChanged.Add([self](NumericField*, f64 val)
-            {
-                if (!self->m_syncing)
+            m_field->OnValueChanged.Add(
+                [self](NumericField*, f64 val)
                 {
-                    self->m_syncing = true;
-                    self->m_value = static_cast<i64>(val);
-                    if (self->Setter) { self->Setter(self->m_value); }
-                    self->NotifyValueChanged();
-                    self->m_syncing = false;
-                }
-            });
+                    if (!self->m_syncing)
+                    {
+                        self->m_syncing = true;
+                        self->m_value = static_cast<i64>(val);
+                        if (self->Setter)
+                        {
+                            self->Setter(self->m_value);
+                        }
+                        self->NotifyValueChanged();
+                        self->m_syncing = false;
+                    }
+                });
             return field;
         }
 
@@ -105,7 +123,10 @@ export namespace draconic::ui::toolkit
     inline void IntEditor::IntEditorField::OnFocusLost()
     {
         NumericField::OnFocusLost();
-        if (m_editor->IsEditing()) { m_editor->EndEdit(); }
+        if (m_editor->IsEditing())
+        {
+            m_editor->EndEdit();
+        }
     }
 
     inline void IntEditor::IntEditorField::OnKeyDown(KeyEventArgs& e)
@@ -114,7 +135,10 @@ export namespace draconic::ui::toolkit
         {
             m_editor->m_value = static_cast<i64>(m_editor->m_preEditValue);
             SetValue(m_editor->m_preEditValue);
-            if (m_editor->Setter) { m_editor->Setter(m_editor->m_value); }
+            if (m_editor->Setter)
+            {
+                m_editor->Setter(m_editor->m_value);
+            }
             m_editor->CancelEdit();
             e.Handled = true;
             return;

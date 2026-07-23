@@ -11,12 +11,12 @@ module;
 
 export module draconic.gui:style_applier;
 
-import draconic.core;   // Cast, Optional, Color, Float2, MakeRef, DefaultAllocator
-import draconic.fonts;  // CachedFont, IFontService
-import draconic.image;  // ImageData
-import draconic.vg;     // CornerRadii
+import draconic.core;  // Cast, Optional, Color, Float2, MakeRef, DefaultAllocator
+import draconic.fonts; // CachedFont, IFontService
+import draconic.image; // ImageData
+import draconic.vg;    // CornerRadii
 import :thickness;
-import :text;    // TextHAlign / TextVAlign
+import :text; // TextHAlign / TextVAlign
 import :node;
 import :ui_node;
 import :ui_widget;
@@ -24,7 +24,7 @@ import :drawable;
 import :rectangle_drawable;
 import :border_drawable;
 import :image_drawable;
-import :style_sheet;    // ResolvedStyle
+import :style_sheet; // ResolvedStyle
 import :css_values;
 import :resource_provider;
 
@@ -40,7 +40,8 @@ export namespace draconic::gui
     [[nodiscard]] inline core::StringView ParseUrl(core::StringView value)
     {
         core::StringView v = core::Trim(value);
-        if (v.Size() >= 5 && v.SubStr(0, 4) == core::StringView(u8"url(") && v[v.Size() - 1] == u8')')
+        if (v.Size() >= 5 && v.SubStr(0, 4) == core::StringView(u8"url(") &&
+            v[v.Size() - 1] == u8')')
             v = core::Trim(v.SubStr(4, v.Size() - 5));
         if (v.Size() >= 2 && (v[0] == u8'"' || v[0] == u8'\'') && v[v.Size() - 1] == v[0])
             v = v.SubStr(1, v.Size() - 2);
@@ -51,21 +52,27 @@ export namespace draconic::gui
     // background-image; `fontService` (optional) resolves font-family/size. Missing either
     // just skips that property.
     inline void ApplyStyle(UINode& node, const ResolvedStyle& style,
-                           IResourceProvider* resources = nullptr, fonts::IFontService* fontService = nullptr,
+                           IResourceProvider* resources = nullptr,
+                           fonts::IFontService* fontService = nullptr,
                            const LengthContext& lengths = {})
     {
         using core::StringView;
 
         // The containing dimensions percentages resolve against (the parent's size).
-        core::Float2 percentBase{ 0.0f, 0.0f };
-        if (Node* parent = node.GetParent()) percentBase = parent->GetSize();
+        core::Float2 percentBase{0.0f, 0.0f};
+        if (Node* parent = node.GetParent())
+            percentBase = parent->GetSize();
 
         if (style.Has(StringView(u8"background-color")))
-            if (Optional<Color> c = ParseColor(style.Get(StringView(u8"background-color"))); c.HasValue())
-                node.SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), c.Value()));
+            if (Optional<Color> c = ParseColor(style.Get(StringView(u8"background-color")));
+                c.HasValue())
+                node.SetBackground(
+                    core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), c.Value()));
 
         if (style.Has(StringView(u8"padding")))
-            if (Optional<Thickness> t = ResolveThickness(style.Get(StringView(u8"padding")), lengths); t.HasValue())
+            if (Optional<Thickness> t =
+                    ResolveThickness(style.Get(StringView(u8"padding")), lengths);
+                t.HasValue())
                 node.SetPadding(t.Value());
 
         if (style.Has(StringView(u8"opacity")))
@@ -78,18 +85,44 @@ export namespace draconic::gui
             core::Float2 mn = node.GetMinSize();
             bool changedMin = false;
             if (style.Has(StringView(u8"min-width")))
-                if (Optional<f32> v = ResolveLength(style.Get(StringView(u8"min-width")), lengths, percentBase.x); v.HasValue()) { mn.x = v.Value(); changedMin = true; }
+                if (Optional<f32> v =
+                        ResolveLength(style.Get(StringView(u8"min-width")), lengths, percentBase.x);
+                    v.HasValue())
+                {
+                    mn.x = v.Value();
+                    changedMin = true;
+                }
             if (style.Has(StringView(u8"min-height")))
-                if (Optional<f32> v = ResolveLength(style.Get(StringView(u8"min-height")), lengths, percentBase.y); v.HasValue()) { mn.y = v.Value(); changedMin = true; }
-            if (changedMin) node.SetMinSize(mn);
+                if (Optional<f32> v = ResolveLength(style.Get(StringView(u8"min-height")), lengths,
+                                                    percentBase.y);
+                    v.HasValue())
+                {
+                    mn.y = v.Value();
+                    changedMin = true;
+                }
+            if (changedMin)
+                node.SetMinSize(mn);
 
             core::Float2 mx = node.GetMaxSize();
             bool changedMax = false;
             if (style.Has(StringView(u8"max-width")))
-                if (Optional<f32> v = ResolveLength(style.Get(StringView(u8"max-width")), lengths, percentBase.x); v.HasValue()) { mx.x = v.Value(); changedMax = true; }
+                if (Optional<f32> v =
+                        ResolveLength(style.Get(StringView(u8"max-width")), lengths, percentBase.x);
+                    v.HasValue())
+                {
+                    mx.x = v.Value();
+                    changedMax = true;
+                }
             if (style.Has(StringView(u8"max-height")))
-                if (Optional<f32> v = ResolveLength(style.Get(StringView(u8"max-height")), lengths, percentBase.y); v.HasValue()) { mx.y = v.Value(); changedMax = true; }
-            if (changedMax) node.SetMaxSize(mx);
+                if (Optional<f32> v = ResolveLength(style.Get(StringView(u8"max-height")), lengths,
+                                                    percentBase.y);
+                    v.HasValue())
+                {
+                    mx.y = v.Value();
+                    changedMax = true;
+                }
+            if (changedMax)
+                node.SetMaxSize(mx);
         }
 
         // width / height (combined into one SetSize; clamped by any min/max above).
@@ -97,10 +130,23 @@ export namespace draconic::gui
             core::Float2 size = node.GetSize();
             bool changed = false;
             if (style.Has(StringView(u8"width")))
-                if (Optional<f32> w = ResolveLength(style.Get(StringView(u8"width")), lengths, percentBase.x); w.HasValue()) { size.x = w.Value(); changed = true; }
+                if (Optional<f32> w =
+                        ResolveLength(style.Get(StringView(u8"width")), lengths, percentBase.x);
+                    w.HasValue())
+                {
+                    size.x = w.Value();
+                    changed = true;
+                }
             if (style.Has(StringView(u8"height")))
-                if (Optional<f32> h = ResolveLength(style.Get(StringView(u8"height")), lengths, percentBase.y); h.HasValue()) { size.y = h.Value(); changed = true; }
-            if (changed) node.SetSize(size);
+                if (Optional<f32> h =
+                        ResolveLength(style.Get(StringView(u8"height")), lengths, percentBase.y);
+                    h.HasValue())
+                {
+                    size.y = h.Value();
+                    changed = true;
+                }
+            if (changed)
+                node.SetSize(size);
         }
 
         if (style.Has(StringView(u8"enabled")))
@@ -110,13 +156,17 @@ export namespace draconic::gui
         if (style.Has(StringView(u8"visibility")))
         {
             const StringView v = style.Get(StringView(u8"visibility"));
-            if (v == StringView(u8"hidden")) node.SetVisible(false);
-            else if (v == StringView(u8"visible")) node.SetVisible(true);
+            if (v == StringView(u8"hidden"))
+                node.SetVisible(false);
+            else if (v == StringView(u8"visible"))
+                node.SetVisible(true);
         }
 
         if (style.Has(StringView(u8"margin")))
             if (UIWidget* widget = core::Cast<UIWidget>(&node))
-                if (Optional<Thickness> t = ResolveThickness(style.Get(StringView(u8"margin")), lengths); t.HasValue())
+                if (Optional<Thickness> t =
+                        ResolveThickness(style.Get(StringView(u8"margin")), lengths);
+                    t.HasValue())
                     widget->SetMargin(t.Value());
 
         // Text color for text-bearing widgets (Label/TextField/ComboBox/... via the virtual).
@@ -128,18 +178,24 @@ export namespace draconic::gui
         if (style.Has(StringView(u8"text-align")))
         {
             const StringView v = style.Get(StringView(u8"text-align"));
-            if (v == StringView(u8"left") || v == StringView(u8"justify")) node.SetThemeTextAlign(TextHAlign::Left);
-            else if (v == StringView(u8"center") || v == StringView(u8"centre")) node.SetThemeTextAlign(TextHAlign::Center);
-            else if (v == StringView(u8"right")) node.SetThemeTextAlign(TextHAlign::Right);
+            if (v == StringView(u8"left") || v == StringView(u8"justify"))
+                node.SetThemeTextAlign(TextHAlign::Left);
+            else if (v == StringView(u8"center") || v == StringView(u8"centre"))
+                node.SetThemeTextAlign(TextHAlign::Center);
+            else if (v == StringView(u8"right"))
+                node.SetThemeTextAlign(TextHAlign::Right);
         }
 
         // vertical-align (top / middle / bottom).
         if (style.Has(StringView(u8"vertical-align")))
         {
             const StringView v = style.Get(StringView(u8"vertical-align"));
-            if (v == StringView(u8"top")) node.SetThemeTextAlignV(TextVAlign::Top);
-            else if (v == StringView(u8"middle") || v == StringView(u8"center")) node.SetThemeTextAlignV(TextVAlign::Middle);
-            else if (v == StringView(u8"bottom")) node.SetThemeTextAlignV(TextVAlign::Bottom);
+            if (v == StringView(u8"top"))
+                node.SetThemeTextAlignV(TextVAlign::Top);
+            else if (v == StringView(u8"middle") || v == StringView(u8"center"))
+                node.SetThemeTextAlignV(TextVAlign::Middle);
+            else if (v == StringView(u8"bottom"))
+                node.SetThemeTextAlignV(TextVAlign::Bottom);
         }
 
         // background-image: url(path) -> load the image via the resource provider and wrap it
@@ -156,7 +212,9 @@ export namespace draconic::gui
         vg::CornerRadii radii{};
         const bool hasRadius = style.Has(StringView(u8"border-radius"));
         if (hasRadius)
-            if (Optional<vg::CornerRadii> r = ParseCornerRadii(style.Get(StringView(u8"border-radius"))); r.HasValue())
+            if (Optional<vg::CornerRadii> r =
+                    ParseCornerRadii(style.Get(StringView(u8"border-radius")));
+                r.HasValue())
             {
                 radii = r.Value();
                 if (RectangleDrawable* bg = core::Cast<RectangleDrawable>(node.GetBackground()))
@@ -169,18 +227,29 @@ export namespace draconic::gui
             Optional<f32> borderWidth;
             Optional<Color> borderColor;
             if (style.Has(StringView(u8"border")))
-                if (Optional<BorderShorthand> b = ParseBorder(style.Get(StringView(u8"border"))); b.HasValue())
-                { borderWidth = b.Value().Width; borderColor = b.Value().LineColor; }
+                if (Optional<BorderShorthand> b = ParseBorder(style.Get(StringView(u8"border")));
+                    b.HasValue())
+                {
+                    borderWidth = b.Value().Width;
+                    borderColor = b.Value().LineColor;
+                }
             if (style.Has(StringView(u8"border-width")))
-                if (Optional<f32> w = ResolveLength(style.Get(StringView(u8"border-width")), lengths); w.HasValue()) borderWidth = w.Value();
+                if (Optional<f32> w =
+                        ResolveLength(style.Get(StringView(u8"border-width")), lengths);
+                    w.HasValue())
+                    borderWidth = w.Value();
             if (style.Has(StringView(u8"border-color")))
-                if (Optional<Color> c = ParseColor(style.Get(StringView(u8"border-color"))); c.HasValue()) borderColor = c.Value();
+                if (Optional<Color> c = ParseColor(style.Get(StringView(u8"border-color")));
+                    c.HasValue())
+                    borderColor = c.Value();
 
             if (borderWidth.HasValue() || borderColor.HasValue())
             {
-                auto border = core::MakeRef<BorderDrawable>(core::DefaultAllocator(),
-                    borderColor.ValueOr(Color{ 0.0f, 0.0f, 0.0f, 1.0f }), borderWidth.ValueOr(1.0f));
-                if (hasRadius) border->SetCornerRadii(radii);
+                auto border = core::MakeRef<BorderDrawable>(
+                    core::DefaultAllocator(), borderColor.ValueOr(Color{0.0f, 0.0f, 0.0f, 1.0f}),
+                    borderWidth.ValueOr(1.0f));
+                if (hasRadius)
+                    border->SetCornerRadii(radii);
                 node.SetForeground(core::Move(border));
             }
         }
@@ -189,8 +258,11 @@ export namespace draconic::gui
         // TrueType service, ...; the GUI stays agnostic).
         if (fontService != nullptr && style.Has(StringView(u8"font-family")))
         {
-            const StringView family = ParseUrl(style.Get(StringView(u8"font-family"))); // strips quotes
-            const f32 size = ResolveLength(style.Get(StringView(u8"font-size"), StringView(u8"16")), lengths).ValueOr(16.0f);
+            const StringView family =
+                ParseUrl(style.Get(StringView(u8"font-family"))); // strips quotes
+            const f32 size =
+                ResolveLength(style.Get(StringView(u8"font-size"), StringView(u8"16")), lengths)
+                    .ValueOr(16.0f);
             if (family.Size() != 0 && size > 0.0f)
                 if (fonts::CachedFont* font = fontService->GetFont(family, size))
                     node.SetThemeFont(font);
@@ -202,7 +274,8 @@ export namespace draconic::gui
     inline void ApplyPartStyle(UINode& node, core::StringView part, const ResolvedStyle& style)
     {
         if (style.Has(core::StringView(u8"background-color")))
-            if (Optional<Color> c = ParseColor(style.Get(core::StringView(u8"background-color"))); c.HasValue())
+            if (Optional<Color> c = ParseColor(style.Get(core::StringView(u8"background-color")));
+                c.HasValue())
                 node.SetThemePartColor(part, c.Value());
     }
 }

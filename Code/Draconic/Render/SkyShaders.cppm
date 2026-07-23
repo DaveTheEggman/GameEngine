@@ -11,15 +11,16 @@ export module draconic.render:sky_shaders;
 
 import draconic.core;
 
-export namespace draconic::render {
-
-// Fullscreen-triangle VS: emit far-plane NDC (z=1) + reconstruct the world-space ray via inverse
-// view-proj (row-vector mul). PS samples the env cube along that ray.
-// Sky uniform, shared by VS+PS. PrevViewProj (last frame, unjittered-equivalent via the Jitter unjitter)
-// + Jitter let the sky write a camera-motion velocity so TAA reprojects the background under rotation.
-[[nodiscard]] inline core::StringView SkyCommon() noexcept
+export namespace draconic::render
 {
-    return core::StringView(u8R"(
+
+    // Fullscreen-triangle VS: emit far-plane NDC (z=1) + reconstruct the world-space ray via inverse
+    // view-proj (row-vector mul). PS samples the env cube along that ray.
+    // Sky uniform, shared by VS+PS. PrevViewProj (last frame, unjittered-equivalent via the Jitter unjitter)
+    // + Jitter let the sky write a camera-motion velocity so TAA reprojects the background under rotation.
+    [[nodiscard]] inline core::StringView SkyCommon() noexcept
+    {
+        return core::StringView(u8R"(
 cbuffer Sky : register(b0, space0) {
     row_major float4x4 InvViewProj;    // inverse of this frame's UNJITTERED view-proj (stable sky ray under TAA)
     row_major float4x4 PrevViewProj;   // last frame's view-proj (motion vectors)
@@ -29,11 +30,11 @@ cbuffer Sky : register(b0, space0) {
     float4 Jitter;            // xy = this frame's NDC jitter, zw = last frame's
 };
 )");
-}
+    }
 
-[[nodiscard]] inline core::StringView SkyVS() noexcept
-{
-    return core::StringView(u8R"(
+    [[nodiscard]] inline core::StringView SkyVS() noexcept
+    {
+        return core::StringView(u8R"(
 struct VSOut { float4 pos : SV_Position; float3 dir : TEXCOORD0; float2 ndc : TEXCOORD1; };
 VSOut main(uint vid : SV_VertexID) {
     float2 uv  = float2((vid << 1) & 2, vid & 2);
@@ -48,11 +49,11 @@ VSOut main(uint vid : SV_VertexID) {
     return o;
 }
 )");
-}
+    }
 
-[[nodiscard]] inline core::StringView SkyPS() noexcept
-{
-    return core::StringView(u8R"(
+    [[nodiscard]] inline core::StringView SkyPS() noexcept
+    {
+        return core::StringView(u8R"(
 TextureCube  EnvMap  : register(t0, space0);
 SamplerState EnvSamp : register(s0, space0);
 struct PSIn { float4 pos : SV_Position; float3 dir : TEXCOORD0; float2 ndc : TEXCOORD1; };
@@ -80,6 +81,6 @@ PSOut main(PSIn i) {
     PSOut o; o.color = float4(c, 1.0); o.velocity = velocity; return o;
 }
 )");
-}
+    }
 
 }

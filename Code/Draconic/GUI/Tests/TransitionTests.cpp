@@ -10,7 +10,11 @@ namespace core = draconic::core;
 
 namespace
 {
-    template <typename T> core::RefPtr<T> Make() { return core::MakeRef<T>(core::DefaultAllocator()); }
+    template <typename T>
+    core::RefPtr<T> Make()
+    {
+        return core::MakeRef<T>(core::DefaultAllocator());
+    }
     core::StringView SV(const char8_t* s) { return core::StringView(s); }
     core::Duration Sec(double s) { return core::Duration::FromSeconds(s); }
 
@@ -29,7 +33,8 @@ TEST_CASE("transition: parse shorthand")
     CHECK(ts[0].Property == SV(u8"opacity"));
     CHECK(ts[0].Duration == doctest::Approx(0.3f));
 
-    core::Array<TransitionDefinition> multi = ParseTransitions(SV(u8"opacity 0.3s ease 0.1s, color 1s"));
+    core::Array<TransitionDefinition> multi =
+        ParseTransitions(SV(u8"opacity 0.3s ease 0.1s, color 1s"));
     REQUIRE(multi.Size() == 2);
     CHECK(multi[0].Property == SV(u8"opacity"));
     CHECK(multi[0].Delay == doctest::Approx(0.1f));
@@ -49,7 +54,7 @@ TEST_CASE("transition: opacity change animates through the ActionManager")
     newStyle.Set(SV(u8"transition"), SV(u8"opacity 0.5s"));
 
     ApplyStyleAnimated(*node.Get(), oldStyle, newStyle);
-    CHECK(root->GetActionManager()->Count() == 1); // a FadeAction was spawned
+    CHECK(root->GetActionManager()->Count() == 1);    // a FadeAction was spawned
     CHECK(node->GetAlpha() == doctest::Approx(1.0f)); // rewound to the old value on start
 
     root->Update(Sec(0.25));

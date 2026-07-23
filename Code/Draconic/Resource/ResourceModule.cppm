@@ -86,19 +86,27 @@ export namespace draconic::resource
     // holder. Code-created resources (samples, procedural) assign a RefPtr<T>
     // directly - the direct object wins over the proxy and is never serialized.
     // =======================================================================
-    class ResourceManager;   // forward - Ref::Bind resolves through it
+    class ResourceManager; // forward - Ref::Bind resolves through it
 
     template <typename T>
     class Ref
     {
     public:
-        Guid id;   // serialized identity (nil = unset / procedural-only)
+        Guid id; // serialized identity (nil = unset / procedural-only)
 
         Ref() = default;
-        Ref(const RefPtr<T>& object) : m_direct(object) {}                     // implicit: `c.mesh = meshPtr`
-        Ref(T* object) : m_direct(RefPtr<T>(object)) {}                        // implicit: raw runtime objects
-        Ref& operator=(const RefPtr<T>& object) { m_direct = object; return *this; }
-        Ref& operator=(T* object) { m_direct = RefPtr<T>(object); return *this; }
+        Ref(const RefPtr<T>& object) : m_direct(object) {} // implicit: `c.mesh = meshPtr`
+        Ref(T* object) : m_direct(RefPtr<T>(object)) {}    // implicit: raw runtime objects
+        Ref& operator=(const RefPtr<T>& object)
+        {
+            m_direct = object;
+            return *this;
+        }
+        Ref& operator=(T* object)
+        {
+            m_direct = RefPtr<T>(object);
+            return *this;
+        }
 
         [[nodiscard]] T* Get() const noexcept
         {
@@ -111,7 +119,11 @@ export namespace draconic::resource
         void SetId(const Guid& guid) noexcept { id = guid; }
         /// Adopt an already-bound proxy (runtime code that bound by hand): follows reloads;
         /// clears any direct override so the proxy is what Get() sees.
-        void SetProxy(Proxy<T> proxy) noexcept { m_proxy = Move(proxy); m_direct = nullptr; }
+        void SetProxy(Proxy<T> proxy) noexcept
+        {
+            m_proxy = Move(proxy);
+            m_direct = nullptr;
+        }
 
         /// Re-point at `id` (editor pickers): drops the direct override AND the previous
         /// proxy, then binds the new id (nil = cleared reference).
@@ -119,14 +131,21 @@ export namespace draconic::resource
         {
             m_direct = nullptr;
             m_proxy = Proxy<T>{};
-            if (manager != nullptr && !id.IsNil()) { Bind(*manager); }
+            if (manager != nullptr && !id.IsNil())
+            {
+                Bind(*manager);
+            }
         }
         [[nodiscard]] bool IsBound() const noexcept { return m_proxy.Handle() != nullptr; }
 
         /// Drop any runtime binding (proxy AND direct override). Deserialization calls this
         /// when the incoming identity REPLACES a different one - the old binding must not
         /// keep rendering the previous resource.
-        void ClearBinding() noexcept { m_proxy = Proxy<T>{}; m_direct = nullptr; }
+        void ClearBinding() noexcept
+        {
+            m_proxy = Proxy<T>{};
+            m_direct = nullptr;
+        }
 
         // Attach the runtime proxy for `id` (defined after ResourceManager below).
         void Bind(ResourceManager& manager);
@@ -134,8 +153,8 @@ export namespace draconic::resource
         [[nodiscard]] const Proxy<T>& GetProxy() const noexcept { return m_proxy; }
 
     private:
-        Proxy<T> m_proxy;      // guid-backed binding (runtime only)
-        RefPtr<T> m_direct;    // procedural override (runtime only)
+        Proxy<T> m_proxy;   // guid-backed binding (runtime only)
+        RefPtr<T> m_direct; // procedural override (runtime only)
     };
 
     // Serialization: identity only (found by ADL from component Serialize bodies). On READ,
@@ -147,14 +166,17 @@ export namespace draconic::resource
     {
         const Guid before = ref.id;
         draconic::core::Serialize(ar, ref.id);
-        if (ref.id != before) { ref.ClearBinding(); }
+        if (ref.id != before)
+        {
+            ref.ClearBinding();
+        }
     }
 
     // =======================================================================
     // IResourceFactory - builds a runtime product from a content instance (its
     // source object + data streams). One factory per product type.
     // =======================================================================
-    class ResourceManager;   // forward - factories receive it to resolve child resources
+    class ResourceManager; // forward - factories receive it to resolve child resources
 
     class IResourceFactory
     {
@@ -165,7 +187,8 @@ export namespace draconic::resource
         // Build the runtime product. `manager` lets a composite resource resolve its
         // child resources via manager.Bind<…>(childId) - and doing so AUTOMATICALLY
         // records a dependency edge, so reloading a child reloads this resource too.
-        [[nodiscard]] virtual RefPtr<Object> Create(ResourceManager& manager, draconic::content::Instance& instance) = 0;
+        [[nodiscard]] virtual RefPtr<Object> Create(ResourceManager& manager,
+                                                    draconic::content::Instance& instance) = 0;
     };
 
     // =======================================================================
@@ -177,7 +200,9 @@ export namespace draconic::resource
     {
     public:
         explicit ResourceManager(draconic::content::IContentDatabase& database) noexcept
-            : m_database(&database) {}
+            : m_database(&database)
+        {
+        }
 
         /// The backing content database (path-addressed lookups: script facades and
         /// tooling resolve editor-visible content paths to instances, then Bind by id).
@@ -200,7 +225,10 @@ export namespace draconic::resource
         {
             // If a factory is mid-build and Binds this id, it's a dependency of the
             // resource currently building: record the edge so a reload propagates.
-            if (!m_buildStack.IsEmpty()) { RecordDependency(m_buildStack.Back(), id); }
+            if (!m_buildStack.IsEmpty())
+            {
+                RecordDependency(m_buildStack.Back(), id);
+            }
 
             if (RefPtr<ResourceHandle>* cached = m_handles.Find(id))
             {
@@ -208,7 +236,10 @@ export namespace draconic::resource
                 // resources, growing the handle map - a rehash dangles the slot pointer.
                 // (The handle OBJECT itself is heap-stable; only the slot moves.)
                 RefPtr<ResourceHandle> handle = *cached;
-                if (handle->Get() == nullptr) { BuildInto(*handle, productType.id, id); }
+                if (handle->Get() == nullptr)
+                {
+                    BuildInto(*handle, productType.id, id);
+                }
                 return handle;
             }
             RefPtr<ResourceHandle> handle = MakeRef<ResourceHandle>(DefaultAllocator());
@@ -218,17 +249,26 @@ export namespace draconic::resource
         }
 
         template <typename T>
-        [[nodiscard]] Proxy<T> Bind(const Guid& id) { return Proxy<T>(Bind(T::StaticType(), id)); }
+        [[nodiscard]] Proxy<T> Bind(const Guid& id)
+        {
+            return Proxy<T>(Bind(T::StaticType(), id));
+        }
 
         template <typename T>
-        [[nodiscard]] Proxy<T> Bind(const ResourceId<T>& rid) { return Bind<T>(rid.id); }
+        [[nodiscard]] Proxy<T> Bind(const ResourceId<T>& rid)
+        {
+            return Bind<T>(rid.id);
+        }
 
         // Rebuilds the product for an already-bound id (e.g. after the source
         // changed on disk) AND, transitively, every resource that depends on it.
         // All proxies see the new products. False if `id` is unbound.
         bool Reload(const Guid& id)
         {
-            if (m_handles.Find(id) == nullptr) { return false; }
+            if (m_handles.Find(id) == nullptr)
+            {
+                return false;
+            }
             Array<Guid> visited;
             ReloadRecursive(id, visited);
             // RE-find: the recursive rebuild binds children, growing the handle map - the
@@ -256,7 +296,10 @@ export namespace draconic::resource
         {
             for (auto& [id, handle] : m_handles)
             {
-                if (handle->Get() == nullptr) { out.PushBack(id); }
+                if (handle->Get() == nullptr)
+                {
+                    out.PushBack(id);
+                }
             }
         }
 
@@ -293,7 +336,10 @@ export namespace draconic::resource
         bool Flush(const Guid& id)
         {
             RefPtr<ResourceHandle>* handle = m_handles.Find(id);
-            if (handle == nullptr) { return false; }
+            if (handle == nullptr)
+            {
+                return false;
+            }
             (*handle)->Flush();
             return true;
         }
@@ -311,15 +357,21 @@ export namespace draconic::resource
             // (ticked by the host once per frame) releases them a few frames later.
             if (Object* old = handle.Get())
             {
-                m_graveyard.PushBack(Grave{ RefPtr<Object>(old), kGraveFrames });
+                m_graveyard.PushBack(Grave{RefPtr<Object>(old), kGraveFrames});
             }
             handle.Replace(nullptr);
 
             draconic::content::Instance* instance = m_database->GetInstance(id);
-            if (instance == nullptr) { return; }
+            if (instance == nullptr)
+            {
+                return;
+            }
 
             IResourceFactory* const* factory = m_factories.Find(productTypeId);
-            if (factory == nullptr) { return; }
+            if (factory == nullptr)
+            {
+                return;
+            }
 
             // While `id` is on the build stack, any Bind() the factory makes is
             // recorded as a dependency of `id` (see Bind).
@@ -333,7 +385,13 @@ export namespace draconic::resource
         // dependent's rebuild mutates m_dependents[id] (clear+re-record its edges).
         void ReloadRecursive(const Guid& id, Array<Guid>& visited)
         {
-            for (const Guid& v : visited) { if (v == id) { return; } }
+            for (const Guid& v : visited)
+            {
+                if (v == id)
+                {
+                    return;
+                }
+            }
             visited.PushBack(id);
 
             if (RefPtr<ResourceHandle>* handle = m_handles.Find(id))
@@ -344,14 +402,23 @@ export namespace draconic::resource
             Array<Guid> dependents;
             if (Array<Guid>* d = m_dependents.Find(id))
             {
-                for (const Guid& g : *d) { dependents.PushBack(g); }
+                for (const Guid& g : *d)
+                {
+                    dependents.PushBack(g);
+                }
             }
-            for (const Guid& dep : dependents) { ReloadRecursive(dep, visited); }
+            for (const Guid& dep : dependents)
+            {
+                ReloadRecursive(dep, visited);
+            }
         }
 
         void RecordDependency(const Guid& dependent, const Guid& dependency)
         {
-            if (dependent == dependency) { return; }
+            if (dependent == dependency)
+            {
+                return;
+            }
             AddEdgeUnique(m_dependencies, dependent, dependency);
             AddEdgeUnique(m_dependents, dependency, dependent);
         }
@@ -360,47 +427,68 @@ export namespace draconic::resource
         void ClearForwardDeps(const Guid& id)
         {
             Array<Guid>* deps = m_dependencies.Find(id);
-            if (deps == nullptr) { return; }
+            if (deps == nullptr)
+            {
+                return;
+            }
             for (const Guid& d : *deps)
             {
                 if (Array<Guid>* rev = m_dependents.Find(d))
                 {
                     for (usize i = 0; i < rev->Size(); ++i)
                     {
-                        if ((*rev)[i] == id) { rev->RemoveAt(i); break; }
+                        if ((*rev)[i] == id)
+                        {
+                            rev->RemoveAt(i);
+                            break;
+                        }
                     }
                 }
             }
             deps->Clear();
         }
 
-        static void AddEdgeUnique(HashMap<Guid, Array<Guid>>& map, const Guid& key, const Guid& value)
+        static void AddEdgeUnique(HashMap<Guid, Array<Guid>>& map, const Guid& key,
+                                  const Guid& value)
         {
             Array<Guid>* arr = map.Find(key);
-            if (arr == nullptr) { map.InsertOrAssign(key, Array<Guid>{}); arr = map.Find(key); }
-            for (const Guid& g : *arr) { if (g == value) { return; } }
+            if (arr == nullptr)
+            {
+                map.InsertOrAssign(key, Array<Guid>{});
+                arr = map.Find(key);
+            }
+            for (const Guid& g : *arr)
+            {
+                if (g == value)
+                {
+                    return;
+                }
+            }
             arr->PushBack(value);
         }
 
         draconic::content::IContentDatabase* m_database;
         HashMap<TypeId, IResourceFactory*> m_factories;
         HashMap<Guid, RefPtr<ResourceHandle>> m_handles;
-        HashMap<Guid, Array<Guid>> m_dependencies;  // id -> resources it depends on
-        HashMap<Guid, Array<Guid>> m_dependents;    // id -> resources that depend on it
-        Array<Guid> m_buildStack;                   // ids currently building (auto-edge source)
+        HashMap<Guid, Array<Guid>> m_dependencies; // id -> resources it depends on
+        HashMap<Guid, Array<Guid>> m_dependents;   // id -> resources that depend on it
+        Array<Guid> m_buildStack;                  // ids currently building (auto-edge source)
 
-        static constexpr u32 kGraveFrames = 8;      // > max frames in flight, comfortably
+        static constexpr u32 kGraveFrames = 8; // > max frames in flight, comfortably
         struct Grave
         {
             RefPtr<Object> product;
             u32 framesLeft = 0;
         };
-        Array<Grave> m_graveyard;                   // hot-reloaded-away products awaiting release
+        Array<Grave> m_graveyard; // hot-reloaded-away products awaiting release
     };
 
     template <typename T>
     void Ref<T>::Bind(ResourceManager& manager)
     {
-        if (!id.IsNil()) { m_proxy = manager.Bind<T>(id); }
+        if (!id.IsNil())
+        {
+            m_proxy = manager.Bind<T>(id);
+        }
     }
 }

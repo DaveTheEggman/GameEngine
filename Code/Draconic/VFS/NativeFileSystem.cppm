@@ -35,7 +35,10 @@ export namespace draconic::vfs
         {
             for (const String& existing : m_roots)
             {
-                if (existing.AsView() == locator) { return; }
+                if (existing.AsView() == locator)
+                {
+                    return;
+                }
             }
             m_roots.PushBack(String(locator));
             // Baseline WITHOUT emitting: pre-existing files are not "changes".
@@ -61,13 +64,22 @@ export namespace draconic::vfs
 
             // Mark-and-sweep: files seen this walk are marked; snapshot entries left
             // unmarked were removed since the last poll.
-            for (auto& [path, entry] : m_snapshot) { entry.seen = false; }
-            for (const String& root : m_roots) { Sweep(root.AsView(), &outChanged); }
+            for (auto& [path, entry] : m_snapshot)
+            {
+                entry.seen = false;
+            }
+            for (const String& root : m_roots)
+            {
+                Sweep(root.AsView(), &outChanged);
+            }
 
             Array<String> removed;
             for (auto& [path, entry] : m_snapshot)
             {
-                if (!entry.seen) { removed.PushBack(String(path.AsView())); }
+                if (!entry.seen)
+                {
+                    removed.PushBack(String(path.AsView()));
+                }
             }
             for (const String& path : removed)
             {
@@ -91,14 +103,23 @@ export namespace draconic::vfs
         {
             IEnumerableFileSystem* enumerable = m_fs->AsEnumerable();
             IStatFileSystem* stat = m_fs->AsStat();
-            if (enumerable == nullptr || stat == nullptr) { return; }
+            if (enumerable == nullptr || stat == nullptr)
+            {
+                return;
+            }
 
             Array<DirEntry> entries;
-            if (!enumerable->Enumerate(folder, entries).IsOk()) { return; }
+            if (!enumerable->Enumerate(folder, entries).IsOk())
+            {
+                return;
+            }
             for (const DirEntry& entry : entries)
             {
                 String path(folder);
-                if (!path.IsEmpty()) { path.PushBack(utf8char('/')); }
+                if (!path.IsEmpty())
+                {
+                    path.PushBack(utf8char('/'));
+                }
                 path.Append(entry.name.AsView());
 
                 if (entry.isDirectory)
@@ -107,20 +128,29 @@ export namespace draconic::vfs
                     continue;
                 }
                 FileStatInfo info;
-                if (!stat->Stat(path.AsView(), info)) { continue; }
+                if (!stat->Stat(path.AsView(), info))
+                {
+                    continue;
+                }
 
                 Entry* known = m_snapshot.Find(path);
-                const bool changed = (known == nullptr)
-                    || known->size != info.size || known->modifiedTime != info.modifiedTime;
-                m_snapshot.InsertOrAssign(path, Entry{ info.size, info.modifiedTime, true });
-                if (changed && outChanged != nullptr) { outChanged->PushBack(Move(path)); }
+                const bool changed = (known == nullptr) || known->size != info.size ||
+                                     known->modifiedTime != info.modifiedTime;
+                m_snapshot.InsertOrAssign(path, Entry{info.size, info.modifiedTime, true});
+                if (changed && outChanged != nullptr)
+                {
+                    outChanged->PushBack(Move(path));
+                }
             }
         }
 
         void RebuildSnapshotFromRoots()
         {
             m_snapshot.Clear();
-            for (const String& root : m_roots) { Sweep(root.AsView(), nullptr); }
+            for (const String& root : m_roots)
+            {
+                Sweep(root.AsView(), nullptr);
+            }
         }
 
         IFileSystem* m_fs;
@@ -128,16 +158,17 @@ export namespace draconic::vfs
         HashMap<String, Entry> m_snapshot;
     };
 
-    class NativeFileSystem final
-        : public IFileSystem
-        , public IEnumerableFileSystem
-        , public IWritableFileSystem
-        , public IStatFileSystem
-        , public IWatchableFileSystem
+    class NativeFileSystem final : public IFileSystem,
+                                   public IEnumerableFileSystem,
+                                   public IWritableFileSystem,
+                                   public IStatFileSystem,
+                                   public IWatchableFileSystem
     {
     public:
         explicit NativeFileSystem(StringView root, IAllocator& allocator = DefaultAllocator())
-            : m_root(root, allocator), m_allocator(&allocator) {}
+            : m_root(root, allocator), m_allocator(&allocator)
+        {
+        }
 
         // --- IFileSystem ---
         [[nodiscard]] UniquePtr<IStream> Open(StringView path, FileMode mode) override
@@ -153,7 +184,7 @@ export namespace draconic::vfs
                 m_allocator->Delete(stream);
                 return UniquePtr<IStream>{};
             }
-            return UniquePtr<IStream>{ stream, *m_allocator };
+            return UniquePtr<IStream>{stream, *m_allocator};
         }
 
         [[nodiscard]] bool Exists(StringView path) override
@@ -163,9 +194,9 @@ export namespace draconic::vfs
         }
 
         [[nodiscard]] IEnumerableFileSystem* AsEnumerable() noexcept override { return this; }
-        [[nodiscard]] IWritableFileSystem*   AsWritable()   noexcept override { return this; }
-        [[nodiscard]] IStatFileSystem*       AsStat()       noexcept override { return this; }
-        [[nodiscard]] IWatchableFileSystem*  AsWatchable()  noexcept override { return this; }
+        [[nodiscard]] IWritableFileSystem* AsWritable() noexcept override { return this; }
+        [[nodiscard]] IStatFileSystem* AsStat() noexcept override { return this; }
+        [[nodiscard]] IWatchableFileSystem* AsWatchable() noexcept override { return this; }
 
         // --- IWatchableFileSystem ---
         [[nodiscard]] IChangeSource* ChangeSource() override
@@ -193,10 +224,10 @@ export namespace draconic::vfs
                 [](void* ctx, StringView name, bool isDir)
                 {
                     auto* dst = static_cast<Array<DirEntry>*>(ctx);
-                    dst->PushBack(DirEntry{ String(name), isDir });
+                    dst->PushBack(DirEntry{String(name), isDir});
                 },
                 &out);
-            return ok ? Status{} : Status{ ErrorCode::NotFound };
+            return ok ? Status{} : Status{ErrorCode::NotFound};
         }
 
         // --- IWritableFileSystem ---
@@ -206,10 +237,13 @@ export namespace draconic::vfs
             EnsureParentDirectories(full.AsView());
 
             FileStream stream(full.AsView(), FileMode::Write);
-            if (!stream.IsValid()) { return Status{ ErrorCode::Internal }; }
+            if (!stream.IsValid())
+            {
+                return Status{ErrorCode::Internal};
+            }
             if (!data.IsEmpty() && stream.Write(data.Data(), data.Size()) != data.Size())
             {
-                return Status{ ErrorCode::Internal };
+                return Status{ErrorCode::Internal};
             }
             return Status{};
         }
@@ -217,21 +251,22 @@ export namespace draconic::vfs
         [[nodiscard]] Status Delete(StringView path) override
         {
             const String full = PathJoin(m_root.AsView(), path, *m_allocator);
-            return FileDelete(full.AsView()) ? Status{} : Status{ ErrorCode::NotFound };
+            return FileDelete(full.AsView()) ? Status{} : Status{ErrorCode::NotFound};
         }
 
         [[nodiscard]] Status Move(StringView from, StringView to) override
         {
             const String fullFrom = PathJoin(m_root.AsView(), from, *m_allocator);
-            const String fullTo   = PathJoin(m_root.AsView(), to, *m_allocator);
+            const String fullTo = PathJoin(m_root.AsView(), to, *m_allocator);
             EnsureParentDirectories(fullTo.AsView());
-            return FileMove(fullFrom.AsView(), fullTo.AsView()) ? Status{} : Status{ ErrorCode::NotFound };
+            return FileMove(fullFrom.AsView(), fullTo.AsView()) ? Status{}
+                                                                : Status{ErrorCode::NotFound};
         }
 
         [[nodiscard]] Status DeleteDirectory(StringView path) override
         {
             const String full = PathJoin(m_root.AsView(), path, *m_allocator);
-            return RemoveDirectory(full.AsView()) ? Status{} : Status{ ErrorCode::NotFound };
+            return RemoveDirectory(full.AsView()) ? Status{} : Status{ErrorCode::NotFound};
         }
 
     private:
@@ -250,6 +285,6 @@ export namespace draconic::vfs
 
         String m_root;
         IAllocator* m_allocator;
-        UniquePtr<NativeChangeSource> m_changeSource;   // lazy (most mounts never watch)
+        UniquePtr<NativeChangeSource> m_changeSource; // lazy (most mounts never watch)
     };
 }

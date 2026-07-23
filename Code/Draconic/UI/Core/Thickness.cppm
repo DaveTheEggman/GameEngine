@@ -25,14 +25,26 @@ export namespace draconic::ui
         /// Zero thickness.
         constexpr Thickness() noexcept = default;
         /// All sides equal.
-        explicit constexpr Thickness(f32 all) noexcept : Left(all), Top(all), Right(all), Bottom(all) {}
+        explicit constexpr Thickness(f32 all) noexcept
+            : Left(all), Top(all), Right(all), Bottom(all)
+        {
+        }
         /// Horizontal (left/right) and vertical (top/bottom) pairs.
-        constexpr Thickness(f32 horizontal, f32 vertical) noexcept : Left(horizontal), Top(vertical), Right(horizontal), Bottom(vertical) {}
+        constexpr Thickness(f32 horizontal, f32 vertical) noexcept
+            : Left(horizontal), Top(vertical), Right(horizontal), Bottom(vertical)
+        {
+        }
         /// Each side explicit.
-        constexpr Thickness(f32 left, f32 top, f32 right, f32 bottom) noexcept : Left(left), Top(top), Right(right), Bottom(bottom) {}
+        constexpr Thickness(f32 left, f32 top, f32 right, f32 bottom) noexcept
+            : Left(left), Top(top), Right(right), Bottom(bottom)
+        {
+        }
 
         [[nodiscard]] constexpr f32 TotalHorizontal() const noexcept { return Left + Right; }
         [[nodiscard]] constexpr f32 TotalVertical() const noexcept { return Top + Bottom; }
-        [[nodiscard]] constexpr bool IsZero() const noexcept { return Left == 0.0f && Top == 0.0f && Right == 0.0f && Bottom == 0.0f; }
+        [[nodiscard]] constexpr bool IsZero() const noexcept
+        {
+            return Left == 0.0f && Top == 0.0f && Right == 0.0f && Bottom == 0.0f;
+        }
     };
 }

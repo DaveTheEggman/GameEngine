@@ -24,9 +24,12 @@ export namespace draconic::rendergraph
         {
             switch (type)
             {
-                case RGPassType::Render:  return u8"#4488cc";
-                case RGPassType::Compute: return u8"#cc8844";
-                case RGPassType::Copy:    return u8"#44aa44";
+            case RGPassType::Render:
+                return u8"#4488cc";
+            case RGPassType::Compute:
+                return u8"#cc8844";
+            case RGPassType::Copy:
+                return u8"#44aa44";
             }
             return u8"#888888";
         }
@@ -34,9 +37,12 @@ export namespace draconic::rendergraph
         {
             switch (lifetime)
             {
-                case RGResourceLifetime::Transient:  return u8"transient";
-                case RGResourceLifetime::Persistent: return u8"persistent";
-                case RGResourceLifetime::Imported:   return u8"imported";
+            case RGResourceLifetime::Transient:
+                return u8"transient";
+            case RGResourceLifetime::Persistent:
+                return u8"persistent";
+            case RGResourceLifetime::Imported:
+                return u8"imported";
             }
             return u8"?";
         }
@@ -44,18 +50,30 @@ export namespace draconic::rendergraph
         {
             switch (type)
             {
-                case RGAccessType::ReadTexture:          return u8"read";
-                case RGAccessType::ReadBuffer:           return u8"read";
-                case RGAccessType::ReadDepthStencil:     return u8"depth-read";
-                case RGAccessType::SampleDepthStencil:   return u8"depth-sample";
-                case RGAccessType::ReadCopySrc:          return u8"copy-src";
-                case RGAccessType::WriteColorTarget:     return u8"color-out";
-                case RGAccessType::WriteDepthTarget:     return u8"depth-out";
-                case RGAccessType::WriteStorage:         return u8"storage-write";
-                case RGAccessType::WriteCopyDst:         return u8"copy-dst";
-                case RGAccessType::ReadWriteStorage:     return u8"rw-storage";
-                case RGAccessType::ReadWriteDepthTarget: return u8"depth-rw";
-                case RGAccessType::ReadWriteColorTarget: return u8"color-rw";
+            case RGAccessType::ReadTexture:
+                return u8"read";
+            case RGAccessType::ReadBuffer:
+                return u8"read";
+            case RGAccessType::ReadDepthStencil:
+                return u8"depth-read";
+            case RGAccessType::SampleDepthStencil:
+                return u8"depth-sample";
+            case RGAccessType::ReadCopySrc:
+                return u8"copy-src";
+            case RGAccessType::WriteColorTarget:
+                return u8"color-out";
+            case RGAccessType::WriteDepthTarget:
+                return u8"depth-out";
+            case RGAccessType::WriteStorage:
+                return u8"storage-write";
+            case RGAccessType::WriteCopyDst:
+                return u8"copy-dst";
+            case RGAccessType::ReadWriteStorage:
+                return u8"rw-storage";
+            case RGAccessType::ReadWriteDepthTarget:
+                return u8"depth-rw";
+            case RGAccessType::ReadWriteColorTarget:
+                return u8"color-rw";
             }
             return u8"?";
         }
@@ -63,9 +81,12 @@ export namespace draconic::rendergraph
         {
             switch (type)
             {
-                case RGPassType::Render:  return u8"Render";
-                case RGPassType::Compute: return u8"Compute";
-                case RGPassType::Copy:    return u8"Copy";
+            case RGPassType::Render:
+                return u8"Render";
+            case RGPassType::Compute:
+                return u8"Compute";
+            case RGPassType::Copy:
+                return u8"Copy";
             }
             return u8"?";
         }
@@ -88,12 +109,18 @@ export namespace draconic::rendergraph
             for (usize i = 0; i < passes.Size(); ++i)
             {
                 RenderGraphPass* pass = passes[i];
-                const StringView style = pass->isCulled ? StringView(u8"dashed") : StringView(u8"filled");
-                const StringView fontColor = pass->isCulled ? StringView(u8"gray") : StringView(u8"white");
-                AppendFormat(out,
+                const StringView style =
+                    pass->isCulled ? StringView(u8"dashed") : StringView(u8"filled");
+                const StringView fontColor =
+                    pass->isCulled ? StringView(u8"gray") : StringView(u8"white");
+                AppendFormat(
+                    out,
                     u8"  pass{} [label=\"{}\" shape=box style={} fillcolor=\"{}\" fontcolor=\"{}\"",
                     i, pass->name.AsView(), style, detail::PassColor(pass->type), fontColor);
-                if (pass->isCulled) { out.Append(u8" color=gray"); }
+                if (pass->isCulled)
+                {
+                    out.Append(u8" color=gray");
+                }
                 out.Append(u8"];\n");
             }
             out.Append(u8"\n");
@@ -101,11 +128,15 @@ export namespace draconic::rendergraph
             for (usize i = 0; i < resources.Size(); ++i)
             {
                 RenderGraphResource* res = resources[i];
-                if (res == nullptr) { continue; }
+                if (res == nullptr)
+                {
+                    continue;
+                }
                 const StringView shape = res->resourceType == RGResourceType::Texture
-                                       ? StringView(u8"ellipse") : StringView(u8"diamond");
-                AppendFormat(out, u8"  res{} [label=\"{}\\n({})\" shape={}];\n",
-                    i, res->name.AsView(), detail::LifetimeLabel(res->lifetime), shape);
+                                             ? StringView(u8"ellipse")
+                                             : StringView(u8"diamond");
+                AppendFormat(out, u8"  res{} [label=\"{}\\n({})\" shape={}];\n", i,
+                             res->name.AsView(), detail::LifetimeLabel(res->lifetime), shape);
             }
             out.Append(u8"\n");
 
@@ -114,20 +145,34 @@ export namespace draconic::rendergraph
                 RenderGraphPass* pass = passes[passIdx];
                 for (const RGResourceAccess& access : pass->accesses)
                 {
-                    if (!access.handle.IsValid() || access.handle.index >= resources.Size()) { continue; }
-                    if (resources[access.handle.index] == nullptr) { continue; }
+                    if (!access.handle.IsValid() || access.handle.index >= resources.Size())
+                    {
+                        continue;
+                    }
+                    if (resources[access.handle.index] == nullptr)
+                    {
+                        continue;
+                    }
 
                     const StringView label = detail::AccessLabel(access.type);
                     if (access.IsRead())
                     {
-                        AppendFormat(out, u8"  res{} -> pass{} [label=\"{}\"", access.handle.index, passIdx, label);
-                        if (pass->isCulled) { out.Append(u8" style=dashed color=gray"); }
+                        AppendFormat(out, u8"  res{} -> pass{} [label=\"{}\"", access.handle.index,
+                                     passIdx, label);
+                        if (pass->isCulled)
+                        {
+                            out.Append(u8" style=dashed color=gray");
+                        }
                         out.Append(u8"];\n");
                     }
                     if (access.IsWrite())
                     {
-                        AppendFormat(out, u8"  pass{} -> res{} [label=\"{}\"", passIdx, access.handle.index, label);
-                        if (pass->isCulled) { out.Append(u8" style=dashed color=gray"); }
+                        AppendFormat(out, u8"  pass{} -> res{} [label=\"{}\"", passIdx,
+                                     access.handle.index, label);
+                        if (pass->isCulled)
+                        {
+                            out.Append(u8" style=dashed color=gray");
+                        }
                         out.Append(u8"];\n");
                     }
                 }
@@ -144,25 +189,45 @@ export namespace draconic::rendergraph
             const Array<i32>& executionOrder = graph.ExecutionOrder();
 
             usize activeCount = 0, culledCount = 0;
-            for (RenderGraphPass* p : passes) { if (p->isCulled) { ++culledCount; } else { ++activeCount; } }
+            for (RenderGraphPass* p : passes)
+            {
+                if (p->isCulled)
+                {
+                    ++culledCount;
+                }
+                else
+                {
+                    ++activeCount;
+                }
+            }
 
             usize resCount = 0, transientCount = 0, persistentCount = 0, importedCount = 0;
             for (RenderGraphResource* r : resources)
             {
-                if (r == nullptr) { continue; }
+                if (r == nullptr)
+                {
+                    continue;
+                }
                 ++resCount;
                 switch (r->lifetime)
                 {
-                    case RGResourceLifetime::Transient:  ++transientCount; break;
-                    case RGResourceLifetime::Persistent: ++persistentCount; break;
-                    case RGResourceLifetime::Imported:   ++importedCount; break;
+                case RGResourceLifetime::Transient:
+                    ++transientCount;
+                    break;
+                case RGResourceLifetime::Persistent:
+                    ++persistentCount;
+                    break;
+                case RGResourceLifetime::Imported:
+                    ++importedCount;
+                    break;
                 }
             }
 
             out.Append(u8"=== Render Graph Summary ===\n");
-            AppendFormat(out, u8"Passes: {} active, {} culled, {} total\n", activeCount, culledCount, passes.Size());
+            AppendFormat(out, u8"Passes: {} active, {} culled, {} total\n", activeCount,
+                         culledCount, passes.Size());
             AppendFormat(out, u8"Resources: {} total ({} transient, {} persistent, {} imported)\n",
-                resCount, transientCount, persistentCount, importedCount);
+                         resCount, transientCount, persistentCount, importedCount);
             AppendFormat(out, u8"Output: {}x{}\n\n", graph.OutputWidth(), graph.OutputHeight());
 
             if (!executionOrder.IsEmpty())
@@ -171,7 +236,8 @@ export namespace draconic::rendergraph
                 for (usize i = 0; i < executionOrder.Size(); ++i)
                 {
                     RenderGraphPass* pass = passes[static_cast<usize>(executionOrder[i])];
-                    AppendFormat(out, u8"  {}. [{}] {}\n", i + 1, detail::PassTypeLabel(pass->type), pass->name.AsView());
+                    AppendFormat(out, u8"  {}. [{}] {}\n", i + 1, detail::PassTypeLabel(pass->type),
+                                 pass->name.AsView());
                 }
             }
         }

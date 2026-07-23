@@ -10,7 +10,7 @@ module;
 
 export module draconic.gui:event;
 
-import draconic.core;   // Function, String
+import draconic.core; // Function, String
 
 using namespace draconic::core;
 namespace core = draconic::core;
@@ -56,7 +56,14 @@ export namespace draconic::gui
         Drop,
     };
 
-    enum class MouseButton : u32 { Left, Right, Middle, X1, X2 };
+    enum class MouseButton : u32
+    {
+        Left,
+        Right,
+        Middle,
+        X1,
+        X2
+    };
 
     // Platform-agnostic key identity for the navigation/editing keys the GUI interprets
     // (printable characters arrive as TextInput, not here). The gui.shell bridge maps
@@ -67,10 +74,25 @@ export namespace draconic::gui
     enum class KeyCode : u32
     {
         Unknown = 0,
-        Return, Escape, Backspace, Tab, Space,
-        Delete, Insert, Home, End, PageUp, PageDown,
-        Left, Right, Up, Down,
-        A, C, V, X,
+        Return,
+        Escape,
+        Backspace,
+        Tab,
+        Space,
+        Delete,
+        Insert,
+        Home,
+        End,
+        PageUp,
+        PageDown,
+        Left,
+        Right,
+        Up,
+        Down,
+        A,
+        C,
+        V,
+        X,
     };
 
     // Key modifier bitmask (unscoped for easy OR-ing).
@@ -91,7 +113,9 @@ export namespace draconic::gui
         EventType Type;
         Node* Target = nullptr;
 
-        explicit Event(EventType type, Node* target = nullptr) noexcept : Type(type), Target(target) {}
+        explicit Event(EventType type, Node* target = nullptr) noexcept : Type(type), Target(target)
+        {
+        }
         virtual ~Event() = default;
     };
 
@@ -103,7 +127,9 @@ export namespace draconic::gui
 
         MouseEvent(EventType type, Node* target, core::Float2 position,
                    MouseButton button = MouseButton::Left, u32 modifiers = 0) noexcept
-            : Event(type, target), Position(position), Button(button), Modifiers(modifiers) {}
+            : Event(type, target), Position(position), Button(button), Modifiers(modifiers)
+        {
+        }
     };
 
     struct WheelEvent : Event
@@ -112,7 +138,9 @@ export namespace draconic::gui
         core::Float2 Delta;
 
         WheelEvent(Node* target, core::Float2 position, core::Float2 delta) noexcept
-            : Event(EventType::MouseWheel, target), Position(position), Delta(delta) {}
+            : Event(EventType::MouseWheel, target), Position(position), Delta(delta)
+        {
+        }
     };
 
     struct KeyEvent : Event
@@ -121,7 +149,9 @@ export namespace draconic::gui
         u32 Modifiers;
 
         KeyEvent(EventType type, Node* target, u32 keyCode, u32 modifiers = 0) noexcept
-            : Event(type, target), KeyCode(keyCode), Modifiers(modifiers) {}
+            : Event(type, target), KeyCode(keyCode), Modifiers(modifiers)
+        {
+        }
     };
 
     struct TextInputEvent : Event
@@ -129,7 +159,9 @@ export namespace draconic::gui
         core::StringView Text;
 
         TextInputEvent(Node* target, core::StringView text) noexcept
-            : Event(EventType::TextInput, target), Text(text) {}
+            : Event(EventType::TextInput, target), Text(text)
+        {
+        }
     };
 
     struct DragEvent : Event
@@ -137,7 +169,9 @@ export namespace draconic::gui
         const DragPayload& Payload;
 
         DragEvent(EventType type, Node* target, const DragPayload& payload) noexcept
-            : Event(type, target), Payload(payload) {}
+            : Event(type, target), Payload(payload)
+        {
+        }
     };
 
     using EventCallback = core::Function<void(const Event&)>;

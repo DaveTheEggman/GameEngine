@@ -187,7 +187,8 @@ TEST_CASE("tokenizer: FullSelector_Tokenizes")
 
     CHECK(tokens.Size() >= 4); // Ident, ClassSelector, PseudoState, EOF
     CHECK((tokens[0].Kind == TokenKind::Ident && tokens[0].Text == StringView(u8"Button")));
-    CHECK((tokens[1].Kind == TokenKind::ClassSelector && tokens[1].Text == StringView(u8".primary")));
+    CHECK(
+        (tokens[1].Kind == TokenKind::ClassSelector && tokens[1].Text == StringView(u8".primary")));
     CHECK((tokens[2].Kind == TokenKind::PseudoState && tokens[2].Text == StringView(u8":hover")));
 }
 

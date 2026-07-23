@@ -11,9 +11,18 @@ using namespace draconic::ui::tests;
 using namespace draconic::core;
 namespace core = draconic::core;
 
-static core::RefPtr<RootView> MakeRoot() { return core::MakeRef<RootView>(core::DefaultAllocator()); }
-static core::RefPtr<TestView> MakeTestView(f32 w = 50, f32 h = 30) { return core::MakeRef<TestView>(core::DefaultAllocator(), w, h); }
-static core::RefPtr<TestGroup> MakeTestGroup() { return core::MakeRef<TestGroup>(core::DefaultAllocator()); }
+static core::RefPtr<RootView> MakeRoot()
+{
+    return core::MakeRef<RootView>(core::DefaultAllocator());
+}
+static core::RefPtr<TestView> MakeTestView(f32 w = 50, f32 h = 30)
+{
+    return core::MakeRef<TestView>(core::DefaultAllocator(), w, h);
+}
+static core::RefPtr<TestGroup> MakeTestGroup()
+{
+    return core::MakeRef<TestGroup>(core::DefaultAllocator());
+}
 
 TEST_CASE("viewgroup: AddView_IncreasesChildCount")
 {
@@ -205,7 +214,7 @@ TEST_CASE("viewgroup: InsertView_AtIndex")
 TEST_CASE("viewgroup: ContentBounds_AccountsForPadding")
 {
     core::RefPtr<TestGroup> group = MakeTestGroup();
-    group->Padding = Thickness{ 10, 5, 10, 5 };
+    group->Padding = Thickness{10, 5, 10, 5};
     group->Layout(0, 0, 200, 100);
 
     const Rectangle cb = group->ContentBounds();
@@ -228,7 +237,7 @@ TEST_CASE("viewgroup: HitTest_ReturnsDeepestChild")
 
     LayoutPass(ctx, root.Get());
 
-    View* hit = root->HitTest(Float2{ 10, 10 });
+    View* hit = root->HitTest(Float2{10, 10});
     CHECK(hit == child.Get());
 }
 
@@ -240,7 +249,7 @@ TEST_CASE("viewgroup: HitTest_ReturnsNullOutsideBounds")
 
     LayoutPass(ctx, root.Get());
 
-    View* hit = root->HitTest(Float2{ 500, 500 });
+    View* hit = root->HitTest(Float2{500, 500});
     CHECK(hit == nullptr);
 }
 
@@ -256,7 +265,7 @@ TEST_CASE("viewgroup: HitTest_SkipsNotVisible")
 
     LayoutPass(ctx, root.Get());
 
-    View* hit = root->HitTest(Float2{ 10, 10 });
+    View* hit = root->HitTest(Float2{10, 10});
     CHECK(hit != child.Get());
 }
 
@@ -272,7 +281,7 @@ TEST_CASE("viewgroup: HitTest_SkipsNotInteractionEnabled")
 
     LayoutPass(ctx, root.Get());
 
-    View* hit = root->HitTest(Float2{ 10, 10 });
+    View* hit = root->HitTest(Float2{10, 10});
     CHECK(hit != child.Get());
 }
 
@@ -291,7 +300,7 @@ TEST_CASE("viewgroup: HitTest_PassThroughNonHitTestVisible")
 
     LayoutPass(ctx, root.Get());
 
-    View* hit = root->HitTest(Float2{ 10, 10 });
+    View* hit = root->HitTest(Float2{10, 10});
     CHECK(hit == child.Get());
 }
 
@@ -308,7 +317,7 @@ TEST_CASE("viewgroup: HitTest_ReverseOrder_TopmostFirst")
 
     LayoutPass(ctx, root.Get());
 
-    View* hit = root->HitTest(Float2{ 10, 10 });
+    View* hit = root->HitTest(Float2{10, 10});
     CHECK(hit == b.Get());
 }
 
@@ -397,12 +406,13 @@ TEST_CASE("viewgroup: HitTest_AppliesInverseTransform")
     group->AddView(child.Get());
     LayoutPass(ctx, root.Get());
 
-    child->Transform.Translation = Float2{ 50, 0 }; // drawn 50px to the right (transform doesn't relayout)
+    child->Transform.Translation =
+        Float2{50, 0}; // drawn 50px to the right (transform doesn't relayout)
 
     // At the drawn position the child is hit...
-    CHECK(root->HitTest(Float2{ 60, 10 }) == child.Get());
+    CHECK(root->HitTest(Float2{60, 10}) == child.Get());
     // ...but at its old layout position (now empty because the child drew away) it is not.
-    CHECK(root->HitTest(Float2{ 10, 10 }) != child.Get());
+    CHECK(root->HitTest(Float2{10, 10}) != child.Get());
 }
 
 // MoveView: a pure reorder - the child changes index without a Detach/Attach round-trip
@@ -422,18 +432,18 @@ TEST_CASE("viewgroup: MoveView_ReordersWithoutDetach")
     group->AddView(b.Get());
     group->AddView(c.Get());
 
-    group->MoveView(c.Get(), 0);   // [c, a, b]
+    group->MoveView(c.Get(), 0); // [c, a, b]
     CHECK(group->GetChildAt(0) == c.Get());
     CHECK(group->GetChildAt(1) == a.Get());
     CHECK(group->GetChildAt(2) == b.Get());
     CHECK(c->Parent == group.Get());
-    CHECK(c->Context == &ctx);   // no detach happened
+    CHECK(c->Context == &ctx); // no detach happened
 
-    group->MoveView(c.Get(), 99);   // clamped to last: [a, b, c]
+    group->MoveView(c.Get(), 99); // clamped to last: [a, b, c]
     CHECK(group->GetChildAt(2) == c.Get());
     CHECK(group->GetChildAt(0) == a.Get());
 
-    group->MoveView(a.Get(), 1);   // forward move: [b, a, c]
+    group->MoveView(a.Get(), 1); // forward move: [b, a, c]
     CHECK(group->GetChildAt(0) == b.Get());
     CHECK(group->GetChildAt(1) == a.Get());
 

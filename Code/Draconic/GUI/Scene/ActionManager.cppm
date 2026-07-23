@@ -9,7 +9,7 @@ module;
 
 export module draconic.gui:action_manager;
 
-import draconic.core;   // RefPtr, Array, Duration, Move
+import draconic.core; // RefPtr, Array, Duration, Move
 import :action;
 
 using namespace draconic::core;
@@ -25,7 +25,8 @@ export namespace draconic::gui
         // Adds and starts an action.
         void AddAction(RefPtr<Action> action)
         {
-            if (!action) return;
+            if (!action)
+                return;
             action->Start();
             m_actions.PushBack(core::Move(action));
         }
@@ -33,21 +34,28 @@ export namespace draconic::gui
         // Ticks all actions; drops finished ones.
         void Update(core::Duration elapsed)
         {
-            for (usize i = 0; i < m_actions.Size(); )
+            for (usize i = 0; i < m_actions.Size();)
             {
                 m_actions[i]->Update(elapsed);
-                if (m_actions[i]->IsDone()) m_actions.RemoveAt(i);
-                else ++i;
+                if (m_actions[i]->IsDone())
+                    m_actions.RemoveAt(i);
+                else
+                    ++i;
             }
         }
 
         bool RemoveAllActionsFromTarget(Node* target)
         {
             bool removed = false;
-            for (usize i = 0; i < m_actions.Size(); )
+            for (usize i = 0; i < m_actions.Size();)
             {
-                if (m_actions[i]->GetTarget() == target) { m_actions.RemoveAt(i); removed = true; }
-                else ++i;
+                if (m_actions[i]->GetTarget() == target)
+                {
+                    m_actions.RemoveAt(i);
+                    removed = true;
+                }
+                else
+                    ++i;
             }
             return removed;
         }
@@ -55,7 +63,8 @@ export namespace draconic::gui
         [[nodiscard]] Action* GetActionByTag(u64 tag) const
         {
             for (const RefPtr<Action>& a : m_actions)
-                if (a->GetTag() == tag) return a.Get();
+                if (a->GetTag() == tag)
+                    return a.Get();
             return nullptr;
         }
 

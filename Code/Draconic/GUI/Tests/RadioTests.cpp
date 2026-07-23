@@ -12,7 +12,11 @@ namespace vg = draconic::vg;
 
 namespace
 {
-    template <typename T> core::RefPtr<T> Make() { return core::MakeRef<T>(core::DefaultAllocator()); }
+    template <typename T>
+    core::RefPtr<T> Make()
+    {
+        return core::MakeRef<T>(core::DefaultAllocator());
+    }
 }
 
 TEST_CASE("radio: group keeps exactly one selected")
@@ -48,8 +52,14 @@ TEST_CASE("radio: group callback fires with the selected index, only on change")
     group.Add(a.Get());
     group.Add(b.Get());
 
-    int changes = 0; int lastIndex = -99;
-    group.SetOnSelectionChanged([&](int i) { ++changes; lastIndex = i; });
+    int changes = 0;
+    int lastIndex = -99;
+    group.SetOnSelectionChanged(
+        [&](int i)
+        {
+            ++changes;
+            lastIndex = i;
+        });
 
     a->Select();
     CHECK(changes == 1);
@@ -64,12 +74,12 @@ TEST_CASE("radio: group callback fires with the selected index, only on change")
 TEST_CASE("radio: click selects and fires OnSelected")
 {
     auto root = Make<SceneNode>();
-    root->SetSize(core::Float2{ 200.0f, 200.0f });
+    root->SetSize(core::Float2{200.0f, 200.0f});
     auto a = Make<RadioButton>();
     auto b = Make<RadioButton>();
-    a->SetSize(core::Float2{ 20.0f, 20.0f });
-    b->SetSize(core::Float2{ 20.0f, 20.0f });
-    b->SetPosition(core::Float2{ 0.0f, 40.0f });
+    a->SetSize(core::Float2{20.0f, 20.0f});
+    b->SetSize(core::Float2{20.0f, 20.0f});
+    b->SetPosition(core::Float2{0.0f, 40.0f});
     root->AddChild(a.Get());
     root->AddChild(b.Get());
     RadioGroup group;
@@ -80,13 +90,13 @@ TEST_CASE("radio: click selects and fires OnSelected")
     a->SetOnSelected([&]() { ++aSelected; });
 
     EventDispatcher* d = root->GetEventDispatcher();
-    d->InjectMouseDown(core::Float2{ 10.0f, 10.0f }, MouseButton::Left);
-    d->InjectMouseUp(core::Float2{ 10.0f, 10.0f }, MouseButton::Left); // click a
+    d->InjectMouseDown(core::Float2{10.0f, 10.0f}, MouseButton::Left);
+    d->InjectMouseUp(core::Float2{10.0f, 10.0f}, MouseButton::Left); // click a
     CHECK(a->IsSelected());
     CHECK(aSelected == 1);
 
-    d->InjectMouseDown(core::Float2{ 10.0f, 50.0f }, MouseButton::Left);
-    d->InjectMouseUp(core::Float2{ 10.0f, 50.0f }, MouseButton::Left); // click b
+    d->InjectMouseDown(core::Float2{10.0f, 50.0f}, MouseButton::Left);
+    d->InjectMouseUp(core::Float2{10.0f, 50.0f}, MouseButton::Left); // click b
     CHECK(b->IsSelected());
     CHECK_FALSE(a->IsSelected());
     CHECK(aSelected == 1); // a was not re-selected
@@ -107,17 +117,19 @@ TEST_CASE("radio: a button with no group selects standalone")
 TEST_CASE("radio: draws ring, plus a dot when selected")
 {
     auto a = Make<RadioButton>();
-    a->SetSize(core::Float2{ 20.0f, 20.0f });
+    a->SetSize(core::Float2{20.0f, 20.0f});
 
     {
-        vg::VGContext ctx; DrawContext dc{ ctx };
+        vg::VGContext ctx;
+        DrawContext dc{ctx};
         a->Draw(dc);
         const core::usize ringOnly = ctx.GetBatch().vertices.Size();
         CHECK(ringOnly > 0);
     }
     a->Select();
     {
-        vg::VGContext ctx; DrawContext dc{ ctx };
+        vg::VGContext ctx;
+        DrawContext dc{ctx};
         a->Draw(dc);
         CHECK(ctx.GetBatch().vertices.Size() > 0); // ring + dot
     }

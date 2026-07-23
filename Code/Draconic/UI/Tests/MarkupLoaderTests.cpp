@@ -56,11 +56,10 @@ TEST_CASE("markup: TextContent_SetsText")
 TEST_CASE("markup: FlexWithChildren")
 {
     EnsureInit();
-    auto view = MarkupLoader::LoadFromString(
-        u8"<Flex direction=\"vertical\" spacing=\"8\">\n"
-        u8"  <Label text=\"First\"/>\n"
-        u8"  <Label text=\"Second\"/>\n"
-        u8"</Flex>");
+    auto view = MarkupLoader::LoadFromString(u8"<Flex direction=\"vertical\" spacing=\"8\">\n"
+                                             u8"  <Label text=\"First\"/>\n"
+                                             u8"  <Label text=\"Second\"/>\n"
+                                             u8"</Flex>");
     REQUIRE(view);
     FlexLayout* flex = Cast<FlexLayout>(view.Get());
     REQUIRE(flex != nullptr);
@@ -79,14 +78,13 @@ TEST_CASE("markup: FlexWithChildren")
 TEST_CASE("markup: NestedHierarchy")
 {
     EnsureInit();
-    auto view = MarkupLoader::LoadFromString(
-        u8"<Flex direction=\"vertical\">\n"
-        u8"  <Flex direction=\"horizontal\" spacing=\"4\">\n"
-        u8"    <Button text=\"A\"/>\n"
-        u8"    <Button text=\"B\"/>\n"
-        u8"  </Flex>\n"
-        u8"  <Label text=\"Footer\"/>\n"
-        u8"</Flex>");
+    auto view = MarkupLoader::LoadFromString(u8"<Flex direction=\"vertical\">\n"
+                                             u8"  <Flex direction=\"horizontal\" spacing=\"4\">\n"
+                                             u8"    <Button text=\"A\"/>\n"
+                                             u8"    <Button text=\"B\"/>\n"
+                                             u8"  </Flex>\n"
+                                             u8"  <Label text=\"Footer\"/>\n"
+                                             u8"</Flex>");
     REQUIRE(view);
     FlexLayout* outer = Cast<FlexLayout>(view.Get());
     REQUIRE(outer != nullptr);
@@ -102,14 +100,15 @@ TEST_CASE("markup: NestedHierarchy")
 TEST_CASE("markup: IdAttribute_RegistersName")
 {
     EnsureInit();
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
 
-    auto view = MarkupLoader::LoadFromString(
-        u8"<Flex direction=\"vertical\">\n"
-        u8"  <Button id=\"my-btn\" text=\"OK\"/>\n"
-        u8"  <Label id=\"my-label\" text=\"Status\"/>\n"
-        u8"</Flex>", &ctx);
+    auto view = MarkupLoader::LoadFromString(u8"<Flex direction=\"vertical\">\n"
+                                             u8"  <Button id=\"my-btn\" text=\"OK\"/>\n"
+                                             u8"  <Label id=\"my-label\" text=\"Status\"/>\n"
+                                             u8"</Flex>",
+                                             &ctx);
     root->AddView(view.Get());
 
     Button* btn = root->FindByName<Button>(u8"my-btn");
@@ -157,10 +156,9 @@ TEST_CASE("markup: OpacityAttribute")
 TEST_CASE("markup: PaddingAttribute")
 {
     EnsureInit();
-    auto view = MarkupLoader::LoadFromString(
-        u8"<Flex padding=\"8 12\">\n"
-        u8"  <Label text=\"Padded\"/>\n"
-        u8"</Flex>");
+    auto view = MarkupLoader::LoadFromString(u8"<Flex padding=\"8 12\">\n"
+                                             u8"  <Label text=\"Padded\"/>\n"
+                                             u8"</Flex>");
     REQUIRE(view);
     FlexLayout* flex = Cast<FlexLayout>(view.Get());
     CHECK(flex->Padding.Top == 8);
@@ -172,10 +170,10 @@ TEST_CASE("markup: PaddingAttribute")
 TEST_CASE("markup: WidthHeight_LayoutParams")
 {
     EnsureInit();
-    auto view = MarkupLoader::LoadFromString(
-        u8"<Flex direction=\"horizontal\">\n"
-        u8"  <Label text=\"Fixed\" width=\"200\" height=\"40\"/>\n"
-        u8"</Flex>");
+    auto view =
+        MarkupLoader::LoadFromString(u8"<Flex direction=\"horizontal\">\n"
+                                     u8"  <Label text=\"Fixed\" width=\"200\" height=\"40\"/>\n"
+                                     u8"</Flex>");
     FlexLayout* flex = Cast<FlexLayout>(view.Get());
     REQUIRE(flex != nullptr);
     View* child = flex->GetChildAt(0);
@@ -187,10 +185,10 @@ TEST_CASE("markup: WidthHeight_LayoutParams")
 TEST_CASE("markup: MatchWrap_LayoutParams")
 {
     EnsureInit();
-    auto view = MarkupLoader::LoadFromString(
-        u8"<Flex>\n"
-        u8"  <Label text=\"Match\" width=\"match\" height=\"wrap\"/>\n"
-        u8"</Flex>");
+    auto view =
+        MarkupLoader::LoadFromString(u8"<Flex>\n"
+                                     u8"  <Label text=\"Match\" width=\"match\" height=\"wrap\"/>\n"
+                                     u8"</Flex>");
     FlexLayout* flex = Cast<FlexLayout>(view.Get());
     View* child = flex->GetChildAt(0);
     CHECK(child->LayoutParams->Width.kind == SizeSpec::Kind::Match);
@@ -200,11 +198,10 @@ TEST_CASE("markup: MatchWrap_LayoutParams")
 TEST_CASE("markup: FlexGrow_LayoutParam")
 {
     EnsureInit();
-    auto view = MarkupLoader::LoadFromString(
-        u8"<Flex direction=\"horizontal\">\n"
-        u8"  <Button text=\"A\" grow=\"1\"/>\n"
-        u8"  <Button text=\"B\" grow=\"2\"/>\n"
-        u8"</Flex>");
+    auto view = MarkupLoader::LoadFromString(u8"<Flex direction=\"horizontal\">\n"
+                                             u8"  <Button text=\"A\" grow=\"1\"/>\n"
+                                             u8"  <Button text=\"B\" grow=\"2\"/>\n"
+                                             u8"</Flex>");
     FlexLayout* flex = Cast<FlexLayout>(view.Get());
     FlexLayoutParams* alpA = Cast<FlexLayoutParams>(flex->GetChildAt(0)->LayoutParams.Get());
     FlexLayoutParams* alpB = Cast<FlexLayoutParams>(flex->GetChildAt(1)->LayoutParams.Get());
@@ -217,10 +214,9 @@ TEST_CASE("markup: FlexGrow_LayoutParam")
 TEST_CASE("markup: FrameGravity_LayoutParam")
 {
     EnsureInit();
-    auto view = MarkupLoader::LoadFromString(
-        u8"<Frame>\n"
-        u8"  <Label text=\"Centered\" gravity=\"Center\"/>\n"
-        u8"</Frame>");
+    auto view = MarkupLoader::LoadFromString(u8"<Frame>\n"
+                                             u8"  <Label text=\"Centered\" gravity=\"Center\"/>\n"
+                                             u8"</Frame>");
     FrameLayout* frame = Cast<FrameLayout>(view.Get());
     FrameLayoutParams* flp = Cast<FrameLayoutParams>(frame->GetChildAt(0)->LayoutParams.Get());
     REQUIRE(flp != nullptr);
@@ -230,11 +226,10 @@ TEST_CASE("markup: FrameGravity_LayoutParam")
 TEST_CASE("markup: DockLayout_Param")
 {
     EnsureInit();
-    auto view = MarkupLoader::LoadFromString(
-        u8"<Dock>\n"
-        u8"  <Label text=\"Top\" dock=\"top\"/>\n"
-        u8"  <Label text=\"Fill\" dock=\"fill\"/>\n"
-        u8"</Dock>");
+    auto view = MarkupLoader::LoadFromString(u8"<Dock>\n"
+                                             u8"  <Label text=\"Top\" dock=\"top\"/>\n"
+                                             u8"  <Label text=\"Fill\" dock=\"fill\"/>\n"
+                                             u8"</Dock>");
     DockLayout* dock = Cast<DockLayout>(view.Get());
     CHECK(dock->ChildCount() == 2);
     DockLayoutParams* dlp = Cast<DockLayoutParams>(dock->GetChildAt(0)->LayoutParams.Get());
@@ -257,7 +252,8 @@ TEST_CASE("markup: CheckBox_Properties")
 TEST_CASE("markup: Slider_Properties")
 {
     EnsureInit();
-    auto view = MarkupLoader::LoadFromString(u8"<Slider min=\"0\" max=\"100\" value=\"50\" step=\"5\"/>");
+    auto view =
+        MarkupLoader::LoadFromString(u8"<Slider min=\"0\" max=\"100\" value=\"50\" step=\"5\"/>");
     Slider* slider = Cast<Slider>(view.Get());
     REQUIRE(slider != nullptr);
     CHECK(slider->Min.Value() == 0);
@@ -269,7 +265,8 @@ TEST_CASE("markup: Slider_Properties")
 TEST_CASE("markup: EditText_Properties")
 {
     EnsureInit();
-    auto view = MarkupLoader::LoadFromString(u8"<EditText text=\"hello\" placeholder=\"Type here\" is-read-only=\"false\" max-length=\"100\"/>");
+    auto view = MarkupLoader::LoadFromString(u8"<EditText text=\"hello\" placeholder=\"Type here\" "
+                                             u8"is-read-only=\"false\" max-length=\"100\"/>");
     EditText* edit = Cast<EditText>(view.Get());
     REQUIRE(edit != nullptr);
     CHECK(edit->Text() == u8"hello");
@@ -298,7 +295,8 @@ TEST_CASE("markup: Label_FontSize")
 TEST_CASE("markup: Label_FontFamily")
 {
     EnsureInit();
-    auto view = MarkupLoader::LoadFromString(u8"<Label text=\"Decorative\" font-family=\"JungleAdventurer\"/>");
+    auto view = MarkupLoader::LoadFromString(
+        u8"<Label text=\"Decorative\" font-family=\"JungleAdventurer\"/>");
     Label* label = Cast<Label>(view.Get());
     REQUIRE(label != nullptr);
     CHECK(label->FontFamily.Value() == u8"JungleAdventurer");
@@ -307,7 +305,8 @@ TEST_CASE("markup: Label_FontFamily")
 TEST_CASE("markup: Button_FontFamily")
 {
     EnsureInit();
-    auto view = MarkupLoader::LoadFromString(u8"<Button text=\"Go\" font-family=\"AttackOfMonster\"/>");
+    auto view =
+        MarkupLoader::LoadFromString(u8"<Button text=\"Go\" font-family=\"AttackOfMonster\"/>");
     Button* btn = Cast<Button>(view.Get());
     REQUIRE(btn != nullptr);
     CHECK(btn->FontFamily.Value() == u8"AttackOfMonster");
@@ -327,7 +326,8 @@ TEST_CASE("markup: Style_SinglePrimitive")
 TEST_CASE("markup: Style_MultipleDeclarations")
 {
     EnsureInit();
-    auto view = MarkupLoader::LoadFromString(u8"<Label text=\"hi\" style=\"font-size: 18; text-color: #ff0000; padding: 4 8;\"/>");
+    auto view = MarkupLoader::LoadFromString(
+        u8"<Label text=\"hi\" style=\"font-size: 18; text-color: #ff0000; padding: 4 8;\"/>");
     Label* label = Cast<Label>(view.Get());
     CHECK(label->GetInlineStyle(StyleProperty::FontSize).AsFloat().Value() == 18.0f);
     Optional<Color> c = label->GetInlineStyle(StyleProperty::TextColor).AsColor();
@@ -343,22 +343,26 @@ TEST_CASE("markup: Style_MultipleDeclarations")
 TEST_CASE("markup: Style_StringProperty")
 {
     EnsureInit();
-    auto view = MarkupLoader::LoadFromString(u8"<Label text=\"hi\" style=\"font-family: JungleAdventurer;\"/>");
+    auto view = MarkupLoader::LoadFromString(
+        u8"<Label text=\"hi\" style=\"font-family: JungleAdventurer;\"/>");
     Label* label = Cast<Label>(view.Get());
-    CHECK(label->GetInlineStyle(StyleProperty::FontFamily).AsString().Value() == u8"JungleAdventurer");
+    CHECK(label->GetInlineStyle(StyleProperty::FontFamily).AsString().Value() ==
+          u8"JungleAdventurer");
 }
 
 TEST_CASE("markup: Style_BeatsContextSheetRule")
 {
     EnsureInit();
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
 
     auto sheet = core::MakeRef<StyleSheet>(core::DefaultAllocator());
     ctx.SetStyleSheet(sheet);
-    sheet->ForType(&Label::StaticType()).Set(StyleProperty::TextColor, Color{ 0, 0, 1, 1 });
+    sheet->ForType(&Label::StaticType()).Set(StyleProperty::TextColor, Color{0, 0, 1, 1});
 
-    auto view = MarkupLoader::LoadFromString(u8"<Label text=\"hi\" style=\"text-color: #00ff00;\"/>", &ctx);
+    auto view =
+        MarkupLoader::LoadFromString(u8"<Label text=\"hi\" style=\"text-color: #00ff00;\"/>", &ctx);
     root->AddView(view.Get());
 
     Label* label = Cast<Label>(view.Get());
@@ -382,11 +386,10 @@ TEST_CASE("markup: Style_DrawableValue_OwnedByView")
 TEST_CASE("markup: Style_OnVariousTags")
 {
     EnsureInit();
-    auto view = MarkupLoader::LoadFromString(
-        u8"<Flex>\n"
-        u8"  <Button text=\"A\" style=\"font-size: 14;\"/>\n"
-        u8"  <CheckBox text=\"B\" style=\"font-size: 16;\"/>\n"
-        u8"</Flex>");
+    auto view = MarkupLoader::LoadFromString(u8"<Flex>\n"
+                                             u8"  <Button text=\"A\" style=\"font-size: 14;\"/>\n"
+                                             u8"  <CheckBox text=\"B\" style=\"font-size: 16;\"/>\n"
+                                             u8"</Flex>");
     FlexLayout* flex = Cast<FlexLayout>(view.Get());
     Button* btn = Cast<Button>(flex->GetChildAt(0));
     CheckBox* cb = Cast<CheckBox>(flex->GetChildAt(1));
@@ -399,10 +402,9 @@ TEST_CASE("markup: Style_OnVariousTags")
 TEST_CASE("markup: FlexLayout_Alias")
 {
     EnsureInit();
-    auto view = MarkupLoader::LoadFromString(
-        u8"<FlexLayout direction=\"horizontal\">\n"
-        u8"  <Label text=\"A\"/>\n"
-        u8"</FlexLayout>");
+    auto view = MarkupLoader::LoadFromString(u8"<FlexLayout direction=\"horizontal\">\n"
+                                             u8"  <Label text=\"A\"/>\n"
+                                             u8"</FlexLayout>");
     FlexLayout* flex = Cast<FlexLayout>(view.Get());
     REQUIRE(flex != nullptr);
     CHECK(flex->Direction == Orientation::Horizontal);
@@ -438,10 +440,9 @@ TEST_CASE("markup: EmptyContainer")
 TEST_CASE("markup: Margin_LayoutParam")
 {
     EnsureInit();
-    auto view = MarkupLoader::LoadFromString(
-        u8"<Flex>\n"
-        u8"  <Label text=\"Margined\" margin=\"4 8\"/>\n"
-        u8"</Flex>");
+    auto view = MarkupLoader::LoadFromString(u8"<Flex>\n"
+                                             u8"  <Label text=\"Margined\" margin=\"4 8\"/>\n"
+                                             u8"</Flex>");
     FlexLayout* flex = Cast<FlexLayout>(view.Get());
     View* child = flex->GetChildAt(0);
     CHECK(child->LayoutParams->Margin.Top == 4);
@@ -453,16 +454,17 @@ TEST_CASE("markup: Margin_LayoutParam")
 TEST_CASE("markup: StyleClass_ResolvesTheme")
 {
     EnsureInit();
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
 
     auto sheet = DarkTheme::Create();
     ctx.SetStyleSheet(sheet);
 
-    auto view = MarkupLoader::LoadFromString(
-        u8"<Flex direction=\"vertical\">\n"
-        u8"  <Button id=\"btn\" text=\"Themed\"/>\n"
-        u8"</Flex>", &ctx);
+    auto view = MarkupLoader::LoadFromString(u8"<Flex direction=\"vertical\">\n"
+                                             u8"  <Button id=\"btn\" text=\"Themed\"/>\n"
+                                             u8"</Flex>",
+                                             &ctx);
     root->AddView(view.Get());
 
     Button* btn = root->FindByName<Button>(u8"btn");

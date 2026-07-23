@@ -10,7 +10,7 @@ module;
 
 export module draconic.gui:variant;
 
-import draconic.core;   // String, StringView, Color, i64, f64
+import draconic.core; // String, StringView, Color, i64, f64
 
 using namespace draconic::core;
 namespace core = draconic::core;
@@ -20,7 +20,15 @@ export namespace draconic::gui
     class Variant
     {
     public:
-        enum class Type { Empty, Bool, Int, Float, String, Color };
+        enum class Type
+        {
+            Empty,
+            Bool,
+            Int,
+            Float,
+            String,
+            Color
+        };
 
         Variant() = default;
         Variant(bool value) : m_type(Type::Bool), m_bool(value) {}
@@ -34,9 +42,20 @@ export namespace draconic::gui
         [[nodiscard]] Type GetType() const noexcept { return m_type; }
         [[nodiscard]] bool IsEmpty() const noexcept { return m_type == Type::Empty; }
 
-        [[nodiscard]] bool AsBool() const noexcept { return m_type == Type::Bool ? m_bool : (m_type == Type::Int ? m_int != 0 : false); }
-        [[nodiscard]] i64 AsInt() const noexcept { return m_type == Type::Int ? m_int : (m_type == Type::Float ? static_cast<i64>(m_float) : 0); }
-        [[nodiscard]] f64 AsFloat() const noexcept { return m_type == Type::Float ? m_float : (m_type == Type::Int ? static_cast<f64>(m_int) : 0.0); }
+        [[nodiscard]] bool AsBool() const noexcept
+        {
+            return m_type == Type::Bool ? m_bool : (m_type == Type::Int ? m_int != 0 : false);
+        }
+        [[nodiscard]] i64 AsInt() const noexcept
+        {
+            return m_type == Type::Int ? m_int
+                                       : (m_type == Type::Float ? static_cast<i64>(m_float) : 0);
+        }
+        [[nodiscard]] f64 AsFloat() const noexcept
+        {
+            return m_type == Type::Float ? m_float
+                                         : (m_type == Type::Int ? static_cast<f64>(m_int) : 0.0);
+        }
         [[nodiscard]] core::StringView AsString() const noexcept { return m_string.AsView(); }
         [[nodiscard]] core::Color AsColor() const noexcept { return m_color; }
 
@@ -45,12 +64,19 @@ export namespace draconic::gui
         {
             switch (m_type)
             {
-            case Type::Empty:  return core::String{};
-            case Type::Bool:   return core::String(m_bool ? core::StringView(u8"true") : core::StringView(u8"false"));
-            case Type::Int:    return IntToString(m_int);
-            case Type::Float:  return FloatToString(m_float);
-            case Type::String: return m_string;
-            case Type::Color:  return core::String{}; // colors have no textual form here
+            case Type::Empty:
+                return core::String{};
+            case Type::Bool:
+                return core::String(m_bool ? core::StringView(u8"true")
+                                           : core::StringView(u8"false"));
+            case Type::Int:
+                return IntToString(m_int);
+            case Type::Float:
+                return FloatToString(m_float);
+            case Type::String:
+                return m_string;
+            case Type::Color:
+                return core::String{}; // colors have no textual form here
             }
             return core::String{};
         }
@@ -63,12 +89,18 @@ export namespace draconic::gui
                 return static_cast<i32>(m_type) < static_cast<i32>(other.m_type) ? -1 : 1;
             switch (m_type)
             {
-            case Type::Empty:  return 0;
-            case Type::Bool:   return (m_bool == other.m_bool) ? 0 : (!m_bool ? -1 : 1);
-            case Type::Int:    return (m_int == other.m_int) ? 0 : (m_int < other.m_int ? -1 : 1);
-            case Type::Float:  return (m_float == other.m_float) ? 0 : (m_float < other.m_float ? -1 : 1);
-            case Type::String: return CompareStrings(m_string.AsView(), other.m_string.AsView());
-            case Type::Color:  return 0;
+            case Type::Empty:
+                return 0;
+            case Type::Bool:
+                return (m_bool == other.m_bool) ? 0 : (!m_bool ? -1 : 1);
+            case Type::Int:
+                return (m_int == other.m_int) ? 0 : (m_int < other.m_int ? -1 : 1);
+            case Type::Float:
+                return (m_float == other.m_float) ? 0 : (m_float < other.m_float ? -1 : 1);
+            case Type::String:
+                return CompareStrings(m_string.AsView(), other.m_string.AsView());
+            case Type::Color:
+                return 0;
             }
             return 0;
         }
@@ -78,8 +110,10 @@ export namespace draconic::gui
         {
             const usize n = a.Size() < b.Size() ? a.Size() : b.Size();
             for (usize i = 0; i < n; ++i)
-                if (a[i] != b[i]) return a[i] < b[i] ? -1 : 1;
-            if (a.Size() == b.Size()) return 0;
+                if (a[i] != b[i])
+                    return a[i] < b[i] ? -1 : 1;
+            if (a.Size() == b.Size())
+                return 0;
             return a.Size() < b.Size() ? -1 : 1;
         }
 
@@ -89,9 +123,15 @@ export namespace draconic::gui
             usize pos = 24;
             const bool neg = value < 0;
             u64 v = neg ? static_cast<u64>(-(value + 1)) + 1u : static_cast<u64>(value);
-            if (v == 0) buf[--pos] = u8'0';
-            while (v > 0) { buf[--pos] = static_cast<char8_t>(u8'0' + (v % 10)); v /= 10; }
-            if (neg) buf[--pos] = u8'-';
+            if (v == 0)
+                buf[--pos] = u8'0';
+            while (v > 0)
+            {
+                buf[--pos] = static_cast<char8_t>(u8'0' + (v % 10));
+                v /= 10;
+            }
+            if (neg)
+                buf[--pos] = u8'-';
             return core::String(core::StringView(buf + pos, 24 - pos));
         }
 
@@ -103,14 +143,26 @@ export namespace draconic::gui
             const i64 whole = static_cast<i64>(v);
             f64 frac = v - static_cast<f64>(whole);
             core::String out;
-            if (neg) out.Append(core::StringView(u8"-"));
+            if (neg)
+                out.Append(core::StringView(u8"-"));
             out += IntToString(whole);
             // up to 3 decimal digits
             char8_t digits[3];
             usize dc = 0;
-            for (usize i = 0; i < 3; ++i) { frac *= 10.0; const i32 d = static_cast<i32>(frac); digits[dc++] = static_cast<char8_t>(u8'0' + d); frac -= d; }
-            while (dc > 0 && digits[dc - 1] == u8'0') --dc; // trim trailing zeros
-            if (dc > 0) { out.Append(core::StringView(u8".")); out.Append(core::StringView(digits, dc)); }
+            for (usize i = 0; i < 3; ++i)
+            {
+                frac *= 10.0;
+                const i32 d = static_cast<i32>(frac);
+                digits[dc++] = static_cast<char8_t>(u8'0' + d);
+                frac -= d;
+            }
+            while (dc > 0 && digits[dc - 1] == u8'0')
+                --dc; // trim trailing zeros
+            if (dc > 0)
+            {
+                out.Append(core::StringView(u8"."));
+                out.Append(core::StringView(digits, dc));
+            }
             return out;
         }
 

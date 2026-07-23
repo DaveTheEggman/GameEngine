@@ -15,13 +15,13 @@ module;
 
 export module draconic.gui:transition;
 
-import draconic.core;   // String, StringView, Array, Optional, f32, Duration, MakeRef, Move
-import :style_sheet;    // ResolvedStyle
-import :style_applier;  // ApplyStyle
-import :css_values;     // ParseLength
-import draconic.fonts;  // IFontService
-import :ui_node;        // UINode
-import :actions;        // FadeAction
+import draconic.core;  // String, StringView, Array, Optional, f32, Duration, MakeRef, Move
+import :style_sheet;   // ResolvedStyle
+import :style_applier; // ApplyStyle
+import :css_values;    // ParseLength
+import draconic.fonts; // IFontService
+import :ui_node;       // UINode
+import :actions;       // FadeAction
 import :resource_provider;
 
 namespace fonts = draconic::fonts;
@@ -55,7 +55,12 @@ export namespace draconic::gui
                     for (usize k = 0; k <= part.Size() && count < 4; ++k)
                     {
                         const bool boundary = (k == part.Size()) || core::IsWhiteSpace(part[k]);
-                        if (boundary) { if (k > s) tokens[count++] = part.SubStr(s, k - s); s = k + 1; }
+                        if (boundary)
+                        {
+                            if (k > s)
+                                tokens[count++] = part.SubStr(s, k - s);
+                            s = k + 1;
+                        }
                     }
                     if (count != 0)
                     {
@@ -72,32 +77,40 @@ export namespace draconic::gui
         return out;
     }
 
-    [[nodiscard]] inline const TransitionDefinition* FindTransition(const Array<TransitionDefinition>& list,
-                                                                    core::StringView property)
+    [[nodiscard]] inline const TransitionDefinition*
+    FindTransition(const Array<TransitionDefinition>& list, core::StringView property)
     {
         for (const TransitionDefinition& d : list)
-            if (d.Property == property) return &d;
+            if (d.Property == property)
+                return &d;
         return nullptr;
     }
 
     // Apply `newStyle` to the node, animating any transitioned property from its `oldStyle`
     // value. Non-transitioned properties (and any property with no running coordinator) snap.
-    inline void ApplyStyleAnimated(UINode& node, const ResolvedStyle& oldStyle, const ResolvedStyle& newStyle,
-                                   IResourceProvider* resources = nullptr, fonts::IFontService* fontService = nullptr,
+    inline void ApplyStyleAnimated(UINode& node, const ResolvedStyle& oldStyle,
+                                   const ResolvedStyle& newStyle,
+                                   IResourceProvider* resources = nullptr,
+                                   fonts::IFontService* fontService = nullptr,
                                    const LengthContext& lengths = {})
     {
         // Apply everything first (this also sets the final opacity); a spawned FadeAction then
         // rewinds opacity to its old value on Start() and animates back to the applied value.
         ApplyStyle(node, newStyle, resources, fontService, lengths);
 
-        const Array<TransitionDefinition> transitions = ParseTransitions(newStyle.Get(core::StringView(u8"transition")));
-        if (const TransitionDefinition* opacity = FindTransition(transitions, core::StringView(u8"opacity")))
+        const Array<TransitionDefinition> transitions =
+            ParseTransitions(newStyle.Get(core::StringView(u8"transition")));
+        if (const TransitionDefinition* opacity =
+                FindTransition(transitions, core::StringView(u8"opacity")))
         {
-            const Optional<f32> from = ParseLength(oldStyle.Get(core::StringView(u8"opacity"), core::StringView(u8"1")));
-            const Optional<f32> to = ParseLength(newStyle.Get(core::StringView(u8"opacity"), core::StringView(u8"1")));
+            const Optional<f32> from =
+                ParseLength(oldStyle.Get(core::StringView(u8"opacity"), core::StringView(u8"1")));
+            const Optional<f32> to =
+                ParseLength(newStyle.Get(core::StringView(u8"opacity"), core::StringView(u8"1")));
             if (from.HasValue() && to.HasValue() && from.Value() != to.Value())
-                node.RunAction(core::MakeRef<FadeAction>(core::DefaultAllocator(),
-                    from.Value(), to.Value(), core::Duration::FromSeconds(opacity->Duration)));
+                node.RunAction(
+                    core::MakeRef<FadeAction>(core::DefaultAllocator(), from.Value(), to.Value(),
+                                              core::Duration::FromSeconds(opacity->Duration)));
         }
     }
 }

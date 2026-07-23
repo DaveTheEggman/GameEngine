@@ -6,7 +6,13 @@ import draconic.xml;
 using namespace draconic::core;
 using namespace draconic::xml;
 
-namespace { XmlElement* NewElem(const char8_t* n) { return DefaultAllocator().New<XmlElement>(StringView(n)); } }
+namespace
+{
+    XmlElement* NewElem(const char8_t* n)
+    {
+        return DefaultAllocator().New<XmlElement>(StringView(n));
+    }
+}
 
 TEST_CASE("xml.node: element creation")
 {
@@ -160,11 +166,13 @@ TEST_CASE("xml.node: text content")
     elem.SetTextContent(u8"Hello World");
     CHECK(elem.HasChildren());
     CHECK(elem.ChildCount() == 1u);
-    String text; elem.GetTextContent(text);
+    String text;
+    elem.GetTextContent(text);
     CHECK(text == StringView(u8"Hello World"));
 
     elem.SetTextContent(u8"New Text");
-    text.Clear(); elem.GetTextContent(text);
+    text.Clear();
+    elem.GetTextContent(text);
     CHECK(text == StringView(u8"New Text"));
     CHECK(elem.ChildCount() == 1u);
 }
@@ -185,7 +193,8 @@ TEST_CASE("xml.node: CData node")
     XmlCData cdata(u8"<special> & content");
     CHECK(cdata.Data() == StringView(u8"<special> & content"));
     CHECK(cdata.NodeType() == XmlNodeType::CData);
-    String xml; cdata.GetOuterXml(xml);
+    String xml;
+    cdata.GetOuterXml(xml);
     CHECK(xml == StringView(u8"<![CDATA[<special> & content]]>"));
 }
 
@@ -194,9 +203,11 @@ TEST_CASE("xml.node: comment node")
     XmlComment comment(u8"This is a comment");
     CHECK(comment.Text() == StringView(u8"This is a comment"));
     CHECK(comment.NodeType() == XmlNodeType::Comment);
-    String xml; comment.GetOuterXml(xml);
+    String xml;
+    comment.GetOuterXml(xml);
     CHECK(xml == StringView(u8"<!--This is a comment-->"));
-    String inner; comment.GetInnerText(inner);
+    String inner;
+    comment.GetInnerText(inner);
     CHECK(inner.IsEmpty());
 }
 
@@ -207,7 +218,8 @@ TEST_CASE("xml.node: declaration node")
     CHECK(decl.Encoding() == StringView(u8"utf-8"));
     CHECK(decl.Standalone() == StringView(u8"yes"));
     CHECK(decl.NodeType() == XmlNodeType::Declaration);
-    String xml; decl.GetOuterXml(xml);
+    String xml;
+    decl.GetOuterXml(xml);
     CHECK(xml == StringView(u8"<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?>"));
 }
 
@@ -217,7 +229,8 @@ TEST_CASE("xml.node: processing instruction node")
     CHECK(pi.Target() == StringView(u8"target"));
     CHECK(pi.Data() == StringView(u8"data content"));
     CHECK(pi.NodeType() == XmlNodeType::ProcessingInstruction);
-    String xml; pi.GetOuterXml(xml);
+    String xml;
+    pi.GetOuterXml(xml);
     CHECK(xml == StringView(u8"<?target data content?>"));
 }
 

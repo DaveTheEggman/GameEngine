@@ -43,7 +43,8 @@ export namespace draconic::editor
     public:
         virtual ~IGizmoRenderer() = default;
         [[nodiscard]] virtual const TypeInfo* ComponentType() const = 0;
-        virtual void Draw(const Instance& component, scene::EntityHandle owner, GizmoContext& ctx) = 0;
+        virtual void Draw(const Instance& component, scene::EntityHandle owner,
+                          GizmoContext& ctx) = 0;
         [[nodiscard]] virtual bool DrawWhenUnselected() const { return false; }
     };
 
@@ -52,14 +53,20 @@ export namespace draconic::editor
     public:
         void Register(UniquePtr<IGizmoRenderer> renderer)
         {
-            if (renderer) { m_renderers.PushBack(Move(renderer)); }
+            if (renderer)
+            {
+                m_renderers.PushBack(Move(renderer));
+            }
         }
 
         [[nodiscard]] IGizmoRenderer* Find(const TypeInfo* componentType) const
         {
             for (const UniquePtr<IGizmoRenderer>& r : m_renderers)
             {
-                if (r->ComponentType() == componentType) { return r.Get(); }
+                if (r->ComponentType() == componentType)
+                {
+                    return r.Get();
+                }
             }
             return nullptr;
         }
@@ -68,15 +75,32 @@ export namespace draconic::editor
         /// DrawWhenUnselected participate.
         void DrawEntity(scene::EntityHandle entity, bool selected, GizmoContext& ctx) const
         {
-            if (ctx.scene == nullptr || ctx.debug == nullptr || !entity.IsAssigned()) { return; }
-            ctx.scene->ForEachManager([&](scene::ComponentManagerBase& mgr) {
-                if (!mgr.HasComponent(entity)) { return; }
-                IGizmoRenderer* renderer = Find(mgr.ComponentType());
-                if (renderer == nullptr) { return; }
-                if (!selected && !renderer->DrawWhenUnselected()) { return; }
-                const Instance component = mgr.GetComponentInstance(entity);
-                if (!component.IsEmpty()) { renderer->Draw(component, entity, ctx); }
-            });
+            if (ctx.scene == nullptr || ctx.debug == nullptr || !entity.IsAssigned())
+            {
+                return;
+            }
+            ctx.scene->ForEachManager(
+                [&](scene::ComponentManagerBase& mgr)
+                {
+                    if (!mgr.HasComponent(entity))
+                    {
+                        return;
+                    }
+                    IGizmoRenderer* renderer = Find(mgr.ComponentType());
+                    if (renderer == nullptr)
+                    {
+                        return;
+                    }
+                    if (!selected && !renderer->DrawWhenUnselected())
+                    {
+                        return;
+                    }
+                    const Instance component = mgr.GetComponentInstance(entity);
+                    if (!component.IsEmpty())
+                    {
+                        renderer->Draw(component, entity, ctx);
+                    }
+                });
         }
 
         [[nodiscard]] usize Count() const noexcept { return m_renderers.Size(); }
@@ -89,19 +113,19 @@ export namespace draconic::editor
     {
         inline Float3 WorldPosition(const Float4x4& world)
         {
-            return Float3{ world.m[3][0], world.m[3][1], world.m[3][2] };
+            return Float3{world.m[3][0], world.m[3][1], world.m[3][2]};
         }
 
-        inline Float3 WorldForward(const Float4x4& world)   // -Z basis row, normalized
+        inline Float3 WorldForward(const Float4x4& world) // -Z basis row, normalized
         {
-            return Normalized(Float3{ -world.m[2][0], -world.m[2][1], -world.m[2][2] });
+            return Normalized(Float3{-world.m[2][0], -world.m[2][1], -world.m[2][2]});
         }
 
         inline void DrawCenterCross(render::debug::DebugDraw& dd, Float3 p, f32 r, Color color)
         {
-            dd.DrawLine(p - Float3{ r, 0, 0 }, p + Float3{ r, 0, 0 }, color);
-            dd.DrawLine(p - Float3{ 0, r, 0 }, p + Float3{ 0, r, 0 }, color);
-            dd.DrawLine(p - Float3{ 0, 0, r }, p + Float3{ 0, 0, r }, color);
+            dd.DrawLine(p - Float3{r, 0, 0}, p + Float3{r, 0, 0}, color);
+            dd.DrawLine(p - Float3{0, r, 0}, p + Float3{0, r, 0}, color);
+            dd.DrawLine(p - Float3{0, 0, r}, p + Float3{0, 0, r}, color);
         }
     }
 
@@ -118,47 +142,50 @@ export namespace draconic::editor
         void Draw(const Instance& component, scene::EntityHandle owner, GizmoContext& ctx) override
         {
             const auto* light = component.TryGet<render::LightComponent>();
-            if (light == nullptr) { return; }
+            if (light == nullptr)
+            {
+                return;
+            }
 
             const Float4x4 world = ctx.scene->GetWorldMatrix(owner);
             const Float3 position = detail::WorldPosition(world);
             const Float3 forward = detail::WorldForward(world);
             render::debug::DebugDraw& dd = *ctx.debug;
-            const Color color{ Clamp(light->color.r, 0.0f, 1.0f), Clamp(light->color.g, 0.0f, 1.0f),
-                               Clamp(light->color.b, 0.0f, 1.0f), 1.0f };
+            const Color color{Clamp(light->color.r, 0.0f, 1.0f), Clamp(light->color.g, 0.0f, 1.0f),
+                              Clamp(light->color.b, 0.0f, 1.0f), 1.0f};
 
             switch (light->type)
             {
-                case render::LightType::Directional:
-                {
-                    detail::DrawCenterCross(dd, position, 0.3f, color);
-                    const Float3 tip = position + forward * 1.5f;
-                    dd.DrawArrow(position, tip, color, 0.2f);
-                    break;
-                }
-                case render::LightType::Point:
-                {
-                    dd.DrawWireSphere(position, light->range, color, 24);
-                    detail::DrawCenterCross(dd, position, 0.15f, color);
-                    break;
-                }
-                case render::LightType::Spot:
-                {
-                    const f32 tipDist = Max(light->range, 0.1f);
-                    const Float3 tipCenter = position + forward * tipDist;
-                    const f32 tipRadius = tipDist * Tan(light->outerAngle);
+            case render::LightType::Directional:
+            {
+                detail::DrawCenterCross(dd, position, 0.3f, color);
+                const Float3 tip = position + forward * 1.5f;
+                dd.DrawArrow(position, tip, color, 0.2f);
+                break;
+            }
+            case render::LightType::Point:
+            {
+                dd.DrawWireSphere(position, light->range, color, 24);
+                detail::DrawCenterCross(dd, position, 0.15f, color);
+                break;
+            }
+            case render::LightType::Spot:
+            {
+                const f32 tipDist = Max(light->range, 0.1f);
+                const Float3 tipCenter = position + forward * tipDist;
+                const f32 tipRadius = tipDist * Tan(light->outerAngle);
 
-                    const Float3 up = (Abs(forward.y) < 0.99f) ? Float3{ 0, 1, 0 } : Float3{ 0, 0, 1 };
-                    const Float3 right = Normalized(Cross(forward, up));
-                    const Float3 trueUp = Cross(right, forward);
+                const Float3 up = (Abs(forward.y) < 0.99f) ? Float3{0, 1, 0} : Float3{0, 0, 1};
+                const Float3 right = Normalized(Cross(forward, up));
+                const Float3 trueUp = Cross(right, forward);
 
-                    dd.DrawCircle(tipCenter, right, trueUp, tipRadius, color, 24);
-                    dd.DrawLine(position, tipCenter + right * tipRadius, color);
-                    dd.DrawLine(position, tipCenter - right * tipRadius, color);
-                    dd.DrawLine(position, tipCenter + trueUp * tipRadius, color);
-                    dd.DrawLine(position, tipCenter - trueUp * tipRadius, color);
-                    break;
-                }
+                dd.DrawCircle(tipCenter, right, trueUp, tipRadius, color, 24);
+                dd.DrawLine(position, tipCenter + right * tipRadius, color);
+                dd.DrawLine(position, tipCenter - right * tipRadius, color);
+                dd.DrawLine(position, tipCenter + trueUp * tipRadius, color);
+                dd.DrawLine(position, tipCenter - trueUp * tipRadius, color);
+                break;
+            }
             }
         }
     };
@@ -175,12 +202,15 @@ export namespace draconic::editor
         void Draw(const Instance& component, scene::EntityHandle owner, GizmoContext& ctx) override
         {
             const auto* probe = component.TryGet<render::ReflectionProbeComponent>();
-            if (probe == nullptr) { return; }
+            if (probe == nullptr)
+            {
+                return;
+            }
 
             const Float4x4 world = ctx.scene->GetWorldMatrix(owner);
             const Float3 position = detail::WorldPosition(world);
             render::debug::DebugDraw& dd = *ctx.debug;
-            const Color color{ 0.4f, 0.8f, 1.0f, 1.0f };
+            const Color color{0.4f, 0.8f, 1.0f, 1.0f};
 
             dd.DrawTransformedBox(Float3{} - probe->halfExtents, probe->halfExtents, world, color);
             detail::DrawCenterCross(dd, position, 0.2f, color);
@@ -202,12 +232,15 @@ export namespace draconic::editor
         void Draw(const Instance& component, scene::EntityHandle owner, GizmoContext& ctx) override
         {
             const auto* decal = component.TryGet<render::DecalComponent>();
-            if (decal == nullptr) { return; }
+            if (decal == nullptr)
+            {
+                return;
+            }
 
             const Float4x4 world = ctx.scene->GetWorldMatrix(owner);
             const Float3 position = detail::WorldPosition(world);
             render::debug::DebugDraw& dd = *ctx.debug;
-            const Color color{ 1.0f, 0.75f, 0.2f, 1.0f };
+            const Color color{1.0f, 0.75f, 0.2f, 1.0f};
 
             const Float3 he = decal->size * 0.5f;
             dd.DrawTransformedBox(Float3{} - he, he, world, color);
@@ -229,32 +262,35 @@ export namespace draconic::editor
         void Draw(const Instance& component, scene::EntityHandle owner, GizmoContext& ctx) override
         {
             const auto* camera = component.TryGet<render::CameraComponent>();
-            if (camera == nullptr) { return; }
+            if (camera == nullptr)
+            {
+                return;
+            }
 
             const Float4x4 world = ctx.scene->GetWorldMatrix(owner);
             const Float3 position = detail::WorldPosition(world);
             const Float3 forward = detail::WorldForward(world);
-            const Float3 up = (Abs(forward.y) < 0.99f) ? Float3{ 0, 1, 0 } : Float3{ 0, 0, 1 };
+            const Float3 up = (Abs(forward.y) < 0.99f) ? Float3{0, 1, 0} : Float3{0, 0, 1};
 
             // Short preview frustum (clamped far) so scene cameras stay readable.
             const f32 farZ = Min(camera->farZ, 8.0f);
             const Float4x4 view = Float4x4::LookAtRH(position, position + forward, up);
             const Float4x4 proj = Float4x4::PerspectiveFovRH(camera->fovYRadians, camera->aspect,
                                                              Max(camera->nearZ, 0.01f), farZ);
-            ctx.debug->DrawFrustum(Inverse(view * proj), Color{ 0.9f, 0.9f, 0.9f, 1.0f });
+            ctx.debug->DrawFrustum(Inverse(view * proj), Color{0.9f, 0.9f, 0.9f, 1.0f});
         }
     };
 
     /// Register the built-in component gizmos (called from RegisterSceneEditor).
     inline void RegisterBuiltinGizmoRenderers(GizmoRendererRegistry& registry)
     {
-        registry.Register(UniquePtr<IGizmoRenderer>(
-            DefaultAllocator().New<LightGizmoRenderer>(), DefaultAllocator()));
+        registry.Register(UniquePtr<IGizmoRenderer>(DefaultAllocator().New<LightGizmoRenderer>(),
+                                                    DefaultAllocator()));
         registry.Register(UniquePtr<IGizmoRenderer>(
             DefaultAllocator().New<ReflectionProbeGizmoRenderer>(), DefaultAllocator()));
-        registry.Register(UniquePtr<IGizmoRenderer>(
-            DefaultAllocator().New<CameraGizmoRenderer>(), DefaultAllocator()));
-        registry.Register(UniquePtr<IGizmoRenderer>(
-            DefaultAllocator().New<DecalGizmoRenderer>(), DefaultAllocator()));
+        registry.Register(UniquePtr<IGizmoRenderer>(DefaultAllocator().New<CameraGizmoRenderer>(),
+                                                    DefaultAllocator()));
+        registry.Register(UniquePtr<IGizmoRenderer>(DefaultAllocator().New<DecalGizmoRenderer>(),
+                                                    DefaultAllocator()));
     }
 }

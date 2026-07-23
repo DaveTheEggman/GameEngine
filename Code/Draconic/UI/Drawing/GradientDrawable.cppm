@@ -9,8 +9,8 @@ module;
 
 export module draconic.ui:gradient_drawable;
 
-import draconic.core;   // Color, Float2, Rectangle
-import draconic.vg;     // VGLinearGradientFill, Path
+import draconic.core; // Color, Float2, Rectangle
+import draconic.vg;   // VGLinearGradientFill, Path
 import :drawable;
 import :draw_context;
 
@@ -20,7 +20,13 @@ namespace vg = draconic::vg;
 
 export namespace draconic::ui
 {
-    enum class GradientDirection { TopToBottom, LeftToRight, TopLeftToBottomRight, TopRightToBottomLeft };
+    enum class GradientDirection
+    {
+        TopToBottom,
+        LeftToRight,
+        TopLeftToBottomRight,
+        TopRightToBottomLeft
+    };
 
     class GradientDrawable : public Drawable
     {
@@ -31,8 +37,11 @@ export namespace draconic::ui
         GradientDirection Direction = GradientDirection::TopToBottom;
 
         GradientDrawable() = default;
-        GradientDrawable(core::Color start, core::Color end, GradientDirection dir = GradientDirection::TopToBottom)
-            : StartColor(start), EndColor(end), Direction(dir) {}
+        GradientDrawable(core::Color start, core::Color end,
+                         GradientDirection dir = GradientDirection::TopToBottom)
+            : StartColor(start), EndColor(end), Direction(dir)
+        {
+        }
 
         void Draw(UIDrawContext& ctx, const Rectangle& bounds) override
         {
@@ -40,13 +49,25 @@ export namespace draconic::ui
             Float2 from{}, to{};
             switch (Direction)
             {
-            case GradientDirection::TopToBottom:          from = Float2{ x, y };     to = Float2{ x, y + h };     break;
-            case GradientDirection::LeftToRight:          from = Float2{ x, y };     to = Float2{ x + w, y };     break;
-            case GradientDirection::TopLeftToBottomRight: from = Float2{ x, y };     to = Float2{ x + w, y + h }; break;
-            case GradientDirection::TopRightToBottomLeft: from = Float2{ x + w, y }; to = Float2{ x, y + h };     break;
+            case GradientDirection::TopToBottom:
+                from = Float2{x, y};
+                to = Float2{x, y + h};
+                break;
+            case GradientDirection::LeftToRight:
+                from = Float2{x, y};
+                to = Float2{x + w, y};
+                break;
+            case GradientDirection::TopLeftToBottomRight:
+                from = Float2{x, y};
+                to = Float2{x + w, y + h};
+                break;
+            case GradientDirection::TopRightToBottomLeft:
+                from = Float2{x + w, y};
+                to = Float2{x, y + h};
+                break;
             }
 
-            vg::VGLinearGradientFill fill{ from, to };
+            vg::VGLinearGradientFill fill{from, to};
             fill.AddStop(0.0f, StartColor);
             fill.AddStop(1.0f, EndColor);
 

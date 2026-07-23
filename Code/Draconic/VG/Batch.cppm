@@ -26,13 +26,13 @@ export namespace draconic::vg
     /// A single draw command: a run of geometry sharing render state.
     struct VGCommand
     {
-        i32 startIndex = 0;        ///< Starting index in the index buffer.
-        i32 indexCount = 0;        ///< Number of indices to draw.
-        i32 textureIndex = -1;     ///< Index into the texture list (-1 for none).
-        Rectangle clipRect;             ///< Clip rectangle in screen coordinates.
+        i32 startIndex = 0;    ///< Starting index in the index buffer.
+        i32 indexCount = 0;    ///< Number of indices to draw.
+        i32 textureIndex = -1; ///< Index into the texture list (-1 for none).
+        Rectangle clipRect;    ///< Clip rectangle in screen coordinates.
         VGClipMode clipMode = VGClipMode::None;
         VGBlendMode blendMode = VGBlendMode::Normal;
-        i32 stencilRef = 0;        ///< Stencil reference value (for stencil clipping).
+        i32 stencilRef = 0; ///< Stencil reference value (for stencil clipping).
     };
 
     /// Batched vector-graphics geometry and draw commands. The output of
@@ -50,7 +50,10 @@ export namespace draconic::vg
         Array<const image::ImageData*> textures;
 
         /// Vertex data as a span for GPU upload.
-        [[nodiscard]] Span<VGVertex> GetVertexData() { return Span<VGVertex>(vertices.Data(), vertices.Size()); }
+        [[nodiscard]] Span<VGVertex> GetVertexData()
+        {
+            return Span<VGVertex>(vertices.Data(), vertices.Size());
+        }
         /// Index data as a span for GPU upload.
         [[nodiscard]] Span<u32> GetIndexData() { return Span<u32>(indices.Data(), indices.Size()); }
 
@@ -82,12 +85,18 @@ export namespace draconic::vg
         /// Reserve capacity for expected geometry.
         void Reserve(usize vertexCount, usize indexCount, usize commandCount)
         {
-            if (vertexCount > vertices.Capacity()) vertices.Reserve(vertexCount);
-            if (indexCount > indices.Capacity()) indices.Reserve(indexCount);
-            if (commandCount > commands.Capacity()) commands.Reserve(commandCount);
+            if (vertexCount > vertices.Capacity())
+                vertices.Reserve(vertexCount);
+            if (indexCount > indices.Capacity())
+                indices.Reserve(indexCount);
+            if (commandCount > commands.Capacity())
+                commands.Reserve(commandCount);
         }
 
-        [[nodiscard]] bool IsEmpty() const { return vertices.IsEmpty() || indices.IsEmpty() || commands.IsEmpty(); }
+        [[nodiscard]] bool IsEmpty() const
+        {
+            return vertices.IsEmpty() || indices.IsEmpty() || commands.IsEmpty();
+        }
     };
 
     /// Manages a stencil-based clip path stack, emitting stencil-write geometry.
@@ -99,14 +108,16 @@ export namespace draconic::vg
 
         /// Push a clip path: emits stencil-write geometry into the batch and
         /// increments the stencil reference value.
-        void PushClipPath(const Path& path, FillRule fillRule, VGBatch& batch, f32 tolerance = 0.25f)
+        void PushClipPath(const Path& path, FillRule fillRule, VGBatch& batch,
+                          f32 tolerance = 0.25f)
         {
             m_stencilRefStack.PushBack(m_currentStencilRef);
             ++m_currentStencilRef;
 
             // Tessellate the clip path; the renderer draws this to write the stencil buffer.
             const i32 startIndex = static_cast<i32>(batch.indices.Size());
-            FillTessellator::Tessellate(path, fillRule, Color::White, false, batch.vertices, batch.indices, tolerance);
+            FillTessellator::Tessellate(path, fillRule, Color::White, false, batch.vertices,
+                                        batch.indices, tolerance);
             const i32 indexCount = static_cast<i32>(batch.indices.Size()) - startIndex;
 
             if (indexCount > 0)

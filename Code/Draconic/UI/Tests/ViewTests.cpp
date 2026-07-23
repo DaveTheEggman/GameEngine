@@ -11,9 +11,18 @@ using namespace draconic::ui::tests;
 using namespace draconic::core;
 namespace core = draconic::core;
 
-static core::RefPtr<RootView> MakeRoot() { return core::MakeRef<RootView>(core::DefaultAllocator()); }
-static core::RefPtr<TestView> MakeTestView(f32 w = 50, f32 h = 30) { return core::MakeRef<TestView>(core::DefaultAllocator(), w, h); }
-static core::RefPtr<TestGroup> MakeTestGroup() { return core::MakeRef<TestGroup>(core::DefaultAllocator()); }
+static core::RefPtr<RootView> MakeRoot()
+{
+    return core::MakeRef<RootView>(core::DefaultAllocator());
+}
+static core::RefPtr<TestView> MakeTestView(f32 w = 50, f32 h = 30)
+{
+    return core::MakeRef<TestView>(core::DefaultAllocator(), w, h);
+}
+static core::RefPtr<TestGroup> MakeTestGroup()
+{
+    return core::MakeRef<TestGroup>(core::DefaultAllocator());
+}
 
 TEST_CASE("view: View_HasUniqueId")
 {
@@ -176,7 +185,7 @@ TEST_CASE("view: View_LocalToScreen_NestedViews")
     group->Layout(10, 20, 100, 100);
     child->Layout(5, 5, 50, 30);
 
-    const Float2 screen = child->LocalToScreen(Float2{ 0, 0 });
+    const Float2 screen = child->LocalToScreen(Float2{0, 0});
     CHECK(screen.x == doctest::Approx(15));
     CHECK(screen.y == doctest::Approx(25));
 }
@@ -195,7 +204,7 @@ TEST_CASE("view: View_ScreenToLocal_NestedViews")
     group->Layout(10, 20, 100, 100);
     child->Layout(5, 5, 50, 30);
 
-    const Float2 local = child->ScreenToLocal(Float2{ 15, 25 });
+    const Float2 local = child->ScreenToLocal(Float2{15, 25});
     CHECK(local.x == doctest::Approx(0));
     CHECK(local.y == doctest::Approx(0));
 }

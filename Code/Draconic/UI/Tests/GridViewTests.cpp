@@ -12,12 +12,20 @@ using namespace draconic::ui::tests;
 using namespace draconic::core;
 namespace core = draconic::core;
 
-static core::RefPtr<RootView> MakeRoot() { return core::MakeRef<RootView>(core::DefaultAllocator()); }
-static core::RefPtr<GridView> MakeGrid() { return core::MakeRef<GridView>(core::DefaultAllocator()); }
+static core::RefPtr<RootView> MakeRoot()
+{
+    return core::MakeRef<RootView>(core::DefaultAllocator());
+}
+static core::RefPtr<GridView> MakeGrid()
+{
+    return core::MakeRef<GridView>(core::DefaultAllocator());
+}
 
 TEST_CASE("grid-view: NoAdapter_NoViews")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 300, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 300, 300);
     auto gv = MakeGrid();
     root->AddView(gv.Get());
     LayoutPass(ctx, root.Get());
@@ -35,7 +43,9 @@ TEST_CASE("grid-view: IsFocusable")
 
 TEST_CASE("grid-view: ColumnCalculation")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 300, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 300, 300);
     SimpleListAdapter adapter(50);
     auto gv = MakeGrid();
     gv->CellWidth.SetValue(60);
@@ -51,7 +61,9 @@ TEST_CASE("grid-view: ColumnCalculation")
 
 TEST_CASE("grid-view: ScrollBy_ClampsBounds")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 300, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 300, 300);
     SimpleListAdapter adapter(200);
     auto gv = MakeGrid();
     gv->CellWidth.SetValue(60);
@@ -89,7 +101,9 @@ TEST_CASE("grid-view: DefaultValues")
 
 TEST_CASE("grid-view: GetActiveView + OnItemKeyDown (item keys before navigation)")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 300, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 300, 300);
     SimpleListAdapter adapter(10);
     auto gv = MakeGrid();
     gv->SetAdapter(&adapter);
@@ -104,21 +118,26 @@ TEST_CASE("grid-view: GetActiveView + OnItemKeyDown (item keys before navigation
 
     // An item-key handler sees the key FIRST and can consume it (F2-rename contract).
     i32 seenPosition = -1;
-    gv->OnItemKeyDown.Add([&](i32 position, KeyEventArgs& e) {
-        seenPosition = position;
-        if (e.Key == KeyCode::F2) { e.Handled = true; }
-    });
+    gv->OnItemKeyDown.Add(
+        [&](i32 position, KeyEventArgs& e)
+        {
+            seenPosition = position;
+            if (e.Key == KeyCode::F2)
+            {
+                e.Handled = true;
+            }
+        });
     KeyEventArgs f2{};
     f2.Key = KeyCode::F2;
     gv->OnKeyDown(f2);
     CHECK(seenPosition == 1);
     CHECK(f2.Handled);
-    CHECK(gv->Selection.FirstSelected() == 1);   // navigation didn't run
+    CHECK(gv->Selection.FirstSelected() == 1); // navigation didn't run
 
     // Unconsumed keys fall through to grid navigation.
     KeyEventArgs right{};
     right.Key = KeyCode::Right;
     gv->OnKeyDown(right);
-    CHECK(seenPosition == 1);                     // handler saw it (pre-navigation position)
-    CHECK(gv->Selection.FirstSelected() == 2);    // then navigation moved the selection
+    CHECK(seenPosition == 1);                  // handler saw it (pre-navigation position)
+    CHECK(gv->Selection.FirstSelected() == 2); // then navigation moved the selection
 }

@@ -36,12 +36,9 @@ export namespace draconic::ui::toolkit
         /// Accent color for the drop zones. Set by the owning DockManager from its resolved theme
         /// AccentColor (the indicator is drawn manually and never in the styled tree, so it can't
         /// resolve styles itself). Defaults to the classic blue.
-        Color Accent{ 80.0f / 255.0f, 150.0f / 255.0f, 240.0f / 255.0f, 1.0f };
+        Color Accent{80.0f / 255.0f, 150.0f / 255.0f, 240.0f / 255.0f, 1.0f};
 
-        DockZoneIndicator()
-        {
-            IsHitTestVisible = false;
-        }
+        DockZoneIndicator() { IsHitTestVisible = false; }
 
         [[nodiscard]] i32 TargetCount() const { return static_cast<i32>(m_targets.Size()); }
         [[nodiscard]] i32 HoveredIndex() const { return m_hoveredIndex; }
@@ -92,10 +89,10 @@ export namespace draconic::ui::toolkit
         {
             // Use the accent handed down by the DockManager (this overlay isn't in the styled tree),
             // so the drop zones follow the active theme instead of being hardcoded blue.
-            const Color zoneColor = Color{ Accent.r, Accent.g, Accent.b, 80.0f / 255.0f };
-            const Color zoneBorder = Color{ Accent.r, Accent.g, Accent.b, 200.0f / 255.0f };
-            const Color hoverColor = Color{ zoneColor.r, zoneColor.g, zoneColor.b,
-                                            Min(1.0f, zoneColor.a + 60.0f / 255.0f) };
+            const Color zoneColor = Color{Accent.r, Accent.g, Accent.b, 80.0f / 255.0f};
+            const Color zoneBorder = Color{Accent.r, Accent.g, Accent.b, 200.0f / 255.0f};
+            const Color hoverColor = Color{zoneColor.r, zoneColor.g, zoneColor.b,
+                                           Min(1.0f, zoneColor.a + 60.0f / 255.0f)};
 
             for (i32 i = 0; i < static_cast<i32>(m_targets.Size()); ++i)
             {
@@ -136,7 +133,7 @@ export namespace draconic::ui::toolkit
                     ctx.VG().LineTo(cx + sz * 0.5f, cy);
                     break;
                 case DockPosition::Center:
-                    ctx.VG().FillRect(Rectangle{ cx - sz, cy - sz, sz * 2, sz * 2 }, arrowColor);
+                    ctx.VG().FillRect(Rectangle{cx - sz, cy - sz, sz * 2, sz * 2}, arrowColor);
                     break;
                 case DockPosition::Float:
                     break;
@@ -149,7 +146,7 @@ export namespace draconic::ui::toolkit
     private:
         [[nodiscard]] static Color Rgb(u8 r, u8 g, u8 b, u8 a = 255) noexcept
         {
-            return Color{ r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f };
+            return Color{r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f};
         }
 
         Array<DockTarget> m_targets;

@@ -35,9 +35,9 @@ export namespace draconic::editor
     public:
         struct Toggle
         {
-            StringView label;         // checkbox text ("Generate prefab")
-            StringView description;   // tooltip (empty = none)
-            bool* value = nullptr;    // points into the options object
+            StringView label;       // checkbox text ("Generate prefab")
+            StringView description; // tooltip (empty = none)
+            bool* value = nullptr;  // points into the options object
         };
 
         [[nodiscard]] virtual Array<Toggle> Toggles() { return {}; }
@@ -55,17 +55,17 @@ export namespace draconic::editor
     /// from the importer's prepared payload (kept alive through the flush).
     struct DeferredImportWrite
     {
-        draconic::content::Instance* instance = nullptr;   // borrowed; the DB owns it
-        RefPtr<ISerializable> object;                      // envelope write when set
-        String streamName;                                  // data-stream write when set
+        draconic::content::Instance* instance = nullptr; // borrowed; the DB owns it
+        RefPtr<ISerializable> object;                    // envelope write when set
+        String streamName;                               // data-stream write when set
         Span<const byte> view{};
         Array<byte> owned;
-        String copyFrom;                                    // raw copy when both paths set
+        String copyFrom; // raw copy when both paths set
         String copyTo;
 
         [[nodiscard]] Span<const byte> Bytes() const noexcept
         {
-            return owned.IsEmpty() ? view : Span<const byte>{ owned.Data(), owned.Size() };
+            return owned.IsEmpty() ? view : Span<const byte>{owned.Data(), owned.Size()};
         }
 
         /// Execute on the worker. Returns the write's status.
@@ -74,7 +74,10 @@ export namespace draconic::editor
             if (!copyFrom.IsEmpty() && !copyTo.IsEmpty())
             {
                 Result<Array<byte>> bytes = ReadFile(copyFrom.AsView());
-                if (!bytes.HasValue()) { return Status{ bytes.Error() }; }
+                if (!bytes.HasValue())
+                {
+                    return Status{bytes.Error()};
+                }
                 if (FileExists(copyTo.AsView()))
                 {
                     Result<Array<byte>> existing = ReadFile(copyTo.AsView());
@@ -83,22 +86,38 @@ export namespace draconic::editor
                         bool same = true;
                         for (usize i = 0; i < bytes.Value().Size(); ++i)
                         {
-                            if (existing.Value()[i] != bytes.Value()[i]) { same = false; break; }
+                            if (existing.Value()[i] != bytes.Value()[i])
+                            {
+                                same = false;
+                                break;
+                            }
                         }
-                        if (same) { return Status{}; }
+                        if (same)
+                        {
+                            return Status{};
+                        }
                     }
                 }
                 return WriteFile(copyTo.AsView(),
                                  Span<const byte>(bytes.Value().Data(), bytes.Value().Size()));
             }
-            if (instance == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
-            if (object.Get() != nullptr) { return instance->WriteObject(*object); }
+            if (instance == nullptr)
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
+            if (object.Get() != nullptr)
+            {
+                return instance->WriteObject(*object);
+            }
             return instance->WriteData(streamName.AsView(), Bytes());
         }
 
         [[nodiscard]] StringView Label() const noexcept
         {
-            if (!copyTo.IsEmpty()) { return copyTo.AsView(); }
+            if (!copyTo.IsEmpty())
+            {
+                return copyTo.AsView();
+            }
             return (instance != nullptr) ? instance->Name() : StringView(u8"?");
         }
     };
@@ -136,10 +155,10 @@ export namespace draconic::editor
         /// `deferredWrites`: when non-null, the importer MAY park its bulk writes there
         /// instead of writing inline - the caller flushes them on a worker (null =
         /// headless/tests: everything writes inline).
-        [[nodiscard]] virtual Result<draconic::content::Instance*> Import(
-            StringView sourcePath, EditorProject& project, draconic::content::Group& group,
-            const ImportOptions* options = nullptr, Object* prepared = nullptr,
-            Array<DeferredImportWrite>* deferredWrites = nullptr) = 0;
+        [[nodiscard]] virtual Result<draconic::content::Instance*>
+        Import(StringView sourcePath, EditorProject& project, draconic::content::Group& group,
+               const ImportOptions* options = nullptr, Object* prepared = nullptr,
+               Array<DeferredImportWrite>* deferredWrites = nullptr) = 0;
     };
 
     DRACONIC_DEFINE_OBJECT(ImportOptions, "draconic::editor")
@@ -149,7 +168,10 @@ export namespace draconic::editor
     public:
         void Register(UniquePtr<IFileImporter> importer)
         {
-            if (importer) { m_importers.PushBack(Move(importer)); }
+            if (importer)
+            {
+                m_importers.PushBack(Move(importer));
+            }
         }
 
         /// First importer claiming the extension (v1 routing), or null.
@@ -157,7 +179,10 @@ export namespace draconic::editor
         {
             for (const UniquePtr<IFileImporter>& importer : m_importers)
             {
-                if (importer->Accepts(extension)) { return importer.Get(); }
+                if (importer->Accepts(extension))
+                {
+                    return importer.Get();
+                }
             }
             return nullptr;
         }
@@ -177,14 +202,22 @@ export namespace draconic::editor
         for (usize i = path.Size(); i > 0; --i)
         {
             const utf8char c = path[i - 1];
-            if (c == utf8char('.')) { dot = i; break; }
-            if (c == utf8char('/') || c == utf8char('\\')) { break; }
+            if (c == utf8char('.'))
+            {
+                dot = i;
+                break;
+            }
+            if (c == utf8char('/') || c == utf8char('\\'))
+            {
+                break;
+            }
         }
         String ext;
         for (usize i = dot; i < path.Size(); ++i)
         {
             const utf8char c = path[i];
-            ext.PushBack((c >= utf8char('A') && c <= utf8char('Z')) ? static_cast<utf8char>(c + 32) : c);
+            ext.PushBack((c >= utf8char('A') && c <= utf8char('Z')) ? static_cast<utf8char>(c + 32)
+                                                                    : c);
         }
         return ext;
     }
@@ -195,7 +228,10 @@ export namespace draconic::editor
         for (usize i = path.Size(); i > 0; --i)
         {
             const utf8char c = path[i - 1];
-            if (c == utf8char('/') || c == utf8char('\\')) { return path.SubStr(i, path.Size() - i); }
+            if (c == utf8char('/') || c == utf8char('\\'))
+            {
+                return path.SubStr(i, path.Size() - i);
+            }
         }
         return path;
     }
@@ -205,7 +241,10 @@ export namespace draconic::editor
     {
         for (usize i = fileName.Size(); i > 0; --i)
         {
-            if (fileName[i - 1] == utf8char('.')) { return fileName.SubStr(0, i - 1); }
+            if (fileName[i - 1] == utf8char('.'))
+            {
+                return fileName.SubStr(0, i - 1);
+            }
         }
         return fileName;
     }
@@ -215,14 +254,21 @@ export namespace draconic::editor
     /// bytes OVERWRITE it (a re-import must see the edited file - the old skip-if-exists
     /// behavior silently kept stale sources). The copy goes through the core file API and the
     /// project path only - the pipeline reads it back through the sources MOUNT.
-    [[nodiscard]] inline Result<String> CopyIntoSources(EditorProject& project, StringView sourcePath)
+    [[nodiscard]] inline Result<String> CopyIntoSources(EditorProject& project,
+                                                        StringView sourcePath)
     {
         const StringView fileName = FileNameOf(sourcePath);
-        if (fileName.IsEmpty()) { return Err(ErrorCode::InvalidArgument); }
+        if (fileName.IsEmpty())
+        {
+            return Err(ErrorCode::InvalidArgument);
+        }
         const String target = PathJoin(project.SourcesRoot().AsView(), fileName);
 
         Result<Array<byte>> bytes = ReadFile(sourcePath);
-        if (!bytes.HasValue()) { return Err(bytes.Error()); }
+        if (!bytes.HasValue())
+        {
+            return Err(bytes.Error());
+        }
         if (FileExists(target.AsView()))
         {
             Result<Array<byte>> existing = ReadFile(target.AsView());
@@ -231,14 +277,24 @@ export namespace draconic::editor
                 bool same = true;
                 for (usize i = 0; i < bytes.Value().Size(); ++i)
                 {
-                    if (existing.Value()[i] != bytes.Value()[i]) { same = false; break; }
+                    if (existing.Value()[i] != bytes.Value()[i])
+                    {
+                        same = false;
+                        break;
+                    }
                 }
-                if (same) { return String(fileName); }   // identical: no touch, no recook churn
+                if (same)
+                {
+                    return String(fileName);
+                } // identical: no touch, no recook churn
             }
         }
-        const Status written = WriteFile(target.AsView(),
-                                         Span<const byte>(bytes.Value().Data(), bytes.Value().Size()));
-        if (!written.IsOk()) { return Err(written.Code()); }
+        const Status written = WriteFile(
+            target.AsView(), Span<const byte>(bytes.Value().Data(), bytes.Value().Size()));
+        if (!written.IsOk())
+        {
+            return Err(written.Code());
+        }
         return String(fileName);
     }
 }

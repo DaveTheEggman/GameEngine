@@ -22,7 +22,7 @@ TEST_CASE("vg.context: white texture sits at index 0")
 TEST_CASE("vg.context: FillRect produces geometry + a solid command")
 {
     VGContext ctx;
-    ctx.FillRect(Rectangle{ 0, 0, 10, 10 }, Color::Red);
+    ctx.FillRect(Rectangle{0, 0, 10, 10}, Color::Red);
 
     VGBatch& batch = ctx.GetBatch();
     CHECK(batch.VertexCount() > 0u);
@@ -35,14 +35,15 @@ TEST_CASE("vg.context: transform is baked into emitted vertices")
 {
     VGContext ctx;
     ctx.Translate(100.0f, 50.0f);
-    ctx.FillRect(Rectangle{ 0, 0, 10, 10 }, Color::Green);
+    ctx.FillRect(Rectangle{0, 0, 10, 10}, Color::Green);
 
     VGBatch& batch = ctx.GetBatch();
     REQUIRE(batch.VertexCount() > 0u);
     // Every vertex shifted by the translation (~100,50; allow <1px AA fringe slack).
     bool allShifted = true;
     for (usize i = 0; i < batch.VertexCount(); ++i)
-        if (batch.vertices[i].position.x < 99.0f || batch.vertices[i].position.y < 49.0f) allShifted = false;
+        if (batch.vertices[i].position.x < 99.0f || batch.vertices[i].position.y < 49.0f)
+            allShifted = false;
     CHECK(allShifted);
 }
 
@@ -50,7 +51,7 @@ TEST_CASE("vg.context: opacity scales vertex alpha")
 {
     VGContext ctx;
     ctx.PushOpacity(0.5f);
-    ctx.FillRect(Rectangle{ 0, 0, 10, 10 }, ToColor(Color32{ 255, 255, 255, 255 }));
+    ctx.FillRect(Rectangle{0, 0, 10, 10}, ToColor(Color32{255, 255, 255, 255}));
     ctx.PopOpacity();
 
     VGBatch& batch = ctx.GetBatch();
@@ -58,7 +59,8 @@ TEST_CASE("vg.context: opacity scales vertex alpha")
     // Inner (opaque) vertices should now carry ~half alpha.
     bool sawHalfAlpha = false;
     for (usize i = 0; i < batch.VertexCount(); ++i)
-        if (batch.vertices[i].color.a > 120 && batch.vertices[i].color.a < 135) sawHalfAlpha = true;
+        if (batch.vertices[i].color.a > 120 && batch.vertices[i].color.a < 135)
+            sawHalfAlpha = true;
     CHECK(sawHalfAlpha);
 }
 
@@ -91,11 +93,11 @@ TEST_CASE("vg.context: immediate-mode path fill")
 TEST_CASE("vg.context: DrawImage registers the texture and switches command")
 {
     VGContext ctx;
-    const u8 px[4] = { 10, 20, 30, 40 };
+    const u8 px[4] = {10, 20, 30, 40};
     image::OwnedImageData tex(1, 1, image::PixelFormat::RGBA8, Span<const u8>(px, 4));
 
-    ctx.FillRect(Rectangle{ 0, 0, 5, 5 }, Color::Red); // solid command (tex 0)
-    ctx.DrawImage(&tex, Float2{ 0, 0 });              // textured command (tex 1)
+    ctx.FillRect(Rectangle{0, 0, 5, 5}, Color::Red); // solid command (tex 0)
+    ctx.DrawImage(&tex, Float2{0, 0});               // textured command (tex 1)
 
     VGBatch& batch = ctx.GetBatch();
     REQUIRE(batch.textures.Size() == 2u);
@@ -108,7 +110,7 @@ TEST_CASE("vg.context: DrawImage registers the texture and switches command")
 TEST_CASE("vg.context: clear resets and re-seeds the white texture")
 {
     VGContext ctx;
-    ctx.FillRect(Rectangle{ 0, 0, 5, 5 }, Color::Red);
+    ctx.FillRect(Rectangle{0, 0, 5, 5}, Color::Red);
     ctx.Clear();
     VGBatch& batch = ctx.GetBatch();
     CHECK(batch.VertexCount() == 0u);

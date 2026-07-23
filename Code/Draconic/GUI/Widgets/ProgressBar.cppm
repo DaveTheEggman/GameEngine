@@ -9,8 +9,8 @@ module;
 
 export module draconic.gui:progress_bar;
 
-import draconic.core;   // Color, Max, Min
-import draconic.vg;     // CornerRadii
+import draconic.core; // Color, Max, Min
+import draconic.vg;   // CornerRadii
 import :rect;
 import :draw_context;
 import :ui_widget;
@@ -31,13 +31,22 @@ export namespace draconic::gui
         void SetProgress(f32 progress)
         {
             progress = core::Max(0.0f, core::Min(1.0f, progress));
-            if (progress == m_progress) return;
+            if (progress == m_progress)
+                return;
             m_progress = progress;
             Invalidate();
         }
 
-        void SetTrackColor(Color color) { m_trackColor = color; Invalidate(); }
-        void SetFillColor(Color color)  { m_fillColor = color; Invalidate(); }
+        void SetTrackColor(Color color)
+        {
+            m_trackColor = color;
+            Invalidate();
+        }
+        void SetFillColor(Color color)
+        {
+            m_fillColor = color;
+            Invalidate();
+        }
 
         // Theming parts: progressbar::track / ::fill.
         void CollectStyleParts(core::Array<core::StringView>& out) const override
@@ -47,8 +56,10 @@ export namespace draconic::gui
         }
         void SetThemePartColor(core::StringView part, Color color) override
         {
-            if (part == core::StringView(u8"track")) SetTrackColor(color);
-            else if (part == core::StringView(u8"fill")) SetFillColor(color);
+            if (part == core::StringView(u8"track"))
+                SetTrackColor(color);
+            else if (part == core::StringView(u8"fill"))
+                SetFillColor(color);
         }
 
     protected:
@@ -60,14 +71,14 @@ export namespace draconic::gui
             ctx.VG().FillRoundedRect(b.ToRectangle(), vg::CornerRadii(radius), m_trackColor);
             if (m_progress > 0.0f)
             {
-                const Rect fill{ b.x, b.y, b.width * m_progress, b.height };
+                const Rect fill{b.x, b.y, b.width * m_progress, b.height};
                 ctx.VG().FillRoundedRect(fill.ToRectangle(), vg::CornerRadii(radius), m_fillColor);
             }
         }
 
         f32 m_progress = 0.0f;
-        Color m_trackColor{ 0.24f, 0.26f, 0.30f, 1.0f };
-        Color m_fillColor{ 0.31f, 0.63f, 0.85f, 1.0f };
+        Color m_trackColor{0.24f, 0.26f, 0.30f, 1.0f};
+        Color m_fillColor{0.31f, 0.63f, 0.85f, 1.0f};
     };
 
     DRACONIC_DEFINE_OBJECT(ProgressBar, "draconic::gui")

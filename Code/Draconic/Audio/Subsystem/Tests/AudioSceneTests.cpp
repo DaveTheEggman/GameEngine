@@ -81,7 +81,7 @@ namespace
         }
 
         scene::EntityHandle AddSource(const RefPtr<AudioClip>& clip, Float3 position,
-                                       bool autoPlay = true, bool loop = true)
+                                      bool autoPlay = true, bool loop = true)
         {
             scene::EntityHandle e = scene.CreateEntity(u8"source");
             scene.SetLocalPosition(e, position);
@@ -573,7 +573,7 @@ TEST_CASE("audio.scene: a cue on the source wins over the clip and varies per tr
     cue->pitchMax = 1.2f;
 
     const scene::EntityHandle e = play.AddSource(fallback, Float3{0, 0, 0},
-                                                  /*autoPlay=*/false, /*loop=*/false);
+                                                 /*autoPlay=*/false, /*loop=*/false);
     auto* sources = play.scene.GetSystem<AudioSourceComponentManager>();
     sources->Get(e)->cue = cue;
     play.Start();

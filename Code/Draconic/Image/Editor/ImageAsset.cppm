@@ -39,21 +39,38 @@ export namespace draconic::image
     class ImageAssetBuilder final : public draconic::editor::DefaultAssetBuilder
     {
     public:
-        [[nodiscard]] const TypeInfo* AssetType() const override { return &ImageAsset::StaticType(); }
-        [[nodiscard]] const TypeInfo* ProductType() const override { return &ImageResource::StaticType(); }
+        [[nodiscard]] const TypeInfo* AssetType() const override
+        {
+            return &ImageAsset::StaticType();
+        }
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &ImageResource::StaticType();
+        }
 
-        [[nodiscard]] Status Build(const draconic::editor::Asset& asset, draconic::editor::AssetBuildContext& ctx) override
+        [[nodiscard]] Status Build(const draconic::editor::Asset& asset,
+                                   draconic::editor::AssetBuildContext& ctx) override
         {
             const ImageAsset& ia = static_cast<const ImageAsset&>(asset); // guarded by AssetType()
-            if (ctx.output == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
-
+            if (ctx.output == nullptr)
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
 
             Image image;
             Result<Array<byte>> bytes = ReadSourceBytes(ctx, ia.fileName.AsView());
-            if (!bytes.HasValue()) { return Status{ bytes.Error() }; }
+            if (!bytes.HasValue())
+            {
+                return Status{bytes.Error()};
+            }
             const Status loaded = io::LoadImageFromMemory(
-                Span<const u8>(reinterpret_cast<const u8*>(bytes.Value().Data()), bytes.Value().Size()), image);
-            if (!loaded.IsOk()) { return loaded; }
+                Span<const u8>(reinterpret_cast<const u8*>(bytes.Value().Data()),
+                               bytes.Value().Size()),
+                image);
+            if (!loaded.IsOk())
+            {
+                return loaded;
+            }
 
             ImageResource resource;
             resource.width = image.Width();
@@ -62,11 +79,14 @@ export namespace draconic::image
             resource.colorSpace = ia.colorSpace;
 
             const Status wrote = ctx.output->WriteObject(resource);
-            if (!wrote.IsOk()) { return wrote; }
+            if (!wrote.IsOk())
+            {
+                return wrote;
+            }
 
             const Span<const u8> px = image.PixelData();
-            return ctx.output->WriteData(u8"pixels",
-                Span<const byte>(reinterpret_cast<const byte*>(px.Data()), px.Size()));
+            return ctx.output->WriteData(
+                u8"pixels", Span<const byte>(reinterpret_cast<const byte*>(px.Data()), px.Size()));
         }
     };
 

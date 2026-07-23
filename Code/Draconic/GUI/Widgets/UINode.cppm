@@ -11,14 +11,14 @@ module;
 
 export module draconic.gui:ui_node;
 
-import draconic.core;   // RefPtr, Max, Move, Color
-import draconic.fonts;  // CachedFont
+import draconic.core;  // RefPtr, Max, Move, Color
+import draconic.fonts; // CachedFont
 import :rect;
 import :thickness;
 import :control_state;
 import :event;
 import :drawable;
-import :text;    // TextHAlign / TextVAlign (theme text-align hooks)
+import :text; // TextHAlign / TextVAlign (theme text-align hooks)
 import :node;
 
 using namespace draconic::core;
@@ -34,16 +34,20 @@ export namespace draconic::gui
         UINode() = default;
 
         // Content padding (inset for content/children).
-        void SetPadding(Thickness padding) { m_padding = padding; Invalidate(); }
+        void SetPadding(Thickness padding)
+        {
+            m_padding = padding;
+            Invalidate();
+        }
         [[nodiscard]] Thickness GetPadding() const noexcept { return m_padding; }
 
         // The local bounds inset by padding - where content/text goes.
         [[nodiscard]] Rect GetContentBounds() const
         {
             const Rect b = GetLocalBounds();
-            return Rect{ b.x + m_padding.Left, b.y + m_padding.Top,
-                         core::Max(0.0f, b.width - m_padding.TotalHorizontal()),
-                         core::Max(0.0f, b.height - m_padding.TotalVertical()) };
+            return Rect{b.x + m_padding.Left, b.y + m_padding.Top,
+                        core::Max(0.0f, b.width - m_padding.TotalHorizontal()),
+                        core::Max(0.0f, b.height - m_padding.TotalVertical())};
         }
 
         // Skin = a state-aware background (typically a StateListDrawable). Node::Draw draws
@@ -66,7 +70,10 @@ export namespace draconic::gui
         // Markup hook: a widget consumes its own structural XML attributes (e.g. Label "text",
         // LinearLayout "orientation"/"spacing"), returning true if it handled `name`. Attributes
         // it doesn't claim are applied as CSS properties by the markup loader. Default: none.
-        virtual bool SetMarkupAttribute(core::StringView /*name*/, core::StringView /*value*/) { return false; }
+        virtual bool SetMarkupAttribute(core::StringView /*name*/, core::StringView /*value*/)
+        {
+            return false;
+        }
 
         // Pseudo-element parts: a widget names the parts it paints (slider "track"/"fill"/
         // "thumb", checkbox "box"/"mark", window "title"/"grip", ...) so CSS `tag::part` can
@@ -79,18 +86,39 @@ export namespace draconic::gui
         // hover > focused > normal).
         [[nodiscard]] ControlState GetControlState() const override
         {
-            if (!IsEnabled()) return ControlState::Disabled;
-            if (m_pressed)    return ControlState::Pressed;
-            if (m_hovered)    return ControlState::Hover;
-            if (IsFocused())  return ControlState::Focused;
+            if (!IsEnabled())
+                return ControlState::Disabled;
+            if (m_pressed)
+                return ControlState::Pressed;
+            if (m_hovered)
+                return ControlState::Hover;
+            if (IsFocused())
+                return ControlState::Focused;
             return ControlState::Normal;
         }
 
     protected:
-        void OnMouseEnter(const MouseEvent&) override { m_hovered = true; Invalidate(); }
-        void OnMouseLeave(const MouseEvent&) override { m_hovered = false; m_pressed = false; Invalidate(); }
-        void OnMouseDown(const MouseEvent&) override { m_pressed = true; Invalidate(); }
-        void OnMouseUp(const MouseEvent&) override { m_pressed = false; Invalidate(); }
+        void OnMouseEnter(const MouseEvent&) override
+        {
+            m_hovered = true;
+            Invalidate();
+        }
+        void OnMouseLeave(const MouseEvent&) override
+        {
+            m_hovered = false;
+            m_pressed = false;
+            Invalidate();
+        }
+        void OnMouseDown(const MouseEvent&) override
+        {
+            m_pressed = true;
+            Invalidate();
+        }
+        void OnMouseUp(const MouseEvent&) override
+        {
+            m_pressed = false;
+            Invalidate();
+        }
 
         Thickness m_padding{};
         bool m_hovered = false;

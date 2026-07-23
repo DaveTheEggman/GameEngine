@@ -46,7 +46,11 @@ export namespace draconic::ui
         /// Bind data into a view for the given nodeId.
         virtual void BindView(View* view, i32 nodeId, i32 depth, bool isExpanded) = 0;
         /// View type for a node (for recycler pools). Default 0.
-        [[nodiscard]] virtual i32 GetItemViewType(i32 nodeId) const { (void)nodeId; return 0; }
+        [[nodiscard]] virtual i32 GetItemViewType(i32 nodeId) const
+        {
+            (void)nodeId;
+            return 0;
+        }
         /// Set the observer for data-change notifications (default no-op).
         virtual void SetObserver(ITreeAdapterObserver* observer) { (void)observer; }
     };

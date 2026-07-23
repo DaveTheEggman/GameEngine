@@ -15,7 +15,7 @@ module;
 
 export module draconic.ui:ui_type_registry;
 
-import draconic.core;   // TypeInfo, HashMap, String, StringView
+import draconic.core; // TypeInfo, HashMap, String, StringView
 
 using namespace draconic::core;
 
@@ -41,7 +41,10 @@ export namespace draconic::ui
         /// Look up a type by name. Returns null if not found.
         [[nodiscard]] static const TypeInfo* Resolve(StringView name)
         {
-            if (const TypeInfo* const* t = detail::UITypeMap().Find(String(name))) { return *t; }
+            if (const TypeInfo* const* t = detail::UITypeMap().Find(String(name)))
+            {
+                return *t;
+            }
             return nullptr;
         }
 

@@ -15,7 +15,8 @@ namespace core = draconic::core;
 TEST_CASE("drawable: StateList_GetFallsBackToNormal")
 {
     StateListDrawable sl;
-    sl.Set(ControlState::Normal, core::MakeRef<ColorDrawable>(core::DefaultAllocator(), core::Color::Red));
+    sl.Set(ControlState::Normal,
+           core::MakeRef<ColorDrawable>(core::DefaultAllocator(), core::Color::Red));
     Drawable* normal = sl.Get(ControlState::Normal);
 
     CHECK(sl.Get(ControlState::Normal) == normal);
@@ -27,8 +28,10 @@ TEST_CASE("drawable: StateList_GetFallsBackToNormal")
 TEST_CASE("drawable: StateList_GetReturnsSpecificState")
 {
     StateListDrawable sl;
-    sl.Set(ControlState::Normal, core::MakeRef<ColorDrawable>(core::DefaultAllocator(), core::Color::Red));
-    sl.Set(ControlState::Hover, core::MakeRef<ColorDrawable>(core::DefaultAllocator(), core::Color::Blue));
+    sl.Set(ControlState::Normal,
+           core::MakeRef<ColorDrawable>(core::DefaultAllocator(), core::Color::Red));
+    sl.Set(ControlState::Hover,
+           core::MakeRef<ColorDrawable>(core::DefaultAllocator(), core::Color::Blue));
     Drawable* normal = sl.Get(ControlState::Normal);
     Drawable* hover = sl.Get(ControlState::Hover);
 
@@ -51,14 +54,16 @@ TEST_CASE("drawable: Layer_AddLayer_IncreasesCount")
     // Just verify it doesn't crash - drawing needs a VGContext. AddLayer consumes the ref.
     LayerDrawable layer;
     layer.AddLayer(core::MakeRef<ColorDrawable>(core::DefaultAllocator(), core::Color::Red));
-    layer.AddLayer(core::MakeRef<ColorDrawable>(core::DefaultAllocator(), core::Color::Blue), Thickness{ 5.0f, 5.0f, 5.0f, 5.0f });
+    layer.AddLayer(core::MakeRef<ColorDrawable>(core::DefaultAllocator(), core::Color::Blue),
+                   Thickness{5.0f, 5.0f, 5.0f, 5.0f});
 }
 
 // === InsetDrawable ===
 
 TEST_CASE("drawable: Inset_DrawablePadding_MatchesInset")
 {
-    InsetDrawable inset{ core::MakeRef<ColorDrawable>(core::DefaultAllocator(), core::Color::Red), Thickness{ 10.0f, 5.0f, 10.0f, 5.0f } };
+    InsetDrawable inset{core::MakeRef<ColorDrawable>(core::DefaultAllocator(), core::Color::Red),
+                        Thickness{10.0f, 5.0f, 10.0f, 5.0f}};
     Thickness pad = inset.DrawablePadding();
     CHECK(pad.Left == 10.0f);
     CHECK(pad.Top == 5.0f);
@@ -70,7 +75,7 @@ TEST_CASE("drawable: Inset_DrawablePadding_MatchesInset")
 
 TEST_CASE("drawable: ColorDrawable_NoIntrinsicSize")
 {
-    ColorDrawable cd{ core::Color::Red };
+    ColorDrawable cd{core::Color::Red};
     CHECK_FALSE(cd.IntrinsicSize().HasValue());
 }
 
@@ -78,7 +83,7 @@ TEST_CASE("drawable: ColorDrawable_NoIntrinsicSize")
 
 TEST_CASE("drawable: RoundedRect_NoIntrinsicSize")
 {
-    RoundedRectDrawable rr{ core::Color::Red, 4.0f, core::Color::Blue, 1.0f };
+    RoundedRectDrawable rr{core::Color::Red, 4.0f, core::Color::Blue, 1.0f};
     CHECK_FALSE(rr.IntrinsicSize().HasValue());
 }
 
@@ -86,8 +91,8 @@ TEST_CASE("drawable: RoundedRect_NoIntrinsicSize")
 
 TEST_CASE("drawable: NineSlice_DrawablePadding_AccountsForExpand")
 {
-    NineSliceDrawable ns{ nullptr, draconic::image::NineSlice{ 10.0f, 10.0f, 10.0f, 10.0f } };
-    ns.Expand = Thickness{ 5.0f, 5.0f, 5.0f, 5.0f };
+    NineSliceDrawable ns{nullptr, draconic::image::NineSlice{10.0f, 10.0f, 10.0f, 10.0f}};
+    ns.Expand = Thickness{5.0f, 5.0f, 5.0f, 5.0f};
     Thickness pad = ns.DrawablePadding();
     // Padding = max(0, Slices - Expand) = max(0, 10-5) = 5
     CHECK(pad.Left == 5.0f);
@@ -98,8 +103,8 @@ TEST_CASE("drawable: NineSlice_DrawablePadding_AccountsForExpand")
 
 TEST_CASE("drawable: NineSlice_DrawablePadding_ClampsToZero")
 {
-    NineSliceDrawable ns{ nullptr, draconic::image::NineSlice{ 5.0f, 5.0f, 5.0f, 5.0f } };
-    ns.Expand = Thickness{ 10.0f, 10.0f, 10.0f, 10.0f };
+    NineSliceDrawable ns{nullptr, draconic::image::NineSlice{5.0f, 5.0f, 5.0f, 5.0f}};
+    ns.Expand = Thickness{10.0f, 10.0f, 10.0f, 10.0f};
     Thickness pad = ns.DrawablePadding();
     CHECK(pad.Left == 0.0f);
     CHECK(pad.Top == 0.0f);
@@ -111,7 +116,8 @@ TEST_CASE("drawable: Drawable_StateAwareDraw_DelegatesToStateless")
 {
     // ShapeDrawable has no state-aware override - should delegate. Creation must not invoke it.
     bool called = false;
-    ShapeDrawable sd{ ShapeDrawable::DrawFn{ [&](UIDrawContext&, const core::Rectangle&) { called = true; } } };
+    ShapeDrawable sd{
+        ShapeDrawable::DrawFn{[&](UIDrawContext&, const core::Rectangle&) { called = true; }}};
     CHECK_FALSE(called);
 }
 
@@ -129,7 +135,9 @@ TEST_CASE("drawable: statelist Disabled dominates interaction flags")
 
     CHECK(list->Get(ControlState::Disabled | ControlState::Hover) == disabled.Get());
     CHECK(list->Get(ControlState::Disabled | ControlState::Pressed) == disabled.Get());
-    CHECK(list->Get(ControlState::Disabled | ControlState::Focused | ControlState::Hover) == disabled.Get());
-    CHECK(list->Get(ControlState::Hover) == hover.Get());                       // unchanged
-    CHECK(list->Get(ControlState::Hover | ControlState::Focused) == hover.Get());   // generic fallback intact
+    CHECK(list->Get(ControlState::Disabled | ControlState::Focused | ControlState::Hover) ==
+          disabled.Get());
+    CHECK(list->Get(ControlState::Hover) == hover.Get()); // unchanged
+    CHECK(list->Get(ControlState::Hover | ControlState::Focused) ==
+          hover.Get()); // generic fallback intact
 }

@@ -26,18 +26,28 @@ export namespace draconic::editor::app
         DRACONIC_OBJECT(LogView, ui::ViewGroup)
     public:
         /// Display buckets (core Trace+Debug fold into Debug; Error+Fatal into Error).
-        enum class Bucket : u8 { Debug, Info, Warning, Error };
+        enum class Bucket : u8
+        {
+            Debug,
+            Info,
+            Warning,
+            Error
+        };
         static constexpr usize kBucketCount = 4;
 
         [[nodiscard]] static Bucket BucketOf(LogLevel level) noexcept
         {
             switch (level)
             {
-                case LogLevel::Trace:
-                case LogLevel::Debug:   return Bucket::Debug;
-                case LogLevel::Info:    return Bucket::Info;
-                case LogLevel::Warning: return Bucket::Warning;
-                default:                return Bucket::Error;
+            case LogLevel::Trace:
+            case LogLevel::Debug:
+                return Bucket::Debug;
+            case LogLevel::Info:
+                return Bucket::Info;
+            case LogLevel::Warning:
+                return Bucket::Warning;
+            default:
+                return Bucket::Error;
             }
         }
 
@@ -50,15 +60,16 @@ export namespace draconic::editor::app
             auto toolbar = MakeRef<ui::FlexLayout>(DefaultAllocator());
             toolbar->Direction = ui::Orientation::Horizontal;
             toolbar->Spacing = 8.0f;
-            toolbar->Padding = ui::Thickness{ 4, 4 };
-            static constexpr const char8_t* kNames[kBucketCount] = { u8"Debug", u8"Info", u8"Warning", u8"Error" };
+            toolbar->Padding = ui::Thickness{4, 4};
+            static constexpr const char8_t* kNames[kBucketCount] = {u8"Debug", u8"Info",
+                                                                    u8"Warning", u8"Error"};
             for (usize i = 0; i < kBucketCount; ++i)
             {
                 auto box = MakeRef<ui::CheckBox>(DefaultAllocator(), StringView(kNames[i]), true);
                 const usize bucket = i;
-                box->OnCheckedChanged.Add([this, bucket](ui::CheckBox*, bool checked) {
-                    SetBucketVisible(static_cast<Bucket>(bucket), checked);
-                });
+                box->OnCheckedChanged.Add(
+                    [this, bucket](ui::CheckBox*, bool checked)
+                    { SetBucketVisible(static_cast<Bucket>(bucket), checked); });
                 m_filterBoxes[i] = box.Get();
                 toolbar->AddView(box.Get());
             }
@@ -81,10 +92,7 @@ export namespace draconic::editor::app
             AddView(column.Get());
         }
 
-        ~LogView() override
-        {
-            m_list->SetAdapter(nullptr);
-        }
+        ~LogView() override { m_list->SetAdapter(nullptr); }
 
         /// True while the newest entry is kept in view.
         bool AutoScroll = true;
@@ -134,7 +142,7 @@ export namespace draconic::editor::app
             m_visible[static_cast<usize>(bucket)] = visible;
             if (ui::CheckBox* box = m_filterBoxes[static_cast<usize>(bucket)])
             {
-                box->IsChecked.SetSilent(visible);   // keep the toolbar in sync on programmatic calls
+                box->IsChecked.SetSilent(visible); // keep the toolbar in sync on programmatic calls
             }
             RebuildFilter();
             ScrollToNewest();
@@ -161,12 +169,13 @@ export namespace draconic::editor::app
             {
                 GetChildAt(i)->Measure(constraints);
             }
-            MeasuredSize = Float2{ constraints.MaxWidth, constraints.MaxHeight };
+            MeasuredSize = Float2{constraints.MaxWidth, constraints.MaxHeight};
         }
 
         void OnLayout(f32 left, f32 top, f32 width, f32 height) override
         {
-            (void)left; (void)top;
+            (void)left;
+            (void)top;
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 GetChildAt(i)->Layout(0, 0, width, height);
@@ -184,10 +193,14 @@ export namespace draconic::editor::app
         {
             switch (bucket)
             {
-                case Bucket::Debug:   return Color{ 150.0f / 255.0f, 150.0f / 255.0f, 150.0f / 255.0f, 1.0f };
-                case Bucket::Info:    return Color{ 80.0f / 255.0f, 180.0f / 255.0f, 255.0f / 255.0f, 1.0f };
-                case Bucket::Warning: return Color{ 255.0f / 255.0f, 200.0f / 255.0f, 50.0f / 255.0f, 1.0f };
-                default:              return Color{ 255.0f / 255.0f, 80.0f / 255.0f, 80.0f / 255.0f, 1.0f };
+            case Bucket::Debug:
+                return Color{150.0f / 255.0f, 150.0f / 255.0f, 150.0f / 255.0f, 1.0f};
+            case Bucket::Info:
+                return Color{80.0f / 255.0f, 180.0f / 255.0f, 255.0f / 255.0f, 1.0f};
+            case Bucket::Warning:
+                return Color{255.0f / 255.0f, 200.0f / 255.0f, 50.0f / 255.0f, 1.0f};
+            default:
+                return Color{255.0f / 255.0f, 80.0f / 255.0f, 80.0f / 255.0f, 1.0f};
             }
         }
 
@@ -212,7 +225,10 @@ export namespace draconic::editor::app
             void BindView(ui::View* view, i32 position) override
             {
                 auto* label = Cast<ui::Label>(view);
-                if (label == nullptr) { return; }
+                if (label == nullptr)
+                {
+                    return;
+                }
                 const usize index = m_owner->m_filtered[static_cast<usize>(position)];
                 const Entry& entry = m_owner->m_entries[index];
                 label->SetText(entry.text.AsView());
@@ -228,7 +244,10 @@ export namespace draconic::editor::app
             m_filtered.Clear();
             for (usize i = 0; i < m_entries.Size(); ++i)
             {
-                if (IsBucketVisible(m_entries[i].bucket)) { m_filtered.PushBack(i); }
+                if (IsBucketVisible(m_entries[i].bucket))
+                {
+                    m_filtered.PushBack(i);
+                }
             }
             m_adapter->NotifyDataSetChanged();
         }
@@ -242,12 +261,12 @@ export namespace draconic::editor::app
         }
 
         Array<Entry> m_entries;
-        Array<usize> m_filtered;   // indices into m_entries passing the filter
-        bool m_visible[kBucketCount] = { true, true, true, true };
+        Array<usize> m_filtered; // indices into m_entries passing the filter
+        bool m_visible[kBucketCount] = {true, true, true, true};
 
         UniquePtr<Adapter> m_adapter;
         RefPtr<ui::ListView> m_list;
-        ui::CheckBox* m_filterBoxes[kBucketCount] = {};   // borrowed (toolbar owns them)
+        ui::CheckBox* m_filterBoxes[kBucketCount] = {}; // borrowed (toolbar owns them)
     };
 
     DRACONIC_DEFINE_OBJECT(LogView, "draconic::editor::app")

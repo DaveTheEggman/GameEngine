@@ -10,7 +10,7 @@ module;
 
 export module draconic.ui:momentum_helper;
 
-import draconic.core;   // Float2, Abs, Min
+import draconic.core; // Float2, Abs, Min
 
 using namespace draconic::core;
 
@@ -29,12 +29,18 @@ export namespace draconic::ui
         f32 StopThreshold = 0.5f;
 
         /// Whether momentum is active.
-        [[nodiscard]] bool IsActive() const noexcept { return Abs(VelocityX) > StopThreshold || Abs(VelocityY) > StopThreshold; }
+        [[nodiscard]] bool IsActive() const noexcept
+        {
+            return Abs(VelocityX) > StopThreshold || Abs(VelocityY) > StopThreshold;
+        }
 
         /// Advance physics by deltaTime. Returns the displacement (dx, dy) to apply to the scroll offset.
         Float2 Update(f32 deltaTime)
         {
-            if (!IsActive()) { return Float2{ 0.0f, 0.0f }; }
+            if (!IsActive())
+            {
+                return Float2{0.0f, 0.0f};
+            }
 
             const f32 decay = 1.0f - Min(Friction * deltaTime, 1.0f);
             const f32 dx = VelocityX * deltaTime;
@@ -43,13 +49,23 @@ export namespace draconic::ui
             VelocityX *= decay;
             VelocityY *= decay;
 
-            if (Abs(VelocityX) < StopThreshold) { VelocityX = 0.0f; }
-            if (Abs(VelocityY) < StopThreshold) { VelocityY = 0.0f; }
+            if (Abs(VelocityX) < StopThreshold)
+            {
+                VelocityX = 0.0f;
+            }
+            if (Abs(VelocityY) < StopThreshold)
+            {
+                VelocityY = 0.0f;
+            }
 
-            return Float2{ dx, dy };
+            return Float2{dx, dy};
         }
 
         /// Stop all momentum immediately.
-        void Stop() noexcept { VelocityX = 0.0f; VelocityY = 0.0f; }
+        void Stop() noexcept
+        {
+            VelocityX = 0.0f;
+            VelocityY = 0.0f;
+        }
     };
 }

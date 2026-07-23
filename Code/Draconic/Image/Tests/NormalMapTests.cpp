@@ -55,8 +55,10 @@ TEST_CASE("image.normalmap: wave varies in X and Y, Z stays up")
         for (u32 x = 0; x < 64; ++x)
         {
             const Color32 pixel = image.GetPixel(x, y);
-            if (Abs(static_cast<i32>(pixel.r) - static_cast<i32>(NeutralX)) > 5) hasXVariation = true;
-            if (Abs(static_cast<i32>(pixel.g) - static_cast<i32>(NeutralY)) > 5) hasYVariation = true;
+            if (Abs(static_cast<i32>(pixel.r) - static_cast<i32>(NeutralX)) > 5)
+                hasXVariation = true;
+            if (Abs(static_cast<i32>(pixel.g) - static_cast<i32>(NeutralY)) > 5)
+                hasYVariation = true;
             CHECK(pixel.b >= 128);
         }
     CHECK(hasXVariation);
@@ -74,7 +76,8 @@ TEST_CASE("image.normalmap: brick has variation, Z stays up")
         for (u32 x = 0; x < 64; ++x)
         {
             const Color32 pixel = image.GetPixel(x, y);
-            if (pixel.r != NeutralX || pixel.g != NeutralY || pixel.b != NeutralZ) hasVariation = true;
+            if (pixel.r != NeutralX || pixel.g != NeutralY || pixel.b != NeutralZ)
+                hasVariation = true;
             CHECK(pixel.b >= 128);
         }
     CHECK(hasVariation);
@@ -91,7 +94,8 @@ TEST_CASE("image.normalmap: circular bump has variation, Z stays up")
         for (u32 x = 0; x < 64 && !hasVariation; ++x)
         {
             const Color32 pixel = image.GetPixel(x, y);
-            if (pixel.r != NeutralX || pixel.g != NeutralY) hasVariation = true;
+            if (pixel.r != NeutralX || pixel.g != NeutralY)
+                hasVariation = true;
         }
     CHECK(hasVariation);
 
@@ -112,7 +116,11 @@ TEST_CASE("image.normalmap: noise varies across most pixels, Z stays up")
         for (u32 x = 0; x < 64; ++x)
         {
             const Color32 pixel = image.GetPixel(x, y);
-            if (pixel.r != NeutralX || pixel.g != NeutralY) { hasVariation = true; ++variationCount; }
+            if (pixel.r != NeutralX || pixel.g != NeutralY)
+            {
+                hasVariation = true;
+                ++variationCount;
+            }
             CHECK(pixel.b >= 128);
         }
     CHECK(hasVariation);
@@ -129,7 +137,8 @@ TEST_CASE("image.normalmap: noise is deterministic for a seed")
         {
             const Color32 p1 = image1.GetPixel(x, y);
             const Color32 p2 = image2.GetPixel(x, y);
-            if (!(p1.r == p2.r && p1.g == p2.g && p1.b == p2.b)) identical = false;
+            if (!(p1.r == p2.r && p1.g == p2.g && p1.b == p2.b))
+                identical = false;
         }
     CHECK(identical);
 }
@@ -144,7 +153,8 @@ TEST_CASE("image.normalmap: different seeds differ")
         {
             const Color32 p1 = image1.GetPixel(x, y);
             const Color32 p2 = image2.GetPixel(x, y);
-            if (p1.r != p2.r || p1.g != p2.g || p1.b != p2.b) hasDifference = true;
+            if (p1.r != p2.r || p1.g != p2.g || p1.b != p2.b)
+                hasDifference = true;
         }
     CHECK(hasDifference);
 }
@@ -161,8 +171,10 @@ TEST_CASE("image.normalmap: test pattern varies in X and Y, Z stays up")
         for (u32 x = 0; x < 64; ++x)
         {
             const Color32 pixel = image.GetPixel(x, y);
-            if (pixel.r != NeutralX) hasXVariation = true;
-            if (pixel.g != NeutralY) hasYVariation = true;
+            if (pixel.r != NeutralX)
+                hasXVariation = true;
+            if (pixel.g != NeutralY)
+                hasYVariation = true;
             CHECK(pixel.b >= 128);
         }
     CHECK(hasXVariation);
@@ -177,7 +189,7 @@ TEST_CASE("image.normalmap: CalculateNormalFromHeight")
     CHECK(flatNormal.z > 0.99f);
 
     const Float3 rightSlope = Image::CalculateNormalFromHeight(0.0f, 1.0f, 0.5f, 0.5f);
-    CHECK(rightSlope.x < 0.0f);  // normal points against the slope
+    CHECK(rightSlope.x < 0.0f); // normal points against the slope
     CHECK(rightSlope.z > 0.0f);
 
     const Float3 downSlope = Image::CalculateNormalFromHeight(0.5f, 0.5f, 0.0f, 1.0f);

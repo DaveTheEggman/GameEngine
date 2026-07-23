@@ -28,14 +28,24 @@ export namespace draconic::ui::toolkit
         Function<void(i32)> Setter;
 
         EnumEditor(StringView name, i32 value, Span<const StringView> items,
-            Function<void(i32)> setter = {}, StringView category = {})
+                   Function<void(i32)> setter = {}, StringView category = {})
             : PropertyEditor(name, category), Setter(Move(setter)), m_value(value)
         {
-            for (usize i = 0; i < items.Size(); ++i) { m_items.PushBack(String(items[i])); }
+            for (usize i = 0; i < items.Size(); ++i)
+            {
+                m_items.PushBack(String(items[i]));
+            }
         }
 
         [[nodiscard]] i32 Value() const noexcept { return m_value; }
-        void SetValue(i32 value) { m_value = value; if (!m_syncing) { RefreshView(); } }
+        void SetValue(i32 value)
+        {
+            m_value = value;
+            if (!m_syncing)
+            {
+                RefreshView();
+            }
+        }
 
         void RefreshView() override
         {
@@ -52,22 +62,29 @@ export namespace draconic::ui::toolkit
         {
             RefPtr<ComboBox> comboBox = MakeRef<ComboBox>(DefaultAllocator());
             m_comboBox = comboBox.Get();
-            for (usize i = 0; i < m_items.Size(); ++i) { m_comboBox->AddItem(m_items[i]); }
+            for (usize i = 0; i < m_items.Size(); ++i)
+            {
+                m_comboBox->AddItem(m_items[i]);
+            }
             m_comboBox->SetSelectedIndex(m_value);
             EnumEditor* self = this;
-            m_comboBox->OnSelectionChanged.Add([self](ComboBox*, i32 idx)
-            {
-                if (!self->m_syncing)
+            m_comboBox->OnSelectionChanged.Add(
+                [self](ComboBox*, i32 idx)
                 {
-                    self->m_syncing = true;
-                    self->BeginEdit();
-                    self->m_value = idx;
-                    if (self->Setter) { self->Setter(self->m_value); }
-                    self->NotifyValueChanged();
-                    self->EndEdit();
-                    self->m_syncing = false;
-                }
-            });
+                    if (!self->m_syncing)
+                    {
+                        self->m_syncing = true;
+                        self->BeginEdit();
+                        self->m_value = idx;
+                        if (self->Setter)
+                        {
+                            self->Setter(self->m_value);
+                        }
+                        self->NotifyValueChanged();
+                        self->EndEdit();
+                        self->m_syncing = false;
+                    }
+                });
             return comboBox;
         }
 

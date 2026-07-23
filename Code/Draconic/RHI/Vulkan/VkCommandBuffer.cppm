@@ -13,16 +13,18 @@ import draconic.rhi;
 
 using namespace draconic::core;
 
-export namespace draconic::rhi::vk {
+export namespace draconic::rhi::vk
+{
 
-class VkCommandBufferImpl : public CommandBuffer {
-public:
-    explicit VkCommandBufferImpl(VkCommandBuffer cmdBuf) : m_cmdBuf(cmdBuf) {}
+    class VkCommandBufferImpl : public CommandBuffer
+    {
+    public:
+        explicit VkCommandBufferImpl(VkCommandBuffer cmdBuf) : m_cmdBuf(cmdBuf) {}
 
-    [[nodiscard]] VkCommandBuffer handle() const { return m_cmdBuf; }
+        [[nodiscard]] VkCommandBuffer handle() const { return m_cmdBuf; }
 
-private:
-    VkCommandBuffer m_cmdBuf = VK_NULL_HANDLE;
-};
+    private:
+        VkCommandBuffer m_cmdBuf = VK_NULL_HANDLE;
+    };
 
 } // namespace draconic::rhi::vk

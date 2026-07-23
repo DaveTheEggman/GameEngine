@@ -33,9 +33,10 @@ export namespace draconic::fonts
         {
             return px >= x && px < x + width && py >= y && py < y + height;
         }
-        [[nodiscard]] static constexpr Rectangle FromBounds(f32 left, f32 top, f32 right, f32 bottom)
+        [[nodiscard]] static constexpr Rectangle FromBounds(f32 left, f32 top, f32 right,
+                                                            f32 bottom)
         {
-            return Rectangle{ left, top, right - left, bottom - top };
+            return Rectangle{left, top, right - left, bottom - top};
         }
     };
 
@@ -43,10 +44,10 @@ export namespace draconic::fonts
     struct GlyphInfo
     {
         i32 codepoint = 0;
-        i32 glyphIndex = 0;       // 0 = missing glyph
+        i32 glyphIndex = 0; // 0 = missing glyph
         f32 advanceWidth = 0;
         f32 leftSideBearing = 0;
-        Rectangle boundingBox;          // in pixels, relative to baseline
+        Rectangle boundingBox; // in pixels, relative to baseline
         bool hasBitmap = false;
     };
 
@@ -58,7 +59,9 @@ export namespace draconic::fonts
 
         constexpr GlyphQuad() = default;
         constexpr GlyphQuad(f32 X0, f32 Y0, f32 X1, f32 Y1, f32 U0, f32 V0, f32 U1, f32 V1)
-            : x0(X0), y0(Y0), x1(X1), y1(Y1), u0(U0), v0(V0), u1(U1), v1(V1) {}
+            : x0(X0), y0(Y0), x1(X1), y1(Y1), u0(U0), v0(V0), u1(U1), v1(V1)
+        {
+        }
 
         [[nodiscard]] constexpr f32 Width() const { return x1 - x0; }
         [[nodiscard]] constexpr f32 Height() const { return y1 - y0; }
@@ -82,7 +85,9 @@ export namespace draconic::fonts
 
         constexpr AtlasRegion() = default;
         constexpr AtlasRegion(u16 x_, u16 y_, u16 w_, u16 h_, f32 ox, f32 oy, f32 adv)
-            : x(x_), y(y_), width(w_), height(h_), offsetX(ox), offsetY(oy), advanceX(adv) {}
+            : x(x_), y(y_), width(w_), height(h_), offsetX(ox), offsetY(oy), advanceX(adv)
+        {
+        }
 
         void GetUVs(u32 atlasWidth, u32 atlasHeight, f32& u0, f32& v0, f32& u1, f32& v1) const
         {
@@ -103,16 +108,19 @@ export namespace draconic::fonts
         f32 strikethroughThickness = 1;
 
         constexpr TextDecorationMetrics() = default;
-        constexpr TextDecorationMetrics(f32 underPos, f32 underThick, f32 strikePos, f32 strikeThick)
-            : underlinePosition(underPos), underlineThickness(underThick)
-            , strikethroughPosition(strikePos), strikethroughThickness(strikeThick) {}
+        constexpr TextDecorationMetrics(f32 underPos, f32 underThick, f32 strikePos,
+                                        f32 strikeThick)
+            : underlinePosition(underPos), underlineThickness(underThick),
+              strikethroughPosition(strikePos), strikethroughThickness(strikeThick)
+        {
+        }
 
         [[nodiscard]] static TextDecorationMetrics FromFontMetrics(f32 ascent, f32 pixelHeight)
         {
             const f32 underlinePos = pixelHeight * 0.12f;
             const f32 thickness = Max(1.0f, pixelHeight * 0.05f);
             const f32 strikePos = -ascent * 0.35f;
-            return TextDecorationMetrics{ underlinePos, thickness, strikePos, thickness };
+            return TextDecorationMetrics{underlinePos, thickness, strikePos, thickness};
         }
     };
 
@@ -129,12 +137,17 @@ export namespace draconic::fonts
 
         constexpr FontMetrics() = default;
         FontMetrics(f32 a, f32 d, f32 lg, f32 ph, f32 s)
-            : ascent(a), descent(d), lineGap(lg), lineHeight(a - d + lg), pixelHeight(ph), scale(s)
-            , decorations(TextDecorationMetrics::FromFontMetrics(a, ph)) {}
+            : ascent(a), descent(d), lineGap(lg), lineHeight(a - d + lg), pixelHeight(ph), scale(s),
+              decorations(TextDecorationMetrics::FromFontMetrics(a, ph))
+        {
+        }
         FontMetrics(f32 a, f32 d, f32 lg, f32 ph, f32 s, TextDecorationMetrics dec)
-            : ascent(a), descent(d), lineGap(lg), lineHeight(a - d + lg), pixelHeight(ph), scale(s), decorations(dec) {}
+            : ascent(a), descent(d), lineGap(lg), lineHeight(a - d + lg), pixelHeight(ph), scale(s),
+              decorations(dec)
+        {
+        }
 
-        [[nodiscard]] static FontMetrics Default() { return FontMetrics{ 0, 0, 0, 0, 1.0f }; }
+        [[nodiscard]] static FontMetrics Default() { return FontMetrics{0, 0, 0, 0, 1.0f}; }
     };
 
     // A text selection range [start, end).
@@ -151,7 +164,7 @@ export namespace draconic::fonts
         [[nodiscard]] bool Contains(i32 index) const { return index >= start && index < end; }
         [[nodiscard]] static SelectionRange FromAnchorActive(i32 anchor, i32 active)
         {
-            return SelectionRange{ Min(anchor, active), Max(anchor, active) };
+            return SelectionRange{Min(anchor, active), Max(anchor, active)};
         }
     };
 
@@ -165,17 +178,22 @@ export namespace draconic::fonts
 
         constexpr HitTestResult() = default;
         constexpr HitTestResult(i32 charIndex, bool trailing, bool inside, i32 line = 0)
-            : characterIndex(charIndex), isTrailingHit(trailing), isInside(inside), lineIndex(line) {}
+            : characterIndex(charIndex), isTrailingHit(trailing), isInside(inside), lineIndex(line)
+        {
+        }
 
-        [[nodiscard]] i32 InsertionIndex() const { return isTrailingHit ? characterIndex + 1 : characterIndex; }
+        [[nodiscard]] i32 InsertionIndex() const
+        {
+            return isTrailingHit ? characterIndex + 1 : characterIndex;
+        }
     };
 
     // Options for loading a font.
     struct FontLoadOptions
     {
         f32 pixelHeight = 32.0f;
-        i32 firstCodepoint = 32;     // space
-        i32 lastCodepoint = 126;     // tilde
+        i32 firstCodepoint = 32; // space
+        i32 lastCodepoint = 126; // tilde
         u32 atlasWidth = 512;
         u32 atlasHeight = 512;
         u8 oversampleX = 2;
@@ -187,26 +205,56 @@ export namespace draconic::fonts
         [[nodiscard]] static FontLoadOptions Default() { return FontLoadOptions{}; }
         [[nodiscard]] static FontLoadOptions ExtendedLatin()
         {
-            FontLoadOptions o; o.lastCodepoint = 255; o.atlasWidth = 1024; o.atlasHeight = 1024; return o;
+            FontLoadOptions o;
+            o.lastCodepoint = 255;
+            o.atlasWidth = 1024;
+            o.atlasHeight = 1024;
+            return o;
         }
         [[nodiscard]] static FontLoadOptions Small()
         {
-            FontLoadOptions o; o.pixelHeight = 16.0f; o.atlasWidth = 256; o.atlasHeight = 256; return o;
+            FontLoadOptions o;
+            o.pixelHeight = 16.0f;
+            o.atlasWidth = 256;
+            o.atlasHeight = 256;
+            return o;
         }
         [[nodiscard]] static FontLoadOptions Large()
         {
-            FontLoadOptions o; o.pixelHeight = 64.0f; o.atlasWidth = 1024; o.atlasHeight = 1024; return o;
+            FontLoadOptions o;
+            o.pixelHeight = 64.0f;
+            o.atlasWidth = 1024;
+            o.atlasHeight = 1024;
+            return o;
         }
     };
 
     enum class FontLoadResult
     {
-        Success, FileNotFound, InvalidFormat, UnsupportedFormat,
-        CorruptedData, OutOfMemory, NoGlyphsFound, AtlasPackingFailed, Unknown,
+        Success,
+        FileNotFound,
+        InvalidFormat,
+        UnsupportedFormat,
+        CorruptedData,
+        OutOfMemory,
+        NoGlyphsFound,
+        AtlasPackingFailed,
+        Unknown,
     };
 
-    enum class TextAlignment { Left, Center, Right };
-    enum class VerticalAlignment { Top, Middle, Bottom, Baseline };
+    enum class TextAlignment
+    {
+        Left,
+        Center,
+        Right
+    };
+    enum class VerticalAlignment
+    {
+        Top,
+        Middle,
+        Bottom,
+        Baseline
+    };
 
     // Key for font cache lookups (family/path + pixel height).
     struct FontCacheKey
@@ -223,8 +271,14 @@ export namespace draconic::fonts
         }
     };
 
-    [[nodiscard]] inline bool operator==(const FontCacheKey& a, const FontCacheKey& b) { return a.Equals(b); }
-    [[nodiscard]] inline bool operator!=(const FontCacheKey& a, const FontCacheKey& b) { return !a.Equals(b); }
+    [[nodiscard]] inline bool operator==(const FontCacheKey& a, const FontCacheKey& b)
+    {
+        return a.Equals(b);
+    }
+    [[nodiscard]] inline bool operator!=(const FontCacheKey& a, const FontCacheKey& b)
+    {
+        return !a.Equals(b);
+    }
 }
 
 export namespace draconic::core

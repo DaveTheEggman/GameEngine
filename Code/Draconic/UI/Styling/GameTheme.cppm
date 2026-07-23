@@ -27,7 +27,7 @@ export namespace draconic::ui
             ThemePalette p = ThemePalette::Dark();
             // Cooler, higher-contrast accent than the editor's warm orange: game UI sits
             // over arbitrary scene footage, not a neutral dock.
-            p.PrimaryAccent = Color{ 64.0f / 255.0f, 200.0f / 255.0f, 190.0f / 255.0f, 1.0f };
+            p.PrimaryAccent = Color{64.0f / 255.0f, 200.0f / 255.0f, 190.0f / 255.0f, 1.0f};
             return p;
         }
         [[nodiscard]] static RefPtr<StyleSheet> Create() { return DarkTheme::Create(Palette()); }
@@ -42,7 +42,7 @@ export namespace draconic::ui
         [[nodiscard]] static ThemePalette Palette() noexcept
         {
             ThemePalette p = ThemePalette::Light();
-            p.PrimaryAccent = Color{ 22.0f / 255.0f, 142.0f / 255.0f, 134.0f / 255.0f, 1.0f };
+            p.PrimaryAccent = Color{22.0f / 255.0f, 142.0f / 255.0f, 134.0f / 255.0f, 1.0f};
             return p;
         }
         [[nodiscard]] static RefPtr<StyleSheet> Create() { return LightTheme::Create(Palette()); }

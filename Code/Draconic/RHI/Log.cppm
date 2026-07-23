@@ -19,19 +19,26 @@ export namespace draconic::rhi
     inline void LogWrite(bool error, const char* utf8)
     {
         const StringView view(reinterpret_cast<const utf8char*>(utf8));
-        if (error) { ConsoleWriteError(view); }
-        else       { ConsoleWrite(view); }
+        if (error)
+        {
+            ConsoleWriteError(view);
+        }
+        else
+        {
+            ConsoleWrite(view);
+        }
         ConsoleWrite(u8"\n");
     }
 
-    inline void LogError(const char* message)   { LogWrite(true,  message); }
-    inline void LogWarning(const char* message)  { LogWrite(false, message); }
-    inline void LogInfo(const char* message)     { LogWrite(false, message); }
+    inline void LogError(const char* message) { LogWrite(true, message); }
+    inline void LogWarning(const char* message) { LogWrite(false, message); }
+    inline void LogInfo(const char* message) { LogWrite(false, message); }
 
     inline void LogErrorf(const char* fmt, ...)
     {
         char buf[1024];
-        va_list ap; va_start(ap, fmt);
+        va_list ap;
+        va_start(ap, fmt);
         std::vsnprintf(buf, sizeof(buf), fmt, ap);
         va_end(ap);
         LogWrite(true, buf);
@@ -40,7 +47,8 @@ export namespace draconic::rhi
     inline void LogWarningf(const char* fmt, ...)
     {
         char buf[1024];
-        va_list ap; va_start(ap, fmt);
+        va_list ap;
+        va_start(ap, fmt);
         std::vsnprintf(buf, sizeof(buf), fmt, ap);
         va_end(ap);
         LogWrite(false, buf);
@@ -49,7 +57,8 @@ export namespace draconic::rhi
     inline void LogInfof(const char* fmt, ...)
     {
         char buf[1024];
-        va_list ap; va_start(ap, fmt);
+        va_list ap;
+        va_start(ap, fmt);
         std::vsnprintf(buf, sizeof(buf), fmt, ap);
         va_end(ap);
         LogWrite(false, buf);

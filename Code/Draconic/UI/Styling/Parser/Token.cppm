@@ -8,7 +8,7 @@ module;
 
 export module draconic.ui:sss_token;
 
-import draconic.core;   // StringView
+import draconic.core; // StringView
 
 using namespace draconic::core;
 
@@ -53,6 +53,8 @@ export namespace draconic::ui
 
         Token() = default;
         Token(TokenKind kind, StringView text, i32 line, i32 col)
-            : Kind(kind), Text(text), Line(line), Column(col) {}
+            : Kind(kind), Text(text), Line(line), Column(col)
+        {
+        }
     };
 }

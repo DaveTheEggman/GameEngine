@@ -19,11 +19,11 @@ TEST_CASE("shell.null: a headless shell reports a window and run state")
     REQUIRE(shell.MainWindow() != nullptr);
     CHECK(shell.MainWindow()->Width() == 800u);
     CHECK(shell.MainWindow()->Height() == 600u);
-    CHECK(shell.MainWindow()->Native().system == WindowSystem::Unknown);  // headless: no handles
+    CHECK(shell.MainWindow()->Native().system == WindowSystem::Unknown); // headless: no handles
     CHECK(shell.MainWindow()->Native().window == nullptr);
     CHECK(shell.IsRunning());
 
-    shell.ProcessEvents();  // no-op, must not change run state
+    shell.ProcessEvents(); // no-op, must not change run state
     CHECK(shell.IsRunning());
 
     shell.RequestExit();
@@ -50,17 +50,19 @@ TEST_CASE("shell.null: window manager creates, lists, and looks up windows")
     IWindow* main = wm->MainWindow();
     REQUIRE(main != nullptr);
     CHECK(wm->Windows()[0] == main);
-    CHECK(main->Id() != 0u);                       // 0 is never a valid id
+    CHECK(main->Id() != 0u); // 0 is never a valid id
     CHECK(wm->GetWindow(main->Id()) == main);
     CHECK(wm->GetWindow(99999u) == nullptr);
 
     // Open a second window; ids are distinct, main is unchanged.
-    WindowSettings s; s.width = 320; s.height = 240;
+    WindowSettings s;
+    s.width = 320;
+    s.height = 240;
     Result<IWindow*> second = wm->CreateWindow(s);
     REQUIRE(second.HasValue());
     CHECK(second.Value()->Id() != main->Id());
     CHECK(wm->Windows().Size() == 2u);
-    CHECK(wm->MainWindow() == main);               // still the first
+    CHECK(wm->MainWindow() == main); // still the first
     CHECK(second.Value()->Width() == 320u);
 }
 
@@ -81,7 +83,7 @@ TEST_CASE("shell.null: DestroyWindow defers until FlushDestroyed")
     wm->FlushDestroyed();
     CHECK(wm->Windows().Size() == 1u);
     CHECK(wm->GetWindow(secondId) == nullptr);
-    CHECK(wm->MainWindow() != nullptr);            // main survived
+    CHECK(wm->MainWindow() != nullptr); // main survived
 }
 
 TEST_CASE("shell.null: window events queue is empty (no OS source)")
@@ -122,7 +124,7 @@ TEST_CASE("shell.null: input is present and reports no activity")
     CHECK(input->GamepadCount() == 0);
     CHECK(input->GetGamepad(0) == nullptr);
 
-    input->Update();  // must be a harmless no-op
+    input->Update(); // must be a harmless no-op
 }
 
 TEST_CASE("shell.null: destroying the main window does not promote another window")
@@ -138,11 +140,11 @@ TEST_CASE("shell.null: destroying the main window does not promote another windo
     REQUIRE(second.HasValue());
     IWindow* secondary = second.Value();
     REQUIRE(secondary != main);
-    REQUIRE(wm->MainWindow() == main);   // still the first window, not the newest
+    REQUIRE(wm->MainWindow() == main); // still the first window, not the newest
 
     // Close and destroy the main window while the secondary stays open.
     main->Close();
-    CHECK_FALSE(shell.IsRunning());      // main window closed -> shell stops
+    CHECK_FALSE(shell.IsRunning()); // main window closed -> shell stops
     wm->DestroyWindow(main);
     wm->FlushDestroyed();
 
@@ -176,9 +178,9 @@ TEST_CASE("shell.null: DestroyWindow ignores windows it does not own")
     wmA->DestroyWindow(nullptr);
     wmA->FlushDestroyed();
 
-    CHECK(bMain->IsOpen());                  // foreign window not closed
-    CHECK(wmB->MainWindow() == bMain);       // B unaffected
-    CHECK(wmA->MainWindow() == aMain);       // A's same-id window survived
+    CHECK(bMain->IsOpen());            // foreign window not closed
+    CHECK(wmB->MainWindow() == bMain); // B unaffected
+    CHECK(wmA->MainWindow() == aMain); // A's same-id window survived
     CHECK(wmA->Windows().Size() == 1u);
     CHECK(a.IsRunning());
     CHECK(b.IsRunning());
@@ -187,8 +189,11 @@ TEST_CASE("shell.null: DestroyWindow ignores windows it does not own")
 TEST_CASE("shell.null: window geometry + content scale round-trip")
 {
     WindowSettings settings;
-    settings.width = 400; settings.height = 300;
-    settings.positioned = true; settings.x = 120; settings.y = 80;
+    settings.width = 400;
+    settings.height = 300;
+    settings.positioned = true;
+    settings.x = 120;
+    settings.y = 80;
 
     NullShell shell(settings);
     IWindow* w = shell.MainWindow();
@@ -197,7 +202,7 @@ TEST_CASE("shell.null: window geometry + content scale round-trip")
     // Initial position comes from the settings (headless records it verbatim).
     CHECK(w->X() == 120);
     CHECK(w->Y() == 80);
-    CHECK(w->ContentScale() == doctest::Approx(1.0f));  // headless default
+    CHECK(w->ContentScale() == doctest::Approx(1.0f)); // headless default
 
     // Atomic move / resize round-trip (per-axis setters intentionally do not exist).
     w->SetPosition(-5, 42);
@@ -210,7 +215,7 @@ TEST_CASE("shell.null: window geometry + content scale round-trip")
 
 TEST_CASE("shell.null: an unpositioned window defaults to the origin")
 {
-    NullShell shell(WindowSettings{});  // positioned = false
+    NullShell shell(WindowSettings{}); // positioned = false
     IWindow* w = shell.MainWindow();
     REQUIRE(w != nullptr);
     CHECK(w->X() == 0);
@@ -236,9 +241,13 @@ TEST_CASE("shell.null: dialog service cancels immediately (empty result, one cal
     // can drive the dialog path uniformly on a headless backend.
     int calls = 0;
     usize lastCount = 999;
-    auto cb = [&](Span<const String> paths) { ++calls; lastCount = paths.Size(); };
+    auto cb = [&](Span<const String> paths)
+    {
+        ++calls;
+        lastCount = paths.Size();
+    };
 
-    const FileFilter filters[] = { { u8"Images", u8"png;jpg" }, { u8"All", u8"*" } };
+    const FileFilter filters[] = {{u8"Images", u8"png;jpg"}, {u8"All", u8"*"}};
 
     dialogs->ShowOpenFile(cb, Span<const FileFilter>(filters, 2), u8"/tmp", true, 0);
     CHECK(calls == 1);
@@ -252,6 +261,6 @@ TEST_CASE("shell.null: dialog service cancels immediately (empty result, one cal
     CHECK(calls == 3);
     CHECK(lastCount == 0u);
 
-    dialogs->OpenPath(u8"/tmp");   // headless no-op: callable, no callback, must not crash
+    dialogs->OpenPath(u8"/tmp"); // headless no-op: callable, no callback, must not crash
     CHECK(calls == 3);
 }

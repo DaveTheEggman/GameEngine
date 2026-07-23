@@ -10,7 +10,11 @@ namespace core = draconic::core;
 
 namespace
 {
-    template <typename T> core::RefPtr<T> Make() { return core::MakeRef<T>(core::DefaultAllocator()); }
+    template <typename T>
+    core::RefPtr<T> Make()
+    {
+        return core::MakeRef<T>(core::DefaultAllocator());
+    }
     core::StringView SV(const char8_t* s) { return core::StringView(s); }
 
     // A 2-column model (Name, Age) with `count` rows.
@@ -32,9 +36,9 @@ namespace
     core::RefPtr<TableView> MountTable(core::RefPtr<SceneNode>& root, IModel* model)
     {
         root = Make<SceneNode>();
-        root->SetSize(core::Float2{ 400.0f, 400.0f });
+        root->SetSize(core::Float2{400.0f, 400.0f});
         auto table = Make<TableView>();
-        table->SetSize(core::Float2{ 300.0f, 200.0f });
+        table->SetSize(core::Float2{300.0f, 200.0f});
         table->SetRowHeight(24.0f);
         table->SetHeaderHeight(26.0f);
         root->AddChild(table.Get());
@@ -82,8 +86,8 @@ TEST_CASE("table-view: clicking a row selects it")
     table->SetOnSelectionChanged([&](ModelIndex i) { selected = i.Row; });
 
     // Row 1 spans y in [26 + 24, 26 + 48) = [50, 74); cells are hit-transparent -> row gets it.
-    d->InjectMouseDown(core::Float2{ 60.0f, 60.0f }, MouseButton::Left);
-    d->InjectMouseUp(core::Float2{ 60.0f, 60.0f }, MouseButton::Left);
+    d->InjectMouseDown(core::Float2{60.0f, 60.0f}, MouseButton::Left);
+    d->InjectMouseUp(core::Float2{60.0f, 60.0f}, MouseButton::Left);
     CHECK(table->GetSelectedRow() == 1);
     CHECK(selected == 1);
 }
@@ -114,11 +118,12 @@ TEST_CASE("table-view: clicking a column header reports its index")
     EventDispatcher* d = root->GetEventDispatcher();
 
     int clickedColumn = -1;
-    table->SetOnColumnHeaderClicked([&](core::usize col) { clickedColumn = static_cast<int>(col); });
+    table->SetOnColumnHeaderClicked([&](core::usize col)
+                                    { clickedColumn = static_cast<int>(col); });
 
     // Header spans y in [0, 26). Two columns of 150 -> column 1 header at x in [150, 300).
-    d->InjectMouseDown(core::Float2{ 200.0f, 13.0f }, MouseButton::Left);
-    d->InjectMouseUp(core::Float2{ 200.0f, 13.0f }, MouseButton::Left);
+    d->InjectMouseDown(core::Float2{200.0f, 13.0f}, MouseButton::Left);
+    d->InjectMouseUp(core::Float2{200.0f, 13.0f}, MouseButton::Left);
     CHECK(clickedColumn == 1);
 }
 

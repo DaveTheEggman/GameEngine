@@ -13,8 +13,9 @@ namespace core = draconic::core;
 TEST_CASE("toolkit-floateditor: RoundTripAndFieldChange")
 {
     f64 observed = 0.0;
-    auto ed = core::MakeRef<FloatEditor>(core::DefaultAllocator(), StringView(u8"Scale"), 1.0, 0.0, 10.0,
-        0.1, 3, Function<void(f64)>{ [&observed](f64 v) { observed = v; } });
+    auto ed = core::MakeRef<FloatEditor>(core::DefaultAllocator(), StringView(u8"Scale"), 1.0, 0.0,
+                                         10.0, 0.1, 3,
+                                         Function<void(f64)>{[&observed](f64 v) { observed = v; }});
 
     CHECK(ed->Value() == doctest::Approx(1.0));
 

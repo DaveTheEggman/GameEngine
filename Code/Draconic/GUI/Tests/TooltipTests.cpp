@@ -10,15 +10,19 @@ namespace core = draconic::core;
 
 namespace
 {
-    template <typename T> core::RefPtr<T> Make() { return core::MakeRef<T>(core::DefaultAllocator()); }
+    template <typename T>
+    core::RefPtr<T> Make()
+    {
+        return core::MakeRef<T>(core::DefaultAllocator());
+    }
 }
 
 TEST_CASE("tooltip: appears after the delay while hovering a widget with tooltip text")
 {
     auto root = Make<SceneNode>();
-    root->SetSize(core::Float2{ 300.0f, 300.0f });
+    root->SetSize(core::Float2{300.0f, 300.0f});
     auto w = Make<UIWidget>();
-    w->SetSize(core::Float2{ 80.0f, 30.0f });
+    w->SetSize(core::Float2{80.0f, 30.0f});
     w->SetTooltip(core::StringView(u8"Click me"));
     root->AddChild(w.Get());
     EventDispatcher* d = root->GetEventDispatcher();
@@ -26,7 +30,7 @@ TEST_CASE("tooltip: appears after the delay while hovering a widget with tooltip
     TooltipManager tips;
     tips.SetDelay(0.5);
 
-    d->InjectMouseMove(core::Float2{ 40.0f, 15.0f }); // hover the widget
+    d->InjectMouseMove(core::Float2{40.0f, 15.0f}); // hover the widget
     CHECK(d->GetOverNode() == w.Get());
 
     tips.Update(*d, *root.Get(), 0.3); // below the delay
@@ -42,29 +46,29 @@ TEST_CASE("tooltip: appears after the delay while hovering a widget with tooltip
 TEST_CASE("tooltip: hidden until the delay, and no tooltip for widgets without text")
 {
     auto root = Make<SceneNode>();
-    root->SetSize(core::Float2{ 300.0f, 300.0f });
+    root->SetSize(core::Float2{300.0f, 300.0f});
     auto plain = Make<UIWidget>(); // no tooltip text
-    plain->SetSize(core::Float2{ 80.0f, 30.0f });
+    plain->SetSize(core::Float2{80.0f, 30.0f});
     root->AddChild(plain.Get());
     EventDispatcher* d = root->GetEventDispatcher();
 
     TooltipManager tips;
     tips.SetDelay(0.2);
-    d->InjectMouseMove(core::Float2{ 40.0f, 15.0f });
+    d->InjectMouseMove(core::Float2{40.0f, 15.0f});
     tips.Update(*d, *root.Get(), 1.0); // long past any delay
-    CHECK_FALSE(tips.IsShown()); // no text -> never shows
+    CHECK_FALSE(tips.IsShown());       // no text -> never shows
 }
 
 TEST_CASE("tooltip: changing the hovered node hides and resets the timer")
 {
     auto root = Make<SceneNode>();
-    root->SetSize(core::Float2{ 300.0f, 300.0f });
+    root->SetSize(core::Float2{300.0f, 300.0f});
     auto a = Make<UIWidget>();
-    a->SetSize(core::Float2{ 80.0f, 30.0f });
+    a->SetSize(core::Float2{80.0f, 30.0f});
     a->SetTooltip(core::StringView(u8"A"));
     auto b = Make<UIWidget>();
-    b->SetSize(core::Float2{ 80.0f, 30.0f });
-    b->SetPosition(core::Float2{ 0.0f, 100.0f }); // no tooltip
+    b->SetSize(core::Float2{80.0f, 30.0f});
+    b->SetPosition(core::Float2{0.0f, 100.0f}); // no tooltip
     root->AddChild(a.Get());
     root->AddChild(b.Get());
     EventDispatcher* d = root->GetEventDispatcher();
@@ -72,11 +76,11 @@ TEST_CASE("tooltip: changing the hovered node hides and resets the timer")
     TooltipManager tips;
     tips.SetDelay(0.3);
 
-    d->InjectMouseMove(core::Float2{ 40.0f, 15.0f });   // hover a
+    d->InjectMouseMove(core::Float2{40.0f, 15.0f}); // hover a
     tips.Update(*d, *root.Get(), 0.4);
     CHECK(tips.IsShown());
 
-    d->InjectMouseMove(core::Float2{ 40.0f, 115.0f });  // move to b (no tooltip)
+    d->InjectMouseMove(core::Float2{40.0f, 115.0f}); // move to b (no tooltip)
     tips.Update(*d, *root.Get(), 0.01);
     CHECK_FALSE(tips.IsShown());
     CHECK(tips.GetTooltip()->GetParent() == nullptr);

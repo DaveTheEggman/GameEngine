@@ -14,7 +14,7 @@ module;
 
 export module draconic.ui:style_rule;
 
-import draconic.core;   // Object, Array, Optional, RefPtr, Color, StringView
+import draconic.core; // Object, Array, Optional, RefPtr, Color, StringView
 import :thickness;
 import :drawable;
 import :style_property;
@@ -31,25 +31,57 @@ export namespace draconic::ui
     {
         DRACONIC_OBJECT(StyleRule, Object)
     public:
-        struct Entry { StyleProperty Prop; StyleValue Value; };
+        struct Entry
+        {
+            StyleProperty Prop;
+            StyleValue Value;
+        };
 
         StyleSelector Selector;
 
         StyleRule() = default;
 
-        StyleRule& Set(StyleProperty prop, core::Color color) { SetOverwrite(prop, StyleValue::ColorVal(color)); return *this; }
-        StyleRule& Set(StyleProperty prop, f32 value) { SetOverwrite(prop, StyleValue::FloatVal(value)); return *this; }
-        StyleRule& Set(StyleProperty prop, Thickness value) { SetOverwrite(prop, StyleValue::ThicknessVal(value)); return *this; }
-        StyleRule& Set(StyleProperty prop, RefPtr<Drawable> drawable) { SetOverwrite(prop, StyleValue::DrawableRef(Move(drawable))); return *this; }
-        StyleRule& Set(StyleProperty prop, bool value) { SetOverwrite(prop, StyleValue::BoolVal(value)); return *this; }
-        StyleRule& Set(StyleProperty prop, StringView value) { SetOverwrite(prop, StyleValue::StringRef(value)); return *this; }
+        StyleRule& Set(StyleProperty prop, core::Color color)
+        {
+            SetOverwrite(prop, StyleValue::ColorVal(color));
+            return *this;
+        }
+        StyleRule& Set(StyleProperty prop, f32 value)
+        {
+            SetOverwrite(prop, StyleValue::FloatVal(value));
+            return *this;
+        }
+        StyleRule& Set(StyleProperty prop, Thickness value)
+        {
+            SetOverwrite(prop, StyleValue::ThicknessVal(value));
+            return *this;
+        }
+        StyleRule& Set(StyleProperty prop, RefPtr<Drawable> drawable)
+        {
+            SetOverwrite(prop, StyleValue::DrawableRef(Move(drawable)));
+            return *this;
+        }
+        StyleRule& Set(StyleProperty prop, bool value)
+        {
+            SetOverwrite(prop, StyleValue::BoolVal(value));
+            return *this;
+        }
+        StyleRule& Set(StyleProperty prop, StringView value)
+        {
+            SetOverwrite(prop, StyleValue::StringRef(value));
+            return *this;
+        }
 
         /// Remove a property (releases any owned resource). No-op if not set.
         bool Remove(StyleProperty prop)
         {
             for (usize i = 0; i < m_properties.Size(); ++i)
             {
-                if (m_properties[i].Prop == prop) { m_properties.RemoveAt(i); return true; }
+                if (m_properties[i].Prop == prop)
+                {
+                    m_properties.RemoveAt(i);
+                    return true;
+                }
             }
             return false;
         }
@@ -60,7 +92,13 @@ export namespace draconic::ui
         /// Try to find a specific property in this rule.
         [[nodiscard]] Optional<StyleValue> GetValue(StyleProperty prop) const
         {
-            for (const Entry& e : m_properties) { if (e.Prop == prop) { return e.Value; } }
+            for (const Entry& e : m_properties)
+            {
+                if (e.Prop == prop)
+                {
+                    return e.Value;
+                }
+            }
             return {};
         }
 
@@ -69,9 +107,13 @@ export namespace draconic::ui
         {
             for (Entry& e : m_properties)
             {
-                if (e.Prop == prop) { e.Value = Move(value); return; }
+                if (e.Prop == prop)
+                {
+                    e.Value = Move(value);
+                    return;
+                }
             }
-            m_properties.PushBack(Entry{ prop, Move(value) });
+            m_properties.PushBack(Entry{prop, Move(value)});
         }
 
         Array<Entry> m_properties;

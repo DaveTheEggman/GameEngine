@@ -13,8 +13,8 @@ module;
 
 export module draconic.gui:table_view;
 
-import draconic.core;   // RefPtr, MakeRef, Array, Function, Move, Max, Float2
-import draconic.fonts;  // CachedFont
+import draconic.core;  // RefPtr, MakeRef, Array, Function, Move, Max, Float2
+import draconic.fonts; // CachedFont
 import :rect;
 import :event;
 import :label;
@@ -39,12 +39,21 @@ export namespace draconic::gui
         {
             SetTag(core::StringView(u8"tableheadercell"));
             SetTextAlignment(TextHAlign::Left, TextVAlign::Middle);
-            SetPadding(Thickness{ 8.0f, 0.0f, 8.0f, 0.0f });
+            SetPadding(Thickness{8.0f, 0.0f, 8.0f, 0.0f});
         }
         void SetColumn(usize column) noexcept { m_column = column; }
-        void SetOnClicked(core::Function<void(usize)> callback) { m_onClicked = core::Move(callback); }
+        void SetOnClicked(core::Function<void(usize)> callback)
+        {
+            m_onClicked = core::Move(callback);
+        }
+
     protected:
-        void OnMouseClick(const MouseEvent&) override { if (m_onClicked) m_onClicked(m_column); }
+        void OnMouseClick(const MouseEvent&) override
+        {
+            if (m_onClicked)
+                m_onClicked(m_column);
+        }
+
     private:
         usize m_column = 0;
         core::Function<void(usize)> m_onClicked;
@@ -58,15 +67,19 @@ export namespace draconic::gui
         TableRow() { SetTag(core::StringView(u8"tablerow")); }
 
         [[nodiscard]] usize CellCount() const noexcept { return m_cells.Size(); }
-        [[nodiscard]] Label* CellAt(usize i) const { return i < m_cells.Size() ? m_cells[i].Get() : nullptr; }
+        [[nodiscard]] Label* CellAt(usize i) const
+        {
+            return i < m_cells.Size() ? m_cells[i].Get() : nullptr;
+        }
         void EnsureCells(usize count, fonts::CachedFont* font, Color textColor)
         {
             while (m_cells.Size() < count)
             {
                 auto cell = core::MakeRef<Label>(core::DefaultAllocator());
-                cell->SetTag(core::StringView(u8"tablecell")); // container-owned, not a generic label
+                cell->SetTag(
+                    core::StringView(u8"tablecell")); // container-owned, not a generic label
                 cell->SetTextAlignment(TextHAlign::Left, TextVAlign::Middle);
-                cell->SetPadding(Thickness{ 8.0f, 0.0f, 8.0f, 0.0f });
+                cell->SetPadding(Thickness{8.0f, 0.0f, 8.0f, 0.0f});
                 cell->SetFont(font);
                 cell->SetTextColor(textColor);
                 cell->SetHitTestVisible(false); // clicks fall through to the row
@@ -88,25 +101,33 @@ export namespace draconic::gui
             SetTag(core::StringView(u8"tableview"));
             m_header = core::MakeRef<UIWidget>(core::DefaultAllocator());
             m_header->SetTag(core::StringView(u8"tableheader"));
-            m_header->SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), m_headerColor));
+            m_header->SetBackground(
+                core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), m_headerColor));
             AddChild(m_header.Get());
         }
 
         void SetFont(fonts::CachedFont* font)
         {
             m_font = font;
-            for (const RefPtr<TableHeaderCell>& h : m_headerCells) h->SetFont(font);
+            for (const RefPtr<TableHeaderCell>& h : m_headerCells)
+                h->SetFont(font);
             for (const RefPtr<ItemRow>& r : RowPool())
             {
                 TableRow* row = static_cast<TableRow*>(r.Get());
-                for (usize c = 0; c < row->CellCount(); ++c) row->CellAt(c)->SetFont(font);
+                for (usize c = 0; c < row->CellCount(); ++c)
+                    row->CellAt(c)->SetFont(font);
             }
             RequestRelayout();
         }
-        void SetHeaderHeight(f32 height) { m_headerHeight = core::Max(0.0f, height); RequestRelayout(); }
+        void SetHeaderHeight(f32 height)
+        {
+            m_headerHeight = core::Max(0.0f, height);
+            RequestRelayout();
+        }
         void SetColumnWidth(usize column, f32 width)
         {
-            while (m_columnWidths.Size() <= column) m_columnWidths.PushBack(0.0f);
+            while (m_columnWidths.Size() <= column)
+                m_columnWidths.PushBack(0.0f);
             m_columnWidths[column] = width;
             RequestRelayout();
         }
@@ -117,13 +138,17 @@ export namespace draconic::gui
             for (const RefPtr<ItemRow>& r : RowPool())
             {
                 TableRow* row = static_cast<TableRow*>(r.Get());
-                for (usize c = 0; c < row->CellCount(); ++c) row->CellAt(c)->SetTextColor(color);
+                for (usize c = 0; c < row->CellCount(); ++c)
+                    row->CellAt(c)->SetTextColor(color);
             }
         }
         void SetThemeFont(fonts::CachedFont* font) override { SetFont(font); }
 
         // Header clicks (a column index) - a SortingProxyModel wires this to sort.
-        void SetOnColumnHeaderClicked(core::Function<void(usize)> callback) { m_onHeaderClicked = core::Move(callback); }
+        void SetOnColumnHeaderClicked(core::Function<void(usize)> callback)
+        {
+            m_onHeaderClicked = core::Move(callback);
+        }
 
         // Back-compat row-oriented aliases.
         [[nodiscard]] i32 GetSelectedRow() const noexcept { return GetSelectedItem(); }
@@ -133,9 +158,15 @@ export namespace draconic::gui
         [[nodiscard]] f32 ContentTopInset() const override { return m_headerHeight; }
         void OnModelChanged() override { RebuildHeader(); }
 
-        [[nodiscard]] RefPtr<ItemRow> CreateItemRow() override { return core::MakeRef<TableRow>(core::DefaultAllocator()); }
+        [[nodiscard]] RefPtr<ItemRow> CreateItemRow() override
+        {
+            return core::MakeRef<TableRow>(core::DefaultAllocator());
+        }
 
-        void OnBeforeLayout(f32 contentWidth) override { ComputeColumnWidths(contentWidth, m_widths); }
+        void OnBeforeLayout(f32 contentWidth) override
+        {
+            ComputeColumnWidths(contentWidth, m_widths);
+        }
 
         void BindItemRow(ItemRow& row, i32 item, f32 /*rowWidth*/) override
         {
@@ -147,9 +178,12 @@ export namespace draconic::gui
             {
                 const f32 w = c < m_widths.Size() ? m_widths[c] : 0.0f;
                 Label* cell = tableRow.CellAt(c);
-                cell->SetText(GetModel()->Data(MakeModelIndex(item, static_cast<i32>(c))).ToString().AsView());
-                cell->SetPosition(core::Float2{ x, 0.0f });
-                cell->SetSize(core::Float2{ w, GetRowHeight() });
+                cell->SetText(GetModel()
+                                  ->Data(MakeModelIndex(item, static_cast<i32>(c)))
+                                  .ToString()
+                                  .AsView());
+                cell->SetPosition(core::Float2{x, 0.0f});
+                cell->SetSize(core::Float2{w, GetRowHeight()});
                 x += w;
             }
         }
@@ -157,27 +191,32 @@ export namespace draconic::gui
         void OnLayoutDecorations() override
         {
             m_header->SetVisible(m_headerHeight > 0.0f);
-            m_header->SetPosition(core::Float2{ 0.0f, 0.0f });
-            m_header->SetSize(core::Float2{ ContentWidth(), m_headerHeight });
+            m_header->SetPosition(core::Float2{0.0f, 0.0f});
+            m_header->SetSize(core::Float2{ContentWidth(), m_headerHeight});
             f32 x = 0.0f;
             for (usize c = 0; c < m_headerCells.Size(); ++c)
             {
                 const f32 w = c < m_widths.Size() ? m_widths[c] : 0.0f;
-                m_headerCells[c]->SetPosition(core::Float2{ x, 0.0f });
-                m_headerCells[c]->SetSize(core::Float2{ w, m_headerHeight });
+                m_headerCells[c]->SetPosition(core::Float2{x, 0.0f});
+                m_headerCells[c]->SetSize(core::Float2{w, m_headerHeight});
                 x += w;
             }
             m_header->ToFront(); // over rows scrolled up under it
         }
 
     private:
-        [[nodiscard]] usize ColumnCountOf() const { return GetModel() != nullptr ? GetModel()->ColumnCount() : 0; }
+        [[nodiscard]] usize ColumnCountOf() const
+        {
+            return GetModel() != nullptr ? GetModel()->ColumnCount() : 0;
+        }
 
         void RebuildHeader()
         {
-            for (const RefPtr<TableHeaderCell>& h : m_headerCells) h->RemoveFromParent();
+            for (const RefPtr<TableHeaderCell>& h : m_headerCells)
+                h->RemoveFromParent();
             m_headerCells.Clear();
-            if (GetModel() == nullptr) return;
+            if (GetModel() == nullptr)
+                return;
             const usize columns = GetModel()->ColumnCount();
             TableView* self = this;
             for (usize c = 0; c < columns; ++c)
@@ -187,7 +226,12 @@ export namespace draconic::gui
                 cell->SetFont(m_font);
                 cell->SetTextColor(m_headerTextColor);
                 cell->SetText(GetModel()->ColumnName(c).AsView());
-                cell->SetOnClicked([self](usize col) { if (self->m_onHeaderClicked) self->m_onHeaderClicked(col); });
+                cell->SetOnClicked(
+                    [self](usize col)
+                    {
+                        if (self->m_onHeaderClicked)
+                            self->m_onHeaderClicked(col);
+                    });
                 m_header->AddChild(cell.Get());
                 m_headerCells.PushBack(core::Move(cell));
             }
@@ -203,9 +247,15 @@ export namespace draconic::gui
             for (usize c = 0; c < columns; ++c)
             {
                 const f32 w = c < m_columnWidths.Size() ? m_columnWidths[c] : 0.0f;
-                if (w > 0.0f) explicitTotal += w; else ++autoCount;
+                if (w > 0.0f)
+                    explicitTotal += w;
+                else
+                    ++autoCount;
             }
-            const f32 autoWidth = autoCount > 0 ? core::Max(0.0f, (bodyWidth - explicitTotal) / static_cast<f32>(autoCount)) : 0.0f;
+            const f32 autoWidth =
+                autoCount > 0
+                    ? core::Max(0.0f, (bodyWidth - explicitTotal) / static_cast<f32>(autoCount))
+                    : 0.0f;
             for (usize c = 0; c < columns; ++c)
             {
                 const f32 w = c < m_columnWidths.Size() ? m_columnWidths[c] : 0.0f;
@@ -220,9 +270,9 @@ export namespace draconic::gui
         fonts::CachedFont* m_font = nullptr;
         core::Function<void(usize)> m_onHeaderClicked;
         f32 m_headerHeight = 26.0f;
-        Color m_headerColor{ 0.20f, 0.22f, 0.27f, 1.0f };
-        Color m_headerTextColor{ 0.86f, 0.89f, 0.94f, 1.0f };
-        Color m_textColor{ 0.86f, 0.89f, 0.94f, 1.0f };
+        Color m_headerColor{0.20f, 0.22f, 0.27f, 1.0f};
+        Color m_headerTextColor{0.86f, 0.89f, 0.94f, 1.0f};
+        Color m_textColor{0.86f, 0.89f, 0.94f, 1.0f};
     };
 
     DRACONIC_DEFINE_OBJECT(TableHeaderCell, "draconic::gui")

@@ -11,7 +11,7 @@ module;
 
 export module draconic.gui:model;
 
-import draconic.core;   // Array, String, usize
+import draconic.core; // Array, String, usize
 import :variant;
 import :model_index;
 
@@ -37,39 +37,62 @@ export namespace draconic::gui
         // ignore the parent (they only have a top level).
         [[nodiscard]] virtual usize RowCount(const ModelIndex& parent = {}) const = 0;
         [[nodiscard]] virtual usize ColumnCount() const = 0;
-        [[nodiscard]] virtual core::String ColumnName(usize /*column*/) const { return core::String{}; }
-        [[nodiscard]] virtual Variant Data(const ModelIndex& index, ModelRole role = ModelRole::Display) const = 0;
+        [[nodiscard]] virtual core::String ColumnName(usize /*column*/) const
+        {
+            return core::String{};
+        }
+        [[nodiscard]] virtual Variant Data(const ModelIndex& index,
+                                           ModelRole role = ModelRole::Display) const = 0;
 
         [[nodiscard]] virtual bool IsEditable(const ModelIndex&) const { return false; }
         virtual void SetData(const ModelIndex&, const Variant&) {}
 
         // === Tree structure (flat defaults; a tree model overrides these) ===
         // The index of the cell at (row, column) under `parent`.
-        [[nodiscard]] virtual ModelIndex Index(i32 row, i32 column = 0, const ModelIndex& /*parent*/ = {}) const { return MakeModelIndex(row, column); }
+        [[nodiscard]] virtual ModelIndex Index(i32 row, i32 column = 0,
+                                               const ModelIndex& /*parent*/ = {}) const
+        {
+            return MakeModelIndex(row, column);
+        }
         // The parent of `child` (invalid = a top-level node; flat models have no parents).
-        [[nodiscard]] virtual ModelIndex ParentIndex(const ModelIndex& /*child*/) const { return ModelIndex{}; }
+        [[nodiscard]] virtual ModelIndex ParentIndex(const ModelIndex& /*child*/) const
+        {
+            return ModelIndex{};
+        }
         // Whether `parent` has any child rows.
-        [[nodiscard]] virtual bool HasChildren(const ModelIndex& parent = {}) const { return RowCount(parent) > 0; }
+        [[nodiscard]] virtual bool HasChildren(const ModelIndex& parent = {}) const
+        {
+            return RowCount(parent) > 0;
+        }
 
         [[nodiscard]] bool IsValidIndex(const ModelIndex& index) const
         {
-            return index.Row >= 0 && static_cast<usize>(index.Row) < RowCount()
-                && index.Column >= 0 && static_cast<usize>(index.Column) < ColumnCount();
+            return index.Row >= 0 && static_cast<usize>(index.Row) < RowCount() &&
+                   index.Column >= 0 && static_cast<usize>(index.Column) < ColumnCount();
         }
 
         // Client (view) registration. Clients are non-owning and must outlive the model or
         // unregister first.
-        void AddClient(IModelClient* client) { if (client != nullptr) m_clients.PushBack(client); }
+        void AddClient(IModelClient* client)
+        {
+            if (client != nullptr)
+                m_clients.PushBack(client);
+        }
         void RemoveClient(IModelClient* client)
         {
             for (usize i = 0; i < m_clients.Size(); ++i)
-                if (m_clients[i] == client) { m_clients.RemoveAt(i); return; }
+                if (m_clients[i] == client)
+                {
+                    m_clients.RemoveAt(i);
+                    return;
+                }
         }
 
         // Notify every attached client that the model changed (call after mutating it).
         void DidUpdate()
         {
-            for (usize i = 0; i < m_clients.Size(); ++i) m_clients[i]->OnModelUpdated();
+            for (usize i = 0; i < m_clients.Size(); ++i)
+                m_clients[i]->OnModelUpdated();
         }
 
     protected:

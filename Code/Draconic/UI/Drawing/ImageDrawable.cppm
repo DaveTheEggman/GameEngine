@@ -10,8 +10,8 @@ module;
 
 export module draconic.ui:image_drawable;
 
-import draconic.core;    // Color, Rectangle, Float2, Optional
-import draconic.image;   // ImageData
+import draconic.core;  // Color, Rectangle, Float2, Optional
+import draconic.image; // ImageData
 import :drawable;
 import :draw_context;
 
@@ -28,20 +28,28 @@ export namespace draconic::ui
         Color Tint = Color::White;
 
         ImageDrawable() = default;
-        explicit ImageDrawable(const image::ImageData* image, Color tint = Color::White) : Image(image), Tint(tint) {}
+        explicit ImageDrawable(const image::ImageData* image, Color tint = Color::White)
+            : Image(image), Tint(tint)
+        {
+        }
 
         void Draw(UIDrawContext& ctx, const Rectangle& bounds) override
         {
             if (Image != nullptr)
             {
                 ctx.VG().DrawImage(Image, bounds,
-                    Rectangle{ 0.0f, 0.0f, static_cast<f32>(Image->Width()), static_cast<f32>(Image->Height()) }, Tint);
+                                   Rectangle{0.0f, 0.0f, static_cast<f32>(Image->Width()),
+                                             static_cast<f32>(Image->Height())},
+                                   Tint);
             }
         }
 
         [[nodiscard]] Optional<Float2> IntrinsicSize() const override
         {
-            if (Image != nullptr) { return Float2{ static_cast<f32>(Image->Width()), static_cast<f32>(Image->Height()) }; }
+            if (Image != nullptr)
+            {
+                return Float2{static_cast<f32>(Image->Width()), static_cast<f32>(Image->Height())};
+            }
             return {};
         }
     };

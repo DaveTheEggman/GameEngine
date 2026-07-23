@@ -23,10 +23,18 @@ export namespace draconic::xml
             const utf8char c = text[i];
             switch (c)
             {
-                case u8'&': output.Append(StringView(u8"&amp;")); break;
-                case u8'<': output.Append(StringView(u8"&lt;")); break;
-                case u8'>': output.Append(StringView(u8"&gt;")); break;
-                default: output.PushBack(c); break;
+            case u8'&':
+                output.Append(StringView(u8"&amp;"));
+                break;
+            case u8'<':
+                output.Append(StringView(u8"&lt;"));
+                break;
+            case u8'>':
+                output.Append(StringView(u8"&gt;"));
+                break;
+            default:
+                output.PushBack(c);
+                break;
             }
         }
     }
@@ -39,15 +47,33 @@ export namespace draconic::xml
             const utf8char c = value[i];
             switch (c)
             {
-                case u8'&':  output.Append(StringView(u8"&amp;")); break;
-                case u8'<':  output.Append(StringView(u8"&lt;")); break;
-                case u8'>':  output.Append(StringView(u8"&gt;")); break;
-                case u8'"':  output.Append(StringView(u8"&quot;")); break;
-                case u8'\'': output.Append(StringView(u8"&apos;")); break;
-                case u8'\r': output.Append(StringView(u8"&#xD;")); break;
-                case u8'\n': output.Append(StringView(u8"&#xA;")); break;
-                case u8'\t': output.Append(StringView(u8"&#x9;")); break;
-                default: output.PushBack(c); break;
+            case u8'&':
+                output.Append(StringView(u8"&amp;"));
+                break;
+            case u8'<':
+                output.Append(StringView(u8"&lt;"));
+                break;
+            case u8'>':
+                output.Append(StringView(u8"&gt;"));
+                break;
+            case u8'"':
+                output.Append(StringView(u8"&quot;"));
+                break;
+            case u8'\'':
+                output.Append(StringView(u8"&apos;"));
+                break;
+            case u8'\r':
+                output.Append(StringView(u8"&#xD;"));
+                break;
+            case u8'\n':
+                output.Append(StringView(u8"&#xA;"));
+                break;
+            case u8'\t':
+                output.Append(StringView(u8"&#x9;"));
+                break;
+            default:
+                output.PushBack(c);
+                break;
             }
         }
     }

@@ -11,7 +11,7 @@ module;
 
 export module draconic.gui:theme;
 
-import draconic.core;   // StringView
+import draconic.core; // StringView
 
 using namespace draconic::core;
 namespace core = draconic::core;

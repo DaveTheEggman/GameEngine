@@ -9,8 +9,8 @@ module;
 
 export module draconic.ui:shortcut_manager;
 
-import draconic.core;   // Array, RefPtr, Function
-import :input_enums;    // KeyCode, KeyModifiers
+import draconic.core; // Array, RefPtr, Function
+import :input_enums;  // KeyCode, KeyModifiers
 import :shortcut;
 
 using namespace draconic::core;
@@ -31,16 +31,19 @@ export namespace draconic::ui
         /// Register a global shortcut (fires regardless of focus). Returns a borrowed pointer.
         Shortcut* AddGlobal(KeyCode key, KeyModifiers modifiers, Function<void()> action)
         {
-            RefPtr<Shortcut> s = MakeRef<Shortcut>(DefaultAllocator(), key, modifiers, Move(action), static_cast<View*>(nullptr));
+            RefPtr<Shortcut> s = MakeRef<Shortcut>(DefaultAllocator(), key, modifiers, Move(action),
+                                                   static_cast<View*>(nullptr));
             Shortcut* ptr = s.Get();
             m_shortcuts.PushBack(Move(s));
             return ptr;
         }
 
         /// Register a scoped shortcut (fires only when `scope` or a descendant has focus).
-        Shortcut* AddScoped(KeyCode key, KeyModifiers modifiers, Function<void()> action, View* scope)
+        Shortcut* AddScoped(KeyCode key, KeyModifiers modifiers, Function<void()> action,
+                            View* scope)
         {
-            RefPtr<Shortcut> s = MakeRef<Shortcut>(DefaultAllocator(), key, modifiers, Move(action), scope);
+            RefPtr<Shortcut> s =
+                MakeRef<Shortcut>(DefaultAllocator(), key, modifiers, Move(action), scope);
             Shortcut* ptr = s.Get();
             m_shortcuts.PushBack(Move(s));
             return ptr;
@@ -51,7 +54,11 @@ export namespace draconic::ui
         {
             for (usize i = 0; i < m_shortcuts.Size(); ++i)
             {
-                if (m_shortcuts[i].Get() == shortcut) { m_shortcuts.RemoveAt(i); return; }
+                if (m_shortcuts[i].Get() == shortcut)
+                {
+                    m_shortcuts.RemoveAt(i);
+                    return;
+                }
             }
         }
 
@@ -60,7 +67,10 @@ export namespace draconic::ui
         {
             for (usize i = m_shortcuts.Size(); i-- > 0;)
             {
-                if (m_shortcuts[i]->Scope == view) { m_shortcuts.RemoveAtSwap(i); }
+                if (m_shortcuts[i]->Scope == view)
+                {
+                    m_shortcuts.RemoveAtSwap(i);
+                }
             }
         }
 

@@ -12,7 +12,11 @@ namespace core = draconic::core;
 
 namespace
 {
-    template <typename T> core::RefPtr<T> Make() { return core::MakeRef<T>(core::DefaultAllocator()); }
+    template <typename T>
+    core::RefPtr<T> Make()
+    {
+        return core::MakeRef<T>(core::DefaultAllocator());
+    }
 
     // A menu bar (2 menus) under a scene root, ready to receive input.
     struct BarFixture
@@ -24,7 +28,7 @@ namespace
 
         BarFixture()
         {
-            root->SetSize(core::Float2{ 600.0f, 400.0f });
+            root->SetSize(core::Float2{600.0f, 400.0f});
             bar->SetBarHeight(28.0f);
             bar->SetItemPadding(12.0f); // each button is 24px wide with no font
             root->AddChild(bar.Get());
@@ -53,8 +57,8 @@ TEST_CASE("menubar: clicking a button opens its menu below the button")
     EventDispatcher* d = fx.d();
 
     // Click "File" (button 0, centered at x=12, y=14).
-    d->InjectMouseDown(core::Float2{ 12.0f, 14.0f }, MouseButton::Left);
-    d->InjectMouseUp(core::Float2{ 12.0f, 14.0f }, MouseButton::Left);
+    d->InjectMouseDown(core::Float2{12.0f, 14.0f}, MouseButton::Left);
+    d->InjectMouseUp(core::Float2{12.0f, 14.0f}, MouseButton::Left);
 
     CHECK(fx.bar->CurrentMenu() == fx.fileMenu);
     CHECK(fx.fileMenu->IsOpen());
@@ -68,14 +72,14 @@ TEST_CASE("menubar: clicking the open button again toggles the menu closed")
     BarFixture fx;
     EventDispatcher* d = fx.d();
 
-    d->InjectMouseDown(core::Float2{ 12.0f, 14.0f }, MouseButton::Left);
-    d->InjectMouseUp(core::Float2{ 12.0f, 14.0f }, MouseButton::Left);
+    d->InjectMouseDown(core::Float2{12.0f, 14.0f}, MouseButton::Left);
+    d->InjectMouseUp(core::Float2{12.0f, 14.0f}, MouseButton::Left);
     REQUIRE(fx.bar->CurrentMenu() == fx.fileMenu);
 
     // A second click on the same button closes it (the button is the popup owner, so the
     // press does not dismiss before the toggle runs).
-    d->InjectMouseDown(core::Float2{ 12.0f, 14.0f }, MouseButton::Left);
-    d->InjectMouseUp(core::Float2{ 12.0f, 14.0f }, MouseButton::Left);
+    d->InjectMouseDown(core::Float2{12.0f, 14.0f}, MouseButton::Left);
+    d->InjectMouseUp(core::Float2{12.0f, 14.0f}, MouseButton::Left);
     CHECK(fx.bar->CurrentMenu() == nullptr);
     CHECK_FALSE(fx.fileMenu->IsOpen());
 }
@@ -85,12 +89,12 @@ TEST_CASE("menubar: with a menu open, hovering another button switches to it")
     BarFixture fx;
     EventDispatcher* d = fx.d();
 
-    d->InjectMouseDown(core::Float2{ 12.0f, 14.0f }, MouseButton::Left); // open File
-    d->InjectMouseUp(core::Float2{ 12.0f, 14.0f }, MouseButton::Left);
+    d->InjectMouseDown(core::Float2{12.0f, 14.0f}, MouseButton::Left); // open File
+    d->InjectMouseUp(core::Float2{12.0f, 14.0f}, MouseButton::Left);
     REQUIRE(fx.bar->CurrentMenu() == fx.fileMenu);
 
     // Hover "Edit" (button 1, centered at x=36) - switches without a click.
-    d->InjectMouseMove(core::Float2{ 36.0f, 14.0f });
+    d->InjectMouseMove(core::Float2{36.0f, 14.0f});
     CHECK(fx.bar->CurrentMenu() == fx.editMenu);
     CHECK(fx.editMenu->IsOpen());
     CHECK_FALSE(fx.fileMenu->IsOpen());
@@ -100,7 +104,7 @@ TEST_CASE("menubar: with a menu open, hovering another button switches to it")
 TEST_CASE("menubar: hovering a button with nothing open does not open a menu")
 {
     BarFixture fx;
-    fx.d()->InjectMouseMove(core::Float2{ 12.0f, 14.0f }); // bare hover over "File"
+    fx.d()->InjectMouseMove(core::Float2{12.0f, 14.0f}); // bare hover over "File"
     CHECK(fx.bar->CurrentMenu() == nullptr);
     CHECK_FALSE(fx.fileMenu->IsOpen());
 }
@@ -110,11 +114,11 @@ TEST_CASE("menubar: an outside click dismisses the open menu and clears the bar 
     BarFixture fx;
     EventDispatcher* d = fx.d();
 
-    d->InjectMouseDown(core::Float2{ 12.0f, 14.0f }, MouseButton::Left);
-    d->InjectMouseUp(core::Float2{ 12.0f, 14.0f }, MouseButton::Left);
+    d->InjectMouseDown(core::Float2{12.0f, 14.0f}, MouseButton::Left);
+    d->InjectMouseUp(core::Float2{12.0f, 14.0f}, MouseButton::Left);
     REQUIRE(fx.fileMenu->IsOpen());
 
-    d->InjectMouseDown(core::Float2{ 300.0f, 300.0f }, MouseButton::Left); // far outside
+    d->InjectMouseDown(core::Float2{300.0f, 300.0f}, MouseButton::Left); // far outside
     CHECK(fx.bar->CurrentMenu() == nullptr);
     CHECK_FALSE(fx.fileMenu->IsOpen());
     CHECK(fx.fileMenu->GetParent() == nullptr);

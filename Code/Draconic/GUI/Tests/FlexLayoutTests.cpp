@@ -10,7 +10,11 @@ namespace core = draconic::core;
 
 namespace
 {
-    template <typename T> core::RefPtr<T> Make() { return core::MakeRef<T>(core::DefaultAllocator()); }
+    template <typename T>
+    core::RefPtr<T> Make()
+    {
+        return core::MakeRef<T>(core::DefaultAllocator());
+    }
 
     core::RefPtr<UIWidget> Child(core::Float2 size)
     {
@@ -20,14 +24,15 @@ namespace
     }
 
     // A flex row of three 40x20 children in a 300x100 box (gap 0 unless set).
-    core::RefPtr<FlexLayout> Row3(core::RefPtr<UIWidget>& a, core::RefPtr<UIWidget>& b, core::RefPtr<UIWidget>& c)
+    core::RefPtr<FlexLayout> Row3(core::RefPtr<UIWidget>& a, core::RefPtr<UIWidget>& b,
+                                  core::RefPtr<UIWidget>& c)
     {
         auto flex = Make<FlexLayout>();
-        flex->SetSize(core::Float2{ 300.0f, 100.0f });
+        flex->SetSize(core::Float2{300.0f, 100.0f});
         flex->SetDirection(FlexDirection::Row);
-        a = Child(core::Float2{ 40.0f, 20.0f });
-        b = Child(core::Float2{ 40.0f, 20.0f });
-        c = Child(core::Float2{ 40.0f, 20.0f });
+        a = Child(core::Float2{40.0f, 20.0f});
+        b = Child(core::Float2{40.0f, 20.0f});
+        c = Child(core::Float2{40.0f, 20.0f});
         flex->AddChild(a.Get());
         flex->AddChild(b.Get());
         flex->AddChild(c.Get());
@@ -107,16 +112,16 @@ TEST_CASE("flex: align-items positions/stretches on the cross axis")
 TEST_CASE("flex: column direction stacks on the y (main) axis")
 {
     auto flex = Make<FlexLayout>();
-    flex->SetSize(core::Float2{ 100.0f, 300.0f });
+    flex->SetSize(core::Float2{100.0f, 300.0f});
     flex->SetDirection(FlexDirection::Column);
     flex->SetGap(5.0f);
-    auto a = Child(core::Float2{ 40.0f, 30.0f });
-    auto b = Child(core::Float2{ 40.0f, 30.0f });
+    auto a = Child(core::Float2{40.0f, 30.0f});
+    auto b = Child(core::Float2{40.0f, 30.0f});
     flex->AddChild(a.Get());
     flex->AddChild(b.Get());
     CHECK(a->GetPosition().y == doctest::Approx(0.0f));
     CHECK(b->GetPosition().y == doctest::Approx(35.0f)); // 30 + 5 gap
-    CHECK(a->GetPosition().x == doctest::Approx(0.0f));   // cross axis start
+    CHECK(a->GetPosition().x == doctest::Approx(0.0f));  // cross axis start
 }
 
 TEST_CASE("flex: markup structural attributes configure the layout")

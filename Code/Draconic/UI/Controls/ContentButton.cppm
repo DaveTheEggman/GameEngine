@@ -34,42 +34,54 @@ export namespace draconic::ui
         explicit ContentButton(RefPtr<View> content) : m_content(Move(content)) {}
 
         [[nodiscard]] View* Content() const noexcept { return m_content.Get(); }
-        void SetContent(RefPtr<View> content) { m_content = Move(content); Invalidate(); }
+        void SetContent(RefPtr<View> content)
+        {
+            m_content = Move(content);
+            Invalidate();
+        }
 
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
-            const Thickness pad = ResolveStyleThickness(StyleProperty::Padding, Thickness{ 12, 8 });
+            const Thickness pad = ResolveStyleThickness(StyleProperty::Padding, Thickness{12, 8});
             const BoxConstraints inner = constraints.Deflate(pad).Loosen();
 
             f32 contentW = 0, contentH = 0;
             if (m_content)
             {
                 // Pass the context down so content can resolve fonts during measure.
-                if (m_content->Context == nullptr && Context != nullptr) { Context->AttachView(m_content.Get()); }
+                if (m_content->Context == nullptr && Context != nullptr)
+                {
+                    Context->AttachView(m_content.Get());
+                }
                 m_content->Measure(inner);
                 contentW = m_content->MeasuredSize.x;
                 contentH = m_content->MeasuredSize.y;
             }
-            MeasuredSize = Float2{ constraints.ConstrainWidth(contentW + pad.TotalHorizontal()),
-                                   constraints.ConstrainHeight(contentH + pad.TotalVertical()) };
+            MeasuredSize = Float2{constraints.ConstrainWidth(contentW + pad.TotalHorizontal()),
+                                  constraints.ConstrainHeight(contentH + pad.TotalVertical())};
         }
 
         void OnLayout(f32 left, f32 top, f32 width, f32 height) override
         {
-            (void)left; (void)top;
-            if (!m_content) { return; }
-            const Thickness pad = ResolveStyleThickness(StyleProperty::Padding, Thickness{ 12, 8 });
+            (void)left;
+            (void)top;
+            if (!m_content)
+            {
+                return;
+            }
+            const Thickness pad = ResolveStyleThickness(StyleProperty::Padding, Thickness{12, 8});
             const f32 contentW = width - pad.TotalHorizontal();
             const f32 contentH = height - pad.TotalVertical();
             const f32 cw = m_content->MeasuredSize.x;
             const f32 ch = m_content->MeasuredSize.y;
-            m_content->Layout(pad.Left + (contentW - cw) * 0.5f, pad.Top + (contentH - ch) * 0.5f, cw, ch);
+            m_content->Layout(pad.Left + (contentW - cw) * 0.5f, pad.Top + (contentH - ch) * 0.5f,
+                              cw, ch);
         }
 
         void OnDraw(UIDrawContext& ctx) override
         {
-            const Rectangle bounds{ 0, 0, Width(), Height() };
+            const Rectangle bounds{0, 0, Width(), Height()};
             DrawButtonBackground(ctx, bounds, GetControlState());
             if (m_content)
             {

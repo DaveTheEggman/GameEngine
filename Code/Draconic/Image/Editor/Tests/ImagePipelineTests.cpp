@@ -40,8 +40,13 @@ TEST_CASE("image.pipeline: ImageAsset -> cook -> ImageResource round-trips")
     {
         Image src(2, 2, PixelFormat::RGBA8);
         Span<u8> px = src.PixelDataMut();
-        for (usize i = 0; i < px.Size(); ++i) { px.Data()[i] = static_cast<u8>(i * 7); }
-        REQUIRE(draconic::image::io::SaveImage(src, u8"draconic_imgpipe_src.png", draconic::image::io::ImageFileFormat::PNG).IsOk());
+        for (usize i = 0; i < px.Size(); ++i)
+        {
+            px.Data()[i] = static_cast<u8>(i * 7);
+        }
+        REQUIRE(draconic::image::io::SaveImage(src, u8"draconic_imgpipe_src.png",
+                                               draconic::image::io::ImageFileFormat::PNG)
+                    .IsOk());
     }
 
     NativeFileSystem outMount(u8"draconic_imgpipe_out_db");
@@ -49,7 +54,8 @@ TEST_CASE("image.pipeline: ImageAsset -> cook -> ImageResource round-trips")
     // --- cook (tooling): ImageAsset -> ImageResource in the output DB ---
     Guid id;
     {
-        draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        draconic::content::ContentDatabase outDb(
+            outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = outDb.RootGroup()->CreateInstance(u8"icon", ImageResource::StaticType());
         id = inst->Id();
 
@@ -66,7 +72,8 @@ TEST_CASE("image.pipeline: ImageAsset -> cook -> ImageResource round-trips")
     }
 
     // --- runtime load (device-free): cooked ImageResource via the manager ---
-    draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
+    draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(),
+                                             u8".rasset");
     ImageFactory factory;
     ResourceManager manager(outDb);
     manager.AddFactory(&factory);
@@ -80,7 +87,14 @@ TEST_CASE("image.pipeline: ImageAsset -> cook -> ImageResource round-trips")
 
     REQUIRE(img->Pixels().Size() == 2u * 2u * 4u);
     bool match = true;
-    for (usize i = 0; i < img->Pixels().Size(); ++i) { if (img->Pixels().Data()[i] != static_cast<u8>(i * 7)) { match = false; break; } }
+    for (usize i = 0; i < img->Pixels().Size(); ++i)
+    {
+        if (img->Pixels().Data()[i] != static_cast<u8>(i * 7))
+        {
+            match = false;
+            break;
+        }
+    }
     CHECK(match);
 
     // The IImageData view points at the resource's pixels.
@@ -97,16 +111,17 @@ TEST_CASE("image.pipeline: builder fails on a missing source file")
     RegisterImageAsset();
     RemoveTree();
     NativeFileSystem outMount(u8"draconic_imgpipe_out_db");
-    draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
+    draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(),
+                                             u8".rasset");
     auto* inst = outDb.RootGroup()->CreateInstance(u8"icon", ImageResource::StaticType());
 
     ImageAsset asset;
     asset.fileName = u8"does_not_exist_xyz.png";
     ImageAssetBuilder builder;
     NativeFileSystem srcMount2(u8".");
-        draconic::editor::AssetBuildContext ctx;
-        ctx.sources = &srcMount2;
-        ctx.output = inst;
+    draconic::editor::AssetBuildContext ctx;
+    ctx.sources = &srcMount2;
+    ctx.output = inst;
     CHECK_FALSE(builder.Build(asset, ctx).IsOk());
 
     RemoveTree();

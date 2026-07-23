@@ -42,7 +42,7 @@ export namespace draconic::xml
         // Read mode: reads from an already-parsed document (caller owns it).
         explicit XmlSerializer(XmlDocument& source) : Serializer(SerializeMode::Read)
         {
-            m_readStack.PushBack(ReadScope{ source.RootElement(), nullptr });
+            m_readStack.PushBack(ReadScope{source.RootElement(), nullptr});
             ResetCursor(m_readStack[0]);
         }
 
@@ -53,7 +53,10 @@ export namespace draconic::xml
             settings.OmitDeclaration = true;
             m_doc.WriteTo(output, settings);
         }
-        void GetOutput(String& output, XmlWriteSettings settings) const { m_doc.WriteTo(output, settings); }
+        void GetOutput(String& output, XmlWriteSettings settings) const
+        {
+            m_doc.WriteTo(output, settings);
+        }
 
         // --- ISerializer ---------------------------------------------------
         void Key(const char* name) noexcept override { m_pendingKey = name; }
@@ -69,7 +72,11 @@ export namespace draconic::xml
             else
             {
                 XmlElement* element = Locate();
-                if (element == nullptr) { Fail(ErrorCode::NotFound); return; }
+                if (element == nullptr)
+                {
+                    Fail(ErrorCode::NotFound);
+                    return;
+                }
                 PushRead(element);
             }
         }
@@ -78,13 +85,21 @@ export namespace draconic::xml
         {
             if (IsWriting())
             {
-                if (m_writeStack.Size() == 0) { Fail(ErrorCode::Internal); return; }
+                if (m_writeStack.Size() == 0)
+                {
+                    Fail(ErrorCode::Internal);
+                    return;
+                }
                 m_writeCurrent = m_writeStack[m_writeStack.Size() - 1];
                 m_writeStack.PopBack();
             }
             else
             {
-                if (m_readStack.Size() <= 1) { Fail(ErrorCode::Internal); return; }
+                if (m_readStack.Size() <= 1)
+                {
+                    Fail(ErrorCode::Internal);
+                    return;
+                }
                 m_readStack.PopBack();
             }
         }
@@ -94,7 +109,8 @@ export namespace draconic::xml
             if (IsWriting())
             {
                 XmlElement* element = MakeElement(u8"array");
-                String countStr; AppendValue(countStr, count);
+                String countStr;
+                AppendValue(countStr, count);
                 element->SetAttribute(u8"count", countStr);
                 m_writeStack.PushBack(m_writeCurrent);
                 m_writeCurrent = element;
@@ -102,9 +118,17 @@ export namespace draconic::xml
             else
             {
                 XmlElement* element = Locate();
-                if (element == nullptr) { count = 0; Fail(ErrorCode::NotFound); return; }
+                if (element == nullptr)
+                {
+                    count = 0;
+                    Fail(ErrorCode::NotFound);
+                    return;
+                }
                 u64 parsed = 0;
-                if (!ParseU64(element->GetAttribute(u8"count"), parsed)) { Fail(ErrorCode::Internal); }
+                if (!ParseU64(element->GetAttribute(u8"count"), parsed))
+                {
+                    Fail(ErrorCode::Internal);
+                }
                 count = static_cast<u32>(parsed);
                 PushRead(element);
             }
@@ -117,15 +141,24 @@ export namespace draconic::xml
             if (IsWriting())
             {
                 XmlElement* element = MakeElement(ScalarTag(kind));
-                String text; WriteScalar(value, kind, text);
+                String text;
+                WriteScalar(value, kind, text);
                 element->SetTextContent(text);
             }
             else
             {
                 XmlElement* element = Locate();
-                if (element == nullptr) { Fail(ErrorCode::NotFound); return; }
-                String text; element->GetTextContent(text);
-                if (!ReadScalar(value, kind, text)) { Fail(ErrorCode::Internal); }
+                if (element == nullptr)
+                {
+                    Fail(ErrorCode::NotFound);
+                    return;
+                }
+                String text;
+                element->GetTextContent(text);
+                if (!ReadScalar(value, kind, text))
+                {
+                    Fail(ErrorCode::Internal);
+                }
             }
         }
 
@@ -139,7 +172,11 @@ export namespace draconic::xml
             else
             {
                 XmlElement* element = Locate();
-                if (element == nullptr) { Fail(ErrorCode::NotFound); return; }
+                if (element == nullptr)
+                {
+                    Fail(ErrorCode::NotFound);
+                    return;
+                }
                 value.Clear();
                 element->GetTextContent(value);
             }
@@ -150,20 +187,33 @@ export namespace draconic::xml
             if (IsWriting())
             {
                 XmlElement* element = MakeElement(u8"blob");
-                String hex; EncodeHex(static_cast<const u8*>(data), size, hex);
+                String hex;
+                EncodeHex(static_cast<const u8*>(data), size, hex);
                 element->SetTextContent(hex);
             }
             else
             {
                 XmlElement* element = Locate();
-                if (element == nullptr) { Fail(ErrorCode::NotFound); return; }
-                String hex; element->GetTextContent(hex);
-                if (!DecodeHex(hex, static_cast<u8*>(data), size)) { Fail(ErrorCode::Internal); }
+                if (element == nullptr)
+                {
+                    Fail(ErrorCode::NotFound);
+                    return;
+                }
+                String hex;
+                element->GetTextContent(hex);
+                if (!DecodeHex(hex, static_cast<u8*>(data), size))
+                {
+                    Fail(ErrorCode::Internal);
+                }
             }
         }
 
     private:
-        struct ReadScope { XmlElement* element; XmlNode* cursor; };
+        struct ReadScope
+        {
+            XmlElement* element;
+            XmlNode* cursor;
+        };
 
         // --- write helpers ---
         XmlElement* MakeElement(StringView tag)
@@ -171,7 +221,8 @@ export namespace draconic::xml
             XmlElement* element = m_doc.CreateElement(tag);
             if (m_pendingKey != nullptr)
             {
-                element->SetAttribute(u8"name", StringView(reinterpret_cast<const utf8char*>(m_pendingKey)));
+                element->SetAttribute(u8"name",
+                                      StringView(reinterpret_cast<const utf8char*>(m_pendingKey)));
                 m_pendingKey = nullptr;
             }
             m_writeCurrent->AppendChild(element);
@@ -185,7 +236,7 @@ export namespace draconic::xml
         }
         void PushRead(XmlElement* element)
         {
-            ReadScope scope{ element, nullptr };
+            ReadScope scope{element, nullptr};
             ResetCursor(scope);
             m_readStack.PushBack(scope);
         }
@@ -195,7 +246,11 @@ export namespace draconic::xml
         XmlElement* Locate()
         {
             ReadScope& scope = m_readStack[m_readStack.Size() - 1];
-            if (scope.element == nullptr) { m_pendingKey = nullptr; return nullptr; }
+            if (scope.element == nullptr)
+            {
+                m_pendingKey = nullptr;
+                return nullptr;
+            }
 
             if (m_pendingKey != nullptr)
             {
@@ -227,7 +282,10 @@ export namespace draconic::xml
             {
                 scope.cursor = scope.cursor->NextSibling();
             }
-            if (scope.cursor == nullptr) { return nullptr; }
+            if (scope.cursor == nullptr)
+            {
+                return nullptr;
+            }
             XmlElement* element = static_cast<XmlElement*>(scope.cursor);
             scope.cursor = scope.cursor->NextSibling();
             return element;
@@ -238,17 +296,28 @@ export namespace draconic::xml
         {
             switch (kind)
             {
-                case ScalarKind::Bool:    return StringView(u8"bool");
-                case ScalarKind::Int8:    return StringView(u8"i8");
-                case ScalarKind::UInt8:   return StringView(u8"u8");
-                case ScalarKind::Int16:   return StringView(u8"i16");
-                case ScalarKind::UInt16:  return StringView(u8"u16");
-                case ScalarKind::Int32:   return StringView(u8"i32");
-                case ScalarKind::UInt32:  return StringView(u8"u32");
-                case ScalarKind::Int64:   return StringView(u8"i64");
-                case ScalarKind::UInt64:  return StringView(u8"u64");
-                case ScalarKind::Float32: return StringView(u8"f32");
-                case ScalarKind::Float64: return StringView(u8"f64");
+            case ScalarKind::Bool:
+                return StringView(u8"bool");
+            case ScalarKind::Int8:
+                return StringView(u8"i8");
+            case ScalarKind::UInt8:
+                return StringView(u8"u8");
+            case ScalarKind::Int16:
+                return StringView(u8"i16");
+            case ScalarKind::UInt16:
+                return StringView(u8"u16");
+            case ScalarKind::Int32:
+                return StringView(u8"i32");
+            case ScalarKind::UInt32:
+                return StringView(u8"u32");
+            case ScalarKind::Int64:
+                return StringView(u8"i64");
+            case ScalarKind::UInt64:
+                return StringView(u8"u64");
+            case ScalarKind::Float32:
+                return StringView(u8"f32");
+            case ScalarKind::Float64:
+                return StringView(u8"f64");
             }
             return StringView(u8"scalar");
         }
@@ -257,17 +326,40 @@ export namespace draconic::xml
         {
             switch (kind)
             {
-                case ScalarKind::Bool:    out.Append(*static_cast<const bool*>(p) ? StringView(u8"true") : StringView(u8"false")); break;
-                case ScalarKind::Int8:    AppendValue(out, static_cast<i64>(*static_cast<const i8*>(p))); break;
-                case ScalarKind::UInt8:   AppendValue(out, static_cast<u64>(*static_cast<const u8*>(p))); break;
-                case ScalarKind::Int16:   AppendValue(out, static_cast<i64>(*static_cast<const i16*>(p))); break;
-                case ScalarKind::UInt16:  AppendValue(out, static_cast<u64>(*static_cast<const u16*>(p))); break;
-                case ScalarKind::Int32:   AppendValue(out, *static_cast<const i32*>(p)); break;
-                case ScalarKind::UInt32:  AppendValue(out, *static_cast<const u32*>(p)); break;
-                case ScalarKind::Int64:   AppendValue(out, *static_cast<const i64*>(p)); break;
-                case ScalarKind::UInt64:  AppendValue(out, *static_cast<const u64*>(p)); break;
-                case ScalarKind::Float32: AppendValue(out, *static_cast<const f32*>(p)); break;
-                case ScalarKind::Float64: AppendValue(out, *static_cast<const f64*>(p)); break;
+            case ScalarKind::Bool:
+                out.Append(*static_cast<const bool*>(p) ? StringView(u8"true")
+                                                        : StringView(u8"false"));
+                break;
+            case ScalarKind::Int8:
+                AppendValue(out, static_cast<i64>(*static_cast<const i8*>(p)));
+                break;
+            case ScalarKind::UInt8:
+                AppendValue(out, static_cast<u64>(*static_cast<const u8*>(p)));
+                break;
+            case ScalarKind::Int16:
+                AppendValue(out, static_cast<i64>(*static_cast<const i16*>(p)));
+                break;
+            case ScalarKind::UInt16:
+                AppendValue(out, static_cast<u64>(*static_cast<const u16*>(p)));
+                break;
+            case ScalarKind::Int32:
+                AppendValue(out, *static_cast<const i32*>(p));
+                break;
+            case ScalarKind::UInt32:
+                AppendValue(out, *static_cast<const u32*>(p));
+                break;
+            case ScalarKind::Int64:
+                AppendValue(out, *static_cast<const i64*>(p));
+                break;
+            case ScalarKind::UInt64:
+                AppendValue(out, *static_cast<const u64*>(p));
+                break;
+            case ScalarKind::Float32:
+                AppendValue(out, *static_cast<const f32*>(p));
+                break;
+            case ScalarKind::Float64:
+                AppendValue(out, *static_cast<const f64*>(p));
+                break;
             }
         }
 
@@ -276,22 +368,96 @@ export namespace draconic::xml
             const char* s = reinterpret_cast<const char*>(text.CStr());
             switch (kind)
             {
-                case ScalarKind::Bool:
+            case ScalarKind::Bool:
+            {
+                if (text == StringView(u8"true") || text == StringView(u8"1"))
                 {
-                    if (text == StringView(u8"true") || text == StringView(u8"1")) { *static_cast<bool*>(p) = true; return true; }
-                    if (text == StringView(u8"false") || text == StringView(u8"0")) { *static_cast<bool*>(p) = false; return true; }
-                    return false;
+                    *static_cast<bool*>(p) = true;
+                    return true;
                 }
-                case ScalarKind::Int8:    { i64 v = 0; if (!ParseI64(s, v)) return false; *static_cast<i8*>(p)  = static_cast<i8>(v);  return true; }
-                case ScalarKind::Int16:   { i64 v = 0; if (!ParseI64(s, v)) return false; *static_cast<i16*>(p) = static_cast<i16>(v); return true; }
-                case ScalarKind::Int32:   { i64 v = 0; if (!ParseI64(s, v)) return false; *static_cast<i32*>(p) = static_cast<i32>(v); return true; }
-                case ScalarKind::Int64:   { i64 v = 0; if (!ParseI64(s, v)) return false; *static_cast<i64*>(p) = v; return true; }
-                case ScalarKind::UInt8:   { u64 v = 0; if (!ParseU64C(s, v)) return false; *static_cast<u8*>(p)  = static_cast<u8>(v);  return true; }
-                case ScalarKind::UInt16:  { u64 v = 0; if (!ParseU64C(s, v)) return false; *static_cast<u16*>(p) = static_cast<u16>(v); return true; }
-                case ScalarKind::UInt32:  { u64 v = 0; if (!ParseU64C(s, v)) return false; *static_cast<u32*>(p) = static_cast<u32>(v); return true; }
-                case ScalarKind::UInt64:  { u64 v = 0; if (!ParseU64C(s, v)) return false; *static_cast<u64*>(p) = v; return true; }
-                case ScalarKind::Float32: { char* end = nullptr; *static_cast<f32*>(p) = std::strtof(s, &end); return end != s; }
-                case ScalarKind::Float64: { char* end = nullptr; *static_cast<f64*>(p) = std::strtod(s, &end); return end != s; }
+                if (text == StringView(u8"false") || text == StringView(u8"0"))
+                {
+                    *static_cast<bool*>(p) = false;
+                    return true;
+                }
+                return false;
+            }
+            case ScalarKind::Int8:
+            {
+                i64 v = 0;
+                if (!ParseI64(s, v))
+                    return false;
+                *static_cast<i8*>(p) = static_cast<i8>(v);
+                return true;
+            }
+            case ScalarKind::Int16:
+            {
+                i64 v = 0;
+                if (!ParseI64(s, v))
+                    return false;
+                *static_cast<i16*>(p) = static_cast<i16>(v);
+                return true;
+            }
+            case ScalarKind::Int32:
+            {
+                i64 v = 0;
+                if (!ParseI64(s, v))
+                    return false;
+                *static_cast<i32*>(p) = static_cast<i32>(v);
+                return true;
+            }
+            case ScalarKind::Int64:
+            {
+                i64 v = 0;
+                if (!ParseI64(s, v))
+                    return false;
+                *static_cast<i64*>(p) = v;
+                return true;
+            }
+            case ScalarKind::UInt8:
+            {
+                u64 v = 0;
+                if (!ParseU64C(s, v))
+                    return false;
+                *static_cast<u8*>(p) = static_cast<u8>(v);
+                return true;
+            }
+            case ScalarKind::UInt16:
+            {
+                u64 v = 0;
+                if (!ParseU64C(s, v))
+                    return false;
+                *static_cast<u16*>(p) = static_cast<u16>(v);
+                return true;
+            }
+            case ScalarKind::UInt32:
+            {
+                u64 v = 0;
+                if (!ParseU64C(s, v))
+                    return false;
+                *static_cast<u32*>(p) = static_cast<u32>(v);
+                return true;
+            }
+            case ScalarKind::UInt64:
+            {
+                u64 v = 0;
+                if (!ParseU64C(s, v))
+                    return false;
+                *static_cast<u64*>(p) = v;
+                return true;
+            }
+            case ScalarKind::Float32:
+            {
+                char* end = nullptr;
+                *static_cast<f32*>(p) = std::strtof(s, &end);
+                return end != s;
+            }
+            case ScalarKind::Float64:
+            {
+                char* end = nullptr;
+                *static_cast<f64*>(p) = std::strtod(s, &end);
+                return end != s;
+            }
             }
             return false;
         }
@@ -325,27 +491,37 @@ export namespace draconic::xml
         }
         static bool DecodeHex(const String& hex, u8* data, usize size)
         {
-            if (hex.Size() != size * 2) { return false; }
-            auto nibble = [](utf8char c) -> int {
-                if (c >= u8'0' && c <= u8'9') return c - u8'0';
-                if (c >= u8'a' && c <= u8'f') return c - u8'a' + 10;
-                if (c >= u8'A' && c <= u8'F') return c - u8'A' + 10;
+            if (hex.Size() != size * 2)
+            {
+                return false;
+            }
+            auto nibble = [](utf8char c) -> int
+            {
+                if (c >= u8'0' && c <= u8'9')
+                    return c - u8'0';
+                if (c >= u8'a' && c <= u8'f')
+                    return c - u8'a' + 10;
+                if (c >= u8'A' && c <= u8'F')
+                    return c - u8'A' + 10;
                 return -1;
             };
             for (usize i = 0; i < size; ++i)
             {
                 const int hi = nibble(hex[i * 2]);
                 const int lo = nibble(hex[i * 2 + 1]);
-                if (hi < 0 || lo < 0) { return false; }
+                if (hi < 0 || lo < 0)
+                {
+                    return false;
+                }
                 data[i] = static_cast<u8>((hi << 4) | lo);
             }
             return true;
         }
 
-        XmlDocument m_doc;                 // owned (write mode)
+        XmlDocument m_doc; // owned (write mode)
         XmlElement* m_writeCurrent = nullptr;
         Array<XmlElement*> m_writeStack;
-        Array<ReadScope> m_readStack;      // read mode
+        Array<ReadScope> m_readStack; // read mode
         const char* m_pendingKey = nullptr;
     };
 
@@ -363,15 +539,20 @@ export namespace draconic::xml
             {
                 const u64 sz = stream.Size();
                 Array<utf8char> buf(static_cast<usize>(sz));
-                u64 n = stream.Read(buf.Data(), buf.Size()); (void)n;
-                auto pr = doc.Parse(StringView(buf.Data(), buf.Size())); (void)pr;
+                u64 n = stream.Read(buf.Data(), buf.Size());
+                (void)n;
+                auto pr = doc.Parse(StringView(buf.Data(), buf.Size()));
+                (void)pr;
                 xmlSer = DefaultAllocator().New<XmlSerializer>(doc);
                 serializer = xmlSer;
             }
 
             ~XmlReadSerializerContext() override
             {
-                if (xmlSer) { DefaultAllocator().Delete(xmlSer); }
+                if (xmlSer)
+                {
+                    DefaultAllocator().Delete(xmlSer);
+                }
             }
         };
 
@@ -387,29 +568,39 @@ export namespace draconic::xml
 
             ~XmlWriteSerializerContext() override
             {
-                if (xmlSer) { DefaultAllocator().Delete(xmlSer); }
+                if (xmlSer)
+                {
+                    DefaultAllocator().Delete(xmlSer);
+                }
             }
 
             void Flush(IStream& out) override
             {
-                if (!xmlSer) return;
+                if (!xmlSer)
+                    return;
                 String output;
                 xmlSer->GetOutput(output);
-                u64 n = out.Write(output.Data(), output.Size()); (void)n;
+                u64 n = out.Write(output.Data(), output.Size());
+                (void)n;
             }
         };
     }
 
     [[nodiscard]] inline SerializerFactory XmlSerializerFactory()
     {
-        return SerializerFactory{ [](IStream& stream, SerializeMode mode) -> UniquePtr<SerializerContext> {
-            SerializerContext* ctx = nullptr;
-            if (mode == SerializeMode::Read) {
-                ctx = DefaultAllocator().New<detail::XmlReadSerializerContext>(stream);
-            } else {
-                ctx = DefaultAllocator().New<detail::XmlWriteSerializerContext>();
-            }
-            return UniquePtr<SerializerContext>(ctx, DefaultAllocator());
-        }};
+        return SerializerFactory{
+            [](IStream& stream, SerializeMode mode) -> UniquePtr<SerializerContext>
+            {
+                SerializerContext* ctx = nullptr;
+                if (mode == SerializeMode::Read)
+                {
+                    ctx = DefaultAllocator().New<detail::XmlReadSerializerContext>(stream);
+                }
+                else
+                {
+                    ctx = DefaultAllocator().New<detail::XmlWriteSerializerContext>();
+                }
+                return UniquePtr<SerializerContext>(ctx, DefaultAllocator());
+            }};
     }
 }

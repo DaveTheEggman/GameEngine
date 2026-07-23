@@ -9,14 +9,15 @@ module;
 
 export module draconic.ui:style_selector;
 
-import draconic.core;   // TypeInfo, IsDerivedFrom, Array, String, StringView, Optional, i32
+import draconic.core; // TypeInfo, IsDerivedFrom, Array, String, StringView, Optional, i32
 import :control_state;
 
 using namespace draconic::core;
 
 export namespace draconic::ui
 {
-    class View; // defined in :view; Matches() body lives there (breaks the View<->styling module cycle)
+    class
+        View; // defined in :view; Matches() body lives there (breaks the View<->styling module cycle)
 
     class StyleSelector
     {
@@ -36,15 +37,25 @@ export namespace draconic::ui
         [[nodiscard]] i32 Specificity() const noexcept
         {
             i32 s = static_cast<i32>(StyleClasses.Size()) * 10;
-            if (ViewType != nullptr) { s += 1; }
-            if (State.HasValue()) { s += 1; }
-            if (PseudoElement.HasValue()) { s += 1; }
+            if (ViewType != nullptr)
+            {
+                s += 1;
+            }
+            if (State.HasValue())
+            {
+                s += 1;
+            }
+            if (PseudoElement.HasValue())
+            {
+                s += 1;
+            }
             return s;
         }
 
         /// Whether this selector matches the given view, state, and optional pseudo-element name.
         /// Body defined in the :view partition (needs View complete).
-        [[nodiscard]] bool Matches(const View& view, ControlState state, StringView pseudoElement = {}) const;
+        [[nodiscard]] bool Matches(const View& view, ControlState state,
+                                   StringView pseudoElement = {}) const;
 
         void AddClass(StringView name) { StyleClasses.PushBack(String(name)); }
         void SetPseudoElement(StringView name) { PseudoElement = String(name); }
@@ -52,7 +63,8 @@ export namespace draconic::ui
         /// True if this selector has no constraints (matches every view/state, no pseudo).
         [[nodiscard]] bool IsEmpty() const noexcept
         {
-            return ViewType == nullptr && StyleClasses.Size() == 0 && !State.HasValue() && !PseudoElement.HasValue();
+            return ViewType == nullptr && StyleClasses.Size() == 0 && !State.HasValue() &&
+                   !PseudoElement.HasValue();
         }
 
         /// True if this selector targets only a specific pseudo-element with no other constraints.

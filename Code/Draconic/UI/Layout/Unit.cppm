@@ -17,7 +17,12 @@ export namespace draconic::ui
 {
     struct Unit
     {
-        enum class Kind { Dp, Pt, Px };
+        enum class Kind
+        {
+            Dp,
+            Pt,
+            Px
+        };
 
         Kind kind = Kind::Dp;
         f32 value = 0.0f;
@@ -26,20 +31,23 @@ export namespace draconic::ui
         constexpr Unit(Kind k, f32 v) noexcept : kind(k), value(v) {}
 
         /// Density-independent pixels (1dp = 1px at 96dpi).
-        [[nodiscard]] static constexpr Unit Dp(f32 v) noexcept { return { Kind::Dp, v }; }
+        [[nodiscard]] static constexpr Unit Dp(f32 v) noexcept { return {Kind::Dp, v}; }
         /// Points (1/72 inch); used for font sizes.
-        [[nodiscard]] static constexpr Unit Pt(f32 v) noexcept { return { Kind::Pt, v }; }
+        [[nodiscard]] static constexpr Unit Pt(f32 v) noexcept { return {Kind::Pt, v}; }
         /// Raw pixels (no DPI scaling).
-        [[nodiscard]] static constexpr Unit Px(f32 v) noexcept { return { Kind::Px, v }; }
+        [[nodiscard]] static constexpr Unit Px(f32 v) noexcept { return {Kind::Px, v}; }
 
         /// Resolves to pixels given the DPI scale (1.0 at 96dpi, 2.0 at 192dpi).
         [[nodiscard]] constexpr f32 Resolve(f32 dpiScale) const noexcept
         {
             switch (kind)
             {
-            case Kind::Dp: return value * dpiScale;
-            case Kind::Pt: return value * dpiScale * (96.0f / 72.0f);
-            case Kind::Px: return value;
+            case Kind::Dp:
+                return value * dpiScale;
+            case Kind::Pt:
+                return value * dpiScale * (96.0f / 72.0f);
+            case Kind::Px:
+                return value;
             }
             return value;
         }

@@ -58,7 +58,7 @@ export namespace draconic::editor
         usize m_stepIndex = 0;
         usize m_stepCount = 0;
         Array<String> m_log;
-        Atomic<bool> m_cancel{ false };
+        Atomic<bool> m_cancel{false};
     };
 
     class EditorJobService
@@ -72,17 +72,27 @@ export namespace draconic::editor
         void Submit(StringView title, Function<Status(JobContext&)> work,
                     Function<void(Status)> onDone = {})
         {
-            m_queue.PushBack(Pending{ String(title), static_cast<Function<Status(JobContext&)>&&>(work),
-                                      static_cast<Function<void(Status)>&&>(onDone) });
-            if (!m_running.load()) { StartNext(); }
+            m_queue.PushBack(Pending{String(title),
+                                     static_cast<Function<Status(JobContext&)>&&>(work),
+                                     static_cast<Function<void(Status)>&&>(onDone)});
+            if (!m_running.load())
+            {
+                StartNext();
+            }
         }
 
-        [[nodiscard]] bool IsBusy() const noexcept { return m_running.load() || !m_queue.IsEmpty(); }
+        [[nodiscard]] bool IsBusy() const noexcept
+        {
+            return m_running.load() || !m_queue.IsEmpty();
+        }
 
         // Request the running job stop (cooperative; the worker must poll CancelRequested()).
         void CancelActive()
         {
-            if (m_ctx) { m_ctx->m_cancel.store(true); }
+            if (m_ctx)
+            {
+                m_ctx->m_cancel.store(true);
+            }
         }
 
         // Main-thread pump: drain the active job's log to `log`, and on completion fire its onDone +
@@ -97,7 +107,13 @@ export namespace draconic::editor
                     drained = static_cast<Array<String>&&>(m_ctx->m_log);
                     m_ctx->m_log = Array<String>{};
                 }
-                if (log) { for (const String& line : drained) { log(line.AsView()); } }
+                if (log)
+                {
+                    for (const String& line : drained)
+                    {
+                        log(line.AsView());
+                    }
+                }
             }
 
             if (m_finished.exchange(false))
@@ -112,13 +128,22 @@ export namespace draconic::editor
                 {
                     Array<String> tail = static_cast<Array<String>&&>(m_ctx->m_log);
                     m_ctx->m_log = Array<String>{};
-                    if (log) { for (const String& line : tail) { log(line.AsView()); } }
+                    if (log)
+                    {
+                        for (const String& line : tail)
+                        {
+                            log(line.AsView());
+                        }
+                    }
                 }
                 Function<void(Status)> onDone = static_cast<Function<void(Status)>&&>(m_onDone);
                 const Status result = m_result;
                 m_ctx.Reset();
                 m_running.store(false);
-                if (onDone) { onDone(result); }   // may Submit() another job (queued)
+                if (onDone)
+                {
+                    onDone(result);
+                } // may Submit() another job (queued)
                 StartNext();
             }
         }
@@ -137,9 +162,12 @@ export namespace draconic::editor
         [[nodiscard]] ProgressView Progress() const
         {
             ProgressView view;
-            if (!m_running.load() || !m_ctx) { return view; }
+            if (!m_running.load() || !m_ctx)
+            {
+                return view;
+            }
             view.active = true;
-            view.title = m_title;   // set at StartNext (main thread), never touched by the worker
+            view.title = m_title; // set at StartNext (main thread), never touched by the worker
             ScopedLock lock(m_ctx->m_mutex);
             view.fraction = m_ctx->m_fraction;
             view.step = m_ctx->m_step;
@@ -150,7 +178,7 @@ export namespace draconic::editor
 
         void Shutdown()
         {
-            CancelActive();   // cooperative - a polling job bails early instead of blocking exit
+            CancelActive(); // cooperative - a polling job bails early instead of blocking exit
             JoinWorker();
         }
 
@@ -164,13 +192,20 @@ export namespace draconic::editor
 
         void JoinWorker()
         {
-            if (m_worker) { m_worker->Join(); m_worker.Reset(); }
+            if (m_worker)
+            {
+                m_worker->Join();
+                m_worker.Reset();
+            }
         }
 
         // Main thread: dequeue and launch the next job (no-op if busy or empty).
         void StartNext()
         {
-            if (m_running.load() || m_queue.IsEmpty()) { return; }
+            if (m_running.load() || m_queue.IsEmpty())
+            {
+                return;
+            }
             Pending job = static_cast<Pending&&>(m_queue[0]);
             m_queue.RemoveAt(0);
 
@@ -183,21 +218,24 @@ export namespace draconic::editor
 
             EditorJobService* self = this;
             JobContext* ctx = m_ctx.Get();
-            Function<Status(JobContext&)> work = static_cast<Function<Status(JobContext&)>&&>(job.work);
-            m_worker = MakeUnique<Thread>(DefaultAllocator(),
-                [self, ctx, work = static_cast<Function<Status(JobContext&)>&&>(work)]() {
+            Function<Status(JobContext&)> work =
+                static_cast<Function<Status(JobContext&)>&&>(job.work);
+            m_worker = MakeUnique<Thread>(
+                DefaultAllocator(),
+                [self, ctx, work = static_cast<Function<Status(JobContext&)>&&>(work)]()
+                {
                     self->m_result = work ? work(*ctx) : Status{};
-                    self->m_finished.store(true);   // release: publishes m_result to the main thread
+                    self->m_finished.store(true); // release: publishes m_result to the main thread
                 });
         }
 
         UniquePtr<Thread> m_worker;
-        UniquePtr<JobContext> m_ctx;        // active job's context (worker writes, main reads)
-        Function<void(Status)> m_onDone;    // active job's completion (main thread)
-        String m_title;                     // active job title (main thread)
-        Atomic<bool> m_running{ false };
-        Atomic<bool> m_finished{ false };
-        Status m_result{};                  // worker-written, main-read after m_finished (release/acquire)
-        Array<Pending> m_queue;             // main-thread only
+        UniquePtr<JobContext> m_ctx;     // active job's context (worker writes, main reads)
+        Function<void(Status)> m_onDone; // active job's completion (main thread)
+        String m_title;                  // active job title (main thread)
+        Atomic<bool> m_running{false};
+        Atomic<bool> m_finished{false};
+        Status m_result{};      // worker-written, main-read after m_finished (release/acquire)
+        Array<Pending> m_queue; // main-thread only
     };
 }

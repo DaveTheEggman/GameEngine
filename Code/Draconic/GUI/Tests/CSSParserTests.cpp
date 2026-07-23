@@ -10,7 +10,11 @@ namespace core = draconic::core;
 
 namespace
 {
-    template <typename T> core::RefPtr<T> Make() { return core::MakeRef<T>(core::DefaultAllocator()); }
+    template <typename T>
+    core::RefPtr<T> Make()
+    {
+        return core::MakeRef<T>(core::DefaultAllocator());
+    }
     core::StringView SV(const char8_t* s) { return core::StringView(s); }
 
     core::RefPtr<UIWidget> Widget(const char8_t* tag)
@@ -55,7 +59,7 @@ TEST_CASE("css-parser: values keep internal spaces; trailing semicolon optional"
     auto w = Widget(u8"box");
     ResolvedStyle rs = sheet.Resolve(*w.Get());
     CHECK(rs.Get(SV(u8"margin")) == SV(u8"1 2 3 4")); // internal spaces preserved
-    CHECK(rs.Get(SV(u8"color")) == SV(u8"red"));       // last decl, no semicolon
+    CHECK(rs.Get(SV(u8"color")) == SV(u8"red"));      // last decl, no semicolon
 }
 
 TEST_CASE("css-parser: comment stripping inside blocks and selectors")
@@ -86,6 +90,7 @@ TEST_CASE("css-parser: empty and malformed input is tolerated")
 {
     CHECK(CSSParser::Parse(SV(u8"")).RuleCount() == 0);
     CHECK(CSSParser::Parse(SV(u8"   \n  ")).RuleCount() == 0);
-    CHECK(CSSParser::Parse(SV(u8".x {}")).RuleCount() == 1);        // empty block ok
-    CHECK(CSSParser::Parse(SV(u8"button { color")).RuleCount() == 1); // unterminated block: best-effort
+    CHECK(CSSParser::Parse(SV(u8".x {}")).RuleCount() == 1); // empty block ok
+    CHECK(CSSParser::Parse(SV(u8"button { color")).RuleCount() ==
+          1); // unterminated block: best-effort
 }

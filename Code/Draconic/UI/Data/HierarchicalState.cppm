@@ -11,9 +11,9 @@ export module draconic.ui:hierarchical_state;
 
 import draconic.core;
 import :tree_view;
-import :flattened_tree_adapter;   // FlattenedTreeAdapter (named directly)
-import :selection_model;          // SelectionModel (tree.Selection())
-import :list_view;                // ListView (tree.InternalListView())
+import :flattened_tree_adapter; // FlattenedTreeAdapter (named directly)
+import :selection_model;        // SelectionModel (tree.Selection())
+import :list_view;              // ListView (tree.InternalListView())
 
 using namespace draconic::core;
 
@@ -30,10 +30,16 @@ export namespace draconic::ui
         void CaptureState(TreeView& tree)
         {
             ExpandedNodes.Clear();
-            if (FlattenedTreeAdapter* flat = tree.FlatAdapter()) { flat->GetExpandedNodes(ExpandedNodes); }
+            if (FlattenedTreeAdapter* flat = tree.FlatAdapter())
+            {
+                flat->GetExpandedNodes(ExpandedNodes);
+            }
 
             SelectedPositions.Clear();
-            for (i32 pos : tree.Selection().SelectedPositions()) { SelectedPositions.Insert(pos); }
+            for (i32 pos : tree.Selection().SelectedPositions())
+            {
+                SelectedPositions.Insert(pos);
+            }
 
             ScrollY = tree.InternalListView()->ScrollY();
         }
@@ -41,10 +47,16 @@ export namespace draconic::ui
         /// Apply previously-captured state to a TreeView.
         void ApplyState(TreeView& tree)
         {
-            if (FlattenedTreeAdapter* flat = tree.FlatAdapter()) { flat->SetExpandedNodes(ExpandedNodes); }
+            if (FlattenedTreeAdapter* flat = tree.FlatAdapter())
+            {
+                flat->SetExpandedNodes(ExpandedNodes);
+            }
 
             tree.Selection().ClearSelection();
-            for (i32 pos : SelectedPositions) { tree.Selection().Select(pos); }
+            for (i32 pos : SelectedPositions)
+            {
+                tree.Selection().Select(pos);
+            }
 
             const f32 currentScroll = tree.InternalListView()->ScrollY();
             tree.InternalListView()->ScrollBy(ScrollY - currentScroll);

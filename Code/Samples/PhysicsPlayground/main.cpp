@@ -31,7 +31,7 @@ import draconic.ui;
 import draconic.ui.resource;
 import draconic.ui.subsystem;
 
-#include "../Common/FlyCamera.h"   // after the imports: uses draconic::core/runtime types
+#include "../Common/FlyCamera.h" // after the imports: uses draconic::core/runtime types
 
 namespace core = draconic::core;
 namespace runtime = draconic::runtime;
@@ -71,10 +71,16 @@ namespace
         void OnLaunch(runtime::IApplicationHost& host) override
         {
             auto* scenes = host.Ctx().GetSubsystem<scene::SceneSubsystem>();
-            if (scenes == nullptr) { return; }
+            if (scenes == nullptr)
+            {
+                return;
+            }
             m_scene = PrimaryScenes().CreateScene(u8"playground");
             m_physics = m_scene->GetSystem<physics::PhysicsSceneSystem>();
-            if (m_physics != nullptr) { m_physics->Settings().debugDraw = true; }
+            if (m_physics != nullptr)
+            {
+                m_physics->Settings().debugDraw = true;
+            }
 
             // Camera.
             m_camera = m_scene->CreateEntity(u8"camera");
@@ -82,7 +88,7 @@ namespace
             {
                 cameras->Add(m_camera);
             }
-            m_fly.position = core::Float3{ 8.0f, 6.0f, 14.0f };
+            m_fly.position = core::Float3{8.0f, 6.0f, 14.0f};
             m_fly.yaw = 0.5f;
             m_fly.pitch = -0.3f;
             m_fly.moveSpeed = 10.0f;
@@ -101,9 +107,18 @@ namespace
             PushCameraToEntity();
 
             auto* input = host.Shell() != nullptr ? host.Shell()->Input() : nullptr;
-            if (input == nullptr) { return; }
-            if (input->Keyboard()->IsKeyPressed(shell::KeyCode::Escape)) { host.RequestExit(0); }
-            if (input->Keyboard()->IsKeyPressed(shell::KeyCode::R)) { RespawnStack(); }
+            if (input == nullptr)
+            {
+                return;
+            }
+            if (input->Keyboard()->IsKeyPressed(shell::KeyCode::Escape))
+            {
+                host.RequestExit(0);
+            }
+            if (input->Keyboard()->IsKeyPressed(shell::KeyCode::R))
+            {
+                RespawnStack();
+            }
 
             // Arrow-key character drive (world axes) + Space jump.
             if (auto* characters = m_scene->GetSystem<physics::CharacterComponentManager>())
@@ -111,13 +126,28 @@ namespace
                 if (physics::CharacterComponent* hero = characters->Get(m_hero))
                 {
                     const f32 speed = 4.0f;
-                    core::Float3 move{ 0.0f, 0.0f, 0.0f };
-                    if (input->Keyboard()->IsKeyDown(shell::KeyCode::Right)) { move.x += speed; }
-                    if (input->Keyboard()->IsKeyDown(shell::KeyCode::Left)) { move.x -= speed; }
-                    if (input->Keyboard()->IsKeyDown(shell::KeyCode::Up)) { move.z -= speed; }
-                    if (input->Keyboard()->IsKeyDown(shell::KeyCode::Down)) { move.z += speed; }
+                    core::Float3 move{0.0f, 0.0f, 0.0f};
+                    if (input->Keyboard()->IsKeyDown(shell::KeyCode::Right))
+                    {
+                        move.x += speed;
+                    }
+                    if (input->Keyboard()->IsKeyDown(shell::KeyCode::Left))
+                    {
+                        move.x -= speed;
+                    }
+                    if (input->Keyboard()->IsKeyDown(shell::KeyCode::Up))
+                    {
+                        move.z -= speed;
+                    }
+                    if (input->Keyboard()->IsKeyDown(shell::KeyCode::Down))
+                    {
+                        move.z += speed;
+                    }
                     hero->moveVelocity = move;
-                    if (input->Keyboard()->IsKeyPressed(shell::KeyCode::Space)) { hero->jumpSpeed = 6.0f; }
+                    if (input->Keyboard()->IsKeyPressed(shell::KeyCode::Space))
+                    {
+                        hero->jumpSpeed = 6.0f;
+                    }
                 }
             }
 
@@ -126,22 +156,29 @@ namespace
             {
                 if (auto* canvases = m_scene->GetSystem<draconic::ui::UICanvasComponentManager>())
                 {
-                    if (auto* canvas = canvases->Get(m_hudEntity); canvas != nullptr && canvas->root.Get() != nullptr)
+                    if (auto* canvas = canvases->Get(m_hudEntity);
+                        canvas != nullptr && canvas->root.Get() != nullptr)
                     {
                         if (auto* button = core::Cast<draconic::ui::ViewGroup>(canvas->root.Get())
                                                ->FindByName<draconic::ui::Button>(u8"hud-btn"))
                         {
                             PlaygroundApp* self = this;
                             draconic::ui::Button* raw = button;
-                            button->OnClick.Add([self, raw](draconic::ui::ButtonBase*) {
-                                ++self->m_hudClicks;
-                                core::String text(u8"Clicks: ");
-                                const core::u32 n = self->m_hudClicks;
-                                if (n >= 10) { text.PushBack(static_cast<core::utf8char>('0' + n / 10 % 10)); }
-                                text.PushBack(static_cast<core::utf8char>('0' + n % 10));
-                                raw->SetText(text.AsView());
-                                core::ConsoleWrite(u8"HUD button clicked\n");
-                            });
+                            button->OnClick.Add(
+                                [self, raw](draconic::ui::ButtonBase*)
+                                {
+                                    ++self->m_hudClicks;
+                                    core::String text(u8"Clicks: ");
+                                    const core::u32 n = self->m_hudClicks;
+                                    if (n >= 10)
+                                    {
+                                        text.PushBack(
+                                            static_cast<core::utf8char>('0' + n / 10 % 10));
+                                    }
+                                    text.PushBack(static_cast<core::utf8char>('0' + n % 10));
+                                    raw->SetText(text.AsView());
+                                    core::ConsoleWrite(u8"HUD button clicked\n");
+                                });
                             m_hudBound = true;
                         }
                     }
@@ -154,20 +191,27 @@ namespace
                     if (auto* panel = panels->Get(m_kioskEntity);
                         panel != nullptr && panel->renderRoot.Get() != nullptr)
                     {
-                        if (auto* button = core::Cast<draconic::ui::ViewGroup>(panel->renderRoot.Get())
-                                               ->FindByName<draconic::ui::Button>(u8"kiosk-btn"))
+                        if (auto* button =
+                                core::Cast<draconic::ui::ViewGroup>(panel->renderRoot.Get())
+                                    ->FindByName<draconic::ui::Button>(u8"kiosk-btn"))
                         {
                             PlaygroundApp* self = this;
                             draconic::ui::Button* raw = button;
-                            button->OnClick.Add([self, raw](draconic::ui::ButtonBase*) {
-                                ++self->m_kioskTaps;
-                                core::String text(u8"Taps: ");
-                                const core::u32 n = self->m_kioskTaps;
-                                if (n >= 10) { text.PushBack(static_cast<core::utf8char>('0' + n / 10 % 10)); }
-                                text.PushBack(static_cast<core::utf8char>('0' + n % 10));
-                                raw->SetText(text.AsView());
-                                core::ConsoleWrite(u8"Kiosk panel tapped\n");
-                            });
+                            button->OnClick.Add(
+                                [self, raw](draconic::ui::ButtonBase*)
+                                {
+                                    ++self->m_kioskTaps;
+                                    core::String text(u8"Taps: ");
+                                    const core::u32 n = self->m_kioskTaps;
+                                    if (n >= 10)
+                                    {
+                                        text.PushBack(
+                                            static_cast<core::utf8char>('0' + n / 10 % 10));
+                                    }
+                                    text.PushBack(static_cast<core::utf8char>('0' + n % 10));
+                                    raw->SetText(text.AsView());
+                                    core::ConsoleWrite(u8"Kiosk panel tapped\n");
+                                });
                             m_kioskBound = true;
                         }
                     }
@@ -178,17 +222,17 @@ namespace
             // Gated on UI consumption: a click that lands ON the HUD never shoves.
             auto* gameUi = host.Ctx().GetSubsystem<draconic::ui::UISubsystem>();
             const bool uiAte = gameUi != nullptr && gameUi->PointerOverUI();
-            if (!uiAte && input->Mouse()->IsButtonPressed(shell::MouseButton::Left)
-                && m_physics != nullptr && m_physics->World() != nullptr)
+            if (!uiAte && input->Mouse()->IsButtonPressed(shell::MouseButton::Left) &&
+                m_physics != nullptr && m_physics->World() != nullptr)
             {
                 physics::RayHit hit;
                 const core::Float3 forward = m_fly.Forward();
                 if (m_physics->World()->RayCast(m_fly.position, forward, 200.0f, hit))
                 {
-                    m_physics->World()->AddImpulse(hit.body,
-                        core::Float3{ forward.x * 400.0f, forward.y * 400.0f + 120.0f,
-                                      forward.z * 400.0f });
-                    m_lastSurface = hit.surface;   // ramp panels report 1 / 2
+                    m_physics->World()->AddImpulse(
+                        hit.body, core::Float3{forward.x * 400.0f, forward.y * 400.0f + 120.0f,
+                                               forward.z * 400.0f});
+                    m_lastSurface = hit.surface; // ramp panels report 1 / 2
                     m_haveSurface = true;
                 }
             }
@@ -220,12 +264,16 @@ namespace
                 {
                     if (render::CameraComponent* cam = cameras->Get(m_camera))
                     {
-                        cam->aspect = static_cast<f32>(frame.width) / static_cast<f32>(frame.height);
+                        cam->aspect =
+                            static_cast<f32>(frame.width) / static_cast<f32>(frame.height);
                     }
                 }
             }
             runtime::DefaultApplication::OnRenderWindow(host, frame);
-            if (auto* g = host.Ctx().GetSubsystem<imgui::ImguiSubsystem>()) { g->Render(frame); }
+            if (auto* g = host.Ctx().GetSubsystem<imgui::ImguiSubsystem>())
+            {
+                g->Render(frame);
+            }
         }
 
     private:
@@ -246,18 +294,17 @@ namespace
             // crosshair ray reports which slot it hit (HUD "surface").
             {
                 const core::Float3 positions[] = {
-                    { 6.0f, 0.0f, -3.0f }, { 6.0f, 0.0f, 3.0f },      // low edge
-                    { 12.0f, 3.0f, 3.0f }, { 12.0f, 3.0f, -3.0f },    // high edge
-                    { 18.0f, 3.0f, 3.0f }, { 18.0f, 3.0f, -3.0f },    // flat top end
+                    {6.0f, 0.0f, -3.0f}, {6.0f, 0.0f, 3.0f},   // low edge
+                    {12.0f, 3.0f, 3.0f}, {12.0f, 3.0f, -3.0f}, // high edge
+                    {18.0f, 3.0f, 3.0f}, {18.0f, 3.0f, -3.0f}, // flat top end
                 };
-                const core::u32 indices[] = { 0, 1, 2, 0, 2, 3,       // sloped panel
-                                              3, 2, 4, 3, 4, 5 };     // flat panel
-                const core::u32 slots[] = { 1, 1, 2, 2 };
+                const core::u32 indices[] = {0, 1, 2, 0, 2, 3,  // sloped panel
+                                             3, 2, 4, 3, 4, 5}; // flat panel
+                const core::u32 slots[] = {1, 1, 2, 2};
                 core::Array<core::byte> blob;
-                if (physics::CookTriangleMesh(
-                        core::Span<const core::Float3>(positions, 6),
-                        core::Span<const core::u32>(indices, 12),
-                        core::Span<const core::u32>(slots, 4), blob))
+                if (physics::CookTriangleMesh(core::Span<const core::Float3>(positions, 6),
+                                              core::Span<const core::u32>(indices, 12),
+                                              core::Span<const core::u32>(slots, 4), blob))
                 {
                     m_rampShape = core::MakeRef<physics::CollisionShape>(core::DefaultAllocator());
                     m_rampShape->blob.Resize(blob.Size());
@@ -279,19 +326,20 @@ namespace
             // A cooked CONVEX boulder (P2) dropped onto the ramp - hulls may be dynamic.
             {
                 core::Array<core::Float3> points;
-                const core::f32 axes[3][3] = { { 0.9f, 0, 0 }, { 0, 0.7f, 0 }, { 0, 0, 0.8f } };
+                const core::f32 axes[3][3] = {{0.9f, 0, 0}, {0, 0.7f, 0}, {0, 0, 0.8f}};
                 for (const auto& a : axes)
                 {
-                    points.PushBack(core::Float3{ a[0], a[1], a[2] });
-                    points.PushBack(core::Float3{ -a[0], -a[1], -a[2] });
+                    points.PushBack(core::Float3{a[0], a[1], a[2]});
+                    points.PushBack(core::Float3{-a[0], -a[1], -a[2]});
                 }
-                points.PushBack(core::Float3{ 0.5f, 0.5f, 0.5f });
-                points.PushBack(core::Float3{ -0.5f, 0.5f, -0.5f });
+                points.PushBack(core::Float3{0.5f, 0.5f, 0.5f});
+                points.PushBack(core::Float3{-0.5f, 0.5f, -0.5f});
                 core::Array<core::byte> blob;
                 if (physics::CookConvexHull(
                         core::Span<const core::Float3>(points.Data(), points.Size()), blob))
                 {
-                    m_boulderShape = core::MakeRef<physics::CollisionShape>(core::DefaultAllocator());
+                    m_boulderShape =
+                        core::MakeRef<physics::CollisionShape>(core::DefaultAllocator());
                     m_boulderShape->blob.Resize(blob.Size());
                     core::MemCopy(m_boulderShape->blob.Data(), blob.Data(), blob.Size());
                     core::Array<core::Float3> outline;
@@ -301,7 +349,7 @@ namespace
                         m_boulderShape->outline = static_cast<core::Array<core::Float3>&&>(outline);
                     }
                     m_boulder = m_scene->CreateEntity(u8"boulder");
-                    m_scene->SetLocalPosition(m_boulder, core::Float3{ 14.0f, 8.0f, 0.0f });
+                    m_scene->SetLocalPosition(m_boulder, core::Float3{14.0f, 8.0f, 0.0f});
                     physics::RigidBodyComponent& body = bodies->Add(m_boulder);
                     body.shape = physics::ShapeKind::Cooked;
                     body.collisionShape = m_boulderShape;
@@ -314,10 +362,10 @@ namespace
                 for (int col = 0; col < 5; ++col)
                 {
                     scene::EntityHandle e = m_scene->CreateEntity(u8"crate");
-                    m_scene->SetLocalPosition(e,
-                        core::Float3{ (col - 2) * 1.05f, 0.5f + row * 1.05f, 0.0f });
+                    m_scene->SetLocalPosition(
+                        e, core::Float3{(col - 2) * 1.05f, 0.5f + row * 1.05f, 0.0f});
                     physics::RigidBodyComponent& body = bodies->Add(e);
-                    body.halfExtents = core::Float3{ 0.5f, 0.5f, 0.5f };
+                    body.halfExtents = core::Float3{0.5f, 0.5f, 0.5f};
                     body.friction = 0.6f;
                     m_crates.PushBack(e);
                 }
@@ -326,11 +374,12 @@ namespace
             // (stairs + slopes) and shoves crates with its 500N of push.
             {
                 m_hero = m_scene->CreateEntity(u8"hero");
-                m_scene->SetLocalPosition(m_hero, core::Float3{ -6.0f, 0.9f, 4.0f });
+                m_scene->SetLocalPosition(m_hero, core::Float3{-6.0f, 0.9f, 4.0f});
                 m_scene->GetSystem<physics::CharacterComponentManager>()->Add(m_hero);
 
                 // Billboard proof (UI P2): a nameplate riding the character, distance-scaled.
-                m_nameplateDocument = core::MakeRef<draconic::ui::UIDocument>(core::DefaultAllocator());
+                m_nameplateDocument =
+                    core::MakeRef<draconic::ui::UIDocument>(core::DefaultAllocator());
                 m_nameplateDocument->markup = core::String(
                     u8"<Panel padding=\"4\""
                     u8"       style=\"background: rounded-rect(rgb(20, 24, 30), radius=4);\">"
@@ -341,7 +390,7 @@ namespace
                 {
                     draconic::ui::UIBillboardComponent& plate = billboards->Add(m_hero);
                     plate.document = m_nameplateDocument;
-                    plate.offset = core::Float3{ 0.0f, 1.4f, 0.0f };   // above the capsule
+                    plate.offset = core::Float3{0.0f, 1.4f, 0.0f}; // above the capsule
                     plate.scaleMode = draconic::ui::BillboardScale::Distance;
                     plate.referenceDistance = 12.0f;
                 }
@@ -351,7 +400,7 @@ namespace
             // routes into the panel (and is consumed - no crate shove through it).
             {
                 scene::EntityHandle e = m_scene->CreateEntity(u8"kiosk");
-                m_scene->SetLocalPosition(e, core::Float3{ 4.0f, 1.6f, -6.0f });
+                m_scene->SetLocalPosition(e, core::Float3{4.0f, 1.6f, -6.0f});
                 m_kioskDocument = core::MakeRef<draconic::ui::UIDocument>(core::DefaultAllocator());
                 m_kioskDocument->markup = core::String(
                     u8"<Panel padding=\"14\""
@@ -366,7 +415,7 @@ namespace
                 {
                     draconic::ui::UIWorldPanelComponent& panel = panels->Add(e);
                     panel.document = m_kioskDocument;
-                    panel.sizeMeters = core::Float2{ 1.6f, 1.0f };
+                    panel.sizeMeters = core::Float2{1.6f, 1.0f};
                     panel.pixelsPerMeter = 220.0f;
                     m_kioskEntity = e;
                 }
@@ -376,13 +425,13 @@ namespace
             // spinning at 2 rad/s - walk the character into it to get batted away.
             {
                 scene::EntityHandle e = m_scene->CreateEntity(u8"spinner");
-                m_scene->SetLocalPosition(e, core::Float3{ -6.0f, 1.0f, -4.0f });
+                m_scene->SetLocalPosition(e, core::Float3{-6.0f, 1.0f, -4.0f});
                 physics::RigidBodyComponent& body = bodies->Add(e);
-                body.halfExtents = core::Float3{ 2.0f, 0.1f, 0.1f };
+                body.halfExtents = core::Float3{2.0f, 0.1f, 0.1f};
                 physics::JointComponent& joint =
                     m_scene->GetSystem<physics::JointComponentManager>()->Add(e);
                 joint.kind = physics::JointKind::Hinge;
-                joint.localAxis = core::Float3{ 0.0f, 1.0f, 0.0f };
+                joint.localAxis = core::Float3{0.0f, 1.0f, 0.0f};
                 joint.motorEnabled = true;
                 joint.motorTargetVelocity = 2.0f;
             }
@@ -399,7 +448,8 @@ namespace
                     u8"         style=\"background: rounded-rect(rgb(28, 32, 40), radius=8);\">"
                     u8"    <Flex direction=\"vertical\" spacing=\"8\">"
                     u8"      <Label id=\"hud-title\" text=\"PhysicsPlayground\" font-size=\"18\"/>"
-                    u8"      <Button id=\"hud-btn\" text=\"Clicks: 0\" width=\"180\" height=\"36\"/>"
+                    u8"      <Button id=\"hud-btn\" text=\"Clicks: 0\" width=\"180\" "
+                    u8"height=\"36\"/>"
                     u8"    </Flex>"
                     u8"  </Panel>"
                     u8"</Flex>");
@@ -415,27 +465,30 @@ namespace
             // A kinematic sweeper the update drives in a circle (knocks crates around).
             {
                 m_sweeper = m_scene->CreateEntity(u8"sweeper");
-                m_scene->SetLocalPosition(m_sweeper, core::Float3{ 6.0f, 0.75f, 0.0f });
+                m_scene->SetLocalPosition(m_sweeper, core::Float3{6.0f, 0.75f, 0.0f});
                 physics::RigidBodyComponent& body = bodies->Add(m_sweeper);
                 body.motion = physics::MotionKind::Kinematic;
                 body.layer = physics::PhysicsLayer::Kinematic;
-                body.halfExtents = core::Float3{ 0.4f, 0.75f, 0.4f };
+                body.halfExtents = core::Float3{0.4f, 0.75f, 0.4f};
             }
             // The trigger volume above the stack.
             {
                 scene::EntityHandle e = m_scene->CreateEntity(u8"trigger");
-                m_scene->SetLocalPosition(e, core::Float3{ 0.0f, 6.0f, 0.0f });
+                m_scene->SetLocalPosition(e, core::Float3{0.0f, 6.0f, 0.0f});
                 physics::RigidBodyComponent& body = bodies->Add(e);
                 body.motion = physics::MotionKind::Kinematic;
                 body.isTrigger = true;
-                body.halfExtents = core::Float3{ 2.0f, 1.0f, 2.0f };
+                body.halfExtents = core::Float3{2.0f, 1.0f, 2.0f};
             }
         }
 
         void RespawnStack()
         {
             // Teleport the crates back into the wall formation (velocities cleared).
-            if (m_physics == nullptr || m_physics->World() == nullptr) { return; }
+            if (m_physics == nullptr || m_physics->World() == nullptr)
+            {
+                return;
+            }
             auto* bodies = m_scene->GetSystem<physics::RigidBodyComponentManager>();
             int i = 0;
             for (scene::EntityHandle e : m_crates)
@@ -444,11 +497,14 @@ namespace
                 const int col = i % 5;
                 ++i;
                 physics::RigidBodyComponent* body = bodies->Get(e);
-                if (body == nullptr || !body->body.IsValid()) { continue; }
-                const core::Float3 position{ (col - 2) * 1.05f, 0.5f + row * 1.05f, 0.0f };
+                if (body == nullptr || !body->body.IsValid())
+                {
+                    continue;
+                }
+                const core::Float3 position{(col - 2) * 1.05f, 0.5f + row * 1.05f, 0.0f};
                 m_physics->World()->SetBodyTransform(body->body, position,
                                                      core::Quaternion::Identity);
-                m_physics->World()->SetLinearVelocity(body->body, core::Float3{ 0, 0, 0 });
+                m_physics->World()->SetLinearVelocity(body->body, core::Float3{0, 0, 0});
                 body->prevPosition = body->currPosition = position;
                 body->prevRotation = body->currRotation = core::Quaternion::Identity;
             }
@@ -472,13 +528,17 @@ namespace
             {
                 host.Ctx().SetTimeScale(scale);
             }
-            if (m_haveSurface) { ImGui::Text("last hit surface slot: %u", m_lastSurface); }
+            if (m_haveSurface)
+            {
+                ImGui::Text("last hit surface slot: %u", m_lastSurface);
+            }
             if (auto* characters = m_scene->GetSystem<physics::CharacterComponentManager>())
             {
                 if (physics::CharacterComponent* hero = characters->Get(m_hero))
                 {
                     ImGui::Text("character: %s", hero->ground == physics::CharacterGround::OnGround
-                                                     ? "grounded" : "airborne");
+                                                     ? "grounded"
+                                                     : "airborne");
                 }
             }
             ImGui::Text("LMB shove | R respawn | arrows+Space character | Esc quit");
@@ -489,8 +549,8 @@ namespace
             if (m_sweeper.IsAssigned())
             {
                 core::Transform t = m_scene->GetLocalTransform(m_sweeper);
-                t.position = core::Float3{ 6.0f * std::cos(m_sweepAngle), 0.75f,
-                                           6.0f * std::sin(m_sweepAngle) };
+                t.position = core::Float3{6.0f * std::cos(m_sweepAngle), 0.75f,
+                                          6.0f * std::sin(m_sweepAngle)};
                 m_scene->SetLocalTransform(m_sweeper, t);
             }
         }

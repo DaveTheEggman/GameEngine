@@ -26,10 +26,10 @@ TEST_CASE("toolkit-curvecanvas: SetChannelsAndKeys")
     // Configure two channels.
     ChannelDescriptor descs[2];
     descs[0].Name = String(u8"X");
-    descs[0].StrokeColor = core::Color{ 1, 0, 0, 1 };
+    descs[0].StrokeColor = core::Color{1, 0, 0, 1};
     descs[0].Interpolation = CurveInterpolation::Hermite;
     descs[1].Name = String(u8"Y");
-    descs[1].StrokeColor = core::Color{ 0, 1, 0, 1 };
+    descs[1].StrokeColor = core::Color{0, 1, 0, 1};
     descs[1].Interpolation = CurveInterpolation::Linear;
 
     cv->SetChannels(Span<const ChannelDescriptor>(descs, 2));
@@ -55,9 +55,9 @@ TEST_CASE("toolkit-curvecanvas: SetKeysRoundTrip")
     cv->SetChannels(Span<const ChannelDescriptor>(descs, 1));
 
     CurveCanvas::Key keys[3] = {
-        CurveCanvas::Key{ 0.0f, 0.0f },
-        CurveCanvas::Key{ 0.5f, 1.0f, 0.25f, -0.25f, TangentMode::Free },
-        CurveCanvas::Key{ 1.0f, 0.0f },
+        CurveCanvas::Key{0.0f, 0.0f},
+        CurveCanvas::Key{0.5f, 1.0f, 0.25f, -0.25f, TangentMode::Free},
+        CurveCanvas::Key{1.0f, 0.0f},
     };
     cv->SetKeys(0, Span<const CurveCanvas::Key>(keys, 3));
 

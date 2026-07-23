@@ -42,7 +42,7 @@ TEST_CASE("rhi.null: device creates resources and a mappable buffer")
     Buffer* buffer = nullptr;
     REQUIRE(device->CreateBuffer(bufferDesc, buffer).IsOk());
     REQUIRE(buffer != nullptr);
-    CHECK(buffer->Map() != nullptr);   // null backend backs it with host memory
+    CHECK(buffer->Map() != nullptr); // null backend backs it with host memory
     buffer->Unmap();
 
     Texture* texture = nullptr;

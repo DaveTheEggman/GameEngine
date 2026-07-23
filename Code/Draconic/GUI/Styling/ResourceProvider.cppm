@@ -13,8 +13,8 @@ module;
 
 export module draconic.gui:resource_provider;
 
-import draconic.core;    // StringView
-import draconic.image;   // ImageData
+import draconic.core;  // StringView
+import draconic.image; // ImageData
 
 using namespace draconic::core;
 namespace core = draconic::core;

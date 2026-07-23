@@ -51,14 +51,18 @@ struct Fixture
     }
 };
 
-static core::RefPtr<StyleSheet> LoadSSS(StringView src) { StyleSheetLoader loader; return loader.Load(src); }
+static core::RefPtr<StyleSheet> LoadSSS(StringView src)
+{
+    StyleSheetLoader loader;
+    return loader.Load(src);
+}
 
 namespace
 {
     // Byte Color(r,g,b,a) -> float Color helper (mirrors the Beef Color(r,g,b,255) ctor).
     Color Rgb(core::u8 r, core::u8 g, core::u8 b, core::u8 a = 255)
     {
-        return Color{ r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f };
+        return Color{r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f};
     }
 
     // Port of Sedulous.UI.Tests MockResourceProvider: an in-memory IResourceProvider for @import /
@@ -66,13 +70,20 @@ namespace
     class MockResourceProvider : public IResourceProvider
     {
     public:
-        void AddText(StringView path, StringView content) { m_texts.InsertOrAssign(String(path), String(content)); }
+        void AddText(StringView path, StringView content)
+        {
+            m_texts.InsertOrAssign(String(path), String(content));
+        }
 
-        void AddImage(StringView path) { AddImagePath(path); }  // 2x2 RGBA white pixel image
+        void AddImage(StringView path) { AddImagePath(path); } // 2x2 RGBA white pixel image
 
         bool LoadText(StringView path, String& outText) override
         {
-            if (const String* v = m_texts.Find(String(path))) { outText = *v; return true; }
+            if (const String* v = m_texts.Find(String(path)))
+            {
+                outText = *v;
+                return true;
+            }
             return false;
         }
 
@@ -80,7 +91,10 @@ namespace
         {
             for (core::usize i = 0; i < m_imagePaths.Size(); ++i)
             {
-                if (m_imagePaths[i] == path) { return m_images[i].Get(); }
+                if (m_imagePaths[i] == path)
+                {
+                    return m_images[i].Get();
+                }
             }
             return nullptr;
         }
@@ -88,16 +102,17 @@ namespace
     private:
         void AddImagePath(StringView path)
         {
-            const core::u8 pixels[16] = { 255, 255, 255, 255, 255, 255, 255, 255,
-                                          255, 255, 255, 255, 255, 255, 255, 255 };
+            const core::u8 pixels[16] = {255, 255, 255, 255, 255, 255, 255, 255,
+                                         255, 255, 255, 255, 255, 255, 255, 255};
             m_imagePaths.PushBack(String(path));
-            m_images.PushBack(core::MakeUnique<image::OwnedImageData>(core::DefaultAllocator(),
-                2u, 2u, image::PixelFormat::RGBA8, core::Span<const core::u8>(pixels, 16)));
+            m_images.PushBack(core::MakeUnique<image::OwnedImageData>(
+                core::DefaultAllocator(), 2u, 2u, image::PixelFormat::RGBA8,
+                core::Span<const core::u8>(pixels, 16)));
         }
 
         core::HashMap<String, String> m_texts;
-        core::Array<String> m_imagePaths;                              // parallel to m_images
-        core::Array<core::UniquePtr<image::OwnedImageData>> m_images;  // owns each image
+        core::Array<String> m_imagePaths;                             // parallel to m_images
+        core::Array<core::UniquePtr<image::OwnedImageData>> m_images; // owns each image
     };
 } // namespace
 
@@ -123,9 +138,9 @@ TEST_CASE("sss: HexColor_8Digit")
 
 TEST_CASE("sss: Palette_Derivation")
 {
-    const Color dark = Palette::Darken(Color{ 200 / 255.0f, 200 / 255.0f, 200 / 255.0f, 1.0f }, 0.5f);
+    const Color dark = Palette::Darken(Color{200 / 255.0f, 200 / 255.0f, 200 / 255.0f, 1.0f}, 0.5f);
     CHECK(dark.r == doctest::Approx(100 / 255.0f));
-    const Color light = Palette::Lighten(Color{ 0.0f, 0.0f, 0.0f, 1.0f }, 0.5f);
+    const Color light = Palette::Lighten(Color{0.0f, 0.0f, 0.0f, 1.0f}, 0.5f);
     CHECK(light.r > 100 / 255.0f);
 }
 
@@ -298,7 +313,8 @@ TEST_CASE("sss: DrawableFactory_Color")
 
 TEST_CASE("sss: DrawableFactory_RoundedRect")
 {
-    Fixture f(LoadSSS(u8"View { background: rounded-rect(#336699, radius=6, border=#555555, border-width=1); }"));
+    Fixture f(LoadSSS(
+        u8"View { background: rounded-rect(#336699, radius=6, border=#555555, border-width=1); }"));
     core::RefPtr<TestView> view = f.AddView();
     Drawable* bg = view->ResolveStyleDrawable(StyleProperty::Background);
     REQUIRE(bg != nullptr);
@@ -422,7 +438,8 @@ TEST_CASE("sss: FontFamily_QuotedString")
 {
     Fixture f(LoadSSS(u8"View { font-family: \"Attack Of Monster\"; }"));
     core::RefPtr<TestView> view = f.AddView();
-    const StyleValue v = view->ResolveStyle(StyleProperty::FontFamily); // hold alive: AsString borrows its String
+    const StyleValue v =
+        view->ResolveStyle(StyleProperty::FontFamily); // hold alive: AsString borrows its String
     core::Optional<StringView> s = v.AsString();
     REQUIRE(s.HasValue());
     CHECK(s.Value() == StringView(u8"Attack Of Monster"));
@@ -516,7 +533,8 @@ TEST_CASE("sss: InlineStyle_RoundedRectFunction")
     EnsureGlobals();
     auto view = core::MakeRef<TestView>(core::DefaultAllocator());
     SSSParser::ApplyInlineStyle(view.Get(),
-        StringView(u8"background: rounded-rect(rgb(35, 38, 48), radius=12, border-width=2, border=rgb(80, 90, 110));"));
+                                StringView(u8"background: rounded-rect(rgb(35, 38, 48), radius=12, "
+                                           u8"border-width=2, border=rgb(80, 90, 110));"));
 
     Drawable* bg = view->ResolveStyleDrawable(StyleProperty::Background);
     REQUIRE(bg != nullptr);
@@ -529,7 +547,6 @@ TEST_CASE("sss: InlineStyle_RoundedRectFunction")
     CHECK(rr->BorderWidth == 2.0f);
     CHECK(rr->BorderColor.r == doctest::Approx(80 / 255.0f));
 }
-
 
 // UITypeRegistry::RegisterBuiltins registers the built-in control type names, so .sss element selectors
 // resolve to a concrete type. Regression: without it, unresolved type names (e.g. ComboBox) matched
@@ -549,8 +566,9 @@ TEST_CASE("sss: TypeSelectors_DoNotLeakAcrossControls")
     EnsureGlobals();
     UITypeRegistry::RegisterBuiltins();
     // A ButtonBase background + a ComboBox arrow pseudo-element (the shape breeze.sss uses).
-    Fixture f(LoadSSS(u8"ButtonBase { background: rounded-rect(rgb(10,20,30), radius=2); }"
-                      u8" ComboBox::arrow { background: rounded-rect(rgb(200,100,50), radius=2); }"));
+    Fixture f(
+        LoadSSS(u8"ButtonBase { background: rounded-rect(rgb(10,20,30), radius=2); }"
+                u8" ComboBox::arrow { background: rounded-rect(rgb(200,100,50), radius=2); }"));
     auto btn = core::MakeRef<Button>(core::DefaultAllocator(), StringView(u8"x"));
     f.root->AddView(btn.Get());
 
@@ -589,14 +607,14 @@ TEST_CASE("sss: DrawableFactory_Svg")
 {
     EnsureGlobals();
     StyleSheetLoader loader;
-    loader.RegisterSvg(u8"checkmark",
-        u8R"(<svg viewBox="0 0 16 16">
+    loader.RegisterSvg(u8"checkmark", u8R"(<svg viewBox="0 0 16 16">
   <path d="M3 8 L6.5 11.5 L13 5" fill="none" stroke="white" stroke-width="2"/>
 </svg>)");
     Fixture f(loader.Load(u8"CheckBox::checkmark { background: svg(checkmark); }"));
     auto cb = core::MakeRef<CheckBox>(core::DefaultAllocator(), StringView(u8"Test"));
     f.root->AddView(cb.Get());
-    Drawable* icon = cb->ResolvePartDrawable(u8"checkmark", StyleProperty::Background, ControlState::Normal);
+    Drawable* icon =
+        cb->ResolvePartDrawable(u8"checkmark", StyleProperty::Background, ControlState::Normal);
     REQUIRE(icon != nullptr);
     CHECK(core::Cast<SVGDrawable>(icon) != nullptr);
 }
@@ -605,14 +623,14 @@ TEST_CASE("sss: DrawableFactory_SvgWithTint")
 {
     EnsureGlobals();
     StyleSheetLoader loader;
-    loader.RegisterSvg(u8"checkmark",
-        u8R"(<svg viewBox="0 0 16 16">
+    loader.RegisterSvg(u8"checkmark", u8R"(<svg viewBox="0 0 16 16">
   <path d="M3 8 L6.5 11.5 L13 5" fill="none" stroke="white" stroke-width="2"/>
 </svg>)");
     Fixture f(loader.Load(u8"CheckBox::checkmark { background: svg(checkmark, tint=#ff0000); }"));
     auto cb = core::MakeRef<CheckBox>(core::DefaultAllocator(), StringView(u8"Test"));
     f.root->AddView(cb.Get());
-    Drawable* icon = cb->ResolvePartDrawable(u8"checkmark", StyleProperty::Background, ControlState::Normal);
+    Drawable* icon =
+        cb->ResolvePartDrawable(u8"checkmark", StyleProperty::Background, ControlState::Normal);
     REQUIRE(icon != nullptr);
     SVGDrawable* svgd = core::Cast<SVGDrawable>(icon);
     REQUIRE(svgd != nullptr);
@@ -723,8 +741,7 @@ TEST_CASE("sss: Icon_LoadsFromProvider")
 {
     EnsureGlobals();
     MockResourceProvider provider;
-    provider.AddText(u8"icons/check.svg",
-        u8R"(<svg viewBox="0 0 16 16">
+    provider.AddText(u8"icons/check.svg", u8R"(<svg viewBox="0 0 16 16">
   <path d="M3 8 L6.5 11.5 L13 5" fill="none" stroke="white" stroke-width="2"/>
 </svg>)");
     StyleSheetLoader loader;
@@ -736,7 +753,8 @@ TEST_CASE("sss: Icon_LoadsFromProvider")
     Fixture f(Move(sheet));
     auto cb = core::MakeRef<CheckBox>(core::DefaultAllocator(), StringView(u8"Test"));
     f.root->AddView(cb.Get());
-    Drawable* icon = cb->ResolvePartDrawable(u8"checkmark", StyleProperty::Background, ControlState::Normal);
+    Drawable* icon =
+        cb->ResolvePartDrawable(u8"checkmark", StyleProperty::Background, ControlState::Normal);
     REQUIRE(icon != nullptr);
     CHECK(core::Cast<SVGDrawable>(icon) != nullptr);
 }
@@ -746,14 +764,14 @@ TEST_CASE("sss: Icon_PreRegisteredBeatsFile")
     EnsureGlobals();
     StyleSheetLoader loader;
     // Pre-register inline SVG; no resource provider needed.
-    loader.RegisterSvg(u8"checkmark",
-        u8R"(<svg viewBox="0 0 16 16">
+    loader.RegisterSvg(u8"checkmark", u8R"(<svg viewBox="0 0 16 16">
   <path d="M3 8 L6.5 11.5 L13 5" fill="none" stroke="white" stroke-width="2"/>
 </svg>)");
     Fixture f(loader.Load(u8"CheckBox::checkmark { background: svg(checkmark); }"));
     auto cb = core::MakeRef<CheckBox>(core::DefaultAllocator(), StringView(u8"Test"));
     f.root->AddView(cb.Get());
-    Drawable* icon = cb->ResolvePartDrawable(u8"checkmark", StyleProperty::Background, ControlState::Normal);
+    Drawable* icon =
+        cb->ResolvePartDrawable(u8"checkmark", StyleProperty::Background, ControlState::Normal);
     REQUIRE(icon != nullptr);
     CHECK(core::Cast<SVGDrawable>(icon) != nullptr);
 }
@@ -765,7 +783,8 @@ TEST_CASE("sss: Icon_NoProvider_SvgReturnsNull")
     Fixture f(LoadSSS(u8"CheckBox::checkmark { background: svg(missing); }"));
     auto cb = core::MakeRef<CheckBox>(core::DefaultAllocator(), StringView(u8"Test"));
     f.root->AddView(cb.Get());
-    Drawable* icon = cb->ResolvePartDrawable(u8"checkmark", StyleProperty::Background, ControlState::Normal);
+    Drawable* icon =
+        cb->ResolvePartDrawable(u8"checkmark", StyleProperty::Background, ControlState::Normal);
     (void)icon; // may be null or a fallback -- either way, no crash
     CHECK(true);
 }
@@ -811,9 +830,9 @@ TEST_CASE("sss: NineSlice_LoadsFromProvider")
 TEST_CASE("sss: Image_PreRegistered")
 {
     EnsureGlobals();
-    const core::u8 pixels[16] = { 255, 0, 0, 255, 0, 255, 0, 255,
-                                  0, 0, 255, 255, 255, 255, 0, 255 };
-    image::OwnedImageData imageData(2, 2, image::PixelFormat::RGBA8, core::Span<const core::u8>(pixels, 16));
+    const core::u8 pixels[16] = {255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 0, 255};
+    image::OwnedImageData imageData(2, 2, image::PixelFormat::RGBA8,
+                                    core::Span<const core::u8>(pixels, 16));
     StyleSheetLoader loader;
     loader.RegisterImage(u8"test-img", &imageData);
     core::RefPtr<StyleSheet> sheet = loader.Load(u8"View { background: image(test-img); }");

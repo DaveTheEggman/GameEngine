@@ -30,7 +30,11 @@ export namespace draconic::ui
         void OnMouseDown(MouseEventArgs& e) override
         {
             Button::OnMouseDown(e);
-            if (e.Button == MouseButton::Left) { m_repeating = true; m_holdTime = 0.0f; }
+            if (e.Button == MouseButton::Left)
+            {
+                m_repeating = true;
+                m_holdTime = 0.0f;
+            }
         }
         void OnMouseUp(MouseEventArgs& e) override
         {
@@ -42,9 +46,16 @@ export namespace draconic::ui
         /// Call each frame while held; fires FireClick() after RepeatDelay, then every RepeatInterval.
         void UpdateRepeat(f32 deltaTime)
         {
-            if (!m_repeating || !IsPressed()) { return; }
+            if (!m_repeating || !IsPressed())
+            {
+                return;
+            }
             m_holdTime += deltaTime;
-            if (m_holdTime >= RepeatDelay) { m_holdTime -= RepeatInterval; FireClick(); }
+            if (m_holdTime >= RepeatDelay)
+            {
+                m_holdTime -= RepeatInterval;
+                FireClick();
+            }
         }
 
     private:

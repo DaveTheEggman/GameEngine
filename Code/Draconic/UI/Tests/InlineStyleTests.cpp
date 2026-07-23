@@ -27,7 +27,10 @@ namespace core = draconic::core;
 
 namespace
 {
-    [[nodiscard]] Color Rgb(f32 r, f32 g, f32 b, f32 a = 255.0f) { return Color{ r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f }; }
+    [[nodiscard]] Color Rgb(f32 r, f32 g, f32 b, f32 a = 255.0f)
+    {
+        return Color{r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f};
+    }
 
     // Create a StyleSheet owned by ctx; returns a borrowed pointer for the test to add rules to (Sedulous SetupSheet).
     StyleSheet* SetupSheet(UIContext& ctx)
@@ -40,26 +43,42 @@ namespace
 
     // --- Pseudo-element inline accessors (Beef's Get/Has/ClearInlinePartStyle have no dedicated View
     //     method; express the same intent through the public inline sheet's part rule). ---
-    [[nodiscard]] StyleValue GetInlinePartStyle(const View& view, StringView part, StyleProperty prop)
+    [[nodiscard]] StyleValue GetInlinePartStyle(const View& view, StringView part,
+                                                StyleProperty prop)
     {
         StyleSheet* sheet = view.InlineSheet();
-        if (sheet == nullptr) { return StyleValue::None(); }
+        if (sheet == nullptr)
+        {
+            return StyleValue::None();
+        }
         StyleRule* rule = sheet->FindInlinePartRule(part);
-        if (rule == nullptr) { return StyleValue::None(); }
-        if (Optional<StyleValue> v = rule->GetValue(prop); v.HasValue()) { return v.Value(); }
+        if (rule == nullptr)
+        {
+            return StyleValue::None();
+        }
+        if (Optional<StyleValue> v = rule->GetValue(prop); v.HasValue())
+        {
+            return v.Value();
+        }
         return StyleValue::None();
     }
     [[nodiscard]] bool HasInlinePartStyle(const View& view, StringView part, StyleProperty prop)
     {
         StyleSheet* sheet = view.InlineSheet();
-        if (sheet == nullptr) { return false; }
+        if (sheet == nullptr)
+        {
+            return false;
+        }
         StyleRule* rule = sheet->FindInlinePartRule(part);
         return rule != nullptr && rule->GetValue(prop).HasValue();
     }
     bool ClearInlinePartStyle(const View& view, StringView part, StyleProperty prop)
     {
         StyleSheet* sheet = view.InlineSheet();
-        if (sheet == nullptr) { return false; }
+        if (sheet == nullptr)
+        {
+            return false;
+        }
         StyleRule* rule = sheet->FindInlinePartRule(part);
         return rule != nullptr && rule->Remove(prop);
     }
@@ -170,7 +189,8 @@ TEST_CASE("inline-style: Inline_AcceptsEveryValueKind")
     view->SetStyle(StyleProperty::WordWrap, true);
     view->SetStyle(StyleProperty::Background, drawable);
 
-    CHECK(view->GetInlineStyle(StyleProperty::TextColor).AsColor().Value().r == doctest::Approx(10 / 255.0f));
+    CHECK(view->GetInlineStyle(StyleProperty::TextColor).AsColor().Value().r ==
+          doctest::Approx(10 / 255.0f));
     CHECK(view->GetInlineStyle(StyleProperty::FontSize).AsFloat().Value() == 16.0f);
     CHECK(view->GetInlineStyle(StyleProperty::Padding).AsThickness().Value().Left == 2.0f);
     CHECK(view->GetInlineStyle(StyleProperty::WordWrap).AsBool().Value() == true);
@@ -182,7 +202,8 @@ TEST_CASE("inline-style: Inline_AcceptsEveryValueKind")
 TEST_CASE("inline-style: InlinePart_GetWithoutSet_ReturnsNone")
 {
     auto view = core::MakeRef<TestView>(core::DefaultAllocator());
-    CHECK(GetInlinePartStyle(*view, u8"thumb", StyleProperty::Background).GetKind() == StyleValue::Kind::None);
+    CHECK(GetInlinePartStyle(*view, u8"thumb", StyleProperty::Background).GetKind() ==
+          StyleValue::Kind::None);
     CHECK_FALSE(HasInlinePartStyle(*view, u8"thumb", StyleProperty::Background));
     CHECK_FALSE(view->HasAnyInlineStyles());
 }
@@ -206,7 +227,8 @@ TEST_CASE("inline-style: InlinePart_SetOverwritesPrevious_NoDuplicates")
     view->SetPartStyle(u8"thumb", StyleProperty::Background, Color::Red);
     view->SetPartStyle(u8"thumb", StyleProperty::Background, Color::Blue);
 
-    CHECK(GetInlinePartStyle(*view, u8"thumb", StyleProperty::Background).AsColor().Value().b == 1.0f);
+    CHECK(GetInlinePartStyle(*view, u8"thumb", StyleProperty::Background).AsColor().Value().b ==
+          1.0f);
     // A second set on the same key must not leave a stale entry - clearing removes it entirely.
     ClearInlinePartStyle(*view, u8"thumb", StyleProperty::Background);
     CHECK_FALSE(HasInlinePartStyle(*view, u8"thumb", StyleProperty::Background));
@@ -218,8 +240,10 @@ TEST_CASE("inline-style: InlinePart_DistinguishesByPartName")
     view->SetPartStyle(u8"thumb", StyleProperty::Background, Color::Red);
     view->SetPartStyle(u8"track", StyleProperty::Background, Color::Blue);
 
-    CHECK(GetInlinePartStyle(*view, u8"thumb", StyleProperty::Background).AsColor().Value().r == 1.0f);
-    CHECK(GetInlinePartStyle(*view, u8"track", StyleProperty::Background).AsColor().Value().b == 1.0f);
+    CHECK(GetInlinePartStyle(*view, u8"thumb", StyleProperty::Background).AsColor().Value().r ==
+          1.0f);
+    CHECK(GetInlinePartStyle(*view, u8"track", StyleProperty::Background).AsColor().Value().b ==
+          1.0f);
 }
 
 TEST_CASE("inline-style: InlinePart_DistinguishesByProperty")
@@ -229,7 +253,8 @@ TEST_CASE("inline-style: InlinePart_DistinguishesByProperty")
     view->SetPartStyle(u8"thumb", StyleProperty::CornerRadius, 8.0f);
 
     CHECK(GetInlinePartStyle(*view, u8"thumb", StyleProperty::Background).AsColor().HasValue());
-    CHECK(GetInlinePartStyle(*view, u8"thumb", StyleProperty::CornerRadius).AsFloat().Value() == 8.0f);
+    CHECK(GetInlinePartStyle(*view, u8"thumb", StyleProperty::CornerRadius).AsFloat().Value() ==
+          8.0f);
 }
 
 TEST_CASE("inline-style: InlinePart_ClearOne_LeavesOthers")
@@ -267,7 +292,9 @@ TEST_CASE("inline-style: Inline_Destruction_DoesNotLeakPartStrings")
 
 TEST_CASE("inline-style: Resolution_InlineBeatsTypeRule")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
     sheet->ForType(&TestView::StaticType()).Set(StyleProperty::TextColor, Rgb(255, 0, 0));
 
@@ -282,10 +309,13 @@ TEST_CASE("inline-style: Resolution_InlineBeatsTypeRule")
 
 TEST_CASE("inline-style: Resolution_InlineBeatsClassPlusStateRule")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
     // Class + state rule (specificity 11) on a disabled view - would win without an inline override.
-    sheet->ForTypeClassState(&TestView::StaticType(), u8"btn", ControlState::Disabled).Set(StyleProperty::FontSize, 12.0f);
+    sheet->ForTypeClassState(&TestView::StaticType(), u8"btn", ControlState::Disabled)
+        .Set(StyleProperty::FontSize, 12.0f);
 
     auto view = core::MakeRef<TestView>(core::DefaultAllocator());
     view->AddClass(u8"btn");
@@ -300,9 +330,12 @@ TEST_CASE("inline-style: Resolution_InlineBeatsClassPlusStateRule")
 TEST_CASE("inline-style: Resolution_InlineIgnoresControlState")
 {
     // Inline values apply across every ControlState - changing state doesn't make a state-scoped rule reappear.
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
-    sheet->ForTypeState(&TestView::StaticType(), ControlState::Hover).Set(StyleProperty::TextColor, Color::Red);
+    sheet->ForTypeState(&TestView::StaticType(), ControlState::Hover)
+        .Set(StyleProperty::TextColor, Color::Red);
     sheet->ForType(&TestView::StaticType()).Set(StyleProperty::TextColor, Color::Blue);
 
     auto view = core::MakeRef<TestView>(core::DefaultAllocator());
@@ -314,7 +347,9 @@ TEST_CASE("inline-style: Resolution_InlineIgnoresControlState")
 
 TEST_CASE("inline-style: Resolution_InlineBeatsPseudoElementRule")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
     sheet->ForTypePseudo(&TestView::StaticType(), u8"thumb").Set(StyleProperty::CornerRadius, 4.0f);
 
@@ -322,13 +357,16 @@ TEST_CASE("inline-style: Resolution_InlineBeatsPseudoElementRule")
     root->AddView(view.Get());
     view->SetPartStyle(u8"thumb", StyleProperty::CornerRadius, 16.0f);
 
-    CHECK(view->ResolvePartFloat(u8"thumb", StyleProperty::CornerRadius, ControlState::Normal) == 16.0f);
+    CHECK(view->ResolvePartFloat(u8"thumb", StyleProperty::CornerRadius, ControlState::Normal) ==
+          16.0f);
 }
 
 TEST_CASE("inline-style: Resolution_InlinePartScopedToItsPart")
 {
     // Inline override on "thumb" doesn't affect "track" resolution.
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
     sheet->ForTypePseudo(&TestView::StaticType(), u8"track").Set(StyleProperty::CornerRadius, 4.0f);
 
@@ -337,13 +375,16 @@ TEST_CASE("inline-style: Resolution_InlinePartScopedToItsPart")
     view->SetPartStyle(u8"thumb", StyleProperty::CornerRadius, 16.0f);
 
     // "track" still resolves to its rule (4); the thumb override doesn't bleed.
-    CHECK(view->ResolvePartFloat(u8"track", StyleProperty::CornerRadius, ControlState::Normal) == 4.0f);
+    CHECK(view->ResolvePartFloat(u8"track", StyleProperty::CornerRadius, ControlState::Normal) ==
+          4.0f);
 }
 
 TEST_CASE("inline-style: Resolution_InlineOnParent_InheritsToChild")
 {
     // Inheritable property set inline on a parent reaches the child via the normal inheritance walk.
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
     SetupSheet(ctx); // empty sheet - only the parent's inline value can satisfy this.
 
     auto group = core::MakeRef<TestGroup>(core::DefaultAllocator());
@@ -362,7 +403,9 @@ TEST_CASE("inline-style: Resolution_InlineOnParent_InheritsToChild")
 TEST_CASE("inline-style: Resolution_InlineOnChild_BeatsRuleOnParent")
 {
     // Child's inline value wins over a rule on the parent type.
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
     sheet->ForType(&TestGroup::StaticType()).Set(StyleProperty::TextColor, Color::Red);
 
@@ -379,7 +422,9 @@ TEST_CASE("inline-style: Resolution_InlineOnChild_BeatsRuleOnParent")
 TEST_CASE("inline-style: Resolution_InlineBeatsLocalOnThisView")
 {
     // View has both a LocalStyleSheet AND an inline override on the same property. Inline wins.
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
     SetupSheet(ctx);
 
     auto view = core::MakeRef<TestView>(core::DefaultAllocator());
@@ -399,7 +444,9 @@ TEST_CASE("inline-style: Resolution_InlineBeatsLocalOnThisView")
 TEST_CASE("inline-style: Resolution_InlineBeatsLocalOnAncestor")
 {
     // LocalStyleSheet sits on a parent; child has the inline override. Inline (on the styled view) wins.
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
     SetupSheet(ctx);
 
     auto group = core::MakeRef<TestGroup>(core::DefaultAllocator());
@@ -428,7 +475,8 @@ TEST_CASE("inline-style: SetStyle_Drawable_ConsumesByDefault")
     const int before = TrackingDrawable::LiveCount;
 
     auto view = core::MakeRef<TestView>(core::DefaultAllocator());
-    view->SetStyle(StyleProperty::Background, core::MakeRef<TrackingDrawable>(core::DefaultAllocator()));
+    view->SetStyle(StyleProperty::Background,
+                   core::MakeRef<TrackingDrawable>(core::DefaultAllocator()));
 
     CHECK(TrackingDrawable::LiveCount == before + 1);
 
@@ -459,8 +507,10 @@ TEST_CASE("inline-style: SetStyle_Drawable_MultipleConsumed_AllReleased")
     const int before = TrackingDrawable::LiveCount;
 
     auto view = core::MakeRef<TestView>(core::DefaultAllocator());
-    view->SetStyle(StyleProperty::Background, core::MakeRef<TrackingDrawable>(core::DefaultAllocator()));
-    view->SetPartStyle(u8"thumb", StyleProperty::Background, core::MakeRef<TrackingDrawable>(core::DefaultAllocator()));
+    view->SetStyle(StyleProperty::Background,
+                   core::MakeRef<TrackingDrawable>(core::DefaultAllocator()));
+    view->SetPartStyle(u8"thumb", StyleProperty::Background,
+                       core::MakeRef<TrackingDrawable>(core::DefaultAllocator()));
 
     CHECK(TrackingDrawable::LiveCount == before + 2);
 
@@ -474,12 +524,14 @@ TEST_CASE("inline-style: SetStyle_Drawable_OverwriteReleasesPrevious")
     const int before = TrackingDrawable::LiveCount;
 
     auto view = core::MakeRef<TestView>(core::DefaultAllocator());
-    view->SetStyle(StyleProperty::Background, core::MakeRef<TrackingDrawable>(core::DefaultAllocator()));
+    view->SetStyle(StyleProperty::Background,
+                   core::MakeRef<TrackingDrawable>(core::DefaultAllocator()));
 
     CHECK(TrackingDrawable::LiveCount == before + 1);
 
     // Overwrite with a second drawable - the first should be freed.
-    view->SetStyle(StyleProperty::Background, core::MakeRef<TrackingDrawable>(core::DefaultAllocator()));
+    view->SetStyle(StyleProperty::Background,
+                   core::MakeRef<TrackingDrawable>(core::DefaultAllocator()));
 
     CHECK(TrackingDrawable::LiveCount == before + 1);
 
@@ -493,11 +545,13 @@ TEST_CASE("inline-style: SetStyle_Drawable_NullClearsAndReleases")
     const int before = TrackingDrawable::LiveCount;
 
     auto view = core::MakeRef<TestView>(core::DefaultAllocator());
-    view->SetStyle(StyleProperty::Background, core::MakeRef<TrackingDrawable>(core::DefaultAllocator()));
+    view->SetStyle(StyleProperty::Background,
+                   core::MakeRef<TrackingDrawable>(core::DefaultAllocator()));
 
     CHECK(TrackingDrawable::LiveCount == before + 1);
 
-    view->SetStyle(StyleProperty::Background, RefPtr<Drawable>{}); // (Drawable)null -> releases previous
+    view->SetStyle(StyleProperty::Background,
+                   RefPtr<Drawable>{}); // (Drawable)null -> releases previous
 
     CHECK(TrackingDrawable::LiveCount == before);
 
@@ -510,7 +564,7 @@ TEST_CASE("inline-style: SetStyle_Drawable_NullClearsAndReleases")
 TEST_CASE("inline-style: SetStyle_String_RoundTrip")
 {
     auto view = core::MakeRef<TestView>(core::DefaultAllocator());
-    view->SetStyle(StyleProperty::FontFamily, StringView{ u8"Roboto" });
+    view->SetStyle(StyleProperty::FontFamily, StringView{u8"Roboto"});
 
     CHECK(view->HasInlineStyle(StyleProperty::FontFamily));
     // Hold the StyleValue in a named local: AsString() returns a StringView INTO it, which would dangle
@@ -518,16 +572,17 @@ TEST_CASE("inline-style: SetStyle_String_RoundTrip")
     const StyleValue sv = view->GetInlineStyle(StyleProperty::FontFamily);
     Optional<StringView> v = sv.AsString();
     REQUIRE(v.HasValue());
-    CHECK(v.Value() == StringView{ u8"Roboto" });
+    CHECK(v.Value() == StringView{u8"Roboto"});
 }
 
 TEST_CASE("inline-style: SetStyle_String_OverwriteFreesPrevious")
 {
     // Multiple overwrites; each drops the previous owned String (RAII, no leak).
     auto view = core::MakeRef<TestView>(core::DefaultAllocator());
-    view->SetStyle(StyleProperty::FontFamily, StringView{ u8"Roboto" });
-    view->SetStyle(StyleProperty::FontFamily, StringView{ u8"JungleAdventurer" });
-    view->SetStyle(StyleProperty::FontFamily, StringView{ u8"AttackOfMonster" });
+    view->SetStyle(StyleProperty::FontFamily, StringView{u8"Roboto"});
+    view->SetStyle(StyleProperty::FontFamily, StringView{u8"JungleAdventurer"});
+    view->SetStyle(StyleProperty::FontFamily, StringView{u8"AttackOfMonster"});
 
-    CHECK(view->GetInlineStyle(StyleProperty::FontFamily).AsString().Value() == StringView{ u8"AttackOfMonster" });
+    CHECK(view->GetInlineStyle(StyleProperty::FontFamily).AsString().Value() ==
+          StringView{u8"AttackOfMonster"});
 }

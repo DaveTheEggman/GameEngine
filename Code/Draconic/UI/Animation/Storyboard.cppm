@@ -38,7 +38,10 @@ export namespace draconic::ui
 
         bool Update(f32 deltaTime) override
         {
-            if (!IsRunning() || IsComplete()) { return IsComplete(); }
+            if (!IsRunning() || IsComplete())
+            {
+                return IsComplete();
+            }
 
             if (m_children.Size() == 0)
             {
@@ -48,8 +51,10 @@ export namespace draconic::ui
 
             switch (m_mode)
             {
-            case Mode::Sequential: return UpdateSequential(deltaTime);
-            case Mode::Parallel:   return UpdateParallel(deltaTime);
+            case Mode::Sequential:
+                return UpdateSequential(deltaTime);
+            case Mode::Parallel:
+                return UpdateParallel(deltaTime);
             }
             return false;
         }
@@ -59,7 +64,10 @@ export namespace draconic::ui
         {
             Animation::Reset();
             m_currentIndex = 0;
-            for (const UniquePtr<Animation>& child : m_children) { child->Reset(); }
+            for (const UniquePtr<Animation>& child : m_children)
+            {
+                child->Reset();
+            }
         }
 
     protected:
@@ -71,9 +79,16 @@ export namespace draconic::ui
             while (m_currentIndex < m_children.Size())
             {
                 Animation* child = m_children[m_currentIndex].Get();
-                if (!child->IsRunning() && !child->IsComplete()) { child->Start(); }
+                if (!child->IsRunning() && !child->IsComplete())
+                {
+                    child->Start();
+                }
 
-                if (child->Update(deltaTime)) { m_currentIndex++; continue; }
+                if (child->Update(deltaTime))
+                {
+                    m_currentIndex++;
+                    continue;
+                }
                 return false; // Current child still running.
             }
 
@@ -87,8 +102,14 @@ export namespace draconic::ui
             bool allDone = true;
             for (const UniquePtr<Animation>& child : m_children)
             {
-                if (!child->IsRunning() && !child->IsComplete()) { child->Start(); }
-                if (!child->Update(deltaTime)) { allDone = false; }
+                if (!child->IsRunning() && !child->IsComplete())
+                {
+                    child->Start();
+                }
+                if (!child->Update(deltaTime))
+                {
+                    allDone = false;
+                }
             }
 
             if (allDone)

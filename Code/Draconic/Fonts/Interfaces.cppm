@@ -38,7 +38,8 @@ export namespace draconic::fonts
         [[nodiscard]] virtual bool HasGlyph(i32 codepoint) const = 0;
 
         [[nodiscard]] virtual f32 MeasureString(StringView text) const = 0;
-        [[nodiscard]] virtual f32 MeasureString(StringView text, Array<GlyphPosition>& outPositions) const = 0;
+        [[nodiscard]] virtual f32 MeasureString(StringView text,
+                                                Array<GlyphPosition>& outPositions) const = 0;
     };
 
     // Texture of pre-rendered glyphs.
@@ -49,13 +50,15 @@ export namespace draconic::fonts
 
         [[nodiscard]] virtual u32 Width() const = 0;
         [[nodiscard]] virtual u32 Height() const = 0;
-        [[nodiscard]] virtual Span<const u8> PixelData() const = 0;   // single-channel 8-bit coverage
+        [[nodiscard]] virtual Span<const u8> PixelData() const = 0; // single-channel 8-bit coverage
 
         [[nodiscard]] virtual bool TryGetRegion(i32 codepoint, AtlasRegion& region) const = 0;
-        [[nodiscard]] virtual bool GetGlyphQuad(i32 codepoint, f32& cursorX, f32 cursorY, GlyphQuad& quad) const = 0;
-        [[nodiscard]] virtual bool GetGlyphQuadAt(i32 codepoint, f32 x, f32 y, GlyphQuad& quad) const = 0;
+        [[nodiscard]] virtual bool GetGlyphQuad(i32 codepoint, f32& cursorX, f32 cursorY,
+                                                GlyphQuad& quad) const = 0;
+        [[nodiscard]] virtual bool GetGlyphQuadAt(i32 codepoint, f32 x, f32 y,
+                                                  GlyphQuad& quad) const = 0;
         [[nodiscard]] virtual bool Contains(i32 codepoint) const = 0;
-        [[nodiscard]] virtual Float2 WhitePixelUV() const = 0;          // UV of a solid white texel
+        [[nodiscard]] virtual Float2 WhitePixelUV() const = 0; // UV of a solid white texel
     };
 
     // Text shaping/layout + UI helpers.
@@ -64,14 +67,25 @@ export namespace draconic::fonts
     public:
         virtual ~ITextShaper() = default;
 
-        [[nodiscard]] virtual Result<f32> ShapeText(IFont& font, StringView text, Array<GlyphPosition>& outPositions) = 0;
-        [[nodiscard]] virtual Result<f32> ShapeText(IFont& font, StringView text, f32 startX, f32 startY, Array<GlyphPosition>& outPositions) = 0;
-        [[nodiscard]] virtual Status ShapeTextWrapped(IFont& font, StringView text, f32 maxWidth, Array<GlyphPosition>& outPositions, f32& outTotalHeight) = 0;
+        [[nodiscard]] virtual Result<f32> ShapeText(IFont& font, StringView text,
+                                                    Array<GlyphPosition>& outPositions) = 0;
+        [[nodiscard]] virtual Result<f32> ShapeText(IFont& font, StringView text, f32 startX,
+                                                    f32 startY,
+                                                    Array<GlyphPosition>& outPositions) = 0;
+        [[nodiscard]] virtual Status ShapeTextWrapped(IFont& font, StringView text, f32 maxWidth,
+                                                      Array<GlyphPosition>& outPositions,
+                                                      f32& outTotalHeight) = 0;
 
-        [[nodiscard]] virtual HitTestResult HitTest(IFont& font, Span<const GlyphPosition> positions, f32 x, f32 y) = 0;
-        [[nodiscard]] virtual HitTestResult HitTestWrapped(IFont& font, Span<const GlyphPosition> positions, f32 x, f32 y, f32 lineHeight) = 0;
-        [[nodiscard]] virtual f32 GetCursorPosition(IFont& font, Span<const GlyphPosition> positions, i32 characterIndex) = 0;
-        virtual void GetSelectionRects(IFont& font, Span<const GlyphPosition> positions, SelectionRange selection, f32 lineHeight, Array<Rectangle>& outRects) = 0;
+        [[nodiscard]] virtual HitTestResult
+        HitTest(IFont& font, Span<const GlyphPosition> positions, f32 x, f32 y) = 0;
+        [[nodiscard]] virtual HitTestResult HitTestWrapped(IFont& font,
+                                                           Span<const GlyphPosition> positions,
+                                                           f32 x, f32 y, f32 lineHeight) = 0;
+        [[nodiscard]] virtual f32
+        GetCursorPosition(IFont& font, Span<const GlyphPosition> positions, i32 characterIndex) = 0;
+        virtual void GetSelectionRects(IFont& font, Span<const GlyphPosition> positions,
+                                       SelectionRange selection, f32 lineHeight,
+                                       Array<Rectangle>& outRects) = 0;
     };
 
     // Owning aggregate of a loaded font + its atlas (+ optional shaper).
@@ -84,13 +98,24 @@ export namespace draconic::fonts
         i32 refCount = 1;
 
         CachedFont(IFont* f, IFontAtlas* a, ITextShaper* s = nullptr) noexcept
-            : font(f), atlas(a), shaper(s) {}
+            : font(f), atlas(a), shaper(s)
+        {
+        }
 
         ~CachedFont()
         {
-            if (shaper != nullptr) { DefaultAllocator().Delete(shaper); }
-            if (atlas != nullptr) { DefaultAllocator().Delete(atlas); }
-            if (font != nullptr) { DefaultAllocator().Delete(font); }
+            if (shaper != nullptr)
+            {
+                DefaultAllocator().Delete(shaper);
+            }
+            if (atlas != nullptr)
+            {
+                DefaultAllocator().Delete(atlas);
+            }
+            if (font != nullptr)
+            {
+                DefaultAllocator().Delete(font);
+            }
         }
 
         CachedFont(const CachedFont&) = delete;
@@ -106,7 +131,8 @@ export namespace draconic::fonts
         [[nodiscard]] virtual CachedFont* GetFont(f32 pixelHeight) = 0;
         [[nodiscard]] virtual CachedFont* GetFont(StringView familyName, f32 pixelHeight) = 0;
         [[nodiscard]] virtual draconic::image::ImageData* GetAtlasTexture(CachedFont* font) = 0;
-        [[nodiscard]] virtual draconic::image::ImageData* GetAtlasTexture(StringView familyName, f32 pixelHeight) = 0;
+        [[nodiscard]] virtual draconic::image::ImageData* GetAtlasTexture(StringView familyName,
+                                                                          f32 pixelHeight) = 0;
         virtual void ReleaseFont(CachedFont* font) = 0;
         [[nodiscard]] virtual StringView DefaultFontFamily() const = 0;
     };

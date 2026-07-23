@@ -10,7 +10,7 @@ module;
 
 export module draconic.gui:parse_util;
 
-import draconic.core;   // StringView
+import draconic.core; // StringView
 
 using namespace draconic::core;
 namespace core = draconic::core;
@@ -20,15 +20,16 @@ export namespace draconic::gui
     // A CSS identifier character: letters, digits, '-' (kebab-case) and '_'.
     [[nodiscard]] constexpr bool IsIdentChar(char8_t c) noexcept
     {
-        return (c >= u8'a' && c <= u8'z') || (c >= u8'A' && c <= u8'Z')
-            || (c >= u8'0' && c <= u8'9') || c == u8'-' || c == u8'_';
+        return (c >= u8'a' && c <= u8'z') || (c >= u8'A' && c <= u8'Z') ||
+               (c >= u8'0' && c <= u8'9') || c == u8'-' || c == u8'_';
     }
 
     // Read an identifier starting at i, advancing i past it.
     [[nodiscard]] inline core::StringView ReadIdent(core::StringView s, usize& i) noexcept
     {
         const usize start = i;
-        while (i < s.Size() && IsIdentChar(s[i])) ++i;
+        while (i < s.Size() && IsIdentChar(s[i]))
+            ++i;
         return s.SubStr(start, i - start);
     }
 }

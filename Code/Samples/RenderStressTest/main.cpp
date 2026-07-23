@@ -14,10 +14,10 @@
 // hold RMB (or Tab to capture) to look, Shift to move fast, Esc to exit.
 
 #include "Core/Prelude.h"
-#include "imgui.h"   // Dear ImGui (HUD) - used directly; engine integration is draconic.imgui
+#include "imgui.h" // Dear ImGui (HUD) - used directly; engine integration is draconic.imgui
 
 import draconic.core;
-import draconic.rhi;                     // PresentMode (run the benchmark vsync-off)
+import draconic.rhi; // PresentMode (run the benchmark vsync-off)
 import draconic.runtime;
 import draconic.runtime.client;
 import draconic.shell;
@@ -29,20 +29,20 @@ import draconic.runtime.defaultapp;
 import draconic.scene;
 import draconic.scene.subsystem;
 import draconic.render.subsystem;
-import draconic.imgui;                    // ImguiSubsystem (HUD)
+import draconic.imgui; // ImguiSubsystem (HUD)
 import draconic.geometry;
 import draconic.materials;
 
-#include "../Common/FlyCamera.h"   // shared free-fly camera (uses the imported runtime/core types)
+#include "../Common/FlyCamera.h" // shared free-fly camera (uses the imported runtime/core types)
 
-namespace core  = draconic::core;
+namespace core = draconic::core;
 namespace rhi = draconic::rhi;
-namespace runtime  = draconic::runtime;
+namespace runtime = draconic::runtime;
 namespace graphics = draconic::graphics;
-namespace shell  = draconic::shell;
+namespace shell = draconic::shell;
 namespace samples = draconic::samples;
-namespace scene  = draconic::scene;
-namespace render  = draconic::render;
+namespace scene = draconic::scene;
+namespace render = draconic::render;
 namespace imgui = draconic::imgui;
 namespace geometry = draconic::geometry;
 namespace materials = draconic::materials;
@@ -52,9 +52,10 @@ namespace
     class StressTestApp final : public runtime::DefaultApplication
     {
         static constexpr core::i32 kSpheresPerBatch = 8000;
-        static constexpr core::f32 kSphereSpacing   = 1.5f;
-        static constexpr core::f32 kSphereHeight    = 2.5f;   // base height above the floor (radius 0.5)
-        static constexpr core::f32 kFloorBaseSize   = 500.0f; // base ground-plane size (scaled to cover the grid)
+        static constexpr core::f32 kSphereSpacing = 1.5f;
+        static constexpr core::f32 kSphereHeight = 2.5f; // base height above the floor (radius 0.5)
+        static constexpr core::f32 kFloorBaseSize =
+            500.0f; // base ground-plane size (scaled to cover the grid)
 
     public:
         // Run uncapped (vsync off) so the frame time reflects real CPU+GPU work, not the display
@@ -70,7 +71,8 @@ namespace
         void Configure(runtime::IApplicationHost& host) override
         {
             runtime::DefaultApplication::Configure(host);
-            if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr) {
+            if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
+            {
                 host.Ctx().AddSubsystem<imgui::ImguiSubsystem>(*gfx->Raw(), gfx->FramesInFlight());
             }
         }
@@ -78,149 +80,207 @@ namespace
         void OnStartup(runtime::IApplicationHost& host) override
         {
             auto* scenes = host.Ctx().GetSubsystem<scene::SceneSubsystem>();
-            if (scenes == nullptr) { return; }
+            if (scenes == nullptr)
+            {
+                return;
+            }
             m_scene = PrimaryScenes().CreateScene(u8"stress");
 
             // A modest ambient so unlit-facing hemispheres aren't pure black.
-            if (auto* env = m_scene->GetSystem<render::EnvironmentSystem>()) {
-                env->Environment().ambientColor     = core::Color{ 0.10f, 0.12f, 0.16f, 1.0f };
+            if (auto* env = m_scene->GetSystem<render::EnvironmentSystem>())
+            {
+                env->Environment().ambientColor = core::Color{0.10f, 0.12f, 0.16f, 1.0f};
                 env->Environment().ambientIntensity = 0.30f;
             }
 
             // Shared sphere material (gray PBR). Every sphere points at THIS one by default, so the
             // renderer can batch them. Unique mode (U) builds a per-sphere material instead.
-            m_sharedMat = materials::CreatePBR(u8"stress.shared", core::Float4{ 0.7f, 0.7f, 0.7f, 1.0f }, 0.1f, 0.4f);
+            m_sharedMat = materials::CreatePBR(u8"stress.shared",
+                                               core::Float4{0.7f, 0.7f, 0.7f, 1.0f}, 0.1f, 0.4f);
 
             // One sphere mesh, shared by all instances (matches Sedulous: radius 0.5, 16x8).
             m_sphere = geometry::Primitives::Sphere(0.5f, 16, 8);
 
             // Large ground plane so the bobbing spheres read against a surface.
-            if (auto* meshes = m_scene->GetSystem<render::MeshComponentManager>()) {
+            if (auto* meshes = m_scene->GetSystem<render::MeshComponentManager>())
+            {
                 m_ground = m_scene->CreateEntity(u8"ground");
-                m_scene->SetLocalPosition(m_ground, core::Float3{ 0.0f, 0.0f, 0.0f });
+                m_scene->SetLocalPosition(m_ground, core::Float3{0.0f, 0.0f, 0.0f});
                 render::MeshComponent& gm = meshes->Add(m_ground);
                 gm.mesh = geometry::Primitives::Plane(kFloorBaseSize, kFloorBaseSize);
-                gm.SetMaterial(materials::CreatePBR(u8"stress.ground", core::Float4{ 0.3f, 0.3f, 0.3f, 1.0f }, 0.0f, 0.8f));
+                gm.SetMaterial(materials::CreatePBR(
+                    u8"stress.ground", core::Float4{0.3f, 0.3f, 0.3f, 1.0f}, 0.0f, 0.8f));
             }
 
             // Directional key light.
-            if (auto* lights = m_scene->GetSystem<render::LightComponentManager>()) {
+            if (auto* lights = m_scene->GetSystem<render::LightComponentManager>())
+            {
                 scene::EntityHandle sun = m_scene->CreateEntity(u8"sun");
                 core::Transform st = m_scene->GetLocalTransform(sun);
-                st.rotation = core::Quaternion::FromAxisAngle(core::Float3{ 1.0f, 0.0f, 0.0f }, -0.9f)
-                            * core::Quaternion::FromAxisAngle(core::Float3{ 0.0f, 1.0f, 0.0f }, 0.5f);
+                st.rotation =
+                    core::Quaternion::FromAxisAngle(core::Float3{1.0f, 0.0f, 0.0f}, -0.9f) *
+                    core::Quaternion::FromAxisAngle(core::Float3{0.0f, 1.0f, 0.0f}, 0.5f);
                 m_scene->SetLocalTransform(sun, st);
                 render::LightComponent& sl = lights->Add(sun);
-                sl.type         = render::LightType::Directional;
-                sl.color        = core::Color{ 1.0f, 0.95f, 0.9f, 1.0f };
-                sl.intensity    = 1.5f;
-                sl.castsShadows = true;   // phase 5.1: the spheres cast shadows on the ground
-                m_sun = sun;              // K toggles its shadows (for shadowed-vs-unshadowed benchmarking)
+                sl.type = render::LightType::Directional;
+                sl.color = core::Color{1.0f, 0.95f, 0.9f, 1.0f};
+                sl.intensity = 1.5f;
+                sl.castsShadows = true; // phase 5.1: the spheres cast shadows on the ground
+                m_sun = sun; // K toggles its shadows (for shadowed-vs-unshadowed benchmarking)
             }
 
             // Fly camera, pulled well back + up so the whole grid is in frame (worst case for culling).
             m_camera = m_scene->CreateEntity(u8"camera");
-            if (auto* cameras = m_scene->GetSystem<render::CameraComponentManager>()) {
+            if (auto* cameras = m_scene->GetSystem<render::CameraComponentManager>())
+            {
                 render::CameraComponent& cam = cameras->Add(m_camera);
-                cam.fovYRadians = 1.04719755f;   // 60 deg
-                cam.nearZ       = 0.1f;
-                cam.farZ        = 2000.0f;
-                cam.clearColor  = core::Color{ 0.04f, 0.05f, 0.07f, 1.0f };
+                cam.fovYRadians = 1.04719755f; // 60 deg
+                cam.nearZ = 0.1f;
+                cam.farZ = 2000.0f;
+                cam.clearColor = core::Color{0.04f, 0.05f, 0.07f, 1.0f};
             }
             PushCameraToEntity();
 
-            AddSphereBatch();   // start with one batch
+            AddSphereBatch(); // start with one batch
 
             // Lower default exposure: the procedural-sky IBL + sun are bright, so AgX washes out at 1.0.
-            if (auto* render = host.Ctx().GetSubsystem<render::RenderSubsystem>()) { render->SetExposure(0.5f); }
+            if (auto* render = host.Ctx().GetSubsystem<render::RenderSubsystem>())
+            {
+                render->SetExposure(0.5f);
+            }
 
-            core::ConsoleWrite(u8"=== Render Stress Test ===\n"
-                             u8"  Space: +8000 spheres   Backspace: -8000\n"
-                             u8"  U: toggle unique materials (defeats batching)\n"
-                             u8"  B: toggle sin-wave bob (defeats static caching)\n"
-                             u8"  M: toggle MultiMesh (whole grid as ONE instanced set, O(1)/frame CPU)\n"
-                             u8"  H: toggle console stats   P: profiler dump\n"
-                             u8"  WASD/QE move, RMB look, Tab capture, Shift fast, Esc exit\n"
-                             u8"==========================\n");
+            core::ConsoleWrite(
+                u8"=== Render Stress Test ===\n"
+                u8"  Space: +8000 spheres   Backspace: -8000\n"
+                u8"  U: toggle unique materials (defeats batching)\n"
+                u8"  B: toggle sin-wave bob (defeats static caching)\n"
+                u8"  M: toggle MultiMesh (whole grid as ONE instanced set, O(1)/frame CPU)\n"
+                u8"  H: toggle console stats   P: profiler dump\n"
+                u8"  WASD/QE move, RMB look, Tab capture, Shift fast, Esc exit\n"
+                u8"==========================\n");
         }
 
         // The default render path reads the camera's aspect straight from the component, so keep it in
         // sync with the backbuffer before delegating to DefaultApplication's single-view render.
         void OnRenderWindow(runtime::IApplicationHost& host, graphics::FrameContext& frame) override
         {
-            if (m_scene != nullptr && frame.height > 0) {
-                if (auto* cameras = m_scene->GetSystem<render::CameraComponentManager>()) {
-                    if (render::CameraComponent* cam = cameras->Get(m_camera)) {
-                        cam->aspect = static_cast<core::f32>(frame.width) / static_cast<core::f32>(frame.height);
+            if (m_scene != nullptr && frame.height > 0)
+            {
+                if (auto* cameras = m_scene->GetSystem<render::CameraComponentManager>())
+                {
+                    if (render::CameraComponent* cam = cameras->Get(m_camera))
+                    {
+                        cam->aspect = static_cast<core::f32>(frame.width) /
+                                      static_cast<core::f32>(frame.height);
                     }
                 }
             }
             runtime::DefaultApplication::OnRenderWindow(host, frame);
 
             // HUD over the scene (backbuffer is RenderTarget after the default render path).
-            if (auto* g = host.Ctx().GetSubsystem<imgui::ImguiSubsystem>()) { g->Render(frame); }
+            if (auto* g = host.Ctx().GetSubsystem<imgui::ImguiSubsystem>())
+            {
+                g->Render(frame);
+            }
         }
 
         void OnUpdate(runtime::IApplicationHost& host, core::f32 deltaTime) override
         {
-            runtime::DefaultApplication::OnUpdate(host, deltaTime);   // inherited P-key profiler dump
+            runtime::DefaultApplication::OnUpdate(host, deltaTime); // inherited P-key profiler dump
 
             // Smooth the frame time every frame + build the ImGui HUD (drawn in OnRenderWindow).
             m_frameMs = m_frameMs * 0.9f + (deltaTime * 1000.0f) * 0.1f;
-            if (auto* g = host.Ctx().GetSubsystem<imgui::ImguiSubsystem>()) {
+            if (auto* g = host.Ctx().GetSubsystem<imgui::ImguiSubsystem>())
+            {
                 g->NewFrame(host.Shell() != nullptr ? host.Shell()->Input() : nullptr, deltaTime);
                 BuildHud(host.Ctx().GetSubsystem<render::RenderSubsystem>());
             }
-            if (m_scene == nullptr) { return; }
+            if (m_scene == nullptr)
+            {
+                return;
+            }
 
             auto* input = host.Shell() != nullptr ? host.Shell()->Input() : nullptr;
             shell::IKeyboard* kb = input != nullptr ? input->Keyboard() : nullptr;
-            if (kb == nullptr) { return; }   // mouse-look is handled inside m_fly.Update
+            if (kb == nullptr)
+            {
+                return;
+            } // mouse-look is handled inside m_fly.Update
 
-            if (kb->IsKeyPressed(shell::KeyCode::Escape)) { host.RequestExit(0); return; }
+            if (kb->IsKeyPressed(shell::KeyCode::Escape))
+            {
+                host.RequestExit(0);
+                return;
+            }
 
             // --- load controls ---
-            if (kb->IsKeyPressed(shell::KeyCode::Space))     { AddSphereBatch(); }
-            if (kb->IsKeyPressed(shell::KeyCode::Backspace)) { RemoveLastBatch(); }
-            if (kb->IsKeyPressed(shell::KeyCode::U)) {
+            if (kb->IsKeyPressed(shell::KeyCode::Space))
+            {
+                AddSphereBatch();
+            }
+            if (kb->IsKeyPressed(shell::KeyCode::Backspace))
+            {
+                RemoveLastBatch();
+            }
+            if (kb->IsKeyPressed(shell::KeyCode::U))
+            {
                 m_uniqueMaterials = !m_uniqueMaterials;
                 RebuildSphereMaterials();
-                core::ConsoleWrite(m_uniqueMaterials ? u8"Unique materials: ON (a draw per sphere)\n"
-                                                   : u8"Unique materials: OFF (shared, batched)\n");
+                core::ConsoleWrite(m_uniqueMaterials
+                                       ? u8"Unique materials: ON (a draw per sphere)\n"
+                                       : u8"Unique materials: OFF (shared, batched)\n");
             }
-            if (kb->IsKeyPressed(shell::KeyCode::B)) {
+            if (kb->IsKeyPressed(shell::KeyCode::B))
+            {
                 m_bob = !m_bob;
                 core::ConsoleWrite(m_bob ? u8"Sin-wave bob: ON (transforms rewritten every frame)\n"
-                                       : u8"Sin-wave bob: OFF\n");
+                                         : u8"Sin-wave bob: OFF\n");
             }
-            if (kb->IsKeyPressed(shell::KeyCode::M)) {
+            if (kb->IsKeyPressed(shell::KeyCode::M))
+            {
                 m_multiMesh = !m_multiMesh;
                 RebuildMultiMesh();
-                core::ConsoleWrite(m_multiMesh ? u8"MultiMesh: ON (whole grid = ONE instanced set, O(1)/frame CPU)\n"
-                                             : u8"MultiMesh: OFF (per-entity spheres)\n");
+                core::ConsoleWrite(
+                    m_multiMesh
+                        ? u8"MultiMesh: ON (whole grid = ONE instanced set, O(1)/frame CPU)\n"
+                        : u8"MultiMesh: OFF (per-entity spheres)\n");
             }
-            if (kb->IsKeyPressed(shell::KeyCode::H)) { m_showStats = !m_showStats; }
-            if (kb->IsKeyPressed(shell::KeyCode::T)) {   // toggle TAA (activates per-instance motion-vector prev-world path)
-                if (auto* render = host.Ctx().GetSubsystem<render::RenderSubsystem>()) {
+            if (kb->IsKeyPressed(shell::KeyCode::H))
+            {
+                m_showStats = !m_showStats;
+            }
+            if (kb->IsKeyPressed(shell::KeyCode::T))
+            { // toggle TAA (activates per-instance motion-vector prev-world path)
+                if (auto* render = host.Ctx().GetSubsystem<render::RenderSubsystem>())
+                {
                     const bool on = !render->TaaEnabled();
                     render->SetTaaEnabled(on);
                     core::ConsoleWrite(on ? u8"TAA: ON (motion vectors active)\n" : u8"TAA: OFF\n");
                 }
             }
-            if (kb->IsKeyPressed(shell::KeyCode::I)) {   // toggle prepass->forward instance-data sharing (A/B regression/perf)
-                if (auto* render = host.Ctx().GetSubsystem<render::RenderSubsystem>()) {
+            if (kb->IsKeyPressed(shell::KeyCode::I))
+            { // toggle prepass->forward instance-data sharing (A/B regression/perf)
+                if (auto* render = host.Ctx().GetSubsystem<render::RenderSubsystem>())
+                {
                     const bool on = !render->InstanceSharing();
                     render->SetInstanceSharing(on);
-                    core::ConsoleWrite(on ? u8"Instance sharing: ON (prepass builds once, forward reuses)\n"
-                                        : u8"Instance sharing: OFF (forward re-fills = old double-build)\n");
+                    core::ConsoleWrite(
+                        on ? u8"Instance sharing: ON (prepass builds once, forward reuses)\n"
+                           : u8"Instance sharing: OFF (forward re-fills = old double-build)\n");
                 }
             }
-            if (kb->IsKeyPressed(shell::KeyCode::K)) {   // toggle directional shadows (Sedulous's 104k demo runs shadow-OFF)
-                if (auto* lights = m_scene->GetSystem<render::LightComponentManager>()) {
-                    if (render::LightComponent* sl = m_sun.IsAssigned() ? lights->Get(m_sun) : nullptr) {
+            if (kb->IsKeyPressed(shell::KeyCode::K))
+            { // toggle directional shadows (Sedulous's 104k demo runs shadow-OFF)
+                if (auto* lights = m_scene->GetSystem<render::LightComponentManager>())
+                {
+                    if (render::LightComponent* sl =
+                            m_sun.IsAssigned() ? lights->Get(m_sun) : nullptr)
+                    {
                         sl->castsShadows = !sl->castsShadows;
-                        core::ConsoleWrite(sl->castsShadows ? u8"Directional shadows: ON (CSM)\n"
-                                                          : u8"Directional shadows: OFF (matches Sedulous stress test)\n");
+                        core::ConsoleWrite(
+                            sl->castsShadows
+                                ? u8"Directional shadows: ON (CSM)\n"
+                                : u8"Directional shadows: OFF (matches Sedulous stress test)\n");
                     }
                 }
             }
@@ -230,10 +290,12 @@ namespace
 
             // --- sin-wave bob: rewrite every sphere's Y each frame (no static optimization possible) ---
             m_time += deltaTime;
-            if (m_bob) {
+            if (m_bob)
+            {
                 auto* meshScene = m_scene;
                 constexpr core::f32 amplitude = 1.0f, speed = 2.0f;
-                for (scene::EntityHandle e : m_spheres) {
+                for (scene::EntityHandle e : m_spheres)
+                {
                     core::Transform t = meshScene->GetLocalTransform(e);
                     // Phase from world X/Z (stable as the grid grows). Bob AROUND the base height so the
                     // spheres stay above the floor (full, separated shadows) instead of dipping through it.
@@ -264,23 +326,27 @@ namespace
         // whole field and the far plane wide enough that no spheres get frustum-far-culled.
         void FitFloorAndCamera()
         {
-            const core::f32 gridWidth = static_cast<core::f32>(m_gridSize) * kSphereSpacing;   // full grid extent
+            const core::f32 gridWidth =
+                static_cast<core::f32>(m_gridSize) * kSphereSpacing; // full grid extent
             // Floor: scale the base plane so it covers the grid + a margin (uniform XZ; Y stays flat).
             const core::f32 scale = core::Max(0.1f, (gridWidth + 40.0f) / kFloorBaseSize);
             core::Transform ft = m_scene->GetLocalTransform(m_ground);
-            ft.scale = core::Float3{ scale, 1.0f, scale };
+            ft.scale = core::Float3{scale, 1.0f, scale};
             m_scene->SetLocalTransform(m_ground, ft);
 
             // Camera: pull back + up so the grid fits the 60° FOV, looking down at the center.
             const core::f32 extent = gridWidth * 0.5f + 6.0f;
-            const core::f32 dist   = extent / core::Tan(0.5236f) + 10.0f;   // half of 60° = 0.5236 rad
-            const core::f32 camY   = extent * 0.55f + kSphereHeight;
-            m_fly.position = core::Float3{ 0.0f, kSphereHeight + camY, dist };
-            m_fly.yaw      = 0.0f;
-            m_fly.pitch    = -core::Atan2(camY, dist);   // look down onto the grid center
-            if (auto* cameras = m_scene->GetSystem<render::CameraComponentManager>()) {
-                if (render::CameraComponent* cam = cameras->Get(m_camera)) {
-                    cam->farZ = dist + extent * 2.0f + 200.0f;   // cover the grid; don't far-cull spheres
+            const core::f32 dist = extent / core::Tan(0.5236f) + 10.0f; // half of 60° = 0.5236 rad
+            const core::f32 camY = extent * 0.55f + kSphereHeight;
+            m_fly.position = core::Float3{0.0f, kSphereHeight + camY, dist};
+            m_fly.yaw = 0.0f;
+            m_fly.pitch = -core::Atan2(camY, dist); // look down onto the grid center
+            if (auto* cameras = m_scene->GetSystem<render::CameraComponentManager>())
+            {
+                if (render::CameraComponent* cam = cameras->Get(m_camera))
+                {
+                    cam->farZ =
+                        dist + extent * 2.0f + 200.0f; // cover the grid; don't far-cull spheres
                 }
             }
             PushCameraToEntity();
@@ -294,27 +360,41 @@ namespace
         {
             const core::i32 gx = index % m_gridSize;
             const core::i32 gz = index / m_gridSize;
-            const core::f32 x = (static_cast<core::f32>(gx) - static_cast<core::f32>(m_gridSize) * 0.5f) * kSphereSpacing;
-            const core::f32 z = (static_cast<core::f32>(gz) - static_cast<core::f32>(m_gridSize) * 0.5f) * kSphereSpacing;
-            return core::Float3{ x, kSphereHeight, z };
+            const core::f32 x =
+                (static_cast<core::f32>(gx) - static_cast<core::f32>(m_gridSize) * 0.5f) *
+                kSphereSpacing;
+            const core::f32 z =
+                (static_cast<core::f32>(gz) - static_cast<core::f32>(m_gridSize) * 0.5f) *
+                kSphereSpacing;
+            return core::Float3{x, kSphereHeight, z};
         }
 
         void AddSphereBatch()
         {
             const core::i32 startIndex = m_batchCount * kSpheresPerBatch;
-            const core::i32 newTotal   = (m_batchCount + 1) * kSpheresPerBatch;
-            m_gridSize = static_cast<core::i32>(core::Ceil(core::Sqrt(static_cast<core::f32>(newTotal))));
+            const core::i32 newTotal = (m_batchCount + 1) * kSpheresPerBatch;
+            m_gridSize =
+                static_cast<core::i32>(core::Ceil(core::Sqrt(static_cast<core::f32>(newTotal))));
 
-            if (m_multiMesh) {
+            if (m_multiMesh)
+            {
                 // MultiMesh: no per-entity entities exist - grow the canonical transform list + the set.
                 m_mmTransforms.Reserve(static_cast<core::u32>(newTotal));
-                for (core::i32 i = 0; i < kSpheresPerBatch; ++i) {
-                    m_mmTransforms.PushBack(core::Float4x4::Translation(SphereTranslation(startIndex + i)));
+                for (core::i32 i = 0; i < kSpheresPerBatch; ++i)
+                {
+                    m_mmTransforms.PushBack(
+                        core::Float4x4::Translation(SphereTranslation(startIndex + i)));
                 }
-            } else {
+            }
+            else
+            {
                 auto* meshes = m_scene->GetSystem<render::MeshComponentManager>();
-                if (meshes == nullptr) { return; }
-                for (core::i32 i = 0; i < kSpheresPerBatch; ++i) {
+                if (meshes == nullptr)
+                {
+                    return;
+                }
+                for (core::i32 i = 0; i < kSpheresPerBatch; ++i)
+                {
                     const core::i32 index = startIndex + i;
                     scene::EntityHandle e = m_scene->CreateEntity(u8"sphere");
                     m_scene->SetLocalPosition(e, SphereTranslation(index));
@@ -327,47 +407,71 @@ namespace
 
             ++m_batchCount;
             FitFloorAndCamera();
-            if (m_multiMesh) { PushMultiMesh(); }
+            if (m_multiMesh)
+            {
+                PushMultiMesh();
+            }
             PrintCounts();
         }
 
         void RemoveLastBatch()
         {
-            if (m_batchCount <= 0) { return; }
-            if (m_multiMesh) {
+            if (m_batchCount <= 0)
+            {
+                return;
+            }
+            if (m_multiMesh)
+            {
                 core::usize remove = static_cast<core::usize>(kSpheresPerBatch);
-                if (remove > m_mmTransforms.Size()) { remove = m_mmTransforms.Size(); }
+                if (remove > m_mmTransforms.Size())
+                {
+                    remove = m_mmTransforms.Size();
+                }
                 m_mmTransforms.Resize(m_mmTransforms.Size() - remove);
-            } else {
+            }
+            else
+            {
                 core::i32 removeCount = kSpheresPerBatch;
-                if (static_cast<core::usize>(removeCount) > m_spheres.Size()) {
+                if (static_cast<core::usize>(removeCount) > m_spheres.Size())
+                {
                     removeCount = static_cast<core::i32>(m_spheres.Size());
                 }
-                for (core::i32 i = 0; i < removeCount; ++i) {
+                for (core::i32 i = 0; i < removeCount; ++i)
+                {
                     m_scene->DestroyEntity(m_spheres[m_spheres.Size() - 1]);
                     m_spheres.PopBack();
-                    if (m_uniqueMaterials && !m_uniqueMats.IsEmpty()) { m_uniqueMats.PopBack(); }
+                    if (m_uniqueMaterials && !m_uniqueMats.IsEmpty())
+                    {
+                        m_uniqueMats.PopBack();
+                    }
                 }
             }
             --m_batchCount;
             FitFloorAndCamera();
-            if (m_multiMesh) { PushMultiMesh(); }
+            if (m_multiMesh)
+            {
+                PushMultiMesh();
+            }
             PrintCounts();
         }
 
         // Point a sphere's mesh component at the right material for the current mode.
         void AssignSphereMaterial(render::MeshComponent& mc, core::i32 index)
         {
-            if (m_uniqueMaterials) {
+            if (m_uniqueMaterials)
+            {
                 const core::f32 hue = static_cast<core::f32>(index % 360) / 360.0f;
                 const core::Float3 c = HsvToRgb(hue, 0.8f, 0.9f);
-                core::RefPtr<materials::Material> m = materials::CreatePBR(u8"stress.unique", core::Float4{ c.x, c.y, c.z, 1.0f }, 0.1f, 0.4f);
+                core::RefPtr<materials::Material> m = materials::CreatePBR(
+                    u8"stress.unique", core::Float4{c.x, c.y, c.z, 1.0f}, 0.1f, 0.4f);
                 mc.SetMaterial(m);
-                mc.color    = core::Color{ 1.0f, 1.0f, 1.0f, 1.0f };
+                mc.color = core::Color{1.0f, 1.0f, 1.0f, 1.0f};
                 m_uniqueMats.PushBack(static_cast<core::RefPtr<materials::Material>&&>(m));
-            } else {
+            }
+            else
+            {
                 mc.SetMaterial(m_sharedMat);
-                mc.color    = core::Color{ 1.0f, 1.0f, 1.0f, 1.0f };
+                mc.color = core::Color{1.0f, 1.0f, 1.0f, 1.0f};
             }
         }
 
@@ -376,10 +480,15 @@ namespace
         void RebuildSphereMaterials()
         {
             auto* meshes = m_scene->GetSystem<render::MeshComponentManager>();
-            if (meshes == nullptr) { return; }
+            if (meshes == nullptr)
+            {
+                return;
+            }
             m_uniqueMats.Clear();
-            for (core::usize i = 0; i < m_spheres.Size(); ++i) {
-                if (render::MeshComponent* mc = meshes->Get(m_spheres[i])) {
+            for (core::usize i = 0; i < m_spheres.Size(); ++i)
+            {
+                if (render::MeshComponent* mc = meshes->Get(m_spheres[i]))
+                {
                     AssignSphereMaterial(*mc, static_cast<core::i32>(i));
                 }
             }
@@ -390,17 +499,30 @@ namespace
         void PushMultiMesh()
         {
             auto* imm = m_scene->GetSystem<render::InstancedMeshComponentManager>();
-            if (imm == nullptr) { return; }
-            if (m_mmTransforms.IsEmpty()) {
-                if (m_multiMeshEntity.IsAssigned()) { m_scene->DestroyEntity(m_multiMeshEntity); m_multiMeshEntity = {}; }
+            if (imm == nullptr)
+            {
                 return;
             }
-            if (!m_multiMeshEntity.IsAssigned()) { m_multiMeshEntity = m_scene->CreateEntity(u8"multimesh"); }
-            render::InstancedMeshComponent& c = imm->Has(m_multiMeshEntity) ? *imm->Get(m_multiMeshEntity)
-                                                                            : imm->Add(m_multiMeshEntity);
-            c.mesh     = m_sphere;
+            if (m_mmTransforms.IsEmpty())
+            {
+                if (m_multiMeshEntity.IsAssigned())
+                {
+                    m_scene->DestroyEntity(m_multiMeshEntity);
+                    m_multiMeshEntity = {};
+                }
+                return;
+            }
+            if (!m_multiMeshEntity.IsAssigned())
+            {
+                m_multiMeshEntity = m_scene->CreateEntity(u8"multimesh");
+            }
+            render::InstancedMeshComponent& c = imm->Has(m_multiMeshEntity)
+                                                    ? *imm->Get(m_multiMeshEntity)
+                                                    : imm->Add(m_multiMeshEntity);
+            c.mesh = m_sphere;
             c.material = m_sharedMat;
-            c.SetInstances(core::Span<const core::Float4x4>{ m_mmTransforms.Data(), m_mmTransforms.Size() });
+            c.SetInstances(
+                core::Span<const core::Float4x4>{m_mmTransforms.Data(), m_mmTransforms.Size()});
         }
 
         // Convert between per-entity spheres and the single MultiMesh set when the mode flips. Entering
@@ -411,23 +533,42 @@ namespace
         void RebuildMultiMesh()
         {
             auto* meshes = m_scene->GetSystem<render::MeshComponentManager>();
-            if (meshes == nullptr) { return; }
+            if (meshes == nullptr)
+            {
+                return;
+            }
 
-            if (m_multiMesh) {
+            if (m_multiMesh)
+            {
                 m_mmTransforms.Clear();
                 m_mmTransforms.Reserve(static_cast<core::u32>(m_spheres.Size()));
-                for (scene::EntityHandle e : m_spheres) { m_mmTransforms.PushBack(m_scene->GetWorldMatrix(e)); }
-                for (scene::EntityHandle e : m_spheres) { m_scene->DestroyEntity(e); }
+                for (scene::EntityHandle e : m_spheres)
+                {
+                    m_mmTransforms.PushBack(m_scene->GetWorldMatrix(e));
+                }
+                for (scene::EntityHandle e : m_spheres)
+                {
+                    m_scene->DestroyEntity(e);
+                }
                 m_spheres.Clear();
-                m_uniqueMats.Clear();   // per-entity unique materials are gone; the set uses one shared material
+                m_uniqueMats
+                    .Clear(); // per-entity unique materials are gone; the set uses one shared material
                 PushMultiMesh();
-            } else {
-                if (m_multiMeshEntity.IsAssigned()) { m_scene->DestroyEntity(m_multiMeshEntity); m_multiMeshEntity = {}; }
+            }
+            else
+            {
+                if (m_multiMeshEntity.IsAssigned())
+                {
+                    m_scene->DestroyEntity(m_multiMeshEntity);
+                    m_multiMeshEntity = {};
+                }
                 m_spheres.Reserve(static_cast<core::u32>(m_mmTransforms.Size()));
-                for (core::usize i = 0; i < m_mmTransforms.Size(); ++i) {
-                    const core::Float4x4& xf = m_mmTransforms[i];   // translation-only spheres: read the position row
+                for (core::usize i = 0; i < m_mmTransforms.Size(); ++i)
+                {
+                    const core::Float4x4& xf =
+                        m_mmTransforms[i]; // translation-only spheres: read the position row
                     scene::EntityHandle e = m_scene->CreateEntity(u8"sphere");
-                    m_scene->SetLocalPosition(e, core::Float3{ xf.m[3][0], xf.m[3][1], xf.m[3][2] });
+                    m_scene->SetLocalPosition(e, core::Float3{xf.m[3][0], xf.m[3][1], xf.m[3][2]});
                     render::MeshComponent& mc = meshes->Add(e);
                     mc.mesh = m_sphere;
                     AssignSphereMaterial(mc, static_cast<core::i32>(i));
@@ -443,64 +584,121 @@ namespace
             const core::i32 count = m_multiMesh ? static_cast<core::i32>(m_mmTransforms.Size())
                                                 : static_cast<core::i32>(m_spheres.Size());
             core::String s;
-            core::AppendFormat(s, u8"  spheres {}  batches {}  grid {}x{}  materials {}{}\n",
-                             count, m_batchCount, m_gridSize, m_gridSize,
-                             (m_multiMesh || !m_uniqueMaterials) ? 1 : static_cast<core::i32>(m_uniqueMats.Size()),
-                             m_multiMesh ? u8"  [multimesh]" : u8"");
+            core::AppendFormat(s, u8"  spheres {}  batches {}  grid {}x{}  materials {}{}\n", count,
+                               m_batchCount, m_gridSize, m_gridSize,
+                               (m_multiMesh || !m_uniqueMaterials)
+                                   ? 1
+                                   : static_cast<core::i32>(m_uniqueMats.Size()),
+                               m_multiMesh ? u8"  [multimesh]" : u8"");
             core::ConsoleWrite(s.AsView());
         }
 
         // ImGui HUD: benchmark stats + controls (H toggles it). Built in OnUpdate, drawn in OnRenderWindow.
         void BuildHud(render::RenderSubsystem* render)
         {
-            if (!m_showStats) { return; }
+            if (!m_showStats)
+            {
+                return;
+            }
             ImGui::Begin("Render Stress Test");
             const float fps = m_frameMs > 0.001f ? 1000.0f / m_frameMs : 0.0f;
-            ImGui::Text("%.0f fps   %.2f ms", static_cast<double>(fps), static_cast<double>(m_frameMs));
+            ImGui::Text("%.0f fps   %.2f ms", static_cast<double>(fps),
+                        static_cast<double>(m_frameMs));
             ImGui::Text("%s %d   batches %d   grid %dx%d", m_multiMesh ? "instances" : "spheres",
                         static_cast<int>(m_multiMesh ? m_mmTransforms.Size() : m_spheres.Size()),
                         m_batchCount, m_gridSize, m_gridSize);
             ImGui::Separator();
-            if (ImGui::Button("+ batch (Space)")) { AddSphereBatch(); }
+            if (ImGui::Button("+ batch (Space)"))
+            {
+                AddSphereBatch();
+            }
             ImGui::SameLine();
-            if (ImGui::Button("- batch (Backspace)")) { RemoveLastBatch(); }
+            if (ImGui::Button("- batch (Backspace)"))
+            {
+                RemoveLastBatch();
+            }
             // Scene toggles (also the hot-keys U/B/T/I/K).
             bool uniq = m_uniqueMaterials;
-            if (ImGui::Checkbox("Unique materials (U)", &uniq)) { m_uniqueMaterials = uniq; RebuildSphereMaterials(); }
+            if (ImGui::Checkbox("Unique materials (U)", &uniq))
+            {
+                m_uniqueMaterials = uniq;
+                RebuildSphereMaterials();
+            }
             ImGui::Checkbox("Sin-wave bob (B)", &m_bob);
             bool mm = m_multiMesh;
-            if (ImGui::Checkbox("MultiMesh: whole grid as one instanced set (M)", &mm)) { m_multiMesh = mm; RebuildMultiMesh(); }
-            if (m_multiMesh) { ImGui::SameLine(); ImGui::TextDisabled("O(1)/frame CPU"); }
-            if (render != nullptr) {
+            if (ImGui::Checkbox("MultiMesh: whole grid as one instanced set (M)", &mm))
+            {
+                m_multiMesh = mm;
+                RebuildMultiMesh();
+            }
+            if (m_multiMesh)
+            {
+                ImGui::SameLine();
+                ImGui::TextDisabled("O(1)/frame CPU");
+            }
+            if (render != nullptr)
+            {
                 bool taa = render->TaaEnabled();
-                if (ImGui::Checkbox("TAA (T)", &taa)) { render->SetTaaEnabled(taa); }
+                if (ImGui::Checkbox("TAA (T)", &taa))
+                {
+                    render->SetTaaEnabled(taa);
+                }
                 bool inst = render->InstanceSharing();
-                if (ImGui::Checkbox("Instance sharing (I)", &inst)) { render->SetInstanceSharing(inst); }
+                if (ImGui::Checkbox("Instance sharing (I)", &inst))
+                {
+                    render->SetInstanceSharing(inst);
+                }
                 bool cull = render->ViewCulling();
-                if (ImGui::Checkbox("View-frustum cull", &cull)) { render->SetViewCulling(cull); }
-                if (cull) {
-                    core::u32 culled = 0, total = 0; render->ViewCullStats(culled, total);
-                    ImGui::SameLine(); ImGui::TextDisabled("(%u/%u culled)", culled, total);
+                if (ImGui::Checkbox("View-frustum cull", &cull))
+                {
+                    render->SetViewCulling(cull);
+                }
+                if (cull)
+                {
+                    core::u32 culled = 0, total = 0;
+                    render->ViewCullStats(culled, total);
+                    ImGui::SameLine();
+                    ImGui::TextDisabled("(%u/%u culled)", culled, total);
                 }
             }
-            if (m_scene != nullptr) {
-                if (auto* lights = m_scene->GetSystem<render::LightComponentManager>()) {
-                    if (render::LightComponent* sl = m_sun.IsAssigned() ? lights->Get(m_sun) : nullptr) {
+            if (m_scene != nullptr)
+            {
+                if (auto* lights = m_scene->GetSystem<render::LightComponentManager>())
+                {
+                    if (render::LightComponent* sl =
+                            m_sun.IsAssigned() ? lights->Get(m_sun) : nullptr)
+                    {
                         bool sh = sl->castsShadows;
-                        if (ImGui::Checkbox("Directional shadows (K)", &sh)) { sl->castsShadows = sh; }
+                        if (ImGui::Checkbox("Directional shadows (K)", &sh))
+                        {
+                            sl->castsShadows = sh;
+                        }
                     }
                 }
             }
-            if (render != nullptr) {
+            if (render != nullptr)
+            {
                 ImGui::Separator();
                 float exposure = render->Exposure();
-                if (ImGui::SliderFloat("Exposure", &exposure, 0.05f, 4.0f)) { render->SetExposure(exposure); }
+                if (ImGui::SliderFloat("Exposure", &exposure, 0.05f, 4.0f))
+                {
+                    render->SetExposure(exposure);
+                }
                 bool bloomOn = render->BloomEnabled();
-                if (ImGui::Checkbox("Bloom", &bloomOn)) { render->SetBloomEnabled(bloomOn); }
+                if (ImGui::Checkbox("Bloom", &bloomOn))
+                {
+                    render->SetBloomEnabled(bloomOn);
+                }
                 float shadowDist = render->ShadowDistance();
-                if (ImGui::SliderFloat("Shadow dist", &shadowDist, 50.0f, 1000.0f, "%.0f")) { render->SetShadowDistance(shadowDist); }
+                if (ImGui::SliderFloat("Shadow dist", &shadowDist, 50.0f, 1000.0f, "%.0f"))
+                {
+                    render->SetShadowDistance(shadowDist);
+                }
                 float shadowFade = render->ShadowFarFade();
-                if (ImGui::SliderFloat("Shadow fade", &shadowFade, 2.0f, 150.0f, "%.0f")) { render->SetShadowFarFade(shadowFade); }
+                if (ImGui::SliderFloat("Shadow fade", &shadowFade, 2.0f, 150.0f, "%.0f"))
+                {
+                    render->SetShadowFarFade(shadowFade);
+                }
             }
             ImGui::Separator();
             ImGui::TextUnformatted("H hide HUD   P profiler");
@@ -515,41 +713,49 @@ namespace
             const core::f32 p = v * (1.0f - s);
             const core::f32 q = v * (1.0f - f * s);
             const core::f32 t = v * (1.0f - (1.0f - f) * s);
-            switch (i % 6) {
-                case 0:  return core::Float3{ v, t, p };
-                case 1:  return core::Float3{ q, v, p };
-                case 2:  return core::Float3{ p, v, t };
-                case 3:  return core::Float3{ p, q, v };
-                case 4:  return core::Float3{ t, p, v };
-                default: return core::Float3{ v, p, q };
+            switch (i % 6)
+            {
+            case 0:
+                return core::Float3{v, t, p};
+            case 1:
+                return core::Float3{q, v, p};
+            case 2:
+                return core::Float3{p, v, t};
+            case 3:
+                return core::Float3{p, q, v};
+            case 4:
+                return core::Float3{t, p, v};
+            default:
+                return core::Float3{v, p, q};
             }
         }
 
-        scene::Scene*                       m_scene = nullptr;
-        scene::EntityHandle                 m_camera{};
-        scene::EntityHandle                 m_sun{};
-        scene::EntityHandle                 m_ground{};
-        core::RefPtr<geometry::StaticMesh>      m_sphere;
-        core::RefPtr<materials::Material>        m_sharedMat;
-        core::Array<scene::EntityHandle>      m_spheres;
+        scene::Scene* m_scene = nullptr;
+        scene::EntityHandle m_camera{};
+        scene::EntityHandle m_sun{};
+        scene::EntityHandle m_ground{};
+        core::RefPtr<geometry::StaticMesh> m_sphere;
+        core::RefPtr<materials::Material> m_sharedMat;
+        core::Array<scene::EntityHandle> m_spheres;
         core::Array<core::RefPtr<materials::Material>> m_uniqueMats;
 
         core::i32 m_batchCount = 0;
-        core::i32 m_gridSize   = 0;
-        bool    m_uniqueMaterials = false;
-        bool    m_bob = false;
-        bool    m_multiMesh = false;                    // M: draw the whole grid as ONE InstancedMeshComponent
-        scene::EntityHandle m_multiMeshEntity{};        // the single set entity (when m_multiMesh)
-        core::Array<core::Float4x4> m_mmTransforms;      // canonical instance transforms while in MultiMesh mode
-                                                        // (the per-entity spheres are DESTROYED, not hidden)
+        core::i32 m_gridSize = 0;
+        bool m_uniqueMaterials = false;
+        bool m_bob = false;
+        bool m_multiMesh = false; // M: draw the whole grid as ONE InstancedMeshComponent
+        scene::EntityHandle m_multiMeshEntity{}; // the single set entity (when m_multiMesh)
+        core::Array<core::Float4x4>
+            m_mmTransforms; // canonical instance transforms while in MultiMesh mode
+                            // (the per-entity spheres are DESTROYED, not hidden)
         core::f32 m_time = 0.0f;
 
         // Fly camera, pulled well back + up so the whole grid is in frame (worst case for culling).
-        samples::FlyCamera m_fly{ .position = core::Float3{ 0.0f, 50.0f, 200.0f }, .pitch = -0.245f };
+        samples::FlyCamera m_fly{.position = core::Float3{0.0f, 50.0f, 200.0f}, .pitch = -0.245f};
 
         // Stats
-        bool    m_showStats  = true;   // HUD visibility (H)
-        core::f32 m_frameMs    = 0.0f;
+        bool m_showStats = true; // HUD visibility (H)
+        core::f32 m_frameMs = 0.0f;
     };
 }
 

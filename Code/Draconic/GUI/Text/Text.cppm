@@ -11,8 +11,8 @@ module;
 
 export module draconic.gui:text;
 
-import draconic.core;    // String, StringView, Float2, Color, Array, IsWhiteSpace
-import draconic.fonts;   // CachedFont, IFont, FontMetrics
+import draconic.core;  // String, StringView, Float2, Color, Array, IsWhiteSpace
+import draconic.fonts; // CachedFont, IFont, FontMetrics
 import :rect;
 import :draw_context;
 
@@ -22,15 +22,27 @@ namespace fonts = draconic::fonts;
 
 export namespace draconic::gui
 {
-    enum class TextHAlign { Left, Center, Right };
-    enum class TextVAlign { Top, Middle, Bottom };
+    enum class TextHAlign
+    {
+        Left,
+        Center,
+        Right
+    };
+    enum class TextVAlign
+    {
+        Top,
+        Middle,
+        Bottom
+    };
 
     class Text
     {
     public:
         Text() = default;
         Text(core::StringView string, fonts::CachedFont* font, Color color = Color::White)
-            : m_string(string), m_font(font), m_color(color) {}
+            : m_string(string), m_font(font), m_color(color)
+        {
+        }
 
         void SetString(core::StringView string) { m_string = string; }
         [[nodiscard]] core::StringView GetString() const { return m_string.AsView(); }
@@ -42,7 +54,11 @@ export namespace draconic::gui
         void SetColor(Color color) noexcept { m_color = color; }
         [[nodiscard]] Color GetColor() const noexcept { return m_color; }
 
-        void SetAlignment(TextHAlign horizontal, TextVAlign vertical) noexcept { m_hAlign = horizontal; m_vAlign = vertical; }
+        void SetAlignment(TextHAlign horizontal, TextVAlign vertical) noexcept
+        {
+            m_hAlign = horizontal;
+            m_vAlign = vertical;
+        }
         [[nodiscard]] TextHAlign GetHAlign() const noexcept { return m_hAlign; }
         [[nodiscard]] TextVAlign GetVAlign() const noexcept { return m_vAlign; }
 
@@ -60,7 +76,10 @@ export namespace draconic::gui
         {
             return HasFont() ? m_font->font->Metrics().lineHeight : 0.0f;
         }
-        [[nodiscard]] core::Float2 Measure() const { return core::Float2{ GetWidth(), GetLineHeight() }; }
+        [[nodiscard]] core::Float2 Measure() const
+        {
+            return core::Float2{GetWidth(), GetLineHeight()};
+        }
 
         // Break the string into lines that fit `maxWidth` (greedy at whitespace; '\n' always
         // breaks). A word longer than maxWidth takes its own line and overflows (no in-word
@@ -70,7 +89,12 @@ export namespace draconic::gui
             out.Clear();
             const core::StringView v = m_string.AsView();
             const usize n = v.Size();
-            if (!HasFont() || n == 0) { if (n != 0) out.PushBack(v); return; }
+            if (!HasFont() || n == 0)
+            {
+                if (n != 0)
+                    out.PushBack(v);
+                return;
+            }
 
             usize lineStart = 0;
             usize lastFitEnd = 0; // end of content that fits on the current line
@@ -80,12 +104,16 @@ export namespace draconic::gui
                 if (v[i] == u8'\n')
                 {
                     out.PushBack(v.SubStr(lineStart, i - lineStart));
-                    lineStart = i + 1; lastFitEnd = lineStart; i = lineStart;
+                    lineStart = i + 1;
+                    lastFitEnd = lineStart;
+                    i = lineStart;
                     continue;
                 }
                 usize j = i;
-                while (j < n && core::IsWhiteSpace(v[j]) && v[j] != u8'\n') ++j; // leading spaces
-                while (j < n && !core::IsWhiteSpace(v[j])) ++j;                   // the word
+                while (j < n && core::IsWhiteSpace(v[j]) && v[j] != u8'\n')
+                    ++j; // leading spaces
+                while (j < n && !core::IsWhiteSpace(v[j]))
+                    ++j; // the word
                 const f32 w = m_font->font->MeasureString(v.SubStr(lineStart, j - lineStart));
                 if (w <= maxWidth || lastFitEnd == lineStart)
                 {
@@ -95,31 +123,38 @@ export namespace draconic::gui
                 else
                 {
                     usize end = lastFitEnd; // break before this word; trim trailing spaces
-                    while (end > lineStart && core::IsWhiteSpace(v[end - 1])) --end;
+                    while (end > lineStart && core::IsWhiteSpace(v[end - 1]))
+                        --end;
                     out.PushBack(v.SubStr(lineStart, end - lineStart));
                     usize ns = lastFitEnd; // skip leading spaces on the next line
-                    while (ns < n && core::IsWhiteSpace(v[ns]) && v[ns] != u8'\n') ++ns;
-                    lineStart = ns; lastFitEnd = ns; i = ns;
+                    while (ns < n && core::IsWhiteSpace(v[ns]) && v[ns] != u8'\n')
+                        ++ns;
+                    lineStart = ns;
+                    lastFitEnd = ns;
+                    i = ns;
                 }
             }
             usize end = n; // flush the remainder
-            while (end > lineStart && core::IsWhiteSpace(v[end - 1])) --end;
+            while (end > lineStart && core::IsWhiteSpace(v[end - 1]))
+                --end;
             out.PushBack(v.SubStr(lineStart, end - lineStart));
         }
 
         // Size the wrapped text occupies at `maxWidth`: widest line x (line count * lineHeight).
         [[nodiscard]] core::Float2 MeasureWrapped(f32 maxWidth) const
         {
-            if (!HasFont() || IsEmpty()) return core::Float2{ 0.0f, 0.0f };
+            if (!HasFont() || IsEmpty())
+                return core::Float2{0.0f, 0.0f};
             core::Array<core::StringView> lines;
             ComputeLines(maxWidth, lines);
             f32 widest = 0.0f;
             for (const core::StringView& line : lines)
             {
                 const f32 w = m_font->font->MeasureString(line);
-                if (w > widest) widest = w;
+                if (w > widest)
+                    widest = w;
             }
-            return core::Float2{ widest, static_cast<f32>(lines.Size()) * GetLineHeight() };
+            return core::Float2{widest, static_cast<f32>(lines.Size()) * GetLineHeight()};
         }
 
         // The top-left draw position for the current alignment within `bounds`.
@@ -129,11 +164,15 @@ export namespace draconic::gui
             const f32 h = GetLineHeight();
             f32 x = bounds.Left();
             f32 y = bounds.Top();
-            if (m_hAlign == TextHAlign::Center)      x += (bounds.width - w) * 0.5f;
-            else if (m_hAlign == TextHAlign::Right)  x += (bounds.width - w);
-            if (m_vAlign == TextVAlign::Middle)      y += (bounds.height - h) * 0.5f;
-            else if (m_vAlign == TextVAlign::Bottom) y += (bounds.height - h);
-            return core::Float2{ x, y };
+            if (m_hAlign == TextHAlign::Center)
+                x += (bounds.width - w) * 0.5f;
+            else if (m_hAlign == TextHAlign::Right)
+                x += (bounds.width - w);
+            if (m_vAlign == TextVAlign::Middle)
+                y += (bounds.height - h) * 0.5f;
+            else if (m_vAlign == TextVAlign::Bottom)
+                y += (bounds.height - h);
+            return core::Float2{x, y};
         }
 
         // === Drawing ===
@@ -141,15 +180,18 @@ export namespace draconic::gui
         // so we offset down by the font ascent.
         void Draw(DrawContext& ctx, core::Float2 position) const
         {
-            if (m_font == nullptr || IsEmpty()) return;
+            if (m_font == nullptr || IsEmpty())
+                return;
             const f32 ascent = HasFont() ? m_font->font->Metrics().ascent : 0.0f;
-            ctx.VG().DrawText(m_string.AsView(), m_font, core::Float2{ position.x, position.y + ascent }, m_color);
+            ctx.VG().DrawText(m_string.AsView(), m_font,
+                              core::Float2{position.x, position.y + ascent}, m_color);
         }
         // Draw aligned within bounds. Single line delegates to VG's alignment-aware overload;
         // word-wrap lays out multiple lines (each H-aligned, the block V-aligned).
         void Draw(DrawContext& ctx, const Rect& bounds) const
         {
-            if (m_font == nullptr || IsEmpty()) return;
+            if (m_font == nullptr || IsEmpty())
+                return;
             if (!m_wordWrap)
             {
                 ctx.VG().DrawText(m_string.AsView(), m_font, bounds.ToRectangle(),
@@ -164,41 +206,55 @@ export namespace draconic::gui
             const f32 blockH = static_cast<f32>(lines.Size()) * lineHeight;
 
             f32 top = bounds.Top();
-            if (m_vAlign == TextVAlign::Middle)      top += (bounds.height - blockH) * 0.5f;
-            else if (m_vAlign == TextVAlign::Bottom) top += (bounds.height - blockH);
+            if (m_vAlign == TextVAlign::Middle)
+                top += (bounds.height - blockH) * 0.5f;
+            else if (m_vAlign == TextVAlign::Bottom)
+                top += (bounds.height - blockH);
 
             for (usize k = 0; k < lines.Size(); ++k)
             {
                 const core::StringView line = lines[k];
-                if (line.Size() == 0) continue;
+                if (line.Size() == 0)
+                    continue;
                 const f32 lineW = m_font->font->MeasureString(line);
                 f32 x = bounds.Left();
-                if (m_hAlign == TextHAlign::Center)     x += (bounds.width - lineW) * 0.5f;
-                else if (m_hAlign == TextHAlign::Right) x += (bounds.width - lineW);
+                if (m_hAlign == TextHAlign::Center)
+                    x += (bounds.width - lineW) * 0.5f;
+                else if (m_hAlign == TextHAlign::Right)
+                    x += (bounds.width - lineW);
                 const f32 y = top + static_cast<f32>(k) * lineHeight + ascent;
-                ctx.VG().DrawText(line, m_font, core::Float2{ x, y }, m_color);
+                ctx.VG().DrawText(line, m_font, core::Float2{x, y}, m_color);
             }
         }
 
     private:
-        [[nodiscard]] bool HasFont() const noexcept { return m_font != nullptr && m_font->font != nullptr; }
+        [[nodiscard]] bool HasFont() const noexcept
+        {
+            return m_font != nullptr && m_font->font != nullptr;
+        }
 
         [[nodiscard]] static fonts::TextAlignment ToFontsHAlign(TextHAlign h) noexcept
         {
             switch (h)
             {
-            case TextHAlign::Center: return fonts::TextAlignment::Center;
-            case TextHAlign::Right:  return fonts::TextAlignment::Right;
-            default:                 return fonts::TextAlignment::Left;
+            case TextHAlign::Center:
+                return fonts::TextAlignment::Center;
+            case TextHAlign::Right:
+                return fonts::TextAlignment::Right;
+            default:
+                return fonts::TextAlignment::Left;
             }
         }
         [[nodiscard]] static fonts::VerticalAlignment ToFontsVAlign(TextVAlign v) noexcept
         {
             switch (v)
             {
-            case TextVAlign::Middle: return fonts::VerticalAlignment::Middle;
-            case TextVAlign::Bottom: return fonts::VerticalAlignment::Bottom;
-            default:                 return fonts::VerticalAlignment::Top;
+            case TextVAlign::Middle:
+                return fonts::VerticalAlignment::Middle;
+            case TextVAlign::Bottom:
+                return fonts::VerticalAlignment::Bottom;
+            default:
+                return fonts::VerticalAlignment::Top;
             }
         }
 

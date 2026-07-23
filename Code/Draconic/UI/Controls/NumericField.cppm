@@ -47,8 +47,8 @@ export namespace draconic::ui
     {
         DRACONIC_OBJECT(NumericField, View)
     public:
-        Property<f32> ButtonWidth{ 20.0f };
-        Property<bool> ShowSpinButtons{ true };
+        Property<f32> ButtonWidth{20.0f};
+        Property<bool> ShowSpinButtons{true};
 
         Event<void(NumericField*, f64)> OnValueChanged;
         Event<void(NumericField*)> OnEditBegan;
@@ -64,7 +64,8 @@ export namespace draconic::ui
             ShowSpinButtons.SetOwner(this);
             // Only allow digits, minus, and decimal point.
             InputFilter filter;
-            filter.SetCustomFilter([](char32_t c) { return (c >= U'0' && c <= U'9') || c == U'-' || c == U'.'; });
+            filter.SetCustomFilter([](char32_t c)
+                                   { return (c >= U'0' && c <= U'9') || c == U'-' || c == U'.'; });
             m_behavior.SetFilter(Move(filter));
             UpdateText();
         }
@@ -82,13 +83,39 @@ export namespace draconic::ui
             }
         }
         [[nodiscard]] f64 Min() const noexcept { return m_min; }
-        void SetMin(f64 value) { m_min = value; if (m_max < m_min) { m_max = m_min; } if (m_value < m_min) { SetValue(m_min); } }
+        void SetMin(f64 value)
+        {
+            m_min = value;
+            if (m_max < m_min)
+            {
+                m_max = m_min;
+            }
+            if (m_value < m_min)
+            {
+                SetValue(m_min);
+            }
+        }
         [[nodiscard]] f64 Max() const noexcept { return m_max; }
-        void SetMax(f64 value) { m_max = value; if (m_min > m_max) { m_min = m_max; } if (m_value > m_max) { SetValue(m_max); } }
+        void SetMax(f64 value)
+        {
+            m_max = value;
+            if (m_min > m_max)
+            {
+                m_min = m_max;
+            }
+            if (m_value > m_max)
+            {
+                SetValue(m_max);
+            }
+        }
         [[nodiscard]] f64 Step() const noexcept { return m_step; }
         void SetStep(f64 value) { m_step = core::Max(0.0, value); }
         [[nodiscard]] i32 DecimalPlaces() const noexcept { return m_decimalPlaces; }
-        void SetDecimalPlaces(i32 value) { m_decimalPlaces = core::Max(0, value); UpdateText(); }
+        void SetDecimalPlaces(i32 value)
+        {
+            m_decimalPlaces = core::Max(0, value);
+            UpdateText();
+        }
 
         void Increment() { SetValue(m_value + m_step); }
         void Decrement() { SetValue(m_value - m_step); }
@@ -100,17 +127,44 @@ export namespace draconic::ui
         [[nodiscard]] bool WantsTextInput() const override { return IsEffectivelyEnabled(); }
 
         // === Prefix / suffix ===
-        void SetPrefix(StringView text) { m_prefixView = nullptr; m_prefixText = String(text); m_hasPrefixText = true; Invalidate(); }
-        void SetPrefix(View* view) { m_hasPrefixText = false; m_prefixText.Clear(); m_prefixView = RefPtr<View>(view); Invalidate(); }
-        void SetSuffix(StringView text) { m_suffixView = nullptr; m_suffixText = String(text); m_hasSuffixText = true; Invalidate(); }
-        void SetSuffix(View* view) { m_hasSuffixText = false; m_suffixText.Clear(); m_suffixView = RefPtr<View>(view); Invalidate(); }
+        void SetPrefix(StringView text)
+        {
+            m_prefixView = nullptr;
+            m_prefixText = String(text);
+            m_hasPrefixText = true;
+            Invalidate();
+        }
+        void SetPrefix(View* view)
+        {
+            m_hasPrefixText = false;
+            m_prefixText.Clear();
+            m_prefixView = RefPtr<View>(view);
+            Invalidate();
+        }
+        void SetSuffix(StringView text)
+        {
+            m_suffixView = nullptr;
+            m_suffixText = String(text);
+            m_hasSuffixText = true;
+            Invalidate();
+        }
+        void SetSuffix(View* view)
+        {
+            m_hasSuffixText = false;
+            m_suffixText.Clear();
+            m_suffixView = RefPtr<View>(view);
+            Invalidate();
+        }
 
         // === ITextEditHost ===
         [[nodiscard]] StringView Text() const override { return m_text; }
         [[nodiscard]] i32 GetMaxLength() const override { return 0; }
         [[nodiscard]] bool GetIsReadOnly() const override { return false; }
         [[nodiscard]] bool IsMultiline() const override { return false; }
-        [[nodiscard]] i32 TextCharCount() const override { return static_cast<i32>(Utf8Length(m_text)); }
+        [[nodiscard]] i32 TextCharCount() const override
+        {
+            return static_cast<i32>(Utf8Length(m_text));
+        }
 
         void ReplaceText(i32 charStart, i32 charLength, StringView replacement) override
         {
@@ -133,7 +187,11 @@ export namespace draconic::ui
                 if (Optional<f64> parsed = ParseFloat(m_text); parsed.HasValue())
                 {
                     const f64 clamped = core::Clamp(parsed.Value(), m_min, m_max);
-                    if (m_value != clamped) { m_value = clamped; OnValueChanged.Invoke(this, m_value); }
+                    if (m_value != clamped)
+                    {
+                        m_value = clamped;
+                        OnValueChanged.Invoke(this, m_value);
+                    }
                 }
             }
         }
@@ -143,19 +201,26 @@ export namespace draconic::ui
             (void)localY;
             EnsureGlyphsValid();
             fonts::CachedFont* font = ResolveFont();
-            if (font == nullptr || font->shaper == nullptr) { return 0; }
+            if (font == nullptr || font->shaper == nullptr)
+            {
+                return 0;
+            }
             const f32 hitX = localX - kTextPaddingLeft - GetPrefixWidth() + m_scrollOffsetX;
             return font->shaper->HitTest(*font->font, GlyphSpan(), hitX, 0).InsertionIndex();
         }
         [[nodiscard]] i32 HitTestGlyphPosition(f32 glyphX, f32 glyphY) override
         {
-            return HitTestPosition(glyphX + kTextPaddingLeft + GetPrefixWidth() - m_scrollOffsetX, glyphY);
+            return HitTestPosition(glyphX + kTextPaddingLeft + GetPrefixWidth() - m_scrollOffsetX,
+                                   glyphY);
         }
         [[nodiscard]] f32 GetCursorXPosition(i32 charIndex) override
         {
             EnsureGlyphsValid();
             fonts::CachedFont* font = ResolveFont();
-            if (font == nullptr || font->shaper == nullptr) { return 0.0f; }
+            if (font == nullptr || font->shaper == nullptr)
+            {
+                return 0.0f;
+            }
             return font->shaper->GetCursorPosition(*font->font, GlyphSpan(), charIndex);
         }
         [[nodiscard]] f32 GetCursorYPosition(i32) override { return 0.0f; }
@@ -165,22 +230,40 @@ export namespace draconic::ui
             fonts::CachedFont* font = ResolveFont();
             return font != nullptr ? font->font->Metrics().lineHeight : fontSize;
         }
-        [[nodiscard]] IClipboard* Clipboard() override { return Context ? Context->Clipboard() : nullptr; }
+        [[nodiscard]] IClipboard* Clipboard() override
+        {
+            return Context ? Context->Clipboard() : nullptr;
+        }
         [[nodiscard]] f32 CurrentTime() override { return Context ? Context->TotalTime() : 0.0f; }
 
         // === Input ===
         void OnMouseDown(MouseEventArgs& e) override
         {
-            if (!IsEffectivelyEnabled() || e.Button != MouseButton::Left) { return; }
+            if (!IsEffectivelyEnabled() || e.Button != MouseButton::Left)
+            {
+                return;
+            }
             if (ShowSpinButtons.Value())
             {
                 const f32 btnX = Width() - ButtonWidth.Value();
                 if (e.X >= btnX)
                 {
-                    if (e.Y < Height() * 0.5f) { m_pressedButton = 1; Increment(); }
-                    else { m_pressedButton = -1; Decrement(); }
-                    m_repeatTimer = 0; m_repeatDelay = 0.4f;
-                    if (Context != nullptr) { Context->GetFocusManager()->SetCapture(this); }
+                    if (e.Y < Height() * 0.5f)
+                    {
+                        m_pressedButton = 1;
+                        Increment();
+                    }
+                    else
+                    {
+                        m_pressedButton = -1;
+                        Decrement();
+                    }
+                    m_repeatTimer = 0;
+                    m_repeatDelay = 0.4f;
+                    if (Context != nullptr)
+                    {
+                        Context->GetFocusManager()->SetCapture(this);
+                    }
                     e.Handled = true;
                     return;
                 }
@@ -195,7 +278,14 @@ export namespace draconic::ui
                 return;
             }
             m_selectAllClick = false;
-            if (e.ClickCount <= 1) { m_isDragging = true; if (Context != nullptr) { Context->GetFocusManager()->SetCapture(this); } }
+            if (e.ClickCount <= 1)
+            {
+                m_isDragging = true;
+                if (Context != nullptr)
+                {
+                    Context->GetFocusManager()->SetCapture(this);
+                }
+            }
             m_behavior.HandleMouseDown(e.X, e.Y, e.ClickCount, e.Modifiers);
             ResetBlink();
             e.Handled = true;
@@ -205,45 +295,110 @@ export namespace draconic::ui
             if (ShowSpinButtons.Value())
             {
                 const f32 btnX = Width() - ButtonWidth.Value();
-                if (e.X >= btnX) { m_hoveredButton = (e.Y < Height() * 0.5f) ? 1 : -1; Cursor = CursorType::Arrow; }
-                else { m_hoveredButton = 0; Cursor = CursorType::IBeam; }
+                if (e.X >= btnX)
+                {
+                    m_hoveredButton = (e.Y < Height() * 0.5f) ? 1 : -1;
+                    Cursor = CursorType::Arrow;
+                }
+                else
+                {
+                    m_hoveredButton = 0;
+                    Cursor = CursorType::IBeam;
+                }
             }
-            if (m_isDragging) { m_behavior.HandleMouseMove(e.X, e.Y); ResetBlink(); }
+            if (m_isDragging)
+            {
+                m_behavior.HandleMouseMove(e.X, e.Y);
+                ResetBlink();
+            }
         }
         void OnMouseUp(MouseEventArgs& e) override
         {
-            if (e.Button != MouseButton::Left) { return; }
-            if (m_pressedButton != 0) { m_pressedButton = 0; if (Context != nullptr) { Context->GetFocusManager()->ReleaseCapture(); } e.Handled = true; }
-            else if (m_isDragging) { m_isDragging = false; if (Context != nullptr) { Context->GetFocusManager()->ReleaseCapture(); } e.Handled = true; }
+            if (e.Button != MouseButton::Left)
+            {
+                return;
+            }
+            if (m_pressedButton != 0)
+            {
+                m_pressedButton = 0;
+                if (Context != nullptr)
+                {
+                    Context->GetFocusManager()->ReleaseCapture();
+                }
+                e.Handled = true;
+            }
+            else if (m_isDragging)
+            {
+                m_isDragging = false;
+                if (Context != nullptr)
+                {
+                    Context->GetFocusManager()->ReleaseCapture();
+                }
+                e.Handled = true;
+            }
         }
         void OnMouseLeave() override { m_hoveredButton = 0; }
         void OnKeyDown(KeyEventArgs& e) override
         {
-            if (!IsEffectivelyEnabled()) { return; }
+            if (!IsEffectivelyEnabled())
+            {
+                return;
+            }
             switch (e.Key)
             {
-            case KeyCode::Up:       Increment(); e.Handled = true; break;
-            case KeyCode::Down:     Decrement(); e.Handled = true; break;
-            case KeyCode::PageUp:   SetValue(m_value + m_step * 10); e.Handled = true; break;
-            case KeyCode::PageDown: SetValue(m_value - m_step * 10); e.Handled = true; break;
-            case KeyCode::Return:   CommitText(); e.Handled = true; break;
-            default:                m_behavior.HandleKeyDown(e.Key, e.Modifiers); ResetBlink(); e.Handled = true; break;
+            case KeyCode::Up:
+                Increment();
+                e.Handled = true;
+                break;
+            case KeyCode::Down:
+                Decrement();
+                e.Handled = true;
+                break;
+            case KeyCode::PageUp:
+                SetValue(m_value + m_step * 10);
+                e.Handled = true;
+                break;
+            case KeyCode::PageDown:
+                SetValue(m_value - m_step * 10);
+                e.Handled = true;
+                break;
+            case KeyCode::Return:
+                CommitText();
+                e.Handled = true;
+                break;
+            default:
+                m_behavior.HandleKeyDown(e.Key, e.Modifiers);
+                ResetBlink();
+                e.Handled = true;
+                break;
             }
         }
         void OnTextInput(TextInputEventArgs& e) override
         {
-            if (!IsEffectivelyEnabled()) { return; }
+            if (!IsEffectivelyEnabled())
+            {
+                return;
+            }
             m_behavior.HandleTextInput(e.Character);
             ResetBlink();
             e.Handled = true;
         }
         void OnMouseWheel(MouseWheelEventArgs& e) override
         {
-            if (!IsEffectivelyEnabled()) { return; }
+            if (!IsEffectivelyEnabled())
+            {
+                return;
+            }
             if (IsFocused())
             {
-                if (e.DeltaY > 0) { Increment(); }
-                else if (e.DeltaY < 0) { Decrement(); }
+                if (e.DeltaY > 0)
+                {
+                    Increment();
+                }
+                else if (e.DeltaY < 0)
+                {
+                    Decrement();
+                }
                 e.Handled = true;
             }
         }
@@ -255,7 +410,13 @@ export namespace draconic::ui
             ResetBlink();
             OnEditBegan.Invoke(this);
         }
-        void OnFocusLost() override { m_isDragging = false; m_selectAllClick = false; CommitText(); OnEditEnded.Invoke(this); }
+        void OnFocusLost() override
+        {
+            m_isDragging = false;
+            m_selectAllClick = false;
+            CommitText();
+            OnEditEnded.Invoke(this);
+        }
 
         void CommitText()
         {
@@ -272,38 +433,66 @@ export namespace draconic::ui
         {
             const f32 fontSize = ResolveStyleFloat(StyleProperty::FontSize, 14.0f);
             f32 textH = fontSize;
-            if (fonts::CachedFont* font = ResolveFont()) { textH = font->font->Metrics().lineHeight; }
+            if (fonts::CachedFont* font = ResolveFont())
+            {
+                textH = font->font->Metrics().lineHeight;
+            }
             const f32 prefixW = GetPrefixWidth();
             const f32 suffixW = GetSuffixWidth();
-            MeasuredSize = Float2{ constraints.ConstrainWidth(80.0f + EffectiveButtonWidth() + prefixW + suffixW),
-                                   constraints.ConstrainHeight(textH + 8.0f) };
+            MeasuredSize = Float2{
+                constraints.ConstrainWidth(80.0f + EffectiveButtonWidth() + prefixW + suffixW),
+                constraints.ConstrainHeight(textH + 8.0f)};
         }
 
         void OnDraw(UIDrawContext& ctx) override
         {
-            const Rectangle bounds{ 0, 0, Width(), Height() };
+            const Rectangle bounds{0, 0, Width(), Height()};
             const f32 fontSize = ResolveStyleFloat(StyleProperty::FontSize, 14.0f);
 
             Drawable* bgDrawable = ResolveStyleDrawable(StyleProperty::Background);
-            if (bgDrawable != nullptr) { bgDrawable->Draw(ctx, bounds, GetControlState()); }
-            else { ctx.VG().FillRect(bounds, Color{ 30.0f / 255.0f, 32.0f / 255.0f, 42.0f / 255.0f, 1.0f }); }
+            if (bgDrawable != nullptr)
+            {
+                bgDrawable->Draw(ctx, bounds, GetControlState());
+            }
+            else
+            {
+                ctx.VG().FillRect(bounds,
+                                  Color{30.0f / 255.0f, 32.0f / 255.0f, 42.0f / 255.0f, 1.0f});
+            }
 
-            if (ShowSpinButtons.Value()) { DrawSpinButtons(ctx, bgDrawable); }
+            if (ShowSpinButtons.Value())
+            {
+                DrawSpinButtons(ctx, bgDrawable);
+            }
 
             if (IsFocused())
             {
-                const Color accent = ResolveStyleColor(StyleProperty::AccentColor,
-                    ResolveStyleColor(StyleProperty::CursorColor, Color{ 80.0f / 255.0f, 160.0f / 255.0f, 1.0f, 1.0f }));
+                const Color accent = ResolveStyleColor(
+                    StyleProperty::AccentColor,
+                    ResolveStyleColor(StyleProperty::CursorColor,
+                                      Color{80.0f / 255.0f, 160.0f / 255.0f, 1.0f, 1.0f}));
                 if (RoundedRectDrawable* rrd = Cast<RoundedRectDrawable>(bgDrawable))
                 {
-                    if (!rrd->Radii.IsZero()) { ctx.VG().StrokeRoundedRect(bounds, rrd->Radii, accent, 2.0f); }
-                    else { ctx.VG().StrokeRect(bounds, accent, 2.0f); }
+                    if (!rrd->Radii.IsZero())
+                    {
+                        ctx.VG().StrokeRoundedRect(bounds, rrd->Radii, accent, 2.0f);
+                    }
+                    else
+                    {
+                        ctx.VG().StrokeRect(bounds, accent, 2.0f);
+                    }
                 }
                 else
                 {
                     const f32 cr = ResolveStyleFloat(StyleProperty::CornerRadius);
-                    if (cr > 0) { ctx.VG().StrokeRoundedRect(bounds, cr, accent, 2.0f); }
-                    else { ctx.VG().StrokeRect(bounds, accent, 2.0f); }
+                    if (cr > 0)
+                    {
+                        ctx.VG().StrokeRoundedRect(bounds, cr, accent, 2.0f);
+                    }
+                    else
+                    {
+                        ctx.VG().StrokeRect(bounds, accent, 2.0f);
+                    }
                 }
             }
 
@@ -312,9 +501,17 @@ export namespace draconic::ui
             const f32 textAreaX = kTextPaddingLeft + prefixW;
             const f32 textAreaW = TextAreaWidth();
 
-            ctx.VG().PushClipRect(Rectangle{ kTextPaddingLeft, 0, Width() - kTextPaddingLeft - kTextPaddingRight - EffectiveButtonWidth(), Height() });
-            if (prefixW > 0) { DrawDecoration(ctx, true, kTextPaddingLeft, 0, Height()); }
-            if (suffixW > 0) { DrawDecoration(ctx, false, kTextPaddingLeft + prefixW + textAreaW, 0, Height()); }
+            ctx.VG().PushClipRect(Rectangle{
+                kTextPaddingLeft, 0,
+                Width() - kTextPaddingLeft - kTextPaddingRight - EffectiveButtonWidth(), Height()});
+            if (prefixW > 0)
+            {
+                DrawDecoration(ctx, true, kTextPaddingLeft, 0, Height());
+            }
+            if (suffixW > 0)
+            {
+                DrawDecoration(ctx, false, kTextPaddingLeft + prefixW + textAreaW, 0, Height());
+            }
             DrawTextContent(ctx, textAreaX, textAreaW, fontSize);
             ctx.VG().PopClip();
 
@@ -324,7 +521,14 @@ export namespace draconic::ui
                 m_repeatTimer += 1.0f / 60.0f;
                 if (m_repeatTimer >= m_repeatDelay)
                 {
-                    if (m_pressedButton == 1) { Increment(); } else { Decrement(); }
+                    if (m_pressedButton == 1)
+                    {
+                        Increment();
+                    }
+                    else
+                    {
+                        Decrement();
+                    }
                     m_repeatDelay = m_repeatInterval;
                 }
             }
@@ -338,25 +542,46 @@ export namespace draconic::ui
             usize i = 0;
             while (i < text.Size())
             {
-                if (charCount >= charIndex) { break; }
+                if (charCount >= charIndex)
+                {
+                    break;
+                }
                 (void)DecodeUtf8(text, i);
                 charCount++;
                 byteOffset = i;
             }
-            if (charCount < charIndex) { return static_cast<i32>(text.Size()); }
+            if (charCount < charIndex)
+            {
+                return static_cast<i32>(text.Size());
+            }
             return static_cast<i32>(byteOffset);
         }
 
     private:
         [[nodiscard]] fonts::CachedFont* ResolveFont()
         {
-            if (Context == nullptr || Context->FontService() == nullptr) { return nullptr; }
-            return Context->FontService()->GetFont(ResolveStyleFontFamily(), ResolveStyleFloat(StyleProperty::FontSize, 14.0f));
+            if (Context == nullptr || Context->FontService() == nullptr)
+            {
+                return nullptr;
+            }
+            return Context->FontService()->GetFont(
+                ResolveStyleFontFamily(), ResolveStyleFloat(StyleProperty::FontSize, 14.0f));
         }
-        [[nodiscard]] Span<const fonts::GlyphPosition> GlyphSpan() const { return Span<const fonts::GlyphPosition>{ m_glyphPositions.Data(), m_glyphPositions.Size() }; }
+        [[nodiscard]] Span<const fonts::GlyphPosition> GlyphSpan() const
+        {
+            return Span<const fonts::GlyphPosition>{m_glyphPositions.Data(),
+                                                    m_glyphPositions.Size()};
+        }
 
-        [[nodiscard]] f32 EffectiveButtonWidth() const { return ShowSpinButtons.Value() ? ButtonWidth.Value() : 0.0f; }
-        [[nodiscard]] f32 TextAreaWidth() { return Width() - EffectiveButtonWidth() - kTextPaddingLeft - kTextPaddingRight - GetPrefixWidth() - GetSuffixWidth(); }
+        [[nodiscard]] f32 EffectiveButtonWidth() const
+        {
+            return ShowSpinButtons.Value() ? ButtonWidth.Value() : 0.0f;
+        }
+        [[nodiscard]] f32 TextAreaWidth()
+        {
+            return Width() - EffectiveButtonWidth() - kTextPaddingLeft - kTextPaddingRight -
+                   GetPrefixWidth() - GetSuffixWidth();
+        }
 
         void UpdateText()
         {
@@ -378,17 +603,26 @@ export namespace draconic::ui
 
         void EnsureGlyphsValid()
         {
-            if (!m_glyphsDirty) { return; }
+            if (!m_glyphsDirty)
+            {
+                return;
+            }
             m_glyphsDirty = false;
             m_glyphPositions.Clear();
             m_textWidth = 0;
 
             fonts::CachedFont* font = ResolveFont();
-            if (font == nullptr || m_text.IsEmpty()) { return; }
+            if (font == nullptr || m_text.IsEmpty())
+            {
+                return;
+            }
             if (font->shaper != nullptr)
             {
                 Result<f32> r = font->shaper->ShapeText(*font->font, m_text, m_glyphPositions);
-                if (r.HasValue()) { m_textWidth = r.Value(); }
+                if (r.HasValue())
+                {
+                    m_textWidth = r.Value();
+                }
             }
             else
             {
@@ -398,20 +632,38 @@ export namespace draconic::ui
 
         void EnsureCursorVisible(fonts::CachedFont* font)
         {
-            if (font == nullptr || font->shaper == nullptr) { return; }
-            const f32 cursorX = font->shaper->GetCursorPosition(*font->font, GlyphSpan(), m_behavior.CursorPosition());
+            if (font == nullptr || font->shaper == nullptr)
+            {
+                return;
+            }
+            const f32 cursorX = font->shaper->GetCursorPosition(*font->font, GlyphSpan(),
+                                                                m_behavior.CursorPosition());
             const f32 contentW = TextAreaWidth();
-            if (cursorX - m_scrollOffsetX < 0) { m_scrollOffsetX = cursorX; }
-            else if (cursorX - m_scrollOffsetX > contentW) { m_scrollOffsetX = cursorX - contentW; }
-            m_scrollOffsetX = core::Clamp(m_scrollOffsetX, 0.0f, core::Max(0.0f, m_textWidth - contentW));
+            if (cursorX - m_scrollOffsetX < 0)
+            {
+                m_scrollOffsetX = cursorX;
+            }
+            else if (cursorX - m_scrollOffsetX > contentW)
+            {
+                m_scrollOffsetX = cursorX - contentW;
+            }
+            m_scrollOffsetX =
+                core::Clamp(m_scrollOffsetX, 0.0f, core::Max(0.0f, m_textWidth - contentW));
         }
 
         void DrawTextContent(UIDrawContext& ctx, f32 areaX, f32 areaW, f32 fontSize)
         {
-            (void)areaW; (void)fontSize;
-            if (ctx.FontService() == nullptr) { return; }
+            (void)areaW;
+            (void)fontSize;
+            if (ctx.FontService() == nullptr)
+            {
+                return;
+            }
             fonts::CachedFont* font = ResolveFont();
-            if (font == nullptr) { return; }
+            if (font == nullptr)
+            {
+                return;
+            }
 
             const f32 lineH = font->font->Metrics().lineHeight;
             const f32 textY = (Height() - lineH) * 0.5f;
@@ -421,27 +673,45 @@ export namespace draconic::ui
 
             if (IsFocused() && m_behavior.IsSelecting() && font->shaper != nullptr)
             {
-                const Color selColor = ResolveStyleColor(StyleProperty::SelectionColor, Color{ 60.0f / 255.0f, 120.0f / 255.0f, 200.0f / 255.0f, 80.0f / 255.0f });
-                const f32 selStart = font->shaper->GetCursorPosition(*font->font, GlyphSpan(), m_behavior.SelectionStart());
-                const f32 selEnd = font->shaper->GetCursorPosition(*font->font, GlyphSpan(), m_behavior.SelectionEnd());
-                ctx.VG().FillRect(Rectangle{ textX + selStart, textY, selEnd - selStart, lineH }, selColor);
+                const Color selColor = ResolveStyleColor(
+                    StyleProperty::SelectionColor,
+                    Color{60.0f / 255.0f, 120.0f / 255.0f, 200.0f / 255.0f, 80.0f / 255.0f});
+                const f32 selStart = font->shaper->GetCursorPosition(*font->font, GlyphSpan(),
+                                                                     m_behavior.SelectionStart());
+                const f32 selEnd = font->shaper->GetCursorPosition(*font->font, GlyphSpan(),
+                                                                   m_behavior.SelectionEnd());
+                ctx.VG().FillRect(Rectangle{textX + selStart, textY, selEnd - selStart, lineH},
+                                  selColor);
             }
 
             if (m_glyphPositions.Size() > 0)
             {
-                Color textColor = ResolveStyleColor(StyleProperty::TextColor, Color{ 220.0f / 255.0f, 225.0f / 255.0f, 235.0f / 255.0f, 1.0f });
-                if (!IsEffectivelyEnabled()) { textColor = Palette::ComputeDisabled(textColor); }
-                ctx.VG().DrawPositionedGlyphs(m_glyphPositions, font, textX, textY + font->font->Metrics().ascent, textColor);
+                Color textColor = ResolveStyleColor(
+                    StyleProperty::TextColor,
+                    Color{220.0f / 255.0f, 225.0f / 255.0f, 235.0f / 255.0f, 1.0f});
+                if (!IsEffectivelyEnabled())
+                {
+                    textColor = Palette::ComputeDisabled(textColor);
+                }
+                ctx.VG().DrawPositionedGlyphs(m_glyphPositions, font, textX,
+                                              textY + font->font->Metrics().ascent, textColor);
             }
 
             if (IsFocused())
             {
-                const f32 elapsed = (Context ? Context->TotalTime() : 0.0f) - m_cursorBlinkResetTime;
+                const f32 elapsed =
+                    (Context ? Context->TotalTime() : 0.0f) - m_cursorBlinkResetTime;
                 if ((static_cast<i32>(elapsed / 0.5f) % 2) == 0)
                 {
-                    const f32 cursorX = font->shaper != nullptr ? font->shaper->GetCursorPosition(*font->font, GlyphSpan(), m_behavior.CursorPosition()) : 0.0f;
-                    const Color cursorColor = ResolveStyleColor(StyleProperty::CursorColor, Color{ 220.0f / 255.0f, 225.0f / 255.0f, 235.0f / 255.0f, 1.0f });
-                    ctx.VG().FillRect(Rectangle{ textX + cursorX - 1, textY, 2, lineH }, cursorColor);
+                    const f32 cursorX =
+                        font->shaper != nullptr
+                            ? font->shaper->GetCursorPosition(*font->font, GlyphSpan(),
+                                                              m_behavior.CursorPosition())
+                            : 0.0f;
+                    const Color cursorColor = ResolveStyleColor(
+                        StyleProperty::CursorColor,
+                        Color{220.0f / 255.0f, 225.0f / 255.0f, 235.0f / 255.0f, 1.0f});
+                    ctx.VG().FillRect(Rectangle{textX + cursorX - 1, textY, 2, lineH}, cursorColor);
                 }
             }
         }
@@ -450,34 +720,68 @@ export namespace draconic::ui
         {
             const f32 btnX = Width() - ButtonWidth.Value();
             const f32 halfH = Height() * 0.5f;
-            const Color btnBorder = ResolveStyleColor(StyleProperty::BorderColor, Color{ 80.0f / 255.0f, 85.0f / 255.0f, 100.0f / 255.0f, 1.0f });
+            const Color btnBorder =
+                ResolveStyleColor(StyleProperty::BorderColor,
+                                  Color{80.0f / 255.0f, 85.0f / 255.0f, 100.0f / 255.0f, 1.0f});
 
-            const ControlState upState = (m_pressedButton == 1) ? ControlState::Pressed : ((m_hoveredButton == 1) ? ControlState::Hover : ControlState::Normal);
-            if (Drawable* upDrawable = ResolvePartDrawable(u8"spin-up", StyleProperty::Background, upState)) { upDrawable->Draw(ctx, Rectangle{ btnX, 0, ButtonWidth.Value(), halfH }, upState); }
+            const ControlState upState =
+                (m_pressedButton == 1)
+                    ? ControlState::Pressed
+                    : ((m_hoveredButton == 1) ? ControlState::Hover : ControlState::Normal);
+            if (Drawable* upDrawable =
+                    ResolvePartDrawable(u8"spin-up", StyleProperty::Background, upState))
+            {
+                upDrawable->Draw(ctx, Rectangle{btnX, 0, ButtonWidth.Value(), halfH}, upState);
+            }
             else
             {
-                Color upBg{ 50.0f / 255.0f, 55.0f / 255.0f, 68.0f / 255.0f, 1.0f };
-                if (m_pressedButton == 1) { upBg = Palette::ComputePressed(upBg); }
-                else if (m_hoveredButton == 1) { upBg = Palette::ComputeHover(upBg); }
-                ctx.VG().FillRect(Rectangle{ btnX, 0, ButtonWidth.Value(), halfH }, upBg);
+                Color upBg{50.0f / 255.0f, 55.0f / 255.0f, 68.0f / 255.0f, 1.0f};
+                if (m_pressedButton == 1)
+                {
+                    upBg = Palette::ComputePressed(upBg);
+                }
+                else if (m_hoveredButton == 1)
+                {
+                    upBg = Palette::ComputeHover(upBg);
+                }
+                ctx.VG().FillRect(Rectangle{btnX, 0, ButtonWidth.Value(), halfH}, upBg);
             }
 
-            const ControlState downState = (m_pressedButton == -1) ? ControlState::Pressed : ((m_hoveredButton == -1) ? ControlState::Hover : ControlState::Normal);
-            if (Drawable* downDrawable = ResolvePartDrawable(u8"spin-down", StyleProperty::Background, downState)) { downDrawable->Draw(ctx, Rectangle{ btnX, halfH, ButtonWidth.Value(), halfH }, downState); }
+            const ControlState downState =
+                (m_pressedButton == -1)
+                    ? ControlState::Pressed
+                    : ((m_hoveredButton == -1) ? ControlState::Hover : ControlState::Normal);
+            if (Drawable* downDrawable =
+                    ResolvePartDrawable(u8"spin-down", StyleProperty::Background, downState))
+            {
+                downDrawable->Draw(ctx, Rectangle{btnX, halfH, ButtonWidth.Value(), halfH},
+                                   downState);
+            }
             else
             {
-                Color downBg{ 50.0f / 255.0f, 55.0f / 255.0f, 68.0f / 255.0f, 1.0f };
-                if (m_pressedButton == -1) { downBg = Palette::ComputePressed(downBg); }
-                else if (m_hoveredButton == -1) { downBg = Palette::ComputeHover(downBg); }
-                ctx.VG().FillRect(Rectangle{ btnX, halfH, ButtonWidth.Value(), halfH }, downBg);
+                Color downBg{50.0f / 255.0f, 55.0f / 255.0f, 68.0f / 255.0f, 1.0f};
+                if (m_pressedButton == -1)
+                {
+                    downBg = Palette::ComputePressed(downBg);
+                }
+                else if (m_hoveredButton == -1)
+                {
+                    downBg = Palette::ComputeHover(downBg);
+                }
+                ctx.VG().FillRect(Rectangle{btnX, halfH, ButtonWidth.Value(), halfH}, downBg);
             }
 
             Color sepColor = btnBorder;
-            if (RoundedRectDrawable* rrd = Cast<RoundedRectDrawable>(bgDrawable)) { sepColor = rrd->BorderColor; }
-            ctx.VG().FillRect(Rectangle{ btnX, 1, 1, Height() - 2 }, sepColor);
-            ctx.VG().FillRect(Rectangle{ btnX, halfH, ButtonWidth.Value(), 1 }, sepColor);
+            if (RoundedRectDrawable* rrd = Cast<RoundedRectDrawable>(bgDrawable))
+            {
+                sepColor = rrd->BorderColor;
+            }
+            ctx.VG().FillRect(Rectangle{btnX, 1, 1, Height() - 2}, sepColor);
+            ctx.VG().FillRect(Rectangle{btnX, halfH, ButtonWidth.Value(), 1}, sepColor);
 
-            const Color arrowColor = ResolveStyleColor(StyleProperty::TextColor, Color{ 220.0f / 255.0f, 225.0f / 255.0f, 235.0f / 255.0f, 1.0f });
+            const Color arrowColor =
+                ResolveStyleColor(StyleProperty::TextColor,
+                                  Color{220.0f / 255.0f, 225.0f / 255.0f, 235.0f / 255.0f, 1.0f});
             const f32 arrowSz = core::Min(ButtonWidth.Value(), halfH) * 0.25f;
             const f32 cx = btnX + ButtonWidth.Value() * 0.5f;
 
@@ -513,9 +817,15 @@ export namespace draconic::ui
             {
                 if (fonts::CachedFont* font = ResolveFont())
                 {
-                    const Color textColor = ResolveStyleColor(StyleProperty::TextDimColor, ResolveStyleColor(StyleProperty::PlaceholderColor, Color{ 140.0f / 255.0f, 150.0f / 255.0f, 170.0f / 255.0f, 1.0f }));
+                    const Color textColor =
+                        ResolveStyleColor(StyleProperty::TextDimColor,
+                                          ResolveStyleColor(StyleProperty::PlaceholderColor,
+                                                            Color{140.0f / 255.0f, 150.0f / 255.0f,
+                                                                  170.0f / 255.0f, 1.0f}));
                     const f32 w = font->font->MeasureString(decoText);
-                    ctx.VG().DrawText(decoText, font, Rectangle{ x, y, w, height }, fonts::TextAlignment::Left, fonts::VerticalAlignment::Middle, textColor);
+                    ctx.VG().DrawText(decoText, font, Rectangle{x, y, w, height},
+                                      fonts::TextAlignment::Left, fonts::VerticalAlignment::Middle,
+                                      textColor);
                 }
             }
             else if (decoView != nullptr)
@@ -524,24 +834,55 @@ export namespace draconic::ui
                 const f32 pw = decoView->MeasuredSize.x, ph = decoView->MeasuredSize.y;
                 const f32 py = y + (height - ph) * 0.5f;
                 decoView->Layout(x, py, pw, ph);
-                ctx.VG().PushState(); ctx.VG().Translate(x, py); decoView->OnDraw(ctx); ctx.VG().PopState();
+                ctx.VG().PushState();
+                ctx.VG().Translate(x, py);
+                decoView->OnDraw(ctx);
+                ctx.VG().PopState();
             }
         }
 
         // A prefix/suffix View is not in the child tree, so it has no Context - give it the field's so
         // it can resolve fonts (else it measures to 0 and the value text overlaps it).
-        void SyncDecoContext(View* v) { if (v != nullptr && v->Context != Context) { v->Context = Context; } }
+        void SyncDecoContext(View* v)
+        {
+            if (v != nullptr && v->Context != Context)
+            {
+                v->Context = Context;
+            }
+        }
 
         [[nodiscard]] f32 GetPrefixWidth()
         {
-            if (m_hasPrefixText && !m_prefixText.IsEmpty()) { if (fonts::CachedFont* font = ResolveFont()) { return font->font->MeasureString(m_prefixText) + 4.0f; } }
-            else if (m_prefixView) { SyncDecoContext(m_prefixView.Get()); m_prefixView->Measure(BoxConstraints::Loose(200, 200)); return m_prefixView->MeasuredSize.x + 4.0f; }
+            if (m_hasPrefixText && !m_prefixText.IsEmpty())
+            {
+                if (fonts::CachedFont* font = ResolveFont())
+                {
+                    return font->font->MeasureString(m_prefixText) + 4.0f;
+                }
+            }
+            else if (m_prefixView)
+            {
+                SyncDecoContext(m_prefixView.Get());
+                m_prefixView->Measure(BoxConstraints::Loose(200, 200));
+                return m_prefixView->MeasuredSize.x + 4.0f;
+            }
             return 0.0f;
         }
         [[nodiscard]] f32 GetSuffixWidth()
         {
-            if (m_hasSuffixText && !m_suffixText.IsEmpty()) { if (fonts::CachedFont* font = ResolveFont()) { return font->font->MeasureString(m_suffixText) + 4.0f; } }
-            else if (m_suffixView) { SyncDecoContext(m_suffixView.Get()); m_suffixView->Measure(BoxConstraints::Loose(200, 200)); return m_suffixView->MeasuredSize.x + 4.0f; }
+            if (m_hasSuffixText && !m_suffixText.IsEmpty())
+            {
+                if (fonts::CachedFont* font = ResolveFont())
+                {
+                    return font->font->MeasureString(m_suffixText) + 4.0f;
+                }
+            }
+            else if (m_suffixView)
+            {
+                SyncDecoContext(m_suffixView.Get());
+                m_suffixView->Measure(BoxConstraints::Loose(200, 200));
+                return m_suffixView->MeasuredSize.x + 4.0f;
+            }
             return 0.0f;
         }
 
@@ -565,7 +906,7 @@ export namespace draconic::ui
 
         f32 m_cursorBlinkResetTime = 0.0f;
         bool m_isDragging = false;
-        bool m_selectAllClick = false;   // the focusing click keeps the select-all (see OnMouseDown)
+        bool m_selectAllClick = false; // the focusing click keeps the select-all (see OnMouseDown)
 
         String m_prefixText;
         String m_suffixText;

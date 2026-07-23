@@ -15,9 +15,18 @@ using namespace draconic::ui::tests;
 using namespace draconic::core;
 namespace core = draconic::core;
 
-static core::RefPtr<RootView> MakeRoot() { return core::MakeRef<RootView>(core::DefaultAllocator()); }
-static core::RefPtr<EditText> MakeEdit() { return core::MakeRef<EditText>(core::DefaultAllocator()); }
-static core::RefPtr<PasswordBox> MakePassword() { return core::MakeRef<PasswordBox>(core::DefaultAllocator()); }
+static core::RefPtr<RootView> MakeRoot()
+{
+    return core::MakeRef<RootView>(core::DefaultAllocator());
+}
+static core::RefPtr<EditText> MakeEdit()
+{
+    return core::MakeRef<EditText>(core::DefaultAllocator());
+}
+static core::RefPtr<PasswordBox> MakePassword()
+{
+    return core::MakeRef<PasswordBox>(core::DefaultAllocator());
+}
 
 static core::i32 CharCount(StringView v) { return static_cast<core::i32>(core::Utf8Length(v)); }
 
@@ -25,8 +34,11 @@ static core::i32 CharCount(StringView v) { return static_cast<core::i32>(core::U
 
 TEST_CASE("edit-text: TextGetSet")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get());
-    auto edit = MakeEdit(); root->AddView(edit.Get());
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
+    auto edit = MakeEdit();
+    root->AddView(edit.Get());
 
     edit->SetText(u8"Hello");
     CHECK(edit->Text() == u8"Hello");
@@ -37,11 +49,15 @@ TEST_CASE("edit-text: TextGetSet")
 
 TEST_CASE("edit-text: OnTextChangedFires")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get());
-    auto edit = MakeEdit(); root->AddView(edit.Get()); LayoutPass(ctx, root.Get());
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
+    auto edit = MakeEdit();
+    root->AddView(edit.Get());
+    LayoutPass(ctx, root.Get());
 
     bool fired = false;
-    edit->OnTextChanged.Add(Event<void(EditText*)>::Handler{ [&fired](EditText*) { fired = true; } });
+    edit->OnTextChanged.Add(Event<void(EditText*)>::Handler{[&fired](EditText*) { fired = true; }});
 
     // Simulate typing a character via the host interface.
     edit->ReplaceText(0, 0, u8"A");
@@ -52,18 +68,31 @@ TEST_CASE("edit-text: OnTextChangedFires")
 
 TEST_CASE("edit-text: MaxLengthEnforced")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get());
-    auto edit = MakeEdit(); edit->MaxLength.SetValue(5); root->AddView(edit.Get()); LayoutPass(ctx, root.Get());
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
+    auto edit = MakeEdit();
+    edit->MaxLength.SetValue(5);
+    root->AddView(edit.Get());
+    LayoutPass(ctx, root.Get());
 
-    for (int i = 0; i < 10; i++) { edit->Behavior().HandleTextInput(U'a'); }
+    for (int i = 0; i < 10; i++)
+    {
+        edit->Behavior().HandleTextInput(U'a');
+    }
 
     CHECK(CharCount(edit->Text()) == 5);
 }
 
 TEST_CASE("edit-text: InputFilterBlocksInvalid")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get());
-    auto edit = MakeEdit(); edit->SetFilter(InputFilter::Digits()); root->AddView(edit.Get()); LayoutPass(ctx, root.Get());
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
+    auto edit = MakeEdit();
+    edit->SetFilter(InputFilter::Digits());
+    root->AddView(edit.Get());
+    LayoutPass(ctx, root.Get());
 
     edit->Behavior().HandleTextInput(U'5');
     edit->Behavior().HandleTextInput(U'a');
@@ -74,11 +103,14 @@ TEST_CASE("edit-text: InputFilterBlocksInvalid")
 
 TEST_CASE("edit-text: IsReadOnlyPreventsModification")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
     auto edit = MakeEdit();
     edit->SetText(u8"Original");
     edit->IsReadOnly.SetValue(true);
-    root->AddView(edit.Get()); LayoutPass(ctx, root.Get());
+    root->AddView(edit.Get());
+    LayoutPass(ctx, root.Get());
 
     edit->Behavior().HandleTextInput(U'X');
 
@@ -110,8 +142,13 @@ TEST_CASE("edit-text: MultilineProperty")
 
 TEST_CASE("edit-text: CursorMovement")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get());
-    auto edit = MakeEdit(); edit->SetText(u8"Hello"); root->AddView(edit.Get()); LayoutPass(ctx, root.Get());
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
+    auto edit = MakeEdit();
+    edit->SetText(u8"Hello");
+    root->AddView(edit.Get());
+    LayoutPass(ctx, root.Get());
 
     // Cursor starts at 0 after SetText (reset).
     CHECK(edit->CursorPosition() == 0);
@@ -128,8 +165,13 @@ TEST_CASE("edit-text: CursorMovement")
 
 TEST_CASE("edit-text: SelectAll")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get());
-    auto edit = MakeEdit(); edit->SetText(u8"Hello"); root->AddView(edit.Get()); LayoutPass(ctx, root.Get());
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
+    auto edit = MakeEdit();
+    edit->SetText(u8"Hello");
+    root->AddView(edit.Get());
+    LayoutPass(ctx, root.Get());
 
     edit->Behavior().HandleKeyDown(KeyCode::A, KeyModifiers::Ctrl);
 
@@ -139,8 +181,13 @@ TEST_CASE("edit-text: SelectAll")
 
 TEST_CASE("edit-text: DeleteBackspace")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get());
-    auto edit = MakeEdit(); edit->SetText(u8"Hello"); root->AddView(edit.Get()); LayoutPass(ctx, root.Get());
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
+    auto edit = MakeEdit();
+    edit->SetText(u8"Hello");
+    root->AddView(edit.Get());
+    LayoutPass(ctx, root.Get());
 
     edit->Behavior().HandleKeyDown(KeyCode::End, KeyModifiers::None);
     edit->Behavior().HandleKeyDown(KeyCode::Backspace, KeyModifiers::None);
@@ -150,8 +197,13 @@ TEST_CASE("edit-text: DeleteBackspace")
 
 TEST_CASE("edit-text: DeleteForward")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get());
-    auto edit = MakeEdit(); edit->SetText(u8"Hello"); root->AddView(edit.Get()); LayoutPass(ctx, root.Get());
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
+    auto edit = MakeEdit();
+    edit->SetText(u8"Hello");
+    root->AddView(edit.Get());
+    LayoutPass(ctx, root.Get());
 
     edit->Behavior().HandleKeyDown(KeyCode::Delete, KeyModifiers::None);
 
@@ -161,8 +213,12 @@ TEST_CASE("edit-text: DeleteForward")
 // Undo/Redo (not in the upstream test file; consecutive inserts coalesce into one undo entry).
 TEST_CASE("edit-text: UndoRedo")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get());
-    auto edit = MakeEdit(); root->AddView(edit.Get()); LayoutPass(ctx, root.Get());
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
+    auto edit = MakeEdit();
+    root->AddView(edit.Get());
+    LayoutPass(ctx, root.Get());
 
     edit->Behavior().HandleTextInput(U'a');
     edit->Behavior().HandleTextInput(U'b');
@@ -182,8 +238,13 @@ TEST_CASE("edit-text: UndoRedo")
 
 TEST_CASE("edit-text: PasswordBox_DisplayTextIsMasked")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get());
-    auto pw = MakePassword(); pw->SetText(u8"secret"); root->AddView(pw.Get()); LayoutPass(ctx, root.Get());
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
+    auto pw = MakePassword();
+    pw->SetText(u8"secret");
+    root->AddView(pw.Get());
+    LayoutPass(ctx, root.Get());
 
     String display;
     pw->GetDisplayText(display);

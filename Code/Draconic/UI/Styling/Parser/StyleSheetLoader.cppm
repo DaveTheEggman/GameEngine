@@ -13,8 +13,8 @@ module;
 
 export module draconic.ui:style_sheet_loader;
 
-import draconic.core;    // HashMap, String, StringView, Color, RefPtr
-import draconic.image;   // ImageData
+import draconic.core;  // HashMap, String, StringView, Color, RefPtr
+import draconic.image; // ImageData
 import :style_sheet;
 import :theme_palette;
 import :sss_token;
@@ -35,14 +35,23 @@ export namespace draconic::ui
         IResourceProvider* ResourceProvider = nullptr;
 
         /// Register an SVG by name from inline text. Available to svg(name) in .sss.
-        void RegisterSvg(StringView name, StringView svgText) { m_svgRegistry.InsertOrAssign(String(name), String(svgText)); }
+        void RegisterSvg(StringView name, StringView svgText)
+        {
+            m_svgRegistry.InsertOrAssign(String(name), String(svgText));
+        }
 
         /// Register an image by name from pre-built data. Available to image(name) in .sss. The loader
         /// does NOT own the image data - caller is responsible for lifetime.
-        void RegisterImage(StringView name, const image::ImageData* imageData) { m_imageRegistry.InsertOrAssign(String(name), imageData); }
+        void RegisterImage(StringView name, const image::ImageData* imageData)
+        {
+            m_imageRegistry.InsertOrAssign(String(name), imageData);
+        }
 
         /// Set a base palette variable. .sss @palette blocks can override these.
-        void SetPaletteVariable(StringView name, Color color) { m_basePalette.InsertOrAssign(String(name), color); }
+        void SetPaletteVariable(StringView name, Color color)
+        {
+            m_basePalette.InsertOrAssign(String(name), color);
+        }
 
         /// Set base palette from a ThemePalette struct.
         void SetPalette(ThemePalette p)
@@ -65,13 +74,17 @@ export namespace draconic::ui
         {
             // Copy palette so the parser can mutate it without affecting the loader.
             HashMap<String, Color> palette;
-            for (const auto& kv : m_basePalette) { palette.InsertOrAssign(kv.key, kv.value); }
+            for (const auto& kv : m_basePalette)
+            {
+                palette.InsertOrAssign(kv.key, kv.value);
+            }
 
             Tokenizer tokenizer(source);
             Array<Token> tokens;
             tokenizer.TokenizeAll(tokens);
 
-            SSSParser parser(Move(tokens), &palette, &m_svgRegistry, &m_imageRegistry, ResourceProvider, String(basePath));
+            SSSParser parser(Move(tokens), &palette, &m_svgRegistry, &m_imageRegistry,
+                             ResourceProvider, String(basePath));
             return parser.Parse();
         }
 

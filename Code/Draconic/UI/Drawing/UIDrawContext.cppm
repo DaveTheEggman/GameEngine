@@ -9,9 +9,9 @@ module;
 
 export module draconic.ui:draw_context;
 
-import draconic.core;    // Rectangle
-import draconic.vg;      // VGContext
-import draconic.fonts;   // IFontService
+import draconic.core;  // Rectangle
+import draconic.vg;    // VGContext
+import draconic.fonts; // IFontService
 import :debug_settings;
 
 using namespace draconic::core;
@@ -26,7 +26,10 @@ export namespace draconic::ui
         UIDrawContext(vg::VGContext& context, f32 dpiScale,
                       fonts::IFontService* fontService = nullptr,
                       UIDebugDrawSettings debugSettings = {}) noexcept
-            : m_vg(&context), m_dpiScale(dpiScale), m_fontService(fontService), m_debugSettings(debugSettings) {}
+            : m_vg(&context), m_dpiScale(dpiScale), m_fontService(fontService),
+              m_debugSettings(debugSettings)
+        {
+        }
 
         /// The underlying vector-graphics context.
         [[nodiscard]] vg::VGContext& VG() const noexcept { return *m_vg; }
@@ -35,7 +38,10 @@ export namespace draconic::ui
         /// Font service for text rendering (may be null).
         [[nodiscard]] fonts::IFontService* FontService() const noexcept { return m_fontService; }
         /// Debug overlay settings.
-        [[nodiscard]] const UIDebugDrawSettings& DebugSettings() const noexcept { return m_debugSettings; }
+        [[nodiscard]] const UIDebugDrawSettings& DebugSettings() const noexcept
+        {
+            return m_debugSettings;
+        }
 
         /// Pushes a clip rectangle (in current local coordinates).
         void PushClip(const Rectangle& rect) { m_vg->PushClipRect(rect); }

@@ -21,8 +21,14 @@ export namespace draconic::fonts
     public:
         [[nodiscard]] CachedFont* GetFont(f32) override { return nullptr; }
         [[nodiscard]] CachedFont* GetFont(StringView, f32) override { return nullptr; }
-        [[nodiscard]] draconic::image::ImageData* GetAtlasTexture(CachedFont*) override { return nullptr; }
-        [[nodiscard]] draconic::image::ImageData* GetAtlasTexture(StringView, f32) override { return nullptr; }
+        [[nodiscard]] draconic::image::ImageData* GetAtlasTexture(CachedFont*) override
+        {
+            return nullptr;
+        }
+        [[nodiscard]] draconic::image::ImageData* GetAtlasTexture(StringView, f32) override
+        {
+            return nullptr;
+        }
         void ReleaseFont(CachedFont*) override {}
         [[nodiscard]] StringView DefaultFontFamily() const override { return u8""; }
     };

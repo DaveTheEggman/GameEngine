@@ -19,7 +19,7 @@ namespace
         i32 quality = 0;
         void Serialize(ISerializer& ar) override
         {
-            Asset::Serialize(ar);                       // fileName
+            Asset::Serialize(ar); // fileName
             draconic::core::Serialize(ar, "quality", quality);
         }
     };
@@ -33,11 +33,19 @@ TEST_CASE("editor: Asset carries a source file path + settings (round-trips)")
     a.quality = 7;
 
     MemoryStream buffer;
-    { BinarySerializer w(buffer, SerializeMode::Write); a.Serialize(w); REQUIRE(w.IsOk()); }
+    {
+        BinarySerializer w(buffer, SerializeMode::Write);
+        a.Serialize(w);
+        REQUIRE(w.IsOk());
+    }
     REQUIRE(buffer.Seek(0, SeekOrigin::Begin) == 0);
 
     WidgetAsset b;
-    { BinarySerializer r(buffer, SerializeMode::Read); b.Serialize(r); REQUIRE(r.IsOk()); }
+    {
+        BinarySerializer r(buffer, SerializeMode::Read);
+        b.Serialize(r);
+        REQUIRE(r.IsOk());
+    }
     CHECK(b.fileName == StringView(u8"art/widget.png"));
     CHECK(b.quality == 7);
 }
@@ -47,8 +55,14 @@ namespace
     class WidgetBuilder final : public DefaultAssetBuilder
     {
     public:
-        [[nodiscard]] const TypeInfo* AssetType() const override { return &WidgetAsset::StaticType(); }
-        [[nodiscard]] const TypeInfo* ProductType() const override { return &WidgetAsset::StaticType(); }
+        [[nodiscard]] const TypeInfo* AssetType() const override
+        {
+            return &WidgetAsset::StaticType();
+        }
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &WidgetAsset::StaticType();
+        }
         [[nodiscard]] u32 Version() const override { return 3; }
         void ScanDependencies(const Asset&, AssetBuildContext&, AssetDependencies& out) override
         {
@@ -61,7 +75,7 @@ namespace
 TEST_CASE("editor: source files read through the VFS mount")
 {
     draconic::vfs::NativeFileSystem mount(u8".");
-    const byte payload[3] = { byte{'a'}, byte{'b'}, byte{'c'} };
+    const byte payload[3] = {byte{'a'}, byte{'b'}, byte{'c'}};
     REQUIRE(mount.AsWritable()->Save(u8"editor_vfs_src.txt", Span<const byte>(payload, 3)).IsOk());
 
     AssetBuildContext ctx;
@@ -88,7 +102,8 @@ TEST_CASE("editor: builder registry routes by asset type; v2 hooks surface")
     BuilderRegistry registry;
     CHECK(registry.Find(&WidgetAsset::StaticType()) == nullptr);
 
-    registry.Register(UniquePtr<IAssetBuilder>(DefaultAllocator().New<WidgetBuilder>(), DefaultAllocator()));
+    registry.Register(
+        UniquePtr<IAssetBuilder>(DefaultAllocator().New<WidgetBuilder>(), DefaultAllocator()));
     CHECK(registry.Count() == 1u);
 
     IAssetBuilder* builder = registry.Find(&WidgetAsset::StaticType());

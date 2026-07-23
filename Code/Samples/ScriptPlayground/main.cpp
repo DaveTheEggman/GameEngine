@@ -168,7 +168,10 @@ namespace
             core::GlobalLogger().AddSink(&m_consoleSink);
 
             auto* scenes = host.Ctx().GetSubsystem<scene::SceneSubsystem>();
-            if (scenes == nullptr) { return; }
+            if (scenes == nullptr)
+            {
+                return;
+            }
             m_scene = PrimaryScenes().CreateScene(u8"scripts");
 
             m_camera = m_scene->CreateEntity(u8"camera");
@@ -176,7 +179,7 @@ namespace
             {
                 cameras->Add(m_camera);
             }
-            m_fly.position = core::Float3{ 0.0f, 6.0f, 16.0f };
+            m_fly.position = core::Float3{0.0f, 6.0f, 16.0f};
             m_fly.pitch = -0.25f;
 
             m_mover = MakeMover();
@@ -191,7 +194,7 @@ namespace
 
         void OnUpdate(runtime::IApplicationHost& host, f32 dt) override
         {
-            runtime::DefaultApplication::OnUpdate(host, dt);   // ticks the ScriptSubsystem
+            runtime::DefaultApplication::OnUpdate(host, dt); // ticks the ScriptSubsystem
             m_fly.Update(host, dt);
             PushCameraToEntity();
             auto* input = host.Shell() != nullptr ? host.Shell()->Input() : nullptr;
@@ -209,7 +212,8 @@ namespace
                 {
                     if (render::CameraComponent* cam = cameras->Get(m_camera))
                     {
-                        cam->aspect = static_cast<f32>(frame.width) / static_cast<f32>(frame.height);
+                        cam->aspect =
+                            static_cast<f32>(frame.width) / static_cast<f32>(frame.height);
                     }
                 }
             }
@@ -221,34 +225,37 @@ namespace
         {
             auto* meshes = m_scene->GetSystem<render::MeshComponentManager>();
             auto* scripts = m_scene->GetSystem<script::ScriptComponentManager>();
-            if (meshes == nullptr || scripts == nullptr) { return; }
+            if (meshes == nullptr || scripts == nullptr)
+            {
+                return;
+            }
 
             core::RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(0.5f);
 
             // A ground slab (static) for a sense of place.
             {
                 scene::EntityHandle ground = m_scene->CreateEntity(u8"ground");
-                m_scene->SetLocalPosition(ground, core::Float3{ 0.0f, -0.6f, 0.0f });
+                m_scene->SetLocalPosition(ground, core::Float3{0.0f, -0.6f, 0.0f});
                 core::RefPtr<geometry::StaticMesh> slab = geometry::Primitives::Cube(1.0f);
                 render::MeshComponent& mc = meshes->Add(ground);
                 mc.mesh = slab;
-                mc.SetMaterial(materials::CreatePBR(u8"lit",
-                    core::Float4{ 0.15f, 0.16f, 0.19f, 1.0f }, 0.0f, 0.8f));
+                mc.SetMaterial(materials::CreatePBR(
+                    u8"lit", core::Float4{0.15f, 0.16f, 0.19f, 1.0f}, 0.0f, 0.8f));
                 scene::EntityHandle g = ground;
                 core::Transform t = m_scene->GetLocalTransform(g);
-                t.scale = core::Float3{ 30.0f, 0.2f, 30.0f };
+                t.scale = core::Float3{30.0f, 0.2f, 30.0f};
                 m_scene->SetLocalTransform(g, t);
             }
 
             // The Mover's TARGET (a spinning beacon the movers chase).
             m_beacon = m_scene->CreateEntity(u8"beacon");
-            m_scene->SetLocalPosition(m_beacon, core::Float3{ 0.0f, 0.5f, 0.0f });
+            m_scene->SetLocalPosition(m_beacon, core::Float3{0.0f, 0.5f, 0.0f});
             {
                 render::MeshComponent& mc = meshes->Add(m_beacon);
                 mc.mesh = cube;
-                mc.SetMaterial(materials::CreatePBR(u8"lit",
-                    core::Float4{ 1.0f, 0.85f, 0.2f, 1.0f }, 0.0f, 0.3f));
-                mc.color = core::Color{ 1.0f, 0.85f, 0.2f, 1.0f };
+                mc.SetMaterial(materials::CreatePBR(u8"lit", core::Float4{1.0f, 0.85f, 0.2f, 1.0f},
+                                                    0.0f, 0.3f));
+                mc.color = core::Color{1.0f, 0.85f, 0.2f, 1.0f};
                 // The beacon SPINS (Spinner behavior, default 90 deg/s).
                 script::ScriptComponent& sc = scripts->Add(m_beacon);
                 script::ScriptBehavior spin;
@@ -262,13 +269,14 @@ namespace
             {
                 const f32 angle = static_cast<f32>(i) / kMovers * 6.2831853f;
                 scene::EntityHandle e = m_scene->CreateEntity(u8"mover");
-                m_scene->SetLocalPosition(e, core::Float3{ core::Cos(angle) * 8.0f, 0.5f,
-                                                           core::Sin(angle) * 8.0f });
+                m_scene->SetLocalPosition(
+                    e, core::Float3{core::Cos(angle) * 8.0f, 0.5f, core::Sin(angle) * 8.0f});
                 render::MeshComponent& mc = meshes->Add(e);
                 mc.mesh = cube;
                 const f32 hue = static_cast<f32>(i) / kMovers;
-                mc.SetMaterial(materials::CreatePBR(u8"lit",
-                    core::Float4{ 0.3f + 0.6f * hue, 0.4f, 1.0f - 0.6f * hue, 1.0f }, 0.0f, 0.4f));
+                mc.SetMaterial(materials::CreatePBR(
+                    u8"lit", core::Float4{0.3f + 0.6f * hue, 0.4f, 1.0f - 0.6f * hue, 1.0f}, 0.0f,
+                    0.4f));
 
                 script::ScriptComponent& sc = scripts->Add(e);
                 // Behavior 1: Mover with a per-instance speed OVERRIDE + the target entity.
@@ -276,7 +284,7 @@ namespace
                 mover.script.SetDirect(m_mover);
                 script::ScriptPropertyValue speed;
                 speed.kind = script::ScriptPropertyType::Float;
-                speed.number = 0.6 + 0.25 * i;   // distinct speeds
+                speed.number = 0.6 + 0.25 * i; // distinct speeds
                 mover.SetOverride(script::ScriptPropertyNameHash(u8"speed"), speed);
                 script::ScriptPropertyValue target;
                 target.kind = script::ScriptPropertyType::Entity;
@@ -296,7 +304,10 @@ namespace
 
         void PushCameraToEntity()
         {
-            if (m_scene == nullptr) { return; }
+            if (m_scene == nullptr)
+            {
+                return;
+            }
             core::Transform t;
             t.position = m_fly.position;
             t.rotation = m_fly.Rotation();

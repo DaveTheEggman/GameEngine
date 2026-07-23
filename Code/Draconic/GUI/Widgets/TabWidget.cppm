@@ -11,8 +11,8 @@ module;
 
 export module draconic.gui:tab_widget;
 
-import draconic.core;   // RefPtr, MakeRef, Array, Function, Move, Max
-import draconic.fonts;  // CachedFont
+import draconic.core;  // RefPtr, MakeRef, Array, Function, Move, Max
+import draconic.fonts; // CachedFont
 import :rect;
 import :node;
 import :button;
@@ -51,8 +51,9 @@ export namespace draconic::gui
             auto button = core::MakeRef<Button>(core::DefaultAllocator());
             button->SetText(title);
             button->SetFont(m_font);
-            button->AddClass(core::StringView(u8"tab")); // styled as a tab; `.tab.selected` = active
-            button->SetSize(core::Float2{ m_tabWidth, m_tabBarHeight });
+            button->AddClass(
+                core::StringView(u8"tab")); // styled as a tab; `.tab.selected` = active
+            button->SetSize(core::Float2{m_tabWidth, m_tabBarHeight});
             TabWidget* self = this;
             button->SetOnClick([self, index]() { self->SelectTab(index); });
             m_tabBar->AddChild(button.Get());
@@ -63,9 +64,10 @@ export namespace draconic::gui
                 m_contentHost->AddChild(content);
             }
 
-            m_tabs.PushBack(Tab{ button.Get(), content });
+            m_tabs.PushBack(Tab{button.Get(), content});
             Relayout();
-            if (m_tabs.Size() == 1) SelectTab(0);
+            if (m_tabs.Size() == 1)
+                SelectTab(0);
         }
 
         [[nodiscard]] usize TabCount() const noexcept { return m_tabs.Size(); }
@@ -73,20 +75,28 @@ export namespace draconic::gui
 
         void SelectTab(i32 index)
         {
-            if (index < 0 || index >= static_cast<i32>(m_tabs.Size())) return;
+            if (index < 0 || index >= static_cast<i32>(m_tabs.Size()))
+                return;
             m_selected = index;
             for (usize i = 0; i < m_tabs.Size(); ++i)
             {
                 const bool active = (static_cast<i32>(i) == index);
-                if (m_tabs[i].Content != nullptr) m_tabs[i].Content->SetVisible(active);
+                if (m_tabs[i].Content != nullptr)
+                    m_tabs[i].Content->SetVisible(active);
                 // The active tab carries a `selected` class so the theme distinguishes it
                 // (`.tab.selected`), surviving the per-frame style re-apply.
-                if (active) m_tabs[i].TabButton->AddClass(core::StringView(u8"selected"));
-                else        m_tabs[i].TabButton->RemoveClass(core::StringView(u8"selected"));
+                if (active)
+                    m_tabs[i].TabButton->AddClass(core::StringView(u8"selected"));
+                else
+                    m_tabs[i].TabButton->RemoveClass(core::StringView(u8"selected"));
             }
-            if (m_onChanged) m_onChanged(index);
+            if (m_onChanged)
+                m_onChanged(index);
         }
-        void SetOnTabChanged(core::Function<void(i32)> callback) { m_onChanged = core::Move(callback); }
+        void SetOnTabChanged(core::Function<void(i32)> callback)
+        {
+            m_onChanged = core::Move(callback);
+        }
 
         // The content panel of a tab (for populating it after AddTab).
         [[nodiscard]] Node* GetTabContent(usize index) const
@@ -94,9 +104,25 @@ export namespace draconic::gui
             return index < m_tabs.Size() ? m_tabs[index].Content : nullptr;
         }
 
-        void SetFont(fonts::CachedFont* font) { m_font = font; for (const Tab& t : m_tabs) t.TabButton->SetFont(font); }
-        void SetTabBarHeight(f32 height) { m_tabBarHeight = core::Max(1.0f, height); Relayout(); }
-        void SetTabWidth(f32 width) { m_tabWidth = core::Max(1.0f, width); for (const Tab& t : m_tabs) t.TabButton->SetSize(core::Float2{ width, m_tabBarHeight }); Relayout(); }
+        void SetFont(fonts::CachedFont* font)
+        {
+            m_font = font;
+            for (const Tab& t : m_tabs)
+                t.TabButton->SetFont(font);
+        }
+        void SetTabBarHeight(f32 height)
+        {
+            m_tabBarHeight = core::Max(1.0f, height);
+            Relayout();
+        }
+        void SetTabWidth(f32 width)
+        {
+            m_tabWidth = core::Max(1.0f, width);
+            for (const Tab& t : m_tabs)
+                t.TabButton->SetSize(core::Float2{width, m_tabBarHeight});
+            Relayout();
+        }
+
     protected:
         void OnSizeChange() override { Relayout(); }
 
@@ -104,25 +130,30 @@ export namespace draconic::gui
         void Relayout()
         {
             const Rect box = GetContentBounds();
-            m_tabBar->SetPosition(core::Float2{ box.x, box.y });
-            m_tabBar->SetSize(core::Float2{ box.width, m_tabBarHeight });
+            m_tabBar->SetPosition(core::Float2{box.x, box.y});
+            m_tabBar->SetSize(core::Float2{box.width, m_tabBarHeight});
 
-            m_contentHost->SetPosition(core::Float2{ box.x, box.y + m_tabBarHeight });
-            const core::Float2 hostSize{ box.width, core::Max(0.0f, box.height - m_tabBarHeight) };
+            m_contentHost->SetPosition(core::Float2{box.x, box.y + m_tabBarHeight});
+            const core::Float2 hostSize{box.width, core::Max(0.0f, box.height - m_tabBarHeight)};
             m_contentHost->SetSize(hostSize);
             for (const Tab& t : m_tabs)
             {
-                if (t.Content == nullptr) continue;
-                t.Content->SetPosition(core::Float2{ 0.0f, 0.0f });
+                if (t.Content == nullptr)
+                    continue;
+                t.Content->SetPosition(core::Float2{0.0f, 0.0f});
                 t.Content->SetSize(hostSize);
             }
         }
 
-        struct Tab { Button* TabButton; Node* Content; };
+        struct Tab
+        {
+            Button* TabButton;
+            Node* Content;
+        };
 
         RefPtr<LinearLayout> m_tabBar;
         RefPtr<UIWidget> m_contentHost;
-        Array<Tab> m_tabs;              // buttons owned by the bar, content by the host
+        Array<Tab> m_tabs; // buttons owned by the bar, content by the host
         fonts::CachedFont* m_font = nullptr;
         i32 m_selected = -1;
         f32 m_tabBarHeight = 32.0f;

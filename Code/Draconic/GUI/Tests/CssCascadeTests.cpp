@@ -10,7 +10,11 @@ namespace core = draconic::core;
 
 namespace
 {
-    template <typename T> core::RefPtr<T> Make() { return core::MakeRef<T>(core::DefaultAllocator()); }
+    template <typename T>
+    core::RefPtr<T> Make()
+    {
+        return core::MakeRef<T>(core::DefaultAllocator());
+    }
     core::StringView SV(const char8_t* s) { return core::StringView(s); }
 
     core::RefPtr<UIWidget> Widget(const char8_t* tag)
@@ -26,7 +30,8 @@ TEST_CASE("css-important: overrides higher specificity")
     auto w = Widget(u8"button");
     w->AddClass(SV(u8"primary"));
     // .primary (1024) beats button (1) normally, but button's !important wins.
-    StyleSheet sheet = CSSParser::Parse(SV(u8".primary { color: red; } button { color: blue !important; }"));
+    StyleSheet sheet =
+        CSSParser::Parse(SV(u8".primary { color: red; } button { color: blue !important; }"));
     ResolvedStyle rs = sheet.Resolve(*w.Get());
     CHECK(rs.Get(SV(u8"color")) == SV(u8"blue"));
 }
@@ -46,8 +51,8 @@ TEST_CASE("css-important: normal declaration cannot override an important one")
     auto w = Widget(u8"button");
     w->AddClass(SV(u8"primary"));
     // button:!important applied first (low spec), then .primary normal (higher spec) - must NOT win.
-    StyleSheet sheet = CSSParser::Parse(
-        SV(u8"button { color: red !important; } .primary { color: green; }"));
+    StyleSheet sheet =
+        CSSParser::Parse(SV(u8"button { color: red !important; } .primary { color: green; }"));
     ResolvedStyle rs = sheet.Resolve(*w.Get());
     CHECK(rs.Get(SV(u8"color")) == SV(u8"red"));
 }
@@ -55,7 +60,8 @@ TEST_CASE("css-important: normal declaration cannot override an important one")
 TEST_CASE("css-vars: var() resolves against a custom property")
 {
     auto w = Widget(u8"button");
-    StyleSheet sheet = CSSParser::Parse(SV(u8"button { --accent: #00ff00; color: var(--accent); }"));
+    StyleSheet sheet =
+        CSSParser::Parse(SV(u8"button { --accent: #00ff00; color: var(--accent); }"));
     ResolvedStyle rs = sheet.Resolve(*w.Get());
     CHECK(rs.Get(SV(u8"color")) == SV(u8"#00ff00"));
     CHECK(rs.Get(SV(u8"--accent")) == SV(u8"#00ff00")); // custom property retained
@@ -83,7 +89,8 @@ TEST_CASE("css-vars: cascade of the variable drives the resolved value")
 TEST_CASE("css-vars: end-to-end through the applier")
 {
     auto w = Widget(u8"button");
-    StyleSheet sheet = CSSParser::Parse(SV(u8"button { --bg: #0000ff; background-color: var(--bg); }"));
+    StyleSheet sheet =
+        CSSParser::Parse(SV(u8"button { --bg: #0000ff; background-color: var(--bg); }"));
     ApplyStyle(*w.Get(), sheet.Resolve(*w.Get()));
 
     auto* bg = core::Cast<RectangleDrawable>(w->GetBackground());

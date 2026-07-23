@@ -19,7 +19,7 @@ namespace
         DRACONIC_OBJECT(GameSettings, ISerializable)
     public:
         String profile = String(u8"default");
-        String locale  = String(u8"en");
+        String locale = String(u8"en");
 
         void Serialize(ISerializer& ar) override
         {
@@ -43,7 +43,7 @@ TEST_CASE("settings: a fresh section reads its struct defaults")
     CHECK(s.SectionCount() == 0u);
     CHECK(s.Find<GameSettings>() == nullptr);
 
-    GameSettings& g = s.Section<GameSettings>();   // lazily created
+    GameSettings& g = s.Section<GameSettings>(); // lazily created
     CHECK(g.profile == u8"default");
     CHECK(g.locale == u8"en");
     CHECK(s.SectionCount() == 1u);
@@ -59,7 +59,7 @@ TEST_CASE("settings: sections round-trip through the (binary) serializer factory
         settings::Settings s;
         GameSettings& g = s.Section<GameSettings>();
         g.profile = String(u8"hardcore");
-        g.locale  = String(u8"fr");
+        g.locale = String(u8"fr");
         REQUIRE(s.Save(stream, BinarySerializerFactory()).IsOk());
     }
 

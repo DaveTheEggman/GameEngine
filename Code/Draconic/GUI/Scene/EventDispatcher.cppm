@@ -15,7 +15,7 @@ module;
 
 export module draconic.gui:event_dispatcher;
 
-import draconic.core;   // Float2, StringView
+import draconic.core; // Float2, StringView
 import :node;
 import :event;
 import :clipboard;
@@ -50,7 +50,10 @@ export namespace draconic::gui
 
         // True if the currently focused node wants platform text input (the gui.shell bridge
         // reconciles the window's IME state against this each frame).
-        [[nodiscard]] bool WantsTextInput() const { return m_focusNode != nullptr && m_focusNode->WantsTextInput(); }
+        [[nodiscard]] bool WantsTextInput() const
+        {
+            return m_focusNode != nullptr && m_focusNode->WantsTextInput();
+        }
 
         // === Injection API (fed by the shell bridge) ===
         void InjectMouseMove(core::Float2 position)
@@ -63,24 +66,32 @@ export namespace draconic::gui
                 Node* target = FindDropTarget(HitTest(position));
                 if (target != m_dropTarget)
                 {
-                    if (m_dropTarget) m_dropTarget->HandleDragLeave(m_dragPayload);
+                    if (m_dropTarget)
+                        m_dropTarget->HandleDragLeave(m_dragPayload);
                     m_dropTarget = target;
-                    if (m_dropTarget) m_dropTarget->HandleDragEnter(m_dragPayload);
+                    if (m_dropTarget)
+                        m_dropTarget->HandleDragEnter(m_dragPayload);
                 }
-                if (m_dropTarget) m_dropTarget->HandleDragOver(m_dragPayload);
+                if (m_dropTarget)
+                    m_dropTarget->HandleDragOver(m_dragPayload);
                 return;
             }
             Node* hit = HitTest(position);
             if (hit != m_overNode)
             {
-                if (m_overNode) m_overNode->HandleMouseLeave(MouseEvent(EventType::MouseLeave, m_overNode, position));
+                if (m_overNode)
+                    m_overNode->HandleMouseLeave(
+                        MouseEvent(EventType::MouseLeave, m_overNode, position));
                 m_overNode = hit;
-                if (m_overNode) m_overNode->HandleMouseEnter(MouseEvent(EventType::MouseEnter, m_overNode, position));
+                if (m_overNode)
+                    m_overNode->HandleMouseEnter(
+                        MouseEvent(EventType::MouseEnter, m_overNode, position));
             }
             // Pointer capture: while a button is held, the pressed node keeps receiving moves
             // (so a drag continues even when the cursor leaves it). Otherwise the hovered node.
             Node* target = (m_downNode != nullptr) ? m_downNode : hit;
-            if (target) target->HandleMouseMove(MouseEvent(EventType::MouseMove, target, position));
+            if (target)
+                target->HandleMouseMove(MouseEvent(EventType::MouseMove, target, position));
         }
 
         void InjectMouseDown(core::Float2 position, MouseButton button, u32 modifiers = 0)
@@ -91,12 +102,14 @@ export namespace draconic::gui
             // proceeds normally afterwards. The optional `contains` predicate lets a popup claim
             // nodes outside its own subtree as still "inside" it (e.g. a menu's open submenus,
             // which are siblings in the tree, not descendants - eepp's isChildOrSubMenu).
-            if (m_popup != nullptr && !IsInSubtree(hit, m_popup) && !IsInSubtree(hit, m_popupOwner)
-                && !(m_popupContains && m_popupContains(hit)))
+            if (m_popup != nullptr && !IsInSubtree(hit, m_popup) &&
+                !IsInSubtree(hit, m_popupOwner) && !(m_popupContains && m_popupContains(hit)))
                 ClosePopup();
             m_downNode = hit;
             SetFocusNode(hit); // click-to-focus
-            if (hit) hit->HandleMouseDown(MouseEvent(EventType::MouseDown, hit, position, button, modifiers));
+            if (hit)
+                hit->HandleMouseDown(
+                    MouseEvent(EventType::MouseDown, hit, position, button, modifiers));
         }
 
         void InjectMouseUp(core::Float2 position, MouseButton button, u32 modifiers = 0)
@@ -107,19 +120,24 @@ export namespace draconic::gui
             if (m_dragActive)
             {
                 Node* target = FindDropTarget(HitTest(position));
-                if (target != nullptr) target->HandleDrop(m_dragPayload);
-                else if (m_dropTarget) m_dropTarget->HandleDragLeave(m_dragPayload);
+                if (target != nullptr)
+                    target->HandleDrop(m_dragPayload);
+                else if (m_dropTarget)
+                    m_dropTarget->HandleDragLeave(m_dragPayload);
                 EndDrag();
             }
             Node* hit = HitTest(position);
             // The captured (pressed) node gets the release, even if the cursor moved off it.
             Node* target = (m_downNode != nullptr) ? m_downNode : hit;
-            if (target) target->HandleMouseUp(MouseEvent(EventType::MouseUp, target, position, button, modifiers));
+            if (target)
+                target->HandleMouseUp(
+                    MouseEvent(EventType::MouseUp, target, position, button, modifiers));
             // A click (widget activation) only for the primary/left button, and only when the
             // release lands on the node that was pressed. Right/middle presses still deliver
             // Down/Up (e.g. for context menus) but never activate a control.
             if (hit != nullptr && hit == m_downNode && button == MouseButton::Left)
-                hit->HandleMouseClick(MouseEvent(EventType::MouseClick, hit, position, button, modifiers));
+                hit->HandleMouseClick(
+                    MouseEvent(EventType::MouseClick, hit, position, button, modifiers));
             m_downNode = nullptr;
         }
 
@@ -130,9 +148,15 @@ export namespace draconic::gui
             // scrolling works while hovering the scrolled content.
             for (Node* n = hit; n != nullptr; n = n->GetParent())
             {
-                if (n->WantsWheel()) { n->HandleMouseWheel(WheelEvent(n, position, delta)); return; }
+                if (n->WantsWheel())
+                {
+                    n->HandleMouseWheel(WheelEvent(n, position, delta));
+                    return;
+                }
             }
-            if (hit) hit->HandleMouseWheel(WheelEvent(hit, position, delta)); // fallback: listeners on the hit node
+            if (hit)
+                hit->HandleMouseWheel(
+                    WheelEvent(hit, position, delta)); // fallback: listeners on the hit node
         }
 
         void InjectKeyDown(u32 keyCode, u32 modifiers = 0)
@@ -145,31 +169,42 @@ export namespace draconic::gui
             }
             // Tab / Shift+Tab drive focus traversal at the dispatcher level (a widget never
             // sees a bare Tab), matching the common GUI convention.
-            if (keyCode == static_cast<u32>(KeyCode::Tab) && (modifiers & (~static_cast<u32>(KeyModShift))) == 0)
+            if (keyCode == static_cast<u32>(KeyCode::Tab) &&
+                (modifiers & (~static_cast<u32>(KeyModShift))) == 0)
             {
-                if (modifiers & KeyModShift) FocusPrevious();
-                else                         FocusNext();
+                if (modifiers & KeyModShift)
+                    FocusPrevious();
+                else
+                    FocusNext();
                 return;
             }
-            if (m_focusNode) m_focusNode->HandleKeyDown(KeyEvent(EventType::KeyDown, m_focusNode, keyCode, modifiers));
+            if (m_focusNode)
+                m_focusNode->HandleKeyDown(
+                    KeyEvent(EventType::KeyDown, m_focusNode, keyCode, modifiers));
         }
         void InjectKeyUp(u32 keyCode, u32 modifiers = 0)
         {
-            if (m_focusNode) m_focusNode->HandleKeyUp(KeyEvent(EventType::KeyUp, m_focusNode, keyCode, modifiers));
+            if (m_focusNode)
+                m_focusNode->HandleKeyUp(
+                    KeyEvent(EventType::KeyUp, m_focusNode, keyCode, modifiers));
         }
         void InjectText(core::StringView text)
         {
-            if (m_focusNode) m_focusNode->HandleTextInput(TextInputEvent(m_focusNode, text));
+            if (m_focusNode)
+                m_focusNode->HandleTextInput(TextInputEvent(m_focusNode, text));
         }
 
         // === Focus ===
         void SetFocusNode(Node* node)
         {
-            if (node == m_focusNode) return;
+            if (node == m_focusNode)
+                return;
             Node* previous = m_focusNode;
             m_focusNode = node;
-            if (previous) previous->HandleFocusLost();
-            if (m_focusNode) m_focusNode->HandleFocusGained();
+            if (previous)
+                previous->HandleFocusLost();
+            if (m_focusNode)
+                m_focusNode->HandleFocusGained();
         }
 
         // === Drag-and-drop ===
@@ -182,7 +217,8 @@ export namespace draconic::gui
             m_dragSource = source;
             m_dragPayload = core::Move(payload);
             m_dropTarget = FindDropTarget(HitTest(m_mousePos));
-            if (m_dropTarget) m_dropTarget->HandleDragEnter(m_dragPayload);
+            if (m_dropTarget)
+                m_dropTarget->HandleDragEnter(m_dragPayload);
         }
         [[nodiscard]] bool IsDragging() const noexcept { return m_dragActive; }
         [[nodiscard]] const DragPayload& GetDragPayload() const noexcept { return m_dragPayload; }
@@ -190,8 +226,10 @@ export namespace draconic::gui
         [[nodiscard]] Node* GetDropTarget() const noexcept { return m_dropTarget; }
         void CancelDrag()
         {
-            if (!m_dragActive) return;
-            if (m_dropTarget) m_dropTarget->HandleDragLeave(m_dragPayload);
+            if (!m_dragActive)
+                return;
+            if (m_dropTarget)
+                m_dropTarget->HandleDragLeave(m_dragPayload);
             EndDrag();
         }
 
@@ -203,7 +241,8 @@ export namespace draconic::gui
         void OpenPopup(Node* popup, Node* owner, core::Function<void()> onClose,
                        core::Function<bool(Node*)> contains = {})
         {
-            if (m_popup != nullptr) ClosePopup();
+            if (m_popup != nullptr)
+                ClosePopup();
             m_popup = popup;
             m_popupOwner = owner;
             m_onPopupClose = core::Move(onClose);
@@ -211,13 +250,15 @@ export namespace draconic::gui
         }
         void ClosePopup()
         {
-            if (m_popup == nullptr) return;
+            if (m_popup == nullptr)
+                return;
             core::Function<void()> cb = core::Move(m_onPopupClose);
             m_popup = nullptr;
             m_popupOwner = nullptr;
             m_onPopupClose = {};
             m_popupContains = {};
-            if (cb) cb(); // the owner hides/removes the popup here
+            if (cb)
+                cb(); // the owner hides/removes the popup here
         }
         [[nodiscard]] Node* GetPopup() const noexcept { return m_popup; }
 
@@ -231,12 +272,22 @@ export namespace draconic::gui
         // Clear any interaction refs pointing at `node` (call before removing/destroying it).
         void NotifyNodeRemoved(Node* node)
         {
-            if (m_overNode == node) m_overNode = nullptr;
-            if (m_downNode == node) m_downNode = nullptr;
-            if (m_focusNode == node) m_focusNode = nullptr;
-            if (m_dropTarget == node) m_dropTarget = nullptr;
-            if (m_dragSource == node) { m_dragSource = nullptr; if (m_dragActive) EndDrag(); }
-            if (m_modalRoot == node) m_modalRoot = nullptr;
+            if (m_overNode == node)
+                m_overNode = nullptr;
+            if (m_downNode == node)
+                m_downNode = nullptr;
+            if (m_focusNode == node)
+                m_focusNode = nullptr;
+            if (m_dropTarget == node)
+                m_dropTarget = nullptr;
+            if (m_dragSource == node)
+            {
+                m_dragSource = nullptr;
+                if (m_dragActive)
+                    EndDrag();
+            }
+            if (m_modalRoot == node)
+                m_modalRoot = nullptr;
         }
 
     private:
@@ -244,16 +295,19 @@ export namespace draconic::gui
         {
             Node* hit = m_root ? m_root->OverFind(position) : nullptr;
             // A modal confines the pointer: hits outside the modal subtree are swallowed.
-            if (m_modalRoot != nullptr && !IsInSubtree(hit, m_modalRoot)) return nullptr;
+            if (m_modalRoot != nullptr && !IsInSubtree(hit, m_modalRoot))
+                return nullptr;
             return hit;
         }
 
         // True if `node` is `ancestor` or a descendant of it.
         [[nodiscard]] static bool IsInSubtree(Node* node, Node* ancestor)
         {
-            if (ancestor == nullptr) return false;
+            if (ancestor == nullptr)
+                return false;
             for (Node* n = node; n != nullptr; n = n->GetParent())
-                if (n == ancestor) return true;
+                if (n == ancestor)
+                    return true;
             return false;
         }
 
@@ -261,7 +315,8 @@ export namespace draconic::gui
         [[nodiscard]] Node* FindDropTarget(Node* hit) const
         {
             for (Node* n = hit; n != nullptr; n = n->GetParent())
-                if (n->AcceptsDrop(m_dragPayload)) return n;
+                if (n->AcceptsDrop(m_dragPayload))
+                    return n;
             return nullptr;
         }
 
@@ -277,48 +332,56 @@ export namespace draconic::gui
         // and disabled nodes).
         static void CollectTabStops(Node* node, core::Array<Node*>& out)
         {
-            if (node == nullptr || !node->IsVisible()) return;
-            if (node->IsTabFocusable() && node->IsEnabled()) out.PushBack(node);
-            for (usize i = 0; i < node->ChildCount(); ++i) CollectTabStops(node->GetChildAt(i), out);
+            if (node == nullptr || !node->IsVisible())
+                return;
+            if (node->IsTabFocusable() && node->IsEnabled())
+                out.PushBack(node);
+            for (usize i = 0; i < node->ChildCount(); ++i)
+                CollectTabStops(node->GetChildAt(i), out);
         }
 
         bool MoveTabFocus(i32 direction)
         {
             core::Array<Node*> stops;
-            CollectTabStops(m_modalRoot != nullptr ? m_modalRoot : m_root, stops); // confine to a modal
+            CollectTabStops(m_modalRoot != nullptr ? m_modalRoot : m_root,
+                            stops); // confine to a modal
             const usize count = stops.Size();
-            if (count == 0) return false;
+            if (count == 0)
+                return false;
 
             // Find the current focus among the stops.
             usize current = count; // sentinel: "not in the list"
             for (usize i = 0; i < count; ++i)
-                if (stops[i] == m_focusNode) { current = i; break; }
+                if (stops[i] == m_focusNode)
+                {
+                    current = i;
+                    break;
+                }
 
             usize next;
             if (current == count)
                 next = (direction > 0) ? 0 : count - 1; // nothing focused -> first / last
             else
-                next = (direction > 0) ? ((current + 1) % count)
-                                       : ((current + count - 1) % count);
+                next = (direction > 0) ? ((current + 1) % count) : ((current + count - 1) % count);
 
             SetFocusNode(stops[next]);
             return true;
         }
 
-        Node* m_root;                  // non-owning (the SceneNode owns this dispatcher)
-        Node* m_modalRoot = nullptr;   // non-owning; confines input while a modal is open
+        Node* m_root;                      // non-owning (the SceneNode owns this dispatcher)
+        Node* m_modalRoot = nullptr;       // non-owning; confines input while a modal is open
         IClipboard* m_clipboard = nullptr; // non-owning system-clipboard adapter (optional)
-        Node* m_overNode = nullptr;    // non-owning
-        Node* m_downNode = nullptr;    // non-owning
-        Node* m_focusNode = nullptr;   // non-owning
-        Node* m_popup = nullptr;       // non-owning active popup
-        Node* m_popupOwner = nullptr;  // non-owning opener (clicks on it don't dismiss)
+        Node* m_overNode = nullptr;        // non-owning
+        Node* m_downNode = nullptr;        // non-owning
+        Node* m_focusNode = nullptr;       // non-owning
+        Node* m_popup = nullptr;           // non-owning active popup
+        Node* m_popupOwner = nullptr;      // non-owning opener (clicks on it don't dismiss)
         core::Function<void()> m_onPopupClose;
         core::Function<bool(Node*)> m_popupContains; // optional: extends the popup's "inside" set
-        bool m_dragActive = false;     // drag-and-drop in progress
-        Node* m_dragSource = nullptr;  // non-owning
-        Node* m_dropTarget = nullptr;  // non-owning current target
+        bool m_dragActive = false;                   // drag-and-drop in progress
+        Node* m_dragSource = nullptr;                // non-owning
+        Node* m_dropTarget = nullptr;                // non-owning current target
         DragPayload m_dragPayload;
-        core::Float2 m_mousePos{ 0.0f, 0.0f };
+        core::Float2 m_mousePos{0.0f, 0.0f};
     };
 }

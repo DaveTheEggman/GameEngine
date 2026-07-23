@@ -15,20 +15,38 @@ module;
 
 export module draconic.gui:flex_layout;
 
-import draconic.core;   // Float2, HashMap, Array, Max, Min
+import draconic.core; // Float2, HashMap, Array, Max, Min
 import :rect;
 import :node;
 import :ui_widget;
-import :css_values;     // ParseLength (markup)
+import :css_values; // ParseLength (markup)
 
 using namespace draconic::core;
 namespace core = draconic::core;
 
 export namespace draconic::gui
 {
-    enum class FlexDirection { Row, Column };
-    enum class JustifyContent { Start, End, Center, SpaceBetween, SpaceAround, SpaceEvenly };
-    enum class AlignItems { Start, End, Center, Stretch };
+    enum class FlexDirection
+    {
+        Row,
+        Column
+    };
+    enum class JustifyContent
+    {
+        Start,
+        End,
+        Center,
+        SpaceBetween,
+        SpaceAround,
+        SpaceEvenly
+    };
+    enum class AlignItems
+    {
+        Start,
+        End,
+        Center,
+        Stretch
+    };
 
     class FlexLayout : public UIWidget
     {
@@ -36,21 +54,42 @@ export namespace draconic::gui
     public:
         FlexLayout() { SetTag(core::StringView(u8"flexlayout")); }
 
-        void SetDirection(FlexDirection direction) { m_direction = direction; m_basis = {}; PerformLayout(); }
+        void SetDirection(FlexDirection direction)
+        {
+            m_direction = direction;
+            m_basis = {};
+            PerformLayout();
+        }
         [[nodiscard]] FlexDirection GetDirection() const noexcept { return m_direction; }
-        void SetJustifyContent(JustifyContent justify) { m_justify = justify; PerformLayout(); }
+        void SetJustifyContent(JustifyContent justify)
+        {
+            m_justify = justify;
+            PerformLayout();
+        }
         [[nodiscard]] JustifyContent GetJustifyContent() const noexcept { return m_justify; }
-        void SetAlignItems(AlignItems align) { m_align = align; PerformLayout(); }
+        void SetAlignItems(AlignItems align)
+        {
+            m_align = align;
+            PerformLayout();
+        }
         [[nodiscard]] AlignItems GetAlignItems() const noexcept { return m_align; }
-        void SetGap(f32 gap) { m_gap = core::Max(0.0f, gap); PerformLayout(); }
+        void SetGap(f32 gap)
+        {
+            m_gap = core::Max(0.0f, gap);
+            PerformLayout();
+        }
         [[nodiscard]] f32 GetGap() const noexcept { return m_gap; }
 
         // The grow factor for a child (0 = fixed; >0 = shares leftover main-axis space in
         // proportion to the total grow).
         void SetChildGrow(Node* child, f32 grow)
         {
-            if (child == nullptr) return;
-            if (grow <= 0.0f) m_grow.Remove(child); else m_grow.InsertOrAssign(child, grow);
+            if (child == nullptr)
+                return;
+            if (grow <= 0.0f)
+                m_grow.Remove(child);
+            else
+                m_grow.InsertOrAssign(child, grow);
             PerformLayout();
         }
         [[nodiscard]] f32 GetChildGrow(Node* child) const
@@ -61,14 +100,29 @@ export namespace draconic::gui
 
         bool SetMarkupAttribute(core::StringView name, core::StringView value) override
         {
-            if (name == core::StringView(u8"direction") || name == core::StringView(u8"flex-direction"))
+            if (name == core::StringView(u8"direction") ||
+                name == core::StringView(u8"flex-direction"))
             {
-                SetDirection(value == core::StringView(u8"column") ? FlexDirection::Column : FlexDirection::Row);
+                SetDirection(value == core::StringView(u8"column") ? FlexDirection::Column
+                                                                   : FlexDirection::Row);
                 return true;
             }
-            if (name == core::StringView(u8"justify-content")) { SetJustifyContent(ParseJustify(value)); return true; }
-            if (name == core::StringView(u8"align-items")) { SetAlignItems(ParseAlign(value)); return true; }
-            if (name == core::StringView(u8"gap")) { if (Optional<f32> g = ParseLength(value); g.HasValue()) SetGap(g.Value()); return true; }
+            if (name == core::StringView(u8"justify-content"))
+            {
+                SetJustifyContent(ParseJustify(value));
+                return true;
+            }
+            if (name == core::StringView(u8"align-items"))
+            {
+                SetAlignItems(ParseAlign(value));
+                return true;
+            }
+            if (name == core::StringView(u8"gap"))
+            {
+                if (Optional<f32> g = ParseLength(value); g.HasValue())
+                    SetGap(g.Value());
+                return true;
+            }
             return UIWidget::SetMarkupAttribute(name, value);
         }
 
@@ -86,13 +140,15 @@ export namespace draconic::gui
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 Node* child = GetChildAt(i);
-                if (child == nullptr || !child->IsVisible()) continue;
+                if (child == nullptr || !child->IsVisible())
+                    continue;
                 items.PushBack(child);
                 baseTotal += BasisMainOf(child, row);
                 growTotal += GetChildGrow(child);
             }
             const usize n = items.Size();
-            if (n == 0) return;
+            if (n == 0)
+                return;
 
             const f32 gapTotal = m_gap * static_cast<f32>(n - 1);
             f32 freeSpace = mainSize - baseTotal - gapTotal;
@@ -102,13 +158,15 @@ export namespace draconic::gui
             for (Node* child : items)
             {
                 f32 main = BasisMainOf(child, row);
-                if (growTotal > 0.0f && freeSpace > 0.0f) main += (GetChildGrow(child) / growTotal) * freeSpace;
+                if (growTotal > 0.0f && freeSpace > 0.0f)
+                    main += (GetChildGrow(child) / growTotal) * freeSpace;
                 mainSizes.PushBack(main);
             }
 
             // Remaining free space after grow drives justify-content.
             f32 usedMain = gapTotal;
-            for (f32 m : mainSizes) usedMain += m;
+            for (f32 m : mainSizes)
+                usedMain += m;
             const f32 remaining = core::Max(0.0f, mainSize - usedMain);
 
             f32 mainStart = row ? content.x : content.y;
@@ -122,17 +180,18 @@ export namespace draconic::gui
                 const f32 mainLen = mainSizes[i];
                 const f32 childCrossBase = CrossOf(child, row);
                 const f32 crossLen = (m_align == AlignItems::Stretch) ? crossSize : childCrossBase;
-                const f32 crossPos = (row ? content.y : content.x) + CrossOffset(crossSize, crossLen);
+                const f32 crossPos =
+                    (row ? content.y : content.x) + CrossOffset(crossSize, crossLen);
 
                 if (row)
                 {
-                    child->SetPosition(core::Float2{ mainPos, crossPos });
-                    child->SetSize(core::Float2{ mainLen, crossLen });
+                    child->SetPosition(core::Float2{mainPos, crossPos});
+                    child->SetSize(core::Float2{mainLen, crossLen});
                 }
                 else
                 {
-                    child->SetPosition(core::Float2{ crossPos, mainPos });
-                    child->SetSize(core::Float2{ crossLen, mainLen });
+                    child->SetPosition(core::Float2{crossPos, mainPos});
+                    child->SetSize(core::Float2{crossLen, mainLen});
                 }
                 mainPos += mainLen + between;
             }
@@ -143,13 +202,17 @@ export namespace draconic::gui
         void OnChildrenChanged() override { PerformLayout(); }
 
     private:
-        [[nodiscard]] static f32 CrossOf(Node* child, bool row) { return row ? child->GetSize().y : child->GetSize().x; }
+        [[nodiscard]] static f32 CrossOf(Node* child, bool row)
+        {
+            return row ? child->GetSize().y : child->GetSize().x;
+        }
 
         // The child's flex-basis (main-axis size), captured once from its initial size so that
         // growing it does not corrupt the basis on the next layout. Cleared on direction change.
         [[nodiscard]] f32 BasisMainOf(Node* child, bool row)
         {
-            if (const f32* stored = m_basis.Find(child)) return *stored;
+            if (const f32* stored = m_basis.Find(child))
+                return *stored;
             const f32 basis = row ? child->GetSize().x : child->GetSize().y;
             m_basis.InsertOrAssign(child, basis);
             return basis;
@@ -159,10 +222,14 @@ export namespace draconic::gui
         {
             switch (m_align)
             {
-            case AlignItems::Start:   return 0.0f;
-            case AlignItems::End:     return core::Max(0.0f, crossSize - childCross);
-            case AlignItems::Center:  return core::Max(0.0f, (crossSize - childCross) * 0.5f);
-            case AlignItems::Stretch: return 0.0f;
+            case AlignItems::Start:
+                return 0.0f;
+            case AlignItems::End:
+                return core::Max(0.0f, crossSize - childCross);
+            case AlignItems::Center:
+                return core::Max(0.0f, (crossSize - childCross) * 0.5f);
+            case AlignItems::Stretch:
+                return 0.0f;
             }
             return 0.0f;
         }
@@ -174,33 +241,59 @@ export namespace draconic::gui
             between = m_gap;
             switch (m_justify)
             {
-            case JustifyContent::Start: break;
-            case JustifyContent::End: start += remaining; break;
-            case JustifyContent::Center: start += remaining * 0.5f; break;
-            case JustifyContent::SpaceBetween: if (n > 1) between += remaining / static_cast<f32>(n - 1); break;
+            case JustifyContent::Start:
+                break;
+            case JustifyContent::End:
+                start += remaining;
+                break;
+            case JustifyContent::Center:
+                start += remaining * 0.5f;
+                break;
+            case JustifyContent::SpaceBetween:
+                if (n > 1)
+                    between += remaining / static_cast<f32>(n - 1);
+                break;
             case JustifyContent::SpaceAround:
-                if (n > 0) { const f32 unit = remaining / static_cast<f32>(n); start += unit * 0.5f; between += unit; }
+                if (n > 0)
+                {
+                    const f32 unit = remaining / static_cast<f32>(n);
+                    start += unit * 0.5f;
+                    between += unit;
+                }
                 break;
             case JustifyContent::SpaceEvenly:
-                if (n > 0) { const f32 unit = remaining / static_cast<f32>(n + 1); start += unit; between += unit; }
+                if (n > 0)
+                {
+                    const f32 unit = remaining / static_cast<f32>(n + 1);
+                    start += unit;
+                    between += unit;
+                }
                 break;
             }
         }
 
         [[nodiscard]] static JustifyContent ParseJustify(core::StringView v)
         {
-            if (v == core::StringView(u8"end") || v == core::StringView(u8"flex-end")) return JustifyContent::End;
-            if (v == core::StringView(u8"center")) return JustifyContent::Center;
-            if (v == core::StringView(u8"space-between")) return JustifyContent::SpaceBetween;
-            if (v == core::StringView(u8"space-around")) return JustifyContent::SpaceAround;
-            if (v == core::StringView(u8"space-evenly")) return JustifyContent::SpaceEvenly;
+            if (v == core::StringView(u8"end") || v == core::StringView(u8"flex-end"))
+                return JustifyContent::End;
+            if (v == core::StringView(u8"center"))
+                return JustifyContent::Center;
+            if (v == core::StringView(u8"space-between"))
+                return JustifyContent::SpaceBetween;
+            if (v == core::StringView(u8"space-around"))
+                return JustifyContent::SpaceAround;
+            if (v == core::StringView(u8"space-evenly"))
+                return JustifyContent::SpaceEvenly;
             return JustifyContent::Start;
         }
         [[nodiscard]] static AlignItems ParseAlign(core::StringView v)
         {
-            if (v == core::StringView(u8"end") || v == core::StringView(u8"flex-end")) return AlignItems::End;
-            if (v == core::StringView(u8"center")) return AlignItems::Center;
-            if (v == core::StringView(u8"stretch")) return AlignItems::Stretch;
+            if (v == core::StringView(u8"end") || v == core::StringView(u8"flex-end"))
+                return AlignItems::End;
+            if (v == core::StringView(u8"center"))
+                return AlignItems::Center;
+            if (v == core::StringView(u8"stretch"))
+                return AlignItems::Stretch;
             return AlignItems::Start;
         }
 

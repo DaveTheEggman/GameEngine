@@ -27,7 +27,7 @@ import draconic.vfs;
 import draconic.content;
 import draconic.xml.serialization;
 import draconic.project;
-import :export_roots;   // the project owns its "Always Export" set (export_roots.xml)
+import :export_roots; // the project owns its "Always Export" set (export_roots.xml)
 
 using namespace draconic::core;
 
@@ -35,16 +35,16 @@ export namespace draconic::editor
 {
     // The manifest payload + directory layout live in draconic.project (runtime-side,
     // editor-free - the player/dist builds read the same manifest without editor code).
-    using draconic::project::ProjectSettings;
-    using draconic::project::kProjectManifestFile;
-    using draconic::project::kProjectContentDir;
-    using draconic::project::kProjectSourcesDir;
-    using draconic::project::kProjectCookedDir;
-    using draconic::project::kProjectEditorDir;
-    using draconic::project::kProjectCacheDir;
-    using draconic::project::kSourceAssetExtension;
     using draconic::project::kCookedAssetExtension;
     using draconic::project::kEngineVersionString;
+    using draconic::project::kProjectCacheDir;
+    using draconic::project::kProjectContentDir;
+    using draconic::project::kProjectCookedDir;
+    using draconic::project::kProjectEditorDir;
+    using draconic::project::kProjectManifestFile;
+    using draconic::project::kProjectSourcesDir;
+    using draconic::project::kSourceAssetExtension;
+    using draconic::project::ProjectSettings;
 
     // An opened project: the manifest + the mounted source and cooked content databases.
     class EditorProject
@@ -58,15 +58,24 @@ export namespace draconic::editor
         // if a manifest is already present.
         [[nodiscard]] static Status Create(StringView directory, StringView name)
         {
-            if (!CreateDirectory(directory)) { return Status{ ErrorCode::NotFound }; }
+            if (!CreateDirectory(directory))
+            {
+                return Status{ErrorCode::NotFound};
+            }
             vfs::NativeFileSystem root(directory);
-            if (root.Exists(kProjectManifestFile)) { return Status{ ErrorCode::AlreadyExists }; }
+            if (root.Exists(kProjectManifestFile))
+            {
+                return Status{ErrorCode::AlreadyExists};
+            }
 
-            const StringView dirs[] = { kProjectContentDir, kProjectSourcesDir, kProjectCookedDir,
-                                        kProjectEditorDir, kProjectCacheDir };
+            const StringView dirs[] = {kProjectContentDir, kProjectSourcesDir, kProjectCookedDir,
+                                       kProjectEditorDir, kProjectCacheDir};
             for (StringView dir : dirs)
             {
-                if (!CreateDirectory(PathJoin(directory, dir).AsView())) { return Status{ ErrorCode::Internal }; }
+                if (!CreateDirectory(PathJoin(directory, dir).AsView()))
+                {
+                    return Status{ErrorCode::Internal};
+                }
             }
 
             ProjectSettings settings;
@@ -87,28 +96,32 @@ export namespace draconic::editor
                 if (root.Exists(kProjectManifestFile))
                 {
                     DRACONIC_LOG_ERROR(u8"Project",
-                        u8"'{}/{}' exists but failed to parse (old or corrupt format?) - project not opened",
-                        directory, kProjectManifestFile);
+                                       u8"'{}/{}' exists but failed to parse (old or corrupt "
+                                       u8"format?) - project not opened",
+                                       directory, kProjectManifestFile);
                 }
                 return UniquePtr<EditorProject>{};
             }
 
             // Generated dirs may be missing on a fresh checkout (Cooked/Editor/.cache are
             // gitignored) - recreate them so mounts and state saves always have a target.
-            const StringView dirs[] = { kProjectContentDir, kProjectSourcesDir, kProjectCookedDir,
-                                        kProjectEditorDir, kProjectCacheDir };
+            const StringView dirs[] = {kProjectContentDir, kProjectSourcesDir, kProjectCookedDir,
+                                       kProjectEditorDir, kProjectCacheDir};
             for (StringView dir : dirs)
             {
-                if (!CreateDirectory(PathJoin(directory, dir).AsView())) { return UniquePtr<EditorProject>{}; }
+                if (!CreateDirectory(PathJoin(directory, dir).AsView()))
+                {
+                    return UniquePtr<EditorProject>{};
+                }
             }
 
-            if (!settings.engineVersion.IsEmpty()
-                && settings.engineVersion != draconic::project::kEngineVersionString)
+            if (!settings.engineVersion.IsEmpty() &&
+                settings.engineVersion != draconic::project::kEngineVersionString)
             {
                 // Today: informational. The launcher/project-manager (planned) routes projects
                 // to their engine version and drives migration on upgrade.
-                DRACONIC_LOG_WARNING(u8"Project",
-                    u8"project was last saved by engine {} (this editor is {})",
+                DRACONIC_LOG_WARNING(
+                    u8"Project", u8"project was last saved by engine {} (this editor is {})",
                     settings.engineVersion, draconic::project::kEngineVersionString);
             }
             EditorProject* project = DefaultAllocator().New<EditorProject>(directory, settings);
@@ -121,16 +134,31 @@ export namespace draconic::editor
         [[nodiscard]] const ProjectSettings& Settings() const noexcept { return m_settings; }
 
         /// The authored source database (XML envelopes) - what the editor edits.
-        [[nodiscard]] draconic::content::ContentDatabase& SourceDb() noexcept { return *m_sourceDb; }
+        [[nodiscard]] draconic::content::ContentDatabase& SourceDb() noexcept
+        {
+            return *m_sourceDb;
+        }
         /// The cooked output database (binary envelopes) - what the runtime loads.
-        [[nodiscard]] draconic::content::ContentDatabase& CookedDb() noexcept { return *m_cookedDb; }
+        [[nodiscard]] draconic::content::ContentDatabase& CookedDb() noexcept
+        {
+            return *m_cookedDb;
+        }
 
         /// Root for raw import sources (mounted as AssetBuildContext.sources at cook time).
-        [[nodiscard]] String SourcesRoot() const { return PathJoin(m_directory.AsView(), kProjectSourcesDir); }
+        [[nodiscard]] String SourcesRoot() const
+        {
+            return PathJoin(m_directory.AsView(), kProjectSourcesDir);
+        }
         /// Per-user editor state directory (dock layout, open pages).
-        [[nodiscard]] String EditorStateRoot() const { return PathJoin(m_directory.AsView(), kProjectEditorDir); }
+        [[nodiscard]] String EditorStateRoot() const
+        {
+            return PathJoin(m_directory.AsView(), kProjectEditorDir);
+        }
         /// Cache directory (thumbnails, cook hashes).
-        [[nodiscard]] String CacheRoot() const { return PathJoin(m_directory.AsView(), kProjectCacheDir); }
+        [[nodiscard]] String CacheRoot() const
+        {
+            return PathJoin(m_directory.AsView(), kProjectCacheDir);
+        }
 
         // Persist the manifest (settings changed in the editor).
         [[nodiscard]] Status SaveSettings()
@@ -150,34 +178,41 @@ export namespace draconic::editor
         {
             vfs::NativeFileSystem root(m_directory.AsView());
             vfs::IWritableFileSystem* writable = root.AsWritable();
-            if (writable == nullptr) { return Status{ ErrorCode::NotSupported }; }
+            if (writable == nullptr)
+            {
+                return Status{ErrorCode::NotSupported};
+            }
             return draconic::editor::SaveExportRoots(*writable, m_exportRoots);
         }
 
         // Internal (public for allocator New); use Create/Open. Fields are moved out of
         // `settings` one by one (ISerializable's deleted copy suppresses the implicit move).
         EditorProject(StringView directory, ProjectSettings& settings)
-            : m_directory(directory)
-            , m_contentMount(MakeUnique<vfs::NativeFileSystem>(DefaultAllocator(),
-                  PathJoin(directory, kProjectContentDir).AsView()))
-            , m_cookedMount(MakeUnique<vfs::NativeFileSystem>(DefaultAllocator(),
-                  PathJoin(directory, kProjectCookedDir).AsView()))
-            , m_sourceDb(MakeUnique<draconic::content::ContentDatabase>(DefaultAllocator(),
-                  *m_contentMount, draconic::xml::XmlSerializerFactory(), kSourceAssetExtension))
-            , m_cookedDb(MakeUnique<draconic::content::ContentDatabase>(DefaultAllocator(),
-                  *m_cookedMount, BinarySerializerFactory(), kCookedAssetExtension))
+            : m_directory(directory),
+              m_contentMount(MakeUnique<vfs::NativeFileSystem>(
+                  DefaultAllocator(), PathJoin(directory, kProjectContentDir).AsView())),
+              m_cookedMount(MakeUnique<vfs::NativeFileSystem>(
+                  DefaultAllocator(), PathJoin(directory, kProjectCookedDir).AsView())),
+              m_sourceDb(MakeUnique<draconic::content::ContentDatabase>(
+                  DefaultAllocator(), *m_contentMount, draconic::xml::XmlSerializerFactory(),
+                  kSourceAssetExtension)),
+              m_cookedDb(MakeUnique<draconic::content::ContentDatabase>(
+                  DefaultAllocator(), *m_cookedMount, BinarySerializerFactory(),
+                  kCookedAssetExtension))
         {
             // Per-field move (ISerializable deletes copy/move) - EVERY ProjectSettings field
             // must appear here; a missed one silently drops manifest data on Open.
-            m_settings.name          = Move(settings.name);
+            m_settings.name = Move(settings.name);
             m_settings.engineVersion = Move(settings.engineVersion);
             m_settings.defaultSceneId = settings.defaultSceneId;
-            m_settings.defaultScene  = Move(settings.defaultScene);
+            m_settings.defaultScene = Move(settings.defaultScene);
             m_settings.startupScript = Move(settings.startupScript);
-            m_settings.startupScriptId = settings.startupScriptId;   // authoritative game-script asset (v6)
-            m_settings.nativeModule  = Move(settings.nativeModule);
-            m_settings.defaultInputMapId = settings.defaultInputMapId;   // was MISSING: Open dropped it
-            m_settings.defaultUiThemeId  = settings.defaultUiThemeId;
+            m_settings.startupScriptId =
+                settings.startupScriptId; // authoritative game-script asset (v6)
+            m_settings.nativeModule = Move(settings.nativeModule);
+            m_settings.defaultInputMapId =
+                settings.defaultInputMapId; // was MISSING: Open dropped it
+            m_settings.defaultUiThemeId = settings.defaultUiThemeId;
 
             // The "Always Export" set is a separate committed sidecar (export_roots.xml). Absent =
             // no explicit roots (the empty set), which is the common case; only a project that has
@@ -190,10 +225,14 @@ export namespace draconic::editor
         }
 
     private:
-        [[nodiscard]] static Status WriteManifest(vfs::NativeFileSystem& root, ProjectSettings& settings)
+        [[nodiscard]] static Status WriteManifest(vfs::NativeFileSystem& root,
+                                                  ProjectSettings& settings)
         {
             vfs::IWritableFileSystem* writable = root.AsWritable();
-            if (writable == nullptr) { return Status{ ErrorCode::NotSupported }; }
+            if (writable == nullptr)
+            {
+                return Status{ErrorCode::NotSupported};
+            }
             // One manifest format: the lean lib's helpers (versioned payload included) - the
             // player reads the same file with zero editor code.
             return draconic::project::SaveProjectSettings(*writable, settings);
@@ -201,7 +240,7 @@ export namespace draconic::editor
 
         String m_directory;
         ProjectSettings m_settings;
-        ExportRootsSet m_exportRoots;   // "Always Export" set (export_roots.xml); empty when absent
+        ExportRootsSet m_exportRoots; // "Always Export" set (export_roots.xml); empty when absent
         UniquePtr<vfs::NativeFileSystem> m_contentMount;
         UniquePtr<vfs::NativeFileSystem> m_cookedMount;
         UniquePtr<draconic::content::ContentDatabase> m_sourceDb;

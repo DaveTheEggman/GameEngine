@@ -30,8 +30,11 @@ export namespace draconic::ui
 
         void OnDraw(UIDrawContext& ctx) override
         {
-            const Rectangle bounds{ 0, 0, Width(), Height() };
-            if (Drawable* bg = ResolveStyleDrawable(StyleProperty::Background)) { bg->Draw(ctx, bounds, GetControlState()); }
+            const Rectangle bounds{0, 0, Width(), Height()};
+            if (Drawable* bg = ResolveStyleDrawable(StyleProperty::Background))
+            {
+                bg->Draw(ctx, bounds, GetControlState());
+            }
             DrawChildren(ctx);
         }
 
@@ -44,29 +47,39 @@ export namespace draconic::ui
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 View* child = GetChildAt(i);
-                if (child->Visibility == Visibility::Gone) { continue; }
-                const Thickness margin = child->LayoutParams ? child->LayoutParams->Margin : Thickness{};
+                if (child->Visibility == Visibility::Gone)
+                {
+                    continue;
+                }
+                const Thickness margin =
+                    child->LayoutParams ? child->LayoutParams->Margin : Thickness{};
                 child->Measure(inner.Deflate(margin));
                 maxW = Max(maxW, child->MeasuredSize.x + margin.TotalHorizontal());
                 maxH = Max(maxH, child->MeasuredSize.y + margin.TotalVertical());
             }
-            MeasuredSize = Float2{ constraints.ConstrainWidth(maxW + pad.TotalHorizontal()),
-                                   constraints.ConstrainHeight(maxH + pad.TotalVertical()) };
+            MeasuredSize = Float2{constraints.ConstrainWidth(maxW + pad.TotalHorizontal()),
+                                  constraints.ConstrainHeight(maxH + pad.TotalVertical())};
         }
 
         void OnLayout(f32 left, f32 top, f32 width, f32 height) override
         {
-            (void)left; (void)top;
+            (void)left;
+            (void)top;
             const Thickness pad = EffectivePadding();
             const f32 contentW = width - pad.TotalHorizontal();
             const f32 contentH = height - pad.TotalVertical();
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 View* child = GetChildAt(i);
-                if (child->Visibility == Visibility::Gone) { continue; }
-                const Thickness margin = child->LayoutParams ? child->LayoutParams->Margin : Thickness{};
+                if (child->Visibility == Visibility::Gone)
+                {
+                    continue;
+                }
+                const Thickness margin =
+                    child->LayoutParams ? child->LayoutParams->Margin : Thickness{};
                 child->Layout(pad.Left + margin.Left, pad.Top + margin.Top,
-                              Max(0.0f, contentW - margin.TotalHorizontal()), Max(0.0f, contentH - margin.TotalVertical()));
+                              Max(0.0f, contentW - margin.TotalHorizontal()),
+                              Max(0.0f, contentH - margin.TotalVertical()));
             }
         }
 
@@ -75,8 +88,12 @@ export namespace draconic::ui
         [[nodiscard]] Thickness EffectivePadding()
         {
             Thickness dp{};
-            if (Drawable* bg = ResolveStyleDrawable(StyleProperty::Background)) { dp = bg->DrawablePadding(); }
-            return Thickness{ Max(Padding.Left, dp.Left), Max(Padding.Top, dp.Top), Max(Padding.Right, dp.Right), Max(Padding.Bottom, dp.Bottom) };
+            if (Drawable* bg = ResolveStyleDrawable(StyleProperty::Background))
+            {
+                dp = bg->DrawablePadding();
+            }
+            return Thickness{Max(Padding.Left, dp.Left), Max(Padding.Top, dp.Top),
+                             Max(Padding.Right, dp.Right), Max(Padding.Bottom, dp.Bottom)};
         }
     };
 

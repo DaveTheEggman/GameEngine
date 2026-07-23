@@ -12,7 +12,7 @@ import draconic.shell;
 import draconic.shell.null;
 
 using namespace draconic::core;
-using namespace draconic::graphics;   // GraphicsDevice etc. (moved from draconic::runtime)
+using namespace draconic::graphics; // GraphicsDevice etc. (moved from draconic::runtime)
 using namespace draconic::shell;
 
 TEST_CASE("graphics: GraphicsDevice brings up over the null backend")
@@ -55,7 +55,7 @@ TEST_CASE("graphics: a window renders, and the frame ring advances")
     CHECK(f1.frameIndex == 1u);
     rw->EndFrame(f1);
     gd->AdvanceFrame();
-    CHECK(gd->CurrentFrame() == 0u);   // wraps with framesInFlight == 2
+    CHECK(gd->CurrentFrame() == 0u); // wraps with framesInFlight == 2
 
     // Frame 2 wraps back to slot 0 and must wait the slot-0 fence cleanly.
     FrameContext f2 = rw->BeginFrame();
@@ -105,13 +105,13 @@ TEST_CASE("graphics: SyncSize resizes the swapchain when the window changes")
     REQUIRE(rwResult.HasValue());
     UniquePtr<RenderWindow>& rw = rwResult.Value();
 
-    CHECK_FALSE(rw->SyncSize());                       // nothing changed yet
+    CHECK_FALSE(rw->SyncSize()); // nothing changed yet
 
     static_cast<NullWindow*>(shell.MainWindow())->Resize(1600, 900);
-    CHECK(rw->SyncSize());                             // picked up the change
+    CHECK(rw->SyncSize()); // picked up the change
     CHECK(rw->Swap()->Width() == 1600u);
     CHECK(rw->Swap()->Height() == 900u);
-    CHECK_FALSE(rw->SyncSize());                       // stable again
+    CHECK_FALSE(rw->SyncSize()); // stable again
 }
 
 TEST_CASE("graphics: a minimized window yields an invalid frame")
@@ -128,5 +128,5 @@ TEST_CASE("graphics: a minimized window yields an invalid frame")
     static_cast<NullWindow*>(shell.MainWindow())->SetMinimized(true);
     FrameContext f = rw->BeginFrame();
     CHECK_FALSE(f.valid);
-    rw->EndFrame(f);                                   // must be a harmless no-op
+    rw->EndFrame(f); // must be a harmless no-op
 }

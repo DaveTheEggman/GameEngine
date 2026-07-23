@@ -39,7 +39,8 @@ TEST_CASE("texture.factory: cooked TextureResource -> live GPU Texture")
 
     // Author a cooked record + raw 2x2 RGBA pixels (the "data" stream).
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                              u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"tex", TextureResource::StaticType());
         id = inst->Id();
 
@@ -55,13 +56,19 @@ TEST_CASE("texture.factory: cooked TextureResource -> live GPU Texture")
         REQUIRE(inst->WriteObject(res).IsOk());
 
         u8 pixels[2 * 2 * 4];
-        for (usize i = 0; i < sizeof(pixels); ++i) { pixels[i] = static_cast<u8>(i * 3); }
-        REQUIRE(inst->WriteData(u8"data", Span<const byte>(reinterpret_cast<const byte*>(pixels), sizeof(pixels))).IsOk());
+        for (usize i = 0; i < sizeof(pixels); ++i)
+        {
+            pixels[i] = static_cast<u8>(i * 3);
+        }
+        REQUIRE(inst->WriteData(u8"data", Span<const byte>(reinterpret_cast<const byte*>(pixels),
+                                                           sizeof(pixels)))
+                    .IsOk());
     }
 
     // Load through the manager with a device-backed factory (Null backend).
     rhi::null::NullDevice device{DefaultAllocator()};
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                          u8".rasset");
     TextureFactory factory(device);
     ResourceManager manager(db);
     manager.AddFactory(&factory);

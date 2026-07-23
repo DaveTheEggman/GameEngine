@@ -10,7 +10,7 @@ module;
 
 export module draconic.ui:layout_params;
 
-import draconic.core;   // Object
+import draconic.core; // Object
 import :thickness;
 import :size_spec;
 

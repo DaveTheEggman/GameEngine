@@ -58,19 +58,21 @@ namespace
             input::Binding stick;
             stick.source = input::BindingSource::GamepadStick;
             stick.code = static_cast<u32>(input::StickCode::Left);
-            stick.invert = true;   // stick +Y is down; the square's +Y is up
+            stick.invert = true; // stick +Y is down; the square's +Y is up
             move.bindings.PushBack(stick);
             input::Binding touch;
             touch.source = input::BindingSource::TouchStick;
-            touch.regionX = 0.0f; touch.regionY = 0.3f;   // left side, below the debug panel
-            touch.regionW = 0.45f; touch.regionH = 0.7f;
+            touch.regionX = 0.0f;
+            touch.regionY = 0.3f; // left side, below the debug panel
+            touch.regionW = 0.45f;
+            touch.regionH = 0.7f;
             touch.stickRadius = 0.12f;
             touch.invert = true;
             move.bindings.PushBack(touch);
             move.processors.sensitivity = 6.0f;
             move.processors.gravity = 10.0f;
             move.processors.snap = true;
-            move.processors.timeScale = true;   // slow-mo slows movement
+            move.processors.timeScale = true; // slow-mo slows movement
             gameplay.actions.PushBack(static_cast<input::Action&&>(move));
         }
         {
@@ -87,8 +89,10 @@ namespace
             jump.bindings.PushBack(pad);
             input::Binding touch;
             touch.source = input::BindingSource::TouchButton;
-            touch.regionX = 0.55f; touch.regionY = 0.55f;   // bottom-right quadrant
-            touch.regionW = 0.45f; touch.regionH = 0.45f;
+            touch.regionX = 0.55f;
+            touch.regionY = 0.55f; // bottom-right quadrant
+            touch.regionW = 0.45f;
+            touch.regionH = 0.45f;
             jump.bindings.PushBack(touch);
             gameplay.actions.PushBack(static_cast<input::Action&&>(jump));
         }
@@ -115,16 +119,26 @@ namespace
     {
         switch (source)
         {
-            case input::BindingSource::Key: return "Key";
-            case input::BindingSource::MouseButton: return "MouseBtn";
-            case input::BindingSource::MouseAxis: return "MouseAxis";
-            case input::BindingSource::MouseDelta: return "MouseDelta";
-            case input::BindingSource::GamepadButton: return "PadBtn";
-            case input::BindingSource::GamepadAxis: return "PadAxis";
-            case input::BindingSource::GamepadStick: return "PadStick";
-            case input::BindingSource::Composite2D: return "Keys4";
-            case input::BindingSource::TouchButton: return "TouchBtn";
-            case input::BindingSource::TouchStick: return "TouchStick";
+        case input::BindingSource::Key:
+            return "Key";
+        case input::BindingSource::MouseButton:
+            return "MouseBtn";
+        case input::BindingSource::MouseAxis:
+            return "MouseAxis";
+        case input::BindingSource::MouseDelta:
+            return "MouseDelta";
+        case input::BindingSource::GamepadButton:
+            return "PadBtn";
+        case input::BindingSource::GamepadAxis:
+            return "PadAxis";
+        case input::BindingSource::GamepadStick:
+            return "PadStick";
+        case input::BindingSource::Composite2D:
+            return "Keys4";
+        case input::BindingSource::TouchButton:
+            return "TouchBtn";
+        case input::BindingSource::TouchStick:
+            return "TouchStick";
         }
         return "?";
     }
@@ -145,11 +159,12 @@ namespace
         void OnStartup(runtime::IApplicationHost&) override
         {
             input::RegisterInputTypes();
-            m_asset = MakeDefaultMap();   // "the asset": pristine defaults
+            m_asset = MakeDefaultMap(); // "the asset": pristine defaults
             LoadOverlay();
             ApplyEffectiveMap();
-            core::ConsoleWrite(u8"InputActions: WASD/stick/touch drives the clear color;\n"
-                               u8"  the ImGui panel has rebinding, time scale, and the menu toggle.\n");
+            core::ConsoleWrite(
+                u8"InputActions: WASD/stick/touch drives the clear color;\n"
+                u8"  the ImGui panel has rebinding, time scale, and the menu toggle.\n");
         }
 
         void OnUpdate(runtime::IApplicationHost& host, f32 dt) override
@@ -167,8 +182,8 @@ namespace
             if (m_capturing != nullptr)
             {
                 auto* shellInput = host.Shell() != nullptr ? host.Shell()->Input() : nullptr;
-                if (shellInput != nullptr && shellInput->Keyboard() != nullptr
-                    && shellInput->Keyboard()->IsKeyPressed(shell::KeyCode::Escape))
+                if (shellInput != nullptr && shellInput->Keyboard() != nullptr &&
+                    shellInput->Keyboard()->IsKeyPressed(shell::KeyCode::Escape))
                 {
                     m_capturing = nullptr;
                 }
@@ -180,9 +195,10 @@ namespace
                     {
                         core::Array<input::Binding> replacement;
                         replacement.PushBack(captured);
-                        m_overlay.Set(u8"Gameplay",
-                                      core::StringView(reinterpret_cast<const core::utf8char*>(m_capturing)),
-                                      static_cast<core::Array<input::Binding>&&>(replacement));
+                        m_overlay.Set(
+                            u8"Gameplay",
+                            core::StringView(reinterpret_cast<const core::utf8char*>(m_capturing)),
+                            static_cast<core::Array<input::Binding>&&>(replacement));
                         m_capturing = nullptr;
                         SaveOverlay();
                         ApplyEffectiveMap();
@@ -193,14 +209,23 @@ namespace
             const core::Float2 move = actions.Value2D(m_move);
             m_x = core::Clamp(m_x + move.x * dt * 0.6f, 0.0f, 1.0f);
             m_y = core::Clamp(m_y + move.y * dt * 0.6f, 0.0f, 1.0f);
-            if (actions.WasPressed(m_jump)) { core::ConsoleWrite(u8"InputActions: Jump!\n"); }
-            if (actions.WasPressed(m_confirm)) { core::ConsoleWrite(u8"InputActions: Confirm.\n"); }
+            if (actions.WasPressed(m_jump))
+            {
+                core::ConsoleWrite(u8"InputActions: Jump!\n");
+            }
+            if (actions.WasPressed(m_confirm))
+            {
+                core::ConsoleWrite(u8"InputActions: Confirm.\n");
+            }
         }
 
         void OnRenderWindow(runtime::IApplicationHost& host, graphics::FrameContext& frame) override
         {
             frame.Clear(0.1f + 0.8f * m_x, 0.1f + 0.8f * m_y, 0.25f, 1.0f);
-            if (auto* g = host.Ctx().GetSubsystem<imgui::ImguiSubsystem>()) { g->Render(frame); }
+            if (auto* g = host.Ctx().GetSubsystem<imgui::ImguiSubsystem>())
+            {
+                g->Render(frame);
+            }
         }
 
     private:
@@ -224,7 +249,10 @@ namespace
         void LoadOverlay()
         {
             core::Result<core::Array<core::byte>> bytes = core::ReadFile(OverlayPath().AsView());
-            if (!bytes.HasValue()) { return; }
+            if (!bytes.HasValue())
+            {
+                return;
+            }
             core::MemoryStream stream;
             (void)stream.Write(bytes.Value().Data(), bytes.Value().Size());
             (void)stream.Seek(0, core::SeekOrigin::Begin);
@@ -261,20 +289,30 @@ namespace
             ImGui::Begin("Input");
 
             const core::Float2 move = actions.Value2D(m_move);
-            ImGui::Text("Move  %+.2f %+.2f", static_cast<double>(move.x), static_cast<double>(move.y));
+            ImGui::Text("Move  %+.2f %+.2f", static_cast<double>(move.x),
+                        static_cast<double>(move.y));
             ImGui::Text("Jump  %s", actions.IsDown(m_jump) ? "DOWN" : "up");
 
             // Engine time scale: flagged actions (Move) scale, Jump's press does not.
             float scale = host.Ctx().TimeScale();
-            if (ImGui::SliderFloat("time scale", &scale, 0.0f, 2.0f)) { host.Ctx().SetTimeScale(scale); }
+            if (ImGui::SliderFloat("time scale", &scale, 0.0f, 2.0f))
+            {
+                host.Ctx().SetTimeScale(scale);
+            }
 
             // Exclusive menu toggle (suppression + held latching, live).
             const bool menuOpen = actions.ExclusiveDepth() > 0;
             if (ImGui::Button(menuOpen ? "Close Menu (gameplay resumes)"
                                        : "Open Menu (gameplay suppressed)"))
             {
-                if (menuOpen) { actions.PopExclusiveSet(); }
-                else { actions.PushExclusiveSet(u8"Menu"); }
+                if (menuOpen)
+                {
+                    actions.PopExclusiveSet();
+                }
+                else
+                {
+                    actions.PushExclusiveSet(u8"Menu");
+                }
             }
 
             ImGui::Separator();
@@ -308,7 +346,10 @@ namespace
                 {
                     if (action.name.AsView() == wanted)
                     {
-                        if (!action.bindings.IsEmpty()) { first = &action.bindings[0]; }
+                        if (!action.bindings.IsEmpty())
+                        {
+                            first = &action.bindings[0];
+                        }
                         break;
                     }
                 }
@@ -349,7 +390,8 @@ namespace
         {
             ImDrawList* draw = ImGui::GetForegroundDrawList();
             const ImVec2 size = ImGui::GetIO().DisplaySize;
-            auto rect = [&](f32 x, f32 y, f32 w, f32 h, ImU32 color) {
+            auto rect = [&](f32 x, f32 y, f32 w, f32 h, ImU32 color)
+            {
                 draw->AddRect(ImVec2(x * size.x, y * size.y),
                               ImVec2((x + w) * size.x, (y + h) * size.y), color, 0, 0, 2.0f);
             };
@@ -373,12 +415,12 @@ namespace
         }
 
         input::InputSubsystem* m_input = nullptr;
-        input::InputMap m_asset;                    // pristine defaults
-        input::InputBindingOverrides m_overlay;     // the user's rebinds (persisted)
+        input::InputMap m_asset;                // pristine defaults
+        input::InputBindingOverrides m_overlay; // the user's rebinds (persisted)
         input::ActionRef m_move;
         input::ActionRef m_jump;
         input::ActionRef m_confirm;
-        const char* m_capturing = nullptr;          // action being rebound (static literal)
+        const char* m_capturing = nullptr; // action being rebound (static literal)
         input::CaptureFilter m_captureFilter;
         f32 m_x = 0.5f;
         f32 m_y = 0.5f;

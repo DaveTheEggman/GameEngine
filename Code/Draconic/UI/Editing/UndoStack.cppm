@@ -13,7 +13,7 @@ module;
 
 export module draconic.ui:undo_stack;
 
-import draconic.core;   // String, StringView, Array, Max
+import draconic.core; // String, StringView, Array, Max
 
 using namespace draconic::core;
 
@@ -28,7 +28,9 @@ export namespace draconic::ui
 
         UndoEntry() = default;
         UndoEntry(StringView text, i32 cursorPos, i32 anchorPos)
-            : Text(text), CursorPos(cursorPos), AnchorPos(anchorPos) {}
+            : Text(text), CursorPos(cursorPos), AnchorPos(anchorPos)
+        {
+        }
     };
 
     /// Fixed-capacity undo/redo stack. Snapshots full text for simplicity.
@@ -54,20 +56,23 @@ export namespace draconic::ui
                 m_undoList.RemoveAt(0);
             }
 
-            m_undoList.PushBack(UndoEntry{ text, cursorPos, anchorPos });
+            m_undoList.PushBack(UndoEntry{text, cursorPos, anchorPos});
         }
 
         /// Undo: pops the previous state, pushing the current state onto the redo stack.
-        bool Undo(StringView currentText, i32 currentCursor, i32 currentAnchor,
-                  String& outText, i32& outCursor, i32& outAnchor)
+        bool Undo(StringView currentText, i32 currentCursor, i32 currentAnchor, String& outText,
+                  i32& outCursor, i32& outAnchor)
         {
             outCursor = 0;
             outAnchor = 0;
 
-            if (m_undoList.Size() == 0) { return false; }
+            if (m_undoList.Size() == 0)
+            {
+                return false;
+            }
 
             // Push current state to redo.
-            m_redoList.PushBack(UndoEntry{ currentText, currentCursor, currentAnchor });
+            m_redoList.PushBack(UndoEntry{currentText, currentCursor, currentAnchor});
 
             // Pop from undo.
             UndoEntry entry = Move(m_undoList.Back());
@@ -80,20 +85,23 @@ export namespace draconic::ui
         }
 
         /// Redo: pops the next state, pushing the current state onto the undo stack.
-        bool Redo(StringView currentText, i32 currentCursor, i32 currentAnchor,
-                  String& outText, i32& outCursor, i32& outAnchor)
+        bool Redo(StringView currentText, i32 currentCursor, i32 currentAnchor, String& outText,
+                  i32& outCursor, i32& outAnchor)
         {
             outCursor = 0;
             outAnchor = 0;
 
-            if (m_redoList.Size() == 0) { return false; }
+            if (m_redoList.Size() == 0)
+            {
+                return false;
+            }
 
             // Push current state to undo (without clearing redo).
             if (static_cast<i32>(m_undoList.Size()) >= m_maxEntries)
             {
                 m_undoList.RemoveAt(0);
             }
-            m_undoList.PushBack(UndoEntry{ currentText, currentCursor, currentAnchor });
+            m_undoList.PushBack(UndoEntry{currentText, currentCursor, currentAnchor});
 
             // Pop from redo.
             UndoEntry entry = Move(m_redoList.Back());

@@ -62,7 +62,8 @@ TEST_CASE("data: ViewRecycler_DiagnosticCounters")
 
 TEST_CASE("data: SelectionModel_SingleMode_ReplacesSelection")
 {
-    SelectionModel sel; sel.Mode = SelectionMode::Single;
+    SelectionModel sel;
+    sel.Mode = SelectionMode::Single;
     sel.Select(0);
     sel.Select(1);
     CHECK(!sel.IsSelected(0));
@@ -76,8 +77,11 @@ TEST_CASE("data: SelectionModel_SingleMode_ReplacesSelection")
 // in the asset browser).
 TEST_CASE("data: SelectionModel_MultipleMode_PlainSelectReplaces")
 {
-    SelectionModel sel; sel.Mode = SelectionMode::Multiple;
-    sel.Select(0); sel.Select(1); sel.Select(2);
+    SelectionModel sel;
+    sel.Mode = SelectionMode::Multiple;
+    sel.Select(0);
+    sel.Select(1);
+    sel.Select(2);
     CHECK(!sel.IsSelected(0));
     CHECK(!sel.IsSelected(1));
     CHECK(sel.IsSelected(2));
@@ -88,22 +92,26 @@ TEST_CASE("data: SelectionModel_MultipleMode_PlainSelectReplaces")
     CHECK(sel.SelectedCount() == 2u);
     sel.SelectRange(0, 3);
     CHECK(sel.SelectedCount() == 4u);
-    sel.Select(1);   // plain click collapses back to one
+    sel.Select(1); // plain click collapses back to one
     CHECK(sel.SelectedCount() == 1u);
     CHECK(sel.IsSelected(1));
 }
 
 TEST_CASE("data: SelectionModel_Toggle")
 {
-    SelectionModel sel; sel.Mode = SelectionMode::Multiple;
+    SelectionModel sel;
+    sel.Mode = SelectionMode::Multiple;
     sel.Select(0);
-    sel.Toggle(0); CHECK(!sel.IsSelected(0));
-    sel.Toggle(0); CHECK(sel.IsSelected(0));
+    sel.Toggle(0);
+    CHECK(!sel.IsSelected(0));
+    sel.Toggle(0);
+    CHECK(sel.IsSelected(0));
 }
 
 TEST_CASE("data: SelectionModel_SelectRange")
 {
-    SelectionModel sel; sel.Mode = SelectionMode::Multiple;
+    SelectionModel sel;
+    sel.Mode = SelectionMode::Multiple;
     sel.SelectRange(2, 5);
     CHECK(sel.SelectedCount() == 4u);
     CHECK(sel.IsSelected(2));
@@ -114,24 +122,29 @@ TEST_CASE("data: SelectionModel_SelectRange")
 
 TEST_CASE("data: SelectionModel_ClearSelection")
 {
-    SelectionModel sel; sel.Mode = SelectionMode::Multiple;
-    sel.Select(0); sel.Toggle(1);
+    SelectionModel sel;
+    sel.Mode = SelectionMode::Multiple;
+    sel.Select(0);
+    sel.Toggle(1);
     sel.ClearSelection();
     CHECK(sel.SelectedCount() == 0u);
 }
 
 TEST_CASE("data: SelectionModel_ShiftIndices_Insert")
 {
-    SelectionModel sel; sel.Mode = SelectionMode::Multiple;
-    sel.Select(2); sel.Toggle(4);
-    sel.ShiftIndices(3, 1); // insert at 3
+    SelectionModel sel;
+    sel.Mode = SelectionMode::Multiple;
+    sel.Select(2);
+    sel.Toggle(4);
+    sel.ShiftIndices(3, 1);   // insert at 3
     CHECK(sel.IsSelected(2)); // unchanged
     CHECK(sel.IsSelected(5)); // shifted from 4
 }
 
 TEST_CASE("data: SelectionModel_NoneMode_Ignores")
 {
-    SelectionModel sel; sel.Mode = SelectionMode::None;
+    SelectionModel sel;
+    sel.Mode = SelectionMode::None;
     sel.Select(0);
     CHECK(sel.SelectedCount() == 0u);
 }
@@ -149,7 +162,7 @@ TEST_CASE("data: FlattenedTreeAdapter_ExpandRoot_IncludesChildren")
 {
     SimpleTreeAdapter tree;
     FlattenedTreeAdapter flat(&tree);
-    flat.Expand(0); // root 0 has 2 children
+    flat.Expand(0);               // root 0 has 2 children
     CHECK(flat.ItemCount() == 5); // 3 roots + 2 children
 }
 

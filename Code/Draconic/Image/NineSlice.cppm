@@ -26,18 +26,27 @@ export namespace draconic::image
         constexpr NineSlice() noexcept = default;
 
         constexpr NineSlice(f32 inLeft, f32 inTop, f32 inRight, f32 inBottom) noexcept
-            : left(inLeft), top(inTop), right(inRight), bottom(inBottom) {}
+            : left(inLeft), top(inTop), right(inRight), bottom(inBottom)
+        {
+        }
 
         /// Uniform borders on all sides.
         explicit constexpr NineSlice(f32 all) noexcept
-            : left(all), top(all), right(all), bottom(all) {}
+            : left(all), top(all), right(all), bottom(all)
+        {
+        }
 
         /// Horizontal and vertical borders.
         constexpr NineSlice(f32 horizontal, f32 vertical) noexcept
-            : left(horizontal), top(vertical), right(horizontal), bottom(vertical) {}
+            : left(horizontal), top(vertical), right(horizontal), bottom(vertical)
+        {
+        }
 
         [[nodiscard]] constexpr f32 HorizontalBorder() const noexcept { return left + right; }
         [[nodiscard]] constexpr f32 VerticalBorder() const noexcept { return top + bottom; }
-        [[nodiscard]] constexpr bool IsValid() const noexcept { return left > 0.0f || top > 0.0f || right > 0.0f || bottom > 0.0f; }
+        [[nodiscard]] constexpr bool IsValid() const noexcept
+        {
+            return left > 0.0f || top > 0.0f || right > 0.0f || bottom > 0.0f;
+        }
     };
 }

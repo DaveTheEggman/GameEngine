@@ -13,8 +13,9 @@ namespace core = draconic::core;
 TEST_CASE("toolkit-stringeditor: RoundTripAndSubmit")
 {
     String observed;
-    auto ed = core::MakeRef<StringEditor>(core::DefaultAllocator(), StringView(u8"Label"), StringView(u8"hello"),
-        Function<void(StringView)>{ [&observed](StringView v) { observed = String(v); } });
+    auto ed = core::MakeRef<StringEditor>(
+        core::DefaultAllocator(), StringView(u8"Label"), StringView(u8"hello"),
+        Function<void(StringView)>{[&observed](StringView v) { observed = String(v); }});
 
     CHECK(ed->Value() == StringView(u8"hello"));
 

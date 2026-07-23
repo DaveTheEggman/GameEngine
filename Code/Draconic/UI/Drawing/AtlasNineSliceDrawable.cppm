@@ -9,8 +9,8 @@ module;
 
 export module draconic.ui:atlas_nine_slice_drawable;
 
-import draconic.core;    // Color, Rectangle, Float2, Optional, Max
-import draconic.image;   // ImageData, NineSlice
+import draconic.core;  // Color, Rectangle, Float2, Optional, Max
+import draconic.image; // ImageData, NineSlice
 import :thickness;
 import :drawable;
 import :draw_context;
@@ -31,27 +31,36 @@ export namespace draconic::ui
         Color Tint = Color::White;
 
         AtlasNineSliceDrawable() = default;
-        AtlasNineSliceDrawable(const image::ImageData* atlas, Rectangle sourceRect, image::NineSlice slices,
-                               Color tint = Color::White, Thickness expand = {})
-            : AtlasImage(atlas), SourceRect(sourceRect), Slices(slices), Expand(expand), Tint(tint) {}
+        AtlasNineSliceDrawable(const image::ImageData* atlas, Rectangle sourceRect,
+                               image::NineSlice slices, Color tint = Color::White,
+                               Thickness expand = {})
+            : AtlasImage(atlas), SourceRect(sourceRect), Slices(slices), Expand(expand), Tint(tint)
+        {
+        }
 
         void Draw(UIDrawContext& ctx, const Rectangle& bounds) override
         {
-            if (AtlasImage == nullptr) { return; }
-            const Rectangle drawBounds{ bounds.x - Expand.Left, bounds.y - Expand.Top,
-                                        bounds.width + Expand.TotalHorizontal(), bounds.height + Expand.TotalVertical() };
+            if (AtlasImage == nullptr)
+            {
+                return;
+            }
+            const Rectangle drawBounds{bounds.x - Expand.Left, bounds.y - Expand.Top,
+                                       bounds.width + Expand.TotalHorizontal(),
+                                       bounds.height + Expand.TotalVertical()};
             ctx.VG().DrawNineSlice(AtlasImage, drawBounds, SourceRect, Slices, Tint);
         }
 
         [[nodiscard]] Thickness DrawablePadding() const override
         {
-            return Thickness{ Max(0.0f, Slices.left - Expand.Left), Max(0.0f, Slices.top - Expand.Top),
-                              Max(0.0f, Slices.right - Expand.Right), Max(0.0f, Slices.bottom - Expand.Bottom) };
+            return Thickness{
+                Max(0.0f, Slices.left - Expand.Left), Max(0.0f, Slices.top - Expand.Top),
+                Max(0.0f, Slices.right - Expand.Right), Max(0.0f, Slices.bottom - Expand.Bottom)};
         }
 
         [[nodiscard]] Optional<Float2> IntrinsicSize() const override
         {
-            return Float2{ SourceRect.width - Expand.TotalHorizontal(), SourceRect.height - Expand.TotalVertical() };
+            return Float2{SourceRect.width - Expand.TotalHorizontal(),
+                          SourceRect.height - Expand.TotalVertical()};
         }
     };
 

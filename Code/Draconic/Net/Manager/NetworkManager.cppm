@@ -208,7 +208,7 @@ export namespace draconic::net
         NetSession m_session;
         RpcTable m_rpc;
         StateReplication m_replication;
-        InterpolationBuffer m_interp;     // client-side smoothing of received states
+        InterpolationBuffer m_interp;    // client-side smoothing of received states
         scene::Scene* m_scene = nullptr; // the replicated world (null = no replication)
         f64 m_interpDelayMs = 100.0;
     };

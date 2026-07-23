@@ -11,14 +11,15 @@ export module draconic.render:bloom_shaders;
 
 import draconic.core;
 
-export namespace draconic::render {
-
-// Fullscreen-triangle VS with a top-origin [0,1] uv (uv.y=0 at the top). The RHI's negative-viewport
-// Y-flip means a naive uv would run bottom-up, so every RT-sampling pass would flip Y - flip uv.y here
-// once so the whole pyramid (and the tonemap composite) stays orientation-consistent with the RTs.
-[[nodiscard]] inline core::StringView BloomVS() noexcept
+export namespace draconic::render
 {
-    return core::StringView(u8R"(
+
+    // Fullscreen-triangle VS with a top-origin [0,1] uv (uv.y=0 at the top). The RHI's negative-viewport
+    // Y-flip means a naive uv would run bottom-up, so every RT-sampling pass would flip Y - flip uv.y here
+    // once so the whole pyramid (and the tonemap composite) stays orientation-consistent with the RTs.
+    [[nodiscard]] inline core::StringView BloomVS() noexcept
+    {
+        return core::StringView(u8R"(
 struct VSOut { float4 pos : SV_Position; float2 uv : TEXCOORD0; };
 VSOut main(uint vid : SV_VertexID) {
     VSOut o;
@@ -28,11 +29,11 @@ VSOut main(uint vid : SV_VertexID) {
     return o;
 }
 )");
-}
+    }
 
-[[nodiscard]] inline core::StringView BloomCommon() noexcept
-{
-    return core::StringView(u8R"(
+    [[nodiscard]] inline core::StringView BloomCommon() noexcept
+    {
+        return core::StringView(u8R"(
 Texture2D<float4> Src  : register(t0, space0);
 SamplerState      Samp : register(s0, space0);
 struct BloomPush {
@@ -44,13 +45,13 @@ struct BloomPush {
 };
 [[vk::push_constant]] BloomPush pc;
 )");
-}
+    }
 
-// 13-tap downsample (CoD/Jimenez). On the first pass, soft-knee threshold + a Karis luma weighting on
-// the 2x2 groups to stop single bright pixels from causing bloom flicker.
-[[nodiscard]] inline core::StringView BloomDownPS() noexcept
-{
-    return core::StringView(u8R"(
+    // 13-tap downsample (CoD/Jimenez). On the first pass, soft-knee threshold + a Karis luma weighting on
+    // the 2x2 groups to stop single bright pixels from causing bloom flicker.
+    [[nodiscard]] inline core::StringView BloomDownPS() noexcept
+    {
+        return core::StringView(u8R"(
 float3 Prefilter(float3 c) {
     float br   = max(c.r, max(c.g, c.b));
     float soft = clamp(br - pc.Threshold + pc.Knee, 0.0, 2.0 * pc.Knee);
@@ -95,12 +96,12 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     return float4(result, 1.0);
 }
 )");
-}
+    }
 
-// 9-tap tent upsample; the pipeline uses additive blend so it accumulates onto the finer mip.
-[[nodiscard]] inline core::StringView BloomUpPS() noexcept
-{
-    return core::StringView(u8R"(
+    // 9-tap tent upsample; the pipeline uses additive blend so it accumulates onto the finer mip.
+    [[nodiscard]] inline core::StringView BloomUpPS() noexcept
+    {
+        return core::StringView(u8R"(
 float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     float2 t = pc.SrcTexel;
     float3 s = Src.SampleLevel(Samp, uv + t * float2(-1,-1), 0).rgb * 1.0
@@ -115,6 +116,6 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     return float4(s * (1.0 / 16.0), 1.0);
 }
 )");
-}
+    }
 
 }

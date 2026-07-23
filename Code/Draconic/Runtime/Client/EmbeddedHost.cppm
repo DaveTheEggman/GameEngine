@@ -35,7 +35,9 @@ export namespace draconic::runtime
         /// `outer` = the real host (shell/graphics are borrowed from it);
         /// `runtimeContext` = the embedded context the hosted app configures/runs in.
         EmbeddedApplicationHost(IApplicationHost& outer, Context& runtimeContext)
-            : m_outer(&outer), m_runtimeContext(&runtimeContext) {}
+            : m_outer(&outer), m_runtimeContext(&runtimeContext)
+        {
+        }
 
         [[nodiscard]] Context& Ctx() noexcept override { return *m_runtimeContext; }
         [[nodiscard]] IShell* Shell() noexcept override { return m_outer->Shell(); }
@@ -57,8 +59,13 @@ export namespace draconic::runtime
         void SetExitHandler(core::Function<void(int)> handler) { m_onExit = core::Move(handler); }
         void RequestExit(int code = 0) override
         {
-            if (m_onExit) { m_onExit(code); return; }
-            DRACONIC_LOG_WARNING(u8"Runtime", u8"embedded app requested exit({}) - no handler", code);
+            if (m_onExit)
+            {
+                m_onExit(code);
+                return;
+            }
+            DRACONIC_LOG_WARNING(u8"Runtime", u8"embedded app requested exit({}) - no handler",
+                                 code);
         }
 
     private:

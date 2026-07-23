@@ -19,8 +19,11 @@ export namespace draconic::ui
     class FloatAnimation : public Animation
     {
     public:
-        FloatAnimation(f32 from, f32 to, f32 duration, Function<void(f32)> setter, EasingFunction easing = nullptr)
-            : Animation(duration, easing), m_from(from), m_to(to), m_setter(Move(setter)) {}
+        FloatAnimation(f32 from, f32 to, f32 duration, Function<void(f32)> setter,
+                       EasingFunction easing = nullptr)
+            : Animation(duration, easing), m_from(from), m_to(to), m_setter(Move(setter))
+        {
+        }
 
         [[nodiscard]] f32 From() const noexcept { return m_from; }
         [[nodiscard]] f32 To() const noexcept { return m_to; }

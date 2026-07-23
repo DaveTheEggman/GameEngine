@@ -4,7 +4,8 @@
 #ifndef DRACONIC_SCRIPT_WREN_INCLUDE_H
 #define DRACONIC_SCRIPT_WREN_INCLUDE_H
 
-extern "C" {
+extern "C"
+{
 #include <wren.h>
 }
 

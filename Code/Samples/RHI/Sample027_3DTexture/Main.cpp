@@ -19,14 +19,20 @@ namespace samples = draconic::samples;
 namespace rhi = draconic::rhi;
 namespace shaders = draconic::shaders;
 
-class Texture3DSample : public samples::framework::SampleApp {
+class Texture3DSample : public samples::framework::SampleApp
+{
 public:
     using samples::framework::SampleApp::SampleApp;
-    draconic::core::StringView Title() const override { return u8"Sample027 - 3D Texture & 1D LUT"; }
+    draconic::core::StringView Title() const override
+    {
+        return u8"Sample027 - 3D Texture & 1D LUT";
+    }
+
 protected:
     draconic::core::Status OnInit() override;
     void OnRender() override;
     void OnShutdown() override;
+
 private:
     draconic::core::Status createVolumeTexture();
     draconic::core::Status createLUTTexture();
@@ -72,7 +78,8 @@ private:
         }
     )";
 
-    struct PushData {
+    struct PushData
+    {
         float sliceZ;
         float time;
         float _pad0;
@@ -87,33 +94,44 @@ private:
     rhi::ShaderModule* m_ps = nullptr;
 
     // 3D volume texture
-    rhi::Texture*     m_volumeTexture = nullptr;
-    rhi::TextureView* m_volumeView    = nullptr;
+    rhi::Texture* m_volumeTexture = nullptr;
+    rhi::TextureView* m_volumeView = nullptr;
 
     // 1D LUT texture
-    rhi::Texture*     m_lutTexture = nullptr;
-    rhi::TextureView* m_lutView    = nullptr;
+    rhi::Texture* m_lutTexture = nullptr;
+    rhi::TextureView* m_lutView = nullptr;
 
-    rhi::Sampler*         m_sampler  = nullptr;
-    rhi::BindGroupLayout* m_bgl     = nullptr;
-    rhi::BindGroup*       m_bg      = nullptr;
-    rhi::PipelineLayout*  m_pl      = nullptr;
-    rhi::RenderPipeline*  m_pipeline = nullptr;
+    rhi::Sampler* m_sampler = nullptr;
+    rhi::BindGroupLayout* m_bgl = nullptr;
+    rhi::BindGroup* m_bg = nullptr;
+    rhi::PipelineLayout* m_pl = nullptr;
+    rhi::RenderPipeline* m_pipeline = nullptr;
 
-    rhi::CommandPool* m_pool     = nullptr;
-    rhi::Fence*       m_fence    = nullptr;
-    draconic::core::u64       m_fenceVal = 0;
+    rhi::CommandPool* m_pool = nullptr;
+    rhi::Fence* m_fence = nullptr;
+    draconic::core::u64 m_fenceVal = 0;
 };
 
-draconic::core::Status Texture3DSample::OnInit() {
+draconic::core::Status Texture3DSample::OnInit()
+{
     using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
 
-    if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (samples::framework::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Vertex,   u8"VSMain", u8"Vol3DVS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (samples::framework::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Fragment, u8"PSMain", u8"Vol3DPS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) !=
+        draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
+    if (samples::framework::CompileToModule(m_compiler, m_device, kShader,
+                                            shaders::ShaderStage::Vertex, u8"VSMain", u8"Vol3DVS",
+                                            m_vs) != draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
+    if (samples::framework::CompileToModule(m_compiler, m_device, kShader,
+                                            shaders::ShaderStage::Fragment, u8"PSMain", u8"Vol3DPS",
+                                            m_ps) != draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
 
-    if (createVolumeTexture() != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (createLUTTexture() != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (createVolumeTexture() != draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
+    if (createLUTTexture() != draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
 
     // Sampler
     {
@@ -124,49 +142,52 @@ draconic::core::Status Texture3DSample::OnInit() {
         sd.addressV = rhi::AddressMode::Repeat;
         sd.addressW = rhi::AddressMode::Repeat;
         sd.label = u8"VolSampler";
-        if (m_device->CreateSampler(sd, m_sampler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+        if (m_device->CreateSampler(sd, m_sampler) != draconic::core::ErrorCode::Ok)
+            return draconic::core::ErrorCode::Unknown;
     }
 
     // Bind group layout: 3D tex, 1D tex, sampler
     {
         rhi::BindGroupLayoutEntry entries[3] = {
-            rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture3D),
-            rhi::BindGroupLayoutEntry::SampledTexture(1, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture1D),
-            rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment)
-        };
+            rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Fragment,
+                                                      rhi::TextureViewDimension::Texture3D),
+            rhi::BindGroupLayoutEntry::SampledTexture(1, rhi::ShaderStage::Fragment,
+                                                      rhi::TextureViewDimension::Texture1D),
+            rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment)};
         rhi::BindGroupLayoutDesc bgld{};
         bgld.entries = Span<const rhi::BindGroupLayoutEntry>(entries, 3);
         bgld.label = u8"VolBGL";
-        if (m_device->CreateBindGroupLayout(bgld, m_bgl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+        if (m_device->CreateBindGroupLayout(bgld, m_bgl) != draconic::core::ErrorCode::Ok)
+            return draconic::core::ErrorCode::Unknown;
     }
 
     // Bind group
     {
-        rhi::BindGroupEntry entries[3] = {
-            rhi::BindGroupEntry::TextureEntry(m_volumeView),
-            rhi::BindGroupEntry::TextureEntry(m_lutView),
-            rhi::BindGroupEntry::SamplerEntry(m_sampler)
-        };
+        rhi::BindGroupEntry entries[3] = {rhi::BindGroupEntry::TextureEntry(m_volumeView),
+                                          rhi::BindGroupEntry::TextureEntry(m_lutView),
+                                          rhi::BindGroupEntry::SamplerEntry(m_sampler)};
         rhi::BindGroupDesc bgd{};
         bgd.layout = m_bgl;
         bgd.entries = Span<const rhi::BindGroupEntry>(entries, 3);
         bgd.label = u8"VolBG";
-        if (m_device->CreateBindGroup(bgd, m_bg) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+        if (m_device->CreateBindGroup(bgd, m_bg) != draconic::core::ErrorCode::Ok)
+            return draconic::core::ErrorCode::Unknown;
     }
 
     // Pipeline layout with push constants
     {
-        rhi::BindGroupLayout* sets[1] = { m_bgl };
+        rhi::BindGroupLayout* sets[1] = {m_bgl};
         rhi::PushConstantRange pcr{};
         pcr.stages = rhi::ShaderStage::Fragment;
         pcr.offset = 0;
         pcr.size = sizeof(PushData);
-        rhi::PushConstantRange pushRanges[1] = { pcr };
+        rhi::PushConstantRange pushRanges[1] = {pcr};
         rhi::PipelineLayoutDesc pld{};
         pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>(sets, 1);
         pld.pushConstantRanges = Span<const rhi::PushConstantRange>(pushRanges, 1);
         pld.label = u8"VolPL";
-        if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+        if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok)
+            return draconic::core::ErrorCode::Unknown;
     }
 
     // Render pipeline (fullscreen triangle, no vertex input)
@@ -175,21 +196,26 @@ draconic::core::Status Texture3DSample::OnInit() {
         ct.format = m_swapChain->Format();
         rhi::RenderPipelineDesc rpd{};
         rpd.layout = m_pl;
-        rpd.vertex.shader = { m_vs, u8"VSMain", rhi::ShaderStage::Vertex };
+        rpd.vertex.shader = {m_vs, u8"VSMain", rhi::ShaderStage::Vertex};
         rpd.fragment = rhi::FragmentState{};
-        rpd.fragment->shader = { m_ps, u8"PSMain", rhi::ShaderStage::Fragment };
+        rpd.fragment->shader = {m_ps, u8"PSMain", rhi::ShaderStage::Fragment};
         rpd.fragment->targets = Span<const rhi::ColorTargetState>(&ct, 1);
         rpd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
         rpd.label = u8"VolPipeline";
-        if (m_device->CreateRenderPipeline(rpd, m_pipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+        if (m_device->CreateRenderPipeline(rpd, m_pipeline) != draconic::core::ErrorCode::Ok)
+            return draconic::core::ErrorCode::Unknown;
     }
 
-    if (m_device->CreateCommandPool(rhi::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateCommandPool(rhi::QueueType::Graphics, m_pool) !=
+        draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
     return draconic::core::ErrorCode::Ok;
 }
 
-draconic::core::Status Texture3DSample::createVolumeTexture() {
+draconic::core::Status Texture3DSample::createVolumeTexture()
+{
     using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
 
     rhi::TextureDesc td{};
@@ -202,20 +228,26 @@ draconic::core::Status Texture3DSample::createVolumeTexture() {
     td.sampleCount = 1;
     td.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst;
     td.label = u8"VolumeTex3D";
-    if (m_device->CreateTexture(td, m_volumeTexture) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateTexture(td, m_volumeTexture) != draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
 
     rhi::TextureViewDesc tvd{};
     tvd.format = rhi::TextureFormat::R8Unorm;
     tvd.dimension = rhi::TextureViewDimension::Texture3D;
-    if (m_device->CreateTextureView(m_volumeTexture, tvd, m_volumeView) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateTextureView(m_volumeTexture, tvd, m_volumeView) !=
+        draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
 
     // Generate procedural 3D noise data
     constexpr u32 dataSize = kVolumeSize * kVolumeSize * kVolumeSize;
     u8 data[dataSize];
 
-    for (u32 z = 0; z < kVolumeSize; z++) {
-        for (u32 y = 0; y < kVolumeSize; y++) {
-            for (u32 x = 0; x < kVolumeSize; x++) {
+    for (u32 z = 0; z < kVolumeSize; z++)
+    {
+        for (u32 y = 0; y < kVolumeSize; y++)
+        {
+            for (u32 x = 0; x < kVolumeSize; x++)
+            {
                 float fx = static_cast<float>(x) / static_cast<float>(kVolumeSize);
                 float fy = static_cast<float>(y) / static_cast<float>(kVolumeSize);
                 float fz = static_cast<float>(z) / static_cast<float>(kVolumeSize);
@@ -238,16 +270,16 @@ draconic::core::Status Texture3DSample::createVolumeTexture() {
     rhi::TextureDataLayout layout{};
     layout.bytesPerRow = kVolumeSize;
     layout.rowsPerImage = kVolumeSize;
-    batch->WriteTexture(m_volumeTexture,
-        Span<const u8>(data, dataSize),
-        layout, rhi::Extent3D{kVolumeSize, kVolumeSize, kVolumeSize});
+    batch->WriteTexture(m_volumeTexture, Span<const u8>(data, dataSize), layout,
+                        rhi::Extent3D{kVolumeSize, kVolumeSize, kVolumeSize});
     batch->Submit();
     m_graphicsQueue->DestroyTransferBatch(batch);
 
     return draconic::core::ErrorCode::Ok;
 }
 
-draconic::core::Status Texture3DSample::createLUTTexture() {
+draconic::core::Status Texture3DSample::createLUTTexture()
+{
     using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
 
     rhi::TextureDesc td{};
@@ -260,33 +292,55 @@ draconic::core::Status Texture3DSample::createLUTTexture() {
     td.sampleCount = 1;
     td.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst;
     td.label = u8"LUTTex1D";
-    if (m_device->CreateTexture(td, m_lutTexture) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateTexture(td, m_lutTexture) != draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
 
     rhi::TextureViewDesc tvd{};
     tvd.format = rhi::TextureFormat::RGBA8UnormSrgb;
     tvd.dimension = rhi::TextureViewDimension::Texture1D;
-    if (m_device->CreateTextureView(m_lutTexture, tvd, m_lutView) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateTextureView(m_lutTexture, tvd, m_lutView) != draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
 
     // Generate gradient LUT: dark blue -> cyan -> green -> yellow -> red -> white
     u8 data[kLUTSize * 4];
-    for (u32 i = 0; i < kLUTSize; i++) {
+    for (u32 i = 0; i < kLUTSize; i++)
+    {
         float t = static_cast<float>(i) / static_cast<float>(kLUTSize - 1);
         float r, g, b;
-        if (t < 0.2f) {
+        if (t < 0.2f)
+        {
             float s = t / 0.2f;
-            r = 0.05f; g = 0.05f + s * 0.4f; b = 0.3f + s * 0.5f;
-        } else if (t < 0.4f) {
+            r = 0.05f;
+            g = 0.05f + s * 0.4f;
+            b = 0.3f + s * 0.5f;
+        }
+        else if (t < 0.4f)
+        {
             float s = (t - 0.2f) / 0.2f;
-            r = 0.05f; g = 0.45f + s * 0.5f; b = 0.8f - s * 0.5f;
-        } else if (t < 0.6f) {
+            r = 0.05f;
+            g = 0.45f + s * 0.5f;
+            b = 0.8f - s * 0.5f;
+        }
+        else if (t < 0.6f)
+        {
             float s = (t - 0.4f) / 0.2f;
-            r = s * 0.8f; g = 0.95f; b = 0.3f - s * 0.3f;
-        } else if (t < 0.8f) {
+            r = s * 0.8f;
+            g = 0.95f;
+            b = 0.3f - s * 0.3f;
+        }
+        else if (t < 0.8f)
+        {
             float s = (t - 0.6f) / 0.2f;
-            r = 0.8f + s * 0.2f; g = 0.95f - s * 0.6f; b = 0.0f;
-        } else {
+            r = 0.8f + s * 0.2f;
+            g = 0.95f - s * 0.6f;
+            b = 0.0f;
+        }
+        else
+        {
             float s = (t - 0.8f) / 0.2f;
-            r = 1.0f; g = 0.35f + s * 0.65f; b = s * 0.8f;
+            r = 1.0f;
+            g = 0.35f + s * 0.65f;
+            b = s * 0.8f;
         }
 
         u32 idx = i * 4;
@@ -301,26 +355,30 @@ draconic::core::Status Texture3DSample::createLUTTexture() {
     rhi::TextureDataLayout layout{};
     layout.bytesPerRow = kLUTSize * 4;
     layout.rowsPerImage = 1;
-    batch->WriteTexture(m_lutTexture,
-        Span<const u8>(data, kLUTSize * 4),
-        layout, rhi::Extent3D{kLUTSize, 1, 1});
+    batch->WriteTexture(m_lutTexture, Span<const u8>(data, kLUTSize * 4), layout,
+                        rhi::Extent3D{kLUTSize, 1, 1});
     batch->Submit();
     m_graphicsQueue->DestroyTransferBatch(batch);
 
     return draconic::core::ErrorCode::Ok;
 }
 
-void Texture3DSample::OnRender() {
+void Texture3DSample::OnRender()
+{
     using draconic::core::f32, draconic::core::Span;
 
-    if (m_fenceVal > 0) m_fence->Wait(m_fenceVal, ~0ull);
-    if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok) return;
+    if (m_fenceVal > 0)
+        m_fence->Wait(m_fenceVal, ~0ull);
+    if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok)
+        return;
 
     m_pool->Reset();
     rhi::CommandEncoder* enc = nullptr;
-    if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc) return;
+    if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc)
+        return;
 
-    enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::Undefined, rhi::ResourceState::RenderTarget);
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::Undefined,
+                           rhi::ResourceState::RenderTarget);
 
     rhi::ColorAttachment ca{};
     ca.view = m_swapChain->CurrentTextureView();
@@ -348,31 +406,53 @@ void Texture3DSample::OnRender() {
 
     rp->End();
 
-    enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::RenderTarget, rhi::ResourceState::Present);
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::RenderTarget,
+                           rhi::ResourceState::Present);
 
     rhi::CommandBuffer* cb = enc->Finish();
     m_fenceVal++;
-    rhi::CommandBuffer* cbs[1] = { cb };
+    rhi::CommandBuffer* cbs[1] = {cb};
     m_graphicsQueue->Submit(Span<rhi::CommandBuffer* const>(cbs, 1), m_fence, m_fenceVal);
     m_swapChain->Present(m_graphicsQueue);
     m_pool->DestroyEncoder(enc);
 }
 
-void Texture3DSample::OnShutdown() {
-    if (m_fence) m_device->DestroyFence(m_fence);
-    if (m_pool) m_device->DestroyCommandPool(m_pool);
-    if (m_pipeline) m_device->DestroyRenderPipeline(m_pipeline);
-    if (m_pl) m_device->DestroyPipelineLayout(m_pl);
-    if (m_bg) m_device->DestroyBindGroup(m_bg);
-    if (m_bgl) m_device->DestroyBindGroupLayout(m_bgl);
-    if (m_sampler) m_device->DestroySampler(m_sampler);
-    if (m_lutView) m_device->DestroyTextureView(m_lutView);
-    if (m_lutTexture) m_device->DestroyTexture(m_lutTexture);
-    if (m_volumeView) m_device->DestroyTextureView(m_volumeView);
-    if (m_volumeTexture) m_device->DestroyTexture(m_volumeTexture);
-    if (m_ps) m_device->DestroyShaderModule(m_ps);
-    if (m_vs) m_device->DestroyShaderModule(m_vs);
-    if (m_compiler) { m_compiler->Destroy(); }
+void Texture3DSample::OnShutdown()
+{
+    if (m_fence)
+        m_device->DestroyFence(m_fence);
+    if (m_pool)
+        m_device->DestroyCommandPool(m_pool);
+    if (m_pipeline)
+        m_device->DestroyRenderPipeline(m_pipeline);
+    if (m_pl)
+        m_device->DestroyPipelineLayout(m_pl);
+    if (m_bg)
+        m_device->DestroyBindGroup(m_bg);
+    if (m_bgl)
+        m_device->DestroyBindGroupLayout(m_bgl);
+    if (m_sampler)
+        m_device->DestroySampler(m_sampler);
+    if (m_lutView)
+        m_device->DestroyTextureView(m_lutView);
+    if (m_lutTexture)
+        m_device->DestroyTexture(m_lutTexture);
+    if (m_volumeView)
+        m_device->DestroyTextureView(m_volumeView);
+    if (m_volumeTexture)
+        m_device->DestroyTexture(m_volumeTexture);
+    if (m_ps)
+        m_device->DestroyShaderModule(m_ps);
+    if (m_vs)
+        m_device->DestroyShaderModule(m_vs);
+    if (m_compiler)
+    {
+        m_compiler->Destroy();
+    }
 }
 
-int main(int argc, char** argv) { Texture3DSample app; return app.Run(argc, argv); }
+int main(int argc, char** argv)
+{
+    Texture3DSample app;
+    return app.Run(argc, argv);
+}

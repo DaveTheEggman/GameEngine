@@ -51,17 +51,17 @@ TEST_CASE("scene-edit: create entity - undo/redo keeps the same Guid, parents ap
     const Guid parent = edit.CreateEntity(u8"Parent");
     REQUIRE(parent != Guid{});
     CHECK(scene.EntityCount() == 1);
-    CHECK(edit.EntitySelection().Contains(parent));   // created entity becomes the selection
+    CHECK(edit.EntitySelection().Contains(parent)); // created entity becomes the selection
 
     const Guid child = edit.CreateEntity(u8"Child", parent);
     REQUIRE(child != Guid{});
     CHECK(scene.GetParent(edit.Resolve(child)) == edit.Resolve(parent));
 
-    commands.Undo();   // child gone
+    commands.Undo(); // child gone
     CHECK(scene.EntityCount() == 1);
     CHECK(!edit.Resolve(child).IsAssigned());
 
-    commands.Redo();   // child back with the SAME Guid + parent
+    commands.Redo(); // child back with the SAME Guid + parent
     CHECK(scene.EntityCount() == 2);
     REQUIRE(edit.Resolve(child).IsAssigned());
     CHECK(scene.GetParent(edit.Resolve(child)) == edit.Resolve(parent));
@@ -75,10 +75,10 @@ TEST_CASE("scene-edit: rename merges and undoes to the original")
 
     const Guid id = edit.CreateEntity(u8"Original");
     edit.RenameEntity(id, u8"First");
-    edit.RenameEntity(id, u8"Second");   // merges into the previous rename
+    edit.RenameEntity(id, u8"Second"); // merges into the previous rename
     CHECK(scene.GetEntityName(edit.Resolve(id)) == u8"Second");
 
-    commands.Undo();   // ONE undo reverts both renames
+    commands.Undo(); // ONE undo reverts both renames
     CHECK(scene.GetEntityName(edit.Resolve(id)) == u8"Original");
     commands.Redo();
     CHECK(scene.GetEntityName(edit.Resolve(id)) == u8"Second");
@@ -95,24 +95,24 @@ TEST_CASE("scene-edit: reparent - undo restores, cycles and no-ops are refused")
     const Guid c = edit.CreateEntity(u8"C");
     const usize baseline = commands.Size();
 
-    edit.ReparentEntity(b, c);   // A/B -> C/B
+    edit.ReparentEntity(b, c); // A/B -> C/B
     CHECK(scene.GetParent(edit.Resolve(b)) == edit.Resolve(c));
 
     commands.Undo();
     CHECK(scene.GetParent(edit.Resolve(b)) == edit.Resolve(a));
 
     // A cycle (parent A under its own subtree via B... i.e. A under B) is refused + dropped.
-    commands.Redo();   // back to C/B
-    edit.ReparentEntity(a, b);   // a's descendant?? b is not under a anymore, so this is LEGAL
+    commands.Redo();           // back to C/B
+    edit.ReparentEntity(a, b); // a's descendant?? b is not under a anymore, so this is LEGAL
     CHECK(scene.GetParent(edit.Resolve(a)) == edit.Resolve(b));
-    edit.ReparentEntity(c, a);   // c is now an ancestor of a?? a is under b under c: cycle -> refused
+    edit.ReparentEntity(c, a); // c is now an ancestor of a?? a is under b under c: cycle -> refused
     CHECK(scene.GetParent(edit.Resolve(c)) == scene::EntityHandle::Invalid());
 
     // Self-parenting refused; no-op reparent (same parent) refused.
     edit.ReparentEntity(b, b);
     CHECK(scene.GetParent(edit.Resolve(b)) == edit.Resolve(c));
     const usize before = commands.Size();
-    edit.ReparentEntity(b, c);   // already C's child - dropped, no undo pollution
+    edit.ReparentEntity(b, c); // already C's child - dropped, no undo pollution
     CHECK(commands.Size() == before);
     (void)baseline;
 }
@@ -131,7 +131,7 @@ TEST_CASE("scene-edit: destroy undo restores the full subtree with components")
 
     // Non-default state that must survive the round-trip.
     Transform t;
-    t.position = Float3{ 1.0f, 2.0f, 3.0f };
+    t.position = Float3{1.0f, 2.0f, 3.0f};
     scene.SetLocalTransform(edit.Resolve(childA), t);
     scene.SetActive(edit.Resolve(childB), false);
     health->Add(edit.Resolve(grand)).amount = 77;
@@ -142,7 +142,7 @@ TEST_CASE("scene-edit: destroy undo restores the full subtree with components")
 
     CHECK(scene.EntityCount() == 0);
     CHECK(health->ComponentCount() == 0);
-    CHECK(edit.EntitySelection().IsEmpty());   // doomed subtree deselected
+    CHECK(edit.EntitySelection().IsEmpty()); // doomed subtree deselected
 
     commands.Undo();
 
@@ -180,9 +180,9 @@ TEST_CASE("scene-edit: destroying a missing entity is a safe no-op")
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
 
-    edit.DestroyEntity(Guid{ 1, 2 });
+    edit.DestroyEntity(Guid{1, 2});
     CHECK(commands.Size() == 0);
-    edit.RenameEntity(Guid{ 1, 2 }, u8"nope");   // failed execute -> dropped
+    edit.RenameEntity(Guid{1, 2}, u8"nope"); // failed execute -> dropped
     CHECK(commands.Size() == 0);
 }
 
@@ -210,7 +210,7 @@ TEST_CASE("scene-edit: sibling reorder command with undo/redo")
     // Move A to the END of the root list (empty sibling): c, b, a.
     edit.MoveEntityBefore(a, Guid{});
     CHECK(scene.GetNextSibling(edit.Resolve(b)) == edit.Resolve(a));
-    commands.Undo();   // back to c, a, b (A was before B)
+    commands.Undo(); // back to c, a, b (A was before B)
     CHECK(scene.GetNextSibling(edit.Resolve(c)) == edit.Resolve(a));
     CHECK(scene.GetNextSibling(edit.Resolve(a)) == edit.Resolve(b));
 
@@ -220,10 +220,10 @@ TEST_CASE("scene-edit: sibling reorder command with undo/redo")
     CHECK(commands.Size() == size);
 
     // Cycle refused: moving A before a slot under its own subtree.
-    edit.ReparentEntity(b, a);   // b under a
+    edit.ReparentEntity(b, a); // b under a
     const Guid d = edit.CreateEntity(u8"D", b);
     const usize size2 = commands.Size();
-    edit.MoveEntityBefore(a, d);   // slot parent = b, inside a's subtree
+    edit.MoveEntityBefore(a, d); // slot parent = b, inside a's subtree
     CHECK(commands.Size() == size2);
 }
 
@@ -237,11 +237,11 @@ TEST_CASE("scene-edit: reparent preserves the world transform; undo restores the
     const Guid child = edit.CreateEntity(u8"Child");
 
     Transform tp;
-    tp.position = Float3{ 5.0f, 0.0f, 0.0f };
-    tp.rotation = Quaternion::FromAxisAngle(Float3{ 0, 1, 0 }, 0.5f);
+    tp.position = Float3{5.0f, 0.0f, 0.0f};
+    tp.rotation = Quaternion::FromAxisAngle(Float3{0, 1, 0}, 0.5f);
     scene.SetLocalTransform(edit.Resolve(parent), tp);
     Transform tc;
-    tc.position = Float3{ 1.0f, 2.0f, 3.0f };
+    tc.position = Float3{1.0f, 2.0f, 3.0f};
     scene.SetLocalTransform(edit.Resolve(child), tc);
 
     const Float4x4 worldBefore = scene.ComposeWorldMatrix(edit.Resolve(child));
@@ -268,9 +268,9 @@ TEST_CASE("scene-edit: reparent preserves the world transform; undo restores the
     // Same-parent reorder keeps the local EXACT (no decompose noise).
     const Guid s1 = edit.CreateEntity(u8"S1", parent);
     Transform ts;
-    ts.position = Float3{ 0.25f, 0.5f, 0.75f };
+    ts.position = Float3{0.25f, 0.5f, 0.75f};
     scene.SetLocalTransform(edit.Resolve(s1), ts);
-    edit.MoveEntityBefore(s1, child);   // reorder within `parent`
+    edit.MoveEntityBefore(s1, child); // reorder within `parent`
     CHECK(scene.GetLocalTransform(edit.Resolve(s1)).position.x == 0.25f);
     CHECK(scene.GetLocalTransform(edit.Resolve(s1)).position.z == 0.75f);
 }
@@ -279,13 +279,18 @@ namespace
 {
     // A reflected (but NOT serializable) component - exercises the property paths and the
     // reflected-snapshot remove-undo.
-    enum class TestMode : u32 { Off = 0, Slow = 1, Fast = 2 };
+    enum class TestMode : u32
+    {
+        Off = 0,
+        Slow = 1,
+        Fast = 2
+    };
 
     struct WidgetComponent
     {
         f32 speed = 1.0f;
         bool spin = false;
-        Float3 offset{ 0, 0, 0 };
+        Float3 offset{0, 0, 0};
         TestMode mode = TestMode::Off;
     };
 
@@ -304,9 +309,9 @@ DRACONIC_REFLECT_ENUM(TestMode, "draconic::editor::test")
 DRACONIC_REFLECT_VALUE(WidgetComponent, "draconic::editor::test")
 {
     builder.Property<&WidgetComponent::speed>("speed")
-           .Property<&WidgetComponent::spin>("spin")
-           .Property<&WidgetComponent::offset>("offset")
-           .Property<&WidgetComponent::mode>("mode");
+        .Property<&WidgetComponent::spin>("spin")
+        .Property<&WidgetComponent::offset>("offset")
+        .Property<&WidgetComponent::mode>("mode");
 }
 
 TEST_CASE("scene-edit: transform + active commands (merge, undo)")
@@ -321,7 +326,7 @@ TEST_CASE("scene-edit: transform + active commands (merge, undo)")
     Transform t;
     for (i32 i = 1; i <= 5; ++i)
     {
-        t.position = Float3{ static_cast<f32>(i), 0, 0 };
+        t.position = Float3{static_cast<f32>(i), 0, 0};
         edit.SetLocalTransform(id, t);
     }
     CHECK(commands.Size() == baseline + 1);
@@ -333,7 +338,7 @@ TEST_CASE("scene-edit: transform + active commands (merge, undo)")
     CHECK(!scene.IsActive(edit.Resolve(id)));
     commands.Undo();
     CHECK(scene.IsActive(edit.Resolve(id)));
-    edit.SetEntityActive(id, true);   // no-op - dropped
+    edit.SetEntityActive(id, true); // no-op - dropped
     CHECK(commands.Size() == baseline + 1);
 }
 
@@ -356,7 +361,7 @@ TEST_CASE("scene-edit: component property commands (variant + raw enum, merge, u
     CHECK(!widgets->HasComponent(edit.Resolve(id)));
     commands.Redo();
     REQUIRE(widgets->HasComponent(edit.Resolve(id)));
-    edit.AddComponent(id, type);   // already present - dropped
+    edit.AddComponent(id, type); // already present - dropped
     const usize afterAdd = commands.Size();
 
     // Variant path with merge: a scrub of `speed` is one undo entry.
@@ -369,7 +374,7 @@ TEST_CASE("scene-edit: component property commands (variant + raw enum, merge, u
     commands.Redo();
 
     // Different property does NOT merge.
-    edit.SetComponentProperty(id, type, "offset", Variant::From<Float3>(Float3{ 1, 2, 3 }));
+    edit.SetComponentProperty(id, type, "offset", Variant::From<Float3>(Float3{1, 2, 3}));
     CHECK(commands.Size() == afterAdd + 2);
     CHECK(widgets->Get(edit.Resolve(id))->offset.y == doctest::Approx(2.0f));
 
@@ -403,7 +408,7 @@ TEST_CASE("scene-edit: remove-component undo via serialization blob (serializabl
     CHECK(!health->HasComponent(edit.Resolve(id)));
     commands.Undo();
     REQUIRE(health->HasComponent(edit.Resolve(id)));
-    CHECK(health->Get(edit.Resolve(id))->amount == 42);   // full fidelity via the blob
+    CHECK(health->Get(edit.Resolve(id))->amount == 42); // full fidelity via the blob
 }
 
 // Regression (user-reported): undoing an entity destroy restored the entity but LOST its
@@ -435,8 +440,8 @@ TEST_CASE("edit-context: destroy-undo restores light components (and their value
     const scene::EntityHandle restored = edit.Resolve(id);
     REQUIRE(restored.IsAssigned());
     draconic::render::LightComponent* light = lights->Get(restored);
-    REQUIRE(light != nullptr);   // the component came back...
-    CHECK(light->type == draconic::render::LightType::Spot);   // ...with its exact values
+    REQUIRE(light != nullptr);                               // the component came back...
+    CHECK(light->type == draconic::render::LightType::Spot); // ...with its exact values
     CHECK(light->intensity == doctest::Approx(3.5f));
     CHECK(light->range == doctest::Approx(42.0f));
     CHECK(light->castsShadows);
@@ -450,8 +455,8 @@ TEST_CASE("edit-context: duplicate entity - fresh guids, subtree + components, o
     SceneEditContext edit(scene, commands);
 
     const Guid parent = edit.CreateEntity(u8"Rig");
-    const Guid child  = edit.CreateEntity(u8"Lamp", parent);
-    scene.SetLocalPosition(edit.Resolve(parent), Float3{ 3, 0, 0 });
+    const Guid child = edit.CreateEntity(u8"Lamp", parent);
+    scene.SetLocalPosition(edit.Resolve(parent), Float3{3, 0, 0});
     auto* lights = scene.GetSystem<draconic::render::LightComponentManager>();
     {
         draconic::render::LightComponent& light = lights->Add(edit.Resolve(child));
@@ -460,14 +465,14 @@ TEST_CASE("edit-context: duplicate entity - fresh guids, subtree + components, o
 
     const Guid copy = edit.DuplicateEntity(parent);
     REQUIRE(copy != Guid{});
-    CHECK(copy != parent);                                       // fresh identity
+    CHECK(copy != parent); // fresh identity
     const scene::EntityHandle copyRoot = edit.Resolve(copy);
     REQUIRE(copyRoot.IsAssigned());
-    CHECK(scene.GetEntityName(copyRoot) == u8"Rig (2)");   // copies are distinguishable
+    CHECK(scene.GetEntityName(copyRoot) == u8"Rig (2)"); // copies are distinguishable
     CHECK(scene.GetLocalTransform(copyRoot).position.x == doctest::Approx(3.0f));
-    CHECK(!scene.GetParent(copyRoot).IsAssigned());              // sibling of the original (root)
+    CHECK(!scene.GetParent(copyRoot).IsAssigned()); // sibling of the original (root)
     REQUIRE(edit.EntitySelection().Primary() != nullptr);
-    CHECK(*edit.EntitySelection().Primary() == copy);            // the copy becomes the selection
+    CHECK(*edit.EntitySelection().Primary() == copy); // the copy becomes the selection
 
     // The child came along, with its component values, under the COPY (not the original).
     REQUIRE(scene.GetChildCount(copyRoot) == 1u);
@@ -481,7 +486,7 @@ TEST_CASE("edit-context: duplicate entity - fresh guids, subtree + components, o
     // One undo removes the whole copy; redo brings it back with the SAME fresh guids.
     commands.Undo();
     CHECK_FALSE(edit.Resolve(copy).IsAssigned());
-    CHECK(edit.Resolve(parent).IsAssigned());                    // original untouched
+    CHECK(edit.Resolve(parent).IsAssigned()); // original untouched
     commands.Redo();
     REQUIRE(edit.Resolve(copy).IsAssigned());
     CHECK(lights->Get(scene.GetFirstChild(edit.Resolve(copy))) != nullptr);
@@ -510,7 +515,7 @@ TEST_CASE("edit-context: copy/paste entities across scenes with fresh guids")
     SceneEditContext editB(sceneB, commandsB);
     const Guid target = editB.CreateEntity(u8"Holder");
 
-    const Guid pasted = editB.PasteEntities(Span<const byte>{ blob.Data(), blob.Size() }, target);
+    const Guid pasted = editB.PasteEntities(Span<const byte>{blob.Data(), blob.Size()}, target);
     REQUIRE(pasted != Guid{});
     const scene::EntityHandle root = editB.Resolve(pasted);
     REQUIRE(root.IsAssigned());
@@ -523,7 +528,7 @@ TEST_CASE("edit-context: copy/paste entities across scenes with fresh guids")
     CHECK(light->range == doctest::Approx(12.0f));
 
     // The same blob pastes AGAIN (fresh guids every time); the source scene never changed.
-    const Guid pasted2 = editB.PasteEntities(Span<const byte>{ blob.Data(), blob.Size() });
+    const Guid pasted2 = editB.PasteEntities(Span<const byte>{blob.Data(), blob.Size()});
     REQUIRE(pasted2 != Guid{});
     CHECK(pasted2 != pasted);
     CHECK(editA.Resolve(src).IsAssigned());
@@ -546,14 +551,13 @@ TEST_CASE("edit-context: copy/paste component - add, overwrite, and exact undo")
     const Guid b = edit.CreateEntity(u8"B");
     lights->Add(edit.Resolve(a)).intensity = 9.0f;
 
-    const Array<byte> blob =
-        edit.CopyComponent(a, &TypeOf<draconic::render::LightComponent>());
+    const Array<byte> blob = edit.CopyComponent(a, &TypeOf<draconic::render::LightComponent>());
     REQUIRE(!blob.IsEmpty());
-    CHECK(SceneEditContext::PeekComponentTypeId(
-              Span<const byte>{ blob.Data(), blob.Size() }) == u8"light");
+    CHECK(SceneEditContext::PeekComponentTypeId(Span<const byte>{blob.Data(), blob.Size()}) ==
+          u8"light");
 
     // Paste onto an entity WITHOUT the component: adds it. Undo removes it again.
-    REQUIRE(edit.PasteComponent(b, Span<const byte>{ blob.Data(), blob.Size() }));
+    REQUIRE(edit.PasteComponent(b, Span<const byte>{blob.Data(), blob.Size()}));
     REQUIRE(lights->Get(edit.Resolve(b)) != nullptr);
     CHECK(lights->Get(edit.Resolve(b))->intensity == doctest::Approx(9.0f));
     commands.Undo();
@@ -563,7 +567,7 @@ TEST_CASE("edit-context: copy/paste component - add, overwrite, and exact undo")
 
     // Paste onto an entity WITH the component: overwrites; undo restores the prior values.
     lights->Get(edit.Resolve(b))->intensity = 1.0f;
-    REQUIRE(edit.PasteComponent(b, Span<const byte>{ blob.Data(), blob.Size() }));
+    REQUIRE(edit.PasteComponent(b, Span<const byte>{blob.Data(), blob.Size()}));
     CHECK(lights->Get(edit.Resolve(b))->intensity == doctest::Approx(9.0f));
     commands.Undo();
     REQUIRE(lights->Get(edit.Resolve(b)) != nullptr);
@@ -582,7 +586,10 @@ namespace
     class WindSystem final : public scene::SceneSystem
     {
     public:
-        [[nodiscard]] const TypeInfo* SettingsType() const noexcept override { return &TypeOf<WindSettings>(); }
+        [[nodiscard]] const TypeInfo* SettingsType() const noexcept override
+        {
+            return &TypeOf<WindSettings>();
+        }
         [[nodiscard]] void* SettingsInstance() noexcept override { return &settings; }
         [[nodiscard]] StringView SettingsId() const noexcept override { return u8"wind"; }
         void SerializeSettings(ISerializer& ar) override
@@ -630,12 +637,13 @@ TEST_CASE("material creator: PBR/Unlit presets land in Materials/ with the right
 {
     draconic::materials::RegisterMaterialAsset();
     const StringView dir = u8"draconic_editor_mat_creator_test";
-    auto scrub = [&]() {
+    auto scrub = [&]()
+    {
         FileDelete(PathJoin(dir, u8"Project.xml"));
         FileDelete(PathJoin(dir, u8"Content/Materials/Material.xasset"));
         FileDelete(PathJoin(dir, u8"Content/Materials/Material2.xasset"));
         RemoveDirectory(PathJoin(dir, u8"Content/Materials"));
-        for (StringView sub : { u8"Content", u8"Sources", u8"Cooked", u8"Editor", u8".cache" })
+        for (StringView sub : {u8"Content", u8"Sources", u8"Cooked", u8"Editor", u8".cache"})
         {
             RemoveDirectory(PathJoin(dir, sub));
         }
@@ -658,7 +666,13 @@ TEST_CASE("material creator: PBR/Unlit presets land in Materials/ with the right
         REQUIRE(asset != nullptr);
         CHECK(asset->source.shaderName == u8"forward");
         bool hasMetallic = false;
-        for (const String& n : asset->source.propNames) { if (n.AsView() == u8"Metallic") { hasMetallic = true; } }
+        for (const String& n : asset->source.propNames)
+        {
+            if (n.AsView() == u8"Metallic")
+            {
+                hasMetallic = true;
+            }
+        }
         CHECK(hasMetallic);
     }
 
@@ -674,8 +688,14 @@ TEST_CASE("material creator: PBR/Unlit presets land in Materials/ with the right
         bool hasMetallic = false, hasBase = false;
         for (const String& n : asset->source.propNames)
         {
-            if (n.AsView() == u8"Metallic") { hasMetallic = true; }
-            if (n.AsView() == u8"BaseColor") { hasBase = true; }
+            if (n.AsView() == u8"Metallic")
+            {
+                hasMetallic = true;
+            }
+            if (n.AsView() == u8"BaseColor")
+            {
+                hasBase = true;
+            }
         }
         CHECK(hasBase);
         CHECK_FALSE(hasMetallic);
@@ -743,8 +763,8 @@ TEST_CASE("scene-edit: render components carry the inspector attribute annotatio
     PropertyCondition c;
     REQUIRE(ParsePropertyCondition(vis->value.TryGet<String>()->AsView(), c));
     CHECK(c.prop.AsView() == StringView(u8"type"));
-    CHECK(MatchesPropertyCondition(c, 2));   // Spot
-    CHECK(!MatchesPropertyCondition(c, 0));  // Directional
+    CHECK(MatchesPropertyCondition(c, 2));  // Spot
+    CHECK(!MatchesPropertyCondition(c, 0)); // Directional
 
     const PropertyInfo* intensity = FindProperty(light, "intensity");
     REQUIRE(intensity != nullptr);
@@ -760,8 +780,8 @@ TEST_CASE("scene-edit: render components carry the inspector attribute annotatio
     const draconic::core::Attribute* tvis = FindAttribute(*turbidity, u8"visibleWhen");
     REQUIRE(tvis != nullptr);
     REQUIRE(ParsePropertyCondition(tvis->value.TryGet<String>()->AsView(), c));
-    CHECK(MatchesPropertyCondition(c, 1));   // Analytic
-    CHECK(!MatchesPropertyCondition(c, 3));  // HDREquirect
+    CHECK(MatchesPropertyCondition(c, 1));  // Analytic
+    CHECK(!MatchesPropertyCondition(c, 3)); // HDREquirect
 
     // Display-name override on the shared zenith/color slot.
     const PropertyInfo* zenith = FindProperty(env, "skyZenith");
@@ -781,14 +801,17 @@ TEST_CASE("scene-edit: spawn prefab instance - undoable, redo recreates the SAME
     MemoryStream payload;
     REQUIRE(scene::CapturePrefab(author, root, payload).IsOk());
     Array<byte> bytes;
-    for (byte b : payload.Bytes()) { bytes.PushBack(b); }
+    for (byte b : payload.Bytes())
+    {
+        bytes.PushBack(b);
+    }
 
     scene::Scene scene(u8"level");
     HealthManager* health = scene.AddSystem<HealthManager>();
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
 
-    const Guid prefabId{ 0xAB, 0xCD };
+    const Guid prefabId{0xAB, 0xCD};
     Array<byte> spawnBytes = bytes;
     const Guid rootId = edit.SpawnPrefabInstance(prefabId, Move(spawnBytes));
     REQUIRE(!rootId.IsNil());
@@ -802,7 +825,7 @@ TEST_CASE("scene-edit: spawn prefab instance - undoable, redo recreates the SAME
     CHECK(scene.PrefabInstanceCount() == 0u);
 
     commands.Redo();
-    scene::EntityHandle back = edit.Resolve(rootId);   // the SAME guid
+    scene::EntityHandle back = edit.Resolve(rootId); // the SAME guid
     REQUIRE(back.IsAssigned());
     CHECK(health->Has(back));
     CHECK(scene.PrefabInstanceCount() == 1u);
@@ -816,7 +839,10 @@ TEST_CASE("scene-edit: replace entity with prefab instance is ONE undo step")
     MemoryStream payload;
     REQUIRE(scene::CapturePrefab(author, tmpl, payload).IsOk());
     Array<byte> bytes;
-    for (byte b : payload.Bytes()) { bytes.PushBack(b); }
+    for (byte b : payload.Bytes())
+    {
+        bytes.PushBack(b);
+    }
 
     scene::Scene scene(u8"level");
     (void)scene.AddSystem<HealthManager>();
@@ -830,25 +856,25 @@ TEST_CASE("scene-edit: replace entity with prefab instance is ONE undo step")
     {
         scene::EntityHandle h = edit.Resolve(original);
         draconic::core::Transform t = scene.GetLocalTransform(h);
-        t.position = Float3{ 4, 5, 6 };
+        t.position = Float3{4, 5, 6};
         scene.SetLocalTransform(h, t);
     }
 
-    const Guid prefabId{ 0x99, 0x11 };
+    const Guid prefabId{0x99, 0x11};
     const Guid instanceRoot = edit.ReplaceWithPrefabInstance(original, prefabId, Move(bytes));
     REQUIRE(!instanceRoot.IsNil());
-    CHECK(!edit.Resolve(original).IsAssigned());   // original replaced
+    CHECK(!edit.Resolve(original).IsAssigned()); // original replaced
     scene::EntityHandle inst = edit.Resolve(instanceRoot);
     REQUIRE(inst.IsAssigned());
-    CHECK(scene.GetParent(inst) == edit.Resolve(parent));       // same parent
-    CHECK(Abs(scene.GetLocalTransform(inst).position.x - 4.0f) < 1e-4f);   // same placement
+    CHECK(scene.GetParent(inst) == edit.Resolve(parent));                // same parent
+    CHECK(Abs(scene.GetLocalTransform(inst).position.x - 4.0f) < 1e-4f); // same placement
     // Same SIBLING SLOT: Before -> instance -> After (spawn otherwise appends at the end).
     scene::EntityHandle first = scene.GetFirstChild(edit.Resolve(parent));
     CHECK(first == edit.Resolve(before));
     CHECK(scene.GetNextSibling(first) == inst);
     CHECK(scene.GetNextSibling(inst) == edit.Resolve(after));
 
-    commands.Undo();   // ONE step: instance gone, original restored
+    commands.Undo(); // ONE step: instance gone, original restored
     CHECK(!edit.Resolve(instanceRoot).IsAssigned());
     CHECK(edit.Resolve(original).IsAssigned());
     CHECK(scene.PrefabInstanceCount() == 0u);
@@ -863,13 +889,16 @@ TEST_CASE("scene-edit: revert component to prefab baseline is undoable")
     MemoryStream payload;
     REQUIRE(scene::CapturePrefab(author, tmpl, payload).IsOk());
     Array<byte> bytes;
-    for (byte b : payload.Bytes()) { bytes.PushBack(b); }
+    for (byte b : payload.Bytes())
+    {
+        bytes.PushBack(b);
+    }
 
     scene::Scene scene(u8"level");
     HealthManager* health = scene.AddSystem<HealthManager>();
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
-    const Guid rootId = edit.SpawnPrefabInstance(Guid{ 0x5, 0x6 }, Move(bytes));
+    const Guid rootId = edit.SpawnPrefabInstance(Guid{0x5, 0x6}, Move(bytes));
     REQUIRE(!rootId.IsNil());
     scene::EntityHandle live = edit.Resolve(rootId);
 
@@ -877,11 +906,11 @@ TEST_CASE("scene-edit: revert component to prefab baseline is undoable")
     health->Get(live)->amount = 31;
     const TypeInfo* type = scene.FindManagerBySerializationId(u8"test.health")->ComponentType();
     REQUIRE(edit.RevertComponentToBaseline(rootId, type));
-    CHECK(health->Get(live)->amount == 30);   // back to baseline
+    CHECK(health->Get(live)->amount == 30); // back to baseline
     commands.Undo();
-    CHECK(health->Get(live)->amount == 31);   // the override is restored
+    CHECK(health->Get(live)->amount == 31); // the override is restored
 
     // A user-ADDED component reverts by removal.
     scene::EntityHandle plain = scene.CreateEntity(u8"NotAMember");
-    CHECK(!edit.RevertComponentToBaseline(scene.GetEntityId(plain), type));   // non-member no-op
+    CHECK(!edit.RevertComponentToBaseline(scene.GetEntityId(plain), type)); // non-member no-op
 }

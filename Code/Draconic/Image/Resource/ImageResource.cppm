@@ -40,13 +40,17 @@ export namespace draconic::image
             draconic::core::Serialize(ar, "colorSpace", colorSpace);
         }
 
-        [[nodiscard]] Span<const u8> Pixels() const noexcept { return Span<const u8>(m_pixels.Data(), m_pixels.Size()); }
+        [[nodiscard]] Span<const u8> Pixels() const noexcept
+        {
+            return Span<const u8>(m_pixels.Data(), m_pixels.Size());
+        }
         void SetPixels(Array<u8>&& pixels) noexcept { m_pixels = Move(pixels); }
 
         // Non-owning ImageData view over the pixels (for IImageData consumers).
         [[nodiscard]] ImageDataRef View() const
         {
-            return ImageDataRef(width, height, format, m_pixels.Data(), m_pixels.Size(), colorSpace);
+            return ImageDataRef(width, height, format, m_pixels.Data(), m_pixels.Size(),
+                                colorSpace);
         }
 
     private:
@@ -57,14 +61,21 @@ export namespace draconic::image
     class ImageFactory final : public IResourceFactory
     {
     public:
-        [[nodiscard]] const TypeInfo* ProductType() const override { return &ImageResource::StaticType(); }
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &ImageResource::StaticType();
+        }
 
-        [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager, draconic::content::Instance& instance) override
+        [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
+                                            draconic::content::Instance& instance) override
         {
             (void)manager;
             RefPtr<ISerializable> object = instance.ReadObject();
             ImageResource* image = Cast<ImageResource>(object.Get());
-            if (image == nullptr) { return RefPtr<Object>{}; }
+            if (image == nullptr)
+            {
+                return RefPtr<Object>{};
+            }
 
             Array<u8> pixels;
             if (UniquePtr<IStream> stream = instance.ReadData(u8"pixels"))
@@ -73,7 +84,11 @@ export namespace draconic::image
                 if (size > 0)
                 {
                     pixels.Resize(static_cast<usize>(size));
-                    if (stream->Read(pixels.Data(), static_cast<u64>(size)) != static_cast<u64>(size)) { pixels.Clear(); }
+                    if (stream->Read(pixels.Data(), static_cast<u64>(size)) !=
+                        static_cast<u64>(size))
+                    {
+                        pixels.Clear();
+                    }
                 }
             }
             image->SetPixels(Move(pixels));

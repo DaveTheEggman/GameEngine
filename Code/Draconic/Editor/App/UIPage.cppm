@@ -29,16 +29,28 @@ export namespace draconic::editor::app
         [[nodiscard]] virtual draconic::ui::View* ContentView() = 0;
 
         /// Per-frame hook, after the UI laid out (viewport rects are current).
-        virtual void OnUpdate(draconic::runtime::IApplicationHost& host, f32 dt) { (void)host; (void)dt; }
+        virtual void OnUpdate(draconic::runtime::IApplicationHost& host, f32 dt)
+        {
+            (void)host;
+            (void)dt;
+        }
 
         /// Per-window render hook, before the UI draws (offscreen content the UI then samples).
         virtual void OnRenderWindow(draconic::runtime::IApplicationHost& host,
-                                    draconic::graphics::FrameContext& frame) { (void)host; (void)frame; }
+                                    draconic::graphics::FrameContext& frame)
+        {
+            (void)host;
+            (void)frame;
+        }
 
         /// After the scene renderer's EndRendering (targets are COMPOSED): overlays that
         /// draw ON the page's offscreen content (the Game tab's screen-tier UI).
         virtual void OnAfterSceneRender(draconic::runtime::IApplicationHost& host,
-                                        draconic::graphics::FrameContext& frame) { (void)host; (void)frame; }
+                                        draconic::graphics::FrameContext& frame)
+        {
+            (void)host;
+            (void)frame;
+        }
 
         /// Called right before the page is removed - release GPU/scene resources while the
         /// device and window are still alive.

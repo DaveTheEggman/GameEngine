@@ -30,7 +30,8 @@ export namespace draconic::rendergraph
         // --- texture / buffer reads ---
         PassBuilder& ReadTexture(RGHandle handle, RGSubresourceRange subresource = {})
         {
-            m_pass->accesses.PushBack(RGResourceAccess{ handle, RGAccessType::ReadTexture, subresource });
+            m_pass->accesses.PushBack(
+                RGResourceAccess{handle, RGAccessType::ReadTexture, subresource});
             return *this;
         }
 
@@ -39,7 +40,8 @@ export namespace draconic::rendergraph
         // DepthStencilRead (DEPTH_STENCIL_READ_ONLY_OPTIMAL), the layout a depth sampler expects.
         PassBuilder& SampleDepth(RGHandle handle, RGSubresourceRange subresource = {})
         {
-            m_pass->accesses.PushBack(RGResourceAccess{ handle, RGAccessType::SampleDepthStencil, subresource });
+            m_pass->accesses.PushBack(
+                RGResourceAccess{handle, RGAccessType::SampleDepthStencil, subresource});
             return *this;
         }
 
@@ -52,13 +54,14 @@ export namespace draconic::rendergraph
             dt.readOnly = true;
             dt.subresource = subresource;
             m_pass->depthTarget = dt;
-            m_pass->accesses.PushBack(RGResourceAccess{ handle, RGAccessType::ReadDepthStencil, subresource });
+            m_pass->accesses.PushBack(
+                RGResourceAccess{handle, RGAccessType::ReadDepthStencil, subresource});
             return *this;
         }
 
         PassBuilder& ReadBuffer(RGHandle handle)
         {
-            m_pass->accesses.PushBack(RGResourceAccess{ handle, RGAccessType::ReadBuffer, {} });
+            m_pass->accesses.PushBack(RGResourceAccess{handle, RGAccessType::ReadBuffer, {}});
             return *this;
         }
 
@@ -76,25 +79,28 @@ export namespace draconic::rendergraph
             target.clearValue = clearValue;
             target.subresource = subresource;
 
-            while (static_cast<i32>(m_pass->colorTargets.Size()) <= slot) { m_pass->colorTargets.PushBack(RGColorTarget{}); }
+            while (static_cast<i32>(m_pass->colorTargets.Size()) <= slot)
+            {
+                m_pass->colorTargets.PushBack(RGColorTarget{});
+            }
             m_pass->colorTargets[static_cast<usize>(slot)] = target;
 
             if (loadOp == rhi::LoadOp::Load && storeOp == rhi::StoreOp::Store)
             {
-                m_pass->accesses.PushBack(RGResourceAccess{ handle, RGAccessType::ReadWriteColorTarget, subresource });
+                m_pass->accesses.PushBack(
+                    RGResourceAccess{handle, RGAccessType::ReadWriteColorTarget, subresource});
             }
             else if (storeOp == rhi::StoreOp::Store)
             {
-                m_pass->accesses.PushBack(RGResourceAccess{ handle, RGAccessType::WriteColorTarget, subresource });
+                m_pass->accesses.PushBack(
+                    RGResourceAccess{handle, RGAccessType::WriteColorTarget, subresource});
             }
             return *this;
         }
 
-        PassBuilder& SetDepthTarget(RGHandle handle,
-                                    rhi::LoadOp loadOp = rhi::LoadOp::Clear,
+        PassBuilder& SetDepthTarget(RGHandle handle, rhi::LoadOp loadOp = rhi::LoadOp::Clear,
                                     rhi::StoreOp storeOp = rhi::StoreOp::Store,
-                                    f32 clearDepth = 1.0f,
-                                    RGSubresourceRange subresource = {})
+                                    f32 clearDepth = 1.0f, RGSubresourceRange subresource = {})
         {
             RGDepthTarget dt{};
             dt.handle = handle;
@@ -109,11 +115,13 @@ export namespace draconic::rendergraph
 
             if (loadOp == rhi::LoadOp::Load && storeOp == rhi::StoreOp::Store)
             {
-                m_pass->accesses.PushBack(RGResourceAccess{ handle, RGAccessType::ReadWriteDepthTarget, subresource });
+                m_pass->accesses.PushBack(
+                    RGResourceAccess{handle, RGAccessType::ReadWriteDepthTarget, subresource});
             }
             else if (storeOp == rhi::StoreOp::Store)
             {
-                m_pass->accesses.PushBack(RGResourceAccess{ handle, RGAccessType::WriteDepthTarget, subresource });
+                m_pass->accesses.PushBack(
+                    RGResourceAccess{handle, RGAccessType::WriteDepthTarget, subresource});
             }
             return *this;
         }
@@ -129,53 +137,93 @@ export namespace draconic::rendergraph
             dt.readOnly = true;
             dt.subresource = subresource;
             m_pass->depthTarget = dt;
-            m_pass->accesses.PushBack(RGResourceAccess{ handle, RGAccessType::ReadDepthStencil, subresource });
+            m_pass->accesses.PushBack(
+                RGResourceAccess{handle, RGAccessType::ReadDepthStencil, subresource});
             return *this;
         }
 
         // --- storage (UAV) ---
         PassBuilder& WriteStorage(RGHandle handle, RGSubresourceRange subresource = {})
         {
-            m_pass->accesses.PushBack(RGResourceAccess{ handle, RGAccessType::WriteStorage, subresource });
+            m_pass->accesses.PushBack(
+                RGResourceAccess{handle, RGAccessType::WriteStorage, subresource});
             return *this;
         }
         PassBuilder& ReadWriteStorage(RGHandle handle, RGSubresourceRange subresource = {})
         {
-            m_pass->accesses.PushBack(RGResourceAccess{ handle, RGAccessType::ReadWriteStorage, subresource });
+            m_pass->accesses.PushBack(
+                RGResourceAccess{handle, RGAccessType::ReadWriteStorage, subresource});
             return *this;
         }
 
         // --- copy ---
         PassBuilder& CopySrc(RGHandle handle)
         {
-            m_pass->accesses.PushBack(RGResourceAccess{ handle, RGAccessType::ReadCopySrc, {} });
+            m_pass->accesses.PushBack(RGResourceAccess{handle, RGAccessType::ReadCopySrc, {}});
             return *this;
         }
         PassBuilder& CopyDst(RGHandle handle)
         {
-            m_pass->accesses.PushBack(RGResourceAccess{ handle, RGAccessType::WriteCopyDst, {} });
+            m_pass->accesses.PushBack(RGResourceAccess{handle, RGAccessType::WriteCopyDst, {}});
             return *this;
         }
 
         // --- dependencies / flags ---
-        PassBuilder& DependsOn(PassHandle pass) { m_pass->dependencies.PushBack(pass); return *this; }
+        PassBuilder& DependsOn(PassHandle pass)
+        {
+            m_pass->dependencies.PushBack(pass);
+            return *this;
+        }
         // Override the pass's viewport + scissor (a sub-rect of the attachment, e.g. split-screen).
         // Without it the pass covers the full attachment.
-        PassBuilder& SetViewport(i32 x, i32 y, u32 w, u32 h) {
-            m_pass->hasViewport = true; m_pass->viewportX = x; m_pass->viewportY = y;
-            m_pass->viewportW = w; m_pass->viewportH = h; return *this;
+        PassBuilder& SetViewport(i32 x, i32 y, u32 w, u32 h)
+        {
+            m_pass->hasViewport = true;
+            m_pass->viewportX = x;
+            m_pass->viewportY = y;
+            m_pass->viewportW = w;
+            m_pass->viewportH = h;
+            return *this;
         }
-        PassBuilder& NeverCull() { m_pass->neverCull = true; return *this; }
-        PassBuilder& HasSideEffects() { m_pass->hasSideEffects = true; return *this; }
-        PassBuilder& EnableIf(Function<bool()> condition) { m_pass->condition = Move(condition); return *this; }
+        PassBuilder& NeverCull()
+        {
+            m_pass->neverCull = true;
+            return *this;
+        }
+        PassBuilder& HasSideEffects()
+        {
+            m_pass->hasSideEffects = true;
+            return *this;
+        }
+        PassBuilder& EnableIf(Function<bool()> condition)
+        {
+            m_pass->condition = Move(condition);
+            return *this;
+        }
 
         // --- execute callbacks ---
-        PassBuilder& SetExecute(RenderPassExecuteCallback callback) { m_pass->executeCallback = Move(callback); return *this; }
+        PassBuilder& SetExecute(RenderPassExecuteCallback callback)
+        {
+            m_pass->executeCallback = Move(callback);
+            return *this;
+        }
         // A render pass whose body is supplied by render bundles (parallel command recording).
         // The graph begins the pass with secondary-command-buffer contents + ExecuteBundles them.
-        PassBuilder& SetBundleExecute(RenderBundlePassCallback callback) { m_pass->bundleCallback = Move(callback); return *this; }
-        PassBuilder& SetComputeExecute(ComputePassExecuteCallback callback) { m_pass->computeCallback = Move(callback); return *this; }
-        PassBuilder& SetCopyExecute(CopyPassExecuteCallback callback) { m_pass->copyCallback = Move(callback); return *this; }
+        PassBuilder& SetBundleExecute(RenderBundlePassCallback callback)
+        {
+            m_pass->bundleCallback = Move(callback);
+            return *this;
+        }
+        PassBuilder& SetComputeExecute(ComputePassExecuteCallback callback)
+        {
+            m_pass->computeCallback = Move(callback);
+            return *this;
+        }
+        PassBuilder& SetCopyExecute(CopyPassExecuteCallback callback)
+        {
+            m_pass->copyCallback = Move(callback);
+            return *this;
+        }
 
     private:
         RenderGraphPass* m_pass;

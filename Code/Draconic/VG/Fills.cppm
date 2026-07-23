@@ -23,7 +23,10 @@ export namespace draconic::vg
         Color color;       ///< Color at this stop.
 
         constexpr GradientStop() noexcept = default;
-        constexpr GradientStop(f32 inOffset, Color inColor) noexcept : offset(inOffset), color(inColor) {}
+        constexpr GradientStop(f32 inOffset, Color inColor) noexcept
+            : offset(inOffset), color(inColor)
+        {
+        }
     };
 
     /// Utility functions for color interpolation.
@@ -87,7 +90,10 @@ export namespace draconic::vg
         constexpr VGSolidFill() noexcept = default;
         explicit constexpr VGSolidFill(Color color) noexcept : m_color(color) {}
 
-        [[nodiscard]] Color GetColorAt(Float2 /*position*/, Rectangle /*bounds*/) const override { return m_color; }
+        [[nodiscard]] Color GetColorAt(Float2 /*position*/, Rectangle /*bounds*/) const override
+        {
+            return m_color;
+        }
         [[nodiscard]] Color BaseColor() const override { return m_color; }
         [[nodiscard]] bool RequiresInterpolation() const override { return false; }
 
@@ -107,8 +113,8 @@ export namespace draconic::vg
     class VGLinearGradientFill final : public IVGFill
     {
     public:
-        Float2 startPoint; ///< Start point of the gradient line.
-        Float2 endPoint;   ///< End point of the gradient line.
+        Float2 startPoint;         ///< Start point of the gradient line.
+        Float2 endPoint;           ///< End point of the gradient line.
         Array<GradientStop> stops; ///< Color stops defining the gradient.
 
         VGLinearGradientFill() = default;
@@ -126,10 +132,14 @@ export namespace draconic::vg
 
             const Float2 toPoint = position - startPoint;
             const f32 t = (toPoint.x * gradientDir.x + toPoint.y * gradientDir.y) / gradientLenSq;
-            return ColorUtils::InterpolateStops(Span<const GradientStop>(stops.Data(), stops.Size()), t);
+            return ColorUtils::InterpolateStops(
+                Span<const GradientStop>(stops.Data(), stops.Size()), t);
         }
 
-        [[nodiscard]] Color BaseColor() const override { return stops.IsEmpty() ? Color::White : stops[0].color; }
+        [[nodiscard]] Color BaseColor() const override
+        {
+            return stops.IsEmpty() ? Color::White : stops[0].color;
+        }
         [[nodiscard]] bool RequiresInterpolation() const override { return true; }
     };
 
@@ -137,8 +147,8 @@ export namespace draconic::vg
     class VGRadialGradientFill final : public IVGFill
     {
     public:
-        Float2 center;  ///< Center of the gradient.
-        f32 radius = 0.0f; ///< Radius of the gradient.
+        Float2 center;             ///< Center of the gradient.
+        f32 radius = 0.0f;         ///< Radius of the gradient.
         Array<GradientStop> stops; ///< Color stops defining the gradient.
 
         VGRadialGradientFill() = default;
@@ -152,10 +162,14 @@ export namespace draconic::vg
                 return BaseColor();
             const f32 dist = Length(position - center);
             const f32 t = dist / radius;
-            return ColorUtils::InterpolateStops(Span<const GradientStop>(stops.Data(), stops.Size()), t);
+            return ColorUtils::InterpolateStops(
+                Span<const GradientStop>(stops.Data(), stops.Size()), t);
         }
 
-        [[nodiscard]] Color BaseColor() const override { return stops.IsEmpty() ? Color::White : stops[0].color; }
+        [[nodiscard]] Color BaseColor() const override
+        {
+            return stops.IsEmpty() ? Color::White : stops[0].color;
+        }
         [[nodiscard]] bool RequiresInterpolation() const override { return true; }
     };
 
@@ -163,12 +177,15 @@ export namespace draconic::vg
     class VGConicGradientFill final : public IVGFill
     {
     public:
-        Float2 center;      ///< Center of the gradient.
-        f32 startAngle = 0.0f; ///< Starting angle in radians.
+        Float2 center;             ///< Center of the gradient.
+        f32 startAngle = 0.0f;     ///< Starting angle in radians.
         Array<GradientStop> stops; ///< Color stops defining the gradient.
 
         VGConicGradientFill() = default;
-        explicit VGConicGradientFill(Float2 inCenter, f32 inStartAngle = 0.0f) : center(inCenter), startAngle(inStartAngle) {}
+        explicit VGConicGradientFill(Float2 inCenter, f32 inStartAngle = 0.0f)
+            : center(inCenter), startAngle(inStartAngle)
+        {
+        }
 
         void AddStop(f32 offset, Color color) { stops.PushBack(GradientStop(offset, color)); }
 
@@ -185,10 +202,14 @@ export namespace draconic::vg
                 angle -= kTwoPi;
 
             const f32 t = angle / kTwoPi;
-            return ColorUtils::InterpolateStops(Span<const GradientStop>(stops.Data(), stops.Size()), t);
+            return ColorUtils::InterpolateStops(
+                Span<const GradientStop>(stops.Data(), stops.Size()), t);
         }
 
-        [[nodiscard]] Color BaseColor() const override { return stops.IsEmpty() ? Color::White : stops[0].color; }
+        [[nodiscard]] Color BaseColor() const override
+        {
+            return stops.IsEmpty() ? Color::White : stops[0].color;
+        }
         [[nodiscard]] bool RequiresInterpolation() const override { return true; }
     };
 }

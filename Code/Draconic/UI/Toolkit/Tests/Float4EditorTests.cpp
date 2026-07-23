@@ -12,10 +12,10 @@ namespace core = draconic::core;
 
 TEST_CASE("toolkit-float4editor: RowAndFieldDrive")
 {
-    Float4 observed{ 0, 0, 0, 0 };
-    auto ed = core::MakeRef<Float4Editor>(core::DefaultAllocator(), StringView(u8"Position"),
-        Float4{ 1.0f, 2.0f, 3.0f, 4.0f }, -1000.0f, 1000.0f, 0.1f,
-        Function<void(Float4)>{ [&observed](Float4 v) { observed = v; } });
+    Float4 observed{0, 0, 0, 0};
+    auto ed = core::MakeRef<Float4Editor>(
+        core::DefaultAllocator(), StringView(u8"Position"), Float4{1.0f, 2.0f, 3.0f, 4.0f},
+        -1000.0f, 1000.0f, 0.1f, Function<void(Float4)>{[&observed](Float4 v) { observed = v; }});
 
     CHECK(ed->Value().x == doctest::Approx(1.0f));
     CHECK(ed->Value().w == doctest::Approx(4.0f));
@@ -30,6 +30,6 @@ TEST_CASE("toolkit-float4editor: RowAndFieldDrive")
     CHECK(ed->Value().y == doctest::Approx(9.0f));
     CHECK(observed.y == doctest::Approx(9.0f));
 
-    ed->SetValue(Float4{ 4.0f, 5.0f, 6.0f, 7.0f });
+    ed->SetValue(Float4{4.0f, 5.0f, 6.0f, 7.0f});
     CHECK(yField->Value() == doctest::Approx(5.0));
 }

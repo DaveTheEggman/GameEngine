@@ -54,11 +54,15 @@ export namespace draconic::ui
         {
             return &UIDocument::StaticType();
         }
-        [[nodiscard]] RefPtr<Object> Create(ResourceManager&, draconic::content::Instance& instance) override
+        [[nodiscard]] RefPtr<Object> Create(ResourceManager&,
+                                            draconic::content::Instance& instance) override
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             UIDocumentSource* source = Cast<UIDocumentSource>(object.Get());
-            if (source == nullptr) { return RefPtr<Object>{}; }
+            if (source == nullptr)
+            {
+                return RefPtr<Object>{};
+            }
             RefPtr<UIDocument> document = MakeRef<UIDocument>(DefaultAllocator());
             document->markup = String(source->markup.AsView());
             return document;
@@ -92,11 +96,15 @@ export namespace draconic::ui
         {
             return &UITheme::StaticType();
         }
-        [[nodiscard]] RefPtr<Object> Create(ResourceManager&, draconic::content::Instance& instance) override
+        [[nodiscard]] RefPtr<Object> Create(ResourceManager&,
+                                            draconic::content::Instance& instance) override
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             UIThemeSource* source = Cast<UIThemeSource>(object.Get());
-            if (source == nullptr) { return RefPtr<Object>{}; }
+            if (source == nullptr)
+            {
+                return RefPtr<Object>{};
+            }
             RefPtr<UITheme> theme = MakeRef<UITheme>(DefaultAllocator());
             theme->stylesheet = String(source->stylesheet.AsView());
             return theme;

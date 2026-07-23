@@ -13,8 +13,8 @@ module;
 
 export module draconic.ui:svg_drawable;
 
-import draconic.core;      // Color, Rectangle, Float2, Optional, Result, RefPtr, String
-import draconic.vg.svg;    // SVGDocument, SVGLoader, SVGRenderer
+import draconic.core;   // Color, Rectangle, Float2, Optional, Result, RefPtr, String
+import draconic.vg.svg; // SVGDocument, SVGLoader, SVGRenderer
 import :drawable;
 import :draw_context;
 
@@ -36,7 +36,10 @@ export namespace draconic::ui
         [[nodiscard]] static RefPtr<SVGDrawable> FromString(StringView svgContent)
         {
             Result<vg::svg::SVGDocument> result = vg::svg::SVGLoader::Load(svgContent);
-            if (result.HasValue()) { return MakeRef<SVGDrawable>(DefaultAllocator(), Move(result.Value())); }
+            if (result.HasValue())
+            {
+                return MakeRef<SVGDrawable>(DefaultAllocator(), Move(result.Value()));
+            }
             return {};
         }
 
@@ -46,7 +49,8 @@ export namespace draconic::ui
             Result<vg::svg::SVGDocument> result = vg::svg::SVGLoader::Load(svgContent);
             if (result.HasValue())
             {
-                RefPtr<SVGDrawable> d = MakeRef<SVGDrawable>(DefaultAllocator(), Move(result.Value()));
+                RefPtr<SVGDrawable> d =
+                    MakeRef<SVGDrawable>(DefaultAllocator(), Move(result.Value()));
                 d->TintColor = tint;
                 return d;
             }
@@ -55,7 +59,10 @@ export namespace draconic::ui
 
         [[nodiscard]] Optional<Float2> IntrinsicSize() const override
         {
-            if (m_document.width > 0.0f && m_document.height > 0.0f) { return Float2{ m_document.width, m_document.height }; }
+            if (m_document.width > 0.0f && m_document.height > 0.0f)
+            {
+                return Float2{m_document.width, m_document.height};
+            }
             return {};
         }
 

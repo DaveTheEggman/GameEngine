@@ -24,8 +24,14 @@ TEST_CASE("image.manip: creation")
 TEST_CASE("image.manip: creation with data")
 {
     u8 data[4 * 4] = {}; // 2x2 RGBA
-    data[0] = 255; data[1] = 0; data[2] = 0; data[3] = 255;   // pixel 0 = red
-    data[4] = 0; data[5] = 255; data[6] = 0; data[7] = 255;   // pixel 1 = green
+    data[0] = 255;
+    data[1] = 0;
+    data[2] = 0;
+    data[3] = 255; // pixel 0 = red
+    data[4] = 0;
+    data[5] = 255;
+    data[6] = 0;
+    data[7] = 255; // pixel 1 = green
 
     const Image image(2, 2, PixelFormat::RGBA8, Span<const u8>(data, 16));
     const Color32 pixel0 = image.GetPixel(0, 0);

@@ -76,10 +76,14 @@ export namespace draconic::ui
     {
     public:
         SSSParser(Array<Token> tokens, HashMap<String, Color>* palette,
-                  HashMap<String, String>* svgRegistry, HashMap<String, const image::ImageData*>* imageRegistry,
+                  HashMap<String, String>* svgRegistry,
+                  HashMap<String, const image::ImageData*>* imageRegistry,
                   IResourceProvider* resourceProvider, String basePath)
             : m_tokens(Move(tokens)), m_palette(palette), m_svgRegistry(svgRegistry),
-              m_imageRegistry(imageRegistry), m_resourceProvider(resourceProvider), m_basePath(Move(basePath)) {}
+              m_imageRegistry(imageRegistry), m_resourceProvider(resourceProvider),
+              m_basePath(Move(basePath))
+        {
+        }
 
         RefPtr<StyleSheet> Parse()
         {
@@ -89,8 +93,10 @@ export namespace draconic::ui
 
             while (!IsAtEnd())
             {
-                if (Peek().Kind == TokenKind::Directive) ParseDirective();
-                else ParseRule();
+                if (Peek().Kind == TokenKind::Directive)
+                    ParseDirective();
+                else
+                    ParseRule();
             }
 
             return m_sheetOwner;
@@ -102,7 +108,10 @@ export namespace draconic::ui
         {
             m_sheet = ownerSheet;
             m_pos = 0;
-            while (!IsAtEnd()) { ParseProperty(targetRule); }
+            while (!IsAtEnd())
+            {
+                ParseProperty(targetRule);
+            }
         }
 
         /// Parse a `style="..."` markup attribute and apply its declared properties to `view`'s inline
@@ -119,7 +128,10 @@ export namespace draconic::ui
             if (Peek().Kind == TokenKind::HexColor)
             {
                 const Token tok = Consume();
-                if (Optional<Color> c = StyleValueParser::ParseHexColor(tok.Text); c.HasValue()) { return c.Value(); }
+                if (Optional<Color> c = StyleValueParser::ParseHexColor(tok.Text); c.HasValue())
+                {
+                    return c.Value();
+                }
                 return Color::White;
             }
             if (Peek().Kind == TokenKind::Variable)
@@ -135,9 +147,15 @@ export namespace draconic::ui
                     Consume();
                     return c.Value();
                 }
-                if (name == StringView(u8"rgb") || name == StringView(u8"rgba")) { return ParseRgbFunction(); }
+                if (name == StringView(u8"rgb") || name == StringView(u8"rgba"))
+                {
+                    return ParseRgbFunction();
+                }
                 if (name == StringView(u8"lighten") || name == StringView(u8"darken") ||
-                    name == StringView(u8"alpha") || name == StringView(u8"mix")) { return ParseColorFunction(); }
+                    name == StringView(u8"alpha") || name == StringView(u8"mix"))
+                {
+                    return ParseColorFunction();
+                }
             }
             return Color::White;
         }
@@ -152,7 +170,11 @@ export namespace draconic::ui
             {
                 const Token tok = Consume();
                 f32 val = tok.NumericValue;
-                if (Peek().Kind == TokenKind::Percent) { Consume(); val /= 100.0f; }
+                if (Peek().Kind == TokenKind::Percent)
+                {
+                    Consume();
+                    val /= 100.0f;
+                }
                 return val;
             }
             if (Peek().Kind == TokenKind::Variable)
@@ -168,7 +190,8 @@ export namespace draconic::ui
         {
             if (Peek().Kind == TokenKind::Ident)
             {
-                if (DrawableFactoryRegistry::FactoryFn factory = DrawableFactoryRegistry::Get(Peek().Text))
+                if (DrawableFactoryRegistry::FactoryFn factory =
+                        DrawableFactoryRegistry::Get(Peek().Text))
                 {
                     Consume(); // function name
                     Expect(TokenKind::LParen);
@@ -187,7 +210,11 @@ export namespace draconic::ui
         /// Check if next token is a comma and consume it.
         bool MatchComma()
         {
-            if (Peek().Kind == TokenKind::Comma) { Consume(); return true; }
+            if (Peek().Kind == TokenKind::Comma)
+            {
+                Consume();
+                return true;
+            }
             return false;
         }
 
@@ -213,7 +240,8 @@ export namespace draconic::ui
         /// Peek at current ident text without consuming.
         StringView PeekIdent()
         {
-            if (Peek().Kind == TokenKind::Ident) return Peek().Text;
+            if (Peek().Kind == TokenKind::Ident)
+                return Peek().Text;
             return u8"";
         }
 
@@ -223,20 +251,27 @@ export namespace draconic::ui
         /// Resolve a registered SVG by name. Returns the SVG text or empty.
         Optional<StringView> ResolveSvg(StringView name)
         {
-            if (const String* s = m_svgRegistry->Find(String(name))) { return s->AsView(); }
+            if (const String* s = m_svgRegistry->Find(String(name)))
+            {
+                return s->AsView();
+            }
             return {};
         }
 
         /// Resolve a registered image by name. Returns the image data or null.
         const image::ImageData* ResolveImage(StringView name)
         {
-            if (const image::ImageData* const* img = m_imageRegistry->Find(String(name))) { return *img; }
+            if (const image::ImageData* const* img = m_imageRegistry->Find(String(name)))
+            {
+                return *img;
+            }
             return nullptr;
         }
 
         StringView ConsumeIdent()
         {
-            if (Peek().Kind == TokenKind::Ident) return Consume().Text;
+            if (Peek().Kind == TokenKind::Ident)
+                return Consume().Text;
             return u8"";
         }
 
@@ -246,11 +281,16 @@ export namespace draconic::ui
         void ParseDirective()
         {
             const Token dir = Consume();
-            if (dir.Text == StringView(u8"@palette"))      ParsePaletteDirective();
-            else if (dir.Text == StringView(u8"@icon"))    ParseIconDirective();
-            else if (dir.Text == StringView(u8"@image"))   ParseImageDirective();
-            else if (dir.Text == StringView(u8"@import"))  ParseImportDirective();
-            else                                           SkipUntilSemicolon();
+            if (dir.Text == StringView(u8"@palette"))
+                ParsePaletteDirective();
+            else if (dir.Text == StringView(u8"@icon"))
+                ParseIconDirective();
+            else if (dir.Text == StringView(u8"@image"))
+                ParseImageDirective();
+            else if (dir.Text == StringView(u8"@import"))
+                ParseImportDirective();
+            else
+                SkipUntilSemicolon();
         }
 
         void ParsePaletteDirective()
@@ -302,7 +342,8 @@ export namespace draconic::ui
             if (m_resourceProvider != nullptr && path.Size() > 0)
             {
                 const String resolvedPath = ResolvePath(path);
-                if (const image::ImageData* imageData = m_resourceProvider->LoadImage(resolvedPath.AsView()))
+                if (const image::ImageData* imageData =
+                        m_resourceProvider->LoadImage(resolvedPath.AsView()))
                     m_imageRegistry->InsertOrAssign(String(name), imageData);
             }
         }
@@ -331,12 +372,17 @@ export namespace draconic::ui
                     usize lastSlash = 0;
                     for (usize i = 0; i < rp.Size(); ++i)
                     {
-                        if (rp[i] == u8'/' || rp[i] == u8'\\') { lastSlash = i; found = true; }
+                        if (rp[i] == u8'/' || rp[i] == u8'\\')
+                        {
+                            lastSlash = i;
+                            found = true;
+                        }
                     }
-                    if (found) importBase = String(rp.SubStr(0, lastSlash + 1));
+                    if (found)
+                        importBase = String(rp.SubStr(0, lastSlash + 1));
 
-                    SSSParser importParser(Move(importTokens), m_palette, m_svgRegistry, m_imageRegistry,
-                        m_resourceProvider, Move(importBase));
+                    SSSParser importParser(Move(importTokens), m_palette, m_svgRegistry,
+                                           m_imageRegistry, m_resourceProvider, Move(importBase));
                     RefPtr<StyleSheet> importSheet = importParser.Parse();
                     m_sheet->MergeFrom(*importSheet);
                 }
@@ -374,10 +420,12 @@ export namespace draconic::ui
             while (Peek().Kind == TokenKind::PseudoState)
             {
                 const Token ps = Consume();
-                state |= ParsePseudoStateName(ps.Text.SubStr(1, ps.Text.Size() - 1)); // skip leading :
+                state |=
+                    ParsePseudoStateName(ps.Text.SubStr(1, ps.Text.Size() - 1)); // skip leading :
                 hasState = true;
             }
-            if (hasState) rule->Selector.State = state;
+            if (hasState)
+                rule->Selector.State = state;
 
             // Pseudo-element (::thumb, ::track, ...). The tokenizer produces :: as Colon +
             // PseudoState(:name), since the second : followed by a letter reads as a PseudoState.
@@ -386,7 +434,8 @@ export namespace draconic::ui
             {
                 Consume();                  // first : (Colon)
                 const Token ps = Consume(); // :name (PseudoState)
-                rule->Selector.SetPseudoElement(ps.Text.SubStr(1, ps.Text.Size() - 1)); // skip leading :
+                rule->Selector.SetPseudoElement(
+                    ps.Text.SubStr(1, ps.Text.Size() - 1)); // skip leading :
             }
 
             // Allow :state after ::pseudo (e.g., ::tab:hover)
@@ -396,11 +445,13 @@ export namespace draconic::ui
                 state |= ParsePseudoStateName(ps.Text.SubStr(1, ps.Text.Size() - 1));
                 hasState = true;
             }
-            if (hasState) rule->Selector.State = state;
+            if (hasState)
+                rule->Selector.State = state;
 
             // Property block
             Expect(TokenKind::LBrace);
-            while (!IsAtEnd() && Peek().Kind != TokenKind::RBrace) ParseProperty(*rule);
+            while (!IsAtEnd() && Peek().Kind != TokenKind::RBrace)
+                ParseProperty(*rule);
             Expect(TokenKind::RBrace);
 
             m_sheet->AddRule(Move(rule));
@@ -424,7 +475,8 @@ export namespace draconic::ui
             if (IsStringProperty(p))
             {
                 const StringView s = ParseStringOrIdent();
-                if (s.Size() > 0) rule.Set(p, s);
+                if (s.Size() > 0)
+                    rule.Set(p, s);
                 MatchSemicolon();
                 return;
             }
@@ -433,7 +485,8 @@ export namespace draconic::ui
             if (IsDrawableProperty(p))
             {
                 RefPtr<Drawable> d = ParseDrawableValue(*m_sheet);
-                if (d) rule.Set(p, Move(d));
+                if (d)
+                    rule.Set(p, Move(d));
                 MatchSemicolon();
                 return;
             }
@@ -441,11 +494,20 @@ export namespace draconic::ui
             const StyleValue value = ParseStyleValue(p);
             switch (value.GetKind())
             {
-            case StyleValue::Kind::Color:     rule.Set(p, value.AsColor().Value()); break;
-            case StyleValue::Kind::Float:     rule.Set(p, value.AsFloat().Value()); break;
-            case StyleValue::Kind::Thickness: rule.Set(p, value.AsThickness().Value()); break;
-            case StyleValue::Kind::Bool:      rule.Set(p, value.AsBool().Value()); break;
-            default: break;
+            case StyleValue::Kind::Color:
+                rule.Set(p, value.AsColor().Value());
+                break;
+            case StyleValue::Kind::Float:
+                rule.Set(p, value.AsFloat().Value());
+                break;
+            case StyleValue::Kind::Thickness:
+                rule.Set(p, value.AsThickness().Value());
+                break;
+            case StyleValue::Kind::Bool:
+                rule.Set(p, value.AsBool().Value());
+                break;
+            default:
+                break;
             }
 
             MatchSemicolon();
@@ -473,18 +535,20 @@ export namespace draconic::ui
         {
             Consume(); // rgb/rgba
             Expect(TokenKind::LParen);
-            const i32 r = static_cast<i32>(ParseFloatValue()); MatchComma();
-            const i32 g = static_cast<i32>(ParseFloatValue()); MatchComma();
+            const i32 r = static_cast<i32>(ParseFloatValue());
+            MatchComma();
+            const i32 g = static_cast<i32>(ParseFloatValue());
+            MatchComma();
             const i32 b = static_cast<i32>(ParseFloatValue());
             // rgba() alpha is 0..1 per CSS, R/G/B are 0..255.
             if (MatchComma())
             {
                 const f32 a = ParseFloatValue();
                 Expect(TokenKind::RParen);
-                return Color{ r / 255.0f, g / 255.0f, b / 255.0f, a };
+                return Color{r / 255.0f, g / 255.0f, b / 255.0f, a};
             }
             Expect(TokenKind::RParen);
-            return Color{ r / 255.0f, g / 255.0f, b / 255.0f, 1.0f };
+            return Color{r / 255.0f, g / 255.0f, b / 255.0f, 1.0f};
         }
 
         Color ParseColorFunction()
@@ -495,23 +559,28 @@ export namespace draconic::ui
 
             if (name == StringView(u8"lighten"))
             {
-                const Color c = ParseColorValue(); MatchComma();
+                const Color c = ParseColorValue();
+                MatchComma();
                 result = ColorFunctions::Lighten(c, ParseFloatValue());
             }
             else if (name == StringView(u8"darken"))
             {
-                const Color c = ParseColorValue(); MatchComma();
+                const Color c = ParseColorValue();
+                MatchComma();
                 result = ColorFunctions::Darken(c, ParseFloatValue());
             }
             else if (name == StringView(u8"alpha"))
             {
-                const Color c = ParseColorValue(); MatchComma();
+                const Color c = ParseColorValue();
+                MatchComma();
                 result = ColorFunctions::Alpha(c, ParseFloatValue());
             }
             else if (name == StringView(u8"mix"))
             {
-                const Color a = ParseColorValue(); MatchComma();
-                const Color b = ParseColorValue(); MatchComma();
+                const Color a = ParseColorValue();
+                MatchComma();
+                const Color b = ParseColorValue();
+                MatchComma();
                 result = ColorFunctions::Mix(a, b, ParseFloatValue());
             }
 
@@ -533,64 +602,109 @@ export namespace draconic::ui
         [[nodiscard]] static Optional<StyleProperty> ResolvePropertyName(StringView name)
         {
             // Drawable properties
-            if (name == StringView(u8"background")) return StyleProperty::Background;
-            if (name == StringView(u8"checked-background")) return StyleProperty::CheckedBackground;
-            if (name == StringView(u8"menu-item-hover-drawable")) return StyleProperty::MenuItemHoverDrawable;
+            if (name == StringView(u8"background"))
+                return StyleProperty::Background;
+            if (name == StringView(u8"checked-background"))
+                return StyleProperty::CheckedBackground;
+            if (name == StringView(u8"menu-item-hover-drawable"))
+                return StyleProperty::MenuItemHoverDrawable;
 
             // Color properties
-            if (name == StringView(u8"text-color")) return StyleProperty::TextColor;
-            if (name == StringView(u8"text-dim-color")) return StyleProperty::TextDimColor;
-            if (name == StringView(u8"placeholder-color")) return StyleProperty::PlaceholderColor;
-            if (name == StringView(u8"border-color")) return StyleProperty::BorderColor;
-            if (name == StringView(u8"cursor-color")) return StyleProperty::CursorColor;
-            if (name == StringView(u8"selection-color")) return StyleProperty::SelectionColor;
-            if (name == StringView(u8"accent-color")) return StyleProperty::AccentColor;
+            if (name == StringView(u8"text-color"))
+                return StyleProperty::TextColor;
+            if (name == StringView(u8"text-dim-color"))
+                return StyleProperty::TextDimColor;
+            if (name == StringView(u8"placeholder-color"))
+                return StyleProperty::PlaceholderColor;
+            if (name == StringView(u8"border-color"))
+                return StyleProperty::BorderColor;
+            if (name == StringView(u8"cursor-color"))
+                return StyleProperty::CursorColor;
+            if (name == StringView(u8"selection-color"))
+                return StyleProperty::SelectionColor;
+            if (name == StringView(u8"accent-color"))
+                return StyleProperty::AccentColor;
 
             // Float properties
-            if (name == StringView(u8"font-size")) return StyleProperty::FontSize;
-            if (name == StringView(u8"corner-radius")) return StyleProperty::CornerRadius;
+            if (name == StringView(u8"font-size"))
+                return StyleProperty::FontSize;
+            if (name == StringView(u8"corner-radius"))
+                return StyleProperty::CornerRadius;
 
             // String properties
-            if (name == StringView(u8"font-family")) return StyleProperty::FontFamily;
-            if (name == StringView(u8"border-width")) return StyleProperty::BorderWidth;
-            if (name == StringView(u8"spacing")) return StyleProperty::Spacing;
-            if (name == StringView(u8"opacity")) return StyleProperty::Opacity;
-            if (name == StringView(u8"width")) return StyleProperty::Width;
-            if (name == StringView(u8"height")) return StyleProperty::Height;
+            if (name == StringView(u8"font-family"))
+                return StyleProperty::FontFamily;
+            if (name == StringView(u8"border-width"))
+                return StyleProperty::BorderWidth;
+            if (name == StringView(u8"spacing"))
+                return StyleProperty::Spacing;
+            if (name == StringView(u8"opacity"))
+                return StyleProperty::Opacity;
+            if (name == StringView(u8"width"))
+                return StyleProperty::Width;
+            if (name == StringView(u8"height"))
+                return StyleProperty::Height;
 
             // Thickness properties
-            if (name == StringView(u8"padding")) return StyleProperty::Padding;
-            if (name == StringView(u8"margin")) return StyleProperty::Margin;
+            if (name == StringView(u8"padding"))
+                return StyleProperty::Padding;
+            if (name == StringView(u8"margin"))
+                return StyleProperty::Margin;
 
             // Bool properties
-            if (name == StringView(u8"word-wrap")) return StyleProperty::WordWrap;
+            if (name == StringView(u8"word-wrap"))
+                return StyleProperty::WordWrap;
 
             return {};
         }
 
         [[nodiscard]] static ControlState ParsePseudoStateName(StringView name)
         {
-            if (name == StringView(u8"normal"))        return ControlState::Normal;
-            if (name == StringView(u8"hover"))         return ControlState::Hover;
-            if (name == StringView(u8"pressed"))       return ControlState::Pressed;
-            if (name == StringView(u8"focused"))       return ControlState::Focused;
-            if (name == StringView(u8"disabled"))      return ControlState::Disabled;
-            if (name == StringView(u8"checked"))       return ControlState::Checked;
-            if (name == StringView(u8"indeterminate")) return ControlState::Indeterminate;
+            if (name == StringView(u8"normal"))
+                return ControlState::Normal;
+            if (name == StringView(u8"hover"))
+                return ControlState::Hover;
+            if (name == StringView(u8"pressed"))
+                return ControlState::Pressed;
+            if (name == StringView(u8"focused"))
+                return ControlState::Focused;
+            if (name == StringView(u8"disabled"))
+                return ControlState::Disabled;
+            if (name == StringView(u8"checked"))
+                return ControlState::Checked;
+            if (name == StringView(u8"indeterminate"))
+                return ControlState::Indeterminate;
             return ControlState::Normal;
         }
 
-        [[nodiscard]] static bool IsDrawableProperty(StyleProperty prop) { return prop <= StyleProperty::MenuItemHoverDrawable; }
-        [[nodiscard]] static bool IsColorProperty(StyleProperty prop) { return prop >= StyleProperty::TextColor && prop <= StyleProperty::AccentColor; }
-        [[nodiscard]] static bool IsThicknessProperty(StyleProperty prop) { return prop == StyleProperty::Padding || prop == StyleProperty::Margin; }
-        [[nodiscard]] static bool IsBoolProperty(StyleProperty prop) { return prop == StyleProperty::WordWrap; }
-        [[nodiscard]] static bool IsStringProperty(StyleProperty prop) { return prop == StyleProperty::FontFamily; }
+        [[nodiscard]] static bool IsDrawableProperty(StyleProperty prop)
+        {
+            return prop <= StyleProperty::MenuItemHoverDrawable;
+        }
+        [[nodiscard]] static bool IsColorProperty(StyleProperty prop)
+        {
+            return prop >= StyleProperty::TextColor && prop <= StyleProperty::AccentColor;
+        }
+        [[nodiscard]] static bool IsThicknessProperty(StyleProperty prop)
+        {
+            return prop == StyleProperty::Padding || prop == StyleProperty::Margin;
+        }
+        [[nodiscard]] static bool IsBoolProperty(StyleProperty prop)
+        {
+            return prop == StyleProperty::WordWrap;
+        }
+        [[nodiscard]] static bool IsStringProperty(StyleProperty prop)
+        {
+            return prop == StyleProperty::FontFamily;
+        }
 
         /// Read a quoted string literal or a bare identifier.
         StringView ParseStringOrIdent()
         {
-            if (Peek().Kind == TokenKind::StringLit) return Consume().Text;
-            if (Peek().Kind == TokenKind::Ident) return Consume().Text;
+            if (Peek().Kind == TokenKind::StringLit)
+                return Consume().Text;
+            if (Peek().Kind == TokenKind::Ident)
+                return Consume().Text;
             return u8"";
         }
 
@@ -598,8 +712,13 @@ export namespace draconic::ui
 
         Color ResolveVariable(StringView varText)
         {
-            const StringView name = (varText.Size() > 0 && varText[0] == u8'$') ? varText.SubStr(1, varText.Size() - 1) : varText;
-            if (const Color* c = m_palette->Find(String(name))) { return *c; }
+            const StringView name = (varText.Size() > 0 && varText[0] == u8'$')
+                                        ? varText.SubStr(1, varText.Size() - 1)
+                                        : varText;
+            if (const Color* c = m_palette->Find(String(name)))
+            {
+                return *c;
+            }
             return Color::White; // unresolved variable
         }
 
@@ -619,36 +738,58 @@ export namespace draconic::ui
 
         // === Token helpers ===
 
-        [[nodiscard]] Token Peek() const { return (m_pos < static_cast<i32>(m_tokens.Size())) ? m_tokens[static_cast<usize>(m_pos)] : Token(TokenKind::EOF, u8"", 0, 0); }
-        Token Consume() { return (m_pos < static_cast<i32>(m_tokens.Size())) ? m_tokens[static_cast<usize>(m_pos++)] : Token(TokenKind::EOF, u8"", 0, 0); }
-        [[nodiscard]] bool IsAtEnd() const { return m_pos >= static_cast<i32>(m_tokens.Size()) || m_tokens[static_cast<usize>(m_pos)].Kind == TokenKind::EOF; }
+        [[nodiscard]] Token Peek() const
+        {
+            return (m_pos < static_cast<i32>(m_tokens.Size())) ? m_tokens[static_cast<usize>(m_pos)]
+                                                               : Token(TokenKind::EOF, u8"", 0, 0);
+        }
+        Token Consume()
+        {
+            return (m_pos < static_cast<i32>(m_tokens.Size()))
+                       ? m_tokens[static_cast<usize>(m_pos++)]
+                       : Token(TokenKind::EOF, u8"", 0, 0);
+        }
+        [[nodiscard]] bool IsAtEnd() const
+        {
+            return m_pos >= static_cast<i32>(m_tokens.Size()) ||
+                   m_tokens[static_cast<usize>(m_pos)].Kind == TokenKind::EOF;
+        }
 
         StringView ConsumeString()
         {
-            if (Peek().Kind == TokenKind::StringLit) return Consume().Text;
+            if (Peek().Kind == TokenKind::StringLit)
+                return Consume().Text;
             return u8"";
         }
 
         void Expect(TokenKind kind)
         {
-            if (Peek().Kind == kind) Consume();
+            if (Peek().Kind == kind)
+                Consume();
         }
 
         bool MatchSemicolon()
         {
-            if (Peek().Kind == TokenKind::Semicolon) { Consume(); return true; }
+            if (Peek().Kind == TokenKind::Semicolon)
+            {
+                Consume();
+                return true;
+            }
             return false;
         }
 
         void SkipUntilSemicolon()
         {
-            while (!IsAtEnd() && Peek().Kind != TokenKind::Semicolon) Consume();
+            while (!IsAtEnd() && Peek().Kind != TokenKind::Semicolon)
+                Consume();
             MatchSemicolon();
         }
 
         void SkipUntilSemicolonOrBrace()
         {
-            while (!IsAtEnd() && Peek().Kind != TokenKind::Semicolon && Peek().Kind != TokenKind::RBrace) Consume();
+            while (!IsAtEnd() && Peek().Kind != TokenKind::Semicolon &&
+                   Peek().Kind != TokenKind::RBrace)
+                Consume();
             MatchSemicolon();
         }
 
@@ -675,13 +816,20 @@ export namespace draconic::ui
 
         [[nodiscard]] inline ControlState ParseStateName(StringView name)
         {
-            if (name == StringView(u8"normal"))        return ControlState::Normal;
-            if (name == StringView(u8"hover"))         return ControlState::Hover;
-            if (name == StringView(u8"pressed"))       return ControlState::Pressed;
-            if (name == StringView(u8"focused"))       return ControlState::Focused;
-            if (name == StringView(u8"disabled"))      return ControlState::Disabled;
-            if (name == StringView(u8"checked"))       return ControlState::Checked;
-            if (name == StringView(u8"indeterminate")) return ControlState::Indeterminate;
+            if (name == StringView(u8"normal"))
+                return ControlState::Normal;
+            if (name == StringView(u8"hover"))
+                return ControlState::Hover;
+            if (name == StringView(u8"pressed"))
+                return ControlState::Pressed;
+            if (name == StringView(u8"focused"))
+                return ControlState::Focused;
+            if (name == StringView(u8"disabled"))
+                return ControlState::Disabled;
+            if (name == StringView(u8"checked"))
+                return ControlState::Checked;
+            if (name == StringView(u8"indeterminate"))
+                return ControlState::Indeterminate;
             return ControlState::Normal;
         }
     }
@@ -693,7 +841,10 @@ export namespace draconic::ui
 
     inline DrawableFactoryRegistry::FactoryFn DrawableFactoryRegistry::Get(StringView name)
     {
-        if (FactoryFn* f = detail::FactoryMap().Find(String(name))) { return *f; }
+        if (FactoryFn* f = detail::FactoryMap().Find(String(name)))
+        {
+            return *f;
+        }
         return nullptr;
     }
 
@@ -702,210 +853,299 @@ export namespace draconic::ui
         // Idempotent: the factory map is a global static, so register once even if called from several
         // entry points (StyleSheetLoader::Load and SSSParser::ApplyInlineStyle both ensure this).
         static bool registered = false;
-        if (registered) { return; }
+        if (registered)
+        {
+            return;
+        }
         registered = true;
 
         // color($color) -> ColorDrawable
-        Register(u8"color", [](SSSParser& parser, StyleSheet& sheet) -> RefPtr<Drawable>
-        {
-            const Color color = parser.ParseColorArg();
-            RefPtr<ColorDrawable> d = MakeRef<ColorDrawable>(DefaultAllocator(), color);
-            sheet.OwnDrawable(d);
-            return d;
-        });
+        Register(u8"color",
+                 [](SSSParser& parser, StyleSheet& sheet) -> RefPtr<Drawable>
+                 {
+                     const Color color = parser.ParseColorArg();
+                     RefPtr<ColorDrawable> d = MakeRef<ColorDrawable>(DefaultAllocator(), color);
+                     sheet.OwnDrawable(d);
+                     return d;
+                 });
 
         // rounded-rect($color, radius=6, border=$color, border-width=1) -> RoundedRectDrawable
-        Register(u8"rounded-rect", [](SSSParser& parser, StyleSheet& sheet) -> RefPtr<Drawable>
-        {
-            const Color fillColor = parser.ParseColorArg();
-            f32 radius = 0.0f;
-            Color borderColor = Color::Transparent;
-            f32 borderWidth = 0.0f;
+        Register(u8"rounded-rect",
+                 [](SSSParser& parser, StyleSheet& sheet) -> RefPtr<Drawable>
+                 {
+                     const Color fillColor = parser.ParseColorArg();
+                     f32 radius = 0.0f;
+                     Color borderColor = Color::Transparent;
+                     f32 borderWidth = 0.0f;
 
-            while (parser.MatchComma())
-            {
-                const StringView kw = parser.PeekKeywordArg();
-                if (kw == StringView(u8"radius")) { parser.ConsumeKeywordArg(); radius = parser.ParseFloatValue(); }
-                else if (kw == StringView(u8"border-width")) { parser.ConsumeKeywordArg(); borderWidth = parser.ParseFloatValue(); }
-                else if (kw == StringView(u8"border")) { parser.ConsumeKeywordArg(); borderColor = parser.ParseColorArg(); }
-                else radius = parser.ParseFloatValue();
-            }
+                     while (parser.MatchComma())
+                     {
+                         const StringView kw = parser.PeekKeywordArg();
+                         if (kw == StringView(u8"radius"))
+                         {
+                             parser.ConsumeKeywordArg();
+                             radius = parser.ParseFloatValue();
+                         }
+                         else if (kw == StringView(u8"border-width"))
+                         {
+                             parser.ConsumeKeywordArg();
+                             borderWidth = parser.ParseFloatValue();
+                         }
+                         else if (kw == StringView(u8"border"))
+                         {
+                             parser.ConsumeKeywordArg();
+                             borderColor = parser.ParseColorArg();
+                         }
+                         else
+                             radius = parser.ParseFloatValue();
+                     }
 
-            RefPtr<RoundedRectDrawable> d = MakeRef<RoundedRectDrawable>(DefaultAllocator(), fillColor, radius, borderColor, borderWidth);
-            sheet.OwnDrawable(d);
-            return d;
-        });
+                     RefPtr<RoundedRectDrawable> d = MakeRef<RoundedRectDrawable>(
+                         DefaultAllocator(), fillColor, radius, borderColor, borderWidth);
+                     sheet.OwnDrawable(d);
+                     return d;
+                 });
 
         // gradient(direction, color1, color2) -> GradientDrawable
-        Register(u8"gradient", [](SSSParser& parser, StyleSheet& sheet) -> RefPtr<Drawable>
-        {
-            GradientDirection dir = GradientDirection::TopToBottom;
-            if (parser.PeekIdent() == StringView(u8"top-to-bottom")) { parser.ConsumeIdent(); dir = GradientDirection::TopToBottom; parser.MatchComma(); }
-            else if (parser.PeekIdent() == StringView(u8"left-to-right")) { parser.ConsumeIdent(); dir = GradientDirection::LeftToRight; parser.MatchComma(); }
-            else if (parser.PeekIdent() == StringView(u8"top-left-to-bottom-right")) { parser.ConsumeIdent(); dir = GradientDirection::TopLeftToBottomRight; parser.MatchComma(); }
-            else if (parser.PeekIdent() == StringView(u8"top-right-to-bottom-left")) { parser.ConsumeIdent(); dir = GradientDirection::TopRightToBottomLeft; parser.MatchComma(); }
+        Register(u8"gradient",
+                 [](SSSParser& parser, StyleSheet& sheet) -> RefPtr<Drawable>
+                 {
+                     GradientDirection dir = GradientDirection::TopToBottom;
+                     if (parser.PeekIdent() == StringView(u8"top-to-bottom"))
+                     {
+                         parser.ConsumeIdent();
+                         dir = GradientDirection::TopToBottom;
+                         parser.MatchComma();
+                     }
+                     else if (parser.PeekIdent() == StringView(u8"left-to-right"))
+                     {
+                         parser.ConsumeIdent();
+                         dir = GradientDirection::LeftToRight;
+                         parser.MatchComma();
+                     }
+                     else if (parser.PeekIdent() == StringView(u8"top-left-to-bottom-right"))
+                     {
+                         parser.ConsumeIdent();
+                         dir = GradientDirection::TopLeftToBottomRight;
+                         parser.MatchComma();
+                     }
+                     else if (parser.PeekIdent() == StringView(u8"top-right-to-bottom-left"))
+                     {
+                         parser.ConsumeIdent();
+                         dir = GradientDirection::TopRightToBottomLeft;
+                         parser.MatchComma();
+                     }
 
-            const Color c1 = parser.ParseColorArg();
-            parser.MatchComma();
-            const Color c2 = parser.ParseColorArg();
-            RefPtr<GradientDrawable> d = MakeRef<GradientDrawable>(DefaultAllocator(), c1, c2, dir);
-            sheet.OwnDrawable(d);
-            return d;
-        });
+                     const Color c1 = parser.ParseColorArg();
+                     parser.MatchComma();
+                     const Color c2 = parser.ParseColorArg();
+                     RefPtr<GradientDrawable> d =
+                         MakeRef<GradientDrawable>(DefaultAllocator(), c1, c2, dir);
+                     sheet.OwnDrawable(d);
+                     return d;
+                 });
 
         // state-list(normal=d, hover=d, pressed=d, ...) -> StateListDrawable
-        Register(u8"state-list", [](SSSParser& parser, StyleSheet& sheet) -> RefPtr<Drawable>
-        {
-            RefPtr<StateListDrawable> sl = MakeRef<StateListDrawable>(DefaultAllocator());
-            sheet.OwnDrawable(sl);
+        Register(u8"state-list",
+                 [](SSSParser& parser, StyleSheet& sheet) -> RefPtr<Drawable>
+                 {
+                     RefPtr<StateListDrawable> sl = MakeRef<StateListDrawable>(DefaultAllocator());
+                     sheet.OwnDrawable(sl);
 
-            while (!parser.IsAtRParen())
-            {
-                const StringView stateName = parser.PeekKeywordArg();
-                if (stateName.Size() > 0)
-                {
-                    parser.ConsumeKeywordArg();
-                    const ControlState state = detail::ParseStateName(stateName);
-                    RefPtr<Drawable> drawable = parser.ParseDrawableValue(sheet);
-                    if (drawable) sl->Set(state, drawable);
-                }
-                if (!parser.MatchComma()) break;
-            }
+                     while (!parser.IsAtRParen())
+                     {
+                         const StringView stateName = parser.PeekKeywordArg();
+                         if (stateName.Size() > 0)
+                         {
+                             parser.ConsumeKeywordArg();
+                             const ControlState state = detail::ParseStateName(stateName);
+                             RefPtr<Drawable> drawable = parser.ParseDrawableValue(sheet);
+                             if (drawable)
+                                 sl->Set(state, drawable);
+                         }
+                         if (!parser.MatchComma())
+                             break;
+                     }
 
-            return sl;
-        });
+                     return sl;
+                 });
 
         // state-colors($base) -> StateListDrawable via Palette.CreateStateColors
-        Register(u8"state-colors", [](SSSParser& parser, StyleSheet& sheet) -> RefPtr<Drawable>
-        {
-            const Color baseColor = parser.ParseColorArg();
-            RefPtr<StateListDrawable> sl = Palette::CreateStateColors(baseColor);
-            sheet.OwnDrawable(sl);
-            return sl;
-        });
+        Register(u8"state-colors",
+                 [](SSSParser& parser, StyleSheet& sheet) -> RefPtr<Drawable>
+                 {
+                     const Color baseColor = parser.ParseColorArg();
+                     RefPtr<StateListDrawable> sl = Palette::CreateStateColors(baseColor);
+                     sheet.OwnDrawable(sl);
+                     return sl;
+                 });
 
         // state-rounded($base, radius=6) -> StateListDrawable via Palette.CreateStateRounded
-        Register(u8"state-rounded", [](SSSParser& parser, StyleSheet& sheet) -> RefPtr<Drawable>
-        {
-            const Color baseColor = parser.ParseColorArg();
-            f32 radius = 0.0f;
-            if (parser.MatchComma())
-            {
-                const StringView kw = parser.PeekKeywordArg();
-                if (kw == StringView(u8"radius")) { parser.ConsumeKeywordArg(); radius = parser.ParseFloatValue(); }
-                else radius = parser.ParseFloatValue();
-            }
-            RefPtr<StateListDrawable> sl = Palette::CreateStateRounded(baseColor, vg::CornerRadii(radius));
-            sheet.OwnDrawable(sl);
-            return sl;
-        });
+        Register(u8"state-rounded",
+                 [](SSSParser& parser, StyleSheet& sheet) -> RefPtr<Drawable>
+                 {
+                     const Color baseColor = parser.ParseColorArg();
+                     f32 radius = 0.0f;
+                     if (parser.MatchComma())
+                     {
+                         const StringView kw = parser.PeekKeywordArg();
+                         if (kw == StringView(u8"radius"))
+                         {
+                             parser.ConsumeKeywordArg();
+                             radius = parser.ParseFloatValue();
+                         }
+                         else
+                             radius = parser.ParseFloatValue();
+                     }
+                     RefPtr<StateListDrawable> sl =
+                         Palette::CreateStateRounded(baseColor, vg::CornerRadii(radius));
+                     sheet.OwnDrawable(sl);
+                     return sl;
+                 });
 
         // layer(d1, d2, ...) -> LayerDrawable
-        Register(u8"layer", [](SSSParser& parser, StyleSheet& sheet) -> RefPtr<Drawable>
-        {
-            RefPtr<LayerDrawable> ld = MakeRef<LayerDrawable>(DefaultAllocator());
-            sheet.OwnDrawable(ld);
+        Register(u8"layer",
+                 [](SSSParser& parser, StyleSheet& sheet) -> RefPtr<Drawable>
+                 {
+                     RefPtr<LayerDrawable> ld = MakeRef<LayerDrawable>(DefaultAllocator());
+                     sheet.OwnDrawable(ld);
 
-            while (!parser.IsAtRParen())
-            {
-                RefPtr<Drawable> drawable = parser.ParseDrawableValue(sheet);
-                if (drawable) ld->AddLayer(drawable);
-                if (!parser.MatchComma()) break;
-            }
+                     while (!parser.IsAtRParen())
+                     {
+                         RefPtr<Drawable> drawable = parser.ParseDrawableValue(sheet);
+                         if (drawable)
+                             ld->AddLayer(drawable);
+                         if (!parser.MatchComma())
+                             break;
+                     }
 
-            return ld;
-        });
+                     return ld;
+                 });
 
         // inset(drawable, top, right, bottom, left) -> InsetDrawable
-        Register(u8"inset", [](SSSParser& parser, StyleSheet& sheet) -> RefPtr<Drawable>
-        {
-            RefPtr<Drawable> inner = parser.ParseDrawableValue(sheet);
-            f32 t = 0.0f, r = 0.0f, b = 0.0f, l = 0.0f;
-            if (parser.MatchComma()) t = parser.ParseFloatValue();
-            if (parser.MatchComma()) r = parser.ParseFloatValue();
-            if (parser.MatchComma()) b = parser.ParseFloatValue();
-            if (parser.MatchComma()) l = parser.ParseFloatValue();
+        Register(u8"inset",
+                 [](SSSParser& parser, StyleSheet& sheet) -> RefPtr<Drawable>
+                 {
+                     RefPtr<Drawable> inner = parser.ParseDrawableValue(sheet);
+                     f32 t = 0.0f, r = 0.0f, b = 0.0f, l = 0.0f;
+                     if (parser.MatchComma())
+                         t = parser.ParseFloatValue();
+                     if (parser.MatchComma())
+                         r = parser.ParseFloatValue();
+                     if (parser.MatchComma())
+                         b = parser.ParseFloatValue();
+                     if (parser.MatchComma())
+                         l = parser.ParseFloatValue();
 
-            RefPtr<InsetDrawable> d = MakeRef<InsetDrawable>(DefaultAllocator(), Move(inner), Thickness{ l, t, r, b });
-            sheet.OwnDrawable(d);
-            return d;
-        });
+                     RefPtr<InsetDrawable> d = MakeRef<InsetDrawable>(
+                         DefaultAllocator(), Move(inner), Thickness{l, t, r, b});
+                     sheet.OwnDrawable(d);
+                     return d;
+                 });
 
         // svg(name, tint=$color) -> SVGDrawable
-        Register(u8"svg", [](SSSParser& parser, StyleSheet& sheet) -> RefPtr<Drawable>
-        {
-            const StringView name = parser.ConsumeIdent();
-            Optional<Color> tint;
-            if (parser.MatchComma())
-            {
-                const StringView kw = parser.PeekKeywordArg();
-                if (kw == StringView(u8"tint")) { parser.ConsumeKeywordArg(); tint = parser.ParseColorArg(); }
-                else tint = parser.ParseColorArg();
-            }
+        Register(u8"svg",
+                 [](SSSParser& parser, StyleSheet& sheet) -> RefPtr<Drawable>
+                 {
+                     const StringView name = parser.ConsumeIdent();
+                     Optional<Color> tint;
+                     if (parser.MatchComma())
+                     {
+                         const StringView kw = parser.PeekKeywordArg();
+                         if (kw == StringView(u8"tint"))
+                         {
+                             parser.ConsumeKeywordArg();
+                             tint = parser.ParseColorArg();
+                         }
+                         else
+                             tint = parser.ParseColorArg();
+                     }
 
-            const Optional<StringView> svgText = parser.ResolveSvg(name);
-            if (!svgText.HasValue()) return nullptr;
+                     const Optional<StringView> svgText = parser.ResolveSvg(name);
+                     if (!svgText.HasValue())
+                         return nullptr;
 
-            RefPtr<SVGDrawable> d;
-            if (tint.HasValue()) d = SVGDrawable::FromString(svgText.Value(), tint.Value());
-            else d = SVGDrawable::FromString(svgText.Value());
+                     RefPtr<SVGDrawable> d;
+                     if (tint.HasValue())
+                         d = SVGDrawable::FromString(svgText.Value(), tint.Value());
+                     else
+                         d = SVGDrawable::FromString(svgText.Value());
 
-            if (d) sheet.OwnDrawable(d);
-            return d;
-        });
+                     if (d)
+                         sheet.OwnDrawable(d);
+                     return d;
+                 });
 
         // image(name, tint=$color) -> ImageDrawable
-        Register(u8"image", [](SSSParser& parser, StyleSheet& sheet) -> RefPtr<Drawable>
-        {
-            const StringView name = parser.ConsumeIdent();
-            Color tint = Color::White;
-            if (parser.MatchComma())
-            {
-                const StringView kw = parser.PeekKeywordArg();
-                if (kw == StringView(u8"tint")) { parser.ConsumeKeywordArg(); tint = parser.ParseColorArg(); }
-                else tint = parser.ParseColorArg();
-            }
+        Register(u8"image",
+                 [](SSSParser& parser, StyleSheet& sheet) -> RefPtr<Drawable>
+                 {
+                     const StringView name = parser.ConsumeIdent();
+                     Color tint = Color::White;
+                     if (parser.MatchComma())
+                     {
+                         const StringView kw = parser.PeekKeywordArg();
+                         if (kw == StringView(u8"tint"))
+                         {
+                             parser.ConsumeKeywordArg();
+                             tint = parser.ParseColorArg();
+                         }
+                         else
+                             tint = parser.ParseColorArg();
+                     }
 
-            const image::ImageData* imageData = parser.ResolveImage(name);
-            if (imageData == nullptr) return nullptr;
+                     const image::ImageData* imageData = parser.ResolveImage(name);
+                     if (imageData == nullptr)
+                         return nullptr;
 
-            RefPtr<ImageDrawable> d = MakeRef<ImageDrawable>(DefaultAllocator(), imageData, tint);
-            sheet.OwnDrawable(d);
-            return d;
-        });
+                     RefPtr<ImageDrawable> d =
+                         MakeRef<ImageDrawable>(DefaultAllocator(), imageData, tint);
+                     sheet.OwnDrawable(d);
+                     return d;
+                 });
 
         // nine-slice(name, slices, tint=$color) -> NineSliceDrawable
-        Register(u8"nine-slice", [](SSSParser& parser, StyleSheet& sheet) -> RefPtr<Drawable>
-        {
-            const StringView name = parser.ConsumeIdent();
-            parser.MatchComma();
+        Register(u8"nine-slice",
+                 [](SSSParser& parser, StyleSheet& sheet) -> RefPtr<Drawable>
+                 {
+                     const StringView name = parser.ConsumeIdent();
+                     parser.MatchComma();
 
-            // Parse slices as 1 or 4 values
-            f32 sliceVals[4] = {};
-            i32 sliceCount = 0;
-            while (sliceCount < 4 && parser.PeekIsNumber())
-                sliceVals[sliceCount++] = parser.ParseFloatValue();
+                     // Parse slices as 1 or 4 values
+                     f32 sliceVals[4] = {};
+                     i32 sliceCount = 0;
+                     while (sliceCount < 4 && parser.PeekIsNumber())
+                         sliceVals[sliceCount++] = parser.ParseFloatValue();
 
-            image::NineSlice slices{};
-            if (sliceCount == 1)
-                slices = image::NineSlice(sliceVals[0], sliceVals[0], sliceVals[0], sliceVals[0]);
-            else if (sliceCount == 4)
-                slices = image::NineSlice(sliceVals[0], sliceVals[1], sliceVals[2], sliceVals[3]);
+                     image::NineSlice slices{};
+                     if (sliceCount == 1)
+                         slices = image::NineSlice(sliceVals[0], sliceVals[0], sliceVals[0],
+                                                   sliceVals[0]);
+                     else if (sliceCount == 4)
+                         slices = image::NineSlice(sliceVals[0], sliceVals[1], sliceVals[2],
+                                                   sliceVals[3]);
 
-            Color tint = Color::White;
-            if (parser.MatchComma())
-            {
-                const StringView kw = parser.PeekKeywordArg();
-                if (kw == StringView(u8"tint")) { parser.ConsumeKeywordArg(); tint = parser.ParseColorArg(); }
-                else tint = parser.ParseColorArg();
-            }
+                     Color tint = Color::White;
+                     if (parser.MatchComma())
+                     {
+                         const StringView kw = parser.PeekKeywordArg();
+                         if (kw == StringView(u8"tint"))
+                         {
+                             parser.ConsumeKeywordArg();
+                             tint = parser.ParseColorArg();
+                         }
+                         else
+                             tint = parser.ParseColorArg();
+                     }
 
-            const image::ImageData* imageData = parser.ResolveImage(name);
-            if (imageData == nullptr) return nullptr;
+                     const image::ImageData* imageData = parser.ResolveImage(name);
+                     if (imageData == nullptr)
+                         return nullptr;
 
-            RefPtr<NineSliceDrawable> d = MakeRef<NineSliceDrawable>(DefaultAllocator(), imageData, slices, tint);
-            sheet.OwnDrawable(d);
-            return d;
-        });
+                     RefPtr<NineSliceDrawable> d =
+                         MakeRef<NineSliceDrawable>(DefaultAllocator(), imageData, slices, tint);
+                     sheet.OwnDrawable(d);
+                     return d;
+                 });
     }
 }

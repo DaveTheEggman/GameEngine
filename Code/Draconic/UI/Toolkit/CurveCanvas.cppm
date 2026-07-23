@@ -59,7 +59,7 @@ export namespace draconic::ui::toolkit
         /// Short identifier shown in legend strips (e.g. "X", "R", "Gain").
         String Name;
         /// Stroke color used for the polyline and key markers.
-        core::Color StrokeColor{ 0, 0, 0, 0 };
+        core::Color StrokeColor{0, 0, 0, 0};
         /// Value used when a key is added to this channel implicitly (LinkedTime fallback value).
         f32 DefaultValue = 0.0f;
         /// When true, the channel is hidden (not rendered or hit-tested). Inverted polarity: zero-init = visible.
@@ -95,7 +95,9 @@ export namespace draconic::ui::toolkit
             Key() = default;
             Key(f32 time, f32 value, f32 tangentIn = 0.0f, f32 tangentOut = 0.0f,
                 TangentMode mode = TangentMode::Mirrored)
-                : Time(time), Value(value), TangentIn(tangentIn), TangentOut(tangentOut), Mode(mode) {}
+                : Time(time), Value(value), TangentIn(tangentIn), TangentOut(tangentOut), Mode(mode)
+            {
+            }
         };
 
         /// Max keypoints per channel. Default matches the particle limit.
@@ -159,16 +161,25 @@ export namespace draconic::ui::toolkit
         /// Replace one channel's keys. Does not enforce LinkedTime alignment.
         void SetKeys(i32 channelIdx, Span<const Key> keys)
         {
-            if (channelIdx < 0 || channelIdx >= static_cast<i32>(m_channels.Size())) { return; }
+            if (channelIdx < 0 || channelIdx >= static_cast<i32>(m_channels.Size()))
+            {
+                return;
+            }
             Channel& ch = m_channels[static_cast<usize>(channelIdx)];
             ch.Keys.Clear();
-            for (usize i = 0; i < keys.Size(); ++i) { ch.Keys.PushBack(keys[i]); }
+            for (usize i = 0; i < keys.Size(); ++i)
+            {
+                ch.Keys.PushBack(keys[i]);
+            }
             if (m_draggingChannelIdx == channelIdx)
             {
                 m_draggingChannelIdx = -1;
                 m_draggingKeyIdx = -1;
             }
-            if (m_selectedChannelIdx == channelIdx) { m_selectedKeyIdx = -1; }
+            if (m_selectedChannelIdx == channelIdx)
+            {
+                m_selectedKeyIdx = -1;
+            }
             Invalidate();
         }
 
@@ -176,7 +187,10 @@ export namespace draconic::ui::toolkit
 
         void OnMouseDown(MouseEventArgs& e) override
         {
-            if (m_channels.Size() == 0) { return; }
+            if (m_channels.Size() == 0)
+            {
+                return;
+            }
 
             // Tangent handles take priority over key markers - they're only drawn for the selected key.
             bool handleOutgoing = false;
@@ -185,12 +199,19 @@ export namespace draconic::ui::toolkit
                 const Channel& ch = m_channels[static_cast<usize>(m_selectedChannelIdx)];
                 const Key& k = ch.Keys[static_cast<usize>(m_selectedKeyIdx)];
                 // Flat keys ignore drag - user must right-click to switch mode first.
-                if (k.Mode == TangentMode::Flat) { e.Handled = true; return; }
+                if (k.Mode == TangentMode::Flat)
+                {
+                    e.Handled = true;
+                    return;
+                }
                 m_draggingChannelIdx = m_selectedChannelIdx;
                 m_draggingKeyIdx = m_selectedKeyIdx;
                 m_draggingHandle = handleOutgoing ? DraggingHandle::Out : DraggingHandle::In;
                 BeginGesture();
-                if (Context != nullptr) { Context->GetFocusManager()->SetCapture(this); }
+                if (Context != nullptr)
+                {
+                    Context->GetFocusManager()->SetCapture(this);
+                }
                 e.Handled = true;
                 Invalidate();
                 return;
@@ -199,7 +220,10 @@ export namespace draconic::ui::toolkit
             if (e.Button == MouseButton::Right && HitHandle(e.X, e.Y, handleOutgoing))
             {
                 const Channel& ch = m_channels[static_cast<usize>(m_selectedChannelIdx)];
-                if (ch.Descriptor.Locked) { return; }
+                if (ch.Descriptor.Locked)
+                {
+                    return;
+                }
                 BeginGesture();
                 CycleSelectedTangentMode();
                 OnKeyChanged.Invoke(m_selectedChannelIdx, m_selectedKeyIdx);
@@ -215,13 +239,19 @@ export namespace draconic::ui::toolkit
                 i32 hitKey = -1;
                 if (HitKey(e.X, e.Y, hitCh, hitKey))
                 {
-                    if (m_channels[static_cast<usize>(hitCh)].Descriptor.Locked) { return; }
+                    if (m_channels[static_cast<usize>(hitCh)].Descriptor.Locked)
+                    {
+                        return;
+                    }
                     m_selectedChannelIdx = hitCh;
                     m_selectedKeyIdx = hitKey;
                     m_draggingChannelIdx = hitCh;
                     m_draggingKeyIdx = hitKey;
                     BeginGesture();
-                    if (Context != nullptr) { Context->GetFocusManager()->SetCapture(this); }
+                    if (Context != nullptr)
+                    {
+                        Context->GetFocusManager()->SetCapture(this);
+                    }
                     e.Handled = true;
                     Invalidate();
                     return;
@@ -229,9 +259,15 @@ export namespace draconic::ui::toolkit
 
                 // Empty click - add a key.
                 const i32 activeIdx = ResolveActiveChannel();
-                if (activeIdx < 0) { return; }
+                if (activeIdx < 0)
+                {
+                    return;
+                }
                 const Channel& activeCh = m_channels[static_cast<usize>(activeIdx)];
-                if (static_cast<i32>(activeCh.Keys.Size()) >= MaxKeys) { return; }
+                if (static_cast<i32>(activeCh.Keys.Size()) >= MaxKeys)
+                {
+                    return;
+                }
 
                 const f32 t = XToTime(e.X);
                 const f32 v = ClampToChannel(activeIdx, YToValue(e.Y));
@@ -246,11 +282,16 @@ export namespace draconic::ui::toolkit
                     i32 newIdx = -1;
                     for (i32 c = 0; c < channelN; c++)
                     {
-                        const f32 chVal = (c == activeIdx)
-                            ? v
-                            : ClampToChannel(c, m_channels[static_cast<usize>(c)].Descriptor.DefaultValue);
+                        const f32 chVal =
+                            (c == activeIdx)
+                                ? v
+                                : ClampToChannel(
+                                      c, m_channels[static_cast<usize>(c)].Descriptor.DefaultValue);
                         addedIndices[static_cast<usize>(c)] = InsertSortedKey(c, Key(t, chVal));
-                        if (c == activeIdx) { newIdx = addedIndices[static_cast<usize>(c)]; }
+                        if (c == activeIdx)
+                        {
+                            newIdx = addedIndices[static_cast<usize>(c)];
+                        }
                     }
                     m_selectedChannelIdx = activeIdx;
                     m_selectedKeyIdx = newIdx;
@@ -270,7 +311,10 @@ export namespace draconic::ui::toolkit
                     m_draggingKeyIdx = idx;
                     OnKeyAdded.Invoke(activeIdx, idx);
                 }
-                if (Context != nullptr) { Context->GetFocusManager()->SetCapture(this); }
+                if (Context != nullptr)
+                {
+                    Context->GetFocusManager()->SetCapture(this);
+                }
                 e.Handled = true;
                 Invalidate();
             }
@@ -280,7 +324,10 @@ export namespace draconic::ui::toolkit
                 i32 hitKey = -1;
                 if (HitKey(e.X, e.Y, hitCh, hitKey))
                 {
-                    if (m_channels[static_cast<usize>(hitCh)].Descriptor.Locked) { return; }
+                    if (m_channels[static_cast<usize>(hitCh)].Descriptor.Locked)
+                    {
+                        return;
+                    }
                     BeginGesture();
                     if (LinkedTime)
                     {
@@ -289,9 +336,11 @@ export namespace draconic::ui::toolkit
                         const i32 channelN = static_cast<i32>(m_channels.Size());
                         for (i32 c = 0; c < channelN; c++)
                         {
-                            if (hitKey < static_cast<i32>(m_channels[static_cast<usize>(c)].Keys.Size()))
+                            if (hitKey <
+                                static_cast<i32>(m_channels[static_cast<usize>(c)].Keys.Size()))
                             {
-                                m_channels[static_cast<usize>(c)].Keys.RemoveAt(static_cast<usize>(hitKey));
+                                m_channels[static_cast<usize>(c)].Keys.RemoveAt(
+                                    static_cast<usize>(hitKey));
                                 removedChannels.PushBack(c);
                             }
                         }
@@ -302,10 +351,14 @@ export namespace draconic::ui::toolkit
                     }
                     else
                     {
-                        m_channels[static_cast<usize>(hitCh)].Keys.RemoveAt(static_cast<usize>(hitKey));
+                        m_channels[static_cast<usize>(hitCh)].Keys.RemoveAt(
+                            static_cast<usize>(hitKey));
                         OnKeyRemoved.Invoke(hitCh, hitKey);
                     }
-                    if (m_selectedChannelIdx == hitCh && m_selectedKeyIdx == hitKey) { m_selectedKeyIdx = -1; }
+                    if (m_selectedChannelIdx == hitCh && m_selectedKeyIdx == hitKey)
+                    {
+                        m_selectedKeyIdx = -1;
+                    }
                     EndGesture();
                     e.Handled = true;
                     Invalidate();
@@ -315,10 +368,20 @@ export namespace draconic::ui::toolkit
 
         void OnMouseMove(MouseEventArgs& e) override
         {
-            if (m_draggingChannelIdx < 0 || m_draggingKeyIdx < 0) { return; }
+            if (m_draggingChannelIdx < 0 || m_draggingKeyIdx < 0)
+            {
+                return;
+            }
             const i32 dragCh = m_draggingChannelIdx;
-            if (dragCh >= static_cast<i32>(m_channels.Size())) { return; }
-            if (m_draggingKeyIdx >= static_cast<i32>(m_channels[static_cast<usize>(dragCh)].Keys.Size())) { return; }
+            if (dragCh >= static_cast<i32>(m_channels.Size()))
+            {
+                return;
+            }
+            if (m_draggingKeyIdx >=
+                static_cast<i32>(m_channels[static_cast<usize>(dragCh)].Keys.Size()))
+            {
+                return;
+            }
 
             // Tangent-handle drag: keep the key in place and rotate the handle around it.
             if (m_draggingHandle != DraggingHandle::None)
@@ -332,18 +395,30 @@ export namespace draconic::ui::toolkit
                 // Constrain dx to the handle's side so the user can't flip the In handle to the right.
                 const bool outgoing = (m_draggingHandle == DraggingHandle::Out);
                 const f32 minDx = 4.0f;
-                if (outgoing && dx < minDx) { dx = minDx; }
-                if (!outgoing && dx > -minDx) { dx = -minDx; }
+                if (outgoing && dx < minDx)
+                {
+                    dx = minDx;
+                }
+                if (!outgoing && dx > -minDx)
+                {
+                    dx = -minDx;
+                }
                 const f32 newSlope = HandleScreenToDataSlope(dx, dy);
                 if (outgoing)
                 {
                     k.TangentOut = newSlope;
-                    if (k.Mode == TangentMode::Mirrored) { k.TangentIn = newSlope; }
+                    if (k.Mode == TangentMode::Mirrored)
+                    {
+                        k.TangentIn = newSlope;
+                    }
                 }
                 else
                 {
                     k.TangentIn = newSlope;
-                    if (k.Mode == TangentMode::Mirrored) { k.TangentOut = newSlope; }
+                    if (k.Mode == TangentMode::Mirrored)
+                    {
+                        k.TangentOut = newSlope;
+                    }
                 }
                 ch.Keys[static_cast<usize>(m_draggingKeyIdx)] = k;
                 OnKeyChanged.Invoke(dragCh, m_draggingKeyIdx);
@@ -361,11 +436,20 @@ export namespace draconic::ui::toolkit
                 const i32 channelN = static_cast<i32>(m_channels.Size());
                 for (i32 c = 0; c < channelN; c++)
                 {
-                    if (m_draggingKeyIdx >= static_cast<i32>(m_channels[static_cast<usize>(c)].Keys.Size())) { continue; }
-                    Key k = m_channels[static_cast<usize>(c)].Keys[static_cast<usize>(m_draggingKeyIdx)];
+                    if (m_draggingKeyIdx >=
+                        static_cast<i32>(m_channels[static_cast<usize>(c)].Keys.Size()))
+                    {
+                        continue;
+                    }
+                    Key k = m_channels[static_cast<usize>(c)]
+                                .Keys[static_cast<usize>(m_draggingKeyIdx)];
                     k.Time = newTime;
-                    if (c == dragCh) { k.Value = newValue; }
-                    m_channels[static_cast<usize>(c)].Keys[static_cast<usize>(m_draggingKeyIdx)] = k;
+                    if (c == dragCh)
+                    {
+                        k.Value = newValue;
+                    }
+                    m_channels[static_cast<usize>(c)].Keys[static_cast<usize>(m_draggingKeyIdx)] =
+                        k;
                 }
                 ReSortLinked(dragCh);
             }
@@ -389,7 +473,9 @@ export namespace draconic::ui::toolkit
                 const i32 channelN = static_cast<i32>(m_channels.Size());
                 for (i32 c = 0; c < channelN; c++)
                 {
-                    if (c != dragCh && m_draggingKeyIdx < static_cast<i32>(m_channels[static_cast<usize>(c)].Keys.Size()))
+                    if (c != dragCh &&
+                        m_draggingKeyIdx <
+                            static_cast<i32>(m_channels[static_cast<usize>(c)].Keys.Size()))
                     {
                         OnKeyChanged.Invoke(c, m_draggingKeyIdx);
                     }
@@ -407,7 +493,10 @@ export namespace draconic::ui::toolkit
                 m_draggingChannelIdx = -1;
                 m_draggingKeyIdx = -1;
                 m_draggingHandle = DraggingHandle::None;
-                if (Context != nullptr) { Context->GetFocusManager()->ReleaseCapture(); }
+                if (Context != nullptr)
+                {
+                    Context->GetFocusManager()->ReleaseCapture();
+                }
                 EndGesture();
                 e.Handled = true;
             }
@@ -420,23 +509,24 @@ export namespace draconic::ui::toolkit
             UpdateAutoFit();
 
             // Background.
-            ctx.VG().FillRect(Rectangle{ 0, 0, Width(), Height() }, Rgb(28, 28, 33, 255));
+            ctx.VG().FillRect(Rectangle{0, 0, Width(), Height()}, Rgb(28, 28, 33, 255));
 
             // Grid: 4 divisions on each axis (5 lines).
             constexpr i32 DIVS = 4;
             const core::Color gridColor = Rgb(50, 50, 58, 255);
             const core::Color labelColor = Rgb(120, 122, 132, 255);
-            fonts::CachedFont* font = (ctx.FontService() != nullptr) ? ctx.FontService()->GetFont(9.0f) : nullptr;
+            fonts::CachedFont* font =
+                (ctx.FontService() != nullptr) ? ctx.FontService()->GetFont(9.0f) : nullptr;
 
             for (i32 i = 0; i <= DIVS; i++)
             {
                 const f32 x = (i / static_cast<f32>(DIVS)) * Width();
-                ctx.VG().FillRect(Rectangle{ x, 0, 1, Height() }, gridColor);
+                ctx.VG().FillRect(Rectangle{x, 0, 1, Height()}, gridColor);
             }
             for (i32 i = 0; i <= DIVS; i++)
             {
                 const f32 y = (i / static_cast<f32>(DIVS)) * Height();
-                ctx.VG().FillRect(Rectangle{ 0, core::Min(y, Height() - 1), Width(), 1 }, gridColor);
+                ctx.VG().FillRect(Rectangle{0, core::Min(y, Height() - 1), Width(), 1}, gridColor);
             }
 
             if (font != nullptr)
@@ -450,18 +540,21 @@ export namespace draconic::ui::toolkit
                     const String txt = FormatShort(val);
                     if (i == 0)
                     {
-                        ctx.VG().DrawText(txt, font, Rectangle{ 2, 1, 42, 14 },
-                            fonts::TextAlignment::Left, fonts::VerticalAlignment::Top, labelColor);
+                        ctx.VG().DrawText(txt, font, Rectangle{2, 1, 42, 14},
+                                          fonts::TextAlignment::Left, fonts::VerticalAlignment::Top,
+                                          labelColor);
                     }
                     else if (i == DIVS)
                     {
-                        ctx.VG().DrawText(txt, font, Rectangle{ 2, Height() - 15, 42, 14 },
-                            fonts::TextAlignment::Left, fonts::VerticalAlignment::Bottom, labelColor);
+                        ctx.VG().DrawText(txt, font, Rectangle{2, Height() - 15, 42, 14},
+                                          fonts::TextAlignment::Left,
+                                          fonts::VerticalAlignment::Bottom, labelColor);
                     }
                     else
                     {
-                        ctx.VG().DrawText(txt, font, Rectangle{ 2, lineY - 7, 42, 14 },
-                            fonts::TextAlignment::Left, fonts::VerticalAlignment::Middle, labelColor);
+                        ctx.VG().DrawText(txt, font, Rectangle{2, lineY - 7, 42, 14},
+                                          fonts::TextAlignment::Left,
+                                          fonts::VerticalAlignment::Middle, labelColor);
                     }
                 }
 
@@ -473,18 +566,21 @@ export namespace draconic::ui::toolkit
                     const String txt = FormatShort(frac);
                     if (i == 0)
                     {
-                        ctx.VG().DrawText(txt, font, Rectangle{ 2, Height() - 13, 32, 12 },
-                            fonts::TextAlignment::Left, fonts::VerticalAlignment::Bottom, labelColor);
+                        ctx.VG().DrawText(txt, font, Rectangle{2, Height() - 13, 32, 12},
+                                          fonts::TextAlignment::Left,
+                                          fonts::VerticalAlignment::Bottom, labelColor);
                     }
                     else if (i == DIVS)
                     {
-                        ctx.VG().DrawText(txt, font, Rectangle{ Width() - 34, Height() - 13, 32, 12 },
-                            fonts::TextAlignment::Right, fonts::VerticalAlignment::Bottom, labelColor);
+                        ctx.VG().DrawText(txt, font, Rectangle{Width() - 34, Height() - 13, 32, 12},
+                                          fonts::TextAlignment::Right,
+                                          fonts::VerticalAlignment::Bottom, labelColor);
                     }
                     else
                     {
-                        ctx.VG().DrawText(txt, font, Rectangle{ lineX - 16, Height() - 13, 32, 12 },
-                            fonts::TextAlignment::Center, fonts::VerticalAlignment::Bottom, labelColor);
+                        ctx.VG().DrawText(txt, font, Rectangle{lineX - 16, Height() - 13, 32, 12},
+                                          fonts::TextAlignment::Center,
+                                          fonts::VerticalAlignment::Bottom, labelColor);
                     }
                 }
             }
@@ -494,7 +590,10 @@ export namespace draconic::ui::toolkit
             for (i32 c = 0; c < channelN; c++)
             {
                 const Channel& ch = m_channels[static_cast<usize>(c)];
-                if (ch.Descriptor.Hidden || ch.Keys.Size() == 0) { continue; }
+                if (ch.Descriptor.Hidden || ch.Keys.Size() == 0)
+                {
+                    continue;
+                }
 
                 constexpr i32 SAMPLES = 128;
                 ctx.VG().BeginPath();
@@ -504,8 +603,14 @@ export namespace draconic::ui::toolkit
                     const f32 v = Evaluate(c, t);
                     const f32 x = TimeToX(t);
                     const f32 y = ValueToY(v);
-                    if (i == 0) { ctx.VG().MoveTo(x, y); }
-                    else { ctx.VG().LineTo(x, y); }
+                    if (i == 0)
+                    {
+                        ctx.VG().MoveTo(x, y);
+                    }
+                    else
+                    {
+                        ctx.VG().LineTo(x, y);
+                    }
                 }
                 ctx.VG().Stroke(ch.Descriptor.StrokeColor, 1.5f);
 
@@ -514,8 +619,9 @@ export namespace draconic::ui::toolkit
                     const f32 cx = TimeToX(ch.Keys[static_cast<usize>(i)].Time);
                     const f32 cy = ValueToY(ch.Keys[static_cast<usize>(i)].Value);
                     const bool isSel = (c == m_selectedChannelIdx && i == m_selectedKeyIdx);
-                    ctx.VG().FillCircle(Float2{ cx, cy }, KeyDrawRadius,
-                        isSel ? Rgb(255, 220, 100, 255) : ch.Descriptor.StrokeColor);
+                    ctx.VG().FillCircle(Float2{cx, cy}, KeyDrawRadius,
+                                        isSel ? Rgb(255, 220, 100, 255)
+                                              : ch.Descriptor.StrokeColor);
                     if (isSel)
                     {
                         ctx.VG().BeginPath();
@@ -524,24 +630,30 @@ export namespace draconic::ui::toolkit
                             const f32 theta = (a / 32.0f) * core::kTwoPi;
                             const f32 px = cx + (KeyDrawRadius + 2) * Cos(theta);
                             const f32 py = cy + (KeyDrawRadius + 2) * Sin(theta);
-                            if (a == 0) { ctx.VG().MoveTo(px, py); }
-                            else { ctx.VG().LineTo(px, py); }
+                            if (a == 0)
+                            {
+                                ctx.VG().MoveTo(px, py);
+                            }
+                            else
+                            {
+                                ctx.VG().LineTo(px, py);
+                            }
                         }
                         ctx.VG().Stroke(Rgb(255, 220, 100, 255), 1.5f);
                     }
                 }
 
                 // Tangent handles - drawn only on the selected key of a Hermite channel.
-                if (c == m_selectedChannelIdx && m_selectedKeyIdx >= 0
-                    && m_selectedKeyIdx < static_cast<i32>(ch.Keys.Size())
-                    && ch.Descriptor.Interpolation == CurveInterpolation::Hermite)
+                if (c == m_selectedChannelIdx && m_selectedKeyIdx >= 0 &&
+                    m_selectedKeyIdx < static_cast<i32>(ch.Keys.Size()) &&
+                    ch.Descriptor.Interpolation == CurveInterpolation::Hermite)
                 {
                     const Key& k = ch.Keys[static_cast<usize>(m_selectedKeyIdx)];
                     const f32 kx = TimeToX(k.Time);
                     const f32 ky = ValueToY(k.Value);
 
-                    core::Color colIn{ 0, 0, 0, 0 };
-                    core::Color colOut{ 0, 0, 0, 0 };
+                    core::Color colIn{0, 0, 0, 0};
+                    core::Color colOut{0, 0, 0, 0};
                     switch (k.Mode)
                     {
                     case TangentMode::Mirrored:
@@ -565,12 +677,14 @@ export namespace draconic::ui::toolkit
                     ComputeHandlePos(c, m_selectedKeyIdx, true, ohx, ohy);
                     ComputeHandlePos(c, m_selectedKeyIdx, false, ihx, ihy);
 
-                    ctx.VG().DrawLine(Float2{ kx, ky }, Float2{ ihx, ihy }, colIn, 1);
-                    ctx.VG().DrawLine(Float2{ kx, ky }, Float2{ ohx, ohy }, colOut, 1);
-                    ctx.VG().FillRect(Rectangle{ ihx - HandleDrawRadius, ihy - HandleDrawRadius,
-                        HandleDrawRadius * 2, HandleDrawRadius * 2 }, colIn);
-                    ctx.VG().FillRect(Rectangle{ ohx - HandleDrawRadius, ohy - HandleDrawRadius,
-                        HandleDrawRadius * 2, HandleDrawRadius * 2 }, colOut);
+                    ctx.VG().DrawLine(Float2{kx, ky}, Float2{ihx, ihy}, colIn, 1);
+                    ctx.VG().DrawLine(Float2{kx, ky}, Float2{ohx, ohy}, colOut, 1);
+                    ctx.VG().FillRect(Rectangle{ihx - HandleDrawRadius, ihy - HandleDrawRadius,
+                                                HandleDrawRadius * 2, HandleDrawRadius * 2},
+                                      colIn);
+                    ctx.VG().FillRect(Rectangle{ohx - HandleDrawRadius, ohy - HandleDrawRadius,
+                                                HandleDrawRadius * 2, HandleDrawRadius * 2},
+                                      colOut);
                 }
             }
         }
@@ -578,11 +692,17 @@ export namespace draconic::ui::toolkit
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
-            MeasuredSize = Float2{ constraints.ConstrainWidth(200.0f), constraints.ConstrainHeight(120.0f) };
+            MeasuredSize =
+                Float2{constraints.ConstrainWidth(200.0f), constraints.ConstrainHeight(120.0f)};
         }
 
     private:
-        enum class DraggingHandle : u8 { None, In, Out };
+        enum class DraggingHandle : u8
+        {
+            None,
+            In,
+            Out
+        };
 
         struct Channel
         {
@@ -592,7 +712,7 @@ export namespace draconic::ui::toolkit
 
         [[nodiscard]] static core::Color Rgb(u8 r, u8 g, u8 b, u8 a = 255) noexcept
         {
-            return core::Color{ r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f };
+            return core::Color{r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f};
         }
 
         // Format a float as up to 2 decimals with trailing zeros (and a trailing dot) trimmed - the Beef
@@ -601,16 +721,33 @@ export namespace draconic::ui::toolkit
         {
             char buf[32];
             int n = std::snprintf(buf, sizeof(buf), "%.2f", static_cast<double>(v));
-            if (n < 0) { return String(); }
+            if (n < 0)
+            {
+                return String();
+            }
             i32 len = static_cast<i32>(n);
             bool hasDot = false;
-            for (i32 i = 0; i < len; ++i) { if (buf[i] == '.') { hasDot = true; break; } }
+            for (i32 i = 0; i < len; ++i)
+            {
+                if (buf[i] == '.')
+                {
+                    hasDot = true;
+                    break;
+                }
+            }
             if (hasDot)
             {
-                while (len > 0 && buf[len - 1] == '0') { --len; }
-                if (len > 0 && buf[len - 1] == '.') { --len; }
+                while (len > 0 && buf[len - 1] == '0')
+                {
+                    --len;
+                }
+                if (len > 0 && buf[len - 1] == '.')
+                {
+                    --len;
+                }
             }
-            return String(StringView(reinterpret_cast<const char8_t*>(buf), static_cast<usize>(len)));
+            return String(
+                StringView(reinterpret_cast<const char8_t*>(buf), static_cast<usize>(len)));
         }
 
         void ClearChannels() { m_channels.Clear(); }
@@ -621,10 +758,22 @@ export namespace draconic::ui::toolkit
         {
             const Channel& ch = m_channels[static_cast<usize>(channelIdx)];
             const usize n = ch.Keys.Size();
-            if (n == 0) { return 0.0f; }
-            if (n == 1) { return ch.Keys[0].Value; }
-            if (t <= ch.Keys[0].Time) { return ch.Keys[0].Value; }
-            if (t >= ch.Keys[n - 1].Time) { return ch.Keys[n - 1].Value; }
+            if (n == 0)
+            {
+                return 0.0f;
+            }
+            if (n == 1)
+            {
+                return ch.Keys[0].Value;
+            }
+            if (t <= ch.Keys[0].Time)
+            {
+                return ch.Keys[0].Value;
+            }
+            if (t >= ch.Keys[n - 1].Time)
+            {
+                return ch.Keys[n - 1].Value;
+            }
 
             for (usize i = 0; i < n - 1; ++i)
             {
@@ -633,7 +782,10 @@ export namespace draconic::ui::toolkit
                 if (t >= a.Time && t <= b.Time)
                 {
                     const f32 seg = b.Time - a.Time;
-                    if (seg < 0.0001f) { return a.Value; }
+                    if (seg < 0.0001f)
+                    {
+                        return a.Value;
+                    }
                     const f32 lt = (t - a.Time) / seg;
                     switch (ch.Descriptor.Interpolation)
                     {
@@ -645,10 +797,9 @@ export namespace draconic::ui::toolkit
                     {
                         const f32 lt2 = lt * lt;
                         const f32 lt3 = lt2 * lt;
-                        return (2 * lt3 - 3 * lt2 + 1) * a.Value
-                            + (lt3 - 2 * lt2 + lt) * (a.TangentOut * seg)
-                            + (-2 * lt3 + 3 * lt2) * b.Value
-                            + (lt3 - lt2) * (b.TangentIn * seg);
+                        return (2 * lt3 - 3 * lt2 + 1) * a.Value +
+                               (lt3 - 2 * lt2 + lt) * (a.TangentOut * seg) +
+                               (-2 * lt3 + 3 * lt2) * b.Value + (lt3 - lt2) * (b.TangentIn * seg);
                     }
                     }
                 }
@@ -660,9 +811,15 @@ export namespace draconic::ui::toolkit
 
         void UpdateAutoFit()
         {
-            if (!AutoFitValueRange) { return; }
+            if (!AutoFitValueRange)
+            {
+                return;
+            }
             // Freeze the value range for the duration of an edit gesture (avoids a mid-drag feedback loop).
-            if (m_inGesture) { return; }
+            if (m_inGesture)
+            {
+                return;
+            }
 
             f32 lo = std::numeric_limits<f32>::max();
             f32 hi = std::numeric_limits<f32>::lowest();
@@ -674,19 +831,34 @@ export namespace draconic::ui::toolkit
             for (usize c = 0; c < m_channels.Size(); ++c)
             {
                 const Channel& ch = m_channels[c];
-                if (ch.Descriptor.Hidden) { continue; }
+                if (ch.Descriptor.Hidden)
+                {
+                    continue;
+                }
                 const ChannelDescriptor& d = ch.Descriptor;
                 if (d.DisplayMin < d.DisplayMax)
                 {
-                    if (d.DisplayMin < nomLo) { nomLo = d.DisplayMin; }
-                    if (d.DisplayMax > nomHi) { nomHi = d.DisplayMax; }
+                    if (d.DisplayMin < nomLo)
+                    {
+                        nomLo = d.DisplayMin;
+                    }
+                    if (d.DisplayMax > nomHi)
+                    {
+                        nomHi = d.DisplayMax;
+                    }
                     hasNominal = true;
                 }
                 for (usize i = 0; i < ch.Keys.Size(); ++i)
                 {
                     const f32 kv = ch.Keys[i].Value;
-                    if (kv < lo) { lo = kv; }
-                    if (kv > hi) { hi = kv; }
+                    if (kv < lo)
+                    {
+                        lo = kv;
+                    }
+                    if (kv > hi)
+                    {
+                        hi = kv;
+                    }
                     any = true;
                 }
             }
@@ -699,15 +871,26 @@ export namespace draconic::ui::toolkit
                 if (any)
                 {
                     const f32 pad = (nomHi - nomLo) * 0.05f;
-                    if (lo < fLo) { fLo = lo - pad; }
-                    if (hi > fHi) { fHi = hi + pad; }
+                    if (lo < fLo)
+                    {
+                        fLo = lo - pad;
+                    }
+                    if (hi > fHi)
+                    {
+                        fHi = hi + pad;
+                    }
                 }
                 ValueMin = fLo;
                 ValueMax = fHi;
                 return;
             }
 
-            if (!any) { ValueMin = 0.0f; ValueMax = 1.0f; return; }
+            if (!any)
+            {
+                ValueMin = 0.0f;
+                ValueMax = 1.0f;
+                return;
+            }
 
             const f32 center = (lo + hi) * 0.5f;
             const f32 span = hi - lo;
@@ -733,7 +916,10 @@ export namespace draconic::ui::toolkit
         [[nodiscard]] f32 ValueToY(f32 v) const
         {
             const f32 denom = (ValueMax - ValueMin);
-            if (denom < 0.0001f) { return Height() * 0.5f; }
+            if (denom < 0.0001f)
+            {
+                return Height() * 0.5f;
+            }
             return Height() * (1.0f - (v - ValueMin) / denom);
         }
         [[nodiscard]] f32 XToTime(f32 x) const { return core::Clamp(x / Width(), 0.0f, 1.0f); }
@@ -754,10 +940,12 @@ export namespace draconic::ui::toolkit
         // Computes the screen position of one tangent handle.
         void ComputeHandlePos(i32 channelIdx, i32 keyIdx, bool outgoing, f32& hx, f32& hy) const
         {
-            const Key& k = m_channels[static_cast<usize>(channelIdx)].Keys[static_cast<usize>(keyIdx)];
+            const Key& k =
+                m_channels[static_cast<usize>(channelIdx)].Keys[static_cast<usize>(keyIdx)];
             const f32 kx = TimeToX(k.Time);
             const f32 ky = ValueToY(k.Value);
-            const f32 pV = (ValueMax > ValueMin + 0.0001f) ? Height() / (ValueMax - ValueMin) : 0.0f;
+            const f32 pV =
+                (ValueMax > ValueMin + 0.0001f) ? Height() / (ValueMax - ValueMin) : 0.0f;
             const f32 slope = outgoing ? k.TangentOut : k.TangentIn;
             const f32 dx = outgoing ? Width() : -Width();
             const f32 dy = outgoing ? (-slope * pV) : (slope * pV);
@@ -775,9 +963,16 @@ export namespace draconic::ui::toolkit
         // Inverse of ComputeHandlePos's slope projection.
         [[nodiscard]] f32 HandleScreenToDataSlope(f32 screenDx, f32 screenDy) const
         {
-            if (Abs(screenDx) < 0.0001f) { return 0.0f; }
-            const f32 pV = (ValueMax > ValueMin + 0.0001f) ? Height() / (ValueMax - ValueMin) : 1.0f;
-            if (pV < 0.0001f) { return 0.0f; }
+            if (Abs(screenDx) < 0.0001f)
+            {
+                return 0.0f;
+            }
+            const f32 pV =
+                (ValueMax > ValueMin + 0.0001f) ? Height() / (ValueMax - ValueMin) : 1.0f;
+            if (pV < 0.0001f)
+            {
+                return 0.0f;
+            }
             const f32 screenSlope = screenDy / screenDx;
             return -screenSlope * Width() / pV;
         }
@@ -786,12 +981,27 @@ export namespace draconic::ui::toolkit
         [[nodiscard]] bool HitHandle(f32 x, f32 y, bool& outgoing) const
         {
             outgoing = false;
-            if (m_selectedChannelIdx < 0 || m_selectedKeyIdx < 0) { return false; }
-            if (m_selectedChannelIdx >= static_cast<i32>(m_channels.Size())) { return false; }
+            if (m_selectedChannelIdx < 0 || m_selectedKeyIdx < 0)
+            {
+                return false;
+            }
+            if (m_selectedChannelIdx >= static_cast<i32>(m_channels.Size()))
+            {
+                return false;
+            }
             const Channel& ch = m_channels[static_cast<usize>(m_selectedChannelIdx)];
-            if (ch.Descriptor.Hidden || ch.Descriptor.Locked) { return false; }
-            if (ch.Descriptor.Interpolation != CurveInterpolation::Hermite) { return false; }
-            if (m_selectedKeyIdx >= static_cast<i32>(ch.Keys.Size())) { return false; }
+            if (ch.Descriptor.Hidden || ch.Descriptor.Locked)
+            {
+                return false;
+            }
+            if (ch.Descriptor.Interpolation != CurveInterpolation::Hermite)
+            {
+                return false;
+            }
+            if (m_selectedKeyIdx >= static_cast<i32>(ch.Keys.Size()))
+            {
+                return false;
+            }
 
             f32 hx = 0.0f;
             f32 hy = 0.0f;
@@ -817,9 +1027,15 @@ export namespace draconic::ui::toolkit
         // Cycles the selected key's TangentMode: Mirrored -> Free -> Flat. Caller fires OnKeyChanged.
         void CycleSelectedTangentMode()
         {
-            if (m_selectedChannelIdx < 0 || m_selectedKeyIdx < 0) { return; }
+            if (m_selectedChannelIdx < 0 || m_selectedKeyIdx < 0)
+            {
+                return;
+            }
             Channel& ch = m_channels[static_cast<usize>(m_selectedChannelIdx)];
-            if (m_selectedKeyIdx >= static_cast<i32>(ch.Keys.Size())) { return; }
+            if (m_selectedKeyIdx >= static_cast<i32>(ch.Keys.Size()))
+            {
+                return;
+            }
             Key k = ch.Keys[static_cast<usize>(m_selectedKeyIdx)];
             switch (k.Mode)
             {
@@ -847,7 +1063,8 @@ export namespace draconic::ui::toolkit
             UpdateAutoFit();
 
             // Prefer the currently selected channel so overlapping keys disambiguate in its favor.
-            if (m_selectedChannelIdx >= 0 && m_selectedChannelIdx < static_cast<i32>(m_channels.Size()))
+            if (m_selectedChannelIdx >= 0 &&
+                m_selectedChannelIdx < static_cast<i32>(m_channels.Size()))
             {
                 if (HitKeyInChannel(m_selectedChannelIdx, x, y, keyIdx))
                 {
@@ -858,7 +1075,10 @@ export namespace draconic::ui::toolkit
             const i32 channelN = static_cast<i32>(m_channels.Size());
             for (i32 c = 0; c < channelN; c++)
             {
-                if (c == m_selectedChannelIdx) { continue; }
+                if (c == m_selectedChannelIdx)
+                {
+                    continue;
+                }
                 if (HitKeyInChannel(c, x, y, keyIdx))
                 {
                     channelIdx = c;
@@ -872,7 +1092,10 @@ export namespace draconic::ui::toolkit
         {
             keyIdx = -1;
             const Channel& ch = m_channels[static_cast<usize>(channelIdx)];
-            if (ch.Descriptor.Hidden) { return false; }
+            if (ch.Descriptor.Hidden)
+            {
+                return false;
+            }
             for (i32 i = 0; i < static_cast<i32>(ch.Keys.Size()); i++)
             {
                 const f32 kx = TimeToX(ch.Keys[static_cast<usize>(i)].Time);
@@ -890,23 +1113,45 @@ export namespace draconic::ui::toolkit
 
         // === Gesture ===
 
-        void BeginGesture() { if (!m_inGesture) { m_inGesture = true; OnEditBegin.Invoke(); } }
-        void EndGesture() { if (m_inGesture) { m_inGesture = false; OnEditEnd.Invoke(); } }
+        void BeginGesture()
+        {
+            if (!m_inGesture)
+            {
+                m_inGesture = true;
+                OnEditBegin.Invoke();
+            }
+        }
+        void EndGesture()
+        {
+            if (m_inGesture)
+            {
+                m_inGesture = false;
+                OnEditEnd.Invoke();
+            }
+        }
 
         // === Helpers ===
 
         i32 ResolveActiveChannel() const
         {
-            if (m_selectedChannelIdx >= 0 && m_selectedChannelIdx < static_cast<i32>(m_channels.Size()))
+            if (m_selectedChannelIdx >= 0 &&
+                m_selectedChannelIdx < static_cast<i32>(m_channels.Size()))
             {
-                const ChannelDescriptor& d = m_channels[static_cast<usize>(m_selectedChannelIdx)].Descriptor;
-                if (!d.Hidden && !d.Locked) { return m_selectedChannelIdx; }
+                const ChannelDescriptor& d =
+                    m_channels[static_cast<usize>(m_selectedChannelIdx)].Descriptor;
+                if (!d.Hidden && !d.Locked)
+                {
+                    return m_selectedChannelIdx;
+                }
             }
             const i32 channelN = static_cast<i32>(m_channels.Size());
             for (i32 i = 0; i < channelN; i++)
             {
                 const ChannelDescriptor& d = m_channels[static_cast<usize>(i)].Descriptor;
-                if (!d.Hidden && !d.Locked) { return i; }
+                if (!d.Hidden && !d.Locked)
+                {
+                    return i;
+                }
             }
             return -1;
         }
@@ -917,7 +1162,11 @@ export namespace draconic::ui::toolkit
             i32 idx = static_cast<i32>(ch.Keys.Size());
             for (i32 i = 0; i < static_cast<i32>(ch.Keys.Size()); i++)
             {
-                if (ch.Keys[static_cast<usize>(i)].Time > k.Time) { idx = i; break; }
+                if (ch.Keys[static_cast<usize>(i)].Time > k.Time)
+                {
+                    idx = i;
+                    break;
+                }
             }
             ch.Keys.Insert(static_cast<usize>(idx), k);
             return idx;
@@ -927,7 +1176,10 @@ export namespace draconic::ui::toolkit
         {
             const ChannelDescriptor& d = m_channels[static_cast<usize>(channelIdx)].Descriptor;
             // MinValue >= MaxValue (including the zero-init 0,0 case) means "no clamp configured".
-            if (d.MinValue >= d.MaxValue) { return v; }
+            if (d.MinValue >= d.MaxValue)
+            {
+                return v;
+            }
             return core::Clamp(v, d.MinValue, d.MaxValue);
         }
 
@@ -937,18 +1189,26 @@ export namespace draconic::ui::toolkit
         {
             Channel& driverCh = m_channels[static_cast<usize>(driverIdx)];
             const i32 n = static_cast<i32>(driverCh.Keys.Size());
-            if (n <= 1) { return; }
+            if (n <= 1)
+            {
+                return;
+            }
 
             // Build a permutation: indices[i] = old position of the i-th sorted key.
             Array<i32> indices;
             indices.Resize(static_cast<usize>(n));
-            for (i32 i = 0; i < n; i++) { indices[static_cast<usize>(i)] = i; }
+            for (i32 i = 0; i < n; i++)
+            {
+                indices[static_cast<usize>(i)] = i;
+            }
             for (i32 i = 1; i < n; i++)
             {
                 const i32 cur = indices[static_cast<usize>(i)];
                 const f32 curTime = driverCh.Keys[static_cast<usize>(cur)].Time;
                 i32 j = i - 1;
-                while (j >= 0 && driverCh.Keys[static_cast<usize>(indices[static_cast<usize>(j)])].Time > curTime)
+                while (j >= 0 &&
+                       driverCh.Keys[static_cast<usize>(indices[static_cast<usize>(j)])].Time >
+                           curTime)
                 {
                     indices[static_cast<usize>(j + 1)] = indices[static_cast<usize>(j)];
                     j--;
@@ -960,13 +1220,20 @@ export namespace draconic::ui::toolkit
             for (usize c = 0; c < m_channels.Size(); ++c)
             {
                 Channel& ch = m_channels[c];
-                if (static_cast<i32>(ch.Keys.Size()) != n) { continue; } // Defensive: only re-sort matched channels.
+                if (static_cast<i32>(ch.Keys.Size()) != n)
+                {
+                    continue;
+                } // Defensive: only re-sort matched channels.
                 Array<Key> oldKeys;
                 oldKeys.Resize(static_cast<usize>(n));
-                for (i32 i = 0; i < n; i++) { oldKeys[static_cast<usize>(i)] = ch.Keys[static_cast<usize>(i)]; }
                 for (i32 i = 0; i < n; i++)
                 {
-                    ch.Keys[static_cast<usize>(i)] = oldKeys[static_cast<usize>(indices[static_cast<usize>(i)])];
+                    oldKeys[static_cast<usize>(i)] = ch.Keys[static_cast<usize>(i)];
+                }
+                for (i32 i = 0; i < n; i++)
+                {
+                    ch.Keys[static_cast<usize>(i)] =
+                        oldKeys[static_cast<usize>(indices[static_cast<usize>(i)])];
                 }
             }
 

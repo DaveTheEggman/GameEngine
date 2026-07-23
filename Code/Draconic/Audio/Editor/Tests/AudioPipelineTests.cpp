@@ -78,7 +78,7 @@ namespace
         for (int i = 0; i < 7; ++i)
         {
             pushU32(0);
-        }           // manufacturer .. SMPTE offset
+        } // manufacturer .. SMPTE offset
         pushU32(1); // numLoops
         pushU32(0); // sampler data
         pushU32(0); // loop id

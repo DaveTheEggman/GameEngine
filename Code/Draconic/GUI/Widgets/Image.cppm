@@ -11,7 +11,7 @@ module;
 
 export module draconic.gui:image;
 
-import draconic.core;   // RefPtr, Move, Optional, Float2, Min, Max
+import draconic.core; // RefPtr, Move, Optional, Float2, Min, Max
 import :rect;
 import :draw_context;
 import :drawable;
@@ -37,10 +37,18 @@ export namespace draconic::gui
     public:
         Image() { SetTag(core::StringView(u8"image")); }
 
-        void SetDrawable(RefPtr<Drawable> drawable) { m_drawable = core::Move(drawable); Invalidate(); }
+        void SetDrawable(RefPtr<Drawable> drawable)
+        {
+            m_drawable = core::Move(drawable);
+            Invalidate();
+        }
         [[nodiscard]] Drawable* GetDrawable() const noexcept { return m_drawable.Get(); }
 
-        void SetScaleMode(ImageScaleMode mode) { m_mode = mode; Invalidate(); }
+        void SetScaleMode(ImageScaleMode mode)
+        {
+            m_mode = mode;
+            Invalidate();
+        }
         [[nodiscard]] ImageScaleMode GetScaleMode() const noexcept { return m_mode; }
 
         // Natural size of the drawable (for layout), if it has one.
@@ -54,7 +62,8 @@ export namespace draconic::gui
         [[nodiscard]] Rect DrawnBounds() const
         {
             const Rect box = GetContentBounds();
-            const Optional<core::Float2> intrinsic = m_drawable ? m_drawable->IntrinsicSize() : Optional<core::Float2>{};
+            const Optional<core::Float2> intrinsic =
+                m_drawable ? m_drawable->IntrinsicSize() : Optional<core::Float2>{};
             if (m_mode == ImageScaleMode::Stretch || !intrinsic.HasValue())
                 return box;
 
@@ -66,21 +75,24 @@ export namespace draconic::gui
                 {
                     const f32 sx = box.width / nat.x;
                     const f32 sy = box.height / nat.y;
-                    const f32 scale = (m_mode == ImageScaleMode::Fit) ? core::Min(sx, sy) : core::Max(sx, sy);
-                    size = core::Float2{ nat.x * scale, nat.y * scale };
+                    const f32 scale =
+                        (m_mode == ImageScaleMode::Fit) ? core::Min(sx, sy) : core::Max(sx, sy);
+                    size = core::Float2{nat.x * scale, nat.y * scale};
                 }
             }
             // None uses the natural size at the top-left; the rest center within the box.
             if (m_mode == ImageScaleMode::None)
-                return Rect{ box.x, box.y, size.x, size.y };
-            return Rect{ box.x + (box.width - size.x) * 0.5f, box.y + (box.height - size.y) * 0.5f, size.x, size.y };
+                return Rect{box.x, box.y, size.x, size.y};
+            return Rect{box.x + (box.width - size.x) * 0.5f, box.y + (box.height - size.y) * 0.5f,
+                        size.x, size.y};
         }
 
     protected:
         void OnDraw(DrawContext& ctx, const Rect& localBounds) override
         {
             (void)localBounds;
-            if (!m_drawable) return;
+            if (!m_drawable)
+                return;
             m_drawable->Draw(ctx, DrawnBounds());
         }
 

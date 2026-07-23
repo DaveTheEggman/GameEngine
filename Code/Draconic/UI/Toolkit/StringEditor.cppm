@@ -31,17 +31,30 @@ export namespace draconic::ui::toolkit
     public:
         Function<void(StringView)> Setter;
 
-        StringEditor(StringView name, StringView initialValue, Function<void(StringView)> setter = {}, StringView category = {})
+        StringEditor(StringView name, StringView initialValue,
+                     Function<void(StringView)> setter = {}, StringView category = {})
             : PropertyEditor(name, category), Setter(Move(setter)), m_value(initialValue)
         {
         }
 
         [[nodiscard]] StringView Value() const { return m_value; }
-        void SetValue(StringView value) { m_value = String(value); if (!m_syncing) { RefreshView(); } }
+        void SetValue(StringView value)
+        {
+            m_value = String(value);
+            if (!m_syncing)
+            {
+                RefreshView();
+            }
+        }
 
         void RefreshView() override
         {
-            if (m_editText != nullptr && !m_syncing) { m_syncing = true; m_editText->SetText(m_value); m_syncing = false; }
+            if (m_editText != nullptr && !m_syncing)
+            {
+                m_syncing = true;
+                m_editText->SetText(m_value);
+                m_syncing = false;
+            }
         }
 
         /// EditText subclass that notifies the StringEditor on focus changes.
@@ -62,22 +75,27 @@ export namespace draconic::ui::toolkit
     protected:
         RefPtr<View> CreateEditorView() override
         {
-            RefPtr<StringEditorEditText> editText = MakeRef<StringEditorEditText>(DefaultAllocator(), this);
+            RefPtr<StringEditorEditText> editText =
+                MakeRef<StringEditorEditText>(DefaultAllocator(), this);
             m_editText = editText.Get();
             m_editText->SetText(m_value);
             StringEditor* self = this;
-            m_editText->OnSubmit.Add([self](EditText* et)
-            {
-                if (!self->m_syncing)
+            m_editText->OnSubmit.Add(
+                [self](EditText* et)
                 {
-                    self->m_syncing = true;
-                    self->m_value = String(et->Text());
-                    if (self->Setter) { self->Setter(self->m_value); }
-                    self->NotifyValueChanged();
-                    self->m_syncing = false;
-                }
-                self->EndEdit();
-            });
+                    if (!self->m_syncing)
+                    {
+                        self->m_syncing = true;
+                        self->m_value = String(et->Text());
+                        if (self->Setter)
+                        {
+                            self->Setter(self->m_value);
+                        }
+                        self->NotifyValueChanged();
+                        self->m_syncing = false;
+                    }
+                    self->EndEdit();
+                });
             return editText;
         }
 
@@ -104,7 +122,10 @@ export namespace draconic::ui::toolkit
         {
             m_editor->m_syncing = true;
             m_editor->m_value = String(Text());
-            if (m_editor->Setter) { m_editor->Setter(m_editor->m_value); }
+            if (m_editor->Setter)
+            {
+                m_editor->Setter(m_editor->m_value);
+            }
             m_editor->NotifyValueChanged();
             m_editor->m_syncing = false;
             m_editor->EndEdit();
@@ -117,7 +138,10 @@ export namespace draconic::ui::toolkit
         {
             m_editor->m_value = m_editor->m_preEditValue;
             SetText(m_editor->m_preEditValue);
-            if (m_editor->Setter) { m_editor->Setter(m_editor->m_value); }
+            if (m_editor->Setter)
+            {
+                m_editor->Setter(m_editor->m_value);
+            }
             m_editor->CancelEdit();
             e.Handled = true;
             return;

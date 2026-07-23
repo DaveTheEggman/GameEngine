@@ -33,7 +33,8 @@ export namespace draconic::ui::toolkit
 
         Event<void(SplitView*, f32)> OnSplitChanged;
 
-        explicit SplitView(::draconic::ui::Orientation orientation = ::draconic::ui::Orientation::Horizontal)
+        explicit SplitView(
+            ::draconic::ui::Orientation orientation = ::draconic::ui::Orientation::Horizontal)
         {
             Orientation = orientation;
         }
@@ -55,14 +56,26 @@ export namespace draconic::ui::toolkit
         /// Set the two panes. SplitView takes a ref via AddView.
         void SetPanes(View* first, View* second)
         {
-            if (m_first != nullptr) { RemoveView(m_first, true); }
-            if (m_second != nullptr) { RemoveView(m_second, true); }
+            if (m_first != nullptr)
+            {
+                RemoveView(m_first, true);
+            }
+            if (m_second != nullptr)
+            {
+                RemoveView(m_second, true);
+            }
 
             m_first = first;
             m_second = second;
 
-            if (first != nullptr) { AddView(first); }
-            if (second != nullptr) { AddView(second); }
+            if (first != nullptr)
+            {
+                AddView(first);
+            }
+            if (second != nullptr)
+            {
+                AddView(second);
+            }
 
             Invalidate();
         }
@@ -78,24 +91,32 @@ export namespace draconic::ui::toolkit
 
             // Draw divider.
             const Rectangle divRect = GetDividerRect();
-            const Color divColor = (m_dividerHovered || m_dragging)
-                ? ResolveStyleColor(StyleProperty::AccentColor, Rgb(80, 85, 105, 255))
-                : ResolveStyleColor(StyleProperty::BorderColor, Rgb(55, 58, 70, 255));
+            const Color divColor =
+                (m_dividerHovered || m_dragging)
+                    ? ResolveStyleColor(StyleProperty::AccentColor, Rgb(80, 85, 105, 255))
+                    : ResolveStyleColor(StyleProperty::BorderColor, Rgb(55, 58, 70, 255));
             ctx.VG().FillRect(divRect, divColor);
 
             // Grip indicator in divider center.
-            const Color gripColor = ResolveStyleColor(StyleProperty::TextDimColor, Rgb(100, 105, 120, 180));
+            const Color gripColor =
+                ResolveStyleColor(StyleProperty::TextDimColor, Rgb(100, 105, 120, 180));
             const f32 cx = divRect.x + divRect.width * 0.5f;
             const f32 cy = divRect.y + divRect.height * 0.5f;
             const f32 dotR = 1.5f;
 
             if (Orientation == ::draconic::ui::Orientation::Horizontal)
             {
-                for (i32 i = -2; i <= 2; ++i) { ctx.VG().FillCircle(Float2{ cx, cy + i * 5.0f }, dotR, gripColor); }
+                for (i32 i = -2; i <= 2; ++i)
+                {
+                    ctx.VG().FillCircle(Float2{cx, cy + i * 5.0f}, dotR, gripColor);
+                }
             }
             else
             {
-                for (i32 i = -2; i <= 2; ++i) { ctx.VG().FillCircle(Float2{ cx + i * 5.0f, cy }, dotR, gripColor); }
+                for (i32 i = -2; i <= 2; ++i)
+                {
+                    ctx.VG().FillCircle(Float2{cx + i * 5.0f, cy}, dotR, gripColor);
+                }
             }
         }
 
@@ -103,12 +124,18 @@ export namespace draconic::ui::toolkit
 
         void OnMouseDown(MouseEventArgs& e) override
         {
-            if (!IsEffectivelyEnabled() || e.Button != MouseButton::Left) { return; }
+            if (!IsEffectivelyEnabled() || e.Button != MouseButton::Left)
+            {
+                return;
+            }
 
             if (IsInDivider(e.X, e.Y))
             {
                 m_dragging = true;
-                if (Context != nullptr) { Context->GetFocusManager()->SetCapture(this); }
+                if (Context != nullptr)
+                {
+                    Context->GetFocusManager()->SetCapture(this);
+                }
                 e.Handled = true;
             }
         }
@@ -123,9 +150,13 @@ export namespace draconic::ui::toolkit
                     const f32 available = Width() - divSize;
                     if (available > 0.0f)
                     {
-                        const f32 minRatio = (available > MinPaneSize * 2.0f) ? MinPaneSize / available : 0.0f;
-                        const f32 maxRatio = (available > MinPaneSize * 2.0f) ? 1.0f - MinPaneSize / available : 1.0f;
-                        SetSplitRatio(core::Clamp((e.X - divSize * 0.5f) / available, minRatio, maxRatio));
+                        const f32 minRatio =
+                            (available > MinPaneSize * 2.0f) ? MinPaneSize / available : 0.0f;
+                        const f32 maxRatio = (available > MinPaneSize * 2.0f)
+                                                 ? 1.0f - MinPaneSize / available
+                                                 : 1.0f;
+                        SetSplitRatio(
+                            core::Clamp((e.X - divSize * 0.5f) / available, minRatio, maxRatio));
                     }
                 }
                 else
@@ -133,9 +164,13 @@ export namespace draconic::ui::toolkit
                     const f32 available = Height() - divSize;
                     if (available > 0.0f)
                     {
-                        const f32 minRatio = (available > MinPaneSize * 2.0f) ? MinPaneSize / available : 0.0f;
-                        const f32 maxRatio = (available > MinPaneSize * 2.0f) ? 1.0f - MinPaneSize / available : 1.0f;
-                        SetSplitRatio(core::Clamp((e.Y - divSize * 0.5f) / available, minRatio, maxRatio));
+                        const f32 minRatio =
+                            (available > MinPaneSize * 2.0f) ? MinPaneSize / available : 0.0f;
+                        const f32 maxRatio = (available > MinPaneSize * 2.0f)
+                                                 ? 1.0f - MinPaneSize / available
+                                                 : 1.0f;
+                        SetSplitRatio(
+                            core::Clamp((e.Y - divSize * 0.5f) / available, minRatio, maxRatio));
                     }
                 }
             }
@@ -148,7 +183,8 @@ export namespace draconic::ui::toolkit
                     if (m_dividerHovered)
                     {
                         Cursor = (Orientation == ::draconic::ui::Orientation::Horizontal)
-                            ? CursorType::SizeWE : CursorType::SizeNS;
+                                     ? CursorType::SizeWE
+                                     : CursorType::SizeNS;
                     }
                     else
                     {
@@ -160,23 +196,32 @@ export namespace draconic::ui::toolkit
 
         void OnMouseUp(MouseEventArgs& e) override
         {
-            if (e.Button != MouseButton::Left || !m_dragging) { return; }
+            if (e.Button != MouseButton::Left || !m_dragging)
+            {
+                return;
+            }
             m_dragging = false;
-            if (Context != nullptr) { Context->GetFocusManager()->ReleaseCapture(); }
+            if (Context != nullptr)
+            {
+                Context->GetFocusManager()->ReleaseCapture();
+            }
             e.Handled = true;
         }
 
         void OnMouseLeave() override
         {
             m_dividerHovered = false;
-            if (!m_dragging) { Cursor = CursorType::Default; }
+            if (!m_dragging)
+            {
+                Cursor = CursorType::Default;
+            }
         }
 
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
             // SplitView fills its parent - request the full available space.
-            MeasuredSize = Float2{ constraints.MaxWidth, constraints.MaxHeight };
+            MeasuredSize = Float2{constraints.MaxWidth, constraints.MaxHeight};
         }
 
         void OnLayout(f32 left, f32 top, f32 width, f32 height) override
@@ -251,7 +296,7 @@ export namespace draconic::ui::toolkit
     private:
         [[nodiscard]] static Color Rgb(u8 r, u8 g, u8 b, u8 a = 255) noexcept
         {
-            return Color{ r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f };
+            return Color{r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f};
         }
 
         [[nodiscard]] Rectangle GetDividerRect() const
@@ -261,11 +306,11 @@ export namespace draconic::ui::toolkit
             {
                 const f32 available = Width() - divSize;
                 const f32 divX = available * m_splitRatio;
-                return Rectangle{ divX, 0, divSize, Height() };
+                return Rectangle{divX, 0, divSize, Height()};
             }
             const f32 available = Height() - divSize;
             const f32 divY = available * m_splitRatio;
-            return Rectangle{ 0, divY, Width(), divSize };
+            return Rectangle{0, divY, Width(), divSize};
         }
 
         [[nodiscard]] bool IsInDivider(f32 x, f32 y) const

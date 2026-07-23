@@ -17,7 +17,10 @@ namespace draconic::ui
     void UITypeRegistry::RegisterBuiltins()
     {
         static bool registered = false;
-        if (registered) { return; }
+        if (registered)
+        {
+            return;
+        }
         registered = true;
 
         // Core.

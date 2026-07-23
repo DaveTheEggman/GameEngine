@@ -65,7 +65,10 @@ export namespace draconic::fonts
             return 0;
         }
 
-        [[nodiscard]] bool HasGlyph(i32 codepoint) const override { return m_glyphs.Contains(codepoint); }
+        [[nodiscard]] bool HasGlyph(i32 codepoint) const override
+        {
+            return m_glyphs.Contains(codepoint);
+        }
 
         [[nodiscard]] f32 MeasureString(StringView text) const override
         {
@@ -84,7 +87,8 @@ export namespace draconic::fonts
             return width;
         }
 
-        [[nodiscard]] f32 MeasureString(StringView text, Array<GlyphPosition>& outPositions) const override
+        [[nodiscard]] f32 MeasureString(StringView text,
+                                        Array<GlyphPosition>& outPositions) const override
         {
             f32 x = 0;
             i32 prevCodepoint = 0;
@@ -97,7 +101,8 @@ export namespace draconic::fonts
                 const GlyphInfo info = GetGlyphInfo(codepoint);
                 if (prevCodepoint != 0)
                     x += GetKerning(prevCodepoint, codepoint);
-                outPositions.PushBack(GlyphPosition(index, codepoint, x, 0, info.advanceWidth, info));
+                outPositions.PushBack(
+                    GlyphPosition(index, codepoint, x, 0, info.advanceWidth, info));
                 x += info.advanceWidth;
                 prevCodepoint = codepoint;
                 ++index;
@@ -150,9 +155,16 @@ export namespace draconic::fonts
             m_pixels = Move(takenPixels);
         }
 
-        void SetRegion(i32 codepoint, AtlasRegion region) { m_regions.InsertOrAssign(codepoint, region); }
+        void SetRegion(i32 codepoint, AtlasRegion region)
+        {
+            m_regions.InsertOrAssign(codepoint, region);
+        }
 
-        void SetWhitePixelUV(f32 u, f32 v) { m_whitePixelU = u; m_whitePixelV = v; }
+        void SetWhitePixelUV(f32 u, f32 v)
+        {
+            m_whitePixelU = u;
+            m_whitePixelV = v;
+        }
 
         // --- IFontAtlas ----------------------------------------------------
         [[nodiscard]] u32 Width() const override { return m_width; }
@@ -160,7 +172,8 @@ export namespace draconic::fonts
 
         [[nodiscard]] Span<const u8> PixelData() const override
         {
-            return m_pixels.Size() != 0 ? Span<const u8>(m_pixels.Data(), m_pixels.Size()) : Span<const u8>();
+            return m_pixels.Size() != 0 ? Span<const u8>(m_pixels.Data(), m_pixels.Size())
+                                        : Span<const u8>();
         }
 
         [[nodiscard]] bool TryGetRegion(i32 codepoint, AtlasRegion& region) const override
@@ -173,11 +186,18 @@ export namespace draconic::fonts
             return false;
         }
 
-        [[nodiscard]] bool Contains(i32 codepoint) const override { return m_regions.Contains(codepoint); }
+        [[nodiscard]] bool Contains(i32 codepoint) const override
+        {
+            return m_regions.Contains(codepoint);
+        }
 
-        [[nodiscard]] Float2 WhitePixelUV() const override { return Float2(m_whitePixelU, m_whitePixelV); }
+        [[nodiscard]] Float2 WhitePixelUV() const override
+        {
+            return Float2(m_whitePixelU, m_whitePixelV);
+        }
 
-        [[nodiscard]] bool GetGlyphQuad(i32 codepoint, f32& cursorX, f32 cursorY, GlyphQuad& quad) const override
+        [[nodiscard]] bool GetGlyphQuad(i32 codepoint, f32& cursorX, f32 cursorY,
+                                        GlyphQuad& quad) const override
         {
             quad = GlyphQuad();
             const AtlasRegion* region = m_regions.Find(codepoint);
@@ -186,7 +206,8 @@ export namespace draconic::fonts
             return BuildQuad(*region, cursorX, cursorY, true, cursorX, quad);
         }
 
-        [[nodiscard]] bool GetGlyphQuadAt(i32 codepoint, f32 x, f32 y, GlyphQuad& quad) const override
+        [[nodiscard]] bool GetGlyphQuadAt(i32 codepoint, f32 x, f32 y,
+                                          GlyphQuad& quad) const override
         {
             quad = GlyphQuad();
             const AtlasRegion* region = m_regions.Find(codepoint);
@@ -199,7 +220,8 @@ export namespace draconic::fonts
         [[nodiscard]] const HashMap<i32, AtlasRegion>& Regions() const { return m_regions; }
 
     private:
-        bool BuildQuad(const AtlasRegion& region, f32 x, f32 y, bool advance, f32& cursorX, GlyphQuad& quad) const
+        bool BuildQuad(const AtlasRegion& region, f32 x, f32 y, bool advance, f32& cursorX,
+                       GlyphQuad& quad) const
         {
             const f32 invW = 1.0f / static_cast<f32>(m_width);
             const f32 invH = 1.0f / static_cast<f32>(m_height);

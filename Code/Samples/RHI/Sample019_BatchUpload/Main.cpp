@@ -20,14 +20,20 @@ namespace samples = draconic::samples;
 namespace rhi = draconic::rhi;
 namespace shaders = draconic::shaders;
 
-class BatchUploadSample : public samples::framework::SampleApp {
+class BatchUploadSample : public samples::framework::SampleApp
+{
 public:
     using samples::framework::SampleApp::SampleApp;
-    draconic::core::StringView Title() const override { return u8"Sample019 - Batch Upload (Async Transfer)"; }
+    draconic::core::StringView Title() const override
+    {
+        return u8"Sample019 - Batch Upload (Async Transfer)";
+    }
+
 protected:
     draconic::core::Status OnInit() override;
     void OnRender() override;
     void OnShutdown() override;
+
 private:
     draconic::core::Status doBatchUpload();
 
@@ -105,36 +111,75 @@ private:
     float m_uploadStartTime = 0.0f;
 };
 
-draconic::core::Status BatchUploadSample::OnInit() {
+draconic::core::Status BatchUploadSample::OnInit()
+{
     using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
 
-    if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (samples::framework::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Vertex,   u8"VSMain", u8"BatchVS", m_vs) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (samples::framework::CompileToModule(m_compiler, m_device, kShader, shaders::ShaderStage::Fragment, u8"PSMain", u8"BatchPS", m_ps) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) !=
+        draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
+    if (samples::framework::CompileToModule(m_compiler, m_device, kShader,
+                                            shaders::ShaderStage::Vertex, u8"VSMain", u8"BatchVS",
+                                            m_vs) != draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
+    if (samples::framework::CompileToModule(m_compiler, m_device, kShader,
+                                            shaders::ShaderStage::Fragment, u8"PSMain", u8"BatchPS",
+                                            m_ps) != draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
 
     // Vertex buffer: 4 vertices x (pos3 + uv2) x 4 = 80 bytes
-    rhi::BufferDesc vbd{}; vbd.size = 80; vbd.usage = rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst; vbd.memory = rhi::MemoryLocation::GpuOnly; vbd.label = u8"BatchVB";
-    if (m_device->CreateBuffer(vbd, m_vb) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    rhi::BufferDesc vbd{};
+    vbd.size = 80;
+    vbd.usage = rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst;
+    vbd.memory = rhi::MemoryLocation::GpuOnly;
+    vbd.label = u8"BatchVB";
+    if (m_device->CreateBuffer(vbd, m_vb) != draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
 
     // Index buffer: 6 uint16 = 12 bytes
-    rhi::BufferDesc ibd{}; ibd.size = 12; ibd.usage = rhi::BufferUsage::Index | rhi::BufferUsage::CopyDst; ibd.memory = rhi::MemoryLocation::GpuOnly; ibd.label = u8"BatchIB";
-    if (m_device->CreateBuffer(ibd, m_ib) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    rhi::BufferDesc ibd{};
+    ibd.size = 12;
+    ibd.usage = rhi::BufferUsage::Index | rhi::BufferUsage::CopyDst;
+    ibd.memory = rhi::MemoryLocation::GpuOnly;
+    ibd.label = u8"BatchIB";
+    if (m_device->CreateBuffer(ibd, m_ib) != draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
 
     // Texture
-    rhi::TextureDesc td{}; td.format = rhi::TextureFormat::RGBA8Unorm; td.width = kTexSize; td.height = kTexSize;
-    td.mipLevelCount = 1; td.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst; td.label = u8"BatchTex";
-    if (m_device->CreateTexture(td, m_tex) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    rhi::TextureDesc td{};
+    td.format = rhi::TextureFormat::RGBA8Unorm;
+    td.width = kTexSize;
+    td.height = kTexSize;
+    td.mipLevelCount = 1;
+    td.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst;
+    td.label = u8"BatchTex";
+    if (m_device->CreateTexture(td, m_tex) != draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
 
-    rhi::TextureViewDesc tvd{}; tvd.format = rhi::TextureFormat::RGBA8Unorm; tvd.mipLevelCount = 1; tvd.arrayLayerCount = 1;
-    if (m_device->CreateTextureView(m_tex, tvd, m_texView) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    rhi::TextureViewDesc tvd{};
+    tvd.format = rhi::TextureFormat::RGBA8Unorm;
+    tvd.mipLevelCount = 1;
+    tvd.arrayLayerCount = 1;
+    if (m_device->CreateTextureView(m_tex, tvd, m_texView) != draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
 
-    rhi::SamplerDesc sd{}; sd.minFilter = rhi::FilterMode::Linear; sd.magFilter = rhi::FilterMode::Linear;
-    sd.addressU = rhi::AddressMode::Repeat; sd.addressV = rhi::AddressMode::Repeat; sd.label = u8"BatchSampler";
-    if (m_device->CreateSampler(sd, m_sampler) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    rhi::SamplerDesc sd{};
+    sd.minFilter = rhi::FilterMode::Linear;
+    sd.magFilter = rhi::FilterMode::Linear;
+    sd.addressU = rhi::AddressMode::Repeat;
+    sd.addressV = rhi::AddressMode::Repeat;
+    sd.label = u8"BatchSampler";
+    if (m_device->CreateSampler(sd, m_sampler) != draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
 
     // Transform UBO
-    rhi::BufferDesc tbd{}; tbd.size = 16; tbd.usage = rhi::BufferUsage::Uniform; tbd.memory = rhi::MemoryLocation::CpuToGpu; tbd.label = u8"BatchTransform";
-    if (m_device->CreateBuffer(tbd, m_transformBuf) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    rhi::BufferDesc tbd{};
+    tbd.size = 16;
+    tbd.usage = rhi::BufferUsage::Uniform;
+    tbd.memory = rhi::MemoryLocation::CpuToGpu;
+    tbd.label = u8"BatchTransform";
+    if (m_device->CreateBuffer(tbd, m_transformBuf) != draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
     m_transformMapped = m_transformBuf->Map();
 
     // Bind group layout: UBO + texture + sampler
@@ -143,91 +188,124 @@ draconic::core::Status BatchUploadSample::OnInit() {
         rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Fragment),
         rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment),
     };
-    rhi::BindGroupLayoutDesc bgld{}; bgld.entries = Span<const rhi::BindGroupLayoutEntry>(bglEntries, 3); bgld.label = u8"BatchBGL";
-    if (m_device->CreateBindGroupLayout(bgld, m_bgl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    rhi::BindGroupLayoutDesc bgld{};
+    bgld.entries = Span<const rhi::BindGroupLayoutEntry>(bglEntries, 3);
+    bgld.label = u8"BatchBGL";
+    if (m_device->CreateBindGroupLayout(bgld, m_bgl) != draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
 
     rhi::BindGroupEntry bgEntries[3] = {
         rhi::BindGroupEntry::BufferEntry(m_transformBuf, 0, 16),
         rhi::BindGroupEntry::TextureEntry(m_texView),
         rhi::BindGroupEntry::SamplerEntry(m_sampler),
     };
-    rhi::BindGroupDesc bgd{}; bgd.layout = m_bgl; bgd.entries = Span<const rhi::BindGroupEntry>(bgEntries, 3); bgd.label = u8"BatchBG";
-    if (m_device->CreateBindGroup(bgd, m_bg) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    rhi::BindGroupDesc bgd{};
+    bgd.layout = m_bgl;
+    bgd.entries = Span<const rhi::BindGroupEntry>(bgEntries, 3);
+    bgd.label = u8"BatchBG";
+    if (m_device->CreateBindGroup(bgd, m_bg) != draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
 
     // Pipeline layout
-    rhi::BindGroupLayout* bgls[1] = { m_bgl };
-    rhi::PipelineLayoutDesc pld{}; pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>(bgls, 1); pld.label = u8"BatchPL";
-    if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    rhi::BindGroupLayout* bgls[1] = {m_bgl};
+    rhi::PipelineLayoutDesc pld{};
+    pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>(bgls, 1);
+    pld.label = u8"BatchPL";
+    if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
 
     // Render pipeline
-    rhi::VertexAttribute attrs[2] = { {rhi::VertexFormat::Float32x3, 0, 0}, {rhi::VertexFormat::Float32x2, 12, 1} };
-    rhi::VertexBufferLayout vbl{}; vbl.stride = 20; vbl.attributes = Span<const rhi::VertexAttribute>(attrs, 2);
-    rhi::ColorTargetState ct{}; ct.format = m_swapChain->Format();
-    rhi::RenderPipelineDesc rpd{}; rpd.layout = m_pl;
-    rpd.vertex.shader = { m_vs, u8"VSMain", rhi::ShaderStage::Vertex };
+    rhi::VertexAttribute attrs[2] = {{rhi::VertexFormat::Float32x3, 0, 0},
+                                     {rhi::VertexFormat::Float32x2, 12, 1}};
+    rhi::VertexBufferLayout vbl{};
+    vbl.stride = 20;
+    vbl.attributes = Span<const rhi::VertexAttribute>(attrs, 2);
+    rhi::ColorTargetState ct{};
+    ct.format = m_swapChain->Format();
+    rhi::RenderPipelineDesc rpd{};
+    rpd.layout = m_pl;
+    rpd.vertex.shader = {m_vs, u8"VSMain", rhi::ShaderStage::Vertex};
     rpd.vertex.buffers = Span<const rhi::VertexBufferLayout>(&vbl, 1);
-    rpd.fragment = rhi::FragmentState{}; rpd.fragment->shader = { m_ps, u8"PSMain", rhi::ShaderStage::Fragment };
+    rpd.fragment = rhi::FragmentState{};
+    rpd.fragment->shader = {m_ps, u8"PSMain", rhi::ShaderStage::Fragment};
     rpd.fragment->targets = Span<const rhi::ColorTargetState>(&ct, 1);
     rpd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
     rpd.label = u8"BatchPipeline";
-    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
 
-    if (m_device->CreateCommandPool(rhi::QueueType::Graphics, m_pool) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
-    if (m_device->CreateFence(0, m_frameFence) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateCommandPool(rhi::QueueType::Graphics, m_pool) !=
+        draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_frameFence) != draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
 
     // Upload fence
-    if (m_device->CreateFence(0, m_uploadFence) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_uploadFence) != draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
 
     // === Batch upload: VB + IB + texture in one submission ===
-    if (doBatchUpload() != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (doBatchUpload() != draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
 
     return draconic::core::ErrorCode::Ok;
 }
 
-draconic::core::Status BatchUploadSample::doBatchUpload() {
+draconic::core::Status BatchUploadSample::doBatchUpload()
+{
     using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
 
     m_uploadStartTime = m_totalTime;
 
     rhi::TransferBatch* transfer = nullptr;
-    if (m_graphicsQueue->CreateTransferBatch(transfer) != draconic::core::ErrorCode::Ok) return draconic::core::ErrorCode::Unknown;
+    if (m_graphicsQueue->CreateTransferBatch(transfer) != draconic::core::ErrorCode::Ok)
+        return draconic::core::ErrorCode::Unknown;
 
     // Vertex data: quad
     float verts[20] = {
-        -0.6f,  0.6f, 0.0f,   0.0f, 0.0f,
-         0.6f,  0.6f, 0.0f,   1.0f, 0.0f,
-         0.6f, -0.6f, 0.0f,   1.0f, 1.0f,
-        -0.6f, -0.6f, 0.0f,   0.0f, 1.0f,
+        -0.6f, 0.6f,  0.0f, 0.0f, 0.0f, 0.6f,  0.6f,  0.0f, 1.0f, 0.0f,
+        0.6f,  -0.6f, 0.0f, 1.0f, 1.0f, -0.6f, -0.6f, 0.0f, 0.0f, 1.0f,
     };
     transfer->WriteBuffer(m_vb, 0, Span<const u8>(reinterpret_cast<const u8*>(verts), 80));
 
     // Index data
-    draconic::core::u16 indices[6] = { 0, 1, 2, 0, 2, 3 };
+    draconic::core::u16 indices[6] = {0, 1, 2, 0, 2, 3};
     transfer->WriteBuffer(m_ib, 0, Span<const u8>(reinterpret_cast<const u8*>(indices), 12));
 
     // Texture data: procedural mandelbrot-ish pattern
     u32 texBytes = kTexSize * kTexSize * 4;
     auto* pixels = new u8[texBytes];
 
-    for (u32 y = 0; y < kTexSize; y++) {
-        for (u32 x = 0; x < kTexSize; x++) {
+    for (u32 y = 0; y < kTexSize; y++)
+    {
+        for (u32 x = 0; x < kTexSize; x++)
+        {
             float cr = static_cast<float>(x) / static_cast<float>(kTexSize) * 3.0f - 2.0f;
             float ci = static_cast<float>(y) / static_cast<float>(kTexSize) * 2.4f - 1.2f;
             float zr = 0, zi = 0;
             int iter = 0;
-            for (iter = 0; iter < 64; iter++) {
+            for (iter = 0; iter < 64; iter++)
+            {
                 float zr2 = zr * zr - zi * zi + cr;
                 float zi2 = 2.0f * zr * zi + ci;
-                zr = zr2; zi = zi2;
-                if (zr * zr + zi * zi > 4.0f) break;
+                zr = zr2;
+                zi = zi2;
+                if (zr * zr + zi * zi > 4.0f)
+                    break;
             }
 
             u32 off = (y * kTexSize + x) * 4;
-            if (iter == 64) {
-                pixels[off] = 10; pixels[off + 1] = 10; pixels[off + 2] = 30; pixels[off + 3] = 255;
-            } else {
+            if (iter == 64)
+            {
+                pixels[off] = 10;
+                pixels[off + 1] = 10;
+                pixels[off + 2] = 30;
+                pixels[off + 3] = 255;
+            }
+            else
+            {
                 float t = static_cast<float>(iter) / 64.0f;
-                pixels[off]     = static_cast<u8>(t * 200 + 55);
+                pixels[off] = static_cast<u8>(t * 200 + 55);
                 pixels[off + 1] = static_cast<u8>(t * t * 255);
                 pixels[off + 2] = static_cast<u8>(std::sqrt(t) * 255);
                 pixels[off + 3] = 255;
@@ -235,14 +313,18 @@ draconic::core::Status BatchUploadSample::doBatchUpload() {
         }
     }
 
-    rhi::TextureDataLayout layout{}; layout.bytesPerRow = kTexSize * 4; layout.rowsPerImage = kTexSize;
-    transfer->WriteTexture(m_tex, Span<const u8>(pixels, texBytes), layout, rhi::Extent3D{kTexSize, kTexSize, 1});
+    rhi::TextureDataLayout layout{};
+    layout.bytesPerRow = kTexSize * 4;
+    layout.rowsPerImage = kTexSize;
+    transfer->WriteTexture(m_tex, Span<const u8>(pixels, texBytes), layout,
+                           rhi::Extent3D{kTexSize, kTexSize, 1});
 
     delete[] pixels;
 
     // Async submit - signals fence when GPU transfer completes
     m_uploadFenceVal = 1;
-    if (transfer->SubmitAsync(m_uploadFence, m_uploadFenceVal) != draconic::core::ErrorCode::Ok) {
+    if (transfer->SubmitAsync(m_uploadFence, m_uploadFenceVal) != draconic::core::ErrorCode::Ok)
+    {
         m_graphicsQueue->DestroyTransferBatch(transfer);
         return draconic::core::ErrorCode::Unknown;
     }
@@ -252,38 +334,49 @@ draconic::core::Status BatchUploadSample::doBatchUpload() {
     return draconic::core::ErrorCode::Ok;
 }
 
-void BatchUploadSample::OnRender() {
+void BatchUploadSample::OnRender()
+{
     using draconic::core::f32, draconic::core::Span;
 
-    if (m_frameFenceVal > 0) m_frameFence->Wait(m_frameFenceVal, ~0ull);
+    if (m_frameFenceVal > 0)
+        m_frameFence->Wait(m_frameFenceVal, ~0ull);
 
     // Check if async upload has completed
-    if (!m_uploadComplete) {
-        if (m_uploadFence->CompletedValue() >= m_uploadFenceVal) {
+    if (!m_uploadComplete)
+    {
+        if (m_uploadFence->CompletedValue() >= m_uploadFenceVal)
+        {
             m_uploadComplete = true;
             std::printf("Batch upload completed! Rendering enabled.\n");
         }
     }
 
-    if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok) return;
+    if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok)
+        return;
 
     // Update transform
-    float transform[4] = { m_totalTime, 0, 0, 0 };
+    float transform[4] = {m_totalTime, 0, 0, 0};
     std::memcpy(m_transformMapped, transform, 16);
 
     m_pool->Reset();
     rhi::CommandEncoder* enc = nullptr;
-    if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc) return;
+    if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc)
+        return;
 
-    enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::Undefined, rhi::ResourceState::RenderTarget);
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::Undefined,
+                           rhi::ResourceState::RenderTarget);
 
-    rhi::ColorAttachment ca{}; ca.view = m_swapChain->CurrentTextureView();
-    ca.loadOp = rhi::LoadOp::Clear; ca.storeOp = rhi::StoreOp::Store;
+    rhi::ColorAttachment ca{};
+    ca.view = m_swapChain->CurrentTextureView();
+    ca.loadOp = rhi::LoadOp::Clear;
+    ca.storeOp = rhi::StoreOp::Store;
     ca.clearValue = rhi::ClearColor(0.05f, 0.05f, 0.08f, 1.0f);
-    rhi::RenderPassDesc rpd{}; rpd.colorAttachments.Add(ca);
+    rhi::RenderPassDesc rpd{};
+    rpd.colorAttachments.Add(ca);
     auto* rp = enc->BeginRenderPass(rpd);
 
-    if (m_uploadComplete) {
+    if (m_uploadComplete)
+    {
         rp->SetPipeline(m_pipeline);
         rp->SetBindGroup(0, m_bg);
         rp->SetViewport(0, 0, static_cast<f32>(m_width), static_cast<f32>(m_height), 0.0f, 1.0f);
@@ -295,34 +388,60 @@ void BatchUploadSample::OnRender() {
 
     rp->End();
 
-    enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::RenderTarget, rhi::ResourceState::Present);
+    enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::RenderTarget,
+                           rhi::ResourceState::Present);
 
-    rhi::CommandBuffer* cb = enc->Finish(); m_frameFenceVal++;
-    rhi::CommandBuffer* cbs[1] = { cb };
+    rhi::CommandBuffer* cb = enc->Finish();
+    m_frameFenceVal++;
+    rhi::CommandBuffer* cbs[1] = {cb};
     m_graphicsQueue->Submit(Span<rhi::CommandBuffer* const>(cbs, 1), m_frameFence, m_frameFenceVal);
     m_swapChain->Present(m_graphicsQueue);
     m_pool->DestroyEncoder(enc);
 }
 
-void BatchUploadSample::OnShutdown() {
-    if (m_transformBuf && m_transformMapped) m_transformBuf->Unmap();
+void BatchUploadSample::OnShutdown()
+{
+    if (m_transformBuf && m_transformMapped)
+        m_transformBuf->Unmap();
 
-    if (m_uploadFence) m_device->DestroyFence(m_uploadFence);
-    if (m_frameFence) m_device->DestroyFence(m_frameFence);
-    if (m_pool) m_device->DestroyCommandPool(m_pool);
-    if (m_pipeline) m_device->DestroyRenderPipeline(m_pipeline);
-    if (m_pl) m_device->DestroyPipelineLayout(m_pl);
-    if (m_bg) m_device->DestroyBindGroup(m_bg);
-    if (m_bgl) m_device->DestroyBindGroupLayout(m_bgl);
-    if (m_sampler) m_device->DestroySampler(m_sampler);
-    if (m_texView) m_device->DestroyTextureView(m_texView);
-    if (m_tex) m_device->DestroyTexture(m_tex);
-    if (m_transformBuf) m_device->DestroyBuffer(m_transformBuf);
-    if (m_ib) m_device->DestroyBuffer(m_ib);
-    if (m_vb) m_device->DestroyBuffer(m_vb);
-    if (m_ps) m_device->DestroyShaderModule(m_ps);
-    if (m_vs) m_device->DestroyShaderModule(m_vs);
-    if (m_compiler) { m_compiler->Destroy(); }
+    if (m_uploadFence)
+        m_device->DestroyFence(m_uploadFence);
+    if (m_frameFence)
+        m_device->DestroyFence(m_frameFence);
+    if (m_pool)
+        m_device->DestroyCommandPool(m_pool);
+    if (m_pipeline)
+        m_device->DestroyRenderPipeline(m_pipeline);
+    if (m_pl)
+        m_device->DestroyPipelineLayout(m_pl);
+    if (m_bg)
+        m_device->DestroyBindGroup(m_bg);
+    if (m_bgl)
+        m_device->DestroyBindGroupLayout(m_bgl);
+    if (m_sampler)
+        m_device->DestroySampler(m_sampler);
+    if (m_texView)
+        m_device->DestroyTextureView(m_texView);
+    if (m_tex)
+        m_device->DestroyTexture(m_tex);
+    if (m_transformBuf)
+        m_device->DestroyBuffer(m_transformBuf);
+    if (m_ib)
+        m_device->DestroyBuffer(m_ib);
+    if (m_vb)
+        m_device->DestroyBuffer(m_vb);
+    if (m_ps)
+        m_device->DestroyShaderModule(m_ps);
+    if (m_vs)
+        m_device->DestroyShaderModule(m_vs);
+    if (m_compiler)
+    {
+        m_compiler->Destroy();
+    }
 }
 
-int main(int argc, char** argv) { BatchUploadSample app; return app.Run(argc, argv); }
+int main(int argc, char** argv)
+{
+    BatchUploadSample app;
+    return app.Run(argc, argv);
+}

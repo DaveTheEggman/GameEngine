@@ -21,7 +21,7 @@ import draconic.core;
 import draconic.vg;
 import draconic.ui;
 
-import :docking;          // DockManager / DockablePanel / DockTabGroup / DockSplit / DockableWindow
+import :docking; // DockManager / DockablePanel / DockTabGroup / DockSplit / DockableWindow
 import :menu_bar;
 import :toolbar;
 import :status_bar;
@@ -50,8 +50,10 @@ export namespace draconic::ui::toolkit
 
             // === DockablePanel ===
             {
-                const core::Color headerBg = isDark ? Palette::Darken(p.Surface, 0.1f) : Palette::Darken(p.Surface, 0.05f);
-                RefPtr<RoundedRectDrawable> headerDrawable = MakeRef<RoundedRectDrawable>(DefaultAllocator(), headerBg, 0.0f);
+                const core::Color headerBg =
+                    isDark ? Palette::Darken(p.Surface, 0.1f) : Palette::Darken(p.Surface, 0.05f);
+                RefPtr<RoundedRectDrawable> headerDrawable =
+                    MakeRef<RoundedRectDrawable>(DefaultAllocator(), headerBg, 0.0f);
                 sheet.OwnDrawable(headerDrawable);
                 sheet.ForType(&DockablePanel::StaticType())
                     .Set(StyleProperty::TextColor, p.Text)
@@ -62,15 +64,20 @@ export namespace draconic::ui::toolkit
                     .Set(StyleProperty::Background, sheet.OwnColor(p.Surface));
                 sheet.ForTypePseudo(&DockablePanel::StaticType(), u8"close-button")
                     .Set(StyleProperty::TextColor, WithAlpha(p.Text, 150));
-                sheet.ForTypePseudoState(&DockablePanel::StaticType(), u8"close-button", ControlState::Hover)
+                sheet
+                    .ForTypePseudoState(&DockablePanel::StaticType(), u8"close-button",
+                                        ControlState::Hover)
                     .Set(StyleProperty::TextColor, p.Error);
             }
 
             // === DockTabGroup ===
             {
-                const core::Color tabBg = isDark ? Palette::Darken(p.Surface, 0.15f) : Palette::Darken(p.Surface, 0.08f);
-                const core::Color activeTab = isDark ? p.Surface : Palette::Lighten(p.Surface, 0.03f);
-                const core::Color hoverTab = isDark ? Palette::Lighten(tabBg, 0.05f) : Palette::Darken(p.Surface, 0.04f);
+                const core::Color tabBg =
+                    isDark ? Palette::Darken(p.Surface, 0.15f) : Palette::Darken(p.Surface, 0.08f);
+                const core::Color activeTab =
+                    isDark ? p.Surface : Palette::Lighten(p.Surface, 0.03f);
+                const core::Color hoverTab =
+                    isDark ? Palette::Lighten(tabBg, 0.05f) : Palette::Darken(p.Surface, 0.04f);
                 const core::Color inactiveText = WithAlpha(p.Text, 153);
 
                 sheet.ForType(&DockTabGroup::StaticType())
@@ -87,11 +94,14 @@ export namespace draconic::ui::toolkit
                     .Set(StyleProperty::TextColor, inactiveText);
                 // RoundedRectDrawables so DockTabGroup can mask their top corners to the theme's
                 // resolved CornerRadius (rounded in the rounded theme, square/0 in the flat one).
-                RefPtr<RoundedRectDrawable> activeTabD = MakeRef<RoundedRectDrawable>(DefaultAllocator(), activeTab, 0.0f);
-                RefPtr<RoundedRectDrawable> hoverTabD = MakeRef<RoundedRectDrawable>(DefaultAllocator(), hoverTab, 0.0f);
+                RefPtr<RoundedRectDrawable> activeTabD =
+                    MakeRef<RoundedRectDrawable>(DefaultAllocator(), activeTab, 0.0f);
+                RefPtr<RoundedRectDrawable> hoverTabD =
+                    MakeRef<RoundedRectDrawable>(DefaultAllocator(), hoverTab, 0.0f);
                 sheet.OwnDrawable(activeTabD);
                 sheet.OwnDrawable(hoverTabD);
-                sheet.ForTypePseudoState(&DockTabGroup::StaticType(), u8"tab", ControlState::Checked)
+                sheet
+                    .ForTypePseudoState(&DockTabGroup::StaticType(), u8"tab", ControlState::Checked)
                     .Set(StyleProperty::Background, activeTabD)
                     .Set(StyleProperty::TextColor, p.Text);
                 sheet.ForTypePseudoState(&DockTabGroup::StaticType(), u8"tab", ControlState::Hover)
@@ -99,14 +109,18 @@ export namespace draconic::ui::toolkit
                     .Set(StyleProperty::TextColor, Palette::Lighten(inactiveText, 0.3f));
                 sheet.ForTypePseudo(&DockTabGroup::StaticType(), u8"close-button")
                     .Set(StyleProperty::TextColor, inactiveText);
-                sheet.ForTypePseudoState(&DockTabGroup::StaticType(), u8"close-button", ControlState::Hover)
+                sheet
+                    .ForTypePseudoState(&DockTabGroup::StaticType(), u8"close-button",
+                                        ControlState::Hover)
                     .Set(StyleProperty::TextColor, p.Error);
             }
 
             // === DockSplit ===
             {
-                const core::Color divColor = isDark ? Palette::Lighten(p.Surface, 0.1f) : Palette::Darken(p.Surface, 0.1f);
-                const core::Color divHover = isDark ? Palette::Lighten(p.Surface, 0.25f) : Palette::Darken(p.Surface, 0.2f);
+                const core::Color divColor =
+                    isDark ? Palette::Lighten(p.Surface, 0.1f) : Palette::Darken(p.Surface, 0.1f);
+                const core::Color divHover =
+                    isDark ? Palette::Lighten(p.Surface, 0.25f) : Palette::Darken(p.Surface, 0.2f);
                 sheet.ForType(&DockSplit::StaticType())
                     .Set(StyleProperty::BorderColor, divColor)
                     .Set(StyleProperty::AccentColor, divHover);
@@ -114,10 +128,10 @@ export namespace draconic::ui::toolkit
 
             // === DockableWindow ===
             {
-                RefPtr<RoundedRectDrawable> dwBg = MakeRef<RoundedRectDrawable>(DefaultAllocator(), p.Surface, 0.0f, p.Border, 1.0f);
+                RefPtr<RoundedRectDrawable> dwBg = MakeRef<RoundedRectDrawable>(
+                    DefaultAllocator(), p.Surface, 0.0f, p.Border, 1.0f);
                 sheet.OwnDrawable(dwBg);
-                sheet.ForType(&DockableWindow::StaticType())
-                    .Set(StyleProperty::Background, dwBg);
+                sheet.ForType(&DockableWindow::StaticType()).Set(StyleProperty::Background, dwBg);
             }
 
             // === MenuBar ===
@@ -134,8 +148,10 @@ export namespace draconic::ui::toolkit
 
             // === Toolbar ===
             {
-                const core::Color toolbarBg = isDark ? Palette::Darken(p.Surface, 0.15f) : Palette::Darken(p.Surface, 0.05f);
-                const core::Color toggleOn = isDark ? Palette::Darken(p.PrimaryAccent, 0.3f) : Palette::Lighten(p.PrimaryAccent, 0.3f);
+                const core::Color toolbarBg =
+                    isDark ? Palette::Darken(p.Surface, 0.15f) : Palette::Darken(p.Surface, 0.05f);
+                const core::Color toggleOn = isDark ? Palette::Darken(p.PrimaryAccent, 0.3f)
+                                                    : Palette::Lighten(p.PrimaryAccent, 0.3f);
                 sheet.ForType(&Toolbar::StaticType())
                     .Set(StyleProperty::Background, sheet.OwnColor(toolbarBg))
                     .Set(StyleProperty::BorderColor, p.Border)
@@ -144,7 +160,8 @@ export namespace draconic::ui::toolkit
 
             // === StatusBar ===
             {
-                const core::Color statusBg = isDark ? Palette::Darken(p.Surface, 0.2f) : Palette::Darken(p.Surface, 0.05f);
+                const core::Color statusBg =
+                    isDark ? Palette::Darken(p.Surface, 0.2f) : Palette::Darken(p.Surface, 0.05f);
                 sheet.ForType(&StatusBar::StaticType())
                     .Set(StyleProperty::Background, sheet.OwnColor(statusBg))
                     .Set(StyleProperty::BorderColor, p.Border)
@@ -153,8 +170,10 @@ export namespace draconic::ui::toolkit
 
             // === SplitView ===
             {
-                const core::Color divColor = isDark ? Palette::Lighten(p.Surface, 0.1f) : Palette::Darken(p.Surface, 0.1f);
-                const core::Color divHover = isDark ? Palette::Lighten(p.Surface, 0.25f) : Palette::Darken(p.Surface, 0.2f);
+                const core::Color divColor =
+                    isDark ? Palette::Lighten(p.Surface, 0.1f) : Palette::Darken(p.Surface, 0.1f);
+                const core::Color divHover =
+                    isDark ? Palette::Lighten(p.Surface, 0.25f) : Palette::Darken(p.Surface, 0.2f);
                 sheet.ForType(&SplitView::StaticType())
                     .Set(StyleProperty::BorderColor, divColor)
                     .Set(StyleProperty::AccentColor, divHover)
@@ -162,8 +181,8 @@ export namespace draconic::ui::toolkit
             }
 
             // === BreadcrumbBar === (RoundedRectDrawable so it can round to the theme CornerRadius)
-            RefPtr<RoundedRectDrawable> breadcrumbBg = MakeRef<RoundedRectDrawable>(DefaultAllocator(),
-                isDark ? Palette::Darken(p.Surface, 0.1f) : p.Surface, 0.0f);
+            RefPtr<RoundedRectDrawable> breadcrumbBg = MakeRef<RoundedRectDrawable>(
+                DefaultAllocator(), isDark ? Palette::Darken(p.Surface, 0.1f) : p.Surface, 0.0f);
             sheet.OwnDrawable(breadcrumbBg);
             sheet.ForType(&BreadcrumbBar::StaticType())
                 .Set(StyleProperty::Background, breadcrumbBg)
@@ -191,13 +210,13 @@ export namespace draconic::ui::toolkit
     private:
         [[nodiscard]] static core::Color Rgb(u8 r, u8 g, u8 b, u8 a = 255) noexcept
         {
-            return core::Color{ r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f };
+            return core::Color{r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f};
         }
 
         /// Beef `Color(c.R, c.G, c.B, byteAlpha)` - keep RGB, override alpha with a 0..255 byte.
         [[nodiscard]] static core::Color WithAlpha(core::Color c, u8 a) noexcept
         {
-            return core::Color{ c.r, c.g, c.b, a / 255.0f };
+            return core::Color{c.r, c.g, c.b, a / 255.0f};
         }
     };
 }

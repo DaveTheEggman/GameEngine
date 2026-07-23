@@ -27,7 +27,10 @@ export namespace draconic::image
         i32 height = 0;
 
         constexpr RectI() noexcept = default;
-        constexpr RectI(i32 inX, i32 inY, i32 w, i32 h) noexcept : x(inX), y(inY), width(w), height(h) {}
+        constexpr RectI(i32 inX, i32 inY, i32 w, i32 h) noexcept
+            : x(inX), y(inY), width(w), height(h)
+        {
+        }
     };
 
     /// General-purpose image atlas packer (shelf packing). Combines RGBA8 images
@@ -38,7 +41,9 @@ export namespace draconic::image
         /// minSize/maxSize: atlas dimensions (rounded up to powers of two).
         /// padding: pixels between packed images.
         explicit ImageAtlasBuilder(u32 minSize = 256, u32 maxSize = 4096, u32 padding = 1)
-            : m_minSize(NextPowerOf2(minSize)), m_maxSize(NextPowerOf2(maxSize)), m_padding(padding) {}
+            : m_minSize(NextPowerOf2(minSize)), m_maxSize(NextPowerOf2(maxSize)), m_padding(padding)
+        {
+        }
 
         /// The built atlas image. Null until Build() succeeds.
         [[nodiscard]] const ImageData* Atlas() const { return m_built ? &m_atlas : nullptr; }
@@ -49,7 +54,8 @@ export namespace draconic::image
         /// Add an image to be packed. Name must be unique. Image is not owned.
         void AddImage(StringView name, const ImageData* image)
         {
-            if (image == nullptr) return;
+            if (image == nullptr)
+                return;
             Entry entry;
             entry.name = String(name);
             entry.image = image;
@@ -61,7 +67,7 @@ export namespace draconic::image
         {
             if (m_entries.IsEmpty())
             {
-                const u8 emptyPixel[4] = { 0, 0, 0, 0 };
+                const u8 emptyPixel[4] = {0, 0, 0, 0};
                 m_atlas = OwnedImageData(1, 1, PixelFormat::RGBA8, Span<const u8>(emptyPixel, 4));
                 m_built = true;
                 return true;
@@ -83,7 +89,10 @@ export namespace draconic::image
         }
 
         /// The pixel-space region of a packed image by name (null if not found).
-        [[nodiscard]] const RectI* GetRegion(StringView name) const { return m_regions.Find(String(name)); }
+        [[nodiscard]] const RectI* GetRegion(StringView name) const
+        {
+            return m_regions.Find(String(name));
+        }
 
     private:
         struct Entry
@@ -135,7 +144,8 @@ export namespace draconic::image
                     return false;
 
                 m_regions.InsertOrAssign(String(entry.name.AsView()),
-                    RectI{ static_cast<i32>(curX), static_cast<i32>(curY), static_cast<i32>(imgW), static_cast<i32>(imgH) });
+                                         RectI{static_cast<i32>(curX), static_cast<i32>(curY),
+                                               static_cast<i32>(imgW), static_cast<i32>(imgH)});
 
                 curX += imgW + m_padding;
                 rowHeight = Max(rowHeight, imgH);
@@ -150,7 +160,8 @@ export namespace draconic::image
             {
                 const Entry& entry = m_entries[e];
                 const RectI* region = m_regions.Find(String(entry.name.AsView()));
-                if (region == nullptr) continue;
+                if (region == nullptr)
+                    continue;
 
                 const ImageData* src = entry.image;
                 if (src->Format() == PixelFormat::RGBA8)
@@ -162,10 +173,13 @@ export namespace draconic::image
                     for (u32 y = 0; y < src->Height(); ++y)
                     {
                         const u32 srcOffset = y * srcStride;
-                        const u32 dstOffset = (static_cast<u32>(region->y) + y) * dstStride + static_cast<u32>(region->x) * 4;
+                        const u32 dstOffset = (static_cast<u32>(region->y) + y) * dstStride +
+                                              static_cast<u32>(region->x) * 4;
 
-                        if (srcOffset + srcStride <= srcData.Size() && dstOffset + srcStride <= pixelData.Size())
-                            MemCopy(pixelData.Data() + dstOffset, srcData.Data() + srcOffset, srcStride);
+                        if (srcOffset + srcStride <= srcData.Size() &&
+                            dstOffset + srcStride <= pixelData.Size())
+                            MemCopy(pixelData.Data() + dstOffset, srcData.Data() + srcOffset,
+                                    srcStride);
                     }
                 }
             }

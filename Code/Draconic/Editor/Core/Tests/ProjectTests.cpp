@@ -118,16 +118,26 @@ TEST_CASE("editor-project: an unreadable manifest logs an error (missing one sta
     {
         draconic::vfs::NativeFileSystem root(dir);
         const StringView garbage = u8"<root><string name=\"name\">P</string></root>";
-        REQUIRE(root.AsWritable()->Save(u8"Project.xml",
-            Span<const byte>(reinterpret_cast<const byte*>(garbage.Data()), garbage.Size())).IsOk());
+        REQUIRE(root.AsWritable()
+                    ->Save(u8"Project.xml",
+                           Span<const byte>(reinterpret_cast<const byte*>(garbage.Data()),
+                                            garbage.Size()))
+                    .IsOk());
     }
     CHECK(!static_cast<bool>(EditorProject::Open(dir)));
     CHECK(sink.errors == 1);
-    const auto contains = [](StringView haystack, StringView needle) {
-        if (needle.Size() > haystack.Size()) { return false; }
+    const auto contains = [](StringView haystack, StringView needle)
+    {
+        if (needle.Size() > haystack.Size())
+        {
+            return false;
+        }
         for (usize i = 0; i + needle.Size() <= haystack.Size(); ++i)
         {
-            if (haystack.SubStr(i, needle.Size()) == needle) { return true; }
+            if (haystack.SubStr(i, needle.Size()) == needle)
+            {
+                return true;
+            }
         }
         return false;
     };
@@ -162,10 +172,10 @@ TEST_CASE("editor-project: settings changes persist through SaveSettings")
         UniquePtr<EditorProject> project = EditorProject::Open(dir);
         REQUIRE(static_cast<bool>(project));
         CHECK(project->Settings().defaultScene == u8"scenes/main");
-        CHECK(project->Settings().defaultSceneId == savedId);   // guid is authoritative
+        CHECK(project->Settings().defaultSceneId == savedId); // guid is authoritative
         Guid themeId;
         REQUIRE(Guid::TryParse(u8"6ba7b811-9dad-11d1-80b4-00c04fd430c8", themeId));
-        CHECK(project->Settings().defaultUiThemeId == themeId);   // v5 field round-trips
+        CHECK(project->Settings().defaultUiThemeId == themeId); // v5 field round-trips
         Guid mapId;
         REQUIRE(Guid::TryParse(u8"6ba7b812-9dad-11d1-80b4-00c04fd430c8", mapId));
         // Open's per-field settings move used to DROP defaultInputMapId (silent data loss).
@@ -228,7 +238,7 @@ TEST_CASE("project: manifest round-trips the startup-script asset guid under a v
     (void)FileDelete(PathJoin(dir, u8"Project.xml"));
     (void)RemoveDirectory(dir);
 
-    const Guid scriptId = Guid{ 0x1122334455667788ull, 0x99AABBCCDDEEFF00ull };
+    const Guid scriptId = Guid{0x1122334455667788ull, 0x99AABBCCDDEEFF00ull};
     REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
     {
         UniquePtr<EditorProject> project = EditorProject::Open(dir);
@@ -272,16 +282,19 @@ TEST_CASE("project: manifests carry the engine version stamp; a v1 manifest migr
         SerializerFactory factory = draconic::xml::XmlSerializerFactory();
         UniquePtr<SerializerContext> ctx = factory(buffer, SerializeMode::Write);
         const SerializedDataVersion chain[] = {
-            { draconic::project::ProjectSettings::StaticType().id, 1u } };
+            {draconic::project::ProjectSettings::StaticType().id, 1u}};
         ctx->serializer->Key("dataVersions");
         u32 count = 1;
         ctx->serializer->BeginArray(count);
-        u64 typeId = chain[0].typeId; u32 version = chain[0].version;
-        ctx->serializer->Key("type");    ctx->serializer->Scalar(&typeId, ScalarKind::UInt64);
-        ctx->serializer->Key("version"); ctx->serializer->Scalar(&version, ScalarKind::UInt32);
+        u64 typeId = chain[0].typeId;
+        u32 version = chain[0].version;
+        ctx->serializer->Key("type");
+        ctx->serializer->Scalar(&typeId, ScalarKind::UInt64);
+        ctx->serializer->Key("version");
+        ctx->serializer->Scalar(&version, ScalarKind::UInt32);
         ctx->serializer->EndArray();
         ctx->serializer->PushVersionScope(chain, 1);
-        v1.Serialize(*ctx->serializer);   // v1 branch: engineVersion NOT written
+        v1.Serialize(*ctx->serializer); // v1 branch: engineVersion NOT written
         ctx->serializer->PopVersionScope();
         REQUIRE(ctx->serializer->IsOk());
         ctx->Flush(buffer);
@@ -290,8 +303,8 @@ TEST_CASE("project: manifests carry the engine version stamp; a v1 manifest migr
         UniquePtr<EditorProject> project = EditorProject::Open(dir);
         REQUIRE(static_cast<bool>(project));
         CHECK(project->Settings().defaultScene == u8"Scenes/S");
-        CHECK(project->Settings().engineVersion.IsEmpty());   // v1 data had no stamp
-        CHECK(project->Settings().defaultSceneId.IsNil());    // ...and no scene guid (v3)
+        CHECK(project->Settings().engineVersion.IsEmpty()); // v1 data had no stamp
+        CHECK(project->Settings().defaultSceneId.IsNil());  // ...and no scene guid (v3)
         REQUIRE(project->SaveSettings().IsOk());
     }
     {

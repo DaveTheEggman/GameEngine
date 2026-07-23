@@ -12,9 +12,18 @@ using namespace draconic::ui::tests;
 using namespace draconic::core;
 namespace core = draconic::core;
 
-static core::RefPtr<RootView> MakeRoot() { return core::MakeRef<RootView>(core::DefaultAllocator()); }
-static core::RefPtr<TestView> MakeTestView() { return core::MakeRef<TestView>(core::DefaultAllocator(), 50.0f, 30.0f); }
-static core::RefPtr<TestGroup> MakeTestGroup() { return core::MakeRef<TestGroup>(core::DefaultAllocator()); }
+static core::RefPtr<RootView> MakeRoot()
+{
+    return core::MakeRef<RootView>(core::DefaultAllocator());
+}
+static core::RefPtr<TestView> MakeTestView()
+{
+    return core::MakeRef<TestView>(core::DefaultAllocator(), 50.0f, 30.0f);
+}
+static core::RefPtr<TestGroup> MakeTestGroup()
+{
+    return core::MakeRef<TestGroup>(core::DefaultAllocator());
+}
 
 TEST_CASE("uicontext: AddRootView_RegistersAndSetsActive")
 {
@@ -112,8 +121,8 @@ TEST_CASE("uicontext: AttachView_RegistersSubtree")
 
     core::RefPtr<TestGroup> group = MakeTestGroup();
     core::RefPtr<TestView> child = MakeTestView();
-    group->AddView(child.Get());   // build subtree before attaching
-    root->AddView(group.Get());    // attach to root - registers both
+    group->AddView(child.Get()); // build subtree before attaching
+    root->AddView(group.Get());  // attach to root - registers both
 
     CHECK(ctx.GetViewById(group->Id) == group.Get());
     CHECK(ctx.GetViewById(child->Id) == child.Get());

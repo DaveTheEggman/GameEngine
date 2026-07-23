@@ -13,7 +13,7 @@ export module draconic.editor.app:layout;
 import draconic.core;
 import draconic.vfs;
 import draconic.xml.serialization;
-import draconic.editor.core;   // EditorContext (favorites persistence)
+import draconic.editor.core; // EditorContext (favorites persistence)
 import draconic.ui.toolkit;
 
 using namespace draconic::core;
@@ -42,13 +42,19 @@ export namespace draconic::editor::app
         draconic::core::Serialize(ar, "hasSecond", hasSecond);
         if (hasFirst)
         {
-            if (ar.Mode() == SerializeMode::Read) { node.First = MakeUnique<ui::toolkit::DockLayoutNode>(DefaultAllocator()); }
+            if (ar.Mode() == SerializeMode::Read)
+            {
+                node.First = MakeUnique<ui::toolkit::DockLayoutNode>(DefaultAllocator());
+            }
             ar.Key("first");
             SerializeLayoutNode(ar, *node.First);
         }
         if (hasSecond)
         {
-            if (ar.Mode() == SerializeMode::Read) { node.Second = MakeUnique<ui::toolkit::DockLayoutNode>(DefaultAllocator()); }
+            if (ar.Mode() == SerializeMode::Read)
+            {
+                node.Second = MakeUnique<ui::toolkit::DockLayoutNode>(DefaultAllocator());
+            }
             ar.Key("second");
             SerializeLayoutNode(ar, *node.Second);
         }
@@ -60,19 +66,31 @@ export namespace draconic::editor::app
                                                StringView fileName = kDockLayoutFile)
     {
         UniquePtr<ui::toolkit::DockLayoutNode> layout = dock.ExportLayout();
-        if (!layout) { return Status{ ErrorCode::NotFound } ; }   // empty dock tree - nothing to save
+        if (!layout)
+        {
+            return Status{ErrorCode::NotFound};
+        } // empty dock tree - nothing to save
 
         MemoryStream buffer;
         SerializerFactory factory = draconic::xml::XmlSerializerFactory();
         UniquePtr<SerializerContext> ctx = factory(buffer, SerializeMode::Write);
-        if (!ctx || ctx->serializer == nullptr) { return Status{ ErrorCode::Internal }; }
+        if (!ctx || ctx->serializer == nullptr)
+        {
+            return Status{ErrorCode::Internal};
+        }
         SerializeLayoutNode(*ctx->serializer, *layout);
-        if (!ctx->serializer->IsOk()) { return ctx->serializer->GetStatus(); }
+        if (!ctx->serializer->IsOk())
+        {
+            return ctx->serializer->GetStatus();
+        }
         ctx->Flush(buffer);
 
         vfs::NativeFileSystem root(directory);
         vfs::IWritableFileSystem* writable = root.AsWritable();
-        if (writable == nullptr) { return Status{ ErrorCode::NotSupported }; }
+        if (writable == nullptr)
+        {
+            return Status{ErrorCode::NotSupported};
+        }
         return writable->Save(fileName, buffer.Bytes());
     }
 
@@ -83,15 +101,24 @@ export namespace draconic::editor::app
     {
         vfs::NativeFileSystem root(directory);
         UniquePtr<IStream> stream = root.Open(fileName, FileMode::Read);
-        if (!stream) { return Status{ ErrorCode::NotFound }; }
+        if (!stream)
+        {
+            return Status{ErrorCode::NotFound};
+        }
 
         SerializerFactory factory = draconic::xml::XmlSerializerFactory();
         UniquePtr<SerializerContext> ctx = factory(*stream, SerializeMode::Read);
-        if (!ctx || ctx->serializer == nullptr) { return Status{ ErrorCode::Internal }; }
+        if (!ctx || ctx->serializer == nullptr)
+        {
+            return Status{ErrorCode::Internal};
+        }
 
         ui::toolkit::DockLayoutNode layout;
         SerializeLayoutNode(*ctx->serializer, layout);
-        if (!ctx->serializer->IsOk()) { return ctx->serializer->GetStatus(); }
+        if (!ctx->serializer->IsOk())
+        {
+            return ctx->serializer->GetStatus();
+        }
 
         dock.ApplyLayout(&layout);
         return Status{};
@@ -101,27 +128,43 @@ export namespace draconic::editor::app
 // === Favorites persistence (per-user, <project>/Editor/favorites.bin) =======================
 namespace draconic::editor::app
 {
-    [[nodiscard]] inline Status SaveFavorites(draconic::editor::EditorContext& context, StringView directory)
+    [[nodiscard]] inline Status SaveFavorites(draconic::editor::EditorContext& context,
+                                              StringView directory)
     {
         MemoryStream buffer;
         BinarySerializer ar(buffer, SerializeMode::Write);
         Span<const Guid> favorites = context.Favorites();
         u32 count = static_cast<u32>(favorites.Size());
         draconic::core::Serialize(ar, "count", count);
-        for (const Guid& f : favorites) { Guid id = f; ar.Key("id"); ar.GuidValue(id); }
-        if (!ar.IsOk()) { return ar.GetStatus(); }
+        for (const Guid& f : favorites)
+        {
+            Guid id = f;
+            ar.Key("id");
+            ar.GuidValue(id);
+        }
+        if (!ar.IsOk())
+        {
+            return ar.GetStatus();
+        }
 
         vfs::NativeFileSystem root(directory);
         vfs::IWritableFileSystem* writable = root.AsWritable();
-        if (writable == nullptr) { return Status{ ErrorCode::NotSupported }; }
+        if (writable == nullptr)
+        {
+            return Status{ErrorCode::NotSupported};
+        }
         return writable->Save(kFavoritesFile, buffer.Bytes());
     }
 
-    [[nodiscard]] inline Status LoadFavorites(draconic::editor::EditorContext& context, StringView directory)
+    [[nodiscard]] inline Status LoadFavorites(draconic::editor::EditorContext& context,
+                                              StringView directory)
     {
         vfs::NativeFileSystem root(directory);
         UniquePtr<IStream> stream = root.Open(kFavoritesFile, FileMode::Read);
-        if (!stream) { return Status{ ErrorCode::NotFound }; }
+        if (!stream)
+        {
+            return Status{ErrorCode::NotFound};
+        }
         BinarySerializer ar(*stream, SerializeMode::Read);
         u32 count = 0;
         draconic::core::Serialize(ar, "count", count);
@@ -129,10 +172,14 @@ namespace draconic::editor::app
         for (u32 i = 0; i < count && ar.IsOk(); ++i)
         {
             Guid id;
-            ar.Key("id"); ar.GuidValue(id);
+            ar.Key("id");
+            ar.GuidValue(id);
             favorites.PushBack(id);
         }
-        if (!ar.IsOk()) { return ar.GetStatus(); }
+        if (!ar.IsOk())
+        {
+            return ar.GetStatus();
+        }
         context.SetFavorites(Move(favorites));
         return Status{};
     }
@@ -152,14 +199,26 @@ namespace draconic::editor::app
         BinarySerializer ar(buffer, SerializeMode::Write);
         u32 count = static_cast<u32>(pages.Size());
         draconic::core::Serialize(ar, "count", count);
-        for (const Guid& id : pages) { Guid guid = id; ar.Key("id"); ar.GuidValue(guid); }
+        for (const Guid& id : pages)
+        {
+            Guid guid = id;
+            ar.Key("id");
+            ar.GuidValue(guid);
+        }
         Guid active = activePage;
-        ar.Key("active"); ar.GuidValue(active);
-        if (!ar.IsOk()) { return ar.GetStatus(); }
+        ar.Key("active");
+        ar.GuidValue(active);
+        if (!ar.IsOk())
+        {
+            return ar.GetStatus();
+        }
 
         vfs::NativeFileSystem root(directory);
         vfs::IWritableFileSystem* writable = root.AsWritable();
-        if (writable == nullptr) { return Status{ ErrorCode::NotSupported }; }
+        if (writable == nullptr)
+        {
+            return Status{ErrorCode::NotSupported};
+        }
         return writable->Save(kOpenPagesFile, buffer.Bytes());
     }
 
@@ -168,17 +227,22 @@ namespace draconic::editor::app
     {
         vfs::NativeFileSystem root(directory);
         UniquePtr<IStream> stream = root.Open(kOpenPagesFile, FileMode::Read);
-        if (!stream) { return Status{ ErrorCode::NotFound }; }
+        if (!stream)
+        {
+            return Status{ErrorCode::NotFound};
+        }
         BinarySerializer ar(*stream, SerializeMode::Read);
         u32 count = 0;
         draconic::core::Serialize(ar, "count", count);
         for (u32 i = 0; i < count && ar.IsOk(); ++i)
         {
             Guid id;
-            ar.Key("id"); ar.GuidValue(id);
+            ar.Key("id");
+            ar.GuidValue(id);
             outPages.PushBack(id);
         }
-        ar.Key("active"); ar.GuidValue(outActivePage);
+        ar.Key("active");
+        ar.GuidValue(outActivePage);
         return ar.IsOk() ? Status{} : ar.GetStatus();
     }
 }

@@ -11,23 +11,28 @@ namespace core = draconic::core;
 
 namespace
 {
-    template <typename T> core::RefPtr<T> Make() { return core::MakeRef<T>(core::DefaultAllocator()); }
+    template <typename T>
+    core::RefPtr<T> Make()
+    {
+        return core::MakeRef<T>(core::DefaultAllocator());
+    }
     StyleSelector Sel(const char8_t* s) { return StyleSelector(core::StringView(s)); }
 
     core::RefPtr<UIWidget> Widget(const char8_t* tag, const char8_t* id = u8"")
     {
         auto w = Make<UIWidget>();
         w->SetTag(core::StringView(tag));
-        if (id[0] != 0) w->SetId(core::StringView(id));
+        if (id[0] != 0)
+            w->SetId(core::StringView(id));
         return w;
     }
 }
 
 TEST_CASE("selector: specificity buckets")
 {
-    CHECK(Sel(u8"button").Specificity() == 1);              // tag
-    CHECK(Sel(u8".primary").Specificity() == 1024);         // class
-    CHECK(Sel(u8"#ok").Specificity() == 1048576);           // id
+    CHECK(Sel(u8"button").Specificity() == 1);      // tag
+    CHECK(Sel(u8".primary").Specificity() == 1024); // class
+    CHECK(Sel(u8"#ok").Specificity() == 1048576);   // id
     CHECK(Sel(u8"button.primary#ok").Specificity() == 1048576 + 1024 + 1);
     CHECK(Sel(u8"*").Specificity() == 0);                   // universal
     CHECK(Sel(u8"div .item").Specificity() == 1 + 1024);    // tag + class across two rules
@@ -73,19 +78,19 @@ TEST_CASE("selector: descendant vs child combinators")
 TEST_CASE("selector: pseudo-classes track control state")
 {
     auto root = Make<SceneNode>();
-    root->SetSize(core::Float2{ 200.0f, 200.0f });
+    root->SetSize(core::Float2{200.0f, 200.0f});
     auto w = Widget(u8"button");
-    w->SetSize(core::Float2{ 100.0f, 100.0f });
+    w->SetSize(core::Float2{100.0f, 100.0f});
     root->AddChild(w.Get());
     EventDispatcher* d = root->GetEventDispatcher();
 
-    CHECK_FALSE(Sel(u8"button:hover").Select(*w.Get())); // not hovered yet
+    CHECK_FALSE(Sel(u8"button:hover").Select(*w.Get()));                  // not hovered yet
     CHECK(Sel(u8"button:hover").Select(*w.Get(), /*applyPseudo*/ false)); // pseudo ignored
 
-    d->InjectMouseMove(core::Float2{ 50.0f, 50.0f }); // hover w
+    d->InjectMouseMove(core::Float2{50.0f, 50.0f}); // hover w
     CHECK(Sel(u8"button:hover").Select(*w.Get()));
 
-    d->InjectMouseDown(core::Float2{ 50.0f, 50.0f }, MouseButton::Left); // press + focus
+    d->InjectMouseDown(core::Float2{50.0f, 50.0f}, MouseButton::Left); // press + focus
     CHECK(Sel(u8"button:active").Select(*w.Get()));
     CHECK(Sel(u8"button:focus").Select(*w.Get()));
 

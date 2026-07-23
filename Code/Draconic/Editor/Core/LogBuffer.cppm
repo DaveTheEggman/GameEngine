@@ -27,14 +27,16 @@ export namespace draconic::editor
         LogLevel level = LogLevel::Info;
         String category;
         String message;
-        u64 sequence = 0;   // monotonic, 1-based across the run
+        u64 sequence = 0; // monotonic, 1-based across the run
     };
 
     class EditorLogBuffer final : public ILogSink
     {
     public:
         explicit EditorLogBuffer(usize capacity = 4096, IAllocator& allocator = DefaultAllocator())
-            : m_entries(capacity, allocator) {}
+            : m_entries(capacity, allocator)
+        {
+        }
 
         EditorLogBuffer(const EditorLogBuffer&) = delete;
         EditorLogBuffer& operator=(const EditorLogBuffer&) = delete;
@@ -93,7 +95,9 @@ export namespace draconic::editor
         {
             ScopedLock lock(m_mutex);
             EditorLogEntry discarded;
-            while (m_entries.PopFront(discarded)) {}
+            while (m_entries.PopFront(discarded))
+            {
+            }
         }
 
     private:

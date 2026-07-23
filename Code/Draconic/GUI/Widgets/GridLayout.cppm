@@ -12,7 +12,7 @@ module;
 
 export module draconic.gui:grid_layout;
 
-import draconic.core;   // Float2, Max
+import draconic.core; // Float2, Max
 import :rect;
 import :node;
 import :ui_widget;
@@ -29,12 +29,18 @@ export namespace draconic::gui
         GridLayout() = default;
 
         // Number of columns (clamped to >= 1). Children flow left-to-right, top-to-bottom.
-        void SetColumns(u32 columns) { m_columns = columns < 1u ? 1u : columns; PerformLayout(); }
+        void SetColumns(u32 columns)
+        {
+            m_columns = columns < 1u ? 1u : columns;
+            PerformLayout();
+        }
         [[nodiscard]] u32 GetColumns() const noexcept { return m_columns; }
 
         void SetSpacing(f32 horizontal, f32 vertical)
         {
-            m_hSpacing = horizontal; m_vSpacing = vertical; PerformLayout();
+            m_hSpacing = horizontal;
+            m_vSpacing = vertical;
+            PerformLayout();
         }
         [[nodiscard]] f32 GetHorizontalSpacing() const noexcept { return m_hSpacing; }
         [[nodiscard]] f32 GetVerticalSpacing() const noexcept { return m_vSpacing; }
@@ -42,7 +48,8 @@ export namespace draconic::gui
         // The width of a single column cell (content width shared across the columns).
         [[nodiscard]] f32 CellWidth() const
         {
-            const f32 total = GetContentBounds().width - static_cast<f32>(m_columns - 1u) * m_hSpacing;
+            const f32 total =
+                GetContentBounds().width - static_cast<f32>(m_columns - 1u) * m_hSpacing;
             return core::Max(0.0f, total / static_cast<f32>(m_columns));
         }
 
@@ -57,10 +64,11 @@ export namespace draconic::gui
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 Node* child = GetChildAt(i);
-                if (child == nullptr || !child->IsVisible()) continue;
+                if (child == nullptr || !child->IsVisible())
+                    continue;
 
                 const f32 x = content.x + static_cast<f32>(col) * (cellW + m_hSpacing);
-                child->SetPosition(core::Float2{ x, rowY });
+                child->SetPosition(core::Float2{x, rowY});
                 rowMaxH = core::Max(rowMaxH, child->GetSize().y);
 
                 if (++col >= m_columns) // row complete -> advance

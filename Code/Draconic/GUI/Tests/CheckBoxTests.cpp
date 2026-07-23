@@ -11,7 +11,11 @@ namespace core = draconic::core;
 
 namespace
 {
-    template <typename T> core::RefPtr<T> Make() { return core::MakeRef<T>(core::DefaultAllocator()); }
+    template <typename T>
+    core::RefPtr<T> Make()
+    {
+        return core::MakeRef<T>(core::DefaultAllocator());
+    }
 }
 
 TEST_CASE("checkbox: defaults")
@@ -26,7 +30,12 @@ TEST_CASE("checkbox: toggle and set fire the change callback")
     auto cb = Make<CheckBox>();
     int changes = 0;
     bool last = false;
-    cb->SetOnCheckedChanged([&](bool checked) { ++changes; last = checked; });
+    cb->SetOnCheckedChanged(
+        [&](bool checked)
+        {
+            ++changes;
+            last = checked;
+        });
 
     cb->Toggle();
     CHECK(cb->IsChecked());
@@ -47,35 +56,35 @@ TEST_CASE("checkbox: toggle and set fire the change callback")
 TEST_CASE("checkbox: click through the dispatcher toggles it")
 {
     auto root = Make<SceneNode>();
-    root->SetSize(core::Float2{ 100.0f, 100.0f });
+    root->SetSize(core::Float2{100.0f, 100.0f});
     auto cb = Make<CheckBox>();
-    cb->SetSize(core::Float2{ 24.0f, 24.0f });
+    cb->SetSize(core::Float2{24.0f, 24.0f});
     root->AddChild(cb.Get());
     EventDispatcher* d = root->GetEventDispatcher();
 
-    d->InjectMouseDown(core::Float2{ 12.0f, 12.0f }, MouseButton::Left);
-    d->InjectMouseUp(core::Float2{ 12.0f, 12.0f }, MouseButton::Left);
+    d->InjectMouseDown(core::Float2{12.0f, 12.0f}, MouseButton::Left);
+    d->InjectMouseUp(core::Float2{12.0f, 12.0f}, MouseButton::Left);
     CHECK(cb->IsChecked());
 
-    d->InjectMouseDown(core::Float2{ 12.0f, 12.0f }, MouseButton::Left);
-    d->InjectMouseUp(core::Float2{ 12.0f, 12.0f }, MouseButton::Left);
+    d->InjectMouseDown(core::Float2{12.0f, 12.0f}, MouseButton::Left);
+    d->InjectMouseUp(core::Float2{12.0f, 12.0f}, MouseButton::Left);
     CHECK_FALSE(cb->IsChecked());
 }
 
 TEST_CASE("checkbox: draws box outline, plus a check when checked")
 {
     auto cb = Make<CheckBox>();
-    cb->SetSize(core::Float2{ 24.0f, 24.0f });
+    cb->SetSize(core::Float2{24.0f, 24.0f});
 
     draconic::vg::VGContext ctxUnchecked;
-    DrawContext dcU{ ctxUnchecked };
+    DrawContext dcU{ctxUnchecked};
     cb->Draw(dcU);
     const core::usize unchecked = ctxUnchecked.GetBatch().vertices.Size();
     CHECK(unchecked > 0); // outline
 
     cb->SetChecked(true);
     draconic::vg::VGContext ctxChecked;
-    DrawContext dcC{ ctxChecked };
+    DrawContext dcC{ctxChecked};
     cb->Draw(dcC);
     CHECK(ctxChecked.GetBatch().vertices.Size() > unchecked); // outline + check fill
 }

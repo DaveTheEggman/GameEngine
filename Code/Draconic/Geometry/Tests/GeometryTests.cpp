@@ -13,9 +13,9 @@ using namespace draconic::geometry;
 
 TEST_CASE("stream layouts are the GPU-canonical sizes")
 {
-    CHECK(sizeof(StaticMeshVertex) == 52);   // Float4 tangent (w = TBN handedness)
+    CHECK(sizeof(StaticMeshVertex) == 52); // Float4 tangent (w = TBN handedness)
     CHECK(sizeof(VertexSkinning) == 24);
-    CHECK(StaticMesh::VertexStride() == 52);   // Float4 tangent (w = TBN handedness)
+    CHECK(StaticMesh::VertexStride() == 52); // Float4 tangent (w = TBN handedness)
     CHECK(SkinnedMesh::SkinningStride() == 24);
 }
 
@@ -34,7 +34,7 @@ TEST_CASE("index buffer: format, set/get, raw size")
     IndexBuffer ib32(IndexBuffer::Format::U32);
     CHECK(ib32.IndexSize() == 4);
     ib32.Resize(2);
-    ib32.Set(0, 70000);                 // exceeds u16 range -> needs 32-bit
+    ib32.Set(0, 70000); // exceeds u16 range -> needs 32-bit
     CHECK(ib32.Get(0) == 70000);
 }
 
@@ -47,11 +47,12 @@ TEST_CASE("static mesh: generated normals + tangents + bounds on a quad")
     CHECK(mesh->subMeshes.Size() == 1);
 
     mesh->GenerateNormals();
-    for (const StaticMeshVertex& v : mesh->vertices) {
-        CHECK(v.normal.z == doctest::Approx(1.0f));      // quad faces +Z
-        const Float3 t3{ v.tangent.x, v.tangent.y, v.tangent.z };
-        CHECK(LengthSquared(t3) == doctest::Approx(1.0f));          // unit tangent xyz
-        CHECK(Abs(v.tangent.w) == doctest::Approx(1.0f));           // handedness is +-1
+    for (const StaticMeshVertex& v : mesh->vertices)
+    {
+        CHECK(v.normal.z == doctest::Approx(1.0f)); // quad faces +Z
+        const Float3 t3{v.tangent.x, v.tangent.y, v.tangent.z};
+        CHECK(LengthSquared(t3) == doctest::Approx(1.0f)); // unit tangent xyz
+        CHECK(Abs(v.tangent.w) == doctest::Approx(1.0f));  // handedness is +-1
     }
 
     mesh->CalculateBounds();
@@ -66,12 +67,20 @@ TEST_CASE("skinned mesh IS-A static mesh: static stream is substitutable")
     RefPtr<SkinnedMesh> skinned = MakeRef<SkinnedMesh>(DefaultAllocator());
     skinned->skeletonIndex = 3;
     // static stream (inherited)
-    skinned->vertices.PushBack(StaticMeshVertex{ Float3{ 0, 0, 0 }, Float3{ 0, 1, 0 }, Float2{ 0, 0 }, 0xFFFFFFFFu, Float3{ 1, 0, 0 } });
-    skinned->vertices.PushBack(StaticMeshVertex{ Float3{ 1, 0, 0 }, Float3{ 0, 1, 0 }, Float2{ 1, 0 }, 0xFFFFFFFFu, Float3{ 1, 0, 0 } });
-    skinned->vertices.PushBack(StaticMeshVertex{ Float3{ 0, 1, 0 }, Float3{ 0, 1, 0 }, Float2{ 0, 1 }, 0xFFFFFFFFu, Float3{ 1, 0, 0 } });
+    skinned->vertices.PushBack(StaticMeshVertex{Float3{0, 0, 0}, Float3{0, 1, 0}, Float2{0, 0},
+                                                0xFFFFFFFFu, Float3{1, 0, 0}});
+    skinned->vertices.PushBack(StaticMeshVertex{Float3{1, 0, 0}, Float3{0, 1, 0}, Float2{1, 0},
+                                                0xFFFFFFFFu, Float3{1, 0, 0}});
+    skinned->vertices.PushBack(StaticMeshVertex{Float3{0, 1, 0}, Float3{0, 1, 0}, Float2{0, 1},
+                                                0xFFFFFFFFu, Float3{1, 0, 0}});
     // parallel skinning stream
-    VertexSkinning s{}; s.joints[0] = 2; s.weights = Float4{ 1, 0, 0, 0 };
-    for (u32 i = 0; i < 3; ++i) { skinned->skinning.PushBack(s); }
+    VertexSkinning s{};
+    s.joints[0] = 2;
+    s.weights = Float4{1, 0, 0, 0};
+    for (u32 i = 0; i < 3; ++i)
+    {
+        skinned->skinning.PushBack(s);
+    }
 
     // pass it where a StaticMesh& is expected -- the static ops just work
     StaticMesh& asStatic = *skinned;
@@ -101,7 +110,7 @@ TEST_CASE("primitives: cube + sphere + plane are well-formed")
 {
     RefPtr<StaticMesh> cube = Primitives::Cube(2.0f);
     REQUIRE(cube);
-    CHECK(cube->VertexCount() == 24);             // 4 verts x 6 faces (hard normals)
+    CHECK(cube->VertexCount() == 24); // 4 verts x 6 faces (hard normals)
     CHECK(cube->IndexCount() == 36);
     CHECK(cube->bounds.min.x == doctest::Approx(-1.0f));
     CHECK(cube->bounds.max.z == doctest::Approx(1.0f));
@@ -110,13 +119,14 @@ TEST_CASE("primitives: cube + sphere + plane are well-formed")
     REQUIRE(sphere);
     CHECK(sphere->IndexCount() == 16 * 8 * 6);
     // every surface point is ~radius from the origin
-    for (const StaticMeshVertex& v : sphere->vertices) {
+    for (const StaticMeshVertex& v : sphere->vertices)
+    {
         CHECK(Length(v.position) == doctest::Approx(1.0f).epsilon(0.01));
     }
 
     RefPtr<StaticMesh> plane = Primitives::Plane(4.0f, 4.0f, 2, 2);
     REQUIRE(plane);
-    CHECK(plane->VertexCount() == 9);             // (2+1) x (2+1)
+    CHECK(plane->VertexCount() == 9); // (2+1) x (2+1)
     CHECK(plane->IndexCount() == 2 * 2 * 6);
 }
 
@@ -130,8 +140,9 @@ TEST_CASE("primitives: cylinder + cone + torus are well-formed (Sedulous ports)"
     CHECK(cyl->bounds.max.y == doctest::Approx(1.0f));
     CHECK(cyl->bounds.max.x == doctest::Approx(0.5f));
     // every vertex sits either on a cap plane or the wall radius
-    for (const StaticMeshVertex& v : cyl->vertices) {
-        const f32 r = Length(Float3{ v.position.x, 0.0f, v.position.z });
+    for (const StaticMeshVertex& v : cyl->vertices)
+    {
+        const f32 r = Length(Float3{v.position.x, 0.0f, v.position.z});
         CHECK((r < 0.5f + 0.001f));
         CHECK(Abs(v.position.y) == doctest::Approx(1.0f));
     }
@@ -148,8 +159,9 @@ TEST_CASE("primitives: cylinder + cone + torus are well-formed (Sedulous ports)"
     CHECK(torus->VertexCount() == (16 + 1) * (8 + 1));
     CHECK(torus->IndexCount() == 16 * 8 * 6);
     // every surface point is tubeRadius from its ring center
-    for (const StaticMeshVertex& v : torus->vertices) {
-        const Float3 onRing = Normalized(Float3{ v.position.x, 0.0f, v.position.z });
+    for (const StaticMeshVertex& v : torus->vertices)
+    {
+        const Float3 onRing = Normalized(Float3{v.position.x, 0.0f, v.position.z});
         const Float3 center = onRing * 1.0f;
         CHECK(Length(v.position - center) == doctest::Approx(0.25f).epsilon(0.01));
     }
@@ -174,23 +186,33 @@ TEST_CASE("tangent generation: mirrored UVs produce handedness w = -1")
     // accumulation opposes cross(N, T) there, so tangent.w flips - the shader's TBN then
     // lights normal maps correctly on mirrored halves.
     RefPtr<StaticMesh> mesh = MakeRef<StaticMesh>(DefaultAllocator());
-    auto addTri = [&](f32 xBase, bool mirrored) {
+    auto addTri = [&](f32 xBase, bool mirrored)
+    {
         const u32 base = mesh->VertexCount();
         const f32 u0 = mirrored ? 1.0f : 0.0f;
         const f32 u1 = mirrored ? 0.0f : 1.0f;
-        mesh->vertices.PushBack(StaticMeshVertex{ Float3{ xBase,        0, 0 }, Float3{ 0, 0, 1 }, Float2{ u0, 0 }, 0xFFFFFFFFu, Float3{ 1, 0, 0 } });
-        mesh->vertices.PushBack(StaticMeshVertex{ Float3{ xBase + 1.0f, 0, 0 }, Float3{ 0, 0, 1 }, Float2{ u1, 0 }, 0xFFFFFFFFu, Float3{ 1, 0, 0 } });
-        mesh->vertices.PushBack(StaticMeshVertex{ Float3{ xBase,        1, 0 }, Float3{ 0, 0, 1 }, Float2{ u0, 1 }, 0xFFFFFFFFu, Float3{ 1, 0, 0 } });
+        mesh->vertices.PushBack(StaticMeshVertex{Float3{xBase, 0, 0}, Float3{0, 0, 1},
+                                                 Float2{u0, 0}, 0xFFFFFFFFu, Float3{1, 0, 0}});
+        mesh->vertices.PushBack(StaticMeshVertex{Float3{xBase + 1.0f, 0, 0}, Float3{0, 0, 1},
+                                                 Float2{u1, 0}, 0xFFFFFFFFu, Float3{1, 0, 0}});
+        mesh->vertices.PushBack(StaticMeshVertex{Float3{xBase, 1, 0}, Float3{0, 0, 1},
+                                                 Float2{u0, 1}, 0xFFFFFFFFu, Float3{1, 0, 0}});
         mesh->indices.AddTriangle(base + 0, base + 1, base + 2);
     };
     mesh->indices.Resize(6);
     addTri(0.0f, /*mirrored*/ false);
     addTri(2.0f, /*mirrored*/ true);
-    mesh->subMeshes.PushBack(SubMesh{ 0, 6, 0, PrimitiveType::Triangles });
+    mesh->subMeshes.PushBack(SubMesh{0, 6, 0, PrimitiveType::Triangles});
 
     mesh->GenerateTangents();
-    for (u32 i = 0; i < 3; ++i) { CHECK(mesh->vertices[i].tangent.w == 1.0f); }
-    for (u32 i = 3; i < 6; ++i) { CHECK(mesh->vertices[i].tangent.w == -1.0f); }
+    for (u32 i = 0; i < 3; ++i)
+    {
+        CHECK(mesh->vertices[i].tangent.w == 1.0f);
+    }
+    for (u32 i = 3; i < 6; ++i)
+    {
+        CHECK(mesh->vertices[i].tangent.w == -1.0f);
+    }
     // The mirrored tangent points the other way in X; xyz stays unit length.
     CHECK(mesh->vertices[0].tangent.x == doctest::Approx(1.0f));
     CHECK(mesh->vertices[3].tangent.x == doctest::Approx(-1.0f));

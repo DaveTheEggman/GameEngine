@@ -12,12 +12,25 @@ namespace
 {
     bool Contains(StringView h, StringView n)
     {
-        if (n.Size() > h.Size()) { return false; }
+        if (n.Size() > h.Size())
+        {
+            return false;
+        }
         for (usize i = 0; i + n.Size() <= h.Size(); ++i)
         {
             bool m = true;
-            for (usize j = 0; j < n.Size(); ++j) { if (h[i + j] != n[j]) { m = false; break; } }
-            if (m) { return true; }
+            for (usize j = 0; j < n.Size(); ++j)
+            {
+                if (h[i + j] != n[j])
+                {
+                    m = false;
+                    break;
+                }
+            }
+            if (m)
+            {
+                return true;
+            }
         }
         return false;
     }
@@ -28,7 +41,10 @@ TEST_CASE("xml.serialize: scalar + string round-trip")
     String out;
     {
         XmlSerializer w;
-        i32 a = -42; u32 b = 7u; f32 c = 1.5f; bool d = true;
+        i32 a = -42;
+        u32 b = 7u;
+        f32 c = 1.5f;
+        bool d = true;
         String s = u8"hello world";
         Serialize(w, "a", a);
         Serialize(w, "b", b);
@@ -46,7 +62,11 @@ TEST_CASE("xml.serialize: scalar + string round-trip")
     XmlDocument doc;
     REQUIRE(doc.Parse(out) == XmlResult::Ok);
     XmlSerializer r(doc);
-    i32 a = 0; u32 b = 0; f32 c = 0; bool d = false; String s;
+    i32 a = 0;
+    u32 b = 0;
+    f32 c = 0;
+    bool d = false;
+    String s;
     Serialize(r, "a", a);
     Serialize(r, "b", b);
     Serialize(r, "c", c);
@@ -65,7 +85,7 @@ TEST_CASE("xml.serialize: nested object (Float3) round-trip")
     String out;
     {
         XmlSerializer w;
-        Float3 v{ 1.0f, 2.5f, -3.0f };
+        Float3 v{1.0f, 2.5f, -3.0f};
         Serialize(w, "pos", v);
         w.GetOutput(out);
     }
@@ -88,7 +108,9 @@ TEST_CASE("xml.serialize: dynamic array round-trip")
     {
         XmlSerializer w;
         Array<i32> nums;
-        nums.PushBack(10); nums.PushBack(20); nums.PushBack(30);
+        nums.PushBack(10);
+        nums.PushBack(20);
+        nums.PushBack(30);
         Serialize(w, "nums", nums);
         w.GetOutput(out);
     }
@@ -112,8 +134,8 @@ TEST_CASE("xml.serialize: array of objects round-trip")
     {
         XmlSerializer w;
         Array<Float2> pts;
-        pts.PushBack(Float2{ 1.0f, 2.0f });
-        pts.PushBack(Float2{ 3.0f, 4.0f });
+        pts.PushBack(Float2{1.0f, 2.0f});
+        pts.PushBack(Float2{3.0f, 4.0f});
         Serialize(w, "pts", pts);
         w.GetOutput(out);
     }
@@ -125,8 +147,10 @@ TEST_CASE("xml.serialize: array of objects round-trip")
     Serialize(r, "pts", pts);
     CHECK(r.IsOk());
     REQUIRE(pts.Size() == 2u);
-    CHECK(pts[0].x == 1.0f); CHECK(pts[0].y == 2.0f);
-    CHECK(pts[1].x == 3.0f); CHECK(pts[1].y == 4.0f);
+    CHECK(pts[0].x == 1.0f);
+    CHECK(pts[0].y == 2.0f);
+    CHECK(pts[1].x == 3.0f);
+    CHECK(pts[1].y == 4.0f);
 }
 
 TEST_CASE("xml.serialize: Float4x4 (positional float array) round-trip")
@@ -146,7 +170,10 @@ TEST_CASE("xml.serialize: Float4x4 (positional float array) round-trip")
     Float4x4 m2{};
     Serialize(r, "xform", m2);
     CHECK(r.IsOk());
-    for (int i = 0; i < 16; ++i) { CHECK(m2.Data()[i] == m.Data()[i]); }
+    for (int i = 0; i < 16; ++i)
+    {
+        CHECK(m2.Data()[i] == m.Data()[i]);
+    }
 }
 
 TEST_CASE("xml.serialize: missing field reports error on read")
@@ -164,7 +191,12 @@ namespace
 {
     // A struct whose fields serialize as a FLAT keyed group (no per-element object wrapper) -
     // the model-manifest ModelNode shape that exposed the repeated-key bug.
-    struct FlatNode { String name; i32 parent = -1; i32 mesh = -1; };
+    struct FlatNode
+    {
+        String name;
+        i32 parent = -1;
+        i32 mesh = -1;
+    };
     void Serialize(ISerializer& ar, FlatNode& n)
     {
         draconic::core::Serialize(ar, "name", n.name);
@@ -211,5 +243,5 @@ TEST_CASE("xml.serialize: array of keyed structs round-trips each element distin
     CHECK(loaded[2].parent == 1);
     CHECK(loaded[0].mesh == -1);
     CHECK(loaded[1].mesh == -1);
-    CHECK(loaded[2].mesh == 0);   // the field the Fox manifest lost
+    CHECK(loaded[2].mesh == 0); // the field the Fox manifest lost
 }

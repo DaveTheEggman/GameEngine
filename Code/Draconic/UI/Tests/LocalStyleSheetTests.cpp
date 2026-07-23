@@ -18,7 +18,10 @@ namespace core = draconic::core;
 
 namespace
 {
-    [[nodiscard]] Color Rgb(f32 r, f32 g, f32 b, f32 a = 255.0f) { return Color{ r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f }; }
+    [[nodiscard]] Color Rgb(f32 r, f32 g, f32 b, f32 a = 255.0f)
+    {
+        return Color{r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f};
+    }
 
     // Install a fresh empty StyleSheet on ctx; returns a borrowed pointer for the test to add rules to.
     StyleSheet* SetupCtxSheet(UIContext& ctx)
@@ -113,11 +116,14 @@ TEST_CASE("local-stylesheet: SharedBetweenViews")
 
 TEST_CASE("local-stylesheet: Resolution_LocalOnThisView_WinsOverContext")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
     StyleSheet* ctxSheet = SetupCtxSheet(ctx);
     ctxSheet->ForType(&TestView::StaticType()).Set(StyleProperty::TextColor, Rgb(255, 0, 0));
 
-    auto view = core::MakeRef<TestView>(core::DefaultAllocator()); root->AddView(view.Get());
+    auto view = core::MakeRef<TestView>(core::DefaultAllocator());
+    root->AddView(view.Get());
     StyleSheet* local = SetupLocalSheet(*view);
     local->ForType(&TestView::StaticType()).Set(StyleProperty::TextColor, Rgb(0, 255, 0));
 
@@ -127,13 +133,16 @@ TEST_CASE("local-stylesheet: Resolution_LocalOnThisView_WinsOverContext")
 
 TEST_CASE("local-stylesheet: Resolution_LocalOnAncestor_WinsOverContext")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
     StyleSheet* ctxSheet = SetupCtxSheet(ctx);
     ctxSheet->ForType(&TestView::StaticType()).Set(StyleProperty::TextColor, Color::Red);
 
     auto group = core::MakeRef<TestGroup>(core::DefaultAllocator());
     auto child = core::MakeRef<TestView>(core::DefaultAllocator());
-    root->AddView(group.Get()); group->AddView(child.Get());
+    root->AddView(group.Get());
+    group->AddView(child.Get());
 
     StyleSheet* parentLocal = SetupLocalSheet(*group);
     parentLocal->ForType(&TestView::StaticType()).Set(StyleProperty::TextColor, Rgb(50, 200, 50));
@@ -143,13 +152,17 @@ TEST_CASE("local-stylesheet: Resolution_LocalOnAncestor_WinsOverContext")
 
 TEST_CASE("local-stylesheet: Resolution_CloserAncestor_WinsOverFarther")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
     SetupCtxSheet(ctx);
 
     auto outer = core::MakeRef<TestGroup>(core::DefaultAllocator());
     auto inner = core::MakeRef<TestGroup>(core::DefaultAllocator());
     auto child = core::MakeRef<TestView>(core::DefaultAllocator());
-    root->AddView(outer.Get()); outer->AddView(inner.Get()); inner->AddView(child.Get());
+    root->AddView(outer.Get());
+    outer->AddView(inner.Get());
+    inner->AddView(child.Get());
 
     StyleSheet* outerLocal = SetupLocalSheet(*outer);
     outerLocal->ForType(&TestView::StaticType()).Set(StyleProperty::TextColor, Color::Red);
@@ -161,13 +174,17 @@ TEST_CASE("local-stylesheet: Resolution_CloserAncestor_WinsOverFarther")
 
 TEST_CASE("local-stylesheet: Resolution_NotFound_FallsThroughToNextAncestor")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
     SetupCtxSheet(ctx);
 
     auto outer = core::MakeRef<TestGroup>(core::DefaultAllocator());
     auto inner = core::MakeRef<TestGroup>(core::DefaultAllocator());
     auto child = core::MakeRef<TestView>(core::DefaultAllocator());
-    root->AddView(outer.Get()); outer->AddView(inner.Get()); inner->AddView(child.Get());
+    root->AddView(outer.Get());
+    outer->AddView(inner.Get());
+    inner->AddView(child.Get());
 
     StyleSheet* outerLocal = SetupLocalSheet(*outer);
     outerLocal->ForType(&TestView::StaticType()).Set(StyleProperty::TextColor, Rgb(0, 200, 0));
@@ -180,13 +197,16 @@ TEST_CASE("local-stylesheet: Resolution_NotFound_FallsThroughToNextAncestor")
 
 TEST_CASE("local-stylesheet: Resolution_NotFound_FallsThroughToContext")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
     StyleSheet* ctxSheet = SetupCtxSheet(ctx);
     ctxSheet->ForType(&TestView::StaticType()).Set(StyleProperty::TextColor, Rgb(100, 100, 100));
 
     auto group = core::MakeRef<TestGroup>(core::DefaultAllocator());
     auto child = core::MakeRef<TestView>(core::DefaultAllocator());
-    root->AddView(group.Get()); group->AddView(child.Get());
+    root->AddView(group.Get());
+    group->AddView(child.Get());
 
     StyleSheet* groupLocal = SetupLocalSheet(*group);
     groupLocal->ForType(&TestView::StaticType()).Set(StyleProperty::FontSize, 18.0f);
@@ -196,13 +216,17 @@ TEST_CASE("local-stylesheet: Resolution_NotFound_FallsThroughToContext")
 
 TEST_CASE("local-stylesheet: Resolution_InheritableProperty_CascadesThroughLocalOnAncestor")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
     SetupCtxSheet(ctx);
 
     auto dialog = core::MakeRef<TestGroup>(core::DefaultAllocator());
     auto inner = core::MakeRef<TestGroup>(core::DefaultAllocator());
     auto child = core::MakeRef<TestView>(core::DefaultAllocator());
-    root->AddView(dialog.Get()); dialog->AddView(inner.Get()); inner->AddView(child.Get());
+    root->AddView(dialog.Get());
+    dialog->AddView(inner.Get());
+    inner->AddView(child.Get());
 
     StyleSheet* dialogLocal = SetupLocalSheet(*dialog);
     dialogLocal->ForType(&TestGroup::StaticType()).Set(StyleProperty::TextColor, Rgb(50, 150, 250));
@@ -212,12 +236,15 @@ TEST_CASE("local-stylesheet: Resolution_InheritableProperty_CascadesThroughLocal
 
 TEST_CASE("local-stylesheet: Resolution_NonInheritable_DoesNotCascade")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
     SetupCtxSheet(ctx);
 
     auto group = core::MakeRef<TestGroup>(core::DefaultAllocator());
     auto child = core::MakeRef<TestView>(core::DefaultAllocator());
-    root->AddView(group.Get()); group->AddView(child.Get());
+    root->AddView(group.Get());
+    group->AddView(child.Get());
 
     StyleSheet* groupLocal = SetupLocalSheet(*group);
     groupLocal->ForType(&TestGroup::StaticType()).Set(StyleProperty::Padding, Thickness(8));
@@ -229,144 +256,194 @@ TEST_CASE("local-stylesheet: Resolution_NonInheritable_DoesNotCascade")
 
 TEST_CASE("local-stylesheet: Pseudo_LocalOnThisView_WinsOverContext")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
     StyleSheet* ctxSheet = SetupCtxSheet(ctx);
-    ctxSheet->ForTypePseudo(&TestView::StaticType(), u8"thumb").Set(StyleProperty::CornerRadius, 4.0f);
+    ctxSheet->ForTypePseudo(&TestView::StaticType(), u8"thumb")
+        .Set(StyleProperty::CornerRadius, 4.0f);
 
-    auto view = core::MakeRef<TestView>(core::DefaultAllocator()); root->AddView(view.Get());
+    auto view = core::MakeRef<TestView>(core::DefaultAllocator());
+    root->AddView(view.Get());
     StyleSheet* local = SetupLocalSheet(*view);
-    local->ForTypePseudo(&TestView::StaticType(), u8"thumb").Set(StyleProperty::CornerRadius, 12.0f);
+    local->ForTypePseudo(&TestView::StaticType(), u8"thumb")
+        .Set(StyleProperty::CornerRadius, 12.0f);
 
-    CHECK(view->ResolvePartFloat(u8"thumb", StyleProperty::CornerRadius, ControlState::Normal) == 12.0f);
+    CHECK(view->ResolvePartFloat(u8"thumb", StyleProperty::CornerRadius, ControlState::Normal) ==
+          12.0f);
 }
 
 TEST_CASE("local-stylesheet: Pseudo_LocalOnAncestor_WinsOverContext")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
     StyleSheet* ctxSheet = SetupCtxSheet(ctx);
-    ctxSheet->ForTypePseudo(&TestView::StaticType(), u8"thumb").Set(StyleProperty::CornerRadius, 2.0f);
+    ctxSheet->ForTypePseudo(&TestView::StaticType(), u8"thumb")
+        .Set(StyleProperty::CornerRadius, 2.0f);
 
     auto group = core::MakeRef<TestGroup>(core::DefaultAllocator());
     auto child = core::MakeRef<TestView>(core::DefaultAllocator());
-    root->AddView(group.Get()); group->AddView(child.Get());
+    root->AddView(group.Get());
+    group->AddView(child.Get());
 
     StyleSheet* parentLocal = SetupLocalSheet(*group);
-    parentLocal->ForTypePseudo(&TestView::StaticType(), u8"thumb").Set(StyleProperty::CornerRadius, 16.0f);
+    parentLocal->ForTypePseudo(&TestView::StaticType(), u8"thumb")
+        .Set(StyleProperty::CornerRadius, 16.0f);
 
-    CHECK(child->ResolvePartFloat(u8"thumb", StyleProperty::CornerRadius, ControlState::Normal) == 16.0f);
+    CHECK(child->ResolvePartFloat(u8"thumb", StyleProperty::CornerRadius, ControlState::Normal) ==
+          16.0f);
 }
 
 TEST_CASE("local-stylesheet: Pseudo_CloserAncestor_WinsOverFarther")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
     SetupCtxSheet(ctx);
 
     auto outer = core::MakeRef<TestGroup>(core::DefaultAllocator());
     auto inner = core::MakeRef<TestGroup>(core::DefaultAllocator());
     auto child = core::MakeRef<TestView>(core::DefaultAllocator());
-    root->AddView(outer.Get()); outer->AddView(inner.Get()); inner->AddView(child.Get());
+    root->AddView(outer.Get());
+    outer->AddView(inner.Get());
+    inner->AddView(child.Get());
 
     StyleSheet* outerLocal = SetupLocalSheet(*outer);
-    outerLocal->ForTypePseudo(&TestView::StaticType(), u8"thumb").Set(StyleProperty::CornerRadius, 4.0f);
+    outerLocal->ForTypePseudo(&TestView::StaticType(), u8"thumb")
+        .Set(StyleProperty::CornerRadius, 4.0f);
     StyleSheet* innerLocal = SetupLocalSheet(*inner);
-    innerLocal->ForTypePseudo(&TestView::StaticType(), u8"thumb").Set(StyleProperty::CornerRadius, 10.0f);
+    innerLocal->ForTypePseudo(&TestView::StaticType(), u8"thumb")
+        .Set(StyleProperty::CornerRadius, 10.0f);
 
-    CHECK(child->ResolvePartFloat(u8"thumb", StyleProperty::CornerRadius, ControlState::Normal) == 10.0f);
+    CHECK(child->ResolvePartFloat(u8"thumb", StyleProperty::CornerRadius, ControlState::Normal) ==
+          10.0f);
 }
 
 TEST_CASE("local-stylesheet: Pseudo_InlineBeatsLocalOnThisView")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
     SetupCtxSheet(ctx);
 
-    auto view = core::MakeRef<TestView>(core::DefaultAllocator()); root->AddView(view.Get());
+    auto view = core::MakeRef<TestView>(core::DefaultAllocator());
+    root->AddView(view.Get());
     StyleSheet* local = SetupLocalSheet(*view);
     local->ForTypePseudo(&TestView::StaticType(), u8"thumb").Set(StyleProperty::CornerRadius, 4.0f);
 
     view->SetPartStyle(u8"thumb", StyleProperty::CornerRadius, 20.0f); // inline part override wins
 
-    CHECK(view->ResolvePartFloat(u8"thumb", StyleProperty::CornerRadius, ControlState::Normal) == 20.0f);
+    CHECK(view->ResolvePartFloat(u8"thumb", StyleProperty::CornerRadius, ControlState::Normal) ==
+          20.0f);
 }
 
 TEST_CASE("local-stylesheet: Pseudo_InlineBeatsLocalOnAncestor")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
     SetupCtxSheet(ctx);
 
     auto group = core::MakeRef<TestGroup>(core::DefaultAllocator());
     auto child = core::MakeRef<TestView>(core::DefaultAllocator());
-    root->AddView(group.Get()); group->AddView(child.Get());
+    root->AddView(group.Get());
+    group->AddView(child.Get());
 
     StyleSheet* parentLocal = SetupLocalSheet(*group);
-    parentLocal->ForTypePseudo(&TestView::StaticType(), u8"thumb").Set(StyleProperty::CornerRadius, 4.0f);
+    parentLocal->ForTypePseudo(&TestView::StaticType(), u8"thumb")
+        .Set(StyleProperty::CornerRadius, 4.0f);
 
     child->SetPartStyle(u8"thumb", StyleProperty::CornerRadius, 22.0f);
 
-    CHECK(child->ResolvePartFloat(u8"thumb", StyleProperty::CornerRadius, ControlState::Normal) == 22.0f);
+    CHECK(child->ResolvePartFloat(u8"thumb", StyleProperty::CornerRadius, ControlState::Normal) ==
+          22.0f);
 }
 
 TEST_CASE("local-stylesheet: Pseudo_NotFound_FallsThroughToContext")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
     StyleSheet* ctxSheet = SetupCtxSheet(ctx);
-    ctxSheet->ForTypePseudo(&TestView::StaticType(), u8"thumb").Set(StyleProperty::CornerRadius, 7.0f);
+    ctxSheet->ForTypePseudo(&TestView::StaticType(), u8"thumb")
+        .Set(StyleProperty::CornerRadius, 7.0f);
 
     auto group = core::MakeRef<TestGroup>(core::DefaultAllocator());
     auto child = core::MakeRef<TestView>(core::DefaultAllocator());
-    root->AddView(group.Get()); group->AddView(child.Get());
+    root->AddView(group.Get());
+    group->AddView(child.Get());
 
     StyleSheet* parentLocal = SetupLocalSheet(*group);
-    parentLocal->ForTypePseudo(&TestView::StaticType(), u8"track").Set(StyleProperty::CornerRadius, 99.0f);
+    parentLocal->ForTypePseudo(&TestView::StaticType(), u8"track")
+        .Set(StyleProperty::CornerRadius, 99.0f);
 
-    CHECK(child->ResolvePartFloat(u8"thumb", StyleProperty::CornerRadius, ControlState::Normal) == 7.0f);
+    CHECK(child->ResolvePartFloat(u8"thumb", StyleProperty::CornerRadius, ControlState::Normal) ==
+          7.0f);
 }
 
 // === FontFamily inheritance via ForAll() ===
 
 TEST_CASE("local-stylesheet: Pseudo_FontFamily_ForAllOnAncestorLocal_ReachesAllDescendantTypes")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
     SetupCtxSheet(ctx);
 
     auto pauseRoot = core::MakeRef<TestGroup>(core::DefaultAllocator());
     auto inner = core::MakeRef<TestGroup>(core::DefaultAllocator());
     auto view = core::MakeRef<TestView>(core::DefaultAllocator());
-    root->AddView(pauseRoot.Get()); pauseRoot->AddView(inner.Get()); inner->AddView(view.Get());
+    root->AddView(pauseRoot.Get());
+    pauseRoot->AddView(inner.Get());
+    inner->AddView(view.Get());
 
     StyleSheet* pauseLocal = SetupLocalSheet(*pauseRoot);
     pauseLocal->ForAll().Set(StyleProperty::FontFamily, StringView(u8"JungleAdventurer"));
 
-    CHECK(pauseRoot->ResolveStyle(StyleProperty::FontFamily).AsString().Value() == StringView(u8"JungleAdventurer"));
-    CHECK(inner->ResolveStyle(StyleProperty::FontFamily).AsString().Value() == StringView(u8"JungleAdventurer"));
-    CHECK(view->ResolveStyle(StyleProperty::FontFamily).AsString().Value() == StringView(u8"JungleAdventurer"));
+    CHECK(pauseRoot->ResolveStyle(StyleProperty::FontFamily).AsString().Value() ==
+          StringView(u8"JungleAdventurer"));
+    CHECK(inner->ResolveStyle(StyleProperty::FontFamily).AsString().Value() ==
+          StringView(u8"JungleAdventurer"));
+    CHECK(view->ResolveStyle(StyleProperty::FontFamily).AsString().Value() ==
+          StringView(u8"JungleAdventurer"));
 }
 
 TEST_CASE("local-stylesheet: FontFamily_TypeScopedRule_NoMatchInChain_ReturnsNone")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
     SetupCtxSheet(ctx);
 
     auto outer = core::MakeRef<TestGroup>(core::DefaultAllocator());
     auto inner = core::MakeRef<TestView>(core::DefaultAllocator());
-    root->AddView(outer.Get()); outer->AddView(inner.Get());
+    root->AddView(outer.Get());
+    outer->AddView(inner.Get());
 
     StyleSheet* local = SetupLocalSheet(*outer);
-    local->ForType(&Label::StaticType()).Set(StyleProperty::FontFamily, StringView(u8"JungleAdventurer"));
+    local->ForType(&Label::StaticType())
+        .Set(StyleProperty::FontFamily, StringView(u8"JungleAdventurer"));
 
     CHECK(inner->ResolveStyle(StyleProperty::FontFamily).GetKind() == StyleValue::Kind::None);
 }
 
 TEST_CASE("local-stylesheet: FontFamily_TypeScopedRule_AncestorMatchesType_InheritsDown")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator()); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
     SetupCtxSheet(ctx);
 
     auto outer = core::MakeRef<TestGroup>(core::DefaultAllocator());
     auto inner = core::MakeRef<TestView>(core::DefaultAllocator());
-    root->AddView(outer.Get()); outer->AddView(inner.Get());
+    root->AddView(outer.Get());
+    outer->AddView(inner.Get());
 
     StyleSheet* local = SetupLocalSheet(*outer);
-    local->ForType(&TestGroup::StaticType()).Set(StyleProperty::FontFamily, StringView(u8"JungleAdventurer"));
+    local->ForType(&TestGroup::StaticType())
+        .Set(StyleProperty::FontFamily, StringView(u8"JungleAdventurer"));
 
-    CHECK(inner->ResolveStyle(StyleProperty::FontFamily).AsString().Value() == StringView(u8"JungleAdventurer"));
+    CHECK(inner->ResolveStyle(StyleProperty::FontFamily).AsString().Value() ==
+          StringView(u8"JungleAdventurer"));
 }

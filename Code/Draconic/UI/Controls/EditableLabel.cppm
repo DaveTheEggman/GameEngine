@@ -42,14 +42,14 @@ export namespace draconic::ui
     {
         DRACONIC_OBJECT(EditableLabel, EditText)
     public:
-        Property<f32> TextOffsetX{ 0.0f };
-        Property<fonts::TextAlignment> HAlign{ fonts::TextAlignment::Left };
-        Property<bool> Ellipsis{ false };
+        Property<f32> TextOffsetX{0.0f};
+        Property<fonts::TextAlignment> HAlign{fonts::TextAlignment::Left};
+        Property<bool> Ellipsis{false};
         Property<Optional<f32>> FontSize;
         Property<String> FontFamily;
         Property<Optional<core::Color>> TextColor;
-        Property<bool> DoubleClickToEdit{ true };
-        Property<bool> SlowClickToEdit{ true };
+        Property<bool> DoubleClickToEdit{true};
+        Property<bool> SlowClickToEdit{true};
 
         /// Optional validation: return true if the new name is acceptable.
         Function<bool(StringView)> ValidateRename;
@@ -79,14 +79,20 @@ export namespace draconic::ui
         /// Set the display text (ignored while editing). Hides EditText::SetText.
         void SetText(StringView text)
         {
-            if (m_isEditing) { return; }
+            if (m_isEditing)
+            {
+                return;
+            }
             EditText::SetText(text);
         }
 
         /// Enter edit mode: select all, show cursor.
         void BeginEdit()
         {
-            if (m_isEditing) { return; }
+            if (m_isEditing)
+            {
+                return;
+            }
             m_isEditing = true;
             m_wasClickedOnce = false;
             m_preEditText = String(Text());
@@ -95,24 +101,42 @@ export namespace draconic::ui
             IsTabStop = true;
             Cursor = CursorType::IBeam;
 
-            if (Context != nullptr) { Context->GetFocusManager()->SetFocus(this); }
+            if (Context != nullptr)
+            {
+                Context->GetFocusManager()->SetFocus(this);
+            }
             Behavior().HandleKeyDown(KeyCode::A, KeyModifiers::Ctrl); // select all
         }
 
         /// Commit the edit and exit edit mode.
         void CommitEdit()
         {
-            if (!m_isEditing) { return; }
+            if (!m_isEditing)
+            {
+                return;
+            }
             const StringView newText = Text();
 
             // Debug-log the rejection paths - a silently-cancelled commit looks like "nothing
             // happened" from the outside.
             if (Trimmed(newText).IsEmpty())
-            { DRACONIC_LOG_DEBUG(u8"UI", u8"EditableLabel commit rejected: empty"); CancelEdit(); return; }
+            {
+                DRACONIC_LOG_DEBUG(u8"UI", u8"EditableLabel commit rejected: empty");
+                CancelEdit();
+                return;
+            }
             if (newText == m_preEditText.AsView())
-            { DRACONIC_LOG_DEBUG(u8"UI", u8"EditableLabel commit rejected: unchanged"); CancelEdit(); return; }
+            {
+                DRACONIC_LOG_DEBUG(u8"UI", u8"EditableLabel commit rejected: unchanged");
+                CancelEdit();
+                return;
+            }
             if (ValidateRename && !ValidateRename(newText))
-            { DRACONIC_LOG_DEBUG(u8"UI", u8"EditableLabel commit rejected: validator"); CancelEdit(); return; }
+            {
+                DRACONIC_LOG_DEBUG(u8"UI", u8"EditableLabel commit rejected: validator");
+                CancelEdit();
+                return;
+            }
 
             m_isEditing = false;
             IsReadOnly.SetValue(true);
@@ -125,7 +149,10 @@ export namespace draconic::ui
         /// Cancel the edit, restoring the original text.
         void CancelEdit()
         {
-            if (!m_isEditing) { return; }
+            if (!m_isEditing)
+            {
+                return;
+            }
             m_isEditing = false;
             IsReadOnly.SetValue(true);
             IsFocusable = false;
@@ -138,7 +165,8 @@ export namespace draconic::ui
         void OnFocusLost() override
         {
             // Don't commit if focus was pushed to the stack for a popup.
-            if (m_isEditing && Context != nullptr && Context->GetFocusManager()->FocusStackDepth() == 0)
+            if (m_isEditing && Context != nullptr &&
+                Context->GetFocusManager()->FocusStackDepth() == 0)
             {
                 DRACONIC_LOG_DEBUG(u8"UI", u8"EditableLabel commit via focus-lost");
                 CommitEdit();
@@ -170,7 +198,12 @@ export namespace draconic::ui
                     e.Handled = true;
                     return;
                 }
-                if (e.Key == KeyCode::Escape) { CancelEdit(); e.Handled = true; return; }
+                if (e.Key == KeyCode::Escape)
+                {
+                    CancelEdit();
+                    e.Handled = true;
+                    return;
+                }
                 EditText::OnKeyDown(e);
                 return;
             }
@@ -179,10 +212,22 @@ export namespace draconic::ui
 
         void OnMouseDown(MouseEventArgs& e) override
         {
-            if (m_isEditing) { EditText::OnMouseDown(e); return; }
-            if (e.Button != MouseButton::Left) { return; }
+            if (m_isEditing)
+            {
+                EditText::OnMouseDown(e);
+                return;
+            }
+            if (e.Button != MouseButton::Left)
+            {
+                return;
+            }
 
-            if (DoubleClickToEdit.Value() && e.ClickCount >= 2) { BeginEdit(); e.Handled = true; return; }
+            if (DoubleClickToEdit.Value() && e.ClickCount >= 2)
+            {
+                BeginEdit();
+                e.Handled = true;
+                return;
+            }
 
             if (SlowClickToEdit.Value() && e.ClickCount == 1)
             {
@@ -190,7 +235,13 @@ export namespace draconic::ui
                 if (m_wasClickedOnce)
                 {
                     const f32 elapsed = now - m_lastClickTime;
-                    if (elapsed > 0.4f && elapsed < 1.5f) { BeginEdit(); m_wasClickedOnce = false; e.Handled = true; return; }
+                    if (elapsed > 0.4f && elapsed < 1.5f)
+                    {
+                        BeginEdit();
+                        m_wasClickedOnce = false;
+                        e.Handled = true;
+                        return;
+                    }
                 }
                 m_wasClickedOnce = true;
                 m_lastClickTime = now;
@@ -202,11 +253,22 @@ export namespace draconic::ui
         {
             if (m_isEditing)
             {
-                const Rectangle editBounds{ TextOffsetX.Value() - 2.0f, 0, Width() - TextOffsetX.Value() + 2.0f, Height() };
-                if (Drawable* bg = ResolveStyleDrawable(StyleProperty::Background)) { bg->Draw(ctx, editBounds); }
-                else { ctx.VG().FillRect(editBounds, Color{ 30.0f / 255.0f, 32.0f / 255.0f, 42.0f / 255.0f, 1.0f }); }
+                const Rectangle editBounds{TextOffsetX.Value() - 2.0f, 0,
+                                           Width() - TextOffsetX.Value() + 2.0f, Height()};
+                if (Drawable* bg = ResolveStyleDrawable(StyleProperty::Background))
+                {
+                    bg->Draw(ctx, editBounds);
+                }
+                else
+                {
+                    ctx.VG().FillRect(editBounds,
+                                      Color{30.0f / 255.0f, 32.0f / 255.0f, 42.0f / 255.0f, 1.0f});
+                }
 
-                const Color borderColor = ResolveStyleColor(StyleProperty::AccentColor, ResolveStyleColor(StyleProperty::CursorColor, Color{ 80.0f / 255.0f, 160.0f / 255.0f, 1.0f, 1.0f }));
+                const Color borderColor = ResolveStyleColor(
+                    StyleProperty::AccentColor,
+                    ResolveStyleColor(StyleProperty::CursorColor,
+                                      Color{80.0f / 255.0f, 160.0f / 255.0f, 1.0f, 1.0f}));
                 ctx.VG().StrokeRect(editBounds, borderColor, 1.0f);
                 DrawEditContent(ctx, TextOffsetX.Value());
                 return;
@@ -214,27 +276,44 @@ export namespace draconic::ui
 
             // Label mode: plain text with optional ellipsis.
             const StringView text = Text();
-            const f32 fontSize = FontSize.Value().HasValue() ? FontSize.Value().Value() : ResolveStyleFloat(StyleProperty::FontSize, 14.0f);
-            if (text.Size() == 0 || ctx.FontService() == nullptr) { return; }
-            fonts::CachedFont* font = ctx.FontService()->GetFont(ResolveStyleFontFamily(FontFamily.Value()), fontSize);
-            if (font == nullptr) { return; }
+            const f32 fontSize = FontSize.Value().HasValue()
+                                     ? FontSize.Value().Value()
+                                     : ResolveStyleFloat(StyleProperty::FontSize, 14.0f);
+            if (text.Size() == 0 || ctx.FontService() == nullptr)
+            {
+                return;
+            }
+            fonts::CachedFont* font =
+                ctx.FontService()->GetFont(ResolveStyleFontFamily(FontFamily.Value()), fontSize);
+            if (font == nullptr)
+            {
+                return;
+            }
 
-            const Color textColor = TextColor.Value().HasValue() ? TextColor.Value().Value() : ResolveStyleColor(StyleProperty::TextColor, Color{ 220.0f / 255.0f, 225.0f / 255.0f, 235.0f / 255.0f, 1.0f });
-            const Rectangle textBounds{ TextOffsetX.Value(), 0, Width() - TextOffsetX.Value(), Height() };
+            const Color textColor = TextColor.Value().HasValue()
+                                        ? TextColor.Value().Value()
+                                        : ResolveStyleColor(StyleProperty::TextColor,
+                                                            Color{220.0f / 255.0f, 225.0f / 255.0f,
+                                                                  235.0f / 255.0f, 1.0f});
+            const Rectangle textBounds{TextOffsetX.Value(), 0, Width() - TextOffsetX.Value(),
+                                       Height()};
             const fonts::TextAlignment h = HAlign.Value();
 
             const String shown = Ellipsis.Value()
-                ? fonts::TruncateToWidth(*font->font, text, textBounds.width)
-                : String(text);
-            ctx.VG().DrawText(shown.AsView(), font, textBounds, h, fonts::VerticalAlignment::Middle, textColor);
+                                     ? fonts::TruncateToWidth(*font->font, text, textBounds.width)
+                                     : String(text);
+            ctx.VG().DrawText(shown.AsView(), font, textBounds, h, fonts::VerticalAlignment::Middle,
+                              textColor);
         }
 
     private:
         void DrawEditContent(UIDrawContext& ctx, f32 offsetX)
         {
-            const f32 fontSize = FontSize.Value().HasValue() ? FontSize.Value().Value() : ResolveStyleFloat(StyleProperty::FontSize, 14.0f);
+            const f32 fontSize = FontSize.Value().HasValue()
+                                     ? FontSize.Value().Value()
+                                     : ResolveStyleFloat(StyleProperty::FontSize, 14.0f);
             const f32 contentW = Width() - offsetX;
-            ctx.VG().PushClipRect(Rectangle{ offsetX, 0, contentW, Height() });
+            ctx.VG().PushClipRect(Rectangle{offsetX, 0, contentW, Height()});
             DrawTextContent(ctx, offsetX, 0, contentW, Height(), fontSize);
             ctx.VG().PopClip();
         }

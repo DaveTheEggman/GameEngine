@@ -14,7 +14,7 @@ namespace
 {
     Span<const byte> Bytes(const char* s)
     {
-        return Span<const byte>{ reinterpret_cast<const byte*>(s), std::strlen(s) };
+        return Span<const byte>{reinterpret_cast<const byte*>(s), std::strlen(s)};
     }
 }
 
@@ -69,8 +69,16 @@ TEST_CASE("vfs.pak: build, open, read, enumerate")
         bool foundDir = false;
         for (const DirEntry& e : entries)
         {
-            if (e.name == u8"hello.txt") { foundFile = true; CHECK_FALSE(e.isDirectory); }
-            if (e.name == u8"data") { foundDir = true; CHECK(e.isDirectory); }
+            if (e.name == u8"hello.txt")
+            {
+                foundFile = true;
+                CHECK_FALSE(e.isDirectory);
+            }
+            if (e.name == u8"data")
+            {
+                foundDir = true;
+                CHECK(e.isDirectory);
+            }
         }
         CHECK(foundFile);
         CHECK(foundDir);
@@ -84,8 +92,16 @@ TEST_CASE("vfs.pak: build, open, read, enumerate")
         bool foundDeep = false;
         for (const DirEntry& e : entries)
         {
-            if (e.name == u8"blob.bin") { foundBlob = true; CHECK_FALSE(e.isDirectory); }
-            if (e.name == u8"deep") { foundDeep = true; CHECK(e.isDirectory); }
+            if (e.name == u8"blob.bin")
+            {
+                foundBlob = true;
+                CHECK_FALSE(e.isDirectory);
+            }
+            if (e.name == u8"deep")
+            {
+                foundDeep = true;
+                CHECK(e.isDirectory);
+            }
         }
         CHECK(foundBlob);
         CHECK(foundDeep);
@@ -97,8 +113,8 @@ TEST_CASE("vfs.pak: build, open, read, enumerate")
 TEST_CASE("vfs.pak: a non-pak file is rejected")
 {
     const StringView path = u8"draconic_pak_bad.pak";
-    const byte junk[] = { byte{ 1 }, byte{ 2 }, byte{ 3 }, byte{ 4 } };
-    REQUIRE(WriteFile(path, Span<const byte>{ junk, ArrayCount(junk) }).IsOk());
+    const byte junk[] = {byte{1}, byte{2}, byte{3}, byte{4}};
+    REQUIRE(WriteFile(path, Span<const byte>{junk, ArrayCount(junk)}).IsOk());
 
     PakFileSystem fs(path);
     CHECK_FALSE(fs.IsValid());

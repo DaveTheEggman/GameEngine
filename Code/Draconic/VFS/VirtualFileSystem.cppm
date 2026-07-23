@@ -25,7 +25,7 @@ export namespace draconic::vfs
         // "project://...". Non-owning; the backend must outlive this.
         void Mount(StringView scheme, IFileSystem& backend)
         {
-            m_mounts.PushBack(MountPoint{ String(scheme), &backend });
+            m_mounts.PushBack(MountPoint{String(scheme), &backend});
         }
 
         // Resolves the backend registered for a scheme, or null.
@@ -33,7 +33,10 @@ export namespace draconic::vfs
         {
             for (MountPoint& mount : m_mounts)
             {
-                if (mount.scheme.AsView() == scheme) { return mount.backend; }
+                if (mount.scheme.AsView() == scheme)
+                {
+                    return mount.backend;
+                }
             }
             return nullptr;
         }
@@ -42,7 +45,10 @@ export namespace draconic::vfs
         {
             StringView scheme;
             StringView locator;
-            if (!SplitScheme(path, scheme, locator)) { return UniquePtr<IStream>{}; }
+            if (!SplitScheme(path, scheme, locator))
+            {
+                return UniquePtr<IStream>{};
+            }
             IFileSystem* backend = GetMount(scheme);
             return backend != nullptr ? backend->Open(locator, mode) : UniquePtr<IStream>{};
         }
@@ -51,7 +57,10 @@ export namespace draconic::vfs
         {
             StringView scheme;
             StringView locator;
-            if (!SplitScheme(path, scheme, locator)) { return false; }
+            if (!SplitScheme(path, scheme, locator))
+            {
+                return false;
+            }
             IFileSystem* backend = GetMount(scheme);
             return backend != nullptr && backend->Exists(locator);
         }
@@ -65,7 +74,8 @@ export namespace draconic::vfs
 
         // Splits "scheme://locator" into its parts. Returns false if there is no
         // "://" separator (schemeless paths are rejected).
-        [[nodiscard]] static bool SplitScheme(StringView path, StringView& outScheme, StringView& outLocator)
+        [[nodiscard]] static bool SplitScheme(StringView path, StringView& outScheme,
+                                              StringView& outLocator)
         {
             constexpr StringView sep = u8"://";
             for (usize i = 0; i + sep.Size() <= path.Size(); ++i)

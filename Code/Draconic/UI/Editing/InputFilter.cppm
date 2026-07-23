@@ -10,14 +10,20 @@ module;
 
 export module draconic.ui:input_filter;
 
-import draconic.core;   // Function
+import draconic.core; // Function
 
 using namespace draconic::core;
 
 export namespace draconic::ui
 {
     /// Predefined input filter modes.
-    enum class InputFilterMode { None, Digits, HexDigits, Custom };
+    enum class InputFilterMode
+    {
+        None,
+        Digits,
+        HexDigits,
+        Custom
+    };
 
     class InputFilter
     {
@@ -39,18 +45,33 @@ export namespace draconic::ui
         {
             switch (m_mode)
             {
-            case InputFilterMode::None:      return true;
-            case InputFilterMode::Digits:    return c >= U'0' && c <= U'9';
-            case InputFilterMode::HexDigits: return (c >= U'0' && c <= U'9') || (c >= U'a' && c <= U'f') || (c >= U'A' && c <= U'F');
-            case InputFilterMode::Custom:    return m_customPredicate ? m_customPredicate(c) : true;
+            case InputFilterMode::None:
+                return true;
+            case InputFilterMode::Digits:
+                return c >= U'0' && c <= U'9';
+            case InputFilterMode::HexDigits:
+                return (c >= U'0' && c <= U'9') || (c >= U'a' && c <= U'f') ||
+                       (c >= U'A' && c <= U'F');
+            case InputFilterMode::Custom:
+                return m_customPredicate ? m_customPredicate(c) : true;
             }
             return true;
         }
 
         /// A digits-only filter.
-        [[nodiscard]] static InputFilter Digits() { InputFilter f; f.m_mode = InputFilterMode::Digits; return f; }
+        [[nodiscard]] static InputFilter Digits()
+        {
+            InputFilter f;
+            f.m_mode = InputFilterMode::Digits;
+            return f;
+        }
         /// A hex-digits filter.
-        [[nodiscard]] static InputFilter HexDigits() { InputFilter f; f.m_mode = InputFilterMode::HexDigits; return f; }
+        [[nodiscard]] static InputFilter HexDigits()
+        {
+            InputFilter f;
+            f.m_mode = InputFilterMode::HexDigits;
+            return f;
+        }
 
     private:
         InputFilterMode m_mode = InputFilterMode::None;

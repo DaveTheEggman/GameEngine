@@ -13,7 +13,7 @@ module;
 
 export module draconic.gui:relative_layout;
 
-import draconic.core;   // Float2, HashMap
+import draconic.core; // Float2, HashMap
 import :rect;
 import :node;
 import :ui_widget;
@@ -28,14 +28,14 @@ export namespace draconic::gui
     // default to Left / Top respectively.
     enum Anchor : u32
     {
-        AnchorNone    = 0,
-        AnchorLeft    = 1u << 0,
-        AnchorRight   = 1u << 1,
+        AnchorNone = 0,
+        AnchorLeft = 1u << 0,
+        AnchorRight = 1u << 1,
         AnchorCenterH = 1u << 2,
-        AnchorTop     = 1u << 3,
-        AnchorBottom  = 1u << 4,
+        AnchorTop = 1u << 3,
+        AnchorBottom = 1u << 4,
         AnchorCenterV = 1u << 5,
-        AnchorCenter  = AnchorCenterH | AnchorCenterV,
+        AnchorCenter = AnchorCenterH | AnchorCenterV,
     };
 
     class RelativeLayout : public UIWidget
@@ -47,9 +47,12 @@ export namespace draconic::gui
         // Anchor a child within the content box. Passing AnchorNone clears it (back to top-left).
         void SetAnchor(Node* child, u32 anchor)
         {
-            if (child == nullptr) return;
-            if (anchor == AnchorNone) m_anchors.Remove(child);
-            else                      m_anchors.InsertOrAssign(child, anchor);
+            if (child == nullptr)
+                return;
+            if (anchor == AnchorNone)
+                m_anchors.Remove(child);
+            else
+                m_anchors.InsertOrAssign(child, anchor);
             PerformLayout();
         }
         [[nodiscard]] u32 GetAnchor(Node* child) const
@@ -64,20 +67,25 @@ export namespace draconic::gui
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 Node* child = GetChildAt(i);
-                if (child == nullptr || !child->IsVisible()) continue;
+                if (child == nullptr || !child->IsVisible())
+                    continue;
 
                 const u32 anchor = GetAnchor(child);
                 const core::Float2 size = child->GetSize();
 
                 f32 x = content.x; // default: left
-                if (anchor & AnchorCenterH)   x = content.x + (content.width - size.x) * 0.5f;
-                else if (anchor & AnchorRight) x = content.x + content.width - size.x;
+                if (anchor & AnchorCenterH)
+                    x = content.x + (content.width - size.x) * 0.5f;
+                else if (anchor & AnchorRight)
+                    x = content.x + content.width - size.x;
 
                 f32 y = content.y; // default: top
-                if (anchor & AnchorCenterV)    y = content.y + (content.height - size.y) * 0.5f;
-                else if (anchor & AnchorBottom) y = content.y + content.height - size.y;
+                if (anchor & AnchorCenterV)
+                    y = content.y + (content.height - size.y) * 0.5f;
+                else if (anchor & AnchorBottom)
+                    y = content.y + content.height - size.y;
 
-                child->SetPosition(core::Float2{ x, y });
+                child->SetPosition(core::Float2{x, y});
             }
         }
 

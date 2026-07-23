@@ -11,14 +11,15 @@ export module draconic.render:decal_shaders;
 
 import draconic.core;
 
-export namespace draconic::render {
-
-// Fullscreen triangle that EMITS its clip-space NDC (like SkyPass): the interpolated NDC at a pixel is
-// exactly what the scene geometry used there (same viewport), so unprojecting it is robust - no
-// hand-derived negative-viewport flip. SV_Position is still used to sample depth at the right texel.
-[[nodiscard]] inline core::StringView DecalVS() noexcept
+export namespace draconic::render
 {
-    return core::StringView(u8R"(
+
+    // Fullscreen triangle that EMITS its clip-space NDC (like SkyPass): the interpolated NDC at a pixel is
+    // exactly what the scene geometry used there (same viewport), so unprojecting it is robust - no
+    // hand-derived negative-viewport flip. SV_Position is still used to sample depth at the right texel.
+    [[nodiscard]] inline core::StringView DecalVS() noexcept
+    {
+        return core::StringView(u8R"(
 struct VSOut { float4 pos : SV_Position; float2 ndc : TEXCOORD0; };
 VSOut main(uint vid : SV_VertexID) {
     float2 ndc = float2((vid << 1) & 2, vid & 2) * 2.0 - 1.0;
@@ -28,11 +29,11 @@ VSOut main(uint vid : SV_VertexID) {
     return o;
 }
 )");
-}
+    }
 
-[[nodiscard]] inline core::StringView DecalPS() noexcept
-{
-    return core::StringView(u8R"(
+    [[nodiscard]] inline core::StringView DecalPS() noexcept
+    {
+        return core::StringView(u8R"(
 #pragma pack_matrix(row_major)
 Texture2D    SceneDepth : register(t0, space0);
 SamplerState DepthSamp  : register(s0, space0);
@@ -76,6 +77,6 @@ float4 main(float4 pos : SV_Position, float2 ndc : TEXCOORD0) : SV_Target {
     return c;
 }
 )");
-}
+    }
 
 }

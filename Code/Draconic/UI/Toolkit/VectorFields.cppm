@@ -35,11 +35,15 @@ export namespace draconic::ui::toolkit
 
         void OnDraw(UIDrawContext& ctx) override
         {
-            if (ctx.FontService() == nullptr) { return; }
+            if (ctx.FontService() == nullptr)
+            {
+                return;
+            }
             if (fonts::CachedFont* font = ctx.FontService()->GetFont(11.0f))
             {
-                ctx.VG().DrawText(m_text, font, Rectangle{ 0, 0, Width(), Height() },
-                    fonts::TextAlignment::Center, fonts::VerticalAlignment::Middle, m_color);
+                ctx.VG().DrawText(m_text, font, Rectangle{0, 0, Width(), Height()},
+                                  fonts::TextAlignment::Center, fonts::VerticalAlignment::Middle,
+                                  m_color);
             }
         }
 
@@ -55,7 +59,7 @@ export namespace draconic::ui::toolkit
                     h = font->font->Metrics().lineHeight;
                 }
             }
-            MeasuredSize = Float2{ constraints.ConstrainWidth(w), constraints.ConstrainHeight(h) };
+            MeasuredSize = Float2{constraints.ConstrainWidth(w), constraints.ConstrainHeight(h)};
         }
 
     private:
@@ -66,10 +70,10 @@ export namespace draconic::ui::toolkit
     /// Standard axis colors used by all FloatN editor fields (match the property-grid scheme).
     struct AxisColors
     {
-        static constexpr Color X{ 220 / 255.0f, 80 / 255.0f, 80 / 255.0f, 1.0f };
-        static constexpr Color Y{ 80 / 255.0f, 200 / 255.0f, 80 / 255.0f, 1.0f };
-        static constexpr Color Z{ 80 / 255.0f, 120 / 255.0f, 220 / 255.0f, 1.0f };
-        static constexpr Color W{ 200 / 255.0f, 180 / 255.0f, 120 / 255.0f, 1.0f };
+        static constexpr Color X{220 / 255.0f, 80 / 255.0f, 80 / 255.0f, 1.0f};
+        static constexpr Color Y{80 / 255.0f, 200 / 255.0f, 80 / 255.0f, 1.0f};
+        static constexpr Color Z{80 / 255.0f, 120 / 255.0f, 220 / 255.0f, 1.0f};
+        static constexpr Color W{200 / 255.0f, 180 / 255.0f, 120 / 255.0f, 1.0f};
     };
 
     /// Shared aggregation: counts child-field edit transactions and fires one Begin / End on the parent.
@@ -96,7 +100,8 @@ export namespace draconic::ui::toolkit
             RefPtr<NumericField> f = MakeRef<NumericField>(DefaultAllocator());
             f->AddClass(u8"property-field");
             f->ShowSpinButtons.SetValue(false);
-            f->SetMin(-1e6); f->SetMax(1e6);
+            f->SetMin(-1e6);
+            f->SetMax(1e6);
             f->SetStep(0.1);
             f->SetDecimalPlaces(3);
             RefPtr<AxisLabel> label = MakeRef<AxisLabel>(DefaultAllocator(), axisText, axisColor);
@@ -107,35 +112,41 @@ export namespace draconic::ui::toolkit
         void WireChildEditEvents(NumericField* nf)
         {
             AggregatingVectorField* self = this;
-            nf->OnEditBegan.Add([self](NumericField*)
-            {
-                self->m_pendingEnd = false;
-                if (self->m_editCount == 0) { self->OnEditBegan.Invoke(self); }
-                self->m_editCount++;
-            });
-            nf->OnEditEnded.Add([self](NumericField*)
-            {
-                self->m_editCount--;
-                if (self->m_editCount == 0)
+            nf->OnEditBegan.Add(
+                [self](NumericField*)
                 {
-                    self->m_pendingEnd = true;
-                    auto* ctx = self->Context;
-                    if (ctx == nullptr)
+                    self->m_pendingEnd = false;
+                    if (self->m_editCount == 0)
                     {
-                        self->m_pendingEnd = false;
-                        self->OnEditEnded.Invoke(self);
-                        return;
+                        self->OnEditBegan.Invoke(self);
                     }
-                    ctx->MutationQueueRef().QueueAction([self]()
+                    self->m_editCount++;
+                });
+            nf->OnEditEnded.Add(
+                [self](NumericField*)
+                {
+                    self->m_editCount--;
+                    if (self->m_editCount == 0)
                     {
-                        if (self->m_pendingEnd)
+                        self->m_pendingEnd = true;
+                        auto* ctx = self->Context;
+                        if (ctx == nullptr)
                         {
                             self->m_pendingEnd = false;
                             self->OnEditEnded.Invoke(self);
+                            return;
                         }
-                    });
-                }
-            });
+                        ctx->MutationQueueRef().QueueAction(
+                            [self]()
+                            {
+                                if (self->m_pendingEnd)
+                                {
+                                    self->m_pendingEnd = false;
+                                    self->OnEditEnded.Invoke(self);
+                                }
+                            });
+                    }
+                });
         }
 
     private:
@@ -151,7 +162,11 @@ export namespace draconic::ui::toolkit
         Event<void(Float2)> OnValueChanged;
 
         [[nodiscard]] Float2 Value() const { return m_value; }
-        void SetValue(Float2 value) { m_value = value; SyncToFields(); }
+        void SetValue(Float2 value)
+        {
+            m_value = value;
+            SyncToFields();
+        }
 
         Vector2Field()
         {
@@ -164,8 +179,24 @@ export namespace draconic::ui::toolkit
             m_y = y.Get();
 
             Vector2Field* self = this;
-            m_x->OnValueChanged.Add([self](NumericField*, f64 v) { if (!self->m_syncing) { self->m_value.x = static_cast<f32>(v); self->OnValueChanged.Invoke(self->m_value); } });
-            m_y->OnValueChanged.Add([self](NumericField*, f64 v) { if (!self->m_syncing) { self->m_value.y = static_cast<f32>(v); self->OnValueChanged.Invoke(self->m_value); } });
+            m_x->OnValueChanged.Add(
+                [self](NumericField*, f64 v)
+                {
+                    if (!self->m_syncing)
+                    {
+                        self->m_value.x = static_cast<f32>(v);
+                        self->OnValueChanged.Invoke(self->m_value);
+                    }
+                });
+            m_y->OnValueChanged.Add(
+                [self](NumericField*, f64 v)
+                {
+                    if (!self->m_syncing)
+                    {
+                        self->m_value.y = static_cast<f32>(v);
+                        self->OnValueChanged.Invoke(self->m_value);
+                    }
+                });
 
             WireChildEditEvents(m_x);
             WireChildEditEvents(m_y);
@@ -174,18 +205,39 @@ export namespace draconic::ui::toolkit
             AddView(m_y, GrowMatchParams());
         }
 
-        void SetRange(f64 min, f64 max) { m_x->SetMin(min); m_x->SetMax(max); m_y->SetMin(min); m_y->SetMax(max); }
+        void SetRange(f64 min, f64 max)
+        {
+            m_x->SetMin(min);
+            m_x->SetMax(max);
+            m_y->SetMin(min);
+            m_y->SetMax(max);
+        }
         [[nodiscard]] f64 Step() const { return m_x->Step(); }
-        void SetStep(f64 value) { m_x->SetStep(value); m_y->SetStep(value); }
+        void SetStep(f64 value)
+        {
+            m_x->SetStep(value);
+            m_y->SetStep(value);
+        }
         [[nodiscard]] i32 DecimalPlaces() const { return m_x->DecimalPlaces(); }
-        void SetDecimalPlaces(i32 value) { m_x->SetDecimalPlaces(value); m_y->SetDecimalPlaces(value); }
+        void SetDecimalPlaces(i32 value)
+        {
+            m_x->SetDecimalPlaces(value);
+            m_y->SetDecimalPlaces(value);
+        }
         [[nodiscard]] bool ShowSpinButtons() const { return m_x->ShowSpinButtons.Value(); }
-        void SetShowSpinButtons(bool value) { m_x->ShowSpinButtons.SetValue(value); m_y->ShowSpinButtons.SetValue(value); }
+        void SetShowSpinButtons(bool value)
+        {
+            m_x->ShowSpinButtons.SetValue(value);
+            m_y->ShowSpinButtons.SetValue(value);
+        }
 
     private:
         void SyncToFields()
         {
-            if (m_syncing) { return; }
+            if (m_syncing)
+            {
+                return;
+            }
             m_syncing = true;
             m_x->SetValue(m_value.x);
             m_y->SetValue(m_value.y);
@@ -194,7 +246,7 @@ export namespace draconic::ui::toolkit
 
         NumericField* m_x = nullptr;
         NumericField* m_y = nullptr;
-        Float2 m_value{ 0, 0 };
+        Float2 m_value{0, 0};
         bool m_syncing = false;
     };
 
@@ -206,7 +258,11 @@ export namespace draconic::ui::toolkit
         Event<void(Float3)> OnValueChanged;
 
         [[nodiscard]] Float3 Value() const { return m_value; }
-        void SetValue(Float3 value) { m_value = value; SyncToFields(); }
+        void SetValue(Float3 value)
+        {
+            m_value = value;
+            SyncToFields();
+        }
 
         Vector3Field()
         {
@@ -221,9 +277,33 @@ export namespace draconic::ui::toolkit
             m_z = z.Get();
 
             Vector3Field* self = this;
-            m_x->OnValueChanged.Add([self](NumericField*, f64 v) { if (!self->m_syncing) { self->m_value.x = static_cast<f32>(v); self->OnValueChanged.Invoke(self->m_value); } });
-            m_y->OnValueChanged.Add([self](NumericField*, f64 v) { if (!self->m_syncing) { self->m_value.y = static_cast<f32>(v); self->OnValueChanged.Invoke(self->m_value); } });
-            m_z->OnValueChanged.Add([self](NumericField*, f64 v) { if (!self->m_syncing) { self->m_value.z = static_cast<f32>(v); self->OnValueChanged.Invoke(self->m_value); } });
+            m_x->OnValueChanged.Add(
+                [self](NumericField*, f64 v)
+                {
+                    if (!self->m_syncing)
+                    {
+                        self->m_value.x = static_cast<f32>(v);
+                        self->OnValueChanged.Invoke(self->m_value);
+                    }
+                });
+            m_y->OnValueChanged.Add(
+                [self](NumericField*, f64 v)
+                {
+                    if (!self->m_syncing)
+                    {
+                        self->m_value.y = static_cast<f32>(v);
+                        self->OnValueChanged.Invoke(self->m_value);
+                    }
+                });
+            m_z->OnValueChanged.Add(
+                [self](NumericField*, f64 v)
+                {
+                    if (!self->m_syncing)
+                    {
+                        self->m_value.z = static_cast<f32>(v);
+                        self->OnValueChanged.Invoke(self->m_value);
+                    }
+                });
 
             WireChildEditEvents(m_x);
             WireChildEditEvents(m_y);
@@ -234,18 +314,44 @@ export namespace draconic::ui::toolkit
             AddView(m_z, GrowMatchParams());
         }
 
-        void SetRange(f64 min, f64 max) { m_x->SetMin(min); m_x->SetMax(max); m_y->SetMin(min); m_y->SetMax(max); m_z->SetMin(min); m_z->SetMax(max); }
+        void SetRange(f64 min, f64 max)
+        {
+            m_x->SetMin(min);
+            m_x->SetMax(max);
+            m_y->SetMin(min);
+            m_y->SetMax(max);
+            m_z->SetMin(min);
+            m_z->SetMax(max);
+        }
         [[nodiscard]] f64 Step() const { return m_x->Step(); }
-        void SetStep(f64 value) { m_x->SetStep(value); m_y->SetStep(value); m_z->SetStep(value); }
+        void SetStep(f64 value)
+        {
+            m_x->SetStep(value);
+            m_y->SetStep(value);
+            m_z->SetStep(value);
+        }
         [[nodiscard]] i32 DecimalPlaces() const { return m_x->DecimalPlaces(); }
-        void SetDecimalPlaces(i32 value) { m_x->SetDecimalPlaces(value); m_y->SetDecimalPlaces(value); m_z->SetDecimalPlaces(value); }
+        void SetDecimalPlaces(i32 value)
+        {
+            m_x->SetDecimalPlaces(value);
+            m_y->SetDecimalPlaces(value);
+            m_z->SetDecimalPlaces(value);
+        }
         [[nodiscard]] bool ShowSpinButtons() const { return m_x->ShowSpinButtons.Value(); }
-        void SetShowSpinButtons(bool value) { m_x->ShowSpinButtons.SetValue(value); m_y->ShowSpinButtons.SetValue(value); m_z->ShowSpinButtons.SetValue(value); }
+        void SetShowSpinButtons(bool value)
+        {
+            m_x->ShowSpinButtons.SetValue(value);
+            m_y->ShowSpinButtons.SetValue(value);
+            m_z->ShowSpinButtons.SetValue(value);
+        }
 
     private:
         void SyncToFields()
         {
-            if (m_syncing) { return; }
+            if (m_syncing)
+            {
+                return;
+            }
             m_syncing = true;
             m_x->SetValue(m_value.x);
             m_y->SetValue(m_value.y);
@@ -256,7 +362,7 @@ export namespace draconic::ui::toolkit
         NumericField* m_x = nullptr;
         NumericField* m_y = nullptr;
         NumericField* m_z = nullptr;
-        Float3 m_value{ 0, 0, 0 };
+        Float3 m_value{0, 0, 0};
         bool m_syncing = false;
     };
 
@@ -268,7 +374,11 @@ export namespace draconic::ui::toolkit
         Event<void(Float4)> OnValueChanged;
 
         [[nodiscard]] Float4 Value() const { return m_value; }
-        void SetValue(Float4 value) { m_value = value; SyncToFields(); }
+        void SetValue(Float4 value)
+        {
+            m_value = value;
+            SyncToFields();
+        }
 
         Vector4Field()
         {
@@ -285,10 +395,42 @@ export namespace draconic::ui::toolkit
             m_w = w.Get();
 
             Vector4Field* self = this;
-            m_x->OnValueChanged.Add([self](NumericField*, f64 v) { if (!self->m_syncing) { self->m_value.x = static_cast<f32>(v); self->OnValueChanged.Invoke(self->m_value); } });
-            m_y->OnValueChanged.Add([self](NumericField*, f64 v) { if (!self->m_syncing) { self->m_value.y = static_cast<f32>(v); self->OnValueChanged.Invoke(self->m_value); } });
-            m_z->OnValueChanged.Add([self](NumericField*, f64 v) { if (!self->m_syncing) { self->m_value.z = static_cast<f32>(v); self->OnValueChanged.Invoke(self->m_value); } });
-            m_w->OnValueChanged.Add([self](NumericField*, f64 v) { if (!self->m_syncing) { self->m_value.w = static_cast<f32>(v); self->OnValueChanged.Invoke(self->m_value); } });
+            m_x->OnValueChanged.Add(
+                [self](NumericField*, f64 v)
+                {
+                    if (!self->m_syncing)
+                    {
+                        self->m_value.x = static_cast<f32>(v);
+                        self->OnValueChanged.Invoke(self->m_value);
+                    }
+                });
+            m_y->OnValueChanged.Add(
+                [self](NumericField*, f64 v)
+                {
+                    if (!self->m_syncing)
+                    {
+                        self->m_value.y = static_cast<f32>(v);
+                        self->OnValueChanged.Invoke(self->m_value);
+                    }
+                });
+            m_z->OnValueChanged.Add(
+                [self](NumericField*, f64 v)
+                {
+                    if (!self->m_syncing)
+                    {
+                        self->m_value.z = static_cast<f32>(v);
+                        self->OnValueChanged.Invoke(self->m_value);
+                    }
+                });
+            m_w->OnValueChanged.Add(
+                [self](NumericField*, f64 v)
+                {
+                    if (!self->m_syncing)
+                    {
+                        self->m_value.w = static_cast<f32>(v);
+                        self->OnValueChanged.Invoke(self->m_value);
+                    }
+                });
 
             WireChildEditEvents(m_x);
             WireChildEditEvents(m_y);
@@ -301,18 +443,49 @@ export namespace draconic::ui::toolkit
             AddView(m_w, GrowMatchParams());
         }
 
-        void SetRange(f64 min, f64 max) { m_x->SetMin(min); m_x->SetMax(max); m_y->SetMin(min); m_y->SetMax(max); m_z->SetMin(min); m_z->SetMax(max); m_w->SetMin(min); m_w->SetMax(max); }
+        void SetRange(f64 min, f64 max)
+        {
+            m_x->SetMin(min);
+            m_x->SetMax(max);
+            m_y->SetMin(min);
+            m_y->SetMax(max);
+            m_z->SetMin(min);
+            m_z->SetMax(max);
+            m_w->SetMin(min);
+            m_w->SetMax(max);
+        }
         [[nodiscard]] f64 Step() const { return m_x->Step(); }
-        void SetStep(f64 value) { m_x->SetStep(value); m_y->SetStep(value); m_z->SetStep(value); m_w->SetStep(value); }
+        void SetStep(f64 value)
+        {
+            m_x->SetStep(value);
+            m_y->SetStep(value);
+            m_z->SetStep(value);
+            m_w->SetStep(value);
+        }
         [[nodiscard]] i32 DecimalPlaces() const { return m_x->DecimalPlaces(); }
-        void SetDecimalPlaces(i32 value) { m_x->SetDecimalPlaces(value); m_y->SetDecimalPlaces(value); m_z->SetDecimalPlaces(value); m_w->SetDecimalPlaces(value); }
+        void SetDecimalPlaces(i32 value)
+        {
+            m_x->SetDecimalPlaces(value);
+            m_y->SetDecimalPlaces(value);
+            m_z->SetDecimalPlaces(value);
+            m_w->SetDecimalPlaces(value);
+        }
         [[nodiscard]] bool ShowSpinButtons() const { return m_x->ShowSpinButtons.Value(); }
-        void SetShowSpinButtons(bool value) { m_x->ShowSpinButtons.SetValue(value); m_y->ShowSpinButtons.SetValue(value); m_z->ShowSpinButtons.SetValue(value); m_w->ShowSpinButtons.SetValue(value); }
+        void SetShowSpinButtons(bool value)
+        {
+            m_x->ShowSpinButtons.SetValue(value);
+            m_y->ShowSpinButtons.SetValue(value);
+            m_z->ShowSpinButtons.SetValue(value);
+            m_w->ShowSpinButtons.SetValue(value);
+        }
 
     private:
         void SyncToFields()
         {
-            if (m_syncing) { return; }
+            if (m_syncing)
+            {
+                return;
+            }
             m_syncing = true;
             m_x->SetValue(m_value.x);
             m_y->SetValue(m_value.y);
@@ -325,7 +498,7 @@ export namespace draconic::ui::toolkit
         NumericField* m_y = nullptr;
         NumericField* m_z = nullptr;
         NumericField* m_w = nullptr;
-        Float4 m_value{ 0, 0, 0, 0 };
+        Float4 m_value{0, 0, 0, 0};
         bool m_syncing = false;
     };
 
@@ -359,9 +532,33 @@ export namespace draconic::ui::toolkit
             m_z = z.Get();
 
             QuaternionField* self = this;
-            m_x->OnValueChanged.Add([self](NumericField*, f64 v) { if (!self->m_syncing) { self->m_eulerDegrees.x = static_cast<f32>(v); self->RebuildQuaternionFromEulers(); } });
-            m_y->OnValueChanged.Add([self](NumericField*, f64 v) { if (!self->m_syncing) { self->m_eulerDegrees.y = static_cast<f32>(v); self->RebuildQuaternionFromEulers(); } });
-            m_z->OnValueChanged.Add([self](NumericField*, f64 v) { if (!self->m_syncing) { self->m_eulerDegrees.z = static_cast<f32>(v); self->RebuildQuaternionFromEulers(); } });
+            m_x->OnValueChanged.Add(
+                [self](NumericField*, f64 v)
+                {
+                    if (!self->m_syncing)
+                    {
+                        self->m_eulerDegrees.x = static_cast<f32>(v);
+                        self->RebuildQuaternionFromEulers();
+                    }
+                });
+            m_y->OnValueChanged.Add(
+                [self](NumericField*, f64 v)
+                {
+                    if (!self->m_syncing)
+                    {
+                        self->m_eulerDegrees.y = static_cast<f32>(v);
+                        self->RebuildQuaternionFromEulers();
+                    }
+                });
+            m_z->OnValueChanged.Add(
+                [self](NumericField*, f64 v)
+                {
+                    if (!self->m_syncing)
+                    {
+                        self->m_eulerDegrees.z = static_cast<f32>(v);
+                        self->RebuildQuaternionFromEulers();
+                    }
+                });
 
             WireChildEditEvents(m_x);
             WireChildEditEvents(m_y);
@@ -374,13 +571,36 @@ export namespace draconic::ui::toolkit
             AddView(m_z, GrowMatchParams());
         }
 
-        void SetRange(f64 min, f64 max) { m_x->SetMin(min); m_x->SetMax(max); m_y->SetMin(min); m_y->SetMax(max); m_z->SetMin(min); m_z->SetMax(max); }
+        void SetRange(f64 min, f64 max)
+        {
+            m_x->SetMin(min);
+            m_x->SetMax(max);
+            m_y->SetMin(min);
+            m_y->SetMax(max);
+            m_z->SetMin(min);
+            m_z->SetMax(max);
+        }
         [[nodiscard]] f64 Step() const { return m_x->Step(); }
-        void SetStep(f64 value) { m_x->SetStep(value); m_y->SetStep(value); m_z->SetStep(value); }
+        void SetStep(f64 value)
+        {
+            m_x->SetStep(value);
+            m_y->SetStep(value);
+            m_z->SetStep(value);
+        }
         [[nodiscard]] i32 DecimalPlaces() const { return m_x->DecimalPlaces(); }
-        void SetDecimalPlaces(i32 value) { m_x->SetDecimalPlaces(value); m_y->SetDecimalPlaces(value); m_z->SetDecimalPlaces(value); }
+        void SetDecimalPlaces(i32 value)
+        {
+            m_x->SetDecimalPlaces(value);
+            m_y->SetDecimalPlaces(value);
+            m_z->SetDecimalPlaces(value);
+        }
         [[nodiscard]] bool ShowSpinButtons() const { return m_x->ShowSpinButtons.Value(); }
-        void SetShowSpinButtons(bool value) { m_x->ShowSpinButtons.SetValue(value); m_y->ShowSpinButtons.SetValue(value); m_z->ShowSpinButtons.SetValue(value); }
+        void SetShowSpinButtons(bool value)
+        {
+            m_x->ShowSpinButtons.SetValue(value);
+            m_y->ShowSpinButtons.SetValue(value);
+            m_z->ShowSpinButtons.SetValue(value);
+        }
 
     private:
         void RebuildQuaternionFromEulers()
@@ -391,7 +611,10 @@ export namespace draconic::ui::toolkit
 
         void SyncToFields()
         {
-            if (m_syncing) { return; }
+            if (m_syncing)
+            {
+                return;
+            }
             m_syncing = true;
             m_x->SetValue(m_eulerDegrees.x);
             m_y->SetValue(m_eulerDegrees.y);
@@ -404,7 +627,8 @@ export namespace draconic::ui::toolkit
             RefPtr<NumericField> f = MakeRef<NumericField>(DefaultAllocator());
             f->AddClass(u8"property-field");
             f->ShowSpinButtons.SetValue(false);
-            f->SetMin(-360); f->SetMax(360);
+            f->SetMin(-360);
+            f->SetMax(360);
             f->SetStep(1);
             f->SetDecimalPlaces(2);
             RefPtr<AxisLabel> label = MakeRef<AxisLabel>(DefaultAllocator(), axisText, axisColor);
@@ -417,8 +641,14 @@ export namespace draconic::ui::toolkit
         {
             const f32 sinP = 2.0f * (q.w * q.x - q.z * q.y);
             f32 pitch;
-            if (Abs(sinP) >= 1.0f) { pitch = (sinP >= 0) ? (kPi / 2.0f) : -(kPi / 2.0f); }
-            else { pitch = Asin(sinP); }
+            if (Abs(sinP) >= 1.0f)
+            {
+                pitch = (sinP >= 0) ? (kPi / 2.0f) : -(kPi / 2.0f);
+            }
+            else
+            {
+                pitch = Asin(sinP);
+            }
 
             const f32 sinYCosP = 2.0f * (q.w * q.y + q.x * q.z);
             const f32 cosYCosP = 1.0f - 2.0f * (q.x * q.x + q.y * q.y);
@@ -428,7 +658,7 @@ export namespace draconic::ui::toolkit
             const f32 cosRCosP = 1.0f - 2.0f * (q.x * q.x + q.z * q.z);
             const f32 roll = Atan2(sinRCosP, cosRCosP);
 
-            return Float3{ pitch * kRadToDeg, yaw * kRadToDeg, roll * kRadToDeg };
+            return Float3{pitch * kRadToDeg, yaw * kRadToDeg, roll * kRadToDeg};
         }
 
         static Quaternion EulerDegreesToQuaternion(Float3 euler)
@@ -444,18 +674,15 @@ export namespace draconic::ui::toolkit
             const f32 cr = Cos(roll * 0.5f);
             const f32 sr = Sin(roll * 0.5f);
 
-            return Quaternion{
-                sp * cy * cr - cp * sy * sr,
-                cp * sy * cr + sp * cy * sr,
-                cp * cy * sr - sp * sy * cr,
-                cp * cy * cr + sp * sy * sr };
+            return Quaternion{sp * cy * cr - cp * sy * sr, cp * sy * cr + sp * cy * sr,
+                              cp * cy * sr - sp * sy * cr, cp * cy * cr + sp * sy * sr};
         }
 
         NumericField* m_x = nullptr;
         NumericField* m_y = nullptr;
         NumericField* m_z = nullptr;
         Quaternion m_value = Quaternion::Identity;
-        Float3 m_eulerDegrees{ 0, 0, 0 };
+        Float3 m_eulerDegrees{0, 0, 0};
         bool m_syncing = false;
     };
 

@@ -37,12 +37,18 @@ export namespace draconic::ui::toolkit
         ColorPicker();
 
         /// Get the current color.
-        [[nodiscard]] Color CurrentColor() const { return HSVToRGB(m_hue, m_saturation, m_value, m_alpha); }
+        [[nodiscard]] Color CurrentColor() const
+        {
+            return HSVToRGB(m_hue, m_saturation, m_value, m_alpha);
+        }
 
         /// Set the current color and update all sub-views.
         void SetColor(Color color)
         {
-            if (m_syncing) { return; }
+            if (m_syncing)
+            {
+                return;
+            }
             m_syncing = true;
             m_alpha = color.a;
             RGBToHSV(color.r, color.g, color.b, m_hue, m_saturation, m_value);
@@ -61,11 +67,11 @@ export namespace draconic::ui::toolkit
         {
             if (Drawable* bg = ResolveStyleDrawable(StyleProperty::Background))
             {
-                bg->Draw(ctx, Rectangle{ 0, 0, Width(), Height() });
+                bg->Draw(ctx, Rectangle{0, 0, Width(), Height()});
             }
             else
             {
-                ctx.VG().FillRect(Rectangle{ 0, 0, Width(), Height() }, Rgb(42, 44, 54, 255));
+                ctx.VG().FillRect(Rectangle{0, 0, Width(), Height()}, Rgb(42, 44, 54, 255));
             }
             DrawChildren(ctx);
         }
@@ -80,14 +86,38 @@ export namespace draconic::ui::toolkit
             const f32 m = v - c;
 
             f32 r1 = 0, g1 = 0, b1 = 0;
-            if (hPrime < 1) { r1 = c; g1 = x; }
-            else if (hPrime < 2) { r1 = x; g1 = c; }
-            else if (hPrime < 3) { g1 = c; b1 = x; }
-            else if (hPrime < 4) { g1 = x; b1 = c; }
-            else if (hPrime < 5) { r1 = x; b1 = c; }
-            else { r1 = c; b1 = x; }
+            if (hPrime < 1)
+            {
+                r1 = c;
+                g1 = x;
+            }
+            else if (hPrime < 2)
+            {
+                r1 = x;
+                g1 = c;
+            }
+            else if (hPrime < 3)
+            {
+                g1 = c;
+                b1 = x;
+            }
+            else if (hPrime < 4)
+            {
+                g1 = x;
+                b1 = c;
+            }
+            else if (hPrime < 5)
+            {
+                r1 = x;
+                b1 = c;
+            }
+            else
+            {
+                r1 = c;
+                b1 = x;
+            }
 
-            return Color{ r1 + m, g1 + m, b1 + m, a };
+            return Color{r1 + m, g1 + m, b1 + m, a};
         }
 
         static void RGBToHSV(f32 r, f32 g, f32 b, f32& h, f32& s, f32& v)
@@ -99,12 +129,27 @@ export namespace draconic::ui::toolkit
             v = cMax;
             s = (cMax == 0) ? 0 : delta / cMax;
 
-            if (delta == 0) { h = 0; }
-            else if (cMax == r) { h = 60.0f * std::fmod((g - b) / delta, 6.0f); }
-            else if (cMax == g) { h = 60.0f * (((b - r) / delta) + 2.0f); }
-            else { h = 60.0f * (((r - g) / delta) + 4.0f); }
+            if (delta == 0)
+            {
+                h = 0;
+            }
+            else if (cMax == r)
+            {
+                h = 60.0f * std::fmod((g - b) / delta, 6.0f);
+            }
+            else if (cMax == g)
+            {
+                h = 60.0f * (((b - r) / delta) + 2.0f);
+            }
+            else
+            {
+                h = 60.0f * (((r - g) / delta) + 4.0f);
+            }
 
-            if (h < 0) { h += 360.0f; }
+            if (h < 0)
+            {
+                h += 360.0f;
+            }
         }
 
         // === Inner views (public nested so each carries a DRACONIC_OBJECT identity) ===
@@ -119,19 +164,34 @@ export namespace draconic::ui::toolkit
             void OnDraw(UIDrawContext& ctx) override;
             void OnMouseDown(MouseEventArgs& e) override
             {
-                if (e.Button != MouseButton::Left) { return; }
+                if (e.Button != MouseButton::Left)
+                {
+                    return;
+                }
                 m_dragging = true;
-                if (Context != nullptr) { Context->GetFocusManager()->SetCapture(this); }
+                if (Context != nullptr)
+                {
+                    Context->GetFocusManager()->SetCapture(this);
+                }
                 UpdateFromMouse(e.X, e.Y);
                 e.Handled = true;
             }
-            void OnMouseMove(MouseEventArgs& e) override { if (m_dragging) { UpdateFromMouse(e.X, e.Y); } }
+            void OnMouseMove(MouseEventArgs& e) override
+            {
+                if (m_dragging)
+                {
+                    UpdateFromMouse(e.X, e.Y);
+                }
+            }
             void OnMouseUp(MouseEventArgs& e) override
             {
                 if (m_dragging && e.Button == MouseButton::Left)
                 {
                     m_dragging = false;
-                    if (Context != nullptr) { Context->GetFocusManager()->ReleaseCapture(); }
+                    if (Context != nullptr)
+                    {
+                        Context->GetFocusManager()->ReleaseCapture();
+                    }
                     e.Handled = true;
                 }
             }
@@ -152,19 +212,34 @@ export namespace draconic::ui::toolkit
             void OnDraw(UIDrawContext& ctx) override;
             void OnMouseDown(MouseEventArgs& e) override
             {
-                if (e.Button != MouseButton::Left) { return; }
+                if (e.Button != MouseButton::Left)
+                {
+                    return;
+                }
                 m_dragging = true;
-                if (Context != nullptr) { Context->GetFocusManager()->SetCapture(this); }
+                if (Context != nullptr)
+                {
+                    Context->GetFocusManager()->SetCapture(this);
+                }
                 UpdateFromMouse(e.Y);
                 e.Handled = true;
             }
-            void OnMouseMove(MouseEventArgs& e) override { if (m_dragging) { UpdateFromMouse(e.Y); } }
+            void OnMouseMove(MouseEventArgs& e) override
+            {
+                if (m_dragging)
+                {
+                    UpdateFromMouse(e.Y);
+                }
+            }
             void OnMouseUp(MouseEventArgs& e) override
             {
                 if (m_dragging && e.Button == MouseButton::Left)
                 {
                     m_dragging = false;
-                    if (Context != nullptr) { Context->GetFocusManager()->ReleaseCapture(); }
+                    if (Context != nullptr)
+                    {
+                        Context->GetFocusManager()->ReleaseCapture();
+                    }
                     e.Handled = true;
                 }
             }
@@ -185,19 +260,34 @@ export namespace draconic::ui::toolkit
             void OnDraw(UIDrawContext& ctx) override;
             void OnMouseDown(MouseEventArgs& e) override
             {
-                if (e.Button != MouseButton::Left) { return; }
+                if (e.Button != MouseButton::Left)
+                {
+                    return;
+                }
                 m_dragging = true;
-                if (Context != nullptr) { Context->GetFocusManager()->SetCapture(this); }
+                if (Context != nullptr)
+                {
+                    Context->GetFocusManager()->SetCapture(this);
+                }
                 UpdateFromMouse(e.Y);
                 e.Handled = true;
             }
-            void OnMouseMove(MouseEventArgs& e) override { if (m_dragging) { UpdateFromMouse(e.Y); } }
+            void OnMouseMove(MouseEventArgs& e) override
+            {
+                if (m_dragging)
+                {
+                    UpdateFromMouse(e.Y);
+                }
+            }
             void OnMouseUp(MouseEventArgs& e) override
             {
                 if (m_dragging && e.Button == MouseButton::Left)
                 {
                     m_dragging = false;
-                    if (Context != nullptr) { Context->GetFocusManager()->ReleaseCapture(); }
+                    if (Context != nullptr)
+                    {
+                        Context->GetFocusManager()->ReleaseCapture();
+                    }
                     e.Handled = true;
                 }
             }
@@ -212,13 +302,16 @@ export namespace draconic::ui::toolkit
         void OnMeasure(BoxConstraints constraints) override
         {
             const f32 inputsW = 80.0f;
-            const f32 totalW = m_squareSize + m_gap + m_stripWidth + m_gap + m_stripWidth + m_gap + inputsW;
-            MeasuredSize = Float2{ constraints.ConstrainWidth(totalW), constraints.ConstrainHeight(m_squareSize) };
+            const f32 totalW =
+                m_squareSize + m_gap + m_stripWidth + m_gap + m_stripWidth + m_gap + inputsW;
+            MeasuredSize = Float2{constraints.ConstrainWidth(totalW),
+                                  constraints.ConstrainHeight(m_squareSize)};
         }
 
         void OnLayout(f32 left, f32 top, f32 width, f32 height) override
         {
-            (void)left; (void)top;
+            (void)left;
+            (void)top;
             const f32 h = height;
             const f32 w = width;
             const f32 sqSize = core::Min(m_squareSize, h);
@@ -267,14 +360,17 @@ export namespace draconic::ui::toolkit
     private:
         [[nodiscard]] static Color Rgb(u8 r, u8 g, u8 b, u8 a = 255) noexcept
         {
-            return Color{ r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f };
+            return Color{r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f};
         }
 
         // === Internal sync ===
 
         void SyncFromHSV()
         {
-            if (m_syncing) { return; }
+            if (m_syncing)
+            {
+                return;
+            }
             m_syncing = true;
             SyncViewsFromHSV();
             OnColorChanged.Invoke(this, CurrentColor());
@@ -301,7 +397,10 @@ export namespace draconic::ui::toolkit
 
         void SyncFromRGB()
         {
-            if (m_syncing) { return; }
+            if (m_syncing)
+            {
+                return;
+            }
             m_syncing = true;
 
             const f32 r = static_cast<f32>(m_rField->Value()) / 255.0f;
@@ -316,19 +415,31 @@ export namespace draconic::ui::toolkit
 
         void OnHexSubmit()
         {
-            if (m_syncing) { return; }
+            if (m_syncing)
+            {
+                return;
+            }
 
             StringView view = m_hexInput->Text();
             usize start = 0;
-            if (view.Size() > 0 && view[0] == static_cast<char8_t>('#')) { start = 1; }
+            if (view.Size() > 0 && view[0] == static_cast<char8_t>('#'))
+            {
+                start = 1;
+            }
             const usize len = view.Size() - start;
-            if (len != 6) { return; }
+            if (len != 6)
+            {
+                return;
+            }
 
             u32 hexVal = 0;
             for (usize i = 0; i < 6; ++i)
             {
                 const i32 digit = HexDigit(view[start + i]);
-                if (digit < 0) { return; }
+                if (digit < 0)
+                {
+                    return;
+                }
                 hexVal = (hexVal << 4) | static_cast<u32>(digit);
             }
 
@@ -346,15 +457,24 @@ export namespace draconic::ui::toolkit
         [[nodiscard]] static String ToHex2(i32 v)
         {
             static const char8_t* digits = u8"0123456789ABCDEF";
-            const char8_t buf[2] = { digits[(v >> 4) & 0xF], digits[v & 0xF] };
+            const char8_t buf[2] = {digits[(v >> 4) & 0xF], digits[v & 0xF]};
             return String(StringView(buf, 2));
         }
 
         [[nodiscard]] static i32 HexDigit(char8_t c)
         {
-            if (c >= static_cast<char8_t>('0') && c <= static_cast<char8_t>('9')) { return c - static_cast<char8_t>('0'); }
-            if (c >= static_cast<char8_t>('a') && c <= static_cast<char8_t>('f')) { return 10 + (c - static_cast<char8_t>('a')); }
-            if (c >= static_cast<char8_t>('A') && c <= static_cast<char8_t>('F')) { return 10 + (c - static_cast<char8_t>('A')); }
+            if (c >= static_cast<char8_t>('0') && c <= static_cast<char8_t>('9'))
+            {
+                return c - static_cast<char8_t>('0');
+            }
+            if (c >= static_cast<char8_t>('a') && c <= static_cast<char8_t>('f'))
+            {
+                return 10 + (c - static_cast<char8_t>('a'));
+            }
+            if (c >= static_cast<char8_t>('A') && c <= static_cast<char8_t>('F'))
+            {
+                return 10 + (c - static_cast<char8_t>('A'));
+            }
             return -1;
         }
 
@@ -421,7 +541,10 @@ export namespace draconic::ui::toolkit
         auto makeRgbField = [this]() -> RefPtr<NumericField>
         {
             RefPtr<NumericField> f = MakeRef<NumericField>(DefaultAllocator());
-            f->SetMin(0); f->SetMax(255); f->SetStep(1); f->SetValue(255);
+            f->SetMin(0);
+            f->SetMax(255);
+            f->SetStep(1);
+            f->SetValue(255);
             ColorPicker* self = this;
             f->OnValueChanged.Add([self](NumericField*, f64) { self->SyncFromRGB(); });
             return f;
@@ -458,17 +581,18 @@ export namespace draconic::ui::toolkit
             {
                 const f32 s = static_cast<f32>(ix) / (steps - 1);
                 const Color color = HSVToRGB(m_picker->m_hue, s, v);
-                ctx.VG().FillRect(Rectangle{ ix * cellW, iy * cellH, cellW + 1, cellH + 1 }, color);
+                ctx.VG().FillRect(Rectangle{ix * cellW, iy * cellH, cellW + 1, cellH + 1}, color);
             }
         }
 
         const f32 cx = m_picker->m_saturation * Width();
         const f32 cy = (1.0f - m_picker->m_value) * Height();
-        const Color indicatorColor = (m_picker->m_value > 0.5f) ? Rgb(0, 0, 0, 255) : Rgb(255, 255, 255, 255);
-        ctx.VG().StrokeCircle(Float2{ cx, cy }, 5, indicatorColor, 2);
+        const Color indicatorColor =
+            (m_picker->m_value > 0.5f) ? Rgb(0, 0, 0, 255) : Rgb(255, 255, 255, 255);
+        ctx.VG().StrokeCircle(Float2{cx, cy}, 5, indicatorColor, 2);
 
         const Color border = ResolveStyleColor(StyleProperty::BorderColor, Rgb(80, 85, 100, 255));
-        ctx.VG().StrokeRect(Rectangle{ 0, 0, Width(), Height() }, border, 1);
+        ctx.VG().StrokeRect(Rectangle{0, 0, Width(), Height()}, border, 1);
     }
 
     inline void ColorPicker::SVSquare::UpdateFromMouse(f32 x, f32 y)
@@ -487,15 +611,15 @@ export namespace draconic::ui::toolkit
         {
             const f32 hue = static_cast<f32>(i) / (steps - 1) * 360.0f;
             const Color color = HSVToRGB(hue, 1, 1);
-            ctx.VG().FillRect(Rectangle{ 0, i * cellH, Width(), cellH + 1 }, color);
+            ctx.VG().FillRect(Rectangle{0, i * cellH, Width(), cellH + 1}, color);
         }
 
         const f32 iy = (m_picker->m_hue / 360.0f) * Height();
-        ctx.VG().FillRect(Rectangle{ 0, iy - 1, Width(), 3 }, Rgb(255, 255, 255, 230));
-        ctx.VG().StrokeRect(Rectangle{ 0, iy - 1, Width(), 3 }, Rgb(0, 0, 0, 128), 1);
+        ctx.VG().FillRect(Rectangle{0, iy - 1, Width(), 3}, Rgb(255, 255, 255, 230));
+        ctx.VG().StrokeRect(Rectangle{0, iy - 1, Width(), 3}, Rgb(0, 0, 0, 128), 1);
 
         const Color border = ResolveStyleColor(StyleProperty::BorderColor, Rgb(80, 85, 100, 255));
-        ctx.VG().StrokeRect(Rectangle{ 0, 0, Width(), Height() }, border, 1);
+        ctx.VG().StrokeRect(Rectangle{0, 0, Width(), Height()}, border, 1);
     }
 
     inline void ColorPicker::HueStripView::UpdateFromMouse(f32 y)
@@ -518,29 +642,31 @@ export namespace draconic::ui::toolkit
             for (i32 cx = 0; cx < cols; ++cx)
             {
                 const Color c = ((ry + cx) % 2 == 0) ? light : dark;
-                ctx.VG().FillRect(Rectangle{ cx * checkSize, ry * checkSize,
-                    core::Min(checkSize, Width() - cx * checkSize),
-                    core::Min(checkSize, Height() - ry * checkSize) }, c);
+                ctx.VG().FillRect(Rectangle{cx * checkSize, ry * checkSize,
+                                            core::Min(checkSize, Width() - cx * checkSize),
+                                            core::Min(checkSize, Height() - ry * checkSize)},
+                                  c);
             }
         }
 
         // Color gradient from opaque (top) to transparent (bottom).
-        const Color baseColor = HSVToRGB(m_picker->m_hue, m_picker->m_saturation, m_picker->m_value);
+        const Color baseColor =
+            HSVToRGB(m_picker->m_hue, m_picker->m_saturation, m_picker->m_value);
         const i32 steps = 20;
         const f32 cellH = Height() / steps;
         for (i32 i = 0; i < steps; ++i)
         {
             const f32 alpha = 1.0f - static_cast<f32>(i) / (steps - 1);
-            const Color c = Color{ baseColor.r, baseColor.g, baseColor.b, alpha };
-            ctx.VG().FillRect(Rectangle{ 0, i * cellH, Width(), cellH + 1 }, c);
+            const Color c = Color{baseColor.r, baseColor.g, baseColor.b, alpha};
+            ctx.VG().FillRect(Rectangle{0, i * cellH, Width(), cellH + 1}, c);
         }
 
         const f32 iy = (1.0f - m_picker->m_alpha) * Height();
-        ctx.VG().FillRect(Rectangle{ 0, iy - 1, Width(), 3 }, Rgb(255, 255, 255, 230));
-        ctx.VG().StrokeRect(Rectangle{ 0, iy - 1, Width(), 3 }, Rgb(0, 0, 0, 128), 1);
+        ctx.VG().FillRect(Rectangle{0, iy - 1, Width(), 3}, Rgb(255, 255, 255, 230));
+        ctx.VG().StrokeRect(Rectangle{0, iy - 1, Width(), 3}, Rgb(0, 0, 0, 128), 1);
 
         const Color border = ResolveStyleColor(StyleProperty::BorderColor, Rgb(80, 85, 100, 255));
-        ctx.VG().StrokeRect(Rectangle{ 0, 0, Width(), Height() }, border, 1);
+        ctx.VG().StrokeRect(Rectangle{0, 0, Width(), Height()}, border, 1);
     }
 
     inline void ColorPicker::AlphaStripView::UpdateFromMouse(f32 y)

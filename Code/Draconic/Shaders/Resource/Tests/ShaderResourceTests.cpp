@@ -26,7 +26,8 @@ namespace
     constexpr const char8_t* kVtx =
         u8"float4 main(uint id : SV_VertexID) : SV_Position { return float4(0, 0, 0, 1); }\n";
     constexpr const char8_t* kFrag =
-        u8"float4 main() : SV_Target {\n#ifndef NORMAL_MAP\n#error NORMAL_MAP required\n#endif\n    return float4(1, 0, 0, 1);\n}\n";
+        u8"float4 main() : SV_Target {\n#ifndef NORMAL_MAP\n#error NORMAL_MAP required\n#endif\n   "
+        u8" return float4(1, 0, 0, 1);\n}\n";
 
     void RemoveTree()
     {
@@ -38,7 +39,11 @@ namespace
 TEST_CASE("shader resource: built via the resource manager; reload bumps version")
 {
     Compiler* compiler = nullptr;
-    if (!createCompiler(CompilerDesc{}, compiler).IsOk()) { MESSAGE("DXC unavailable; skipping"); return; }
+    if (!createCompiler(CompilerDesc{}, compiler).IsOk())
+    {
+        MESSAGE("DXC unavailable; skipping");
+        return;
+    }
 
     GlobalTypeRegistry().Register(ShaderSource::StaticType());
     RegisterSerializable<ShaderSource>();
@@ -49,17 +54,19 @@ TEST_CASE("shader resource: built via the resource manager; reload bumps version
 
     Guid id;
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                              u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"lit", ShaderSource::StaticType());
         id = inst->Id();
         ShaderSource s;
-        s.name           = String(u8"lit");
-        s.vertexSource   = String(kVtx);
+        s.name = String(u8"lit");
+        s.vertexSource = String(kVtx);
         s.fragmentSource = String(kFrag);
         REQUIRE(inst->WriteObject(s).IsOk());
     }
 
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                          u8".rasset");
     rhi::null::NullDevice device{DefaultAllocator()};
     ShaderSystem system(*compiler, device);
     ShaderFactory factory(system);
@@ -71,13 +78,13 @@ TEST_CASE("shader resource: built via the resource manager; reload bumps version
     CHECK(shader->Name() == u8"lit");
     CHECK(shader->GetVariant(ShaderStage::Vertex, ShaderFlags::None) != nullptr);
     CHECK(shader->GetVariant(ShaderStage::Fragment, ShaderFlags::NormalMap) != nullptr);
-    CHECK(shader->GetVariant(ShaderStage::Fragment, ShaderFlags::None) == nullptr);   // #error guard
+    CHECK(shader->GetVariant(ShaderStage::Fragment, ShaderFlags::None) == nullptr); // #error guard
 
     const u64 v0 = shader->Version();
-    CHECK(v0 >= 1u);                       // creation registered + invalidated -> version bumped
+    CHECK(v0 >= 1u); // creation registered + invalidated -> version bumped
 
     CHECK(manager.Reload(id));
-    CHECK(shader->Version() > v0);         // reload bumped the version (proxy follows the new product)
+    CHECK(shader->Version() > v0); // reload bumped the version (proxy follows the new product)
 
     RemoveTree();
     compiler->Destroy();

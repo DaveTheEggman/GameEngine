@@ -13,30 +13,49 @@ using namespace draconic::ui::tests;
 using namespace draconic::core;
 namespace core = draconic::core;
 
-static core::RefPtr<RootView> MakeRoot() { return core::MakeRef<RootView>(core::DefaultAllocator()); }
-static core::RefPtr<Button> MakeButton(StringView t) { return core::MakeRef<Button>(core::DefaultAllocator(), t); }
-static core::RefPtr<CheckBox> MakeCheckBox(StringView t) { return core::MakeRef<CheckBox>(core::DefaultAllocator(), t); }
+static core::RefPtr<RootView> MakeRoot()
+{
+    return core::MakeRef<RootView>(core::DefaultAllocator());
+}
+static core::RefPtr<Button> MakeButton(StringView t)
+{
+    return core::MakeRef<Button>(core::DefaultAllocator(), t);
+}
+static core::RefPtr<CheckBox> MakeCheckBox(StringView t)
+{
+    return core::MakeRef<CheckBox>(core::DefaultAllocator(), t);
+}
 
 // === Button ===
 
 TEST_CASE("control: Button_PressedTransitions")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
-    auto btn = MakeButton(u8"Test"); root->AddView(btn.Get()); LayoutPass(ctx, root.Get());
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
+    auto btn = MakeButton(u8"Test");
+    root->AddView(btn.Get());
+    LayoutPass(ctx, root.Get());
 
-    MouseEventArgs downArgs; downArgs.Set(10, 10, MouseButton::Left);
+    MouseEventArgs downArgs;
+    downArgs.Set(10, 10, MouseButton::Left);
     btn->OnMouseDown(downArgs);
     CHECK(btn->IsPressed());
 
-    MouseEventArgs upArgs; upArgs.Set(10, 10, MouseButton::Left);
+    MouseEventArgs upArgs;
+    upArgs.Set(10, 10, MouseButton::Left);
     btn->OnMouseUp(upArgs);
     CHECK(!btn->IsPressed());
 }
 
 TEST_CASE("control: Button_DisabledDoesNotClick")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
-    auto btn = MakeButton(u8"Test"); btn->IsEnabled = false; root->AddView(btn.Get());
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
+    auto btn = MakeButton(u8"Test");
+    btn->IsEnabled = false;
+    root->AddView(btn.Get());
     bool clicked = false;
     btn->OnClick.Add([&clicked](ButtonBase*) { clicked = true; });
     btn->FireClick();
@@ -45,11 +64,15 @@ TEST_CASE("control: Button_DisabledDoesNotClick")
 
 TEST_CASE("control: Button_KeyboardActivation")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
-    auto btn = MakeButton(u8"Test"); root->AddView(btn.Get());
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
+    auto btn = MakeButton(u8"Test");
+    root->AddView(btn.Get());
     bool clicked = false;
     btn->OnClick.Add([&clicked](ButtonBase*) { clicked = true; });
-    KeyEventArgs args; args.Set(KeyCode::Return, KeyModifiers::None, false);
+    KeyEventArgs args;
+    args.Set(KeyCode::Return, KeyModifiers::None, false);
     btn->OnKeyDown(args);
     CHECK(clicked);
 }
@@ -63,17 +86,24 @@ TEST_CASE("control: Button_IsFocusable")
 
 TEST_CASE("control: Button_ControlState_Pressed")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
-    auto btn = MakeButton(u8"Test"); root->AddView(btn.Get());
-    MouseEventArgs args; args.Set(10, 10, MouseButton::Left);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
+    auto btn = MakeButton(u8"Test");
+    root->AddView(btn.Get());
+    MouseEventArgs args;
+    args.Set(10, 10, MouseButton::Left);
     btn->OnMouseDown(args);
     CHECK(HasFlag(btn->GetControlState(), ControlState::Pressed));
 }
 
 TEST_CASE("control: Button_OnActivate_FiresClick")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
-    auto btn = MakeButton(u8"Test"); root->AddView(btn.Get());
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
+    auto btn = MakeButton(u8"Test");
+    root->AddView(btn.Get());
     bool clicked = false;
     btn->OnClick.Add([&clicked](ButtonBase*) { clicked = true; });
     btn->OnActivate();
@@ -84,25 +114,33 @@ TEST_CASE("control: Button_OnActivate_FiresClick")
 
 TEST_CASE("control: RepeatButton_ClicksOnce")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
-    auto btn = core::MakeRef<RepeatButton>(core::DefaultAllocator(), StringView(u8"Hold")); root->AddView(btn.Get());
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
+    auto btn = core::MakeRef<RepeatButton>(core::DefaultAllocator(), StringView(u8"Hold"));
+    root->AddView(btn.Get());
     int clickCount = 0;
     btn->OnClick.Add([&clickCount](ButtonBase*) { ++clickCount; });
-    KeyEventArgs args; args.Set(KeyCode::Return, KeyModifiers::None, false);
+    KeyEventArgs args;
+    args.Set(KeyCode::Return, KeyModifiers::None, false);
     btn->OnKeyDown(args);
     CHECK(clickCount == 1);
 }
 
 TEST_CASE("control: RepeatButton_RepeatsOnHold")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
     auto btn = core::MakeRef<RepeatButton>(core::DefaultAllocator(), StringView(u8"Hold"));
-    btn->RepeatDelay = 0.1f; btn->RepeatInterval = 0.05f;
+    btn->RepeatDelay = 0.1f;
+    btn->RepeatInterval = 0.05f;
     root->AddView(btn.Get());
     int clickCount = 0;
     btn->OnClick.Add([&clickCount](ButtonBase*) { ++clickCount; });
 
-    MouseEventArgs downArgs; downArgs.Set(10, 10, MouseButton::Left);
+    MouseEventArgs downArgs;
+    downArgs.Set(10, 10, MouseButton::Left);
     btn->OnMouseDown(downArgs);
 
     btn->UpdateRepeat(0.05f);
@@ -116,16 +154,21 @@ TEST_CASE("control: RepeatButton_RepeatsOnHold")
 
 TEST_CASE("control: RepeatButton_StopsOnRelease")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
     auto btn = core::MakeRef<RepeatButton>(core::DefaultAllocator(), StringView(u8"Hold"));
-    btn->RepeatDelay = 0.05f; btn->RepeatInterval = 0.02f;
+    btn->RepeatDelay = 0.05f;
+    btn->RepeatInterval = 0.02f;
     root->AddView(btn.Get());
     int clickCount = 0;
     btn->OnClick.Add([&clickCount](ButtonBase*) { ++clickCount; });
 
-    MouseEventArgs downArgs; downArgs.Set(10, 10, MouseButton::Left);
+    MouseEventArgs downArgs;
+    downArgs.Set(10, 10, MouseButton::Left);
     btn->OnMouseDown(downArgs);
-    MouseEventArgs upArgs; upArgs.Set(10, 10, MouseButton::Left);
+    MouseEventArgs upArgs;
+    upArgs.Set(10, 10, MouseButton::Left);
     btn->OnMouseUp(upArgs);
 
     const int countAfterRelease = clickCount;
@@ -137,11 +180,19 @@ TEST_CASE("control: RepeatButton_StopsOnRelease")
 
 TEST_CASE("control: CheckBox_Toggle")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
-    auto cb = MakeCheckBox(u8"Option"); root->AddView(cb.Get());
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
+    auto cb = MakeCheckBox(u8"Option");
+    root->AddView(cb.Get());
     CHECK(!cb->IsChecked.Value());
     bool fired = false, newVal = false;
-    cb->OnCheckedChanged.Add([&](CheckBox*, bool val) { fired = true; newVal = val; });
+    cb->OnCheckedChanged.Add(
+        [&](CheckBox*, bool val)
+        {
+            fired = true;
+            newVal = val;
+        });
     cb->IsChecked.SetValue(true);
     CHECK(fired);
     CHECK(newVal == true);
@@ -150,12 +201,17 @@ TEST_CASE("control: CheckBox_Toggle")
 
 TEST_CASE("control: CheckBox_MouseToggle")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
-    auto cb = MakeCheckBox(u8"Option"); root->AddView(cb.Get());
-    MouseEventArgs args; args.Set(5, 5, MouseButton::Left);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
+    auto cb = MakeCheckBox(u8"Option");
+    root->AddView(cb.Get());
+    MouseEventArgs args;
+    args.Set(5, 5, MouseButton::Left);
     cb->OnMouseDown(args);
     CHECK(cb->IsChecked.Value());
-    MouseEventArgs args2; args2.Set(5, 5, MouseButton::Left);
+    MouseEventArgs args2;
+    args2.Set(5, 5, MouseButton::Left);
     cb->OnMouseDown(args2);
     CHECK(!cb->IsChecked.Value());
 }
@@ -196,7 +252,9 @@ TEST_CASE("control: Label_SetTextChaining")
 
 TEST_CASE("control: Label_MeasuresNonZero")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
     auto label = core::MakeRef<Label>(core::DefaultAllocator(), StringView(u8"Hello"));
     root->AddView(label.Get());
     LayoutPass(ctx, root.Get());
@@ -217,7 +275,8 @@ TEST_CASE("control: Spacer_MeasuresToDesiredSize")
 
 TEST_CASE("control: ColorView_StoresColor")
 {
-    auto cv = core::MakeRef<ColorView>(core::DefaultAllocator(), core::Color{ 1.0f, 0.0f, 0.0f, 1.0f });
+    auto cv =
+        core::MakeRef<ColorView>(core::DefaultAllocator(), core::Color{1.0f, 0.0f, 0.0f, 1.0f});
     CHECK(cv->Color.Value().r == 1.0f);
     CHECK(cv->Color.Value().g == 0.0f);
 }
@@ -257,9 +316,11 @@ TEST_CASE("control: ProgressBar_ValueClamped")
 
 TEST_CASE("control: Panel_ChildFillsContent")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
     auto panel = core::MakeRef<Panel>(core::DefaultAllocator());
-    panel->Padding = Thickness{ 10.0f };
+    panel->Padding = Thickness{10.0f};
     auto child = core::MakeRef<TestView>(core::DefaultAllocator(), 50.0f, 30.0f);
     panel->AddView(child.Get());
     root->AddView(panel.Get());
@@ -282,13 +343,16 @@ TEST_CASE("control: ImageView_NullImage_ZeroSize")
 
 TEST_CASE("control: ToggleButton_Toggle")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
     auto toggle = core::MakeRef<ToggleButton>(core::DefaultAllocator(), StringView(u8"Toggle"));
     root->AddView(toggle.Get());
     CHECK(!toggle->IsChecked.Value());
     bool fired = false;
     toggle->OnCheckedChanged.Add([&fired](ToggleButton*, bool) { fired = true; });
-    KeyEventArgs args; args.Set(KeyCode::Space, KeyModifiers::None, false);
+    KeyEventArgs args;
+    args.Set(KeyCode::Space, KeyModifiers::None, false);
     toggle->OnKeyDown(args);
     CHECK(toggle->IsChecked.Value());
     CHECK(fired);
@@ -298,23 +362,30 @@ TEST_CASE("control: ToggleButton_Toggle")
 
 TEST_CASE("control: RadioButton_CannotUncheckByClick")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
     auto radio = core::MakeRef<RadioButton>(core::DefaultAllocator(), StringView(u8"Option"));
     radio->IsChecked.SetValue(true);
     root->AddView(radio.Get());
-    MouseEventArgs args; args.Set(5, 5, MouseButton::Left);
+    MouseEventArgs args;
+    args.Set(5, 5, MouseButton::Left);
     radio->OnMouseDown(args);
     CHECK(radio->IsChecked.Value()); // still checked
 }
 
 TEST_CASE("control: RadioGroup_MutualExclusion")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
     auto group = core::MakeRef<RadioGroup>(core::DefaultAllocator());
     auto a = core::MakeRef<RadioButton>(core::DefaultAllocator(), StringView(u8"A"));
     auto b = core::MakeRef<RadioButton>(core::DefaultAllocator(), StringView(u8"B"));
     auto c = core::MakeRef<RadioButton>(core::DefaultAllocator(), StringView(u8"C"));
-    group->AddRadioButton(a.Get()); group->AddRadioButton(b.Get()); group->AddRadioButton(c.Get());
+    group->AddRadioButton(a.Get());
+    group->AddRadioButton(b.Get());
+    group->AddRadioButton(c.Get());
     root->AddView(group.Get());
 
     group->CheckAt(0);
@@ -329,11 +400,14 @@ TEST_CASE("control: RadioGroup_MutualExclusion")
 
 TEST_CASE("control: RadioGroup_SelectionChangedEvent")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
     auto group = core::MakeRef<RadioGroup>(core::DefaultAllocator());
     auto a = core::MakeRef<RadioButton>(core::DefaultAllocator(), StringView(u8"A"));
     auto b = core::MakeRef<RadioButton>(core::DefaultAllocator(), StringView(u8"B"));
-    group->AddRadioButton(a.Get()); group->AddRadioButton(b.Get());
+    group->AddRadioButton(a.Get());
+    group->AddRadioButton(b.Get());
     root->AddView(group.Get());
 
     RadioButton* selected = nullptr;
@@ -349,13 +423,16 @@ TEST_CASE("control: RadioGroup_SelectionChangedEvent")
 
 TEST_CASE("control: ToggleSwitch_Toggle")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
     auto sw = core::MakeRef<ToggleSwitch>(core::DefaultAllocator(), StringView(u8"VSync"));
     root->AddView(sw.Get());
     CHECK(!sw->IsChecked.Value());
     bool toggled = false;
     sw->OnCheckedChanged.Add([&toggled](ToggleSwitch*, bool) { toggled = true; });
-    MouseEventArgs args; args.Set(10, 10, MouseButton::Left);
+    MouseEventArgs args;
+    args.Set(10, 10, MouseButton::Left);
     sw->OnMouseDown(args);
     CHECK(sw->IsChecked.Value());
     CHECK(toggled);
@@ -399,7 +476,9 @@ TEST_CASE("control: Slider_Step")
 
 TEST_CASE("control: Slider_ValueChangedEvent")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
     auto slider = core::MakeRef<Slider>(core::DefaultAllocator(), 0.0f, 100.0f);
     root->AddView(slider.Get());
     f32 lastVal = -1;
@@ -412,13 +491,21 @@ TEST_CASE("control: Slider_KeyboardControl")
 {
     auto slider = core::MakeRef<Slider>(core::DefaultAllocator(), 0.0f, 100.0f, 50.0f);
     slider->Step.SetValue(5.0f);
-    KeyEventArgs r; r.Set(KeyCode::Right, KeyModifiers::None, false); slider->OnKeyDown(r);
+    KeyEventArgs r;
+    r.Set(KeyCode::Right, KeyModifiers::None, false);
+    slider->OnKeyDown(r);
     CHECK(slider->Value.Value() == 55);
-    KeyEventArgs l; l.Set(KeyCode::Left, KeyModifiers::None, false); slider->OnKeyDown(l);
+    KeyEventArgs l;
+    l.Set(KeyCode::Left, KeyModifiers::None, false);
+    slider->OnKeyDown(l);
     CHECK(slider->Value.Value() == 50);
-    KeyEventArgs h; h.Set(KeyCode::Home, KeyModifiers::None, false); slider->OnKeyDown(h);
+    KeyEventArgs h;
+    h.Set(KeyCode::Home, KeyModifiers::None, false);
+    slider->OnKeyDown(h);
     CHECK(slider->Value.Value() == 0);
-    KeyEventArgs e; e.Set(KeyCode::End, KeyModifiers::None, false); slider->OnKeyDown(e);
+    KeyEventArgs e;
+    e.Set(KeyCode::End, KeyModifiers::None, false);
+    slider->OnKeyDown(e);
     CHECK(slider->Value.Value() == 100);
 }
 
@@ -432,7 +519,9 @@ TEST_CASE("control: Expander_DefaultExpanded")
 
 TEST_CASE("control: Expander_Toggle")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
     auto expander = core::MakeRef<Expander>(core::DefaultAllocator(), StringView(u8"Settings"));
     auto content = core::MakeRef<TestView>(core::DefaultAllocator(), 100.0f, 50.0f);
     expander->SetContent(content.Get());
@@ -474,14 +563,20 @@ TEST_CASE("control: WantsArrowKeys_ButtonFalse")
 
 TEST_CASE("control: WantsArrowKeys_EditTextTrue")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
-    auto edit = core::MakeRef<EditText>(core::DefaultAllocator()); root->AddView(edit.Get());
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
+    auto edit = core::MakeRef<EditText>(core::DefaultAllocator());
+    root->AddView(edit.Get());
     CHECK(edit->WantsArrowKeys);
 }
 
 TEST_CASE("control: WantsArrowKeys_NumericFieldTrue")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get(), 400, 300);
-    auto nf = core::MakeRef<NumericField>(core::DefaultAllocator()); root->AddView(nf.Get());
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
+    auto nf = core::MakeRef<NumericField>(core::DefaultAllocator());
+    root->AddView(nf.Get());
     CHECK(nf->WantsArrowKeys);
 }

@@ -11,12 +11,13 @@ export module draconic.render:ibl_shaders;
 
 import draconic.core;
 
-export namespace draconic::render {
-
-// Fullscreen-triangle VS (positions + uv from SV_VertexID), shared by every cube-face + LUT pass.
-[[nodiscard]] inline core::StringView IblFullscreenVS() noexcept
+export namespace draconic::render
 {
-    return core::StringView(u8R"(
+
+    // Fullscreen-triangle VS (positions + uv from SV_VertexID), shared by every cube-face + LUT pass.
+    [[nodiscard]] inline core::StringView IblFullscreenVS() noexcept
+    {
+        return core::StringView(u8R"(
 struct VSOut { float4 pos : SV_Position; float2 uv : TEXCOORD0; };
 VSOut main(uint vid : SV_VertexID) {
     VSOut o;
@@ -25,13 +26,13 @@ VSOut main(uint vid : SV_VertexID) {
     return o;
 }
 )");
-}
+    }
 
-// Per-face/mip params for the cube passes (tightly-packed push constants). Sky authoring (mode +
-// intensity + gradient colors + sun + rotation) rides here so the procedural env pass reads it.
-[[nodiscard]] inline core::StringView IblCommon() noexcept
-{
-    return core::StringView(u8R"(
+    // Per-face/mip params for the cube passes (tightly-packed push constants). Sky authoring (mode +
+    // intensity + gradient colors + sun + rotation) rides here so the procedural env pass reads it.
+    [[nodiscard]] inline core::StringView IblCommon() noexcept
+    {
+        return core::StringView(u8R"(
 struct IblPush {
     int FaceIndex; int Mode; float Roughness; float SkyIntensity;
     float4 Sun;        // xyz = direction, w = sun angular size (degrees)
@@ -58,13 +59,13 @@ float3 DirForFace(int face, float2 uv) {
     return normalize(d);
 }
 )");
-}
+    }
 
-// Procedural sky -> one env cube face. Gradient (horizon/zenith/ground) + a sun disc whose direction
-// comes from the first directional light (SunDir.xyz, .w = intensity). Matches Sedulous's sky.frag.
-[[nodiscard]] inline core::StringView IblProcEnvPS() noexcept
-{
-    return core::StringView(u8R"(
+    // Procedural sky -> one env cube face. Gradient (horizon/zenith/ground) + a sun disc whose direction
+    // comes from the first directional light (SunDir.xyz, .w = intensity). Matches Sedulous's sky.frag.
+    [[nodiscard]] inline core::StringView IblProcEnvPS() noexcept
+    {
+        return core::StringView(u8R"(
 float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     float3 dir = DirForFace(pc.FaceIndex, uv);
     // Yaw the sample direction by the sky rotation (matters for HDR/cubemap; harmless on the gradient).
@@ -87,13 +88,13 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     return float4(sky * max(pc.SkyIntensity, 0.0), 1.0);
 }
 )");
-}
+    }
 
-// Preetham analytic daylight -> one env cube face. Physically-based sky luminance/chromaticity from
-// the sun elevation + turbidity (pc.Ground.a). Sun dir = -pc.Sun.xyz. A richer procedural sky.
-[[nodiscard]] inline core::StringView IblAnalyticPS() noexcept
-{
-    return core::StringView(u8R"(
+    // Preetham analytic daylight -> one env cube face. Physically-based sky luminance/chromaticity from
+    // the sun elevation + turbidity (pc.Ground.a). Sun dir = -pc.Sun.xyz. A richer procedural sky.
+    [[nodiscard]] inline core::StringView IblAnalyticPS() noexcept
+    {
+        return core::StringView(u8R"(
 static const float API = 3.14159265359;
 float3 PreethamRGB(float cosTheta, float gamma, float thetaSun, float T) {
     cosTheta = max(cosTheta, 0.02);
@@ -133,13 +134,13 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     return float4(sky * max(pc.SkyIntensity, 0.0), 1.0);
 }
 )");
-}
+    }
 
-// HDR equirectangular -> one env cube face: map the face direction to equirect uv and sample. Uses
-// the same DirForFace (canonical, negative-viewport-aware) as the procedural pass.
-[[nodiscard]] inline core::StringView IblEquirectPS() noexcept
-{
-    return core::StringView(u8R"(
+    // HDR equirectangular -> one env cube face: map the face direction to equirect uv and sample. Uses
+    // the same DirForFace (canonical, negative-viewport-aware) as the procedural pass.
+    [[nodiscard]] inline core::StringView IblEquirectPS() noexcept
+    {
+        return core::StringView(u8R"(
 Texture2D    EquirectMap  : register(t0, space0);
 SamplerState EquirectSamp : register(s0, space0);
 static const float PI2 = 3.14159265359;
@@ -158,14 +159,14 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     return float4(EquirectMap.SampleLevel(EquirectSamp, DirToEquirect(dir), 0.0).rgb * max(pc.SkyIntensity, 0.0), 1.0);
 }
 )");
-}
+    }
 
-// Loaded cubemap -> env cube face: resample the (possibly larger / LDR) source cube along the face
-// direction (downsamples + format-converts into the RGBA16F env cube). Shares the cube bind-group
-// layout with the prefilter.
-[[nodiscard]] inline core::StringView IblCubemapPS() noexcept
-{
-    return core::StringView(u8R"(
+    // Loaded cubemap -> env cube face: resample the (possibly larger / LDR) source cube along the face
+    // direction (downsamples + format-converts into the RGBA16F env cube). Shares the cube bind-group
+    // layout with the prefilter.
+    [[nodiscard]] inline core::StringView IblCubemapPS() noexcept
+    {
+        return core::StringView(u8R"(
 TextureCube  SrcCube  : register(t0, space0);
 SamplerState SrcSamp  : register(s0, space0);
 float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
@@ -176,14 +177,14 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     return float4(SrcCube.SampleLevel(SrcSamp, dir, 0.0).rgb * max(pc.SkyIntensity, 0.0), 1.0);
 }
 )");
-}
+    }
 
-// Box-downsample one env cube mip from the previous (finer) mip: sample the source cube (bound as a
-// single-mip view) along the face direction with linear filtering - averages the 2x2 finer texels into
-// this half-res texel. Builds the env mip pyramid the prefilter samples by PDF (firefly suppression).
-[[nodiscard]] inline core::StringView IblDownsamplePS() noexcept
-{
-    return core::StringView(u8R"(
+    // Box-downsample one env cube mip from the previous (finer) mip: sample the source cube (bound as a
+    // single-mip view) along the face direction with linear filtering - averages the 2x2 finer texels into
+    // this half-res texel. Builds the env mip pyramid the prefilter samples by PDF (firefly suppression).
+    [[nodiscard]] inline core::StringView IblDownsamplePS() noexcept
+    {
+        return core::StringView(u8R"(
 TextureCube  SrcCube : register(t0, space0);
 SamplerState SrcSamp : register(s0, space0);
 float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
@@ -191,14 +192,14 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     return float4(SrcCube.SampleLevel(SrcSamp, dir, 0.0).rgb, 1.0);
 }
 )");
-}
+    }
 
-// GGX prefilter (Karis split-sum specular): importance-sample the env cube around the reflection
-// direction (= N = V) at this mip's roughness. 1024 Hammersley samples / texel. Each sample reads a
-// PDF-selected env mip (solid-angle matched) so bright pixels are pre-averaged - kills specular fireflies.
-[[nodiscard]] inline core::StringView IblPrefilterPS() noexcept
-{
-    return core::StringView(u8R"(
+    // GGX prefilter (Karis split-sum specular): importance-sample the env cube around the reflection
+    // direction (= N = V) at this mip's roughness. 1024 Hammersley samples / texel. Each sample reads a
+    // PDF-selected env mip (solid-angle matched) so bright pixels are pre-averaged - kills specular fireflies.
+    [[nodiscard]] inline core::StringView IblPrefilterPS() noexcept
+    {
+        return core::StringView(u8R"(
 TextureCube<float4> EnvMap : register(t0, space0);
 SamplerState        EnvSamp : register(s0, space0);
 
@@ -261,12 +262,12 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     return float4(color / max(weight, 1e-4), 1.0);
 }
 )");
-}
+    }
 
-// BRDF integration LUT: split-sum's second term. uv = (NdotV, roughness) -> (scale, bias) for F0.
-[[nodiscard]] inline core::StringView IblBrdfPS() noexcept
-{
-    return core::StringView(u8R"(
+    // BRDF integration LUT: split-sum's second term. uv = (NdotV, roughness) -> (scale, bias) for F0.
+    [[nodiscard]] inline core::StringView IblBrdfPS() noexcept
+    {
+        return core::StringView(u8R"(
 static const float PI = 3.14159265359;
 
 float RadicalInverse_VdC(uint bits) {
@@ -320,14 +321,14 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     return float4(A / float(SAMPLES), B / float(SAMPLES), 0.0, 1.0);
 }
 )");
-}
+    }
 
-// SH9 diffuse projection: reduce the env cube to 9 RGB spherical-harmonic coefficients (one thread;
-// runs once per source change). Solid-angle-weighted cosine convolution is then evaluated cheaply in
-// the forward shader. Output layout: 9 float4 (xyz = coeff, w unused).
-[[nodiscard]] inline core::StringView IblShProjectCS() noexcept
-{
-    return core::StringView(u8R"(
+    // SH9 diffuse projection: reduce the env cube to 9 RGB spherical-harmonic coefficients (one thread;
+    // runs once per source change). Solid-angle-weighted cosine convolution is then evaluated cheaply in
+    // the forward shader. Output layout: 9 float4 (xyz = coeff, w unused).
+    [[nodiscard]] inline core::StringView IblShProjectCS() noexcept
+    {
+        return core::StringView(u8R"(
 TextureCube<float4> EnvMap : register(t0, space0);
 SamplerState        EnvSamp : register(s0, space0);
 RWStructuredBuffer<float4> ShOut : register(u0, space0);
@@ -380,6 +381,6 @@ void main(uint3 dtid : SV_DispatchThreadID) {
     for (int j = 0; j < 9; ++j) ShOut[j] = float4(sh[j] * norm, 0.0);
 }
 )");
-}
+    }
 
 }

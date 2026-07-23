@@ -15,7 +15,8 @@ using namespace draconic::image;
 TEST_CASE("image.owned: construct from span")
 {
     u8 pixels[16];
-    for (i32 i = 0; i < 16; ++i) pixels[i] = static_cast<u8>(i);
+    for (i32 i = 0; i < 16; ++i)
+        pixels[i] = static_cast<u8>(i);
 
     OwnedImageData img(2, 2, PixelFormat::RGBA8, Span<const u8>(pixels, 16));
     CHECK(img.Width() == 2u);
@@ -41,7 +42,8 @@ TEST_CASE("image.owned: construct from array (move)")
 
 TEST_CASE("image.owned: R8 format")
 {
-    Array<u8> data; data.Resize(4);
+    Array<u8> data;
+    data.Resize(4);
     OwnedImageData img(2, 2, PixelFormat::R8, Move(data));
     CHECK(img.Format() == PixelFormat::R8);
     CHECK(img.PixelData().Size() == 4u);
@@ -108,14 +110,15 @@ namespace
     {
         Array<u8> data;
         data.Resize(static_cast<usize>(w) * h * 4);
-        for (usize i = 0; i < data.Size(); ++i) data[i] = fill;
+        for (usize i = 0; i < data.Size(); ++i)
+            data[i] = fill;
         return OwnedImageData(w, h, PixelFormat::RGBA8, Move(data));
     }
 
     bool Overlaps(const RectI& a, const RectI& b)
     {
-        return a.x < b.x + b.width && a.x + a.width > b.x
-            && a.y < b.y + b.height && a.y + a.height > b.y;
+        return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height &&
+               a.y + a.height > b.y;
     }
 
     bool IsPow2(u32 v) { return v > 0 && (v & (v - 1)) == 0; }

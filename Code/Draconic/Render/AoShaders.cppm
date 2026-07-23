@@ -11,12 +11,13 @@ export module draconic.render:ao_shaders;
 
 import draconic.core;
 
-export namespace draconic::render {
-
-// Fullscreen-triangle VS, top-origin uv (matches the other post passes under the negative-viewport flip).
-[[nodiscard]] inline core::StringView AoVS() noexcept
+export namespace draconic::render
 {
-    return core::StringView(u8R"(
+
+    // Fullscreen-triangle VS, top-origin uv (matches the other post passes under the negative-viewport flip).
+    [[nodiscard]] inline core::StringView AoVS() noexcept
+    {
+        return core::StringView(u8R"(
 struct VSOut { float4 pos : SV_Position; float2 uv : TEXCOORD0; };
 VSOut main(uint vid : SV_VertexID) {
     VSOut o;
@@ -26,14 +27,14 @@ VSOut main(uint vid : SV_VertexID) {
     return o;
 }
 )");
-}
+    }
 
-// Shared reconstruction helpers, textbook for both generators. NDC convention derived from the (proven,
-// since TAA works) motion-vector mapping in the forward pass: velocity = (ndc - prev) * (0.5, -0.5) means
-// uv.y = (1 - ndc.y)/2, i.e. top-origin uv.y=0 -> ndc.y=+1 under the RHI's automatic negative viewport.
-[[nodiscard]] inline core::StringView AoCommon() noexcept
-{
-    return core::StringView(u8R"(
+    // Shared reconstruction helpers, textbook for both generators. NDC convention derived from the (proven,
+    // since TAA works) motion-vector mapping in the forward pass: velocity = (ndc - prev) * (0.5, -0.5) means
+    // uv.y = (1 - ndc.y)/2, i.e. top-origin uv.y=0 -> ndc.y=+1 under the RHI's automatic negative viewport.
+    [[nodiscard]] inline core::StringView AoCommon() noexcept
+    {
+        return core::StringView(u8R"(
 // Octahedral decode -> view-space normal (matches the forward's OctEncode).
 float3 OctDecode(float2 e) {
     float3 n = float3(e.xy, 1.0 - abs(e.x) - abs(e.y));
@@ -43,12 +44,12 @@ float3 OctDecode(float2 e) {
     return normalize(n);
 }
 )");
-}
+    }
 
-// GTAO generate: horizon-based AO in view space. Depth (t0) + octahedral view-normal (t1).
-[[nodiscard]] inline core::StringView GtaoGenPS() noexcept
-{
-    return core::StringView(u8R"(
+    // GTAO generate: horizon-based AO in view space. Depth (t0) + octahedral view-normal (t1).
+    [[nodiscard]] inline core::StringView GtaoGenPS() noexcept
+    {
+        return core::StringView(u8R"(
 Texture2D    DepthTex  : register(t0, space0);
 Texture2D    NormalTex : register(t1, space0);
 SamplerState PointSamp : register(s0, space0);
@@ -155,15 +156,15 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     return float4(ao, 0, 0, 0);
 }
 )");
-}
+    }
 
-// SSAO generate: hemisphere-kernel occlusion (ported from Sedulous). Depth (t0) + view-normal (t1).
-// Reconstruct P, orient a Poisson hemisphere kernel by the normal (TBN + per-pixel rotation), offset in
-// view space, project back with the diagonal proj terms, and compare depths. Projecting with ProjXX/ProjYY
-// (symmetric perspective) instead of a full matrix keeps the push under the 128-byte portable limit.
-[[nodiscard]] inline core::StringView SsaoGenPS() noexcept
-{
-    return core::StringView(u8R"(
+    // SSAO generate: hemisphere-kernel occlusion (ported from Sedulous). Depth (t0) + view-normal (t1).
+    // Reconstruct P, orient a Poisson hemisphere kernel by the normal (TBN + per-pixel rotation), offset in
+    // view space, project back with the diagonal proj terms, and compare depths. Projecting with ProjXX/ProjYY
+    // (symmetric perspective) instead of a full matrix keeps the push under the 128-byte portable limit.
+    [[nodiscard]] inline core::StringView SsaoGenPS() noexcept
+    {
+        return core::StringView(u8R"(
 Texture2D    DepthTex  : register(t0, space0);
 Texture2D    NormalTex : register(t1, space0);
 SamplerState PointSamp : register(s0, space0);
@@ -257,12 +258,12 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     return float4(ao, 0, 0, 0);
 }
 )");
-}
+    }
 
-// Depth-aware separable bilateral blur (denoise the raw AO). One pass = one axis; run twice.
-[[nodiscard]] inline core::StringView AoBlurPS() noexcept
-{
-    return core::StringView(u8R"(
+    // Depth-aware separable bilateral blur (denoise the raw AO). One pass = one axis; run twice.
+    [[nodiscard]] inline core::StringView AoBlurPS() noexcept
+    {
+        return core::StringView(u8R"(
 Texture2D    AoTex     : register(t0, space0);
 Texture2D    DepthTex  : register(t1, space0);
 SamplerState PointSamp : register(s0, space0);
@@ -284,14 +285,14 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     return float4(sum / max(wsum, 1e-5), 0, 0, 0);
 }
 )");
-}
+    }
 
-// Multiply AO into an HDR color target: out = hdr * lerp(1, ao, Strength). Run BEFORE the TAA resolve
-// so TAA temporally stabilizes the AO (applying it post-TAA wobbles, since the AO is computed from the
-// jittered G-buffer and shifts sub-pixel each frame).
-[[nodiscard]] inline core::StringView AoApplyPS() noexcept
-{
-    return core::StringView(u8R"(
+    // Multiply AO into an HDR color target: out = hdr * lerp(1, ao, Strength). Run BEFORE the TAA resolve
+    // so TAA temporally stabilizes the AO (applying it post-TAA wobbles, since the AO is computed from the
+    // jittered G-buffer and shifts sub-pixel each frame).
+    [[nodiscard]] inline core::StringView AoApplyPS() noexcept
+    {
+        return core::StringView(u8R"(
 Texture2D<float4> HdrTex    : register(t0, space0);
 Texture2D<float4> AoTex     : register(t1, space0);
 SamplerState      PointSamp : register(s0, space0);
@@ -303,6 +304,6 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     return float4(c * ao, 1.0);
 }
 )");
-}
+    }
 
 }

@@ -24,7 +24,9 @@ export namespace draconic::fonts
     {
     public:
         explicit FontManager(FontLoadOptions defaultOptions = FontLoadOptions::Default())
-            : m_defaultOptions(defaultOptions) {}
+            : m_defaultOptions(defaultOptions)
+        {
+        }
 
         ~FontManager() { DeleteCache(); }
 
@@ -86,7 +88,10 @@ export namespace draconic::fonts
         }
 
         // Get a font at the default pixel height from the options.
-        [[nodiscard]] CachedFont* GetFont(StringView path) { return GetFont(path, m_defaultOptions.pixelHeight); }
+        [[nodiscard]] CachedFont* GetFont(StringView path)
+        {
+            return GetFont(path, m_defaultOptions.pixelHeight);
+        }
 
         // Release a reference. The font stays cached for potential reuse.
         void ReleaseFont(CachedFont* font)

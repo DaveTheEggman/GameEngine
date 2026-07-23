@@ -19,14 +19,17 @@ namespace
     // Beef byte `Color(r,g,b,a)` literal -> float core::Color.
     [[nodiscard]] core::Color Rgb(u8 r, u8 g, u8 b, u8 a = 255)
     {
-        return core::Color{ r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f };
+        return core::Color{r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f};
     }
 
     // Build an owned node with an optional title.
     [[nodiscard]] UniquePtr<NodeGraphNode> MakeNode(StringView title = StringView{})
     {
         auto node = MakeUnique<NodeGraphNode>(DefaultAllocator());
-        if (title.Size() > 0) { node->Title = String(title); }
+        if (title.Size() > 0)
+        {
+            node->Title = String(title);
+        }
         return node;
     }
 
@@ -40,7 +43,10 @@ namespace
     [[nodiscard]] NodeGraphConnection Conn(i32 sn, i32 sp, i32 dn, i32 dp)
     {
         NodeGraphConnection c;
-        c.SourceNodeIndex = sn; c.SourcePortIndex = sp; c.DestNodeIndex = dn; c.DestPortIndex = dp;
+        c.SourceNodeIndex = sn;
+        c.SourcePortIndex = sp;
+        c.DestNodeIndex = dn;
+        c.DestPortIndex = dp;
         return c;
     }
 }
@@ -268,8 +274,12 @@ TEST_CASE("nodegraph: RemoveConnection")
 TEST_CASE("nodegraph: SelectNode")
 {
     auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
-    auto n0u = MakeNode(u8"A"); NodeGraphNode* n0 = n0u.Get(); canvas->AddNode(Move(n0u));
-    auto n1u = MakeNode(u8"B"); NodeGraphNode* n1 = n1u.Get(); canvas->AddNode(Move(n1u));
+    auto n0u = MakeNode(u8"A");
+    NodeGraphNode* n0 = n0u.Get();
+    canvas->AddNode(Move(n0u));
+    auto n1u = MakeNode(u8"B");
+    NodeGraphNode* n1 = n1u.Get();
+    canvas->AddNode(Move(n1u));
 
     canvas->SelectNode(0);
     CHECK(n0->IsSelected);
@@ -284,8 +294,12 @@ TEST_CASE("nodegraph: SelectNode")
 TEST_CASE("nodegraph: SelectNode_AddToSelection")
 {
     auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
-    auto n0u = MakeNode(u8"A"); NodeGraphNode* n0 = n0u.Get(); canvas->AddNode(Move(n0u));
-    auto n1u = MakeNode(u8"B"); NodeGraphNode* n1 = n1u.Get(); canvas->AddNode(Move(n1u));
+    auto n0u = MakeNode(u8"A");
+    NodeGraphNode* n0 = n0u.Get();
+    canvas->AddNode(Move(n0u));
+    auto n1u = MakeNode(u8"B");
+    NodeGraphNode* n1 = n1u.Get();
+    canvas->AddNode(Move(n1u));
 
     canvas->SelectNode(0);
     canvas->SelectNode(1, /*addToSelection*/ true);
@@ -296,7 +310,9 @@ TEST_CASE("nodegraph: SelectNode_AddToSelection")
 TEST_CASE("nodegraph: ClearSelection")
 {
     auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
-    auto n0u = MakeNode(u8"A"); NodeGraphNode* n0 = n0u.Get(); canvas->AddNode(Move(n0u));
+    auto n0u = MakeNode(u8"A");
+    NodeGraphNode* n0 = n0u.Get();
+    canvas->AddNode(Move(n0u));
 
     canvas->SelectNode(0);
     CHECK(n0->IsSelected);
@@ -321,8 +337,14 @@ TEST_CASE("nodegraph: GetSelectedNodes")
     bool has0 = false, has2 = false;
     for (usize i = 0; i < selected.Size(); ++i)
     {
-        if (selected[i] == 0) { has0 = true; }
-        if (selected[i] == 2) { has2 = true; }
+        if (selected[i] == 0)
+        {
+            has0 = true;
+        }
+        if (selected[i] == 2)
+        {
+            has2 = true;
+        }
     }
     CHECK(has0);
     CHECK(has2);
@@ -353,7 +375,7 @@ TEST_CASE("nodegraph: Clear_RemovesEverything")
 TEST_CASE("nodegraph: ScreenToCanvas_Identity")
 {
     auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
-    const Float2 result = canvas->ScreenToCanvas(Float2{ 100, 200 });
+    const Float2 result = canvas->ScreenToCanvas(Float2{100, 200});
     CHECK(Abs(result.x - 100) < 0.01f);
     CHECK(Abs(result.y - 200) < 0.01f);
 }
@@ -361,7 +383,7 @@ TEST_CASE("nodegraph: ScreenToCanvas_Identity")
 TEST_CASE("nodegraph: CanvasToScreen_Identity")
 {
     auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
-    const Float2 result = canvas->CanvasToScreen(Float2{ 100, 200 });
+    const Float2 result = canvas->CanvasToScreen(Float2{100, 200});
     CHECK(Abs(result.x - 100) < 0.01f);
     CHECK(Abs(result.y - 200) < 0.01f);
 }
@@ -369,7 +391,7 @@ TEST_CASE("nodegraph: CanvasToScreen_Identity")
 TEST_CASE("nodegraph: ScreenToCanvas_Roundtrip")
 {
     auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
-    const Float2 original{ 150, 250 };
+    const Float2 original{150, 250};
     const Float2 screen = canvas->CanvasToScreen(original);
     const Float2 back = canvas->ScreenToCanvas(screen);
     CHECK(Abs(back.x - original.x) < 0.01f);
@@ -382,7 +404,7 @@ TEST_CASE("nodegraph: AutoSize_ExpandsForPorts")
 {
     auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
     auto node = MakeNode(u8"Multi-port");
-    node->Size = Float2{ 160, 40 }; // Intentionally small.
+    node->Size = Float2{160, 40}; // Intentionally small.
 
     for (i32 i = 0; i < 5; i++)
     {
@@ -393,7 +415,7 @@ TEST_CASE("nodegraph: AutoSize_ExpandsForPorts")
 
     NodeGraphNode* raw = node.Get();
     canvas->AddNode(Move(node)); // AddNode calls AutoSizeNode.
-    CHECK(raw->Size.y > 40); // Should have expanded for 5 ports.
+    CHECK(raw->Size.y > 40);     // Should have expanded for 5 ports.
 }
 
 // === Custom Connection Validator ===
@@ -401,7 +423,8 @@ TEST_CASE("nodegraph: AutoSize_ExpandsForPorts")
 TEST_CASE("nodegraph: CustomValidator_AllowsAll")
 {
     auto canvas = MakeRef<NodeGraphCanvas>(DefaultAllocator());
-    canvas->ConnectionValidator = [](NodeGraphPortType, NodeGraphPortType) { return true; }; // Allow everything.
+    canvas->ConnectionValidator = [](NodeGraphPortType, NodeGraphPortType)
+    { return true; }; // Allow everything.
 
     const NodeGraphPortType typeA(1, Rgb(255, 0, 0, 255));
     const NodeGraphPortType typeB(2, Rgb(0, 255, 0, 255));

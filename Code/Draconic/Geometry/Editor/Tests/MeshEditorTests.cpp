@@ -38,7 +38,8 @@ TEST_CASE("mesh editor: cooks a StaticMeshAsset -> StaticMeshSource")
     Guid id;
 
     {
-        draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        draconic::content::ContentDatabase outDb(
+            outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = outDb.RootGroup()->CreateInstance(u8"cube", StaticMeshSource::StaticType());
         id = inst->Id();
 
@@ -54,7 +55,8 @@ TEST_CASE("mesh editor: cooks a StaticMeshAsset -> StaticMeshSource")
     }
 
     {
-        draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        draconic::content::ContentDatabase outDb(
+            outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
         RefPtr<ISerializable> object = outDb.ReadObject(id);
         StaticMeshSource* cooked = Cast<StaticMeshSource>(object.Get());
         REQUIRE(cooked != nullptr);
@@ -77,15 +79,18 @@ TEST_CASE("mesh editor: cooks a SkinnedMeshAsset -> SkinnedMeshSource")
     Guid id;
 
     {
-        draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
-        auto* inst = outDb.RootGroup()->CreateInstance(u8"skinned", SkinnedMeshSource::StaticType());
+        draconic::content::ContentDatabase outDb(
+            outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        auto* inst =
+            outDb.RootGroup()->CreateInstance(u8"skinned", SkinnedMeshSource::StaticType());
         id = inst->Id();
 
         RefPtr<SkinnedMesh> mesh = MakeRef<SkinnedMesh>(DefaultAllocator());
         mesh->skeletonIndex = 4;
         mesh->vertices.PushBack(StaticMeshVertex{});
         mesh->vertices.PushBack(StaticMeshVertex{});
-        VertexSkinning s{}; s.joints[1] = 9;
+        VertexSkinning s{};
+        s.joints[1] = 9;
         mesh->skinning.PushBack(s);
         mesh->skinning.PushBack(s);
 
@@ -99,7 +104,8 @@ TEST_CASE("mesh editor: cooks a SkinnedMeshAsset -> SkinnedMeshSource")
     }
 
     {
-        draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        draconic::content::ContentDatabase outDb(
+            outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
         RefPtr<ISerializable> object = outDb.ReadObject(id);
         SkinnedMeshSource* cooked = Cast<SkinnedMeshSource>(object.Get());
         REQUIRE(cooked != nullptr);

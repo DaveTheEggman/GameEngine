@@ -14,11 +14,11 @@ module;
 
 export module draconic.ui.vfs;
 
-import draconic.core;        // IStream, FileMode, SeekOrigin, Array, String, Span, UniquePtr
-import draconic.image;       // ImageData, OwnedImageData
-import draconic.image.io;    // LoadImageFromMemory
-import draconic.vfs;         // IFileSystem
-import draconic.ui;          // IResourceProvider
+import draconic.core;     // IStream, FileMode, SeekOrigin, Array, String, Span, UniquePtr
+import draconic.image;    // ImageData, OwnedImageData
+import draconic.image.io; // LoadImageFromMemory
+import draconic.vfs;      // IFileSystem
+import draconic.ui;       // IResourceProvider
 
 using namespace draconic::core;
 namespace image = draconic::image;
@@ -37,12 +37,21 @@ export namespace draconic::ui::vfs
         /// Sedulous's length<=0 -> Ok).
         bool LoadText(StringView path, String& outText) override
         {
-            if (m_fs == nullptr) { return false; }
+            if (m_fs == nullptr)
+            {
+                return false;
+            }
             UniquePtr<IStream> stream = m_fs->Open(path, FileMode::Read);
-            if (!stream) { return false; }
+            if (!stream)
+            {
+                return false;
+            }
 
             const i64 length = stream->Size();
-            if (length <= 0) { return true; }
+            if (length <= 0)
+            {
+                return true;
+            }
 
             Array<u8> buf;
             buf.Resize(static_cast<usize>(length));
@@ -55,22 +64,37 @@ export namespace draconic::ui::vfs
         /// (cached in m_images), or null if the file is missing or fails to decode.
         const image::ImageData* LoadImage(StringView path) override
         {
-            if (m_fs == nullptr) { return nullptr; }
+            if (m_fs == nullptr)
+            {
+                return nullptr;
+            }
             UniquePtr<IStream> stream = m_fs->Open(path, FileMode::Read);
-            if (!stream) { return nullptr; }
+            if (!stream)
+            {
+                return nullptr;
+            }
 
             const i64 length = stream->Size();
-            if (length <= 0) { return nullptr; }
+            if (length <= 0)
+            {
+                return nullptr;
+            }
 
             Array<u8> buf;
             buf.Resize(static_cast<usize>(length));
             const u64 read = stream->Read(buf.Data(), static_cast<u64>(length));
 
             image::Image decoded;
-            if (!image::io::LoadImageFromMemory(Span<const u8>(buf.Data(), static_cast<usize>(read)), decoded).IsOk()) { return nullptr; }
+            if (!image::io::LoadImageFromMemory(
+                     Span<const u8>(buf.Data(), static_cast<usize>(read)), decoded)
+                     .IsOk())
+            {
+                return nullptr;
+            }
 
             UniquePtr<image::OwnedImageData> owned = MakeUnique<image::OwnedImageData>(
-                DefaultAllocator(), decoded.Width(), decoded.Height(), decoded.Format(), decoded.PixelData());
+                DefaultAllocator(), decoded.Width(), decoded.Height(), decoded.Format(),
+                decoded.PixelData());
             image::OwnedImageData* raw = owned.Get();
             m_images.PushBack(Move(owned));
             return raw;

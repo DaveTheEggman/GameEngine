@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-#include "Core/Prelude.h"  // <new> reachability for container instantiation (GCC)
+#include "Core/Prelude.h" // <new> reachability for container instantiation (GCC)
 
 import draconic.core;
 import draconic.runtime;
@@ -13,7 +13,8 @@ import draconic.runtime.client;
 using namespace draconic::core;
 using namespace draconic::runtime;
 using namespace draconic::shell;
-using namespace draconic::graphics;   // GraphicsDevice/RenderWindow/FrameContext (moved from draconic::runtime)
+using namespace draconic::
+    graphics; // GraphicsDevice/RenderWindow/FrameContext (moved from draconic::runtime)
 
 namespace
 {
@@ -33,6 +34,7 @@ namespace
         void SetClipboardText(StringView text) override { clipboard = String(text); }
         String GetClipboardText() const override { return clipboard; }
         bool HasClipboardText() const noexcept override { return clipboard.Size() > 0; }
+
     private:
         String clipboard;
     };
@@ -47,6 +49,7 @@ namespace
         void Update(f32) override { ++update; }
         void PostUpdate(f32) override { ++post; }
         void EndFrame() override { ++end; }
+
     protected:
         void OnInit() override { ++inits; }
         void OnShutdown() override { ++shutdowns; }
@@ -62,9 +65,22 @@ namespace
         CountingSys* sys = nullptr;
         bool sysLiveAtStartup = false;
 
-        ApplicationSettings Settings() const override { ApplicationSettings s; s.fixedTimeStep = 0.5f; return s; }
-        void Configure(IApplicationHost& host) override { order.PushBack(1); sys = host.Ctx().AddSubsystem<CountingSys>(); }
-        void OnStartup(IApplicationHost&) override { order.PushBack(2); sysLiveAtStartup = sys->IsInitialized(); }
+        ApplicationSettings Settings() const override
+        {
+            ApplicationSettings s;
+            s.fixedTimeStep = 0.5f;
+            return s;
+        }
+        void Configure(IApplicationHost& host) override
+        {
+            order.PushBack(1);
+            sys = host.Ctx().AddSubsystem<CountingSys>();
+        }
+        void OnStartup(IApplicationHost&) override
+        {
+            order.PushBack(2);
+            sysLiveAtStartup = sys->IsInitialized();
+        }
         void OnLaunch(IApplicationHost&) override { order.PushBack(3); }
         void OnUpdate(IApplicationHost&, f32) override { order.PushBack(4); }
         void OnExit(IApplicationHost&) override { order.PushBack(5); }
@@ -79,16 +95,16 @@ TEST_CASE("client: Start configures the app, starts subsystems, then launches")
     host.Start(app);
 
     REQUIRE(app.order.Size() == 3u);
-    CHECK(app.order[0] == 1);          // Configure (app registers subsystems)
-    CHECK(app.order[1] == 2);          // OnStartup
-    CHECK(app.order[2] == 3);          // OnLaunch
-    CHECK(app.sysLiveAtStartup);       // Configure ran before Context.Startup, so Init happened
+    CHECK(app.order[0] == 1);    // Configure (app registers subsystems)
+    CHECK(app.order[1] == 2);    // OnStartup
+    CHECK(app.order[2] == 3);    // OnLaunch
+    CHECK(app.sysLiveAtStartup); // Configure ran before Context.Startup, so Init happened
     CHECK(host.IsRunning());
 
     host.Stop();
     CHECK_FALSE(host.IsRunning());
     CHECK(app.sys->shutdowns == 1);
-    CHECK(app.order[app.order.Size() - 1] == 6);  // OnExit then OnShutdown last
+    CHECK(app.order[app.order.Size() - 1] == 6); // OnExit then OnShutdown last
 }
 
 TEST_CASE("client: Tick drives Context phases with a fixed-step accumulator")
@@ -97,23 +113,29 @@ TEST_CASE("client: Tick drives Context phases with a fixed-step accumulator")
     ApplicationHost host;
     host.Start(app);
 
-    host.Tick(0.25f);                   // accumulator 0.25 < 0.5 -> no fixed step
+    host.Tick(0.25f); // accumulator 0.25 < 0.5 -> no fixed step
     CHECK(app.sys->begin == 1);
     CHECK(app.sys->update == 1);
     CHECK(app.sys->post == 1);
     CHECK(app.sys->end == 1);
     CHECK(app.sys->fixed == 0);
 
-    host.Tick(0.25f);                   // reaches 0.5 -> exactly one fixed step
+    host.Tick(0.25f); // reaches 0.5 -> exactly one fixed step
     CHECK(app.sys->fixed == 1);
     CHECK(app.sys->update == 2);
 
-    host.Tick(0.5f);                    // another full step
+    host.Tick(0.5f); // another full step
     CHECK(app.sys->fixed == 2);
 
     // OnUpdate fired once per Tick, after Context::Update each time.
     int updates = 0;
-    for (usize i = 0; i < app.order.Size(); ++i) { if (app.order[i] == 4) { ++updates; } }
+    for (usize i = 0; i < app.order.Size(); ++i)
+    {
+        if (app.order[i] == 4)
+        {
+            ++updates;
+        }
+    }
     CHECK(updates == 3);
 
     host.Stop();
@@ -125,8 +147,17 @@ namespace
     {
     public:
         CountingSys* sys = nullptr;
-        ApplicationSettings Settings() const override { ApplicationSettings s; s.fixedTimeStep = 0.1f; s.maxFrameTime = 0.25f; return s; }
-        void Configure(IApplicationHost& host) override { sys = host.Ctx().AddSubsystem<CountingSys>(); }
+        ApplicationSettings Settings() const override
+        {
+            ApplicationSettings s;
+            s.fixedTimeStep = 0.1f;
+            s.maxFrameTime = 0.25f;
+            return s;
+        }
+        void Configure(IApplicationHost& host) override
+        {
+            sys = host.Ctx().AddSubsystem<CountingSys>();
+        }
     };
 }
 
@@ -138,8 +169,11 @@ TEST_CASE("client: maxFrameTime clamps a large delta")
 
     // The runner clamps to Settings().maxFrameTime before calling Tick.
     f32 dt = 10.0f;
-    if (dt > host.Settings().maxFrameTime) { dt = host.Settings().maxFrameTime; }
-    host.Tick(dt);                      // 0.25 / 0.1 -> 2 fixed steps, not 100
+    if (dt > host.Settings().maxFrameTime)
+    {
+        dt = host.Settings().maxFrameTime;
+    }
+    host.Tick(dt); // 0.25 / 0.1 -> 2 fixed steps, not 100
     CHECK(app.sys->fixed == 2);
 
     host.Stop();
@@ -155,7 +189,10 @@ TEST_CASE("client: RequestExit stops a manual run loop")
     while (host.IsRunning())
     {
         host.Tick(0.5f);
-        if (++frames == 3) { host.RequestExit(7); }
+        if (++frames == 3)
+        {
+            host.RequestExit(7);
+        }
     }
     host.Stop();
 
@@ -182,7 +219,7 @@ TEST_CASE("client: the host borrows the shell and exposes it to the app")
     ApplicationHost host;
 
     host.Start(app, &shell);
-    CHECK(app.seenShell == &shell);   // visible during Configure
+    CHECK(app.seenShell == &shell); // visible during Configure
     CHECK(host.Shell() == &shell);
     host.Stop();
 }
@@ -195,7 +232,10 @@ namespace
     public:
         RenderWindow* second = nullptr;
         int renders = 0;
-        void OnStartup(IApplicationHost& host) override { second = host.OpenWindow(WindowSettings{}, RenderWindowDesc{}); }
+        void OnStartup(IApplicationHost& host) override
+        {
+            second = host.OpenWindow(WindowSettings{}, RenderWindowDesc{});
+        }
         void OnRenderWindow(IApplicationHost&, FrameContext&) override { ++renders; }
     };
 }
@@ -211,11 +251,11 @@ TEST_CASE("client: with a graphics device, every window renders each Tick")
     ApplicationHost host;
     host.Start(app, &shell, gd.Get());
 
-    CHECK(host.Windows().Size() == 2u);    // main (from Start) + the one opened in OnStartup
+    CHECK(host.Windows().Size() == 2u); // main (from Start) + the one opened in OnStartup
     REQUIRE(app.second != nullptr);
 
     host.Tick(0.016f);
-    CHECK(app.renders == 2);               // one per window
+    CHECK(app.renders == 2); // one per window
 
     // Close is deferred to frame end: this Tick still renders BOTH (2 -> 4),
     // then flushes the window away.
@@ -224,7 +264,7 @@ TEST_CASE("client: with a graphics device, every window renders each Tick")
     CHECK(host.Windows().Size() == 1u);
     CHECK(app.renders == 4);
 
-    host.Tick(0.016f);                     // only the survivor renders now
+    host.Tick(0.016f); // only the survivor renders now
     CHECK(app.renders == 5);
 
     host.Stop();

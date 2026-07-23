@@ -35,7 +35,10 @@ namespace
         {
             for (const auto& e : entries)
             {
-                if (!e.isDirectory) { (void)fs.AsWritable()->Delete(e.name.AsView()); }
+                if (!e.isDirectory)
+                {
+                    (void)fs.AsWritable()->Delete(e.name.AsView());
+                }
             }
         }
         (void)RemoveDirectory(root);
@@ -58,8 +61,8 @@ TEST_CASE("resource-ref: scene round-trip resolves mesh refs through proxy handl
         RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
         geometry::StaticMeshSource source;
         geometry::StaticMeshSource::FromMesh(*cube, source);
-        draconic::content::Instance* inst =
-            cookedDb.RootGroup()->CreateInstance(u8"Cube", geometry::StaticMeshSource::StaticType());
+        draconic::content::Instance* inst = cookedDb.RootGroup()->CreateInstance(
+            u8"Cube", geometry::StaticMeshSource::StaticType());
         REQUIRE(inst != nullptr);
         REQUIRE(inst->WriteObject(source).IsOk());
         meshId = inst->Id();
@@ -77,7 +80,7 @@ TEST_CASE("resource-ref: scene round-trip resolves mesh refs through proxy handl
         const scene::EntityHandle e = scene.CreateEntity(u8"Box");
         MeshComponent& mc = scene.GetSystem<MeshComponentManager>()->Add(e);
         mc.mesh.SetId(meshId);
-        mc.color = Color{ 0.5f, 0.25f, 0.125f, 1.0f };
+        mc.color = Color{0.5f, 0.25f, 0.125f, 1.0f};
 
         BinarySerializer ar(blob, SerializeMode::Write);
         scene::SerializeScene(ar, scene);
@@ -136,9 +139,9 @@ TEST_CASE("resource-ref: direct objects win over proxies and skip serialization"
     RefPtr<geometry::StaticMesh> procedural = geometry::Primitives::Cube(2.0f);
 
     MeshComponent mc;
-    mc.mesh = procedural;   // the sample/procedural path: plain RefPtr assignment
+    mc.mesh = procedural; // the sample/procedural path: plain RefPtr assignment
     CHECK(mc.mesh.Get() == procedural.Get());
-    CHECK(mc.mesh.id.IsNil());   // nothing to serialize - direct objects are runtime-only
+    CHECK(mc.mesh.id.IsNil()); // nothing to serialize - direct objects are runtime-only
 
     // A guid alongside a direct object: the direct object still wins at Get().
     Random rng(1234);
@@ -152,7 +155,7 @@ TEST_CASE("resource-ref: sprite + decal texture refs round-trip by guid")
     // resolving to a live texture::Texture is covered by the editor's TextureFactory path.
     Random rng(42);
     const Guid spriteTex = Guid::Generate(rng);
-    const Guid decalTex  = Guid::Generate(rng);
+    const Guid decalTex = Guid::Generate(rng);
 
     MemoryStream blob;
     {
@@ -162,7 +165,7 @@ TEST_CASE("resource-ref: sprite + decal texture refs round-trip by guid")
         const scene::EntityHandle e = scene.CreateEntity(u8"Deco");
         SpriteComponent& sc = scene.GetSystem<SpriteComponentManager>()->Add(e);
         sc.textureAsset.SetId(spriteTex);
-        sc.size = Float2{ 2.0f, 3.0f };
+        sc.size = Float2{2.0f, 3.0f};
         sc.additive = true;
         DecalComponent& dc = scene.GetSystem<DecalComponentManager>()->Add(e);
         dc.textureAsset.SetId(decalTex);
@@ -184,17 +187,17 @@ TEST_CASE("resource-ref: sprite + decal texture refs round-trip by guid")
     }
 
     SpriteComponent* sc = nullptr;
-    loaded.GetSystem<SpriteComponentManager>()->ForEach(
-        [&](SpriteComponent& c, scene::EntityHandle) { sc = &c; });
+    loaded.GetSystem<SpriteComponentManager>()->ForEach([&](SpriteComponent& c, scene::EntityHandle)
+                                                        { sc = &c; });
     REQUIRE(sc != nullptr);
     CHECK(sc->textureAsset.id == spriteTex);
     CHECK(sc->size.x == doctest::Approx(2.0f));
     CHECK(sc->additive);
-    CHECK(sc->texture == nullptr);   // the raw view override is runtime-only
+    CHECK(sc->texture == nullptr); // the raw view override is runtime-only
 
     DecalComponent* dc = nullptr;
-    loaded.GetSystem<DecalComponentManager>()->ForEach(
-        [&](DecalComponent& c, scene::EntityHandle) { dc = &c; });
+    loaded.GetSystem<DecalComponentManager>()->ForEach([&](DecalComponent& c, scene::EntityHandle)
+                                                       { dc = &c; });
     REQUIRE(dc != nullptr);
     CHECK(dc->textureAsset.id == decalTex);
     CHECK(dc->fadeEnd == doctest::Approx(0.5f));
@@ -204,7 +207,7 @@ TEST_CASE("resource-ref: instanced-mesh refs + authored placement round-trip")
 {
     Random rng(7);
     const Guid meshId = Guid::Generate(rng);
-    const Guid matId  = Guid::Generate(rng);
+    const Guid matId = Guid::Generate(rng);
 
     MemoryStream blob;
     {
@@ -216,11 +219,11 @@ TEST_CASE("resource-ref: instanced-mesh refs + authored placement round-trip")
         c.material.SetId(matId);
         // Replace the editor-workflow seed (a fresh component starts with ONE identity instance).
         REQUIRE(c.Count() == 1u);
-        const Float4x4 xf[2] = { Float4x4::Translation(Float3{ 1, 0, 0 }),
-                                 Float4x4::Translation(Float3{ 0, 2, 0 }) };
-        c.SetInstances(Span<const Float4x4>{ xf, 2 });
-        c.tints.PushBack(Color{ 1, 0, 0, 1 });
-        c.tints.PushBack(Color{ 0, 1, 0, 1 });
+        const Float4x4 xf[2] = {Float4x4::Translation(Float3{1, 0, 0}),
+                                Float4x4::Translation(Float3{0, 2, 0})};
+        c.SetInstances(Span<const Float4x4>{xf, 2});
+        c.tints.PushBack(Color{1, 0, 0, 1});
+        c.tints.PushBack(Color{0, 1, 0, 1});
 
         BinarySerializer ar(blob, SerializeMode::Write);
         scene::SerializeScene(ar, scene);
@@ -274,16 +277,19 @@ TEST_CASE("resource-ref: a Ref<StaticMesh> bound to a SKINNED product keeps the 
         RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
         RefPtr<geometry::SkinnedMesh> skinned = MakeRef<geometry::SkinnedMesh>(DefaultAllocator());
         skinned->vertices = cube->vertices;
-        skinned->indices  = cube->indices;
+        skinned->indices = cube->indices;
         skinned->subMeshes = cube->subMeshes;
-        skinned->bounds    = cube->bounds;
-        for (usize i = 0; i < skinned->vertices.Size(); ++i) { skinned->skinning.PushBack(geometry::VertexSkinning{}); }
+        skinned->bounds = cube->bounds;
+        for (usize i = 0; i < skinned->vertices.Size(); ++i)
+        {
+            skinned->skinning.PushBack(geometry::VertexSkinning{});
+        }
         skinned->skeletonIndex = 0;
 
         geometry::SkinnedMeshSource source;
         geometry::SkinnedMeshSource::FromMesh(*skinned, source);
-        draconic::content::Instance* inst =
-            cookedDb.RootGroup()->CreateInstance(u8"SkinnedCube", geometry::SkinnedMeshSource::StaticType());
+        draconic::content::Instance* inst = cookedDb.RootGroup()->CreateInstance(
+            u8"SkinnedCube", geometry::SkinnedMeshSource::StaticType());
         REQUIRE(inst != nullptr);
         REQUIRE(inst->WriteObject(source).IsOk());
         meshId = inst->Id();
@@ -314,7 +320,7 @@ TEST_CASE("resource-ref: per-submesh material refs round-trip and resolve to the
     // real Material products would drag the shader stack in, so the manager here has no
     // material factory and the materialized entries stay null - the SHAPE is what's under
     // test: ids round-trip, the array materializes on resolve, direct fills survive.
-    RegisterRenderComponentReflection();   // patches TypeOf<MeshComponent>().dataVersion (v2 gate)
+    RegisterRenderComponentReflection(); // patches TypeOf<MeshComponent>().dataVersion (v2 gate)
     const StringView dir = u8"draconic_submesh_ref_test_db";
     RemoveTree(dir);
     (void)CreateDirectory(dir);
@@ -322,8 +328,8 @@ TEST_CASE("resource-ref: per-submesh material refs round-trip and resolve to the
     draconic::content::ContentDatabase cookedDb(mount, BinarySerializerFactory(), u8".rasset");
     resource::ResourceManager resources(cookedDb);
 
-    const Guid matA{ 0xA1, 0x1 };
-    const Guid matB{ 0xB2, 0x2 };
+    const Guid matA{0xA1, 0x1};
+    const Guid matB{0xB2, 0x2};
     MemoryStream blob;
     {
         scene::Scene scene;
@@ -350,14 +356,14 @@ TEST_CASE("resource-ref: per-submesh material refs round-trip and resolve to the
         REQUIRE(ar.IsOk());
     }
     MeshComponent* mc = nullptr;
-    loaded.GetSystem<MeshComponentManager>()->ForEach(
-        [&](MeshComponent& c, scene::EntityHandle) { mc = &c; });
+    loaded.GetSystem<MeshComponentManager>()->ForEach([&](MeshComponent& c, scene::EntityHandle)
+                                                      { mc = &c; });
     REQUIRE(mc != nullptr);
     REQUIRE(mc->materials.Size() == 2u);
     CHECK(mc->materials[0].id == matA);
     CHECK(mc->materials[1].id == matB);
 
-    scene::ResolveSceneResources(loaded, resources);   // attaches bindings (cache fills at extract)
+    scene::ResolveSceneResources(loaded, resources); // attaches bindings (cache fills at extract)
     CHECK(mc->materials.Size() == 2u);
 
     RemoveTree(dir);

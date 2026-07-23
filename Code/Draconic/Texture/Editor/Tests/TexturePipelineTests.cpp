@@ -48,8 +48,13 @@ TEST_CASE("texture.pipeline: TextureAsset -> cook -> GPU Texture")
     {
         image::Image src(2, 2, image::PixelFormat::RGBA8);
         Span<u8> px = src.PixelDataMut();
-        for (usize i = 0; i < px.Size(); ++i) { px.Data()[i] = static_cast<u8>(i * 5); }
-        REQUIRE(image::io::SaveImage(src, u8"draconic_texpipe_src.png", image::io::ImageFileFormat::PNG).IsOk());
+        for (usize i = 0; i < px.Size(); ++i)
+        {
+            px.Data()[i] = static_cast<u8>(i * 5);
+        }
+        REQUIRE(
+            image::io::SaveImage(src, u8"draconic_texpipe_src.png", image::io::ImageFileFormat::PNG)
+                .IsOk());
     }
 
     NativeFileSystem outMount(u8"draconic_texpipe_out_db");
@@ -57,13 +62,14 @@ TEST_CASE("texture.pipeline: TextureAsset -> cook -> GPU Texture")
 
     // --- cook (tooling): TextureAsset -> TextureResource in the output DB ---
     {
-        draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        draconic::content::ContentDatabase outDb(
+            outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = outDb.RootGroup()->CreateInstance(u8"diffuse", TextureResource::StaticType());
         id = inst->Id();
 
         TextureAsset asset;
         asset.fileName = u8"draconic_texpipe_src.png";
-        asset.SetupForUI();                 // clamp, no mips
+        asset.SetupForUI(); // clamp, no mips
         asset.colorSpace = image::ImageColorSpace::Srgb;
 
         TextureAssetBuilder builder;
@@ -77,7 +83,8 @@ TEST_CASE("texture.pipeline: TextureAsset -> cook -> GPU Texture")
 
     // --- runtime load: cooked TextureResource -> live GPU Texture (model A) ---
     rhi::null::NullDevice device{DefaultAllocator()};
-    draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
+    draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(),
+                                             u8".rasset");
     TextureFactory factory(device);
     ResourceManager manager(outDb);
     manager.AddFactory(&factory);
@@ -99,7 +106,7 @@ TEST_CASE("texture.importer: produces a TextureAsset with the right preset")
     TextureImporter::Import2D(u8"art/brick.png", image::ImageColorSpace::Srgb, a);
     CHECK(a.fileName == String(u8"art/brick.png"));
     CHECK(a.colorSpace == image::ImageColorSpace::Srgb);
-    CHECK(a.generateMipmaps);                       // 3D preset
+    CHECK(a.generateMipmaps); // 3D preset
     CHECK(a.minFilter == TextureFilter::MipmapLinear);
 
     TextureAsset sky;
@@ -115,16 +122,17 @@ TEST_CASE("texture.pipeline: builder fails on a missing source file")
     RegisterTextureAsset();
     RemoveTree();
     NativeFileSystem outMount(u8"draconic_texpipe_out_db");
-    draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
+    draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(),
+                                             u8".rasset");
     auto* inst = outDb.RootGroup()->CreateInstance(u8"diffuse", TextureResource::StaticType());
 
     TextureAsset asset;
     asset.fileName = u8"does_not_exist_xyz.png";
     TextureAssetBuilder builder;
     draconic::vfs::NativeFileSystem srcMount(u8".");
-        draconic::editor::AssetBuildContext ctx;
-        ctx.sources = &srcMount;
-        ctx.output = inst;
+    draconic::editor::AssetBuildContext ctx;
+    ctx.sources = &srcMount;
+    ctx.output = inst;
     CHECK_FALSE(builder.Build(asset, ctx).IsOk());
 
     RemoveTree();
@@ -135,11 +143,12 @@ TEST_CASE("texture-import: drag-dropped file becomes a Sources copy + TextureAss
     RegisterTextureAsset();
 
     const StringView dir = u8"draconic_tex_import_project";
-    auto cleanTree = [&]() {
+    auto cleanTree = [&]()
+    {
         FileDelete(PathJoin(dir, u8"Project.xml"));
         FileDelete(PathJoin(dir, u8"Sources/brick.png"));
         FileDelete(PathJoin(dir, u8"Content/brick.xasset"));
-        for (StringView sub : { u8"Content", u8"Sources", u8"Cooked", u8"Editor", u8".cache" })
+        for (StringView sub : {u8"Content", u8"Sources", u8"Cooked", u8"Editor", u8".cache"})
         {
             RemoveDirectory(PathJoin(dir, sub));
         }
@@ -151,7 +160,7 @@ TEST_CASE("texture-import: drag-dropped file becomes a Sources copy + TextureAss
     REQUIRE(static_cast<bool>(project));
 
     // A loose "PNG" (the importer copies bytes + creates the asset; decoding happens at cook).
-    const byte fakePng[6] = { byte{'P'}, byte{'N'}, byte{'G'}, byte{1}, byte{2}, byte{3} };
+    const byte fakePng[6] = {byte{'P'}, byte{'N'}, byte{'G'}, byte{1}, byte{2}, byte{3}};
     REQUIRE(WriteFile(u8"brick.png", Span<const byte>(fakePng, 6)).IsOk());
 
     TextureFileImporter importer;
@@ -159,8 +168,8 @@ TEST_CASE("texture-import: drag-dropped file becomes a Sources copy + TextureAss
     CHECK(importer.Accepts(u8"jpeg"));
     CHECK_FALSE(importer.Accepts(u8"gltf"));
 
-    Result<draconic::content::Instance*> imported =
-        importer.Import(u8"brick.png", *project, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
+    Result<draconic::content::Instance*> imported = importer.Import(
+        u8"brick.png", *project, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
     REQUIRE(imported.HasValue());
     draconic::content::Instance* instance = imported.Value();
     REQUIRE(instance != nullptr);
@@ -173,7 +182,7 @@ TEST_CASE("texture-import: drag-dropped file becomes a Sources copy + TextureAss
     auto* asset = Cast<TextureAsset>(object.Get());
     REQUIRE(asset != nullptr);
     CHECK(asset->fileName == StringView(u8"brick.png"));
-    CHECK(asset->generateMipmaps);   // the 3D preset
+    CHECK(asset->generateMipmaps); // the 3D preset
 
     FileDelete(u8"brick.png");
     cleanTree();
@@ -188,8 +197,12 @@ TEST_CASE("texture.pipeline: cubemap - 6 faces cook into one cube product (end t
         u8"draconic_texpipe_sky_py.png", u8"draconic_texpipe_sky_ny.png",
         u8"draconic_texpipe_sky_pz.png", u8"draconic_texpipe_sky_nz.png",
     };
-    auto scrub = [&]() {
-        for (StringView f : faceNames) { FileDelete(f); }
+    auto scrub = [&]()
+    {
+        for (StringView f : faceNames)
+        {
+            FileDelete(f);
+        }
         FileDelete(u8"draconic_texpipe_cube_db/sky.rasset");
         FileDelete(u8"draconic_texpipe_cube_db/sky.data.bin");
         RemoveDirectory(u8"draconic_texpipe_cube_db");
@@ -201,7 +214,10 @@ TEST_CASE("texture.pipeline: cubemap - 6 faces cook into one cube product (end t
     {
         image::Image src(4, 4, image::PixelFormat::RGBA8);
         Span<u8> px = src.PixelDataMut();
-        for (usize i = 0; i < px.Size(); ++i) { px.Data()[i] = static_cast<u8>(f * 10 + 1); }
+        for (usize i = 0; i < px.Size(); ++i)
+        {
+            px.Data()[i] = static_cast<u8>(f * 10 + 1);
+        }
         REQUIRE(image::io::SaveImage(src, faceNames[f], image::io::ImageFileFormat::PNG).IsOk());
     }
 
@@ -216,12 +232,13 @@ TEST_CASE("texture.pipeline: cubemap - 6 faces cook into one cube product (end t
     NativeFileSystem outMount(u8"draconic_texpipe_cube_db");
     Guid id;
     {
-        draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        draconic::content::ContentDatabase outDb(
+            outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = outDb.RootGroup()->CreateInstance(u8"sky", TextureResource::StaticType());
         id = inst->Id();
 
         TextureAsset asset;
-        asset.fileName = String(faceNames[0]);   // the +X face
+        asset.fileName = String(faceNames[0]); // the +X face
         asset.SetupForCubemapSkybox();
 
         // The recipe must chain ALL faces (editing -nz alone must re-cook the cube).
@@ -229,7 +246,7 @@ TEST_CASE("texture.pipeline: cubemap - 6 faces cook into one cube product (end t
         draconic::editor::AssetBuildContext scanCtx;
         draconic::editor::AssetDependencies deps;
         builder.ScanDependencies(asset, scanCtx, deps);
-        CHECK(deps.files.Size() == 5u);   // the 5 non-+X faces (fileName is the implicit dep)
+        CHECK(deps.files.Size() == 5u); // the 5 non-+X faces (fileName is the implicit dep)
 
         draconic::vfs::NativeFileSystem srcMount(u8".");
         draconic::editor::AssetBuildContext ctx;
@@ -240,7 +257,8 @@ TEST_CASE("texture.pipeline: cubemap - 6 faces cook into one cube product (end t
 
     // Runtime: the factory builds a real cube (6 layers, cube view, per-face upload).
     rhi::null::NullDevice device{DefaultAllocator()};
-    draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
+    draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(),
+                                             u8".rasset");
     TextureFactory factory(device);
     ResourceManager manager(outDb);
     manager.AddFactory(&factory);

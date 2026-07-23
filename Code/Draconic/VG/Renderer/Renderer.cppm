@@ -67,18 +67,23 @@ export namespace draconic::vg::renderer
 
         /// Initialize with a device + the (already compiled) vg vertex/fragment
         /// shader modules + the render-target format + frame count.
-        Status Initialize(rhi::Device& device, rhi::ShaderModule& vertShader, rhi::ShaderModule& fragShader,
-                          rhi::TextureFormat targetFormat, i32 frameCount)
+        Status Initialize(rhi::Device& device, rhi::ShaderModule& vertShader,
+                          rhi::ShaderModule& fragShader, rhi::TextureFormat targetFormat,
+                          i32 frameCount)
         {
             m_device = &device;
             m_queue = device.GetQueue(rhi::QueueType::Graphics, 0);
             m_targetFormat = targetFormat;
             m_frameCount = frameCount;
 
-            if (!CreateSampler().IsOk()) return ErrorCode::Unknown;
-            if (!CreateLayouts().IsOk()) return ErrorCode::Unknown;
-            if (!CreatePipeline(vertShader, fragShader).IsOk()) return ErrorCode::Unknown;
-            if (!CreatePerFrameResources().IsOk()) return ErrorCode::Unknown;
+            if (!CreateSampler().IsOk())
+                return ErrorCode::Unknown;
+            if (!CreateLayouts().IsOk())
+                return ErrorCode::Unknown;
+            if (!CreatePipeline(vertShader, fragShader).IsOk())
+                return ErrorCode::Unknown;
+            if (!CreatePerFrameResources().IsOk())
+                return ErrorCode::Unknown;
 
             m_frameVertexOffsets.Resize(static_cast<usize>(frameCount));
             m_frameIndexOffsets.Resize(static_cast<usize>(frameCount));
@@ -114,9 +119,9 @@ export namespace draconic::vg::renderer
 
             const u32 maxVertBytes = static_cast<u32>(MaxVertices * sizeof(VGRenderVertex));
             const u32 maxIdxBytes = static_cast<u32>(MaxIndices * sizeof(u32));
-            if (sliceVertOffset + vertByteSize > maxVertBytes
-                || sliceIdxOffset + idxByteSize > maxIdxBytes
-                || sliceUniformSlot >= static_cast<u32>(MaxUniformSlots))
+            if (sliceVertOffset + vertByteSize > maxVertBytes ||
+                sliceIdxOffset + idxByteSize > maxIdxBytes ||
+                sliceUniformSlot >= static_cast<u32>(MaxUniformSlots))
                 return VGRenderSlice{}; // capacity exceeded
 
             const u32 sliceUniformOffset = sliceUniformSlot * static_cast<u32>(UniformSlotSize);
@@ -128,10 +133,12 @@ export namespace draconic::vg::renderer
             renderVerts.Reserve(batch.vertices.Size());
             for (usize i = 0; i < batch.vertices.Size(); ++i)
                 renderVerts.PushBack(VGRenderVertex(batch.vertices[i]));
-            WriteBuffer(m_vertexBuffers[static_cast<usize>(frameIndex)], sliceVertOffset, renderVerts.Data(), vertByteSize);
+            WriteBuffer(m_vertexBuffers[static_cast<usize>(frameIndex)], sliceVertOffset,
+                        renderVerts.Data(), vertByteSize);
 
             // Upload indices verbatim (relative to the slice's vertex base).
-            WriteBuffer(m_indexBuffers[static_cast<usize>(frameIndex)], sliceIdxOffset, batch.indices.Data(), idxByteSize);
+            WriteBuffer(m_indexBuffers[static_cast<usize>(frameIndex)], sliceIdxOffset,
+                        batch.indices.Data(), idxByteSize);
 
             // Append textures (commands index into the shared batch-texture list).
             for (usize i = 0; i < batch.textures.Size(); ++i)
@@ -147,10 +154,12 @@ export namespace draconic::vg::renderer
             // Write this slice's projection into its uniform slot.
             VGUniforms uniforms;
             uniforms.projection = OrthoOffCenter(static_cast<f32>(width), static_cast<f32>(height));
-            WriteBuffer(m_uniformBuffers[static_cast<usize>(frameIndex)], sliceUniformOffset, &uniforms, sizeof(VGUniforms));
+            WriteBuffer(m_uniformBuffers[static_cast<usize>(frameIndex)], sliceUniformOffset,
+                        &uniforms, sizeof(VGUniforms));
 
             // Bind groups for any newly-added textures.
-            for (i32 texIdx = textureBase; texIdx < static_cast<i32>(m_batchTextures.Size()); ++texIdx)
+            for (i32 texIdx = textureBase; texIdx < static_cast<i32>(m_batchTextures.Size());
+                 ++texIdx)
                 UpdateTextureBindGroup(texIdx, frameIndex);
 
             m_frameVertexOffsets[static_cast<usize>(frameIndex)] = sliceVertOffset + vertByteSize;
@@ -177,14 +186,15 @@ export namespace draconic::vg::renderer
         /// Map a command's content-space clip rect into framebuffer coordinates for a
         /// viewport whose origin sits at (viewportX, viewportY) with the given content
         /// extent: clamp to the content box first, then offset. Pure (unit-tested).
-        [[nodiscard]] static ScissorRect ComputeScissor(const Rectangle& clipRect,
-                                                        i32 viewportX, i32 viewportY,
-                                                        u32 width, u32 height)
+        [[nodiscard]] static ScissorRect ComputeScissor(const Rectangle& clipRect, i32 viewportX,
+                                                        i32 viewportY, u32 width, u32 height)
         {
             const i32 startX = static_cast<i32>(Ceil(Max(0.0f, clipRect.x)));
             const i32 startY = static_cast<i32>(Ceil(Max(0.0f, clipRect.y)));
-            const i32 endX = static_cast<i32>(Floor(Min(clipRect.x + clipRect.width, static_cast<f32>(width))));
-            const i32 endY = static_cast<i32>(Floor(Min(clipRect.y + clipRect.height, static_cast<f32>(height))));
+            const i32 endX =
+                static_cast<i32>(Floor(Min(clipRect.x + clipRect.width, static_cast<f32>(width))));
+            const i32 endY = static_cast<i32>(
+                Floor(Min(clipRect.y + clipRect.height, static_cast<f32>(height))));
             ScissorRect rect;
             rect.x = viewportX + startX;
             rect.y = viewportY + startY;
@@ -194,7 +204,8 @@ export namespace draconic::vg::renderer
         }
 
         /// Dispatch a slice's draws into the active render pass (full-target viewport).
-        void Render(rhi::RenderPassEncoder& renderPass, u32 width, u32 height, i32 frameIndex, const VGRenderSlice& slice)
+        void Render(rhi::RenderPassEncoder& renderPass, u32 width, u32 height, i32 frameIndex,
+                    const VGRenderSlice& slice)
         {
             Render(renderPass, 0, 0, width, height, frameIndex, slice);
         }
@@ -204,8 +215,8 @@ export namespace draconic::vg::renderer
         /// rect at (viewportX, viewportY); every scissor - including the default - is
         /// clamped to that rect, so content never bleeds into a neighboring view. The
         /// slice must have been Prepared with the SAME width/height (the projection).
-        void Render(rhi::RenderPassEncoder& renderPass, i32 viewportX, i32 viewportY,
-                    u32 width, u32 height, i32 frameIndex, const VGRenderSlice& slice)
+        void Render(rhi::RenderPassEncoder& renderPass, i32 viewportX, i32 viewportY, u32 width,
+                    u32 height, i32 frameIndex, const VGRenderSlice& slice)
         {
             if (!slice.isValid || slice.drawCommandCount == 0)
                 return;
@@ -213,10 +224,12 @@ export namespace draconic::vg::renderer
             renderPass.SetViewport(static_cast<f32>(viewportX), static_cast<f32>(viewportY),
                                    static_cast<f32>(width), static_cast<f32>(height), 0.0f, 1.0f);
             renderPass.SetPipeline(m_pipeline);
-            renderPass.SetVertexBuffer(0, m_vertexBuffers[static_cast<usize>(frameIndex)], slice.vertexByteOffset);
-            renderPass.SetIndexBuffer(m_indexBuffers[static_cast<usize>(frameIndex)], rhi::IndexFormat::UInt32, slice.indexByteOffset);
+            renderPass.SetVertexBuffer(0, m_vertexBuffers[static_cast<usize>(frameIndex)],
+                                       slice.vertexByteOffset);
+            renderPass.SetIndexBuffer(m_indexBuffers[static_cast<usize>(frameIndex)],
+                                      rhi::IndexFormat::UInt32, slice.indexByteOffset);
 
-            const u32 dynOffsets[1] = { slice.uniformByteOffset };
+            const u32 dynOffsets[1] = {slice.uniformByteOffset};
             i32 currentTextureIndex = -2; // sentinel forces first SetBindGroup
 
             const i32 cmdEnd = slice.drawCommandStart + slice.drawCommandCount;
@@ -228,14 +241,17 @@ export namespace draconic::vg::renderer
 
                 if (cmd.textureIndex != currentTextureIndex)
                 {
-                    if (rhi::BindGroup* bindGroup = GetBindGroupForTexture(cmd.textureIndex, frameIndex))
+                    if (rhi::BindGroup* bindGroup =
+                            GetBindGroupForTexture(cmd.textureIndex, frameIndex))
                         renderPass.SetBindGroup(0, bindGroup, Span<const u32>(dynOffsets, 1));
                     currentTextureIndex = cmd.textureIndex;
                 }
 
-                if (cmd.clipMode == draconic::vg::VGClipMode::Scissor && cmd.clipRect.width > 0.0f && cmd.clipRect.height > 0.0f)
+                if (cmd.clipMode == draconic::vg::VGClipMode::Scissor &&
+                    cmd.clipRect.width > 0.0f && cmd.clipRect.height > 0.0f)
                 {
-                    const ScissorRect scissor = ComputeScissor(cmd.clipRect, viewportX, viewportY, width, height);
+                    const ScissorRect scissor =
+                        ComputeScissor(cmd.clipRect, viewportX, viewportY, width, height);
                     renderPass.SetScissor(scissor.x, scissor.y, scissor.width, scissor.height);
                 }
                 else if (cmd.clipMode == draconic::vg::VGClipMode::Scissor)
@@ -247,7 +263,8 @@ export namespace draconic::vg::renderer
                     renderPass.SetScissor(viewportX, viewportY, width, height);
                 }
 
-                renderPass.DrawIndexed(static_cast<u32>(cmd.indexCount), 1, static_cast<u32>(cmd.startIndex), 0, 0);
+                renderPass.DrawIndexed(static_cast<u32>(cmd.indexCount), 1,
+                                       static_cast<u32>(cmd.startIndex), 0, 0);
             }
         }
 
@@ -269,15 +286,18 @@ export namespace draconic::vg::renderer
         /// are torn down and rebuilt lazily).
         void RegisterExternalTexture(const image::ImageData* key, rhi::TextureView* view)
         {
-            if (key == nullptr || view == nullptr || m_device == nullptr) return;
+            if (key == nullptr || view == nullptr || m_device == nullptr)
+                return;
 
             for (usize i = 0; i < m_textureCache.Size(); ++i)
             {
-                if (m_textureCache[i]->source != key) continue;
+                if (m_textureCache[i]->source != key)
+                    continue;
                 CachedTexture& c = *m_textureCache[i];
                 for (usize f = 0; f < c.bindGroups.Size(); ++f)
                 {
-                    if (c.bindGroups[f] != nullptr) m_device->DestroyBindGroup(c.bindGroups[f]);
+                    if (c.bindGroups[f] != nullptr)
+                        m_device->DestroyBindGroup(c.bindGroups[f]);
                     c.bindGroups[f] = nullptr;
                 }
                 c.view = view;
@@ -290,7 +310,8 @@ export namespace draconic::vg::renderer
             cached->source = key;
             cached->view = view;
             cached->external = true;
-            cached->bindGroups.Resize(static_cast<usize>(m_frameCount)); // nullptr-filled, built lazily
+            cached->bindGroups.Resize(
+                static_cast<usize>(m_frameCount)); // nullptr-filled, built lazily
             m_textureCache.PushBack(Move(cached));
         }
 
@@ -299,10 +320,12 @@ export namespace draconic::vg::renderer
         /// an unknown key. Call before the underlying view is destroyed.
         void UnregisterExternalTexture(const image::ImageData* key)
         {
-            if (key == nullptr) return;
+            if (key == nullptr)
+                return;
             for (usize i = 0; i < m_textureCache.Size(); ++i)
             {
-                if (m_textureCache[i]->source != key) continue;
+                if (m_textureCache[i]->source != key)
+                    continue;
                 DisposeCachedTexture(*m_textureCache[i]);
                 m_textureCache.RemoveAt(i);
                 return;
@@ -312,15 +335,18 @@ export namespace draconic::vg::renderer
         /// Whether an external (caller-owned) view is currently registered for key.
         [[nodiscard]] bool IsExternalTextureRegistered(const image::ImageData* key) const
         {
-            if (key == nullptr) return false;
+            if (key == nullptr)
+                return false;
             for (usize i = 0; i < m_textureCache.Size(); ++i)
-                if (m_textureCache[i]->source == key) return m_textureCache[i]->external;
+                if (m_textureCache[i]->source == key)
+                    return m_textureCache[i]->external;
             return false;
         }
 
         void Dispose()
         {
-            if (m_device == nullptr) return;
+            if (m_device == nullptr)
+                return;
 
             ClearTextureCache();
 
@@ -328,12 +354,19 @@ export namespace draconic::vg::renderer
             DestroyBuffers(m_indexBuffers);
             DestroyBuffers(m_vertexBuffers);
 
-            if (m_pipeline) m_device->DestroyRenderPipeline(m_pipeline);
-            if (m_pipelineLayout) m_device->DestroyPipelineLayout(m_pipelineLayout);
-            if (m_bindGroupLayout) m_device->DestroyBindGroupLayout(m_bindGroupLayout);
-            if (m_sampler) m_device->DestroySampler(m_sampler);
+            if (m_pipeline)
+                m_device->DestroyRenderPipeline(m_pipeline);
+            if (m_pipelineLayout)
+                m_device->DestroyPipelineLayout(m_pipelineLayout);
+            if (m_bindGroupLayout)
+                m_device->DestroyBindGroupLayout(m_bindGroupLayout);
+            if (m_sampler)
+                m_device->DestroySampler(m_sampler);
 
-            m_pipeline = nullptr; m_pipelineLayout = nullptr; m_bindGroupLayout = nullptr; m_sampler = nullptr;
+            m_pipeline = nullptr;
+            m_pipelineLayout = nullptr;
+            m_bindGroupLayout = nullptr;
+            m_sampler = nullptr;
             m_initialized = false;
             m_device = nullptr;
         }
@@ -345,17 +378,20 @@ export namespace draconic::vg::renderer
             rhi::Texture* gpuTexture = nullptr;
             rhi::TextureView* view = nullptr;
             Array<rhi::BindGroup*> bindGroups; // per frame
-            bool external = false; // view is caller-owned (e.g. a viewport RT) - never destroyed here
+            bool external =
+                false; // view is caller-owned (e.g. a viewport RT) - never destroyed here
         };
 
         static constexpr i32 MaxVertices = 131072;
         static constexpr i32 MaxIndices = 131072 * 3;
         static constexpr i32 MaxUniformSlots = 64;
-        static constexpr i32 UniformSlotSize = 256; // dynamic-offset alignment (>= sizeof(VGUniforms)=64)
+        static constexpr i32 UniformSlotSize =
+            256; // dynamic-offset alignment (>= sizeof(VGUniforms)=64)
 
         static void WriteBuffer(rhi::Buffer* buf, u64 offset, const void* data, usize size)
         {
-            if (buf == nullptr || size == 0) return;
+            if (buf == nullptr || size == 0)
+                return;
             if (u8* p = static_cast<u8*>(buf->Map()))
             {
                 MemCopy(p + offset, data, size);
@@ -386,15 +422,17 @@ export namespace draconic::vg::renderer
         {
             rhi::BindGroupLayoutEntry entries[3];
             entries[0] = rhi::BindGroupLayoutEntry::UniformBuffer(0, rhi::ShaderStage::Vertex);
-            entries[0].hasDynamicOffset = true; // one uniform buffer shared across slices via dynamic offset
+            entries[0].hasDynamicOffset =
+                true; // one uniform buffer shared across slices via dynamic offset
             entries[1] = rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Fragment);
             entries[2] = rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment);
 
             rhi::BindGroupLayoutDesc bglDesc{};
             bglDesc.entries = Span<const rhi::BindGroupLayoutEntry>(entries, 3);
-            if (!m_device->CreateBindGroupLayout(bglDesc, m_bindGroupLayout).IsOk()) return ErrorCode::Unknown;
+            if (!m_device->CreateBindGroupLayout(bglDesc, m_bindGroupLayout).IsOk())
+                return ErrorCode::Unknown;
 
-            rhi::BindGroupLayout* const layouts[1] = { m_bindGroupLayout };
+            rhi::BindGroupLayout* const layouts[1] = {m_bindGroupLayout};
             rhi::PipelineLayoutDesc plDesc{};
             plDesc.bindGroupLayouts = Span<rhi::BindGroupLayout* const>(layouts, 1);
             return m_device->CreatePipelineLayout(plDesc, m_pipelineLayout);
@@ -403,28 +441,30 @@ export namespace draconic::vg::renderer
         Status CreatePipeline(rhi::ShaderModule& vertShader, rhi::ShaderModule& fragShader)
         {
             const rhi::VertexAttribute attributes[4] = {
-                { rhi::VertexFormat::Float32x2, 0, 0 },   // position
-                { rhi::VertexFormat::Float32x2, 8, 1 },   // texCoord
-                { rhi::VertexFormat::Float32x4, 16, 2 },  // color
-                { rhi::VertexFormat::Float32, 32, 3 },    // coverage
+                {rhi::VertexFormat::Float32x2, 0, 0},  // position
+                {rhi::VertexFormat::Float32x2, 8, 1},  // texCoord
+                {rhi::VertexFormat::Float32x4, 16, 2}, // color
+                {rhi::VertexFormat::Float32, 32, 3},   // coverage
             };
             rhi::VertexBufferLayout vbLayout{};
             vbLayout.stride = static_cast<u32>(sizeof(VGRenderVertex));
             vbLayout.attributes = Span<const rhi::VertexAttribute>(attributes, 4);
-            const rhi::VertexBufferLayout vertexBuffers[1] = { vbLayout };
+            const rhi::VertexBufferLayout vertexBuffers[1] = {vbLayout};
 
             rhi::ColorTargetState colorTarget{};
             colorTarget.format = m_targetFormat;
             colorTarget.blend = rhi::BlendState::AlphaBlend();
-            const rhi::ColorTargetState colorTargets[1] = { colorTarget };
+            const rhi::ColorTargetState colorTargets[1] = {colorTarget};
 
             rhi::RenderPipelineDesc desc{};
             desc.layout = m_pipelineLayout;
-            desc.vertex.shader = rhi::ProgrammableStage{ &vertShader, u8"main", rhi::ShaderStage::Vertex };
+            desc.vertex.shader =
+                rhi::ProgrammableStage{&vertShader, u8"main", rhi::ShaderStage::Vertex};
             desc.vertex.buffers = Span<const rhi::VertexBufferLayout>(vertexBuffers, 1);
 
             rhi::FragmentState fragment{};
-            fragment.shader = rhi::ProgrammableStage{ &fragShader, u8"main", rhi::ShaderStage::Fragment };
+            fragment.shader =
+                rhi::ProgrammableStage{&fragShader, u8"main", rhi::ShaderStage::Fragment};
             fragment.targets = Span<const rhi::ColorTargetState>(colorTargets, 1);
             desc.fragment = fragment;
 
@@ -449,47 +489,56 @@ export namespace draconic::vg::renderer
                 vd.size = static_cast<u64>(MaxVertices) * sizeof(VGRenderVertex);
                 vd.usage = rhi::BufferUsage::Vertex;
                 vd.memory = rhi::MemoryLocation::CpuToGpu;
-                if (!m_device->CreateBuffer(vd, m_vertexBuffers[static_cast<usize>(i)]).IsOk()) return ErrorCode::Unknown;
+                if (!m_device->CreateBuffer(vd, m_vertexBuffers[static_cast<usize>(i)]).IsOk())
+                    return ErrorCode::Unknown;
 
                 rhi::BufferDesc id{};
                 id.size = static_cast<u64>(MaxIndices) * sizeof(u32);
                 id.usage = rhi::BufferUsage::Index;
                 id.memory = rhi::MemoryLocation::CpuToGpu;
-                if (!m_device->CreateBuffer(id, m_indexBuffers[static_cast<usize>(i)]).IsOk()) return ErrorCode::Unknown;
+                if (!m_device->CreateBuffer(id, m_indexBuffers[static_cast<usize>(i)]).IsOk())
+                    return ErrorCode::Unknown;
 
                 rhi::BufferDesc ud{};
                 ud.size = static_cast<u64>(MaxUniformSlots) * UniformSlotSize;
                 ud.usage = rhi::BufferUsage::Uniform;
                 ud.memory = rhi::MemoryLocation::CpuToGpu;
-                if (!m_device->CreateBuffer(ud, m_uniformBuffers[static_cast<usize>(i)]).IsOk()) return ErrorCode::Unknown;
+                if (!m_device->CreateBuffer(ud, m_uniformBuffers[static_cast<usize>(i)]).IsOk())
+                    return ErrorCode::Unknown;
             }
             return ErrorCode::Ok;
         }
 
         CachedTexture* GetOrCreateCachedTexture(const image::ImageData* texture)
         {
-            if (texture == nullptr) return nullptr;
+            if (texture == nullptr)
+                return nullptr;
 
             for (usize i = 0; i < m_textureCache.Size(); ++i)
                 if (m_textureCache[i]->source == texture)
                     return m_textureCache[i].Get();
 
             const Span<const u8> pixels = texture->PixelData();
-            if (pixels.Size() == 0) return nullptr;
+            if (pixels.Size() == 0)
+                return nullptr;
 
             const u32 w = texture->Width();
             const u32 h = texture->Height();
-            const rhi::TextureFormat fmt = draconic::texture::TextureFormatUtils::Convert(texture->Format(), texture->ColorSpace());
+            const rhi::TextureFormat fmt = draconic::texture::TextureFormatUtils::Convert(
+                texture->Format(), texture->ColorSpace());
 
             rhi::TextureDesc td{};
             td.dimension = rhi::TextureDimension::Texture2D;
             td.format = fmt;
-            td.width = w; td.height = h; td.depth = 1;
+            td.width = w;
+            td.height = h;
+            td.depth = 1;
             td.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst;
             td.label = u8"VGRenderer cached texture";
 
             rhi::Texture* gpuTexture = nullptr;
-            if (!m_device->CreateTexture(td, gpuTexture).IsOk()) return nullptr;
+            if (!m_device->CreateTexture(td, gpuTexture).IsOk())
+                return nullptr;
 
             if (m_queue != nullptr)
             {
@@ -499,7 +548,7 @@ export namespace draconic::vg::renderer
                     rhi::TextureDataLayout layout{};
                     layout.bytesPerRow = w * image::BytesPerPixel(texture->Format());
                     layout.rowsPerImage = h;
-                    batch->WriteTexture(gpuTexture, pixels, layout, rhi::Extent3D{ w, h, 1 });
+                    batch->WriteTexture(gpuTexture, pixels, layout, rhi::Extent3D{w, h, 1});
                     (void)batch->Submit();
                     m_queue->DestroyTransferBatch(batch);
                 }
@@ -526,16 +575,21 @@ export namespace draconic::vg::renderer
 
         void UpdateTextureBindGroup(i32 textureIndex, i32 frameIndex)
         {
-            if (textureIndex >= static_cast<i32>(m_batchTextures.Size())) return;
+            if (textureIndex >= static_cast<i32>(m_batchTextures.Size()))
+                return;
             const image::ImageData* texture = m_batchTextures[static_cast<usize>(textureIndex)];
-            if (texture == nullptr) return;
+            if (texture == nullptr)
+                return;
 
             CachedTexture* cached = GetOrCreateCachedTexture(texture);
-            if (cached == nullptr || cached->view == nullptr) return;
-            if (cached->bindGroups[static_cast<usize>(frameIndex)] != nullptr) return; // already built
+            if (cached == nullptr || cached->view == nullptr)
+                return;
+            if (cached->bindGroups[static_cast<usize>(frameIndex)] != nullptr)
+                return; // already built
 
             rhi::BindGroupEntry entries[3];
-            entries[0] = rhi::BindGroupEntry::BufferEntry(m_uniformBuffers[static_cast<usize>(frameIndex)], 0, sizeof(VGUniforms));
+            entries[0] = rhi::BindGroupEntry::BufferEntry(
+                m_uniformBuffers[static_cast<usize>(frameIndex)], 0, sizeof(VGUniforms));
             entries[1] = rhi::BindGroupEntry::TextureEntry(cached->view);
             entries[2] = rhi::BindGroupEntry::SamplerEntry(m_sampler);
 
@@ -549,12 +603,16 @@ export namespace draconic::vg::renderer
 
         rhi::BindGroup* GetBindGroupForTexture(i32 textureIndex, i32 frameIndex)
         {
-            if (m_batchTextures.IsEmpty()) return nullptr;
-            const i32 effectiveIndex = (textureIndex < 0) ? 0 : textureIndex; // solid draws -> white at 0
-            if (effectiveIndex >= static_cast<i32>(m_batchTextures.Size())) return nullptr;
+            if (m_batchTextures.IsEmpty())
+                return nullptr;
+            const i32 effectiveIndex =
+                (textureIndex < 0) ? 0 : textureIndex; // solid draws -> white at 0
+            if (effectiveIndex >= static_cast<i32>(m_batchTextures.Size()))
+                return nullptr;
 
             const image::ImageData* texture = m_batchTextures[static_cast<usize>(effectiveIndex)];
-            if (texture == nullptr) return nullptr;
+            if (texture == nullptr)
+                return nullptr;
 
             for (usize i = 0; i < m_textureCache.Size(); ++i)
                 if (m_textureCache[i]->source == texture)
@@ -565,16 +623,21 @@ export namespace draconic::vg::renderer
         void DisposeCachedTexture(CachedTexture& cached)
         {
             for (usize i = 0; i < cached.bindGroups.Size(); ++i)
-                if (cached.bindGroups[i] != nullptr) m_device->DestroyBindGroup(cached.bindGroups[i]);
-            if (cached.external) return; // view/texture are caller-owned
-            if (cached.view) m_device->DestroyTextureView(cached.view);
-            if (cached.gpuTexture) m_device->DestroyTexture(cached.gpuTexture);
+                if (cached.bindGroups[i] != nullptr)
+                    m_device->DestroyBindGroup(cached.bindGroups[i]);
+            if (cached.external)
+                return; // view/texture are caller-owned
+            if (cached.view)
+                m_device->DestroyTextureView(cached.view);
+            if (cached.gpuTexture)
+                m_device->DestroyTexture(cached.gpuTexture);
         }
 
         void DestroyBuffers(Array<rhi::Buffer*>& buffers)
         {
             for (usize i = 0; i < buffers.Size(); ++i)
-                if (buffers[i] != nullptr) m_device->DestroyBuffer(buffers[i]);
+                if (buffers[i] != nullptr)
+                    m_device->DestroyBuffer(buffers[i]);
             buffers.Clear();
         }
 

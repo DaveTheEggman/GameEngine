@@ -12,9 +12,9 @@ export module draconic.ui:input_manager;
 
 import draconic.core;
 import :view_id;
-import :input_enums;    // MouseButton, KeyCode, KeyModifiers
+import :input_enums; // MouseButton, KeyCode, KeyModifiers
 import :event_args;
-import :enums;          // CursorType
+import :enums; // CursorType
 
 using namespace draconic::core;
 
@@ -36,14 +36,16 @@ export namespace draconic::ui
         bool ProcessMouseMove(f32 physicalX, f32 physicalY);
         bool ProcessMouseDown(MouseButton button, f32 physicalX, f32 physicalY, f32 totalTime);
         bool ProcessMouseUp(MouseButton button, f32 physicalX, f32 physicalY);
-        bool ProcessMouseWheel(f32 physicalX, f32 physicalY, f32 deltaX, f32 deltaY, KeyModifiers modifiers = KeyModifiers::None);
+        bool ProcessMouseWheel(f32 physicalX, f32 physicalY, f32 deltaX, f32 deltaY,
+                               KeyModifiers modifiers = KeyModifiers::None);
 
         // === Keyboard ===
         /// The modifier state from the most recent key event - stamped into mouse events so
         /// Ctrl/Shift+click behaviors (multi-select) work.
         [[nodiscard]] KeyModifiers CurrentModifiers() const noexcept { return m_currentModifiers; }
 
-        bool ProcessKeyDown(KeyCode key, KeyModifiers modifiers, bool isRepeat, f32 timestamp = 0.0f);
+        bool ProcessKeyDown(KeyCode key, KeyModifiers modifiers, bool isRepeat,
+                            f32 timestamp = 0.0f);
         bool ProcessKeyUp(KeyCode key, KeyModifiers modifiers, f32 timestamp = 0.0f);
         bool ProcessTextInput(char32_t character);
 

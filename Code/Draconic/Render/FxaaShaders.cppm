@@ -11,12 +11,13 @@ export module draconic.render:fxaa_shaders;
 
 import draconic.core;
 
-export namespace draconic::render {
-
-// Fullscreen-triangle VS, top-origin uv (matches the tonemap / post passes under the neg-viewport flip).
-[[nodiscard]] inline core::StringView FxaaVS() noexcept
+export namespace draconic::render
 {
-    return core::StringView(u8R"(
+
+    // Fullscreen-triangle VS, top-origin uv (matches the tonemap / post passes under the neg-viewport flip).
+    [[nodiscard]] inline core::StringView FxaaVS() noexcept
+    {
+        return core::StringView(u8R"(
 struct VSOut { float4 pos : SV_Position; float2 uv : TEXCOORD0; };
 VSOut main(uint vid : SV_VertexID) {
     VSOut o;
@@ -26,14 +27,14 @@ VSOut main(uint vid : SV_VertexID) {
     return o;
 }
 )");
-}
+    }
 
-// FXAA PS (quality variant). UvScale/UvOffset map the fullscreen uv to this view's sub-rect of the
-// (full-size) tonemapped LDR; TexelSize is 1/full-size (the sub-rect is a contiguous region, so a
-// full-texel neighbor step is a 1-pixel step within it - it only bleeds a texel across the split seam).
-[[nodiscard]] inline core::StringView FxaaPS() noexcept
-{
-    return core::StringView(u8R"(
+    // FXAA PS (quality variant). UvScale/UvOffset map the fullscreen uv to this view's sub-rect of the
+    // (full-size) tonemapped LDR; TexelSize is 1/full-size (the sub-rect is a contiguous region, so a
+    // full-texel neighbor step is a 1-pixel step within it - it only bleeds a texel across the split seam).
+    [[nodiscard]] inline core::StringView FxaaPS() noexcept
+    {
+        return core::StringView(u8R"(
 Texture2D    SceneColor : register(t0, space0);
 SamplerState LinearSamp : register(s0, space0);
 struct FxaaPush {
@@ -120,6 +121,6 @@ float4 main(float4 pos : SV_Position, float2 rawUv : TEXCOORD0) : SV_Target {
     return float4(Fetch(finalUv), 1.0);
 }
 )");
-}
+    }
 
 }

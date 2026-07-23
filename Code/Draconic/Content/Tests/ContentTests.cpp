@@ -38,8 +38,7 @@ namespace
     }
 
     // Shared round-trip test body.
-    void RunRoundTripTest(StringView dbDir, StringView ext,
-                          SerializerFactory (*makeFactory)())
+    void RunRoundTripTest(StringView dbDir, StringView ext, SerializerFactory (*makeFactory)())
     {
         GlobalTypeRegistry().Register(MaterialResource::StaticType());
         RegisterSerializable<MaterialResource>();
@@ -48,7 +47,7 @@ namespace
         NativeFileSystem mount(dbDir);
 
         Guid steelId;
-        const byte extra[] = { byte{ 0xAB }, byte{ 0xCD }, byte{ 0xEF } };
+        const byte extra[] = {byte{0xAB}, byte{0xCD}, byte{0xEF}};
 
         // --- author ---
         {
@@ -56,7 +55,8 @@ namespace
             Group* materials = db.RootGroup()->CreateGroup(u8"materials");
             REQUIRE(materials != nullptr);
 
-            draconic::content::Instance* steel = materials->CreateInstance(u8"steel", MaterialResource::StaticType());
+            draconic::content::Instance* steel =
+                materials->CreateInstance(u8"steel", MaterialResource::StaticType());
             REQUIRE(steel != nullptr);
             steelId = steel->Id();
             CHECK(static_cast<bool>(steelId));
@@ -66,7 +66,7 @@ namespace
             mat.shininess = 64;
             mat.shader = u8"pbr/metal";
             CHECK(steel->WriteObject(mat).IsOk());
-            CHECK(steel->WriteData(u8"extra", Span<const byte>{ extra, ArrayCount(extra) }).IsOk());
+            CHECK(steel->WriteData(u8"extra", Span<const byte>{extra, ArrayCount(extra)}).IsOk());
         }
 
         // --- reopen: a fresh database scans the mount from disk ---
@@ -94,11 +94,11 @@ namespace
             REQUIRE(static_cast<bool>(data));
             byte buffer[3] = {};
             CHECK(data->Read(buffer, 3) == 3u);
-            CHECK(buffer[0] == byte{ 0xAB });
-            CHECK(buffer[2] == byte{ 0xEF });
+            CHECK(buffer[0] == byte{0xAB});
+            CHECK(buffer[2] == byte{0xEF});
 
             CHECK(db.GetInstance(u8"materials/nope") == nullptr);
-            CHECK(db.GetInstance(Guid{ 1, 2 }) == nullptr);
+            CHECK(db.GetInstance(Guid{1, 2}) == nullptr);
         }
 
         RemoveTree(dbDir);
@@ -131,14 +131,15 @@ TEST_CASE("content: DeleteInstance removes envelope + stream sidecars + registra
     ContentDatabase db(mount, BinarySerializerFactory(), u8".xasset");
 
     Group* materials = db.RootGroup()->CreateGroup(u8"materials");
-    draconic::content::Instance* steel = materials->CreateInstance(u8"steel", MaterialResource::StaticType());
+    draconic::content::Instance* steel =
+        materials->CreateInstance(u8"steel", MaterialResource::StaticType());
     REQUIRE(steel != nullptr);
     const Guid id = steel->Id();
 
     MaterialResource res;
     res.shininess = 3;
     REQUIRE(steel->WriteObject(res).IsOk());
-    const byte extra[] = { byte{ 1 }, byte{ 2 } };
+    const byte extra[] = {byte{1}, byte{2}};
     REQUIRE(steel->WriteData(u8"extra", Span<const byte>(extra, 2)).IsOk());
     REQUIRE(mount.Exists(u8"materials/steel.xasset"));
     REQUIRE(mount.Exists(u8"materials/steel.extra.bin"));
@@ -174,18 +175,19 @@ TEST_CASE("content: CloneInstance deep-copies object + sidecars under a fresh gu
     ContentDatabase db(mount, BinarySerializerFactory(), u8".xasset");
 
     Group* materials = db.RootGroup()->CreateGroup(u8"materials");
-    draconic::content::Instance* steel = materials->CreateInstance(u8"steel", MaterialResource::StaticType());
+    draconic::content::Instance* steel =
+        materials->CreateInstance(u8"steel", MaterialResource::StaticType());
     REQUIRE(steel != nullptr);
     MaterialResource res;
     res.shininess = 7;
     res.shader = String(u8"pbr");
     REQUIRE(steel->WriteObject(res).IsOk());
-    const byte extra[] = { byte{ 9 }, byte{ 8 }, byte{ 7 } };
+    const byte extra[] = {byte{9}, byte{8}, byte{7}};
     REQUIRE(steel->WriteData(u8"extra", Span<const byte>(extra, 3)).IsOk());
 
     draconic::content::Instance* copy = db.CloneInstance(steel->Id(), u8"copper");
     REQUIRE(copy != nullptr);
-    CHECK(copy->Id() != steel->Id());                       // fresh identity
+    CHECK(copy->Id() != steel->Id()); // fresh identity
     CHECK(copy->Name() == u8"copper");
     CHECK(copy->TypeName() == steel->TypeName());
     CHECK(&copy->OwningGroup() == materials);
@@ -202,8 +204,8 @@ TEST_CASE("content: CloneInstance deep-copies object + sidecars under a fresh gu
     REQUIRE(data);
     byte bytes[3] = {};
     REQUIRE(data->Read(bytes, 3) == 3u);
-    CHECK(bytes[0] == byte{ 9 });
-    CHECK(bytes[2] == byte{ 7 });
+    CHECK(bytes[0] == byte{9});
+    CHECK(bytes[2] == byte{7});
 
     // Name collisions + unknown ids fail cleanly.
     CHECK(db.CloneInstance(steel->Id(), u8"copper") == nullptr);
@@ -231,19 +233,20 @@ TEST_CASE("content: RenameInstance moves envelope + sidecars; RenameGroup moves 
     ContentDatabase db(mount, BinarySerializerFactory(), u8".xasset");
 
     Group* materials = db.RootGroup()->CreateGroup(u8"materials");
-    draconic::content::Instance* steel = materials->CreateInstance(u8"steel", MaterialResource::StaticType());
+    draconic::content::Instance* steel =
+        materials->CreateInstance(u8"steel", MaterialResource::StaticType());
     REQUIRE(steel != nullptr);
     const Guid id = steel->Id();
     MaterialResource res;
     res.shininess = 5;
     REQUIRE(steel->WriteObject(res).IsOk());
-    const byte extra[] = { byte{ 1 }, byte{ 2 } };
+    const byte extra[] = {byte{1}, byte{2}};
     REQUIRE(steel->WriteData(u8"extra", Span<const byte>(extra, 2)).IsOk());
 
     // Instance rename: files move, guid + group stay, content still reads.
     REQUIRE(db.RenameInstance(id, u8"bronze").IsOk());
     CHECK(steel->Name() == u8"bronze");
-    CHECK(db.GetInstance(id) == steel);                       // guid identity untouched
+    CHECK(db.GetInstance(id) == steel); // guid identity untouched
     CHECK(materials->GetInstance(u8"bronze") == steel);
     CHECK(materials->GetInstance(u8"steel") == nullptr);
     CHECK_FALSE(mount.Exists(u8"materials/steel.xasset"));
@@ -258,7 +261,8 @@ TEST_CASE("content: RenameInstance moves envelope + sidecars; RenameGroup moves 
     }
 
     // Collisions + bad input fail cleanly.
-    draconic::content::Instance* other = materials->CreateInstance(u8"iron", MaterialResource::StaticType());
+    draconic::content::Instance* other =
+        materials->CreateInstance(u8"iron", MaterialResource::StaticType());
     REQUIRE(other != nullptr);
     CHECK(db.RenameInstance(other->Id(), u8"bronze").Code() == ErrorCode::AlreadyExists);
     CHECK(db.RenameInstance(id, u8"").Code() == ErrorCode::InvalidArgument);
@@ -284,7 +288,8 @@ TEST_CASE("content: DeleteGroup removes the whole subtree - files, directories, 
 
     const StringView dir = u8"draconic_content_delgroup_db";
     // Explicit cleanup (RemoveTree only knows the shared fixture paths).
-    auto scrub = [&]() {
+    auto scrub = [&]()
+    {
         FileDelete(JoinPath(dir, u8"outer/inner/b.xasset"));
         FileDelete(JoinPath(dir, u8"outer/a.xasset"));
         FileDelete(JoinPath(dir, u8"outer/a.extra.bin"));
@@ -301,8 +306,10 @@ TEST_CASE("content: DeleteGroup removes the whole subtree - files, directories, 
         // outer/ { a (+sidecar), inner/ { b } } and an unrelated sibling instance.
         Group* outer = db.RootGroup()->CreateGroup(u8"outer");
         Group* inner = outer->CreateGroup(u8"inner");
-        draconic::content::Instance* a = outer->CreateInstance(u8"a", MaterialResource::StaticType());
-        draconic::content::Instance* b = inner->CreateInstance(u8"b", MaterialResource::StaticType());
+        draconic::content::Instance* a =
+            outer->CreateInstance(u8"a", MaterialResource::StaticType());
+        draconic::content::Instance* b =
+            inner->CreateInstance(u8"b", MaterialResource::StaticType());
         draconic::content::Instance* keep =
             db.RootGroup()->CreateInstance(u8"keep", MaterialResource::StaticType());
         REQUIRE(a != nullptr);
@@ -312,7 +319,7 @@ TEST_CASE("content: DeleteGroup removes the whole subtree - files, directories, 
         REQUIRE(a->WriteObject(res).IsOk());
         REQUIRE(b->WriteObject(res).IsOk());
         REQUIRE(keep->WriteObject(res).IsOk());
-        const byte extra[] = { byte{ 7 } };
+        const byte extra[] = {byte{7}};
         REQUIRE(a->WriteData(u8"extra", Span<const byte>(extra, 1)).IsOk());
         const Guid aId = a->Id();
         const Guid bId = b->Id();
@@ -321,7 +328,7 @@ TEST_CASE("content: DeleteGroup removes the whole subtree - files, directories, 
         // The root refuses.
         CHECK(db.DeleteGroup(*db.RootGroup()).Code() == ErrorCode::NotSupported);
 
-        REQUIRE(db.DeleteGroup(*outer).IsOk());   // outer/inner/a/b are DANGLING after this
+        REQUIRE(db.DeleteGroup(*outer).IsOk()); // outer/inner/a/b are DANGLING after this
 
         // Registrations gone (guid index + tree), the sibling untouched.
         CHECK(db.GetInstance(aId) == nullptr);
@@ -377,7 +384,16 @@ TEST_CASE("content: instance guids are unique across database sessions")
         fromB.PushBack(gb->CreateInstance(name.AsView(), MaterialResource::StaticType())->Id());
     }
     usize collisions = 0;
-    for (const Guid& x : fromA) { for (const Guid& y : fromB) { if (x == y) { ++collisions; } } }
+    for (const Guid& x : fromA)
+    {
+        for (const Guid& y : fromB)
+        {
+            if (x == y)
+            {
+                ++collisions;
+            }
+        }
+    }
     CHECK(collisions == 0u);
 
     RemoveTree(dirA);

@@ -22,7 +22,7 @@ namespace
     public:
         i32 shininess = 0;
         String shader;
-        String editorNote;   // editor-only
+        String editorNote; // editor-only
 
         void Serialize(ISerializer& ar) override
         {
@@ -45,19 +45,29 @@ namespace
     class MaterialFactory final : public IResourceFactory
     {
     public:
-        [[nodiscard]] const TypeInfo* ProductType() const override { return &Material::StaticType(); }
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &Material::StaticType();
+        }
 
-        int builds = 0;                  // observe rebuilds (incl. dependency-propagated reloads)
-        HashMap<Guid, Guid> bindMap;     // when building key, Bind value (a child) -> auto-edge
+        int builds = 0;              // observe rebuilds (incl. dependency-propagated reloads)
+        HashMap<Guid, Guid> bindMap; // when building key, Bind value (a child) -> auto-edge
 
-        [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager, draconic::content::Instance& instance) override
+        [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
+                                            draconic::content::Instance& instance) override
         {
             ++builds;
             // Resolving a child via the manager mid-build auto-records a dependency.
-            if (Guid* child = bindMap.Find(instance.Id())) { (void)manager.Bind(Material::StaticType(), *child); }
+            if (Guid* child = bindMap.Find(instance.Id()))
+            {
+                (void)manager.Bind(Material::StaticType(), *child);
+            }
             RefPtr<ISerializable> source = instance.ReadObject();
             MaterialResource* res = Cast<MaterialResource>(source.Get());
-            if (res == nullptr) { return RefPtr<Object>{}; }
+            if (res == nullptr)
+            {
+                return RefPtr<Object>{};
+            }
 
             RefPtr<Material> material = MakeRef<Material>(DefaultAllocator());
             material->specular = static_cast<f32>(res->shininess) / 128.0f;
@@ -73,7 +83,8 @@ namespace
         RemoveDirectory(u8"draconic_resource_test_db");
     }
 
-    void WriteSource(draconic::content::ContentDatabase& db, const Guid& id, i32 shininess, StringView shader)
+    void WriteSource(draconic::content::ContentDatabase& db, const Guid& id, i32 shininess,
+                     StringView shader)
     {
         auto* instance = db.GetInstance(id);
         REQUIRE(instance != nullptr);
@@ -98,13 +109,15 @@ TEST_CASE("resource: bind builds a product from a source, with caching")
 
     Guid id;
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                              u8".rasset");
         auto* steel = db.RootGroup()->CreateInstance(u8"steel", MaterialResource::StaticType());
         id = steel->Id();
         WriteSource(db, id, 64, u8"pbr");
     }
 
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                          u8".rasset");
     MaterialFactory factory;
     ResourceManager manager(db);
     manager.AddFactory(&factory);
@@ -113,14 +126,14 @@ TEST_CASE("resource: bind builds a product from a source, with caching")
     Proxy<Material> p = manager.Bind<Material>(id);
     REQUIRE(p);
     CHECK(p->shader == u8"pbr");
-    CHECK(p->specular == 0.5f);   // 64 / 128
+    CHECK(p->specular == 0.5f); // 64 / 128
 
     // Cache: binding the same id returns the same handle.
     Proxy<Material> p2 = manager.Bind<Material>(id);
     CHECK(p2.Handle() == p.Handle());
 
     // Unknown id -> invalid proxy.
-    Proxy<Material> none = manager.Bind<Material>(Guid{ 1, 2 });
+    Proxy<Material> none = manager.Bind<Material>(Guid{1, 2});
     CHECK_FALSE(none);
 
     // Flush drops the product; the proxy follows the handle and goes invalid,
@@ -129,8 +142,8 @@ TEST_CASE("resource: bind builds a product from a source, with caching")
     CHECK_FALSE(p);
     Proxy<Material> p3 = manager.Bind<Material>(id);
     CHECK(p3.Handle() == p.Handle());
-    REQUIRE(p);                    // p recovers through the shared handle
-    CHECK(p->specular == 0.5f);    // rebuilt correctly
+    REQUIRE(p);                 // p recovers through the shared handle
+    CHECK(p->specular == 0.5f); // rebuilt correctly
 
     RemoveTree();
 }
@@ -145,7 +158,8 @@ TEST_CASE("resource: unresolved binds are enumerable, and heal off the list")
     FileDelete(u8"draconic_resource_test_db/late.rasset");
     RemoveTree();
     NativeFileSystem mount(u8"draconic_resource_test_db");
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                          u8".rasset");
     MaterialFactory factory;
     ResourceManager manager(db);
     manager.AddFactory(&factory);
@@ -157,7 +171,7 @@ TEST_CASE("resource: unresolved binds are enumerable, and heal off the list")
 
     // A bind against an id with no backing instance stays cached with a null product
     // (an editor page referencing a not-yet-cooked asset) - it must be reported.
-    const Guid missing{ 7, 7 };
+    const Guid missing{7, 7};
     Proxy<Material> pending = manager.Bind<Material>(missing);
     CHECK_FALSE(pending);
 
@@ -168,7 +182,8 @@ TEST_CASE("resource: unresolved binds are enumerable, and heal off the list")
 
     // The missing instance appears (a cook landed) - after the reload the id resolves
     // and drops off the unresolved list; the ORIGINAL proxy heals through the handle.
-    auto* late = db.RootGroup()->CreateInstanceWithId(missing, u8"late", MaterialResource::StaticType());
+    auto* late =
+        db.RootGroup()->CreateInstanceWithId(missing, u8"late", MaterialResource::StaticType());
     REQUIRE(late != nullptr);
     WriteSource(db, missing, 32, u8"unlit");
     CHECK(manager.Reload(missing));
@@ -193,13 +208,15 @@ TEST_CASE("resource: reload rebuilds the product and proxies see the new value")
 
     Guid id;
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                              u8".rasset");
         auto* steel = db.RootGroup()->CreateInstance(u8"steel", MaterialResource::StaticType());
         id = steel->Id();
         WriteSource(db, id, 64, u8"pbr");
     }
 
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                          u8".rasset");
     MaterialFactory factory;
     ResourceManager manager(db);
     manager.AddFactory(&factory);
@@ -211,7 +228,7 @@ TEST_CASE("resource: reload rebuilds the product and proxies see the new value")
     // Source changes on disk; Reload rebuilds the product behind the handle.
     WriteSource(db, id, 128, u8"pbr2");
     CHECK(manager.Reload(id));
-    CHECK(p->specular == 1.0f);    // same proxy, new product
+    CHECK(p->specular == 1.0f); // same proxy, new product
     CHECK(p->shader == u8"pbr2");
 
     RemoveTree();
@@ -222,7 +239,7 @@ namespace
     // Cleanup for the dependency tests (its own db dir; one .rasset per instance).
     void RemoveDepTree()
     {
-        const StringView names[] = { u8"a", u8"b", u8"c", u8"parent", u8"child" };
+        const StringView names[] = {u8"a", u8"b", u8"c", u8"parent", u8"child"};
         for (StringView n : names)
         {
             String f = String(u8"draconic_resource_dep_db/");
@@ -252,29 +269,31 @@ TEST_CASE("resource: a factory-resolved child is an auto-recorded dependency")
 
     Guid parentId, childId;
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
-        childId  = MakeInstance(db, u8"child", 64);
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                              u8".rasset");
+        childId = MakeInstance(db, u8"child", 64);
         parentId = MakeInstance(db, u8"parent", 32);
     }
 
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                          u8".rasset");
     MaterialFactory factory;
-    factory.bindMap.InsertOrAssign(parentId, childId);   // building parent Binds child
+    factory.bindMap.InsertOrAssign(parentId, childId); // building parent Binds child
     ResourceManager manager(db);
     manager.AddFactory(&factory);
 
-    Proxy<Material> parent = manager.Bind<Material>(parentId);   // builds parent -> binds child
+    Proxy<Material> parent = manager.Bind<Material>(parentId); // builds parent -> binds child
     REQUIRE(parent);
-    CHECK(factory.builds == 2);                                  // parent + the child it pulled in
+    CHECK(factory.builds == 2); // parent + the child it pulled in
 
-    Span<const Guid> deps = manager.Dependents(childId);         // edge was recorded
+    Span<const Guid> deps = manager.Dependents(childId); // edge was recorded
     REQUIRE(deps.Size() == 1u);
     CHECK(deps[0] == parentId);
 
     const int b0 = factory.builds;
-    CHECK(manager.Reload(childId));                             // child reload propagates to parent
-    CHECK(factory.builds == b0 + 2);                           // both rebuilt (child + dependent parent)
-    REQUIRE(parent);                                           // proxy still valid after the swap
+    CHECK(manager.Reload(childId));  // child reload propagates to parent
+    CHECK(factory.builds == b0 + 2); // both rebuilt (child + dependent parent)
+    REQUIRE(parent);                 // proxy still valid after the swap
 
     RemoveDepTree();
 }
@@ -289,25 +308,27 @@ TEST_CASE("resource: reload propagates transitively, each resource once")
 
     Guid a, b, c;
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                              u8".rasset");
         a = MakeInstance(db, u8"a", 16);
         b = MakeInstance(db, u8"b", 32);
         c = MakeInstance(db, u8"c", 64);
     }
 
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                          u8".rasset");
     MaterialFactory factory;
-    factory.bindMap.InsertOrAssign(a, b);   // a -> b
-    factory.bindMap.InsertOrAssign(b, c);   // b -> c
+    factory.bindMap.InsertOrAssign(a, b); // a -> b
+    factory.bindMap.InsertOrAssign(b, c); // b -> c
     ResourceManager manager(db);
     manager.AddFactory(&factory);
 
-    Proxy<Material> pa = manager.Bind<Material>(a);   // builds a -> b -> c
+    Proxy<Material> pa = manager.Bind<Material>(a); // builds a -> b -> c
     REQUIRE(pa);
     CHECK(factory.builds == 3);
 
     const int b0 = factory.builds;
-    CHECK(manager.Reload(c));               // c -> b -> a, each exactly once
+    CHECK(manager.Reload(c)); // c -> b -> a, each exactly once
     CHECK(factory.builds == b0 + 3);
 
     RemoveDepTree();
@@ -323,12 +344,14 @@ TEST_CASE("resource: a rebuild drops stale dependency edges")
 
     Guid parentId, childId;
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
-        childId  = MakeInstance(db, u8"child", 64);
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                              u8".rasset");
+        childId = MakeInstance(db, u8"child", 64);
         parentId = MakeInstance(db, u8"parent", 32);
     }
 
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                          u8".rasset");
     MaterialFactory factory;
     factory.bindMap.InsertOrAssign(parentId, childId);
     ResourceManager manager(db);
@@ -359,7 +382,7 @@ TEST_CASE("resource: deserializing a ref drops the stale binding when the id cha
     RefPtr<Material> live = MakeRef<Material>(DefaultAllocator());
     Ref<Material> ref;
     ref.SetDirect(RefPtr<Material>(live.Get()));
-    ref.id = Guid{ 0x1, 0x1 };
+    ref.id = Guid{0x1, 0x1};
     REQUIRE(ref.Get() == live.Get());
 
     // Write a ref whose id is NIL ("no resource"), then read it over the live one.
@@ -375,7 +398,7 @@ TEST_CASE("resource: deserializing a ref drops the stale binding when the id cha
         Serialize(ar, ref);
     }
     CHECK(ref.id == Guid{});
-    CHECK(ref.Get() == nullptr);   // the stale direct binding is gone
+    CHECK(ref.Get() == nullptr); // the stale direct binding is gone
 
     // Same-id read keeps the binding.
     Ref<Material> stable;
@@ -397,16 +420,16 @@ namespace
     {
         DRACONIC_OBJECT(Reentrant, Object)
     public:
-        static inline bool reenterOnDestroy = false;   // off during manager teardown
+        static inline bool reenterOnDestroy = false; // off during manager teardown
         ResourceManager* manager = nullptr;
         Guid other;
         Proxy<Material> child;
         ~Reentrant() override
         {
-            child = Proxy<Material>{};                      // handle bookkeeping re-entry
+            child = Proxy<Material>{}; // handle bookkeeping re-entry
             if (reenterOnDestroy && manager != nullptr && !other.IsNil())
             {
-                (void)manager->Reload(other);               // pushes a NEW grave mid-collect
+                (void)manager->Reload(other); // pushes a NEW grave mid-collect
             }
         }
     };
@@ -423,7 +446,10 @@ namespace
     class ReentrantFactory final : public IResourceFactory
     {
     public:
-        [[nodiscard]] const TypeInfo* ProductType() const override { return &Reentrant::StaticType(); }
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &Reentrant::StaticType();
+        }
         [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
                                             draconic::content::Instance& instance) override
         {
@@ -431,7 +457,10 @@ namespace
             auto* src = Cast<ReentrantSource>(object.Get());
             RefPtr<Reentrant> product = MakeRef<Reentrant>(DefaultAllocator());
             product->manager = &manager;
-            if (src != nullptr) { product->other = src->other; }
+            if (src != nullptr)
+            {
+                product->other = src->other;
+            }
             return product;
         }
     };
@@ -448,14 +477,15 @@ TEST_CASE("resource: garbage collection survives destructor re-entry into the ma
     RemoveTree();
     NativeFileSystem mount(u8"draconic_res_reentry_db");
     (void)CreateDirectory(u8"draconic_res_reentry_db");
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                          u8".rasset");
 
     auto* a = db.RootGroup()->CreateInstance(u8"A", ReentrantSource::StaticType());
     auto* b = db.RootGroup()->CreateInstance(u8"B", ReentrantSource::StaticType());
     REQUIRE(a != nullptr);
     REQUIRE(b != nullptr);
     ReentrantSource sa, sb;
-    sa.other = b->Id();   // A's destructor reloads B (pushing B's old product to the grave)
+    sa.other = b->Id(); // A's destructor reloads B (pushing B's old product to the grave)
     REQUIRE(a->WriteObject(sa).IsOk());
     REQUIRE(b->WriteObject(sb).IsOk());
 
@@ -473,8 +503,11 @@ TEST_CASE("resource: garbage collection survives destructor re-entry into the ma
     Reentrant::reenterOnDestroy = true;
     REQUIRE(resources.Reload(a->Id()));
     REQUIRE(resources.Reload(b->Id()));
-    for (int frame = 0; frame < 16; ++frame) { resources.CollectGarbage(); }
-    Reentrant::reenterOnDestroy = false;   // manager teardown must not re-enter
+    for (int frame = 0; frame < 16; ++frame)
+    {
+        resources.CollectGarbage();
+    }
+    Reentrant::reenterOnDestroy = false; // manager teardown must not re-enter
 
     CHECK(pa.Get() != nullptr);
     CHECK(pb.Get() != nullptr);
@@ -519,7 +552,10 @@ namespace
             // Second-generation build: bind every child (fresh handle-map inserts).
             if (src != nullptr && builds > 1)
             {
-                for (const Guid& child : src->children) { (void)manager.Bind<Burst>(child); }
+                for (const Guid& child : src->children)
+                {
+                    (void)manager.Bind<Burst>(child);
+                }
             }
             return product;
         }
@@ -541,7 +577,8 @@ TEST_CASE("resource: reload survives the handle map rehashing mid-cascade")
     RemoveTree();
     NativeFileSystem mount(u8"draconic_res_rehash_db");
     (void)CreateDirectory(u8"draconic_res_rehash_db");
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                          u8".rasset");
 
     BurstSource parentSource;
     Array<draconic::content::Instance*> children;

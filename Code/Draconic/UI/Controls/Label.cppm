@@ -13,7 +13,7 @@ module;
 export module draconic.ui:label;
 
 import draconic.core;
-import draconic.fonts;   // CachedFont, TextAlignment, VerticalAlignment, GlyphPosition
+import draconic.fonts; // CachedFont, TextAlignment, VerticalAlignment, GlyphPosition
 import :view;
 import :property;
 import :box_constraints;
@@ -32,10 +32,10 @@ export namespace draconic::ui
         DRACONIC_OBJECT(Label, View)
     public:
         Property<String> Text;
-        Property<fonts::TextAlignment> HAlign{ fonts::TextAlignment::Left };
-        Property<fonts::VerticalAlignment> VAlign{ fonts::VerticalAlignment::Middle };
-        Property<bool> WordWrap{ false };
-        Property<bool> Ellipsis{ false };
+        Property<fonts::TextAlignment> HAlign{fonts::TextAlignment::Left};
+        Property<fonts::VerticalAlignment> VAlign{fonts::VerticalAlignment::Middle};
+        Property<bool> WordWrap{false};
+        Property<bool> Ellipsis{false};
         Property<Optional<f32>> FontSize;
         Property<String> FontFamily;
         Property<Optional<core::Color>> TextColor;
@@ -54,7 +54,12 @@ export namespace draconic::ui
         explicit Label(StringView text) : Label() { Text.SetSilent(String(text)); }
 
         /// Set text and return this for chaining.
-        Label* SetText(StringView text) { Text.SetValue(String(text)); Invalidate(); return this; }
+        Label* SetText(StringView text)
+        {
+            Text.SetValue(String(text));
+            Invalidate();
+            return this;
+        }
 
         [[nodiscard]] f32 GetBaseline() const override
         {
@@ -62,7 +67,9 @@ export namespace draconic::ui
             {
                 // ResolveFont/ResolveStyle are logically const but not marked (style resolution is lazy).
                 if (fonts::CachedFont* font = const_cast<Label*>(this)->ResolveFont())
-                { return font->font->Metrics().ascent; }
+                {
+                    return font->font->Metrics().ascent;
+                }
             }
             return -1.0f;
         }
@@ -80,17 +87,30 @@ export namespace draconic::ui
                 {
                     if (WordWrap.Value() && font->shaper != nullptr)
                     {
-                        const f32 maxWidth = (constraints.MaxWidth < kFloatMax) ? constraints.MaxWidth : 10000.0f;
+                        const f32 maxWidth =
+                            (constraints.MaxWidth < kFloatMax) ? constraints.MaxWidth : 10000.0f;
                         textW = maxWidth;
-                        Array<fonts::GlyphPosition> positions; f32 totalH = 0;
-                        if (font->shaper->ShapeTextWrapped(*font->font, text, maxWidth, positions, totalH).IsOk()) { textH = totalH; }
+                        Array<fonts::GlyphPosition> positions;
+                        f32 totalH = 0;
+                        if (font->shaper
+                                ->ShapeTextWrapped(*font->font, text, maxWidth, positions, totalH)
+                                .IsOk())
+                        {
+                            textH = totalH;
+                        }
                     }
                     else if (HasNewlines(text))
                     {
                         const f32 lineHeight = font->font->Metrics().lineHeight;
-                        f32 maxW = 0; i32 lineCount = 0;
-                        Array<StringView> lines; SplitLines(text, lines);
-                        for (const StringView& line : lines) { maxW = Max(maxW, font->font->MeasureString(line)); lineCount++; }
+                        f32 maxW = 0;
+                        i32 lineCount = 0;
+                        Array<StringView> lines;
+                        SplitLines(text, lines);
+                        for (const StringView& line : lines)
+                        {
+                            maxW = Max(maxW, font->font->MeasureString(line));
+                            lineCount++;
+                        }
                         textW = maxW;
                         textH = lineHeight * static_cast<f32>(lineCount);
                     }
@@ -102,19 +122,33 @@ export namespace draconic::ui
                 }
             }
 
-            MeasuredSize = Float2{ constraints.ConstrainWidth(textW), constraints.ConstrainHeight(textH) };
+            MeasuredSize =
+                Float2{constraints.ConstrainWidth(textW), constraints.ConstrainHeight(textH)};
         }
 
         void OnDraw(UIDrawContext& ctx) override
         {
             const StringView text = Text.Value();
-            if (text.Size() == 0 || ctx.FontService() == nullptr) { return; }
+            if (text.Size() == 0 || ctx.FontService() == nullptr)
+            {
+                return;
+            }
 
             fonts::CachedFont* font = ResolveFont(ctx.FontService());
-            if (font == nullptr) { return; }
+            if (font == nullptr)
+            {
+                return;
+            }
 
-            Color textColor = TextColor.Value().HasValue() ? TextColor.Value().Value() : ResolveStyleColor(StyleProperty::TextColor, Color{ 220.0f / 255.0f, 225.0f / 255.0f, 235.0f / 255.0f, 1.0f });
-            if (!IsEffectivelyEnabled()) { textColor = Palette::ComputeDisabled(textColor); }
+            Color textColor = TextColor.Value().HasValue()
+                                  ? TextColor.Value().Value()
+                                  : ResolveStyleColor(StyleProperty::TextColor,
+                                                      Color{220.0f / 255.0f, 225.0f / 255.0f,
+                                                            235.0f / 255.0f, 1.0f});
+            if (!IsEffectivelyEnabled())
+            {
+                textColor = Palette::ComputeDisabled(textColor);
+            }
 
             const fonts::TextAlignment h = HAlign.Value();
             const fonts::VerticalAlignment v = VAlign.Value();
@@ -125,51 +159,82 @@ export namespace draconic::ui
                 if (v != fonts::VerticalAlignment::Top && font->shaper != nullptr)
                 {
                     const f32 totalH = ctx.VG().MeasureTextWrapped(text, font, Width());
-                    if (v == fonts::VerticalAlignment::Middle) { y = (Height() - totalH) * 0.5f; }
-                    else if (v == fonts::VerticalAlignment::Bottom) { y = Height() - totalH; }
+                    if (v == fonts::VerticalAlignment::Middle)
+                    {
+                        y = (Height() - totalH) * 0.5f;
+                    }
+                    else if (v == fonts::VerticalAlignment::Bottom)
+                    {
+                        y = Height() - totalH;
+                    }
                 }
-                ctx.VG().DrawTextWrapped(text, font, Float2{ 0, y }, Width(), textColor, h);
+                ctx.VG().DrawTextWrapped(text, font, Float2{0, y}, Width(), textColor, h);
             }
             else if (HasNewlines(text))
             {
                 const f32 lineHeight = font->font->Metrics().lineHeight;
-                Array<StringView> lines; SplitLines(text, lines);
+                Array<StringView> lines;
+                SplitLines(text, lines);
                 const f32 totalH = lineHeight * static_cast<f32>(lines.Size());
                 f32 startY = 0;
-                if (v == fonts::VerticalAlignment::Middle) { startY = (Height() - totalH) * 0.5f; }
-                else if (v == fonts::VerticalAlignment::Bottom) { startY = Height() - totalH; }
+                if (v == fonts::VerticalAlignment::Middle)
+                {
+                    startY = (Height() - totalH) * 0.5f;
+                }
+                else if (v == fonts::VerticalAlignment::Bottom)
+                {
+                    startY = Height() - totalH;
+                }
                 f32 yy = startY;
                 for (const StringView& line : lines)
                 {
-                    ctx.VG().DrawText(line, font, Rectangle{ 0, yy, Width(), lineHeight }, h, fonts::VerticalAlignment::Top, textColor);
+                    ctx.VG().DrawText(line, font, Rectangle{0, yy, Width(), lineHeight}, h,
+                                      fonts::VerticalAlignment::Top, textColor);
                     yy += lineHeight;
                 }
             }
             else if (Ellipsis.Value())
             {
                 const String shown = fonts::TruncateToWidth(*font->font, text, Width());
-                ctx.VG().DrawText(shown.AsView(), font, Rectangle{ 0, 0, Width(), Height() }, h, v, textColor);
+                ctx.VG().DrawText(shown.AsView(), font, Rectangle{0, 0, Width(), Height()}, h, v,
+                                  textColor);
             }
             else
             {
-                ctx.VG().DrawText(text, font, Rectangle{ 0, 0, Width(), Height() }, h, v, textColor);
+                ctx.VG().DrawText(text, font, Rectangle{0, 0, Width(), Height()}, h, v, textColor);
             }
         }
 
     private:
-        [[nodiscard]] f32 ResolveFontSize() { return FontSize.Value().HasValue() ? FontSize.Value().Value() : ResolveStyleFloat(StyleProperty::FontSize, 16.0f); }
+        [[nodiscard]] f32 ResolveFontSize()
+        {
+            return FontSize.Value().HasValue() ? FontSize.Value().Value()
+                                               : ResolveStyleFloat(StyleProperty::FontSize, 16.0f);
+        }
 
-        [[nodiscard]] fonts::CachedFont* ResolveFont() { return ResolveFont(Context ? Context->FontService() : nullptr); }
+        [[nodiscard]] fonts::CachedFont* ResolveFont()
+        {
+            return ResolveFont(Context ? Context->FontService() : nullptr);
+        }
         [[nodiscard]] fonts::CachedFont* ResolveFont(fonts::IFontService* service)
         {
-            if (service == nullptr) { return nullptr; }
+            if (service == nullptr)
+            {
+                return nullptr;
+            }
             const String family = ResolveStyleFontFamily(FontFamily.Value());
             return service->GetFont(family, ResolveFontSize());
         }
 
         [[nodiscard]] static bool HasNewlines(StringView text)
         {
-            for (usize i = 0; i < text.Size(); ++i) { if (text[i] == static_cast<utf8char>('\n')) { return true; } }
+            for (usize i = 0; i < text.Size(); ++i)
+            {
+                if (text[i] == static_cast<utf8char>('\n'))
+                {
+                    return true;
+                }
+            }
             return false;
         }
 
@@ -181,11 +246,11 @@ export namespace draconic::ui
             {
                 if (text[i] == static_cast<utf8char>('\n'))
                 {
-                    out.PushBack(StringView{ text.Data() + start, i - start });
+                    out.PushBack(StringView{text.Data() + start, i - start});
                     start = i + 1;
                 }
             }
-            out.PushBack(StringView{ text.Data() + start, text.Size() - start });
+            out.PushBack(StringView{text.Data() + start, text.Size() - start});
         }
     };
 

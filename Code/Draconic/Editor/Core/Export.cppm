@@ -55,20 +55,24 @@ export namespace draconic::editor
     // Export") adds Flag / Group; Phase 4 adds ScriptLiteral. Keep the enum stable for the report.
     enum class ExportRootReason
     {
-        DefaultScene,   // ProjectSettings::defaultSceneId
-        StartupScript,  // the startup script's own imported asset (the script FILE ships regardless)
-        Flag,           // an instance flagged "Always Export" (ExportRoots::instances)
-        Group,          // an instance under a group flagged "Always export contents" (ExportRoots::groups)
+        DefaultScene,  // ProjectSettings::defaultSceneId
+        StartupScript, // the startup script's own imported asset (the script FILE ships regardless)
+        Flag,          // an instance flagged "Always Export" (ExportRoots::instances)
+        Group, // an instance under a group flagged "Always export contents" (ExportRoots::groups)
     };
 
     [[nodiscard]] inline StringView ExportRootReasonName(ExportRootReason r)
     {
         switch (r)
         {
-            case ExportRootReason::DefaultScene:  return u8"default-scene";
-            case ExportRootReason::StartupScript: return u8"startup-script";
-            case ExportRootReason::Flag:          return u8"always-export";
-            case ExportRootReason::Group:         return u8"always-export-group";
+        case ExportRootReason::DefaultScene:
+            return u8"default-scene";
+        case ExportRootReason::StartupScript:
+            return u8"startup-script";
+        case ExportRootReason::Flag:
+            return u8"always-export";
+        case ExportRootReason::Group:
+            return u8"always-export-group";
         }
         return u8"?";
     }
@@ -78,7 +82,7 @@ export namespace draconic::editor
     struct ExportRoot
     {
         Guid id;
-        String name;                 // the instance's source path (report display); "" if unresolved
+        String name; // the instance's source path (report display); "" if unresolved
         ExportRootReason reason = ExportRootReason::DefaultScene;
     };
 
@@ -87,8 +91,8 @@ export namespace draconic::editor
     // references (the scene->prefab->asset chain).
     struct SceneReferences
     {
-        Array<Guid> resources;   // component resource Ref ids (mesh/material/texture/... instances)
-        Array<Guid> prefabs;     // prefab-instance ids nested in this scene/prefab
+        Array<Guid> resources; // component resource Ref ids (mesh/material/texture/... instances)
+        Array<Guid> prefabs;   // prefab-instance ids nested in this scene/prefab
     };
 
     // Caller hook: collect one scene/prefab instance's direct references (see SceneReferences).
@@ -98,8 +102,8 @@ export namespace draconic::editor
     // factory-less ResourceManager and reads back ResourceManager::CollectUnresolved (every bound
     // id, since nothing built), plus each parked prefab instance's prefabId. Same reason the
     // scene-stream transcode (sceneStreams) is a caller hook.
-    using SceneReferenceScanner =
-        Function<void(draconic::content::Instance&, draconic::content::ContentDatabase&, SceneReferences&)>;
+    using SceneReferenceScanner = Function<void(
+        draconic::content::Instance&, draconic::content::ContentDatabase&, SceneReferences&)>;
 
     // The loud, auditable record of a pruned export: which roots were kept and WHY, plus what was
     // dropped. Lives on ExportResult (CLI prints it, editor Console shows it) and is written beside
@@ -107,9 +111,9 @@ export namespace draconic::editor
     struct PruningReport
     {
         bool pruned = false;
-        Array<ExportRoot> roots;     // the seed entry points + their reasons
-        usize keptCount = 0;         // scenes + cooked products shipped (closure size on disk)
-        Array<String> dropped;       // instance paths excluded from the dist (WIP/unreferenced)
+        Array<ExportRoot> roots; // the seed entry points + their reasons
+        usize keptCount = 0;     // scenes + cooked products shipped (closure size on disk)
+        Array<String> dropped;   // instance paths excluded from the dist (WIP/unreferenced)
     };
 
     namespace detail
@@ -124,13 +128,19 @@ export namespace draconic::editor
             usize nameStart = 0;
             for (usize i = 0; i < file.Size(); ++i)
             {
-                if (file[i] == utf8char('/')) { nameStart = i + 1; }
+                if (file[i] == utf8char('/'))
+                {
+                    nameStart = i + 1;
+                }
             }
             for (usize i = nameStart; i < file.Size(); ++i)
             {
                 if (file[i] == utf8char('.'))
                 {
-                    if (reachablePaths.Find(String(file.SubStr(0, i))) != nullptr) { return true; }
+                    if (reachablePaths.Find(String(file.SubStr(0, i))) != nullptr)
+                    {
+                        return true;
+                    }
                 }
             }
             return false;
@@ -140,30 +150,43 @@ export namespace draconic::editor
         // When `reachablePaths` is non-null, packs ONLY files whose owning instance path is in the
         // set (closure pruning); null packs the whole tree (the default "export everything").
         inline bool PackTree(draconic::vfs::IFileSystem& mount,
-                             draconic::vfs::IEnumerableFileSystem& enumerable,
-                             StringView folder, draconic::vfs::PakBuilder& pak, usize& fileCount,
+                             draconic::vfs::IEnumerableFileSystem& enumerable, StringView folder,
+                             draconic::vfs::PakBuilder& pak, usize& fileCount,
                              const HashMap<String, u8>* reachablePaths = nullptr)
         {
             Array<draconic::vfs::DirEntry> entries;
-            if (!enumerable.Enumerate(folder, entries).IsOk()) { return folder.IsEmpty(); }
+            if (!enumerable.Enumerate(folder, entries).IsOk())
+            {
+                return folder.IsEmpty();
+            }
             for (const draconic::vfs::DirEntry& entry : entries)
             {
                 const String path = PathJoin(folder, entry.name.AsView());
                 if (entry.isDirectory)
                 {
-                    if (!PackTree(mount, enumerable, path.AsView(), pak, fileCount, reachablePaths)) { return false; }
+                    if (!PackTree(mount, enumerable, path.AsView(), pak, fileCount, reachablePaths))
+                    {
+                        return false;
+                    }
                     continue;
                 }
-                if (reachablePaths != nullptr && !FileOwnerReachable(path.AsView(), *reachablePaths))
+                if (reachablePaths != nullptr &&
+                    !FileOwnerReachable(path.AsView(), *reachablePaths))
                 {
-                    continue;   // pruned: not part of the reachable closure
+                    continue; // pruned: not part of the reachable closure
                 }
                 UniquePtr<IStream> stream = mount.Open(path.AsView(), FileMode::Read);
-                if (!stream) { return false; }
+                if (!stream)
+                {
+                    return false;
+                }
                 Array<byte> bytes;
                 bytes.Resize(static_cast<usize>(stream->Size()));
-                if (stream->Read(bytes.Data(), bytes.Size()) != bytes.Size()) { return false; }
-                pak.Add(path.AsView(), Span<const byte>{ bytes.Data(), bytes.Size() });
+                if (stream->Read(bytes.Data(), bytes.Size()) != bytes.Size())
+                {
+                    return false;
+                }
+                pak.Add(path.AsView(), Span<const byte>{bytes.Data(), bytes.Size()});
                 ++fileCount;
             }
             return true;
@@ -185,7 +208,10 @@ export namespace draconic::editor
                     if (i > start)
                     {
                         group = group->CreateGroup(folder.SubStr(start, i - start));
-                        if (group == nullptr) { return false; }
+                        if (group == nullptr)
+                        {
+                            return false;
+                        }
                     }
                     start = i + 1;
                 }
@@ -197,17 +223,26 @@ export namespace draconic::editor
             draconic::content::Instance* staged = nullptr;
             if (auto* doc = Cast<draconic::scene::SceneDocument>(object.Get()))
             {
-                staged = group->CreateInstanceWithId(
-                    scene.Id(), scene.Name(), draconic::scene::SceneDocument::StaticType());
-                if (staged == nullptr || !staged->WriteObject(*doc).IsOk()) { return false; }
+                staged = group->CreateInstanceWithId(scene.Id(), scene.Name(),
+                                                     draconic::scene::SceneDocument::StaticType());
+                if (staged == nullptr || !staged->WriteObject(*doc).IsOk())
+                {
+                    return false;
+                }
             }
             else if (auto* prefab = Cast<draconic::scene::PrefabDocument>(object.Get()))
             {
-                staged = group->CreateInstanceWithId(
-                    scene.Id(), scene.Name(), draconic::scene::PrefabDocument::StaticType());
-                if (staged == nullptr || !staged->WriteObject(*prefab).IsOk()) { return false; }
+                staged = group->CreateInstanceWithId(scene.Id(), scene.Name(),
+                                                     draconic::scene::PrefabDocument::StaticType());
+                if (staged == nullptr || !staged->WriteObject(*prefab).IsOk())
+                {
+                    return false;
+                }
             }
-            else { return false; }
+            else
+            {
+                return false;
+            }
 
             // Pre-transcoded BINARY stream (editor's main-thread pass) when available; else
             // the source stream verbatim - the runtime SNIFFS the encoding, so an XML source
@@ -217,16 +252,20 @@ export namespace draconic::editor
             {
                 if (const Array<byte>* pre = sceneStreams->Find(scene.Id()))
                 {
-                    return staged->WriteData(u8"scene",
-                        Span<const byte>{ pre->Data(), pre->Size() }).IsOk();
+                    return staged->WriteData(u8"scene", Span<const byte>{pre->Data(), pre->Size()})
+                        .IsOk();
                 }
             }
             if (UniquePtr<IStream> stream = scene.ReadData(u8"scene"))
             {
                 Array<byte> bytes;
                 bytes.Resize(static_cast<usize>(stream->Size()));
-                if (stream->Read(bytes.Data(), bytes.Size()) != bytes.Size()) { return false; }
-                if (!staged->WriteData(u8"scene", Span<const byte>{ bytes.Data(), bytes.Size() }).IsOk())
+                if (stream->Read(bytes.Data(), bytes.Size()) != bytes.Size())
+                {
+                    return false;
+                }
+                if (!staged->WriteData(u8"scene", Span<const byte>{bytes.Data(), bytes.Size()})
+                         .IsOk())
                 {
                     return false;
                 }
@@ -239,18 +278,30 @@ export namespace draconic::editor
         {
             for (draconic::content::Instance* instance : group.Instances())
             {
-                if (instance->TypeName() == u8"SceneDocument"
-                    || instance->TypeName() == u8"PrefabDocument") { out.PushBack(instance); }
+                if (instance->TypeName() == u8"SceneDocument" ||
+                    instance->TypeName() == u8"PrefabDocument")
+                {
+                    out.PushBack(instance);
+                }
             }
-            for (draconic::content::Group* child : group.Groups()) { CollectScenes(*child, out); }
+            for (draconic::content::Group* child : group.Groups())
+            {
+                CollectScenes(*child, out);
+            }
         }
 
         // Every instance in a database (used to enumerate cooked products for the dropped report).
         inline void CollectAllInstances(draconic::content::Group& group,
                                         Array<draconic::content::Instance*>& out)
         {
-            for (draconic::content::Instance* instance : group.Instances()) { out.PushBack(instance); }
-            for (draconic::content::Group* child : group.Groups()) { CollectAllInstances(*child, out); }
+            for (draconic::content::Instance* instance : group.Instances())
+            {
+                out.PushBack(instance);
+            }
+            for (draconic::content::Group* child : group.Groups())
+            {
+                CollectAllInstances(*child, out);
+            }
         }
 
         // The source instance whose asset imports `fileName` (the startup script's own asset, if the
@@ -286,7 +337,10 @@ export namespace draconic::editor
                     {
                         RemoveTreeRecursive(PathJoin(root, entry.name.AsView()).AsView());
                     }
-                    else { (void)fs.AsWritable()->Delete(entry.name.AsView()); }
+                    else
+                    {
+                        (void)fs.AsWritable()->Delete(entry.name.AsView());
+                    }
                 }
             }
             (void)RemoveDirectory(root);
@@ -294,7 +348,8 @@ export namespace draconic::editor
 
         // Copy srcDir/srcName -> dstDir/dstName, PRESERVING permissions (staged executables need the
         // +x bit, which a VFS read+write would drop). True on success.
-        inline bool CopyFilePreserving(StringView srcDir, StringView srcName, StringView dstDir, StringView dstName)
+        inline bool CopyFilePreserving(StringView srcDir, StringView srcName, StringView dstDir,
+                                       StringView dstName)
         {
             // Core/System backend (POSIX re-applies the source mode; Windows CopyFile preserves
             // natively). std::filesystem is deliberately NOT used in this module: referencing it
@@ -310,7 +365,10 @@ export namespace draconic::editor
             usize start = 0;
             for (usize i = 0; i < path.Size(); ++i)
             {
-                if (path[i] == utf8char('/') || path[i] == utf8char('\\')) { start = i + 1; }
+                if (path[i] == utf8char('/') || path[i] == utf8char('\\'))
+                {
+                    start = i + 1;
+                }
             }
             return path.SubStr(start, path.Size() - start);
         }
@@ -322,9 +380,10 @@ export namespace draconic::editor
             for (usize i = 0; i < name.Size(); ++i)
             {
                 const utf8char c = name[i];
-                const bool ok = (c >= utf8char('a') && c <= utf8char('z')) || (c >= utf8char('A') && c <= utf8char('Z'))
-                             || (c >= utf8char('0') && c <= utf8char('9')) || c == utf8char('-')
-                             || c == utf8char('_') || c == utf8char('.');
+                const bool ok = (c >= utf8char('a') && c <= utf8char('z')) ||
+                                (c >= utf8char('A') && c <= utf8char('Z')) ||
+                                (c >= utf8char('0') && c <= utf8char('9')) || c == utf8char('-') ||
+                                c == utf8char('_') || c == utf8char('.');
                 out += ok ? StringView(&c, 1) : StringView(u8"-");
             }
             return out.IsEmpty() ? String(u8"export") : out;
@@ -348,7 +407,10 @@ export namespace draconic::editor
         HashMap<Guid, u8> seen;
         const auto add = [&](const Guid& id, ExportRootReason reason)
         {
-            if (id.IsNil() || seen.Find(id) != nullptr) { return; }
+            if (id.IsNil() || seen.Find(id) != nullptr)
+            {
+                return;
+            }
             seen.InsertOrAssign(id, u8(1));
             ExportRoot root;
             root.id = id;
@@ -372,12 +434,18 @@ export namespace draconic::editor
         // whatever is under the flagged folder now). A group that also contains the default scene /
         // a directly-flagged instance is deduped above, keeping the earlier reason.
         const ExportRootsSet& always = project.ExportRoots();
-        for (const Guid& id : always.instances) { add(id, ExportRootReason::Flag); }
+        for (const Guid& id : always.instances)
+        {
+            add(id, ExportRootReason::Flag);
+        }
         for (const String& groupPath : always.groups)
         {
             Array<Guid> members;
             CollectGroupInstances(project.SourceDb(), groupPath.AsView(), members);
-            for (const Guid& id : members) { add(id, ExportRootReason::Group); }
+            for (const Guid& id : members)
+            {
+                add(id, ExportRootReason::Group);
+            }
         }
         return roots;
     }
@@ -396,27 +464,45 @@ export namespace draconic::editor
         Array<Guid> queue;
         const auto push = [&](const Guid& id)
         {
-            if (id.IsNil() || seen.Find(id) != nullptr) { return; }
+            if (id.IsNil() || seen.Find(id) != nullptr)
+            {
+                return;
+            }
             seen.InsertOrAssign(id, u8(1));
             out.PushBack(id);
             queue.PushBack(id);
         };
-        for (const ExportRoot& r : seeds) { push(r.id); }
+        for (const ExportRoot& r : seeds)
+        {
+            push(r.id);
+        }
 
         usize head = 0;
         while (head < queue.Size())
         {
             const Guid id = queue[head++];
             draconic::content::Instance* inst = project.SourceDb().GetInstance(id);
-            if (inst == nullptr) { continue; }
-            const bool isSceneLike = inst->TypeName() == u8"SceneDocument"
-                                  || inst->TypeName() == u8"PrefabDocument";
-            if (!isSceneLike || !scanner) { continue; }
+            if (inst == nullptr)
+            {
+                continue;
+            }
+            const bool isSceneLike =
+                inst->TypeName() == u8"SceneDocument" || inst->TypeName() == u8"PrefabDocument";
+            if (!isSceneLike || !scanner)
+            {
+                continue;
+            }
 
             SceneReferences refs;
             scanner(*inst, project.SourceDb(), refs);
-            for (const Guid& g : refs.resources) { push(g); }
-            for (const Guid& g : refs.prefabs) { push(g); }
+            for (const Guid& g : refs.resources)
+            {
+                push(g);
+            }
+            for (const Guid& g : refs.prefabs)
+            {
+                push(g);
+            }
         }
         return out;
     }
@@ -432,8 +518,8 @@ export namespace draconic::editor
         draconic::vfs::NativeFileSystem sourcesMount(project.SourcesRoot().AsView());
         draconic::vfs::NativeFileSystem cacheMount(project.CacheRoot().AsView());
         JobSystem jobs;
-        CookDriver driver(project.SourceDb(), project.CookedDb(), builders,
-                          &sourcesMount, &cacheMount, &jobs);
+        CookDriver driver(project.SourceDb(), project.CookedDb(), builders, &sourcesMount,
+                          &cacheMount, &jobs);
         CookPlan plan = driver.PlanFor(planRoots, rebuild);
         outReachable = plan.reachable;
 
@@ -442,10 +528,15 @@ export namespace draconic::editor
             CookProgress cookProgress;
             cookProgress.onItem = [&onProgress](usize done, usize total, StringView path, bool)
             {
-                if (!onProgress) { return; }
-                const f32 frac = (total > 0) ? 0.05f + (static_cast<f32>(done) / static_cast<f32>(total)) * 0.55f
-                                             : 0.6f;
-                String step(u8"Cooking "); step += path;
+                if (!onProgress)
+                {
+                    return;
+                }
+                const f32 frac =
+                    (total > 0) ? 0.05f + (static_cast<f32>(done) / static_cast<f32>(total)) * 0.55f
+                                : 0.6f;
+                String step(u8"Cooking ");
+                step += path;
                 onProgress(step.AsView(), frac);
             };
             const CookStats cookStats = driver.Execute(plan, &cookProgress);
@@ -453,8 +544,9 @@ export namespace draconic::editor
             stats.cookFailed = cookStats.failed;
             if (cookStats.failed > 0)
             {
-                DRACONIC_LOG_ERROR(u8"Export", u8"aborting - the cook has {} failure(s)", cookStats.failed);
-                return Status{ ErrorCode::Internal };
+                DRACONIC_LOG_ERROR(u8"Export", u8"aborting - the cook has {} failure(s)",
+                                   cookStats.failed);
+                return Status{ErrorCode::Internal};
             }
         }
         return Status{};
@@ -494,21 +586,27 @@ export namespace draconic::editor
     // `roots` + `outReport` feed the pruning report (kept roots + reasons, dropped list), written
     // beside the dist as export-report.txt and returned to the caller. All null => today's behavior,
     // byte-for-byte.
-    [[nodiscard]] inline Status ExportContent(EditorProject& project, StringView outDir,
-                                              ExportStats& stats, const ExportProgress& onProgress = {},
-                                              const HashMap<Guid, Array<byte>>* sceneStreams = nullptr,
-                                              const HashMap<Guid, u8>* reachable = nullptr,
-                                              const Array<ExportRoot>* roots = nullptr,
-                                              PruningReport* outReport = nullptr)
+    [[nodiscard]] inline Status
+    ExportContent(EditorProject& project, StringView outDir, ExportStats& stats,
+                  const ExportProgress& onProgress = {},
+                  const HashMap<Guid, Array<byte>>* sceneStreams = nullptr,
+                  const HashMap<Guid, u8>* reachable = nullptr,
+                  const Array<ExportRoot>* roots = nullptr, PruningReport* outReport = nullptr)
     {
 
         // --- stage scenes ---
-        if (onProgress) { onProgress(u8"Staging scenes...", 0.65f); }
-        if (!CreateDirectory(outDir)) { return Status{ ErrorCode::NotSupported }; }
+        if (onProgress)
+        {
+            onProgress(u8"Staging scenes...", 0.65f);
+        }
+        if (!CreateDirectory(outDir))
+        {
+            return Status{ErrorCode::NotSupported};
+        }
         const String stagingDir = PathJoin(outDir, u8".stage-scenes");
         (void)CreateDirectory(stagingDir.AsView());
         draconic::vfs::NativeFileSystem stagingMount(stagingDir.AsView());
-        Array<String> droppedScenes;   // for the pruning report
+        Array<String> droppedScenes; // for the pruning report
         {
             draconic::content::ContentDatabase staging(stagingMount, BinarySerializerFactory(),
                                                        draconic::project::kCookedAssetExtension);
@@ -519,13 +617,13 @@ export namespace draconic::editor
             {
                 if (reachable != nullptr && reachable->Find(scene->Id()) == nullptr)
                 {
-                    droppedScenes.PushBack(scene->Path());   // pruned: not reachable from any root
+                    droppedScenes.PushBack(scene->Path()); // pruned: not reachable from any root
                     continue;
                 }
                 if (!detail::StageScene(*scene, staging, sceneStreams))
                 {
                     DRACONIC_LOG_ERROR(u8"Export", u8"failed to stage scene '{}'", scene->Path());
-                    return Status{ ErrorCode::Internal };
+                    return Status{ErrorCode::Internal};
                 }
                 ++staged;
             }
@@ -559,8 +657,8 @@ export namespace draconic::editor
             detail::CollectAllInstances(*project.SourceDb().RootGroup(), sources);
             for (draconic::content::Instance* src : sources)
             {
-                const bool isSceneLike = src->TypeName() == u8"SceneDocument"
-                                      || src->TypeName() == u8"PrefabDocument";
+                const bool isSceneLike =
+                    src->TypeName() == u8"SceneDocument" || src->TypeName() == u8"PrefabDocument";
                 if (!isSceneLike && reachable->Find(src->Id()) == nullptr)
                 {
                     droppedProducts.PushBack(src->Path());
@@ -568,16 +666,20 @@ export namespace draconic::editor
             }
         }
 
-        if (onProgress) { onProgress(u8"Packing Content.pak...", 0.78f); }
+        if (onProgress)
+        {
+            onProgress(u8"Packing Content.pak...", 0.78f);
+        }
         draconic::vfs::PakBuilder pak;
         draconic::vfs::NativeFileSystem cookedMount(
             PathJoin(project.Directory(), draconic::project::kProjectCookedDir).AsView());
-        if (!detail::PackTree(cookedMount, *cookedMount.AsEnumerable(), u8"", pak, stats.filesPacked,
-                              reachablePaths.Get())
-            || !detail::PackTree(stagingMount, *stagingMount.AsEnumerable(), u8"", pak, stats.filesPacked))
+        if (!detail::PackTree(cookedMount, *cookedMount.AsEnumerable(), u8"", pak,
+                              stats.filesPacked, reachablePaths.Get()) ||
+            !detail::PackTree(stagingMount, *stagingMount.AsEnumerable(), u8"", pak,
+                              stats.filesPacked))
         {
             DRACONIC_LOG_ERROR(u8"Export", u8"packing failed");
-            return Status{ ErrorCode::Internal };
+            return Status{ErrorCode::Internal};
         }
         // The startup game script needs no special staging - it is a cooked ScriptClass asset in the
         // reachability closure, so it already rides in the content DB pak like every other asset. The
@@ -586,11 +688,14 @@ export namespace draconic::editor
         if (!pak.Write(pakPath.AsView()).IsOk())
         {
             DRACONIC_LOG_ERROR(u8"Export", u8"failed to write Content.pak");
-            return Status{ ErrorCode::Internal };
+            return Status{ErrorCode::Internal};
         }
 
         // --- 4. dist manifest ---
-        if (onProgress) { onProgress(u8"Writing manifest...", 0.9f); }
+        if (onProgress)
+        {
+            onProgress(u8"Writing manifest...", 0.9f);
+        }
         {
             draconic::vfs::NativeFileSystem outMount(outDir);
             draconic::project::ProjectSettings dist;
@@ -598,11 +703,14 @@ export namespace draconic::editor
             dist.defaultSceneId = project.Settings().defaultSceneId;
             dist.defaultScene = String(project.Settings().defaultScene.AsView());
             dist.startupScriptId = project.Settings().startupScriptId;
-            dist.startupScript = String(project.Settings().startupScript.AsView());   // display mirror
-            if (!draconic::project::SaveProjectSettings(*outMount.AsWritable(), dist, draconic::project::kDistManifestFile).IsOk())
+            dist.startupScript =
+                String(project.Settings().startupScript.AsView()); // display mirror
+            if (!draconic::project::SaveProjectSettings(*outMount.AsWritable(), dist,
+                                                        draconic::project::kDistManifestFile)
+                     .IsOk())
             {
                 DRACONIC_LOG_ERROR(u8"Export", u8"failed to write the dist manifest");
-                return Status{ ErrorCode::Internal };
+                return Status{ErrorCode::Internal};
             }
         }
 
@@ -611,20 +719,33 @@ export namespace draconic::editor
         {
             PruningReport report;
             report.pruned = true;
-            if (roots != nullptr) { report.roots = *roots; }
+            if (roots != nullptr)
+            {
+                report.roots = *roots;
+            }
             report.keptCount = stats.scenesStaged + keptProducts;
-            for (const String& d : droppedScenes) { report.dropped.PushBack(String(d.AsView())); }
-            for (const String& d : droppedProducts) { report.dropped.PushBack(String(d.AsView())); }
+            for (const String& d : droppedScenes)
+            {
+                report.dropped.PushBack(String(d.AsView()));
+            }
+            for (const String& d : droppedProducts)
+            {
+                report.dropped.PushBack(String(d.AsView()));
+            }
 
             const String text = FormatPruningReport(report);
             DRACONIC_LOG_INFO(u8"Export", u8"pruned dist: {} kept, {} dropped ({} root(s))",
                               report.keptCount, report.dropped.Size(), report.roots.Size());
             {
                 draconic::vfs::NativeFileSystem outMount(outDir);
-                (void)outMount.AsWritable()->Save(u8"export-report.txt", Span<const byte>(
-                    reinterpret_cast<const byte*>(text.CStr()), text.Size()));
+                (void)outMount.AsWritable()->Save(
+                    u8"export-report.txt",
+                    Span<const byte>(reinterpret_cast<const byte*>(text.CStr()), text.Size()));
             }
-            if (outReport != nullptr) { *outReport = Move(report); }
+            if (outReport != nullptr)
+            {
+                *outReport = Move(report);
+            }
         }
 
         detail::RemoveTreeRecursive(stagingDir.AsView());
@@ -633,29 +754,37 @@ export namespace draconic::editor
 
     /// Cook + ExportContent (the all-in-one; the CLI / one-shot path). The builder registry is the
     /// exe's full set (kept in lockstep across cook/editor/export). `rebuild` forces a clean cook.
-    [[nodiscard]] inline Status ExportProject(EditorProject& project, StringView outDir,
-                                              BuilderRegistry& builders, bool rebuild,
-                                              ExportStats* outStats = nullptr,
-                                              const ExportProgress& onProgress = {},
-                                              const HashMap<Guid, Array<byte>>* sceneStreams = nullptr)
+    [[nodiscard]] inline Status
+    ExportProject(EditorProject& project, StringView outDir, BuilderRegistry& builders,
+                  bool rebuild, ExportStats* outStats = nullptr,
+                  const ExportProgress& onProgress = {},
+                  const HashMap<Guid, Array<byte>>* sceneStreams = nullptr)
     {
         ExportStats stats;
 
         // --- cook ---
-        if (onProgress) { onProgress(u8"Cooking content...", 0.05f); }
+        if (onProgress)
+        {
+            onProgress(u8"Cooking content...", 0.05f);
+        }
         draconic::vfs::NativeFileSystem sourcesMount(project.SourcesRoot().AsView());
         draconic::vfs::NativeFileSystem cacheMount(project.CacheRoot().AsView());
         JobSystem jobs;
-        CookDriver driver(project.SourceDb(), project.CookedDb(), builders,
-                          &sourcesMount, &cacheMount, &jobs);
+        CookDriver driver(project.SourceDb(), project.CookedDb(), builders, &sourcesMount,
+                          &cacheMount, &jobs);
         CookPlan plan = driver.Plan(rebuild);
         CookProgress cookProgress;
         cookProgress.onItem = [&onProgress](usize done, usize total, StringView path, bool)
         {
-            if (!onProgress) { return; }
-            const f32 frac = (total > 0) ? 0.05f + (static_cast<f32>(done) / static_cast<f32>(total)) * 0.55f
-                                         : 0.6f;   // cook occupies 0.05..0.60 of the export
-            String step(u8"Cooking "); step += path;
+            if (!onProgress)
+            {
+                return;
+            }
+            const f32 frac =
+                (total > 0) ? 0.05f + (static_cast<f32>(done) / static_cast<f32>(total)) * 0.55f
+                            : 0.6f; // cook occupies 0.05..0.60 of the export
+            String step(u8"Cooking ");
+            step += path;
             onProgress(step.AsView(), frac);
         };
         const CookStats cookStats = driver.Execute(plan, &cookProgress);
@@ -663,14 +792,21 @@ export namespace draconic::editor
         stats.cookFailed = cookStats.failed;
         if (cookStats.failed > 0)
         {
-            DRACONIC_LOG_ERROR(u8"Export", u8"aborting - the cook has {} failure(s)", cookStats.failed);
-            if (outStats != nullptr) { *outStats = stats; }
-            return Status{ ErrorCode::Internal };
+            DRACONIC_LOG_ERROR(u8"Export", u8"aborting - the cook has {} failure(s)",
+                               cookStats.failed);
+            if (outStats != nullptr)
+            {
+                *outStats = stats;
+            }
+            return Status{ErrorCode::Internal};
         }
 
         // --- content ---
         const Status s = ExportContent(project, outDir, stats, onProgress, sceneStreams);
-        if (outStats != nullptr) { *outStats = stats; }
+        if (outStats != nullptr)
+        {
+            *outStats = stats;
+        }
         return s;
     }
 
@@ -682,8 +818,8 @@ export namespace draconic::editor
         String engineVersionWarning; // set when the resolved template was built against a different
                                      // engine version (soft mismatch); empty otherwise. The export
                                      // still runs; callers may surface this to the user.
-        PruningReport pruning;       // closure-pruning report (roots + reasons, kept/dropped counts).
-                                     // pruned=false for a pack-everything (non-pruned) export.
+        PruningReport pruning; // closure-pruning report (roots + reasons, kept/dropped counts).
+                               // pruned=false for a pack-everything (non-pruned) export.
     };
 
     /// Produce ONE preset's dist under `outRoot`: resolve its template, export the content
@@ -694,8 +830,9 @@ export namespace draconic::editor
     // cooking through its CookService (so the cook, which mutates the DB the UI reads, never runs on a
     // background job). The CLI leaves it true (cook + content in one shot).
     [[nodiscard]] inline Status ExportOne(EditorProject& project, const ExportPreset& preset,
-                                          const TemplateRegistry& templates, BuilderRegistry& builders,
-                                          StringView outRoot, bool rebuild, ExportResult* outResult = nullptr,
+                                          const TemplateRegistry& templates,
+                                          BuilderRegistry& builders, StringView outRoot,
+                                          bool rebuild, ExportResult* outResult = nullptr,
                                           const ExportProgress& onProgress = {}, bool cook = true,
                                           const HashMap<Guid, Array<byte>>* sceneStreams = nullptr,
                                           const SceneReferenceScanner* scanner = nullptr,
@@ -704,9 +841,10 @@ export namespace draconic::editor
         const ExportTemplate* tmpl = templates.Resolve(preset);
         if (tmpl == nullptr)
         {
-            DRACONIC_LOG_ERROR(u8"Export", u8"no export template for preset '{}' (platform '{}') - import one",
+            DRACONIC_LOG_ERROR(u8"Export",
+                               u8"no export template for preset '{}' (platform '{}') - import one",
                                preset.name, preset.platform);
-            return Status{ ErrorCode::NotFound };
+            return Status{ErrorCode::NotFound};
         }
 
         ExportResult result;
@@ -715,12 +853,14 @@ export namespace draconic::editor
         // built against a different engine version may be binary-incompatible with the cooked content,
         // but we don't know that it is - so warn and keep going rather than block. Empty version = an
         // older/hand-written template with no stamp; skip.
-        if (!tmpl->engineVersion.IsEmpty()
-            && tmpl->engineVersion != draconic::project::kEngineVersionString)
+        if (!tmpl->engineVersion.IsEmpty() &&
+            tmpl->engineVersion != draconic::project::kEngineVersionString)
         {
             DRACONIC_LOG_WARNING(u8"Export",
-                u8"template '{}' was built against engine {} but this build is {} - exporting anyway",
-                tmpl->id, tmpl->engineVersion, draconic::project::kEngineVersionString);
+                                 u8"template '{}' was built against engine {} but this build is {} "
+                                 u8"- exporting anyway",
+                                 tmpl->id, tmpl->engineVersion,
+                                 draconic::project::kEngineVersionString);
             result.engineVersionWarning = String(u8"Template '");
             result.engineVersionWarning += tmpl->id;
             result.engineVersionWarning += u8"' targets engine ";
@@ -730,8 +870,9 @@ export namespace draconic::editor
             result.engineVersionWarning += u8").";
         }
 
-        const String subdir = preset.outputSubdir.IsEmpty() ? detail::SanitizeName(preset.name.AsView())
-                                                            : String(preset.outputSubdir.AsView());
+        const String subdir = preset.outputSubdir.IsEmpty()
+                                  ? detail::SanitizeName(preset.name.AsView())
+                                  : String(preset.outputSubdir.AsView());
         result.outputDir = PathJoin(outRoot, subdir.AsView());
 
         // Ensure the output dir (and outRoot) exist before the content pipeline writes into it.
@@ -747,9 +888,11 @@ export namespace draconic::editor
         bool prune = preset.pruneToReachable;
         if (prune && !haveScanner && !havePrecomputed)
         {
-            DRACONIC_LOG_WARNING(u8"Export",
+            DRACONIC_LOG_WARNING(
+                u8"Export",
                 u8"preset '{}' requests pruning but no scene-reference scanner or precomputed root "
-                u8"set was supplied - exporting everything", preset.name);
+                u8"set was supplied - exporting everything",
+                preset.name);
             prune = false;
         }
 
@@ -762,47 +905,64 @@ export namespace draconic::editor
             // only, background-safe); it drives display, while planRoots drives cook/pack.
             const Array<ExportRoot> seeds = CollectExportRoots(project);
             const Array<Guid> planRoots = havePrecomputed
-                ? *precomputedReachableRoots
-                : ExpandReachableRoots(project, seeds, *scanner);
+                                              ? *precomputedReachableRoots
+                                              : ExpandReachableRoots(project, seeds, *scanner);
             Array<Guid> reachableList;
-            contentStatus = CookReachable(project, builders, Span<const Guid>(planRoots.Data(), planRoots.Size()),
+            contentStatus = CookReachable(project, builders,
+                                          Span<const Guid>(planRoots.Data(), planRoots.Size()),
                                           cook, rebuild, result.content, reachableList, onProgress);
             if (contentStatus.IsOk())
             {
                 HashMap<Guid, u8> reachable;
-                for (const Guid& g : reachableList) { reachable.InsertOrAssign(g, u8(1)); }
-                contentStatus = ExportContent(project, result.outputDir.AsView(), result.content, onProgress,
-                                              sceneStreams, &reachable, &seeds, &result.pruning);
+                for (const Guid& g : reachableList)
+                {
+                    reachable.InsertOrAssign(g, u8(1));
+                }
+                contentStatus =
+                    ExportContent(project, result.outputDir.AsView(), result.content, onProgress,
+                                  sceneStreams, &reachable, &seeds, &result.pruning);
             }
         }
         else
         {
-            contentStatus = cook
-                ? ExportProject(project, result.outputDir.AsView(), builders, rebuild, &result.content, onProgress)
-                : ExportContent(project, result.outputDir.AsView(), result.content, onProgress,
-                                sceneStreams);
+            contentStatus = cook ? ExportProject(project, result.outputDir.AsView(), builders,
+                                                 rebuild, &result.content, onProgress)
+                                 : ExportContent(project, result.outputDir.AsView(), result.content,
+                                                 onProgress, sceneStreams);
         }
         if (!contentStatus.IsOk())
         {
-            if (outResult != nullptr) { *outResult = result; }
-            return Status{ ErrorCode::Internal };
+            if (outResult != nullptr)
+            {
+                *outResult = result;
+            }
+            return Status{ErrorCode::Internal};
         }
 
-        if (onProgress) { onProgress(u8"Staging player...", 0.93f); }
+        if (onProgress)
+        {
+            onProgress(u8"Staging player...", 0.93f);
+        }
         // Player: <template dir>/<playerBinary> -> <outDir>/<preset.playerName | template.playerBinary>.
         const String outName = preset.playerName.IsEmpty() ? String(tmpl->playerBinary.AsView())
-                                                          : String(preset.playerName.AsView());
+                                                           : String(preset.playerName.AsView());
         if (!detail::CopyFilePreserving(tmpl->directory.AsView(), tmpl->playerBinary.AsView(),
                                         result.outputDir.AsView(), outName.AsView()))
         {
             DRACONIC_LOG_ERROR(u8"Export", u8"failed to stage player '{}' from template '{}'",
                                tmpl->playerBinary, tmpl->id);
-            if (outResult != nullptr) { *outResult = result; }
-            return Status{ ErrorCode::Internal };
+            if (outResult != nullptr)
+            {
+                *outResult = result;
+            }
+            return Status{ErrorCode::Internal};
         }
         ++result.filesStaged;
 
-        if (onProgress && !tmpl->sidecars.IsEmpty()) { onProgress(u8"Staging runtime libs...", 0.96f); }
+        if (onProgress && !tmpl->sidecars.IsEmpty())
+        {
+            onProgress(u8"Staging runtime libs...", 0.96f);
+        }
         // Template sidecars (runtime libs) from the template dir.
         for (const String& sidecar : tmpl->sidecars)
         {
@@ -813,7 +973,8 @@ export namespace draconic::editor
             }
             else
             {
-                DRACONIC_LOG_WARNING(u8"Export", u8"sidecar '{}' not found in template '{}'", sidecar, tmpl->id);
+                DRACONIC_LOG_WARNING(u8"Export", u8"sidecar '{}' not found in template '{}'",
+                                     sidecar, tmpl->id);
             }
         }
 
@@ -830,7 +991,9 @@ export namespace draconic::editor
                 }
                 else
                 {
-                    DRACONIC_LOG_WARNING(u8"Export", u8"symbol file '{}' not found in template '{}'", symbol, tmpl->id);
+                    DRACONIC_LOG_WARNING(u8"Export",
+                                         u8"symbol file '{}' not found in template '{}'", symbol,
+                                         tmpl->id);
                 }
             }
         }
@@ -839,7 +1002,8 @@ export namespace draconic::editor
         for (const String& extra : preset.additionalFiles)
         {
             const StringView base = detail::BaseName(extra.AsView());
-            if (detail::CopyFilePreserving(project.Directory(), extra.AsView(), result.outputDir.AsView(), base))
+            if (detail::CopyFilePreserving(project.Directory(), extra.AsView(),
+                                           result.outputDir.AsView(), base))
             {
                 ++result.filesStaged;
             }
@@ -849,16 +1013,23 @@ export namespace draconic::editor
             }
         }
 
-        if (onProgress) { onProgress(u8"Done", 1.0f); }
-        if (outResult != nullptr) { *outResult = result; }
+        if (onProgress)
+        {
+            onProgress(u8"Done", 1.0f);
+        }
+        if (outResult != nullptr)
+        {
+            *outResult = result;
+        }
         return Status{};
     }
 
     /// Produce EVERY preset's dist under `outRoot` (a failing preset is logged and skipped; the others
     /// continue). Returns Ok only when all presets succeeded.
     [[nodiscard]] inline Status ExportAll(EditorProject& project, Span<const ExportPreset> presets,
-                                          const TemplateRegistry& templates, BuilderRegistry& builders,
-                                          StringView outRoot, bool rebuild, const ExportProgress& onProgress = {},
+                                          const TemplateRegistry& templates,
+                                          BuilderRegistry& builders, StringView outRoot,
+                                          bool rebuild, const ExportProgress& onProgress = {},
                                           bool cook = true,
                                           const HashMap<Guid, Array<byte>>* sceneStreams = nullptr,
                                           const SceneReferenceScanner* scanner = nullptr,
@@ -874,13 +1045,19 @@ export namespace draconic::editor
             // Scale each preset's 0..1 into its slice (i..i+1)/n and prefix its name.
             const ExportProgress scoped = [&onProgress, i, n, &preset](StringView step, f32 frac)
             {
-                if (!onProgress) { return; }
-                String s(preset.name.AsView()); s += u8": "; s += step;
+                if (!onProgress)
+                {
+                    return;
+                }
+                String s(preset.name.AsView());
+                s += u8": ";
+                s += step;
                 onProgress(s.AsView(), (static_cast<f32>(i) + frac) / static_cast<f32>(n));
             };
             ExportResult result;
-            if (ExportOne(project, preset, templates, builders, outRoot, rebuild, &result, scoped, cook,
-                          sceneStreams, scanner, precomputedReachableRoots).IsOk())
+            if (ExportOne(project, preset, templates, builders, outRoot, rebuild, &result, scoped,
+                          cook, sceneStreams, scanner, precomputedReachableRoots)
+                    .IsOk())
             {
                 ++ok;
                 DRACONIC_LOG_INFO(u8"Export", u8"exported '{}' -> {} ({} files staged)",
@@ -891,6 +1068,6 @@ export namespace draconic::editor
                 DRACONIC_LOG_ERROR(u8"Export", u8"preset '{}' failed", preset.name);
             }
         }
-        return (ok == n) ? Status{} : Status{ ErrorCode::Internal };
+        return (ok == n) ? Status{} : Status{ErrorCode::Internal};
     }
 }

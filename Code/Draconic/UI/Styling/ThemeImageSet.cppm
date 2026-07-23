@@ -14,8 +14,8 @@ module;
 
 export module draconic.ui:theme_image_set;
 
-import draconic.core;    // HashMap, Array, String, StringView, Optional
-import draconic.image;   // ImageData, NineSlice
+import draconic.core;  // HashMap, Array, String, StringView, Optional
+import draconic.image; // ImageData, NineSlice
 import :control_state;
 
 using namespace draconic::core;
@@ -43,9 +43,13 @@ export namespace draconic::ui
     {
     public:
         /// Add a single image for a drawable key. Uses 9-slice if slices are non-zero. Null is ignored.
-        void AddImage(StringView drawableKey, const image::ImageData* image, image::NineSlice slices = {})
+        void AddImage(StringView drawableKey, const image::ImageData* image,
+                      image::NineSlice slices = {})
         {
-            if (image == nullptr) { return; }
+            if (image == nullptr)
+            {
+                return;
+            }
             ThemeImageEntry entry;
             entry.Image = image;
             entry.Slices = slices;
@@ -54,21 +58,25 @@ export namespace draconic::ui
         }
 
         /// Add state-variant images for a drawable key (creates a StateListDrawable).
-        void AddStateImages(StringView drawableKey,
-            const image::ImageData* normal, const image::ImageData* hover = nullptr,
-            const image::ImageData* pressed = nullptr, const image::ImageData* disabled = nullptr,
-            const image::ImageData* focused = nullptr, image::NineSlice slices = {})
+        void AddStateImages(StringView drawableKey, const image::ImageData* normal,
+                            const image::ImageData* hover = nullptr,
+                            const image::ImageData* pressed = nullptr,
+                            const image::ImageData* disabled = nullptr,
+                            const image::ImageData* focused = nullptr, image::NineSlice slices = {})
         {
             Array<ThemeStateEntry> group;
 
             auto addState = [&](ControlState state, const image::ImageData* img, StringView suffix)
             {
-                if (img == nullptr) { return; }
+                if (img == nullptr)
+                {
+                    return;
+                }
                 String internalKey(drawableKey);
                 internalKey += u8"_";
                 internalKey += suffix;
                 AddImage(internalKey.AsView(), img, slices);
-                group.PushBack(ThemeStateEntry{ state, Move(internalKey) });
+                group.PushBack(ThemeStateEntry{state, Move(internalKey)});
             };
 
             addState(ControlState::Normal, normal, u8"Normal");
@@ -84,12 +92,18 @@ export namespace draconic::ui
         [[nodiscard]] const HashMap<String, ThemeImageEntry>& GetImages() const { return m_images; }
 
         /// All state groups (keyed "styleClass:propertyName").
-        [[nodiscard]] const HashMap<String, Array<ThemeStateEntry>>& GetStateGroups() const { return m_stateGroups; }
+        [[nodiscard]] const HashMap<String, Array<ThemeStateEntry>>& GetStateGroups() const
+        {
+            return m_stateGroups;
+        }
 
         /// Get a single image entry by key.
         [[nodiscard]] Optional<ThemeImageEntry> GetEntry(StringView key) const
         {
-            if (const ThemeImageEntry* entry = m_images.Find(String(key))) { return *entry; }
+            if (const ThemeImageEntry* entry = m_images.Find(String(key)))
+            {
+                return *entry;
+            }
             return {};
         }
 

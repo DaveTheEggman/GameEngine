@@ -11,7 +11,7 @@
 import draconic.core;
 import draconic.ui;
 import draconic.fonts;
-import draconic.image;   // ImageData (StubFontService::GetAtlasTexture return type)
+import draconic.image; // ImageData (StubFontService::GetAtlasTexture return type)
 #include "TestHelpers.h"
 
 using namespace draconic::ui;
@@ -29,8 +29,14 @@ namespace
     public:
         [[nodiscard]] fonts::CachedFont* GetFont(f32) override { return nullptr; }
         [[nodiscard]] fonts::CachedFont* GetFont(StringView, f32) override { return nullptr; }
-        [[nodiscard]] draconic::image::ImageData* GetAtlasTexture(fonts::CachedFont*) override { return nullptr; }
-        [[nodiscard]] draconic::image::ImageData* GetAtlasTexture(StringView, f32) override { return nullptr; }
+        [[nodiscard]] draconic::image::ImageData* GetAtlasTexture(fonts::CachedFont*) override
+        {
+            return nullptr;
+        }
+        [[nodiscard]] draconic::image::ImageData* GetAtlasTexture(StringView, f32) override
+        {
+            return nullptr;
+        }
         void ReleaseFont(fonts::CachedFont*) override {}
         [[nodiscard]] StringView DefaultFontFamily() const override { return u8"StubDefault"; }
     };
@@ -50,8 +56,11 @@ namespace
 TEST_CASE("font-family: ResolveStyleFontFamily_Fallback_UsesFontServiceDefault")
 {
     // No cascade rule + no inline override -> falls through to the font service's DefaultFontFamily.
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get());
-    StubFontService fontService; ctx.SetFontService(&fontService);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
+    StubFontService fontService;
+    ctx.SetFontService(&fontService);
     SetupSheet(ctx);
 
     auto view = core::MakeRef<TestView>(core::DefaultAllocator());
@@ -62,11 +71,14 @@ TEST_CASE("font-family: ResolveStyleFontFamily_Fallback_UsesFontServiceDefault")
 
 TEST_CASE("font-family: ResolveStyleFontFamily_CascadeWinsOverFontServiceDefault")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get());
-    StubFontService fontService; ctx.SetFontService(&fontService);
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
+    StubFontService fontService;
+    ctx.SetFontService(&fontService);
 
     StyleSheet* sheet = SetupSheet(ctx);
-    sheet->ForType(&TestView::StaticType()).Set(StyleProperty::FontFamily, StringView{ u8"Roboto" });
+    sheet->ForType(&TestView::StaticType()).Set(StyleProperty::FontFamily, StringView{u8"Roboto"});
 
     auto view = core::MakeRef<TestView>(core::DefaultAllocator());
     root->AddView(view.Get());
@@ -76,22 +88,26 @@ TEST_CASE("font-family: ResolveStyleFontFamily_CascadeWinsOverFontServiceDefault
 
 TEST_CASE("font-family: ResolveStyleFontFamily_InstanceOverride_Wins")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
-    sheet->ForType(&TestView::StaticType()).Set(StyleProperty::FontFamily, StringView{ u8"Roboto" });
+    sheet->ForType(&TestView::StaticType()).Set(StyleProperty::FontFamily, StringView{u8"Roboto"});
 
     auto view = core::MakeRef<TestView>(core::DefaultAllocator());
     root->AddView(view.Get());
 
-    CHECK(view->ResolveStyleFontFamily(StringView{ u8"CustomFamily" }) == u8"CustomFamily");
+    CHECK(view->ResolveStyleFontFamily(StringView{u8"CustomFamily"}) == u8"CustomFamily");
 }
 
 TEST_CASE("font-family: ResolveStyleFontFamily_EmptyOverride_DefersToCascade")
 {
     // Beef's null override -> our empty StringView: an empty per-instance override defers to the cascade.
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
-    sheet->ForType(&TestView::StaticType()).Set(StyleProperty::FontFamily, StringView{ u8"Roboto" });
+    sheet->ForType(&TestView::StaticType()).Set(StyleProperty::FontFamily, StringView{u8"Roboto"});
 
     auto view = core::MakeRef<TestView>(core::DefaultAllocator());
     root->AddView(view.Get());
@@ -101,13 +117,15 @@ TEST_CASE("font-family: ResolveStyleFontFamily_EmptyOverride_DefersToCascade")
 
 TEST_CASE("font-family: Resolution_InlineFontFamilyBeatsContextSheet")
 {
-    UIContext ctx; auto root = MakeRoot(); Init(ctx, root.Get());
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
-    sheet->ForType(&TestView::StaticType()).Set(StyleProperty::FontFamily, StringView{ u8"Roboto" });
+    sheet->ForType(&TestView::StaticType()).Set(StyleProperty::FontFamily, StringView{u8"Roboto"});
 
     auto view = core::MakeRef<TestView>(core::DefaultAllocator());
     root->AddView(view.Get());
-    view->SetStyle(StyleProperty::FontFamily, StringView{ u8"JungleAdventurer" });
+    view->SetStyle(StyleProperty::FontFamily, StringView{u8"JungleAdventurer"});
 
     // Inline override beats the context sheet cascade.
     const StyleValue resolved = view->ResolveStyle(StyleProperty::FontFamily);

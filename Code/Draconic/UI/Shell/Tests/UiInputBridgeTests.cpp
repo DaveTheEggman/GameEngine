@@ -20,7 +20,7 @@ namespace
     void SetupRoot(UIContext& ctx, RefPtr<RootView>& root)
     {
         root = core::MakeRef<RootView>(core::DefaultAllocator());
-        root->ViewportSize = Float2{ 800, 600 };
+        root->ViewportSize = Float2{800, 600};
         ctx.AddRootView(root.Get());
     }
 
@@ -35,7 +35,8 @@ namespace
         shell::InputEvent e{};
         e.kind = shell::InputEventKind::MouseButtonDown;
         e.button = shell::MouseButton::Left;
-        e.x = x; e.y = y;
+        e.x = x;
+        e.y = y;
         return e;
     }
 
@@ -44,7 +45,10 @@ namespace
         shell::InputEvent e{};
         e.kind = shell::InputEventKind::TextInput;
         usize i = 0;
-        for (; s[i] != 0 && i < 31; ++i) { e.text[i] = static_cast<utf8char>(s[i]); }
+        for (; s[i] != 0 && i < 31; ++i)
+        {
+            e.text[i] = static_cast<utf8char>(s[i]);
+        }
         e.text[i] = 0;
         return e;
     }
@@ -74,7 +78,9 @@ namespace
 
 TEST_CASE("ui-shell: click focuses and typed text reaches the field")
 {
-    UIContext ctx; RefPtr<RootView> root; SetupRoot(ctx, root);
+    UIContext ctx;
+    RefPtr<RootView> root;
+    SetupRoot(ctx, root);
     auto edit = core::MakeRef<EditText>(core::DefaultAllocator());
     root->AddView(edit.Get());
     LayoutPass(ctx, root.Get());
@@ -90,7 +96,9 @@ TEST_CASE("ui-shell: click focuses and typed text reaches the field")
 
 TEST_CASE("ui-shell: text input target follows focus (IME sync)")
 {
-    UIContext ctx; RefPtr<RootView> root; SetupRoot(ctx, root);
+    UIContext ctx;
+    RefPtr<RootView> root;
+    SetupRoot(ctx, root);
     auto edit = core::MakeRef<EditText>(core::DefaultAllocator());
     edit->IsReadOnly.SetValue(true); // read-only -> does NOT want text input
     auto edit2 = core::MakeRef<EditText>(core::DefaultAllocator());
@@ -148,7 +156,7 @@ TEST_CASE("ui-shell: function and digit keys map through the bridge")
 {
     UIContext ctx;
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
-    root->ViewportSize = core::Float2{ 800, 600 };
+    root->ViewportSize = core::Float2{800, 600};
     ctx.AddRootView(root.Get());
 
     // A focusable probe recording the keys it receives.
@@ -157,14 +165,19 @@ TEST_CASE("ui-shell: function and digit keys map through the bridge")
     public:
         KeyProbe() { IsFocusable = true; }
         KeyCode last = KeyCode::Unknown;
-        void OnKeyDown(KeyEventArgs& e) override { last = e.Key; e.Handled = true; }
+        void OnKeyDown(KeyEventArgs& e) override
+        {
+            last = e.Key;
+            e.Handled = true;
+        }
     };
     auto probe = core::MakeRef<KeyProbe>(core::DefaultAllocator());
     root->AddView(probe.Get());
     ctx.GetFocusManager()->SetFocus(probe.Get());
 
     UiInputBridge bridge(&ctx);
-    auto key = [](shell::KeyCode k) {
+    auto key = [](shell::KeyCode k)
+    {
         shell::InputEvent e{};
         e.kind = shell::InputEventKind::KeyDown;
         e.key = k;
@@ -181,7 +194,7 @@ TEST_CASE("ui-shell: function and digit keys map through the bridge")
     CHECK(probe->last == KeyCode::Num0);
     (void)bridge.Dispatch(key(shell::KeyCode::Num5));
     CHECK(probe->last == KeyCode::Num5);
-    (void)bridge.Dispatch(key(shell::KeyCode::Delete));   // pre-existing mapping still intact
+    (void)bridge.Dispatch(key(shell::KeyCode::Delete)); // pre-existing mapping still intact
     CHECK(probe->last == KeyCode::Delete);
 }
 
@@ -190,7 +203,7 @@ TEST_CASE("ui-shell: keypad enter maps to Return")
 {
     UIContext ctx;
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
-    root->ViewportSize = core::Float2{ 800, 600 };
+    root->ViewportSize = core::Float2{800, 600};
     ctx.AddRootView(root.Get());
 
     class KeyProbe final : public View
@@ -198,7 +211,11 @@ TEST_CASE("ui-shell: keypad enter maps to Return")
     public:
         KeyProbe() { IsFocusable = true; }
         KeyCode last = KeyCode::Unknown;
-        void OnKeyDown(KeyEventArgs& e) override { last = e.Key; e.Handled = true; }
+        void OnKeyDown(KeyEventArgs& e) override
+        {
+            last = e.Key;
+            e.Handled = true;
+        }
     };
     auto probe = core::MakeRef<KeyProbe>(core::DefaultAllocator());
     root->AddView(probe.Get());

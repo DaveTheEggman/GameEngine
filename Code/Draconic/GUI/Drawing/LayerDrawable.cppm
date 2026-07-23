@@ -11,7 +11,7 @@ module;
 
 export module draconic.gui:layer_drawable;
 
-import draconic.core;   // Array, RefPtr, Move, Max
+import draconic.core; // Array, RefPtr, Move, Max
 import :rect;
 import :thickness;
 import :control_state;
@@ -38,7 +38,7 @@ export namespace draconic::gui
         // Consumes the caller's ref on `drawable` (held by value). Layers draw bottom-first.
         void AddLayer(RefPtr<Drawable> drawable, Thickness inset = {})
         {
-            m_layers.PushBack(Layer{ Move(drawable), inset });
+            m_layers.PushBack(Layer{Move(drawable), inset});
         }
 
         [[nodiscard]] usize LayerCount() const noexcept { return m_layers.Size(); }
@@ -61,9 +61,9 @@ export namespace draconic::gui
     private:
         [[nodiscard]] static Rect LayerBounds(const Rect& b, const Thickness& inset) noexcept
         {
-            return Rect{ b.x + inset.Left, b.y + inset.Top,
-                         core::Max(0.0f, b.width - inset.TotalHorizontal()),
-                         core::Max(0.0f, b.height - inset.TotalVertical()) };
+            return Rect{b.x + inset.Left, b.y + inset.Top,
+                        core::Max(0.0f, b.width - inset.TotalHorizontal()),
+                        core::Max(0.0f, b.height - inset.TotalVertical())};
         }
 
         Array<Layer> m_layers;

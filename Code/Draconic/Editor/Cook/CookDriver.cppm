@@ -40,7 +40,7 @@ export namespace draconic::editor
     /// Per-file memo: content hash + the stat that validated it.
     struct CookFileMemo
     {
-        String path;          // sources-mount-relative
+        String path; // sources-mount-relative
         u64 size = 0;
         i64 modifiedTime = 0;
         u64 contentHash = 0;
@@ -80,7 +80,10 @@ export namespace draconic::editor
 
         CookRecord& Upsert(const Guid& source)
         {
-            if (CookRecord* existing = Find(source)) { return *existing; }
+            if (CookRecord* existing = Find(source))
+            {
+                return *existing;
+            }
             auto record = MakeUnique<CookRecord>(DefaultAllocator());
             record->source = source;
             CookRecord* raw = record.Get();
@@ -104,7 +107,10 @@ export namespace draconic::editor
 
         void ForEach(const Function<void(const CookRecord&)>& fn) const
         {
-            for (const UniquePtr<CookRecord>& r : m_storage) { fn(*r); }
+            for (const UniquePtr<CookRecord>& r : m_storage)
+            {
+                fn(*r);
+            }
         }
 
         [[nodiscard]] usize Count() const noexcept { return m_storage.Size(); }
@@ -115,28 +121,46 @@ export namespace draconic::editor
             m_records.Clear();
             m_storage.Clear();
             UniquePtr<IStream> stream = cache.Open(name, FileMode::Read);
-            if (stream.Get() == nullptr) { return; }
+            if (stream.Get() == nullptr)
+            {
+                return;
+            }
 
             BinarySerializer ar(*stream, SerializeMode::Read);
             u32 version = 0;
             u64 count = 0;
             Serialize(ar, "version", version);
-            if (!ar.IsOk() || version != kVersion) { m_records.Clear(); m_storage.Clear(); return; }
+            if (!ar.IsOk() || version != kVersion)
+            {
+                m_records.Clear();
+                m_storage.Clear();
+                return;
+            }
             Serialize(ar, "count", count);
             for (u64 i = 0; ar.IsOk() && i < count; ++i)
             {
                 CookRecord record;
                 SerializeRecord(ar, record);
-                if (!ar.IsOk()) { break; }
+                if (!ar.IsOk())
+                {
+                    break;
+                }
                 Upsert(record.source) = Move(record);
             }
-            if (!ar.IsOk()) { m_records.Clear(); m_storage.Clear(); }   // corrupt -> full re-plan
+            if (!ar.IsOk())
+            {
+                m_records.Clear();
+                m_storage.Clear();
+            } // corrupt -> full re-plan
         }
 
         [[nodiscard]] Status Save(vfs::IFileSystem& cache, StringView name = kDefaultName) const
         {
             vfs::IWritableFileSystem* writable = cache.AsWritable();
-            if (writable == nullptr) { return Status{ ErrorCode::NotSupported }; }
+            if (writable == nullptr)
+            {
+                return Status{ErrorCode::NotSupported};
+            }
 
             MemoryStream buffer;
             BinarySerializer ar(buffer, SerializeMode::Write);
@@ -148,7 +172,10 @@ export namespace draconic::editor
             {
                 SerializeRecord(ar, const_cast<CookRecord&>(*r));
             }
-            if (!ar.IsOk()) { return Status{ ErrorCode::Internal }; }
+            if (!ar.IsOk())
+            {
+                return Status{ErrorCode::Internal};
+            }
             return writable->Save(name, buffer.Bytes());
         }
 
@@ -188,7 +215,10 @@ export namespace draconic::editor
             for (;;)
             {
                 const u64 read = stream.Read(chunk, sizeof(chunk));
-                if (read == 0) { break; }
+                if (read == 0)
+                {
+                    break;
+                }
                 h = HashBytes(chunk, static_cast<usize>(read), h);
             }
             return h;
@@ -200,26 +230,26 @@ export namespace draconic::editor
     struct CookItem
     {
         Guid source;
-        String path;              // source instance path (progress display + product placement)
+        String path; // source instance path (progress display + product placement)
         IAssetBuilder* builder = nullptr;
-        RefPtr<ISerializable> asset;   // deserialized source object (kept for Build)
+        RefPtr<ISerializable> asset; // deserialized source object (kept for Build)
         u64 recipeHash = 0;
         AssetDependencies deps;
-        i32 level = 0;            // dependency depth (items cook level-by-level, parallel within)
-        draconic::content::Instance* product = nullptr;   // pre-created SERIALLY before workers run
-        draconic::content::Instance* sourceInstance = nullptr;   // snapshotted in PrepareProducts
+        i32 level = 0; // dependency depth (items cook level-by-level, parallel within)
+        draconic::content::Instance* product = nullptr; // pre-created SERIALLY before workers run
+        draconic::content::Instance* sourceInstance = nullptr; // snapshotted in PrepareProducts
     };
 
     struct CookPlan
     {
-        Array<CookItem> dirty;    // in dependency order (level ascending)
-        Array<Guid> orphans;      // records whose source is gone -> products swept
-        usize orphansSweptCount = 0;   // filled by PrepareProducts
+        Array<CookItem> dirty;       // in dependency order (level ascending)
+        Array<Guid> orphans;         // records whose source is gone -> products swept
+        usize orphansSweptCount = 0; // filled by PrepareProducts
         usize upToDate = 0;
-        usize unbuildable = 0;    // instances with no registered builder (informational)
-        Array<Guid> reachable;    // PlanFor only: the roots + their whole dependency CLOSURE (every
-                                  // visited guid, clean or dirty, buildable or not) - the reachable
-                                  // SET export pruning ships. Empty for a whole-project Plan().
+        usize unbuildable = 0; // instances with no registered builder (informational)
+        Array<Guid> reachable; // PlanFor only: the roots + their whole dependency CLOSURE (every
+                               // visited guid, clean or dirty, buildable or not) - the reachable
+                               // SET export pruning ships. Empty for a whole-project Plan().
     };
 
     struct CookProgress
@@ -232,8 +262,8 @@ export namespace draconic::editor
     {
         usize cooked = 0;
         usize failed = 0;
-        usize orphansSwept = 0;   // (CookPlan carries the swept count from PrepareProducts)
-        Array<Guid> cookedProducts;   // successfully (re)built products - hot-reload input
+        usize orphansSwept = 0;     // (CookPlan carries the swept count from PrepareProducts)
+        Array<Guid> cookedProducts; // successfully (re)built products - hot-reload input
     };
 
     class CookDriver
@@ -242,10 +272,13 @@ export namespace draconic::editor
         CookDriver(content::ContentDatabase& sourceDb, content::ContentDatabase& cookedDb,
                    BuilderRegistry& builders, vfs::IFileSystem* sourcesMount,
                    vfs::IFileSystem* cacheMount, JobSystem* jobs = nullptr)
-            : m_sourceDb(&sourceDb), m_cookedDb(&cookedDb), m_builders(&builders)
-            , m_sources(sourcesMount), m_cache(cacheMount), m_jobs(jobs)
+            : m_sourceDb(&sourceDb), m_cookedDb(&cookedDb), m_builders(&builders),
+              m_sources(sourcesMount), m_cache(cacheMount), m_jobs(jobs)
         {
-            if (m_cache != nullptr) { m_db.Load(*m_cache); }
+            if (m_cache != nullptr)
+            {
+                m_db.Load(*m_cache);
+            }
         }
 
         [[nodiscard]] CookDb& Db() noexcept { return m_db; }
@@ -262,29 +295,58 @@ export namespace draconic::editor
 
             Array<Guid> queue;
             Array<Guid> visited;
-            for (const Guid& id : roots) { queue.PushBack(id); }
+            for (const Guid& id : roots)
+            {
+                queue.PushBack(id);
+            }
             HashMap<Guid, i32> levels;
             usize head = 0;
             while (head < queue.Size())
             {
                 const Guid id = queue[head++];
                 bool seen = false;
-                for (const Guid& v : visited) { if (v == id) { seen = true; break; } }
-                if (seen) { continue; }
+                for (const Guid& v : visited)
+                {
+                    if (v == id)
+                    {
+                        seen = true;
+                        break;
+                    }
+                }
+                if (seen)
+                {
+                    continue;
+                }
                 visited.PushBack(id);
 
                 content::Instance* instance = m_sourceDb->GetInstance(id);
-                if (instance == nullptr) { continue; }
+                if (instance == nullptr)
+                {
+                    continue;
+                }
                 bool isRoot = false;
-                for (const Guid& r : roots) { if (r == id) { isRoot = true; break; } }
+                for (const Guid& r : roots)
+                {
+                    if (r == id)
+                    {
+                        isRoot = true;
+                        break;
+                    }
+                }
 
                 AssetDependencies deps;
                 PlanInstance(*instance, force && isRoot, plan, levels, &deps);
-                for (const Guid& dep : deps.reads) { queue.PushBack(dep); }
-                for (const Guid& dep : deps.references) { queue.PushBack(dep); }
+                for (const Guid& dep : deps.reads)
+                {
+                    queue.PushBack(dep);
+                }
+                for (const Guid& dep : deps.references)
+                {
+                    queue.PushBack(dep);
+                }
             }
             SortByLevel(plan.dirty);
-            plan.reachable = Move(visited);   // the full closure (roots + transitive deps)
+            plan.reachable = Move(visited); // the full closure (roots + transitive deps)
             return plan;
         }
 
@@ -298,7 +360,7 @@ export namespace draconic::editor
             Array<content::Instance*> instances;
             CollectInstances(m_sourceDb->RootGroup(), instances);
 
-            HashMap<Guid, i32> levels;   // read-dep depth per source (0 = no reads)
+            HashMap<Guid, i32> levels; // read-dep depth per source (0 = no reads)
             for (content::Instance* instance : instances)
             {
                 PlanInstance(*instance, force, plan, levels, nullptr);
@@ -309,12 +371,14 @@ export namespace draconic::editor
 
             // Orphan sweep: records whose source instance no longer exists.
             Array<Guid> orphans;
-            m_db.ForEach([&](const CookRecord& record) {
-                if (m_sourceDb->GetInstance(record.source) == nullptr)
+            m_db.ForEach(
+                [&](const CookRecord& record)
                 {
-                    orphans.PushBack(record.source);
-                }
-            });
+                    if (m_sourceDb->GetInstance(record.source) == nullptr)
+                    {
+                        orphans.PushBack(record.source);
+                    }
+                });
             plan.orphans = Move(orphans);
             return plan;
         }
@@ -328,7 +392,11 @@ export namespace draconic::editor
         {
             content::Instance* instance = &instanceRef;
             IAssetBuilder* builder = m_builders->FindByTypeName(instance->TypeName());
-            if (builder == nullptr) { ++plan.unbuildable; return; }
+            if (builder == nullptr)
+            {
+                ++plan.unbuildable;
+                return;
+            }
 
             CookItem item;
             item.source = instance->Id();
@@ -339,15 +407,17 @@ export namespace draconic::editor
             {
                 // Deserialization failed - usually a source written by an OLDER schema
                 // (no asset compatibility by policy): delete + re-import it.
-                DRACONIC_LOG_WARNING(u8"Cook",
-                    u8"'{}' failed to deserialize (stale schema? delete + re-import)", item.path);
+                DRACONIC_LOG_WARNING(
+                    u8"Cook", u8"'{}' failed to deserialize (stale schema? delete + re-import)",
+                    item.path);
                 ++plan.unbuildable;
                 return;
             }
             Asset* asset = Cast<Asset>(item.asset.Get());
             if (asset == nullptr)
             {
-                DRACONIC_LOG_WARNING(u8"Cook", u8"'{}' has a builder but is not an Asset", item.path);
+                DRACONIC_LOG_WARNING(u8"Cook", u8"'{}' has a builder but is not an Asset",
+                                     item.path);
                 ++plan.unbuildable;
                 return;
             }
@@ -356,21 +426,29 @@ export namespace draconic::editor
             scanCtx.sources = m_sources;
             scanCtx.db = m_sourceDb;
             builder->ScanDependencies(*asset, scanCtx, item.deps);
-            if (outDeps != nullptr) { *outDeps = item.deps; }
+            if (outDeps != nullptr)
+            {
+                *outDeps = item.deps;
+            }
 
             item.recipeHash = ComputeRecipe(*instance, *asset, *builder, item.deps, 0);
             item.level = ReadDepth(item.source, item.deps, levels, 0);
 
             const CookRecord* record = m_db.Find(item.source);
             const bool productExists = m_cookedDb->GetInstance(item.source) != nullptr;
-            const bool clean = !force && record != nullptr && !record->failed
-                            && record->recipeHash == item.recipeHash && productExists;
-            if (clean) { ++plan.upToDate; }
-            else { plan.dirty.PushBack(Move(item)); }
+            const bool clean = !force && record != nullptr && !record->failed &&
+                               record->recipeHash == item.recipeHash && productExists;
+            if (clean)
+            {
+                ++plan.upToDate;
+            }
+            else
+            {
+                plan.dirty.PushBack(Move(item));
+            }
         }
 
     public:
-
         /// Cook the plan. Items run level-by-level; within a level in parallel when a
         /// JobSystem was provided. Persists the pipeline DB at the end.
         /// Single-threaded callers (CLI, tests): Prepare + builds back to back.
@@ -428,23 +506,29 @@ export namespace draconic::editor
 
                 if (m_jobs != nullptr && end - begin > 1)
                 {
-                    m_jobs->ParallelFor(static_cast<u32>(end - begin), [&, begin](u32 i) {
-                        results[begin + i] = CookItem_(plan.dirty[begin + i]);
-                    });
+                    m_jobs->ParallelFor(static_cast<u32>(end - begin), [&, begin](u32 i)
+                                        { results[begin + i] = CookItem_(plan.dirty[begin + i]); });
                 }
                 else
                 {
-                    for (usize i = begin; i < end; ++i) { results[i] = CookItem_(plan.dirty[i]); }
+                    for (usize i = begin; i < end; ++i)
+                    {
+                        results[i] = CookItem_(plan.dirty[i]);
+                    }
                 }
 
                 for (usize i = begin; i < end; ++i)
                 {
                     results[i] ? ++stats.cooked : ++stats.failed;
-                    if (results[i]) { stats.cookedProducts.PushBack(plan.dirty[i].source); }
+                    if (results[i])
+                    {
+                        stats.cookedProducts.PushBack(plan.dirty[i].source);
+                    }
                     ++done;
                     if (progress != nullptr && progress->onItem)
                     {
-                        progress->onItem(done, plan.dirty.Size(), plan.dirty[i].path.AsView(), results[i]);
+                        progress->onItem(done, plan.dirty.Size(), plan.dirty[i].path.AsView(),
+                                         results[i]);
                     }
                 }
                 begin = end;
@@ -453,7 +537,10 @@ export namespace draconic::editor
             if (m_cache != nullptr)
             {
                 const Status saved = m_db.Save(*m_cache);
-                if (!saved.IsOk()) { DRACONIC_LOG_WARNING(u8"Cook", u8"pipeline db save failed"); }
+                if (!saved.IsOk())
+                {
+                    DRACONIC_LOG_WARNING(u8"Cook", u8"pipeline db save failed");
+                }
             }
             return stats;
         }
@@ -461,9 +548,18 @@ export namespace draconic::editor
     private:
         static void CollectInstances(content::Group* group, Array<content::Instance*>& out)
         {
-            if (group == nullptr) { return; }
-            for (content::Instance* instance : group->Instances()) { out.PushBack(instance); }
-            for (content::Group* child : group->Groups()) { CollectInstances(child, out); }
+            if (group == nullptr)
+            {
+                return;
+            }
+            for (content::Instance* instance : group->Instances())
+            {
+                out.PushBack(instance);
+            }
+            for (content::Group* child : group->Groups())
+            {
+                CollectInstances(child, out);
+            }
         }
 
         // Content hash of one source file through the mount, memoized by (size, mtime) against
@@ -475,27 +571,30 @@ export namespace draconic::editor
             memo.path = String(path);
 
             vfs::FileStatInfo stat;
-            const bool hasStat = m_sources != nullptr && m_sources->AsStat() != nullptr
-                              && m_sources->AsStat()->Stat(path, stat);
+            const bool hasStat = m_sources != nullptr && m_sources->AsStat() != nullptr &&
+                                 m_sources->AsStat()->Stat(path, stat);
             if (hasStat && previous != nullptr)
             {
                 for (const CookFileMemo& old : previous->files)
                 {
-                    if (old.path == path && old.size == stat.size
-                        && old.modifiedTime == stat.modifiedTime)
+                    if (old.path == path && old.size == stat.size &&
+                        old.modifiedTime == stat.modifiedTime)
                     {
-                        memo = old;   // untouched since last cook: reuse the content hash
+                        memo = old; // untouched since last cook: reuse the content hash
                         outMemos.PushBack(Move(memo));
                         return outMemos[outMemos.Size() - 1].contentHash;
                     }
                 }
             }
 
-            u64 hash = 0;   // missing file hashes as 0 (the recipe still changes when it appears)
+            u64 hash = 0; // missing file hashes as 0 (the recipe still changes when it appears)
             if (m_sources != nullptr)
             {
                 UniquePtr<IStream> stream = m_sources->Open(path, FileMode::Read);
-                if (stream.Get() != nullptr) { hash = detail::HashStream(*stream); }
+                if (stream.Get() != nullptr)
+                {
+                    hash = detail::HashStream(*stream);
+                }
             }
             memo.contentHash = hash;
             if (hasStat)
@@ -513,7 +612,10 @@ export namespace draconic::editor
                                         IAssetBuilder& builder, const AssetDependencies& deps,
                                         i32 depth)
         {
-            if (const u64* memo = m_recipeMemo.Find(instance.Id())) { return *memo; }
+            if (const u64* memo = m_recipeMemo.Find(instance.Id()))
+            {
+                return *memo;
+            }
             if (depth > 64)
             {
                 DRACONIC_LOG_WARNING(u8"Cook", u8"read-dependency cycle at '{}'", instance.Path());
@@ -525,7 +627,8 @@ export namespace draconic::editor
             // 1. The source envelope (import settings + identity + embedded stream directory).
             {
                 UniquePtr<IStream> envelope = instance.OpenEnvelope();
-                const u64 envelopeHash = (envelope.Get() != nullptr) ? detail::HashStream(*envelope) : 0;
+                const u64 envelopeHash =
+                    (envelope.Get() != nullptr) ? detail::HashStream(*envelope) : 0;
                 h = detail::FoldHash(h, 'E', envelopeHash);
             }
 
@@ -534,7 +637,8 @@ export namespace draconic::editor
             Array<CookFileMemo> memos;
             if (!asset.fileName.IsEmpty())
             {
-                h = detail::FoldHash(h, 'F', HashSourceFile(asset.fileName.AsView(), previous, memos));
+                h = detail::FoldHash(h, 'F',
+                                     HashSourceFile(asset.fileName.AsView(), previous, memos));
             }
             for (const String& file : deps.files)
             {
@@ -547,7 +651,7 @@ export namespace draconic::editor
             {
                 UniquePtr<IStream> stream = instance.ReadData(streamName.AsView());
                 h = detail::FoldHash(h, 'S',
-                    (stream.Get() != nullptr) ? detail::HashStream(*stream) : 0);
+                                     (stream.Get() != nullptr) ? detail::HashStream(*stream) : 0);
             }
 
             // 3. Builder version.
@@ -571,7 +675,8 @@ export namespace draconic::editor
                             scanCtx.db = m_sourceDb;
                             AssetDependencies depDeps;
                             depBuilder->ScanDependencies(*depAsset, scanCtx, depDeps);
-                            readRecipe = ComputeRecipe(*dep, *depAsset, *depBuilder, depDeps, depth + 1);
+                            readRecipe =
+                                ComputeRecipe(*dep, *depAsset, *depBuilder, depDeps, depth + 1);
                         }
                     }
                 }
@@ -588,25 +693,43 @@ export namespace draconic::editor
         [[nodiscard]] i32 ReadDepth(const Guid& source, const AssetDependencies& deps,
                                     HashMap<Guid, i32>& levels, i32 depth)
         {
-            if (const i32* known = levels.Find(source)) { return *known; }
-            if (depth > 64) { return depth; }   // cycle guard (already warned in ComputeRecipe)
+            if (const i32* known = levels.Find(source))
+            {
+                return *known;
+            }
+            if (depth > 64)
+            {
+                return depth;
+            } // cycle guard (already warned in ComputeRecipe)
             i32 level = 0;
             for (const Guid& read : deps.reads)
             {
                 content::Instance* dep = m_sourceDb->GetInstance(read);
-                if (dep == nullptr) { continue; }
+                if (dep == nullptr)
+                {
+                    continue;
+                }
                 IAssetBuilder* depBuilder = m_builders->FindByTypeName(dep->TypeName());
-                if (depBuilder == nullptr) { continue; }
+                if (depBuilder == nullptr)
+                {
+                    continue;
+                }
                 RefPtr<ISerializable> depObject = dep->ReadObject();
                 Asset* depAsset = Cast<Asset>(depObject.Get());
-                if (depAsset == nullptr) { continue; }
+                if (depAsset == nullptr)
+                {
+                    continue;
+                }
                 AssetBuildContext scanCtx;
                 scanCtx.sources = m_sources;
                 scanCtx.db = m_sourceDb;
                 AssetDependencies depDeps;
                 depBuilder->ScanDependencies(*depAsset, scanCtx, depDeps);
                 const i32 depLevel = ReadDepth(read, depDeps, levels, depth + 1);
-                if (depLevel + 1 > level) { level = depLevel + 1; }
+                if (depLevel + 1 > level)
+                {
+                    level = depLevel + 1;
+                }
             }
             levels.InsertOrAssign(source, level);
             return level;
@@ -633,9 +756,8 @@ export namespace draconic::editor
             for (usize i = 1; i < guids.Size(); ++i)
             {
                 usize j = i;
-                auto less = [](const Guid& a, const Guid& b) {
-                    return a.high < b.high || (a.high == b.high && a.low < b.low);
-                };
+                auto less = [](const Guid& a, const Guid& b)
+                { return a.high < b.high || (a.high == b.high && a.low < b.low); };
                 while (j > 0 && less(guids[j], guids[j - 1]))
                 {
                     const Guid tmp = guids[j - 1];
@@ -650,8 +772,12 @@ export namespace draconic::editor
         // builder's product type. MUTATES the cooked DB - main thread only (see Execute).
         [[nodiscard]] content::Instance* EnsureProduct(const CookItem& item)
         {
-            const TypeInfo* productType = (item.builder != nullptr) ? item.builder->ProductType() : nullptr;
-            if (productType == nullptr) { return nullptr; }
+            const TypeInfo* productType =
+                (item.builder != nullptr) ? item.builder->ProductType() : nullptr;
+            if (productType == nullptr)
+            {
+                return nullptr;
+            }
             const StringView typeName(reinterpret_cast<const utf8char*>(productType->name));
 
             if (content::Instance* existing = m_cookedDb->GetInstance(item.source))
@@ -660,11 +786,17 @@ export namespace draconic::editor
                 // sequence) can leave this guid on a DIFFERENT product type. Writing this
                 // item's product into it would cross-type the envelope - readers then
                 // deserialize garbage. Recreate it with the right type instead.
-                if (existing->TypeName() == typeName) { return existing; }
+                if (existing->TypeName() == typeName)
+                {
+                    return existing;
+                }
                 (void)m_cookedDb->DeleteInstance(item.source);
             }
             content::Instance* source = m_sourceDb->GetInstance(item.source);
-            if (source == nullptr) { return nullptr; }
+            if (source == nullptr)
+            {
+                return nullptr;
+            }
             content::Group* group = MirrorGroup(source->OwningGroup());
 
             // Same guard for a NAME collision: CreateInstanceWithId returns an existing
@@ -673,7 +805,10 @@ export namespace draconic::editor
             // the product-guid == source-guid invariant. Remove it first.
             if (content::Instance* stale = group->GetInstance(source->Name()))
             {
-                if (stale->Id() != item.source) { (void)m_cookedDb->DeleteInstance(stale->Id()); }
+                if (stale->Id() != item.source)
+                {
+                    (void)m_cookedDb->DeleteInstance(stale->Id());
+                }
             }
             return group->CreateInstanceWithId(item.source, source->Name(), *productType);
         }
@@ -682,16 +817,19 @@ export namespace draconic::editor
         // threads: no DB mutation here - only reads + the product's own file writes.
         [[nodiscard]] bool CookItem_(CookItem& item)
         {
-            content::Instance* source = item.sourceInstance;   // snapshotted (no DB query off-thread)
+            content::Instance* source = item.sourceInstance; // snapshotted (no DB query off-thread)
             Asset* asset = Cast<Asset>(item.asset.Get());
             content::Instance* product = item.product;
-            if (source == nullptr || asset == nullptr || product == nullptr) { return false; }
+            if (source == nullptr || asset == nullptr || product == nullptr)
+            {
+                return false;
+            }
 
             AssetBuildContext ctx;
             ctx.sources = m_sources;
             ctx.source = source;
             ctx.output = product;
-            ctx.db = m_cookedDb;   // cross-refs resolve against already-cooked products
+            ctx.db = m_cookedDb; // cross-refs resolve against already-cooked products
             const Status built = item.builder->Build(*asset, ctx);
 
             // Record: recipe + memoized file hashes + deps; failures keep the last good
@@ -721,7 +859,8 @@ export namespace draconic::editor
         [[nodiscard]] content::Group* MirrorGroup(content::Group& sourceGroup)
         {
             Array<StringView> chain;
-            for (content::Group* g = &sourceGroup; g != nullptr && !g->Name().IsEmpty(); g = g->Parent())
+            for (content::Group* g = &sourceGroup; g != nullptr && !g->Name().IsEmpty();
+                 g = g->Parent())
             {
                 chain.PushBack(g->Name());
             }
@@ -736,13 +875,13 @@ export namespace draconic::editor
         content::ContentDatabase* m_sourceDb;
         content::ContentDatabase* m_cookedDb;
         BuilderRegistry* m_builders;
-        vfs::IFileSystem* m_sources;   // nullable: embedded-data projects have no source files
-        vfs::IFileSystem* m_cache;     // nullable: no persistence (tests / one-shot cooks)
-        JobSystem* m_jobs;             // nullable: serial execution
+        vfs::IFileSystem* m_sources; // nullable: embedded-data projects have no source files
+        vfs::IFileSystem* m_cache;   // nullable: no persistence (tests / one-shot cooks)
+        JobSystem* m_jobs;           // nullable: serial execution
 
         CookDb m_db;
-        HashMap<Guid, u64> m_recipeMemo;                    // per-Plan recipe cache
-        HashMap<Guid, Array<CookFileMemo>> m_pendingMemos;  // file memos gathered during Plan
-        Mutex m_recordMutex;                                // record updates from worker threads
+        HashMap<Guid, u64> m_recipeMemo;                   // per-Plan recipe cache
+        HashMap<Guid, Array<CookFileMemo>> m_pendingMemos; // file memos gathered during Plan
+        Mutex m_recordMutex;                               // record updates from worker threads
     };
 }

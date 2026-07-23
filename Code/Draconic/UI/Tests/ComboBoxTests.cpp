@@ -9,7 +9,10 @@ using namespace draconic::ui;
 using namespace draconic::core;
 namespace core = draconic::core;
 
-static core::RefPtr<ComboBox> MakeCombo() { return core::MakeRef<ComboBox>(core::DefaultAllocator()); }
+static core::RefPtr<ComboBox> MakeCombo()
+{
+    return core::MakeRef<ComboBox>(core::DefaultAllocator());
+}
 
 TEST_CASE("combo-box: AddItem_ReturnsIndex")
 {
@@ -23,7 +26,9 @@ TEST_CASE("combo-box: AddItem_ReturnsIndex")
 TEST_CASE("combo-box: RemoveItem_DecreasesCount")
 {
     auto cb = MakeCombo();
-    cb->AddItem(u8"A"); cb->AddItem(u8"B"); cb->AddItem(u8"C");
+    cb->AddItem(u8"A");
+    cb->AddItem(u8"B");
+    cb->AddItem(u8"C");
     cb->RemoveItem(1);
     CHECK(cb->ItemCount() == 2);
 }
@@ -31,7 +36,8 @@ TEST_CASE("combo-box: RemoveItem_DecreasesCount")
 TEST_CASE("combo-box: ClearItems_EmptiesList")
 {
     auto cb = MakeCombo();
-    cb->AddItem(u8"A"); cb->AddItem(u8"B");
+    cb->AddItem(u8"A");
+    cb->AddItem(u8"B");
     cb->ClearItems();
     CHECK(cb->ItemCount() == 0);
     CHECK(cb->SelectedIndex() == -1);
@@ -40,15 +46,19 @@ TEST_CASE("combo-box: ClearItems_EmptiesList")
 TEST_CASE("combo-box: SelectedIndex_Clamping")
 {
     auto cb = MakeCombo();
-    cb->AddItem(u8"A"); cb->AddItem(u8"B");
-    cb->SetSelectedIndex(5);  CHECK(cb->SelectedIndex() == 1);  // clamped to max
-    cb->SetSelectedIndex(-5); CHECK(cb->SelectedIndex() == -1); // clamped to -1
+    cb->AddItem(u8"A");
+    cb->AddItem(u8"B");
+    cb->SetSelectedIndex(5);
+    CHECK(cb->SelectedIndex() == 1); // clamped to max
+    cb->SetSelectedIndex(-5);
+    CHECK(cb->SelectedIndex() == -1); // clamped to -1
 }
 
 TEST_CASE("combo-box: SelectedText_ReturnsCorrect")
 {
     auto cb = MakeCombo();
-    cb->AddItem(u8"Alpha"); cb->AddItem(u8"Beta");
+    cb->AddItem(u8"Alpha");
+    cb->AddItem(u8"Beta");
     CHECK(cb->SelectedText() == u8""); // no selection
     cb->SetSelectedIndex(1);
     CHECK(cb->SelectedText() == u8"Beta");
@@ -57,9 +67,16 @@ TEST_CASE("combo-box: SelectedText_ReturnsCorrect")
 TEST_CASE("combo-box: OnSelectionChanged_Fires")
 {
     auto cb = MakeCombo();
-    cb->AddItem(u8"A"); cb->AddItem(u8"B");
-    bool fired = false; i32 firedIndex = -1;
-    cb->OnSelectionChanged.Add(Event<void(ComboBox*, i32)>::Handler{ [&fired, &firedIndex](ComboBox*, i32 idx) { fired = true; firedIndex = idx; } });
+    cb->AddItem(u8"A");
+    cb->AddItem(u8"B");
+    bool fired = false;
+    i32 firedIndex = -1;
+    cb->OnSelectionChanged.Add(
+        Event<void(ComboBox*, i32)>::Handler{[&fired, &firedIndex](ComboBox*, i32 idx)
+                                             {
+                                                 fired = true;
+                                                 firedIndex = idx;
+                                             }});
     cb->SetSelectedIndex(1);
     CHECK(fired);
     CHECK(firedIndex == 1);

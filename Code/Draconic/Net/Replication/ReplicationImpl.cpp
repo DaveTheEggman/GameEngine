@@ -567,7 +567,7 @@ namespace draconic::net
     }
 
     scene::EntityHandle StateReplication::FindOrCreateEntity(scene::Scene& scene, u32 networkId,
-                                                              const Guid& prefab, bool spawn)
+                                                             const Guid& prefab, bool spawn)
     {
         if (const scene::EntityHandle* found = m_netIdToEntity.Find(networkId))
         {

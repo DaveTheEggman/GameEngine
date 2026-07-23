@@ -51,7 +51,8 @@ TEST_CASE("theme-atlas: ThemeAtlas_CreateNineSliceDrawable")
     CHECK(atlas.Build());
 
     image::NineSlice slices(4, 4, 4, 4);
-    core::RefPtr<AtlasNineSliceDrawable> drawable = atlas.CreateNineSliceDrawable(u8"panel", slices);
+    core::RefPtr<AtlasNineSliceDrawable> drawable =
+        atlas.CreateNineSliceDrawable(u8"panel", slices);
     CHECK(drawable);
     CHECK(drawable->Slices.left == 4);
 }
@@ -73,8 +74,10 @@ TEST_CASE("theme-atlas: ThemeAtlas_CreateStateDrawable")
     atlas.AddImage(u8"btn_hover", &imgHover);
     CHECK(atlas.Build());
 
-    const StateImageEntry states[2] = { { ControlState::Normal, u8"btn_normal" }, { ControlState::Hover, u8"btn_hover" } };
-    core::RefPtr<StateListDrawable> stateDrawable = atlas.CreateStateDrawable(core::Span<const StateImageEntry>(states, 2));
+    const StateImageEntry states[2] = {{ControlState::Normal, u8"btn_normal"},
+                                       {ControlState::Hover, u8"btn_hover"}};
+    core::RefPtr<StateListDrawable> stateDrawable =
+        atlas.CreateStateDrawable(core::Span<const StateImageEntry>(states, 2));
     CHECK(stateDrawable);
 }
 

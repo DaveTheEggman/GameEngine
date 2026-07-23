@@ -28,7 +28,8 @@ namespace shaders = draconic::shaders;
 
 namespace
 {
-    constexpr const char8_t* kVtx  = u8"float4 main(uint id : SV_VertexID) : SV_Position { return float4(0,0,0,1); }\n";
+    constexpr const char8_t* kVtx =
+        u8"float4 main(uint id : SV_VertexID) : SV_Position { return float4(0,0,0,1); }\n";
     constexpr const char8_t* kFrag = u8"float4 main() : SV_Target { return float4(1,0,0,1); }\n";
 
     void RemoveTree()
@@ -42,7 +43,11 @@ namespace
 TEST_CASE("material resource: built via the manager; resolves shader + records the dependency")
 {
     shaders::Compiler* compiler = nullptr;
-    if (!shaders::createCompiler(shaders::CompilerDesc{}, compiler).IsOk()) { MESSAGE("DXC unavailable; skipping"); return; }
+    if (!shaders::createCompiler(shaders::CompilerDesc{}, compiler).IsOk())
+    {
+        MESSAGE("DXC unavailable; skipping");
+        return;
+    }
 
     GlobalTypeRegistry().Register(shaders::ShaderSource::StaticType());
     RegisterSerializable<shaders::ShaderSource>();
@@ -56,9 +61,11 @@ TEST_CASE("material resource: built via the manager; resolves shader + records t
 
     Guid shaderId, matId;
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                              u8".rasset");
 
-        auto* shaderInst = db.RootGroup()->CreateInstance(u8"lit_shader", shaders::ShaderSource::StaticType());
+        auto* shaderInst =
+            db.RootGroup()->CreateInstance(u8"lit_shader", shaders::ShaderSource::StaticType());
         shaderId = shaderInst->Id();
         shaders::ShaderSource ss;
         ss.name = String(u8"lit");
@@ -68,11 +75,11 @@ TEST_CASE("material resource: built via the manager; resolves shader + records t
 
         // author a material in code, then capture it into a MaterialSource referencing the shader
         RefPtr<Material> authored = MaterialBuilder(u8"litMat")
-            .Shader(u8"lit")
-            .Color(u8"tint", Float4{ 0.25f, 0.5f, 0.75f, 1.0f })
-            .Float(u8"roughness", 0.4f)
-            .Texture(u8"albedoMap")
-            .Build();
+                                        .Shader(u8"lit")
+                                        .Color(u8"tint", Float4{0.25f, 0.5f, 0.75f, 1.0f})
+                                        .Float(u8"roughness", 0.4f)
+                                        .Texture(u8"albedoMap")
+                                        .Build();
 
         MaterialSource ms;
         MaterialSource::FromMaterial(*authored, shaderId, ms);
@@ -82,7 +89,8 @@ TEST_CASE("material resource: built via the manager; resolves shader + records t
         REQUIRE(matInst->WriteObject(ms).IsOk());
     }
 
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                          u8".rasset");
     rhi::null::NullDevice device{DefaultAllocator()};
     shaders::ShaderSystem system(*compiler, device);
     shaders::ShaderFactory shaderFactory(system);
@@ -94,9 +102,9 @@ TEST_CASE("material resource: built via the manager; resolves shader + records t
     Proxy<Material> mat = manager.Bind<Material>(matId);
     REQUIRE(mat);
     CHECK(mat->name == u8"litMat");
-    CHECK(mat->shaderName == u8"lit");                  // resolved from the bound ShaderResource
+    CHECK(mat->shaderName == u8"lit"); // resolved from the bound ShaderResource
     CHECK(mat->PropertyCount() == 3);
-    CHECK(mat->UniformDataSize() == 20);                // float4 (16) + float (4)
+    CHECK(mat->UniformDataSize() == 20); // float4 (16) + float (4)
 
     // default uniform data survived the round-trip (tint = 0.25,0.5,0.75,1 at offset 0)
     const Span<const u8> defaults = mat->DefaultUniformData();
@@ -104,12 +112,19 @@ TEST_CASE("material resource: built via the manager; resolves shader + records t
     const f32* tint = reinterpret_cast<const f32*>(defaults.Data());
     CHECK(tint[0] == doctest::Approx(0.25f));
     CHECK(tint[2] == doctest::Approx(0.75f));
-    CHECK(*reinterpret_cast<const f32*>(defaults.Data() + 16) == doctest::Approx(0.4f));   // roughness
+    CHECK(*reinterpret_cast<const f32*>(defaults.Data() + 16) ==
+          doctest::Approx(0.4f)); // roughness
 
     // the factory's Bind of the shader recorded material -> shader
     const Span<const Guid> dependents = manager.Dependents(shaderId);
     bool found = false;
-    for (const Guid& g : dependents) { if (g == matId) { found = true; } }
+    for (const Guid& g : dependents)
+    {
+        if (g == matId)
+        {
+            found = true;
+        }
+    }
     CHECK(found);
 
     // reloading the shader is accepted (and transitively touches the material)
@@ -133,9 +148,11 @@ TEST_CASE("material: CreatePBR packs EmissiveColor at the shader's cbuffer offse
     CHECK(emissive->size == 16u);
     // The straggler scalars pack sequentially into the row after EmissiveColor.
     const MaterialPropertyDef* occ = pbr->FindProperty(u8"OcclusionStrength");
-    const MaterialPropertyDef* ns  = pbr->FindProperty(u8"NormalScale");
-    const MaterialPropertyDef* ac  = pbr->FindProperty(u8"AlphaCutoff");
-    REQUIRE(occ != nullptr); REQUIRE(ns != nullptr); REQUIRE(ac != nullptr);
+    const MaterialPropertyDef* ns = pbr->FindProperty(u8"NormalScale");
+    const MaterialPropertyDef* ac = pbr->FindProperty(u8"AlphaCutoff");
+    REQUIRE(occ != nullptr);
+    REQUIRE(ns != nullptr);
+    REQUIRE(ac != nullptr);
     CHECK(occ->offset == 48u);
     CHECK(ns->offset == 52u);
     CHECK(ac->offset == 56u);
@@ -153,27 +170,32 @@ TEST_CASE("material: pre-emissive forward sources upgrade in memory (offset/pad/
 {
     // Simulate an asset authored BEFORE EmissiveColor existed: the old CreatePBR property set.
     RefPtr<Material> old = MaterialBuilder(u8"legacy")
-        .Shader(u8"forward")
-        .VertexLayout(VertexLayoutType::Mesh)
-        .Color(u8"BaseColor", Float4{ 0.5f, 0.25f, 0.125f, 1.0f })
-        .Float(u8"Metallic", 1.0f)
-        .Float(u8"Roughness", 0.25f)
-        .Texture(u8"AlbedoMap")
-        .Sampler(u8"MainSampler")
-        .Build();
+                               .Shader(u8"forward")
+                               .VertexLayout(VertexLayoutType::Mesh)
+                               .Color(u8"BaseColor", Float4{0.5f, 0.25f, 0.125f, 1.0f})
+                               .Float(u8"Metallic", 1.0f)
+                               .Float(u8"Roughness", 0.25f)
+                               .Texture(u8"AlbedoMap")
+                               .Sampler(u8"MainSampler")
+                               .Build();
     MaterialSource src;
     MaterialSource::FromMaterial(*old, Guid{}, src);
     src.shaderName = String(u8"forward");
-    REQUIRE(src.uniformDefaults.Size() == 24u);   // the pre-emissive block
+    REQUIRE(src.uniformDefaults.Size() == 24u); // the pre-emissive block
 
     UpgradeForwardMaterialSource(src);
-    REQUIRE(src.propNames.Size() == 9u);   // + EmissiveColor/OcclusionStrength/NormalScale/AlphaCutoff
+    REQUIRE(src.propNames.Size() ==
+            9u); // + EmissiveColor/OcclusionStrength/NormalScale/AlphaCutoff
     // (appended AFTER the texture props - safe: the set-2 layout emits the uniform buffer
     // first regardless of property order)
-    const auto find = [&](StringView name) -> usize {
+    const auto find = [&](StringView name) -> usize
+    {
         for (usize i = 0; i < src.propNames.Size(); ++i)
         {
-            if (src.propNames[i].AsView() == name) { return i; }
+            if (src.propNames[i].AsView() == name)
+            {
+                return i;
+            }
         }
         return src.propNames.Size();
     };
@@ -182,25 +204,26 @@ TEST_CASE("material: pre-emissive forward sources upgrade in memory (offset/pad/
     const usize ns = find(u8"NormalScale");
     const usize ac = find(u8"AlphaCutoff");
     REQUIRE(e < src.propNames.Size());
-    CHECK(src.propOffsets[e] == 32u);      // 16-aligned past the 24-byte block
+    CHECK(src.propOffsets[e] == 32u); // 16-aligned past the 24-byte block
     CHECK(src.propSizes[e] == 16u);
     REQUIRE(occ < src.propNames.Size());
-    CHECK(src.propOffsets[occ] == 48u);    // matches the shader cbuffer row
+    CHECK(src.propOffsets[occ] == 48u); // matches the shader cbuffer row
     CHECK(src.propOffsets[ns] == 52u);
     CHECK(src.propOffsets[ac] == 56u);
     REQUIRE(src.uniformDefaults.Size() == 60u);
     // The original bytes are untouched; the appended defaults are the NEUTRALS, not zeros.
-    const auto readF32 = [&](u32 offset) {
+    const auto readF32 = [&](u32 offset)
+    {
         f32 v = 0.0f;
         MemCopy(&v, src.uniformDefaults.Data() + offset, sizeof(v));
         return v;
     };
-    CHECK(readF32(0) == 0.5f);     // BaseColor.r preserved
-    CHECK(readF32(32) == 0.0f);    // emissive black
-    CHECK(readF32(44) == 1.0f);    // emissive alpha
-    CHECK(readF32(48) == 1.0f);    // occlusion strength
-    CHECK(readF32(52) == 1.0f);    // normal scale
-    CHECK(readF32(56) == 0.5f);    // alpha cutoff
+    CHECK(readF32(0) == 0.5f);  // BaseColor.r preserved
+    CHECK(readF32(32) == 0.0f); // emissive black
+    CHECK(readF32(44) == 1.0f); // emissive alpha
+    CHECK(readF32(48) == 1.0f); // occlusion strength
+    CHECK(readF32(52) == 1.0f); // normal scale
+    CHECK(readF32(56) == 0.5f); // alpha cutoff
 
     // Idempotent + non-forward untouched.
     UpgradeForwardMaterialSource(src);
@@ -218,22 +241,24 @@ TEST_CASE("material source: sampler address modes round-trip (v2)")
 
     Guid id;
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                              u8".rasset");
         MaterialSource source;
         source.name = u8"wrapped";
         source.shaderName = u8"forward";
-        source.samplerU = 2;   // rhi::AddressMode::ClampToEdge
-        source.samplerV = 1;   // rhi::AddressMode::MirrorRepeat
+        source.samplerU = 2; // rhi::AddressMode::ClampToEdge
+        source.samplerV = 1; // rhi::AddressMode::MirrorRepeat
         auto* inst = db.RootGroup()->CreateInstance(u8"wrapped", MaterialSource::StaticType());
         id = inst->Id();
         REQUIRE(inst->WriteObject(source).IsOk());
     }
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                              u8".rasset");
         RefPtr<ISerializable> object = db.ReadObject(id);
         auto* read = Cast<MaterialSource>(object.Get());
         REQUIRE(read != nullptr);
-        CHECK(read->samplerU == 2);   // the v2 envelope round-trips the modes
+        CHECK(read->samplerU == 2); // the v2 envelope round-trips the modes
         CHECK(read->samplerV == 1);
     }
 

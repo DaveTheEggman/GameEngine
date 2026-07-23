@@ -16,8 +16,11 @@ namespace
     void PumpUntilIdle(editor::EditorJobService& jobs, const Function<void(StringView)>& log = {})
     {
         int guard = 0;
-        while (jobs.IsBusy() && guard++ < 2'000'000) { jobs.Update(log); }
-        jobs.Update(log);   // final drain
+        while (jobs.IsBusy() && guard++ < 2'000'000)
+        {
+            jobs.Update(log);
+        }
+        jobs.Update(log); // final drain
     }
 }
 
@@ -27,7 +30,8 @@ TEST_CASE("jobs: a submitted job runs on a worker, reports, and completes on Upd
 
     bool doneFired = false;
     bool okStatus = false;
-    jobs.Submit(u8"Work",
+    jobs.Submit(
+        u8"Work",
         [](editor::JobContext& ctx) -> Status
         {
             ctx.SetStep(u8"phase one", 1, 2);
@@ -37,9 +41,13 @@ TEST_CASE("jobs: a submitted job runs on a worker, reports, and completes on Upd
             ctx.SetFraction(1.0f);
             return Status{};
         },
-        [&](Status s) { doneFired = true; okStatus = s.IsOk(); });
+        [&](Status s)
+        {
+            doneFired = true;
+            okStatus = s.IsOk();
+        });
 
-    CHECK(jobs.IsBusy());   // running synchronously spawned before Submit returned
+    CHECK(jobs.IsBusy()); // running synchronously spawned before Submit returned
 
     Array<String> logs;
     PumpUntilIdle(jobs, [&](StringView l) { logs.PushBack(String(l)); });
@@ -47,10 +55,16 @@ TEST_CASE("jobs: a submitted job runs on a worker, reports, and completes on Upd
     CHECK(doneFired);
     CHECK(okStatus);
     CHECK_FALSE(jobs.IsBusy());
-    CHECK_FALSE(jobs.Progress().active);   // idle => no active progress
+    CHECK_FALSE(jobs.Progress().active); // idle => no active progress
 
     bool sawLog = false;
-    for (const String& l : logs) { if (l == u8"halfway") { sawLog = true; } }
+    for (const String& l : logs)
+    {
+        if (l == u8"halfway")
+        {
+            sawLog = true;
+        }
+    }
     CHECK(sawLog);
 }
 
@@ -58,8 +72,8 @@ TEST_CASE("jobs: a failing job propagates its Status to onDone")
 {
     editor::EditorJobService jobs;
     bool failed = false;
-    jobs.Submit(u8"Bad",
-        [](editor::JobContext&) -> Status { return Status{ ErrorCode::Internal }; },
+    jobs.Submit(
+        u8"Bad", [](editor::JobContext&) -> Status { return Status{ErrorCode::Internal}; },
         [&](Status s) { failed = !s.IsOk(); });
     PumpUntilIdle(jobs);
     CHECK(failed);
@@ -72,8 +86,9 @@ TEST_CASE("jobs: submissions run one at a time, in order")
     // The completion callbacks run on the main thread (from Update), so appending is race-free.
     for (int i = 0; i < 3; ++i)
     {
-        jobs.Submit(u8"n", [](editor::JobContext&) -> Status { return Status{}; },
-                    [&order, i](Status) { order.PushBack(i); });
+        jobs.Submit(
+            u8"n", [](editor::JobContext&) -> Status { return Status{}; },
+            [&order, i](Status) { order.PushBack(i); });
     }
     PumpUntilIdle(jobs);
     REQUIRE(order.Size() == 3u);
@@ -92,17 +107,17 @@ TEST_CASE("cook service: external mutation lock defers RunWhenIdle until release
     CHECK(!cook.MutationLocked());
 
     int ran = 0;
-    cook.RunWhenIdle(Function<void()>{ [&ran]() { ++ran; } });
-    CHECK(ran == 1);   // unlocked -> runs immediately
+    cook.RunWhenIdle(Function<void()>{[&ran]() { ++ran; }});
+    CHECK(ran == 1); // unlocked -> runs immediately
 
     busy = true;
     CHECK(cook.MutationLocked());
-    cook.RunWhenIdle(Function<void()>{ [&ran]() { ++ran; } });
-    CHECK(ran == 1);   // locked -> deferred
+    cook.RunWhenIdle(Function<void()>{[&ran]() { ++ran; }});
+    CHECK(ran == 1); // locked -> deferred
     cook.Update({});
-    CHECK(ran == 1);   // still locked
+    CHECK(ran == 1); // still locked
 
     busy = false;
     cook.Update({});
-    CHECK(ran == 2);   // released -> the deferred action replays
+    CHECK(ran == 2); // released -> the deferred action replays
 }

@@ -125,11 +125,11 @@ namespace
             // Wire the single-scene message route (the ScriptSubsystem installs a
             // scene-multiplexer in a real run; here one system owns every entity).
             ScriptSceneSystem* system = scripts;
-            host.Binding().dispatchMessage = Function<void(scene::Scene*, scene::EntityHandle,
-                                                           StringView, Span<const Variant>)>{
-                [system](scene::Scene*, scene::EntityHandle target, StringView message,
-                         Span<const Variant> args)
-                { system->EnqueueMessage(target, message, args); }};
+            host.Binding().dispatchMessage =
+                Function<void(scene::Scene*, scene::EntityHandle, StringView, Span<const Variant>)>{
+                    [system](scene::Scene*, scene::EntityHandle target, StringView message,
+                             Span<const Variant> args)
+                    { system->EnqueueMessage(target, message, args); }};
         }
 
         scene::EntityHandle AddScripted(const RefPtr<ScriptClass>& cls, StringView name)
@@ -1261,7 +1261,7 @@ namespace
         }
 
         scene::EntityHandle AddBody(StringView name, Float3 position, physics::MotionKind motion,
-                                     Float3 halfExtents, bool trigger = false)
+                                    Float3 halfExtents, bool trigger = false)
         {
             scene::EntityHandle e = scene->CreateEntity(name);
             scene->SetLocalPosition(e, position);

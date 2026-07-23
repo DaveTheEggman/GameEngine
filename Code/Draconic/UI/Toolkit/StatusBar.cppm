@@ -67,16 +67,19 @@ export namespace draconic::ui::toolkit
             // Background.
             if (Drawable* bg = ResolveStyleDrawable(StyleProperty::Background))
             {
-                bg->Draw(ctx, Rectangle{ 0, 0, Width(), Height() });
+                bg->Draw(ctx, Rectangle{0, 0, Width(), Height()});
             }
             else
             {
-                ctx.VG().FillRect(Rectangle{ 0, 0, Width(), Height() }, Color{ 30.0f / 255.0f, 32.0f / 255.0f, 40.0f / 255.0f, 1.0f });
+                ctx.VG().FillRect(Rectangle{0, 0, Width(), Height()},
+                                  Color{30.0f / 255.0f, 32.0f / 255.0f, 40.0f / 255.0f, 1.0f});
             }
 
             // Top border.
-            const Color borderColor = ResolveStyleColor(StyleProperty::BorderColor, Color{ 65.0f / 255.0f, 70.0f / 255.0f, 85.0f / 255.0f, 1.0f });
-            ctx.VG().FillRect(Rectangle{ 0, 0, Width(), 1.0f }, borderColor);
+            const Color borderColor =
+                ResolveStyleColor(StyleProperty::BorderColor,
+                                  Color{65.0f / 255.0f, 70.0f / 255.0f, 85.0f / 255.0f, 1.0f});
+            ctx.VG().FillRect(Rectangle{0, 0, Width(), 1.0f}, borderColor);
 
             DrawChildren(ctx);
         }
@@ -86,7 +89,10 @@ export namespace draconic::ui::toolkit
         {
             FlexLayout::OnMeasure(constraints);
             // Ensure a minimum height of 24px.
-            if (MeasuredSize.y < 24.0f) { MeasuredSize = Float2{ MeasuredSize.x, 24.0f }; }
+            if (MeasuredSize.y < 24.0f)
+            {
+                MeasuredSize = Float2{MeasuredSize.x, 24.0f};
+            }
         }
 
     private:

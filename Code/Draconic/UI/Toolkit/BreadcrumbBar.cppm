@@ -30,18 +30,21 @@ export namespace draconic::ui::toolkit
         /// Fired when a segment is clicked. Parameter: segment index.
         Event<void(BreadcrumbBar*, i32)> OnSegmentClicked;
 
-        BreadcrumbBar()
-        {
-            Cursor = CursorType::Hand;
-        }
+        BreadcrumbBar() { Cursor = CursorType::Hand; }
 
-        [[nodiscard]] i32 SegmentCount() const noexcept { return static_cast<i32>(m_segments.Size()); }
+        [[nodiscard]] i32 SegmentCount() const noexcept
+        {
+            return static_cast<i32>(m_segments.Size());
+        }
 
         /// Set the path from a list of segments.
         void SetSegments(Span<StringView> segments)
         {
             m_segments.Clear();
-            for (const StringView& s : segments) { m_segments.PushBack(String(s)); }
+            for (const StringView& s : segments)
+            {
+                m_segments.PushBack(String(s));
+            }
             Invalidate();
         }
 
@@ -56,7 +59,10 @@ export namespace draconic::ui::toolkit
                 if (i == n || path[i] == separator)
                 {
                     const StringView trimmed = Trim(path.SubStr(start, i - start));
-                    if (!trimmed.IsEmpty()) { m_segments.PushBack(String(trimmed)); }
+                    if (!trimmed.IsEmpty())
+                    {
+                        m_segments.PushBack(String(trimmed));
+                    }
                     start = i + 1;
                 }
             }
@@ -66,7 +72,10 @@ export namespace draconic::ui::toolkit
         /// Get the segment text at an index.
         [[nodiscard]] StringView GetSegment(i32 index) const
         {
-            if (index < 0 || index >= static_cast<i32>(m_segments.Size())) { return StringView{}; }
+            if (index < 0 || index >= static_cast<i32>(m_segments.Size()))
+            {
+                return StringView{};
+            }
             return m_segments[static_cast<usize>(index)].AsView();
         }
 
@@ -75,7 +84,10 @@ export namespace draconic::ui::toolkit
         {
             for (i32 i = 0; i <= index && i < static_cast<i32>(m_segments.Size()); ++i)
             {
-                if (i > 0) { output.Append(separator); }
+                if (i > 0)
+                {
+                    output.Append(separator);
+                }
                 output.Append(m_segments[static_cast<usize>(i)].AsView());
             }
         }
@@ -92,30 +104,41 @@ export namespace draconic::ui::toolkit
             {
                 const f32 cr = ResolveStyleFloat(StyleProperty::CornerRadius, 0.0f);
                 const draconic::vg::CornerRadii saved = rrd->Radii;
-                rrd->Radii = draconic::vg::CornerRadii{ cr, cr, cr, cr };
-                rrd->Draw(ctx, Rectangle{ 0, 0, Width(), h });
+                rrd->Radii = draconic::vg::CornerRadii{cr, cr, cr, cr};
+                rrd->Draw(ctx, Rectangle{0, 0, Width(), h});
                 rrd->Radii = saved;
             }
             else if (bgDrawable != nullptr)
             {
-                bgDrawable->Draw(ctx, Rectangle{ 0, 0, Width(), h });
+                bgDrawable->Draw(ctx, Rectangle{0, 0, Width(), h});
             }
             else
             {
-                ctx.VG().FillRect(Rectangle{ 0, 0, Width(), h }, Rgb(40, 42, 52, 255));
+                ctx.VG().FillRect(Rectangle{0, 0, Width(), h}, Rgb(40, 42, 52, 255));
             }
 
-            fonts::CachedFont* font = (ctx.FontService() != nullptr) ? ctx.FontService()->GetFont(m_fontSize) : nullptr;
-            if (font == nullptr) { return; }
+            fonts::CachedFont* font =
+                (ctx.FontService() != nullptr) ? ctx.FontService()->GetFont(m_fontSize) : nullptr;
+            if (font == nullptr)
+            {
+                return;
+            }
 
-            const Color textColor = ResolveStyleColor(StyleProperty::TextColor, Rgb(220, 225, 235, 255));
-            const Color hoverColor = ResolveStyleColor(StyleProperty::AccentColor, Rgb(80, 150, 240, 255));
-            const Color lastColor = ResolveStyleColor(StyleProperty::TextDimColor, Rgb(180, 185, 200, 255));
-            const Color sepColor = ResolveStyleColor(StyleProperty::BorderColor, Rgb(100, 105, 120, 255));
+            const Color textColor =
+                ResolveStyleColor(StyleProperty::TextColor, Rgb(220, 225, 235, 255));
+            const Color hoverColor =
+                ResolveStyleColor(StyleProperty::AccentColor, Rgb(80, 150, 240, 255));
+            const Color lastColor =
+                ResolveStyleColor(StyleProperty::TextDimColor, Rgb(180, 185, 200, 255));
+            const Color sepColor =
+                ResolveStyleColor(StyleProperty::BorderColor, Rgb(100, 105, 120, 255));
 
             for (usize i = 0; i < m_segments.Size(); ++i)
             {
-                if (i >= m_segmentRects.Size()) { break; }
+                if (i >= m_segmentRects.Size())
+                {
+                    break;
+                }
                 const Rectangle rect = m_segmentRects[i];
                 const bool isLast = i == m_segments.Size() - 1;
                 const bool isHovered = static_cast<i32>(i) == m_hoveredIndex;
@@ -124,18 +147,30 @@ export namespace draconic::ui::toolkit
                 if (isHovered && !isLast)
                 {
                     Color bgColor = Rgb(40, 42, 52, 255);
-                    if (RoundedRectDrawable* rrd = Cast<RoundedRectDrawable>(bgDrawable)) { bgColor = rrd->FillColor; }
-                    else if (ColorDrawable* cd = Cast<ColorDrawable>(bgDrawable)) { bgColor = cd->Color; }
+                    if (RoundedRectDrawable* rrd = Cast<RoundedRectDrawable>(bgDrawable))
+                    {
+                        bgColor = rrd->FillColor;
+                    }
+                    else if (ColorDrawable* cd = Cast<ColorDrawable>(bgDrawable))
+                    {
+                        bgColor = cd->Color;
+                    }
                     const Color hc = Palette::ComputeHover(bgColor);
                     const f32 cr = ResolveStyleFloat(StyleProperty::CornerRadius, 0.0f);
-                    if (cr > 0.0f) { ctx.VG().FillRoundedRect(rect, cr, hc); }
-                    else { ctx.VG().FillRect(rect, hc); }
+                    if (cr > 0.0f)
+                    {
+                        ctx.VG().FillRoundedRect(rect, cr, hc);
+                    }
+                    else
+                    {
+                        ctx.VG().FillRect(rect, hc);
+                    }
                 }
 
                 // Segment text.
                 const Color color = isHovered ? hoverColor : (isLast ? lastColor : textColor);
-                ctx.VG().DrawText(m_segments[i], font, rect,
-                    fonts::TextAlignment::Center, fonts::VerticalAlignment::Middle, color);
+                ctx.VG().DrawText(m_segments[i], font, rect, fonts::TextAlignment::Center,
+                                  fonts::VerticalAlignment::Middle, color);
 
                 // Separator arrow after each segment except last.
                 if (!isLast)
@@ -156,7 +191,10 @@ export namespace draconic::ui::toolkit
 
         void OnMouseDown(MouseEventArgs& e) override
         {
-            if (e.Button != MouseButton::Left) { return; }
+            if (e.Button != MouseButton::Left)
+            {
+                return;
+            }
 
             const Float2 local = MouseLocal();
             const i32 idx = GetSegmentAt(local.x, local.y);
@@ -202,13 +240,18 @@ export namespace draconic::ui::toolkit
                     textH = font->font->Metrics().lineHeight;
                     for (usize i = 0; i < m_segments.Size(); ++i)
                     {
-                        totalW += font->font->MeasureString(m_segments[i]) + m_segmentPadding * 2.0f;
-                        if (i < m_segments.Size() - 1) { totalW += m_separatorWidth; }
+                        totalW +=
+                            font->font->MeasureString(m_segments[i]) + m_segmentPadding * 2.0f;
+                        if (i < m_segments.Size() - 1)
+                        {
+                            totalW += m_separatorWidth;
+                        }
                     }
                 }
             }
 
-            MeasuredSize = Float2{ constraints.ConstrainWidth(totalW), constraints.ConstrainHeight(textH + 8.0f) };
+            MeasuredSize = Float2{constraints.ConstrainWidth(totalW),
+                                  constraints.ConstrainHeight(textH + 8.0f)};
         }
 
         void OnLayout(f32 left, f32 top, f32 width, f32 height) override
@@ -223,32 +266,38 @@ export namespace draconic::ui::toolkit
     private:
         [[nodiscard]] static Color Rgb(u8 r, u8 g, u8 b, u8 a = 255) noexcept
         {
-            return Color{ r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f };
+            return Color{r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f};
         }
 
         [[nodiscard]] Float2 MouseLocal() const
         {
             const f32 screenX = (Context != nullptr) ? Context->GetInputManager()->MouseX() : 0.0f;
             const f32 screenY = (Context != nullptr) ? Context->GetInputManager()->MouseY() : 0.0f;
-            return ScreenToLocal(Float2{ screenX, screenY });
+            return ScreenToLocal(Float2{screenX, screenY});
         }
 
         void RebuildSegmentRects()
         {
             m_segmentRects.Clear();
             fonts::CachedFont* font = (Context != nullptr && Context->FontService() != nullptr)
-                ? Context->FontService()->GetFont(m_fontSize)
-                : nullptr;
-            if (font == nullptr) { return; }
+                                          ? Context->FontService()->GetFont(m_fontSize)
+                                          : nullptr;
+            if (font == nullptr)
+            {
+                return;
+            }
 
             f32 x = 0.0f;
             for (usize i = 0; i < m_segments.Size(); ++i)
             {
                 const f32 textW = font->font->MeasureString(m_segments[i]);
                 const f32 segW = textW + m_segmentPadding * 2.0f;
-                m_segmentRects.PushBack(Rectangle{ x, 0, segW, Height() });
+                m_segmentRects.PushBack(Rectangle{x, 0, segW, Height()});
                 x += segW;
-                if (i < m_segments.Size() - 1) { x += m_separatorWidth; }
+                if (i < m_segments.Size() - 1)
+                {
+                    x += m_separatorWidth;
+                }
             }
         }
 

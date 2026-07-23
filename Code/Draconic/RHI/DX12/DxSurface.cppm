@@ -13,16 +13,18 @@ import draconic.rhi;
 
 using namespace draconic::core;
 
-export namespace draconic::rhi::dx12 {
+export namespace draconic::rhi::dx12
+{
 
-class DxSurfaceImpl : public Surface {
-public:
-    explicit DxSurfaceImpl(HWND hwnd) : m_hwnd(hwnd) {}
+    class DxSurfaceImpl : public Surface
+    {
+    public:
+        explicit DxSurfaceImpl(HWND hwnd) : m_hwnd(hwnd) {}
 
-    [[nodiscard]] HWND handle() const { return m_hwnd; }
+        [[nodiscard]] HWND handle() const { return m_hwnd; }
 
-private:
-    HWND m_hwnd = nullptr;
-};
+    private:
+        HWND m_hwnd = nullptr;
+    };
 
 } // namespace draconic::rhi::dx12

@@ -48,8 +48,7 @@ export namespace draconic::shell
         /// empty span on cancel / error.
         virtual void ShowOpenFile(DialogResultCallback callback,
                                   core::Span<const FileFilter> filters = {},
-                                  core::StringView defaultPath = {},
-                                  bool allowMultiple = false,
+                                  core::StringView defaultPath = {}, bool allowMultiple = false,
                                   core::u32 parentWindowId = 0) = 0;
 
         /// Show a native "save file" dialog to pick a (possibly new) file path to write. Same
@@ -64,8 +63,7 @@ export namespace draconic::shell
         /// `allowMultiple` permits selecting several folders; `parentWindowId` as above. Async:
         /// `callback` fires once with the chosen folder(s), or an empty span on cancel / error.
         virtual void ShowOpenFolder(DialogResultCallback callback,
-                                    core::StringView defaultPath = {},
-                                    bool allowMultiple = false,
+                                    core::StringView defaultPath = {}, bool allowMultiple = false,
                                     core::u32 parentWindowId = 0) = 0;
 
         /// Open `path` with the OS default handler: a FOLDER opens in the system file manager, a file

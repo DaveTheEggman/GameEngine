@@ -13,25 +13,31 @@ import draconic.rhi;
 
 using namespace draconic::core;
 
-export namespace draconic::rhi::vk {
+export namespace draconic::rhi::vk
+{
 
-class VkSurfaceImpl : public Surface {
-public:
-    VkSurfaceImpl(VkSurfaceKHR surface, VkInstance instance)
-        : m_surface(surface), m_instance(instance) {}
-
-    [[nodiscard]] VkSurfaceKHR handle() const { return m_surface; }
-
-    void Destroy() {
-        if (m_surface != VK_NULL_HANDLE) {
-            vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
-            m_surface = VK_NULL_HANDLE;
+    class VkSurfaceImpl : public Surface
+    {
+    public:
+        VkSurfaceImpl(VkSurfaceKHR surface, VkInstance instance)
+            : m_surface(surface), m_instance(instance)
+        {
         }
-    }
 
-private:
-    VkSurfaceKHR m_surface  = VK_NULL_HANDLE;
-    VkInstance   m_instance = VK_NULL_HANDLE;
-};
+        [[nodiscard]] VkSurfaceKHR handle() const { return m_surface; }
+
+        void Destroy()
+        {
+            if (m_surface != VK_NULL_HANDLE)
+            {
+                vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
+                m_surface = VK_NULL_HANDLE;
+            }
+        }
+
+    private:
+        VkSurfaceKHR m_surface = VK_NULL_HANDLE;
+        VkInstance m_instance = VK_NULL_HANDLE;
+    };
 
 } // namespace draconic::rhi::vk

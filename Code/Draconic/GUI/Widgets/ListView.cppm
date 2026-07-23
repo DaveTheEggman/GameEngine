@@ -11,8 +11,8 @@ module;
 
 export module draconic.gui:list_view;
 
-import draconic.core;   // RefPtr, MakeRef, Move
-import draconic.fonts;  // CachedFont
+import draconic.core;  // RefPtr, MakeRef, Move
+import draconic.fonts; // CachedFont
 import :rect;
 import :label;
 import :model_index;
@@ -36,7 +36,7 @@ export namespace draconic::gui
             m_label = core::MakeRef<Label>(core::DefaultAllocator());
             m_label->SetTag(core::StringView(u8"listcell")); // container-owned, not a generic label
             m_label->SetTextAlignment(TextHAlign::Left, TextVAlign::Middle);
-            m_label->SetPadding(Thickness{ 8.0f, 0.0f, 8.0f, 0.0f });
+            m_label->SetPadding(Thickness{8.0f, 0.0f, 8.0f, 0.0f});
             m_label->SetHitTestVisible(false);
             AddChild(m_label.Get());
         }
@@ -55,13 +55,15 @@ export namespace draconic::gui
         void SetFont(fonts::CachedFont* font)
         {
             m_font = font;
-            for (const RefPtr<ItemRow>& r : RowPool()) static_cast<ListRow*>(r.Get())->GetLabel()->SetFont(font);
+            for (const RefPtr<ItemRow>& r : RowPool())
+                static_cast<ListRow*>(r.Get())->GetLabel()->SetFont(font);
             RequestRelayout();
         }
         void SetRowTextColor(Color color)
         {
             m_textColor = color;
-            for (const RefPtr<ItemRow>& r : RowPool()) static_cast<ListRow*>(r.Get())->GetLabel()->SetTextColor(color);
+            for (const RefPtr<ItemRow>& r : RowPool())
+                static_cast<ListRow*>(r.Get())->GetLabel()->SetTextColor(color);
         }
         // `listview { color }` propagates to the rows (container-owned styling).
         void SetThemeTextColor(Color color) override { SetRowTextColor(color); }
@@ -83,13 +85,13 @@ export namespace draconic::gui
         {
             Label* label = static_cast<ListRow&>(row).GetLabel();
             label->SetText(GetModel()->Data(MakeModelIndex(item)).ToString().AsView());
-            label->SetPosition(core::Float2{ 0.0f, 0.0f });
-            label->SetSize(core::Float2{ rowWidth, GetRowHeight() });
+            label->SetPosition(core::Float2{0.0f, 0.0f});
+            label->SetSize(core::Float2{rowWidth, GetRowHeight()});
         }
 
     private:
         fonts::CachedFont* m_font = nullptr;
-        Color m_textColor{ 0.88f, 0.90f, 0.94f, 1.0f };
+        Color m_textColor{0.88f, 0.90f, 0.94f, 1.0f};
     };
 
     DRACONIC_DEFINE_OBJECT(ListRow, "draconic::gui")

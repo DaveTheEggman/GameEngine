@@ -80,7 +80,8 @@ namespace
     template <typename T>
     void AddBuilder(editor::BuilderRegistry& registry)
     {
-        registry.Register(UniquePtr<editor::IAssetBuilder>(DefaultAllocator().New<T>(), DefaultAllocator()));
+        registry.Register(
+            UniquePtr<editor::IAssetBuilder>(DefaultAllocator().New<T>(), DefaultAllocator()));
     }
 
     // Every engine builder (kept in lockstep with the RaptorCook CLI's set).
@@ -140,49 +141,72 @@ namespace
     // Create a StaticMeshAsset in the project's Meshes/ group from a procedural primitive,
     // named uniquely (Cube, Cube2, ...). The creator system cooks it right after, so it shows
     // up in the mesh pickers without further steps (quick prototyping, not whiteboxing).
-    draconic::content::Instance* CreatePrimitiveMeshInstance(
-        editor::EditorContext& ctx, StringView baseName, RefPtr<draconic::geometry::StaticMesh> mesh,
-        draconic::content::Group* target)
+    draconic::content::Instance*
+    CreatePrimitiveMeshInstance(editor::EditorContext& ctx, StringView baseName,
+                                RefPtr<draconic::geometry::StaticMesh> mesh,
+                                draconic::content::Group* target)
     {
         editor::EditorProject* project = ctx.Project();
-        if (project == nullptr || mesh.Get() == nullptr) { return nullptr; }
+        if (project == nullptr || mesh.Get() == nullptr)
+        {
+            return nullptr;
+        }
         draconic::content::Group* meshes = target;
         if (meshes == nullptr)
         {
             draconic::content::Group* root = project->SourceDb().RootGroup();
             meshes = root->GetGroup(u8"Meshes");
-            if (meshes == nullptr) { meshes = root->CreateGroup(u8"Meshes"); }
+            if (meshes == nullptr)
+            {
+                meshes = root->CreateGroup(u8"Meshes");
+            }
         }
-        if (meshes == nullptr) { return nullptr; }
+        if (meshes == nullptr)
+        {
+            return nullptr;
+        }
 
         String name(baseName);
         for (i32 counter = 2; meshes->GetInstance(name.AsView()) != nullptr; ++counter)
         {
             name = String(baseName);
-            if (counter >= 10) { name.PushBack(static_cast<utf8char>('0' + (counter / 10 % 10))); }
+            if (counter >= 10)
+            {
+                name.PushBack(static_cast<utf8char>('0' + (counter / 10 % 10)));
+            }
             name.PushBack(static_cast<utf8char>('0' + (counter % 10)));
         }
 
-        draconic::content::Instance* instance =
-            meshes->CreateInstance(name.AsView(), draconic::geometry::StaticMeshAsset::StaticType());
-        if (instance == nullptr) { return nullptr; }
+        draconic::content::Instance* instance = meshes->CreateInstance(
+            name.AsView(), draconic::geometry::StaticMeshAsset::StaticType());
+        if (instance == nullptr)
+        {
+            return nullptr;
+        }
         draconic::geometry::StaticMeshAsset asset;
         draconic::geometry::MeshImporter::Import(*mesh, asset);
-        if (!instance->WriteObject(asset).IsOk()) { return nullptr; }
+        if (!instance->WriteObject(asset).IsOk())
+        {
+            return nullptr;
+        }
         return instance;
     }
 
     void RegisterPrimitiveMeshCreators(editor::EditorContext& context)
     {
         namespace geometry = draconic::geometry;
-        struct Entry { const utf8char* label; RefPtr<geometry::StaticMesh> (*make)(); };
+        struct Entry
+        {
+            const utf8char* label;
+            RefPtr<geometry::StaticMesh> (*make)();
+        };
         static const Entry entries[] = {
-            { u8"Cube",     []() { return geometry::Primitives::Cube(); } },
-            { u8"Sphere",   []() { return geometry::Primitives::Sphere(); } },
-            { u8"Plane",    []() { return geometry::Primitives::Plane(); } },
-            { u8"Cylinder", []() { return geometry::Primitives::Cylinder(); } },
-            { u8"Cone",     []() { return geometry::Primitives::Cone(); } },
-            { u8"Torus",    []() { return geometry::Primitives::Torus(); } },
+            {u8"Cube", []() { return geometry::Primitives::Cube(); }},
+            {u8"Sphere", []() { return geometry::Primitives::Sphere(); }},
+            {u8"Plane", []() { return geometry::Primitives::Plane(); }},
+            {u8"Cylinder", []() { return geometry::Primitives::Cylinder(); }},
+            {u8"Cone", []() { return geometry::Primitives::Cone(); }},
+            {u8"Torus", []() { return geometry::Primitives::Torus(); }},
         };
         for (const Entry& e : entries)
         {
@@ -191,9 +215,9 @@ namespace
             creator.category = String(StringView(u8"Primitives"));
             auto make = e.make;
             String base(StringView(e.label));
-            creator.create = [make, base](editor::EditorContext& ctx, draconic::content::Group* group) {
-                return CreatePrimitiveMeshInstance(ctx, base.AsView(), make(), group);
-            };
+            creator.create =
+                [make, base](editor::EditorContext& ctx, draconic::content::Group* group)
+            { return CreatePrimitiveMeshInstance(ctx, base.AsView(), make(), group); };
             context.RegisterCreator(draconic::core::Move(creator));
         }
     }
@@ -209,12 +233,12 @@ int main(int argc, char** argv)
     ConsoleSink consoleSink;
     GlobalLogger().AddSink(&logBuffer);
     GlobalLogger().AddSink(&consoleSink);
-    GlobalLogger().SetMinLevel(LogLevel::Debug);   // the Console panel has a Debug filter toggle
+    GlobalLogger().SetMinLevel(LogLevel::Debug); // the Console panel has a Debug filter toggle
 
     editor::app::EditorAppConfig config;
     config.projectDirectory = String(argc > 1 && argv[1][0] != '-'
-        ? StringView(reinterpret_cast<const utf8char*>(argv[1]))
-        : StringView(u8"EditorProject"));
+                                         ? StringView(reinterpret_cast<const utf8char*>(argv[1]))
+                                         : StringView(u8"EditorProject"));
     for (int i = 1; i < argc - 1; ++i)
     {
         if (std::strcmp(argv[i], "--exit-after") == 0)
@@ -226,7 +250,8 @@ int main(int argc, char** argv)
             config.autoRebuildSeconds = static_cast<f32>(std::atof(argv[i + 1]));
         }
     }
-    config.fontPath = String(StringView(reinterpret_cast<const utf8char*>(DRACONIC_EDITOR_FONT_PATH)));
+    config.fontPath =
+        String(StringView(reinterpret_cast<const utf8char*>(DRACONIC_EDITOR_FONT_PATH)));
     config.logBuffer = &logBuffer;
 
     // Assembly (design doc §3.1): THIS is where the engine subsystems and per-subsystem editor
@@ -236,9 +261,11 @@ int main(int argc, char** argv)
     // editor's runtime context (runtime-host.md v3) - the editor registers NONE itself.
     config.registerEditors = [](editor::app::EditorApplication& app,
                                 draconic::runtime::IApplicationHost& host,
-                                draconic::ui::runtime::UIHost& uiHost) {
+                                draconic::ui::runtime::UIHost& uiHost)
+    {
         app.SetSceneRenderer(host.Ctx().GetSubsystem<draconic::render::RenderSubsystem>());
-        draconic::editor::RegisterSceneEditor(app.Context(), host, uiHost, app.EmbeddedApplication());
+        draconic::editor::RegisterSceneEditor(app.Context(), host, uiHost,
+                                              app.EmbeddedApplication());
         draconic::editor::RegisterMaterialEditor(app.Context(), host, uiHost);
         draconic::editor::RegisterInputEditor(app.Context(), host);
         draconic::editor::RegisterGameUIEditor(app.Context(), host, uiHost);
@@ -256,72 +283,119 @@ int main(int argc, char** argv)
             // (The dedicated editing page is input P2; the asset cooks + binds today.)
             editor::EditorContext::AssetCreator inputCreator;
             inputCreator.label = String(u8"Input Map");
-            inputCreator.create = [](editor::EditorContext& ctx, draconic::content::Group* group)
-                -> draconic::content::Instance* {
-                if (ctx.Project() == nullptr) { return nullptr; }
-                draconic::content::Group* target = group != nullptr
-                    ? group : ctx.Project()->SourceDb().RootGroup();
+            inputCreator.create =
+                [](editor::EditorContext& ctx,
+                   draconic::content::Group* group) -> draconic::content::Instance*
+            {
+                if (ctx.Project() == nullptr)
+                {
+                    return nullptr;
+                }
+                draconic::content::Group* target =
+                    group != nullptr ? group : ctx.Project()->SourceDb().RootGroup();
                 draconic::content::Instance* instance = target->CreateInstance(
                     u8"InputMap", draconic::input::InputMapAsset::StaticType());
-                if (instance == nullptr) { return nullptr; }
+                if (instance == nullptr)
+                {
+                    return nullptr;
+                }
                 draconic::input::InputMapAsset asset;
                 asset.SeedDefaultContent();
-                if (!instance->WriteObject(asset).IsOk()) { return nullptr; }
+                if (!instance->WriteObject(asset).IsOk())
+                {
+                    return nullptr;
+                }
                 return instance;
             };
-            app.Context().RegisterCreator(static_cast<editor::EditorContext::AssetCreator&&>(inputCreator));
+            app.Context().RegisterCreator(
+                static_cast<editor::EditorContext::AssetCreator&&>(inputCreator));
         }
         {
             // New Asset > Physical Material (surface properties; edited in the inspector).
             editor::EditorContext::AssetCreator materialCreator;
             materialCreator.label = String(u8"Physical Material");
-            materialCreator.create = [](editor::EditorContext& ctx, draconic::content::Group* group)
-                -> draconic::content::Instance* {
-                if (ctx.Project() == nullptr) { return nullptr; }
-                draconic::content::Group* target = group != nullptr
-                    ? group : ctx.Project()->SourceDb().RootGroup();
+            materialCreator.create =
+                [](editor::EditorContext& ctx,
+                   draconic::content::Group* group) -> draconic::content::Instance*
+            {
+                if (ctx.Project() == nullptr)
+                {
+                    return nullptr;
+                }
+                draconic::content::Group* target =
+                    group != nullptr ? group : ctx.Project()->SourceDb().RootGroup();
                 draconic::content::Instance* instance = target->CreateInstance(
                     u8"PhysicalMaterial", draconic::physics::PhysicalMaterialAsset::StaticType());
-                if (instance == nullptr) { return nullptr; }
+                if (instance == nullptr)
+                {
+                    return nullptr;
+                }
                 draconic::physics::PhysicalMaterialAsset asset;
-                if (!instance->WriteObject(asset).IsOk()) { return nullptr; }
+                if (!instance->WriteObject(asset).IsOk())
+                {
+                    return nullptr;
+                }
                 return instance;
             };
-            app.Context().RegisterCreator(static_cast<editor::EditorContext::AssetCreator&&>(materialCreator));
+            app.Context().RegisterCreator(
+                static_cast<editor::EditorContext::AssetCreator&&>(materialCreator));
 
             // New Asset > Audio Bus Layout (the mixer as data; edited in the inspector).
             editor::EditorContext::AssetCreator busLayoutCreator;
             busLayoutCreator.label = String(u8"Audio Bus Layout");
-            busLayoutCreator.create = [](editor::EditorContext& ctx, draconic::content::Group* group)
-                -> draconic::content::Instance* {
-                if (ctx.Project() == nullptr) { return nullptr; }
-                draconic::content::Group* target = group != nullptr
-                    ? group : ctx.Project()->SourceDb().RootGroup();
+            busLayoutCreator.create =
+                [](editor::EditorContext& ctx,
+                   draconic::content::Group* group) -> draconic::content::Instance*
+            {
+                if (ctx.Project() == nullptr)
+                {
+                    return nullptr;
+                }
+                draconic::content::Group* target =
+                    group != nullptr ? group : ctx.Project()->SourceDb().RootGroup();
                 draconic::content::Instance* instance = target->CreateInstance(
                     u8"BusLayout", draconic::audio::AudioBusLayoutAsset::StaticType());
-                if (instance == nullptr) { return nullptr; }
+                if (instance == nullptr)
+                {
+                    return nullptr;
+                }
                 draconic::audio::AudioBusLayoutAsset asset;
-                if (!instance->WriteObject(asset).IsOk()) { return nullptr; }
+                if (!instance->WriteObject(asset).IsOk())
+                {
+                    return nullptr;
+                }
                 return instance;
             };
-            app.Context().RegisterCreator(static_cast<editor::EditorContext::AssetCreator&&>(busLayoutCreator));
+            app.Context().RegisterCreator(
+                static_cast<editor::EditorContext::AssetCreator&&>(busLayoutCreator));
 
             // New Asset > Sound Cue (weighted clip variants; edited via SoundCuePage).
             editor::EditorContext::AssetCreator cueCreator;
             cueCreator.label = String(u8"Sound Cue");
-            cueCreator.create = [](editor::EditorContext& ctx, draconic::content::Group* group)
-                -> draconic::content::Instance* {
-                if (ctx.Project() == nullptr) { return nullptr; }
-                draconic::content::Group* target = group != nullptr
-                    ? group : ctx.Project()->SourceDb().RootGroup();
+            cueCreator.create = [](editor::EditorContext& ctx,
+                                   draconic::content::Group* group) -> draconic::content::Instance*
+            {
+                if (ctx.Project() == nullptr)
+                {
+                    return nullptr;
+                }
+                draconic::content::Group* target =
+                    group != nullptr ? group : ctx.Project()->SourceDb().RootGroup();
                 draconic::content::Instance* instance = target->CreateInstance(
                     u8"SoundCue", draconic::audio::SoundCueAsset::StaticType());
-                if (instance == nullptr) { return nullptr; }
+                if (instance == nullptr)
+                {
+                    return nullptr;
+                }
                 draconic::audio::SoundCueAsset asset;
-                if (!instance->WriteObject(asset).IsOk()) { return nullptr; }
+                if (!instance->WriteObject(asset).IsOk())
+                {
+                    return nullptr;
+                }
                 return instance;
             };
-            app.Context().RegisterCreator(static_cast<editor::EditorContext::AssetCreator&&>(cueCreator));
+            app.Context().RegisterCreator(
+                static_cast<editor::EditorContext::AssetCreator&&>(cueCreator));
             // New Asset > <Language> Script is registered by RegisterScriptEditor (one creator
             // per script backend, seeded from the cook's NewAssetTemplate - backend-neutral).
         }
@@ -330,62 +404,99 @@ int main(int argc, char** argv)
             // the UIDocumentPage lands, hot-reloading through the standard cook).
             editor::EditorContext::AssetCreator documentCreator;
             documentCreator.label = String(u8"UI Document");
-            documentCreator.create = [](editor::EditorContext& ctx, draconic::content::Group* group)
-                -> draconic::content::Instance* {
-                if (ctx.Project() == nullptr) { return nullptr; }
-                draconic::content::Group* target = group != nullptr
-                    ? group : ctx.Project()->SourceDb().RootGroup();
+            documentCreator.create =
+                [](editor::EditorContext& ctx,
+                   draconic::content::Group* group) -> draconic::content::Instance*
+            {
+                if (ctx.Project() == nullptr)
+                {
+                    return nullptr;
+                }
+                draconic::content::Group* target =
+                    group != nullptr ? group : ctx.Project()->SourceDb().RootGroup();
                 draconic::content::Instance* instance = target->CreateInstance(
                     u8"UIDocument", draconic::ui::UIDocumentAsset::StaticType());
-                if (instance == nullptr) { return nullptr; }
+                if (instance == nullptr)
+                {
+                    return nullptr;
+                }
                 draconic::ui::UIDocumentAsset asset;
                 asset.markup = String(draconic::ui::kUIDocumentStarter);
-                if (!instance->WriteObject(asset).IsOk()) { return nullptr; }
+                if (!instance->WriteObject(asset).IsOk())
+                {
+                    return nullptr;
+                }
                 return instance;
             };
-            app.Context().RegisterCreator(static_cast<editor::EditorContext::AssetCreator&&>(documentCreator));
+            app.Context().RegisterCreator(
+                static_cast<editor::EditorContext::AssetCreator&&>(documentCreator));
             editor::EditorContext::AssetCreator themeCreator;
             themeCreator.label = String(u8"UI Theme");
-            themeCreator.create = [](editor::EditorContext& ctx, draconic::content::Group* group)
-                -> draconic::content::Instance* {
-                if (ctx.Project() == nullptr) { return nullptr; }
-                draconic::content::Group* target = group != nullptr
-                    ? group : ctx.Project()->SourceDb().RootGroup();
-                draconic::content::Instance* instance = target->CreateInstance(
-                    u8"UITheme", draconic::ui::UIThemeAsset::StaticType());
-                if (instance == nullptr) { return nullptr; }
+            themeCreator.create =
+                [](editor::EditorContext& ctx,
+                   draconic::content::Group* group) -> draconic::content::Instance*
+            {
+                if (ctx.Project() == nullptr)
+                {
+                    return nullptr;
+                }
+                draconic::content::Group* target =
+                    group != nullptr ? group : ctx.Project()->SourceDb().RootGroup();
+                draconic::content::Instance* instance =
+                    target->CreateInstance(u8"UITheme", draconic::ui::UIThemeAsset::StaticType());
+                if (instance == nullptr)
+                {
+                    return nullptr;
+                }
                 draconic::ui::UIThemeAsset asset;
                 asset.stylesheet = String(draconic::ui::kUIThemeStarter);
-                if (!instance->WriteObject(asset).IsOk()) { return nullptr; }
+                if (!instance->WriteObject(asset).IsOk())
+                {
+                    return nullptr;
+                }
                 return instance;
             };
-            app.Context().RegisterCreator(static_cast<editor::EditorContext::AssetCreator&&>(themeCreator));
+            app.Context().RegisterCreator(
+                static_cast<editor::EditorContext::AssetCreator&&>(themeCreator));
         }
         {
             // New Asset > Collision Shape (point its sourceMesh at a mesh in the inspector).
             editor::EditorContext::AssetCreator shapeCreator;
             shapeCreator.label = String(u8"Collision Shape");
-            shapeCreator.create = [](editor::EditorContext& ctx, draconic::content::Group* group)
-                -> draconic::content::Instance* {
-                if (ctx.Project() == nullptr) { return nullptr; }
-                draconic::content::Group* target = group != nullptr
-                    ? group : ctx.Project()->SourceDb().RootGroup();
+            shapeCreator.create =
+                [](editor::EditorContext& ctx,
+                   draconic::content::Group* group) -> draconic::content::Instance*
+            {
+                if (ctx.Project() == nullptr)
+                {
+                    return nullptr;
+                }
+                draconic::content::Group* target =
+                    group != nullptr ? group : ctx.Project()->SourceDb().RootGroup();
                 draconic::content::Instance* instance = target->CreateInstance(
                     u8"CollisionShape", draconic::physics::CollisionShapeAsset::StaticType());
-                if (instance == nullptr) { return nullptr; }
+                if (instance == nullptr)
+                {
+                    return nullptr;
+                }
                 draconic::physics::CollisionShapeAsset asset;
-                if (!instance->WriteObject(asset).IsOk()) { return nullptr; }
+                if (!instance->WriteObject(asset).IsOk())
+                {
+                    return nullptr;
+                }
                 return instance;
             };
-            app.Context().RegisterCreator(static_cast<editor::EditorContext::AssetCreator&&>(shapeCreator));
+            app.Context().RegisterCreator(
+                static_cast<editor::EditorContext::AssetCreator&&>(shapeCreator));
         }
-        RegisterAllBuilders(app.Builders());   // the cook service routes through this set
+        RegisterAllBuilders(app.Builders()); // the cook service routes through this set
 
         // OS-file importers (drag-drop onto the editor).
         app.Context().Importers().Register(UniquePtr<editor::IFileImporter>(
             DefaultAllocator().New<draconic::texture::TextureFileImporter>(), DefaultAllocator()));
         app.Context().Importers().Register(UniquePtr<editor::IFileImporter>(
-            DefaultAllocator().New<draconic::modelimporter::ModelFileImporter>(), DefaultAllocator()));
+            DefaultAllocator().New<draconic::modelimporter::ModelFileImporter>(),
+            DefaultAllocator()));
         app.Context().Importers().Register(UniquePtr<editor::IFileImporter>(
             DefaultAllocator().New<draconic::ui::UIFileImporter>(), DefaultAllocator()));
         app.Context().Importers().Register(UniquePtr<editor::IFileImporter>(
@@ -400,8 +511,8 @@ int main(int argc, char** argv)
     DRACONIC_LOG_INFO(u8"Editor", u8"starting (project: {})", config.projectDirectory);
 
     shell::WindowSettings ws;
-    ws.title  = u8"Draconic Editor";
-    ws.width  = 1600;
+    ws.title = u8"Draconic Editor";
+    ws.width = 1600;
     ws.height = 900;
 
     auto shellPtr = shell::CreateShell(ws);
@@ -412,7 +523,7 @@ int main(int argc, char** argv)
     }
 
     graphics::GraphicsDeviceDesc gdd;
-    gdd.backend          = graphics::BackendType::Vulkan;
+    gdd.backend = graphics::BackendType::Vulkan;
     gdd.enableValidation = true;
     auto gpu = graphics::CreateGraphicsDevice(gdd);
     if (!gpu.HasValue())

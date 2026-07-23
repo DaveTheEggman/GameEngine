@@ -43,7 +43,8 @@ export namespace draconic::fonts
 
             stbtt_pack_context packContext{};
             if (stbtt_PackBegin(&packContext, m_pixelData.Data(), static_cast<int>(m_width),
-                                static_cast<int>(m_height), 0, static_cast<int>(options.padding), nullptr) == 0)
+                                static_cast<int>(m_height), 0, static_cast<int>(options.padding),
+                                nullptr) == 0)
                 return FontLoadResult::AtlasPackingFailed;
 
             stbtt_PackSetOversampling(&packContext, options.oversampleX, options.oversampleY);
@@ -76,7 +77,10 @@ export namespace draconic::fonts
         {
             return Span<const u8>(m_pixelData.Data(), m_pixelData.Size());
         }
-        [[nodiscard]] Float2 WhitePixelUV() const override { return Float2(m_whitePixelU, m_whitePixelV); }
+        [[nodiscard]] Float2 WhitePixelUV() const override
+        {
+            return Float2(m_whitePixelU, m_whitePixelV);
+        }
 
         [[nodiscard]] bool TryGetRegion(i32 codepoint, AtlasRegion& region) const override
         {
@@ -84,7 +88,8 @@ export namespace draconic::fonts
             if (codepoint < m_firstCodepoint || codepoint > m_lastCodepoint)
                 return false;
 
-            const stbtt_packedchar& pc = m_packedChars[static_cast<usize>(codepoint - m_firstCodepoint)];
+            const stbtt_packedchar& pc =
+                m_packedChars[static_cast<usize>(codepoint - m_firstCodepoint)];
             if (pc.x1 <= pc.x0 || pc.y1 <= pc.y0)
                 return false;
 
@@ -98,7 +103,8 @@ export namespace draconic::fonts
             return true;
         }
 
-        [[nodiscard]] bool GetGlyphQuad(i32 codepoint, f32& cursorX, f32 cursorY, GlyphQuad& quad) const override
+        [[nodiscard]] bool GetGlyphQuad(i32 codepoint, f32& cursorX, f32 cursorY,
+                                        GlyphQuad& quad) const override
         {
             quad = GlyphQuad();
             if (codepoint < m_firstCodepoint || codepoint > m_lastCodepoint)
@@ -108,14 +114,16 @@ export namespace draconic::fonts
             stbtt_aligned_quad q{};
             f32 xpos = cursorX;
             f32 ypos = cursorY;
-            stbtt_GetPackedQuad(m_packedChars.Data(), static_cast<int>(m_width), static_cast<int>(m_height),
-                                index, &xpos, &ypos, &q, 0); // 0 = don't align to integer
+            stbtt_GetPackedQuad(m_packedChars.Data(), static_cast<int>(m_width),
+                                static_cast<int>(m_height), index, &xpos, &ypos, &q,
+                                0); // 0 = don't align to integer
             cursorX = xpos;
             quad = GlyphQuad(q.x0, q.y0, q.x1, q.y1, q.s0, q.t0, q.s1, q.t1);
             return true;
         }
 
-        [[nodiscard]] bool GetGlyphQuadAt(i32 codepoint, f32 x, f32 y, GlyphQuad& quad) const override
+        [[nodiscard]] bool GetGlyphQuadAt(i32 codepoint, f32 x, f32 y,
+                                          GlyphQuad& quad) const override
         {
             quad = GlyphQuad();
             if (codepoint < m_firstCodepoint || codepoint > m_lastCodepoint)
@@ -125,8 +133,8 @@ export namespace draconic::fonts
             stbtt_aligned_quad q{};
             f32 xpos = x;
             f32 ypos = y;
-            stbtt_GetPackedQuad(m_packedChars.Data(), static_cast<int>(m_width), static_cast<int>(m_height),
-                                index, &xpos, &ypos, &q, 0);
+            stbtt_GetPackedQuad(m_packedChars.Data(), static_cast<int>(m_width),
+                                static_cast<int>(m_height), index, &xpos, &ypos, &q, 0);
             quad = GlyphQuad(q.x0, q.y0, q.x1, q.y1, q.s0, q.t0, q.s1, q.t1);
             return true;
         }
@@ -135,7 +143,8 @@ export namespace draconic::fonts
         {
             if (codepoint < m_firstCodepoint || codepoint > m_lastCodepoint)
                 return false;
-            const stbtt_packedchar& pc = m_packedChars[static_cast<usize>(codepoint - m_firstCodepoint)];
+            const stbtt_packedchar& pc =
+                m_packedChars[static_cast<usize>(codepoint - m_firstCodepoint)];
             return pc.x1 > pc.x0 && pc.y1 > pc.y0;
         }
 

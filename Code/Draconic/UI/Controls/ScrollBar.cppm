@@ -44,17 +44,32 @@ export namespace draconic::ui
         void SetValue(f32 value)
         {
             const f32 clamped = core::Clamp(value, 0.0f, m_maxValue);
-            if (m_value == clamped) { return; }
+            if (m_value == clamped)
+            {
+                return;
+            }
             m_value = clamped;
             Invalidate();
             OnValueChanged.Invoke(this, m_value);
         }
         [[nodiscard]] f32 MaxValue() const noexcept { return m_maxValue; }
-        void SetMaxValue(f32 value) { m_maxValue = core::Max(0.0f, value); SetValue(m_value); }
+        void SetMaxValue(f32 value)
+        {
+            m_maxValue = core::Max(0.0f, value);
+            SetValue(m_value);
+        }
         [[nodiscard]] f32 ViewportSize() const noexcept { return m_viewportSize; }
-        void SetViewportSize(f32 value) { m_viewportSize = core::Max(1.0f, value); Invalidate(); }
+        void SetViewportSize(f32 value)
+        {
+            m_viewportSize = core::Max(1.0f, value);
+            Invalidate();
+        }
         [[nodiscard]] bool IsHorizontal() const noexcept { return m_isHorizontal; }
-        void SetIsHorizontal(bool value) { m_isHorizontal = value; Invalidate(); }
+        void SetIsHorizontal(bool value)
+        {
+            m_isHorizontal = value;
+            Invalidate();
+        }
 
         /// Thumb rectangle in local coordinates.
         [[nodiscard]] Rectangle GetThumbRect() const
@@ -65,21 +80,26 @@ export namespace draconic::ui
             {
                 const f32 thumbW = Width() * ratio;
                 const f32 thumbX = (Width() - thumbW) * norm;
-                return Rectangle{ thumbX, 0, thumbW, Height() };
+                return Rectangle{thumbX, 0, thumbW, Height()};
             }
             const f32 thumbH = Height() * ratio;
             const f32 thumbY = (Height() - thumbH) * norm;
-            return Rectangle{ 0, thumbY, Width(), thumbH };
+            return Rectangle{0, thumbY, Width(), thumbH};
         }
 
         void OnMouseDown(MouseEventArgs& e) override
         {
-            if (e.Button != MouseButton::Left) { return; }
+            if (e.Button != MouseButton::Left)
+            {
+                return;
+            }
 
             // e.X/e.Y may be in another view's space (bubbling) - use screen coords via the input manager.
-            const f32 screenX = Context && Context->GetInputManager() ? Context->GetInputManager()->MouseX() : 0.0f;
-            const f32 screenY = Context && Context->GetInputManager() ? Context->GetInputManager()->MouseY() : 0.0f;
-            const Float2 local = ScreenToLocal(Float2{ screenX, screenY });
+            const f32 screenX =
+                Context && Context->GetInputManager() ? Context->GetInputManager()->MouseX() : 0.0f;
+            const f32 screenY =
+                Context && Context->GetInputManager() ? Context->GetInputManager()->MouseY() : 0.0f;
+            const Float2 local = ScreenToLocal(Float2{screenX, screenY});
             const f32 localPos = m_isHorizontal ? local.x : local.y;
             const f32 screenPos = m_isHorizontal ? screenX : screenY;
 
@@ -92,7 +112,10 @@ export namespace draconic::ui
                 m_dragging = true;
                 m_dragStartValue = m_value;
                 m_dragStartMouse = screenPos;
-                if (Context != nullptr) { Context->GetFocusManager()->SetCapture(this); }
+                if (Context != nullptr)
+                {
+                    Context->GetFocusManager()->SetCapture(this);
+                }
             }
             else
             {
@@ -106,9 +129,14 @@ export namespace draconic::ui
 
         void OnMouseMove(MouseEventArgs& e) override
         {
-            if (!m_dragging) { return; }
-            const f32 screenX = Context && Context->GetInputManager() ? Context->GetInputManager()->MouseX() : 0.0f;
-            const f32 screenY = Context && Context->GetInputManager() ? Context->GetInputManager()->MouseY() : 0.0f;
+            if (!m_dragging)
+            {
+                return;
+            }
+            const f32 screenX =
+                Context && Context->GetInputManager() ? Context->GetInputManager()->MouseX() : 0.0f;
+            const f32 screenY =
+                Context && Context->GetInputManager() ? Context->GetInputManager()->MouseY() : 0.0f;
             const f32 screenPos = m_isHorizontal ? screenX : screenY;
 
             const f32 trackSize = m_isHorizontal ? Width() : Height();
@@ -128,7 +156,10 @@ export namespace draconic::ui
             if (m_dragging)
             {
                 m_dragging = false;
-                if (Context != nullptr) { Context->GetFocusManager()->ReleaseCapture(); }
+                if (Context != nullptr)
+                {
+                    Context->GetFocusManager()->ReleaseCapture();
+                }
                 e.Handled = true;
             }
         }
@@ -137,29 +168,53 @@ export namespace draconic::ui
         void OnMeasure(BoxConstraints constraints) override
         {
             if (m_isHorizontal)
-                MeasuredSize = Float2{ constraints.ConstrainWidth(constraints.MaxWidth), constraints.ConstrainHeight(BarThickness) };
+                MeasuredSize = Float2{constraints.ConstrainWidth(constraints.MaxWidth),
+                                      constraints.ConstrainHeight(BarThickness)};
             else
-                MeasuredSize = Float2{ constraints.ConstrainWidth(BarThickness), constraints.ConstrainHeight(constraints.MaxHeight) };
+                MeasuredSize = Float2{constraints.ConstrainWidth(BarThickness),
+                                      constraints.ConstrainHeight(constraints.MaxHeight)};
         }
 
         void OnDraw(UIDrawContext& ctx) override
         {
             const ControlState state = GetControlState();
-            Drawable* trackDrawable = ResolvePartDrawable(u8"track", StyleProperty::Background, state);
-            Drawable* thumbDrawable = ResolvePartDrawable(u8"thumb", StyleProperty::Background, state);
-            const Rectangle bounds{ 0, 0, Width(), Height() };
+            Drawable* trackDrawable =
+                ResolvePartDrawable(u8"track", StyleProperty::Background, state);
+            Drawable* thumbDrawable =
+                ResolvePartDrawable(u8"thumb", StyleProperty::Background, state);
+            const Rectangle bounds{0, 0, Width(), Height()};
 
-            if (trackDrawable != nullptr) { trackDrawable->Draw(ctx, bounds); }
-            else { ctx.VG().FillRect(bounds, Color{ 40.0f / 255.0f, 42.0f / 255.0f, 50.0f / 255.0f, 150.0f / 255.0f }); }
+            if (trackDrawable != nullptr)
+            {
+                trackDrawable->Draw(ctx, bounds);
+            }
+            else
+            {
+                ctx.VG().FillRect(
+                    bounds, Color{40.0f / 255.0f, 42.0f / 255.0f, 50.0f / 255.0f, 150.0f / 255.0f});
+            }
 
             const Rectangle thumbRect = GetThumbRect();
-            if (thumbDrawable != nullptr) { thumbDrawable->Draw(ctx, thumbRect); }
-            else { ctx.VG().FillRect(thumbRect, Color{ 100.0f / 255.0f, 110.0f / 255.0f, 130.0f / 255.0f, 200.0f / 255.0f }); }
+            if (thumbDrawable != nullptr)
+            {
+                thumbDrawable->Draw(ctx, thumbRect);
+            }
+            else
+            {
+                ctx.VG().FillRect(thumbRect, Color{100.0f / 255.0f, 110.0f / 255.0f,
+                                                   130.0f / 255.0f, 200.0f / 255.0f});
+            }
         }
 
     private:
-        [[nodiscard]] f32 ThumbRatio() const { return core::Clamp(m_viewportSize / (m_maxValue + m_viewportSize), 0.05f, 1.0f); }
-        [[nodiscard]] f32 NormalizedValue() const { return (m_maxValue > 0) ? m_value / m_maxValue : 0.0f; }
+        [[nodiscard]] f32 ThumbRatio() const
+        {
+            return core::Clamp(m_viewportSize / (m_maxValue + m_viewportSize), 0.05f, 1.0f);
+        }
+        [[nodiscard]] f32 NormalizedValue() const
+        {
+            return (m_maxValue > 0) ? m_value / m_maxValue : 0.0f;
+        }
 
         f32 m_value = 0.0f;
         f32 m_maxValue = 100.0f;

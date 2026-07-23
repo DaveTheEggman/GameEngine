@@ -21,7 +21,7 @@ export module draconic.ui.editor;
 
 import draconic.core;
 import draconic.editor;
-import draconic.editor.core;   // IFileImporter/EditorProject/import plumbing
+import draconic.editor.core; // IFileImporter/EditorProject/import plumbing
 import draconic.content;
 import draconic.ui;
 import draconic.ui.resource;
@@ -90,22 +90,26 @@ export namespace draconic::ui
                                    draconic::editor::AssetBuildContext& ctx) override
         {
             const UIDocumentAsset& da = static_cast<const UIDocumentAsset&>(asset);
-            if (ctx.output == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
+            if (ctx.output == nullptr)
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
             if (da.markup.IsEmpty())
             {
                 DRACONIC_LOG_ERROR(u8"UI", u8"UI document is empty - nothing to cook");
-                return Status{ ErrorCode::InvalidArgument };
+                return Status{ErrorCode::InvalidArgument};
             }
             // Validation IS the cook: parse against the registered control set. Silent
             // drops (unknown attributes / child elements) surface as cook WARNINGS.
             MarkupLoader::Initialize();
             Array<String> warnings;
-            RefPtr<View> tree = MarkupLoader::LoadFromString(da.markup.AsView(), nullptr, &warnings);
+            RefPtr<View> tree =
+                MarkupLoader::LoadFromString(da.markup.AsView(), nullptr, &warnings);
             if (tree.Get() == nullptr)
             {
-                DRACONIC_LOG_ERROR(u8"UI",
-                    u8"UI document failed to parse (malformed XML or unknown control)");
-                return Status{ ErrorCode::InvalidArgument };
+                DRACONIC_LOG_ERROR(
+                    u8"UI", u8"UI document failed to parse (malformed XML or unknown control)");
+                return Status{ErrorCode::InvalidArgument};
             }
             for (const String& warning : warnings)
             {
@@ -133,19 +137,22 @@ export namespace draconic::ui
                                    draconic::editor::AssetBuildContext& ctx) override
         {
             const UIThemeAsset& ta = static_cast<const UIThemeAsset&>(asset);
-            if (ctx.output == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
+            if (ctx.output == nullptr)
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
             if (ta.stylesheet.IsEmpty())
             {
                 DRACONIC_LOG_ERROR(u8"UI", u8"UI theme is empty - nothing to cook");
-                return Status{ ErrorCode::InvalidArgument };
+                return Status{ErrorCode::InvalidArgument};
             }
             StyleSheetLoader loader;
-            loader.SetPalette(ThemePalette::Dark());   // palette variables resolvable at cook
+            loader.SetPalette(ThemePalette::Dark()); // palette variables resolvable at cook
             RefPtr<StyleSheet> sheet = loader.Load(ta.stylesheet.AsView());
             if (sheet.Get() == nullptr)
             {
                 DRACONIC_LOG_ERROR(u8"UI", u8"UI theme failed to parse (malformed SSS)");
-                return Status{ ErrorCode::InvalidArgument };
+                return Status{ErrorCode::InvalidArgument};
             }
             UIThemeSource cooked;
             cooked.stylesheet = String(ta.stylesheet.AsView());
@@ -163,14 +170,17 @@ export namespace draconic::ui
             return extension == u8"sml" || extension == u8"sss";
         }
 
-        [[nodiscard]] Result<draconic::content::Instance*> Import(
-            StringView sourcePath, draconic::editor::EditorProject& project,
-            draconic::content::Group& group, const draconic::editor::ImportOptions*,
-            Object*, Array<draconic::editor::DeferredImportWrite>*) override
+        [[nodiscard]] Result<draconic::content::Instance*>
+        Import(StringView sourcePath, draconic::editor::EditorProject& project,
+               draconic::content::Group& group, const draconic::editor::ImportOptions*, Object*,
+               Array<draconic::editor::DeferredImportWrite>*) override
         {
             (void)project;
             FileStream stream(sourcePath, FileMode::Read);
-            if (!stream.IsValid()) { return Err(ErrorCode::NotFound); }
+            if (!stream.IsValid())
+            {
+                return Err(ErrorCode::NotFound);
+            }
             Array<byte> bytes;
             bytes.Resize(static_cast<usize>(stream.Size()));
             if (stream.Read(bytes.Data(), bytes.Size()) != bytes.Size())
@@ -178,11 +188,15 @@ export namespace draconic::ui
                 return Err(ErrorCode::Unknown);
             }
             String text(StringView(reinterpret_cast<const utf8char*>(bytes.Data()), bytes.Size()));
-            const StringView stem = draconic::editor::FileStemOf(draconic::editor::FileNameOf(sourcePath));
+            const StringView stem =
+                draconic::editor::FileStemOf(draconic::editor::FileNameOf(sourcePath));
             const bool isTheme = draconic::editor::FileExtensionLower(sourcePath) == u8"sss";
-            draconic::content::Instance* instance = group.CreateInstance(stem,
-                isTheme ? UIThemeAsset::StaticType() : UIDocumentAsset::StaticType());
-            if (instance == nullptr) { return Err(ErrorCode::Unknown); }
+            draconic::content::Instance* instance = group.CreateInstance(
+                stem, isTheme ? UIThemeAsset::StaticType() : UIDocumentAsset::StaticType());
+            if (instance == nullptr)
+            {
+                return Err(ErrorCode::Unknown);
+            }
             Status written;
             if (isTheme)
             {
@@ -196,7 +210,10 @@ export namespace draconic::ui
                 asset.markup = Move(text);
                 written = instance->WriteObject(asset);
             }
-            if (!written.IsOk()) { return Err(written.Code()); }
+            if (!written.IsOk())
+            {
+                return Err(written.Code());
+            }
             return instance;
         }
     };

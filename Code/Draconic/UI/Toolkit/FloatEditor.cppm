@@ -29,18 +29,31 @@ export namespace draconic::ui::toolkit
         Function<void(f64)> Setter;
 
         FloatEditor(StringView name, f64 initialValue, f64 min = -1e9, f64 max = 1e9,
-            f64 step = 0.1, i32 decimalPlaces = 2, Function<void(f64)> setter = {}, StringView category = {})
+                    f64 step = 0.1, i32 decimalPlaces = 2, Function<void(f64)> setter = {},
+                    StringView category = {})
             : PropertyEditor(name, category), Setter(Move(setter)), m_value(initialValue),
               m_min(min), m_max(max), m_step(step), m_decimalPlaces(decimalPlaces)
         {
         }
 
         [[nodiscard]] f64 Value() const noexcept { return m_value; }
-        void SetValue(f64 value) { m_value = value; if (!m_syncing) { RefreshView(); } }
+        void SetValue(f64 value)
+        {
+            m_value = value;
+            if (!m_syncing)
+            {
+                RefreshView();
+            }
+        }
 
         void RefreshView() override
         {
-            if (m_field != nullptr && !m_syncing) { m_syncing = true; m_field->SetValue(m_value); m_syncing = false; }
+            if (m_field != nullptr && !m_syncing)
+            {
+                m_syncing = true;
+                m_field->SetValue(m_value);
+                m_syncing = false;
+            }
         }
 
         /// NumericField subclass that tracks edit transactions via focus.
@@ -64,21 +77,27 @@ export namespace draconic::ui::toolkit
             RefPtr<FloatEditorField> field = MakeRef<FloatEditorField>(DefaultAllocator(), this);
             field->AddClass(u8"property-field");
             m_field = field.Get();
-            m_field->SetMin(m_min); m_field->SetMax(m_max); m_field->SetStep(m_step);
+            m_field->SetMin(m_min);
+            m_field->SetMax(m_max);
+            m_field->SetStep(m_step);
             m_field->SetDecimalPlaces(m_decimalPlaces);
             m_field->SetValue(m_value);
             FloatEditor* self = this;
-            m_field->OnValueChanged.Add([self](NumericField*, f64 val)
-            {
-                if (!self->m_syncing)
+            m_field->OnValueChanged.Add(
+                [self](NumericField*, f64 val)
                 {
-                    self->m_syncing = true;
-                    self->m_value = val;
-                    if (self->Setter) { self->Setter(val); }
-                    self->NotifyValueChanged();
-                    self->m_syncing = false;
-                }
-            });
+                    if (!self->m_syncing)
+                    {
+                        self->m_syncing = true;
+                        self->m_value = val;
+                        if (self->Setter)
+                        {
+                            self->Setter(val);
+                        }
+                        self->NotifyValueChanged();
+                        self->m_syncing = false;
+                    }
+                });
             return field;
         }
 
@@ -105,7 +124,10 @@ export namespace draconic::ui::toolkit
     inline void FloatEditor::FloatEditorField::OnFocusLost()
     {
         NumericField::OnFocusLost();
-        if (m_editor->IsEditing()) { m_editor->EndEdit(); }
+        if (m_editor->IsEditing())
+        {
+            m_editor->EndEdit();
+        }
     }
 
     inline void FloatEditor::FloatEditorField::OnKeyDown(KeyEventArgs& e)
@@ -114,7 +136,10 @@ export namespace draconic::ui::toolkit
         {
             m_editor->m_value = m_editor->m_preEditValue;
             SetValue(m_editor->m_preEditValue);
-            if (m_editor->Setter) { m_editor->Setter(m_editor->m_preEditValue); }
+            if (m_editor->Setter)
+            {
+                m_editor->Setter(m_editor->m_preEditValue);
+            }
             m_editor->CancelEdit();
             e.Handled = true;
             return;

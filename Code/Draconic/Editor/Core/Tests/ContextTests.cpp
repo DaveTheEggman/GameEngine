@@ -57,10 +57,11 @@ namespace
     public:
         TestPageFactory(const TypeInfo& type, StringView title) : m_type(&type), m_title(title) {}
         [[nodiscard]] const TypeInfo* PrimaryType() const override { return m_type; }
-        [[nodiscard]] UniquePtr<EditorPage> CreatePage(EditorContext&, draconic::content::Instance&) override
+        [[nodiscard]] UniquePtr<EditorPage> CreatePage(EditorContext&,
+                                                       draconic::content::Instance&) override
         {
-            return UniquePtr<EditorPage>(
-                DefaultAllocator().New<TestPage>(m_title.AsView()), DefaultAllocator());
+            return UniquePtr<EditorPage>(DefaultAllocator().New<TestPage>(m_title.AsView()),
+                                         DefaultAllocator());
         }
 
     private:
@@ -70,8 +71,8 @@ namespace
 
     UniquePtr<IEditorPageFactory> MakeFactory(const TypeInfo& type, StringView title)
     {
-        return UniquePtr<IEditorPageFactory>(
-            DefaultAllocator().New<TestPageFactory>(type, title), DefaultAllocator());
+        return UniquePtr<IEditorPageFactory>(DefaultAllocator().New<TestPageFactory>(type, title),
+                                             DefaultAllocator());
     }
 
     void RegisterTestTypes()
@@ -129,7 +130,8 @@ TEST_CASE("editor-context: open, focus, and close pages")
     const StringView dir = u8"draconic_editor_test_ctx_db";
     RemoveDbTree(dir);
     draconic::vfs::NativeFileSystem mount(dir);
-    draconic::content::ContentDatabase db(mount, draconic::xml::XmlSerializerFactory(), u8".xasset");
+    draconic::content::ContentDatabase db(mount, draconic::xml::XmlSerializerFactory(),
+                                          u8".xasset");
 
     auto* a = db.RootGroup()->CreateInstance(u8"a", BaseAsset::StaticType());
     auto* b = db.RootGroup()->CreateInstance(u8"b", DerivedAsset::StaticType());
@@ -204,13 +206,14 @@ TEST_CASE("editor-context: undo/redo routes to the active page")
     const StringView dir = u8"draconic_editor_test_ctx_undo_db";
     RemoveDbTree(dir);
     draconic::vfs::NativeFileSystem mount(dir);
-    draconic::content::ContentDatabase db(mount, draconic::xml::XmlSerializerFactory(), u8".xasset");
+    draconic::content::ContentDatabase db(mount, draconic::xml::XmlSerializerFactory(),
+                                          u8".xasset");
     auto* a = db.RootGroup()->CreateInstance(u8"a", BaseAsset::StaticType());
     REQUIRE(a != nullptr);
 
     EditorContext ctx;
-    CHECK(!ctx.CanUndo());   // no active page
-    ctx.Undo();              // safe no-op
+    CHECK(!ctx.CanUndo()); // no active page
+    ctx.Undo();            // safe no-op
 
     ctx.Pages().Register(MakeFactory(BaseAsset::StaticType(), u8"base"));
     EditorPage* page = ctx.OpenPage(*a);
@@ -221,9 +224,14 @@ TEST_CASE("editor-context: undo/redo routes to the active page")
     {
     public:
         explicit Flip(bool& b) : m_b(&b) {}
-        [[nodiscard]] bool Execute() override { *m_b = !*m_b; return true; }
+        [[nodiscard]] bool Execute() override
+        {
+            *m_b = !*m_b;
+            return true;
+        }
         void Undo() override { *m_b = !*m_b; }
         [[nodiscard]] StringView TypeId() const override { return u8"flip"; }
+
     private:
         bool* m_b;
     };
@@ -232,7 +240,7 @@ TEST_CASE("editor-context: undo/redo routes to the active page")
     CHECK(page->Commands().Execute(
         UniquePtr<IEditorCommand>(DefaultAllocator().New<Flip>(flag), DefaultAllocator())));
     CHECK(flag);
-    CHECK(page->IsDirty());   // command execution marks the page dirty
+    CHECK(page->IsDirty()); // command execution marks the page dirty
 
     CHECK(ctx.CanUndo());
     ctx.Undo();
@@ -261,15 +269,15 @@ TEST_CASE("editor-selection: set, dedup, primary, toggle")
     CHECK(*sel.Primary() == 5);
     CHECK(changes == 1);
 
-    const i32 items[] = { 3, 7, 3, 9 };   // duplicate 3 removed, 3 stays primary
-    sel.Set(Span<const i32>{ items, 4 });
+    const i32 items[] = {3, 7, 3, 9}; // duplicate 3 removed, 3 stays primary
+    sel.Set(Span<const i32>{items, 4});
     CHECK(sel.Size() == 3);
     CHECK(*sel.Primary() == 3);
 
-    sel.Toggle(7);                        // present -> removed
+    sel.Toggle(7); // present -> removed
     CHECK(sel.Size() == 2);
     CHECK(!sel.Contains(7));
-    sel.Toggle(7);                        // absent -> added (at the back; primary unchanged)
+    sel.Toggle(7); // absent -> added (at the back; primary unchanged)
     CHECK(sel.Contains(7));
     CHECK(*sel.Primary() == 3);
 
@@ -277,7 +285,7 @@ TEST_CASE("editor-selection: set, dedup, primary, toggle")
     CHECK(sel.IsEmpty());
 
     const i32 changesAfterClear = changes;
-    sel.Clear();                          // clearing an empty selection does not notify
+    sel.Clear(); // clearing an empty selection does not notify
     CHECK(changes == changesAfterClear);
 }
 
@@ -294,12 +302,13 @@ TEST_CASE("editor-context: Notify routes to OnNotice, falls back to the status b
 
     NoticeKind gotKind = NoticeKind::Info;
     String gotMessage;
-    ctx.OnNotice = [&gotKind, &gotMessage](NoticeKind kind, StringView message) {
+    ctx.OnNotice = [&gotKind, &gotMessage](NoticeKind kind, StringView message)
+    {
         gotKind = kind;
         gotMessage = String(message);
     };
     ctx.Notify(NoticeKind::Error, u8"cook failed");
     CHECK(gotKind == NoticeKind::Error);
     CHECK(gotMessage.AsView() == StringView(u8"cook failed"));
-    CHECK(statuses.Size() == 1u);   // wired notice does NOT double-post status
+    CHECK(statuses.Size() == 1u); // wired notice does NOT double-post status
 }

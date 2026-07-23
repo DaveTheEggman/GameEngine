@@ -32,17 +32,28 @@ export namespace draconic::ui::toolkit
     public:
         Function<void(Color)> Setter;
 
-        ColorEditor(StringView name, Color initialValue, Function<void(Color)> setter = {}, StringView category = {})
+        ColorEditor(StringView name, Color initialValue, Function<void(Color)> setter = {},
+                    StringView category = {})
             : PropertyEditor(name, category), Setter(Move(setter)), m_value(initialValue)
         {
         }
 
         [[nodiscard]] Color Value() const noexcept { return m_value; }
-        void SetValue(Color value) { m_value = value; if (m_swatch != nullptr) { m_swatch->Color.SetValue(value); } }
+        void SetValue(Color value)
+        {
+            m_value = value;
+            if (m_swatch != nullptr)
+            {
+                m_swatch->Color.SetValue(value);
+            }
+        }
 
         void RefreshView() override
         {
-            if (m_swatch != nullptr) { m_swatch->Color.SetValue(m_value); }
+            if (m_swatch != nullptr)
+            {
+                m_swatch->Color.SetValue(m_value);
+            }
         }
 
         /// ColorView that opens a ColorPicker dialog on click.
@@ -61,7 +72,8 @@ export namespace draconic::ui::toolkit
     protected:
         RefPtr<View> CreateEditorView() override
         {
-            RefPtr<ClickableColorSwatch> swatch = MakeRef<ClickableColorSwatch>(DefaultAllocator(), this);
+            RefPtr<ClickableColorSwatch> swatch =
+                MakeRef<ClickableColorSwatch>(DefaultAllocator(), this);
             m_swatch = swatch.Get();
             m_swatch->Color.SetValue(m_value);
             m_swatch->Cursor = CursorType::Hand;
@@ -77,7 +89,10 @@ export namespace draconic::ui::toolkit
 
     inline void ColorEditor::ClickableColorSwatch::OnMouseDown(MouseEventArgs& e)
     {
-        if (e.Button != MouseButton::Left || Context == nullptr) { return; }
+        if (e.Button != MouseButton::Left || Context == nullptr)
+        {
+            return;
+        }
 
         // `Color` names ColorView's shadowing property here, so the type is spelled core::Color.
         ColorEditor* editor = m_editor;
@@ -87,32 +102,40 @@ export namespace draconic::ui::toolkit
         RefPtr<ColorPicker> picker = MakeRef<ColorPicker>(DefaultAllocator());
         picker->SetColor(editor->m_value);
         picker->SetOriginalColor(editor->m_value);
-        picker->OnColorChanged.Add([editor](ColorPicker*, core::Color color)
-        {
-            editor->m_value = color;
-            editor->m_swatch->Color.SetValue(color);
-            if (editor->Setter) { editor->Setter(color); }
-            editor->NotifyValueChanged();
-        });
+        picker->OnColorChanged.Add(
+            [editor](ColorPicker*, core::Color color)
+            {
+                editor->m_value = color;
+                editor->m_swatch->Color.SetValue(color);
+                if (editor->Setter)
+                {
+                    editor->Setter(color);
+                }
+                editor->NotifyValueChanged();
+            });
 
         RefPtr<Dialog> dialog = MakeRef<Dialog>(DefaultAllocator(), StringView(u8"Color Picker"));
         dialog->SetContent(picker.Get());
         dialog->AddButton(u8"OK", DialogResult::OK);
         dialog->AddButton(u8"Cancel", DialogResult::Cancel);
-        dialog->OnClosed.Add([editor, originalColor](Dialog*, DialogResult result)
-        {
-            if (result == DialogResult::OK)
+        dialog->OnClosed.Add(
+            [editor, originalColor](Dialog*, DialogResult result)
             {
-                editor->EndEdit();
-            }
-            else
-            {
-                editor->m_value = originalColor;
-                editor->m_swatch->Color.SetValue(originalColor);
-                if (editor->Setter) { editor->Setter(originalColor); }
-                editor->CancelEdit();
-            }
-        });
+                if (result == DialogResult::OK)
+                {
+                    editor->EndEdit();
+                }
+                else
+                {
+                    editor->m_value = originalColor;
+                    editor->m_swatch->Color.SetValue(originalColor);
+                    if (editor->Setter)
+                    {
+                        editor->Setter(originalColor);
+                    }
+                    editor->CancelEdit();
+                }
+            });
         dialog->Show(Context);
         e.Handled = true;
     }

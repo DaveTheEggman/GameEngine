@@ -31,7 +31,13 @@ export namespace draconic::ui
         [[nodiscard]] usize Count() const noexcept { return m_handlers.Size(); }
 
         /// Invoke every handler in registration order.
-        void Invoke(Args... args) const { for (const Handler& h : m_handlers) { h(args...); } }
+        void Invoke(Args... args) const
+        {
+            for (const Handler& h : m_handlers)
+            {
+                h(args...);
+            }
+        }
         void operator()(Args... args) const { Invoke(args...); }
 
     private:

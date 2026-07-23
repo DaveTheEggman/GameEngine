@@ -10,7 +10,7 @@ module;
 
 export module draconic.ui:view_recycler;
 
-import draconic.core;   // HashMap, Array, RefPtr, Move
+import draconic.core; // HashMap, Array, RefPtr, Move
 import :view;
 import :ilist_adapter;
 
@@ -28,7 +28,8 @@ export namespace draconic::ui
         /// Try to get a recycled view of the given type; null RefPtr if none pooled.
         [[nodiscard]] RefPtr<View> Acquire(i32 viewType)
         {
-            if (Array<RefPtr<View>>* pool = m_pools.Find(viewType); pool != nullptr && pool->Size() > 0)
+            if (Array<RefPtr<View>>* pool = m_pools.Find(viewType);
+                pool != nullptr && pool->Size() > 0)
             {
                 RefPtr<View> view = Move(pool->Back());
                 pool->PopBack();
@@ -42,7 +43,11 @@ export namespace draconic::ui
         void Recycle(RefPtr<View> view, i32 viewType)
         {
             Array<RefPtr<View>>* pool = m_pools.Find(viewType);
-            if (pool == nullptr) { m_pools.InsertOrAssign(viewType, Array<RefPtr<View>>{}); pool = m_pools.Find(viewType); }
+            if (pool == nullptr)
+            {
+                m_pools.InsertOrAssign(viewType, Array<RefPtr<View>>{});
+                pool = m_pools.Find(viewType);
+            }
             pool->PushBack(Move(view));
             m_recycledCount++;
         }
@@ -52,7 +57,11 @@ export namespace draconic::ui
         {
             const i32 viewType = adapter.GetItemViewType(position);
             RefPtr<View> view = Acquire(viewType);
-            if (!view) { view = adapter.CreateView(viewType); m_createdCount++; }
+            if (!view)
+            {
+                view = adapter.CreateView(viewType);
+                m_createdCount++;
+            }
             adapter.BindView(view.Get(), position);
             return view;
         }
@@ -60,7 +69,10 @@ export namespace draconic::ui
         /// Clear all pools (releases pooled views).
         void Clear()
         {
-            for (auto& kv : m_pools) { kv.value.Clear(); }
+            for (auto& kv : m_pools)
+            {
+                kv.value.Clear();
+            }
         }
 
     private:

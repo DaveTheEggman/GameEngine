@@ -11,7 +11,11 @@ namespace core = draconic::core;
 
 namespace
 {
-    template <typename T> core::RefPtr<T> Make() { return core::MakeRef<T>(core::DefaultAllocator()); }
+    template <typename T>
+    core::RefPtr<T> Make()
+    {
+        return core::MakeRef<T>(core::DefaultAllocator());
+    }
     core::StringView SV(const char8_t* s) { return core::StringView(s); }
     core::Duration Sec(double s) { return core::Duration::FromSeconds(s); }
 
@@ -28,8 +32,8 @@ namespace
 TEST_CASE("style-manager: applies a sheet across the tree")
 {
     auto root = Make<SceneNode>();
-    root->SetSize(core::Float2{ 200.0f, 200.0f });
-    auto btn = Widget(u8"button", core::Float2{ 0.0f, 0.0f }, core::Float2{ 100.0f, 100.0f });
+    root->SetSize(core::Float2{200.0f, 200.0f});
+    auto btn = Widget(u8"button", core::Float2{0.0f, 0.0f}, core::Float2{100.0f, 100.0f});
     root->AddChild(btn.Get());
 
     StyleManager mgr(CSSParser::Parse(SV(u8"button { opacity: 0.5; background-color: red; }")));
@@ -42,8 +46,8 @@ TEST_CASE("style-manager: applies a sheet across the tree")
 TEST_CASE("style-manager: hover re-resolve drives a live transition")
 {
     auto root = Make<SceneNode>();
-    root->SetSize(core::Float2{ 200.0f, 200.0f });
-    auto btn = Widget(u8"button", core::Float2{ 0.0f, 0.0f }, core::Float2{ 100.0f, 100.0f });
+    root->SetSize(core::Float2{200.0f, 200.0f});
+    auto btn = Widget(u8"button", core::Float2{0.0f, 0.0f}, core::Float2{100.0f, 100.0f});
     root->AddChild(btn.Get());
     EventDispatcher* d = root->GetEventDispatcher();
 
@@ -54,7 +58,7 @@ TEST_CASE("style-manager: hover re-resolve drives a live transition")
     mgr.ApplyTree(*root.Get()); // first apply (snap)
     CHECK(btn->GetAlpha() == doctest::Approx(1.0f));
 
-    d->InjectMouseMove(core::Float2{ 50.0f, 50.0f }); // hover the button
+    d->InjectMouseMove(core::Float2{50.0f, 50.0f}); // hover the button
     CHECK(btn->IsHovered());
 
     mgr.ApplyTree(*root.Get()); // re-resolve: :hover now matches -> transition animates
@@ -70,19 +74,19 @@ TEST_CASE("style-manager: hover re-resolve drives a live transition")
 TEST_CASE("style-manager: media context gates what applies")
 {
     auto root = Make<SceneNode>();
-    root->SetSize(core::Float2{ 200.0f, 200.0f });
-    auto btn = Widget(u8"button", core::Float2{ 0.0f, 0.0f }, core::Float2{ 100.0f, 100.0f });
+    root->SetSize(core::Float2{200.0f, 200.0f});
+    auto btn = Widget(u8"button", core::Float2{0.0f, 0.0f}, core::Float2{100.0f, 100.0f});
     root->AddChild(btn.Get());
 
     StyleManager mgr(CSSParser::Parse(
         SV(u8"button { opacity: 1; } @media (min-width: 600px) { button { opacity: 0.2; } }")));
 
-    mgr.SetMediaContext(MediaContext{ 400.0f, 0.0f, 96.0f }); // narrow
+    mgr.SetMediaContext(MediaContext{400.0f, 0.0f, 96.0f}); // narrow
     mgr.ApplyTree(*root.Get());
     CHECK(btn->GetAlpha() == doctest::Approx(1.0f));
 
     mgr.Clear(); // forget cached styles so the re-apply is a fresh snap
-    mgr.SetMediaContext(MediaContext{ 800.0f, 0.0f, 96.0f }); // wide
+    mgr.SetMediaContext(MediaContext{800.0f, 0.0f, 96.0f}); // wide
     mgr.ApplyTree(*root.Get());
     CHECK(btn->GetAlpha() == doctest::Approx(0.2f));
 }
@@ -90,8 +94,8 @@ TEST_CASE("style-manager: media context gates what applies")
 TEST_CASE("style-manager: SetStyleSheet swaps styles (hot-reload)")
 {
     auto root = Make<SceneNode>();
-    root->SetSize(core::Float2{ 200.0f, 200.0f });
-    auto btn = Widget(u8"button", core::Float2{ 0.0f, 0.0f }, core::Float2{ 100.0f, 100.0f });
+    root->SetSize(core::Float2{200.0f, 200.0f});
+    auto btn = Widget(u8"button", core::Float2{0.0f, 0.0f}, core::Float2{100.0f, 100.0f});
     root->AddChild(btn.Get());
 
     StyleManager mgr(CSSParser::Parse(SV(u8"button { opacity: 1; }")));

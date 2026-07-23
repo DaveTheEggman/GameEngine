@@ -21,6 +21,7 @@ namespace
     public:
         explicit TestThemeExtension(bool* applied) : m_applied(applied) {}
         void Apply(StyleSheet& /*sheet*/, ThemePalette /*palette*/) override { *m_applied = true; }
+
     private:
         bool* m_applied;
     };
@@ -30,6 +31,7 @@ namespace
     public:
         explicit CountingThemeExtension(i32* count) : m_count(count) {}
         void Apply(StyleSheet& /*sheet*/, ThemePalette /*palette*/) override { (*m_count)++; }
+
     private:
         i32* m_count;
     };
@@ -98,7 +100,8 @@ TEST_CASE("theme: RoundedDarkTheme_CreatesWithCustomPalette")
 
 TEST_CASE("theme: DarkTheme_ResolvesTextColor")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     ctx.SetStyleSheet(DarkTheme::Create());
 
@@ -112,7 +115,8 @@ TEST_CASE("theme: DarkTheme_ResolvesTextColor")
 
 TEST_CASE("theme: DarkTheme_ResolvesFontSize")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     ctx.SetStyleSheet(DarkTheme::Create());
 
@@ -125,7 +129,8 @@ TEST_CASE("theme: DarkTheme_ResolvesFontSize")
 
 TEST_CASE("theme: DarkTheme_ButtonStyleClass")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     ctx.SetStyleSheet(DarkTheme::Create());
 
@@ -156,7 +161,8 @@ TEST_CASE("theme: LightTheme_Creates")
 
 TEST_CASE("theme: LightTheme_ResolvesTextColor")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     ctx.SetStyleSheet(LightTheme::Create());
 
@@ -172,7 +178,8 @@ TEST_CASE("theme: LightTheme_ResolvesTextColor")
 
 TEST_CASE("theme: ThemeSwitching_ChangesResolvedValues")
 {
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
 
     auto view = core::MakeRef<TestView>(core::DefaultAllocator());
@@ -198,9 +205,10 @@ TEST_CASE("theme: ThemeSwitching_ChangesResolvedValues")
 TEST_CASE("theme: DarkTheme_WithCustomPalette")
 {
     ThemePalette palette = ThemePalette::Dark();
-    palette.Text = Color{ 1.0f, 0.0f, 0.0f, 1.0f }; // red text
+    palette.Text = Color{1.0f, 0.0f, 0.0f, 1.0f}; // red text
 
-    UIContext ctx; auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     ctx.SetStyleSheet(DarkTheme::Create(palette));
 
@@ -237,4 +245,3 @@ TEST_CASE("theme: ThemeRegistry_ExtensionAppliedToBothThemes")
 
     ThemeRegistry::UnregisterExtension(&ext);
 }
-

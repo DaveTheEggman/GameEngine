@@ -44,18 +44,22 @@ export namespace draconic::editor
     struct ModelPrefabResult
     {
         draconic::content::Instance* instance = nullptr;
-        bool regenerated = false;   // an existing prefab was refreshed (re-import)
+        bool regenerated = false; // an existing prefab was refreshed (re-import)
     };
 
     /// Generate (or refresh) the hierarchy prefab for a model manifest instance. Pure
     /// content-DB work - the caller handles editor-side follow-ups (instance rebuild,
     /// open-page refresh, notices).
-    [[nodiscard]] inline ModelPrefabResult GenerateModelPrefab(draconic::content::Instance& manifestInstance)
+    [[nodiscard]] inline ModelPrefabResult
+    GenerateModelPrefab(draconic::content::Instance& manifestInstance)
     {
         ModelPrefabResult result;
         RefPtr<ISerializable> object = manifestInstance.ReadObject();
         auto* asset = Cast<modelimporter::ModelManifestAsset>(object.Get());
-        if (asset == nullptr) { return result; }
+        if (asset == nullptr)
+        {
+            return result;
+        }
         const draconic::model::ModelManifestSource& manifest = asset->manifest;
 
         // Author the hierarchy in a throwaway scene, then capture it as a prefab payload.
@@ -64,9 +68,10 @@ export namespace draconic::editor
         auto* anims = scene.AddSystem<animation::SkeletalAnimationComponentManager>();
         const bool hasCollision = !manifest.collisionGuids.IsEmpty();
         auto* rigidBodies = hasCollision
-            ? scene.AddSystem<draconic::physics::RigidBodyComponentManager>() : nullptr;
-        auto* colliders = hasCollision
-            ? scene.AddSystem<draconic::physics::ColliderComponentManager>() : nullptr;
+                                ? scene.AddSystem<draconic::physics::RigidBodyComponentManager>()
+                                : nullptr;
+        auto* colliders =
+            hasCollision ? scene.AddSystem<draconic::physics::ColliderComponentManager>() : nullptr;
 
         scene::EntityHandle root = scene.CreateEntity(manifestInstance.Name());
         Array<scene::EntityHandle> entities;
@@ -87,10 +92,10 @@ export namespace draconic::editor
             }
             else
             {
-                scene.SetParent(entities[i], root);   // top-level node -> the prefab root
+                scene.SetParent(entities[i], root); // top-level node -> the prefab root
             }
-            if (node.meshIndex < 0
-                || static_cast<usize>(node.meshIndex) >= manifest.meshGuids.Size())
+            if (node.meshIndex < 0 ||
+                static_cast<usize>(node.meshIndex) >= manifest.meshGuids.Size())
             {
                 continue;
             }
@@ -109,16 +114,16 @@ export namespace draconic::editor
 
             // Generated collision: each mesh node gets a cooked-shape collider that folds
             // into the STATIC RigidBody on the prefab root (hierarchy compounding).
-            if (colliders != nullptr && meshIndex < manifest.collisionGuids.Size()
-                && !manifest.collisionGuids[meshIndex].IsNil())
+            if (colliders != nullptr && meshIndex < manifest.collisionGuids.Size() &&
+                !manifest.collisionGuids[meshIndex].IsNil())
             {
                 draconic::physics::ColliderComponent& cc = colliders->Add(entities[i]);
                 cc.shape = draconic::physics::ShapeKind::Cooked;
                 cc.collisionShape.SetId(manifest.collisionGuids[meshIndex]);
             }
 
-            const bool skinned = (meshIndex < manifest.meshSkinned.Size())
-                && manifest.meshSkinned[meshIndex] != 0;
+            const bool skinned =
+                (meshIndex < manifest.meshSkinned.Size()) && manifest.meshSkinned[meshIndex] != 0;
             if (skinned && animated)
             {
                 // Feeds its OWN entity (meshEntities stays empty - it doesn't serialize yet).
@@ -131,7 +136,10 @@ export namespace draconic::editor
         if (rigidBodies != nullptr)
         {
             bool anyCollider = false;
-            for (const Guid& g : manifest.collisionGuids) { anyCollider = anyCollider || !g.IsNil(); }
+            for (const Guid& g : manifest.collisionGuids)
+            {
+                anyCollider = anyCollider || !g.IsNil();
+            }
             if (anyCollider)
             {
                 draconic::physics::RigidBodyComponent& body = rigidBodies->Add(root);
@@ -139,12 +147,15 @@ export namespace draconic::editor
                 body.layer = draconic::physics::PhysicsLayer::Static;
                 // The root body's OWN shape stays a degenerate box; the real geometry
                 // comes from the descendant cooked colliders compounding in.
-                body.halfExtents = Float3{ 0.01f, 0.01f, 0.01f };
+                body.halfExtents = Float3{0.01f, 0.01f, 0.01f};
             }
         }
 
         MemoryStream payload;
-        if (!scene::CapturePrefab(scene, root, payload).IsOk()) { return result; }
+        if (!scene::CapturePrefab(scene, root, payload).IsOk())
+        {
+            return result;
+        }
 
         // "Prefab" beside the manifest; an existing one is REUSED so its guid (and every
         // placed instance) survives re-import. A non-prefab squatting on the name loses to
@@ -164,12 +175,15 @@ export namespace draconic::editor
         {
             prefab = group.CreateInstance(u8"Prefab", scene::PrefabDocument::StaticType());
         }
-        if (prefab == nullptr) { return result; }
+        if (prefab == nullptr)
+        {
+            return result;
+        }
 
         scene::PrefabDocument doc;
         doc.name = String(manifestInstance.Name());
-        if (!prefab->WriteObject(doc).IsOk()
-            || !prefab->WriteData(u8"scene", payload.Bytes()).IsOk())
+        if (!prefab->WriteObject(doc).IsOk() ||
+            !prefab->WriteData(u8"scene", payload.Bytes()).IsOk())
         {
             DRACONIC_LOG_ERROR(u8"Editor", u8"model prefab write failed for '{}'",
                                manifestInstance.Name());

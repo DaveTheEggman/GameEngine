@@ -9,7 +9,7 @@ module;
 
 export module draconic.ui:view_id;
 
-import draconic.core;   // Atomic
+import draconic.core; // Atomic
 
 using namespace draconic::core;
 namespace core = draconic::core;
@@ -24,10 +24,19 @@ export namespace draconic::ui
         [[nodiscard]] constexpr bool IsValid() const noexcept { return m_value != 0u; }
         /// Raw value for use as a hash-map key.
         [[nodiscard]] constexpr u32 RawValue() const noexcept { return m_value; }
-        [[nodiscard]] constexpr u64 GetHashCode() const noexcept { return static_cast<u64>(m_value); }
+        [[nodiscard]] constexpr u64 GetHashCode() const noexcept
+        {
+            return static_cast<u64>(m_value);
+        }
 
-        [[nodiscard]] constexpr bool Equals(ViewId other) const noexcept { return m_value == other.m_value; }
-        [[nodiscard]] constexpr bool operator==(ViewId other) const noexcept { return m_value == other.m_value; }
+        [[nodiscard]] constexpr bool Equals(ViewId other) const noexcept
+        {
+            return m_value == other.m_value;
+        }
+        [[nodiscard]] constexpr bool operator==(ViewId other) const noexcept
+        {
+            return m_value == other.m_value;
+        }
 
         /// Append a debug string "ViewId(<value>)" (Sedulous ViewId.ToString).
         void ToString(core::String& out) const { core::AppendFormat(out, u8"ViewId({})", m_value); }
@@ -42,7 +51,7 @@ export namespace draconic::ui
 
     inline ViewId ViewId::Create() noexcept
     {
-        static core::Atomic<u32> s_next{ 1u };
+        static core::Atomic<u32> s_next{1u};
         ViewId id;
         id.m_value = s_next.fetch_add(1u);
         return id;

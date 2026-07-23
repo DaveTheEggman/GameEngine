@@ -45,7 +45,8 @@ export namespace draconic::ui::toolkit
         /// Untyped port - connects to anything.
         [[nodiscard]] static NodeGraphPortType Untyped()
         {
-            return NodeGraphPortType(0, core::Color{ 180.0f / 255.0f, 180.0f / 255.0f, 190.0f / 255.0f, 1.0f });
+            return NodeGraphPortType(
+                0, core::Color{180.0f / 255.0f, 180.0f / 255.0f, 190.0f / 255.0f, 1.0f});
         }
     };
 
@@ -79,10 +80,10 @@ export namespace draconic::ui::toolkit
         Float2 Position{};
 
         /// Size in canvas space. Auto-computed from ports/title unless set explicitly.
-        Float2 Size{ 160.0f, 80.0f };
+        Float2 Size{160.0f, 80.0f};
 
         /// Header bar color.
-        core::Color HeaderColor{ 70.0f / 255.0f, 130.0f / 255.0f, 200.0f / 255.0f, 1.0f };
+        core::Color HeaderColor{70.0f / 255.0f, 130.0f / 255.0f, 200.0f / 255.0f, 1.0f};
 
         /// Whether this node is selected.
         bool IsSelected = false;

@@ -12,8 +12,8 @@ module;
 
 export module draconic.gui:message_box;
 
-import draconic.core;   // RefPtr, MakeRef, Array, Function, Move, Max, Float2
-import draconic.fonts;  // CachedFont
+import draconic.core;  // RefPtr, MakeRef, Array, Function, Move, Max, Float2
+import draconic.fonts; // CachedFont
 import :rect;
 import :node;
 import :label;
@@ -32,8 +32,19 @@ export namespace draconic::gui
     {
         DRACONIC_OBJECT(MessageBox, Window)
     public:
-        enum class Buttons { Ok, OkCancel, YesNo };
-        enum class Result { Ok, Cancel, Yes, No };
+        enum class Buttons
+        {
+            Ok,
+            OkCancel,
+            YesNo
+        };
+        enum class Result
+        {
+            Ok,
+            Cancel,
+            Yes,
+            No
+        };
 
         MessageBox()
         {
@@ -46,7 +57,7 @@ export namespace draconic::gui
             m_message->SetTextAlignment(TextHAlign::Left, TextVAlign::Top);
             GetContent()->AddChild(m_message.Get());
 
-            SetSize(core::Float2{ 360.0f, 180.0f });
+            SetSize(core::Float2{360.0f, 180.0f});
             LayoutContent();
         }
 
@@ -59,7 +70,10 @@ export namespace draconic::gui
             LayoutContent();
         }
 
-        void SetOnResult(core::Function<void(Result)> callback) { m_onResult = core::Move(callback); }
+        void SetOnResult(core::Function<void(Result)> callback)
+        {
+            m_onResult = core::Move(callback);
+        }
 
         // Font reaches the title (base), the message, and the buttons.
         void SetFont(fonts::CachedFont* font)
@@ -67,13 +81,17 @@ export namespace draconic::gui
             Window::SetFont(font);
             m_font = font;
             m_message->SetFont(font);
-            for (const RefPtr<Button>& b : m_buttons) b->SetFont(font);
+            for (const RefPtr<Button>& b : m_buttons)
+                b->SetFont(font);
         }
         void SetMessageColor(Color color) { m_message->SetTextColor(color); }
 
         [[nodiscard]] core::StringView GetMessage() const { return m_message->GetText(); }
         [[nodiscard]] usize ButtonCount() const noexcept { return m_buttons.Size(); }
-        [[nodiscard]] Button* ButtonAt(usize index) const { return index < m_buttons.Size() ? m_buttons[index].Get() : nullptr; }
+        [[nodiscard]] Button* ButtonAt(usize index) const
+        {
+            return index < m_buttons.Size() ? m_buttons[index].Get() : nullptr;
+        }
 
     protected:
         void OnSizeChange() override
@@ -85,7 +103,8 @@ export namespace draconic::gui
     private:
         void BuildButtons(Buttons buttons)
         {
-            for (const RefPtr<Button>& b : m_buttons) b->RemoveFromParent();
+            for (const RefPtr<Button>& b : m_buttons)
+                b->RemoveFromParent();
             m_buttons.Clear();
 
             switch (buttons)
@@ -95,11 +114,11 @@ export namespace draconic::gui
                 break;
             case Buttons::OkCancel:
                 AddButton(core::StringView(u8"Cancel"), Result::Cancel);
-                AddButton(core::StringView(u8"OK"), Result::Ok);       // primary rightmost
+                AddButton(core::StringView(u8"OK"), Result::Ok); // primary rightmost
                 break;
             case Buttons::YesNo:
                 AddButton(core::StringView(u8"No"), Result::No);
-                AddButton(core::StringView(u8"Yes"), Result::Yes);     // primary rightmost
+                AddButton(core::StringView(u8"Yes"), Result::Yes); // primary rightmost
                 break;
             }
         }
@@ -118,30 +137,35 @@ export namespace draconic::gui
 
         void Finish(Result result)
         {
-            if (m_onResult) m_onResult(result);
+            if (m_onResult)
+                m_onResult(result);
             Close();
         }
 
         void LayoutContent()
         {
             Node* content = GetContent();
-            if (content == nullptr || !m_message) return; // may run mid-construction
+            if (content == nullptr || !m_message)
+                return; // may run mid-construction
             const core::Float2 cs = content->GetSize();
 
             const f32 buttonAreaTop = core::Max(0.0f, cs.y - kButtonHeight - kPad);
-            m_message->SetPosition(core::Float2{ kPad, kPad });
-            m_message->SetSize(core::Float2{ core::Max(0.0f, cs.x - 2.0f * kPad),
-                                             core::Max(0.0f, buttonAreaTop - kPad) });
+            m_message->SetPosition(core::Float2{kPad, kPad});
+            m_message->SetSize(core::Float2{core::Max(0.0f, cs.x - 2.0f * kPad),
+                                            core::Max(0.0f, buttonAreaTop - kPad)});
 
             // Right-align the button group at the bottom.
             const usize n = m_buttons.Size();
-            if (n == 0) return;
-            const f32 totalWidth = static_cast<f32>(n) * kButtonWidth + static_cast<f32>(n - 1) * kButtonGap;
+            if (n == 0)
+                return;
+            const f32 totalWidth =
+                static_cast<f32>(n) * kButtonWidth + static_cast<f32>(n - 1) * kButtonGap;
             const f32 startX = core::Max(kPad, cs.x - kPad - totalWidth);
             for (usize i = 0; i < n; ++i)
             {
-                m_buttons[i]->SetPosition(core::Float2{ startX + static_cast<f32>(i) * (kButtonWidth + kButtonGap), buttonAreaTop });
-                m_buttons[i]->SetSize(core::Float2{ kButtonWidth, kButtonHeight });
+                m_buttons[i]->SetPosition(core::Float2{
+                    startX + static_cast<f32>(i) * (kButtonWidth + kButtonGap), buttonAreaTop});
+                m_buttons[i]->SetSize(core::Float2{kButtonWidth, kButtonHeight});
             }
         }
 

@@ -10,7 +10,7 @@ module;
 
 export module draconic.ui:dock_layout;
 
-import draconic.core;   // Max
+import draconic.core; // Max
 import :view;
 import :layout_params;
 import :box_constraints;
@@ -21,7 +21,14 @@ using namespace draconic::core;
 export namespace draconic::ui
 {
     /// Dock position for a DockLayout child.
-    enum class Dock { Left, Top, Right, Bottom, Fill };
+    enum class Dock
+    {
+        Left,
+        Top,
+        Right,
+        Bottom,
+        Fill
+    };
 
     /// LayoutParams for a DockLayout child.
     class DockLayoutParams : public LayoutParams
@@ -43,7 +50,10 @@ export namespace draconic::ui
         DockLayout() = default;
 
     protected:
-        LayoutParamsPtr CreateDefaultLayoutParams() override { return MakeRef<DockLayoutParams>(DefaultAllocator()); }
+        LayoutParamsPtr CreateDefaultLayoutParams() override
+        {
+            return MakeRef<DockLayoutParams>(DefaultAllocator());
+        }
 
         void OnMeasure(BoxConstraints constraints) override
         {
@@ -53,40 +63,59 @@ export namespace draconic::ui
             for (usize i = 0; i < count; ++i)
             {
                 View* child = GetChildAt(i);
-                if (child->Visibility == Visibility::Gone) { continue; }
+                if (child->Visibility == Visibility::Gone)
+                {
+                    continue;
+                }
 
                 DockLayoutParams* lp = Cast<DockLayoutParams>(child->LayoutParams.Get());
                 const draconic::ui::Dock dock = lp != nullptr ? lp->Dock : draconic::ui::Dock::Left;
-                const Thickness margin = child->LayoutParams ? child->LayoutParams->Margin : Thickness{};
+                const Thickness margin =
+                    child->LayoutParams ? child->LayoutParams->Margin : Thickness{};
 
-                const f32 remainW = Max(0.0f, constraints.MaxWidth - Padding.TotalHorizontal() - usedLeft - usedRight);
-                const f32 remainH = Max(0.0f, constraints.MaxHeight - Padding.TotalVertical() - usedTop - usedBottom);
+                const f32 remainW = Max(0.0f, constraints.MaxWidth - Padding.TotalHorizontal() -
+                                                  usedLeft - usedRight);
+                const f32 remainH = Max(0.0f, constraints.MaxHeight - Padding.TotalVertical() -
+                                                  usedTop - usedBottom);
 
-                const bool isFill = (LastChildFill && i == count - 1) || dock == draconic::ui::Dock::Fill;
-                BoxConstraints childConstraints = isFill
-                    ? BoxConstraints::Tight(Max(0.0f, remainW - margin.TotalHorizontal()), Max(0.0f, remainH - margin.TotalVertical()))
-                    : BoxConstraints{ 0, Max(0.0f, remainW - margin.TotalHorizontal()), 0, Max(0.0f, remainH - margin.TotalVertical()) };
+                const bool isFill =
+                    (LastChildFill && i == count - 1) || dock == draconic::ui::Dock::Fill;
+                BoxConstraints childConstraints =
+                    isFill ? BoxConstraints::Tight(Max(0.0f, remainW - margin.TotalHorizontal()),
+                                                   Max(0.0f, remainH - margin.TotalVertical()))
+                           : BoxConstraints{0, Max(0.0f, remainW - margin.TotalHorizontal()), 0,
+                                            Max(0.0f, remainH - margin.TotalVertical())};
                 child->Measure(childConstraints);
 
                 switch (dock)
                 {
-                case draconic::ui::Dock::Left:   usedLeft += child->MeasuredSize.x + margin.TotalHorizontal(); break;
-                case draconic::ui::Dock::Right:  usedRight += child->MeasuredSize.x + margin.TotalHorizontal(); break;
-                case draconic::ui::Dock::Top:    usedTop += child->MeasuredSize.y + margin.TotalVertical(); break;
-                case draconic::ui::Dock::Bottom: usedBottom += child->MeasuredSize.y + margin.TotalVertical(); break;
-                case draconic::ui::Dock::Fill:   break;
+                case draconic::ui::Dock::Left:
+                    usedLeft += child->MeasuredSize.x + margin.TotalHorizontal();
+                    break;
+                case draconic::ui::Dock::Right:
+                    usedRight += child->MeasuredSize.x + margin.TotalHorizontal();
+                    break;
+                case draconic::ui::Dock::Top:
+                    usedTop += child->MeasuredSize.y + margin.TotalVertical();
+                    break;
+                case draconic::ui::Dock::Bottom:
+                    usedBottom += child->MeasuredSize.y + margin.TotalVertical();
+                    break;
+                case draconic::ui::Dock::Fill:
+                    break;
                 }
                 maxW = Max(maxW, usedLeft + usedRight);
                 maxH = Max(maxH, usedTop + usedBottom);
             }
 
-            MeasuredSize = Float2{ constraints.ConstrainWidth(maxW + Padding.TotalHorizontal()),
-                                   constraints.ConstrainHeight(maxH + Padding.TotalVertical()) };
+            MeasuredSize = Float2{constraints.ConstrainWidth(maxW + Padding.TotalHorizontal()),
+                                  constraints.ConstrainHeight(maxH + Padding.TotalVertical())};
         }
 
         void OnLayout(f32 left, f32 top, f32 width, f32 height) override
         {
-            (void)left; (void)top;
+            (void)left;
+            (void)top;
             f32 dockLeft = Padding.Left;
             f32 dockTop = Padding.Top;
             f32 dockRight = width - Padding.Right;
@@ -96,12 +125,17 @@ export namespace draconic::ui
             for (usize i = 0; i < count; ++i)
             {
                 View* child = GetChildAt(i);
-                if (child->Visibility == Visibility::Gone) { continue; }
+                if (child->Visibility == Visibility::Gone)
+                {
+                    continue;
+                }
 
                 DockLayoutParams* lp = Cast<DockLayoutParams>(child->LayoutParams.Get());
                 const draconic::ui::Dock dock = lp != nullptr ? lp->Dock : draconic::ui::Dock::Left;
-                const Thickness margin = child->LayoutParams ? child->LayoutParams->Margin : Thickness{};
-                const bool isFill = (LastChildFill && i == count - 1) || dock == draconic::ui::Dock::Fill;
+                const Thickness margin =
+                    child->LayoutParams ? child->LayoutParams->Margin : Thickness{};
+                const bool isFill =
+                    (LastChildFill && i == count - 1) || dock == draconic::ui::Dock::Fill;
 
                 if (isFill)
                 {
@@ -114,26 +148,32 @@ export namespace draconic::ui
                 switch (dock)
                 {
                 case draconic::ui::Dock::Left:
-                    child->Layout(dockLeft + margin.Left, dockTop + margin.Top, child->MeasuredSize.x,
+                    child->Layout(dockLeft + margin.Left, dockTop + margin.Top,
+                                  child->MeasuredSize.x,
                                   Max(0.0f, dockBottom - dockTop - margin.TotalVertical()));
                     dockLeft += child->MeasuredSize.x + margin.TotalHorizontal();
                     break;
                 case draconic::ui::Dock::Right:
-                    child->Layout(dockRight - child->MeasuredSize.x - margin.Right, dockTop + margin.Top, child->MeasuredSize.x,
+                    child->Layout(dockRight - child->MeasuredSize.x - margin.Right,
+                                  dockTop + margin.Top, child->MeasuredSize.x,
                                   Max(0.0f, dockBottom - dockTop - margin.TotalVertical()));
                     dockRight -= child->MeasuredSize.x + margin.TotalHorizontal();
                     break;
                 case draconic::ui::Dock::Top:
                     child->Layout(dockLeft + margin.Left, dockTop + margin.Top,
-                                  Max(0.0f, dockRight - dockLeft - margin.TotalHorizontal()), child->MeasuredSize.y);
+                                  Max(0.0f, dockRight - dockLeft - margin.TotalHorizontal()),
+                                  child->MeasuredSize.y);
                     dockTop += child->MeasuredSize.y + margin.TotalVertical();
                     break;
                 case draconic::ui::Dock::Bottom:
-                    child->Layout(dockLeft + margin.Left, dockBottom - child->MeasuredSize.y - margin.Bottom,
-                                  Max(0.0f, dockRight - dockLeft - margin.TotalHorizontal()), child->MeasuredSize.y);
+                    child->Layout(dockLeft + margin.Left,
+                                  dockBottom - child->MeasuredSize.y - margin.Bottom,
+                                  Max(0.0f, dockRight - dockLeft - margin.TotalHorizontal()),
+                                  child->MeasuredSize.y);
                     dockBottom -= child->MeasuredSize.y + margin.TotalVertical();
                     break;
-                case draconic::ui::Dock::Fill: break;
+                case draconic::ui::Dock::Fill:
+                    break;
                 }
             }
         }

@@ -36,17 +36,18 @@ export namespace draconic::editor
     // (icon, config, data) staged into the dist ON TOP of the template's own runtime sidecars.
     struct ExportPreset
     {
-        String name;                    // "Windows Desktop"
-        String platform;                // "Win64" / "Linux64" (the Bin/<Config>/<Platform> tag)
-        String config;                  // "Debug"/"Release"/"RelWithDebInfo"; "" => Release (default)
-        String templateId;              // which template; "" => resolve by (platform, config)
-        String playerName;              // output exe name; "" => the template's player basename
-        String outputSubdir;            // export-root-relative output dir; "" => sanitized `name`
-        Array<String> additionalFiles;  // game-specific extra files (beyond the template's sidecars)
-        bool stageSymbols = false;      // stage the template's symbols[] into the dist (default: stripped)
-        bool pruneToReachable = false;  // ship only the closure of the entry points (default: pack
-                                        // everything - the escape hatch for teams not yet managing
-                                        // reachability). See docs/design/export-reachability.md.
+        String name;         // "Windows Desktop"
+        String platform;     // "Win64" / "Linux64" (the Bin/<Config>/<Platform> tag)
+        String config;       // "Debug"/"Release"/"RelWithDebInfo"; "" => Release (default)
+        String templateId;   // which template; "" => resolve by (platform, config)
+        String playerName;   // output exe name; "" => the template's player basename
+        String outputSubdir; // export-root-relative output dir; "" => sanitized `name`
+        Array<String> additionalFiles; // game-specific extra files (beyond the template's sidecars)
+        bool stageSymbols =
+            false; // stage the template's symbols[] into the dist (default: stripped)
+        bool pruneToReachable = false; // ship only the closure of the entry points (default: pack
+                                       // everything - the escape hatch for teams not yet managing
+                                       // reachability). See docs/design/export-reachability.md.
 
         void Serialize(ISerializer& ar)
         {
@@ -99,7 +100,13 @@ export namespace draconic::editor
         // Find a preset by name (case-sensitive); null when absent.
         [[nodiscard]] const ExportPreset* Find(StringView presetName) const
         {
-            for (const ExportPreset& p : presets) { if (p.name.AsView() == presetName) { return &p; } }
+            for (const ExportPreset& p : presets)
+            {
+                if (p.name.AsView() == presetName)
+                {
+                    return &p;
+                }
+            }
             return nullptr;
         }
     };
@@ -122,10 +129,16 @@ export namespace draconic::editor
                                                   StringView fileName = kExportPresetsFile)
     {
         UniquePtr<IStream> stream = root.Open(fileName, FileMode::Read);
-        if (!stream) { return Status{ ErrorCode::NotFound }; }
+        if (!stream)
+        {
+            return Status{ErrorCode::NotFound};
+        }
         SerializerFactory factory = draconic::xml::XmlSerializerFactory();
         UniquePtr<SerializerContext> ctx = factory(*stream, SerializeMode::Read);
-        if (!ctx || ctx->serializer == nullptr) { return Status{ ErrorCode::Internal }; }
+        if (!ctx || ctx->serializer == nullptr)
+        {
+            return Status{ErrorCode::Internal};
+        }
         BeginVersionedPayload(*ctx->serializer, ExportPresetSet::StaticType());
         out.Serialize(*ctx->serializer);
         EndVersionedPayload(*ctx->serializer);
@@ -140,11 +153,17 @@ export namespace draconic::editor
         MemoryStream buffer;
         SerializerFactory factory = draconic::xml::XmlSerializerFactory();
         UniquePtr<SerializerContext> ctx = factory(buffer, SerializeMode::Write);
-        if (!ctx || ctx->serializer == nullptr) { return Status{ ErrorCode::Internal }; }
+        if (!ctx || ctx->serializer == nullptr)
+        {
+            return Status{ErrorCode::Internal};
+        }
         BeginVersionedPayload(*ctx->serializer, ExportPresetSet::StaticType());
         presets.Serialize(*ctx->serializer);
         EndVersionedPayload(*ctx->serializer);
-        if (!ctx->serializer->IsOk()) { return ctx->serializer->GetStatus(); }
+        if (!ctx->serializer->IsOk())
+        {
+            return ctx->serializer->GetStatus();
+        }
         ctx->Flush(buffer);
         return writable.Save(fileName, buffer.Bytes());
     }
@@ -158,7 +177,7 @@ export namespace draconic::editor
     {
         DRACONIC_OBJECT(EditorExportSettings, ISerializable)
     public:
-        String templatesRoot;   // "" => $DRACONIC_TEMPLATES_DIR, else <user-data>/templates
+        String templatesRoot; // "" => $DRACONIC_TEMPLATES_DIR, else <user-data>/templates
 
         void Serialize(ISerializer& ar) override
         {
@@ -185,16 +204,23 @@ export namespace draconic::editor
                                                    StringView fileName = kEditorSettingsFile)
     {
         UniquePtr<IStream> stream = root.Open(fileName, FileMode::Read);
-        if (!stream) { return Status{ ErrorCode::NotFound }; }
+        if (!stream)
+        {
+            return Status{ErrorCode::NotFound};
+        }
         return out.Load(*stream, draconic::xml::XmlSerializerFactory());
     }
 
     // Persist the editor settings store to `root` (XML).
-    [[nodiscard]] inline Status SaveEditorSettings(vfs::IWritableFileSystem& root, const settings::Settings& in,
+    [[nodiscard]] inline Status SaveEditorSettings(vfs::IWritableFileSystem& root,
+                                                   const settings::Settings& in,
                                                    StringView fileName = kEditorSettingsFile)
     {
         MemoryStream buffer;
-        if (Status s = in.Save(buffer, draconic::xml::XmlSerializerFactory()); !s.IsOk()) { return s; }
+        if (Status s = in.Save(buffer, draconic::xml::XmlSerializerFactory()); !s.IsOk())
+        {
+            return s;
+        }
         return root.Save(fileName, buffer.Bytes());
     }
 
@@ -208,7 +234,7 @@ export namespace draconic::editor
     [[nodiscard]] inline Status SaveEditorSettingsToUserData(const settings::Settings& in)
     {
         const String dir = GetUserDataDirectory(u8"draconic");
-        (void)CreateDirectory(dir.AsView());   // ensure the leaf dir exists before writing
+        (void)CreateDirectory(dir.AsView()); // ensure the leaf dir exists before writing
         vfs::NativeFileSystem fs(dir.AsView());
         return SaveEditorSettings(*fs.AsWritable(), in);
     }

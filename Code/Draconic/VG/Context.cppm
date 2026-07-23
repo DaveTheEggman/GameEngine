@@ -45,14 +45,14 @@ export namespace draconic::vg
     class VGContext
     {
     public:
-        explicit VGContext(fonts::IFontService* fontService = nullptr)
-            : m_fontService(fontService)
+        explicit VGContext(fonts::IFontService* fontService = nullptr) : m_fontService(fontService)
         {
             m_stateStack.Reserve(16);
 
             // 1x1 white texture for solid-color draws (Textures[0] -> color passthrough).
-            const u8 whitePixel[4] = { 255, 255, 255, 255 };
-            m_whiteTexture = image::OwnedImageData(1, 1, image::PixelFormat::RGBA8, Span<const u8>(whitePixel, 4));
+            const u8 whitePixel[4] = {255, 255, 255, 255};
+            m_whiteTexture = image::OwnedImageData(1, 1, image::PixelFormat::RGBA8,
+                                                   Span<const u8>(whitePixel, 4));
             m_batch.textures.PushBack(&m_whiteTexture);
         }
 
@@ -105,10 +105,21 @@ export namespace draconic::vg
         void SetTransform(const Float4x4& transform) { m_currentState.transform = transform; }
         [[nodiscard]] Float4x4 GetTransform() const { return m_currentState.transform; }
 
-        void Translate(f32 x, f32 y) { m_currentState.transform = Float4x4::Translation(Float3{ x, y, 0.0f }) * m_currentState.transform; }
-        void Rotate(f32 radians)     { m_currentState.transform = Float4x4::RotationZ(radians) * m_currentState.transform; }
-        void Scale(f32 sx, f32 sy)   { m_currentState.transform = Float4x4::Scale(Float3{ sx, sy, 1.0f }) * m_currentState.transform; }
-        void ResetTransform()        { m_currentState.transform = Float4x4::Identity(); }
+        void Translate(f32 x, f32 y)
+        {
+            m_currentState.transform =
+                Float4x4::Translation(Float3{x, y, 0.0f}) * m_currentState.transform;
+        }
+        void Rotate(f32 radians)
+        {
+            m_currentState.transform = Float4x4::RotationZ(radians) * m_currentState.transform;
+        }
+        void Scale(f32 sx, f32 sy)
+        {
+            m_currentState.transform =
+                Float4x4::Scale(Float3{sx, sy, 1.0f}) * m_currentState.transform;
+        }
+        void ResetTransform() { m_currentState.transform = Float4x4::Identity(); }
 
         // === Clipping ===
 
@@ -119,7 +130,8 @@ export namespace draconic::vg
 
             const Rectangle transformedRect = TransformRect(rect);
             if (m_currentState.clipRect.width > 0.0f && m_currentState.clipRect.height > 0.0f)
-                m_currentState.clipRect = Rectangle::Intersect(m_currentState.clipRect, transformedRect);
+                m_currentState.clipRect =
+                    Rectangle::Intersect(m_currentState.clipRect, transformedRect);
             else
                 m_currentState.clipRect = transformedRect;
             m_currentState.clipMode = VGClipMode::Scissor;
@@ -132,8 +144,10 @@ export namespace draconic::vg
             {
                 m_currentState.clipRect = m_clipStack.Back();
                 m_clipStack.PopBack();
-                m_currentState.clipMode = (m_currentState.clipRect.width > 0.0f && m_currentState.clipRect.height > 0.0f)
-                    ? VGClipMode::Scissor : VGClipMode::None;
+                m_currentState.clipMode =
+                    (m_currentState.clipRect.width > 0.0f && m_currentState.clipRect.height > 0.0f)
+                        ? VGClipMode::Scissor
+                        : VGClipMode::None;
             }
             else
             {
@@ -177,28 +191,33 @@ export namespace draconic::vg
         // === Path Drawing ===
 
         /// Fill a path with a solid color.
-        void FillPath(const Path& path, Color color, FillRule fillRule = FillRule::EvenOdd, bool antiAlias = true)
+        void FillPath(const Path& path, Color color, FillRule fillRule = FillRule::EvenOdd,
+                      bool antiAlias = true)
         {
             SetupForSolidDraw();
             const usize startVertex = m_batch.vertices.Size();
             const f32 scaledTolerance = GetScaledTolerance();
-            FillTessellator::Tessellate(path, fillRule, ApplyOpacity(color), antiAlias, m_batch.vertices, m_batch.indices, scaledTolerance);
+            FillTessellator::Tessellate(path, fillRule, ApplyOpacity(color), antiAlias,
+                                        m_batch.vertices, m_batch.indices, scaledTolerance);
             TransformVertices(startVertex);
         }
 
         /// Fill a path with a fill style.
-        void FillPath(const Path& path, const IVGFill& fill, FillRule fillRule = FillRule::EvenOdd, bool antiAlias = true)
+        void FillPath(const Path& path, const IVGFill& fill, FillRule fillRule = FillRule::EvenOdd,
+                      bool antiAlias = true)
         {
             SetupForSolidDraw();
             const usize startVertex = m_batch.vertices.Size();
             const f32 scaledTolerance = GetScaledTolerance();
-            FillTessellator::TessellateWithFill(path, fillRule, fill, antiAlias, m_batch.vertices, m_batch.indices, scaledTolerance);
+            FillTessellator::TessellateWithFill(path, fillRule, fill, antiAlias, m_batch.vertices,
+                                                m_batch.indices, scaledTolerance);
             ApplyOpacityToVertices(startVertex);
             TransformVertices(startVertex);
         }
 
         /// Stroke a path with a solid color.
-        void StrokePath(const Path& path, Color color, StrokeStyle style, Span<const f32> dashPattern = {}, bool antiAlias = true)
+        void StrokePath(const Path& path, Color color, StrokeStyle style,
+                        Span<const f32> dashPattern = {}, bool antiAlias = true)
         {
             SetupForSolidDraw();
             const f32 scaledTolerance = GetScaledTolerance();
@@ -213,8 +232,10 @@ export namespace draconic::vg
                 const FlattenedSubPath& subPath = subPaths[s];
                 if (subPath.points.Size() < 2)
                     continue;
-                StrokeTessellator::Tessellate(Span<const Float2>(subPath.points.Data(), subPath.points.Size()),
-                                              subPath.isClosed, style, dashPattern, antiAlias, opColor, m_batch.vertices, m_batch.indices);
+                StrokeTessellator::Tessellate(
+                    Span<const Float2>(subPath.points.Data(), subPath.points.Size()),
+                    subPath.isClosed, style, dashPattern, antiAlias, opColor, m_batch.vertices,
+                    m_batch.indices);
             }
 
             TransformVertices(startVertex);
@@ -233,7 +254,10 @@ export namespace draconic::vg
             FillPath(pb.ToPath(), color);
         }
 
-        void FillRoundedRect(Rectangle rect, f32 radius, Color color) { FillRoundedRect(rect, CornerRadii(radius), color); }
+        void FillRoundedRect(Rectangle rect, f32 radius, Color color)
+        {
+            FillRoundedRect(rect, CornerRadii(radius), color);
+        }
 
         void FillRoundedRect(Rectangle rect, CornerRadii radii, Color color)
         {
@@ -288,7 +312,10 @@ export namespace draconic::vg
             StrokePath(pb.ToPath(), color, StrokeStyle(width));
         }
 
-        void StrokeRoundedRect(Rectangle rect, f32 radius, Color color, f32 width = 1.0f) { StrokeRoundedRect(rect, CornerRadii(radius), color, width); }
+        void StrokeRoundedRect(Rectangle rect, f32 radius, Color color, f32 width = 1.0f)
+        {
+            StrokeRoundedRect(rect, CornerRadii(radius), color, width);
+        }
 
         void StrokeRoundedRect(Rectangle rect, CornerRadii radii, Color color, f32 width = 1.0f)
         {
@@ -325,21 +352,25 @@ export namespace draconic::vg
         void DrawBorderRect(Rectangle rect, Color color, f32 thickness = 1.0f)
         {
             const f32 halfThick = thickness * 0.5f;
-            const Rectangle insetRect{ rect.x + halfThick, rect.y + halfThick, rect.width - thickness, rect.height - thickness };
+            const Rectangle insetRect{rect.x + halfThick, rect.y + halfThick,
+                                      rect.width - thickness, rect.height - thickness};
             StrokeRect(insetRect, color, thickness);
         }
 
-        void DrawBorderRoundedRect(Rectangle rect, f32 radius, Color color, f32 thickness = 1.0f) { DrawBorderRoundedRect(rect, CornerRadii(radius), color, thickness); }
+        void DrawBorderRoundedRect(Rectangle rect, f32 radius, Color color, f32 thickness = 1.0f)
+        {
+            DrawBorderRoundedRect(rect, CornerRadii(radius), color, thickness);
+        }
 
-        void DrawBorderRoundedRect(Rectangle rect, CornerRadii radii, Color color, f32 thickness = 1.0f)
+        void DrawBorderRoundedRect(Rectangle rect, CornerRadii radii, Color color,
+                                   f32 thickness = 1.0f)
         {
             const f32 halfThick = thickness * 0.5f;
-            const Rectangle insetRect{ rect.x + halfThick, rect.y + halfThick, rect.width - thickness, rect.height - thickness };
+            const Rectangle insetRect{rect.x + halfThick, rect.y + halfThick,
+                                      rect.width - thickness, rect.height - thickness};
             const CornerRadii insetRadii(
-                Max(0.0f, radii.topLeft - halfThick),
-                Max(0.0f, radii.topRight - halfThick),
-                Max(0.0f, radii.bottomRight - halfThick),
-                Max(0.0f, radii.bottomLeft - halfThick));
+                Max(0.0f, radii.topLeft - halfThick), Max(0.0f, radii.topRight - halfThick),
+                Max(0.0f, radii.bottomRight - halfThick), Max(0.0f, radii.bottomLeft - halfThick));
             StrokeRoundedRect(insetRect, insetRadii, color, thickness);
         }
 
@@ -353,35 +384,49 @@ export namespace draconic::vg
         void LineTo(Float2 point) { m_currentPath.LineTo(point); }
         void QuadTo(f32 cx, f32 cy, f32 x, f32 y) { m_currentPath.QuadTo(cx, cy, x, y); }
         void QuadTo(Float2 control, Float2 end) { m_currentPath.QuadTo(control, end); }
-        void CubicTo(f32 c1x, f32 c1y, f32 c2x, f32 c2y, f32 x, f32 y) { m_currentPath.CubicTo(c1x, c1y, c2x, c2y, x, y); }
+        void CubicTo(f32 c1x, f32 c1y, f32 c2x, f32 c2y, f32 x, f32 y)
+        {
+            m_currentPath.CubicTo(c1x, c1y, c2x, c2y, x, y);
+        }
         void CubicTo(Float2 c1, Float2 c2, Float2 end) { m_currentPath.CubicTo(c1, c2, end); }
-        void ArcTo(f32 rx, f32 ry, f32 xAxisRotation, bool largeArc, bool sweep, f32 x, f32 y) { m_currentPath.ArcTo(rx, ry, xAxisRotation, largeArc, sweep, x, y); }
-        void ArcTo(f32 rx, f32 ry, f32 xAxisRotation, bool largeArc, bool sweep, Float2 to) { m_currentPath.ArcTo(rx, ry, xAxisRotation, largeArc, sweep, to); }
+        void ArcTo(f32 rx, f32 ry, f32 xAxisRotation, bool largeArc, bool sweep, f32 x, f32 y)
+        {
+            m_currentPath.ArcTo(rx, ry, xAxisRotation, largeArc, sweep, x, y);
+        }
+        void ArcTo(f32 rx, f32 ry, f32 xAxisRotation, bool largeArc, bool sweep, Float2 to)
+        {
+            m_currentPath.ArcTo(rx, ry, xAxisRotation, largeArc, sweep, to);
+        }
         void ClosePath() { m_currentPath.Close(); }
 
         [[nodiscard]] Float2 CurrentPoint() const { return m_currentPath.CurrentPoint(); }
 
         void Fill(Color color, FillRule fillRule = FillRule::EvenOdd, bool antiAlias = true)
         {
-            if (m_currentPath.CommandCount() == 0) return;
+            if (m_currentPath.CommandCount() == 0)
+                return;
             FillPath(m_currentPath.ToPath(), color, fillRule, antiAlias);
         }
 
         void Fill(const IVGFill& fill, FillRule fillRule = FillRule::EvenOdd, bool antiAlias = true)
         {
-            if (m_currentPath.CommandCount() == 0) return;
+            if (m_currentPath.CommandCount() == 0)
+                return;
             FillPath(m_currentPath.ToPath(), fill, fillRule, antiAlias);
         }
 
-        void Stroke(Color color, StrokeStyle style, Span<const f32> dashPattern = {}, bool antiAlias = true)
+        void Stroke(Color color, StrokeStyle style, Span<const f32> dashPattern = {},
+                    bool antiAlias = true)
         {
-            if (m_currentPath.CommandCount() == 0) return;
+            if (m_currentPath.CommandCount() == 0)
+                return;
             StrokePath(m_currentPath.ToPath(), color, style, dashPattern, antiAlias);
         }
 
         void Stroke(Color color, f32 thickness = 1.0f)
         {
-            if (m_currentPath.CommandCount() == 0) return;
+            if (m_currentPath.CommandCount() == 0)
+                return;
             StrokePath(m_currentPath.ToPath(), color, StrokeStyle(thickness));
         }
 
@@ -389,44 +434,59 @@ export namespace draconic::vg
 
         void DrawImage(const image::ImageData* texture, Float2 position)
         {
-            if (texture == nullptr) return;
+            if (texture == nullptr)
+                return;
             DrawImage(texture,
-                Rectangle{ position.x, position.y, static_cast<f32>(texture->Width()), static_cast<f32>(texture->Height()) },
-                Rectangle{ 0.0f, 0.0f, static_cast<f32>(texture->Width()), static_cast<f32>(texture->Height()) },
-                Color::White);
+                      Rectangle{position.x, position.y, static_cast<f32>(texture->Width()),
+                                static_cast<f32>(texture->Height())},
+                      Rectangle{0.0f, 0.0f, static_cast<f32>(texture->Width()),
+                                static_cast<f32>(texture->Height())},
+                      Color::White);
         }
 
         void DrawImage(const image::ImageData* texture, Float2 position, Color tint)
         {
-            if (texture == nullptr) return;
+            if (texture == nullptr)
+                return;
             DrawImage(texture,
-                Rectangle{ position.x, position.y, static_cast<f32>(texture->Width()), static_cast<f32>(texture->Height()) },
-                Rectangle{ 0.0f, 0.0f, static_cast<f32>(texture->Width()), static_cast<f32>(texture->Height()) },
-                tint);
+                      Rectangle{position.x, position.y, static_cast<f32>(texture->Width()),
+                                static_cast<f32>(texture->Height())},
+                      Rectangle{0.0f, 0.0f, static_cast<f32>(texture->Width()),
+                                static_cast<f32>(texture->Height())},
+                      tint);
         }
 
         void DrawImage(const image::ImageData* texture, Rectangle destRect)
         {
-            if (texture == nullptr) return;
-            DrawImage(texture, destRect, Rectangle{ 0.0f, 0.0f, static_cast<f32>(texture->Width()), static_cast<f32>(texture->Height()) }, Color::White);
+            if (texture == nullptr)
+                return;
+            DrawImage(texture, destRect,
+                      Rectangle{0.0f, 0.0f, static_cast<f32>(texture->Width()),
+                                static_cast<f32>(texture->Height())},
+                      Color::White);
         }
 
-        void DrawImage(const image::ImageData* texture, Rectangle destRect, Rectangle srcRect, Color tint)
+        void DrawImage(const image::ImageData* texture, Rectangle destRect, Rectangle srcRect,
+                       Color tint)
         {
-            if (texture == nullptr) return;
+            if (texture == nullptr)
+                return;
 
             const i32 textureIndex = GetOrAddTexture(texture);
             SetupForTextureDraw(textureIndex);
 
             const usize startVertex = m_batch.vertices.Size();
-            EmitTexturedQuad(destRect, srcRect, texture->Width(), texture->Height(), ApplyOpacity(tint));
+            EmitTexturedQuad(destRect, srcRect, texture->Width(), texture->Height(),
+                             ApplyOpacity(tint));
             TransformVertices(startVertex);
         }
 
         /// Draw a 9-slice image scaled to fit a destination rectangle.
-        void DrawNineSlice(const image::ImageData* texture, Rectangle destRect, Rectangle srcRect, image::NineSlice slices, Color tint)
+        void DrawNineSlice(const image::ImageData* texture, Rectangle destRect, Rectangle srcRect,
+                           image::NineSlice slices, Color tint)
         {
-            if (texture == nullptr) return;
+            if (texture == nullptr)
+                return;
 
             const i32 textureIndex = GetOrAddTexture(texture);
             SetupForTextureDraw(textureIndex);
@@ -452,17 +512,26 @@ export namespace draconic::vg
             const u32 th = texture->Height();
 
             // Row 0 (top).
-            EmitTexturedQuad(Rectangle{ dstX0, dstY0, slices.left, slices.top },           Rectangle{ srcX0, srcY0, slices.left, slices.top },           tw, th, opTint);
-            EmitTexturedQuad(Rectangle{ dstX1, dstY0, dstX2 - dstX1, slices.top },         Rectangle{ srcX1, srcY0, srcX2 - srcX1, slices.top },         tw, th, opTint);
-            EmitTexturedQuad(Rectangle{ dstX2, dstY0, slices.right, slices.top },          Rectangle{ srcX2, srcY0, slices.right, slices.top },          tw, th, opTint);
+            EmitTexturedQuad(Rectangle{dstX0, dstY0, slices.left, slices.top},
+                             Rectangle{srcX0, srcY0, slices.left, slices.top}, tw, th, opTint);
+            EmitTexturedQuad(Rectangle{dstX1, dstY0, dstX2 - dstX1, slices.top},
+                             Rectangle{srcX1, srcY0, srcX2 - srcX1, slices.top}, tw, th, opTint);
+            EmitTexturedQuad(Rectangle{dstX2, dstY0, slices.right, slices.top},
+                             Rectangle{srcX2, srcY0, slices.right, slices.top}, tw, th, opTint);
             // Row 1 (middle).
-            EmitTexturedQuad(Rectangle{ dstX0, dstY1, slices.left, dstY2 - dstY1 },        Rectangle{ srcX0, srcY1, slices.left, srcY2 - srcY1 },        tw, th, opTint);
-            EmitTexturedQuad(Rectangle{ dstX1, dstY1, dstX2 - dstX1, dstY2 - dstY1 },      Rectangle{ srcX1, srcY1, srcX2 - srcX1, srcY2 - srcY1 },      tw, th, opTint);
-            EmitTexturedQuad(Rectangle{ dstX2, dstY1, slices.right, dstY2 - dstY1 },       Rectangle{ srcX2, srcY1, slices.right, srcY2 - srcY1 },       tw, th, opTint);
+            EmitTexturedQuad(Rectangle{dstX0, dstY1, slices.left, dstY2 - dstY1},
+                             Rectangle{srcX0, srcY1, slices.left, srcY2 - srcY1}, tw, th, opTint);
+            EmitTexturedQuad(Rectangle{dstX1, dstY1, dstX2 - dstX1, dstY2 - dstY1},
+                             Rectangle{srcX1, srcY1, srcX2 - srcX1, srcY2 - srcY1}, tw, th, opTint);
+            EmitTexturedQuad(Rectangle{dstX2, dstY1, slices.right, dstY2 - dstY1},
+                             Rectangle{srcX2, srcY1, slices.right, srcY2 - srcY1}, tw, th, opTint);
             // Row 2 (bottom).
-            EmitTexturedQuad(Rectangle{ dstX0, dstY2, slices.left, slices.bottom },        Rectangle{ srcX0, srcY2, slices.left, slices.bottom },        tw, th, opTint);
-            EmitTexturedQuad(Rectangle{ dstX1, dstY2, dstX2 - dstX1, slices.bottom },      Rectangle{ srcX1, srcY2, srcX2 - srcX1, slices.bottom },      tw, th, opTint);
-            EmitTexturedQuad(Rectangle{ dstX2, dstY2, slices.right, slices.bottom },       Rectangle{ srcX2, srcY2, slices.right, slices.bottom },       tw, th, opTint);
+            EmitTexturedQuad(Rectangle{dstX0, dstY2, slices.left, slices.bottom},
+                             Rectangle{srcX0, srcY2, slices.left, slices.bottom}, tw, th, opTint);
+            EmitTexturedQuad(Rectangle{dstX1, dstY2, dstX2 - dstX1, slices.bottom},
+                             Rectangle{srcX1, srcY2, srcX2 - srcX1, slices.bottom}, tw, th, opTint);
+            EmitTexturedQuad(Rectangle{dstX2, dstY2, slices.right, slices.bottom},
+                             Rectangle{srcX2, srcY2, slices.right, slices.bottom}, tw, th, opTint);
 
             TransformVertices(startVertex);
         }
@@ -470,9 +539,11 @@ export namespace draconic::vg
         // === Text ===
 
         /// Draw text at a baseline position using a pre-rendered font atlas (low-level).
-        void DrawText(StringView text, const fonts::IFontAtlas* atlas, const image::ImageData* atlasTexture, Float2 position, Color color)
+        void DrawText(StringView text, const fonts::IFontAtlas* atlas,
+                      const image::ImageData* atlasTexture, Float2 position, Color color)
         {
-            if (text.IsEmpty() || atlas == nullptr || atlasTexture == nullptr) return;
+            if (text.IsEmpty() || atlas == nullptr || atlasTexture == nullptr)
+                return;
 
             const i32 textureIndex = GetOrAddTexture(atlasTexture);
             SetupForTextureDraw(textureIndex);
@@ -495,30 +566,40 @@ export namespace draconic::vg
         }
 
         /// Draw text with horizontal alignment within bounds (vertically centered).
-        void DrawText(StringView text, const fonts::IFont* font, const fonts::IFontAtlas* atlas, const image::ImageData* atlasTexture,
-                      Rectangle bounds, fonts::TextAlignment align, Color color)
+        void DrawText(StringView text, const fonts::IFont* font, const fonts::IFontAtlas* atlas,
+                      const image::ImageData* atlasTexture, Rectangle bounds,
+                      fonts::TextAlignment align, Color color)
         {
-            if (text.IsEmpty() || font == nullptr) return;
+            if (text.IsEmpty() || font == nullptr)
+                return;
 
             const f32 textWidth = font->MeasureString(text);
             f32 offsetX = bounds.x;
             switch (align)
             {
-            case fonts::TextAlignment::Left:   offsetX = bounds.x; break;
-            case fonts::TextAlignment::Center: offsetX = bounds.x + (bounds.width - textWidth) * 0.5f; break;
-            case fonts::TextAlignment::Right:  offsetX = bounds.x + bounds.width - textWidth; break;
+            case fonts::TextAlignment::Left:
+                offsetX = bounds.x;
+                break;
+            case fonts::TextAlignment::Center:
+                offsetX = bounds.x + (bounds.width - textWidth) * 0.5f;
+                break;
+            case fonts::TextAlignment::Right:
+                offsetX = bounds.x + bounds.width - textWidth;
+                break;
             }
 
             const fonts::FontMetrics fm = font->Metrics();
             const f32 offsetY = bounds.y + (bounds.height - fm.lineHeight) * 0.5f + fm.ascent;
-            DrawText(text, atlas, atlasTexture, Float2{ offsetX, offsetY }, color);
+            DrawText(text, atlas, atlasTexture, Float2{offsetX, offsetY}, color);
         }
 
         /// Draw text with horizontal and vertical alignment within bounds.
-        void DrawText(StringView text, const fonts::IFont* font, const fonts::IFontAtlas* atlas, const image::ImageData* atlasTexture,
-                      Rectangle bounds, fonts::TextAlignment hAlign, fonts::VerticalAlignment vAlign, Color color)
+        void DrawText(StringView text, const fonts::IFont* font, const fonts::IFontAtlas* atlas,
+                      const image::ImageData* atlasTexture, Rectangle bounds,
+                      fonts::TextAlignment hAlign, fonts::VerticalAlignment vAlign, Color color)
         {
-            if (text.IsEmpty() || font == nullptr) return;
+            if (text.IsEmpty() || font == nullptr)
+                return;
 
             const f32 textWidth = font->MeasureString(text);
             f32 offsetX = bounds.x;
@@ -526,29 +607,45 @@ export namespace draconic::vg
 
             switch (hAlign)
             {
-            case fonts::TextAlignment::Left:   offsetX = bounds.x; break;
-            case fonts::TextAlignment::Center: offsetX = bounds.x + (bounds.width - textWidth) * 0.5f; break;
-            case fonts::TextAlignment::Right:  offsetX = bounds.x + bounds.width - textWidth; break;
+            case fonts::TextAlignment::Left:
+                offsetX = bounds.x;
+                break;
+            case fonts::TextAlignment::Center:
+                offsetX = bounds.x + (bounds.width - textWidth) * 0.5f;
+                break;
+            case fonts::TextAlignment::Right:
+                offsetX = bounds.x + bounds.width - textWidth;
+                break;
             }
 
             const fonts::FontMetrics fm = font->Metrics();
             switch (vAlign)
             {
-            case fonts::VerticalAlignment::Top:      offsetY = bounds.y + fm.ascent; break;
-            case fonts::VerticalAlignment::Middle:   offsetY = bounds.y + (bounds.height - fm.lineHeight) * 0.5f + fm.ascent; break;
-            case fonts::VerticalAlignment::Bottom:   offsetY = bounds.y + bounds.height - fm.descent; break;
-            case fonts::VerticalAlignment::Baseline: offsetY = bounds.y; break;
+            case fonts::VerticalAlignment::Top:
+                offsetY = bounds.y + fm.ascent;
+                break;
+            case fonts::VerticalAlignment::Middle:
+                offsetY = bounds.y + (bounds.height - fm.lineHeight) * 0.5f + fm.ascent;
+                break;
+            case fonts::VerticalAlignment::Bottom:
+                offsetY = bounds.y + bounds.height - fm.descent;
+                break;
+            case fonts::VerticalAlignment::Baseline:
+                offsetY = bounds.y;
+                break;
             }
 
-            DrawText(text, atlas, atlasTexture, Float2{ offsetX, offsetY }, color);
+            DrawText(text, atlas, atlasTexture, Float2{offsetX, offsetY}, color);
         }
 
         /// Convenience: draw text using a CachedFont (requires a FontService).
         void DrawText(StringView text, fonts::CachedFont* font, Float2 position, Color color)
         {
-            if (font == nullptr || m_fontService == nullptr) return;
+            if (font == nullptr || m_fontService == nullptr)
+                return;
             image::ImageData* atlasTex = m_fontService->GetAtlasTexture(font);
-            if (atlasTex == nullptr) return;
+            if (atlasTex == nullptr)
+                return;
             DrawText(text, font->atlas, atlasTex, position, color);
         }
 
@@ -556,18 +653,23 @@ export namespace draconic::vg
         void DrawText(StringView text, fonts::CachedFont* font, Rectangle bounds,
                       fonts::TextAlignment hAlign, fonts::VerticalAlignment vAlign, Color color)
         {
-            if (font == nullptr || m_fontService == nullptr) return;
+            if (font == nullptr || m_fontService == nullptr)
+                return;
             image::ImageData* atlasTex = m_fontService->GetAtlasTexture(font);
-            if (atlasTex == nullptr) return;
+            if (atlasTex == nullptr)
+                return;
             DrawText(text, font->font, font->atlas, atlasTex, bounds, hAlign, vAlign, color);
         }
 
         /// Draw pre-shaped glyphs at an offset (for scroll-offset text rendering).
-        void DrawPositionedGlyphs(const Array<fonts::GlyphPosition>& positions, fonts::CachedFont* font, f32 offsetX, f32 offsetY, Color color)
+        void DrawPositionedGlyphs(const Array<fonts::GlyphPosition>& positions,
+                                  fonts::CachedFont* font, f32 offsetX, f32 offsetY, Color color)
         {
-            if (positions.IsEmpty() || font == nullptr || m_fontService == nullptr) return;
+            if (positions.IsEmpty() || font == nullptr || m_fontService == nullptr)
+                return;
             image::ImageData* atlasTex = m_fontService->GetAtlasTexture(font);
-            if (atlasTex == nullptr || font->atlas == nullptr) return;
+            if (atlasTex == nullptr || font->atlas == nullptr)
+                return;
 
             const i32 textureIndex = GetOrAddTexture(atlasTex);
             SetupForTextureDraw(textureIndex);
@@ -588,38 +690,46 @@ export namespace draconic::vg
         }
 
         /// Draw text with word wrapping. Position is the top-left of the text block.
-        void DrawTextWrapped(StringView text, fonts::CachedFont* font, Float2 position, f32 maxWidth, Color color,
+        void DrawTextWrapped(StringView text, fonts::CachedFont* font, Float2 position,
+                             f32 maxWidth, Color color,
                              fonts::TextAlignment hAlign = fonts::TextAlignment::Left)
         {
-            if (text.IsEmpty() || font == nullptr || font->shaper == nullptr || m_fontService == nullptr) return;
+            if (text.IsEmpty() || font == nullptr || font->shaper == nullptr ||
+                m_fontService == nullptr)
+                return;
             image::ImageData* atlasTex = m_fontService->GetAtlasTexture(font);
-            if (atlasTex == nullptr) return;
+            if (atlasTex == nullptr)
+                return;
 
             Array<fonts::GlyphPosition> positions;
             f32 totalHeight = 0.0f;
-            if (!font->shaper->ShapeTextWrapped(*font->font, text, maxWidth, positions, totalHeight).IsOk())
+            if (!font->shaper->ShapeTextWrapped(*font->font, text, maxWidth, positions, totalHeight)
+                     .IsOk())
                 return;
 
             if (hAlign != fonts::TextAlignment::Left)
                 ApplyLineAlignment(positions, maxWidth, hAlign);
 
-            DrawPositionedGlyphs(positions, font, position.x, position.y + font->font->Metrics().ascent, color);
+            DrawPositionedGlyphs(positions, font, position.x,
+                                 position.y + font->font->Metrics().ascent, color);
         }
 
-        void DrawTextWrapped(StringView text, fonts::CachedFont* font, Rectangle bounds, Color color,
-                             fonts::TextAlignment hAlign = fonts::TextAlignment::Left)
+        void DrawTextWrapped(StringView text, fonts::CachedFont* font, Rectangle bounds,
+                             Color color, fonts::TextAlignment hAlign = fonts::TextAlignment::Left)
         {
-            DrawTextWrapped(text, font, Float2{ bounds.x, bounds.y }, bounds.width, color, hAlign);
+            DrawTextWrapped(text, font, Float2{bounds.x, bounds.y}, bounds.width, color, hAlign);
         }
 
         /// Measure wrapped text without drawing. Returns total height (0 if no shaper).
         [[nodiscard]] f32 MeasureTextWrapped(StringView text, fonts::CachedFont* font, f32 maxWidth)
         {
-            if (text.IsEmpty() || font == nullptr || font->shaper == nullptr) return 0.0f;
+            if (text.IsEmpty() || font == nullptr || font->shaper == nullptr)
+                return 0.0f;
 
             Array<fonts::GlyphPosition> positions;
             f32 totalHeight = 0.0f;
-            if (!font->shaper->ShapeTextWrapped(*font->font, text, maxWidth, positions, totalHeight).IsOk())
+            if (!font->shaper->ShapeTextWrapped(*font->font, text, maxWidth, positions, totalHeight)
+                     .IsOk())
                 return 0.0f;
             return totalHeight;
         }
@@ -627,16 +737,19 @@ export namespace draconic::vg
         /// Draw text using the default font at the given pixel size (requires a FontService).
         void DrawText(StringView text, f32 fontSize, Float2 position, Color color)
         {
-            if (text.IsEmpty() || m_fontService == nullptr) return;
+            if (text.IsEmpty() || m_fontService == nullptr)
+                return;
             fonts::CachedFont* font = m_fontService->GetFont(fontSize);
-            if (font == nullptr) return;
+            if (font == nullptr)
+                return;
             DrawText(text, font, position, color);
         }
 
         /// Fill a polygon defined by a span of points.
         void FillPolygon(Span<const Float2> points, Color color)
         {
-            if (points.Size() < 3) return;
+            if (points.Size() < 3)
+                return;
 
             BeginPath();
             MoveTo(points[0]);
@@ -649,22 +762,26 @@ export namespace draconic::vg
         /// Measure the width and line height of a string in pixels.
         [[nodiscard]] Float2 MeasureText(StringView text, const fonts::IFont* font)
         {
-            if (font == nullptr) return Float2::Zero;
-            return Float2{ font->MeasureString(text), font->Metrics().lineHeight };
+            if (font == nullptr)
+                return Float2::Zero;
+            return Float2{font->MeasureString(text), font->Metrics().lineHeight};
         }
 
         /// Measure just the pixel width of a string.
         [[nodiscard]] f32 MeasureTextWidth(StringView text, const fonts::IFont* font)
         {
-            if (font == nullptr) return 0.0f;
+            if (font == nullptr)
+                return 0.0f;
             return font->MeasureString(text);
         }
 
     private:
         /// Applies horizontal alignment offsets to shaped glyph positions per line.
-        static void ApplyLineAlignment(Array<fonts::GlyphPosition>& positions, f32 maxWidth, fonts::TextAlignment align)
+        static void ApplyLineAlignment(Array<fonts::GlyphPosition>& positions, f32 maxWidth,
+                                       fonts::TextAlignment align)
         {
-            if (positions.IsEmpty()) return;
+            if (positions.IsEmpty())
+                return;
 
             usize lineStart = 0;
             f32 lineY = positions[0].y;
@@ -705,10 +822,14 @@ export namespace draconic::vg
         {
             const u32 baseIndex = static_cast<u32>(m_batch.vertices.Size());
 
-            m_batch.vertices.PushBack(VGVertex(Float2{ quad.x0, quad.y0 }, Float2{ quad.u0, quad.v0 }, color, 1.0f));
-            m_batch.vertices.PushBack(VGVertex(Float2{ quad.x1, quad.y0 }, Float2{ quad.u1, quad.v0 }, color, 1.0f));
-            m_batch.vertices.PushBack(VGVertex(Float2{ quad.x1, quad.y1 }, Float2{ quad.u1, quad.v1 }, color, 1.0f));
-            m_batch.vertices.PushBack(VGVertex(Float2{ quad.x0, quad.y1 }, Float2{ quad.u0, quad.v1 }, color, 1.0f));
+            m_batch.vertices.PushBack(
+                VGVertex(Float2{quad.x0, quad.y0}, Float2{quad.u0, quad.v0}, color, 1.0f));
+            m_batch.vertices.PushBack(
+                VGVertex(Float2{quad.x1, quad.y0}, Float2{quad.u1, quad.v0}, color, 1.0f));
+            m_batch.vertices.PushBack(
+                VGVertex(Float2{quad.x1, quad.y1}, Float2{quad.u1, quad.v1}, color, 1.0f));
+            m_batch.vertices.PushBack(
+                VGVertex(Float2{quad.x0, quad.y1}, Float2{quad.u0, quad.v1}, color, 1.0f));
 
             m_batch.indices.PushBack(baseIndex + 0);
             m_batch.indices.PushBack(baseIndex + 1);
@@ -719,7 +840,8 @@ export namespace draconic::vg
         }
 
         /// Emit a textured quad into the batch in untransformed coordinates (coverage 1.0).
-        void EmitTexturedQuad(Rectangle destRect, Rectangle srcRect, u32 texWidth, u32 texHeight, Color color)
+        void EmitTexturedQuad(Rectangle destRect, Rectangle srcRect, u32 texWidth, u32 texHeight,
+                              Color color)
         {
             if (destRect.width <= 0.0f || destRect.height <= 0.0f)
                 return;
@@ -731,10 +853,15 @@ export namespace draconic::vg
             const f32 u1 = (srcRect.x + srcRect.width) / static_cast<f32>(texWidth);
             const f32 v1 = (srcRect.y + srcRect.height) / static_cast<f32>(texHeight);
 
-            m_batch.vertices.PushBack(VGVertex(Float2{ destRect.x, destRect.y }, Float2{ u0, v0 }, color, 1.0f));
-            m_batch.vertices.PushBack(VGVertex(Float2{ destRect.x + destRect.width, destRect.y }, Float2{ u1, v0 }, color, 1.0f));
-            m_batch.vertices.PushBack(VGVertex(Float2{ destRect.x + destRect.width, destRect.y + destRect.height }, Float2{ u1, v1 }, color, 1.0f));
-            m_batch.vertices.PushBack(VGVertex(Float2{ destRect.x, destRect.y + destRect.height }, Float2{ u0, v1 }, color, 1.0f));
+            m_batch.vertices.PushBack(
+                VGVertex(Float2{destRect.x, destRect.y}, Float2{u0, v0}, color, 1.0f));
+            m_batch.vertices.PushBack(VGVertex(Float2{destRect.x + destRect.width, destRect.y},
+                                               Float2{u1, v0}, color, 1.0f));
+            m_batch.vertices.PushBack(
+                VGVertex(Float2{destRect.x + destRect.width, destRect.y + destRect.height},
+                         Float2{u1, v1}, color, 1.0f));
+            m_batch.vertices.PushBack(VGVertex(Float2{destRect.x, destRect.y + destRect.height},
+                                               Float2{u0, v1}, color, 1.0f));
 
             m_batch.indices.PushBack(baseIndex + 0);
             m_batch.indices.PushBack(baseIndex + 1);
@@ -747,7 +874,8 @@ export namespace draconic::vg
         /// Look up a texture in the batch or append it. Index 0 is the white texture.
         i32 GetOrAddTexture(const image::ImageData* tex)
         {
-            if (tex == nullptr) return 0;
+            if (tex == nullptr)
+                return 0;
             for (usize i = 0; i < m_batch.textures.Size(); ++i)
                 if (m_batch.textures[i] == tex)
                     return static_cast<i32>(i);
@@ -798,8 +926,10 @@ export namespace draconic::vg
             if (m_currentState.transform == Float4x4::Identity())
                 return m_tolerance;
 
-            const f32 sx = Length(Float2{ m_currentState.transform(0, 0), m_currentState.transform(0, 1) });
-            const f32 sy = Length(Float2{ m_currentState.transform(1, 0), m_currentState.transform(1, 1) });
+            const f32 sx =
+                Length(Float2{m_currentState.transform(0, 0), m_currentState.transform(0, 1)});
+            const f32 sy =
+                Length(Float2{m_currentState.transform(1, 0), m_currentState.transform(1, 1)});
             const f32 scale = Max(sx, sy);
 
             if (scale > 0.0001f)
@@ -820,14 +950,15 @@ export namespace draconic::vg
                 return;
 
             for (usize i = startVertex; i < m_batch.vertices.Size(); ++i)
-                m_batch.vertices[i].position = TransformPoint2D(m_batch.vertices[i].position, m_currentState.transform);
+                m_batch.vertices[i].position =
+                    TransformPoint2D(m_batch.vertices[i].position, m_currentState.transform);
         }
 
         [[nodiscard]] Color ApplyOpacity(Color color) const
         {
             if (m_currentState.opacity >= 1.0f)
                 return color;
-            return Color{ color.r, color.g, color.b, color.a * m_currentState.opacity };
+            return Color{color.r, color.g, color.b, color.a * m_currentState.opacity};
         }
 
         void ApplyOpacityToVertices(usize startVertex)
@@ -836,7 +967,8 @@ export namespace draconic::vg
                 return;
             // Vertices store packed Color32; lift to float, apply, re-pack.
             for (usize i = startVertex; i < m_batch.vertices.Size(); ++i)
-                m_batch.vertices[i].color = ToColor32(ApplyOpacity(ToColor(m_batch.vertices[i].color)));
+                m_batch.vertices[i].color =
+                    ToColor32(ApplyOpacity(ToColor(m_batch.vertices[i].color)));
         }
 
         [[nodiscard]] Rectangle TransformRect(Rectangle rect) const
@@ -844,9 +976,11 @@ export namespace draconic::vg
             if (m_currentState.transform == Float4x4::Identity())
                 return rect;
 
-            const Float2 topLeft = TransformPoint(Float2{ rect.x, rect.y });
-            const Float2 bottomRight = TransformPoint(Float2{ rect.x + rect.width, rect.y + rect.height });
-            return Rectangle{ topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y };
+            const Float2 topLeft = TransformPoint(Float2{rect.x, rect.y});
+            const Float2 bottomRight =
+                TransformPoint(Float2{rect.x + rect.width, rect.y + rect.height});
+            return Rectangle{topLeft.x, topLeft.y, bottomRight.x - topLeft.x,
+                             bottomRight.y - topLeft.y};
         }
 
         VGBatch m_batch;

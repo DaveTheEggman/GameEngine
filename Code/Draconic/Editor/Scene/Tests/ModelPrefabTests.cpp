@@ -69,19 +69,19 @@ TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the i
     draconic::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
 
     // Hand-authored manifest: root node + a multi-material static mesh node + a skinned node.
-    const Guid meshStatic{ 0x51, 0x1 };
-    const Guid meshSkinned{ 0x52, 0x2 };
-    const Guid matA{ 0x61, 0x1 };
-    const Guid matB{ 0x62, 0x2 };
-    const Guid skeleton{ 0x71, 0x1 };
-    const Guid clip{ 0x72, 0x1 };
+    const Guid meshStatic{0x51, 0x1};
+    const Guid meshSkinned{0x52, 0x2};
+    const Guid matA{0x61, 0x1};
+    const Guid matB{0x62, 0x2};
+    const Guid skeleton{0x71, 0x1};
+    const Guid clip{0x72, 0x1};
 
     modelimporter::ModelManifestAsset asset;
     asset.manifest.meshGuids.PushBack(meshStatic);
     asset.manifest.meshGuids.PushBack(meshSkinned);
     asset.manifest.meshSkinned.PushBack(0);
     asset.manifest.meshSkinned.PushBack(1);
-    asset.manifest.meshMaterial.PushBack(1);    // static mesh's first part uses material B
+    asset.manifest.meshMaterial.PushBack(1); // static mesh's first part uses material B
     asset.manifest.meshMaterial.PushBack(0);
     asset.manifest.materialGuids.PushBack(matA);
     asset.manifest.materialGuids.PushBack(matB);
@@ -96,7 +96,7 @@ TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the i
         meshNode.name = String(u8"Body");
         meshNode.parentIndex = 0;
         meshNode.meshIndex = 0;
-        meshNode.localTransform.position = Float3{ 1.0f, 2.0f, 3.0f };
+        meshNode.localTransform.position = Float3{1.0f, 2.0f, 3.0f};
         asset.manifest.nodes.PushBack(Move(meshNode));
         draconic::model::ModelNode skinNode;
         skinNode.name = String(u8"Skin");
@@ -136,34 +136,38 @@ TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the i
 
     usize meshCount = 0;
     bool sawStatic = false, sawSkinned = false;
-    meshes->ForEach([&](render::MeshComponent& c, scene::EntityHandle e) {
-        ++meshCount;
-        if (c.mesh.id == meshStatic)
+    meshes->ForEach(
+        [&](render::MeshComponent& c, scene::EntityHandle e)
         {
-            sawStatic = true;
-            REQUIRE(c.materials.Size() == 2u);                  // the unified material list
-            CHECK(c.materials[0].id == matA);
-            CHECK(c.materials[1].id == matB);
-            const Transform t = level.GetLocalTransform(e);
-            CHECK(t.position.x == 1.0f);
-        }
-        if (c.mesh.id == meshSkinned)
-        {
-            sawSkinned = true;
-            REQUIRE(c.materials.Size() == 2u);
-        }
-    });
+            ++meshCount;
+            if (c.mesh.id == meshStatic)
+            {
+                sawStatic = true;
+                REQUIRE(c.materials.Size() == 2u); // the unified material list
+                CHECK(c.materials[0].id == matA);
+                CHECK(c.materials[1].id == matB);
+                const Transform t = level.GetLocalTransform(e);
+                CHECK(t.position.x == 1.0f);
+            }
+            if (c.mesh.id == meshSkinned)
+            {
+                sawSkinned = true;
+                REQUIRE(c.materials.Size() == 2u);
+            }
+        });
     CHECK(meshCount == 2u);
     CHECK(sawStatic);
     CHECK(sawSkinned);
 
     usize animCount = 0;
-    anims->ForEach([&](animation::SkeletalAnimationComponent& c, scene::EntityHandle) {
-        ++animCount;
-        CHECK(c.skeleton.id == skeleton);
-        CHECK(c.clip.id == clip);
-    });
-    CHECK(animCount == 1u);   // only the SKINNED node animates
+    anims->ForEach(
+        [&](animation::SkeletalAnimationComponent& c, scene::EntityHandle)
+        {
+            ++animCount;
+            CHECK(c.skeleton.id == skeleton);
+            CHECK(c.clip.id == clip);
+        });
+    CHECK(animCount == 1u); // only the SKINNED node animates
 
     // Regeneration finds + reuses the instance: same guid, refreshed payload.
     draconic::editor::ModelPrefabResult again =

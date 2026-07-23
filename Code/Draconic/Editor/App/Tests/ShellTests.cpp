@@ -47,10 +47,10 @@ TEST_CASE("editor-shell: builds the chrome with the global panels only")
     CHECK(shell.ConsolePanel()->PersistenceId() == u8"console");
     CHECK(shell.AssetsPanel()->PersistenceId() == u8"assets");
     CHECK(shell.Docks()->FindPanelById(u8"assets") == shell.AssetsPanel());
-    CHECK(shell.Docks()->FindPanelById(u8"viewport") == nullptr);   // no global viewport panel
+    CHECK(shell.Docks()->FindPanelById(u8"viewport") == nullptr); // no global viewport panel
 
     // Status text routes through the context to the status bar.
-    ctx.SetStatus(u8"hello");   // must not crash; the label text lives inside the bar
+    ctx.SetStatus(u8"hello"); // must not crash; the label text lives inside the bar
 }
 
 TEST_CASE("editor-shell: page panels dock into the center document area as closable tabs")
@@ -85,7 +85,7 @@ TEST_CASE("editor-shell: dock layout survives a save/restore round-trip")
 
     // Rearrange (undock a panel), then restore: the exported tree matches the saved one again.
     shell.Docks()->UndockPanel(shell.AssetsPanel());
-    CHECK(shell.Docks()->FindPanelById(u8"assets") != nullptr);   // still registered while undocked
+    CHECK(shell.Docks()->FindPanelById(u8"assets") != nullptr); // still registered while undocked
     REQUIRE(shell.RestoreLayout(dir).IsOk());
     UniquePtr<ui::toolkit::DockLayoutNode> after = shell.Docks()->ExportLayout();
     REQUIRE(static_cast<bool>(after));
@@ -93,22 +93,37 @@ TEST_CASE("editor-shell: dock layout survives a save/restore round-trip")
     // Structural comparison: same node types, same panel ids in the same tab order.
     struct Compare
     {
-        static bool Nodes(const ui::toolkit::DockLayoutNode* a, const ui::toolkit::DockLayoutNode* b)
+        static bool Nodes(const ui::toolkit::DockLayoutNode* a,
+                          const ui::toolkit::DockLayoutNode* b)
         {
-            if ((a == nullptr) != (b == nullptr)) { return false; }
-            if (a == nullptr) { return true; }
-            if (a->Type != b->Type) { return false; }
+            if ((a == nullptr) != (b == nullptr))
+            {
+                return false;
+            }
+            if (a == nullptr)
+            {
+                return true;
+            }
+            if (a->Type != b->Type)
+            {
+                return false;
+            }
             if (a->Type == ui::toolkit::DockLayoutNodeType::TabGroup)
             {
-                if (a->PanelIds.Size() != b->PanelIds.Size()) { return false; }
+                if (a->PanelIds.Size() != b->PanelIds.Size())
+                {
+                    return false;
+                }
                 for (usize i = 0; i < a->PanelIds.Size(); ++i)
                 {
-                    if (a->PanelIds[i] != b->PanelIds[i]) { return false; }
+                    if (a->PanelIds[i] != b->PanelIds[i])
+                    {
+                        return false;
+                    }
                 }
                 return true;
             }
-            return a->Direction == b->Direction &&
-                   Nodes(a->First.Get(), b->First.Get()) &&
+            return a->Direction == b->Direction && Nodes(a->First.Get(), b->First.Get()) &&
                    Nodes(a->Second.Get(), b->Second.Get());
         }
     };
@@ -164,7 +179,7 @@ TEST_CASE("editor-layout: layout node round-trips nested splits through XML")
 
     ui::toolkit::DockLayoutNode loaded;
     {
-        (void)buffer.Seek(0, SeekOrigin::Begin);   // reuse the write stream for reading
+        (void)buffer.Seek(0, SeekOrigin::Begin); // reuse the write stream for reading
         SerializerFactory factory = draconic::xml::XmlSerializerFactory();
         UniquePtr<SerializerContext> ctx = factory(buffer, SerializeMode::Read);
         REQUIRE(ctx->serializer != nullptr);

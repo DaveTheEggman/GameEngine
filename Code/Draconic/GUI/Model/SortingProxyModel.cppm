@@ -14,7 +14,7 @@ module;
 
 export module draconic.gui:sorting_proxy_model;
 
-import draconic.core;   // Array, i32, usize
+import draconic.core; // Array, i32, usize
 import :variant;
 import :model_index;
 import :model;
@@ -24,20 +24,31 @@ namespace core = draconic::core;
 
 export namespace draconic::gui
 {
-    enum class SortOrder { None, Ascending, Descending };
+    enum class SortOrder
+    {
+        None,
+        Ascending,
+        Descending
+    };
 
     class SortingProxyModel : public IModel, public IModelClient
     {
     public:
         SortingProxyModel() = default;
         explicit SortingProxyModel(IModel* source) { SetSource(source); }
-        ~SortingProxyModel() override { if (m_source != nullptr) m_source->RemoveClient(this); }
+        ~SortingProxyModel() override
+        {
+            if (m_source != nullptr)
+                m_source->RemoveClient(this);
+        }
 
         void SetSource(IModel* source)
         {
-            if (m_source != nullptr) m_source->RemoveClient(this);
+            if (m_source != nullptr)
+                m_source->RemoveClient(this);
             m_source = source;
-            if (m_source != nullptr) m_source->AddClient(this);
+            if (m_source != nullptr)
+                m_source->AddClient(this);
             Rebuild();
             DidUpdate();
         }
@@ -57,8 +68,13 @@ export namespace draconic::gui
         void ToggleSort(usize column)
         {
             if (m_sortColumn == static_cast<i32>(column))
-                m_order = (m_order == SortOrder::Ascending) ? SortOrder::Descending : SortOrder::Ascending;
-            else { m_sortColumn = static_cast<i32>(column); m_order = SortOrder::Ascending; }
+                m_order = (m_order == SortOrder::Ascending) ? SortOrder::Descending
+                                                            : SortOrder::Ascending;
+            else
+            {
+                m_sortColumn = static_cast<i32>(column);
+                m_order = SortOrder::Ascending;
+            }
             Rebuild();
             DidUpdate();
         }
@@ -69,19 +85,36 @@ export namespace draconic::gui
         // The source row a proxy row maps to (-1 if out of range).
         [[nodiscard]] i32 SourceRow(i32 proxyRow) const
         {
-            return (proxyRow >= 0 && static_cast<usize>(proxyRow) < m_rowMap.Size()) ? m_rowMap[static_cast<usize>(proxyRow)] : -1;
+            return (proxyRow >= 0 && static_cast<usize>(proxyRow) < m_rowMap.Size())
+                       ? m_rowMap[static_cast<usize>(proxyRow)]
+                       : -1;
         }
 
         // The source changed: re-sort and notify our own views.
-        void OnModelUpdated() override { Rebuild(); DidUpdate(); }
+        void OnModelUpdated() override
+        {
+            Rebuild();
+            DidUpdate();
+        }
 
-        [[nodiscard]] usize RowCount(const ModelIndex& parent = {}) const override { return parent.IsValid() ? 0 : m_rowMap.Size(); }
-        [[nodiscard]] usize ColumnCount() const override { return m_source != nullptr ? m_source->ColumnCount() : 0; }
-        [[nodiscard]] core::String ColumnName(usize column) const override { return m_source != nullptr ? m_source->ColumnName(column) : core::String{}; }
-        [[nodiscard]] Variant Data(const ModelIndex& index, ModelRole role = ModelRole::Display) const override
+        [[nodiscard]] usize RowCount(const ModelIndex& parent = {}) const override
+        {
+            return parent.IsValid() ? 0 : m_rowMap.Size();
+        }
+        [[nodiscard]] usize ColumnCount() const override
+        {
+            return m_source != nullptr ? m_source->ColumnCount() : 0;
+        }
+        [[nodiscard]] core::String ColumnName(usize column) const override
+        {
+            return m_source != nullptr ? m_source->ColumnName(column) : core::String{};
+        }
+        [[nodiscard]] Variant Data(const ModelIndex& index,
+                                   ModelRole role = ModelRole::Display) const override
         {
             const i32 sourceRow = SourceRow(index.Row);
-            if (m_source == nullptr || sourceRow < 0) return Variant{};
+            if (m_source == nullptr || sourceRow < 0)
+                return Variant{};
             return m_source->Data(MakeModelIndex(sourceRow, index.Column), role);
         }
 
@@ -90,8 +123,10 @@ export namespace draconic::gui
         {
             const usize n = m_source != nullptr ? m_source->RowCount() : 0;
             m_rowMap.Clear();
-            for (usize i = 0; i < n; ++i) m_rowMap.PushBack(static_cast<i32>(i));
-            if (m_source != nullptr && m_sortColumn >= 0 && m_order != SortOrder::None) StableSort();
+            for (usize i = 0; i < n; ++i)
+                m_rowMap.PushBack(static_cast<i32>(i));
+            if (m_source != nullptr && m_sortColumn >= 0 && m_order != SortOrder::None)
+                StableSort();
         }
 
         // Stable insertion sort of m_rowMap by the sort column's Variant order.
@@ -117,7 +152,8 @@ export namespace draconic::gui
             const Variant a = m_source->Data(MakeModelIndex(lhs, m_sortColumn), ModelRole::Sort);
             const Variant b = m_source->Data(MakeModelIndex(rhs, m_sortColumn), ModelRole::Sort);
             const i32 cmp = a.Compare(b);
-            if (cmp == 0) return false;
+            if (cmp == 0)
+                return false;
             return ascending ? (cmp < 0) : (cmp > 0);
         }
 

@@ -14,7 +14,7 @@ module;
 
 export module draconic.ui:style_sheet;
 
-import draconic.core;   // Object, Array, RefPtr, TypeInfo, Color, StringView, Optional
+import draconic.core; // Object, Array, RefPtr, TypeInfo, Color, StringView, Optional
 import :control_state;
 import :thickness;
 import :drawable;
@@ -28,7 +28,8 @@ using namespace draconic::core;
 
 export namespace draconic::ui
 {
-    class View; // defined in :view; Resolve(view,prop) body lives there (breaks the View<->styling cycle)
+    class
+        View; // defined in :view; Resolve(view,prop) body lives there (breaks the View<->styling cycle)
 
     /// Inheritable style properties - these walk the parent chain (in View.ResolveStyle) if not
     /// found on the view itself.
@@ -63,48 +64,131 @@ export namespace draconic::ui
         /// released afterwards without invalidating them.
         void MergeFrom(StyleSheet& other)
         {
-            for (const RefPtr<StyleRule>& r : other.m_rules) { m_rules.PushBack(r); }
-            for (const RefPtr<Drawable>& d : other.m_ownedDrawables) { m_ownedDrawables.PushBack(d); }
-            for (const RefPtr<Object>& res : other.m_ownedResources) { m_ownedResources.PushBack(res); }
+            for (const RefPtr<StyleRule>& r : other.m_rules)
+            {
+                m_rules.PushBack(r);
+            }
+            for (const RefPtr<Drawable>& d : other.m_ownedDrawables)
+            {
+                m_ownedDrawables.PushBack(d);
+            }
+            for (const RefPtr<Object>& res : other.m_ownedResources)
+            {
+                m_ownedResources.PushBack(res);
+            }
         }
 
         // === Inline-sheet rule helpers ===
         [[nodiscard]] StyleRule& GetOrCreateInlineElementRule()
         {
-            if (StyleRule* r = FindInlineElementRule()) { return *r; }
+            if (StyleRule* r = FindInlineElementRule())
+            {
+                return *r;
+            }
             return AddNewRule();
         }
         [[nodiscard]] StyleRule* FindInlineElementRule()
         {
-            for (const RefPtr<StyleRule>& r : m_rules) { if (r->Selector.IsEmpty()) { return r.Get(); } }
+            for (const RefPtr<StyleRule>& r : m_rules)
+            {
+                if (r->Selector.IsEmpty())
+                {
+                    return r.Get();
+                }
+            }
             return nullptr;
         }
         [[nodiscard]] StyleRule& GetOrCreateInlinePartRule(StringView part)
         {
-            if (StyleRule* r = FindInlinePartRule(part)) { return *r; }
+            if (StyleRule* r = FindInlinePartRule(part))
+            {
+                return *r;
+            }
             StyleRule& rule = AddNewRule();
             rule.Selector.SetPseudoElement(part);
             return rule;
         }
         [[nodiscard]] StyleRule* FindInlinePartRule(StringView part)
         {
-            for (const RefPtr<StyleRule>& r : m_rules) { if (r->Selector.IsPseudoElementOnly(part)) { return r.Get(); } }
+            for (const RefPtr<StyleRule>& r : m_rules)
+            {
+                if (r->Selector.IsPseudoElementOnly(part))
+                {
+                    return r.Get();
+                }
+            }
             return nullptr;
         }
 
         // === Convenience rule builders (return the sheet-owned rule for fluent .Set chaining) ===
         StyleRule& ForAll() { return AddNewRule(); }
-        StyleRule& ForType(const TypeInfo* viewType) { StyleRule& r = AddNewRule(); r.Selector.ViewType = viewType; return r; }
-        StyleRule& ForType(const TypeInfo* viewType, StringView styleClass) { StyleRule& r = AddNewRule(); r.Selector.ViewType = viewType; r.Selector.AddClass(styleClass); return r; }
-        StyleRule& ForTypeState(const TypeInfo* viewType, ControlState state) { StyleRule& r = AddNewRule(); r.Selector.ViewType = viewType; r.Selector.State = state; return r; }
-        StyleRule& ForTypeClassState(const TypeInfo* viewType, StringView styleClass, ControlState state) { StyleRule& r = AddNewRule(); r.Selector.ViewType = viewType; r.Selector.AddClass(styleClass); r.Selector.State = state; return r; }
-        StyleRule& ForClass(StringView styleClass) { StyleRule& r = AddNewRule(); r.Selector.AddClass(styleClass); return r; }
-        StyleRule& ForTypePseudo(const TypeInfo* viewType, StringView pseudoElement) { StyleRule& r = AddNewRule(); r.Selector.ViewType = viewType; r.Selector.SetPseudoElement(pseudoElement); return r; }
-        StyleRule& ForTypePseudoState(const TypeInfo* viewType, StringView pseudoElement, ControlState state) { StyleRule& r = AddNewRule(); r.Selector.ViewType = viewType; r.Selector.SetPseudoElement(pseudoElement); r.Selector.State = state; return r; }
+        StyleRule& ForType(const TypeInfo* viewType)
+        {
+            StyleRule& r = AddNewRule();
+            r.Selector.ViewType = viewType;
+            return r;
+        }
+        StyleRule& ForType(const TypeInfo* viewType, StringView styleClass)
+        {
+            StyleRule& r = AddNewRule();
+            r.Selector.ViewType = viewType;
+            r.Selector.AddClass(styleClass);
+            return r;
+        }
+        StyleRule& ForTypeState(const TypeInfo* viewType, ControlState state)
+        {
+            StyleRule& r = AddNewRule();
+            r.Selector.ViewType = viewType;
+            r.Selector.State = state;
+            return r;
+        }
+        StyleRule& ForTypeClassState(const TypeInfo* viewType, StringView styleClass,
+                                     ControlState state)
+        {
+            StyleRule& r = AddNewRule();
+            r.Selector.ViewType = viewType;
+            r.Selector.AddClass(styleClass);
+            r.Selector.State = state;
+            return r;
+        }
+        StyleRule& ForClass(StringView styleClass)
+        {
+            StyleRule& r = AddNewRule();
+            r.Selector.AddClass(styleClass);
+            return r;
+        }
+        StyleRule& ForTypePseudo(const TypeInfo* viewType, StringView pseudoElement)
+        {
+            StyleRule& r = AddNewRule();
+            r.Selector.ViewType = viewType;
+            r.Selector.SetPseudoElement(pseudoElement);
+            return r;
+        }
+        StyleRule& ForTypePseudoState(const TypeInfo* viewType, StringView pseudoElement,
+                                      ControlState state)
+        {
+            StyleRule& r = AddNewRule();
+            r.Selector.ViewType = viewType;
+            r.Selector.SetPseudoElement(pseudoElement);
+            r.Selector.State = state;
+            return r;
+        }
 
         // === Resource ownership (RAII; the sheet keeps a ref for its lifetime) ===
-        void OwnDrawable(RefPtr<Drawable> drawable) { if (drawable) { m_ownedDrawables.PushBack(Move(drawable)); } }
-        void OwnResource(RefPtr<Object> resource) { if (resource) { m_ownedResources.PushBack(Move(resource)); } }
+        void OwnDrawable(RefPtr<Drawable> drawable)
+        {
+            if (drawable)
+            {
+                m_ownedDrawables.PushBack(Move(drawable));
+            }
+        }
+        void OwnResource(RefPtr<Object> resource)
+        {
+            if (resource)
+            {
+                m_ownedResources.PushBack(Move(resource));
+            }
+        }
         /// Create a sheet-owned ColorDrawable and return it (shared ref).
         [[nodiscard]] RefPtr<ColorDrawable> OwnColor(Color color)
         {
@@ -116,42 +200,77 @@ export namespace draconic::ui
         // === Resolution (per-sheet primitive; inline + inheritance live on View.ResolveStyle) ===
         // Body in :view (calls view.GetControlState(), needs View complete).
         [[nodiscard]] StyleValue Resolve(const View& view, StyleProperty prop) const;
-        [[nodiscard]] StyleValue ResolvePart(const View& view, StringView pseudoElement, StyleProperty prop, ControlState partState) const
+        [[nodiscard]] StyleValue ResolvePart(const View& view, StringView pseudoElement,
+                                             StyleProperty prop, ControlState partState) const
         {
             return ResolveMatching(view, partState, pseudoElement, prop);
         }
 
-        [[nodiscard]] Color ResolveColor(const View& view, StyleProperty prop, Color defaultVal = Color::White) const
+        [[nodiscard]] Color ResolveColor(const View& view, StyleProperty prop,
+                                         Color defaultVal = Color::White) const
         {
-            if (Optional<Color> c = Resolve(view, prop).AsColor(); c.HasValue()) { return c.Value(); }
+            if (Optional<Color> c = Resolve(view, prop).AsColor(); c.HasValue())
+            {
+                return c.Value();
+            }
             return defaultVal;
         }
-        [[nodiscard]] f32 ResolveFloat(const View& view, StyleProperty prop, f32 defaultVal = 0.0f) const
+        [[nodiscard]] f32 ResolveFloat(const View& view, StyleProperty prop,
+                                       f32 defaultVal = 0.0f) const
         {
-            if (Optional<f32> f = Resolve(view, prop).AsFloat(); f.HasValue()) { return f.Value(); }
+            if (Optional<f32> f = Resolve(view, prop).AsFloat(); f.HasValue())
+            {
+                return f.Value();
+            }
             return defaultVal;
         }
-        [[nodiscard]] Thickness ResolveThickness(const View& view, StyleProperty prop, Thickness defaultVal = {}) const
+        [[nodiscard]] Thickness ResolveThickness(const View& view, StyleProperty prop,
+                                                 Thickness defaultVal = {}) const
         {
-            if (Optional<Thickness> t = Resolve(view, prop).AsThickness(); t.HasValue()) { return t.Value(); }
+            if (Optional<Thickness> t = Resolve(view, prop).AsThickness(); t.HasValue())
+            {
+                return t.Value();
+            }
             return defaultVal;
         }
-        [[nodiscard]] Drawable* ResolveDrawable(const View& view, StyleProperty prop) const { return Resolve(view, prop).AsDrawable(); }
-        [[nodiscard]] bool ResolveBool(const View& view, StyleProperty prop, bool defaultVal = false) const
+        [[nodiscard]] Drawable* ResolveDrawable(const View& view, StyleProperty prop) const
         {
-            if (Optional<bool> b = Resolve(view, prop).AsBool(); b.HasValue()) { return b.Value(); }
+            return Resolve(view, prop).AsDrawable();
+        }
+        [[nodiscard]] bool ResolveBool(const View& view, StyleProperty prop,
+                                       bool defaultVal = false) const
+        {
+            if (Optional<bool> b = Resolve(view, prop).AsBool(); b.HasValue())
+            {
+                return b.Value();
+            }
             return defaultVal;
         }
 
-        [[nodiscard]] Drawable* ResolvePartDrawable(const View& view, StringView part, StyleProperty prop, ControlState partState) const { return ResolvePart(view, part, prop, partState).AsDrawable(); }
-        [[nodiscard]] Color ResolvePartColor(const View& view, StringView part, StyleProperty prop, ControlState partState, Color defaultVal = Color::White) const
+        [[nodiscard]] Drawable* ResolvePartDrawable(const View& view, StringView part,
+                                                    StyleProperty prop,
+                                                    ControlState partState) const
         {
-            if (Optional<Color> c = ResolvePart(view, part, prop, partState).AsColor(); c.HasValue()) { return c.Value(); }
+            return ResolvePart(view, part, prop, partState).AsDrawable();
+        }
+        [[nodiscard]] Color ResolvePartColor(const View& view, StringView part, StyleProperty prop,
+                                             ControlState partState,
+                                             Color defaultVal = Color::White) const
+        {
+            if (Optional<Color> c = ResolvePart(view, part, prop, partState).AsColor();
+                c.HasValue())
+            {
+                return c.Value();
+            }
             return defaultVal;
         }
-        [[nodiscard]] f32 ResolvePartFloat(const View& view, StringView part, StyleProperty prop, ControlState partState, f32 defaultVal = 0.0f) const
+        [[nodiscard]] f32 ResolvePartFloat(const View& view, StringView part, StyleProperty prop,
+                                           ControlState partState, f32 defaultVal = 0.0f) const
         {
-            if (Optional<f32> f = ResolvePart(view, part, prop, partState).AsFloat(); f.HasValue()) { return f.Value(); }
+            if (Optional<f32> f = ResolvePart(view, part, prop, partState).AsFloat(); f.HasValue())
+            {
+                return f.Value();
+            }
             return defaultVal;
         }
 
@@ -164,21 +283,32 @@ export namespace draconic::ui
             return ref;
         }
 
-        [[nodiscard]] StyleValue ResolveMatching(const View& view, ControlState state, StringView pseudo, StyleProperty prop) const
+        [[nodiscard]] StyleValue ResolveMatching(const View& view, ControlState state,
+                                                 StringView pseudo, StyleProperty prop) const
         {
             StyleValue best = StyleValue::None();
             i32 bestSpecificity = -1;
             for (const RefPtr<StyleRule>& rule : m_rules)
             {
-                if (!rule->Selector.Matches(view, state, pseudo)) { continue; }
+                if (!rule->Selector.Matches(view, state, pseudo))
+                {
+                    continue;
+                }
                 Optional<StyleValue> val = rule->GetValue(prop);
-                if (!val.HasValue()) { continue; }
+                if (!val.HasValue())
+                {
+                    continue;
+                }
                 const i32 specificity = rule->Selector.Specificity();
                 // CSS tie-break: on EQUAL specificity the LAST declared rule wins (source order), so
                 // >= not >. Rules are stored in declaration order (base theme, then per-type, then
                 // extensions appended last), so a later equal-specificity rule correctly overrides an
                 // earlier one - e.g. a per-type FontSize beats the global `View { FontSize }`.
-                if (specificity >= bestSpecificity) { bestSpecificity = specificity; best = val.Value(); }
+                if (specificity >= bestSpecificity)
+                {
+                    bestSpecificity = specificity;
+                    best = val.Value();
+                }
             }
             return best;
         }
