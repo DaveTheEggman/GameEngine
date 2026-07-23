@@ -24,18 +24,18 @@ bool GameInstance::StartScript(core::StringView source, core::StringView name)
     // THIS instance's run host is the game's context (game-instance.md §11.10). The host was
     // configured by the app (ConfigureRunHost) with the facades + Scene.spawn + entity.send routing.
     m_runHost.SetExternalErrorSink(m_errorHandler);   // before the context is created
-    dscript::IScriptContext* context = m_runHost.EnsureContextForFile(name);
+    script::IScriptContext* context = m_runHost.EnsureContextForFile(name);
     if (context == nullptr)
     {
         DRACONIC_LOG_ERROR(u8"App", u8"no script backend for '{}'", name);
         return false;
     }
-    m_scriptContext = core::RefPtr<dscript::IScriptContext>(context);
+    m_scriptContext = core::RefPtr<script::IScriptContext>(context);
     m_runHost.SetGameScriptHold(true);
     InstallNetBinding();   // the game script (its menu) can now call Net.startServer()/connect()
     // Install THIS instance's input runtime as the context's Input service (overriding the shared
     // editor runtime the run-host configurator installed), so the game reads only ITS own source.
-    context->SetService(dinput::kInputRuntimeService, &m_inputRuntime);
+    context->SetService(input::kInputRuntimeService, &m_inputRuntime);
 
     const bool loaded = m_scriptContext->Load(source, name).IsOk();
     m_runHost.NoteExternalLoad();   // the game script loaded its own module (behaviors reload target)
@@ -75,12 +75,12 @@ void GameInstance::StopScript()
 void GameInstance::InstallNetBinding()
 {
     m_netBinding.controller = this;   // stable; the endpoint m_net points at may come and go
-    if (m_scriptContext.Get() != nullptr) { dnet::InstallNetScriptService(*m_scriptContext, m_netBinding); }
+    if (m_scriptContext.Get() != nullptr) { net::InstallNetScriptService(*m_scriptContext, m_netBinding); }
 }
 
 bool GameInstance::StartServer(u16 port, bool dedicated)
 {
-    m_net = dnet::NetworkManager::HostServer(port, dedicated);
+    m_net = net::NetworkManager::HostServer(port, dedicated);
     if (!m_net) { DRACONIC_LOG_ERROR(u8"App", u8"failed to open a server socket on port {}", port); return false; }
     m_net->SetReplicatedScene(m_scene);
     if (m_onEndpointOnline) { m_onEndpointOnline(*m_net); }   // app wires per-endpoint setup (spawn resolver)
@@ -90,7 +90,7 @@ bool GameInstance::StartServer(u16 port, bool dedicated)
 
 bool GameInstance::Connect(core::StringView host, u16 port)
 {
-    m_net = dnet::NetworkManager::JoinServer(host, port);
+    m_net = net::NetworkManager::JoinServer(host, port);
     if (!m_net) { DRACONIC_LOG_ERROR(u8"App", u8"failed to open a client socket"); return false; }
     m_net->SetReplicatedScene(m_scene);
     if (m_onEndpointOnline) { m_onEndpointOnline(*m_net); }
@@ -116,14 +116,14 @@ void GameInstance::DriveInput(f32 deltaTime, f32 contextTimeScale)
     m_inputRuntime.Update(*m_inputSource, deltaTime);
 }
 
-dscene::Scene* GameInstance::CreateScene(core::StringView name)
+scene::Scene* GameInstance::CreateScene(core::StringView name)
 {
-    dscene::Scene* scene = m_sceneManager.CreateScene(name);
+    scene::Scene* scene = m_sceneManager.CreateScene(name);
     if (scene != nullptr)
     {
         // OnSceneCreated (the ScriptSubsystem) added the ScriptSceneSystem + bound it to the DEFAULT
         // host; re-bind it to THIS instance's host so its behaviors share the game's context.
-        if (auto* system = scene->GetSystem<dscript::ScriptSceneSystem>()) { system->SetRunHost(&m_runHost); }
+        if (auto* system = scene->GetSystem<script::ScriptSceneSystem>()) { system->SetRunHost(&m_runHost); }
     }
     return scene;
 }

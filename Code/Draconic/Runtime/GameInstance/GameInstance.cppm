@@ -27,30 +27,30 @@ using namespace draconic::core;
 
 export namespace draconic::runtime {
 
-namespace dscene = draconic::scene;
-namespace dscript = draconic::script;
-namespace dnet = draconic::net;
-namespace dinput = draconic::input;
+namespace scene = draconic::scene;
+namespace script = draconic::script;
+namespace net = draconic::net;
+namespace input = draconic::input;
 
 // A hook the app sets once and GameInstance fires on every go-online, passing the freshly created
 // endpoint. The app uses it to wire per-endpoint setup that needs app state (e.g. the prefab
 // net-spawn resolver, which needs the content DB) - fresh each time, so reconnect stays correct.
-using EndpointOnlineHook = core::Function<void(dnet::NetworkManager&)>;
+using EndpointOnlineHook = core::Function<void(net::NetworkManager&)>;
 
 // A running game owns its networking too: GameInstance IS the INetworkController the Net facade
 // drives (startServer/connect/disconnect) and reads through. The endpoint is created on demand and
 // destroyed on disconnect / instance teardown; the binding is a stable member, so it never dangles.
-class GameInstance final : public dnet::INetworkController {
+class GameInstance final : public net::INetworkController {
 public:
-    void SetScene(dscene::Scene* scene) noexcept
+    void SetScene(scene::Scene* scene) noexcept
     {
         m_scene = scene;
         if (m_net) { m_net->SetReplicatedScene(scene); }   // keep replication on the current scene across level loads
     }
-    [[nodiscard]] dscene::Scene* GetScene() const noexcept { return m_scene; }
+    [[nodiscard]] scene::Scene* GetScene() const noexcept { return m_scene; }
 
-    void SetScriptErrorHandler(dscript::IScriptErrorHandler* handler) noexcept { m_errorHandler = handler; }
-    [[nodiscard]] dscript::IScriptErrorHandler* ScriptErrorHandler() const noexcept { return m_errorHandler; }
+    void SetScriptErrorHandler(script::IScriptErrorHandler* handler) noexcept { m_errorHandler = handler; }
+    [[nodiscard]] script::IScriptErrorHandler* ScriptErrorHandler() const noexcept { return m_errorHandler; }
 
     /// Headless: simulate + run scripts, but the host does NOT render this instance (no camera/
     /// swapchain needed) - the in-editor dedicated server (game-instance.md §11 / networking.md).
@@ -75,9 +75,9 @@ public:
 
     /// Create a scene in this instance's group AND bind its behaviors to this instance's run host
     /// (game-instance.md §11.10). Use this instead of Scenes().CreateScene so the re-bind happens.
-    dscene::Scene* CreateScene(core::StringView name);
+    scene::Scene* CreateScene(core::StringView name);
     /// Destroy a scene in this instance's group.
-    void DestroyScene(dscene::Scene* scene) { m_sceneManager.DestroyScene(scene); }
+    void DestroyScene(scene::Scene* scene) { m_sceneManager.DestroyScene(scene); }
 
     /// Tick the `Game` script with gameplay time: hostDt x contextScale x instanceScale x sceneScale.
     /// A faulting update disables THIS instance's script (drops the `Game`), not the app.
@@ -88,18 +88,18 @@ public:
     void DriveRunHost(f32 deltaTime);
 
     [[nodiscard]] bool ScriptRunning() const noexcept { return m_game.Get() != nullptr; }
-    [[nodiscard]] dscript::IScriptContext* ScriptContext() const noexcept { return m_scriptContext.Get(); }
+    [[nodiscard]] script::IScriptContext* ScriptContext() const noexcept { return m_scriptContext.Get(); }
 
     /// This run's script host - the gameplay context shared by the game script AND this instance's
     /// scenes' behaviors ("one gameplay context per instance", game-instance.md §11). Owned HERE now;
     /// the ScriptSubsystem borrows it (a later step has the instance drive it directly). Moving the
     /// storage onto the instance is the prerequisite for per-instance runs (Array<GameInstance>).
-    [[nodiscard]] dscript::ScriptRunHost& RunHost() noexcept { return m_runHost; }
+    [[nodiscard]] script::ScriptRunHost& RunHost() noexcept { return m_runHost; }
 
     /// This run's scene group (game-instance.md §11.2 / §4.4): the set of scenes the run manages + its
     /// current scene, ticked on the Context lane once registered with the SceneSubsystem. Wire its
     /// aware-registry (from the SceneSubsystem) before creating scenes in it.
-    [[nodiscard]] dscene::SceneManager& Scenes() noexcept { return m_sceneManager; }
+    [[nodiscard]] scene::SceneManager& Scenes() noexcept { return m_sceneManager; }
 
     // ---- input (this instance's OWN action runtime; game-instance.md - the input analog of the
     // per-instance scene group + net endpoint) ----
@@ -107,15 +107,15 @@ public:
     /// This run's input source (the editor Game tab's gated viewport, or the player's shell devices).
     /// The host sets it; the per-instance runtime reads ONLY this source, so per-surface focus gating
     /// isolates input across Game tabs (only the focused tab's source reports keys). Null = no input.
-    void SetInputSource(dinput::IInputSourceProvider* source) noexcept { m_inputSource = source; }
+    void SetInputSource(input::IInputSourceProvider* source) noexcept { m_inputSource = source; }
 
     /// Install the action map (the game's controls, from the project's input-map asset) on this
     /// instance's runtime. Each instance has its own runtime + map copy.
-    void SetInputMap(const dinput::InputMap& map) { m_inputRuntime.SetMap(map); }
+    void SetInputMap(const input::InputMap& map) { m_inputRuntime.SetMap(map); }
 
     /// This run's action runtime - the Input facade resolves it per script context (installed into
     /// this instance's context, so instance A's script never sees instance B's keys).
-    [[nodiscard]] dinput::ActionRuntime& InputRuntime() noexcept { return m_inputRuntime; }
+    [[nodiscard]] input::ActionRuntime& InputRuntime() noexcept { return m_inputRuntime; }
 
     /// Evaluate this instance's action runtime against its source (call before TickScript so the game
     /// sees this frame's input). No-op when no source is set.
@@ -139,28 +139,28 @@ public:
     bool StartServer(u16 port, bool dedicated) override;
     bool Connect(core::StringView host, u16 port) override;
     void StopNetworking() override;
-    [[nodiscard]] dnet::NetworkManager* NetEndpoint() const override { return m_net.Get(); }
+    [[nodiscard]] net::NetworkManager* NetEndpoint() const override { return m_net.Get(); }
 
 private:
     /// Point this instance's script context at its net binding (call once the context exists), so the
     /// Net facade resolves THIS instance's controller. Idempotent; safe when the context is null.
     void InstallNetBinding();
 
-    dscript::ScriptRunHost m_runHost;      // owned: the game's script context (§11.10)
-    dscene::SceneManager   m_sceneManager; // owned; registered with the SceneSubsystem to tick
-    dscene::Scene* m_scene = nullptr;
-    dscript::IScriptErrorHandler* m_errorHandler = nullptr;
+    script::ScriptRunHost m_runHost;      // owned: the game's script context (§11.10)
+    scene::SceneManager   m_sceneManager; // owned; registered with the SceneSubsystem to tick
+    scene::Scene* m_scene = nullptr;
+    script::IScriptErrorHandler* m_errorHandler = nullptr;
     bool m_headless = false;
     f32 m_instanceTimeScale = 1.0f;
-    core::RefPtr<dscript::IScriptContext> m_scriptContext;   // the game script's ref to the run host's context
-    core::RefPtr<dscript::ScriptObject> m_game;
+    core::RefPtr<script::IScriptContext> m_scriptContext;   // the game script's ref to the run host's context
+    core::RefPtr<script::ScriptObject> m_game;
 
-    core::UniquePtr<dnet::NetworkManager> m_net;   // this instance's endpoint (null = offline)
-    dnet::NetScriptBinding m_netBinding;           // stable; the facade resolves controller=this
+    core::UniquePtr<net::NetworkManager> m_net;   // this instance's endpoint (null = offline)
+    net::NetScriptBinding m_netBinding;           // stable; the facade resolves controller=this
     EndpointOnlineHook m_onEndpointOnline;         // app-set; fires with m_net on each go-online
 
-    dinput::ActionRuntime m_inputRuntime;          // this run's action state (per-instance)
-    dinput::IInputSourceProvider* m_inputSource = nullptr;   // borrowed: the viewport / shell devices
+    input::ActionRuntime m_inputRuntime;          // this run's action state (per-instance)
+    input::IInputSourceProvider* m_inputSource = nullptr;   // borrowed: the viewport / shell devices
 };
 
 }

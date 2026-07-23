@@ -13,56 +13,56 @@ import draconic.input;          // ActionRuntime / IInputSourceProvider (per-ins
 import draconic.shell;          // IKeyboard / KeyCode (a minimal fake device)
 
 using namespace draconic::core;
-namespace rt = draconic::runtime;
-namespace dscene = draconic::scene;
-namespace dnet = draconic::net;
-namespace dinput = draconic::input;
-namespace dshell = draconic::shell;
+namespace runtime = draconic::runtime;
+namespace scene = draconic::scene;
+namespace net = draconic::net;
+namespace input = draconic::input;
+namespace shell = draconic::shell;
 
 namespace
 {
     // A minimal input source: one keyboard reporting a single held key, everything else absent.
-    class OneKeyKeyboard final : public dshell::IKeyboard
+    class OneKeyKeyboard final : public shell::IKeyboard
     {
     public:
-        dshell::KeyCode key{};
+        shell::KeyCode key{};
         bool down = false;
-        [[nodiscard]] bool IsKeyDown(dshell::KeyCode k) const override { return down && k == key; }
-        [[nodiscard]] bool IsKeyPressed(dshell::KeyCode k) const override { return down && k == key; }
-        [[nodiscard]] bool IsKeyReleased(dshell::KeyCode) const override { return false; }
-        [[nodiscard]] dshell::KeyModifiers Modifiers() const override { return dshell::KeyModifiers::None; }
+        [[nodiscard]] bool IsKeyDown(shell::KeyCode k) const override { return down && k == key; }
+        [[nodiscard]] bool IsKeyPressed(shell::KeyCode k) const override { return down && k == key; }
+        [[nodiscard]] bool IsKeyReleased(shell::KeyCode) const override { return false; }
+        [[nodiscard]] shell::KeyModifiers Modifiers() const override { return shell::KeyModifiers::None; }
     };
-    class OneKeySource final : public dinput::IInputSourceProvider
+    class OneKeySource final : public input::IInputSourceProvider
     {
     public:
         OneKeyKeyboard keyboard;
-        [[nodiscard]] dshell::IKeyboard* Keyboard() override { return &keyboard; }
-        [[nodiscard]] dshell::IMouse* Mouse() override { return nullptr; }
+        [[nodiscard]] shell::IKeyboard* Keyboard() override { return &keyboard; }
+        [[nodiscard]] shell::IMouse* Mouse() override { return nullptr; }
         [[nodiscard]] i32 GamepadCount() const override { return 0; }
-        [[nodiscard]] dshell::IGamepad* Gamepad(i32) override { return nullptr; }
-        [[nodiscard]] dshell::ITouch* Touch() override { return nullptr; }
+        [[nodiscard]] shell::IGamepad* Gamepad(i32) override { return nullptr; }
+        [[nodiscard]] shell::ITouch* Touch() override { return nullptr; }
     };
-    [[nodiscard]] dinput::InputMap MakeFireMap(dshell::KeyCode key)
+    [[nodiscard]] input::InputMap MakeFireMap(shell::KeyCode key)
     {
-        dinput::InputMap map;
-        dinput::ActionSet set;
+        input::InputMap map;
+        input::ActionSet set;
         set.name = String(u8"S");
-        dinput::Action a;
+        input::Action a;
         a.name = String(u8"fire");
-        a.kind = dinput::ActionKind::Button;
-        dinput::Binding b;
-        b.source = dinput::BindingSource::Key;
+        a.kind = input::ActionKind::Button;
+        input::Binding b;
+        b.source = input::BindingSource::Key;
         b.code = static_cast<u32>(key);
         a.bindings.PushBack(b);
-        set.actions.PushBack(static_cast<dinput::Action&&>(a));
-        map.sets.PushBack(static_cast<dinput::ActionSet&&>(set));
+        set.actions.PushBack(static_cast<input::Action&&>(a));
+        map.sets.PushBack(static_cast<input::ActionSet&&>(set));
         return map;
     }
 }
 
 TEST_CASE("game-instance: instance time scale defaults to 1 and is settable; fresh instance idle")
 {
-    rt::GameInstance gi;
+    runtime::GameInstance gi;
     CHECK(gi.InstanceTimeScale() == doctest::Approx(1.0f));
     gi.SetInstanceTimeScale(0.5f);
     CHECK(gi.InstanceTimeScale() == doctest::Approx(0.5f));
@@ -73,7 +73,7 @@ TEST_CASE("game-instance: instance time scale defaults to 1 and is settable; fre
 
     // The instance owns a usable scene group (its SceneManager).
     CHECK(gi.Scenes().SceneCount() == 0u);
-    dscene::Scene* level = gi.Scenes().CreateScene(u8"L1");
+    scene::Scene* level = gi.Scenes().CreateScene(u8"L1");
     REQUIRE(level != nullptr);
     CHECK(gi.Scenes().SceneCount() == 1u);
     CHECK(gi.Scenes().CurrentScene() == level);
@@ -84,12 +84,12 @@ TEST_CASE("game-instance: each instance's input runtime reads ONLY its own sourc
     // The multi-instance-PIE fix: each GameInstance has its OWN ActionRuntime bound to its OWN source,
     // so one tab's keys never reach another tab's game (the shared-runtime bug that flipped the server
     // tab into a client). Same map, same key, two sources - only the source with the key held fires.
-    rt::GameInstance a;
-    rt::GameInstance b;
-    OneKeySource srcA; srcA.keyboard.key = dshell::KeyCode::H; srcA.keyboard.down = true;    // A holds H
-    OneKeySource srcB; srcB.keyboard.key = dshell::KeyCode::H; srcB.keyboard.down = false;   // B does not
-    a.SetInputSource(&srcA); a.SetInputMap(MakeFireMap(dshell::KeyCode::H));
-    b.SetInputSource(&srcB); b.SetInputMap(MakeFireMap(dshell::KeyCode::H));
+    runtime::GameInstance a;
+    runtime::GameInstance b;
+    OneKeySource srcA; srcA.keyboard.key = shell::KeyCode::H; srcA.keyboard.down = true;    // A holds H
+    OneKeySource srcB; srcB.keyboard.key = shell::KeyCode::H; srcB.keyboard.down = false;   // B does not
+    a.SetInputSource(&srcA); a.SetInputMap(MakeFireMap(shell::KeyCode::H));
+    b.SetInputSource(&srcB); b.SetInputMap(MakeFireMap(shell::KeyCode::H));
 
     a.DriveInput(0.016f, 1.0f);
     b.DriveInput(0.016f, 1.0f);
@@ -110,8 +110,8 @@ TEST_CASE("game-instance: each instance owns an independent networked endpoint (
 {
     // The per-instance networking model: a GameInstance IS the INetworkController, opening its OWN
     // real UDP endpoint on StartServer/Connect. Two instances in one process = two isolated endpoints.
-    rt::GameInstance server;
-    rt::GameInstance client;
+    runtime::GameInstance server;
+    runtime::GameInstance client;
     CHECK(server.NetEndpoint() == nullptr);   // offline until a role is entered
 
     REQUIRE(server.StartServer(/*port=*/0, /*dedicated=*/true));
@@ -141,7 +141,7 @@ TEST_CASE("game-instance: fallback path starts, ticks, and stops a Game script")
     RegisterCoreTypes();
     draconic::script::wren::RegisterWrenScriptBackend();
 
-    rt::GameInstance gi;
+    runtime::GameInstance gi;
     const bool ok = gi.StartScript(
         u8"class Game {\n"
         u8"  construct new() {}\n"
@@ -169,8 +169,8 @@ TEST_CASE("game-instance: two instances own separate, isolated run-host contexts
     draconic::script::wren::RegisterWrenScriptBackend();
 
     const char8_t* src = u8"class Game { construct new() {}\n launch() {}\n update(dt) {}\n exit() {}\n}\n";
-    rt::GameInstance a;
-    rt::GameInstance b;
+    runtime::GameInstance a;
+    runtime::GameInstance b;
     REQUIRE(a.StartScript(src, u8"game.wren"));
     REQUIRE(b.StartScript(src, u8"game.wren"));
 
@@ -193,7 +193,7 @@ TEST_CASE("game-instance: a missing Game class fails to start cleanly")
     RegisterCoreTypes();
     draconic::script::wren::RegisterWrenScriptBackend();
 
-    rt::GameInstance gi;
+    runtime::GameInstance gi;
     const bool ok = gi.StartScript(u8"var X = 1\n", u8"game.wren");
     CHECK_FALSE(ok);              // no `Game` class
     CHECK_FALSE(gi.ScriptRunning());
