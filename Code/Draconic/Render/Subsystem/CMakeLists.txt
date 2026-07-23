@@ -14,6 +14,7 @@ target_sources(DraconicRenderSubsystem
     PRIVATE
         RenderComponentsImpl.cpp   # DRACONIC_REFLECT_* bodies (see RenderComponents.cppm)
         RenderSubsystemImpl.cpp    # out-of-line RenderSubsystem defs (see RenderSubsystem.cppm)
+        ExtractImpl.cpp            # out-of-line scene-extraction defs (see Extract.cppm)
     PUBLIC
         FILE_SET render_subsystem_modules TYPE CXX_MODULES FILES
             RenderComponents.cppm
