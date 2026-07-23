@@ -8,6 +8,8 @@ target_link_libraries(DraconicSceneResource
            Draconic::XmlSerialization)
 
 target_sources(DraconicSceneResource
+    PRIVATE
+        SceneResourceImpl.cpp   # out-of-line public-API defs (see SceneResource.cppm)
     PUBLIC
         FILE_SET scene_resource_modules TYPE CXX_MODULES FILES
             SceneResource.cppm)
