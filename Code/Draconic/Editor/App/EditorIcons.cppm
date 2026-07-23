@@ -28,11 +28,7 @@ export namespace draconic::editor::app
     class EditorIcons
     {
     public:
-        [[nodiscard]] static EditorIcons& Get()
-        {
-            static EditorIcons instance;
-            return instance;
-        }
+        [[nodiscard]] static EditorIcons& Get();
 
         // === Viewport toolbar ===
         RefPtr<ui::SVGDrawable> translate;
@@ -56,106 +52,13 @@ export namespace draconic::editor::app
         RefPtr<ui::SVGDrawable> folder;
         RefPtr<ui::SVGDrawable> unknown;
 
-        void Initialize()
-        {
-            if (m_initialized)
-            {
-                return;
-            }
-            m_initialized = true;
-            translate = ui::SVGDrawable::FromString(kTranslate);
-            rotate = ui::SVGDrawable::FromString(kRotate);
-            scale = ui::SVGDrawable::FromString(kScale);
-            worldSpace = ui::SVGDrawable::FromString(kWorldSpace);
-            localSpace = ui::SVGDrawable::FromString(kLocalSpace);
-            grid = ui::SVGDrawable::FromString(kGrid);
-            scene = ui::SVGDrawable::FromString(kScene);
-            prefab = ui::SVGDrawable::FromString(kPrefab);
-            mesh = ui::SVGDrawable::FromString(kMesh);
-            skinnedMesh = ui::SVGDrawable::FromString(kSkinnedMesh);
-            material = ui::SVGDrawable::FromString(kMaterial);
-            texture = ui::SVGDrawable::FromString(kTexture);
-            particleFx = ui::SVGDrawable::FromString(kParticleFx);
-            animation = ui::SVGDrawable::FromString(kAnimation);
-            animGraph = ui::SVGDrawable::FromString(kAnimGraph);
-            skeleton = ui::SVGDrawable::FromString(kSkeleton);
-            folder = ui::SVGDrawable::FromString(kFolder);
-            unknown = ui::SVGDrawable::FromString(kUnknown);
-        }
+        void Initialize();
 
-        void Shutdown()
-        {
-            translate = nullptr;
-            rotate = nullptr;
-            scale = nullptr;
-            worldSpace = nullptr;
-            localSpace = nullptr;
-            grid = nullptr;
-            scene = nullptr;
-            prefab = nullptr;
-            mesh = nullptr;
-            skinnedMesh = nullptr;
-            material = nullptr;
-            texture = nullptr;
-            particleFx = nullptr;
-            animation = nullptr;
-            animGraph = nullptr;
-            skeleton = nullptr;
-            folder = nullptr;
-            unknown = nullptr;
-            m_initialized = false;
-        }
+        void Shutdown();
 
         /// The icon for a content-DB instance TYPE NAME ("StaticMeshAsset", ...). Never null
         /// after Initialize - unmatched types get the generic document glyph.
-        [[nodiscard]] ui::SVGDrawable* ForAssetType(StringView typeName) const
-        {
-            if (typeName == u8"SceneDocument")
-            {
-                return scene.Get();
-            }
-            if (typeName == u8"ModelManifestAsset")
-            {
-                return prefab.Get();
-            }
-            if (typeName == u8"StaticMeshAsset")
-            {
-                return mesh.Get();
-            }
-            if (typeName == u8"SkinnedMeshAsset")
-            {
-                return skinnedMesh.Get();
-            }
-            if (typeName == u8"MaterialAsset")
-            {
-                return material.Get();
-            }
-            if (typeName == u8"TextureAsset")
-            {
-                return texture.Get();
-            }
-            if (typeName == u8"ImageAsset")
-            {
-                return texture.Get();
-            }
-            if (typeName == u8"ParticleEffectAsset")
-            {
-                return particleFx.Get();
-            }
-            if (typeName == u8"AnimationClipAsset")
-            {
-                return animation.Get();
-            }
-            if (typeName == u8"AnimationGraphAsset")
-            {
-                return animGraph.Get();
-            }
-            if (typeName == u8"SkeletonAsset")
-            {
-                return skeleton.Get();
-            }
-            return unknown.Get();
-        }
+        [[nodiscard]] ui::SVGDrawable* ForAssetType(StringView typeName) const;
 
     private:
         bool m_initialized = false;

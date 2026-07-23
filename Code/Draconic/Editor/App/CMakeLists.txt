@@ -16,6 +16,12 @@ target_link_libraries(DraconicEditorApp
         Draconic::EditorCore Draconic::Settings Draconic::Policy)
 
 target_sources(DraconicEditorApp
+    PRIVATE
+        ApplicationImpl.cpp
+        AssetsViewImpl.cpp
+        AssetPickerDialogImpl.cpp
+        SettingsDialogImpl.cpp
+        EditorIconsImpl.cpp
     PUBLIC
         FILE_SET editorapp_modules TYPE CXX_MODULES FILES
             Layout.cppm
