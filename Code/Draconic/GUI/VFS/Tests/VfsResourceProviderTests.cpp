@@ -12,7 +12,7 @@ import draconic.gui.vfs;
 using namespace draconic::core;
 namespace vfs = draconic::vfs;
 namespace image = draconic::image;
-namespace guivfs = draconic::gui::vfs;
+namespace gui = draconic::gui;
 
 namespace
 {
@@ -37,14 +37,14 @@ namespace
 
 TEST_CASE("gui-vfs: null filesystem returns null")
 {
-    guivfs::VfsResourceProvider provider(nullptr);
+    gui::vfs::VfsResourceProvider provider(nullptr);
     CHECK(provider.LoadImage(u8"anything.png") == nullptr);
 }
 
 TEST_CASE("gui-vfs: a missing file returns null")
 {
     MemFS fs;
-    guivfs::VfsResourceProvider provider(&fs);
+    gui::vfs::VfsResourceProvider provider(&fs);
     CHECK(provider.LoadImage(u8"nope.png") == nullptr);
 }
 
@@ -54,7 +54,7 @@ TEST_CASE("gui-vfs: undecodable bytes return null")
     Array<u8> junk;
     for (int i = 0; i < 16; ++i) junk.PushBack(static_cast<u8>(i));
     fs.files.InsertOrAssign(String(u8"bad.png"), Move(junk));
-    guivfs::VfsResourceProvider provider(&fs);
+    gui::vfs::VfsResourceProvider provider(&fs);
     CHECK(provider.LoadImage(u8"bad.png") == nullptr);
 }
 
@@ -70,7 +70,7 @@ TEST_CASE("gui-vfs: loads and decodes a real image (BMP round-trip)")
     REQUIRE(image::io::SaveImage(src, file, image::io::ImageFileFormat::BMP).IsOk());
 
     vfs::NativeFileSystem fs(u8"."); // rooted at the test working directory
-    guivfs::VfsResourceProvider provider(&fs);
+    gui::vfs::VfsResourceProvider provider(&fs);
 
     const image::ImageData* loaded = provider.LoadImage(file);
     REQUIRE(loaded != nullptr);

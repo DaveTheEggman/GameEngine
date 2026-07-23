@@ -9,7 +9,7 @@ import draconic.core;
 import draconic.settings;
 
 using namespace draconic::core;
-namespace st = draconic::settings;
+namespace settings = draconic::settings;
 
 namespace
 {
@@ -39,7 +39,7 @@ namespace
 
 TEST_CASE("settings: a fresh section reads its struct defaults")
 {
-    st::Settings s;
+    settings::Settings s;
     CHECK(s.SectionCount() == 0u);
     CHECK(s.Find<GameSettings>() == nullptr);
 
@@ -56,7 +56,7 @@ TEST_CASE("settings: sections round-trip through the (binary) serializer factory
 
     MemoryStream stream;
     {
-        st::Settings s;
+        settings::Settings s;
         GameSettings& g = s.Section<GameSettings>();
         g.profile = String(u8"hardcore");
         g.locale  = String(u8"fr");
@@ -65,7 +65,7 @@ TEST_CASE("settings: sections round-trip through the (binary) serializer factory
 
     REQUIRE(stream.Seek(0, SeekOrigin::Begin) == 0);
     {
-        st::Settings s;
+        settings::Settings s;
         REQUIRE(s.Load(stream, BinarySerializerFactory()).IsOk());
         const GameSettings* g = s.Find<GameSettings>();
         REQUIRE(g != nullptr);
@@ -76,7 +76,7 @@ TEST_CASE("settings: sections round-trip through the (binary) serializer factory
 
 TEST_CASE("settings: MarkChanged fires OnChanged with the section type name")
 {
-    st::Settings s;
+    settings::Settings s;
     String changed;
     s.OnChanged([&](StringView name) { changed = String(name); });
 

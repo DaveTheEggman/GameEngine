@@ -142,10 +142,10 @@ TEST_CASE("import skinned glTF -> cooked skeleton + animations + skinned mesh")
 TEST_CASE("model-import: GLB fans out into source assets and cooks through the driver")
 {
     using namespace draconic::editor;
-    namespace mi = draconic::modelimporter;
+    namespace modelimporter = draconic::modelimporter;
 
     // Types the fan-out creates + their builders.
-    mi::RegisterModelManifestAsset();
+    modelimporter::RegisterModelManifestAsset();
     draconic::texture::RegisterTextureAsset();
     draconic::geometry::RegisterMeshAssets();
     draconic::materials::RegisterMaterialAsset();
@@ -191,7 +191,7 @@ TEST_CASE("model-import: GLB fans out into source assets and cooks through the d
     REQUIRE(static_cast<bool>(project));
 
     // Import the Kenney character GLB (skinned: skeleton + clips expected).
-    mi::ModelFileImporter importer;
+    modelimporter::ModelFileImporter importer;
     CHECK(importer.Accepts(u8"glb"));
     Result<draconic::content::Instance*> imported = importer.Import(
         reinterpret_cast<const draconic::core::utf8char*>(DRACONIC_MI_TEST_GLB),
@@ -208,7 +208,7 @@ TEST_CASE("model-import: GLB fans out into source assets and cooks through the d
     CHECK(modelGroup->Instances().Size() >= 2u);
 
     RefPtr<ISerializable> object = manifestInst->ReadObject();
-    auto* manifestAsset = Cast<mi::ModelManifestAsset>(object.Get());
+    auto* manifestAsset = Cast<modelimporter::ModelManifestAsset>(object.Get());
     REQUIRE(manifestAsset != nullptr);
     REQUIRE(manifestAsset->manifest.meshGuids.Size() >= 1u);
     CHECK(manifestAsset->manifest.nodes.Size() >= 1u);
@@ -224,7 +224,7 @@ TEST_CASE("model-import: GLB fans out into source assets and cooks through the d
     add(DefaultAllocator().New<draconic::materials::MaterialAssetBuilder>());
     add(DefaultAllocator().New<draconic::animation::SkeletonAssetBuilder>());
     add(DefaultAllocator().New<draconic::animation::AnimationClipAssetBuilder>());
-    add(DefaultAllocator().New<mi::ModelManifestAssetBuilder>());
+    add(DefaultAllocator().New<modelimporter::ModelManifestAssetBuilder>());
 
     draconic::vfs::NativeFileSystem sourcesFs(project->SourcesRoot().AsView());
     draconic::vfs::NativeFileSystem cacheFs(project->CacheRoot().AsView());
@@ -252,9 +252,8 @@ TEST_CASE("model-import: GLB fans out into source assets and cooks through the d
 TEST_CASE("model-import: external-sidecar .gltf imports and its sidecars land in Sources")
 {
     using namespace draconic::editor;
-    namespace mi = draconic::modelimporter;
 
-    mi::RegisterModelManifestAsset();
+    modelimporter::RegisterModelManifestAsset();
     draconic::texture::RegisterTextureAsset();
     draconic::geometry::RegisterMeshAssets();
     draconic::materials::RegisterMaterialAsset();
@@ -293,7 +292,7 @@ TEST_CASE("model-import: external-sidecar .gltf imports and its sidecars land in
     UniquePtr<EditorProject> project = EditorProject::Open(dir);
     REQUIRE(static_cast<bool>(project));
 
-    mi::ModelFileImporter importer;
+    modelimporter::ModelFileImporter importer;
     Result<draconic::content::Instance*> imported = importer.Import(
         reinterpret_cast<const draconic::core::utf8char*>(DRACONIC_MI_TEST_FOX),
         *project, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
@@ -307,7 +306,7 @@ TEST_CASE("model-import: external-sidecar .gltf imports and its sidecars land in
 
     // The fan-out produced meshes + the Fox's animation clips.
     RefPtr<ISerializable> object = imported.Value()->ReadObject();
-    auto* manifest = Cast<mi::ModelManifestAsset>(object.Get());
+    auto* manifest = Cast<modelimporter::ModelManifestAsset>(object.Get());
     REQUIRE(manifest != nullptr);
     CHECK(manifest->manifest.meshGuids.Size() >= 1u);
     CHECK(manifest->manifest.animationGuids.Size() >= 1u);   // Survey/Walk/Run
@@ -322,10 +321,8 @@ TEST_CASE("model-import: external-sidecar .gltf imports and its sidecars land in
 TEST_CASE("model-import: a bound material carries its albedo texture")
 {
     using namespace draconic::editor;
-    namespace mi = draconic::modelimporter;
-    namespace res = draconic::resource;
 
-    mi::RegisterModelManifestAsset();
+    modelimporter::RegisterModelManifestAsset();
     draconic::model::RegisterModelResourceTypes();
     draconic::texture::RegisterTextureAsset();
     draconic::geometry::RegisterMeshAssets();
@@ -366,14 +363,14 @@ TEST_CASE("model-import: a bound material carries its albedo texture")
     REQUIRE(static_cast<bool>(project));
 
     // Import the Duck (textured, static) + cook everything.
-    mi::ModelFileImporter importer;
+    modelimporter::ModelFileImporter importer;
     Result<draconic::content::Instance*> imported = importer.Import(
         reinterpret_cast<const draconic::core::utf8char*>(DRACONIC_MI_TEST_DUCK),
         *project, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
     REQUIRE(imported.HasValue());
 
     RefPtr<ISerializable> object = imported.Value()->ReadObject();
-    auto* manifest = Cast<mi::ModelManifestAsset>(object.Get());
+    auto* manifest = Cast<modelimporter::ModelManifestAsset>(object.Get());
     REQUIRE(manifest != nullptr);
     REQUIRE(manifest->manifest.materialGuids.Size() >= 1u);
     const Guid matGuid = manifest->manifest.materialGuids[0];
@@ -388,7 +385,7 @@ TEST_CASE("model-import: a bound material carries its albedo texture")
     add(DefaultAllocator().New<draconic::materials::MaterialAssetBuilder>());
     add(DefaultAllocator().New<draconic::animation::SkeletonAssetBuilder>());
     add(DefaultAllocator().New<draconic::animation::AnimationClipAssetBuilder>());
-    add(DefaultAllocator().New<mi::ModelManifestAssetBuilder>());
+    add(DefaultAllocator().New<modelimporter::ModelManifestAssetBuilder>());
 
     draconic::vfs::NativeFileSystem sourcesFs(project->SourcesRoot().AsView());
     draconic::vfs::NativeFileSystem cacheFs(project->CacheRoot().AsView());
@@ -401,7 +398,7 @@ TEST_CASE("model-import: a bound material carries its albedo texture")
     // Device FIRST: it must outlive the manager's cached products (their destructors release
     // GPU objects through it).
     draconic::rhi::null::NullDevice device{DefaultAllocator()};
-    res::ResourceManager resources(project->CookedDb());
+    resource::ResourceManager resources(project->CookedDb());
     draconic::geometry::StaticMeshFactory meshFactory;
     draconic::materials::MaterialFactory materialFactory;
     draconic::texture::TextureFactory textureFactory(device);
@@ -409,7 +406,7 @@ TEST_CASE("model-import: a bound material carries its albedo texture")
     resources.AddFactory(&materialFactory);
     resources.AddFactory(&textureFactory);
 
-    res::Proxy<draconic::materials::Material> material =
+    resource::Proxy<draconic::materials::Material> material =
         resources.Bind<draconic::materials::Material>(matGuid);
     REQUIRE(static_cast<bool>(material));
 
@@ -542,9 +539,8 @@ TEST_CASE("mesh convert: missing tangent stream generates tangents (DamagedHelme
 TEST_CASE("cook: delete group -> reimport -> recook keeps product identities clean")
 {
     using namespace draconic::editor;
-    namespace mi = draconic::modelimporter;
 
-    mi::RegisterModelManifestAsset();
+    modelimporter::RegisterModelManifestAsset();
     draconic::texture::RegisterTextureAsset();
     draconic::geometry::RegisterMeshAssets();
     draconic::materials::RegisterMaterialAsset();
@@ -596,14 +592,14 @@ TEST_CASE("cook: delete group -> reimport -> recook keeps product identities cle
     add(DefaultAllocator().New<draconic::materials::MaterialAssetBuilder>());
     add(DefaultAllocator().New<draconic::animation::SkeletonAssetBuilder>());
     add(DefaultAllocator().New<draconic::animation::AnimationClipAssetBuilder>());
-    add(DefaultAllocator().New<mi::ModelManifestAssetBuilder>());
+    add(DefaultAllocator().New<modelimporter::ModelManifestAssetBuilder>());
 
     draconic::vfs::NativeFileSystem sourcesFs(project->SourcesRoot().AsView());
     draconic::vfs::NativeFileSystem cacheFs(project->CacheRoot().AsView());
     CookDriver driver(project->SourceDb(), project->CookedDb(), builders, &sourcesFs, &cacheFs);
 
     // Duck has a texture (the crashing product kind). Import + cook generation 1.
-    mi::ModelFileImporter importer;
+    modelimporter::ModelFileImporter importer;
     Result<draconic::content::Instance*> firstImport = importer.Import(
         reinterpret_cast<const draconic::core::utf8char*>(DRACONIC_MI_TEST_DUCK),
         *project, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
@@ -820,8 +816,7 @@ namespace
 TEST_CASE("model-import: options gate textures/materials/animations")
 {
     using namespace draconic::editor;
-    namespace mi = draconic::modelimporter;
-    mi::RegisterModelManifestAsset();
+    modelimporter::RegisterModelManifestAsset();
     draconic::texture::RegisterTextureAsset();
     draconic::geometry::RegisterMeshAssets();
     draconic::materials::RegisterMaterialAsset();
@@ -833,12 +828,12 @@ TEST_CASE("model-import: options gate textures/materials/animations")
     UniquePtr<EditorProject> project = EditorProject::Open(dir);
     REQUIRE(static_cast<bool>(project));
 
-    mi::ModelFileImporter importer;
+    modelimporter::ModelFileImporter importer;
 
     // The importer advertises options, and their defaults import everything.
     RefPtr<ImportOptions> base = importer.CreateOptions();
     REQUIRE(base.Get() != nullptr);
-    auto* options = static_cast<mi::ModelImportOptions*>(base.Get());
+    auto* options = static_cast<modelimporter::ModelImportOptions*>(base.Get());
     CHECK(options->importTextures);
     CHECK(options->importMaterials);
     CHECK(options->importAnimations);
@@ -857,7 +852,7 @@ TEST_CASE("model-import: options gate textures/materials/animations")
     REQUIRE(imported.HasValue());
 
     RefPtr<ISerializable> object = imported.Value()->ReadObject();
-    auto* manifest = Cast<mi::ModelManifestAsset>(object.Get());
+    auto* manifest = Cast<modelimporter::ModelManifestAsset>(object.Get());
     REQUIRE(manifest != nullptr);
     CHECK(manifest->manifest.meshGuids.Size() >= 1u);         // geometry always imports
     CHECK(manifest->manifest.materialGuids.IsEmpty());
@@ -879,8 +874,7 @@ TEST_CASE("model-import: options gate textures/materials/animations")
 TEST_CASE("model-import: generate-collision emits CollisionShapeAssets wired to the meshes")
 {
     using namespace draconic::editor;
-    namespace mi = draconic::modelimporter;
-    mi::RegisterModelManifestAsset();
+    modelimporter::RegisterModelManifestAsset();
     draconic::texture::RegisterTextureAsset();
     draconic::geometry::RegisterMeshAssets();
     draconic::materials::RegisterMaterialAsset();
@@ -893,9 +887,9 @@ TEST_CASE("model-import: generate-collision emits CollisionShapeAssets wired to 
     UniquePtr<EditorProject> project = EditorProject::Open(dir);
     REQUIRE(static_cast<bool>(project));
 
-    mi::ModelFileImporter importer;
+    modelimporter::ModelFileImporter importer;
     RefPtr<ImportOptions> base = importer.CreateOptions();
-    auto* options = static_cast<mi::ModelImportOptions*>(base.Get());
+    auto* options = static_cast<modelimporter::ModelImportOptions*>(base.Get());
     options->generateCollision = true;
     options->collisionConvex = true;
     Result<draconic::content::Instance*> imported = importer.Import(
@@ -904,7 +898,7 @@ TEST_CASE("model-import: generate-collision emits CollisionShapeAssets wired to 
     REQUIRE(imported.HasValue());
 
     RefPtr<ISerializable> object = imported.Value()->ReadObject();
-    auto* manifest = Cast<mi::ModelManifestAsset>(object.Get());
+    auto* manifest = Cast<modelimporter::ModelManifestAsset>(object.Get());
     REQUIRE(manifest != nullptr);
     // collisionGuids parallels meshGuids; STATIC meshes get shapes (skinned stay nil).
     REQUIRE(manifest->manifest.collisionGuids.Size() == manifest->manifest.meshGuids.Size());
@@ -933,8 +927,7 @@ TEST_CASE("model-import: generate-collision emits CollisionShapeAssets wired to 
 TEST_CASE("model-import: re-import WITHOUT delete reuses instances (same guids, no duplicates)")
 {
     using namespace draconic::editor;
-    namespace mi = draconic::modelimporter;
-    mi::RegisterModelManifestAsset();
+    modelimporter::RegisterModelManifestAsset();
     draconic::texture::RegisterTextureAsset();
     draconic::geometry::RegisterMeshAssets();
     draconic::materials::RegisterMaterialAsset();
@@ -946,7 +939,7 @@ TEST_CASE("model-import: re-import WITHOUT delete reuses instances (same guids, 
     UniquePtr<EditorProject> project = EditorProject::Open(dir);
     REQUIRE(static_cast<bool>(project));
 
-    mi::ModelFileImporter importer;
+    modelimporter::ModelFileImporter importer;
     Result<draconic::content::Instance*> first = importer.Import(
         reinterpret_cast<const draconic::core::utf8char*>(DRACONIC_MI_TEST_DUCK),
         *project, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);

@@ -20,7 +20,7 @@ import draconic.shell;   // InputEvent, InputEventKind, MouseButton, KeyModifier
 
 using namespace draconic::core;
 namespace core = draconic::core;
-namespace platform = draconic::shell;
+namespace shell = draconic::shell;
 
 export namespace draconic::gui
 {
@@ -39,7 +39,7 @@ export namespace draconic::gui
         // enables text input while a text-editing widget holds focus and disables it
         // otherwise - reconciled after each Dispatch()/PumpFromSurface(), so no per-widget or
         // per-app wiring is needed. Pass nullptr to disable the feature.
-        void SetTextInputTarget(platform::IWindow* window) noexcept { m_textInputTarget = window; }
+        void SetTextInputTarget(shell::IWindow* window) noexcept { m_textInputTarget = window; }
 
         // Reconcile the target window's text-input state with the focused node's wish. Called
         // automatically from Dispatch()/PumpFromSurface(); exposed for apps that drive focus
@@ -56,34 +56,34 @@ export namespace draconic::gui
         // event was routed to the GUI, false if it was ignored (gamepad/touch/unknown).
         // Reconciles the text-input target afterwards, since a routed event (a click, a Tab)
         // can change focus.
-        bool Dispatch(const platform::InputEvent& event)
+        bool Dispatch(const shell::InputEvent& event)
         {
             if (m_dispatcher == nullptr) return false;
             bool routed = true;
             switch (event.kind)
             {
-            case platform::InputEventKind::MouseMove:
+            case shell::InputEventKind::MouseMove:
                 m_dispatcher->InjectMouseMove(ToContent(core::Float2{ event.x, event.y }));
                 break;
-            case platform::InputEventKind::MouseButtonDown:
+            case shell::InputEventKind::MouseButtonDown:
                 m_dispatcher->InjectMouseDown(ToContent(core::Float2{ event.x, event.y }),
                     MapButton(event.button), MapModifiers(event.modifiers));
                 break;
-            case platform::InputEventKind::MouseButtonUp:
+            case shell::InputEventKind::MouseButtonUp:
                 m_dispatcher->InjectMouseUp(ToContent(core::Float2{ event.x, event.y }),
                     MapButton(event.button), MapModifiers(event.modifiers));
                 break;
-            case platform::InputEventKind::MouseWheel:
+            case shell::InputEventKind::MouseWheel:
                 // For wheel, x/y is the scroll delta; position is the last known cursor spot.
                 m_dispatcher->InjectMouseWheel(m_dispatcher->GetMousePosition(), core::Float2{ event.x, event.y });
                 break;
-            case platform::InputEventKind::KeyDown:
+            case shell::InputEventKind::KeyDown:
                 m_dispatcher->InjectKeyDown(MapKey(event.key), MapModifiers(event.modifiers));
                 break;
-            case platform::InputEventKind::KeyUp:
+            case shell::InputEventKind::KeyUp:
                 m_dispatcher->InjectKeyUp(MapKey(event.key), MapModifiers(event.modifiers));
                 break;
-            case platform::InputEventKind::TextInput:
+            case shell::InputEventKind::TextInput:
                 m_dispatcher->InjectText(core::StringView(event.text));
                 break;
             default:
@@ -99,10 +99,10 @@ export namespace draconic::gui
         // recommended path for a viewport-hosted GUI - the surface handles transform + gating,
         // and a fresh InjectMouseMove each frame keeps hover current. (Keyboard/text still come
         // through the event-based Dispatch() path.)
-        void PumpFromSurface(platform::InputSurface& surface)
+        void PumpFromSurface(shell::InputSurface& surface)
         {
             if (m_dispatcher == nullptr) return;
-            platform::IMouse* mouse = surface.Mouse();
+            shell::IMouse* mouse = surface.Mouse();
             if (mouse == nullptr) return;
 
             const core::Float2 position{ mouse->X(), mouse->Y() };
@@ -110,12 +110,12 @@ export namespace draconic::gui
 
             // Current keyboard modifiers, so a modified click (Shift+click to extend a text
             // selection, Ctrl+click, ...) carries its modifiers even on the poll-based path.
-            platform::IKeyboard* keyboard = surface.Keyboard();
+            shell::IKeyboard* keyboard = surface.Keyboard();
             const u32 modifiers = keyboard != nullptr ? MapModifiers(keyboard->Modifiers()) : 0u;
 
-            const platform::MouseButton buttons[3] = {
-                platform::MouseButton::Left, platform::MouseButton::Middle, platform::MouseButton::Right };
-            for (const platform::MouseButton button : buttons)
+            const shell::MouseButton buttons[3] = {
+                shell::MouseButton::Left, shell::MouseButton::Middle, shell::MouseButton::Right };
+            for (const shell::MouseButton button : buttons)
             {
                 if (mouse->IsButtonPressed(button))  m_dispatcher->InjectMouseDown(position, MapButton(button), modifiers);
                 if (mouse->IsButtonReleased(button)) m_dispatcher->InjectMouseUp(position, MapButton(button), modifiers);
@@ -139,15 +139,15 @@ export namespace draconic::gui
         }
 
         // shell::MouseButton order is Left/Middle/Right - map explicitly, not by value.
-        [[nodiscard]] static MouseButton MapButton(platform::MouseButton button) noexcept
+        [[nodiscard]] static MouseButton MapButton(shell::MouseButton button) noexcept
         {
             switch (button)
             {
-            case platform::MouseButton::Left:   return MouseButton::Left;
-            case platform::MouseButton::Right:  return MouseButton::Right;
-            case platform::MouseButton::Middle: return MouseButton::Middle;
-            case platform::MouseButton::X1:     return MouseButton::X1;
-            case platform::MouseButton::X2:     return MouseButton::X2;
+            case shell::MouseButton::Left:   return MouseButton::Left;
+            case shell::MouseButton::Right:  return MouseButton::Right;
+            case shell::MouseButton::Middle: return MouseButton::Middle;
+            case shell::MouseButton::X1:     return MouseButton::X1;
+            case shell::MouseButton::X2:     return MouseButton::X2;
             default:                            return MouseButton::Left;
             }
         }
@@ -155,48 +155,48 @@ export namespace draconic::gui
         // Map the platform key code to the GUI's platform-agnostic KeyCode (as a u32).
         // Only the navigation/editing keys the GUI interprets are mapped; everything else
         // (printable characters) arrives via TextInput, so it maps to Unknown here.
-        [[nodiscard]] static u32 MapKey(platform::KeyCode key) noexcept
+        [[nodiscard]] static u32 MapKey(shell::KeyCode key) noexcept
         {
             KeyCode mapped = KeyCode::Unknown;
             switch (key)
             {
-            case platform::KeyCode::Return:    mapped = KeyCode::Return;    break;
-            case platform::KeyCode::Escape:    mapped = KeyCode::Escape;    break;
-            case platform::KeyCode::Backspace: mapped = KeyCode::Backspace; break;
-            case platform::KeyCode::Tab:       mapped = KeyCode::Tab;       break;
-            case platform::KeyCode::Space:     mapped = KeyCode::Space;     break;
-            case platform::KeyCode::Delete:    mapped = KeyCode::Delete;    break;
-            case platform::KeyCode::Insert:    mapped = KeyCode::Insert;    break;
-            case platform::KeyCode::Home:      mapped = KeyCode::Home;      break;
-            case platform::KeyCode::End:       mapped = KeyCode::End;       break;
-            case platform::KeyCode::PageUp:    mapped = KeyCode::PageUp;    break;
-            case platform::KeyCode::PageDown:  mapped = KeyCode::PageDown;  break;
-            case platform::KeyCode::Left:      mapped = KeyCode::Left;      break;
-            case platform::KeyCode::Right:     mapped = KeyCode::Right;     break;
-            case platform::KeyCode::Up:        mapped = KeyCode::Up;        break;
-            case platform::KeyCode::Down:      mapped = KeyCode::Down;      break;
+            case shell::KeyCode::Return:    mapped = KeyCode::Return;    break;
+            case shell::KeyCode::Escape:    mapped = KeyCode::Escape;    break;
+            case shell::KeyCode::Backspace: mapped = KeyCode::Backspace; break;
+            case shell::KeyCode::Tab:       mapped = KeyCode::Tab;       break;
+            case shell::KeyCode::Space:     mapped = KeyCode::Space;     break;
+            case shell::KeyCode::Delete:    mapped = KeyCode::Delete;    break;
+            case shell::KeyCode::Insert:    mapped = KeyCode::Insert;    break;
+            case shell::KeyCode::Home:      mapped = KeyCode::Home;      break;
+            case shell::KeyCode::End:       mapped = KeyCode::End;       break;
+            case shell::KeyCode::PageUp:    mapped = KeyCode::PageUp;    break;
+            case shell::KeyCode::PageDown:  mapped = KeyCode::PageDown;  break;
+            case shell::KeyCode::Left:      mapped = KeyCode::Left;      break;
+            case shell::KeyCode::Right:     mapped = KeyCode::Right;     break;
+            case shell::KeyCode::Up:        mapped = KeyCode::Up;        break;
+            case shell::KeyCode::Down:      mapped = KeyCode::Down;      break;
             // Letter keys that back editing shortcuts (Ctrl+A/C/V/X).
-            case platform::KeyCode::A:         mapped = KeyCode::A;         break;
-            case platform::KeyCode::C:         mapped = KeyCode::C;         break;
-            case platform::KeyCode::V:         mapped = KeyCode::V;         break;
-            case platform::KeyCode::X:         mapped = KeyCode::X;         break;
+            case shell::KeyCode::A:         mapped = KeyCode::A;         break;
+            case shell::KeyCode::C:         mapped = KeyCode::C;         break;
+            case shell::KeyCode::V:         mapped = KeyCode::V;         break;
+            case shell::KeyCode::X:         mapped = KeyCode::X;         break;
             default:                           mapped = KeyCode::Unknown;   break;
             }
             return static_cast<u32>(mapped);
         }
 
-        [[nodiscard]] static u32 MapModifiers(platform::KeyModifiers mods) noexcept
+        [[nodiscard]] static u32 MapModifiers(shell::KeyModifiers mods) noexcept
         {
             u32 out = 0;
-            if ((mods & platform::KeyModifiers::Shift) != platform::KeyModifiers::None) out |= KeyModShift;
-            if ((mods & platform::KeyModifiers::Ctrl)  != platform::KeyModifiers::None) out |= KeyModCtrl;
-            if ((mods & platform::KeyModifiers::Alt)   != platform::KeyModifiers::None) out |= KeyModAlt;
-            if ((mods & platform::KeyModifiers::Gui)   != platform::KeyModifiers::None) out |= KeyModSuper;
+            if ((mods & shell::KeyModifiers::Shift) != shell::KeyModifiers::None) out |= KeyModShift;
+            if ((mods & shell::KeyModifiers::Ctrl)  != shell::KeyModifiers::None) out |= KeyModCtrl;
+            if ((mods & shell::KeyModifiers::Alt)   != shell::KeyModifiers::None) out |= KeyModAlt;
+            if ((mods & shell::KeyModifiers::Gui)   != shell::KeyModifiers::None) out |= KeyModSuper;
             return out;
         }
 
         EventDispatcher* m_dispatcher;
-        platform::IWindow* m_textInputTarget = nullptr; // window whose IME follows GUI focus (optional)
+        shell::IWindow* m_textInputTarget = nullptr; // window whose IME follows GUI focus (optional)
         core::ContentFit m_fit{};
         bool m_hasFit = false;
     };
@@ -209,13 +209,13 @@ export namespace draconic::gui
     class ShellClipboard : public IClipboard
     {
     public:
-        explicit ShellClipboard(platform::IShell* shell) noexcept : m_shell(shell) {}
+        explicit ShellClipboard(shell::IShell* shell) noexcept : m_shell(shell) {}
 
         [[nodiscard]] bool HasText() const override { return m_shell != nullptr && m_shell->HasClipboardText(); }
         [[nodiscard]] core::String GetText() const override { return m_shell != nullptr ? m_shell->GetClipboardText() : core::String{}; }
         void SetText(core::StringView text) override { if (m_shell != nullptr) m_shell->SetClipboardText(text); }
 
     private:
-        platform::IShell* m_shell; // non-owning
+        shell::IShell* m_shell; // non-owning
     };
 }
