@@ -27,7 +27,7 @@ export namespace draconic::physics
         MotionKind motion = MotionKind::Dynamic;
         PhysicsLayer layer = PhysicsLayer::Dynamic;
         ShapeKind shape = ShapeKind::Box;
-        Float3 halfExtents{ 0.5f, 0.5f, 0.5f };
+        Float3 halfExtents{0.5f, 0.5f, 0.5f};
         f32 radius = 0.5f;
         f32 halfHeight = 0.5f;
         // shape == ShapeKind::Plane: the entity's local XZ plane (+Y solid-below),
@@ -48,8 +48,8 @@ export namespace draconic::physics
 
         // Runtime (transient):
         BodyId body;
-        Float3 prevPosition{ 0, 0, 0 };
-        Float3 currPosition{ 0, 0, 0 };
+        Float3 prevPosition{0, 0, 0};
+        Float3 currPosition{0, 0, 0};
         Quaternion prevRotation = Quaternion::Identity;
         Quaternion currRotation = Quaternion::Identity;
     };
@@ -59,11 +59,11 @@ export namespace draconic::physics
     struct ColliderComponent
     {
         ShapeKind shape = ShapeKind::Box;
-        Float3 halfExtents{ 0.5f, 0.5f, 0.5f };
+        Float3 halfExtents{0.5f, 0.5f, 0.5f};
         f32 radius = 0.5f;
         f32 halfHeight = 0.5f;
-        f32 planeHalfExtent = 1000.0f;                            // shape == Plane
-        draconic::resource::Ref<CollisionShape> collisionShape;   // shape == Cooked
+        f32 planeHalfExtent = 1000.0f;                          // shape == Plane
+        draconic::resource::Ref<CollisionShape> collisionShape; // shape == Cooked
     };
 
     inline void Serialize(ISerializer& ar, RigidBodyComponent& c)
@@ -91,7 +91,8 @@ export namespace draconic::physics
         draconic::core::Serialize(ar, "material", c.material);
     }
 
-    inline void ResolveResources(draconic::resource::ResourceManager& manager, RigidBodyComponent& c)
+    inline void ResolveResources(draconic::resource::ResourceManager& manager,
+                                 RigidBodyComponent& c)
     {
         c.collisionShape.Bind(manager);
         c.material.Bind(manager);
@@ -119,7 +120,9 @@ export namespace draconic::physics
     {
     public:
         RigidBodyComponentManager()
-            : SerializableComponentManager<RigidBodyComponent>(u8"physics.RigidBody") {}
+            : SerializableComponentManager<RigidBodyComponent>(u8"physics.RigidBody")
+        {
+        }
     };
 
     class ColliderComponentManager final
@@ -127,7 +130,9 @@ export namespace draconic::physics
     {
     public:
         ColliderComponentManager()
-            : SerializableComponentManager<ColliderComponent>(u8"physics.Collider") {}
+            : SerializableComponentManager<ColliderComponent>(u8"physics.Collider")
+        {
+        }
     };
 
     // Jolt CharacterVirtual on this entity: a kinematic capsule with slope/step/stair
@@ -139,22 +144,22 @@ export namespace draconic::physics
     {
         // Authored:
         f32 radius = 0.35f;
-        f32 halfHeight = 0.55f;         // cylinder half-length (total = 2*(halfHeight+radius))
+        f32 halfHeight = 0.55f; // cylinder half-length (total = 2*(halfHeight+radius))
         f32 maxSlopeDegrees = 50.0f;
         f32 mass = 70.0f;
-        f32 maxStrength = 500.0f;       // push force cap (Jolt's 100 barely nudges props)
+        f32 maxStrength = 500.0f; // push force cap (Jolt's 100 barely nudges props)
         f32 stepUp = 0.4f;
         f32 stepDown = 0.5f;
 
         // Runtime input (gameplay/scripts write):
-        Float3 moveVelocity{ 0.0f, 0.0f, 0.0f };
-        f32 jumpSpeed = 0.0f;           // consumed at the next grounded step
+        Float3 moveVelocity{0.0f, 0.0f, 0.0f};
+        f32 jumpSpeed = 0.0f; // consumed at the next grounded step
 
         // Runtime (transient):
         CharacterId character;
         CharacterGround ground = CharacterGround::InAir;
-        Float3 prevPosition{ 0, 0, 0 };
-        Float3 currPosition{ 0, 0, 0 };
+        Float3 prevPosition{0, 0, 0};
+        Float3 currPosition{0, 0, 0};
     };
 
     inline void Serialize(ISerializer& ar, CharacterComponent& c)
@@ -173,7 +178,9 @@ export namespace draconic::physics
     {
     public:
         CharacterComponentManager()
-            : SerializableComponentManager<CharacterComponent>(u8"physics.Character") {}
+            : SerializableComponentManager<CharacterComponent>(u8"physics.Character")
+        {
+        }
     };
 
     // A joint on THIS entity's rigid body. Target resolution: explicit entity guid; nil =
@@ -183,16 +190,16 @@ export namespace draconic::physics
     struct JointComponent
     {
         JointKind kind = JointKind::Fixed;
-        Guid targetEntity;                       // nil = nearest ancestor body / world
-        Float3 localAnchor{ 0.0f, 0.0f, 0.0f };  // pivot in THIS entity's space
-        Float3 localAxis{ 0.0f, 1.0f, 0.0f };    // hinge/slider axis in THIS entity's space
-        f32 limitMin = 1.0f;                     // min > max = unlimited
+        Guid targetEntity;                    // nil = nearest ancestor body / world
+        Float3 localAnchor{0.0f, 0.0f, 0.0f}; // pivot in THIS entity's space
+        Float3 localAxis{0.0f, 1.0f, 0.0f};   // hinge/slider axis in THIS entity's space
+        f32 limitMin = 1.0f;                  // min > max = unlimited
         f32 limitMax = -1.0f;
-        f32 minDistance = -1.0f;                 // Distance: negative = starting distance
+        f32 minDistance = -1.0f; // Distance: negative = starting distance
         f32 maxDistance = -1.0f;
         bool motorEnabled = false;
-        f32 motorTargetVelocity = 0.0f;          // rad/s (hinge) / m/s (slider)
-        f32 motorLimit = 1.0e6f;                 // torque / force cap
+        f32 motorTargetVelocity = 0.0f; // rad/s (hinge) / m/s (slider)
+        f32 motorLimit = 1.0e6f;        // torque / force cap
 
         // Runtime (transient):
         JointId joint;
@@ -219,15 +226,14 @@ export namespace draconic::physics
         : public draconic::scene::SerializableComponentManager<JointComponent>
     {
     public:
-        JointComponentManager()
-            : SerializableComponentManager<JointComponent>(u8"physics.Joint") {}
+        JointComponentManager() : SerializableComponentManager<JointComponent>(u8"physics.Joint") {}
     };
 
     // Scene-level physics settings (the editor's scene inspector edits the reflected type;
     // SerializeScene persists it like the environment block).
     struct PhysicsSceneSettings
     {
-        Float3 gravity{ 0.0f, -9.81f, 0.0f };
+        Float3 gravity{0.0f, -9.81f, 0.0f};
         i32 collisionSteps = 1;
         bool debugDraw = false;
         // Designer collision groups: names give the matrix rows meaning in the editor
@@ -254,4 +260,3 @@ export namespace draconic::physics
     // partition (the -fno-module-lazy eager load then fails for every consumer).
     void RegisterPhysicsComponentReflection();
 }
-

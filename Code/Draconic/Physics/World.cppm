@@ -28,25 +28,37 @@ export namespace draconic::physics
 
     enum class PhysicsLayer : u8
     {
-        Static = 0,     // immovable level geometry
-        Dynamic,        // simulated bodies
-        Kinematic,      // scene-driven movers (platforms)
-        Trigger,        // sensors: overlap events, no collision response
+        Static = 0, // immovable level geometry
+        Dynamic,    // simulated bodies
+        Kinematic,  // scene-driven movers (platforms)
+        Trigger,    // sensors: overlap events, no collision response
         Count,
     };
 
-    enum class MotionKind : u8 { Static, Kinematic, Dynamic };
+    enum class MotionKind : u8
+    {
+        Static,
+        Kinematic,
+        Dynamic
+    };
 
-    enum class ShapeKind : u8 { Box, Sphere, Capsule, Cooked, Plane };
+    enum class ShapeKind : u8
+    {
+        Box,
+        Sphere,
+        Capsule,
+        Cooked,
+        Plane
+    };
 
     // One shape (a body carries one or more; >1 = compound).
     struct ShapeDesc
     {
         ShapeKind kind = ShapeKind::Box;
-        Float3 halfExtents{ 0.5f, 0.5f, 0.5f };  // Box
-        f32 radius = 0.5f;                        // Sphere / Capsule
-        f32 halfHeight = 0.5f;                    // Capsule (cylinder half-length)
-        Float3 localPosition{ 0.0f, 0.0f, 0.0f }; // compound child placement
+        Float3 halfExtents{0.5f, 0.5f, 0.5f};   // Box
+        f32 radius = 0.5f;                      // Sphere / Capsule
+        f32 halfHeight = 0.5f;                  // Capsule (cylinder half-length)
+        Float3 localPosition{0.0f, 0.0f, 0.0f}; // compound child placement
         Quaternion localRotation = Quaternion::Identity;
         /// ShapeKind::Cooked: a blob from CookConvexHull/CookTriangleMesh (self-describing;
         /// convex hulls may be dynamic, triangle meshes MUST be static/kinematic). The span
@@ -54,12 +66,12 @@ export namespace draconic::physics
         Span<const byte> cooked;
         /// Non-uniform shape scale (cooked level/prop geometry authored at unit scale);
         /// {1,1,1} = none. Triangle meshes accept any scale, convex hulls uniform-ish only.
-        Float3 scale{ 1.0f, 1.0f, 1.0f };
+        Float3 scale{1.0f, 1.0f, 1.0f};
         /// ShapeKind::Plane: dot(planeNormal, p) + planeDistance = 0, the NEGATIVE half
         /// space solid; infinite in principle but only collidable within +-planeHalfExtent
         /// of the shape origin (keep as tight as the scene allows - broad-phase cost).
         /// Planes must be static/kinematic, never dynamic.
-        Float3 planeNormal{ 0.0f, 1.0f, 0.0f };
+        Float3 planeNormal{0.0f, 1.0f, 0.0f};
         f32 planeDistance = 0.0f;
         f32 planeHalfExtent = 1000.0f;
     };
@@ -68,20 +80,20 @@ export namespace draconic::physics
     {
         MotionKind motion = MotionKind::Dynamic;
         PhysicsLayer layer = PhysicsLayer::Dynamic;
-        Array<ShapeDesc> shapes;                  // >= 1; several = compound
-        Float3 position{ 0.0f, 0.0f, 0.0f };
+        Array<ShapeDesc> shapes; // >= 1; several = compound
+        Float3 position{0.0f, 0.0f, 0.0f};
         Quaternion rotation = Quaternion::Identity;
-        f32 density = 1000.0f;                    // kg/m^3 (Jolt convention)
+        f32 density = 1000.0f; // kg/m^3 (Jolt convention)
         f32 friction = 0.5f;
         f32 restitution = 0.0f;
         f32 linearDamping = 0.05f;
         f32 angularDamping = 0.05f;
-        bool isTrigger = false;                   // sensor (forces layer Trigger)
+        bool isTrigger = false; // sensor (forces layer Trigger)
         /// Designer collision group [0, 32): pairs collide only when the world matrix
         /// allows BOTH directions' bits (PhysicsWorldSettings::groupCollides). The
         /// semantic layer rules (static-static never, trigger sensing) still apply.
         u8 group = 0;
-        u64 userData = 0;                         // scene-entity reverse map (guid low bits)
+        u64 userData = 0; // scene-entity reverse map (guid low bits)
     };
 
     inline constexpr u32 kCollisionGroupCount = 32;
@@ -97,15 +109,21 @@ export namespace draconic::physics
     {
         BodyId body;
         u64 userData = 0;
-        Float3 position{ 0, 0, 0 };
-        Float3 normal{ 0, 0, 0 };
+        Float3 position{0, 0, 0};
+        Float3 normal{0, 0, 0};
         f32 fraction = 1.0f;
         /// Material-slot index of the hit face for cooked TRIANGLE-MESH shapes (whatever
         /// the cooker stored per triangle - the source mesh's material slot); 0 otherwise.
         u32 surface = 0;
     };
 
-    enum class ContactKind : u8 { Begin, End, TriggerEnter, TriggerExit };
+    enum class ContactKind : u8
+    {
+        Begin,
+        End,
+        TriggerEnter,
+        TriggerExit
+    };
 
     struct ContactEvent
     {
@@ -121,22 +139,29 @@ export namespace draconic::physics
         /// It is deliberately NOT a solver impulse: Jolt does not surface the true impulse
         /// cleanly in OnContactAdded, so approach speed is the honest, physically-meaningful
         /// value (see WorldImpl.cpp OnContactAdded).
-        Float3 point{ 0, 0, 0 };
-        Float3 normal{ 0, 0, 0 };
+        Float3 point{0, 0, 0};
+        Float3 normal{0, 0, 0};
         f32 speed = 0.0f;
     };
 
     // ---- joints (P3) ----
 
-    enum class JointKind : u8 { Fixed, Point, Hinge, Slider, Distance };
+    enum class JointKind : u8
+    {
+        Fixed,
+        Point,
+        Hinge,
+        Slider,
+        Distance
+    };
 
     struct JointDesc
     {
         JointKind kind = JointKind::Fixed;
         BodyId bodyA;                    // required
         BodyId bodyB;                    // invalid = anchored to the WORLD
-        Float3 anchor{ 0.0f, 0.0f, 0.0f };   // world-space pivot (hinge/point/slider origin)
-        Float3 axis{ 0.0f, 1.0f, 0.0f };     // world-space hinge rotation / slider travel axis
+        Float3 anchor{0.0f, 0.0f, 0.0f}; // world-space pivot (hinge/point/slider origin)
+        Float3 axis{0.0f, 1.0f, 0.0f};   // world-space hinge rotation / slider travel axis
         /// Hinge: radians (min in [-pi,0], max in [0,pi]); Slider: meters around the rest
         /// point. min > max = unlimited.
         f32 limitMin = 1.0f;
@@ -166,13 +191,13 @@ export namespace draconic::physics
     struct CharacterDesc
     {
         f32 capsuleRadius = 0.35f;
-        f32 capsuleHalfHeight = 0.55f;    // cylinder half-length (total height = 2*(hh+r))
+        f32 capsuleHalfHeight = 0.55f; // cylinder half-length (total height = 2*(hh+r))
         f32 maxSlopeDegrees = 50.0f;
-        f32 mass = 70.0f;                 // kg (impulses given to pushed bodies)
-        f32 maxStrength = 100.0f;         // max push force (N)
-        f32 stepUp = 0.4f;                // stair climb per step
-        f32 stepDown = 0.5f;              // stick-to-floor scan below
-        Float3 position{ 0.0f, 0.0f, 0.0f };
+        f32 mass = 70.0f;         // kg (impulses given to pushed bodies)
+        f32 maxStrength = 100.0f; // max push force (N)
+        f32 stepUp = 0.4f;        // stair climb per step
+        f32 stepDown = 0.5f;      // stick-to-floor scan below
+        Float3 position{0.0f, 0.0f, 0.0f};
         u64 userData = 0;
     };
 
@@ -183,11 +208,17 @@ export namespace draconic::physics
         friend bool operator==(CharacterId a, CharacterId b) noexcept { return a.value == b.value; }
     };
 
-    enum class CharacterGround : u8 { OnGround, OnSteepGround, NotSupported, InAir };
+    enum class CharacterGround : u8
+    {
+        OnGround,
+        OnSteepGround,
+        NotSupported,
+        InAir
+    };
 
     struct PhysicsWorldSettings
     {
-        Float3 gravity{ 0.0f, -9.81f, 0.0f };
+        Float3 gravity{0.0f, -9.81f, 0.0f};
         u32 maxBodies = 4096;
         u32 maxBodyPairs = 4096;
         u32 maxContactConstraints = 2048;
@@ -195,14 +226,12 @@ export namespace draconic::physics
         /// symmetric by writers; the filter tests i->j only). Default: everything
         /// collides with everything.
         u32 groupCollides[kCollisionGroupCount] = {
-            0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu,
-            0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu,
-            0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu,
-            0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu,
-            0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu,
-            0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu,
-            0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu,
-            0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu };
+            0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu,
+            0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu,
+            0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu,
+            0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu,
+            0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu,
+            0xFFFFFFFFu, 0xFFFFFFFFu};
     };
 
     // ---- offline shape cooking (builder/editor side; blobs feed ShapeKind::Cooked) ----
@@ -286,7 +315,7 @@ export namespace draconic::physics
         /// Call once per fixed step, after Step().
         void UpdateCharacter(CharacterId id, f32 deltaTime);
         [[nodiscard]] Float3 CharacterPosition(CharacterId id) const;
-        void SetCharacterPosition(CharacterId id, Float3 position);   // teleport
+        void SetCharacterPosition(CharacterId id, Float3 position); // teleport
         [[nodiscard]] CharacterGround GetCharacterGround(CharacterId id) const;
 
         // ---- contact events ----

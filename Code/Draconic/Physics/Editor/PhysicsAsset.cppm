@@ -32,8 +32,8 @@ export namespace draconic::physics
 {
     enum class CollisionCookKind : u8
     {
-        ConvexHull = 0,    // dynamic-capable simplified hull
-        TriangleMesh,      // exact static geometry (per-face material slots)
+        ConvexHull = 0, // dynamic-capable simplified hull
+        TriangleMesh,   // exact static geometry (per-face material slots)
     };
 
     // Source asset: which mesh to cook + how.
@@ -41,13 +41,13 @@ export namespace draconic::physics
     {
         DRACONIC_OBJECT(CollisionShapeAsset, draconic::editor::Asset)
     public:
-        Guid sourceMesh;                                   // StaticMeshAsset guid
+        Guid sourceMesh; // StaticMeshAsset guid
         CollisionCookKind cook = CollisionCookKind::ConvexHull;
-        f32 hullTolerance = 1.0e-3f;                       // convex: simplification slack
+        f32 hullTolerance = 1.0e-3f; // convex: simplification slack
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::editor::Asset::Serialize(ar);        // fileName (unused; guid-sourced)
+            draconic::editor::Asset::Serialize(ar); // fileName (unused; guid-sourced)
             draconic::core::Serialize(ar, "sourceMesh", sourceMesh);
             u8 kind = static_cast<u8>(cook);
             draconic::core::Serialize(ar, "cook", kind);
@@ -69,13 +69,14 @@ export namespace draconic::physics
         }
         [[nodiscard]] u32 Version() const override { return 1; }
 
-        void ScanDependencies(const draconic::editor::Asset& asset, draconic::editor::AssetBuildContext&,
+        void ScanDependencies(const draconic::editor::Asset& asset,
+                              draconic::editor::AssetBuildContext&,
                               draconic::editor::AssetDependencies& out) override
         {
             const CollisionShapeAsset& ca = static_cast<const CollisionShapeAsset&>(asset);
             if (!ca.sourceMesh.IsNil())
             {
-                out.reads.PushBack(ca.sourceMesh);   // hash-chained: mesh reimport -> recook
+                out.reads.PushBack(ca.sourceMesh); // hash-chained: mesh reimport -> recook
             }
         }
 
@@ -83,36 +84,45 @@ export namespace draconic::physics
                                    draconic::editor::AssetBuildContext& ctx) override
         {
             const CollisionShapeAsset& ca = static_cast<const CollisionShapeAsset&>(asset);
-            if (ctx.output == nullptr || ctx.db == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
+            if (ctx.output == nullptr || ctx.db == nullptr)
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
 
             draconic::content::Instance* meshInstance = ctx.db->GetInstance(ca.sourceMesh);
             if (meshInstance == nullptr)
             {
                 DRACONIC_LOG_ERROR(u8"Physics", u8"collision shape: source mesh not found in db");
-                return Status{ ErrorCode::NotFound };
+                return Status{ErrorCode::NotFound};
             }
             RefPtr<ISerializable> object = meshInstance->ReadObject();
             auto* meshAsset = Cast<draconic::geometry::StaticMeshAsset>(object.Get());
             if (meshAsset == nullptr)
             {
                 DRACONIC_LOG_ERROR(u8"Physics", u8"collision shape: source is not a mesh asset");
-                return Status{ ErrorCode::InvalidArgument };
+                return Status{ErrorCode::InvalidArgument};
             }
 
             CollisionShapeSource cooked;
             const Status status = CookFromMeshSource(meshAsset->source, ca, cooked);
-            if (!status.IsOk()) { return status; }
+            if (!status.IsOk())
+            {
+                return status;
+            }
             return ctx.output->WriteObject(cooked);
         }
 
         // Shared with the model importer's generate-collision path (cooks without a db).
-        [[nodiscard]] static Status CookFromMeshSource(const draconic::geometry::StaticMeshSource& mesh,
-                                                       const CollisionShapeAsset& settings,
-                                                       CollisionShapeSource& out)
+        [[nodiscard]] static Status
+        CookFromMeshSource(const draconic::geometry::StaticMeshSource& mesh,
+                           const CollisionShapeAsset& settings, CollisionShapeSource& out)
         {
             const usize stride = sizeof(draconic::geometry::StaticMeshVertex);
             const usize vertexCount = mesh.vertexBlob.Size() / stride;
-            if (vertexCount == 0) { return Status{ ErrorCode::InvalidArgument }; }
+            if (vertexCount == 0)
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
 
             // Positions sit at offset 0 of each vertex.
             Array<Float3> positions;
@@ -128,8 +138,8 @@ export namespace draconic::physics
             bool ok = false;
             if (settings.cook == CollisionCookKind::ConvexHull)
             {
-                ok = CookConvexHull(Span<const Float3>(positions.Data(), positions.Size()),
-                                    blob, settings.hullTolerance);
+                ok = CookConvexHull(Span<const Float3>(positions.Data(), positions.Size()), blob,
+                                    settings.hullTolerance);
             }
             else
             {
@@ -141,10 +151,14 @@ export namespace draconic::physics
                 {
                     const auto primitive = static_cast<draconic::geometry::PrimitiveType>(
                         s < mesh.subPrim.Size() ? mesh.subPrim[s] : 0);
-                    if (primitive != draconic::geometry::PrimitiveType::Triangles) { continue; }
+                    if (primitive != draconic::geometry::PrimitiveType::Triangles)
+                    {
+                        continue;
+                    }
                     const i32 start = mesh.subStart[s];
                     const i32 count = mesh.subCount[s];
-                    const u32 slot = static_cast<u32>(s < mesh.subMaterial.Size() ? mesh.subMaterial[s] : 0);
+                    const u32 slot =
+                        static_cast<u32>(s < mesh.subMaterial.Size() ? mesh.subMaterial[s] : 0);
                     for (i32 i = 0; i + 2 < count; i += 3)
                     {
                         indices.PushBack(mesh.indexData[static_cast<usize>(start + i + 0)]);
@@ -159,8 +173,9 @@ export namespace draconic::physics
             }
             if (!ok)
             {
-                DRACONIC_LOG_ERROR(u8"Physics", u8"collision cook failed ({} vertices)", vertexCount);
-                return Status{ ErrorCode::InvalidArgument };
+                DRACONIC_LOG_ERROR(u8"Physics", u8"collision cook failed ({} vertices)",
+                                   vertexCount);
+                return Status{ErrorCode::InvalidArgument};
             }
 
             out.convex = settings.cook == CollisionCookKind::ConvexHull;
@@ -218,7 +233,10 @@ export namespace draconic::physics
                                    draconic::editor::AssetBuildContext& ctx) override
         {
             const PhysicalMaterialAsset& ma = static_cast<const PhysicalMaterialAsset&>(asset);
-            if (ctx.output == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
+            if (ctx.output == nullptr)
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
             PhysicalMaterialSource cooked;
             cooked.friction = ma.friction;
             cooked.restitution = ma.restitution;

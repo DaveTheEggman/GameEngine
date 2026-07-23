@@ -55,17 +55,16 @@ namespace draconic::physics
     // matrix on top.
     namespace layers
     {
-        constexpr JPH::ObjectLayer kStatic    = 0;
-        constexpr JPH::ObjectLayer kTrigger   = 3;
+        constexpr JPH::ObjectLayer kStatic = 0;
+        constexpr JPH::ObjectLayer kTrigger = 3;
 
-        constexpr JPH::BroadPhaseLayer kBpStatic{ 0 };
-        constexpr JPH::BroadPhaseLayer kBpMoving{ 1 };
+        constexpr JPH::BroadPhaseLayer kBpStatic{0};
+        constexpr JPH::BroadPhaseLayer kBpMoving{1};
         constexpr JPH::uint kBpCount = 2;
 
         [[nodiscard]] inline JPH::ObjectLayer From(PhysicsLayer layer, u8 group)
         {
-            return static_cast<JPH::ObjectLayer>(
-                (static_cast<u32>(layer) << 8) | (group & 0x1Fu));
+            return static_cast<JPH::ObjectLayer>((static_cast<u32>(layer) << 8) | (group & 0x1Fu));
         }
         [[nodiscard]] inline JPH::ObjectLayer Semantic(JPH::ObjectLayer layer)
         {
@@ -80,9 +79,18 @@ namespace draconic::physics
         // that moves; everything else collides.
         [[nodiscard]] inline bool SemanticCollides(JPH::ObjectLayer a, JPH::ObjectLayer b)
         {
-            if (a == kStatic && b == kStatic) { return false; }
-            if (a == kTrigger && b == kTrigger) { return false; }
-            if ((a == kTrigger && b == kStatic) || (a == kStatic && b == kTrigger)) { return false; }
+            if (a == kStatic && b == kStatic)
+            {
+                return false;
+            }
+            if (a == kTrigger && b == kTrigger)
+            {
+                return false;
+            }
+            if ((a == kTrigger && b == kStatic) || (a == kStatic && b == kTrigger))
+            {
+                return false;
+            }
             return true;
         }
     }
@@ -92,23 +100,34 @@ namespace draconic::physics
         class BroadPhaseLayers final : public JPH::BroadPhaseLayerInterface
         {
         public:
-            [[nodiscard]] JPH::uint GetNumBroadPhaseLayers() const override { return layers::kBpCount; }
-            [[nodiscard]] JPH::BroadPhaseLayer GetBroadPhaseLayer(JPH::ObjectLayer layer) const override
+            [[nodiscard]] JPH::uint GetNumBroadPhaseLayers() const override
+            {
+                return layers::kBpCount;
+            }
+            [[nodiscard]] JPH::BroadPhaseLayer
+            GetBroadPhaseLayer(JPH::ObjectLayer layer) const override
             {
                 return layers::Semantic(layer) == layers::kStatic ? layers::kBpStatic
                                                                   : layers::kBpMoving;
             }
 #if defined(JPH_EXTERNAL_PROFILE) || defined(JPH_PROFILE_ENABLED)
-            [[nodiscard]] const char* GetBroadPhaseLayerName(JPH::BroadPhaseLayer) const override { return "bp"; }
+            [[nodiscard]] const char* GetBroadPhaseLayerName(JPH::BroadPhaseLayer) const override
+            {
+                return "bp";
+            }
 #endif
         };
 
         class ObjectVsBroadPhase final : public JPH::ObjectVsBroadPhaseLayerFilter
         {
         public:
-            [[nodiscard]] bool ShouldCollide(JPH::ObjectLayer layer, JPH::BroadPhaseLayer bp) const override
+            [[nodiscard]] bool ShouldCollide(JPH::ObjectLayer layer,
+                                             JPH::BroadPhaseLayer bp) const override
             {
-                if (layers::Semantic(layer) == layers::kStatic) { return bp == layers::kBpMoving; }
+                if (layers::Semantic(layer) == layers::kStatic)
+                {
+                    return bp == layers::kBpMoving;
+                }
                 return true;
             }
         };
@@ -116,7 +135,7 @@ namespace draconic::physics
         class ObjectPairFilter final : public JPH::ObjectLayerPairFilter
         {
         public:
-            u32 groupCollides[kCollisionGroupCount] = {};   // copied from world settings
+            u32 groupCollides[kCollisionGroupCount] = {}; // copied from world settings
 
             [[nodiscard]] bool ShouldCollide(JPH::ObjectLayer a, JPH::ObjectLayer b) const override
             {
@@ -126,8 +145,8 @@ namespace draconic::physics
                 }
                 const u32 groupA = layers::Group(a);
                 const u32 groupB = layers::Group(b);
-                return (groupCollides[groupA] & (1u << groupB)) != 0
-                    && (groupCollides[groupB] & (1u << groupA)) != 0;
+                return (groupCollides[groupA] & (1u << groupB)) != 0 &&
+                       (groupCollides[groupB] & (1u << groupA)) != 0;
             }
         };
 
@@ -140,20 +159,21 @@ namespace draconic::physics
             {
                 return (m_mask & (1u << layers::Group(layer))) != 0;
             }
+
         private:
             u32 m_mask;
         };
 
         [[nodiscard]] JPH::Vec3 ToJph(Float3 v) { return JPH::Vec3(v.x, v.y, v.z); }
         [[nodiscard]] JPH::Quat ToJph(Quaternion q) { return JPH::Quat(q.x, q.y, q.z, q.w); }
-        [[nodiscard]] Float3 FromJph(JPH::Vec3 v) { return Float3{ v.GetX(), v.GetY(), v.GetZ() }; }
+        [[nodiscard]] Float3 FromJph(JPH::Vec3 v) { return Float3{v.GetX(), v.GetY(), v.GetZ()}; }
         [[nodiscard]] Quaternion FromJph(JPH::Quat q)
         {
-            return Quaternion{ q.GetX(), q.GetY(), q.GetZ(), q.GetW() };
+            return Quaternion{q.GetX(), q.GetY(), q.GetZ(), q.GetW()};
         }
 
         // Process-wide Jolt bring-up (allocator/factory/types), refcounted across worlds.
-        Atomic<i32> g_joltUsers{ 0 };
+        Atomic<i32> g_joltUsers{0};
         void AcquireJolt()
         {
             if (g_joltUsers.fetch_add(1) == 0)
@@ -195,7 +215,11 @@ namespace draconic::physics
             explicit BlobIn(Span<const byte> b) : blob(b) {}
             void ReadBytes(void* out, size_t count) override
             {
-                if (cursor + count > blob.Size()) { failed = true; return; }
+                if (cursor + count > blob.Size())
+                {
+                    failed = true;
+                    return;
+                }
                 std::memcpy(out, blob.Data() + cursor, count);
                 cursor += count;
             }
@@ -209,11 +233,16 @@ namespace draconic::physics
         {
             // Jolt indexes its construct table with the leading subtype byte UNVALIDATED -
             // reject out-of-range values before handing over a corrupt/foreign blob.
-            if (blob.IsEmpty()
-                || static_cast<JPH::uint>(blob[0]) >= JPH::NumSubShapeTypes) { return {}; }
+            if (blob.IsEmpty() || static_cast<JPH::uint>(blob[0]) >= JPH::NumSubShapeTypes)
+            {
+                return {};
+            }
             BlobIn in(blob);
             JPH::Shape::ShapeResult result = JPH::Shape::sRestoreFromBinaryState(in);
-            if (in.IsFailed() || !result.IsValid()) { return {}; }
+            if (in.IsFailed() || !result.IsValid())
+            {
+                return {};
+            }
             return result.Get();
         }
 
@@ -222,31 +251,31 @@ namespace draconic::physics
             JPH::Ref<JPH::Shape> shape;
             switch (desc.kind)
             {
-                case ShapeKind::Box:
-                    shape = new JPH::BoxShape(ToJph(desc.halfExtents));
-                    break;
-                case ShapeKind::Sphere:
-                    shape = new JPH::SphereShape(desc.radius);
-                    break;
-                case ShapeKind::Capsule:
-                    shape = new JPH::CapsuleShape(desc.halfHeight, desc.radius);
-                    break;
-                case ShapeKind::Cooked:
-                    shape = RestoreCooked(desc.cooked);
-                    break;
-                case ShapeKind::Plane:
-                    shape = new JPH::PlaneShape(
-                        JPH::Plane(ToJph(desc.planeNormal).Normalized(), desc.planeDistance),
-                        nullptr, desc.planeHalfExtent);
-                    break;
+            case ShapeKind::Box:
+                shape = new JPH::BoxShape(ToJph(desc.halfExtents));
+                break;
+            case ShapeKind::Sphere:
+                shape = new JPH::SphereShape(desc.radius);
+                break;
+            case ShapeKind::Capsule:
+                shape = new JPH::CapsuleShape(desc.halfHeight, desc.radius);
+                break;
+            case ShapeKind::Cooked:
+                shape = RestoreCooked(desc.cooked);
+                break;
+            case ShapeKind::Plane:
+                shape = new JPH::PlaneShape(
+                    JPH::Plane(ToJph(desc.planeNormal).Normalized(), desc.planeDistance), nullptr,
+                    desc.planeHalfExtent);
+                break;
             }
             // Density drives CalculateMassAndInertia (kg/m^3); only convex shapes carry it.
             if (shape != nullptr && shape->GetType() == JPH::EShapeType::Convex && density > 0.0f)
             {
                 static_cast<JPH::ConvexShape*>(shape.GetPtr())->SetDensity(density);
             }
-            if (shape != nullptr
-                && (desc.scale.x != 1.0f || desc.scale.y != 1.0f || desc.scale.z != 1.0f))
+            if (shape != nullptr &&
+                (desc.scale.x != 1.0f || desc.scale.y != 1.0f || desc.scale.z != 1.0f))
             {
                 shape = new JPH::ScaledShape(shape, ToJph(desc.scale));
             }
@@ -255,11 +284,12 @@ namespace draconic::physics
 
         [[nodiscard]] JPH::Ref<JPH::Shape> BuildShape(const BodyDesc& desc)
         {
-            if (desc.shapes.IsEmpty()) { return nullptr; }
-            if (desc.shapes.Size() == 1
-                && desc.shapes[0].localPosition.x == 0.0f
-                && desc.shapes[0].localPosition.y == 0.0f
-                && desc.shapes[0].localPosition.z == 0.0f)
+            if (desc.shapes.IsEmpty())
+            {
+                return nullptr;
+            }
+            if (desc.shapes.Size() == 1 && desc.shapes[0].localPosition.x == 0.0f &&
+                desc.shapes[0].localPosition.y == 0.0f && desc.shapes[0].localPosition.z == 0.0f)
             {
                 return BuildOne(desc.shapes[0], desc.density);
             }
@@ -267,7 +297,10 @@ namespace draconic::physics
             for (const ShapeDesc& child : desc.shapes)
             {
                 JPH::Ref<JPH::Shape> shape = BuildOne(child, desc.density);
-                if (shape == nullptr) { return nullptr; }
+                if (shape == nullptr)
+                {
+                    return nullptr;
+                }
                 compound.AddShape(ToJph(child.localPosition), ToJph(child.localRotation), shape);
             }
             JPH::Shape::ShapeResult result = compound.Create();
@@ -283,13 +316,14 @@ namespace draconic::physics
             JPH::PhysicsSystem* system = nullptr;
 
             void OnContactAdded(const JPH::Body& a, const JPH::Body& b,
-                                const JPH::ContactManifold& manifold, JPH::ContactSettings&) override
+                                const JPH::ContactManifold& manifold,
+                                JPH::ContactSettings&) override
             {
                 ContactEvent e;
-                e.kind = a.IsSensor() || b.IsSensor() ? ContactKind::TriggerEnter
-                                                      : ContactKind::Begin;
-                e.bodyA = BodyId{ a.GetID().GetIndexAndSequenceNumber() };
-                e.bodyB = BodyId{ b.GetID().GetIndexAndSequenceNumber() };
+                e.kind =
+                    a.IsSensor() || b.IsSensor() ? ContactKind::TriggerEnter : ContactKind::Begin;
+                e.bodyA = BodyId{a.GetID().GetIndexAndSequenceNumber()};
+                e.bodyB = BodyId{b.GetID().GetIndexAndSequenceNumber()};
                 e.userA = a.GetUserData();
                 e.userB = b.GetUserData();
                 e.normal = FromJph(manifold.mWorldSpaceNormal);
@@ -310,8 +344,8 @@ namespace draconic::physics
             {
                 ContactEvent e;
                 e.kind = ContactKind::End;
-                e.bodyA = BodyId{ pair.GetBody1ID().GetIndexAndSequenceNumber() };
-                e.bodyB = BodyId{ pair.GetBody2ID().GetIndexAndSequenceNumber() };
+                e.bodyA = BodyId{pair.GetBody1ID().GetIndexAndSequenceNumber()};
+                e.bodyB = BodyId{pair.GetBody2ID().GetIndexAndSequenceNumber()};
                 // Resolve the user words by body ID if the body still exists (the callback can
                 // fire for an already-destroyed body - leave that side 0 so the subsystem skips
                 // it). NoLock interface: contact callbacks run with bodies already locked.
@@ -320,11 +354,17 @@ namespace draconic::physics
                     const JPH::BodyLockInterface& bodies = system->GetBodyLockInterfaceNoLock();
                     {
                         JPH::BodyLockRead lock(bodies, pair.GetBody1ID());
-                        if (lock.Succeeded()) { e.userA = lock.GetBody().GetUserData(); }
+                        if (lock.Succeeded())
+                        {
+                            e.userA = lock.GetBody().GetUserData();
+                        }
                     }
                     {
                         JPH::BodyLockRead lock(bodies, pair.GetBody2ID());
-                        if (lock.Succeeded()) { e.userB = lock.GetBody().GetUserData(); }
+                        if (lock.Succeeded())
+                        {
+                            e.userB = lock.GetBody().GetUserData();
+                        }
                     }
                 }
                 ScopedLock lock(mutex);
@@ -335,11 +375,17 @@ namespace draconic::physics
 
     bool CookConvexHull(Span<const Float3> points, Array<byte>& outBlob, f32 hullTolerance)
     {
-        if (points.Size() < 4) { return false; }
-        AcquireJolt();   // Factory/type registry must exist for shape construction
+        if (points.Size() < 4)
+        {
+            return false;
+        }
+        AcquireJolt(); // Factory/type registry must exist for shape construction
         JPH::Array<JPH::Vec3> hull;
         hull.reserve(points.Size());
-        for (const Float3& p : points) { hull.push_back(ToJph(p)); }
+        for (const Float3& p : points)
+        {
+            hull.push_back(ToJph(p));
+        }
         JPH::ConvexHullShapeSettings settings(hull);
         settings.mHullTolerance = hullTolerance;
         const JPH::Shape::ShapeResult result = settings.Create();
@@ -357,7 +403,10 @@ namespace draconic::physics
     bool CookTriangleMesh(Span<const Float3> positions, Span<const u32> indices,
                           Span<const u32> triangleMaterialSlots, Array<byte>& outBlob)
     {
-        if (positions.IsEmpty() || indices.IsEmpty() || indices.Size() % 3 != 0) { return false; }
+        if (positions.IsEmpty() || indices.IsEmpty() || indices.Size() % 3 != 0)
+        {
+            return false;
+        }
         const usize triangleCount = indices.Size() / 3;
         if (!triangleMaterialSlots.IsEmpty() && triangleMaterialSlots.Size() != triangleCount)
         {
@@ -366,7 +415,10 @@ namespace draconic::physics
         AcquireJolt();
         JPH::VertexList vertices;
         vertices.reserve(positions.Size());
-        for (const Float3& p : positions) { vertices.push_back(JPH::Float3(p.x, p.y, p.z)); }
+        for (const Float3& p : positions)
+        {
+            vertices.push_back(JPH::Float3(p.x, p.y, p.z));
+        }
         JPH::IndexedTriangleList triangles;
         triangles.reserve(triangleCount);
         for (usize t = 0; t < triangleCount; ++t)
@@ -406,10 +458,13 @@ namespace draconic::physics
             {
                 const int count = shape->GetTrianglesNext(
                     context, JPH::Shape::cGetTrianglesMinTrianglesRequested, buffer);
-                if (count <= 0) { break; }
+                if (count <= 0)
+                {
+                    break;
+                }
                 for (int v = 0; v < count * 3; ++v)
                 {
-                    outTriangles.PushBack(Float3{ buffer[v].x, buffer[v].y, buffer[v].z });
+                    outTriangles.PushBack(Float3{buffer[v].x, buffer[v].y, buffer[v].z});
                 }
             }
             ok = !outTriangles.IsEmpty();
@@ -427,19 +482,19 @@ namespace draconic::physics
         UniquePtr<JPH::TempAllocatorImpl> tempAllocator;
         UniquePtr<JPH::JobSystemThreadPool> jobSystem;
         UniquePtr<JPH::PhysicsSystem> system;
-        Array<JPH::Ref<JPH::Constraint>> joints;   // JointId = slot index; null = freed
-        Array<JPH::Ref<JPH::CharacterVirtual>> characters;   // CharacterId = slot; null = freed
-        Array<Float2> characterSteps;                        // (stepUp, stepDown) per slot
+        Array<JPH::Ref<JPH::Constraint>> joints;           // JointId = slot index; null = freed
+        Array<JPH::Ref<JPH::CharacterVirtual>> characters; // CharacterId = slot; null = freed
+        Array<Float2> characterSteps;                      // (stepUp, stepDown) per slot
     };
 
     PhysicsWorld::PhysicsWorld(const PhysicsWorldSettings& settings)
     {
         AcquireJolt();
         m_impl = MakeUnique<Impl>(DefaultAllocator());
-        m_impl->tempAllocator = MakeUnique<JPH::TempAllocatorImpl>(DefaultAllocator(),
-                                                                   10 * 1024 * 1024);
-        m_impl->jobSystem = MakeUnique<JPH::JobSystemThreadPool>(DefaultAllocator(),
-            JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers,
+        m_impl->tempAllocator =
+            MakeUnique<JPH::TempAllocatorImpl>(DefaultAllocator(), 10 * 1024 * 1024);
+        m_impl->jobSystem = MakeUnique<JPH::JobSystemThreadPool>(
+            DefaultAllocator(), JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers,
             static_cast<int>(JPH::thread::hardware_concurrency()) - 1);
         m_impl->system = MakeUnique<JPH::PhysicsSystem>(DefaultAllocator());
         for (u32 i = 0; i < kCollisionGroupCount; ++i)
@@ -447,11 +502,10 @@ namespace draconic::physics
             m_impl->pairFilter.groupCollides[i] = settings.groupCollides[i];
         }
         m_impl->system->Init(settings.maxBodies, 0, settings.maxBodyPairs,
-                             settings.maxContactConstraints,
-                             m_impl->broadPhaseLayers, m_impl->objectVsBroadPhase,
-                             m_impl->pairFilter);
+                             settings.maxContactConstraints, m_impl->broadPhaseLayers,
+                             m_impl->objectVsBroadPhase, m_impl->pairFilter);
         m_impl->system->SetGravity(ToJph(settings.gravity));
-        m_impl->contacts.system = m_impl->system.Get();   // End events resolve user words by ID
+        m_impl->contacts.system = m_impl->system.Get(); // End events resolve user words by ID
         m_impl->system->SetContactListener(&m_impl->contacts);
     }
 
@@ -467,14 +521,17 @@ namespace draconic::physics
     BodyId PhysicsWorld::CreateBody(const BodyDesc& desc)
     {
         JPH::Ref<JPH::Shape> shape = BuildShape(desc);
-        if (shape == nullptr) { return BodyId{}; }
+        if (shape == nullptr)
+        {
+            return BodyId{};
+        }
 
         const PhysicsLayer layer = desc.isTrigger ? PhysicsLayer::Trigger : desc.layer;
         const u8 group = static_cast<u8>(desc.group & 0x1Fu);
-        const JPH::EMotionType motion =
-            desc.motion == MotionKind::Static ? JPH::EMotionType::Static
-            : desc.motion == MotionKind::Kinematic ? JPH::EMotionType::Kinematic
-                                                   : JPH::EMotionType::Dynamic;
+        const JPH::EMotionType motion = desc.motion == MotionKind::Static ? JPH::EMotionType::Static
+                                        : desc.motion == MotionKind::Kinematic
+                                            ? JPH::EMotionType::Kinematic
+                                            : JPH::EMotionType::Dynamic;
         JPH::BodyCreationSettings settings(shape, ToJph(desc.position), ToJph(desc.rotation),
                                            motion, layers::From(layer, group));
         settings.mFriction = desc.friction;
@@ -489,12 +546,15 @@ namespace draconic::physics
         const JPH::BodyID id = bodies.CreateAndAddBody(
             settings, desc.motion == MotionKind::Static ? JPH::EActivation::DontActivate
                                                         : JPH::EActivation::Activate);
-        return id.IsInvalid() ? BodyId{} : BodyId{ id.GetIndexAndSequenceNumber() };
+        return id.IsInvalid() ? BodyId{} : BodyId{id.GetIndexAndSequenceNumber()};
     }
 
     void PhysicsWorld::DestroyBody(BodyId id)
     {
-        if (!id.IsValid()) { return; }
+        if (!id.IsValid())
+        {
+            return;
+        }
         JPH::BodyInterface& bodies = m_impl->system->GetBodyInterface();
         const JPH::BodyID jolt(id.value);
         bodies.RemoveBody(jolt);
@@ -509,7 +569,8 @@ namespace draconic::physics
                                m_impl->jobSystem.Get());
     }
 
-    void PhysicsWorld::GetBodyTransform(BodyId id, Float3& outPosition, Quaternion& outRotation) const
+    void PhysicsWorld::GetBodyTransform(BodyId id, Float3& outPosition,
+                                        Quaternion& outRotation) const
     {
         const JPH::BodyID jolt(id.value);
         JPH::RVec3 position;
@@ -527,13 +588,14 @@ namespace draconic::physics
 
     void PhysicsWorld::MoveKinematic(BodyId id, Float3 position, Quaternion rotation, f32 deltaTime)
     {
-        m_impl->system->GetBodyInterface().MoveKinematic(
-            JPH::BodyID(id.value), ToJph(position), ToJph(rotation), deltaTime);
+        m_impl->system->GetBodyInterface().MoveKinematic(JPH::BodyID(id.value), ToJph(position),
+                                                         ToJph(rotation), deltaTime);
     }
 
     void PhysicsWorld::SetLinearVelocity(BodyId id, Float3 velocity)
     {
-        m_impl->system->GetBodyInterface().SetLinearVelocity(JPH::BodyID(id.value), ToJph(velocity));
+        m_impl->system->GetBodyInterface().SetLinearVelocity(JPH::BodyID(id.value),
+                                                             ToJph(velocity));
     }
 
     Float3 PhysicsWorld::LinearVelocity(BodyId id) const
@@ -565,28 +627,32 @@ namespace draconic::physics
     bool PhysicsWorld::RayCast(Float3 from, Float3 direction, f32 maxDistance, RayHit& out,
                                u32 groupMask) const
     {
-        const JPH::RRayCast ray{ ToJph(from), ToJph(direction) * maxDistance };
+        const JPH::RRayCast ray{ToJph(from), ToJph(direction) * maxDistance};
         JPH::RayCastResult hit;
         const GroupMaskFilter filter(groupMask);
-        if (!m_impl->system->GetNarrowPhaseQuery().CastRay(ray, hit, {}, filter)) { return false; }
-        out.body = BodyId{ hit.mBodyID.GetIndexAndSequenceNumber() };
+        if (!m_impl->system->GetNarrowPhaseQuery().CastRay(ray, hit, {}, filter))
+        {
+            return false;
+        }
+        out.body = BodyId{hit.mBodyID.GetIndexAndSequenceNumber()};
         out.fraction = hit.mFraction;
-        out.position = Float3{ from.x + direction.x * maxDistance * hit.mFraction,
-                               from.y + direction.y * maxDistance * hit.mFraction,
-                               from.z + direction.z * maxDistance * hit.mFraction };
+        out.position = Float3{from.x + direction.x * maxDistance * hit.mFraction,
+                              from.y + direction.y * maxDistance * hit.mFraction,
+                              from.z + direction.z * maxDistance * hit.mFraction};
         out.userData = UserData(out.body);
         out.surface = 0;
         JPH::BodyLockRead lock(m_impl->system->GetBodyLockInterface(), hit.mBodyID);
         if (lock.Succeeded())
         {
             const JPH::Body& body = lock.GetBody();
-            out.normal = FromJph(body.GetWorldSpaceSurfaceNormal(
-                hit.mSubShapeID2, ray.GetPointOnRay(hit.mFraction)));
+            out.normal = FromJph(body.GetWorldSpaceSurfaceNormal(hit.mSubShapeID2,
+                                                                 ray.GetPointOnRay(hit.mFraction)));
             JPH::SubShapeID remainder;
             const JPH::Shape* leaf = body.GetShape()->GetLeafShape(hit.mSubShapeID2, remainder);
             if (leaf != nullptr && leaf->GetSubType() == JPH::EShapeSubType::Mesh)
             {
-                out.surface = static_cast<const JPH::MeshShape*>(leaf)->GetTriangleUserData(remainder);
+                out.surface =
+                    static_cast<const JPH::MeshShape*>(leaf)->GetTriangleUserData(remainder);
             }
         }
         return true;
@@ -599,14 +665,17 @@ namespace draconic::physics
         m_impl->system->GetNarrowPhaseQuery().CollidePoint(ToJph(point), collector, {}, filter);
         for (const JPH::CollidePointResult& result : collector.mHits)
         {
-            out.PushBack(BodyId{ result.mBodyID.GetIndexAndSequenceNumber() });
+            out.PushBack(BodyId{result.mBodyID.GetIndexAndSequenceNumber()});
         }
     }
 
     void PhysicsWorld::DrainContacts(Array<ContactEvent>& out)
     {
         ScopedLock lock(m_impl->contacts.mutex);
-        for (ContactEvent& e : m_impl->contacts.events) { out.PushBack(e); }
+        for (ContactEvent& e : m_impl->contacts.events)
+        {
+            out.PushBack(e);
+        }
         m_impl->contacts.events.Clear();
     }
 
@@ -622,9 +691,9 @@ namespace draconic::physics
         settings.mMaxSlopeAngle = JPH::DegreesToRadians(desc.maxSlopeDegrees);
         settings.mMass = desc.mass;
         settings.mMaxStrength = desc.maxStrength;
-        JPH::Ref<JPH::CharacterVirtual> character = new JPH::CharacterVirtual(
-            &settings, ToJph(desc.position), JPH::Quat::sIdentity(), desc.userData,
-            m_impl->system.Get());
+        JPH::Ref<JPH::CharacterVirtual> character =
+            new JPH::CharacterVirtual(&settings, ToJph(desc.position), JPH::Quat::sIdentity(),
+                                      desc.userData, m_impl->system.Get());
         // Stash the step settings per character (uniform across the world would also do,
         // but they're authored per character).
         character->SetUserData(desc.userData);
@@ -634,75 +703,100 @@ namespace draconic::physics
             if (m_impl->characters[i] == nullptr)
             {
                 m_impl->characters[i] = character;
-                m_impl->characterSteps[i] = Float2{ desc.stepUp, desc.stepDown };
-                return CharacterId{ static_cast<u32>(i) };
+                m_impl->characterSteps[i] = Float2{desc.stepUp, desc.stepDown};
+                return CharacterId{static_cast<u32>(i)};
             }
         }
         m_impl->characters.PushBack(character);
-        m_impl->characterSteps.PushBack(Float2{ desc.stepUp, desc.stepDown });
-        return CharacterId{ static_cast<u32>(m_impl->characters.Size() - 1) };
+        m_impl->characterSteps.PushBack(Float2{desc.stepUp, desc.stepDown});
+        return CharacterId{static_cast<u32>(m_impl->characters.Size() - 1)};
     }
 
     void PhysicsWorld::DestroyCharacter(CharacterId id)
     {
-        if (!id.IsValid() || id.value >= m_impl->characters.Size()) { return; }
+        if (!id.IsValid() || id.value >= m_impl->characters.Size())
+        {
+            return;
+        }
         m_impl->characters[id.value] = nullptr;
     }
 
     void PhysicsWorld::SetCharacterVelocity(CharacterId id, Float3 velocity)
     {
-        if (!id.IsValid() || id.value >= m_impl->characters.Size()
-            || m_impl->characters[id.value] == nullptr) { return; }
+        if (!id.IsValid() || id.value >= m_impl->characters.Size() ||
+            m_impl->characters[id.value] == nullptr)
+        {
+            return;
+        }
         m_impl->characters[id.value]->SetLinearVelocity(ToJph(velocity));
     }
 
     Float3 PhysicsWorld::CharacterVelocity(CharacterId id) const
     {
-        if (!id.IsValid() || id.value >= m_impl->characters.Size()
-            || m_impl->characters[id.value] == nullptr) { return Float3{ 0, 0, 0 }; }
+        if (!id.IsValid() || id.value >= m_impl->characters.Size() ||
+            m_impl->characters[id.value] == nullptr)
+        {
+            return Float3{0, 0, 0};
+        }
         return FromJph(m_impl->characters[id.value]->GetLinearVelocity());
     }
 
     void PhysicsWorld::UpdateCharacter(CharacterId id, f32 deltaTime)
     {
-        if (!id.IsValid() || id.value >= m_impl->characters.Size()
-            || m_impl->characters[id.value] == nullptr) { return; }
+        if (!id.IsValid() || id.value >= m_impl->characters.Size() ||
+            m_impl->characters[id.value] == nullptr)
+        {
+            return;
+        }
         JPH::CharacterVirtual& character = *m_impl->characters[id.value];
         const Float2 steps = m_impl->characterSteps[id.value];
         JPH::CharacterVirtual::ExtendedUpdateSettings update;
         update.mWalkStairsStepUp = JPH::Vec3(0.0f, steps.x, 0.0f);
         update.mStickToFloorStepDown = JPH::Vec3(0.0f, -steps.y, 0.0f);
-        character.ExtendedUpdate(deltaTime, m_impl->system->GetGravity(), update,
-            m_impl->system->GetDefaultBroadPhaseLayerFilter(
-                layers::From(PhysicsLayer::Dynamic, 0)),
-            m_impl->system->GetDefaultLayerFilter(layers::From(PhysicsLayer::Dynamic, 0)),
-            {}, {}, *m_impl->tempAllocator);
+        character.ExtendedUpdate(
+            deltaTime, m_impl->system->GetGravity(), update,
+            m_impl->system->GetDefaultBroadPhaseLayerFilter(layers::From(PhysicsLayer::Dynamic, 0)),
+            m_impl->system->GetDefaultLayerFilter(layers::From(PhysicsLayer::Dynamic, 0)), {}, {},
+            *m_impl->tempAllocator);
     }
 
     Float3 PhysicsWorld::CharacterPosition(CharacterId id) const
     {
-        if (!id.IsValid() || id.value >= m_impl->characters.Size()
-            || m_impl->characters[id.value] == nullptr) { return Float3{ 0, 0, 0 }; }
+        if (!id.IsValid() || id.value >= m_impl->characters.Size() ||
+            m_impl->characters[id.value] == nullptr)
+        {
+            return Float3{0, 0, 0};
+        }
         return FromJph(m_impl->characters[id.value]->GetPosition());
     }
 
     void PhysicsWorld::SetCharacterPosition(CharacterId id, Float3 position)
     {
-        if (!id.IsValid() || id.value >= m_impl->characters.Size()
-            || m_impl->characters[id.value] == nullptr) { return; }
+        if (!id.IsValid() || id.value >= m_impl->characters.Size() ||
+            m_impl->characters[id.value] == nullptr)
+        {
+            return;
+        }
         m_impl->characters[id.value]->SetPosition(ToJph(position));
     }
 
     CharacterGround PhysicsWorld::GetCharacterGround(CharacterId id) const
     {
-        if (!id.IsValid() || id.value >= m_impl->characters.Size()
-            || m_impl->characters[id.value] == nullptr) { return CharacterGround::InAir; }
+        if (!id.IsValid() || id.value >= m_impl->characters.Size() ||
+            m_impl->characters[id.value] == nullptr)
+        {
+            return CharacterGround::InAir;
+        }
         switch (m_impl->characters[id.value]->GetGroundState())
         {
-            case JPH::CharacterBase::EGroundState::OnGround: return CharacterGround::OnGround;
-            case JPH::CharacterBase::EGroundState::OnSteepGround: return CharacterGround::OnSteepGround;
-            case JPH::CharacterBase::EGroundState::NotSupported: return CharacterGround::NotSupported;
-            case JPH::CharacterBase::EGroundState::InAir: break;
+        case JPH::CharacterBase::EGroundState::OnGround:
+            return CharacterGround::OnGround;
+        case JPH::CharacterBase::EGroundState::OnSteepGround:
+            return CharacterGround::OnSteepGround;
+        case JPH::CharacterBase::EGroundState::NotSupported:
+            return CharacterGround::NotSupported;
+        case JPH::CharacterBase::EGroundState::InAir:
+            break;
         }
         return CharacterGround::InAir;
     }
@@ -711,13 +805,19 @@ namespace draconic::physics
 
     JointId PhysicsWorld::CreateJoint(const JointDesc& desc)
     {
-        if (!desc.bodyA.IsValid()) { return JointId{}; }
+        if (!desc.bodyA.IsValid())
+        {
+            return JointId{};
+        }
         // Main-thread creation outside Step (same threading contract as CreateBody).
         const JPH::BodyLockInterfaceNoLock& bodies = m_impl->system->GetBodyLockInterfaceNoLock();
         JPH::Body* a = bodies.TryGetBody(JPH::BodyID(desc.bodyA.value));
         JPH::Body* b = desc.bodyB.IsValid() ? bodies.TryGetBody(JPH::BodyID(desc.bodyB.value))
                                             : &JPH::Body::sFixedToWorld;
-        if (a == nullptr || b == nullptr) { return JointId{}; }
+        if (a == nullptr || b == nullptr)
+        {
+            return JointId{};
+        }
 
         const JPH::RVec3 anchor = ToJph(desc.anchor);
         const JPH::Vec3 axis = ToJph(desc.axis).NormalizedOr(JPH::Vec3::sAxisY());
@@ -725,80 +825,83 @@ namespace draconic::physics
         JPH::Ref<JPH::Constraint> joint;
         switch (desc.kind)
         {
-            case JointKind::Fixed:
-            {
-                JPH::FixedConstraintSettings settings;
-                settings.mSpace = JPH::EConstraintSpace::WorldSpace;
-                settings.mAutoDetectPoint = true;
-                joint = settings.Create(*a, *b);
-                break;
-            }
-            case JointKind::Point:
-            {
-                JPH::PointConstraintSettings settings;
-                settings.mSpace = JPH::EConstraintSpace::WorldSpace;
-                settings.mPoint1 = anchor;
-                settings.mPoint2 = anchor;
-                joint = settings.Create(*a, *b);
-                break;
-            }
-            case JointKind::Hinge:
-            {
-                JPH::HingeConstraintSettings settings;
-                settings.mSpace = JPH::EConstraintSpace::WorldSpace;
-                settings.mPoint1 = settings.mPoint2 = anchor;
-                settings.mHingeAxis1 = settings.mHingeAxis2 = axis;
-                settings.mNormalAxis1 = settings.mNormalAxis2 = axis.GetNormalizedPerpendicular();
-                if (limited)
-                {
-                    settings.mLimitsMin = desc.limitMin;
-                    settings.mLimitsMax = desc.limitMax;
-                }
-                settings.mMotorSettings.SetTorqueLimit(desc.motorLimit);
-                joint = settings.Create(*a, *b);
-                if (desc.motorEnabled)
-                {
-                    auto* hinge = static_cast<JPH::HingeConstraint*>(joint.GetPtr());
-                    hinge->SetTargetAngularVelocity(desc.motorTargetVelocity);
-                    hinge->SetMotorState(JPH::EMotorState::Velocity);
-                }
-                break;
-            }
-            case JointKind::Slider:
-            {
-                JPH::SliderConstraintSettings settings;
-                settings.mSpace = JPH::EConstraintSpace::WorldSpace;
-                settings.mAutoDetectPoint = true;
-                settings.SetSliderAxis(axis);
-                if (limited)
-                {
-                    settings.mLimitsMin = desc.limitMin;
-                    settings.mLimitsMax = desc.limitMax;
-                }
-                settings.mMotorSettings.SetForceLimit(desc.motorLimit);
-                joint = settings.Create(*a, *b);
-                if (desc.motorEnabled)
-                {
-                    auto* slider = static_cast<JPH::SliderConstraint*>(joint.GetPtr());
-                    slider->SetTargetVelocity(desc.motorTargetVelocity);
-                    slider->SetMotorState(JPH::EMotorState::Velocity);
-                }
-                break;
-            }
-            case JointKind::Distance:
-            {
-                JPH::DistanceConstraintSettings settings;
-                settings.mSpace = JPH::EConstraintSpace::WorldSpace;
-                // Rope semantics: from each body's center (world-attached: from `anchor`).
-                settings.mPoint1 = a->GetCenterOfMassPosition();
-                settings.mPoint2 = desc.bodyB.IsValid() ? b->GetCenterOfMassPosition() : anchor;
-                settings.mMinDistance = desc.minDistance;
-                settings.mMaxDistance = desc.maxDistance;
-                joint = settings.Create(*a, *b);
-                break;
-            }
+        case JointKind::Fixed:
+        {
+            JPH::FixedConstraintSettings settings;
+            settings.mSpace = JPH::EConstraintSpace::WorldSpace;
+            settings.mAutoDetectPoint = true;
+            joint = settings.Create(*a, *b);
+            break;
         }
-        if (joint == nullptr) { return JointId{}; }
+        case JointKind::Point:
+        {
+            JPH::PointConstraintSettings settings;
+            settings.mSpace = JPH::EConstraintSpace::WorldSpace;
+            settings.mPoint1 = anchor;
+            settings.mPoint2 = anchor;
+            joint = settings.Create(*a, *b);
+            break;
+        }
+        case JointKind::Hinge:
+        {
+            JPH::HingeConstraintSettings settings;
+            settings.mSpace = JPH::EConstraintSpace::WorldSpace;
+            settings.mPoint1 = settings.mPoint2 = anchor;
+            settings.mHingeAxis1 = settings.mHingeAxis2 = axis;
+            settings.mNormalAxis1 = settings.mNormalAxis2 = axis.GetNormalizedPerpendicular();
+            if (limited)
+            {
+                settings.mLimitsMin = desc.limitMin;
+                settings.mLimitsMax = desc.limitMax;
+            }
+            settings.mMotorSettings.SetTorqueLimit(desc.motorLimit);
+            joint = settings.Create(*a, *b);
+            if (desc.motorEnabled)
+            {
+                auto* hinge = static_cast<JPH::HingeConstraint*>(joint.GetPtr());
+                hinge->SetTargetAngularVelocity(desc.motorTargetVelocity);
+                hinge->SetMotorState(JPH::EMotorState::Velocity);
+            }
+            break;
+        }
+        case JointKind::Slider:
+        {
+            JPH::SliderConstraintSettings settings;
+            settings.mSpace = JPH::EConstraintSpace::WorldSpace;
+            settings.mAutoDetectPoint = true;
+            settings.SetSliderAxis(axis);
+            if (limited)
+            {
+                settings.mLimitsMin = desc.limitMin;
+                settings.mLimitsMax = desc.limitMax;
+            }
+            settings.mMotorSettings.SetForceLimit(desc.motorLimit);
+            joint = settings.Create(*a, *b);
+            if (desc.motorEnabled)
+            {
+                auto* slider = static_cast<JPH::SliderConstraint*>(joint.GetPtr());
+                slider->SetTargetVelocity(desc.motorTargetVelocity);
+                slider->SetMotorState(JPH::EMotorState::Velocity);
+            }
+            break;
+        }
+        case JointKind::Distance:
+        {
+            JPH::DistanceConstraintSettings settings;
+            settings.mSpace = JPH::EConstraintSpace::WorldSpace;
+            // Rope semantics: from each body's center (world-attached: from `anchor`).
+            settings.mPoint1 = a->GetCenterOfMassPosition();
+            settings.mPoint2 = desc.bodyB.IsValid() ? b->GetCenterOfMassPosition() : anchor;
+            settings.mMinDistance = desc.minDistance;
+            settings.mMaxDistance = desc.maxDistance;
+            joint = settings.Create(*a, *b);
+            break;
+        }
+        }
+        if (joint == nullptr)
+        {
+            return JointId{};
+        }
         m_impl->system->AddConstraint(joint.GetPtr());
 
         for (usize i = 0; i < m_impl->joints.Size(); ++i)
@@ -806,23 +909,26 @@ namespace draconic::physics
             if (m_impl->joints[i] == nullptr)
             {
                 m_impl->joints[i] = joint;
-                return JointId{ static_cast<u32>(i) };
+                return JointId{static_cast<u32>(i)};
             }
         }
         m_impl->joints.PushBack(joint);
-        return JointId{ static_cast<u32>(m_impl->joints.Size() - 1) };
+        return JointId{static_cast<u32>(m_impl->joints.Size() - 1)};
     }
 
     void PhysicsWorld::DestroyJoint(JointId id)
     {
-        if (!id.IsValid() || id.value >= m_impl->joints.Size()
-            || m_impl->joints[id.value] == nullptr) { return; }
+        if (!id.IsValid() || id.value >= m_impl->joints.Size() ||
+            m_impl->joints[id.value] == nullptr)
+        {
+            return;
+        }
         JPH::Constraint* joint = m_impl->joints[id.value].GetPtr();
         // Wake the connected bodies: a body held asleep by the joint must respond to
         // gravity again once released (RemoveConstraint alone leaves it sleeping).
         auto* twoBody = static_cast<JPH::TwoBodyConstraint*>(joint);
         JPH::BodyInterface& bodies = m_impl->system->GetBodyInterface();
-        for (JPH::Body* body : { twoBody->GetBody1(), twoBody->GetBody2() })
+        for (JPH::Body* body : {twoBody->GetBody1(), twoBody->GetBody2()})
         {
             if (body != nullptr && body != &JPH::Body::sFixedToWorld && !body->IsStatic())
             {
@@ -835,9 +941,15 @@ namespace draconic::physics
 
     void PhysicsWorld::SetJointMotor(JointId id, bool enabled, f32 targetVelocity)
     {
-        if (!id.IsValid() || id.value >= m_impl->joints.Size()) { return; }
+        if (!id.IsValid() || id.value >= m_impl->joints.Size())
+        {
+            return;
+        }
         JPH::Constraint* joint = m_impl->joints[id.value].GetPtr();
-        if (joint == nullptr) { return; }
+        if (joint == nullptr)
+        {
+            return;
+        }
         if (joint->GetSubType() == JPH::EConstraintSubType::Hinge)
         {
             auto* hinge = static_cast<JPH::HingeConstraint*>(joint);

@@ -30,9 +30,9 @@ export namespace draconic::physics
     {
         DRACONIC_OBJECT(CollisionShapeSource, ISerializable)
     public:
-        bool convex = false;         // informational (the blob self-describes)
-        Array<u8> shapeBlob;         // Jolt binary shape state
-        Array<f32> outline;          // debug triangles: x,y,z per vertex, 9 floats per tri
+        bool convex = false; // informational (the blob self-describes)
+        Array<u8> shapeBlob; // Jolt binary shape state
+        Array<f32> outline;  // debug triangles: x,y,z per vertex, 9 floats per tri
 
         void Serialize(ISerializer& ar) override
         {
@@ -49,7 +49,7 @@ export namespace draconic::physics
     public:
         bool convex = false;
         Array<byte> blob;
-        Array<Float3> outline;   // debug triangles (3 vertices each)
+        Array<Float3> outline; // debug triangles (3 vertices each)
 
         [[nodiscard]] Span<const byte> Blob() const noexcept
         {
@@ -64,11 +64,15 @@ export namespace draconic::physics
         {
             return &CollisionShape::StaticType();
         }
-        [[nodiscard]] RefPtr<Object> Create(ResourceManager&, draconic::content::Instance& instance) override
+        [[nodiscard]] RefPtr<Object> Create(ResourceManager&,
+                                            draconic::content::Instance& instance) override
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             CollisionShapeSource* source = Cast<CollisionShapeSource>(object.Get());
-            if (source == nullptr) { return RefPtr<Object>{}; }
+            if (source == nullptr)
+            {
+                return RefPtr<Object>{};
+            }
             RefPtr<CollisionShape> shape = MakeRef<CollisionShape>(DefaultAllocator());
             shape->convex = source->convex;
             shape->blob.Resize(source->shapeBlob.Size());
@@ -80,9 +84,9 @@ export namespace draconic::physics
             shape->outline.Reserve(vertexCount);
             for (usize v = 0; v < vertexCount; ++v)
             {
-                shape->outline.PushBack(Float3{ source->outline[v * 3 + 0],
-                                                source->outline[v * 3 + 1],
-                                                source->outline[v * 3 + 2] });
+                shape->outline.PushBack(Float3{source->outline[v * 3 + 0],
+                                               source->outline[v * 3 + 1],
+                                               source->outline[v * 3 + 2]});
             }
             return shape;
         }
@@ -95,7 +99,7 @@ export namespace draconic::physics
     public:
         f32 friction = 0.5f;
         f32 restitution = 0.0f;
-        f32 density = 1000.0f;   // kg/m^3
+        f32 density = 1000.0f; // kg/m^3
 
         void Serialize(ISerializer& ar) override
         {
@@ -121,11 +125,15 @@ export namespace draconic::physics
         {
             return &PhysicalMaterial::StaticType();
         }
-        [[nodiscard]] RefPtr<Object> Create(ResourceManager&, draconic::content::Instance& instance) override
+        [[nodiscard]] RefPtr<Object> Create(ResourceManager&,
+                                            draconic::content::Instance& instance) override
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             PhysicalMaterialSource* source = Cast<PhysicalMaterialSource>(object.Get());
-            if (source == nullptr) { return RefPtr<Object>{}; }
+            if (source == nullptr)
+            {
+                return RefPtr<Object>{};
+            }
             RefPtr<PhysicalMaterial> material = MakeRef<PhysicalMaterial>(DefaultAllocator());
             material->friction = source->friction;
             material->restitution = source->restitution;

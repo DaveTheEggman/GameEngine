@@ -23,7 +23,7 @@ namespace
 {
     struct PlayScene
     {
-        dscene::Scene scene{ u8"physics-test" };
+        dscene::Scene scene{u8"physics-test"};
         PhysicsSceneSystem* physics = nullptr;
 
         PlayScene()
@@ -37,36 +37,39 @@ namespace
         dscene::EntityHandle AddFloor()
         {
             dscene::EntityHandle e = scene.CreateEntity(u8"floor");
-            scene.SetLocalPosition(e, Float3{ 0.0f, -0.5f, 0.0f });
+            scene.SetLocalPosition(e, Float3{0.0f, -0.5f, 0.0f});
             RigidBodyComponent& body = scene.GetSystem<RigidBodyComponentManager>()->Add(e);
             body.motion = MotionKind::Static;
             body.layer = PhysicsLayer::Static;
-            body.halfExtents = Float3{ 50.0f, 0.5f, 50.0f };
+            body.halfExtents = Float3{50.0f, 0.5f, 50.0f};
             return e;
         }
 
         dscene::EntityHandle AddBox(f32 y, MotionKind motion = MotionKind::Dynamic)
         {
             dscene::EntityHandle e = scene.CreateEntity(u8"box");
-            scene.SetLocalPosition(e, Float3{ 0.0f, y, 0.0f });
+            scene.SetLocalPosition(e, Float3{0.0f, y, 0.0f});
             RigidBodyComponent& body = scene.GetSystem<RigidBodyComponentManager>()->Add(e);
             body.motion = motion;
-            body.layer = motion == MotionKind::Static ? PhysicsLayer::Static
-                       : motion == MotionKind::Kinematic ? PhysicsLayer::Kinematic
-                                                         : PhysicsLayer::Dynamic;
+            body.layer = motion == MotionKind::Static      ? PhysicsLayer::Static
+                         : motion == MotionKind::Kinematic ? PhysicsLayer::Kinematic
+                                                           : PhysicsLayer::Dynamic;
             return e;
         }
 
         void Start()
         {
-            scene.UpdateTransforms();   // world matrices current before body building
+            scene.UpdateTransforms(); // world matrices current before body building
             scene.Start();
             scene.SetSimulationEnabled(true);
         }
 
         void Step(int steps = 1)
         {
-            for (int i = 0; i < steps; ++i) { scene.FixedUpdate(1.0f / 60.0f); }
+            for (int i = 0; i < steps; ++i)
+            {
+                scene.FixedUpdate(1.0f / 60.0f);
+            }
         }
     };
 }
@@ -81,7 +84,7 @@ TEST_CASE("physics.scene: components build bodies at Start; dynamics fall and la
     CHECK(play.physics->World()->BodyCount() == 2u);
 
     play.Step(240);
-    play.physics->ApplyInterpolation(1.0f);   // write final poses to the scene
+    play.physics->ApplyInterpolation(1.0f); // write final poses to the scene
     play.scene.UpdateTransforms();
     const Float3 rest = play.scene.GetWorldPosition(box);
     CHECK(rest.y == doctest::Approx(0.5f).epsilon(0.05));
@@ -95,15 +98,15 @@ TEST_CASE("physics.scene: components build bodies at Start; dynamics fall and la
 TEST_CASE("physics.scene: interpolation blends between the last two fixed poses")
 {
     PlayScene play;
-    const dscene::EntityHandle box = play.AddBox(10.0f);   // free fall, no floor
+    const dscene::EntityHandle box = play.AddBox(10.0f); // free fall, no floor
     play.Start();
-    play.Step(30);   // let it pick up speed
+    play.Step(30); // let it pick up speed
 
     RigidBodyComponent* body = play.scene.GetSystem<RigidBodyComponentManager>()->Get(box);
     REQUIRE(body != nullptr);
     const f32 prevY = body->prevPosition.y;
     const f32 currY = body->currPosition.y;
-    REQUIRE(prevY > currY);   // falling
+    REQUIRE(prevY > currY); // falling
 
     // Production order: interpolation (physics subsystem, -600) THEN Scene::Update's
     // UpdateTransforms - mirrored explicitly here.
@@ -115,8 +118,8 @@ TEST_CASE("physics.scene: interpolation blends between the last two fixed poses"
     CHECK(play.scene.GetWorldPosition(box).y == doctest::Approx(currY).epsilon(0.001));
     play.physics->ApplyInterpolation(0.5f);
     play.scene.UpdateTransforms();
-    CHECK(play.scene.GetWorldPosition(box).y
-          == doctest::Approx((prevY + currY) * 0.5f).epsilon(0.001));
+    CHECK(play.scene.GetWorldPosition(box).y ==
+          doctest::Approx((prevY + currY) * 0.5f).epsilon(0.001));
 }
 
 TEST_CASE("physics.scene: kinematic bodies follow the scene; dynamics rest on them")
@@ -131,15 +134,16 @@ TEST_CASE("physics.scene: kinematic bodies follow the scene; dynamics rest on th
     for (int i = 0; i < 120; ++i)
     {
         Transform t = play.scene.GetLocalTransform(platform);
-        t.position.x += 2.0f / 120.0f;   // 2 units over 2 seconds
+        t.position.x += 2.0f / 120.0f; // 2 units over 2 seconds
         play.scene.SetLocalTransform(platform, t);
         play.scene.UpdateTransforms();
         play.Step(1);
     }
     play.physics->ApplyInterpolation(1.0f);
     play.scene.UpdateTransforms();
-    CHECK(play.scene.GetWorldPosition(rider).x > 1.0f);   // dragged along by friction
-    CHECK(play.scene.GetWorldPosition(rider).y == doctest::Approx(1.0f).epsilon(0.1));   // platform top 0.5 + half extent
+    CHECK(play.scene.GetWorldPosition(rider).x > 1.0f); // dragged along by friction
+    CHECK(play.scene.GetWorldPosition(rider).y ==
+          doctest::Approx(1.0f).epsilon(0.1)); // platform top 0.5 + half extent
 }
 
 TEST_CASE("physics.scene: descendant colliders compound into the ancestor body")
@@ -151,15 +155,15 @@ TEST_CASE("physics.scene: descendant colliders compound into the ancestor body")
     const dscene::EntityHandle body = play.AddBox(0.5f, MotionKind::Static);
     dscene::EntityHandle arm = play.scene.CreateEntity(u8"arm");
     play.scene.SetParent(arm, body);
-    play.scene.SetLocalPosition(arm, Float3{ 2.0f, 0.0f, 0.0f });
+    play.scene.SetLocalPosition(arm, Float3{2.0f, 0.0f, 0.0f});
     ColliderComponent& extra = play.scene.GetSystem<ColliderComponentManager>()->Add(arm);
-    extra.halfExtents = Float3{ 0.5f, 0.5f, 0.5f };
+    extra.halfExtents = Float3{0.5f, 0.5f, 0.5f};
     play.Start();
 
     RayHit hit;
-    REQUIRE(play.physics->World()->RayCast(Float3{ 2.0f, 5.0f, 0.0f },
-                                           Float3{ 0.0f, -1.0f, 0.0f }, 10.0f, hit));
-    CHECK(hit.position.y == doctest::Approx(1.0f).epsilon(0.05));   // the arm's top face
+    REQUIRE(play.physics->World()->RayCast(Float3{2.0f, 5.0f, 0.0f}, Float3{0.0f, -1.0f, 0.0f},
+                                           10.0f, hit));
+    CHECK(hit.position.y == doctest::Approx(1.0f).epsilon(0.05)); // the arm's top face
 }
 
 namespace
@@ -180,14 +184,14 @@ TEST_CASE("physics.scene: trigger components raise enter events resolved to enti
     const dscene::EntityHandle volume = play.AddBox(2.0f, MotionKind::Kinematic);
     RigidBodyComponent* sensor = play.scene.GetSystem<RigidBodyComponentManager>()->Get(volume);
     sensor->isTrigger = true;
-    sensor->halfExtents = Float3{ 1.0f, 1.0f, 1.0f };
+    sensor->halfExtents = Float3{1.0f, 1.0f, 1.0f};
     const dscene::EntityHandle faller = play.AddBox(6.0f);
     play.Start();
 
     RecordingListener recorder;
     Array<IContactListener*> listeners;
     listeners.PushBack(&recorder);
-    play.physics->SetContactListeners(&listeners);   // packed userData resolves to entities
+    play.physics->SetContactListeners(&listeners); // packed userData resolves to entities
 
     bool entered = false;
     for (int i = 0; i < 240 && !entered; ++i)
@@ -195,8 +199,8 @@ TEST_CASE("physics.scene: trigger components raise enter events resolved to enti
         play.Step(1);
         for (const EntityContact& c : recorder.contacts)
         {
-            if (c.kind == ContactKind::TriggerEnter
-                && ((c.a == volume && c.b == faller) || (c.a == faller && c.b == volume)))
+            if (c.kind == ContactKind::TriggerEnter &&
+                ((c.a == volume && c.b == faller) || (c.a == faller && c.b == volume)))
             {
                 entered = true;
             }
@@ -210,7 +214,7 @@ TEST_CASE("physics.scene: a real Jolt collision reaches a registered listener wi
 {
     PlayScene play;
     const dscene::EntityHandle floor = play.AddFloor();
-    const dscene::EntityHandle box = play.AddBox(1.4f);   // drops onto the floor
+    const dscene::EntityHandle box = play.AddBox(1.4f); // drops onto the floor
     play.Start();
 
     RecordingListener recorder;
@@ -224,14 +228,17 @@ TEST_CASE("physics.scene: a real Jolt collision reaches a registered listener wi
         play.Step(1);
         for (const EntityContact& c : recorder.contacts)
         {
-            if (c.kind != ContactKind::Begin) { continue; }
+            if (c.kind != ContactKind::Begin)
+            {
+                continue;
+            }
             if ((c.a == box && c.b == floor) || (c.a == floor && c.b == box))
             {
                 sawBegin = true;
                 CHECK(c.scene == &play.scene);
-                CHECK(c.speed >= 0.0f);                       // approach speed, never negative
+                CHECK(c.speed >= 0.0f); // approach speed, never negative
                 const f32 normalLength = Length(c.normal);
-                CHECK(normalLength == doctest::Approx(1.0f).epsilon(0.02));   // unit normal
+                CHECK(normalLength == doctest::Approx(1.0f).epsilon(0.02)); // unit normal
             }
         }
     }
@@ -244,8 +251,13 @@ TEST_CASE("physics.scene: cooked collision shape drives a body via the component
     // component DIRECTLY (Ref procedural override) - no content db in this harness.
     Array<byte> blob;
     Array<Float3> corners;
-    const f32 ends[2] = { -0.5f, 0.5f };
-    for (f32 x : ends) for (f32 y : ends) for (f32 z : ends) { corners.PushBack(Float3{ x, y, z }); }
+    const f32 ends[2] = {-0.5f, 0.5f};
+    for (f32 x : ends)
+        for (f32 y : ends)
+            for (f32 z : ends)
+            {
+                corners.PushBack(Float3{x, y, z});
+            }
     REQUIRE(CookConvexHull(Span<const Float3>(corners.Data(), corners.Size()), blob));
     RefPtr<CollisionShape> shape = MakeRef<CollisionShape>(DefaultAllocator());
     shape->blob.Resize(blob.Size());
@@ -258,10 +270,10 @@ TEST_CASE("physics.scene: cooked collision shape drives a body via the component
         RigidBodyComponent* body = play.scene.GetSystem<RigidBodyComponentManager>()->Get(crate);
         REQUIRE(body != nullptr);
         body->shape = ShapeKind::Cooked;
-        body->collisionShape = shape;   // Ref direct override
+        body->collisionShape = shape; // Ref direct override
         // Entity scale doubles the cooked hull: rest height = scaled half extent.
         Transform t = play.scene.GetLocalTransform(crate);
-        t.scale = Float3{ 2.0f, 2.0f, 2.0f };
+        t.scale = Float3{2.0f, 2.0f, 2.0f};
         play.scene.SetLocalTransform(crate, t);
     }
     play.Start();
@@ -283,8 +295,8 @@ TEST_CASE("physics.scene: a referenced PhysicalMaterial overrides inline surface
     {
         RigidBodyComponent* body = play.scene.GetSystem<RigidBodyComponentManager>()->Get(ball);
         REQUIRE(body != nullptr);
-        body->restitution = 0.0f;      // inline says dead drop...
-        body->material = bouncy;       // ...material says bounce
+        body->restitution = 0.0f; // inline says dead drop...
+        body->material = bouncy;  // ...material says bounce
     }
     play.Start();
 
@@ -297,10 +309,16 @@ TEST_CASE("physics.scene: a referenced PhysicalMaterial overrides inline surface
         play.physics->ApplyInterpolation(1.0f);
         play.scene.UpdateTransforms();
         const f32 y = play.scene.GetWorldPosition(ball).y;
-        if (!impacted && y < 0.6f) { impacted = true; }
-        else if (impacted) { apex = y > apex ? y : apex; }
+        if (!impacted && y < 0.6f)
+        {
+            impacted = true;
+        }
+        else if (impacted)
+        {
+            apex = y > apex ? y : apex;
+        }
     }
-    CHECK(apex > 1.0f);   // bounced well above the rest height
+    CHECK(apex > 1.0f); // bounced well above the rest height
 }
 
 TEST_CASE("physics.scene: a tilted plane entity makes boxes slide downhill")
@@ -311,10 +329,10 @@ TEST_CASE("physics.scene: a tilted plane entity makes boxes slide downhill")
         RigidBodyComponent& body = play.scene.GetSystem<RigidBodyComponentManager>()->Add(ground);
         body.motion = MotionKind::Static;
         body.layer = PhysicsLayer::Static;
-        body.shape = ShapeKind::Plane;   // entity's local XZ plane; rotation tilts it
+        body.shape = ShapeKind::Plane; // entity's local XZ plane; rotation tilts it
         body.friction = 0.0f;
         Transform t = play.scene.GetLocalTransform(ground);
-        t.rotation = Quaternion::FromAxisAngle(Float3{ 0.0f, 0.0f, 1.0f }, 0.3f);
+        t.rotation = Quaternion::FromAxisAngle(Float3{0.0f, 0.0f, 1.0f}, 0.3f);
         play.scene.SetLocalTransform(ground, t);
     }
     dscene::EntityHandle box = play.AddBox(3.0f);
@@ -339,7 +357,7 @@ TEST_CASE("physics.scene: the Wren Physics facade raycasts + pushes through the 
 
     PlayScene play;
     play.AddFloor();
-    dscene::EntityHandle box = play.AddBox(0.5f);   // resting on the floor at y=0.5
+    dscene::EntityHandle box = play.AddBox(0.5f); // resting on the floor at y=0.5
     play.Start();
     play.Step(10);
 
@@ -358,7 +376,7 @@ TEST_CASE("physics.scene: the Wren Physics facade raycasts + pushes through the 
         u8"var Top = Physics.hitY()\n"
         u8"var UpN = Physics.hitNormalY()\n"
         u8"var Bodies = Physics.bodyCount()\n"
-        u8"Physics.impulseOnHit(8000, 0, 0)\n";   // the box weighs ~1000kg (default density)
+        u8"Physics.impulseOnHit(8000, 0, 0)\n"; // the box weighs ~1000kg (default density)
     REQUIRE(ctx->Load(script, u8"main").IsOk());
     CHECK(ctx->GetGlobal(u8"Distance").Get<f64>() == doctest::Approx(4.0).epsilon(0.02));
     CHECK(ctx->GetGlobal(u8"Top").Get<f64>() == doctest::Approx(1.0).epsilon(0.02));
@@ -373,11 +391,13 @@ TEST_CASE("physics.scene: the Wren Physics facade raycasts + pushes through the 
 
     // No service bound: released misses, never a crash.
     RefPtr<draconic::script::IScriptContext> bare = manager->CreateContext();
-    REQUIRE(bare->Load(u8"var Distance = Physics.rayCast(0, 5, 0, 0, -1, 0, 20)\n", u8"main").IsOk());
+    REQUIRE(
+        bare->Load(u8"var Distance = Physics.rayCast(0, 5, 0, 0, -1, 0, 20)\n", u8"main").IsOk());
     CHECK(bare->GetGlobal(u8"Distance").Get<f64>() == doctest::Approx(-1.0));
 }
 
-TEST_CASE("physics.scene: bodies build from authored positions even without a prior UpdateTransforms")
+TEST_CASE(
+    "physics.scene: bodies build from authored positions even without a prior UpdateTransforms")
 {
     // Regression: Scene::Start does NOT refresh world matrices; if the system builds from
     // never-updated (Identity) matrices, every body spawns at the origin interpenetrating
@@ -386,8 +406,8 @@ TEST_CASE("physics.scene: bodies build from authored positions even without a pr
     play.AddFloor();
     dscene::EntityHandle left = play.AddBox(0.5f);
     dscene::EntityHandle right = play.AddBox(0.5f);
-    play.scene.SetLocalPosition(left, Float3{ -3.0f, 0.5f, 0.0f });
-    play.scene.SetLocalPosition(right, Float3{ 3.0f, 0.5f, 0.0f });
+    play.scene.SetLocalPosition(left, Float3{-3.0f, 0.5f, 0.0f});
+    play.scene.SetLocalPosition(right, Float3{3.0f, 0.5f, 0.0f});
 
     // Deliberately NO UpdateTransforms before Start - the system must self-refresh.
     play.scene.Start();
@@ -405,13 +425,13 @@ TEST_CASE("physics.scene: a motorized hinge joint spins a door to the world")
     PlayScene play;
     play.scene.AddSystem<JointComponentManager>();
     dscene::EntityHandle door = play.scene.CreateEntity(u8"door");
-    play.scene.SetLocalPosition(door, Float3{ 0.0f, 2.0f, 0.0f });
+    play.scene.SetLocalPosition(door, Float3{0.0f, 2.0f, 0.0f});
     {
         RigidBodyComponent& body = play.scene.GetSystem<RigidBodyComponentManager>()->Add(door);
-        body.halfExtents = Float3{ 1.0f, 1.0f, 0.05f };
+        body.halfExtents = Float3{1.0f, 1.0f, 0.05f};
         JointComponent& joint = play.scene.GetSystem<JointComponentManager>()->Add(door);
-        joint.kind = JointKind::Hinge;         // no ancestor body -> world attachment
-        joint.localAxis = Float3{ 0.0f, 1.0f, 0.0f };
+        joint.kind = JointKind::Hinge; // no ancestor body -> world attachment
+        joint.localAxis = Float3{0.0f, 1.0f, 0.0f};
         joint.motorEnabled = true;
         joint.motorTargetVelocity = 3.0f;
     }
@@ -427,7 +447,8 @@ TEST_CASE("physics.scene: a motorized hinge joint spins a door to the world")
     CHECK((rotation.w > 0 ? rotation.w : -rotation.w) < 0.99f);
 }
 
-TEST_CASE("physics.scene: nil-target joints attach to the nearest ancestor body; guid targets bind explicitly")
+TEST_CASE("physics.scene: nil-target joints attach to the nearest ancestor body; guid targets bind "
+          "explicitly")
 {
     PlayScene play;
     play.scene.AddSystem<JointComponentManager>();
@@ -435,22 +456,22 @@ TEST_CASE("physics.scene: nil-target joints attach to the nearest ancestor body;
 
     // anchor (static, elevated) > bob (dynamic child on a distance rope, nil target).
     dscene::EntityHandle anchor = play.scene.CreateEntity(u8"anchor");
-    play.scene.SetLocalPosition(anchor, Float3{ 0.0f, 6.0f, 0.0f });
+    play.scene.SetLocalPosition(anchor, Float3{0.0f, 6.0f, 0.0f});
     {
         RigidBodyComponent& body = play.scene.GetSystem<RigidBodyComponentManager>()->Add(anchor);
         body.motion = MotionKind::Static;
         body.layer = PhysicsLayer::Static;
-        body.halfExtents = Float3{ 0.2f, 0.2f, 0.2f };
+        body.halfExtents = Float3{0.2f, 0.2f, 0.2f};
     }
     dscene::EntityHandle bob = play.scene.CreateEntity(u8"bob");
     play.scene.SetParent(bob, anchor);
-    play.scene.SetLocalPosition(bob, Float3{ 0.0f, -1.0f, 0.0f });   // world y = 5
+    play.scene.SetLocalPosition(bob, Float3{0.0f, -1.0f, 0.0f}); // world y = 5
     {
         RigidBodyComponent& body = play.scene.GetSystem<RigidBodyComponentManager>()->Add(bob);
         body.shape = ShapeKind::Sphere;
         body.radius = 0.25f;
         JointComponent& joint = play.scene.GetSystem<JointComponentManager>()->Add(bob);
-        joint.kind = JointKind::Distance;      // nil target -> ancestor body
+        joint.kind = JointKind::Distance; // nil target -> ancestor body
         joint.maxDistance = 2.0f;
         joint.minDistance = 0.0f;
     }
@@ -458,8 +479,8 @@ TEST_CASE("physics.scene: nil-target joints attach to the nearest ancestor body;
     // Explicit-guid pair on the floor: two boxes fixed together side by side.
     dscene::EntityHandle left = play.AddBox(0.5f);
     dscene::EntityHandle right = play.AddBox(0.5f);
-    play.scene.SetLocalPosition(left, Float3{ 4.0f, 0.5f, 0.0f });
-    play.scene.SetLocalPosition(right, Float3{ 5.2f, 0.5f, 0.0f });
+    play.scene.SetLocalPosition(left, Float3{4.0f, 0.5f, 0.0f});
+    play.scene.SetLocalPosition(right, Float3{5.2f, 0.5f, 0.0f});
     {
         JointComponent& joint = play.scene.GetSystem<JointComponentManager>()->Add(right);
         joint.kind = JointKind::Fixed;
@@ -476,7 +497,7 @@ TEST_CASE("physics.scene: nil-target joints attach to the nearest ancestor body;
 
     // The fixed pair stays welded: push LEFT, RIGHT follows at the same offset.
     RigidBodyComponent* leftBody = play.scene.GetSystem<RigidBodyComponentManager>()->Get(left);
-    play.physics->World()->AddImpulse(leftBody->body, Float3{ 0.0f, 0.0f, 4000.0f });
+    play.physics->World()->AddImpulse(leftBody->body, Float3{0.0f, 0.0f, 4000.0f});
     play.Step(60);
     play.physics->ApplyInterpolation(1.0f);
     play.scene.UpdateTransforms();
@@ -484,7 +505,7 @@ TEST_CASE("physics.scene: nil-target joints attach to the nearest ancestor body;
     // invariant is the CENTER DISTANCE, not per-axis offsets.
     const Float3 a = play.scene.GetWorldPosition(left);
     const Float3 b = play.scene.GetWorldPosition(right);
-    const f32 distance = Length(Float3{ b.x - a.x, b.y - a.y, b.z - a.z });
+    const f32 distance = Length(Float3{b.x - a.x, b.y - a.y, b.z - a.z});
     CHECK(distance == doctest::Approx(1.2f).epsilon(0.02));
 }
 
@@ -494,7 +515,7 @@ TEST_CASE("physics.scene: the character component walks, jumps, and lands (inter
     play.scene.AddSystem<CharacterComponentManager>();
     play.AddFloor();
     dscene::EntityHandle hero = play.scene.CreateEntity(u8"hero");
-    play.scene.SetLocalPosition(hero, Float3{ 0.0f, 0.9f, 0.0f });
+    play.scene.SetLocalPosition(hero, Float3{0.0f, 0.9f, 0.0f});
     CharacterComponent& character = play.scene.GetSystem<CharacterComponentManager>()->Add(hero);
     play.Start();
 
@@ -503,7 +524,7 @@ TEST_CASE("physics.scene: the character component walks, jumps, and lands (inter
     CHECK(character.ground == CharacterGround::OnGround);
 
     // Walk +x for 1s.
-    character.moveVelocity = Float3{ 3.0f, 0.0f, 0.0f };
+    character.moveVelocity = Float3{3.0f, 0.0f, 0.0f};
     play.Step(60);
     play.physics->ApplyInterpolation(1.0f);
     play.scene.UpdateTransforms();
@@ -511,7 +532,7 @@ TEST_CASE("physics.scene: the character component walks, jumps, and lands (inter
     CHECK(play.scene.GetWorldPosition(hero).y == doctest::Approx(0.9f).epsilon(0.03));
 
     // Jump: rises, then lands back at standing height.
-    character.moveVelocity = Float3{ 0.0f, 0.0f, 0.0f };
+    character.moveVelocity = Float3{0.0f, 0.0f, 0.0f};
     character.jumpSpeed = 5.0f;
     f32 apex = 0.0f;
     for (int i = 0; i < 120; ++i)
@@ -540,23 +561,25 @@ TEST_CASE("physics.scene: the editor simulate cycle (capture/start/stop/restore)
     namespace rt = draconic::runtime;
     rt::Context ctx;
     auto* scenes = ctx.AddSubsystem<dscene::SceneSubsystem>();
-    dscene::SceneManager sm(&scenes->AwareRegistry()); scenes->RegisterManager(&sm);
+    dscene::SceneManager sm(&scenes->AwareRegistry());
+    scenes->RegisterManager(&sm);
     ctx.AddSubsystem<PhysicsSubsystem>();
     ctx.Startup();
 
     dscene::Scene* scene = sm.CreateScene(u8"level");
     {
         dscene::EntityHandle floor = scene->CreateEntity(u8"floor");
-        scene->SetLocalPosition(floor, Float3{ 0.0f, -0.5f, 0.0f });
+        scene->SetLocalPosition(floor, Float3{0.0f, -0.5f, 0.0f});
         auto& body = scene->GetSystem<RigidBodyComponentManager>()->Add(floor);
         body.motion = MotionKind::Static;
         body.layer = PhysicsLayer::Static;
-        body.halfExtents = Float3{ 50.0f, 0.5f, 50.0f };
+        body.halfExtents = Float3{50.0f, 0.5f, 50.0f};
     }
     for (int i = 0; i < 8; ++i)
     {
         dscene::EntityHandle box = scene->CreateEntity(u8"box");
-        scene->SetLocalPosition(box, Float3{ static_cast<f32>(i) * 0.5f, 3.0f + static_cast<f32>(i), 0.0f });
+        scene->SetLocalPosition(
+            box, Float3{static_cast<f32>(i) * 0.5f, 3.0f + static_cast<f32>(i), 0.0f});
         auto& body = scene->GetSystem<RigidBodyComponentManager>()->Add(box);
         body.motion = MotionKind::Dynamic;
         body.layer = PhysicsLayer::Dynamic;
@@ -572,14 +595,20 @@ TEST_CASE("physics.scene: the editor simulate cycle (capture/start/stop/restore)
         scene->Start();
         scene->SetSimulationEnabled(true);
         MESSAGE("cycle ", cycle, ": simulate");
-        for (int f = 0; f < 120; ++f) { ctx.BeginFrame(1.0f / 60.0f); }
+        for (int f = 0; f < 120; ++f)
+        {
+            ctx.BeginFrame(1.0f / 60.0f);
+        }
         MESSAGE("cycle ", cycle, ": stop");
         scene->Stop();
         MESSAGE("cycle ", cycle, ": restore");
         CHECK(snapshot->Restore(*scene, nullptr).IsOk());
         scene->SetSimulationEnabled(false);
         MESSAGE("cycle ", cycle, ": post-stop frames");
-        for (int f = 0; f < 60; ++f) { ctx.BeginFrame(1.0f / 60.0f); }
+        for (int f = 0; f < 60; ++f)
+        {
+            ctx.BeginFrame(1.0f / 60.0f);
+        }
     }
 
     ctx.Shutdown();

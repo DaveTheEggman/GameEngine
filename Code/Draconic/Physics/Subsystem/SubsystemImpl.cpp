@@ -32,26 +32,38 @@ namespace draconic::physics
         {
             PhysicsWorld* world = system.World();
             draconic::scene::Scene* scene = system.ScenePtr();
-            if (world == nullptr || scene == nullptr) { return; }
+            if (world == nullptr || scene == nullptr)
+            {
+                return;
+            }
             auto* bodies = scene->GetSystem<RigidBodyComponentManager>();
-            if (bodies == nullptr) { return; }
-            bodies->ForEach([&](RigidBodyComponent& c, draconic::scene::EntityHandle e) {
-                if (!c.body.IsValid()) { return; }
-                Float3 position;
-                Quaternion rotation;
-                world->GetBodyTransform(c.body, position, rotation);
-                const Color color = c.isTrigger ? Color{ 1.0f, 0.8f, 0.2f, 1.0f }
-                                  : c.motion == MotionKind::Dynamic
-                                      ? (world->IsActive(c.body) ? Color{ 0.3f, 1.0f, 0.4f, 1.0f }
-                                                                 : Color{ 0.5f, 0.6f, 0.5f, 1.0f })
-                                      : Color{ 0.4f, 0.6f, 1.0f, 1.0f };
-                const Float4x4 worldMatrix =
-                    Transform{ position, rotation, Float3{ 1, 1, 1 } }.ToMatrix();
-                switch (c.shape)
+            if (bodies == nullptr)
+            {
+                return;
+            }
+            bodies->ForEach(
+                [&](RigidBodyComponent& c, draconic::scene::EntityHandle e)
                 {
+                    if (!c.body.IsValid())
+                    {
+                        return;
+                    }
+                    Float3 position;
+                    Quaternion rotation;
+                    world->GetBodyTransform(c.body, position, rotation);
+                    const Color color =
+                        c.isTrigger ? Color{1.0f, 0.8f, 0.2f, 1.0f}
+                        : c.motion == MotionKind::Dynamic
+                            ? (world->IsActive(c.body) ? Color{0.3f, 1.0f, 0.4f, 1.0f}
+                                                       : Color{0.5f, 0.6f, 0.5f, 1.0f})
+                            : Color{0.4f, 0.6f, 1.0f, 1.0f};
+                    const Float4x4 worldMatrix =
+                        Transform{position, rotation, Float3{1, 1, 1}}.ToMatrix();
+                    switch (c.shape)
+                    {
                     case ShapeKind::Box:
                         draw.DrawTransformedBox(
-                            Float3{ -c.halfExtents.x, -c.halfExtents.y, -c.halfExtents.z },
+                            Float3{-c.halfExtents.x, -c.halfExtents.y, -c.halfExtents.z},
                             c.halfExtents, worldMatrix, color);
                         break;
                     case ShapeKind::Sphere:
@@ -60,9 +72,9 @@ namespace draconic::physics
                     case ShapeKind::Capsule:
                         draw.DrawWireSphere(position, c.radius, color);
                         draw.DrawTransformedBox(
-                            Float3{ -c.radius, -(c.halfHeight + c.radius), -c.radius },
-                            Float3{ c.radius, c.halfHeight + c.radius, c.radius },
-                            worldMatrix, color);
+                            Float3{-c.radius, -(c.halfHeight + c.radius), -c.radius},
+                            Float3{c.radius, c.halfHeight + c.radius, c.radius}, worldMatrix,
+                            color);
                         break;
                     case ShapeKind::Plane:
                     {
@@ -72,10 +84,12 @@ namespace draconic::physics
                         for (i32 g = -kCells; g <= kCells; ++g)
                         {
                             const f32 offset = extent * static_cast<f32>(g) / kCells;
-                            draw.DrawLine(TransformPoint(Float3{ offset, 0, -extent }, worldMatrix),
-                                          TransformPoint(Float3{ offset, 0, extent }, worldMatrix), color);
-                            draw.DrawLine(TransformPoint(Float3{ -extent, 0, offset }, worldMatrix),
-                                          TransformPoint(Float3{ extent, 0, offset }, worldMatrix), color);
+                            draw.DrawLine(TransformPoint(Float3{offset, 0, -extent}, worldMatrix),
+                                          TransformPoint(Float3{offset, 0, extent}, worldMatrix),
+                                          color);
+                            draw.DrawLine(TransformPoint(Float3{-extent, 0, offset}, worldMatrix),
+                                          TransformPoint(Float3{extent, 0, offset}, worldMatrix),
+                                          color);
                         }
                         break;
                     }
@@ -87,7 +101,7 @@ namespace draconic::physics
                             Quaternion sr;
                             const Float4x4 shapeMatrix =
                                 Decompose(scene->GetWorldMatrix(e), sp, sr, ss)
-                                    ? Transform{ position, rotation, ss }.ToMatrix()
+                                    ? Transform{position, rotation, ss}.ToMatrix()
                                     : worldMatrix;
                             const Array<Float3>& outline = cooked->outline;
                             for (usize t = 0; t + 2 < outline.Size(); t += 3)
@@ -101,22 +115,31 @@ namespace draconic::physics
                             }
                         }
                         break;
-                }
-            });
+                    }
+                });
 
             if (auto* characters = scene->GetSystem<CharacterComponentManager>())
             {
-                characters->ForEach([&](CharacterComponent& c, draconic::scene::EntityHandle) {
-                    if (!c.character.IsValid()) { return; }
-                    const Float3 position = world->CharacterPosition(c.character);
-                    const Color color = c.ground == CharacterGround::OnGround
-                        ? Color{ 0.2f, 0.9f, 0.9f, 1.0f } : Color{ 0.9f, 0.5f, 0.9f, 1.0f };
-                    draw.DrawWireSphere(Float3{ position.x, position.y + c.halfHeight, position.z },
-                                        c.radius, color);
-                    draw.DrawWireSphere(Float3{ position.x, position.y - c.halfHeight, position.z },
-                                        c.radius, color);
-                    draw.DrawWireBoxCenter(position, Float3{ c.radius, c.halfHeight, c.radius }, color);
-                });
+                characters->ForEach(
+                    [&](CharacterComponent& c, draconic::scene::EntityHandle)
+                    {
+                        if (!c.character.IsValid())
+                        {
+                            return;
+                        }
+                        const Float3 position = world->CharacterPosition(c.character);
+                        const Color color = c.ground == CharacterGround::OnGround
+                                                ? Color{0.2f, 0.9f, 0.9f, 1.0f}
+                                                : Color{0.9f, 0.5f, 0.9f, 1.0f};
+                        draw.DrawWireSphere(
+                            Float3{position.x, position.y + c.halfHeight, position.z}, c.radius,
+                            color);
+                        draw.DrawWireSphere(
+                            Float3{position.x, position.y - c.halfHeight, position.z}, c.radius,
+                            color);
+                        draw.DrawWireBoxCenter(position, Float3{c.radius, c.halfHeight, c.radius},
+                                               color);
+                    });
             }
         }
     }
@@ -124,14 +147,17 @@ namespace draconic::physics
     void PhysicsSubsystem::Update(f32)
     {
         draconic::runtime::Context* context = GetContext();
-        if (context == nullptr) { return; }
+        if (context == nullptr)
+        {
+            return;
+        }
         auto* render = context->GetSubsystem<draconic::render::RenderSubsystem>();
         m_scriptBinding.system = nullptr;
         for (const SceneEntry& entry : Systems())
         {
             if (m_scriptBinding.system == nullptr && entry.system->World() != nullptr)
             {
-                m_scriptBinding.system = entry.system;   // scripts act on the live world
+                m_scriptBinding.system = entry.system; // scripts act on the live world
             }
             // Per-scene alpha: each scene steps on its OWN accumulator/time scale.
             entry.system->ApplyInterpolation(entry.scene->FixedAlpha());
@@ -271,14 +297,12 @@ namespace draconic::physics
         builder.Constructor();
     }
 
-    void RegisterPhysicsScriptApi()
-    {
-        GlobalTypeRegistry().Register(Physics::StaticType());
-    }
+    void RegisterPhysicsScriptApi() { GlobalTypeRegistry().Register(Physics::StaticType()); }
 
     void RegisterPhysicsComponentReflection()
     {
-        static const bool once = []() {
+        static const bool once = []()
+        {
             DraconicRegisterEnum_MotionKind();
             DraconicRegisterEnum_PhysicsLayer();
             DraconicRegisterEnum_ShapeKind();

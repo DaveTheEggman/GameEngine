@@ -13,7 +13,7 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
-#include "Core/Reflection/Reflect.h"   // DRACONIC_OBJECT (the Physics facade)
+#include "Core/Reflection/Reflect.h" // DRACONIC_OBJECT (the Physics facade)
 #include <cmath>
 
 export module draconic.physics.subsystem;
@@ -25,7 +25,7 @@ import draconic.runtime;
 import draconic.scene;
 import draconic.scene.subsystem;
 import draconic.script;
-import draconic.script.facades;   // draconic::script::Entity (the raycast/contact hit entity)
+import draconic.script.facades; // draconic::script::Entity (the raycast/contact hit entity)
 import draconic.physics;
 // NOTE: no render imports HERE - the debug-draw path lives in SubsystemImpl.cpp (a module
 // implementation unit). Keeping heavyweight imports out of the interface matters for
@@ -49,8 +49,8 @@ export namespace draconic::physics
     }
     [[nodiscard]] inline dscene::EntityHandle UnpackEntity(u64 value) noexcept
     {
-        return dscene::EntityHandle{ static_cast<u32>(value >> 32),
-                                     static_cast<u32>(value & 0xFFFFFFFFu) };
+        return dscene::EntityHandle{static_cast<u32>(value >> 32),
+                                    static_cast<u32>(value & 0xFFFFFFFFu)};
     }
 
     /// A contact whose bodies have been resolved back to scene entities (invalid handles for
@@ -63,8 +63,8 @@ export namespace draconic::physics
         dscene::Scene* scene = nullptr;
         dscene::EntityHandle a;
         dscene::EntityHandle b;
-        Float3 point{ 0, 0, 0 };
-        Float3 normal{ 0, 0, 0 };
+        Float3 point{0, 0, 0};
+        Float3 normal{0, 0, 0};
         f32 speed = 0.0f;
     };
 
@@ -101,7 +101,7 @@ export namespace draconic::physics
         [[nodiscard]] PhysicsWorld* World() noexcept { return m_world.Get(); }
         [[nodiscard]] Span<const ContactEvent> Events() const noexcept
         {
-            return Span<const ContactEvent>{ m_events.Data(), m_events.Size() };
+            return Span<const ContactEvent>{m_events.Data(), m_events.Size()};
         }
 
         /// The subsystem points this at its listener list (stable address); each drained
@@ -135,21 +135,18 @@ export namespace draconic::physics
             auto* bodies = m_scene->GetSystem<RigidBodyComponentManager>();
             if (bodies != nullptr)
             {
-                bodies->ForEach([](RigidBodyComponent& c, dscene::EntityHandle) {
-                    c.body = BodyId{};
-                });
+                bodies->ForEach([](RigidBodyComponent& c, dscene::EntityHandle)
+                                { c.body = BodyId{}; });
             }
             if (auto* joints = m_scene->GetSystem<JointComponentManager>())
             {
-                joints->ForEach([](JointComponent& c, dscene::EntityHandle) {
-                    c.joint = JointId{};
-                });
+                joints->ForEach([](JointComponent& c, dscene::EntityHandle)
+                                { c.joint = JointId{}; });
             }
             if (auto* characters = m_scene->GetSystem<CharacterComponentManager>())
             {
-                characters->ForEach([](CharacterComponent& c, dscene::EntityHandle) {
-                    c.character = CharacterId{};
-                });
+                characters->ForEach([](CharacterComponent& c, dscene::EntityHandle)
+                                    { c.character = CharacterId{}; });
             }
             m_events.Clear();
             m_world = nullptr;
@@ -157,36 +154,49 @@ export namespace draconic::physics
 
         void OnFixedUpdate(f32 fixedDeltaTime) override
         {
-            if (m_world.Get() == nullptr) { return; }
+            if (m_world.Get() == nullptr)
+            {
+                return;
+            }
             dscene::Scene& scene = *m_scene;
             auto* bodies = scene.GetSystem<RigidBodyComponentManager>();
-            if (bodies == nullptr) { return; }
+            if (bodies == nullptr)
+            {
+                return;
+            }
 
             // Kinematics follow the SCENE (velocity-correct move toward this step's target).
-            bodies->ForEach([&](RigidBodyComponent& c, dscene::EntityHandle e) {
-                if (!c.body.IsValid() || c.motion != MotionKind::Kinematic) { return; }
-                Float3 position;
-                Quaternion rotation;
-                Float3 scale;
-                if (Decompose(scene.GetWorldMatrix(e), position, rotation, scale))
+            bodies->ForEach(
+                [&](RigidBodyComponent& c, dscene::EntityHandle e)
                 {
-                    m_world->MoveKinematic(c.body, position, rotation, fixedDeltaTime);
-                }
-            });
+                    if (!c.body.IsValid() || c.motion != MotionKind::Kinematic)
+                    {
+                        return;
+                    }
+                    Float3 position;
+                    Quaternion rotation;
+                    Float3 scale;
+                    if (Decompose(scene.GetWorldMatrix(e), position, rotation, scale))
+                    {
+                        m_world->MoveKinematic(c.body, position, rotation, fixedDeltaTime);
+                    }
+                });
 
             // Motor sync: component fields are LIVE (inspector/gameplay edits apply next step).
             if (auto* joints = scene.GetSystem<JointComponentManager>())
             {
-                joints->ForEach([&](JointComponent& c, dscene::EntityHandle) {
-                    if (c.joint.IsValid())
+                joints->ForEach(
+                    [&](JointComponent& c, dscene::EntityHandle)
                     {
-                        m_world->SetJointMotor(c.joint, c.motorEnabled, c.motorTargetVelocity);
-                    }
-                });
+                        if (c.joint.IsValid())
+                        {
+                            m_world->SetJointMotor(c.joint, c.motorEnabled, c.motorTargetVelocity);
+                        }
+                    });
             }
 
-            m_world->Step(fixedDeltaTime, m_settings.collisionSteps < 1 ? 1
-                                                                        : m_settings.collisionSteps);
+            m_world->Step(fixedDeltaTime,
+                          m_settings.collisionSteps < 1 ? 1 : m_settings.collisionSteps);
 
             m_events.Clear();
             m_world->DrainContacts(m_events);
@@ -201,37 +211,47 @@ export namespace draconic::physics
             if (auto* characters = scene.GetSystem<CharacterComponentManager>())
             {
                 const Float3 gravity = m_world->Gravity();
-                characters->ForEach([&](CharacterComponent& c, dscene::EntityHandle) {
-                    if (!c.character.IsValid()) { return; }
-                    const Float3 current = m_world->CharacterVelocity(c.character);
-                    Float3 velocity{ c.moveVelocity.x, 0.0f, c.moveVelocity.z };
-                    if (c.ground == CharacterGround::OnGround)
+                characters->ForEach(
+                    [&](CharacterComponent& c, dscene::EntityHandle)
                     {
-                        if (c.jumpSpeed > 0.0f)
+                        if (!c.character.IsValid())
                         {
-                            velocity.y = c.jumpSpeed;
-                            c.jumpSpeed = 0.0f;
+                            return;
                         }
-                    }
-                    else
-                    {
-                        velocity.y = current.y + gravity.y * fixedDeltaTime;
-                    }
-                    m_world->SetCharacterVelocity(c.character, velocity);
-                    m_world->UpdateCharacter(c.character, fixedDeltaTime);
-                    c.ground = m_world->GetCharacterGround(c.character);
-                    c.prevPosition = c.currPosition;
-                    c.currPosition = m_world->CharacterPosition(c.character);
-                });
+                        const Float3 current = m_world->CharacterVelocity(c.character);
+                        Float3 velocity{c.moveVelocity.x, 0.0f, c.moveVelocity.z};
+                        if (c.ground == CharacterGround::OnGround)
+                        {
+                            if (c.jumpSpeed > 0.0f)
+                            {
+                                velocity.y = c.jumpSpeed;
+                                c.jumpSpeed = 0.0f;
+                            }
+                        }
+                        else
+                        {
+                            velocity.y = current.y + gravity.y * fixedDeltaTime;
+                        }
+                        m_world->SetCharacterVelocity(c.character, velocity);
+                        m_world->UpdateCharacter(c.character, fixedDeltaTime);
+                        c.ground = m_world->GetCharacterGround(c.character);
+                        c.prevPosition = c.currPosition;
+                        c.currPosition = m_world->CharacterPosition(c.character);
+                    });
             }
 
             // Dynamic poses into the double-buffer (prev <- curr <- world).
-            bodies->ForEach([&](RigidBodyComponent& c, dscene::EntityHandle) {
-                if (!c.body.IsValid() || c.motion != MotionKind::Dynamic) { return; }
-                c.prevPosition = c.currPosition;
-                c.prevRotation = c.currRotation;
-                m_world->GetBodyTransform(c.body, c.currPosition, c.currRotation);
-            });
+            bodies->ForEach(
+                [&](RigidBodyComponent& c, dscene::EntityHandle)
+                {
+                    if (!c.body.IsValid() || c.motion != MotionKind::Dynamic)
+                    {
+                        return;
+                    }
+                    c.prevPosition = c.currPosition;
+                    c.prevRotation = c.currRotation;
+                    m_world->GetBodyTransform(c.body, c.currPosition, c.currRotation);
+                });
         }
 
         /// Render-frame interpolation (driven by the subsystem with the engine's fixed
@@ -239,68 +259,86 @@ export namespace draconic::physics
         /// WORLD poses converted to local against the current parent.
         void ApplyInterpolation(f32 alpha)
         {
-            if (m_world.Get() == nullptr || m_scene == nullptr || !m_scene->SimulationEnabled()) { return; }
+            if (m_world.Get() == nullptr || m_scene == nullptr || !m_scene->SimulationEnabled())
+            {
+                return;
+            }
             dscene::Scene& scene = *m_scene;
             auto* bodies = scene.GetSystem<RigidBodyComponentManager>();
-            if (bodies == nullptr) { return; }
-            bodies->ForEach([&](RigidBodyComponent& c, dscene::EntityHandle e) {
-                if (!c.body.IsValid() || c.motion != MotionKind::Dynamic) { return; }
-                const Float3 position{
-                    c.prevPosition.x + (c.currPosition.x - c.prevPosition.x) * alpha,
-                    c.prevPosition.y + (c.currPosition.y - c.prevPosition.y) * alpha,
-                    c.prevPosition.z + (c.currPosition.z - c.prevPosition.z) * alpha };
-                const Quaternion rotation = Slerp(c.prevRotation, c.currRotation, alpha);
-
-                // World -> local against the parent (scale preserved from the current local).
-                Transform local = scene.GetLocalTransform(e);
-                dscene::EntityHandle parent = scene.GetParent(e);
-                if (parent.IsAssigned())
-                {
-                    const Float4x4 world = Transform{ position, rotation, Float3{ 1, 1, 1 } }.ToMatrix();
-                    const Float4x4 parentInverse = Inverse(scene.GetWorldMatrix(parent));
-                    Float3 lp, ls;
-                    Quaternion lr;
-                    if (Decompose(world * parentInverse, lp, lr, ls))
-                    {
-                        local.position = lp;
-                        local.rotation = lr;
-                    }
-                }
-                else
-                {
-                    local.position = position;
-                    local.rotation = rotation;
-                }
-                scene.SetLocalTransform(e, local);
-            });
-
-            if (auto* characters = scene.GetSystem<CharacterComponentManager>())
+            if (bodies == nullptr)
             {
-                characters->ForEach([&](CharacterComponent& c, dscene::EntityHandle e) {
-                    if (!c.character.IsValid()) { return; }
+                return;
+            }
+            bodies->ForEach(
+                [&](RigidBodyComponent& c, dscene::EntityHandle e)
+                {
+                    if (!c.body.IsValid() || c.motion != MotionKind::Dynamic)
+                    {
+                        return;
+                    }
                     const Float3 position{
                         c.prevPosition.x + (c.currPosition.x - c.prevPosition.x) * alpha,
                         c.prevPosition.y + (c.currPosition.y - c.prevPosition.y) * alpha,
-                        c.prevPosition.z + (c.currPosition.z - c.prevPosition.z) * alpha };
+                        c.prevPosition.z + (c.currPosition.z - c.prevPosition.z) * alpha};
+                    const Quaternion rotation = Slerp(c.prevRotation, c.currRotation, alpha);
+
+                    // World -> local against the parent (scale preserved from the current local).
                     Transform local = scene.GetLocalTransform(e);
                     dscene::EntityHandle parent = scene.GetParent(e);
                     if (parent.IsAssigned())
                     {
                         const Float4x4 world =
-                            Transform{ position, local.rotation, Float3{ 1, 1, 1 } }.ToMatrix();
+                            Transform{position, rotation, Float3{1, 1, 1}}.ToMatrix();
+                        const Float4x4 parentInverse = Inverse(scene.GetWorldMatrix(parent));
                         Float3 lp, ls;
                         Quaternion lr;
-                        if (Decompose(world * Inverse(scene.GetWorldMatrix(parent)), lp, lr, ls))
+                        if (Decompose(world * parentInverse, lp, lr, ls))
                         {
                             local.position = lp;
+                            local.rotation = lr;
                         }
                     }
                     else
                     {
                         local.position = position;
+                        local.rotation = rotation;
                     }
-                    scene.SetLocalTransform(e, local);   // rotation untouched (scene-owned)
+                    scene.SetLocalTransform(e, local);
                 });
+
+            if (auto* characters = scene.GetSystem<CharacterComponentManager>())
+            {
+                characters->ForEach(
+                    [&](CharacterComponent& c, dscene::EntityHandle e)
+                    {
+                        if (!c.character.IsValid())
+                        {
+                            return;
+                        }
+                        const Float3 position{
+                            c.prevPosition.x + (c.currPosition.x - c.prevPosition.x) * alpha,
+                            c.prevPosition.y + (c.currPosition.y - c.prevPosition.y) * alpha,
+                            c.prevPosition.z + (c.currPosition.z - c.prevPosition.z) * alpha};
+                        Transform local = scene.GetLocalTransform(e);
+                        dscene::EntityHandle parent = scene.GetParent(e);
+                        if (parent.IsAssigned())
+                        {
+                            const Float4x4 world =
+                                Transform{position, local.rotation, Float3{1, 1, 1}}.ToMatrix();
+                            Float3 lp, ls;
+                            Quaternion lr;
+                            if (Decompose(world * Inverse(scene.GetWorldMatrix(parent)), lp, lr,
+                                          ls))
+                            {
+                                local.position = lp;
+                            }
+                        }
+                        else
+                        {
+                            local.position = position;
+                        }
+                        scene.SetLocalTransform(e, local); // rotation untouched (scene-owned)
+                    });
             }
         }
 
@@ -313,94 +351,110 @@ export namespace draconic::physics
             dscene::Scene& scene = *m_scene;
             auto* joints = scene.GetSystem<JointComponentManager>();
             auto* bodies = scene.GetSystem<RigidBodyComponentManager>();
-            if (joints == nullptr || bodies == nullptr) { return; }
-            joints->ForEach([&](JointComponent& c, dscene::EntityHandle e) {
-                RigidBodyComponent* own = bodies->Get(e);
-                if (own == nullptr || !own->body.IsValid())
+            if (joints == nullptr || bodies == nullptr)
+            {
+                return;
+            }
+            joints->ForEach(
+                [&](JointComponent& c, dscene::EntityHandle e)
                 {
-                    DRACONIC_LOG_WARNING(u8"Physics", u8"'{}': joint needs a rigid body on its entity",
-                                         scene.GetEntityName(e));
-                    return;
-                }
-                BodyId target;   // invalid = world attachment
-                if (!c.targetEntity.IsNil())
-                {
-                    dscene::EntityHandle t = scene.FindEntity(c.targetEntity);
-                    RigidBodyComponent* targetBody = t.IsAssigned() ? bodies->Get(t) : nullptr;
-                    if (targetBody == nullptr || !targetBody->body.IsValid())
+                    RigidBodyComponent* own = bodies->Get(e);
+                    if (own == nullptr || !own->body.IsValid())
                     {
                         DRACONIC_LOG_WARNING(u8"Physics",
-                            u8"'{}': joint target entity has no rigid body - joint skipped",
-                            scene.GetEntityName(e));
+                                             u8"'{}': joint needs a rigid body on its entity",
+                                             scene.GetEntityName(e));
                         return;
                     }
-                    target = targetBody->body;
-                }
-                else
-                {
-                    for (dscene::EntityHandle p = scene.GetParent(e); p.IsAssigned();
-                         p = scene.GetParent(p))
+                    BodyId target; // invalid = world attachment
+                    if (!c.targetEntity.IsNil())
                     {
-                        RigidBodyComponent* parentBody = bodies->Get(p);
-                        if (parentBody != nullptr && parentBody->body.IsValid())
+                        dscene::EntityHandle t = scene.FindEntity(c.targetEntity);
+                        RigidBodyComponent* targetBody = t.IsAssigned() ? bodies->Get(t) : nullptr;
+                        if (targetBody == nullptr || !targetBody->body.IsValid())
                         {
-                            target = parentBody->body;
-                            break;
+                            DRACONIC_LOG_WARNING(
+                                u8"Physics",
+                                u8"'{}': joint target entity has no rigid body - joint skipped",
+                                scene.GetEntityName(e));
+                            return;
+                        }
+                        target = targetBody->body;
+                    }
+                    else
+                    {
+                        for (dscene::EntityHandle p = scene.GetParent(e); p.IsAssigned();
+                             p = scene.GetParent(p))
+                        {
+                            RigidBodyComponent* parentBody = bodies->Get(p);
+                            if (parentBody != nullptr && parentBody->body.IsValid())
+                            {
+                                target = parentBody->body;
+                                break;
+                            }
                         }
                     }
-                }
 
-                JointDesc desc;
-                desc.kind = c.kind;
-                desc.bodyA = own->body;
-                desc.bodyB = target;
-                const Float4x4 world = scene.GetWorldMatrix(e);
-                desc.anchor = TransformPoint(c.localAnchor, world);
-                Float3 position, scale;
-                Quaternion rotation;
-                desc.axis = Decompose(world, position, rotation, scale)
-                    ? RotateVector(rotation, c.localAxis) : c.localAxis;
-                desc.limitMin = c.limitMin;
-                desc.limitMax = c.limitMax;
-                desc.minDistance = c.minDistance;
-                desc.maxDistance = c.maxDistance;
-                desc.motorEnabled = c.motorEnabled;
-                desc.motorTargetVelocity = c.motorTargetVelocity;
-                desc.motorLimit = c.motorLimit;
-                c.joint = m_world->CreateJoint(desc);
-                if (!c.joint.IsValid())
-                {
-                    DRACONIC_LOG_WARNING(u8"Physics", u8"'{}': joint creation failed",
-                                         scene.GetEntityName(e));
-                }
-            });
+                    JointDesc desc;
+                    desc.kind = c.kind;
+                    desc.bodyA = own->body;
+                    desc.bodyB = target;
+                    const Float4x4 world = scene.GetWorldMatrix(e);
+                    desc.anchor = TransformPoint(c.localAnchor, world);
+                    Float3 position, scale;
+                    Quaternion rotation;
+                    desc.axis = Decompose(world, position, rotation, scale)
+                                    ? RotateVector(rotation, c.localAxis)
+                                    : c.localAxis;
+                    desc.limitMin = c.limitMin;
+                    desc.limitMax = c.limitMax;
+                    desc.minDistance = c.minDistance;
+                    desc.maxDistance = c.maxDistance;
+                    desc.motorEnabled = c.motorEnabled;
+                    desc.motorTargetVelocity = c.motorTargetVelocity;
+                    desc.motorLimit = c.motorLimit;
+                    c.joint = m_world->CreateJoint(desc);
+                    if (!c.joint.IsValid())
+                    {
+                        DRACONIC_LOG_WARNING(u8"Physics", u8"'{}': joint creation failed",
+                                             scene.GetEntityName(e));
+                    }
+                });
         }
 
         void BuildCharacters()
         {
             dscene::Scene& scene = *m_scene;
             auto* characters = scene.GetSystem<CharacterComponentManager>();
-            if (characters == nullptr) { return; }
-            characters->ForEach([&](CharacterComponent& c, dscene::EntityHandle e) {
-                Float3 position, scale;
-                Quaternion rotation;
-                if (!Decompose(scene.GetWorldMatrix(e), position, rotation, scale)) { return; }
-                CharacterDesc desc;
-                desc.capsuleRadius = c.radius;
-                desc.capsuleHalfHeight = c.halfHeight;
-                desc.maxSlopeDegrees = c.maxSlopeDegrees;
-                desc.mass = c.mass;
-                desc.maxStrength = c.maxStrength;
-                desc.stepUp = c.stepUp;
-                desc.stepDown = c.stepDown;
-                desc.position = position;
-                desc.userData = PackEntity(e);   // lossless entity reverse-map (see PackEntity)
-                c.character = m_world->CreateCharacter(desc);
-                c.ground = CharacterGround::InAir;
-                c.prevPosition = c.currPosition = position;
-                c.moveVelocity = Float3{ 0, 0, 0 };
-                c.jumpSpeed = 0.0f;
-            });
+            if (characters == nullptr)
+            {
+                return;
+            }
+            characters->ForEach(
+                [&](CharacterComponent& c, dscene::EntityHandle e)
+                {
+                    Float3 position, scale;
+                    Quaternion rotation;
+                    if (!Decompose(scene.GetWorldMatrix(e), position, rotation, scale))
+                    {
+                        return;
+                    }
+                    CharacterDesc desc;
+                    desc.capsuleRadius = c.radius;
+                    desc.capsuleHalfHeight = c.halfHeight;
+                    desc.maxSlopeDegrees = c.maxSlopeDegrees;
+                    desc.mass = c.mass;
+                    desc.maxStrength = c.maxStrength;
+                    desc.stepUp = c.stepUp;
+                    desc.stepDown = c.stepDown;
+                    desc.position = position;
+                    desc.userData = PackEntity(e); // lossless entity reverse-map (see PackEntity)
+                    c.character = m_world->CreateCharacter(desc);
+                    c.ground = CharacterGround::InAir;
+                    c.prevPosition = c.currPosition = position;
+                    c.moveVelocity = Float3{0, 0, 0};
+                    c.jumpSpeed = 0.0f;
+                });
         }
 
         void BuildBodies()
@@ -408,100 +462,118 @@ export namespace draconic::physics
             dscene::Scene& scene = *m_scene;
             auto* bodies = scene.GetSystem<RigidBodyComponentManager>();
             auto* colliders = scene.GetSystem<ColliderComponentManager>();
-            if (bodies == nullptr) { return; }
+            if (bodies == nullptr)
+            {
+                return;
+            }
 
-            bodies->ForEach([&](RigidBodyComponent& c, dscene::EntityHandle e) {
-                BodyDesc desc;
-                desc.motion = c.motion;
-                desc.layer = c.layer;
-                desc.friction = c.friction;
-                desc.restitution = c.restitution;
-                desc.linearDamping = c.linearDamping;
-                desc.angularDamping = c.angularDamping;
-                desc.isTrigger = c.isTrigger;
-                desc.group = c.collisionGroup;
-
-                // Reverse map: the owning entity handle, packed losslessly into the body user
-                // word (see PackEntity - unique by construction, unlike the guid's low bits).
-                desc.userData = PackEntity(e);
-
-                Float3 position, scale;
-                Quaternion rotation;
-                if (!Decompose(scene.GetWorldMatrix(e), position, rotation, scale)) { return; }
-
-                ShapeDesc own;
-                own.kind = c.shape;
-                own.halfExtents = c.halfExtents;
-                own.radius = c.radius;
-                own.halfHeight = c.halfHeight;
-                own.planeHalfExtent = c.planeHalfExtent;
-                if (c.shape == ShapeKind::Cooked)
+            bodies->ForEach(
+                [&](RigidBodyComponent& c, dscene::EntityHandle e)
                 {
-                    CollisionShape* cooked = c.collisionShape.Get();
-                    if (cooked == nullptr)
+                    BodyDesc desc;
+                    desc.motion = c.motion;
+                    desc.layer = c.layer;
+                    desc.friction = c.friction;
+                    desc.restitution = c.restitution;
+                    desc.linearDamping = c.linearDamping;
+                    desc.angularDamping = c.angularDamping;
+                    desc.isTrigger = c.isTrigger;
+                    desc.group = c.collisionGroup;
+
+                    // Reverse map: the owning entity handle, packed losslessly into the body user
+                    // word (see PackEntity - unique by construction, unlike the guid's low bits).
+                    desc.userData = PackEntity(e);
+
+                    Float3 position, scale;
+                    Quaternion rotation;
+                    if (!Decompose(scene.GetWorldMatrix(e), position, rotation, scale))
                     {
-                        DRACONIC_LOG_WARNING(u8"Physics",
-                            u8"'{}': cooked shape has no collision-shape resource - body skipped",
-                            scene.GetEntityName(e));
                         return;
                     }
-                    own.cooked = cooked->Blob();
-                    own.scale = scale;   // cooked geometry is authored unit-scale
-                }
-                desc.shapes.PushBack(own);
 
-                // Hierarchy compounding: descendant ColliderComponents fold in at their
-                // offset relative to THIS entity (captured at start).
-                if (colliders != nullptr)
-                {
-                    const Float4x4 bodyInverse = Inverse(scene.GetWorldMatrix(e));
-                    colliders->ForEach([&](ColliderComponent& extra, dscene::EntityHandle child) {
-                        if (!IsDescendantOf(scene, child, e)) { return; }
-                        Float3 lp, ls;
-                        Quaternion lr;
-                        if (!Decompose(scene.GetWorldMatrix(child) * bodyInverse, lp, lr, ls))
+                    ShapeDesc own;
+                    own.kind = c.shape;
+                    own.halfExtents = c.halfExtents;
+                    own.radius = c.radius;
+                    own.halfHeight = c.halfHeight;
+                    own.planeHalfExtent = c.planeHalfExtent;
+                    if (c.shape == ShapeKind::Cooked)
+                    {
+                        CollisionShape* cooked = c.collisionShape.Get();
+                        if (cooked == nullptr)
                         {
+                            DRACONIC_LOG_WARNING(u8"Physics",
+                                                 u8"'{}': cooked shape has no collision-shape "
+                                                 u8"resource - body skipped",
+                                                 scene.GetEntityName(e));
                             return;
                         }
-                        ShapeDesc shape;
-                        shape.kind = extra.shape;
-                        shape.halfExtents = extra.halfExtents;
-                        shape.radius = extra.radius;
-                        shape.halfHeight = extra.halfHeight;
-                        shape.planeHalfExtent = extra.planeHalfExtent;
-                        if (extra.shape == ShapeKind::Cooked)
-                        {
-                            CollisionShape* cooked = extra.collisionShape.Get();
-                            if (cooked == nullptr) { return; }
-                            shape.cooked = cooked->Blob();
-                            shape.scale = ls;
-                        }
-                        shape.localPosition = lp;
-                        shape.localRotation = lr;
-                        desc.shapes.PushBack(shape);
-                    });
-                }
+                        own.cooked = cooked->Blob();
+                        own.scale = scale; // cooked geometry is authored unit-scale
+                    }
+                    desc.shapes.PushBack(own);
 
-                desc.position = position;
-                desc.rotation = rotation;
+                    // Hierarchy compounding: descendant ColliderComponents fold in at their
+                    // offset relative to THIS entity (captured at start).
+                    if (colliders != nullptr)
+                    {
+                        const Float4x4 bodyInverse = Inverse(scene.GetWorldMatrix(e));
+                        colliders->ForEach(
+                            [&](ColliderComponent& extra, dscene::EntityHandle child)
+                            {
+                                if (!IsDescendantOf(scene, child, e))
+                                {
+                                    return;
+                                }
+                                Float3 lp, ls;
+                                Quaternion lr;
+                                if (!Decompose(scene.GetWorldMatrix(child) * bodyInverse, lp, lr,
+                                               ls))
+                                {
+                                    return;
+                                }
+                                ShapeDesc shape;
+                                shape.kind = extra.shape;
+                                shape.halfExtents = extra.halfExtents;
+                                shape.radius = extra.radius;
+                                shape.halfHeight = extra.halfHeight;
+                                shape.planeHalfExtent = extra.planeHalfExtent;
+                                if (extra.shape == ShapeKind::Cooked)
+                                {
+                                    CollisionShape* cooked = extra.collisionShape.Get();
+                                    if (cooked == nullptr)
+                                    {
+                                        return;
+                                    }
+                                    shape.cooked = cooked->Blob();
+                                    shape.scale = ls;
+                                }
+                                shape.localPosition = lp;
+                                shape.localRotation = lr;
+                                desc.shapes.PushBack(shape);
+                            });
+                    }
 
-                // A referenced PhysicalMaterial wins over the inline surface fields.
-                if (PhysicalMaterial* material = c.material.Get())
-                {
-                    desc.friction = material->friction;
-                    desc.restitution = material->restitution;
-                    desc.density = material->density;
-                }
+                    desc.position = position;
+                    desc.rotation = rotation;
 
-                c.body = m_world->CreateBody(desc);
-                c.prevPosition = c.currPosition = position;
-                c.prevRotation = c.currRotation = rotation;
-                if (!c.body.IsValid())
-                {
-                    DRACONIC_LOG_WARNING(u8"Physics", u8"body creation failed for '{}'",
-                                         scene.GetEntityName(e));
-                }
-            });
+                    // A referenced PhysicalMaterial wins over the inline surface fields.
+                    if (PhysicalMaterial* material = c.material.Get())
+                    {
+                        desc.friction = material->friction;
+                        desc.restitution = material->restitution;
+                        desc.density = material->density;
+                    }
+
+                    c.body = m_world->CreateBody(desc);
+                    c.prevPosition = c.currPosition = position;
+                    c.prevRotation = c.currRotation = rotation;
+                    if (!c.body.IsValid())
+                    {
+                        DRACONIC_LOG_WARNING(u8"Physics", u8"body creation failed for '{}'",
+                                             scene.GetEntityName(e));
+                    }
+                });
         }
 
         // Resolve every drained contact's packed user words back to live entities and push
@@ -510,7 +582,10 @@ export namespace draconic::physics
         // live is dropped.
         void DispatchContacts()
         {
-            if (m_listeners == nullptr || m_listeners->IsEmpty() || m_scene == nullptr) { return; }
+            if (m_listeners == nullptr || m_listeners->IsEmpty() || m_scene == nullptr)
+            {
+                return;
+            }
             for (const ContactEvent& event : m_events)
             {
                 const dscene::EntityHandle a = UnpackEntity(event.userA);
@@ -520,13 +595,19 @@ export namespace draconic::physics
                 contact.scene = m_scene;
                 contact.a = m_scene->IsValid(a) ? a : dscene::EntityHandle::Invalid();
                 contact.b = m_scene->IsValid(b) ? b : dscene::EntityHandle::Invalid();
-                if (!contact.a.IsAssigned() && !contact.b.IsAssigned()) { continue; }
+                if (!contact.a.IsAssigned() && !contact.b.IsAssigned())
+                {
+                    continue;
+                }
                 contact.point = event.point;
                 contact.normal = event.normal;
                 contact.speed = event.speed;
                 for (IContactListener* listener : *m_listeners)
                 {
-                    if (listener != nullptr) { listener->OnContact(contact); }
+                    if (listener != nullptr)
+                    {
+                        listener->OnContact(contact);
+                    }
                 }
             }
         }
@@ -536,16 +617,19 @@ export namespace draconic::physics
         {
             for (dscene::EntityHandle e = child; e.IsAssigned(); e = scene.GetParent(e))
             {
-                if (e == ancestor) { return true; }
+                if (e == ancestor)
+                {
+                    return true;
+                }
             }
             return false;
         }
 
-        dscene::Scene* m_scene = nullptr;   // set by OnSceneCreate
+        dscene::Scene* m_scene = nullptr; // set by OnSceneCreate
         PhysicsSceneSettings m_settings;
         UniquePtr<PhysicsWorld> m_world;
         Array<ContactEvent> m_events;
-        const Array<IContactListener*>* m_listeners = nullptr;   // owned by the subsystem
+        const Array<IContactListener*>* m_listeners = nullptr; // owned by the subsystem
     };
 
     // The runtime subsystem: injects the managers + system into every scene (ISceneAware)
@@ -562,8 +646,7 @@ export namespace draconic::physics
         bool lastHitValid = false;
     };
 
-    class PhysicsSubsystem final : public draconic::runtime::Subsystem,
-                                   public dscene::ISceneAware
+    class PhysicsSubsystem final : public draconic::runtime::Subsystem, public dscene::ISceneAware
     {
     public:
         /// Binds THIS subsystem's script seam into `context` - the Physics facade acts on
@@ -577,10 +660,16 @@ export namespace draconic::physics
         /// ignored; every per-scene world dispatches to the shared list at its physics tick.
         void RegisterContactListener(IContactListener* listener)
         {
-            if (listener == nullptr) { return; }
+            if (listener == nullptr)
+            {
+                return;
+            }
             for (IContactListener* existing : m_contactListeners)
             {
-                if (existing == listener) { return; }
+                if (existing == listener)
+                {
+                    return;
+                }
             }
             m_contactListeners.PushBack(listener);
         }
@@ -588,7 +677,11 @@ export namespace draconic::physics
         {
             for (usize i = 0; i < m_contactListeners.Size(); ++i)
             {
-                if (m_contactListeners[i] == listener) { m_contactListeners.RemoveAt(i); return; }
+                if (m_contactListeners[i] == listener)
+                {
+                    m_contactListeners.RemoveAt(i);
+                    return;
+                }
             }
         }
 
@@ -604,14 +697,18 @@ export namespace draconic::physics
             scene.AddSystem<JointComponentManager>();
             scene.AddSystem<CharacterComponentManager>();
             PhysicsSceneSystem* system = scene.AddSystem<PhysicsSceneSystem>();
-            system->SetContactListeners(&m_contactListeners);   // shared list, stable address
-            m_systems.PushBack(SceneEntry{ &scene, system });
+            system->SetContactListeners(&m_contactListeners); // shared list, stable address
+            m_systems.PushBack(SceneEntry{&scene, system});
         }
         void OnSceneDestroyed(dscene::Scene& scene) override
         {
             for (usize i = 0; i < m_systems.Size(); ++i)
             {
-                if (m_systems[i].scene == &scene) { m_systems.RemoveAt(i); return; }
+                if (m_systems[i].scene == &scene)
+                {
+                    m_systems.RemoveAt(i);
+                    return;
+                }
             }
         }
 
@@ -649,7 +746,7 @@ export namespace draconic::physics
         };
         [[nodiscard]] Span<const SceneEntry> Systems() const noexcept
         {
-            return Span<const SceneEntry>{ m_systems.Data(), m_systems.Size() };
+            return Span<const SceneEntry>{m_systems.Data(), m_systems.Size()};
         }
 
     protected:
@@ -657,7 +754,7 @@ export namespace draconic::physics
 
     private:
         Array<SceneEntry> m_systems;
-        Array<IContactListener*> m_contactListeners;   // consumers of resolved contacts
+        Array<IContactListener*> m_contactListeners; // consumers of resolved contacts
     };
 
     // The scripting facade: a foreign class named `Physics` whose STATIC methods resolve
@@ -670,9 +767,9 @@ export namespace draconic::physics
         [[nodiscard]] static PhysicsScriptBinding* Resolve()
         {
             draconic::script::IScriptContext* context = draconic::script::CurrentScriptContext();
-            return context != nullptr
-                ? static_cast<PhysicsScriptBinding*>(context->GetService(kPhysicsScriptService))
-                : nullptr;
+            return context != nullptr ? static_cast<PhysicsScriptBinding*>(
+                                            context->GetService(kPhysicsScriptService))
+                                      : nullptr;
         }
         [[nodiscard]] static PhysicsWorld* World()
         {
@@ -682,26 +779,56 @@ export namespace draconic::physics
         }
 
         /// Distance to the nearest hit, or -1 on a miss. Hit details via the hit* accessors.
-        [[nodiscard]] static f32 rayCast(f32 fromX, f32 fromY, f32 fromZ,
-                                         f32 directionX, f32 directionY, f32 directionZ,
-                                         f32 maxDistance)
+        [[nodiscard]] static f32 rayCast(f32 fromX, f32 fromY, f32 fromZ, f32 directionX,
+                                         f32 directionY, f32 directionZ, f32 maxDistance)
         {
             PhysicsScriptBinding* binding = Resolve();
             PhysicsWorld* world = World();
-            if (binding == nullptr || world == nullptr) { return -1.0f; }
-            binding->lastHitValid = world->RayCast(
-                Float3{ fromX, fromY, fromZ }, Float3{ directionX, directionY, directionZ },
-                maxDistance, binding->lastHit);
+            if (binding == nullptr || world == nullptr)
+            {
+                return -1.0f;
+            }
+            binding->lastHitValid = world->RayCast(Float3{fromX, fromY, fromZ},
+                                                   Float3{directionX, directionY, directionZ},
+                                                   maxDistance, binding->lastHit);
             return binding->lastHitValid ? binding->lastHit.fraction * maxDistance : -1.0f;
         }
-        [[nodiscard]] static f32 hitX() { auto* b = Resolve(); return b != nullptr && b->lastHitValid ? b->lastHit.position.x : 0.0f; }
-        [[nodiscard]] static f32 hitY() { auto* b = Resolve(); return b != nullptr && b->lastHitValid ? b->lastHit.position.y : 0.0f; }
-        [[nodiscard]] static f32 hitZ() { auto* b = Resolve(); return b != nullptr && b->lastHitValid ? b->lastHit.position.z : 0.0f; }
-        [[nodiscard]] static f32 hitNormalX() { auto* b = Resolve(); return b != nullptr && b->lastHitValid ? b->lastHit.normal.x : 0.0f; }
-        [[nodiscard]] static f32 hitNormalY() { auto* b = Resolve(); return b != nullptr && b->lastHitValid ? b->lastHit.normal.y : 0.0f; }
-        [[nodiscard]] static f32 hitNormalZ() { auto* b = Resolve(); return b != nullptr && b->lastHitValid ? b->lastHit.normal.z : 0.0f; }
+        [[nodiscard]] static f32 hitX()
+        {
+            auto* b = Resolve();
+            return b != nullptr && b->lastHitValid ? b->lastHit.position.x : 0.0f;
+        }
+        [[nodiscard]] static f32 hitY()
+        {
+            auto* b = Resolve();
+            return b != nullptr && b->lastHitValid ? b->lastHit.position.y : 0.0f;
+        }
+        [[nodiscard]] static f32 hitZ()
+        {
+            auto* b = Resolve();
+            return b != nullptr && b->lastHitValid ? b->lastHit.position.z : 0.0f;
+        }
+        [[nodiscard]] static f32 hitNormalX()
+        {
+            auto* b = Resolve();
+            return b != nullptr && b->lastHitValid ? b->lastHit.normal.x : 0.0f;
+        }
+        [[nodiscard]] static f32 hitNormalY()
+        {
+            auto* b = Resolve();
+            return b != nullptr && b->lastHitValid ? b->lastHit.normal.y : 0.0f;
+        }
+        [[nodiscard]] static f32 hitNormalZ()
+        {
+            auto* b = Resolve();
+            return b != nullptr && b->lastHitValid ? b->lastHit.normal.z : 0.0f;
+        }
         /// Material slot of the hit face (cooked triangle meshes; 0 otherwise).
-        [[nodiscard]] static f32 hitSurface() { auto* b = Resolve(); return b != nullptr && b->lastHitValid ? static_cast<f32>(b->lastHit.surface) : 0.0f; }
+        [[nodiscard]] static f32 hitSurface()
+        {
+            auto* b = Resolve();
+            return b != nullptr && b->lastHitValid ? static_cast<f32>(b->lastHit.surface) : 0.0f;
+        }
 
         /// The ENTITY the last successful rayCast hit, resolved from the body's packed user
         /// word (the raw u64 is an internal handle since the reverse map became an entity
@@ -715,9 +842,15 @@ export namespace draconic::physics
                 return draconic::script::Entity{};
             }
             dscene::Scene* scene = binding->system->ScenePtr();
-            if (scene == nullptr) { return draconic::script::Entity{}; }
+            if (scene == nullptr)
+            {
+                return draconic::script::Entity{};
+            }
             const dscene::EntityHandle handle = UnpackEntity(binding->lastHit.userData);
-            if (!scene->IsValid(handle)) { return draconic::script::Entity{}; }
+            if (!scene->IsValid(handle))
+            {
+                return draconic::script::Entity{};
+            }
             draconic::script::Entity entity;
             entity.scene = scene;
             entity.entityIndex = handle.index;
@@ -730,13 +863,19 @@ export namespace draconic::physics
         {
             PhysicsScriptBinding* binding = Resolve();
             PhysicsWorld* world = World();
-            if (binding == nullptr || world == nullptr || !binding->lastHitValid) { return; }
-            world->AddImpulse(binding->lastHit.body, Float3{ x, y, z });
+            if (binding == nullptr || world == nullptr || !binding->lastHitValid)
+            {
+                return;
+            }
+            world->AddImpulse(binding->lastHit.body, Float3{x, y, z});
         }
 
         static void setGravity(f32 x, f32 y, f32 z)
         {
-            if (PhysicsWorld* world = World()) { world->SetGravity(Float3{ x, y, z }); }
+            if (PhysicsWorld* world = World())
+            {
+                world->SetGravity(Float3{x, y, z});
+            }
         }
         [[nodiscard]] static f32 gravityY()
         {
@@ -754,15 +893,26 @@ export namespace draconic::physics
         [[nodiscard]] static CharacterComponent* ResolveCharacter()
         {
             PhysicsScriptBinding* binding = Resolve();
-            if (binding == nullptr || binding->system == nullptr) { return nullptr; }
+            if (binding == nullptr || binding->system == nullptr)
+            {
+                return nullptr;
+            }
             dscene::Scene* scene = binding->system->ScenePtr();
-            auto* characters = scene != nullptr
-                ? scene->GetSystem<CharacterComponentManager>() : nullptr;
-            if (characters == nullptr) { return nullptr; }
+            auto* characters =
+                scene != nullptr ? scene->GetSystem<CharacterComponentManager>() : nullptr;
+            if (characters == nullptr)
+            {
+                return nullptr;
+            }
             CharacterComponent* found = nullptr;
-            characters->ForEach([&](CharacterComponent& c, dscene::EntityHandle) {
-                if (found == nullptr && c.character.IsValid()) { found = &c; }
-            });
+            characters->ForEach(
+                [&](CharacterComponent& c, dscene::EntityHandle)
+                {
+                    if (found == nullptr && c.character.IsValid())
+                    {
+                        found = &c;
+                    }
+                });
             return found;
         }
         /// Desired planar velocity (m/s, world space) for the scene's first character.
@@ -770,22 +920,37 @@ export namespace draconic::physics
         {
             if (CharacterComponent* c = ResolveCharacter())
             {
-                c->moveVelocity = Float3{ velocityX, 0.0f, velocityZ };
+                c->moveVelocity = Float3{velocityX, 0.0f, velocityZ};
             }
         }
         /// One-shot jump at the next grounded step.
         static void jumpCharacter(f32 speed)
         {
-            if (CharacterComponent* c = ResolveCharacter()) { c->jumpSpeed = speed; }
+            if (CharacterComponent* c = ResolveCharacter())
+            {
+                c->jumpSpeed = speed;
+            }
         }
         [[nodiscard]] static bool characterGrounded()
         {
             CharacterComponent* c = ResolveCharacter();
             return c != nullptr && c->ground == CharacterGround::OnGround;
         }
-        [[nodiscard]] static f32 characterX() { auto* c = ResolveCharacter(); return c != nullptr ? c->currPosition.x : 0.0f; }
-        [[nodiscard]] static f32 characterY() { auto* c = ResolveCharacter(); return c != nullptr ? c->currPosition.y : 0.0f; }
-        [[nodiscard]] static f32 characterZ() { auto* c = ResolveCharacter(); return c != nullptr ? c->currPosition.z : 0.0f; }
+        [[nodiscard]] static f32 characterX()
+        {
+            auto* c = ResolveCharacter();
+            return c != nullptr ? c->currPosition.x : 0.0f;
+        }
+        [[nodiscard]] static f32 characterY()
+        {
+            auto* c = ResolveCharacter();
+            return c != nullptr ? c->currPosition.y : 0.0f;
+        }
+        [[nodiscard]] static f32 characterZ()
+        {
+            auto* c = ResolveCharacter();
+            return c != nullptr ? c->currPosition.z : 0.0f;
+        }
     };
 
     /// Registers the facade type (RegisterReflectedTypes then sweeps it into managers).
