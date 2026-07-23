@@ -5,11 +5,22 @@ and the plan. Keep newest first.
 
 ---
 
-## clang 21.1 frontend crash compiling `Samples/Sandbox/main.cpp` - PRE-EXISTING
+## clang 21.1 frontend crash compiling `Samples/Sandbox/main.cpp` - RESOLVED
 
-**Status:** OPEN, triaged 2026-07-22. Pre-existing; NOT introduced by the code-quality
-pass (proven by reverting the only structural Core change and rebuilding - the crash
-reproduces identically).
+**Status:** RESOLVED 2026-07-23 (as a side-effect of the code-quality pass). A full
+`build/clang` keep-going build now compiles the ENTIRE tree - Sandbox and RaptorExport
+included - with zero failures, and Sandbox compiles cleanly on repeated clean rebuilds.
+**Why it went away:** the sec 10.6 extraction pass moved ~16k lines of implementation out
+of the interface units these huge TUs transitively import (all of Render, plus Scene /
+Content / Runtime), shrinking the module BMIs the clang frontend must materialize - back
+below the crash threshold. So reducing interface bloat fixed the crash that interface
+bloat caused. Kept here (not deleted) as history + because it was resource-sensitive: if a
+future TU re-inflates the interface surface it could recur.
+
+--- original triage (2026-07-22) below ---
+
+Pre-existing; NOT introduced by the code-quality pass (proven by reverting the only
+structural Core change and rebuilding - the crash reproduced identically).
 
 **What:** the clang 21.1 frontend crashes (varying SIGSEGV / SIGABRT, exit 139 / 134,
 `Stack dump` with no source diagnostic) while compiling `Code/Samples/Sandbox/main.cpp`.
