@@ -29,7 +29,6 @@ import draconic.ui.runtime;
 namespace core     = draconic::core;
 namespace shell    = draconic::shell;
 namespace graphics = draconic::graphics;
-namespace rtc      = draconic::runtime;         // IApplicationHost (aliased rtc - "runtime" nested-resolves to ui::runtime here)
 namespace uirt     = draconic::ui::runtime;     // UIHost (distinct from draconic::runtime)
 
 // draconic::ui::application nests in draconic::ui, so View / RootView resolve unqualified and
@@ -46,7 +45,7 @@ export namespace draconic::ui::application
     class RuntimeDockableWindowHost final : public toolkit::IDockableWindowHost
     {
     public:
-        RuntimeDockableWindowHost(runtime::IApplicationHost& host, uirt::UIHost& uiHost) noexcept
+        RuntimeDockableWindowHost(draconic::runtime::IApplicationHost& host, uirt::UIHost& uiHost) noexcept
             : m_host(&host), m_uiHost(&uiHost) {}
 
         RuntimeDockableWindowHost(const RuntimeDockableWindowHost&) = delete;
@@ -232,7 +231,7 @@ export namespace draconic::ui::application
             }
         }
 
-        runtime::IApplicationHost* m_host;    // borrowed
+        draconic::runtime::IApplicationHost* m_host;    // borrowed
         uirt::UIHost*              m_uiHost;  // borrowed (the app owns it)
         core::Array<Entry>         m_entries;
 
