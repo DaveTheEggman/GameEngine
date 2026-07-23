@@ -12,11 +12,11 @@ target_sources(DraconicAnimation
         FILE_SET animation_modules TYPE CXX_MODULES FILES
             Easing.cppm
             Skeleton.cppm
-            Pose.cppm
-            Clip.cppm
+            AnimationPose.cppm
+            AnimationClip.cppm
             Sampler.cppm
-            Player.cppm
-            Graph.cppm
+            AnimationPlayer.cppm
+            AnimationGraph.cppm
             AnimationModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)

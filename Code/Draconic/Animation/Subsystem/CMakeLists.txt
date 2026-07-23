@@ -9,10 +9,12 @@ target_link_libraries(DraconicAnimationSubsystem
            Draconic::Animation Draconic::Resource Draconic::RenderSubsystem Draconic::Policy)
 
 target_sources(DraconicAnimationSubsystem
+    PRIVATE
+        AnimationSubsystemImpl.cpp   # DRACONIC_REFLECT_VALUE bodies (see Components.cppm)
     PUBLIC
         FILE_SET animation_subsystem_modules TYPE CXX_MODULES FILES
             Components.cppm
-            Subsystem.cppm
+            AnimationSubsystem.cppm
             AnimationSubsystemModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)

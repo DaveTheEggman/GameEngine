@@ -12,7 +12,6 @@
 
 module;
 #include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
 
 export module draconic.animation.subsystem:components;
 
@@ -421,52 +420,10 @@ export namespace draconic::animation
 
 } // exported namespace
 
-// Reflection (tooling: the editor inspector; pointer/player/array fields are deliberately not
-// reflected - they need resource pickers). NON-export namespace: the macros expand static
-// helpers (CoreReflection.cppm pattern).
-namespace draconic::animation
-{
-
-    DRACONIC_REFLECT_VALUE(SkeletalAnimationComponent, "draconic::animation")
-    {
-        builder.Property<&SkeletalAnimationComponent::skeleton>("skeleton")
-            .Property<&SkeletalAnimationComponent::clip>("clip")
-            .Property<&SkeletalAnimationComponent::speed>("speed")
-            .Property<&SkeletalAnimationComponent::startTime>("startTime")
-            .Property<&SkeletalAnimationComponent::autoPlay>("autoPlay");
-    }
-
-    DRACONIC_REFLECT_VALUE(AnimationGraphComponent, "draconic::animation")
-    {
-        builder.Property<&AnimationGraphComponent::skeleton>("skeleton")
-            .Property<&AnimationGraphComponent::graph>("graph")
-            .Property<&AnimationGraphComponent::active>("active");
-    }
-
-    DRACONIC_REFLECT_VALUE(InstancedSkinning, "draconic::animation")
-    {
-        builder.Property<&InstancedSkinning::poseCount>("poseCount")
-            .Property<&InstancedSkinning::speed>("speed");
-    }
-
-} // namespace draconic::animation (reflection bodies)
-
+// Reflection (tooling: the editor inspector). The DRACONIC_REFLECT_VALUE bodies +
+// RegisterAnimationComponentReflection() live in AnimationSubsystemImpl.cpp, kept out of this
+// interface partition (see gcc-module-interface-hygiene).
 export namespace draconic::animation
 {
     void RegisterAnimationComponentReflection();
-}
-
-namespace draconic::animation
-{
-    void RegisterAnimationComponentReflection()
-    {
-        static const bool once = []()
-        {
-            DraconicRegisterValue_SkeletalAnimationComponent();
-            DraconicRegisterValue_AnimationGraphComponent();
-            DraconicRegisterValue_InstancedSkinning();
-            return true;
-        }();
-        (void)once;
-    }
 }

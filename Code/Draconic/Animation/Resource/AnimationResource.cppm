@@ -17,7 +17,7 @@ import draconic.content;
 import draconic.animation;
 
 using namespace draconic::core;
-using namespace draconic::resource;
+namespace resource = draconic::resource;
 
 export namespace draconic::animation
 {
@@ -99,14 +99,14 @@ export namespace draconic::animation
         }
     };
 
-    class SkeletonFactory final : public IResourceFactory
+    class SkeletonFactory final : public resource::IResourceFactory
     {
     public:
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
             return &Skeleton::StaticType();
         }
-        [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
+        [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager& manager,
                                             draconic::content::Instance& instance) override
         {
             (void)manager;
@@ -274,14 +274,14 @@ export namespace draconic::animation
         }
     };
 
-    class AnimationClipFactory final : public IResourceFactory
+    class AnimationClipFactory final : public resource::IResourceFactory
     {
     public:
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
             return &AnimationClip::StaticType();
         }
-        [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
+        [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager& manager,
                                             draconic::content::Instance& instance) override
         {
             (void)manager;
@@ -420,7 +420,7 @@ export namespace draconic::animation
         }
 
         // Build a runtime AnimationGraph, resolving clip references through the manager.
-        void BuildInto(ResourceManager& manager, AnimationGraph& graph) const
+        void BuildInto(resource::ResourceManager& manager, AnimationGraph& graph) const
         {
             for (usize i = 0; i < paramNames.Size(); ++i)
             {
@@ -491,11 +491,11 @@ export namespace draconic::animation
 
     private:
         // Resolve a clip reference (null id -> null clip). Bind records the graph->clip dependency edge.
-        [[nodiscard]] static AnimationClip* ResolveClip(ResourceManager& manager, const Guid& id)
+        [[nodiscard]] static AnimationClip* ResolveClip(resource::ResourceManager& manager, const Guid& id)
         {
             return id.IsNil() ? nullptr : manager.Bind<AnimationClip>(id).Get();
         }
-        [[nodiscard]] static UniquePtr<IAnimationStateNode> BuildNode(ResourceManager& manager,
+        [[nodiscard]] static UniquePtr<IAnimationStateNode> BuildNode(resource::ResourceManager& manager,
                                                                       const GraphNodeData& n)
         {
             if (n.kind == 1)
@@ -526,14 +526,14 @@ export namespace draconic::animation
         }
     };
 
-    class AnimationGraphFactory final : public IResourceFactory
+    class AnimationGraphFactory final : public resource::IResourceFactory
     {
     public:
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
             return &AnimationGraph::StaticType();
         }
-        [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
+        [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager& manager,
                                             draconic::content::Instance& instance) override
         {
             RefPtr<ISerializable> object = instance.ReadObject();
