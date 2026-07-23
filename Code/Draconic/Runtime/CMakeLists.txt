@@ -10,7 +10,7 @@ target_sources(DraconicRuntime
         FILE_SET runtime_modules TYPE CXX_MODULES FILES
             RuntimeModule.cppm
             Subsystem.cppm
-            Context.cppm
+            RuntimeContext.cppm
             Plugin.cppm
             PluginHost.cppm)
 
