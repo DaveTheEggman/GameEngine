@@ -16,21 +16,23 @@ import draconic.core;
 
 using namespace draconic::core;
 
-export namespace draconic::scene {
+export namespace draconic::scene
+{
 
-class Scene;   // defined in :scene (same module)
+    class Scene; // defined in :scene (same module)
 
-class ISceneAware {
-public:
-    virtual ~ISceneAware() = default;
+    class ISceneAware
+    {
+    public:
+        virtual ~ISceneAware() = default;
 
-    // A new scene was created - inject per-scene systems here.
-    virtual void OnSceneCreated(Scene& scene) = 0;
-    // All scene-aware subsystems have run OnSceneCreated - safe to reach another
-    // subsystem's per-scene state now.
-    virtual void OnSceneReady(Scene& /*scene*/) {}
-    // The scene is being destroyed - drop references to it.
-    virtual void OnSceneDestroyed(Scene& /*scene*/) {}
-};
+        // A new scene was created - inject per-scene systems here.
+        virtual void OnSceneCreated(Scene& scene) = 0;
+        // All scene-aware subsystems have run OnSceneCreated - safe to reach another
+        // subsystem's per-scene state now.
+        virtual void OnSceneReady(Scene& /*scene*/) {}
+        // The scene is being destroyed - drop references to it.
+        virtual void OnSceneDestroyed(Scene& /*scene*/) {}
+    };
 
 } // namespace draconic::scene

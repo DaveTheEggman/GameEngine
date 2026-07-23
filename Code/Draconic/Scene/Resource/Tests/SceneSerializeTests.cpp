@@ -15,10 +15,14 @@ using namespace draconic::scene;
 
 namespace
 {
-    struct Health { f32 value = 100.0f; };
+    struct Health
+    {
+        f32 value = 100.0f;
+    };
     void Serialize(ISerializer& ar, Health& h) { draconic::core::Serialize(ar, "value", h.value); }
 
-    class HealthManager : public SerializableComponentManager<Health> {
+    class HealthManager : public SerializableComponentManager<Health>
+    {
     public:
         HealthManager() : SerializableComponentManager<Health>(u8"demo.Health") {}
     };
@@ -31,16 +35,16 @@ TEST_CASE("scene round-trips through SerializeScene (entities, hierarchy, transf
     // --- author scene A ---
     Scene a(u8"level");
     HealthManager* mgrA = a.AddSystem<HealthManager>();
-    EntityHandle root  = a.CreateEntity(u8"root");
+    EntityHandle root = a.CreateEntity(u8"root");
     EntityHandle child = a.CreateEntity(u8"child");
     a.SetParent(child, root);
-    a.SetLocalPosition(root, Float3{ 1, 2, 3 });
-    a.SetLocalPosition(child, Float3{ 4, 0, 0 });
+    a.SetLocalPosition(root, Float3{1, 2, 3});
+    a.SetLocalPosition(child, Float3{4, 0, 0});
     mgrA->Add(root).value = 50.0f;
     mgrA->Add(child).value = 75.0f;
     a.SetActive(child, false);
 
-    const Guid rootId  = a.GetEntityId(root);
+    const Guid rootId = a.GetEntityId(root);
     const Guid childId = a.GetEntityId(child);
 
     // --- serialize to memory ---
@@ -63,23 +67,23 @@ TEST_CASE("scene round-trips through SerializeScene (entities, hierarchy, transf
     CHECK(b.Name() == u8"level");
     CHECK(b.EntityCount() == 2);
 
-    EntityHandle rootB  = b.FindEntity(rootId);     // Guids preserved
+    EntityHandle rootB = b.FindEntity(rootId); // Guids preserved
     EntityHandle childB = b.FindEntity(childId);
     REQUIRE(rootB.IsAssigned());
     REQUIRE(childB.IsAssigned());
 
     CHECK(b.GetEntityName(rootB) == u8"root");
     CHECK(b.GetEntityName(childB) == u8"child");
-    CHECK(b.GetParent(childB) == rootB);            // hierarchy relinked
+    CHECK(b.GetParent(childB) == rootB); // hierarchy relinked
     CHECK(b.GetParent(rootB) == EntityHandle::Invalid());
-    CHECK_FALSE(b.IsActive(childB));                 // active state preserved
+    CHECK_FALSE(b.IsActive(childB)); // active state preserved
 
     CHECK(Near(b.GetLocalTransform(rootB).position.x, 1.0f));
     CHECK(Near(b.GetLocalTransform(childB).position.x, 4.0f));
 
     REQUIRE(mgrB->Has(rootB));
     REQUIRE(mgrB->Has(childB));
-    CHECK(Near(mgrB->Get(rootB)->value, 50.0f));    // component data preserved
+    CHECK(Near(mgrB->Get(rootB)->value, 50.0f)); // component data preserved
     CHECK(Near(mgrB->Get(childB)->value, 75.0f));
     CHECK(mgrB->Count() == 2);
 
@@ -93,11 +97,17 @@ TEST_CASE("empty scene round-trips")
 {
     Scene a(u8"empty");
     MemoryStream stream;
-    { BinarySerializer w(stream, SerializeMode::Write); SerializeScene(w, a); }
+    {
+        BinarySerializer w(stream, SerializeMode::Write);
+        SerializeScene(w, a);
+    }
     (void)stream.Seek(0, SeekOrigin::Begin);
 
     Scene b;
-    { BinarySerializer r(stream, SerializeMode::Read); SerializeScene(r, b); }
+    {
+        BinarySerializer r(stream, SerializeMode::Read);
+        SerializeScene(r, b);
+    }
     CHECK(b.Name() == u8"empty");
     CHECK(b.EntityCount() == 0);
 }
@@ -115,8 +125,8 @@ TEST_CASE("scene-serialize: sibling order round-trips after reorders")
     scene.SetParent(a, p);
     scene.SetParent(b, p);
     scene.SetParent(c, p);
-    scene.MoveBefore(c, a);          // children: c, a, b
-    scene.MoveBefore(p, scene.GetFirstRoot());   // p to the front of the roots
+    scene.MoveBefore(c, a);                    // children: c, a, b
+    scene.MoveBefore(p, scene.GetFirstRoot()); // p to the front of the roots
 
     MemoryStream buffer;
     {
@@ -193,7 +203,7 @@ TEST_CASE("scene-serialize: a save with duplicate entity guids loads with recove
     {
         Scene scene;
         shared = scene.GetEntityId(scene.CreateEntity(u8"Original"));
-        (void)scene.CreateEntity(shared, u8"Impostor");   // explicit-guid create = the corruption
+        (void)scene.CreateEntity(shared, u8"Impostor"); // explicit-guid create = the corruption
         BinarySerializer ar(blob, SerializeMode::Write);
         SerializeScene(ar, scene);
         REQUIRE(ar.IsOk());
@@ -221,9 +231,9 @@ TEST_CASE("scene-snapshot: capture -> simulate-style mutations -> restore into t
     // are part of the snapshot so guid-keyed state re-resolves).
     Scene scene(u8"level");
     HealthManager* mgr = scene.AddSystem<HealthManager>();
-    EntityHandle hero  = scene.CreateEntity(u8"hero");
-    EntityHandle prop  = scene.CreateEntity(u8"prop");
-    scene.SetLocalPosition(hero, Float3{ 1, 0, 0 });
+    EntityHandle hero = scene.CreateEntity(u8"hero");
+    EntityHandle prop = scene.CreateEntity(u8"prop");
+    scene.SetLocalPosition(hero, Float3{1, 0, 0});
     mgr->Add(hero).value = 50.0f;
     const Guid heroId = scene.GetEntityId(hero);
     const Guid propId = scene.GetEntityId(prop);
@@ -232,7 +242,7 @@ TEST_CASE("scene-snapshot: capture -> simulate-style mutations -> restore into t
     REQUIRE(snapshot);
 
     // "Runtime" mutations: move + damage the hero, destroy the prop, spawn a projectile.
-    scene.SetLocalPosition(hero, Float3{ 9, 9, 9 });
+    scene.SetLocalPosition(hero, Float3{9, 9, 9});
     mgr->Get(hero)->value = 1.0f;
     scene.DestroyEntity(prop);
     EntityHandle projectile = scene.CreateEntity(u8"projectile");
@@ -258,13 +268,18 @@ TEST_CASE("scene-snapshot: capture -> simulate-style mutations -> restore into t
 
 namespace
 {
-    struct Turret { f32 range = 5.0f; u32 seenVersion = 0; };
+    struct Turret
+    {
+        f32 range = 5.0f;
+        u32 seenVersion = 0;
+    };
     void Serialize(ISerializer& ar, Turret& t)
     {
-        t.seenVersion = ar.Version();   // record what the scope exposes (test probe)
+        t.seenVersion = ar.Version(); // record what the scope exposes (test probe)
         draconic::core::Serialize(ar, "range", t.range);
     }
-    class TurretManager : public SerializableComponentManager<Turret> {
+    class TurretManager : public SerializableComponentManager<Turret>
+    {
     public:
         TurretManager() : SerializableComponentManager<Turret>(u8"demo.Turret") {}
     };
@@ -278,7 +293,7 @@ DRACONIC_REFLECT_VALUE(Turret, "demo")
 
 TEST_CASE("scene-serialize: component records carry the reflected type's data version")
 {
-    DraconicRegisterValue_Turret();   // patches TypeOf<Turret> (name + dataVersion 3)
+    DraconicRegisterValue_Turret(); // patches TypeOf<Turret> (name + dataVersion 3)
     REQUIRE(TypeOf<Turret>().dataVersion == 3u);
 
     Scene a(u8"level");
@@ -316,13 +331,16 @@ namespace
     struct FogSettings
     {
         f32 density = 0.5f;
-        Color tint  = Color{ 1, 1, 1, 1 };
+        Color tint = Color{1, 1, 1, 1};
     };
 
     class FogSystem final : public SceneSystem
     {
     public:
-        [[nodiscard]] const TypeInfo* SettingsType() const noexcept override { return &TypeOf<FogSettings>(); }
+        [[nodiscard]] const TypeInfo* SettingsType() const noexcept override
+        {
+            return &TypeOf<FogSettings>();
+        }
         [[nodiscard]] void* SettingsInstance() noexcept override { return &settings; }
         [[nodiscard]] StringView SettingsId() const noexcept override { return u8"fog"; }
         void SerializeSettings(ISerializer& ar) override
@@ -340,7 +358,7 @@ TEST_CASE("scene-serialize: scene-system settings round-trip; pre-settings saves
     Scene a(u8"level");
     FogSystem* fogA = a.AddSystem<FogSystem>();
     fogA->settings.density = 2.25f;
-    fogA->settings.tint    = Color{ 0.2f, 0.4f, 0.6f, 1.0f };
+    fogA->settings.tint = Color{0.2f, 0.4f, 0.6f, 1.0f};
     (void)a.CreateEntity(u8"e");
 
     MemoryStream stream;
@@ -385,7 +403,7 @@ TEST_CASE("scene-serialize: scene-system settings round-trip; pre-settings saves
         BinarySerializer reader(legacyStream, SerializeMode::Read);
         SerializeScene(reader, c, &legacyStream);
         REQUIRE(reader.IsOk());
-        CHECK(Near(fogC->settings.density, 0.5f));   // defaults stand
+        CHECK(Near(fogC->settings.density, 0.5f)); // defaults stand
     }
 
     // A settings-era save from BEFORE the prefab section: chop just that section - the
@@ -422,11 +440,12 @@ TEST_CASE("prefab: capture -> spawn twice (fresh guids, hierarchy, components, b
 {
     Scene author(u8"author");
     HealthManager* authorHealth = author.AddSystem<HealthManager>();
-    EntityHandle root  = author.CreateEntity(u8"Turret");
+    EntityHandle root = author.CreateEntity(u8"Turret");
     EntityHandle barrel = author.CreateEntity(u8"Barrel");
     author.SetParent(barrel, root);
-    author.SetLocalPosition(root, Float3{ 9, 9, 9 });   // authoring placement - NOT part of the payload semantics
-    author.SetLocalPosition(barrel, Float3{ 0, 1, 0 });
+    author.SetLocalPosition(
+        root, Float3{9, 9, 9}); // authoring placement - NOT part of the payload semantics
+    author.SetLocalPosition(barrel, Float3{0, 1, 0});
     authorHealth->Add(root).value = 40.0f;
     authorHealth->Add(barrel).value = 10.0f;
 
@@ -438,13 +457,13 @@ TEST_CASE("prefab: capture -> spawn twice (fresh guids, hierarchy, components, b
     EntityHandle anchor = target.CreateEntity(u8"Anchor");
 
     (void)payload.Seek(0, SeekOrigin::Begin);
-    const Guid prefabId{ 0xAA, 0xBB };
+    const Guid prefabId{0xAA, 0xBB};
     EntityHandle inst1 = SpawnPrefab(target, payload, prefabId, anchor);
     (void)payload.Seek(0, SeekOrigin::Begin);
     EntityHandle inst2 = SpawnPrefab(target, payload, prefabId);
     REQUIRE(inst1.IsAssigned());
     REQUIRE(inst2.IsAssigned());
-    CHECK(target.GetEntityId(inst1) != target.GetEntityId(inst2));   // fresh guids per spawn
+    CHECK(target.GetEntityId(inst1) != target.GetEntityId(inst2)); // fresh guids per spawn
 
     CHECK(target.GetParent(inst1) == anchor);
     CHECK(!target.GetParent(inst2).IsAssigned());
@@ -472,7 +491,7 @@ TEST_CASE("prefab: scenes save instances as ref+deltas and restore them (overrid
     Scene author(u8"author");
     HealthManager* authorHealth = author.AddSystem<HealthManager>();
     EntityHandle root = author.CreateEntity(u8"Tower");
-    EntityHandle top  = author.CreateEntity(u8"Top");
+    EntityHandle top = author.CreateEntity(u8"Top");
     EntityHandle flag = author.CreateEntity(u8"Flag");
     author.SetParent(top, root);
     author.SetParent(flag, top);
@@ -488,17 +507,17 @@ TEST_CASE("prefab: scenes save instances as ref+deltas and restore them (overrid
     health->Add(plain).value = 7.0f;
 
     (void)payload.Seek(0, SeekOrigin::Begin);
-    const Guid prefabId{ 0x11, 0x22 };
+    const Guid prefabId{0x11, 0x22};
     EntityHandle inst = SpawnPrefab(level, payload, prefabId);
     REQUIRE(inst.IsAssigned());
-    level.SetLocalPosition(inst, Float3{ 5, 0, 5 });              // instance placement
+    level.SetLocalPosition(inst, Float3{5, 0, 5}); // instance placement
     EntityHandle instTop = level.GetFirstChild(inst);
     EntityHandle instFlag = level.GetFirstChild(instTop);
     REQUIRE(instFlag.IsAssigned());
-    health->Get(instTop)->value = 51.0f;                          // component MODIFY
-    level.SetLocalPosition(instTop, Float3{ 0, 2, 0 });           // transform override
-    health->Add(instFlag).value = 5.0f;                           // component ADD
-    health->RemoveComponent(inst);                                // component REMOVE (root's)
+    health->Get(instTop)->value = 51.0f;              // component MODIFY
+    level.SetLocalPosition(instTop, Float3{0, 2, 0}); // transform override
+    health->Add(instFlag).value = 5.0f;               // component ADD
+    health->RemoveComponent(inst);                    // component REMOVE (root's)
     const Guid instId = level.GetEntityId(inst);
     const Guid instTopId = level.GetEntityId(instTop);
 
@@ -519,35 +538,40 @@ TEST_CASE("prefab: scenes save instances as ref+deltas and restore them (overrid
         SerializeScene(r, loaded, &saved);
         REQUIRE(r.IsOk());
     }
-    CHECK(loaded.EntityCount() == 1u);   // only the plain entity so far
+    CHECK(loaded.EntityCount() == 1u); // only the plain entity so far
     CHECK(loaded.PendingPrefabInstanceCount() == 1u);
     const Span<const byte> payloadBytes = payload.Bytes();
-    ResolveScenePrefabs(loaded, Function<UniquePtr<IStream>(const Guid&)>{
-        [&payloadBytes, prefabId](const Guid& id) -> UniquePtr<IStream> {
-            if (id != prefabId) { return UniquePtr<IStream>{}; }
-            auto stream = MakeUnique<MemoryStream>(DefaultAllocator());
-            (void)stream->Write(payloadBytes.Data(), payloadBytes.Size());
-            (void)stream->Seek(0, SeekOrigin::Begin);
-            return UniquePtr<IStream>(stream.Release(), DefaultAllocator());
-        } });
+    ResolveScenePrefabs(loaded,
+                        Function<UniquePtr<IStream>(const Guid&)>{
+                            [&payloadBytes, prefabId](const Guid& id) -> UniquePtr<IStream>
+                            {
+                                if (id != prefabId)
+                                {
+                                    return UniquePtr<IStream>{};
+                                }
+                                auto stream = MakeUnique<MemoryStream>(DefaultAllocator());
+                                (void)stream->Write(payloadBytes.Data(), payloadBytes.Size());
+                                (void)stream->Seek(0, SeekOrigin::Begin);
+                                return UniquePtr<IStream>(stream.Release(), DefaultAllocator());
+                            }});
 
     // Identity: the instance respawned with its SAVED guids.
     EntityHandle lInst = loaded.FindEntity(instId);
-    EntityHandle lTop  = loaded.FindEntity(instTopId);
+    EntityHandle lTop = loaded.FindEntity(instTopId);
     REQUIRE(lInst.IsAssigned());
     REQUIRE(lTop.IsAssigned());
     CHECK(loaded.PrefabInstanceCount() == 1u);
 
     // Placement + every delta kind survived.
     CHECK(Near(loaded.GetLocalTransform(lInst).position.x, 5.0f));
-    CHECK(Near(loaded.GetLocalTransform(lTop).position.y, 2.0f));   // transform override
+    CHECK(Near(loaded.GetLocalTransform(lTop).position.y, 2.0f)); // transform override
     REQUIRE(loadedHealth->Has(lTop));
-    CHECK(Near(loadedHealth->Get(lTop)->value, 51.0f));             // modify
+    CHECK(Near(loadedHealth->Get(lTop)->value, 51.0f)); // modify
     EntityHandle lFlag = loaded.GetFirstChild(lTop);
     REQUIRE(lFlag.IsAssigned());
     REQUIRE(loadedHealth->Has(lFlag));
-    CHECK(Near(loadedHealth->Get(lFlag)->value, 5.0f));             // add
-    CHECK(!loadedHealth->Has(lInst));                                // remove
+    CHECK(Near(loadedHealth->Get(lFlag)->value, 5.0f)); // add
+    CHECK(!loadedHealth->Has(lInst));                   // remove
 }
 
 TEST_CASE("prefab: destroyed members stay destroyed across save/load")
@@ -565,12 +589,12 @@ TEST_CASE("prefab: destroyed members stay destroyed across save/load")
     Scene level(u8"level");
     (void)level.AddSystem<HealthManager>();
     (void)payload.Seek(0, SeekOrigin::Begin);
-    const Guid prefabId{ 0x77, 0x88 };
+    const Guid prefabId{0x77, 0x88};
     EntityHandle inst = SpawnPrefab(level, payload, prefabId);
     REQUIRE(inst.IsAssigned());
     EntityHandle memberA = level.GetFirstChild(inst);
     REQUIRE(memberA.IsAssigned());
-    level.DestroyEntity(memberA);   // user deletes one member
+    level.DestroyEntity(memberA); // user deletes one member
 
     MemoryStream saved;
     {
@@ -585,19 +609,24 @@ TEST_CASE("prefab: destroyed members stay destroyed across save/load")
         SerializeScene(r, loaded, &saved);
     }
     const Span<const byte> payloadBytes = payload.Bytes();
-    ResolveScenePrefabs(loaded, Function<UniquePtr<IStream>(const Guid&)>{
-        [&payloadBytes](const Guid&) -> UniquePtr<IStream> {
-            auto stream = MakeUnique<MemoryStream>(DefaultAllocator());
-            (void)stream->Write(payloadBytes.Data(), payloadBytes.Size());
-            (void)stream->Seek(0, SeekOrigin::Begin);
-            return UniquePtr<IStream>(stream.Release(), DefaultAllocator());
-        } });
+    ResolveScenePrefabs(loaded,
+                        Function<UniquePtr<IStream>(const Guid&)>{
+                            [&payloadBytes](const Guid&) -> UniquePtr<IStream>
+                            {
+                                auto stream = MakeUnique<MemoryStream>(DefaultAllocator());
+                                (void)stream->Write(payloadBytes.Data(), payloadBytes.Size());
+                                (void)stream->Seek(0, SeekOrigin::Begin);
+                                return UniquePtr<IStream>(stream.Release(), DefaultAllocator());
+                            }});
 
     // Root + ONE surviving child (the destroyed member did not respawn).
     EntityHandle lRoot = loaded.GetFirstRoot();
     REQUIRE(lRoot.IsAssigned());
     u32 childCount = 0;
-    for (EntityHandle c = loaded.GetFirstChild(lRoot); c.IsAssigned(); c = loaded.GetNextSibling(c)) { ++childCount; }
+    for (EntityHandle c = loaded.GetFirstChild(lRoot); c.IsAssigned(); c = loaded.GetNextSibling(c))
+    {
+        ++childCount;
+    }
     CHECK(childCount == 1u);
 }
 
@@ -613,10 +642,10 @@ TEST_CASE("prefab: snapshots expand instances and restore their state resolver-f
     Scene level(u8"level");
     HealthManager* health = level.AddSystem<HealthManager>();
     (void)payload.Seek(0, SeekOrigin::Begin);
-    const Guid prefabId{ 0x42, 0x42 };
+    const Guid prefabId{0x42, 0x42};
     EntityHandle inst = SpawnPrefab(level, payload, prefabId);
     REQUIRE(inst.IsAssigned());
-    health->Get(inst)->value = 34.0f;   // an override the snapshot must preserve
+    health->Get(inst)->value = 34.0f; // an override the snapshot must preserve
     const Guid instId = level.GetEntityId(inst);
 
     UniquePtr<SceneSnapshot> snapshot = SceneSnapshot::Capture(level);
@@ -631,7 +660,7 @@ TEST_CASE("prefab: snapshots expand instances and restore their state resolver-f
     REQUIRE(restored.IsAssigned());
     REQUIRE(health->Has(restored));
     CHECK(Near(health->Get(restored)->value, 34.0f));
-    CHECK(level.PrefabInstanceCount() == 1u);   // bookkeeping restored WITHOUT a resolver
+    CHECK(level.PrefabInstanceCount() == 1u); // bookkeeping restored WITHOUT a resolver
     Scene::PrefabInstanceState* state = level.FindPrefabInstanceByRoot(instId);
     REQUIRE(state != nullptr);
     CHECK(state->prefabId == prefabId);
@@ -651,14 +680,14 @@ TEST_CASE("prefab: template rebuild preserves deltas and picks up new members")
     Scene level(u8"level");
     HealthManager* health = level.AddSystem<HealthManager>();
     (void)payloadV1.Seek(0, SeekOrigin::Begin);
-    const Guid prefabId{ 0xF0, 0x0D };
+    const Guid prefabId{0xF0, 0x0D};
     EntityHandle inst = SpawnPrefab(level, payloadV1, prefabId);
     REQUIRE(inst.IsAssigned());
     const Guid instId = level.GetEntityId(inst);
     EntityHandle instDoor = level.GetFirstChild(inst);
     const Guid instDoorId = level.GetEntityId(instDoor);
-    health->Get(instDoor)->value = 21.0f;                 // user override
-    level.SetLocalPosition(inst, Float3{ 3, 0, 0 });      // placement
+    health->Get(instDoor)->value = 21.0f;          // user override
+    level.SetLocalPosition(inst, Float3{3, 0, 0}); // placement
 
     // Template v2: door healthier + a brand-new window member.
     authorHealth->Get(door)->value = 25.0f;
@@ -676,12 +705,16 @@ TEST_CASE("prefab: template rebuild preserves deltas and picks up new members")
     REQUIRE(rInst.IsAssigned());
     REQUIRE(rDoor.IsAssigned());
     CHECK(Near(level.GetLocalTransform(rInst).position.x, 3.0f));
-    CHECK(Near(health->Get(rDoor)->value, 21.0f));        // override beats the template's 25
+    CHECK(Near(health->Get(rDoor)->value, 21.0f)); // override beats the template's 25
     u32 kids = 0;
     bool sawWindow = false;
-    for (EntityHandle c = level.GetFirstChild(rInst); c.IsAssigned(); c = level.GetNextSibling(c)) {
+    for (EntityHandle c = level.GetFirstChild(rInst); c.IsAssigned(); c = level.GetNextSibling(c))
+    {
         ++kids;
-        if (level.GetEntityName(c) == StringView(u8"Window")) { sawWindow = true; }
+        if (level.GetEntityName(c) == StringView(u8"Window"))
+        {
+            sawWindow = true;
+        }
     }
     CHECK(kids == 2u);
     CHECK(sawWindow);
@@ -703,7 +736,7 @@ TEST_CASE("prefab P2: apply-as-template keeps source ids; revert discards deltas
     Scene level(u8"level");
     HealthManager* health = level.AddSystem<HealthManager>();
     (void)payload.Seek(0, SeekOrigin::Begin);
-    const Guid prefabId{ 0xCA, 0x87 };
+    const Guid prefabId{0xCA, 0x87};
     EntityHandle inst = SpawnPrefab(level, payload, prefabId);
     REQUIRE(inst.IsAssigned());
     EntityHandle instWheel = level.GetFirstChild(inst);
@@ -727,32 +760,38 @@ TEST_CASE("prefab P2: apply-as-template keeps source ids; revert discards deltas
     Scene check(u8"check");
     HealthManager* checkHealth = check.AddSystem<HealthManager>();
     (void)applied.Seek(0, SeekOrigin::Begin);
-    HashMap<Guid, Guid> pin;   // spawn with source ids AS live ids to inspect the template
+    HashMap<Guid, Guid> pin; // spawn with source ids AS live ids to inspect the template
     pin.InsertOrAssign(wheelSourceId, wheelSourceId);
     EntityHandle tRoot = SpawnPrefab(check, applied, prefabId, EntityHandle::Invalid(), &pin);
     REQUIRE(tRoot.IsAssigned());
-    EntityHandle tWheel = check.FindEntity(wheelSourceId);   // SOURCE id preserved
+    EntityHandle tWheel = check.FindEntity(wheelSourceId); // SOURCE id preserved
     REQUIRE(tWheel.IsAssigned());
-    CHECK(Near(checkHealth->Get(tWheel)->value, 11.0f));     // the applied override
+    CHECK(Near(checkHealth->Get(tWheel)->value, 11.0f)); // the applied override
     u32 kids = 0;
-    for (EntityHandle c = check.GetFirstChild(tRoot); c.IsAssigned(); c = check.GetNextSibling(c)) { ++kids; }
-    CHECK(kids == 2u);                                        // wheel + the applied lamp
+    for (EntityHandle c = check.GetFirstChild(tRoot); c.IsAssigned(); c = check.GetNextSibling(c))
+    {
+        ++kids;
+    }
+    CHECK(kids == 2u); // wheel + the applied lamp
 
     // Revert: back to the ORIGINAL template, same guids, deltas gone.
     const Guid instId = level.GetEntityId(inst);
     const Guid instWheelId = level.GetEntityId(instWheel);
-    level.SetLocalPosition(inst, Float3{ 7, 0, 0 });          // placement must SURVIVE revert
+    level.SetLocalPosition(inst, Float3{7, 0, 0}); // placement must SURVIVE revert
     const Span<const byte> original = payload.Bytes();
     REQUIRE(RevertPrefabInstance(level, instId, original));
     EntityHandle rInst = level.FindEntity(instId);
     EntityHandle rWheel = level.FindEntity(instWheelId);
     REQUIRE(rInst.IsAssigned());
     REQUIRE(rWheel.IsAssigned());
-    CHECK(Near(health->Get(rWheel)->value, 10.0f));           // override discarded
-    CHECK(Near(level.GetLocalTransform(rInst).position.x, 7.0f));   // placement kept
+    CHECK(Near(health->Get(rWheel)->value, 10.0f));               // override discarded
+    CHECK(Near(level.GetLocalTransform(rInst).position.x, 7.0f)); // placement kept
     u32 rKids = 0;
-    for (EntityHandle c = level.GetFirstChild(rInst); c.IsAssigned(); c = level.GetNextSibling(c)) { ++rKids; }
-    CHECK(rKids == 1u);                                        // the user-added lamp is gone? NO -
+    for (EntityHandle c = level.GetFirstChild(rInst); c.IsAssigned(); c = level.GetNextSibling(c))
+    {
+        ++rKids;
+    }
+    CHECK(rKids == 1u); // the user-added lamp is gone? NO -
     // the lamp was parented under the instance but is NOT a member; destroying the root took
     // it with the subtree. That is the documented revert semantic: non-member children die
     // with the instance they live under.
@@ -773,7 +812,7 @@ TEST_CASE("prefab: legacy multi-root payload normalizes to one root on spawn")
     (void)payload.Seek(0, SeekOrigin::Begin);
 
     Scene level(u8"level");
-    EntityHandle root = SpawnPrefab(level, payload, Guid{ 0xAB, 0x12 });
+    EntityHandle root = SpawnPrefab(level, payload, Guid{0xAB, 0x12});
     REQUIRE(root.IsAssigned());
     CHECK(level.GetEntityName(root) == StringView(u8"Ball"));
 
@@ -790,7 +829,7 @@ TEST_CASE("prefab: legacy multi-root payload normalizes to one root on spawn")
     REQUIRE(CaptureInstanceAsTemplate(level, *state, captured).IsOk());
     (void)captured.Seek(0, SeekOrigin::Begin);
     Scene other(u8"other");
-    EntityHandle respawned = SpawnPrefab(other, captured, Guid{ 0xAB, 0x12 });
+    EntityHandle respawned = SpawnPrefab(other, captured, Guid{0xAB, 0x12});
     REQUIRE(respawned.IsAssigned());
     CHECK(other.GetFirstChild(respawned).IsAssigned());
 }
@@ -804,7 +843,10 @@ TEST_CASE("prefab: SavePrefab refuses a multi-root scene")
     (void)scene.CreateEntity(u8"A");
     (void)scene.CreateEntity(u8"B");
     usize roots = 0;
-    for (EntityHandle r = scene.GetFirstRoot(); r.IsAssigned(); r = scene.GetNextSibling(r)) { ++roots; }
+    for (EntityHandle r = scene.GetFirstRoot(); r.IsAssigned(); r = scene.GetNextSibling(r))
+    {
+        ++roots;
+    }
     CHECK(roots == 2);
 }
 
@@ -813,19 +855,19 @@ TEST_CASE("prefab: apply-as-template keeps the template root transform, not the 
     Scene author(u8"author");
     EntityHandle tmpl = author.CreateEntity(u8"Lamp");
     Transform authored;
-    authored.position = Float3{ 1.0f, 2.0f, 3.0f };
+    authored.position = Float3{1.0f, 2.0f, 3.0f};
     author.SetLocalTransform(tmpl, authored);
     MemoryStream payload;
     REQUIRE(CapturePrefab(author, tmpl, payload).IsOk());
 
     Scene level(u8"level");
     (void)payload.Seek(0, SeekOrigin::Begin);
-    EntityHandle inst = SpawnPrefab(level, payload, Guid{ 0x77, 0x3 });
+    EntityHandle inst = SpawnPrefab(level, payload, Guid{0x77, 0x3});
     REQUIRE(inst.IsAssigned());
 
     // Move the instance root - that's PLACEMENT, not template content.
     Transform placed;
-    placed.position = Float3{ 50.0f, 0.0f, -9.0f };
+    placed.position = Float3{50.0f, 0.0f, -9.0f};
     level.SetLocalTransform(inst, placed);
 
     Scene::PrefabInstanceState* state = level.FindPrefabInstanceByRoot(level.GetEntityId(inst));
@@ -836,7 +878,7 @@ TEST_CASE("prefab: apply-as-template keeps the template root transform, not the 
     // Respawn the captured template elsewhere: the root sits at the AUTHORED transform.
     Scene other(u8"other");
     (void)captured.Seek(0, SeekOrigin::Begin);
-    EntityHandle fresh = SpawnPrefab(other, captured, Guid{ 0x77, 0x3 });
+    EntityHandle fresh = SpawnPrefab(other, captured, Guid{0x77, 0x3});
     REQUIRE(fresh.IsAssigned());
     const Transform t = other.GetLocalTransform(fresh);
     CHECK(t.position.x == 1.0f);
@@ -846,7 +888,8 @@ TEST_CASE("prefab: apply-as-template keeps the template root transform, not the 
 
 // ============================== P4: nesting ==================================
 
-namespace {
+namespace
+{
     // Author a Q template: root "Wheel" (health 10) + child "Hub" (health 5).
     Array<byte> AuthorInnerTemplate()
     {
@@ -860,14 +903,21 @@ namespace {
         MemoryStream payload;
         REQUIRE(CapturePrefab(author, wheel, payload).IsOk());
         Array<byte> bytes;
-        for (byte b : payload.Bytes()) { bytes.PushBack(b); }
+        for (byte b : payload.Bytes())
+        {
+            bytes.PushBack(b);
+        }
         return bytes;
     }
 
     // Author the OUTER template "Cart" in an edit scene: own entity "Body" (health 40) + an
     // instance of the inner template whose Wheel is customized to 11. Saved via the
     // SavePrefab path (Referenced, no settings) so nesting persists as a RECORD.
-    struct OuterAuthoring { Array<byte> payload; Guid innerRootSource; };
+    struct OuterAuthoring
+    {
+        Array<byte> payload;
+        Guid innerRootSource;
+    };
     OuterAuthoring AuthorOuterTemplate(const Guid& innerId, const Array<byte>& innerPayload)
     {
         Scene edit(u8"Cart");
@@ -888,31 +938,46 @@ namespace {
         SerializeScene(ser, edit, nullptr, ScenePrefabMode::Referenced, /*includeSettings=*/false);
         REQUIRE(ser.IsOk());
         OuterAuthoring result;
-        for (byte b : out.Bytes()) { result.payload.PushBack(b); }
+        for (byte b : out.Bytes())
+        {
+            result.payload.PushBack(b);
+        }
         result.innerRootSource = edit.GetEntityId(wheel);
         return result;
     }
 
     PrefabPayloadResolver MakeResolver(const Guid& innerId, const Array<byte>* innerPayload,
-                                       const Guid& outerId = Guid{}, const Array<byte>* outerPayload = nullptr)
+                                       const Guid& outerId = Guid{},
+                                       const Array<byte>* outerPayload = nullptr)
     {
-        return PrefabPayloadResolver{ [=](const Guid& id) -> UniquePtr<IStream> {
-            const Array<byte>* source = nullptr;
-            if (id == innerId) { source = innerPayload; }
-            else if (id == outerId) { source = outerPayload; }
-            if (source == nullptr) { return UniquePtr<IStream>{}; }
-            auto stream = MakeUnique<MemoryStream>(DefaultAllocator());
-            (void)stream->Write(source->Data(), source->Size());
-            (void)stream->Seek(0, SeekOrigin::Begin);
-            return UniquePtr<IStream>(stream.Release(), DefaultAllocator());
-        } };
+        return PrefabPayloadResolver{[=](const Guid& id) -> UniquePtr<IStream>
+                                     {
+                                         const Array<byte>* source = nullptr;
+                                         if (id == innerId)
+                                         {
+                                             source = innerPayload;
+                                         }
+                                         else if (id == outerId)
+                                         {
+                                             source = outerPayload;
+                                         }
+                                         if (source == nullptr)
+                                         {
+                                             return UniquePtr<IStream>{};
+                                         }
+                                         auto stream = MakeUnique<MemoryStream>(DefaultAllocator());
+                                         (void)stream->Write(source->Data(), source->Size());
+                                         (void)stream->Seek(0, SeekOrigin::Begin);
+                                         return UniquePtr<IStream>(stream.Release(),
+                                                                   DefaultAllocator());
+                                     }};
     }
 }
 
 TEST_CASE("prefab P4: nested instance spawns linked, owner customization is BASELINE")
 {
-    const Guid innerId{ 0xAA, 0x1 };
-    const Guid outerId{ 0xBB, 0x2 };
+    const Guid innerId{0xAA, 0x1};
+    const Guid outerId{0xBB, 0x2};
     Array<byte> inner = AuthorInnerTemplate();
     OuterAuthoring outer = AuthorOuterTemplate(innerId, inner);
     PrefabPayloadResolver resolver = MakeResolver(innerId, &inner);
@@ -922,19 +987,24 @@ TEST_CASE("prefab P4: nested instance spawns linked, owner customization is BASE
     MemoryStream outerStream;
     (void)outerStream.Write(outer.payload.Data(), outer.payload.Size());
     (void)outerStream.Seek(0, SeekOrigin::Begin);
-    EntityHandle cart = SpawnPrefab(level, outerStream, outerId, EntityHandle::Invalid(),
-                                    nullptr, &resolver);
+    EntityHandle cart =
+        SpawnPrefab(level, outerStream, outerId, EntityHandle::Invalid(), nullptr, &resolver);
     REQUIRE(cart.IsAssigned());
 
     // Two states: the Cart (top-level) + the nested Wheel instance linked to it.
     Scene::PrefabInstanceState* cartState = level.FindPrefabInstanceByRoot(level.GetEntityId(cart));
     REQUIRE(cartState != nullptr);
     CHECK(cartState->ownerRootEntityId.IsNil());
-    REQUIRE(cartState->referencedPrefabIds.Size() == 2u);   // own + inner
+    REQUIRE(cartState->referencedPrefabIds.Size() == 2u); // own + inner
     Scene::PrefabInstanceState* wheelState = nullptr;
-    level.ForEachPrefabInstance([&](Scene::PrefabInstanceState& s) {
-        if (s.prefabId == innerId) { wheelState = &s; }
-    });
+    level.ForEachPrefabInstance(
+        [&](Scene::PrefabInstanceState& s)
+        {
+            if (s.prefabId == innerId)
+            {
+                wheelState = &s;
+            }
+        });
     REQUIRE(wheelState != nullptr);
     CHECK(wheelState->ownerRootEntityId == cartState->rootEntityId);
     CHECK(wheelState->nestedRootSourceId == outer.innerRootSource);
@@ -955,8 +1025,8 @@ TEST_CASE("prefab P4: nested instance spawns linked, owner customization is BASE
 
 TEST_CASE("prefab P4: scene round-trip preserves nesting links, guids, and scene overrides")
 {
-    const Guid innerId{ 0xAA, 0x11 };
-    const Guid outerId{ 0xBB, 0x22 };
+    const Guid innerId{0xAA, 0x11};
+    const Guid outerId{0xBB, 0x22};
     Array<byte> inner = AuthorInnerTemplate();
     OuterAuthoring outer = AuthorOuterTemplate(innerId, inner);
     PrefabPayloadResolver resolver = MakeResolver(innerId, &inner, outerId, &outer.payload);
@@ -966,13 +1036,18 @@ TEST_CASE("prefab P4: scene round-trip preserves nesting links, guids, and scene
     MemoryStream outerStream;
     (void)outerStream.Write(outer.payload.Data(), outer.payload.Size());
     (void)outerStream.Seek(0, SeekOrigin::Begin);
-    EntityHandle cart = SpawnPrefab(level, outerStream, outerId, EntityHandle::Invalid(),
-                                    nullptr, &resolver);
+    EntityHandle cart =
+        SpawnPrefab(level, outerStream, outerId, EntityHandle::Invalid(), nullptr, &resolver);
     REQUIRE(cart.IsAssigned());
     Scene::PrefabInstanceState* wheelState = nullptr;
-    level.ForEachPrefabInstance([&](Scene::PrefabInstanceState& s) {
-        if (s.prefabId == innerId) { wheelState = &s; }
-    });
+    level.ForEachPrefabInstance(
+        [&](Scene::PrefabInstanceState& s)
+        {
+            if (s.prefabId == innerId)
+            {
+                wheelState = &s;
+            }
+        });
     REQUIRE(wheelState != nullptr);
     EntityHandle wheel = level.FindEntity(wheelState->rootEntityId);
     const Guid wheelGuid = wheelState->rootEntityId;
@@ -1003,8 +1078,8 @@ TEST_CASE("prefab P4: scene round-trip preserves nesting links, guids, and scene
     EntityHandle loadedHub = loaded.FindEntity(hubGuid);
     REQUIRE(loadedWheel.IsAssigned());
     REQUIRE(loadedHub.IsAssigned());
-    CHECK(loadedHealth->Get(loadedWheel)->value == doctest::Approx(11.0f));   // owner custom
-    CHECK(loadedHealth->Get(loadedHub)->value == doctest::Approx(7.0f));      // scene override
+    CHECK(loadedHealth->Get(loadedWheel)->value == doctest::Approx(11.0f)); // owner custom
+    CHECK(loadedHealth->Get(loadedHub)->value == doctest::Approx(7.0f));    // scene override
     Scene::PrefabInstanceState* loadedWheelState = loaded.FindPrefabInstanceByRoot(wheelGuid);
     REQUIRE(loadedWheelState != nullptr);
     CHECK(!loadedWheelState->ownerRootEntityId.IsNil());
@@ -1017,8 +1092,8 @@ TEST_CASE("prefab P4: scene round-trip preserves nesting links, guids, and scene
 
 TEST_CASE("prefab P4: inner-template edits propagate THROUGH the outer instance")
 {
-    const Guid innerId{ 0xAA, 0x21 };
-    const Guid outerId{ 0xBB, 0x32 };
+    const Guid innerId{0xAA, 0x21};
+    const Guid outerId{0xBB, 0x32};
     Array<byte> inner = AuthorInnerTemplate();
     OuterAuthoring outer = AuthorOuterTemplate(innerId, inner);
 
@@ -1034,7 +1109,10 @@ TEST_CASE("prefab P4: inner-template edits propagate THROUGH the outer instance"
         health->Add(hub).value = 50.0f;
         MemoryStream payload;
         REQUIRE(CapturePrefab(author, wheel, payload).IsOk());
-        for (byte b : payload.Bytes()) { innerV2.PushBack(b); }
+        for (byte b : payload.Bytes())
+        {
+            innerV2.PushBack(b);
+        }
     }
 
     PrefabPayloadResolver resolver = MakeResolver(innerId, &inner, outerId, &outer.payload);
@@ -1043,35 +1121,40 @@ TEST_CASE("prefab P4: inner-template edits propagate THROUGH the outer instance"
     MemoryStream outerStream;
     (void)outerStream.Write(outer.payload.Data(), outer.payload.Size());
     (void)outerStream.Seek(0, SeekOrigin::Begin);
-    EntityHandle cart = SpawnPrefab(level, outerStream, outerId, EntityHandle::Invalid(),
-                                    nullptr, &resolver);
+    EntityHandle cart =
+        SpawnPrefab(level, outerStream, outerId, EntityHandle::Invalid(), nullptr, &resolver);
     REQUIRE(cart.IsAssigned());
     const Guid cartGuid = level.GetEntityId(cart);
 
     // Rebuild with the NEW inner template: the resolver serves innerV2 now.
     PrefabPayloadResolver resolverV2 = MakeResolver(innerId, &innerV2, outerId, &outer.payload);
-    const u32 rebuilt = RebuildPrefabInstances(level, innerId,
-        Span<const byte>{ innerV2.Data(), innerV2.Size() }, &resolverV2);
-    CHECK(rebuilt == 1u);   // the CART rebuilt (it references the inner prefab)
+    const u32 rebuilt = RebuildPrefabInstances(
+        level, innerId, Span<const byte>{innerV2.Data(), innerV2.Size()}, &resolverV2);
+    CHECK(rebuilt == 1u); // the CART rebuilt (it references the inner prefab)
 
     Scene::PrefabInstanceState* wheelState = nullptr;
-    level.ForEachPrefabInstance([&](Scene::PrefabInstanceState& s) {
-        if (s.prefabId == innerId) { wheelState = &s; }
-    });
+    level.ForEachPrefabInstance(
+        [&](Scene::PrefabInstanceState& s)
+        {
+            if (s.prefabId == innerId)
+            {
+                wheelState = &s;
+            }
+        });
     REQUIRE(wheelState != nullptr);
     EntityHandle wheel = level.FindEntity(wheelState->rootEntityId);
     REQUIRE(wheel.IsAssigned());
     EntityHandle hub = level.GetFirstChild(wheel);
     REQUIRE(hub.IsAssigned());
-    CHECK(health->Get(wheel)->value == doctest::Approx(11.0f));   // owner custom STILL wins
-    CHECK(health->Get(hub)->value == doctest::Approx(50.0f));     // template edit propagated
-    CHECK(level.FindPrefabInstanceByRoot(cartGuid) != nullptr);   // cart intact
+    CHECK(health->Get(wheel)->value == doctest::Approx(11.0f)); // owner custom STILL wins
+    CHECK(health->Get(hub)->value == doctest::Approx(50.0f));   // template edit propagated
+    CHECK(level.FindPrefabInstanceByRoot(cartGuid) != nullptr); // cart intact
 }
 
 TEST_CASE("prefab P4: apply-to-prefab keeps nested records with owner customization")
 {
-    const Guid innerId{ 0xAA, 0x31 };
-    const Guid outerId{ 0xBB, 0x42 };
+    const Guid innerId{0xAA, 0x31};
+    const Guid outerId{0xBB, 0x42};
     Array<byte> inner = AuthorInnerTemplate();
     OuterAuthoring outer = AuthorOuterTemplate(innerId, inner);
     PrefabPayloadResolver resolver = MakeResolver(innerId, &inner);
@@ -1081,17 +1164,22 @@ TEST_CASE("prefab P4: apply-to-prefab keeps nested records with owner customizat
     MemoryStream outerStream;
     (void)outerStream.Write(outer.payload.Data(), outer.payload.Size());
     (void)outerStream.Seek(0, SeekOrigin::Begin);
-    EntityHandle cart = SpawnPrefab(level, outerStream, outerId, EntityHandle::Invalid(),
-                                    nullptr, &resolver);
+    EntityHandle cart =
+        SpawnPrefab(level, outerStream, outerId, EntityHandle::Invalid(), nullptr, &resolver);
     REQUIRE(cart.IsAssigned());
     Scene::PrefabInstanceState* cartState = level.FindPrefabInstanceByRoot(level.GetEntityId(cart));
     REQUIRE(cartState != nullptr);
 
     // Scene tweak: Wheel 11 -> 13, then apply the CART as the new template.
     Scene::PrefabInstanceState* wheelState = nullptr;
-    level.ForEachPrefabInstance([&](Scene::PrefabInstanceState& s) {
-        if (s.prefabId == innerId) { wheelState = &s; }
-    });
+    level.ForEachPrefabInstance(
+        [&](Scene::PrefabInstanceState& s)
+        {
+            if (s.prefabId == innerId)
+            {
+                wheelState = &s;
+            }
+        });
     REQUIRE(wheelState != nullptr);
     EntityHandle wheel = level.FindEntity(wheelState->rootEntityId);
     health->Get(wheel)->value = 13.0f;
@@ -1103,13 +1191,18 @@ TEST_CASE("prefab P4: apply-to-prefab keeps nested records with owner customizat
     Scene other(u8"other");
     HealthManager* otherHealth = other.AddSystem<HealthManager>();
     (void)captured.Seek(0, SeekOrigin::Begin);
-    EntityHandle fresh = SpawnPrefab(other, captured, outerId, EntityHandle::Invalid(),
-                                     nullptr, &resolver);
+    EntityHandle fresh =
+        SpawnPrefab(other, captured, outerId, EntityHandle::Invalid(), nullptr, &resolver);
     REQUIRE(fresh.IsAssigned());
     Scene::PrefabInstanceState* freshWheelState = nullptr;
-    other.ForEachPrefabInstance([&](Scene::PrefabInstanceState& s) {
-        if (s.prefabId == innerId) { freshWheelState = &s; }
-    });
+    other.ForEachPrefabInstance(
+        [&](Scene::PrefabInstanceState& s)
+        {
+            if (s.prefabId == innerId)
+            {
+                freshWheelState = &s;
+            }
+        });
     REQUIRE(freshWheelState != nullptr);
     EntityHandle freshWheel = other.FindEntity(freshWheelState->rootEntityId);
     REQUIRE(freshWheel.IsAssigned());
@@ -1119,9 +1212,10 @@ TEST_CASE("prefab P4: apply-to-prefab keeps nested records with owner customizat
     CHECK(otherHealth->Get(freshHub)->value == doctest::Approx(5.0f));
 }
 
-TEST_CASE("prefab P4: rebuild preserves user entities under members and user-spawned instances inside")
+TEST_CASE(
+    "prefab P4: rebuild preserves user entities under members and user-spawned instances inside")
 {
-    const Guid innerId{ 0xAA, 0x41 };
+    const Guid innerId{0xAA, 0x41};
     Array<byte> inner = AuthorInnerTemplate();
     PrefabPayloadResolver resolver = MakeResolver(innerId, &inner);
 
@@ -1144,10 +1238,10 @@ TEST_CASE("prefab P4: rebuild preserves user entities under members and user-spa
     EntityHandle userWheel = SpawnPrefab(level, innerStream2, innerId, wheel);
     REQUIRE(userWheel.IsAssigned());
     const Guid userWheelGuid = level.GetEntityId(userWheel);
-    health->Get(userWheel)->value = 99.0f;   // scene delta on the user-spawned instance
+    health->Get(userWheel)->value = 99.0f; // scene delta on the user-spawned instance
 
-    const u32 rebuilt = RebuildPrefabInstances(level, innerId,
-        Span<const byte>{ inner.Data(), inner.Size() }, &resolver);
+    const u32 rebuilt = RebuildPrefabInstances(
+        level, innerId, Span<const byte>{inner.Data(), inner.Size()}, &resolver);
     CHECK(rebuilt >= 1u);
 
     // Everything survives: the user child re-attached, the user-spawned instance respawned
@@ -1163,8 +1257,8 @@ TEST_CASE("prefab P4: rebuild preserves user entities under members and user-spa
 
 TEST_CASE("prefab P4: rebuild preserves user entities under NESTED sub-instance members")
 {
-    const Guid innerId{ 0xAA, 0x51 };
-    const Guid outerId{ 0xBB, 0x51 };
+    const Guid innerId{0xAA, 0x51};
+    const Guid outerId{0xBB, 0x51};
     Array<byte> inner = AuthorInnerTemplate();
     OuterAuthoring outer = AuthorOuterTemplate(innerId, inner);
     PrefabPayloadResolver resolver = MakeResolver(innerId, &inner, outerId, &outer.payload);
@@ -1174,19 +1268,22 @@ TEST_CASE("prefab P4: rebuild preserves user entities under NESTED sub-instance 
     MemoryStream outerStream;
     (void)outerStream.Write(outer.payload.Data(), outer.payload.Size());
     (void)outerStream.Seek(0, SeekOrigin::Begin);
-    EntityHandle cart = SpawnPrefab(level, outerStream, outerId, EntityHandle::Invalid(),
-                                    nullptr, &resolver);
+    EntityHandle cart =
+        SpawnPrefab(level, outerStream, outerId, EntityHandle::Invalid(), nullptr, &resolver);
     REQUIRE(cart.IsAssigned());
 
     // The nested inner sub-instance's root (the Wheel) - a NESTED member: children
     // parented here used to be skipped by the rescue (it only mapped the owner's own
     // members) and died with the teardown.
     Guid wheelLive{};
-    level.ForEachPrefabInstance([&](Scene::PrefabInstanceState& st) {
-        if (st.prefabId == innerId && !st.ownerRootEntityId.IsNil()) {
-            wheelLive = st.rootEntityId;
-        }
-    });
+    level.ForEachPrefabInstance(
+        [&](Scene::PrefabInstanceState& st)
+        {
+            if (st.prefabId == innerId && !st.ownerRootEntityId.IsNil())
+            {
+                wheelLive = st.rootEntityId;
+            }
+        });
     REQUIRE(!wheelLive.IsNil());
     EntityHandle wheel = level.FindEntity(wheelLive);
     REQUIRE(wheel.IsAssigned());
@@ -1197,8 +1294,8 @@ TEST_CASE("prefab P4: rebuild preserves user entities under NESTED sub-instance 
 
     // Rebuild triggered by the OUTER template (the user's failing flow: edit Outer's
     // page + save).
-    u32 rebuilt = RebuildPrefabInstances(level, outerId,
-        Span<const byte>{ outer.payload.Data(), outer.payload.Size() }, &resolver);
+    u32 rebuilt = RebuildPrefabInstances(
+        level, outerId, Span<const byte>{outer.payload.Data(), outer.payload.Size()}, &resolver);
     CHECK(rebuilt == 1u);
     EntityHandle survived = level.FindEntity(stickerGuid);
     REQUIRE(survived.IsAssigned());
@@ -1206,8 +1303,8 @@ TEST_CASE("prefab P4: rebuild preserves user entities under NESTED sub-instance 
     CHECK(level.GetEntityId(level.GetParent(survived)) == wheelLive);
 
     // And again through the INNER template (rebuild via referencedPrefabIds).
-    rebuilt = RebuildPrefabInstances(level, innerId,
-        Span<const byte>{ inner.Data(), inner.Size() }, &resolver);
+    rebuilt = RebuildPrefabInstances(level, innerId, Span<const byte>{inner.Data(), inner.Size()},
+                                     &resolver);
     CHECK(rebuilt == 1u);
     survived = level.FindEntity(stickerGuid);
     REQUIRE(survived.IsAssigned());
@@ -1217,8 +1314,8 @@ TEST_CASE("prefab P4: rebuild preserves user entities under NESTED sub-instance 
 
 TEST_CASE("prefab P4: nested instances keep their captured sibling order")
 {
-    const Guid innerId{ 0xAA, 0x61 };
-    const Guid outerId{ 0xBB, 0x61 };
+    const Guid innerId{0xAA, 0x61};
+    const Guid outerId{0xBB, 0x61};
     Array<byte> inner = AuthorInnerTemplate();
 
     // Outer authored as: Body > [ Inner instance, Cone ] - the nested instance FIRST.
@@ -1240,13 +1337,18 @@ TEST_CASE("prefab P4: nested instances keep their captured sibling order")
         BinarySerializer ser(out, SerializeMode::Write);
         SerializeScene(ser, edit, nullptr, ScenePrefabMode::Referenced, false);
         REQUIRE(ser.IsOk());
-        for (byte b : out.Bytes()) { outerPayload.PushBack(b); }
+        for (byte b : out.Bytes())
+        {
+            outerPayload.PushBack(b);
+        }
     }
     PrefabPayloadResolver resolver = MakeResolver(innerId, &inner, outerId, &outerPayload);
 
-    auto childNames = [](Scene& sc, EntityHandle parent) {
+    auto childNames = [](Scene& sc, EntityHandle parent)
+    {
         Array<String> names;
-        for (EntityHandle c = sc.GetFirstChild(parent); c.IsAssigned(); c = sc.GetNextSibling(c)) {
+        for (EntityHandle c = sc.GetFirstChild(parent); c.IsAssigned(); c = sc.GetNextSibling(c))
+        {
             names.PushBack(String(sc.GetEntityName(c)));
         }
         return names;
@@ -1257,8 +1359,8 @@ TEST_CASE("prefab P4: nested instances keep their captured sibling order")
     MemoryStream outerStream;
     (void)outerStream.Write(outerPayload.Data(), outerPayload.Size());
     (void)outerStream.Seek(0, SeekOrigin::Begin);
-    EntityHandle body = SpawnPrefab(level, outerStream, outerId, EntityHandle::Invalid(),
-                                    nullptr, &resolver);
+    EntityHandle body =
+        SpawnPrefab(level, outerStream, outerId, EntityHandle::Invalid(), nullptr, &resolver);
     REQUIRE(body.IsAssigned());
 
     // Spawn: the record used to APPEND after Cone; the captured order has Wheel first.
@@ -1269,8 +1371,8 @@ TEST_CASE("prefab P4: nested instances keep their captured sibling order")
 
     // Rebuild keeps it too (the root guid survives via preassignment).
     const Guid bodyGuid = level.GetEntityId(body);
-    const u32 rebuilt = RebuildPrefabInstances(level, outerId,
-        Span<const byte>{ outerPayload.Data(), outerPayload.Size() }, &resolver);
+    const u32 rebuilt = RebuildPrefabInstances(
+        level, outerId, Span<const byte>{outerPayload.Data(), outerPayload.Size()}, &resolver);
     CHECK(rebuilt == 1u);
     body = level.FindEntity(bodyGuid);
     REQUIRE(body.IsAssigned());
@@ -1282,12 +1384,13 @@ TEST_CASE("prefab P4: nested instances keep their captured sibling order")
 
 TEST_CASE("prefab P4: un-overridden nested placement follows the outer template")
 {
-    const Guid innerId{ 0xAA, 0x71 };
-    const Guid outerId{ 0xBB, 0x71 };
+    const Guid innerId{0xAA, 0x71};
+    const Guid outerId{0xBB, 0x71};
     Array<byte> inner = AuthorInnerTemplate();
 
     // Author the outer with the inner instance at a given placement.
-    auto authorOuter = [&](const Transform& wheelPlacement) {
+    auto authorOuter = [&](const Transform& wheelPlacement)
+    {
         Scene edit(u8"Outer");
         edit.AddSystem<HealthManager>();
         EntityHandle body = edit.CreateEntity(u8"Body");
@@ -1302,14 +1405,17 @@ TEST_CASE("prefab P4: un-overridden nested placement follows the outer template"
         SerializeScene(ser, edit, nullptr, ScenePrefabMode::Referenced, false);
         REQUIRE(ser.IsOk());
         Array<byte> bytes;
-        for (byte b : out.Bytes()) { bytes.PushBack(b); }
+        for (byte b : out.Bytes())
+        {
+            bytes.PushBack(b);
+        }
         return bytes;
     };
 
     Transform placementV1{};
-    placementV1.position = Float3{ 1.0f, 0.0f, 0.0f };
+    placementV1.position = Float3{1.0f, 0.0f, 0.0f};
     Transform placementV2{};
-    placementV2.position = Float3{ 0.0f, 5.0f, 0.0f };
+    placementV2.position = Float3{0.0f, 5.0f, 0.0f};
     Array<byte> outerV1 = authorOuter(placementV1);
     PrefabPayloadResolver resolver = MakeResolver(innerId, &inner, outerId, &outerV1);
 
@@ -1318,21 +1424,26 @@ TEST_CASE("prefab P4: un-overridden nested placement follows the outer template"
     MemoryStream outerStream;
     (void)outerStream.Write(outerV1.Data(), outerV1.Size());
     (void)outerStream.Seek(0, SeekOrigin::Begin);
-    EntityHandle body = SpawnPrefab(level, outerStream, outerId, EntityHandle::Invalid(),
-                                    nullptr, &resolver);
+    EntityHandle body =
+        SpawnPrefab(level, outerStream, outerId, EntityHandle::Invalid(), nullptr, &resolver);
     REQUIRE(body.IsAssigned());
     Guid wheelLive{};
-    level.ForEachPrefabInstance([&](Scene::PrefabInstanceState& st) {
-        if (st.prefabId == innerId && !st.ownerRootEntityId.IsNil()) { wheelLive = st.rootEntityId; }
-    });
+    level.ForEachPrefabInstance(
+        [&](Scene::PrefabInstanceState& st)
+        {
+            if (st.prefabId == innerId && !st.ownerRootEntityId.IsNil())
+            {
+                wheelLive = st.rootEntityId;
+            }
+        });
     REQUIRE(!wheelLive.IsNil());
     CHECK(level.GetLocalTransform(level.FindEntity(wheelLive)).position.x == doctest::Approx(1.0f));
 
     // Template moves the inner instance; the scene never touched it -> it follows.
     Array<byte> outerV2 = authorOuter(placementV2);
     PrefabPayloadResolver resolver2 = MakeResolver(innerId, &inner, outerId, &outerV2);
-    u32 rebuilt = RebuildPrefabInstances(level, outerId,
-        Span<const byte>{ outerV2.Data(), outerV2.Size() }, &resolver2);
+    u32 rebuilt = RebuildPrefabInstances(
+        level, outerId, Span<const byte>{outerV2.Data(), outerV2.Size()}, &resolver2);
     CHECK(rebuilt == 1u);
     EntityHandle wheel = level.FindEntity(wheelLive);
     REQUIRE(wheel.IsAssigned());
@@ -1341,14 +1452,14 @@ TEST_CASE("prefab P4: un-overridden nested placement follows the outer template"
 
     // Now the SCENE moves it (an override) - a further template change must NOT clobber it.
     Transform sceneOverride{};
-    sceneOverride.position = Float3{ 9.0f, 9.0f, 9.0f };
+    sceneOverride.position = Float3{9.0f, 9.0f, 9.0f};
     level.SetLocalTransform(wheel, sceneOverride);
     Transform placementV3{};
-    placementV3.position = Float3{ 0.0f, 0.0f, 7.0f };
+    placementV3.position = Float3{0.0f, 0.0f, 7.0f};
     Array<byte> outerV3 = authorOuter(placementV3);
     PrefabPayloadResolver resolver3 = MakeResolver(innerId, &inner, outerId, &outerV3);
     rebuilt = RebuildPrefabInstances(level, outerId,
-        Span<const byte>{ outerV3.Data(), outerV3.Size() }, &resolver3);
+                                     Span<const byte>{outerV3.Data(), outerV3.Size()}, &resolver3);
     CHECK(rebuilt == 1u);
     wheel = level.FindEntity(wheelLive);
     REQUIRE(wheel.IsAssigned());
@@ -1372,13 +1483,17 @@ TEST_CASE("prefab wire: the retired nested layout is REFUSED, not misparsed")
     REQUIRE(ser.IsOk());
 
     Array<byte> bytes;
-    for (byte b : out.Bytes()) { bytes.PushBack(b); }
+    for (byte b : out.Bytes())
+    {
+        bytes.PushBack(b);
+    }
     // Tail of a no-instance Referenced save: [mode u8][instanceCount u32].
     REQUIRE(bytes.Size() > 5);
-    REQUIRE(static_cast<u8>(bytes[bytes.Size() - 5]) == 4u);   // kPrefabWireReferenced3
-    bytes[bytes.Size() - 5] = static_cast<byte>(2u);           // retired mode
-    for (usize i = bytes.Size() - 4; i < bytes.Size(); ++i) {
-        bytes[i] = static_cast<byte>(0xFFu);                   // garbage count
+    REQUIRE(static_cast<u8>(bytes[bytes.Size() - 5]) == 4u); // kPrefabWireReferenced3
+    bytes[bytes.Size() - 5] = static_cast<byte>(2u);         // retired mode
+    for (usize i = bytes.Size() - 4; i < bytes.Size(); ++i)
+    {
+        bytes[i] = static_cast<byte>(0xFFu); // garbage count
     }
 
     MemoryStream in;
@@ -1387,11 +1502,15 @@ TEST_CASE("prefab wire: the retired nested layout is REFUSED, not misparsed")
     Scene loaded(u8"loaded");
     loaded.AddSystem<HealthManager>();
     BinarySerializer read(in, SerializeMode::Read);
-    SerializeScene(read, loaded, &in);   // must return promptly: entities in, section out
+    SerializeScene(read, loaded, &in); // must return promptly: entities in, section out
 
     bool foundPlain = false;
-    for (EntityHandle r = loaded.GetFirstRoot(); r.IsAssigned(); r = loaded.GetNextSibling(r)) {
-        if (loaded.GetEntityName(r) == StringView(u8"Plain")) { foundPlain = true; }
+    for (EntityHandle r = loaded.GetFirstRoot(); r.IsAssigned(); r = loaded.GetNextSibling(r))
+    {
+        if (loaded.GetEntityName(r) == StringView(u8"Plain"))
+        {
+            foundPlain = true;
+        }
     }
     CHECK(foundPlain);
     CHECK(loaded.TakePendingPrefabInstances().IsEmpty());
@@ -1399,7 +1518,7 @@ TEST_CASE("prefab wire: the retired nested layout is REFUSED, not misparsed")
 
 TEST_CASE("text scenes: XML save -> load -> binary -> load is EQUIVALENT and stable")
 {
-    const Guid innerId{ 0xAA, 0x91 };
+    const Guid innerId{0xAA, 0x91};
     Array<byte> inner = AuthorInnerTemplate();
     PrefabPayloadResolver resolver = MakeResolver(innerId, &inner);
 
@@ -1407,7 +1526,7 @@ TEST_CASE("text scenes: XML save -> load -> binary -> load is EQUIVALENT and sta
     HealthManager* health = scene.AddSystem<HealthManager>();
     EntityHandle hero = scene.CreateEntity(u8"Hero");
     Transform t{};
-    t.position = Float3{ 1.25f, -3.5f, 0.0078125f };
+    t.position = Float3{1.25f, -3.5f, 0.0078125f};
     scene.SetLocalTransform(hero, t);
     health->Add(hero).value = 41.5f;
     MemoryStream innerStream;
@@ -1415,7 +1534,7 @@ TEST_CASE("text scenes: XML save -> load -> binary -> load is EQUIVALENT and sta
     (void)innerStream.Seek(0, SeekOrigin::Begin);
     EntityHandle wheel = SpawnPrefab(scene, innerStream, innerId);
     REQUIRE(wheel.IsAssigned());
-    health->Get(wheel)->value = 77.0f;   // an override that must survive every hop
+    health->Get(wheel)->value = 77.0f; // an override that must survive every hop
 
     // Hop 1: XML text.
     draconic::xml::XmlSerializer xmlOut;
@@ -1428,10 +1547,18 @@ TEST_CASE("text scenes: XML save -> load -> binary -> load is EQUIVALENT and sta
     CHECK(text1[0] == utf8char('<'));
     // The override is REAL text - the component op's type and its field VALUE appear
     // verbatim (no hex blob): the diffability the whole format exists for.
-    auto contains = [](const String& hay, StringView needle) {
-        if (needle.Size() > hay.Size()) { return false; }
-        for (usize i = 0; i + needle.Size() <= hay.Size(); ++i) {
-            if (hay.AsView().SubStr(i, needle.Size()) == needle) { return true; }
+    auto contains = [](const String& hay, StringView needle)
+    {
+        if (needle.Size() > hay.Size())
+        {
+            return false;
+        }
+        for (usize i = 0; i + needle.Size() <= hay.Size(); ++i)
+        {
+            if (hay.AsView().SubStr(i, needle.Size()) == needle)
+            {
+                return true;
+            }
         }
         return false;
     };
@@ -1477,7 +1604,7 @@ TEST_CASE("text scenes: XML save -> load -> binary -> load is EQUIVALENT and sta
     EntityHandle lastHero = last.FindEntity(scene.GetEntityId(hero));
     REQUIRE(lastHero.IsAssigned());
     const Transform ft = last.GetLocalTransform(lastHero);
-    CHECK(ft.position.x == t.position.x);   // EXACT float round-trip, not Approx
+    CHECK(ft.position.x == t.position.x); // EXACT float round-trip, not Approx
     CHECK(ft.position.y == t.position.y);
     CHECK(ft.position.z == t.position.z);
     REQUIRE(lastHealth->Get(lastHero) != nullptr);
@@ -1516,9 +1643,11 @@ TEST_CASE("text scenes: unknown component types SKIP; later records still load")
     String mutated;
     bool replaced = false;
     const StringView typeId(u8"demo.Health");
-    for (usize i = 0; i < text.Size(); ++i) {
-        if (!replaced && i + typeId.Size() <= text.Size()
-            && text.AsView().SubStr(i, typeId.Size()) == typeId) {
+    for (usize i = 0; i < text.Size(); ++i)
+    {
+        if (!replaced && i + typeId.Size() <= text.Size() &&
+            text.AsView().SubStr(i, typeId.Size()) == typeId)
+        {
             mutated.Append(u8"demo.Bogus1");
             i += typeId.Size() - 1;
             replaced = true;
@@ -1550,7 +1679,7 @@ TEST_CASE("text scenes: unknown component types SKIP; later records still load")
 
 TEST_CASE("text scenes: transcode to binary preserves parked prefab pendings")
 {
-    const Guid innerId{ 0xAA, 0xA1 };
+    const Guid innerId{0xAA, 0xA1};
     Array<byte> inner = AuthorInnerTemplate();
     PrefabPayloadResolver resolver = MakeResolver(innerId, &inner);
 
@@ -1615,7 +1744,7 @@ TEST_CASE("scene v2: unknown component and settings records SKIP instead of abor
         REQUIRE(w.IsOk());
     }
     (void)saved.Seek(0, SeekOrigin::Begin);
-    Scene b(u8"loaded");   // NO HealthManager
+    Scene b(u8"loaded"); // NO HealthManager
     {
         BinarySerializer r(saved, SerializeMode::Read);
         SerializeScene(r, b, &saved);
@@ -1625,7 +1754,8 @@ TEST_CASE("scene v2: unknown component and settings records SKIP instead of abor
     CHECK(b.FindEntity(a.GetEntityId(hero)).IsAssigned());
 }
 
-TEST_CASE("scene-snapshot: a scene WITH a prefab instance restores aligned (Simulate-stop hang regression)")
+TEST_CASE("scene-snapshot: a scene WITH a prefab instance restores aligned (Simulate-stop hang "
+          "regression)")
 {
     // The writer emits owner/nestedSrcRoot unconditionally in the Expanded section; the
     // reader used to gate them on a Referenced-only flag, so any snapshot of a scene
@@ -1638,15 +1768,15 @@ TEST_CASE("scene-snapshot: a scene WITH a prefab instance restores aligned (Simu
 
     auto state = MakeUnique<Scene::PrefabInstanceState>(DefaultAllocator());
     const Guid rootId = scene.GetEntityId(root);
-    state->prefabId = Guid{ 0xAA, 0x01 };
+    state->prefabId = Guid{0xAA, 0x01};
     state->rootEntityId = rootId;
-    state->ownerRootEntityId = Guid{ 0xBB, 0x02 };     // the nesting links the reader skipped
-    state->nestedRootSourceId = Guid{ 0xCC, 0x03 };
-    state->sourceIds.PushBack(Guid{ 0xDD, 0x04 });
+    state->ownerRootEntityId = Guid{0xBB, 0x02}; // the nesting links the reader skipped
+    state->nestedRootSourceId = Guid{0xCC, 0x03};
+    state->sourceIds.PushBack(Guid{0xDD, 0x04});
     state->liveIds.PushBack(scene.GetEntityId(member));
     state->baselineTransforms.PushBack(Transform{});
     Scene::PrefabComponentBaseline baseline;
-    baseline.sourceEntity = Guid{ 0xDD, 0x04 };
+    baseline.sourceEntity = Guid{0xDD, 0x04};
     baseline.typeId = String(u8"test.Health");
     baseline.blob.PushBack(42);
     state->componentBaselines.PushBack(static_cast<Scene::PrefabComponentBaseline&&>(baseline));
@@ -1654,16 +1784,16 @@ TEST_CASE("scene-snapshot: a scene WITH a prefab instance restores aligned (Simu
 
     UniquePtr<SceneSnapshot> snapshot = SceneSnapshot::Capture(scene);
     REQUIRE(snapshot);
-    REQUIRE(snapshot->Restore(scene).IsOk());   // used to spin here allocating gigabytes
+    REQUIRE(snapshot->Restore(scene).IsOk()); // used to spin here allocating gigabytes
 
     // The instance state round-tripped verbatim - including the nesting links.
     Scene::PrefabInstanceState* restored = scene.FindPrefabInstanceByRoot(rootId);
     REQUIRE(restored != nullptr);
-    CHECK(restored->prefabId == Guid{ 0xAA, 0x01 });
-    CHECK(restored->ownerRootEntityId == Guid{ 0xBB, 0x02 });
-    CHECK(restored->nestedRootSourceId == Guid{ 0xCC, 0x03 });
+    CHECK(restored->prefabId == Guid{0xAA, 0x01});
+    CHECK(restored->ownerRootEntityId == Guid{0xBB, 0x02});
+    CHECK(restored->nestedRootSourceId == Guid{0xCC, 0x03});
     REQUIRE(restored->sourceIds.Size() == 1u);
-    CHECK(restored->sourceIds[0] == Guid{ 0xDD, 0x04 });
+    CHECK(restored->sourceIds[0] == Guid{0xDD, 0x04});
     REQUIRE(restored->componentBaselines.Size() == 1u);
     CHECK(restored->componentBaselines[0].typeId.AsView() == u8"test.Health");
     REQUIRE(restored->componentBaselines[0].blob.Size() == 1u);

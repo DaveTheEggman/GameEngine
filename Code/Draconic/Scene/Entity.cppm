@@ -15,25 +15,34 @@ import draconic.core;
 
 using namespace draconic::core;
 
-export namespace draconic::scene {
+export namespace draconic::scene
+{
 
-struct EntityHandle {
-    static constexpr u32 kInvalidIndex = 0xFFFFFFFFu;
+    struct EntityHandle
+    {
+        static constexpr u32 kInvalidIndex = 0xFFFFFFFFu;
 
-    u32 index      = kInvalidIndex;
-    u32 generation = 0;
+        u32 index = kInvalidIndex;
+        u32 generation = 0;
 
-    // The unassigned handle.
-    [[nodiscard]] static constexpr EntityHandle Invalid() noexcept { return EntityHandle{ kInvalidIndex, 0 }; }
+        // The unassigned handle.
+        [[nodiscard]] static constexpr EntityHandle Invalid() noexcept
+        {
+            return EntityHandle{kInvalidIndex, 0};
+        }
 
-    // Whether this handle was ever assigned (not necessarily still valid in a Scene -
-    // ask Scene::IsValid for that).
-    [[nodiscard]] constexpr bool IsAssigned() const noexcept { return index != kInvalidIndex; }
+        // Whether this handle was ever assigned (not necessarily still valid in a Scene -
+        // ask Scene::IsValid for that).
+        [[nodiscard]] constexpr bool IsAssigned() const noexcept { return index != kInvalidIndex; }
 
-    [[nodiscard]] constexpr bool operator==(const EntityHandle& o) const noexcept {
-        return index == o.index && generation == o.generation;
-    }
-    [[nodiscard]] constexpr bool operator!=(const EntityHandle& o) const noexcept { return !(*this == o); }
-};
+        [[nodiscard]] constexpr bool operator==(const EntityHandle& o) const noexcept
+        {
+            return index == o.index && generation == o.generation;
+        }
+        [[nodiscard]] constexpr bool operator!=(const EntityHandle& o) const noexcept
+        {
+            return !(*this == o);
+        }
+    };
 
 } // namespace draconic::scene

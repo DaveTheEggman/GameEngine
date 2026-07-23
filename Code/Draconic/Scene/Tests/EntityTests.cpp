@@ -24,7 +24,7 @@ TEST_CASE("entity create: unique valid handles + count")
     CHECK(scene.EntityCount() == 2);
     CHECK(scene.GetEntityName(a) == u8"a");
     CHECK(scene.GetEntityName(b) == u8"b");
-    CHECK(scene.IsActive(a));                       // entities start active
+    CHECK(scene.IsActive(a)); // entities start active
 }
 
 TEST_CASE("entity destroy: invalidates the handle")
@@ -35,7 +35,7 @@ TEST_CASE("entity destroy: invalidates the handle")
     scene.DestroyEntity(e);
     CHECK_FALSE(scene.IsValid(e));
     CHECK(scene.EntityCount() == 0);
-    scene.DestroyEntity(e);                         // double-destroy is a no-op
+    scene.DestroyEntity(e); // double-destroy is a no-op
     CHECK(scene.EntityCount() == 0);
 }
 
@@ -46,21 +46,21 @@ TEST_CASE("slot reuse bumps generation: a stale handle is detected, not confused
     const u32 reusedIndex = first.index;
     scene.DestroyEntity(first);
 
-    EntityHandle second = scene.CreateEntity();     // reuses the freed slot
-    CHECK(second.index == reusedIndex);             // same slot...
-    CHECK(second.generation != first.generation);   // ...new generation
+    EntityHandle second = scene.CreateEntity();   // reuses the freed slot
+    CHECK(second.index == reusedIndex);           // same slot...
+    CHECK(second.generation != first.generation); // ...new generation
     CHECK(scene.IsValid(second));
-    CHECK_FALSE(scene.IsValid(first));              // old handle stays invalid
+    CHECK_FALSE(scene.IsValid(first)); // old handle stays invalid
 }
 
 TEST_CASE("invalid/unassigned handles never validate")
 {
     Scene scene;
     CHECK_FALSE(scene.IsValid(EntityHandle::Invalid()));
-    CHECK_FALSE(scene.IsValid(EntityHandle{ 999u, 1u }));   // out of range
+    CHECK_FALSE(scene.IsValid(EntityHandle{999u, 1u})); // out of range
     CHECK(scene.GetEntityName(EntityHandle::Invalid()) == StringView{});
-    scene.SetActive(EntityHandle::Invalid(), false);        // no crash
-    scene.SetEntityName(EntityHandle::Invalid(), u8"x");    // no crash
+    scene.SetActive(EntityHandle::Invalid(), false);     // no crash
+    scene.SetEntityName(EntityHandle::Invalid(), u8"x"); // no crash
 }
 
 TEST_CASE("persistent Guid <-> handle: find resolves, survives a specific-id create")
@@ -72,7 +72,7 @@ TEST_CASE("persistent Guid <-> handle: find resolves, survives a specific-id cre
     CHECK(scene.FindEntity(id) == e);
 
     // a deterministic id (e.g. from a loaded scene) round-trips through Find
-    const Guid fixed{ 0x0123456789abcdefull, 0xfedcba9876543210ull };
+    const Guid fixed{0x0123456789abcdefull, 0xfedcba9876543210ull};
     EntityHandle loaded = scene.CreateEntity(fixed, u8"loaded");
     CHECK(scene.GetEntityId(loaded) == fixed);
     CHECK(scene.FindEntity(fixed) == loaded);
@@ -102,12 +102,23 @@ TEST_CASE("ForEachEntity visits exactly the live entities")
 
     u32 visited = 0;
     bool sawA = false, sawC = false, sawB = false;
-    scene.ForEachEntity([&](EntityHandle h) {
-        ++visited;
-        if (h == a) { sawA = true; }
-        if (h == c) { sawC = true; }
-        if (h == b) { sawB = true; }
-    });
+    scene.ForEachEntity(
+        [&](EntityHandle h)
+        {
+            ++visited;
+            if (h == a)
+            {
+                sawA = true;
+            }
+            if (h == c)
+            {
+                sawC = true;
+            }
+            if (h == b)
+            {
+                sawB = true;
+            }
+        });
     CHECK(visited == 2);
     CHECK(sawA);
     CHECK(sawC);
@@ -147,12 +158,12 @@ TEST_CASE("revision advances on rename, reparent, and active toggle")
     CHECK(scene.Revision() > r);
 
     r = scene.Revision();
-    scene.SetActive(a, false);   // no-op: unchanged active state doesn't advance
+    scene.SetActive(a, false); // no-op: unchanged active state doesn't advance
     CHECK(scene.Revision() == r);
 
     r = scene.Revision();
     Transform t;
-    t.position = Float3{ 1, 2, 3 };
+    t.position = Float3{1, 2, 3};
     scene.SetLocalTransform(a, t);
     CHECK(scene.Revision() == r);
 }
@@ -202,7 +213,7 @@ TEST_CASE("MoveBefore reorders siblings and roots")
     CHECK(scene.GetNextSibling(a) == b);
 
     // Cycle guard: moving p before its own grandchild's sibling slot is refused.
-    scene.SetParent(c, b);   // p / [a, b / [c]]
+    scene.SetParent(c, b); // p / [a, b / [c]]
     r = scene.Revision();
     scene.MoveBefore(p, c);
     CHECK(scene.Revision() == r);
@@ -215,7 +226,7 @@ TEST_CASE("entity find: by name (first match) and by hierarchy path")
     EntityHandle player = scene.CreateEntity(u8"Player");
     EntityHandle weapon = scene.CreateEntity(u8"Weapon");
     EntityHandle muzzle = scene.CreateEntity(u8"Muzzle");
-    EntityHandle enemy  = scene.CreateEntity(u8"Enemy");
+    EntityHandle enemy = scene.CreateEntity(u8"Enemy");
     scene.SetParent(weapon, player);
     scene.SetParent(muzzle, weapon);
 
@@ -244,5 +255,5 @@ TEST_CASE("entity find: by name (first match) and by hierarchy path")
     // FindChildByName: invalid parent = search roots.
     CHECK(scene.FindChildByName(EntityHandle::Invalid(), u8"Player") == player);
     CHECK(scene.FindChildByName(player, u8"Weapon") == weapon);
-    CHECK_FALSE(scene.FindChildByName(player, u8"Muzzle").IsAssigned());   // grandchild
+    CHECK_FALSE(scene.FindChildByName(player, u8"Muzzle").IsAssigned()); // grandchild
 }

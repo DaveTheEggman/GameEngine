@@ -15,18 +15,20 @@ import draconic.core;
 
 using namespace draconic::core;
 
-export namespace draconic::scene {
+export namespace draconic::scene
+{
 
-enum class ScenePhase : u8 {
-    Initialize,       // run pending component initialization (deferred from Add)
-    PreUpdate,        // physics readback, input application
-    Update,           // main gameplay / AI (sequential; cross-component reads safe)
-    AsyncUpdate,      // parallel per-system; a system may touch only its own data
-    PostUpdate,       // animation, constraints, late logic
-    TransformUpdate,  // (internal) dirty transform propagation - Scene-driven
-    PostTransform,    // render extraction, spatial index update (final transforms ready)
-    Cleanup,          // deferred destruction settles here
-    Count,
-};
+    enum class ScenePhase : u8
+    {
+        Initialize,      // run pending component initialization (deferred from Add)
+        PreUpdate,       // physics readback, input application
+        Update,          // main gameplay / AI (sequential; cross-component reads safe)
+        AsyncUpdate,     // parallel per-system; a system may touch only its own data
+        PostUpdate,      // animation, constraints, late logic
+        TransformUpdate, // (internal) dirty transform propagation - Scene-driven
+        PostTransform,   // render extraction, spatial index update (final transforms ready)
+        Cleanup,         // deferred destruction settles here
+        Count,
+    };
 
 } // namespace draconic::scene

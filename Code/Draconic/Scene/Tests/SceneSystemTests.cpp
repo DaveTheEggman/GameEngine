@@ -12,18 +12,24 @@ using namespace draconic::scene;
 
 namespace
 {
-    struct Health { f32 value = 100.0f; };
+    struct Health
+    {
+        f32 value = 100.0f;
+    };
 
-    class HealthManager : public ComponentManager<Health> {
+    class HealthManager : public ComponentManager<Health>
+    {
     public:
         int initialized = 0, destroyed = 0;
+
     protected:
         void OnComponentInitialized(Health&, EntityHandle) override { ++initialized; }
         void OnComponentDestroyed(Health&, EntityHandle) override { ++destroyed; }
     };
 
     // Records which phases/notifications it received.
-    class Recorder : public SceneSystem {
+    class Recorder : public SceneSystem
+    {
     public:
         Array<ScenePhase> phases;
         int started = 0, stopped = 0, entityDestroyed = 0, activeChanged = 0, fixedUpdates = 0;
@@ -35,7 +41,8 @@ namespace
         void OnEntityActiveChanged(EntityHandle, bool) override { ++activeChanged; }
     };
 
-    class SimOnly : public SceneSystem {
+    class SimOnly : public SceneSystem
+    {
     public:
         int updates = 0;
         [[nodiscard]] bool IsSimulationOnly() const noexcept override { return true; }
@@ -64,7 +71,7 @@ TEST_CASE("update runs the gameplay phases in ScenePhase order")
     CHECK(rec->phases[1] == ScenePhase::Update);
     CHECK(rec->phases[2] == ScenePhase::AsyncUpdate);
     CHECK(rec->phases[3] == ScenePhase::PostUpdate);
-    CHECK(rec->phases[4] == ScenePhase::PostTransform);   // after the transform recompute
+    CHECK(rec->phases[4] == ScenePhase::PostTransform); // after the transform recompute
 }
 
 TEST_CASE("component init is deferred to the scene's Initialize phase")
@@ -73,9 +80,9 @@ TEST_CASE("component init is deferred to the scene's Initialize phase")
     HealthManager* mgr = scene.AddSystem<HealthManager>();
     EntityHandle e = scene.CreateEntity();
     mgr->Add(e).value = 50.0f;
-    CHECK(mgr->initialized == 0);                 // not yet
+    CHECK(mgr->initialized == 0); // not yet
 
-    scene.Update(0.016f);                          // Initialize phase runs pending init
+    scene.Update(0.016f); // Initialize phase runs pending init
     CHECK(mgr->initialized == 1);
 }
 
@@ -87,7 +94,7 @@ TEST_CASE("destroying an entity frees its component via the manager")
     mgr->Add(e);
     CHECK(mgr->Has(e));
 
-    scene.DestroyEntity(e);                         // not during update -> immediate
+    scene.DestroyEntity(e); // not during update -> immediate
     CHECK_FALSE(mgr->Has(e));
     CHECK(mgr->destroyed == 1);
 }
@@ -98,21 +105,27 @@ TEST_CASE("destroy during update is deferred to Cleanup")
     EntityHandle target = scene.CreateEntity();
 
     // a system that destroys `target` during the Update phase
-    struct Destroyer : SceneSystem {
+    struct Destroyer : SceneSystem
+    {
         Scene* scene = nullptr;
         EntityHandle target = EntityHandle::Invalid();
         bool validDuringUpdate = false;
         void OnSceneCreate(Scene& s) override { scene = &s; }
-        void OnUpdate(ScenePhase p, f32) override {
-            if (p == ScenePhase::Update) { validDuringUpdate = scene->IsValid(target); scene->DestroyEntity(target); }
+        void OnUpdate(ScenePhase p, f32) override
+        {
+            if (p == ScenePhase::Update)
+            {
+                validDuringUpdate = scene->IsValid(target);
+                scene->DestroyEntity(target);
+            }
         }
     };
     Destroyer* d = scene.AddSystem<Destroyer>();
     d->target = target;
 
     scene.Update(0.016f);
-    CHECK(d->validDuringUpdate);                    // still alive mid-update (deferred)
-    CHECK_FALSE(scene.IsValid(target));             // destroyed in Cleanup
+    CHECK(d->validDuringUpdate);        // still alive mid-update (deferred)
+    CHECK_FALSE(scene.IsValid(target)); // destroyed in Cleanup
 }
 
 TEST_CASE("active change + start/stop notify systems; fixed update ticks")
@@ -139,28 +152,36 @@ TEST_CASE("simulation gating: sim-only systems skip when simulation is disabled"
     Scene scene;
     SimOnly* sim = scene.AddSystem<SimOnly>();
 
-    scene.Update(0.016f);                           // enabled by default
-    CHECK(sim->updates == 5);                        // 5 phases
+    scene.Update(0.016f);     // enabled by default
+    CHECK(sim->updates == 5); // 5 phases
 
     scene.SetSimulationEnabled(false);
     scene.Update(0.016f);
-    CHECK(sim->updates == 5);                        // unchanged: skipped
-    scene.FixedUpdate(0.02f);                         // also skipped
+    CHECK(sim->updates == 5); // unchanged: skipped
+    scene.FixedUpdate(0.02f); // also skipped
     CHECK(sim->updates == 5);
 }
 
 TEST_CASE("systems run within a phase in UpdateOrder")
 {
     Array<i32> order;
-    struct Ordered : SceneSystem {
-        i32 ord; Array<i32>* log;
+    struct Ordered : SceneSystem
+    {
+        i32 ord;
+        Array<i32>* log;
         Ordered(i32 o, Array<i32>* l) : ord(o), log(l) {}
         [[nodiscard]] i32 UpdateOrder() const noexcept override { return ord; }
-        void OnUpdate(ScenePhase p, f32) override { if (p == ScenePhase::Update) { log->PushBack(ord); } }
+        void OnUpdate(ScenePhase p, f32) override
+        {
+            if (p == ScenePhase::Update)
+            {
+                log->PushBack(ord);
+            }
+        }
     };
     Scene scene;
-    scene.AddSystem<Ordered>(10, &order);            // added first, but higher order
-    scene.AddSystem<Ordered>(-5, &order);            // added second, lower order -> runs first
+    scene.AddSystem<Ordered>(10, &order); // added first, but higher order
+    scene.AddSystem<Ordered>(-5, &order); // added second, lower order -> runs first
     scene.Update(0.016f);
     REQUIRE(order.Size() == 2);
     CHECK(order[0] == -5);

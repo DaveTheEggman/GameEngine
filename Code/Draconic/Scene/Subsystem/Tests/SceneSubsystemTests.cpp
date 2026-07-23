@@ -16,22 +16,36 @@ namespace runtime = draconic::runtime;
 namespace
 {
     // A per-scene system a "render" subsystem injects into every scene.
-    struct RenderSceneSystem : SceneSystem {
+    struct RenderSceneSystem : SceneSystem
+    {
         int ticks = 0;
-        void OnUpdate(ScenePhase p, f32) override { if (p == ScenePhase::PostTransform) { ++ticks; } }
+        void OnUpdate(ScenePhase p, f32) override
+        {
+            if (p == ScenePhase::PostTransform)
+            {
+                ++ticks;
+            }
+        }
     };
 
     // A Context-level subsystem that reacts to scene lifecycle (the ISceneAware role).
-    class FakeRenderSubsystem : public runtime::Subsystem, public ISceneAware {
+    class FakeRenderSubsystem : public runtime::Subsystem, public ISceneAware
+    {
     public:
         int created = 0, ready = 0, destroyed = 0;
 
-        void OnReady() override {
-            if (SceneSubsystem* ss = GetContext()->GetSubsystem<SceneSubsystem>()) {
+        void OnReady() override
+        {
+            if (SceneSubsystem* ss = GetContext()->GetSubsystem<SceneSubsystem>())
+            {
                 ss->RegisterSceneAware(this);
             }
         }
-        void OnSceneCreated(Scene& scene) override { ++created; scene.AddSystem<RenderSceneSystem>(); }
+        void OnSceneCreated(Scene& scene) override
+        {
+            ++created;
+            scene.AddSystem<RenderSceneSystem>();
+        }
         void OnSceneReady(Scene&) override { ++ready; }
         void OnSceneDestroyed(Scene&) override { ++destroyed; }
     };
@@ -42,7 +56,7 @@ TEST_CASE("scene-aware subsystem injects a per-scene system on scene creation (t
     runtime::Context ctx;
     SceneSubsystem* scenes = ctx.AddSubsystem<SceneSubsystem>();
     FakeRenderSubsystem* render = ctx.AddSubsystem<FakeRenderSubsystem>();
-    ctx.Startup();                                   // OnReady -> render registers with the broker
+    ctx.Startup(); // OnReady -> render registers with the broker
 
     // The subsystem owns no scenes; an owner registers its own SceneManager over the shared registry.
     SceneManager sm(&scenes->AwareRegistry());
@@ -51,8 +65,8 @@ TEST_CASE("scene-aware subsystem injects a per-scene system on scene creation (t
     Scene* level = sm.CreateScene(u8"level");
     REQUIRE(level != nullptr);
     CHECK(render->created == 1);
-    CHECK(render->ready == 1);                        // both passes ran
-    CHECK(level->GetSystem<RenderSceneSystem>() != nullptr);   // injected
+    CHECK(render->ready == 1);                               // both passes ran
+    CHECK(level->GetSystem<RenderSceneSystem>() != nullptr); // injected
     CHECK(sm.GetScene(u8"level") == level);
     CHECK(sm.ActiveScenes().Size() == 1);
 
@@ -72,7 +86,7 @@ TEST_CASE("the subsystem ticks its scenes each Context update")
     RenderSceneSystem* sys = level->GetSystem<RenderSceneSystem>();
     REQUIRE(sys != nullptr);
 
-    ctx.Update(0.016f);                              // Context -> SceneSubsystem.Update -> scene.Update
+    ctx.Update(0.016f); // Context -> SceneSubsystem.Update -> scene.Update
     ctx.Update(0.016f);
     CHECK(sys->ticks == 2);
 
@@ -112,13 +126,13 @@ TEST_CASE("scene-aware registration is idempotent; unregister stops notification
     SceneManager sm(&scenes->AwareRegistry());
     scenes->RegisterManager(&sm);
 
-    scenes->RegisterSceneAware(render);              // duplicate (already registered in OnReady)
+    scenes->RegisterSceneAware(render); // duplicate (already registered in OnReady)
     sm.CreateScene(u8"one");
-    CHECK(render->created == 1);                      // notified once, not twice
+    CHECK(render->created == 1); // notified once, not twice
 
     scenes->UnregisterSceneAware(render);
     sm.CreateScene(u8"two");
-    CHECK(render->created == 1);                      // no longer notified
+    CHECK(render->created == 1); // no longer notified
 
     ctx.Shutdown();
 }
@@ -134,7 +148,10 @@ namespace
         void OnFixedUpdate(f32) override { ++fixedSteps; }
         void OnUpdate(ScenePhase phase, f32 deltaTime) override
         {
-            if (phase != ScenePhase::Update) { return; }
+            if (phase != ScenePhase::Update)
+            {
+                return;
+            }
             lastUpdateDelta = deltaTime;
             accumulatedUpdate += deltaTime;
         }
@@ -162,7 +179,7 @@ TEST_CASE("per-scene time: scales isolate scenes; pause stops one without the ot
         ctx.Update(1.0f / 60.0f);
     }
     CHECK(normalProbe->fixedSteps == 60);
-    CHECK(slowProbe->fixedSteps == 30);                                    // half speed
+    CHECK(slowProbe->fixedSteps == 30); // half speed
     CHECK(normalProbe->accumulatedUpdate == doctest::Approx(1.0f));
     CHECK(slowProbe->accumulatedUpdate == doctest::Approx(0.5f));
 
@@ -175,8 +192,8 @@ TEST_CASE("per-scene time: scales isolate scenes; pause stops one without the ot
         ctx.BeginFrame(1.0f / 60.0f);
         ctx.Update(1.0f / 60.0f);
     }
-    CHECK(slowProbe->fixedSteps == slowBefore);                            // frozen
-    CHECK(normalProbe->fixedSteps == 90);                                  // unaffected
+    CHECK(slowProbe->fixedSteps == slowBefore); // frozen
+    CHECK(normalProbe->fixedSteps == 90);       // unaffected
     CHECK(slowProbe->lastUpdateDelta == doctest::Approx(0.0f));
 
     // Context scale still multiplies on top of scene scales.
@@ -185,9 +202,9 @@ TEST_CASE("per-scene time: scales isolate scenes; pause stops one without the ot
     for (int i = 0; i < 30; ++i)
     {
         ctx.BeginFrame(1.0f / 60.0f);
-        ctx.Update((1.0f / 60.0f) * ctx.TimeScale());   // host pre-scales Update's dt
+        ctx.Update((1.0f / 60.0f) * ctx.TimeScale()); // host pre-scales Update's dt
     }
-    CHECK(normalProbe->fixedSteps == 150);              // 30 frames x 2 steps
+    CHECK(normalProbe->fixedSteps == 150); // 30 frames x 2 steps
     CHECK(slowProbe->fixedSteps == slowBefore + 60);
 
     ctx.Shutdown();

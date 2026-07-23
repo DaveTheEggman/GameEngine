@@ -18,10 +18,14 @@ using namespace draconic::scene;
 
 namespace
 {
-    struct Tag { i32 team = 0; };
+    struct Tag
+    {
+        i32 team = 0;
+    };
     void Serialize(ISerializer& ar, Tag& t) { draconic::core::Serialize(ar, "team", t.team); }
 
-    class TagManager : public SerializableComponentManager<Tag> {
+    class TagManager : public SerializableComponentManager<Tag>
+    {
     public:
         TagManager() : SerializableComponentManager<Tag>(u8"demo.Tag") {}
     };
@@ -49,14 +53,15 @@ TEST_CASE("SaveScene -> content DB -> LoadScene round-trips a scene")
         Scene scene(u8"arena");
         TagManager* tags = scene.AddSystem<TagManager>();
         EntityHandle hero = scene.CreateEntity(u8"hero");
-        EntityHandle foe  = scene.CreateEntity(u8"foe");
+        EntityHandle foe = scene.CreateEntity(u8"foe");
         scene.SetParent(foe, hero);
         tags->Add(hero).team = 1;
-        tags->Add(foe).team  = 2;
+        tags->Add(foe).team = 2;
         heroId = scene.GetEntityId(hero);
-        foeId  = scene.GetEntityId(foe);
+        foeId = scene.GetEntityId(foe);
 
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                              u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"level", SceneDocument::StaticType());
         id = inst->Id();
         REQUIRE(SaveScene(scene, *inst).IsOk());
@@ -64,7 +69,8 @@ TEST_CASE("SaveScene -> content DB -> LoadScene round-trips a scene")
 
     {
         // load into a fresh scene whose manager is injected first (as a subsystem would)
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                              u8".rasset");
         auto* inst = db.GetInstance(id);
         REQUIRE(inst != nullptr);
 
@@ -81,7 +87,7 @@ TEST_CASE("SaveScene -> content DB -> LoadScene round-trips a scene")
         CHECK(scene.Name() == u8"arena");
         CHECK(scene.EntityCount() == 2);
         EntityHandle hero = scene.FindEntity(heroId);
-        EntityHandle foe  = scene.FindEntity(foeId);
+        EntityHandle foe = scene.FindEntity(foeId);
         REQUIRE(hero.IsAssigned());
         REQUIRE(foe.IsAssigned());
         CHECK(scene.GetParent(foe) == hero);

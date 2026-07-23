@@ -33,7 +33,7 @@ TEST_CASE("scene-manager: create/active/current + destroy")
     REQUIRE(b != nullptr);
     CHECK(mgr.SceneCount() == 2u);
     CHECK(mgr.ActiveScenes().Size() == 2u);
-    CHECK(mgr.CurrentScene() == a);        // first created = current by default
+    CHECK(mgr.CurrentScene() == a); // first created = current by default
     CHECK(mgr.GetScene(u8"B") == b);
 
     mgr.SetCurrentScene(b);
@@ -42,11 +42,11 @@ TEST_CASE("scene-manager: create/active/current + destroy")
     mgr.DestroyScene(a);
     CHECK(mgr.SceneCount() == 1u);
     CHECK(mgr.GetScene(u8"A") == nullptr);
-    CHECK(mgr.CurrentScene() == b);        // destroying a non-current scene leaves current intact
+    CHECK(mgr.CurrentScene() == b); // destroying a non-current scene leaves current intact
 
     mgr.DestroyScene(b);
     CHECK(mgr.SceneCount() == 0u);
-    CHECK(mgr.CurrentScene() == nullptr);  // destroying the current scene clears it
+    CHECK(mgr.CurrentScene() == nullptr); // destroying the current scene clears it
 }
 
 TEST_CASE("scene-manager: fans ISceneAware lifecycle out through the shared registry")
@@ -54,12 +54,12 @@ TEST_CASE("scene-manager: fans ISceneAware lifecycle out through the shared regi
     SceneAwareRegistry registry;
     RecordingAware aware;
     registry.Register(&aware);
-    registry.Register(&aware);   // idempotent
+    registry.Register(&aware); // idempotent
 
     SceneManager mgr(&registry);
     Scene* s = mgr.CreateScene(u8"S");
     CHECK(aware.created == 1);
-    CHECK(aware.ready == 1);      // two-pass notify
+    CHECK(aware.ready == 1); // two-pass notify
     CHECK(aware.destroyed == 0);
 
     mgr.DestroyScene(s);
@@ -72,7 +72,7 @@ TEST_CASE("scene-manager: fans ISceneAware lifecycle out through the shared regi
 
     registry.Unregister(&aware);
     (void)mgr.CreateScene(u8"U");
-    CHECK(aware.created == 2);    // no longer notified after unregister
+    CHECK(aware.created == 2); // no longer notified after unregister
 }
 
 TEST_CASE("scene-manager: group time scale folds into the tick (identity at 1.0)")
