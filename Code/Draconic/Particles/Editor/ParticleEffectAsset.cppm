@@ -38,37 +38,54 @@ export namespace draconic::particles
         // the referenced cooked texture's GUID. Empty = untextured.
         void SetSystemTexturePath(i32 systemIndex, StringView path)
         {
-            if (systemIndex < 0) { return; }
-            while (static_cast<i32>(m_systemTexturePaths.Size()) <= systemIndex) { m_systemTexturePaths.PushBack(String{}); }
+            if (systemIndex < 0)
+            {
+                return;
+            }
+            while (static_cast<i32>(m_systemTexturePaths.Size()) <= systemIndex)
+            {
+                m_systemTexturePaths.PushBack(String{});
+            }
             m_systemTexturePaths[static_cast<usize>(systemIndex)] = String(path);
         }
         [[nodiscard]] StringView SystemTexturePath(i32 systemIndex) const
         {
             return (systemIndex >= 0 && systemIndex < static_cast<i32>(m_systemTexturePaths.Size()))
-                 ? m_systemTexturePaths[static_cast<usize>(systemIndex)].AsView() : StringView{};
+                       ? m_systemTexturePaths[static_cast<usize>(systemIndex)].AsView()
+                       : StringView{};
         }
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::editor::Asset::Serialize(ar);   // fileName (unused for authored effects)
-            SerializeEffect(ar, m_effect);            // the authored effect graph
-            core::Serialize(ar, "texturePaths", m_systemTexturePaths);   // edit-time soft refs
+            draconic::editor::Asset::Serialize(ar); // fileName (unused for authored effects)
+            SerializeEffect(ar, m_effect);          // the authored effect graph
+            core::Serialize(ar, "texturePaths", m_systemTexturePaths); // edit-time soft refs
         }
 
     private:
         ParticleEffect m_effect;
-        Array<String> m_systemTexturePaths;   // per-system texture asset paths (edit-time)
+        Array<String> m_systemTexturePaths; // per-system texture asset paths (edit-time)
     };
 
     // The bake: cook a ParticleEffectAsset into the output content Instance as a ParticleEffectResource.
     class ParticleEffectAssetBuilder final : public draconic::editor::DefaultAssetBuilder
     {
     public:
-        [[nodiscard]] const TypeInfo* AssetType() const override { return &ParticleEffectAsset::StaticType(); }
-        [[nodiscard]] const TypeInfo* ProductType() const override { return &ParticleEffectResource::StaticType(); }
-        [[nodiscard]] Status Build(const draconic::editor::Asset& asset, draconic::editor::AssetBuildContext& ctx) override
+        [[nodiscard]] const TypeInfo* AssetType() const override
         {
-            if (ctx.output == nullptr) { return Status{ ErrorCode::InvalidArgument }; }
+            return &ParticleEffectAsset::StaticType();
+        }
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &ParticleEffectResource::StaticType();
+        }
+        [[nodiscard]] Status Build(const draconic::editor::Asset& asset,
+                                   draconic::editor::AssetBuildContext& ctx) override
+        {
+            if (ctx.output == nullptr)
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
             const ParticleEffectAsset& pa = static_cast<const ParticleEffectAsset&>(asset);
             // Bake: build a fresh cooked resource from the authored effect (faithful deep copy)...
             ParticleEffectResource cooked;
@@ -79,9 +96,15 @@ export namespace draconic::particles
             for (i32 s = 0; s < fx.SystemCount(); ++s)
             {
                 const StringView path = pa.SystemTexturePath(s);
-                if (path.IsEmpty()) { continue; }
+                if (path.IsEmpty())
+                {
+                    continue;
+                }
                 content::Instance* dep = (ctx.db != nullptr) ? ctx.db->GetInstance(path) : nullptr;
-                if (dep == nullptr) { return Status{ ErrorCode::NotFound }; }   // referenced asset must be cooked first
+                if (dep == nullptr)
+                {
+                    return Status{ErrorCode::NotFound};
+                } // referenced asset must be cooked first
                 fx.GetSystem(s)->textureRef = dep->Id();
             }
             return ctx.output->WriteObject(cooked);

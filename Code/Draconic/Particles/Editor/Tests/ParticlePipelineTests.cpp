@@ -43,8 +43,10 @@ TEST_CASE("particles.pipeline: authored asset -> Build() -> cooked resource -> B
 
     // Author the effect in an asset, then cook it via the builder into the DB instance.
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
-        auto* inst = db.RootGroup()->CreateInstance(u8"smoke", ParticleEffectResource::StaticType());
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                              u8".rasset");
+        auto* inst =
+            db.RootGroup()->CreateInstance(u8"smoke", ParticleEffectResource::StaticType());
         id = inst->Id();
 
         ParticleEffectAsset asset;
@@ -53,10 +55,10 @@ TEST_CASE("particles.pipeline: authored asset -> Build() -> cooked resource -> B
         sys.blendMode = ParticleBlendMode::Alpha;
         sys.emitter.spawnRate = 40.0f;
         sys.AddInitializer<LifetimeInitializer>().lifetime = RangeFloat(2.0f, 3.0f);
-        sys.AddInitializer<SizeInitializer>().size = RangeFloat2::Constant(Float2{ 1.0f, 1.0f });
+        sys.AddInitializer<SizeInitializer>().size = RangeFloat2::Constant(Float2{1.0f, 1.0f});
         sys.AddBehavior<DragBehavior>().drag = 0.3f;
         sys.AddBehavior<SizeOverLifetimeBehavior>().curve =
-            ParticleCurveFloat2::Linear(Float2{ 1, 1 }, Float2{ 3, 3 });
+            ParticleCurveFloat2::Linear(Float2{1, 1}, Float2{3, 3});
 
         ParticleEffectAssetBuilder builder;
         draconic::editor::AssetBuildContext ctx;
@@ -67,7 +69,8 @@ TEST_CASE("particles.pipeline: authored asset -> Build() -> cooked resource -> B
     }
 
     // Load the cooked resource back.
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                          u8".rasset");
     ParticleEffectFactory factory;
     ResourceManager manager(db);
     manager.AddFactory(&factory);
@@ -106,19 +109,27 @@ TEST_CASE("particles.pipeline: Build resolves a texture path ref -> cooked GUID 
     Guid effectId, texId;
 
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                              u8".rasset");
 
         // Cook a texture the effect will reference.
-        auto* texInst = db.RootGroup()->CreateInstance(u8"smoketex", draconic::texture::TextureResource::StaticType());
+        auto* texInst = db.RootGroup()->CreateInstance(
+            u8"smoketex", draconic::texture::TextureResource::StaticType());
         texId = texInst->Id();
         draconic::texture::TextureResource tr;
-        tr.width = 2; tr.height = 2; tr.format = rhi::TextureFormat::RGBA8Unorm;
+        tr.width = 2;
+        tr.height = 2;
+        tr.format = rhi::TextureFormat::RGBA8Unorm;
         REQUIRE(texInst->WriteObject(tr).IsOk());
         u8 px[2 * 2 * 4] = {};
-        REQUIRE(texInst->WriteData(u8"data", Span<const byte>(reinterpret_cast<const byte*>(px), sizeof(px))).IsOk());
+        REQUIRE(texInst
+                    ->WriteData(u8"data",
+                                Span<const byte>(reinterpret_cast<const byte*>(px), sizeof(px)))
+                    .IsOk());
 
         // Author an effect that references the texture BY PATH, then cook it.
-        auto* fxInst = db.RootGroup()->CreateInstance(u8"effect", ParticleEffectResource::StaticType());
+        auto* fxInst =
+            db.RootGroup()->CreateInstance(u8"effect", ParticleEffectResource::StaticType());
         effectId = fxInst->Id();
         ParticleEffectAsset asset;
         ParticleSystem& sys = asset.Effect().AddSystem(500);
@@ -135,7 +146,8 @@ TEST_CASE("particles.pipeline: Build resolves a texture path ref -> cooked GUID 
 
     // Load with both factories so the effect's Create can Bind the referenced texture.
     rhi::null::NullDevice device{DefaultAllocator()};
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                          u8".rasset");
     ParticleEffectFactory pfxFactory;
     draconic::texture::TextureFactory texFactory(device);
     ResourceManager manager(db);

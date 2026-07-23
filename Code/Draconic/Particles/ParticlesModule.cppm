@@ -6,7 +6,7 @@
 
 export module draconic.particles;
 
-export import :types;     // enums, RangeValue, ParticleCurve, EmissionShape, events, update context
-export import :streams;   // ParticleStreamId + SoA stream container (ParticleStream / CPUStream)
-export import :modules;   // initializer/behavior/simulator bases + concrete modules + CPU simulator
-export import :effect;    // ParticleEmitter / ParticleSystem / ParticleEffect / ParticleEffectInstance
+export import :types;   // enums, RangeValue, ParticleCurve, EmissionShape, events, update context
+export import :streams; // ParticleStreamId + SoA stream container (ParticleStream / CPUStream)
+export import :modules; // initializer/behavior/simulator bases + concrete modules + CPU simulator
+export import :effect; // ParticleEmitter / ParticleSystem / ParticleEffect / ParticleEffectInstance

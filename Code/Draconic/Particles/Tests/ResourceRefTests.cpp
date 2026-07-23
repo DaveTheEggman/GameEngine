@@ -2,8 +2,8 @@
 // through scene serialization by Guid, resolves through the ResourceManager's proxy handles,
 // and the manager clones the cooked effect into a live instance on the next tick.
 
-#include <atomic>   // gcc modules: pull in std::atomic's always_inline bodies before any import
-                    // (this import mix otherwise fails with "function body not available")
+#include <atomic> // gcc modules: pull in std::atomic's always_inline bodies before any import
+                  // (this import mix otherwise fails with "function body not available")
 #include <doctest/doctest.h>
 
 #include "Core/Prelude.h"
@@ -34,7 +34,10 @@ namespace
         {
             for (const auto& e : entries)
             {
-                if (!e.isDirectory) { (void)fs.AsWritable()->Delete(e.name.AsView()); }
+                if (!e.isDirectory)
+                {
+                    (void)fs.AsWritable()->Delete(e.name.AsView());
+                }
             }
         }
         (void)RemoveDirectory(root);
@@ -57,8 +60,8 @@ TEST_CASE("resource-ref: scene round-trip resolves the effect ref and the manage
         px::ParticleEffectResource resource;
         px::ParticleSystem& sys = resource.Effect().AddSystem(64);
         sys.emitter.isEmitting = true;
-        draconic::content::Instance* inst =
-            cookedDb.RootGroup()->CreateInstance(u8"Puff", px::ParticleEffectResource::StaticType());
+        draconic::content::Instance* inst = cookedDb.RootGroup()->CreateInstance(
+            u8"Puff", px::ParticleEffectResource::StaticType());
         REQUIRE(inst != nullptr);
         REQUIRE(inst->WriteObject(resource).IsOk());
         effectId = inst->Id();
@@ -134,8 +137,8 @@ TEST_CASE("resource-ref: SetEffect(proxy) still attaches immediately (sample pat
     {
         px::ParticleEffectResource resource;
         (void)resource.Effect().AddSystem(16);
-        draconic::content::Instance* inst =
-            cookedDb.RootGroup()->CreateInstance(u8"Spark", px::ParticleEffectResource::StaticType());
+        draconic::content::Instance* inst = cookedDb.RootGroup()->CreateInstance(
+            u8"Spark", px::ParticleEffectResource::StaticType());
         REQUIRE(inst != nullptr);
         REQUIRE(inst->WriteObject(resource).IsOk());
         effectId = inst->Id();

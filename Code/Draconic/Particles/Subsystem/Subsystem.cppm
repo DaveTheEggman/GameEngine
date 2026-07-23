@@ -14,11 +14,11 @@ export module draconic.particles.subsystem:subsystem;
 import draconic.core;
 import draconic.rhi;
 import draconic.shaders.system;
-import draconic.runtime;             // Subsystem, Context
-import draconic.scene;              // Scene, ISceneAware
-import draconic.scene.subsystem;    // SceneSubsystem
-import draconic.render;             // ExtractedScene
-import draconic.render.subsystem;   // RenderSubsystem + IRenderExtractor seam
+import draconic.runtime;          // Subsystem, Context
+import draconic.scene;            // Scene, ISceneAware
+import draconic.scene.subsystem;  // SceneSubsystem
+import draconic.render;           // ExtractedScene
+import draconic.render.subsystem; // RenderSubsystem + IRenderExtractor seam
 import :renderer;
 import :components;
 
@@ -30,8 +30,7 @@ namespace render = draconic::render;
 
 export namespace draconic::particles
 {
-    class ParticleSubsystem final : public draconic::runtime::Subsystem,
-                                    public scene::ISceneAware
+    class ParticleSubsystem final : public draconic::runtime::Subsystem, public scene::ISceneAware
     {
     public:
         // Inject the particle manager into each new scene, then register it (as the scene's render-data
@@ -40,41 +39,66 @@ export namespace draconic::particles
         {
             EnsureRenderer();
             ParticleEffectComponentManager* mgr = scene.AddSystem<ParticleEffectComponentManager>();
-            if (mgr == nullptr) { return; }
+            if (mgr == nullptr)
+            {
+                return;
+            }
             mgr->SetBillboardRendererId(m_billboardRendererId);
-            if (m_render != nullptr) { m_render->RegisterProvider(scene, *mgr); }
+            if (m_render != nullptr)
+            {
+                m_render->RegisterProvider(scene, *mgr);
+            }
         }
 
     protected:
         void OnInit() override
         {
-            RegisterParticleComponentReflection();   // tooling: reflected components (idempotent)
+            RegisterParticleComponentReflection(); // tooling: reflected components (idempotent)
         }
 
         void OnReady() override
         {
             draconic::runtime::Context* ctx = GetContext();
-            if (ctx == nullptr) { return; }
-            if (auto* scenes = ctx->GetSubsystem<scene::SceneSubsystem>()) { scenes->RegisterSceneAware(this); }
+            if (ctx == nullptr)
+            {
+                return;
+            }
+            if (auto* scenes = ctx->GetSubsystem<scene::SceneSubsystem>())
+            {
+                scenes->RegisterSceneAware(this);
+            }
             m_render = ctx->GetSubsystem<render::RenderSubsystem>();
-            EnsureRenderer();   // GPU systems are up by OnReady (RenderSubsystem::OnInit ran first)
+            EnsureRenderer(); // GPU systems are up by OnReady (RenderSubsystem::OnInit ran first)
         }
 
     private:
         // Create + register the ParticleRenderer once the render GPU systems exist (idempotent).
         void EnsureRenderer()
         {
-            if (m_renderer.Get() != nullptr || m_render == nullptr) { return; }
+            if (m_renderer.Get() != nullptr || m_render == nullptr)
+            {
+                return;
+            }
             rhi::Device* device = m_render->Device();
             shaders::ShaderSystem* sh = m_render->Shaders();
-            if (device == nullptr || sh == nullptr) { return; }
-            m_renderer = MakeUnique<ParticleRenderer>(DefaultAllocator(), *device, *sh, m_render->FramesInFlight());
-            if (m_renderer->Initialize().IsOk()) { m_billboardRendererId = m_render->RegisterRenderer(*m_renderer); }
-            else { m_renderer.Reset(); }
+            if (device == nullptr || sh == nullptr)
+            {
+                return;
+            }
+            m_renderer = MakeUnique<ParticleRenderer>(DefaultAllocator(), *device, *sh,
+                                                      m_render->FramesInFlight());
+            if (m_renderer->Initialize().IsOk())
+            {
+                m_billboardRendererId = m_render->RegisterRenderer(*m_renderer);
+            }
+            else
+            {
+                m_renderer.Reset();
+            }
         }
 
-        render::RenderSubsystem*    m_render = nullptr;
+        render::RenderSubsystem* m_render = nullptr;
         UniquePtr<ParticleRenderer> m_renderer;
-        u16                         m_billboardRendererId = 0;
+        u16 m_billboardRendererId = 0;
     };
 }

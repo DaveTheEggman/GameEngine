@@ -38,10 +38,12 @@ namespace
         fountain.emitter.spawnRate = 250.0f;
         fountain.AddInitializer<PositionInitializer>().shape = EmissionShape::Cone(0.4f, 0.35f);
         fountain.AddInitializer<LifetimeInitializer>().lifetime = RangeFloat(1.5f, 2.5f);
-        fountain.AddInitializer<VelocityInitializer>().baseVelocity = Float3{ 0.0f, 9.0f, 0.0f };
-        fountain.AddInitializer<ColorInitializer>().color = RangeColor(Float4{ 1, 0.5f, 0.1f, 1 }, Float4{ 1, 0.9f, 0.3f, 1 });
+        fountain.AddInitializer<VelocityInitializer>().baseVelocity = Float3{0.0f, 9.0f, 0.0f};
+        fountain.AddInitializer<ColorInitializer>().color =
+            RangeColor(Float4{1, 0.5f, 0.1f, 1}, Float4{1, 0.9f, 0.3f, 1});
         fountain.AddBehavior<GravityBehavior>().multiplier = 1.4f;
-        fountain.AddBehavior<AlphaOverLifetimeBehavior>().curve = ParticleCurveFloat::FadeOut(1.0f, 0.4f);
+        fountain.AddBehavior<AlphaOverLifetimeBehavior>().curve =
+            ParticleCurveFloat::FadeOut(1.0f, 0.4f);
 
         ParticleSystem& sparks = fx.AddSystem(2000);
         sparks.name = String(u8"sparks");
@@ -67,8 +69,10 @@ TEST_CASE("particles.pipeline: code effect -> cook -> Bind reconstructs an equiv
 
     // Cook: author the effect into a ParticleEffectResource record and write it to the DB.
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
-        auto* inst = db.RootGroup()->CreateInstance(u8"effect", ParticleEffectResource::StaticType());
+        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                              u8".rasset");
+        auto* inst =
+            db.RootGroup()->CreateInstance(u8"effect", ParticleEffectResource::StaticType());
         id = inst->Id();
 
         ParticleEffectResource res;
@@ -77,7 +81,8 @@ TEST_CASE("particles.pipeline: code effect -> cook -> Bind reconstructs an equiv
     }
 
     // Load: bind the cooked resource back through the manager + factory.
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(), u8".rasset");
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                          u8".rasset");
     ParticleEffectFactory factory;
     ResourceManager manager(db);
     manager.AddFactory(&factory);

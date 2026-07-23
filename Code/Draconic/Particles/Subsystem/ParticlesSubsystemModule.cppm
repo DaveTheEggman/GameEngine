@@ -6,8 +6,8 @@
 
 export module draconic.particles.subsystem;
 
-export import :renderdata;   // ParticleBillboardInstance + ParticleBillboardRenderData
-export import :particle_shaders;   // ParticleVS()/ParticlePS()/TrailVS()/TrailPS() HLSL source (pass-internal)
-export import :renderer;     // ParticleRenderer (dedicated billboard Renderer)
-export import :components;   // ParticleEffectComponent + manager (sim tick + IRenderDataProvider)
-export import :subsystem;    // ParticleSubsystem (injects manager, registers renderer + provider)
+export import :renderdata; // ParticleBillboardInstance + ParticleBillboardRenderData
+export import :particle_shaders; // ParticleVS()/ParticlePS()/TrailVS()/TrailPS() HLSL source (pass-internal)
+export import :renderer;   // ParticleRenderer (dedicated billboard Renderer)
+export import :components; // ParticleEffectComponent + manager (sim tick + IRenderDataProvider)
+export import :subsystem;  // ParticleSubsystem (injects manager, registers renderer + provider)

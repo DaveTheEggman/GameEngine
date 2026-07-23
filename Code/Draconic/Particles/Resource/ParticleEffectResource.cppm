@@ -9,7 +9,7 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
-#include <utility>   // std::move
+#include <utility> // std::move
 
 export module draconic.particles.resource;
 
@@ -35,7 +35,8 @@ export namespace draconic::particles
     {
         const bool reading = ar.Mode() == SerializeMode::Read;
         u32 count = reading ? 0u : static_cast<u32>(sys.InitializerCount());
-        ar.Key("initializers"); ar.BeginArray(count);
+        ar.Key("initializers");
+        ar.BeginArray(count);
         for (u32 i = 0; i < count; ++i)
         {
             ar.BeginObject();
@@ -46,11 +47,21 @@ export namespace draconic::particles
             if (reading)
             {
                 RefPtr<ISerializable> obj = GlobalSerializableRegistry().Create(typeId);
-                if (obj) { created = RefPtr<ParticleInitializer>{ Cast<ParticleInitializer>(obj.Get()) }; mod = created.Get(); }
+                if (obj)
+                {
+                    created = RefPtr<ParticleInitializer>{Cast<ParticleInitializer>(obj.Get())};
+                    mod = created.Get();
+                }
             }
-            if (mod != nullptr) { mod->Serialize(ar); }
+            if (mod != nullptr)
+            {
+                mod->Serialize(ar);
+            }
             ar.EndObject();
-            if (reading && created) { sys.AddInitializer(std::move(created)); }
+            if (reading && created)
+            {
+                sys.AddInitializer(std::move(created));
+            }
         }
         ar.EndArray();
     }
@@ -59,7 +70,8 @@ export namespace draconic::particles
     {
         const bool reading = ar.Mode() == SerializeMode::Read;
         u32 count = reading ? 0u : static_cast<u32>(sys.BehaviorCount());
-        ar.Key("behaviors"); ar.BeginArray(count);
+        ar.Key("behaviors");
+        ar.BeginArray(count);
         for (u32 i = 0; i < count; ++i)
         {
             ar.BeginObject();
@@ -70,11 +82,21 @@ export namespace draconic::particles
             if (reading)
             {
                 RefPtr<ISerializable> obj = GlobalSerializableRegistry().Create(typeId);
-                if (obj) { created = RefPtr<ParticleBehavior>{ Cast<ParticleBehavior>(obj.Get()) }; mod = created.Get(); }
+                if (obj)
+                {
+                    created = RefPtr<ParticleBehavior>{Cast<ParticleBehavior>(obj.Get())};
+                    mod = created.Get();
+                }
             }
-            if (mod != nullptr) { mod->Serialize(ar); }
+            if (mod != nullptr)
+            {
+                mod->Serialize(ar);
+            }
             ar.EndObject();
-            if (reading && created) { sys.AddBehavior(std::move(created)); }
+            if (reading && created)
+            {
+                sys.AddBehavior(std::move(created));
+            }
         }
         ar.EndArray();
     }
@@ -93,7 +115,8 @@ export namespace draconic::particles
         core::Serialize(ar, "simSpace", sys->simulationSpace);
         core::Serialize(ar, "blend", sys->blendMode);
         core::Serialize(ar, "render", sys->renderMode);
-        core::Serialize(ar, "textureRef", sys->textureRef);   // cooked texture GUID (null = untextured)
+        core::Serialize(ar, "textureRef",
+                        sys->textureRef); // cooked texture GUID (null = untextured)
         core::Serialize(ar, "sort", sys->sortParticles);
         core::Serialize(ar, "soft", sys->softParticles);
         core::Serialize(ar, "softDistance", sys->softDistance);
@@ -104,7 +127,8 @@ export namespace draconic::particles
         core::Serialize(ar, "lodCull", sys->lodCullDistance);
         core::Serialize(ar, "lodMinRate", sys->lodMinRate);
 
-        ar.Key("emitter"); ar.BeginObject();
+        ar.Key("emitter");
+        ar.BeginObject();
         core::Serialize(ar, "mode", sys->emitter.mode);
         core::Serialize(ar, "spawnRate", sys->emitter.spawnRate);
         core::Serialize(ar, "burstCount", sys->emitter.burstCount);
@@ -125,20 +149,30 @@ export namespace draconic::particles
         core::Serialize(ar, "name", fx.name);
 
         u32 systemCount = reading ? 0u : static_cast<u32>(fx.SystemCount());
-        ar.Key("systems"); ar.BeginArray(systemCount);
-        for (u32 i = 0; i < systemCount; ++i) { ar.BeginObject(); SerializeSystem(ar, fx, static_cast<i32>(i)); ar.EndObject(); }
+        ar.Key("systems");
+        ar.BeginArray(systemCount);
+        for (u32 i = 0; i < systemCount; ++i)
+        {
+            ar.BeginObject();
+            SerializeSystem(ar, fx, static_cast<i32>(i));
+            ar.EndObject();
+        }
         ar.EndArray();
 
         const Span<const SubEmitterLink> links = fx.SubEmitterLinks();
         u32 linkCount = reading ? 0u : static_cast<u32>(links.Size());
-        ar.Key("links"); ar.BeginArray(linkCount);
+        ar.Key("links");
+        ar.BeginArray(linkCount);
         for (u32 i = 0; i < linkCount; ++i)
         {
             ar.BeginObject();
             SubEmitterLink link = reading ? SubEmitterLink{} : links[static_cast<usize>(i)];
             Serialize(ar, link);
             ar.EndObject();
-            if (reading) { fx.AddSubEmitterLink(link); }
+            if (reading)
+            {
+                fx.AddSubEmitterLink(link);
+            }
         }
         ar.EndArray();
     }
@@ -151,7 +185,9 @@ export namespace draconic::particles
         MemoryStream buffer(DefaultAllocator());
         {
             BinarySerializer writer(buffer, SerializeMode::Write);
-            SerializeEffect(writer, const_cast<ParticleEffect&>(src));   // write pass only reads src (bidirectional API is non-const)
+            SerializeEffect(writer,
+                            const_cast<ParticleEffect&>(
+                                src)); // write pass only reads src (bidirectional API is non-const)
         }
         (void)buffer.Seek(0, SeekOrigin::Begin);
         BinarySerializer reader(buffer, SerializeMode::Read);
@@ -178,9 +214,13 @@ export namespace draconic::particles
         [[nodiscard]] resource::Proxy<texture::Texture> SystemTexture(i32 systemIndex) const
         {
             return (systemIndex >= 0 && systemIndex < static_cast<i32>(m_systemTextures.Size()))
-                 ? m_systemTextures[static_cast<usize>(systemIndex)] : resource::Proxy<texture::Texture>{};
+                       ? m_systemTextures[static_cast<usize>(systemIndex)]
+                       : resource::Proxy<texture::Texture>{};
         }
-        void SetSystemTextures(Array<resource::Proxy<texture::Texture>> textures) { m_systemTextures = Move(textures); }
+        void SetSystemTextures(Array<resource::Proxy<texture::Texture>> textures)
+        {
+            m_systemTextures = Move(textures);
+        }
 
     private:
         ParticleEffect m_effect;
@@ -193,8 +233,12 @@ export namespace draconic::particles
     class ParticleEffectFactory final : public resource::IResourceFactory
     {
     public:
-        [[nodiscard]] const TypeInfo* ProductType() const override { return &ParticleEffectResource::StaticType(); }
-        [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager& manager, content::Instance& instance) override
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &ParticleEffectResource::StaticType();
+        }
+        [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager& manager,
+                                            content::Instance& instance) override
         {
             RefPtr<ISerializable> obj = instance.ReadObject();
             ParticleEffectResource* res = Cast<ParticleEffectResource>(obj.Get());

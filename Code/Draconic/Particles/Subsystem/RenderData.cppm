@@ -13,8 +13,8 @@ export module draconic.particles.subsystem:renderdata;
 
 import draconic.core;
 import draconic.rhi;
-import draconic.render;      // RenderData base + RenderCategories
-import draconic.particles;   // ParticleBlendMode
+import draconic.render;    // RenderData base + RenderCategories
+import draconic.particles; // ParticleBlendMode
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -24,18 +24,18 @@ export namespace draconic::particles
     // One packed billboard instance (80 bytes = 5x float4, matches the ParticleRenderer VS inputs).
     struct ParticleBillboardInstance
     {
-        Float4 positionSize;   // xyz world center, w width
-        Float4 sizeRotMode;    // x height, y rotation (radians), z orientation mode, w unused
-        Float4 color;          // rgba (linear, premultiply/scale done in sim)
-        Float4 uvRect;         // xy uv min, zw uv size (flipbook)
-        Float4 velocity;       // xyz world velocity, w stretch scale (0 = plain billboard)
+        Float4 positionSize; // xyz world center, w width
+        Float4 sizeRotMode;  // x height, y rotation (radians), z orientation mode, w unused
+        Float4 color;        // rgba (linear, premultiply/scale done in sim)
+        Float4 uvRect;       // xy uv min, zw uv size (flipbook)
+        Float4 velocity;     // xyz world velocity, w stretch scale (0 = plain billboard)
     };
     static_assert(sizeof(ParticleBillboardInstance) == 80);
 
     // Both particle render-data kinds ride the one particle rendererId; this tells them apart in Resolve.
     struct ParticleRenderDataBase : draconic::render::RenderData
     {
-        u8 particleKind = 0;   // 0 = billboard batch, 1 = trail ribbon
+        u8 particleKind = 0; // 0 = billboard batch, 1 = trail ribbon
     };
 
     // Batched billboard draw for one system (or texture/blend group). `instances` is borrowed and
@@ -43,9 +43,9 @@ export namespace draconic::particles
     struct ParticleBillboardRenderData : ParticleRenderDataBase
     {
         const ParticleBillboardInstance* instances = nullptr;
-        u32                              count = 0;
-        rhi::TextureView*                texture = nullptr;
-        ParticleBlendMode                blend = ParticleBlendMode::Alpha;   // selects the renderer's blend PSO
+        u32 count = 0;
+        rhi::TextureView* texture = nullptr;
+        ParticleBlendMode blend = ParticleBlendMode::Alpha; // selects the renderer's blend PSO
     };
     static_assert(std::is_trivially_destructible_v<ParticleBillboardRenderData>);
 
@@ -53,9 +53,9 @@ export namespace draconic::particles
     // trail path draws these as a plain triangle list (no instancing, geometry already oriented).
     struct TrailVertex
     {
-        Float3 position{ 0.0f, 0.0f, 0.0f };
-        Float2 texCoord{ 0.0f, 0.0f };
-        Float4 color{ 1.0f, 1.0f, 1.0f, 1.0f };
+        Float3 position{0.0f, 0.0f, 0.0f};
+        Float2 texCoord{0.0f, 0.0f};
+        Float4 color{1.0f, 1.0f, 1.0f, 1.0f};
     };
 
     // Batched trail ribbon for one system: a borrowed triangle-list vertex span (owned by the manager's
@@ -64,9 +64,9 @@ export namespace draconic::particles
     {
         ParticleTrailRenderData() noexcept { particleKind = 1; }
         const TrailVertex* vertices = nullptr;
-        u32                vertexCount = 0;
-        rhi::TextureView*  texture = nullptr;
-        ParticleBlendMode  blend = ParticleBlendMode::Alpha;
+        u32 vertexCount = 0;
+        rhi::TextureView* texture = nullptr;
+        ParticleBlendMode blend = ParticleBlendMode::Alpha;
     };
     static_assert(std::is_trivially_destructible_v<ParticleTrailRenderData>);
 }
