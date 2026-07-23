@@ -16,6 +16,11 @@ reproduces identically).
 It is a *compile-time* crash, not a compile error and not runtime - the linked
 `Bin/.../Sandbox` binary builds (when a compile succeeds) and runs fine.
 
+**clang-specific:** GCC compiles the same TU cleanly, every time (a full `build/gcc`
+keep-going build, including Sandbox, is 100% green). So this is a clang-21.1 frontend
+bug on a very large TU, NOT a code defect - and `build/gcc` is the reliable full-build
+verification path.
+
 **Where:** `Code/Samples/Sandbox/main.cpp` - a very large module TU (the resulting debug
 binary is ~60 MB from one TU). Same fragility the runtime-host work hit before, worked
 around via `DefaultApplication::PrimaryScenes()` returning `SceneManager&` to avoid
