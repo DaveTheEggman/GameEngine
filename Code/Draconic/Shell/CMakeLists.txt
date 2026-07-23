@@ -13,7 +13,7 @@ target_sources(DraconicShell
             Input.cppm
             InputSurface.cppm
             Dialog.cppm
-            Shell.cppm)
+            ShellModule.cppm)
 
 # Null backend needs only the interface. The Desktop (SDL3) backend needs the interface + SDL3
 # (its run loop moved to draconic.runtime.desktop, so it no longer depends on client/graphics) -
