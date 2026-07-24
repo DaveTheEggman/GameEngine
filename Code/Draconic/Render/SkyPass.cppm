@@ -46,7 +46,7 @@ export namespace draconic::render
                         rendergraph::RGHandle envH, rhi::TextureView* envView,
                         rhi::TextureFormat colorFormat, rhi::TextureFormat depthFormat,
                         const Float4x4& invViewProj, const Float4x4& prevViewProj, Float2 jitter,
-                        Float2 prevJitter, const Float3& camPos, f32 intensity,
+                        Float2 prevJitter, const Float3& camPos, f32 backgroundIntensity,
                         const Float3& sunDir, f32 sunSize, const Float3& sunColor, f32 sunIntensity,
                         i32 vpX, i32 vpY, u32 vpW, u32 vpH, u32 frameIndex, u32 viewIndex,
                         u64 envUid, rendergraph::RGSubresourceRange colorSub = {});

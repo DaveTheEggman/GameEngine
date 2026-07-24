@@ -487,16 +487,25 @@ export namespace draconic::render
         f32 ambientIntensity = 0.3f;
 
         SkyMode skyMode = SkyMode::Procedural;
-        f32 skyIntensity = 1.0f; // multiplier on env radiance
-        f32 skyRotation = 0.0f;  // yaw (radians) for HDR/cubemap
+        // Env RADIANCE master: baked once into the env cube, so it scales the visible sky's base
+        // AND the IBL diffuse/specular lighting derived from that cube (the old sky pass wrongly
+        // double-applied it, squaring only the background). Dim it to lower the whole environment
+        // (sky + image-based lighting) together.
+        f32 skyIntensity = 1.0f;
+        // Display-only backdrop dimmer: an EXTRA multiplier on the VISIBLE sky (main view + probe
+        // reflections of it) layered on top of skyIntensity. Does NOT touch IBL lighting - use it
+        // to calm a too-bright sky while keeping the scene lit. Default 0.7 (Unity-like backdrop).
+        f32 skyBackgroundIntensity = 0.5f;
+        f32 skyRotation = 0.0f; // yaw (radians) for HDR/cubemap
         // The textured modes' source: HDREquirect = a 2D .hdr texture asset; Cubemap = a
         // cube-shaped texture asset. Ignored by the untextured modes. (The programmatic
         // RenderSubsystem::SetSkyEquirect/SetSkyCubemap pixel paths remain for tools/samples.)
         draconic::resource::Ref<texture::Texture> skyTexture;
-        // Procedural sky:
-        Color skyHorizon = Color{0.60f, 0.70f, 0.85f, 1.0f};
-        Color skyZenith = Color{0.15f, 0.30f, 0.65f, 1.0f}; // also the Color-mode color
-        Color skyGround = Color{0.30f, 0.28f, 0.25f, 1.0f};
+        // Procedural sky (Unity-default-like: a soft, hazy, low-saturation daytime blue rather than
+        // a punchy vivid one - dimmer horizon, desaturated zenith, near-neutral ground).
+        Color skyHorizon = Color{0.52f, 0.60f, 0.70f, 1.0f};
+        Color skyZenith = Color{0.20f, 0.36f, 0.58f, 1.0f}; // also the Color-mode color
+        Color skyGround = Color{0.26f, 0.26f, 0.26f, 1.0f};
         f32 sunIntensity = 1.0f;
         f32 sunAngularSize = 0.5f; // sun disc size (degrees)
         f32 turbidity = 3.0f;      // Analytic (Preetham) haze (~2..10)
@@ -536,6 +545,11 @@ export namespace draconic::render
                 m_env.skyMode = static_cast<SkyMode>(mode);
             }
             draconic::core::Serialize(ar, "skyIntensity", m_env.skyIntensity);
+            if (ar.Version() >= 3)
+            { // v3 split the visible-sky backdrop dimmer out of skyIntensity
+                draconic::core::Serialize(ar, "skyBackgroundIntensity",
+                                          m_env.skyBackgroundIntensity);
+            }
             draconic::core::Serialize(ar, "skyRotation", m_env.skyRotation);
             draconic::core::Serialize(ar, "skyHorizon", m_env.skyHorizon);
             draconic::core::Serialize(ar, "skyZenith", m_env.skyZenith);

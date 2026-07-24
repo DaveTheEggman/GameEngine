@@ -78,6 +78,11 @@ export namespace draconic::render
             [[nodiscard]] rendergraph::RGHandle EnvHandle() const noexcept { return m_envH; }
             [[nodiscard]] rhi::TextureView* EnvView() const noexcept { return m_envSampleView; }
             [[nodiscard]] f32 SkyIntensity() const noexcept { return m_sky.intensity; }
+            // Display-only backdrop dimmer for the visible sky (not baked into the cube).
+            [[nodiscard]] f32 SkyBackgroundIntensity() const noexcept
+            {
+                return m_sky.backgroundIntensity;
+            }
             // Sun (from the scene's directional light) for the sky pass's crisp analytic disc.
             [[nodiscard]] Float3 SunDir() const noexcept { return m_sunDir; }
             [[nodiscard]] f32 SunIntensity() const noexcept { return m_sky.sunIntensity; }

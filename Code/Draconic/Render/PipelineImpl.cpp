@@ -1443,13 +1443,14 @@ namespace draconic::render
                         // Distinct sky uniform slot per capture face (2..7), so the capture never shares SkyPass's
                         // per-view slot with a main view (0,1) or with another face - otherwise the last recorder
                         // wins the shared slot and the captured sky reads a main view's camera (cross-view leak).
-                        m_sky->DeclareSky(
-                            m_graph, capturedH, capVel, capDepth, capCtx->EnvHandle(),
-                            capCtx->EnvView(), ReflectionProbeSystem::kCubeFormat,
-                            m_pass.DepthFormat(), Inverse(faceVP), faceVP, Float2{0, 0},
-                            Float2{0, 0}, task.center, capCtx->SkyIntensity(), capCtx->SunDir(),
-                            capCtx->SunAngularSize(), Float3{1.0f, 0.98f, 0.92f}, sunInt, 0, 0, res,
-                            res, m_frameIndex, /*viewIndex*/ 10u + face, capCtx->Uid(), sub);
+                        m_sky->DeclareSky(m_graph, capturedH, capVel, capDepth, capCtx->EnvHandle(),
+                                          capCtx->EnvView(), ReflectionProbeSystem::kCubeFormat,
+                                          m_pass.DepthFormat(), Inverse(faceVP), faceVP,
+                                          Float2{0, 0}, Float2{0, 0}, task.center,
+                                          capCtx->SkyBackgroundIntensity(), capCtx->SunDir(),
+                                          capCtx->SunAngularSize(), Float3{1.0f, 0.98f, 0.92f},
+                                          sunInt, 0, 0, res, res, m_frameIndex,
+                                          /*viewIndex*/ 10u + face, capCtx->Uid(), sub);
                     }
                     // Bridge captured -> prefiltered mip 0 (flip blit - corrects the RH-LookAt mirror) so the forward
                     // samples a SEPARATE texture, never the captured cube it just wrote; then GGX-convolve mip 0 into
@@ -1650,7 +1651,7 @@ namespace draconic::render
                     m_sky->DeclareSky(m_graph, colorTarget, velocityTarget, depth,
                                       viewIblCtx->EnvHandle(), viewIblCtx->EnvView(), colorFmt,
                                       m_pass.DepthFormat(), invVP, prevViewProj, jitter, prevJitter,
-                                      v->Camera().position, viewIblCtx->SkyIntensity(),
+                                      v->Camera().position, viewIblCtx->SkyBackgroundIntensity(),
                                       viewIblCtx->SunDir(), viewIblCtx->SunAngularSize(),
                                       Float3{1.0f, 0.98f, 0.92f}, sunInt, v->ViewportX(),
                                       v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),

@@ -24,7 +24,7 @@ export namespace draconic::render
 cbuffer Sky : register(b0, space0) {
     row_major float4x4 InvViewProj;    // inverse of this frame's UNJITTERED view-proj (stable sky ray under TAA)
     row_major float4x4 PrevViewProj;   // last frame's view-proj (motion vectors)
-    float4 CamPosIntensity;   // xyz = camera world pos, w = sky intensity
+    float4 CamPosIntensity;   // xyz = camera world pos, w = sky-background display multiplier (not IBL)
     float4 SunDir;            // xyz = light direction, w = sun angular size (deg)
     float4 SunColor;          // rgb = sun color, w = sun intensity
     float4 Jitter;            // xy = this frame's NDC jitter, zw = last frame's
@@ -60,6 +60,9 @@ struct PSIn { float4 pos : SV_Position; float3 dir : TEXCOORD0; float2 ndc : TEX
 struct PSOut { float4 color : SV_Target0; float2 velocity : SV_Target1; };
 PSOut main(PSIn i) {
     float3 dir = normalize(i.dir);
+    // The env cube already carries skyIntensity (baked once; drives IBL too). CamPosIntensity.w is
+    // the SEPARATE display-only backdrop multiplier - it dims the VISIBLE sky without touching the
+    // IBL lighting derived from the cube. (skyIntensity is never re-applied here - that squared it.)
     float3 c = EnvMap.SampleLevel(EnvSamp, dir, 0.0).rgb * CamPosIntensity.w;
     // Crisp analytic sun disc (screen resolution, round) toward the light, with a soft ~1.5deg edge.
     float3 L     = normalize(-SunDir.xyz);

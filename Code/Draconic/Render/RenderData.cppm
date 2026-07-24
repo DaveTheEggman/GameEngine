@@ -583,7 +583,10 @@ export namespace draconic::render
     struct SkySnapshot
     {
         SkyMode mode = SkyMode::Procedural;
-        f32 intensity = 1.0f;
+        f32 intensity = 1.0f; // env radiance master: baked into the cube -> background base AND IBL
+        // Display-only multiplier on the VISIBLE sky (backdrop + probe reflections of it); NOT baked
+        // into the env cube, so it never touches the IBL diffuse/specular lighting.
+        f32 backgroundIntensity = 1.0f;
         f32 rotation = 0.0f; // yaw (radians) for HDR/cubemap
         // Resolved sky-texture product (HDREquirect/Cubemap modes; null = the programmatic
         // pixel path or none). Change detection keys on `textureUid`, NEVER the pointer

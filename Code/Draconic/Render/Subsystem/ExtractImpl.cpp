@@ -463,6 +463,7 @@ namespace draconic::render
             SkySnapshot s{};
             s.mode = e.skyMode;
             s.intensity = e.skyIntensity;
+            s.backgroundIntensity = e.skyBackgroundIntensity;
             s.rotation = e.skyRotation;
             s.horizon = Float3{e.skyHorizon.r, e.skyHorizon.g, e.skyHorizon.b};
             s.zenith = Float3{e.skyZenith.r, e.skyZenith.g, e.skyZenith.b};

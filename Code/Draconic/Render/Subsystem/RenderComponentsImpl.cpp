@@ -141,7 +141,9 @@ namespace draconic::render
 
     DRACONIC_REFLECT_VALUE(EnvironmentSettings, "draconic::render")
     {
-        builder.DataVersion(2)
+        builder
+            .DataVersion(
+                3) // v3: skyBackgroundIntensity (visible-backdrop dimmer, separate from IBL)
             .Property<&EnvironmentSettings::ambientColor>("ambientColor")
             .Property<&EnvironmentSettings::ambientIntensity>("ambientIntensity")
             .PropAttribute("range", Float4{0.0f, 2.0f, 0.01f, 0.0f})
@@ -156,6 +158,14 @@ namespace draconic::render
                            String(u8"HDR (equirect) or cube texture for the textured sky modes"))
             .Property<&EnvironmentSettings::skyIntensity>("skyIntensity")
             .PropAttribute("range", Float4{0.0f, 10.0f, 0.05f, 0.0f})
+            .PropAttribute(
+                "description",
+                String(u8"Environment radiance master: scales the sky AND the IBL lighting"))
+            .Property<&EnvironmentSettings::skyBackgroundIntensity>("skyBackgroundIntensity")
+            .PropAttribute("range", Float4{0.0f, 4.0f, 0.05f, 0.0f})
+            .PropAttribute("displayName", String(u8"Sky Background Intensity"))
+            .PropAttribute("description",
+                           String(u8"Dims only the VISIBLE sky backdrop; leaves the IBL lighting"))
             .Property<&EnvironmentSettings::skyRotation>("skyRotation")
             .PropAttribute("range", Float4{0.0f, 6.2832f, 0.01f, 0.0f})
             .PropAttribute("visibleWhen", String(u8"skyMode=3,4"))
