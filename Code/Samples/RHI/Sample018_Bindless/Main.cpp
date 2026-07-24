@@ -52,7 +52,7 @@ private:
             float Padding;
         };
 
-        [[rhi::vk::push_constant]] ConstantBuffer<PushData> gPush : register(b0, space2);
+        [[vk::push_constant]] ConstantBuffer<PushData> gPush : register(b0, space2);
 
         struct PSInput
         {

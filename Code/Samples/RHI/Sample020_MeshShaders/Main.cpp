@@ -51,7 +51,7 @@ private:
             float Pad0, Pad1;
         };
 
-        [[rhi::vk::push_constant]] ConstantBuffer<PushConstants> pc : register(b0, space0);
+        [[vk::push_constant]] ConstantBuffer<PushConstants> pc : register(b0, space0);
 
         struct MeshOutput
         {

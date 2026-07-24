@@ -41,7 +41,7 @@ private:
             float _pad;
         };
 
-        [[rhi::vk::push_constant]] ConstantBuffer<PushConstants> pc : register(b0, space0);
+        [[vk::push_constant]] ConstantBuffer<PushConstants> pc : register(b0, space0);
 
         struct VSInput
         {

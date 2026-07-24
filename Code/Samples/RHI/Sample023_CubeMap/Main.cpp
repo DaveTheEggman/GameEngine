@@ -50,7 +50,7 @@ private:
             float2 _pad;
         };
 
-        [[rhi::vk::push_constant]] ConstantBuffer<PushConstants> pc : register(b0, space1);
+        [[vk::push_constant]] ConstantBuffer<PushConstants> pc : register(b0, space1);
 
         struct PSInput
         {
@@ -98,7 +98,7 @@ private:
             float2 _pad;
         };
 
-        [[rhi::vk::push_constant]] ConstantBuffer<PushConstants> pc : register(b0, space1);
+        [[vk::push_constant]] ConstantBuffer<PushConstants> pc : register(b0, space1);
 
         struct VSInput
         {

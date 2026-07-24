@@ -39,7 +39,7 @@ private:
     static constexpr const char8_t kShaderSource[] = u8R"(
         cbuffer UBO : register(b0, space0) { row_major float4x4 MVP; };
         struct PushData { float4 Tint; };
-        [[rhi::vk::push_constant]] ConstantBuffer<PushData> gPush : register(b0, space1);
+        [[vk::push_constant]] ConstantBuffer<PushData> gPush : register(b0, space1);
         struct VSInput { float3 Position : TEXCOORD0; float3 Color : TEXCOORD1; };
         struct PSInput { float4 Position : SV_POSITION; float3 Color : COLOR0; };
         PSInput VSMain(VSInput input) {
