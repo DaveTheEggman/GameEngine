@@ -183,6 +183,7 @@ add_subdirectory(Code/Draconic/Editor/App) # editor UI shell (chrome + layout pe
 add_subdirectory(Code/Draconic/Editor/Input) # input-map editing page (editor exe only)
 add_subdirectory(Code/Draconic/Editor/GameUI) # UI document page: text + live preview (editor exe only)
 add_subdirectory(Code/Draconic/Editor/Audio)  # audio clip audition page: waveform + play (editor exe only)
+add_subdirectory(Code/Draconic/Editor/Texture) # texture asset page: import settings + preview (editor exe only)
 add_subdirectory(Code/Draconic/Editor/Script) # script behavior source page: edit + recook + inline errors (editor exe only)
 add_subdirectory(Code/Draconic/Editor/Scene) # scene editor plugin (SceneEditorPage + RegisterSceneEditor)
 add_subdirectory(Code/Tools/Editor)        # RaptorEditor executable (editor assembly)

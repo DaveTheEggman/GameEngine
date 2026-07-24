@@ -13,7 +13,8 @@ target_link_libraries(DraconicEditorScene
         Draconic::ModelImporter Draconic::TextureResource Draconic::ParticlesResource
         Draconic::Physics Draconic::PhysicsResource Draconic::PhysicsSubsystem
         Draconic::UIResource Draconic::UISubsystem Draconic::Audio Draconic::AudioResource Draconic::AudioSubsystem
-        Draconic::Geometry Draconic::Materials Draconic::MaterialResource Draconic::MaterialEditor
+        Draconic::Geometry Draconic::MeshResource Draconic::MeshEditor
+        Draconic::Materials Draconic::MaterialResource Draconic::MaterialEditor
         Draconic::UI Draconic::UIRuntime Draconic::UIViewport Draconic::VGRenderer
         Draconic::Script Draconic::ScriptWren Draconic::ScriptResource Draconic::ScriptFacades Draconic::ScriptSubsystem
         Draconic::Input Draconic::InputResource Draconic::InputSubsystem
@@ -29,6 +30,7 @@ target_sources(DraconicEditorScene
         ScenePageImpl.cpp
         GamePageImpl.cpp
         MaterialPageImpl.cpp
+        MeshPageImpl.cpp
     PUBLIC
         FILE_SET editorscene_modules TYPE CXX_MODULES FILES
             EditorCamera.cppm
@@ -40,6 +42,7 @@ target_sources(DraconicEditorScene
             ScenePage.cppm
             GamePage.cppm
             MaterialPage.cppm
+            MeshPage.cppm
             ModelPrefab.cppm
             EditorSceneModule.cppm)
 
