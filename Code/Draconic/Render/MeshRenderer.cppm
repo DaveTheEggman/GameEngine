@@ -56,17 +56,17 @@ export namespace draconic::render
               m_objectRing(device, framesInFlight, kViewSlot,
                            rhi::BufferUsage::Uniform | rhi::BufferUsage::CopyDst, u8"mesh.object"),
               m_instanceRing(device, framesInFlight, sizeof(InstanceData),
-                             rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst,
+                             rhi::BufferUsage::StorageRead | rhi::BufferUsage::CopyDst,
                              u8"mesh.instances"),
               m_offsetsRing(device, framesInFlight, sizeof(DataOffsets),
                             rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst, u8"mesh.offsets"),
               m_lightRing(device, framesInFlight, sizeof(GpuLight),
-                          rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst, u8"mesh.lights"),
+                          rhi::BufferUsage::StorageRead | rhi::BufferUsage::CopyDst, u8"mesh.lights"),
               m_localShadowRing(device, framesInFlight, sizeof(GpuLocalShadow),
-                                rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst,
+                                rhi::BufferUsage::StorageRead | rhi::BufferUsage::CopyDst,
                                 u8"mesh.localShadows"),
               m_boneRing(device, framesInFlight, sizeof(Float4x4),
-                         rhi::BufferUsage::Storage | rhi::BufferUsage::CopySrc,
+                         rhi::BufferUsage::CopySrc,
                          u8"mesh.bones.staging")
         {
         }

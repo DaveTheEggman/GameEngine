@@ -556,7 +556,7 @@ namespace draconic::render
             rhi::BufferDesc bd{};
             const u64 regionBytes = static_cast<u64>(mm.instanceCount) * sizeof(InstanceData);
             bd.size = static_cast<u64>(fif) * regionBytes; // one region per frame-in-flight
-            bd.usage = rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst;
+            bd.usage = rhi::BufferUsage::StorageRead | rhi::BufferUsage::CopyDst;
             bd.memory = rhi::MemoryLocation::CpuToGpu;
             bd.label = u8"mesh.multimesh.instances";
             if (!m_device->CreateBuffer(bd, set->instanceBuf).IsOk())

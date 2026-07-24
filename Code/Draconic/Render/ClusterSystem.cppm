@@ -65,7 +65,7 @@ export namespace draconic::render
                            rhi::BufferUsage::Uniform | rhi::BufferUsage::CopyDst,
                            u8"cluster.params"),
               m_lightRing(device, m_framesInFlight, sizeof(GpuLight),
-                          rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst, u8"cluster.lights")
+                          rhi::BufferUsage::StorageRead | rhi::BufferUsage::CopyDst, u8"cluster.lights")
         {
         }
 

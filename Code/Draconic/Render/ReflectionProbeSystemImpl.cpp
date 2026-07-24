@@ -386,7 +386,7 @@ namespace draconic::render
         // this frame's probes directly (small: kMaxProbes*64B); uploaded each frame in Upload().
         rhi::BufferDesc bd{};
         bd.size = sizeof(GpuProbe) * kMaxProbes;
-        bd.usage = rhi::BufferUsage::Storage;
+        bd.usage = rhi::BufferUsage::StorageRead;
         bd.memory = rhi::MemoryLocation::CpuToGpu;
         bd.label = u8"probes.meta";
         if (!m_device->CreateBuffer(bd, m_probeBuffer).IsOk())
