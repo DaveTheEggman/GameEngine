@@ -53,47 +53,185 @@ export namespace draconic::rhi::validation
         }
 
         // ---- Create methods (with validation + tracking) ----
-#define V_CREATE(Type, method, desc_t)                                                             \
-    Status method(const desc_t& d, Type*& out) override                                            \
-    {                                                                                              \
-        if (m_destroyed)                                                                           \
-        {                                                                                          \
-            LogError("[Validation] " #method ": device destroyed");                                \
-            out = nullptr;                                                                         \
-            return ErrorCode::Unknown;                                                             \
-        }                                                                                          \
-        Status r = m_inner->method(d, out);                                                        \
-        if (r == ErrorCode::Ok && out)                                                             \
-            m_live##Type##s.PushBack(out);                                                         \
-        return r;                                                                                  \
-    }
 
-        V_CREATE(Buffer, CreateBuffer, BufferDesc)
-        V_CREATE(Texture, CreateTexture, TextureDesc)
-        V_CREATE(Sampler, CreateSampler, SamplerDesc)
-        V_CREATE(ShaderModule, CreateShaderModule, ShaderModuleDesc)
-        V_CREATE(BindGroupLayout, CreateBindGroupLayout, BindGroupLayoutDesc)
-        V_CREATE(BindGroup, CreateBindGroup, BindGroupDesc)
-        V_CREATE(PipelineLayout, CreatePipelineLayout, PipelineLayoutDesc)
-        V_CREATE(PipelineCache, CreatePipelineCache, PipelineCacheDesc)
-        V_CREATE(RenderPipeline, CreateRenderPipeline, RenderPipelineDesc)
-        V_CREATE(ComputePipeline, CreateComputePipeline, ComputePipelineDesc)
-        V_CREATE(QuerySet, CreateQuerySet, QuerySetDesc)
-#undef V_CREATE
+        Status CreateBuffer(const BufferDesc& d, Buffer*& out) override
+        {
+            if (!checkAlive("CreateBuffer", out)) return ErrorCode::Unknown;
+            if (d.size == 0) { LogError("[Validation] CreateBuffer: size is 0"); out = nullptr; return ErrorCode::InvalidArgument; }
+            if (d.memory == MemoryLocation::CpuToGpu && (static_cast<u32>(d.usage) & static_cast<u32>(BufferUsage::Storage)))
+            {
+                LogError("[Validation] CreateBuffer: Storage usage is not compatible with CpuToGpu memory. "
+                         "DX12 UPLOAD heaps cannot have ALLOW_UNORDERED_ACCESS. "
+                         "Use StorageRead for read-only structured buffers, or GpuOnly memory with a staging copy pattern.");
+                out = nullptr; return ErrorCode::InvalidArgument;
+            }
+            if (d.memory == MemoryLocation::GpuToCpu && (static_cast<u32>(d.usage) & static_cast<u32>(BufferUsage::Storage)))
+            {
+                LogError("[Validation] CreateBuffer: Storage usage is not compatible with GpuToCpu memory. "
+                         "DX12 READBACK heaps cannot have ALLOW_UNORDERED_ACCESS.");
+                out = nullptr; return ErrorCode::InvalidArgument;
+            }
+            Status r = m_inner->CreateBuffer(d, out);
+            if (r == ErrorCode::Ok && out) m_liveBuffers.PushBack(out);
+            return r;
+        }
+
+        Status CreateTexture(const TextureDesc& d, Texture*& out) override
+        {
+            if (!checkAlive("CreateTexture", out)) return ErrorCode::Unknown;
+            if (d.width == 0 || d.height == 0) { LogError("[Validation] CreateTexture: width or height is 0"); out = nullptr; return ErrorCode::InvalidArgument; }
+            Status r = m_inner->CreateTexture(d, out);
+            if (r == ErrorCode::Ok && out) m_liveTextures.PushBack(out);
+            return r;
+        }
+
+        Status CreateSampler(const SamplerDesc& d, Sampler*& out) override
+        {
+            if (!checkAlive("CreateSampler", out)) return ErrorCode::Unknown;
+            Status r = m_inner->CreateSampler(d, out);
+            if (r == ErrorCode::Ok && out) m_liveSamplers.PushBack(out);
+            return r;
+        }
+
+        Status CreateShaderModule(const ShaderModuleDesc& d, ShaderModule*& out) override
+        {
+            if (!checkAlive("CreateShaderModule", out)) return ErrorCode::Unknown;
+            if (d.code.Size() == 0) { LogError("[Validation] CreateShaderModule: code is empty"); out = nullptr; return ErrorCode::InvalidArgument; }
+            Status r = m_inner->CreateShaderModule(d, out);
+            if (r == ErrorCode::Ok && out) m_liveShaderModules.PushBack(out);
+            return r;
+        }
+
+        Status CreateBindGroupLayout(const BindGroupLayoutDesc& d, BindGroupLayout*& out) override
+        {
+            if (!checkAlive("CreateBindGroupLayout", out)) return ErrorCode::Unknown;
+            Status r = m_inner->CreateBindGroupLayout(d, out);
+            if (r == ErrorCode::Ok && out) m_liveBindGroupLayouts.PushBack(out);
+            return r;
+        }
+
+        Status CreateBindGroup(const BindGroupDesc& d, BindGroup*& out) override
+        {
+            if (!checkAlive("CreateBindGroup", out)) return ErrorCode::Unknown;
+            if (d.layout == nullptr) { LogError("[Validation] CreateBindGroup: layout is null"); out = nullptr; return ErrorCode::InvalidArgument; }
+            // Count non-bindless layout entries; positional entries must match.
+            {
+                auto layoutEntries = d.layout->Entries();
+                u32 regularCount = 0;
+                for (usize i = 0; i < layoutEntries.Size(); ++i)
+                {
+                    const auto& le = layoutEntries[i];
+                    if (le.type != BindingType::BindlessTextures && le.type != BindingType::BindlessSamplers &&
+                        le.type != BindingType::BindlessStorageBuffers && le.type != BindingType::BindlessStorageTextures)
+                        ++regularCount;
+                }
+                if (d.entries.Size() != regularCount)
+                {
+                    LogErrorf("[Validation] CreateBindGroup: entry count (%u) does not match non-bindless layout entry count (%u)",
+                              static_cast<unsigned>(d.entries.Size()), static_cast<unsigned>(regularCount));
+                    out = nullptr; return ErrorCode::InvalidArgument;
+                }
+                // Per-entry resource type validation.
+                u32 entryIdx = 0;
+                for (usize i = 0; i < layoutEntries.Size() && entryIdx < d.entries.Size(); ++i)
+                {
+                    const auto& le = layoutEntries[i];
+                    if (le.type == BindingType::BindlessTextures || le.type == BindingType::BindlessSamplers ||
+                        le.type == BindingType::BindlessStorageBuffers || le.type == BindingType::BindlessStorageTextures)
+                        continue;
+                    const auto& entry = d.entries[entryIdx];
+                    switch (le.type)
+                    {
+                    case BindingType::UniformBuffer:
+                    case BindingType::StorageBufferReadOnly:
+                    case BindingType::StorageBufferReadWrite:
+                        if (entry.buffer == nullptr)
+                            LogErrorf("[Validation] CreateBindGroup: entry [%u] expects a buffer but Buffer is null", entryIdx);
+                        break;
+                    case BindingType::SampledTexture:
+                    case BindingType::StorageTextureReadOnly:
+                    case BindingType::StorageTextureReadWrite:
+                        if (entry.textureView == nullptr)
+                            LogErrorf("[Validation] CreateBindGroup: entry [%u] expects a texture view but TextureView is null", entryIdx);
+                        break;
+                    case BindingType::Sampler:
+                    case BindingType::ComparisonSampler:
+                        if (entry.sampler == nullptr)
+                            LogErrorf("[Validation] CreateBindGroup: entry [%u] expects a sampler but Sampler is null", entryIdx);
+                        break;
+                    case BindingType::AccelerationStructure:
+                        if (entry.accelStruct == nullptr)
+                            LogErrorf("[Validation] CreateBindGroup: entry [%u] expects an acceleration structure but AccelStruct is null", entryIdx);
+                        break;
+                    default: break;
+                    }
+                    ++entryIdx;
+                }
+            }
+            Status r = m_inner->CreateBindGroup(d, out);
+            if (r == ErrorCode::Ok && out) m_liveBindGroups.PushBack(out);
+            return r;
+        }
+
+        Status CreatePipelineLayout(const PipelineLayoutDesc& d, PipelineLayout*& out) override
+        {
+            if (!checkAlive("CreatePipelineLayout", out)) return ErrorCode::Unknown;
+            Status r = m_inner->CreatePipelineLayout(d, out);
+            if (r == ErrorCode::Ok && out) m_livePipelineLayouts.PushBack(out);
+            return r;
+        }
+
+        Status CreatePipelineCache(const PipelineCacheDesc& d, PipelineCache*& out) override
+        {
+            if (!checkAlive("CreatePipelineCache", out)) return ErrorCode::Unknown;
+            Status r = m_inner->CreatePipelineCache(d, out);
+            if (r == ErrorCode::Ok && out) m_livePipelineCaches.PushBack(out);
+            return r;
+        }
+
+        Status CreateRenderPipeline(const RenderPipelineDesc& d, RenderPipeline*& out) override
+        {
+            if (!checkAlive("CreateRenderPipeline", out)) return ErrorCode::Unknown;
+            if (d.layout == nullptr) { LogError("[Validation] CreateRenderPipeline: layout is null"); out = nullptr; return ErrorCode::InvalidArgument; }
+            if (d.vertex.shader.module == nullptr) { LogError("[Validation] CreateRenderPipeline: vertex shader module is null"); out = nullptr; return ErrorCode::InvalidArgument; }
+            Status r = m_inner->CreateRenderPipeline(d, out);
+            if (r == ErrorCode::Ok && out) m_liveRenderPipelines.PushBack(out);
+            return r;
+        }
+
+        Status CreateComputePipeline(const ComputePipelineDesc& d, ComputePipeline*& out) override
+        {
+            if (!checkAlive("CreateComputePipeline", out)) return ErrorCode::Unknown;
+            if (d.layout == nullptr) { LogError("[Validation] CreateComputePipeline: layout is null"); out = nullptr; return ErrorCode::InvalidArgument; }
+            if (d.compute.module == nullptr) { LogError("[Validation] CreateComputePipeline: compute shader module is null"); out = nullptr; return ErrorCode::InvalidArgument; }
+            Status r = m_inner->CreateComputePipeline(d, out);
+            if (r == ErrorCode::Ok && out) m_liveComputePipelines.PushBack(out);
+            return r;
+        }
+
+        Status CreateQuerySet(const QuerySetDesc& d, QuerySet*& out) override
+        {
+            if (!checkAlive("CreateQuerySet", out)) return ErrorCode::Unknown;
+            if (d.count == 0) { LogError("[Validation] CreateQuerySet: count is 0"); out = nullptr; return ErrorCode::InvalidArgument; }
+            Status r = m_inner->CreateQuerySet(d, out);
+            if (r == ErrorCode::Ok && out) m_liveQuerySets.PushBack(out);
+            return r;
+        }
 
         Status CreateTextureView(Texture* tex, const TextureViewDesc& d, TextureView*& out) override
         {
-            if (m_destroyed)
-            {
-                LogError("[Validation] createTextureView: device destroyed");
-                out = nullptr;
-                return ErrorCode::Unknown;
-            }
+            if (!checkAlive("CreateTextureView", out)) return ErrorCode::Unknown;
             if (!tex)
             {
-                LogError("[Validation] createTextureView: texture is null");
+                LogError("[Validation] CreateTextureView: texture is null");
                 out = nullptr;
-                return ErrorCode::Unknown;
+                return ErrorCode::InvalidArgument;
+            }
+            // Use-after-destroy detection.
+            {
+                bool tracked = false;
+                for (usize i = 0; i < m_liveTextures.Size(); ++i) { if (m_liveTextures[i] == tex) { tracked = true; break; } }
+                if (!tracked) LogError("[Validation] CreateTextureView: texture has been destroyed or was not created by this device");
             }
             Status r = m_inner->CreateTextureView(tex, d, out);
             if (r == ErrorCode::Ok && out)
@@ -145,10 +283,12 @@ export namespace draconic::rhi::validation
         {
             if (m_destroyed)
             {
-                LogError("[Validation] createSwapChain: device destroyed");
+                LogError("[Validation] CreateSwapChain: device destroyed");
                 out = nullptr;
                 return ErrorCode::Unknown;
             }
+            if (surface == nullptr) { LogError("[Validation] CreateSwapChain: surface is null"); out = nullptr; return ErrorCode::InvalidArgument; }
+            if (d.width == 0 || d.height == 0) { LogError("[Validation] CreateSwapChain: width or height is 0"); out = nullptr; return ErrorCode::InvalidArgument; }
             SwapChain* innerSc = nullptr;
             Status r = m_inner->CreateSwapChain(surface, d, innerSc);
             if (r != ErrorCode::Ok || !innerSc)
@@ -176,8 +316,11 @@ export namespace draconic::rhi::validation
         }
         void DestroyMeshPipeline(MeshPipeline*& p) override
         {
-            removeAndDestroy(m_liveMeshPipelines, p,
-                             [&](auto*& x) { m_inner->DestroyMeshPipeline(x); });
+            if (!p) return;
+            if (!removeFromList(m_liveMeshPipelines, p))
+                LogWarning("[Validation] DestroyMeshPipeline: resource was not tracked (double-destroy or wrong device?)");
+            m_inner->DestroyMeshPipeline(p);
+            p = nullptr;
         }
 
         Status CreateAccelStruct(const AccelStructDesc& d, AccelStruct*& out) override
@@ -194,8 +337,11 @@ export namespace draconic::rhi::validation
         }
         void DestroyAccelStruct(AccelStruct*& a) override
         {
-            removeAndDestroy(m_liveAccelStructs, a,
-                             [&](auto*& x) { m_inner->DestroyAccelStruct(x); });
+            if (!a) return;
+            if (!removeFromList(m_liveAccelStructs, a))
+                LogWarning("[Validation] DestroyAccelStruct: resource was not tracked (double-destroy or wrong device?)");
+            m_inner->DestroyAccelStruct(a);
+            a = nullptr;
         }
 
         Status CreateRayTracingPipeline(const RayTracingPipelineDesc& d,
@@ -213,8 +359,11 @@ export namespace draconic::rhi::validation
         }
         void DestroyRayTracingPipeline(RayTracingPipeline*& p) override
         {
-            removeAndDestroy(m_liveRtPipelines, p,
-                             [&](auto*& x) { m_inner->DestroyRayTracingPipeline(x); });
+            if (!p) return;
+            if (!removeFromList(m_liveRtPipelines, p))
+                LogWarning("[Validation] DestroyRayTracingPipeline: resource was not tracked (double-destroy or wrong device?)");
+            m_inner->DestroyRayTracingPipeline(p);
+            p = nullptr;
         }
 
         Status GetShaderGroupHandles(RayTracingPipeline* p, u32 first, u32 count,
@@ -223,11 +372,15 @@ export namespace draconic::rhi::validation
             return m_inner->GetShaderGroupHandles(p, first, count, out);
         }
 
-        // ---- Destroy methods (with tracking removal) ----
+        // ---- Destroy methods (with tracking removal + not-tracked warning) ----
 #define V_DESTROY(Type, method, list)                                                              \
     void method(Type*& x) override                                                                 \
     {                                                                                              \
-        removeAndDestroy(list, x, [&](auto*& p) { m_inner->method(p); });                          \
+        if (!x) return;                                                                            \
+        if (!removeFromList(list, x))                                                              \
+            LogWarning("[Validation] " #method ": resource was not tracked (double-destroy or wrong device?)"); \
+        m_inner->method(x);                                                                        \
+        x = nullptr;                                                                               \
     }
 
         V_DESTROY(Buffer, DestroyBuffer, m_liveBuffers)
@@ -319,26 +472,29 @@ export namespace draconic::rhi::validation
 
     private:
         template <typename T>
-        void removeFromList(Array<T*>& list, T* item)
+        bool checkAlive(const char* method, T*& out)
+        {
+            if (m_destroyed)
+            {
+                LogErrorf("[Validation] %s: device destroyed", method);
+                out = nullptr;
+                return false;
+            }
+            return true;
+        }
+
+        template <typename T>
+        bool removeFromList(Array<T*>& list, T* item)
         {
             for (usize i = 0; i < list.Size(); ++i)
             {
                 if (list[i] == item)
                 {
                     list.RemoveAt(i);
-                    return;
+                    return true;
                 }
             }
-        }
-
-        template <typename T, typename Fn>
-        void removeAndDestroy(Array<T*>& list, T*& item, Fn destroyFn)
-        {
-            if (!item)
-                return;
-            removeFromList(list, item);
-            destroyFn(item);
-            item = nullptr;
+            return false;
         }
 
         void reportLeaks()
