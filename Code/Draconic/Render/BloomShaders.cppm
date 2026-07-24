@@ -43,7 +43,7 @@ struct BloomPush {
     int    FirstPass;  // 1 = threshold + firefly-average the source (mip 0)
     float3 _pad;
 };
-[[vk::push_constant]] BloomPush pc;
+[[vk::push_constant]] ConstantBuffer<BloomPush> pc : register(b0, space1);
 )");
     }
 

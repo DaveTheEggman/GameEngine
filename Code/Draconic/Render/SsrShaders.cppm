@@ -69,7 +69,7 @@ struct SsrPush {
     int    Debug;                // 0=off, 1=raw reflected color, 2=hit uv, 3=weight, 4=reflect dir
     float  Glossy;               // glossy cone-gather scale (0 = sharp mirror)
 };
-[[vk::push_constant]] SsrPush pc;
+[[vk::push_constant]] ConstantBuffer<SsrPush> pc : register(b0, space1);
 
 // Octahedral decode -> view-space normal (matches the forward's OctEncode).
 float3 OctDecode(float2 e) {
@@ -227,7 +227,7 @@ struct SsrResolvePush {
     int    Debug;          // >0 = output raw reflection (no composite)
     float  GhostReject;    // history-vs-current luma-diff rejection strength (higher = less ghosting)
 };
-[[vk::push_constant]] SsrResolvePush pc;
+[[vk::push_constant]] ConstantBuffer<SsrResolvePush> pc : register(b0, space1);
 
 float3 RGBToYCoCg(float3 c) { return float3(0.25*c.r + 0.5*c.g + 0.25*c.b, 0.5*c.r - 0.5*c.b, -0.25*c.r + 0.5*c.g - 0.25*c.b); }
 float3 YCoCgToRGB(float3 c) { float t = c.x - c.z; return float3(t + c.y, c.x + c.z, t - c.y); }

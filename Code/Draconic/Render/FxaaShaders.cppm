@@ -46,7 +46,7 @@ struct FxaaPush {
     float  EdgeThresholdMin;  // 0.0312 default (skip dark/flat)
     float  _pad;
 };
-[[vk::push_constant]] FxaaPush pc;
+[[vk::push_constant]] ConstantBuffer<FxaaPush> pc : register(b0, space1);
 
 float Luma(float3 c) { return dot(c, float3(0.299, 0.587, 0.114)); }
 float3 Fetch(float2 uv) { return SceneColor.SampleLevel(LinearSamp, uv, 0).rgb; }

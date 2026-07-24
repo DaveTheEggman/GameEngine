@@ -29,7 +29,7 @@ export namespace draconic::render
 struct VSIn  { float3 pos : TEXCOORD0; float4 col : TEXCOORD1; };
 struct VSOut { float4 pos : SV_Position; float4 col : TEXCOORD0; };
 struct GeomPush { row_major float4x4 ViewProj; };
-[[vk::push_constant]] GeomPush pc;
+[[vk::push_constant]] ConstantBuffer<GeomPush> pc : register(b0, space0);
 static const float kDepthBias = 0.0005;
 VSOut main(VSIn i) {
     VSOut o;
@@ -56,7 +56,7 @@ float4 main(float4 pos : SV_Position, float4 col : TEXCOORD0) : SV_Target { retu
 struct VSIn  { float3 pos : TEXCOORD0; float2 uv : TEXCOORD1; float4 col : TEXCOORD2; };
 struct VSOut { float4 pos : SV_Position; float2 uv : TEXCOORD0; float4 col : TEXCOORD1; };
 struct ScreenPush { float2 InvSize; float2 _pad; };
-[[vk::push_constant]] ScreenPush pc;
+[[vk::push_constant]] ConstantBuffer<ScreenPush> pc : register(b0, space1);
 VSOut main(VSIn i) {
     VSOut o;
     float2 ndc = float2(i.pos.x * pc.InvSize.x * 2.0 - 1.0, 1.0 - i.pos.y * pc.InvSize.y * 2.0);

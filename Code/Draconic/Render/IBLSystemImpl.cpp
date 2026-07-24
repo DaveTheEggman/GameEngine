@@ -823,8 +823,11 @@ namespace draconic::render
         pcRange.stages = rhi::ShaderStage::Fragment;
         pcRange.offset = 0;
         pcRange.size = sizeof(IblPush);
-        // procedural env: push constants only.
+        // procedural env: push constants + the env bind group (unused but included so
+        // push constants land at space1, matching the prefilter/downsample/equirect layouts).
+        rhi::BindGroupLayout* envLayouts[] = {m_envLayout};
         rhi::PipelineLayoutDesc envPld{};
+        envPld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{envLayouts, 1};
         envPld.pushConstantRanges = Span<const rhi::PushConstantRange>{&pcRange, 1};
         if (!m_device->CreatePipelineLayout(envPld, m_envOnlyLayout).IsOk())
         {

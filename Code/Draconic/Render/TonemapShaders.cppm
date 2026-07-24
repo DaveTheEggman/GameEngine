@@ -45,7 +45,7 @@ SamplerState      BloomSamp : register(s0, space0);
 // transients - so split-screen views resolve their own region instead of the whole target.
 // AoStrength lerps the AO factor in (0 = GTAO off).
 struct TonemapPush { float Exposure; float BloomIntensity; float2 UvScale; float2 UvOffset; float AoStrength; float DebugShowAo; float Operator; };
-[[vk::push_constant]] TonemapPush pc;
+[[vk::push_constant]] ConstantBuffer<TonemapPush> pc : register(b0, space1);
 
 // Linear -> sRGB display encode (the OETF the CM1a "clamp" operator needs before writing the
 // UNORM target; the AgX path bakes its own display encoding in).

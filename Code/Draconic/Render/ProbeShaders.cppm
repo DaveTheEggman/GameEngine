@@ -52,7 +52,7 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target0 {
     {
         return core::StringView(u8R"(
 struct Push { int FaceIndex; float Roughness; float2 Pad; };
-[[vk::push_constant]] Push pc;
+[[vk::push_constant]] ConstantBuffer<Push> pc : register(b0, space1);
 TextureCube<float4> Src  : register(t0, space0);
 SamplerState        Samp : register(s0, space0);
 static const float PI = 3.14159265359;
