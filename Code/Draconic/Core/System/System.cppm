@@ -12,6 +12,9 @@ module;
 // to re-export as inline constexpr from the module interface.
 #if defined(__clang__)
 #pragma clang diagnostic push
+// -WTU-local-entity-exposure only exists on newer clang (22+); ignore the
+// unknown-option error first so older clang (21, Linux) still builds under -Werror.
+#pragma clang diagnostic ignored "-Wunknown-warning-option"
 #pragma clang diagnostic ignored "-WTU-local-entity-exposure"
 #endif
 
