@@ -61,6 +61,8 @@ export namespace draconic::fonts
 
         // Raw font bytes - the atlas baker needs these for stb's pack API.
         [[nodiscard]] const unsigned char* RawData() const { return m_fontData.Data(); }
+        // Byte length of the raw font data (the MSDF baker inits stb_truetype directly from it).
+        [[nodiscard]] usize RawDataSize() const { return m_fontData.Size(); }
 
         // --- IFont ---------------------------------------------------------
         [[nodiscard]] u32 BackendTypeId() const override { return kTrueTypeFontTypeId; }

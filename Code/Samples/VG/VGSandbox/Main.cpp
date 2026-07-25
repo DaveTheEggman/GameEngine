@@ -16,6 +16,8 @@ import draconic.samples.framework;
 import draconic.image;
 import draconic.fonts;
 import draconic.fonts.ttf;
+import draconic.fonts.df;
+import draconic.fonts.df.baker;
 import draconic.vg;
 import draconic.vg.renderer;
 import draconic.vg.svg;
@@ -72,6 +74,7 @@ private:
     void DrawUIConvenience(vg::VGContext& vgc, f32 x, f32 y);
     void DrawImmediatePath(vg::VGContext& vgc, f32 x, f32 y, f32 t);
     void DrawSVGDemo(vg::VGContext& vgc, f32 x, f32 y);
+    void DrawDFTextDemo(vg::VGContext& vgc, f32 x, f32 y, f32 t);
 
     void LoadFontSize(StringView path, f32 pixelHeight);
     static Color HSLToColor(f32 h, f32 s, f32 l);
@@ -84,6 +87,7 @@ private:
     shaders::Compiler* m_compiler = nullptr;
     rhi::ShaderModule* m_vs = nullptr;
     rhi::ShaderModule* m_fs = nullptr;
+    rhi::ShaderModule* m_dfFs = nullptr; // MSDF distance-field fragment shader
     rhi::CommandPool* m_pool = nullptr;
     rhi::Fence* m_fence = nullptr;
     u64 m_fenceVal = 0;
@@ -97,6 +101,7 @@ private:
     fonts::CachedFont* m_fontSmall = nullptr;
     fonts::CachedFont* m_fontMedium = nullptr;
     fonts::CachedFont* m_fontLarge = nullptr;
+    fonts::CachedFont* m_fontDF = nullptr; // distance-field atlas (crisp at any scale)
 
     vg::svg::SVGDocument m_badge;
     bool m_hasBadge = false;
@@ -116,9 +121,14 @@ Status VGSandbox::OnInit()
             m_compiler, m_device, vg::renderer::FragmentShaderSource(),
             shaders::ShaderStage::Fragment, u8"main", u8"vg.frag", m_fs) != ErrorCode::Ok)
         return ErrorCode::Unknown;
+    if (samples::framework::CompileToModule(
+            m_compiler, m_device, vg::renderer::DistanceFieldFragmentShaderSource(),
+            shaders::ShaderStage::Fragment, u8"main", u8"vg_df.frag", m_dfFs) != ErrorCode::Ok)
+        return ErrorCode::Unknown;
 
     if (!m_renderer
-             .Initialize(*m_device, *m_vs, *m_fs, m_swapChain->Format(), static_cast<i32>(kFrames))
+             .Initialize(*m_device, *m_vs, *m_fs, m_swapChain->Format(), static_cast<i32>(kFrames),
+                         m_dfFs)
              .IsOk())
         return ErrorCode::Unknown;
 
@@ -138,6 +148,15 @@ Status VGSandbox::OnInit()
         m_fontSmall = m_fontService->GetFont(u8"Roboto", 14.0f);
         m_fontMedium = m_fontService->GetFont(u8"Roboto", 20.0f);
         m_fontLarge = m_fontService->GetFont(u8"Roboto", 36.0f);
+
+        // A distance-field (MSDF) atlas baked once at 48px, sampled crisp at any scale.
+        fonts::DFFonts::Initialize();
+        fonts::FontLoadOptions dfOpts = fonts::FontLoadOptions::DistanceField();
+        dfOpts.pixelHeight = 48.0f;
+        dfOpts.atlasWidth = 1024;
+        dfOpts.atlasHeight = 1024;
+        (void)m_fontService->LoadFont(u8"RobotoDF", fontPath, dfOpts);
+        m_fontDF = m_fontService->GetFont(u8"RobotoDF", 48.0f);
     }
 
     m_vg = MakeUnique<vg::VGContext>(DefaultAllocator(), m_fontService.Get());
@@ -212,6 +231,7 @@ void VGSandbox::DrawScene(vg::VGContext& vgc, f32 w, f32 h, f32 t)
     DrawUIConvenience(vgc, 150, 340);
     DrawImmediatePath(vgc, 150, 410, t);
     DrawSVGDemo(vgc, 150, 470);
+    DrawDFTextDemo(vgc, w - 280, 390, t);
 }
 
 void VGSandbox::DrawLineWidths(vg::VGContext& vgc, f32 x, f32 y)
@@ -593,6 +613,38 @@ void VGSandbox::DrawTextDemo(vg::VGContext& vgc, f32 x, f32 y, f32 t)
     vgc.PopState();
 }
 
+void VGSandbox::DrawDFTextDemo(vg::VGContext& vgc, f32 x, f32 y, f32 t)
+{
+    if (m_fontDF == nullptr)
+        return;
+
+    // Label in the regular rasterized font.
+    if (m_fontSmall)
+        vgc.DrawText(u8"Distance Field Text (one atlas, multiple scales):", m_fontSmall,
+                     Float2{x, y + 12}, GC(180, 180, 190, 255));
+
+    const f32 ascent = m_fontDF->font->Metrics().ascent;
+    const f32 lineH = m_fontDF->font->Metrics().lineHeight;
+
+    // Native size (verifies baseline alignment + descenders).
+    vgc.DrawText(u8"Typography", m_fontDF, Float2{x, y + 20 + ascent}, GC(255, 220, 100, 255));
+
+    // Minified (0.6x) - the same atlas stays legible when shrunk.
+    vgc.PushState();
+    vgc.Translate(x, y + 20 + ascent + lineH + 4.0f);
+    vgc.Scale(0.6f, 0.6f);
+    vgc.DrawText(u8"Typography", m_fontDF, Float2{0, ascent}, GC(200, 255, 200, 255));
+    vgc.PopState();
+
+    // Animated magnification - stays crisp as it resizes (MSDF resolution independence).
+    vgc.PushState();
+    vgc.Translate(x, y + 20 + ascent + lineH * 2.0f + 12.0f);
+    const f32 zoom = 1.3f + Sin(t * 0.8f) * 0.5f;
+    vgc.Scale(zoom, zoom);
+    vgc.DrawText(u8"Typography", m_fontDF, Float2{0, ascent}, GC(180, 235, 255, 255));
+    vgc.PopState();
+}
+
 void VGSandbox::DrawUIConvenience(vg::VGContext& vgc, f32 x, f32 y)
 {
     vgc.DrawLine(Float2{x, y + 5}, Float2{x + 120, y + 5}, GC(200, 220, 255, 255), 1.0f);
@@ -762,11 +814,14 @@ void VGSandbox::OnShutdown()
         m_device->WaitIdle();
     m_renderer.Dispose();
     m_vg.Reset();
+    fonts::DFFonts::Shutdown();
     m_fontService.Reset();
     if (m_fence)
         m_device->DestroyFence(m_fence);
     if (m_pool)
         m_device->DestroyCommandPool(m_pool);
+    if (m_dfFs)
+        m_device->DestroyShaderModule(m_dfFs);
     if (m_fs)
         m_device->DestroyShaderModule(m_fs);
     if (m_vs)

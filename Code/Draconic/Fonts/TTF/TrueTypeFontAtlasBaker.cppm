@@ -42,6 +42,13 @@ export namespace draconic::fonts
             return font.BackendTypeId() == kTrueTypeFontTypeId;
         }
 
+        // This baker produces COVERAGE atlases only; distance-field requests go to the MSDF baker.
+        [[nodiscard]] bool CanBake(const IFont& font, const FontLoadOptions& options) const override
+        {
+            return font.BackendTypeId() == kTrueTypeFontTypeId &&
+                   options.atlasMode == AtlasMode::Coverage;
+        }
+
         [[nodiscard]] Result<IFontAtlas*, FontLoadResult> Bake(IFont& font,
                                                                FontLoadOptions options) override
         {

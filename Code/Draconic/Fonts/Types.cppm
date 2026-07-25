@@ -188,6 +188,14 @@ export namespace draconic::fonts
         }
     };
 
+    // How an atlas stores its glyphs: 8-bit coverage (the classic rasterized alpha) or a
+    // multi-channel signed distance field (MSDF) for resolution-independent, crisp scaling.
+    enum class AtlasMode : u8
+    {
+        Coverage,
+        DistanceField
+    };
+
     // Options for loading a font.
     struct FontLoadOptions
     {
@@ -199,6 +207,7 @@ export namespace draconic::fonts
         u8 oversampleX = 2;
         u8 oversampleY = 2;
         u8 padding = 2;
+        AtlasMode atlasMode = AtlasMode::Coverage;
 
         [[nodiscard]] i32 CharacterCount() const { return lastCodepoint - firstCodepoint + 1; }
 
@@ -225,6 +234,17 @@ export namespace draconic::fonts
             o.pixelHeight = 64.0f;
             o.atlasWidth = 1024;
             o.atlasHeight = 1024;
+            return o;
+        }
+        // An MSDF distance-field atlas: no oversampling (the field itself is analytic), a wider
+        // padding to fit the distance spread. Baked at one size, sampled crisp at any scale.
+        [[nodiscard]] static FontLoadOptions DistanceField()
+        {
+            FontLoadOptions o;
+            o.atlasMode = AtlasMode::DistanceField;
+            o.oversampleX = 1;
+            o.oversampleY = 1;
+            o.padding = 4;
             return o;
         }
     };

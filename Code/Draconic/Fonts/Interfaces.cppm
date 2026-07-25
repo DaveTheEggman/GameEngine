@@ -59,6 +59,11 @@ export namespace draconic::fonts
                                                   GlyphQuad& quad) const = 0;
         [[nodiscard]] virtual bool Contains(i32 codepoint) const = 0;
         [[nodiscard]] virtual Float2 WhitePixelUV() const = 0; // UV of a solid white texel
+
+        // Storage mode + the distance-field spread (in texels) for MSDF atlases. Default to a
+        // plain coverage atlas so every existing atlas keeps compiling unchanged.
+        [[nodiscard]] virtual AtlasMode Mode() const { return AtlasMode::Coverage; }
+        [[nodiscard]] virtual f32 DistanceFieldRange() const { return 0.0f; }
     };
 
     // Text shaping/layout + UI helpers.

@@ -77,6 +77,7 @@ export namespace draconic::vg
             m_opacityStack.Clear();
             m_currentState = VGState{};
             m_currentBlendMode = VGBlendMode::Normal;
+            m_currentDrawMode = VGDrawMode::Default;
             m_currentTextureIndex = 0;
             m_commandStartIndex = 0;
 
@@ -185,6 +186,17 @@ export namespace draconic::vg
             {
                 FlushCurrentCommand();
                 m_currentBlendMode = mode;
+            }
+        }
+
+        // Switch straight sampling vs MSDF decode; flushes the in-progress command so the mode
+        // change lands on a fresh command boundary.
+        void SetDrawMode(VGDrawMode mode)
+        {
+            if (mode != m_currentDrawMode)
+            {
+                FlushCurrentCommand();
+                m_currentDrawMode = mode;
             }
         }
 
@@ -546,6 +558,19 @@ export namespace draconic::vg
                 return;
 
             const i32 textureIndex = GetOrAddTexture(atlasTexture);
+
+            // Distance-field atlases decode through the MSDF pipeline: switch the batch's draw
+            // mode (flushing the current command) and publish the atlas's DF parameters so the
+            // renderer's DF fragment shader can do screen-space anti-aliasing.
+            const bool isDF = atlas->Mode() == fonts::AtlasMode::DistanceField;
+            if (isDF)
+            {
+                SetDrawMode(VGDrawMode::DistanceField);
+                m_batch.dfPxRange = atlas->DistanceFieldRange();
+                m_batch.dfAtlasW = static_cast<f32>(atlas->Width());
+                m_batch.dfAtlasH = static_cast<f32>(atlas->Height());
+            }
+
             SetupForTextureDraw(textureIndex);
 
             const usize startVertex = m_batch.vertices.Size();
@@ -563,6 +588,9 @@ export namespace draconic::vg
             }
 
             TransformVertices(startVertex);
+
+            if (isDF)
+                SetDrawMode(VGDrawMode::Default);
         }
 
         /// Draw text with horizontal alignment within bounds (vertically centered).
@@ -914,6 +942,7 @@ export namespace draconic::vg
                 cmd.blendMode = m_currentBlendMode;
                 cmd.clipMode = m_currentState.clipMode;
                 cmd.stencilRef = m_currentState.stencilRef;
+                cmd.drawMode = m_currentDrawMode;
 
                 m_batch.commands.PushBack(cmd);
                 m_commandStartIndex = static_cast<i32>(m_batch.indices.Size());
@@ -995,6 +1024,7 @@ export namespace draconic::vg
         Array<f32> m_opacityStack;
 
         VGBlendMode m_currentBlendMode = VGBlendMode::Normal;
+        VGDrawMode m_currentDrawMode = VGDrawMode::Default;
         i32 m_currentTextureIndex = 0;
         i32 m_commandStartIndex = 0;
         f32 m_tolerance = 0.05f;

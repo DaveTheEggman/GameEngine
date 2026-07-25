@@ -33,6 +33,7 @@ export namespace draconic::vg
         VGClipMode clipMode = VGClipMode::None;
         VGBlendMode blendMode = VGBlendMode::Normal;
         i32 stencilRef = 0; ///< Stencil reference value (for stencil clipping).
+        VGDrawMode drawMode = VGDrawMode::Default; ///< Straight sampling vs MSDF decode.
     };
 
     /// Batched vector-graphics geometry and draw commands. The output of
@@ -48,6 +49,11 @@ export namespace draconic::vg
         // batch - VGContext manages lifetime. By convention index 0 is a 1x1
         // white texture for solid-color draws.
         Array<const image::ImageData*> textures;
+        // Distance-field parameters for DistanceField-mode commands: the MSDF spread (texels) and
+        // the atlas dimensions the DF fragment shader needs for its screen-space AA.
+        f32 dfPxRange = 4.0f;
+        f32 dfAtlasW = 512.0f;
+        f32 dfAtlasH = 512.0f;
 
         /// Vertex data as a span for GPU upload.
         [[nodiscard]] Span<VGVertex> GetVertexData()

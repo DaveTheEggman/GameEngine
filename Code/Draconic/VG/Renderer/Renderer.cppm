@@ -35,10 +35,16 @@ export namespace draconic::vg::renderer
     namespace rhi = draconic::rhi;
     namespace image = draconic::image;
 
-    /// Projection uniform (one per slice, padded to UniformSlotSize on the GPU).
+    /// Projection uniform (one per slice, padded to UniformSlotSize on the GPU). The DF fields
+    /// carry the MSDF spread + atlas size for the distance-field fragment shader's screen-space
+    /// AA; they are ignored by the default pipeline.
     struct VGUniforms
     {
         Float4x4 projection = Float4x4::Identity();
+        f32 dfPxRange = 4.0f;
+        f32 dfAtlasW = 512.0f;
+        f32 dfAtlasH = 512.0f;
+        f32 pad = 0.0f;
     };
 
     /// A handle to one batch's data inside the shared frame buffers. Returned by
@@ -69,7 +75,7 @@ export namespace draconic::vg::renderer
         /// shader modules + the render-target format + frame count.
         Status Initialize(rhi::Device& device, rhi::ShaderModule& vertShader,
                           rhi::ShaderModule& fragShader, rhi::TextureFormat targetFormat,
-                          i32 frameCount)
+                          i32 frameCount, rhi::ShaderModule* dfFragShader = nullptr)
         {
             m_device = &device;
             m_queue = device.GetQueue(rhi::QueueType::Graphics, 0);
@@ -80,7 +86,11 @@ export namespace draconic::vg::renderer
                 return ErrorCode::Unknown;
             if (!CreateLayouts().IsOk())
                 return ErrorCode::Unknown;
-            if (!CreatePipeline(vertShader, fragShader).IsOk())
+            if (!CreatePipelineInto(vertShader, fragShader, m_pipeline).IsOk())
+                return ErrorCode::Unknown;
+            // Optional distance-field pipeline (same layout/vertex format, MSDF fragment shader).
+            if (dfFragShader != nullptr &&
+                !CreatePipelineInto(vertShader, *dfFragShader, m_dfPipeline).IsOk())
                 return ErrorCode::Unknown;
             if (!CreatePerFrameResources().IsOk())
                 return ErrorCode::Unknown;
@@ -151,9 +161,12 @@ export namespace draconic::vg::renderer
                 m_drawCommands.PushBack(cmd);
             }
 
-            // Write this slice's projection into its uniform slot.
+            // Write this slice's projection + distance-field metadata into its uniform slot.
             VGUniforms uniforms;
             uniforms.projection = OrthoOffCenter(static_cast<f32>(width), static_cast<f32>(height));
+            uniforms.dfPxRange = batch.dfPxRange;
+            uniforms.dfAtlasW = batch.dfAtlasW;
+            uniforms.dfAtlasH = batch.dfAtlasH;
             WriteBuffer(m_uniformBuffers[static_cast<usize>(frameIndex)], sliceUniformOffset,
                         &uniforms, sizeof(VGUniforms));
 
@@ -231,6 +244,7 @@ export namespace draconic::vg::renderer
 
             const u32 dynOffsets[1] = {slice.uniformByteOffset};
             i32 currentTextureIndex = -2; // sentinel forces first SetBindGroup
+            auto currentDrawMode = draconic::vg::VGDrawMode::Default;
 
             const i32 cmdEnd = slice.drawCommandStart + slice.drawCommandCount;
             for (i32 i = slice.drawCommandStart; i < cmdEnd; ++i)
@@ -238,6 +252,21 @@ export namespace draconic::vg::renderer
                 const draconic::vg::VGCommand& cmd = m_drawCommands[static_cast<usize>(i)];
                 if (cmd.indexCount == 0)
                     continue;
+
+                // Switch pipeline on draw-mode change (default sampling vs MSDF decode); falls back
+                // to the default pipeline when no DF pipeline was built. A pipeline swap forces a
+                // bind-group rebind.
+                if (cmd.drawMode != currentDrawMode)
+                {
+                    rhi::RenderPipeline* pipeline =
+                        (cmd.drawMode == draconic::vg::VGDrawMode::DistanceField &&
+                         m_dfPipeline != nullptr)
+                            ? m_dfPipeline
+                            : m_pipeline;
+                    renderPass.SetPipeline(pipeline);
+                    currentDrawMode = cmd.drawMode;
+                    currentTextureIndex = -2;
+                }
 
                 if (cmd.textureIndex != currentTextureIndex)
                 {
@@ -356,6 +385,8 @@ export namespace draconic::vg::renderer
 
             if (m_pipeline)
                 m_device->DestroyRenderPipeline(m_pipeline);
+            if (m_dfPipeline)
+                m_device->DestroyRenderPipeline(m_dfPipeline);
             if (m_pipelineLayout)
                 m_device->DestroyPipelineLayout(m_pipelineLayout);
             if (m_bindGroupLayout)
@@ -364,6 +395,7 @@ export namespace draconic::vg::renderer
                 m_device->DestroySampler(m_sampler);
 
             m_pipeline = nullptr;
+            m_dfPipeline = nullptr;
             m_pipelineLayout = nullptr;
             m_bindGroupLayout = nullptr;
             m_sampler = nullptr;
@@ -421,7 +453,8 @@ export namespace draconic::vg::renderer
         Status CreateLayouts()
         {
             rhi::BindGroupLayoutEntry entries[3];
-            entries[0] = rhi::BindGroupLayoutEntry::UniformBuffer(0, rhi::ShaderStage::Vertex);
+            entries[0] = rhi::BindGroupLayoutEntry::UniformBuffer(
+                0, rhi::ShaderStage::Vertex | rhi::ShaderStage::Fragment);
             entries[0].hasDynamicOffset =
                 true; // one uniform buffer shared across slices via dynamic offset
             entries[1] = rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Fragment);
@@ -438,7 +471,10 @@ export namespace draconic::vg::renderer
             return m_device->CreatePipelineLayout(plDesc, m_pipelineLayout);
         }
 
-        Status CreatePipeline(rhi::ShaderModule& vertShader, rhi::ShaderModule& fragShader)
+        // Build a VG pipeline (shared layout + vertex format) with the given fragment shader into
+        // `outPipeline` - used for both the default and the distance-field variants.
+        Status CreatePipelineInto(rhi::ShaderModule& vertShader, rhi::ShaderModule& fragShader,
+                                  rhi::RenderPipeline*& outPipeline)
         {
             const rhi::VertexAttribute attributes[4] = {
                 {rhi::VertexFormat::Float32x2, 0, 0},  // position
@@ -474,7 +510,7 @@ export namespace draconic::vg::renderer
             desc.multisample.count = 1;
             desc.multisample.alphaToCoverageEnabled = false;
 
-            return m_device->CreateRenderPipeline(desc, m_pipeline);
+            return m_device->CreateRenderPipeline(desc, outPipeline);
         }
 
         Status CreatePerFrameResources()
@@ -649,6 +685,7 @@ export namespace draconic::vg::renderer
         rhi::BindGroupLayout* m_bindGroupLayout = nullptr;
         rhi::PipelineLayout* m_pipelineLayout = nullptr;
         rhi::RenderPipeline* m_pipeline = nullptr;
+        rhi::RenderPipeline* m_dfPipeline = nullptr; // MSDF fragment variant (null if unused)
         rhi::Sampler* m_sampler = nullptr;
 
         Array<rhi::Buffer*> m_vertexBuffers;

@@ -20,7 +20,8 @@ target_sources(DraconicFonts
 add_subdirectory(Baked)     # draconic.fonts.baked  - rasterizer-free IFont/IFontAtlas
 add_subdirectory(IO)        # draconic.fonts.io     - parser/baker pipeline + FontManager
 add_subdirectory(TTF)       # draconic.fonts.ttf    - stb_truetype backend + VFS service
-add_subdirectory(Importer)  # draconic.fonts.importer - editor-time TTF -> baked
+add_subdirectory(Importer)
+add_subdirectory(DistanceField)  # draconic.fonts.importer - editor-time TTF -> baked
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)

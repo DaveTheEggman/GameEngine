@@ -62,6 +62,14 @@ export namespace draconic::fonts
         // True if this baker can produce an atlas from the given font instance.
         [[nodiscard]] virtual bool CanBake(const IFont& font) const = 0;
 
+        // Options-aware variant: lets bakers that share a font type disambiguate by the requested
+        // atlas mode (coverage vs distance field). Defaults to the type-only predicate.
+        [[nodiscard]] virtual bool CanBake(const IFont& font, const FontLoadOptions& options) const
+        {
+            (void)options;
+            return CanBake(font);
+        }
+
         // Produce a new atlas for the font + options. Caller takes ownership.
         [[nodiscard]] virtual Result<IFontAtlas*, FontLoadResult> Bake(IFont& font,
                                                                        FontLoadOptions options) = 0;

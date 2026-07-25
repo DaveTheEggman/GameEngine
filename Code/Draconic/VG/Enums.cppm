@@ -49,4 +49,12 @@ export namespace draconic::vg
         Round, ///< Rounded corner.
         Bevel, ///< Beveled (flat cut) corner.
     };
+
+    /// How a command's texels are shaded: straight sampling, or MSDF distance-field decode
+    /// (crisp text at any scale). The renderer switches pipelines on this.
+    enum class VGDrawMode
+    {
+        Default,       ///< Sample the texture / vertex color directly.
+        DistanceField, ///< Decode an MSDF atlas (median-of-3 + screen-space AA).
+    };
 }

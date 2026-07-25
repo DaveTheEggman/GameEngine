@@ -159,10 +159,21 @@ export namespace draconic::fonts
             return nullptr;
         }
 
+        // Options-aware pick: the first baker whose CanBake(font, options) is true (so a
+        // distance-field request routes to the MSDF baker, a coverage request to the raster one).
+        [[nodiscard]] static IFontAtlasBaker* GetBakerForFont(const IFont& font,
+                                                              const FontLoadOptions& options)
+        {
+            for (IFontAtlasBaker* b : BakerStore())
+                if (b->CanBake(font, options))
+                    return b;
+            return nullptr;
+        }
+
         [[nodiscard]] static Result<IFontAtlas*, FontLoadResult>
         Bake(IFont& font, FontLoadOptions options = FontLoadOptions::Default())
         {
-            IFontAtlasBaker* baker = GetBakerForFont(font);
+            IFontAtlasBaker* baker = GetBakerForFont(font, options);
             if (baker == nullptr)
                 return Err(FontLoadResult::UnsupportedFormat);
             return baker->Bake(font, options);

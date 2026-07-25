@@ -168,7 +168,15 @@ export namespace draconic::fonts
             }
             IFontAtlas* atlas = baked.Value();
 
-            draconic::image::OwnedImageData* texture = FontAtlasTexture::ExpandR8ToRGBA8(atlas);
+            // Distance-field atlases already store RGBA texels (the MSDF channels); wrap them
+            // directly in a LINEAR image (no sRGB decode - the field is geometric, not color).
+            // Coverage atlases are single-channel R8 and expand to RGBA8 as before.
+            draconic::image::OwnedImageData* texture =
+                (atlas->Mode() == AtlasMode::DistanceField)
+                    ? DefaultAllocator().New<draconic::image::OwnedImageData>(
+                          atlas->Width(), atlas->Height(), draconic::image::PixelFormat::RGBA8,
+                          atlas->PixelData(), draconic::image::ImageColorSpace::Linear)
+                    : FontAtlasTexture::ExpandR8ToRGBA8(atlas);
             if (texture == nullptr)
             {
                 DefaultAllocator().Delete(atlas);
