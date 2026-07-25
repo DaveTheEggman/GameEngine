@@ -2152,7 +2152,7 @@ namespace draconic::render
     {
         rhi::BufferDesc obd{};
         obd.size = sizeof(u32) * 2;
-        obd.usage = rhi::BufferUsage::Storage;
+        obd.usage = rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst;
         obd.memory = rhi::MemoryLocation::GpuOnly;
         obd.label = u8"cluster.dummyOffsets";
         if (!m_device->CreateBuffer(obd, m_dummyClusterOffsets).IsOk())
@@ -2161,12 +2161,30 @@ namespace draconic::render
         }
         rhi::BufferDesc ibd{};
         ibd.size = sizeof(u32);
-        ibd.usage = rhi::BufferUsage::Storage;
+        ibd.usage = rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst;
         ibd.memory = rhi::MemoryLocation::GpuOnly;
         ibd.label = u8"cluster.dummyIndices";
         if (!m_device->CreateBuffer(ibd, m_dummyClusterIndices).IsOk())
         {
             return Status{ErrorCode::Unknown};
+        }
+        // Zero-initialize dummy cluster buffers. DX12 default-heap buffers have undefined
+        // contents; the forward shader reads ClusterOffsets[].y as a loop count, so garbage
+        // data causes an infinite GPU loop (TDR). Vulkan zero-initializes by luck.
+        {
+            rhi::Queue* q = m_device->GetQueue(rhi::QueueType::Graphics);
+            rhi::TransferBatch* batch = nullptr;
+            if (q != nullptr && q->CreateTransferBatch(batch).IsOk() && batch != nullptr)
+            {
+                u32 zeros[2] = {0, 0};
+                batch->WriteBuffer(m_dummyClusterOffsets, 0,
+                                   Span<const u8>(reinterpret_cast<const u8*>(zeros), sizeof(zeros)));
+                u32 zero = 0;
+                batch->WriteBuffer(m_dummyClusterIndices, 0,
+                                   Span<const u8>(reinterpret_cast<const u8*>(&zero), sizeof(zero)));
+                batch->Submit();
+                q->DestroyTransferBatch(batch);
+            }
         }
         rhi::BindGroupEntry entries[] = {
             rhi::BindGroupEntry::BufferEntry(m_dummyClusterOffsets, 0, sizeof(u32) * 2),
