@@ -44,6 +44,14 @@ export namespace draconic::imgui
             {
                 return;
             }
+            // If the previous frame's NewFrame was never matched by a Render()
+            // (e.g. BeginFrame returned invalid and OnRenderWindow was skipped),
+            // close it now so ImGui::NewFrame doesn't assert.
+            if (m_frameOpen)
+            {
+                ImGui::EndFrame();
+                m_frameOpen = false;
+            }
             ImGuiIO& io = ImGui::GetIO();
             io.DisplaySize = ImVec2(static_cast<float>(m_width), static_cast<float>(m_height));
             io.DeltaTime = deltaTime > 0.0f ? deltaTime : (1.0f / 60.0f);
