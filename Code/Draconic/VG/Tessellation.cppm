@@ -339,7 +339,7 @@ export namespace draconic::vg
         /// Tessellate a filled path into vertices and indices.
         static void Tessellate(const Path& path, FillRule fillRule, Color color, bool antiAlias,
                                Array<VGVertex>& vertices, Array<u32>& indices,
-                               f32 tolerance = 0.25f)
+                               f32 tolerance = 0.25f, f32 fringeWidth = FringeWidth)
         {
             Array<FlattenedSubPath> subPaths;
             PathFlattener::Flatten(path, tolerance, subPaths);
@@ -363,7 +363,7 @@ export namespace draconic::vg
 
                 if (antiAlias)
                 {
-                    TessellateWithAA(points, fillRule, color, vertices, indices);
+                    TessellateWithAA(points, fillRule, color, vertices, indices, fringeWidth);
                 }
                 else
                 {
@@ -378,12 +378,13 @@ export namespace draconic::vg
         /// Tessellate a filled path with an IVGFill style.
         static void TessellateWithFill(const Path& path, FillRule fillRule, const IVGFill& fill,
                                        bool antiAlias, Array<VGVertex>& vertices,
-                                       Array<u32>& indices, f32 tolerance = 0.25f)
+                                       Array<u32>& indices, f32 tolerance = 0.25f,
+                                       f32 fringeWidth = FringeWidth)
         {
             if (!fill.RequiresInterpolation())
             {
                 Tessellate(path, fillRule, fill.BaseColor(), antiAlias, vertices, indices,
-                           tolerance);
+                           tolerance, fringeWidth);
                 return;
             }
 
@@ -411,7 +412,8 @@ export namespace draconic::vg
 
                 if (antiAlias)
                 {
-                    TessellateWithAAFill(points, fillRule, fill, bounds, vertices, indices);
+                    TessellateWithAAFill(points, fillRule, fill, bounds, vertices, indices,
+                                         fringeWidth);
                 }
                 else
                 {
@@ -477,7 +479,7 @@ export namespace draconic::vg
         static void EmitFringeRing(Span<const Float2> points, FillRule fillRule,
                                    const Array<Float2>& normals, const Array<Color>& innerColors,
                                    const Array<Color>& outerColors, Array<VGVertex>& vertices,
-                                   Array<u32>& indices)
+                                   Array<u32>& indices, f32 fringeWidth = FringeWidth)
         {
             const i32 n = static_cast<i32>(points.Size());
 
@@ -488,7 +490,7 @@ export namespace draconic::vg
             {
                 innerPoints[static_cast<usize>(i)] =
                     points[static_cast<usize>(i)] -
-                    normals[static_cast<usize>(i)] * (FringeWidth * 0.5f);
+                    normals[static_cast<usize>(i)] * (fringeWidth * 0.5f);
                 vertices.PushBack(VGVertex::Solid(innerPoints[static_cast<usize>(i)],
                                                   innerColors[static_cast<usize>(i)], 1.0f));
             }
@@ -500,7 +502,7 @@ export namespace draconic::vg
             for (i32 i = 0; i < n; ++i)
             {
                 const Float2 outerPt = points[static_cast<usize>(i)] +
-                                       normals[static_cast<usize>(i)] * (FringeWidth * 0.5f);
+                                       normals[static_cast<usize>(i)] * (fringeWidth * 0.5f);
                 vertices.PushBack(
                     VGVertex::Solid(outerPt, outerColors[static_cast<usize>(i)], 0.0f));
             }
@@ -524,7 +526,8 @@ export namespace draconic::vg
         }
 
         static void TessellateWithAA(Span<const Float2> points, FillRule fillRule, Color color,
-                                     Array<VGVertex>& vertices, Array<u32>& indices)
+                                     Array<VGVertex>& vertices, Array<u32>& indices,
+                                     f32 fringeWidth = FringeWidth)
         {
             const usize n = points.Size();
             Array<Float2> normals;
@@ -541,12 +544,14 @@ export namespace draconic::vg
                 outerColors[i] = transColor;
             }
 
-            EmitFringeRing(points, fillRule, normals, innerColors, outerColors, vertices, indices);
+            EmitFringeRing(points, fillRule, normals, innerColors, outerColors, vertices, indices,
+                           fringeWidth);
         }
 
         static void TessellateWithAAFill(Span<const Float2> points, FillRule fillRule,
                                          const IVGFill& fill, Rectangle bounds,
-                                         Array<VGVertex>& vertices, Array<u32>& indices)
+                                         Array<VGVertex>& vertices, Array<u32>& indices,
+                                         f32 fringeWidth = FringeWidth)
         {
             const usize n = points.Size();
             Array<Float2> normals;
@@ -563,7 +568,8 @@ export namespace draconic::vg
                 outerColors[i] = Color{fc.r, fc.g, fc.b, 0.0f};
             }
 
-            EmitFringeRing(points, fillRule, normals, innerColors, outerColors, vertices, indices);
+            EmitFringeRing(points, fillRule, normals, innerColors, outerColors, vertices, indices,
+                           fringeWidth);
         }
     };
 
@@ -574,7 +580,8 @@ export namespace draconic::vg
         /// Tessellate a stroked polyline.
         static void Tessellate(Span<const Float2> points, bool closed, StrokeStyle style,
                                Span<const f32> dashPattern, bool antiAlias, Color color,
-                               Array<VGVertex>& vertices, Array<u32>& indices)
+                               Array<VGVertex>& vertices, Array<u32>& indices,
+                               f32 fringeWidth = 0.75f)
         {
             if (points.Size() < 2)
                 return;
@@ -590,24 +597,25 @@ export namespace draconic::vg
                     const Array<Float2>& seg = dashSegments[d];
                     if (seg.Size() >= 2)
                         TessellateSegment(Span<const Float2>(seg.Data(), seg.Size()), false, style,
-                                          antiAlias, color, vertices, indices);
+                                          antiAlias, color, vertices, indices, fringeWidth);
                 }
                 return;
             }
 
-            TessellateSegment(points, closed, style, antiAlias, color, vertices, indices);
+            TessellateSegment(points, closed, style, antiAlias, color, vertices, indices,
+                              fringeWidth);
         }
 
     private:
         static void TessellateSegment(Span<const Float2> points, bool closed, StrokeStyle style,
                                       bool antiAlias, Color color, Array<VGVertex>& vertices,
-                                      Array<u32>& indices)
+                                      Array<u32>& indices, f32 aaFringe)
         {
             const i32 n = static_cast<i32>(points.Size());
             if (n < 2)
                 return;
 
-            const f32 fringeWidth = antiAlias ? 0.75f : 0.0f;
+            const f32 fringeWidth = antiAlias ? aaFringe : 0.0f;
             const f32 halfWidth = style.width * 0.5f;
 
             // Pre-compute edge directions, normals, and lengths.

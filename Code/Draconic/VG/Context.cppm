@@ -89,6 +89,13 @@ export namespace draconic::vg
         [[nodiscard]] f32 Tolerance() const { return m_tolerance; }
         void SetTolerance(f32 tolerance) { m_tolerance = tolerance; }
 
+        /// Pixel snapping: axis-aligned filled rects, borders and horizontal/vertical lines are
+        /// snapped to the device pixel grid and drawn WITHOUT the AA fringe (an axis-aligned edge
+        /// on a pixel boundary is already crisp and needs no AA). Rotated / curved / diagonal
+        /// geometry is untouched. On by default; disable to compare.
+        void SetPixelSnapEnabled(bool enabled) { m_pixelSnap = enabled; }
+        [[nodiscard]] bool PixelSnapEnabled() const { return m_pixelSnap; }
+
         // === State Management ===
 
         void PushState() { m_stateStack.PushBack(m_currentState); }
@@ -210,7 +217,8 @@ export namespace draconic::vg
             const usize startVertex = m_batch.vertices.Size();
             const f32 scaledTolerance = GetScaledTolerance();
             FillTessellator::Tessellate(path, fillRule, ApplyOpacity(color), antiAlias,
-                                        m_batch.vertices, m_batch.indices, scaledTolerance);
+                                        m_batch.vertices, m_batch.indices, scaledTolerance,
+                                        GetScaledFringe());
             TransformVertices(startVertex);
         }
 
@@ -222,7 +230,8 @@ export namespace draconic::vg
             const usize startVertex = m_batch.vertices.Size();
             const f32 scaledTolerance = GetScaledTolerance();
             FillTessellator::TessellateWithFill(path, fillRule, fill, antiAlias, m_batch.vertices,
-                                                m_batch.indices, scaledTolerance);
+                                                m_batch.indices, scaledTolerance,
+                                                GetScaledFringe());
             ApplyOpacityToVertices(startVertex);
             TransformVertices(startVertex);
         }
@@ -238,6 +247,7 @@ export namespace draconic::vg
 
             const usize startVertex = m_batch.vertices.Size();
             const Color opColor = ApplyOpacity(color);
+            const f32 scaledFringe = GetScaledFringe();
 
             for (usize s = 0; s < subPaths.Size(); ++s)
             {
@@ -247,7 +257,7 @@ export namespace draconic::vg
                 StrokeTessellator::Tessellate(
                     Span<const Float2>(subPath.points.Data(), subPath.points.Size()),
                     subPath.isClosed, style, dashPattern, antiAlias, opColor, m_batch.vertices,
-                    m_batch.indices);
+                    m_batch.indices, scaledFringe);
             }
 
             TransformVertices(startVertex);
@@ -257,6 +267,17 @@ export namespace draconic::vg
 
         void FillRect(Rectangle rect, Color color)
         {
+            // Crisp path: snap the axis-aligned rect to the device pixel grid, fill without a
+            // fringe (edges on pixel boundaries need no AA).
+            if (m_pixelSnap && TransformIsAxisAligned())
+            {
+                const Float2 p0 = TransformPoint(Float2{rect.x, rect.y});
+                const Float2 p1 = TransformPoint(Float2{rect.x + rect.width, rect.y + rect.height});
+                SetupForSolidDraw();
+                EmitDeviceRect(Round(Min(p0.x, p1.x)), Round(Min(p0.y, p1.y)),
+                               Round(Max(p0.x, p1.x)), Round(Max(p0.y, p1.y)), ApplyOpacity(color));
+                return;
+            }
             PathBuilder pb;
             pb.MoveTo(rect.x, rect.y);
             pb.LineTo(rect.x + rect.width, rect.y);
@@ -315,6 +336,28 @@ export namespace draconic::vg
 
         void StrokeRect(Rectangle rect, Color color, f32 width = 1.0f)
         {
+            // Crisp path: a centered axis-aligned border drawn as four pixel-snapped bars (no
+            // fringe). Top/bottom span the full outer width (owning the corners); the side bars
+            // fill vertically BETWEEN them, so coverage is exact with no seams or double-blend.
+            if (m_pixelSnap && TransformIsAxisAligned())
+            {
+                const Float2 p0 = TransformPoint(Float2{rect.x, rect.y});
+                const Float2 p1 = TransformPoint(Float2{rect.x + rect.width, rect.y + rect.height});
+                const f32 x0 = Min(p0.x, p1.x), x1 = Max(p0.x, p1.x);
+                const f32 y0 = Min(p0.y, p1.y), y1 = Max(p0.y, p1.y);
+                const Float2 s = DeviceScale();
+                const f32 tx = width * s.x, ty = width * s.y;
+                const f32 tw = Max(1.0f, Round(tx)), th = Max(1.0f, Round(ty));
+                const f32 lx = Round(x0 - tx * 0.5f), rx = Round(x1 - tx * 0.5f);
+                const f32 topY = Round(y0 - ty * 0.5f), botY = Round(y1 - ty * 0.5f);
+                const Color c = ApplyOpacity(color);
+                SetupForSolidDraw();
+                EmitDeviceRect(lx, topY, rx + tw, topY + th, c); // top
+                EmitDeviceRect(lx, botY, rx + tw, botY + th, c); // bottom
+                EmitDeviceRect(lx, topY + th, lx + tw, botY, c); // left
+                EmitDeviceRect(rx, topY + th, rx + tw, botY, c); // right
+                return;
+            }
             PathBuilder pb;
             pb.MoveTo(rect.x, rect.y);
             pb.LineTo(rect.x + rect.width, rect.y);
@@ -354,6 +397,32 @@ export namespace draconic::vg
 
         void DrawLine(Float2 a, Float2 b, Color color, f32 thickness = 1.0f)
         {
+            // Crisp path: a horizontal or vertical line (after the transform) becomes a pixel-
+            // snapped bar (no fringe). Diagonals keep the analytical-AA stroke.
+            if (m_pixelSnap && TransformIsAxisAligned())
+            {
+                const Float2 da = TransformPoint(a);
+                const Float2 db = TransformPoint(b);
+                const Float2 s = DeviceScale();
+                if (Abs(da.y - db.y) < 1e-3f) // horizontal
+                {
+                    const f32 th = Max(1.0f, Round(thickness * s.y));
+                    const f32 y0 = Round(da.y - thickness * s.y * 0.5f);
+                    SetupForSolidDraw();
+                    EmitDeviceRect(Round(Min(da.x, db.x)), y0, Round(Max(da.x, db.x)), y0 + th,
+                                   ApplyOpacity(color));
+                    return;
+                }
+                if (Abs(da.x - db.x) < 1e-3f) // vertical
+                {
+                    const f32 tw = Max(1.0f, Round(thickness * s.x));
+                    const f32 x0 = Round(da.x - thickness * s.x * 0.5f);
+                    SetupForSolidDraw();
+                    EmitDeviceRect(x0, Round(Min(da.y, db.y)), x0 + tw, Round(Max(da.y, db.y)),
+                                   ApplyOpacity(color));
+                    return;
+                }
+            }
             PathBuilder pb;
             pb.MoveTo(a.x, a.y);
             pb.LineTo(b.x, b.y);
@@ -966,6 +1035,58 @@ export namespace draconic::vg
             return m_tolerance;
         }
 
+        // The AA fringe width to hand the tessellators, kept ~constant in SCREEN pixels. The
+        // fringe geometry is built in content space and then scaled by the current transform, so
+        // pre-divide by that scale (mirrors GetScaledTolerance) - otherwise a scaled-up shape gets
+        // a proportionally wider, blurrier edge.
+        [[nodiscard]] f32 GetScaledFringe() const
+        {
+            constexpr f32 kBaseFringe = 0.75f;
+            if (m_currentState.transform == Float4x4::Identity())
+                return kBaseFringe;
+
+            const f32 sx =
+                Length(Float2{m_currentState.transform(0, 0), m_currentState.transform(0, 1)});
+            const f32 sy =
+                Length(Float2{m_currentState.transform(1, 0), m_currentState.transform(1, 1)});
+            const f32 scale = Max(sx, sy);
+            return (scale > 0.0001f) ? kBaseFringe / scale : kBaseFringe;
+        }
+
+        // === Pixel snapping (crisp axis-aligned rects/lines) ===
+
+        // The current transform has no rotation/skew (its linear part is diagonal), so device
+        // axis-aligned geometry maps to axis-aligned pixels - safe to snap to the pixel grid.
+        [[nodiscard]] bool TransformIsAxisAligned() const
+        {
+            const Float4x4& m = m_currentState.transform;
+            return Abs(m(0, 1)) < 1e-4f && Abs(m(1, 0)) < 1e-4f;
+        }
+        // Per-axis device scale (magnitude of the transform's x/y basis; valid when axis-aligned).
+        [[nodiscard]] Float2 DeviceScale() const
+        {
+            const Float4x4& m = m_currentState.transform;
+            return Float2{Abs(m(0, 0)), Abs(m(1, 1))};
+        }
+        // Emit a crisp (NO fringe) filled rect whose corners are already in DEVICE space; the
+        // caller has snapped the edges to the pixel grid, so no anti-aliasing is needed.
+        void EmitDeviceRect(f32 x0, f32 y0, f32 x1, f32 y1, Color color)
+        {
+            if (x1 <= x0 || y1 <= y0)
+                return;
+            const u32 base = static_cast<u32>(m_batch.vertices.Size());
+            m_batch.vertices.PushBack(VGVertex::Solid(Float2{x0, y0}, color));
+            m_batch.vertices.PushBack(VGVertex::Solid(Float2{x1, y0}, color));
+            m_batch.vertices.PushBack(VGVertex::Solid(Float2{x1, y1}, color));
+            m_batch.vertices.PushBack(VGVertex::Solid(Float2{x0, y1}, color));
+            m_batch.indices.PushBack(base + 0);
+            m_batch.indices.PushBack(base + 1);
+            m_batch.indices.PushBack(base + 2);
+            m_batch.indices.PushBack(base + 0);
+            m_batch.indices.PushBack(base + 2);
+            m_batch.indices.PushBack(base + 3);
+        }
+
         [[nodiscard]] Float2 TransformPoint(Float2 point) const
         {
             if (m_currentState.transform == Float4x4::Identity())
@@ -1028,5 +1149,6 @@ export namespace draconic::vg
         i32 m_currentTextureIndex = 0;
         i32 m_commandStartIndex = 0;
         f32 m_tolerance = 0.05f;
+        bool m_pixelSnap = true;
     };
 }
