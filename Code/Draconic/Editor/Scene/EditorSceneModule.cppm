@@ -18,4 +18,7 @@ export import :game_page;
 export import :material_page;
 export import :mesh_page;
 export import :particle_effect_page;
+export import :animation_graph_page;
+export import :animation_clip_page;
+export import :skeleton_page;
 export import :model_prefab;

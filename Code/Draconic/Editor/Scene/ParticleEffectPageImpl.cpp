@@ -37,8 +37,6 @@ namespace draconic::editor
 {
     namespace
     {
-        namespace tk = ui::toolkit;
-        namespace pt = draconic::particles;
 
         // The owning page; captured (as a copyable pointer) into stored editor callbacks. An edit
         // mutates the target field in place, then CommitEdit(key) records a coalesced undo step.
@@ -71,17 +69,20 @@ namespace draconic::editor
             i32 m_systemIndex = -1;
         };
 
-        void Add(tk::PropertyGrid& g, RefPtr<tk::PropertyEditor> e) { g.AddProperty(Move(e)); }
+        void Add(ui::toolkit::PropertyGrid& g, RefPtr<ui::toolkit::PropertyEditor> e)
+        {
+            g.AddProperty(Move(e));
+        }
 
         // ---- scalar rows (each mutates in place + commits an undo step keyed by category+name) ----
 
-        void RowFloat(tk::PropertyGrid& g, StringView name, f32* field, StringView cat, Page page,
-                      f64 mn = -1e9, f64 mx = 1e9, f64 step = 0.05)
+        void RowFloat(ui::toolkit::PropertyGrid& g, StringView name, f32* field, StringView cat,
+                      Page page, f64 mn = -1e9, f64 mx = 1e9, f64 step = 0.05)
         {
             String key(cat);
             key.Append(name);
-            Add(g, RefPtr<tk::PropertyEditor>(
-                       MakeRef<tk::FloatEditor>(
+            Add(g, RefPtr<ui::toolkit::PropertyEditor>(
+                       MakeRef<ui::toolkit::FloatEditor>(
                            DefaultAllocator(), name, static_cast<f64>(*field), mn, mx, step, 3,
                            Function<void(f64)>{[field, page, key](f64 v)
                                                {
@@ -91,13 +92,13 @@ namespace draconic::editor
                            cat)
                            .Get()));
         }
-        void RowInt(tk::PropertyGrid& g, StringView name, i32* field, StringView cat, Page page,
-                    i64 mn = 0, i64 mx = 1000000)
+        void RowInt(ui::toolkit::PropertyGrid& g, StringView name, i32* field, StringView cat,
+                    Page page, i64 mn = 0, i64 mx = 1000000)
         {
             String key(cat);
             key.Append(name);
-            Add(g, RefPtr<tk::PropertyEditor>(
-                       MakeRef<tk::IntEditor>(
+            Add(g, RefPtr<ui::toolkit::PropertyEditor>(
+                       MakeRef<ui::toolkit::IntEditor>(
                            DefaultAllocator(), name, static_cast<i64>(*field), mn, mx,
                            Function<void(i64)>{[field, page, key](i64 v)
                                                {
@@ -107,44 +108,45 @@ namespace draconic::editor
                            cat)
                            .Get()));
         }
-        void RowBool(tk::PropertyGrid& g, StringView name, bool* field, StringView cat, Page page)
+        void RowBool(ui::toolkit::PropertyGrid& g, StringView name, bool* field, StringView cat,
+                     Page page)
         {
             String key(cat);
             key.Append(name);
-            Add(g,
-                RefPtr<tk::PropertyEditor>(
-                    MakeRef<tk::BoolEditor>(DefaultAllocator(), name, *field,
-                                            Function<void(bool)>{[field, page, key](bool v)
-                                                                 {
-                                                                     *field = v;
-                                                                     page->CommitEdit(key.AsView());
-                                                                 }},
-                                            cat)
-                        .Get()));
+            Add(g, RefPtr<ui::toolkit::PropertyEditor>(
+                       MakeRef<ui::toolkit::BoolEditor>(
+                           DefaultAllocator(), name, *field,
+                           Function<void(bool)>{[field, page, key](bool v)
+                                                {
+                                                    *field = v;
+                                                    page->CommitEdit(key.AsView());
+                                                }},
+                           cat)
+                           .Get()));
         }
-        void RowFloat2(tk::PropertyGrid& g, StringView name, Float2* field, StringView cat,
+        void RowFloat2(ui::toolkit::PropertyGrid& g, StringView name, Float2* field, StringView cat,
                        Page page, f32 mn = -100000.0f, f32 mx = 100000.0f, f32 step = 0.01f)
         {
             String key(cat);
             key.Append(name);
-            Add(g, RefPtr<tk::PropertyEditor>(
-                       MakeRef<tk::Float2Editor>(DefaultAllocator(), name, *field, mn, mx, step,
-                                                 Function<void(Float2)>{[field, page, key](Float2 v)
-                                                                        {
-                                                                            *field = v;
-                                                                            page->CommitEdit(
-                                                                                key.AsView());
-                                                                        }},
-                                                 cat)
+            Add(g, RefPtr<ui::toolkit::PropertyEditor>(
+                       MakeRef<ui::toolkit::Float2Editor>(
+                           DefaultAllocator(), name, *field, mn, mx, step,
+                           Function<void(Float2)>{[field, page, key](Float2 v)
+                                                  {
+                                                      *field = v;
+                                                      page->CommitEdit(key.AsView());
+                                                  }},
+                           cat)
                            .Get()));
         }
-        void RowFloat3(tk::PropertyGrid& g, StringView name, Float3* field, StringView cat,
+        void RowFloat3(ui::toolkit::PropertyGrid& g, StringView name, Float3* field, StringView cat,
                        Page page)
         {
             String key(cat);
             key.Append(name);
-            Add(g, RefPtr<tk::PropertyEditor>(
-                       MakeRef<tk::Float3Editor>(
+            Add(g, RefPtr<ui::toolkit::PropertyEditor>(
+                       MakeRef<ui::toolkit::Float3Editor>(
                            DefaultAllocator(), name, *field, -1000.0f, 1000.0f, 0.05f,
                            Function<void(Float3)>{[field, page, key](Float3 v)
                                                   {
@@ -154,13 +156,13 @@ namespace draconic::editor
                            cat)
                            .Get()));
         }
-        void RowColor(tk::PropertyGrid& g, StringView name, Float4* field, StringView cat,
+        void RowColor(ui::toolkit::PropertyGrid& g, StringView name, Float4* field, StringView cat,
                       Page page)
         {
             String key(cat);
             key.Append(name);
-            Add(g, RefPtr<tk::PropertyEditor>(
-                       MakeRef<tk::ColorEditor>(
+            Add(g, RefPtr<ui::toolkit::PropertyEditor>(
+                       MakeRef<ui::toolkit::ColorEditor>(
                            DefaultAllocator(), name, Color{field->x, field->y, field->z, field->w},
                            Function<void(Color)>{[field, page, key](Color c)
                                                  {
@@ -170,26 +172,27 @@ namespace draconic::editor
                            cat)
                            .Get()));
         }
-        void RowEnum(tk::PropertyGrid& g, StringView name, i32 value, Span<const StringView> items,
-                     Function<void(i32)> setter, StringView cat)
+        void RowEnum(ui::toolkit::PropertyGrid& g, StringView name, i32 value,
+                     Span<const StringView> items, Function<void(i32)> setter, StringView cat)
         {
-            Add(g,
-                RefPtr<tk::PropertyEditor>(MakeRef<tk::EnumEditor>(DefaultAllocator(), name, value,
-                                                                   items, Move(setter), cat)
-                                               .Get()));
+            Add(g, RefPtr<ui::toolkit::PropertyEditor>(
+                       MakeRef<ui::toolkit::EnumEditor>(DefaultAllocator(), name, value, items,
+                                                        Move(setter), cat)
+                           .Get()));
         }
-        void RowButton(tk::PropertyGrid& g, StringView name, StringView cat,
+        void RowButton(ui::toolkit::PropertyGrid& g, StringView name, StringView cat,
                        Function<void()> action)
         {
             Add(g,
-                RefPtr<tk::PropertyEditor>(
-                    MakeRef<tk::ButtonEditor>(DefaultAllocator(), name, Move(action), cat).Get()));
+                RefPtr<ui::toolkit::PropertyEditor>(
+                    MakeRef<ui::toolkit::ButtonEditor>(DefaultAllocator(), name, Move(action), cat)
+                        .Get()));
         }
 
         // ---- composite value-type rows ----------------------------------------------------------
 
-        void RowRangeFloat(tk::PropertyGrid& g, StringView label, pt::RangeFloat* r, StringView cat,
-                           Page page, f64 mn = -1e6, f64 mx = 1e6, f64 step = 0.02)
+        void RowRangeFloat(ui::toolkit::PropertyGrid& g, StringView label, particles::RangeFloat* r,
+                           StringView cat, Page page, f64 mn = -1e6, f64 mx = 1e6, f64 step = 0.02)
         {
             String lo(label), hi(label);
             lo.Append(u8" min");
@@ -198,8 +201,8 @@ namespace draconic::editor
             RowFloat(g, hi.AsView(), &r->max, cat, page, mn, mx, step);
         }
         // Full 4-component RangeFloat2 (min.x/min.y and max.x/max.y - NOT a square approximation).
-        void RowRangeFloat2(tk::PropertyGrid& g, StringView label, pt::RangeFloat2* r,
-                            StringView cat, Page page)
+        void RowRangeFloat2(ui::toolkit::PropertyGrid& g, StringView label,
+                            particles::RangeFloat2* r, StringView cat, Page page)
         {
             String lo(label), hi(label);
             lo.Append(u8" min");
@@ -207,8 +210,8 @@ namespace draconic::editor
             RowFloat2(g, lo.AsView(), &r->min, cat, page, 0.0f, 1000.0f, 0.01f);
             RowFloat2(g, hi.AsView(), &r->max, cat, page, 0.0f, 1000.0f, 0.01f);
         }
-        void RowRangeColor(tk::PropertyGrid& g, StringView label, pt::RangeColor* r, StringView cat,
-                           Page page)
+        void RowRangeColor(ui::toolkit::PropertyGrid& g, StringView label, particles::RangeColor* r,
+                           StringView cat, Page page)
         {
             String lo(label), hi(label);
             lo.Append(u8" start");
@@ -218,8 +221,8 @@ namespace draconic::editor
         }
 
         // Emission shape sub-form: type + the params it uses (radius/extents/angle/arc/from-shell).
-        void RowEmissionShape(tk::PropertyGrid& g, StringView label, pt::EmissionShape* sh,
-                              StringView cat, Page page)
+        void RowEmissionShape(ui::toolkit::PropertyGrid& g, StringView label,
+                              particles::EmissionShape* sh, StringView cat, Page page)
         {
             static constexpr StringView kShapes[] = {u8"Point",  u8"Sphere", u8"Hemisphere",
                                                      u8"Box",    u8"Cone",   u8"Ring",
@@ -232,7 +235,7 @@ namespace draconic::editor
                     Span<const StringView>{kShapes, 8},
                     Function<void(i32)>{[sh, page, key](i32 v)
                                         {
-                                            sh->type = static_cast<pt::EmissionShapeType>(v);
+                                            sh->type = static_cast<particles::EmissionShapeType>(v);
                                             page->CommitEdit(key.AsView());
                                         }},
                     cat);
@@ -253,19 +256,19 @@ namespace draconic::editor
         // Hosts an interactive CurveCanvas as its editor view; edits write every key (value +
         // Hermite tangents) back into the ParticleCurveFloat / ParticleCurveFloat2 and commit undo.
 
-        class CurveFieldEditor final : public tk::PropertyEditor
+        class CurveFieldEditor final : public ui::toolkit::PropertyEditor
         {
         public:
             // Single-channel (ParticleCurveFloat: Alpha / Rotation / Speed).
-            CurveFieldEditor(StringView name, pt::ParticleCurveFloat* curve, Page page,
+            CurveFieldEditor(StringView name, particles::ParticleCurveFloat* curve, Page page,
                              StringView key, StringView cat)
-                : tk::PropertyEditor(name, cat), m_curve1(curve), m_page(page), m_key(key)
+                : ui::toolkit::PropertyEditor(name, cat), m_curve1(curve), m_page(page), m_key(key)
             {
             }
             // Two-channel (ParticleCurveFloat2: Size X/Y, shared time).
-            CurveFieldEditor(StringView name, pt::ParticleCurveFloat2* curve, Page page,
+            CurveFieldEditor(StringView name, particles::ParticleCurveFloat2* curve, Page page,
                              StringView key, StringView cat)
-                : tk::PropertyEditor(name, cat), m_curve2(curve), m_page(page), m_key(key)
+                : ui::toolkit::PropertyEditor(name, cat), m_curve2(curve), m_page(page), m_key(key)
             {
             }
 
@@ -274,28 +277,28 @@ namespace draconic::editor
         protected:
             RefPtr<ui::View> CreateEditorView() override
             {
-                auto canvas = MakeRef<tk::CurveCanvas>(DefaultAllocator());
-                canvas->MaxKeys = pt::kMaxCurveKeys;
+                auto canvas = MakeRef<ui::toolkit::CurveCanvas>(DefaultAllocator());
+                canvas->MaxKeys = particles::kMaxCurveKeys;
                 canvas->AutoFitValueRange = true;
                 m_canvas = canvas.Get();
 
                 if (m_curve1 != nullptr)
                 {
-                    tk::ChannelDescriptor ch;
+                    ui::toolkit::ChannelDescriptor ch;
                     ch.Name = String(u8"V");
                     ch.StrokeColor = Color{0.45f, 0.75f, 1.0f, 1.0f};
-                    canvas->SetChannels(Span<const tk::ChannelDescriptor>{&ch, 1});
+                    canvas->SetChannels(Span<const ui::toolkit::ChannelDescriptor>{&ch, 1});
                     PushFloat1(*canvas);
                 }
                 else if (m_curve2 != nullptr)
                 {
                     canvas->LinkedTime = true;
-                    tk::ChannelDescriptor chs[2];
+                    ui::toolkit::ChannelDescriptor chs[2];
                     chs[0].Name = String(u8"X");
                     chs[0].StrokeColor = Color{0.9f, 0.4f, 0.4f, 1.0f};
                     chs[1].Name = String(u8"Y");
                     chs[1].StrokeColor = Color{0.4f, 0.9f, 0.5f, 1.0f};
-                    canvas->SetChannels(Span<const tk::ChannelDescriptor>{chs, 2});
+                    canvas->SetChannels(Span<const ui::toolkit::ChannelDescriptor>{chs, 2});
                     PushFloat2(*canvas);
                 }
 
@@ -317,42 +320,43 @@ namespace draconic::editor
             }
 
         private:
-            void PushFloat1(tk::CurveCanvas& c)
+            void PushFloat1(ui::toolkit::CurveCanvas& c)
             {
-                Array<tk::CurveCanvas::Key> keys;
+                Array<ui::toolkit::CurveCanvas::Key> keys;
                 for (i32 i = 0; i < m_curve1->keyCount; ++i)
                 {
-                    const pt::CurveKeyFloat& k = m_curve1->keys[i];
-                    keys.PushBack(tk::CurveCanvas::Key{k.time, k.value, k.tangentIn, k.tangentOut});
+                    const particles::CurveKeyFloat& k = m_curve1->keys[i];
+                    keys.PushBack(
+                        ui::toolkit::CurveCanvas::Key{k.time, k.value, k.tangentIn, k.tangentOut});
                 }
                 if (keys.IsEmpty())
                 {
-                    keys.PushBack(tk::CurveCanvas::Key{0.0f, 0.0f});
-                    keys.PushBack(tk::CurveCanvas::Key{1.0f, 1.0f});
+                    keys.PushBack(ui::toolkit::CurveCanvas::Key{0.0f, 0.0f});
+                    keys.PushBack(ui::toolkit::CurveCanvas::Key{1.0f, 1.0f});
                 }
-                c.SetKeys(0, Span<const tk::CurveCanvas::Key>{keys.Data(), keys.Size()});
+                c.SetKeys(0, Span<const ui::toolkit::CurveCanvas::Key>{keys.Data(), keys.Size()});
             }
-            void PushFloat2(tk::CurveCanvas& c)
+            void PushFloat2(ui::toolkit::CurveCanvas& c)
             {
-                Array<tk::CurveCanvas::Key> kx, ky;
+                Array<ui::toolkit::CurveCanvas::Key> kx, ky;
                 for (i32 i = 0; i < m_curve2->keyCount; ++i)
                 {
-                    kx.PushBack(tk::CurveCanvas::Key{m_curve2->times[i], m_curve2->values[i].x,
-                                                     m_curve2->tangentsIn[i].x,
-                                                     m_curve2->tangentsOut[i].x});
-                    ky.PushBack(tk::CurveCanvas::Key{m_curve2->times[i], m_curve2->values[i].y,
-                                                     m_curve2->tangentsIn[i].y,
-                                                     m_curve2->tangentsOut[i].y});
+                    kx.PushBack(ui::toolkit::CurveCanvas::Key{
+                        m_curve2->times[i], m_curve2->values[i].x, m_curve2->tangentsIn[i].x,
+                        m_curve2->tangentsOut[i].x});
+                    ky.PushBack(ui::toolkit::CurveCanvas::Key{
+                        m_curve2->times[i], m_curve2->values[i].y, m_curve2->tangentsIn[i].y,
+                        m_curve2->tangentsOut[i].y});
                 }
                 if (kx.IsEmpty())
                 {
-                    kx.PushBack(tk::CurveCanvas::Key{0.0f, 0.1f});
-                    kx.PushBack(tk::CurveCanvas::Key{1.0f, 0.1f});
-                    ky.PushBack(tk::CurveCanvas::Key{0.0f, 0.1f});
-                    ky.PushBack(tk::CurveCanvas::Key{1.0f, 0.1f});
+                    kx.PushBack(ui::toolkit::CurveCanvas::Key{0.0f, 0.1f});
+                    kx.PushBack(ui::toolkit::CurveCanvas::Key{1.0f, 0.1f});
+                    ky.PushBack(ui::toolkit::CurveCanvas::Key{0.0f, 0.1f});
+                    ky.PushBack(ui::toolkit::CurveCanvas::Key{1.0f, 0.1f});
                 }
-                c.SetKeys(0, Span<const tk::CurveCanvas::Key>{kx.Data(), kx.Size()});
-                c.SetKeys(1, Span<const tk::CurveCanvas::Key>{ky.Data(), ky.Size()});
+                c.SetKeys(0, Span<const ui::toolkit::CurveCanvas::Key>{kx.Data(), kx.Size()});
+                c.SetKeys(1, Span<const ui::toolkit::CurveCanvas::Key>{ky.Data(), ky.Size()});
             }
             void WriteBack()
             {
@@ -362,24 +366,24 @@ namespace draconic::editor
                 }
                 if (m_curve1 != nullptr)
                 {
-                    const i32 n = Min(m_canvas->GetKeyCount(0), pt::kMaxCurveKeys);
+                    const i32 n = Min(m_canvas->GetKeyCount(0), particles::kMaxCurveKeys);
                     m_curve1->keyCount = n;
                     for (i32 i = 0; i < n; ++i)
                     {
-                        const tk::CurveCanvas::Key k = m_canvas->GetKey(0, i);
+                        const ui::toolkit::CurveCanvas::Key k = m_canvas->GetKey(0, i);
                         m_curve1->keys[i] =
-                            pt::CurveKeyFloat{k.Time, k.Value, k.TangentIn, k.TangentOut};
+                            particles::CurveKeyFloat{k.Time, k.Value, k.TangentIn, k.TangentOut};
                     }
                 }
                 else if (m_curve2 != nullptr)
                 {
                     const i32 n = Min(Min(m_canvas->GetKeyCount(0), m_canvas->GetKeyCount(1)),
-                                      pt::kMaxCurveKeys);
+                                      particles::kMaxCurveKeys);
                     m_curve2->keyCount = n;
                     for (i32 i = 0; i < n; ++i)
                     {
-                        const tk::CurveCanvas::Key kx = m_canvas->GetKey(0, i);
-                        const tk::CurveCanvas::Key ky = m_canvas->GetKey(1, i);
+                        const ui::toolkit::CurveCanvas::Key kx = m_canvas->GetKey(0, i);
+                        const ui::toolkit::CurveCanvas::Key ky = m_canvas->GetKey(1, i);
                         m_curve2->times[i] = kx.Time;
                         m_curve2->values[i] = Float2{kx.Value, ky.Value};
                         m_curve2->tangentsIn[i] = Float2{kx.TangentIn, ky.TangentIn};
@@ -389,21 +393,21 @@ namespace draconic::editor
                 m_page->CommitEdit(m_key.AsView());
             }
 
-            pt::ParticleCurveFloat* m_curve1 = nullptr;
-            pt::ParticleCurveFloat2* m_curve2 = nullptr;
+            particles::ParticleCurveFloat* m_curve1 = nullptr;
+            particles::ParticleCurveFloat2* m_curve2 = nullptr;
             Page m_page;
             String m_key;
-            tk::CurveCanvas* m_canvas = nullptr;
+            ui::toolkit::CurveCanvas* m_canvas = nullptr;
         };
 
         // ---- GradientEditor-backed color-over-lifetime editor -----------------------------------
 
-        class GradientFieldEditor final : public tk::PropertyEditor
+        class GradientFieldEditor final : public ui::toolkit::PropertyEditor
         {
         public:
-            GradientFieldEditor(StringView name, pt::ParticleCurveColor* curve, Page page,
+            GradientFieldEditor(StringView name, particles::ParticleCurveColor* curve, Page page,
                                 StringView key, StringView cat)
-                : tk::PropertyEditor(name, cat), m_curve(curve), m_page(page), m_key(key)
+                : ui::toolkit::PropertyEditor(name, cat), m_curve(curve), m_page(page), m_key(key)
             {
             }
             void RefreshView() override {}
@@ -411,22 +415,25 @@ namespace draconic::editor
         protected:
             RefPtr<ui::View> CreateEditorView() override
             {
-                auto grad = MakeRef<tk::GradientEditor>(DefaultAllocator());
-                grad->MaxStops = pt::kMaxCurveKeys;
+                auto grad = MakeRef<ui::toolkit::GradientEditor>(DefaultAllocator());
+                grad->MaxStops = particles::kMaxCurveKeys;
                 m_grad = grad.Get();
 
-                Array<tk::GradientEditor::Stop> stops;
+                Array<ui::toolkit::GradientEditor::Stop> stops;
                 for (i32 i = 0; i < m_curve->keyCount; ++i)
                 {
-                    stops.PushBack(
-                        tk::GradientEditor::Stop{m_curve->keys[i].time, m_curve->keys[i].color});
+                    stops.PushBack(ui::toolkit::GradientEditor::Stop{m_curve->keys[i].time,
+                                                                     m_curve->keys[i].color});
                 }
                 if (stops.IsEmpty())
                 {
-                    stops.PushBack(tk::GradientEditor::Stop{0.0f, Float4{1.0f, 1.0f, 1.0f, 1.0f}});
-                    stops.PushBack(tk::GradientEditor::Stop{1.0f, Float4{1.0f, 1.0f, 1.0f, 0.0f}});
+                    stops.PushBack(
+                        ui::toolkit::GradientEditor::Stop{0.0f, Float4{1.0f, 1.0f, 1.0f, 1.0f}});
+                    stops.PushBack(
+                        ui::toolkit::GradientEditor::Stop{1.0f, Float4{1.0f, 1.0f, 1.0f, 0.0f}});
                 }
-                grad->SetStops(Span<const tk::GradientEditor::Stop>{stops.Data(), stops.Size()});
+                grad->SetStops(
+                    Span<const ui::toolkit::GradientEditor::Stop>{stops.Data(), stops.Size()});
 
                 GradientFieldEditor* self = this;
                 grad->OnEditEnd.Add([self]() { self->WriteBack(); });
@@ -450,49 +457,51 @@ namespace draconic::editor
                 {
                     return;
                 }
-                const i32 n = Min(m_grad->StopCount(), pt::kMaxCurveKeys);
+                const i32 n = Min(m_grad->StopCount(), particles::kMaxCurveKeys);
                 m_curve->keyCount = n;
                 for (i32 i = 0; i < n; ++i)
                 {
-                    const tk::GradientEditor::Stop s = m_grad->GetStop(i);
-                    m_curve->keys[i] = pt::CurveKeyColor{s.Time, s.Color};
+                    const ui::toolkit::GradientEditor::Stop s = m_grad->GetStop(i);
+                    m_curve->keys[i] = particles::CurveKeyColor{s.Time, s.Color};
                 }
                 m_page->CommitEdit(m_key.AsView());
             }
 
-            pt::ParticleCurveColor* m_curve;
+            particles::ParticleCurveColor* m_curve;
             Page m_page;
             String m_key;
-            tk::GradientEditor* m_grad = nullptr;
+            ui::toolkit::GradientEditor* m_grad = nullptr;
         };
 
-        void RowCurveFloat(tk::PropertyGrid& g, StringView name, pt::ParticleCurveFloat* c,
-                           StringView cat, Page page)
-        {
-            String key(cat);
-            key.Append(name);
-            Add(g, RefPtr<tk::PropertyEditor>(MakeRef<CurveFieldEditor>(DefaultAllocator(), name, c,
-                                                                        page, key.AsView(), cat)
-                                                  .Get()));
-        }
-        void RowCurveFloat2(tk::PropertyGrid& g, StringView name, pt::ParticleCurveFloat2* c,
-                            StringView cat, Page page)
-        {
-            String key(cat);
-            key.Append(name);
-            Add(g, RefPtr<tk::PropertyEditor>(MakeRef<CurveFieldEditor>(DefaultAllocator(), name, c,
-                                                                        page, key.AsView(), cat)
-                                                  .Get()));
-        }
-        void RowCurveColor(tk::PropertyGrid& g, StringView name, pt::ParticleCurveColor* c,
-                           StringView cat, Page page)
+        void RowCurveFloat(ui::toolkit::PropertyGrid& g, StringView name,
+                           particles::ParticleCurveFloat* c, StringView cat, Page page)
         {
             String key(cat);
             key.Append(name);
             Add(g,
-                RefPtr<tk::PropertyEditor>(MakeRef<GradientFieldEditor>(DefaultAllocator(), name, c,
-                                                                        page, key.AsView(), cat)
-                                               .Get()));
+                RefPtr<ui::toolkit::PropertyEditor>(
+                    MakeRef<CurveFieldEditor>(DefaultAllocator(), name, c, page, key.AsView(), cat)
+                        .Get()));
+        }
+        void RowCurveFloat2(ui::toolkit::PropertyGrid& g, StringView name,
+                            particles::ParticleCurveFloat2* c, StringView cat, Page page)
+        {
+            String key(cat);
+            key.Append(name);
+            Add(g,
+                RefPtr<ui::toolkit::PropertyEditor>(
+                    MakeRef<CurveFieldEditor>(DefaultAllocator(), name, c, page, key.AsView(), cat)
+                        .Get()));
+        }
+        void RowCurveColor(ui::toolkit::PropertyGrid& g, StringView name,
+                           particles::ParticleCurveColor* c, StringView cat, Page page)
+        {
+            String key(cat);
+            key.Append(name);
+            Add(g, RefPtr<ui::toolkit::PropertyEditor>(
+                       MakeRef<GradientFieldEditor>(DefaultAllocator(), name, c, page, key.AsView(),
+                                                    cat)
+                           .Get()));
         }
     } // namespace
 
@@ -551,7 +560,8 @@ namespace draconic::editor
                 {
                     return;
                 }
-                if (pt::ParticleSystem* s = owner->m_asset->Effect().GetSystem(raw->SystemIndex()))
+                if (particles::ParticleSystem* s =
+                        owner->m_asset->Effect().GetSystem(raw->SystemIndex()))
                 {
                     s->name = String(newName);
                     owner->CommitEdit(u8"rename-system");
@@ -567,9 +577,8 @@ namespace draconic::editor
             return;
         }
         const ParticleTreeNode& node = m_owner->m_nodes[static_cast<usize>(nodeId)];
-        static_cast<ParticleTreeRow*>(view)->Bind(node.label.AsView(),
-                                                  m_owner->m_tree->ContentInset(depth), node.kind,
-                                                  node.systemIndex);
+        static_cast<ParticleTreeRow*>(view)->Bind(
+            node.label.AsView(), m_owner->m_tree->ContentInset(depth), node.kind, node.systemIndex);
     }
     bool ParticleTreeAdapter::CanMove(i32 fromPosition, i32 toPosition)
     {
@@ -619,7 +628,7 @@ namespace draconic::editor
             u8"reorder",
             Function<void()>{[self, sysIndex, from, to, init]()
                              {
-                                 if (pt::ParticleSystem* s =
+                                 if (particles::ParticleSystem* s =
                                          self->m_asset->Effect().GetSystem(sysIndex))
                                  {
                                      if (init)
@@ -651,7 +660,8 @@ namespace draconic::editor
         SetInstanceId(instance.Id());
 
         RefPtr<ISerializable> object = instance.ReadObject();
-        m_asset = RefPtr<pt::ParticleEffectAsset>(Cast<pt::ParticleEffectAsset>(object.Get()));
+        m_asset = RefPtr<particles::ParticleEffectAsset>(
+            Cast<particles::ParticleEffectAsset>(object.Get()));
         if (m_asset.Get() == nullptr)
         {
             DRACONIC_LOG_ERROR(u8"Editor",
@@ -730,7 +740,7 @@ namespace draconic::editor
 
         // ---- left: authoring tree ----
         m_adapter = MakeUnique<ParticleTreeAdapter>(DefaultAllocator(), *this);
-        m_tree = MakeRef<tk::DraggableTreeView>(DefaultAllocator());
+        m_tree = MakeRef<ui::toolkit::DraggableTreeView>(DefaultAllocator());
         m_tree->SetItemHeight(22.0f);
         m_tree->SetAdapter(m_adapter.Get());
         {
@@ -755,7 +765,7 @@ namespace draconic::editor
         }
 
         // ---- right: inspector ----
-        m_grid = MakeRef<tk::PropertyGrid>(DefaultAllocator());
+        m_grid = MakeRef<ui::toolkit::PropertyGrid>(DefaultAllocator());
         m_titleLabel = MakeRef<ui::Label>(DefaultAllocator());
         m_titleLabel->FontSize.SetValue(12.0f);
         auto inspectorColumn = MakeRef<ui::FlexLayout>(DefaultAllocator());
@@ -773,10 +783,10 @@ namespace draconic::editor
         }
 
         // Assemble the three panes: [tree | center] then that | inspector.
-        auto leftSplit = MakeRef<tk::SplitView>(DefaultAllocator());
+        auto leftSplit = MakeRef<ui::toolkit::SplitView>(DefaultAllocator());
         leftSplit->SetSplitRatio(0.22f);
         leftSplit->SetPanes(m_tree.Get(), centerColumn.Get());
-        auto rightSplit = MakeRef<tk::SplitView>(DefaultAllocator());
+        auto rightSplit = MakeRef<ui::toolkit::SplitView>(DefaultAllocator());
         rightSplit->SetSplitRatio(0.72f);
         rightSplit->SetPanes(leftSplit.Get(), inspectorColumn.Get());
         m_content = rightSplit;
@@ -798,7 +808,7 @@ namespace draconic::editor
         m_scene = m_sceneManager.CreateScene(u8"particle.preview");
 
         m_emitter = m_scene->CreateEntity(u8"Emitter");
-        if (auto* mgr = m_scene->GetSystem<pt::ParticleEffectComponentManager>())
+        if (auto* mgr = m_scene->GetSystem<particles::ParticleEffectComponentManager>())
         {
             mgr->Add(m_emitter).SetEffect(m_asset->Effect());
         }
@@ -815,13 +825,13 @@ namespace draconic::editor
         }
     }
 
-    pt::ParticleEffectComponent* ParticleEffectEditorPage::PreviewComponent() const
+    particles::ParticleEffectComponent* ParticleEffectEditorPage::PreviewComponent() const
     {
         if (m_scene == nullptr)
         {
             return nullptr;
         }
-        auto* mgr = m_scene->GetSystem<pt::ParticleEffectComponentManager>();
+        auto* mgr = m_scene->GetSystem<particles::ParticleEffectComponentManager>();
         return mgr != nullptr ? mgr->Get(m_emitter) : nullptr;
     }
 
@@ -837,7 +847,7 @@ namespace draconic::editor
                 m_asset->Effect().GetSystem(i)->emitter.isEmitting = true;
             }
         }
-        if (pt::ParticleEffectComponent* c = PreviewComponent())
+        if (particles::ParticleEffectComponent* c = PreviewComponent())
         {
             if (c->instance)
             {
@@ -847,7 +857,7 @@ namespace draconic::editor
     }
     void ParticleEffectEditorPage::Stop()
     {
-        if (pt::ParticleEffectComponent* c = PreviewComponent())
+        if (particles::ParticleEffectComponent* c = PreviewComponent())
         {
             if (c->instance)
             {
@@ -857,7 +867,7 @@ namespace draconic::editor
     }
     void ParticleEffectEditorPage::Restart()
     {
-        if (pt::ParticleEffectComponent* c = PreviewComponent())
+        if (particles::ParticleEffectComponent* c = PreviewComponent())
         {
             if (c->instance)
             {
@@ -869,7 +879,7 @@ namespace draconic::editor
     void ParticleEffectEditorPage::SetPaused(bool paused)
     {
         m_paused = paused;
-        if (pt::ParticleEffectComponent* c = PreviewComponent())
+        if (particles::ParticleEffectComponent* c = PreviewComponent())
         {
             if (c->instance)
             {
@@ -889,7 +899,7 @@ namespace draconic::editor
             m_tree->SetAdapter(m_adapter.Get());
             return;
         }
-        pt::ParticleEffect& fx = m_asset->Effect();
+        particles::ParticleEffect& fx = m_asset->Effect();
 
         auto addNode = [this](ParticleNodeKind kind, i32 sys, i32 mod, i32 depth,
                               String label) -> i32
@@ -909,7 +919,7 @@ namespace draconic::editor
 
         for (i32 s = 0; s < fx.SystemCount(); ++s)
         {
-            pt::ParticleSystem* sys = fx.GetSystem(s);
+            particles::ParticleSystem* sys = fx.GetSystem(s);
             if (sys == nullptr)
             {
                 continue;
@@ -974,7 +984,7 @@ namespace draconic::editor
         return -1;
     }
 
-    pt::ParticleSystem* ParticleEffectEditorPage::SelectedSystem() const
+    particles::ParticleSystem* ParticleEffectEditorPage::SelectedSystem() const
     {
         if (m_asset.Get() == nullptr || m_selected.systemIndex < 0)
         {
@@ -1016,7 +1026,7 @@ namespace draconic::editor
             mutate();
             self->m_selected = reselect;
             // Reattach the preview (modules recreated) so the live sim uses the new module set.
-            if (pt::ParticleEffectComponent* c = self->PreviewComponent())
+            if (particles::ParticleEffectComponent* c = self->PreviewComponent())
             {
                 if (self->m_asset.Get() != nullptr)
                 {
@@ -1077,7 +1087,7 @@ namespace draconic::editor
                             Function<void()>{
                                 [self, sysIndex, kind]()
                                 {
-                                    pt::ParticleSystem* s =
+                                    particles::ParticleSystem* s =
                                         self->m_asset->Effect().GetSystem(sysIndex);
                                     if (s == nullptr)
                                     {
@@ -1086,25 +1096,25 @@ namespace draconic::editor
                                     switch (kind)
                                     {
                                     case 0:
-                                        s->AddInitializer<pt::PositionInitializer>();
+                                        s->AddInitializer<particles::PositionInitializer>();
                                         break;
                                     case 1:
-                                        s->AddInitializer<pt::VelocityInitializer>();
+                                        s->AddInitializer<particles::VelocityInitializer>();
                                         break;
                                     case 2:
-                                        s->AddInitializer<pt::LifetimeInitializer>();
+                                        s->AddInitializer<particles::LifetimeInitializer>();
                                         break;
                                     case 3:
-                                        s->AddInitializer<pt::ColorInitializer>();
+                                        s->AddInitializer<particles::ColorInitializer>();
                                         break;
                                     case 4:
-                                        s->AddInitializer<pt::SizeInitializer>();
+                                        s->AddInitializer<particles::SizeInitializer>();
                                         break;
                                     case 5:
-                                        s->AddInitializer<pt::RotationInitializer>();
+                                        s->AddInitializer<particles::RotationInitializer>();
                                         break;
                                     case 6:
-                                        s->AddInitializer<pt::MeshOrientationInitializer>();
+                                        s->AddInitializer<particles::MeshOrientationInitializer>();
                                         break;
                                     default:
                                         break;
@@ -1134,7 +1144,7 @@ namespace draconic::editor
                             Function<void()>{
                                 [self, sysIndex, kind]()
                                 {
-                                    pt::ParticleSystem* s =
+                                    particles::ParticleSystem* s =
                                         self->m_asset->Effect().GetSystem(sysIndex);
                                     if (s == nullptr)
                                     {
@@ -1143,43 +1153,43 @@ namespace draconic::editor
                                     switch (kind)
                                     {
                                     case 0:
-                                        s->AddBehavior<pt::GravityBehavior>();
+                                        s->AddBehavior<particles::GravityBehavior>();
                                         break;
                                     case 1:
-                                        s->AddBehavior<pt::DragBehavior>();
+                                        s->AddBehavior<particles::DragBehavior>();
                                         break;
                                     case 2:
-                                        s->AddBehavior<pt::WindBehavior>();
+                                        s->AddBehavior<particles::WindBehavior>();
                                         break;
                                     case 3:
-                                        s->AddBehavior<pt::TurbulenceBehavior>();
+                                        s->AddBehavior<particles::TurbulenceBehavior>();
                                         break;
                                     case 4:
-                                        s->AddBehavior<pt::VortexBehavior>();
+                                        s->AddBehavior<particles::VortexBehavior>();
                                         break;
                                     case 5:
-                                        s->AddBehavior<pt::AttractorBehavior>();
+                                        s->AddBehavior<particles::AttractorBehavior>();
                                         break;
                                     case 6:
-                                        s->AddBehavior<pt::RadialForceBehavior>();
+                                        s->AddBehavior<particles::RadialForceBehavior>();
                                         break;
                                     case 7:
-                                        s->AddBehavior<pt::CollisionBehavior>();
+                                        s->AddBehavior<particles::CollisionBehavior>();
                                         break;
                                     case 8:
-                                        s->AddBehavior<pt::ColorOverLifetimeBehavior>();
+                                        s->AddBehavior<particles::ColorOverLifetimeBehavior>();
                                         break;
                                     case 9:
-                                        s->AddBehavior<pt::AlphaOverLifetimeBehavior>();
+                                        s->AddBehavior<particles::AlphaOverLifetimeBehavior>();
                                         break;
                                     case 10:
-                                        s->AddBehavior<pt::SizeOverLifetimeBehavior>();
+                                        s->AddBehavior<particles::SizeOverLifetimeBehavior>();
                                         break;
                                     case 11:
-                                        s->AddBehavior<pt::RotationOverLifetimeBehavior>();
+                                        s->AddBehavior<particles::RotationOverLifetimeBehavior>();
                                         break;
                                     case 12:
-                                        s->AddBehavior<pt::SpeedOverLifetimeBehavior>();
+                                        s->AddBehavior<particles::SpeedOverLifetimeBehavior>();
                                         break;
                                     default:
                                         break;
@@ -1354,25 +1364,25 @@ namespace draconic::editor
         case ParticleNodeKind::System:
         case ParticleNodeKind::InitializersFolder:
         case ParticleNodeKind::BehaviorsFolder:
-            if (pt::ParticleSystem* sys = SelectedSystem())
+            if (particles::ParticleSystem* sys = SelectedSystem())
             {
                 BuildSystemInspector(*sys);
             }
             break;
         case ParticleNodeKind::Emitter:
-            if (pt::ParticleSystem* sys = SelectedSystem())
+            if (particles::ParticleSystem* sys = SelectedSystem())
             {
                 BuildEmitterInspector(*sys);
             }
             break;
         case ParticleNodeKind::Initializer:
-            if (pt::ParticleSystem* sys = SelectedSystem())
+            if (particles::ParticleSystem* sys = SelectedSystem())
             {
                 BuildModuleInspector(sys->GetInitializer(m_selected.moduleIndex));
             }
             break;
         case ParticleNodeKind::Behavior:
-            if (pt::ParticleSystem* sys = SelectedSystem())
+            if (particles::ParticleSystem* sys = SelectedSystem())
             {
                 BuildModuleInspector(sys->GetBehavior(m_selected.moduleIndex));
             }
@@ -1393,18 +1403,18 @@ namespace draconic::editor
                   });
     }
 
-    void ParticleEffectEditorPage::BuildSystemInspector(pt::ParticleSystem& sys)
+    void ParticleEffectEditorPage::BuildSystemInspector(particles::ParticleSystem& sys)
     {
         Page page = this;
-        tk::PropertyGrid& g = *m_grid;
+        ui::toolkit::PropertyGrid& g = *m_grid;
         const i32 sysIndex = m_selected.systemIndex;
 
         // --- General ---
         {
             const StringView cat = u8"General";
             // System name (String field -> StringEditor).
-            Add(g, RefPtr<tk::PropertyEditor>(
-                       MakeRef<tk::StringEditor>(
+            Add(g, RefPtr<ui::toolkit::PropertyEditor>(
+                       MakeRef<ui::toolkit::StringEditor>(
                            DefaultAllocator(), u8"Name", sys.name.AsView(),
                            Function<void(StringView)>{[&sys, page](StringView v)
                                                       {
@@ -1418,7 +1428,8 @@ namespace draconic::editor
                     Span<const StringView>{kSim, 3},
                     Function<void(i32)>{[&sys, page](i32 v)
                                         {
-                                            sys.desiredMode = static_cast<pt::SimulationMode>(v);
+                                            sys.desiredMode =
+                                                static_cast<particles::SimulationMode>(v);
                                             page->CommitEdit(u8"sim-mode");
                                         }},
                     cat);
@@ -1427,7 +1438,8 @@ namespace draconic::editor
                     Span<const StringView>{kSpace, 2},
                     Function<void(i32)>{[&sys, page](i32 v)
                                         {
-                                            sys.simulationSpace = static_cast<pt::ParticleSpace>(v);
+                                            sys.simulationSpace =
+                                                static_cast<particles::ParticleSpace>(v);
                                             page->CommitEdit(u8"sim-space");
                                         }},
                     cat);
@@ -1437,7 +1449,8 @@ namespace draconic::editor
                     Span<const StringView>{kBlend, 4},
                     Function<void(i32)>{[&sys, page](i32 v)
                                         {
-                                            sys.blendMode = static_cast<pt::ParticleBlendMode>(v);
+                                            sys.blendMode =
+                                                static_cast<particles::ParticleBlendMode>(v);
                                             page->CommitEdit(u8"blend");
                                         }},
                     cat);
@@ -1448,15 +1461,16 @@ namespace draconic::editor
                     Span<const StringView>{kRender, 7},
                     Function<void(i32)>{[&sys, page](i32 v)
                                         {
-                                            sys.renderMode = static_cast<pt::ParticleRenderMode>(v);
+                                            sys.renderMode =
+                                                static_cast<particles::ParticleRenderMode>(v);
                                             page->CommitEdit(u8"render");
                                         }},
                     cat);
             // Max particles (accessor-gated: reallocates the stream budget).
             i32 maxParticles = sys.MaxParticles();
             String key = Format(u8"maxp-{}", sysIndex);
-            Add(g, RefPtr<tk::PropertyEditor>(
-                       MakeRef<tk::IntEditor>(
+            Add(g, RefPtr<ui::toolkit::PropertyEditor>(
+                       MakeRef<ui::toolkit::IntEditor>(
                            DefaultAllocator(), u8"Max Particles", static_cast<i64>(maxParticles), 1,
                            1000000,
                            Function<void(i64)>{[&sys, page, key](i64 v)
@@ -1478,30 +1492,30 @@ namespace draconic::editor
             ParticleEffectEditorPage* self = this;
             String label =
                 sys.textureRef.IsNil() ? String(u8"(none)") : String(u8"(set - click to change)");
-            RowButton(
-                g, label.AsView(), cat,
-                [self, sysIndex]()
-                {
-                    ui::UIContext* ctx = self->Ctx();
-                    if (ctx == nullptr || self->m_context->Project() == nullptr)
-                    {
-                        return;
-                    }
-                    Array<String> types;
-                    types.PushBack(String(u8"TextureAsset"));
-                    auto dialog = MakeRef<app::AssetPickerDialog>(DefaultAllocator(),
-                                                                  *self->m_context, Move(types));
-                    dialog->OnPicked = [self, sysIndex](const Guid& picked)
-                    {
-                        if (pt::ParticleSystem* s = self->m_asset->Effect().GetSystem(sysIndex))
-                        {
-                            s->textureRef = picked;
-                            self->CommitEdit(u8"texture");
-                            self->RebuildInspector();
-                        }
-                    };
-                    dialog->Show(ctx);
-                });
+            RowButton(g, label.AsView(), cat,
+                      [self, sysIndex]()
+                      {
+                          ui::UIContext* ctx = self->Ctx();
+                          if (ctx == nullptr || self->m_context->Project() == nullptr)
+                          {
+                              return;
+                          }
+                          Array<String> types;
+                          types.PushBack(String(u8"TextureAsset"));
+                          auto dialog = MakeRef<app::AssetPickerDialog>(
+                              DefaultAllocator(), *self->m_context, Move(types));
+                          dialog->OnPicked = [self, sysIndex](const Guid& picked)
+                          {
+                              if (particles::ParticleSystem* s =
+                                      self->m_asset->Effect().GetSystem(sysIndex))
+                              {
+                                  s->textureRef = picked;
+                                  self->CommitEdit(u8"texture");
+                                  self->RebuildInspector();
+                              }
+                          };
+                          dialog->Show(ctx);
+                      });
         }
 
         // --- LOD ---
@@ -1539,16 +1553,16 @@ namespace draconic::editor
         }
     }
 
-    void ParticleEffectEditorPage::BuildEmitterInspector(pt::ParticleSystem& sys)
+    void ParticleEffectEditorPage::BuildEmitterInspector(particles::ParticleSystem& sys)
     {
         Page page = this;
-        tk::PropertyGrid& g = *m_grid;
+        ui::toolkit::PropertyGrid& g = *m_grid;
         const StringView cat = u8"Emitter";
         static constexpr StringView kModes[] = {u8"Continuous", u8"Burst", u8"Continuous + Burst"};
         RowEnum(g, u8"Mode", static_cast<i32>(sys.emitter.mode), Span<const StringView>{kModes, 3},
                 Function<void(i32)>{[&sys, page](i32 v)
                                     {
-                                        sys.emitter.mode = static_cast<pt::EmissionMode>(v);
+                                        sys.emitter.mode = static_cast<particles::EmissionMode>(v);
                                         page->CommitEdit(u8"emit-mode");
                                     }},
                 cat);
@@ -1567,16 +1581,16 @@ namespace draconic::editor
             return;
         }
         Page page = this;
-        tk::PropertyGrid& g = *m_grid;
+        ui::toolkit::PropertyGrid& g = *m_grid;
         const StringView cat = reinterpret_cast<const utf8char*>(module->GetType()->name);
 
         // Initializers.
-        if (auto* m = Cast<pt::PositionInitializer>(module))
+        if (auto* m = Cast<particles::PositionInitializer>(module))
         {
             RowEmissionShape(g, u8"Shape", &m->shape, cat, page);
             RowBool(g, u8"Local Space", &m->localSpace, cat, page);
         }
-        else if (auto* m = Cast<pt::VelocityInitializer>(module))
+        else if (auto* m = Cast<particles::VelocityInitializer>(module))
         {
             RowFloat3(g, u8"Base Velocity", &m->baseVelocity, cat, page);
             RowFloat3(g, u8"Randomness", &m->randomness, cat, page);
@@ -1584,66 +1598,66 @@ namespace draconic::editor
             RowFloat(g, u8"Velocity Inherit", &m->velocityInheritance, cat, page, 0.0, 1.0, 0.01);
             RowEmissionShape(g, u8"Shape", &m->shape, cat, page);
         }
-        else if (auto* m = Cast<pt::LifetimeInitializer>(module))
+        else if (auto* m = Cast<particles::LifetimeInitializer>(module))
         {
             RowRangeFloat(g, u8"Lifetime", &m->lifetime, cat, page, 0.0, 100.0, 0.05);
         }
-        else if (auto* m = Cast<pt::ColorInitializer>(module))
+        else if (auto* m = Cast<particles::ColorInitializer>(module))
         {
             RowRangeColor(g, u8"Color", &m->color, cat, page);
         }
-        else if (auto* m = Cast<pt::SizeInitializer>(module))
+        else if (auto* m = Cast<particles::SizeInitializer>(module))
         {
             RowRangeFloat2(g, u8"Size", &m->size, cat, page);
         }
-        else if (auto* m = Cast<pt::RotationInitializer>(module))
+        else if (auto* m = Cast<particles::RotationInitializer>(module))
         {
             RowRangeFloat(g, u8"Rotation", &m->rotation, cat, page);
             RowRangeFloat(g, u8"Rotation Speed", &m->rotationSpeed, cat, page);
         }
-        else if (auto* m = Cast<pt::MeshOrientationInitializer>(module))
+        else if (auto* m = Cast<particles::MeshOrientationInitializer>(module))
         {
             RowBool(g, u8"Random Axis", &m->randomAxis, cat, page);
             RowFloat3(g, u8"Fixed Axis", &m->fixedAxis, cat, page);
         }
         // Behaviors.
-        else if (auto* m = Cast<pt::GravityBehavior>(module))
+        else if (auto* m = Cast<particles::GravityBehavior>(module))
         {
             RowFloat(g, u8"Multiplier", &m->multiplier, cat, page);
             RowFloat3(g, u8"Direction", &m->direction, cat, page);
         }
-        else if (auto* m = Cast<pt::DragBehavior>(module))
+        else if (auto* m = Cast<particles::DragBehavior>(module))
         {
             RowFloat(g, u8"Drag", &m->drag, cat, page);
         }
-        else if (auto* m = Cast<pt::WindBehavior>(module))
+        else if (auto* m = Cast<particles::WindBehavior>(module))
         {
             RowFloat3(g, u8"Force", &m->force, cat, page);
             RowFloat(g, u8"Turbulence", &m->turbulence, cat, page);
         }
-        else if (auto* m = Cast<pt::TurbulenceBehavior>(module))
+        else if (auto* m = Cast<particles::TurbulenceBehavior>(module))
         {
             RowFloat(g, u8"Strength", &m->strength, cat, page);
             RowFloat(g, u8"Frequency", &m->frequency, cat, page);
             RowFloat(g, u8"Speed", &m->speed, cat, page);
         }
-        else if (auto* m = Cast<pt::VortexBehavior>(module))
+        else if (auto* m = Cast<particles::VortexBehavior>(module))
         {
             RowFloat(g, u8"Strength", &m->strength, cat, page);
             RowFloat3(g, u8"Center", &m->center, cat, page);
             RowFloat3(g, u8"Axis", &m->axis, cat, page);
         }
-        else if (auto* m = Cast<pt::AttractorBehavior>(module))
+        else if (auto* m = Cast<particles::AttractorBehavior>(module))
         {
             RowFloat(g, u8"Strength", &m->strength, cat, page);
             RowFloat3(g, u8"Position", &m->position, cat, page);
             RowFloat(g, u8"Radius", &m->radius, cat, page, 0.0, 1000.0, 0.05);
         }
-        else if (auto* m = Cast<pt::RadialForceBehavior>(module))
+        else if (auto* m = Cast<particles::RadialForceBehavior>(module))
         {
             RowFloat(g, u8"Strength", &m->strength, cat, page);
         }
-        else if (auto* m = Cast<pt::CollisionBehavior>(module))
+        else if (auto* m = Cast<particles::CollisionBehavior>(module))
         {
             RowFloat(g, u8"Radius", &m->radius, cat, page, 0.0, 10.0, 0.01);
             RowFloat(g, u8"Bounce", &m->bounce, cat, page, 0.0, 1.0, 0.01);
@@ -1651,8 +1665,8 @@ namespace draconic::editor
             RowFloat(g, u8"Lifetime Loss", &m->lifetimeLoss, cat, page, 0.0, 1.0, 0.01);
             // Plane / sphere / box counts + per-primitive fields.
             RowInt(g, u8"Plane Count", &m->planeCount, u8"Collision Planes", page, 0,
-                   pt::CollisionBehavior::kMaxPlanes);
-            for (i32 i = 0; i < m->planeCount && i < pt::CollisionBehavior::kMaxPlanes; ++i)
+                   particles::CollisionBehavior::kMaxPlanes);
+            for (i32 i = 0; i < m->planeCount && i < particles::CollisionBehavior::kMaxPlanes; ++i)
             {
                 String c = Format(u8"Plane {}", i);
                 RowFloat3(g, u8"Normal", &m->planes[i].normal, c.AsView(), page);
@@ -1660,39 +1674,40 @@ namespace draconic::editor
                          0.05);
             }
             RowInt(g, u8"Sphere Count", &m->sphereCount, u8"Collision Spheres", page, 0,
-                   pt::CollisionBehavior::kMaxSpheres);
-            for (i32 i = 0; i < m->sphereCount && i < pt::CollisionBehavior::kMaxSpheres; ++i)
+                   particles::CollisionBehavior::kMaxSpheres);
+            for (i32 i = 0; i < m->sphereCount && i < particles::CollisionBehavior::kMaxSpheres;
+                 ++i)
             {
                 String c = Format(u8"Sphere {}", i);
                 RowFloat3(g, u8"Center", &m->spheres[i].center, c.AsView(), page);
                 RowFloat(g, u8"Radius", &m->spheres[i].radius, c.AsView(), page, 0.0, 1000.0, 0.05);
             }
             RowInt(g, u8"Box Count", &m->boxCount, u8"Collision Boxes", page, 0,
-                   pt::CollisionBehavior::kMaxBoxes);
-            for (i32 i = 0; i < m->boxCount && i < pt::CollisionBehavior::kMaxBoxes; ++i)
+                   particles::CollisionBehavior::kMaxBoxes);
+            for (i32 i = 0; i < m->boxCount && i < particles::CollisionBehavior::kMaxBoxes; ++i)
             {
                 String c = Format(u8"Box {}", i);
                 RowFloat3(g, u8"Center", &m->boxes[i].center, c.AsView(), page);
                 RowFloat3(g, u8"Half Extents", &m->boxes[i].halfExtents, c.AsView(), page);
             }
         }
-        else if (auto* m = Cast<pt::ColorOverLifetimeBehavior>(module))
+        else if (auto* m = Cast<particles::ColorOverLifetimeBehavior>(module))
         {
             RowCurveColor(g, u8"Color", &m->curve, cat, page);
         }
-        else if (auto* m = Cast<pt::AlphaOverLifetimeBehavior>(module))
+        else if (auto* m = Cast<particles::AlphaOverLifetimeBehavior>(module))
         {
             RowCurveFloat(g, u8"Alpha", &m->curve, cat, page);
         }
-        else if (auto* m = Cast<pt::SizeOverLifetimeBehavior>(module))
+        else if (auto* m = Cast<particles::SizeOverLifetimeBehavior>(module))
         {
             RowCurveFloat2(g, u8"Size", &m->curve, cat, page);
         }
-        else if (auto* m = Cast<pt::RotationOverLifetimeBehavior>(module))
+        else if (auto* m = Cast<particles::RotationOverLifetimeBehavior>(module))
         {
             RowCurveFloat(g, u8"Rotation", &m->curve, cat, page);
         }
-        else if (auto* m = Cast<pt::SpeedOverLifetimeBehavior>(module))
+        else if (auto* m = Cast<particles::SpeedOverLifetimeBehavior>(module))
         {
             RowCurveFloat(g, u8"Speed", &m->curve, cat, page);
         }
@@ -1709,7 +1724,7 @@ namespace draconic::editor
         }
         MemoryStream stream;
         BinarySerializer ar(stream, SerializeMode::Write);
-        pt::SerializeEffect(ar, const_cast<pt::ParticleEffect&>(m_asset->Effect()));
+        particles::SerializeEffect(ar, const_cast<particles::ParticleEffect&>(m_asset->Effect()));
         const Span<const byte> bytes = stream.Bytes();
         blob.Reserve(bytes.Size());
         for (byte b : bytes)
@@ -1749,9 +1764,9 @@ namespace draconic::editor
         (void)stream.Write(blob.Data(), blob.Size());
         (void)stream.Seek(0, SeekOrigin::Begin);
         BinarySerializer ar(stream, SerializeMode::Read);
-        pt::SerializeEffect(ar, m_asset->Effect());
+        particles::SerializeEffect(ar, m_asset->Effect());
         m_undoBaseline = blob;
-        if (pt::ParticleEffectComponent* c = PreviewComponent())
+        if (particles::ParticleEffectComponent* c = PreviewComponent())
         {
             c->SetEffect(m_asset->Effect());
         }
@@ -1803,7 +1818,7 @@ namespace draconic::editor
             const i32 count = m_asset->Effect().SystemCount();
             for (i32 i = 0; i < count; ++i)
             {
-                pt::ParticleSystem* s = m_asset->Effect().GetSystem(i);
+                particles::ParticleSystem* s = m_asset->Effect().GetSystem(i);
                 total += s->AliveCount();
                 cap += s->MaxParticles();
             }
@@ -1836,16 +1851,16 @@ namespace draconic::editor
         {
             return;
         }
-        pt::ParticleSystem* sys = SelectedSystem();
+        particles::ParticleSystem* sys = SelectedSystem();
         if (sys == nullptr)
         {
             return;
         }
         // Find the system's position-initializer shape (the emission volume).
-        const pt::EmissionShape* shape = nullptr;
+        const particles::EmissionShape* shape = nullptr;
         for (i32 i = 0; i < sys->InitializerCount(); ++i)
         {
-            if (auto* pos = Cast<pt::PositionInitializer>(sys->GetInitializer(i)))
+            if (auto* pos = Cast<particles::PositionInitializer>(sys->GetInitializer(i)))
             {
                 shape = &pos->shape;
                 break;
@@ -1861,25 +1876,25 @@ namespace draconic::editor
         const Float3 up{0.0f, 1.0f, 0.0f};
         switch (shape->type)
         {
-        case pt::EmissionShapeType::Sphere:
-        case pt::EmissionShapeType::Hemisphere:
+        case particles::EmissionShapeType::Sphere:
+        case particles::EmissionShapeType::Hemisphere:
             dd.DrawWireSphere(o, Max(shape->radius, 0.01f), c);
             break;
-        case pt::EmissionShapeType::Box:
+        case particles::EmissionShapeType::Box:
             dd.DrawWireBoxCenter(o, shape->extents, c);
             break;
-        case pt::EmissionShapeType::Cone:
+        case particles::EmissionShapeType::Cone:
             dd.DrawCone(o, up, Max(shape->radius, 0.5f), Max(shape->angle, 0.01f), c);
             break;
-        case pt::EmissionShapeType::Ring:
-        case pt::EmissionShapeType::Circle:
+        case particles::EmissionShapeType::Ring:
+        case particles::EmissionShapeType::Circle:
             dd.DrawCircleNormal(o, Max(shape->radius, 0.01f), up, c);
             break;
-        case pt::EmissionShapeType::Edge:
+        case particles::EmissionShapeType::Edge:
             dd.DrawLine(o - Float3{Max(shape->radius, 0.01f), 0.0f, 0.0f},
                         o + Float3{Max(shape->radius, 0.01f), 0.0f, 0.0f}, c);
             break;
-        case pt::EmissionShapeType::Point:
+        case particles::EmissionShapeType::Point:
         default:
             dd.DrawCross(o, 0.15f, c);
             break;
@@ -2004,7 +2019,7 @@ namespace draconic::editor
 
     const TypeInfo* ParticleEffectPageFactory::PrimaryType() const
     {
-        return &pt::ParticleEffectAsset::StaticType();
+        return &particles::ParticleEffectAsset::StaticType();
     }
 
     UniquePtr<EditorPage>
@@ -2016,15 +2031,17 @@ namespace draconic::editor
         return UniquePtr<EditorPage>(page, DefaultAllocator());
     }
 
-    void SeedDefaultParticleEffect(pt::ParticleEffect& fx)
+    void SeedDefaultParticleEffect(particles::ParticleEffect& fx)
     {
-        pt::ParticleSystem& sys = fx.AddSystem(2000);
-        sys.AddInitializer<pt::LifetimeInitializer>().lifetime = pt::RangeFloat(1.5f, 2.5f);
-        sys.AddInitializer<pt::VelocityInitializer>().baseVelocity = Float3{0.0f, 5.0f, 0.0f};
-        sys.AddInitializer<pt::SizeInitializer>();
-        sys.AddInitializer<pt::ColorInitializer>();
-        sys.AddBehavior<pt::GravityBehavior>();
-        sys.emitter.mode = pt::EmissionMode::Continuous;
+        particles::ParticleSystem& sys = fx.AddSystem(2000);
+        sys.AddInitializer<particles::LifetimeInitializer>().lifetime =
+            particles::RangeFloat(1.5f, 2.5f);
+        sys.AddInitializer<particles::VelocityInitializer>().baseVelocity =
+            Float3{0.0f, 5.0f, 0.0f};
+        sys.AddInitializer<particles::SizeInitializer>();
+        sys.AddInitializer<particles::ColorInitializer>();
+        sys.AddBehavior<particles::GravityBehavior>();
+        sys.emitter.mode = particles::EmissionMode::Continuous;
         sys.emitter.spawnRate = 120.0f;
     }
 
@@ -2062,12 +2079,12 @@ namespace draconic::editor
         }
 
         draconic::content::Instance* instance =
-            target->CreateInstance(name.AsView(), pt::ParticleEffectAsset::StaticType());
+            target->CreateInstance(name.AsView(), particles::ParticleEffectAsset::StaticType());
         if (instance == nullptr)
         {
             return nullptr;
         }
-        pt::ParticleEffectAsset asset;
+        particles::ParticleEffectAsset asset;
         SeedDefaultParticleEffect(asset.Effect());
         if (!instance->WriteObject(asset).IsOk())
         {

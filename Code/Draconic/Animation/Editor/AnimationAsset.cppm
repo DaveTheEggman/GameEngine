@@ -47,15 +47,22 @@ export namespace draconic::animation
     };
 
     // The animation graph is authored directly into its source (state machine, blend trees, clip refs).
+    // Editor-only canvas layout rides on the ASSET (the builder cooks `source` alone, so none of it
+    // reaches the runtime wire): per layer, per state, the node position on the graph canvas -
+    // parallel to source.layers[i].states (the page keeps them in sync on add/remove).
     class AnimationGraphAsset final : public draconic::editor::Asset
     {
         DRACONIC_OBJECT(AnimationGraphAsset, draconic::editor::Asset)
     public:
         AnimationGraphSource source;
+        Array<Array<Float2>> layerStatePositions;
+        Array<Float2> layerAnyStatePositions; // the per-layer "Any State" pseudo-node
         void Serialize(ISerializer& ar) override
         {
             draconic::editor::Asset::Serialize(ar);
             source.Serialize(ar);
+            draconic::core::Serialize(ar, "layerStatePositions", layerStatePositions);
+            draconic::core::Serialize(ar, "layerAnyStatePositions", layerAnyStatePositions);
         }
     };
 

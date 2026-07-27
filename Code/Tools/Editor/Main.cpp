@@ -270,6 +270,9 @@ int main(int argc, char** argv)
         draconic::editor::RegisterMaterialEditor(app.Context(), host, uiHost);
         draconic::editor::RegisterMeshEditor(app.Context(), host, uiHost);
         draconic::editor::RegisterParticleEditor(app.Context(), host, uiHost);
+        draconic::editor::RegisterAnimationGraphEditor(app.Context(), host, uiHost);
+        draconic::editor::RegisterAnimationClipEditor(app.Context(), host, uiHost);
+        draconic::editor::RegisterSkeletonEditor(app.Context(), host, uiHost);
         draconic::editor::RegisterInputEditor(app.Context(), host);
         draconic::editor::RegisterGameUIEditor(app.Context(), host, uiHost);
         draconic::editor::RegisterAudioClipEditor(app.Context(), host);

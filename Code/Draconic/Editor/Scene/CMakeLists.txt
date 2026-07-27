@@ -10,6 +10,7 @@ target_link_libraries(DraconicEditorScene
         Draconic::Runtime Draconic::RuntimeClient Draconic::RuntimeDefaultApp
         Draconic::Scene Draconic::SceneSubsystem Draconic::SceneResource Draconic::SceneEditor
         Draconic::Render Draconic::RenderSubsystem Draconic::Animation Draconic::AnimationSubsystem
+        Draconic::AnimationResource Draconic::AnimationEditor
         Draconic::ModelImporter Draconic::TextureResource
         Draconic::Particles Draconic::ParticlesResource Draconic::ParticlesEditor Draconic::ParticlesSubsystem
         Draconic::Physics Draconic::PhysicsResource Draconic::PhysicsSubsystem
@@ -33,6 +34,9 @@ target_sources(DraconicEditorScene
         MaterialPageImpl.cpp
         MeshPageImpl.cpp
         ParticleEffectPageImpl.cpp
+        AnimationGraphPageImpl.cpp
+        AnimationClipPageImpl.cpp
+        SkeletonPageImpl.cpp
     PUBLIC
         FILE_SET editorscene_modules TYPE CXX_MODULES FILES
             EditorCamera.cppm
@@ -46,6 +50,9 @@ target_sources(DraconicEditorScene
             MaterialPage.cppm
             MeshPage.cppm
             ParticleEffectPage.cppm
+            AnimationGraphPage.cppm
+            AnimationClipPage.cppm
+            SkeletonPage.cppm
             ModelPrefab.cppm
             EditorSceneModule.cppm)
 
