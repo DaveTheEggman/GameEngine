@@ -31,7 +31,7 @@ namespace draconic::scene
         const bool text = encoding == detail::SceneStreamEncoding::Text;
         (void)text;
 
-        // Stream version: writers emit the v2 header; readers sniff it THROUGH the serializer -
+        // Stream version: writers emit the current header; readers sniff it THROUGH the serializer -
         // a legacy stream has no header, so the first u32 is the scene NAME's length (always
         // small, never the magic), whose characters are then consumed as a raw blob. Scene
         // streams are binary-only by design, which is what makes the sniff well-defined.
@@ -155,11 +155,11 @@ namespace draconic::scene
                 u8 active = 0;
                 Guid parentId;
                 Transform t;
-                detail::SerializeGuid(ar, "id", id);
+                detail::SerializeGuid(ar, "id", id, streamVersion);
                 draconic::core::Serialize(ar, "name", ename);
                 draconic::core::Serialize(ar, "active", active);
-                detail::SerializeGuid(ar, "parent", parentId);
-                detail::SerializeTransform(ar, t);
+                detail::SerializeGuid(ar, "parent", parentId, streamVersion);
+                detail::SerializeTransform(ar, t, streamVersion);
                 // Corrupt-save recovery: a duplicate entity guid (the pre-fix RNG-collision bug)
                 // gets a FRESH id so every entity stays uniquely addressable. Records addressed
                 // to the shared guid (components, parent links) route to its FIRST holder.
@@ -249,7 +249,7 @@ namespace draconic::scene
                     ar.BeginObject();
                     Guid ownerId;
                     String typeId;
-                    detail::SerializeGuid(ar, "owner", ownerId);
+                    detail::SerializeGuid(ar, "owner", ownerId, streamVersion);
                     draconic::core::Serialize(ar, "type", typeId);
                     EntityHandle owner = scene.FindEntity(ownerId);
                     ComponentManagerBase* manager =
@@ -272,7 +272,7 @@ namespace draconic::scene
                 }
                 Guid ownerId;
                 String typeId;
-                detail::SerializeGuid(ar, "owner", ownerId);
+                detail::SerializeGuid(ar, "owner", ownerId, streamVersion);
                 draconic::core::Serialize(ar, "type", typeId);
                 EntityHandle owner = scene.FindEntity(ownerId);
                 ComponentManagerBase* manager = scene.FindManagerBySerializationId(typeId.AsView());
@@ -517,7 +517,7 @@ namespace draconic::scene
                 for (u32 n = 0; n < instanceCount; ++n)
                 {
                     auto pending = MakeUnique<Scene::PendingPrefabInstance>(DefaultAllocator());
-                    detail::ReadPrefabRecord(ar, scene, *pending, wireNested, text);
+                    detail::ReadPrefabRecord(ar, scene, *pending, wireNested, text, streamVersion);
                     scene.AddPendingPrefabInstance(
                         static_cast<UniquePtr<Scene::PendingPrefabInstance>&&>(pending));
                 }
@@ -583,12 +583,13 @@ namespace draconic::scene
                 for (u32 n = 0; n < instanceCount; ++n)
                 {
                     auto state = MakeUnique<Scene::PrefabInstanceState>(DefaultAllocator());
-                    detail::SerializeGuid(ar, "prefab", state->prefabId);
-                    detail::SerializeGuid(ar, "root", state->rootEntityId);
+                    detail::SerializeGuid(ar, "prefab", state->prefabId, streamVersion);
+                    detail::SerializeGuid(ar, "root", state->rootEntityId, streamVersion);
                     if (expandedNested)
                     {
-                        detail::SerializeGuid(ar, "owner", state->ownerRootEntityId);
-                        detail::SerializeGuid(ar, "nestedSrcRoot", state->nestedRootSourceId);
+                        detail::SerializeGuid(ar, "owner", state->ownerRootEntityId, streamVersion);
+                        detail::SerializeGuid(ar, "nestedSrcRoot", state->nestedRootSourceId,
+                                              streamVersion);
                     }
                     u32 memberCount = 0;
                     ar.Key("members");
@@ -601,9 +602,9 @@ namespace draconic::scene
                     {
                         Guid src, live;
                         Transform t;
-                        detail::SerializeGuid(ar, "src", src);
-                        detail::SerializeGuid(ar, "live", live);
-                        detail::SerializeTransform(ar, t);
+                        detail::SerializeGuid(ar, "src", src, streamVersion);
+                        detail::SerializeGuid(ar, "live", live, streamVersion);
+                        detail::SerializeTransform(ar, t, streamVersion);
                         state->sourceIds.PushBack(src);
                         state->liveIds.PushBack(live);
                         state->baselineTransforms.PushBack(t);
@@ -619,7 +620,7 @@ namespace draconic::scene
                     for (u32 i = 0; i < baselineCount; ++i)
                     {
                         Scene::PrefabComponentBaseline b;
-                        detail::SerializeGuid(ar, "src", b.sourceEntity);
+                        detail::SerializeGuid(ar, "src", b.sourceEntity, streamVersion);
                         draconic::core::Serialize(ar, "type", b.typeId);
                         draconic::core::Serialize(ar, "blob", b.blob);
                         state->componentBaselines.PushBack(
@@ -712,11 +713,11 @@ namespace draconic::scene
             u8 active = 0;
             Guid sourceParent;
             Transform t;
-            detail::SerializeGuid(ar, "id", sourceId);
+            detail::SerializeGuid(ar, "id", sourceId, streamVersion);
             draconic::core::Serialize(ar, "name", ename);
             draconic::core::Serialize(ar, "active", active);
-            detail::SerializeGuid(ar, "parent", sourceParent);
-            detail::SerializeTransform(ar, t);
+            detail::SerializeGuid(ar, "parent", sourceParent, streamVersion);
+            detail::SerializeTransform(ar, t, streamVersion);
 
             EntityHandle live;
             const Guid* wanted = (preassigned != nullptr) ? preassigned->Find(sourceId) : nullptr;
@@ -793,7 +794,7 @@ namespace draconic::scene
                 ar.BeginObject();
                 Guid sourceOwner;
                 String typeId;
-                detail::SerializeGuid(ar, "owner", sourceOwner);
+                detail::SerializeGuid(ar, "owner", sourceOwner, streamVersion);
                 draconic::core::Serialize(ar, "type", typeId);
                 const Guid* liveId = liveBySource.Find(sourceOwner);
                 EntityHandle owner =
@@ -823,7 +824,7 @@ namespace draconic::scene
             }
             Guid sourceOwner;
             String typeId;
-            detail::SerializeGuid(ar, "owner", sourceOwner);
+            detail::SerializeGuid(ar, "owner", sourceOwner, streamVersion);
             draconic::core::Serialize(ar, "type", typeId);
             const Guid* liveId = liveBySource.Find(sourceOwner);
             EntityHandle owner =
@@ -928,7 +929,7 @@ namespace draconic::scene
         for (u32 n = 0; n < recordCount && ar.IsOk(); ++n)
         {
             auto record = MakeUnique<Scene::PendingPrefabInstance>(DefaultAllocator());
-            detail::ReadPrefabRecord(ar, scene, *record, wireNested, text);
+            detail::ReadPrefabRecord(ar, scene, *record, wireNested, text, streamVersion);
             records.PushBack(static_cast<UniquePtr<Scene::PendingPrefabInstance>&&>(record));
         }
         ar.EndArray();
@@ -1165,11 +1166,11 @@ namespace draconic::scene
             u8 active = 0;
             Guid parentId;
             Transform t;
-            detail::SerializeGuid(ar, "id", id);
+            detail::SerializeGuid(ar, "id", id, streamVersion);
             draconic::core::Serialize(ar, "name", ename);
             draconic::core::Serialize(ar, "active", active);
-            detail::SerializeGuid(ar, "parent", parentId);
-            detail::SerializeTransform(ar, t);
+            detail::SerializeGuid(ar, "parent", parentId, streamVersion);
+            detail::SerializeTransform(ar, t, streamVersion);
             templateTransforms.InsertOrAssign(id, t);
         }
         ar.EndArray();
@@ -1191,7 +1192,7 @@ namespace draconic::scene
             if (text)
             {
                 ar.BeginObject();
-                detail::SerializeGuid(ar, "owner", record.source);
+                detail::SerializeGuid(ar, "owner", record.source, streamVersion);
                 draconic::core::Serialize(ar, "type", record.typeId);
                 ComponentManagerBase* manager =
                     scene.FindManagerBySerializationId(record.typeId.AsView());
@@ -1212,7 +1213,7 @@ namespace draconic::scene
                 ar.EndObject();
                 continue;
             }
-            detail::SerializeGuid(ar, "owner", record.source);
+            detail::SerializeGuid(ar, "owner", record.source, streamVersion);
             draconic::core::Serialize(ar, "type", record.typeId);
             draconic::core::Serialize(ar, "data", record.blob);
             templateBlobs.PushBack(static_cast<TemplateBlob&&>(record));

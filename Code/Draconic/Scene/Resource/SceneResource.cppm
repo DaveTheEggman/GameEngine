@@ -45,19 +45,32 @@ export namespace draconic::scene
 
     namespace detail
     {
-        void SerializeGuid(ISerializer& ar, const char* key, Guid& g)
-        {
-            ar.Key(key);
-            draconic::core::Serialize(ar, "hi", g.high);
-            draconic::core::Serialize(ar, "lo", g.low);
-        }
         // Scene-stream header (v2+): a magic sentinel no legacy stream can start with (a legacy
         // stream begins with the scene NAME's u32 length - always small), then the format
         // version. v2 adds length-prefixed component + system-settings records, so readers SKIP
         // unknown types instead of aborting (and template payloads can be sliced without a
-        // live scene).
+        // live scene). v3 switches guids to the proper serializer form (canonical string in
+        // text; the binary raw-16-bytes are BIT-IDENTICAL to the old hi/lo u64 pair) and
+        // transform keys to their full names (position/rotation/scale, was pos/rot/scl).
         constexpr u32 kSceneStreamMagic = 0xD5C35CEEu;
-        constexpr u32 kSceneStreamVersion = 2;
+        constexpr u32 kSceneStreamVersion = 3;
+
+        // Writers use the current version (default). READERS pass the stream's sniffed header
+        // version so v2 text saves (hi/lo guid fields, pos/rot/scl keys) still load; the next
+        // save upgrades them. Binary is unaffected either way (keys are no-ops and the guid
+        // bytes are identical), so the gate only ever matters on the XML path.
+        void SerializeGuid(ISerializer& ar, const char* key, Guid& g,
+                           u32 version = kSceneStreamVersion)
+        {
+            if (version >= 3)
+            {
+                draconic::core::Serialize(ar, key, g); // ISerializer::GuidValue
+                return;
+            }
+            ar.Key(key);
+            draconic::core::Serialize(ar, "hi", g.high);
+            draconic::core::Serialize(ar, "lo", g.low);
+        }
 
         // Peek the stream version. Leaves the stream positioned AFTER the header (v2+) or back
         // at the start (legacy v1 - no header).
@@ -161,8 +174,15 @@ export namespace draconic::scene
             draconic::core::Serialize(ar, "version", version);
         }
 
-        void SerializeTransform(ISerializer& ar, Transform& t)
+        void SerializeTransform(ISerializer& ar, Transform& t, u32 version = kSceneStreamVersion)
         {
+            if (version >= 3)
+            {
+                draconic::core::Serialize(ar, "position", t.position);
+                draconic::core::Serialize(ar, "rotation", t.rotation);
+                draconic::core::Serialize(ar, "scale", t.scale);
+                return;
+            }
             draconic::core::Serialize(ar, "pos", t.position);
             draconic::core::Serialize(ar, "rot", t.rotation);
             draconic::core::Serialize(ar, "scl", t.scale);
@@ -591,17 +611,17 @@ export namespace draconic::scene
         constexpr u32 kMaxPrefabRecordEntries = 1u << 20;
 
         void ReadPrefabRecord(ISerializer& ar, Scene& scene, Scene::PendingPrefabInstance& pending,
-                              bool wireNested, bool text)
+                              bool wireNested, bool text, u32 version = kSceneStreamVersion)
         {
-            SerializeGuid(ar, "prefab", pending.prefabId);
-            SerializeGuid(ar, "parent", pending.parentEntityId);
-            SerializeTransform(ar, pending.rootTransform);
+            SerializeGuid(ar, "prefab", pending.prefabId, version);
+            SerializeGuid(ar, "parent", pending.parentEntityId, version);
+            SerializeTransform(ar, pending.rootTransform, version);
             if (wireNested)
             {
-                SerializeGuid(ar, "rootLive", pending.rootLiveId);
-                SerializeGuid(ar, "owner", pending.ownerRootEntityId);
-                SerializeGuid(ar, "nestedSrcRoot", pending.nestedRootSourceId);
-                SerializeGuid(ar, "nextSibling", pending.nextSiblingId);
+                SerializeGuid(ar, "rootLive", pending.rootLiveId, version);
+                SerializeGuid(ar, "owner", pending.ownerRootEntityId, version);
+                SerializeGuid(ar, "nestedSrcRoot", pending.nestedRootSourceId, version);
+                SerializeGuid(ar, "nextSibling", pending.nextSiblingId, version);
                 u8 placement = 1;
                 draconic::core::Serialize(ar, "placement", placement);
                 pending.applyPlacement = placement != 0;
@@ -617,8 +637,8 @@ export namespace draconic::scene
             for (u32 i = 0; i < memberCount; ++i)
             {
                 Guid src, live;
-                SerializeGuid(ar, "src", src);
-                SerializeGuid(ar, "live", live);
+                SerializeGuid(ar, "src", src, version);
+                SerializeGuid(ar, "live", live, version);
                 pending.sourceIds.PushBack(src);
                 pending.liveIds.PushBack(live);
             }
@@ -634,7 +654,7 @@ export namespace draconic::scene
             for (u32 i = 0; i < destroyedCount; ++i)
             {
                 Guid d;
-                SerializeGuid(ar, "src", d);
+                SerializeGuid(ar, "src", d, version);
                 pending.destroyedMembers.PushBack(d);
             }
             ar.EndArray();
@@ -650,8 +670,8 @@ export namespace draconic::scene
             {
                 Guid src;
                 Transform t;
-                SerializeGuid(ar, "src", src);
-                SerializeTransform(ar, t);
+                SerializeGuid(ar, "src", src, version);
+                SerializeTransform(ar, t, version);
                 pending.overrideTransformIds.PushBack(src);
                 pending.overrideTransforms.PushBack(t);
             }
@@ -671,7 +691,7 @@ export namespace draconic::scene
                 if (text)
                 {
                     ar.BeginObject();
-                    SerializeGuid(ar, "src", op.sourceEntity);
+                    SerializeGuid(ar, "src", op.sourceEntity, version);
                     draconic::core::Serialize(ar, "type", op.typeId);
                     draconic::core::Serialize(ar, "op", op.op);
                     bool keep = true;
@@ -719,7 +739,7 @@ export namespace draconic::scene
                     }
                     continue;
                 }
-                SerializeGuid(ar, "src", op.sourceEntity);
+                SerializeGuid(ar, "src", op.sourceEntity, version);
                 draconic::core::Serialize(ar, "type", op.typeId);
                 draconic::core::Serialize(ar, "op", op.op);
                 draconic::core::Serialize(ar, "blob", op.blob);

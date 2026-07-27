@@ -1804,3 +1804,146 @@ TEST_CASE("scene-snapshot: a scene WITH a prefab instance restores aligned (Simu
     REQUIRE(second);
     REQUIRE(second->Restore(scene).IsOk());
 }
+
+TEST_CASE("text scenes v3: proper guid + full transform names; v2 saves still load")
+{
+    // Reference scene: hierarchy + transform + a component.
+    Scene author(u8"legacy");
+    HealthManager* health = author.AddSystem<HealthManager>();
+    EntityHandle hero = author.CreateEntity(u8"Hero");
+    EntityHandle child = author.CreateEntity(u8"Child");
+    author.SetParent(child, hero);
+    Transform t{};
+    t.position = Float3{1.25f, -3.5f, 0.0078125f};
+    t.scale = Float3{2.0f, 2.0f, 2.0f};
+    author.SetLocalTransform(hero, t);
+    health->Add(hero).value = 41.5f;
+
+    auto contains = [](const String& hay, StringView needle)
+    {
+        if (needle.Size() > hay.Size())
+        {
+            return false;
+        }
+        for (usize i = 0; i + needle.Size() <= hay.Size(); ++i)
+        {
+            if (hay.AsView().SubStr(i, needle.Size()) == needle)
+            {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    // --- 1) a fresh save uses the proper forms: full transform names + canonical guids ---
+    {
+        draconic::xml::XmlSerializer xmlOut;
+        SerializeScene(xmlOut, author, nullptr, ScenePrefabMode::Referenced, true,
+                       draconic::scene::detail::SceneStreamEncoding::Text);
+        REQUIRE(xmlOut.IsOk());
+        String text;
+        xmlOut.GetOutput(text);
+        CHECK(contains(text, u8"name=\"position\""));
+        CHECK(contains(text, u8"name=\"rotation\""));
+        CHECK(contains(text, u8"name=\"scale\""));
+        CHECK(!contains(text, u8"name=\"pos\"")); // the old abbreviations are gone
+        CHECK(!contains(text, u8"name=\"scl\""));
+        CHECK(!contains(text, u8"name=\"hi\"")); // guids are one canonical string, not hi/lo
+        CHECK(!contains(text, u8"name=\"lo\""));
+        utf8char guidChars[37];
+        author.GetEntityId(hero).ToChars(guidChars);
+        CHECK(contains(text, StringView{guidChars, 36}));
+    }
+
+    // --- 2) a legacy v2 XML stream (hi/lo guid fields, pos/rot/scl keys) still loads ---
+    // Replicates the exact wire shapes the v2 writer produced.
+    draconic::xml::XmlSerializer legacyOut;
+    auto legacyGuid = [](ISerializer& ar, const char* key, Guid g)
+    {
+        ar.Key(key);
+        draconic::core::Serialize(ar, "hi", g.high);
+        draconic::core::Serialize(ar, "lo", g.low);
+    };
+    u32 magic = draconic::scene::detail::kSceneStreamMagic;
+    u32 version = 2;
+    draconic::core::Serialize(legacyOut, "magic", magic);
+    draconic::core::Serialize(legacyOut, "version", version);
+    String sceneName(u8"legacy");
+    draconic::core::Serialize(legacyOut, "name", sceneName);
+    legacyOut.Key("entities");
+    u32 entityCount = 2;
+    legacyOut.BeginArray(entityCount);
+    EntityHandle order[2] = {hero, child};
+    for (EntityHandle e : order)
+    {
+        Guid id = author.GetEntityId(e);
+        String ename = String(author.GetEntityName(e));
+        u8 active = 1;
+        EntityHandle p = author.GetParent(e);
+        Guid parentId = p.IsAssigned() ? author.GetEntityId(p) : Guid{};
+        Transform lt = author.GetLocalTransform(e);
+        legacyGuid(legacyOut, "id", id);
+        draconic::core::Serialize(legacyOut, "name", ename);
+        draconic::core::Serialize(legacyOut, "active", active);
+        legacyGuid(legacyOut, "parent", parentId);
+        draconic::core::Serialize(legacyOut, "pos", lt.position);
+        draconic::core::Serialize(legacyOut, "rot", lt.rotation);
+        draconic::core::Serialize(legacyOut, "scl", lt.scale);
+    }
+    legacyOut.EndArray();
+    legacyOut.Key("components");
+    u32 componentCount = 1;
+    legacyOut.BeginArray(componentCount);
+    {
+        legacyOut.BeginObject();
+        Guid ownerId = author.GetEntityId(hero);
+        legacyGuid(legacyOut, "owner", ownerId);
+        String typeId(u8"demo.Health");
+        draconic::core::Serialize(legacyOut, "type", typeId);
+        legacyOut.Key("data");
+        legacyOut.BeginObject();
+        health->WriteComponent(legacyOut, hero);
+        legacyOut.EndObject();
+        legacyOut.EndObject();
+    }
+    legacyOut.EndArray();
+    legacyOut.Key("systemSettings");
+    u32 settingsCount = 0;
+    legacyOut.BeginArray(settingsCount);
+    legacyOut.EndArray();
+    u8 mode = draconic::scene::detail::kPrefabWireReferenced3;
+    draconic::core::Serialize(legacyOut, "prefabMode", mode);
+    legacyOut.Key("prefabInstances");
+    u32 instanceCount = 0;
+    legacyOut.BeginArray(instanceCount);
+    legacyOut.EndArray();
+    REQUIRE(legacyOut.IsOk());
+
+    String legacyText;
+    legacyOut.GetOutput(legacyText);
+    MemoryStream stream;
+    (void)stream.Write(reinterpret_cast<const byte*>(legacyText.CStr()), legacyText.Size());
+    (void)stream.Seek(0, SeekOrigin::Begin);
+
+    Scene loaded(u8"loaded");
+    HealthManager* loadedHealth = loaded.AddSystem<HealthManager>();
+    draconic::scene::detail::SceneStreamReader reader;
+    Serializer* ar = reader.Open(stream);
+    REQUIRE(ar != nullptr);
+    REQUIRE(reader.Encoding() == draconic::scene::detail::SceneStreamEncoding::Text);
+    SerializeScene(*ar, loaded, nullptr, ScenePrefabMode::Referenced, true, reader.Encoding());
+    REQUIRE(ar->IsOk());
+
+    EntityHandle loadedHero = loaded.FindEntity(author.GetEntityId(hero));
+    REQUIRE(loadedHero.IsAssigned());
+    const Transform lt = loaded.GetLocalTransform(loadedHero);
+    CHECK(lt.position.x == t.position.x); // exact floats through the legacy keys
+    CHECK(lt.position.y == t.position.y);
+    CHECK(lt.position.z == t.position.z);
+    CHECK(lt.scale.x == t.scale.x);
+    EntityHandle loadedChild = loaded.FindEntity(author.GetEntityId(child));
+    REQUIRE(loadedChild.IsAssigned());
+    CHECK(loaded.GetParent(loadedChild) == loadedHero); // hi/lo parent guid resolved
+    REQUIRE(loadedHealth->Get(loadedHero) != nullptr);
+    CHECK(loadedHealth->Get(loadedHero)->value == 41.5f);
+}
