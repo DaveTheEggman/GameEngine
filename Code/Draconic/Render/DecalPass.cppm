@@ -130,7 +130,14 @@ export namespace draconic::render
         u32 m_lastFrame = 0xFFFFFFFFu;
         bool m_reserved = false;
         Array<Retired> m_retired;
-        HashMap<rhi::TextureView*, rhi::BindGroup*> m_texBindGroups;
+        // Keyed by view pointer, validated by TextureView::uniqueId on every hit (address
+        // reuse of destroyed dynamic textures - see SpriteRenderer::TexBindGroup).
+        struct TexBindGroup
+        {
+            rhi::BindGroup* bindGroup = nullptr;
+            u64 viewId = 0;
+        };
+        HashMap<rhi::TextureView*, TexBindGroup> m_texBindGroups;
     };
 
 } // namespace draconic::render

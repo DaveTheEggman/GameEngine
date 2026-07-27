@@ -292,9 +292,18 @@ namespace draconic::render
         {
             return nullptr;
         }
-        if (rhi::BindGroup** found = m_texBindGroups.Find(tex))
+        if (TexBindGroup* found = m_texBindGroups.Find(tex))
         {
-            return *found;
+            if (found->viewId == tex->uniqueId)
+            {
+                return found->bindGroup;
+            }
+            // Address reuse: the cached group references a DESTROYED view - rebuild.
+            if (found->bindGroup != nullptr)
+            {
+                m_device->DestroyBindGroup(found->bindGroup);
+            }
+            m_texBindGroups.Remove(tex);
         }
         rhi::BindGroupEntry ent[] = {
             rhi::BindGroupEntry::TextureEntry(tex),
@@ -308,7 +317,7 @@ namespace draconic::render
         {
             return nullptr;
         }
-        m_texBindGroups.InsertOrAssign(tex, bg);
+        m_texBindGroups.InsertOrAssign(tex, TexBindGroup{bg, tex->uniqueId});
         return bg;
     }
 
@@ -339,9 +348,9 @@ namespace draconic::render
     {
         for (auto& kv : m_texBindGroups)
         {
-            if (kv.value != nullptr)
+            if (kv.value.bindGroup != nullptr)
             {
-                m_device->DestroyBindGroup(kv.value);
+                m_device->DestroyBindGroup(kv.value.bindGroup);
             }
         }
         m_texBindGroups.Clear();

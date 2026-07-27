@@ -41,6 +41,11 @@ export namespace draconic::rhi
         ResourceState initialState = ResourceState::Undefined;
     };
 
+    /// Next monotonic TextureView::uniqueId (thread-safe; ids never repeat). Defined in
+    /// ResourcesImpl.cpp - the <atomic> it needs must stay OUT of this interface unit
+    /// (GCC gcm-cluster hygiene).
+    [[nodiscard]] u64 NextTextureViewUniqueId() noexcept;
+
     /// A view into a subset of a texture's mip levels and array layers.
     class TextureView
     {
@@ -49,6 +54,11 @@ export namespace draconic::rhi
 
         TextureViewDesc desc{};
         Texture* texture = nullptr;
+        // Monotonic creation stamp. A destroyed view's ADDRESS can be reused by the very next
+        // allocation, so any cache keyed by TextureView* MUST validate this id on a hit.
+        // (Bind-group caches that trusted the raw pointer handed out descriptors of a
+        // destroyed UI render target -> sampled a dead image view -> VK_ERROR_DEVICE_LOST.)
+        u64 uniqueId = NextTextureViewUniqueId();
     };
 
     /// Texture sampler (filtering, addressing, comparison).

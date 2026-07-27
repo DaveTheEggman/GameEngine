@@ -8,6 +8,11 @@ add_library(Draconic::RHI ALIAS DraconicRHI)
 
 target_link_libraries(DraconicRHI PUBLIC Draconic::Core Draconic::Policy)
 
+# Implementation units (headers they need stay OUT of the interface gcm - GCC hygiene).
+# Listed as regular sources, NOT in the CXX_MODULES file set.
+target_sources(DraconicRHI PRIVATE
+    ResourcesImpl.cpp)
+
 target_sources(DraconicRHI
     PUBLIC
         FILE_SET rhi_modules TYPE CXX_MODULES FILES

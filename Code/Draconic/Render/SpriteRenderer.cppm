@@ -107,7 +107,15 @@ export namespace draconic::render
         Pipelines m_alpha;
         Pipelines m_additive;
         rhi::TextureFormat m_depthFormat = rhi::TextureFormat::Depth32Float;
-        HashMap<rhi::TextureView*, rhi::BindGroup*> m_texBindGroups;
+        // Cached per-texture bind groups. Keyed by view POINTER for lookup speed, but every hit
+        // validates the view's uniqueId - dynamic textures (UI render targets) are destroyed and
+        // their address reused, and a stale descriptor samples a dead image view (device lost).
+        struct TexBindGroup
+        {
+            rhi::BindGroup* bindGroup = nullptr;
+            u64 viewId = 0; // TextureView::uniqueId the group was built for
+        };
+        HashMap<rhi::TextureView*, TexBindGroup> m_texBindGroups;
     };
 
 } // namespace draconic::render

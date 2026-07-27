@@ -442,9 +442,18 @@ export namespace draconic::particles
             {
                 return nullptr;
             }
-            if (rhi::BindGroup** found = m_texBindGroups.Find(tex))
+            if (TexBindGroup* found = m_texBindGroups.Find(tex))
             {
-                return *found;
+                if (found->viewId == tex->uniqueId)
+                {
+                    return found->bindGroup;
+                }
+                // Address reuse: the cached group references a DESTROYED view - rebuild.
+                if (found->bindGroup != nullptr)
+                {
+                    m_device->DestroyBindGroup(found->bindGroup);
+                }
+                m_texBindGroups.Remove(tex);
             }
             rhi::BindGroupEntry ent[] = {rhi::BindGroupEntry::TextureEntry(tex),
                                          rhi::BindGroupEntry::SamplerEntry(m_sampler)};
@@ -456,7 +465,7 @@ export namespace draconic::particles
             {
                 return nullptr;
             }
-            m_texBindGroups.InsertOrAssign(tex, bg);
+            m_texBindGroups.InsertOrAssign(tex, TexBindGroup{bg, tex->uniqueId});
             return bg;
         }
 
@@ -672,9 +681,9 @@ export namespace draconic::particles
         {
             for (auto& kv : m_texBindGroups)
             {
-                if (kv.value != nullptr)
+                if (kv.value.bindGroup != nullptr)
                 {
-                    m_device->DestroyBindGroup(kv.value);
+                    m_device->DestroyBindGroup(kv.value.bindGroup);
                 }
             }
             m_texBindGroups.Clear();
@@ -789,7 +798,14 @@ export namespace draconic::particles
         rhi::TextureView* m_whiteView = nullptr;
         rhi::BindGroup* m_viewBg = nullptr;
         u32 m_viewBgGen = 0;
-        HashMap<rhi::TextureView*, rhi::BindGroup*> m_texBindGroups;
+        // Keyed by view pointer, validated by TextureView::uniqueId on every hit (address
+        // reuse of destroyed dynamic textures - see SpriteRenderer::TexBindGroup).
+        struct TexBindGroup
+        {
+            rhi::BindGroup* bindGroup = nullptr;
+            u64 viewId = 0;
+        };
+        HashMap<rhi::TextureView*, TexBindGroup> m_texBindGroups;
         Pipelines
             m_billboard[4]; // one per ParticleBlendMode (Alpha/Additive/Premultiplied/Multiply)
         rhi::Buffer* m_trailIndexBuffer = nullptr; // identity indices [0,1,2,...] for trail draws
