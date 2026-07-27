@@ -123,11 +123,13 @@ export namespace draconic::editor
         class Row final : public ui::EditableLabel
         {
         public:
-            void Bind(const Guid& entity, StringView name, i32 depth, bool prefabMember)
+            void Bind(const Guid& entity, StringView name, f32 textInset, bool prefabMember)
             {
                 m_entity = entity;
                 SetText(name);
-                TextOffsetX.SetValue(static_cast<f32>(depth + 1) * 20.0f);
+                // Indent past the expander-chevron column; textInset comes from
+                // TreeView::ContentInset(depth) so it tracks IndentWidth (never a drifting literal).
+                TextOffsetX.SetValue(textInset);
                 // Every prefab-instance member reads distinctly (the Unity-blue convention);
                 // the text itself stays clean so in-place renames never absorb a marker.
                 if (prefabMember)
@@ -211,7 +213,8 @@ export namespace draconic::editor
                 scene::PrefabMemberInfo member;
                 const bool prefabMember =
                     scene::FindPrefabMember(m_owner->m_edit->Scene(), node.id, member);
-                static_cast<Row*>(view)->Bind(node.id, node.name.AsView(), depth, prefabMember);
+                static_cast<Row*>(view)->Bind(node.id, node.name.AsView(),
+                                              m_owner->m_tree->ContentInset(depth), prefabMember);
             }
 
             // Between-rows reorder: `toPosition` is the insert-before BOUNDARY (0..count;

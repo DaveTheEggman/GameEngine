@@ -44,6 +44,12 @@ export namespace draconic::ui
         /// Create a view for a tree item.
         [[nodiscard]] virtual RefPtr<View> CreateView(i32 viewType) = 0;
         /// Bind data into a view for the given nodeId.
+        ///
+        /// To indent the row so its content clears the expander-chevron column, derive the offset
+        /// from TreeView::ContentInset(depth) (or DraggableTreeView::ContentInset) - apply it as the
+        /// row label's TextOffsetX or the row container's left Padding. NEVER hardcode a pixel
+        /// constant: a literal that drifts from the tree's IndentWidth makes the chevron overlap the
+        /// text (the recurring tree-indent bug). ContentInset is the single source of truth.
         virtual void BindView(View* view, i32 nodeId, i32 depth, bool isExpanded) = 0;
         /// View type for a node (for recycler pools). Default 0.
         [[nodiscard]] virtual i32 GetItemViewType(i32 nodeId) const

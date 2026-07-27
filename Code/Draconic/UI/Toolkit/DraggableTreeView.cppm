@@ -90,6 +90,10 @@ export namespace draconic::ui::toolkit
         [[nodiscard]] f32 ItemHeight() const { return m_treeView->ItemHeight(); }
         void SetItemHeight(f32 value) { m_treeView->SetItemHeight(value); }
 
+        // Row content-inset for a given depth (single source of truth for indentation; forwards to
+        // the internal TreeView - see TreeView::ContentInset). Adapters must use this, not a literal.
+        [[nodiscard]] f32 ContentInset(i32 depth) { return m_treeView->ContentInset(depth); }
+
         void SetAdapter(IReorderableTreeAdapter* adapter)
         {
             m_adapter = adapter;

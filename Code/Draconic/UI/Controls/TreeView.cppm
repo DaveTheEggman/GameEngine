@@ -50,6 +50,19 @@ export namespace draconic::ui
         Property<f32> IndentWidth{20.0f};
         Property<f32> ArrowSize{8.0f};
 
+        // The x-pixel where a row at `depth` should start its CONTENT (text/icons) so it clears the
+        // expander-chevron column. The chevron is drawn in [depth*IndentWidth, (depth+1)*IndentWidth],
+        // so content begins one indent level further, at (depth+1)*IndentWidth.
+        //
+        // Tree adapters MUST derive their row indent from this - via TextOffsetX on a label row, or a
+        // left Padding/Margin on a container row - and NEVER hardcode a pixel constant. A literal that
+        // drifts from IndentWidth is exactly how the chevron ends up overlapping the row text (it has
+        // bitten the hierarchy, asset-picker, and particle trees). This is the single source of truth.
+        [[nodiscard]] f32 ContentInset(i32 depth) const noexcept
+        {
+            return static_cast<f32>(depth + 1) * IndentWidth.Value();
+        }
+
         Event<void(ItemClickInfo)> OnItemClick;
         Event<void(i32, f32, f32)> OnItemRightClick;
         Event<void(i32, KeyEventArgs&)> OnItemKeyDown;
