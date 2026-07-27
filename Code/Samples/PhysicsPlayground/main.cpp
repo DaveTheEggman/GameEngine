@@ -225,13 +225,41 @@ namespace
             if (!uiAte && input->Mouse()->IsButtonPressed(shell::MouseButton::Left) &&
                 m_physics != nullptr && m_physics->World() != nullptr)
             {
-                physics::RayHit hit;
-                const core::Float3 forward = m_fly.Forward();
-                if (m_physics->World()->RayCast(m_fly.position, forward, 200.0f, hit))
+                // Shove ray: through the CURSOR while it is free (click a crate to shove it);
+                // along the camera forward (crosshair) while look-flying captures the mouse -
+                // the same free-cursor/center-aim convention the kiosk world panel uses.
+                core::Float3 rayDir = m_fly.Forward();
+                const bool lookCaptured =
+                    m_fly.mouseCaptured || input->Mouse()->IsButtonDown(shell::MouseButton::Right);
+                shell::IWindow* win = host.Shell()->MainWindow();
+                if (!lookCaptured && win != nullptr && win->Width() > 0 && win->Height() > 0)
                 {
+                    core::f32 fovY = 1.04719755f; // the camera component's authored fov
+                    if (auto* cameras = m_scene->GetSystem<render::CameraComponentManager>())
+                    {
+                        if (render::CameraComponent* cam = cameras->Get(m_camera))
+                        {
+                            fovY = cam->fovYRadians;
+                        }
+                    }
+                    const core::f32 w = static_cast<core::f32>(win->Width());
+                    const core::f32 h = static_cast<core::f32>(win->Height());
+                    const core::f32 ndcX = (input->Mouse()->X() / w) * 2.0f - 1.0f;
+                    const core::f32 ndcY = 1.0f - (input->Mouse()->Y() / h) * 2.0f;
+                    const core::f32 tanHalfY = core::Tan(fovY * 0.5f);
+                    const core::f32 tanHalfX = tanHalfY * (w / h);
+                    rayDir = core::Normalized(m_fly.Forward() + m_fly.Right() * (ndcX * tanHalfX) +
+                                              m_fly.Up() * (ndcY * tanHalfY));
+                }
+                physics::RayHit hit;
+                if (m_physics->World()->RayCast(m_fly.position, rayDir, 200.0f, hit))
+                {
+                    // A visible whack: crates are ~1000 kg (1 m^3 at Jolt's default density), so
+                    // the impulse must be in the thousands - 400 only WOKE the body (delta-v
+                    // 0.4 m/s reads as a highlight, not a shove).
                     m_physics->World()->AddImpulse(
-                        hit.body, core::Float3{forward.x * 400.0f, forward.y * 400.0f + 120.0f,
-                                               forward.z * 400.0f});
+                        hit.body, core::Float3{rayDir.x * 4000.0f, rayDir.y * 4000.0f + 1400.0f,
+                                               rayDir.z * 4000.0f});
                     m_lastSurface = hit.surface; // ramp panels report 1 / 2
                     m_haveSurface = true;
                 }

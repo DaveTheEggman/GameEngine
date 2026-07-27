@@ -1401,3 +1401,61 @@ TEST_CASE("ui.subsystem: a stretched full-screen canvas does NOT swallow the poi
 
     ctx.Shutdown();
 }
+
+TEST_CASE("ui.subsystem: a press over EMPTY space never consumes the pointer "
+          "(the crosshair-shove regression)")
+{
+    // A press parks on the RootView so mouse-up still routes - but a root press is NOT
+    // UI interaction. The consumption mask must ignore it: before the fix, ANY held
+    // click published a consumed mask for the press duration, gating gameplay input
+    // (PhysicsPlayground's LMB crate shove polls IsButtonPressed on exactly the press
+    // frame, so it was gated 100% of the time while the HUD kept working).
+    runtime::Context ctx;
+    auto* scenes = ctx.AddSubsystem<scene::SceneSubsystem>();
+    scene::SceneManager sm(&scenes->AwareRegistry());
+    scenes->RegisterManager(&sm);
+    auto* input = ctx.AddSubsystem<draconic::input::InputSubsystem>(nullptr);
+    auto* ui = ctx.AddSubsystem<UISubsystem>();
+    ctx.Startup();
+    PointerFakeDevices devices;
+    input->SetSourceProvider(&devices);
+
+    scene::Scene* scene = sm.CreateScene(u8"world");
+    scene::EntityHandle hud = scene->CreateEntity(u8"hud");
+    scene->GetSystem<UICanvasComponentManager>()->Add(hud).document =
+        MakeDocument(u8"<Flex direction=\"vertical\" align=\"start\" padding=\"12\">"
+                     u8"<Button id=\"hud-btn\" text=\"HUD\" width=\"180\" height=\"36\"/></Flex>");
+
+    ctx.BeginFrame(1.0f / 60.0f);
+    RootView* sceneRoot = ui->SceneRoot(*scene);
+    REQUIRE(sceneRoot != nullptr);
+    sceneRoot->ViewportSize = Float2{800.0f, 600.0f};
+    ui->Context().UpdateRootView(sceneRoot);
+
+    // Press + hold over empty space: never consumed - on the press frame or held.
+    devices.mouse.x = 400.0f;
+    devices.mouse.y = 300.0f;
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK_FALSE(ui->PointerOverUI());
+    devices.PressLeft();
+    ctx.BeginFrame(1.0f / 60.0f); // the press frame (where the shove polls)
+    CHECK_FALSE(ui->PointerOverUI());
+    ctx.BeginFrame(1.0f / 60.0f); // still held
+    CHECK_FALSE(ui->PointerOverUI());
+    devices.ReleaseLeft();
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK_FALSE(ui->PointerOverUI());
+
+    // Press ON the HUD button: consumed while held (the intended consumption).
+    devices.mouse.x = 30.0f;
+    devices.mouse.y = 30.0f;
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(ui->PointerOverUI());
+    devices.PressLeft();
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(ui->PointerOverUI());
+    devices.ReleaseLeft();
+    ctx.BeginFrame(1.0f / 60.0f);
+
+    ctx.Shutdown();
+}

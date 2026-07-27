@@ -1173,8 +1173,14 @@ namespace draconic::ui
                 pointer = hit != nullptr && hit != root;
             }
         }
-        // A ray-hit interactive panel consumes the pointer like any hovered canvas.
-        pointer = pointer || panelPointer || inputManager.PressedId() != ViewId{};
+        // A ray-hit interactive panel consumes the pointer like any hovered canvas. The pressed
+        // view counts too - but NOT a root: a press over empty space parks on the RootView (so
+        // mouse-up still routes), which is no UI interaction. Without the root exclusion, ANY
+        // held click published a consumed mask and gated gameplay input for the press duration
+        // (the PhysicsPlayground crosshair shove polls IsButtonPressed on exactly that frame).
+        const View* pressedView = m_context.GetViewById(inputManager.PressedId());
+        const bool pressedOnUI = pressedView != nullptr && pressedView->Parent != nullptr;
+        pointer = pointer || panelPointer || pressedOnUI;
         const bool keyboard = m_context.WantsTextInput();
         m_pointerConsumed = pointer;
         m_input->Runtime().SetConsumptionMask(
