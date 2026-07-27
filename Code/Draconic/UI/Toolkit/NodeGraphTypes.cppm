@@ -88,6 +88,13 @@ export namespace draconic::ui::toolkit
         /// Whether this node is selected.
         bool IsSelected = false;
 
+        /// Extra emphasis ring drawn OUTSIDE the selection outline in HighlightColor - e.g. the
+        /// ACTIVE state while a live animation-graph preview runs. Caller-driven; never set by
+        /// the canvas itself.
+        bool IsHighlighted = false;
+        core::Color HighlightColor{255.0f / 255.0f, 170.0f / 255.0f, 60.0f / 255.0f,
+                                   220.0f / 255.0f};
+
         /// Input ports (ordered top to bottom on the left side).
         Array<NodeGraphPort> InputPorts;
 

@@ -445,3 +445,57 @@ TEST_CASE("nodegraph: CustomValidator_AllowsAll")
     const i32 idx = canvas->AddConnection(Conn(0, 0, 1, 0));
     CHECK(idx >= 0);
 }
+
+// === State-machine mode (ConnectionStyle::StraightNodeToNode) ===
+
+TEST_CASE("nodegraph: EdgeStyle defaults to BezierPorts; highlight defaults off")
+{
+    NodeGraphCanvas canvas;
+    CHECK(canvas.EdgeStyle == ConnectionStyle::BezierPorts);
+    NodeGraphNode node;
+    CHECK(node.IsHighlighted == false);
+}
+
+TEST_CASE("nodegraph: straight mode connects PORT-LESS nodes and allows parallel duplicates")
+{
+    NodeGraphCanvas canvas;
+    canvas.EdgeStyle = ConnectionStyle::StraightNodeToNode;
+    const i32 a = canvas.AddNode(MakeNode(u8"Idle"));
+    const i32 b = canvas.AddNode(MakeNode(u8"Run"));
+
+    // Port-less edges connect (BezierPorts would refuse: no ports to validate).
+    CHECK(canvas.AddConnection(Conn(a, 0, b, 0)) >= 0);
+    // A second A->B transition is LEGAL (state machines draw them in offset lanes).
+    CHECK(canvas.AddConnection(Conn(a, 0, b, 0)) >= 0);
+    // The reverse direction too.
+    CHECK(canvas.AddConnection(Conn(b, 0, a, 0)) >= 0);
+    CHECK(canvas.ConnectionCount() == 3);
+
+    // Self edges still refuse.
+    CHECK(canvas.AddConnection(Conn(a, 0, a, 0)) == -1);
+    // Out-of-bounds nodes still refuse.
+    CHECK(canvas.AddConnection(Conn(a, 0, 99, 0)) == -1);
+}
+
+TEST_CASE("nodegraph: bezier mode still refuses port-less connections (regression guard)")
+{
+    NodeGraphCanvas canvas; // default BezierPorts
+    const i32 a = canvas.AddNode(MakeNode(u8"A"));
+    const i32 b = canvas.AddNode(MakeNode(u8"B"));
+    CHECK(canvas.AddConnection(Conn(a, 0, b, 0)) == -1); // no ports -> invalid
+}
+
+TEST_CASE("nodegraph: StartLinkFrom ignores invalid indices and ReadOnly canvases")
+{
+    NodeGraphCanvas canvas;
+    canvas.EdgeStyle = ConnectionStyle::StraightNodeToNode;
+    const i32 a = canvas.AddNode(MakeNode(u8"Idle"));
+    bool fired = false;
+    canvas.OnNodeLinkRequested.Add([&fired](i32, i32) { fired = true; });
+
+    canvas.StartLinkFrom(-1); // out of range: no-op
+    canvas.StartLinkFrom(5);
+    canvas.ReadOnly = true;
+    canvas.StartLinkFrom(a); // read-only: no-op
+    CHECK_FALSE(fired);      // no gesture ever started, so nothing can fire
+}

@@ -34,6 +34,17 @@ using namespace draconic::core;
 
 export namespace draconic::ui::toolkit
 {
+    /// How a canvas anchors + renders its connections.
+    enum class ConnectionStyle : u8
+    {
+        /// Dataflow look: output-port to input-port horizontal-tangent beziers (the default).
+        BezierPorts,
+        /// State-machine look: node-center to node-center straight edges, clipped to the node
+        /// rects, laterally offset so parallel/opposite edges stay distinct, with a mid-edge
+        /// direction arrow. Nodes typically have no ports; links are made via StartLinkFrom.
+        StraightNodeToNode
+    };
+
     /// Model-agnostic interactive node graph canvas.
     class NodeGraphCanvas : public View
     {
@@ -47,7 +58,8 @@ export namespace draconic::ui::toolkit
             DraggingNode,
             DraggingConnection,
             BoxSelecting,
-            Panning
+            Panning,
+            PendingLink // StartLinkFrom: rubber edge follows the mouse until click/Escape
         };
 
         struct DragStart
@@ -78,6 +90,9 @@ export namespace draconic::ui::toolkit
         /// Whether to snap node positions to the grid on drag end.
         bool SnapToGrid = false;
 
+        /// Connection anchoring/rendering style (see ConnectionStyle).
+        ConnectionStyle EdgeStyle = ConnectionStyle::BezierPorts;
+
         // ========== Events ==========
 
         Event<void()> OnEditBegin;
@@ -86,11 +101,19 @@ export namespace draconic::ui::toolkit
         Event<void(i32)> OnNodeDeleted;
         Event<void(i32)> OnConnectionCreated;
         Event<void(i32, i32, i32, i32)> OnConnectionRemoved;
+        /// Fired at the START of RemoveConnection with the connection INDEX (still valid when the
+        /// event fires). Lets an index-mapped caller model (e.g. transitions parallel to
+        /// connections) mirror keyboard/interactive deletions unambiguously - OnConnectionRemoved
+        /// only carries endpoints, which parallel edges share.
+        Event<void(i32)> OnConnectionDeleting;
         Event<void()> OnSelectionChanged;
         Event<void(f32, f32)> OnCanvasContextMenu;
         Event<void(i32)> OnNodeContextMenu;
         Event<void(i32)> OnConnectionContextMenu;
         Event<void(i32)> OnNodeDoubleClicked;
+        /// Fired when a StartLinkFrom gesture lands on a target node: (sourceNode, targetNode).
+        /// The CALLER decides what a link means (e.g. adds a transition + a connection).
+        Event<void(i32, i32)> OnNodeLinkRequested;
 
         // ========== Constructor ==========
 
@@ -191,6 +214,7 @@ export namespace draconic::ui::toolkit
             {
                 return;
             }
+            OnConnectionDeleting.Invoke(index);
             const NodeGraphConnection c = m_connections[static_cast<usize>(index)];
             OnConnectionRemoved.Invoke(c.SourceNodeIndex, c.SourcePortIndex, c.DestNodeIndex,
                                        c.DestPortIndex);
@@ -212,6 +236,23 @@ export namespace draconic::ui::toolkit
             m_connections.Clear();
             m_nodes.Clear();
             m_drawOrder.Clear();
+            Invalidate();
+        }
+
+        /// Enter link mode: a rubber edge follows the mouse from `nodeIdx` until a left-click
+        /// lands on a node (fires OnNodeLinkRequested(source, target)); Escape, a click on empty
+        /// space, or any other button cancels. The state-machine "Make Transition" flow for
+        /// port-less nodes. No-op when ReadOnly.
+        void StartLinkFrom(i32 nodeIdx)
+        {
+            if (ReadOnly || nodeIdx < 0 || nodeIdx >= static_cast<i32>(m_nodes.Size()))
+            {
+                return;
+            }
+            m_interaction = InteractionMode::PendingLink;
+            m_linkSourceNode = nodeIdx;
+            // Until the first mouse move, aim the rubber edge at the source node itself.
+            m_dragConnectionEnd = NodeCenterScreen(nodeIdx);
             Invalidate();
         }
 
@@ -338,8 +379,7 @@ export namespace draconic::ui::toolkit
             // Connections.
             for (i32 i = 0; i < static_cast<i32>(m_connections.Size()); i++)
             {
-                DrawConnection(ctx, m_connections[static_cast<usize>(i)],
-                               i == m_hoveredConnectionIndex);
+                DrawConnection(ctx, i, i == m_hoveredConnectionIndex);
             }
 
             // Box selection.
@@ -365,6 +405,14 @@ export namespace draconic::ui::toolkit
             }
 
             // Connection being dragged.
+            if (m_interaction == InteractionMode::PendingLink && m_linkSourceNode >= 0)
+            {
+                const core::Color linkColor =
+                    ResolveStyleColor(StyleProperty::TextDimColor, Rgb(180, 200, 220, 180));
+                DrawStraightEdge(ctx, NodeCenterScreen(m_linkSourceNode), m_dragConnectionEnd,
+                                 linkColor);
+            }
+
             if (m_interaction == InteractionMode::DraggingConnection && m_dragSourceNode >= 0)
             {
                 const Float2 srcPort =
@@ -406,6 +454,22 @@ export namespace draconic::ui::toolkit
             }
 
             const Float2 canvasPos = ScreenToCanvas(Float2{e.X, e.Y});
+
+            // Pending link: a LEFT click on a node completes it; anything else cancels.
+            if (m_interaction == InteractionMode::PendingLink)
+            {
+                const i32 source = m_linkSourceNode;
+                const i32 target = (e.Button == MouseButton::Left) ? HitTestNode(e.X, e.Y) : -1;
+                m_interaction = InteractionMode::None;
+                m_linkSourceNode = -1;
+                if (source >= 0 && target >= 0 && target != source)
+                {
+                    OnNodeLinkRequested.Invoke(source, target);
+                }
+                Invalidate();
+                e.Handled = true;
+                return;
+            }
 
             // Middle button: pan.
             if (e.Button == MouseButton::Middle)
@@ -595,6 +659,13 @@ export namespace draconic::ui::toolkit
 
             switch (m_interaction)
             {
+            case InteractionMode::PendingLink:
+            {
+                m_dragConnectionEnd = Float2{e.X, e.Y};
+                Invalidate();
+                e.Handled = true;
+                break;
+            }
             case InteractionMode::Panning:
             {
                 const f32 dx = e.X - m_panStartMouse.x;
@@ -643,6 +714,10 @@ export namespace draconic::ui::toolkit
         {
             switch (m_interaction)
             {
+            case InteractionMode::PendingLink:
+                // The link completes/cancels on mouse DOWN; the release is inert.
+                break;
+
             case InteractionMode::Panning:
                 m_interaction = InteractionMode::None;
                 if (Context != nullptr)
@@ -780,7 +855,14 @@ export namespace draconic::ui::toolkit
                 return;
             }
 
-            if (e.Key == KeyCode::Delete)
+            if (e.Key == KeyCode::Escape && m_interaction == InteractionMode::PendingLink)
+            {
+                m_interaction = InteractionMode::None;
+                m_linkSourceNode = -1;
+                Invalidate();
+                e.Handled = true;
+            }
+            else if (e.Key == KeyCode::Delete)
             {
                 DeleteSelected();
                 e.Handled = true;
@@ -889,6 +971,13 @@ export namespace draconic::ui::toolkit
                                            accentColor, 2);
             }
 
+            // Emphasis ring (caller-driven; e.g. the ACTIVE state in a live graph preview).
+            if (node->IsHighlighted)
+            {
+                ctx.VG().StrokeRoundedRect(Rectangle{pos.x - 3, pos.y - 3, size.x + 6, size.y + 6},
+                                           cornerR + 3, node->HighlightColor, 3);
+            }
+
             // Title text.
             if (ctx.FontService() != nullptr)
             {
@@ -973,8 +1062,9 @@ export namespace draconic::ui::toolkit
             }
         }
 
-        void DrawConnection(UIDrawContext& ctx, const NodeGraphConnection& conn, bool hovered)
+        void DrawConnection(UIDrawContext& ctx, i32 connIndex, bool hovered)
         {
+            const NodeGraphConnection& conn = m_connections[static_cast<usize>(connIndex)];
             if (conn.SourceNodeIndex < 0 ||
                 conn.SourceNodeIndex >= static_cast<i32>(m_nodes.Size()))
             {
@@ -982,6 +1072,26 @@ export namespace draconic::ui::toolkit
             }
             if (conn.DestNodeIndex < 0 || conn.DestNodeIndex >= static_cast<i32>(m_nodes.Size()))
             {
+                return;
+            }
+
+            if (EdgeStyle == ConnectionStyle::StraightNodeToNode)
+            {
+                Float2 start, end;
+                if (!ComputeStraightEdge(connIndex, start, end))
+                {
+                    return;
+                }
+                core::Color color = NodeGraphPortType::Untyped().Color;
+                if (conn.IsSelected)
+                {
+                    color = ResolveStyleColor(StyleProperty::AccentColor, Rgb(100, 180, 255, 230));
+                }
+                else if (hovered)
+                {
+                    color = Rgb(230, 230, 240, 230);
+                }
+                DrawStraightEdge(ctx, start, end, color);
                 return;
             }
 
@@ -1012,6 +1122,136 @@ export namespace draconic::ui::toolkit
             }
 
             DrawBezier(ctx, startPos, endPos, color);
+        }
+
+        // ---- straight node-to-node edges (ConnectionStyle::StraightNodeToNode) ----
+
+        [[nodiscard]] Float2 NodeCenterScreen(i32 nodeIdx) const
+        {
+            const NodeGraphNode* node = m_nodes[static_cast<usize>(nodeIdx)].Get();
+            const Float2 pos = CanvasToScreen(node->Position);
+            const Float2 size = node->Size * m_zoom;
+            return Float2{pos.x + size.x * 0.5f, pos.y + size.y * 0.5f};
+        }
+
+        // From `center` along `dir`, the point where the ray exits the node's screen rect.
+        [[nodiscard]] Float2 ClipToNodeRect(i32 nodeIdx, Float2 center, Float2 dir) const
+        {
+            const NodeGraphNode* node = m_nodes[static_cast<usize>(nodeIdx)].Get();
+            const Float2 pos = CanvasToScreen(node->Position);
+            const Float2 size = node->Size * m_zoom;
+            f32 t = std::numeric_limits<f32>::max();
+            if (Abs(dir.x) > 0.0001f)
+            {
+                const f32 tx = ((dir.x > 0 ? pos.x + size.x : pos.x) - center.x) / dir.x;
+                t = core::Min(t, core::Max(tx, 0.0f));
+            }
+            if (Abs(dir.y) > 0.0001f)
+            {
+                const f32 ty = ((dir.y > 0 ? pos.y + size.y : pos.y) - center.y) / dir.y;
+                t = core::Min(t, core::Max(ty, 0.0f));
+            }
+            if (t == std::numeric_limits<f32>::max())
+            {
+                return center;
+            }
+            return center + dir * t;
+        }
+
+        // Screen-space endpoints of a straight edge: center-to-center, laterally offset by the
+        // connection's LANE among edges of the same ordered pair (an opposite-direction edge
+        // shifts both directions apart automatically - its perpendicular flips with dir), then
+        // clipped to the two node rects. False = degenerate (self edge / overlapping nodes).
+        [[nodiscard]] bool ComputeStraightEdge(i32 connIndex, Float2& outStart,
+                                               Float2& outEnd) const
+        {
+            const NodeGraphConnection& conn = m_connections[static_cast<usize>(connIndex)];
+            if (conn.SourceNodeIndex == conn.DestNodeIndex)
+            {
+                return false;
+            }
+            const Float2 centerA = NodeCenterScreen(conn.SourceNodeIndex);
+            const Float2 centerB = NodeCenterScreen(conn.DestNodeIndex);
+            const Float2 delta = centerB - centerA;
+            const f32 len = core::Length(delta);
+            if (len < 1.0f)
+            {
+                return false;
+            }
+            const Float2 dir = delta * (1.0f / len);
+            const Float2 perp{-dir.y, dir.x};
+
+            // Lane among SAME-ordered-pair edges + whether the opposite direction exists.
+            i32 lane = 0, sameCount = 0;
+            bool hasOpposite = false;
+            for (i32 i = 0; i < static_cast<i32>(m_connections.Size()); i++)
+            {
+                const NodeGraphConnection& other = m_connections[static_cast<usize>(i)];
+                if (other.SourceNodeIndex == conn.SourceNodeIndex &&
+                    other.DestNodeIndex == conn.DestNodeIndex)
+                {
+                    if (i < connIndex)
+                    {
+                        lane++;
+                    }
+                    sameCount++;
+                }
+                else if (other.SourceNodeIndex == conn.DestNodeIndex &&
+                         other.DestNodeIndex == conn.SourceNodeIndex)
+                {
+                    hasOpposite = true;
+                }
+            }
+            const f32 spacing = 14.0f * m_zoom;
+            // Opposite edges each shift to their own side; a lone pair stays centered.
+            const f32 base =
+                hasOpposite ? spacing * 0.5f : -spacing * 0.5f * static_cast<f32>(sameCount - 1);
+            const f32 shift = base + spacing * static_cast<f32>(lane);
+
+            const Float2 shiftedA = centerA + perp * shift;
+            const Float2 shiftedB = centerB + perp * shift;
+            outStart = ClipToNodeRect(conn.SourceNodeIndex, shiftedA, dir);
+            outEnd = ClipToNodeRect(conn.DestNodeIndex, shiftedB, dir * -1.0f);
+            return core::Distance(outStart, outEnd) >= 2.0f;
+        }
+
+        void DrawStraightEdge(UIDrawContext& ctx, Float2 start, Float2 end, core::Color color)
+        {
+            ctx.VG().BeginPath();
+            ctx.VG().MoveTo(start);
+            ctx.VG().LineTo(end);
+            ctx.VG().Stroke(color, 2);
+
+            // Mid-edge direction arrow.
+            const Float2 delta = end - start;
+            const f32 len = core::Length(delta);
+            if (len < 12.0f)
+            {
+                return;
+            }
+            const Float2 dir = delta * (1.0f / len);
+            const Float2 perp{-dir.y, dir.x};
+            const Float2 mid = (start + end) * 0.5f;
+            const f32 a = 7.0f * m_zoom;
+            ctx.VG().BeginPath();
+            ctx.VG().MoveTo(mid + dir * a);
+            ctx.VG().LineTo(mid - dir * a + perp * a);
+            ctx.VG().LineTo(mid - dir * a - perp * a);
+            ctx.VG().ClosePath();
+            ctx.VG().Fill(color);
+        }
+
+        [[nodiscard]] static f32 DistanceToSegment(Float2 point, Float2 a, Float2 b)
+        {
+            const Float2 ab = b - a;
+            const f32 lenSq = ab.x * ab.x + ab.y * ab.y;
+            if (lenSq < 0.0001f)
+            {
+                return core::Distance(point, a);
+            }
+            const f32 t =
+                Clamp(((point.x - a.x) * ab.x + (point.y - a.y) * ab.y) / lenSq, 0.0f, 1.0f);
+            return core::Distance(point, a + ab * t);
         }
 
         void DrawBezier(UIDrawContext& ctx, Float2 start, Float2 end, core::Color color)
@@ -1108,6 +1348,17 @@ export namespace draconic::ui::toolkit
                 if (conn.DestNodeIndex < 0 ||
                     conn.DestNodeIndex >= static_cast<i32>(m_nodes.Size()))
                 {
+                    continue;
+                }
+
+                if (EdgeStyle == ConnectionStyle::StraightNodeToNode)
+                {
+                    Float2 start, end;
+                    if (ComputeStraightEdge(i, start, end) &&
+                        DistanceToSegment(Float2{screenX, screenY}, start, end) <= hitDist)
+                    {
+                        return i;
+                    }
                     continue;
                 }
 
@@ -1228,6 +1479,14 @@ export namespace draconic::ui::toolkit
             if (conn.DestNodeIndex < 0 || conn.DestNodeIndex >= static_cast<i32>(m_nodes.Size()))
             {
                 return false;
+            }
+
+            // Straight node-to-node edges are PORT-LESS: node bounds + no-self is the whole
+            // contract, and parallel duplicates are legal (multiple transitions between one
+            // state pair render in offset lanes).
+            if (EdgeStyle == ConnectionStyle::StraightNodeToNode)
+            {
+                return true;
             }
 
             const NodeGraphNode* srcNode = m_nodes[static_cast<usize>(conn.SourceNodeIndex)].Get();
@@ -1414,6 +1673,7 @@ export namespace draconic::ui::toolkit
         i32 m_hoveredPortIndex = -1;
         PortDirection m_hoveredPortDir = PortDirection::Input;
         i32 m_hoveredConnectionIndex = -1;
+        i32 m_linkSourceNode = -1; // StartLinkFrom source while PendingLink is active
 
         // Gesture tracking (undo grouping).
         bool m_inGesture = false;
