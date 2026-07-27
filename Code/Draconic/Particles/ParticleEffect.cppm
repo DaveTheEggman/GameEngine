@@ -245,6 +245,55 @@ export namespace draconic::particles
             }
         }
 
+        // Remove a module by index (editor authoring). Already-declared streams stay allocated,
+        // which is harmless - a module never removes a stream another module needs.
+        void RemoveInitializer(i32 index)
+        {
+            if (index >= 0 && index < InitializerCount())
+            {
+                m_initializers.RemoveAt(static_cast<usize>(index));
+            }
+        }
+        void RemoveBehavior(i32 index)
+        {
+            if (index >= 0 && index < BehaviorCount())
+            {
+                m_behaviors.RemoveAt(static_cast<usize>(index));
+            }
+        }
+
+        // Reorder a module within its list (editor authoring; beyond Sedulous, whose module order was
+        // fixed at add-time). Order matters: initializers run top-to-bottom at spawn, behaviors
+        // top-to-bottom each step, so e.g. a ColorInitializer must precede a ColorOverLifetime tint.
+        void MoveInitializer(i32 from, i32 to) { MoveInList(m_initializers, from, to); }
+        void MoveBehavior(i32 from, i32 to) { MoveInList(m_behaviors, from, to); }
+
+        // Resize the particle budget (editor authoring). Reallocates the stream container at the new
+        // capacity and re-declares every module's streams into it; the alive set is cleared (the
+        // effect restarts) and trail buffers self-heal on the next Step via EnsureTrailStorage.
+        void SetMaxParticles(i32 newMax)
+        {
+            newMax = Max(newMax, 1);
+            if (newMax == m_maxParticles)
+            {
+                return;
+            }
+            m_maxParticles = newMax;
+            m_streams = ParticleStreamContainer(newMax);
+            for (usize k = 0; k < m_initializers.Size(); ++k)
+            {
+                m_initializers[k]->DeclareStreams(m_streams);
+            }
+            for (usize k = 0; k < m_behaviors.Size(); ++k)
+            {
+                m_behaviors[k]->DeclareStreams(m_streams);
+            }
+            m_streams.aliveCount = 0;
+            m_trailStates.Clear();
+            m_trailPoints.Clear();
+            m_trailCapacityPoints = 0;
+        }
+
         // Module access for the resource serializer (writes each module's reflected tag + Serialize).
         [[nodiscard]] i32 InitializerCount() const noexcept
         {
@@ -391,6 +440,23 @@ export namespace draconic::particles
         }
 
     private:
+        // Reposition list[from] so it lands at final index `to` (order-preserving), via
+        // remove-then-insert with the post-removal index shift.
+        template <typename T>
+        static void MoveInList(Array<T>& list, i32 from, i32 to)
+        {
+            const i32 n = static_cast<i32>(list.Size());
+            if (from < 0 || from >= n || to < 0 || to >= n || from == to)
+            {
+                return;
+            }
+            // `to` is the desired FINAL index. After removing `from`, the list has n-1 elements and
+            // Insert(to) lands the item exactly at final index `to` (valid since to <= n-1).
+            T item = std::move(list[static_cast<usize>(from)]);
+            list.RemoveAt(static_cast<usize>(from));
+            list.Insert(static_cast<usize>(to), std::move(item));
+        }
+
         void SpawnInternal(i32 count, bool overridePosition, Float3 spawnPos, bool inherit = false,
                            Float3 inheritedVelocity = Float3::Zero,
                            Float4 inheritedColor = Float4{1.0f, 1.0f, 1.0f, 1.0f})
@@ -680,6 +746,20 @@ export namespace draconic::particles
         }
 
         void AddSubEmitterLink(SubEmitterLink link) { m_links.PushBack(link); }
+
+        // Remove a system by index / drop everything (editor authoring + blob-restore rebuilds).
+        void RemoveSystem(i32 index)
+        {
+            if (index >= 0 && static_cast<usize>(index) < m_systems.Size())
+            {
+                m_systems.RemoveAt(static_cast<usize>(index));
+            }
+        }
+        void Clear()
+        {
+            m_systems.Clear();
+            m_links.Clear();
+        }
 
         [[nodiscard]] i32 SystemCount() const noexcept
         {

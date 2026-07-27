@@ -172,6 +172,43 @@ export namespace draconic::particles
         ParticleStreamContainer(const ParticleStreamContainer&) = delete;
         ParticleStreamContainer& operator=(const ParticleStreamContainer&) = delete;
 
+        // Move: transfer stream ownership (used by ParticleSystem::SetMaxParticles to swap in a
+        // fresh, larger/smaller container). The source is left empty so its dtor frees nothing.
+        ParticleStreamContainer(ParticleStreamContainer&& other) noexcept
+            : aliveCount(other.aliveCount), m_capacity(other.m_capacity)
+        {
+            for (usize i = 0; i < static_cast<usize>(ParticleStreamId::MaxStreams); ++i)
+            {
+                m_streams[i] = other.m_streams[i];
+                other.m_streams[i] = nullptr;
+            }
+            other.aliveCount = 0;
+        }
+        ParticleStreamContainer& operator=(ParticleStreamContainer&& other) noexcept
+        {
+            if (this != &other)
+            {
+                IAllocator& alloc = DefaultAllocator();
+                for (ParticleStream*& s : m_streams)
+                {
+                    if (s != nullptr)
+                    {
+                        alloc.Delete(s);
+                        s = nullptr;
+                    }
+                }
+                for (usize i = 0; i < static_cast<usize>(ParticleStreamId::MaxStreams); ++i)
+                {
+                    m_streams[i] = other.m_streams[i];
+                    other.m_streams[i] = nullptr;
+                }
+                m_capacity = other.m_capacity;
+                aliveCount = other.aliveCount;
+                other.aliveCount = 0;
+            }
+            return *this;
+        }
+
         [[nodiscard]] i32 Capacity() const noexcept { return m_capacity; }
 
         i32 aliveCount = 0; // shared across all streams; index [0, aliveCount) is live

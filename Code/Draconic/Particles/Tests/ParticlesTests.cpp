@@ -196,6 +196,81 @@ TEST_CASE("ParticleSystem: never exceeds MaxParticles")
     CHECK(sys.AliveCount() <= 50);
 }
 
+TEST_CASE("ParticleSystem/Effect: authoring add/remove modules + systems")
+{
+    particles::ParticleSystem sys(100);
+    BuildFountain(sys); // 4 initializers, 1 behavior
+    CHECK(sys.InitializerCount() == 4);
+    CHECK(sys.BehaviorCount() == 1);
+
+    sys.RemoveInitializer(0);
+    CHECK(sys.InitializerCount() == 3);
+    sys.RemoveBehavior(0);
+    CHECK(sys.BehaviorCount() == 0);
+    sys.RemoveInitializer(99); // out of range: no-op
+    CHECK(sys.InitializerCount() == 3);
+
+    particles::ParticleEffect fx;
+    fx.AddSystem(100);
+    fx.AddSystem(100);
+    CHECK(fx.SystemCount() == 2);
+    fx.RemoveSystem(0);
+    CHECK(fx.SystemCount() == 1);
+    fx.Clear();
+    CHECK(fx.SystemCount() == 0);
+}
+
+TEST_CASE("ParticleSystem: module reorder preserves identity, respects bounds")
+{
+    particles::ParticleSystem sys(100);
+    // Distinct behaviors so we can identify order by runtime type.
+    particles::ParticleBehavior* g = &sys.AddBehavior<particles::GravityBehavior>();
+    particles::ParticleBehavior* d = &sys.AddBehavior<particles::DragBehavior>();
+    particles::ParticleBehavior* w = &sys.AddBehavior<particles::WindBehavior>();
+    CHECK(sys.GetBehavior(0) == g);
+    CHECK(sys.GetBehavior(2) == w);
+
+    sys.MoveBehavior(2, 0); // wind to the front
+    CHECK(sys.GetBehavior(0) == w);
+    CHECK(sys.GetBehavior(1) == g);
+    CHECK(sys.GetBehavior(2) == d);
+
+    sys.MoveBehavior(0, 2); // wind to the back
+    CHECK(sys.GetBehavior(2) == w);
+    CHECK(sys.GetBehavior(0) == g);
+
+    sys.MoveBehavior(0, 5); // out of range: no-op
+    CHECK(sys.GetBehavior(0) == g);
+    CHECK(sys.BehaviorCount() == 3);
+}
+
+TEST_CASE("ParticleSystem: SetMaxParticles resizes the budget and re-declares streams")
+{
+    particles::ParticleSystem sys(50);
+    BuildFountain(sys, 500.0f); // heavy spawn rate to exceed the small budget
+    CHECK(sys.MaxParticles() == 50);
+    for (i32 i = 0; i < 30; ++i)
+    {
+        sys.Step(1.0f / 60.0f);
+    }
+    CHECK(sys.AliveCount() <= 50);
+    const i32 cappedAlive = sys.AliveCount();
+    CHECK(cappedAlive == 50); // saturated at the old budget
+
+    sys.SetMaxParticles(2000);
+    CHECK(sys.MaxParticles() == 2000);
+    CHECK(sys.AliveCount() == 0); // resize restarts the alive set
+    // Streams still function after the reallocation: the system spawns past the old cap.
+    for (i32 i = 0; i < 60; ++i)
+    {
+        sys.Step(1.0f / 60.0f);
+    }
+    CHECK(sys.AliveCount() > 50);
+
+    sys.SetMaxParticles(2000); // same value: no-op, keeps running
+    CHECK(sys.MaxParticles() == 2000);
+}
+
 TEST_CASE("ParticleEmitter: single burst when interval <= 0")
 {
     particles::ParticleSystem sys(1000);
