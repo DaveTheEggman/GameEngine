@@ -422,8 +422,11 @@ namespace draconic::render
             return false;
         }
 
+        // Texture2DArray, not Texture2D: the source is ONE LAYER of the captured cube-array,
+        // and a DX12 TEXTURE2D SRV cannot address a non-zero array slice (always layer 0).
+        // The per-face view carries the slice; the shader samples slice 0 of it.
         rhi::BindGroupLayoutEntry srcTex = rhi::BindGroupLayoutEntry::SampledTexture(
-            0, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2D);
+            0, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2DArray);
         rhi::BindGroupLayoutEntry srcSamp =
             rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment);
         rhi::BindGroupLayoutEntry entries[] = {srcTex, srcSamp};
@@ -470,7 +473,9 @@ namespace draconic::render
         }
         rhi::TextureViewDesc vd{};
         vd.format = kCubeFormat;
-        vd.dimension = rhi::TextureViewDimension::Texture2D;
+        // Single-slice ARRAY view (see the blit layout comment - DX12 TEXTURE2D SRVs
+        // cannot select an array slice).
+        vd.dimension = rhi::TextureViewDimension::Texture2DArray;
         vd.baseArrayLayer = idx;
         vd.arrayLayerCount = 1;
         vd.mipLevelCount = 1;
@@ -502,8 +507,11 @@ namespace draconic::render
             return false;
         }
 
+        // TextureCubeArray, not TextureCube: the source is ONE CUBE of the prefiltered
+        // cube-array, and a DX12 TEXTURECUBE SRV cannot address a non-zero first face
+        // (always cube 0). The per-probe view carries the base; the shader samples cube 0.
         rhi::BindGroupLayoutEntry srcTex = rhi::BindGroupLayoutEntry::SampledTexture(
-            0, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::TextureCube);
+            0, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::TextureCubeArray);
         rhi::BindGroupLayoutEntry srcSamp =
             rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment);
         rhi::BindGroupLayoutEntry entries[] = {srcTex, srcSamp};
@@ -554,7 +562,9 @@ namespace draconic::render
         }
         rhi::TextureViewDesc vd{};
         vd.format = kCubeFormat;
-        vd.dimension = rhi::TextureViewDimension::TextureCube;
+        // Single-cube ARRAY view (see the prefilter layout comment - DX12 TEXTURECUBE
+        // SRVs cannot select a first face).
+        vd.dimension = rhi::TextureViewDimension::TextureCubeArray;
         vd.baseMipLevel = 0;
         vd.mipLevelCount = 1;
         vd.baseArrayLayer = slot * 6u;

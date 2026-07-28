@@ -28,19 +28,22 @@ VSOut main(uint vid : SV_VertexID) {
     }
 
     // Blit PS: copy one captured face into the prefiltered face, correcting the RH-LookAt horizontal mirror
-    // by flipping u. Samples the captured face as a plain Texture2D (NOT the cube sampler) so filtering never
-    // crosses a face boundary - the cube-sampler path shows the face seams in smooth gradients (sky). This is
-    // Sedulous's probe_blit. Image-space flip => winding stays correct (a camera-axis flip breaks culling).
+    // by flipping u. Samples the captured face as a single-slice Texture2DArray (NOT the cube sampler) so
+    // filtering never crosses a face boundary - the cube-sampler path shows the face seams in smooth
+    // gradients (sky). An ARRAY view is required: the source is one layer of the captured cube-array, and
+    // DX12's TEXTURE2D SRV cannot address a non-zero array slice (it always views layer 0) - the bound view
+    // selects the face, the shader reads slice 0 of it. This is Sedulous's probe_blit. Image-space flip =>
+    // winding stays correct (a camera-axis flip breaks culling).
     [[nodiscard]] inline core::StringView ProbeBlitPS() noexcept
     {
         return core::StringView(u8R"(
-Texture2D<float4> SrcFace : register(t0, space0);
-SamplerState      Samp    : register(s0, space0);
+Texture2DArray<float4> SrcFace : register(t0, space0);
+SamplerState           Samp    : register(s0, space0);
 float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target0 {
     // flip-u corrects the RH-LookAt mirror; flip-v corrects the vertical inversion from the capture +
     // blit both passing through the negative viewport. (Retested after fixing the sky-slot collision that
     // had scrambled the earlier read.)
-    return SrcFace.SampleLevel(Samp, float2(1.0 - uv.x, 1.0 - uv.y), 0.0);
+    return SrcFace.SampleLevel(Samp, float3(1.0 - uv.x, 1.0 - uv.y, 0.0), 0.0);
 }
 )");
     }
@@ -53,8 +56,11 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target0 {
         return core::StringView(u8R"(
 struct Push { int FaceIndex; float Roughness; float2 Pad; };
 [[vk::push_constant]] ConstantBuffer<Push> pc : register(b0, space1);
-TextureCube<float4> Src  : register(t0, space0);
-SamplerState        Samp : register(s0, space0);
+// Single-cube view of the prefiltered cube-ARRAY (this probe's 6 faces). A CUBE-ARRAY type is
+// required: DX12's TEXTURECUBE SRV cannot address a non-zero first face (it always views cube 0),
+// so the bound view selects the probe and the shader samples cube 0 of it.
+TextureCubeArray<float4> Src  : register(t0, space0);
+SamplerState             Samp : register(s0, space0);
 static const float PI = 3.14159265359;
 float3 DirForFace(int face, float2 uv) {
     float2 t = uv * 2.0 - 1.0;
@@ -98,7 +104,7 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target0 {
         float3 L  = normalize(2.0 * dot(V, H) * H - V);
         float  ndl = dot(N, L);
         if (ndl > 0.0) {
-            float3 s = Src.SampleLevel(Samp, L, 0.0).rgb;
+            float3 s = Src.SampleLevel(Samp, float4(L, 0.0), 0.0).rgb;
             // Karis firefly reduction: down-weight bright samples (tone weight) so sparse importance-sample
             // hits on tiny bright sources (moving point lights in the low-res capture) don't alias/flicker.
             float fw = ndl / (1.0 + dot(s, float3(0.2126, 0.7152, 0.0722)));
