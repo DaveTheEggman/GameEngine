@@ -63,6 +63,10 @@ export namespace draconic::editor
             // Left: the text pane (CodeEditView - gutter, monospace, native undo).
             m_editor = MakeRef<ui::toolkit::CodeEditView>(DefaultAllocator());
             m_editor->AllowBreakpoints = false; // markup has no debugger; keep the margin quiet
+            // XML is a generic format the toolkit lexes natively - constructed directly, no
+            // registry indirection needed (that seam is for dynamic language ids).
+            m_editor->SetLexer(UniquePtr<ui::toolkit::ICodeLexer>(
+                DefaultAllocator().New<ui::toolkit::XmlLexer>(), DefaultAllocator()));
             m_editor->SetText(m_markup.AsView());
             UIDocumentEditorPage* self = this;
             m_editor->OnTextChanged.Add(

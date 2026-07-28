@@ -51,11 +51,13 @@ export namespace draconic::editor
             {
                 sourcesRoot = m_context->Project()->SourcesRoot();
             }
+            String language;
             RefPtr<ISerializable> object = instance.ReadObject();
             if (auto* asset = Cast<draconic::script::ScriptClassAsset>(object.Get()))
             {
                 m_doc.Bind(sourcesRoot.AsView(), asset->fileName.AsView(),
                            asset->language.AsView());
+                language = String(asset->language.AsView());
             }
             (void)m_doc.Load(); // an unreadable file just leaves an empty buffer
 
@@ -66,6 +68,9 @@ export namespace draconic::editor
             // The source editor: CodeEditView owns the gutter, markers, undo, and completion
             // (document-word provider; richer language providers arrive with code-editor P4).
             m_editor = MakeRef<ui::toolkit::CodeEditView>(DefaultAllocator());
+            // Lexer by language id from the registry the script plugin populated - the page
+            // stays backend-neutral; an unregistered language just renders unstyled.
+            m_editor->SetLexer(ui::toolkit::CodeLexerRegistry::Get().Create(language.AsView()));
             m_editor->SetText(m_doc.Source());
             ScriptEditorPage* self = this;
             m_editor->OnTextChanged.Add(
@@ -219,6 +224,9 @@ export namespace draconic::editor
 
     /// The editor executable's entry point for the script plugin: registers the ScriptPage
     /// factory + one New-Asset creator per registered script backend (Wren, AngelScript, ...).
+    /// Language SYNTAX (lexer tables) is not registered here - each backend's editor-UI
+    /// module does that (RegisterWrenEditorUI / RegisterAngelScriptEditorUI), keeping this
+    /// page module backend-neutral.
     inline void RegisterScriptEditor(EditorContext& context)
     {
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
