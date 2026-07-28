@@ -632,9 +632,14 @@ namespace draconic::ui
         }
 
         FocusManager* focus = m_context->GetFocusManager();
+        View* focused = focus->FocusedView();
 
-        if (key == KeyCode::Tab && !isRepeat)
-        {
+        // Tab drives focus traversal - except when the focused view opts in via WantsTabKey
+        // (code editors inserting indentation): those views get Tab through normal dispatch
+        // first, and traversal runs as the fallback below when they leave it unhandled (the
+        // same dispatch-first shape as the Return/OnActivate fallback).
+        const bool isTab = key == KeyCode::Tab && !isRepeat;
+        const auto traverseFocus = [&] {
             if (HasFlag(modifiers, KeyModifiers::Shift))
             {
                 focus->FocusPrev();
@@ -643,10 +648,12 @@ namespace draconic::ui
             {
                 focus->FocusNext();
             }
+        };
+        if (isTab && (focused == nullptr || !focused->WantsTabKey))
+        {
+            traverseFocus();
             return true;
         }
-
-        View* focused = focus->FocusedView();
 
         if (focused != nullptr)
         {
@@ -656,6 +663,12 @@ namespace draconic::ui
             {
                 return true;
             }
+        }
+
+        if (isTab)
+        {
+            traverseFocus();
+            return true;
         }
 
         // Return ACTIVATES the focused view - but only as a fallback AFTER normal dispatch

@@ -773,3 +773,54 @@ TEST_CASE("keys: Return_DispatchesBeforeActivation")
     CHECK(probe->keyDowns == 2);
     CHECK(probe->activations == 1);
 }
+
+TEST_CASE("keys: Tab_DispatchesToWantsTabKeyViews")
+{
+    class TabProbe final : public View
+    {
+    public:
+        bool consumeTab = false;
+        i32 tabDowns = 0;
+        TabProbe()
+        {
+            IsFocusable = true;
+            IsTabStop = true;
+        }
+        void OnKeyDown(KeyEventArgs& e) override
+        {
+            if (e.Key == KeyCode::Tab)
+            {
+                ++tabDowns;
+                e.Handled = consumeTab;
+            }
+        }
+    };
+
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    ctx.AddRootView(root.Get());
+    auto editor = core::MakeRef<TabProbe>(core::DefaultAllocator());
+    auto next = core::MakeRef<TabProbe>(core::DefaultAllocator());
+    root->AddView(editor.Get());
+    root->AddView(next.Get());
+    ctx.GetFocusManager()->SetFocus(editor.Get());
+
+    // Default (WantsTabKey false): Tab never reaches the view; focus traverses.
+    CHECK(ctx.GetInputManager()->ProcessKeyDown(KeyCode::Tab, KeyModifiers::None, false));
+    CHECK(editor->tabDowns == 0);
+    CHECK(ctx.GetFocusManager()->FocusedView() == next.Get());
+
+    // Opted in + handled: the view consumes Tab and keeps focus (indent behavior).
+    ctx.GetFocusManager()->SetFocus(editor.Get());
+    editor->WantsTabKey = true;
+    editor->consumeTab = true;
+    CHECK(ctx.GetInputManager()->ProcessKeyDown(KeyCode::Tab, KeyModifiers::None, false));
+    CHECK(editor->tabDowns == 1);
+    CHECK(ctx.GetFocusManager()->FocusedView() == editor.Get());
+
+    // Opted in but UNHANDLED: traversal is still the fallback.
+    editor->consumeTab = false;
+    CHECK(ctx.GetInputManager()->ProcessKeyDown(KeyCode::Tab, KeyModifiers::None, false));
+    CHECK(editor->tabDowns == 2);
+    CHECK(ctx.GetFocusManager()->FocusedView() == next.Get());
+}

@@ -141,6 +141,11 @@ export namespace draconic::ui
         i32 TabIndex = 0;
         bool ClipsContent = false;
         bool WantsArrowKeys = false;
+        // Tab normally drives focus traversal BEFORE dispatch and never reaches a view. A view
+        // that edits tab characters (code editors) sets this to receive Tab in OnKeyDown first;
+        // traversal remains the fallback when the view leaves the event unhandled (the same
+        // dispatch-first shape as the Return/OnActivate deviation in InputManager).
+        bool WantsTabKey = false;
         bool IsPendingDeletion = false;
 
         // === Tooltip (shown by UIContext's TooltipManager) ===
