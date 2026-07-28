@@ -9,7 +9,7 @@ target_link_libraries(DraconicEditorApp
         Draconic::Core Draconic::VFS Draconic::XmlSerialization Draconic::Editor Draconic::Resource
         Draconic::Shell Draconic::Graphics Draconic::Runtime Draconic::RuntimeClient Draconic::RuntimeDefaultApp
         Draconic::RenderApi
-        Draconic::Fonts Draconic::FontsTTF
+        Draconic::Fonts Draconic::FontsTTF Draconic::FontsDFBaker
         Draconic::UI Draconic::UIToolkit Draconic::UIRuntime Draconic::UIApplication
         Draconic::UIResource Draconic::UISubsystem
         Draconic::Input Draconic::InputSubsystem

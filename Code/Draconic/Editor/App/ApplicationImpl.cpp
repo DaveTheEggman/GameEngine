@@ -20,6 +20,7 @@ import draconic.shell;
 import draconic.graphics;
 import draconic.fonts;
 import draconic.fonts.ttf;
+import draconic.fonts.df.baker; // DFFonts (MSDF baker registration) for the DF font path
 import draconic.runtime;
 import draconic.runtime.client;
 import draconic.runtime.defaultapp; // the embedded game application (v3)
@@ -48,6 +49,13 @@ using namespace draconic::core;
 
 namespace draconic::editor::app
 {
+    // Editor text rendering: false = the classic per-size raster ramp; true = MSDF
+    // distance-field atlases (one 48px bake per family). NOTE the DF path is NOT ready for
+    // transparent UI use yet - it needs per-size scaled font views in the font service and
+    // DF handling in VGContext::DrawPositionedGlyphs; until then text renders at the baked
+    // 48px and shaped runs sample the raw MSDF texture (rainbow glyphs).
+    constexpr bool kUseDistanceFieldFonts = false;
+
     draconic::editor::EditorProject* EditorApplication::Project() const noexcept
     {
         return m_project.Get();
@@ -104,31 +112,57 @@ namespace draconic::editor::app
             return;
         }
 
-        // Fonts (CPU rasterization; no device needed).
+        // Fonts (CPU rasterization/baking; no device needed).
         m_fontService = MakeUnique<fonts::TrueTypeFontService>(DefaultAllocator());
-        if (!m_config.fontPath.IsEmpty())
+        if (kUseDistanceFieldFonts)
         {
-            fonts::FontLoadOptions options = fonts::FontLoadOptions::ExtendedLatin();
-            // A full ramp so styles can pick small (property fields), regular, and
-            // heading sizes without falling back to a mismatched rasterization.
-            const f32 sizes[] = {10.0f, 11.0f, 12.0f, 13.0f, 14.0f,
-                                 16.0f, 18.0f, 20.0f, 24.0f, 32.0f};
-            for (f32 size : sizes)
+            // MSDF path: ONE atlas per family, baked at 48px, sampled crisp at every size
+            // the styles request (GetFont's closest-size fallback lands on it). The VG
+            // renderer switches to the distance-field pipeline per glyph run automatically.
+            fonts::DFFonts::Initialize();
+            fonts::FontLoadOptions options = fonts::FontLoadOptions::DistanceField();
+            options.pixelHeight = 48.0f;
+            options.firstCodepoint = 32;
+            options.lastCodepoint = 255; // the ExtendedLatin range the raster path bakes
+            options.atlasWidth = 1024;
+            options.atlasHeight = 1024;
+            if (!m_config.fontPath.IsEmpty())
             {
-                options.pixelHeight = size;
                 (void)m_fontService->LoadFont(u8"Roboto", m_config.fontPath.AsView(), options);
             }
-        }
-        if (!m_config.monoFontPath.IsEmpty())
-        {
-            // Fixed-pitch family for CodeEditView (script/shader/XML pages). Smaller ramp: code
-            // text only needs the field-to-heading range.
-            fonts::FontLoadOptions options = fonts::FontLoadOptions::ExtendedLatin();
-            const f32 monoSizes[] = {10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 16.0f};
-            for (f32 size : monoSizes)
+            if (!m_config.monoFontPath.IsEmpty())
             {
-                options.pixelHeight = size;
                 (void)m_fontService->LoadFont(u8"Mono", m_config.monoFontPath.AsView(), options);
+            }
+        }
+        else
+        {
+            if (!m_config.fontPath.IsEmpty())
+            {
+                fonts::FontLoadOptions options = fonts::FontLoadOptions::ExtendedLatin();
+                // A full ramp so styles can pick small (property fields), regular, and
+                // heading sizes without falling back to a mismatched rasterization.
+                const f32 sizes[] = {10.0f, 11.0f, 12.0f, 13.0f, 14.0f,
+                                     16.0f, 18.0f, 20.0f, 24.0f, 32.0f};
+                for (f32 size : sizes)
+                {
+                    options.pixelHeight = size;
+                    (void)m_fontService->LoadFont(u8"Roboto", m_config.fontPath.AsView(),
+                                                  options);
+                }
+            }
+            if (!m_config.monoFontPath.IsEmpty())
+            {
+                // Fixed-pitch family for CodeEditView (script/shader/XML pages). Smaller ramp:
+                // code text only needs the field-to-heading range.
+                fonts::FontLoadOptions options = fonts::FontLoadOptions::ExtendedLatin();
+                const f32 monoSizes[] = {10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 16.0f};
+                for (f32 size : monoSizes)
+                {
+                    options.pixelHeight = size;
+                    (void)m_fontService->LoadFont(u8"Mono", m_config.monoFontPath.AsView(),
+                                                  options);
+                }
             }
         }
 
@@ -887,6 +921,10 @@ namespace draconic::editor::app
             m_runtimeContext.Shutdown();
         }
         EditorIcons::Get().Shutdown(); // release drawables deterministically
+        if (kUseDistanceFieldFonts)
+        {
+            fonts::DFFonts::Shutdown(); // unregister the MSDF baker (mirror of OnStartup)
+        }
     }
 
     void
