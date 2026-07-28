@@ -3,7 +3,7 @@
 add_library(DraconicEditorScript STATIC)
 add_library(Draconic::EditorScript ALIAS DraconicEditorScript)
 target_link_libraries(DraconicEditorScript PUBLIC
-    Draconic::Core Draconic::Content Draconic::RuntimeClient Draconic::UI
+    Draconic::Core Draconic::Content Draconic::RuntimeClient Draconic::UI Draconic::UIToolkit
     Draconic::Script Draconic::ScriptEditor Draconic::ScriptResource
     Draconic::EditorCore Draconic::EditorApp Draconic::Policy)
 target_sources(DraconicEditorScript PRIVATE ScriptPageImpl.cpp PUBLIC FILE_SET editor_script_modules TYPE CXX_MODULES FILES ScriptPage.cppm)

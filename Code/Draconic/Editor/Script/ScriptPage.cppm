@@ -1,13 +1,13 @@
 // Draconic::EditorScript - the `draconic.editor.script` module.
 //
-// ScriptEditorPage (scripting.md §5, "ScriptPage - phase 2"): an in-editor text editor for a
-// ScriptClassAsset's behavior source. It loads the asset's source file into the shared
-// multi-line EditText (undo/redo/selection are the widget's own), and Save writes the source
-// back + nudges the SAME recook the external-file edit takes (EditorContext::RequestCook), so a
-// running/simulating behavior hot-reloads through the existing ScriptSceneSystem product-swap
-// path. Compile errors are surfaced inline: Save (and a debounced type-check) compile-check the
-// buffer through the language cook and list the captured ScriptError file:line + message; a
-// failing compile keeps the last-good cooked product (the builder never writes on failure).
+// ScriptEditorPage (scripting.md §5, "ScriptPage - phase 2"): an in-editor code editor for a
+// ScriptClassAsset's behavior source, built on ui::toolkit::CodeEditView (code-editor.md P1):
+// monospace virtualized editing, a native gutter whose Breakpoint markers write through to the
+// shared EditorContext store (a Game run applies the same set to its debugger), and compile
+// errors mapped onto their lines as Error markers. Save writes the source back + nudges the
+// SAME recook the external-file edit takes (EditorContext::RequestCook), so a running/
+// simulating behavior hot-reloads through the existing ScriptSceneSystem product-swap path.
+// A failing compile keeps the last-good cooked product (the builder never writes on failure).
 //
 // Backend-neutral: the page never names a language. It resolves the cook + New-Asset starter
 // through the registries by the asset's language id, so it edits Wren and AngelScript alike.
@@ -22,6 +22,7 @@ import draconic.core;
 import draconic.content;
 import draconic.runtime.client;
 import draconic.ui;
+import draconic.ui.toolkit;
 import draconic.script;
 import draconic.script.editor;
 import draconic.editor.core;
@@ -33,27 +34,6 @@ export namespace draconic::editor
 {
     namespace ui = draconic::ui;
     namespace content = draconic::content;
-
-    // A clickable breakpoint gutter beside the source editor (script-debugger.md P1): click a
-    // line to toggle a breakpoint in the shared EditorContext store; a red dot marks each
-    // breakpoint line, aligned to the editor's line height + scroll. Contract-neutral - it
-    // only edits the store; a Game run applies the same set to its debugger.
-    class BreakpointGutter final : public ui::View
-    {
-    public:
-        EditorContext* context = nullptr; // the shared breakpoint store (borrowed)
-        ui::EditText* editor = nullptr;   // line-metric source (borrowed)
-        String file;                      // the source file these breakpoints key on
-
-        void OnMeasure(ui::BoxConstraints constraints) override;
-
-        void OnDraw(ui::UIDrawContext& ctx) override;
-
-        void OnMouseDown(ui::MouseEventArgs& e) override;
-
-    private:
-        static constexpr f32 kTopPad = 4.0f; // the editor's top text padding (Thickness{6,4})
-    };
 
     // The in-editor script text page. Pure UI over ScriptSourceDocument (the headless save +
     // compile-check model): the page owns the widget tree and forwards edits/Save to the model.
@@ -83,44 +63,38 @@ export namespace draconic::editor
             column->Direction = ui::Orientation::Vertical;
             column->Spacing = 4.0f;
 
-            // The source editor: the shared multi-line EditText (its own undo/redo/selection).
-            m_editor = MakeRef<ui::EditText>(DefaultAllocator());
-            m_editor->Multiline.SetValue(true);
+            // The source editor: CodeEditView owns the gutter, markers, undo, and completion
+            // (document-word provider; richer language providers arrive with code-editor P4).
+            m_editor = MakeRef<ui::toolkit::CodeEditView>(DefaultAllocator());
             m_editor->SetText(m_doc.Source());
             ScriptEditorPage* self = this;
             m_editor->OnTextChanged.Add(
-                [self](ui::EditText* edit)
+                [self]()
                 {
-                    self->m_doc.SetSource(edit->Text());
+                    self->m_doc.SetSource(self->m_editor->Text());
                     self->MarkDirty();
                     self->m_validateDelay = 0.6f; // debounce a background compile-check
                 });
 
-            // A horizontal row: [breakpoint gutter | source editor]. The gutter toggles
-            // breakpoints in the shared store; a Game run applies them to its debugger.
-            auto editorRow = MakeRef<ui::FlexLayout>(DefaultAllocator());
-            editorRow->Direction = ui::Orientation::Horizontal;
-            m_gutter = MakeRef<BreakpointGutter>(DefaultAllocator());
-            m_gutter->context = &context;
-            m_gutter->editor = m_editor.Get();
-            m_gutter->file = String(m_doc.FileName());
+            // Breakpoints are NATIVE markers now: seed from the shared store, and write every
+            // gutter toggle back through it (the store stays 1-based; the buffer is 0-based).
+            for (const EditorContext::ScriptBreakpoint& breakpoint : context.Breakpoints())
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
-                lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(24));
-                lp->Height = ui::SizeSpec::Match();
-                editorRow->AddView(m_gutter.Get(), lp);
+                if (breakpoint.file.AsView() == m_doc.FileName() && breakpoint.line >= 1)
+                {
+                    m_editor->Document().SetMarker(breakpoint.line - 1,
+                                                   ui::toolkit::CodeMarkers::Breakpoint);
+                }
             }
-            {
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
-                lp->Grow = 1.0f;
-                lp->Height = ui::SizeSpec::Match();
-                editorRow->AddView(m_editor.Get(), lp);
-            }
+            m_editor->OnBreakpointToggled.Add(
+                [self](i32 line, bool)
+                { self->m_context->ToggleBreakpoint(self->m_doc.FileName(), line + 1); });
+
             {
                 auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                 lp->Grow = 1.0f;
                 lp->Width = ui::SizeSpec::Match();
-                column->AddView(editorRow.Get(), lp);
+                column->AddView(m_editor.Get(), lp);
             }
 
             // A one-line compile status (OK / N error(s) / no cook).
@@ -155,9 +129,9 @@ export namespace draconic::editor
         void OnUpdate(draconic::runtime::IApplicationHost&, f32 dt) override;
 
     private:
-        // Compile-check the current buffer and repaint the status line + error list. Never
-        // touches the edit views' identity (only SetText on the read-only surfaces), so it is
-        // safe to call from an event dispatch without the UI mutation queue.
+        // Compile-check the current buffer, repaint the status line + error list, and project
+        // the errors onto the editor's lines as Error markers. Never touches view identity, so
+        // it is safe to call from an event dispatch without the UI mutation queue.
         void RefreshCompileStatus();
 
         static void AppendCount(String& out, usize value);
@@ -167,8 +141,7 @@ export namespace draconic::editor
         String m_title;
         f32 m_validateDelay = 0.0f;
         RefPtr<ui::View> m_content;
-        RefPtr<ui::EditText> m_editor;
-        RefPtr<BreakpointGutter> m_gutter;
+        RefPtr<ui::toolkit::CodeEditView> m_editor;
         RefPtr<ui::Label> m_status;
         RefPtr<ui::EditText> m_errorView;
     };

@@ -5,8 +5,9 @@
 // fonts, GameTheme, and VG path - into this page's offscreen target (a dedicated
 // preview RootView; it can never leak into game targets). What you see IS the game's
 // renderer looking at your document; drift is impossible by construction. The text
-// pane is the existing multi-line EditText (honest v1: no code-editor control yet);
-// edits rebuild the preview after a short debounce, parse failures keep the last good
+// pane is ui::toolkit::CodeEditView (monospace, virtualized, document-word completion;
+// the XML lexer + structured line diagnostics arrive with code-editor P2/P3); edits
+// rebuild the preview after a short debounce, parse failures keep the last good
 // preview with inline status, Save writes the asset + nudges the validating recook.
 
 module;
@@ -22,6 +23,7 @@ import draconic.graphics;
 import draconic.rhi;
 import draconic.vg.renderer;
 import draconic.ui;
+import draconic.ui.toolkit;
 import draconic.ui.resource;
 import draconic.ui.editor;
 import draconic.ui.runtime;
@@ -58,15 +60,15 @@ export namespace draconic::editor
             row->Direction = ui::Orientation::Horizontal;
             row->Spacing = 8.0f;
 
-            // Left: the text pane (v1 = the multi-line EditText).
-            m_editor = MakeRef<ui::EditText>(DefaultAllocator());
-            m_editor->Multiline.SetValue(true);
+            // Left: the text pane (CodeEditView - gutter, monospace, native undo).
+            m_editor = MakeRef<ui::toolkit::CodeEditView>(DefaultAllocator());
+            m_editor->AllowBreakpoints = false; // markup has no debugger; keep the margin quiet
             m_editor->SetText(m_markup.AsView());
             UIDocumentEditorPage* self = this;
             m_editor->OnTextChanged.Add(
-                [self](ui::EditText* edit)
+                [self]()
                 {
-                    self->m_markup = String(edit->Text());
+                    self->m_markup = self->m_editor->Text();
                     self->MarkDirty();
                     self->m_previewDelay = 0.35f; // debounce: rebuild shortly after typing stops
                 });
@@ -136,7 +138,7 @@ export namespace draconic::editor
         String m_markup;
         f32 m_previewDelay = 0.0f;
         RefPtr<ui::View> m_content;
-        RefPtr<ui::EditText> m_editor;
+        RefPtr<ui::toolkit::CodeEditView> m_editor;
         RefPtr<ui::Label> m_status;
         RefPtr<ui::viewport::ViewportView> m_viewport;
         RefPtr<ui::RootView> m_previewRoot; // lives in the RUNTIME context

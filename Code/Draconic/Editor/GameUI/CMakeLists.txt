@@ -2,7 +2,7 @@
 add_library(DraconicEditorGameUI STATIC)
 add_library(Draconic::EditorGameUI ALIAS DraconicEditorGameUI)
 target_link_libraries(DraconicEditorGameUI PUBLIC
-    Draconic::Core Draconic::Content Draconic::RuntimeClient Draconic::UI
+    Draconic::Core Draconic::Content Draconic::RuntimeClient Draconic::UI Draconic::UIToolkit
     Draconic::UIResource Draconic::UIEditor Draconic::UISubsystem Draconic::UIRuntime Draconic::UIViewport
     Draconic::Graphics Draconic::RHI Draconic::VGRenderer
     Draconic::EditorCore Draconic::EditorApp Draconic::Policy)
