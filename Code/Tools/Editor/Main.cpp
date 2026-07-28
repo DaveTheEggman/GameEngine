@@ -58,6 +58,7 @@ import draconic.ui.editor;
 import draconic.editor.gameui;
 import draconic.editor.audio;
 import draconic.editor.texture;
+import draconic.editor.image;
 import draconic.editor.script;
 import draconic.physics.subsystem;
 import draconic.modelimporter;
@@ -276,7 +277,9 @@ int main(int argc, char** argv)
         draconic::editor::RegisterInputEditor(app.Context(), host);
         draconic::editor::RegisterGameUIEditor(app.Context(), host, uiHost);
         draconic::editor::RegisterAudioClipEditor(app.Context(), host);
+        draconic::editor::RegisterBusLayoutEditor(app.Context(), host);
         draconic::editor::RegisterTextureEditor(app.Context());
+        draconic::editor::RegisterImageEditor(app.Context());
         // Script behavior page + per-backend "New Asset > <Lang> Script" creators (scripting.md
         // §5). RegisterScriptEditor fans creators over backends that have a registered COOK, so the
         // cooks must be registered FIRST — RegisterAllBuilders (below) also registers them for the
