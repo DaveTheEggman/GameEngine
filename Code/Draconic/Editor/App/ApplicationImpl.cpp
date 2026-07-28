@@ -119,6 +119,18 @@ namespace draconic::editor::app
                 (void)m_fontService->LoadFont(u8"Roboto", m_config.fontPath.AsView(), options);
             }
         }
+        if (!m_config.monoFontPath.IsEmpty())
+        {
+            // Fixed-pitch family for CodeEditView (script/shader/XML pages). Smaller ramp: code
+            // text only needs the field-to-heading range.
+            fonts::FontLoadOptions options = fonts::FontLoadOptions::ExtendedLatin();
+            const f32 monoSizes[] = {10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 16.0f};
+            for (f32 size : monoSizes)
+            {
+                options.pixelHeight = size;
+                (void)m_fontService->LoadFont(u8"Mono", m_config.monoFontPath.AsView(), options);
+            }
+        }
 
         LoadEditorSettings(); // per-user prefs (templates root, ...); absent on first run
         EditorIcons::Get().Initialize(); // shared SVG drawables (toolbar + asset types)

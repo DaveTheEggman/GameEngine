@@ -255,6 +255,8 @@ int main(int argc, char** argv)
     }
     config.fontPath =
         String(StringView(reinterpret_cast<const utf8char*>(DRACONIC_EDITOR_FONT_PATH)));
+    config.monoFontPath =
+        String(StringView(reinterpret_cast<const utf8char*>(DRACONIC_EDITOR_MONO_FONT_PATH)));
     config.logBuffer = &logBuffer;
 
     // Assembly (design doc §3.1): THIS is where the engine subsystems and per-subsystem editor

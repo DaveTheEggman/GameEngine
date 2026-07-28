@@ -15,7 +15,8 @@ target_link_libraries(RaptorEditor PRIVATE
     Draconic::Script Draconic::ScriptWren Draconic::ScriptAngelScript Draconic::ScriptResource Draconic::ScriptFacades Draconic::ScriptEditor Draconic::ScriptWrenEditor Draconic::ScriptAngelScriptEditor Draconic::ScriptSubsystem Draconic::EditorScript Draconic::UIResource Draconic::UIEditor Draconic::EditorGameUI Draconic::EditorAudio Draconic::EditorTexture Draconic::EditorImage Draconic::EditorGeneric Draconic::ModelImporter Draconic::ImageResource
     Draconic::AnimationResource)
 target_compile_definitions(RaptorEditor PRIVATE
-    DRACONIC_EDITOR_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf")
+    DRACONIC_EDITOR_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf"
+    DRACONIC_EDITOR_MONO_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/dejavu/DejaVuSansMono.ttf")
 # Copy SDL3.dll next to the executable on Windows (same as the samples' helper, which is
 # defined in Code/Samples/ and not visible here).
 draconic_copy_runtime_deps(RaptorEditor EXTRA ${DRACONIC_SDL3_DLL})

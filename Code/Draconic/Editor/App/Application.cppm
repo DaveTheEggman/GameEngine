@@ -60,7 +60,9 @@ export namespace draconic::editor::app
     {
         String projectDirectory; // opened on startup; scaffolded if no manifest yet
         String projectName = String(u8"Untitled"); // name used when scaffolding
-        String fontPath;                           // UI font (.ttf); empty = no text (debug only)
+        String fontPath;     // UI font (.ttf); empty = no text (debug only)
+        String monoFontPath; // fixed-pitch font (.ttf) for code editors; empty = no Mono family
+                             // (CodeEditView then falls back to the default family)
 
         // Log capture registered on GlobalLogger by main() BEFORE anything else runs, so early
         // startup logs reach the console panel. Borrowed; main owns it (outlives the app).
