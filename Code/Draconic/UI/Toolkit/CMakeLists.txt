@@ -45,10 +45,19 @@ target_sources(DraconicUIToolkit
             NodeGraphTypes.cppm
             NodeGraphCanvas.cppm
             DraggableTreeView.cppm
-            CodeDocument.cppm
-            CodeEditView.cppm
+            Code/CodeDocument.cppm
+            Code/CodeLexer.cppm
+            Code/CodeLexerScan.cppm
+            Code/CodeEditView.cppm
             ToolkitThemeExtension.cppm
             ToolkitModule.cppm)
+
+# Implementation units for the code-editor stack (declared in the Code/ partitions).
+target_sources(DraconicUIToolkit PRIVATE
+    Code/CodeHighlighter.cpp
+    Code/CLikeLexer.cpp
+    Code/XmlLexer.cpp
+    Code/CodeLexerRegistry.cpp)
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)

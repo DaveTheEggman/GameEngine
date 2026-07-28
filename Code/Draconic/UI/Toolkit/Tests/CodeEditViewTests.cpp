@@ -301,6 +301,32 @@ TEST_CASE("toolkit-codeeditview: AutoScrollKeepsCaretLineFullyVisible")
     CHECK(caretBottom >= lineH); // and on screen at all, not scrolled past
 }
 
+TEST_CASE("toolkit-codeeditview: CursorPerRegion")
+{
+    // Smoke finding (P2 pass): gutter + scrollbars showed the IBeam. The text area is IBeam;
+    // the gutter and the scrollbar children resolve to the arrow.
+    Harness h;
+    h.view->SetText(u8"one\ntwo");
+
+    const Float2 text = h.PointAt(0, 2);
+    (void)h.ctx.GetInputManager()->ProcessMouseMove(text.x, text.y);
+    CHECK(h.ctx.GetInputManager()->CurrentCursor() == CursorType::IBeam);
+
+    (void)h.ctx.GetInputManager()->ProcessMouseMove(6.0f, text.y); // marker margin
+    CHECK(h.ctx.GetInputManager()->CurrentCursor() == CursorType::Arrow);
+
+    // Overflow vertically so the scrollbar child exists, then hover it.
+    String longText;
+    for (i32 i = 0; i < 200; ++i)
+    {
+        longText.Append(u8"line\n");
+    }
+    h.view->SetText(longText.AsView());
+    h.LayoutPass();
+    (void)h.ctx.GetInputManager()->ProcessMouseMove(800.0f - 4.0f, 300.0f);
+    CHECK(h.ctx.GetInputManager()->CurrentCursor() == CursorType::Arrow);
+}
+
 TEST_CASE("toolkit-codeeditview: ReadOnlyBlocksEdits")
 {
     Harness h;

@@ -25,11 +25,47 @@ import draconic.vg;
 import draconic.fonts;
 import draconic.ui;
 import :code_document;
+import :code_lexer;
 
 using namespace draconic::core;
 
 export namespace draconic::ui::toolkit
 {
+
+    /// Colors per token kind (CodeTokenKind::Default always draws in the theme's TextColor).
+    /// A public field on CodeEditView so pages can restyle; the default set is tuned for the
+    /// dark editor themes (keywords lean into the Graphite & Orange accent).
+    struct CodeTokenColors
+    {
+        core::Color keyword{235.0f / 255.0f, 155.0f / 255.0f, 90.0f / 255.0f, 1.0f};
+        core::Color type{86.0f / 255.0f, 182.0f / 255.0f, 194.0f / 255.0f, 1.0f};
+        core::Color number{220.0f / 255.0f, 190.0f / 255.0f, 120.0f / 255.0f, 1.0f};
+        core::Color string{152.0f / 255.0f, 195.0f / 255.0f, 121.0f / 255.0f, 1.0f};
+        core::Color comment{110.0f / 255.0f, 120.0f / 255.0f, 130.0f / 255.0f, 1.0f};
+        core::Color op{170.0f / 255.0f, 178.0f / 255.0f, 190.0f / 255.0f, 1.0f};
+        core::Color punctuation{150.0f / 255.0f, 158.0f / 255.0f, 170.0f / 255.0f, 1.0f};
+        core::Color preprocessor{198.0f / 255.0f, 120.0f / 255.0f, 221.0f / 255.0f, 1.0f};
+        core::Color tag{97.0f / 255.0f, 175.0f / 255.0f, 239.0f / 255.0f, 1.0f};
+        core::Color attribute{229.0f / 255.0f, 192.0f / 255.0f, 123.0f / 255.0f, 1.0f};
+
+        [[nodiscard]] core::Color For(CodeTokenKind kind, core::Color defaultColor) const noexcept
+        {
+            switch (kind)
+            {
+                case CodeTokenKind::Keyword:      return keyword;
+                case CodeTokenKind::Type:         return type;
+                case CodeTokenKind::Number:       return number;
+                case CodeTokenKind::String:       return string;
+                case CodeTokenKind::Comment:      return comment;
+                case CodeTokenKind::Operator:     return op;
+                case CodeTokenKind::Punctuation:  return punctuation;
+                case CodeTokenKind::Preprocessor: return preprocessor;
+                case CodeTokenKind::Tag:          return tag;
+                case CodeTokenKind::Attribute:    return attribute;
+                default:                          return defaultColor;
+            }
+        }
+    };
 
     // ---- completion seam ---------------------------------------------------------------------
 
@@ -264,7 +300,18 @@ export namespace draconic::ui::toolkit
                     self->Invalidate();
                 }});
 
-            m_doc.OnLinesChanged = [self](i32, i32, i32) { self->m_maxLineDirty = true; };
+            m_doc.OnLinesChanged = [self](i32 first, i32 removed, i32 added)
+            {
+                self->m_maxLineDirty = true;
+                self->m_highlighter.OnLinesChanged(first, removed, added);
+            };
+        }
+
+        /// IBeam over the text area only; the gutter is a click-target (breakpoints), so it
+        /// gets the arrow. The scrollbars are children carrying their own Arrow cursor.
+        [[nodiscard]] CursorType CursorAt(Float2 localPoint) const override
+        {
+            return localPoint.x < GutterWidth() ? CursorType::Arrow : CursorType::IBeam;
         }
 
         [[nodiscard]] bool WantsTextInput() const override
@@ -344,6 +391,22 @@ export namespace draconic::ui::toolkit
 
         /// Opens the popup at the current word (explicit Ctrl+Space path; also used by tests).
         void RequestCompletion() { OpenCompletion(true); }
+
+        // ---- syntax highlighting ----
+
+        /// Colors per token kind; restyle freely (public field like the other knobs).
+        CodeTokenColors TokenColors;
+
+        /// Takes ownership. Null disables highlighting (plain single-color text).
+        void SetLexer(UniquePtr<ICodeLexer> lexer)
+        {
+            m_lexer = Move(lexer);
+            m_highlighter.SetLexer(m_lexer.Get());
+            m_highlighter.Reset(m_doc.LineCount());
+            Invalidate();
+        }
+
+        [[nodiscard]] CodeHighlighter& Highlighter() noexcept { return m_highlighter; }
 
         // ---- metrics (fallbacks keep headless tests working without a font service) ----
 
@@ -674,6 +737,10 @@ export namespace draconic::ui::toolkit
             const i32 lastLine = Min(m_doc.LineCount() - 1,
                                      static_cast<i32>((m_scrollY + m_viewportH) / lineH) + 1);
             const CodeSpan selection = Selection();
+            if (m_highlighter.HasLexer())
+            {
+                m_highlighter.EnsureLexed(m_doc, lastLine);
+            }
 
             // Text region, CLIPPED to the right of the gutter: horizontally scrolled text
             // must never bleed under the gutter (first smoke-run finding). The gutter itself
@@ -716,11 +783,29 @@ export namespace draconic::ui::toolkit
                         selectionColor);
                 }
 
-                // The text itself.
+                // The text itself: styled token runs when a lexer is set, else one draw.
                 if (font != nullptr && !m_doc.Line(line).IsEmpty())
                 {
-                    ctx.VG().DrawText(m_doc.Line(line), font,
-                                      Float2{textLeft, lineTop + ascent}, textColor);
+                    const Span<const CodeToken> tokens = m_highlighter.TokensFor(line);
+                    if (m_highlighter.HasLexer() && tokens.Size() > 0)
+                    {
+                        const StringView text = m_doc.Line(line);
+                        for (usize t = 0; t < tokens.Size(); ++t)
+                        {
+                            const CodeToken& token = tokens[t];
+                            ctx.VG().DrawText(
+                                text.SubStr(token.byteBegin, token.byteEnd - token.byteBegin),
+                                font,
+                                Float2{textLeft + static_cast<f32>(token.column) * advance,
+                                       lineTop + ascent},
+                                TokenColors.For(token.kind, textColor));
+                        }
+                    }
+                    else if (!m_highlighter.HasLexer())
+                    {
+                        ctx.VG().DrawText(m_doc.Line(line), font,
+                                          Float2{textLeft, lineTop + ascent}, textColor);
+                    }
                 }
             }
 
@@ -1548,6 +1633,9 @@ export namespace draconic::ui::toolkit
         bool m_pendingCursorScroll = false;
         bool m_dragging = false;
         f32 m_blinkReset = 0.0f;
+
+        UniquePtr<ICodeLexer> m_lexer;
+        CodeHighlighter m_highlighter;
 
         CompletionModel m_completion;
         DocumentWordCompletionProvider m_wordProvider;

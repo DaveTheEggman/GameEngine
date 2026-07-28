@@ -43,5 +43,6 @@ export import :node_graph_canvas;
 export import :draggable_tree_view;
 export import :toast_host;
 export import :code_document;
+export import :code_lexer;
 export import :code_edit_view;
 export import :toolkit_theme_extension;
