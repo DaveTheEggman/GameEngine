@@ -14,6 +14,7 @@ module;
 export module draconic.editor.audio;
 
 export import :sound_cue_page;
+export import :bus_layout_page;
 
 import draconic.core;
 import draconic.content;
