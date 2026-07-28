@@ -609,6 +609,7 @@ export namespace draconic::rhi::dx12
         CommandBuffer* Finish() override
         {
             m_cmdList->Close();
+            m_pool->markEncoderFinished(); // list closed - the pool may now Reset safely
             auto* cb = m_allocator.New<DxCommandBufferImpl>(m_cmdList);
             m_pool->trackCommandBuffer(cb);
             return cb;
@@ -781,20 +782,16 @@ export namespace draconic::rhi::dx12
                 }
             }
 
-            if (dxGroup->samplerOffset() >= 0 && dxLayout && dxLayout->samplerCount() > 0)
+            // Sampler table is baked at bind-group creation - bind it directly (no staging).
+            if (dxGroup->gpuSamplerOffset() >= 0 && dxLayout && dxLayout->samplerCount() > 0)
             {
                 i32 rootIdx = layout->getSamplerRootIndex(index);
                 if (rootIdx >= 0)
                 {
-                    i32 stagedOffset = m_pool->samplerStaging()->copyFrom(
-                        static_cast<u32>(dxGroup->samplerOffset()), dxLayout->samplerCount());
-                    if (stagedOffset >= 0)
-                    {
-                        auto gpuHandle =
-                            m_gpuSamplerHeap->getGpuHandle(static_cast<u32>(stagedOffset));
-                        m_cmdList->SetComputeRootDescriptorTable(static_cast<UINT>(rootIdx),
-                                                                 gpuHandle);
-                    }
+                    auto gpuHandle = m_gpuSamplerHeap->getGpuHandle(
+                        static_cast<u32>(dxGroup->gpuSamplerOffset()));
+                    m_cmdList->SetComputeRootDescriptorTable(static_cast<UINT>(rootIdx),
+                                                             gpuHandle);
                 }
             }
 
@@ -901,7 +898,6 @@ export namespace draconic::rhi::dx12
         [[nodiscard]] ID3D12GraphicsCommandList* cmdList() const { return m_cmdList; }
         [[nodiscard]] DxDeviceImpl* ownerDevice() const { return m_device; }
         [[nodiscard]] DxDescriptorStaging* srvStaging() { return m_pool->srvStaging(); }
-        [[nodiscard]] DxDescriptorStaging* samplerStaging() { return m_pool->samplerStaging(); }
 
         // ================================================================
         // Static helpers

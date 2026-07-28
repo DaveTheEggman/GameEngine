@@ -40,11 +40,14 @@ export namespace draconic::rhi::dx12
             if (FAILED(hr))
                 return ErrorCode::Unknown;
 
-            // Create descriptor staging (shared by all encoders from this pool).
+            // Create SRV descriptor staging (shared by all encoders from this pool).
+            // Samplers are NOT staged: the shader-visible sampler heap is hard-capped at 2048
+            // by D3D12, which cannot fit per-pool staging blocks - sampler tables are baked
+            // into that heap once at bind-group creation instead (see DxBindGroup).
+            (void)cpuSamplerHeap;
+            (void)gpuSamplerHeap;
             m_srvStaging.init(cpuSrvHeap, gpuSrvHeap, d3dDevice,
                               D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1024);
-            m_samplerStaging.init(cpuSamplerHeap, gpuSamplerHeap, d3dDevice,
-                                  D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 64);
 
             return ErrorCode::Ok;
         }
@@ -56,13 +59,19 @@ export namespace draconic::rhi::dx12
 
         void Reset() override
         {
+            // Contract: every encoder has called Finish (closing its list) before Reset.
+            // DX12 cannot reset an allocator while one of its lists is recording -
+            // surface the violation here instead of via a cryptic driver error.
+            if (m_unfinishedEncoders != 0)
+                LogErrorf("DxCommandPool::Reset: %d encoder(s) still recording (Finish not "
+                          "called); ID3D12CommandAllocator::Reset will fail",
+                          static_cast<int>(m_unfinishedEncoders));
             releaseCommandBuffers();
             // Render bundles minted this cycle die at the frame boundary (fence-guarded).
             releaseBundleEncoders();
             // Reset descriptor staging -- GPU is done (fence waited), so staging
             // bump pointers can safely return to start.
             m_srvStaging.Reset();
-            m_samplerStaging.Reset();
             m_allocator->Reset();
         }
 
@@ -71,7 +80,6 @@ export namespace draconic::rhi::dx12
             releaseCommandBuffers();
             releaseBundleEncoders();
             m_srvStaging.Destroy();
-            m_samplerStaging.Destroy();
             m_allocator.Reset();
         }
 
@@ -79,11 +87,17 @@ export namespace draconic::rhi::dx12
         [[nodiscard]] ID3D12CommandAllocator* handle() const { return m_allocator.Get(); }
         [[nodiscard]] DxDeviceImpl* ownerDevice() const { return m_device; }
         [[nodiscard]] DxDescriptorStaging* srvStaging() { return &m_srvStaging; }
-        [[nodiscard]] DxDescriptorStaging* samplerStaging() { return &m_samplerStaging; }
         [[nodiscard]] IAllocator& allocator() const { return *m_allocPtr; }
 
         /// Called by DxCommandEncoderImpl::finish() to register a command buffer with this pool.
         void trackCommandBuffer(DxCommandBufferImpl* cb) { m_trackedBuffers.PushBack(cb); }
+
+        /// Called by DxCommandEncoderImpl::Finish() -- its command list is now closed.
+        void markEncoderFinished()
+        {
+            if (m_unfinishedEncoders > 0)
+                --m_unfinishedEncoders;
+        }
 
     private:
         void releaseCommandBuffers()
@@ -106,8 +120,8 @@ export namespace draconic::rhi::dx12
         D3D12_COMMAND_LIST_TYPE m_type = D3D12_COMMAND_LIST_TYPE_DIRECT;
         Array<DxCommandBufferImpl*> m_trackedBuffers;
         Array<RenderBundleEncoder*> m_trackedBundleEncoders; // bundle wrappers, freed on Reset
+        i32 m_unfinishedEncoders = 0; // encoders created whose Finish has not run yet
         DxDescriptorStaging m_srvStaging;
-        DxDescriptorStaging m_samplerStaging;
     };
 
 } // namespace draconic::rhi::dx12

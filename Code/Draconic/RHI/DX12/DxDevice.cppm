@@ -95,7 +95,12 @@ export namespace draconic::rhi::dx12
             m_samplerHeap.init(m_device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 256);
 
             // --- GPU-visible descriptor heaps (shader-visible) ---
-            m_gpuSrvHeap.init(m_device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 65536, true);
+            // SRV heap sized to the Tier-1 guarantee (1M): per-pool descriptor staging blocks
+            // (framesInFlight x jobSlots pools x 1024+) exhausted a 64K heap under multi-view
+            // loads - allocate() then fails, SetBindGroup goes stale, and draws sample garbage.
+            // The sampler heap is capped at 2048 by D3D12; staging spends it frugally instead.
+            m_gpuSrvHeap.init(m_device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1000000,
+                              true);
             m_gpuSamplerHeap.init(m_device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 2048, true);
 
             // --- CPU-visible descriptor heaps (non-shader-visible, bind groups write here) ---
@@ -300,7 +305,8 @@ export namespace draconic::rhi::dx12
         Status CreateBindGroup(const BindGroupDesc& d, BindGroup*& out) override
         {
             auto* g = m_allocator.New<DxBindGroupImpl>();
-            if (g->init(m_device.Get(), d, &m_cpuSrvHeap, &m_cpuSamplerHeap) != ErrorCode::Ok)
+            if (g->init(m_device.Get(), d, &m_cpuSrvHeap, &m_cpuSamplerHeap, &m_gpuSamplerHeap) !=
+                ErrorCode::Ok)
             {
                 m_allocator.Delete(g);
                 out = nullptr;
@@ -1278,7 +1284,6 @@ export namespace draconic::rhi::dx12
         DxRenderPassContext rpeCtx{};
         rpeCtx.cmdList = cmdList;
         rpeCtx.srvStaging = &m_srvStaging;
-        rpeCtx.samplerStaging = &m_samplerStaging;
         rpeCtx.gpuSrvHeap = m_device->gpuSrvHeap();
         rpeCtx.gpuSamplerHeap = m_device->gpuSamplerHeap();
         rpeCtx.drawSig = m_device->drawSignature();
@@ -1288,13 +1293,13 @@ export namespace draconic::rhi::dx12
         DxComputePassContext cpeCtx{};
         cpeCtx.cmdList = cmdList;
         cpeCtx.srvStaging = &m_srvStaging;
-        cpeCtx.samplerStaging = &m_samplerStaging;
         cpeCtx.gpuSrvHeap = m_device->gpuSrvHeap();
         cpeCtx.gpuSamplerHeap = m_device->gpuSamplerHeap();
         cpeCtx.dispatchSig = m_device->dispatchSignature();
 
         auto* enc = m_allocPtr->New<DxCommandEncoderImpl>(m_device, cmdList, this, rpeCtx, cpeCtx,
                                                           *m_allocPtr);
+        ++m_unfinishedEncoders; // balanced by Finish() closing the list
         out = enc;
         return ErrorCode::Ok;
     }
@@ -1332,7 +1337,6 @@ export namespace draconic::rhi::dx12
         DxRenderPassContext ctx{};
         ctx.cmdList = list.Get();
         ctx.srvStaging = &m_srvStaging;
-        ctx.samplerStaging = &m_samplerStaging;
         ctx.gpuSrvHeap = m_device->gpuSrvHeap();
         ctx.gpuSamplerHeap = m_device->gpuSamplerHeap();
         ctx.drawSig = m_device->drawSignature();

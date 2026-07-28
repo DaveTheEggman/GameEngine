@@ -31,7 +31,6 @@ export namespace draconic::rhi::dx12
     {
         ID3D12GraphicsCommandList* cmdList = nullptr;
         DxDescriptorStaging* srvStaging = nullptr;
-        DxDescriptorStaging* samplerStaging = nullptr;
         DxGpuDescriptorHeap* gpuSrvHeap = nullptr;
         DxGpuDescriptorHeap* gpuSamplerHeap = nullptr;
         // Indirect command signature (cached on device).
@@ -90,20 +89,15 @@ export namespace draconic::rhi::dx12
                 }
             }
 
-            if (dxGroup->samplerOffset() >= 0 && dxLayout && dxLayout->samplerCount() > 0)
+            // Sampler table is baked at bind-group creation - bind it directly (no staging).
+            if (dxGroup->gpuSamplerOffset() >= 0 && dxLayout && dxLayout->samplerCount() > 0)
             {
                 i32 rootIdx = layout->getSamplerRootIndex(index);
                 if (rootIdx >= 0)
                 {
-                    i32 stagedOffset = m_ctx.samplerStaging->copyFrom(
-                        static_cast<u32>(dxGroup->samplerOffset()), dxLayout->samplerCount());
-                    if (stagedOffset >= 0)
-                    {
-                        auto gpuHandle =
-                            m_ctx.gpuSamplerHeap->getGpuHandle(static_cast<u32>(stagedOffset));
-                        cmdList->SetComputeRootDescriptorTable(static_cast<UINT>(rootIdx),
-                                                               gpuHandle);
-                    }
+                    auto gpuHandle = m_ctx.gpuSamplerHeap->getGpuHandle(
+                        static_cast<u32>(dxGroup->gpuSamplerOffset()));
+                    cmdList->SetComputeRootDescriptorTable(static_cast<UINT>(rootIdx), gpuHandle);
                 }
             }
 

@@ -31,12 +31,13 @@ export namespace draconic::rhi::dx12
     {
     public:
         Status init(ID3D12Device* device, const BindGroupDesc& d, DxGpuDescriptorHeap* cpuSrvHeap,
-                    DxGpuDescriptorHeap* cpuSamplerHeap)
+                    DxGpuDescriptorHeap* cpuSamplerHeap, DxGpuDescriptorHeap* gpuSamplerHeap)
         {
             m_device = device;
             m_layout = static_cast<DxBindGroupLayoutImpl*>(d.layout);
             m_cpuSrvHeap = cpuSrvHeap;
             m_cpuSamplerHeap = cpuSamplerHeap;
+            m_gpuSamplerHeap = gpuSamplerHeap;
             if (!m_layout)
                 return ErrorCode::Unknown;
 
@@ -54,6 +55,13 @@ export namespace draconic::rhi::dx12
             {
                 m_samplerOffset = cpuSamplerHeap->allocate(m_cachedSamplerCount);
                 if (m_samplerOffset < 0)
+                    return ErrorCode::Unknown;
+                // Samplers are BAKED into the shader-visible heap once, at creation (the
+                // bind group is immutable) - SetBindGroup binds this table directly. The
+                // heap's hard 2048 cap cannot fit per-draw copy-on-bind staging, so
+                // samplers (unlike CBV/SRV/UAV tables) never go through staging.
+                m_gpuSamplerOffset = gpuSamplerHeap->allocate(m_cachedSamplerCount);
+                if (m_gpuSamplerOffset < 0)
                     return ErrorCode::Unknown;
             }
 
@@ -93,12 +101,18 @@ export namespace draconic::rhi::dx12
                 m_cpuSrvHeap->free(static_cast<u32>(m_cbvSrvUavOffset), m_cachedCbvSrvUavCount);
             if (m_samplerOffset >= 0 && m_cachedSamplerCount > 0)
                 m_cpuSamplerHeap->free(static_cast<u32>(m_samplerOffset), m_cachedSamplerCount);
+            if (m_gpuSamplerOffset >= 0 && m_cachedSamplerCount > 0)
+                m_gpuSamplerHeap->free(static_cast<u32>(m_gpuSamplerOffset),
+                                       m_cachedSamplerCount);
             m_cbvSrvUavOffset = -1;
             m_samplerOffset = -1;
+            m_gpuSamplerOffset = -1;
         }
 
         [[nodiscard]] i32 cbvSrvUavOffset() const { return m_cbvSrvUavOffset; }
         [[nodiscard]] i32 samplerOffset() const { return m_samplerOffset; }
+        /// Offset of this group's baked sampler table in the shader-visible sampler heap.
+        [[nodiscard]] i32 gpuSamplerOffset() const { return m_gpuSamplerOffset; }
         [[nodiscard]] Span<const u64> dynamicGpuAddresses() const
         {
             return {m_dynAddrs.Data(), m_dynAddrs.Size()};
@@ -238,21 +252,28 @@ export namespace draconic::rhi::dx12
 
         void writeSampler(const BindGroupEntry& e, const DxBindingRangeInfo& r, u32 arrayIdx = 0)
         {
+            auto* s = static_cast<DxSamplerImpl*>(e.sampler);
+            if (!s)
+                return;
             u32 off = static_cast<u32>(m_samplerOffset) + r.heapOffset + arrayIdx;
-            D3D12_CPU_DESCRIPTOR_HANDLE dest = m_cpuSamplerHeap->getCpuHandle(off);
-            if (auto* s = static_cast<DxSamplerImpl*>(e.sampler))
-                m_device->CopyDescriptorsSimple(1, dest, s->handle(),
-                                                D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+            m_device->CopyDescriptorsSimple(1, m_cpuSamplerHeap->getCpuHandle(off), s->handle(),
+                                            D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+            // Mirror into the baked shader-visible table (bound directly at SetBindGroup).
+            u32 gpuOff = static_cast<u32>(m_gpuSamplerOffset) + r.heapOffset + arrayIdx;
+            m_device->CopyDescriptorsSimple(1, m_gpuSamplerHeap->getCpuHandle(gpuOff), s->handle(),
+                                            D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
         }
 
         ID3D12Device* m_device = nullptr;
         DxBindGroupLayoutImpl* m_layout = nullptr;
         DxGpuDescriptorHeap* m_cpuSrvHeap = nullptr;
         DxGpuDescriptorHeap* m_cpuSamplerHeap = nullptr;
+        DxGpuDescriptorHeap* m_gpuSamplerHeap = nullptr;
         u32 m_cachedCbvSrvUavCount = 0;
         u32 m_cachedSamplerCount = 0;
         i32 m_cbvSrvUavOffset = -1;
         i32 m_samplerOffset = -1;
+        i32 m_gpuSamplerOffset = -1; // baked table in the shader-visible sampler heap
         Array<u64> m_dynAddrs;
     };
 
