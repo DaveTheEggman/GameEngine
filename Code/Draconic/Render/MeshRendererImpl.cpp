@@ -38,7 +38,8 @@ namespace draconic::render
             0, rhi::ShaderStage::Vertex | rhi::ShaderStage::Fragment);
         viewEntry.hasDynamicOffset = true;
         rhi::BindGroupLayoutEntry lightEntry = rhi::BindGroupLayoutEntry::StorageBuffer(
-            0, rhi::ShaderStage::Fragment, /*readOnly*/ true);
+            0, rhi::ShaderStage::Fragment, /*readOnly*/ true,
+            /*stride*/ sizeof(GpuLight)); // StructuredBuffer<GpuLight>
         // Directional shadow map (t1) + comparison sampler (s0) live in set 0 (the bind-group budget
         // is 4 SETS, not 4 bindings - shadows fold into the view set rather than needing a 5th set).
         rhi::BindGroupLayoutEntry shadowTexEntry = rhi::BindGroupLayoutEntry::SampledTexture(
@@ -47,7 +48,8 @@ namespace draconic::render
         rhi::BindGroupLayoutEntry atlasTexEntry = rhi::BindGroupLayoutEntry::SampledTexture(
             2, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2DArray);
         rhi::BindGroupLayoutEntry localShadowEntry = rhi::BindGroupLayoutEntry::StorageBuffer(
-            3, rhi::ShaderStage::Fragment, /*readOnly*/ true);
+            3, rhi::ShaderStage::Fragment, /*readOnly*/ true,
+            /*stride*/ sizeof(GpuLocalShadow)); // StructuredBuffer<GpuLocalShadow>
         rhi::BindGroupLayoutEntry shadowSampEntry{};
         shadowSampEntry.binding = 0;
         shadowSampEntry.visibility = rhi::ShaderStage::Fragment;
@@ -55,11 +57,13 @@ namespace draconic::render
         // t4: the GPU skinning bone-matrix pool (Vertex-visible SRV). Bound on every set-0 BG; the
         // forward VS only reads it under the SKINNED permutation.
         rhi::BindGroupLayoutEntry boneEntry = rhi::BindGroupLayoutEntry::StorageBuffer(
-            4, rhi::ShaderStage::Vertex, /*readOnly*/ true);
+            4, rhi::ShaderStage::Vertex, /*readOnly*/ true,
+            /*stride*/ sizeof(Float4x4)); // StructuredBuffer<BoneMatrix> (4x float4)
         // IBL (phase 6) folds into set 0 too: SH9 diffuse coeffs (t5, SRV), prefiltered specular cube
         // (t6), BRDF LUT (t7), + a linear-clamp env sampler (s1, distinct from the comparison sampler s0).
         rhi::BindGroupLayoutEntry iblShEntry = rhi::BindGroupLayoutEntry::StorageBuffer(
-            5, rhi::ShaderStage::Fragment, /*readOnly*/ true);
+            5, rhi::ShaderStage::Fragment, /*readOnly*/ true,
+            /*stride*/ 16); // StructuredBuffer<float4> IblSH
         rhi::BindGroupLayoutEntry prefilterEntry = rhi::BindGroupLayoutEntry::SampledTexture(
             6, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::TextureCube);
         rhi::BindGroupLayoutEntry brdfEntry = rhi::BindGroupLayoutEntry::SampledTexture(
@@ -70,7 +74,8 @@ namespace draconic::render
         rhi::BindGroupLayoutEntry probeEntry = rhi::BindGroupLayoutEntry::SampledTexture(
             8, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::TextureCubeArray);
         rhi::BindGroupLayoutEntry probeBufEntry = rhi::BindGroupLayoutEntry::StorageBuffer(
-            9, rhi::ShaderStage::Fragment, /*readOnly*/ true);
+            9, rhi::ShaderStage::Fragment, /*readOnly*/ true,
+            /*stride*/ 64); // StructuredBuffer<GpuProbe> (4x float4, see ReflectionProbeSystem)
         rhi::BindGroupLayoutEntry set0[] = {
             viewEntry,       lightEntry, shadowTexEntry, atlasTexEntry,  localShadowEntry,
             shadowSampEntry, boneEntry,  iblShEntry,     prefilterEntry, brdfEntry,
@@ -93,7 +98,8 @@ namespace draconic::render
 
         // set 1 (instanced): per-instance StructuredBuffer (read-only storage).
         rhi::BindGroupLayoutEntry instEntry = rhi::BindGroupLayoutEntry::StorageBuffer(
-            0, rhi::ShaderStage::Vertex, /*readOnly*/ true);
+            0, rhi::ShaderStage::Vertex, /*readOnly*/ true,
+            /*stride*/ sizeof(InstanceData)); // StructuredBuffer<InstanceData>
         if (!MakeLayout(instEntry, m_instanceLayout))
         {
             return Status{ErrorCode::Unknown};
@@ -108,9 +114,11 @@ namespace draconic::render
 
         // set 3: clustered light lists - per-cluster (offset,count) SRV (t0) + flat index SRV (t1).
         rhi::BindGroupLayoutEntry clOffEntry = rhi::BindGroupLayoutEntry::StorageBuffer(
-            0, rhi::ShaderStage::Fragment, /*readOnly*/ true);
+            0, rhi::ShaderStage::Fragment, /*readOnly*/ true,
+            /*stride*/ 8); // StructuredBuffer<uint2> ClusterOffsets
         rhi::BindGroupLayoutEntry clIdxEntry = rhi::BindGroupLayoutEntry::StorageBuffer(
-            1, rhi::ShaderStage::Fragment, /*readOnly*/ true);
+            1, rhi::ShaderStage::Fragment, /*readOnly*/ true,
+            /*stride*/ 4); // StructuredBuffer<uint> ClusterLightIndices
         rhi::BindGroupLayoutEntry set3[] = {clOffEntry, clIdxEntry};
         rhi::BindGroupLayoutDesc s3d{};
         s3d.entries = Span<const rhi::BindGroupLayoutEntry>{set3, 2};
@@ -133,7 +141,8 @@ namespace draconic::render
         shadowViewEntry.hasDynamicOffset = true;
         // set 0 also carries the skinning bone-matrix pool (t4) so skinned casters deform their shadow.
         rhi::BindGroupLayoutEntry shadowBoneEntry = rhi::BindGroupLayoutEntry::StorageBuffer(
-            4, rhi::ShaderStage::Vertex, /*readOnly*/ true);
+            4, rhi::ShaderStage::Vertex, /*readOnly*/ true,
+            /*stride*/ sizeof(Float4x4)); // StructuredBuffer<BoneMatrix> (4x float4)
         rhi::BindGroupLayoutEntry shadowSet0[] = {shadowViewEntry, shadowBoneEntry};
         rhi::BindGroupLayoutDesc svd{};
         svd.entries = Span<const rhi::BindGroupLayoutEntry>{shadowSet0, 2};

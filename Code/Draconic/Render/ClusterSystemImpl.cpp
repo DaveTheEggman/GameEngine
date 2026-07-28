@@ -46,11 +46,14 @@ namespace draconic::render
             rhi::BindGroupLayoutEntry::UniformBuffer(0, rhi::ShaderStage::Compute);
         paramsEntry.hasDynamicOffset = true;
         rhi::BindGroupLayoutEntry lightsEntry = rhi::BindGroupLayoutEntry::StorageBuffer(
-            0, rhi::ShaderStage::Compute, /*readOnly*/ true);
+            0, rhi::ShaderStage::Compute, /*readOnly*/ true,
+            /*stride*/ sizeof(GpuLight)); // StructuredBuffer<GpuLight>
         rhi::BindGroupLayoutEntry offsetsEntry = rhi::BindGroupLayoutEntry::StorageBuffer(
-            0, rhi::ShaderStage::Compute, /*readOnly*/ false);
+            0, rhi::ShaderStage::Compute, /*readOnly*/ false,
+            /*stride*/ 8); // RWStructuredBuffer<uint2>
         rhi::BindGroupLayoutEntry indicesEntry = rhi::BindGroupLayoutEntry::StorageBuffer(
-            1, rhi::ShaderStage::Compute, /*readOnly*/ false);
+            1, rhi::ShaderStage::Compute, /*readOnly*/ false,
+            /*stride*/ 4); // RWStructuredBuffer<uint>
         rhi::BindGroupLayoutEntry set0[] = {paramsEntry, lightsEntry, offsetsEntry, indicesEntry};
         rhi::BindGroupLayoutDesc ld{};
         ld.entries = Span<const rhi::BindGroupLayoutEntry>{set0, 4};

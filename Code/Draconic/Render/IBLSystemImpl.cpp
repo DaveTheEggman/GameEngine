@@ -877,7 +877,8 @@ namespace draconic::render
         rhi::BindGroupLayoutEntry shSamp =
             rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Compute);
         rhi::BindGroupLayoutEntry shOut = rhi::BindGroupLayoutEntry::StorageBuffer(
-            0, rhi::ShaderStage::Compute, /*readOnly*/ false);
+            0, rhi::ShaderStage::Compute, /*readOnly*/ false,
+            /*stride*/ 16); // RWStructuredBuffer<float4> ShOut
         rhi::BindGroupLayoutEntry shEntries[] = {shTex, shSamp, shOut};
         rhi::BindGroupLayoutDesc shLd{};
         shLd.entries = Span<const rhi::BindGroupLayoutEntry>{shEntries, 3};

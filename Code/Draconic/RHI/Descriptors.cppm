@@ -166,15 +166,20 @@ export namespace draconic::rhi
             return e;
         }
 
-        /// Factory: storage buffer (read-write) binding.
+        /// Factory: storage buffer binding. `stride` is the HLSL element size when the
+        /// shader declares (RW)StructuredBuffer<T> — REQUIRED on DX12, where the SRV/UAV
+        /// descriptor is built structured (stride) or raw (0, ByteAddressBuffer). A raw
+        /// descriptor bound to a StructuredBuffer<T> shader is undefined behavior on DX12
+        /// (garbage reads). Vulkan ignores it (SSBOs are unstructured).
         static BindGroupLayoutEntry StorageBuffer(u32 binding, ShaderStage vis,
-                                                  bool readOnly = false)
+                                                  bool readOnly = false, u32 stride = 0)
         {
             BindGroupLayoutEntry e{};
             e.binding = binding;
             e.visibility = vis;
             e.type =
                 readOnly ? BindingType::StorageBufferReadOnly : BindingType::StorageBufferReadWrite;
+            e.storageBufferStride = stride;
             return e;
         }
     };
