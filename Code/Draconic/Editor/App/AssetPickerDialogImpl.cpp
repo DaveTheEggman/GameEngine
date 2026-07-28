@@ -33,6 +33,11 @@ namespace draconic::editor::app
 {
     bool AssetPickerDialog::TypeMatches(content::Instance& instance) const
     {
+        // An EMPTY filter matches every type (the generic asset page's untyped guid picker).
+        if (m_typeNames.IsEmpty())
+        {
+            return true;
+        }
         for (const String& typeName : m_typeNames)
         {
             if (instance.TypeName() == typeName.AsView())

@@ -59,6 +59,7 @@ import draconic.editor.gameui;
 import draconic.editor.audio;
 import draconic.editor.texture;
 import draconic.editor.image;
+import draconic.editor.generic;
 import draconic.editor.script;
 import draconic.physics.subsystem;
 import draconic.modelimporter;
@@ -280,6 +281,10 @@ int main(int argc, char** argv)
         draconic::editor::RegisterBusLayoutEditor(app.Context(), host);
         draconic::editor::RegisterTextureEditor(app.Context());
         draconic::editor::RegisterImageEditor(app.Context());
+        // The FALLBACK page registers like any factory: nearest-base dispatch routes every
+        // bespoke page first; anything else lands on the generic serialize-driven form
+        // instead of the hard "No editor registered" failure.
+        draconic::editor::RegisterGenericAssetEditor(app.Context());
         // Script behavior page + per-backend "New Asset > <Lang> Script" creators (scripting.md
         // §5). RegisterScriptEditor fans creators over backends that have a registered COOK, so the
         // cooks must be registered FIRST — RegisterAllBuilders (below) also registers them for the
