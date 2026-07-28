@@ -246,7 +246,7 @@ TEST_CASE("view: View_EffectiveCursor_InheritsFromParent")
     root->AddView(group.Get());
     group->AddView(child.Get());
 
-    CHECK(child->EffectiveCursor() == CursorType::Hand);
+    CHECK(child->EffectiveCursor(Float2{0, 0}) == CursorType::Hand);
     CHECK(child->Cursor == CursorType::Default);
 }
 
@@ -263,5 +263,5 @@ TEST_CASE("view: View_EffectiveCursor_ChildOverridesParent")
     root->AddView(group.Get());
     group->AddView(child.Get());
 
-    CHECK(child->EffectiveCursor() == CursorType::IBeam);
+    CHECK(child->EffectiveCursor(Float2{0, 0}) == CursorType::IBeam);
 }

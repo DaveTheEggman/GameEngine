@@ -37,7 +37,13 @@ export namespace draconic::ui
 
         Event<void(ScrollBar*, f32)> OnValueChanged;
 
-        explicit ScrollBar(bool horizontal = false) { m_isHorizontal = horizontal; }
+        explicit ScrollBar(bool horizontal = false)
+        {
+            m_isHorizontal = horizontal;
+            // Always the arrow pointer - a bar inside a text control must not inherit the
+            // parent's IBeam through the EffectiveCursor parent walk.
+            Cursor = CursorType::Arrow;
+        }
 
         // === Properties (Beef get/set -> methods) ===
         [[nodiscard]] f32 Value() const noexcept { return m_value; }

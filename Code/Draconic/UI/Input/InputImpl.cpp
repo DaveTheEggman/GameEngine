@@ -805,7 +805,8 @@ namespace draconic::ui
             m_context->Tooltips()->OnHoverChanged(hitView);
         }
 
-        m_currentCursor = (hitView != nullptr) ? hitView->EffectiveCursor() : CursorType::Default;
+        m_currentCursor =
+            (hitView != nullptr) ? hitView->EffectiveCursor(Float2{x, y}) : CursorType::Default;
     }
 
     void InputManager::FocusNearestFocusable(View* view)

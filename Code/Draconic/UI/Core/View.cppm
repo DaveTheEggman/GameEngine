@@ -175,15 +175,26 @@ export namespace draconic::ui
         View() = default;
 
         // === Cursor ===
-        /// Walks the parent chain, returning the first non-Default cursor.
-        [[nodiscard]] CursorType EffectiveCursor() const
+        /// Per-position cursor: defaults to the whole-view Cursor field. Views with internal
+        /// regions wanting different pointers (a code editor's gutter vs its text area)
+        /// override this instead of mutating Cursor from hover events.
+        [[nodiscard]] virtual CursorType CursorAt(Float2 localPoint) const
+        {
+            (void)localPoint;
+            return Cursor;
+        }
+
+        /// Walks the parent chain from the hit view, returning the first non-Default cursor
+        /// (each view judged at the SAME screen point via CursorAt).
+        [[nodiscard]] CursorType EffectiveCursor(Float2 screenPoint) const
         {
             const View* v = this;
             while (v != nullptr)
             {
-                if (v->Cursor != CursorType::Default)
+                const CursorType cursor = v->CursorAt(v->ScreenToLocal(screenPoint));
+                if (cursor != CursorType::Default)
                 {
-                    return v->Cursor;
+                    return cursor;
                 }
                 v = v->Parent;
             }
