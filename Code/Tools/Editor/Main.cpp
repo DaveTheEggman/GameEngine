@@ -70,7 +70,9 @@ import draconic.script;
 import draconic.script.wren;
 import draconic.script.angelscript;
 import draconic.script.wren.editor;
+import draconic.script.wren.editor.ui;
 import draconic.script.angelscript.editor;
+import draconic.script.angelscript.editor.ui;
 import draconic.script.resource;
 import draconic.script.editor;
 
@@ -118,6 +120,9 @@ namespace
         draconic::script::angelscript::RegisterAngelScriptBackend();
         draconic::script::RegisterWrenScriptCook();
         draconic::script::RegisterAngelScriptScriptCook();
+        // Per-language EDITOR-UI services (CodeEditView lexers; completion providers later).
+        draconic::script::wren::RegisterWrenEditorUI();
+        draconic::script::angelscript::RegisterAngelScriptEditorUI();
 
         AddBuilder<draconic::texture::TextureAssetBuilder>(registry);
         AddBuilder<draconic::image::ImageAssetBuilder>(registry);

@@ -1,9 +1,12 @@
 # The tests REGISTER the AngelScript cook (an entry point's job) - the library under test
 # stays backend-neutral and resolves through the registry (B3).
-add_executable(DraconicAngelScriptCookTests TestsMain.cpp AngelScriptCookTests.cpp)
+add_executable(DraconicAngelScriptCookTests TestsMain.cpp AngelScriptCookTests.cpp
+    AngelScriptEditorUITests.cpp)
 target_link_libraries(DraconicAngelScriptCookTests PRIVATE
-    Draconic::ScriptAngelScriptEditor Draconic::ScriptAngelScript Draconic::ScriptEditor
+    Draconic::ScriptAngelScriptEditor Draconic::ScriptAngelScriptEditorUI
+    Draconic::ScriptAngelScript Draconic::ScriptEditor
     Draconic::ScriptResource Draconic::Script Draconic::ScriptFacades
+    Draconic::UIToolkit Draconic::UI
     doctest::doctest)
 target_compile_definitions(DraconicAngelScriptCookTests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(DraconicAngelScriptCookTests PRIVATE

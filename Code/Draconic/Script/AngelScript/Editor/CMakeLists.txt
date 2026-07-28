@@ -19,6 +19,20 @@ target_sources(DraconicScriptAngelScriptEditor
     PUBLIC
         FILE_SET script_as_editor_modules TYPE CXX_MODULES FILES AngelScriptScriptCook.cppm)
 
+# Draconic::ScriptAngelScriptEditorUI - `draconic.script.angelscript.editor.ui`: the
+# EDITOR-UI services (CodeEditView lexer tables; the introspection completion provider joins
+# later). Separate from the cook target above because that one links into RaptorCook/
+# RaptorExport, which must stay UI-free; only the editor app links this.
+add_library(DraconicScriptAngelScriptEditorUI STATIC)
+add_library(Draconic::ScriptAngelScriptEditorUI ALIAS DraconicScriptAngelScriptEditorUI)
+target_link_libraries(DraconicScriptAngelScriptEditorUI PUBLIC
+    Draconic::Core Draconic::UIToolkit Draconic::Policy)
+target_sources(DraconicScriptAngelScriptEditorUI
+    PRIVATE
+        AngelScriptEditorUIImpl.cpp
+    PUBLIC
+        FILE_SET script_as_editor_ui_modules TYPE CXX_MODULES FILES AngelScriptEditorUI.cppm)
+
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)
 endif()
