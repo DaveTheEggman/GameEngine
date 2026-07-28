@@ -25,6 +25,8 @@ add_executable(DraconicUIToolkitTests
     DockPersistenceTests.cpp
     NodeGraphTests.cpp
     DraggableTreeViewTests.cpp
+    CodeDocumentTests.cpp
+    CodeEditViewTests.cpp
     ToolkitThemeExtensionTests.cpp
     ToolkitTests.cpp
     TestsMain.cpp)

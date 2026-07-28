@@ -45,6 +45,8 @@ target_sources(DraconicUIToolkit
             NodeGraphTypes.cppm
             NodeGraphCanvas.cppm
             DraggableTreeView.cppm
+            CodeDocument.cppm
+            CodeEditView.cppm
             ToolkitThemeExtension.cppm
             ToolkitModule.cppm)
 
