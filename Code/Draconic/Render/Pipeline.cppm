@@ -432,10 +432,10 @@ export namespace draconic::render
         // draw order in m_bundles. Pools were reset for this frame by BeginFrame.
         void EmitParallel(const rhi::RenderBundleDesc& bd, u32 frameIndex);
 
-        // (Re)provision the per-(frameIndex, slot) command-pool grid + one persistent encoder each
-        // (the encoder is only a handle to its pool for CreateRenderBundleEncoder; its primary buffer
-        // is never recorded/submitted, so it is created once and reused - only the pool resets). Grows
-        // only. Returns false on failure (parallel emit then skips).
+        // (Re)provision the per-(frameIndex, slot) command-pool grid. Bundles are minted straight
+        // from each pool (CommandPool::CreateRenderBundleEncoder) - no per-pool encoder, so the
+        // pools never hold an open primary command list (a DX12 requirement for their per-frame
+        // Reset). Grows only. Returns false on failure (parallel emit then skips).
         bool EnsureWorkerPools(u32 slotCount);
 
         void ReleaseWorkerPools();
@@ -453,9 +453,8 @@ export namespace draconic::render
         f32 m_shadowFarFade = 40.0f; // CSM far-fade width (world units)
         Array<ResolvedDraw> m_resolved;      // reused resolve buffer (drained each pass)
         Array<rhi::RenderBundle*> m_bundles; // per-chunk bundles (draw order)
-        // Per-(frameIndex, slot) worker command pools + persistent encoders for parallel emit.
+        // Per-(frameIndex, slot) worker command pools for parallel bundle emit.
         Array<rhi::CommandPool*> m_workerPools;
-        Array<rhi::CommandEncoder*> m_workerEncoders;
         u32 m_workerSlots = 0;
     };
 

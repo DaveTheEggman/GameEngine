@@ -236,6 +236,10 @@ export namespace draconic::rhi::null
         }
         void DestroyEncoder(CommandEncoder*&) override {}
         void Reset() override {}
+        RenderBundleEncoder* CreateRenderBundleEncoder(const RenderBundleDesc&) override
+        {
+            return &enc.rbe;
+        }
     };
 
     class NullTransferBatch : public TransferBatch

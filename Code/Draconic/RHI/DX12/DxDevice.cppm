@@ -42,6 +42,7 @@ import :accel_struct;
 import :ray_tracing_pipeline;
 import :command_pool;
 import :command_encoder;
+import :render_bundle_encoder;
 import :render_pass_encoder;
 import :compute_pass_encoder;
 import :queue;
@@ -1305,6 +1306,49 @@ export namespace draconic::rhi::dx12
             m_allocPtr->Delete(static_cast<DxCommandEncoderImpl*>(encoder));
             encoder = nullptr;
         }
+    }
+
+    RenderBundleEncoder* DxCommandPoolImpl::CreateRenderBundleEncoder(const RenderBundleDesc& desc)
+    {
+        (void)desc; // DX12 bundles carry no creation-time attachment state
+
+        // A bundle records into its own BUNDLE-type allocator + list; the pool's
+        // primary allocator is untouched, so bundles need no open command encoder.
+        ComPtr<ID3D12CommandAllocator> alloc;
+        if (FAILED(m_d3dDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_BUNDLE,
+                                                       IID_PPV_ARGS(&alloc))))
+            return nullptr;
+        ComPtr<ID3D12GraphicsCommandList> list;
+        if (FAILED(m_d3dDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_BUNDLE, alloc.Get(),
+                                                  nullptr, IID_PPV_ARGS(&list))))
+            return nullptr;
+
+        // The bundle's descriptor heaps must match the executing command list's at
+        // ExecuteBundle time; both use the device's two shader-visible heaps.
+        ID3D12DescriptorHeap* heaps[2] = {m_device->gpuSrvHeap()->heap(),
+                                          m_device->gpuSamplerHeap()->heap()};
+        list->SetDescriptorHeaps(2, heaps);
+
+        DxRenderPassContext ctx{};
+        ctx.cmdList = list.Get();
+        ctx.srvStaging = &m_srvStaging;
+        ctx.samplerStaging = &m_samplerStaging;
+        ctx.gpuSrvHeap = m_device->gpuSrvHeap();
+        ctx.gpuSamplerHeap = m_device->gpuSamplerHeap();
+        ctx.drawSig = m_device->drawSignature();
+        ctx.drawIndexedSig = m_device->drawIndexedSignature();
+        ctx.dispatchMeshSig = m_device->dispatchMeshSignature();
+
+        auto* enc = m_allocPtr->New<DxRenderBundleEncoderImpl>(ctx, list, alloc, *m_allocPtr);
+        m_trackedBundleEncoders.PushBack(enc); // pool-owned: freed on Reset (fence-guarded)
+        return enc;
+    }
+
+    void DxCommandPoolImpl::releaseBundleEncoders()
+    {
+        for (auto* e : m_trackedBundleEncoders)
+            m_allocPtr->Delete(static_cast<DxRenderBundleEncoderImpl*>(e));
+        m_trackedBundleEncoders.Clear();
     }
 
 } // namespace draconic::rhi::dx12

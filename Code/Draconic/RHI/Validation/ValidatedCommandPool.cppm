@@ -9,6 +9,7 @@ export module draconic.rhi.validation:validated_command_pool;
 import draconic.core;
 import draconic.rhi;
 import :validated_command_encoder;
+import :validated_render_bundle_encoder;
 
 using namespace draconic::core;
 
@@ -22,6 +23,8 @@ export namespace draconic::rhi::validation
             : m_inner(inner), m_allocator(allocator)
         {
         }
+
+        ~ValidatedCommandPool() override { releaseBundleEncoders(); }
 
         Status CreateEncoder(CommandEncoder*& out) override
         {
@@ -54,13 +57,37 @@ export namespace draconic::rhi::validation
             encoder = nullptr;
         }
 
-        void Reset() override { m_inner->Reset(); }
+        void Reset() override
+        {
+            // Mirror the pool-ownership contract: bundles minted this cycle (and their
+            // validation wrappers) die at Reset, after the inner pool's fence wait.
+            releaseBundleEncoders();
+            m_inner->Reset();
+        }
+
+        RenderBundleEncoder* CreateRenderBundleEncoder(const RenderBundleDesc& desc) override
+        {
+            auto* inner = m_inner->CreateRenderBundleEncoder(desc);
+            if (!inner)
+                return nullptr; // backend does not support bundles
+            auto* wrapped = m_allocator.New<ValidatedRenderBundleEncoder>(inner, m_allocator);
+            m_bundleEncoders.PushBack(wrapped); // pool-owned: freed on Reset
+            return wrapped;
+        }
 
         CommandPool* inner() const { return m_inner; }
 
     private:
+        void releaseBundleEncoders()
+        {
+            for (auto* e : m_bundleEncoders)
+                m_allocator.Delete(e);
+            m_bundleEncoders.Clear();
+        }
+
         CommandPool* m_inner;
         IAllocator& m_allocator;
+        Array<ValidatedRenderBundleEncoder*> m_bundleEncoders; // wrappers freed on Reset
     };
 
 } // namespace draconic::rhi::validation

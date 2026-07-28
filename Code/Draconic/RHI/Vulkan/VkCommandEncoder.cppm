@@ -146,61 +146,9 @@ export namespace draconic::rhi::vk
 
         RenderBundleEncoder* CreateRenderBundleEncoder(const RenderBundleDesc& desc) override
         {
-            VkCommandBuffer sec = m_pool->acquireSecondary();
-            if (sec == VK_NULL_HANDLE)
-                return nullptr;
-
-            VkFormat colorFmts[MaxColorAttachments] = {};
-            for (u32 i = 0; i < desc.colorFormatCount && i < MaxColorAttachments; ++i)
-                colorFmts[i] = toVkFormat(desc.colorFormats[i]);
-            const bool hasDepth = desc.depthStencilFormat != TextureFormat::Undefined;
-
-            // Dynamic-rendering inheritance: the attachment signature this bundle is compatible with.
-            VkCommandBufferInheritanceRenderingInfo inh{};
-            inh.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_RENDERING_INFO;
-            inh.colorAttachmentCount = desc.colorFormatCount;
-            inh.pColorAttachmentFormats = colorFmts;
-            inh.depthAttachmentFormat =
-                hasDepth ? toVkFormat(desc.depthStencilFormat) : VK_FORMAT_UNDEFINED;
-            inh.stencilAttachmentFormat = (hasDepth && HasStencil(desc.depthStencilFormat))
-                                              ? toVkFormat(desc.depthStencilFormat)
-                                              : VK_FORMAT_UNDEFINED;
-            inh.rasterizationSamples =
-                static_cast<VkSampleCountFlagBits>(desc.sampleCount ? desc.sampleCount : 1u);
-
-            VkCommandBufferInheritanceInfo ii{};
-            ii.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
-            ii.pNext = &inh;
-
-            VkCommandBufferBeginInfo bi{};
-            bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-            bi.flags = VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT |
-                       VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-            bi.pInheritanceInfo = &ii;
-            vkBeginCommandBuffer(sec, &bi);
-
-            // Bundles carry no pass-level dynamic state + Vulkan secondaries don't inherit it, so record
-            // the bundle's viewport + scissor up front (Y-flipped, like the pass encoder). The viewport
-            // is the desc's sub-rect (split-screen), not necessarily the full target.
-            if (desc.width > 0 && desc.height > 0)
-            {
-                VkViewport vp{};
-                vp.x = static_cast<f32>(desc.viewportX);
-                vp.y = static_cast<f32>(desc.viewportY) + static_cast<f32>(desc.height);
-                vp.width = static_cast<f32>(desc.width);
-                vp.height = -static_cast<f32>(desc.height);
-                vp.minDepth = 0.0f;
-                vp.maxDepth = 1.0f;
-                vkCmdSetViewport(sec, 0, 1, &vp);
-                VkRect2D scs{};
-                scs.offset = {desc.viewportX, desc.viewportY};
-                scs.extent = {desc.width, desc.height};
-                vkCmdSetScissor(sec, 0, 1, &scs);
-            }
-
-            auto* enc = m_allocator.New<VkRenderBundleEncoderImpl>(sec, m_allocator);
-            m_pool->trackBundleEncoder(enc);
-            return enc;
+            // Bundles are pool-scoped (secondary buffers owned by the pool, recycled on
+            // its Reset) - creation needs no open primary encoder, so delegate.
+            return m_pool->CreateRenderBundleEncoder(desc);
         }
 
         void Barrier(const BarrierGroup& group) override
@@ -938,6 +886,65 @@ export namespace draconic::rhi::vk
             m_freeSecondaries.PushBack(h); // recycle (pool reset below)
         m_liveSecondaries.Clear();
         vkResetCommandPool(m_device, m_pool, 0);
+    }
+
+    RenderBundleEncoder* VkCommandPoolImpl::CreateRenderBundleEncoder(const RenderBundleDesc& desc)
+    {
+        VkCommandBuffer sec = acquireSecondary();
+        if (sec == VK_NULL_HANDLE)
+            return nullptr;
+
+        VkFormat colorFmts[MaxColorAttachments] = {};
+        for (u32 i = 0; i < desc.colorFormatCount && i < MaxColorAttachments; ++i)
+            colorFmts[i] = toVkFormat(desc.colorFormats[i]);
+        const bool hasDepth = desc.depthStencilFormat != TextureFormat::Undefined;
+
+        // Dynamic-rendering inheritance: the attachment signature this bundle is compatible with.
+        VkCommandBufferInheritanceRenderingInfo inh{};
+        inh.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_RENDERING_INFO;
+        inh.colorAttachmentCount = desc.colorFormatCount;
+        inh.pColorAttachmentFormats = colorFmts;
+        inh.depthAttachmentFormat =
+            hasDepth ? toVkFormat(desc.depthStencilFormat) : VK_FORMAT_UNDEFINED;
+        inh.stencilAttachmentFormat = (hasDepth && HasStencil(desc.depthStencilFormat))
+                                          ? toVkFormat(desc.depthStencilFormat)
+                                          : VK_FORMAT_UNDEFINED;
+        inh.rasterizationSamples =
+            static_cast<VkSampleCountFlagBits>(desc.sampleCount ? desc.sampleCount : 1u);
+
+        VkCommandBufferInheritanceInfo ii{};
+        ii.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
+        ii.pNext = &inh;
+
+        VkCommandBufferBeginInfo bi{};
+        bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        bi.flags = VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT |
+                   VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        bi.pInheritanceInfo = &ii;
+        vkBeginCommandBuffer(sec, &bi);
+
+        // Bundles carry no pass-level dynamic state + Vulkan secondaries don't inherit it, so record
+        // the bundle's viewport + scissor up front (Y-flipped, like the pass encoder). The viewport
+        // is the desc's sub-rect (split-screen), not necessarily the full target.
+        if (desc.width > 0 && desc.height > 0)
+        {
+            VkViewport vp{};
+            vp.x = static_cast<f32>(desc.viewportX);
+            vp.y = static_cast<f32>(desc.viewportY) + static_cast<f32>(desc.height);
+            vp.width = static_cast<f32>(desc.width);
+            vp.height = -static_cast<f32>(desc.height);
+            vp.minDepth = 0.0f;
+            vp.maxDepth = 1.0f;
+            vkCmdSetViewport(sec, 0, 1, &vp);
+            VkRect2D scs{};
+            scs.offset = {desc.viewportX, desc.viewportY};
+            scs.extent = {desc.width, desc.height};
+            vkCmdSetScissor(sec, 0, 1, &scs);
+        }
+
+        auto* enc = m_allocator->New<VkRenderBundleEncoderImpl>(sec, *m_allocator);
+        trackBundleEncoder(enc);
+        return enc;
     }
 
 } // namespace draconic::rhi::vk

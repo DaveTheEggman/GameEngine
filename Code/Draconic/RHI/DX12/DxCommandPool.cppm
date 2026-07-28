@@ -52,10 +52,13 @@ export namespace draconic::rhi::dx12
         // ---- CommandPool interface ----
         Status CreateEncoder(CommandEncoder*& out) override;
         void DestroyEncoder(CommandEncoder*& encoder) override;
+        RenderBundleEncoder* CreateRenderBundleEncoder(const RenderBundleDesc& desc) override;
 
         void Reset() override
         {
             releaseCommandBuffers();
+            // Render bundles minted this cycle die at the frame boundary (fence-guarded).
+            releaseBundleEncoders();
             // Reset descriptor staging -- GPU is done (fence waited), so staging
             // bump pointers can safely return to start.
             m_srvStaging.Reset();
@@ -66,6 +69,7 @@ export namespace draconic::rhi::dx12
         void cleanup()
         {
             releaseCommandBuffers();
+            releaseBundleEncoders();
             m_srvStaging.Destroy();
             m_samplerStaging.Destroy();
             m_allocator.Reset();
@@ -92,12 +96,16 @@ export namespace draconic::rhi::dx12
             m_trackedBuffers.Clear();
         }
 
+        // Defined out-of-line (needs DxRenderBundleEncoderImpl's complete type).
+        void releaseBundleEncoders();
+
         ComPtr<ID3D12CommandAllocator> m_allocator;
         ID3D12Device* m_d3dDevice = nullptr;
         DxDeviceImpl* m_device = nullptr;
         IAllocator* m_allocPtr = nullptr;
         D3D12_COMMAND_LIST_TYPE m_type = D3D12_COMMAND_LIST_TYPE_DIRECT;
         Array<DxCommandBufferImpl*> m_trackedBuffers;
+        Array<RenderBundleEncoder*> m_trackedBundleEncoders; // bundle wrappers, freed on Reset
         DxDescriptorStaging m_srvStaging;
         DxDescriptorStaging m_samplerStaging;
     };

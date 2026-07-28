@@ -49,6 +49,7 @@ export namespace draconic::rhi::vk
         Status CreateEncoder(CommandEncoder*& out) override;
         void DestroyEncoder(CommandEncoder*& encoder) override;
         void Reset() override;
+        RenderBundleEncoder* CreateRenderBundleEncoder(const RenderBundleDesc& desc) override;
 
         void cleanup()
         {

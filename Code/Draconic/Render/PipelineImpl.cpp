@@ -449,13 +449,16 @@ namespace draconic::render
                          [&, draws, total, grain, base](u32 c)
                          {
                              m_bundles[c] = nullptr;
-                             rhi::CommandEncoder* enc =
-                                 m_workerEncoders[base + c]; // unique pool per chunk c
-                             if (enc == nullptr)
+                             rhi::CommandPool* pool =
+                                 m_workerPools[base + c]; // unique pool per chunk c
+                             if (pool == nullptr)
                              {
                                  return;
                              }
-                             rhi::RenderBundleEncoder* be = enc->CreateRenderBundleEncoder(bd);
+                             // Bundles are minted straight from the pool - no command
+                             // encoder needed, so the pool never has an open primary
+                             // list and its per-frame Reset is legal on DX12.
+                             rhi::RenderBundleEncoder* be = pool->CreateRenderBundleEncoder(bd);
                              if (be == nullptr)
                              {
                                  return;
@@ -479,7 +482,6 @@ namespace draconic::render
         ReleaseWorkerPools();
         const usize n = static_cast<usize>(m_framesInFlight) * slotCount;
         m_workerPools.Resize(n, nullptr);
-        m_workerEncoders.Resize(n, nullptr);
         for (usize i = 0; i < n; ++i)
         {
             rhi::CommandPool* pool = nullptr;
@@ -491,9 +493,6 @@ namespace draconic::render
                 return false;
             }
             m_workerPools[i] = pool;
-            rhi::CommandEncoder* enc = nullptr;
-            (void)pool->CreateEncoder(enc);
-            m_workerEncoders[i] = enc;
         }
         m_workerSlots = slotCount;
         return true;
@@ -503,17 +502,12 @@ namespace draconic::render
     {
         for (usize i = 0; i < m_workerPools.Size(); ++i)
         {
-            if (m_workerEncoders[i] != nullptr && m_workerPools[i] != nullptr)
-            {
-                m_workerPools[i]->DestroyEncoder(m_workerEncoders[i]);
-            }
             if (m_workerPools[i] != nullptr)
             {
                 m_device->DestroyCommandPool(m_workerPools[i]);
             }
         }
         m_workerPools.Clear();
-        m_workerEncoders.Clear();
         m_workerSlots = 0;
     }
     Span<const RenderFrame::ViewShadowDebug> RenderFrame::ViewShadowInfo() const noexcept

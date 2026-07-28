@@ -154,8 +154,10 @@ export namespace draconic::rhi
         /// Begin a compute pass.
         [[nodiscard]] virtual ComputePassEncoder* BeginComputePass(StringView label = {}) = 0;
         /// Begin recording a render bundle (a reusable, off-thread-recordable draw sequence
-        /// replayable into passes matching `desc`'s attachment signature). Returns null if the
-        /// backend does not support bundles.
+        /// replayable into passes matching `desc`'s attachment signature). Convenience for
+        /// CommandPool::CreateRenderBundleEncoder on this encoder's pool: the bundle is owned
+        /// by the pool and lives until the pool's next Reset(). Returns null if the backend
+        /// does not support bundles.
         [[nodiscard]] virtual RenderBundleEncoder*
         CreateRenderBundleEncoder(const RenderBundleDesc& desc) = 0;
 
@@ -229,12 +231,24 @@ export namespace draconic::rhi
     public:
         virtual ~CommandPool() = default;
 
-        /// Create a new command encoder for recording.
+        /// Create a new command encoder for recording. Every encoder MUST call
+        /// Finish() before this pool's next Reset() — DX12 cannot reset a
+        /// command allocator while one of its command lists is still recording.
         virtual Status CreateEncoder(CommandEncoder*& out) = 0;
         /// Destroy a command encoder.
         virtual void DestroyEncoder(CommandEncoder*& encoder) = 0;
-        /// Reset all command buffers allocated from this pool.
+        /// Reset all command buffers allocated from this pool, and free the
+        /// render bundles it produced this cycle. Call only after the GPU has
+        /// finished the pool's last submission (fence-guarded).
         virtual void Reset() = 0;
+
+        /// Begin recording a render bundle from this pool — no open command
+        /// encoder required, so per-thread bundle pools need only a pool.
+        /// The returned encoder and its Finish()ed bundle are OWNED BY THE POOL
+        /// and stay valid until the pool's next Reset(). Returns null if the
+        /// backend does not support bundles.
+        [[nodiscard]] virtual RenderBundleEncoder*
+        CreateRenderBundleEncoder(const RenderBundleDesc& desc) = 0;
     };
 
     // ---- Transfer Batch ----

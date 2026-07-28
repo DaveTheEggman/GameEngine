@@ -58,11 +58,7 @@ export namespace draconic::rhi::dx12
         {
         }
 
-        ~DxCommandEncoderImpl() override
-        {
-            for (auto* e : m_bundleEncoders)
-                m_allocator.Delete(e);
-        }
+        ~DxCommandEncoderImpl() override = default;
 
         // ================================================================
         // CommandEncoder interface
@@ -162,37 +158,12 @@ export namespace draconic::rhi::dx12
             return &m_cpe;
         }
 
-        RenderBundleEncoder* CreateRenderBundleEncoder(const RenderBundleDesc& /*desc*/) override
+        RenderBundleEncoder* CreateRenderBundleEncoder(const RenderBundleDesc& desc) override
         {
-            ComPtr<ID3D12Device> dev;
-            m_cmdList->GetDevice(IID_PPV_ARGS(&dev));
-            if (!dev)
-                return nullptr;
-            ComPtr<ID3D12CommandAllocator> alloc;
-            if (FAILED(dev->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_BUNDLE,
-                                                   IID_PPV_ARGS(&alloc))))
-                return nullptr;
-            ComPtr<ID3D12GraphicsCommandList> list;
-            if (FAILED(dev->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_BUNDLE, alloc.Get(),
-                                              nullptr, IID_PPV_ARGS(&list))))
-                return nullptr;
-
-            // Bundles inherit the parent's descriptor heaps; bind matching heaps on the bundle.
-            ensureDescriptorHeaps();
-            ID3D12DescriptorHeap* heaps[2];
-            UINT n = 0;
-            if (m_gpuSrvHeap)
-                heaps[n++] = m_gpuSrvHeap->heap();
-            if (m_gpuSamplerHeap)
-                heaps[n++] = m_gpuSamplerHeap->heap();
-            if (n > 0)
-                list->SetDescriptorHeaps(n, heaps);
-
-            DxRenderPassContext ctx = m_rpeCtx;
-            ctx.cmdList = list.Get();
-            auto* enc = m_allocator.New<DxRenderBundleEncoderImpl>(ctx, list, alloc, m_allocator);
-            m_bundleEncoders.PushBack(enc); // owned: freed in this encoder's destructor
-            return enc;
+            // Bundles are pool-scoped (owned by the pool, freed on its Reset) - creation
+            // needs no open command list, so delegate. The executing list's descriptor
+            // heaps are set by BeginRenderPass before any ExecuteBundles.
+            return m_pool->CreateRenderBundleEncoder(desc);
         }
 
         // ---- Barriers ----
@@ -1062,22 +1033,14 @@ export namespace draconic::rhi::dx12
         // DxComputePassEncoder.cppm). Contexts carry the pointers the sub-encoders need.
         DxRenderPassEncoderImpl m_rpe;
         DxComputePassEncoderImpl m_cpe;
-        DxRenderPassContext m_rpeCtx;                 // cloned for bundle encoders
-        Array<RenderBundleEncoder*> m_bundleEncoders; // owned wrappers (freed in dtor)
+        DxRenderPassContext m_rpeCtx;
     };
 
     // ---- Deferred DxCommandPoolImpl method implementations ----
 
-    // createEncoder and destroyEncoder are defined out-of-line here because they
-    // need the full DxCommandEncoderImpl definition. The DxDeviceImpl will call
-    // pool->init() with the GPU descriptor heap pointers so the pool can build
-    // the context structs. For now, these are left as declarations to be resolved
-    // when DxDeviceImpl is defined.
-    //
-    // The DxDeviceImpl (not yet ported) will wire up:
-    //   DxRenderPassContext rpeCtx { cmdList, device, srvStaging, samplerStaging,
-    //                                gpuSrvHeap, gpuSamplerHeap, drawSig, drawIdxSig, meshSig };
-    //   DxComputePassContext cpeCtx { cmdList, srvStaging, samplerStaging,
-    //                                 gpuSrvHeap, gpuSamplerHeap, dispatchSig };
+    // CreateEncoder / DestroyEncoder / CreateRenderBundleEncoder are defined
+    // out-of-line in DxDevice.cppm - they need the full DxCommandEncoderImpl /
+    // DxRenderBundleEncoderImpl definitions plus the device's heaps + command
+    // signatures to build the pass-encoder context structs.
 
 } // namespace draconic::rhi::dx12
