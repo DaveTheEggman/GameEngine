@@ -243,6 +243,11 @@ export namespace draconic::rhi
         }
 
         // ---- Lifecycle ----
+        /// Whether the device has been lost (GPU hang/TDR, driver reset, removal).
+        /// Sticky: once lost, the device cannot recover - stop submitting work and
+        /// destroy/recreate it. DX12 queries the device directly; Vulkan latches
+        /// VK_ERROR_DEVICE_LOST from queue submit/present/wait results.
+        [[nodiscard]] virtual bool IsLost() = 0;
         virtual void WaitIdle() = 0;
         virtual void Destroy() = 0;
     };

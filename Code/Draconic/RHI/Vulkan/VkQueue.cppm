@@ -34,21 +34,10 @@ export namespace draconic::rhi::vk
         }
 
         // ---- Queue interface ----
+        // All Submit overloads are defined out-of-line (VkDevice.cppm): they report
+        // VK_ERROR_DEVICE_LOST to the owning device, which needs its complete type.
 
-        void Submit(Span<CommandBuffer* const> cmdBufs) override
-        {
-            if (cmdBufs.Size() == 0)
-                return;
-            Array<VkCommandBuffer> bufs(cmdBufs.Size());
-            for (usize i = 0; i < cmdBufs.Size(); ++i)
-                bufs[i] = static_cast<VkCommandBufferImpl*>(cmdBufs[i])->handle();
-
-            VkSubmitInfo si{};
-            si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-            si.commandBufferCount = static_cast<u32>(bufs.Size());
-            si.pCommandBuffers = bufs.Data();
-            vkQueueSubmit(m_queue, 1, &si, VK_NULL_HANDLE);
-        }
+        void Submit(Span<CommandBuffer* const> cmdBufs) override;
 
         void Submit(Span<CommandBuffer* const> cmdBufs, Fence* signalFence,
                     u64 signalValue) override;
@@ -79,6 +68,7 @@ export namespace draconic::rhi::vk
         // ---- Internal ----
         [[nodiscard]] VkQueue handle() const { return m_queue; }
         [[nodiscard]] u32 familyIndex() const { return m_familyIndex; }
+        [[nodiscard]] VkDeviceImpl* owner() const { return m_device; }
 
     private:
         VkQueue m_queue = VK_NULL_HANDLE;

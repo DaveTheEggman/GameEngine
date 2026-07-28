@@ -747,6 +747,13 @@ export namespace draconic::rhi::dx12
         // Lifecycle
         // ==================================================================
 
+        bool IsLost() override
+        {
+            // The D3D12 device is the authority: SUCCEEDED means alive, any
+            // failure (DXGI_ERROR_DEVICE_HUNG/REMOVED/RESET) means lost.
+            return m_device && FAILED(m_device->GetDeviceRemovedReason());
+        }
+
         void WaitIdle() override
         {
             for (auto* q : m_graphicsQueues)

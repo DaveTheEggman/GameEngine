@@ -450,6 +450,8 @@ export namespace draconic::rhi::validation
 
         void DestroySurface(Surface*& s) override { m_inner->DestroySurface(s); }
 
+        bool IsLost() override { return m_inner->IsLost(); }
+
         void WaitIdle() override { m_inner->WaitIdle(); }
 
         void Destroy() override

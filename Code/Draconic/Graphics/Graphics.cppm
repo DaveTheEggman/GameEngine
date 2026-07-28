@@ -433,6 +433,14 @@ export namespace draconic::graphics
         {
             return FrameContext{};
         }
+        // After device loss (GPU hang / TDR, driver reset) stop rendering: continuing
+        // spins through failing acquire/submit calls, flooding stderr and stalling the
+        // OS. The device is the authority (Device::IsLost) - loss is sticky, so the
+        // window stays dark until the app recreates the device.
+        if (m_device->Raw() == nullptr || m_device->Raw()->IsLost())
+        {
+            return FrameContext{};
+        }
 
         const core::u32 fi = m_device->CurrentFrame();
         // Guard reuse of this slot's pool/backbuffer: wait the GPU's last

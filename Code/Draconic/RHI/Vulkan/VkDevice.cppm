@@ -781,7 +781,18 @@ export namespace draconic::rhi::vk
             }
         }
 
-        void WaitIdle() override { vkDeviceWaitIdle(m_device); }
+        bool IsLost() override { return m_lost; }
+
+        /// Latch device loss. Vulkan has no polling query (unlike DX12's
+        /// GetDeviceRemovedReason), so queue submit/present/wait sites report
+        /// VK_ERROR_DEVICE_LOST here. Sticky by contract.
+        void markLost() { m_lost = true; }
+
+        void WaitIdle() override
+        {
+            if (vkDeviceWaitIdle(m_device) == VK_ERROR_DEVICE_LOST)
+                m_lost = true;
+        }
         void Destroy() override
         {
             WaitIdle();
@@ -855,6 +866,7 @@ export namespace draconic::rhi::vk
         IAllocator& m_allocator;
         VkDevice m_device = VK_NULL_HANDLE;
         VkAdapterImpl* m_adapter = nullptr;
+        bool m_lost = false; // sticky device-lost latch (see markLost)
         bool m_meshEnabled = false;
         bool m_rtEnabled = false;
         bool m_bindlessEnabled = false;
@@ -915,12 +927,30 @@ export namespace draconic::rhi::vk
         pi.pImageIndices = &m_currentImageIndex;
         VkResult vr = vkQueuePresentKHR(vkQ->handle(), &pi);
         m_frameIndex = (m_frameIndex + 1) % m_bufferCount;
+        if (vr == VK_ERROR_DEVICE_LOST)
+            vkQ->owner()->markLost();
         if (vr == VK_ERROR_OUT_OF_DATE_KHR || vr == VK_SUBOPTIMAL_KHR)
             return ErrorCode::Unknown;
         return vr == VK_SUCCESS ? ErrorCode::Ok : ErrorCode::Unknown;
     }
 
-    // ---- Queue submit-with-fence (needs Device for swap chain sync) ----
+    // ---- Queue submits (out-of-line: report device loss + swap chain sync need Device) ----
+
+    void VkQueueImpl::Submit(Span<CommandBuffer* const> cmdBufs)
+    {
+        if (cmdBufs.Size() == 0)
+            return;
+        Array<VkCommandBuffer> bufs(cmdBufs.Size());
+        for (usize i = 0; i < cmdBufs.Size(); ++i)
+            bufs[i] = static_cast<VkCommandBufferImpl*>(cmdBufs[i])->handle();
+
+        VkSubmitInfo si{};
+        si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        si.commandBufferCount = static_cast<u32>(bufs.Size());
+        si.pCommandBuffers = bufs.Data();
+        if (vkQueueSubmit(m_queue, 1, &si, VK_NULL_HANDLE) == VK_ERROR_DEVICE_LOST)
+            m_device->markLost();
+    }
 
     void VkQueueImpl::Submit(Span<CommandBuffer* const> cmdBufs, Fence* signalFence,
                              u64 signalValue)
@@ -967,7 +997,8 @@ export namespace draconic::rhi::vk
             si.pWaitDstStageMask = waitStages;
         }
 
-        vkQueueSubmit(m_queue, 1, &si, VK_NULL_HANDLE);
+        if (vkQueueSubmit(m_queue, 1, &si, VK_NULL_HANDLE) == VK_ERROR_DEVICE_LOST)
+            m_device->markLost();
     }
 
     void VkQueueImpl::Submit(Span<CommandBuffer* const> cmdBufs, Span<Fence* const> waitFences,
@@ -1013,7 +1044,8 @@ export namespace draconic::rhi::vk
             si.pSignalSemaphores = &signalSem;
         }
 
-        vkQueueSubmit(m_queue, 1, &si, VK_NULL_HANDLE);
+        if (vkQueueSubmit(m_queue, 1, &si, VK_NULL_HANDLE) == VK_ERROR_DEVICE_LOST)
+            m_device->markLost();
     }
 
 } // namespace draconic::rhi::vk

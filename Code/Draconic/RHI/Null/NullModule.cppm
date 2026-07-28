@@ -525,6 +525,7 @@ export namespace draconic::rhi::null
             x = nullptr;
         }
 
+        bool IsLost() override { return false; } // a null device cannot be lost
         void WaitIdle() override {}
         void Destroy() override
         {
