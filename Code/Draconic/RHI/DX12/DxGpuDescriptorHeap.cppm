@@ -43,10 +43,15 @@ export namespace draconic::rhi::dx12
         }
 
         /// Allocate a contiguous block. Returns offset or -1.
+        /// Thread-safe: called concurrently by per-pool descriptor staging when
+        /// render bundles are recorded on job-system workers (parallel emit) -
+        /// an unsynchronized bump/free-list here hands two workers overlapping
+        /// blocks, corrupting live shader-visible descriptors (GPU hang on DX12).
         i32 allocate(u32 count)
         {
             if (count == 0)
                 return -1;
+            ScopedLock lock(m_mutex);
             // First-fit from free list.
             for (usize i = 0; i < m_freeBlocks.Size(); ++i)
             {
@@ -71,11 +76,12 @@ export namespace draconic::rhi::dx12
             return -1;
         }
 
-        /// Free a block with coalescing.
+        /// Free a block with coalescing. Thread-safe (see allocate).
         void free(u32 offset, u32 count)
         {
             if (count == 0)
                 return;
+            ScopedLock lock(m_mutex);
             u32 mOff = offset, mCnt = count;
             for (usize i = 0; i < m_freeBlocks.Size();)
             {
@@ -135,6 +141,7 @@ export namespace draconic::rhi::dx12
         u32 m_capacity = 0;
         u32 m_nextFree = 0;
         Array<FreeBlock> m_freeBlocks;
+        Mutex m_mutex; // guards m_nextFree + m_freeBlocks (see allocate)
     };
 
 } // namespace draconic::rhi::dx12
