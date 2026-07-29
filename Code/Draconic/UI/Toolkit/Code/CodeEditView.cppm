@@ -73,6 +73,7 @@ export namespace draconic::ui::toolkit
     {
         String label;      // shown in the popup, matched against the typed prefix
         String insertText; // replaces the prefix on accept (usually == label)
+        u8 priority = 0;   // sort tier: lower ranks first (context providers 0, words 100)
     };
 
     /// A completion source. Providers are COMPOSABLE: the view queries every registered provider
@@ -103,8 +104,11 @@ export namespace draconic::ui::toolkit
                 {
                     continue;
                 }
-                out.PushBack(CompletionCandidate{String(words[i].AsView()),
-                                                 String(words[i].AsView())});
+                CompletionCandidate candidate;
+                candidate.label = String(words[i].AsView());
+                candidate.insertText = String(words[i].AsView());
+                candidate.priority = 100; // words rank BELOW context-provider results
+                out.PushBack(Move(candidate));
             }
         }
     };
@@ -254,7 +258,7 @@ export namespace draconic::ui::toolkit
 
     // ---- the widget --------------------------------------------------------------------------
 
-    class CodeEditView : public ViewGroup
+    class CodeEditView : public ViewGroup, public ITooltipProvider
     {
         DRACONIC_OBJECT(CodeEditView, ViewGroup)
 
@@ -269,6 +273,10 @@ export namespace draconic::ui::toolkit
         bool AllowBreakpoints = true;        // gutter margin click toggles Breakpoint markers
         bool DocumentWordCompletion = true;  // built-in identifier provider
         i32 AutoCompleteMinPrefix = 2;       // identifier chars typed before the popup auto-opens
+        bool IndentAfterOpenBrace = true;    // Enter after '{' adds one extra indent step
+        // Typing any of these (ASCII) opens completion immediately with an empty prefix -
+        // providers read the document left of the cursor for context (member access on '.').
+        String CompletionTriggerCharacters = String(u8".");
 
         Event<void()> OnTextChanged;               // any document mutation (typing, undo, paste)
         Event<void(i32, bool)> OnBreakpointToggled; // (line, nowSet) after a gutter toggle
@@ -281,6 +289,7 @@ export namespace draconic::ui::toolkit
             WantsTabKey = true;
             ClipsContent = true;
             Cursor = CursorType::IBeam;
+            TooltipPlacement = ui::TooltipPlacement::Pointer; // per-line diagnostics hover
 
             CodeEditView* self = this;
             m_vBar = MakeRef<ScrollBar>(DefaultAllocator(), false);
@@ -317,6 +326,24 @@ export namespace draconic::ui::toolkit
         [[nodiscard]] bool WantsTextInput() const override
         {
             return IsEffectivelyEnabled() && !ReadOnly;
+        }
+
+        // ---- diagnostics tooltip (hover a line with an Error/Warning marker) ----
+
+        [[nodiscard]] ITooltipProvider* AsTooltipProvider() override { return this; }
+        [[nodiscard]] RefPtr<View> CreateTooltipContent() override
+        {
+            const i32 line =
+                static_cast<i32>((m_lastHover.y + m_scrollY - kPadTop) / LineHeight());
+            const CodeDiagnostic* diagnostic =
+                (line >= 0 && line < m_doc.LineCount()) ? m_doc.DiagnosticOn(line) : nullptr;
+            if (diagnostic == nullptr)
+            {
+                return {};
+            }
+            auto label = MakeRef<Label>(DefaultAllocator(), diagnostic->message.AsView());
+            label->FontSize.SetValue(12.0f);
+            return label;
         }
 
         // ---- document access ----
@@ -408,6 +435,150 @@ export namespace draconic::ui::toolkit
 
         [[nodiscard]] CodeHighlighter& Highlighter() noexcept { return m_highlighter; }
 
+        // ---- find / replace / go-to-line ----
+
+        enum class FindBarMode : u8
+        {
+            Closed,
+            Find,
+            Replace,
+            GoToLine,
+        };
+
+        [[nodiscard]] FindBarMode FindBar() const noexcept { return m_findBarMode; }
+
+        /// Opens the in-widget bar (Ctrl+F / Ctrl+H). A single-line selection prefills the
+        /// query. Focus moves to the find field; Escape returns it to the editor.
+        void OpenFindBar(bool withReplace)
+        {
+            EnsureFindBar();
+            m_findBarMode = withReplace ? FindBarMode::Replace : FindBarMode::Find;
+            ApplyFindBarMode();
+            const CodeSpan selection = Selection();
+            if (HasSelection() && selection.begin.line == selection.end.line)
+            {
+                m_findField->SetText(m_doc.TextInSpan(selection).AsView());
+            }
+            RunSearch(); // SetText is a SILENT programmatic setter - search explicitly
+            if (Context != nullptr)
+            {
+                Context->GetFocusManager()->SetFocus(m_findField.Get());
+            }
+            Invalidate();
+        }
+
+        /// Opens the bar in go-to-line mode (Ctrl+G): type a 1-based line, Enter jumps.
+        void OpenGoToLine()
+        {
+            EnsureFindBar();
+            m_findBarMode = FindBarMode::GoToLine;
+            ApplyFindBarMode();
+            m_findField->SetText(StringView(u8""));
+            if (Context != nullptr)
+            {
+                Context->GetFocusManager()->SetFocus(m_findField.Get());
+            }
+            Invalidate();
+        }
+
+        void CloseFindBar()
+        {
+            if (m_findBarMode == FindBarMode::Closed)
+            {
+                return;
+            }
+            m_findBarMode = FindBarMode::Closed;
+            if (m_findBar.Get() != nullptr)
+            {
+                m_findBar->Visibility = VisibilityValue::Gone;
+            }
+            m_matches.Clear();
+            m_currentMatch = -1;
+            if (Context != nullptr)
+            {
+                Context->GetFocusManager()->SetFocus(this);
+            }
+            Invalidate();
+        }
+
+        [[nodiscard]] Span<const CodeSpan> SearchMatches() const noexcept
+        {
+            return Span<const CodeSpan>(m_matches.Data(), m_matches.Size());
+        }
+        [[nodiscard]] i32 CurrentMatchIndex() const noexcept { return m_currentMatch; }
+
+        /// Programmatic query/replacement. EditText::SetText is silent (no OnTextChanged),
+        /// so the search re-runs explicitly.
+        void SetSearchQuery(StringView query)
+        {
+            EnsureFindBar();
+            m_findField->SetText(query);
+            RunSearch();
+        }
+        void SetReplaceText(StringView text)
+        {
+            EnsureFindBar();
+            m_replaceField->SetText(text);
+        }
+
+        /// Selects the next/previous match (wraps). F3 / Shift+F3.
+        void FindNext() { GotoMatch(1); }
+        void FindPrevious() { GotoMatch(-1); }
+
+        /// Replaces the selected match with the replace field's text, then advances.
+        void ReplaceCurrent()
+        {
+            if (ReadOnly || m_currentMatch < 0 ||
+                static_cast<usize>(m_currentMatch) >= m_matches.Size())
+            {
+                FindNext();
+                return;
+            }
+            String replacement;
+            if (m_replaceField.Get() != nullptr)
+            {
+                replacement = String(m_replaceField->Text());
+            }
+            const CodeSpan span = m_matches[static_cast<usize>(m_currentMatch)];
+            const CodeCursorState before{m_cursor, m_anchor};
+            m_cursor = m_doc.Edit(span, replacement.AsView(), CodeEditKind::Other, before, Now());
+            m_anchor = m_cursor;
+            AfterEdit(); // re-runs the search; the current match is now the next one
+            if (m_currentMatch >= 0)
+            {
+                SelectMatch(m_currentMatch);
+            }
+        }
+
+        /// Replaces every match as ONE undo entry.
+        void ReplaceAll()
+        {
+            if (ReadOnly || m_matches.IsEmpty())
+            {
+                return;
+            }
+            String replacement;
+            if (m_replaceField.Get() != nullptr)
+            {
+                replacement = String(m_replaceField->Text());
+            }
+            const CodeCursorState before{m_cursor, m_anchor};
+            m_doc.BeginCompoundEdit();
+            for (usize i = m_matches.Size(); i > 0; --i) // back-to-front: spans stay valid
+            {
+                m_cursor = m_doc.Edit(m_matches[i - 1], replacement.AsView(),
+                                      CodeEditKind::Other, before, Now());
+            }
+            m_doc.EndCompoundEdit();
+            m_anchor = m_cursor;
+            AfterEdit();
+        }
+
+        /// Toggle the language's line comment on the cursor line / every selected line
+        /// (Ctrl+/). Uses the lexer's LineCommentPrefix; a language without one (XML) is a
+        /// no-op. One undo entry.
+        void ToggleLineComment();
+
         // ---- metrics (fallbacks keep headless tests working without a font service) ----
 
         [[nodiscard]] f32 LineHeight() const noexcept
@@ -448,11 +619,71 @@ export namespace draconic::ui::toolkit
 
         // ---- input ----
 
+        /// Capture-phase interplay while a find-bar field is focused: the fields consume most
+        /// keys themselves, so Escape/F3/Enter are claimed here BEFORE they reach the field.
+        void OnKeyDownCapture(KeyEventArgs& e) override
+        {
+            if (m_findBarMode == FindBarMode::Closed || Context == nullptr)
+            {
+                return;
+            }
+            View* focused = Context->GetFocusManager()->FocusedView();
+            if (focused == nullptr || focused == this || !IsInFindBar(focused))
+            {
+                return;
+            }
+            switch (e.Key)
+            {
+                case KeyCode::Escape:
+                    CloseFindBar();
+                    e.Handled = true;
+                    return;
+                case KeyCode::F3:
+                    if (HasFlag(e.Modifiers, KeyModifiers::Shift))
+                    {
+                        FindPrevious();
+                    }
+                    else
+                    {
+                        FindNext();
+                    }
+                    e.Handled = true;
+                    return;
+                case KeyCode::Return:
+                    if (m_findBarMode == FindBarMode::GoToLine)
+                    {
+                        JumpToTypedLine();
+                    }
+                    else if (focused == m_replaceField.Get())
+                    {
+                        ReplaceCurrent();
+                    }
+                    else
+                    {
+                        FindNext();
+                    }
+                    e.Handled = true;
+                    return;
+                default:
+                    return;
+            }
+        }
+
         void OnKeyDown(KeyEventArgs& e) override
         {
             if (!IsEffectivelyEnabled())
             {
                 return;
+            }
+            // A focused find-bar field owns the keyboard; anything bubbling up stays its
+            // business (the capture handler above already took the interplay keys).
+            if (Context != nullptr)
+            {
+                View* focused = Context->GetFocusManager()->FocusedView();
+                if (focused != nullptr && focused != this)
+                {
+                    return;
+                }
             }
 
             // The popup routes its keys FIRST while open - without stealing focus.
@@ -485,6 +716,22 @@ export namespace draconic::ui::toolkit
             String text;
             AppendUtf8(text, static_cast<u32>(e.Character));
             InsertText(text.AsView(), CodeEditKind::Typing);
+
+            // Trigger characters ('.') reopen completion with an empty prefix - providers see
+            // the receiver word left of the cursor (member completion).
+            if (e.Character < 128)
+            {
+                const StringView triggers = CompletionTriggerCharacters.AsView();
+                for (usize i = 0; i < triggers.Size(); ++i)
+                {
+                    if (static_cast<char32_t>(triggers[i]) == e.Character)
+                    {
+                        OpenCompletion(true);
+                        e.Handled = true;
+                        return;
+                    }
+                }
+            }
 
             // Completion: refilter while open; auto-open once the identifier fragment is long
             // enough (word chars only - punctuation closes below via the empty prefix).
@@ -573,6 +820,7 @@ export namespace draconic::ui::toolkit
 
         void OnMouseMove(MouseEventArgs& e) override
         {
+            m_lastHover = Float2{e.X, e.Y}; // the diagnostics tooltip reads the hovered line
             if (!m_dragging)
             {
                 return;
@@ -680,6 +928,18 @@ export namespace draconic::ui::toolkit
                 m_hBar->Measure(BoxConstraints::Tight(m_viewportW, barSize));
                 m_hBar->Layout(0, height - barSize, m_viewportW, barSize);
             }
+
+            // The find bar floats top-right over the text (a logical child; DrawChildren
+            // paints it above the content).
+            if (m_findBar.Get() != nullptr && m_findBarMode != FindBarMode::Closed)
+            {
+                m_findBar->Measure(BoxConstraints::Loose(width - GutterWidth() - 16.0f, height));
+                const f32 barWidth = m_findBar->MeasuredSize.x;
+                const f32 barHeight = m_findBar->MeasuredSize.y;
+                const f32 barX = Max(GutterWidth(), width - barWidth - (needV ? barSize : 0.0f) - 6.0f);
+                m_findBar->Layout(barX, 2.0f, barWidth, barHeight);
+                m_findBarFrame = Rectangle{barX, 2.0f, barWidth, barHeight};
+            }
         }
 
         [[nodiscard]] usize VisualChildCount() const override { return ChildCount() + 2; }
@@ -768,6 +1028,24 @@ export namespace draconic::ui::toolkit
                                       Rgb(200, 70, 70, 26));
                 }
 
+                // Search matches (under the selection band; the current one pops).
+                for (usize m = 0; m < m_matches.Size(); ++m)
+                {
+                    const CodeSpan& match = m_matches[m];
+                    if (match.begin.line != line)
+                    {
+                        continue;
+                    }
+                    const bool current = static_cast<i32>(m) == m_currentMatch;
+                    ctx.VG().FillRect(
+                        Rectangle{textLeft + static_cast<f32>(match.begin.column) * advance,
+                                  lineTop,
+                                  static_cast<f32>(match.end.column - match.begin.column) *
+                                      advance,
+                                  lineH},
+                        current ? WithAlpha(accent, 0.45f) : WithAlpha(accent, 0.18f));
+                }
+
                 // Selection band(s).
                 if (HasSelection() && line >= selection.begin.line && line <= selection.end.line)
                 {
@@ -823,6 +1101,30 @@ export namespace draconic::ui::toolkit
                     ctx.VG().FillRect(Rectangle{caretX - 1.0f, caretY, 2.0f, lineH}, cursorColor);
                 }
             }
+
+            // Matching-bracket boxes (the pair adjacent to the caret).
+            RefreshBracketMatch();
+            if (m_bracketValid)
+            {
+                const CodePosition brackets[2] = {m_bracketA, m_bracketB};
+                for (const CodePosition& bracket : brackets)
+                {
+                    if (bracket.line < firstLine || bracket.line > lastLine)
+                    {
+                        continue;
+                    }
+                    const f32 x = textLeft + static_cast<f32>(bracket.column) * advance;
+                    const f32 y =
+                        kPadTop + static_cast<f32>(bracket.line) * lineH - m_scrollY;
+                    ctx.VG().BeginPath();
+                    ctx.VG().MoveTo(x - 1.0f, y);
+                    ctx.VG().LineTo(x + advance + 1.0f, y);
+                    ctx.VG().LineTo(x + advance + 1.0f, y + lineH);
+                    ctx.VG().LineTo(x - 1.0f, y + lineH);
+                    ctx.VG().LineTo(x - 1.0f, y);
+                    ctx.VG().Stroke(WithAlpha(accent, 0.7f), 1.0f);
+                }
+            }
             ctx.PopClip();
 
             // The gutter: painted AFTER (over) the text region so nothing bleeds into it.
@@ -875,7 +1177,21 @@ export namespace draconic::ui::toolkit
                 }
             }
 
-            DrawChildren(ctx); // scrollbars
+            // Backdrop behind the floating find bar (its controls are drawn by DrawChildren).
+            if (m_findBarMode != FindBarMode::Closed && m_findBar.Get() != nullptr)
+            {
+                ctx.VG().FillRect(m_findBarFrame, Palette::Lighten(background, 0.06f));
+                ctx.VG().BeginPath();
+                ctx.VG().MoveTo(m_findBarFrame.x, m_findBarFrame.y);
+                ctx.VG().LineTo(m_findBarFrame.x + m_findBarFrame.width, m_findBarFrame.y);
+                ctx.VG().LineTo(m_findBarFrame.x + m_findBarFrame.width,
+                                m_findBarFrame.y + m_findBarFrame.height);
+                ctx.VG().LineTo(m_findBarFrame.x, m_findBarFrame.y + m_findBarFrame.height);
+                ctx.VG().LineTo(m_findBarFrame.x, m_findBarFrame.y);
+                ctx.VG().Stroke(WithAlpha(textColor, 0.25f), 1.0f);
+            }
+
+            DrawChildren(ctx); // scrollbars + find bar
 
             if (m_completion.IsOpen())
             {
@@ -997,6 +1313,10 @@ export namespace draconic::ui::toolkit
             m_pendingCursorScroll = true;
             m_maxLineDirty = true;
             ResetBlink();
+            if (m_findBarMode == FindBarMode::Find || m_findBarMode == FindBarMode::Replace)
+            {
+                RunSearch(); // spans shift under edits
+            }
             Invalidate();
             OnTextChanged.Invoke();
         }
@@ -1130,22 +1450,43 @@ export namespace draconic::ui::toolkit
 
         static void DedupeAndSort(Array<CompletionCandidate>& items)
         {
-            // Insertion sort by label (candidate lists are small); drop exact duplicates.
+            // Insertion sort by (priority, label) - context providers rank above document
+            // words so member/attribute results are never buried below the fold. Dedupe by
+            // label keeps the FIRST (highest-ranked) occurrence.
+            const auto ranksBefore = [](const CompletionCandidate& a, const CompletionCandidate& b)
+            {
+                if (a.priority != b.priority)
+                {
+                    return a.priority < b.priority;
+                }
+                return Less(a.label.AsView(), b.label.AsView());
+            };
             for (usize i = 1; i < items.Size(); ++i)
             {
                 CompletionCandidate value = Move(items[i]);
                 usize j = i;
-                while (j > 0 && Less(value.label.AsView(), items[j - 1].label.AsView()))
+                while (j > 0 && ranksBefore(value, items[j - 1]))
                 {
                     items[j] = Move(items[j - 1]);
                     --j;
                 }
                 items[j] = Move(value);
             }
+            // Priority-first ordering scatters equal labels, so dedupe scans all KEPT items
+            // (lists are small; the first = highest-ranked occurrence wins).
             usize write = 0;
             for (usize i = 0; i < items.Size(); ++i)
             {
-                if (write == 0 || !(items[write - 1].label.AsView() == items[i].label.AsView()))
+                bool seen = false;
+                for (usize k = 0; k < write; ++k)
+                {
+                    if (items[k].label.AsView() == items[i].label.AsView())
+                    {
+                        seen = true;
+                        break;
+                    }
+                }
+                if (!seen)
                 {
                     if (write != i)
                     {
@@ -1267,7 +1608,8 @@ export namespace draconic::ui::toolkit
                         return false;
                     }
                     {
-                        // Plain newline + copy the current line's leading whitespace.
+                        // Newline + copy the current line's leading whitespace; one extra
+                        // indent step after an open brace (the language hook).
                         String insert;
                         insert.PushBack(u8'\n');
                         const StringView line = m_doc.Line(m_cursor.line);
@@ -1276,6 +1618,15 @@ export namespace draconic::ui::toolkit
                                                Min(FirstNonSpaceColumn(m_cursor.line),
                                                    m_cursor.column));
                         insert.Append(line.SubStr(0, indentBytes));
+                        if (IndentAfterOpenBrace && m_cursor.column > 0 &&
+                            m_doc.CodepointAt(CodePosition{m_cursor.line,
+                                                           m_cursor.column - 1}) == u8'{')
+                        {
+                            for (i32 i = 0; i < TabWidth; ++i)
+                            {
+                                insert.PushBack(u8' ');
+                            }
+                        }
                         InsertText(insert.AsView(), CodeEditKind::Newline);
                     }
                     return true;
@@ -1337,10 +1688,54 @@ export namespace draconic::ui::toolkit
                     HandleTab(shift);
                     return true;
                 case KeyCode::Escape:
+                    if (m_findBarMode != FindBarMode::Closed)
+                    {
+                        CloseFindBar();
+                        return true;
+                    }
                     if (HasSelection())
                     {
                         m_anchor = m_cursor;
                         Invalidate();
+                        return true;
+                    }
+                    return false;
+
+                case KeyCode::F3:
+                    if (shift)
+                    {
+                        FindPrevious();
+                    }
+                    else
+                    {
+                        FindNext();
+                    }
+                    return true;
+                case KeyCode::F:
+                    if (ctrl)
+                    {
+                        OpenFindBar(false);
+                        return true;
+                    }
+                    return false;
+                case KeyCode::H:
+                    if (ctrl)
+                    {
+                        OpenFindBar(!ReadOnly);
+                        return true;
+                    }
+                    return false;
+                case KeyCode::G:
+                    if (ctrl)
+                    {
+                        OpenGoToLine();
+                        return true;
+                    }
+                    return false;
+                case KeyCode::Slash:
+                    if (ctrl && !ReadOnly)
+                    {
+                        ToggleLineComment();
                         return true;
                     }
                     return false;
@@ -1610,6 +2005,308 @@ export namespace draconic::ui::toolkit
                                       Float2{x + 8.0f, rowY + ascent}, textColor);
                 }
             }
+
+            // Overflow indicator: a slim proportional thumb on the right edge, so a list
+            // longer than the visible window is evident (the popup is keyboard-driven; the
+            // strip is informational, tracking the selection window as arrows scroll it).
+            const i32 total = m_completion.ItemCount();
+            if (total > count)
+            {
+                const f32 trackX = x + popupW - 4.0f;
+                const f32 trackTop = y + 2.0f;
+                const f32 trackHeight = popupH - 4.0f;
+                ctx.VG().FillRect(Rectangle{trackX, trackTop, 3.0f, trackHeight},
+                                  WithAlpha(textColor, 0.08f));
+                const f32 thumbHeight =
+                    Max(8.0f, trackHeight * static_cast<f32>(count) / static_cast<f32>(total));
+                const f32 thumbTravel = trackHeight - thumbHeight;
+                const f32 thumbY =
+                    trackTop + thumbTravel * static_cast<f32>(firstItem) /
+                                   static_cast<f32>(Max(1, total - count));
+                ctx.VG().FillRect(Rectangle{trackX, thumbY, 3.0f, thumbHeight},
+                                  WithAlpha(textColor, 0.35f));
+            }
+        }
+
+        // ---- find bar machinery ----
+
+        void EnsureFindBar()
+        {
+            if (m_findBar.Get() != nullptr)
+            {
+                return;
+            }
+            CodeEditView* self = this;
+            // A vertical stack of two horizontal rows: [find | count | < > aa w | x] over
+            // [replace | Replace | All] (the second row shows only in Replace mode).
+            m_findBar = MakeRef<FlexLayout>(DefaultAllocator());
+            m_findBar->Direction = Orientation::Vertical;
+            m_findBar->Spacing = 3.0f;
+            m_findBar->Padding = Thickness{6, 4};
+
+            m_findRow = MakeRef<FlexLayout>(DefaultAllocator());
+            m_findRow->Direction = Orientation::Horizontal;
+            m_findRow->Spacing = 4.0f;
+            m_replaceRow = MakeRef<FlexLayout>(DefaultAllocator());
+            m_replaceRow->Direction = Orientation::Horizontal;
+            m_replaceRow->Spacing = 4.0f;
+
+            m_findField = MakeRef<EditText>(DefaultAllocator());
+            m_findField->SetPlaceholder(u8"Find");
+            m_findField->OnTextChanged.Add(
+                [self](EditText*)
+                {
+                    if (self->m_findBarMode == FindBarMode::Find ||
+                        self->m_findBarMode == FindBarMode::Replace)
+                    {
+                        self->RunSearch();
+                        if (self->m_currentMatch >= 0)
+                        {
+                            self->SelectMatch(self->m_currentMatch);
+                        }
+                    }
+                });
+            {
+                auto params = MakeRef<FlexLayoutParams>(DefaultAllocator());
+                params->Width = SizeSpec::Fixed(Unit::Px(170));
+                m_findRow->AddView(m_findField.Get(), params);
+            }
+
+            m_matchLabel = MakeRef<Label>(DefaultAllocator(), StringView(u8""));
+            m_matchLabel->FontSize.SetValue(12.0f);
+            m_findRow->AddView(m_matchLabel.Get());
+
+            const auto addButton = [&](FlexLayout& row, RefPtr<Button>& slot,
+                                       const char8_t* text, Function<void()> action)
+            {
+                slot = MakeRef<Button>(DefaultAllocator(), StringView(text));
+                slot->FontSize.SetValue(Optional<f32>(12.0f));
+                Function<void()> stored = Move(action);
+                slot->OnClick.Add([stored = Move(stored)](ButtonBase*) { stored(); });
+                row.AddView(slot.Get());
+            };
+            addButton(*m_findRow, m_prevButton, u8"<", [self] { self->FindPrevious(); });
+            addButton(*m_findRow, m_nextButton, u8">", [self] { self->FindNext(); });
+            // Real toggle controls (checked state is themed) for the search options.
+            const auto addToggle = [&](RefPtr<ToggleButton>& slot, const char8_t* text,
+                                       Function<void(bool)> action)
+            {
+                slot = MakeRef<ToggleButton>(DefaultAllocator(), StringView(text));
+                Function<void(bool)> stored = Move(action);
+                slot->OnCheckedChanged.Add([stored = Move(stored)](ToggleButton*, bool checked)
+                                           { stored(checked); });
+                m_findRow->AddView(slot.Get());
+            };
+            addToggle(m_caseButton, u8"Aa",
+                      [self](bool checked)
+                      {
+                          self->m_searchCaseSensitive = checked;
+                          self->RunSearch();
+                      });
+            addToggle(m_wordButton, u8"W",
+                      [self](bool checked)
+                      {
+                          self->m_searchWholeWord = checked;
+                          self->RunSearch();
+                      });
+            addButton(*m_findRow, m_closeButton, u8"x", [self] { self->CloseFindBar(); });
+
+            m_replaceField = MakeRef<EditText>(DefaultAllocator());
+            m_replaceField->SetPlaceholder(u8"Replace");
+            {
+                auto params = MakeRef<FlexLayoutParams>(DefaultAllocator());
+                params->Width = SizeSpec::Fixed(Unit::Px(170));
+                m_replaceRow->AddView(m_replaceField.Get(), params);
+            }
+            addButton(*m_replaceRow, m_replaceButton, u8"Replace",
+                      [self] { self->ReplaceCurrent(); });
+            addButton(*m_replaceRow, m_replaceAllButton, u8"All", [self] { self->ReplaceAll(); });
+
+            m_findBar->AddView(m_findRow.Get());
+            m_findBar->AddView(m_replaceRow.Get());
+            m_findBar->Visibility = VisibilityValue::Gone;
+            AddView(m_findBar.Get());
+        }
+
+        void ApplyFindBarMode()
+        {
+            m_findBar->Visibility = VisibilityValue::Visible;
+            const bool searching =
+                m_findBarMode == FindBarMode::Find || m_findBarMode == FindBarMode::Replace;
+            const VisibilityValue searchControls =
+                searching ? VisibilityValue::Visible : VisibilityValue::Gone;
+            m_prevButton->Visibility = searchControls;
+            m_nextButton->Visibility = searchControls;
+            m_caseButton->Visibility = searchControls;
+            m_wordButton->Visibility = searchControls;
+            m_replaceRow->Visibility = (m_findBarMode == FindBarMode::Replace && !ReadOnly)
+                                           ? VisibilityValue::Visible
+                                           : VisibilityValue::Gone;
+            m_findField->SetPlaceholder(m_findBarMode == FindBarMode::GoToLine ? u8"Line"
+                                                                               : u8"Find");
+            UpdateMatchLabel();
+        }
+
+        [[nodiscard]] bool IsInFindBar(const View* view) const
+        {
+            for (const View* v = view; v != nullptr; v = v->Parent)
+            {
+                if (v == m_findBar.Get())
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        void JumpToTypedLine()
+        {
+            const String text = m_findField->Text();
+            i32 line = 0;
+            bool any = false;
+            for (usize i = 0; i < text.AsView().Size(); ++i)
+            {
+                const char8_t c = text.AsView()[i];
+                if (c < u8'0' || c > u8'9')
+                {
+                    continue;
+                }
+                any = true;
+                line = line * 10 + (c - u8'0');
+                if (line > 100000000)
+                {
+                    break;
+                }
+            }
+            if (any)
+            {
+                CloseFindBar();
+                ScrollToLine(line - 1); // 1-based entry
+            }
+        }
+
+        /// Recomputes matches + the current index (first match at/after the cursor). Does not
+        /// move the editor selection - callers decide (typing selects, edits keep position).
+        void RunSearch()
+        {
+            m_matches.Clear();
+            m_currentMatch = -1;
+            if (m_findField.Get() != nullptr &&
+                (m_findBarMode == FindBarMode::Find || m_findBarMode == FindBarMode::Replace))
+            {
+                const String query = m_findField->Text();
+                m_doc.FindAll(query.AsView(), m_searchCaseSensitive, m_searchWholeWord,
+                              m_matches);
+                for (usize i = 0; i < m_matches.Size(); ++i)
+                {
+                    if (m_cursor <= m_matches[i].begin ||
+                        (m_matches[i].begin <= m_cursor && m_cursor <= m_matches[i].end))
+                    {
+                        m_currentMatch = static_cast<i32>(i);
+                        break;
+                    }
+                }
+                if (m_currentMatch < 0 && !m_matches.IsEmpty())
+                {
+                    m_currentMatch = 0; // wrap
+                }
+            }
+            UpdateMatchLabel();
+            Invalidate();
+        }
+
+        void SelectMatch(i32 index)
+        {
+            if (index < 0 || static_cast<usize>(index) >= m_matches.Size())
+            {
+                return;
+            }
+            m_currentMatch = index;
+            m_anchor = m_matches[static_cast<usize>(index)].begin;
+            m_cursor = m_matches[static_cast<usize>(index)].end;
+            m_desiredColumn = -1;
+            m_pendingCursorScroll = true;
+            ResetBlink();
+            UpdateMatchLabel();
+            Invalidate();
+        }
+
+        void GotoMatch(i32 delta)
+        {
+            if (m_matches.IsEmpty())
+            {
+                return;
+            }
+            const i32 count = static_cast<i32>(m_matches.Size());
+            i32 target = m_currentMatch;
+            if (target < 0)
+            {
+                target = delta > 0 ? 0 : count - 1;
+            }
+            else
+            {
+                target = (target + delta % count + count) % count;
+            }
+            SelectMatch(target);
+        }
+
+        void UpdateMatchLabel()
+        {
+            if (m_matchLabel.Get() == nullptr)
+            {
+                return;
+            }
+            if (m_findBarMode == FindBarMode::GoToLine)
+            {
+                char buffer[32];
+                const int n = std::snprintf(buffer, sizeof(buffer), "1-%d", m_doc.LineCount());
+                m_matchLabel->SetText(StringView(reinterpret_cast<const char8_t*>(buffer),
+                                                 n > 0 ? static_cast<usize>(n) : 0u));
+                return;
+            }
+            char buffer[32];
+            const int n =
+                std::snprintf(buffer, sizeof(buffer), "%d/%d",
+                              m_currentMatch >= 0 ? m_currentMatch + 1 : 0,
+                              static_cast<int>(m_matches.Size()));
+            m_matchLabel->SetText(StringView(reinterpret_cast<const char8_t*>(buffer),
+                                             n > 0 ? static_cast<usize>(n) : 0u));
+        }
+
+        // ---- bracket matching (cached; recomputed on cursor/content change) ----
+
+        void RefreshBracketMatch()
+        {
+            if (m_bracketVersion == m_doc.Version() && m_bracketCursor == m_cursor &&
+                m_bracketAnchor == m_anchor)
+            {
+                return;
+            }
+            m_bracketVersion = m_doc.Version();
+            m_bracketCursor = m_cursor;
+            m_bracketAnchor = m_anchor;
+            m_bracketValid = false;
+            if (HasSelection())
+            {
+                return;
+            }
+            const CodePosition probes[2] = {m_cursor,
+                                            CodePosition{m_cursor.line, m_cursor.column - 1}};
+            for (const CodePosition& probe : probes)
+            {
+                if (probe.column < 0)
+                {
+                    continue;
+                }
+                CodePosition match{};
+                if (m_doc.FindMatchingBracket(probe, match))
+                {
+                    m_bracketA = probe;
+                    m_bracketB = match;
+                    m_bracketValid = true;
+                    return;
+                }
+            }
         }
 
         // ---- state ----
@@ -1637,10 +2334,141 @@ export namespace draconic::ui::toolkit
         UniquePtr<ICodeLexer> m_lexer;
         CodeHighlighter m_highlighter;
 
+        // Find bar (built lazily; logical child so hit-testing + DrawChildren apply).
+        FindBarMode m_findBarMode = FindBarMode::Closed;
+        RefPtr<FlexLayout> m_findBar;
+        RefPtr<FlexLayout> m_findRow;
+        RefPtr<FlexLayout> m_replaceRow;
+        RefPtr<EditText> m_findField;
+        RefPtr<EditText> m_replaceField;
+        RefPtr<Label> m_matchLabel;
+        RefPtr<Button> m_prevButton;
+        RefPtr<Button> m_nextButton;
+        RefPtr<ToggleButton> m_caseButton;
+        RefPtr<ToggleButton> m_wordButton;
+        RefPtr<Button> m_replaceButton;
+        RefPtr<Button> m_replaceAllButton;
+        RefPtr<Button> m_closeButton;
+        Rectangle m_findBarFrame{};
+        bool m_searchCaseSensitive = false;
+        bool m_searchWholeWord = false;
+        Array<CodeSpan> m_matches;
+        i32 m_currentMatch = -1;
+
+        // Bracket-match cache (recomputed when cursor/content change).
+        bool m_bracketValid = false;
+        CodePosition m_bracketA{};
+        CodePosition m_bracketB{};
+        u64 m_bracketVersion = static_cast<u64>(-1);
+        CodePosition m_bracketCursor{};
+        CodePosition m_bracketAnchor{};
+
+        Float2 m_lastHover{}; // for the diagnostics tooltip
+
         CompletionModel m_completion;
         DocumentWordCompletionProvider m_wordProvider;
         Array<ICompletionProvider*> m_providers; // borrowed
     };
+
+    inline void CodeEditView::ToggleLineComment()
+    {
+        const StringView prefix =
+            m_lexer.Get() != nullptr ? m_lexer->LineCommentPrefix() : StringView(u8"//");
+        if (prefix.IsEmpty() || ReadOnly)
+        {
+            return;
+        }
+
+        const CodeSpan selection = Selection();
+        const i32 firstLine = selection.begin.line;
+        i32 lastLine = selection.end.line;
+        if (lastLine > firstLine && selection.end.column == 0)
+        {
+            --lastLine; // a selection ending at column 0 does not touch that line
+        }
+
+        // Uncomment only when EVERY non-blank line already carries the prefix.
+        bool allCommented = true;
+        bool anyContent = false;
+        for (i32 line = firstLine; line <= lastLine; ++line)
+        {
+            const StringView text = m_doc.Line(line);
+            usize i = 0;
+            while (i < text.Size() && (text[i] == u8' ' || text[i] == u8'\t'))
+            {
+                ++i;
+            }
+            if (i >= text.Size())
+            {
+                continue; // blank line - ignored by the toggle decision
+            }
+            anyContent = true;
+            if (!text.SubStr(i, text.Size() - i).StartsWith(prefix))
+            {
+                allCommented = false;
+                break;
+            }
+        }
+        if (!anyContent)
+        {
+            return;
+        }
+
+        String replacement;
+        for (i32 line = firstLine; line <= lastLine; ++line)
+        {
+            if (line > firstLine)
+            {
+                replacement.PushBack(u8'\n');
+            }
+            const StringView text = m_doc.Line(line);
+            usize indent = 0;
+            while (indent < text.Size() && (text[indent] == u8' ' || text[indent] == u8'\t'))
+            {
+                ++indent;
+            }
+            if (allCommented)
+            {
+                if (indent < text.Size() &&
+                    text.SubStr(indent, text.Size() - indent).StartsWith(prefix))
+                {
+                    usize drop = indent + prefix.Size();
+                    if (drop < text.Size() && text[drop] == u8' ')
+                    {
+                        ++drop; // the space the toggle itself inserts
+                    }
+                    replacement.Append(text.SubStr(0, indent));
+                    replacement.Append(text.SubStr(drop, text.Size() - drop));
+                }
+                else
+                {
+                    replacement.Append(text); // blank line - untouched
+                }
+            }
+            else
+            {
+                if (indent >= text.Size())
+                {
+                    replacement.Append(text); // blank line - untouched
+                }
+                else
+                {
+                    replacement.Append(text.SubStr(0, indent));
+                    replacement.Append(prefix);
+                    replacement.PushBack(u8' ');
+                    replacement.Append(text.SubStr(indent, text.Size() - indent));
+                }
+            }
+        }
+
+        const CodeSpan lineSpan{CodePosition{firstLine, 0},
+                                CodePosition{lastLine, m_doc.LineLength(lastLine)}};
+        const CodeCursorState before{m_cursor, m_anchor};
+        (void)m_doc.Edit(lineSpan, replacement.AsView(), CodeEditKind::Other, before, Now());
+        m_anchor = CodePosition{firstLine, 0};
+        m_cursor = CodePosition{lastLine, m_doc.LineLength(lastLine)};
+        AfterEdit();
+    }
 
     DRACONIC_DEFINE_OBJECT(CodeEditView, "draconic::ui::toolkit")
 }

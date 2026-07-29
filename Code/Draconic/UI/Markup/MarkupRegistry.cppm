@@ -135,6 +135,66 @@ export namespace draconic::ui
             return false;
         }
 
+        /// Every registered element name (editor completion vocabularies).
+        static void CollectElementNames(Array<String>& out)
+        {
+            out.Clear();
+            for (const auto& entry : ViewFactories())
+            {
+                out.PushBack(String(entry.key.AsView()));
+            }
+        }
+
+        /// Attribute names usable on `elementName`: its registered properties plus the union
+        /// of every layout-param name (which of those apply depends on the PARENT container -
+        /// the registry cannot know it from the element alone).
+        static void CollectAttributeNames(StringView elementName, Array<String>& out)
+        {
+            out.Clear();
+            const auto splitKey = [](StringView key, StringView& element, StringView& name)
+            {
+                for (usize i = 0; i < key.Size(); ++i)
+                {
+                    if (key[i] == char8_t(0x1f))
+                    {
+                        element = key.SubStr(0, i);
+                        name = key.SubStr(i + 1, key.Size() - i - 1);
+                        return true;
+                    }
+                }
+                return false;
+            };
+            const auto pushUnique = [&out](StringView name)
+            {
+                for (usize i = 0; i < out.Size(); ++i)
+                {
+                    if (out[i].AsView() == name)
+                    {
+                        return;
+                    }
+                }
+                out.PushBack(String(name));
+            };
+            for (const auto& entry : ViewProps())
+            {
+                StringView element;
+                StringView name;
+                if (splitKey(entry.key.AsView(), element, name) && element == elementName)
+                {
+                    pushUnique(name);
+                }
+            }
+            for (const auto& entry : LayoutParams_())
+            {
+                StringView element;
+                StringView name;
+                if (splitKey(entry.key.AsView(), element, name))
+                {
+                    pushUnique(name);
+                }
+            }
+        }
+
         [[nodiscard]] static bool IsRegistered(StringView elementName)
         {
             return ViewFactories().Find(String(elementName)) != nullptr;

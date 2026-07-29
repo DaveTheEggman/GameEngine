@@ -49,6 +49,7 @@ target_sources(DraconicUIToolkit
             Code/CodeLexer.cppm
             Code/CodeLexerScan.cppm
             Code/CodeEditView.cppm
+            Code/MarkupCompletion.cppm
             ToolkitThemeExtension.cppm
             ToolkitModule.cppm)
 

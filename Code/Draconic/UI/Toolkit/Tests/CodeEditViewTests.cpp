@@ -338,6 +338,235 @@ TEST_CASE("toolkit-codeeditview: ReadOnlyBlocksEdits")
     CHECK(h.view->Text().AsView() == StringView(u8"locked"));
 }
 
+// ---- P3: find/replace, comment toggle, brace indent, tooltip ----
+
+namespace
+{
+    CLikeLexerSpec CommentableSpec()
+    {
+        CLikeLexerSpec spec; // no tables needed; the toggle only reads LineCommentPrefix
+        return spec;
+    }
+
+    UniquePtr<ICodeLexer> MakeCLike()
+    {
+        return UniquePtr<ICodeLexer>(
+            core::DefaultAllocator().New<CLikeLexer>(CommentableSpec()),
+            core::DefaultAllocator());
+    }
+}
+
+TEST_CASE("toolkit-codeeditview: FindBarSearchAndNavigate")
+{
+    Harness h;
+    h.view->SetText(u8"alpha beta\nalpha gamma\nend alpha");
+
+    h.Key(KeyCode::F, KeyModifiers::Ctrl);
+    CHECK(h.view->FindBar() == CodeEditView::FindBarMode::Find);
+    // Focus moved into the bar's field; typing lands there, and the search runs live.
+    CHECK(h.ctx.GetFocusManager()->FocusedView() != h.view.Get());
+    h.Type(u8"alpha");
+    REQUIRE(h.view->SearchMatches().Size() == 3);
+    CHECK(h.view->CurrentMatchIndex() == 0);
+    CHECK(h.view->SelectedText().AsView() == StringView(u8"alpha")); // typing selects
+
+    // F3 from the FIELD advances (capture-phase interplay), wrapping at the end.
+    h.Key(KeyCode::F3);
+    CHECK(h.view->CurrentMatchIndex() == 1);
+    h.Key(KeyCode::F3);
+    h.Key(KeyCode::F3);
+    CHECK(h.view->CurrentMatchIndex() == 0); // wrapped
+    h.Key(KeyCode::F3, KeyModifiers::Shift);
+    CHECK(h.view->CurrentMatchIndex() == 2);
+
+    // Escape closes, clears highlights, and returns focus to the editor.
+    h.Key(KeyCode::Escape);
+    CHECK(h.view->FindBar() == CodeEditView::FindBarMode::Closed);
+    CHECK(h.view->SearchMatches().Size() == 0);
+    CHECK(h.ctx.GetFocusManager()->FocusedView() == h.view.Get());
+}
+
+TEST_CASE("toolkit-codeeditview: ReplaceAllIsOneUndo")
+{
+    Harness h;
+    h.view->SetText(u8"foo x foo\nfoo");
+    h.view->OpenFindBar(true);
+    h.view->SetSearchQuery(u8"foo");
+    h.view->SetReplaceText(u8"barbar");
+    REQUIRE(h.view->SearchMatches().Size() == 3);
+
+    h.view->ReplaceAll();
+    CHECK(h.view->Text().AsView() == StringView(u8"barbar x barbar\nbarbar"));
+
+    h.view->CloseFindBar();
+    h.Key(KeyCode::Z, KeyModifiers::Ctrl);
+    CHECK(h.view->Text().AsView() == StringView(u8"foo x foo\nfoo")); // one undo step
+}
+
+TEST_CASE("toolkit-codeeditview: GoToLine")
+{
+    Harness h;
+    String text;
+    for (i32 i = 0; i < 50; ++i)
+    {
+        text.Append(u8"line\n");
+    }
+    h.view->SetText(text.AsView());
+    h.Key(KeyCode::G, KeyModifiers::Ctrl);
+    CHECK(h.view->FindBar() == CodeEditView::FindBarMode::GoToLine);
+    h.Type(u8"42");
+    h.Key(KeyCode::Return);
+    CHECK(h.view->FindBar() == CodeEditView::FindBarMode::Closed);
+    CHECK(h.view->CursorPosition().line == 41); // 1-based entry
+}
+
+TEST_CASE("toolkit-codeeditview: ToggleLineComment")
+{
+    Harness h;
+    h.view->SetLexer(MakeCLike()); // LineCommentPrefix "//"
+    h.view->SetText(u8"one\n\ntwo");
+    h.view->SelectAll();
+    h.Key(KeyCode::Slash, KeyModifiers::Ctrl);
+    CHECK(h.view->Document().Line(0) == StringView(u8"// one"));
+    CHECK(h.view->Document().Line(1) == StringView(u8"")); // blank untouched
+    CHECK(h.view->Document().Line(2) == StringView(u8"// two"));
+
+    // Toggle back off (selection was re-established over the lines).
+    h.Key(KeyCode::Slash, KeyModifiers::Ctrl);
+    CHECK(h.view->Document().Line(0) == StringView(u8"one"));
+    CHECK(h.view->Document().Line(2) == StringView(u8"two"));
+
+    // One undo step per toggle.
+    h.Key(KeyCode::Z, KeyModifiers::Ctrl);
+    CHECK(h.view->Document().Line(0) == StringView(u8"// one"));
+}
+
+TEST_CASE("toolkit-codeeditview: ToggleLineCommentXmlIsNoOp")
+{
+    Harness h;
+    h.view->SetLexer(UniquePtr<ICodeLexer>(core::DefaultAllocator().New<XmlLexer>(),
+                                           core::DefaultAllocator()));
+    h.view->SetText(u8"<a/>");
+    h.Key(KeyCode::Slash, KeyModifiers::Ctrl);
+    CHECK(h.view->Text().AsView() == StringView(u8"<a/>")); // no line comments in XML
+}
+
+TEST_CASE("toolkit-codeeditview: BraceAwareIndent")
+{
+    Harness h;
+    h.Type(u8"    if (x) {");
+    h.Key(KeyCode::Return);
+    CHECK(h.view->Document().Line(1) == StringView(u8"        ")); // base 4 + one step
+}
+
+TEST_CASE("toolkit-codeeditview: DiagnosticTooltip")
+{
+    Harness h;
+    h.view->SetText(u8"ok line\nbad line");
+    Array<CodeDiagnostic> diagnostics;
+    diagnostics.PushBack(CodeDiagnostic{true, 1, String(u8"something broke")});
+    h.view->Document().SetDiagnostics(Move(diagnostics));
+
+    // Hover the diagnostic line: the provider yields content; a clean line yields none.
+    const Float2 bad = h.PointAt(1, 2);
+    (void)h.ctx.GetInputManager()->ProcessMouseMove(bad.x, bad.y);
+    CHECK(h.view->CreateTooltipContent().Get() != nullptr);
+
+    const Float2 good = h.PointAt(0, 2);
+    (void)h.ctx.GetInputManager()->ProcessMouseMove(good.x, good.y);
+    CHECK(h.view->CreateTooltipContent().Get() == nullptr);
+}
+
+// ---- P4: trigger characters + markup completion ----
+
+namespace
+{
+    // Records the prefix it was asked for and returns one fixed candidate.
+    class ProbeProvider final : public ICompletionProvider
+    {
+    public:
+        String lastPrefix;
+        i32 calls = 0;
+        void Collect(const CodeDocument&, CodePosition, StringView prefix,
+                     Array<CompletionCandidate>& out) override
+        {
+            ++calls;
+            lastPrefix = String(prefix);
+            out.PushBack(CompletionCandidate{String(u8"Member"), String(u8"Member")});
+        }
+    };
+}
+
+TEST_CASE("toolkit-codeeditview: TriggerCharacterOpensCompletion")
+{
+    Harness h;
+    ProbeProvider probe;
+    h.view->AddCompletionProvider(&probe);
+    h.view->DocumentWordCompletion = false;
+
+    // '.' (the default trigger) opens the popup with an EMPTY prefix.
+    h.Type(u8"x.");
+    REQUIRE(h.view->Completion().IsOpen());
+    CHECK(probe.lastPrefix.IsEmpty());
+    REQUIRE(h.view->Completion().ItemCount() == 1);
+    CHECK(h.view->Completion().Item(0)->label.AsView() == StringView(u8"Member"));
+
+    // Accepting inserts after the dot.
+    h.Key(KeyCode::Return);
+    CHECK(h.view->Text().AsView() == StringView(u8"x.Member"));
+
+    // Ranking: provider results sort ABOVE document words even when the words are
+    // capitalized (ASCII-uppercase would otherwise win the alphabetical sort and bury
+    // context results below the popup fold - the first-smoke-run finding).
+    h.view->DocumentWordCompletion = true;
+    h.view->SetText(u8"Aardvark Banana\ny.");
+    h.view->SetCursorPosition(CodePosition{1, 2});
+    h.view->RequestCompletion();
+    REQUIRE(h.view->Completion().IsOpen());
+    CHECK(h.view->Completion().Item(0)->label.AsView() == StringView(u8"Member"));
+}
+
+TEST_CASE("toolkit-markupcompletion: ElementsAndAttributes")
+{
+    MarkupLoader::Initialize(); // the registry tables the provider reads
+
+    MarkupCompletionProvider provider;
+    CodeDocument doc;
+    Array<CompletionCandidate> out;
+
+    const auto contains = [&](const char8_t* name)
+    {
+        for (usize i = 0; i < out.Size(); ++i)
+        {
+            if (out[i].label.AsView() == StringView(name))
+            {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    // Element position: right after '<' (prefix "La", cursor after it).
+    doc.SetText(u8"<La");
+    out.Clear();
+    provider.Collect(doc, CodePosition{0, 3}, StringView(u8"La"), out);
+    CHECK(contains(u8"Label"));
+    CHECK(contains(u8"Flex"));
+
+    // Attribute position: past the element name.
+    doc.SetText(u8"<Label tex");
+    out.Clear();
+    provider.Collect(doc, CodePosition{0, 10}, StringView(u8"tex"), out);
+    CHECK(contains(u8"text"));
+    CHECK(!contains(u8"Label")); // element names are not attribute candidates
+
+    // Plain text between tags: nothing.
+    doc.SetText(u8"<Label>hello");
+    out.Clear();
+    provider.Collect(doc, CodePosition{0, 12}, StringView(u8"hello"), out);
+    CHECK(out.Size() == 0);
+}
+
 // ---- CompletionModel unit coverage (no context) ----
 
 TEST_CASE("toolkit-completionmodel: FilterRanking")
