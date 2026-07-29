@@ -174,16 +174,7 @@ namespace
             return nullptr;
         }
 
-        String name(baseName);
-        for (i32 counter = 2; meshes->GetInstance(name.AsView()) != nullptr; ++counter)
-        {
-            name = String(baseName);
-            if (counter >= 10)
-            {
-                name.PushBack(static_cast<utf8char>('0' + (counter / 10 % 10)));
-            }
-            name.PushBack(static_cast<utf8char>('0' + (counter % 10)));
-        }
+        const String name = meshes->UniqueInstanceName(baseName);
 
         draconic::content::Instance* instance = meshes->CreateInstance(
             name.AsView(), draconic::geometry::StaticMeshAsset::StaticType());
@@ -316,7 +307,7 @@ int main(int argc, char** argv)
                 draconic::content::Group* target =
                     group != nullptr ? group : ctx.Project()->SourceDb().RootGroup();
                 draconic::content::Instance* instance = target->CreateInstance(
-                    u8"InputMap", draconic::input::InputMapAsset::StaticType());
+                    target->UniqueInstanceName(u8"InputMap").AsView(), draconic::input::InputMapAsset::StaticType());
                 if (instance == nullptr)
                 {
                     return nullptr;
@@ -347,7 +338,7 @@ int main(int argc, char** argv)
                 draconic::content::Group* target =
                     group != nullptr ? group : ctx.Project()->SourceDb().RootGroup();
                 draconic::content::Instance* instance = target->CreateInstance(
-                    u8"PhysicalMaterial", draconic::physics::PhysicalMaterialAsset::StaticType());
+                    target->UniqueInstanceName(u8"PhysicalMaterial").AsView(), draconic::physics::PhysicalMaterialAsset::StaticType());
                 if (instance == nullptr)
                 {
                     return nullptr;
@@ -376,7 +367,7 @@ int main(int argc, char** argv)
                 draconic::content::Group* target =
                     group != nullptr ? group : ctx.Project()->SourceDb().RootGroup();
                 draconic::content::Instance* instance = target->CreateInstance(
-                    u8"BusLayout", draconic::audio::AudioBusLayoutAsset::StaticType());
+                    target->UniqueInstanceName(u8"BusLayout").AsView(), draconic::audio::AudioBusLayoutAsset::StaticType());
                 if (instance == nullptr)
                 {
                     return nullptr;
@@ -404,7 +395,7 @@ int main(int argc, char** argv)
                 draconic::content::Group* target =
                     group != nullptr ? group : ctx.Project()->SourceDb().RootGroup();
                 draconic::content::Instance* instance = target->CreateInstance(
-                    u8"SoundCue", draconic::audio::SoundCueAsset::StaticType());
+                    target->UniqueInstanceName(u8"SoundCue").AsView(), draconic::audio::SoundCueAsset::StaticType());
                 if (instance == nullptr)
                 {
                     return nullptr;
@@ -437,7 +428,7 @@ int main(int argc, char** argv)
                 draconic::content::Group* target =
                     group != nullptr ? group : ctx.Project()->SourceDb().RootGroup();
                 draconic::content::Instance* instance = target->CreateInstance(
-                    u8"UIDocument", draconic::ui::UIDocumentAsset::StaticType());
+                    target->UniqueInstanceName(u8"UIDocument").AsView(), draconic::ui::UIDocumentAsset::StaticType());
                 if (instance == nullptr)
                 {
                     return nullptr;
@@ -465,7 +456,7 @@ int main(int argc, char** argv)
                 draconic::content::Group* target =
                     group != nullptr ? group : ctx.Project()->SourceDb().RootGroup();
                 draconic::content::Instance* instance =
-                    target->CreateInstance(u8"UITheme", draconic::ui::UIThemeAsset::StaticType());
+                    target->CreateInstance(target->UniqueInstanceName(u8"UITheme").AsView(), draconic::ui::UIThemeAsset::StaticType());
                 if (instance == nullptr)
                 {
                     return nullptr;
@@ -496,7 +487,7 @@ int main(int argc, char** argv)
                 draconic::content::Group* target =
                     group != nullptr ? group : ctx.Project()->SourceDb().RootGroup();
                 draconic::content::Instance* instance = target->CreateInstance(
-                    u8"CollisionShape", draconic::physics::CollisionShapeAsset::StaticType());
+                    target->UniqueInstanceName(u8"CollisionShape").AsView(), draconic::physics::CollisionShapeAsset::StaticType());
                 if (instance == nullptr)
                 {
                     return nullptr;

@@ -399,3 +399,43 @@ TEST_CASE("content: instance guids are unique across database sessions")
     RemoveTree(dirA);
     RemoveTree(dirB);
 }
+
+TEST_CASE("content: UniqueInstanceName / UniqueGroupName - the one general dedup")
+{
+    GlobalTypeRegistry().Register(MaterialResource::StaticType());
+    RegisterSerializable<MaterialResource>();
+
+    const StringView dir = u8"draconic_content_unique_name_db";
+    RemoveTree(dir);
+    NativeFileSystem mount(dir);
+    ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+    Group* group = db.RootGroup()->CreateGroup(u8"materials");
+    REQUIRE(group != nullptr);
+
+    // A free base comes back untouched.
+    CHECK(group->UniqueInstanceName(u8"Thing") == u8"Thing");
+
+    // A taken base steps to `base.2`, `base.3`, ... (CreateInstance would silently
+    // return the EXISTING instance - the overwrite hazard the helper exists for).
+    draconic::content::Instance* first =
+        group->CreateInstance(u8"Thing", MaterialResource::StaticType());
+    REQUIRE(first != nullptr);
+    CHECK(group->CreateInstance(u8"Thing", MaterialResource::StaticType()) == first);
+    CHECK(group->UniqueInstanceName(u8"Thing") == u8"Thing.2");
+
+    // Digits emit most-significant first - counter 12 is "Thing.12", never "Thing.21"
+    // (the bug every hand-rolled copy of this loop had).
+    for (i32 counter = 2; counter <= 11; ++counter)
+    {
+        const String next = group->UniqueInstanceName(u8"Thing");
+        REQUIRE(group->CreateInstance(next.AsView(), MaterialResource::StaticType()) != nullptr);
+    }
+    CHECK(group->UniqueInstanceName(u8"Thing") == u8"Thing.12");
+
+    // Same convention for child groups.
+    CHECK(group->UniqueGroupName(u8"sub") == u8"sub");
+    REQUIRE(group->CreateGroup(u8"sub") != nullptr);
+    CHECK(group->UniqueGroupName(u8"sub") == u8"sub.2");
+
+    RemoveTree(dir);
+}

@@ -104,6 +104,48 @@ namespace draconic::content
         return (existing != nullptr) ? existing : AddChildGroup(name);
     }
 
+    // The one name-dedup loop: `base`, then `base.2`, `base.3`, ... against whatever
+    // `taken` probes (instances or child groups).
+    template <typename TakenPredicate>
+    static String FirstFreeName(StringView base, TakenPredicate&& taken)
+    {
+        if (!taken(base))
+        {
+            return String(base);
+        }
+        for (i32 counter = 2;; ++counter)
+        {
+            String candidate(base);
+            candidate.PushBack(u8'.');
+            utf8char digits[12];
+            i32 digitCount = 0;
+            for (i32 value = counter; value > 0 && digitCount < 12; value /= 10)
+            {
+                digits[digitCount++] = static_cast<utf8char>('0' + value % 10);
+            }
+            while (digitCount > 0)
+            {
+                candidate.PushBack(digits[--digitCount]);
+            }
+            if (!taken(candidate.AsView()))
+            {
+                return candidate;
+            }
+        }
+    }
+
+    String Group::UniqueInstanceName(StringView base) const
+    {
+        return FirstFreeName(base,
+                             [this](StringView name) { return GetInstance(name) != nullptr; });
+    }
+
+    String Group::UniqueGroupName(StringView base) const
+    {
+        return FirstFreeName(base,
+                             [this](StringView name) { return GetGroup(name) != nullptr; });
+    }
+
     Instance* Group::CreateInstance(StringView name, const TypeInfo& primaryType)
     {
         if (Instance* existing = GetInstance(name))

@@ -114,7 +114,16 @@ export namespace draconic::content
         Group* CreateGroup(StringView name);
         // Creates a new instance of `primaryType` with a fresh Guid. The on-disk
         // file appears once WriteObject() is called.
+        // NOTE: a taken name returns the EXISTING instance (reimport/cook idempotency) -
+        // a New-Asset creator that then WriteObject()s a starter would OVERWRITE it. Such
+        // creators must pass UniqueInstanceName(base) instead of a fixed name.
         Instance* CreateInstance(StringView name, const TypeInfo& primaryType);
+
+        // First free name from `base`: `base`, then `base.2`, `base.3`, ... The one
+        // general dedup for New-Asset creators (each used to hand-roll its own, or none).
+        [[nodiscard]] String UniqueInstanceName(StringView base) const;
+        // Same convention for child-group names (probes GetGroup instead).
+        [[nodiscard]] String UniqueGroupName(StringView base) const;
         // Same, but with a caller-chosen Guid (the cook driver: product guid = source guid).
         // Returns the existing instance when the name is already taken.
         Instance* CreateInstanceWithId(const Guid& id, StringView name,

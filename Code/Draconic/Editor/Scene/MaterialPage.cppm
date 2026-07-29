@@ -322,16 +322,7 @@ export namespace draconic::editor
             return nullptr;
         }
 
-        String name(u8"Material");
-        for (i32 counter = 2; target->GetInstance(name.AsView()) != nullptr; ++counter)
-        {
-            name = String(u8"Material");
-            if (counter >= 10)
-            {
-                name.PushBack(static_cast<utf8char>('0' + (counter / 10 % 10)));
-            }
-            name.PushBack(static_cast<utf8char>('0' + (counter % 10)));
-        }
+        const String name = target->UniqueInstanceName(u8"Material");
 
         draconic::content::Instance* instance =
             target->CreateInstance(name.AsView(), materials::MaterialAsset::StaticType());

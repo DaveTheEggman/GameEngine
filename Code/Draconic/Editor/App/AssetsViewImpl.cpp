@@ -941,16 +941,7 @@ namespace draconic::editor::app
         {
             return;
         }
-        String name(u8"Group");
-        for (i32 counter = 2; parent->GetGroup(name.AsView()) != nullptr; ++counter)
-        {
-            name = String(u8"Group");
-            if (counter >= 10)
-            {
-                name.PushBack(static_cast<utf8char>('0' + (counter / 10 % 10)));
-            }
-            name.PushBack(static_cast<utf8char>('0' + (counter % 10)));
-        }
+        const String name = parent->UniqueGroupName(u8"Group");
         content::Group* created = parent->CreateGroup(name.AsView());
         if (created != nullptr)
         {
@@ -969,21 +960,8 @@ namespace draconic::editor::app
         }
         content::ContentDatabase& db = m_context->Project()->SourceDb();
 
-        // "name2", "name3", ... in the source's own group.
-        String name;
-        for (i32 counter = 2;; ++counter)
-        {
-            name = String(src->Name());
-            if (counter >= 10)
-            {
-                name.PushBack(static_cast<utf8char>('0' + (counter / 10 % 10)));
-            }
-            name.PushBack(static_cast<utf8char>('0' + (counter % 10)));
-            if (src->OwningGroup().GetInstance(name.AsView()) == nullptr)
-            {
-                break;
-            }
-        }
+        // "name.2", "name.3", ... in the source's own group (the source holds the base).
+        const String name = src->OwningGroup().UniqueInstanceName(src->Name());
         content::Instance* copy = db.CloneInstance(id, name.AsView());
         if (copy == nullptr)
         {

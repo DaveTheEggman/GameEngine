@@ -25,7 +25,7 @@ namespace
     {
         FileDelete(PathJoin(root, u8"Project.xml"));
         FileDelete(PathJoin(root, u8"Content/Scenes/Scene.xasset"));
-        FileDelete(PathJoin(root, u8"Content/Scenes/Scene2.xasset"));
+        FileDelete(PathJoin(root, u8"Content/Scenes/Scene.2.xasset"));
         RemoveDirectory(PathJoin(root, u8"Content/Scenes"));
         RemoveDirectory(PathJoin(root, u8"Content"));
         RemoveDirectory(PathJoin(root, u8"Sources"));
@@ -123,7 +123,7 @@ TEST_CASE("editor-scene: CreateSceneInstance makes uniquely-named SceneDocument 
     // Second create picks a unique name in the same group.
     draconic::content::Instance* second = CreateSceneInstance(ctx);
     REQUIRE(second != nullptr);
-    CHECK(second->Name() == u8"Scene2");
+    CHECK(second->Name() == u8"Scene.2");
     CHECK(second->Id() != first->Id());
 
     RemoveProjectTree(dir);

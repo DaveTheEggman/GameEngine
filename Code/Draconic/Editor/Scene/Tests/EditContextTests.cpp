@@ -641,7 +641,7 @@ TEST_CASE("material creator: PBR/Unlit presets land in Materials/ with the right
     {
         FileDelete(PathJoin(dir, u8"Project.xml"));
         FileDelete(PathJoin(dir, u8"Content/Materials/Material.xasset"));
-        FileDelete(PathJoin(dir, u8"Content/Materials/Material2.xasset"));
+        FileDelete(PathJoin(dir, u8"Content/Materials/Material.2.xasset"));
         RemoveDirectory(PathJoin(dir, u8"Content/Materials"));
         for (StringView sub : {u8"Content", u8"Sources", u8"Cooked", u8"Editor", u8".cache"})
         {
@@ -679,7 +679,7 @@ TEST_CASE("material creator: PBR/Unlit presets land in Materials/ with the right
     // Unlit: BaseColor + AlbedoMap only, on the "unlit" shader.
     draconic::content::Instance* unlit = CreateMaterialInstance(ctx, nullptr, /*unlit*/ true);
     REQUIRE(unlit != nullptr);
-    CHECK(unlit->Path() == u8"Materials/Material2");
+    CHECK(unlit->Path() == u8"Materials/Material.2");
     {
         RefPtr<ISerializable> object = unlit->ReadObject();
         auto* asset = Cast<draconic::materials::MaterialAsset>(object.Get());

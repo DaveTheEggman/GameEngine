@@ -208,27 +208,12 @@ namespace draconic::editor
         {
             prefabs = root->CreateGroup(u8"Prefabs");
         }
-        String name(m_scene->GetEntityName(live));
-        if (name.IsEmpty())
+        String base(m_scene->GetEntityName(live));
+        if (base.IsEmpty())
         {
-            name = String(u8"Prefab");
+            base = String(u8"Prefab");
         }
-        for (u32 n = 2; prefabs->GetInstance(name.AsView()) != nullptr; ++n)
-        {
-            name = String(m_scene->GetEntityName(live));
-            name += u8".";
-            utf8char digits[12];
-            u32 value = n, count = 0;
-            do
-            {
-                digits[count++] = static_cast<utf8char>('0' + (value % 10));
-                value /= 10;
-            } while (value != 0);
-            while (count > 0)
-            {
-                name.PushBack(digits[--count]);
-            }
-        }
+        const String name = prefabs->UniqueInstanceName(base.AsView());
         draconic::content::Instance* asset =
             prefabs->CreateInstance(name.AsView(), scene::PrefabDocument::StaticType());
         if (asset == nullptr)

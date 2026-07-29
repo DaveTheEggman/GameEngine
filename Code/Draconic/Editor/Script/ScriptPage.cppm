@@ -217,16 +217,7 @@ export namespace draconic::editor
         content::Group* target =
             group != nullptr ? group : context.Project()->SourceDb().RootGroup();
 
-        String name(u8"NewBehavior");
-        for (i32 counter = 2; target->GetInstance(name.AsView()) != nullptr; ++counter)
-        {
-            name = String(u8"NewBehavior");
-            if (counter >= 10)
-            {
-                name.PushBack(static_cast<utf8char>('0' + (counter / 10 % 10)));
-            }
-            name.PushBack(static_cast<utf8char>('0' + (counter % 10)));
-        }
+        const String name = target->UniqueInstanceName(u8"NewBehavior");
 
         String fileName(name.AsView());
         fileName.PushBack(utf8char('.'));

@@ -437,16 +437,7 @@ export namespace draconic::editor
             return nullptr;
         }
 
-        String name(u8"Prefab");
-        for (i32 counter = 2; prefabs->GetInstance(name.AsView()) != nullptr; ++counter)
-        {
-            name = String(u8"Prefab");
-            name.PushBack(static_cast<utf8char>('0' + (counter % 10)));
-            if (counter >= 10)
-            {
-                name.PushBack(static_cast<utf8char>('0' + (counter / 10 % 10)));
-            }
-        }
+        const String name = prefabs->UniqueInstanceName(u8"Prefab");
 
         draconic::content::Instance* instance =
             prefabs->CreateInstance(name.AsView(), scene::PrefabDocument::StaticType());
@@ -500,16 +491,7 @@ export namespace draconic::editor
             return nullptr;
         }
 
-        String name(u8"Scene");
-        for (i32 counter = 2; scenes->GetInstance(name.AsView()) != nullptr; ++counter)
-        {
-            name = String(u8"Scene");
-            name.PushBack(static_cast<utf8char>('0' + (counter % 10)));
-            if (counter >= 10)
-            {
-                name.PushBack(static_cast<utf8char>('0' + (counter / 10 % 10)));
-            }
-        }
+        const String name = scenes->UniqueInstanceName(u8"Scene");
 
         draconic::content::Instance* instance =
             scenes->CreateInstance(name.AsView(), scene::SceneDocument::StaticType());

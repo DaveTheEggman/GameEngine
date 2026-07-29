@@ -99,11 +99,8 @@ export namespace draconic::modelimporter
             res.generateMipmaps = false;
 
             String texName = ImportedTextureName(t, i);
-            String name = Format(u8"{}.{}", namePrefix, texName);
-            for (u32 n = 2; root->GetInstance(name.AsView()) != nullptr; ++n)
-            {
-                name = Format(u8"{}.{}.{}", namePrefix, texName, n);
-            }
+            const String name =
+                root->UniqueInstanceName(Format(u8"{}.{}", namePrefix, texName).AsView());
             content::Instance* inst =
                 root->CreateInstance(name.AsView(), texture::TextureResource::StaticType());
             if (inst == nullptr)
@@ -241,11 +238,8 @@ export namespace draconic::modelimporter
                 MaterialSamplerModes(model, m, asset.source.samplerU, asset.source.samplerV);
             }
 
-            String name = Format(u8"{}.{}", namePrefix, ImportedAssetName(m.name(), u8"mat", i));
-            for (u32 n = 2; root->GetInstance(name.AsView()) != nullptr; ++n)
-            {
-                name = Format(u8"{}.{}.{}", namePrefix, ImportedAssetName(m.name(), u8"mat", i), n);
-            }
+            const String name = root->UniqueInstanceName(
+                Format(u8"{}.{}", namePrefix, ImportedAssetName(m.name(), u8"mat", i)).AsView());
             content::Instance* inst =
                 root->CreateInstance(name.AsView(), materials::MaterialSource::StaticType());
             if (inst == nullptr)
