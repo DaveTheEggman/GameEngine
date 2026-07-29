@@ -79,15 +79,26 @@ add_library(Draconic::Policy ALIAS draconic_policy)
 
 target_compile_features(draconic_policy INTERFACE cxx_std_23)
 
+# Shipping flavor (Prelude: "define exactly one" of DEBUG/RELEASE/SHIPPING): an optimized
+# build with asserts compiled out + stripped binaries - the dist/size-measurement config.
+# Presets clang-shipping/gcc-shipping turn it on (Release + DRACONIC_OUTPUT_SUFFIX so it
+# never clobbers a plain Release Bin dir).
+option(DRACONIC_SHIPPING_BUILD "Shipping config: asserts compiled out, binaries stripped" OFF)
+
 target_compile_definitions(draconic_policy INTERFACE
     $<$<CONFIG:Debug>:DRACONIC_DEBUG=1>
-    $<$<CONFIG:Release,RelWithDebInfo,MinSizeRel>:DRACONIC_RELEASE=1>
+    $<$<AND:$<CONFIG:Release,RelWithDebInfo,MinSizeRel>,$<NOT:$<BOOL:${DRACONIC_SHIPPING_BUILD}>>>:DRACONIC_RELEASE=1>
+    $<$<BOOL:${DRACONIC_SHIPPING_BUILD}>:DRACONIC_SHIPPING=1>
     # Instrumentation on in Debug/RelWithDebInfo; off (compiles to nothing) in shipping builds.
     $<$<CONFIG:Debug,RelWithDebInfo>:DRACONIC_PROFILING=1>
     # Build identity as strings, matching the Bin/<Config>/<Platform>-<Compiler> layout: the export
     # host template stamps itself with the config/compiler that built the running tool (export-templates.md).
     DRACONIC_BUILD_CONFIG=\"$<CONFIG>\"
     DRACONIC_BUILD_COMPILER=\"${_dr_comp}\")
+
+target_link_options(draconic_policy INTERFACE
+    # Shipping: strip symbol tables at link (what a dist ships; the honest size number).
+    $<$<AND:$<BOOL:${DRACONIC_SHIPPING_BUILD}>,$<CXX_COMPILER_ID:Clang,GNU>>:-s>)
 
 target_compile_options(draconic_policy INTERFACE
     $<$<CXX_COMPILER_ID:Clang,GNU>:-fno-exceptions;-fno-rtti>

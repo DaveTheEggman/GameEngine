@@ -57,8 +57,11 @@ namespace draconic::core
                 : (void)0))
 
 #if DRACONIC_SHIPPING
-#define DRACONIC_ASSERT(cond) ((void)0)
-#define DRACONIC_ASSERT_MSG(cond, msg) ((void)0)
+// Disabled asserts still REFERENCE the expression, unevaluated (sizeof of a ternary):
+// zero codegen, but parameters/locals used only in asserts stay "used" - otherwise every
+// assert-only parameter breaks the shipping build under -Werror=unused-parameter.
+#define DRACONIC_ASSERT(cond) ((void)sizeof((cond) ? 1 : 0))
+#define DRACONIC_ASSERT_MSG(cond, msg) ((void)sizeof((cond) ? 1 : 0))
 #define DRACONIC_VERIFY(cond) ((void)(cond))
 #else
 #define DRACONIC_ASSERT(cond) DRACONIC_ASSERT_IMPL(cond, nullptr)

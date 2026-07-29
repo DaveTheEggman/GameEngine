@@ -15,10 +15,15 @@
 #define DRACONIC_LOG(level, category, ...) ::draconic::core::Logf((level), (category), __VA_ARGS__)
 
 #if DRACONIC_SHIPPING
-// Strip verbose levels in shipping; keep Warning and above.
-#define DRACONIC_LOG_TRACE(category, ...) ((void)0)
-#define DRACONIC_LOG_DEBUG(category, ...) ((void)0)
-#define DRACONIC_LOG_INFO(category, ...) ((void)0)
+// Strip verbose levels in shipping; keep Warning and above. The dead ternary arm keeps
+// the arguments REFERENCED (type-checked, never evaluated, constant-folded to nothing) -
+// otherwise every log-only parameter breaks the shipping build under -Werror=unused.
+#define DRACONIC_LOG_TRACE(category, ...)                                                          \
+    (true ? (void)0 : DRACONIC_LOG(::draconic::core::LogLevel::Trace, (category), __VA_ARGS__))
+#define DRACONIC_LOG_DEBUG(category, ...)                                                          \
+    (true ? (void)0 : DRACONIC_LOG(::draconic::core::LogLevel::Debug, (category), __VA_ARGS__))
+#define DRACONIC_LOG_INFO(category, ...)                                                           \
+    (true ? (void)0 : DRACONIC_LOG(::draconic::core::LogLevel::Info, (category), __VA_ARGS__))
 #else
 #define DRACONIC_LOG_TRACE(category, ...)                                                          \
     DRACONIC_LOG(::draconic::core::LogLevel::Trace, (category), __VA_ARGS__)

@@ -1,6 +1,10 @@
 {
   "version": 6,
-  "cmakeMinimumRequired": { "major": 3, "minor": 28, "patch": 0 },
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 28,
+    "patch": 0
+  },
   "configurePresets": [
     {
       "name": "clang",
@@ -31,16 +35,103 @@
         "CMAKE_CXX_COMPILER": "g++",
         "CMAKE_BUILD_TYPE": "Debug"
       }
+    },
+    {
+      "name": "clang-release",
+      "displayName": "Clang (Ninja, Release)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/clang-release",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "gcc-release",
+      "displayName": "GCC (Ninja, Release)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/gcc-release",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "g++",
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "clang-shipping",
+      "displayName": "Clang (Ninja, Shipping: no asserts, stripped)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/clang-shipping",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_BUILD_TYPE": "Release",
+        "DRACONIC_SHIPPING_BUILD": "ON",
+        "DRACONIC_OUTPUT_SUFFIX": "-Shipping"
+      }
+    },
+    {
+      "name": "gcc-shipping",
+      "displayName": "GCC (Ninja, Shipping: no asserts, stripped)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/gcc-shipping",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "g++",
+        "CMAKE_BUILD_TYPE": "Release",
+        "DRACONIC_SHIPPING_BUILD": "ON",
+        "DRACONIC_OUTPUT_SUFFIX": "-Shipping"
+      }
     }
   ],
   "buildPresets": [
-    { "name": "clang", "configurePreset": "clang" },
-    { "name": "clang-reldbg", "configurePreset": "clang-reldbg" },
-    { "name": "gcc", "configurePreset": "gcc" }
+    {
+      "name": "clang",
+      "configurePreset": "clang"
+    },
+    {
+      "name": "clang-reldbg",
+      "configurePreset": "clang-reldbg"
+    },
+    {
+      "name": "gcc",
+      "configurePreset": "gcc"
+    },
+    {
+      "name": "clang-release",
+      "configurePreset": "clang-release"
+    },
+    {
+      "name": "gcc-release",
+      "configurePreset": "gcc-release"
+    },
+    {
+      "name": "clang-shipping",
+      "configurePreset": "clang-shipping"
+    },
+    {
+      "name": "gcc-shipping",
+      "configurePreset": "gcc-shipping"
+    }
   ],
   "testPresets": [
-    { "name": "clang", "configurePreset": "clang", "output": { "outputOnFailure": true } },
-    { "name": "clang-reldbg", "configurePreset": "clang-reldbg", "output": { "outputOnFailure": true } },
-    { "name": "gcc", "configurePreset": "gcc", "output": { "outputOnFailure": true } }
+    {
+      "name": "clang",
+      "configurePreset": "clang",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "clang-reldbg",
+      "configurePreset": "clang-reldbg",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "gcc",
+      "configurePreset": "gcc",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
   ]
 }
