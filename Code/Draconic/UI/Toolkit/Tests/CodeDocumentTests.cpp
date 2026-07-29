@@ -336,6 +336,72 @@ TEST_CASE("toolkit-codedocument: WordHarvest")
     CHECK(found);
 }
 
+TEST_CASE("toolkit-codedocument: FindAll")
+{
+    CodeDocument doc = MakeDoc(u8"Count count\ncounter\nno match here");
+
+    Array<CodeSpan> matches;
+    doc.FindAll(StringView(u8"count"), false, false, matches);
+    REQUIRE(matches.Size() == 3); // Count, count, counter's prefix
+    CHECK(matches[0].begin == CodePosition{0, 0});
+    CHECK(matches[1].begin == CodePosition{0, 6});
+    CHECK(matches[2].begin == CodePosition{1, 0});
+
+    doc.FindAll(StringView(u8"count"), true, false, matches);
+    REQUIRE(matches.Size() == 2); // case-sensitive drops "Count"
+
+    doc.FindAll(StringView(u8"count"), false, true, matches);
+    REQUIRE(matches.Size() == 2); // whole-word drops "counter"
+
+    // Non-overlapping: "aaa" in "aaaa" matches once.
+    doc.SetText(u8"aaaa");
+    doc.FindAll(StringView(u8"aaa"), true, false, matches);
+    CHECK(matches.Size() == 1);
+
+    doc.FindAll(StringView(u8""), true, false, matches);
+    CHECK(matches.Size() == 0);
+}
+
+TEST_CASE("toolkit-codedocument: CompoundEditIsOneUndoEntry")
+{
+    CodeDocument doc = MakeDoc(u8"aa bb aa");
+    doc.BeginCompoundEdit();
+    (void)doc.Edit(CodeSpan{{0, 6}, {0, 8}}, StringView(u8"XX"), CodeEditKind::Other,
+                   CodeCursorState{}, 0.0);
+    (void)doc.Edit(CodeSpan{{0, 0}, {0, 2}}, StringView(u8"XX"), CodeEditKind::Other,
+                   CodeCursorState{}, 0.0);
+    doc.EndCompoundEdit();
+    CHECK(doc.Text().AsView() == StringView(u8"XX bb XX"));
+
+    CodeCursorState state;
+    CHECK(doc.Undo(state));
+    CHECK(doc.Text().AsView() == StringView(u8"aa bb aa")); // BOTH edits reverted at once
+    CHECK(!doc.CanUndo());
+    CHECK(doc.Redo(state));
+    CHECK(doc.Text().AsView() == StringView(u8"XX bb XX"));
+}
+
+TEST_CASE("toolkit-codedocument: BracketMatching")
+{
+    CodeDocument doc = MakeDoc(u8"fn(a, [b {\nnested}\n])");
+
+    CodePosition match{};
+    // The '(' at (0,2) pairs with the ')' at (2,1).
+    REQUIRE(doc.FindMatchingBracket(CodePosition{0, 2}, match));
+    CHECK(match == CodePosition{2, 1});
+    // ...and backwards from the ')'.
+    REQUIRE(doc.FindMatchingBracket(CodePosition{2, 1}, match));
+    CHECK(match == CodePosition{0, 2});
+    // The '{' at (0,9) closes at (1,6) across the line break, nesting-aware.
+    REQUIRE(doc.FindMatchingBracket(CodePosition{0, 9}, match));
+    CHECK(match == CodePosition{1, 6});
+
+    // Not a bracket / unmatched.
+    CHECK(!doc.FindMatchingBracket(CodePosition{0, 0}, match));
+    doc.SetText(u8"(((");
+    CHECK(!doc.FindMatchingBracket(CodePosition{0, 0}, match));
+}
+
 TEST_CASE("toolkit-codedocument: OnLinesChanged")
 {
     CodeDocument doc = MakeDoc(u8"a\nb\nc");

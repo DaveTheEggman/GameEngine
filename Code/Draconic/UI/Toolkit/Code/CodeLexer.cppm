@@ -58,6 +58,10 @@ export namespace draconic::ui::toolkit
     public:
         virtual ~ICodeLexer() = default;
         virtual u32 LexLine(StringView line, u32 entryState, Array<CodeToken>& outTokens) = 0;
+
+        /// The language's line-comment marker (comment-toggle uses it). Empty disables the
+        /// toggle (XML has only block comments).
+        [[nodiscard]] virtual StringView LineCommentPrefix() const { return u8"//"; }
     };
 
     // ---- the incremental per-line cache ------------------------------------------------------
@@ -136,6 +140,7 @@ export namespace draconic::ui::toolkit
     {
     public:
         u32 LexLine(StringView line, u32 entryState, Array<CodeToken>& out) override;
+        [[nodiscard]] StringView LineCommentPrefix() const override { return StringView(); }
 
     private:
         static constexpr u32 kModeText = 0;

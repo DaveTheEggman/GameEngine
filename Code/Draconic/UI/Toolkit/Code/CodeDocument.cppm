@@ -387,6 +387,24 @@ export namespace draconic::ui::toolkit
             op.inserted = String(text);
 
             m_redo.Clear();
+            if (m_compoundOpen)
+            {
+                // Compound bracket: every edit inside lands in ONE undo entry (replace-all,
+                // multi-cursor style operations). Coalescing state is untouched.
+                if (!m_compoundEntryStarted)
+                {
+                    UndoEntry entry;
+                    entry.before = before;
+                    entry.kind = CodeEditKind::Other;
+                    m_undo.PushBack(Move(entry));
+                    m_compoundEntryStarted = true;
+                }
+                UndoEntry& last = m_undo[m_undo.Size() - 1];
+                last.after = CodeCursorState{op.insertedEnd, op.insertedEnd};
+                last.ops.PushBack(Move(op));
+                m_lastEditKind = CodeEditKind::None;
+                return last.ops[last.ops.Size() - 1].insertedEnd;
+            }
             if (CanCoalesce(kind, target, time))
             {
                 UndoEntry& last = m_undo[m_undo.Size() - 1];
@@ -460,6 +478,131 @@ export namespace draconic::ui::toolkit
 
         /// Splits the coalescing chain (call on cursor navigation, focus loss, save).
         void BreakUndoChain() noexcept { m_lastEditKind = CodeEditKind::None; }
+
+        /// Groups every Edit() until EndCompoundEdit into ONE undo entry (replace-all). The
+        /// entry's before-state comes from the first edit; no entry is pushed if none happen.
+        void BeginCompoundEdit() noexcept
+        {
+            m_compoundOpen = true;
+            m_compoundEntryStarted = false;
+        }
+        void EndCompoundEdit() noexcept
+        {
+            m_compoundOpen = false;
+            m_compoundEntryStarted = false;
+        }
+
+        // ---- search (the find bar's model) ----
+
+        /// Every occurrence of `query` (single-line, no '\n'), in document order. ASCII
+        /// case-folding when insensitive; wholeWord bounds matches at word-class boundaries.
+        void FindAll(StringView query, bool caseSensitive, bool wholeWord,
+                     Array<CodeSpan>& outMatches) const
+        {
+            outMatches.Clear();
+            if (query.IsEmpty())
+            {
+                return;
+            }
+            for (i32 line = 0; line < LineCount(); ++line)
+            {
+                const StringView text = Line(line);
+                if (query.Size() > text.Size())
+                {
+                    continue;
+                }
+                for (usize i = 0; i + query.Size() <= text.Size(); ++i)
+                {
+                    if (!MatchesAt(text, i, query, caseSensitive))
+                    {
+                        continue;
+                    }
+                    if (wholeWord && !IsWordBoundedMatch(text, i, query.Size()))
+                    {
+                        continue;
+                    }
+                    const i32 fromColumn = ByteToColumn(line, i);
+                    const i32 toColumn = ByteToColumn(line, i + query.Size());
+                    outMatches.PushBack(CodeSpan{CodePosition{line, fromColumn},
+                                                 CodePosition{line, toColumn}});
+                    i += query.Size() - 1; // non-overlapping matches
+                }
+            }
+        }
+
+        // ---- brackets ----
+
+        /// Codepoint at `pos` (0 at/past the end of the line - callers treat that as none).
+        [[nodiscard]] u32 CodepointAt(CodePosition pos) const
+        {
+            if (pos.line < 0 || pos.line >= LineCount())
+            {
+                return 0;
+            }
+            const StringView text = Line(pos.line);
+            usize index = ColumnToByte(pos.line, pos.column);
+            if (index >= text.Size())
+            {
+                return 0;
+            }
+            return DecodeUtf8(text, index);
+        }
+
+        /// For a bracket at `bracketPos`, finds its partner (nesting-aware, whole document;
+        /// P3 is lexer-blind - brackets inside strings/comments count too). False when the
+        /// character is not a bracket or the partner is missing.
+        [[nodiscard]] bool FindMatchingBracket(CodePosition bracketPos,
+                                               CodePosition& outMatch) const
+        {
+            static constexpr char8_t kOpen[] = {u8'(', u8'[', u8'{'};
+            static constexpr char8_t kClose[] = {u8')', u8']', u8'}'};
+            const u32 at = CodepointAt(bracketPos);
+            i32 pair = -1;
+            bool forward = false;
+            for (i32 i = 0; i < 3; ++i)
+            {
+                if (at == kOpen[i])
+                {
+                    pair = i;
+                    forward = true;
+                }
+                if (at == kClose[i])
+                {
+                    pair = i;
+                }
+            }
+            if (pair < 0)
+            {
+                return false;
+            }
+            const u32 open = kOpen[pair];
+            const u32 close = kClose[pair];
+            i32 depth = 0;
+            CodePosition pos = bracketPos;
+            while (true)
+            {
+                const u32 codepoint = CodepointAt(pos);
+                if (codepoint == open)
+                {
+                    depth += forward ? 1 : -1;
+                }
+                else if (codepoint == close)
+                {
+                    depth += forward ? -1 : 1;
+                }
+                if (depth == 0 && !(pos == bracketPos))
+                {
+                    outMatch = pos;
+                    return true;
+                }
+                CodePosition next = forward ? NextOnDocument(pos) : PreviousOnDocument(pos);
+                if (next == pos)
+                {
+                    return false;
+                }
+                pos = next;
+            }
+        }
 
         // ---- markers ----
 
@@ -628,6 +771,76 @@ export namespace draconic::ui::toolkit
                               (codepoint >= u8'0' && codepoint <= u8'9') || codepoint == u8'_' ||
                               codepoint > 127u;
             return word ? CharClass::Word : CharClass::Punct;
+        }
+
+        [[nodiscard]] static char8_t FoldAsciiCase(char8_t c) noexcept
+        {
+            return (c >= u8'A' && c <= u8'Z') ? static_cast<char8_t>(c + 32) : c;
+        }
+
+        [[nodiscard]] static bool MatchesAt(StringView text, usize at, StringView query,
+                                            bool caseSensitive) noexcept
+        {
+            for (usize k = 0; k < query.Size(); ++k)
+            {
+                const char8_t a = caseSensitive ? text[at + k] : FoldAsciiCase(text[at + k]);
+                const char8_t b = caseSensitive ? query[k] : FoldAsciiCase(query[k]);
+                if (a != b)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        /// True when the [at, at+size) byte range does not butt against word-class characters.
+        [[nodiscard]] static bool IsWordBoundedMatch(StringView text, usize at,
+                                                     usize size) noexcept
+        {
+            if (at > 0)
+            {
+                const usize before = Utf8PrevBoundary(text, at);
+                usize probe = before;
+                if (Classify(DecodeUtf8(text, probe)) == CharClass::Word)
+                {
+                    return false;
+                }
+            }
+            if (at + size < text.Size())
+            {
+                usize probe = at + size;
+                if (Classify(DecodeUtf8(text, probe)) == CharClass::Word)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        /// One codepoint forward/backward across line boundaries; clamps at the document ends.
+        [[nodiscard]] CodePosition NextOnDocument(CodePosition pos) const
+        {
+            if (pos.column < LineLength(pos.line))
+            {
+                return CodePosition{pos.line, pos.column + 1};
+            }
+            if (pos.line + 1 < LineCount())
+            {
+                return CodePosition{pos.line + 1, 0};
+            }
+            return pos;
+        }
+        [[nodiscard]] CodePosition PreviousOnDocument(CodePosition pos) const
+        {
+            if (pos.column > 0)
+            {
+                return CodePosition{pos.line, pos.column - 1};
+            }
+            if (pos.line > 0)
+            {
+                return CodePosition{pos.line - 1, LineLength(pos.line - 1)};
+            }
+            return pos;
         }
 
         [[nodiscard]] CharClass CharClassAt(StringView text, i32 column) const
@@ -869,6 +1082,8 @@ export namespace draconic::ui::toolkit
 
         Array<UndoEntry> m_undo;
         Array<UndoEntry> m_redo;
+        bool m_compoundOpen = false;
+        bool m_compoundEntryStarted = false;
         CodeEditKind m_lastEditKind = CodeEditKind::None;
         f64 m_lastEditTime = 0.0;
         CodePosition m_lastEditBegin{};
