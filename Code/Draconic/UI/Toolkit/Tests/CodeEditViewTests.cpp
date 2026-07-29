@@ -459,6 +459,37 @@ TEST_CASE("toolkit-codeeditview: BraceAwareIndent")
     CHECK(h.view->Document().Line(1) == StringView(u8"        ")); // base 4 + one step
 }
 
+TEST_CASE("toolkit-codeeditview: HoverValueTooltip")
+{
+    Harness h;
+    h.view->SetText(u8"var speed = 4\nplain");
+    h.view->HoverValueProvider = [](StringView identifier) -> String
+    {
+        if (identifier == StringView(u8"speed"))
+        {
+            return String(u8"4 : Num");
+        }
+        return String();
+    };
+
+    // Hovering the known identifier yields value content...
+    const Float2 onWord = h.PointAt(0, 5); // inside "speed"
+    (void)h.ctx.GetInputManager()->ProcessMouseMove(onWord.x, onWord.y);
+    CHECK(h.view->CreateTooltipContent().Get() != nullptr);
+
+    // ...an unknown word yields none (and no diagnostic on the line either).
+    const Float2 onPlain = h.PointAt(1, 2);
+    (void)h.ctx.GetInputManager()->ProcessMouseMove(onPlain.x, onPlain.y);
+    CHECK(h.view->CreateTooltipContent().Get() == nullptr);
+
+    // Diagnostics remain the fallback when the provider has nothing.
+    Array<CodeDiagnostic> diagnostics;
+    diagnostics.PushBack(CodeDiagnostic{true, 1, String(u8"broken")});
+    h.view->Document().SetDiagnostics(Move(diagnostics));
+    (void)h.ctx.GetInputManager()->ProcessMouseMove(onPlain.x, onPlain.y);
+    CHECK(h.view->CreateTooltipContent().Get() != nullptr);
+}
+
 TEST_CASE("toolkit-codeeditview: DiagnosticTooltip")
 {
     Harness h;

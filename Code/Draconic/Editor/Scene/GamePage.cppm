@@ -372,6 +372,10 @@ export namespace draconic::editor
         // on resume, thaw and clear it. A locals-expand click also rebuilds here.
         void DrainDebuggerState();
 
+        // Diff-apply the shared breakpoint store onto the live run's debugger (gutter
+        // toggles during a run take effect without a restart).
+        void SyncBreakpointsToDebugger();
+
         void CycleResolution();
 
         void RefreshToolbar();
@@ -403,6 +407,7 @@ export namespace draconic::editor
         DebuggerPanel m_debuggerPanel;      // the debugger UI (contract-only)
         GameDebugListener m_debugListener;  // debugger state sink (drained in OnUpdate)
         bool m_simPausedByDebugger = false; // we disabled sim for a breakpoint
+        Array<EditorContext::ScriptBreakpoint> m_appliedBreakpoints; // mirror on the debugger
         RefPtr<draconic::ui::Label> m_statusLabel;
         RefPtr<ui::viewport::ViewportView> m_viewport;
         UniquePtr<draconic::shell::InputRouter>

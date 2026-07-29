@@ -338,3 +338,24 @@ TEST_CASE("editor-context: script execution point set/clear + version stamps")
     context.ClearScriptExecutionPoint();
     CHECK(context.ScriptExecutionVersion() == v3);
 }
+
+TEST_CASE("editor-context: script value probe slot")
+{
+    EditorContext context;
+    CHECK(!context.ScriptValueProbe); // absent by default
+
+    context.ScriptValueProbe = [](StringView identifier) -> String
+    {
+        if (identifier == StringView(u8"speed"))
+        {
+            return String(u8"4.5 : float");
+        }
+        return String();
+    };
+    REQUIRE(context.ScriptValueProbe);
+    CHECK(context.ScriptValueProbe(u8"speed").AsView() == StringView(u8"4.5 : float"));
+    CHECK(context.ScriptValueProbe(u8"unknown").IsEmpty());
+
+    context.ScriptValueProbe = {}; // a run's end clears it
+    CHECK(!context.ScriptValueProbe);
+}

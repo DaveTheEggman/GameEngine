@@ -281,6 +281,11 @@ export namespace draconic::ui::toolkit
         Event<void()> OnTextChanged;               // any document mutation (typing, undo, paste)
         Event<void(i32, bool)> OnBreakpointToggled; // (line, nowSet) after a gutter toggle
 
+        /// Hover-value lookup (debugger integration): given the identifier under the mouse,
+        /// return its display text, or empty for none. When it yields text, the hover
+        /// tooltip shows the VALUE (diagnostics remain the fallback for marked lines).
+        Function<String(StringView)> HoverValueProvider;
+
         CodeEditView()
         {
             IsFocusable = true;
@@ -333,6 +338,22 @@ export namespace draconic::ui::toolkit
         [[nodiscard]] ITooltipProvider* AsTooltipProvider() override { return this; }
         [[nodiscard]] RefPtr<View> CreateTooltipContent() override
         {
+            // A debugger hover-value for the identifier under the mouse wins; a diagnostic
+            // on the hovered line is the fallback.
+            if (HoverValueProvider)
+            {
+                const CodeSpan word = m_doc.WordAt(PositionAt(m_lastHover.x, m_lastHover.y));
+                if (!word.IsEmpty())
+                {
+                    const String value = HoverValueProvider(m_doc.TextInSpan(word).AsView());
+                    if (!value.IsEmpty())
+                    {
+                        auto label = MakeRef<Label>(DefaultAllocator(), value.AsView());
+                        label->FontSize.SetValue(12.0f);
+                        return label;
+                    }
+                }
+            }
             const i32 line =
                 static_cast<i32>((m_lastHover.y + m_scrollY - kPadTop) / LineHeight());
             const CodeDiagnostic* diagnostic =

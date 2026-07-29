@@ -123,6 +123,20 @@ export namespace draconic::editor
                 [self](i32 line, bool)
                 { self->m_context->ToggleBreakpoint(self->m_doc.FileName(), line + 1); });
 
+            // Hover-values while paused at a breakpoint IN THIS FILE: the Game run installs
+            // the context probe; the editor supplies the hovered identifier.
+            m_editor->HoverValueProvider = [self](StringView identifier) -> String
+            {
+                const EditorContext::ScriptExecutionPoint& point =
+                    self->m_context->ScriptExecution();
+                if (!point.active || point.file.AsView() != self->m_doc.FileName() ||
+                    !self->m_context->ScriptValueProbe)
+                {
+                    return String();
+                }
+                return self->m_context->ScriptValueProbe(identifier);
+            };
+
             {
                 auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                 lp->Grow = 1.0f;

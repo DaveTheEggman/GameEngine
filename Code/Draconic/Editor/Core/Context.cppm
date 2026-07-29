@@ -240,6 +240,13 @@ export namespace draconic::editor
             return m_executionPointVersion;
         }
 
+        /// Debugger value lookup for hover inspection: given an identifier, returns its
+        /// display text ("value : Type"), or empty when unavailable (no run, not paused,
+        /// unknown name). Installed by the Game page for the run's lifetime; the probe
+        /// itself checks pause state. Contract-neutral plain data, like the breakpoint
+        /// store - a future remote debugger installs the same shape.
+        Function<String(StringView)> ScriptValueProbe;
+
         // === Status ===
 
         void SetStatus(StringView text);

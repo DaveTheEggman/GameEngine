@@ -361,6 +361,9 @@ namespace draconic::editor
         m_debuggerPanel.SetIdle();
         m_simPausedByDebugger = false;
         m_context->ClearScriptExecutionPoint(); // no run = no paused location
+        m_context->ScriptValueProbe = {};       // hover-values die with the run
+        m_context->OnBreakpointsChanged = {};   // live sync dies with the run
+        m_appliedBreakpoints.Clear();
         // Script exits first (it may still observe the world), then the scene.
         if (m_gameInstance != nullptr)
         {
@@ -694,9 +697,46 @@ namespace draconic::editor
                 for (const EditorContext::ScriptBreakpoint& breakpoint : context->Breakpoints())
                 {
                     debugger.SetBreakpoint(breakpoint.file.AsView(), breakpoint.line);
+                    self->m_appliedBreakpoints.PushBack(breakpoint);
                 }
                 self->m_debuggerPanel.SetDebugger(&debugger);
             }});
+
+        // LIVE breakpoint sync: gutter toggles during the run diff-apply onto the debugger
+        // (removals take effect on the next executed line; additions arm immediately).
+        m_context->OnBreakpointsChanged = [self] { self->SyncBreakpointsToDebugger(); };
+
+        // Hover-value probe for ScriptPages: while THIS run is paused at a breakpoint, an
+        // identifier resolves against the innermost frame's locals. Cleared on Stop.
+        m_context->ScriptValueProbe = [self](StringView identifier) -> String
+        {
+            if (self->m_gameInstance == nullptr || !self->m_running ||
+                !self->m_gameInstance->RunHost().IsDebugPaused())
+            {
+                return String();
+            }
+            script::IScriptDebugger* debugger = self->m_debuggerPanel.Debugger();
+            if (debugger == nullptr)
+            {
+                return String();
+            }
+            const Array<script::ScriptVariable> locals = debugger->CaptureLocals(0);
+            for (const script::ScriptVariable& local : locals)
+            {
+                if (local.name.AsView() != identifier)
+                {
+                    continue;
+                }
+                String text(local.value.AsView());
+                if (!local.typeName.IsEmpty())
+                {
+                    text.Append(u8" : ");
+                    text.Append(local.typeName.AsView());
+                }
+                return text;
+            }
+            return String();
+        };
     }
 
     void GameEditorPage::DrainDebuggerState()
@@ -745,6 +785,50 @@ namespace draconic::editor
         if (m_debuggerPanel.ConsumeDirty())
         {
             m_debuggerPanel.Refresh();
+        }
+    }
+
+    void GameEditorPage::SyncBreakpointsToDebugger()
+    {
+        script::IScriptDebugger* debugger = m_debuggerPanel.Debugger();
+        if (debugger == nullptr || !m_running)
+        {
+            return;
+        }
+        const Span<const EditorContext::ScriptBreakpoint> store = m_context->Breakpoints();
+        const auto contains = [](Span<const EditorContext::ScriptBreakpoint> set,
+                                 const EditorContext::ScriptBreakpoint& breakpoint)
+        {
+            for (const EditorContext::ScriptBreakpoint& entry : set)
+            {
+                if (entry.line == breakpoint.line &&
+                    entry.file.AsView() == breakpoint.file.AsView())
+                {
+                    return true;
+                }
+            }
+            return false;
+        };
+        for (const EditorContext::ScriptBreakpoint& applied : m_appliedBreakpoints)
+        {
+            if (!contains(store, applied))
+            {
+                debugger->RemoveBreakpoint(applied.file.AsView(), applied.line);
+            }
+        }
+        const Span<const EditorContext::ScriptBreakpoint> appliedView(
+            m_appliedBreakpoints.Data(), m_appliedBreakpoints.Size());
+        for (const EditorContext::ScriptBreakpoint& breakpoint : store)
+        {
+            if (!contains(appliedView, breakpoint))
+            {
+                debugger->SetBreakpoint(breakpoint.file.AsView(), breakpoint.line);
+            }
+        }
+        m_appliedBreakpoints.Clear();
+        for (const EditorContext::ScriptBreakpoint& breakpoint : store)
+        {
+            m_appliedBreakpoints.PushBack(breakpoint);
         }
     }
 
