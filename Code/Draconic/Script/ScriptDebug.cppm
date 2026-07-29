@@ -99,9 +99,10 @@ export namespace draconic::script
         virtual void OnDebuggerStateChanged(ScriptDebuggerState state) = 0;
     };
 
-    /// Step-debug seam. No backend implements it yet (ScriptCapabilities::Debugger is
-    /// absent everywhere and CreateDebugger returns null); the interface is committed so
-    /// the architecture and the future editor/remote transport slot in without churn.
+    /// Step-debug seam. AngelScript implements it (suspension-based - see the
+    /// AngelScriptDebugger in the backend impl unit; ScriptCapabilities::Debugger declared
+    /// and battery-certified). Wren stays absent (no official VM debug API). The editor UI
+    /// and the future remote transport drive only this contract.
     class IScriptDebugger
     {
     public:

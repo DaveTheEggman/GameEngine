@@ -7,6 +7,7 @@ import draconic.runtime.gameinstance;
 import draconic.scene;
 import draconic.script;
 import draconic.script.wren;
+import draconic.script.angelscript;
 import draconic.net;         // NetSession queries (IsServer/PeerCount)
 import draconic.net.manager; // NetworkManager (the endpoint the instance owns)
 import draconic.input;       // ActionRuntime / IInputSourceProvider (per-instance input)
@@ -176,6 +177,87 @@ TEST_CASE("game-instance: fallback path starts, ticks, and stops a Game script")
     gi.TickScript(0.016f, 1.0f); // must not fault
     CHECK(gi.ScriptRunning());
 
+    gi.StopScript();
+    CHECK_FALSE(gi.ScriptRunning());
+}
+
+TEST_CASE("game-instance: a debugger suspension in update is not a fault - the script survives")
+{
+    RegisterCoreTypes();
+    draconic::script::angelscript::RegisterAngelScriptBackend();
+
+    runtime::GameInstance gi;
+    const bool ok = gi.StartScript(u8"class Game {\n"               // 1
+                                   u8"  void launch() {}\n"         // 2
+                                   u8"  void update(double dt) {\n" // 3
+                                   u8"    int a = 1;\n"             // 4  <- breakpoint
+                                   u8"    int b = a + 1;\n"         // 5
+                                   u8"  }\n"
+                                   u8"  void exit() {}\n"
+                                   u8"}\n",
+                                   u8"game.as");
+    REQUIRE(ok);
+    REQUIRE(gi.ScriptRunning());
+
+    draconic::script::IScriptDebugger* debugger = nullptr;
+    gi.RunHost().RequestDebugger(Function<void(draconic::script::IScriptDebugger&)>{
+        [&debugger](draconic::script::IScriptDebugger& created)
+        {
+            created.SetBreakpoint(u8"game.as", 4);
+            debugger = &created;
+        }});
+    REQUIRE(debugger != nullptr);
+
+    struct BreakCounter final : draconic::script::IScriptDebuggerListener
+    {
+        int breaks = 0;
+        void OnDebuggerStateChanged(draconic::script::ScriptDebuggerState state) override
+        {
+            if (state == draconic::script::ScriptDebuggerState::Breakpoint)
+            {
+                ++breaks;
+            }
+        }
+    };
+    BreakCounter counter;
+    gi.RunHost().SetExternalDebugListener(&counter);
+
+    // Hitting the breakpoint suspends update MID-CALL. The suspension surfaces as an error
+    // result - the regression was TickScript reading it as a fault and killing the game
+    // script ("Here" logged once, breakpoint never hit again).
+    gi.TickScript(0.016f, 1.0f);
+    CHECK(gi.RunHost().IsDebugPaused());
+    CHECK(gi.ScriptRunning()); // the script SURVIVES the pause
+    CHECK(counter.breaks == 1);
+
+    // Ticking WHILE paused must not start a new update call (the per-frame re-break /
+    // locals-flicker regression): no new pause events, still paused, still alive.
+    gi.TickScript(0.016f, 1.0f);
+    gi.TickScript(0.016f, 1.0f);
+    CHECK(counter.breaks == 1);
+    CHECK(gi.RunHost().IsDebugPaused());
+    CHECK(gi.ScriptRunning());
+
+    // Continue completes the held call; the next tick hits the breakpoint AGAIN.
+    debugger->Continue();
+    CHECK_FALSE(gi.RunHost().IsDebugPaused());
+    CHECK(gi.ScriptRunning());
+    gi.TickScript(0.016f, 1.0f);
+    CHECK(gi.RunHost().IsDebugPaused());
+    CHECK(gi.ScriptRunning());
+    CHECK(counter.breaks == 2);
+
+    // Removing the breakpoint while paused: Continue finishes the held call and the next
+    // ticks run FREELY (the user's remove-during-pause flow, at the backend level).
+    debugger->RemoveBreakpoint(u8"game.as", 4);
+    debugger->Continue();
+    gi.TickScript(0.016f, 1.0f);
+    gi.TickScript(0.016f, 1.0f);
+    CHECK_FALSE(gi.RunHost().IsDebugPaused());
+    CHECK(gi.ScriptRunning());
+    CHECK(counter.breaks == 2);
+
+    gi.RunHost().SetExternalDebugListener(nullptr);
     gi.StopScript();
     CHECK_FALSE(gi.ScriptRunning());
 }

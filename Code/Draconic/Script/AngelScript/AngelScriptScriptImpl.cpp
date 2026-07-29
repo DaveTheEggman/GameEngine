@@ -2571,6 +2571,13 @@ namespace draconic::script::angelscript
         // a breakpoint, a satisfied step, or a pending manual Break.
         void OnLine(asIScriptContext* ctx)
         {
+            // One held context at a time: while paused, a re-entrant script call (an event
+            // handler firing during the pause) runs through without suspending - adopting a
+            // second context would orphan the held one.
+            if (m_pausedContext != nullptr && m_pausedContext != ctx)
+            {
+                return;
+            }
             const char* section = nullptr;
             const int line = ctx->GetLineNumber(0, nullptr, &section);
             Cause cause = Cause::Breakpoint;

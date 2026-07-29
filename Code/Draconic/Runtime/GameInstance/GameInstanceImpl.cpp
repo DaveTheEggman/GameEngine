@@ -177,12 +177,26 @@ namespace draconic::runtime
         {
             return;
         }
+        // Debug-paused: the debugger holds a suspended update mid-call. Starting a NEW
+        // update each frame would re-hit the breakpoint per frame (pause-event spam, locals
+        // flicker) and orphan the held context. Hold script time still, like the scene sim.
+        if (m_runHost.IsDebugPaused())
+        {
+            return;
+        }
         const f32 sceneScale = m_scene != nullptr ? m_scene->TimeScale() : 1.0f;
         core::Variant dt = core::Variant::From(hostDeltaTime * contextTimeScale *
                                                m_instanceTimeScale * sceneScale);
         if (auto result = m_game->Invoke(u8"update", core::Span<core::Variant>{&dt, 1});
             !result.HasValue())
         {
+            // A DEBUGGER SUSPENSION surfaces as an error result too (the suspended call
+            // unwinds to here) - same distinction the behavior path's InvokeHandler makes:
+            // paused is not a fault. The debugger completes the held call on Continue.
+            if (m_runHost.IsDebugPaused())
+            {
+                return;
+            }
             DRACONIC_LOG_ERROR(u8"App", u8"game script update() faulted - stopping script");
             m_game = nullptr;
         }
