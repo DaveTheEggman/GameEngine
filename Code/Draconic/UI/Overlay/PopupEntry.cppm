@@ -24,6 +24,7 @@ export namespace draconic::ui
         bool CloseOnClickOutside = false; ///< Clicking outside dismisses it.
         bool IsModal = false;             ///< Blocks input to underlying content.
         bool OwnsView = true;   ///< PopupLayer is the primary owner (delete-on-close semantics).
+        bool PushedFocus = false; ///< This popup pushed the focus stack (popped on close).
         f32 X = 0.0f, Y = 0.0f; ///< Position in PopupLayer coordinates.
     };
 }

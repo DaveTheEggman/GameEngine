@@ -159,7 +159,10 @@ namespace draconic::ui
         PopupLayer* popupLayer = root->GetPopupLayer();
 
         // Show at (0,0) first so the tooltip gets context-attached (needed for measurement).
-        popupLayer->ShowPopup(m_tooltipView.Get(), nullptr, 0, 0, false, false, false);
+        // closeOnClickOutside=false, modal=false, ownsView=false, takesFocus=false -
+        // a tooltip must NEVER disturb the focused view (typing, completion popups).
+        popupLayer->ShowPopup(m_tooltipView.Get(), nullptr, 0, 0, false, false, false,
+                              false);
         m_showing = true;
         m_showTime = 0;
 
@@ -171,10 +174,22 @@ namespace draconic::ui
         const Rectangle screen{0, 0, logical.x, logical.y};
         const Float2 popupSize = m_tooltipView->MeasuredSize;
 
-        // Compute the screen-space position of the target.
-        const Float2 targetScreen = target->LocalToScreen(Float2{0, 0});
-        const Float2 pos = PositionTooltip(target->TooltipPlacement, targetScreen.x, targetScreen.y,
-                                           target->Width(), target->Height(), popupSize, screen);
+        // Compute the screen-space position of the target. Pointer placement anchors a
+        // 1x1 "target" at the mouse instead (per-region tooltips on large views).
+        Float2 targetScreen = target->LocalToScreen(Float2{0, 0});
+        f32 targetW = target->Width();
+        f32 targetH = target->Height();
+        TooltipPlacement placement = target->TooltipPlacement;
+        if (placement == TooltipPlacement::Pointer)
+        {
+            const InputManager* input = m_context->GetInputManager();
+            targetScreen = Float2{input->MouseX() + 12.0f, input->MouseY() + 6.0f};
+            targetW = 1.0f;
+            targetH = 1.0f;
+            placement = TooltipPlacement::Bottom; // below-right of the pointer, screen-clamped
+        }
+        const Float2 pos = PositionTooltip(placement, targetScreen.x, targetScreen.y, targetW,
+                                           targetH, popupSize, screen);
 
         popupLayer->UpdatePopupPosition(m_tooltipView.Get(), pos.x, pos.y);
     }
@@ -186,6 +201,7 @@ namespace draconic::ui
         f32 x = 0, y = 0;
         switch (placement)
         {
+        case TooltipPlacement::Pointer: // resolved to Bottom-at-mouse by the caller
         case TooltipPlacement::Bottom:
             x = targetX;
             y = targetY + targetH;

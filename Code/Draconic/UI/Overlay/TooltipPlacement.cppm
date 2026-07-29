@@ -20,6 +20,10 @@ export namespace draconic::ui
         /// Right of the anchor; flips left if clipping right.
         Right,
         /// Left of the anchor; flips right if clipping left.
-        Left
+        Left,
+        /// At the mouse pointer (small offset below-right; clamped to the screen). For large
+        /// views with PER-REGION tooltip content (a code editor's diagnostic lines), where
+        /// anchoring to the whole view's bounds lands nowhere near the hovered spot.
+        Pointer
     };
 }

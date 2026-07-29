@@ -58,9 +58,11 @@ export namespace draconic::ui
 
         // === Show / Close ===
         void ShowPopup(View* popup, IPopupOwner* owner, f32 x, f32 y,
-                       bool closeOnClickOutside = true, bool isModal = false, bool ownsView = true)
+                       bool closeOnClickOutside = true, bool isModal = false, bool ownsView = true,
+                       bool takesFocus = true)
         {
-            ShowPopupInternal(popup, owner, x, y, closeOnClickOutside, isModal, ownsView);
+            ShowPopupInternal(popup, owner, x, y, closeOnClickOutside, isModal, ownsView,
+                              takesFocus);
         }
 
         /// Show a popup using a position factory: called with attempt 0,1,2,... returning candidate
@@ -68,9 +70,11 @@ export namespace draconic::ui
         /// until one fits the viewport; otherwise the last is clamped.
         void ShowPopup(View* popup, IPopupOwner* owner,
                        Function<Optional<Float2>(i32)> positionFactory,
-                       bool closeOnClickOutside = true, bool isModal = false, bool ownsView = true)
+                       bool closeOnClickOutside = true, bool isModal = false, bool ownsView = true,
+                       bool takesFocus = true)
         {
-            ShowPopupInternal(popup, owner, 0, 0, closeOnClickOutside, isModal, ownsView);
+            ShowPopupInternal(popup, owner, 0, 0, closeOnClickOutside, isModal, ownsView,
+                              takesFocus);
 
             popup->Measure(BoxConstraints::Loose(Width(), Height()));
             const Float2 popupSize = popup->MeasuredSize;
@@ -127,7 +131,7 @@ export namespace draconic::ui
                     }
                     // entry (and its RefPtr) drops here -> popup destroyed iff no other ref (ownsView).
 
-                    if (Context != nullptr)
+                    if (entry.PushedFocus && Context != nullptr)
                     {
                         Context->GetFocusManager()->PopFocus();
                     }
@@ -284,7 +288,8 @@ export namespace draconic::ui
 
     private:
         void ShowPopupInternal(View* popup, IPopupOwner* owner, f32 x, f32 y,
-                               bool closeOnClickOutside, bool isModal, bool ownsView)
+                               bool closeOnClickOutside, bool isModal, bool ownsView,
+                               bool takesFocus)
         {
             PopupEntry entry;
             entry.Popup = RefPtr<View>(popup);
@@ -292,6 +297,7 @@ export namespace draconic::ui
             entry.CloseOnClickOutside = closeOnClickOutside;
             entry.IsModal = isModal;
             entry.OwnsView = ownsView;
+            entry.PushedFocus = takesFocus;
             entry.X = x;
             entry.Y = y;
 
@@ -310,7 +316,9 @@ export namespace draconic::ui
                 }
             }
 
-            if (Context != nullptr)
+            // Tooltips (takesFocus=false) must never disturb focus - a tooltip appearing
+            // mid-typing used to clear the editor's focus and kill its completion popup.
+            if (takesFocus && Context != nullptr)
             {
                 Context->GetFocusManager()->PushFocus();
             }
