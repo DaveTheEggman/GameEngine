@@ -355,6 +355,29 @@ export namespace draconic::ui
                 return KeyCode::Up;
             case SK::Down:
                 return KeyCode::Down;
+            // Punctuation row - editors bind chords on these (Ctrl+/ = comment toggle).
+            case SK::Minus:
+                return KeyCode::Minus;
+            case SK::Equals:
+                return KeyCode::Equals;
+            case SK::LeftBracket:
+                return KeyCode::LeftBracket;
+            case SK::RightBracket:
+                return KeyCode::RightBracket;
+            case SK::Backslash:
+                return KeyCode::Backslash;
+            case SK::Semicolon:
+                return KeyCode::Semicolon;
+            case SK::Apostrophe:
+                return KeyCode::Apostrophe;
+            case SK::Grave:
+                return KeyCode::Grave;
+            case SK::Comma:
+                return KeyCode::Comma;
+            case SK::Period:
+                return KeyCode::Period;
+            case SK::Slash:
+                return KeyCode::Slash;
             default:
                 return KeyCode::Unknown;
             }
