@@ -23,6 +23,12 @@ namespace draconic::core::sys
     std::uint32_t LogicalCoreCount() noexcept;
     std::size_t PageSize() noexcept;
 
+    // --- Native stack trace (assert/fatal reporting) ------------------------
+    // Writes the current native call stack to file descriptor `fd` (frames print as
+    // `binary(+0xADDR)`; resolve offline with `addr2line -e <binary> -f -C`). Returns the
+    // frame count (0 where unsupported). Avoids heap allocation (assert-context safe).
+    int WriteBacktrace(int fd) noexcept;
+
     // --- Environment -------------------------------------------------------
     // Copy environment variable `name` into `out` (truncated to outSize-1, always null-terminated
     // when out/outSize are valid). Returns the value's FULL length excluding the null - so a return

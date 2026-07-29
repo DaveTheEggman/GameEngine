@@ -676,3 +676,26 @@ namespace draconic::core::sys
         return (WSAGetLastError() == WSAEWOULDBLOCK) ? 0 : -1;
     }
 }
+
+#include <io.h>
+
+namespace draconic::core::sys
+{
+    int WriteBacktrace(int fd) noexcept
+    {
+        // TODO(win32): validate on Windows (frame capture + module-relative addresses).
+        void* frames[64];
+        const USHORT count = CaptureStackBackTrace(0, 64, frames, nullptr);
+        char line[32];
+        for (USHORT i = 0; i < count; ++i)
+        {
+            const int written =
+                std::snprintf(line, sizeof(line), "[%p]\n", frames[i]);
+            if (written > 0)
+            {
+                (void)_write(fd, line, static_cast<unsigned>(written));
+            }
+        }
+        return static_cast<int>(count);
+    }
+}

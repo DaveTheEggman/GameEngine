@@ -679,3 +679,16 @@ namespace draconic::core::sys
         return (errno == EWOULDBLOCK || errno == EAGAIN) ? 0 : -1;
     }
 }
+
+#include <execinfo.h>
+
+namespace draconic::core::sys
+{
+    int WriteBacktrace(int fd) noexcept
+    {
+        void* frames[64];
+        const int count = backtrace(frames, 64);
+        backtrace_symbols_fd(frames, count, fd);
+        return count;
+    }
+}

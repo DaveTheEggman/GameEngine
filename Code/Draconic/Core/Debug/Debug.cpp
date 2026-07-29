@@ -1,6 +1,7 @@
 // Draconic Core - Debug runtime (classic TU; see Assert.h for the rationale).
 
 #include "Core/Debug/Assert.h"
+#include "Core/System/SystemBackend.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -10,6 +11,15 @@ namespace draconic::core
     namespace
     {
         AssertHandler g_assertHandler = nullptr;
+
+        // Best-effort native stack dump so a crash in the wild is actionable from the
+        // console output alone. Platform work lives in the System backend.
+        void PrintStackTrace() noexcept
+        {
+            std::fprintf(stderr, "  backtrace (addr2line -e <binary> -f -C to resolve):\n");
+            std::fflush(stderr);
+            (void)sys::WriteBacktrace(2 /* stderr */);
+        }
     }
 
     AssertHandler GetAssertHandler() noexcept { return g_assertHandler; }
@@ -41,6 +51,7 @@ namespace draconic::core
                      "  function  : %s\n",
                      expression, (message != nullptr) ? message : "(none)", file, line, function);
         std::fflush(stderr);
+        PrintStackTrace();
         return true; // break into the debugger / trap
     }
 
@@ -53,6 +64,7 @@ namespace draconic::core
                      "  function: %s\n",
                      message, file, line, function);
         std::fflush(stderr);
+        PrintStackTrace();
         std::abort();
     }
 }
