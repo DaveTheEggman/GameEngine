@@ -312,3 +312,29 @@ TEST_CASE("editor-context: Notify routes to OnNotice, falls back to the status b
     CHECK(gotMessage.AsView() == StringView(u8"cook failed"));
     CHECK(statuses.Size() == 1u); // wired notice does NOT double-post status
 }
+
+TEST_CASE("editor-context: script execution point set/clear + version stamps")
+{
+    EditorContext context;
+    CHECK(!context.ScriptExecution().active);
+    const u64 v0 = context.ScriptExecutionVersion();
+
+    context.SetScriptExecutionPoint(u8"game.wren", 12);
+    CHECK(context.ScriptExecution().active);
+    CHECK(context.ScriptExecution().file.AsView() == StringView(u8"game.wren"));
+    CHECK(context.ScriptExecution().line == 12);
+    CHECK(context.ScriptExecutionVersion() != v0);
+
+    // Re-set (a step to another line) bumps again; clear bumps once and goes inactive.
+    const u64 v1 = context.ScriptExecutionVersion();
+    context.SetScriptExecutionPoint(u8"game.wren", 13);
+    CHECK(context.ScriptExecutionVersion() != v1);
+    const u64 v2 = context.ScriptExecutionVersion();
+    context.ClearScriptExecutionPoint();
+    CHECK(!context.ScriptExecution().active);
+    CHECK(context.ScriptExecutionVersion() != v2);
+    // Clearing while already clear is version-quiet (pollers stay idle).
+    const u64 v3 = context.ScriptExecutionVersion();
+    context.ClearScriptExecutionPoint();
+    CHECK(context.ScriptExecutionVersion() == v3);
+}

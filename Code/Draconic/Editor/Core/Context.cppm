@@ -203,6 +203,43 @@ export namespace draconic::editor
         /// Fired on every breakpoint toggle (the gutter repaints; a live run re-applies).
         Function<void()> OnBreakpointsChanged;
 
+        // === Script execution point (paused debugger location) ===
+        // Set by a Game run's debugger listener on Breakpoint/Stepped (the innermost stack
+        // frame), cleared on resume/stop. The ScriptPage editing that file shows it as the
+        // ExecutionLine marker. Version-stamped so consumers can poll cheaply per frame.
+
+        struct ScriptExecutionPoint
+        {
+            String file;    // source file name (as the runtime reports it)
+            i32 line = 0;   // 1-based
+            bool active = false;
+        };
+
+        void SetScriptExecutionPoint(StringView file, i32 line)
+        {
+            m_executionPoint.file = String(file);
+            m_executionPoint.line = line;
+            m_executionPoint.active = true;
+            ++m_executionPointVersion;
+        }
+        void ClearScriptExecutionPoint()
+        {
+            if (!m_executionPoint.active)
+            {
+                return;
+            }
+            m_executionPoint.active = false;
+            ++m_executionPointVersion;
+        }
+        [[nodiscard]] const ScriptExecutionPoint& ScriptExecution() const noexcept
+        {
+            return m_executionPoint;
+        }
+        [[nodiscard]] u64 ScriptExecutionVersion() const noexcept
+        {
+            return m_executionPointVersion;
+        }
+
         // === Status ===
 
         void SetStatus(StringView text);
@@ -223,5 +260,7 @@ export namespace draconic::editor
         EditorPage* m_activePage = nullptr;
         Selection<const draconic::content::Instance*> m_assetSelection;
         Array<ScriptBreakpoint> m_breakpoints; // shared script debugger breakpoints
+        ScriptExecutionPoint m_executionPoint; // paused-debugger location (versioned)
+        u64 m_executionPointVersion = 0;
     };
 }

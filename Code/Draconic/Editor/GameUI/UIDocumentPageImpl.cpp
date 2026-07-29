@@ -22,6 +22,8 @@ import draconic.graphics;
 import draconic.rhi;
 import draconic.vg.renderer;
 import draconic.ui;
+import draconic.ui.toolkit;
+import draconic.xml;
 import draconic.ui.resource;
 import draconic.ui.editor;
 import draconic.ui.runtime;
@@ -142,8 +144,25 @@ namespace draconic::editor
 
     void UIDocumentEditorPage::RebuildPreview()
     {
-        // Validation pass for the inline status (warnings + parse result)...
+        // Validation pass for the inline status (warnings + parse result). A direct
+        // XmlDocument parse first: MarkupLoader swallows the error position, and the code
+        // editor wants the failing LINE as an Error marker (P3 diagnostics).
         ui::MarkupLoader::Initialize();
+        {
+            draconic::xml::XmlDocument probe;
+            const draconic::xml::XmlResult result = probe.Parse(m_markup.AsView());
+            Array<ui::toolkit::CodeDiagnostic> diagnostics;
+            if (draconic::xml::IsError(result))
+            {
+                ui::toolkit::CodeDiagnostic diagnostic;
+                diagnostic.isError = true;
+                diagnostic.line = probe.ErrorLine() - 1; // 1-based -> buffer lines
+                diagnostic.message = String(draconic::xml::Describe(result));
+                diagnostics.PushBack(Move(diagnostic));
+            }
+            m_editor->Document().SetDiagnostics(Move(diagnostics));
+            m_editor->Invalidate();
+        }
         Array<String> warnings;
         RefPtr<ui::View> parsed =
             ui::MarkupLoader::LoadFromString(m_markup.AsView(), nullptr, &warnings);

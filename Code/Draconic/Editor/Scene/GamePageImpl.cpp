@@ -360,6 +360,7 @@ namespace draconic::editor
         }
         m_debuggerPanel.SetIdle();
         m_simPausedByDebugger = false;
+        m_context->ClearScriptExecutionPoint(); // no run = no paused location
         // Script exits first (it may still observe the world), then the scene.
         if (m_gameInstance != nullptr)
         {
@@ -717,6 +718,18 @@ namespace draconic::editor
                     m_simPausedByDebugger = true;
                 }
                 m_debuggerPanel.Refresh();
+                // Publish the paused location (innermost frame) - the ScriptPage editing
+                // that file shows it as the ExecutionLine marker.
+                if (script::IScriptDebugger* debugger = m_debuggerPanel.Debugger())
+                {
+                    const Array<script::ScriptStackFrame> frames =
+                        debugger->CaptureStackFrames();
+                    if (!frames.IsEmpty())
+                    {
+                        m_context->SetScriptExecutionPoint(frames[0].file.AsView(),
+                                                           frames[0].line);
+                    }
+                }
             }
             else
             {
@@ -726,6 +739,7 @@ namespace draconic::editor
                     m_simPausedByDebugger = false;
                 }
                 m_debuggerPanel.Clear();
+                m_context->ClearScriptExecutionPoint();
             }
         }
         if (m_debuggerPanel.ConsumeDirty())

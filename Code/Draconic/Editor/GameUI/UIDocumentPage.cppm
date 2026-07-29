@@ -67,6 +67,8 @@ export namespace draconic::editor
             // registry indirection needed (that seam is for dynamic language ids).
             m_editor->SetLexer(UniquePtr<ui::toolkit::ICodeLexer>(
                 DefaultAllocator().New<ui::toolkit::XmlLexer>(), DefaultAllocator()));
+            m_editor->CompletionTriggerCharacters = String(u8"<"); // tags open the popup
+            m_editor->AddCompletionProvider(&m_markupProvider);
             m_editor->SetText(m_markup.AsView());
             UIDocumentEditorPage* self = this;
             m_editor->OnTextChanged.Add(
@@ -141,6 +143,7 @@ export namespace draconic::editor
         String m_title;
         String m_markup;
         f32 m_previewDelay = 0.0f;
+        ui::toolkit::MarkupCompletionProvider m_markupProvider; // borrowed by the editor
         RefPtr<ui::View> m_content;
         RefPtr<ui::toolkit::CodeEditView> m_editor;
         RefPtr<ui::Label> m_status;

@@ -35,6 +35,30 @@ export namespace draconic::editor
     namespace ui = draconic::ui;
     namespace content = draconic::content;
 
+    // Completion over the backend's ACTUAL bound API (IScriptManager::DescribeBoundApi):
+    // type/namespace names at top level, and a type's members right after `Type.` (the
+    // receiver word left of the trigger dot). Backend-neutral: the surface is built by
+    // creating a throwaway manager for the asset's language and registering the SAME curated
+    // type set the runtime uses (RegisterCoreTypes + facade reflection + RegisterReflectedTypes)
+    // - so what completion offers is exactly what the run can call, spelled the language's
+    // way. Built lazily on the first request, then cached for the page's lifetime.
+    class ScriptApiCompletionProvider final : public ui::toolkit::ICompletionProvider
+    {
+    public:
+        void SetLanguage(StringView languageId) { m_language = String(languageId); }
+
+        void Collect(const ui::toolkit::CodeDocument& document,
+                     ui::toolkit::CodePosition cursor, StringView prefix,
+                     Array<ui::toolkit::CompletionCandidate>& out) override;
+
+    private:
+        void EnsureSurface();
+
+        String m_language;
+        bool m_built = false;
+        Array<draconic::script::ScriptApiType> m_surface;
+    };
+
     // The in-editor script text page. Pure UI over ScriptSourceDocument (the headless save +
     // compile-check model): the page owns the widget tree and forwards edits/Save to the model.
     class ScriptEditorPage final : public app::UIEditorPage
@@ -71,6 +95,10 @@ export namespace draconic::editor
             // Lexer by language id from the registry the script plugin populated - the page
             // stays backend-neutral; an unregistered language just renders unstyled.
             m_editor->SetLexer(ui::toolkit::CodeLexerRegistry::Get().Create(language.AsView()));
+            // Rich completion from the backend's bound-API surface (+ the built-in
+            // document-word provider the widget always carries).
+            m_apiProvider.SetLanguage(language.AsView());
+            m_editor->AddCompletionProvider(&m_apiProvider);
             m_editor->SetText(m_doc.Source());
             ScriptEditorPage* self = this;
             m_editor->OnTextChanged.Add(
@@ -145,6 +173,8 @@ export namespace draconic::editor
         draconic::script::ScriptSourceDocument m_doc;
         String m_title;
         f32 m_validateDelay = 0.0f;
+        u64 m_executionVersionSeen = static_cast<u64>(-1); // poll stamp (ExecutionLine sync)
+        ScriptApiCompletionProvider m_apiProvider; // outlives the editor that borrows it
         RefPtr<ui::View> m_content;
         RefPtr<ui::toolkit::CodeEditView> m_editor;
         RefPtr<ui::Label> m_status;

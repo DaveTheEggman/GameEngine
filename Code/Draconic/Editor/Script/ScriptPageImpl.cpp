@@ -71,6 +71,24 @@ namespace draconic::editor
                 RefreshCompileStatus();
             }
         }
+
+        // Paused-debugger location -> the editor's ExecutionLine marker (version-polled;
+        // a Game run's debugger listener writes the shared point on break/step/resume).
+        if (m_executionVersionSeen != m_context->ScriptExecutionVersion())
+        {
+            m_executionVersionSeen = m_context->ScriptExecutionVersion();
+            const EditorContext::ScriptExecutionPoint& point = m_context->ScriptExecution();
+            if (point.active && point.file.AsView() == m_doc.FileName() && point.line >= 1)
+            {
+                m_editor->Document().SetExecutionLine(point.line - 1);
+                m_editor->ScrollToLine(point.line - 1);
+            }
+            else
+            {
+                m_editor->Document().SetExecutionLine(-1);
+                m_editor->Invalidate();
+            }
+        }
     }
 
     void ScriptEditorPage::RefreshCompileStatus()

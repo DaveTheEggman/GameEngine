@@ -140,6 +140,7 @@ export namespace draconic::editor
 
         /// The active debugger for the run (null when not debugging). Clears the panel.
         void SetDebugger(script::IScriptDebugger* debugger);
+        [[nodiscard]] script::IScriptDebugger* Debugger() const noexcept { return m_debugger; }
 
         /// Rebuild the stack + locals from the debugger (called at a break, from OnUpdate).
         void Refresh();
