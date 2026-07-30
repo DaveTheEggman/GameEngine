@@ -1,0 +1,78 @@
+/// draconic.rhi.webgpu:texture - Texture over WGPUTexture.
+
+module;
+#include "Core/Prelude.h"
+#include "WebGpuIncludes.h"
+
+export module draconic.rhi.webgpu:texture;
+
+import draconic.core;
+import draconic.rhi;
+import :api;
+import :conversions;
+
+using namespace draconic::core;
+
+export namespace draconic::rhi::webgpu
+{
+    class WebGpuTexture final : public Texture
+    {
+    public:
+        Status Initialize(const WebGpuApi& api, WGPUDevice device, const TextureDesc& textureDesc)
+        {
+            m_api = &api;
+            desc = textureDesc;
+
+            const WGPUTextureFormat format = ToWgpuTextureFormat(textureDesc.format);
+            if (format == WGPUTextureFormat_Undefined &&
+                textureDesc.format != TextureFormat::Undefined)
+            {
+                return ErrorCode::NotSupported; // format has no WebGPU equivalent
+            }
+
+            WGPUTextureDescriptor wgpuDesc = WGPU_TEXTURE_DESCRIPTOR_INIT;
+            wgpuDesc.label = ToWgpuStringView(textureDesc.label);
+            wgpuDesc.usage = ToWgpuTextureUsage(textureDesc.usage);
+            wgpuDesc.dimension = ToWgpuTextureDimension(textureDesc.dimension);
+            wgpuDesc.size.width = textureDesc.width;
+            wgpuDesc.size.height = textureDesc.height;
+            // WebGPU folds array layers into depthOrArrayLayers (3D textures have no layers).
+            wgpuDesc.size.depthOrArrayLayers =
+                textureDesc.dimension == TextureDimension::Texture3D
+                    ? textureDesc.depth
+                    : textureDesc.arrayLayerCount;
+            wgpuDesc.format = format;
+            wgpuDesc.mipLevelCount = textureDesc.mipLevelCount;
+            wgpuDesc.sampleCount = textureDesc.sampleCount;
+
+            m_texture = api.wgpuDeviceCreateTexture(device, &wgpuDesc);
+            return m_texture != nullptr ? Status(ErrorCode::Ok) : Status(ErrorCode::Unknown);
+        }
+
+        /// Wraps an EXTERNALLY-owned texture (the swapchain's current image): no release
+        /// on destruction, the surface owns it.
+        void WrapExternal(const WebGpuApi& api, WGPUTexture texture, const TextureDesc& textureDesc)
+        {
+            m_api = &api;
+            m_texture = texture;
+            m_ownsHandle = false;
+            desc = textureDesc;
+        }
+
+        void Release()
+        {
+            if (m_texture != nullptr && m_ownsHandle)
+            {
+                m_api->wgpuTextureRelease(m_texture);
+            }
+            m_texture = nullptr;
+        }
+
+        [[nodiscard]] WGPUTexture Handle() const { return m_texture; }
+
+    private:
+        const WebGpuApi* m_api = nullptr;
+        WGPUTexture m_texture = nullptr;
+        bool m_ownsHandle = true;
+    };
+}

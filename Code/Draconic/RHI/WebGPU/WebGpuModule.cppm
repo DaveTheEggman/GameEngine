@@ -8,6 +8,12 @@
 export module draconic.rhi.webgpu;
 
 export import :api;
+export import :conversions;
+export import :buffer;
+export import :texture;
+export import :texture_view;
+export import :sampler;
+export import :shader_module;
 export import :fence;
 export import :queue;
 export import :device;

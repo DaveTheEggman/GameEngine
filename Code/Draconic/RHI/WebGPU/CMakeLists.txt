@@ -9,6 +9,12 @@ target_link_libraries(DraconicRHIWebGPU
 target_sources(DraconicRHIWebGPU PUBLIC FILE_SET rhi_webgpu_modules TYPE CXX_MODULES FILES
     WebGpuModule.cppm
     WebGpuApi.cppm
+    WebGpuConversions.cppm
+    WebGpuBuffer.cppm
+    WebGpuTexture.cppm
+    WebGpuTextureView.cppm
+    WebGpuSampler.cppm
+    WebGpuShaderModule.cppm
     WebGpuFence.cppm
     WebGpuQueue.cppm
     WebGpuDevice.cppm

@@ -47,6 +47,21 @@ namespace draconic::rhi::webgpu
     X(wgpuAdapterRequestDevice)                                                                    \
     X(wgpuAdapterRelease)                                                                          \
     X(wgpuDeviceGetQueue)                                                                          \
+    X(wgpuDeviceCreateBuffer)                                                                      \
+    X(wgpuBufferMapAsync)                                                                          \
+    X(wgpuBufferGetConstMappedRange)                                                               \
+    X(wgpuBufferUnmap)                                                                             \
+    X(wgpuBufferRelease)                                                                           \
+    X(wgpuQueueWriteBuffer)                                                                        \
+    X(wgpuDeviceCreateTexture)                                                                     \
+    X(wgpuTextureRelease)                                                                          \
+    X(wgpuTextureCreateView)                                                                       \
+    X(wgpuTextureViewRelease)                                                                      \
+    X(wgpuDeviceCreateSampler)                                                                     \
+    X(wgpuSamplerRelease)                                                                          \
+    X(wgpuDeviceCreateShaderModule)                                                                \
+    X(wgpuShaderModuleRelease)                                                                     \
+    X(wgpuDeviceCreateShaderModuleSpirV) /* wgpu-native extension (desktop only) */                \
     X(wgpuDeviceRelease)                                                                           \
     X(wgpuDevicePoll) /* wgpu-native extension (desktop only) */                                   \
     X(wgpuQueueSubmit)                                                                             \

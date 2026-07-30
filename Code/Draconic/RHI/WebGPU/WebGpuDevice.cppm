@@ -15,6 +15,11 @@ export module draconic.rhi.webgpu:device;
 import draconic.core;
 import draconic.rhi;
 import :api;
+import :buffer;
+import :texture;
+import :texture_view;
+import :sampler;
+import :shader_module;
 import :fence;
 import :queue;
 
@@ -72,31 +77,39 @@ export namespace draconic::rhi::webgpu
                    FormatSupport::DepthStencil;
         }
 
-        // ---- Resource creation (staged; honest NotSupported until implemented) ----
-        Status CreateBuffer(const BufferDesc&, Buffer*& out) override
+        // ---- Resource creation (encoders/pipelines still staged - see class comment) ----
+        Status CreateBuffer(const BufferDesc& bufferDesc, Buffer*& out) override
         {
-            out = nullptr;
-            return ErrorCode::NotSupported;
+            return CreateResource<WebGpuBuffer>(
+                out, [&](WebGpuBuffer& b)
+                { return b.Initialize(*m_api, m_instance, m_device,
+                                      m_graphicsQueue.Handle(), bufferDesc); });
         }
-        Status CreateTexture(const TextureDesc&, Texture*& out) override
+        Status CreateTexture(const TextureDesc& textureDesc, Texture*& out) override
         {
-            out = nullptr;
-            return ErrorCode::NotSupported;
+            return CreateResource<WebGpuTexture>(
+                out, [&](WebGpuTexture& t) { return t.Initialize(*m_api, m_device, textureDesc); });
         }
-        Status CreateTextureView(Texture*, const TextureViewDesc&, TextureView*& out) override
+        Status CreateTextureView(Texture* texture, const TextureViewDesc& viewDesc,
+                                 TextureView*& out) override
         {
-            out = nullptr;
-            return ErrorCode::NotSupported;
+            if (texture == nullptr)
+            {
+                out = nullptr;
+                return ErrorCode::InvalidArgument;
+            }
+            return CreateResource<WebGpuTextureView>(
+                out, [&](WebGpuTextureView& v) { return v.Initialize(*m_api, texture, viewDesc); });
         }
-        Status CreateSampler(const SamplerDesc&, Sampler*& out) override
+        Status CreateSampler(const SamplerDesc& samplerDesc, Sampler*& out) override
         {
-            out = nullptr;
-            return ErrorCode::NotSupported;
+            return CreateResource<WebGpuSampler>(
+                out, [&](WebGpuSampler& smp) { return smp.Initialize(*m_api, m_device, samplerDesc); });
         }
-        Status CreateShaderModule(const ShaderModuleDesc&, ShaderModule*& out) override
+        Status CreateShaderModule(const ShaderModuleDesc& moduleDesc, ShaderModule*& out) override
         {
-            out = nullptr;
-            return ErrorCode::NotSupported;
+            return CreateResource<WebGpuShaderModule>(
+                out, [&](WebGpuShaderModule& m) { return m.Initialize(*m_api, m_device, moduleDesc); });
         }
         Status CreateBindGroupLayout(const BindGroupLayoutDesc&, BindGroupLayout*& out) override
         {
@@ -150,13 +163,18 @@ export namespace draconic::rhi::webgpu
         }
 
         // ---- Resource destruction ----
-        // Stubs tolerate the nullptr their failed Create* handed out; implemented
-        // resources delete for real.
-        void DestroyBuffer(Buffer*& x) override { DeleteIfAny(x); }
-        void DestroyTexture(Texture*& x) override { DeleteIfAny(x); }
-        void DestroyTextureView(TextureView*& x) override { DeleteIfAny(x); }
-        void DestroySampler(Sampler*& x) override { DeleteIfAny(x); }
-        void DestroyShaderModule(ShaderModule*& x) override { DeleteIfAny(x); }
+        // Every path tolerates the nullptr a failed Create* handed out.
+        void DestroyBuffer(Buffer*& x) override { ReleaseAndDelete<WebGpuBuffer>(x); }
+        void DestroyTexture(Texture*& x) override { ReleaseAndDelete<WebGpuTexture>(x); }
+        void DestroyTextureView(TextureView*& x) override
+        {
+            ReleaseAndDelete<WebGpuTextureView>(x);
+        }
+        void DestroySampler(Sampler*& x) override { ReleaseAndDelete<WebGpuSampler>(x); }
+        void DestroyShaderModule(ShaderModule*& x) override
+        {
+            ReleaseAndDelete<WebGpuShaderModule>(x);
+        }
         void DestroyBindGroupLayout(BindGroupLayout*& x) override { DeleteIfAny(x); }
         void DestroyBindGroup(BindGroup*& x) override { DeleteIfAny(x); }
         void DestroyPipelineLayout(PipelineLayout*& x) override { DeleteIfAny(x); }
@@ -196,6 +214,33 @@ export namespace draconic::rhi::webgpu
         }
 
     private:
+        /// Allocate, run the init closure, roll back on failure - the one Create shape.
+        template <typename TResource, typename TBase, typename TInit>
+        Status CreateResource(TBase*& out, TInit&& initialize)
+        {
+            out = nullptr;
+            auto* resource = m_allocator.New<TResource>();
+            const Status status = initialize(*resource);
+            if (!status.IsOk())
+            {
+                m_allocator.Delete(resource);
+                return status;
+            }
+            out = resource;
+            return ErrorCode::Ok;
+        }
+
+        template <typename TResource, typename TBase> void ReleaseAndDelete(TBase*& object)
+        {
+            if (object != nullptr)
+            {
+                auto* resource = static_cast<TResource*>(object);
+                resource->Release();
+                m_allocator.Delete(resource);
+                object = nullptr;
+            }
+        }
+
         template <typename T> void DeleteIfAny(T*& object)
         {
             if (object != nullptr)
