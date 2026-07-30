@@ -145,6 +145,132 @@ namespace draconic::core::sys
         return true; // launch initiated (xdg-open's own success isn't observable here)
     }
 
+    int RunProcess(const char* exe, const char* const* argv, int argc, char* out,
+                   std::size_t outCap) noexcept
+    {
+        if (exe == nullptr || exe[0] == '\0')
+        {
+            return -1;
+        }
+        const bool capture = (out != nullptr && outCap > 0);
+        if (capture)
+        {
+            out[0] = '\0';
+        }
+
+        // Build argv2 = [exe, argv..., nullptr] BEFORE the fork so the child does no allocation.
+        constexpr int kMaxArgs = 62;
+        const char* argv2[kMaxArgs + 2];
+        int n = 0;
+        argv2[n++] = exe;
+        for (int i = 0; i < argc && n <= kMaxArgs; ++i)
+        {
+            argv2[n++] = argv[i];
+        }
+        argv2[n] = nullptr;
+
+        int pipefd[2] = {-1, -1};
+        if (capture && pipe(pipefd) != 0)
+        {
+            return -1;
+        }
+        // Self-pipe (close-on-exec) so the child can report an exec() failure to the parent: on a
+        // successful exec the write end auto-closes and the parent reads EOF; on failure the child
+        // writes errno first. Without this a missing binary would surface as the child's exit 127,
+        // indistinguishable from a real 127, and inconsistent with the Win32 spawn-fails -> -1 path.
+        int execErr[2] = {-1, -1};
+        if (pipe(execErr) != 0)
+        {
+            if (capture)
+            {
+                close(pipefd[0]);
+                close(pipefd[1]);
+            }
+            return -1;
+        }
+        fcntl(execErr[1], F_SETFD, FD_CLOEXEC);
+
+        const pid_t child = fork();
+        if (child < 0)
+        {
+            if (capture)
+            {
+                close(pipefd[0]);
+                close(pipefd[1]);
+            }
+            close(execErr[0]);
+            close(execErr[1]);
+            return -1;
+        }
+        if (child == 0)
+        {
+            // Child: stdout+stderr -> pipe, stdin <- /dev/null, then exec.
+            if (capture)
+            {
+                dup2(pipefd[1], STDOUT_FILENO);
+                dup2(pipefd[1], STDERR_FILENO);
+                close(pipefd[0]);
+                close(pipefd[1]);
+            }
+            close(execErr[0]);
+            const int devnull = ::open("/dev/null", O_RDONLY);
+            if (devnull >= 0)
+            {
+                dup2(devnull, STDIN_FILENO);
+                close(devnull);
+            }
+            execv(exe, const_cast<char* const*>(argv2));
+            const int e = errno; // exec failed - report to the parent, then bail
+            const ssize_t wrote = write(execErr[1], &e, sizeof(e));
+            (void)wrote;
+            _exit(127);
+        }
+
+        // Parent: first learn whether exec succeeded (read blocks until data or EOF-on-exec).
+        close(execErr[1]);
+        int childErr = 0;
+        const ssize_t got = read(execErr[0], &childErr, sizeof(childErr));
+        close(execErr[0]);
+        const bool execFailed = (got > 0);
+
+        // Drain stdout+stderr (keep reading past a full buffer so the child never blocks), then reap.
+        std::size_t total = 0;
+        if (capture)
+        {
+            close(pipefd[1]);
+            for (;;)
+            {
+                char buffer[4096];
+                const ssize_t r = read(pipefd[0], buffer, sizeof(buffer));
+                if (r <= 0)
+                {
+                    break;
+                }
+                if (total < outCap - 1)
+                {
+                    const std::size_t space = outCap - 1 - total;
+                    const std::size_t k = (static_cast<std::size_t>(r) < space)
+                                              ? static_cast<std::size_t>(r)
+                                              : space;
+                    std::memcpy(out + total, buffer, k);
+                    total += k;
+                }
+            }
+            out[total] = '\0';
+            close(pipefd[0]);
+        }
+        int status = 0;
+        if (waitpid(child, &status, 0) < 0)
+        {
+            return -1;
+        }
+        if (execFailed)
+        {
+            return -1; // the target program never ran
+        }
+        return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+    }
+
     std::size_t GetCurrentDirectory(char* out, std::size_t outSize) noexcept
     {
         char buffer[4096];

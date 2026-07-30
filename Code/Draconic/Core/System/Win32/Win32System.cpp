@@ -128,6 +128,120 @@ namespace draconic::core::sys
         return true;
     }
 
+    int RunProcess(const char* exe, const char* const* argv, int argc, char* out,
+                   std::size_t outCap) noexcept
+    {
+        if (exe == nullptr || exe[0] == '\0')
+        {
+            return -1;
+        }
+        const bool capture = (out != nullptr && outCap > 0);
+        if (capture)
+        {
+            out[0] = '\0';
+        }
+
+        // Build the command line: "exe" "arg0" "arg1" ... (each double-quoted; embedded quotes
+        // backslash-escaped). CreateProcess re-parses this; explicit quoting handles spaces in the
+        // vendored-tool path and file arguments.
+        char command[8192];
+        std::size_t len = 0;
+        auto appendQuoted = [&](const char* s) noexcept
+        {
+            if (len + 1 < sizeof(command))
+                command[len++] = '"';
+            for (const char* p = s; *p != '\0' && len + 2 < sizeof(command); ++p)
+            {
+                if (*p == '"' && len + 3 < sizeof(command))
+                    command[len++] = '\\';
+                command[len++] = *p;
+            }
+            if (len + 1 < sizeof(command))
+                command[len++] = '"';
+        };
+        appendQuoted(exe);
+        for (int i = 0; i < argc; ++i)
+        {
+            if (len + 1 < sizeof(command))
+                command[len++] = ' ';
+            appendQuoted(argv[i]);
+        }
+        command[(len < sizeof(command)) ? len : sizeof(command) - 1] = '\0';
+
+        SECURITY_ATTRIBUTES sa{};
+        sa.nLength = sizeof(sa);
+        sa.bInheritHandle = TRUE;
+        sa.lpSecurityDescriptor = nullptr;
+
+        HANDLE readEnd = nullptr;
+        HANDLE writeEnd = nullptr;
+        if (capture)
+        {
+            if (!::CreatePipe(&readEnd, &writeEnd, &sa, 0))
+            {
+                return -1;
+            }
+            ::SetHandleInformation(readEnd, HANDLE_FLAG_INHERIT, 0); // parent-only read end
+        }
+        // Empty stdin (NUL) so a tool that reads stdin gets EOF instead of hanging.
+        HANDLE nulIn = ::CreateFileA("NUL", GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, &sa,
+                                     OPEN_EXISTING, 0, nullptr);
+
+        STARTUPINFOA startup{};
+        startup.cb = sizeof(startup);
+        startup.dwFlags = STARTF_USESTDHANDLES;
+        startup.hStdInput = nulIn;
+        startup.hStdOutput = capture ? writeEnd : ::GetStdHandle(STD_OUTPUT_HANDLE);
+        startup.hStdError = capture ? writeEnd : ::GetStdHandle(STD_ERROR_HANDLE);
+
+        PROCESS_INFORMATION process{};
+        const BOOL ok = ::CreateProcessA(nullptr, command, nullptr, nullptr, TRUE, 0, nullptr,
+                                         nullptr, &startup, &process);
+        if (capture)
+        {
+            ::CloseHandle(writeEnd); // parent holds only the read end now
+        }
+        if (!ok)
+        {
+            if (capture)
+                ::CloseHandle(readEnd);
+            if (nulIn != INVALID_HANDLE_VALUE)
+                ::CloseHandle(nulIn);
+            return -1;
+        }
+
+        std::size_t total = 0;
+        if (capture)
+        {
+            for (;;)
+            {
+                char buffer[4096];
+                DWORD got = 0;
+                if (!::ReadFile(readEnd, buffer, sizeof(buffer), &got, nullptr) || got == 0)
+                {
+                    break;
+                }
+                if (total < outCap - 1)
+                {
+                    const std::size_t space = outCap - 1 - total;
+                    const std::size_t k = (got < space) ? got : space;
+                    std::memcpy(out + total, buffer, k);
+                    total += k;
+                }
+            }
+            out[total] = '\0';
+            ::CloseHandle(readEnd);
+        }
+        ::WaitForSingleObject(process.hProcess, INFINITE);
+        DWORD code = static_cast<DWORD>(-1);
+        ::GetExitCodeProcess(process.hProcess, &code);
+        ::CloseHandle(process.hThread);
+        ::CloseHandle(process.hProcess);
+        if (nulIn != INVALID_HANDLE_VALUE)
+            ::CloseHandle(nulIn);
+        return static_cast<int>(code);
+    }
+
     void* PageAllocate(std::size_t size) noexcept
     {
         if (size == 0)

@@ -24,6 +24,8 @@ import :base;
 import :allocator;
 import :string;
 import :path;
+import :array;
+import :span;
 
 namespace draconic::core::detail
 {
@@ -362,6 +364,46 @@ export namespace draconic::core
     inline bool OpenPathInFileManager(StringView path) noexcept
     {
         return sys::OpenPathInFileManager(detail::NullTerminated(path).CStr());
+    }
+
+    // Outcome of RunProcess.
+    struct ProcessResult
+    {
+        int exitCode = -1;    // >=0 = child exit code; <0 = could not spawn OR killed by a signal
+        String output;        // combined stdout+stderr (captured, capped)
+        [[nodiscard]] bool Ran() const noexcept { return exitCode >= 0; }
+        [[nodiscard]] bool Ok() const noexcept { return exitCode == 0; }
+    };
+
+    // Run `exe` (an explicit path - no shell, no PATH search) with `args` (each one whole argument,
+    // no splitting/globbing). BLOCKS until the child exits, capturing its combined stdout+stderr. For
+    // cook-time tool shell-outs (the WGSL cook's naga + tint). Do NOT call on the UI thread.
+    [[nodiscard]] inline ProcessResult RunProcess(StringView exe, Span<const StringView> args)
+    {
+        const String exeZ(exe);
+        Array<String> store;
+        store.Reserve(args.Size());
+        for (usize i = 0; i < args.Size(); ++i)
+        {
+            store.PushBack(String(args[i]));
+        }
+        Array<const char*> ptrs;
+        ptrs.Reserve(store.Size());
+        for (usize i = 0; i < store.Size(); ++i)
+        {
+            ptrs.PushBack(reinterpret_cast<const char*>(store[i].CStr()));
+        }
+
+        // Cook diagnostics are small; 64 KiB caps a runaway tool without truncating real errors.
+        Array<char> buffer;
+        buffer.Resize(64 * 1024);
+        const int code = sys::RunProcess(reinterpret_cast<const char*>(exeZ.CStr()), ptrs.Data(),
+                                         static_cast<int>(ptrs.Size()), buffer.Data(),
+                                         buffer.Size());
+        ProcessResult result;
+        result.exitCode = code;
+        result.output = String(reinterpret_cast<const char8_t*>(buffer.Data()));
+        return result;
     }
 
     // --- UDP sockets (IPv4) - the draconic.net datagram backend wraps these ---

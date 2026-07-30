@@ -162,3 +162,48 @@ TEST_CASE("system: FileCopyPreserving copies bytes and keeps the mode")
     (void)FileDelete(src);
     (void)FileDelete(dst);
 }
+
+// --- RunProcess (blocking spawn + capture) ---------------------------------
+
+TEST_CASE("system: RunProcess captures stdout and reports exit 0")
+{
+#if defined(_WIN32)
+    const StringView exe = u8"C:\\Windows\\System32\\cmd.exe";
+    const StringView args[] = {u8"/c", u8"echo hello"};
+#else
+    const StringView exe = u8"/bin/echo";
+    const StringView args[] = {u8"hello"};
+#endif
+    const ProcessResult r =
+        RunProcess(exe, Span<const StringView>(args, sizeof(args) / sizeof(args[0])));
+    CHECK(r.Ran());
+    CHECK(r.Ok());
+    CHECK(r.exitCode == 0);
+    // echo emits "hello" then a newline, so the capture begins with the token.
+    CHECK(r.output.AsView().StartsWith(u8"hello"));
+}
+
+TEST_CASE("system: RunProcess propagates a non-zero exit code")
+{
+#if defined(_WIN32)
+    const StringView exe = u8"C:\\Windows\\System32\\cmd.exe";
+    const StringView args[] = {u8"/c", u8"exit 3"};
+    const int expected = 3;
+#else
+    const StringView exe = u8"/bin/sh";
+    const StringView args[] = {u8"-c", u8"exit 3"};
+    const int expected = 3;
+#endif
+    const ProcessResult r = RunProcess(exe, Span<const StringView>(args, 2));
+    CHECK(r.Ran());
+    CHECK_FALSE(r.Ok());
+    CHECK(r.exitCode == expected);
+}
+
+TEST_CASE("system: RunProcess reports failure to spawn a missing binary")
+{
+    // Explicit path, no PATH search - a bogus name cannot resolve on any platform.
+    const ProcessResult r = RunProcess(u8"draconic_no_such_binary_zzz", Span<const StringView>());
+    CHECK_FALSE(r.Ran());
+    CHECK(r.exitCode < 0);
+}

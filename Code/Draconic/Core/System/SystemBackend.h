@@ -61,6 +61,16 @@ namespace draconic::core::sys
     // not be started or `path` is empty. Must never block the caller (it runs on the UI thread).
     bool OpenPathInFileManager(const char* path) noexcept;
 
+    // Run `exe` with arguments argv[0..argc-1] (WITHOUT the program name - the backend prepends `exe`
+    // as argv[0]). No shell, no PATH search - `exe` is an explicit path. BLOCKS until the child exits.
+    // Returns the exit code (0..255), or -1 if the process could not be spawned OR was killed by a
+    // signal. The child's combined stdout+stderr is captured into `out` (truncated to outCap-1, always
+    // null-terminated when out/outCap are valid; pass out=nullptr/outCap=0 to discard) and its stdin is
+    // empty (NUL). For cook-time tool shell-outs (the WGSL cook's naga + tint). WAITS, unlike
+    // OpenPathInFileManager, so it must not run on the UI thread.
+    int RunProcess(const char* exe, const char* const* argv, int argc, char* out,
+                   std::size_t outCap) noexcept;
+
     // --- Virtual memory (page-granular) ------------------------------------
     void* PageAllocate(std::size_t size) noexcept; // nullptr on failure
     void PageFree(void* pointer, std::size_t size) noexcept;
