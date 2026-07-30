@@ -397,6 +397,18 @@ export namespace draconic::ui::toolkit
             Invalidate();
         }
 
+        /// Types `text` at the cursor (replacing any selection) as one discrete undo unit -
+        /// the seam for external inserters (API browser, snippet tooling). Paste-kind so it
+        /// never coalesces with surrounding keystrokes.
+        void InsertAtCursor(StringView text)
+        {
+            if (text.IsEmpty())
+            {
+                return;
+            }
+            InsertText(text, CodeEditKind::Paste);
+        }
+
         [[nodiscard]] bool HasSelection() const noexcept { return !(m_cursor == m_anchor); }
         [[nodiscard]] CodeSpan Selection() const noexcept
         {

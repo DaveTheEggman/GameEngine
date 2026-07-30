@@ -645,3 +645,24 @@ TEST_CASE("toolkit-completionmodel: KeyRouting")
     CHECK(!model.IsOpen());
     CHECK(model.HandleKey(KeyCode::Down) == CompletionKeyResult::Ignored); // closed = inert
 }
+
+TEST_CASE("toolkit-codeeditview: InsertAtCursor is one discrete undo unit")
+{
+    Harness h;
+    h.Type(u8"call ");
+    h.view->InsertAtCursor(u8"Float3");
+    CHECK(h.view->Text().AsView() == StringView(u8"call Float3"));
+    CHECK(h.view->CursorPosition() == CodePosition{0, 11});
+
+    // Replaces a selection, and the empty string is a no-op.
+    h.view->SetCursorPosition(CodePosition{0, 5});
+    h.Key(KeyCode::End, KeyModifiers::Shift);
+    h.view->InsertAtCursor(u8"Quaternion");
+    CHECK(h.view->Text().AsView() == StringView(u8"call Quaternion"));
+    h.view->InsertAtCursor(u8"");
+    CHECK(h.view->Text().AsView() == StringView(u8"call Quaternion"));
+
+    // Paste-kind: one undo removes the whole insert, not a keystroke's worth.
+    h.Key(KeyCode::Z, KeyModifiers::Ctrl);
+    CHECK(h.view->Text().AsView() == StringView(u8"call Float3"));
+}
