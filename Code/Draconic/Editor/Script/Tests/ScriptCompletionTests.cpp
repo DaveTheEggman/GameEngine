@@ -1,6 +1,6 @@
-// ScriptApiCompletionProvider: builds the bound-API surface through a throwaway Wren manager
-// (the runtime's registration sequence) and serves type names at top level + a type's
-// members after `Type.`.
+// ScriptApiCompletionProvider over the SHARED ScriptApiSurface (built once through a
+// throwaway Wren manager - the runtime's registration sequence): type names at top level
+// + a type's members after `Type.`.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 import draconic.core;
@@ -32,8 +32,10 @@ TEST_CASE("editor-script: bound-API completion (wren)")
 {
     draconic::script::wren::RegisterWrenScriptBackend();
 
+    ScriptApiSurface surface;
+    surface.SetLanguage(u8"wren");
     ScriptApiCompletionProvider provider;
-    provider.SetLanguage(u8"wren");
+    provider.SetSurface(&surface);
 
     toolkit::CodeDocument doc;
     Array<toolkit::CompletionCandidate> out;
@@ -57,8 +59,10 @@ TEST_CASE("editor-script: bound-API completion (wren)")
     CHECK(out.Size() == 0);
 
     // Unknown language: silently empty.
+    ScriptApiSurface unknownSurface;
+    unknownSurface.SetLanguage(u8"cobol");
     ScriptApiCompletionProvider unknown;
-    unknown.SetLanguage(u8"cobol");
+    unknown.SetSurface(&unknownSurface);
     out.Clear();
     doc.SetText(u8"x");
     unknown.Collect(doc, toolkit::CodePosition{0, 1}, StringView(u8"x"), out);

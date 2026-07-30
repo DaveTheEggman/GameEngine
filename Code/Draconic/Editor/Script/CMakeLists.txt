@@ -6,7 +6,7 @@ target_link_libraries(DraconicEditorScript PUBLIC
     Draconic::Core Draconic::Content Draconic::RuntimeClient Draconic::UI Draconic::UIToolkit
     Draconic::Script Draconic::ScriptFacades Draconic::ScriptEditor Draconic::ScriptResource
     Draconic::EditorCore Draconic::EditorApp Draconic::Policy)
-target_sources(DraconicEditorScript PRIVATE ScriptPageImpl.cpp ScriptCompletionImpl.cpp PUBLIC FILE_SET editor_script_modules TYPE CXX_MODULES FILES ScriptPage.cppm)
+target_sources(DraconicEditorScript PRIVATE ScriptPageImpl.cpp ScriptCompletionImpl.cpp ScriptApiSurfaceImpl.cpp ScriptApiBrowserImpl.cpp PUBLIC FILE_SET editor_script_modules TYPE CXX_MODULES FILES ScriptPage.cppm)
 
 # The headless editing seam (ScriptSourceDocument, in draconic.script.editor) is covered by the
 # script pipeline tests; the UI page itself is exercised by the editor smoke.

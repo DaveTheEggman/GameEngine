@@ -63,6 +63,8 @@ namespace draconic::editor
 
     void ScriptEditorPage::OnUpdate(draconic::runtime::IApplicationHost&, f32 dt)
     {
+        m_apiBrowser.Update(); // deferred tree rebuild (filter edits only mark dirty)
+
         if (m_validateDelay > 0.0f)
         {
             m_validateDelay -= dt;

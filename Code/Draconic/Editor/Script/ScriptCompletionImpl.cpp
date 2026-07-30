@@ -1,8 +1,8 @@
 // Draconic::EditorScript - the `draconic.editor.script` module.
 //
-// ScriptApiCompletionProvider implementation: builds the bound-API surface once (throwaway
-// manager for the page's language, fed the same curated type set the runtime registers) and
-// serves candidates - type/namespace names at top level, a type's members after `Type.`.
+// ScriptApiCompletionProvider implementation: serves candidates from the page's SHARED
+// ScriptApiSurface (the same data the API browser shows) - type/namespace names at top
+// level, a type's members after `Type.`.
 
 module;
 #include "Core/Prelude.h"
@@ -13,7 +13,6 @@ import draconic.core;
 import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.script;
-import draconic.script.facades;
 
 using namespace draconic::core;
 
@@ -22,34 +21,16 @@ namespace draconic::editor
     namespace toolkit = draconic::ui::toolkit;
     namespace script = draconic::script;
 
-    void ScriptApiCompletionProvider::EnsureSurface()
-    {
-        if (m_built || m_language.IsEmpty())
-        {
-            return;
-        }
-        m_built = true; // one attempt; a language without a backend just stays empty
-
-        // The runtime's exact registration sequence (ScriptSubsystem), against a throwaway
-        // manager: idempotent registries + a manager that dies right after DescribeBoundApi.
-        core::RegisterCoreTypes();
-        script::RegisterScriptFacadeReflection();
-        RefPtr<script::IScriptManager> manager =
-            script::CreateScriptManagerForLanguage(m_language.AsView());
-        if (manager.Get() == nullptr)
-        {
-            return;
-        }
-        script::RegisterReflectedTypes(*manager);
-        m_surface = manager->DescribeBoundApi();
-    }
-
     void ScriptApiCompletionProvider::Collect(const toolkit::CodeDocument& document,
                                               toolkit::CodePosition cursor, StringView prefix,
                                               Array<toolkit::CompletionCandidate>& out)
     {
-        EnsureSurface();
-        if (m_surface.IsEmpty())
+        if (m_surface == nullptr)
+        {
+            return;
+        }
+        const Array<script::ScriptApiType>& types = m_surface->Types();
+        if (types.IsEmpty())
         {
             return;
         }
@@ -71,7 +52,7 @@ namespace draconic::editor
                 return;
             }
             const String ownerName = document.TextInSpan(owner);
-            for (const script::ScriptApiType& type : m_surface)
+            for (const script::ScriptApiType& type : types)
             {
                 if (type.scriptName.AsView() != ownerName.AsView())
                 {
@@ -87,10 +68,17 @@ namespace draconic::editor
             return; // unknown receiver: offer nothing (the word provider still contributes)
         }
 
-        // Top level: the bound type/namespace names.
-        for (const script::ScriptApiType& type : m_surface)
+        // Top level: the bound type/namespace names. Editor-only bindings carry a label
+        // marker (insert text stays the bare name) - they work in-editor/PIE but are
+        // absent from a shipped player.
+        for (const script::ScriptApiType& type : types)
         {
-            out.PushBack(toolkit::CompletionCandidate{String(type.scriptName.AsView()),
+            String label(type.scriptName.AsView());
+            if (IsEditorOnlyBinding(type.typeId))
+            {
+                label.Append(u8" [editor]");
+            }
+            out.PushBack(toolkit::CompletionCandidate{Move(label),
                                                       String(type.scriptName.AsView())});
         }
     }

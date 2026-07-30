@@ -35,28 +35,102 @@ export namespace draconic::editor
     namespace ui = draconic::ui;
     namespace content = draconic::content;
 
-    // Completion over the backend's ACTUAL bound API (IScriptManager::DescribeBoundApi):
-    // type/namespace names at top level, and a type's members right after `Type.` (the
-    // receiver word left of the trigger dot). Backend-neutral: the surface is built by
-    // creating a throwaway manager for the asset's language and registering the SAME curated
-    // type set the runtime uses (RegisterCoreTypes + facade reflection + RegisterReflectedTypes)
-    // - so what completion offers is exactly what the run can call, spelled the language's
-    // way. Built lazily on the first request, then cached for the page's lifetime.
-    class ScriptApiCompletionProvider final : public ui::toolkit::ICompletionProvider
+    // The backend's ACTUAL bound API for one language (IScriptManager::DescribeBoundApi),
+    // built ONCE per page and shared by every consumer - completion AND the API browser read
+    // this one source, so they can never disagree. The build replays the runtime's exact
+    // registration sequence against a throwaway manager (RegisterCoreTypes + facade
+    // reflection + CreateScriptManagerForLanguage + RegisterReflectedTypes) - so what the
+    // page shows is exactly what a run can call, spelled the language's way. Lazy: nothing
+    // runs until the first Types() call; an unknown language stays empty.
+    class ScriptApiSurface final
     {
     public:
         void SetLanguage(StringView languageId) { m_language = String(languageId); }
+        [[nodiscard]] const Array<draconic::script::ScriptApiType>& Types() const;
+
+    private:
+        String m_language;
+        mutable bool m_built = false;
+        mutable Array<draconic::script::ScriptApiType> m_types;
+    };
+
+    // Completion over the shared surface: type/namespace names at top level, and a type's
+    // members right after `Type.` (the receiver word left of the trigger dot).
+    class ScriptApiCompletionProvider final : public ui::toolkit::ICompletionProvider
+    {
+    public:
+        void SetSurface(const ScriptApiSurface* surface) { m_surface = surface; }
 
         void Collect(const ui::toolkit::CodeDocument& document,
                      ui::toolkit::CodePosition cursor, StringView prefix,
                      Array<ui::toolkit::CompletionCandidate>& out) override;
 
     private:
-        void EnsureSurface();
+        const ScriptApiSurface* m_surface = nullptr; // borrowed (page-owned)
+    };
 
-        String m_language;
-        bool m_built = false;
-        Array<draconic::script::ScriptApiType> m_surface;
+    // True when a binding's reflected type was registered under a non-Runtime domain
+    // (TypeRegistry::DomainOf) - callable wherever the editor runs (including
+    // play-in-editor), but ABSENT from a shipped player. Completion and the API browser
+    // both mark such bindings " [editor]" so a player-bound script's author is warned.
+    [[nodiscard]] inline bool IsEditorOnlyBinding(TypeId typeId)
+    {
+        return typeId != 0 && !(GlobalTypeRegistry().DomainOf(typeId) == kRuntimeTypeDomain);
+    }
+
+    // One row of the API browser tree: a type/namespace (depth 0) or a member (depth 1).
+    struct ScriptApiTreeNode
+    {
+        String label;      // row text: type name, or the member's language-formatted signature
+        String insertText; // what activating the row types into the editor
+        i32 depth = 0;
+        Array<i32> children; // indices into ScriptApiTree::nodes (type rows only)
+    };
+
+    struct ScriptApiTree
+    {
+        Array<ScriptApiTreeNode> nodes;
+        Array<i32> roots; // depth-0 node indices, display order
+    };
+
+    // Builds the browser tree from a bound-API surface: types alphabetical, each type's
+    // members alphabetical under it. `filter` is a case-insensitive substring match: a
+    // matching TYPE name keeps the whole type; otherwise only matching members (and their
+    // type row) survive. Empty filter keeps everything.
+    [[nodiscard]] ScriptApiTree
+    BuildScriptApiTree(const Array<draconic::script::ScriptApiType>& types, StringView filter);
+
+    // The openable API browser panel: a filter box over a namespace/class > members tree of
+    // the language's bound API, fed by the SAME shared surface completion uses.
+    // Double-clicking a row hands its insert text to OnInsert (the page types it into the
+    // editor at the cursor). Filter edits only mark the tree dirty; the rebuild (view churn
+    // inside TreeView::SetAdapter) runs in Update() from the page's OnUpdate - never
+    // mid-event-dispatch. A hidden panel never builds, so the one-time surface build is
+    // paid on first open.
+    class ScriptApiBrowserView final
+    {
+    public:
+        ScriptApiBrowserView();
+        ~ScriptApiBrowserView();
+
+        void SetSurface(const ScriptApiSurface* surface) { m_surface = surface; }
+        [[nodiscard]] ui::View* Root() const { return m_root.Get(); }
+        void Update(); // deferred-rebuild bracket (call once per frame)
+
+        Function<void(StringView)> OnInsert;
+
+    private:
+        class TreeAdapter;
+
+        void Rebuild();
+
+        const ScriptApiSurface* m_surface = nullptr; // borrowed (page-owned)
+        ScriptApiTree m_tree;
+        bool m_dirty = true;
+        RefPtr<ui::View> m_root;
+        RefPtr<ui::EditText> m_filter;
+        RefPtr<ui::TreeView> m_treeView;
+        UniquePtr<TreeAdapter> m_adapter;
     };
 
     // The in-editor script text page. Pure UI over ScriptSourceDocument (the headless save +
@@ -95,9 +169,10 @@ export namespace draconic::editor
             // Lexer by language id from the registry the script plugin populated - the page
             // stays backend-neutral; an unregistered language just renders unstyled.
             m_editor->SetLexer(ui::toolkit::CodeLexerRegistry::Get().Create(language.AsView()));
-            // Rich completion from the backend's bound-API surface (+ the built-in
-            // document-word provider the widget always carries).
-            m_apiProvider.SetLanguage(language.AsView());
+            // ONE bound-API surface for the page; completion and the API browser both
+            // borrow it (same data, built once, lazily).
+            m_apiSurface.SetLanguage(language.AsView());
+            m_apiProvider.SetSurface(&m_apiSurface);
             m_editor->AddCompletionProvider(&m_apiProvider);
             m_editor->SetText(m_doc.Source());
             ScriptEditorPage* self = this;
@@ -144,13 +219,37 @@ export namespace draconic::editor
                 column->AddView(m_editor.Get(), lp);
             }
 
-            // A one-line compile status (OK / N error(s) / no cook).
-            m_status = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8""));
-            m_status->FontSize.SetValue(12.0f);
+            // Status row: the one-line compile status (OK / N error(s) / no cook) + the
+            // API-browser toggle on the right.
             {
+                auto statusRow = MakeRef<ui::FlexLayout>(DefaultAllocator());
+                statusRow->Direction = ui::Orientation::Horizontal;
+                statusRow->Spacing = 6.0f;
+
+                m_status = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8""));
+                m_status->FontSize.SetValue(12.0f);
+                {
+                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    lp->Grow = 1.0f;
+                    statusRow->AddView(m_status.Get(), lp);
+                }
+
+                auto apiToggle = MakeRef<ui::ToggleButton>(DefaultAllocator(),
+                                                                    StringView(u8"API"));
+                apiToggle->OnCheckedChanged.Add(
+                    [self](ui::ToggleButton*, bool checked)
+                    {
+                        // Visibility flip only - no view churn, safe mid-dispatch. The
+                        // browser's first Update() after this builds the tree.
+                        self->m_apiBrowser.Root()->Visibility =
+                            checked ? ui::Visibility::Visible : ui::Visibility::Gone;
+                        self->m_apiBrowser.Root()->Invalidate();
+                    });
+                statusRow->AddView(apiToggle.Get());
+
                 auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                 lp->Width = ui::SizeSpec::Match();
-                column->AddView(m_status.Get(), lp);
+                column->AddView(statusRow.Get(), lp);
             }
 
             // The compile-error list: a read-only multi-line view (file:line + message).
@@ -164,7 +263,28 @@ export namespace draconic::editor
                 column->AddView(m_errorView.Get(), lp);
             }
 
-            m_content = column;
+            // Root: the editor column + the (initially hidden) API browser side panel.
+            auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            row->Direction = ui::Orientation::Horizontal;
+            row->Spacing = 4.0f;
+            {
+                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Grow = 1.0f;
+                lp->Height = ui::SizeSpec::Match();
+                row->AddView(column.Get(), lp);
+            }
+            m_apiBrowser.SetSurface(&m_apiSurface);
+            m_apiBrowser.OnInsert = [self](StringView text)
+            { self->m_editor->InsertAtCursor(text); };
+            m_apiBrowser.Root()->Visibility = ui::Visibility::Gone;
+            {
+                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(300));
+                lp->Height = ui::SizeSpec::Match();
+                row->AddView(m_apiBrowser.Root(), lp);
+            }
+
+            m_content = row;
             RefreshCompileStatus(); // initial pass so the page opens with live state
         }
 
@@ -188,7 +308,9 @@ export namespace draconic::editor
         String m_title;
         f32 m_validateDelay = 0.0f;
         u64 m_executionVersionSeen = static_cast<u64>(-1); // poll stamp (ExecutionLine sync)
+        ScriptApiSurface m_apiSurface; // the one bound-API source (completion + browser)
         ScriptApiCompletionProvider m_apiProvider; // outlives the editor that borrows it
+        ScriptApiBrowserView m_apiBrowser;
         RefPtr<ui::View> m_content;
         RefPtr<ui::toolkit::CodeEditView> m_editor;
         RefPtr<ui::Label> m_status;

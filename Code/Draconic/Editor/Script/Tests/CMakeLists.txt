@@ -1,6 +1,6 @@
 # The tests REGISTER the Wren backend (an entry point's job) - the provider under test stays
 # backend-neutral and resolves through the registry, exactly like the ScriptPage.
-add_executable(DraconicEditorScriptTests TestsMain.cpp ScriptCompletionTests.cpp)
+add_executable(DraconicEditorScriptTests TestsMain.cpp ScriptCompletionTests.cpp ScriptApiBrowserTests.cpp)
 target_link_libraries(DraconicEditorScriptTests PRIVATE
     Draconic::EditorScript Draconic::ScriptWren Draconic::Script Draconic::ScriptFacades
     Draconic::UIToolkit Draconic::UI Draconic::Core
