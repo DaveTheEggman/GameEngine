@@ -284,6 +284,7 @@ add_subdirectory(Code/Tools/Editor)        # RaptorEditor executable (editor ass
 add_subdirectory(Code/Tools/Cook)          # RaptorCook CLI cooker (headless)
 add_subdirectory(Code/Tools/Player)        # RaptorPlayer generic game runner
 add_subdirectory(Code/Tools/Export)        # RaptorExport dist packager
+add_subdirectory(Code/Tools/ShaderPackCook) # RaptorShaderPackCook: cook shaders.dpak (WGSL for web)
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Code/Draconic/Core/Tests)
