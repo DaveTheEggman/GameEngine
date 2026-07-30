@@ -48,6 +48,44 @@ export namespace draconic::graphics
         WebGPU
     };
 
+    /// The shared command-line backend scan: --vulkan/--vk, --dx12/--d3d12,
+    /// --webgpu/--wgpu, --null-gpu; unrecognized arguments pass through untouched.
+    /// One implementation for every executable (samples, sandboxes, tools).
+    [[nodiscard]] inline BackendType
+    SelectBackendFromArguments(int argc, char** argv,
+                               BackendType fallback = BackendType::Vulkan)
+    {
+        const auto matches = [](const char* argument, const char* flag)
+        {
+            while (*argument != '\0' && *argument == *flag)
+            {
+                ++argument;
+                ++flag;
+            }
+            return *argument == '\0' && *flag == '\0';
+        };
+        for (int i = 1; i < argc; ++i)
+        {
+            if (matches(argv[i], "--vulkan") || matches(argv[i], "--vk"))
+            {
+                return BackendType::Vulkan;
+            }
+            if (matches(argv[i], "--dx12") || matches(argv[i], "--d3d12"))
+            {
+                return BackendType::DX12;
+            }
+            if (matches(argv[i], "--webgpu") || matches(argv[i], "--wgpu"))
+            {
+                return BackendType::WebGPU;
+            }
+            if (matches(argv[i], "--null-gpu"))
+            {
+                return BackendType::Null;
+            }
+        }
+        return fallback;
+    }
+
     struct GraphicsDeviceDesc
     {
         BackendType backend = BackendType::Vulkan;

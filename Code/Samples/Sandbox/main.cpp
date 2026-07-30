@@ -4,7 +4,6 @@
 // As the renderer grows, this is where we exercise it.
 
 #include "Core/Prelude.h"
-#include <string_view> // backend flag scan in main
 #include "imgui.h" // Dear ImGui (debug UI) - used directly; the engine integration is draconic.imgui
 
 import draconic.core;
@@ -1622,16 +1621,7 @@ int main(int argc, char** argv)
 {
     auto shell = shell::CreateShell();
     graphics::GraphicsDeviceDesc gpuDesc{};
-    for (int i = 1; i < argc; ++i)
-    {
-        const std::string_view flag = argv[i];
-        if (flag == "--vulkan" || flag == "--vk")
-            gpuDesc.backend = graphics::BackendType::Vulkan;
-        else if (flag == "--webgpu" || flag == "--wgpu")
-            gpuDesc.backend = graphics::BackendType::WebGPU;
-        else if (flag == "--dx12" || flag == "--d3d12")
-            gpuDesc.backend = graphics::BackendType::DX12;
-    }
+    gpuDesc.backend = graphics::SelectBackendFromArguments(argc, argv);
     auto gpu = graphics::CreateGraphicsDevice(gpuDesc);
     graphics::GraphicsDevice* device = gpu.HasValue() ? gpu.Value().Get() : nullptr;
 

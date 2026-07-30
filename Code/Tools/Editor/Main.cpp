@@ -536,7 +536,7 @@ int main(int argc, char** argv)
     }
 
     graphics::GraphicsDeviceDesc gdd;
-    gdd.backend = graphics::BackendType::Vulkan;
+    gdd.backend = graphics::SelectBackendFromArguments(argc, argv);
     gdd.enableValidation = true;
     auto gpu = graphics::CreateGraphicsDevice(gdd);
     if (!gpu.HasValue())
