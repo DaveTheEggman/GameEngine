@@ -159,6 +159,7 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/Resource)
     add_subdirectory(Code/Draconic/RHI)
     add_subdirectory(Code/Draconic/Shell) # IShell interface + Null backend; the SDL3 desktop backend auto-skips on emscripten
+    add_subdirectory(Code/Draconic/Graphics) # GraphicsDevice/RenderWindow (interface + Null); GPU factory gated on a backend
     add_subdirectory(Code/Draconic/RenderGraph)
     add_subdirectory(Code/Draconic/Image)
     add_subdirectory(Code/Draconic/Geometry)
@@ -166,7 +167,7 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/Shaders)
     add_subdirectory(Code/Draconic/Texture)
     add_subdirectory(Code/Draconic/Materials)
-    add_subdirectory(Code/Draconic/Runtime) # base lib (Core+Policy); app/runner sub-libs are off for web
+    add_subdirectory(Code/Draconic/Runtime) # base lib + client Application + the WEB runner (draconic.runtime.web); game-instance/scripting composition still off
     add_subdirectory(Code/Draconic/Scene) # renderer-agnostic base; its Subsystem (needs Runtime) is off for web
     # draconic.render is scene- and resource-agnostic (device-abstract over the RHI interface), so
     # the whole renderer compiles for web now; only its GPU DEVICE (Emscripten WebGPU) is phase 2.
@@ -199,7 +200,9 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/UI/Subsystem)
     add_subdirectory(Code/Draconic/Net/Manager)
     add_subdirectory(Code/Draconic/Net/Subsystem)
-    # Runtime app-layer + Scene/Subsystem climb with the app stack (Shell/Script/subsystems), later.
+    # Still to climb: the WebGPU graphics factory (GraphicsGpu on a non-Vulkan backend), a
+    # canvas-backed web shell, a web entry point, and the game-instance/scripting composition +
+    # Scene/Subsystem. The web runner (draconic.runtime.web) is up; it needs those to actually run.
     return() # everything above this line is wasm-verified; the rest awaits its turn
 endif()
 
