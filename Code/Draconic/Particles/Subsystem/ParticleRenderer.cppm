@@ -18,7 +18,6 @@ import draconic.shaders.system;
 import draconic.render; // Renderer, RenderRecordContext, ResolvedDraw, DrawItem, DynamicUniformRing, categories
 import draconic.particles; // ParticleBlendMode
 import :renderdata;
-import :particle_shaders; // ParticleVS()/ParticlePS()/TrailVS()/TrailPS() - HLSL source in ParticleShaders.cppm
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -50,8 +49,6 @@ export namespace draconic::particles
 
         core::Status Initialize()
         {
-            m_shaders->RegisterSource(u8"particle", shaders::ShaderStage::Vertex, ParticleVS());
-            m_shaders->RegisterSource(u8"particle", shaders::ShaderStage::Fragment, ParticlePS());
 
             rhi::BindGroupLayoutEntry viewEntry = rhi::BindGroupLayoutEntry::UniformBuffer(
                 0, rhi::ShaderStage::Vertex | rhi::ShaderStage::Fragment);
@@ -174,10 +171,8 @@ export namespace draconic::particles
                 }
             }
 
-            // Trails: shaders + a 2-set layout (view + texture, no depth) + a big identity index buffer so
+            // Trails: a 2-set layout (view + texture, no depth) + a big identity index buffer so
             // the ribbon triangle-list draws through DrawIndexed (ResolvedDraw is always indexed).
-            m_shaders->RegisterSource(u8"particletrail", shaders::ShaderStage::Vertex, TrailVS());
-            m_shaders->RegisterSource(u8"particletrail", shaders::ShaderStage::Fragment, TrailPS());
             rhi::BindGroupLayout* trailLayouts[] = {m_viewLayout, m_texLayout};
             rhi::PipelineLayoutDesc tpld{};
             tpld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{trailLayouts, 2};
@@ -511,7 +506,8 @@ export namespace draconic::particles
         rhi::RenderPipeline* EnsurePipeline(rhi::TextureFormat colorFormat, ParticleBlendMode mode)
         {
             Pipelines& p = m_billboard[static_cast<u32>(mode)];
-            if (p.pso != nullptr && p.format == colorFormat)
+            const u64 shaderVersion = m_shaders->Version(u8"particle"); // hot reload rebuilds
+            if (p.pso != nullptr && p.format == colorFormat && p.shaderVersion == shaderVersion)
             {
                 return p.pso;
             }
@@ -618,7 +614,8 @@ export namespace draconic::particles
                                                  ParticleBlendMode mode)
         {
             Pipelines& p = m_trail[static_cast<u32>(mode)];
-            if (p.pso != nullptr && p.format == colorFormat)
+            const u64 shaderVersion = m_shaders->Version(u8"particletrail"); // hot reload rebuilds
+            if (p.pso != nullptr && p.format == colorFormat && p.shaderVersion == shaderVersion)
             {
                 return p.pso;
             }
@@ -774,6 +771,7 @@ export namespace draconic::particles
         {
             rhi::RenderPipeline* pso = nullptr;
             rhi::TextureFormat format = rhi::TextureFormat::Undefined;
+            u64 shaderVersion = 0; // ShaderSystem::Version at build (hot reload)
         };
 
         struct PendingBg

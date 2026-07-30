@@ -18,7 +18,6 @@ target_sources(DraconicParticlesSubsystem
     PUBLIC
         FILE_SET particles_subsystem_modules TYPE CXX_MODULES FILES
             ParticleRenderData.cppm
-            ParticleShaders.cppm
             ParticleRenderer.cppm
             ParticleComponents.cppm
             ParticleSubsystem.cppm
