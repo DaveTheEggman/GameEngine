@@ -11,7 +11,7 @@ add_library(DraconicShaders STATIC)
 add_library(Draconic::Shaders ALIAS DraconicShaders)
 
 target_link_libraries(DraconicShaders
-    PUBLIC Draconic::Core Draconic::DXCHeaders Draconic::Policy
+    PUBLIC Draconic::Core Draconic::DXCHeaders Draconic::Policy Draconic::ShaderCookTools
     PRIVATE ${CMAKE_DL_LIBS})
 
 target_sources(DraconicShaders
@@ -20,6 +20,7 @@ target_sources(DraconicShaders
             Types.cppm
             Flags.cppm
             Compiler.cppm
+            Cook/WgslTranslator.cppm
             ShadersModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)

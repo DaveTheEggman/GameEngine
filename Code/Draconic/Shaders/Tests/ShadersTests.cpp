@@ -63,3 +63,138 @@ TEST_CASE("shaders: a compile error is reported, not a crash")
 
     compiler->Destroy();
 }
+
+// --- WGSL cook (WgslTranslator: HLSL -> SPIR-V -> naga -> tint) -------------
+
+namespace
+{
+    // StringView has StartsWith/EndsWith but no substring search; a small scan suffices for tests.
+    bool Contains(StringView hay, StringView needle)
+    {
+        if (needle.Size() > hay.Size())
+        {
+            return false;
+        }
+        for (usize i = 0; i + needle.Size() <= hay.Size(); ++i)
+        {
+            if (hay.SubStr(i, needle.Size()) == needle)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    StringView Hlsl(const char* s) { return StringView(reinterpret_cast<const char8_t*>(s)); }
+
+    // A self-contained PS: texture(t0) + sampler(s0) + cbuffer(b0), sampling via SampleLevel
+    // (uniformity-safe) so it is browser-conformant. Exercises the binding-shift survival check.
+    constexpr const char* kCleanPs =
+        "Texture2D Tex : register(t0, space0);\n"
+        "SamplerState Samp : register(s0, space0);\n"
+        "cbuffer C : register(b0, space0) { float4 Tint; };\n"
+        "float4 main(float2 uv : TEXCOORD0) : SV_Target0 {\n"
+        "    return Tex.SampleLevel(Samp, uv, 0) * Tint;\n"
+        "}\n";
+
+    // A PS that samples with implicit derivatives inside a per-pixel branch: legal HLSL, but a WGSL
+    // uniformity error that naga only warns on and tint (Chrome/Dawn) rejects.
+    constexpr const char* kNonUniformPs =
+        "Texture2D Tex : register(t0, space0);\n"
+        "SamplerState Samp : register(s0, space0);\n"
+        "float4 main(float2 uv : TEXCOORD0) : SV_Target0 {\n"
+        "    float4 c = float4(0,0,0,1);\n"
+        "    if (uv.x > 0.5) { c = Tex.Sample(Samp, uv); }\n"
+        "    return c;\n"
+        "}\n";
+
+    Compiler* MakeCompiler()
+    {
+        Compiler* c = nullptr;
+        if (!createCompiler(CompilerDesc{}, c).IsOk())
+        {
+            return nullptr;
+        }
+        return c;
+    }
+}
+
+TEST_CASE("wgsl cook: HLSL translates to WGSL with the binding shifts preserved")
+{
+    Compiler* compiler = MakeCompiler();
+    if (compiler == nullptr)
+    {
+        MESSAGE("DXC runtime unavailable; skipping WGSL cook test");
+        return;
+    }
+    (void)CreateDirectory(u8".test-scratch");
+    WgslTranslator translator(*compiler, u8".test-scratch");
+    if (!translator.HasNaga())
+    {
+        MESSAGE("naga not vendored for this host; skipping WGSL cook test");
+        compiler->Destroy();
+        return;
+    }
+
+    const WgslCookResult r = translator.Translate(Hlsl(kCleanPs), ShaderStage::Fragment);
+    CHECK(r.success);
+    CHECK(r.failedStage == WgslCookStage::Ok);
+    // Standard() shift scheme: SRV t0 -> +100, Sampler s0 -> +300, CBV b0 -> 0.
+    CHECK(Contains(r.wgsl.AsView(), u8"@binding(100)"));
+    CHECK(Contains(r.wgsl.AsView(), u8"@binding(300)"));
+    CHECK(Contains(r.wgsl.AsView(), u8"@binding(0)"));
+
+    compiler->Destroy();
+}
+
+TEST_CASE("wgsl cook: tint rejects a WGSL uniformity violation")
+{
+    Compiler* compiler = MakeCompiler();
+    if (compiler == nullptr)
+    {
+        return;
+    }
+    (void)CreateDirectory(u8".test-scratch");
+    WgslTranslator translator(*compiler, u8".test-scratch");
+    if (!translator.HasNaga())
+    {
+        compiler->Destroy();
+        return;
+    }
+
+    const WgslCookResult r = translator.Translate(Hlsl(kNonUniformPs), ShaderStage::Fragment);
+    if (translator.HasTint())
+    {
+        // The conformance gate: tint must reject the non-uniform sample at the Validate stage.
+        CHECK_FALSE(r.success);
+        CHECK(r.failedStage == WgslCookStage::Validate);
+        CHECK_FALSE(r.error.IsEmpty());
+    }
+    else
+    {
+        // No oracle available: naga alone (lenient) still translates it.
+        MESSAGE("tint not vendored; uniformity is only warned, not gated");
+        CHECK(r.success);
+    }
+
+    compiler->Destroy();
+}
+
+TEST_CASE("wgsl cook: a missing naga binary is reported, not a crash")
+{
+    Compiler* compiler = MakeCompiler();
+    if (compiler == nullptr)
+    {
+        return;
+    }
+    (void)CreateDirectory(u8".test-scratch");
+    WgslTranslator translator(*compiler, u8".test-scratch");
+    translator.SetNagaPath(u8"draconic_no_such_naga_zzz");
+
+    const WgslCookResult r = translator.Translate(Hlsl(kCleanPs), ShaderStage::Fragment);
+    CHECK_FALSE(r.success);
+    CHECK(r.failedStage == WgslCookStage::Translate);
+    CHECK_FALSE(r.error.IsEmpty());
+
+    compiler->Destroy();
+}

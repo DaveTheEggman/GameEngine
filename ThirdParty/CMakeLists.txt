@@ -86,6 +86,37 @@ else()
     message(STATUS "ThirdParty/WgpuNative not present — draconic.rhi.webgpu will be skipped.")
 endif()
 
+# Naga + Tint — vendored COOK-TIME executables for the WGSL shader cook. naga-cli
+# (SPIR-V -> WGSL, version-matched to WgpuNative's naga) is the translator; tint is
+# the Chrome/Dawn conformance oracle run over its output. NOT linked and NOT loaded
+# at run time - the cook shells out to them (core::RunProcess). An INTERFACE target
+# carries the binary paths as compile defs so the WgslTranslator can find them; a
+# missing per-platform binary just leaves the define empty (translator reports it).
+add_library(draconic_shader_cook_tools INTERFACE)
+add_library(Draconic::ShaderCookTools ALIAS draconic_shader_cook_tools)
+if(WIN32)
+    set(_naga_exe "${CMAKE_CURRENT_SOURCE_DIR}/Naga/bin/win-x64/naga.exe")
+    set(_tint_exe "${CMAKE_CURRENT_SOURCE_DIR}/Tint/bin/win-x64/tint.exe")
+elseif(APPLE)
+    set(_naga_exe "${CMAKE_CURRENT_SOURCE_DIR}/Naga/bin/mac-arm64/naga")
+    set(_tint_exe "${CMAKE_CURRENT_SOURCE_DIR}/Tint/bin/mac-arm64/tint")
+else()
+    set(_naga_exe "${CMAKE_CURRENT_SOURCE_DIR}/Naga/bin/linux-x86_64/naga")
+    set(_tint_exe "${CMAKE_CURRENT_SOURCE_DIR}/Tint/bin/linux-x86_64/tint")
+endif()
+if(EXISTS "${_naga_exe}")
+    target_compile_definitions(draconic_shader_cook_tools INTERFACE DRACONIC_NAGA_PATH="${_naga_exe}")
+    message(STATUS "naga-cli (WGSL cook): ${_naga_exe}")
+else()
+    message(STATUS "naga-cli not present for this host — WGSL cook will report it missing.")
+endif()
+if(EXISTS "${_tint_exe}")
+    target_compile_definitions(draconic_shader_cook_tools INTERFACE DRACONIC_TINT_PATH="${_tint_exe}")
+    message(STATUS "tint (WGSL conformance): ${_tint_exe}")
+else()
+    message(STATUS "tint not present for this host — WGSL cook validation will be skipped.")
+endif()
+
 # stb / cgltf / ufbx — vendored header(+source) libraries (copied, not submodules).
 # Header include-dir INTERFACE targets; the *_impl translation units that define
 # the implementations live in the engine libraries that use them.
