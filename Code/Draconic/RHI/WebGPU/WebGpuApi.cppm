@@ -16,7 +16,9 @@ module;
 #include "Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
-#if DRACONIC_PLATFORM_WINDOWS
+#if DRACONIC_PLATFORM_WEB
+#include <emscripten/emscripten.h> // emscripten_sleep - yield to the browser event loop
+#elif DRACONIC_PLATFORM_WINDOWS
 #include <windows.h>
 #else
 #include <dlfcn.h>
@@ -195,6 +197,12 @@ namespace draconic::rhi::webgpu
             for (u32 i = 0; i < 100000 && !done; ++i)
             {
                 wgpuInstanceProcessEvents(instance);
+#if DRACONIC_PLATFORM_WEB
+                // A browser cannot block: adapter/device/map futures resolve only when control
+                // returns to its event loop. emscripten_sleep(0) yields there (requires the
+                // linking executable to enable ASYNCIFY) so `done` can actually flip.
+                emscripten_sleep(0);
+#endif
             }
         }
 
@@ -217,6 +225,11 @@ namespace draconic::rhi::webgpu
                 {
                     (void)wgpuDevicePoll(device, 0u, nullptr);
                 }
+#if DRACONIC_PLATFORM_WEB
+                // Yield to the browser event loop so GPU-completion futures can resolve (see
+                // PumpUntil). DevicePoll is null on web, so this yield is the only progress path.
+                emscripten_sleep(0);
+#endif
             }
         }
     };
