@@ -53,6 +53,7 @@ namespace draconic::rhi::webgpu
     X(wgpuBufferUnmap)                                                                             \
     X(wgpuBufferRelease)                                                                           \
     X(wgpuQueueWriteBuffer)                                                                        \
+    X(wgpuQueueWriteTexture)                                                                       \
     X(wgpuDeviceCreateTexture)                                                                     \
     X(wgpuTextureRelease)                                                                          \
     X(wgpuTextureCreateView)                                                                       \

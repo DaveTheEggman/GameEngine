@@ -427,3 +427,111 @@ TEST_CASE("rhi.webgpu: encode + submit + readback - a full GPU round trip")
     device->Destroy();
     backend->Destroy();
 }
+
+TEST_CASE("rhi.webgpu: transfer batch uploads verify through GPU readback")
+{
+    Backend* backend = TryCreateBackend();
+    if (backend == nullptr)
+    {
+        return;
+    }
+    Device* device = nullptr;
+    REQUIRE(backend->EnumerateAdapters()[0]->CreateDevice(DeviceDesc{}, device).IsOk());
+    Queue* queue = device->GetQueue(QueueType::Transfer);
+    TransferBatch* batch = nullptr;
+    REQUIRE(queue->CreateTransferBatch(batch).IsOk());
+
+    // Batch-write a GPU-only buffer, then copy it into a readback buffer.
+    BufferDesc gpuDesc;
+    gpuDesc.size = 64;
+    gpuDesc.usage = BufferUsage::Storage | BufferUsage::CopySrc | BufferUsage::CopyDst;
+    gpuDesc.memory = MemoryLocation::GpuOnly;
+    Buffer* gpuBuffer = nullptr;
+    REQUIRE(device->CreateBuffer(gpuDesc, gpuBuffer).IsOk());
+
+    u8 pattern[64];
+    for (u32 i = 0; i < 64; ++i)
+    {
+        pattern[i] = static_cast<u8>(i * 3);
+    }
+    batch->WriteBuffer(gpuBuffer, 0, Span<const u8>(pattern, 64));
+
+    // Batch-write a texture too (one 4x4 RGBA mip).
+    TextureDesc texDesc;
+    texDesc.format = TextureFormat::RGBA8Unorm;
+    texDesc.width = 4;
+    texDesc.height = 4;
+    texDesc.usage = TextureUsage::CopyDst | TextureUsage::CopySrc;
+    Texture* texture = nullptr;
+    REQUIRE(device->CreateTexture(texDesc, texture).IsOk());
+    u8 texels[4 * 4 * 4];
+    for (u32 i = 0; i < sizeof(texels); ++i)
+    {
+        texels[i] = static_cast<u8>(255 - i);
+    }
+    TextureDataLayout layout;
+    layout.bytesPerRow = 16;
+    layout.rowsPerImage = 4;
+    batch->WriteTexture(texture, Span<const u8>(texels, sizeof(texels)), layout,
+                        Extent3D{4, 4, 1});
+
+    REQUIRE(batch->Submit().IsOk()); // blocking, Vulkan-batch semantics
+
+    // Read both back.
+    BufferDesc readDesc;
+    readDesc.size = 4 * 256;
+    readDesc.usage = BufferUsage::CopyDst;
+    readDesc.memory = MemoryLocation::GpuToCpu;
+    Buffer* readback = nullptr;
+    REQUIRE(device->CreateBuffer(readDesc, readback).IsOk());
+
+    CommandPool* pool = nullptr;
+    REQUIRE(device->CreateCommandPool(QueueType::Graphics, pool).IsOk());
+    CommandEncoder* encoder = nullptr;
+    REQUIRE(pool->CreateEncoder(encoder).IsOk());
+    encoder->CopyBufferToBuffer(gpuBuffer, 0, readback, 0, 64);
+    CommandBuffer* commandBuffer = encoder->Finish();
+    Fence* fence = nullptr;
+    REQUIRE(device->CreateFence(0, fence).IsOk());
+    CommandBuffer* commandBuffers[] = {commandBuffer};
+    device->GetQueue(QueueType::Graphics)
+        ->Submit(Span<CommandBuffer* const>(commandBuffers, 1), fence, 1);
+    REQUIRE(fence->Wait(1, ~0ull));
+
+    const u8* bytes = static_cast<const u8*>(readback->Map());
+    REQUIRE(bytes != nullptr);
+    CHECK(bytes[0] == 0);
+    CHECK(bytes[21] == static_cast<u8>(21 * 3));
+    CHECK(bytes[63] == static_cast<u8>(63 * 3));
+    readback->Unmap();
+
+    // Texture readback through the second copy path.
+    BufferTextureCopyRegion region;
+    region.bytesPerRow = 256;
+    region.rowsPerImage = 4;
+    region.textureExtent = Extent3D{4, 4, 1};
+    encoder = nullptr;
+    REQUIRE(pool->CreateEncoder(encoder).IsOk());
+    encoder->CopyTextureToBuffer(texture, readback, region);
+    commandBuffer = encoder->Finish();
+    CommandBuffer* second[] = {commandBuffer};
+    device->GetQueue(QueueType::Graphics)
+        ->Submit(Span<CommandBuffer* const>(second, 1), fence, 2);
+    REQUIRE(fence->Wait(2, ~0ull));
+    bytes = static_cast<const u8*>(readback->Map());
+    REQUIRE(bytes != nullptr);
+    CHECK(bytes[0] == 255);                 // first texel byte
+    CHECK(bytes[15] == static_cast<u8>(255 - 15)); // last byte of row 0
+    CHECK(bytes[256 + 0] == static_cast<u8>(255 - 16)); // row 1 starts at bytesPerRow
+    readback->Unmap();
+
+    queue->DestroyTransferBatch(batch);
+    device->DestroyFence(fence);
+    device->DestroyCommandPool(pool);
+    device->DestroyBuffer(readback);
+    device->DestroyTexture(texture);
+    device->DestroyBuffer(gpuBuffer);
+    CHECK(!device->IsLost());
+    device->Destroy();
+    backend->Destroy();
+}

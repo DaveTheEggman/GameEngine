@@ -17,6 +17,7 @@ import draconic.core;
 import draconic.rhi;
 import :api;
 import :command_buffer;
+import :transfer_batch;
 import :fence;
 
 using namespace draconic::core;
@@ -85,11 +86,20 @@ export namespace draconic::rhi::webgpu
 
         Status CreateTransferBatch(TransferBatch*& out) override
         {
-            out = nullptr;
-            return ErrorCode::NotSupported; // arrives with the resource stage
+            auto* batch = m_allocator->New<WebGpuTransferBatch>();
+            batch->Initialize(*m_api, m_instance, m_queue, *m_allocator);
+            out = batch;
+            return ErrorCode::Ok;
         }
 
-        void DestroyTransferBatch(TransferBatch*&) override {}
+        void DestroyTransferBatch(TransferBatch*& batch) override
+        {
+            if (batch != nullptr)
+            {
+                batch->Destroy(); // self-deleting (owns its allocator)
+                batch = nullptr;
+            }
+        }
 
         f32 TimestampPeriod() const override
         {

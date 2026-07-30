@@ -30,6 +30,7 @@ target_sources(DraconicRHIWebGPU PUBLIC FILE_SET rhi_webgpu_modules TYPE CXX_MOD
     WebGpuCommandPool.cppm
     WebGpuSurface.cppm
     WebGpuSwapChain.cppm
+    WebGpuTransferBatch.cppm
     WebGpuFence.cppm
     WebGpuQueue.cppm
     WebGpuDevice.cppm

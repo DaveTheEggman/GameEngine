@@ -29,6 +29,7 @@ export import :command_encoder;
 export import :command_pool;
 export import :surface;
 export import :swapchain;
+export import :transfer_batch;
 export import :fence;
 export import :queue;
 export import :device;

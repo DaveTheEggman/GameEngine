@@ -84,11 +84,93 @@ export namespace draconic::rhi::webgpu
 
         u32 GetQueueCount(QueueType) override { return 1; }
 
-        FormatSupport GetFormatSupport(TextureFormat) override
+        FormatSupport GetFormatSupport(TextureFormat format) override
         {
-            // Conservative until the format table lands with the texture stage.
-            return FormatSupport::Texture | FormatSupport::ColorAttachment |
-                   FormatSupport::DepthStencil;
+            // WebGPU's per-format capabilities are SPEC tables, not driver queries -
+            // encode the classes the renderer asks about.
+            switch (format)
+            {
+            case TextureFormat::Undefined:
+                return FormatSupport::Unsupported;
+
+            // Depth/stencil family.
+            case TextureFormat::Depth16Unorm:
+            case TextureFormat::Depth24Plus:
+            case TextureFormat::Depth24PlusStencil8:
+            case TextureFormat::Depth32Float:
+            case TextureFormat::Depth32FloatStencil8:
+            case TextureFormat::Stencil8:
+                return FormatSupport::Texture | FormatSupport::DepthStencil;
+
+            // BC block formats: sampled-only, feature-gated.
+            case TextureFormat::BC1RGBAUnorm:
+            case TextureFormat::BC1RGBAUnormSrgb:
+            case TextureFormat::BC2RGBAUnorm:
+            case TextureFormat::BC2RGBAUnormSrgb:
+            case TextureFormat::BC3RGBAUnorm:
+            case TextureFormat::BC3RGBAUnormSrgb:
+            case TextureFormat::BC4RUnorm:
+            case TextureFormat::BC4RSnorm:
+            case TextureFormat::BC5RGUnorm:
+            case TextureFormat::BC5RGSnorm:
+            case TextureFormat::BC6HRGBUfloat:
+            case TextureFormat::BC6HRGBFloat:
+            case TextureFormat::BC7RGBAUnorm:
+            case TextureFormat::BC7RGBAUnormSrgb:
+                return features.textureCompressionBC
+                           ? FormatSupport::Texture | FormatSupport::LinearFilter
+                           : FormatSupport::Unsupported;
+
+            // 16-bit norm formats have no core WebGPU equivalent at all.
+            case TextureFormat::RGBA16Unorm:
+            case TextureFormat::RGBA16Snorm:
+                return FormatSupport::Unsupported;
+
+            // 32-bit float family: renderable + storage, NOT filterable (core).
+            case TextureFormat::R32Float:
+            case TextureFormat::RG32Float:
+            case TextureFormat::RGBA32Float:
+                return FormatSupport::Texture | FormatSupport::ColorAttachment |
+                       FormatSupport::StorageTexture;
+
+            // Integer formats: renderable, never blendable or filterable.
+            case TextureFormat::R8Uint:
+            case TextureFormat::R8Sint:
+            case TextureFormat::R16Uint:
+            case TextureFormat::R16Sint:
+            case TextureFormat::R32Uint:
+            case TextureFormat::R32Sint:
+            case TextureFormat::RG8Uint:
+            case TextureFormat::RG8Sint:
+            case TextureFormat::RG16Uint:
+            case TextureFormat::RG16Sint:
+            case TextureFormat::RG32Uint:
+            case TextureFormat::RG32Sint:
+            case TextureFormat::RGBA8Uint:
+            case TextureFormat::RGBA8Sint:
+            case TextureFormat::RGBA16Uint:
+            case TextureFormat::RGBA16Sint:
+            case TextureFormat::RGBA32Uint:
+            case TextureFormat::RGBA32Sint:
+            case TextureFormat::RGB10A2Uint:
+                return FormatSupport::Texture | FormatSupport::ColorAttachment;
+
+            // Snorm + shared-exponent + packed-float oddballs: sampled/filterable;
+            // RG11B10 additionally renderable via the RG11B10UfloatRenderable
+            // feature on some runtimes - conservatively sampled-only here.
+            case TextureFormat::R8Snorm:
+            case TextureFormat::RG8Snorm:
+            case TextureFormat::RGBA8Snorm:
+            case TextureFormat::RGB9E5Float:
+            case TextureFormat::RG11B10Float:
+                return FormatSupport::Texture | FormatSupport::LinearFilter;
+
+            // Everything else in the RHI list is the classic filterable +
+            // renderable + blendable color family.
+            default:
+                return FormatSupport::Texture | FormatSupport::ColorAttachment |
+                       FormatSupport::BlendableColor | FormatSupport::LinearFilter;
+            }
         }
 
         // ---- Resource creation (encoders/pipelines still staged - see class comment) ----
