@@ -215,3 +215,132 @@ TEST_CASE("rhi.webgpu: resources - buffer map emulation, texture + view, sampler
     device->Destroy();
     backend->Destroy();
 }
+
+TEST_CASE("rhi.webgpu: bind groups + pipelines - the DXC shift scheme end-to-end")
+{
+    Backend* backend = TryCreateBackend();
+    if (backend == nullptr)
+    {
+        return;
+    }
+    Device* device = nullptr;
+    REQUIRE(backend->EnumerateAdapters()[0]->CreateDevice(DeviceDesc{}, device).IsOk());
+
+    // Layout with all three shift classes: CBV (0), SRV (+1000), sampler (+3000).
+    const BindGroupLayoutEntry entries[] = {
+        BindGroupLayoutEntry::UniformBuffer(0, ShaderStage::Vertex | ShaderStage::Fragment),
+        BindGroupLayoutEntry::SampledTexture(0, ShaderStage::Fragment),
+        BindGroupLayoutEntry::Sampler(0, ShaderStage::Fragment),
+    };
+    BindGroupLayoutDesc layoutDesc;
+    layoutDesc.entries = Span<const BindGroupLayoutEntry>(entries, 3);
+    BindGroupLayout* layout = nullptr;
+    REQUIRE(device->CreateBindGroupLayout(layoutDesc, layout).IsOk());
+    CHECK(layout->Entries().Size() == 3u);
+
+    // Resources to bind.
+    BufferDesc uboDesc;
+    uboDesc.size = 16;
+    uboDesc.usage = BufferUsage::Uniform;
+    uboDesc.memory = MemoryLocation::CpuToGpu;
+    Buffer* ubo = nullptr;
+    REQUIRE(device->CreateBuffer(uboDesc, ubo).IsOk());
+    Texture* texture = nullptr;
+    TextureDesc texDesc = TextureDesc::RenderTarget(TextureFormat::RGBA8Unorm, 4, 4);
+    texDesc.usage = TextureUsage::Sampled | TextureUsage::CopyDst;
+    REQUIRE(device->CreateTexture(texDesc, texture).IsOk());
+    TextureViewDesc viewDesc;
+    viewDesc.format = TextureFormat::RGBA8Unorm;
+    TextureView* view = nullptr;
+    REQUIRE(device->CreateTextureView(texture, viewDesc, view).IsOk());
+    Sampler* sampler = nullptr;
+    REQUIRE(device->CreateSampler(SamplerDesc{}, sampler).IsOk());
+
+    const BindGroupEntry groupEntries[] = {
+        BindGroupEntry::BufferEntry(ubo, 0, 16),
+        BindGroupEntry::TextureEntry(view),
+        BindGroupEntry::SamplerEntry(sampler),
+    };
+    BindGroupDesc groupDesc;
+    groupDesc.layout = layout;
+    groupDesc.entries = Span<const BindGroupEntry>(groupEntries, 3);
+    BindGroup* group = nullptr;
+    REQUIRE(device->CreateBindGroup(groupDesc, group).IsOk());
+    CHECK(group->Layout() == layout);
+
+    // Pipeline layout + a render pipeline whose WGSL uses the SHIFTED binding
+    // numbers - if the shift scheme mismatched the layout, creation would fail.
+    PipelineLayoutDesc plDesc;
+    BindGroupLayout* layouts[] = {layout};
+    plDesc.bindGroupLayouts = Span<BindGroupLayout* const>(layouts, 1);
+    PipelineLayout* pipelineLayout = nullptr;
+    REQUIRE(device->CreatePipelineLayout(plDesc, pipelineLayout).IsOk());
+
+    const char8_t* wgsl =
+        u8"@group(0) @binding(0) var<uniform> tintUniform : vec4f;\n"
+        u8"@group(0) @binding(1000) var sceneTexture : texture_2d<f32>;\n"
+        u8"@group(0) @binding(3000) var sceneSampler : sampler;\n"
+        u8"@vertex fn vertexMain(@builtin(vertex_index) i : u32) -> @builtin(position) vec4f\n"
+        u8"{ return vec4f(f32(i), 0.0, 0.0, 1.0); }\n"
+        u8"@fragment fn fragmentMain() -> @location(0) vec4f\n"
+        u8"{ return textureSampleLevel(sceneTexture, sceneSampler, vec2f(0.5), 0.0)\n"
+        u8"    * tintUniform; }\n";
+    ShaderModuleDesc moduleDesc;
+    moduleDesc.code =
+        Span<const u8>(reinterpret_cast<const u8*>(wgsl), StringView(wgsl).Size());
+    ShaderModule* shaderModule = nullptr;
+    REQUIRE(device->CreateShaderModule(moduleDesc, shaderModule).IsOk());
+
+    RenderPipelineDesc rpDesc;
+    rpDesc.layout = pipelineLayout;
+    rpDesc.vertex.shader = ProgrammableStage{shaderModule, u8"vertexMain", ShaderStage::Vertex};
+    ColorTargetState target;
+    target.format = TextureFormat::RGBA8Unorm;
+    target.blend = BlendState::AlphaBlend();
+    FragmentState fragment;
+    fragment.shader = ProgrammableStage{shaderModule, u8"fragmentMain", ShaderStage::Fragment};
+    fragment.targets = Span<const ColorTargetState>(&target, 1);
+    rpDesc.fragment = fragment;
+    RenderPipeline* renderPipeline = nullptr;
+    REQUIRE(device->CreateRenderPipeline(rpDesc, renderPipeline).IsOk());
+
+    // Wireframe has no WebGPU shape - honest NotSupported.
+    RenderPipelineDesc wireframeDesc = rpDesc;
+    wireframeDesc.primitive.fillMode = FillMode::Wireframe;
+    RenderPipeline* wireframe = nullptr;
+    CHECK(device->CreateRenderPipeline(wireframeDesc, wireframe).Code() ==
+          ErrorCode::NotSupported);
+
+    // Compute pipeline.
+    const char8_t* computeWgsl =
+        u8"@compute @workgroup_size(1) fn computeMain() { }";
+    ShaderModuleDesc computeModuleDesc;
+    computeModuleDesc.code = Span<const u8>(reinterpret_cast<const u8*>(computeWgsl),
+                                            StringView(computeWgsl).Size());
+    ShaderModule* computeModule = nullptr;
+    REQUIRE(device->CreateShaderModule(computeModuleDesc, computeModule).IsOk());
+    PipelineLayoutDesc emptyLayoutDesc;
+    PipelineLayout* emptyLayout = nullptr;
+    REQUIRE(device->CreatePipelineLayout(emptyLayoutDesc, emptyLayout).IsOk());
+    ComputePipelineDesc cpDesc;
+    cpDesc.layout = emptyLayout;
+    cpDesc.compute = ProgrammableStage{computeModule, u8"computeMain", ShaderStage::Compute};
+    ComputePipeline* computePipeline = nullptr;
+    REQUIRE(device->CreateComputePipeline(cpDesc, computePipeline).IsOk());
+
+    device->DestroyComputePipeline(computePipeline);
+    device->DestroyPipelineLayout(emptyLayout);
+    device->DestroyShaderModule(computeModule);
+    device->DestroyRenderPipeline(renderPipeline);
+    device->DestroyShaderModule(shaderModule);
+    device->DestroyPipelineLayout(pipelineLayout);
+    device->DestroyBindGroup(group);
+    device->DestroySampler(sampler);
+    device->DestroyTextureView(view);
+    device->DestroyTexture(texture);
+    device->DestroyBuffer(ubo);
+    device->WaitIdle();
+    CHECK(!device->IsLost());
+    device->Destroy();
+    backend->Destroy();
+}

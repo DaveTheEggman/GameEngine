@@ -101,9 +101,9 @@ export namespace draconic::rhi::webgpu
             }
             m_api->wgpuSupportedFeaturesFreeMembers(features);
 
-            // WebGPU guarantees per-attachment blend state; push constants are an
-            // EMULATION (dynamic-offset uniform ring) so the declared budget is what
-            // the emulation will honor.
+            // WebGPU guarantees per-attachment blend state. Push-constant support
+            // (Immediates) is decided at CreateDevice - the device stamps its
+            // maxPushConstantSize accordingly.
             out.supportedFeatures.independentBlend = true;
         }
 
@@ -138,10 +138,41 @@ export namespace draconic::rhi::webgpu
             {
                 required.PushBack(WGPUFeatureName_DepthClipControl);
             }
+            // Push constants = WebGPU IMMEDIATES (wgpu-native feature today; the field
+            // is in the STANDARD pipeline-layout descriptor, so browsers follow).
+            const auto immediates = static_cast<WGPUFeatureName>(WGPUNativeFeature_Immediates);
+            const bool immediatesSupported =
+                m_api->wgpuAdapterHasFeature(m_adapter, immediates) != 0u;
+            if (immediatesSupported)
+            {
+                required.PushBack(immediates);
+            }
+
+            // Raised limits: the DXC register-shift convention puts sampler bindings at
+            // 3000+N, far past the 1000 default maxBindingsPerBindGroup - request what
+            // the adapter actually supports. Immediates budget = the RHI's 128-byte
+            // push-constant contract.
+            WGPULimits adapterLimits = WGPU_LIMITS_INIT;
+            WGPULimits requiredLimits = WGPU_LIMITS_INIT;
+            bool haveLimits =
+                m_api->wgpuAdapterGetLimits(m_adapter, &adapterLimits) == WGPUStatus_Success;
+            if (haveLimits)
+            {
+                requiredLimits = adapterLimits; // adapter-supported values are always legal
+                if (immediatesSupported && requiredLimits.maxImmediateSize < 128 &&
+                    adapterLimits.maxImmediateSize >= 128)
+                {
+                    requiredLimits.maxImmediateSize = 128;
+                }
+            }
 
             WGPUDeviceDescriptor deviceDesc = WGPU_DEVICE_DESCRIPTOR_INIT;
             deviceDesc.requiredFeatureCount = required.Size();
             deviceDesc.requiredFeatures = required.Data();
+            if (haveLimits)
+            {
+                deviceDesc.requiredLimits = &requiredLimits;
+            }
             deviceDesc.deviceLostCallbackInfo.mode = WGPUCallbackMode_AllowProcessEvents;
             deviceDesc.deviceLostCallbackInfo.callback =
                 [](WGPUDevice const*, WGPUDeviceLostReason reason, WGPUStringView message,
@@ -210,6 +241,8 @@ export namespace draconic::rhi::webgpu
             auto* wrapper = m_allocator.New<WebGpuDevice>(*m_api, m_instance, device,
                                                           m_allocator);
             wrapper->features = info.supportedFeatures;
+            wrapper->features.maxPushConstantSize = immediatesSupported ? 128u : 0u;
+            wrapper->SetImmediatesSupported(immediatesSupported);
             lostRoute->device = wrapper;
             out = wrapper;
             return ErrorCode::Ok;

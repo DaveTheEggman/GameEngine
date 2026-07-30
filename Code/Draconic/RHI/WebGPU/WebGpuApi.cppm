@@ -62,6 +62,17 @@ namespace draconic::rhi::webgpu
     X(wgpuDeviceCreateShaderModule)                                                                \
     X(wgpuShaderModuleRelease)                                                                     \
     X(wgpuDeviceCreateShaderModuleSpirV) /* wgpu-native extension (desktop only) */                \
+    X(wgpuAdapterHasFeature)                                                                       \
+    X(wgpuDeviceCreateBindGroupLayout)                                                             \
+    X(wgpuBindGroupLayoutRelease)                                                                  \
+    X(wgpuDeviceCreateBindGroup)                                                                   \
+    X(wgpuBindGroupRelease)                                                                        \
+    X(wgpuDeviceCreatePipelineLayout)                                                              \
+    X(wgpuPipelineLayoutRelease)                                                                   \
+    X(wgpuDeviceCreateRenderPipeline)                                                              \
+    X(wgpuRenderPipelineRelease)                                                                   \
+    X(wgpuDeviceCreateComputePipeline)                                                             \
+    X(wgpuComputePipelineRelease)                                                                  \
     X(wgpuDeviceRelease)                                                                           \
     X(wgpuDevicePoll) /* wgpu-native extension (desktop only) */                                   \
     X(wgpuQueueSubmit)                                                                             \

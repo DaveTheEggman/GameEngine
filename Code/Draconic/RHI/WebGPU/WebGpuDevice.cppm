@@ -20,6 +20,12 @@ import :texture;
 import :texture_view;
 import :sampler;
 import :shader_module;
+import :bind_group_layout;
+import :bind_group;
+import :pipeline_layout;
+import :pipeline_cache;
+import :render_pipeline;
+import :compute_pipeline;
 import :fence;
 import :queue;
 
@@ -44,6 +50,10 @@ export namespace draconic::rhi::webgpu
 
         /// The device-lost callback (registered at creation by the adapter) lands here.
         void MarkLost() { m_lost = true; }
+
+        /// Set by the adapter: whether the device carries the Immediates feature
+        /// (push-constant support; pipeline layouts with ranges fail without it).
+        void SetImmediatesSupported(bool supported) { m_immediatesSupported = supported; }
 
         [[nodiscard]] WGPUDevice Handle() const { return m_device; }
         [[nodiscard]] WGPUInstance Instance() const { return m_instance; }
@@ -111,35 +121,45 @@ export namespace draconic::rhi::webgpu
             return CreateResource<WebGpuShaderModule>(
                 out, [&](WebGpuShaderModule& m) { return m.Initialize(*m_api, m_device, moduleDesc); });
         }
-        Status CreateBindGroupLayout(const BindGroupLayoutDesc&, BindGroupLayout*& out) override
+        Status CreateBindGroupLayout(const BindGroupLayoutDesc& layoutDesc,
+                                     BindGroupLayout*& out) override
         {
-            out = nullptr;
-            return ErrorCode::NotSupported;
+            return CreateResource<WebGpuBindGroupLayout>(
+                out, [&](WebGpuBindGroupLayout& l)
+                { return l.Initialize(*m_api, m_device, layoutDesc); });
         }
-        Status CreateBindGroup(const BindGroupDesc&, BindGroup*& out) override
+        Status CreateBindGroup(const BindGroupDesc& groupDesc, BindGroup*& out) override
         {
-            out = nullptr;
-            return ErrorCode::NotSupported;
+            return CreateResource<WebGpuBindGroup>(
+                out,
+                [&](WebGpuBindGroup& g) { return g.Initialize(*m_api, m_device, groupDesc); });
         }
-        Status CreatePipelineLayout(const PipelineLayoutDesc&, PipelineLayout*& out) override
+        Status CreatePipelineLayout(const PipelineLayoutDesc& layoutDesc,
+                                    PipelineLayout*& out) override
         {
-            out = nullptr;
-            return ErrorCode::NotSupported;
+            return CreateResource<WebGpuPipelineLayout>(
+                out, [&](WebGpuPipelineLayout& l)
+                { return l.Initialize(*m_api, m_device, layoutDesc, m_immediatesSupported); });
         }
         Status CreatePipelineCache(const PipelineCacheDesc&, PipelineCache*& out) override
         {
-            out = nullptr;
-            return ErrorCode::NotSupported;
+            // No cache object in WebGPU; a benign empty stand-in keeps callers happy.
+            out = m_allocator.New<WebGpuPipelineCache>();
+            return ErrorCode::Ok;
         }
-        Status CreateRenderPipeline(const RenderPipelineDesc&, RenderPipeline*& out) override
+        Status CreateRenderPipeline(const RenderPipelineDesc& pipelineDesc,
+                                    RenderPipeline*& out) override
         {
-            out = nullptr;
-            return ErrorCode::NotSupported;
+            return CreateResource<WebGpuRenderPipeline>(
+                out, [&](WebGpuRenderPipeline& p)
+                { return p.Initialize(*m_api, m_device, pipelineDesc); });
         }
-        Status CreateComputePipeline(const ComputePipelineDesc&, ComputePipeline*& out) override
+        Status CreateComputePipeline(const ComputePipelineDesc& pipelineDesc,
+                                     ComputePipeline*& out) override
         {
-            out = nullptr;
-            return ErrorCode::NotSupported;
+            return CreateResource<WebGpuComputePipeline>(
+                out, [&](WebGpuComputePipeline& p)
+                { return p.Initialize(*m_api, m_device, pipelineDesc); });
         }
         Status CreateCommandPool(QueueType, CommandPool*& out) override
         {
@@ -175,12 +195,24 @@ export namespace draconic::rhi::webgpu
         {
             ReleaseAndDelete<WebGpuShaderModule>(x);
         }
-        void DestroyBindGroupLayout(BindGroupLayout*& x) override { DeleteIfAny(x); }
-        void DestroyBindGroup(BindGroup*& x) override { DeleteIfAny(x); }
-        void DestroyPipelineLayout(PipelineLayout*& x) override { DeleteIfAny(x); }
+        void DestroyBindGroupLayout(BindGroupLayout*& x) override
+        {
+            ReleaseAndDelete<WebGpuBindGroupLayout>(x);
+        }
+        void DestroyBindGroup(BindGroup*& x) override { ReleaseAndDelete<WebGpuBindGroup>(x); }
+        void DestroyPipelineLayout(PipelineLayout*& x) override
+        {
+            ReleaseAndDelete<WebGpuPipelineLayout>(x);
+        }
         void DestroyPipelineCache(PipelineCache*& x) override { DeleteIfAny(x); }
-        void DestroyRenderPipeline(RenderPipeline*& x) override { DeleteIfAny(x); }
-        void DestroyComputePipeline(ComputePipeline*& x) override { DeleteIfAny(x); }
+        void DestroyRenderPipeline(RenderPipeline*& x) override
+        {
+            ReleaseAndDelete<WebGpuRenderPipeline>(x);
+        }
+        void DestroyComputePipeline(ComputePipeline*& x) override
+        {
+            ReleaseAndDelete<WebGpuComputePipeline>(x);
+        }
         void DestroyCommandPool(CommandPool*& x) override { DeleteIfAny(x); }
         void DestroyFence(Fence*& x) override { DeleteIfAny(x); }
         void DestroyQuerySet(QuerySet*& x) override { DeleteIfAny(x); }
@@ -258,5 +290,6 @@ export namespace draconic::rhi::webgpu
         WebGpuQueue m_computeQueue;
         WebGpuQueue m_transferQueue;
         bool m_lost = false;
+        bool m_immediatesSupported = false;
     };
 }

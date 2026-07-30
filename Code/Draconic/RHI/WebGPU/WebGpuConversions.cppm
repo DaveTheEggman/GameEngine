@@ -276,4 +276,195 @@ export namespace draconic::rhi::webgpu
     {
         return WGPUStringView{reinterpret_cast<const char*>(label.Data()), label.Size()};
     }
+
+    /// The DXC register-space shift convention (CBV=0, SRV=1000, UAV=2000, Sampler=3000
+    /// - the SAME table as vk::BindingShifts::standard()). DXC bakes these into the
+    /// SPIR-V bindings, so bind-group layouts must declare the shifted numbers to match.
+    /// Requires the raised maxBindingsPerBindGroup the device requests at creation.
+    /// The cook-time WGSL path (browser) will emit compact bindings and bypass this.
+    [[nodiscard]] inline u32 ShiftedBinding(BindingType type, u32 binding)
+    {
+        switch (type)
+        {
+        case BindingType::UniformBuffer:
+            return binding;
+        case BindingType::SampledTexture:
+        case BindingType::StorageBufferReadOnly: // HLSL StructuredBuffer = SRV (t register)
+            return binding + 1000;
+        case BindingType::StorageTextureReadOnly:
+        case BindingType::StorageTextureReadWrite:
+        case BindingType::StorageBufferReadWrite:
+            return binding + 2000;
+        case BindingType::Sampler:
+        case BindingType::ComparisonSampler:
+            return binding + 3000;
+        default:
+            return binding; // bindless / accel-struct types never reach WebGPU layouts
+        }
+    }
+
+    [[nodiscard]] inline WGPUShaderStage ToWgpuShaderStage(ShaderStage stages)
+    {
+        WGPUShaderStage out = WGPUShaderStage_None;
+        const u32 bits = static_cast<u32>(stages);
+        if ((bits & static_cast<u32>(ShaderStage::Vertex)) != 0)
+        {
+            out |= WGPUShaderStage_Vertex;
+        }
+        if ((bits & static_cast<u32>(ShaderStage::Fragment)) != 0)
+        {
+            out |= WGPUShaderStage_Fragment;
+        }
+        if ((bits & static_cast<u32>(ShaderStage::Compute)) != 0)
+        {
+            out |= WGPUShaderStage_Compute;
+        }
+        return out;
+    }
+
+    [[nodiscard]] inline WGPUPrimitiveTopology ToWgpuPrimitiveTopology(PrimitiveTopology t)
+    {
+        switch (t)
+        {
+        case PrimitiveTopology::PointList:     return WGPUPrimitiveTopology_PointList;
+        case PrimitiveTopology::LineList:      return WGPUPrimitiveTopology_LineList;
+        case PrimitiveTopology::LineStrip:     return WGPUPrimitiveTopology_LineStrip;
+        case PrimitiveTopology::TriangleList:  return WGPUPrimitiveTopology_TriangleList;
+        case PrimitiveTopology::TriangleStrip: return WGPUPrimitiveTopology_TriangleStrip;
+        }
+        return WGPUPrimitiveTopology_TriangleList;
+    }
+
+    [[nodiscard]] inline WGPUFrontFace ToWgpuFrontFace(FrontFace face)
+    {
+        return face == FrontFace::CCW ? WGPUFrontFace_CCW : WGPUFrontFace_CW;
+    }
+
+    [[nodiscard]] inline WGPUCullMode ToWgpuCullMode(CullMode mode)
+    {
+        switch (mode)
+        {
+        case CullMode::None:  return WGPUCullMode_None;
+        case CullMode::Front: return WGPUCullMode_Front;
+        case CullMode::Back:  return WGPUCullMode_Back;
+        }
+        return WGPUCullMode_None;
+    }
+
+    [[nodiscard]] inline WGPUStencilOperation ToWgpuStencilOperation(StencilOperation op)
+    {
+        switch (op)
+        {
+        case StencilOperation::Keep:           return WGPUStencilOperation_Keep;
+        case StencilOperation::Zero:           return WGPUStencilOperation_Zero;
+        case StencilOperation::Replace:        return WGPUStencilOperation_Replace;
+        case StencilOperation::IncrementClamp: return WGPUStencilOperation_IncrementClamp;
+        case StencilOperation::DecrementClamp: return WGPUStencilOperation_DecrementClamp;
+        case StencilOperation::Invert:         return WGPUStencilOperation_Invert;
+        case StencilOperation::IncrementWrap:  return WGPUStencilOperation_IncrementWrap;
+        case StencilOperation::DecrementWrap:  return WGPUStencilOperation_DecrementWrap;
+        }
+        return WGPUStencilOperation_Keep;
+    }
+
+    [[nodiscard]] inline WGPUBlendFactor ToWgpuBlendFactor(BlendFactor factor)
+    {
+        switch (factor)
+        {
+        case BlendFactor::Zero:              return WGPUBlendFactor_Zero;
+        case BlendFactor::One:               return WGPUBlendFactor_One;
+        case BlendFactor::Src:               return WGPUBlendFactor_Src;
+        case BlendFactor::OneMinusSrc:       return WGPUBlendFactor_OneMinusSrc;
+        case BlendFactor::SrcAlpha:          return WGPUBlendFactor_SrcAlpha;
+        case BlendFactor::OneMinusSrcAlpha:  return WGPUBlendFactor_OneMinusSrcAlpha;
+        case BlendFactor::Dst:               return WGPUBlendFactor_Dst;
+        case BlendFactor::OneMinusDst:       return WGPUBlendFactor_OneMinusDst;
+        case BlendFactor::DstAlpha:          return WGPUBlendFactor_DstAlpha;
+        case BlendFactor::OneMinusDstAlpha:  return WGPUBlendFactor_OneMinusDstAlpha;
+        case BlendFactor::SrcAlphaSaturated: return WGPUBlendFactor_SrcAlphaSaturated;
+        case BlendFactor::Constant:          return WGPUBlendFactor_Constant;
+        case BlendFactor::OneMinusConstant:  return WGPUBlendFactor_OneMinusConstant;
+        }
+        return WGPUBlendFactor_One;
+    }
+
+    [[nodiscard]] inline WGPUBlendOperation ToWgpuBlendOperation(BlendOperation op)
+    {
+        switch (op)
+        {
+        case BlendOperation::Add:             return WGPUBlendOperation_Add;
+        case BlendOperation::Subtract:        return WGPUBlendOperation_Subtract;
+        case BlendOperation::ReverseSubtract: return WGPUBlendOperation_ReverseSubtract;
+        case BlendOperation::Min:             return WGPUBlendOperation_Min;
+        case BlendOperation::Max:             return WGPUBlendOperation_Max;
+        }
+        return WGPUBlendOperation_Add;
+    }
+
+    [[nodiscard]] inline WGPUColorWriteMask ToWgpuColorWriteMask(ColorWriteMask mask)
+    {
+        WGPUColorWriteMask out = WGPUColorWriteMask_None;
+        const u8 bits = static_cast<u8>(mask);
+        if ((bits & static_cast<u8>(ColorWriteMask::Red)) != 0)
+        {
+            out |= WGPUColorWriteMask_Red;
+        }
+        if ((bits & static_cast<u8>(ColorWriteMask::Green)) != 0)
+        {
+            out |= WGPUColorWriteMask_Green;
+        }
+        if ((bits & static_cast<u8>(ColorWriteMask::Blue)) != 0)
+        {
+            out |= WGPUColorWriteMask_Blue;
+        }
+        if ((bits & static_cast<u8>(ColorWriteMask::Alpha)) != 0)
+        {
+            out |= WGPUColorWriteMask_Alpha;
+        }
+        return out;
+    }
+
+    [[nodiscard]] inline WGPUVertexFormat ToWgpuVertexFormat(VertexFormat format)
+    {
+        switch (format)
+        {
+        case VertexFormat::Uint8x2:   return WGPUVertexFormat_Uint8x2;
+        case VertexFormat::Uint8x4:   return WGPUVertexFormat_Uint8x4;
+        case VertexFormat::Sint8x2:   return WGPUVertexFormat_Sint8x2;
+        case VertexFormat::Sint8x4:   return WGPUVertexFormat_Sint8x4;
+        case VertexFormat::Unorm8x2:  return WGPUVertexFormat_Unorm8x2;
+        case VertexFormat::Unorm8x4:  return WGPUVertexFormat_Unorm8x4;
+        case VertexFormat::Snorm8x2:  return WGPUVertexFormat_Snorm8x2;
+        case VertexFormat::Snorm8x4:  return WGPUVertexFormat_Snorm8x4;
+        case VertexFormat::Uint16x2:  return WGPUVertexFormat_Uint16x2;
+        case VertexFormat::Uint16x4:  return WGPUVertexFormat_Uint16x4;
+        case VertexFormat::Sint16x2:  return WGPUVertexFormat_Sint16x2;
+        case VertexFormat::Sint16x4:  return WGPUVertexFormat_Sint16x4;
+        case VertexFormat::Unorm16x2: return WGPUVertexFormat_Unorm16x2;
+        case VertexFormat::Unorm16x4: return WGPUVertexFormat_Unorm16x4;
+        case VertexFormat::Snorm16x2: return WGPUVertexFormat_Snorm16x2;
+        case VertexFormat::Snorm16x4: return WGPUVertexFormat_Snorm16x4;
+        case VertexFormat::Float16x2: return WGPUVertexFormat_Float16x2;
+        case VertexFormat::Float16x4: return WGPUVertexFormat_Float16x4;
+        case VertexFormat::Float32:   return WGPUVertexFormat_Float32;
+        case VertexFormat::Float32x2: return WGPUVertexFormat_Float32x2;
+        case VertexFormat::Float32x3: return WGPUVertexFormat_Float32x3;
+        case VertexFormat::Float32x4: return WGPUVertexFormat_Float32x4;
+        case VertexFormat::Uint32:    return WGPUVertexFormat_Uint32;
+        case VertexFormat::Uint32x2:  return WGPUVertexFormat_Uint32x2;
+        case VertexFormat::Uint32x3:  return WGPUVertexFormat_Uint32x3;
+        case VertexFormat::Uint32x4:  return WGPUVertexFormat_Uint32x4;
+        case VertexFormat::Sint32:    return WGPUVertexFormat_Sint32;
+        case VertexFormat::Sint32x2:  return WGPUVertexFormat_Sint32x2;
+        case VertexFormat::Sint32x3:  return WGPUVertexFormat_Sint32x3;
+        case VertexFormat::Sint32x4:  return WGPUVertexFormat_Sint32x4;
+        }
+        return WGPUVertexFormat_Float32;
+    }
+
+    [[nodiscard]] inline WGPUVertexStepMode ToWgpuVertexStepMode(VertexStepMode mode)
+    {
+        return mode == VertexStepMode::Instance ? WGPUVertexStepMode_Instance
+                                                : WGPUVertexStepMode_Vertex;
+    }
 }
