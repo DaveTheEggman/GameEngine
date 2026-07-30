@@ -42,6 +42,14 @@ export namespace draconic::shaders
         u32 textureShift = 0;
         u32 samplerShift = 0;
         u32 uavShift = 0;
+
+        /// THE register-space shift table, one value engine-wide: CBV=0, SRV=+100,
+        /// UAV=+200, Sampler=+300. Compact so binding indices stay under WebGPU's
+        /// maxBindingsPerBindGroup (1000 in browsers, non-negotiable); Vulkan places
+        /// no constraint on binding indices, so the same table serves both SPIR-V
+        /// backends. Must match rhi::vk::BindingShifts::standard() and the WebGPU
+        /// backend's ShiftedBinding constants.
+        static constexpr BindingShifts Standard() { return {0, 100, 300, 200}; }
     };
 
     struct CompileOptions

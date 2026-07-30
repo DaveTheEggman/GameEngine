@@ -28,13 +28,12 @@ export namespace draconic::samples::framework
         opts.shaderModel = shaderModel;
         opts.optimizationLevel = 3;
 
-        // Vulkan needs binding shifts; DX12 uses register spaces natively.
+        // SPIR-V targets need binding shifts; DX12 uses register spaces natively.
+        // ONE engine-wide table (WebGPU-compatible compact values) serves Vulkan and
+        // WebGPU alike - see shaders::BindingShifts::Standard().
         if (!isDX12)
         {
-            opts.bindingShifts.constantBufferShift = 0;
-            opts.bindingShifts.textureShift = 1000;
-            opts.bindingShifts.uavShift = 2000;
-            opts.bindingShifts.samplerShift = 3000;
+            opts.bindingShifts = shaders::BindingShifts::Standard();
             opts.bindingShiftSets = 4;
         }
 

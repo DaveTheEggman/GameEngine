@@ -20,8 +20,12 @@ export namespace draconic::rhi::vk
         u32 uavShift = 0;     ///< Unordered access view (u) register shift.
         u32 samplerShift = 0; ///< Sampler (s) register shift.
 
-        /// Standard layout: CBV=0, SRV=1000, UAV=2000, Sampler=3000.
-        static constexpr BindingShifts standard() { return {0, 1000, 2000, 3000}; }
+        /// Standard layout: CBV=0, SRV=100, UAV=200, Sampler=300 - normalized
+        /// engine-wide onto the WebGPU-compatible compact table (binding indices must
+        /// stay under WebGPU's maxBindingsPerBindGroup of 1000; Vulkan does not
+        /// constrain binding indices, so nothing is lost). Mirrors
+        /// shaders::BindingShifts::Standard().
+        static constexpr BindingShifts standard() { return {0, 100, 200, 300}; }
 
         /// Applies the appropriate shift for a binding type.
         u32 apply(BindingType type, u32 binding) const

@@ -143,10 +143,7 @@ export namespace draconic::shaders
             {
                 // Vulkan: shift register spaces so HLSL b/t/u/s registers don't collide
                 // in SPIR-V (matches the sample framework's CompileToModule).
-                opts.bindingShifts.constantBufferShift = 0;
-                opts.bindingShifts.textureShift = 1000;
-                opts.bindingShifts.uavShift = 2000;
-                opts.bindingShifts.samplerShift = 3000;
+                opts.bindingShifts = shaders::BindingShifts::Standard();
                 opts.bindingShiftSets = 4;
             }
 

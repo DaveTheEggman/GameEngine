@@ -264,10 +264,7 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
             opts.optimizationLevel = 3;
             if (!isDX12)
             {
-                opts.bindingShifts.constantBufferShift = 0;
-                opts.bindingShifts.textureShift = 1000;
-                opts.bindingShifts.uavShift = 2000;
-                opts.bindingShifts.samplerShift = 3000;
+                opts.bindingShifts = shaders::BindingShifts::Standard();
                 opts.bindingShiftSets = 4;
             }
             const StringView src(kShader);

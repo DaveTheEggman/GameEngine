@@ -304,10 +304,7 @@ namespace draconic::ui
             options.optimizationLevel = 3;
             if (!isDX12)
             {
-                options.bindingShifts.constantBufferShift = 0;
-                options.bindingShifts.textureShift = 1000;
-                options.bindingShifts.uavShift = 2000;
-                options.bindingShifts.samplerShift = 3000;
+                options.bindingShifts = shaders::BindingShifts::Standard();
                 options.bindingShiftSets = 4;
             }
             draconic::shaders::CompileResult compiled{};
