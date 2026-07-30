@@ -2,7 +2,8 @@
 
 add_executable(DraconicShaderSystemTests
     TestsMain.cpp
-    ShaderSystemTests.cpp)
+    ShaderSystemTests.cpp
+    FileProviderTests.cpp)
 
 target_link_libraries(DraconicShaderSystemTests PRIVATE
     Draconic::ShaderSystem Draconic::RHINull doctest::doctest)

@@ -1,4 +1,4 @@
-/// Draconic::ShaderSystem - the `draconic.shaders.system` module.
+/// Draconic::ShaderSystem - the `:shader_system` partition.
 ///
 /// Compile-on-demand + cache for shader VARIANTS. A shader is registered by name
 /// per stage (its HLSL source); GetVariant(name, stage, flags) compiles the
@@ -10,7 +10,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.shaders.system;
+export module draconic.shaders.system:shader_system;
 
 import draconic.core;
 import draconic.rhi;
@@ -21,6 +21,28 @@ namespace rhi = draconic::rhi;
 
 export namespace draconic::shaders
 {
+
+    /// The pull seam for shader SOURCE (shaders.md P1): instead of passes pushing
+    /// strings, the ShaderSystem asks a provider on a source miss. Dev: files under
+    /// the engine shader root (edit -> hot reload, zero C++ rebuild). Dist (P2):
+    /// cooked bytecode packs. Explicit RegisterSource still wins - modules with
+    /// bespoke inline shaders (imgui) keep working unchanged.
+    class IShaderSourceProvider
+    {
+    public:
+        virtual ~IShaderSourceProvider() = default;
+
+        /// HLSL text for (name, stage); false when the provider has no such shader.
+        virtual bool FetchSource(core::StringView name, ShaderStage stage,
+                                 core::String& outSource) = 0;
+
+        /// Every shader name the provider can serve (tooling: builtin dropdowns).
+        virtual void CollectShaderNames(core::Array<core::String>& out) = 0;
+
+        /// Appends names whose source changed since the last poll (dev file watch);
+        /// returns true if any did. Called once per frame - implementations throttle.
+        virtual bool PollChanges(core::Array<core::String>& outChangedNames) = 0;
+    };
 
     // Compile-on-demand variant cache. The Compiler and Device are borrowed (owned by
     // the caller). Sources are registered per (name, stage) - vertex and fragment are
@@ -42,6 +64,44 @@ export namespace draconic::shaders
         void RegisterSource(core::StringView name, ShaderStage stage, core::StringView hlsl)
         {
             m_sources.InsertOrAssign(SourceKey(name, stage), core::String(hlsl));
+        }
+
+        // The source-pull seam (borrowed; may be null - see IShaderSourceProvider).
+        void SetSourceProvider(IShaderSourceProvider* provider) { m_provider = provider; }
+        [[nodiscard]] IShaderSourceProvider* SourceProvider() const noexcept
+        {
+            return m_provider;
+        }
+
+        // Dev hot reload: asks the provider which sources changed, drops their
+        // cached source + variants, and bumps versions (the PSO cache rebuilds on
+        // its existing poll). Call once per frame. Returns how many shaders reloaded.
+        core::usize PumpReloads()
+        {
+            if (m_provider == nullptr)
+            {
+                return 0;
+            }
+            core::Array<core::String> changed;
+            if (!m_provider->PollChanges(changed))
+            {
+                return 0;
+            }
+            for (const core::String& name : changed)
+            {
+                RemoveSource(name.AsView()); // refetched lazily on next GetVariant
+                InvalidateShader(name.AsView());
+            }
+            return changed.Size();
+        }
+
+        // Drops the cached source text for every stage of `name` (the variant cache
+        // is handled by InvalidateShader).
+        void RemoveSource(core::StringView name)
+        {
+            m_sources.Remove(SourceKey(name, ShaderStage::Vertex));
+            m_sources.Remove(SourceKey(name, ShaderStage::Fragment));
+            m_sources.Remove(SourceKey(name, ShaderStage::Compute));
         }
 
         // Include search paths for DXC #include resolution of shared .hlsli (owned).
@@ -67,6 +127,15 @@ export namespace draconic::shaders
             }
 
             core::String* source = m_sources.Find(SourceKey(name, stage));
+            if (source == nullptr && m_provider != nullptr)
+            {
+                core::String fetched;
+                if (m_provider->FetchSource(name, stage, fetched))
+                {
+                    RegisterSource(name, stage, fetched.AsView());
+                    source = m_sources.Find(SourceKey(name, stage));
+                }
+            }
             if (source == nullptr)
             {
                 return nullptr;
@@ -144,11 +213,11 @@ export namespace draconic::shaders
                 // Vulkan: shift register spaces so HLSL b/t/u/s registers don't collide
                 // in SPIR-V (matches the sample framework's CompileToModule).
                 opts.bindingShifts = shaders::BindingShifts::Standard();
-            if (m_device->type == rhi::DeviceType::WebGPU)
-            {
-                opts.spirvTargetEnvironment = u8"vulkan1.1"; // naga rejects SPIR-V 1.4+
-            }
                 opts.bindingShiftSets = 4;
+                if (m_device->type == rhi::DeviceType::WebGPU)
+                {
+                    opts.spirvTargetEnvironment = u8"vulkan1.1"; // naga rejects SPIR-V 1.4+
+                }
             }
 
             CompileResult cr{};
@@ -204,6 +273,7 @@ export namespace draconic::shaders
 
         Compiler* m_compiler;                             // borrowed
         rhi::Device* m_device;                            // borrowed
+        IShaderSourceProvider* m_provider = nullptr;      // borrowed (may be null)
         core::HashMap<core::u64, core::String> m_sources; // (name,stage) -> HLSL
         core::HashMap<ShaderVariantKey, rhi::ShaderModule*>
             m_cache;                                    // variant -> GPU module (owned)
