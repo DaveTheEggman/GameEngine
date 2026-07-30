@@ -186,6 +186,9 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/Script)          # reflection->script bridge; Wren backend (AngelScript gated)
     add_subdirectory(Code/Draconic/Script/Facades)  # behavior facades (Entity/Log/Time/Random); ScriptWren needs it
     add_subdirectory(Code/Draconic/Input/Subsystem) # input runtime hookup over Runtime + Script
+    add_subdirectory(Code/Draconic/Audio)           # miniaudio-backed (Web Audio backend on emscripten)
+    add_subdirectory(Code/Draconic/Audio/Resource)
+    add_subdirectory(Code/Draconic/Audio/Subsystem)
     # Runtime app-layer + Scene/Subsystem climb with the app stack (Shell/Script/subsystems), later.
     return() # everything above this line is wasm-verified; the rest awaits its turn
 endif()
