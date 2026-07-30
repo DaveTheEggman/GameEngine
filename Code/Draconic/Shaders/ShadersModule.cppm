@@ -6,3 +6,4 @@ export import :variants;
 export import :pack;
 export import :compiler;
 export import :wgsl_cook;
+export import :pack_cook;

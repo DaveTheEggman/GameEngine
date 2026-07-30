@@ -23,6 +23,7 @@ target_sources(DraconicShaders
             Pack.cppm
             Compiler.cppm
             Cook/WgslTranslator.cppm
+            Cook/ShaderPackCooker.cppm
             ShadersModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)

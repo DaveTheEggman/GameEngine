@@ -119,6 +119,85 @@ namespace
     }
 }
 
+// --- Engine-shader cook (enumerate corpus -> pack) -------------------------
+
+#ifdef DRACONIC_ENGINE_SHADER_DIR
+TEST_CASE("cook: the engine corpus cooks to a SPIR-V pack (lint clean, variants expanded)")
+{
+    Compiler* compiler = MakeCompiler();
+    if (compiler == nullptr)
+    {
+        MESSAGE("DXC runtime unavailable; skipping cook test");
+        return;
+    }
+
+    // SPIR-V only: in-process (no naga/tint spawns), so this stays fast while still exercising
+    // enumeration + the drift-lint + every shader compiling. The WGSL path is covered above.
+    const CookedShaderFormat formats[] = {CookedShaderFormat::SpirV};
+    ShaderCookOptions opts;
+    opts.shaderDir = StringView(reinterpret_cast<const char8_t*>(DRACONIC_ENGINE_SHADER_DIR));
+    opts.scratchDir = u8".test-scratch";
+    opts.formats = Span<const CookedShaderFormat>(formats, 1);
+
+    CookedShaderPack pack;
+    const ShaderCookReport report = CookEngineShaders(*compiler, opts, pack);
+
+    for (usize i = 0; i < report.errors.Size(); ++i)
+    {
+        MESSAGE("cook error: ", reinterpret_cast<const char*>(report.errors[i].CStr()));
+    }
+    CHECK(report.success); // all shaders compile + no undeclared-flag drift
+    CHECK(report.filesCooked > 40u);
+    CHECK(report.variantsCooked >= report.filesCooked);
+
+    // forward.ps declares `ALPHA_TEST GBUFFER` -> its power set must be in the pack.
+    CHECK(pack.Find(u8"forward", ShaderStage::Fragment, ShaderFlags::None,
+                    CookedShaderFormat::SpirV) != nullptr);
+    CHECK(pack.Find(u8"forward", ShaderStage::Fragment, ShaderFlags::GBuffer,
+                    CookedShaderFormat::SpirV) != nullptr);
+    CHECK(pack.Find(u8"forward", ShaderStage::Fragment,
+                    ShaderFlags::AlphaTest | ShaderFlags::GBuffer,
+                    CookedShaderFormat::SpirV) != nullptr);
+    // A single-variant shader has only its None variant.
+    CHECK(pack.Find(u8"tonemap", ShaderStage::Fragment, ShaderFlags::None,
+                    CookedShaderFormat::SpirV) != nullptr);
+
+    compiler->Destroy();
+}
+
+TEST_CASE("cook: drift-lint fails a shader that #ifdefs an undeclared flag")
+{
+    Compiler* compiler = MakeCompiler();
+    if (compiler == nullptr)
+    {
+        return;
+    }
+    // Point the cook at a scratch dir holding one bad shader (declares nothing, #ifdef's GBUFFER).
+    (void)CreateDirectory(u8".test-scratch");
+    (void)CreateDirectory(u8".test-scratch/badshaders");
+    const char* bad = "// draconic:variants\n"
+                      "#ifdef GBUFFER\n"
+                      "#endif\n"
+                      "float4 main() : SV_Target0 { return 0; }\n";
+    const Span<const byte> bytes(reinterpret_cast<const byte*>(bad), std::strlen(bad));
+    REQUIRE(WriteFile(u8".test-scratch/badshaders/drift.ps.hlsl", bytes).IsOk());
+
+    const CookedShaderFormat formats[] = {CookedShaderFormat::SpirV};
+    ShaderCookOptions opts;
+    opts.shaderDir = u8".test-scratch/badshaders";
+    opts.scratchDir = u8".test-scratch";
+    opts.formats = Span<const CookedShaderFormat>(formats, 1);
+
+    CookedShaderPack pack;
+    const ShaderCookReport report = CookEngineShaders(*compiler, opts, pack);
+    CHECK_FALSE(report.success);
+    CHECK_FALSE(report.errors.IsEmpty());
+
+    (void)FileDelete(u8".test-scratch/badshaders/drift.ps.hlsl");
+    compiler->Destroy();
+}
+#endif // DRACONIC_ENGINE_SHADER_DIR
+
 // --- Cooked shader pack (serialize / lookup) -------------------------------
 
 TEST_CASE("pack: add, serialize, reload, and look up cooked blobs")
