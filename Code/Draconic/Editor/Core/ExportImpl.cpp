@@ -26,6 +26,7 @@ import draconic.project;
 import draconic.scene.resource;
 import draconic.editor;
 import draconic.editor.cook;
+import draconic.shaders;
 import :project;
 import :export_preset;
 import :export_roots;
@@ -35,6 +36,115 @@ using namespace draconic::core;
 
 namespace draconic::editor
 {
+    namespace
+    {
+        // The cooked-blob formats a target platform's runtime needs: web = WGSL, Windows = SPIR-V
+        // (Vulkan) + DXIL (DX12), other desktop = SPIR-V (Vulkan). Kept generous rather than guessing
+        // the backend a desktop dist will pick at runtime.
+        Array<shaders::CookedShaderFormat> FormatsForPlatform(StringView platform)
+        {
+            Array<shaders::CookedShaderFormat> formats;
+            if (platform.StartsWith(u8"Web") || platform.StartsWith(u8"Wasm"))
+            {
+                formats.PushBack(shaders::CookedShaderFormat::Wgsl);
+            }
+            else if (platform.StartsWith(u8"Win"))
+            {
+                formats.PushBack(shaders::CookedShaderFormat::SpirV);
+                formats.PushBack(shaders::CookedShaderFormat::Dxil);
+            }
+            else
+            {
+                formats.PushBack(shaders::CookedShaderFormat::SpirV);
+            }
+            return formats;
+        }
+
+        // The DXC runtime libs (dxcompiler / dxil), which a cooked dist no longer needs - the shader
+        // pack retires the runtime compiler. Matched by substring on the sidecar's file name.
+        bool IsDxcRuntimeLib(StringView name)
+        {
+            const auto contains = [&](StringView needle)
+            {
+                if (needle.Size() > name.Size())
+                {
+                    return false;
+                }
+                for (usize i = 0; i + needle.Size() <= name.Size(); ++i)
+                {
+                    if (name.SubStr(i, needle.Size()) == needle)
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            };
+            return contains(u8"dxcompiler") || contains(u8"dxil");
+        }
+
+        // Resolve the engine shader source root for the cook (baked source path, else a "Shaders"
+        // dir beside a relocated editor).
+        StringView EngineShaderDir()
+        {
+#ifdef DRACONIC_ENGINE_SHADER_DIR
+            constexpr StringView baked = u8"" DRACONIC_ENGINE_SHADER_DIR;
+#else
+            constexpr StringView baked = u8"Shaders";
+#endif
+            if (DirectoryExists(baked))
+            {
+                return baked;
+            }
+            return u8"Shaders";
+        }
+
+        // Cook the built-in shaders for `platform` and write <outputDir>/shaders.dpak. The dist
+        // renders from this pack with no runtime compiler (see the ShaderSystem cooked path). Returns
+        // the variant count via `outVariants`; Status carries any cook/compile failure.
+        Status StageShaderPack(StringView outputDir, StringView platform, u32& outVariants)
+        {
+            outVariants = 0;
+            shaders::Compiler* compiler = nullptr;
+            if (!shaders::createCompiler(shaders::CompilerDesc{}, compiler).IsOk() ||
+                compiler == nullptr)
+            {
+                DRACONIC_LOG_ERROR(u8"Export",
+                                   u8"cannot cook shaders: the DXC compiler is unavailable");
+                return Status{ErrorCode::Internal};
+            }
+
+            const Array<shaders::CookedShaderFormat> formats = FormatsForPlatform(platform);
+            shaders::ShaderCookOptions opts;
+            opts.shaderDir = EngineShaderDir();
+            opts.scratchDir = outputDir; // WGSL intermediates (deleted); unused for SPIR-V/DXIL
+            opts.formats = Span<const shaders::CookedShaderFormat>(formats.Data(), formats.Size());
+
+            shaders::CookedShaderPack pack;
+            const shaders::ShaderCookReport report =
+                shaders::CookEngineShaders(*compiler, opts, pack);
+            compiler->Destroy();
+
+            for (usize i = 0; i < report.errors.Size(); ++i)
+            {
+                DRACONIC_LOG_ERROR(u8"Export", u8"shader cook: {}", report.errors[i]);
+            }
+            if (!report.success)
+            {
+                return Status{ErrorCode::Internal};
+            }
+
+            const String packPath = PathJoin(outputDir, u8"shaders.dpak");
+            FileStream out(packPath.AsView(), FileMode::Write);
+            if (!out.IsValid() || !pack.Write(out).IsOk())
+            {
+                DRACONIC_LOG_ERROR(u8"Export", u8"could not write shaders.dpak to '{}'", outputDir);
+                return Status{ErrorCode::Internal};
+            }
+            outVariants = static_cast<u32>(pack.Count());
+            return Status{};
+        }
+    }
+
     StringView ExportRootReasonName(ExportRootReason r)
     {
         switch (r)
@@ -564,13 +674,44 @@ namespace draconic::editor
         }
         ++result.filesStaged;
 
+        // Cooked engine shaders: produce shaders.dpak beside the player so the dist renders with no
+        // runtime compiler. A cook failure is fatal - a dist without shaders cannot render.
+        if (onProgress)
+        {
+            onProgress(u8"Cooking shaders...", 0.95f);
+        }
+        {
+            u32 shaderVariants = 0;
+            const Status packStatus =
+                StageShaderPack(result.outputDir.AsView(), preset.platform.AsView(), shaderVariants);
+            if (!packStatus.IsOk())
+            {
+                if (outResult != nullptr)
+                {
+                    *outResult = result;
+                }
+                return Status{ErrorCode::Internal};
+            }
+            ++result.filesStaged;
+            DRACONIC_LOG_INFO(u8"Export", u8"staged shaders.dpak ({} variants)", shaderVariants);
+        }
+
         if (onProgress && !tmpl->sidecars.IsEmpty())
         {
             onProgress(u8"Staging runtime libs...", 0.96f);
         }
-        // Template sidecars (runtime libs) from the template dir.
+        // Template sidecars (runtime libs) from the template dir. The cooked shader pack retires the
+        // runtime DXC compiler, so its libs are dropped here - the dist ships no dxcompiler/dxil
+        // (retires the DXC-runtime-sidecar fragility class for dists).
         for (const String& sidecar : tmpl->sidecars)
         {
+            if (IsDxcRuntimeLib(sidecar.AsView()))
+            {
+                DRACONIC_LOG_INFO(u8"Export", u8"omitting DXC sidecar '{}' (dist renders from the "
+                                              u8"cooked shader pack)",
+                                  sidecar);
+                continue;
+            }
             if (detail::CopyFilePreserving(tmpl->directory.AsView(), sidecar.AsView(),
                                            result.outputDir.AsView(), sidecar.AsView()))
             {

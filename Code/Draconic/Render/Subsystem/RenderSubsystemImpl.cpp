@@ -486,38 +486,47 @@ namespace draconic::render
     void RenderSubsystem::OnInit()
     {
         RegisterRenderComponentReflection(); // tooling: reflected components (idempotent)
-        if (!shaders::createCompiler(shaders::CompilerDesc{}, m_compiler).IsOk() ||
-            m_compiler == nullptr)
-        {
-            return; // no shader compiler - renderer stays inert
-        }
-        m_shaders = MakeUnique<shaders::ShaderSystem>(DefaultAllocator(), *m_compiler, *m_device);
 
-        // Engine built-in shader sources: real .hlsl files under the engine shader root
-        // (shaders.md P1). Dev builds bake the source-tree Data/Shaders path; dists stage
-        // the files as "Shaders" next to the executable. A missing root is loud but not
-        // fatal: explicit RegisterSource still works (bespoke inline shaders, tests).
-#ifdef DRACONIC_ENGINE_SHADER_DIR
-        constexpr StringView kEngineShaderRoot = u8"" DRACONIC_ENGINE_SHADER_DIR;
-#else
-        constexpr StringView kEngineShaderRoot = u8"Shaders";
-#endif
-        StringView shaderRoot = kEngineShaderRoot;
-        if (!DirectoryExists(shaderRoot) && DirectoryExists(u8"Shaders"))
+        // DXC is REQUIRED for dev on-demand compilation but OPTIONAL for a dist that ships a cooked
+        // pack (which renders with no compiler). Try to create it; a failure is only fatal if no
+        // pack is present.
+        if (!shaders::createCompiler(shaders::CompilerDesc{}, m_compiler).IsOk())
         {
-            shaderRoot = u8"Shaders"; // relocated build - dist layout fallback
+            m_compiler = nullptr;
         }
 
-        // Dist mode: a cooked shader pack shipped beside the executable retires the runtime compiler
-        // entirely (no DXC). When present it wins - GetVariant looks up prebuilt blobs. Otherwise the
-        // dev file provider drives on-demand DXC compilation (with hot reload) as before. Either way
-        // the PSO cache + renderers below are set up identically.
-        if (LoadCookedShaderPack())
+        // Dist mode wins when a cooked pack ships beside the executable: GetVariant serves prebuilt
+        // blobs, no DXC. Otherwise the dev file provider drives on-demand compilation (hot reload).
+        const bool havePack = LoadCookedShaderPack();
+        if (m_compiler == nullptr && !havePack)
+        {
+            return; // neither a compiler nor a pack - renderer stays inert
+        }
+
+        m_shaders = (m_compiler != nullptr)
+                        ? MakeUnique<shaders::ShaderSystem>(DefaultAllocator(), *m_compiler,
+                                                            *m_device)
+                        : MakeUnique<shaders::ShaderSystem>(DefaultAllocator(), *m_device);
+
+        if (havePack)
         {
             m_shaders->SetCookedPack(m_shaderPack.Get());
         }
         else
         {
+            // Engine built-in shader SOURCES under the shader root (shaders.md P1). Dev builds bake
+            // the source-tree Data/Shaders path. A missing root is loud but not fatal: explicit
+            // RegisterSource still works (bespoke inline shaders, tests). Requires the compiler.
+#ifdef DRACONIC_ENGINE_SHADER_DIR
+            constexpr StringView kEngineShaderRoot = u8"" DRACONIC_ENGINE_SHADER_DIR;
+#else
+            constexpr StringView kEngineShaderRoot = u8"Shaders";
+#endif
+            StringView shaderRoot = kEngineShaderRoot;
+            if (!DirectoryExists(shaderRoot) && DirectoryExists(u8"Shaders"))
+            {
+                shaderRoot = u8"Shaders"; // relocated build - dist layout fallback
+            }
             m_shaderProvider = MakeUnique<shaders::FileShaderSourceProvider>(DefaultAllocator());
             if (m_shaderProvider->Initialize(shaderRoot).IsOk())
             {

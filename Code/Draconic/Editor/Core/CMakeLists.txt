@@ -7,7 +7,15 @@ add_library(Draconic::EditorCore ALIAS DraconicEditorCore)
 target_link_libraries(DraconicEditorCore
     PUBLIC Draconic::Core Draconic::VFS Draconic::VFSPak Draconic::Content Draconic::XmlSerialization Draconic::Project
            Draconic::Settings Draconic::SceneResource
-           Draconic::Editor Draconic::EditorCook Draconic::Resource Draconic::Policy)
+           Draconic::Editor Draconic::EditorCook Draconic::Resource Draconic::Policy
+           Draconic::Shaders) # export cooks the engine shader pack (shaders.dpak)
+
+# Export cooks the built-in shaders from the source tree (same root the renderer bakes); a
+# relocated editor falls back to a "Shaders" dir beside it.
+if(TARGET Draconic::Shaders)
+    target_compile_definitions(DraconicEditorCore PRIVATE
+        DRACONIC_ENGINE_SHADER_DIR="${CMAKE_SOURCE_DIR}/Data/Shaders")
+endif()
 
 target_sources(DraconicEditorCore
     PRIVATE

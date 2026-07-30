@@ -137,6 +137,16 @@ TEST_CASE("shader system: cooked pack path - blob lookup + canonicalization, no 
 
         // A name absent from the pack is a cook-coverage miss -> null (logged).
         CHECK(ss.GetVariant(u8"nope", ShaderStage::Vertex, ShaderFlags::None) == nullptr);
+
+        // Dist boot: a COMPILER-FREE ShaderSystem (no DXC) serves the same pack. This is what a
+        // shipped player does when the DXC sidecar was dropped.
+        ShaderSystem packOnly(device); // no compiler
+        packOnly.SetCookedPack(&pack);
+        CHECK(packOnly.GetVariant(u8"vs", ShaderStage::Vertex, ShaderFlags::None) != nullptr);
+        CHECK(packOnly.GetVariant(u8"vs", ShaderStage::Vertex,
+                                  ShaderFlags::Skinned | ShaderFlags::Emissive) != nullptr);
+        // With no compiler and no pack entry, on-demand compilation is unavailable -> null.
+        CHECK(packOnly.GetVariant(u8"nope", ShaderStage::Vertex, ShaderFlags::None) == nullptr);
     }
 
     compiler->Destroy();

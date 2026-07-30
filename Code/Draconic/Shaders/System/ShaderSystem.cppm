@@ -55,6 +55,12 @@ export namespace draconic::shaders
         {
         }
 
+        // Compiler-free construction for DIST/pack mode: GetVariant serves prebuilt blobs from the
+        // cooked pack, so no DXC is needed. The on-demand compile path is unavailable (returns null).
+        explicit ShaderSystem(rhi::Device& device) noexcept : m_compiler(nullptr), m_device(&device)
+        {
+        }
+
         ~ShaderSystem() { DestroyAll(); }
 
         ShaderSystem(const ShaderSystem&) = delete;
@@ -250,6 +256,10 @@ export namespace draconic::shaders
         [[nodiscard]] rhi::ShaderModule* Compile(core::StringView source, ShaderStage stage,
                                                  ShaderFlags flags)
         {
+            if (m_compiler == nullptr)
+            {
+                return nullptr; // compiler-free (pack) mode - on-demand compilation unavailable
+            }
             const bool isDX12 = (m_device->type == rhi::DeviceType::DX12);
             const ShaderTarget target = isDX12 ? ShaderTarget::DXIL : ShaderTarget::SPIRV;
 
