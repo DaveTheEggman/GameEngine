@@ -20,6 +20,7 @@ target_sources(DraconicShaders
             Types.cppm
             Flags.cppm
             Variants.cppm
+            Pack.cppm
             Compiler.cppm
             Cook/WgslTranslator.cppm
             ShadersModule.cppm)

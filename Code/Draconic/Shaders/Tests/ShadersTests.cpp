@@ -119,6 +119,51 @@ namespace
     }
 }
 
+// --- Cooked shader pack (serialize / lookup) -------------------------------
+
+TEST_CASE("pack: add, serialize, reload, and look up cooked blobs")
+{
+    const byte vsSpv[] = {byte{1}, byte{2}, byte{3}, byte{4}};
+    const byte psWgsl[] = {byte{'w'}, byte{'g'}, byte{'s'}, byte{'l'}};
+
+    CookedShaderPack pack;
+    pack.Add(u8"forward", ShaderStage::Vertex, ShaderFlags::None, CookedShaderFormat::SpirV,
+             Span<const byte>(vsSpv, 4));
+    pack.Add(u8"forward", ShaderStage::Fragment, ShaderFlags::GBuffer, CookedShaderFormat::Wgsl,
+             Span<const byte>(psWgsl, 4));
+    CHECK(pack.Count() == 2u);
+
+    MemoryStream buffer;
+    REQUIRE(pack.Write(buffer).IsOk());
+
+    // Reload from the serialized bytes (rewind the stream to the start first).
+    REQUIRE(buffer.Seek(0, SeekOrigin::Begin) == 0);
+    CookedShaderPack loaded;
+    REQUIRE(loaded.Read(buffer).IsOk());
+    CHECK(loaded.Count() == 2u);
+
+    const Array<byte>* a =
+        loaded.Find(u8"forward", ShaderStage::Vertex, ShaderFlags::None, CookedShaderFormat::SpirV);
+    REQUIRE(a != nullptr);
+    CHECK(a->Size() == 4u);
+    CHECK((*a)[0] == byte{1});
+
+    const Array<byte>* b = loaded.Find(u8"forward", ShaderStage::Fragment, ShaderFlags::GBuffer,
+                                       CookedShaderFormat::Wgsl);
+    REQUIRE(b != nullptr);
+    CHECK((*b)[0] == byte{'w'});
+
+    // Wrong variant / format / stage => miss (a cook-coverage bug at runtime).
+    CHECK(loaded.Find(u8"forward", ShaderStage::Fragment, ShaderFlags::None,
+                      CookedShaderFormat::Wgsl) == nullptr);
+    CHECK(loaded.Find(u8"nope", ShaderStage::Vertex, ShaderFlags::None, CookedShaderFormat::SpirV) ==
+          nullptr);
+
+    Array<String> names;
+    loaded.CollectNames(names);
+    CHECK(names.Size() == 1u); // one distinct name "forward"
+}
+
 // --- Variant model (directive parse / canonicalize / power-set / drift-lint) ---
 
 TEST_CASE("variants: directive parse maps flag names to a mask")
