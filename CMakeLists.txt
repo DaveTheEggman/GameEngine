@@ -180,6 +180,12 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/Fonts)
     add_subdirectory(Code/Draconic/VG)
     add_subdirectory(Code/Draconic/UI)
+    add_subdirectory(Code/Draconic/Net)             # sockets over Core/System (emscripten stubs; websockets later)
+    add_subdirectory(Code/Draconic/Net/Replication)
+    add_subdirectory(Code/Draconic/Input)           # action mapping over Core + Shell (interface up)
+    add_subdirectory(Code/Draconic/Script)          # reflection->script bridge; Wren backend (AngelScript gated)
+    add_subdirectory(Code/Draconic/Script/Facades)  # behavior facades (Entity/Log/Time/Random); ScriptWren needs it
+    add_subdirectory(Code/Draconic/Input/Subsystem) # input runtime hookup over Runtime + Script
     # Runtime app-layer + Scene/Subsystem climb with the app stack (Shell/Script/subsystems), later.
     return() # everything above this line is wasm-verified; the rest awaits its turn
 endif()
