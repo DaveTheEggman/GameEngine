@@ -396,7 +396,10 @@ namespace draconic::render
                                        : useCubemap  ? m_cubemapPipeline
                                        : useAnalytic ? m_analyticPipeline
                                                      : m_envPipeline;
-        rhi::BindGroup* envBG = useEquirect ? equirectBG : useCubemap ? cubemapBG : nullptr;
+        // Procedural/analytic have no env source; bind the dummy so the declared
+        // group is always satisfied (WebGPU requirement, harmless elsewhere).
+        rhi::BindGroup* envBG =
+            useEquirect ? equirectBG : useCubemap ? cubemapBG : m_dummyEnvBindGroup;
         for (u32 face = 0; face < 6; ++face)
         {
             IblPush push = MakeSkyPush(ctx, static_cast<i32>(face));
@@ -816,6 +819,41 @@ namespace draconic::render
         if (!m_device->CreateBindGroupLayout(envLd, m_envLayout).IsOk())
         {
             return false;
+        }
+        {
+            rhi::BindGroupEntry dummyEntries[] = {
+                rhi::BindGroupEntry::TextureEntry(m_dummyEnvView),
+                rhi::BindGroupEntry::SamplerEntry(m_sampler)};
+            rhi::BindGroupDesc dummyDesc;
+            dummyDesc.layout = m_envLayout;
+            dummyDesc.entries = Span<const rhi::BindGroupEntry>{dummyEntries, 2};
+            if (!m_device->CreateBindGroup(dummyDesc, m_dummyEnvBindGroup).IsOk())
+            {
+                return false;
+            }
+        }
+
+        // --- dummy env source (see IBLSystem.cppm member comment) ---
+        {
+            rhi::TextureDesc dummyDesc;
+            dummyDesc.format = rhi::TextureFormat::RGBA8Unorm;
+            dummyDesc.width = 1;
+            dummyDesc.height = 1;
+            dummyDesc.arrayLayerCount = 6;
+            dummyDesc.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst;
+            dummyDesc.label = u8"ibl.dummy_env";
+            if (!m_device->CreateTexture(dummyDesc, m_dummyEnvCube).IsOk())
+            {
+                return false;
+            }
+            rhi::TextureViewDesc dummyView;
+            dummyView.format = rhi::TextureFormat::RGBA8Unorm;
+            dummyView.dimension = rhi::TextureViewDimension::TextureCube;
+            dummyView.arrayLayerCount = 6;
+            if (!m_device->CreateTextureView(m_dummyEnvCube, dummyView, m_dummyEnvView).IsOk())
+            {
+                return false;
+            }
         }
 
         // --- pipeline layouts ---

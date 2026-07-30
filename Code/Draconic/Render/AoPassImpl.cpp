@@ -44,6 +44,13 @@ namespace draconic::render
             rhi::BindGroupLayoutEntry::SampledTexture(1, rhi::ShaderStage::Fragment),
             rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment),
         };
+        // Every AO sub-pass samples with the POINT sampler only, and t0/t1 receive
+        // depth (gtao/ssao/blur) as well as color views across passes - declare the
+        // slots UnfilterableFloat + the sampler non-filtering so WebGPU accepts both
+        // (Vulkan/DX12 ignore the annotations).
+        ge[0].textureSampleType = rhi::TextureSampleType::UnfilterableFloat;
+        ge[1].textureSampleType = rhi::TextureSampleType::UnfilterableFloat;
+        ge[2].samplerNonFiltering = true;
         rhi::BindGroupLayoutDesc gld{};
         gld.entries = Span<const rhi::BindGroupLayoutEntry>{ge, 3};
         if (!m_device->CreateBindGroupLayout(gld, m_layout).IsOk())
@@ -64,6 +71,9 @@ namespace draconic::render
         rhi::SamplerDesc ss{};
         ss.minFilter = rhi::FilterMode::Nearest;
         ss.magFilter = rhi::FilterMode::Nearest;
+        ss.mipmapFilter = rhi::MipmapFilterMode::Nearest; // ALL-nearest: WebGPU counts
+                                                          // a linear mip filter as
+                                                          // "filtering" (default Linear)
         ss.addressU = rhi::AddressMode::ClampToEdge;
         ss.addressV = rhi::AddressMode::ClampToEdge;
         ss.addressW = rhi::AddressMode::ClampToEdge;

@@ -399,6 +399,11 @@ namespace draconic::render
             bd.colorFormatCount = 4;
         }
         bd.depthStencilFormat = m_depthFormat;
+        // Only the opaque pass writes depth (blended/overlay passes run over the
+        // prepass depth read-only); no bundle touches stencil. WebGPU validates
+        // these against the executing pass.
+        bd.depthReadOnly = passAffinity != PassAffinity::Opaque;
+        bd.stencilReadOnly = true;
         bd.sampleCount = 1;
         bd.viewportX = view.ViewportX();
         bd.viewportY = view.ViewportY();

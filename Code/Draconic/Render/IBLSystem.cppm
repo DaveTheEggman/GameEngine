@@ -280,6 +280,12 @@ export namespace draconic::render
         rhi::Sampler* m_sampler = nullptr;
 
         rhi::BindGroupLayout* m_envLayout = nullptr;
+        // A 1x1 cube + sampler bound when a pipeline's layout declares the env group
+        // but the mode has no env source (procedural/analytic): WebGPU requires every
+        // declared group bound; Vulkan/DX12 simply never sample it.
+        rhi::Texture* m_dummyEnvCube = nullptr;
+        rhi::TextureView* m_dummyEnvView = nullptr;
+        rhi::BindGroup* m_dummyEnvBindGroup = nullptr;
         rhi::BindGroupLayout* m_shLayout = nullptr;
         rhi::PipelineLayout* m_envOnlyLayout = nullptr;
         rhi::PipelineLayout* m_prefilterLayout = nullptr;

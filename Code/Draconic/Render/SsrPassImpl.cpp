@@ -46,6 +46,11 @@ namespace draconic::render
             rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment),
             rhi::BindGroupLayoutEntry::Sampler(1, rhi::ShaderStage::Fragment),
         };
+        // WebGPU annotations (Vulkan/DX12 ignore): t1 receives the DEPTH view and is
+        // sampled only through the point sampler s0 - UnfilterableFloat +
+        // non-filtering, per the depth-as-data rule.
+        ge[1].textureSampleType = rhi::TextureSampleType::UnfilterableFloat;
+        ge[4].samplerNonFiltering = true;
         rhi::BindGroupLayoutDesc gld{};
         gld.entries = Span<const rhi::BindGroupLayoutEntry>{ge, 6};
         if (!m_device->CreateBindGroupLayout(gld, m_layout).IsOk())
@@ -69,6 +74,7 @@ namespace draconic::render
         rhi::SamplerDesc ss{};
         ss.minFilter = rhi::FilterMode::Nearest;
         ss.magFilter = rhi::FilterMode::Nearest;
+        ss.mipmapFilter = rhi::MipmapFilterMode::Nearest; // all-nearest (see AO note)
         ss.addressU = rhi::AddressMode::ClampToEdge;
         ss.addressV = rhi::AddressMode::ClampToEdge;
         ss.addressW = rhi::AddressMode::ClampToEdge;
