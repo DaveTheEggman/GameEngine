@@ -85,6 +85,20 @@ export namespace draconic::rhi::webgpu
             out = nullptr;
             WGPUSurfaceDescriptor surfaceDesc = WGPU_SURFACE_DESCRIPTOR_INIT;
 
+#if DRACONIC_PLATFORM_WEB
+            // Web has one surface source: an HTML <canvas>, addressed by CSS selector. The
+            // desktop WSI descriptors (Xlib/Wayland/HWND) do not exist in Dawn's webgpu.h.
+            // windowHandle carries the selector string when the shell supplies one; otherwise
+            // fall back to "#canvas" (Emscripten's default target). displayHandle is unused.
+            (void)displayHandle;
+            (void)platform;
+            const char* selector =
+                windowHandle != nullptr ? static_cast<const char*>(windowHandle) : "#canvas";
+            WGPUEmscriptenSurfaceSourceCanvasHTMLSelector canvas =
+                WGPU_EMSCRIPTEN_SURFACE_SOURCE_CANVAS_HTML_SELECTOR_INIT;
+            canvas.selector = WGPUStringView{selector, WGPU_STRLEN};
+            surfaceDesc.nextInChain = &canvas.chain;
+#else
             // Exactly one platform source chains in (handle contract: Device.cppm:62).
             WGPUSurfaceSourceXlibWindow xlib = WGPU_SURFACE_SOURCE_XLIB_WINDOW_INIT;
             WGPUSurfaceSourceWaylandSurface wayland = WGPU_SURFACE_SOURCE_WAYLAND_SURFACE_INIT;
@@ -119,6 +133,7 @@ export namespace draconic::rhi::webgpu
                 }
                 break;
             }
+#endif
 
             const WGPUSurface handle =
                 m_api.wgpuInstanceCreateSurface(m_instance, &surfaceDesc);

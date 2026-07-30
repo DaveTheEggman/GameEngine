@@ -28,17 +28,41 @@ import draconic.core;
 
 using namespace draconic::core;
 
+#if DRACONIC_PLATFORM_WEB
+// Dawn's webgpu.h (the emdawnwebgpu web port) declares none of the wgpu-native extensions,
+// nor the three helper types they need, so decltype(&::fn) on the NATIVE_EXT list below would
+// not compile. Forward-declare just enough - at GLOBAL scope, matching where wgpu-native's
+// wgpu.h puts them on desktop - that those members are well-formed function pointers. These
+// symbols are never defined, never bound (LoadWebGpuApi binds only the STANDARD list on web),
+// and never invoked (every call site null-guards), so no definition or link dependency exists.
+using WGPUSubmissionIndex = draconic::core::u64;
+struct WGPUInstanceEnumerateAdapterOptions;
+using WGPULogCallback = void (*)(int, char const*, void*);
+extern "C"
+{
+    draconic::core::usize wgpuInstanceEnumerateAdapters(WGPUInstance, WGPUInstanceEnumerateAdapterOptions const*, WGPUAdapter*);
+    WGPUBool wgpuDevicePoll(WGPUDevice, WGPUBool, WGPUSubmissionIndex const*);
+    WGPUSubmissionIndex wgpuQueueSubmitForIndex(WGPUQueue, draconic::core::usize, WGPUCommandBuffer const*);
+    float wgpuQueueGetTimestampPeriod(WGPUQueue);
+    void wgpuSetLogCallback(WGPULogCallback, void*);
+    void wgpuRenderPassEncoderSetImmediates(WGPURenderPassEncoder, draconic::core::u32, void const*, draconic::core::usize);
+    void wgpuComputePassEncoderSetImmediates(WGPUComputePassEncoder, draconic::core::u32, void const*, draconic::core::usize);
+    void wgpuRenderBundleEncoderSetImmediates(WGPURenderBundleEncoder, draconic::core::u32, void const*, draconic::core::usize);
+}
+#endif
+
 namespace draconic::rhi::webgpu
 {
-    // Every wgpu entry point the backend uses - the ONE list both load paths walk.
-    // decltype(&::fn) works because webgpu.h/wgpu.h DECLARE the functions; nothing
-    // references them directly, so no link-time dependency exists.
+    // Every STANDARD wgpu entry point the backend uses - present in both the desktop
+    // wgpu-native header and Dawn's webgpu.h (the emdawnwebgpu web port). decltype(&::fn)
+    // works because webgpu.h DECLARES the functions; nothing references them directly, so
+    // no link-time dependency exists. The wgpu-native-only extensions live in the separate
+    // NATIVE_EXT list below (absent from Dawn - compiled out on web).
 #define DRACONIC_WEBGPU_FUNCTIONS(X)                                                               \
     X(wgpuCreateInstance)                                                                          \
     X(wgpuInstanceRelease)                                                                         \
     X(wgpuInstanceProcessEvents)                                                                   \
     X(wgpuInstanceRequestAdapter)                                                                  \
-    X(wgpuInstanceEnumerateAdapters) /* wgpu-native extension (desktop only) */                    \
     X(wgpuAdapterGetInfo)                                                                          \
     X(wgpuAdapterInfoFreeMembers)                                                                  \
     X(wgpuAdapterGetLimits)                                                                        \
@@ -90,7 +114,6 @@ namespace draconic::rhi::webgpu
     X(wgpuCommandBufferRelease)                                                                    \
     X(wgpuRenderPassEncoderSetPipeline)                                                            \
     X(wgpuRenderPassEncoderSetBindGroup)                                                           \
-    X(wgpuRenderPassEncoderSetImmediates) /* Immediates feature (push constants) */                \
     X(wgpuRenderPassEncoderSetVertexBuffer)                                                        \
     X(wgpuRenderPassEncoderSetIndexBuffer)                                                         \
     X(wgpuRenderPassEncoderSetViewport)                                                            \
@@ -108,7 +131,6 @@ namespace draconic::rhi::webgpu
     X(wgpuRenderPassEncoderRelease)                                                                \
     X(wgpuComputePassEncoderSetPipeline)                                                           \
     X(wgpuComputePassEncoderSetBindGroup)                                                          \
-    X(wgpuComputePassEncoderSetImmediates) /* Immediates feature (push constants) */               \
     X(wgpuComputePassEncoderDispatchWorkgroups)                                                    \
     X(wgpuComputePassEncoderDispatchWorkgroupsIndirect)                                            \
     X(wgpuComputePassEncoderEnd)                                                                   \
@@ -116,7 +138,6 @@ namespace draconic::rhi::webgpu
     X(wgpuDeviceCreateRenderBundleEncoder)                                                         \
     X(wgpuRenderBundleEncoderSetPipeline)                                                          \
     X(wgpuRenderBundleEncoderSetBindGroup)                                                         \
-    X(wgpuRenderBundleEncoderSetImmediates) /* Immediates feature (push constants) */              \
     X(wgpuRenderBundleEncoderSetVertexBuffer)                                                      \
     X(wgpuRenderBundleEncoderSetIndexBuffer)                                                       \
     X(wgpuRenderBundleEncoderDraw)                                                                 \
@@ -137,18 +158,28 @@ namespace draconic::rhi::webgpu
     X(wgpuSurfacePresent)                                                                          \
     X(wgpuSurfaceRelease)                                                                          \
     X(wgpuDeviceRelease)                                                                           \
-    X(wgpuDevicePoll) /* wgpu-native extension (desktop only) */                                   \
     X(wgpuQueueSubmit)                                                                             \
-    X(wgpuQueueSubmitForIndex) /* wgpu-native extension: index for precise waits */                \
     X(wgpuQueueOnSubmittedWorkDone)                                                                \
-    X(wgpuQueueGetTimestampPeriod) /* wgpu-native extension (desktop only) */                      \
-    X(wgpuQueueRelease)                                                                            \
-    X(wgpuSetLogCallback) /* wgpu-native extension (desktop only) */
+    X(wgpuQueueRelease)
+
+    // wgpu-native-only entry points. Present in wgpu-native's wgpu.h (desktop), ABSENT from
+    // Dawn's webgpu.h (the emdawnwebgpu web port). On desktop they resolve like any other; on
+    // web they stay null and every call site null-guards (SetImmediates falls back below).
+#define DRACONIC_WEBGPU_NATIVE_EXT_FUNCTIONS(X)                                                    \
+    X(wgpuInstanceEnumerateAdapters)                                                               \
+    X(wgpuDevicePoll)                                                                              \
+    X(wgpuQueueSubmitForIndex)                                                                     \
+    X(wgpuQueueGetTimestampPeriod)                                                                 \
+    X(wgpuSetLogCallback)                                                                          \
+    X(wgpuRenderPassEncoderSetImmediates)                                                          \
+    X(wgpuComputePassEncoderSetImmediates)                                                         \
+    X(wgpuRenderBundleEncoderSetImmediates)
 
     export struct WebGpuApi
     {
 #define DRACONIC_WEBGPU_DECLARE_MEMBER(fn) decltype(&::fn) fn = nullptr;
         DRACONIC_WEBGPU_FUNCTIONS(DRACONIC_WEBGPU_DECLARE_MEMBER)
+        DRACONIC_WEBGPU_NATIVE_EXT_FUNCTIONS(DRACONIC_WEBGPU_DECLARE_MEMBER)
 #undef DRACONIC_WEBGPU_DECLARE_MEMBER
 
         void* libraryHandle = nullptr; // desktop sidecar handle; null on web
@@ -270,6 +301,7 @@ namespace draconic::rhi::webgpu
     api.fn = reinterpret_cast<decltype(&::fn)>(resolve(#fn));                                      \
     allResolved = allResolved && api.fn != nullptr;
         DRACONIC_WEBGPU_FUNCTIONS(DRACONIC_WEBGPU_RESOLVE)
+        DRACONIC_WEBGPU_NATIVE_EXT_FUNCTIONS(DRACONIC_WEBGPU_RESOLVE)
 #undef DRACONIC_WEBGPU_RESOLVE
 
         if (!allResolved)

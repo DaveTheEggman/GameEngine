@@ -50,10 +50,10 @@ endif()
 
 # WebGPU backend. Desktop loads the vendored wgpu-native sidecar at run time (the current
 # implementation links wgpuXxx as external symbols resolved via that library). Emscripten instead
-# provides WebGPU from the browser through its own JS binding, so the backend needs an Emscripten
-# wiring before it can link on web - gated off until that lands (docs/design/web-platform.md P3).
-if(TARGET Draconic::WgpuHeaders AND NOT EMSCRIPTEN)
+# provides WebGPU from the browser through the emdawnwebgpu port (Dawn's webgpu.h + a JS binding
+# that speaks the real navigator.gpu); WebGPU/CMakeLists.txt wires that port for the web build.
+if(EMSCRIPTEN OR TARGET Draconic::WgpuHeaders)
     add_subdirectory(WebGPU)
 else()
-    message(STATUS "Skipping Draconic::RHIWebGPU (no wgpu headers, or Emscripten backend not yet wired)")
+    message(STATUS "Skipping Draconic::RHIWebGPU (no wgpu headers)")
 endif()

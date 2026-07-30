@@ -142,7 +142,12 @@ export namespace draconic::rhi::webgpu
                 required.PushBack(WGPUFeatureName_DepthClipControl);
             }
             // Push constants = WebGPU IMMEDIATES (wgpu-native feature today; the field
-            // is in the STANDARD pipeline-layout descriptor, so browsers follow).
+            // is in the STANDARD pipeline-layout descriptor, so browsers follow). The
+            // feature ENUM is wgpu-native-only; Dawn/emdawnwebgpu has no immediates path,
+            // so web reports it unsupported and SetPushConstants no-ops (see the encoders).
+#if DRACONIC_PLATFORM_WEB
+            const bool immediatesSupported = false;
+#else
             const auto immediates = static_cast<WGPUFeatureName>(WGPUNativeFeature_Immediates);
             const bool immediatesSupported =
                 m_api->wgpuAdapterHasFeature(m_adapter, immediates) != 0u;
@@ -150,6 +155,7 @@ export namespace draconic::rhi::webgpu
             {
                 required.PushBack(immediates);
             }
+#endif
             // 32-bit float textures are non-filterable in core WebGPU; the renderer
             // linear-samples HDR sky/IBL sources, so enable filtering when available.
             if (m_api->wgpuAdapterHasFeature(m_adapter, WGPUFeatureName_Float32Filterable) != 0u)
@@ -158,7 +164,8 @@ export namespace draconic::rhi::webgpu
             }
             // Encoder-level WriteTimestamp (the RHI's CommandEncoder::WriteTimestamp,
             // used by the GPU GraphProfiler) is a separate wgpu feature from
-            // pass-boundary timestamps.
+            // pass-boundary timestamps. The enum is wgpu-native-only - unavailable on web.
+#if !DRACONIC_PLATFORM_WEB
             const auto encoderTimestamps =
                 static_cast<WGPUFeatureName>(WGPUNativeFeature_TimestampQueryInsideEncoders);
             if (info.supportedFeatures.timestampQueries &&
@@ -166,6 +173,7 @@ export namespace draconic::rhi::webgpu
             {
                 required.PushBack(encoderTimestamps);
             }
+#endif
 
             // Request the adapter's own limits wholesale (always legal, unlocks real
             // texture-size/buffer ceilings); the immediates budget is the RHI's
