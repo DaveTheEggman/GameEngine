@@ -21,6 +21,15 @@ target_sources(DraconicRHIWebGPU PUBLIC FILE_SET rhi_webgpu_modules TYPE CXX_MOD
     WebGpuPipelineCache.cppm
     WebGpuRenderPipeline.cppm
     WebGpuComputePipeline.cppm
+    WebGpuQuerySet.cppm
+    WebGpuCommandBuffer.cppm
+    WebGpuRenderPassEncoder.cppm
+    WebGpuComputePassEncoder.cppm
+    WebGpuRenderBundleEncoder.cppm
+    WebGpuCommandEncoder.cppm
+    WebGpuCommandPool.cppm
+    WebGpuSurface.cppm
+    WebGpuSwapChain.cppm
     WebGpuFence.cppm
     WebGpuQueue.cppm
     WebGpuDevice.cppm

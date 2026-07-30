@@ -16,6 +16,7 @@ import draconic.core;
 import draconic.rhi;
 import :api;
 import :adapter;
+import :surface;
 
 using namespace draconic::core;
 
@@ -41,8 +42,25 @@ export namespace draconic::rhi::webgpu
                 return loaded;
             }
 
+            // Request SPIR-V ingestion (a STANDARD instance feature) - the desktop DXC
+            // dev loop rides on it. There is no usable probe (wgpuGetInstanceFeatures
+            // PANICS "not implemented" in wgpu-native v29, like WaitAny), so request
+            // optimistically and fall back to a plain instance when refused; the
+            // browser build never requests it (no dlopen'd sidecar sets the flag).
+            const WGPUInstanceFeatureName spirv = WGPUInstanceFeatureName_ShaderSourceSPIRV;
             WGPUInstanceDescriptor instanceDesc = WGPU_INSTANCE_DESCRIPTOR_INIT;
+#if !DRACONIC_PLATFORM_WEB
+            instanceDesc.requiredFeatureCount = 1;
+            instanceDesc.requiredFeatures = &spirv;
             m_instance = m_api.wgpuCreateInstance(&instanceDesc);
+            m_api.spirvIngestion = m_instance != nullptr;
+#endif
+            if (m_instance == nullptr)
+            {
+                instanceDesc = WGPU_INSTANCE_DESCRIPTOR_INIT;
+                m_instance = m_api.wgpuCreateInstance(&instanceDesc);
+            }
+            (void)spirv;
             if (m_instance == nullptr)
             {
                 UnloadWebGpuApi(m_api);
@@ -61,11 +79,57 @@ export namespace draconic::rhi::webgpu
             return Span<Adapter* const>(m_adapters.Data(), m_adapters.Size());
         }
 
-        Status CreateSurface(void*, void*, Surface*&,
-                             SurfacePlatform = SurfacePlatform::Unknown) override
+        Status CreateSurface(void* windowHandle, void* displayHandle, Surface*& out,
+                             SurfacePlatform platform = SurfacePlatform::Unknown) override
         {
-            // Arrives with the swapchain stage (platform-chained WGPUSurfaceDescriptor).
-            return ErrorCode::NotSupported;
+            out = nullptr;
+            WGPUSurfaceDescriptor surfaceDesc = WGPU_SURFACE_DESCRIPTOR_INIT;
+
+            // Exactly one platform source chains in (handle contract: Device.cppm:62).
+            WGPUSurfaceSourceXlibWindow xlib = WGPU_SURFACE_SOURCE_XLIB_WINDOW_INIT;
+            WGPUSurfaceSourceWaylandSurface wayland = WGPU_SURFACE_SOURCE_WAYLAND_SURFACE_INIT;
+            WGPUSurfaceSourceWindowsHWND win32 = WGPU_SURFACE_SOURCE_WINDOWS_HWND_INIT;
+            switch (platform)
+            {
+            case SurfacePlatform::X11:
+                xlib.display = displayHandle;
+                xlib.window = reinterpret_cast<u64>(windowHandle); // XID smuggled as void*
+                surfaceDesc.nextInChain = &xlib.chain;
+                break;
+            case SurfacePlatform::Wayland:
+                wayland.display = displayHandle;
+                wayland.surface = windowHandle;
+                surfaceDesc.nextInChain = &wayland.chain;
+                break;
+            case SurfacePlatform::Win32:
+                win32.hwnd = windowHandle;
+                surfaceDesc.nextInChain = &win32.chain;
+                break;
+            default:
+                // Unknown = best guess: X11 when a display came along, else fail.
+                if (displayHandle != nullptr)
+                {
+                    xlib.display = displayHandle;
+                    xlib.window = reinterpret_cast<u64>(windowHandle);
+                    surfaceDesc.nextInChain = &xlib.chain;
+                }
+                else
+                {
+                    return ErrorCode::NotSupported;
+                }
+                break;
+            }
+
+            const WGPUSurface handle =
+                m_api.wgpuInstanceCreateSurface(m_instance, &surfaceDesc);
+            if (handle == nullptr)
+            {
+                return ErrorCode::Unknown;
+            }
+            auto* surface = m_allocator.New<WebGpuSurface>();
+            surface->Adopt(m_api, handle);
+            out = surface;
+            return ErrorCode::Ok;
         }
 
         void Destroy() override

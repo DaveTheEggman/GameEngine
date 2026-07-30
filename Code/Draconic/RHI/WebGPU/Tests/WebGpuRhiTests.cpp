@@ -105,9 +105,12 @@ TEST_CASE("rhi.webgpu: unimplemented stages fail honestly, extensions unsupporte
     CHECK(device->CreateBuffer(BufferDesc{}, buffer).Code() == ErrorCode::InvalidArgument);
     CHECK(buffer == nullptr);
 
-    // Encoders are the next stage - still an honest NotSupported.
-    CommandPool* pool = nullptr;
-    CHECK(device->CreateCommandPool(QueueType::Graphics, pool).Code() ==
+    // Pipeline statistics have no WebGPU shape - honest NotSupported.
+    QuerySetDesc statisticsDesc;
+    statisticsDesc.type = QueryType::PipelineStatistics;
+    statisticsDesc.count = 1;
+    QuerySet* statistics = nullptr;
+    CHECK(device->CreateQuerySet(statisticsDesc, statistics).Code() ==
           ErrorCode::NotSupported);
 
     MeshPipeline* mesh = nullptr;
@@ -341,6 +344,86 @@ TEST_CASE("rhi.webgpu: bind groups + pipelines - the DXC shift scheme end-to-end
     device->DestroyBuffer(ubo);
     device->WaitIdle();
     CHECK(!device->IsLost());
+    device->Destroy();
+    backend->Destroy();
+}
+
+TEST_CASE("rhi.webgpu: encode + submit + readback - a full GPU round trip")
+{
+    Backend* backend = TryCreateBackend();
+    if (backend == nullptr)
+    {
+        return;
+    }
+    Device* device = nullptr;
+    REQUIRE(backend->EnumerateAdapters()[0]->CreateDevice(DeviceDesc{}, device).IsOk());
+
+    // Offscreen 4x4 target, cleared to a known color by a real render pass.
+    TextureDesc targetDesc = TextureDesc::RenderTarget(TextureFormat::RGBA8Unorm, 4, 4);
+    targetDesc.usage = TextureUsage::RenderTarget | TextureUsage::CopySrc;
+    Texture* target = nullptr;
+    REQUIRE(device->CreateTexture(targetDesc, target).IsOk());
+    TextureViewDesc viewDesc;
+    viewDesc.format = TextureFormat::RGBA8Unorm;
+    TextureView* view = nullptr;
+    REQUIRE(device->CreateTextureView(target, viewDesc, view).IsOk());
+
+    // Readback buffer: 4 rows x 256 bytes (WebGPU's bytesPerRow alignment).
+    BufferDesc readbackDesc;
+    readbackDesc.size = 4 * 256;
+    readbackDesc.usage = BufferUsage::CopyDst;
+    readbackDesc.memory = MemoryLocation::GpuToCpu;
+    Buffer* readback = nullptr;
+    REQUIRE(device->CreateBuffer(readbackDesc, readback).IsOk());
+
+    CommandPool* pool = nullptr;
+    REQUIRE(device->CreateCommandPool(QueueType::Graphics, pool).IsOk());
+    CommandEncoder* encoder = nullptr;
+    REQUIRE(pool->CreateEncoder(encoder).IsOk());
+
+    RenderPassDesc pass;
+    ColorAttachment color;
+    color.view = view;
+    color.loadOp = LoadOp::Clear;
+    color.storeOp = StoreOp::Store;
+    color.clearValue = ClearColor{1.0f, 0.0f, 0.0f, 1.0f}; // pure red
+    pass.colorAttachments.Add(color);
+    RenderPassEncoder* renderPass = encoder->BeginRenderPass(pass);
+    REQUIRE(renderPass != nullptr);
+    renderPass->End();
+
+    BufferTextureCopyRegion region;
+    region.bytesPerRow = 256;
+    region.rowsPerImage = 4;
+    region.textureExtent = Extent3D{4, 4, 1};
+    encoder->CopyTextureToBuffer(target, readback, region);
+
+    CommandBuffer* commandBuffer = encoder->Finish();
+    REQUIRE(commandBuffer != nullptr);
+
+    Fence* fence = nullptr;
+    REQUIRE(device->CreateFence(0, fence).IsOk());
+    CommandBuffer* commandBuffers[] = {commandBuffer};
+    device->GetQueue(QueueType::Graphics)
+        ->Submit(Span<CommandBuffer* const>(commandBuffers, 1), fence, 1);
+    REQUIRE(fence->Wait(1, ~0ull));
+
+    // Map the readback and verify the clear color survived the round trip.
+    const u8* pixels = static_cast<const u8*>(readback->Map());
+    REQUIRE(pixels != nullptr);
+    CHECK(pixels[0] == 255); // R
+    CHECK(pixels[1] == 0);   // G
+    CHECK(pixels[2] == 0);   // B
+    CHECK(pixels[3] == 255); // A
+    CHECK(pixels[256 * 3 + 0] == 255); // last row, first pixel
+    readback->Unmap();
+
+    CHECK(!device->IsLost());
+    device->DestroyFence(fence);
+    device->DestroyCommandPool(pool);
+    device->DestroyBuffer(readback);
+    device->DestroyTextureView(view);
+    device->DestroyTexture(target);
     device->Destroy();
     backend->Destroy();
 }

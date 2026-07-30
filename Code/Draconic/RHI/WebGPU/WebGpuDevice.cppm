@@ -26,6 +26,10 @@ import :pipeline_layout;
 import :pipeline_cache;
 import :render_pipeline;
 import :compute_pipeline;
+import :query_set;
+import :command_pool;
+import :surface;
+import :swapchain;
 import :fence;
 import :queue;
 
@@ -163,23 +167,34 @@ export namespace draconic::rhi::webgpu
         }
         Status CreateCommandPool(QueueType, CommandPool*& out) override
         {
-            out = nullptr;
-            return ErrorCode::NotSupported;
+            // All queue types funnel into the ONE WebGPU queue; pools are bookkeeping.
+            auto* pool = m_allocator.New<WebGpuCommandPool>();
+            pool->Initialize(*m_api, m_device, m_allocator);
+            out = pool;
+            return ErrorCode::Ok;
         }
         Status CreateFence(u64 initialValue, Fence*& out) override
         {
             out = m_allocator.New<WebGpuFence>(*m_api, m_instance, initialValue);
             return ErrorCode::Ok;
         }
-        Status CreateQuerySet(const QuerySetDesc&, QuerySet*& out) override
+        Status CreateQuerySet(const QuerySetDesc& setDesc, QuerySet*& out) override
         {
-            out = nullptr;
-            return ErrorCode::NotSupported;
+            return CreateResource<WebGpuQuerySet>(
+                out, [&](WebGpuQuerySet& q) { return q.Initialize(*m_api, m_device, setDesc); });
         }
-        Status CreateSwapChain(Surface*, const SwapChainDesc&, SwapChain*& out) override
+        Status CreateSwapChain(Surface* surface, const SwapChainDesc& swapDesc,
+                               SwapChain*& out) override
         {
-            out = nullptr;
-            return ErrorCode::NotSupported;
+            if (surface == nullptr)
+            {
+                out = nullptr;
+                return ErrorCode::InvalidArgument;
+            }
+            return CreateResource<WebGpuSwapChain>(
+                out, [&](WebGpuSwapChain& sc)
+                { return sc.Initialize(*m_api, m_device,
+                                       static_cast<WebGpuSurface*>(surface), swapDesc); });
         }
 
         // ---- Resource destruction ----
@@ -213,11 +228,28 @@ export namespace draconic::rhi::webgpu
         {
             ReleaseAndDelete<WebGpuComputePipeline>(x);
         }
-        void DestroyCommandPool(CommandPool*& x) override { DeleteIfAny(x); }
+        void DestroyCommandPool(CommandPool*& x) override
+        {
+            if (x != nullptr)
+            {
+                auto* pool = static_cast<WebGpuCommandPool*>(x);
+                m_allocator.Delete(pool);
+                x = nullptr;
+            }
+        }
         void DestroyFence(Fence*& x) override { DeleteIfAny(x); }
-        void DestroyQuerySet(QuerySet*& x) override { DeleteIfAny(x); }
-        void DestroySwapChain(SwapChain*& x) override { DeleteIfAny(x); }
-        void DestroySurface(Surface*& x) override { DeleteIfAny(x); }
+        void DestroyQuerySet(QuerySet*& x) override { ReleaseAndDelete<WebGpuQuerySet>(x); }
+        void DestroySwapChain(SwapChain*& x) override
+        {
+            if (x != nullptr)
+            {
+                auto* swapChain = static_cast<WebGpuSwapChain*>(x);
+                swapChain->Cleanup();
+                m_allocator.Delete(swapChain);
+                x = nullptr;
+            }
+        }
+        void DestroySurface(Surface*& x) override { ReleaseAndDelete<WebGpuSurface>(x); }
 
         // ---- Lifecycle ----
         bool IsLost() override { return m_lost; }

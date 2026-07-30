@@ -61,7 +61,6 @@ namespace draconic::rhi::webgpu
     X(wgpuSamplerRelease)                                                                          \
     X(wgpuDeviceCreateShaderModule)                                                                \
     X(wgpuShaderModuleRelease)                                                                     \
-    X(wgpuDeviceCreateShaderModuleSpirV) /* wgpu-native extension (desktop only) */                \
     X(wgpuAdapterHasFeature)                                                                       \
     X(wgpuDeviceCreateBindGroupLayout)                                                             \
     X(wgpuBindGroupLayoutRelease)                                                                  \
@@ -73,6 +72,65 @@ namespace draconic::rhi::webgpu
     X(wgpuRenderPipelineRelease)                                                                   \
     X(wgpuDeviceCreateComputePipeline)                                                             \
     X(wgpuComputePipelineRelease)                                                                  \
+    X(wgpuDeviceCreateCommandEncoder)                                                              \
+    X(wgpuCommandEncoderBeginRenderPass)                                                           \
+    X(wgpuCommandEncoderBeginComputePass)                                                          \
+    X(wgpuCommandEncoderCopyBufferToBuffer)                                                        \
+    X(wgpuCommandEncoderCopyBufferToTexture)                                                       \
+    X(wgpuCommandEncoderCopyTextureToBuffer)                                                       \
+    X(wgpuCommandEncoderCopyTextureToTexture)                                                      \
+    X(wgpuCommandEncoderWriteTimestamp)                                                            \
+    X(wgpuCommandEncoderResolveQuerySet)                                                           \
+    X(wgpuCommandEncoderPushDebugGroup)                                                            \
+    X(wgpuCommandEncoderPopDebugGroup)                                                             \
+    X(wgpuCommandEncoderInsertDebugMarker)                                                         \
+    X(wgpuCommandEncoderFinish)                                                                    \
+    X(wgpuCommandEncoderRelease)                                                                   \
+    X(wgpuCommandBufferRelease)                                                                    \
+    X(wgpuRenderPassEncoderSetPipeline)                                                            \
+    X(wgpuRenderPassEncoderSetBindGroup)                                                           \
+    X(wgpuRenderPassEncoderSetImmediates) /* Immediates feature (push constants) */                \
+    X(wgpuRenderPassEncoderSetVertexBuffer)                                                        \
+    X(wgpuRenderPassEncoderSetIndexBuffer)                                                         \
+    X(wgpuRenderPassEncoderSetViewport)                                                            \
+    X(wgpuRenderPassEncoderSetScissorRect)                                                         \
+    X(wgpuRenderPassEncoderSetBlendConstant)                                                       \
+    X(wgpuRenderPassEncoderSetStencilReference)                                                    \
+    X(wgpuRenderPassEncoderDraw)                                                                   \
+    X(wgpuRenderPassEncoderDrawIndexed)                                                            \
+    X(wgpuRenderPassEncoderDrawIndirect)                                                           \
+    X(wgpuRenderPassEncoderDrawIndexedIndirect)                                                    \
+    X(wgpuRenderPassEncoderExecuteBundles)                                                         \
+    X(wgpuRenderPassEncoderEnd)                                                                    \
+    X(wgpuRenderPassEncoderRelease)                                                                \
+    X(wgpuComputePassEncoderSetPipeline)                                                           \
+    X(wgpuComputePassEncoderSetBindGroup)                                                          \
+    X(wgpuComputePassEncoderSetImmediates) /* Immediates feature (push constants) */               \
+    X(wgpuComputePassEncoderDispatchWorkgroups)                                                    \
+    X(wgpuComputePassEncoderDispatchWorkgroupsIndirect)                                            \
+    X(wgpuComputePassEncoderEnd)                                                                   \
+    X(wgpuComputePassEncoderRelease)                                                               \
+    X(wgpuDeviceCreateRenderBundleEncoder)                                                         \
+    X(wgpuRenderBundleEncoderSetPipeline)                                                          \
+    X(wgpuRenderBundleEncoderSetBindGroup)                                                         \
+    X(wgpuRenderBundleEncoderSetImmediates) /* Immediates feature (push constants) */              \
+    X(wgpuRenderBundleEncoderSetVertexBuffer)                                                      \
+    X(wgpuRenderBundleEncoderSetIndexBuffer)                                                       \
+    X(wgpuRenderBundleEncoderDraw)                                                                 \
+    X(wgpuRenderBundleEncoderDrawIndexed)                                                          \
+    X(wgpuRenderBundleEncoderDrawIndirect)                                                         \
+    X(wgpuRenderBundleEncoderDrawIndexedIndirect)                                                  \
+    X(wgpuRenderBundleEncoderFinish)                                                               \
+    X(wgpuRenderBundleEncoderRelease)                                                              \
+    X(wgpuRenderBundleRelease)                                                                     \
+    X(wgpuDeviceCreateQuerySet)                                                                    \
+    X(wgpuQuerySetRelease)                                                                         \
+    X(wgpuInstanceCreateSurface)                                                                   \
+    X(wgpuSurfaceConfigure)                                                                        \
+    X(wgpuSurfaceUnconfigure)                                                                      \
+    X(wgpuSurfaceGetCurrentTexture)                                                                \
+    X(wgpuSurfacePresent)                                                                          \
+    X(wgpuSurfaceRelease)                                                                          \
     X(wgpuDeviceRelease)                                                                           \
     X(wgpuDevicePoll) /* wgpu-native extension (desktop only) */                                   \
     X(wgpuQueueSubmit)                                                                             \
@@ -88,6 +146,9 @@ namespace draconic::rhi::webgpu
 #undef DRACONIC_WEBGPU_DECLARE_MEMBER
 
         void* libraryHandle = nullptr; // desktop sidecar handle; null on web
+        // Whether the instance was created with ShaderSourceSPIRV (the standard
+        // instance feature): the desktop DXC dev loop. Browsers never have it.
+        bool spirvIngestion = false;
 
         /// Pumps callback delivery for AllowProcessEvents-mode futures until `done`
         /// flips or the iteration guard trips. The one wait primitive the backend uses.

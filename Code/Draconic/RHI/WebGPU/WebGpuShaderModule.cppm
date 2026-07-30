@@ -1,8 +1,9 @@
 /// draconic.rhi.webgpu:shader_module - ShaderModule over WGPUShaderModule.
 ///
 /// Desktop dev loop: the ShaderModuleDesc carries the SAME DXC-produced SPIR-V the
-/// Vulkan backend consumes, ingested through wgpu-native's SPIR-V passthrough
-/// (wgpuDeviceCreateShaderModuleSpirV - an EXTENSION; browsers refuse SPIR-V).
+/// Vulkan backend consumes, ingested through the STANDARD WGPUShaderSourceSPIRV
+/// chained struct (gated on the ShaderSourceSPIRV instance feature the backend
+/// requests at creation; browsers never expose it).
 /// The browser path arrives with the shaders track's cook-time WGSL: same desc, the
 /// bytes are WGSL text, ingested through the standard WGSL chained struct. The
 /// discriminator is the SPIR-V magic in the first word.
@@ -33,15 +34,17 @@ export namespace draconic::rhi::webgpu
                                  *reinterpret_cast<const u32*>(desc.code.Data()) == 0x07230203u;
             if (isSpirv)
             {
-                if (api.wgpuDeviceCreateShaderModuleSpirV == nullptr)
+                if (!api.spirvIngestion)
                 {
                     return ErrorCode::NotSupported; // browser: SPIR-V never ingests
                 }
-                WGPUShaderModuleDescriptorSpirV spirvDesc{};
-                spirvDesc.label = ToWgpuStringView(desc.label);
-                spirvDesc.sourceSize = static_cast<u32>(desc.code.Size() / 4);
-                spirvDesc.source = reinterpret_cast<const u32*>(desc.code.Data());
-                m_module = api.wgpuDeviceCreateShaderModuleSpirV(device, &spirvDesc);
+                WGPUShaderSourceSPIRV spirv = WGPU_SHADER_SOURCE_SPIRV_INIT;
+                spirv.codeSize = static_cast<u32>(desc.code.Size() / 4);
+                spirv.code = reinterpret_cast<const u32*>(desc.code.Data());
+                WGPUShaderModuleDescriptor moduleDesc = WGPU_SHADER_MODULE_DESCRIPTOR_INIT;
+                moduleDesc.label = ToWgpuStringView(desc.label);
+                moduleDesc.nextInChain = &spirv.chain;
+                m_module = api.wgpuDeviceCreateShaderModule(device, &moduleDesc);
             }
             else
             {

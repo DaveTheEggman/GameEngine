@@ -467,4 +467,32 @@ export namespace draconic::rhi::webgpu
         return mode == VertexStepMode::Instance ? WGPUVertexStepMode_Instance
                                                 : WGPUVertexStepMode_Vertex;
     }
+
+    [[nodiscard]] inline WGPULoadOp ToWgpuLoadOp(LoadOp op)
+    {
+        switch (op)
+        {
+        case LoadOp::Load:     return WGPULoadOp_Load;
+        case LoadOp::Clear:    return WGPULoadOp_Clear;
+        case LoadOp::DontCare: return WGPULoadOp_Clear; // WebGPU has no dont-care load
+        }
+        return WGPULoadOp_Clear;
+    }
+
+    [[nodiscard]] inline WGPUStoreOp ToWgpuStoreOp(StoreOp op)
+    {
+        return op == StoreOp::Store ? WGPUStoreOp_Store : WGPUStoreOp_Discard;
+    }
+
+    [[nodiscard]] inline WGPUPresentMode ToWgpuPresentMode(PresentMode mode)
+    {
+        switch (mode)
+        {
+        case PresentMode::Immediate:   return WGPUPresentMode_Immediate;
+        case PresentMode::Mailbox:     return WGPUPresentMode_Mailbox;
+        case PresentMode::Fifo:        return WGPUPresentMode_Fifo;
+        case PresentMode::FifoRelaxed: return WGPUPresentMode_FifoRelaxed;
+        }
+        return WGPUPresentMode_Fifo;
+    }
 }

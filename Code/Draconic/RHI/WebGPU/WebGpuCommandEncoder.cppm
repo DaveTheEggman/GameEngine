@@ -1,0 +1,339 @@
+/// draconic.rhi.webgpu:command_encoder - CommandEncoder over WGPUCommandEncoder.
+///
+/// WebGPU encoders are ONE-SHOT; the wrapper is reusable - after Finish, the next
+/// Begin* / copy call lazily opens a fresh WGPUCommandEncoder, which is exactly the
+/// RenderWindow frame loop's Reset-and-reencode shape. Barriers are no-ops (WebGPU
+/// tracks hazards itself; the RHI's explicit transitions carry no information here).
+///
+/// Honest gaps, logged nowhere because they are static platform facts:
+/// - Blit degrades to a full-subresource copy when extents/formats match, else fails
+///   validation upstream (scaling blits need a helper pass - deferred with mip-gen).
+/// - GenerateMipmaps is a documented no-op until the blit-chain helper lands.
+/// - ResolveTexture: WebGPU resolves via the pass resolveTarget only.
+
+module;
+#include "Core/Prelude.h"
+#include "WebGpuIncludes.h"
+
+export module draconic.rhi.webgpu:command_encoder;
+
+import draconic.core;
+import draconic.rhi;
+import :api;
+import :conversions;
+import :buffer;
+import :texture;
+import :texture_view;
+import :query_set;
+import :command_buffer;
+import :render_pass_encoder;
+import :compute_pass_encoder;
+import :render_bundle_encoder;
+
+using namespace draconic::core;
+
+export namespace draconic::rhi::webgpu
+{
+    class WebGpuCommandEncoder final : public CommandEncoder
+    {
+    public:
+        void Initialize(const WebGpuApi& api, WGPUDevice device, IAllocator& allocator)
+        {
+            m_api = &api;
+            m_device = device;
+            m_allocator = &allocator;
+        }
+
+        RenderPassEncoder* BeginRenderPass(const RenderPassDesc& passDesc) override
+        {
+            EnsureOpen();
+
+            WGPURenderPassColorAttachment colors[MaxColorAttachments];
+            for (usize i = 0; i < passDesc.colorAttachments.Size(); ++i)
+            {
+                const ColorAttachment& attachment = passDesc.colorAttachments[i];
+                WGPURenderPassColorAttachment color = WGPU_RENDER_PASS_COLOR_ATTACHMENT_INIT;
+                color.view =
+                    static_cast<WebGpuTextureView*>(attachment.view)->Handle();
+                if (attachment.resolveTarget != nullptr)
+                {
+                    color.resolveTarget =
+                        static_cast<WebGpuTextureView*>(attachment.resolveTarget)->Handle();
+                }
+                color.loadOp = ToWgpuLoadOp(attachment.loadOp);
+                color.storeOp = ToWgpuStoreOp(attachment.storeOp);
+                color.clearValue = WGPUColor{attachment.clearValue.r, attachment.clearValue.g,
+                                             attachment.clearValue.b, attachment.clearValue.a};
+                colors[i] = color;
+            }
+
+            WGPURenderPassDescriptor wgpuDesc = WGPU_RENDER_PASS_DESCRIPTOR_INIT;
+            wgpuDesc.label = ToWgpuStringView(passDesc.label);
+            wgpuDesc.colorAttachmentCount = passDesc.colorAttachments.Size();
+            wgpuDesc.colorAttachments = colors;
+
+            WGPURenderPassDepthStencilAttachment depth =
+                WGPU_RENDER_PASS_DEPTH_STENCIL_ATTACHMENT_INIT;
+            if (passDesc.depthStencilAttachment.HasValue())
+            {
+                const DepthStencilAttachment& attachment =
+                    passDesc.depthStencilAttachment.Value();
+                depth.view = static_cast<WebGpuTextureView*>(attachment.view)->Handle();
+                if (attachment.depthReadOnly)
+                {
+                    depth.depthReadOnly = 1u; // read-only planes must leave ops undefined
+                }
+                else
+                {
+                    depth.depthLoadOp = ToWgpuLoadOp(attachment.depthLoadOp);
+                    depth.depthStoreOp = ToWgpuStoreOp(attachment.depthStoreOp);
+                    depth.depthClearValue = attachment.depthClearValue;
+                }
+                const bool hasStencil = HasStencil(attachment.view->desc.format);
+                if (hasStencil)
+                {
+                    if (attachment.stencilReadOnly)
+                    {
+                        depth.stencilReadOnly = 1u;
+                    }
+                    else
+                    {
+                        depth.stencilLoadOp = ToWgpuLoadOp(attachment.stencilLoadOp);
+                        depth.stencilStoreOp = ToWgpuStoreOp(attachment.stencilStoreOp);
+                        depth.stencilClearValue = attachment.stencilClearValue;
+                    }
+                }
+                wgpuDesc.depthStencilAttachment = &depth;
+            }
+
+            WGPUPassTimestampWrites timestamps = WGPU_PASS_TIMESTAMP_WRITES_INIT;
+            if (passDesc.timestampQuerySet != nullptr)
+            {
+                timestamps.querySet =
+                    static_cast<WebGpuQuerySet*>(passDesc.timestampQuerySet)->Handle();
+                timestamps.beginningOfPassWriteIndex = passDesc.beginTimestampIndex;
+                timestamps.endOfPassWriteIndex = passDesc.endTimestampIndex;
+                wgpuDesc.timestampWrites = &timestamps;
+            }
+
+            const WGPURenderPassEncoder pass =
+                m_api->wgpuCommandEncoderBeginRenderPass(m_encoder, &wgpuDesc);
+            m_renderPass.Begin(*m_api, pass);
+            return &m_renderPass;
+        }
+
+        ComputePassEncoder* BeginComputePass(StringView label) override
+        {
+            EnsureOpen();
+            WGPUComputePassDescriptor wgpuDesc = WGPU_COMPUTE_PASS_DESCRIPTOR_INIT;
+            wgpuDesc.label = ToWgpuStringView(label);
+            const WGPUComputePassEncoder pass =
+                m_api->wgpuCommandEncoderBeginComputePass(m_encoder, &wgpuDesc);
+            m_computePass.Begin(*m_api, pass);
+            return &m_computePass;
+        }
+
+        RenderBundleEncoder* CreateRenderBundleEncoder(const RenderBundleDesc& bundleDesc) override
+        {
+            auto* encoder = m_allocator->New<WebGpuRenderBundleEncoder>();
+            if (!encoder->Initialize(*m_api, m_device, *m_allocator, bundleDesc).IsOk())
+            {
+                m_allocator->Delete(encoder);
+                return nullptr;
+            }
+            m_bundleEncoders.PushBack(encoder);
+            return encoder;
+        }
+
+        void Barrier(const BarrierGroup&) override {} // WebGPU tracks hazards itself
+
+        void CopyBufferToBuffer(Buffer* source, u64 sourceOffset, Buffer* destination,
+                                u64 destinationOffset, u64 size) override
+        {
+            EnsureOpen();
+            m_api->wgpuCommandEncoderCopyBufferToBuffer(
+                m_encoder, static_cast<WebGpuBuffer*>(source)->Handle(), sourceOffset,
+                static_cast<WebGpuBuffer*>(destination)->Handle(), destinationOffset, size);
+        }
+
+        void CopyBufferToTexture(Buffer* source, Texture* destination,
+                                 const BufferTextureCopyRegion& region) override
+        {
+            EnsureOpen();
+            WGPUTexelCopyBufferInfo src = MakeBufferInfo(source, region);
+            WGPUTexelCopyTextureInfo dst = MakeTextureInfo(destination, region);
+            const WGPUExtent3D extent{region.textureExtent.width, region.textureExtent.height,
+                                      region.textureExtent.depth};
+            m_api->wgpuCommandEncoderCopyBufferToTexture(m_encoder, &src, &dst, &extent);
+        }
+
+        void CopyTextureToBuffer(Texture* source, Buffer* destination,
+                                 const BufferTextureCopyRegion& region) override
+        {
+            EnsureOpen();
+            WGPUTexelCopyTextureInfo src = MakeTextureInfo(source, region);
+            WGPUTexelCopyBufferInfo dst = MakeBufferInfo(destination, region);
+            const WGPUExtent3D extent{region.textureExtent.width, region.textureExtent.height,
+                                      region.textureExtent.depth};
+            m_api->wgpuCommandEncoderCopyTextureToBuffer(m_encoder, &src, &dst, &extent);
+        }
+
+        void CopyTextureToTexture(Texture* source, Texture* destination,
+                                  const TextureCopyRegion& region) override
+        {
+            EnsureOpen();
+            WGPUTexelCopyTextureInfo src = WGPU_TEXEL_COPY_TEXTURE_INFO_INIT;
+            src.texture = static_cast<WebGpuTexture*>(source)->Handle();
+            src.mipLevel = region.srcMipLevel;
+            src.origin.z = region.srcArrayLayer;
+            WGPUTexelCopyTextureInfo dst = WGPU_TEXEL_COPY_TEXTURE_INFO_INIT;
+            dst.texture = static_cast<WebGpuTexture*>(destination)->Handle();
+            dst.mipLevel = region.dstMipLevel;
+            dst.origin.z = region.dstArrayLayer;
+            const WGPUExtent3D extent{region.extent.width, region.extent.height,
+                                      region.extent.depth};
+            m_api->wgpuCommandEncoderCopyTextureToTexture(m_encoder, &src, &dst, &extent);
+        }
+
+        void Blit(Texture* source, Texture* destination) override
+        {
+            // Same-extent same-format blit = a copy; scaling blits wait for the
+            // helper pass (deferred alongside GenerateMipmaps).
+            if (source->desc.width == destination->desc.width &&
+                source->desc.height == destination->desc.height &&
+                source->desc.format == destination->desc.format)
+            {
+                TextureCopyRegion region;
+                region.extent = Extent3D{source->desc.width, source->desc.height, 1};
+                CopyTextureToTexture(source, destination, region);
+            }
+        }
+
+        void GenerateMipmaps(Texture*) override
+        {
+            // Deferred: needs the blit-chain helper pass (web-platform.md P1 notes).
+        }
+
+        void ResolveTexture(Texture*, Texture*) override
+        {
+            // WebGPU resolves via the render pass resolveTarget only; standalone
+            // resolve waits for a helper pass if a consumer ever needs it.
+        }
+
+        void ResetQuerySet(QuerySet*, u32, u32) override
+        {
+            // No WebGPU shape; queries are implicitly reset by resolve semantics.
+        }
+
+        void WriteTimestamp(QuerySet* querySet, u32 index) override
+        {
+            EnsureOpen();
+            m_api->wgpuCommandEncoderWriteTimestamp(
+                m_encoder, static_cast<WebGpuQuerySet*>(querySet)->Handle(), index);
+        }
+
+        void ResolveQuerySet(QuerySet* querySet, u32 firstQuery, u32 queryCount,
+                             Buffer* destination, u64 destinationOffset) override
+        {
+            EnsureOpen();
+            m_api->wgpuCommandEncoderResolveQuerySet(
+                m_encoder, static_cast<WebGpuQuerySet*>(querySet)->Handle(), firstQuery,
+                queryCount, static_cast<WebGpuBuffer*>(destination)->Handle(),
+                destinationOffset);
+        }
+
+        void BeginDebugLabel(StringView label, f32, f32, f32, f32) override
+        {
+            EnsureOpen();
+            m_api->wgpuCommandEncoderPushDebugGroup(m_encoder, ToWgpuStringView(label));
+        }
+
+        void EndDebugLabel() override
+        {
+            EnsureOpen();
+            m_api->wgpuCommandEncoderPopDebugGroup(m_encoder);
+        }
+
+        void InsertDebugLabel(StringView label, f32, f32, f32, f32) override
+        {
+            EnsureOpen();
+            m_api->wgpuCommandEncoderInsertDebugMarker(m_encoder, ToWgpuStringView(label));
+        }
+
+        CommandBuffer* Finish() override
+        {
+            EnsureOpen();
+            WGPUCommandBufferDescriptor wgpuDesc = WGPU_COMMAND_BUFFER_DESCRIPTOR_INIT;
+            const WGPUCommandBuffer commandBuffer =
+                m_api->wgpuCommandEncoderFinish(m_encoder, &wgpuDesc);
+            m_api->wgpuCommandEncoderRelease(m_encoder);
+            m_encoder = nullptr; // next use opens a fresh one
+            m_commandBuffer.Adopt(*m_api, commandBuffer);
+            return &m_commandBuffer;
+        }
+
+        ~WebGpuCommandEncoder() override
+        {
+            if (m_encoder != nullptr)
+            {
+                m_api->wgpuCommandEncoderRelease(m_encoder);
+                m_encoder = nullptr;
+            }
+            m_commandBuffer.ReleaseHandle();
+            for (WebGpuRenderBundleEncoder* encoder : m_bundleEncoders)
+            {
+                m_allocator->Delete(encoder);
+            }
+        }
+
+    private:
+        void EnsureOpen()
+        {
+            if (m_encoder == nullptr)
+            {
+                WGPUCommandEncoderDescriptor wgpuDesc = WGPU_COMMAND_ENCODER_DESCRIPTOR_INIT;
+                m_encoder = m_api->wgpuDeviceCreateCommandEncoder(m_device, &wgpuDesc);
+            }
+        }
+
+        static WGPUTexelCopyBufferInfo MakeBufferInfo(Buffer* buffer,
+                                                      const BufferTextureCopyRegion& region)
+        {
+            WGPUTexelCopyBufferInfo info = WGPU_TEXEL_COPY_BUFFER_INFO_INIT;
+            info.buffer = static_cast<WebGpuBuffer*>(buffer)->Handle();
+            info.layout.offset = region.bufferOffset;
+            info.layout.bytesPerRow = region.bytesPerRow;
+            info.layout.rowsPerImage = region.rowsPerImage;
+            return info;
+        }
+
+        static WGPUTexelCopyTextureInfo MakeTextureInfo(Texture* texture,
+                                                        const BufferTextureCopyRegion& region)
+        {
+            WGPUTexelCopyTextureInfo info = WGPU_TEXEL_COPY_TEXTURE_INFO_INIT;
+            info.texture = static_cast<WebGpuTexture*>(texture)->Handle();
+            info.mipLevel = region.textureMipLevel;
+            info.origin = WGPUOrigin3D{region.textureOrigin.x, region.textureOrigin.y,
+                                       region.textureOrigin.z};
+            info.origin.z = region.textureOrigin.z != 0 ? region.textureOrigin.z
+                                                        : region.textureArrayLayer;
+            return info;
+        }
+
+        static bool HasStencil(TextureFormat format)
+        {
+            return format == TextureFormat::Depth24PlusStencil8 ||
+                   format == TextureFormat::Depth32FloatStencil8 ||
+                   format == TextureFormat::Stencil8;
+        }
+
+        const WebGpuApi* m_api = nullptr;
+        WGPUDevice m_device = nullptr;
+        IAllocator* m_allocator = nullptr;
+        WGPUCommandEncoder m_encoder = nullptr;
+        WebGpuRenderPassEncoder m_renderPass;
+        WebGpuComputePassEncoder m_computePass;
+        WebGpuCommandBuffer m_commandBuffer;
+        Array<WebGpuRenderBundleEncoder*> m_bundleEncoders;
+    };
+}

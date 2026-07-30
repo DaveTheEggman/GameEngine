@@ -16,6 +16,7 @@ export module draconic.rhi.webgpu:queue;
 import draconic.core;
 import draconic.rhi;
 import :api;
+import :command_buffer;
 import :fence;
 
 using namespace draconic::core;
@@ -100,11 +101,37 @@ export namespace draconic::rhi::webgpu
     private:
         void SubmitInternal(Span<CommandBuffer* const> commandBuffers)
         {
-            // Command recording is not implemented yet (encoder stage) - the only legal
-            // submission today is the empty one used for fence signaling.
-            DRACONIC_ASSERT_MSG(commandBuffers.IsEmpty(),
-                                "webgpu: command buffers not implemented yet");
-            (void)commandBuffers;
+            WGPUCommandBuffer handles[16];
+            usize count = 0;
+            for (CommandBuffer* commandBuffer : commandBuffers)
+            {
+                // Take() transfers the handle; submission consumes (releases) it.
+                const WGPUCommandBuffer handle =
+                    static_cast<WebGpuCommandBuffer*>(commandBuffer)->Take();
+                if (handle == nullptr)
+                {
+                    continue; // already submitted or never finished
+                }
+                if (count == 16)
+                {
+                    SubmitAndRelease(handles, count);
+                    count = 0;
+                }
+                handles[count++] = handle;
+            }
+            if (count > 0 || commandBuffers.IsEmpty())
+            {
+                SubmitAndRelease(handles, count);
+            }
+        }
+
+        void SubmitAndRelease(WGPUCommandBuffer* handles, usize count)
+        {
+            m_api->wgpuQueueSubmit(m_queue, count, handles);
+            for (usize i = 0; i < count; ++i)
+            {
+                m_api->wgpuCommandBufferRelease(handles[i]);
+            }
         }
 
         void SignalOnDone(Fence* fence, u64 value)
