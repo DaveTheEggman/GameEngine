@@ -34,6 +34,10 @@ export namespace draconic::samples::framework
         if (!isDX12)
         {
             opts.bindingShifts = shaders::BindingShifts::Standard();
+            if (device->type == rhi::DeviceType::WebGPU)
+            {
+                opts.spirvTargetEnvironment = u8"vulkan1.1"; // naga rejects SPIR-V 1.4+
+            }
             opts.bindingShiftSets = 4;
         }
 

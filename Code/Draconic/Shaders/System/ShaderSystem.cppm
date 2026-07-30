@@ -144,6 +144,10 @@ export namespace draconic::shaders
                 // Vulkan: shift register spaces so HLSL b/t/u/s registers don't collide
                 // in SPIR-V (matches the sample framework's CompileToModule).
                 opts.bindingShifts = shaders::BindingShifts::Standard();
+            if (m_device->type == rhi::DeviceType::WebGPU)
+            {
+                opts.spirvTargetEnvironment = u8"vulkan1.1"; // naga rejects SPIR-V 1.4+
+            }
                 opts.bindingShiftSets = 4;
             }
 

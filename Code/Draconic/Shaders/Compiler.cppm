@@ -186,7 +186,9 @@ namespace draconic::shaders
         if (target == ShaderTarget::SPIRV)
         {
             push(L"-spirv");
-            push(L"-fspv-target-env=vulkan1.3");
+            std::wstring targetEnv = L"-fspv-target-env=";
+            targetEnv.append(widen(options.spirvTargetEnvironment));
+            pushS(std::move(targetEnv));
             for (u32 set = 0; set < options.bindingShiftSets; ++set)
             {
                 wchar_t setBuf[16];

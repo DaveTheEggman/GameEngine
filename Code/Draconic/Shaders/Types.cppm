@@ -55,6 +55,10 @@ export namespace draconic::shaders
     struct CompileOptions
     {
         StringView shaderModel = u8"6_0";
+        /// SPIR-V target environment (-fspv-target-env). vulkan1.3 for the Vulkan
+        /// backend; WebGPU compiles pass vulkan1.1 - naga's SPIR-V frontend rejects
+        /// SPIR-V 1.4+ instructions (OpCopyLogical), which DXC emits above 1.1.
+        StringView spirvTargetEnvironment = u8"vulkan1.3";
         i32 optimizationLevel = 3;
         bool enableDebugInfo = false;
         bool rowMajorMatrices = false;
