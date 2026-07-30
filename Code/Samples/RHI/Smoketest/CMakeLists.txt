@@ -10,6 +10,13 @@ if(TARGET Draconic::RHIDX12)
     target_compile_definitions(DraconicSmoketest PRIVATE DRACONIC_HAS_DX12)
 endif()
 
+# WebGPU backend - present when the wgpu headers are vendored; the sidecar itself
+# is probed at run time (section prints "skipped" when unavailable).
+if(TARGET Draconic::RHIWebGPU)
+    target_link_libraries(DraconicSmoketest PRIVATE Draconic::RHIWebGPU)
+    target_compile_definitions(DraconicSmoketest PRIVATE DRACONIC_HAS_WEBGPU)
+endif()
+
 target_compile_options(DraconicSmoketest PRIVATE
     "$<$<CXX_COMPILER_ID:Clang,GNU>:-Wno-error=unused-parameter;-Wno-error=unused-variable;-Wno-error=missing-field-initializers;-Wno-error=misleading-indentation>")
 

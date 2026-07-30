@@ -19,6 +19,9 @@ import draconic.shaders;
 #ifdef DRACONIC_HAS_DX12
 import draconic.rhi.dx12;
 #endif
+#ifdef DRACONIC_HAS_WEBGPU
+import draconic.rhi.webgpu;
+#endif
 
 static const char* adapterTypeStr(draconic::rhi::AdapterType t)
 {
@@ -505,6 +508,128 @@ int main(int /*argc*/, char** /*argv*/)
 
             dx12Backend->Destroy();
             std::printf("DX12 backend: OK\n");
+        }
+    }
+#endif
+
+    // ===== WebGPU backend (wgpu-native sidecar; skips cleanly when absent) =====
+#ifdef DRACONIC_HAS_WEBGPU
+    {
+        std::printf("\n=== WebGPU Backend ===\n");
+
+        Backend* wgpuBackend = nullptr;
+        rhi::webgpu::WebGpuBackendDesc wgpuDesc{};
+        if (rhi::webgpu::CreateBackend(wgpuDesc, wgpuBackend) != ErrorCode::Ok)
+        {
+            std::printf("WebGPU backend: sidecar unavailable - skipped\n");
+        }
+        else
+        {
+            auto wgpuAdapters = wgpuBackend->EnumerateAdapters();
+            std::printf("WebGPU adapters: %zu\n", wgpuAdapters.Size());
+            for (usize i = 0; i < wgpuAdapters.Size(); ++i)
+            {
+                AdapterInfo ai = wgpuAdapters[i]->Info();
+                const String name8 = String(ai.name);
+                std::printf("  [%zu] %s (%s)\n", i,
+                            reinterpret_cast<const char*>(name8.CStr()),
+                            adapterTypeStr(ai.type));
+            }
+
+            if (wgpuAdapters.Size() > 0)
+            {
+                Device* wgpuDevice = nullptr;
+                if (wgpuAdapters[0]->CreateDevice(DeviceDesc{}, wgpuDevice) == ErrorCode::Ok)
+                {
+                    std::printf("WebGPU device created (type=%d)\n",
+                                static_cast<int>(wgpuDevice->type));
+
+                    // Buffer: the Map emulation (CPU shadow -> WriteBuffer on Unmap).
+                    Buffer* wgpuBuf = nullptr;
+                    BufferDesc bd{};
+                    bd.size = 256;
+                    bd.usage = BufferUsage::Uniform;
+                    bd.memory = MemoryLocation::CpuToGpu;
+                    wgpuDevice->CreateBuffer(bd, wgpuBuf);
+                    if (wgpuBuf)
+                    {
+                        void* mapped = wgpuBuf->Map();
+                        std::printf("WebGPU buffer mapped: %s\n", mapped ? "OK" : "FAIL");
+                        if (mapped)
+                        {
+                            std::memset(mapped, 0x5A, 256);
+                            wgpuBuf->Unmap(); // flushes via wgpuQueueWriteBuffer
+                        }
+                        wgpuDevice->DestroyBuffer(wgpuBuf);
+                    }
+
+                    // Texture + view + sampler.
+                    Texture* wgpuTex = nullptr;
+                    wgpuDevice->CreateTexture(
+                        TextureDesc::RenderTarget(TextureFormat::RGBA8Unorm, 64, 64), wgpuTex);
+                    TextureView* wgpuView = nullptr;
+                    if (wgpuTex)
+                    {
+                        TextureViewDesc vd{};
+                        vd.format = TextureFormat::RGBA8Unorm;
+                        wgpuDevice->CreateTextureView(wgpuTex, vd, wgpuView);
+                    }
+                    Sampler* wgpuSampler = nullptr;
+                    wgpuDevice->CreateSampler(SamplerDesc{}, wgpuSampler);
+                    std::printf("WebGPU texture/view/sampler: %s/%s/%s\n",
+                                wgpuTex ? "OK" : "FAIL", wgpuView ? "OK" : "FAIL",
+                                wgpuSampler ? "OK" : "FAIL");
+
+                    // WGSL shader module (SPIR-V rides the triangle sample later).
+                    const char* wgsl =
+                        "@vertex fn main() -> @builtin(position) vec4f { return vec4f(0.0); }";
+                    ShaderModuleDesc smd{};
+                    smd.code = Span<const u8>(reinterpret_cast<const u8*>(wgsl),
+                                              std::strlen(wgsl));
+                    ShaderModule* wgpuShader = nullptr;
+                    wgpuDevice->CreateShaderModule(smd, wgpuShader);
+                    std::printf("WebGPU WGSL shader module: %s\n", wgpuShader ? "OK" : "FAIL");
+                    if (wgpuShader)
+                    {
+                        wgpuDevice->DestroyShaderModule(wgpuShader);
+                    }
+
+                    // Fence through an empty submission (the timeline emulation).
+                    Fence* wgpuFence = nullptr;
+                    wgpuDevice->CreateFence(0, wgpuFence);
+                    if (wgpuFence)
+                    {
+                        wgpuDevice->GetQueue(QueueType::Graphics)
+                            ->Submit(Span<CommandBuffer* const>{}, wgpuFence, 1);
+                        const bool signaled = wgpuFence->Wait(1, ~0ull);
+                        std::printf("WebGPU fence signaled: %s (value %llu)\n",
+                                    signaled ? "OK" : "FAIL",
+                                    static_cast<unsigned long long>(
+                                        wgpuFence->CompletedValue()));
+                        wgpuDevice->DestroyFence(wgpuFence);
+                    }
+
+                    if (wgpuSampler)
+                    {
+                        wgpuDevice->DestroySampler(wgpuSampler);
+                    }
+                    if (wgpuView)
+                    {
+                        wgpuDevice->DestroyTextureView(wgpuView);
+                    }
+                    if (wgpuTex)
+                    {
+                        wgpuDevice->DestroyTexture(wgpuTex);
+                    }
+                    wgpuDevice->WaitIdle();
+                    std::printf("WebGPU device lost: %s\n",
+                                wgpuDevice->IsLost() ? "YES (bad)" : "no");
+                    wgpuDevice->Destroy();
+                }
+            }
+
+            wgpuBackend->Destroy();
+            std::printf("WebGPU backend: OK\n");
         }
     }
 #endif
