@@ -24,10 +24,35 @@
 #ifndef DRACONIC_RUNTIME_CLIENT_APPMAIN_H
 #define DRACONIC_RUNTIME_CLIENT_APPMAIN_H
 
+#include "Core/Prelude.h" // DRACONIC_PLATFORM_WEB (picks the desktop vs browser entry body)
+
+#if DRACONIC_PLATFORM_WEB
+
+// Emscripten entry. Unlike desktop, the web runner (draconic.runtime.web) does NOT block: it
+// registers a requestAnimationFrame callback and returns, and the browser drives frames after
+// main() unwinds. So the shell, the GPU device, and the app must OUTLIVE main's return - they live
+// in static storage here. The backend is always WebGPU (there is no argv), and device creation
+// blocks-and-yields to the browser via ASYNCIFY (see the WebGPU backend's pump), so the link must
+// enable ASYNCIFY. The app TU imports draconic.shell.web + draconic.runtime.web (not the desktop
+// pair). The canvas defaults to "#canvas" (Emscripten's default shell canvas id).
+#define DRACONIC_APP_MAIN(AppType)                                                                 \
+    int main()                                                                                     \
+    {                                                                                              \
+        static ::draconic::shell::WebShell draconicShell;                                          \
+        ::draconic::graphics::GraphicsDeviceDesc draconicGpuDesc{};                                \
+        draconicGpuDesc.backend = ::draconic::graphics::BackendType::WebGPU;                       \
+        static auto draconicGpu = ::draconic::graphics::CreateGraphicsDevice(draconicGpuDesc);     \
+        ::draconic::graphics::GraphicsDevice* draconicDevice =                                     \
+            draconicGpu.HasValue() ? draconicGpu.Value().Get() : nullptr;                          \
+        static AppType draconicApp;                                                                \
+        return ::draconic::runtime::RunApplication(draconicApp, draconicShell, draconicDevice);    \
+    }
+
+#else
 
 // The body is the same on all desktop OSes for now. A windowed Win32 build will
 // later want wWinMain (no console); main is correct for console/CI builds and is
-// a fine starting point. Emscripten/Android targets provide their own entry.
+// a fine starting point. Android targets provide their own entry.
 // If GPU device creation fails (no Vulkan), the app still runs windowless-headless.
 #define DRACONIC_APP_MAIN(AppType)                                                                 \
     int main(int argc, char** argv)                                                                \
@@ -42,5 +67,7 @@
         AppType app;                                                                               \
         return ::draconic::runtime::RunApplication(app, *shell, draconicDevice);                   \
     }
+
+#endif // DRACONIC_PLATFORM_WEB
 
 #endif // DRACONIC_RUNTIME_CLIENT_APPMAIN_H

@@ -200,9 +200,11 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/UI/Subsystem)
     add_subdirectory(Code/Draconic/Net/Manager)
     add_subdirectory(Code/Draconic/Net/Subsystem)
-    # Still to climb: the WebGPU graphics factory (GraphicsGpu on a non-Vulkan backend), a
-    # canvas-backed web shell, a web entry point, and the game-instance/scripting composition +
-    # Scene/Subsystem. The web runner (draconic.runtime.web) is up; it needs those to actually run.
+    # First browser-running app: WebShell + the web runner + the WebGPU graphics factory, tied
+    # together by DRACONIC_APP_MAIN. Emits WebTriangle.html.
+    add_subdirectory(Code/Samples/WebTriangle)
+    # Still to climb: the game-instance/scripting composition + Scene/Subsystem, and the UI/editor
+    # hosts. HTML5 input wiring in the web shell is a later pass.
     return() # everything above this line is wasm-verified; the rest awaits its turn
 endif()
 
