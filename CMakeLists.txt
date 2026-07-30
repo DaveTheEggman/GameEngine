@@ -165,6 +165,13 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/Shaders)
     add_subdirectory(Code/Draconic/Texture)
     add_subdirectory(Code/Draconic/Materials)
+    add_subdirectory(Code/Draconic/Scene) # renderer-agnostic base; its Subsystem (needs Runtime) is off for web
+    # draconic.render is scene- and resource-agnostic (device-abstract over the RHI interface), so
+    # the whole renderer compiles for web now; only its GPU DEVICE (Emscripten WebGPU) is phase 2.
+    # (Render/Api + Render/Subsystem link Scene; render.subsystem is gated to the app layer.)
+    add_subdirectory(Code/Draconic/Render/Api)
+    add_subdirectory(Code/Draconic/Render)
+    # Runtime app-layer + Scene/Subsystem climb with the app stack (Shell/Script/subsystems), later.
     return() # everything above this line is wasm-verified; the rest awaits its turn
 endif()
 

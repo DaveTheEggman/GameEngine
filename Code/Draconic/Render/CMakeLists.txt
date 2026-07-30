@@ -59,5 +59,9 @@ if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)
 endif()
 
-# Scene integration: components + extraction + (later) the RenderSubsystem.
-add_subdirectory(Subsystem)
+# Scene integration (draconic.render.subsystem): the resource- + scene-aware bridge. Unlike the
+# renderer itself (device-abstract over the RHI), it links Runtime + SceneSubsystem, i.e. the app
+# layer - so it climbs with that layer, not with the bare renderer. Off for web until then.
+if(NOT EMSCRIPTEN)
+    add_subdirectory(Subsystem)
+endif()

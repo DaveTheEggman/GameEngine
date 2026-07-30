@@ -25,8 +25,11 @@ if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)
 endif()
 
-# The Context-level scene driver + ISceneAware broker (bridges Scene + Runtime).
-add_subdirectory(Subsystem)
+# The Context-level scene driver + ISceneAware broker (bridges Scene + Runtime). App-layer, so it
+# climbs with Runtime; off for web until then. (The base Scene lib below is renderer-agnostic.)
+if(NOT EMSCRIPTEN)
+    add_subdirectory(Subsystem)
+endif()
 
 # Whole-scene serialization: runtime load (Resource) + tooling save (Editor).
 add_subdirectory(Resource)
