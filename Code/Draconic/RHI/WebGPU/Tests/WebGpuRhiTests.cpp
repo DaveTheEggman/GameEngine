@@ -272,7 +272,8 @@ TEST_CASE("rhi.webgpu: bind groups + pipelines - the DXC shift scheme end-to-end
     CHECK(group->Layout() == layout);
 
     // Pipeline layout + a render pipeline whose WGSL uses the SHIFTED binding
-    // numbers - if the shift scheme mismatched the layout, creation would fail.
+    // numbers (the compact WebGPU profile: SRV +100, sampler +300) - if the shift
+    // scheme mismatched the layout, creation would fail.
     PipelineLayoutDesc plDesc;
     BindGroupLayout* layouts[] = {layout};
     plDesc.bindGroupLayouts = Span<BindGroupLayout* const>(layouts, 1);
@@ -281,8 +282,8 @@ TEST_CASE("rhi.webgpu: bind groups + pipelines - the DXC shift scheme end-to-end
 
     const char8_t* wgsl =
         u8"@group(0) @binding(0) var<uniform> tintUniform : vec4f;\n"
-        u8"@group(0) @binding(1000) var sceneTexture : texture_2d<f32>;\n"
-        u8"@group(0) @binding(3000) var sceneSampler : sampler;\n"
+        u8"@group(0) @binding(100) var sceneTexture : texture_2d<f32>;\n"
+        u8"@group(0) @binding(300) var sceneSampler : sampler;\n"
         u8"@vertex fn vertexMain(@builtin(vertex_index) i : u32) -> @builtin(position) vec4f\n"
         u8"{ return vec4f(f32(i), 0.0, 0.0, 1.0); }\n"
         u8"@fragment fn fragmentMain() -> @location(0) vec4f\n"
@@ -532,6 +533,69 @@ TEST_CASE("rhi.webgpu: transfer batch uploads verify through GPU readback")
     device->DestroyTexture(texture);
     device->DestroyBuffer(gpuBuffer);
     CHECK(!device->IsLost());
+    device->Destroy();
+    backend->Destroy();
+}
+
+TEST_CASE("rhi.webgpu: per-frame map/unmap/resubmit cycle stays valid")
+{
+    // Sample024's frame shape: read back last frame's results (map + unmap), then
+    // submit new work touching the same readback buffer. A pending or lingering map
+    // would fail queue submission with "buffer still mapped".
+    Backend* backend = TryCreateBackend();
+    if (backend == nullptr)
+    {
+        return;
+    }
+    Device* device = nullptr;
+    REQUIRE(backend->EnumerateAdapters()[0]->CreateDevice(DeviceDesc{}, device).IsOk());
+
+    BufferDesc sourceDesc;
+    sourceDesc.size = 64;
+    sourceDesc.usage = BufferUsage::CopySrc | BufferUsage::CopyDst;
+    sourceDesc.memory = MemoryLocation::CpuToGpu;
+    Buffer* source = nullptr;
+    REQUIRE(device->CreateBuffer(sourceDesc, source).IsOk());
+    BufferDesc readbackDesc;
+    readbackDesc.size = 64;
+    readbackDesc.usage = BufferUsage::CopyDst;
+    readbackDesc.memory = MemoryLocation::GpuToCpu;
+    Buffer* readback = nullptr;
+    REQUIRE(device->CreateBuffer(readbackDesc, readback).IsOk());
+
+    CommandPool* pool = nullptr;
+    REQUIRE(device->CreateCommandPool(QueueType::Graphics, pool).IsOk());
+    Fence* fence = nullptr;
+    REQUIRE(device->CreateFence(0, fence).IsOk());
+    Queue* queue = device->GetQueue(QueueType::Graphics);
+
+    for (u64 frame = 1; frame <= 5; ++frame)
+    {
+        if (frame > 1)
+        {
+            REQUIRE(fence->Wait(frame - 1, ~0ull));
+            void* mapped = readback->Map();
+            CHECK(mapped != nullptr);
+            if (mapped != nullptr)
+            {
+                readback->Unmap();
+            }
+        }
+        CommandEncoder* encoder = nullptr;
+        REQUIRE(pool->CreateEncoder(encoder).IsOk());
+        encoder->CopyBufferToBuffer(source, 0, readback, 0, 64);
+        CommandBuffer* commandBuffer = encoder->Finish();
+        CommandBuffer* commandBuffers[] = {commandBuffer};
+        queue->Submit(Span<CommandBuffer* const>(commandBuffers, 1), fence, frame);
+        pool->DestroyEncoder(encoder);
+    }
+    device->WaitIdle();
+    CHECK(!device->IsLost());
+
+    device->DestroyFence(fence);
+    device->DestroyCommandPool(pool);
+    device->DestroyBuffer(readback);
+    device->DestroyBuffer(source);
     device->Destroy();
     backend->Destroy();
 }

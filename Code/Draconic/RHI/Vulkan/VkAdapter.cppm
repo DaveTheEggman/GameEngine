@@ -78,6 +78,7 @@ export namespace draconic::rhi::vk
 
             f.bindlessDescriptors = m_supportsDescriptorIndexing;
             f.timestampQueries = m_properties.limits.timestampComputeAndGraphics;
+            f.occlusionQueries = true; // vkCmdBeginQuery works anywhere in a pass
             f.multiDrawIndirect = m_features10.multiDrawIndirect;
             f.depthClamp = m_features10.depthClamp;
             f.fillModeWireframe = m_features10.fillModeNonSolid;

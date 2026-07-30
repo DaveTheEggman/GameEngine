@@ -118,6 +118,12 @@ private:
 
 draconic::core::Status BindlessSample::OnInit()
 {
+    if (!m_device->features.bindlessDescriptors)
+    {
+        rhi::LogError("ERROR: Bindless descriptors are not supported by this device/backend");
+        return draconic::core::ErrorCode::Unknown;
+    }
+
     using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
 
     if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) !=

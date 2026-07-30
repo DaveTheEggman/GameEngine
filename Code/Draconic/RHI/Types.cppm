@@ -61,6 +61,10 @@ export namespace draconic::rhi
             bool bindlessDescriptors = false;
             bool timestampQueries = false;
             bool pipelineStatisticsQueries = false;
+            // Begin/EndOcclusionQuery inside render passes. WebGPU cannot honor the
+            // RHI's begin-anywhere shape until RenderPassDesc declares the query set
+            // at pass begin, so its backend reports false; samples/consumers gate.
+            bool occlusionQueries = false;
             bool multiDrawIndirect = false;
             bool depthClamp = false;
             bool fillModeWireframe = false;

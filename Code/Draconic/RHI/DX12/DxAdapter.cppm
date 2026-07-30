@@ -71,6 +71,7 @@ export namespace draconic::rhi::dx12
             {
                 f.bindlessDescriptors = true; // DX12 always supports descriptor indexing
                 f.timestampQueries = true;
+                f.occlusionQueries = true; // BeginQuery works anywhere in a pass
                 f.multiDrawIndirect = true;
                 f.depthClamp = true;
                 f.fillModeWireframe = true;

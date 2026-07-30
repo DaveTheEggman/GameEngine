@@ -183,7 +183,9 @@ export namespace draconic::samples::framework
 
         {
             rhi::AdapterInfo ai = adapter->Info();
-            const char* backendName = (m_backendType == BackendType::DX12) ? "DX12" : "Vulkan";
+            const char* backendName = m_backendType == BackendType::DX12     ? "DX12"
+                                      : m_backendType == BackendType::WebGPU ? "WebGPU"
+                                                                             : "Vulkan";
             const String name8 = String(ai.name);
             std::printf("SampleApp: backend=%s adapter=%s\n", backendName,
                         reinterpret_cast<const char*>(name8.CStr()));

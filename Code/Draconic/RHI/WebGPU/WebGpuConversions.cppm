@@ -277,11 +277,16 @@ export namespace draconic::rhi::webgpu
         return WGPUStringView{reinterpret_cast<const char*>(label.Data()), label.Size()};
     }
 
-    /// The DXC register-space shift convention (CBV=0, SRV=1000, UAV=2000, Sampler=3000
-    /// - the SAME table as vk::BindingShifts::standard()). DXC bakes these into the
-    /// SPIR-V bindings, so bind-group layouts must declare the shifted numbers to match.
-    /// Requires the raised maxBindingsPerBindGroup the device requests at creation.
-    /// The cook-time WGSL path (browser) will emit compact bindings and bypass this.
+    /// The engine-wide register-space shift table: CBV=0, SRV=+100, UAV=+200,
+    /// Sampler=+300 (shaders::BindingShifts::Standard(), shared with Vulkan - compact
+    /// because WebGPU validates binding indices against maxBindingsPerBindGroup, 1000
+    /// in browsers). DXC bakes these into the SPIR-V, so layouts must declare the
+    /// same numbers. The cook-time WGSL path (browser) will emit compact bindings
+    /// and bypass shifting entirely.
+    inline constexpr u32 kSrvBindingShift = 100;
+    inline constexpr u32 kUavBindingShift = 200;
+    inline constexpr u32 kSamplerBindingShift = 300;
+
     [[nodiscard]] inline u32 ShiftedBinding(BindingType type, u32 binding)
     {
         switch (type)
@@ -290,14 +295,14 @@ export namespace draconic::rhi::webgpu
             return binding;
         case BindingType::SampledTexture:
         case BindingType::StorageBufferReadOnly: // HLSL StructuredBuffer = SRV (t register)
-            return binding + 1000;
+            return binding + kSrvBindingShift;
         case BindingType::StorageTextureReadOnly:
         case BindingType::StorageTextureReadWrite:
         case BindingType::StorageBufferReadWrite:
-            return binding + 2000;
+            return binding + kUavBindingShift;
         case BindingType::Sampler:
         case BindingType::ComparisonSampler:
-            return binding + 3000;
+            return binding + kSamplerBindingShift;
         default:
             return binding; // bindless / accel-struct types never reach WebGPU layouts
         }

@@ -47,9 +47,12 @@ export namespace draconic::rhi::webgpu
             type = DeviceType::WebGPU;
             const WGPUQueue queue = m_api->wgpuDeviceGetQueue(m_device);
             // ONE WebGPU queue, three RHI-typed views of it (see :queue).
-            m_graphicsQueue.Initialize(api, instance, queue, allocator, QueueType::Graphics);
-            m_computeQueue.Initialize(api, instance, queue, allocator, QueueType::Compute);
-            m_transferQueue.Initialize(api, instance, queue, allocator, QueueType::Transfer);
+            m_graphicsQueue.Initialize(api, instance, device, queue, allocator,
+                                       QueueType::Graphics);
+            m_computeQueue.Initialize(api, instance, device, queue, allocator,
+                                      QueueType::Compute);
+            m_transferQueue.Initialize(api, instance, device, queue, allocator,
+                                       QueueType::Transfer);
         }
 
         /// The device-lost callback (registered at creation by the adapter) lands here.
@@ -257,7 +260,7 @@ export namespace draconic::rhi::webgpu
         }
         Status CreateFence(u64 initialValue, Fence*& out) override
         {
-            out = m_allocator.New<WebGpuFence>(*m_api, m_instance, initialValue);
+            out = m_allocator.New<WebGpuFence>(*m_api, m_instance, m_device, initialValue);
             return ErrorCode::Ok;
         }
         Status CreateQuerySet(const QuerySetDesc& setDesc, QuerySet*& out) override

@@ -107,7 +107,7 @@ export namespace draconic::rhi::webgpu
             out.supportedFeatures.independentBlend = true;
         }
 
-        Status CreateDevice(const DeviceDesc& desc, Device*& out) override
+        Status CreateDevice(const DeviceDesc&, Device*& out) override
         {
             out = nullptr;
 
@@ -125,8 +125,9 @@ export namespace draconic::rhi::webgpu
             Array<WGPUFeatureName> required;
             AdapterInfo info;
             GetInfo(info);
-            if (info.supportedFeatures.timestampQueries &&
-                desc.requiredFeatures.timestampQueries)
+            // Enable what the adapter has, like the Vulkan backend does - callers
+            // gate on device->features, not on what they requested.
+            if (info.supportedFeatures.timestampQueries)
             {
                 required.PushBack(WGPUFeatureName_TimestampQuery);
             }
@@ -147,11 +148,20 @@ export namespace draconic::rhi::webgpu
             {
                 required.PushBack(immediates);
             }
+            // Encoder-level WriteTimestamp (the RHI's CommandEncoder::WriteTimestamp,
+            // used by the GPU GraphProfiler) is a separate wgpu feature from
+            // pass-boundary timestamps.
+            const auto encoderTimestamps =
+                static_cast<WGPUFeatureName>(WGPUNativeFeature_TimestampQueryInsideEncoders);
+            if (info.supportedFeatures.timestampQueries &&
+                m_api->wgpuAdapterHasFeature(m_adapter, encoderTimestamps) != 0u)
+            {
+                required.PushBack(encoderTimestamps);
+            }
 
-            // Raised limits: the DXC register-shift convention puts sampler bindings at
-            // 3000+N, far past the 1000 default maxBindingsPerBindGroup - request what
-            // the adapter actually supports. Immediates budget = the RHI's 128-byte
-            // push-constant contract.
+            // Request the adapter's own limits wholesale (always legal, unlocks real
+            // texture-size/buffer ceilings); the immediates budget is the RHI's
+            // 128-byte push-constant contract.
             WGPULimits adapterLimits = WGPU_LIMITS_INIT;
             WGPULimits requiredLimits = WGPU_LIMITS_INIT;
             bool haveLimits =

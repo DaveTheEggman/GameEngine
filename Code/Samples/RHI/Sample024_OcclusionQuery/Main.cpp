@@ -203,6 +203,13 @@ void OcclusionQuerySample::recreateDepth(draconic::core::u32 w, draconic::core::
 
 draconic::core::Status OcclusionQuerySample::OnInit()
 {
+    if (!m_device->features.occlusionQueries)
+    {
+        std::fprintf(stderr,
+                     "ERROR: Occlusion queries are not supported by this device/backend\n");
+        return draconic::core::ErrorCode::Unknown;
+    }
+
     using draconic::core::Status, draconic::core::Span, draconic::core::u8;
     if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) !=
         draconic::core::ErrorCode::Ok)

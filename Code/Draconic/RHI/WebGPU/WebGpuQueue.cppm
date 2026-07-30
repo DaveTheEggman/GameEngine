@@ -29,11 +29,12 @@ export namespace draconic::rhi::webgpu
     public:
         WebGpuQueue() = default;
 
-        void Initialize(const WebGpuApi& api, WGPUInstance instance, WGPUQueue queue,
-                        IAllocator& allocator, QueueType type)
+        void Initialize(const WebGpuApi& api, WGPUInstance instance, WGPUDevice device,
+                        WGPUQueue queue, IAllocator& allocator, QueueType type)
         {
             m_api = &api;
             m_instance = instance;
+            m_device = device;
             m_queue = queue;
             m_allocator = &allocator;
             queueType = type;
@@ -49,8 +50,8 @@ export namespace draconic::rhi::webgpu
         void Submit(Span<CommandBuffer* const> commandBuffers, Fence* signalFence,
                     u64 signalValue) override
         {
-            SubmitInternal(commandBuffers);
-            SignalOnDone(signalFence, signalValue);
+            const WGPUSubmissionIndex index = SubmitInternal(commandBuffers);
+            NoteAndSignal(signalFence, signalValue, index);
         }
 
         void Submit(Span<CommandBuffer* const> commandBuffers, Span<Fence* const> waitFences,
@@ -68,8 +69,8 @@ export namespace draconic::rhi::webgpu
                     static_cast<WebGpuFence*>(waitFences[i])->Wait(waitValues[i], 0);
                 }
             }
-            SubmitInternal(commandBuffers);
-            SignalOnDone(signalFence, signalValue);
+            const WGPUSubmissionIndex index = SubmitInternal(commandBuffers);
+            NoteAndSignal(signalFence, signalValue, index);
         }
 
         void WaitIdle() override
@@ -81,13 +82,13 @@ export namespace draconic::rhi::webgpu
             { *static_cast<bool*>(userdata1) = true; };
             info.userdata1 = &done;
             (void)m_api->wgpuQueueOnSubmittedWorkDone(m_queue, info);
-            m_api->PumpUntil(m_instance, done);
+            m_api->PumpUntilWithDevice(m_instance, m_device, done);
         }
 
         Status CreateTransferBatch(TransferBatch*& out) override
         {
             auto* batch = m_allocator->New<WebGpuTransferBatch>();
-            batch->Initialize(*m_api, m_instance, m_queue, *m_allocator);
+            batch->Initialize(*m_api, m_instance, m_device, m_queue, *m_allocator);
             out = batch;
             return ErrorCode::Ok;
         }
@@ -109,10 +110,11 @@ export namespace draconic::rhi::webgpu
         }
 
     private:
-        void SubmitInternal(Span<CommandBuffer* const> commandBuffers)
+        WGPUSubmissionIndex SubmitInternal(Span<CommandBuffer* const> commandBuffers)
         {
             WGPUCommandBuffer handles[16];
             usize count = 0;
+            WGPUSubmissionIndex last{};
             for (CommandBuffer* commandBuffer : commandBuffers)
             {
                 // Take() transfers the handle; submission consumes (releases) it.
@@ -124,31 +126,47 @@ export namespace draconic::rhi::webgpu
                 }
                 if (count == 16)
                 {
-                    SubmitAndRelease(handles, count);
+                    last = SubmitAndRelease(handles, count);
                     count = 0;
                 }
                 handles[count++] = handle;
             }
             if (count > 0 || commandBuffers.IsEmpty())
             {
-                SubmitAndRelease(handles, count);
+                last = SubmitAndRelease(handles, count);
             }
+            return last;
         }
 
-        void SubmitAndRelease(WGPUCommandBuffer* handles, usize count)
+        WGPUSubmissionIndex SubmitAndRelease(WGPUCommandBuffer* handles, usize count)
         {
-            m_api->wgpuQueueSubmit(m_queue, count, handles);
+            // SubmitForIndex (wgpu extension) hands back the submission's index so
+            // fences can wait on EXACTLY this submission; plain Submit on web.
+            WGPUSubmissionIndex index{};
+            if (m_api->wgpuQueueSubmitForIndex != nullptr)
+            {
+                index = m_api->wgpuQueueSubmitForIndex(m_queue, count, handles);
+            }
+            else
+            {
+                m_api->wgpuQueueSubmit(m_queue, count, handles);
+            }
             for (usize i = 0; i < count; ++i)
             {
                 m_api->wgpuCommandBufferRelease(handles[i]);
             }
+            return index;
         }
 
-        void SignalOnDone(Fence* fence, u64 value)
+        void NoteAndSignal(Fence* fence, u64 value, WGPUSubmissionIndex index)
         {
             if (fence == nullptr)
             {
                 return;
+            }
+            if (m_api->wgpuQueueSubmitForIndex != nullptr)
+            {
+                static_cast<WebGpuFence*>(fence)->NoteSubmission(value, index);
             }
             struct Pending
             {
@@ -175,6 +193,7 @@ export namespace draconic::rhi::webgpu
 
         const WebGpuApi* m_api = nullptr;
         WGPUInstance m_instance = nullptr;
+        WGPUDevice m_device = nullptr;
         WGPUQueue m_queue = nullptr;
         IAllocator* m_allocator = nullptr;
     };

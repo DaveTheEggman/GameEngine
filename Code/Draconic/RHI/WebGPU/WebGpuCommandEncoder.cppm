@@ -236,10 +236,18 @@ export namespace draconic::rhi::webgpu
                              Buffer* destination, u64 destinationOffset) override
         {
             EnsureOpen();
+            // WebGPU requires QUERY_RESOLVE usage on the resolve destination - which a
+            // mappable readback buffer can never carry (MapRead combines only with
+            // CopyDst). Resolve into an internal scratch buffer and copy over; the RHI
+            // contract (Vulkan-shaped: resolve into any CopyDst buffer) is preserved.
+            const u64 size = static_cast<u64>(queryCount) * sizeof(u64);
+            EnsureQueryScratch(size);
             m_api->wgpuCommandEncoderResolveQuerySet(
                 m_encoder, static_cast<WebGpuQuerySet*>(querySet)->Handle(), firstQuery,
-                queryCount, static_cast<WebGpuBuffer*>(destination)->Handle(),
-                destinationOffset);
+                queryCount, m_queryScratch, 0);
+            m_api->wgpuCommandEncoderCopyBufferToBuffer(
+                m_encoder, m_queryScratch, 0,
+                static_cast<WebGpuBuffer*>(destination)->Handle(), destinationOffset, size);
         }
 
         void BeginDebugLabel(StringView label, f32, f32, f32, f32) override
@@ -280,6 +288,10 @@ export namespace draconic::rhi::webgpu
                 m_encoder = nullptr;
             }
             m_commandBuffer.ReleaseHandle();
+            if (m_queryScratch != nullptr)
+            {
+                m_api->wgpuBufferRelease(m_queryScratch);
+            }
             for (WebGpuRenderBundleEncoder* encoder : m_bundleEncoders)
             {
                 m_allocator->Delete(encoder);
@@ -287,6 +299,23 @@ export namespace draconic::rhi::webgpu
         }
 
     private:
+        void EnsureQueryScratch(u64 size)
+        {
+            if (m_queryScratch != nullptr && m_queryScratchSize >= size)
+            {
+                return;
+            }
+            if (m_queryScratch != nullptr)
+            {
+                m_api->wgpuBufferRelease(m_queryScratch);
+            }
+            WGPUBufferDescriptor scratchDesc = WGPU_BUFFER_DESCRIPTOR_INIT;
+            scratchDesc.usage = WGPUBufferUsage_QueryResolve | WGPUBufferUsage_CopySrc;
+            scratchDesc.size = size;
+            m_queryScratch = m_api->wgpuDeviceCreateBuffer(m_device, &scratchDesc);
+            m_queryScratchSize = size;
+        }
+
         void EnsureOpen()
         {
             if (m_encoder == nullptr)
@@ -334,6 +363,8 @@ export namespace draconic::rhi::webgpu
         WebGpuRenderPassEncoder m_renderPass;
         WebGpuComputePassEncoder m_computePass;
         WebGpuCommandBuffer m_commandBuffer;
+        WGPUBuffer m_queryScratch = nullptr;
+        u64 m_queryScratchSize = 0;
         Array<WebGpuRenderBundleEncoder*> m_bundleEncoders;
     };
 }

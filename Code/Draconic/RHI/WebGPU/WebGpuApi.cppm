@@ -135,6 +135,7 @@ namespace draconic::rhi::webgpu
     X(wgpuDeviceRelease)                                                                           \
     X(wgpuDevicePoll) /* wgpu-native extension (desktop only) */                                   \
     X(wgpuQueueSubmit)                                                                             \
+    X(wgpuQueueSubmitForIndex) /* wgpu-native extension: index for precise waits */                \
     X(wgpuQueueOnSubmittedWorkDone)                                                                \
     X(wgpuQueueGetTimestampPeriod) /* wgpu-native extension (desktop only) */                      \
     X(wgpuQueueRelease)                                                                            \
@@ -152,12 +153,35 @@ namespace draconic::rhi::webgpu
         bool spirvIngestion = false;
 
         /// Pumps callback delivery for AllowProcessEvents-mode futures until `done`
-        /// flips or the iteration guard trips. The one wait primitive the backend uses.
+        /// flips or the iteration guard trips. Suits creation-time waits (nothing on
+        /// the GPU timeline); GPU-completion waits use PumpUntilWithDevice.
         void PumpUntil(WGPUInstance instance, const bool& done) const
         {
             for (u32 i = 0; i < 100000 && !done; ++i)
             {
                 wgpuInstanceProcessEvents(instance);
+            }
+        }
+
+        /// GPU-completion pump: map/work-done callbacks only fire when the DEVICE is
+        /// polled, and a bare ProcessEvents spin can starve under real frame load.
+        /// DevicePoll is NON-blocking (wait=0) - wait=1 can block forever when the
+        /// queue is already empty (e.g. a MapAsync pending with no submissions in
+        /// flight). On web the browser's event loop delivers; ProcessEvents suffices.
+        void PumpUntilWithDevice(WGPUInstance instance, WGPUDevice device,
+                                 const bool& done) const
+        {
+            for (u32 i = 0; i < 1000000 && !done; ++i)
+            {
+                wgpuInstanceProcessEvents(instance);
+                if (done)
+                {
+                    return;
+                }
+                if (wgpuDevicePoll != nullptr && device != nullptr)
+                {
+                    (void)wgpuDevicePoll(device, 0u, nullptr);
+                }
             }
         }
     };

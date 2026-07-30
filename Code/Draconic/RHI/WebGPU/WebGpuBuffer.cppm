@@ -33,6 +33,7 @@ export namespace draconic::rhi::webgpu
         {
             m_api = &api;
             m_instance = instance;
+            m_device = device;
             m_queue = queue;
             desc = bufferDesc;
 
@@ -96,9 +97,18 @@ export namespace draconic::rhi::webgpu
             callback.userdata1 = &result;
             (void)m_api->wgpuBufferMapAsync(m_buffer, WGPUMapMode_Read, 0,
                                             static_cast<usize>(AlignedSize()), callback);
-            m_api->PumpUntil(m_instance, done);
+            m_api->PumpUntilWithDevice(m_instance, m_device, done);
+            if (!done)
+            {
+                // The request is STILL PENDING - a pending map keeps the buffer in the
+                // "mapped" state and later submissions touching it will fail. Loud,
+                // because the caller only sees nullptr.
+                LogError("[webgpu] Buffer::Map timed out with the map request PENDING");
+                return nullptr;
+            }
             if (!mapped)
             {
+                LogError("[webgpu] Buffer::Map failed (MapAsync error)");
                 return nullptr;
             }
             m_readMapped = true;
@@ -139,6 +149,7 @@ export namespace draconic::rhi::webgpu
 
         const WebGpuApi* m_api = nullptr;
         WGPUInstance m_instance = nullptr;
+        WGPUDevice m_device = nullptr;
         WGPUQueue m_queue = nullptr;
         WGPUBuffer m_buffer = nullptr;
         Array<u8> m_shadow;

@@ -1,14 +1,10 @@
 /// draconic.rhi.webgpu:bind_group_layout - BindGroupLayout over WGPUBindGroupLayout.
 ///
-/// Bindings are declared SHIFTED (ShiftedBinding - the DXC register-space table) so
-/// layouts match the SPIR-V the desktop dev loop feeds the pipelines; the device
-/// requests the raised maxBindingsPerBindGroup this needs. Bindless and
-/// acceleration-structure entry types have no WebGPU shape - honest NotSupported,
-/// as are binding arrays (count > 1).
-///
-/// Texture entries declare sampleType Float (filterable) except depth formats are
-/// resolved at BIND time by WebGPU from the actual view; the layout-level
-/// approximation suffices until the renderer's depth-sampling passes climb on.
+/// Bindings are declared SHIFTED (ShiftedBinding - the compact WebGPU profile,
+/// matching what the compile side bakes into SPIR-V for WebGPU devices). Bindless
+/// and acceleration-structure entry types have no WebGPU shape - honest
+/// NotSupported, as are binding arrays (count > 1). Texture sample types come from
+/// the comparison-sampler heuristic below (explicit RHI field pending discussion).
 
 module;
 #include "Core/Prelude.h"
@@ -40,6 +36,21 @@ export namespace draconic::rhi::webgpu
                 m_entries.PushBack(entry);
             }
 
+            // HEURISTIC (documented gap): the RHI entry carries no texture SAMPLE
+            // TYPE, but WebGPU validates it against the shader (HLSL SampleCmp lowers
+            // to a DEPTH texture class). A group that binds a ComparisonSampler is a
+            // shadow-lookup group - its sampled textures are depth. An explicit
+            // BindGroupLayoutEntry field is the principled fix (RHI interface change,
+            // pending discussion).
+            bool groupHasComparisonSampler = false;
+            for (const BindGroupLayoutEntry& entry : m_entries)
+            {
+                if (entry.type == BindingType::ComparisonSampler)
+                {
+                    groupHasComparisonSampler = true;
+                }
+            }
+
             Array<WGPUBindGroupLayoutEntry> wgpuEntries;
             for (const BindGroupLayoutEntry& entry : m_entries)
             {
@@ -65,7 +76,9 @@ export namespace draconic::rhi::webgpu
                     wgpuEntry.buffer.hasDynamicOffset = entry.hasDynamicOffset;
                     break;
                 case BindingType::SampledTexture:
-                    wgpuEntry.texture.sampleType = WGPUTextureSampleType_Float;
+                    wgpuEntry.texture.sampleType = groupHasComparisonSampler
+                                                       ? WGPUTextureSampleType_Depth
+                                                       : WGPUTextureSampleType_Float;
                     wgpuEntry.texture.viewDimension =
                         ToWgpuTextureViewDimension(entry.textureDimension);
                     wgpuEntry.texture.multisampled = entry.textureMultisampled;

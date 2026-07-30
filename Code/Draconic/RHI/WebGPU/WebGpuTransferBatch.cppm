@@ -26,11 +26,12 @@ export namespace draconic::rhi::webgpu
     class WebGpuTransferBatch final : public TransferBatch
     {
     public:
-        void Initialize(const WebGpuApi& api, WGPUInstance instance, WGPUQueue queue,
-                        IAllocator& allocator)
+        void Initialize(const WebGpuApi& api, WGPUInstance instance, WGPUDevice device,
+                        WGPUQueue queue, IAllocator& allocator)
         {
             m_api = &api;
             m_instance = instance;
+            m_device = device;
             m_queue = queue;
             m_allocator = &allocator;
         }
@@ -72,7 +73,7 @@ export namespace draconic::rhi::webgpu
             { *static_cast<bool*>(userdata1) = true; };
             info.userdata1 = &done;
             (void)m_api->wgpuQueueOnSubmittedWorkDone(m_queue, info);
-            m_api->PumpUntil(m_instance, done);
+            m_api->PumpUntilWithDevice(m_instance, m_device, done);
             Reset();
             return ErrorCode::Ok;
         }
@@ -191,6 +192,7 @@ export namespace draconic::rhi::webgpu
 
         const WebGpuApi* m_api = nullptr;
         WGPUInstance m_instance = nullptr;
+        WGPUDevice m_device = nullptr;
         WGPUQueue m_queue = nullptr;
         IAllocator* m_allocator = nullptr;
         Array<BufferWrite> m_bufferWrites;
