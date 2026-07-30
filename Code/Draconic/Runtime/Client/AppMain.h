@@ -24,15 +24,32 @@
 #ifndef DRACONIC_RUNTIME_CLIENT_APPMAIN_H
 #define DRACONIC_RUNTIME_CLIENT_APPMAIN_H
 
+#include <string_view> // the backend-flag scan in the macro body
+
 // The body is the same on all desktop OSes for now. A windowed Win32 build will
 // later want wWinMain (no console); main is correct for console/CI builds and is
 // a fine starting point. Emscripten/Android targets provide their own entry.
 // If GPU device creation fails (no Vulkan), the app still runs windowless-headless.
+// The backend flag scan lives INSIDE the macro so it expands at the use site,
+// where the app's module imports (draconic.graphics) are in effect - a header-scope
+// function would be parsed at include time, before any import.
 #define DRACONIC_APP_MAIN(AppType)                                                                 \
-    int main(int /*argc*/, char** /*argv*/)                                                        \
+    int main(int argc, char** argv)                                                                \
     {                                                                                              \
         auto shell = ::draconic::shell::CreateShell();                                             \
         ::draconic::graphics::GraphicsDeviceDesc draconicGpuDesc{};                                \
+        for (int draconicArg = 1; draconicArg < argc; ++draconicArg)                               \
+        {                                                                                          \
+            const ::std::string_view draconicFlag = argv[draconicArg];                             \
+            if (draconicFlag == "--vulkan" || draconicFlag == "--vk")                              \
+                draconicGpuDesc.backend = ::draconic::graphics::BackendType::Vulkan;               \
+            else if (draconicFlag == "--dx12" || draconicFlag == "--d3d12")                        \
+                draconicGpuDesc.backend = ::draconic::graphics::BackendType::DX12;                 \
+            else if (draconicFlag == "--webgpu" || draconicFlag == "--wgpu")                       \
+                draconicGpuDesc.backend = ::draconic::graphics::BackendType::WebGPU;               \
+            else if (draconicFlag == "--null-gpu")                                                 \
+                draconicGpuDesc.backend = ::draconic::graphics::BackendType::Null;                 \
+        }                                                                                          \
         auto draconicGpu = ::draconic::graphics::CreateGraphicsDevice(draconicGpuDesc);            \
         ::draconic::graphics::GraphicsDevice* draconicDevice =                                     \
             draconicGpu.HasValue() ? draconicGpu.Value().Get() : nullptr;                          \
