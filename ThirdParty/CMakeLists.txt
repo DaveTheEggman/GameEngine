@@ -49,6 +49,43 @@ else()
     message(STATUS "ThirdParty/DXC not present — draconic.shaders will be skipped.")
 endif()
 
+# wgpu-native — vendored standard webgpu.h header + pre-built runtime binaries
+# (gfx-rs/wgpu-native, see WgpuNative/VERSION). The desktop WebGPU RHI backend is
+# written against webgpu.h and loads wgpu_native at RUN TIME (dlopen / LoadLibrary),
+# the same runtime-sidecar pattern as DXC: headers are an INTERFACE target; only the
+# library's path (+ a dev-build rpath) is published. Browser builds link the
+# emscripten-provided implementation instead - no sidecar there.
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/WgpuNative/include/webgpu/webgpu.h)
+    add_library(draconic_wgpu_headers INTERFACE)
+    add_library(Draconic::WgpuHeaders ALIAS draconic_wgpu_headers)
+    target_include_directories(draconic_wgpu_headers
+        SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/WgpuNative/include)
+
+    if(WIN32)
+        set(_wgpu_lib_dir "${CMAKE_CURRENT_SOURCE_DIR}/WgpuNative/lib/win-x64")
+        if(EXISTS "${_wgpu_lib_dir}/wgpu_native.dll")
+            target_compile_definitions(draconic_wgpu_headers
+                INTERFACE DRACONIC_WGPU_PATH="${_wgpu_lib_dir}/wgpu_native.dll")
+            set(DRACONIC_WGPU_LIB "${_wgpu_lib_dir}/wgpu_native.dll" CACHE INTERNAL
+                "wgpu-native runtime library to stage beside shipping apps")
+            message(STATUS "wgpu-native runtime: ${_wgpu_lib_dir}")
+        endif()
+    elseif(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
+        set(_wgpu_lib_dir "${CMAKE_CURRENT_SOURCE_DIR}/WgpuNative/lib/linux-x86_64")
+        if(EXISTS "${_wgpu_lib_dir}/libwgpu_native.so")
+            target_compile_definitions(draconic_wgpu_headers
+                INTERFACE DRACONIC_WGPU_PATH="${_wgpu_lib_dir}/libwgpu_native.so")
+            set(DRACONIC_WGPU_LIB "${_wgpu_lib_dir}/libwgpu_native.so" CACHE INTERNAL
+                "wgpu-native runtime library to stage beside shipping apps")
+            list(APPEND CMAKE_BUILD_RPATH "${_wgpu_lib_dir}")
+            set(CMAKE_BUILD_RPATH "${CMAKE_BUILD_RPATH}" PARENT_SCOPE)
+            message(STATUS "wgpu-native runtime: ${_wgpu_lib_dir}")
+        endif()
+    endif()
+else()
+    message(STATUS "ThirdParty/WgpuNative not present — draconic.rhi.webgpu will be skipped.")
+endif()
+
 # stb / cgltf / ufbx — vendored header(+source) libraries (copied, not submodules).
 # Header include-dir INTERFACE targets; the *_impl translation units that define
 # the implementations live in the engine libraries that use them.
