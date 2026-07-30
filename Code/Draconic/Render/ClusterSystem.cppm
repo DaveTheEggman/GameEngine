@@ -22,7 +22,6 @@ import draconic.shaders.system;
 import :data;
 import :views;
 import :resources;
-import :cluster_shaders; // ClusterBuildCS() - HLSL split into ClusterShaders.cppm
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -124,6 +123,7 @@ export namespace draconic::render
         rhi::BindGroupLayout* m_layout = nullptr;
         rhi::PipelineLayout* m_pipelineLayout = nullptr;
         rhi::ComputePipeline* m_pipeline = nullptr;
+        u64 m_pipelineShaderVersion = 0; // ShaderSystem::Version at build (hot reload)
 
         static constexpr u32 kMaxFramesInFlight = 8;
         // Cluster buffers are owned per (view, frame-in-flight) slot - two views in one frame must not

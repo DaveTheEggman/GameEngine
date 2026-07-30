@@ -17,7 +17,6 @@ import draconic.rendergraph;
 import draconic.shaders;
 import draconic.shaders.system;
 import :data;        // kGVelocityFormat (sky writes camera-motion velocity for TAA)
-import :sky_shaders; // SkyCommon()/SkyVS()/SkyPS() - HLSL source in SkyShaders.cppm
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -26,10 +25,6 @@ namespace draconic::render
 {
     Status SkyPass::Initialize()
     {
-        m_shaders->RegisterSource(u8"sky", shaders::ShaderStage::Vertex,
-                                  Concat(SkyCommon(), SkyVS()));
-        m_shaders->RegisterSource(u8"sky", shaders::ShaderStage::Fragment,
-                                  Concat(SkyCommon(), SkyPS()));
         rhi::BindGroupLayoutEntry uboE = rhi::BindGroupLayoutEntry::UniformBuffer(
             0, rhi::ShaderStage::Vertex | rhi::ShaderStage::Fragment);
         rhi::BindGroupLayoutEntry texE = rhi::BindGroupLayoutEntry::SampledTexture(
@@ -121,17 +116,12 @@ namespace draconic::render
             });
     }
 
-    String SkyPass::Concat(StringView a, StringView b)
-    {
-        String s(a);
-        s.Append(b);
-        return s;
-    }
-
     rhi::RenderPipeline* SkyPass::EnsurePipeline(rhi::TextureFormat colorFmt,
                                                  rhi::TextureFormat depthFmt)
     {
-        if (m_pipeline != nullptr && m_colorFormat == colorFmt && m_depthFormat == depthFmt)
+        const u64 shaderVersion = m_shaders->Version(u8"sky"); // hot reload rebuilds
+        if (m_pipeline != nullptr && m_colorFormat == colorFmt && m_depthFormat == depthFmt &&
+            m_pipelineShaderVersion == shaderVersion)
         {
             return m_pipeline;
         }
@@ -178,6 +168,7 @@ namespace draconic::render
         }
         m_colorFormat = colorFmt;
         m_depthFormat = depthFmt;
+        m_pipelineShaderVersion = shaderVersion;
         return m_pipeline;
     }
 

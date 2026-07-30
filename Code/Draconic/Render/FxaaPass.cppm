@@ -17,7 +17,6 @@ import draconic.rhi;
 import draconic.rendergraph;
 import draconic.shaders;
 import draconic.shaders.system;
-import :fxaa_shaders; // FxaaVS() / FxaaPS() - HLSL source split into FxaaShaders.cppm
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -41,8 +40,6 @@ export namespace draconic::render
 
         Status Initialize()
         {
-            m_shaders->RegisterSource(u8"fxaa", shaders::ShaderStage::Vertex, FxaaVS());
-            m_shaders->RegisterSource(u8"fxaa", shaders::ShaderStage::Fragment, FxaaPS());
 
             rhi::BindGroupLayoutEntry texEntry =
                 rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Fragment);
@@ -134,7 +131,9 @@ export namespace draconic::render
 
         rhi::RenderPipeline* EnsurePipeline(rhi::TextureFormat fmt)
         {
-            if (m_pipeline != nullptr && m_pipelineFormat == fmt)
+            const u64 shaderVersion = m_shaders->Version(u8"fxaa"); // hot reload rebuilds
+            if (m_pipeline != nullptr && m_pipelineFormat == fmt &&
+                m_pipelineShaderVersion == shaderVersion)
             {
                 return m_pipeline;
             }
@@ -169,6 +168,7 @@ export namespace draconic::render
                 return nullptr;
             }
             m_pipelineFormat = fmt;
+            m_pipelineShaderVersion = shaderVersion;
             return m_pipeline;
         }
 
@@ -244,6 +244,7 @@ export namespace draconic::render
         rhi::PipelineLayout* m_pipelineLayout = nullptr;
         rhi::RenderPipeline* m_pipeline = nullptr;
         rhi::TextureFormat m_pipelineFormat = rhi::TextureFormat::Undefined;
+        u64 m_pipelineShaderVersion = 0; // ShaderSystem::Version at build (hot reload)
         rhi::Sampler* m_sampler = nullptr;
         rhi::BindGroup* m_bindGroups[kMaxSlots] = {};
         rhi::TextureView* m_bgViews[kMaxSlots] = {};

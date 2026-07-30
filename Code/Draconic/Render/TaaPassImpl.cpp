@@ -22,7 +22,6 @@ import draconic.rhi;
 import draconic.rendergraph;
 import draconic.shaders;
 import draconic.shaders.system;
-import :taa_shaders; // TaaVS() / TaaPS() - HLSL source split into TaaShaders.cppm
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -31,8 +30,6 @@ namespace draconic::render
 {
     Status TaaPass::Initialize()
     {
-        m_shaders->RegisterSource(u8"taa", shaders::ShaderStage::Vertex, TaaVS());
-        m_shaders->RegisterSource(u8"taa", shaders::ShaderStage::Fragment, TaaPS());
 
         // set 0: current(t0) history(t1) motion(t2) depth(t3) + point(s0) linear(s1).
         rhi::BindGroupLayoutEntry e[] = {
@@ -102,6 +99,21 @@ namespace draconic::render
                                               f32 motionScale, f32 nearPlane, f32 farPlane)
     {
         if (viewIndex >= kMaxViews || w == 0 || h == 0)
+        {
+            return current;
+        }
+        // Hot reload: rebuild the pipeline when the shader changed (GPU idled on reload).
+        const u64 shaderVersion = m_shaders->Version(u8"taa");
+        if (shaderVersion != m_pipelineShaderVersion)
+        {
+            if (m_pipeline != nullptr)
+            {
+                m_device->DestroyRenderPipeline(m_pipeline);
+            }
+            m_pipeline = MakePipeline();
+            m_pipelineShaderVersion = shaderVersion;
+        }
+        if (m_pipeline == nullptr)
         {
             return current;
         }

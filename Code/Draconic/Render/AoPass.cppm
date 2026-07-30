@@ -18,7 +18,6 @@ import draconic.rhi;
 import draconic.rendergraph;
 import draconic.shaders;
 import draconic.shaders.system;
-import :ao_shaders; // AoVS()/AoCommon()/GtaoGenPS()/SsaoGenPS()/AoBlurPS()/AoApplyPS() - HLSL in AoShaders.cppm
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -130,9 +129,6 @@ export namespace draconic::render
             }
         };
 
-        // Prepend the shared helpers (OctDecode etc. live in kAoCommon) to a generate shader body.
-        static String Concat(StringView a, StringView b);
-
         rhi::PipelineLayout* MakePipelineLayout(usize pushSize);
 
         void DeclareBlur(rendergraph::RenderGraph& graph, rendergraph::RGHandle ao,
@@ -179,6 +175,7 @@ export namespace draconic::render
         rhi::RenderPipeline* m_ssaoPipeline = nullptr;
         rhi::RenderPipeline* m_blurPipeline = nullptr;
         rhi::RenderPipeline* m_applyPipeline = nullptr;
+        u64 m_pipelineShaderVersion = 0; // ShaderSystem::Version at build (hot reload)
         rhi::Sampler* m_sampler = nullptr;
         HashMap<rhi::TextureView*, Entry> m_bindGroups;
         Array<Retired> m_retired;

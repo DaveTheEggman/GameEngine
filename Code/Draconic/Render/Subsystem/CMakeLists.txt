@@ -10,6 +10,11 @@ target_link_libraries(DraconicRenderSubsystem
            Draconic::TextureResource Draconic::Resource
            Draconic::PipelineCache Draconic::Profiler Draconic::Policy)
 
+# Dev builds resolve engine built-in shaders straight from the source tree (edit ->
+# hot reload); dists stage them as "Shaders" next to the executable (the fallback).
+target_compile_definitions(DraconicRenderSubsystem
+    PRIVATE DRACONIC_ENGINE_SHADER_DIR="${CMAKE_SOURCE_DIR}/Data/Shaders")
+
 target_sources(DraconicRenderSubsystem
     PRIVATE
         RenderComponentsImpl.cpp   # DRACONIC_REFLECT_* bodies (see RenderComponents.cppm)

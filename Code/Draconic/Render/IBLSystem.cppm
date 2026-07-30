@@ -29,7 +29,6 @@ import draconic.rendergraph;
 import draconic.shaders;
 import draconic.shaders.system;
 import :data;        // SkySnapshot / SkyMode / ExtractedScene (context identity)
-import :ibl_shaders; // IblFullscreenVS()/IblCommon()/... - HLSL source in IBLShaders.cppm
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -218,13 +217,13 @@ export namespace draconic::render
         void DestroyContext(Context& ctx);
 
         bool CreatePipelines();
+        // Hot reload: destroy + recreate every pipeline against the reloaded shaders
+        // (layouts survive). False when a shader no longer compiles.
+        bool RebuildPipelinesForReload();
 
         rhi::RenderPipeline* MakeFullscreenPipeline(rhi::ShaderModule* vs, StringView psName,
                                                     rhi::PipelineLayout* layout,
                                                     rhi::TextureFormat fmt);
-
-        // Concatenate two shader source literals into an owned String (IblCommon() + a PS body).
-        static String Concat(StringView a, StringView b);
 
         // Lazily create the equirect->cube pipeline (2D source tex + sampler + push) - only when an HDR
         // equirect is first set, since most scenes are procedural.
@@ -305,6 +304,7 @@ export namespace draconic::render
 
         bool m_ready = false;
         bool m_brdfDone = false; // the BRDF LUT is constant - generated once, not per sky change
+        u64 m_pipelineShaderVersion = 0; // summed ShaderSystem::Version at build (hot reload)
     };
 
 } // namespace draconic::render

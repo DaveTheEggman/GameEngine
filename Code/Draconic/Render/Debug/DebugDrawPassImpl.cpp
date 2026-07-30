@@ -19,7 +19,6 @@ import draconic.shaders;
 import draconic.shaders.system;
 import :debug_font;
 import :debug_draw;
-import :debug_pass_shaders; // DebugGeomVS()/DebugGeomPS()/DebugScreenVS()/DebugScreenPS() - HLSL split into DebugDrawShaders.cppm
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -28,11 +27,6 @@ namespace draconic::render
 {
     Status DebugDrawPass::Initialize()
     {
-        m_shaders->RegisterSource(u8"debug_geom", shaders::ShaderStage::Vertex, DebugGeomVS());
-        m_shaders->RegisterSource(u8"debug_geom", shaders::ShaderStage::Fragment, DebugGeomPS());
-        m_shaders->RegisterSource(u8"debug_screen", shaders::ShaderStage::Vertex, DebugScreenVS());
-        m_shaders->RegisterSource(u8"debug_screen", shaders::ShaderStage::Fragment,
-                                  DebugScreenPS());
 
         // Geometry pipeline layout: just the ViewProj push (no bind groups).
         rhi::PushConstantRange gpc{};
@@ -398,7 +392,9 @@ namespace draconic::render
     DebugDrawPass::Pipelines* DebugDrawPass::EnsurePipelines(rhi::TextureFormat colorFmt,
                                                              rhi::TextureFormat depthFmt)
     {
-        if (m_geom.color == colorFmt && m_geom.depth == depthFmt && m_geom.lineDepth != nullptr)
+        const u64 shaderVersion = m_shaders->Version(u8"debug_geom"); // hot reload rebuilds
+        if (m_geom.color == colorFmt && m_geom.depth == depthFmt && m_geom.lineDepth != nullptr &&
+            m_geom.shaderVersion == shaderVersion)
         {
             return &m_geom;
         }
@@ -418,6 +414,7 @@ namespace draconic::render
         }
         m_geom.color = colorFmt;
         m_geom.depth = depthFmt;
+        m_geom.shaderVersion = shaderVersion;
         return &m_geom;
     }
 
@@ -469,7 +466,9 @@ namespace draconic::render
 
     rhi::RenderPipeline* DebugDrawPass::EnsureScreenPipeline(rhi::TextureFormat colorFmt)
     {
-        if (m_screenPipe != nullptr && m_screenFmt == colorFmt)
+        const u64 shaderVersion = m_shaders->Version(u8"debug_screen"); // hot reload rebuilds
+        if (m_screenPipe != nullptr && m_screenFmt == colorFmt &&
+            m_screenShaderVersion == shaderVersion)
         {
             return m_screenPipe;
         }
@@ -513,6 +512,7 @@ namespace draconic::render
             return nullptr;
         }
         m_screenFmt = colorFmt;
+        m_screenShaderVersion = shaderVersion;
         return m_screenPipe;
     }
 

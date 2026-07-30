@@ -27,6 +27,27 @@ namespace shaders = draconic::shaders;
 namespace
 {
 
+    // Engine built-in shaders live as files under the engine shader root (shaders.md P1);
+    // tests wire the same dev file provider the RenderSubsystem does.
+    shaders::FileShaderSourceProvider& EngineShaderProvider()
+    {
+        static shaders::FileShaderSourceProvider provider;
+        static bool initialized = false;
+        if (!initialized)
+        {
+            initialized = true;
+            REQUIRE(provider.Initialize(u8"" DRACONIC_ENGINE_SHADER_DIR).IsOk());
+        }
+        return provider;
+    }
+
+    void WireEngineShaders(shaders::ShaderSystem& ss)
+    {
+        ss.SetSourceProvider(&EngineShaderProvider());
+        const StringView includePaths[] = {EngineShaderProvider().RootDirectory()};
+        ss.SetIncludePaths(Span<const StringView>{includePaths, 1});
+    }
+
     // A small fixture holding the GPU-side systems + a color target + an encoder.
     struct RenderHarness
     {
@@ -100,6 +121,7 @@ TEST_CASE("RenderFrame draws a one-cube view (extract -> sort -> mesh upload -> 
     }
 
     shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
+    WireEngineShaders(shaderSystem);
     materials::PipelineStateCache psoCache(shaderSystem, h.device);
 
     materials::MaterialSystem materialSystem;
@@ -150,6 +172,7 @@ TEST_CASE("RenderFrame batches same-mesh-same-material draws into an instanced d
     }
 
     shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
+    WireEngineShaders(shaderSystem);
     materials::PipelineStateCache psoCache(shaderSystem, h.device);
     materials::MaterialSystem materialSystem;
     REQUIRE(materialSystem.Initialize(h.device).IsOk());
@@ -200,6 +223,7 @@ TEST_CASE("RenderFrame parallel emit: many distinct draws fan out across the job
     InitGlobalJobSystem(4);
     {
         shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
+        WireEngineShaders(shaderSystem);
         materials::PipelineStateCache psoCache(shaderSystem, h.device);
         materials::MaterialSystem materialSystem;
         REQUIRE(materialSystem.Initialize(h.device).IsOk());
@@ -255,6 +279,7 @@ TEST_CASE("RenderFrame with an empty view still clears (no crash, no PSOs)")
     }
 
     shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
+    WireEngineShaders(shaderSystem);
     materials::PipelineStateCache psoCache(shaderSystem, h.device);
     materials::MaterialSystem materialSystem;
     REQUIRE(materialSystem.Initialize(h.device).IsOk());
@@ -288,6 +313,7 @@ TEST_CASE("RenderFrame multi-scene shadows: each view sources its OWN scene (no 
     }
 
     shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
+    WireEngineShaders(shaderSystem);
     materials::PipelineStateCache psoCache(shaderSystem, h.device);
     materials::MaterialSystem materialSystem;
     REQUIRE(materialSystem.Initialize(h.device).IsOk());
@@ -397,6 +423,7 @@ TEST_CASE("ReflectionProbeSystem accumulates per-scene ranges (multi-scene frame
     }
 
     shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
+    WireEngineShaders(shaderSystem);
     ReflectionProbeSystem probes(h.device, shaderSystem);
     REQUIRE(probes.Initialize().IsOk());
 
@@ -456,6 +483,7 @@ TEST_CASE("IBLSystem: per-scene contexts; env rebuilds when a scene's sky-textur
     }
 
     shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
+    WireEngineShaders(shaderSystem);
     IBLSystem ibl(h.device, shaderSystem);
     REQUIRE(ibl.Initialize().IsOk());
 
@@ -535,6 +563,7 @@ TEST_CASE("RenderFrame draws an UNLIT material (unlit shader compiles + PSO buil
     }
 
     shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
+    WireEngineShaders(shaderSystem);
     materials::PipelineStateCache psoCache(shaderSystem, h.device);
     materials::MaterialSystem materialSystem;
     REQUIRE(materialSystem.Initialize(h.device).IsOk());

@@ -26,7 +26,6 @@ import draconic.shaders;
 import draconic.shaders.system;
 import :data;
 import :resources;
-import :decal_shaders;
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -120,6 +119,7 @@ export namespace draconic::render
         rhi::BindGroupLayout* m_texLayout = nullptr;
         rhi::PipelineLayout* m_pipelineLayout = nullptr;
         rhi::RenderPipeline* m_pipeline = nullptr;
+        u64 m_pipelineShaderVersion = 0; // ShaderSystem::Version at build (hot reload)
         rhi::Sampler* m_depthSampler = nullptr;
         rhi::Sampler* m_texSampler = nullptr;
         rhi::BindGroup* m_uboBg = nullptr;

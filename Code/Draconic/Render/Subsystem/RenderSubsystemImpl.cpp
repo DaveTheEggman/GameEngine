@@ -223,6 +223,13 @@ namespace draconic::render
         {
             return;
         }
+        // Dev hot reload (throttled inside the provider). On a reload, idle the GPU so
+        // passes can destroy + rebuild their version-stamped pipelines immediately (a
+        // dev-only hiccup; the material path still goes through the PSO retire ring).
+        if (m_shaders->PumpReloads() > 0)
+        {
+            m_device->WaitIdle();
+        }
         m_sceneCount = 0;
         m_snapshotOwners.Resize(m_scenes.Size()); // per-frame scene tags for snapshot sharing
         // Provision per-worker extraction arenas for this frame (one per job-system slot, or a
@@ -446,6 +453,36 @@ namespace draconic::render
             return; // no shader compiler - renderer stays inert
         }
         m_shaders = MakeUnique<shaders::ShaderSystem>(DefaultAllocator(), *m_compiler, *m_device);
+
+        // Engine built-in shader sources: real .hlsl files under the engine shader root
+        // (shaders.md P1). Dev builds bake the source-tree Data/Shaders path; dists stage
+        // the files as "Shaders" next to the executable. A missing root is loud but not
+        // fatal: explicit RegisterSource still works (bespoke inline shaders, tests).
+#ifdef DRACONIC_ENGINE_SHADER_DIR
+        constexpr StringView kEngineShaderRoot = u8"" DRACONIC_ENGINE_SHADER_DIR;
+#else
+        constexpr StringView kEngineShaderRoot = u8"Shaders";
+#endif
+        StringView shaderRoot = kEngineShaderRoot;
+        if (!DirectoryExists(shaderRoot) && DirectoryExists(u8"Shaders"))
+        {
+            shaderRoot = u8"Shaders"; // relocated build - dist layout fallback
+        }
+        m_shaderProvider = MakeUnique<shaders::FileShaderSourceProvider>(DefaultAllocator());
+        if (m_shaderProvider->Initialize(shaderRoot).IsOk())
+        {
+            m_shaders->SetSourceProvider(m_shaderProvider.Get());
+            const StringView includePaths[] = {m_shaderProvider->RootDirectory()};
+            m_shaders->SetIncludePaths(Span<const StringView>{includePaths, 1});
+        }
+        else
+        {
+            m_shaderProvider.Reset();
+            rhi::LogErrorf("RenderSubsystem: engine shader root not found (%s) - "
+                           "built-in shaders unavailable",
+                           reinterpret_cast<const char*>(shaderRoot.Data()));
+        }
+
         m_psoCache =
             MakeUnique<materials::PipelineStateCache>(DefaultAllocator(), *m_shaders, *m_device);
         m_materialSystem = MakeUnique<materials::MaterialSystem>(DefaultAllocator());
@@ -637,6 +674,7 @@ namespace draconic::render
         m_materialSystem.Reset();
         m_psoCache.Reset();
         m_shaders.Reset();
+        m_shaderProvider.Reset(); // after the ShaderSystem that borrows it
         if (m_compiler != nullptr)
         {
             m_compiler->Destroy();

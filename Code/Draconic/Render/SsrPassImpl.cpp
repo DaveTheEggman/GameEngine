@@ -24,7 +24,6 @@ import draconic.rhi;
 import draconic.rendergraph;
 import draconic.shaders;
 import draconic.shaders.system;
-import :ssr_shaders; // SsrVS() / SsrPS() / SsrResolvePS() - HLSL source split into SsrShaders.cppm
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -33,8 +32,6 @@ namespace draconic::render
 {
     Status SsrPass::Initialize()
     {
-        m_shaders->RegisterSource(u8"ssr", shaders::ShaderStage::Vertex, SsrVS());
-        m_shaders->RegisterSource(u8"ssr", shaders::ShaderStage::Fragment, SsrPS());
 
         // Bind-group layout: scene(t0) + depth(t1) + normal(t2) + material(t3) + point sampler(s0) for
         // depth/reconstruction + linear sampler(s1) for the glossy color cone-gather.
@@ -96,35 +93,13 @@ namespace draconic::render
             return Status{ErrorCode::Unknown};
         }
 
-        rhi::ShaderModule* vs = m_shaders->GetVariant(u8"ssr", shaders::ShaderStage::Vertex,
-                                                      shaders::ShaderFlags::None);
-        rhi::ShaderModule* ps = m_shaders->GetVariant(u8"ssr", shaders::ShaderStage::Fragment,
-                                                      shaders::ShaderFlags::None);
-        if (vs == nullptr || ps == nullptr)
-        {
-            return Status{ErrorCode::Unknown};
-        }
-        rhi::ColorTargetState color{};
-        color.format = kHdrFormat;
-        rhi::FragmentState frag{};
-        frag.shader = rhi::ProgrammableStage{ps, u8"main", rhi::ShaderStage::Fragment};
-        frag.targets = Span<const rhi::ColorTargetState>{&color, 1};
-        rhi::RenderPipelineDesc pd{};
-        pd.layout = m_pipelineLayout;
-        pd.vertex.shader = rhi::ProgrammableStage{vs, u8"main", rhi::ShaderStage::Vertex};
-        pd.fragment = frag;
-        pd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
-        pd.primitive.cullMode = rhi::CullMode::None;
-        pd.label = u8"ssr";
-        if (!m_device->CreateRenderPipeline(pd, m_pipeline).IsOk())
+        if (!CreateTracePipeline())
         {
             return Status{ErrorCode::Unknown};
         }
 
         // --- Resolve pipeline (temporal accumulate + composite): reflection(t0) history(t1) velocity(t2)
         //     hdr(t3) + point(s0) linear(s1). MRT out = composited HDR + next-frame reflection history. ---
-        m_shaders->RegisterSource(u8"ssr_resolve", shaders::ShaderStage::Vertex, SsrVS());
-        m_shaders->RegisterSource(u8"ssr_resolve", shaders::ShaderStage::Fragment, SsrResolvePS());
         rhi::BindGroupLayoutEntry re[] = {
             rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Fragment),
             rhi::BindGroupLayoutEntry::SampledTexture(1, rhi::ShaderStage::Fragment),
@@ -151,13 +126,52 @@ namespace draconic::render
         {
             return Status{ErrorCode::Unknown};
         }
+        if (!CreateResolvePipeline())
+        {
+            return Status{ErrorCode::Unknown};
+        }
+        return Status{};
+    }
+
+    bool SsrPass::CreateTracePipeline()
+    {
+        rhi::ShaderModule* vs = m_shaders->GetVariant(u8"ssr", shaders::ShaderStage::Vertex,
+                                                      shaders::ShaderFlags::None);
+        rhi::ShaderModule* ps = m_shaders->GetVariant(u8"ssr", shaders::ShaderStage::Fragment,
+                                                      shaders::ShaderFlags::None);
+        if (vs == nullptr || ps == nullptr)
+        {
+            return false;
+        }
+        rhi::ColorTargetState color{};
+        color.format = kHdrFormat;
+        rhi::FragmentState frag{};
+        frag.shader = rhi::ProgrammableStage{ps, u8"main", rhi::ShaderStage::Fragment};
+        frag.targets = Span<const rhi::ColorTargetState>{&color, 1};
+        rhi::RenderPipelineDesc pd{};
+        pd.layout = m_pipelineLayout;
+        pd.vertex.shader = rhi::ProgrammableStage{vs, u8"main", rhi::ShaderStage::Vertex};
+        pd.fragment = frag;
+        pd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
+        pd.primitive.cullMode = rhi::CullMode::None;
+        pd.label = u8"ssr";
+        if (!m_device->CreateRenderPipeline(pd, m_pipeline).IsOk())
+        {
+            m_pipeline = nullptr;
+            return false;
+        }
+        return true;
+    }
+
+    bool SsrPass::CreateResolvePipeline()
+    {
         rhi::ShaderModule* rvs = m_shaders->GetVariant(
             u8"ssr_resolve", shaders::ShaderStage::Vertex, shaders::ShaderFlags::None);
         rhi::ShaderModule* rps = m_shaders->GetVariant(
             u8"ssr_resolve", shaders::ShaderStage::Fragment, shaders::ShaderFlags::None);
         if (rvs == nullptr || rps == nullptr)
         {
-            return Status{ErrorCode::Unknown};
+            return false;
         }
         rhi::ColorTargetState rtargets[2] = {};
         rtargets[0].format = kHdrFormat; // composited HDR
@@ -174,9 +188,10 @@ namespace draconic::render
         rpd.label = u8"ssr_resolve";
         if (!m_device->CreateRenderPipeline(rpd, m_resolvePipeline).IsOk())
         {
-            return Status{ErrorCode::Unknown};
+            m_resolvePipeline = nullptr;
+            return false;
         }
-        return Status{};
+        return true;
     }
 
     rendergraph::RGHandle
@@ -186,8 +201,30 @@ namespace draconic::render
                         u32 h, i32 vx, i32 vy, u32 vw, u32 vh, const Float4x4& invProj,
                         const Float4x4& proj, const Params& p, u32 viewIndex, u32 frameIndex)
     {
-        if (w == 0 || h == 0 || m_pipeline == nullptr || m_resolvePipeline == nullptr ||
-            viewIndex >= kMaxViews)
+        if (w == 0 || h == 0 || viewIndex >= kMaxViews)
+        {
+            return hdr;
+        }
+        // Hot reload: rebuild both pipelines when the shaders changed (GPU idled on reload).
+        const u64 shaderVersion =
+            m_shaders->Version(u8"ssr") + m_shaders->Version(u8"ssr_resolve");
+        if (shaderVersion != m_pipelineShaderVersion)
+        {
+            if (m_pipeline != nullptr)
+            {
+                m_device->DestroyRenderPipeline(m_pipeline);
+                m_pipeline = nullptr;
+            }
+            if (m_resolvePipeline != nullptr)
+            {
+                m_device->DestroyRenderPipeline(m_resolvePipeline);
+                m_resolvePipeline = nullptr;
+            }
+            (void)CreateTracePipeline();
+            (void)CreateResolvePipeline();
+            m_pipelineShaderVersion = shaderVersion;
+        }
+        if (m_pipeline == nullptr || m_resolvePipeline == nullptr)
         {
             return hdr;
         }

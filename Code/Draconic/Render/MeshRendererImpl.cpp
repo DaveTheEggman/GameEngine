@@ -17,7 +17,6 @@ import :pipeline;
 import :cluster_system;
 import :resources;
 import :gpu_mesh;
-import :mesh_shaders; // ForwardVS() / ForwardPS() / ShadowVS() / ShadowMaskedPS() - HLSL split into MeshShaders.cppm
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -26,11 +25,6 @@ namespace draconic::render
 {
     Status MeshRenderer::Initialize()
     {
-        m_shaders->RegisterSource(u8"forward", shaders::ShaderStage::Vertex, ForwardVS());
-        m_shaders->RegisterSource(u8"forward", shaders::ShaderStage::Fragment, ForwardPS());
-        m_shaders->RegisterSource(u8"unlit", shaders::ShaderStage::Vertex,
-                                  ForwardVS()); // same VS/PSInput
-        m_shaders->RegisterSource(u8"unlit", shaders::ShaderStage::Fragment, UnlitPS());
 
         // set 0: per-view UBO (ViewProj + camera + light range), dynamic offset, Vertex|Fragment;
         // + the light list as a read-only StructuredBuffer (Fragment), bound whole.
@@ -135,9 +129,6 @@ namespace draconic::render
         // Shadow depth-only path (phase 5): a vertex-only shader + a 2-set pipeline layout
         // (set 0 = light view UBO, set 1 = the SAME object/instance layouts as forward, so the
         // object/instance bind groups are reused). No material/cluster sets.
-        m_shaders->RegisterSource(u8"shadow_depth", shaders::ShaderStage::Vertex, ShadowVS());
-        m_shaders->RegisterSource(u8"shadow_depth", shaders::ShaderStage::Fragment,
-                                  ShadowMaskedPS()); // masked casters (alpha-test)
         rhi::BindGroupLayoutEntry shadowViewEntry =
             rhi::BindGroupLayoutEntry::UniformBuffer(0, rhi::ShaderStage::Vertex);
         shadowViewEntry.hasDynamicOffset = true;

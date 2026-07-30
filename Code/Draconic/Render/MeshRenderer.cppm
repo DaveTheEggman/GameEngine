@@ -31,7 +31,6 @@ import :pipeline;
 import :cluster_system;
 import :resources;
 import :gpu_mesh;
-import :mesh_shaders; // ForwardVS() / ForwardPS() / ShadowVS() / ShadowMaskedPS() - HLSL split into MeshShaders.cppm
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;

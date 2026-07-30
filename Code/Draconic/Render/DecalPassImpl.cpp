@@ -26,7 +26,6 @@ import draconic.shaders;
 import draconic.shaders.system;
 import :data;
 import :resources;
-import :decal_shaders;
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -35,8 +34,6 @@ namespace draconic::render
 {
     Status DecalPass::Initialize()
     {
-        m_shaders->RegisterSource(u8"decal", shaders::ShaderStage::Vertex, DecalVS());
-        m_shaders->RegisterSource(u8"decal", shaders::ShaderStage::Fragment, DecalPS());
 
         // set 0: scene depth (t0) + sampler (s0). set 1: per-decal UBO (dynamic). set 2: decal texture.
         rhi::BindGroupLayoutEntry depthEntries[] = {
@@ -126,6 +123,21 @@ namespace draconic::render
                                   u32 vpH)
     {
         if (decals.IsEmpty() || w == 0 || h == 0 || m_decalRing.Buffer() == nullptr)
+        {
+            return;
+        }
+        // Hot reload: rebuild the pipeline when the shader changed (GPU idled on reload).
+        const u64 shaderVersion = m_shaders->Version(u8"decal");
+        if (shaderVersion != m_pipelineShaderVersion)
+        {
+            if (m_pipeline != nullptr)
+            {
+                m_device->DestroyRenderPipeline(m_pipeline);
+            }
+            m_pipeline = MakePipeline();
+            m_pipelineShaderVersion = shaderVersion;
+        }
+        if (m_pipeline == nullptr)
         {
             return;
         }

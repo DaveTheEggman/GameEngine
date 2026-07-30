@@ -16,7 +16,6 @@ import draconic.rhi;
 import draconic.rendergraph;
 import draconic.shaders;
 import draconic.shaders.system;
-import :bloom_shaders; // BloomVS()/BloomCommon()/BloomDownPS()/BloomUpPS() - HLSL source in BloomShaders.cppm
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -25,12 +24,6 @@ namespace draconic::render
 {
     Status BloomPass::Initialize()
     {
-        m_shaders->RegisterSource(u8"bloom_ds", shaders::ShaderStage::Vertex, BloomVS());
-        m_shaders->RegisterSource(u8"bloom_ds", shaders::ShaderStage::Fragment,
-                                  Concat(BloomCommon(), BloomDownPS()));
-        m_shaders->RegisterSource(u8"bloom_us", shaders::ShaderStage::Vertex, BloomVS());
-        m_shaders->RegisterSource(u8"bloom_us", shaders::ShaderStage::Fragment,
-                                  Concat(BloomCommon(), BloomUpPS()));
 
         rhi::BindGroupLayoutEntry tex =
             rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Fragment);
@@ -83,6 +76,28 @@ namespace draconic::render
                                                   f32 threshold, f32 knee)
     {
         if (vpW < 4 || vpH < 4)
+        {
+            return {};
+        }
+        // Hot reload: rebuild both pipelines when the shaders changed (the subsystem
+        // idles the GPU on a reload, so immediate destroy is safe).
+        const u64 shaderVersion =
+            m_shaders->Version(u8"bloom_ds") + m_shaders->Version(u8"bloom_us");
+        if (shaderVersion != m_pipelineShaderVersion)
+        {
+            if (m_downPipeline != nullptr)
+            {
+                m_device->DestroyRenderPipeline(m_downPipeline);
+            }
+            if (m_upPipeline != nullptr)
+            {
+                m_device->DestroyRenderPipeline(m_upPipeline);
+            }
+            m_downPipeline = MakePipeline(u8"bloom_ds", /*additive*/ false);
+            m_upPipeline = MakePipeline(u8"bloom_us", /*additive*/ true);
+            m_pipelineShaderVersion = shaderVersion;
+        }
+        if (m_downPipeline == nullptr || m_upPipeline == nullptr)
         {
             return {};
         }
@@ -182,13 +197,6 @@ namespace draconic::render
                                 });
         }
         return chain[0];
-    }
-
-    String BloomPass::Concat(StringView a, StringView b)
-    {
-        String s(a);
-        s.Append(b);
-        return s;
     }
 
     rhi::RenderPipeline* BloomPass::MakePipeline(StringView name, bool additive)

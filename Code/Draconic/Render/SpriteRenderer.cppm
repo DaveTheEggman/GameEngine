@@ -23,7 +23,6 @@ import draconic.shaders.system;
 import :data;
 import :pipeline;
 import :resources;
-import :sprite_shaders;
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -91,6 +90,7 @@ export namespace draconic::render
         {
             rhi::RenderPipeline* pso = nullptr;
             rhi::TextureFormat format = rhi::TextureFormat::Undefined;
+            u64 shaderVersion = 0; // ShaderSystem::Version at build (hot reload)
         };
 
         rhi::Device* m_device;

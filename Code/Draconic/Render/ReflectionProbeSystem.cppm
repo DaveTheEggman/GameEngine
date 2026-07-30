@@ -23,7 +23,6 @@ import draconic.rendergraph;
 import draconic.shaders;
 import draconic.shaders.system;
 import :data; // ReflectionProbe / kMaxReflectionProbes / ProbeUpdateMode
-import :probe_shaders; // ProbeBlitVS() / ProbeBlitPS() / ProbePrefilterPS() - HLSL source split into ProbeShaders.cppm
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -196,6 +195,7 @@ export namespace draconic::render
         // GGX roughness prefilter (prefiltered mip 0 -> mips 1..N-1).
         rhi::BindGroupLayout* m_prefilterLayout = nullptr;
         rhi::PipelineLayout* m_prefilterPipeLayout = nullptr;
+        u64 m_pipelineShaderVersion = 0; // ShaderSystem::Version at build (hot reload)
         rhi::RenderPipeline* m_prefilterPipeline = nullptr;
         rhi::TextureView* m_prefilterSrcView[kMaxProbes] =
             {}; // per-slot mip-0 cube view (convolution source)

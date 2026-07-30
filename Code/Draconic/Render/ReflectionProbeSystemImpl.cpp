@@ -23,7 +23,6 @@ import draconic.rendergraph;
 import draconic.shaders;
 import draconic.shaders.system;
 import :data; // ReflectionProbe / kMaxReflectionProbes / ProbeUpdateMode
-import :probe_shaders; // ProbeBlitVS() / ProbeBlitPS() / ProbePrefilterPS() - HLSL source split into ProbeShaders.cppm
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -36,10 +35,6 @@ namespace draconic::render
         {
             return Status{ErrorCode::Unknown};
         }
-        m_shaders->RegisterSource(u8"probe_blit_vs", shaders::ShaderStage::Vertex, ProbeBlitVS());
-        m_shaders->RegisterSource(u8"probe_blit_ps", shaders::ShaderStage::Fragment, ProbeBlitPS());
-        m_shaders->RegisterSource(u8"probe_prefilter_ps", shaders::ShaderStage::Fragment,
-                                  ProbePrefilterPS());
         if (!CreateBlitPipeline() || !CreatePrefilterPipeline())
         {
             return Status{ErrorCode::Unknown};
@@ -49,6 +44,28 @@ namespace draconic::render
 
     void ReflectionProbeSystem::BeginFrame()
     {
+        // Hot reload: rebuild the blit/prefilter pipelines when their shaders changed
+        // (GPU idled on reload; layouts and cached bind groups survive).
+        const u64 shaderVersion = m_shaders->Version(u8"probe_blit_vs") +
+                                  m_shaders->Version(u8"probe_blit_ps") +
+                                  m_shaders->Version(u8"probe_prefilter_ps");
+        if (shaderVersion != m_pipelineShaderVersion)
+        {
+            if (m_blitPipeline != nullptr)
+            {
+                m_device->DestroyRenderPipeline(m_blitPipeline);
+                m_blitPipeline = nullptr;
+            }
+            if (m_prefilterPipeline != nullptr)
+            {
+                m_device->DestroyRenderPipeline(m_prefilterPipeline);
+                m_prefilterPipeline = nullptr;
+            }
+            (void)CreateBlitPipeline();
+            (void)CreatePrefilterPipeline();
+            m_pipelineShaderVersion = shaderVersion;
+        }
+
         m_active = 0;
         m_captures.Clear();
         m_sceneRanges.Clear();
@@ -206,6 +223,10 @@ namespace draconic::render
                                             rendergraph::RGHandle capturedH,
                                             rendergraph::RGHandle prefilteredH, u32 slot)
     {
+        if (m_blitPipeline == nullptr) // broken shader mid-reload: skip until it compiles
+        {
+            return;
+        }
         for (u32 face = 0; face < 6; ++face)
         {
             rhi::BindGroup* faceBG = EnsureFaceBlit(slot, face);
@@ -239,6 +260,10 @@ namespace draconic::render
     void ReflectionProbeSystem::DeclarePrefilter(rendergraph::RenderGraph& graph,
                                                  rendergraph::RGHandle prefilteredH, u32 slot)
     {
+        if (m_prefilterPipeline == nullptr) // broken shader mid-reload: skip until it compiles
+        {
+            return;
+        }
         rhi::BindGroup* srcBG = EnsurePrefilterSource(slot);
         if (srcBG == nullptr)
         {
@@ -425,24 +450,27 @@ namespace draconic::render
         // Texture2DArray, not Texture2D: the source is ONE LAYER of the captured cube-array,
         // and a DX12 TEXTURE2D SRV cannot address a non-zero array slice (always layer 0).
         // The per-face view carries the slice; the shader samples slice 0 of it.
-        rhi::BindGroupLayoutEntry srcTex = rhi::BindGroupLayoutEntry::SampledTexture(
-            0, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2DArray);
-        rhi::BindGroupLayoutEntry srcSamp =
-            rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment);
-        rhi::BindGroupLayoutEntry entries[] = {srcTex, srcSamp};
-        rhi::BindGroupLayoutDesc ld{};
-        ld.entries = Span<const rhi::BindGroupLayoutEntry>{entries, 2};
-        if (!m_device->CreateBindGroupLayout(ld, m_blitLayout).IsOk())
+        if (m_blitLayout == nullptr) // layouts survive a shader hot reload
         {
-            return false;
-        }
+            rhi::BindGroupLayoutEntry srcTex = rhi::BindGroupLayoutEntry::SampledTexture(
+                0, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2DArray);
+            rhi::BindGroupLayoutEntry srcSamp =
+                rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment);
+            rhi::BindGroupLayoutEntry entries[] = {srcTex, srcSamp};
+            rhi::BindGroupLayoutDesc ld{};
+            ld.entries = Span<const rhi::BindGroupLayoutEntry>{entries, 2};
+            if (!m_device->CreateBindGroupLayout(ld, m_blitLayout).IsOk())
+            {
+                return false;
+            }
 
-        rhi::BindGroupLayout* layouts[] = {m_blitLayout};
-        rhi::PipelineLayoutDesc pld{};
-        pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{layouts, 1};
-        if (!m_device->CreatePipelineLayout(pld, m_blitPipeLayout).IsOk())
-        {
-            return false;
+            rhi::BindGroupLayout* layouts[] = {m_blitLayout};
+            rhi::PipelineLayoutDesc pld{};
+            pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{layouts, 1};
+            if (!m_device->CreatePipelineLayout(pld, m_blitPipeLayout).IsOk())
+            {
+                return false;
+            }
         }
 
         rhi::ColorTargetState color{};
@@ -510,29 +538,32 @@ namespace draconic::render
         // TextureCubeArray, not TextureCube: the source is ONE CUBE of the prefiltered
         // cube-array, and a DX12 TEXTURECUBE SRV cannot address a non-zero first face
         // (always cube 0). The per-probe view carries the base; the shader samples cube 0.
-        rhi::BindGroupLayoutEntry srcTex = rhi::BindGroupLayoutEntry::SampledTexture(
-            0, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::TextureCubeArray);
-        rhi::BindGroupLayoutEntry srcSamp =
-            rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment);
-        rhi::BindGroupLayoutEntry entries[] = {srcTex, srcSamp};
-        rhi::BindGroupLayoutDesc ld{};
-        ld.entries = Span<const rhi::BindGroupLayoutEntry>{entries, 2};
-        if (!m_device->CreateBindGroupLayout(ld, m_prefilterLayout).IsOk())
+        if (m_prefilterLayout == nullptr) // layouts survive a shader hot reload
         {
-            return false;
-        }
+            rhi::BindGroupLayoutEntry srcTex = rhi::BindGroupLayoutEntry::SampledTexture(
+                0, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::TextureCubeArray);
+            rhi::BindGroupLayoutEntry srcSamp =
+                rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment);
+            rhi::BindGroupLayoutEntry entries[] = {srcTex, srcSamp};
+            rhi::BindGroupLayoutDesc ld{};
+            ld.entries = Span<const rhi::BindGroupLayoutEntry>{entries, 2};
+            if (!m_device->CreateBindGroupLayout(ld, m_prefilterLayout).IsOk())
+            {
+                return false;
+            }
 
-        rhi::PushConstantRange pcRange{};
-        pcRange.stages = rhi::ShaderStage::Fragment;
-        pcRange.offset = 0;
-        pcRange.size = sizeof(PrefilterPush);
-        rhi::BindGroupLayout* layouts[] = {m_prefilterLayout};
-        rhi::PipelineLayoutDesc pld{};
-        pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{layouts, 1};
-        pld.pushConstantRanges = Span<const rhi::PushConstantRange>{&pcRange, 1};
-        if (!m_device->CreatePipelineLayout(pld, m_prefilterPipeLayout).IsOk())
-        {
-            return false;
+            rhi::PushConstantRange pcRange{};
+            pcRange.stages = rhi::ShaderStage::Fragment;
+            pcRange.offset = 0;
+            pcRange.size = sizeof(PrefilterPush);
+            rhi::BindGroupLayout* layouts[] = {m_prefilterLayout};
+            rhi::PipelineLayoutDesc pld{};
+            pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{layouts, 1};
+            pld.pushConstantRanges = Span<const rhi::PushConstantRange>{&pcRange, 1};
+            if (!m_device->CreatePipelineLayout(pld, m_prefilterPipeLayout).IsOk())
+            {
+                return false;
+            }
         }
 
         rhi::ColorTargetState color{};

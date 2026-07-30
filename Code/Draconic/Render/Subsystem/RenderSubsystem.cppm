@@ -211,6 +211,7 @@ export namespace draconic::render
         u32 m_framesInFlight = 2;
         shaders::Compiler* m_compiler = nullptr;
         UniquePtr<shaders::ShaderSystem> m_shaders;
+        UniquePtr<shaders::FileShaderSourceProvider> m_shaderProvider; // engine shader root (dev files)
         UniquePtr<materials::PipelineStateCache> m_psoCache;
         UniquePtr<materials::MaterialSystem> m_materialSystem;
         UniquePtr<MeshRenderer> m_meshRenderer;

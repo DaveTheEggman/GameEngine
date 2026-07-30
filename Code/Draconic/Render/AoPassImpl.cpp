@@ -18,7 +18,6 @@ import draconic.rhi;
 import draconic.rendergraph;
 import draconic.shaders;
 import draconic.shaders.system;
-import :ao_shaders; // AoVS()/AoCommon()/GtaoGenPS()/SsaoGenPS()/AoBlurPS()/AoApplyPS() - HLSL in AoShaders.cppm
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -27,16 +26,6 @@ namespace draconic::render
 {
     Status AoPass::Initialize()
     {
-        m_shaders->RegisterSource(u8"ao_gtao", shaders::ShaderStage::Vertex, AoVS());
-        m_shaders->RegisterSource(u8"ao_gtao", shaders::ShaderStage::Fragment,
-                                  Concat(AoCommon(), GtaoGenPS()));
-        m_shaders->RegisterSource(u8"ao_ssao", shaders::ShaderStage::Vertex, AoVS());
-        m_shaders->RegisterSource(u8"ao_ssao", shaders::ShaderStage::Fragment,
-                                  Concat(AoCommon(), SsaoGenPS()));
-        m_shaders->RegisterSource(u8"ao_blur", shaders::ShaderStage::Vertex, AoVS());
-        m_shaders->RegisterSource(u8"ao_blur", shaders::ShaderStage::Fragment, AoBlurPS());
-        m_shaders->RegisterSource(u8"ao_apply", shaders::ShaderStage::Vertex, AoVS());
-        m_shaders->RegisterSource(u8"ao_apply", shaders::ShaderStage::Fragment, AoApplyPS());
 
         // Shared bind-group layout: two sampled textures (t0, t1) + a sampler (s0).
         rhi::BindGroupLayoutEntry ge[] = {
@@ -103,6 +92,32 @@ namespace draconic::render
                                             i32 debugMode)
     {
         if (mode == AoMode::Off || w == 0 || h == 0)
+        {
+            return {};
+        }
+        // Hot reload: rebuild all four pipelines when any AO shader changed (GPU idled
+        // on reload; the shared fullscreen/common .hlsli bumps every version at once).
+        const u64 shaderVersion = m_shaders->Version(u8"ao_gtao") + m_shaders->Version(u8"ao_ssao") +
+                                  m_shaders->Version(u8"ao_blur") + m_shaders->Version(u8"ao_apply");
+        if (shaderVersion != m_pipelineShaderVersion)
+        {
+            rhi::RenderPipeline* stale[] = {m_gtaoPipeline, m_ssaoPipeline, m_blurPipeline,
+                                            m_applyPipeline};
+            for (rhi::RenderPipeline* p : stale)
+            {
+                if (p != nullptr)
+                {
+                    m_device->DestroyRenderPipeline(p);
+                }
+            }
+            m_gtaoPipeline = MakePipeline(u8"ao_gtao", m_gtaoLayout);
+            m_ssaoPipeline = MakePipeline(u8"ao_ssao", m_ssaoLayout);
+            m_blurPipeline = MakePipeline(u8"ao_blur", m_blurLayout);
+            m_applyPipeline = MakePipeline(u8"ao_apply", m_applyLayout, kHdrFormat);
+            m_pipelineShaderVersion = shaderVersion;
+        }
+        if (m_gtaoPipeline == nullptr || m_ssaoPipeline == nullptr || m_blurPipeline == nullptr ||
+            m_applyPipeline == nullptr)
         {
             return {};
         }
@@ -227,13 +242,6 @@ namespace draconic::render
                     });
             });
         return out;
-    }
-
-    String AoPass::Concat(StringView a, StringView b)
-    {
-        String s(a);
-        s.Append(b);
-        return s;
     }
 
     rhi::PipelineLayout* AoPass::MakePipelineLayout(usize pushSize)

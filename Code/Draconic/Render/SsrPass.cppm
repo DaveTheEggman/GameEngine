@@ -24,7 +24,6 @@ import draconic.rhi;
 import draconic.rendergraph;
 import draconic.shaders;
 import draconic.shaders.system;
-import :ssr_shaders; // SsrVS() / SsrPS() / SsrResolvePS() - HLSL source split into SsrShaders.cppm
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -130,6 +129,8 @@ export namespace draconic::render
 
         bool EnsureHistory(ViewHistory& hist, u32 w, u32 h);
         void DestroyHistory(ViewHistory& hist);
+        bool CreateTracePipeline();
+        bool CreateResolvePipeline();
 
         // Combine four transient generations into one cache key (same FNV-ish mixing as :ao).
         static u64 Combine(rendergraph::RenderGraph& g, rendergraph::RGHandle a,
@@ -183,6 +184,7 @@ export namespace draconic::render
         rhi::BindGroupLayout* m_resolveLayout = nullptr;
         rhi::PipelineLayout* m_resolvePipelineLayout = nullptr;
         rhi::RenderPipeline* m_resolvePipeline = nullptr; // temporal resolve + composite
+        u64 m_pipelineShaderVersion = 0; // ShaderSystem::Version at build (hot reload)
         rhi::Sampler* m_sampler = nullptr;                // point: depth/reconstruction
         rhi::Sampler* m_linearSampler = nullptr;          // linear: glossy color gather
         ViewHistory m_views[kMaxViews];

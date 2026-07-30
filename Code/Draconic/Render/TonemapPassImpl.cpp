@@ -15,7 +15,6 @@ import draconic.rhi;
 import draconic.rendergraph;
 import draconic.shaders;
 import draconic.shaders.system;
-import :tonemap_shaders;
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -24,8 +23,6 @@ namespace draconic::render
 {
     Status TonemapPass::Initialize()
     {
-        m_shaders->RegisterSource(u8"tonemap", shaders::ShaderStage::Vertex, TonemapVS());
-        m_shaders->RegisterSource(u8"tonemap", shaders::ShaderStage::Fragment, TonemapPS());
 
         // set 0: HDR (t0) + bloom (t1) + AO (t2), all sampled, + a linear sampler (s0).
         rhi::BindGroupLayoutEntry hdrEntry =
@@ -129,7 +126,9 @@ namespace draconic::render
 
     rhi::RenderPipeline* TonemapPass::EnsurePipeline(rhi::TextureFormat fmt)
     {
-        if (m_pipeline != nullptr && m_pipelineFormat == fmt)
+        const u64 shaderVersion = m_shaders->Version(u8"tonemap"); // hot reload rebuilds
+        if (m_pipeline != nullptr && m_pipelineFormat == fmt &&
+            m_pipelineShaderVersion == shaderVersion)
         {
             return m_pipeline;
         }
@@ -166,6 +165,7 @@ namespace draconic::render
             return nullptr;
         }
         m_pipelineFormat = fmt;
+        m_pipelineShaderVersion = shaderVersion;
         return m_pipeline;
     }
 

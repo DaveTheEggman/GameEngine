@@ -17,7 +17,6 @@ import draconic.rendergraph;
 import draconic.shaders;
 import draconic.shaders.system;
 import :data;        // kGVelocityFormat (sky writes camera-motion velocity for TAA)
-import :sky_shaders; // SkyCommon()/SkyVS()/SkyPS() - HLSL source in SkyShaders.cppm
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -65,8 +64,6 @@ export namespace draconic::render
             Float4 jitter;
         };
 
-        static String Concat(StringView a, StringView b);
-
         rhi::RenderPipeline* EnsurePipeline(rhi::TextureFormat colorFmt,
                                             rhi::TextureFormat depthFmt);
 
@@ -93,6 +90,7 @@ export namespace draconic::render
         rhi::RenderPipeline* m_pipeline = nullptr;
         rhi::TextureFormat m_colorFormat = rhi::TextureFormat::Undefined;
         rhi::TextureFormat m_depthFormat = rhi::TextureFormat::Undefined;
+        u64 m_pipelineShaderVersion = 0; // ShaderSystem::Version at build (hot reload)
         rhi::Sampler* m_sampler = nullptr;
         Slot m_slots[kMaxSlots] = {};
     };

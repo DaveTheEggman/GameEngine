@@ -29,7 +29,6 @@ import draconic.rendergraph;
 import draconic.shaders;
 import draconic.shaders.system;
 import :data;        // SkySnapshot / SkyMode / ExtractedScene (context identity)
-import :ibl_shaders; // IblFullscreenVS()/IblCommon()/... - HLSL source in IBLShaders.cppm
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -38,22 +37,7 @@ namespace draconic::render
 {
     Status IBLSystem::Initialize()
     {
-        m_shaders->RegisterSource(u8"ibl_fs", shaders::ShaderStage::Vertex, IblFullscreenVS());
         // Cube/LUT fragment shaders share the fullscreen VS; the cube ones prepend IblCommon().
-        m_shaders->RegisterSource(u8"ibl_procenv", shaders::ShaderStage::Fragment,
-                                  Concat(IblCommon(), IblProcEnvPS()));
-        m_shaders->RegisterSource(u8"ibl_analytic", shaders::ShaderStage::Fragment,
-                                  Concat(IblCommon(), IblAnalyticPS()));
-        m_shaders->RegisterSource(u8"ibl_equirect", shaders::ShaderStage::Fragment,
-                                  Concat(IblCommon(), IblEquirectPS()));
-        m_shaders->RegisterSource(u8"ibl_cubemap", shaders::ShaderStage::Fragment,
-                                  Concat(IblCommon(), IblCubemapPS()));
-        m_shaders->RegisterSource(u8"ibl_downsample", shaders::ShaderStage::Fragment,
-                                  Concat(IblCommon(), IblDownsamplePS()));
-        m_shaders->RegisterSource(u8"ibl_prefilter", shaders::ShaderStage::Fragment,
-                                  Concat(IblCommon(), IblPrefilterPS()));
-        m_shaders->RegisterSource(u8"ibl_brdf", shaders::ShaderStage::Fragment, IblBrdfPS());
-        m_shaders->RegisterSource(u8"ibl_sh", shaders::ShaderStage::Compute, IblShProjectCS());
 
         if (!CreateSharedResources())
         {
@@ -68,6 +52,33 @@ namespace draconic::render
 
     void IBLSystem::BeginFrame(rendergraph::RenderGraph& graph)
     {
+        // Hot reload: any IBL shader change rebuilds the pipelines and re-runs the whole
+        // precompute (contexts + BRDF) - the cached results are stale. Polled BEFORE the
+        // ready gate: a failed rebuild (broken shader) clears m_ready; a later successful
+        // one restores it. GPU idled by the subsystem on reload.
+        const u64 shaderVersion =
+            m_shaders->Version(u8"ibl_fs") + m_shaders->Version(u8"ibl_procenv") +
+            m_shaders->Version(u8"ibl_analytic") + m_shaders->Version(u8"ibl_equirect") +
+            m_shaders->Version(u8"ibl_cubemap") + m_shaders->Version(u8"ibl_downsample") +
+            m_shaders->Version(u8"ibl_prefilter") + m_shaders->Version(u8"ibl_brdf") +
+            m_shaders->Version(u8"ibl_sh");
+        if (m_pipelineShaderVersion != shaderVersion)
+        {
+            m_pipelineShaderVersion = shaderVersion;
+            if (m_envOnlyLayout != nullptr) // Initialize ran; layouts are live
+            {
+                m_ready = RebuildPipelinesForReload();
+                if (m_ready)
+                {
+                    for (usize i = 0; i < m_contexts.Size(); ++i)
+                    {
+                        DestroyContext(*m_contexts[i]);
+                    }
+                    m_contexts.Clear();
+                    m_brdfDone = false;
+                }
+            }
+        }
         if (!m_ready)
         {
             return;
@@ -944,6 +955,59 @@ namespace draconic::render
         return true;
     }
 
+    bool IBLSystem::RebuildPipelinesForReload()
+    {
+        rhi::ShaderModule* vs = m_shaders->GetVariant(u8"ibl_fs", shaders::ShaderStage::Vertex,
+                                                      shaders::ShaderFlags::None);
+        rhi::ShaderModule* cs = m_shaders->GetVariant(u8"ibl_sh", shaders::ShaderStage::Compute,
+                                                      shaders::ShaderFlags::None);
+        if (vs == nullptr || cs == nullptr)
+        {
+            return false;
+        }
+        rhi::RenderPipeline** stale[] = {&m_envPipeline,        &m_analyticPipeline,
+                                         &m_downsamplePipeline, &m_prefilterPipeline,
+                                         &m_brdfPipeline,       &m_equirectPipeline,
+                                         &m_cubemapPipeline};
+        for (rhi::RenderPipeline** p : stale)
+        {
+            if (*p != nullptr)
+            {
+                m_device->DestroyRenderPipeline(*p);
+                *p = nullptr;
+            }
+        }
+        if (m_shPipeline != nullptr)
+        {
+            m_device->DestroyComputePipeline(m_shPipeline);
+            m_shPipeline = nullptr;
+        }
+
+        m_envPipeline = MakeFullscreenPipeline(vs, u8"ibl_procenv", m_envOnlyLayout, kCubeFormat);
+        m_analyticPipeline =
+            MakeFullscreenPipeline(vs, u8"ibl_analytic", m_envOnlyLayout, kCubeFormat);
+        m_downsamplePipeline =
+            MakeFullscreenPipeline(vs, u8"ibl_downsample", m_prefilterLayout, kCubeFormat);
+        m_prefilterPipeline =
+            MakeFullscreenPipeline(vs, u8"ibl_prefilter", m_prefilterLayout, kCubeFormat);
+        m_brdfPipeline =
+            MakeFullscreenPipeline(vs, u8"ibl_brdf", m_brdfPipelineLayout, kBrdfFormat);
+
+        rhi::ComputePipelineDesc cpd{};
+        cpd.layout = m_shPipelineLayout;
+        cpd.compute = rhi::ProgrammableStage{cs, u8"main", rhi::ShaderStage::Compute};
+        cpd.label = u8"ibl.sh";
+        if (!m_device->CreateComputePipeline(cpd, m_shPipeline).IsOk())
+        {
+            m_shPipeline = nullptr;
+        }
+
+        // equirect/cubemap are rebuilt lazily by their Ensure*Pipeline on next use.
+        return m_envPipeline != nullptr && m_analyticPipeline != nullptr &&
+               m_downsamplePipeline != nullptr && m_prefilterPipeline != nullptr &&
+               m_brdfPipeline != nullptr && m_shPipeline != nullptr;
+    }
+
     rhi::RenderPipeline* IBLSystem::MakeFullscreenPipeline(rhi::ShaderModule* vs, StringView psName,
                                                            rhi::PipelineLayout* layout,
                                                            rhi::TextureFormat fmt)
@@ -974,13 +1038,6 @@ namespace draconic::render
         return p;
     }
 
-    String IBLSystem::Concat(StringView a, StringView b)
-    {
-        String s(a);
-        s.Append(b);
-        return s;
-    }
-
     bool IBLSystem::EnsureEquirectPipeline()
     {
         if (m_equirectPipeline != nullptr)
@@ -993,28 +1050,31 @@ namespace draconic::render
         {
             return false;
         }
-        rhi::BindGroupLayoutEntry tex = rhi::BindGroupLayoutEntry::SampledTexture(
-            0, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2D);
-        rhi::BindGroupLayoutEntry samp =
-            rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment);
-        rhi::BindGroupLayoutEntry e[] = {tex, samp};
-        rhi::BindGroupLayoutDesc ld{};
-        ld.entries = Span<const rhi::BindGroupLayoutEntry>{e, 2};
-        if (!m_device->CreateBindGroupLayout(ld, m_equirectLayout).IsOk())
+        if (m_equirectLayout == nullptr) // layouts survive a shader hot reload
         {
-            return false;
-        }
-        rhi::PushConstantRange pc{};
-        pc.stages = rhi::ShaderStage::Fragment;
-        pc.offset = 0;
-        pc.size = sizeof(IblPush);
-        rhi::BindGroupLayout* layouts[] = {m_equirectLayout};
-        rhi::PipelineLayoutDesc pld{};
-        pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{layouts, 1};
-        pld.pushConstantRanges = Span<const rhi::PushConstantRange>{&pc, 1};
-        if (!m_device->CreatePipelineLayout(pld, m_equirectPipelineLayout).IsOk())
-        {
-            return false;
+            rhi::BindGroupLayoutEntry tex = rhi::BindGroupLayoutEntry::SampledTexture(
+                0, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2D);
+            rhi::BindGroupLayoutEntry samp =
+                rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment);
+            rhi::BindGroupLayoutEntry e[] = {tex, samp};
+            rhi::BindGroupLayoutDesc ld{};
+            ld.entries = Span<const rhi::BindGroupLayoutEntry>{e, 2};
+            if (!m_device->CreateBindGroupLayout(ld, m_equirectLayout).IsOk())
+            {
+                return false;
+            }
+            rhi::PushConstantRange pc{};
+            pc.stages = rhi::ShaderStage::Fragment;
+            pc.offset = 0;
+            pc.size = sizeof(IblPush);
+            rhi::BindGroupLayout* layouts[] = {m_equirectLayout};
+            rhi::PipelineLayoutDesc pld{};
+            pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{layouts, 1};
+            pld.pushConstantRanges = Span<const rhi::PushConstantRange>{&pc, 1};
+            if (!m_device->CreatePipelineLayout(pld, m_equirectPipelineLayout).IsOk())
+            {
+                return false;
+            }
         }
         m_equirectPipeline =
             MakeFullscreenPipeline(vs, u8"ibl_equirect", m_equirectPipelineLayout, kCubeFormat);
@@ -1022,17 +1082,20 @@ namespace draconic::render
         {
             return false;
         }
-        rhi::SamplerDesc ss{};
-        ss.minFilter = rhi::FilterMode::Linear;
-        ss.magFilter = rhi::FilterMode::Linear;
-        ss.mipmapFilter = rhi::MipmapFilterMode::Linear;
-        ss.addressU = rhi::AddressMode::Repeat;
-        ss.addressV = rhi::AddressMode::ClampToEdge;
-        ss.addressW = rhi::AddressMode::ClampToEdge;
-        ss.label = u8"ibl.equirectSampler";
-        if (!m_device->CreateSampler(ss, m_equirectSampler).IsOk())
+        if (m_equirectSampler == nullptr)
         {
-            return false;
+            rhi::SamplerDesc ss{};
+            ss.minFilter = rhi::FilterMode::Linear;
+            ss.magFilter = rhi::FilterMode::Linear;
+            ss.mipmapFilter = rhi::MipmapFilterMode::Linear;
+            ss.addressU = rhi::AddressMode::Repeat;
+            ss.addressV = rhi::AddressMode::ClampToEdge;
+            ss.addressW = rhi::AddressMode::ClampToEdge;
+            ss.label = u8"ibl.equirectSampler";
+            if (!m_device->CreateSampler(ss, m_equirectSampler).IsOk())
+            {
+                return false;
+            }
         }
         return true;
     }

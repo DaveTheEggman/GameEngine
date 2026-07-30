@@ -37,36 +37,22 @@ target_sources(DraconicRender
             Pipeline.cppm
             GpuMesh.cppm
             MeshRenderer.cppm
-            MeshShaders.cppm
             SpriteRenderer.cppm
-            SpriteShaders.cppm
             ClusterSystem.cppm
-            ClusterShaders.cppm
             TonemapPass.cppm
-            TonemapShaders.cppm
             ShadowSystem.cppm
             IBLSystem.cppm
-            IBLShaders.cppm
             ReflectionProbeSystem.cppm
-            ProbeShaders.cppm
             SkyPass.cppm
-            SkyShaders.cppm
             BloomPass.cppm
-            BloomShaders.cppm
             TaaPass.cppm
-            TaaShaders.cppm
             AoPass.cppm
-            AoShaders.cppm
             SsrPass.cppm
-            SsrShaders.cppm
             FxaaPass.cppm
-            FxaaShaders.cppm
             DecalPass.cppm
-            DecalShaders.cppm
             Debug/DebugFont.cppm
             Debug/DebugDraw.cppm
             Debug/DebugDrawPass.cppm
-            Debug/DebugDrawShaders.cppm
             RenderModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)

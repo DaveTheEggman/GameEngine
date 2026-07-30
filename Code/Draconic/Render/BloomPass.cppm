@@ -16,7 +16,6 @@ import draconic.rhi;
 import draconic.rendergraph;
 import draconic.shaders;
 import draconic.shaders.system;
-import :bloom_shaders; // BloomVS()/BloomCommon()/BloomDownPS()/BloomUpPS() - HLSL source in BloomShaders.cppm
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -60,8 +59,6 @@ export namespace draconic::render
             f32 pad0 = 0, pad1 = 0, pad2 = 0;
         };
 
-        static String Concat(StringView a, StringView b);
-
         rhi::RenderPipeline* MakePipeline(StringView name, bool additive);
 
         // Bind group over a (transient) source view, cached by view pointer + generation. Transients are
@@ -82,6 +79,7 @@ export namespace draconic::render
         rhi::PipelineLayout* m_pipelineLayout = nullptr;
         rhi::RenderPipeline* m_downPipeline = nullptr;
         rhi::RenderPipeline* m_upPipeline = nullptr;
+        u64 m_pipelineShaderVersion = 0; // ShaderSystem::Version at build (hot reload)
         rhi::Sampler* m_sampler = nullptr;
         HashMap<rhi::TextureView*, Entry> m_bindGroups;
     };

@@ -15,7 +15,6 @@ import draconic.rhi;
 import draconic.rendergraph;
 import draconic.shaders;
 import draconic.shaders.system;
-import :tonemap_shaders;
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -82,6 +81,7 @@ export namespace draconic::render
         rhi::PipelineLayout* m_pipelineLayout = nullptr;
         rhi::RenderPipeline* m_pipeline = nullptr;
         rhi::TextureFormat m_pipelineFormat = rhi::TextureFormat::Undefined;
+        u64 m_pipelineShaderVersion = 0; // ShaderSystem::Version at build (hot reload)
 
         rhi::Sampler* m_sampler = nullptr; // linear-clamp, for the bloom composite
         rhi::BindGroup* m_bindGroups[kMaxSlots] = {};

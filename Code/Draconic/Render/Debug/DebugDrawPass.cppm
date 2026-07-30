@@ -19,7 +19,6 @@ import draconic.shaders;
 import draconic.shaders.system;
 import :debug_font;
 import :debug_draw;
-import :debug_pass_shaders; // DebugGeomVS()/DebugGeomPS()/DebugScreenVS()/DebugScreenPS() - HLSL split into DebugDrawShaders.cppm
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -69,6 +68,7 @@ export namespace draconic::render
             rhi::RenderPipeline* lineOverlay = nullptr;
             rhi::RenderPipeline* triDepth = nullptr;
             rhi::RenderPipeline* triOverlay = nullptr;
+            u64 shaderVersion = 0; // ShaderSystem::Version at build (hot reload)
         };
 
         static void AppendVerts(Array<debug::DebugVertex>& dst, const Array<debug::DebugVertex>* a,
@@ -112,6 +112,7 @@ export namespace draconic::render
         Pipelines m_geom{};
         rhi::RenderPipeline* m_screenPipe = nullptr;
         rhi::TextureFormat m_screenFmt = rhi::TextureFormat::Undefined;
+        u64 m_screenShaderVersion = 0; // ShaderSystem::Version at build (hot reload)
         rhi::Buffer* m_geomBuf[kMaxSlots] = {};
         u64 m_geomCap[kMaxSlots] = {};
         rhi::Buffer* m_screenBuf[kMaxSlots] = {};

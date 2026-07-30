@@ -23,7 +23,6 @@ import draconic.shaders.system;
 import :data;
 import :pipeline;
 import :resources;
-import :sprite_shaders;
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -32,8 +31,6 @@ namespace draconic::render
 {
     Status SpriteRenderer::Initialize()
     {
-        m_shaders->RegisterSource(u8"sprite", shaders::ShaderStage::Vertex, SpriteVS());
-        m_shaders->RegisterSource(u8"sprite", shaders::ShaderStage::Fragment, SpritePS());
 
         // set 0: view UBO (dynamic offset, VS). set 1: sprite texture + sampler (FS).
         rhi::BindGroupLayoutEntry viewEntry =
@@ -270,7 +267,8 @@ namespace draconic::render
                                                         bool additive)
     {
         Pipelines& p = additive ? m_additive : m_alpha;
-        if (p.pso != nullptr && p.format == colorFormat)
+        const u64 shaderVersion = m_shaders->Version(u8"sprite"); // hot reload rebuilds
+        if (p.pso != nullptr && p.format == colorFormat && p.shaderVersion == shaderVersion)
         {
             return p.pso;
         }
@@ -335,6 +333,7 @@ namespace draconic::render
         }
         p.pso = pso;
         p.format = colorFormat;
+        p.shaderVersion = shaderVersion;
         return pso;
     }
 

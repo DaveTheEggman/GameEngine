@@ -22,7 +22,6 @@ import draconic.shaders.system;
 import :data;
 import :views;
 import :resources;
-import :cluster_shaders; // ClusterBuildCS() - HLSL split into ClusterShaders.cppm
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -31,8 +30,6 @@ namespace draconic::render
 {
     Status ClusterSystem::Initialize()
     {
-        m_shaders->RegisterSource(u8"cluster_build", shaders::ShaderStage::Compute,
-                                  ClusterBuildCS());
         rhi::ShaderModule* cs = m_shaders->GetVariant(
             u8"cluster_build", shaders::ShaderStage::Compute, shaders::ShaderFlags::None);
         if (cs == nullptr)
@@ -83,6 +80,31 @@ namespace draconic::render
 
     void ClusterSystem::PrepareFrame(u32 frameIndex)
     {
+        // Hot reload: rebuild the compute pipeline when the shader changed (GPU idled
+        // on reload).
+        const u64 shaderVersion = m_shaders->Version(u8"cluster_build");
+        if (shaderVersion != m_pipelineShaderVersion)
+        {
+            rhi::ShaderModule* cs = m_shaders->GetVariant(
+                u8"cluster_build", shaders::ShaderStage::Compute, shaders::ShaderFlags::None);
+            if (cs != nullptr)
+            {
+                if (m_pipeline != nullptr)
+                {
+                    m_device->DestroyComputePipeline(m_pipeline);
+                    m_pipeline = nullptr;
+                }
+                rhi::ComputePipelineDesc cpd{};
+                cpd.layout = m_pipelineLayout;
+                cpd.compute = rhi::ProgrammableStage{cs, u8"main", rhi::ShaderStage::Compute};
+                cpd.label = u8"cluster.build";
+                if (!m_device->CreateComputePipeline(cpd, m_pipeline).IsOk())
+                {
+                    m_pipeline = nullptr;
+                }
+            }
+            m_pipelineShaderVersion = shaderVersion;
+        }
         m_ready = m_paramsRing.Reserve(kMaxViewsPerFrame) &&
                   m_lightRing.Reserve(kMaxLights * kMaxViewsPerFrame);
         if (m_ready)
