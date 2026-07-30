@@ -106,6 +106,7 @@ namespace
     };
 }
 
+#if !DRACONIC_PLATFORM_WEB // spawns threads; web v1 is single-threaded
 TEST_CASE("log: concurrent logging is serialized by the logger")
 {
     Logger& logger = GlobalLogger();
@@ -142,6 +143,8 @@ TEST_CASE("log: concurrent logging is serialized by the logger")
 }
 
 // --- Format: wide / UTF-8 string arguments ---------------------------------
+
+#endif // !DRACONIC_PLATFORM_WEB
 
 TEST_CASE("format: wide and utf8 string arguments")
 {
