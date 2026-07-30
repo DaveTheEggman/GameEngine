@@ -41,7 +41,7 @@ private:
     // Ray tracing shader library (compiled as lib_6_3).
     // All RT entry points are in a single source compiled once as a library.
     static constexpr const char8_t kRtShaderSource[] = u8R"(
-        [[rhi::vk::image_format("rgba8")]] RWTexture2D<float4> gOutput : register(u0, space0);
+        [[vk::image_format("rgba8")]] RWTexture2D<float4> gOutput : register(u0, space0);
         RaytracingAccelerationStructure gScene : register(t0, space0);
 
         struct RayPayload
