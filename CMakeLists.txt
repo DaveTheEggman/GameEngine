@@ -127,6 +127,23 @@ if(DRACONIC_WARNINGS_AS_ERRORS)
 endif()
 
 # --- Targets -----------------------------------------------------------------
+# Web (Emscripten) builds climb the engine INCREMENTALLY (docs/design/web-platform.md):
+# only the layers proven under wasm are configured; everything below the gate stays
+# desktop-only until its wasm turn comes. P0 = draconic.core + its test suite under node.
+if(EMSCRIPTEN)
+    # Emscripten defaults are sized for tiny demos: 64KB stack (desktop threads get 8MB -
+    # engine code overflows it immediately) and a fixed 16MB heap. 2MB stack + growable
+    # heap; both are link-time-only knobs.
+    add_link_options(-sSTACK_SIZE=2097152 -sALLOW_MEMORY_GROWTH=1)
+
+    add_subdirectory(ThirdParty)
+    add_subdirectory(Code/Draconic/Core)
+    if(DRACONIC_BUILD_TESTS)
+        add_subdirectory(Code/Draconic/Core/Tests)
+    endif()
+    return() # nothing further builds on web yet
+endif()
+
 add_subdirectory(ThirdParty)
 add_subdirectory(Code/Draconic/Core)
 add_subdirectory(Code/Draconic/Settings)  # typed/versioned settings store over Core (runtime + editor)

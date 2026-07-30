@@ -79,6 +79,17 @@
         "DRACONIC_SHIPPING_BUILD": "ON",
         "DRACONIC_OUTPUT_SUFFIX": "-Shipping"
       }
+    },
+    {
+      "name": "wasm",
+      "displayName": "Emscripten wasm32 (Ninja, Debug)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/wasm",
+      "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DRACONIC_BUILD_SAMPLES": "OFF"
+      }
     }
   ],
   "buildPresets": [
@@ -109,6 +120,10 @@
     {
       "name": "gcc-shipping",
       "configurePreset": "gcc-shipping"
+    },
+    {
+      "name": "wasm",
+      "configurePreset": "wasm"
     }
   ],
   "testPresets": [

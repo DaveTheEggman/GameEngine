@@ -105,8 +105,10 @@ target_sources(DraconicCore
             Threading/JobSystem.cppm
             Library/DynamicLibrary.cppm)
 
-# Per-platform backends (classic TUs).
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+# Per-platform backends (classic TUs). Emscripten is POSIX-shaped: it reuses the Linux
+# backend (pthread API present; actual thread spawning arrives with the wasm-pthreads
+# opt-in - web v1 is single-threaded and the JobSystem's caller-participation covers it).
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" OR EMSCRIPTEN)
     target_sources(DraconicCore PRIVATE
         System/Linux/LinuxSystem.cpp
         Threading/Linux/LinuxThread.cpp)
