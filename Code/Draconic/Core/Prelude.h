@@ -46,7 +46,9 @@
 // ---------------------------------------------------------------------------
 // Platform detection
 // ---------------------------------------------------------------------------
-#if defined(_WIN32)
+#if defined(__EMSCRIPTEN__)
+#define DRACONIC_PLATFORM_WEB 1
+#elif defined(_WIN32)
 #define DRACONIC_PLATFORM_WINDOWS 1
 #elif defined(__linux__)
 #define DRACONIC_PLATFORM_LINUX 1
@@ -60,6 +62,9 @@
 #if !defined(DRACONIC_PLATFORM_LINUX)
 #define DRACONIC_PLATFORM_LINUX 0
 #endif
+#if !defined(DRACONIC_PLATFORM_WEB)
+#define DRACONIC_PLATFORM_WEB 0
+#endif
 
 // ---------------------------------------------------------------------------
 // Architecture detection
@@ -68,6 +73,8 @@
 #define DRACONIC_ARCH_X64 1
 #elif defined(__aarch64__) || defined(_M_ARM64)
 #define DRACONIC_ARCH_ARM64 1
+#elif defined(__wasm32__) || defined(__wasm64__)
+#define DRACONIC_ARCH_WASM 1
 #else
 #error "Draconic: unsupported architecture."
 #endif
@@ -77,6 +84,9 @@
 #endif
 #if !defined(DRACONIC_ARCH_ARM64)
 #define DRACONIC_ARCH_ARM64 0
+#endif
+#if !defined(DRACONIC_ARCH_WASM)
+#define DRACONIC_ARCH_WASM 0
 #endif
 
 // Byte order. Both supported architectures run little-endian.

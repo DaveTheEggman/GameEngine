@@ -293,7 +293,8 @@ export namespace draconic::core
             n |= n >> 4;
             n |= n >> 8;
             n |= n >> 16;
-            n |= n >> 32;
+            n |= (n >> 16) >> 16; // the 64-bit fold; two legal shifts so 32-bit usize
+                                  // (wasm32) neither overflows nor warns - it's a no-op
             return n + 1;
         }
 

@@ -680,6 +680,17 @@ namespace draconic::core::sys
     }
 }
 
+// Emscripten reuses this POSIX backend but has no execinfo - wasm stack traces come from
+// the host (node --stack-trace-limit / browser devtools), so WriteBacktrace is a no-op.
+#if defined(__EMSCRIPTEN__)
+
+namespace draconic::core::sys
+{
+    int WriteBacktrace(int) noexcept { return 0; }
+}
+
+#else
+
 #include <execinfo.h>
 
 namespace draconic::core::sys
@@ -692,3 +703,5 @@ namespace draconic::core::sys
         return count;
     }
 }
+
+#endif

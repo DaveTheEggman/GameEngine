@@ -138,6 +138,15 @@ export namespace draconic::core
 
             DRACONIC_ASSERT(IsPowerOfTwo(alignment));
 
+            // POSIX only promises alignments that are multiples of sizeof(void*): glibc's
+            // aligned_alloc happens to accept less, emscripten's REJECTS it (alignment 1
+            // returned null on wasm - byte-aligned arrays like HashMap states). Raising
+            // alignment is always safe.
+            if (alignment < sizeof(void*))
+            {
+                alignment = sizeof(void*);
+            }
+
             // aligned_alloc requires the size to be a multiple of the alignment.
             const usize alignedSize = AlignUp(size, alignment);
 #if DRACONIC_PLATFORM_WINDOWS
