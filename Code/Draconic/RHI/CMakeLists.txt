@@ -48,10 +48,12 @@ if(WIN32)
     add_subdirectory(DX12)
 endif()
 
-# WebGPU backend - built when the vendored webgpu headers are present (desktop loads
-# the wgpu-native sidecar at run time; web links the browser's implementation).
-if(TARGET Draconic::WgpuHeaders)
+# WebGPU backend. Desktop loads the vendored wgpu-native sidecar at run time (the current
+# implementation links wgpuXxx as external symbols resolved via that library). Emscripten instead
+# provides WebGPU from the browser through its own JS binding, so the backend needs an Emscripten
+# wiring before it can link on web - gated off until that lands (docs/design/web-platform.md P3).
+if(TARGET Draconic::WgpuHeaders AND NOT EMSCRIPTEN)
     add_subdirectory(WebGPU)
 else()
-    message(STATUS "WgpuNative headers not found - skipping Draconic::RHIWebGPU")
+    message(STATUS "Skipping Draconic::RHIWebGPU (no wgpu headers, or Emscripten backend not yet wired)")
 endif()

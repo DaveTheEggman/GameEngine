@@ -164,6 +164,9 @@ TEST_CASE("system: FileCopyPreserving copies bytes and keeps the mode")
 }
 
 // --- RunProcess (blocking spawn + capture) ---------------------------------
+// Subprocess spawning is a desktop-only capability (RunProcess drives the cook-time naga/tint
+// shell-outs). Web has no fork/exec, so these do not apply there.
+#if !DRACONIC_PLATFORM_WEB
 
 TEST_CASE("system: RunProcess captures stdout and reports exit 0")
 {
@@ -207,3 +210,5 @@ TEST_CASE("system: RunProcess reports failure to spawn a missing binary")
     CHECK_FALSE(r.Ran());
     CHECK(r.exitCode < 0);
 }
+
+#endif // !DRACONIC_PLATFORM_WEB (subprocess spawning is desktop-only)

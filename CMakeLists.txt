@@ -141,7 +141,20 @@ if(EMSCRIPTEN)
     if(DRACONIC_BUILD_TESTS)
         add_subdirectory(Code/Draconic/Core/Tests)
     endif()
-    return() # nothing further builds on web yet
+
+    # Climbing the stack for web (docs/design/web-platform.md). Each layer is added once it
+    # compiles under wasm; portability fixes land in Core/System backends, not #if branches in
+    # the libraries. Pure-over-Core layers first; platform/third-party edges (sockets, RHI
+    # backends, shell) come as their web backends are wired.
+    add_subdirectory(Code/Draconic/Settings)
+    add_subdirectory(Code/Draconic/Profiler)
+    add_subdirectory(Code/Draconic/Xml)
+    add_subdirectory(Code/Draconic/VFS)
+    add_subdirectory(Code/Draconic/Project)
+    add_subdirectory(Code/Draconic/Content)
+    add_subdirectory(Code/Draconic/Resource)
+    add_subdirectory(Code/Draconic/RHI)
+    return() # everything above this line is wasm-verified; the rest awaits its turn
 endif()
 
 add_subdirectory(ThirdParty)
