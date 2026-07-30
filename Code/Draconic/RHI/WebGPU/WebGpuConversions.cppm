@@ -473,6 +473,19 @@ export namespace draconic::rhi::webgpu
                                                 : WGPUVertexStepMode_Vertex;
     }
 
+    [[nodiscard]] inline WGPUTextureSampleType ToWgpuTextureSampleType(TextureSampleType type)
+    {
+        switch (type)
+        {
+        case TextureSampleType::Float:             return WGPUTextureSampleType_Float;
+        case TextureSampleType::UnfilterableFloat: return WGPUTextureSampleType_UnfilterableFloat;
+        case TextureSampleType::Depth:             return WGPUTextureSampleType_Depth;
+        case TextureSampleType::Uint:              return WGPUTextureSampleType_Uint;
+        case TextureSampleType::Sint:              return WGPUTextureSampleType_Sint;
+        }
+        return WGPUTextureSampleType_Float;
+    }
+
     [[nodiscard]] inline WGPULoadOp ToWgpuLoadOp(LoadOp op)
     {
         switch (op)

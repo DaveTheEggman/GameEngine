@@ -103,8 +103,10 @@ export namespace draconic::rhi::webgpu
 
             // WebGPU guarantees per-attachment blend state. Push-constant support
             // (Immediates) is decided at CreateDevice - the device stamps its
-            // maxPushConstantSize accordingly.
+            // maxPushConstantSize accordingly. Occlusion works via the pass-begin
+            // declaration (RenderPassDesc.occlusionQuerySet).
             out.supportedFeatures.independentBlend = true;
+            out.supportedFeatures.occlusionQueries = true;
         }
 
         Status CreateDevice(const DeviceDesc&, Device*& out) override

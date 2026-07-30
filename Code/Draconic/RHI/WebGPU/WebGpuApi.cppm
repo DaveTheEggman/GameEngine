@@ -102,6 +102,8 @@ namespace draconic::rhi::webgpu
     X(wgpuRenderPassEncoderDrawIndirect)                                                           \
     X(wgpuRenderPassEncoderDrawIndexedIndirect)                                                    \
     X(wgpuRenderPassEncoderExecuteBundles)                                                         \
+    X(wgpuRenderPassEncoderBeginOcclusionQuery)                                                    \
+    X(wgpuRenderPassEncoderEndOcclusionQuery)                                                      \
     X(wgpuRenderPassEncoderEnd)                                                                    \
     X(wgpuRenderPassEncoderRelease)                                                                \
     X(wgpuComputePassEncoderSetPipeline)                                                           \

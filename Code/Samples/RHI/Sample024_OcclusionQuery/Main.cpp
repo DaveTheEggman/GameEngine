@@ -363,6 +363,7 @@ void OcclusionQuerySample::OnRender()
     rhi::RenderPassDesc rpd{};
     rpd.colorAttachments.Add(ca);
     rpd.depthStencilAttachment = dsa;
+    rpd.occlusionQuerySet = m_occlusionQuerySet; // WebGPU needs it declared at begin
     auto* rp = enc->BeginRenderPass(rpd);
 
     rp->SetPipeline(m_pipeline);

@@ -106,6 +106,12 @@ export namespace draconic::rhi::webgpu
                 wgpuDesc.depthStencilAttachment = &depth;
             }
 
+            if (passDesc.occlusionQuerySet != nullptr)
+            {
+                wgpuDesc.occlusionQuerySet =
+                    static_cast<WebGpuQuerySet*>(passDesc.occlusionQuerySet)->Handle();
+            }
+
             WGPUPassTimestampWrites timestamps = WGPU_PASS_TIMESTAMP_WRITES_INIT;
             if (passDesc.timestampQuerySet != nullptr)
             {

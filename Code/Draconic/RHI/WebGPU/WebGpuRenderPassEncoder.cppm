@@ -2,9 +2,9 @@
 ///
 /// SetPushConstants maps to SetImmediates (real - see :pipeline_layout). Multi-draw
 /// indirect unrolls into single indirect draws (core WebGPU has one-draw indirect).
-/// Occlusion queries are a documented no-op: WebGPU requires the query set DECLARED
-/// at pass begin, and the RHI's RenderPassDesc has no such field - wire it when a
-/// consumer appears. Timestamps ride the pass descriptor (see :command_encoder).
+/// Occlusion queries require RenderPassDesc.occlusionQuerySet declared at pass
+/// begin; Begin/End then carry only the index. Timestamps also ride the pass
+/// descriptor (see :command_encoder).
 
 module;
 #include "Core/Prelude.h"
@@ -147,8 +147,16 @@ export namespace draconic::rhi::webgpu
             // ride the pass descriptor (RenderPassDesc.timestampQuerySet).
         }
 
-        void BeginOcclusionQuery(QuerySet*, u32) override {} // see file comment
-        void EndOcclusionQuery(QuerySet*, u32) override {}
+        void BeginOcclusionQuery(QuerySet*, u32 index) override
+        {
+            // The set itself was declared at pass begin (RenderPassDesc.
+            // occlusionQuerySet); WebGPU only takes the index here.
+            m_api->wgpuRenderPassEncoderBeginOcclusionQuery(m_encoder, index);
+        }
+        void EndOcclusionQuery(QuerySet*, u32) override
+        {
+            m_api->wgpuRenderPassEncoderEndOcclusionQuery(m_encoder);
+        }
 
         void End() override
         {

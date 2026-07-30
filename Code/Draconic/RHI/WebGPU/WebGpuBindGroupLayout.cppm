@@ -4,7 +4,7 @@
 /// matching what the compile side bakes into SPIR-V for WebGPU devices). Bindless
 /// and acceleration-structure entry types have no WebGPU shape - honest
 /// NotSupported, as are binding arrays (count > 1). Texture sample types come from
-/// the comparison-sampler heuristic below (explicit RHI field pending discussion).
+/// the entry's EXPLICIT textureSampleType (WebGPU validates it against the shader).
 
 module;
 #include "Core/Prelude.h"
@@ -36,21 +36,6 @@ export namespace draconic::rhi::webgpu
                 m_entries.PushBack(entry);
             }
 
-            // HEURISTIC (documented gap): the RHI entry carries no texture SAMPLE
-            // TYPE, but WebGPU validates it against the shader (HLSL SampleCmp lowers
-            // to a DEPTH texture class). A group that binds a ComparisonSampler is a
-            // shadow-lookup group - its sampled textures are depth. An explicit
-            // BindGroupLayoutEntry field is the principled fix (RHI interface change,
-            // pending discussion).
-            bool groupHasComparisonSampler = false;
-            for (const BindGroupLayoutEntry& entry : m_entries)
-            {
-                if (entry.type == BindingType::ComparisonSampler)
-                {
-                    groupHasComparisonSampler = true;
-                }
-            }
-
             Array<WGPUBindGroupLayoutEntry> wgpuEntries;
             for (const BindGroupLayoutEntry& entry : m_entries)
             {
@@ -76,9 +61,8 @@ export namespace draconic::rhi::webgpu
                     wgpuEntry.buffer.hasDynamicOffset = entry.hasDynamicOffset;
                     break;
                 case BindingType::SampledTexture:
-                    wgpuEntry.texture.sampleType = groupHasComparisonSampler
-                                                       ? WGPUTextureSampleType_Depth
-                                                       : WGPUTextureSampleType_Float;
+                    wgpuEntry.texture.sampleType =
+                        ToWgpuTextureSampleType(entry.textureSampleType);
                     wgpuEntry.texture.viewDimension =
                         ToWgpuTextureViewDimension(entry.textureDimension);
                     wgpuEntry.texture.multisampled = entry.textureMultisampled;

@@ -312,6 +312,7 @@ draconic::core::Status CubeMapSample::OnInit()
         rhi::BindGroupLayoutEntry entries[2];
         entries[0] = rhi::BindGroupLayoutEntry::SampledTexture(
             0, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2D);
+        entries[0].textureSampleType = rhi::TextureSampleType::Depth; // SampleCmp source
         entries[1] = {};
         entries[1].binding = 0;
         entries[1].visibility = rhi::ShaderStage::Fragment;

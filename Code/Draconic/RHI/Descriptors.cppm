@@ -126,6 +126,7 @@ export namespace draconic::rhi
         ShaderStage visibility = ShaderStage::None;
         BindingType type = BindingType::UniformBuffer;
         TextureViewDimension textureDimension = TextureViewDimension::Texture2D;
+        TextureSampleType textureSampleType = TextureSampleType::Float;
         bool textureMultisampled = false;
         TextureFormat storageTextureFormat = TextureFormat::Undefined;
         bool hasDynamicOffset = false;
@@ -440,6 +441,10 @@ export namespace draconic::rhi
         QuerySet* timestampQuerySet = nullptr;
         u32 beginTimestampIndex = 0;
         u32 endTimestampIndex = 0;
+        // The query set Begin/EndOcclusionQuery will target. WebGPU REQUIRES the
+        // declaration at pass begin; Vulkan/DX12 receive the set in the Begin call
+        // itself and need nothing here (the validation layer may cross-check).
+        QuerySet* occlusionQuerySet = nullptr;
         // How draws are supplied. Default Inline; set SecondaryCommandBuffers to execute render
         // bundles into this pass (Vulkan needs to know at begin time; other backends ignore it).
         RenderPassContents contents = RenderPassContents::Inline;

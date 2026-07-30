@@ -122,6 +122,18 @@ export namespace draconic::rhi
         Texture3D
     };
 
+    /// How a shader reads a sampled texture - WebGPU validates the layout's declared
+    /// type against the shader (HLSL SampleCmp lowers to Depth; integer formats read
+    /// as Uint/Sint). Vulkan/DX12 need no declaration and ignore it.
+    enum class TextureSampleType : u32
+    {
+        Float,
+        UnfilterableFloat,
+        Depth,
+        Uint,
+        Sint
+    };
+
     enum class TextureAspect : u32
     {
         All = 0,
