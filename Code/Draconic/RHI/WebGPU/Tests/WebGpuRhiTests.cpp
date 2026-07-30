@@ -767,3 +767,339 @@ TEST_CASE("rhi.webgpu: persistent mapping - writes without Unmap reach the GPU")
     device->Destroy();
     backend->Destroy();
 }
+
+TEST_CASE("rhi.webgpu: cube faces render + cube view samples correctly")
+{
+    // The IBL/sky shape: render INTO per-face 2D views of a cube, then a pipeline
+    // samples the CUBE view and the readback proves the right face was fetched.
+    Backend* backend = TryCreateBackend();
+    if (backend == nullptr)
+    {
+        return;
+    }
+    Device* device = nullptr;
+    REQUIRE(backend->EnumerateAdapters()[0]->CreateDevice(DeviceDesc{}, device).IsOk());
+    Queue* queue = device->GetQueue(QueueType::Graphics);
+
+    TextureDesc cubeDesc;
+    cubeDesc.format = TextureFormat::RGBA8Unorm;
+    cubeDesc.width = 4;
+    cubeDesc.height = 4;
+    cubeDesc.arrayLayerCount = 6;
+    cubeDesc.usage = TextureUsage::RenderTarget | TextureUsage::Sampled;
+    Texture* cube = nullptr;
+    REQUIRE(device->CreateTexture(cubeDesc, cube).IsOk());
+
+    CommandPool* pool = nullptr;
+    REQUIRE(device->CreateCommandPool(QueueType::Graphics, pool).IsOk());
+    CommandEncoder* encoder = nullptr;
+    REQUIRE(pool->CreateEncoder(encoder).IsOk());
+
+    // Clear each face to a distinct red level via its own 2D layer view.
+    TextureView* faceViews[6] = {};
+    for (u32 face = 0; face < 6; ++face)
+    {
+        TextureViewDesc faceDesc;
+        faceDesc.format = TextureFormat::RGBA8Unorm;
+        faceDesc.dimension = TextureViewDimension::Texture2D;
+        faceDesc.baseArrayLayer = face;
+        faceDesc.arrayLayerCount = 1;
+        REQUIRE(device->CreateTextureView(cube, faceDesc, faceViews[face]).IsOk());
+        RenderPassDesc pass;
+        ColorAttachment color;
+        color.view = faceViews[face];
+        color.clearValue = ClearColor{static_cast<f32>(face + 1) / 8.0f, 0, 0, 1};
+        pass.colorAttachments.Add(color);
+        encoder->BeginRenderPass(pass)->End();
+    }
+
+    // Sample the cube's +X face (direction 1,0,0) into a 1x1 target.
+    TextureViewDesc cubeViewDesc;
+    cubeViewDesc.format = TextureFormat::RGBA8Unorm;
+    cubeViewDesc.dimension = TextureViewDimension::TextureCube;
+    cubeViewDesc.arrayLayerCount = 6;
+    TextureView* cubeView = nullptr;
+    REQUIRE(device->CreateTextureView(cube, cubeViewDesc, cubeView).IsOk());
+    Sampler* sampler = nullptr;
+    REQUIRE(device->CreateSampler(SamplerDesc{}, sampler).IsOk());
+
+    const BindGroupLayoutEntry layoutEntries[] = {
+        BindGroupLayoutEntry::SampledTexture(0, ShaderStage::Fragment,
+                                             TextureViewDimension::TextureCube),
+        BindGroupLayoutEntry::Sampler(0, ShaderStage::Fragment),
+    };
+    BindGroupLayoutDesc layoutDesc;
+    layoutDesc.entries = Span<const BindGroupLayoutEntry>(layoutEntries, 2);
+    BindGroupLayout* layout = nullptr;
+    REQUIRE(device->CreateBindGroupLayout(layoutDesc, layout).IsOk());
+    const BindGroupEntry groupEntries[] = {
+        BindGroupEntry::TextureEntry(cubeView),
+        BindGroupEntry::SamplerEntry(sampler),
+    };
+    BindGroupDesc groupDesc;
+    groupDesc.layout = layout;
+    groupDesc.entries = Span<const BindGroupEntry>(groupEntries, 2);
+    BindGroup* group = nullptr;
+    REQUIRE(device->CreateBindGroup(groupDesc, group).IsOk());
+
+    const char8_t* wgsl =
+        u8"@group(0) @binding(100) var environmentCube : texture_cube<f32>;\n"
+        u8"@group(0) @binding(300) var environmentSampler : sampler;\n"
+        u8"@vertex fn vertexMain(@builtin(vertex_index) index : u32)\n"
+        u8"    -> @builtin(position) vec4f {\n"
+        u8"  let uv = vec2f(f32((index << 1u) & 2u), f32(index & 2u));\n"
+        u8"  return vec4f(uv * 2.0 - 1.0, 0.0, 1.0);\n"
+        u8"}\n"
+        u8"@fragment fn fragmentMain() -> @location(0) vec4f {\n"
+        u8"  return textureSampleLevel(environmentCube, environmentSampler,\n"
+        u8"                            vec3f(1.0, 0.0, 0.0), 0.0);\n"
+        u8"}\n";
+    ShaderModuleDesc moduleDesc;
+    moduleDesc.code =
+        Span<const u8>(reinterpret_cast<const u8*>(wgsl), StringView(wgsl).Size());
+    ShaderModule* shaderModule = nullptr;
+    REQUIRE(device->CreateShaderModule(moduleDesc, shaderModule).IsOk());
+
+    PipelineLayoutDesc pipelineLayoutDesc;
+    BindGroupLayout* layouts[] = {layout};
+    pipelineLayoutDesc.bindGroupLayouts = Span<BindGroupLayout* const>(layouts, 1);
+    PipelineLayout* pipelineLayout = nullptr;
+    REQUIRE(device->CreatePipelineLayout(pipelineLayoutDesc, pipelineLayout).IsOk());
+    RenderPipelineDesc pipelineDesc;
+    pipelineDesc.layout = pipelineLayout;
+    pipelineDesc.vertex.shader =
+        ProgrammableStage{shaderModule, u8"vertexMain", ShaderStage::Vertex};
+    ColorTargetState target;
+    target.format = TextureFormat::RGBA8Unorm;
+    FragmentState fragment;
+    fragment.shader = ProgrammableStage{shaderModule, u8"fragmentMain", ShaderStage::Fragment};
+    fragment.targets = Span<const ColorTargetState>(&target, 1);
+    pipelineDesc.fragment = fragment;
+    RenderPipeline* pipeline = nullptr;
+    REQUIRE(device->CreateRenderPipeline(pipelineDesc, pipeline).IsOk());
+
+    TextureDesc outDesc = TextureDesc::RenderTarget(TextureFormat::RGBA8Unorm, 1, 1);
+    outDesc.usage = TextureUsage::RenderTarget | TextureUsage::CopySrc;
+    Texture* outTexture = nullptr;
+    REQUIRE(device->CreateTexture(outDesc, outTexture).IsOk());
+    TextureViewDesc outViewDesc;
+    outViewDesc.format = TextureFormat::RGBA8Unorm;
+    TextureView* outView = nullptr;
+    REQUIRE(device->CreateTextureView(outTexture, outViewDesc, outView).IsOk());
+
+    RenderPassDesc samplePass;
+    ColorAttachment sampleColor;
+    sampleColor.view = outView;
+    samplePass.colorAttachments.Add(sampleColor);
+    RenderPassEncoder* pass = encoder->BeginRenderPass(samplePass);
+    pass->SetPipeline(pipeline);
+    pass->SetBindGroup(0, group, Span<const u32>{});
+    pass->Draw(3, 1, 0, 0);
+    pass->End();
+
+    BufferDesc readbackDesc;
+    readbackDesc.size = 256;
+    readbackDesc.usage = BufferUsage::CopyDst;
+    readbackDesc.memory = MemoryLocation::GpuToCpu;
+    Buffer* readback = nullptr;
+    REQUIRE(device->CreateBuffer(readbackDesc, readback).IsOk());
+    BufferTextureCopyRegion region;
+    region.bytesPerRow = 256;
+    region.rowsPerImage = 1;
+    region.textureExtent = Extent3D{1, 1, 1};
+    encoder->CopyTextureToBuffer(outTexture, readback, region);
+
+    Fence* fence = nullptr;
+    REQUIRE(device->CreateFence(0, fence).IsOk());
+    CommandBuffer* commandBuffer = encoder->Finish();
+    CommandBuffer* commandBuffers[] = {commandBuffer};
+    queue->Submit(Span<CommandBuffer* const>(commandBuffers, 1), fence, 1);
+    REQUIRE(fence->Wait(1, ~0ull));
+
+    const u8* pixel = static_cast<const u8*>(readback->Map());
+    REQUIRE(pixel != nullptr);
+    // +X is face 0: red = 1/8 = 32.
+    CHECK(pixel[0] == 32);
+    readback->Unmap();
+
+    device->DestroyFence(fence);
+    device->DestroyBuffer(readback);
+    device->DestroyTextureView(outView);
+    device->DestroyTexture(outTexture);
+    device->DestroyRenderPipeline(pipeline);
+    device->DestroyPipelineLayout(pipelineLayout);
+    device->DestroyShaderModule(shaderModule);
+    device->DestroyBindGroup(group);
+    device->DestroyBindGroupLayout(layout);
+    device->DestroySampler(sampler);
+    device->DestroyTextureView(cubeView);
+    for (u32 face = 0; face < 6; ++face)
+    {
+        device->DestroyTextureView(faceViews[face]);
+    }
+    device->DestroyTexture(cube);
+    device->Destroy();
+    backend->Destroy();
+}
+
+TEST_CASE("rhi.webgpu: sky-shaped draw - z=1.0 vs cleared depth, read-only pass, MRT")
+{
+    Backend* backend = TryCreateBackend();
+    if (backend == nullptr)
+    {
+        return;
+    }
+    Device* device = nullptr;
+    REQUIRE(backend->EnumerateAdapters()[0]->CreateDevice(DeviceDesc{}, device).IsOk());
+    Queue* queue = device->GetQueue(QueueType::Graphics);
+
+    // Depth target cleared to 1.0 by a first pass (the prepass stand-in).
+    TextureDesc depthDesc = TextureDesc::DepthBuffer(TextureFormat::Depth32Float, 4, 4);
+    Texture* depthTexture = nullptr;
+    REQUIRE(device->CreateTexture(depthDesc, depthTexture).IsOk());
+    TextureViewDesc depthViewDesc;
+    depthViewDesc.format = TextureFormat::Depth32Float;
+    TextureView* depthView = nullptr;
+    REQUIRE(device->CreateTextureView(depthTexture, depthViewDesc, depthView).IsOk());
+
+    TextureDesc colorDesc = TextureDesc::RenderTarget(TextureFormat::RGBA8Unorm, 4, 4);
+    colorDesc.usage = TextureUsage::RenderTarget | TextureUsage::CopySrc;
+    Texture* colorTexture = nullptr;
+    REQUIRE(device->CreateTexture(colorDesc, colorTexture).IsOk());
+    TextureViewDesc colorViewDesc;
+    colorViewDesc.format = TextureFormat::RGBA8Unorm;
+    TextureView* colorView = nullptr;
+    REQUIRE(device->CreateTextureView(colorTexture, colorViewDesc, colorView).IsOk());
+    TextureDesc velocityDesc = TextureDesc::RenderTarget(TextureFormat::RG16Float, 4, 4);
+    Texture* velocityTexture = nullptr;
+    REQUIRE(device->CreateTexture(velocityDesc, velocityTexture).IsOk());
+    TextureViewDesc velocityViewDesc;
+    velocityViewDesc.format = TextureFormat::RG16Float;
+    velocityViewDesc.dimension = TextureViewDimension::Texture2D;
+    TextureView* velocityView = nullptr;
+    REQUIRE(device->CreateTextureView(velocityTexture, velocityViewDesc, velocityView).IsOk());
+
+    const char8_t* wgsl =
+        u8"struct FragmentOutput {\n"
+        u8"  @location(0) color : vec4f,\n"
+        u8"  @location(1) velocity : vec2f,\n"
+        u8"}\n"
+        u8"@vertex fn vertexMain(@builtin(vertex_index) index : u32)\n"
+        u8"    -> @builtin(position) vec4f {\n"
+        u8"  let uv = vec2f(f32((index << 1u) & 2u), f32(index & 2u));\n"
+        u8"  return vec4f(uv * 2.0 - 1.0, 1.0, 1.0);\n" // z = w = 1.0: the far plane
+        u8"}\n"
+        u8"@fragment fn fragmentMain() -> FragmentOutput {\n"
+        u8"  var output : FragmentOutput;\n"
+        u8"  output.color = vec4f(0.0, 0.0, 1.0, 1.0);\n" // sky blue
+        u8"  output.velocity = vec2f(0.0);\n"
+        u8"  return output;\n"
+        u8"}\n";
+    ShaderModuleDesc moduleDesc;
+    moduleDesc.code =
+        Span<const u8>(reinterpret_cast<const u8*>(wgsl), StringView(wgsl).Size());
+    ShaderModule* shaderModule = nullptr;
+    REQUIRE(device->CreateShaderModule(moduleDesc, shaderModule).IsOk());
+    PipelineLayoutDesc emptyLayout;
+    PipelineLayout* pipelineLayout = nullptr;
+    REQUIRE(device->CreatePipelineLayout(emptyLayout, pipelineLayout).IsOk());
+
+    RenderPipelineDesc pipelineDesc;
+    pipelineDesc.layout = pipelineLayout;
+    pipelineDesc.vertex.shader =
+        ProgrammableStage{shaderModule, u8"vertexMain", ShaderStage::Vertex};
+    ColorTargetState targets[2];
+    targets[0].format = TextureFormat::RGBA8Unorm;
+    targets[1].format = TextureFormat::RG16Float;
+    FragmentState fragment;
+    fragment.shader = ProgrammableStage{shaderModule, u8"fragmentMain", ShaderStage::Fragment};
+    fragment.targets = Span<const ColorTargetState>(targets, 2);
+    pipelineDesc.fragment = fragment;
+    DepthStencilState depthState;
+    depthState.format = TextureFormat::Depth32Float;
+    depthState.depthTestEnabled = true;
+    depthState.depthWriteEnabled = false;
+    depthState.depthCompare = CompareFunction::LessEqual;
+    pipelineDesc.depthStencil = depthState;
+    RenderPipeline* pipeline = nullptr;
+    REQUIRE(device->CreateRenderPipeline(pipelineDesc, pipeline).IsOk());
+
+    CommandPool* pool = nullptr;
+    REQUIRE(device->CreateCommandPool(QueueType::Graphics, pool).IsOk());
+    CommandEncoder* encoder = nullptr;
+    REQUIRE(pool->CreateEncoder(encoder).IsOk());
+
+    // Pass 1: clear depth to 1.0 (and color to black).
+    {
+        RenderPassDesc pass;
+        ColorAttachment color;
+        color.view = colorView;
+        color.clearValue = ClearColor::Black();
+        pass.colorAttachments.Add(color);
+        DepthStencilAttachment depth;
+        depth.view = depthView;
+        depth.depthLoadOp = LoadOp::Clear;
+        depth.depthClearValue = 1.0f;
+        pass.depthStencilAttachment = depth;
+        encoder->BeginRenderPass(pass)->End();
+    }
+    // Pass 2: the sky shape - load color, READ-ONLY depth, fullscreen at z=1.
+    {
+        RenderPassDesc pass;
+        ColorAttachment color;
+        color.view = colorView;
+        color.loadOp = LoadOp::Load;
+        pass.colorAttachments.Add(color);
+        ColorAttachment velocity;
+        velocity.view = velocityView;
+        velocity.loadOp = LoadOp::Clear;
+        pass.colorAttachments.Add(velocity);
+        DepthStencilAttachment depth;
+        depth.view = depthView;
+        depth.depthReadOnly = true;
+        pass.depthStencilAttachment = depth;
+        RenderPassEncoder* sky = encoder->BeginRenderPass(pass);
+        sky->SetPipeline(pipeline);
+        sky->Draw(3, 1, 0, 0);
+        sky->End();
+    }
+
+    BufferDesc readbackDesc;
+    readbackDesc.size = 4 * 256;
+    readbackDesc.usage = BufferUsage::CopyDst;
+    readbackDesc.memory = MemoryLocation::GpuToCpu;
+    Buffer* readback = nullptr;
+    REQUIRE(device->CreateBuffer(readbackDesc, readback).IsOk());
+    BufferTextureCopyRegion region;
+    region.bytesPerRow = 256;
+    region.rowsPerImage = 4;
+    region.textureExtent = Extent3D{4, 4, 1};
+    encoder->CopyTextureToBuffer(colorTexture, readback, region);
+
+    Fence* fence = nullptr;
+    REQUIRE(device->CreateFence(0, fence).IsOk());
+    CommandBuffer* commandBuffer = encoder->Finish();
+    CommandBuffer* commandBuffers[] = {commandBuffer};
+    queue->Submit(Span<CommandBuffer* const>(commandBuffers, 1), fence, 1);
+    REQUIRE(fence->Wait(1, ~0ull));
+
+    const u8* pixel = static_cast<const u8*>(readback->Map());
+    REQUIRE(pixel != nullptr);
+    CHECK(pixel[2] == 255); // the sky-blue fragment SURVIVED the far-plane depth test
+    readback->Unmap();
+
+    device->DestroyFence(fence);
+    device->DestroyBuffer(readback);
+    device->DestroyCommandPool(pool);
+    device->DestroyRenderPipeline(pipeline);
+    device->DestroyPipelineLayout(pipelineLayout);
+    device->DestroyShaderModule(shaderModule);
+    device->DestroyTextureView(velocityView);
+    device->DestroyTexture(velocityTexture);
+    device->DestroyTextureView(colorView);
+    device->DestroyTexture(colorTexture);
+    device->DestroyTextureView(depthView);
+    device->DestroyTexture(depthTexture);
+    device->Destroy();
+    backend->Destroy();
+}

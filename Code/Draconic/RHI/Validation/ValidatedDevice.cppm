@@ -152,7 +152,13 @@ export namespace draconic::rhi::validation
                     case BindingType::StorageTextureReadOnly:
                     case BindingType::StorageTextureReadWrite:
                         if (entry.textureView == nullptr)
-                            LogErrorf("[Validation] CreateBindGroup: entry [%u] expects a texture view but TextureView is null", entryIdx);
+                            {
+                                const String label8 = String(d.label);
+                                LogErrorf("[Validation] CreateBindGroup('%s'): entry [%u] "
+                                          "expects a texture view but TextureView is null",
+                                          reinterpret_cast<const char*>(label8.CStr()),
+                                          entryIdx);
+                            }
                         break;
                     case BindingType::Sampler:
                     case BindingType::ComparisonSampler:

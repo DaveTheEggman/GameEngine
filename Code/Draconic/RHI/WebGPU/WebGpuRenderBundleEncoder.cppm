@@ -69,6 +69,8 @@ export namespace draconic::rhi::webgpu
             wgpuDesc.colorFormats = colorFormats;
             wgpuDesc.depthStencilFormat =
                 ToWgpuTextureFormat(bundleDesc.depthStencilFormat);
+            wgpuDesc.depthReadOnly = bundleDesc.depthReadOnly;
+            wgpuDesc.stencilReadOnly = bundleDesc.stencilReadOnly;
             wgpuDesc.sampleCount = bundleDesc.sampleCount;
             m_encoder = api.wgpuDeviceCreateRenderBundleEncoder(device, &wgpuDesc);
             return m_encoder != nullptr ? Status(ErrorCode::Ok) : Status(ErrorCode::Unknown);

@@ -465,6 +465,11 @@ export namespace draconic::rhi
         TextureFormat colorFormats[MaxColorAttachments] = {TextureFormat::Undefined};
         u32 colorFormatCount = 0;
         TextureFormat depthStencilFormat = TextureFormat::Undefined;
+        // Whether the bundle leaves the aspect unwritten. WebGPU VALIDATES these
+        // against the executing pass (a read-only pass only accepts read-only
+        // bundles); Vulkan/DX12 bundles carry no such state and ignore them.
+        bool depthReadOnly = false;
+        bool stencilReadOnly = false;
         u32 sampleCount = 1;
         // The bundle's viewport/scissor (a sub-rect of the target for split-screen). x/y default to 0;
         // width/height are the viewport extent. A Vulkan secondary / DX12 bundle records this up front

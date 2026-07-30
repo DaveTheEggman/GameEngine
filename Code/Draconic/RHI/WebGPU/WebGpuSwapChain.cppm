@@ -124,7 +124,10 @@ export namespace draconic::rhi::webgpu
             WGPUSurfaceConfiguration config = WGPU_SURFACE_CONFIGURATION_INIT;
             config.device = m_device;
             config.format = ToWgpuTextureFormat(m_format);
-            config.usage = WGPUTextureUsage_RenderAttachment;
+            // The pipeline's final hop COPIES the tonemapped output into the
+            // backbuffer, so the surface needs CopyDst alongside RenderAttachment
+            // (universally supported by wgpu surfaces).
+            config.usage = WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_CopyDst;
             config.width = width;
             config.height = height;
             config.presentMode = SupportedPresentMode(ToWgpuPresentMode(m_presentMode));
