@@ -1,3 +1,4 @@
+// draconic:variants ALPHA_TEST GBUFFER
 #define CASCADE_COUNT 4
 cbuffer View : register(b0, space0) {        // shared with the VS (same layout)
     row_major float4x4 ViewProj;

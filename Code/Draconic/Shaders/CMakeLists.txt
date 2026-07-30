@@ -19,6 +19,7 @@ target_sources(DraconicShaders
         FILE_SET shaders_modules TYPE CXX_MODULES FILES
             Types.cppm
             Flags.cppm
+            Variants.cppm
             Compiler.cppm
             Cook/WgslTranslator.cppm
             ShadersModule.cppm)

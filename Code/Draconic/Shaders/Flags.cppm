@@ -47,41 +47,35 @@ export namespace draconic::shaders
         return (static_cast<u32>(v) & static_cast<u32>(f)) != 0u;
     }
 
+    // The one flag <-> #define-name table. AppendDefines, the variant-directive parser, the
+    // drift-lint, and power-set enumeration (see :variants) all derive from this - add a flag here
+    // and every consumer picks it up. Order is the #define emission order (preprocessor-irrelevant).
+    struct ShaderFlagName
+    {
+        ShaderFlags flag;
+        StringView define;
+    };
+    inline constexpr ShaderFlagName kShaderFlagNames[] = {
+        {ShaderFlags::Skinned, u8"SKINNED"},
+        {ShaderFlags::Instanced, u8"INSTANCED"},
+        {ShaderFlags::AlphaTest, u8"ALPHA_TEST"},
+        {ShaderFlags::GBuffer, u8"GBUFFER"},
+        {ShaderFlags::NormalMap, u8"NORMAL_MAP"},
+        {ShaderFlags::Emissive, u8"EMISSIVE"},
+        {ShaderFlags::VertexColors, u8"VERTEX_COLORS"},
+        {ShaderFlags::ReceiveShadows, u8"RECEIVE_SHADOWS"},
+    };
+
     // Append a `#define NAME 1` for each set flag (static-literal names - safe to
     // reference for the duration of a compile).
     inline void AppendDefines(ShaderFlags flags, Array<ShaderDefine>& out)
     {
-        if (HasFlag(flags, ShaderFlags::Skinned))
+        for (const ShaderFlagName& entry : kShaderFlagNames)
         {
-            out.PushBack(ShaderDefine{u8"SKINNED", u8"1"});
-        }
-        if (HasFlag(flags, ShaderFlags::Instanced))
-        {
-            out.PushBack(ShaderDefine{u8"INSTANCED", u8"1"});
-        }
-        if (HasFlag(flags, ShaderFlags::AlphaTest))
-        {
-            out.PushBack(ShaderDefine{u8"ALPHA_TEST", u8"1"});
-        }
-        if (HasFlag(flags, ShaderFlags::GBuffer))
-        {
-            out.PushBack(ShaderDefine{u8"GBUFFER", u8"1"});
-        }
-        if (HasFlag(flags, ShaderFlags::NormalMap))
-        {
-            out.PushBack(ShaderDefine{u8"NORMAL_MAP", u8"1"});
-        }
-        if (HasFlag(flags, ShaderFlags::Emissive))
-        {
-            out.PushBack(ShaderDefine{u8"EMISSIVE", u8"1"});
-        }
-        if (HasFlag(flags, ShaderFlags::VertexColors))
-        {
-            out.PushBack(ShaderDefine{u8"VERTEX_COLORS", u8"1"});
-        }
-        if (HasFlag(flags, ShaderFlags::ReceiveShadows))
-        {
-            out.PushBack(ShaderDefine{u8"RECEIVE_SHADOWS", u8"1"});
+            if (HasFlag(flags, entry.flag))
+            {
+                out.PushBack(ShaderDefine{entry.define, u8"1"});
+            }
         }
     }
 

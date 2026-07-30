@@ -119,6 +119,64 @@ namespace
     }
 }
 
+// --- Variant model (directive parse / canonicalize / power-set / drift-lint) ---
+
+TEST_CASE("variants: directive parse maps flag names to a mask")
+{
+    const VariantDirective d =
+        ParseVariantDirective(Hlsl("// draconic:variants SKINNED INSTANCED\nfloat4 main(){}\n"));
+    CHECK(d.present);
+    CHECK(HasFlag(d.mask, ShaderFlags::Skinned));
+    CHECK(HasFlag(d.mask, ShaderFlags::Instanced));
+    CHECK_FALSE(HasFlag(d.mask, ShaderFlags::GBuffer));
+
+    const VariantDirective none = ParseVariantDirective(Hlsl("float4 main(){ return 0; }\n"));
+    CHECK_FALSE(none.present);
+    CHECK(none.mask == ShaderFlags::None);
+}
+
+TEST_CASE("variants: canonicalize keeps only declared bits")
+{
+    const ShaderFlags requested = ShaderFlags::Skinned | ShaderFlags::GBuffer;
+    const ShaderFlags declared = ShaderFlags::Skinned; // a VS that only branches on SKINNED
+    CHECK(CanonicalizeFlags(requested, declared) == ShaderFlags::Skinned);
+    CHECK(CanonicalizeFlags(requested, ShaderFlags::None) == ShaderFlags::None);
+}
+
+TEST_CASE("variants: power set enumerates 2^k variants")
+{
+    Array<ShaderFlags> out;
+    EnumerateVariants(ShaderFlags::Skinned | ShaderFlags::Instanced, out);
+    CHECK(out.Size() == 4u); // {None, S, I, S|I}
+    bool none = false, both = false;
+    for (usize i = 0; i < out.Size(); ++i)
+    {
+        if (out[i] == ShaderFlags::None)
+            none = true;
+        if (out[i] == (ShaderFlags::Skinned | ShaderFlags::Instanced))
+            both = true;
+    }
+    CHECK(none);
+    CHECK(both);
+
+    Array<ShaderFlags> single;
+    EnumerateVariants(ShaderFlags::None, single);
+    CHECK(single.Size() == 1u); // just None
+}
+
+TEST_CASE("variants: drift-lint flags an undeclared #ifdef")
+{
+    const StringView src = Hlsl("#ifdef GBUFFER\nfloat x;\n#endif\n");
+    Array<StringView> undeclared;
+    FindUndeclaredFlagUses(src, ShaderFlags::None, undeclared);
+    CHECK(undeclared.Size() == 1u);
+    CHECK(undeclared[0] == u8"GBUFFER");
+
+    Array<StringView> clean;
+    FindUndeclaredFlagUses(src, ShaderFlags::GBuffer, clean); // declared -> no complaint
+    CHECK(clean.IsEmpty());
+}
+
 TEST_CASE("wgsl cook: HLSL translates to WGSL with the binding shifts preserved")
 {
     Compiler* compiler = MakeCompiler();
