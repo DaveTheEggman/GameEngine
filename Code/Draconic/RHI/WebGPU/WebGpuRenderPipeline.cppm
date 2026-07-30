@@ -39,8 +39,9 @@ export namespace draconic::rhi::webgpu
 
             WGPURenderPipelineDescriptor wgpuDesc = WGPU_RENDER_PIPELINE_DESCRIPTOR_INIT;
             wgpuDesc.label = ToWgpuStringView(pipelineDesc.label);
-            wgpuDesc.layout =
-                static_cast<WebGpuPipelineLayout*>(pipelineDesc.layout)->Handle();
+            auto* pipelineLayout = static_cast<WebGpuPipelineLayout*>(pipelineDesc.layout);
+            wgpuDesc.layout = pipelineLayout->Handle();
+            m_pushConstants = pipelineLayout->EmulationInfo();
 
             // ---- Vertex stage + buffers ----
             String vertexEntry(pipelineDesc.vertex.shader.entryPoint);
@@ -180,9 +181,11 @@ export namespace draconic::rhi::webgpu
         }
 
         [[nodiscard]] WGPURenderPipeline Handle() const { return m_pipeline; }
+        [[nodiscard]] const PushConstantEmulation& PushConstants() const { return m_pushConstants; }
 
     private:
         const WebGpuApi* m_api = nullptr;
         WGPURenderPipeline m_pipeline = nullptr;
+        PushConstantEmulation m_pushConstants;
     };
 }

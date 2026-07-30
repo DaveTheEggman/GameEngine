@@ -152,6 +152,13 @@ export namespace draconic::rhi
         ShaderStage stages = ShaderStage::None;
         u32 offset = 0;
         u32 size = 0;
+        /// WebGPU-emulation only: when a device has no push-constant/immediates path
+        /// (browsers, or wgpu-native with the fallback forced), the block is bound as an
+        /// ordinary uniform buffer at this @group, binding 0 - matching the WGSL the web
+        /// shader cook emits (register(b0, spaceN) -> @group(N) @binding(0), see
+        /// Data/Shaders/push_constant.hlsli). Ignored by Vulkan, DX12, and native-immediates
+        /// WebGPU. Defaults to 1, the engine's dominant push-constant space.
+        u32 bindGroupIndex = 1;
     };
 
 } // namespace draconic::rhi

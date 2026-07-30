@@ -18,6 +18,7 @@ import :conversions;
 import :bind_group;
 import :buffer;
 import :render_pipeline;
+import :push_constant_emulator;
 
 using namespace draconic::core;
 
@@ -73,13 +74,15 @@ export namespace draconic::rhi::webgpu
             wgpuDesc.stencilReadOnly = bundleDesc.stencilReadOnly;
             wgpuDesc.sampleCount = bundleDesc.sampleCount;
             m_encoder = api.wgpuDeviceCreateRenderBundleEncoder(device, &wgpuDesc);
+            m_pushConstants.Begin(api, device);
             return m_encoder != nullptr ? Status(ErrorCode::Ok) : Status(ErrorCode::Unknown);
         }
 
         void SetPipeline(RenderPipeline* pipeline) override
         {
-            m_api->wgpuRenderBundleEncoderSetPipeline(
-                m_encoder, static_cast<WebGpuRenderPipeline*>(pipeline)->Handle());
+            auto* wgpuPipeline = static_cast<WebGpuRenderPipeline*>(pipeline);
+            m_api->wgpuRenderBundleEncoderSetPipeline(m_encoder, wgpuPipeline->Handle());
+            m_pushConstants.SetPipeline(wgpuPipeline->PushConstants());
         }
 
         void SetBindGroup(u32 index, BindGroup* group, Span<const u32> dynamicOffsets) override
@@ -91,7 +94,14 @@ export namespace draconic::rhi::webgpu
 
         void SetPushConstants(ShaderStage, u32 offset, u32 size, const void* data) override
         {
-            m_api->wgpuRenderBundleEncoderSetImmediates(m_encoder, offset, data, size);
+            // Emulating pipeline: fold into the shadow (bound before the next draw). A bundle
+            // captures its push-constant value once at record time, which matches WebGPU bundle
+            // semantics (bundles are static). Otherwise issue native immediates directly.
+            if (!m_pushConstants.Write(offset, size, data) &&
+                m_api->wgpuRenderBundleEncoderSetImmediates != nullptr)
+            {
+                m_api->wgpuRenderBundleEncoderSetImmediates(m_encoder, offset, data, size);
+            }
         }
 
         void SetVertexBuffer(u32 slot, Buffer* buffer, u64 offset) override
@@ -111,6 +121,7 @@ export namespace draconic::rhi::webgpu
 
         void Draw(u32 vertexCount, u32 instanceCount, u32 firstVertex, u32 firstInstance) override
         {
+            FlushPushConstants();
             m_api->wgpuRenderBundleEncoderDraw(m_encoder, vertexCount, instanceCount,
                                                firstVertex, firstInstance);
         }
@@ -118,12 +129,14 @@ export namespace draconic::rhi::webgpu
         void DrawIndexed(u32 indexCount, u32 instanceCount, u32 firstIndex, i32 baseVertex,
                          u32 firstInstance) override
         {
+            FlushPushConstants();
             m_api->wgpuRenderBundleEncoderDrawIndexed(m_encoder, indexCount, instanceCount,
                                                       firstIndex, baseVertex, firstInstance);
         }
 
         void DrawIndirect(Buffer* buffer, u64 offset, u32 drawCount, u32 stride) override
         {
+            FlushPushConstants();
             const WGPUBuffer handle = static_cast<WebGpuBuffer*>(buffer)->Handle();
             for (u32 i = 0; i < drawCount; ++i)
             {
@@ -134,6 +147,7 @@ export namespace draconic::rhi::webgpu
 
         void DrawIndexedIndirect(Buffer* buffer, u64 offset, u32 drawCount, u32 stride) override
         {
+            FlushPushConstants();
             const WGPUBuffer handle = static_cast<WebGpuBuffer*>(buffer)->Handle();
             for (u32 i = 0; i < drawCount; ++i)
             {
@@ -162,12 +176,30 @@ export namespace draconic::rhi::webgpu
                 bundle->Release();
                 m_allocator->Delete(bundle);
             }
+            // Emulated push-constant buffers/bind groups outlive every bundle this encoder made
+            // (a finished bundle retains its own references), so free them only now, last.
+            m_pushConstants.Release();
         }
 
     private:
+        /// Upload + bind any pending emulated push-constant block before a bundle draw. The
+        /// value is captured once here at record time (bundles are static). No-op for pipelines
+        /// that use native immediates.
+        void FlushPushConstants()
+        {
+            i32 group = -1;
+            WGPUBindGroup bindGroup = nullptr;
+            if (m_pushConstants.FlushBeforeDraw(group, bindGroup))
+            {
+                m_api->wgpuRenderBundleEncoderSetBindGroup(
+                    m_encoder, static_cast<u32>(group), bindGroup, 0, nullptr);
+            }
+        }
+
         const WebGpuApi* m_api = nullptr;
         IAllocator* m_allocator = nullptr;
         WGPURenderBundleEncoder m_encoder = nullptr;
         Array<WebGpuRenderBundle*> m_bundles;
+        PushConstantEmulator m_pushConstants;
     };
 }

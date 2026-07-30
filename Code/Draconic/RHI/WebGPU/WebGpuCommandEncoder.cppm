@@ -125,7 +125,7 @@ export namespace draconic::rhi::webgpu
 
             const WGPURenderPassEncoder pass =
                 m_api->wgpuCommandEncoderBeginRenderPass(m_encoder, &wgpuDesc);
-            m_renderPass.Begin(*m_api, pass);
+            m_renderPass.Begin(*m_api, m_device, pass);
             return &m_renderPass;
         }
 
@@ -136,7 +136,7 @@ export namespace draconic::rhi::webgpu
             wgpuDesc.label = ToWgpuStringView(label);
             const WGPUComputePassEncoder pass =
                 m_api->wgpuCommandEncoderBeginComputePass(m_encoder, &wgpuDesc);
-            m_computePass.Begin(*m_api, pass);
+            m_computePass.Begin(*m_api, m_device, pass);
             return &m_computePass;
         }
 

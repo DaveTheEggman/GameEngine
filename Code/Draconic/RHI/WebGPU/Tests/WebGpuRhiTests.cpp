@@ -1103,3 +1103,132 @@ TEST_CASE("rhi.webgpu: sky-shaped draw - z=1.0 vs cleared depth, read-only pass,
     device->Destroy();
     backend->Destroy();
 }
+
+TEST_CASE("rhi.webgpu: push-constant UNIFORM FALLBACK - forced on desktop, verified on GPU")
+{
+    // Browsers (Dawn/emdawnwebgpu) have no immediates, so push constants there are emulated as
+    // a uniform buffer bound at @group(space) @binding(0). That path is unreachable on web
+    // today (no runtime), so we FORCE it on the wgpu-native device and prove, against a real
+    // GPU, that a SetPushConstants value actually reaches the shader through the emulation.
+    Backend* backend = TryCreateBackend();
+    if (backend == nullptr)
+    {
+        MESSAGE("wgpu-native sidecar or GPU unavailable - push-constant fallback test skipped");
+        return;
+    }
+    Device* device = nullptr;
+    REQUIRE(backend->EnumerateAdapters()[0]->CreateDevice(DeviceDesc{}, device).IsOk());
+    // Force the uniform-buffer fallback even though this device supports immediates.
+    static_cast<webgpu::WebGpuDevice*>(device)->SetForceUniformPushConstants(true);
+
+    // Compute shader: read the emulated push-constant uniform at @group(1) @binding(0) and copy
+    // it into a storage buffer at @group(0) @binding(200) (UAV shift). If the emulation binds
+    // the wrong buffer/group, the readback below will not match.
+    const char8_t* wgsl =
+        u8"struct PushBlock { data : vec4<u32> };\n"
+        u8"@group(1) @binding(0) var<uniform> pc : PushBlock;\n"
+        u8"@group(0) @binding(200) var<storage, read_write> outBuf : array<u32>;\n"
+        u8"@compute @workgroup_size(1) fn computeMain() {\n"
+        u8"    outBuf[0] = pc.data.x; outBuf[1] = pc.data.y;\n"
+        u8"    outBuf[2] = pc.data.z; outBuf[3] = pc.data.w;\n"
+        u8"}\n";
+    ShaderModuleDesc moduleDesc;
+    moduleDesc.code = Span<const u8>(reinterpret_cast<const u8*>(wgsl), StringView(wgsl).Size());
+    ShaderModule* shaderModule = nullptr;
+    REQUIRE(device->CreateShaderModule(moduleDesc, shaderModule).IsOk());
+
+    // Group 0: the read-write storage output.
+    const BindGroupLayoutEntry layoutEntries[] = {
+        BindGroupLayoutEntry::StorageBuffer(0, ShaderStage::Compute, /*readOnly=*/false),
+    };
+    BindGroupLayoutDesc bglDesc;
+    bglDesc.entries = Span<const BindGroupLayoutEntry>(layoutEntries, 1);
+    BindGroupLayout* bgl = nullptr;
+    REQUIRE(device->CreateBindGroupLayout(bglDesc, bgl).IsOk());
+
+    BufferDesc storageDesc;
+    storageDesc.size = 16;
+    storageDesc.usage = BufferUsage::Storage | BufferUsage::CopySrc;
+    storageDesc.memory = MemoryLocation::GpuOnly;
+    Buffer* storage = nullptr;
+    REQUIRE(device->CreateBuffer(storageDesc, storage).IsOk());
+
+    const BindGroupEntry groupEntries[] = {BindGroupEntry::BufferEntry(storage, 0, 16)};
+    BindGroupDesc groupDesc;
+    groupDesc.layout = bgl;
+    groupDesc.entries = Span<const BindGroupEntry>(groupEntries, 1);
+    BindGroup* bindGroup = nullptr;
+    REQUIRE(device->CreateBindGroup(groupDesc, bindGroup).IsOk());
+
+    // Pipeline layout declares a push-constant range targeting @group(1) - the layout must
+    // synthesize the emulated uniform bind-group layout there rather than declaring immediates.
+    PushConstantRange pushRange;
+    pushRange.stages = ShaderStage::Compute;
+    pushRange.offset = 0;
+    pushRange.size = 16;
+    pushRange.bindGroupIndex = 1;
+    PipelineLayoutDesc plDesc;
+    BindGroupLayout* layouts[] = {bgl};
+    plDesc.bindGroupLayouts = Span<BindGroupLayout* const>(layouts, 1);
+    plDesc.pushConstantRanges = Span<const PushConstantRange>(&pushRange, 1);
+    PipelineLayout* pipelineLayout = nullptr;
+    REQUIRE(device->CreatePipelineLayout(plDesc, pipelineLayout).IsOk());
+
+    ComputePipelineDesc cpDesc;
+    cpDesc.layout = pipelineLayout;
+    cpDesc.compute = ProgrammableStage{shaderModule, u8"computeMain", ShaderStage::Compute};
+    ComputePipeline* pipeline = nullptr;
+    REQUIRE(device->CreateComputePipeline(cpDesc, pipeline).IsOk());
+
+    // Readback buffer for the storage output.
+    BufferDesc readbackDesc;
+    readbackDesc.size = 16;
+    readbackDesc.usage = BufferUsage::CopyDst;
+    readbackDesc.memory = MemoryLocation::GpuToCpu;
+    Buffer* readback = nullptr;
+    REQUIRE(device->CreateBuffer(readbackDesc, readback).IsOk());
+
+    CommandPool* pool = nullptr;
+    REQUIRE(device->CreateCommandPool(QueueType::Compute, pool).IsOk());
+    CommandEncoder* encoder = nullptr;
+    REQUIRE(pool->CreateEncoder(encoder).IsOk());
+
+    const u32 pushValues[4] = {0xA1A1A1A1u, 0xB2B2B2B2u, 0xC3C3C3C3u, 0xD4D4D4D4u};
+    ComputePassEncoder* computePass = encoder->BeginComputePass();
+    REQUIRE(computePass != nullptr);
+    computePass->SetPipeline(pipeline);
+    computePass->SetBindGroup(0, bindGroup, Span<const u32>());
+    computePass->SetPushConstants(ShaderStage::Compute, 0, 16, pushValues);
+    computePass->Dispatch(1, 1, 1);
+    computePass->End();
+    encoder->CopyBufferToBuffer(storage, 0, readback, 0, 16);
+
+    CommandBuffer* commandBuffer = encoder->Finish();
+    REQUIRE(commandBuffer != nullptr);
+    Fence* fence = nullptr;
+    REQUIRE(device->CreateFence(0, fence).IsOk());
+    CommandBuffer* commandBuffers[] = {commandBuffer};
+    device->GetQueue(QueueType::Compute)
+        ->Submit(Span<CommandBuffer* const>(commandBuffers, 1), fence, 1);
+    REQUIRE(fence->Wait(1, ~0ull));
+
+    const u32* result = static_cast<const u32*>(readback->Map());
+    REQUIRE(result != nullptr);
+    CHECK(result[0] == pushValues[0]); // the push-constant data reached the shader...
+    CHECK(result[1] == pushValues[1]); // ...through the emulated uniform bind group
+    CHECK(result[2] == pushValues[2]);
+    CHECK(result[3] == pushValues[3]);
+    readback->Unmap();
+
+    device->DestroyFence(fence);
+    device->DestroyBuffer(readback);
+    device->DestroyCommandPool(pool);
+    device->DestroyComputePipeline(pipeline);
+    device->DestroyPipelineLayout(pipelineLayout);
+    device->DestroyBuffer(storage);
+    device->DestroyBindGroup(bindGroup);
+    device->DestroyBindGroupLayout(bgl);
+    device->DestroyShaderModule(shaderModule);
+    device->Destroy();
+    backend->Destroy();
+}

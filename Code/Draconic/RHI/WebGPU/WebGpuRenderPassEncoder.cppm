@@ -1,10 +1,10 @@
 /// draconic.rhi.webgpu:render_pass_encoder - RenderPassEncoder over WGPURenderPassEncoder.
 ///
-/// SetPushConstants maps to SetImmediates (real - see :pipeline_layout). Multi-draw
-/// indirect unrolls into single indirect draws (core WebGPU has one-draw indirect).
-/// Occlusion queries require RenderPassDesc.occlusionQuerySet declared at pass
-/// begin; Begin/End then carry only the index. Timestamps also ride the pass
-/// descriptor (see :command_encoder).
+/// SetPushConstants takes native immediates where available (see :pipeline_layout), else the
+/// uniform-buffer fallback (:push_constant_emulator) - the shadow is flushed and bound before
+/// each draw. Multi-draw indirect unrolls into single indirect draws (core WebGPU has one-draw
+/// indirect). Occlusion queries require RenderPassDesc.occlusionQuerySet declared at pass begin;
+/// Begin/End then carry only the index. Timestamps also ride the pass descriptor.
 
 module;
 #include "Core/Prelude.h"
@@ -19,6 +19,7 @@ import :bind_group;
 import :buffer;
 import :render_pipeline;
 import :render_bundle_encoder;
+import :push_constant_emulator;
 
 using namespace draconic::core;
 
@@ -27,16 +28,18 @@ export namespace draconic::rhi::webgpu
     class WebGpuRenderPassEncoder final : public RenderPassEncoder
     {
     public:
-        void Begin(const WebGpuApi& api, WGPURenderPassEncoder encoder)
+        void Begin(const WebGpuApi& api, WGPUDevice device, WGPURenderPassEncoder encoder)
         {
             m_api = &api;
             m_encoder = encoder;
+            m_pushConstants.Begin(api, device);
         }
 
         void SetPipeline(RenderPipeline* pipeline) override
         {
-            m_api->wgpuRenderPassEncoderSetPipeline(
-                m_encoder, static_cast<WebGpuRenderPipeline*>(pipeline)->Handle());
+            auto* wgpuPipeline = static_cast<WebGpuRenderPipeline*>(pipeline);
+            m_api->wgpuRenderPassEncoderSetPipeline(m_encoder, wgpuPipeline->Handle());
+            m_pushConstants.SetPipeline(wgpuPipeline->PushConstants());
         }
 
         void SetBindGroup(u32 index, BindGroup* group, Span<const u32> dynamicOffsets) override
@@ -48,7 +51,13 @@ export namespace draconic::rhi::webgpu
 
         void SetPushConstants(ShaderStage, u32 offset, u32 size, const void* data) override
         {
-            m_api->wgpuRenderPassEncoderSetImmediates(m_encoder, offset, data, size);
+            // Emulating pipeline: fold into the shadow (bound before the next draw). Otherwise
+            // the pipeline declared native immediates - issue them directly.
+            if (!m_pushConstants.Write(offset, size, data) &&
+                m_api->wgpuRenderPassEncoderSetImmediates != nullptr)
+            {
+                m_api->wgpuRenderPassEncoderSetImmediates(m_encoder, offset, data, size);
+            }
         }
 
         void SetVertexBuffer(u32 slot, Buffer* buffer, u64 offset) override
@@ -91,6 +100,7 @@ export namespace draconic::rhi::webgpu
 
         void Draw(u32 vertexCount, u32 instanceCount, u32 firstVertex, u32 firstInstance) override
         {
+            FlushPushConstants();
             m_api->wgpuRenderPassEncoderDraw(m_encoder, vertexCount, instanceCount, firstVertex,
                                              firstInstance);
         }
@@ -98,12 +108,14 @@ export namespace draconic::rhi::webgpu
         void DrawIndexed(u32 indexCount, u32 instanceCount, u32 firstIndex, i32 baseVertex,
                          u32 firstInstance) override
         {
+            FlushPushConstants();
             m_api->wgpuRenderPassEncoderDrawIndexed(m_encoder, indexCount, instanceCount,
                                                     firstIndex, baseVertex, firstInstance);
         }
 
         void DrawIndirect(Buffer* buffer, u64 offset, u32 drawCount, u32 stride) override
         {
+            FlushPushConstants();
             const WGPUBuffer handle = static_cast<WebGpuBuffer*>(buffer)->Handle();
             for (u32 i = 0; i < drawCount; ++i) // core WebGPU: one draw per indirect call
             {
@@ -114,6 +126,7 @@ export namespace draconic::rhi::webgpu
 
         void DrawIndexedIndirect(Buffer* buffer, u64 offset, u32 drawCount, u32 stride) override
         {
+            FlushPushConstants();
             const WGPUBuffer handle = static_cast<WebGpuBuffer*>(buffer)->Handle();
             for (u32 i = 0; i < drawCount; ++i)
             {
@@ -161,12 +174,29 @@ export namespace draconic::rhi::webgpu
         void End() override
         {
             m_api->wgpuRenderPassEncoderEnd(m_encoder);
+            // AFTER End: the pass commands have taken their references, so the emulated
+            // uniform buffers/bind groups can be freed.
+            m_pushConstants.Release();
             m_api->wgpuRenderPassEncoderRelease(m_encoder);
             m_encoder = nullptr;
         }
 
     private:
+        /// Upload + bind any pending emulated push-constant block before a draw. No-op for
+        /// pipelines that use native immediates.
+        void FlushPushConstants()
+        {
+            i32 group = -1;
+            WGPUBindGroup bindGroup = nullptr;
+            if (m_pushConstants.FlushBeforeDraw(group, bindGroup))
+            {
+                m_api->wgpuRenderPassEncoderSetBindGroup(
+                    m_encoder, static_cast<u32>(group), bindGroup, 0, nullptr);
+            }
+        }
+
         const WebGpuApi* m_api = nullptr;
         WGPURenderPassEncoder m_encoder = nullptr;
+        PushConstantEmulator m_pushConstants;
     };
 }

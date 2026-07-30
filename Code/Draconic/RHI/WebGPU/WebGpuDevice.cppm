@@ -67,6 +67,18 @@ export namespace draconic::rhi::webgpu
         /// (push-constant support; pipeline layouts with ranges fail without it).
         void SetImmediatesSupported(bool supported) { m_immediatesSupported = supported; }
 
+        /// Force the uniform-buffer push-constant fallback even where immediates exist.
+        /// Web always emulates (no immediates in Dawn); this lets desktop tests exercise the
+        /// same path against a real GPU. See WebGpuPipelineLayout / the pass encoders.
+        void SetForceUniformPushConstants(bool force) { m_forceUniformPushConstants = force; }
+
+        /// Whether push constants are emulated as a bound uniform buffer on this device
+        /// (no immediates, or the fallback forced) rather than issued via SetImmediates.
+        [[nodiscard]] bool EmulatesPushConstants() const
+        {
+            return m_forceUniformPushConstants || !m_immediatesSupported;
+        }
+
         [[nodiscard]] WGPUDevice Handle() const { return m_device; }
         [[nodiscard]] WGPUInstance Instance() const { return m_instance; }
         [[nodiscard]] const WebGpuApi& Api() const { return *m_api; }
@@ -245,7 +257,7 @@ export namespace draconic::rhi::webgpu
         {
             return CreateResource<WebGpuPipelineLayout>(
                 out, [&](WebGpuPipelineLayout& l)
-                { return l.Initialize(*m_api, m_device, layoutDesc, m_immediatesSupported); });
+                { return l.Initialize(*m_api, m_device, layoutDesc, EmulatesPushConstants()); });
         }
         Status CreatePipelineCache(const PipelineCacheDesc&, PipelineCache*& out) override
         {
@@ -436,5 +448,6 @@ export namespace draconic::rhi::webgpu
         WebGpuQueue m_transferQueue;
         bool m_lost = false;
         bool m_immediatesSupported = false;
+        bool m_forceUniformPushConstants = false;
     };
 }

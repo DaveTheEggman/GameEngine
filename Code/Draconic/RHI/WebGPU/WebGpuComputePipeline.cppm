@@ -32,8 +32,9 @@ export namespace draconic::rhi::webgpu
             String entry(pipelineDesc.compute.entryPoint);
             WGPUComputePipelineDescriptor wgpuDesc = WGPU_COMPUTE_PIPELINE_DESCRIPTOR_INIT;
             wgpuDesc.label = ToWgpuStringView(pipelineDesc.label);
-            wgpuDesc.layout =
-                static_cast<WebGpuPipelineLayout*>(pipelineDesc.layout)->Handle();
+            auto* pipelineLayout = static_cast<WebGpuPipelineLayout*>(pipelineDesc.layout);
+            wgpuDesc.layout = pipelineLayout->Handle();
+            m_pushConstants = pipelineLayout->EmulationInfo();
             wgpuDesc.compute.module =
                 static_cast<WebGpuShaderModule*>(pipelineDesc.compute.module)->Handle();
             wgpuDesc.compute.entryPoint = ToWgpuStringView(entry.AsView());
@@ -52,9 +53,11 @@ export namespace draconic::rhi::webgpu
         }
 
         [[nodiscard]] WGPUComputePipeline Handle() const { return m_pipeline; }
+        [[nodiscard]] const PushConstantEmulation& PushConstants() const { return m_pushConstants; }
 
     private:
         const WebGpuApi* m_api = nullptr;
         WGPUComputePipeline m_pipeline = nullptr;
+        PushConstantEmulation m_pushConstants;
     };
 }
