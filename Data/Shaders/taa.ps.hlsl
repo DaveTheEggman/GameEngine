@@ -58,11 +58,14 @@ float3 SampleHistoryCatmullRom(float2 uv, float2 texSize) {
 struct PSOut { float4 Color : SV_Target0; float4 History : SV_Target1; };
 
 PSOut main(float4 pos : SV_Position, float2 uv : TEXCOORD0) {
-    float3 current = CurrentColor.Sample(PointSamp, uv).rgb;
+    // Full-screen post pass: every texture here is a 1:1 single-mip target, so all taps use SampleLevel
+    // at mip 0. This is exact (no mip chain to select) AND keeps sampling out of the implicit-derivative
+    // path - WGSL/Chrome make textureSample in non-uniform control flow (the loops below) a hard error.
+    float3 current = CurrentColor.SampleLevel(PointSamp, uv, 0).rgb;
 
     // This pixel's surface depth (linear) - stored in the history alpha so next frame can compare against
     // it at the reprojected position (the disocclusion test below).
-    float centerLin = LinearizeDepth(DepthTexture.Sample(PointSamp, uv).r, pc.NearPlane, pc.FarPlane);
+    float centerLin = LinearizeDepth(DepthTexture.SampleLevel(PointSamp, uv, 0).r, pc.NearPlane, pc.FarPlane);
 
     // Closest depth in a 3x3 neighborhood -> stable motion-vector selection (reduces silhouette ghosting).
     float  closestDepth = 1.0;
@@ -70,11 +73,11 @@ PSOut main(float4 pos : SV_Position, float2 uv : TEXCOORD0) {
     for (int y = -1; y <= 1; ++y) {
         for (int x = -1; x <= 1; ++x) {
             float2 s = uv + float2(x, y) * pc.TexelSize;
-            float  d = DepthTexture.Sample(PointSamp, s).r;
+            float  d = DepthTexture.SampleLevel(PointSamp, s, 0).r;
             if (d < closestDepth) { closestDepth = d; closestUV = s; }
         }
     }
-    float2 motion    = MotionVectors.Sample(PointSamp, closestUV).rg;
+    float2 motion    = MotionVectors.SampleLevel(PointSamp, closestUV, 0).rg;
     float2 historyUV = uv - motion;
 
     PSOut o;
@@ -92,7 +95,7 @@ PSOut main(float4 pos : SV_Position, float2 uv : TEXCOORD0) {
     // flip is not a reveal - it is the sub-pixel coverage we want history to ACCUMULATE into an AA'd edge.
     // Without the gate the reject fires on every boundary pixel each frame, so the edge shows the raw
     // jittered current and the jaggies crawl. Motion is geometric (jitter-free) so static == exactly 0.
-    float linPrev  = HistoryColor.Sample(PointSamp, historyUV).a;
+    float linPrev  = HistoryColor.SampleLevel(PointSamp, historyUV, 0).a;
     float motionPx = length(motion / pc.TexelSize);   // motion-vector magnitude in pixels
     if (linPrev > 0.0 && motionPx > 0.5) {
         float linCur   = LinearizeDepth(closestDepth, pc.NearPlane, pc.FarPlane);
@@ -104,7 +107,7 @@ PSOut main(float4 pos : SV_Position, float2 uv : TEXCOORD0) {
     float3 m1 = float3(0,0,0), m2 = float3(0,0,0);
     for (int ny = -1; ny <= 1; ++ny) {
         for (int nx = -1; nx <= 1; ++nx) {
-            float3 y = RGBToYCoCg(CurrentColor.Sample(PointSamp, uv + float2(nx, ny) * pc.TexelSize).rgb);
+            float3 y = RGBToYCoCg(CurrentColor.SampleLevel(PointSamp, uv + float2(nx, ny) * pc.TexelSize, 0).rgb);
             m1 += y; m2 += y * y;
         }
     }

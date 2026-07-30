@@ -322,12 +322,17 @@ float4 main(PSInput input) : SV_Target0 {
     // tangents fall back to the geometric normal.
     float3 N = normalize(input.normalWS);
     {
+        // Sample the normal map in UNIFORM control flow (hoisted out of the tangent-validity branch
+        // below). WGSL/Chrome make an implicit-derivative sample inside a per-pixel branch a hard error;
+        // sampling unconditionally keeps the mip-selecting derivatives (a material texture, unlike the
+        // full-screen post taps) and is harmless when the tangent is degenerate - the flat default map
+        // decodes to (0,0,1) and the result is simply unused (N stays the geometric normal).
+        float3 nTex = NormalMap.Sample(MainSampler, input.uv).xyz * 2.0 - 1.0;
         float3 T = input.tangentWS.xyz - N * dot(input.tangentWS.xyz, N);   // Gram-Schmidt re-orthogonalize
         float  tLen = length(T);
         if (tLen > 1e-4) {
             T /= tLen;
             float3 B = cross(N, T) * input.tangentWS.w;   // handedness: mirrored UVs flip the bitangent
-            float3 nTex = NormalMap.Sample(MainSampler, input.uv).xyz * 2.0 - 1.0;
             nTex.xy *= NormalScale;   // authored bump strength (1 = as-authored)
             N = normalize(nTex.x * T + nTex.y * B + nTex.z * N);
         }
