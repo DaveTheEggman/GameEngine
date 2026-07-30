@@ -1,3 +1,4 @@
+#include "push_constant.hlsli"
 #include "ao_common.hlsli"
 
 Texture2D    DepthTex  : register(t0, space0);
@@ -13,7 +14,7 @@ struct GtaoPush {
     int    DebugMode;             // 0=AO, 2=Nx, 3=Ny, 4=Nz, 5=viewZ, 6=rawDepth
     int    _pad;
 };
-[[vk::push_constant]] ConstantBuffer<GtaoPush> pc : register(b0, space1);
+PUSH_CONSTANT(GtaoPush, pc, space1);
 
 static const float PI     = 3.14159265359;
 static const float HALFPI = 1.57079632679;

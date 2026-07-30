@@ -1,3 +1,4 @@
+#include "push_constant.hlsli"
 Texture2D<float4> ReflTex     : register(t0, space0);   // current reflection (rgb + confidence)
 Texture2D<float4> HistoryTex  : register(t1, space0);   // previous accumulated reflection
 Texture2D         VelocityTex : register(t2, space0);   // screen-space motion (viewport-local uv delta)
@@ -17,7 +18,7 @@ struct SsrResolvePush {
     int    Debug;          // >0 = output raw reflection (no composite)
     float  GhostReject;    // history-vs-current luma-diff rejection strength (higher = less ghosting)
 };
-[[vk::push_constant]] ConstantBuffer<SsrResolvePush> pc : register(b0, space1);
+PUSH_CONSTANT(SsrResolvePush, pc, space1);
 
 float3 RGBToYCoCg(float3 c) { return float3(0.25*c.r + 0.5*c.g + 0.25*c.b, 0.5*c.r - 0.5*c.b, -0.25*c.r + 0.5*c.g - 0.25*c.b); }
 float3 YCoCgToRGB(float3 c) { float t = c.x - c.z; return float3(t + c.y, c.x + c.z, t - c.y); }

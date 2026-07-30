@@ -1,3 +1,4 @@
+#include "push_constant.hlsli"
 Texture2D<float4> Src  : register(t0, space0);
 SamplerState      Samp : register(s0, space0);
 struct BloomPush {
@@ -7,4 +8,4 @@ struct BloomPush {
     int    FirstPass;  // 1 = threshold + firefly-average the source (mip 0)
     float3 _pad;
 };
-[[vk::push_constant]] ConstantBuffer<BloomPush> pc : register(b0, space1);
+PUSH_CONSTANT(BloomPush, pc, space1);

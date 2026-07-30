@@ -1,3 +1,4 @@
+#include "push_constant.hlsli"
 Texture2D    CurrentColor  : register(t0, space0);
 Texture2D    HistoryColor  : register(t1, space0);
 Texture2D    MotionVectors : register(t2, space0);
@@ -14,7 +15,7 @@ struct TaaPush {
     float  NearPlane;      // camera near - linearize depth for the disocclusion test
     float  FarPlane;       // camera far
 };
-[[vk::push_constant]] ConstantBuffer<TaaPush> pc : register(b0, space1);
+PUSH_CONSTANT(TaaPush, pc, space1);
 
 // Linearize a non-reverse-Z depth (0=near, 1=far) to view-space Z, so the disocclusion threshold is
 // depth-independent. Sky/background (d=1) maps to FarPlane; there's no divide-by-zero in [0,1].

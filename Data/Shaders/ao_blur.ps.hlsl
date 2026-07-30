@@ -1,8 +1,9 @@
+#include "push_constant.hlsli"
 Texture2D    AoTex     : register(t0, space0);
 Texture2D    DepthTex  : register(t1, space0);
 SamplerState PointSamp : register(s0, space0);
 struct BlurPush { float2 Dir; float2 TexelSize; float DepthSigma; float3 _pad; };
-[[vk::push_constant]] ConstantBuffer<BlurPush> pc : register(b0, space1);
+PUSH_CONSTANT(BlurPush, pc, space1);
 
 float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     float  centerD = DepthTex.SampleLevel(PointSamp, uv, 0).r;

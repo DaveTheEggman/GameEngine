@@ -1,3 +1,4 @@
+#include "push_constant.hlsli"
 struct IblPush {
     int FaceIndex; int Mode; float Roughness; float SkyIntensity;
     float4 Sun;        // xyz = direction, w = sun angular size (degrees)
@@ -5,7 +6,7 @@ struct IblPush {
     float4 Zenith;     // rgb, a = sky rotation (radians)
     float4 Ground;     // rgb
 };
-[[vk::push_constant]] ConstantBuffer<IblPush> pc : register(b0, space1);
+PUSH_CONSTANT(IblPush, pc, space1);
 
 // Canonical cube-face direction from a face index + [0,1] face uv. NOTE: no t.y negation - the cube
 // faces are rendered through the RHI's negative-viewport (Y-flipped), so the stored texel already

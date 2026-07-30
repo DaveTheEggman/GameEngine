@@ -1,5 +1,6 @@
+#include "push_constant.hlsli"
 struct Push { int FaceIndex; float Roughness; float2 Pad; };
-[[vk::push_constant]] ConstantBuffer<Push> pc : register(b0, space1);
+PUSH_CONSTANT(Push, pc, space1);
 // Single-cube view of the prefiltered cube-ARRAY (this probe's 6 faces). A CUBE-ARRAY type is
 // required: DX12's TEXTURECUBE SRV cannot address a non-zero first face (it always views cube 0),
 // so the bound view selects the probe and the shader samples cube 0 of it.

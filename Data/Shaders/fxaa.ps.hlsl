@@ -1,3 +1,4 @@
+#include "push_constant.hlsli"
 Texture2D    SceneColor : register(t0, space0);
 SamplerState LinearSamp : register(s0, space0);
 struct FxaaPush {
@@ -9,7 +10,7 @@ struct FxaaPush {
     float  EdgeThresholdMin;  // 0.0312 default (skip dark/flat)
     float  _pad;
 };
-[[vk::push_constant]] ConstantBuffer<FxaaPush> pc : register(b0, space1);
+PUSH_CONSTANT(FxaaPush, pc, space1);
 
 float Luma(float3 c) { return dot(c, float3(0.299, 0.587, 0.114)); }
 float3 Fetch(float2 uv) { return SceneColor.SampleLevel(LinearSamp, uv, 0).rgb; }

@@ -1,7 +1,8 @@
+#include "push_constant.hlsli"
 struct VSIn  { float3 pos : TEXCOORD0; float4 col : TEXCOORD1; };
 struct VSOut { float4 pos : SV_Position; float4 col : TEXCOORD0; };
 struct GeomPush { row_major float4x4 ViewProj; };
-[[vk::push_constant]] ConstantBuffer<GeomPush> pc : register(b0, space0);
+PUSH_CONSTANT(GeomPush, pc, space0);
 static const float kDepthBias = 0.0005;
 VSOut main(VSIn i) {
     VSOut o;

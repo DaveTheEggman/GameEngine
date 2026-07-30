@@ -1,3 +1,4 @@
+#include "push_constant.hlsli"
 Texture2D<float4> SceneTex    : register(t0, space0);   // lit HDR (reflected + composited into)
 Texture2D         DepthTex    : register(t1, space0);
 Texture2D         NormalTex   : register(t2, space0);   // octahedral view-space normal
@@ -29,7 +30,7 @@ struct SsrPush {
     int    Debug;                // 0=off, 1=raw reflected color, 2=hit uv, 3=weight, 4=reflect dir
     float  Glossy;               // glossy cone-gather scale (0 = sharp mirror)
 };
-[[vk::push_constant]] ConstantBuffer<SsrPush> pc : register(b0, space1);
+PUSH_CONSTANT(SsrPush, pc, space1);
 
 // Octahedral decode -> view-space normal (matches the forward's OctEncode).
 float3 OctDecode(float2 e) {

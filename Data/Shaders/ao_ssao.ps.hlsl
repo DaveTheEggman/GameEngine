@@ -1,3 +1,4 @@
+#include "push_constant.hlsli"
 #include "ao_common.hlsli"
 
 Texture2D    DepthTex  : register(t0, space0);
@@ -15,7 +16,7 @@ struct SsaoPush {
     int    SampleCount;
     int    DebugMode;
 };
-[[vk::push_constant]] ConstantBuffer<SsaoPush> pc : register(b0, space1);
+PUSH_CONSTANT(SsaoPush, pc, space1);
 
 float3 ViewPos(float2 uv, float depth) {
     float2 ndc = float2(uv.x * 2.0 - 1.0, (1.0 - uv.y) * 2.0 - 1.0);
