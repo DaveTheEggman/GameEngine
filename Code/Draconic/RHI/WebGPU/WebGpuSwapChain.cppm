@@ -119,11 +119,26 @@ export namespace draconic::rhi::webgpu
         }
 
     private:
+        // The non-sRGB companion of an sRGB color format (identity otherwise). A WebGPU canvas
+        // context only accepts a non-sRGB config format, so an sRGB swapchain is configured with
+        // this base format plus the sRGB format as a viewFormat.
+        static TextureFormat BaseColorFormat(TextureFormat format)
+        {
+            switch (format)
+            {
+            case TextureFormat::BGRA8UnormSrgb:
+                return TextureFormat::BGRA8Unorm;
+            case TextureFormat::RGBA8UnormSrgb:
+                return TextureFormat::RGBA8Unorm;
+            default:
+                return format;
+            }
+        }
+
         Status Configure(u32 width, u32 height)
         {
             WGPUSurfaceConfiguration config = WGPU_SURFACE_CONFIGURATION_INIT;
             config.device = m_device;
-            config.format = ToWgpuTextureFormat(m_format);
             // The pipeline's final hop COPIES the tonemapped output into the
             // backbuffer, so the surface needs CopyDst alongside RenderAttachment
             // (universally supported by wgpu surfaces).
@@ -131,6 +146,25 @@ export namespace draconic::rhi::webgpu
             config.width = width;
             config.height = height;
             config.presentMode = SupportedPresentMode(ToWgpuPresentMode(m_presentMode));
+
+#if DRACONIC_PLATFORM_WEB
+            // A WebGPU canvas context does not accept an sRGB config format, so configure with the
+            // base format and expose the sRGB format as a viewFormat. AcquireNextImage then creates
+            // the per-frame view in m_format (the sRGB format), so the engine's default sRGB
+            // swapchain renders correctly with no app-side change. Desktop wgpu-native accepts sRGB
+            // config formats directly, so it is left exactly as before.
+            const TextureFormat baseFormat = BaseColorFormat(m_format);
+            config.format = ToWgpuTextureFormat(baseFormat);
+            WGPUTextureFormat viewFormat = ToWgpuTextureFormat(m_format);
+            if (baseFormat != m_format)
+            {
+                config.viewFormatCount = 1;
+                config.viewFormats = &viewFormat;
+            }
+#else
+            config.format = ToWgpuTextureFormat(m_format);
+#endif
+
             m_api->wgpuSurfaceConfigure(m_surface->Handle(), &config);
             m_configured = true;
             m_width = width;

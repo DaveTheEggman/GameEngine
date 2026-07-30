@@ -95,7 +95,7 @@ namespace
             }
 
             rhi::ColorTargetState colorTarget;
-            colorTarget.format = rhi::TextureFormat::BGRA8UnormSrgb; // swapchain default
+            colorTarget.format = rhi::TextureFormat::BGRA8UnormSrgb; // the swapchain's default format
             colorTarget.writeMask = rhi::ColorWriteMask::All;
 
             rhi::RenderPipelineDesc pipelineDesc;
@@ -111,7 +111,6 @@ namespace
             {
                 m_pipeline = nullptr;
             }
-            core::ConsoleWrite(u8"WebTriangle: started.\n");
         }
 
         void OnRenderWindow(runtime::IApplicationHost&, graphics::FrameContext& frame) override

@@ -63,6 +63,7 @@ export namespace draconic::rhi::webgpu
             (void)spirv;
             if (m_instance == nullptr)
             {
+                LogError("WebGpuBackend: wgpuCreateInstance returned null");
                 UnloadWebGpuApi(m_api);
                 return ErrorCode::Unknown;
             }
@@ -193,24 +194,64 @@ export namespace draconic::rhi::webgpu
                 {
                     WGPUAdapter* adapter;
                     bool* done;
-                } result{&handle, &done};
+                    u32 status;
+                } result{&handle, &done, 0u};
                 WGPURequestAdapterOptions options = WGPU_REQUEST_ADAPTER_OPTIONS_INIT;
+#if DRACONIC_PLATFORM_WEB
+                // Dawn (emdawnwebgpu) returns NO adapter when featureLevel is left Undefined - it
+                // must be an explicit level. wgpu-native (desktop) does not use this field, so the
+                // request is web-gated. Core = the full (non-compatibility) WebGPU feature set.
+                options.featureLevel = WGPUFeatureLevel_Core;
+#endif
                 WGPURequestAdapterCallbackInfo callback =
                     WGPU_REQUEST_ADAPTER_CALLBACK_INFO_INIT;
                 callback.mode = WGPUCallbackMode_AllowProcessEvents;
                 callback.callback = [](WGPURequestAdapterStatus status, WGPUAdapter adapter,
-                                       WGPUStringView, void* userdata1, void*)
+                                       WGPUStringView message, void* userdata1, void*)
                 {
                     auto* r = static_cast<Result*>(userdata1);
+                    r->status = static_cast<u32>(status);
                     if (status == WGPURequestAdapterStatus_Success)
                     {
                         *r->adapter = adapter;
+                    }
+                    else if (message.data != nullptr)
+                    {
+                        // Log the reason Dawn gave (valid only inside the callback).
+                        ConsoleWriteError(u8"WebGpuBackend: requestAdapter message: ");
+                        if (message.length != WGPU_STRLEN && message.length > 0)
+                        {
+                            ConsoleWriteError(StringView(
+                                reinterpret_cast<const utf8char*>(message.data), message.length));
+                        }
+                        else
+                        {
+                            ConsoleWriteError(reinterpret_cast<const utf8char*>(message.data));
+                        }
+                        ConsoleWriteError(u8"\n");
                     }
                     *r->done = true;
                 };
                 callback.userdata1 = &result;
                 (void)m_api.wgpuInstanceRequestAdapter(m_instance, &options, callback);
                 m_api.PumpUntil(m_instance, done);
+                if (!done)
+                {
+                    // The callback never fired: the pump gave up before the browser resolved the
+                    // requestAdapter promise (an async-yield / ASYNCIFY problem, not a GPU one).
+                    LogError("WebGpuBackend: requestAdapter callback did not fire (pump timed out)");
+                }
+                else if (handle == nullptr)
+                {
+                    // status: 2=CallbackCancelled, 3=Unavailable, 4=Error (see WGPURequestAdapterStatus)
+                    const utf8char* name = result.status == 2u   ? u8"CallbackCancelled"
+                                           : result.status == 3u ? u8"Unavailable"
+                                           : result.status == 4u ? u8"Error"
+                                                                 : u8"(unknown)";
+                    ConsoleWriteError(u8"WebGpuBackend: requestAdapter returned no adapter, status=");
+                    ConsoleWriteError(name);
+                    ConsoleWriteError(u8"\n");
+                }
                 if (handle != nullptr)
                 {
                     m_adapters.PushBack(

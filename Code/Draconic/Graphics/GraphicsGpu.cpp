@@ -76,6 +76,7 @@ namespace draconic::graphics
             rhi::webgpu::WebGpuBackendDesc bd{};
             if (!rhi::webgpu::CreateBackend(bd, raw).IsOk())
             {
+                rhi::LogError("CreateGraphicsDevice: WebGPU CreateBackend failed");
                 return core::Err(core::ErrorCode::Unknown);
             }
 #else

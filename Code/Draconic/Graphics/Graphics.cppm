@@ -253,12 +253,14 @@ export namespace draconic::graphics
         {
             if (backend == nullptr)
             {
+                rhi::LogError("GraphicsDevice::FromBackend: null backend (creation failed)");
                 return core::Err(core::ErrorCode::Unknown);
             }
 
             core::Span<rhi::Adapter* const> adapters = backend->EnumerateAdapters();
             if (adapters.Size() == 0)
             {
+                rhi::LogError("GraphicsDevice::FromBackend: no adapters enumerated");
                 backend->Destroy();
                 return core::Err(core::ErrorCode::Unknown);
             }
@@ -269,6 +271,7 @@ export namespace draconic::graphics
             rhi::Device* device = nullptr;
             if (!adapters[0]->CreateDevice(dd, device).IsOk())
             {
+                rhi::LogError("GraphicsDevice::FromBackend: CreateDevice failed");
                 backend->Destroy();
                 return core::Err(core::ErrorCode::Unknown);
             }
@@ -276,6 +279,7 @@ export namespace draconic::graphics
             rhi::Queue* queue = device->GetQueue(rhi::QueueType::Graphics);
             if (queue == nullptr)
             {
+                rhi::LogError("GraphicsDevice::FromBackend: no graphics queue");
                 device->Destroy();
                 backend->Destroy();
                 return core::Err(core::ErrorCode::Unknown);
