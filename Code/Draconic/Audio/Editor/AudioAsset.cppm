@@ -760,11 +760,11 @@ export namespace draconic::audio
     // Registers the asset type for content-DB construction + deserialization.
     inline void RegisterAudioAssets()
     {
-        GlobalTypeRegistry().Register(AudioClipAsset::StaticType());
+        GlobalTypeRegistry().Register(AudioClipAsset::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<AudioClipAsset>();
-        GlobalTypeRegistry().Register(AudioBusLayoutAsset::StaticType());
+        GlobalTypeRegistry().Register(AudioBusLayoutAsset::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<AudioBusLayoutAsset>();
-        GlobalTypeRegistry().Register(SoundCueAsset::StaticType());
+        GlobalTypeRegistry().Register(SoundCueAsset::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<SoundCueAsset>();
     }
 

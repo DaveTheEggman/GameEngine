@@ -118,7 +118,7 @@ export namespace draconic::shaders
     // Registers ShaderAsset for content-DB construction + deserialization.
     inline void RegisterShaderAsset()
     {
-        GlobalTypeRegistry().Register(ShaderAsset::StaticType());
+        GlobalTypeRegistry().Register(ShaderAsset::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<ShaderAsset>();
     }
 

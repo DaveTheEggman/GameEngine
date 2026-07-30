@@ -668,7 +668,7 @@ export namespace draconic::texture
     // Registers TextureAsset for content-DB construction + deserialization.
     inline void RegisterTextureAsset()
     {
-        GlobalTypeRegistry().Register(TextureAsset::StaticType());
+        GlobalTypeRegistry().Register(TextureAsset::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<TextureAsset>();
     }
 

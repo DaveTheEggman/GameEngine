@@ -120,9 +120,9 @@ export namespace draconic::geometry
 
     inline void RegisterMeshAssets()
     {
-        GlobalTypeRegistry().Register(StaticMeshAsset::StaticType());
+        GlobalTypeRegistry().Register(StaticMeshAsset::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<StaticMeshAsset>();
-        GlobalTypeRegistry().Register(SkinnedMeshAsset::StaticType());
+        GlobalTypeRegistry().Register(SkinnedMeshAsset::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<SkinnedMeshAsset>();
     }
 

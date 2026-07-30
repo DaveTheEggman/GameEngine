@@ -100,7 +100,7 @@ export namespace draconic::materials
     // Registers MaterialAsset for content-DB construction + deserialization.
     inline void RegisterMaterialAsset()
     {
-        GlobalTypeRegistry().Register(MaterialAsset::StaticType());
+        GlobalTypeRegistry().Register(MaterialAsset::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<MaterialAsset>();
     }
 

@@ -93,7 +93,7 @@ export namespace draconic::image
     // Registers ImageAsset for content-DB construction + deserialization.
     inline void RegisterImageAsset()
     {
-        GlobalTypeRegistry().Register(ImageAsset::StaticType());
+        GlobalTypeRegistry().Register(ImageAsset::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<ImageAsset>();
     }
 

@@ -248,9 +248,9 @@ export namespace draconic::physics
     // Registers the asset types for content-DB construction + deserialization.
     inline void RegisterPhysicsAssets()
     {
-        GlobalTypeRegistry().Register(CollisionShapeAsset::StaticType());
+        GlobalTypeRegistry().Register(CollisionShapeAsset::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<CollisionShapeAsset>();
-        GlobalTypeRegistry().Register(PhysicalMaterialAsset::StaticType());
+        GlobalTypeRegistry().Register(PhysicalMaterialAsset::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<PhysicalMaterialAsset>();
     }
 

@@ -220,9 +220,9 @@ export namespace draconic::ui
 
     inline void RegisterUIAssets()
     {
-        GlobalTypeRegistry().Register(UIDocumentAsset::StaticType());
+        GlobalTypeRegistry().Register(UIDocumentAsset::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<UIDocumentAsset>();
-        GlobalTypeRegistry().Register(UIThemeAsset::StaticType());
+        GlobalTypeRegistry().Register(UIThemeAsset::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<UIThemeAsset>();
     }
 

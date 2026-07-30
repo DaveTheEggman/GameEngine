@@ -115,7 +115,7 @@ export namespace draconic::particles
     inline void RegisterParticleEffectAsset()
     {
         RegisterParticleEffectResource();
-        GlobalTypeRegistry().Register(ParticleEffectAsset::StaticType());
+        GlobalTypeRegistry().Register(ParticleEffectAsset::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<ParticleEffectAsset>();
     }
 

@@ -348,7 +348,7 @@ export namespace draconic::editor
     inline void RegisterMaterialEditor(EditorContext& context, runtime::IApplicationHost& host,
                                        ui::runtime::UIHost& uiHost)
     {
-        GlobalTypeRegistry().Register(materials::MaterialAsset::StaticType());
+        GlobalTypeRegistry().Register(materials::MaterialAsset::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<materials::MaterialAsset>();
 
         context.Pages().Register(UniquePtr<IEditorPageFactory>(

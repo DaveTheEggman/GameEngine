@@ -670,7 +670,7 @@ export namespace draconic::script
     // Registers the asset type for content-DB construction + deserialization.
     inline void RegisterScriptAssets()
     {
-        GlobalTypeRegistry().Register(ScriptClassAsset::StaticType());
+        GlobalTypeRegistry().Register(ScriptClassAsset::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<ScriptClassAsset>();
     }
 

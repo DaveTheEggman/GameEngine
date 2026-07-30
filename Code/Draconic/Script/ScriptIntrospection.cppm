@@ -44,6 +44,9 @@ export namespace draconic::script
     struct ScriptApiType
     {
         core::String scriptName;
+        // The reflected identity behind the binding (0 = none). Tooling maps it back to
+        // registry metadata - e.g. TypeRegistry::DomainOf marks editor-only bindings.
+        core::TypeId typeId = 0;
         bool isNamespace = false;
         core::Array<ScriptApiMember> members;
     };

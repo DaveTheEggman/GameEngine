@@ -1153,6 +1153,7 @@ namespace draconic::script::wren
                 } // no foreign class emitted
                 ScriptApiType api;
                 api.scriptName = core::String(AsciiView(t->name));
+                api.typeId = t->id;
                 api.isNamespace = false;
                 for (core::usize i = 0; i < core::PropertyCount(*t); ++i)
                 {

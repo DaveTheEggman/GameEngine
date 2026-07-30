@@ -585,6 +585,7 @@ namespace draconic::script::angelscript
                 const core::TypeInfo& type = *entry.type;
                 ScriptApiType api;
                 api.scriptName = core::String(ViewOfAscii(type.name));
+                api.typeId = type.id;
                 api.isNamespace = false;
                 for (core::usize i = 0; i < core::PropertyCount(type); ++i)
                 {

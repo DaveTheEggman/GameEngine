@@ -92,7 +92,7 @@ export namespace draconic::input
     inline void RegisterInputMapAsset()
     {
         RegisterInputMapResource();
-        GlobalTypeRegistry().Register(InputMapAsset::StaticType());
+        GlobalTypeRegistry().Register(InputMapAsset::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<InputMapAsset>();
     }
 

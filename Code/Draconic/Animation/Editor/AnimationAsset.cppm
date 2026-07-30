@@ -107,9 +107,9 @@ export namespace draconic::animation
     // Registers the animation asset types for content-DB construction + deserialization.
     inline void RegisterAnimationAssets()
     {
-        GlobalTypeRegistry().Register(SkeletonAsset::StaticType());
-        GlobalTypeRegistry().Register(AnimationClipAsset::StaticType());
-        GlobalTypeRegistry().Register(AnimationGraphAsset::StaticType());
+        GlobalTypeRegistry().Register(SkeletonAsset::StaticType(), TypeDomain(u8"Editor"));
+        GlobalTypeRegistry().Register(AnimationClipAsset::StaticType(), TypeDomain(u8"Editor"));
+        GlobalTypeRegistry().Register(AnimationGraphAsset::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<SkeletonAsset>();
         RegisterSerializable<AnimationClipAsset>();
         RegisterSerializable<AnimationGraphAsset>();

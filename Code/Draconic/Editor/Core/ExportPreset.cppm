@@ -194,7 +194,7 @@ export namespace draconic::editor
     // Call once at editor startup, before LoadEditorSettings.
     inline void RegisterEditorSettingsTypes()
     {
-        GlobalTypeRegistry().Register(EditorExportSettings::StaticType());
+        GlobalTypeRegistry().Register(EditorExportSettings::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<EditorExportSettings>();
     }
 

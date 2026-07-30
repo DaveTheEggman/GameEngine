@@ -534,9 +534,9 @@ export namespace draconic::editor
                                     ui::runtime::UIHost& uiHost,
                                     draconic::runtime::DefaultApplication* embeddedApp = nullptr)
     {
-        GlobalTypeRegistry().Register(scene::SceneDocument::StaticType());
+        GlobalTypeRegistry().Register(scene::SceneDocument::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<scene::SceneDocument>();
-        GlobalTypeRegistry().Register(scene::PrefabDocument::StaticType());
+        GlobalTypeRegistry().Register(scene::PrefabDocument::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<scene::PrefabDocument>();
 
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
