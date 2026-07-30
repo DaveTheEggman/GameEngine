@@ -47,6 +47,7 @@ target_sources(DraconicCore
             Containers/HashMap.cppm
             Containers/HashSet.cppm
             Text/String.cppm
+            Text/StringHash.cppm
             Text/StringUtil.cppm
             Text/Format.cppm
             Log/Logger.cppm

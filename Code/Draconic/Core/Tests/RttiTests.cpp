@@ -522,3 +522,46 @@ TEST_CASE("rtti: Array reflected as a container, iterated generically")
     CHECK(ContainerSetAt(*container, inst, 0, Variant::From(1.5f)).Code() ==
           ErrorCode::InvalidArgument);
 }
+
+TEST_CASE("core: StringHash - constexpr identity over UTF-8 text")
+{
+    constexpr StringHash runtime{StringView(u8"Runtime")};
+    constexpr StringHash editor{StringView(u8"Editor")};
+    static_assert(runtime != editor);
+    static_assert(StringHash{StringView(u8"Runtime")} == runtime);
+    static_assert(!StringHash{});                 // zero = "no value"
+    static_assert(static_cast<bool>(runtime));
+
+    // The constexpr text path and the runtime byte path agree (same FNV-1a).
+    const char8_t* text = u8"Runtime";
+    CHECK(runtime.Value() == HashBytes(text, 7));
+}
+
+TEST_CASE("rtti: type domains - default Runtime, open tags, widen-only")
+{
+    TypeRegistry registry; // fresh, not the global one
+
+    // Untagged registration = the default Runtime domain; unknown ids also read Runtime.
+    registry.Register(Animal::StaticType());
+    CHECK(registry.DomainOf(Animal::StaticType().id) == kRuntimeTypeDomain);
+    CHECK(registry.DomainOf(TypeId{0xDEAD}) == kRuntimeTypeDomain);
+
+    // An open, string-named domain sticks.
+    registry.Register(Dog::StaticType(), TypeDomain(u8"Editor"));
+    CHECK(registry.DomainOf(Dog::StaticType().id) == TypeDomain(u8"Editor"));
+    CHECK(!(registry.DomainOf(Dog::StaticType().id) == kRuntimeTypeDomain));
+
+    // Re-registration may WIDEN to Runtime (order-independent truth: if any player
+    // path registers the type, the player has it) ...
+    registry.Register(Dog::StaticType());
+    CHECK(registry.DomainOf(Dog::StaticType().id) == kRuntimeTypeDomain);
+
+    // ... but never narrows: a later Editor-tagged duplicate is ignored.
+    registry.Register(Dog::StaticType(), TypeDomain(u8"Editor"));
+    CHECK(registry.DomainOf(Dog::StaticType().id) == kRuntimeTypeDomain);
+
+    // Dedupe semantics are unchanged by tagging.
+    const usize count = registry.Count();
+    registry.Register(Dog::StaticType(), TypeDomain(u8"Editor"));
+    CHECK(registry.Count() == count);
+}
