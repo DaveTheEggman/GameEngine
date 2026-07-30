@@ -77,6 +77,8 @@ export namespace draconic::particles
             // set 2: the opaque scene depth (sampled via Load, no sampler) for soft particles.
             rhi::BindGroupLayoutEntry depthEntry =
                 rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Fragment);
+            // WebGPU annotation (Vulkan/DX12 ignore): the DEPTH view read as data.
+            depthEntry.textureSampleType = rhi::TextureSampleType::UnfilterableFloat;
             rhi::BindGroupLayoutDesc dld{};
             dld.entries = Span<const rhi::BindGroupLayoutEntry>{&depthEntry, 1};
             if (!m_device->CreateBindGroupLayout(dld, m_depthLayout).IsOk())
