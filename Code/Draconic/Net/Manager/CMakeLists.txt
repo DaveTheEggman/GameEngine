@@ -14,6 +14,9 @@ target_sources(DraconicNetManager
     PRIVATE
         NetworkManagerImpl.cpp)
 
-if(DRACONIC_BUILD_TESTS)
+# The tests exercise the Net facade on BOTH script backends, so they need ScriptAngelScript
+# (gated off for web, where AngelScript is not yet wired). TARGET guard is order-safe - Script
+# configures before Net.
+if(DRACONIC_BUILD_TESTS AND TARGET Draconic::ScriptAngelScript)
     add_subdirectory(Tests)
 endif()
