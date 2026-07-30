@@ -96,10 +96,18 @@ export namespace draconic::rhi::webgpu
             {
                 return ErrorCode::InvalidArgument;
             }
+#if DRACONIC_PLATFORM_WEB
+            // The browser presents the canvas automatically once the requestAnimationFrame
+            // callback (the web runner's frame) returns; emdawnwebgpu ABORTS on an explicit
+            // wgpuSurfacePresent. Just drop the borrowed texture.
+            DropCurrent();
+            return ErrorCode::Ok;
+#else
             const WGPUStatus status = m_api->wgpuSurfacePresent(m_surface->Handle());
             DropCurrent();
             return status == WGPUStatus_Success ? Status(ErrorCode::Ok)
                                                 : Status(ErrorCode::Unknown);
+#endif
         }
 
         Status Resize(u32 width, u32 height) override
@@ -137,6 +145,17 @@ export namespace draconic::rhi::webgpu
 
         Status Configure(u32 width, u32 height)
         {
+            m_width = width;
+            m_height = height;
+            if (width == 0 || height == 0)
+            {
+                // A zero-size surface is illegal (WebGPU errors "size is zero"); a canvas hits this
+                // transiently across a fullscreen/minimize transition. Skip configuring - the last
+                // valid configuration stays, AcquireNextImage fails, the host skips the frame, and
+                // the resize pump reconfigures once a real size arrives.
+                return ErrorCode::Ok;
+            }
+
             WGPUSurfaceConfiguration config = WGPU_SURFACE_CONFIGURATION_INIT;
             config.device = m_device;
             // The pipeline's final hop COPIES the tonemapped output into the
