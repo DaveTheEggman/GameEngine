@@ -13,7 +13,9 @@ module draconic.graphics.gpu;
 
 import draconic.core;
 import draconic.rhi;
+#ifdef DRACONIC_HAS_VULKAN
 import draconic.rhi.vk;
+#endif
 #ifdef DRACONIC_HAS_DX12
 import draconic.rhi.dx12;
 #endif
@@ -42,12 +44,16 @@ namespace draconic::graphics
         {
         case BackendType::Vulkan:
         {
+#ifdef DRACONIC_HAS_VULKAN
             rhi::vk::VkBackendDesc bd{};
             bd.enableValidation = desc.enableValidation;
             if (!rhi::vk::CreateBackend(bd, raw).IsOk())
             {
                 return core::Err(core::ErrorCode::Unknown);
             }
+#else
+            return core::Err(core::ErrorCode::Unknown); // Vulkan RHI not built (e.g. web)
+#endif
             break;
         }
         case BackendType::DX12:

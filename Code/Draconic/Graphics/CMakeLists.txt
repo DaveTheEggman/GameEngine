@@ -36,9 +36,11 @@ target_sources(DraconicGraphicsNull
         FILE_SET graphics_null_modules TYPE CXX_MODULES FILES
             GraphicsNull.cppm)
 
-# Draconic::GraphicsGpu - `draconic.graphics.gpu` (the Vulkan/DX12
-# backend factory). The only Vulkan-coupled part; skipped without the Vulkan RHI.
-if(TARGET Draconic::RHIVulkan)
+# Draconic::GraphicsGpu - `draconic.graphics.gpu` (the GPU backend factory). Built when at least
+# one GPU RHI backend is available - Vulkan/DX12 on desktop, WebGPU on web - and links + flags each
+# present backend (DRACONIC_HAS_*). The backend imports live in the implementation unit, off every
+# consumer's module closure.
+if(TARGET Draconic::RHIVulkan OR TARGET Draconic::RHIDX12 OR TARGET Draconic::RHIWebGPU)
     add_library(DraconicGraphicsGpu STATIC)
     add_library(Draconic::GraphicsGpu ALIAS DraconicGraphicsGpu)
 
@@ -46,11 +48,15 @@ if(TARGET Draconic::RHIVulkan)
         PUBLIC
             Draconic::Core
             Draconic::RHI
-            Draconic::RHIVulkan
             Draconic::RHIValidation
             Draconic::Graphics
             Draconic::GraphicsNull
             Draconic::Policy)
+
+    if(TARGET Draconic::RHIVulkan)
+        target_link_libraries(DraconicGraphicsGpu PUBLIC Draconic::RHIVulkan)
+        target_compile_definitions(DraconicGraphicsGpu PUBLIC DRACONIC_HAS_VULKAN)
+    endif()
 
     if(TARGET Draconic::RHIDX12)
         target_link_libraries(DraconicGraphicsGpu PUBLIC Draconic::RHIDX12)
@@ -69,7 +75,7 @@ if(TARGET Draconic::RHIVulkan)
         PRIVATE
             GraphicsGpu.cpp)   # implementation unit: backend imports live here, off consumers' closure
 else()
-    message(STATUS "Vulkan RHI not available - skipping Draconic::GraphicsGpu")
+    message(STATUS "No GPU RHI backend available - skipping Draconic::GraphicsGpu")
 endif()
 
 if(DRACONIC_BUILD_TESTS)
