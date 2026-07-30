@@ -167,10 +167,15 @@ add_subdirectory(Shell)
 add_subdirectory(Toolkit)
 # ViewportView: a ui::View hosting 3D content (offscreen RT + OnRender callback + gated InputSurface).
 add_subdirectory(Viewport)
-# UIHost: draws draconic.ui on the runtime multi-window graphics host (depends on Draconic::Graphics).
-add_subdirectory(Runtime)
-# Docking/workbench: RuntimeDockableWindowHost (the only UI module that links Draconic::UIToolkit).
-add_subdirectory(Application)
+# UIHost + docking workbench: draw draconic.ui on the runtime multi-window graphics host - these link
+# Draconic::Graphics and Draconic::RuntimeClient (the desktop app/graphics layer), so they climb with
+# that layer, not on web yet.
+if(NOT EMSCRIPTEN)
+    # UIHost: draws draconic.ui on the runtime multi-window graphics host (depends on Draconic::Graphics).
+    add_subdirectory(Runtime)
+    # Docking/workbench: RuntimeDockableWindowHost (the only UI module that links Draconic::UIToolkit).
+    add_subdirectory(Application)
+endif()
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)

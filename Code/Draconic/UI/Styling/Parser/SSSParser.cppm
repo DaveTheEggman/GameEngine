@@ -741,18 +741,18 @@ export namespace draconic::ui
         [[nodiscard]] Token Peek() const
         {
             return (m_pos < static_cast<i32>(m_tokens.Size())) ? m_tokens[static_cast<usize>(m_pos)]
-                                                               : Token(TokenKind::EOF, u8"", 0, 0);
+                                                               : Token(TokenKind::EndOfInput, u8"", 0, 0);
         }
         Token Consume()
         {
             return (m_pos < static_cast<i32>(m_tokens.Size()))
                        ? m_tokens[static_cast<usize>(m_pos++)]
-                       : Token(TokenKind::EOF, u8"", 0, 0);
+                       : Token(TokenKind::EndOfInput, u8"", 0, 0);
         }
         [[nodiscard]] bool IsAtEnd() const
         {
             return m_pos >= static_cast<i32>(m_tokens.Size()) ||
-                   m_tokens[static_cast<usize>(m_pos)].Kind == TokenKind::EOF;
+                   m_tokens[static_cast<usize>(m_pos)].Kind == TokenKind::EndOfInput;
         }
 
         StringView ConsumeString()

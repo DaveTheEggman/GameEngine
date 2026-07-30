@@ -16,7 +16,7 @@ export namespace draconic::ui
 {
     enum class TokenKind
     {
-        EOF,           ///< End of input
+        EndOfInput,           ///< End of input
         Ident,         ///< Identifier (e.g., Button, background, lighten)
         StringLit,     ///< String literal ("path/to/file")
         Number,        ///< Numeric literal (13, 0.5, 8px, 12dp)
@@ -40,7 +40,7 @@ export namespace draconic::ui
 
     struct Token
     {
-        TokenKind Kind = TokenKind::EOF;
+        TokenKind Kind = TokenKind::EndOfInput;
         StringView Text{};
         i32 Line = 0;
         i32 Column = 0;

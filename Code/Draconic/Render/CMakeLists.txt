@@ -59,9 +59,7 @@ if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)
 endif()
 
-# Scene integration (draconic.render.subsystem): the resource- + scene-aware bridge. Unlike the
-# renderer itself (device-abstract over the RHI), it links Runtime + SceneSubsystem, i.e. the app
-# layer - so it climbs with that layer, not with the bare renderer. Off for web until then.
-if(NOT EMSCRIPTEN)
-    add_subdirectory(Subsystem)
-endif()
+# Scene integration (draconic.render.subsystem): the resource- + scene-aware bridge. Links the base
+# Runtime + SceneSubsystem + the cook/material stack, all of which climb, so it climbs too - the
+# renderer itself stays device-abstract; only the GPU DEVICE (Emscripten WebGPU) is phase 2.
+add_subdirectory(Subsystem)

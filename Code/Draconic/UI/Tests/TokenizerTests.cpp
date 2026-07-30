@@ -176,7 +176,7 @@ TEST_CASE("tokenizer: MultilineComment")
 TEST_CASE("tokenizer: EOF")
 {
     Tokenizer tok(u8"");
-    CHECK(tok.NextToken().Kind == TokenKind::EOF);
+    CHECK(tok.NextToken().Kind == TokenKind::EndOfInput);
 }
 
 TEST_CASE("tokenizer: FullSelector_Tokenizes")

@@ -158,6 +158,7 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/Content)
     add_subdirectory(Code/Draconic/Resource)
     add_subdirectory(Code/Draconic/RHI)
+    add_subdirectory(Code/Draconic/Shell) # IShell interface + Null backend; the SDL3 desktop backend auto-skips on emscripten
     add_subdirectory(Code/Draconic/RenderGraph)
     add_subdirectory(Code/Draconic/Image)
     add_subdirectory(Code/Draconic/Geometry)
@@ -171,7 +172,14 @@ if(EMSCRIPTEN)
     # the whole renderer compiles for web now; only its GPU DEVICE (Emscripten WebGPU) is phase 2.
     # (Render/Api + Render/Subsystem link Scene; render.subsystem is gated to the app layer.)
     add_subdirectory(Code/Draconic/Render/Api)
-    add_subdirectory(Code/Draconic/Render)
+    add_subdirectory(Code/Draconic/Render)          # + render.subsystem (deps now up)
+    add_subdirectory(Code/Draconic/Animation/Subsystem)  # links Render + Animation (both up)
+    add_subdirectory(Code/Draconic/Particles)
+    add_subdirectory(Code/Draconic/Particles/Subsystem)  # links Render + Particles (both up)
+    add_subdirectory(Code/Draconic/Model)
+    add_subdirectory(Code/Draconic/Fonts)
+    add_subdirectory(Code/Draconic/VG)
+    add_subdirectory(Code/Draconic/UI)
     # Runtime app-layer + Scene/Subsystem climb with the app stack (Shell/Script/subsystems), later.
     return() # everything above this line is wasm-verified; the rest awaits its turn
 endif()

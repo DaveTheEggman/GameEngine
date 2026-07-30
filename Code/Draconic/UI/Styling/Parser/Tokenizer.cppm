@@ -64,7 +64,7 @@ export namespace draconic::ui
             SkipWhitespaceAndComments();
 
             if (m_pos >= static_cast<i32>(m_source.Size()))
-                return Token(TokenKind::EOF, u8"", m_line, m_col);
+                return Token(TokenKind::EndOfInput, u8"", m_line, m_col);
 
             const i32 startLine = m_line;
             const i32 startCol = m_col;
@@ -154,7 +154,7 @@ export namespace draconic::ui
 
             // Unknown - skip
             Advance();
-            return Token(TokenKind::EOF, u8"", startLine, startCol);
+            return Token(TokenKind::EndOfInput, u8"", startLine, startCol);
         }
 
         /// Tokenize the entire source into a list.
@@ -164,7 +164,7 @@ export namespace draconic::ui
             {
                 const Token tok = NextToken();
                 tokens.PushBack(tok);
-                if (tok.Kind == TokenKind::EOF)
+                if (tok.Kind == TokenKind::EndOfInput)
                     break;
             }
         }
