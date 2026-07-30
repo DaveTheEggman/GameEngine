@@ -182,7 +182,10 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/msdfgen/CMakeLists.txt)
     add_library(Draconic::MsdfgenCore ALIAS msdfgen-core)
 endif()
 
+endif() # NOT EMSCRIPTEN (imgui + msdfgen gated until their web consumers climb)
+
 # Jolt Physics v5.3.0 — vendored BY COPY (Jolt/ source tree + LICENSE; no submodule).
+# Built for Emscripten too (JoltPhysics.js is this same C++ compiled to wasm).
 # Compiled from source as one static lib with a fixed, engine-chosen configuration
 # (deterministic-enough defaults; no Jolt CMake options surface). Include dir is
 # PUBLIC + SYSTEM so draconic.physics can #include <Jolt/...>; consumers MUST define
@@ -196,6 +199,8 @@ target_compile_features(draconic_jolt PUBLIC cxx_std_17)
 target_compile_definitions(draconic_jolt PUBLIC
     $<$<CONFIG:Debug>:JPH_ENABLE_ASSERTS>)
 set_target_properties(draconic_jolt PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+if(NOT EMSCRIPTEN)
 
 # AngelScript 2.39.0 WIP — vendored BY COPY (github.com/anjo76/angelscript, sdk library
 # + the scriptstdstring and scriptbuilder add-ons; no submodule). Compiled from source as

@@ -189,6 +189,9 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/Audio)           # miniaudio-backed (Web Audio backend on emscripten)
     add_subdirectory(Code/Draconic/Audio/Resource)
     add_subdirectory(Code/Draconic/Audio/Subsystem)
+    add_subdirectory(Code/Draconic/Physics)         # Jolt-backed (Jolt builds for wasm - see ThirdParty)
+    add_subdirectory(Code/Draconic/Physics/Resource)
+    add_subdirectory(Code/Draconic/Physics/Subsystem)
     # Runtime app-layer + Scene/Subsystem climb with the app stack (Shell/Script/subsystems), later.
     return() # everything above this line is wasm-verified; the rest awaits its turn
 endif()
