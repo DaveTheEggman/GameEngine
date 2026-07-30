@@ -808,6 +808,29 @@ namespace draconic::render
             return false;
         }
 
+        // --- dummy env source (see IBLSystem.cppm member comment) ---
+        {
+            rhi::TextureDesc dummyDesc;
+            dummyDesc.format = rhi::TextureFormat::RGBA8Unorm;
+            dummyDesc.width = 1;
+            dummyDesc.height = 1;
+            dummyDesc.arrayLayerCount = 6;
+            dummyDesc.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst;
+            dummyDesc.label = u8"ibl.dummy_env";
+            if (!m_device->CreateTexture(dummyDesc, m_dummyEnvCube).IsOk())
+            {
+                return false;
+            }
+            rhi::TextureViewDesc dummyView;
+            dummyView.format = rhi::TextureFormat::RGBA8Unorm;
+            dummyView.dimension = rhi::TextureViewDimension::TextureCube;
+            dummyView.arrayLayerCount = 6;
+            if (!m_device->CreateTextureView(m_dummyEnvCube, dummyView, m_dummyEnvView).IsOk())
+            {
+                return false;
+            }
+        }
+
         // --- env sample bind group layout (t0 cube + s0 sampler), shared by prefilter ---
         rhi::BindGroupLayoutEntry envTex = rhi::BindGroupLayoutEntry::SampledTexture(
             0, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::TextureCube);
@@ -828,29 +851,6 @@ namespace draconic::render
             dummyDesc.layout = m_envLayout;
             dummyDesc.entries = Span<const rhi::BindGroupEntry>{dummyEntries, 2};
             if (!m_device->CreateBindGroup(dummyDesc, m_dummyEnvBindGroup).IsOk())
-            {
-                return false;
-            }
-        }
-
-        // --- dummy env source (see IBLSystem.cppm member comment) ---
-        {
-            rhi::TextureDesc dummyDesc;
-            dummyDesc.format = rhi::TextureFormat::RGBA8Unorm;
-            dummyDesc.width = 1;
-            dummyDesc.height = 1;
-            dummyDesc.arrayLayerCount = 6;
-            dummyDesc.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst;
-            dummyDesc.label = u8"ibl.dummy_env";
-            if (!m_device->CreateTexture(dummyDesc, m_dummyEnvCube).IsOk())
-            {
-                return false;
-            }
-            rhi::TextureViewDesc dummyView;
-            dummyView.format = rhi::TextureFormat::RGBA8Unorm;
-            dummyView.dimension = rhi::TextureViewDimension::TextureCube;
-            dummyView.arrayLayerCount = 6;
-            if (!m_device->CreateTextureView(m_dummyEnvCube, dummyView, m_dummyEnvView).IsOk())
             {
                 return false;
             }
@@ -1146,6 +1146,21 @@ namespace draconic::render
         {
             m_device->DestroyComputePipeline(m_shPipeline);
             m_shPipeline = nullptr;
+        }
+        if (m_dummyEnvBindGroup != nullptr)
+        {
+            m_device->DestroyBindGroup(m_dummyEnvBindGroup);
+            m_dummyEnvBindGroup = nullptr;
+        }
+        if (m_dummyEnvView != nullptr)
+        {
+            m_device->DestroyTextureView(m_dummyEnvView);
+            m_dummyEnvView = nullptr;
+        }
+        if (m_dummyEnvCube != nullptr)
+        {
+            m_device->DestroyTexture(m_dummyEnvCube);
+            m_dummyEnvCube = nullptr;
         }
         if (m_envPipeline)
         {
