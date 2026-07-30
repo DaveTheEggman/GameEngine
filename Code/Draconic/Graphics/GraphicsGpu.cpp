@@ -17,6 +17,9 @@ import draconic.rhi.vk;
 #ifdef DRACONIC_HAS_DX12
 import draconic.rhi.dx12;
 #endif
+#ifdef DRACONIC_HAS_WEBGPU
+import draconic.rhi.webgpu;
+#endif
 import draconic.rhi.validation;
 import draconic.graphics;
 import draconic.graphics.null; // Null backend delegation
@@ -53,6 +56,19 @@ namespace draconic::graphics
             rhi::dx12::DxBackendDesc bd{};
             bd.enableValidation = desc.enableValidation;
             if (!rhi::dx12::CreateDxBackend(bd, raw).IsOk())
+            {
+                return core::Err(core::ErrorCode::Unknown);
+            }
+#else
+            return core::Err(core::ErrorCode::Unknown);
+#endif
+            break;
+        }
+        case BackendType::WebGPU:
+        {
+#ifdef DRACONIC_HAS_WEBGPU
+            rhi::webgpu::WebGpuBackendDesc bd{};
+            if (!rhi::webgpu::CreateBackend(bd, raw).IsOk())
             {
                 return core::Err(core::ErrorCode::Unknown);
             }

@@ -57,6 +57,11 @@ if(TARGET Draconic::RHIVulkan)
         target_compile_definitions(DraconicGraphicsGpu PUBLIC DRACONIC_HAS_DX12)
     endif()
 
+    if(TARGET Draconic::RHIWebGPU)
+        target_link_libraries(DraconicGraphicsGpu PUBLIC Draconic::RHIWebGPU)
+        target_compile_definitions(DraconicGraphicsGpu PUBLIC DRACONIC_HAS_WEBGPU)
+    endif()
+
     target_sources(DraconicGraphicsGpu
         PUBLIC
             FILE_SET graphics_gpu_modules TYPE CXX_MODULES FILES

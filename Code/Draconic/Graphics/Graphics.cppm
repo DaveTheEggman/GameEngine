@@ -44,7 +44,8 @@ export namespace draconic::graphics
     {
         Vulkan,
         DX12,
-        Null
+        Null,
+        WebGPU
     };
 
     struct GraphicsDeviceDesc

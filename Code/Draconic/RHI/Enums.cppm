@@ -13,7 +13,8 @@ export namespace draconic::rhi
     {
         Vulkan,
         DX12,
-        Null
+        Null,
+        WebGPU
     };
     enum class QueueType : u32
     {

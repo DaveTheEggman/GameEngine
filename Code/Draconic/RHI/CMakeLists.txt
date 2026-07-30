@@ -47,3 +47,11 @@ endif()
 if(WIN32)
     add_subdirectory(DX12)
 endif()
+
+# WebGPU backend - built when the vendored webgpu headers are present (desktop loads
+# the wgpu-native sidecar at run time; web links the browser's implementation).
+if(TARGET Draconic::WgpuHeaders)
+    add_subdirectory(WebGPU)
+else()
+    message(STATUS "WgpuNative headers not found - skipping Draconic::RHIWebGPU")
+endif()
