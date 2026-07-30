@@ -27,7 +27,9 @@ endif()
 add_subdirectory(Resource)
 
 # Authoring + cook (tooling: SkeletonAsset/AnimationClipAsset -> source).
-add_subdirectory(Editor)
+if(DRACONIC_BUILD_TOOLS)
+    add_subdirectory(Editor)
+endif()
 
 # NB: the scene-integration lib (Animation/Subsystem) is added from the ROOT CMakeLists AFTER
 # Render, because it links Draconic::RenderSubsystem (which doesn't exist this early in config).

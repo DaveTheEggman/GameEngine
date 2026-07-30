@@ -30,4 +30,6 @@ add_subdirectory(Subsystem)
 
 # Whole-scene serialization: runtime load (Resource) + tooling save (Editor).
 add_subdirectory(Resource)
-add_subdirectory(Editor)
+if(DRACONIC_BUILD_TOOLS)
+    add_subdirectory(Editor)
+endif()

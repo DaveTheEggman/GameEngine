@@ -15,7 +15,9 @@ target_sources(DraconicTexture
             TextureModule.cppm)
 
 add_subdirectory(Resource)  # draconic.texture.resource - runtime cooked resource + GPU factory
-add_subdirectory(Editor)    # draconic.texture.editor   - tooling: asset + builder + importer
+if(DRACONIC_BUILD_TOOLS)
+    add_subdirectory(Editor)    # draconic.texture.editor   - tooling: asset + builder + importer
+endif()
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)

@@ -24,4 +24,6 @@ endif()
 add_subdirectory(Resource)
 
 # Mesh authoring + cook (tooling: Static/SkinnedMeshAsset -> source).
-add_subdirectory(Editor)
+if(DRACONIC_BUILD_TOOLS)
+    add_subdirectory(Editor)
+endif()

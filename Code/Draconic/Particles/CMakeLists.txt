@@ -19,7 +19,9 @@ target_sources(DraconicParticles
             ParticlesModule.cppm)
 
 add_subdirectory(Resource)   # draconic.particles.resource (cooked ParticleEffectResource + factory)
-add_subdirectory(Editor)     # draconic.particles.editor  (ParticleEffectAsset + bake; tooling only)
+if(DRACONIC_BUILD_TOOLS)
+    add_subdirectory(Editor)     # draconic.particles.editor  (ParticleEffectAsset + bake; tooling only)
+endif()
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)

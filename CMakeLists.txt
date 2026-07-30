@@ -64,6 +64,7 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/DraconicHelpers.cmake)
 # --- Options -----------------------------------------------------------------
 option(DRACONIC_BUILD_TESTS "Build Draconic unit tests" ON)
 option(DRACONIC_BUILD_SAMPLES "Build Draconic sample applications" ON)
+option(DRACONIC_BUILD_TOOLS "Build editor/authoring tooling (the per-library Editor targets)" ON)
 option(DRACONIC_WARNINGS_AS_ERRORS "Treat warnings as errors" ON)
 
 # Enable testing before any subdirectory so add_test() calls made by modules that
@@ -136,6 +137,9 @@ if(EMSCRIPTEN)
     # heap; both are link-time-only knobs.
     add_link_options(-sSTACK_SIZE=2097152 -sALLOW_MEMORY_GROWTH=1)
 
+    # A web build ships a game, not the authoring tools: skip every per-library Editor target.
+    set(DRACONIC_BUILD_TOOLS OFF)
+
     add_subdirectory(ThirdParty)
     add_subdirectory(Code/Draconic/Core)
     if(DRACONIC_BUILD_TESTS)
@@ -154,6 +158,11 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/Content)
     add_subdirectory(Code/Draconic/Resource)
     add_subdirectory(Code/Draconic/RHI)
+    add_subdirectory(Code/Draconic/RenderGraph)
+    add_subdirectory(Code/Draconic/Image)
+    add_subdirectory(Code/Draconic/Geometry)
+    add_subdirectory(Code/Draconic/Animation)
+    # Particles (needs Texture) and Scene/Subsystem (needs Runtime) climb once those deps are up.
     return() # everything above this line is wasm-verified; the rest awaits its turn
 endif()
 

@@ -29,4 +29,6 @@ add_subdirectory(PSO)
 add_subdirectory(Resource)
 
 # Material authoring + cook (tooling: MaterialAsset -> MaterialSource).
-add_subdirectory(Editor)
+if(DRACONIC_BUILD_TOOLS)
+    add_subdirectory(Editor)
+endif()
