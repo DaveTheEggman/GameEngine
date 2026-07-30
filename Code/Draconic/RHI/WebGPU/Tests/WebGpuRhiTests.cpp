@@ -599,3 +599,110 @@ TEST_CASE("rhi.webgpu: per-frame map/unmap/resubmit cycle stays valid")
     device->Destroy();
     backend->Destroy();
 }
+
+TEST_CASE("rhi.webgpu: GenerateMipmaps + scaling Blit verify through readback")
+{
+    Backend* backend = TryCreateBackend();
+    if (backend == nullptr)
+    {
+        return;
+    }
+    Device* device = nullptr;
+    REQUIRE(backend->EnumerateAdapters()[0]->CreateDevice(DeviceDesc{}, device).IsOk());
+    Queue* queue = device->GetQueue(QueueType::Graphics);
+
+    // An 8x8 texture with a 4-mip chain, filled solid green at mip 0.
+    TextureDesc mipDesc;
+    mipDesc.format = TextureFormat::RGBA8Unorm;
+    mipDesc.width = 8;
+    mipDesc.height = 8;
+    mipDesc.mipLevelCount = 4;
+    mipDesc.usage = TextureUsage::Sampled | TextureUsage::CopyDst | TextureUsage::CopySrc;
+    Texture* mipTexture = nullptr;
+    REQUIRE(device->CreateTexture(mipDesc, mipTexture).IsOk());
+
+    u8 texels[8 * 8 * 4];
+    for (u32 i = 0; i < 64; ++i)
+    {
+        texels[i * 4 + 0] = 0;
+        texels[i * 4 + 1] = 255;
+        texels[i * 4 + 2] = 0;
+        texels[i * 4 + 3] = 255;
+    }
+    TransferBatch* batch = nullptr;
+    REQUIRE(queue->CreateTransferBatch(batch).IsOk());
+    TextureDataLayout layout;
+    layout.bytesPerRow = 32;
+    layout.rowsPerImage = 8;
+    batch->WriteTexture(mipTexture, Span<const u8>(texels, sizeof(texels)), layout,
+                        Extent3D{8, 8, 1});
+    REQUIRE(batch->Submit().IsOk());
+    queue->DestroyTransferBatch(batch);
+
+    CommandPool* pool = nullptr;
+    REQUIRE(device->CreateCommandPool(QueueType::Graphics, pool).IsOk());
+    CommandEncoder* encoder = nullptr;
+    REQUIRE(pool->CreateEncoder(encoder).IsOk());
+    encoder->GenerateMipmaps(mipTexture);
+
+    // Read back mip 3 (1x1): a solid-color chain must stay solid through every level.
+    BufferDesc readbackDesc;
+    readbackDesc.size = 4 * 256; // sized for the 4x4 blit readback below too
+    readbackDesc.usage = BufferUsage::CopyDst;
+    readbackDesc.memory = MemoryLocation::GpuToCpu;
+    Buffer* readback = nullptr;
+    REQUIRE(device->CreateBuffer(readbackDesc, readback).IsOk());
+    BufferTextureCopyRegion region;
+    region.bytesPerRow = 256;
+    region.rowsPerImage = 1;
+    region.textureMipLevel = 3;
+    region.textureExtent = Extent3D{1, 1, 1};
+    encoder->CopyTextureToBuffer(mipTexture, readback, region);
+
+    Fence* fence = nullptr;
+    REQUIRE(device->CreateFence(0, fence).IsOk());
+    CommandBuffer* commandBuffer = encoder->Finish();
+    CommandBuffer* commandBuffers[] = {commandBuffer};
+    queue->Submit(Span<CommandBuffer* const>(commandBuffers, 1), fence, 1);
+    REQUIRE(fence->Wait(1, ~0ull));
+
+    const u8* pixel = static_cast<const u8*>(readback->Map());
+    REQUIRE(pixel != nullptr);
+    CHECK(pixel[0] == 0);   // R
+    CHECK(pixel[1] == 255); // G survived three downsamples
+    CHECK(pixel[2] == 0);   // B
+    CHECK(pixel[3] == 255); // A
+    readback->Unmap();
+
+    // Scaling blit: the 8x8 green source into a 4x4 target of a DIFFERENT format.
+    TextureDesc blitDesc = TextureDesc::RenderTarget(TextureFormat::BGRA8Unorm, 4, 4);
+    blitDesc.usage = TextureUsage::RenderTarget | TextureUsage::CopySrc;
+    Texture* blitTarget = nullptr;
+    REQUIRE(device->CreateTexture(blitDesc, blitTarget).IsOk());
+    REQUIRE(pool->CreateEncoder(encoder).IsOk());
+    encoder->Blit(mipTexture, blitTarget);
+    region = BufferTextureCopyRegion{};
+    region.bytesPerRow = 256;
+    region.rowsPerImage = 4;
+    region.textureExtent = Extent3D{4, 4, 1};
+    encoder->CopyTextureToBuffer(blitTarget, readback, region);
+    commandBuffer = encoder->Finish();
+    CommandBuffer* second[] = {commandBuffer};
+    queue->Submit(Span<CommandBuffer* const>(second, 1), fence, 2);
+    REQUIRE(fence->Wait(2, ~0ull));
+    pixel = static_cast<const u8*>(readback->Map());
+    REQUIRE(pixel != nullptr);
+    CHECK(pixel[0] == 0);   // B (BGRA order now)
+    CHECK(pixel[1] == 255); // G
+    CHECK(pixel[2] == 0);   // R
+    readback->Unmap();
+
+    device->DestroyFence(fence);
+    device->DestroyBuffer(readback);
+    device->DestroyCommandPool(pool);
+    device->DestroyTexture(blitTarget);
+    device->DestroyTexture(mipTexture);
+    CHECK(!device->IsLost());
+    device->Destroy();
+    backend->Destroy();
+}

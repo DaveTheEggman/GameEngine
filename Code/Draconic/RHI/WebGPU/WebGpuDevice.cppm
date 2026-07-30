@@ -15,6 +15,7 @@ export module draconic.rhi.webgpu:device;
 import draconic.core;
 import draconic.rhi;
 import :api;
+import :blit_helper;
 import :buffer;
 import :texture;
 import :texture_view;
@@ -53,7 +54,10 @@ export namespace draconic::rhi::webgpu
                                       QueueType::Compute);
             m_transferQueue.Initialize(api, instance, device, queue, allocator,
                                        QueueType::Transfer);
+            m_blitHelper.Initialize(api, device);
         }
+
+        [[nodiscard]] WebGpuBlitHelper& BlitHelper() { return m_blitHelper; }
 
         /// The device-lost callback (registered at creation by the adapter) lands here.
         void MarkLost() { m_lost = true; }
@@ -254,7 +258,7 @@ export namespace draconic::rhi::webgpu
         {
             // All queue types funnel into the ONE WebGPU queue; pools are bookkeeping.
             auto* pool = m_allocator.New<WebGpuCommandPool>();
-            pool->Initialize(*m_api, m_device, m_allocator);
+            pool->Initialize(*m_api, m_device, m_allocator, m_blitHelper);
             out = pool;
             return ErrorCode::Ok;
         }
@@ -355,6 +359,7 @@ export namespace draconic::rhi::webgpu
 
         void Destroy() override
         {
+            m_blitHelper.Release();
             m_api->wgpuQueueRelease(m_graphicsQueue.Handle());
             m_api->wgpuDeviceRelease(m_device);
             IAllocator& allocator = m_allocator;
@@ -403,6 +408,7 @@ export namespace draconic::rhi::webgpu
         WGPUInstance m_instance;
         WGPUDevice m_device;
         IAllocator& m_allocator;
+        WebGpuBlitHelper m_blitHelper;
         WebGpuQueue m_graphicsQueue;
         WebGpuQueue m_computeQueue;
         WebGpuQueue m_transferQueue;

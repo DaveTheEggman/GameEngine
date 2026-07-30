@@ -5,11 +5,9 @@
 /// RenderWindow frame loop's Reset-and-reencode shape. Barriers are no-ops (WebGPU
 /// tracks hazards itself; the RHI's explicit transitions carry no information here).
 ///
-/// Honest gaps, logged nowhere because they are static platform facts:
-/// - Blit degrades to a full-subresource copy when extents/formats match, else fails
-///   validation upstream (scaling blits need a helper pass - deferred with mip-gen).
-/// - GenerateMipmaps is a documented no-op until the blit-chain helper lands.
-/// - ResolveTexture: WebGPU resolves via the pass resolveTarget only.
+/// Blit and GenerateMipmaps ride the internal fullscreen blit pass (:blit_helper) -
+/// same-extent same-format blits stay plain copies. Remaining honest gap:
+/// ResolveTexture (WebGPU resolves via the pass resolveTarget only).
 
 module;
 #include "Core/Prelude.h"
@@ -20,6 +18,7 @@ export module draconic.rhi.webgpu:command_encoder;
 import draconic.core;
 import draconic.rhi;
 import :api;
+import :blit_helper;
 import :conversions;
 import :buffer;
 import :texture;
@@ -37,11 +36,13 @@ export namespace draconic::rhi::webgpu
     class WebGpuCommandEncoder final : public CommandEncoder
     {
     public:
-        void Initialize(const WebGpuApi& api, WGPUDevice device, IAllocator& allocator)
+        void Initialize(const WebGpuApi& api, WGPUDevice device, IAllocator& allocator,
+                        WebGpuBlitHelper& blitHelper)
         {
             m_api = &api;
             m_device = device;
             m_allocator = &allocator;
+            m_blitHelper = &blitHelper;
         }
 
         RenderPassEncoder* BeginRenderPass(const RenderPassDesc& passDesc) override
@@ -203,8 +204,8 @@ export namespace draconic::rhi::webgpu
 
         void Blit(Texture* source, Texture* destination) override
         {
-            // Same-extent same-format blit = a copy; scaling blits wait for the
-            // helper pass (deferred alongside GenerateMipmaps).
+            // Same-extent same-format = a plain copy; anything else goes through the
+            // internal fullscreen blit pass (linear-sampled scale + convert).
             if (source->desc.width == destination->desc.width &&
                 source->desc.height == destination->desc.height &&
                 source->desc.format == destination->desc.format)
@@ -212,12 +213,45 @@ export namespace draconic::rhi::webgpu
                 TextureCopyRegion region;
                 region.extent = Extent3D{source->desc.width, source->desc.height, 1};
                 CopyTextureToTexture(source, destination, region);
+                return;
             }
+            EnsureOpen();
+            const WGPUTextureView sourceView =
+                MipView(source, 0, 0, WGPUTextureAspect_All, true);
+            const WGPUTextureView destinationView =
+                MipView(destination, 0, 0, WGPUTextureAspect_All, false);
+            m_blitHelper->Blit(m_encoder, sourceView, destinationView,
+                               ToWgpuTextureFormat(destination->desc.format));
+            m_api->wgpuTextureViewRelease(sourceView);
+            m_api->wgpuTextureViewRelease(destinationView);
         }
 
-        void GenerateMipmaps(Texture*) override
+        void GenerateMipmaps(Texture* texture) override
         {
-            // Deferred: needs the blit-chain helper pass (web-platform.md P1 notes).
+            // The blit-chain: each mip renders from the one above, per array layer
+            // (cubemaps are 6 layers). Texture creation widened the usage for
+            // blit-capable mip chains; anything else is not generatable here.
+            if (texture->desc.mipLevelCount < 2 ||
+                texture->desc.dimension != TextureDimension::Texture2D ||
+                !IsBlitCapableFormat(texture->desc.format))
+            {
+                return;
+            }
+            EnsureOpen();
+            const WGPUTextureFormat format = ToWgpuTextureFormat(texture->desc.format);
+            for (u32 layer = 0; layer < texture->desc.arrayLayerCount; ++layer)
+            {
+                for (u32 mip = 1; mip < texture->desc.mipLevelCount; ++mip)
+                {
+                    const WGPUTextureView sourceView =
+                        MipView(texture, mip - 1, layer, WGPUTextureAspect_All, true);
+                    const WGPUTextureView destinationView =
+                        MipView(texture, mip, layer, WGPUTextureAspect_All, false);
+                    m_blitHelper->Blit(m_encoder, sourceView, destinationView, format);
+                    m_api->wgpuTextureViewRelease(sourceView);
+                    m_api->wgpuTextureViewRelease(destinationView);
+                }
+            }
         }
 
         void ResolveTexture(Texture*, Texture*) override
@@ -355,6 +389,22 @@ export namespace draconic::rhi::webgpu
             return info;
         }
 
+        /// A single-mip single-layer 2D view for the blit pass (sampled or target).
+        WGPUTextureView MipView(Texture* texture, u32 mipLevel, u32 arrayLayer,
+                                WGPUTextureAspect aspect, bool /*sampled*/)
+        {
+            WGPUTextureViewDescriptor viewDesc = WGPU_TEXTURE_VIEW_DESCRIPTOR_INIT;
+            viewDesc.format = ToWgpuTextureFormat(texture->desc.format);
+            viewDesc.dimension = WGPUTextureViewDimension_2D;
+            viewDesc.baseMipLevel = mipLevel;
+            viewDesc.mipLevelCount = 1;
+            viewDesc.baseArrayLayer = arrayLayer;
+            viewDesc.arrayLayerCount = 1;
+            viewDesc.aspect = aspect;
+            return m_api->wgpuTextureCreateView(
+                static_cast<WebGpuTexture*>(texture)->Handle(), &viewDesc);
+        }
+
         static bool HasStencil(TextureFormat format)
         {
             return format == TextureFormat::Depth24PlusStencil8 ||
@@ -365,6 +415,7 @@ export namespace draconic::rhi::webgpu
         const WebGpuApi* m_api = nullptr;
         WGPUDevice m_device = nullptr;
         IAllocator* m_allocator = nullptr;
+        WebGpuBlitHelper* m_blitHelper = nullptr;
         WGPUCommandEncoder m_encoder = nullptr;
         WebGpuRenderPassEncoder m_renderPass;
         WebGpuComputePassEncoder m_computePass;

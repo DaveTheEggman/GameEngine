@@ -14,6 +14,7 @@ export module draconic.rhi.webgpu:command_pool;
 import draconic.core;
 import draconic.rhi;
 import :api;
+import :blit_helper;
 import :command_encoder;
 import :render_bundle_encoder;
 
@@ -24,17 +25,19 @@ export namespace draconic::rhi::webgpu
     class WebGpuCommandPool final : public CommandPool
     {
     public:
-        void Initialize(const WebGpuApi& api, WGPUDevice device, IAllocator& allocator)
+        void Initialize(const WebGpuApi& api, WGPUDevice device, IAllocator& allocator,
+                        WebGpuBlitHelper& blitHelper)
         {
             m_api = &api;
             m_device = device;
             m_allocator = &allocator;
+            m_blitHelper = &blitHelper;
         }
 
         Status CreateEncoder(CommandEncoder*& out) override
         {
             auto* encoder = m_allocator->New<WebGpuCommandEncoder>();
-            encoder->Initialize(*m_api, m_device, *m_allocator);
+            encoder->Initialize(*m_api, m_device, *m_allocator, *m_blitHelper);
             m_encoders.PushBack(encoder);
             out = encoder;
             return ErrorCode::Ok;
@@ -92,6 +95,7 @@ export namespace draconic::rhi::webgpu
         const WebGpuApi* m_api = nullptr;
         WGPUDevice m_device = nullptr;
         IAllocator* m_allocator = nullptr;
+        WebGpuBlitHelper* m_blitHelper = nullptr;
         Array<WebGpuCommandEncoder*> m_encoders;
         Array<WebGpuRenderBundleEncoder*> m_bundleEncoders;
     };

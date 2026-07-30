@@ -271,6 +271,43 @@ export namespace draconic::rhi::webgpu
         return WGPUCompareFunction_Always;
     }
 
+    /// True for formats the internal blit pass can render to (2D color targets):
+    /// excludes depth/stencil, block-compressed, and formats WebGPU cannot render.
+    [[nodiscard]] inline bool IsBlitCapableFormat(TextureFormat format)
+    {
+        switch (format)
+        {
+        case TextureFormat::Undefined:
+        case TextureFormat::Depth16Unorm:
+        case TextureFormat::Depth24Plus:
+        case TextureFormat::Depth24PlusStencil8:
+        case TextureFormat::Depth32Float:
+        case TextureFormat::Depth32FloatStencil8:
+        case TextureFormat::Stencil8:
+        case TextureFormat::BC1RGBAUnorm:
+        case TextureFormat::BC1RGBAUnormSrgb:
+        case TextureFormat::BC2RGBAUnorm:
+        case TextureFormat::BC2RGBAUnormSrgb:
+        case TextureFormat::BC3RGBAUnorm:
+        case TextureFormat::BC3RGBAUnormSrgb:
+        case TextureFormat::BC4RUnorm:
+        case TextureFormat::BC4RSnorm:
+        case TextureFormat::BC5RGUnorm:
+        case TextureFormat::BC5RGSnorm:
+        case TextureFormat::BC6HRGBUfloat:
+        case TextureFormat::BC6HRGBFloat:
+        case TextureFormat::BC7RGBAUnorm:
+        case TextureFormat::BC7RGBAUnormSrgb:
+        case TextureFormat::RGBA16Unorm:
+        case TextureFormat::RGBA16Snorm:
+        case TextureFormat::RGB9E5Float:
+        case TextureFormat::RG11B10Float:
+            return false;
+        default:
+            return true;
+        }
+    }
+
     /// Label helper: RHI labels are UTF-8 StringViews, WebGPU wants {data,length}.
     [[nodiscard]] inline WGPUStringView ToWgpuStringView(StringView label)
     {

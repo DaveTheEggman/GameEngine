@@ -9,6 +9,7 @@ export module draconic.rhi.webgpu;
 
 export import :api;
 export import :conversions;
+export import :blit_helper;
 export import :buffer;
 export import :texture;
 export import :texture_view;
