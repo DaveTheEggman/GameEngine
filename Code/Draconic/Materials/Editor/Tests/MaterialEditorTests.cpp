@@ -80,7 +80,7 @@ TEST_CASE("material editor: cooks a MaterialAsset -> MaterialSource")
         CHECK(cooked->propNames[1] == u8"metallic");
         CHECK(cooked->propNames[2] == u8"albedoMap");
         CHECK(cooked->propTypes[2] == static_cast<u8>(MaterialPropertyType::Texture2D));
-        REQUIRE(cooked->uniformDefaults.Size() == 20); // float4 + float
+        REQUIRE(cooked->uniformDefaults.Size() == 32); // float4 + float, 16-byte rounded
         CHECK(*reinterpret_cast<const f32*>(cooked->uniformDefaults.Data() + 16) ==
               doctest::Approx(0.7f));
     }

@@ -104,11 +104,11 @@ TEST_CASE("material resource: built via the manager; resolves shader + records t
     CHECK(mat->name == u8"litMat");
     CHECK(mat->shaderName == u8"lit"); // resolved from the bound ShaderResource
     CHECK(mat->PropertyCount() == 3);
-    CHECK(mat->UniformDataSize() == 20); // float4 (16) + float (4)
+    CHECK(mat->UniformDataSize() == 32); // float4 (16) + float (4), 16-byte rounded
 
     // default uniform data survived the round-trip (tint = 0.25,0.5,0.75,1 at offset 0)
     const Span<const u8> defaults = mat->DefaultUniformData();
-    REQUIRE(defaults.Size() == 20);
+    REQUIRE(defaults.Size() == 32);
     const f32* tint = reinterpret_cast<const f32*>(defaults.Data());
     CHECK(tint[0] == doctest::Approx(0.25f));
     CHECK(tint[2] == doctest::Approx(0.75f));
@@ -181,7 +181,7 @@ TEST_CASE("material: pre-emissive forward sources upgrade in memory (offset/pad/
     MaterialSource src;
     MaterialSource::FromMaterial(*old, Guid{}, src);
     src.shaderName = String(u8"forward");
-    REQUIRE(src.uniformDefaults.Size() == 24u); // the pre-emissive block
+    REQUIRE(src.uniformDefaults.Size() == 32u); // the pre-emissive block, 16-byte rounded
 
     UpgradeForwardMaterialSource(src);
     REQUIRE(src.propNames.Size() ==
@@ -204,7 +204,7 @@ TEST_CASE("material: pre-emissive forward sources upgrade in memory (offset/pad/
     const usize ns = find(u8"NormalScale");
     const usize ac = find(u8"AlphaCutoff");
     REQUIRE(e < src.propNames.Size());
-    CHECK(src.propOffsets[e] == 32u); // 16-aligned past the 24-byte block
+    CHECK(src.propOffsets[e] == 32u); // straight past the rounded pre-emissive block
     CHECK(src.propSizes[e] == 16u);
     REQUIRE(occ < src.propNames.Size());
     CHECK(src.propOffsets[occ] == 48u); // matches the shader cbuffer row

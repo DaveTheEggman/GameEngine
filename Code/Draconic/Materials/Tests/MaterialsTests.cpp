@@ -35,7 +35,7 @@ TEST_CASE("material builder: lays out uniforms + declares properties")
     CHECK(mat->shaderFlags == shaders::ShaderFlags::NormalMap);
     CHECK(mat->pipeline.shaderName == u8"forward"); // pipeline mirrors shader id
     CHECK(mat->PropertyCount() == 5);
-    CHECK(mat->UniformDataSize() == 20); // 16 (float4) + 4 (float)
+    CHECK(mat->UniformDataSize() == 32); // 16 (float4) + 4 (float), 16-byte rounded (WebGPU validates the bound range against the padded cbuffer)
 
     CHECK(mat->GetPropertyIndex(u8"roughness") == 1);
     CHECK(mat->GetPropertyIndex(u8"missing") == -1);
@@ -46,7 +46,7 @@ TEST_CASE("material builder: lays out uniforms + declares properties")
 
     // default uniform data carries the seeded baseColor (red) at offset 0
     const Span<const u8> defaults = mat->DefaultUniformData();
-    REQUIRE(defaults.Size() == 20);
+    REQUIRE(defaults.Size() == 32);
     const f32* base = reinterpret_cast<const f32*>(defaults.Data());
     CHECK(base[0] == doctest::Approx(1.0f));
     CHECK(base[1] == doctest::Approx(0.0f));
@@ -110,7 +110,7 @@ TEST_CASE("material instance: overrides notify the system + re-prep is driven by
 
     // the override is the effective value (0.8), not the material default (0.5)
     const Span<const u8> data = inst.UniformData();
-    REQUIRE(data.Size() == 4);
+    REQUIRE(data.Size() == 16); // one float, 16-byte rounded
     CHECK(*reinterpret_cast<const f32*>(data.Data()) == doctest::Approx(0.8f));
 
     // resetting restores the default
