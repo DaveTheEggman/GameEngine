@@ -162,7 +162,9 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/Image)
     add_subdirectory(Code/Draconic/Geometry)
     add_subdirectory(Code/Draconic/Animation)
-    # Particles (needs Texture) and Scene/Subsystem (needs Runtime) climb once those deps are up.
+    add_subdirectory(Code/Draconic/Shaders)
+    add_subdirectory(Code/Draconic/Texture)
+    add_subdirectory(Code/Draconic/Materials)
     return() # everything above this line is wasm-verified; the rest awaits its turn
 endif()
 
