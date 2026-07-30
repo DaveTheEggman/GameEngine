@@ -25,6 +25,11 @@ if(TARGET Draconic::RHIDX12)
     target_compile_definitions(DraconicSamplesFramework PUBLIC DRACONIC_HAS_DX12)
 endif()
 
+if(TARGET Draconic::RHIWebGPU)
+    target_link_libraries(DraconicSamplesFramework PUBLIC Draconic::RHIWebGPU)
+    target_compile_definitions(DraconicSamplesFramework PUBLIC DRACONIC_HAS_WEBGPU)
+endif()
+
 target_sources(DraconicSamplesFramework
     PUBLIC
         FILE_SET samples_framework_modules TYPE CXX_MODULES FILES

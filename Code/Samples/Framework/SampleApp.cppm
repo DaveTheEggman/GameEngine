@@ -17,6 +17,9 @@ import draconic.rhi.vk;
 #ifdef DRACONIC_HAS_DX12
 import draconic.rhi.dx12;
 #endif
+#ifdef DRACONIC_HAS_WEBGPU
+import draconic.rhi.webgpu;
+#endif
 import draconic.rhi.validation;
 import draconic.shell;
 import draconic.shell.desktop;
@@ -29,7 +32,8 @@ export namespace draconic::samples::framework
     enum class BackendType
     {
         Vulkan,
-        DX12
+        DX12,
+        WebGPU
     };
 
     class SampleApp
@@ -97,6 +101,10 @@ export namespace draconic::samples::framework
             if (std::strcmp(argv[i], "--dx12") == 0 || std::strcmp(argv[i], "--d3d12") == 0)
             {
                 m_backendType = BackendType::DX12;
+            }
+            else if (std::strcmp(argv[i], "--webgpu") == 0 || std::strcmp(argv[i], "--wgpu") == 0)
+            {
+                m_backendType = BackendType::WebGPU;
             }
             else if (std::strcmp(argv[i], "--vk") == 0 || std::strcmp(argv[i], "--vulkan") == 0)
             {
@@ -230,6 +238,21 @@ export namespace draconic::samples::framework
             }
 #else
             rhi::LogError("SampleApp: DX12 backend not available on this platform");
+            return ErrorCode::Unknown;
+#endif
+            break;
+        }
+        case BackendType::WebGPU:
+        {
+#ifdef DRACONIC_HAS_WEBGPU
+            rhi::webgpu::WebGpuBackendDesc desc{};
+            if (!rhi::webgpu::CreateBackend(desc, raw).IsOk())
+            {
+                rhi::LogError("SampleApp: rhi::webgpu::CreateBackend failed (sidecar missing?)");
+                return ErrorCode::Unknown;
+            }
+#else
+            rhi::LogError("SampleApp: WebGPU backend not available in this build");
             return ErrorCode::Unknown;
 #endif
             break;
