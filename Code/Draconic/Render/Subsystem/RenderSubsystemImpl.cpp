@@ -444,6 +444,45 @@ namespace draconic::render
         }
     }
 
+    bool RenderSubsystem::LoadCookedShaderPack()
+    {
+        constexpr StringView kPackFile = u8"shaders.dpak";
+        // Prefer the executable's own directory (robust for a relocated dist); then the cwd.
+        String paths[2];
+        const String exeDir = GetExecutableDirectory();
+        if (!exeDir.IsEmpty())
+        {
+            paths[0] = exeDir;
+            paths[0] += u8"/";
+            paths[0] += kPackFile;
+        }
+        paths[1] = String(kPackFile);
+
+        for (const String& path : paths)
+        {
+            if (path.IsEmpty() || !FileExists(path.AsView()))
+            {
+                continue;
+            }
+            FileStream file(path.AsView(), FileMode::Read);
+            if (!file.IsValid())
+            {
+                continue;
+            }
+            UniquePtr<shaders::CookedShaderPack> pack =
+                MakeUnique<shaders::CookedShaderPack>(DefaultAllocator());
+            if (pack->Read(file).IsOk() && !pack->IsEmpty())
+            {
+                rhi::LogInfof("RenderSubsystem: using cooked shader pack (%u variants) - no runtime "
+                              "compiler",
+                              static_cast<unsigned>(pack->Count()));
+                m_shaderPack = Move(pack);
+                return true;
+            }
+        }
+        return false;
+    }
+
     void RenderSubsystem::OnInit()
     {
         RegisterRenderComponentReflection(); // tooling: reflected components (idempotent)
@@ -468,19 +507,31 @@ namespace draconic::render
         {
             shaderRoot = u8"Shaders"; // relocated build - dist layout fallback
         }
-        m_shaderProvider = MakeUnique<shaders::FileShaderSourceProvider>(DefaultAllocator());
-        if (m_shaderProvider->Initialize(shaderRoot).IsOk())
+
+        // Dist mode: a cooked shader pack shipped beside the executable retires the runtime compiler
+        // entirely (no DXC). When present it wins - GetVariant looks up prebuilt blobs. Otherwise the
+        // dev file provider drives on-demand DXC compilation (with hot reload) as before. Either way
+        // the PSO cache + renderers below are set up identically.
+        if (LoadCookedShaderPack())
         {
-            m_shaders->SetSourceProvider(m_shaderProvider.Get());
-            const StringView includePaths[] = {m_shaderProvider->RootDirectory()};
-            m_shaders->SetIncludePaths(Span<const StringView>{includePaths, 1});
+            m_shaders->SetCookedPack(m_shaderPack.Get());
         }
         else
         {
-            m_shaderProvider.Reset();
-            rhi::LogErrorf("RenderSubsystem: engine shader root not found (%s) - "
-                           "built-in shaders unavailable",
-                           reinterpret_cast<const char*>(shaderRoot.Data()));
+            m_shaderProvider = MakeUnique<shaders::FileShaderSourceProvider>(DefaultAllocator());
+            if (m_shaderProvider->Initialize(shaderRoot).IsOk())
+            {
+                m_shaders->SetSourceProvider(m_shaderProvider.Get());
+                const StringView includePaths[] = {m_shaderProvider->RootDirectory()};
+                m_shaders->SetIncludePaths(Span<const StringView>{includePaths, 1});
+            }
+            else
+            {
+                m_shaderProvider.Reset();
+                rhi::LogErrorf("RenderSubsystem: engine shader root not found (%s) - "
+                               "built-in shaders unavailable",
+                               reinterpret_cast<const char*>(shaderRoot.Data()));
+            }
         }
 
         m_psoCache =

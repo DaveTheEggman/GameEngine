@@ -210,6 +210,8 @@ TEST_CASE("pack: add, serialize, reload, and look up cooked blobs")
              Span<const byte>(vsSpv, 4));
     pack.Add(u8"forward", ShaderStage::Fragment, ShaderFlags::GBuffer, CookedShaderFormat::Wgsl,
              Span<const byte>(psWgsl, 4));
+    pack.AddDeclaredMask(u8"forward", ShaderStage::Fragment,
+                         ShaderFlags::AlphaTest | ShaderFlags::GBuffer);
     CHECK(pack.Count() == 2u);
 
     MemoryStream buffer;
@@ -241,6 +243,12 @@ TEST_CASE("pack: add, serialize, reload, and look up cooked blobs")
     Array<String> names;
     loaded.CollectNames(names);
     CHECK(names.Size() == 1u); // one distinct name "forward"
+
+    // Declared mask survives the round-trip (the dist runtime canonicalizes with it).
+    CHECK(loaded.DeclaredMask(ShaderNameHash(u8"forward"), ShaderStage::Fragment) ==
+          (ShaderFlags::AlphaTest | ShaderFlags::GBuffer));
+    CHECK(loaded.DeclaredMask(ShaderNameHash(u8"forward"), ShaderStage::Vertex) ==
+          ShaderFlags::None);
 }
 
 // --- Variant model (directive parse / canonicalize / power-set / drift-lint) ---

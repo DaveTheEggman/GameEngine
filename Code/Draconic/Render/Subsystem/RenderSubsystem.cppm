@@ -207,11 +207,16 @@ export namespace draconic::render
         // multiple cameras of the same scene; phase 1 takes one per call.)
         [[nodiscard]] ExtractedScene* AcquireScene();
 
+        // Load a cooked shader pack from beside the executable (dist), into m_shaderPack. True when a
+        // pack was found and read; false => dev mode (compile-on-demand via the file provider).
+        [[nodiscard]] bool LoadCookedShaderPack();
+
         rhi::Device* m_device;
         u32 m_framesInFlight = 2;
         shaders::Compiler* m_compiler = nullptr;
         UniquePtr<shaders::ShaderSystem> m_shaders;
         UniquePtr<shaders::FileShaderSourceProvider> m_shaderProvider; // engine shader root (dev files)
+        UniquePtr<shaders::CookedShaderPack> m_shaderPack; // dist: cooked blobs (no DXC), else null
         UniquePtr<materials::PipelineStateCache> m_psoCache;
         UniquePtr<materials::MaterialSystem> m_materialSystem;
         UniquePtr<MeshRenderer> m_meshRenderer;

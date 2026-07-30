@@ -73,6 +73,13 @@ export namespace draconic::shaders
             return m_provider;
         }
 
+        // Dist mode: a cooked pack (borrowed) replaces on-demand compilation. When set, GetVariant
+        // canonicalizes the request against the stage's declared mask and looks up the prebuilt
+        // blob for this device's backend format - no DXC, no source. A miss is a loud cook-coverage
+        // bug. Set by the render subsystem when a shader pack ships beside the executable.
+        void SetCookedPack(const CookedShaderPack* pack) { m_pack = pack; }
+        [[nodiscard]] const CookedShaderPack* CookedPack() const noexcept { return m_pack; }
+
         // Dev hot reload: asks the provider which sources changed, drops their
         // cached source + variants, and bumps versions (the PSO cache rebuilds on
         // its existing poll). Call once per frame. Returns how many shaders reloaded.
@@ -120,6 +127,11 @@ export namespace draconic::shaders
         [[nodiscard]] rhi::ShaderModule* GetVariant(core::StringView name, ShaderStage stage,
                                                     ShaderFlags flags)
         {
+            if (m_pack != nullptr)
+            {
+                return GetCookedVariant(name, stage, flags);
+            }
+
             const ShaderVariantKey key{ShaderNameHash(name), stage, flags};
             if (rhi::ShaderModule** cached = m_cache.Find(key))
             {
@@ -187,6 +199,54 @@ export namespace draconic::shaders
         }
 
     private:
+        // The cooked-blob format this device consumes. DX12 = DXIL; everything else = SPIR-V
+        // (Vulkan and native wgpu-native both take SPIR-V). Browser WebGPU (WGSL text) will select
+        // CookedShaderFormat::Wgsl once that backend accepts WGSL - the blobs are already cooked.
+        [[nodiscard]] CookedShaderFormat FormatForDevice() const noexcept
+        {
+            return (m_device->type == rhi::DeviceType::DX12) ? CookedShaderFormat::Dxil
+                                                             : CookedShaderFormat::SpirV;
+        }
+
+        // Dist path: canonicalize against the declared mask, look up the prebuilt blob, and create
+        // the GPU module directly. Cached under the CANONICAL key so requests that differ only in
+        // ignored flags dedupe. A miss is a cook-coverage bug (loud, returns null).
+        [[nodiscard]] rhi::ShaderModule* GetCookedVariant(core::StringView name, ShaderStage stage,
+                                                          ShaderFlags flags)
+        {
+            const core::u64 nameHash = ShaderNameHash(name);
+            const ShaderFlags canon =
+                CanonicalizeFlags(flags, m_pack->DeclaredMask(nameHash, stage));
+            const ShaderVariantKey key{nameHash, stage, canon};
+            if (rhi::ShaderModule** cached = m_cache.Find(key))
+            {
+                return *cached;
+            }
+
+            const CookedShaderFormat format = FormatForDevice();
+            const core::Array<core::byte>* blob = m_pack->Find(nameHash, stage, canon, format);
+            if (blob == nullptr)
+            {
+                rhi::LogErrorf("Cooked shader variant missing from the pack (a cook-coverage bug): "
+                               "'%.*s' stage %u flags %u",
+                               static_cast<int>(name.Size()),
+                               reinterpret_cast<const char*>(name.Data()),
+                               static_cast<unsigned>(stage), static_cast<unsigned>(canon));
+                return nullptr;
+            }
+
+            rhi::ShaderModuleDesc desc{};
+            desc.code = core::Span<const core::u8>(reinterpret_cast<const core::u8*>(blob->Data()),
+                                                   blob->Size());
+            rhi::ShaderModule* module = nullptr;
+            if (m_device->CreateShaderModule(desc, module) != core::ErrorCode::Ok)
+            {
+                return nullptr;
+            }
+            m_cache.InsertOrAssign(key, module);
+            return module;
+        }
+
         [[nodiscard]] rhi::ShaderModule* Compile(core::StringView source, ShaderStage stage,
                                                  ShaderFlags flags)
         {
@@ -274,6 +334,7 @@ export namespace draconic::shaders
         Compiler* m_compiler;                             // borrowed
         rhi::Device* m_device;                            // borrowed
         IShaderSourceProvider* m_provider = nullptr;      // borrowed (may be null)
+        const CookedShaderPack* m_pack = nullptr;         // dist mode: cooked blobs (borrowed)
         core::HashMap<core::u64, core::String> m_sources; // (name,stage) -> HLSL
         core::HashMap<ShaderVariantKey, rhi::ShaderModule*>
             m_cache;                                    // variant -> GPU module (owned)

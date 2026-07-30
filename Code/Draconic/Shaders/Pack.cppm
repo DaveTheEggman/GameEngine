@@ -57,6 +57,22 @@ export namespace draconic::shaders
             m_entries.PushBack(Move(e));
         }
 
+        // Record a stage's declared variant mask (from its `// draconic:variants` directive) so the
+        // dist runtime can canonicalize a request (flags & mask) onto a variant that was cooked. The
+        // cook calls this once per stage; absent => None (single-variant).
+        void AddDeclaredMask(StringView name, ShaderStage stage, ShaderFlags mask)
+        {
+            m_declaredMasks.InsertOrAssign(MaskKey(ShaderNameHash(name), stage),
+                                           static_cast<u32>(mask));
+        }
+
+        // The declared mask for (name, stage); None if the stage declared none / is absent.
+        [[nodiscard]] ShaderFlags DeclaredMask(u64 nameHash, ShaderStage stage) const
+        {
+            const u32* m = m_declaredMasks.Find(MaskKey(nameHash, stage));
+            return (m != nullptr) ? static_cast<ShaderFlags>(*m) : ShaderFlags::None;
+        }
+
         // Look up a cooked blob; null when absent (a cook-coverage bug at runtime).
         [[nodiscard]] const Array<byte>* Find(u64 nameHash, ShaderStage stage, ShaderFlags flags,
                                               CookedShaderFormat format) const
@@ -97,6 +113,13 @@ export namespace draconic::shaders
                 w.WriteString(kv.value.AsView());
             }
 
+            w.Write<u32>(static_cast<u32>(m_declaredMasks.Size()));
+            for (const auto& kv : m_declaredMasks)
+            {
+                w.Write<u64>(kv.key);
+                w.Write<u32>(kv.value);
+            }
+
             w.Write<u32>(static_cast<u32>(m_entries.Size()));
             for (const Entry& e : m_entries)
             {
@@ -115,6 +138,7 @@ export namespace draconic::shaders
             m_entries.Clear();
             m_index.Clear();
             m_names.Clear();
+            m_declaredMasks.Clear();
 
             BinaryReader r(in);
             u32 magic = 0;
@@ -135,6 +159,17 @@ export namespace draconic::shaders
                 r.Read(nameHash);
                 r.ReadString(name);
                 m_names.InsertOrAssign(nameHash, Move(name));
+            }
+
+            u32 maskCount = 0;
+            r.Read(maskCount);
+            for (u32 i = 0; i < maskCount && r.IsOk(); ++i)
+            {
+                u64 maskKey = 0;
+                u32 mask = 0;
+                r.Read(maskKey);
+                r.Read(mask);
+                m_declaredMasks.InsertOrAssign(maskKey, mask);
             }
 
             u32 entryCount = 0;
@@ -169,7 +204,12 @@ export namespace draconic::shaders
 
     private:
         static constexpr u32 kMagic = 0x4b505344u;   // "DSPK" little-endian
-        static constexpr u32 kVersion = 1u;
+        static constexpr u32 kVersion = 2u;          // v2 added the declared-mask table
+
+        [[nodiscard]] static u64 MaskKey(u64 nameHash, ShaderStage stage) noexcept
+        {
+            return (nameHash << 4) ^ static_cast<u64>(stage);
+        }
 
         struct Entry
         {
@@ -190,7 +230,8 @@ export namespace draconic::shaders
         }
 
         Array<Entry> m_entries;
-        HashMap<u64, usize> m_index; // combined key -> index into m_entries
-        HashMap<u64, String> m_names; // nameHash -> name (enumeration)
+        HashMap<u64, usize> m_index;         // combined key -> index into m_entries
+        HashMap<u64, String> m_names;        // nameHash -> name (enumeration)
+        HashMap<u64, u32> m_declaredMasks;   // MaskKey(nameHash, stage) -> ShaderFlags bits
     };
 }

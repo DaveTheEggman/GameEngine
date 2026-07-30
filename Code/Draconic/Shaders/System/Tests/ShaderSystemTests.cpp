@@ -75,6 +75,73 @@ TEST_CASE("shader system: flags become defines; failures aren't cached")
     compiler->Destroy();
 }
 
+TEST_CASE("shader system: cooked pack path - blob lookup + canonicalization, no compiler")
+{
+    Compiler* compiler = MakeCompiler();
+    if (compiler == nullptr)
+    {
+        MESSAGE("DXC unavailable; skipping");
+        return;
+    }
+
+    rhi::null::NullDevice device{DefaultAllocator()};
+    {
+        // Cook two SPIR-V variants of "vs" (None, Skinned) into a pack; declared mask = Skinned.
+        const StringView src(kTrivialVertex);
+        auto spirv = [&](ShaderFlags flags) -> Array<byte>
+        {
+            Array<ShaderDefine> defs;
+            AppendDefines(flags, defs);
+            CompileOptions co{};
+            co.defines = Span<const ShaderDefine>(defs.Data(), defs.Size());
+            co.bindingShifts = BindingShifts::Standard();
+            co.bindingShiftSets = 4;
+            CompileResult cr{};
+            (void)compiler->compile(reinterpret_cast<const u8*>(src.Data()), src.Size(),
+                                    ShaderStage::Vertex, u8"main", ShaderTarget::SPIRV, co, cr);
+            Array<byte> out;
+            if (cr.success)
+            {
+                out.Resize(cr.bytecodeSize);
+                MemCopy(out.Data(), cr.bytecode, cr.bytecodeSize);
+            }
+            compiler->freeResult(cr);
+            return out;
+        };
+
+        CookedShaderPack pack;
+        const Array<byte> none = spirv(ShaderFlags::None);
+        const Array<byte> skin = spirv(ShaderFlags::Skinned);
+        REQUIRE_FALSE(none.IsEmpty());
+        pack.Add(u8"vs", ShaderStage::Vertex, ShaderFlags::None, CookedShaderFormat::SpirV,
+                 Span<const byte>(none.Data(), none.Size()));
+        pack.Add(u8"vs", ShaderStage::Vertex, ShaderFlags::Skinned, CookedShaderFormat::SpirV,
+                 Span<const byte>(skin.Data(), skin.Size()));
+        pack.AddDeclaredMask(u8"vs", ShaderStage::Vertex, ShaderFlags::Skinned);
+
+        ShaderSystem ss(*compiler, device);
+        ss.SetCookedPack(&pack);
+
+        // Lookup builds a module directly from the cooked blob (no compile).
+        rhi::ShaderModule* m = ss.GetVariant(u8"vs", ShaderStage::Vertex, ShaderFlags::None);
+        CHECK(m != nullptr);
+
+        // Canonicalization: only declared bits survive. Skinned|Emissive -> Skinned variant.
+        rhi::ShaderModule* s = ss.GetVariant(u8"vs", ShaderStage::Vertex,
+                                             ShaderFlags::Skinned | ShaderFlags::Emissive);
+        CHECK(s != nullptr);
+        CHECK(s != m);
+
+        // Emissive alone is NOT declared -> canonicalizes to None -> dedups onto the None module.
+        CHECK(ss.GetVariant(u8"vs", ShaderStage::Vertex, ShaderFlags::Emissive) == m);
+
+        // A name absent from the pack is a cook-coverage miss -> null (logged).
+        CHECK(ss.GetVariant(u8"nope", ShaderStage::Vertex, ShaderFlags::None) == nullptr);
+    }
+
+    compiler->Destroy();
+}
+
 TEST_CASE("shader system: distinct variants cache separately; invalidate recompiles")
 {
     Compiler* compiler = MakeCompiler();

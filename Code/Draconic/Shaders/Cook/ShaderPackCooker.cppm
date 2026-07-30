@@ -120,6 +120,10 @@ export namespace draconic::shaders
                 continue;
             }
 
+            // Record the declared mask so the dist runtime can canonicalize requests onto the
+            // cooked lattice (dev == dist behaviour).
+            pack.AddDeclaredMask(stem, stage, directive.mask);
+
             Array<ShaderFlags> variants;
             EnumerateVariants(directive.mask, variants);
 
