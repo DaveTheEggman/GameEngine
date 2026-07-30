@@ -165,6 +165,7 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/Shaders)
     add_subdirectory(Code/Draconic/Texture)
     add_subdirectory(Code/Draconic/Materials)
+    add_subdirectory(Code/Draconic/Runtime) # base lib (Core+Policy); app/runner sub-libs are off for web
     add_subdirectory(Code/Draconic/Scene) # renderer-agnostic base; its Subsystem (needs Runtime) is off for web
     # draconic.render is scene- and resource-agnostic (device-abstract over the RHI interface), so
     # the whole renderer compiles for web now; only its GPU DEVICE (Emscripten WebGPU) is phase 2.

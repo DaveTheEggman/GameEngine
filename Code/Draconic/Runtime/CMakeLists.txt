@@ -14,18 +14,23 @@ target_sources(DraconicRuntime
             Plugin.cppm
             PluginHost.cppm)
 
-# The client Application loop + scripting integration. (The shell service is now a top-level
-# layer - Draconic::Shell - added before Runtime, since Client links it.)
-add_subdirectory(Client)
-add_subdirectory(GameInstance)   # a running game as a first-class object (DefaultApp owns one)
-add_subdirectory(DefaultApp)
-add_subdirectory(Script)
+# The app/runner sub-libs above the base draconic.runtime lib: the client Application loop, the
+# game-instance/scripting composition, and the desktop runner. They link Shell, the script VMs, and
+# the scene subsystems - i.e. the app layer - none of which is on web yet, so they are gated off for
+# Emscripten (the base runtime lib above still climbs). NOT EMSCRIPTEN rather than TARGET guards
+# because the desktop add-order interleaves these deps; the guard is transparent on desktop. A web
+# runner will live alongside Desktop once the app backends land.
+if(NOT EMSCRIPTEN)
+    add_subdirectory(Client)
+    add_subdirectory(GameInstance)   # a running game as a first-class object (DefaultApp owns one)
+    add_subdirectory(DefaultApp)
+    add_subdirectory(Script)
 
-# Desktop runner (draconic.runtime.desktop): the blocking desktop run loop that drives an
-# IApplication (client) against an IShell (shell) with a GraphicsDevice - depends on all three,
-# so it follows them. Backend-agnostic (works through IShell); its web runner will live alongside.
-add_subdirectory(Desktop)
+    # Desktop runner (draconic.runtime.desktop): the blocking desktop run loop that drives an
+    # IApplication (client) against an IShell (shell) with a GraphicsDevice - depends on all three.
+    add_subdirectory(Desktop)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(Tests)
+    if(DRACONIC_BUILD_TESTS)
+        add_subdirectory(Tests)
+    endif()
 endif()
