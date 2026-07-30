@@ -20,9 +20,14 @@ target_sources(DraconicShell
 # built when SDL3 is available.
 add_subdirectory(Null)
 
-find_package(SDL3 QUIET)
-if(SDL3_FOUND)
-    add_subdirectory(Desktop)
+if(EMSCRIPTEN)
+    # The browser backend: a single-canvas IShell over Emscripten's HTML5 API.
+    add_subdirectory(Web)
 else()
-    message(STATUS "SDL3 not found - skipping Draconic::ShellDesktop")
+    find_package(SDL3 QUIET)
+    if(SDL3_FOUND)
+        add_subdirectory(Desktop)
+    else()
+        message(STATUS "SDL3 not found - skipping Draconic::ShellDesktop")
+    endif()
 endif()

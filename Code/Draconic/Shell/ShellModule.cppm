@@ -32,6 +32,7 @@ export namespace draconic::shell
         X11,
         Wayland,
         Cocoa,
+        Web,
     };
 
     // The native handles RHI needs to create a surface/swapchain itself (RHI does
@@ -41,6 +42,7 @@ export namespace draconic::shell
     //   X11     - display = Display*,     window = Window (XID, via uintptr)
     //   Wayland - display = wl_display*,  window = wl_surface*
     //   Cocoa   - display = nullptr,      window = NSWindow*
+    //   Web     - display = nullptr,      window = const char* (HTML canvas CSS selector)
     struct NativeWindow
     {
         WindowSystem system = WindowSystem::Unknown;
