@@ -16,6 +16,15 @@ export namespace draconic::rhi
         Null,
         WebGPU
     };
+    // The shader bytecode/text format a device's CreateShaderModule ingests. Vulkan/Null = SPIR-V,
+    // DX12 = DXIL, browser WebGPU = WGSL text; native wgpu-native WebGPU takes SPIR-V. The shader
+    // cook/system pick the cooked-blob format from Device::PreferredShaderFormat().
+    enum class ShaderFormat : u32
+    {
+        SpirV,
+        DXIL,
+        WGSL
+    };
     enum class QueueType : u32
     {
         Graphics,

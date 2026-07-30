@@ -32,6 +32,11 @@ export namespace draconic::rhi::validation
             shaderGroupBaseAlignment = inner->shaderGroupBaseAlignment;
         }
 
+        [[nodiscard]] ShaderFormat PreferredShaderFormat() const noexcept override
+        {
+            return m_inner->PreferredShaderFormat();
+        }
+
         // ---- Queues ----
         Queue* GetQueue(QueueType t, u32 index) override
         {

@@ -330,6 +330,11 @@ export namespace draconic::rhi::null
             xferQueue.queueType = QueueType::Transfer;
         }
 
+        [[nodiscard]] ShaderFormat PreferredShaderFormat() const noexcept override
+        {
+            return ShaderFormat::SpirV;
+        }
+
         Queue* GetQueue(QueueType t, u32) override
         {
             switch (t)

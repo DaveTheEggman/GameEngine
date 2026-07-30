@@ -296,6 +296,11 @@ export namespace draconic::rhi::vk
 
         // ---- Device interface ----
 
+        [[nodiscard]] ShaderFormat PreferredShaderFormat() const noexcept override
+        {
+            return ShaderFormat::SpirV;
+        }
+
         Queue* GetQueue(QueueType t, u32 index) override
         {
             switch (t)

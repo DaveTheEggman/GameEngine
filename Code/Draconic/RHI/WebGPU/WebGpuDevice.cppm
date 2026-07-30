@@ -71,6 +71,13 @@ export namespace draconic::rhi::webgpu
         [[nodiscard]] WGPUInstance Instance() const { return m_instance; }
         [[nodiscard]] const WebGpuApi& Api() const { return *m_api; }
 
+        // SPIR-V ingestion is a native wgpu-native feature (ShaderSourceSPIRV instance feature); a
+        // browser never exposes it, so there the cook must feed WGSL text instead.
+        [[nodiscard]] ShaderFormat PreferredShaderFormat() const noexcept override
+        {
+            return m_api->spirvIngestion ? ShaderFormat::SpirV : ShaderFormat::WGSL;
+        }
+
         // ---- Queries ----
         Queue* GetQueue(QueueType queueType, u32 index) override
         {

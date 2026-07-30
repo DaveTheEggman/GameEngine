@@ -75,6 +75,13 @@ TEST_CASE("shader system: flags become defines; failures aren't cached")
     compiler->Destroy();
 }
 
+TEST_CASE("shader system: device shader format maps to the cooked-pack format")
+{
+    CHECK(SelectCookedFormat(rhi::ShaderFormat::SpirV) == CookedShaderFormat::SpirV);
+    CHECK(SelectCookedFormat(rhi::ShaderFormat::DXIL) == CookedShaderFormat::Dxil);
+    CHECK(SelectCookedFormat(rhi::ShaderFormat::WGSL) == CookedShaderFormat::Wgsl);
+}
+
 TEST_CASE("shader system: cooked pack path - blob lookup + canonicalization, no compiler")
 {
     Compiler* compiler = MakeCompiler();

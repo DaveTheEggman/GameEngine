@@ -147,6 +147,11 @@ export namespace draconic::rhi
         DeviceType type = DeviceType::Null;
         DeviceFeatures features{};
 
+        // The shader format this device's CreateShaderModule expects: SPIR-V (Vulkan, Null, native
+        // wgpu-native WebGPU), DXIL (DX12), or WGSL text (browser WebGPU). The shader cook/system pick
+        // the cooked-blob format from this.
+        [[nodiscard]] virtual ShaderFormat PreferredShaderFormat() const noexcept = 0;
+
         // ---- Queries ----
         [[nodiscard]] virtual Queue* GetQueue(QueueType type, u32 index = 0) = 0;
         [[nodiscard]] virtual u32 GetQueueCount(QueueType type) = 0;

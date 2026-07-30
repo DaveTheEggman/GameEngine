@@ -168,6 +168,11 @@ export namespace draconic::rhi::dx12
         // Device interface -- Queues
         // ==================================================================
 
+        [[nodiscard]] ShaderFormat PreferredShaderFormat() const noexcept override
+        {
+            return ShaderFormat::DXIL;
+        }
+
         Queue* GetQueue(QueueType t, u32 index) override
         {
             switch (t)

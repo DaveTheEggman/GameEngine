@@ -44,6 +44,23 @@ export namespace draconic::shaders
         virtual bool PollChanges(core::Array<core::String>& outChangedNames) = 0;
     };
 
+    // Map a device's expected shader format (rhi::ShaderFormat) to the cooked-pack blob format.
+    // The two enums are parallel but distinct: rhi is RHI-layer, CookedShaderFormat is pack-layer
+    // (draconic.shaders is RHI-free). Pure so the mapping is unit-testable without a live device.
+    [[nodiscard]] inline CookedShaderFormat SelectCookedFormat(rhi::ShaderFormat format) noexcept
+    {
+        switch (format)
+        {
+        case rhi::ShaderFormat::DXIL:
+            return CookedShaderFormat::Dxil;
+        case rhi::ShaderFormat::WGSL:
+            return CookedShaderFormat::Wgsl;
+        case rhi::ShaderFormat::SpirV:
+            break;
+        }
+        return CookedShaderFormat::SpirV;
+    }
+
     // Compile-on-demand variant cache. The Compiler and Device are borrowed (owned by
     // the caller). Sources are registered per (name, stage) - vertex and fragment are
     // separate HLSL with `main` entry points (as in the Sedulous shader set).
@@ -205,13 +222,12 @@ export namespace draconic::shaders
         }
 
     private:
-        // The cooked-blob format this device consumes. DX12 = DXIL; everything else = SPIR-V
-        // (Vulkan and native wgpu-native both take SPIR-V). Browser WebGPU (WGSL text) will select
-        // CookedShaderFormat::Wgsl once that backend accepts WGSL - the blobs are already cooked.
+        // The cooked-blob format this device consumes (see SelectCookedFormat): DX12 -> DXIL, browser
+        // WebGPU -> WGSL text, everything else -> SPIR-V. The WebGPU backend ingests either SPIR-V
+        // (native, via ShaderSourceSPIRV) or WGSL (browser) - it sniffs the SPIR-V magic.
         [[nodiscard]] CookedShaderFormat FormatForDevice() const noexcept
         {
-            return (m_device->type == rhi::DeviceType::DX12) ? CookedShaderFormat::Dxil
-                                                             : CookedShaderFormat::SpirV;
+            return SelectCookedFormat(m_device->PreferredShaderFormat());
         }
 
         // Dist path: canonicalize against the declared mask, look up the prebuilt blob, and create
