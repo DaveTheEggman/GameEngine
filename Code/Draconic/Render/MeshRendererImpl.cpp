@@ -44,9 +44,11 @@ namespace draconic::render
         // is 4 SETS, not 4 bindings - shadows fold into the view set rather than needing a 5th set).
         rhi::BindGroupLayoutEntry shadowTexEntry = rhi::BindGroupLayoutEntry::SampledTexture(
             1, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2DArray);
+        shadowTexEntry.textureSampleType = rhi::TextureSampleType::Depth; // SampleCmp source
         // Local-light (spot/point) shadow atlas (t2, Texture2D) + per-light shadow entries (t3, SRV).
         rhi::BindGroupLayoutEntry atlasTexEntry = rhi::BindGroupLayoutEntry::SampledTexture(
             2, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2DArray);
+        atlasTexEntry.textureSampleType = rhi::TextureSampleType::Depth; // SampleCmp source
         rhi::BindGroupLayoutEntry localShadowEntry = rhi::BindGroupLayoutEntry::StorageBuffer(
             3, rhi::ShaderStage::Fragment, /*readOnly*/ true,
             /*stride*/ sizeof(GpuLocalShadow)); // StructuredBuffer<GpuLocalShadow>

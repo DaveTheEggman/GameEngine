@@ -93,7 +93,11 @@ export namespace draconic::materials
                 const u32 end = d.offset + d.size;
                 if (end > m_uniformDataSize)
                 {
-                    m_uniformDataSize = end;
+                    // Round to cbuffer alignment: the shader-side struct is 16-byte
+                    // padded on every API, and WebGPU VALIDATES the bound range
+                    // against the struct size (a 60-byte range under a 64-byte
+                    // cbuffer fails). Buffer and binding both use this size.
+                    m_uniformDataSize = (end + 15u) & ~15u;
                 }
             }
         }
