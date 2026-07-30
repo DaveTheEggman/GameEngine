@@ -73,6 +73,13 @@ private:
 
 draconic::core::Status BorderSamplerSample::OnInit()
 {
+    if (!m_device->features.borderSampling)
+    {
+        rhi::LogError("ERROR: Border sampling (ClampToBorder) is not supported by this "
+                      "device/backend");
+        return draconic::core::ErrorCode::Unknown;
+    }
+
     using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
     if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) !=
         draconic::core::ErrorCode::Ok)

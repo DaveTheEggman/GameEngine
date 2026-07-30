@@ -130,6 +130,8 @@ namespace draconic::rhi::webgpu
     X(wgpuQuerySetRelease)                                                                         \
     X(wgpuInstanceCreateSurface)                                                                   \
     X(wgpuSurfaceConfigure)                                                                        \
+    X(wgpuSurfaceGetCapabilities)                                                                  \
+    X(wgpuSurfaceCapabilitiesFreeMembers)                                                          \
     X(wgpuSurfaceUnconfigure)                                                                      \
     X(wgpuSurfaceGetCurrentTexture)                                                                \
     X(wgpuSurfacePresent)                                                                          \

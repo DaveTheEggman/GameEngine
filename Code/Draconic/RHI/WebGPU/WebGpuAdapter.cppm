@@ -150,6 +150,12 @@ export namespace draconic::rhi::webgpu
             {
                 required.PushBack(immediates);
             }
+            // 32-bit float textures are non-filterable in core WebGPU; the renderer
+            // linear-samples HDR sky/IBL sources, so enable filtering when available.
+            if (m_api->wgpuAdapterHasFeature(m_adapter, WGPUFeatureName_Float32Filterable) != 0u)
+            {
+                required.PushBack(WGPUFeatureName_Float32Filterable);
+            }
             // Encoder-level WriteTimestamp (the RHI's CommandEncoder::WriteTimestamp,
             // used by the GPU GraphProfiler) is a separate wgpu feature from
             // pass-boundary timestamps.
@@ -250,8 +256,8 @@ export namespace draconic::rhi::webgpu
                 return ErrorCode::Unknown;
             }
 
-            auto* wrapper = m_allocator.New<WebGpuDevice>(*m_api, m_instance, device,
-                                                          m_allocator);
+            auto* wrapper = m_allocator.New<WebGpuDevice>(*m_api, m_instance, m_adapter,
+                                                          device, m_allocator);
             wrapper->features = info.supportedFeatures;
             wrapper->features.maxPushConstantSize = immediatesSupported ? 128u : 0u;
             wrapper->SetImmediatesSupported(immediatesSupported);

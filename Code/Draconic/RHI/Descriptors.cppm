@@ -127,6 +127,10 @@ export namespace draconic::rhi
         BindingType type = BindingType::UniformBuffer;
         TextureViewDimension textureDimension = TextureViewDimension::Texture2D;
         TextureSampleType textureSampleType = TextureSampleType::Float;
+        // WebGPU-only: a Sampler entry that binds nearest-only samplers (required
+        // when the paired texture is UnfilterableFloat, e.g. depth read as data).
+        // Vulkan/DX12 have no such distinction and ignore it.
+        bool samplerNonFiltering = false;
         bool textureMultisampled = false;
         TextureFormat storageTextureFormat = TextureFormat::Undefined;
         bool hasDynamicOffset = false;

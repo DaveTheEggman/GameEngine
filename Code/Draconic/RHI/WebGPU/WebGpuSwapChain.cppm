@@ -27,10 +27,11 @@ export namespace draconic::rhi::webgpu
     class WebGpuSwapChain final : public SwapChain
     {
     public:
-        Status Initialize(const WebGpuApi& api, WGPUDevice device, WebGpuSurface* surface,
-                          const SwapChainDesc& swapDesc)
+        Status Initialize(const WebGpuApi& api, WGPUAdapter adapter, WGPUDevice device,
+                          WebGpuSurface* surface, const SwapChainDesc& swapDesc)
         {
             m_api = &api;
+            m_adapter = adapter;
             m_device = device;
             m_surface = surface;
             m_format = swapDesc.format;
@@ -126,12 +127,49 @@ export namespace draconic::rhi::webgpu
             config.usage = WGPUTextureUsage_RenderAttachment;
             config.width = width;
             config.height = height;
-            config.presentMode = ToWgpuPresentMode(m_presentMode);
+            config.presentMode = SupportedPresentMode(ToWgpuPresentMode(m_presentMode));
             m_api->wgpuSurfaceConfigure(m_surface->Handle(), &config);
             m_configured = true;
             m_width = width;
             m_height = height;
             return ErrorCode::Ok;
+        }
+
+        /// The requested mode when the surface offers it, else the closest match
+        /// (Immediate/Mailbox degrade toward each other, everything else to Fifo -
+        /// the only mode WebGPU guarantees).
+        WGPUPresentMode SupportedPresentMode(WGPUPresentMode requested)
+        {
+            WGPUSurfaceCapabilities capabilities = WGPU_SURFACE_CAPABILITIES_INIT;
+            if (m_api->wgpuSurfaceGetCapabilities(m_surface->Handle(), m_adapter,
+                                                  &capabilities) != WGPUStatus_Success)
+            {
+                return WGPUPresentMode_Fifo;
+            }
+            const auto supported = [&](WGPUPresentMode mode)
+            {
+                for (usize i = 0; i < capabilities.presentModeCount; ++i)
+                {
+                    if (capabilities.presentModes[i] == mode)
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            };
+            WGPUPresentMode chosen = WGPUPresentMode_Fifo;
+            if (supported(requested))
+            {
+                chosen = requested;
+            }
+            else if ((requested == WGPUPresentMode_Immediate ||
+                      requested == WGPUPresentMode_Mailbox) &&
+                     supported(WGPUPresentMode_Mailbox))
+            {
+                chosen = WGPUPresentMode_Mailbox;
+            }
+            m_api->wgpuSurfaceCapabilitiesFreeMembers(capabilities);
+            return chosen;
         }
 
         void DropCurrent()
@@ -150,6 +188,7 @@ export namespace draconic::rhi::webgpu
         }
 
         const WebGpuApi* m_api = nullptr;
+        WGPUAdapter m_adapter = nullptr;
         WGPUDevice m_device = nullptr;
         WebGpuSurface* m_surface = nullptr;
         TextureFormat m_format = TextureFormat::BGRA8UnormSrgb;

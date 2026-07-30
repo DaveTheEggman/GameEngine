@@ -16,6 +16,7 @@ export module draconic.rhi.webgpu:queue;
 import draconic.core;
 import draconic.rhi;
 import :api;
+import :buffer;
 import :command_buffer;
 import :transfer_batch;
 import :fence;
@@ -30,7 +31,8 @@ export namespace draconic::rhi::webgpu
         WebGpuQueue() = default;
 
         void Initialize(const WebGpuApi& api, WGPUInstance instance, WGPUDevice device,
-                        WGPUQueue queue, IAllocator& allocator, QueueType type)
+                        WGPUQueue queue, IAllocator& allocator, QueueType type,
+                        WebGpuBufferRegistry& bufferRegistry)
         {
             m_api = &api;
             m_instance = instance;
@@ -38,6 +40,7 @@ export namespace draconic::rhi::webgpu
             m_queue = queue;
             m_allocator = &allocator;
             queueType = type;
+            m_bufferRegistry = &bufferRegistry;
         }
 
         [[nodiscard]] WGPUQueue Handle() const { return m_queue; }
@@ -112,6 +115,10 @@ export namespace draconic::rhi::webgpu
     private:
         WGPUSubmissionIndex SubmitInternal(Span<CommandBuffer* const> commandBuffers)
         {
+            // Persistent-map coherence: flush every OPEN shadow first (queue-ordered,
+            // so the writes land before this submission reads them).
+            m_bufferRegistry->FlushOutstanding();
+
             WGPUCommandBuffer handles[16];
             usize count = 0;
             WGPUSubmissionIndex last{};
@@ -196,5 +203,6 @@ export namespace draconic::rhi::webgpu
         WGPUDevice m_device = nullptr;
         WGPUQueue m_queue = nullptr;
         IAllocator* m_allocator = nullptr;
+        WebGpuBufferRegistry* m_bufferRegistry = nullptr;
     };
 }

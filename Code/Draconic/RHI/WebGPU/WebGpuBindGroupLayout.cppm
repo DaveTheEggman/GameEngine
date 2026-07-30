@@ -82,7 +82,9 @@ export namespace draconic::rhi::webgpu
                         ToWgpuTextureViewDimension(entry.textureDimension);
                     break;
                 case BindingType::Sampler:
-                    wgpuEntry.sampler.type = WGPUSamplerBindingType_Filtering;
+                    wgpuEntry.sampler.type = entry.samplerNonFiltering
+                                                 ? WGPUSamplerBindingType_NonFiltering
+                                                 : WGPUSamplerBindingType_Filtering;
                     break;
                 case BindingType::ComparisonSampler:
                     wgpuEntry.sampler.type = WGPUSamplerBindingType_Comparison;

@@ -65,6 +65,9 @@ export namespace draconic::rhi
             // RHI's begin-anywhere shape until RenderPassDesc declares the query set
             // at pass begin, so its backend reports false; samples/consumers gate.
             bool occlusionQueries = false;
+            // AddressMode::ClampToBorder + SamplerBorderColor. Core WebGPU has no
+            // border sampling - its backend narrows to ClampToEdge and reports false.
+            bool borderSampling = false;
             bool multiDrawIndirect = false;
             bool depthClamp = false;
             bool fillModeWireframe = false;

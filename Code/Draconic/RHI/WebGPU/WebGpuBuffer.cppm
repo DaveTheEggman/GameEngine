@@ -1,10 +1,12 @@
 /// draconic.rhi.webgpu:buffer - Buffer over WGPUBuffer, with the Map emulation.
 ///
-/// The RHI's Map contract is Vulkan-shaped: persistent host pointer, Unmap a formality
-/// (renderer callers pair Map/Unmap around writes each frame). WebGPU forbids mapping
-/// buffers that carry normal usages, so:
-///   - CpuToGpu: Map returns a CPU SHADOW; Unmap flushes it with wgpuQueueWriteBuffer
-///     (queue-ordered, so it lands before any later submission that reads the buffer).
+/// The RHI's Map contract is Vulkan-shaped: a PERSISTENT COHERENT pointer - callers
+/// may Map once, hold the pointer, write every frame, and never Unmap (Vulkan's Unmap
+/// is a no-op). WebGPU forbids mapping buffers that carry normal usages, so:
+///   - CpuToGpu: Map returns a CPU SHADOW. Unmap flushes it (wgpuQueueWriteBuffer,
+///     queue-ordered) and closes the mapping; a mapping left OPEN emulates coherence -
+///     the queue re-flushes every outstanding shadow before each submit (see
+///     WebGpuBufferRegistry), so pointer writes become visible like Vulkan's.
 ///   - GpuToCpu: a genuine WebGPU mapping - MapAsync(Read) + ProcessEvents pump in Map,
 ///     wgpuBufferUnmap in Unmap. Usage is forced to MapRead|CopyDst (all WebGPU allows).
 ///   - GpuOnly: Map returns nullptr, same as every backend.
@@ -70,7 +72,8 @@ export namespace draconic::rhi::webgpu
         {
             if (!m_shadow.IsEmpty())
             {
-                return m_shadow.Data(); // CPU->GPU shadow; Unmap uploads
+                m_shadowOutstanding = true; // flushed on Unmap AND before every submit
+                return m_shadow.Data();
             }
             if (desc.memory != MemoryLocation::GpuToCpu)
             {
@@ -124,12 +127,24 @@ export namespace draconic::rhi::webgpu
             {
                 m_api->wgpuQueueWriteBuffer(m_queue, m_buffer, 0, m_shadow.Data(),
                                             m_shadow.Size());
+                m_shadowOutstanding = false; // paired callers pay exactly one upload
                 return;
             }
             if (m_readMapped)
             {
                 m_api->wgpuBufferUnmap(m_buffer);
                 m_readMapped = false;
+            }
+        }
+
+        /// Queue-submit hook: re-upload the shadow while a mapping is left open
+        /// (the persistent-coherent emulation).
+        void FlushShadowIfOutstanding()
+        {
+            if (m_shadowOutstanding)
+            {
+                m_api->wgpuQueueWriteBuffer(m_queue, m_buffer, 0, m_shadow.Data(),
+                                            m_shadow.Size());
             }
         }
 
@@ -153,6 +168,39 @@ export namespace draconic::rhi::webgpu
         WGPUQueue m_queue = nullptr;
         WGPUBuffer m_buffer = nullptr;
         Array<u8> m_shadow;
+        bool m_shadowOutstanding = false;
         bool m_readMapped = false;
+    };
+
+    /// The device's ledger of live shadow-backed buffers, walked by the queue before
+    /// every submit to flush open (persistently mapped) shadows. Single-threaded by
+    /// the same contract as the rest of the backend.
+    class WebGpuBufferRegistry final
+    {
+    public:
+        void Add(WebGpuBuffer* buffer) { m_buffers.PushBack(buffer); }
+
+        void Remove(WebGpuBuffer* buffer)
+        {
+            for (usize i = 0; i < m_buffers.Size(); ++i)
+            {
+                if (m_buffers[i] == buffer)
+                {
+                    m_buffers.RemoveAtSwap(i);
+                    return;
+                }
+            }
+        }
+
+        void FlushOutstanding()
+        {
+            for (WebGpuBuffer* buffer : m_buffers)
+            {
+                buffer->FlushShadowIfOutstanding();
+            }
+        }
+
+    private:
+        Array<WebGpuBuffer*> m_buffers;
     };
 }

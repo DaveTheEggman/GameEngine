@@ -41,19 +41,20 @@ export namespace draconic::rhi::webgpu
     class WebGpuDevice final : public Device
     {
     public:
-        WebGpuDevice(const WebGpuApi& api, WGPUInstance instance, WGPUDevice device,
-                     IAllocator& allocator)
-            : m_api(&api), m_instance(instance), m_device(device), m_allocator(allocator)
+        WebGpuDevice(const WebGpuApi& api, WGPUInstance instance, WGPUAdapter adapter,
+                     WGPUDevice device, IAllocator& allocator)
+            : m_api(&api), m_instance(instance), m_adapter(adapter), m_device(device),
+              m_allocator(allocator)
         {
             type = DeviceType::WebGPU;
             const WGPUQueue queue = m_api->wgpuDeviceGetQueue(m_device);
             // ONE WebGPU queue, three RHI-typed views of it (see :queue).
             m_graphicsQueue.Initialize(api, instance, device, queue, allocator,
-                                       QueueType::Graphics);
+                                       QueueType::Graphics, m_bufferRegistry);
             m_computeQueue.Initialize(api, instance, device, queue, allocator,
-                                      QueueType::Compute);
+                                      QueueType::Compute, m_bufferRegistry);
             m_transferQueue.Initialize(api, instance, device, queue, allocator,
-                                       QueueType::Transfer);
+                                       QueueType::Transfer, m_bufferRegistry);
             m_blitHelper.Initialize(api, device);
         }
 
@@ -183,10 +184,15 @@ export namespace draconic::rhi::webgpu
         // ---- Resource creation (encoders/pipelines still staged - see class comment) ----
         Status CreateBuffer(const BufferDesc& bufferDesc, Buffer*& out) override
         {
-            return CreateResource<WebGpuBuffer>(
+            const Status status = CreateResource<WebGpuBuffer>(
                 out, [&](WebGpuBuffer& b)
                 { return b.Initialize(*m_api, m_instance, m_device,
                                       m_graphicsQueue.Handle(), bufferDesc); });
+            if (status.IsOk())
+            {
+                m_bufferRegistry.Add(static_cast<WebGpuBuffer*>(out));
+            }
+            return status;
         }
         Status CreateTexture(const TextureDesc& textureDesc, Texture*& out) override
         {
@@ -282,13 +288,20 @@ export namespace draconic::rhi::webgpu
             }
             return CreateResource<WebGpuSwapChain>(
                 out, [&](WebGpuSwapChain& sc)
-                { return sc.Initialize(*m_api, m_device,
+                { return sc.Initialize(*m_api, m_adapter, m_device,
                                        static_cast<WebGpuSurface*>(surface), swapDesc); });
         }
 
         // ---- Resource destruction ----
         // Every path tolerates the nullptr a failed Create* handed out.
-        void DestroyBuffer(Buffer*& x) override { ReleaseAndDelete<WebGpuBuffer>(x); }
+        void DestroyBuffer(Buffer*& x) override
+        {
+            if (x != nullptr)
+            {
+                m_bufferRegistry.Remove(static_cast<WebGpuBuffer*>(x));
+            }
+            ReleaseAndDelete<WebGpuBuffer>(x);
+        }
         void DestroyTexture(Texture*& x) override { ReleaseAndDelete<WebGpuTexture>(x); }
         void DestroyTextureView(TextureView*& x) override
         {
@@ -406,9 +419,11 @@ export namespace draconic::rhi::webgpu
 
         const WebGpuApi* m_api;
         WGPUInstance m_instance;
+        WGPUAdapter m_adapter;
         WGPUDevice m_device;
         IAllocator& m_allocator;
         WebGpuBlitHelper m_blitHelper;
+        WebGpuBufferRegistry m_bufferRegistry;
         WebGpuQueue m_graphicsQueue;
         WebGpuQueue m_computeQueue;
         WebGpuQueue m_transferQueue;

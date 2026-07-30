@@ -706,3 +706,64 @@ TEST_CASE("rhi.webgpu: GenerateMipmaps + scaling Blit verify through readback")
     device->Destroy();
     backend->Destroy();
 }
+
+TEST_CASE("rhi.webgpu: persistent mapping - writes without Unmap reach the GPU")
+{
+    // Vulkan's Map contract: map once, hold the pointer, write per frame, never
+    // Unmap. The shadow emulation flushes OPEN mappings before every submit.
+    Backend* backend = TryCreateBackend();
+    if (backend == nullptr)
+    {
+        return;
+    }
+    Device* device = nullptr;
+    REQUIRE(backend->EnumerateAdapters()[0]->CreateDevice(DeviceDesc{}, device).IsOk());
+    Queue* queue = device->GetQueue(QueueType::Graphics);
+
+    BufferDesc uboDesc;
+    uboDesc.size = 64;
+    uboDesc.usage = BufferUsage::Uniform | BufferUsage::CopySrc;
+    uboDesc.memory = MemoryLocation::CpuToGpu;
+    Buffer* ubo = nullptr;
+    REQUIRE(device->CreateBuffer(uboDesc, ubo).IsOk());
+    BufferDesc readbackDesc;
+    readbackDesc.size = 64;
+    readbackDesc.usage = BufferUsage::CopyDst;
+    readbackDesc.memory = MemoryLocation::GpuToCpu;
+    Buffer* readback = nullptr;
+    REQUIRE(device->CreateBuffer(readbackDesc, readback).IsOk());
+
+    u8* persistent = static_cast<u8*>(ubo->Map()); // NEVER unmapped
+    REQUIRE(persistent != nullptr);
+
+    CommandPool* pool = nullptr;
+    REQUIRE(device->CreateCommandPool(QueueType::Graphics, pool).IsOk());
+    Fence* fence = nullptr;
+    REQUIRE(device->CreateFence(0, fence).IsOk());
+
+    for (u64 frame = 1; frame <= 3; ++frame)
+    {
+        MemSet(persistent, static_cast<i32>(frame * 17), 64); // write through the held pointer
+        CommandEncoder* encoder = nullptr;
+        REQUIRE(pool->CreateEncoder(encoder).IsOk());
+        encoder->CopyBufferToBuffer(ubo, 0, readback, 0, 64);
+        CommandBuffer* commandBuffer = encoder->Finish();
+        CommandBuffer* commandBuffers[] = {commandBuffer};
+        queue->Submit(Span<CommandBuffer* const>(commandBuffers, 1), fence, frame);
+        REQUIRE(fence->Wait(frame, ~0ull));
+
+        const u8* bytes = static_cast<const u8*>(readback->Map());
+        REQUIRE(bytes != nullptr);
+        CHECK(bytes[0] == static_cast<u8>(frame * 17)); // this frame's write arrived
+        CHECK(bytes[63] == static_cast<u8>(frame * 17));
+        readback->Unmap();
+        pool->DestroyEncoder(encoder);
+    }
+
+    device->DestroyFence(fence);
+    device->DestroyCommandPool(pool);
+    device->DestroyBuffer(readback);
+    device->DestroyBuffer(ubo);
+    device->Destroy();
+    backend->Destroy();
+}

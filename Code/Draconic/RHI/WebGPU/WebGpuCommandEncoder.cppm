@@ -6,8 +6,8 @@
 /// tracks hazards itself; the RHI's explicit transitions carry no information here).
 ///
 /// Blit and GenerateMipmaps ride the internal fullscreen blit pass (:blit_helper) -
-/// same-extent same-format blits stay plain copies. Remaining honest gap:
-/// ResolveTexture (WebGPU resolves via the pass resolveTarget only).
+/// same-extent same-format blits stay plain copies. ResolveTexture is a resolve-only
+/// render pass (load the MSAA attachment, discard it, resolve out).
 
 module;
 #include "Core/Prelude.h"
@@ -254,10 +254,29 @@ export namespace draconic::rhi::webgpu
             }
         }
 
-        void ResolveTexture(Texture*, Texture*) override
+        void ResolveTexture(Texture* source, Texture* destination) override
         {
-            // WebGPU resolves via the render pass resolveTarget only; standalone
-            // resolve waits for a helper pass if a consumer ever needs it.
+            // WebGPU resolves via a pass resolveTarget - a standalone resolve is a
+            // pass that loads the MSAA attachment, discards it, and resolves out.
+            EnsureOpen();
+            const WGPUTextureView sourceView =
+                MipView(source, 0, 0, WGPUTextureAspect_All, false);
+            const WGPUTextureView destinationView =
+                MipView(destination, 0, 0, WGPUTextureAspect_All, false);
+            WGPURenderPassColorAttachment color = WGPU_RENDER_PASS_COLOR_ATTACHMENT_INIT;
+            color.view = sourceView;
+            color.resolveTarget = destinationView;
+            color.loadOp = WGPULoadOp_Load;
+            color.storeOp = WGPUStoreOp_Discard; // the resolve is the output
+            WGPURenderPassDescriptor passDesc = WGPU_RENDER_PASS_DESCRIPTOR_INIT;
+            passDesc.colorAttachmentCount = 1;
+            passDesc.colorAttachments = &color;
+            const WGPURenderPassEncoder pass =
+                m_api->wgpuCommandEncoderBeginRenderPass(m_encoder, &passDesc);
+            m_api->wgpuRenderPassEncoderEnd(pass);
+            m_api->wgpuRenderPassEncoderRelease(pass);
+            m_api->wgpuTextureViewRelease(sourceView);
+            m_api->wgpuTextureViewRelease(destinationView);
         }
 
         void ResetQuerySet(QuerySet*, u32, u32) override
