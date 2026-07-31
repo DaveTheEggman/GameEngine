@@ -204,6 +204,9 @@ if(EMSCRIPTEN)
     # First browser-running app: WebShell + the web runner + the WebGPU graphics factory, tied
     # together by DRACONIC_APP_MAIN. Emits WebTriangle.html.
     add_subdirectory(Code/Samples/WebTriangle)
+    # First FULL engine app in a browser: DefaultApplication + a lit PBR scene, cooked WGSL pack
+    # bundled. Emits WebScene.html.
+    add_subdirectory(Code/Samples/WebScene)
     # The app layer climbs on web now: draconic.runtime.defaultapp (DefaultApplication + its whole
     # subsystem stack) and the game-instance/scripting composition build for wasm (via Runtime +
     # Script/Subsystem above; AngelScript is gated off inside DefaultApp). Still to do: a full-app
