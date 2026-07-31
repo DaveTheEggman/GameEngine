@@ -11,7 +11,7 @@
 //   draconic.scene, draconic.engine.scene, draconic.scene.resource,
 //   draconic.render, draconic.script, draconic.script.resource,
 //   draconic.input, draconic.audio, draconic.audio.resource, draconic.ui.resource,
-//   draconic.ui.subsystem, draconic.settings, draconic.project, draconic.xml.serialization
+//   draconic.engine.ui, draconic.settings, draconic.project, draconic.xml.serialization
 // The two entry points add only the PLATFORM trio (shell + runner + graphics) on top.
 
 #ifndef DRACONIC_TOOLS_PLAYER_PLAYERAPPLICATION_H

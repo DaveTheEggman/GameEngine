@@ -46,7 +46,7 @@ import draconic.texture.resource;    // texture factory (device-backed)
 import draconic.image.resource;      // image resource registration
 import draconic.model.resource;      // cooked-model family types + registration
 import draconic.ui.resource;         // cooked UI documents/themes (game-ui)
-import draconic.ui.subsystem;        // the game screen tier (canvases + overlay + consumption)
+import draconic.engine.ui;        // the game screen tier (canvases + overlay + consumption)
 import draconic.audio;               // AudioEngine (owned by the audio subsystem)
 import draconic.audio.resource;      // cooked audio clips + factory
 import draconic.engine.audio;     // AudioSubsystem (voices/buses/one-shots + scene sync)

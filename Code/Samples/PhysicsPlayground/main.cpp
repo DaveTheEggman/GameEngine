@@ -29,7 +29,7 @@ import draconic.physics.resource;
 import draconic.engine.physics;
 import draconic.ui;
 import draconic.ui.resource;
-import draconic.ui.subsystem;
+import draconic.engine.ui;
 
 #include "../Common/FlyCamera.h" // after the imports: uses draconic::core/runtime types
 

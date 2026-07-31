@@ -36,7 +36,7 @@ import draconic.engine.render;
 import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.ui.runtime;
-import draconic.ui.subsystem; // game-UI RenderTexture canvases (live in editing viewports)
+import draconic.engine.ui; // game-UI RenderTexture canvases (live in editing viewports)
 import draconic.ui.viewport;
 import draconic.vg.renderer;
 import draconic.editor.core;

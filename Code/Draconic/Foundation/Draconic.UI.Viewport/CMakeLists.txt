@@ -1,0 +1,17 @@
+# Draconic::UIViewport - `draconic.ui.viewport`: ViewportView, a ui::View that hosts 3D-rendered
+# content (offscreen color+depth RT, an OnRender callback, displayed via the UI's VGContext as an
+# external texture; gated input through a shell::InputSurface). Layered on draconic.ui; toolkit-free.
+add_library(Draconic.UI.Viewport STATIC)
+add_library(Draconic::UIViewport ALIAS Draconic.UI.Viewport)
+
+target_link_libraries(Draconic.UI.Viewport
+    PUBLIC Draconic::Core Draconic::RHI Draconic::Image Draconic::VG Draconic::VGRenderer Draconic::UI Draconic::Shell)
+
+target_sources(Draconic.UI.Viewport
+    PUBLIC
+        FILE_SET uiviewport_modules TYPE CXX_MODULES FILES
+            ViewportView.cppm)
+
+if(DRACONIC_BUILD_TESTS)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.UI.Viewport.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
+endif()

@@ -1,0 +1,182 @@
+# Draconic::UI - `draconic.ui`, the retained-mode UI framework (faithful port of
+# Sedulous.UI). Platform-agnostic core; VG/Fonts are added as those phases land, and
+# the ui.shell bridge is a separate library. Built bottom-up (Core first).
+add_library(Draconic.UI STATIC)
+add_library(Draconic::UI ALIAS Draconic.UI)
+
+target_link_libraries(Draconic.UI
+    PUBLIC Draconic::Core Draconic::VG Draconic::VGSVG Draconic::Fonts Draconic::Image Draconic::Policy Draconic::Xml)
+
+target_sources(Draconic.UI
+    PUBLIC
+        FILE_SET ui_modules TYPE CXX_MODULES FILES
+            Core/Enums.cppm
+            Core/Thickness.cppm
+            Core/ViewTransform.cppm
+            Core/ViewId.cppm
+            Core/Event.cppm
+            Core/IPropertyOwner.cppm
+            Core/Property.cppm
+            Core/ICommand.cppm
+            Core/IClipboard.cppm
+            Input/InputEnums.cppm
+            Input/EventArgs.cppm
+            Input/IAcceleratorHandler.cppm
+            Input/Shortcut.cppm
+            Input/ShortcutManager.cppm
+            Input/FocusManager.cppm
+            Input/InputManager.cppm
+            Overlay/PopupPositioner.cppm
+            Overlay/TooltipPlacement.cppm
+            Overlay/ITooltipProvider.cppm
+            Overlay/TooltipManager.cppm
+            DragDrop/DragDropEffects.cppm
+            DragDrop/DragData.cppm
+            DragDrop/IDragSource.cppm
+            DragDrop/IDropTarget.cppm
+            DragDrop/DragDropManager.cppm
+            Animation/Easing.cppm
+            Animation/Animation.cppm
+            Animation/FloatAnimation.cppm
+            Animation/ColorAnimation.cppm
+            Animation/Float2Animation.cppm
+            Animation/Storyboard.cppm
+            Animation/AnimationManager.cppm
+            Editing/InputFilter.cppm
+            Controls/MomentumHelper.cppm
+            Editing/UndoStack.cppm
+            Editing/ITextEditHost.cppm
+            Editing/TextEditingBehavior.cppm
+            Core/View.cppm
+            Data/IListAdapter.cppm
+            Data/SelectionModel.cppm
+            Data/ViewRecycler.cppm
+            Data/ITreeAdapter.cppm
+            Data/FlattenedTreeAdapter.cppm
+            Overlay/IPopupOwner.cppm
+            Overlay/PopupEntry.cppm
+            Overlay/ModalBackdrop.cppm
+            Overlay/PopupLayer.cppm
+            Overlay/ContextMenu.cppm
+            Overlay/Dialog.cppm
+            Overlay/TooltipView.cppm
+            DragDrop/DragAdorner.cppm
+            Animation/ViewAnimator.cppm
+            Styling/StyleProperty.cppm
+            Styling/StyleValue.cppm
+            Styling/StyleSelector.cppm
+            Styling/StyleRule.cppm
+            Styling/StyleSheet.cppm
+            Styling/Palette.cppm
+            Styling/ThemePalette.cppm
+            Styling/IThemeExtension.cppm
+            Styling/ThemeRegistry.cppm
+            Styling/ThemeIcons.cppm
+            Styling/DarkTheme.cppm
+            Styling/GameTheme.cppm
+            Styling/LightTheme.cppm
+            Styling/RoundedDarkTheme.cppm
+            Styling/TexturedTheme.cppm
+            Styling/ThemeImageSet.cppm
+            Styling/ThemeAtlas.cppm
+            Styling/Parser/Token.cppm
+            Styling/Parser/Tokenizer.cppm
+            Styling/Parser/IResourceProvider.cppm
+            Styling/Parser/Values.cppm
+            Styling/Parser/ColorFunctions.cppm
+            Styling/Parser/UITypeRegistry.cppm
+            Styling/Parser/SSSParser.cppm
+            Styling/Parser/StyleSheetLoader.cppm
+            Debug/UIDebugDrawSettings.cppm
+            Debug/UIDebugOverlay.cppm
+            Drawing/ControlState.cppm
+            Drawing/UIDrawContext.cppm
+            Drawing/Drawable.cppm
+            Drawing/ColorDrawable.cppm
+            Drawing/RoundedRectDrawable.cppm
+            Drawing/ShapeDrawable.cppm
+            Drawing/GradientDrawable.cppm
+            Drawing/InsetDrawable.cppm
+            Drawing/LayerDrawable.cppm
+            Drawing/StateListDrawable.cppm
+            Drawing/ImageDrawable.cppm
+            Drawing/NineSliceDrawable.cppm
+            Drawing/AtlasImageDrawable.cppm
+            Drawing/AtlasNineSliceDrawable.cppm
+            Drawing/SVGDrawable.cppm
+            Layout/Unit.cppm
+            Layout/SizeSpec.cppm
+            Layout/BoxConstraints.cppm
+            Layout/Gravity.cppm
+            Layout/GravityHelper.cppm
+            Layout/LayoutParams.cppm
+            Controls/ButtonBase.cppm
+            Controls/Button.cppm
+            Controls/RepeatButton.cppm
+            Controls/CheckBox.cppm
+            Controls/Label.cppm
+            Controls/Panel.cppm
+            Controls/Spacer.cppm
+            Controls/Separator.cppm
+            Controls/ColorView.cppm
+            Controls/ProgressBar.cppm
+            Controls/ImageView.cppm
+            Controls/ToggleButton.cppm
+            Controls/RadioButton.cppm
+            Controls/RadioGroup.cppm
+            Controls/ToggleSwitch.cppm
+            Controls/Slider.cppm
+            Controls/Expander.cppm
+            Controls/EditText.cppm
+            Controls/PasswordBox.cppm
+            Controls/NumericField.cppm
+            Controls/EditableLabel.cppm
+            Controls/ScrollBar.cppm
+            Controls/ScrollView.cppm
+            Controls/ListView.cppm
+            Controls/GridView.cppm
+            Controls/TabView.cppm
+            Controls/TreeView.cppm
+            Controls/ComboBox.cppm
+            Data/HierarchicalState.cppm
+            Controls/ContentButton.cppm
+            Controls/DrawableView.cppm
+            Layout/FrameLayout.cppm
+            Layout/AbsoluteLayout.cppm
+            Layout/FlowLayout.cppm
+            Layout/DockLayout.cppm
+            Layout/GridLayout.cppm
+            Layout/FlexLayout.cppm
+            Markup/MarkupRegistry.cppm
+            Markup/MarkupLoader.cppm
+            UIModule.cppm
+    PRIVATE
+        # Module implementation units (not interface partitions): cross-cluster method bodies.
+        Core/UIClusterImpl.cpp
+        Input/InputImpl.cpp
+        Overlay/TooltipImpl.cpp
+        DragDrop/DragImpl.cpp
+        Debug/UIDebugOverlayImpl.cpp
+        Styling/Parser/SSSParserImpl.cpp
+        Styling/Parser/UITypeRegistryImpl.cpp)
+
+# VFS-backed resource provider + shell input bridge (separate libs so the core UI
+# stays VFS-/platform-free).
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.UI.VFS ${CMAKE_CURRENT_BINARY_DIR}/VFS)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.UI.Shell ${CMAKE_CURRENT_BINARY_DIR}/Shell)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.UI.Toolkit ${CMAKE_CURRENT_BINARY_DIR}/Toolkit)
+# ViewportView: a ui::View hosting 3D content (offscreen RT + OnRender callback + gated InputSurface).
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.UI.Viewport ${CMAKE_CURRENT_BINARY_DIR}/Viewport)
+# UIHost + docking workbench: draw draconic.ui on the runtime multi-window graphics host - these link
+# Draconic::Graphics and Draconic::RuntimeClient (the desktop app/graphics layer), so they climb with
+# that layer, not on web yet.
+if(NOT EMSCRIPTEN)
+    # UIHost: draws draconic.ui on the runtime multi-window graphics host (depends on Draconic::Graphics).
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.UI.Runtime ${CMAKE_CURRENT_BINARY_DIR}/Runtime)
+    # Docking/workbench: RuntimeDockableWindowHost (the only UI module that links Draconic::UIToolkit).
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.UI.Application ${CMAKE_CURRENT_BINARY_DIR}/Application)
+endif()
+
+if(DRACONIC_BUILD_TESTS)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.UI.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
+endif()
