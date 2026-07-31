@@ -2,7 +2,7 @@
 /// DX12 backend - Windows only.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.rhi.dx12;
 

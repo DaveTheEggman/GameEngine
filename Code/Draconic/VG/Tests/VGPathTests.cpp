@@ -1,6 +1,6 @@
 // VG geometry: PathBuilder/Path queries, flattening, shapes, dashing.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.vg;
 

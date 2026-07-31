@@ -7,8 +7,8 @@
 // get/set props -> methods; the (_, dy) momentum tuple -> Float2.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:grid_view;
 

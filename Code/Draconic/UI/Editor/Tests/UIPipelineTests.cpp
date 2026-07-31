@@ -1,7 +1,7 @@
 // Game-UI asset pipeline: author document/theme -> VALIDATING cook -> load the products
 // through the factories. Bad payloads must FAIL the cook (validation is the point).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include <initializer_list>
 
 import draconic.core;

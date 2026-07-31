@@ -2,8 +2,8 @@
 // transform hierarchy + components) to bytes and deserialize into a fresh scene,
 // preserving Guids, names, parent links, transforms, and component data.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 import draconic.core;
 import draconic.scene;

@@ -8,7 +8,7 @@
 // one SSBO per attribute behind the same ids.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.particles:streams;
 

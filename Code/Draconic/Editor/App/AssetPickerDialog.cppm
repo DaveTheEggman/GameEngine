@@ -15,8 +15,8 @@
 // closes itself.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.editor.app:asset_picker_dialog;
 

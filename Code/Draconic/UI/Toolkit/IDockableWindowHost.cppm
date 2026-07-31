@@ -9,7 +9,7 @@
 // top-left; sizes are logical pixels.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui.toolkit:idockable_window_host;
 

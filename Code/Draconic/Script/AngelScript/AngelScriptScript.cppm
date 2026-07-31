@@ -25,7 +25,7 @@
 // unit's global module fragment).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.script.angelscript;
 

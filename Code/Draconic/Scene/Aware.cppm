@@ -8,7 +8,7 @@
 /// Scene definition and of any runtime dependency.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.scene:aware;
 

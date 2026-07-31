@@ -7,8 +7,8 @@
 // getter hides the `Orientation` enum inside the class, so type positions are fully qualified.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui.toolkit:dock_split;
 

@@ -2,7 +2,7 @@
 // the EventDispatcher's InjectText (routed to the focused node), editing keys via InjectKeyDown.
 // A mock font (6px/byte advance) drives caret-placement measurement.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.fonts;
 import draconic.vg;

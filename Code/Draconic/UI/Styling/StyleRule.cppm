@@ -9,8 +9,8 @@
 // RefPtr<Drawable>; ownership is by-value).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:style_rule;
 

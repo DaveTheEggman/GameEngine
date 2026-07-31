@@ -2,8 +2,8 @@
 // the builder into an output DB, and verify the cooked StaticMeshSource carries the
 // vertex/index data. Plus the skinned path.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 import draconic.core;
 import draconic.vfs;

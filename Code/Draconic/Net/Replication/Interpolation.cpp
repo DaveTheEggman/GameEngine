@@ -3,7 +3,7 @@
 // same module. Depends only on Core reflection (no wire).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include <cmath>
 
 module draconic.net.replication;

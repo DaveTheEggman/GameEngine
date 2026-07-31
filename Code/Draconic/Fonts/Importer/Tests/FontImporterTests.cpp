@@ -3,7 +3,7 @@
 // confirms the produced BakedFont + BakedFontAtlas carry usable data.
 #include <doctest/doctest.h>
 
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.fonts;

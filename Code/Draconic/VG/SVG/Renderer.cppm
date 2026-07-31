@@ -5,7 +5,7 @@
 // fill/stroke colors. Ported from Sedulous.VG.SVG/SVGRenderer.bf.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.vg.svg:renderer;
 

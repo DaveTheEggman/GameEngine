@@ -7,8 +7,8 @@
 // (StringView slices into the stable Text string); String.RawChars ellipsis loop -> byte scan.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:label;
 

@@ -4,7 +4,7 @@
 // DRACONIC_FONTS_ASSET_DIR compile definition.
 #include <doctest/doctest.h>
 
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.fonts;

@@ -6,7 +6,7 @@
 // backend's CreateSurface). CSS can resize the canvas at any time, so QuerySize() re-polls it.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include <emscripten/html5.h>
 
 export module draconic.shell.web:window;

@@ -9,7 +9,7 @@
 // through the abstract IShell interface, so it is windowing-backend agnostic; the concrete shell
 // (a canvas-backed web shell) is constructed by the entry point and handed in.
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include <emscripten/emscripten.h>
 
 export module draconic.runtime.web;
@@ -59,15 +59,46 @@ namespace draconic::runtime
             emscripten_cancel_main_loop();
             return;
         }
+        // --- frame timing probe: split input(ProcessEvents) vs update+render(Tick), report every
+        // 60 frames so we MEASURE where the time goes instead of guessing. Remove once diagnosed. ---
+        const core::TimePoint frameStart = core::Clock::Now();
         state->shell->ProcessEvents();
-        const core::TimePoint now = core::Clock::Now();
-        core::f32 dt = (now - state->previous).AsSecondsF();
-        state->previous = now;
+        const core::TimePoint afterEvents = core::Clock::Now();
+
+        core::f32 dt = (frameStart - state->previous).AsSecondsF();
+        state->previous = frameStart;
         if (dt > state->host->Settings().maxFrameTime)
         {
             dt = state->host->Settings().maxFrameTime;
         }
         state->host->Tick(dt);
+        const core::TimePoint afterTick = core::Clock::Now();
+
+        static core::u32 s_n = 0;
+        static core::f64 s_events = 0.0, s_tick = 0.0, s_total = 0.0, s_maxTick = 0.0;
+        const core::f64 evMs = (afterEvents - frameStart).AsSecondsF() * 1000.0;
+        const core::f64 tickMs = (afterTick - afterEvents).AsSecondsF() * 1000.0;
+        const core::f64 totalMs = (afterTick - frameStart).AsSecondsF() * 1000.0;
+        s_events += evMs;
+        s_tick += tickMs;
+        s_total += totalMs;
+        if (tickMs > s_maxTick)
+        {
+            s_maxTick = tickMs;
+        }
+        if (++s_n >= 60)
+        {
+            const core::f64 inv = 1.0 / static_cast<core::f64>(s_n);
+            const core::String msg = core::Format(
+                u8"[frame] input={}ms tick={}ms total={}ms maxTick={}ms fps={}\n",
+                static_cast<core::f32>(s_events * inv), static_cast<core::f32>(s_tick * inv),
+                static_cast<core::f32>(s_total * inv), static_cast<core::f32>(s_maxTick),
+                static_cast<core::f32>(1000.0 / (s_total * inv)));
+            core::ConsoleWrite(msg.AsView());
+            s_n = 0;
+            s_events = s_tick = s_total = 0.0;
+            s_maxTick = 0.0;
+        }
     }
 }
 

@@ -1,6 +1,6 @@
 // Smoke test for SplitView: panes, ratio clamp + event, and a basic horizontal layout split.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 import draconic.ui.toolkit;

@@ -6,7 +6,7 @@
 // widget properties (color/length/drawable) is a later CSS increment.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.gui:style_rule;
 

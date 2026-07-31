@@ -1,7 +1,7 @@
 // Draconic GUI - LinearLayout tests: children stacked in a row/column with spacing, re-run
 // on add and on size/orientation/spacing changes, skipping hidden children.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.gui;
 

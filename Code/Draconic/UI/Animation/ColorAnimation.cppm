@@ -5,7 +5,7 @@
 // function); owned delegate -> Function<void(Color)>.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:color_animation;
 

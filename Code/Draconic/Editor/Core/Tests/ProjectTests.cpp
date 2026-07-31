@@ -4,8 +4,8 @@
 #include <doctest/doctest.h>
 #include <string>
 
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 import draconic.core;
 import draconic.vfs;

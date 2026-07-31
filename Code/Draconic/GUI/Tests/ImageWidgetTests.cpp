@@ -2,7 +2,7 @@
 // (aspect-preserving Fit/Fill, centered Center, natural None, box Stretch) from a drawable's
 // intrinsic size.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.vg;
 import draconic.image;

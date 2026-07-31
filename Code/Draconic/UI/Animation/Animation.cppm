@@ -7,7 +7,7 @@
 // draconic.core (:easings). Target is a borrowed View* (forward-declared; only pointer-compared).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:animation;
 

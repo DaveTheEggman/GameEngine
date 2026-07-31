@@ -11,9 +11,9 @@
 // with the path kept alongside as the human-readable mirror; the picker's [Clear] sets "none".
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Log/Log.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Log/Log.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 module draconic.editor.app;
 

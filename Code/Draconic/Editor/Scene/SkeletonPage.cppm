@@ -9,7 +9,7 @@
 // hot-reload refreshes the tree + preview.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.editor.scene:skeleton_page;
 

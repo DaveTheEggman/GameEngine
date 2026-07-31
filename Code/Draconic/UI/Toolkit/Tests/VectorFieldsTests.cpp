@@ -1,6 +1,6 @@
 // Smoke test for the toolkit vector fields: construct each, set/get value, fire OnValueChanged.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 import draconic.ui.toolkit;

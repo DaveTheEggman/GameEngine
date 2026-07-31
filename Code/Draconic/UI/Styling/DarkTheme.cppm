@@ -8,7 +8,7 @@
 // calls are retained for faithfulness. Drawables are RefPtr (no manual AddRef).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:dark_theme;
 

@@ -8,8 +8,8 @@
 // very large lists) is a follow-up - here every item is a real row widget.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.gui:list_box;
 

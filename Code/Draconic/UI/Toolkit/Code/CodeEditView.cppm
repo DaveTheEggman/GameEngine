@@ -14,9 +14,9 @@
 
 module;
 #include <cstdio>
-#include "Core/Prelude.h"
-#include "Core/Debug/Assert.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Debug/Assert.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui.toolkit:code_edit_view;
 

@@ -7,8 +7,8 @@
 // is BORROWED. Beef Selection/ItemHeight passthrough props -> methods.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:tree_view;
 

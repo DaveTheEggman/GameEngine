@@ -7,7 +7,7 @@
 /// subsystem is self-contained (its own DXC compiler + ShaderSystem) so it has no renderer dependency.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include "imgui.h"
 
 export module draconic.imgui:subsystem;

@@ -3,8 +3,8 @@
 // Fills bounds with a solid color. Ported from Sedulous.UI/src/Drawing/ColorDrawable.bf.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:color_drawable;
 

@@ -8,8 +8,8 @@
 // voice counts. Emitters draw as debug wire spheres. Runs fine without an audio device
 // (Null mode - a warning logs and everything else still works, just silently).
 
-#include "Core/Prelude.h"
-#include "Core/Log/Log.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Log/Log.h"
 #include "Runtime/Client/AppMain.h"
 #include "imgui.h"
 #include <cmath>

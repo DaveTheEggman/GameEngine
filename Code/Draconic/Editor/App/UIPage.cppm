@@ -8,7 +8,7 @@
 // for core tests, this is the one seam where pages meet the UI/runtime.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.editor.app:ui_page;
 

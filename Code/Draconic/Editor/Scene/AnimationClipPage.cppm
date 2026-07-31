@@ -9,7 +9,7 @@
 // Clips are IMPORTED (model importer), so there is no New-Asset creator here.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.editor.scene:animation_clip_page;
 

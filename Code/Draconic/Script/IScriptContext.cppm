@@ -6,7 +6,7 @@
 // plugins implementing this; see Documentation/Planning.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.script:script_context;
 

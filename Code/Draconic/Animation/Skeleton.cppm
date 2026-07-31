@@ -8,8 +8,8 @@
 /// Sedulous BoneTransform, with Lerp/ToMatrix already in core math.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.animation:skeleton;
 

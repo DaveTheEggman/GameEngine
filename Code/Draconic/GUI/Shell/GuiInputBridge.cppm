@@ -10,7 +10,7 @@
 // InputSurface consumption lives here, never in the core.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.gui.shell;
 

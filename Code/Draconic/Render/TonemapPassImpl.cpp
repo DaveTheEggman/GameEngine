@@ -6,7 +6,7 @@
 /// foundation IBL/post are designed against. CM1a uses a trivial clamp; CM1b swaps in AgX.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 module draconic.render;
 

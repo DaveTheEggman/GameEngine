@@ -6,7 +6,7 @@
 /// clients, the client tracks its one server, and Broadcast fans a message out to every peer.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.net:session;
 

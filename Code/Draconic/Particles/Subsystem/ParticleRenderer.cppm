@@ -7,7 +7,7 @@
 // draw-list sort. Registered with RenderSubsystem via the RegisterRenderer seam (rides Transparent).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.particles.subsystem:renderer;
 

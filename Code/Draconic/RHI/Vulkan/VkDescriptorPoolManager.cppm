@@ -2,7 +2,7 @@
 /// Ported from Sedulous.RHI.Vulkan/VulkanDescriptorPoolManager.bf.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 #include "VkIncludes.h"
 

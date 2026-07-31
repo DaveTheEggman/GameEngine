@@ -6,7 +6,7 @@
 // from Sedulous.VG (VGCommand/VGBatch/ClipPathManager).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.vg:batch;
 

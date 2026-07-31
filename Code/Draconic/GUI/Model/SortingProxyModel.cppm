@@ -10,7 +10,7 @@
 // re-sorts and refreshes the view with no view-side changes.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.gui:sorting_proxy_model;
 

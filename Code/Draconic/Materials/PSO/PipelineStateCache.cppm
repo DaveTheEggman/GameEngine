@@ -14,7 +14,7 @@
 /// graveyard and freed by ReleaseRetired() once the GPU is done with them.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.materials.pso;
 

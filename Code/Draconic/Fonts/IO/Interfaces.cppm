@@ -7,7 +7,7 @@
 // (IFontParser.bf, IFontAtlasBaker.bf).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.fonts.io:interfaces;
 

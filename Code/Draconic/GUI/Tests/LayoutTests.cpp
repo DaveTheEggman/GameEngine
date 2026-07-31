@@ -1,7 +1,7 @@
 // Draconic GUI - GridLayout + RelativeLayout tests: children are positioned by the layout
 // rules from the padding-inset content box, and re-laid-out on size/child changes.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.gui;
 

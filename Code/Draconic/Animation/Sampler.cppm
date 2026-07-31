@@ -4,7 +4,7 @@
 /// faithfully from Sedulous.Animation.AnimationSampler.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.animation:sampler;
 

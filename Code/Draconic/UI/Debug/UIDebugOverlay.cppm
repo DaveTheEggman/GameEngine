@@ -7,7 +7,7 @@
 // import this partition to call it without a module cycle.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:ui_debug_overlay;
 

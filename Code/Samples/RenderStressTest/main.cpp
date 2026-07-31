@@ -13,7 +13,7 @@
 // inherited P key dumps the CPU scope tree + per-pass GPU timings. Fly camera: WASD/QE move,
 // hold RMB (or Tab to capture) to look, Shift to move fast, Esc to exit.
 
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include "imgui.h" // Dear ImGui (HUD) - used directly; engine integration is draconic.imgui
 
 import draconic.core;

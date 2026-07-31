@@ -2,8 +2,8 @@
 // driven Variant<->wire codec. The central bet: a component marks fields Replicated and the wire
 // format is GENERATED from reflection - no hand-written per-component net code.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 import draconic.core;
 import draconic.net; // BitWriter / BitReader

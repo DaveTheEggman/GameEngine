@@ -5,7 +5,7 @@
 // Selection / InternalListView), so it sits above :tree_view (clean DAG - TreeView doesn't reference it).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:hierarchical_state;
 

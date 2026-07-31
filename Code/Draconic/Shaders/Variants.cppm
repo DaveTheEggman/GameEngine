@@ -15,7 +15,7 @@
 // All of it derives from the single kShaderFlagNames table in :flags.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.shaders:variants;
 

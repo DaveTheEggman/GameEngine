@@ -2,7 +2,7 @@
 // ScrollBar cases). Beef get/set properties -> methods (scroll->SetScrollY / ScrollY()); the (dx,dy)
 // tuple -> Float2. Logic only - no font service needed.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 #include "TestHelpers.h"

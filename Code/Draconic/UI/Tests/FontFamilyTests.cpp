@@ -6,8 +6,8 @@
 // Beef `sheet.ForType(typeof(TestView))` -> ForType(&TestView::StaticType()); `ctx.FontService = x`
 // -> ctx.SetFontService(&x).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 import draconic.core;
 import draconic.ui;
 import draconic.fonts;

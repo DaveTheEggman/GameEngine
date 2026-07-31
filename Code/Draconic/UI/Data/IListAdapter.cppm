@@ -6,7 +6,7 @@
 // (our RAII ownership; Beef returned a raw owned View).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:ilist_adapter;
 

@@ -8,9 +8,9 @@
 //                                    IRenderDataProvider role - called by the ParticleSubsystem).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
-#include "Profiler/Profiler.h" // DRACONIC_PROFILE_SCOPE (compiles to nothing when disabled)
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
+#include "Draconic.Profiler/Profiler.h" // DRACONIC_PROFILE_SCOPE (compiles to nothing when disabled)
 #include <algorithm>           // std::sort (per-particle back-to-front ordering)
 
 export module draconic.particles.subsystem:components;

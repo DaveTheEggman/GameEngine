@@ -7,8 +7,8 @@
 // (FlexLayout/Label/StyleProperty/...) resolve unqualified.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui.toolkit:status_bar;
 

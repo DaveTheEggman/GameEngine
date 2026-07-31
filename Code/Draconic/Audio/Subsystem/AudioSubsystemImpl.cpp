@@ -5,8 +5,8 @@
 // make GCC emit an unreadable gcm cluster for -fno-module-lazy consumers.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 module draconic.audio.subsystem;
 

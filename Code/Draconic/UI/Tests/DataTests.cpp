@@ -3,7 +3,7 @@
 // returns RefPtr<View>; recycle/acquire move refs (RAII, no `delete`); `===` ref-equality -> pointer ==.
 // SimpleListAdapter / SimpleTreeAdapter test doubles live in TestHelpers.h.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 #include "TestHelpers.h"

@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-#include "Core/Prelude.h" // <new> reachability for container instantiation (GCC)
+#include "Draconic.Core/Prelude.h" // <new> reachability for container instantiation (GCC)
 
 import draconic.core;
 import draconic.runtime;

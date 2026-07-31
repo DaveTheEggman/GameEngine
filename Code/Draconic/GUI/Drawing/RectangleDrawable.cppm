@@ -5,8 +5,8 @@
 // TRIANGLE_FAN for rounded corners); here it maps to VG's FillRect / FillRoundedRect.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.gui:rectangle_drawable;
 

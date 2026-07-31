@@ -2,7 +2,7 @@
 // hot-reload rebuild, visibility/interactivity sync, serialization round-trip. No GPU -
 // RenderOverlay untested here (the sample + editor smoke cover it on-screen).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.runtime;

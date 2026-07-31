@@ -3,7 +3,7 @@
 // raw pointer) so a reused-address view can't alias a stale, destroyed texture across a resize.
 // Driven on the Null RHI so Execute actually allocates/returns the transient.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.rhi;

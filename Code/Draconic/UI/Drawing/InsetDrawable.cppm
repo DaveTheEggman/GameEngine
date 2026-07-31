@@ -5,8 +5,8 @@
 // Beef "consumes the caller's ref" -> RefPtr<Drawable> held by value (auto-released).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:inset_drawable;
 

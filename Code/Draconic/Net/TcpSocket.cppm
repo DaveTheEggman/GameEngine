@@ -5,7 +5,7 @@
 /// Each socket holds one WSA refcount (a no-op on POSIX), transferred on move. IPv4 for v1.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.net:tcp_socket;
 

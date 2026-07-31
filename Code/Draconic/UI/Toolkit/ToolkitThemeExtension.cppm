@@ -13,7 +13,7 @@
 // -> `MakeRef<RoundedRectDrawable>(DefaultAllocator(), ...)` handed to sheet.OwnDrawable.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui.toolkit:toolkit_theme_extension;
 

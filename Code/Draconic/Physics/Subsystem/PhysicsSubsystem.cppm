@@ -11,9 +11,9 @@
 // immutable while simulating.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Log/Log.h"
-#include "Core/Reflection/Reflect.h" // DRACONIC_OBJECT (the Physics facade)
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Log/Log.h"
+#include "Draconic.Core/Reflection/Reflect.h" // DRACONIC_OBJECT (the Physics facade)
 #include <cmath>
 
 export module draconic.physics.subsystem;

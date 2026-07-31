@@ -6,7 +6,7 @@
 // Sedulous.VG.SVG. Public colors are float Color; transforms are Float4x4.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include <cstdlib> // std::strtof
 
 export module draconic.vg.svg:parsers;

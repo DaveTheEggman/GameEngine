@@ -15,8 +15,8 @@
 //     pane and swallow every right-click) and a filter box (matches keep their ancestors).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.editor.scene:hierarchy;
 

@@ -2,8 +2,8 @@
 // authored ShaderSource, compile variants through it, and verify a reload bumps the
 // shader's version (the PSO-cache reload signal). Real DXC + Null RHI + content DB.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 import draconic.core;
 import draconic.vfs;

@@ -2,7 +2,7 @@
 // UIWidget identity (tag/#id/.class), pseudo-classes via control state, and descendant /
 // child combinators. Derived from eepp css selector semantics (common subset).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.gui;
 

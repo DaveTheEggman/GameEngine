@@ -5,7 +5,7 @@
 // Ported from Sedulous.Fonts.TTF/TrueTypeFontParser.bf.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.fonts.ttf:parser;
 

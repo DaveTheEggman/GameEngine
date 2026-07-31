@@ -1,7 +1,7 @@
 // Draconic GUI - Thickness + LayerDrawable (background compositor) tests, including the
 // Phase 2 vertical slice: a styled panel (background + border) composited through VG.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.vg;
 import draconic.gui;

@@ -2,7 +2,7 @@
 // FontLoadOptions tests (the GPU/TTF-free type coverage).
 #include <doctest/doctest.h>
 
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.fonts;

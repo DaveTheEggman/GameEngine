@@ -2,7 +2,7 @@
 // All managers (Input/Focus/DragDrop/Animation/Shortcut/Tooltip) are owned by-value on UIContext, so
 // Managers_CreatedByDefault just checks the accessors return non-null (they point at the value members).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 #include "TestHelpers.h"

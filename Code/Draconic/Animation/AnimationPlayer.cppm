@@ -5,7 +5,7 @@
 /// faithfully from Sedulous.Animation.AnimationPlayer. The skeleton + clip are borrowed (not owned).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.animation:player;
 

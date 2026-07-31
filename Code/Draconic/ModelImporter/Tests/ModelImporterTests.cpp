@@ -2,7 +2,7 @@
 // content DB, then bind the cooked ModelResource back through the resource manager and
 // verify the whole convert -> cook -> bind chain (manifest nodes + resolved meshes).
 
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include <doctest/doctest.h>
 #include <initializer_list>
 

@@ -13,8 +13,8 @@
 // The runtime never links the editor/source side; it loads only cooked resources.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.texture.resource;
 

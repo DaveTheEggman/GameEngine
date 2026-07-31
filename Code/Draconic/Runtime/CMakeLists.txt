@@ -28,7 +28,6 @@ add_subdirectory(DefaultApp)
 if(EMSCRIPTEN)
     add_subdirectory(Web) # draconic.runtime.web: the browser run loop (sibling of Desktop)
 else()
-    add_subdirectory(Script) # draconic.runtime.script (RuntimeScript) - not a DefaultApp dep; desktop
 
     # Desktop runner (draconic.runtime.desktop): the blocking desktop run loop that drives an
     # IApplication (client) against an IShell (shell) with a GraphicsDevice - depends on all three.

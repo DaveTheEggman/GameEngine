@@ -5,7 +5,7 @@
 // name from the name table. Ported from Sedulous.Fonts.TTF/TrueTypeFont.bf.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include "stb_truetype.h"
 
 export module draconic.fonts.ttf:font;

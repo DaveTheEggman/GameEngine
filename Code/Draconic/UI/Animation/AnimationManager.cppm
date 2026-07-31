@@ -6,7 +6,7 @@
 // (CancelForView only pointer-compares Target), so View is forward-declared and no impl unit is needed.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:animation_manager;
 

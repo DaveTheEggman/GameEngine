@@ -4,7 +4,7 @@
 // StrokeStyle (width/cap/join/miter/dash). Ported from Sedulous.VG.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.vg:style;
 

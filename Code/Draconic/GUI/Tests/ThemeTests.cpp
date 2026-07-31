@@ -2,7 +2,7 @@
 // background-image resolve through the StyleManager (with an IResourceProvider), and the
 // built-in default theme restyles the standard widgets.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.fonts;
 import draconic.image;

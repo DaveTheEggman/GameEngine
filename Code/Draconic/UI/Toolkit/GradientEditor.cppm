@@ -10,8 +10,8 @@
 // The immediate path API (BeginPath/MoveTo/LineTo/ClosePath/Fill/Stroke) ports 1:1 to draconic.vg.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui.toolkit:gradient_editor;
 

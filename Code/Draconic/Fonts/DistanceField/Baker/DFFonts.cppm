@@ -3,7 +3,7 @@
 // Registration helper for the distance-field atlas baker.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.fonts.df.baker:init;
 

@@ -6,8 +6,8 @@
 // Context->GetInputManager()->MouseX()/MouseY(); RectangleF -> core::Rectangle.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:scroll_bar;
 

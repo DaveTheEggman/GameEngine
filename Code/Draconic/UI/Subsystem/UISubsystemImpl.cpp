@@ -4,9 +4,9 @@
 
 module;
 #define _CRT_SECURE_NO_WARNINGS
-#include "Core/Prelude.h"
-#include "Core/Log/Log.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Log/Log.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>

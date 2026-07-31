@@ -6,8 +6,8 @@
 /// valid as more tracks are added (matching the Beef List<AnimationTrack<T>> of references).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.animation:clip;
 

@@ -3,7 +3,7 @@
 // gating on format + adapter.CanMove; OnDrop invokes MoveItem + fires OnItemReordered). No rendering, no
 // full drag-manager cycle. A flat 3-item test-double implements IReorderableTreeAdapter minimally.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 import draconic.ui.toolkit;

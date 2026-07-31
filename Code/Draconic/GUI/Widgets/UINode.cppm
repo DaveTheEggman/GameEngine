@@ -6,8 +6,8 @@
 // carries the background/foreground drawables + clip from the render-seam phase.)
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.gui:ui_node;
 

@@ -1,6 +1,6 @@
 // Ported from Sedulous.UI.Tests/src/UnitTests.bf (faithful; Math.Abs(x)<eps -> doctest::Approx).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 

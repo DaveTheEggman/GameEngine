@@ -14,8 +14,8 @@
 // player and the editor's Game tab both consume it instead of hand-rolling copies.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Log/Log.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Log/Log.h"
 
 export module draconic.runtime.defaultapp;
 

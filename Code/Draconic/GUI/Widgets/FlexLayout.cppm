@@ -10,8 +10,8 @@
 // at their own sizes). Wrapping (flex-wrap), flex-shrink, and per-child align-self are follow-ups.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.gui:flex_layout;
 

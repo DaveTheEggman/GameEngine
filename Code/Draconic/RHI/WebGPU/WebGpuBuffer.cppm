@@ -18,7 +18,7 @@
 /// WriteBuffer requires 4-byte-multiple sizes, so shadow and upload sizes round up.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
 export module draconic.rhi.webgpu:buffer;

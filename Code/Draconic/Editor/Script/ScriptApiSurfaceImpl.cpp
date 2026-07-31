@@ -6,7 +6,7 @@
 // the result for the page's lifetime. Completion and the API browser both read this.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 module draconic.editor.script;
 

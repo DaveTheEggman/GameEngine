@@ -3,8 +3,8 @@
 // back through the ResourceManager + factory and confirm it round-trips + simulates. Mirrors
 // TexturePipelineTests, adapted for an AUTHORED (not imported) asset.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 import draconic.core;
 import draconic.vfs;
 import draconic.content;

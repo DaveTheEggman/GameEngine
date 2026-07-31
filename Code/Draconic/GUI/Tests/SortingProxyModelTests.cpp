@@ -2,7 +2,7 @@
 // value, strings lexically), toggle asc/desc, map proxy rows to source, and re-sort + notify on
 // source changes. Also the TableView header-click -> ToggleSort wiring.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.gui;
 

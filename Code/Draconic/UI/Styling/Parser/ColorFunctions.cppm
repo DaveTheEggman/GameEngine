@@ -7,7 +7,7 @@
 // Divergence (language): Math.Clamp -> Max(lo, Min(v, hi)); Color fields R/G/B/A -> r/g/b/a.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:color_functions;
 

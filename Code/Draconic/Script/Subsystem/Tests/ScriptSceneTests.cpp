@@ -8,7 +8,7 @@
 
 #include <doctest/doctest.h>
 
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include <initializer_list>
 
 import draconic.core;

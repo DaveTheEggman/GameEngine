@@ -4,8 +4,8 @@
 // Sedulous.UI/src/Drawing/ShapeDrawable.bf (Beef delegate -> core::Function).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:shape_drawable;
 

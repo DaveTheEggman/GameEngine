@@ -7,7 +7,7 @@
 /// the entry's EXPLICIT textureSampleType (WebGPU validates it against the shader).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
 export module draconic.rhi.webgpu:bind_group_layout;

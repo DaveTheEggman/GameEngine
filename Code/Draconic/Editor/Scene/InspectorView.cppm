@@ -15,8 +15,8 @@
 // undo/redo and external changes (gizmos later) stay live.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 #include <limits>
 #include <initializer_list>
 

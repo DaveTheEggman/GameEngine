@@ -5,8 +5,8 @@
 // quads); maps to VG's DrawNineSlice. The image is owned elsewhere (non-owning pointer).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.gui:nine_slice_drawable;
 

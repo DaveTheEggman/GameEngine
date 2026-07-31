@@ -6,7 +6,7 @@
 // Beef `List<String> PanelIds` -> Array<String>.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui.toolkit:dock_layout_node;
 

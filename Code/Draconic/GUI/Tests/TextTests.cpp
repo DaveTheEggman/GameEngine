@@ -2,7 +2,7 @@
 // advance/byte, 12px line height). The full glyph-render path (atlas + texture) is an
 // integration concern; here we assert Text's own logic + the draw guards.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.fonts;
 import draconic.vg;

@@ -5,7 +5,7 @@
 // Sedulous.Textures/TextureTypes.bf.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.texture:types;
 

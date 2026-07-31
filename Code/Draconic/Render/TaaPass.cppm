@@ -13,7 +13,7 @@
 /// linear depth in half-float keeps ~0.05% relative precision everywhere vs the 10% reject threshold.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.render:taa;
 

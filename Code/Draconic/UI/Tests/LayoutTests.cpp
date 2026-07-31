@@ -2,7 +2,7 @@
 // DockLayoutTests, GridLayoutTests, FlexLayoutTests (faithful; RefPtr views/params, Beef object-init
 // `new X() { F = v }` -> construct + set fields, Math.Abs(..) < eps -> doctest::Approx).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 #include "TestHelpers.h"

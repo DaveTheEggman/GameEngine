@@ -4,7 +4,7 @@
 // UniquePtr<NodeGraphNode>, so tests build a node via MakeUnique, keep the raw pointer for later
 // assertions (the canvas keeps a stable address), and Move the owner into AddNode.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 import draconic.ui.toolkit;

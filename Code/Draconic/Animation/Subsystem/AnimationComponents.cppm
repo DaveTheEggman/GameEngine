@@ -11,7 +11,7 @@
 /// components); neither of those depends back on it.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.animation.subsystem:components;
 

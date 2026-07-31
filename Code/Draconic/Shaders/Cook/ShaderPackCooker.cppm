@@ -7,7 +7,7 @@
 // WGSL via the WgslTranslator. Runs on the dev/CI host only; the dist just reads the pack.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.shaders:pack_cook;
 

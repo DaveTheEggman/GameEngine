@@ -2,7 +2,7 @@
 // the main thread from Update(). Tests pump Update() in a spin loop (the workers are fast) and check
 // completion status, log drain, error propagation, and one-at-a-time ordering.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.editor.core;

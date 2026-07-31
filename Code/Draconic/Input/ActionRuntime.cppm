@@ -12,7 +12,7 @@
 // Sedulous's "editor viewport forwards nothing".
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include <cmath>
 
 export module draconic.input:action_runtime;

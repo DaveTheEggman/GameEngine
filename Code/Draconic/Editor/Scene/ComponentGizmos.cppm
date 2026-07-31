@@ -11,7 +11,7 @@
 // renderer looks its data up from the manager's GetComponentInstance.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.editor.scene:component_gizmos;
 

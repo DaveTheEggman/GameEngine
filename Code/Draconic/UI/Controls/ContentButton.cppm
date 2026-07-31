@@ -6,8 +6,8 @@
 // OnMeasure so it can resolve fonts - same content pattern as ToggleButton.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:content_button;
 

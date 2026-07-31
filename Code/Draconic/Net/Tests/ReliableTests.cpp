@@ -1,7 +1,7 @@
 // draconic.net:reliable - the reliable-UDP transport over the lossy datagram sim.
 #include <doctest/doctest.h>
 #include <initializer_list>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.net;

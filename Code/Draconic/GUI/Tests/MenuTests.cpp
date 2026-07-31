@@ -1,7 +1,7 @@
 // Draconic GUI - Menu tests: opening at a position as a popup, activating an item (runs the
 // action + closes), and dismissal (outside click / Escape) via the dispatcher popup support.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.gui;
 

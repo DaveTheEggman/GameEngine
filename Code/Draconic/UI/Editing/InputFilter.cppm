@@ -6,7 +6,7 @@
 // factory methods return by value (no heap).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:input_filter;
 

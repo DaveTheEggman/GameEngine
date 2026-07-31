@@ -6,8 +6,8 @@
 // StrokeRoundedRect; per-side colors/widths are a refinement for the skin/CSS phase.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.gui:border_drawable;
 

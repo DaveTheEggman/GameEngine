@@ -13,7 +13,7 @@
 // ITextEditHost members (see :itext_edit_host).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:text_editing_behavior;
 

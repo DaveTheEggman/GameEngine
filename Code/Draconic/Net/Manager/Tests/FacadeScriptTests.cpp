@@ -5,7 +5,7 @@
 // Net.isServer()/isClient()/peerCount() and we read the results back. This is the acceptance test
 // for the extensibility hook (RegisterExtraFacadeName -> Wren prelude; registry -> AngelScript).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.net;

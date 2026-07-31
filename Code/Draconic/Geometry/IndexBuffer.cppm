@@ -5,7 +5,7 @@
 /// append (Add/AddTriangle) for the primitive generators + importers.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.geometry:index_buffer;
 

@@ -2,7 +2,7 @@
 // type + member order, signature-or-name labels, member-name insert text, and the
 // case-insensitive filter (type match keeps the whole type; member match keeps its type row).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.script;
 import draconic.editor.script;

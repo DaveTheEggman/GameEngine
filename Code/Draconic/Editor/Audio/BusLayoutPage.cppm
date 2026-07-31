@@ -9,7 +9,7 @@
 // dropdown already refuses choices that would cycle, via the pure AudioBusWouldCycle helper).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.editor.audio:bus_layout_page;
 

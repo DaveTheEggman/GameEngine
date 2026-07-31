@@ -6,7 +6,7 @@
 // Toolkit ships NO language tables (they live with the language-owning modules), so these
 // tests drive the machinery with local specs.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui.toolkit;
 

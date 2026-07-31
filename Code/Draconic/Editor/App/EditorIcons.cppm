@@ -12,7 +12,7 @@
 // EditorIcons::Get(); drawables are null before Initialize.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.editor.app:editor_icons;
 

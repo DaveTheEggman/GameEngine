@@ -4,7 +4,7 @@
 // Sedulous.UI/src/Layout/GravityHelper.bf (Beef static class -> struct with a static method).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:gravity_helper;
 

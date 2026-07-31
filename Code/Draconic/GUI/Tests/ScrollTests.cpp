@@ -2,7 +2,7 @@
 // hovered content, drag (with the leave-during-capture regression), and ScrollBar<->ScrollView
 // composition.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.vg;
 import draconic.gui;

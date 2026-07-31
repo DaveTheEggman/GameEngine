@@ -5,8 +5,8 @@
 // inspector's Float4 component properties (e.g. sprite uvRect).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui.toolkit:float4_editor;
 

@@ -5,7 +5,7 @@
 // reflection TypeOf<T>() (Draconic has -fno-rtti, so no std::type_index).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include <type_traits>
 
 export module draconic.runtime:context;

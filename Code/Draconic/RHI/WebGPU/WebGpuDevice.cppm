@@ -7,7 +7,7 @@
 /// encoders + swapchain (triangle) -> transfer/queries/bundles (full renderer).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
 export module draconic.rhi.webgpu:device;

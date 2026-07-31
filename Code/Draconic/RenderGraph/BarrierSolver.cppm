@@ -7,7 +7,7 @@
 // from Sedulous.RenderGraph (BarrierSolver.bf).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.rendergraph:barrier_solver;
 

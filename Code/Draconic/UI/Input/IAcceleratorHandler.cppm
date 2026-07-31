@@ -6,7 +6,7 @@
 // is a plain abstract base; a View exposes it via a virtual AsAcceleratorHandler() capability query.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:iaccelerator_handler;
 

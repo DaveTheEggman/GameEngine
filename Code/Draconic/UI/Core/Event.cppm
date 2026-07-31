@@ -5,7 +5,7 @@
 // (Property.Changed, Button.Clicked, ...). Add handlers; invoke via operator() / Invoke.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:event;
 

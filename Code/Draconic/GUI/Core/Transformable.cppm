@@ -6,7 +6,7 @@
 // used degrees), and the setters are virtual so Node can hook invalidation.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.gui:transformable;
 

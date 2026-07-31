@@ -5,7 +5,7 @@
 // Beef `VGContext mVG` (class = by ref) -> stored VGContext* (VG() returns the ref).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:draw_context;
 

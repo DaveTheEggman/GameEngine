@@ -3,8 +3,8 @@
 // scene with two spinning cube grids (instanced + distinct), and lets the engine draw it.
 // As the renderer grows, this is where we exercise it.
 
-#include "Core/Prelude.h"
-#include "Profiler/Profiler.h" // DRACONIC_PROFILE_SCOPE (isolate animation-drive cost)
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Profiler/Profiler.h" // DRACONIC_PROFILE_SCOPE (isolate animation-drive cost)
 #include "imgui.h"             // Dear ImGui (HUD) - used directly; integration is draconic.imgui
 
 import draconic.core;

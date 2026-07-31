@@ -6,7 +6,7 @@
 // Fields are public data the graph orchestrator manipulates directly.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.rendergraph:resource;
 

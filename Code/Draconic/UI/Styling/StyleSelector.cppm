@@ -5,7 +5,7 @@
 // Beef `Type` -> const core::TypeInfo* (our RTTI); nullable String -> Optional<String>.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:style_selector;
 

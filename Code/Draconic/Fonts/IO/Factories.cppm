@@ -11,7 +11,7 @@
 // keeping the static-class call style backed by function-local storage.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.fonts.io:factories;
 

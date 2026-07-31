@@ -1,7 +1,7 @@
 // Draconic GUI - StyleRule / StyleSheet cascade tests: property blocks and specificity-
 // ordered resolution against a UIWidget.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.gui;
 

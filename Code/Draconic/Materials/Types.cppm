@@ -8,7 +8,7 @@
 /// declared properties, so a new material/shader needs no renderer changes.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.materials:types;
 

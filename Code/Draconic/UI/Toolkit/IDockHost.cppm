@@ -7,7 +7,7 @@
 // both View and IDockHost; a member function `Context()` cannot coexist with the inherited field).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui.toolkit:idock_host;
 

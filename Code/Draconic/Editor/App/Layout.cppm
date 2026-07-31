@@ -6,7 +6,7 @@
 // skipped by ApplyLayout, so a layout file survives panels being added/removed across versions.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.editor.app:layout;
 

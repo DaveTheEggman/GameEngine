@@ -2,7 +2,7 @@
 // ApplyLayout, and Export->Apply round-trips). Beef `scope`/`new` view trees become RefPtr-owned views;
 // `===` -> pointer `==`; heap `DockLayoutNode` -> stack value / UniquePtr; `defer delete` dropped (RAII).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 import draconic.ui.toolkit;

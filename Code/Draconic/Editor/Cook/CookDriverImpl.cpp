@@ -18,8 +18,8 @@
 // version mismatch degrades to a full re-plan - never wrong output, only wasted work.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Log/Log.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Log/Log.h"
 
 module draconic.editor.cook;
 

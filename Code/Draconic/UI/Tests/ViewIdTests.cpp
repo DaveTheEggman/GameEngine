@@ -1,7 +1,7 @@
 // Ported from Sedulous.UI.Tests/src/ViewIdTests.bf (faithful).
 // ViewId.ToString appends a debug string via core::AppendFormat (Sedulous ViewId.ToString).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 

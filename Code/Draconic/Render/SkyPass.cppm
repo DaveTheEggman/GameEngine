@@ -7,7 +7,7 @@
 /// the linear working space and gets tonemapped with the scene.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.render:sky;
 

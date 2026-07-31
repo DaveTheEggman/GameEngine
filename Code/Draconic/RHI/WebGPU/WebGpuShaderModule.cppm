@@ -9,7 +9,7 @@
 /// discriminator is the SPIR-V magic in the first word.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
 export module draconic.rhi.webgpu:shader_module;

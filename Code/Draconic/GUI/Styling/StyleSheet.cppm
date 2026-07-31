@@ -6,7 +6,7 @@
 // higher-specificity and later-source rules win - producing a flat name/value ResolvedStyle.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.gui:style_sheet;
 

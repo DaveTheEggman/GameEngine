@@ -5,8 +5,8 @@
 // DrawImage. The image is owned elsewhere (theme/atlas) - held by non-owning pointer.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.gui:image_drawable;
 

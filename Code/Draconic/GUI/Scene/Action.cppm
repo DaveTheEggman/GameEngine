@@ -9,8 +9,8 @@
 // concrete actions that touch the node live in :actions (which imports the full Node).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.gui:action;
 

@@ -12,8 +12,8 @@
 // (_, dy) momentum tuple -> Float2; Dictionary+manual delete -> RefPtr map (no manual delete).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:list_view;
 

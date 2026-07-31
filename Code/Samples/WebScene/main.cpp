@@ -7,7 +7,7 @@
 //
 // Build (wasm preset) emits WebScene.html/.js/.wasm/.data; open the .html in a WebGPU browser.
 
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.runtime;

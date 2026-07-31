@@ -8,8 +8,8 @@
 // node come from the dispatcher; the app supplies the delta time).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.gui:tooltip;
 

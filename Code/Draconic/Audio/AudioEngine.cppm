@@ -21,7 +21,7 @@
 // machines without audio hardware run the full state machine deterministically.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.audio:engine;
 

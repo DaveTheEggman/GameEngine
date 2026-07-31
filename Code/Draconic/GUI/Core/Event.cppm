@@ -6,7 +6,7 @@
 // EventDispatcher lands (Phase 3). MouseEvent/KeyEvent subclasses grow with that phase.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.gui:event;
 

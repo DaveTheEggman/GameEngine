@@ -12,7 +12,7 @@
 // but sequences keep advancing, so a consumer can tell (and report) that it missed entries.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.editor.core:log_buffer;
 

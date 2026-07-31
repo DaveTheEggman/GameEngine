@@ -1,7 +1,7 @@
 // Draconic GUI - CSS value parsers + typed property application: parse value strings into
 // Color/length/bool/Thickness, and apply a resolved (or parsed) stylesheet onto a widget.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.gui;
 

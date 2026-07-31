@@ -6,8 +6,8 @@
 /// for now sources are populated round-trip from the runtime types via the resource layer.)
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.animation.editor;
 

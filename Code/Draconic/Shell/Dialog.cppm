@@ -7,7 +7,7 @@
 // SDL_ShowOpenFolderDialog. A future in-engine file-browser widget can layer on top; native first.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.shell:dialog;
 

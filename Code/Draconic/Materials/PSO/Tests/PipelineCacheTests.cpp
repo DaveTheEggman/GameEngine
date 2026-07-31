@@ -3,7 +3,7 @@
 // path - invalidating the shader makes GetPipeline rebuild and retire the stale PSO.
 // Real DXC + Null RHI.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.rhi;

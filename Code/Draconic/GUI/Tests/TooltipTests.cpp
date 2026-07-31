@@ -1,7 +1,7 @@
 // Draconic GUI - Tooltip + TooltipManager tests: a tooltip appears after the hover delay on a
 // widget with tooltip text, positions near the cursor, and hides when the hover changes.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.gui;
 

@@ -1,7 +1,7 @@
 // Draconic Render - draconic.render:pipeline implementation unit (sec 3.2 / sec 10.6).
 module;
-#include "Core/Prelude.h"
-#include "Profiler/Profiler.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Profiler/Profiler.h"
 
 module draconic.render;
 

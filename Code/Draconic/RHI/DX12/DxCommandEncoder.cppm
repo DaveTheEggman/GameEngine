@@ -3,7 +3,7 @@
 /// Ported from Sedulous.RHI.DX12/DX12CommandEncoder.bf.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 #include "DxIncludes.h"
 

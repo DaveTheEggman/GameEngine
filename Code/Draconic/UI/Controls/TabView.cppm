@@ -7,8 +7,8 @@
 // core::Rectangle; CornerRadii fields are lowercase (topLeft/topRight/bottomRight/bottomLeft).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:tab_view;
 

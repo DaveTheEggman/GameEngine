@@ -8,7 +8,7 @@
 // it, ownsView:true); source/drop-target views are borrowed raw pointers cleared by OnViewDeleted.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:drag_drop_manager;
 

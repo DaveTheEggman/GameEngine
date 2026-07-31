@@ -4,7 +4,7 @@
 // cached line's entry state matches the incoming chain, lazily up to the requested line.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 module draconic.ui.toolkit;
 

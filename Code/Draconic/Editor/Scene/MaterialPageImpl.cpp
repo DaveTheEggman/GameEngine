@@ -16,8 +16,8 @@
 // custom shader-backed materials come later with the shader-asset story).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Log/Log.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Log/Log.h"
 
 module draconic.editor.scene;
 

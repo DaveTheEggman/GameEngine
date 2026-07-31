@@ -9,7 +9,7 @@
 // Color32 happens only in the VGVertex constructor.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.vg:tessellation;
 

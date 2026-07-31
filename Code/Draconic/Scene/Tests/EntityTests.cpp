@@ -2,7 +2,7 @@
 // detection, persistent-Guid <-> handle mapping, active/name state. These encode the
 // entity-lifecycle/validity behaviors pinned from the Sedulous test suite.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.scene;

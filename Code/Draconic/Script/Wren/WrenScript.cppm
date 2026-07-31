@@ -14,7 +14,7 @@
 // instance) come next.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include "WrenInclude.h"
 #include <utility>
 

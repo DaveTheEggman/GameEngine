@@ -7,7 +7,7 @@
 /// against deterministic packet loss/reorder with no OS sockets.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.net:datagram;
 

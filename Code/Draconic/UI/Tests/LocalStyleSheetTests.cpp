@@ -5,8 +5,8 @@
 // -> a SetupLocalSheet(view) helper mirroring SetupSheet(ctx); `=== sheet` -> pointer ==; `case .None` ->
 // StyleValue::Kind::None; `SetInlinePartStyle(part, prop, .FloatVal(v))` -> View::SetPartStyle(part, prop, v).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 import draconic.core;
 import draconic.ui;
 #include "TestHelpers.h"

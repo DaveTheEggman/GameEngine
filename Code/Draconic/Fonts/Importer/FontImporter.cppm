@@ -6,7 +6,7 @@
 // its own library, matching Sedulous.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.fonts.importer;
 

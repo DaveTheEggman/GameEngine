@@ -7,8 +7,8 @@
 // cell and weighted columns are deferred. Re-runs on size change and child add/remove.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.gui:grid_layout;
 

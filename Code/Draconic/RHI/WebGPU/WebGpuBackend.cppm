@@ -7,7 +7,7 @@
 /// lands (the extension entries are null there).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
 export module draconic.rhi.webgpu:backend;

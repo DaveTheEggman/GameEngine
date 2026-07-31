@@ -1,7 +1,7 @@
 #include <doctest/doctest.h>
 
-#include "Core/Prelude.h" // <new> reachability for reflection containers (GCC)
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h" // <new> reachability for reflection containers (GCC)
+#include "Draconic.Core/Reflection/Reflect.h"
 
 import draconic.core;
 import draconic.script;

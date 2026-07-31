@@ -3,7 +3,7 @@
 // ExtractedScene (the data the scene-agnostic renderer consumes), and ExtractPrimaryCamera
 // reads the camera view/projection.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.scene;

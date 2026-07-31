@@ -8,9 +8,9 @@
 // Save validates first: a kind-mismatched map never reaches the cook.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
-#include "Core/Log/Log.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
+#include "Draconic.Core/Log/Log.h"
 #include <cstdlib>
 
 export module draconic.editor.input;

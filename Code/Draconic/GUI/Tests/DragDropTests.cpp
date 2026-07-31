@@ -2,7 +2,7 @@
 // enter/over/leave to the nearest accepting target under the cursor, and Drop on release;
 // non-accepting targets are skipped; cancel/removal clean up.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.gui;
 

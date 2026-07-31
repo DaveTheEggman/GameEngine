@@ -8,7 +8,7 @@
 /// (LessEqual, read-only depth) + overlay (Always) buckets; screen text/rects are always-on-top.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.render:debug_pass;
 

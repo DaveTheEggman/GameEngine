@@ -2,7 +2,7 @@
 // conversion, hit testing, visibility, invalidation, and event listeners. Derived from
 // eepp Scene::Node behavior, adapted to the RefPtr-owned child tree.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.gui;
 

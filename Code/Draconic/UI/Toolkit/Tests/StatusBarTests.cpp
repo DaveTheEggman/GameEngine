@@ -1,6 +1,6 @@
 // Smoke test for the toolkit skeleton: StatusBar constructs, adds sections, measures with a min height.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 import draconic.ui.toolkit;

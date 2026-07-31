@@ -1,7 +1,7 @@
 /// draconic.rhi.webgpu:texture - Texture over WGPUTexture.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
 export module draconic.rhi.webgpu:texture;

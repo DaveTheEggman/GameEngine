@@ -7,8 +7,8 @@
 // Context->GetInputManager()->MouseX(); `bg as RoundedRectDrawable` -> Cast<RoundedRectDrawable>(bg).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui.toolkit:breadcrumb_bar;
 

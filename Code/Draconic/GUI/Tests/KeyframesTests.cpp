@@ -2,7 +2,7 @@
 // `animation` property spawns a KeyframeAction that interpolates opacity across the stops as the
 // scene ticks, looping when requested).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.gui;
 

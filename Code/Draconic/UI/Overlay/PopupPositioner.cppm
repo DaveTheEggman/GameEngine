@@ -5,7 +5,7 @@
 // `(float x, float y)` tuple returns -> Float2; RectangleF -> core::Rectangle; Vector2 -> Float2.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:popup_positioner;
 

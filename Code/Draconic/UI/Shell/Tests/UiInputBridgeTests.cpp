@@ -2,7 +2,7 @@
 // rule. Synthetic shell::InputEvents drive a UIContext through the bridge; a mock IWindow verifies the
 // focus-driven text-input (IME) sync.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 import draconic.ui.shell;

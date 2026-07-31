@@ -5,7 +5,7 @@
 // Sedulous.RenderGraph (PassBuilder.bf). Methods return *this for chaining.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.rendergraph:pass_builder;
 

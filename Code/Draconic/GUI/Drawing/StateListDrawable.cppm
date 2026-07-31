@@ -6,8 +6,8 @@
 // Normal fallback for now (grows with the skin phase).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.gui:state_list_drawable;
 

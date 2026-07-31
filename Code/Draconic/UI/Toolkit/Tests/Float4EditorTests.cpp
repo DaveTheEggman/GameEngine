@@ -1,6 +1,6 @@
 // Smoke test for the toolkit Float4Editor: four-field row + value round-trip; a field drives the setter.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 import draconic.ui.toolkit;

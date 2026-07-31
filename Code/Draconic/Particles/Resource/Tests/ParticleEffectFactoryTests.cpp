@@ -3,8 +3,8 @@
 // and verify the reconstructed effect matches - modules polymorphically rebuilt via reflection - and
 // that it still simulates. Mirrors TextureFactoryTests.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 import draconic.core;
 import draconic.vfs;
 import draconic.content;

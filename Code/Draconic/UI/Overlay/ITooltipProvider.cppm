@@ -7,7 +7,7 @@
 // `View CreateTooltipContent()` transfers ownership to the TooltipView -> returns RefPtr<View> (RAII).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:itooltip_provider;
 

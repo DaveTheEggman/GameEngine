@@ -2,7 +2,7 @@
 // test; the timing path needs a real device + fence wait, exercised in samples).
 #include <doctest/doctest.h>
 
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.rendergraph;

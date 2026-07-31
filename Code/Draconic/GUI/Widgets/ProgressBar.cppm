@@ -4,8 +4,8 @@
 // modeled on eepp's UIProgressBar (role only). No interaction; drive it with SetProgress.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.gui:progress_bar;
 

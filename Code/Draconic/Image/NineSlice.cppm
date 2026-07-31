@@ -5,7 +5,7 @@
 // Sedulous.Images/NineSlice.bf.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.image:nine_slice;
 

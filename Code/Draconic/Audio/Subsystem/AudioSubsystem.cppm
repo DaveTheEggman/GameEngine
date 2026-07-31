@@ -11,9 +11,9 @@
 // stays out of this interface), and exposes the engine-global one-shot API.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Log/Log.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Log/Log.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.audio.subsystem;
 

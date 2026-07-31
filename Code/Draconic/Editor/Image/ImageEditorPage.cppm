@@ -9,8 +9,8 @@
 // back and requests a re-cook so bound products hot-swap.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Log/Log.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Log/Log.h"
 
 export module draconic.editor.image;
 

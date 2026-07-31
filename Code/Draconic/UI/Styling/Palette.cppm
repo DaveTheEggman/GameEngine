@@ -5,7 +5,7 @@
 // struct with static methods; Color fields R/G/B/A -> r/g/b/a; returns RefPtr<StateListDrawable>.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:palette;
 

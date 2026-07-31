@@ -6,7 +6,7 @@
 // a Dear ImGui debug panel. The moving square renders as the window clear color (position
 // = color); the point is the input layer, not the drawing.
 
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include "Runtime/Client/AppMain.h"
 #include "imgui.h"
 #include <cstdio>

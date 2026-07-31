@@ -7,7 +7,7 @@
 // outline/shadow, wrap, bidi) is deferred to later text work.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.gui:text;
 

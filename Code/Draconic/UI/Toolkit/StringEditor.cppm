@@ -10,8 +10,8 @@
 // ColorPicker/Toolbar use. Beef `delegate void(StringView) Setter` -> Function<void(StringView)>.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui.toolkit:string_editor;
 

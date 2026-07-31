@@ -3,7 +3,7 @@
 /// Provides feature detection and queue family selection.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 #include "VkIncludes.h"
 

@@ -2,7 +2,7 @@
 // delta undo/redo and typing coalescing, marker line-tracking under edits, diagnostics and the
 // execution line, word boundaries, and the word harvest behind document-word completion.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui.toolkit;
 

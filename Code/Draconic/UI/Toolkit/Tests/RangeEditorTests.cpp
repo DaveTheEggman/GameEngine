@@ -1,6 +1,6 @@
 // Smoke test for the toolkit RangeEditor: builds a Slider + NumericField row; slider drives the setter.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 import draconic.ui.toolkit;

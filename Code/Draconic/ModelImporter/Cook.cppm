@@ -11,7 +11,7 @@
 /// renderer's builtin "forward" shader by name (no cooked ShaderResource needed yet).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.modelimporter:cook;
 

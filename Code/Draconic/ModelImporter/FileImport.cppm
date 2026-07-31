@@ -13,9 +13,9 @@
 // loaded model straight into a runtime DB.)
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Log/Log.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Log/Log.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 #include <initializer_list>
 
 export module draconic.modelimporter:file_import;

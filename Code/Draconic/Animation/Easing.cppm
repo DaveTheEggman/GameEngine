@@ -5,7 +5,7 @@
 /// this is the animation-facing enum + lookup.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.animation:easing;
 

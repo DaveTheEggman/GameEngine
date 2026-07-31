@@ -12,8 +12,8 @@
 /// no material set; that lands with material binding in phase 3.)
 
 module;
-#include "Core/Prelude.h"
-#include "Profiler/Profiler.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Profiler/Profiler.h"
 
 export module draconic.render.subsystem:subsystem;
 

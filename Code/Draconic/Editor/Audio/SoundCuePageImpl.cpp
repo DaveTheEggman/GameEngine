@@ -6,8 +6,8 @@
 // through the runtime engine. Save writes the asset and nudges the validating recook.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Log/Log.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Log/Log.h"
 
 module draconic.editor.audio;
 

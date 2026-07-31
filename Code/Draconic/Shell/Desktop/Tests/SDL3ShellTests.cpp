@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 #include <cstdlib> // setenv
 #define SDL_MAIN_HANDLED

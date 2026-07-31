@@ -5,8 +5,8 @@
 // default map through the ResourceManager and hands it to an ActionRuntime.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.input.resource;
 

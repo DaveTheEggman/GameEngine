@@ -4,7 +4,7 @@
 // Ported from Sedulous.UI/src/Layout/BoxConstraints.bf.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:box_constraints;
 

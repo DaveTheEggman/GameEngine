@@ -11,7 +11,7 @@
 // non-colliding accessors keep their faithful names.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:itext_edit_host;
 

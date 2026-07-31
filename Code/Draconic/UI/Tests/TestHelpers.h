@@ -2,7 +2,7 @@
 // Declared here, defined once in TestHelpers.cpp (DRACONIC_OBJECT type-info must be single-definition).
 // The including TU must `import draconic.ui;` before including this header.
 #pragma once
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 namespace draconic::ui::tests
 {

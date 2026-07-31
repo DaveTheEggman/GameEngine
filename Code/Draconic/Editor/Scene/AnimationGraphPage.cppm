@@ -19,7 +19,7 @@
 // through the UI mutation queue and reselect by identity. Save writes the asset + recooks.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.editor.scene:animation_graph_page;
 

@@ -5,7 +5,7 @@
 // between tags emits Default-kind runs (the renderer draws only tokens).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 module draconic.ui.toolkit;
 

@@ -5,8 +5,8 @@
 // unreadable cluster (every -fno-module-lazy consumer then failed to import the module).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 #include <cmath>
 
 module draconic.physics.subsystem;

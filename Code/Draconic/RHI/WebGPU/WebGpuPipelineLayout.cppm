@@ -10,7 +10,7 @@
 ///    a CPU shadow of the block and, before each draw, upload it and bind the group.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
 export module draconic.rhi.webgpu:pipeline_layout;

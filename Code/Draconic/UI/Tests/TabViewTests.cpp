@@ -2,7 +2,7 @@
 // methods; `new TestView()` content -> a MakeRef<TestView> whose ref AddView adopts (kept as a local when
 // the test inspects its Visibility). KeyEventArgs.Set + OnKeyDown drive the keyboard case. No font needed.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 #include "TestHelpers.h"

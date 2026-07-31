@@ -6,7 +6,7 @@
 // ColorUtils). Colors are the engine's float Color (Sedulous used byte Color).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.vg:fills;
 

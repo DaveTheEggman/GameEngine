@@ -7,7 +7,7 @@
 // avoids double-encoding). Ported from Sedulous.VG.Renderer/VGRenderVertex.bf.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.vg.renderer:vertex;
 

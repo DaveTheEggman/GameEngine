@@ -4,7 +4,7 @@
 /// (blend/cull/depth) is NOT here - that's PipelineConfig in the material layer.
 
 module;
-#include "Core/Prelude.h" // <new> for placement-new at GCC container instantiation sites
+#include "Draconic.Core/Prelude.h" // <new> for placement-new at GCC container instantiation sites
 
 export module draconic.shaders:flags;
 

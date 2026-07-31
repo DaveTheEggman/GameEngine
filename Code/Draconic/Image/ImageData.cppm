@@ -2,7 +2,7 @@
 /// Ported from Sedulous.Images.ImageData.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 #include <cstdint>
 #include <cstring>

@@ -7,7 +7,7 @@
 // follow-ups; this is the flat list/table foundation.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.gui:model;
 

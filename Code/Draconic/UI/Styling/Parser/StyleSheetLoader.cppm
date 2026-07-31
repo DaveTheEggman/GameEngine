@@ -9,7 +9,7 @@
 // classes land, so it is not called yet.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:style_sheet_loader;
 

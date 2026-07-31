@@ -6,7 +6,7 @@
 // The ParticleRenderer packs the batch into its instance ring and emits one instanced draw.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include <type_traits>
 
 export module draconic.particles.subsystem:renderdata;

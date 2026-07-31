@@ -9,7 +9,7 @@
 // delta machinery (baseline blob compare) covers them with zero new code.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.script.subsystem:components;
 

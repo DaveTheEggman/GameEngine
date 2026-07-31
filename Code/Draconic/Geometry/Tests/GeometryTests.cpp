@@ -3,7 +3,7 @@
 // stream is usable anywhere a StaticMesh is, with the skinning stream discoverable via
 // the virtual hooks. Plus the procedural primitives.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.geometry;

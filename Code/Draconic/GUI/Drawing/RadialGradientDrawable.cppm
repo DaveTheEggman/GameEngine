@@ -6,8 +6,8 @@
 // (0.5,0.5 = middle); RadiusScale multiplies the farthest-corner distance (CSS default).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.gui:radial_gradient_drawable;
 

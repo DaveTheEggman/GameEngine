@@ -4,7 +4,7 @@
 // Ported from Sedulous.UI/src/Layout/Gravity.bf (Beef flags enum -> enum class + bitwise operators).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:gravity;
 

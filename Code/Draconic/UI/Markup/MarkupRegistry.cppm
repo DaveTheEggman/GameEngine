@@ -9,7 +9,7 @@
 // FlexLayout.LayoutParams -> FlexLayoutParams; float.Parse -> core::ParseFloat.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:markup_registry;
 

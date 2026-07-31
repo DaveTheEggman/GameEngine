@@ -1,7 +1,7 @@
 // Smoke test for the toolkit CurveCanvas: set channels, set keys, read them back, check defaults.
 // No font/VG rendering, no input simulation (events fire only from mouse handlers).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 import draconic.ui.toolkit;

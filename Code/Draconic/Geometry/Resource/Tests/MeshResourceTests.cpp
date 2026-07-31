@@ -2,8 +2,8 @@
 // back through the ResourceManager via the factory and verify the runtime mesh round-
 // trips its vertices/indices/submeshes/bounds. Covers both the static and skinned paths.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 import draconic.core;
 import draconic.vfs;

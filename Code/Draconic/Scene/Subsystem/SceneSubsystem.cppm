@@ -9,7 +9,7 @@
 /// fixed-step to the managers (draconic.scene stays runtime-free - the manager takes those as params).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.scene.subsystem;
 

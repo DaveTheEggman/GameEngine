@@ -3,7 +3,7 @@
 // convert outputs via ToColor32 for the byte-channel assertions - keeping the
 // Sedulous checks (R==0, R in (100,155), etc.) identical in spirit.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.vg;
 

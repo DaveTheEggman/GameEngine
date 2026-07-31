@@ -3,7 +3,7 @@
 // scene with two spinning cube grids (instanced + distinct), and lets the engine draw it.
 // As the renderer grows, this is where we exercise it.
 
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include "imgui.h" // Dear ImGui (debug UI) - used directly; the engine integration is draconic.imgui
 
 import draconic.core;

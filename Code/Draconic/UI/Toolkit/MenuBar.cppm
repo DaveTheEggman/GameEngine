@@ -7,8 +7,8 @@
 // GetPopupLayer(); `Context.InputManager`/measurement via Root()->ViewportSize.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui.toolkit:menu_bar;
 

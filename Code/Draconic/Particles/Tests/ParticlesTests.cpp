@@ -3,7 +3,7 @@
 // (initializers + behaviors), and the effect/system Update loop (spawn, integrate, age, die),
 // plus sub-emitters, LOD, and determinism. No GPU/renderer.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.particles;

@@ -12,7 +12,7 @@
 // (never owns them).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.runtime.gameinstance;
 

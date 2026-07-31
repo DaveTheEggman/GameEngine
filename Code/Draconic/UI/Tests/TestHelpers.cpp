@@ -1,5 +1,5 @@
 // Single definition point for the shared test doubles (TestView/TestGroup).
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 #include "TestHelpers.h"

@@ -3,7 +3,7 @@
 // Covers device bring-up, per-window frame begin/end, the frame-in-flight ring,
 // multi-window rendering, resize, and the minimized-skip path.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.graphics;

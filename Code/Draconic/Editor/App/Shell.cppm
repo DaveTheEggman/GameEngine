@@ -10,7 +10,7 @@
 // center tab group alive when all pages close).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.editor.app:shell;
 

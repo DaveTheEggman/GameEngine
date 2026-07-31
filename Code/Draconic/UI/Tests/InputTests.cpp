@@ -4,8 +4,8 @@
 // InputFilter class is an Editing/text-field concern, not yet ported). Directional MoveFocus tests use
 // a focusable TestView in place of Beef's Button (which is only used there as a default-focusable view).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 import draconic.core;
 import draconic.ui;
 #include "TestHelpers.h"

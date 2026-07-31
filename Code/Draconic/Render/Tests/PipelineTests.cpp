@@ -4,7 +4,7 @@
 // path (extraction snapshot, view draw-list sort, mesh upload, per-object UBO, PSO build,
 // render pass, DrawIndexed) and verifies a pipeline was produced.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.rhi;

@@ -4,7 +4,7 @@
 // Draconic's camelCase convention; methods stay PascalCase.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.particles:types;
 

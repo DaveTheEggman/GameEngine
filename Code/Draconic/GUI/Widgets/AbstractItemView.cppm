@@ -14,8 +14,8 @@
 // header (ContentTopInset), the item -> ModelIndex mapping, and any extra decorations/keys.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.gui:abstract_item_view;
 

@@ -5,7 +5,7 @@
 /// this backend. depthBias rides the depth-stencil state as WebGPU defines it.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
 export module draconic.rhi.webgpu:render_pipeline;

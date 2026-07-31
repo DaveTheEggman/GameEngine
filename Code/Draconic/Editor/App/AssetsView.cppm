@@ -22,9 +22,9 @@
 // the cook service's revision (badges after a cook), and the filter text.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
-#include "Core/Log/Log.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
+#include "Draconic.Core/Log/Log.h"
 
 export module draconic.editor.app:assets_view;
 

@@ -7,7 +7,7 @@
 // Beef's "Family@Height" string keys become explicit family + size fields.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.fonts.ttf:service;
 

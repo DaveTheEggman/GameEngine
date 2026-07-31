@@ -5,7 +5,7 @@
 // ResourceState, the currency the barrier solver works in.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.rendergraph:types;
 

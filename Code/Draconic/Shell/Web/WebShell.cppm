@@ -7,7 +7,7 @@
 // here: the browser drives it through draconic.runtime.web (emscripten_set_main_loop).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.shell.web;
 

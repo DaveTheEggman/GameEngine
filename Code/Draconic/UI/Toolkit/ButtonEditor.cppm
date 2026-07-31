@@ -5,8 +5,8 @@
 // `new Button(Name)` -> a RefPtr<Button> returned as the editor view.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui.toolkit:button_editor;
 

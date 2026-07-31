@@ -1,7 +1,7 @@
 // AnimationPlayer: playback, event firing, looping, evaluation. Ports the player section of
 // Sedulous.Animation.Tests.AnimationEventTests + adds playback/eval coverage.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.animation;

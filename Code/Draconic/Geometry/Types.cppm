@@ -7,7 +7,7 @@
 /// static data is byte-identical to a static mesh (see :mesh).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.geometry:types;
 

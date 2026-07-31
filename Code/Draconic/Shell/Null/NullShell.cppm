@@ -9,7 +9,7 @@
 // without an OS.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.shell.null;
 

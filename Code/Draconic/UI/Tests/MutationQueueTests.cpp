@@ -4,8 +4,8 @@
 // `queue.HasPending` (property) -> queue.HasPending() (method); `new [&] () => {}` delegate -> a bare
 // C++ lambda (QueueAction takes a Function<void()>); `ctx.MutationQueue.X` -> ctx.MutationQueueRef().X.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 import draconic.core;
 import draconic.ui;
 #include "TestHelpers.h"

@@ -7,7 +7,7 @@
 // (mirroring Sedulous's 4x4 Matrix); colors are float Color (packed to Color32 only at the vertex).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.vg:context;
 

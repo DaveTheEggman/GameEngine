@@ -1,7 +1,7 @@
 // AnimationSampler: track/clip sampling + pose blending. Covers the ported math directly (no
 // Sedulous sampler test existed).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.animation;

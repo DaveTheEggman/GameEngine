@@ -8,7 +8,7 @@
 // battery) joins here with code-editor P4.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.script.wren.editor.ui;
 

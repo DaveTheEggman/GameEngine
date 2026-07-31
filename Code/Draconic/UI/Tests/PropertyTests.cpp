@@ -1,7 +1,7 @@
 // Ported from Sedulous.UI.Tests/src/PropertyTests.bf (faithful; Beef `Value` property -> Value()/
 // SetValue(), Beef delegate -> core::Function, scope Property -> stack Property).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 

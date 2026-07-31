@@ -9,8 +9,8 @@
 // module. The GPU simulator is deferred (Phase 6) behind the same interfaces + BehaviorSupport.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h" // DRACONIC_OBJECT / DRACONIC_DEFINE_OBJECT
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h" // DRACONIC_OBJECT / DRACONIC_DEFINE_OBJECT
 
 export module draconic.particles:modules;
 

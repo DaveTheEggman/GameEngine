@@ -5,9 +5,9 @@
 // job is refusing kind-mismatched or nameless entries before they reach the runtime.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
-#include "Core/Log/Log.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
+#include "Draconic.Core/Log/Log.h"
 
 export module draconic.input.editor;
 

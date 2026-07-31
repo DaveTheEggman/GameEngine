@@ -7,7 +7,7 @@
 // runtime LoadScene). Never linked by the runtime.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.scene.editor;
 

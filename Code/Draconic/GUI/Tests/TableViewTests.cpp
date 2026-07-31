@@ -1,7 +1,7 @@
 // Draconic GUI - TableModel + TableView tests: multi-column data, virtualized rows with a
 // header, single selection (mouse + keyboard), and header-click reporting (for sorting).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.gui;
 

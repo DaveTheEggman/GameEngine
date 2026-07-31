@@ -9,7 +9,7 @@
 // StyleValue is correct with no manual refcounting.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:style_value;
 

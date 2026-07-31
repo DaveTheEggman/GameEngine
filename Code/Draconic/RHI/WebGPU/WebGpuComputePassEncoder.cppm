@@ -1,7 +1,7 @@
 /// draconic.rhi.webgpu:compute_pass_encoder - ComputePassEncoder over WGPUComputePassEncoder.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
 export module draconic.rhi.webgpu:compute_pass_encoder;

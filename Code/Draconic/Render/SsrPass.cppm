@@ -15,7 +15,7 @@
 /// bind-group cache + deferred free), but with a 4-texture bind group and its own march shader.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.render:ssr;
 

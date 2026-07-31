@@ -6,8 +6,8 @@
 // Full CSS background-position/size/repeat/origin lands with the CSS phase.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.gui:layer_drawable;
 

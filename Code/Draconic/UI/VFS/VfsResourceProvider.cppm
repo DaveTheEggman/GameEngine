@@ -10,7 +10,7 @@
 // (this provider owns the decoded images in m_images, matching "provider owns the returned image").
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui.vfs;
 

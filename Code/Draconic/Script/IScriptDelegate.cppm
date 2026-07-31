@@ -14,8 +14,8 @@
 // backend-specific work is wrapping the callable slot into a delegate.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.script:script_delegate;
 

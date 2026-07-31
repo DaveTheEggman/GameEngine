@@ -14,7 +14,7 @@
 /// O(files) per Poll, so polls are throttled here, not in callers.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.shaders.system:file_provider;
 

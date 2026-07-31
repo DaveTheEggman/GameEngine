@@ -7,8 +7,8 @@
 /// MaterialInstance. Material is an Object so it can be a resource-system product.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.materials:material;
 

@@ -2,8 +2,8 @@
 // ResourceManager via the factory and verify the runtime types round-trip. Mirrors the mesh
 // resource test (full content-DB round-trip).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 import draconic.core;
 import draconic.vfs;

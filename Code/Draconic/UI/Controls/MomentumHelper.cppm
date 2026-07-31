@@ -6,7 +6,7 @@
 // the `(float dx, float dy)` tuple return -> Float2.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:momentum_helper;
 

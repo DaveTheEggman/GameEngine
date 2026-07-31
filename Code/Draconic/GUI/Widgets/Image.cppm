@@ -6,8 +6,8 @@
 // None use the drawable's intrinsic size to place it (clip the widget to crop Fill/None).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.gui:image;
 

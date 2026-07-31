@@ -5,7 +5,7 @@
 // literal colours and dark-tinted icons; see that file's header for the conventions.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:light_theme;
 

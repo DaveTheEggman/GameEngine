@@ -1,7 +1,7 @@
 // The scene-agnostic render-data core (no GPU): the frame arena, ExtractedScene snapshot,
 // sort keys + radix sort, the RenderView draw-list build (cull/sort), and the view pool.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.rhi;

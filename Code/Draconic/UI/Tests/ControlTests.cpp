@@ -3,7 +3,7 @@
 // controls (Label/ToggleButton/Slider/...) land in later batches. Text rendering is deferred in the
 // controls, but every tested behavior (state/events/toggle/measure fallback) is exercised here.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 #include "TestHelpers.h"

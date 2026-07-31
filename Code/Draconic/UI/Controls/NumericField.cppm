@@ -11,8 +11,8 @@
 // [Friend]mText/[Friend]mBehavior test access -> public Text()/Behavior().
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:numeric_field;
 

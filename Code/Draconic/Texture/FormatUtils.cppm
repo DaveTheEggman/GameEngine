@@ -4,7 +4,7 @@
 // data's color space. Ported from Sedulous.Textures/TextureFormatUtils.bf.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.texture:format_utils;
 

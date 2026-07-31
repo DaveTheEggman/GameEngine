@@ -1,7 +1,7 @@
 // AnimationEvent + AnimationClip event storage + FireEvents. Ported from the applicable parts of
 // Sedulous.Animation.Tests.AnimationEventTests (Player/ClipStateNode/BlendTree parts land later).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.animation;

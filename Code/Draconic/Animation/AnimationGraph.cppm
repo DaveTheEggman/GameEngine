@@ -7,8 +7,8 @@
 /// dispatch uses a NodeType tag + static_cast (the engine builds with -fno-rtti, so no dynamic_cast).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.animation:graph;
 

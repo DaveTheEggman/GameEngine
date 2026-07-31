@@ -6,8 +6,8 @@
 // Multi-selection is inherited (SetSelectionMode(Multi) + Ctrl/Shift).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.gui:list_view;
 

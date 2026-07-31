@@ -4,7 +4,7 @@
 // the IO layer is tested in isolation (no stb_truetype).
 #include <doctest/doctest.h>
 
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.fonts;

@@ -8,7 +8,7 @@
 // property -> HasText() method.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:iclipboard;
 

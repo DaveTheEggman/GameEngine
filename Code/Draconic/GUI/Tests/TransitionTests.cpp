@@ -1,7 +1,7 @@
 // Draconic GUI - CSS transition tests: parse the `transition` shorthand, and animate a
 // transitioned opacity change through the ActionManager (CSS -> Action-system integration).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.gui;
 

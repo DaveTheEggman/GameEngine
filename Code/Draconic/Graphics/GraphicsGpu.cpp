@@ -7,7 +7,7 @@
 // host, kept off every consumer's module closure.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 module draconic.graphics.gpu;
 

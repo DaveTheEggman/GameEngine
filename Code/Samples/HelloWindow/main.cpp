@@ -3,7 +3,7 @@
 // (Context/Subsystem) -> Shell (SDL3) -> ApplicationHost driving an
 // IApplication, wired by DRACONIC_APP_MAIN. Run it directly; close the window to exit.
 
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include "Runtime/Client/AppMain.h"
 
 import draconic.core;

@@ -6,7 +6,7 @@
 // children (base(0)); Storyboard overrides Update directly so Apply is a no-op.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:storyboard;
 

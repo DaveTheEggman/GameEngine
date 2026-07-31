@@ -6,7 +6,7 @@
 // core::Min/Max.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:selection_model;
 

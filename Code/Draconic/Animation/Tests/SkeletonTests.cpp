@@ -2,7 +2,7 @@
 // skinning-matrix correctness (identity at bind pose). No Sedulous test existed; this covers the
 // ported math directly.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.animation;

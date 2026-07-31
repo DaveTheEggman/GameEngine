@@ -3,7 +3,7 @@
 /// Callers use loadModel(path, model) which selects the right loader by extension.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 #include <cstring>
 #include <vector>

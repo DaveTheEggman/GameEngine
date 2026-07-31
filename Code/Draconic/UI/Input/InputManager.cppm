@@ -6,7 +6,7 @@
 // subsystems land): drag-drop priority + IDragSource init, tooltip hide/hover, popup click-outside.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:input_manager;
 

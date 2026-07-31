@@ -7,7 +7,7 @@
 /// the hierarchy itself); systems register into the others.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.scene:phase;
 

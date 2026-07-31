@@ -4,7 +4,7 @@
 // PumpReloads hot reload (including the .hlsli -> reload-everything fallback). File shaders
 // compile real SPIR-V via DXC on the Null RHI backend, same as ShaderSystemTests.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 #include <filesystem>
 #include <fstream>

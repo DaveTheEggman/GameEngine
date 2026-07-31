@@ -1,6 +1,6 @@
 // draconic.net:rpc - name-hashed RPCs with wire-serialized args over a NetSession.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.net;

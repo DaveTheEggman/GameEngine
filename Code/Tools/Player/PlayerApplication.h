@@ -17,8 +17,8 @@
 #ifndef DRACONIC_TOOLS_PLAYER_PLAYERAPPLICATION_H
 #define DRACONIC_TOOLS_PLAYER_PLAYERAPPLICATION_H
 
-#include "Core/Prelude.h"
-#include "Core/Log/Log.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Log/Log.h"
 
 namespace draconic::player
 {

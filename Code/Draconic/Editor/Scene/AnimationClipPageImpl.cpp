@@ -2,8 +2,8 @@
 
 module;
 #include <cmath> // std::fmod (looping playhead wrap)
-#include "Core/Prelude.h"
-#include "Core/Log/Log.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Log/Log.h"
 
 module draconic.editor.scene;
 

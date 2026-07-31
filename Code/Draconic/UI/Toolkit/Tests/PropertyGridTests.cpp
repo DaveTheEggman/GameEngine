@@ -1,6 +1,6 @@
 // Smoke test for the toolkit PropertyGrid: add editors, query by name/count, remove and clear.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 import draconic.ui.toolkit;

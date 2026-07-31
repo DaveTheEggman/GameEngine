@@ -4,7 +4,7 @@
 // Function objects over the RHI encoder a pass records into.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.rendergraph:callbacks;
 

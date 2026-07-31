@@ -11,7 +11,7 @@
 // Node* - call Forget()/Clear() when widgets are destroyed (lifecycle wiring deferred).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.gui:style_manager;
 

@@ -1,7 +1,7 @@
 /// draconic.rhi.webgpu:surface - Surface over WGPUSurface.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
 export module draconic.rhi.webgpu:surface;

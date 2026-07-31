@@ -6,7 +6,7 @@
 // in a custom ma_node for bus-effect chains and per-scene zone reverb.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.audio:reverb;
 

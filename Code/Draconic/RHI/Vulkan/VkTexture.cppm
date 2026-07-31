@@ -2,8 +2,8 @@
 /// Ported from Sedulous.RHI.Vulkan/VulkanTexture.bf.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Log/Log.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Log/Log.h"
 
 #include "VkIncludes.h"
 

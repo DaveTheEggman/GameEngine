@@ -11,7 +11,7 @@
 // -Werror=changes-meaning (field name == unqualified type name).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui.toolkit:node_graph_types;
 

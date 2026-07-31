@@ -2,7 +2,7 @@
 // Behavior(); el.Text -> Text(); the ValidateRename `text.Contains("bad")` -> a local substring helper
 // (StringView has no Contains). Mode/transition/event logic needs no font service.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 #include "TestHelpers.h"

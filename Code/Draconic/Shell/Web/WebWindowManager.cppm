@@ -6,7 +6,7 @@
 // runner reconfigures the swapchain (the browser has no OS resize event queue to drain).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.shell.web:window_manager;
 

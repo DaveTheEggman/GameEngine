@@ -19,7 +19,7 @@
 //    a bare declaration body into an existing rule.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:sss_parser;
 

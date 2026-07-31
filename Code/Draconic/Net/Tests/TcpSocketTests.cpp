@@ -1,6 +1,6 @@
 // draconic.net:socket - the TCP stream backend over localhost (integration: uses the OS TCP stack).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.net;

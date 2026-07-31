@@ -6,9 +6,9 @@
 // the app runs with projectDir ".". The engine WGSL shader pack rides in the same way at
 // /shaders.dpak (browsers have no shader compiler).
 
-#include "Core/Prelude.h"
-#include "Core/Log/Log.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Log/Log.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 import draconic.core;
 import draconic.vfs;

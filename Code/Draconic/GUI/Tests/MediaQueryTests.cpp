@@ -1,7 +1,7 @@
 // Draconic GUI - @media query tests: condition evaluation against a MediaContext, and
 // end-to-end parsing + media-gated resolution.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.gui;
 

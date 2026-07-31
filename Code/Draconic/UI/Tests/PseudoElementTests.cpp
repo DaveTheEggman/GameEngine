@@ -8,8 +8,8 @@
 // core::Cast<T>; `bg is T` -> core::Cast<T>(bg) != nullptr; `.[Friend]mRules[i]` -> sheet->GetRule(i);
 // `rule.Selector.PseudoElement != null` -> .HasValue(); `State.Value.HasFlag(.Hover)` -> HasFlag(...).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 import draconic.core;
 import draconic.ui;
 #include "TestHelpers.h"

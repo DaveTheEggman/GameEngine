@@ -3,9 +3,9 @@
 // cooked TextureResource and build a live GPU Texture via the device-backed
 // factory (Null RHI backend). Also exercises the TextureImporter authoring helper.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include <initializer_list>
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 import draconic.core;
 import draconic.vfs;
 import draconic.content;

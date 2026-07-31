@@ -1,7 +1,7 @@
 // Basic checks for the asset-pipeline base (Asset serialize round-trip + builder dispatch shape).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 import draconic.core;
 import draconic.content;
 import draconic.editor;

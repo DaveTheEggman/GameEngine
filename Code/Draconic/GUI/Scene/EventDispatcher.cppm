@@ -11,7 +11,7 @@
 // lifecycle wiring.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.gui:event_dispatcher;
 

@@ -4,8 +4,8 @@
 // (The `Color` property shadows the Color type, so the type is fully qualified.)
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:color_view;
 

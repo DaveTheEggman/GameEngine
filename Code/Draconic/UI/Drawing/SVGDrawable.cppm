@@ -8,8 +8,8 @@
 // RefPtr<SVGDrawable> (empty on parse failure) instead of a raw pointer/null.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:svg_drawable;
 

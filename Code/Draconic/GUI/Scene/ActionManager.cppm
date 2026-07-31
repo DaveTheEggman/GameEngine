@@ -5,7 +5,7 @@
 // here. Actions are RefPtr-owned; a finished action is dropped after Update.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.gui:action_manager;
 

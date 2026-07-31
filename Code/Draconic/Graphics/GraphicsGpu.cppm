@@ -14,7 +14,7 @@
 // editor) that would otherwise exhaust clang's per-TU source-location budget.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.graphics.gpu;
 

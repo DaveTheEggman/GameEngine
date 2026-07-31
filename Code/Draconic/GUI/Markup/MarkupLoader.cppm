@@ -17,7 +17,7 @@
 //   </LinearLayout>
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.gui:markup;
 

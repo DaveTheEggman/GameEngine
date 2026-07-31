@@ -1,7 +1,7 @@
 // draconic.net.subsystem - NetworkSubsystem injects the NetworkComponentManager into scenes so
 // authored NetworkComponents (and the server's runtime AssignNetworkId) have a home.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.scene;

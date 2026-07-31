@@ -23,7 +23,7 @@
 // speed slider, and pause.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.editor.scene:particle_effect_page;
 

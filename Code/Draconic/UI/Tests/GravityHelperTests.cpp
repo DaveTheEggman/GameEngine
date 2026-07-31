@@ -1,7 +1,7 @@
 // Ported from Sedulous.UI.Tests/src/GravityHelperTests.bf (faithful; RectangleF -> core::Rectangle,
 // .X/.Y/.Width/.Height -> .x/.y/.width/.height).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 

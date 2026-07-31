@@ -3,7 +3,7 @@
 // BreadcrumbBar), ColorPicker (+ static HSV<->RGB), PropertyGrid, and every PropertyEditor. No UIContext
 // needed. Beef `scope X()`/`new X()` -> MakeRef<X>(DefaultAllocator()); ref-equality `===` -> pointer ==.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 import draconic.ui.toolkit;

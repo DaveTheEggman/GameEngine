@@ -5,7 +5,7 @@
 // resolves size-relative-to-output and converts to an RHI TextureDesc.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.rendergraph:descriptors;
 

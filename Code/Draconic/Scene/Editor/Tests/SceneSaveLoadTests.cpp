@@ -2,8 +2,8 @@
 // scene into a content-DB instance (SceneDocument primary + "scene" data stream), and
 // LoadScene reads it back into a fresh scene whose managers were injected beforehand.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 import draconic.core;
 import draconic.vfs;

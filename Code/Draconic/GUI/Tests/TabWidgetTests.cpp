@@ -1,7 +1,7 @@
 // Draconic GUI - TabWidget tests: adding tabs, first-tab auto-select, switching panels
 // (visibility), the tab-changed callback, and click-to-switch through the dispatcher.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.gui;
 

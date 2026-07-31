@@ -2,7 +2,7 @@
 // return true when focused-and-editable, and UIContext::WantsTextInput() reflects the focused view, so the
 // ui.shell bridge can drive the window's IME from focus. Not a port - covered here per the additions rule.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 #include "TestHelpers.h"

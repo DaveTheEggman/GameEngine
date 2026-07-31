@@ -7,7 +7,7 @@
 // still enumerate the built-ins for tooling).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.shaders:pack;
 

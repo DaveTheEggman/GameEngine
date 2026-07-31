@@ -6,7 +6,7 @@
 // Toolkit ships no language tables - see the layering note in CodeLexer.cppm.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 module draconic.ui.toolkit;
 

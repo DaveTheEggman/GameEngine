@@ -7,7 +7,7 @@
 /// tonemap pass. Runs on the linear HDR scene, before tonemap.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.render:bloom;
 

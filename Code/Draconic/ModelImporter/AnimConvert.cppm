@@ -7,7 +7,7 @@
 /// bone indices into joint indices (NodeToBoneMapping).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.modelimporter:anim_convert;
 

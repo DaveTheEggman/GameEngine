@@ -4,8 +4,8 @@
 // line/column when space runs out. Ported from Sedulous.UI/src/Layout/FlowLayout.bf.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:flow_layout;
 

@@ -10,7 +10,7 @@
 // GetImages()/GetStateGroups() enumerators become const-ref accessors to the backing maps.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:theme_image_set;
 

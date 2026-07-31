@@ -6,7 +6,7 @@
 // free them) and deletes them. Idempotent.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.fonts.ttf:init;
 

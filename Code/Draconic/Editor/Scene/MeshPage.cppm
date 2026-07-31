@@ -16,7 +16,7 @@
 // like MaterialPage's preview-mesh pref) + a "create entity / save-as-prefab" action.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.editor.scene:mesh_page;
 

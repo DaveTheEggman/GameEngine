@@ -21,8 +21,8 @@
 // UI pass samples) on one queue, so submission order serializes frame N+1's write after frame N's read.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui.viewport;
 

@@ -6,7 +6,7 @@
 // @media / @keyframes / @import, custom properties (--var), nesting, !important.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.gui:css_parser;
 

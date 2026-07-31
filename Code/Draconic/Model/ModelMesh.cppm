@@ -2,7 +2,7 @@
 /// Ported from Sedulous.Models/ModelMesh.bf.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 #include <cstring>
 #include <limits>

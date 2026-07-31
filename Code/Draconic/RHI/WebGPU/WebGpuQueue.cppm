@@ -7,8 +7,8 @@
 /// wgpuQueueOnSubmittedWorkDone (see :fence for the timeline emulation).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Debug/Assert.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Debug/Assert.h"
 #include "WebGpuIncludes.h"
 
 export module draconic.rhi.webgpu:queue;

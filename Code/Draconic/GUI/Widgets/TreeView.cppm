@@ -8,8 +8,8 @@
 // re-flattening; the primary selection is remapped by id across expand/collapse.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.gui:tree_view;
 

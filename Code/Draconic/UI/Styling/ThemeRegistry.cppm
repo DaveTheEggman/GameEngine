@@ -8,7 +8,7 @@
 // destruction-order pitfalls). The list lives in a function-local static.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:theme_registry;
 

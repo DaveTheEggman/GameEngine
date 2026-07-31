@@ -1,7 +1,7 @@
 // Draconic GUI - Action tests: Move/Fade/Scale/Delay/Runnable/Sequence driven through a
 // SceneNode's ActionManager. Derived from eepp scene/actions behavior.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.gui;
 

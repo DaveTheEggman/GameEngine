@@ -6,8 +6,8 @@
 // VGLinearGradientFill over a rect path. Angle is RADIANS (0 = left-to-right).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.gui:linear_gradient_drawable;
 

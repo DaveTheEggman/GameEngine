@@ -1,7 +1,7 @@
 // Extra coverage (not from Sedulous.VG.Tests): exercise SVGLoader + SVGRenderer
 // end-to-end on a small document.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.vg;
 import draconic.vg.svg;

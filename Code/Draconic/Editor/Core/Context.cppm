@@ -7,7 +7,7 @@
 // the statically-assembled editor executable calls those entry points (design doc §3.1).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.editor.core:context;
 

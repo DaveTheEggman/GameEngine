@@ -5,7 +5,7 @@
 // bitmask best-match machinery lands with the skin/UINode phase.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.gui:control_state;
 

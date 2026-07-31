@@ -6,7 +6,7 @@
 /// belongs to the shader sample instruction in WGSL).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
 export module draconic.rhi.webgpu:sampler;

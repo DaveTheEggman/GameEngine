@@ -4,8 +4,8 @@
 // Ported from Sedulous.UI/src/Drawing/RoundedRectDrawable.bf.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:rounded_rect_drawable;
 

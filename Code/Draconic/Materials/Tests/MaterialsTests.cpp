@@ -3,7 +3,7 @@
 // layout inferred from the property list) against the Null RHI, and check instance
 // overrides + dirty notification.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.rhi;

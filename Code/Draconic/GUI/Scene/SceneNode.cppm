@@ -9,8 +9,8 @@
 // which walk up the parent chain; SceneNode overrides them to return its own.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.gui:scene_node;
 

@@ -11,7 +11,7 @@
 // CodeLexerFactory.cpp (language-id mapping + the keyword tables).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui.toolkit:code_lexer;
 

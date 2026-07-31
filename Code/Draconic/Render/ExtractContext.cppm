@@ -11,7 +11,7 @@
 /// double-buffered extraction - extract N while submit N-1 - slots in here later.)
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.render:extract_ctx;
 

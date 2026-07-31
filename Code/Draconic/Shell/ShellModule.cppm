@@ -10,7 +10,7 @@
 // Interfaces only - depends on Core, nothing higher.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.shell;
 

@@ -3,7 +3,7 @@
 // it; an outside click dismisses and clears the bar's state. No font is set, so each button is
 // 2*padding (24px) wide and the bar is `barHeight` tall - giving a deterministic layout.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.gui;
 

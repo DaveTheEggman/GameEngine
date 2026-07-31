@@ -10,7 +10,7 @@
 // provider owns the returned image's lifetime.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:iresource_provider;
 

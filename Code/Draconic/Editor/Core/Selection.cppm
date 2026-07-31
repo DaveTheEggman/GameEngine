@@ -5,7 +5,7 @@
 // gizmos) subscribe to. Selection is deliberately NOT undoable (Lumix/Traktor agree).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.editor.core:selection;
 

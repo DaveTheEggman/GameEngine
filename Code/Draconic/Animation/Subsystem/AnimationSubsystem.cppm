@@ -8,7 +8,7 @@
 /// (SceneSystems) do, driven by the scene.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.animation.subsystem:subsystem;
 

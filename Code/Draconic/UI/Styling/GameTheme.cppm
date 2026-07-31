@@ -6,7 +6,7 @@
 // palette tuned for over-scene legibility; it diverges further as game controls demand.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:game_theme;
 

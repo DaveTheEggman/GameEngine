@@ -1,7 +1,7 @@
 // Draconic GUI - Label / Button control tests: text properties, click handling through the
 // dispatcher, control-state reaction, and CSS targeting the default `button` tag.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.vg;
 import draconic.gui;

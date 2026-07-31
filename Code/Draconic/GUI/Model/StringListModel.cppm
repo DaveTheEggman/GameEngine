@@ -5,7 +5,7 @@
 // (SetItems/AddItem/Clear) notifies attached views via DidUpdate.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.gui:string_list_model;
 

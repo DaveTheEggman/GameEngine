@@ -21,8 +21,8 @@
 // scriptbuilder add-on header live here only (GCC module hygiene by construction).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Log/Log.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Log/Log.h"
 
 #include <angelscript.h>
 #include <scriptbuilder/scriptbuilder.h>

@@ -5,7 +5,7 @@
 // method bodies live here so the interface partition stays small.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include <type_traits>
 
 module draconic.scene;

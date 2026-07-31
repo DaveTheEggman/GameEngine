@@ -4,8 +4,8 @@
 
 #include <doctest/doctest.h>
 
-#include "Core/Prelude.h"
-#include "Core/Log/Log.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Log/Log.h"
 
 import draconic.core;
 import draconic.editor.core;

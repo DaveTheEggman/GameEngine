@@ -5,7 +5,7 @@
 // One backend (Lua, ...) implements this per VM; backends are plugins.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.script:script_manager;
 

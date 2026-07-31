@@ -4,7 +4,7 @@
 // says" question is settled (the visual muddle in the sample is clip bucketing, not this math).
 #include <doctest/doctest.h>
 #include <initializer_list>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.render;

@@ -14,7 +14,7 @@
 // reads an input file and writes an output file (no stdin/stdout streaming for the emit path).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.shaders:wgsl_cook;
 

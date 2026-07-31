@@ -7,7 +7,7 @@
 // (SubresourceStateTracker.bf); Beef's null-means-uniform becomes an empty Array.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.rendergraph:state_tracker;
 

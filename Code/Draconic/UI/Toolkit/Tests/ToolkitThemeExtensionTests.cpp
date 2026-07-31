@@ -1,7 +1,7 @@
 // Smoke test for ToolkitThemeExtension: Apply() populates a StyleSheet with rules for the toolkit
 // controls, for both a dark and a light palette (the isDark branch flips on p.Background.r < 0.5).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 import draconic.ui.toolkit;

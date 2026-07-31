@@ -3,8 +3,8 @@
 // and verify the cooked MaterialSource carries the shader id, declared properties, and
 // default uniforms. No GPU/DXC - pure authoring data.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 import draconic.core;
 import draconic.vfs;

@@ -1,7 +1,7 @@
 // AngelScriptEditorUI: registering the lexer makes it resolvable under both the canonical
 // "angelscript" id and the "as" alias, with AngelScript classification.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui.toolkit;
 import draconic.script.angelscript.editor.ui;

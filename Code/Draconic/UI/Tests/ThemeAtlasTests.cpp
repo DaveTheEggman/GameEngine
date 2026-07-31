@@ -3,7 +3,7 @@
 // NOTE: Sedulous NineSlice exposes PascalCase `.Left`; draconic image::NineSlice uses lowercase
 // `.left` (the image module's field convention), so `Slices.left` here is the faithful equivalent.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.image;
 import draconic.ui;

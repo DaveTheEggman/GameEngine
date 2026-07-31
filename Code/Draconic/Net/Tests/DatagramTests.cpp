@@ -1,7 +1,7 @@
 // draconic.net:datagram - the in-memory unreliable datagram sim.
 #include <doctest/doctest.h>
 #include <initializer_list>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.net;

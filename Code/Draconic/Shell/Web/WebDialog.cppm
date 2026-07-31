@@ -5,7 +5,7 @@
 // shell's own service so that wiring has a home.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.shell.web:dialogs;
 

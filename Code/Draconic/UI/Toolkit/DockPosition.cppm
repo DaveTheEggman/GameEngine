@@ -4,7 +4,7 @@
 // Sedulous.UI.Toolkit/src/Docking/DockPosition.bf (a plain enum).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui.toolkit:dock_position;
 

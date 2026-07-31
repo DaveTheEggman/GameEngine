@@ -14,8 +14,8 @@
 // Clear-all uses View::ClearInlineStyles() (added to match Sedulous).
 //   `.None` StyleValue -> GetKind()==StyleValue::Kind::None; `x === y` -> pointer ==; byte Color -> Rgb().
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 import draconic.core;
 import draconic.ui;
 #include "TestHelpers.h"

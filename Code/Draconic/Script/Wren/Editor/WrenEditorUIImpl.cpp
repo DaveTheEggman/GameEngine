@@ -5,7 +5,7 @@
 // literals.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 module draconic.script.wren.editor.ui;
 

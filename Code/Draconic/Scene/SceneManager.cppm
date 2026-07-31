@@ -12,7 +12,7 @@
 /// (no runtime dependency, so draconic.scene stays runtime-free).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.scene:manager;
 

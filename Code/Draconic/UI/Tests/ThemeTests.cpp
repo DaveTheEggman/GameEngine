@@ -3,8 +3,8 @@
 // -> `ctx.SetStyleSheet(DarkTheme::Create())` (RefPtr ownership; Create returns refcount-1); Color byte
 // fields R/G/B -> r/g/b; TestThemeExtension/CountingThemeExtension implement IThemeExtension via *out ptrs.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 import draconic.core;
 import draconic.ui;
 #include "TestHelpers.h"

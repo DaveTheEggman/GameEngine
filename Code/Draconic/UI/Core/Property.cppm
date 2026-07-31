@@ -8,7 +8,7 @@
 // Requires T to be equality-comparable (Beef's `where bool : operator T == T`).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:property;
 

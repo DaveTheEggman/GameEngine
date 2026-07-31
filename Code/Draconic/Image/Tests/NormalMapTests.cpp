@@ -2,7 +2,7 @@
 // generators + CalculateNormalFromHeight. Mirrors the Sedulous assertions
 // (Test.Assert -> CHECK; pixel.R/G/B/A -> .r/.g/.b/.a; Float3.X/Y/Z -> .x/.y/.z).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.image;
 

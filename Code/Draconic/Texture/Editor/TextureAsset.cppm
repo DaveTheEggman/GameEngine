@@ -13,8 +13,8 @@
 // combines 6 face files; cooking a cubemap TextureResource through the builder is still deferred.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 #include <initializer_list>
 
 export module draconic.texture.editor;

@@ -9,7 +9,7 @@
 // interface, so it is windowing-backend agnostic; the concrete shell is constructed by the entry
 // point and passed in.
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.runtime.desktop;
 

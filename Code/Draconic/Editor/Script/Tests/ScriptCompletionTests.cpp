@@ -2,7 +2,7 @@
 // throwaway Wren manager - the runtime's registration sequence): type names at top level
 // + a type's members after `Type.`.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui.toolkit;
 import draconic.script;

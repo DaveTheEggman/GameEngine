@@ -16,7 +16,7 @@
 /// shared snapshot. (§5/§9 of docs/design/renderer.md.)
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include <new>
 #include <type_traits>
 

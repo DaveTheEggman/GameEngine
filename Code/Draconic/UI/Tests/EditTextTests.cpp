@@ -5,7 +5,7 @@
 // the deferred Fonts service) are not ported. Undo/Redo coverage is added here (Sedulous had none - it
 // exercised undo only interactively).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 #include "TestHelpers.h"

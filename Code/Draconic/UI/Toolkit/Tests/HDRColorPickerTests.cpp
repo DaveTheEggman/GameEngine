@@ -1,6 +1,6 @@
 // Smoke test for the toolkit HDRColorPicker: constructs, round-trips an HDR color, decomposes intensity.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 import draconic.ui.toolkit;

@@ -9,7 +9,7 @@
 // OnUnload, before the backing library is closed.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.runtime:plugin;
 

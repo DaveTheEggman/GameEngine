@@ -8,7 +8,7 @@
 /// of this codec in later slices; this unit depends only on Core (reflection) + draconic.net (wire).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.net.replication;
 

@@ -5,7 +5,7 @@
 // carry a float) -> a kind + value struct (language divergence).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:unit;
 

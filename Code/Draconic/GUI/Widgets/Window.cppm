@@ -9,8 +9,8 @@
 // are treated as parent-local) - fine for top-level windows under an untransformed root.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.gui:window;
 

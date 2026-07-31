@@ -8,8 +8,8 @@
 /// instances notify the system on dirty so PrepareDirtyInstances is O(dirty).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Log/Log.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Log/Log.h"
 
 export module draconic.materials:system;
 

@@ -1,7 +1,7 @@
 // Ported from Sedulous.UI.Tests/src/ComboBoxTests.bf (faithful). Beef get/set props -> methods
 // (cb->SetSelectedIndex / SelectedIndex()); item/selection/event logic only - no popup, no font.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 

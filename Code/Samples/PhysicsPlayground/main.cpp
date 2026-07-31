@@ -6,7 +6,7 @@
 // trigger). Fly with WASD/RMB-look; LEFT-CLICK shoves the body under the crosshair; R
 // respawns the stack; the ImGui panel has gravity + time-scale sliders and live counts.
 
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include "Runtime/Client/AppMain.h"
 #include "imgui.h"
 #include <cmath>

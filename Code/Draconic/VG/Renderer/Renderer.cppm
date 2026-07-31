@@ -17,7 +17,7 @@
 //     later if a single RT must be sampled by more than one window's renderer.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.vg.renderer:renderer;
 

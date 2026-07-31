@@ -16,7 +16,7 @@
 // convention, not eepp's degrees); camelCase -> Draconic PascalCase.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.gui:transform2d;
 

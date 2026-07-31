@@ -2,7 +2,7 @@
 /// Ported from Sedulous.RHI.Validation/ValidatedAdapter.bf.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.rhi.validation:validated_adapter;
 

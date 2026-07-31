@@ -1,7 +1,7 @@
 // Draconic GUI - UINode / UIWidget tests: padding + content bounds, input-driven control
 // state (hover/press/focus/disabled), and the CSS identity surface (tag/id/classes).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.gui;
 

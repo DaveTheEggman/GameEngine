@@ -8,7 +8,7 @@
 // StringView; the SVG payloads are UTF-8 raw string literals (char8_t).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:theme_icons;
 

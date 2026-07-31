@@ -4,7 +4,7 @@
 // Ported from Sedulous.UI/src/Layout/SizeSpec.bf (discriminated union -> kind + payload struct).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:size_spec;
 

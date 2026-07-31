@@ -1,7 +1,7 @@
 // Draconic GUI - CSS !important + custom-property (variable) tests, end-to-end via the
 // parser -> cascade -> resolve (+ typed application for the var-driven background).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.gui;
 

@@ -5,7 +5,7 @@
 // port-wide UI math point). Owned delegate -> Function<void(Float2)>.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:float2_animation;
 

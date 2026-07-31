@@ -2,7 +2,7 @@
 // matic), key/text routing to the focus node, and interaction-ref cleanup. Input is
 // injected as abstract events (the shell bridge's job), hit-tested via the tree's OverFind.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.gui;
 

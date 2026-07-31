@@ -1,7 +1,7 @@
 // WrenEditorUI: registering the Wren lexer makes it resolvable by language id, and the spec
 // encodes the Wren quirks (nested block comments, """ raw strings).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui.toolkit;
 import draconic.script.wren.editor.ui;

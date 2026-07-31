@@ -1,6 +1,6 @@
 // draconic.net:wire - bit-level pack/unpack, varints, ranged-float quantization, overflow safety.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.net;

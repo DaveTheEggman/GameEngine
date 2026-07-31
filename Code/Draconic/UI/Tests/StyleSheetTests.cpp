@@ -6,8 +6,8 @@
 // by ctx via SetStyleSheet (helper returns a borrowed ptr for adding rules); `view.IsEnabled = false`
 // sets the field; `=== drawable` -> pointer ==.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 import draconic.core;
 import draconic.ui;
 #include "TestHelpers.h"

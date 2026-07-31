@@ -2,7 +2,7 @@
 /// Mirrors ValidatedRenderPassEncoder's draw-recording checks for the bundle subset.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.rhi.validation:validated_render_bundle_encoder;
 

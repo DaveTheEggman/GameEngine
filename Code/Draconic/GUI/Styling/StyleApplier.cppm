@@ -7,7 +7,7 @@
 // Font* via a resource provider) arrive with the resource-wiring increment.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.gui:style_applier;
 

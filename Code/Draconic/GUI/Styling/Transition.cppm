@@ -11,7 +11,7 @@
 // (easing) are parsed-but-ignored for now.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.gui:transition;
 

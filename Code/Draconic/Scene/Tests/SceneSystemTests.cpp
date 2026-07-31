@@ -2,7 +2,7 @@
 // loop, deferred destroy during update, entity-destroy freeing components, active-change
 // + start/stop notification, UpdateOrder, and simulation gating.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.scene;

@@ -16,7 +16,7 @@
 // keep the local untouched.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 module draconic.editor.scene;
 

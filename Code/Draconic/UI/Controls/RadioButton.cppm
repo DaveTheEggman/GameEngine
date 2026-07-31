@@ -5,8 +5,8 @@
 // label are LIVE now that the Fonts service + VG are wired; toggle/state/event faithful.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:radio_button;
 

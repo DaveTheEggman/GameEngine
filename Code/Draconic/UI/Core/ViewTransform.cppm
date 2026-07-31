@@ -5,7 +5,7 @@
 // Ported from Sedulous.UI/src/Core/ViewTransform.bf; Sedulous Vector2 -> core::Float2.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:view_transform;
 

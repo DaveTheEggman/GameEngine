@@ -2,7 +2,7 @@
 // (nf->SetMin/SetValue/Value()); [Friend]mText -> Text(); [Friend]mBehavior -> Behavior(). The formatting
 // test needs no font (UpdateText uses core::FormatFixed).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 #include "TestHelpers.h"

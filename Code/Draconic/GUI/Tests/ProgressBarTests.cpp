@@ -1,6 +1,6 @@
 // Draconic GUI - ProgressBar tests: clamping and draw.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.vg;
 import draconic.gui;

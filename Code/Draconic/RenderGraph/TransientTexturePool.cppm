@@ -5,7 +5,7 @@
 // entries. Ported from Sedulous.RenderGraph (TransientTexturePool.bf).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.rendergraph:transient_pool;
 

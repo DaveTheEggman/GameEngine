@@ -6,7 +6,7 @@
 // local ASCII helpers over utf8char; StringView.Substring -> SubStr; float.Parse -> StrToF32.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include <cstdlib> // std::strtof
 
 export module draconic.ui:sss_tokenizer;

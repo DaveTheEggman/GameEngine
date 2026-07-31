@@ -5,8 +5,8 @@
 // text is live now that the Fonts service is wired; chevron/header chrome kept.)
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:expander;
 

@@ -7,8 +7,8 @@
 // Label in a horizontal LinearLayout for the usual "(o) caption" look.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.gui:radio;
 

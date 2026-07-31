@@ -2,7 +2,7 @@
 // stack values / MakeRef children, `===` reference-equality -> pointer ==).
 // NOTE: the two NineSlice_* tests are deferred until NineSliceDrawable is ported.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.image;
 import draconic.ui;

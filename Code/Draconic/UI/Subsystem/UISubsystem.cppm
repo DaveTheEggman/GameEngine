@@ -14,9 +14,9 @@
 // UISubsystemImpl.cpp (implementation unit), same split as physics.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Log/Log.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Log/Log.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui.subsystem;
 

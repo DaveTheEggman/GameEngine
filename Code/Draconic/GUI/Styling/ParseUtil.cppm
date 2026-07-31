@@ -6,7 +6,7 @@
 // includes '-' for kebab-case names), which is CSS-flavored rather than generic.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.gui:parse_util;
 

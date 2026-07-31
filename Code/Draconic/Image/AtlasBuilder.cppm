@@ -6,7 +6,7 @@
 // Sedulous.Images/ImageAtlasBuilder.bf.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.image:atlas_builder;
 

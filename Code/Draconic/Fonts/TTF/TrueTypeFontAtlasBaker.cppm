@@ -6,7 +6,7 @@
 // Sedulous.Fonts.TTF/TrueTypeFontAtlasBaker.bf.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.fonts.ttf:atlas_baker;
 

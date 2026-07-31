@@ -6,7 +6,7 @@
 // Sedulous.VG.SVG/SVGLoader.bf.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.vg.svg:loader;
 

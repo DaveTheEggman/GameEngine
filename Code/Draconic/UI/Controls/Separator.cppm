@@ -4,8 +4,8 @@
 // (The `Orientation` property shadows the enum type, so enum values are fully qualified.)
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:separator;
 

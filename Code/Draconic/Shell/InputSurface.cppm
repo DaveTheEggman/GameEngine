@@ -22,7 +22,7 @@
 // stream for its routing decisions.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.shell:surface;
 

@@ -7,7 +7,7 @@
 // interpolation) are transient - never serialized.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.physics.subsystem:components;
 

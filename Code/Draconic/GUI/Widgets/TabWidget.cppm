@@ -6,8 +6,8 @@
 // Clicking a tab (or SelectTab) swaps the visible panel and highlights the active tab.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.gui:tab_widget;
 

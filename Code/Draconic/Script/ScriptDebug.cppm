@@ -13,7 +13,7 @@
 // them across a socket. Every one has a round-trip test in the Script test suite.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.script:script_debug;
 

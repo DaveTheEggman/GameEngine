@@ -1,7 +1,7 @@
 // Draconic GUI - RadioButton + RadioGroup tests: mutual exclusion, click-to-select, group
 // callback, and standalone (no-group) behavior.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.vg;
 import draconic.gui;

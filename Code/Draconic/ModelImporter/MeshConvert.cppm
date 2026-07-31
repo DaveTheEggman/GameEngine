@@ -9,7 +9,7 @@
 /// sequential indices generated at load), so there is no non-indexed path here.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.modelimporter:mesh_convert;
 

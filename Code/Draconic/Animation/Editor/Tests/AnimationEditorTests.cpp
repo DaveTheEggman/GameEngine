@@ -2,8 +2,8 @@
 // through the resource factory and verify the runtime skeleton. Exercises the authoring -> cook ->
 // product path (the model importer that fills the source is deferred).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 import draconic.core;
 import draconic.vfs;

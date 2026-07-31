@@ -4,8 +4,8 @@
 // name + properties + default uniforms, and that binding the shader mid-build recorded
 // a material->shader dependency edge (so a shader reload propagates). Real DXC + Null RHI.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 import draconic.core;
 import draconic.vfs;

@@ -5,7 +5,7 @@
 // kept for API parity - lifetime is governed by ref-counting (drop-on-close destroys iff no other ref).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:popup_entry;
 

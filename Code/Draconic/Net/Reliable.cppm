@@ -12,9 +12,9 @@
 /// Tested headlessly against SimDatagramNetwork's loss/reorder - no OS sockets.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Debug/Assert.h"
-#include "Core/Log/Log.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Debug/Assert.h"
+#include "Draconic.Core/Log/Log.h"
 
 export module draconic.net:reliable;
 

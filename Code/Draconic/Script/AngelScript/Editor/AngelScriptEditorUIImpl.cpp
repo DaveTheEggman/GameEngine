@@ -4,7 +4,7 @@
 // char literals; block comments do not nest, no preprocessor lines.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 module draconic.script.angelscript.editor.ui;
 

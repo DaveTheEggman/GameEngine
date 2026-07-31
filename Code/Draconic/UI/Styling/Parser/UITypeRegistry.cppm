@@ -11,7 +11,7 @@
 // tests register the types they need explicitly for now.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:ui_type_registry;
 

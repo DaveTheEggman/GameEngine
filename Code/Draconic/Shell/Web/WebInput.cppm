@@ -9,7 +9,7 @@
 // are POLL-based (the browser Gamepad API): Update() samples every connected pad each frame.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include <emscripten/html5.h>
 
 export module draconic.shell.web:input;

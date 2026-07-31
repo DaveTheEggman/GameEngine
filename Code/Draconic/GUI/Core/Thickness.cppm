@@ -4,7 +4,7 @@
 // which overloads Rectf's Left/Top/Right/Bottom for this; a dedicated type is clearer.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.gui:thickness;
 

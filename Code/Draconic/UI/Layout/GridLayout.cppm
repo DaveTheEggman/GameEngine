@@ -5,8 +5,8 @@
 // -> Array<f32>; Math.Clamp -> local clamp helpers.)
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:grid_layout;
 

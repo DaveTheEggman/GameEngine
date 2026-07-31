@@ -2,7 +2,7 @@
 // rotate/scale/combine/inverse/transformPoint), plus a check that ToMatrix() feeds
 // core::TransformPoint2D (the VG DrawContext convention) identically.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.gui;
 

@@ -13,7 +13,7 @@
 /// a wgpuInstanceProcessEvents pump - never WaitAny.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
 #if DRACONIC_PLATFORM_WEB

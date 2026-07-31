@@ -3,7 +3,7 @@
 // Float2 (Vector2Animation -> Float2Animation); Color byte ctors -> float (/255); ctx.Animations ->
 // ctx.Animations().
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 #include "TestHelpers.h"

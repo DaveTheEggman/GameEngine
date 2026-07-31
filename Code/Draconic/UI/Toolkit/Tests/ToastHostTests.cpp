@@ -1,7 +1,7 @@
 // ToastHost tests: timed expiry vs sticky toasts, deferred removal (never mid-dispatch),
 // action/close buttons, and the bottom-right stacking layout.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 import draconic.ui.toolkit;

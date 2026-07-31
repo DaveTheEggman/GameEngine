@@ -5,8 +5,8 @@
 // LIVE now that the Fonts service + VG are wired. Toggle/state/event logic is faithful.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:checkbox;
 

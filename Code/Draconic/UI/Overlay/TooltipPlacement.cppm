@@ -4,7 +4,7 @@
 // Sedulous.UI/src/Overlay/TooltipPlacement.bf.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:tooltip_placement;
 

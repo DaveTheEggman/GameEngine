@@ -4,7 +4,7 @@
 // (docs/design/particles.md): CPU sim on the existing extract->resolve->draw pipeline. GPU-compute sim,
 // trails, mesh particles, and the cooked resource/editor land in later phases.
 
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include "imgui.h"
 
 import draconic.core;

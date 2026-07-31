@@ -2,7 +2,7 @@
 // to the minimum), title clicks fall through to the draggable bar, and a press raises the
 // window to the front.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.gui;
 

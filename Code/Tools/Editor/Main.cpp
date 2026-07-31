@@ -10,7 +10,7 @@
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
-#include "Core/Log/Log.h"
+#include "Draconic.Core/Log/Log.h"
 
 import draconic.core;
 import draconic.shell;

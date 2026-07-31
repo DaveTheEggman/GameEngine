@@ -1,6 +1,6 @@
 // draconic.runtime.gameinstance - the extracted run bracket owns the script run state + time scale.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.runtime.gameinstance;

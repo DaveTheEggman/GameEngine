@@ -5,7 +5,7 @@
 // Frame phases run in UpdateOrder() order within the Context.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.runtime:subsystem;
 

@@ -4,8 +4,8 @@
 // serializer cannot digest Jolt's headers inside an interface unit's global fragment).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Log/Log.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Log/Log.h"
 
 #include <Jolt/Jolt.h>
 #include <Jolt/RegisterTypes.h>

@@ -13,7 +13,7 @@
 /// partitions stay acyclic (:scene -> :component -> :system).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.scene:system;
 

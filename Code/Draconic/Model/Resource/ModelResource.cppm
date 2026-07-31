@@ -7,8 +7,8 @@
 // must not link importer/editor libraries for its cooked types.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.model.resource;
 

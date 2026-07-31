@@ -7,7 +7,7 @@
 // - the same pattern as draconic.ui's UIClusterImpl.cpp.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 module draconic.gui;
 

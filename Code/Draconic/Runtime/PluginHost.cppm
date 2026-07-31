@@ -7,7 +7,7 @@
 // closes it on teardown).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.runtime:pluginhost;
 

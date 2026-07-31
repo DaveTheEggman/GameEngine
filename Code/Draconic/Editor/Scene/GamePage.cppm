@@ -9,8 +9,8 @@
 // EnsureCamera frames the origin when the scene ships none, like the player).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Log/Log.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Log/Log.h"
 
 export module draconic.editor.scene:game_page;
 

@@ -7,7 +7,7 @@
 // view can track selection/expansion by id across expand/collapse.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.gui:tree_model;
 

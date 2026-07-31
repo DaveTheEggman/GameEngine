@@ -13,7 +13,7 @@
 /// caching, lifetime vs frames-in-flight) may need adjustment.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 #include "DxIncludes.h"
 

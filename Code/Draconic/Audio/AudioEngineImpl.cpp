@@ -14,8 +14,8 @@
 //            reserved on VoiceSlot (`lowpassNode`) and in the attach path below]
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Log/Log.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Log/Log.h"
 
 #include "miniaudio.h"
 

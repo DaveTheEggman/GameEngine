@@ -7,7 +7,7 @@
 // own viewport is hovered/focused (each scene page owns one - multi-scene rule, never global).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.editor.scene:camera;
 

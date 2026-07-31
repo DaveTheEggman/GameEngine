@@ -1,7 +1,7 @@
 // Ported from Sedulous.VG.Tests/VGContextTests.bf. (Sedulous Color32.Yellow is
 // inlined; Float4x4 != uses the C++20 rewrite of operator==.)
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.vg;
 

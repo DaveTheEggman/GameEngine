@@ -5,7 +5,7 @@
 /// empty cache: pipelines simply ignore it, GetData serves zero bytes.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.rhi.webgpu:pipeline_cache;
 

@@ -6,8 +6,8 @@
                   // (this import mix otherwise fails with "function body not available")
 #include <doctest/doctest.h>
 
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 import draconic.core;
 import draconic.vfs;

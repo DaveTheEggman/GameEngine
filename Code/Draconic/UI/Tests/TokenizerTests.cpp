@@ -1,7 +1,7 @@
 // Ported from Sedulous.UI.Tests/src/TokenizerTests.bf (faithful; Beef `scope Tokenizer` -> stack
 // value, List<Token> -> Array<Token>, Math.Abs(...) < eps -> doctest::Approx).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 

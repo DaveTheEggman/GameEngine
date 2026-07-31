@@ -6,7 +6,7 @@
 // Ported from Sedulous.RenderGraph (PersistentResource.bf).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.rendergraph:persistent_resource;
 

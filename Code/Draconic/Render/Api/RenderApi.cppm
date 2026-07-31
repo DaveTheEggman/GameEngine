@@ -20,7 +20,7 @@
 /// renderer isn't ready yet, so a frame bracket may be driven unconditionally.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.render.api;
 

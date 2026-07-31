@@ -8,7 +8,7 @@
 /// them into a render::ExtractedView that gets pushed to the renderer.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.render.subsystem:components;
 

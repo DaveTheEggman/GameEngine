@@ -5,7 +5,7 @@
 // from Sedulous.VG/ShapeBuilder.bf and DashGenerator.bf.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.vg:shapes;
 

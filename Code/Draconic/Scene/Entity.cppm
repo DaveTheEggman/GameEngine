@@ -7,7 +7,7 @@
 /// through the Scene (the data-oriented discipline: pools move, handles don't).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.scene:entity;
 

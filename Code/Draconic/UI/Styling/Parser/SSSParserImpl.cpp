@@ -6,7 +6,7 @@
 // registries - $vars / @icon / @image references are not resolved.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 module draconic.ui;
 

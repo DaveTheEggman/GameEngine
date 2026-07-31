@@ -5,9 +5,9 @@
 
 #include <doctest/doctest.h>
 
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include <initializer_list>
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 import draconic.core;
 import draconic.scene;

@@ -16,8 +16,8 @@
 // decode; font.Shaper/font.Font -> CachedFont::shaper/::font.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:edit_text;
 

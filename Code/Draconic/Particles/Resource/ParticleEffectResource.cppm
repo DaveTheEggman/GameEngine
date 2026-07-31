@@ -7,8 +7,8 @@
 // See docs/design/particles-authoring.md.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 #include <utility> // std::move
 
 export module draconic.particles.resource;

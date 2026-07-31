@@ -2,7 +2,7 @@
 // -> ReadObject (the page-open read). Regression coverage for the New-Asset flow (the original
 // crash was a missing ctor init in the PAGE, but this pins the data path).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.content;

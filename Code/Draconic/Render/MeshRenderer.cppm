@@ -14,7 +14,7 @@
 /// order must dominate). Material set-2 binding + real lighting are later phases.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.render:mesh_renderer;
 

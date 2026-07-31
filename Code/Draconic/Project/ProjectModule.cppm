@@ -6,8 +6,8 @@
 // EditorProject builds on top of this (mounts, DBs, per-user state stay editor-side).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.project;
 

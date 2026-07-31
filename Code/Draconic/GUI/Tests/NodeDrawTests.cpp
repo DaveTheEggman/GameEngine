@@ -2,7 +2,7 @@
 // GPU-free (VGContext tessellates into a CPU vertex batch), so we assert geometry is
 // produced and that visibility/alpha gate drawing.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.vg;
 import draconic.gui;

@@ -17,8 +17,8 @@
 // by the prefab machinery like every other entity ref in a payload.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.script.resource;
 

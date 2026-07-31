@@ -8,7 +8,7 @@
 /// split-screen views FXAA their own region), exactly like the tonemap.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.render:fxaa;
 

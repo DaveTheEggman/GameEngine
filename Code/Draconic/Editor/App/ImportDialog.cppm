@@ -10,8 +10,8 @@
 // later nicety; the seam is the options object, which already travels through the importer.)
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.editor.app:import_dialog;
 

@@ -2,7 +2,7 @@
 // void()>; Beef nullable String -> empty String check; MenuItem.CreateSeparator returns UniquePtr; menu
 // item/submenu structure only (no popup, no font).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 

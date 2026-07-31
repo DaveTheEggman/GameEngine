@@ -9,7 +9,7 @@
 /// consumer yet), and 3D textures would need per-slice passes - both fail honestly.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
 export module draconic.rhi.webgpu:blit_helper;

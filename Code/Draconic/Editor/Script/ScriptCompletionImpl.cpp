@@ -5,7 +5,7 @@
 // level, a type's members after `Type.`.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 module draconic.editor.script;
 

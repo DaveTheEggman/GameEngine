@@ -4,8 +4,8 @@
 // Sedulous.UI/src/Controls/RadioGroup.bf.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:radio_group;
 

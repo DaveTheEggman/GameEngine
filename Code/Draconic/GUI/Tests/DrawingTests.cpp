@@ -2,7 +2,7 @@
 // a VGContext tessellates into a CPU vertex batch, so we can assert geometry is produced).
 // StateList fallback semantics mirror the eepp/draconic.ui pattern.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.vg;
 import draconic.gui;

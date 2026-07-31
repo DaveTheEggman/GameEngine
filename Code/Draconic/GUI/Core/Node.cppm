@@ -7,8 +7,8 @@
 // subtree through the DrawContext/VG seam (eepp's nodeDraw + matrix/clip, on VG).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.gui:node;
 

@@ -7,7 +7,7 @@
 // (the page's OnUpdate) does the TreeView::SetAdapter churn outside event dispatch.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 module draconic.editor.script;
 

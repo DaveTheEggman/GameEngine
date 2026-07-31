@@ -7,8 +7,8 @@
 // object; pixels are the heavy "pixels" data stream.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.image.resource;
 

@@ -8,7 +8,7 @@
 /// to create modules, so it's separate from the RHI-free draconic.shaders.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.shaders.system:shader_system;
 

@@ -19,7 +19,7 @@
 /// caches can key on it alone ([[bind-group-cache-versioning]]).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.render:ibl;
 

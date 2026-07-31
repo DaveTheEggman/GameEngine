@@ -6,7 +6,7 @@
 // Shared by the baked font and the TTF text shaper.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.fonts:text_util;
 

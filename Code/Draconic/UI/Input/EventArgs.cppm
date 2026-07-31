@@ -5,7 +5,7 @@
 // data - no View reference - so they can sit below :view in the module graph.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:event_args;
 

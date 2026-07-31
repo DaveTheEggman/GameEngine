@@ -2,7 +2,7 @@
 // the end-to-end showcase where hovering re-resolves :hover rules and drives a CSS
 // transition through the ActionManager.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.gui;
 

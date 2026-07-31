@@ -6,7 +6,7 @@
 /// callbacks before the WebGpuDevice wrapper exists to receive them.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
 export module draconic.rhi.webgpu:adapter;

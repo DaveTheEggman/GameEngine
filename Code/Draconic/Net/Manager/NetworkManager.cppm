@@ -8,8 +8,8 @@
 /// facade resolves the CURRENT script context's endpoint, so each instance's script sees its own.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.net.manager;
 

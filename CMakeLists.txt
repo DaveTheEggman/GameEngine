@@ -127,6 +127,16 @@ if(DRACONIC_WARNINGS_AS_ERRORS)
         $<$<CXX_COMPILER_ID:Clang>:-Wno-error=unused-command-line-argument;-Wno-c2y-extensions>)
 endif()
 
+# --- Include roots -----------------------------------------------------------
+# Role-grouped reorg: modules live at Code/Draconic/<Role>/Draconic.<Name> and expose their
+# path-prefixed public headers as "Draconic.<Name>/...". The ROLE dirs are the global include
+# roots so a header resolves by its dotted name regardless of which role owns it (moving a module
+# between roles never touches an #include). Code/Draconic stays a root during the migration so
+# not-yet-moved modules keep their legacy "Runtime/..."/"Shell/..." prefixes until their role lands.
+include_directories(
+    ${CMAKE_SOURCE_DIR}/Code/Draconic            # transitional: unmigrated modules' legacy prefixes
+    ${CMAKE_SOURCE_DIR}/Code/Draconic/Foundation) # Draconic.Core/, Draconic.Profiler/, ...
+
 # --- Targets -----------------------------------------------------------------
 # Web (Emscripten) builds climb the engine INCREMENTALLY (docs/design/web-platform.md):
 # only the layers proven under wasm are configured; everything below the gate stays
@@ -141,22 +151,24 @@ if(EMSCRIPTEN)
     set(DRACONIC_BUILD_TOOLS OFF)
 
     add_subdirectory(ThirdParty)
-    add_subdirectory(Code/Draconic/Core)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Core)
     if(DRACONIC_BUILD_TESTS)
-        add_subdirectory(Code/Draconic/Core/Tests)
+        add_subdirectory(Code/Draconic/Foundation/Draconic.Core/Tests)
     endif()
 
     # Climbing the stack for web (docs/design/web-platform.md). Each layer is added once it
     # compiles under wasm; portability fixes land in Core/System backends, not #if branches in
     # the libraries. Pure-over-Core layers first; platform/third-party edges (sockets, RHI
     # backends, shell) come as their web backends are wired.
-    add_subdirectory(Code/Draconic/Settings)
-    add_subdirectory(Code/Draconic/Profiler)
-    add_subdirectory(Code/Draconic/Xml)
-    add_subdirectory(Code/Draconic/VFS)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Settings)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Profiler)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Xml)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Xml.Serialization)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.VFS)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.VFS.Pak)
     add_subdirectory(Code/Draconic/Project)
-    add_subdirectory(Code/Draconic/Content)
-    add_subdirectory(Code/Draconic/Resource)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Content)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Resource)
     add_subdirectory(Code/Draconic/RHI)
     add_subdirectory(Code/Draconic/Shell) # IShell interface + Null backend; the SDL3 desktop backend auto-skips on emscripten
     add_subdirectory(Code/Draconic/Graphics) # GraphicsDevice/RenderWindow (interface + Null); GPU factory gated on a backend
@@ -220,16 +232,18 @@ if(EMSCRIPTEN)
 endif()
 
 add_subdirectory(ThirdParty)
-add_subdirectory(Code/Draconic/Core)
-add_subdirectory(Code/Draconic/Settings)  # typed/versioned settings store over Core (runtime + editor)
-add_subdirectory(Code/Draconic/Profiler)  # CPU scope profiler over Core (instrumented across the engine)
+add_subdirectory(Code/Draconic/Foundation/Draconic.Core)
+add_subdirectory(Code/Draconic/Foundation/Draconic.Settings)  # typed/versioned settings store over Core (runtime + editor)
+add_subdirectory(Code/Draconic/Foundation/Draconic.Profiler)  # CPU scope profiler over Core (instrumented across the engine)
 add_subdirectory(Code/Draconic/Net)       # real-time game networking: wire + INetTransport + loopback sim (over Core)
 add_subdirectory(Code/Draconic/Net/Replication)  # StateReplication foundation: NetworkId + reflection-driven field codec (over Net + Core)
-add_subdirectory(Code/Draconic/Xml)       # DOM XML parser + writer over Core
-add_subdirectory(Code/Draconic/VFS)       # byte access over Core stream primitives
+add_subdirectory(Code/Draconic/Foundation/Draconic.Xml)       # DOM XML parser + writer over Core
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Xml.Serialization)
+add_subdirectory(Code/Draconic/Foundation/Draconic.VFS)       # byte access over Core stream primitives
+    add_subdirectory(Code/Draconic/Foundation/Draconic.VFS.Pak)
 add_subdirectory(Code/Draconic/Project)   # project manifest/layout (runtime-side, editor-free)
-add_subdirectory(Code/Draconic/Content)   # content database over Core + VFS
-add_subdirectory(Code/Draconic/Resource)  # resource manager over content
+add_subdirectory(Code/Draconic/Foundation/Draconic.Content)   # content database over Core + VFS
+add_subdirectory(Code/Draconic/Foundation/Draconic.Resource)  # resource manager over content
 add_subdirectory(Code/Draconic/Editor)     # asset-pipeline authoring base (tooling)
 add_subdirectory(Code/Draconic/Editor/Cook) # incremental cook driver + pipeline DB (tooling, headless)
 add_subdirectory(Code/Draconic/Editor/Core) # headless editor domain: context/registries/commands/pages/project (tooling)
@@ -298,7 +312,7 @@ add_subdirectory(Code/Tools/Export)        # RaptorExport dist packager
 add_subdirectory(Code/Tools/ShaderPackCook) # RaptorShaderPackCook: cook shaders.dpak (WGSL for web)
 
 if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(Code/Draconic/Core/Tests)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Core/Tests)
     add_subdirectory(Code/Draconic/Script/Tests)
 endif()
 

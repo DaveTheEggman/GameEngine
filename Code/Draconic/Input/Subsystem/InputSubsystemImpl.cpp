@@ -5,8 +5,8 @@
 // declares RegisterInputScriptApi(); this unit defines it and Input::StaticType().
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 module draconic.input.subsystem;
 

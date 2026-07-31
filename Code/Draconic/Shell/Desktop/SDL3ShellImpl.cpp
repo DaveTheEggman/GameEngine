@@ -5,8 +5,8 @@
 // handle types) + trivial inline accessors.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Log/Log.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Log/Log.h"
 #include <cstdint>
 #include <SDL3/SDL.h>
 #define SDL_MAIN_HANDLED

@@ -1,8 +1,8 @@
 // Draconic::EditorImage - the `draconic.editor.image` module (implementation).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Log/Log.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Log/Log.h"
 
 module draconic.editor.image;
 

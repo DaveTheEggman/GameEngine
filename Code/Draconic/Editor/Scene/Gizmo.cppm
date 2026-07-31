@@ -26,7 +26,7 @@
 // GizmoFrameInput struct - both fully scriptable in headless tests.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include <initializer_list>
 
 export module draconic.editor.scene:gizmo;

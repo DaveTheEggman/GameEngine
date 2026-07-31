@@ -7,7 +7,7 @@
 // (it implicitly imports the primary interface) and is outside the interface dependency graph.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 module draconic.ui;
 

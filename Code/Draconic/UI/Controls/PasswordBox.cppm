@@ -4,8 +4,8 @@
 // disables clipboard copy/cut for security. Ported from Sedulous.UI/src/Controls/PasswordBox.bf.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:password_box;
 

@@ -7,8 +7,8 @@
 // spelled fully-qualified (draconic::ui::Orientation) wherever the type/enumerators are named.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui.toolkit:split_view;
 

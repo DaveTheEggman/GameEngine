@@ -9,7 +9,7 @@
 //
 // Defaults to wgsl when no formats are given.
 
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 #include <cstdio>
 

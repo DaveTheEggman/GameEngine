@@ -3,7 +3,7 @@
 /// Ported from Sedulous.Images.Image.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 #include <algorithm>
 #include <cmath>

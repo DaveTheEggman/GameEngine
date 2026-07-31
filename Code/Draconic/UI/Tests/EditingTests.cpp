@@ -3,7 +3,7 @@
 // U'...'). UndoStack has no upstream test file (Sedulous exercises it only through EditText), so its
 // cases below are direct unit coverage for the ported primitive.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 

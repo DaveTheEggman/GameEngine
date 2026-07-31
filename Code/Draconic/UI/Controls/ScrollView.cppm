@@ -9,8 +9,8 @@
 // properties -> methods; the `ScrollBarMode` Property field shadows its enum type -> aliased.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:scroll_view;
 

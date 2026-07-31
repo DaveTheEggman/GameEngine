@@ -2,7 +2,7 @@
 // nesting -> children, id/class -> identity, claimed attributes (text/orientation) structural,
 // and everything else applied as inline CSS through the StyleApplier.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.gui;
 

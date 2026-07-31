@@ -9,7 +9,7 @@
 /// front (from the desc extent). The draw-recording methods mirror VkRenderPassEncoderImpl.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 #include "VkIncludes.h"
 

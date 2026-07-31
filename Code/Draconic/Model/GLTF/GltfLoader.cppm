@@ -2,7 +2,7 @@
 /// Ported from Sedulous.Models.GLTF/GltfLoader.bf.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 #include <algorithm>
 #include <cctype>

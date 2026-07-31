@@ -5,7 +5,7 @@
 // member values ARE the Dark palette (Dark() returns the default).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:theme_palette;
 

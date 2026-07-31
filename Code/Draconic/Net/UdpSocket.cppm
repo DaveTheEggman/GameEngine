@@ -6,7 +6,7 @@
 /// DatagramEndpoint packs (ip << 16) | port in host order.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.net:udp_socket;
 

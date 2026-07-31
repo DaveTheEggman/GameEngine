@@ -12,7 +12,7 @@
 ///     deferred-during-update destroy lands with the update loop in a later phase.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include <type_traits>
 
 export module draconic.scene:scene;

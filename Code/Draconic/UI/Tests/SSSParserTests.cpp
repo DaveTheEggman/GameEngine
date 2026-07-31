@@ -6,7 +6,7 @@
 // (Button/CheckBox/ButtonBase: DrawableFactory_StateColors/StateRounded/Svg*, SubtypeMatching_*, Icon_*)
 // remain DEFERRED until those controls are ported.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 import draconic.image;

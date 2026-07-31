@@ -4,7 +4,7 @@
 /// backends share); each resolves to the layout entry's SHIFTED binding number.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
 export module draconic.rhi.webgpu:bind_group;

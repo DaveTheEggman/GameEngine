@@ -2,7 +2,7 @@
 /// Ported from Sedulous.Models.FBX/FbxLoader.bf.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 #include <algorithm>
 #include <cctype>

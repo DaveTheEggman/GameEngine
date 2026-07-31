@@ -17,8 +17,8 @@
 // the basis for detachable UI windows - with close deferred to frame end.
 
 module;
-#include "Core/Prelude.h"
-#include "Profiler/Profiler.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Profiler/Profiler.h"
 
 export module draconic.runtime.client;
 

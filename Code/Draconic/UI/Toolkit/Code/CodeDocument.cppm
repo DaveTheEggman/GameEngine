@@ -9,8 +9,8 @@
 /// everything here is headless-testable.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Debug/Assert.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Debug/Assert.h"
 
 export module draconic.ui.toolkit:code_document;
 

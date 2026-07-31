@@ -16,8 +16,8 @@
 /// hatch from the storage decision - with no consumer impact.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Debug/Assert.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Debug/Assert.h"
 
 export module draconic.scene:component;
 

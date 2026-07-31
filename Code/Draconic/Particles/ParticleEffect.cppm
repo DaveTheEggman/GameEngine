@@ -12,7 +12,7 @@
 // simulation core driven by an effect built in code (or, later, by the cooked resource).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include <utility> // std::move / std::forward (module-local; core Move/Forward also exist)
 
 export module draconic.particles:effect;

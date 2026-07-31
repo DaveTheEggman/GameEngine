@@ -8,7 +8,7 @@
 // GetEventDispatcher()->GetClipboard(), which may be null (then cut/copy/paste no-op).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.gui:clipboard;
 

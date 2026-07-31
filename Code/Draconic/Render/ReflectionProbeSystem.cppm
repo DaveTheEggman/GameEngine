@@ -13,7 +13,7 @@
 /// assignment; capture, prefilter, and the debug view land in P1b/P1c.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.render:probes;
 

@@ -6,7 +6,7 @@
 // Keyed by Path pointer identity - the caller keeps the Path objects alive.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.vg:cache;
 

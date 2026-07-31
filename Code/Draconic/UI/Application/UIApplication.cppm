@@ -13,8 +13,8 @@
 // drag/resize (all position/size writes are ATOMIC - per-axis writes race on async X11).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h" // Cast<DockPanelDragData> for the drag-follow
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h" // Cast<DockPanelDragData> for the drag-follow
 
 export module draconic.ui.application;
 

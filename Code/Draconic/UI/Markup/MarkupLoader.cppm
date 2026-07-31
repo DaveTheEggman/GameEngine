@@ -6,7 +6,7 @@
 // XML downcasts use XmlNode::NodeType() + static_cast (draconic.xml nodes are not DRACONIC_OBJECTs).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:markup_loader;
 

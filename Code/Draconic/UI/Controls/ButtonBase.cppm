@@ -6,8 +6,8 @@
 // wired into UIContext; this base provides the button background chrome.)
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:button_base;
 

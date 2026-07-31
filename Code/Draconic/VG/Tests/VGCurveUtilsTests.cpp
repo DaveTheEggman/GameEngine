@@ -1,7 +1,7 @@
 // Ported from Sedulous.VG.Tests/CurveUtilsTests.bf. Mirrors the Sedulous
 // assertions (Test.Assert -> CHECK; Float2 -> Float2; List -> Array; .X/.Y -> .x/.y).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.vg;
 

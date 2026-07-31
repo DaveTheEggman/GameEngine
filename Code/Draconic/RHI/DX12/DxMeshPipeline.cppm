@@ -4,7 +4,7 @@
 /// Ported from Sedulous.RHI.DX12/DX12MeshPipeline.bf.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 #include "DxIncludes.h"
 

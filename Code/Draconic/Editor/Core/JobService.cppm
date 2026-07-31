@@ -8,7 +8,7 @@
 // reads Progress() to drive a status-bar progress bar.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.editor.core:job_service;
 

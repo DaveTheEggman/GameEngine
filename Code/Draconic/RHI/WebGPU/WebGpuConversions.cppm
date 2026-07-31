@@ -7,7 +7,7 @@
 /// has no border sampling) - visible difference only on shadow-map edge taps.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
 export module draconic.rhi.webgpu:conversions;

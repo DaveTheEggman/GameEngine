@@ -21,10 +21,10 @@
 // the documented v1 contract).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
-#include "Core/Log/Log.h"
-#include "Profiler/Profiler.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
+#include "Draconic.Core/Log/Log.h"
+#include "Draconic.Profiler/Profiler.h"
 
 export module draconic.script.subsystem;
 

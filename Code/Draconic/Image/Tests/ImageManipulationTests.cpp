@@ -4,7 +4,7 @@
 // ConvertFormat returns Image directly so no `.Value`; Sedulous Color32.Lime
 // (0,255,0) maps to our Color32::Green).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.image;
 

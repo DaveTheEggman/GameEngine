@@ -12,7 +12,7 @@
 /// the renderer had its own copy and VG/UI/ImGui each DXC-compiled inline HLSL with no pack path.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.shaders.system:host;
 

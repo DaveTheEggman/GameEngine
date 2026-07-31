@@ -15,8 +15,8 @@
 /// pass-group through draconic.rendergraph (MRT + automatic barriers + transient aliasing).
 
 module;
-#include "Core/Prelude.h"
-#include "Profiler/Profiler.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Profiler/Profiler.h"
 
 export module draconic.render:pipeline;
 

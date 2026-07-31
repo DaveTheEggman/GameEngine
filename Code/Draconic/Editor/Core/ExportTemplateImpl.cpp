@@ -7,8 +7,8 @@
 // directory (Bin/...), so a dev export for the current platform needs zero setup.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 #include <filesystem> // recursive dir copy when importing a template bundle
 
 module draconic.editor.core;

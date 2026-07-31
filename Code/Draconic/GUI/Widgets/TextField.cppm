@@ -14,8 +14,8 @@
 // follow-ups; this is a full-featured single-line editor.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.gui:text_field;
 

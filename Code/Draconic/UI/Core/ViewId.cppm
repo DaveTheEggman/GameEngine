@@ -5,7 +5,7 @@
 // return null. Ported from Sedulous.UI/src/Core/ViewId.bf.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:view_id;
 

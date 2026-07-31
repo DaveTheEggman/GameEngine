@@ -8,7 +8,7 @@
 
 #include <cstdio>
 #include <cstring>
-#include "Core/Log/Log.h"
+#include "Draconic.Core/Log/Log.h"
 
 import draconic.core;
 import draconic.content;

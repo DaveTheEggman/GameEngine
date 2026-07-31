@@ -6,7 +6,7 @@
 /// The font atlas upload is deferred to the first Render (we get a command encoder there, not at init).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include "imgui.h"
 #include <cstring>
 

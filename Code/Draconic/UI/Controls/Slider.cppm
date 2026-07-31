@@ -5,8 +5,8 @@
 // functions are called qualified as core::Min/core::Max and the enum is fully qualified. Round -> std::round.)
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:slider;
 

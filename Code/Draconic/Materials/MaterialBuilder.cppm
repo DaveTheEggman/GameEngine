@@ -6,7 +6,7 @@
 /// back the finished Material (RefPtr, since Material is an Object).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.materials:builder;
 

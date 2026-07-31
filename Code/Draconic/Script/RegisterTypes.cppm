@@ -5,7 +5,7 @@
 // higher-layer registration) to expose them to scripts in one shot.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.script:script_register;
 

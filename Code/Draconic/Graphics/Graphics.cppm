@@ -20,7 +20,7 @@
 // renders a list of RenderWindows, each independent, sharing one GraphicsDevice.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.graphics;
 

@@ -4,7 +4,7 @@
 // port unchanged.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include <cstdio>
 #include <cstdarg>
 

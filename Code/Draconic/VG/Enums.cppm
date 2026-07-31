@@ -4,7 +4,7 @@
 // Sedulous.VG (FillRule/VGBlendMode/VGClipMode/VGLineCap/VGLineJoin).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.vg:enums;
 

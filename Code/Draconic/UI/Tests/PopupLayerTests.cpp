@@ -3,7 +3,7 @@
 // module-cycle divergence - so the "is last child" tests capture it into a local first, mirroring Beef's
 // eager ctor creation). Popups are MakeRef'd and passed by .Get(); `new`+`delete` -> RefPtr (RAII).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 #include "TestHelpers.h"

@@ -15,7 +15,7 @@
 /// sampling the normalT G-buffer are later optimizations.)
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.render:decal_pass;
 

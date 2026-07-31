@@ -1,7 +1,7 @@
 // Ported from Sedulous.UI.Tests/src/PopupPositionerTests.bf (faithful). Beef `let (x,y) = ...` tuple ->
 // Float2; RectangleF -> core::Rectangle; Vector2 -> Float2; Math.Abs(d) < eps -> doctest::Approx.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 

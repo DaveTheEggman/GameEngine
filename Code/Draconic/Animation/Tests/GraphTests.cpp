@@ -2,7 +2,7 @@
 // and a graph-player smoke test. Ports Sedulous.Animation.Tests (AnimationGraph*, BlendTree*,
 // BoneMask, AnimationLayer) + adds a state-machine integration check.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 import draconic.core;
 import draconic.animation;

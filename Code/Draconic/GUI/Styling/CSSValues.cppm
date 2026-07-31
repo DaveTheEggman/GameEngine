@@ -6,7 +6,7 @@
 // (#rgb/#rrggbb/#rrggbbaa), and rgb()/rgba().
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.gui:css_values;
 

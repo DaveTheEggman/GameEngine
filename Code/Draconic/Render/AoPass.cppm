@@ -9,7 +9,7 @@
 /// modes are mutually exclusive (AoMode). All targets are render-graph transients (sized per view).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.render:ao;
 

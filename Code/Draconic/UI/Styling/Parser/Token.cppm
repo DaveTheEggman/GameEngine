@@ -4,7 +4,7 @@
 // Sedulous.UI/src/Styling/Parser/Token.bf.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:sss_token;
 

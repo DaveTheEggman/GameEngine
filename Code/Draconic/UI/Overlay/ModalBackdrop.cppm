@@ -4,8 +4,8 @@
 // all mouse events. Ported from Sedulous.UI/src/Overlay/ModalBackdrop.bf.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:modal_backdrop;
 

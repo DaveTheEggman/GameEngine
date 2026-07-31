@@ -12,7 +12,7 @@
 /// DrawIndexed), so a static 6-index buffer [0..5] drives the SV_VertexID quad.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 module draconic.render;
 

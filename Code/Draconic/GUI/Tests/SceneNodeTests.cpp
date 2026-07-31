@@ -1,7 +1,7 @@
 // Draconic GUI - SceneNode coordinator tests: root lookup, deferred Close via the
 // MutationQueue, and the update loop draining tree edits.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.gui;
 

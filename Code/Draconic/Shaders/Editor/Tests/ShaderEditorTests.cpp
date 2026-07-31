@@ -2,8 +2,8 @@
 // cook through ShaderAssetBuilder into an output content DB, and verify the cooked
 // ShaderSource carries the name + both stages' inline HLSL.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 import draconic.core;
 import draconic.vfs;

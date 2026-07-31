@@ -7,7 +7,7 @@
 // and pack at the vertex boundary (see [[textures-port]] / Color32).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.vg:vertex;
 

@@ -2,8 +2,8 @@
 // never sit in a module interface unit - the GCC gcm-cluster rule).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 module draconic.script.facades;
 

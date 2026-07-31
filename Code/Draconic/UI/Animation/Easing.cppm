@@ -5,7 +5,7 @@
 // a struct of static constexpr function-pointer members). EasingFunction = f32(*)(f32).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:easing;
 

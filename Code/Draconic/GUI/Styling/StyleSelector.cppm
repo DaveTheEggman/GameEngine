@@ -11,7 +11,7 @@
 // combinators, structural pseudo (:nth-child), attribute selectors, :not.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.gui:style_selector;
 

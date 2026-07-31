@@ -1,6 +1,6 @@
 // Draconic Render - draconic.render:mesh_renderer implementation unit (sec 3.2 / sec 10.6).
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 module draconic.render;
 

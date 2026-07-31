@@ -13,8 +13,8 @@
 // through the registries by the asset's language id, so it edits Wren and AngelScript alike.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Log/Log.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Log/Log.h"
 
 export module draconic.editor.script;
 

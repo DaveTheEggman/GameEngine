@@ -7,7 +7,7 @@
 // ExtractInto delegates to the scene's manager, which packs the live billboards.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.particles.subsystem:subsystem;
 

@@ -7,7 +7,7 @@
 // reader, and keeps the host GPU-backend-agnostic.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.graphics.null;
 

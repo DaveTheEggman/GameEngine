@@ -2,7 +2,7 @@
 /// Ported from Sedulous.Models/ModelMaterial.bf.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 #include <string>
 

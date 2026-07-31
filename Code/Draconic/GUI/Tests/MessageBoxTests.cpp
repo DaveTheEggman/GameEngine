@@ -2,7 +2,7 @@
 // the dialog (background clicks are swallowed by the dispatcher's modal root); MessageBox shows
 // the right buttons and reports the pressed result, then closes.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.gui;
 

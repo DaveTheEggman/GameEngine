@@ -6,8 +6,8 @@
 // (Cast<T>) and the manager can own it via RefPtr (Beef `~delete _` -> RAII).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:drag_data;
 

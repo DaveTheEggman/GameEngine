@@ -24,7 +24,7 @@
 #ifndef DRACONIC_RUNTIME_CLIENT_APPMAIN_H
 #define DRACONIC_RUNTIME_CLIENT_APPMAIN_H
 
-#include "Core/Prelude.h" // DRACONIC_PLATFORM_WEB (picks the desktop vs browser entry body)
+#include "Draconic.Core/Prelude.h" // DRACONIC_PLATFORM_WEB (picks the desktop vs browser entry body)
 
 #if DRACONIC_PLATFORM_WEB
 

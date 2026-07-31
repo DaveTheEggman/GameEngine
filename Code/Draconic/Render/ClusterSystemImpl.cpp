@@ -10,7 +10,7 @@
 /// real froxel-AABB / sphere-assignment kernel; 4.3c wires the buffers into the forward shader.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 module draconic.render;
 

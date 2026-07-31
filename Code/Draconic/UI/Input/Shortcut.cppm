@@ -4,8 +4,8 @@
 // Object (RefCounted) so ShortcutManager can own them via RefPtr and hand back stable pointers.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:shortcut;
 

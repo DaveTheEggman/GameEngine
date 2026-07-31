@@ -10,7 +10,7 @@
 /// server; the server validates + resolves it and CallAlls the result back out.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.net:rpc;
 

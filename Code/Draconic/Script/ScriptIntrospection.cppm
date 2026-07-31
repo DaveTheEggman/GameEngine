@@ -9,7 +9,7 @@
 // reflection registry catches exactly that silent gap.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.script:script_introspection;
 

@@ -11,7 +11,7 @@
 /// Views are pooled per frame from a `RenderViewPool` (reset, not freed, each frame).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.render:views;
 

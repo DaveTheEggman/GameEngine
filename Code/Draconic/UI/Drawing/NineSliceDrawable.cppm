@@ -5,8 +5,8 @@
 // fields); Expand is a ui::Thickness (PascalCase).
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:nine_slice_drawable;
 

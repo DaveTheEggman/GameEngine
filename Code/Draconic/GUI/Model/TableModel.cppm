@@ -6,7 +6,7 @@
 // than lexicographically. Mutating it notifies attached views via DidUpdate.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.gui:table_model;
 

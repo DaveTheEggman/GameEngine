@@ -1,6 +1,6 @@
 // Ported from Sedulous.UI.Tests/src/GravityTests.bf (faithful; enum-vs-int compares via underlying u32).
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 

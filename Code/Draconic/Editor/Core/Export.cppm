@@ -13,8 +13,8 @@
 // resource refs and the manifest's defaultScene path keep working in the pak.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Log/Log.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Log/Log.h"
 
 export module draconic.editor.core:export_pipeline;
 

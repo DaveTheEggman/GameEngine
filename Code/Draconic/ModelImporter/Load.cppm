@@ -6,7 +6,7 @@
 /// drives; it keeps the loader dependency inside the importer library.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.modelimporter:load;
 

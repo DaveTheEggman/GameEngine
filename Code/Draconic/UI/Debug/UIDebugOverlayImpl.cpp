@@ -6,8 +6,8 @@
 // C() helper; `view as ViewGroup` -> Cast<ViewGroup>.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h" // Cast
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h" // Cast
 
 module draconic.ui;
 

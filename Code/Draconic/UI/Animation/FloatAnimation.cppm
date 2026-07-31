@@ -5,7 +5,7 @@
 // Function<void(f32)> (value type, RAII).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:float_animation;
 

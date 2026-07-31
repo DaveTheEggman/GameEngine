@@ -4,7 +4,7 @@
 // from Sedulous.RenderGraph (GraphDebug.bf).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.rendergraph:debug;
 

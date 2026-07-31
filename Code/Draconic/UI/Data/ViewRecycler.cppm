@@ -6,7 +6,7 @@
 // the pool, Recycle moves one IN (ownership transfers via RefPtr, no manual delete).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:view_recycler;
 

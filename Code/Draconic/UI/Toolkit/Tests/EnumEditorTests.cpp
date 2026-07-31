@@ -1,6 +1,6 @@
 // Smoke test for the toolkit EnumEditor: value round-trip + ComboBox selection drives the setter.
 #include <doctest/doctest.h>
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 import draconic.core;
 import draconic.ui;
 import draconic.ui.toolkit;

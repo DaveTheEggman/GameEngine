@@ -9,8 +9,8 @@
 // focus overrides are defined out-of-line after Float3Editor is complete.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui.toolkit:float3_editor;
 

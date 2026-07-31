@@ -9,7 +9,7 @@
 // `String outText` accumulator becomes a `String&` we assign into.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:undo_stack;
 

@@ -6,7 +6,7 @@
 // returns the full root until the Overlay subsystem lands.)
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:focus_manager;
 

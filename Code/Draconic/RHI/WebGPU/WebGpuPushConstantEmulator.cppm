@@ -10,7 +10,7 @@
 /// commands retain what the GPU needs, so releasing the wrappers after End is safe.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
 export module draconic.rhi.webgpu:push_constant_emulator;

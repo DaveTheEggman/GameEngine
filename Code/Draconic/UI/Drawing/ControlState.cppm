@@ -6,7 +6,7 @@
 // -> C++ enum class + bitwise operators).
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 
 export module draconic.ui:control_state;
 

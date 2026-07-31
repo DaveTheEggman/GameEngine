@@ -5,8 +5,8 @@
 // Object + DRACONIC_OBJECT so the layout algorithms can Cast<T> down to their param subclasses.
 
 module;
-#include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h"
+#include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.ui:layout_params;
 

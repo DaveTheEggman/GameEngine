@@ -5,7 +5,7 @@
 // generates per-glyph MSDF bitmaps, and packs them into a DFFontAtlas.
 
 module;
-#include "Core/Prelude.h"
+#include "Draconic.Core/Prelude.h"
 #include "msdfgen_impl.h"
 
 #define STBTT_DEF extern
