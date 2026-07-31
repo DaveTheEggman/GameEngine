@@ -23,28 +23,9 @@ namespace rhi = draconic::rhi;
 export namespace draconic::imgui
 {
 
-    // ImGui VS/PS: pos2D + uv + packed RGBA8 -> clip via an ortho projection; PS = vertex color * font.
-    // Row-vector mul (engine convention: matrices row-major, `mul(v, M)`).
-    inline constexpr const char8_t* kImguiVS = u8R"(
-cbuffer Proj : register(b0, space0) { row_major float4x4 Projection; };
-struct VSIn  { float2 pos : TEXCOORD0; float2 uv : TEXCOORD1; float4 col : TEXCOORD2; };
-struct VSOut { float4 pos : SV_Position; float2 uv : TEXCOORD0; float4 col : COLOR0; };
-VSOut main(VSIn i) {
-    VSOut o;
-    o.pos = mul(float4(i.pos, 0.0, 1.0), Projection);
-    o.uv  = i.uv;
-    o.col = i.col;
-    return o;
-}
-)";
-
-    inline constexpr const char8_t* kImguiPS = u8R"(
-Texture2D    FontTex  : register(t0, space0);
-SamplerState FontSamp : register(s0, space0);
-struct PSIn { float4 pos : SV_Position; float2 uv : TEXCOORD0; float4 col : COLOR0; };
-float4 main(PSIn i) : SV_Target { return i.col * FontTex.Sample(FontSamp, i.uv); }
-)";
-
+    // The ImGui VS/PS ship in the engine shader corpus (imgui.vs / imgui.ps) and are resolved via
+    // ShaderSystem::GetVariant("imgui", ...) - cooked WGSL from the pack on web, dev-compiled from
+    // Data/Shaders on desktop - so no inline HLSL / RegisterSource here.
     class ImguiRenderer
     {
     public:
@@ -60,8 +41,8 @@ float4 main(PSIn i) : SV_Target { return i.col * FontTex.Sample(FontSamp, i.uv);
 
         Status Initialize()
         {
-            m_shaders->RegisterSource(u8"imgui", shaders::ShaderStage::Vertex, kImguiVS);
-            m_shaders->RegisterSource(u8"imgui", shaders::ShaderStage::Fragment, kImguiPS);
+            // The "imgui" shaders come from the ShaderSystem (cooked pack or dev file provider) -
+            // no RegisterSource; they are part of the engine corpus now.
 
             // set 0: projection UBO (b0, Vertex) + font texture (t0) + sampler (s0).
             rhi::BindGroupLayoutEntry projE =

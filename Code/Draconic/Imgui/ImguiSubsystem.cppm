@@ -91,13 +91,17 @@ export namespace draconic::imgui
     protected:
         void OnInit() override
         {
-            if (!shaders::createCompiler(shaders::CompilerDesc{}, m_compiler).IsOk() ||
-                m_compiler == nullptr)
+            // Resolve the ImGui shaders via the shared ShaderSystemHost: cooked WGSL from the pack
+            // (dist/browser, no compiler) or dev DXC over Data/Shaders. Needs one or the other.
+#ifdef DRACONIC_ENGINE_SHADER_DIR
+            constexpr StringView kShaderRoot = u8"" DRACONIC_ENGINE_SHADER_DIR;
+#else
+            constexpr StringView kShaderRoot = u8"Shaders";
+#endif
+            if (!m_shaderHost.Initialize(*m_device, kShaderRoot))
             {
-                return;
+                return; // no compiler and no shader pack - ImGui stays inert
             }
-            m_shaders =
-                MakeUnique<shaders::ShaderSystem>(DefaultAllocator(), *m_compiler, *m_device);
 
             IMGUI_CHECKVERSION();
             m_context = ImGui::CreateContext();
@@ -107,8 +111,8 @@ export namespace draconic::imgui
             io.Fonts->AddFontDefault();
             ImGui::StyleColorsDark();
 
-            m_renderer = MakeUnique<ImguiRenderer>(DefaultAllocator(), *m_device, *m_shaders,
-                                                   m_framesInFlight);
+            m_renderer = MakeUnique<ImguiRenderer>(DefaultAllocator(), *m_device,
+                                                   *m_shaderHost.System(), m_framesInFlight);
             if (!m_renderer->Initialize().IsOk())
             {
                 m_renderer.Reset();
@@ -129,12 +133,7 @@ export namespace draconic::imgui
                 ImGui::DestroyContext(m_context);
                 m_context = nullptr;
             }
-            m_shaders.Reset();
-            if (m_compiler != nullptr)
-            {
-                m_compiler->Destroy();
-                m_compiler = nullptr;
-            }
+            m_shaderHost.Shutdown();
             m_ready = false;
         }
 
@@ -180,8 +179,7 @@ export namespace draconic::imgui
 
         rhi::Device* m_device;
         u32 m_framesInFlight = 2;
-        shaders::Compiler* m_compiler = nullptr;
-        UniquePtr<shaders::ShaderSystem> m_shaders;
+        shaders::ShaderSystemHost m_shaderHost; // owns the ShaderSystem + the ImGui modules
         UniquePtr<ImguiRenderer> m_renderer;
         ImGuiContext* m_context = nullptr;
         u32 m_width = 1280,
