@@ -1,13 +1,13 @@
 # Draconic::Animation - `draconic.animation`, the skeletal-animation foundation
 # (skeleton/pose/clip/sampler/player + animation graph). A faithful port of
 # Sedulous.Animation; pure logic over Core math + containers, no renderer dep.
-add_library(DraconicAnimation STATIC)
-add_library(Draconic::Animation ALIAS DraconicAnimation)
+add_library(Draconic.Animation STATIC)
+add_library(Draconic::Animation ALIAS Draconic.Animation)
 
-target_link_libraries(DraconicAnimation
+target_link_libraries(Draconic.Animation
     PUBLIC Draconic::Core Draconic::Policy)
 
-target_sources(DraconicAnimation
+target_sources(Draconic.Animation
     PUBLIC
         FILE_SET animation_modules TYPE CXX_MODULES FILES
             Easing.cppm
@@ -20,15 +20,15 @@ target_sources(DraconicAnimation
             AnimationModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(Tests)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Animation.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
 endif()
 
 # Skeletons + clips as cooked resources (Source -> Factory -> runtime types).
-add_subdirectory(Resource)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Animation.Resource ${CMAKE_CURRENT_BINARY_DIR}/Resource)
 
 # Authoring + cook (tooling: SkeletonAsset/AnimationClipAsset -> source).
 if(DRACONIC_BUILD_TOOLS)
-    add_subdirectory(Editor)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../Editor/Draconic.Animation.Editor ${CMAKE_CURRENT_BINARY_DIR}/Editor)
 endif()
 
 # NB: the scene-integration lib (Animation/Subsystem) is added from the ROOT CMakeLists AFTER

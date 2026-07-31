@@ -1,16 +1,16 @@
 # Draconic::AnimationResource - `draconic.animation.resource`: skeletons + clips as
 # cooked resources (Source -> Factory -> runtime Skeleton/AnimationClip).
-add_library(DraconicAnimationResource STATIC)
-add_library(Draconic::AnimationResource ALIAS DraconicAnimationResource)
+add_library(Draconic.Animation.Resource STATIC)
+add_library(Draconic::AnimationResource ALIAS Draconic.Animation.Resource)
 
-target_link_libraries(DraconicAnimationResource
+target_link_libraries(Draconic.Animation.Resource
     PUBLIC Draconic::Core Draconic::Resource Draconic::Content Draconic::Animation Draconic::Policy)
 
-target_sources(DraconicAnimationResource
+target_sources(Draconic.Animation.Resource
     PUBLIC
         FILE_SET animation_resource_modules TYPE CXX_MODULES FILES
             AnimationResource.cppm)
 
 if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(Tests)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Animation.Resource.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
 endif()

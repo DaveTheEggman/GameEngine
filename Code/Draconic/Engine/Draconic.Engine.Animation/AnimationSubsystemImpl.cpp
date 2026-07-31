@@ -9,7 +9,7 @@ module;
 #include "Draconic.Core/Prelude.h"
 #include "Draconic.Core/Reflection/Reflect.h"
 
-module draconic.animation.subsystem;
+module draconic.engine.animation;
 
 import draconic.core;
 

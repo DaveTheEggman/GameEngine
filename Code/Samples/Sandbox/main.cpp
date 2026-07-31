@@ -19,7 +19,7 @@ import draconic.runtime.defaultapp; // DefaultApplication (scene + render subsys
 import draconic.scene;
 import draconic.scene.subsystem;
 import draconic.render.subsystem; // MeshComponent / CameraComponent + their managers
-import draconic.animation.subsystem; // SkeletalAnimation/AnimationGraph components (engine-driven skinning)
+import draconic.engine.animation; // SkeletalAnimation/AnimationGraph components (engine-driven skinning)
 import draconic.imgui;               // ImguiSubsystem (debug UI)
 import draconic.image;               // Image (HDR equirect pixels)
 import draconic.image.io;            // LoadImage

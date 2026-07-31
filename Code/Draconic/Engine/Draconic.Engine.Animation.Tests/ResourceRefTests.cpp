@@ -13,7 +13,7 @@ import draconic.content;
 import draconic.resource;
 import draconic.animation;
 import draconic.animation.resource;
-import draconic.animation.subsystem;
+import draconic.engine.animation;
 import draconic.render.subsystem; // MeshComponentManager (the skeletal tick's feed target)
 import draconic.scene;
 import draconic.scene.resource;

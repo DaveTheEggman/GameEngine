@@ -42,7 +42,7 @@ import draconic.input.resource;
 import draconic.input.editor;
 import draconic.modelimporter;
 import draconic.render.subsystem;
-import draconic.animation.subsystem;
+import draconic.engine.animation;
 import draconic.particles.subsystem;
 import draconic.physics;
 import draconic.physics.resource;

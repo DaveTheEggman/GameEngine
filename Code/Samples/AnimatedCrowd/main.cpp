@@ -35,7 +35,7 @@ import draconic.resource;            // ResourceManager + Proxy
 import draconic.model;               // ModelLoadResult
 import draconic.modelimporter;       // LoadAndCook + ImportedModel manifest
 import draconic.animation;           // AnimationClip / Skeleton
-import draconic.animation.subsystem; // SkeletalAnimationComponent(Manager) - engine-driven skinning
+import draconic.engine.animation; // SkeletalAnimationComponent(Manager) - engine-driven skinning
 
 #include "../Common/FlyCamera.h" // shared free-fly camera (uses the imported runtime/core types)
 

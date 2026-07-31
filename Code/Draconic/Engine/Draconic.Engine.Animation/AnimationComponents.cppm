@@ -13,7 +13,7 @@
 module;
 #include "Draconic.Core/Prelude.h"
 
-export module draconic.animation.subsystem:components;
+export module draconic.engine.animation:components;
 
 import draconic.core;
 import draconic.resource;

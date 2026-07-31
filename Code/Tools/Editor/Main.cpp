@@ -24,7 +24,7 @@ import draconic.scene.subsystem;
 import draconic.render.subsystem;
 import draconic.content;
 import draconic.animation.resource;
-import draconic.animation.subsystem;
+import draconic.engine.animation;
 import draconic.particles.resource;
 import draconic.particles.subsystem;
 import draconic.ui.runtime;

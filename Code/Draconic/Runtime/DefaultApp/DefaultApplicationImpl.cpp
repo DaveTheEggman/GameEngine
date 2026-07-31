@@ -18,7 +18,7 @@ import draconic.graphics;             // GraphicsDevice, FrameContext
 import draconic.scene;                // Scene
 import draconic.scene.subsystem;      // SceneSubsystem (the standard scene driver)
 import draconic.render.subsystem;     // RenderSubsystem (the standard renderer)
-import draconic.animation.subsystem; // AnimationSubsystem (drives skeletal animation from the scene)
+import draconic.engine.animation; // AnimationSubsystem (drives skeletal animation from the scene)
 import draconic.particles.subsystem; // ParticleSubsystem (scene-driven CPU sim)
 import draconic.physics;             // ContactKind/EntityContact (the contact bridge)
 import draconic.physics.subsystem;   // PhysicsSubsystem (Jolt worlds + interpolation)

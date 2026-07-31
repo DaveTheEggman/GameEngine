@@ -29,7 +29,7 @@ import draconic.render;
 import draconic.render.subsystem;
 import draconic.animation;
 import draconic.animation.resource;
-import draconic.animation.subsystem;
+import draconic.engine.animation;
 import draconic.particles;
 import draconic.particles.resource;
 import draconic.particles.subsystem;

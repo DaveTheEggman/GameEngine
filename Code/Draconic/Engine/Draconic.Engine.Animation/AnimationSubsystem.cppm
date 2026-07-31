@@ -10,7 +10,7 @@
 module;
 #include "Draconic.Core/Prelude.h"
 
-export module draconic.animation.subsystem:subsystem;
+export module draconic.engine.animation:subsystem;
 
 import draconic.core;
 import draconic.runtime;         // Subsystem, Context
