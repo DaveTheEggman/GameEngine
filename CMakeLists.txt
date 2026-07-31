@@ -207,6 +207,10 @@ if(EMSCRIPTEN)
     # First FULL engine app in a browser: DefaultApplication + a lit PBR scene, cooked WGSL pack
     # bundled. Emits WebScene.html.
     add_subdirectory(Code/Samples/WebScene)
+    # The generic game runner in a browser: RaptorPlayer's web entry (WebMain.cpp) loads a cooked
+    # dist (Content.pak + player.xml) preloaded into the virtual FS + the WGSL shader pack. Emits
+    # RaptorPlayer.html. NOT tooling (a shipped game runs it), so it is added here, not under BUILD_TOOLS.
+    add_subdirectory(Code/Tools/Player)
     # The app layer climbs on web now: draconic.runtime.defaultapp (DefaultApplication + its whole
     # subsystem stack) and the game-instance/scripting composition build for wasm (via Runtime +
     # Script/Subsystem above; AngelScript is gated off inside DefaultApp). Still to do: a full-app
