@@ -143,6 +143,48 @@ export namespace draconic::rhi::webgpu
             }
         }
 
+        // The sRGB companion of a non-sRGB 8-bit color format (identity otherwise) - the inverse of
+        // BaseColorFormat, for adopting the browser's preferred canvas format as an sRGB backbuffer.
+        static TextureFormat SrgbColorFormat(TextureFormat format)
+        {
+            switch (format)
+            {
+            case TextureFormat::BGRA8Unorm:
+                return TextureFormat::BGRA8UnormSrgb;
+            case TextureFormat::RGBA8Unorm:
+                return TextureFormat::RGBA8UnormSrgb;
+            default:
+                return format;
+            }
+        }
+
+#if DRACONIC_PLATFORM_WEB
+        // The browser's preferred canvas base format (formats[0] of the surface caps). Configuring
+        // the canvas with anything else forces an extra copy at present. Falls back to the engine
+        // default if caps are unavailable / not an 8-bit unorm format we understand.
+        TextureFormat PreferredBaseFormat(TextureFormat fallback)
+        {
+            WGPUSurfaceCapabilities caps = WGPU_SURFACE_CAPABILITIES_INIT;
+            if (m_api->wgpuSurfaceGetCapabilities(m_surface->Handle(), m_adapter, &caps) !=
+                    WGPUStatus_Success ||
+                caps.formatCount == 0)
+            {
+                return fallback;
+            }
+            const WGPUTextureFormat preferred = caps.formats[0];
+            m_api->wgpuSurfaceCapabilitiesFreeMembers(caps);
+            if (preferred == WGPUTextureFormat_RGBA8Unorm)
+            {
+                return TextureFormat::RGBA8Unorm;
+            }
+            if (preferred == WGPUTextureFormat_BGRA8Unorm)
+            {
+                return TextureFormat::BGRA8Unorm;
+            }
+            return fallback;
+        }
+#endif
+
         Status Configure(u32 width, u32 height)
         {
             m_width = width;
@@ -172,7 +214,14 @@ export namespace draconic::rhi::webgpu
             // the per-frame view in m_format (the sRGB format), so the engine's default sRGB
             // swapchain renders correctly with no app-side change. Desktop wgpu-native accepts sRGB
             // config formats directly, so it is left exactly as before.
-            const TextureFormat baseFormat = BaseColorFormat(m_format);
+            //
+            // ADOPT THE BROWSER'S PREFERRED base format (rgba8unorm vs bgra8unorm varies by device):
+            // configuring the canvas with a non-preferred format forces the browser to copy the whole
+            // frame at every present ("configured with a different format than preferred" warning).
+            // Take the preferred base + retarget the engine to its sRGB companion so the renderer
+            // still produces an sRGB backbuffer, just in the format the compositor wants.
+            const TextureFormat baseFormat = PreferredBaseFormat(BaseColorFormat(m_format));
+            m_format = SrgbColorFormat(baseFormat);
             config.format = ToWgpuTextureFormat(baseFormat);
             WGPUTextureFormat viewFormat = ToWgpuTextureFormat(m_format);
             if (baseFormat != m_format)
