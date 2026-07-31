@@ -19,13 +19,5 @@ target_sources(Draconic.Animation
             AnimationGraph.cppm
             AnimationModule.cppm)
 
-# Skeletons + clips as cooked resources (Source -> Factory -> runtime types).
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Animation.Resource ${CMAKE_CURRENT_BINARY_DIR}/Resource)
-
-# Authoring + cook (tooling: SkeletonAsset/AnimationClipAsset -> source).
-if(DRACONIC_BUILD_TOOLS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../Editor/Draconic.Animation.Editor ${CMAKE_CURRENT_BINARY_DIR}/Editor)
-endif()
-
 # NB: the scene-integration lib (Animation/Subsystem) is added from the ROOT CMakeLists AFTER
 # Render, because it links Draconic::Engine.Render (which doesn't exist this early in config).

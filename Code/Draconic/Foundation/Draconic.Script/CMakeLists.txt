@@ -21,13 +21,3 @@ target_sources(Draconic.Script
             IScriptManager.cppm
             RegisterTypes.cppm
             BackendRegistry.cppm)
-
-# VM backends. Wren is vendored+compiled here; the AngelScript backend links the vendored
-# Draconic::AngelScript third-party, which is gated off for Emscripten (its native-call trampolines
-# are not wired for wasm) - so the backend only builds where that target exists. ThirdParty is always
-# configured first, so this TARGET guard is order-safe.
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Script.Wren ${CMAKE_CURRENT_BINARY_DIR}/Wren)
-if(TARGET Draconic::AngelScript)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Script.AngelScript ${CMAKE_CURRENT_BINARY_DIR}/AngelScript)
-endif()
-

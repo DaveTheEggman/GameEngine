@@ -23,6 +23,3 @@ target_sources(Draconic.VG
             Context.cppm
             VGModule.cppm)
 
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.VG.SVG ${CMAKE_CURRENT_BINARY_DIR}/SVG)  # draconic.vg.svg - SVG -> VG (parsers/loader/renderer)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.VG.Renderer ${CMAKE_CURRENT_BINARY_DIR}/Renderer)  # draconic.vg.renderer - VGBatch -> RHI
-

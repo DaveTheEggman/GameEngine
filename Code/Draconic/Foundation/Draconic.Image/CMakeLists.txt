@@ -9,8 +9,3 @@ target_sources(Draconic.Image PUBLIC FILE_SET image_modules TYPE CXX_MODULES FIL
     NineSlice.cppm
     AtlasBuilder.cppm
     ImageModule.cppm)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Image.IO ${CMAKE_CURRENT_BINARY_DIR}/IO)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Image.Resource ${CMAKE_CURRENT_BINARY_DIR}/Resource)  # draconic.image.resource (runtime CPU image)
-if(DRACONIC_BUILD_TOOLS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../Editor/Draconic.Image.Editor ${CMAKE_CURRENT_BINARY_DIR}/Editor)    # draconic.image.editor (tooling)
-endif()

@@ -57,5 +57,3 @@ target_sources(Draconic.Render
 
 # Scene integration (draconic.engine.render): the resource- + scene-aware bridge. Links the base
 # Runtime + SceneSubsystem + the cook/material stack, all of which climb, so it climbs too - the
-# renderer itself stays device-abstract; only the GPU DEVICE (Emscripten WebGPU) is phase 2.
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../Engine/Draconic.Engine.Render ${CMAKE_CURRENT_BINARY_DIR}/Subsystem)

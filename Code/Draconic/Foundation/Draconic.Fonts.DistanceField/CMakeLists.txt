@@ -11,8 +11,3 @@ target_sources(Draconic.Fonts.DistanceField
         FILE_SET fonts_df_modules TYPE CXX_MODULES FILES
             DFFontAtlas.cppm
             FontsDFModule.cppm)
-
-if(TARGET Draconic::MsdfgenCore)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Fonts.DistanceField.Baker ${CMAKE_CURRENT_BINARY_DIR}/Baker)
-endif()
-

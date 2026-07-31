@@ -18,8 +18,3 @@ target_sources(Draconic.Particles
             ParticleEffect.cppm
             ParticlesModule.cppm)
 
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Particles.Resource ${CMAKE_CURRENT_BINARY_DIR}/Resource)   # draconic.particles.resource (cooked ParticleEffectResource + factory)
-if(DRACONIC_BUILD_TOOLS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../Editor/Draconic.Particles.Editor ${CMAKE_CURRENT_BINARY_DIR}/Editor)     # draconic.particles.editor  (ParticleEffectAsset + bake; tooling only)
-endif()
-

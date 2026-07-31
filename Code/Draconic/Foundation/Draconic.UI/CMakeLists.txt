@@ -159,21 +159,3 @@ target_sources(Draconic.UI
         Debug/UIDebugOverlayImpl.cpp
         Styling/Parser/SSSParserImpl.cpp
         Styling/Parser/UITypeRegistryImpl.cpp)
-
-# VFS-backed resource provider + shell input bridge (separate libs so the core UI
-# stays VFS-/platform-free).
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.UI.VFS ${CMAKE_CURRENT_BINARY_DIR}/VFS)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.UI.Shell ${CMAKE_CURRENT_BINARY_DIR}/Shell)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.UI.Toolkit ${CMAKE_CURRENT_BINARY_DIR}/Toolkit)
-# ViewportView: a ui::View hosting 3D content (offscreen RT + OnRender callback + gated InputSurface).
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.UI.Viewport ${CMAKE_CURRENT_BINARY_DIR}/Viewport)
-# UIHost + docking workbench: draw draconic.ui on the runtime multi-window graphics host - these link
-# Draconic::Graphics and Draconic::Runtime.Client (the desktop app/graphics layer), so they climb with
-# that layer, not on web yet.
-if(NOT EMSCRIPTEN)
-    # UIHost: draws draconic.ui on the runtime multi-window graphics host (depends on Draconic::Graphics).
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.UI.Runtime ${CMAKE_CURRENT_BINARY_DIR}/Runtime)
-    # Docking/workbench: RuntimeDockableWindowHost (the only UI module that links Draconic::UI.Toolkit).
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.UI.Application ${CMAKE_CURRENT_BINARY_DIR}/Application)
-endif()
-

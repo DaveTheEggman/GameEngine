@@ -18,13 +18,3 @@ target_sources(Draconic.Materials
             MaterialSystem.cppm
             MaterialsModule.cppm)
 
-# Render-side PSO cache (needs the ShaderSystem on top of Materials).
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Materials.PipelineCache ${CMAKE_CURRENT_BINARY_DIR}/PSO)
-
-# Materials as resources (MaterialSource -> Material; depends on the ShaderResource).
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Materials.Resource ${CMAKE_CURRENT_BINARY_DIR}/Resource)
-
-# Material authoring + cook (tooling: MaterialAsset -> MaterialSource).
-if(DRACONIC_BUILD_TOOLS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../Editor/Draconic.Materials.Editor ${CMAKE_CURRENT_BINARY_DIR}/Editor)
-endif()

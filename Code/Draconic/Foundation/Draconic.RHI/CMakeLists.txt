@@ -30,30 +30,3 @@ target_sources(Draconic.RHI
             SwapChain.cppm
             Device.cppm
             RhiModule.cppm)
-
-# Backends.
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.RHI.Null ${CMAKE_CURRENT_BINARY_DIR}/Null)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.RHI.Validation ${CMAKE_CURRENT_BINARY_DIR}/Validation)
-
-# Vulkan backend - built when the Vulkan SDK is available.
-find_package(Vulkan QUIET)
-if(Vulkan_FOUND)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.RHI.Vulkan ${CMAKE_CURRENT_BINARY_DIR}/Vulkan)
-else()
-    message(STATUS "Vulkan not found - skipping Draconic::RHI.Vulkan")
-endif()
-
-# DX12 backend - Windows only.
-if(WIN32)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.RHI.DX12 ${CMAKE_CURRENT_BINARY_DIR}/DX12)
-endif()
-
-# WebGPU backend. Desktop loads the vendored wgpu-native sidecar at run time (the current
-# implementation links wgpuXxx as external symbols resolved via that library). Emscripten instead
-# provides WebGPU from the browser through the emdawnwebgpu port (Dawn's webgpu.h + a JS binding
-# that speaks the real navigator.gpu); WebGPU/CMakeLists.txt wires that port for the web build.
-if(EMSCRIPTEN OR TARGET Draconic::WgpuHeaders)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.RHI.WebGPU ${CMAKE_CURRENT_BINARY_DIR}/WebGPU)
-else()
-    message(STATUS "Skipping Draconic::RHI.WebGPU (no wgpu headers)")
-endif()

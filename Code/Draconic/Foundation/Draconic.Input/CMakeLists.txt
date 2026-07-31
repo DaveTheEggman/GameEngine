@@ -13,8 +13,3 @@ target_sources(Draconic.Input
             InputMap.cppm
             ActionRuntime.cppm)
 
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Input.Resource ${CMAKE_CURRENT_BINARY_DIR}/Resource)
-if(DRACONIC_BUILD_TOOLS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../Editor/Draconic.Input.Editor ${CMAKE_CURRENT_BINARY_DIR}/Editor)
-endif()
-

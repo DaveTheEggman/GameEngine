@@ -16,10 +16,3 @@ target_sources(Draconic.Geometry
             Primitives.cppm
             GeometryModule.cppm)
 
-# Meshes as resources (Static/SkinnedMeshSource -> Static/SkinnedMesh).
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Geometry.Resource ${CMAKE_CURRENT_BINARY_DIR}/Resource)
-
-# Mesh authoring + cook (tooling: Static/SkinnedMeshAsset -> source).
-if(DRACONIC_BUILD_TOOLS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../Editor/Draconic.Geometry.Editor ${CMAKE_CURRENT_BINARY_DIR}/Editor)
-endif()

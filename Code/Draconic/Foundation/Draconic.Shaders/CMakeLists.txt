@@ -27,11 +27,4 @@ target_sources(Draconic.Shaders
             ShadersModule.cppm)
 
 # The shader system (variant compile-on-demand + cache) needs the RHI to create
-# GPU modules, so it lives in its own module/library, gated on the RHI.
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Shaders.System ${CMAKE_CURRENT_BINARY_DIR}/System)
 
-# Shaders as resources (ShaderSource -> ShaderResource) + the editor asset side.
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Shaders.Resource ${CMAKE_CURRENT_BINARY_DIR}/Resource)
-if(DRACONIC_BUILD_TOOLS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../Editor/Draconic.Shaders.Editor ${CMAKE_CURRENT_BINARY_DIR}/Editor)
-endif()

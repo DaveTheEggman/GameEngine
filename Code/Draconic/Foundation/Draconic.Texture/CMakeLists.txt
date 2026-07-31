@@ -14,8 +14,3 @@ target_sources(Draconic.Texture
             TextureData.cppm
             TextureModule.cppm)
 
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Texture.Resource ${CMAKE_CURRENT_BINARY_DIR}/Resource)  # draconic.texture.resource - runtime cooked resource + GPU factory
-if(DRACONIC_BUILD_TOOLS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../Editor/Draconic.Texture.Editor ${CMAKE_CURRENT_BINARY_DIR}/Editor)    # draconic.texture.editor   - tooling: asset + builder + importer
-endif()
-
