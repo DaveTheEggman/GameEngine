@@ -40,7 +40,13 @@ add_custom_command(
 add_custom_target(WebSceneShaderPack DEPENDS "${_web_shader_pack}")
 add_dependencies(WebScene WebSceneShaderPack)
 
+# Full-window canvas: a custom HTML shell sizes the <canvas> to the viewport (the default Emscripten
+# shell is a small fixed canvas). Relinks when the shell changes.
+set(_web_shell "${CMAKE_CURRENT_SOURCE_DIR}/shell.html")
+set_source_files_properties(main.cpp PROPERTIES OBJECT_DEPENDS "${_web_shell}")
+
 target_link_options(WebScene PRIVATE
+    "--shell-file=${_web_shell}"
     "-sASYNCIFY"              # synchronous device init + per-frame GPU fence waits yield to the browser
     # ASYNCIFY unwinds the WHOLE C++ stack into this buffer on every emscripten_sleep. The full
     # renderer's GPU-completion pump (PumpUntilWithDevice) yields from deep inside the render frame
