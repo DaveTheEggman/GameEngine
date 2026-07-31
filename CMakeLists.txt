@@ -135,7 +135,12 @@ endif()
 # not-yet-moved modules keep their legacy "Runtime/..."/"Shell/..." prefixes until their role lands.
 include_directories(
     ${CMAKE_SOURCE_DIR}/Code/Draconic            # transitional: unmigrated modules' legacy prefixes
-    ${CMAKE_SOURCE_DIR}/Code/Draconic/Foundation) # Draconic.Core/, Draconic.Profiler/, ...
+    ${CMAKE_SOURCE_DIR}/Code/Draconic/Foundation
+    ${CMAKE_SOURCE_DIR}/Code/Draconic/Engine
+    ${CMAKE_SOURCE_DIR}/Code/Draconic/Editor
+    ${CMAKE_SOURCE_DIR}/Code/Draconic/Tools
+    ${CMAKE_SOURCE_DIR}/Code/Draconic/Experimental
+    ${CMAKE_SOURCE_DIR}/Code/Draconic/Extensions)
 
 # --- Targets -----------------------------------------------------------------
 # Web (Emscripten) builds climb the engine INCREMENTALLY (docs/design/web-platform.md):
@@ -152,9 +157,6 @@ if(EMSCRIPTEN)
 
     add_subdirectory(ThirdParty)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Core)
-    if(DRACONIC_BUILD_TESTS)
-        add_subdirectory(Code/Draconic/Foundation/Draconic.Core/Tests)
-    endif()
 
     # Climbing the stack for web (docs/design/web-platform.md). Each layer is added once it
     # compiles under wasm; portability fixes land in Core/System backends, not #if branches in
@@ -171,8 +173,8 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Resource)
     add_subdirectory(Code/Draconic/RHI)
     add_subdirectory(Code/Draconic/Shell) # IShell interface + Null backend; the SDL3 desktop backend auto-skips on emscripten
-    add_subdirectory(Code/Draconic/Graphics) # GraphicsDevice/RenderWindow (interface + Null); GPU factory gated on a backend
-    add_subdirectory(Code/Draconic/RenderGraph)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Graphics) # GraphicsDevice/RenderWindow (interface + Null); GPU factory gated on a backend
+    add_subdirectory(Code/Draconic/Foundation/Draconic.RenderGraph)
     add_subdirectory(Code/Draconic/Image)
     add_subdirectory(Code/Draconic/Geometry)
     add_subdirectory(Code/Draconic/Animation)
@@ -189,7 +191,10 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/Animation/Subsystem)  # links Render + Animation (both up)
     add_subdirectory(Code/Draconic/Particles)
     add_subdirectory(Code/Draconic/Particles/Subsystem)  # links Render + Particles (both up)
-    add_subdirectory(Code/Draconic/Model)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Model)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Model.IO)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Model.GLTF)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Model.FBX)
     add_subdirectory(Code/Draconic/Fonts)
     add_subdirectory(Code/Draconic/VG)
     add_subdirectory(Code/Draconic/UI)
@@ -207,7 +212,7 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/Physics/Resource)
     add_subdirectory(Code/Draconic/Physics/Subsystem)
     # Runtime long-tail: cooked-resource + subsystem + manager sub-libs (all deps above are up).
-    add_subdirectory(Code/Draconic/Model/Resource)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Model.Resource)
     add_subdirectory(Code/Draconic/Script/Resource)
     add_subdirectory(Code/Draconic/UI/Resource)
     add_subdirectory(Code/Draconic/UI/Subsystem)
@@ -248,10 +253,13 @@ add_subdirectory(Code/Draconic/Editor)     # asset-pipeline authoring base (tool
 add_subdirectory(Code/Draconic/Editor/Cook) # incremental cook driver + pipeline DB (tooling, headless)
 add_subdirectory(Code/Draconic/Editor/Core) # headless editor domain: context/registries/commands/pages/project (tooling)
 add_subdirectory(Code/Draconic/RHI)   # depends only on Core (foundational sibling of Runtime)
-add_subdirectory(Code/Draconic/RenderGraph)  # render graph over RHI
+add_subdirectory(Code/Draconic/Foundation/Draconic.RenderGraph)  # render graph over RHI
 add_subdirectory(Code/Draconic/Shaders)
 add_subdirectory(Code/Draconic/Image)
-add_subdirectory(Code/Draconic/Model)
+add_subdirectory(Code/Draconic/Foundation/Draconic.Model)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Model.IO)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Model.GLTF)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Model.FBX)
 add_subdirectory(Code/Draconic/Geometry)  # engine runtime mesh format (StaticMesh/SkinnedMesh + primitives)
 add_subdirectory(Code/Draconic/Animation) # skeletal-animation foundation (Sedulous.Animation port; Core-only)
 add_subdirectory(Code/Draconic/Particles) # CPU particle runtime (Sedulous.Particles port; Core-only)
@@ -271,7 +279,7 @@ add_subdirectory(Code/Draconic/Audio/Subsystem)   # audio scene integration (com
 add_subdirectory(Code/Draconic/Fonts)     # font types/interfaces over Core + Image
 add_subdirectory(Code/Draconic/Texture)   # texture descriptors + cooked resource/GPU factory + editor
 add_subdirectory(Code/Draconic/Materials) # data-driven material model (PipelineConfig + bind-group-inferring MaterialSystem)
-add_subdirectory(Code/Draconic/Model/Resource) # cooked model manifest + runtime composite (runtime side; no tooling deps)
+add_subdirectory(Code/Draconic/Foundation/Draconic.Model.Resource) # cooked model manifest + runtime composite (runtime side; no tooling deps)
 add_subdirectory(Code/Draconic/UI/Resource)   # cooked UI documents + themes (game-ui; UI-framework-free records)
 add_subdirectory(Code/Draconic/UI/Editor)     # UI document/theme assets + validating builders (tooling)
 add_subdirectory(Code/Draconic/UI/Subsystem)  # game screen tier: canvases + overlay render + consumption
@@ -291,7 +299,7 @@ add_subdirectory(Code/Draconic/Shell)     # raw platform/OS service (IShell: win
 add_subdirectory(Code/Draconic/Input)     # action-mapping layer (InputMap + ActionRuntime + asset/cooked) over Core + Shell
 add_subdirectory(Code/Draconic/GUI/Shell)  # draconic.gui.shell: platform input bridge (Shell InputEvents -> GUI EventDispatcher)
 add_subdirectory(Code/Draconic/GUI/VFS)   # draconic.gui.vfs: VFS-backed IResourceProvider (background-image: url() loading)
-add_subdirectory(Code/Draconic/Graphics)  # GraphicsDevice/RenderWindow render host over RHI+Shell; below Runtime
+add_subdirectory(Code/Draconic/Foundation/Draconic.Graphics)  # GraphicsDevice/RenderWindow render host over RHI+Shell; below Runtime
 add_subdirectory(Code/Draconic/Runtime)
 add_subdirectory(Code/Draconic/Input/Subsystem)  # input runtime hookup (tick + device provider seam) over Runtime
 add_subdirectory(Code/Draconic/Script/Subsystem) # entity behaviors (ScriptComponent + the run's ONE gameplay script context) over Runtime
@@ -312,7 +320,6 @@ add_subdirectory(Code/Tools/Export)        # RaptorExport dist packager
 add_subdirectory(Code/Tools/ShaderPackCook) # RaptorShaderPackCook: cook shaders.dpak (WGSL for web)
 
 if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Core/Tests)
     add_subdirectory(Code/Draconic/Script/Tests)
 endif()
 

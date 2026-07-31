@@ -1,6 +1,0 @@
-add_executable(DraconicModelTests TestsMain.cpp ModelTests.cpp)
-target_link_libraries(DraconicModelTests PRIVATE Draconic::Model doctest::doctest)
-target_compile_definitions(DraconicModelTests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
-target_compile_options(DraconicModelTests PRIVATE
-    "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings;-Wno-error=c2y-extensions>" "$<$<CXX_COMPILER_ID:GNU>:-Wno-error=cpp>")
-add_test(NAME DraconicModelTests COMMAND DraconicModelTests)

@@ -2,12 +2,12 @@
 # pass dependency resolution, transient resource aliasing, automatic barriers).
 # Ported from Sedulous.RenderGraph.
 
-add_library(DraconicRenderGraph STATIC)
-add_library(Draconic::RenderGraph ALIAS DraconicRenderGraph)
+add_library(Draconic.RenderGraph STATIC)
+add_library(Draconic::RenderGraph ALIAS Draconic.RenderGraph)
 
-target_link_libraries(DraconicRenderGraph PUBLIC Draconic::Core Draconic::RHI Draconic::Policy)
+target_link_libraries(Draconic.RenderGraph PUBLIC Draconic::Core Draconic::RHI Draconic::Policy)
 
-target_sources(DraconicRenderGraph
+target_sources(Draconic.RenderGraph
     PUBLIC
         FILE_SET render_graph_modules TYPE CXX_MODULES FILES
             Types.cppm
@@ -27,5 +27,5 @@ target_sources(DraconicRenderGraph
             RenderGraphModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(Tests)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.RenderGraph.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
 endif()

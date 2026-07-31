@@ -143,3 +143,7 @@ target_sources(Draconic.Core
 
 # So `#include "Core/Prelude.h"` resolves from module global-module-fragments.
 target_include_directories(Draconic.Core PUBLIC ${CMAKE_SOURCE_DIR}/Code/Draconic)
+
+if(DRACONIC_BUILD_TESTS)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Core.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
+endif()

@@ -3,27 +3,27 @@
 # base RHI, so it builds everywhere (incl. headless, no Vulkan). Backend factories
 # (Null / Vulkan) are sibling modules so heavy backend modules never enter this
 # interface (GCC's module reader rejects that).
-add_library(DraconicGraphics STATIC)
-add_library(Draconic::Graphics ALIAS DraconicGraphics)
+add_library(Draconic.Graphics STATIC)
+add_library(Draconic::Graphics ALIAS Draconic.Graphics)
 
-target_link_libraries(DraconicGraphics
+target_link_libraries(Draconic.Graphics
     PUBLIC
         Draconic::Core
         Draconic::RHI
         Draconic::Shell
         Draconic::Policy)
 
-target_sources(DraconicGraphics
+target_sources(Draconic.Graphics
     PUBLIC
         FILE_SET graphics_modules TYPE CXX_MODULES FILES
             Graphics.cppm)
 
 # Draconic::GraphicsNull - `draconic.graphics.null` (headless device
 # factory over the Null RHI backend). No GPU/Vulkan required.
-add_library(DraconicGraphicsNull STATIC)
-add_library(Draconic::GraphicsNull ALIAS DraconicGraphicsNull)
+add_library(Draconic.Graphics.Null STATIC)
+add_library(Draconic::GraphicsNull ALIAS Draconic.Graphics.Null)
 
-target_link_libraries(DraconicGraphicsNull
+target_link_libraries(Draconic.Graphics.Null
     PUBLIC
         Draconic::Core
         Draconic::RHI
@@ -31,7 +31,7 @@ target_link_libraries(DraconicGraphicsNull
         Draconic::Graphics
         Draconic::Policy)
 
-target_sources(DraconicGraphicsNull
+target_sources(Draconic.Graphics.Null
     PUBLIC
         FILE_SET graphics_null_modules TYPE CXX_MODULES FILES
             GraphicsNull.cppm)
@@ -41,10 +41,10 @@ target_sources(DraconicGraphicsNull
 # present backend (DRACONIC_HAS_*). The backend imports live in the implementation unit, off every
 # consumer's module closure.
 if(TARGET Draconic::RHIVulkan OR TARGET Draconic::RHIDX12 OR TARGET Draconic::RHIWebGPU)
-    add_library(DraconicGraphicsGpu STATIC)
-    add_library(Draconic::GraphicsGpu ALIAS DraconicGraphicsGpu)
+    add_library(Draconic.Graphics.Gpu STATIC)
+    add_library(Draconic::GraphicsGpu ALIAS Draconic.Graphics.Gpu)
 
-    target_link_libraries(DraconicGraphicsGpu
+    target_link_libraries(Draconic.Graphics.Gpu
         PUBLIC
             Draconic::Core
             Draconic::RHI
@@ -54,21 +54,21 @@ if(TARGET Draconic::RHIVulkan OR TARGET Draconic::RHIDX12 OR TARGET Draconic::RH
             Draconic::Policy)
 
     if(TARGET Draconic::RHIVulkan)
-        target_link_libraries(DraconicGraphicsGpu PUBLIC Draconic::RHIVulkan)
-        target_compile_definitions(DraconicGraphicsGpu PUBLIC DRACONIC_HAS_VULKAN)
+        target_link_libraries(Draconic.Graphics.Gpu PUBLIC Draconic::RHIVulkan)
+        target_compile_definitions(Draconic.Graphics.Gpu PUBLIC DRACONIC_HAS_VULKAN)
     endif()
 
     if(TARGET Draconic::RHIDX12)
-        target_link_libraries(DraconicGraphicsGpu PUBLIC Draconic::RHIDX12)
-        target_compile_definitions(DraconicGraphicsGpu PUBLIC DRACONIC_HAS_DX12)
+        target_link_libraries(Draconic.Graphics.Gpu PUBLIC Draconic::RHIDX12)
+        target_compile_definitions(Draconic.Graphics.Gpu PUBLIC DRACONIC_HAS_DX12)
     endif()
 
     if(TARGET Draconic::RHIWebGPU)
-        target_link_libraries(DraconicGraphicsGpu PUBLIC Draconic::RHIWebGPU)
-        target_compile_definitions(DraconicGraphicsGpu PUBLIC DRACONIC_HAS_WEBGPU)
+        target_link_libraries(Draconic.Graphics.Gpu PUBLIC Draconic::RHIWebGPU)
+        target_compile_definitions(Draconic.Graphics.Gpu PUBLIC DRACONIC_HAS_WEBGPU)
     endif()
 
-    target_sources(DraconicGraphicsGpu
+    target_sources(Draconic.Graphics.Gpu
         PUBLIC
             FILE_SET graphics_gpu_modules TYPE CXX_MODULES FILES
                 GraphicsGpu.cppm
@@ -79,5 +79,5 @@ else()
 endif()
 
 if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(Tests)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Graphics.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
 endif()

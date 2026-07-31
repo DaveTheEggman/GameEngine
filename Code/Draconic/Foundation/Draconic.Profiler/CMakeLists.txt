@@ -13,5 +13,5 @@ target_sources(Draconic.Profiler
             Profiler.cppm)
 
 if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(Tests)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Profiler.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
 endif()

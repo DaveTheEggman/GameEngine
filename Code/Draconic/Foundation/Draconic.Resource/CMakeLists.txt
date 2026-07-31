@@ -12,5 +12,5 @@ target_sources(Draconic.Resource
             ResourceModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(Tests)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Resource.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
 endif()
