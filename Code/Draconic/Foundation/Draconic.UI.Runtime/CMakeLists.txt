@@ -1,15 +1,15 @@
-# Draconic::UIRuntime - `draconic.ui.runtime`: the reusable UIHost that draws draconic.ui on the runtime's
+# Draconic::UI.Runtime - `draconic.ui.runtime`: the reusable UIHost that draws draconic.ui on the runtime's
 # multi-window graphics host (one UIContext / N RootViews / per-window VGContext+VGRenderer+InputSurface).
 # Toolkit-free - renders any RootView, shared by games and the editor. The docking/workbench layer lives
 # above in draconic.ui.application.
 add_library(Draconic.UI.Runtime STATIC)
-add_library(Draconic::UIRuntime ALIAS Draconic.UI.Runtime)
+add_library(Draconic::UI.Runtime ALIAS Draconic.UI.Runtime)
 
 target_link_libraries(Draconic.UI.Runtime
     PUBLIC
-        Draconic::Core Draconic::RHI Draconic::Shaders Draconic::ShaderSystem Draconic::Shell
-        Draconic::Graphics Draconic::VG Draconic::VGRenderer Draconic::Fonts Draconic::UI
-        Draconic::UIShell Draconic::Policy)
+        Draconic::Core Draconic::RHI Draconic::Shaders Draconic::Shaders.System Draconic::Shell
+        Draconic::Graphics Draconic::VG Draconic::VG.Renderer Draconic::Fonts Draconic::UI
+        Draconic::UI.Shell Draconic::Policy)
 
 target_sources(Draconic.UI.Runtime
     PUBLIC

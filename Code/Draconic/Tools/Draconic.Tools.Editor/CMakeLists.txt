@@ -3,17 +3,17 @@
 add_executable(Draconic.Tools.Editor Main.cpp)
 target_link_libraries(Draconic.Tools.Editor PRIVATE
     Draconic::Core
-    Draconic::Runtime Draconic::RuntimeClient Draconic::RuntimeDesktop Draconic::ShellDesktop
-    Draconic::Shell Draconic::Graphics Draconic::GraphicsGpu
-    Draconic::SceneSubsystem Draconic::RenderSubsystem Draconic::AnimationSubsystem Draconic::ParticlesSubsystem
-    Draconic::EditorCore Draconic::EditorApp Draconic::EditorScene
-    Draconic::Editor Draconic::EditorCook
-    Draconic::Resource Draconic::MeshResource Draconic::MaterialResource Draconic::TextureResource
-    Draconic::TextureEditor Draconic::ImageEditor Draconic::MeshEditor
-    Draconic::AnimationEditor Draconic::MaterialEditor Draconic::ShaderEditor
-    Draconic::ParticlesEditor Draconic::Input Draconic::InputResource Draconic::InputEditor Draconic::EditorInput Draconic::InputSubsystem Draconic::Physics Draconic::PhysicsResource Draconic::PhysicsEditor Draconic::PhysicsSubsystem Draconic::Audio Draconic::AudioResource Draconic::AudioEditor Draconic::AudioSubsystem
-    Draconic::Script Draconic::ScriptWren Draconic::ScriptAngelScript Draconic::ScriptResource Draconic::ScriptFacades Draconic::ScriptEditor Draconic::ScriptWrenEditor Draconic::ScriptWrenEditorUI Draconic::ScriptAngelScriptEditor Draconic::ScriptAngelScriptEditorUI Draconic::ScriptSubsystem Draconic::EditorScript Draconic::UIResource Draconic::UIEditor Draconic::EditorGameUI Draconic::EditorAudio Draconic::EditorTexture Draconic::EditorImage Draconic::EditorGeneric Draconic::ModelImporter Draconic::ImageResource
-    Draconic::AnimationResource)
+    Draconic::Runtime Draconic::Runtime.Client Draconic::Runtime.Desktop Draconic::Shell.Desktop
+    Draconic::Shell Draconic::Graphics Draconic::Graphics.Gpu
+    Draconic::Engine.Scene Draconic::Engine.Render Draconic::Engine.Animation Draconic::Engine.Particles
+    Draconic::Editor.Core Draconic::Editor.App Draconic::Editor.Scene
+    Draconic::Editor Draconic::Editor.Cook
+    Draconic::Resource Draconic::Geometry.Resource Draconic::Materials.Resource Draconic::Texture.Resource
+    Draconic::Texture.Editor Draconic::Image.Editor Draconic::Geometry.Editor
+    Draconic::Animation.Editor Draconic::Materials.Editor Draconic::Shaders.Editor
+    Draconic::Particles.Editor Draconic::Input Draconic::Input.Resource Draconic::Input.Editor Draconic::Editor.Input Draconic::Engine.Input Draconic::Physics Draconic::Physics.Resource Draconic::Physics.Editor Draconic::Engine.Physics Draconic::Audio Draconic::Audio.Resource Draconic::Audio.Editor Draconic::Engine.Audio
+    Draconic::Script Draconic::Script.Wren Draconic::Script.AngelScript Draconic::Script.Resource Draconic::Script.Facades Draconic::Script.Editor Draconic::Script.Wren.Editor Draconic::Script.Wren.Editor.UI Draconic::Script.AngelScript.Editor Draconic::Script.AngelScript.Editor.UI Draconic::Engine.Script Draconic::Editor.Script Draconic::UI.Resource Draconic::UI.Editor Draconic::Editor.GameUI Draconic::Editor.Audio Draconic::Editor.Texture Draconic::Editor.Image Draconic::Editor.Generic Draconic::ModelImporter Draconic::Image.Resource
+    Draconic::Animation.Resource)
 target_compile_definitions(Draconic.Tools.Editor PRIVATE
     DRACONIC_EDITOR_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf"
     DRACONIC_EDITOR_MONO_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/dejavu/DejaVuSansMono.ttf")

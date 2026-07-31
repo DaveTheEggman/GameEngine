@@ -1,11 +1,11 @@
-# Draconic::MeshResource unit tests (doctest; content DB - no GPU).
+# Draconic::Geometry.Resource unit tests (doctest; content DB - no GPU).
 
 add_executable(Draconic.Geometry.Resource.Tests
     TestsMain.cpp
     MeshResourceTests.cpp)
 
 target_link_libraries(Draconic.Geometry.Resource.Tests PRIVATE
-    Draconic::MeshResource Draconic::VFS doctest::doctest)
+    Draconic::Geometry.Resource Draconic::VFS doctest::doctest)
 
 target_compile_definitions(Draconic.Geometry.Resource.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

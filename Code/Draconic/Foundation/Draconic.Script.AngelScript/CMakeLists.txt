@@ -1,11 +1,11 @@
-# Draconic::ScriptAngelScript - the AngelScript backend for Draconic::Script.
+# Draconic::Script.AngelScript - the AngelScript backend for Draconic::Script.
 #
 # Builds on the vendored ThirdParty/angelscript (Draconic::AngelScript). The SDK
 # is PRIVATE: consumers see only the draconic.script.angelscript module (the
 # factory + registry registration), never the AngelScript C++ API.
 
 add_library(Draconic.Script.AngelScript STATIC)
-add_library(Draconic::ScriptAngelScript ALIAS Draconic.Script.AngelScript)
+add_library(Draconic::Script.AngelScript ALIAS Draconic.Script.AngelScript)
 
 target_link_libraries(Draconic.Script.AngelScript
     PUBLIC Draconic::Script Draconic::Policy

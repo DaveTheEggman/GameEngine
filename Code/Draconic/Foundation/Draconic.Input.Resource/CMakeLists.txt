@@ -1,6 +1,6 @@
-# Draconic::InputResource - `draconic.input.resource`: cooked input map + factory.
+# Draconic::Input.Resource - `draconic.input.resource`: cooked input map + factory.
 add_library(Draconic.Input.Resource STATIC)
-add_library(Draconic::InputResource ALIAS Draconic.Input.Resource)
+add_library(Draconic::Input.Resource ALIAS Draconic.Input.Resource)
 
 target_link_libraries(Draconic.Input.Resource
     PUBLIC Draconic::Core Draconic::Content Draconic::Resource Draconic::Input Draconic::Policy)

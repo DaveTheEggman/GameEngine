@@ -1,8 +1,8 @@
-# Draconic::VFSPak - `draconic.vfs.pak` (packed read-only archive backend + builder).
+# Draconic::VFS.Pak - `draconic.vfs.pak` (packed read-only archive backend + builder).
 # Separate from the core VFS so future compression codecs stay out of it.
 
 add_library(Draconic.VFS.Pak STATIC)
-add_library(Draconic::VFSPak ALIAS Draconic.VFS.Pak)
+add_library(Draconic::VFS.Pak ALIAS Draconic.VFS.Pak)
 
 target_link_libraries(Draconic.VFS.Pak PUBLIC Draconic::Core Draconic::VFS Draconic::Policy)
 

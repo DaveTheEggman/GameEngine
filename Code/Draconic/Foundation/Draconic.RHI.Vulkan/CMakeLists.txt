@@ -1,8 +1,8 @@
-# Draconic::RHIVulkan - `draconic.rhi.vulkan` (the Vulkan RHI backend). Links the Vulkan
+# Draconic::RHI.Vulkan - `draconic.rhi.vulkan` (the Vulkan RHI backend). Links the Vulkan
 # loader; built only when the Vulkan SDK/headers are available.
 
 add_library(Draconic.RHI.Vulkan STATIC)
-add_library(Draconic::RHIVulkan ALIAS Draconic.RHI.Vulkan)
+add_library(Draconic::RHI.Vulkan ALIAS Draconic.RHI.Vulkan)
 
 target_link_libraries(Draconic.RHI.Vulkan
     PUBLIC Draconic::RHI Draconic::Core Draconic::Policy

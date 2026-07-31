@@ -3,8 +3,8 @@ add_executable(Draconic.Input.Tests
     InputTests.cpp)
 
 target_link_libraries(Draconic.Input.Tests PRIVATE
-    Draconic::Input Draconic::XmlSerialization Draconic::Settings
-    Draconic::Script Draconic::ScriptWren Draconic::InputSubsystem Draconic::Runtime doctest::doctest)
+    Draconic::Input Draconic::Xml.Serialization Draconic::Settings
+    Draconic::Script Draconic::Script.Wren Draconic::Engine.Input Draconic::Runtime doctest::doctest)
 
 target_compile_definitions(Draconic.Input.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

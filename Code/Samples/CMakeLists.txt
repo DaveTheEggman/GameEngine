@@ -13,7 +13,7 @@ add_subdirectory(NetEcho)
 
 # HelloWindow and MultiWindow both present through a GraphicsDevice, so both need
 # the desktop shell + the Vulkan GPU factory.
-if(TARGET Draconic::ShellDesktop AND TARGET Draconic::RuntimeDesktop AND TARGET Draconic::GraphicsGpu)
+if(TARGET Draconic::Shell.Desktop AND TARGET Draconic::Runtime.Desktop AND TARGET Draconic::Graphics.Gpu)
     add_subdirectory(HelloWindow)
     add_subdirectory(InputActions)       # draconic.input consumer proof (named actions end-to-end)
     add_subdirectory(PhysicsPlayground)  # physics P1 consumer proof (crates/trigger/raycast on Jolt)

@@ -1,8 +1,8 @@
-# Draconic::RHIValidation - `draconic.rhi.validation` (a wrapping layer that checks
+# Draconic::RHI.Validation - `draconic.rhi.validation` (a wrapping layer that checks
 # RHI API usage and forwards to an inner backend).
 
 add_library(Draconic.RHI.Validation STATIC)
-add_library(Draconic::RHIValidation ALIAS Draconic.RHI.Validation)
+add_library(Draconic::RHI.Validation ALIAS Draconic.RHI.Validation)
 
 target_link_libraries(Draconic.RHI.Validation PUBLIC Draconic::RHI Draconic::Core Draconic::Policy)
 

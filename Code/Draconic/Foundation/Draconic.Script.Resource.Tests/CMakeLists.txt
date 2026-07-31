@@ -1,6 +1,6 @@
 add_executable(Draconic.Script.Resource.Tests TestsMain.cpp ScriptResourceTests.cpp)
 target_link_libraries(Draconic.Script.Resource.Tests PRIVATE
-    Draconic::ScriptResource Draconic::Content Draconic::Resource Draconic::VFS
+    Draconic::Script.Resource Draconic::Content Draconic::Resource Draconic::VFS
     doctest::doctest)
 target_compile_definitions(Draconic.Script.Resource.Tests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(Draconic.Script.Resource.Tests PRIVATE

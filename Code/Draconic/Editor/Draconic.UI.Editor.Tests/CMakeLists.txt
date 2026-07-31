@@ -1,7 +1,7 @@
 
 add_executable(DraconicUIPipelineTests TestsMain.cpp UIPipelineTests.cpp)
 target_link_libraries(DraconicUIPipelineTests PRIVATE
-    Draconic::UIEditor Draconic::UIResource Draconic::UI Draconic::Editor
+    Draconic::UI.Editor Draconic::UI.Resource Draconic::UI Draconic::Editor
     Draconic::Content Draconic::Resource Draconic::VFS doctest::doctest)
 target_compile_definitions(DraconicUIPipelineTests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(DraconicUIPipelineTests PRIVATE

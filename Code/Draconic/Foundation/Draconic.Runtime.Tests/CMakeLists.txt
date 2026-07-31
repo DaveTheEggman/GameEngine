@@ -9,7 +9,7 @@ add_executable(Draconic.Runtime.Tests
     TestsMain.cpp
     RuntimeTests.cpp)
 
-target_link_libraries(Draconic.Runtime.Tests PRIVATE Draconic::Runtime Draconic::RuntimeClient doctest::doctest)
+target_link_libraries(Draconic.Runtime.Tests PRIVATE Draconic::Runtime Draconic::Runtime.Client doctest::doctest)
 add_dependencies(Draconic.Runtime.Tests Draconic.Runtime.TestPlugin)
 
 target_compile_definitions(Draconic.Runtime.Tests PRIVATE

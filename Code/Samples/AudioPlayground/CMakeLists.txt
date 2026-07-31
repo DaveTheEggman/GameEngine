@@ -7,15 +7,15 @@ add_executable(AudioPlayground main.cpp)
 target_link_libraries(AudioPlayground PRIVATE
     Draconic::Core
     Draconic::Runtime
-    Draconic::RuntimeClient
-    Draconic::ShellDesktop Draconic::RuntimeDesktop
+    Draconic::Runtime.Client
+    Draconic::Shell.Desktop Draconic::Runtime.Desktop
     Draconic::Graphics
-    Draconic::GraphicsGpu
-    Draconic::RuntimeDefaultApp
+    Draconic::Graphics.Gpu
+    Draconic::Engine.DefaultApp
     Draconic::Scene
-    Draconic::SceneSubsystem
-    Draconic::RenderSubsystem
-    Draconic::Audio Draconic::AudioSubsystem
+    Draconic::Engine.Scene
+    Draconic::Engine.Render
+    Draconic::Audio Draconic::Engine.Audio
     Draconic::Imgui
     Draconic::Policy)
 draconic_copy_sdl3_dll(AudioPlayground)

@@ -1,11 +1,11 @@
-# Draconic::MeshEditor unit tests (doctest; content DB - no GPU).
+# Draconic::Geometry.Editor unit tests (doctest; content DB - no GPU).
 
 add_executable(Draconic.Geometry.Editor.Tests
     TestsMain.cpp
     MeshEditorTests.cpp)
 
 target_link_libraries(Draconic.Geometry.Editor.Tests PRIVATE
-    Draconic::MeshEditor Draconic::VFS doctest::doctest)
+    Draconic::Geometry.Editor Draconic::VFS doctest::doctest)
 
 target_compile_definitions(Draconic.Geometry.Editor.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

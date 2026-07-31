@@ -1,7 +1,7 @@
-# Draconic::FontsImporter unit tests (doctest). Uses the bundled Roboto asset.
+# Draconic::Fonts.Importer unit tests (doctest). Uses the bundled Roboto asset.
 
 add_executable(Draconic.Fonts.Importer.Tests TestsMain.cpp FontImporterTests.cpp)
-target_link_libraries(Draconic.Fonts.Importer.Tests PRIVATE Draconic::FontsImporter Draconic::FontsBaked Draconic::Fonts doctest::doctest)
+target_link_libraries(Draconic.Fonts.Importer.Tests PRIVATE Draconic::Fonts.Importer Draconic::Fonts.Baked Draconic::Fonts doctest::doctest)
 target_compile_definitions(Draconic.Fonts.Importer.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS
     DRACONIC_FONTS_ASSET_DIR="${CMAKE_SOURCE_DIR}/Data/Assets/fonts")

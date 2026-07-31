@@ -1,4 +1,4 @@
-# Draconic::ScriptWren - the Wren VM backend for Draconic::Script.
+# Draconic::Script.Wren - the Wren VM backend for Draconic::Script.
 #
 # Vendors the Wren VM (https://wren.io) via FetchContent and builds it as a C
 # static lib, then the C++-module backend that implements IScriptManager /
@@ -30,13 +30,13 @@ target_include_directories(wren_vm SYSTEM
 
 # The backend module library.
 add_library(Draconic.Script.Wren STATIC)
-add_library(Draconic::ScriptWren ALIAS Draconic.Script.Wren)
+add_library(Draconic::Script.Wren ALIAS Draconic.Script.Wren)
 
 # wren_vm is PRIVATE: consumers see only the draconic.script.wren module (the
 # factory), never the Wren C API. (CMake still links wren_vm into final exes.)
-# Draconic::ScriptFacades PUBLIC: WrenScript.cppm imports it for BehaviorFacadeNames()
+# Draconic::Script.Facades PUBLIC: WrenScript.cppm imports it for BehaviorFacadeNames()
 # (the neutral facade-name list its behavior-module prelude is built from).
-target_link_libraries(Draconic.Script.Wren PUBLIC Draconic::Script Draconic::ScriptFacades Draconic::Policy PRIVATE wren_vm)
+target_link_libraries(Draconic.Script.Wren PUBLIC Draconic::Script Draconic::Script.Facades Draconic::Policy PRIVATE wren_vm)
 
 target_sources(Draconic.Script.Wren
     PUBLIC

@@ -1,11 +1,11 @@
-# Draconic::ShellNull unit tests (doctest).
+# Draconic::Shell.Null unit tests (doctest).
 
 add_executable(Draconic.Shell.Null.Tests
     TestsMain.cpp
     NullShellTests.cpp)
 
 target_link_libraries(Draconic.Shell.Null.Tests PRIVATE
-    Draconic::ShellNull doctest::doctest)
+    Draconic::Shell.Null doctest::doctest)
 
 target_compile_definitions(Draconic.Shell.Null.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

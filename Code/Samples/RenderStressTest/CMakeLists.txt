@@ -7,14 +7,14 @@ add_executable(RenderStressTest main.cpp)
 target_link_libraries(RenderStressTest PRIVATE
     Draconic::Core
     Draconic::Runtime
-    Draconic::RuntimeClient
-    Draconic::ShellDesktop Draconic::RuntimeDesktop
+    Draconic::Runtime.Client
+    Draconic::Shell.Desktop Draconic::Runtime.Desktop
     Draconic::Graphics
-    Draconic::GraphicsGpu
-    Draconic::RuntimeDefaultApp
+    Draconic::Graphics.Gpu
+    Draconic::Engine.DefaultApp
     Draconic::Scene
-    Draconic::SceneSubsystem
-    Draconic::RenderSubsystem
+    Draconic::Engine.Scene
+    Draconic::Engine.Render
     Draconic::Imgui
     Draconic::Geometry
     Draconic::Materials

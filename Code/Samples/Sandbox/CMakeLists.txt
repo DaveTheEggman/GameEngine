@@ -7,18 +7,18 @@ add_executable(Sandbox main.cpp)
 target_link_libraries(Sandbox PRIVATE
     Draconic::Core
     Draconic::Runtime
-    Draconic::RuntimeClient
-    Draconic::ShellDesktop Draconic::RuntimeDesktop
+    Draconic::Runtime.Client
+    Draconic::Shell.Desktop Draconic::Runtime.Desktop
     Draconic::Graphics
-    Draconic::GraphicsGpu
-    Draconic::RuntimeDefaultApp
+    Draconic::Graphics.Gpu
+    Draconic::Engine.DefaultApp
     Draconic::Scene
-    Draconic::SceneSubsystem
-    Draconic::RenderSubsystem
-    Draconic::AnimationSubsystem
+    Draconic::Engine.Scene
+    Draconic::Engine.Render
+    Draconic::Engine.Animation
     Draconic::Imgui
     Draconic::Image
-    Draconic::ImageIO
+    Draconic::Image.IO
     Draconic::Geometry
     Draconic::Materials
     Draconic::ModelImporter
@@ -26,10 +26,10 @@ target_link_libraries(Sandbox PRIVATE
     Draconic::Content
     Draconic::Resource
     Draconic::VFS
-    Draconic::MeshResource
-    Draconic::MaterialResource
-    Draconic::TextureResource
-    Draconic::TextureEditor
+    Draconic::Geometry.Resource
+    Draconic::Materials.Resource
+    Draconic::Texture.Resource
+    Draconic::Texture.Editor
     Draconic::Animation
     Draconic::Policy)
 

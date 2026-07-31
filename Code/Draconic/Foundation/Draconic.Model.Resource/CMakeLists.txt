@@ -1,8 +1,8 @@
-# Draconic::ModelResource - `draconic.model.resource` (cooked model manifest + runtime composite + factory).
+# Draconic::Model.Resource - `draconic.model.resource` (cooked model manifest + runtime composite + factory).
 add_library(Draconic.Model.Resource STATIC)
-add_library(Draconic::ModelResource ALIAS Draconic.Model.Resource)
+add_library(Draconic::Model.Resource ALIAS Draconic.Model.Resource)
 target_link_libraries(Draconic.Model.Resource PUBLIC
-    Draconic::Core Draconic::Geometry Draconic::MeshResource Draconic::Materials Draconic::MaterialResource
-    Draconic::Texture Draconic::TextureResource Draconic::Animation Draconic::AnimationResource
+    Draconic::Core Draconic::Geometry Draconic::Geometry.Resource Draconic::Materials Draconic::Materials.Resource
+    Draconic::Texture Draconic::Texture.Resource Draconic::Animation Draconic::Animation.Resource
     Draconic::Resource Draconic::Content Draconic::Policy)
 target_sources(Draconic.Model.Resource PUBLIC FILE_SET model_resource_modules TYPE CXX_MODULES FILES ModelResource.cppm)

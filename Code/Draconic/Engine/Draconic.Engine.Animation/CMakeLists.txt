@@ -1,12 +1,12 @@
-# Draconic::AnimationSubsystem - `draconic.engine.animation`, the scene side of skeletal
+# Draconic::Engine.Animation - `draconic.engine.animation`, the scene side of skeletal
 # animation (SkeletalAnimationComponent + manager + AnimationSubsystem). Sits at the
 # animation<->render seam: depends on Animation + Scene + RenderSubsystem (one-way).
 add_library(Draconic.Engine.Animation STATIC)
-add_library(Draconic::AnimationSubsystem ALIAS Draconic.Engine.Animation)
+add_library(Draconic::Engine.Animation ALIAS Draconic.Engine.Animation)
 
 target_link_libraries(Draconic.Engine.Animation
-    PUBLIC Draconic::Core Draconic::Runtime Draconic::Scene Draconic::SceneSubsystem
-           Draconic::Animation Draconic::Resource Draconic::RenderSubsystem Draconic::Policy)
+    PUBLIC Draconic::Core Draconic::Runtime Draconic::Scene Draconic::Engine.Scene
+           Draconic::Animation Draconic::Resource Draconic::Engine.Render Draconic::Policy)
 
 target_sources(Draconic.Engine.Animation
     PRIVATE

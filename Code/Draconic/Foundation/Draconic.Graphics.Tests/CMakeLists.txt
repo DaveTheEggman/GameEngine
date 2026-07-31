@@ -5,7 +5,7 @@ add_executable(Draconic.Graphics.Tests
     GraphicsTests.cpp)
 
 target_link_libraries(Draconic.Graphics.Tests PRIVATE
-    Draconic::Graphics Draconic::GraphicsNull Draconic::ShellNull doctest::doctest)
+    Draconic::Graphics Draconic::Graphics.Null Draconic::Shell.Null doctest::doctest)
 
 target_compile_definitions(Draconic.Graphics.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

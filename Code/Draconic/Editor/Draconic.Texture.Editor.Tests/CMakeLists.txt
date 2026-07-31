@@ -1,8 +1,8 @@
 
 add_executable(DraconicTexturePipelineTests TestsMain.cpp TexturePipelineTests.cpp)
 target_link_libraries(DraconicTexturePipelineTests PRIVATE
-    Draconic::TextureEditor Draconic::TextureResource Draconic::Texture Draconic::EditorCore
-    Draconic::RHI Draconic::RHINull Draconic::Editor Draconic::Image Draconic::ImageIO
+    Draconic::Texture.Editor Draconic::Texture.Resource Draconic::Texture Draconic::Editor.Core
+    Draconic::RHI Draconic::RHI.Null Draconic::Editor Draconic::Image Draconic::Image.IO
     Draconic::Content Draconic::Resource Draconic::VFS doctest::doctest)
 target_compile_definitions(DraconicTexturePipelineTests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(DraconicTexturePipelineTests PRIVATE

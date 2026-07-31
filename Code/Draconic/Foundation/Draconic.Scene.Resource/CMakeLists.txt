@@ -1,11 +1,11 @@
-# Draconic::SceneResource - `draconic.scene.resource` (whole-scene serialization +
+# Draconic::Scene.Resource - `draconic.scene.resource` (whole-scene serialization +
 # runtime LoadScene from a content-DB instance).
 add_library(Draconic.Scene.Resource STATIC)
-add_library(Draconic::SceneResource ALIAS Draconic.Scene.Resource)
+add_library(Draconic::Scene.Resource ALIAS Draconic.Scene.Resource)
 
 target_link_libraries(Draconic.Scene.Resource
     PUBLIC Draconic::Core Draconic::Content Draconic::Scene Draconic::Policy
-           Draconic::XmlSerialization)
+           Draconic::Xml.Serialization)
 
 target_sources(Draconic.Scene.Resource
     PRIVATE

@@ -8,7 +8,7 @@ add_executable(Draconic.Render.Tests
     PoseSelectionTests.cpp)
 
 target_link_libraries(Draconic.Render.Tests PRIVATE
-    Draconic::Render Draconic::RHINull doctest::doctest)
+    Draconic::Render Draconic::RHI.Null doctest::doctest)
 
 target_compile_definitions(Draconic.Render.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS

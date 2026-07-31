@@ -1,7 +1,7 @@
-# Draconic::ShellNull - `draconic.shell.null` (headless IShell).
+# Draconic::Shell.Null - `draconic.shell.null` (headless IShell).
 
 add_library(Draconic.Shell.Null STATIC)
-add_library(Draconic::ShellNull ALIAS Draconic.Shell.Null)
+add_library(Draconic::Shell.Null ALIAS Draconic.Shell.Null)
 
 target_link_libraries(Draconic.Shell.Null PUBLIC Draconic::Shell Draconic::Policy)
 

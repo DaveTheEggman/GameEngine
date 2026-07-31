@@ -1,4 +1,4 @@
-# Draconic::ShaderSystem unit tests (doctest; real DXC + Null RHI).
+# Draconic::Shaders.System unit tests (doctest; real DXC + Null RHI).
 
 add_executable(Draconic.Shaders.System.Tests
     TestsMain.cpp
@@ -6,7 +6,7 @@ add_executable(Draconic.Shaders.System.Tests
     FileProviderTests.cpp)
 
 target_link_libraries(Draconic.Shaders.System.Tests PRIVATE
-    Draconic::ShaderSystem Draconic::RHINull doctest::doctest)
+    Draconic::Shaders.System Draconic::RHI.Null doctest::doctest)
 
 target_compile_definitions(Draconic.Shaders.System.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

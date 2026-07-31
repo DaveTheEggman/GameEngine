@@ -1,24 +1,24 @@
-# Draconic::RuntimeDefaultApp - `draconic.engine.defaultapp` (DefaultApplication: the
+# Draconic::Engine.DefaultApp - `draconic.engine.defaultapp` (DefaultApplication: the
 # opinionated IApplication that registers the standard engine subsystems). Kept in
-# its own library so the base client (Draconic::RuntimeClient) never pulls in the
+# its own library so the base client (Draconic::Runtime.Client) never pulls in the
 # engine subsystem libraries - only apps that opt into the defaults link this.
 # As engine subsystems land, add them as link dependencies HERE.
 
 add_library(Draconic.Engine.DefaultApp STATIC)
-add_library(Draconic::RuntimeDefaultApp ALIAS Draconic.Engine.DefaultApp)
+add_library(Draconic::Engine.DefaultApp ALIAS Draconic.Engine.DefaultApp)
 
 target_link_libraries(Draconic.Engine.DefaultApp
-    PUBLIC Draconic::Core Draconic::RHI Draconic::RuntimeClient Draconic::RuntimeGameInstance Draconic::Shell Draconic::Graphics
-           Draconic::Scene Draconic::SceneSubsystem Draconic::RenderSubsystem Draconic::AnimationSubsystem
-           Draconic::ParticlesSubsystem Draconic::Physics Draconic::PhysicsSubsystem
-           Draconic::Audio Draconic::AudioResource Draconic::AudioSubsystem
-           Draconic::Input Draconic::InputSubsystem Draconic::Script
-           Draconic::ScriptResource Draconic::ScriptSubsystem
-           Draconic::Resource Draconic::Content Draconic::SceneResource
-           Draconic::MeshResource Draconic::MaterialResource Draconic::AnimationResource
-           Draconic::ParticlesResource Draconic::InputResource Draconic::PhysicsResource
-           Draconic::TextureResource Draconic::ImageResource Draconic::ModelResource Draconic::UIResource Draconic::UISubsystem
-           Draconic::Net Draconic::NetManager Draconic::NetSubsystem
+    PUBLIC Draconic::Core Draconic::RHI Draconic::Runtime.Client Draconic::Engine.GameInstance Draconic::Shell Draconic::Graphics
+           Draconic::Scene Draconic::Engine.Scene Draconic::Engine.Render Draconic::Engine.Animation
+           Draconic::Engine.Particles Draconic::Physics Draconic::Engine.Physics
+           Draconic::Audio Draconic::Audio.Resource Draconic::Engine.Audio
+           Draconic::Input Draconic::Engine.Input Draconic::Script
+           Draconic::Script.Resource Draconic::Engine.Script
+           Draconic::Resource Draconic::Content Draconic::Scene.Resource
+           Draconic::Geometry.Resource Draconic::Materials.Resource Draconic::Animation.Resource
+           Draconic::Particles.Resource Draconic::Input.Resource Draconic::Physics.Resource
+           Draconic::Texture.Resource Draconic::Image.Resource Draconic::Model.Resource Draconic::UI.Resource Draconic::Engine.UI
+           Draconic::Net Draconic::Net.Manager Draconic::Engine.Net
            Draconic::Profiler Draconic::Policy)
 
 # Script VM backends - Wren (primary) and AngelScript (second). Each is independently toggleable via
@@ -30,11 +30,11 @@ target_link_libraries(Draconic.Engine.DefaultApp
 option(DRACONIC_ENABLE_WREN "Build the Wren script backend into DefaultApplication" ON)
 option(DRACONIC_ENABLE_ANGELSCRIPT "Build the AngelScript script backend into DefaultApplication" ON)
 if(DRACONIC_ENABLE_WREN)
-    target_link_libraries(Draconic.Engine.DefaultApp PUBLIC Draconic::ScriptWren)
+    target_link_libraries(Draconic.Engine.DefaultApp PUBLIC Draconic::Script.Wren)
     target_compile_definitions(Draconic.Engine.DefaultApp PUBLIC DRACONIC_HAS_WREN)
 endif()
 if(DRACONIC_ENABLE_ANGELSCRIPT)
-    target_link_libraries(Draconic.Engine.DefaultApp PUBLIC Draconic::ScriptAngelScript)
+    target_link_libraries(Draconic.Engine.DefaultApp PUBLIC Draconic::Script.AngelScript)
     target_compile_definitions(Draconic.Engine.DefaultApp PUBLIC DRACONIC_HAS_ANGELSCRIPT)
 endif()
 

@@ -1,11 +1,11 @@
-# Draconic::AnimationResource unit tests (doctest; content DB round-trip - no GPU).
+# Draconic::Animation.Resource unit tests (doctest; content DB round-trip - no GPU).
 
 add_executable(Draconic.Animation.Resource.Tests
     TestsMain.cpp
     AnimationResourceTests.cpp)
 
 target_link_libraries(Draconic.Animation.Resource.Tests PRIVATE
-    Draconic::AnimationResource Draconic::VFS doctest::doctest)
+    Draconic::Animation.Resource Draconic::VFS doctest::doctest)
 
 target_compile_definitions(Draconic.Animation.Resource.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

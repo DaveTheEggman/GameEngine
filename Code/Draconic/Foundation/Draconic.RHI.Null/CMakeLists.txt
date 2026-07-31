@@ -1,7 +1,7 @@
-# Draconic::RHINull - `draconic.rhi.null` (headless no-op RHI backend, for tests/tools).
+# Draconic::RHI.Null - `draconic.rhi.null` (headless no-op RHI backend, for tests/tools).
 
 add_library(Draconic.RHI.Null STATIC)
-add_library(Draconic::RHINull ALIAS Draconic.RHI.Null)
+add_library(Draconic::RHI.Null ALIAS Draconic.RHI.Null)
 
 target_link_libraries(Draconic.RHI.Null PUBLIC Draconic::RHI Draconic::Core Draconic::Policy)
 

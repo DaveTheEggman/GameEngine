@@ -1,10 +1,10 @@
-# Draconic::Project - `draconic.project`, the runtime-side project definition (manifest +
+# Draconic::Engine.Project - `draconic.project`, the runtime-side project definition (manifest +
 # layout constants). Editor-free by design: shipping binaries link this, never the editor.
 add_library(Draconic.Engine.Project STATIC)
-add_library(Draconic::Project ALIAS Draconic.Engine.Project)
+add_library(Draconic::Engine.Project ALIAS Draconic.Engine.Project)
 
 target_link_libraries(Draconic.Engine.Project
-    PUBLIC Draconic::Core Draconic::VFS Draconic::XmlSerialization Draconic::Policy)
+    PUBLIC Draconic::Core Draconic::VFS Draconic::Xml.Serialization Draconic::Policy)
 
 target_sources(Draconic.Engine.Project
     PUBLIC

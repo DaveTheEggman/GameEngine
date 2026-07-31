@@ -1,11 +1,11 @@
-# Draconic::RuntimeClient unit tests (doctest).
+# Draconic::Runtime.Client unit tests (doctest).
 
 add_executable(Draconic.Runtime.Client.Tests
     TestsMain.cpp
     ApplicationTests.cpp)
 
 target_link_libraries(Draconic.Runtime.Client.Tests PRIVATE
-    Draconic::RuntimeClient Draconic::ShellNull Draconic::Graphics Draconic::GraphicsNull doctest::doctest)
+    Draconic::Runtime.Client Draconic::Shell.Null Draconic::Graphics Draconic::Graphics.Null doctest::doctest)
 
 target_compile_definitions(Draconic.Runtime.Client.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

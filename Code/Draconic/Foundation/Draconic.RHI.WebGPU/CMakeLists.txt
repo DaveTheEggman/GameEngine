@@ -1,9 +1,9 @@
-# Draconic::RHIWebGPU - `draconic.rhi.webgpu`: WebGPU backend over the standard
+# Draconic::RHI.WebGPU - `draconic.rhi.webgpu`: WebGPU backend over the standard
 # webgpu.h. Desktop loads the wgpu-native sidecar at RUN TIME (the vendored
 # Draconic::WgpuHeaders supply webgpu.h + wgpu.h as a headers-only build dependency);
 # web gets both the header and the browser binding from Emscripten's emdawnwebgpu port.
 add_library(Draconic.RHI.WebGPU STATIC)
-add_library(Draconic::RHIWebGPU ALIAS Draconic.RHI.WebGPU)
+add_library(Draconic::RHI.WebGPU ALIAS Draconic.RHI.WebGPU)
 target_link_libraries(Draconic.RHI.WebGPU
     PUBLIC Draconic::RHI Draconic::Core Draconic::Policy)
 

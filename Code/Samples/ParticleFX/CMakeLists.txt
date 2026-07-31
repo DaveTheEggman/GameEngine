@@ -6,21 +6,21 @@ add_executable(ParticleFX main.cpp)
 target_link_libraries(ParticleFX PRIVATE
     Draconic::Core
     Draconic::Runtime
-    Draconic::RuntimeClient
-    Draconic::ShellDesktop Draconic::RuntimeDesktop
+    Draconic::Runtime.Client
+    Draconic::Shell.Desktop Draconic::Runtime.Desktop
     Draconic::Graphics
-    Draconic::GraphicsGpu
-    Draconic::RuntimeDefaultApp
+    Draconic::Graphics.Gpu
+    Draconic::Engine.DefaultApp
     Draconic::Scene
-    Draconic::SceneSubsystem
-    Draconic::RenderSubsystem
+    Draconic::Engine.Scene
+    Draconic::Engine.Render
     Draconic::Imgui
     Draconic::Geometry
     Draconic::Materials
     Draconic::Particles
-    Draconic::ParticlesSubsystem
-    Draconic::ParticlesResource       # cooked ParticleEffectResource + factory
-    Draconic::ParticlesEditor         # ParticleEffectAsset + bake (sample references editor for the demo)
+    Draconic::Engine.Particles
+    Draconic::Particles.Resource       # cooked ParticleEffectResource + factory
+    Draconic::Particles.Editor         # ParticleEffectAsset + bake (sample references editor for the demo)
     Draconic::Editor Draconic::Content Draconic::Resource Draconic::VFS
     Draconic::Policy)
 

@@ -1,11 +1,11 @@
-# Draconic::AnimationSubsystem unit tests (doctest; components are pure data, no GPU).
+# Draconic::Engine.Animation unit tests (doctest; components are pure data, no GPU).
 
 add_executable(Draconic.Engine.Animation.Tests
     ResourceRefTests.cpp
     TestsMain.cpp)
 
 target_link_libraries(Draconic.Engine.Animation.Tests PRIVATE
-    Draconic::AnimationSubsystem Draconic::AnimationResource Draconic::SceneResource
+    Draconic::Engine.Animation Draconic::Animation.Resource Draconic::Scene.Resource
     Draconic::Resource Draconic::VFS Draconic::Content doctest::doctest)
 
 target_compile_definitions(Draconic.Engine.Animation.Tests PRIVATE

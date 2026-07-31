@@ -1,10 +1,10 @@
-# Draconic::ScriptWren unit tests (doctest).
+# Draconic::Script.Wren unit tests (doctest).
 
 add_executable(Draconic.Script.Wren.Tests
     TestsMain.cpp
     ScriptWrenTests.cpp)
 
-target_link_libraries(Draconic.Script.Wren.Tests PRIVATE Draconic::ScriptWren doctest::doctest)
+target_link_libraries(Draconic.Script.Wren.Tests PRIVATE Draconic::Script.Wren doctest::doctest)
 
 target_compile_definitions(Draconic.Script.Wren.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

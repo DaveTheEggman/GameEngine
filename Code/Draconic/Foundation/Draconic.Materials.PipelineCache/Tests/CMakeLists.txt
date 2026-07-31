@@ -1,11 +1,11 @@
-# Draconic::PipelineCache unit tests (doctest; real DXC + Null RHI).
+# Draconic::Materials.PipelineCache unit tests (doctest; real DXC + Null RHI).
 
 add_executable(DraconicPipelineCacheTests
     TestsMain.cpp
     PipelineCacheTests.cpp)
 
 target_link_libraries(DraconicPipelineCacheTests PRIVATE
-    Draconic::PipelineCache Draconic::RHINull doctest::doctest)
+    Draconic::Materials.PipelineCache Draconic::RHI.Null doctest::doctest)
 
 target_compile_definitions(DraconicPipelineCacheTests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

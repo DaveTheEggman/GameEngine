@@ -1,26 +1,26 @@
-# Draconic::EditorScene - `draconic.editor.scene`: the scene editor plugin (SceneEditorPage +
+# Draconic::Editor.Scene - `draconic.editor.scene`: the scene editor plugin (SceneEditorPage +
 # factory + RegisterSceneEditor). Linked by the editor EXECUTABLE only (never by editor core/app).
 
 add_library(Draconic.Editor.Scene STATIC)
-add_library(Draconic::EditorScene ALIAS Draconic.Editor.Scene)
+add_library(Draconic::Editor.Scene ALIAS Draconic.Editor.Scene)
 
 target_link_libraries(Draconic.Editor.Scene
     PUBLIC
         Draconic::Core Draconic::Content Draconic::RHI Draconic::Shell Draconic::Graphics
-        Draconic::Runtime Draconic::RuntimeClient Draconic::RuntimeDefaultApp
-        Draconic::Scene Draconic::SceneSubsystem Draconic::SceneResource Draconic::SceneEditor
-        Draconic::Render Draconic::RenderSubsystem Draconic::Animation Draconic::AnimationSubsystem
-        Draconic::AnimationResource Draconic::AnimationEditor
-        Draconic::ModelImporter Draconic::TextureResource
-        Draconic::Particles Draconic::ParticlesResource Draconic::ParticlesEditor Draconic::ParticlesSubsystem
-        Draconic::Physics Draconic::PhysicsResource Draconic::PhysicsSubsystem
-        Draconic::UIResource Draconic::UISubsystem Draconic::Audio Draconic::AudioResource Draconic::AudioSubsystem
-        Draconic::Geometry Draconic::MeshResource Draconic::MeshEditor
-        Draconic::Materials Draconic::MaterialResource Draconic::MaterialEditor
-        Draconic::UI Draconic::UIRuntime Draconic::UIViewport Draconic::VGRenderer
-        Draconic::Script Draconic::ScriptWren Draconic::ScriptResource Draconic::ScriptFacades Draconic::ScriptSubsystem
-        Draconic::Input Draconic::InputResource Draconic::InputSubsystem
-        Draconic::EditorCore Draconic::EditorApp Draconic::Policy)
+        Draconic::Runtime Draconic::Runtime.Client Draconic::Engine.DefaultApp
+        Draconic::Scene Draconic::Engine.Scene Draconic::Scene.Resource Draconic::Scene.Editor
+        Draconic::Render Draconic::Engine.Render Draconic::Animation Draconic::Engine.Animation
+        Draconic::Animation.Resource Draconic::Animation.Editor
+        Draconic::ModelImporter Draconic::Texture.Resource
+        Draconic::Particles Draconic::Particles.Resource Draconic::Particles.Editor Draconic::Engine.Particles
+        Draconic::Physics Draconic::Physics.Resource Draconic::Engine.Physics
+        Draconic::UI.Resource Draconic::Engine.UI Draconic::Audio Draconic::Audio.Resource Draconic::Engine.Audio
+        Draconic::Geometry Draconic::Geometry.Resource Draconic::Geometry.Editor
+        Draconic::Materials Draconic::Materials.Resource Draconic::Materials.Editor
+        Draconic::UI Draconic::UI.Runtime Draconic::UI.Viewport Draconic::VG.Renderer
+        Draconic::Script Draconic::Script.Wren Draconic::Script.Resource Draconic::Script.Facades Draconic::Engine.Script
+        Draconic::Input Draconic::Input.Resource Draconic::Engine.Input
+        Draconic::Editor.Core Draconic::Editor.App Draconic::Policy)
 
 target_sources(Draconic.Editor.Scene
     PRIVATE

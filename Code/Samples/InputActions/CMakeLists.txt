@@ -5,11 +5,11 @@ add_executable(InputActions main.cpp)
 target_link_libraries(InputActions PRIVATE
     Draconic::Core
     Draconic::Runtime
-    Draconic::RuntimeClient
-    Draconic::ShellDesktop Draconic::RuntimeDesktop
+    Draconic::Runtime.Client
+    Draconic::Shell.Desktop Draconic::Runtime.Desktop
     Draconic::Graphics
-    Draconic::GraphicsGpu
-    Draconic::Input Draconic::InputSubsystem
-    Draconic::Settings Draconic::XmlSerialization Draconic::Imgui
+    Draconic::Graphics.Gpu
+    Draconic::Input Draconic::Engine.Input
+    Draconic::Settings Draconic::Xml.Serialization Draconic::Imgui
     Draconic::Policy)
 draconic_copy_sdl3_dll(InputActions)

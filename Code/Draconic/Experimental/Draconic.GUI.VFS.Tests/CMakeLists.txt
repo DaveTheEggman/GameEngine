@@ -3,7 +3,7 @@ add_executable(Draconic.GUI.VFS.Tests
     TestsMain.cpp)
 
 target_link_libraries(Draconic.GUI.VFS.Tests PRIVATE
-    Draconic::GUIVFS Draconic::VFS Draconic::Image Draconic::ImageIO doctest::doctest)
+    Draconic::GUI.VFS Draconic::VFS Draconic::Image Draconic::Image.IO doctest::doctest)
 
 target_compile_definitions(Draconic.GUI.VFS.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

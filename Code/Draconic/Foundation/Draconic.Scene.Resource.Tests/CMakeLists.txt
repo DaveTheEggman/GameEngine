@@ -1,11 +1,11 @@
-# Draconic::SceneResource unit tests (doctest; in-memory serialize round-trip).
+# Draconic::Scene.Resource unit tests (doctest; in-memory serialize round-trip).
 
 add_executable(Draconic.Scene.Resource.Tests
     TestsMain.cpp
     SceneSerializeTests.cpp)
 
 target_link_libraries(Draconic.Scene.Resource.Tests PRIVATE
-    Draconic::SceneResource doctest::doctest)
+    Draconic::Scene.Resource doctest::doctest)
 
 target_compile_definitions(Draconic.Scene.Resource.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

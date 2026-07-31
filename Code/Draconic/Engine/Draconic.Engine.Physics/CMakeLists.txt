@@ -1,12 +1,12 @@
-# Draconic::PhysicsSubsystem - `draconic.engine.physics`: scene integration
+# Draconic::Engine.Physics - `draconic.engine.physics`: scene integration
 # (components + per-scene world + sync + interpolation + debug draw).
 add_library(Draconic.Engine.Physics STATIC)
-add_library(Draconic::PhysicsSubsystem ALIAS Draconic.Engine.Physics)
+add_library(Draconic::Engine.Physics ALIAS Draconic.Engine.Physics)
 
 target_link_libraries(Draconic.Engine.Physics
-    PUBLIC Draconic::Core Draconic::Runtime Draconic::Scene Draconic::SceneSubsystem
-           Draconic::Physics Draconic::PhysicsResource Draconic::Resource Draconic::Script
-           Draconic::ScriptFacades Draconic::RenderSubsystem Draconic::Policy)
+    PUBLIC Draconic::Core Draconic::Runtime Draconic::Scene Draconic::Engine.Scene
+           Draconic::Physics Draconic::Physics.Resource Draconic::Resource Draconic::Script
+           Draconic::Script.Facades Draconic::Engine.Render Draconic::Policy)
 
 target_sources(Draconic.Engine.Physics
     PRIVATE

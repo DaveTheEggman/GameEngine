@@ -1,8 +1,8 @@
 
 add_executable(DraconicPhysicsPipelineTests TestsMain.cpp PhysicsPipelineTests.cpp)
 target_link_libraries(DraconicPhysicsPipelineTests PRIVATE
-    Draconic::PhysicsEditor Draconic::PhysicsResource Draconic::Physics Draconic::Editor
-    Draconic::Geometry Draconic::MeshEditor Draconic::MeshResource
+    Draconic::Physics.Editor Draconic::Physics.Resource Draconic::Physics Draconic::Editor
+    Draconic::Geometry Draconic::Geometry.Editor Draconic::Geometry.Resource
     Draconic::Content Draconic::Resource Draconic::VFS doctest::doctest)
 target_compile_definitions(DraconicPhysicsPipelineTests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(DraconicPhysicsPipelineTests PRIVATE

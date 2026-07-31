@@ -11,15 +11,15 @@ add_executable(WebScene main.cpp)
 target_link_libraries(WebScene PRIVATE
     Draconic::Core
     Draconic::Runtime
-    Draconic::RuntimeClient
-    Draconic::ShellWeb
-    Draconic::RuntimeWeb
+    Draconic::Runtime.Client
+    Draconic::Shell.Web
+    Draconic::Runtime.Web
     Draconic::Graphics
-    Draconic::GraphicsGpu
-    Draconic::RuntimeDefaultApp
+    Draconic::Graphics.Gpu
+    Draconic::Engine.DefaultApp
     Draconic::Scene
-    Draconic::SceneSubsystem
-    Draconic::RenderSubsystem
+    Draconic::Engine.Scene
+    Draconic::Engine.Render
     Draconic::Geometry
     Draconic::Materials
     Draconic::Policy)

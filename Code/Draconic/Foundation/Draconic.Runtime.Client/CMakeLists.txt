@@ -1,8 +1,8 @@
-# Draconic::RuntimeClient - `draconic.runtime.client` (the Application base class).
+# Draconic::Runtime.Client - `draconic.runtime.client` (the Application base class).
 # Loop-agnostic: the desktop runner (draconic.runtime.desktop) drives Start/Tick/Stop against the shell.
 
 add_library(Draconic.Runtime.Client STATIC)
-add_library(Draconic::RuntimeClient ALIAS Draconic.Runtime.Client)
+add_library(Draconic::Runtime.Client ALIAS Draconic.Runtime.Client)
 
 target_link_libraries(Draconic.Runtime.Client
     PUBLIC Draconic::Runtime Draconic::Shell Draconic::Graphics Draconic::Profiler Draconic::Policy)

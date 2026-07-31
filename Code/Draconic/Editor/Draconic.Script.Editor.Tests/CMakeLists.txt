@@ -2,9 +2,9 @@
 # stays backend-neutral and resolves through the registry (B3).
 add_executable(DraconicScriptPipelineTests TestsMain.cpp ScriptPipelineTests.cpp)
 target_link_libraries(DraconicScriptPipelineTests PRIVATE
-    Draconic::ScriptEditor Draconic::ScriptWrenEditor Draconic::ScriptResource Draconic::Script
-    Draconic::ScriptWren Draconic::ScriptFacades
-    Draconic::Editor Draconic::EditorCore Draconic::Content Draconic::Resource Draconic::VFS
+    Draconic::Script.Editor Draconic::Script.Wren.Editor Draconic::Script.Resource Draconic::Script
+    Draconic::Script.Wren Draconic::Script.Facades
+    Draconic::Editor Draconic::Editor.Core Draconic::Content Draconic::Resource Draconic::VFS
     doctest::doctest)
 target_compile_definitions(DraconicScriptPipelineTests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(DraconicScriptPipelineTests PRIVATE

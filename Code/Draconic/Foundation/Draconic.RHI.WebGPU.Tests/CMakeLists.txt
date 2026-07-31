@@ -1,11 +1,11 @@
-# Draconic::RHIWebGPU unit tests (doctest). Environment-dependent: they skip
+# Draconic::RHI.WebGPU unit tests (doctest). Environment-dependent: they skip
 # (vacuously pass) when the wgpu-native sidecar or a GPU is unavailable.
 
 add_executable(Draconic.RHI.WebGPU.Tests
     TestsMain.cpp
     WebGpuRhiTests.cpp)
 
-target_link_libraries(Draconic.RHI.WebGPU.Tests PRIVATE Draconic::RHIWebGPU doctest::doctest)
+target_link_libraries(Draconic.RHI.WebGPU.Tests PRIVATE Draconic::RHI.WebGPU doctest::doctest)
 
 target_compile_definitions(Draconic.RHI.WebGPU.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

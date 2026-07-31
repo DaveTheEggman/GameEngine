@@ -1,9 +1,9 @@
-# Draconic::TextureEditor - `draconic.texture.editor` (tooling: TextureAsset + builder + importer).
+# Draconic::Texture.Editor - `draconic.texture.editor` (tooling: TextureAsset + builder + importer).
 add_library(Draconic.Texture.Editor STATIC)
-add_library(Draconic::TextureEditor ALIAS Draconic.Texture.Editor)
+add_library(Draconic::Texture.Editor ALIAS Draconic.Texture.Editor)
 target_link_libraries(Draconic.Texture.Editor PUBLIC
-    Draconic::Core Draconic::Editor Draconic::EditorCore Draconic::RHI Draconic::Texture Draconic::TextureResource
-    Draconic::Image Draconic::ImageIO Draconic::Content Draconic::Policy)
+    Draconic::Core Draconic::Editor Draconic::Editor.Core Draconic::RHI Draconic::Texture Draconic::Texture.Resource
+    Draconic::Image Draconic::Image.IO Draconic::Content Draconic::Policy)
 target_sources(Draconic.Texture.Editor PUBLIC FILE_SET texture_editor_modules TYPE CXX_MODULES FILES TextureAsset.cppm)
 
 if(DRACONIC_BUILD_TESTS)

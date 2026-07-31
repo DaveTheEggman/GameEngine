@@ -3,10 +3,10 @@
 add_executable(DraconicAngelScriptCookTests TestsMain.cpp AngelScriptCookTests.cpp
     AngelScriptEditorUITests.cpp)
 target_link_libraries(DraconicAngelScriptCookTests PRIVATE
-    Draconic::ScriptAngelScriptEditor Draconic::ScriptAngelScriptEditorUI
-    Draconic::ScriptAngelScript Draconic::ScriptEditor
-    Draconic::ScriptResource Draconic::Script Draconic::ScriptFacades
-    Draconic::UIToolkit Draconic::UI
+    Draconic::Script.AngelScript.Editor Draconic::Script.AngelScript.Editor.UI
+    Draconic::Script.AngelScript Draconic::Script.Editor
+    Draconic::Script.Resource Draconic::Script Draconic::Script.Facades
+    Draconic::UI.Toolkit Draconic::UI
     doctest::doctest)
 target_compile_definitions(DraconicAngelScriptCookTests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(DraconicAngelScriptCookTests PRIVATE

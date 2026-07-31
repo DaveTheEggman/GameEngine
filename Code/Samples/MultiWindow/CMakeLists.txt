@@ -7,10 +7,10 @@ target_link_libraries(MultiWindow PRIVATE
     Draconic::Core
     Draconic::RHI
     Draconic::Runtime
-    Draconic::RuntimeClient
+    Draconic::Runtime.Client
     Draconic::Shell
-    Draconic::ShellDesktop Draconic::RuntimeDesktop
+    Draconic::Shell.Desktop Draconic::Runtime.Desktop
     Draconic::Graphics
-    Draconic::GraphicsGpu
+    Draconic::Graphics.Gpu
     Draconic::Policy)
 draconic_copy_sdl3_dll(MultiWindow)

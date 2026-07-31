@@ -1,11 +1,11 @@
-# Draconic::MaterialResource unit tests (doctest; real DXC + Null RHI + content DB).
+# Draconic::Materials.Resource unit tests (doctest; real DXC + Null RHI + content DB).
 
 add_executable(Draconic.Materials.Resource.Tests
     TestsMain.cpp
     MaterialResourceTests.cpp)
 
 target_link_libraries(Draconic.Materials.Resource.Tests PRIVATE
-    Draconic::MaterialResource Draconic::ShaderSystem Draconic::RHINull Draconic::VFS doctest::doctest)
+    Draconic::Materials.Resource Draconic::Shaders.System Draconic::RHI.Null Draconic::VFS doctest::doctest)
 
 target_compile_definitions(Draconic.Materials.Resource.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

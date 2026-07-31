@@ -1,11 +1,11 @@
-# Draconic::FontsDFBaker - `draconic.fonts.distancefield.baker` (import-time MSDF atlas generation).
+# Draconic::Fonts.DistanceField.Baker - `draconic.fonts.distancefield.baker` (import-time MSDF atlas generation).
 # Links msdfgen; not needed at runtime.
 
 add_library(Draconic.Fonts.DistanceField.Baker STATIC)
-add_library(Draconic::FontsDFBaker ALIAS Draconic.Fonts.DistanceField.Baker)
+add_library(Draconic::Fonts.DistanceField.Baker ALIAS Draconic.Fonts.DistanceField.Baker)
 
 target_link_libraries(Draconic.Fonts.DistanceField.Baker
-    PUBLIC  Draconic::Core Draconic::Fonts Draconic::FontsDF Draconic::FontsIO Draconic::FontsTTF Draconic::Policy
+    PUBLIC  Draconic::Core Draconic::Fonts Draconic::Fonts.DistanceField Draconic::Fonts.IO Draconic::Fonts.TTF Draconic::Policy
     PRIVATE Draconic::MsdfgenCore Draconic::Stb)
 
 # msdfgen_impl.cpp includes msdfgen headers which may use exceptions.

@@ -1,11 +1,11 @@
-# Draconic::SceneEditor unit tests (doctest; content DB save/load round-trip).
+# Draconic::Scene.Editor unit tests (doctest; content DB save/load round-trip).
 
 add_executable(Draconic.Scene.Editor.Tests
     TestsMain.cpp
     SceneSaveLoadTests.cpp)
 
 target_link_libraries(Draconic.Scene.Editor.Tests PRIVATE
-    Draconic::SceneEditor Draconic::VFS doctest::doctest)
+    Draconic::Scene.Editor Draconic::VFS doctest::doctest)
 
 target_compile_definitions(Draconic.Scene.Editor.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

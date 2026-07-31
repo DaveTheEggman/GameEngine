@@ -1,11 +1,11 @@
-# Draconic::AnimationEditor unit tests (doctest; cook -> load round-trip, no GPU).
+# Draconic::Animation.Editor unit tests (doctest; cook -> load round-trip, no GPU).
 
 add_executable(Draconic.Animation.Editor.Tests
     TestsMain.cpp
     AnimationEditorTests.cpp)
 
 target_link_libraries(Draconic.Animation.Editor.Tests PRIVATE
-    Draconic::AnimationEditor Draconic::AnimationResource Draconic::VFS doctest::doctest)
+    Draconic::Animation.Editor Draconic::Animation.Resource Draconic::VFS doctest::doctest)
 
 target_compile_definitions(Draconic.Animation.Editor.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

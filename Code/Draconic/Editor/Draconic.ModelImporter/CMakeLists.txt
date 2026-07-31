@@ -9,15 +9,15 @@ add_library(Draconic::ModelImporter ALIAS Draconic.ModelImporter)
 
 target_link_libraries(Draconic.ModelImporter
     PUBLIC
-        Draconic::Core Draconic::EditorCore Draconic::Policy
-        Draconic::Model     Draconic::ModelIO  Draconic::ModelGltf  Draconic::ModelFbx
-        Draconic::Geometry  Draconic::MeshResource     Draconic::MeshEditor
-        Draconic::Materials Draconic::MaterialResource Draconic::MaterialEditor
-        Draconic::TextureResource  Draconic::TextureEditor  Draconic::Image
-        Draconic::Animation Draconic::AnimationResource Draconic::AnimationEditor
+        Draconic::Core Draconic::Editor.Core Draconic::Policy
+        Draconic::Model     Draconic::Model.IO  Draconic::Model.GLTF  Draconic::Model.FBX
+        Draconic::Geometry  Draconic::Geometry.Resource     Draconic::Geometry.Editor
+        Draconic::Materials Draconic::Materials.Resource Draconic::Materials.Editor
+        Draconic::Texture.Resource  Draconic::Texture.Editor  Draconic::Image
+        Draconic::Animation Draconic::Animation.Resource Draconic::Animation.Editor
         Draconic::Content   Draconic::Resource   Draconic::Editor
-        Draconic::ModelResource
-        Draconic::Physics   Draconic::PhysicsResource  Draconic::PhysicsEditor)
+        Draconic::Model.Resource
+        Draconic::Physics   Draconic::Physics.Resource  Draconic::Physics.Editor)
 
 target_sources(Draconic.ModelImporter
     PUBLIC

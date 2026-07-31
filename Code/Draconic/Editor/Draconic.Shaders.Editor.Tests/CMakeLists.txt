@@ -1,11 +1,11 @@
-# Draconic::ShaderEditor unit tests (doctest; VFS + content DB; no GPU/DXC).
+# Draconic::Shaders.Editor unit tests (doctest; VFS + content DB; no GPU/DXC).
 
 add_executable(Draconic.Shaders.Editor.Tests
     TestsMain.cpp
     ShaderEditorTests.cpp)
 
 target_link_libraries(Draconic.Shaders.Editor.Tests PRIVATE
-    Draconic::ShaderEditor doctest::doctest)
+    Draconic::Shaders.Editor doctest::doctest)
 
 target_compile_definitions(Draconic.Shaders.Editor.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

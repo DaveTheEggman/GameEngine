@@ -5,16 +5,16 @@ add_executable(PhysicsPlayground main.cpp)
 target_link_libraries(PhysicsPlayground PRIVATE
     Draconic::Core
     Draconic::Runtime
-    Draconic::RuntimeClient
-    Draconic::ShellDesktop Draconic::RuntimeDesktop
+    Draconic::Runtime.Client
+    Draconic::Shell.Desktop Draconic::Runtime.Desktop
     Draconic::Graphics
-    Draconic::GraphicsGpu
-    Draconic::RuntimeDefaultApp
+    Draconic::Graphics.Gpu
+    Draconic::Engine.DefaultApp
     Draconic::Scene
-    Draconic::SceneSubsystem
-    Draconic::RenderSubsystem
-    Draconic::Physics Draconic::PhysicsResource Draconic::PhysicsSubsystem
-    Draconic::UI Draconic::UIResource Draconic::UISubsystem
+    Draconic::Engine.Scene
+    Draconic::Engine.Render
+    Draconic::Physics Draconic::Physics.Resource Draconic::Engine.Physics
+    Draconic::UI Draconic::UI.Resource Draconic::Engine.UI
     Draconic::Imgui
     Draconic::Policy)
 draconic_copy_sdl3_dll(PhysicsPlayground)

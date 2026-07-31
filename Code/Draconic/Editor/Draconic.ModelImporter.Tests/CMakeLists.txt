@@ -6,12 +6,12 @@ add_executable(Draconic.ModelImporter.Tests
 
 target_link_libraries(Draconic.ModelImporter.Tests PRIVATE
     Draconic::ModelImporter Draconic::VFS Draconic::Content Draconic::Resource
-    Draconic::Geometry Draconic::MeshResource Draconic::Model
-    Draconic::Animation Draconic::AnimationResource
-    Draconic::EditorCore Draconic::EditorCook
-    Draconic::RHI Draconic::RHINull Draconic::TextureResource Draconic::MaterialResource
-    Draconic::TextureEditor Draconic::MeshEditor Draconic::MaterialEditor
-    Draconic::AnimationEditor doctest::doctest)
+    Draconic::Geometry Draconic::Geometry.Resource Draconic::Model
+    Draconic::Animation Draconic::Animation.Resource
+    Draconic::Editor.Core Draconic::Editor.Cook
+    Draconic::RHI Draconic::RHI.Null Draconic::Texture.Resource Draconic::Materials.Resource
+    Draconic::Texture.Editor Draconic::Geometry.Editor Draconic::Materials.Editor
+    Draconic::Animation.Editor doctest::doctest)
 
 target_compile_definitions(Draconic.ModelImporter.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS

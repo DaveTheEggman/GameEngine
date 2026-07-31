@@ -1,10 +1,10 @@
-# Draconic::RHINull unit tests (doctest).
+# Draconic::RHI.Null unit tests (doctest).
 
 add_executable(Draconic.RHI.Null.Tests
     TestsMain.cpp
     NullRhiTests.cpp)
 
-target_link_libraries(Draconic.RHI.Null.Tests PRIVATE Draconic::RHINull doctest::doctest)
+target_link_libraries(Draconic.RHI.Null.Tests PRIVATE Draconic::RHI.Null doctest::doctest)
 
 target_compile_definitions(Draconic.RHI.Null.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

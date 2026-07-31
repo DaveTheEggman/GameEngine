@@ -1,11 +1,11 @@
-# Draconic::SceneSubsystem unit tests (doctest; Context + scenes, no GPU).
+# Draconic::Engine.Scene unit tests (doctest; Context + scenes, no GPU).
 
 add_executable(Draconic.Engine.Scene.Tests
     TestsMain.cpp
     SceneSubsystemTests.cpp)
 
 target_link_libraries(Draconic.Engine.Scene.Tests PRIVATE
-    Draconic::SceneSubsystem doctest::doctest)
+    Draconic::Engine.Scene doctest::doctest)
 
 target_compile_definitions(Draconic.Engine.Scene.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

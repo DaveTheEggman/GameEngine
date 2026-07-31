@@ -3,9 +3,9 @@ add_executable(DraconicAudioSceneTests
     AudioSceneTests.cpp)
 
 target_link_libraries(DraconicAudioSceneTests PRIVATE
-    Draconic::AudioSubsystem Draconic::AudioResource Draconic::Scene Draconic::SceneResource
+    Draconic::Engine.Audio Draconic::Audio.Resource Draconic::Scene Draconic::Scene.Resource
     Draconic::Content Draconic::Resource Draconic::VFS
-    Draconic::Script Draconic::ScriptWren doctest::doctest)
+    Draconic::Script Draconic::Script.Wren doctest::doctest)
 
 target_compile_definitions(DraconicAudioSceneTests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

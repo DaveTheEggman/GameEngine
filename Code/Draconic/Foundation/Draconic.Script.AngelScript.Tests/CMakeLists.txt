@@ -1,4 +1,4 @@
-# Draconic::ScriptAngelScript unit tests (doctest). Links the Wren backend too:
+# Draconic::Script.AngelScript unit tests (doctest). Links the Wren backend too:
 # the registry test proves both backends resolve side by side.
 
 add_executable(Draconic.Script.AngelScript.Tests
@@ -6,7 +6,7 @@ add_executable(Draconic.Script.AngelScript.Tests
     ScriptAngelScriptTests.cpp)
 
 target_link_libraries(Draconic.Script.AngelScript.Tests PRIVATE
-    Draconic::ScriptAngelScript Draconic::ScriptWren doctest::doctest)
+    Draconic::Script.AngelScript Draconic::Script.Wren doctest::doctest)
 
 target_compile_definitions(Draconic.Script.AngelScript.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

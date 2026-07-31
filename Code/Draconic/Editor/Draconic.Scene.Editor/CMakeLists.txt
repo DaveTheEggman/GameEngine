@@ -1,11 +1,11 @@
-# Draconic::SceneEditor - `draconic.scene.editor` (tooling: the scene SAVE/cook path).
+# Draconic::Scene.Editor - `draconic.scene.editor` (tooling: the scene SAVE/cook path).
 # Never linked by the runtime.
 add_library(Draconic.Scene.Editor STATIC)
-add_library(Draconic::SceneEditor ALIAS Draconic.Scene.Editor)
+add_library(Draconic::Scene.Editor ALIAS Draconic.Scene.Editor)
 
 target_link_libraries(Draconic.Scene.Editor
-    PUBLIC Draconic::Core Draconic::Content Draconic::Scene Draconic::SceneResource Draconic::Policy
-           Draconic::XmlSerialization)
+    PUBLIC Draconic::Core Draconic::Content Draconic::Scene Draconic::Scene.Resource Draconic::Policy
+           Draconic::Xml.Serialization)
 
 target_sources(Draconic.Scene.Editor
     PUBLIC

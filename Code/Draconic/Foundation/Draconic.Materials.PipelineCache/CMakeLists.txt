@@ -1,10 +1,10 @@
-# Draconic::PipelineCache - `draconic.materials.pipelinecache` (render-side PSO cache with shader
+# Draconic::Materials.PipelineCache - `draconic.materials.pipelinecache` (render-side PSO cache with shader
 # version polling). Bridges the ShaderSystem (variants) and Materials (PipelineConfig).
 add_library(Draconic.Materials.PipelineCache STATIC)
-add_library(Draconic::PipelineCache ALIAS Draconic.Materials.PipelineCache)
+add_library(Draconic::Materials.PipelineCache ALIAS Draconic.Materials.PipelineCache)
 
 target_link_libraries(Draconic.Materials.PipelineCache
-    PUBLIC Draconic::Core Draconic::RHI Draconic::Shaders Draconic::ShaderSystem
+    PUBLIC Draconic::Core Draconic::RHI Draconic::Shaders Draconic::Shaders.System
            Draconic::Materials Draconic::Policy)
 
 target_sources(Draconic.Materials.PipelineCache

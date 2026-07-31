@@ -1,7 +1,7 @@
-# Draconic::FontsTTF unit tests (doctest). Uses the bundled Roboto font asset.
+# Draconic::Fonts.TTF unit tests (doctest). Uses the bundled Roboto font asset.
 
 add_executable(Draconic.Fonts.TTF.Tests TestsMain.cpp TrueTypeTests.cpp UIFeaturesTests.cpp)
-target_link_libraries(Draconic.Fonts.TTF.Tests PRIVATE Draconic::FontsTTF Draconic::FontsIO Draconic::Fonts doctest::doctest)
+target_link_libraries(Draconic.Fonts.TTF.Tests PRIVATE Draconic::Fonts.TTF Draconic::Fonts.IO Draconic::Fonts doctest::doctest)
 target_compile_definitions(Draconic.Fonts.TTF.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS
     DRACONIC_FONTS_ASSET_DIR="${CMAKE_SOURCE_DIR}/Data/Assets/fonts")

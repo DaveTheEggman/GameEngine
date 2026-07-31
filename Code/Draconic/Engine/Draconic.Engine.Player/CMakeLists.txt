@@ -11,18 +11,18 @@ if(EMSCRIPTEN)
     add_executable(Draconic.Engine.Player WebMain.cpp)
     target_link_libraries(Draconic.Engine.Player PRIVATE
         Draconic::Core
-        Draconic::Runtime Draconic::RuntimeClient Draconic::RuntimeWeb Draconic::RuntimeDefaultApp
-        Draconic::ShellWeb Draconic::Shell Draconic::Graphics Draconic::GraphicsGpu
-        Draconic::SceneSubsystem Draconic::SceneResource
-        Draconic::RenderSubsystem Draconic::AnimationSubsystem Draconic::ParticlesSubsystem
-        Draconic::Resource Draconic::MeshResource Draconic::MaterialResource Draconic::TextureResource
-        Draconic::AnimationResource Draconic::ParticlesResource Draconic::ImageResource
-        Draconic::ModelResource
+        Draconic::Runtime Draconic::Runtime.Client Draconic::Runtime.Web Draconic::Engine.DefaultApp
+        Draconic::Shell.Web Draconic::Shell Draconic::Graphics Draconic::Graphics.Gpu
+        Draconic::Engine.Scene Draconic::Scene.Resource
+        Draconic::Engine.Render Draconic::Engine.Animation Draconic::Engine.Particles
+        Draconic::Resource Draconic::Geometry.Resource Draconic::Materials.Resource Draconic::Texture.Resource
+        Draconic::Animation.Resource Draconic::Particles.Resource Draconic::Image.Resource
+        Draconic::Model.Resource
         Draconic::Script
-        Draconic::Input Draconic::InputResource Draconic::InputSubsystem
-        Draconic::UIResource Draconic::UISubsystem
-        Draconic::Physics Draconic::PhysicsResource Draconic::PhysicsSubsystem
-        Draconic::Project Draconic::VFSPak Draconic::Content Draconic::VFS Draconic::XmlSerialization)
+        Draconic::Input Draconic::Input.Resource Draconic::Engine.Input
+        Draconic::UI.Resource Draconic::Engine.UI
+        Draconic::Physics Draconic::Physics.Resource Draconic::Engine.Physics
+        Draconic::Engine.Project Draconic::VFS.Pak Draconic::Content Draconic::VFS Draconic::Xml.Serialization)
 
     # The engine WGSL shader pack: cooked with the NATIVE tool (the browser has no shader compiler)
     # and preloaded at /shaders.dpak, where RenderSubsystem::LoadCookedShaderPack finds it. This is
@@ -66,18 +66,18 @@ else()
     add_executable(Draconic.Engine.Player Main.cpp)
     target_link_libraries(Draconic.Engine.Player PRIVATE
         Draconic::Core
-        Draconic::Runtime Draconic::RuntimeClient Draconic::RuntimeDesktop Draconic::RuntimeDefaultApp
-        Draconic::ShellDesktop Draconic::Shell Draconic::Graphics Draconic::GraphicsGpu
-        Draconic::SceneSubsystem Draconic::SceneResource
-        Draconic::RenderSubsystem Draconic::AnimationSubsystem Draconic::ParticlesSubsystem
-        Draconic::Resource Draconic::MeshResource Draconic::MaterialResource Draconic::TextureResource
-        Draconic::AnimationResource Draconic::ParticlesResource Draconic::ImageResource
-        Draconic::ModelResource
+        Draconic::Runtime Draconic::Runtime.Client Draconic::Runtime.Desktop Draconic::Engine.DefaultApp
+        Draconic::Shell.Desktop Draconic::Shell Draconic::Graphics Draconic::Graphics.Gpu
+        Draconic::Engine.Scene Draconic::Scene.Resource
+        Draconic::Engine.Render Draconic::Engine.Animation Draconic::Engine.Particles
+        Draconic::Resource Draconic::Geometry.Resource Draconic::Materials.Resource Draconic::Texture.Resource
+        Draconic::Animation.Resource Draconic::Particles.Resource Draconic::Image.Resource
+        Draconic::Model.Resource
         Draconic::Script
-        Draconic::Input Draconic::InputResource Draconic::InputSubsystem
-        Draconic::UIResource Draconic::UISubsystem
-        Draconic::Physics Draconic::PhysicsResource Draconic::PhysicsSubsystem
-        Draconic::Project Draconic::VFSPak Draconic::Content Draconic::VFS Draconic::XmlSerialization)
+        Draconic::Input Draconic::Input.Resource Draconic::Engine.Input
+        Draconic::UI.Resource Draconic::Engine.UI
+        Draconic::Physics Draconic::Physics.Resource Draconic::Engine.Physics
+        Draconic::Engine.Project Draconic::VFS.Pak Draconic::Content Draconic::VFS Draconic::Xml.Serialization)
 
     # Stage the player's runtime deps beside it + emit Draconic.Engine.Player.runtime-libs (the export
     # host-template reads that list for its sidecars). SDL3 rides in as EXTRA (no-op when

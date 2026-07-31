@@ -5,7 +5,7 @@ add_executable(Draconic.Materials.Tests
     MaterialsTests.cpp)
 
 target_link_libraries(Draconic.Materials.Tests PRIVATE
-    Draconic::Materials Draconic::RHINull doctest::doctest)
+    Draconic::Materials Draconic::RHI.Null doctest::doctest)
 
 target_compile_definitions(Draconic.Materials.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

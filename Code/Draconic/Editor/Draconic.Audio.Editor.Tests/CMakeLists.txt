@@ -1,7 +1,7 @@
 add_executable(DraconicAudioPipelineTests TestsMain.cpp AudioPipelineTests.cpp)
 target_link_libraries(DraconicAudioPipelineTests PRIVATE
-    Draconic::AudioEditor Draconic::AudioResource Draconic::Audio Draconic::Editor
-    Draconic::EditorCore Draconic::Content Draconic::Resource Draconic::VFS doctest::doctest)
+    Draconic::Audio.Editor Draconic::Audio.Resource Draconic::Audio Draconic::Editor
+    Draconic::Editor.Core Draconic::Content Draconic::Resource Draconic::VFS doctest::doctest)
 target_compile_definitions(DraconicAudioPipelineTests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(DraconicAudioPipelineTests PRIVATE
     "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings;-Wno-error=c2y-extensions>"

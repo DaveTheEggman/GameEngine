@@ -1,13 +1,13 @@
-# Draconic::UISubsystem - `draconic.engine.ui`: the game screen tier (canvases + overlay render + consumption).
+# Draconic::Engine.UI - `draconic.engine.ui`: the game screen tier (canvases + overlay render + consumption).
 add_library(Draconic.Engine.UI STATIC)
-add_library(Draconic::UISubsystem ALIAS Draconic.Engine.UI)
+add_library(Draconic::Engine.UI ALIAS Draconic.Engine.UI)
 target_link_libraries(Draconic.Engine.UI
-    PUBLIC Draconic::Core Draconic::Runtime Draconic::Scene Draconic::SceneSubsystem
-           Draconic::Resource Draconic::Shell Draconic::RHI Draconic::Fonts Draconic::FontsTTF
-           Draconic::Input Draconic::InputSubsystem Draconic::UI Draconic::UIShell
-           Draconic::UIResource
-           Draconic::VG Draconic::VGRenderer Draconic::Shaders Draconic::ShaderSystem
-           Draconic::Render Draconic::RenderSubsystem Draconic::Policy)
+    PUBLIC Draconic::Core Draconic::Runtime Draconic::Scene Draconic::Engine.Scene
+           Draconic::Resource Draconic::Shell Draconic::RHI Draconic::Fonts Draconic::Fonts.TTF
+           Draconic::Input Draconic::Engine.Input Draconic::UI Draconic::UI.Shell
+           Draconic::UI.Resource
+           Draconic::VG Draconic::VG.Renderer Draconic::Shaders Draconic::Shaders.System
+           Draconic::Render Draconic::Engine.Render Draconic::Policy)
 target_sources(Draconic.Engine.UI
     PRIVATE
         UISubsystemImpl.cpp   # implementation unit: VG/shader contact + reflection bodies

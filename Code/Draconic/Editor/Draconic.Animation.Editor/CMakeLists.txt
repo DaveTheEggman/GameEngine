@@ -1,11 +1,11 @@
-# Draconic::AnimationEditor - `draconic.animation.editor`: authoring assets + builders
+# Draconic::Animation.Editor - `draconic.animation.editor`: authoring assets + builders
 # that cook skeletons/clips into the content DB. Tooling only (runtime loads cooked).
 add_library(Draconic.Animation.Editor STATIC)
-add_library(Draconic::AnimationEditor ALIAS Draconic.Animation.Editor)
+add_library(Draconic::Animation.Editor ALIAS Draconic.Animation.Editor)
 
 target_link_libraries(Draconic.Animation.Editor
     PUBLIC Draconic::Core Draconic::Editor Draconic::Content
-           Draconic::Animation Draconic::AnimationResource Draconic::Policy)
+           Draconic::Animation Draconic::Animation.Resource Draconic::Policy)
 
 target_sources(Draconic.Animation.Editor
     PUBLIC

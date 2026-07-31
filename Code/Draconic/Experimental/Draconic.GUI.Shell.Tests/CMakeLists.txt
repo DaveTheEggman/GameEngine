@@ -1,10 +1,10 @@
-# Draconic::GUIShell tests (doctest).
+# Draconic::GUI.Shell tests (doctest).
 add_executable(Draconic.GUI.Shell.Tests
     TestsMain.cpp
     BridgeTests.cpp)
 
 target_link_libraries(Draconic.GUI.Shell.Tests PRIVATE
-    Draconic::GUIShell Draconic::ShellNull doctest::doctest)
+    Draconic::GUI.Shell Draconic::Shell.Null doctest::doctest)
 
 target_compile_definitions(Draconic.GUI.Shell.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

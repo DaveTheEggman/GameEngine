@@ -5,7 +5,7 @@ add_library(Draconic.UI STATIC)
 add_library(Draconic::UI ALIAS Draconic.UI)
 
 target_link_libraries(Draconic.UI
-    PUBLIC Draconic::Core Draconic::VG Draconic::VGSVG Draconic::Fonts Draconic::Image Draconic::Policy Draconic::Xml)
+    PUBLIC Draconic::Core Draconic::VG Draconic::VG.SVG Draconic::Fonts Draconic::Image Draconic::Policy Draconic::Xml)
 
 target_sources(Draconic.UI
     PUBLIC
@@ -168,12 +168,12 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.UI.Toolkit ${CMAKE_CURR
 # ViewportView: a ui::View hosting 3D content (offscreen RT + OnRender callback + gated InputSurface).
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.UI.Viewport ${CMAKE_CURRENT_BINARY_DIR}/Viewport)
 # UIHost + docking workbench: draw draconic.ui on the runtime multi-window graphics host - these link
-# Draconic::Graphics and Draconic::RuntimeClient (the desktop app/graphics layer), so they climb with
+# Draconic::Graphics and Draconic::Runtime.Client (the desktop app/graphics layer), so they climb with
 # that layer, not on web yet.
 if(NOT EMSCRIPTEN)
     # UIHost: draws draconic.ui on the runtime multi-window graphics host (depends on Draconic::Graphics).
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.UI.Runtime ${CMAKE_CURRENT_BINARY_DIR}/Runtime)
-    # Docking/workbench: RuntimeDockableWindowHost (the only UI module that links Draconic::UIToolkit).
+    # Docking/workbench: RuntimeDockableWindowHost (the only UI module that links Draconic::UI.Toolkit).
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.UI.Application ${CMAKE_CURRENT_BINARY_DIR}/Application)
 endif()
 

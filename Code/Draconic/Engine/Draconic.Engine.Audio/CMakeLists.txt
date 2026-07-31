@@ -1,12 +1,12 @@
-# Draconic::AudioSubsystem - `draconic.engine.audio`: scene integration
+# Draconic::Engine.Audio - `draconic.engine.audio`: scene integration
 # (components + per-scene voice group + transform/listener sync + one-shot API).
 add_library(Draconic.Engine.Audio STATIC)
-add_library(Draconic::AudioSubsystem ALIAS Draconic.Engine.Audio)
+add_library(Draconic::Engine.Audio ALIAS Draconic.Engine.Audio)
 
 target_link_libraries(Draconic.Engine.Audio
-    PUBLIC Draconic::Core Draconic::Runtime Draconic::Scene Draconic::SceneSubsystem
+    PUBLIC Draconic::Core Draconic::Runtime Draconic::Scene Draconic::Engine.Scene
            Draconic::Audio Draconic::Resource Draconic::Content Draconic::Script
-           Draconic::Settings Draconic::RenderSubsystem Draconic::Policy)
+           Draconic::Settings Draconic::Engine.Render Draconic::Policy)
 
 target_sources(Draconic.Engine.Audio
     PRIVATE

@@ -1,11 +1,11 @@
-# Draconic::FontsTTF - `draconic.fonts.ttf` (stb_truetype backend + VFS service).
+# Draconic::Fonts.TTF - `draconic.fonts.ttf` (stb_truetype backend + VFS service).
 # Ported from Sedulous.Fonts.TTF (deps: Fonts, Fonts.IO, Images, VFS, stb_truetype).
 
 add_library(Draconic.Fonts.TTF STATIC)
-add_library(Draconic::FontsTTF ALIAS Draconic.Fonts.TTF)
+add_library(Draconic::Fonts.TTF ALIAS Draconic.Fonts.TTF)
 
 target_link_libraries(Draconic.Fonts.TTF
-    PUBLIC Draconic::Core Draconic::Fonts Draconic::FontsIO Draconic::Image Draconic::VFS Draconic::Policy
+    PUBLIC Draconic::Core Draconic::Fonts Draconic::Fonts.IO Draconic::Image Draconic::VFS Draconic::Policy
     PRIVATE Draconic::Stb)
 
 target_sources(Draconic.Fonts.TTF

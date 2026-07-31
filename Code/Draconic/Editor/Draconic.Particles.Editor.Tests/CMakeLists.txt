@@ -1,8 +1,8 @@
 add_executable(Draconic.Particles.Editor.Tests TestsMain.cpp ParticlePipelineTests.cpp)
 target_link_libraries(Draconic.Particles.Editor.Tests PRIVATE
-    Draconic::ParticlesEditor Draconic::ParticlesResource Draconic::Particles
+    Draconic::Particles.Editor Draconic::Particles.Resource Draconic::Particles
     Draconic::Content Draconic::Resource Draconic::Editor Draconic::VFS
-    Draconic::Texture Draconic::TextureResource Draconic::RHI Draconic::RHINull
+    Draconic::Texture Draconic::Texture.Resource Draconic::RHI Draconic::RHI.Null
     doctest::doctest)
 target_compile_definitions(Draconic.Particles.Editor.Tests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(Draconic.Particles.Editor.Tests PRIVATE

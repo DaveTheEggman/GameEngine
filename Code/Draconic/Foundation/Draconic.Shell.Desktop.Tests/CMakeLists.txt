@@ -1,4 +1,4 @@
-# Draconic::ShellDesktop unit tests (doctest). Force SDL's dummy video
+# Draconic::Shell.Desktop unit tests (doctest). Force SDL's dummy video
 # driver at runtime so these are headless/CI-safe.
 
 add_executable(Draconic.Shell.Desktop.Tests
@@ -7,7 +7,7 @@ add_executable(Draconic.Shell.Desktop.Tests
 
 # The test TU includes <SDL3/SDL.h> directly to push synthetic events.
 target_link_libraries(Draconic.Shell.Desktop.Tests PRIVATE
-    Draconic::ShellDesktop Draconic::RuntimeClient Draconic::RuntimeDesktop SDL3::SDL3 doctest::doctest)
+    Draconic::Shell.Desktop Draconic::Runtime.Client Draconic::Runtime.Desktop SDL3::SDL3 doctest::doctest)
 
 target_compile_definitions(Draconic.Shell.Desktop.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

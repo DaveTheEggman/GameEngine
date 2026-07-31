@@ -1,9 +1,9 @@
-# Draconic::VGRenderer - `draconic.vg.renderer` (VGBatch -> RHI).
+# Draconic::VG.Renderer - `draconic.vg.renderer` (VGBatch -> RHI).
 # Ported from Sedulous.VG.Renderer. Shader source: shaders/vg.{vert,frag}.hlsl
 # (compile via draconic.shaders and pass the modules to VGRenderer::Initialize).
 
 add_library(Draconic.VG.Renderer STATIC)
-add_library(Draconic::VGRenderer ALIAS Draconic.VG.Renderer)
+add_library(Draconic::VG.Renderer ALIAS Draconic.VG.Renderer)
 
 target_link_libraries(Draconic.VG.Renderer PUBLIC
     Draconic::Core Draconic::RHI Draconic::VG Draconic::Image Draconic::Texture Draconic::Policy)

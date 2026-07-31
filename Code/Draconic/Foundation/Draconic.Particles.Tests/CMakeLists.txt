@@ -6,8 +6,8 @@ add_executable(Draconic.Particles.Tests
     ResourceRefTests.cpp)
 
 target_link_libraries(Draconic.Particles.Tests PRIVATE
-    Draconic::Particles Draconic::ParticlesSubsystem Draconic::ParticlesResource
-    Draconic::SceneResource Draconic::Resource Draconic::VFS Draconic::Content doctest::doctest)
+    Draconic::Particles Draconic::Engine.Particles Draconic::Particles.Resource
+    Draconic::Scene.Resource Draconic::Resource Draconic::VFS Draconic::Content doctest::doctest)
 
 target_compile_definitions(Draconic.Particles.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

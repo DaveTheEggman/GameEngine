@@ -1,11 +1,11 @@
-# Draconic::RHIValidation unit tests (doctest). Wraps the Null backend.
+# Draconic::RHI.Validation unit tests (doctest). Wraps the Null backend.
 
 add_executable(Draconic.RHI.Validation.Tests
     TestsMain.cpp
     ValidationTests.cpp)
 
 target_link_libraries(Draconic.RHI.Validation.Tests PRIVATE
-    Draconic::RHIValidation Draconic::RHINull doctest::doctest)
+    Draconic::RHI.Validation Draconic::RHI.Null doctest::doctest)
 
 target_compile_definitions(Draconic.RHI.Validation.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

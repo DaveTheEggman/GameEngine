@@ -2,8 +2,8 @@
 # backend-neutral and resolves through the registry, exactly like the ScriptPage.
 add_executable(Draconic.Editor.Script.Tests TestsMain.cpp ScriptCompletionTests.cpp ScriptApiBrowserTests.cpp)
 target_link_libraries(Draconic.Editor.Script.Tests PRIVATE
-    Draconic::EditorScript Draconic::ScriptWren Draconic::Script Draconic::ScriptFacades
-    Draconic::UIToolkit Draconic::UI Draconic::Core
+    Draconic::Editor.Script Draconic::Script.Wren Draconic::Script Draconic::Script.Facades
+    Draconic::UI.Toolkit Draconic::UI Draconic::Core
     doctest::doctest)
 target_compile_definitions(Draconic.Editor.Script.Tests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(Draconic.Editor.Script.Tests PRIVATE

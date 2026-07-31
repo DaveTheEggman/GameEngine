@@ -1,11 +1,11 @@
-# Draconic::MaterialEditor unit tests (doctest; content DB - no GPU/DXC).
+# Draconic::Materials.Editor unit tests (doctest; content DB - no GPU/DXC).
 
 add_executable(Draconic.Materials.Editor.Tests
     TestsMain.cpp
     MaterialEditorTests.cpp)
 
 target_link_libraries(Draconic.Materials.Editor.Tests PRIVATE
-    Draconic::MaterialEditor Draconic::VFS doctest::doctest)
+    Draconic::Materials.Editor Draconic::VFS doctest::doctest)
 
 target_compile_definitions(Draconic.Materials.Editor.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

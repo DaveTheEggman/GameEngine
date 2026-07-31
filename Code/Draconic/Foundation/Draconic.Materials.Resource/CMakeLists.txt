@@ -1,12 +1,12 @@
-# Draconic::MaterialResource - `draconic.materials.resource` (materials as resources:
+# Draconic::Materials.Resource - `draconic.materials.resource` (materials as resources:
 # MaterialSource -> Material via MaterialFactory; depends on the ShaderResource).
 add_library(Draconic.Materials.Resource STATIC)
-add_library(Draconic::MaterialResource ALIAS Draconic.Materials.Resource)
+add_library(Draconic::Materials.Resource ALIAS Draconic.Materials.Resource)
 
 target_link_libraries(Draconic.Materials.Resource
     PUBLIC Draconic::Core Draconic::Resource Draconic::Content Draconic::Shaders
-           Draconic::Texture Draconic::TextureResource
-           Draconic::ShaderResource Draconic::Materials Draconic::Policy)
+           Draconic::Texture Draconic::Texture.Resource
+           Draconic::Shaders.Resource Draconic::Materials Draconic::Policy)
 
 target_sources(Draconic.Materials.Resource
     PUBLIC

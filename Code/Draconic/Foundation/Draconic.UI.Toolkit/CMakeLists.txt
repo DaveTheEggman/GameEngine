@@ -1,12 +1,12 @@
-# Draconic::UIToolkit - `draconic.ui.toolkit`: the editor-grade widget set (docking, property grid,
+# Draconic::UI.Toolkit - `draconic.ui.toolkit`: the editor-grade widget set (docking, property grid,
 # node graph, color pickers, curve editor, menu/tool/status bars) layered on draconic.ui. Faithful port
 # of Sedulous.UI.Toolkit. A separate library/module so the core draconic.ui stays lean; consumers write
 # `import draconic.ui.toolkit;`.
 add_library(Draconic.UI.Toolkit STATIC)
-add_library(Draconic::UIToolkit ALIAS Draconic.UI.Toolkit)
+add_library(Draconic::UI.Toolkit ALIAS Draconic.UI.Toolkit)
 
 target_link_libraries(Draconic.UI.Toolkit
-    PUBLIC Draconic::Core Draconic::VG Draconic::VGSVG Draconic::Fonts Draconic::Image Draconic::UI Draconic::Policy)
+    PUBLIC Draconic::Core Draconic::VG Draconic::VG.SVG Draconic::Fonts Draconic::Image Draconic::UI Draconic::Policy)
 
 target_sources(Draconic.UI.Toolkit
     PUBLIC

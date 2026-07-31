@@ -1,8 +1,8 @@
-# Draconic::EditorCook - `draconic.editor.cook` (the incremental cook driver + pipeline DB).
+# Draconic::Editor.Cook - `draconic.editor.cook` (the incremental cook driver + pipeline DB).
 # Tooling only; headless (no shell/GPU) so the CLI cooker can link it.
 
 add_library(Draconic.Editor.Cook STATIC)
-add_library(Draconic::EditorCook ALIAS Draconic.Editor.Cook)
+add_library(Draconic::Editor.Cook ALIAS Draconic.Editor.Cook)
 
 target_link_libraries(Draconic.Editor.Cook PUBLIC
     Draconic::Core Draconic::Content Draconic::VFS Draconic::Editor Draconic::Policy)

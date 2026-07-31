@@ -32,4 +32,4 @@ if(DRACONIC_BUILD_TOOLS)
 endif()
 
 # NB: the scene-integration lib (Animation/Subsystem) is added from the ROOT CMakeLists AFTER
-# Render, because it links Draconic::RenderSubsystem (which doesn't exist this early in config).
+# Render, because it links Draconic::Engine.Render (which doesn't exist this early in config).
