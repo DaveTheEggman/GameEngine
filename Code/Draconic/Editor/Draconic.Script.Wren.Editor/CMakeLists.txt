@@ -16,7 +16,7 @@ target_sources(Draconic.Script.Wren.Editor
 
 # Draconic::Script.Wren.Editor.UI - `draconic.script.wren.editor.ui`: Wren's EDITOR-UI services
 # (CodeEditView lexer tables; the introspection completion provider joins later). Separate
-# from the cook target above because that one links into RaptorCook/RaptorExport, which must
+# from the cook target above because that one links into Draconic.Tools.Cook/Draconic.Tools.Export, which must
 # stay UI-free; only the editor app links this.
 add_library(Draconic.Script.Wren.Editor.UI STATIC)
 add_library(Draconic::Script.Wren.Editor.UI ALIAS Draconic.Script.Wren.Editor.UI)

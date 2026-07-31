@@ -8,7 +8,7 @@ and the plan. Keep newest first.
 ## clang 21.1 frontend crash compiling `Samples/Sandbox/main.cpp` - RESOLVED
 
 **Status:** RESOLVED 2026-07-23 (as a side-effect of the code-quality pass). A full
-`build/clang` keep-going build now compiles the ENTIRE tree - Sandbox and RaptorExport
+`build/clang` keep-going build now compiles the ENTIRE tree - Sandbox and Draconic.Tools.Export
 included - with zero failures, and Sandbox compiles cleanly on repeated clean rebuilds.
 **Why it went away:** the sec 10.6 extraction pass moved ~16k lines of implementation out
 of the interface units these huge TUs transitively import (all of Render, plus Scene /
@@ -35,7 +35,7 @@ verification path.
 **Where:** `Code/Samples/Sandbox/main.cpp` - a very large module TU (the resulting debug
 binary is ~60 MB from one TU). Same fragility the runtime-host work hit before, worked
 around via `DefaultApplication::PrimaryScenes()` returning `SceneManager&` to avoid
-materializing `GameInstance` in huge sample TUs. `Tools/Export/Main.cpp` (RaptorExport)
+materializing `GameInstance` in huge sample TUs. `Tools/Export/Main.cpp` (Draconic.Tools.Export)
 is likely the same class of TU.
 
 **Impact:** intermittent - it compiled successfully earlier the same day (binary

@@ -88,6 +88,18 @@ if(EMSCRIPTEN)
     set(DRACONIC_EXTENSION_IMGUI OFF)
 endif()
 
+# --- Product binary basenames: single source of truth ------------------------
+# A few executables are referenced by name/path from OUTSIDE their own target, so the name cannot
+# live only in the target definition:
+#   - the export host-template stages the player and reads "<player>.runtime-libs" beside the tool
+#     (Editor.Core gets the name below as the DRACONIC_PLAYER_BASENAME compile define)
+#   - the web build invokes the NATIVE shader-pack cook by PATH (cross-config: the wasm build reaches
+#     into the desktop Bin dir, so it cannot use $<TARGET_FILE:>) - Player/WebScene read this name
+# Change a name here and every reference (OUTPUT_NAME, the C++ constant, the sidecar, the cook path)
+# follows. Dotted, matching the target names.
+set(DRACONIC_PLAYER_BASENAME         "Draconic.Engine.Player")
+set(DRACONIC_SHADERPACKCOOK_BASENAME "Draconic.Tools.ShaderPack")
+
 # Enable testing before any subdirectory so add_test() calls made by modules that
 # register their own Tests/ (e.g. Runtime, Script/Wren) are picked up by ctest.
 if(DRACONIC_BUILD_TESTS)
@@ -130,7 +142,7 @@ target_compile_options(draconic_policy INTERFACE
     $<$<CXX_COMPILER_ID:Clang,GNU>:-fno-exceptions;-fno-rtti>
     # GCC modules: eager gcm loading. The default lazy loader intermittently fails to merge
     # template pendings across module imports ("failed to read compiled module cluster" /
-    # "failed to load pendings for ...") - deterministic in RaptorCook's import mix on GCC 15.2.
+    # "failed to load pendings for ...") - deterministic in DraconicCook's import mix on GCC 15.2.
     $<$<CXX_COMPILER_ID:GNU>:-fno-module-lazy>
     $<$<CXX_COMPILER_ID:MSVC>:/EHs-c-;/GR->)
 
@@ -319,7 +331,7 @@ add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Script) # entity behaviors
 if(DRACONIC_EXTENSION_IMGUI)
     add_subdirectory(Code/Draconic/Extensions/Draconic.Imgui) # Dear ImGui debug UI (RHI renderer + subsystem) over Runtime
 endif()
-add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Player)        # RaptorPlayer generic game runner
+add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Player)        # DraconicPlayer generic game runner
 
 
 # --- Authoring tooling: the editor libraries + the CLI executables that assemble them.
@@ -357,10 +369,10 @@ if(DRACONIC_BUILD_TOOLS)
     add_subdirectory(Code/Draconic/Editor/Draconic.Shaders.Editor)
     add_subdirectory(Code/Draconic/Editor/Draconic.Texture.Editor)
 
-    add_subdirectory(Code/Draconic/Tools/Draconic.Tools.Editor)        # RaptorEditor executable (editor assembly)
-    add_subdirectory(Code/Draconic/Tools/Draconic.Tools.Cook)          # RaptorCook CLI cooker (headless)
-    add_subdirectory(Code/Draconic/Tools/Draconic.Tools.Export)        # RaptorExport dist packager
-    add_subdirectory(Code/Draconic/Tools/Draconic.Tools.ShaderPack) # RaptorShaderPackCook: cook shaders.dpak (WGSL for web)
+    add_subdirectory(Code/Draconic/Tools/Draconic.Tools.Editor)        # DraconicEditor executable (editor assembly)
+    add_subdirectory(Code/Draconic/Tools/Draconic.Tools.Cook)          # DraconicCook CLI cooker (headless)
+    add_subdirectory(Code/Draconic/Tools/Draconic.Tools.Export)        # DraconicExport dist packager
+    add_subdirectory(Code/Draconic/Tools/Draconic.Tools.ShaderPack) # DraconicShaderPackCook: cook shaders.dpak (WGSL for web)
 endif()
 
 # --- Tests: every module's flat-sibling doctest suite (guarded by its module target so the

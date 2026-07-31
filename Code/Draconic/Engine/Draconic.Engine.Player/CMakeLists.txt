@@ -27,18 +27,18 @@ if(EMSCRIPTEN)
     # The engine WGSL shader pack: cooked with the NATIVE tool (the browser has no shader compiler)
     # and preloaded at /shaders.dpak, where RenderSubsystem::LoadCookedShaderPack finds it. This is
     # SEPARATE from the game dist - the dist carries project assets, not engine shaders. (Same shape
-    # as Code/Samples/WebScene.) The native RaptorShaderPackCook must be built first (desktop).
+    # as Code/Samples/WebScene.) The native Draconic.Tools.ShaderPack must be built first (desktop).
     set(_web_shader_pack "${CMAKE_CURRENT_BINARY_DIR}/shaders.dpak")
-    set(_cook_tool "${CMAKE_SOURCE_DIR}/Bin/Debug/Linux64-Clang/RaptorShaderPackCook")
+    set(_cook_tool "${CMAKE_SOURCE_DIR}/Bin/Debug/Linux64-Clang/${DRACONIC_SHADERPACKCOOK_BASENAME}")
     file(GLOB _engine_shader_sources
         "${CMAKE_SOURCE_DIR}/Data/Shaders/*.hlsl" "${CMAKE_SOURCE_DIR}/Data/Shaders/*.hlsli")
     add_custom_command(
         OUTPUT "${_web_shader_pack}"
         COMMAND "${_cook_tool}" "${CMAKE_SOURCE_DIR}/Data/Shaders" "${_web_shader_pack}" wgsl
         DEPENDS ${_engine_shader_sources} "${_cook_tool}"
-        COMMENT "Draconic.Engine.Player(web): cooking WGSL shaders.dpak (native RaptorShaderPackCook)")
-    add_custom_target(RaptorPlayerShaderPack DEPENDS "${_web_shader_pack}")
-    add_dependencies(Draconic.Engine.Player RaptorPlayerShaderPack)
+        COMMENT "Draconic.Engine.Player(web): cooking WGSL shaders.dpak (native Draconic.Tools.ShaderPack)")
+    add_custom_target(Draconic.Engine.Player.ShaderPack DEPENDS "${_web_shader_pack}")
+    add_dependencies(Draconic.Engine.Player Draconic.Engine.Player.ShaderPack)
 
     # The cooked game DIST to bundle (Content.pak + player.xml). Overridable so any exported dist can
     # be baked in; defaults to the staged EditorProject dist. Both files preload into the MEMFS root,
@@ -47,7 +47,7 @@ if(EMSCRIPTEN)
         "${CMAKE_SOURCE_DIR}/Bin/Debug/Linux64-Clang/EditorProject/Dist/Linux64"
         CACHE PATH "Cooked dist dir (Content.pak + player.xml) to bundle into the web player")
 
-    # Full-window canvas shell, the player's own (shipping-facing: <title>Raptor Player</title>, its
+    # Full-window canvas shell, the player's own (shipping-facing: <title>Draconic Player</title>, its
     # <canvas id=canvas> matches WebShell's default selector; DPR-aware resize drives the swapchain).
     set(_web_shell "${CMAKE_CURRENT_SOURCE_DIR}/shell.html")
     set_source_files_properties(WebMain.cpp PROPERTIES OBJECT_DEPENDS "${_web_shell}")
@@ -94,4 +94,4 @@ else()
 
 endif()
 
-set_target_properties(Draconic.Engine.Player PROPERTIES OUTPUT_NAME RaptorPlayer)
+set_target_properties(Draconic.Engine.Player PROPERTIES OUTPUT_NAME ${DRACONIC_PLAYER_BASENAME})

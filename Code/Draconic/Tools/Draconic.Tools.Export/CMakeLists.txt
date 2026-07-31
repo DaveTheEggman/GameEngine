@@ -15,4 +15,3 @@ target_link_libraries(Draconic.Tools.Export PRIVATE
     Draconic::Script.Editor Draconic::Script.Wren.Editor Draconic::Script.AngelScript.Editor
     Draconic::UI.Resource Draconic::UI.Editor)
 
-set_target_properties(Draconic.Tools.Export PROPERTIES OUTPUT_NAME RaptorExport)

@@ -1,6 +1,6 @@
 // Draconic::EditorCore - :export partition.
 //
-// The export pipeline as a LIBRARY (the RaptorExport CLI and the editor's Export menu are
+// The export pipeline as a LIBRARY (the Draconic.Tools.Export CLI and the editor's Export menu are
 // thin callers; tests drive it headlessly): cook -> stage scenes as binary envelopes ->
 // pack Content.pak -> write the dist manifest. The caller stages the player executable
 // (an exe-location concern, not a pipeline one).

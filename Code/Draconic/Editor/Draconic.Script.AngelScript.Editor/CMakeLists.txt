@@ -21,8 +21,8 @@ target_sources(Draconic.Script.AngelScript.Editor
 
 # Draconic::Script.AngelScript.Editor.UI - `draconic.script.angelscript.editor.ui`: the
 # EDITOR-UI services (CodeEditView lexer tables; the introspection completion provider joins
-# later). Separate from the cook target above because that one links into RaptorCook/
-# RaptorExport, which must stay UI-free; only the editor app links this.
+# later). Separate from the cook target above because that one links into Draconic.Tools.Cook/
+# Draconic.Tools.Export, which must stay UI-free; only the editor app links this.
 add_library(Draconic.Script.AngelScript.Editor.UI STATIC)
 add_library(Draconic::Script.AngelScript.Editor.UI ALIAS Draconic.Script.AngelScript.Editor.UI)
 target_link_libraries(Draconic.Script.AngelScript.Editor.UI PUBLIC

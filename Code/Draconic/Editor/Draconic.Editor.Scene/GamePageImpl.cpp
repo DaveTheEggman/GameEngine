@@ -2,7 +2,7 @@
 //
 // GameEditorPage (play-in-editor phase 8b, docs/design/roadmap.md MVP item 4): a singleton
 // "Game" dock tab hosting the PLAYER behavior - a FRESH run of the project's default scene,
-// exactly what RaptorPlayer does, in-process. Distinct from the ScenePage's Simulate
+// exactly what Draconic.Engine.Player does, in-process. Distinct from the ScenePage's Simulate
 // (in-place snapshot -> run -> restore): nothing here is edited, so Play builds everything
 // from scratch (fresh Scene + resolve + Start) and Stop tears it all down - total cleanup IS
 // the restore. Renders through the scene's own primary camera (RenderScene with no override;
@@ -245,7 +245,7 @@ namespace draconic::editor
             return;
         }
 
-        // Resolution order mirrors RaptorPlayer: the manifest's guid (authoritative,
+        // Resolution order mirrors Draconic.Engine.Player: the manifest's guid (authoritative,
         // rename-proof), then the path mirror.
         EditorProject& project = *m_context->Project();
         draconic::content::Instance* instance = nullptr;
@@ -284,7 +284,7 @@ namespace draconic::editor
             return;
         }
         // Products bind from the cooked DB (the editor's shared manager); prefab payloads
-        // come from the source DB - the same split RaptorPlayer uses in project mode.
+        // come from the source DB - the same split Draconic.Engine.Player uses in project mode.
         if (m_context->Resources() != nullptr)
         {
             scene::ResolveSceneResources(*m_scene, *m_context->Resources());

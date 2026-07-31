@@ -342,7 +342,7 @@ export namespace draconic::core
     }
 
     // Directory containing the running executable (its parent), empty on failure. This is the
-    // Bin/<Config>/<Platform> dir - where sibling tools (e.g. RaptorPlayer) live.
+    // Bin/<Config>/<Platform> dir - where sibling tools (e.g. Draconic.Engine.Player) live.
     [[nodiscard]] inline String GetExecutableDirectory()
     {
         const String path = GetExecutablePath();

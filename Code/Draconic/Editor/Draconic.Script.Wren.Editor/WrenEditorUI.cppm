@@ -2,7 +2,7 @@
 //
 // Wren-specific EDITOR-UI services: everything the in-editor experience needs that depends on
 // ui.toolkit and therefore cannot live in the cook target (Draconic::ScriptWrenEditor links
-// into RaptorCook/RaptorExport, which must stay UI-free). Today that is the Wren syntax
+// into Draconic.Tools.Cook/Draconic.Tools.Export, which must stay UI-free). Today that is the Wren syntax
 // tables for CodeEditView highlighting, registered into the toolkit's CodeLexerRegistry by
 // language id; the Wren completion provider (ICompletionProvider over the introspection
 // battery) joins here with code-editor P4.

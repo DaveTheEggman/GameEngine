@@ -34,7 +34,7 @@ export namespace draconic::editor
     {
         DRACONIC_OBJECT(ExportTemplate, ISerializable)
     public:
-        String id;       // "raptor-win64-release-0.1.0" (unique within the templates root)
+        String id;       // "draconic-win64-release-0.1.0" (unique within the templates root)
         String name;     // "Windows Desktop Release 0.1.0"
         String platform; // "Win64" / "Linux64"
         String config; // "Debug" / "Release" / "RelWithDebInfo" (identity); empty read => "Release"
@@ -104,7 +104,7 @@ export namespace draconic::editor
     // export for the current platform works with no import.
     // The player target's base name (no exe extension); "<base>.runtime-libs" is the build-emitted
     // sidecar list beside it (written by draconic_copy_runtime_deps).
-    inline constexpr StringView kPlayerBaseName = u8"RaptorPlayer";
+    inline constexpr StringView kPlayerBaseName = DRACONIC_PLAYER_BASENAME;
 
     // Read a "<name>.runtime-libs" list (one library basename per line) from `fs` into `out`, skipping
     // blank lines and trimming trailing CR/whitespace. Absent/empty file => no entries added.
@@ -295,7 +295,7 @@ export namespace draconic::editor
     // Install a template bundle (a dir holding template.xml + the player + sidecars) into
     // `templatesRoot` under its manifest id, so the registry picks it up. Recursive copy (overwrites
     // an existing install of the same id). `outId` receives the imported id. NotFound if the source has
-    // no valid template.xml. Shared by the RaptorExport CLI and the editor's Import Template action.
+    // no valid template.xml. Shared by the Draconic.Tools.Export CLI and the editor's Import Template action.
     [[nodiscard]] inline Status ImportTemplate(StringView srcDir, StringView templatesRoot,
                                                String* outId = nullptr)
     {
@@ -368,7 +368,7 @@ export namespace draconic::editor
     // Synthesize + materialize a template from a "Bin/<Config>/<Platform>-<Compiler>" build dir
     // (export-templates.md "Create"). Reuses SynthesizeHostTemplate to read the platform + the
     // build-emitted "<player>.runtime-libs", then stamps config + compiler (parsed from the dir path)
-    // and engineVersion, and gives it a canonical id "raptor-<platform>-<config>-<engineVersion>".
+    // and engineVersion, and gives it a canonical id "draconic-<platform>-<config>-<engineVersion>".
     // Copies the player binary + each sidecar (FileCopyPreserving, keeping +x) and writes template.xml.
     //
     // Two output modes (TemplateOutput): Install writes to <destRoot>/<id> (the templates root, so the
@@ -404,7 +404,7 @@ export namespace draconic::editor
         }
 
         // Canonical id + name (lowercased platform/config for a stable, case-insensitive id).
-        tmpl.id = String(u8"raptor-");
+        tmpl.id = String(u8"draconic-");
         tmpl.id += AsciiLower(tmpl.platform.AsView());
         tmpl.id += u8"-";
         tmpl.id += AsciiLower(tmpl.config.AsView());

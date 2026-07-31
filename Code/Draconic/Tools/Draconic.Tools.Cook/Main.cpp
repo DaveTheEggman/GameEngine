@@ -1,7 +1,7 @@
-// RaptorCook - the command-line cooker (docs/design/asset-pipeline.md §6). Headless: opens the
+// Draconic.Tools.Cook - the command-line cooker (docs/design/asset-pipeline.md §6). Headless: opens the
 // project, registers every builder, plans + executes the incremental cook.
 //
-// Usage: RaptorCook <projectDirectory> [--rebuild] [--dry-run]
+// Usage: Draconic.Tools.Cook <projectDirectory> [--rebuild] [--dry-run]
 //   --rebuild   force-cook every buildable asset (the "forgot the version bump" big hammer)
 //   --dry-run   print the plan (dirty set + orphans) without cooking
 // Exit code = number of failed cooks (0 = success).
@@ -116,7 +116,7 @@ int main(int argc, char** argv)
 {
     if (argc < 2)
     {
-        std::fprintf(stderr, "usage: RaptorCook <projectDirectory> [--rebuild] [--dry-run]\n");
+        std::fprintf(stderr, "usage: Draconic.Tools.Cook <projectDirectory> [--rebuild] [--dry-run]\n");
         return 1;
     }
     bool rebuild = false;
@@ -146,7 +146,7 @@ int main(int argc, char** argv)
         draconic::editor::EditorProject::Open(projectDir);
     if (!project)
     {
-        std::fprintf(stderr, "RaptorCook: failed to open project '%s'\n", argv[1]);
+        std::fprintf(stderr, "Draconic.Tools.Cook: failed to open project '%s'\n", argv[1]);
         return 1;
     }
 

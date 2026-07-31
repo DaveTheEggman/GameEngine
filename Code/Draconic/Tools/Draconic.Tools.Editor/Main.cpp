@@ -3,7 +3,7 @@
 // modules (draconic.<sys>.editor) get linked HERE and their RegisterEditor(EditorContext&)
 // called on the app's context - the editor core/app libraries never link engine subsystems.
 //
-// Usage: RaptorEditor [projectDirectory]
+// Usage: Draconic.Tools.Editor [projectDirectory]
 //   Opens the project (scaffolding Project.xml + Content/Sources/Cooked/Editor/.cache on first
 //   run). Defaults to ./EditorProject.
 
@@ -89,7 +89,7 @@ namespace
             UniquePtr<editor::IAssetBuilder>(DefaultAllocator().New<T>(), DefaultAllocator()));
     }
 
-    // Every engine builder (kept in lockstep with the RaptorCook CLI's set).
+    // Every engine builder (kept in lockstep with the Draconic.Tools.Cook CLI's set).
     void RegisterAllBuilders(editor::BuilderRegistry& registry)
     {
         draconic::texture::RegisterTextureAsset();
@@ -531,7 +531,7 @@ int main(int argc, char** argv)
     auto shellPtr = shell::CreateShell(ws);
     if (shellPtr.Get() == nullptr || shellPtr->MainWindow() == nullptr)
     {
-        std::fprintf(stderr, "RaptorEditor: failed to create the OS shell/window\n");
+        std::fprintf(stderr, "Draconic.Tools.Editor: failed to create the OS shell/window\n");
         return 1;
     }
 
@@ -541,7 +541,7 @@ int main(int argc, char** argv)
     auto gpu = graphics::CreateGraphicsDevice(gdd);
     if (!gpu.HasValue())
     {
-        std::fprintf(stderr, "RaptorEditor: failed to create the graphics device\n");
+        std::fprintf(stderr, "Draconic.Tools.Editor: failed to create the graphics device\n");
         return 1;
     }
 

@@ -1,4 +1,4 @@
-// WebMain.cpp - the BROWSER entry point for RaptorPlayer. Shares PlayerApplication.h with the
+// WebMain.cpp - the BROWSER entry point for Draconic.Engine.Player. Shares PlayerApplication.h with the
 // desktop Main.cpp and runs the exact same generic game runner; it differs only in the platform
 // trio (web shell + WebGPU + the requestAnimationFrame runner, via DRACONIC_APP_MAIN's web body)
 // and in how the game reaches it: the browser has no argv, so the cooked DIST (Content.pak +

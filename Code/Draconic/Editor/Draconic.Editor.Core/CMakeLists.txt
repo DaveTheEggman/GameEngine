@@ -17,6 +17,11 @@ if(TARGET Draconic::Shaders)
         DRACONIC_ENGINE_SHADER_DIR="${CMAKE_SOURCE_DIR}/Data/Shaders")
 endif()
 
+# The player executable basename, from the build's single source of truth (root CMakeLists). The
+# export host-template stages "<base>[.exe]" and reads "<base>.runtime-libs" beside the running tool.
+target_compile_definitions(Draconic.Editor.Core PRIVATE
+    DRACONIC_PLAYER_BASENAME=u8"${DRACONIC_PLAYER_BASENAME}")
+
 target_sources(Draconic.Editor.Core
     PRIVATE
         CookServiceImpl.cpp

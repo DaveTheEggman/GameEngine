@@ -21,7 +21,7 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/DXC/include/dxc/dxcapi.h)
         SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/DXC/include)
 
     # DRACONIC_DXC_LIB (cache): the absolute path to the DXC runtime library, so apps that ship
-    # (RaptorPlayer) can STAGE it beside the executable as a sidecar - DXC is loaded at runtime
+    # (Draconic.Engine.Player) can STAGE it beside the executable as a sidecar - DXC is loaded at runtime
     # (renderer compiles HLSL on demand), so a dist that lacks it renders nothing on any machine
     # but this one (where the compiled-in DRACONIC_DXC_PATH rpath still resolves into the tree).
     if(WIN32)

@@ -4,7 +4,7 @@
 // export template (player + runtime sidecars) to use, plus game-specific extra files and output
 // naming. Project-local and committable (references a template by id/platform, never an absolute
 // path). Persisted to <project>/export_presets.xml (ProjectSettings-shape versioned XML). The
-// RaptorExport CLI and the editor's Export menu both drive the export from these, so a preset
+// Draconic.Tools.Export CLI and the editor's Export menu both drive the export from these, so a preset
 // produces the SAME dist whichever surface triggers it (the cook uniformity, extended to the whole
 // dist).
 

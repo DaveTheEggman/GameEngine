@@ -25,17 +25,17 @@ target_link_libraries(WebScene PRIVATE
     Draconic::Policy)
 
 # Cook the WGSL shader pack with the NATIVE tool (the browser has no compiler) and bundle it into the
-# virtual FS at /shaders.dpak, where RenderSubsystem::LoadCookedShaderPack finds it. RaptorShaderPackCook
+# virtual FS at /shaders.dpak, where RenderSubsystem::LoadCookedShaderPack finds it. Draconic.Tools.ShaderPack
 # must be built first by any desktop preset (it is a native authoring tool, never built for wasm).
 set(_web_shader_pack "${CMAKE_CURRENT_BINARY_DIR}/shaders.dpak")
-set(_cook_tool "${CMAKE_SOURCE_DIR}/Bin/Debug/Linux64-Clang/RaptorShaderPackCook")
+set(_cook_tool "${CMAKE_SOURCE_DIR}/Bin/Debug/Linux64-Clang/${DRACONIC_SHADERPACKCOOK_BASENAME}")
 file(GLOB _engine_shader_sources
     "${CMAKE_SOURCE_DIR}/Data/Shaders/*.hlsl" "${CMAKE_SOURCE_DIR}/Data/Shaders/*.hlsli")
 add_custom_command(
     OUTPUT "${_web_shader_pack}"
     COMMAND "${_cook_tool}" "${CMAKE_SOURCE_DIR}/Data/Shaders" "${_web_shader_pack}" wgsl
     DEPENDS ${_engine_shader_sources} "${_cook_tool}"
-    COMMENT "WebScene: cooking WGSL shaders.dpak (native RaptorShaderPackCook)"
+    COMMENT "WebScene: cooking WGSL shaders.dpak (native Draconic.Tools.ShaderPack)"
     VERBATIM)
 add_custom_target(WebSceneShaderPack DEPENDS "${_web_shader_pack}")
 add_dependencies(WebScene WebSceneShaderPack)

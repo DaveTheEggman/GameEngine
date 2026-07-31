@@ -1,14 +1,14 @@
-// RaptorExport - packages a project into shippable dist(s). A thin CLI over the export DRIVER in
+// Draconic.Tools.Export - packages a project into shippable dist(s). A thin CLI over the export DRIVER in
 // draconic::editor (the editor's Export menu calls the same ExportOne/ExportAll; tests drive it
 // headlessly). The whole dist - content (Content.pak + player.xml) AND the player + its runtime
 // sidecars - comes from an export preset resolving to an export template, so a preset produces the
 // same result whichever surface triggers it. Links ZERO editor code into the result.
 //
 // Usage:
-//   RaptorExport <projectDir> [--out <dir>] [--preset <name> | --all] [--rebuild]
-//   RaptorExport --template list
-//   RaptorExport --template import <templateDir>
-//   RaptorExport --template create <configDir> [--install | --out <folder>]
+//   Draconic.Tools.Export <projectDir> [--out <dir>] [--preset <name> | --all] [--rebuild]
+//   Draconic.Tools.Export --template list
+//   Draconic.Tools.Export --template import <templateDir>
+//   Draconic.Tools.Export --template create <configDir> [--install | --out <folder>]
 //
 // No export_presets.xml in the project => a host preset for the current platform is synthesized, so a
 // quick dev export works out of the box (the host template = the player next to this tool).
@@ -175,7 +175,7 @@ namespace
         };
     }
 
-    // Same builder set as RaptorCook/RaptorEditor (kept in lockstep).
+    // Same builder set as Draconic.Tools.Cook/Draconic.Tools.Editor (kept in lockstep).
     void RegisterAllBuilders(editor::BuilderRegistry& registry)
     {
         draconic::texture::RegisterTextureAsset();
@@ -228,7 +228,7 @@ namespace
         Add<draconic::script::ScriptClassAssetBuilder>(registry);
     }
 
-    // Directory containing this executable (Bin/... - where RaptorPlayer + its .runtime-libs live,
+    // Directory containing this executable (Bin/... - where Draconic.Engine.Player + its .runtime-libs live,
     // i.e. the host template's source). argv[0] can be bare/relative, so canonicalize it.
     [[nodiscard]] String ToolDir(const char* argv0)
     {
@@ -262,10 +262,10 @@ namespace
         std::fprintf(
             stderr,
             "usage:\n"
-            "  RaptorExport <projectDir> [--out <dir>] [--preset <name> | --all] [--rebuild]\n"
-            "  RaptorExport --template list\n"
-            "  RaptorExport --template import <templateDir>\n"
-            "  RaptorExport --template create <configDir> [--install | --out <folder>]\n");
+            "  Draconic.Tools.Export <projectDir> [--out <dir>] [--preset <name> | --all] [--rebuild]\n"
+            "  Draconic.Tools.Export --template list\n"
+            "  Draconic.Tools.Export --template import <templateDir>\n"
+            "  Draconic.Tools.Export --template create <configDir> [--install | --out <folder>]\n");
         return 1;
     }
 
@@ -293,7 +293,7 @@ namespace
         String importedId;
         if (!editor::ImportTemplate(Sv(srcDir), root.AsView(), &importedId).IsOk())
         {
-            std::fprintf(stderr, "RaptorExport: failed to import '%s' (no valid template.xml?)\n",
+            std::fprintf(stderr, "Draconic.Tools.Export: failed to import '%s' (no valid template.xml?)\n",
                          srcDir);
             return 1;
         }
@@ -342,7 +342,7 @@ namespace
                  .IsOk())
         {
             std::fprintf(stderr,
-                         "RaptorExport: failed to create a template from '%s' "
+                         "Draconic.Tools.Export: failed to create a template from '%s' "
                          "(missing player binary or runtime-libs?)\n",
                          configDir);
             return 1;
@@ -426,7 +426,7 @@ int main(int argc, char** argv)
     UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(Sv(projectDir));
     if (!project)
     {
-        std::fprintf(stderr, "RaptorExport: failed to open project '%s'\n", projectDir);
+        std::fprintf(stderr, "Draconic.Tools.Export: failed to open project '%s'\n", projectDir);
         return 1;
     }
 
@@ -466,7 +466,7 @@ int main(int argc, char** argv)
                                true, &sceneStreams, &scanner)
                  .IsOk())
         {
-            std::fprintf(stderr, "RaptorExport: one or more presets failed (see log)\n");
+            std::fprintf(stderr, "Draconic.Tools.Export: one or more presets failed (see log)\n");
             return 1;
         }
         std::printf("export done: %zu preset(s) -> %s\n", presets.presets.Size(),
@@ -479,7 +479,7 @@ int main(int argc, char** argv)
                                 : (presets.presets.Size() > 0 ? &presets.presets[0] : nullptr);
     if (preset == nullptr)
     {
-        std::fprintf(stderr, "RaptorExport: no preset%s%s\n", presetName ? " named " : "",
+        std::fprintf(stderr, "Draconic.Tools.Export: no preset%s%s\n", presetName ? " named " : "",
                      presetName ? presetName : " defined");
         return 1;
     }
@@ -489,7 +489,7 @@ int main(int argc, char** argv)
                            &result, {}, true, &sceneStreams, &scanner)
              .IsOk())
     {
-        std::fprintf(stderr, "RaptorExport: export failed (see log)\n");
+        std::fprintf(stderr, "Draconic.Tools.Export: export failed (see log)\n");
         return 1;
     }
     std::printf(

@@ -49,7 +49,7 @@ function(draconic_copy_runtime_deps target)
         list(APPEND _dr_libs ${ARG_EXTRA})   # configure-time paths (e.g. the vendored SDL3 DLL)
     endif()
     file(GENERATE
-        OUTPUT  "$<TARGET_FILE_DIR:${target}>/${target}.runtime-libs"
+        OUTPUT  "$<TARGET_FILE_DIR:${target}>/$<TARGET_FILE_BASE_NAME:${target}>.runtime-libs"
         CONTENT "$<JOIN:$<PATH:GET_FILENAME,${_dr_libs}>,\n>\n"
         TARGET  ${target})
 endfunction()

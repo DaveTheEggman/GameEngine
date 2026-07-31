@@ -21,4 +21,3 @@ target_compile_definitions(Draconic.Tools.Editor PRIVATE
 # defined in Code/Samples/ and not visible here).
 draconic_copy_runtime_deps(Draconic.Tools.Editor EXTRA ${DRACONIC_SDL3_DLL})
 
-set_target_properties(Draconic.Tools.Editor PROPERTIES OUTPUT_NAME RaptorEditor)

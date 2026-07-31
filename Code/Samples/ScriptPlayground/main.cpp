@@ -10,7 +10,7 @@
 // exactly the runtime a cooked ScriptClass drives; here the ScriptClass products are
 // built in code (the cook path is proven by the pipeline tests).
 //
-// The same behaviors run in RaptorPlayer: point a project's scene at a ScriptComponent
+// The same behaviors run in Draconic.Engine.Player: point a project's scene at a ScriptComponent
 // with these classes and it ticks identically (the player and this sample share the
 // DefaultApplication ScriptSubsystem).
 //

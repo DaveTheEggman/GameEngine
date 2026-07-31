@@ -703,10 +703,10 @@ namespace draconic::editor::app
                 m_cookService.RequestCook(true);
             }
         }
-        // Headless-debug hook: RAPTOR_TEST_OPEN=<guid> opens that instance's page ~2s in
+        // Headless-debug hook: DRACONIC_TEST_OPEN=<guid> opens that instance's page ~2s in
         // and opens it AGAIN ~4s in (the focus-existing branch) - reproduces the asset
         // browser's double-click paths in unattended (ASAN/gdb) runs.
-        if (const char* testOpen = std::getenv("RAPTOR_TEST_OPEN");
+        if (const char* testOpen = std::getenv("DRACONIC_TEST_OPEN");
             testOpen != nullptr && m_project)
         {
             m_testOpenElapsed += dt;
@@ -727,13 +727,13 @@ namespace draconic::editor::app
             }
         }
 
-        // Headless-debug hook: RAPTOR_TEST_REIMPORT="<group>;<file>" deletes the named
+        // Headless-debug hook: DRACONIC_TEST_REIMPORT="<group>;<file>" deletes the named
         // source group ~2s in and reimports <file> ~4s in (the watcher recook follows) -
         // scripts the delete->reimport crash repro for unattended ASAN runs.
-        if (const char* reimport = std::getenv("RAPTOR_TEST_REIMPORT");
+        if (const char* reimport = std::getenv("DRACONIC_TEST_REIMPORT");
             reimport != nullptr && m_project)
         {
-            m_testOpenElapsed += dt; // shared timer with RAPTOR_TEST_OPEN (use one hook per run)
+            m_testOpenElapsed += dt; // shared timer with DRACONIC_TEST_OPEN (use one hook per run)
             const StringView spec(reinterpret_cast<const utf8char*>(reimport));
             usize semi = spec.Size();
             for (usize i = 0; i < spec.Size(); ++i)
@@ -1462,7 +1462,7 @@ namespace draconic::editor::app
                 {
                     m_context.Notify(editor::NoticeKind::Error,
                                      u8"Create failed - pick a Bin/<Config> build dir "
-                                     u8"containing RaptorPlayer.");
+                                     u8"containing Draconic.Engine.Player.");
                 }
                 ReopenTemplatesManager(current);
             }});

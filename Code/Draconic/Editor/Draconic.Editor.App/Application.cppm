@@ -94,7 +94,7 @@ export namespace draconic::editor::app
         [[nodiscard]] draconic::editor::EditorProject* Project() const noexcept;
         [[nodiscard]] EditorShell& Shell() noexcept { return m_shell; }
         /// The exe registers every engine builder here (from registerEditors), mirroring the
-        /// RaptorCook CLI's set - the cook service routes through it.
+        /// Draconic.Tools.Cook CLI's set - the cook service routes through it.
         [[nodiscard]] draconic::editor::BuilderRegistry& Builders() noexcept { return m_builders; }
         [[nodiscard]] draconic::editor::EditorCookService& CookService() noexcept;
 
@@ -163,8 +163,8 @@ export namespace draconic::editor::app
         // === Export ===
 
         // Build a fresh export template registry + presets and run one preset (or all) via the shared
-        // driver - the SAME ExportOne/ExportAll the RaptorExport CLI calls. The host template comes
-        // from this editor's own Bin dir (where RaptorPlayer + its .runtime-libs live). (Imported
+        // driver - the SAME ExportOne/ExportAll the Draconic.Tools.Export CLI calls. The host template comes
+        // from this editor's own Bin dir (where Draconic.Engine.Player + its .runtime-libs live). (Imported
         // cross-platform templates land with the templates-manager UI; host-platform export works now.)
         // Export runs in TWO safe phases so the UI never freezes: (1) cook through the CookService
         // (background + DB-safe - the cook mutates the DB the UI reads), then (2) once the cook finishes
@@ -327,7 +327,7 @@ export namespace draconic::editor::app
         UIEditorPage* m_gamePage = nullptr; // the PRIMARY game tab (focus target); extras untracked
         u32 m_gamePageCounter = 0;          // unique persistence id for "Play New Instance" tabs
         f32 m_elapsed = 0.0f;               // autoExit/autoRebuild accumulator
-        f32 m_testOpenElapsed = 0.0f;       // RAPTOR_TEST_OPEN hook
+        f32 m_testOpenElapsed = 0.0f;       // DRACONIC_TEST_OPEN hook
         u32 m_testOpenStage = 0;
         bool m_autoRebuilt = false;
         Array<draconic::shell::DroppedFile> m_droppedFiles; // per-frame drain buffer

@@ -11,4 +11,4 @@ target_link_libraries(Draconic.Tools.ShaderPack PRIVATE
     Draconic::Shaders
     Draconic::Policy)
 
-set_target_properties(Draconic.Tools.ShaderPack PROPERTIES OUTPUT_NAME RaptorShaderPackCook)
+set_target_properties(Draconic.Tools.ShaderPack PROPERTIES OUTPUT_NAME ${DRACONIC_SHADERPACKCOOK_BASENAME})
