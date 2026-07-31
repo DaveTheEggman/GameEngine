@@ -64,6 +64,12 @@ export namespace draconic::core
         return std::memset(dst, value, bytes);
     }
 
+    // 0 when the two regions hold identical bytes; nonzero otherwise (std::memcmp sign).
+    [[nodiscard]] inline i32 MemCompare(const void* a, const void* b, usize bytes) noexcept
+    {
+        return std::memcmp(a, b, bytes);
+    }
+
     inline void MemZero(void* dst, usize bytes) noexcept { std::memset(dst, 0, bytes); }
 
     // =======================================================================

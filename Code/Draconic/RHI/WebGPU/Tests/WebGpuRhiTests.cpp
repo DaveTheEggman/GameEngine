@@ -768,6 +768,95 @@ TEST_CASE("rhi.webgpu: persistent mapping - writes without Unmap reach the GPU")
     backend->Destroy();
 }
 
+TEST_CASE("rhi.webgpu: persistent shadow flush skips byte-identical re-uploads")
+{
+    // The persistent-map coherence flush used to re-upload every open shadow on EVERY
+    // submit. On web each wgpuQueueWriteBuffer crosses the wasm->JS boundary, so that
+    // dominated the frame. The flush now skips when the shadow is byte-identical to the
+    // last upload. Assert the upload count only advances on real changes, and that the
+    // GPU still holds correct data across the skipped flushes.
+    Backend* backend = TryCreateBackend();
+    if (backend == nullptr)
+    {
+        return;
+    }
+    Device* device = nullptr;
+    REQUIRE(backend->EnumerateAdapters()[0]->CreateDevice(DeviceDesc{}, device).IsOk());
+    Queue* queue = device->GetQueue(QueueType::Graphics);
+
+    BufferDesc uboDesc;
+    uboDesc.size = 64;
+    uboDesc.usage = BufferUsage::Uniform | BufferUsage::CopySrc;
+    uboDesc.memory = MemoryLocation::CpuToGpu;
+    Buffer* ubo = nullptr;
+    REQUIRE(device->CreateBuffer(uboDesc, ubo).IsOk());
+    auto* webgpuUbo = static_cast<webgpu::WebGpuBuffer*>(ubo);
+
+    BufferDesc readbackDesc;
+    readbackDesc.size = 64;
+    readbackDesc.usage = BufferUsage::CopyDst;
+    readbackDesc.memory = MemoryLocation::GpuToCpu;
+    Buffer* readback = nullptr;
+    REQUIRE(device->CreateBuffer(readbackDesc, readback).IsOk());
+
+    u8* persistent = static_cast<u8*>(ubo->Map()); // held open, never Unmapped
+    REQUIRE(persistent != nullptr);
+
+    CommandPool* pool = nullptr;
+    REQUIRE(device->CreateCommandPool(QueueType::Graphics, pool).IsOk());
+    Fence* fence = nullptr;
+    REQUIRE(device->CreateFence(0, fence).IsOk());
+
+    // Each submit copies the ubo into the readback AND triggers the shadow flush.
+    const auto submitCopy = [&](u64 frame)
+    {
+        CommandEncoder* encoder = nullptr;
+        REQUIRE(pool->CreateEncoder(encoder).IsOk());
+        encoder->CopyBufferToBuffer(ubo, 0, readback, 0, 64);
+        CommandBuffer* commandBuffer = encoder->Finish();
+        CommandBuffer* commandBuffers[] = {commandBuffer};
+        queue->Submit(Span<CommandBuffer* const>(commandBuffers, 1), fence, frame);
+        REQUIRE(fence->Wait(frame, ~0ull));
+        pool->DestroyEncoder(encoder);
+    };
+
+    // Frame 1: first write reaches the GPU - exactly one upload.
+    MemSet(persistent, 0x11, 64);
+    submitCopy(1);
+    CHECK(webgpuUbo->UploadCount() == 1u);
+
+    // Frames 2-4: the shadow is untouched, so the flush must skip the write every time.
+    submitCopy(2);
+    submitCopy(3);
+    submitCopy(4);
+    CHECK(webgpuUbo->UploadCount() == 1u); // three redundant re-uploads elided
+
+    // ...and the GPU still holds frame 1's bytes despite those skipped flushes.
+    const u8* bytes = static_cast<const u8*>(readback->Map());
+    REQUIRE(bytes != nullptr);
+    CHECK(bytes[0] == 0x11);
+    CHECK(bytes[63] == 0x11);
+    readback->Unmap();
+
+    // Frame 5: a real change uploads again and the new data lands.
+    MemSet(persistent, 0x22, 64);
+    submitCopy(5);
+    CHECK(webgpuUbo->UploadCount() == 2u);
+    bytes = static_cast<const u8*>(readback->Map());
+    REQUIRE(bytes != nullptr);
+    CHECK(bytes[0] == 0x22);
+    CHECK(bytes[63] == 0x22);
+    readback->Unmap();
+
+    CHECK(!device->IsLost());
+    device->DestroyFence(fence);
+    device->DestroyCommandPool(pool);
+    device->DestroyBuffer(readback);
+    device->DestroyBuffer(ubo);
+    device->Destroy();
+    backend->Destroy();
+}
+
 TEST_CASE("rhi.webgpu: cube faces render + cube view samples correctly")
 {
     // The IBL/sky shape: render INTO per-face 2D views of a cube, then a pipeline

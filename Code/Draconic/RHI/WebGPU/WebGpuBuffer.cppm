@@ -6,7 +6,12 @@
 ///   - CpuToGpu: Map returns a CPU SHADOW. Unmap flushes it (wgpuQueueWriteBuffer,
 ///     queue-ordered) and closes the mapping; a mapping left OPEN emulates coherence -
 ///     the queue re-flushes every outstanding shadow before each submit (see
-///     WebGpuBufferRegistry), so pointer writes become visible like Vulkan's.
+///     WebGpuBufferRegistry), so pointer writes become visible like Vulkan's. Each flush
+///     SKIPS the upload when the shadow is byte-identical to the last one sent: on web
+///     every wgpuQueueWriteBuffer marshals a copy across the wasm->JS boundary, so
+///     re-sending unchanged persistent buffers every submit was the dominant frame cost
+///     (a native MemCompare is nearly free by comparison); the skip is safe because the
+///     GPU provably already holds those exact bytes.
 ///   - GpuToCpu: a genuine WebGPU mapping - MapAsync(Read) + ProcessEvents pump in Map,
 ///     wgpuBufferUnmap in Unmap. Usage is forced to MapRead|CopyDst (all WebGPU allows).
 ///   - GpuOnly: Map returns nullptr, same as every backend.
@@ -125,8 +130,7 @@ export namespace draconic::rhi::webgpu
         {
             if (!m_shadow.IsEmpty())
             {
-                m_api->wgpuQueueWriteBuffer(m_queue, m_buffer, 0, m_shadow.Data(),
-                                            m_shadow.Size());
+                UploadShadowIfChanged();
                 m_shadowOutstanding = false; // paired callers pay exactly one upload
                 return;
             }
@@ -143,10 +147,14 @@ export namespace draconic::rhi::webgpu
         {
             if (m_shadowOutstanding)
             {
-                m_api->wgpuQueueWriteBuffer(m_queue, m_buffer, 0, m_shadow.Data(),
-                                            m_shadow.Size());
+                UploadShadowIfChanged();
             }
         }
+
+        /// Actual wgpuQueueWriteBuffer uploads this buffer has issued. Redundant,
+        /// byte-identical flushes are skipped and NOT counted - an observability hook
+        /// the RHI tests use to prove the skip fires.
+        [[nodiscard]] u64 UploadCount() const { return m_uploadCount; }
 
         void Release()
         {
@@ -162,14 +170,33 @@ export namespace draconic::rhi::webgpu
     private:
         [[nodiscard]] u64 AlignedSize() const { return (desc.size + 3ull) & ~3ull; }
 
+        /// Send the shadow to the GPU unless the GPU already holds these exact bytes.
+        /// The native compare is cheap; the skipped wgpuQueueWriteBuffer is not (it
+        /// crosses the wasm->JS boundary on web). See the file header for why.
+        void UploadShadowIfChanged()
+        {
+            if (m_lastUploaded.Size() == m_shadow.Size() &&
+                MemCompare(m_lastUploaded.Data(), m_shadow.Data(), m_shadow.Size()) == 0)
+            {
+                return;
+            }
+            m_api->wgpuQueueWriteBuffer(m_queue, m_buffer, 0, m_shadow.Data(),
+                                        m_shadow.Size());
+            m_lastUploaded.Resize(m_shadow.Size());
+            MemCopy(m_lastUploaded.Data(), m_shadow.Data(), m_shadow.Size());
+            ++m_uploadCount;
+        }
+
         const WebGpuApi* m_api = nullptr;
         WGPUInstance m_instance = nullptr;
         WGPUDevice m_device = nullptr;
         WGPUQueue m_queue = nullptr;
         WGPUBuffer m_buffer = nullptr;
         Array<u8> m_shadow;
+        Array<u8> m_lastUploaded; // the bytes last uploaded; the flush skips when unchanged
         bool m_shadowOutstanding = false;
         bool m_readMapped = false;
+        u64 m_uploadCount = 0;
     };
 
     /// The device's ledger of live shadow-backed buffers, walked by the queue before
