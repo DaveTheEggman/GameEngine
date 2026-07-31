@@ -16,7 +16,7 @@ import draconic.runtime.gameinstance; // GameInstance - this app's running game 
 import draconic.shell;                // IShell, IKeyboard, KeyCode (the profile-dump hotkey)
 import draconic.graphics;             // GraphicsDevice, FrameContext
 import draconic.scene;                // Scene
-import draconic.scene.subsystem;      // SceneSubsystem (the standard scene driver)
+import draconic.engine.scene;      // SceneSubsystem (the standard scene driver)
 import draconic.render.subsystem;     // RenderSubsystem (the standard renderer)
 import draconic.engine.animation; // AnimationSubsystem (drives skeletal animation from the scene)
 import draconic.engine.particles; // ParticleSubsystem (scene-driven CPU sim)

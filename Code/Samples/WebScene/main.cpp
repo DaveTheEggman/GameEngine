@@ -19,7 +19,7 @@ import draconic.graphics;     // GraphicsDevice + FrameContext
 import draconic.graphics.gpu; // CreateGraphicsDevice
 import draconic.runtime.defaultapp; // DefaultApplication (registers the standard subsystems)
 import draconic.scene;
-import draconic.scene.subsystem;
+import draconic.engine.scene;
 import draconic.render.subsystem;  // MeshComponent/CameraComponent/LightComponent + their managers
 import draconic.geometry;          // Primitives::Cube / Plane
 import draconic.materials;         // CreatePBR

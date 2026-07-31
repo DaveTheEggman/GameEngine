@@ -15,7 +15,7 @@ import draconic.core;
 import draconic.runtime;
 import draconic.scene;
 import draconic.scene.resource;
-import draconic.scene.subsystem;
+import draconic.engine.scene;
 import draconic.resource;
 import draconic.script;
 import draconic.script.wren;

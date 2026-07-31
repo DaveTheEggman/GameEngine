@@ -1,4 +1,4 @@
-/// Draconic::SceneSubsystem - `draconic.scene.subsystem`.
+/// Draconic::SceneSubsystem - `draconic.engine.scene`.
 ///
 /// The Context-level scene driver, a PURE REGISTRY (game-instance.md §11 final): it owns the app-wide
 /// ISceneAware registry and a list of registered SceneManagers, and drives every registered manager's
@@ -11,7 +11,7 @@
 module;
 #include "Draconic.Core/Prelude.h"
 
-export module draconic.scene.subsystem;
+export module draconic.engine.scene;
 
 import draconic.core;
 import draconic.runtime;

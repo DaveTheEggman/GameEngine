@@ -7,7 +7,7 @@
 import draconic.core;
 import draconic.runtime;
 import draconic.scene;
-import draconic.scene.subsystem;
+import draconic.engine.scene;
 import draconic.ui;
 import draconic.ui.resource;
 import draconic.ui.subsystem;

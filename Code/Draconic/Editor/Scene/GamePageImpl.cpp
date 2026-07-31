@@ -24,7 +24,7 @@ import draconic.render.subsystem;
 import draconic.runtime;
 import draconic.runtime.client;
 import draconic.graphics;
-import draconic.scene.subsystem;
+import draconic.engine.scene;
 import draconic.rhi;
 import draconic.ui;
 import draconic.ui.toolkit;

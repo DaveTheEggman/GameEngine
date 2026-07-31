@@ -16,7 +16,7 @@ import draconic.rhi;
 import draconic.shaders.system;
 import draconic.runtime;          // Subsystem, Context
 import draconic.scene;            // Scene, ISceneAware
-import draconic.scene.subsystem;  // SceneSubsystem
+import draconic.engine.scene;  // SceneSubsystem
 import draconic.render;           // ExtractedScene
 import draconic.render.subsystem; // RenderSubsystem + IRenderExtractor seam
 import :renderer;

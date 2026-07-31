@@ -18,7 +18,7 @@ import draconic.graphics;
 import draconic.graphics.gpu;
 import draconic.runtime.defaultapp;
 import draconic.scene;
-import draconic.scene.subsystem;
+import draconic.engine.scene;
 import draconic.render.subsystem;
 import draconic.render;
 import draconic.imgui;

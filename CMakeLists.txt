@@ -182,7 +182,7 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/Texture)
     add_subdirectory(Code/Draconic/Materials)
     add_subdirectory(Code/Draconic/Runtime) # base lib + client Application + the WEB runner (draconic.runtime.web); game-instance/scripting composition still off
-    add_subdirectory(Code/Draconic/Scene) # renderer-agnostic base; its Subsystem (needs Runtime) is off for web
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Scene) # renderer-agnostic base; its Subsystem (needs Runtime) is off for web
     # draconic.render is scene- and resource-agnostic (device-abstract over the RHI interface), so
     # the whole renderer compiles for web now; only its GPU DEVICE (Emscripten WebGPU) is phase 2.
     # (Render/Api + Render/Subsystem link Scene; render.subsystem is gated to the app layer.)
@@ -269,7 +269,7 @@ add_subdirectory(Code/Draconic/Editor/Draconic.Physics.Editor)    # collision/ma
 add_subdirectory(Code/Draconic/Foundation/Draconic.Audio)     # miniaudio-backed audio engine core (voices/buses/handles; ma_* never public)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Audio.Resource)    # cooked audio clips + factory
 add_subdirectory(Code/Draconic/Editor/Draconic.Audio.Editor)      # audio clip asset/builder/importer (tooling)
-add_subdirectory(Code/Draconic/Scene)     # scene / ECS foundation (entities, transforms, components, SceneSubsystem)
+add_subdirectory(Code/Draconic/Foundation/Draconic.Scene)     # scene / ECS foundation (entities, transforms, components, SceneSubsystem)
 add_subdirectory(Code/Draconic/Render/Api) # light scene-rendering interface (ISceneRenderer) - tools drive rendering w/o linking the renderer
 add_subdirectory(Code/Draconic/Render)    # renderer: scene->render extraction + (later) the GPU forward path
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Animation) # skeletal-animation scene integration (links RenderSubsystem; after Render)

@@ -16,7 +16,7 @@ module draconic.ui.subsystem;
 import draconic.core;
 import draconic.runtime;
 import draconic.scene;
-import draconic.scene.subsystem;
+import draconic.engine.scene;
 import draconic.resource;
 import draconic.shell;
 import draconic.rhi;

@@ -14,7 +14,7 @@ import draconic.shell;
 import draconic.runtime;
 import draconic.runtime.client;
 import draconic.scene;
-import draconic.scene.subsystem;
+import draconic.engine.scene;
 import draconic.geometry;
 import draconic.geometry.editor; // StaticMeshAsset / SkinnedMeshAsset (factory PrimaryType)
 import draconic.materials;

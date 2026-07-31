@@ -15,7 +15,7 @@ export module draconic.engine.animation:subsystem;
 import draconic.core;
 import draconic.runtime;         // Subsystem, Context
 import draconic.scene;           // Scene, ISceneAware
-import draconic.scene.subsystem; // SceneSubsystem (to register as scene-aware)
+import draconic.engine.scene; // SceneSubsystem (to register as scene-aware)
 import :components;
 
 export namespace draconic::animation

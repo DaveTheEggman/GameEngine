@@ -20,7 +20,7 @@ import draconic.graphics.gpu;
 import draconic.runtime;
 import draconic.runtime.client;
 import draconic.runtime.desktop;
-import draconic.scene.subsystem;
+import draconic.engine.scene;
 import draconic.render.subsystem;
 import draconic.content;
 import draconic.animation.resource;

@@ -28,7 +28,7 @@ import draconic.shell;
 import draconic.runtime;
 import draconic.runtime.client;
 import draconic.scene;
-import draconic.scene.subsystem;
+import draconic.engine.scene;
 import draconic.geometry;
 import draconic.materials;
 import draconic.resource;

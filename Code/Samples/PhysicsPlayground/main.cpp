@@ -21,7 +21,7 @@ import draconic.shell.desktop;
 import draconic.graphics;
 import draconic.graphics.gpu;
 import draconic.scene;
-import draconic.scene.subsystem;
+import draconic.engine.scene;
 import draconic.render.subsystem;
 import draconic.imgui;
 import draconic.physics;

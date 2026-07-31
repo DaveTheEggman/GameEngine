@@ -23,7 +23,7 @@ export import :components;
 import draconic.core;
 import draconic.runtime;
 import draconic.scene;
-import draconic.scene.subsystem;
+import draconic.engine.scene;
 import draconic.script;
 import draconic.script.facades; // draconic::script::Entity (the raycast/contact hit entity)
 import draconic.physics;

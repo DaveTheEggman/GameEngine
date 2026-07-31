@@ -553,7 +553,7 @@ TEST_CASE("physics.scene: the character component walks, jumps, and lands (inter
 // subsystem stack (SceneSubsystem drives per-scene fixed stepping like the editor).
 
 import draconic.runtime;
-import draconic.scene.subsystem;
+import draconic.engine.scene;
 import draconic.scene.resource;
 
 TEST_CASE("physics.scene: the editor simulate cycle (capture/start/stop/restore) terminates")

@@ -22,7 +22,7 @@ import draconic.rhi;
 import draconic.profiler;
 import draconic.runtime;         // Subsystem, Context
 import draconic.scene;           // Scene, ISceneAware
-import draconic.scene.subsystem; // SceneSubsystem (to register as scene-aware)
+import draconic.engine.scene; // SceneSubsystem (to register as scene-aware)
 import draconic.shaders.system;  // ShaderSystem (borrowed from the host)
 import draconic.materials;       // MaterialSystem
 import draconic.materials.pso;   // PipelineStateCache

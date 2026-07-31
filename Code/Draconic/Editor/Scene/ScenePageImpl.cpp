@@ -28,7 +28,7 @@ import draconic.runtime.client;
 import draconic.runtime.defaultapp;
 import draconic.runtime.gameinstance; // GameInstance (the Game tab's run; multi-instance factory)
 import draconic.scene;
-import draconic.scene.subsystem;
+import draconic.engine.scene;
 import draconic.scene.resource;
 import draconic.scene.editor;
 import draconic.render;

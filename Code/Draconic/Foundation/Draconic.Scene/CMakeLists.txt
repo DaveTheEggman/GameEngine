@@ -1,13 +1,13 @@
 # Draconic::Scene - `draconic.scene`, the scene / ECS foundation (entities, transform
 # hierarchy, components + per-scene systems, SceneSubsystem). Pure data + logic on
 # top of Core; renderer-agnostic.
-add_library(DraconicScene STATIC)
-add_library(Draconic::Scene ALIAS DraconicScene)
+add_library(Draconic.Scene STATIC)
+add_library(Draconic::Scene ALIAS Draconic.Scene)
 
-target_link_libraries(DraconicScene
+target_link_libraries(Draconic.Scene
     PUBLIC Draconic::Core Draconic::Resource Draconic::Policy)
 
-target_sources(DraconicScene
+target_sources(Draconic.Scene
     PRIVATE
         SceneImpl.cpp   # out-of-line Scene member definitions (see Scene.cppm)
     PUBLIC
@@ -22,15 +22,15 @@ target_sources(DraconicScene
             SceneModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(Tests)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Scene.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
 endif()
 
 # The Context-level scene driver + ISceneAware broker (bridges Scene + Runtime). Links only the
 # base runtime lib, so it climbs wherever Runtime is configured (web included).
-add_subdirectory(Subsystem)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../Engine/Draconic.Engine.Scene ${CMAKE_CURRENT_BINARY_DIR}/Subsystem)
 
 # Whole-scene serialization: runtime load (Resource) + tooling save (Editor).
-add_subdirectory(Resource)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Scene.Resource ${CMAKE_CURRENT_BINARY_DIR}/Resource)
 if(DRACONIC_BUILD_TOOLS)
-    add_subdirectory(Editor)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../Editor/Draconic.Scene.Editor ${CMAKE_CURRENT_BINARY_DIR}/Editor)
 endif()

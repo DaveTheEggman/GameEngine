@@ -42,7 +42,7 @@ import draconic.runtime.client;
 import draconic.runtime.desktop;
 import draconic.runtime.defaultapp;
 import draconic.scene;
-import draconic.scene.subsystem;
+import draconic.engine.scene;
 import draconic.scene.resource;
 import draconic.render;
 import draconic.render.subsystem;

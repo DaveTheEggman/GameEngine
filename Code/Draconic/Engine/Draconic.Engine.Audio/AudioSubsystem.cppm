@@ -22,7 +22,7 @@ export import :components;
 import draconic.core;
 import draconic.runtime;
 import draconic.scene;
-import draconic.scene.subsystem;
+import draconic.engine.scene;
 import draconic.audio;
 import draconic.script;   // ExposeToScript + the Audio facade's service seam
 import draconic.settings; // AudioUserSettings section (persisted volumes)

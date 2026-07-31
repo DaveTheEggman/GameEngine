@@ -8,7 +8,7 @@
 // the INCLUDING TU must bring in first. Include it AFTER these imports:
 //   draconic.core, draconic.vfs, draconic.vfs.pak, draconic.content, draconic.resource,
 //   draconic.runtime, draconic.runtime.client, draconic.runtime.defaultapp,
-//   draconic.scene, draconic.scene.subsystem, draconic.scene.resource,
+//   draconic.scene, draconic.engine.scene, draconic.scene.resource,
 //   draconic.render, draconic.script, draconic.script.resource,
 //   draconic.input, draconic.audio, draconic.audio.resource, draconic.ui.resource,
 //   draconic.ui.subsystem, draconic.settings, draconic.project, draconic.xml.serialization
