@@ -1,8 +1,8 @@
-# RaptorExport - packages a project into a shippable dist (cook -> stage scenes -> Content.pak
-# + player.xml + RaptorPlayer). See docs/design/roadmap.md "Milestone: MVP-to-Export".
-add_executable(RaptorExport Main.cpp)
-add_dependencies(RaptorExport RaptorPlayer)   # stages the player exe when present
-target_link_libraries(RaptorExport PRIVATE
+# Draconic.Tools.Export - packages a project into a shippable dist (cook -> stage scenes -> Content.pak
+# + player.xml + Draconic.Engine.Player). See docs/design/roadmap.md "Milestone: MVP-to-Export".
+add_executable(Draconic.Tools.Export Main.cpp)
+add_dependencies(Draconic.Tools.Export Draconic.Engine.Player)   # stages the player exe when present
+target_link_libraries(Draconic.Tools.Export PRIVATE
     Draconic::Core Draconic::SceneResource
     Draconic::Editor Draconic::EditorCook Draconic::EditorCore
     Draconic::TextureEditor Draconic::ImageEditor Draconic::ImageResource Draconic::MeshEditor
@@ -14,3 +14,5 @@ target_link_libraries(RaptorExport PRIVATE
     Draconic::Script Draconic::ScriptWren Draconic::ScriptAngelScript Draconic::ScriptResource Draconic::ScriptFacades
     Draconic::ScriptEditor Draconic::ScriptWrenEditor Draconic::ScriptAngelScriptEditor
     Draconic::UIResource Draconic::UIEditor)
+
+set_target_properties(Draconic.Tools.Export PROPERTIES OUTPUT_NAME RaptorExport)

@@ -227,7 +227,7 @@ if(EMSCRIPTEN)
     # The generic game runner in a browser: RaptorPlayer's web entry (WebMain.cpp) loads a cooked
     # dist (Content.pak + player.xml) preloaded into the virtual FS + the WGSL shader pack. Emits
     # RaptorPlayer.html. NOT tooling (a shipped game runs it), so it is added here, not under BUILD_TOOLS.
-    add_subdirectory(Code/Tools/Player)
+    add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Player)
     # The app layer climbs on web now: draconic.runtime.defaultapp (DefaultApplication + its whole
     # subsystem stack) and the game-instance/scripting composition build for wasm (via Runtime +
     # Script/Subsystem above; AngelScript is gated off inside DefaultApp). Still to do: a full-app
@@ -313,11 +313,11 @@ add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Image) # image asset page:
 add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Generic) # fallback asset page: serialize-driven property form (editor exe only)
 add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Script) # script behavior source page: edit + recook + inline errors (editor exe only)
 add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Scene) # scene editor plugin (SceneEditorPage + RegisterSceneEditor)
-add_subdirectory(Code/Tools/Editor)        # RaptorEditor executable (editor assembly)
-add_subdirectory(Code/Tools/Cook)          # RaptorCook CLI cooker (headless)
-add_subdirectory(Code/Tools/Player)        # RaptorPlayer generic game runner
-add_subdirectory(Code/Tools/Export)        # RaptorExport dist packager
-add_subdirectory(Code/Tools/ShaderPackCook) # RaptorShaderPackCook: cook shaders.dpak (WGSL for web)
+add_subdirectory(Code/Draconic/Tools/Draconic.Tools.Editor)        # RaptorEditor executable (editor assembly)
+add_subdirectory(Code/Draconic/Tools/Draconic.Tools.Cook)          # RaptorCook CLI cooker (headless)
+add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Player)        # RaptorPlayer generic game runner
+add_subdirectory(Code/Draconic/Tools/Draconic.Tools.Export)        # RaptorExport dist packager
+add_subdirectory(Code/Draconic/Tools/Draconic.Tools.ShaderPack) # RaptorShaderPackCook: cook shaders.dpak (WGSL for web)
 
 
 if(DRACONIC_BUILD_SAMPLES)

@@ -1,7 +1,7 @@
-# RaptorEditor - the Draconic editor executable (assembly of draconic.editor.app + the
+# Draconic.Tools.Editor - the Draconic editor executable (assembly of draconic.editor.app + the
 # per-subsystem editor plugin modules; see docs/design/editor.md §3.1).
-add_executable(RaptorEditor Main.cpp)
-target_link_libraries(RaptorEditor PRIVATE
+add_executable(Draconic.Tools.Editor Main.cpp)
+target_link_libraries(Draconic.Tools.Editor PRIVATE
     Draconic::Core
     Draconic::Runtime Draconic::RuntimeClient Draconic::RuntimeDesktop Draconic::ShellDesktop
     Draconic::Shell Draconic::Graphics Draconic::GraphicsGpu
@@ -14,9 +14,11 @@ target_link_libraries(RaptorEditor PRIVATE
     Draconic::ParticlesEditor Draconic::Input Draconic::InputResource Draconic::InputEditor Draconic::EditorInput Draconic::InputSubsystem Draconic::Physics Draconic::PhysicsResource Draconic::PhysicsEditor Draconic::PhysicsSubsystem Draconic::Audio Draconic::AudioResource Draconic::AudioEditor Draconic::AudioSubsystem
     Draconic::Script Draconic::ScriptWren Draconic::ScriptAngelScript Draconic::ScriptResource Draconic::ScriptFacades Draconic::ScriptEditor Draconic::ScriptWrenEditor Draconic::ScriptWrenEditorUI Draconic::ScriptAngelScriptEditor Draconic::ScriptAngelScriptEditorUI Draconic::ScriptSubsystem Draconic::EditorScript Draconic::UIResource Draconic::UIEditor Draconic::EditorGameUI Draconic::EditorAudio Draconic::EditorTexture Draconic::EditorImage Draconic::EditorGeneric Draconic::ModelImporter Draconic::ImageResource
     Draconic::AnimationResource)
-target_compile_definitions(RaptorEditor PRIVATE
+target_compile_definitions(Draconic.Tools.Editor PRIVATE
     DRACONIC_EDITOR_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf"
     DRACONIC_EDITOR_MONO_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/dejavu/DejaVuSansMono.ttf")
 # Copy SDL3.dll next to the executable on Windows (same as the samples' helper, which is
 # defined in Code/Samples/ and not visible here).
-draconic_copy_runtime_deps(RaptorEditor EXTRA ${DRACONIC_SDL3_DLL})
+draconic_copy_runtime_deps(Draconic.Tools.Editor EXTRA ${DRACONIC_SDL3_DLL})
+
+set_target_properties(Draconic.Tools.Editor PROPERTIES OUTPUT_NAME RaptorEditor)
