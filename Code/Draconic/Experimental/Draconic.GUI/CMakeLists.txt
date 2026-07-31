@@ -90,6 +90,3 @@ target_sources(Draconic.GUI
         # (kept out of :node to avoid a :node <-> :event_dispatcher partition cycle).
         Scene/GUIClusterImpl.cpp)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.GUI.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

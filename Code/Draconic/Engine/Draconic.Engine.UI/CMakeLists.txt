@@ -20,6 +20,3 @@ target_sources(Draconic.Engine.UI
 target_compile_definitions(Draconic.Engine.UI
     PRIVATE DRACONIC_ENGINE_SHADER_DIR="${CMAKE_SOURCE_DIR}/Data/Shaders")
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Engine.UI.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

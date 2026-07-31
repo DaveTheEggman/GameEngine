@@ -15,6 +15,3 @@ target_sources(Draconic.VG.SVG
             Renderer.cppm
             SVGModule.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.VG.SVG.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

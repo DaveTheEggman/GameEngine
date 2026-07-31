@@ -11,6 +11,3 @@ target_sources(Draconic.Editor
         FILE_SET editor_modules TYPE CXX_MODULES FILES
             Asset.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Editor.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

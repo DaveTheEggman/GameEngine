@@ -23,6 +23,3 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Fonts.TTF ${CMAKE_CURRE
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Fonts.Importer ${CMAKE_CURRENT_BINARY_DIR}/Importer)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Fonts.DistanceField ${CMAKE_CURRENT_BINARY_DIR}/DistanceField)  # draconic.fonts.importer - editor-time TTF -> baked
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Fonts.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

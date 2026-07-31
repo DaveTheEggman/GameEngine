@@ -19,10 +19,6 @@ target_sources(Draconic.Animation
             AnimationGraph.cppm
             AnimationModule.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Animation.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()
-
 # Skeletons + clips as cooked resources (Source -> Factory -> runtime types).
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Animation.Resource ${CMAKE_CURRENT_BINARY_DIR}/Resource)
 

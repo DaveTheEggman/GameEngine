@@ -31,6 +31,3 @@ if(TARGET Draconic::AngelScript)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Script.AngelScript ${CMAKE_CURRENT_BINARY_DIR}/AngelScript)
 endif()
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Script.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

@@ -13,6 +13,3 @@ target_sources(Draconic.Engine.Net
         FILE_SET net_subsystem_modules TYPE CXX_MODULES FILES
             NetworkSubsystem.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Engine.Net.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

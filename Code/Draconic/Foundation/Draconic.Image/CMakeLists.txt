@@ -14,6 +14,3 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Image.Resource ${CMAKE_
 if(DRACONIC_BUILD_TOOLS)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../Editor/Draconic.Image.Editor ${CMAKE_CURRENT_BINARY_DIR}/Editor)    # draconic.image.editor (tooling)
 endif()
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Image.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

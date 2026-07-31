@@ -11,6 +11,3 @@ target_sources(Draconic.VFS.Pak
         FILE_SET vfs_pak_modules TYPE CXX_MODULES FILES
             PakModule.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.VFS.Pak.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

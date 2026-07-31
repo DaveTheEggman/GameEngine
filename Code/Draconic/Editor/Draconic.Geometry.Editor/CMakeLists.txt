@@ -12,6 +12,3 @@ target_sources(Draconic.Geometry.Editor
         FILE_SET mesh_editor_modules TYPE CXX_MODULES FILES
             MeshAsset.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Geometry.Editor.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

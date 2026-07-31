@@ -7,6 +7,3 @@ target_link_libraries(Draconic.Editor.Audio PUBLIC
     Draconic::Editor.Core Draconic::Editor.App Draconic::Policy)
 target_sources(Draconic.Editor.Audio PRIVATE SoundCuePageImpl.cpp AudioClipPageImpl.cpp BusLayoutPageImpl.cpp PUBLIC FILE_SET editor_audio_modules TYPE CXX_MODULES FILES AudioClipPage.cppm SoundCuePage.cppm BusLayoutPage.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Editor.Audio.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

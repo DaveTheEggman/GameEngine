@@ -24,7 +24,7 @@ if(EMSCRIPTEN)
     # The browser backend: a single-canvas IShell over Emscripten's HTML5 API.
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Shell.Web ${CMAKE_CURRENT_BINARY_DIR}/Web)
 else()
-    find_package(SDL3 QUIET)
+    find_package(SDL3 QUIET GLOBAL)  # GLOBAL: the hoisted Shell.Desktop.Tests (added at root) links SDL3::SDL3
     if(SDL3_FOUND)
         add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Shell.Desktop ${CMAKE_CURRENT_BINARY_DIR}/Desktop)
     else()

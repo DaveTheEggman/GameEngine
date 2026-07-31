@@ -11,6 +11,3 @@ target_sources(Draconic.Editor.Script PRIVATE ScriptPageImpl.cpp ScriptCompletio
 # The headless editing seam (ScriptSourceDocument, in draconic.script.editor) is covered by the
 # script pipeline tests; the UI page itself is exercised by the editor smoke.
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Editor.Script.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

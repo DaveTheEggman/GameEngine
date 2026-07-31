@@ -78,6 +78,3 @@ else()
     message(STATUS "No GPU RHI backend available - skipping Draconic::Graphics.Gpu")
 endif()
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Graphics.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

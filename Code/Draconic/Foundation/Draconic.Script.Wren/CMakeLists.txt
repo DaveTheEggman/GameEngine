@@ -43,6 +43,3 @@ target_sources(Draconic.Script.Wren
         FILE_SET wren_modules TYPE CXX_MODULES FILES
             WrenScript.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Script.Wren.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

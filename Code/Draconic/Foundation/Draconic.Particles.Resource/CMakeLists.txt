@@ -13,6 +13,3 @@ target_sources(Draconic.Particles.Resource
         FILE_SET particles_resource_modules TYPE CXX_MODULES FILES
             ParticleEffectResource.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Particles.Resource.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

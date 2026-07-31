@@ -28,6 +28,3 @@ target_sources(Draconic.Script.Wren.Editor.UI
     PUBLIC
         FILE_SET script_wren_editor_ui_modules TYPE CXX_MODULES FILES WrenEditorUI.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Script.Wren.Editor.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

@@ -14,6 +14,3 @@ target_sources(Draconic.Runtime.Client
             EmbeddedHost.cppm
             ApplicationHost.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Runtime.Client.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

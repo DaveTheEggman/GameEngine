@@ -33,7 +33,4 @@ else()
     # IApplication (client) against an IShell (shell) with a GraphicsDevice - depends on all three.
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Runtime.Desktop ${CMAKE_CURRENT_BINARY_DIR}/Desktop)
 
-    if(DRACONIC_BUILD_TESTS)
-        add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Runtime.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-    endif()
 endif()

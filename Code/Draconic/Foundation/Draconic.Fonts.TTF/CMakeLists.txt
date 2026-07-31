@@ -27,6 +27,3 @@ target_sources(Draconic.Fonts.TTF
 target_compile_options(Draconic.Fonts.TTF PRIVATE
     "$<$<CXX_COMPILER_ID:Clang,GNU>:-Wno-error=missing-field-initializers;-Wno-error=unused-function;-Wno-error=unused-but-set-variable;-Wno-error=sign-compare;-Wno-error=implicit-fallthrough;-Wno-error=type-limits;-Wno-error=cast-qual;-Wno-error=double-promotion>")
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Fonts.TTF.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

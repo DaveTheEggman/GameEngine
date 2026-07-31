@@ -26,10 +26,6 @@ target_sources(Draconic.Shaders
             Cook/ShaderPackCooker.cppm
             ShadersModule.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Shaders.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()
-
 # The shader system (variant compile-on-demand + cache) needs the RHI to create
 # GPU modules, so it lives in its own module/library, gated on the RHI.
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Shaders.System ${CMAKE_CURRENT_BINARY_DIR}/System)

@@ -16,10 +16,6 @@ target_sources(Draconic.Geometry
             Primitives.cppm
             GeometryModule.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Geometry.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()
-
 # Meshes as resources (Static/SkinnedMeshSource -> Static/SkinnedMesh).
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Geometry.Resource ${CMAKE_CURRENT_BINARY_DIR}/Resource)
 

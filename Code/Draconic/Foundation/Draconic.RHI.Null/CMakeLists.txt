@@ -10,6 +10,3 @@ target_sources(Draconic.RHI.Null
         FILE_SET rhi_null_modules TYPE CXX_MODULES FILES
             NullModule.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.RHI.Null.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

@@ -29,6 +29,3 @@ target_sources(Draconic.ModelImporter
             Load.cppm
             ModelImporterModule.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.ModelImporter.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

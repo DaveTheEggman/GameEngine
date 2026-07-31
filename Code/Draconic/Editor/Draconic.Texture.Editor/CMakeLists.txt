@@ -6,6 +6,3 @@ target_link_libraries(Draconic.Texture.Editor PUBLIC
     Draconic::Image Draconic::Image.IO Draconic::Content Draconic::Policy)
 target_sources(Draconic.Texture.Editor PUBLIC FILE_SET texture_editor_modules TYPE CXX_MODULES FILES TextureAsset.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Texture.Editor.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

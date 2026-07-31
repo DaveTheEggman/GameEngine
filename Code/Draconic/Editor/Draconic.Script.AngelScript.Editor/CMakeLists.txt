@@ -33,6 +33,3 @@ target_sources(Draconic.Script.AngelScript.Editor.UI
     PUBLIC
         FILE_SET script_as_editor_ui_modules TYPE CXX_MODULES FILES AngelScriptEditorUI.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Script.AngelScript.Editor.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

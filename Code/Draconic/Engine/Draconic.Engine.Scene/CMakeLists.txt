@@ -12,6 +12,3 @@ target_sources(Draconic.Engine.Scene
         FILE_SET scene_subsystem_modules TYPE CXX_MODULES FILES
             SceneSubsystem.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Engine.Scene.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

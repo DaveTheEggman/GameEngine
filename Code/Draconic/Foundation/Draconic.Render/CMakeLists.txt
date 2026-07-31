@@ -55,10 +55,6 @@ target_sources(Draconic.Render
             Debug/DebugDrawPass.cppm
             RenderModule.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Render.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()
-
 # Scene integration (draconic.engine.render): the resource- + scene-aware bridge. Links the base
 # Runtime + SceneSubsystem + the cook/material stack, all of which climb, so it climbs too - the
 # renderer itself stays device-abstract; only the GPU DEVICE (Emscripten WebGPU) is phase 2.

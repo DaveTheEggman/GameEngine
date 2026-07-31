@@ -18,7 +18,3 @@ target_sources(Draconic.Xml
             Document.cppm
             XmlModule.cppm)
 
-
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Xml.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

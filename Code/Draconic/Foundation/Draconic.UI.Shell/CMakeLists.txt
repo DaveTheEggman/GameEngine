@@ -13,6 +13,3 @@ target_sources(Draconic.UI.Shell
         FILE_SET uishell_modules TYPE CXX_MODULES FILES
             UiInputBridge.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.UI.Shell.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

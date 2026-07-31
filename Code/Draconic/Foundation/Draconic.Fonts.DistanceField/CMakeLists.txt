@@ -16,6 +16,3 @@ if(TARGET Draconic::MsdfgenCore)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Fonts.DistanceField.Baker ${CMAKE_CURRENT_BINARY_DIR}/Baker)
 endif()
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Fonts.DistanceField.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

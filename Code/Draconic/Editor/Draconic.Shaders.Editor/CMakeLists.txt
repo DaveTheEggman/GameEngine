@@ -12,6 +12,3 @@ target_sources(Draconic.Shaders.Editor
         FILE_SET shader_editor_modules TYPE CXX_MODULES FILES
             ShaderAsset.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Shaders.Editor.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

@@ -18,6 +18,3 @@ target_sources(Draconic.Editor.Texture
         FILE_SET editortexture_modules TYPE CXX_MODULES FILES
             TextureEditorPage.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Editor.Texture.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

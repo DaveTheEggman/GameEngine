@@ -13,6 +13,3 @@ target_sources(Draconic.UI.VFS
         FILE_SET uivfs_modules TYPE CXX_MODULES FILES
             VfsResourceProvider.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.UI.VFS.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

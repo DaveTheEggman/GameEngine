@@ -50,8 +50,3 @@ target_sources(Draconic.RHI.WebGPU PUBLIC FILE_SET rhi_webgpu_modules TYPE CXX_M
     WebGpuAdapter.cppm
     WebGpuBackend.cppm)
 
-# The WebGPU backend tests spin up a real device; under web that needs a browser canvas
-# (no headless node path yet), so they are desktop-only for now.
-if(DRACONIC_BUILD_TESTS AND NOT EMSCRIPTEN)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.RHI.WebGPU.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

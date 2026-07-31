@@ -6,6 +6,3 @@ target_link_libraries(Draconic.Physics.Editor PUBLIC
     Draconic::Geometry.Resource Draconic::Physics Draconic::Physics.Resource Draconic::Policy)
 target_sources(Draconic.Physics.Editor PUBLIC FILE_SET physics_editor_modules TYPE CXX_MODULES FILES PhysicsAsset.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Physics.Editor.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

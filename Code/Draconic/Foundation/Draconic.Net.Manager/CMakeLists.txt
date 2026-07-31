@@ -14,9 +14,3 @@ target_sources(Draconic.Net.Manager
     PRIVATE
         NetworkManagerImpl.cpp)
 
-# The tests exercise the Net facade on BOTH script backends, so they need ScriptAngelScript
-# (gated off for web, where AngelScript is not yet wired). TARGET guard is order-safe - Script
-# configures before Net.
-if(DRACONIC_BUILD_TESTS AND TARGET Draconic::Script.AngelScript)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Net.Manager.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

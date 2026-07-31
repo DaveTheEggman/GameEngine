@@ -19,6 +19,3 @@ if(DRACONIC_BUILD_TOOLS)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../Editor/Draconic.Texture.Editor ${CMAKE_CURRENT_BINARY_DIR}/Editor)    # draconic.texture.editor   - tooling: asset + builder + importer
 endif()
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Texture.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

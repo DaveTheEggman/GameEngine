@@ -13,6 +13,3 @@ target_sources(Draconic.Content
         FILE_SET content_modules TYPE CXX_MODULES FILES
             ContentModule.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Content.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

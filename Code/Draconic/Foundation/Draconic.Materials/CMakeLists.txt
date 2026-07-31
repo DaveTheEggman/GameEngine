@@ -18,10 +18,6 @@ target_sources(Draconic.Materials
             MaterialSystem.cppm
             MaterialsModule.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Materials.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()
-
 # Render-side PSO cache (needs the ShaderSystem on top of Materials).
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Materials.PipelineCache ${CMAKE_CURRENT_BINARY_DIR}/PSO)
 

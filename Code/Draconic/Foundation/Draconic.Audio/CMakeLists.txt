@@ -26,6 +26,3 @@ target_include_directories(Draconic.Audio PRIVATE ${CMAKE_SOURCE_DIR}/ThirdParty
 # Vendored implementation code builds without our -Werror strictness.
 set_source_files_properties(MiniaudioImpl.cpp PROPERTIES COMPILE_OPTIONS "-Wno-error")
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Audio.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

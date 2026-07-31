@@ -60,6 +60,3 @@ target_sources(Draconic.UI.Toolkit PRIVATE
     Code/XmlLexer.cpp
     Code/CodeLexerRegistry.cpp)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.UI.Toolkit.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

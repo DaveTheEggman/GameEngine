@@ -56,6 +56,3 @@ target_sources(Draconic.Editor.Scene
             ModelPrefab.cppm
             EditorSceneModule.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Editor.Scene.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

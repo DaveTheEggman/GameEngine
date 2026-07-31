@@ -14,6 +14,3 @@ target_sources(Draconic.Fonts.IO
             FontManager.cppm
             FontsIOModule.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Fonts.IO.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

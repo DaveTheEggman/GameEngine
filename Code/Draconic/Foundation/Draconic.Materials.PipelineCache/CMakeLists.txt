@@ -12,6 +12,3 @@ target_sources(Draconic.Materials.PipelineCache
         FILE_SET pso_modules TYPE CXX_MODULES FILES
             PipelineStateCache.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(Tests)
-endif()

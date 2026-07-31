@@ -14,7 +14,3 @@ target_sources(Draconic.VFS
             NativeFileSystem.cppm
             VirtualFileSystem.cppm)
 
-
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.VFS.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

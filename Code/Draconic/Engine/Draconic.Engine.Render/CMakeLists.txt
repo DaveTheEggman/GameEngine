@@ -28,6 +28,3 @@ target_sources(Draconic.Engine.Render
             RenderSubsystem.cppm
             SubsystemModule.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Engine.Render.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

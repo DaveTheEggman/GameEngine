@@ -22,6 +22,3 @@ target_sources(Draconic.Fonts.DistanceField.Baker
 set_source_files_properties(msdfgen_impl.cpp PROPERTIES
     COMPILE_OPTIONS "$<$<CXX_COMPILER_ID:Clang,GNU>:-Wno-error>")
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Fonts.DistanceField.Baker.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

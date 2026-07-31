@@ -16,7 +16,3 @@ target_sources(Draconic.Engine.GameInstance
     PRIVATE
         GameInstanceImpl.cpp)
 
-# Tests link the AngelScript backend, which is not built for web (see DefaultApp) - desktop-only.
-if(DRACONIC_BUILD_TESTS AND NOT EMSCRIPTEN)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Engine.GameInstance.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

@@ -18,6 +18,3 @@ if(DRACONIC_BUILD_TOOLS)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../Editor/Draconic.Input.Editor ${CMAKE_CURRENT_BINARY_DIR}/Editor)
 endif()
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Input.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

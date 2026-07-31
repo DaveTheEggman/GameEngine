@@ -11,6 +11,3 @@ target_sources(Draconic.Animation.Resource
         FILE_SET animation_resource_modules TYPE CXX_MODULES FILES
             AnimationResource.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Animation.Resource.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()

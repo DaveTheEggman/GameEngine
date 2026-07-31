@@ -11,6 +11,3 @@ target_sources(Draconic.Fonts.Baked
         FILE_SET fonts_baked_modules TYPE CXX_MODULES FILES
             Baked.cppm)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Fonts.Baked.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
-endif()
