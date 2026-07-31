@@ -25,7 +25,7 @@ import draconic.scene;           // Scene, ISceneAware
 import draconic.engine.scene; // SceneSubsystem (to register as scene-aware)
 import draconic.shaders.system;  // ShaderSystem (borrowed from the host)
 import draconic.materials;       // MaterialSystem
-import draconic.materials.pso;   // PipelineStateCache
+import draconic.materials.pipelinecache;   // PipelineStateCache
 import draconic.render;          // MeshRenderer, RendererRegistry, RenderFrame, ExtractedScene
 import :components;
 import :extract;

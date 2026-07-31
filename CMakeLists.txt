@@ -176,11 +176,11 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Graphics) # GraphicsDevice/RenderWindow (interface + Null); GPU factory gated on a backend
     add_subdirectory(Code/Draconic/Foundation/Draconic.RenderGraph)
     add_subdirectory(Code/Draconic/Image)
-    add_subdirectory(Code/Draconic/Geometry)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Geometry)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Animation)
     add_subdirectory(Code/Draconic/Shaders)
-    add_subdirectory(Code/Draconic/Texture)
-    add_subdirectory(Code/Draconic/Materials)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Texture)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Materials)
     add_subdirectory(Code/Draconic/Runtime) # base lib + client Application + the WEB runner (draconic.runtime.web); game-instance/scripting composition still off
     add_subdirectory(Code/Draconic/Foundation/Draconic.Scene) # renderer-agnostic base; its Subsystem (needs Runtime) is off for web
     # draconic.render is scene- and resource-agnostic (device-abstract over the RHI interface), so
@@ -260,7 +260,7 @@ add_subdirectory(Code/Draconic/Foundation/Draconic.Model)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Model.IO)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Model.GLTF)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Model.FBX)
-add_subdirectory(Code/Draconic/Geometry)  # engine runtime mesh format (StaticMesh/SkinnedMesh + primitives)
+add_subdirectory(Code/Draconic/Foundation/Draconic.Geometry)  # engine runtime mesh format (StaticMesh/SkinnedMesh + primitives)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Animation) # skeletal-animation foundation (Sedulous.Animation port; Core-only)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Particles) # CPU particle runtime (Sedulous.Particles port; Core-only)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Physics)   # Jolt-backed rigid-body core (world/bodies/queries/events; JPH never public)
@@ -277,8 +277,8 @@ add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Particles) # particle scen
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Physics) # physics scene integration (components + per-scene Jolt world + interpolation; after Render)
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Audio)   # audio scene integration (components + per-scene voice group + listener sync; after Render)
 add_subdirectory(Code/Draconic/Fonts)     # font types/interfaces over Core + Image
-add_subdirectory(Code/Draconic/Texture)   # texture descriptors + cooked resource/GPU factory + editor
-add_subdirectory(Code/Draconic/Materials) # data-driven material model (PipelineConfig + bind-group-inferring MaterialSystem)
+add_subdirectory(Code/Draconic/Foundation/Draconic.Texture)   # texture descriptors + cooked resource/GPU factory + editor
+add_subdirectory(Code/Draconic/Foundation/Draconic.Materials) # data-driven material model (PipelineConfig + bind-group-inferring MaterialSystem)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Model.Resource) # cooked model manifest + runtime composite (runtime side; no tooling deps)
 add_subdirectory(Code/Draconic/UI/Resource)   # cooked UI documents + themes (game-ui; UI-framework-free records)
 add_subdirectory(Code/Draconic/UI/Editor)     # UI document/theme assets + validating builders (tooling)

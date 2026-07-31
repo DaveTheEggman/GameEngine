@@ -1,0 +1,16 @@
+# Draconic::MeshResource - `draconic.geometry.resource` (meshes as resources:
+# Static/SkinnedMeshSource -> Static/SkinnedMesh via factories).
+add_library(Draconic.Geometry.Resource STATIC)
+add_library(Draconic::MeshResource ALIAS Draconic.Geometry.Resource)
+
+target_link_libraries(Draconic.Geometry.Resource
+    PUBLIC Draconic::Core Draconic::Resource Draconic::Content Draconic::Geometry Draconic::Policy)
+
+target_sources(Draconic.Geometry.Resource
+    PUBLIC
+        FILE_SET mesh_resource_modules TYPE CXX_MODULES FILES
+            MeshResource.cppm)
+
+if(DRACONIC_BUILD_TESTS)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Geometry.Resource.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
+endif()

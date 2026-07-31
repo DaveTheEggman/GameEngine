@@ -10,7 +10,7 @@ import draconic.geometry;
 import draconic.shaders;
 import draconic.shaders.system;
 import draconic.materials;
-import draconic.materials.pso;
+import draconic.materials.pipelinecache;
 import :data;
 import :views;
 import :pipeline;
