@@ -14,7 +14,7 @@ module draconic.graphics.gpu;
 import draconic.core;
 import draconic.rhi;
 #ifdef DRACONIC_HAS_VULKAN
-import draconic.rhi.vk;
+import draconic.rhi.vulkan;
 #endif
 #ifdef DRACONIC_HAS_DX12
 import draconic.rhi.dx12;

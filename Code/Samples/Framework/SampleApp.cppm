@@ -13,7 +13,7 @@ export module draconic.samples.framework:sample_app;
 
 import draconic.core;
 import draconic.rhi;
-import draconic.rhi.vk;
+import draconic.rhi.vulkan;
 #ifdef DRACONIC_HAS_DX12
 import draconic.rhi.dx12;
 #endif

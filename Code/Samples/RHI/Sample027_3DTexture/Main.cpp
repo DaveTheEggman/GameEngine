@@ -13,7 +13,7 @@ import draconic.core;
 import draconic.rhi;
 import draconic.shaders;
 import draconic.samples.framework;
-import draconic.rhi.vk;
+import draconic.rhi.vulkan;
 
 namespace samples = draconic::samples;
 namespace rhi = draconic::rhi;

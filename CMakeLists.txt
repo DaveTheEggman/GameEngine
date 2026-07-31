@@ -171,7 +171,7 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/Project)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Content)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Resource)
-    add_subdirectory(Code/Draconic/RHI)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.RHI)
     add_subdirectory(Code/Draconic/Shell) # IShell interface + Null backend; the SDL3 desktop backend auto-skips on emscripten
     add_subdirectory(Code/Draconic/Foundation/Draconic.Graphics) # GraphicsDevice/RenderWindow (interface + Null); GPU factory gated on a backend
     add_subdirectory(Code/Draconic/Foundation/Draconic.RenderGraph)
@@ -252,7 +252,7 @@ add_subdirectory(Code/Draconic/Foundation/Draconic.Resource)  # resource manager
 add_subdirectory(Code/Draconic/Editor)     # asset-pipeline authoring base (tooling)
 add_subdirectory(Code/Draconic/Editor/Cook) # incremental cook driver + pipeline DB (tooling, headless)
 add_subdirectory(Code/Draconic/Editor/Core) # headless editor domain: context/registries/commands/pages/project (tooling)
-add_subdirectory(Code/Draconic/RHI)   # depends only on Core (foundational sibling of Runtime)
+add_subdirectory(Code/Draconic/Foundation/Draconic.RHI)   # depends only on Core (foundational sibling of Runtime)
 add_subdirectory(Code/Draconic/Foundation/Draconic.RenderGraph)  # render graph over RHI
 add_subdirectory(Code/Draconic/Shaders)
 add_subdirectory(Code/Draconic/Image)

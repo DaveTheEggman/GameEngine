@@ -8,7 +8,7 @@
 
 import draconic.core;
 import draconic.rhi;
-import draconic.rhi.vk;
+import draconic.rhi.vulkan;
 import draconic.shaders;
 import draconic.shaders.system; // ShaderSystemHost
 import draconic.samples.framework;

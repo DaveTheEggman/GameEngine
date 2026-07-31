@@ -8,7 +8,7 @@
 
 import draconic.core;
 import draconic.rhi;
-import draconic.rhi.vk;
+import draconic.rhi.vulkan;
 import draconic.rhi.null;
 import draconic.rhi.validation;
 import draconic.shell;
