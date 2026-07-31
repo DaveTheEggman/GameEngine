@@ -25,6 +25,7 @@ import draconic.geometry;          // Primitives::Cube / Plane
 import draconic.materials;         // CreatePBR
 
 #include "Runtime/Client/AppMain.h"
+#include "../Common/FlyCamera.h" // shared free-fly camera (WASD/QE + RMB-look + orbit/pan/zoom)
 
 namespace core = draconic::core;
 namespace runtime = draconic::runtime;
@@ -34,6 +35,7 @@ namespace render = draconic::render;
 namespace geometry = draconic::geometry;
 namespace materials = draconic::materials;
 namespace shell = draconic::shell;
+namespace samples = draconic::samples;
 
 namespace
 {
@@ -100,12 +102,19 @@ namespace
                 cam.farZ = 100.0f;
                 cam.clearColor = core::Color{0.05f, 0.06f, 0.09f, 1.0f};
             }
+            // Frame the cube; tune the fly speeds down for this 1-unit scene.
+            m_fly.position = core::Float3{0.0f, 1.2f, 3.5f};
+            m_fly.yaw = 0.0f;
+            m_fly.pitch = -0.3f;
+            m_fly.moveSpeed = 3.0f;
+            m_fly.fastSpeed = 8.0f;
+            m_fly.focusDistance = 3.5f;
             core::Transform ct = m_scene->GetLocalTransform(m_camera);
-            ct.position = core::Float3{0.0f, 1.2f, 3.5f};
-            ct.rotation = core::Quaternion::FromAxisAngle(core::Float3{1.0f, 0.0f, 0.0f}, -0.3f);
+            ct.position = m_fly.position;
+            ct.rotation = m_fly.Rotation();
             m_scene->SetLocalTransform(m_camera, ct);
 
-            core::ConsoleWrite(u8"WebScene: started.\n");
+            core::ConsoleWrite(u8"WebScene: started (WASD/QE move, hold right-mouse to look).\n");
         }
 
         void OnUpdate(runtime::IApplicationHost& host, core::f32 deltaTime) override
@@ -122,29 +131,13 @@ namespace
             ct.rotation = core::Quaternion::FromAxisAngle(core::Float3{0.0f, 1.0f, 0.0f}, m_spin);
             m_scene->SetLocalTransform(m_cube, ct);
 
-            // WASD/QE moves the camera (world axes) - the simplest end-to-end test of web input.
-            shell::IShell* sh = host.Shell();
-            shell::IKeyboard* kb = (sh != nullptr && sh->Input() != nullptr) ? sh->Input()->Keyboard()
-                                                                            : nullptr;
-            if (kb != nullptr)
-            {
-                const core::f32 speed = 3.0f * deltaTime;
-                core::Float3 move{0.0f, 0.0f, 0.0f};
-                if (kb->IsKeyDown(shell::KeyCode::W)) move.z -= speed;
-                if (kb->IsKeyDown(shell::KeyCode::S)) move.z += speed;
-                if (kb->IsKeyDown(shell::KeyCode::A)) move.x -= speed;
-                if (kb->IsKeyDown(shell::KeyCode::D)) move.x += speed;
-                if (kb->IsKeyDown(shell::KeyCode::E)) move.y += speed;
-                if (kb->IsKeyDown(shell::KeyCode::Q)) move.y -= speed;
-                if (move.x != 0.0f || move.y != 0.0f || move.z != 0.0f)
-                {
-                    core::Transform camT = m_scene->GetLocalTransform(m_camera);
-                    camT.position.x += move.x;
-                    camT.position.y += move.y;
-                    camT.position.z += move.z;
-                    m_scene->SetLocalTransform(m_camera, camT);
-                }
-            }
+            // Drive the camera from the shared free-fly helper (WASD/QE move, hold RMB to look) so the
+            // web input path is exercised end-to-end and steerable on-screen.
+            m_fly.Update(host, deltaTime);
+            core::Transform camT = m_scene->GetLocalTransform(m_camera);
+            camT.position = m_fly.position;
+            camT.rotation = m_fly.Rotation();
+            m_scene->SetLocalTransform(m_camera, camT);
         }
 
         void OnRenderWindow(runtime::IApplicationHost& host, graphics::FrameContext& frame) override
@@ -168,6 +161,7 @@ namespace
         scene::Scene* m_scene = nullptr;
         scene::EntityHandle m_cube{};
         scene::EntityHandle m_camera{};
+        samples::FlyCamera m_fly;
         core::f32 m_spin = 0.0f;
     };
 }

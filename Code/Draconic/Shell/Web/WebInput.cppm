@@ -1,11 +1,12 @@
 // Draconic::ShellWeb - `draconic.shell.web:input`.
 //
-// The web shell's input devices, wired to the browser via Emscripten's HTML5 event callbacks
-// (keydown/up on the window, mouse move/down/up + wheel on the canvas). Those callbacks fire
-// ASYNCHRONOUSLY between animation frames, so they ENQUEUE raw events; WebInputManager::Update()
+// The web shell's input devices, wired to the browser via Emscripten's HTML5 API. Keyboard (window),
+// mouse move/button/wheel (canvas) and touch start/move/end (canvas) are EVENT-DRIVEN: the callbacks
+// fire ASYNCHRONOUSLY between animation frames, so they ENQUEUE raw events; WebInputManager::Update()
 // (called once per frame from the shell's ProcessEvents) drains the queue AFTER snapshotting the
 // previous frame's state - which keeps IsKeyPressed/Released ("went down/up THIS frame") correct,
-// the same model the SDL3 desktop shell uses (BeginFrame, then apply the frame's events).
+// the same model the SDL3 desktop shell uses (BeginFrame, then apply the frame's events). Gamepads
+// are POLL-based (the browser Gamepad API): Update() samples every connected pad each frame.
 
 module;
 #include "Core/Prelude.h"
@@ -221,9 +222,153 @@ export namespace draconic::shell
     class WebTouch final : public ITouch
     {
     public:
-        [[nodiscard]] core::i32 TouchCount() const override { return 0; }
-        [[nodiscard]] bool GetTouchPoint(core::i32, TouchPoint&) const override { return false; }
-        [[nodiscard]] bool HasTouch() const override { return false; }
+        [[nodiscard]] core::i32 TouchCount() const override
+        {
+            return static_cast<core::i32>(m_points.Size());
+        }
+        [[nodiscard]] bool GetTouchPoint(core::i32 index, TouchPoint& out) const override
+        {
+            if (index < 0 || static_cast<core::usize>(index) >= m_points.Size())
+            {
+                return false;
+            }
+            out = m_points[static_cast<core::usize>(index)];
+            return true;
+        }
+        [[nodiscard]] bool HasTouch() const override { return m_points.Size() > 0; }
+
+        // Upsert a touch point (touchstart/touchmove); Remove drops it (touchend/touchcancel).
+        void Upsert(core::u64 id, core::f32 x, core::f32 y)
+        {
+            for (TouchPoint& p : m_points)
+            {
+                if (p.id == id)
+                {
+                    p.x = x;
+                    p.y = y;
+                    return;
+                }
+            }
+            m_points.PushBack(TouchPoint{id, x, y, 1.0f});
+        }
+        void Remove(core::u64 id)
+        {
+            for (core::usize i = 0; i < m_points.Size(); ++i)
+            {
+                if (m_points[i].id == id)
+                {
+                    m_points.RemoveAt(i);
+                    return;
+                }
+            }
+        }
+
+    private:
+        core::Array<TouchPoint> m_points;
+    };
+
+    // One connected browser gamepad, filled by polling emscripten_get_gamepad_status each frame.
+    class WebGamepad final : public IGamepad
+    {
+    public:
+        [[nodiscard]] core::i32 Index() const override { return m_index; }
+        [[nodiscard]] core::StringView Name() const override { return m_name; }
+        [[nodiscard]] bool Connected() const override { return m_connected; }
+
+        [[nodiscard]] bool IsButtonDown(GamepadButton b) const override
+        {
+            const core::i32 i = BrowserButton(b);
+            return i >= 0 && m_buttons[i];
+        }
+        [[nodiscard]] bool IsButtonPressed(GamepadButton b) const override
+        {
+            const core::i32 i = BrowserButton(b);
+            return i >= 0 && m_buttons[i] && !m_prevButtons[i];
+        }
+        [[nodiscard]] bool IsButtonReleased(GamepadButton b) const override
+        {
+            const core::i32 i = BrowserButton(b);
+            return i >= 0 && !m_buttons[i] && m_prevButtons[i];
+        }
+        [[nodiscard]] core::f32 Axis(GamepadAxis a) const override
+        {
+            switch (a)
+            {
+            case GamepadAxis::LeftX: return m_axes[0];
+            case GamepadAxis::LeftY: return m_axes[1];
+            case GamepadAxis::RightX: return m_axes[2];
+            case GamepadAxis::RightY: return m_axes[3];
+            case GamepadAxis::LeftTrigger: return m_analog[6];  // standard-mapping trigger buttons
+            case GamepadAxis::RightTrigger: return m_analog[7];
+            default: return 0.0f;
+            }
+        }
+        void SetRumble(core::f32, core::f32, core::u32) override {} // no html5.h haptics binding yet
+
+        // --- polling side (called by the manager) ---
+        void BeginFrame()
+        {
+            for (core::i32 i = 0; i < kMaxButtons; ++i)
+            {
+                m_prevButtons[i] = m_buttons[i];
+            }
+        }
+        void SetDisconnected() { m_connected = false; }
+        void Ingest(const EmscriptenGamepadEvent& e)
+        {
+            m_connected = e.connected != 0;
+            m_index = static_cast<core::i32>(e.index);
+            if (m_name.Size() == 0)
+            {
+                m_name = core::String(reinterpret_cast<const core::utf8char*>(e.id));
+            }
+            const core::i32 nb = static_cast<core::i32>(e.numButtons);
+            for (core::i32 i = 0; i < kMaxButtons; ++i)
+            {
+                m_buttons[i] = (i < nb) && (e.digitalButton[i] != 0);
+                m_analog[i] = (i < nb) ? static_cast<core::f32>(e.analogButton[i]) : 0.0f;
+            }
+            const core::i32 na = static_cast<core::i32>(e.numAxes);
+            for (core::i32 i = 0; i < kMaxAxes; ++i)
+            {
+                m_axes[i] = (i < na) ? static_cast<core::f32>(e.axis[i]) : 0.0f;
+            }
+        }
+
+    private:
+        static constexpr core::i32 kMaxButtons = 20; // W3C standard-mapping button count
+        static constexpr core::i32 kMaxAxes = 8;
+        // Draconic button -> browser standard-mapping index (-1 = unmapped).
+        static core::i32 BrowserButton(GamepadButton b) noexcept
+        {
+            switch (b)
+            {
+            case GamepadButton::South: return 0;
+            case GamepadButton::East: return 1;
+            case GamepadButton::West: return 2;
+            case GamepadButton::North: return 3;
+            case GamepadButton::LeftShoulder: return 4;
+            case GamepadButton::RightShoulder: return 5;
+            case GamepadButton::Back: return 8;
+            case GamepadButton::Start: return 9;
+            case GamepadButton::LeftStick: return 10;
+            case GamepadButton::RightStick: return 11;
+            case GamepadButton::DPadUp: return 12;
+            case GamepadButton::DPadDown: return 13;
+            case GamepadButton::DPadLeft: return 14;
+            case GamepadButton::DPadRight: return 15;
+            case GamepadButton::Guide: return 16;
+            default: return -1;
+            }
+        }
+
+        core::i32 m_index = 0;
+        core::String m_name;
+        bool m_connected = false;
+        bool m_buttons[kMaxButtons] = {};
+        bool m_prevButtons[kMaxButtons] = {};
+        core::f32 m_analog[kMaxButtons] = {};
+        core::f32 m_axes[kMaxAxes] = {};
     };
 
     class WebInputManager final : public IInputManager
@@ -232,8 +377,18 @@ export namespace draconic::shell
         [[nodiscard]] IKeyboard* Keyboard() override { return &m_keyboard; }
         [[nodiscard]] IMouse* Mouse() override { return &m_mouse; }
         [[nodiscard]] ITouch* Touch() override { return &m_touch; }
-        [[nodiscard]] core::i32 GamepadCount() const override { return 0; }
-        [[nodiscard]] IGamepad* GetGamepad(core::i32) override { return nullptr; }
+        [[nodiscard]] core::i32 GamepadCount() const override
+        {
+            return static_cast<core::i32>(m_connectedPads.Size());
+        }
+        [[nodiscard]] IGamepad* GetGamepad(core::i32 index) override
+        {
+            if (index < 0 || static_cast<core::usize>(index) >= m_connectedPads.Size())
+            {
+                return nullptr;
+            }
+            return m_connectedPads[static_cast<core::usize>(index)];
+        }
         [[nodiscard]] core::Span<const InputEvent> Events() const override
         {
             return core::Span<const InputEvent>(m_events.Data(), m_events.Size());
@@ -254,6 +409,11 @@ export namespace draconic::shell
             emscripten_set_mousedown_callback(canvas, this, EM_TRUE, &OnMouseButton);
             emscripten_set_mouseup_callback(canvas, this, EM_TRUE, &OnMouseButton);
             emscripten_set_wheel_callback(canvas, this, EM_TRUE, &OnWheel);
+            emscripten_set_touchstart_callback(canvas, this, EM_TRUE, &OnTouch);
+            emscripten_set_touchmove_callback(canvas, this, EM_TRUE, &OnTouch);
+            emscripten_set_touchend_callback(canvas, this, EM_TRUE, &OnTouch);
+            emscripten_set_touchcancel_callback(canvas, this, EM_TRUE, &OnTouch);
+            // Gamepads are polled in Update(); the browser only reveals a pad after a button press.
         }
 
         // Per frame (shell ProcessEvents): snapshot the previous frame, then apply the events that
@@ -268,6 +428,7 @@ export namespace draconic::shell
                 Apply(r);
             }
             m_queue.Clear();
+            PollGamepads();
         }
 
     private:
@@ -278,13 +439,16 @@ export namespace draconic::shell
                 Key,
                 MouseMove,
                 MouseButton,
-                Wheel
+                Wheel,
+                Touch
             } type{};
             KeyCode key{};
             KeyModifiers mods{};
             core::u32 button = 0;
             bool down = false;
             core::f32 x = 0, y = 0, dx = 0, dy = 0, sx = 0, sy = 0;
+            core::u64 touchId = 0;
+            core::u8 touchPhase = 0; // 0 = start, 1 = move, 2 = end/cancel
         };
 
         void Apply(const RawEvent& r)
@@ -337,6 +501,73 @@ export namespace draconic::shell
                 m_events.PushBack(e);
                 break;
             }
+            case RawEvent::Type::Touch:
+            {
+                if (r.touchPhase == 2)
+                {
+                    m_touch.Remove(r.touchId);
+                }
+                else
+                {
+                    m_touch.Upsert(r.touchId, r.x, r.y);
+                }
+                InputEvent e;
+                e.kind = (r.touchPhase == 0)   ? InputEventKind::TouchDown
+                         : (r.touchPhase == 1) ? InputEventKind::TouchMove
+                                               : InputEventKind::TouchUp;
+                e.window = m_mainWindow;
+                e.touchId = r.touchId;
+                e.x = r.x;
+                e.y = r.y;
+                m_events.PushBack(e);
+                break;
+            }
+            }
+        }
+
+        // Poll the browser Gamepad API (poll-based, unlike the event-driven devices). Rebuilds the
+        // compact list of connected pads and emits button-transition events into the frame stream.
+        void PollGamepads()
+        {
+            emscripten_sample_gamepad_data();
+            const core::i32 num = emscripten_get_num_gamepads();
+            m_connectedPads.Clear();
+            if (num < 0) // EMSCRIPTEN_RESULT_NOT_SUPPORTED: no Gamepad API in this browser
+            {
+                return;
+            }
+            const core::i32 count = num < kMaxGamepads ? num : kMaxGamepads;
+            for (core::i32 i = 0; i < count; ++i)
+            {
+                EmscriptenGamepadEvent ev;
+                if (emscripten_get_gamepad_status(i, &ev) != EMSCRIPTEN_RESULT_SUCCESS ||
+                    ev.connected == 0)
+                {
+                    m_slots[i].SetDisconnected();
+                    continue;
+                }
+                m_slots[i].BeginFrame(); // snapshot previous buttons before ingesting this frame
+                m_slots[i].Ingest(ev);
+                EmitGamepadEvents(m_slots[i], i);
+                m_connectedPads.PushBack(&m_slots[i]);
+            }
+        }
+
+        void EmitGamepadEvents(const WebGamepad& pad, core::i32 index)
+        {
+            for (core::u32 b = 0; b < static_cast<core::u32>(GamepadButton::Count); ++b)
+            {
+                const GamepadButton gb = static_cast<GamepadButton>(b);
+                if (pad.IsButtonPressed(gb) || pad.IsButtonReleased(gb))
+                {
+                    InputEvent e;
+                    e.kind = pad.IsButtonPressed(gb) ? InputEventKind::GamepadButtonDown
+                                                     : InputEventKind::GamepadButtonUp;
+                    e.window = m_mainWindow;
+                    e.gamepad = index;
+                    e.padButton = gb;
+                    m_events.PushBack(e);
+                }
             }
         }
 
@@ -400,10 +631,37 @@ export namespace draconic::shell
             self->m_queue.PushBack(r);
             return EM_TRUE;
         }
+        static EM_BOOL OnTouch(int eventType, const EmscriptenTouchEvent* e, void* userData)
+        {
+            auto* self = static_cast<WebInputManager*>(userData);
+            const core::u8 phase = (eventType == EMSCRIPTEN_EVENT_TOUCHSTART)  ? 0
+                                   : (eventType == EMSCRIPTEN_EVENT_TOUCHMOVE) ? 1
+                                                                               : 2; // end / cancel
+            for (int i = 0; i < e->numTouches; ++i)
+            {
+                const EmscriptenTouchPoint& t = e->touches[i];
+                if (t.isChanged == 0)
+                {
+                    continue; // only the points that actually changed in this event
+                }
+                RawEvent r;
+                r.type = RawEvent::Type::Touch;
+                r.touchId = static_cast<core::u64>(t.identifier);
+                r.x = static_cast<core::f32>(t.targetX);
+                r.y = static_cast<core::f32>(t.targetY);
+                r.touchPhase = phase;
+                self->m_queue.PushBack(r);
+            }
+            return EM_TRUE; // consume so the browser doesn't scroll/zoom the page on a canvas touch
+        }
+
+        static constexpr core::i32 kMaxGamepads = 4;
 
         WebKeyboard m_keyboard;
         WebMouse m_mouse;
         WebTouch m_touch;
+        WebGamepad m_slots[kMaxGamepads];            // one per browser gamepad index (stable state)
+        core::Array<WebGamepad*> m_connectedPads;    // compact list of currently-connected pads
         core::Array<RawEvent> m_queue;   // filled async by the callbacks, drained in Update()
         core::Array<InputEvent> m_events; // this frame's event stream (valid until next Update)
         core::u32 m_mainWindow = 0;
