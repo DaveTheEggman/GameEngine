@@ -26,7 +26,7 @@ import draconic.runtime.client;
 import draconic.runtime.defaultapp; // the embedded game application (v3)
 import draconic.ui.resource;        // UITheme (the manifest's default game-UI theme)
 import draconic.ui.subsystem;       // UISubsystem (SetDefaultTheme)
-import draconic.input.subsystem;    // InputSubsystem (the embedded runtime's scene-input policy)
+import draconic.engine.input;    // InputSubsystem (the embedded runtime's scene-input policy)
 import draconic.render.api;
 import draconic.ui;
 import draconic.ui.toolkit;

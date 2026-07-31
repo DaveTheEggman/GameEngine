@@ -28,7 +28,7 @@ import draconic.scene.subsystem;
 import draconic.render.subsystem;
 import draconic.imgui;
 import draconic.audio;
-import draconic.audio.subsystem;
+import draconic.engine.audio;
 
 #include "../Common/FlyCamera.h" // after the imports: uses draconic::core/runtime types
 

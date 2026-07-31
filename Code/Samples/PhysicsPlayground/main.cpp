@@ -26,7 +26,7 @@ import draconic.render.subsystem;
 import draconic.imgui;
 import draconic.physics;
 import draconic.physics.resource;
-import draconic.physics.subsystem;
+import draconic.engine.physics;
 import draconic.ui;
 import draconic.ui.resource;
 import draconic.ui.subsystem;

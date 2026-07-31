@@ -30,7 +30,7 @@ import draconic.rhi;
 import draconic.fonts;
 import draconic.fonts.ttf;
 import draconic.input;
-import draconic.input.subsystem;
+import draconic.engine.input;
 import draconic.render.api; // the two-tier overlay roles (ISceneOverlay/IScreenOverlay)
 import draconic.ui;
 import draconic.ui.shell; // UiInputBridge (key/text mapping + IME lifecycle)

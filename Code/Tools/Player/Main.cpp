@@ -51,12 +51,12 @@ import draconic.animation.resource;
 import draconic.engine.animation;
 import draconic.particles;
 import draconic.particles.resource;
-import draconic.particles.subsystem;
+import draconic.engine.particles;
 import draconic.geometry;
 import draconic.geometry.resource;
 import draconic.audio;
 import draconic.audio.resource;
-import draconic.audio.subsystem;
+import draconic.engine.audio;
 import draconic.materials;
 import draconic.materials.resource;
 import draconic.texture;
@@ -68,9 +68,9 @@ import draconic.script.resource; // ScriptClass (the cooked game script, bound f
 import draconic.input;
 import draconic.physics;
 import draconic.physics.resource;
-import draconic.physics.subsystem;
+import draconic.engine.physics;
 import draconic.input.resource;
-import draconic.input.subsystem;
+import draconic.engine.input;
 import draconic.ui.resource;  // UITheme (the manifest's default theme)
 import draconic.ui.subsystem; // UISubsystem (IME target + default theme)
 import draconic.xml.serialization;

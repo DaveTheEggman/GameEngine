@@ -23,7 +23,7 @@ import draconic.script.angelscript;
 import draconic.script.resource;
 import draconic.script.subsystem;
 import draconic.physics;
-import draconic.physics.subsystem;
+import draconic.engine.physics;
 
 using namespace draconic::core;
 using namespace draconic::script;

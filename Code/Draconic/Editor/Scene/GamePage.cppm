@@ -37,11 +37,11 @@ import draconic.script.subsystem; // ScriptSubsystem / ScriptRunHost (debugger w
 import draconic.shell;
 import draconic.input;
 import draconic.input.resource;
-import draconic.input.subsystem;
-import draconic.physics.subsystem;
+import draconic.engine.input;
+import draconic.engine.physics;
 import draconic.audio;
 import draconic.audio.resource;
-import draconic.audio.subsystem;
+import draconic.engine.audio;
 import draconic.runtime.defaultapp;
 import draconic.runtime.gameinstance; // GameInstance - this tab drives its OWN run (multi-instance PIE)
 import draconic.editor.core;

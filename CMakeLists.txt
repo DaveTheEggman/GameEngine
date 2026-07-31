@@ -189,8 +189,8 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/Render/Api)
     add_subdirectory(Code/Draconic/Render)          # + render.subsystem (deps now up)
     add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Animation)  # links Render + Animation (both up)
-    add_subdirectory(Code/Draconic/Particles)
-    add_subdirectory(Code/Draconic/Particles/Subsystem)  # links Render + Particles (both up)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Particles)
+    add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Particles)  # links Render + Particles (both up)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Model)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Model.IO)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Model.GLTF)
@@ -200,17 +200,17 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/UI)
     add_subdirectory(Code/Draconic/Net)             # sockets over Core/System (emscripten stubs; websockets later)
     add_subdirectory(Code/Draconic/Net/Replication)
-    add_subdirectory(Code/Draconic/Input)           # action mapping over Core + Shell (interface up)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Input)           # action mapping over Core + Shell (interface up)
     add_subdirectory(Code/Draconic/Script)          # reflection->script bridge; Wren backend (AngelScript gated)
     add_subdirectory(Code/Draconic/Script/Facades)  # behavior facades (Entity/Log/Time/Random); ScriptWren needs it
     add_subdirectory(Code/Draconic/Script/Subsystem) # ScriptSubsystem (entity behaviors); GameInstance/DefaultApp dep
-    add_subdirectory(Code/Draconic/Input/Subsystem) # input runtime hookup over Runtime + Script
-    add_subdirectory(Code/Draconic/Audio)           # miniaudio-backed (Web Audio backend on emscripten)
-    add_subdirectory(Code/Draconic/Audio/Resource)
-    add_subdirectory(Code/Draconic/Audio/Subsystem)
-    add_subdirectory(Code/Draconic/Physics)         # Jolt-backed (Jolt builds for wasm - see ThirdParty)
-    add_subdirectory(Code/Draconic/Physics/Resource)
-    add_subdirectory(Code/Draconic/Physics/Subsystem)
+    add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Input) # input runtime hookup over Runtime + Script
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Audio)           # miniaudio-backed (Web Audio backend on emscripten)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Audio.Resource)
+    add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Audio)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Physics)         # Jolt-backed (Jolt builds for wasm - see ThirdParty)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Physics.Resource)
+    add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Physics)
     # Runtime long-tail: cooked-resource + subsystem + manager sub-libs (all deps above are up).
     add_subdirectory(Code/Draconic/Foundation/Draconic.Model.Resource)
     add_subdirectory(Code/Draconic/Script/Resource)
@@ -262,20 +262,20 @@ add_subdirectory(Code/Draconic/Foundation/Draconic.Model)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Model.FBX)
 add_subdirectory(Code/Draconic/Geometry)  # engine runtime mesh format (StaticMesh/SkinnedMesh + primitives)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Animation) # skeletal-animation foundation (Sedulous.Animation port; Core-only)
-add_subdirectory(Code/Draconic/Particles) # CPU particle runtime (Sedulous.Particles port; Core-only)
-add_subdirectory(Code/Draconic/Physics)   # Jolt-backed rigid-body core (world/bodies/queries/events; JPH never public)
-add_subdirectory(Code/Draconic/Physics/Resource)  # cooked collision shapes + physical materials
-add_subdirectory(Code/Draconic/Physics/Editor)    # collision/material assets + builders (tooling)
-add_subdirectory(Code/Draconic/Audio)     # miniaudio-backed audio engine core (voices/buses/handles; ma_* never public)
-add_subdirectory(Code/Draconic/Audio/Resource)    # cooked audio clips + factory
-add_subdirectory(Code/Draconic/Audio/Editor)      # audio clip asset/builder/importer (tooling)
+add_subdirectory(Code/Draconic/Foundation/Draconic.Particles) # CPU particle runtime (Sedulous.Particles port; Core-only)
+add_subdirectory(Code/Draconic/Foundation/Draconic.Physics)   # Jolt-backed rigid-body core (world/bodies/queries/events; JPH never public)
+add_subdirectory(Code/Draconic/Foundation/Draconic.Physics.Resource)  # cooked collision shapes + physical materials
+add_subdirectory(Code/Draconic/Editor/Draconic.Physics.Editor)    # collision/material assets + builders (tooling)
+add_subdirectory(Code/Draconic/Foundation/Draconic.Audio)     # miniaudio-backed audio engine core (voices/buses/handles; ma_* never public)
+add_subdirectory(Code/Draconic/Foundation/Draconic.Audio.Resource)    # cooked audio clips + factory
+add_subdirectory(Code/Draconic/Editor/Draconic.Audio.Editor)      # audio clip asset/builder/importer (tooling)
 add_subdirectory(Code/Draconic/Scene)     # scene / ECS foundation (entities, transforms, components, SceneSubsystem)
 add_subdirectory(Code/Draconic/Render/Api) # light scene-rendering interface (ISceneRenderer) - tools drive rendering w/o linking the renderer
 add_subdirectory(Code/Draconic/Render)    # renderer: scene->render extraction + (later) the GPU forward path
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Animation) # skeletal-animation scene integration (links RenderSubsystem; after Render)
-add_subdirectory(Code/Draconic/Particles/Subsystem) # particle scene/render integration (renderer + provider seam; after Render)
-add_subdirectory(Code/Draconic/Physics/Subsystem) # physics scene integration (components + per-scene Jolt world + interpolation; after Render)
-add_subdirectory(Code/Draconic/Audio/Subsystem)   # audio scene integration (components + per-scene voice group + listener sync; after Render)
+add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Particles) # particle scene/render integration (renderer + provider seam; after Render)
+add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Physics) # physics scene integration (components + per-scene Jolt world + interpolation; after Render)
+add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Audio)   # audio scene integration (components + per-scene voice group + listener sync; after Render)
 add_subdirectory(Code/Draconic/Fonts)     # font types/interfaces over Core + Image
 add_subdirectory(Code/Draconic/Texture)   # texture descriptors + cooked resource/GPU factory + editor
 add_subdirectory(Code/Draconic/Materials) # data-driven material model (PipelineConfig + bind-group-inferring MaterialSystem)
@@ -296,12 +296,12 @@ add_subdirectory(Code/Draconic/Script/Editor)     # script class asset/builder/i
 add_subdirectory(Code/Draconic/Script/Wren/Editor)        # Wren cook service (compile-check + `static properties` probe + starter)
 add_subdirectory(Code/Draconic/Script/AngelScript/Editor) # AngelScript cook service (compile-check + handler scan + starter; property harvest deferred)
 add_subdirectory(Code/Draconic/Shell)     # raw platform/OS service (IShell: window/input/events) over Core; below Runtime
-add_subdirectory(Code/Draconic/Input)     # action-mapping layer (InputMap + ActionRuntime + asset/cooked) over Core + Shell
+add_subdirectory(Code/Draconic/Foundation/Draconic.Input)     # action-mapping layer (InputMap + ActionRuntime + asset/cooked) over Core + Shell
 add_subdirectory(Code/Draconic/GUI/Shell)  # draconic.gui.shell: platform input bridge (Shell InputEvents -> GUI EventDispatcher)
 add_subdirectory(Code/Draconic/GUI/VFS)   # draconic.gui.vfs: VFS-backed IResourceProvider (background-image: url() loading)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Graphics)  # GraphicsDevice/RenderWindow render host over RHI+Shell; below Runtime
 add_subdirectory(Code/Draconic/Runtime)
-add_subdirectory(Code/Draconic/Input/Subsystem)  # input runtime hookup (tick + device provider seam) over Runtime
+add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Input)  # input runtime hookup (tick + device provider seam) over Runtime
 add_subdirectory(Code/Draconic/Script/Subsystem) # entity behaviors (ScriptComponent + the run's ONE gameplay script context) over Runtime
 add_subdirectory(Code/Draconic/Imgui)     # Dear ImGui debug UI (RHI renderer + subsystem) over Runtime
 add_subdirectory(Code/Draconic/Editor/App) # editor UI shell (chrome + layout persistence + EditorApplication)

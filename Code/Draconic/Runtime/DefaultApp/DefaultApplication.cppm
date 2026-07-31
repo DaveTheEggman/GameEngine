@@ -29,11 +29,11 @@ import draconic.scene;                // Scene
 import draconic.scene.subsystem;      // SceneSubsystem (the standard scene driver)
 import draconic.render.subsystem;     // RenderSubsystem (the standard renderer)
 import draconic.engine.animation; // AnimationSubsystem (drives skeletal animation from the scene)
-import draconic.particles.subsystem; // ParticleSubsystem (scene-driven CPU sim)
+import draconic.engine.particles; // ParticleSubsystem (scene-driven CPU sim)
 import draconic.physics;             // ContactKind/EntityContact (the contact bridge)
-import draconic.physics.subsystem;   // PhysicsSubsystem (Jolt worlds + interpolation)
+import draconic.engine.physics;   // PhysicsSubsystem (Jolt worlds + interpolation)
 import draconic.input;               // the action model/runtime
-import draconic.input.subsystem;     // InputSubsystem + the Wren Input facade
+import draconic.engine.input;     // InputSubsystem + the Wren Input facade
 import draconic.script;              // IScriptManager/Context (the game script)
 #ifdef DRACONIC_HAS_WREN
 import draconic.script.wren;         // the Wren backend (primary; toggle via DRACONIC_ENABLE_WREN)
@@ -59,7 +59,7 @@ import draconic.ui.resource;         // cooked UI documents/themes (game-ui)
 import draconic.ui.subsystem;        // the game screen tier (canvases + overlay + consumption)
 import draconic.audio;               // AudioEngine (owned by the audio subsystem)
 import draconic.audio.resource;      // cooked audio clips + factory
-import draconic.audio.subsystem;     // AudioSubsystem (voices/buses/one-shots + scene sync)
+import draconic.engine.audio;     // AudioSubsystem (voices/buses/one-shots + scene sync)
 import draconic.net;                 // UdpSocket / DatagramEndpoint (the transport)
 import draconic.net.replication;     // NetworkId / StateReplication (the spawn-handler seam)
 import draconic.net.manager;   // NetworkManager + NetworkStartup/StartNetworking + the Net facade

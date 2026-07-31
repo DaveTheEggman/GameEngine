@@ -1,0 +1,18 @@
+# Draconic::ParticlesResource - `draconic.particles.resource`: the cooked ParticleEffectResource
+# (runtime input), its bidirectional serializer, and its resource factory. Layers on the runtime
+# particle types + the content DB + resource manager. See docs/design/particles-authoring.md.
+add_library(Draconic.Particles.Resource STATIC)
+add_library(Draconic::ParticlesResource ALIAS Draconic.Particles.Resource)
+
+target_link_libraries(Draconic.Particles.Resource
+    PUBLIC Draconic::Core Draconic::Particles Draconic::Content Draconic::Resource
+           Draconic::Texture Draconic::TextureResource Draconic::Policy)
+
+target_sources(Draconic.Particles.Resource
+    PUBLIC
+        FILE_SET particles_resource_modules TYPE CXX_MODULES FILES
+            ParticleEffectResource.cppm)
+
+if(DRACONIC_BUILD_TESTS)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Particles.Resource.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
+endif()

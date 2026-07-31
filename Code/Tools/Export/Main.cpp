@@ -43,7 +43,7 @@ import draconic.input.editor;
 import draconic.modelimporter;
 import draconic.render.subsystem;
 import draconic.engine.animation;
-import draconic.particles.subsystem;
+import draconic.engine.particles;
 import draconic.physics;
 import draconic.physics.resource;
 import draconic.physics.editor;
@@ -59,7 +59,7 @@ import draconic.script.wren.editor;
 import draconic.script.angelscript.editor;
 import draconic.script.resource;
 import draconic.script.editor;
-import draconic.physics.subsystem;
+import draconic.engine.physics;
 
 using namespace draconic::core;
 namespace editor = draconic::editor;

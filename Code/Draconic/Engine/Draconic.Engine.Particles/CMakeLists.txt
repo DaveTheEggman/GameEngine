@@ -1,0 +1,24 @@
+# Draconic::ParticlesSubsystem - `draconic.engine.particles`: scene/render integration for the
+# particle system (ECS component + manager + dedicated ParticleRenderer + ParticleSubsystem). Links
+# render.subsystem (the register-renderer/register-provider seam), scene, and the CPU particle core.
+add_library(Draconic.Engine.Particles STATIC)
+add_library(Draconic::ParticlesSubsystem ALIAS Draconic.Engine.Particles)
+
+target_link_libraries(Draconic.Engine.Particles
+    PUBLIC Draconic::Core Draconic::RHI Draconic::Shaders Draconic::ShaderSystem
+           Draconic::Runtime Draconic::Scene Draconic::SceneSubsystem
+           Draconic::Render Draconic::RenderSubsystem Draconic::Particles
+           Draconic::ParticlesResource Draconic::Resource Draconic::Content
+           Draconic::Texture Draconic::TextureResource
+           Draconic::Geometry Draconic::Materials Draconic::Policy Draconic::Profiler)
+
+target_sources(Draconic.Engine.Particles
+    PRIVATE
+        ParticleSubsystemImpl.cpp   # DRACONIC_REFLECT_VALUE body (see ParticleComponents.cppm)
+    PUBLIC
+        FILE_SET particles_subsystem_modules TYPE CXX_MODULES FILES
+            ParticleRenderData.cppm
+            ParticleRenderer.cppm
+            ParticleComponents.cppm
+            ParticleSubsystem.cppm
+            ParticlesSubsystemModule.cppm)

@@ -38,7 +38,7 @@ import draconic.scene;
 import draconic.scene.subsystem;
 import draconic.particles;
 import draconic.particles.editor;
-import draconic.particles.subsystem;
+import draconic.engine.particles;
 import draconic.render;
 import draconic.render.subsystem;
 import draconic.ui;
