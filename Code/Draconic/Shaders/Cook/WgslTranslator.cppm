@@ -88,6 +88,11 @@ export namespace draconic::shaders
             //    engine-wide Standard binding shifts), exactly as ShaderSystem feeds the WebGPU backend.
             Array<ShaderDefine> defines;
             AppendDefines(flags, defines);
+            // Browsers have no push constants and REJECT WGSL var<push_constant>. Compile the
+            // PUSH_CONSTANT blocks as ordinary cbuffers (register(b0, spaceN)) so naga emits a
+            // @group(spaceN) @binding(0) var<uniform> the browser accepts; the WebGPU backend feeds
+            // it per-draw via its push-constant emulation (see Data/Shaders/push_constant.hlsli).
+            defines.PushBack(ShaderDefine{u8"DRACONIC_PUSH_CONSTANT_AS_CBUFFER", u8"1"});
             CompileOptions opts{};
             opts.shaderModel = u8"6_0";
             opts.optimizationLevel = 3;

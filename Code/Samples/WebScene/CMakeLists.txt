@@ -34,7 +34,7 @@ file(GLOB _engine_shader_sources
 add_custom_command(
     OUTPUT "${_web_shader_pack}"
     COMMAND "${_cook_tool}" "${CMAKE_SOURCE_DIR}/Data/Shaders" "${_web_shader_pack}" wgsl
-    DEPENDS ${_engine_shader_sources}
+    DEPENDS ${_engine_shader_sources} "${_cook_tool}"
     COMMENT "WebScene: cooking WGSL shaders.dpak (native RaptorShaderPackCook)"
     VERBATIM)
 add_custom_target(WebSceneShaderPack DEPENDS "${_web_shader_pack}")
