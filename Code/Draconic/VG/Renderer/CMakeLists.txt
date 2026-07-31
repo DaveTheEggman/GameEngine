@@ -13,7 +13,6 @@ target_sources(DraconicVGRenderer
         FILE_SET vgrenderer_modules TYPE CXX_MODULES FILES
             RenderVertex.cppm
             Renderer.cppm
-            Shaders.cppm
             VGRendererModule.cppm)
 
 if(DRACONIC_BUILD_TESTS)

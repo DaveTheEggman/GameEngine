@@ -5,4 +5,3 @@ export module draconic.vg.renderer;
 
 export import :vertex;
 export import :renderer;
-export import :shaders;

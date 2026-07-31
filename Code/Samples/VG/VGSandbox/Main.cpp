@@ -12,6 +12,7 @@ import draconic.core;
 import draconic.rhi;
 import draconic.rhi.vk;
 import draconic.shaders;
+import draconic.shaders.system; // ShaderSystemHost
 import draconic.samples.framework;
 import draconic.image;
 import draconic.fonts;
@@ -32,7 +33,7 @@ namespace vg = draconic::vg;
 
 namespace
 {
-    // VG shader source now lives in draconic.vg.renderer (VertexShaderSource/FragmentShaderSource).
+    // VG shaders ship in the engine corpus (vg.vs/vg.ps); resolved via ShaderSystemHost in OnInit.
 
 #ifndef DRACONIC_VG_FONT_PATH
 #define DRACONIC_VG_FONT_PATH ""
@@ -84,8 +85,8 @@ private:
         return !StringView(reinterpret_cast<const utf8char*>(DRACONIC_VG_FONT_PATH)).IsEmpty();
     }
 
-    shaders::Compiler* m_compiler = nullptr;
-    rhi::ShaderModule* m_vs = nullptr;
+    shaders::ShaderSystemHost m_shaderHost; // owns the ShaderSystem + the VG modules
+    rhi::ShaderModule* m_vs = nullptr;      // borrowed from m_shaderHost
     rhi::ShaderModule* m_fs = nullptr;
     rhi::ShaderModule* m_dfFs = nullptr; // MSDF distance-field fragment shader
     rhi::CommandPool* m_pool = nullptr;
@@ -111,19 +112,21 @@ private:
 
 Status VGSandbox::OnInit()
 {
-    if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) != ErrorCode::Ok)
+    // Resolve the VG shaders through the shared ShaderSystemHost (cooked pack or dev DXC over
+    // Data/Shaders) - the SAME cooked corpus (vg.vs/vg.ps/vg_df.ps) the runtime UI uses.
+#ifdef DRACONIC_ENGINE_SHADER_DIR
+    constexpr StringView kShaderRoot = u8"" DRACONIC_ENGINE_SHADER_DIR;
+#else
+    constexpr StringView kShaderRoot = u8"Shaders";
+#endif
+    if (!m_shaderHost.Initialize(*m_device, kShaderRoot))
         return ErrorCode::Unknown;
-    if (samples::framework::CompileToModule(
-            m_compiler, m_device, vg::renderer::VertexShaderSource(), shaders::ShaderStage::Vertex,
-            u8"main", u8"vg.vert", m_vs) != ErrorCode::Ok)
-        return ErrorCode::Unknown;
-    if (samples::framework::CompileToModule(
-            m_compiler, m_device, vg::renderer::FragmentShaderSource(),
-            shaders::ShaderStage::Fragment, u8"main", u8"vg.frag", m_fs) != ErrorCode::Ok)
-        return ErrorCode::Unknown;
-    if (samples::framework::CompileToModule(
-            m_compiler, m_device, vg::renderer::DistanceFieldFragmentShaderSource(),
-            shaders::ShaderStage::Fragment, u8"main", u8"vg_df.frag", m_dfFs) != ErrorCode::Ok)
+    m_vs = m_shaderHost.GetVariant(u8"vg", shaders::ShaderStage::Vertex, shaders::ShaderFlags::None);
+    m_fs =
+        m_shaderHost.GetVariant(u8"vg", shaders::ShaderStage::Fragment, shaders::ShaderFlags::None);
+    m_dfFs = m_shaderHost.GetVariant(u8"vg_df", shaders::ShaderStage::Fragment,
+                                     shaders::ShaderFlags::None);
+    if (m_vs == nullptr || m_fs == nullptr || m_dfFs == nullptr)
         return ErrorCode::Unknown;
 
     if (!m_renderer
@@ -820,16 +823,8 @@ void VGSandbox::OnShutdown()
         m_device->DestroyFence(m_fence);
     if (m_pool)
         m_device->DestroyCommandPool(m_pool);
-    if (m_dfFs)
-        m_device->DestroyShaderModule(m_dfFs);
-    if (m_fs)
-        m_device->DestroyShaderModule(m_fs);
-    if (m_vs)
-        m_device->DestroyShaderModule(m_vs);
-    if (m_compiler)
-    {
-        m_compiler->Destroy();
-    }
+    // m_vs/m_fs/m_dfFs are borrowed from m_shaderHost's ShaderSystem, which frees them.
+    m_shaderHost.Shutdown();
 }
 
 int main(int argc, char** argv)

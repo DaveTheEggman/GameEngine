@@ -10,6 +10,7 @@ import draconic.core;
 import draconic.rhi;
 import draconic.rhi.vk;
 import draconic.shaders;
+import draconic.shaders.system; // ShaderSystemHost
 import draconic.samples.framework;
 import draconic.shell;
 import draconic.image;
@@ -32,7 +33,7 @@ namespace gui = draconic::gui;
 
 namespace
 {
-    // VG shader source now lives in draconic.vg.renderer (VertexShaderSource/FragmentShaderSource).
+    // VG shaders ship in the engine corpus (vg.vs/vg.ps); resolved via ShaderSystemHost in OnInit.
 
 #ifndef DRACONIC_GUI_FONT_PATH
 #define DRACONIC_GUI_FONT_PATH ""
@@ -138,8 +139,8 @@ private:
     }
 
     // Render plumbing (mirrors VGSandbox).
-    shaders::Compiler* m_compiler = nullptr;
-    rhi::ShaderModule* m_vs = nullptr;
+    shaders::ShaderSystemHost m_shaderHost; // owns the ShaderSystem + the VG modules
+    rhi::ShaderModule* m_vs = nullptr;      // borrowed from m_shaderHost
     rhi::ShaderModule* m_fs = nullptr;
     rhi::CommandPool* m_pool = nullptr;
     rhi::Fence* m_fence = nullptr;
@@ -193,15 +194,19 @@ private:
 
 Status GUISandbox::OnInit()
 {
-    if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) != ErrorCode::Ok)
+    // Resolve the VG shaders through the shared ShaderSystemHost (cooked pack or dev DXC over
+    // Data/Shaders) - the same cooked corpus (vg.vs/vg.ps) the runtime UI uses.
+#ifdef DRACONIC_ENGINE_SHADER_DIR
+    constexpr StringView kShaderRoot = u8"" DRACONIC_ENGINE_SHADER_DIR;
+#else
+    constexpr StringView kShaderRoot = u8"Shaders";
+#endif
+    if (!m_shaderHost.Initialize(*m_device, kShaderRoot))
         return ErrorCode::Unknown;
-    if (samples::framework::CompileToModule(
-            m_compiler, m_device, vg::renderer::VertexShaderSource(), shaders::ShaderStage::Vertex,
-            u8"main", u8"vg.vert", m_vs) != ErrorCode::Ok)
-        return ErrorCode::Unknown;
-    if (samples::framework::CompileToModule(
-            m_compiler, m_device, vg::renderer::FragmentShaderSource(),
-            shaders::ShaderStage::Fragment, u8"main", u8"vg.frag", m_fs) != ErrorCode::Ok)
+    m_vs = m_shaderHost.GetVariant(u8"vg", shaders::ShaderStage::Vertex, shaders::ShaderFlags::None);
+    m_fs =
+        m_shaderHost.GetVariant(u8"vg", shaders::ShaderStage::Fragment, shaders::ShaderFlags::None);
+    if (m_vs == nullptr || m_fs == nullptr)
         return ErrorCode::Unknown;
 
     if (!m_renderer
@@ -1196,14 +1201,8 @@ void GUISandbox::OnShutdown()
         m_device->DestroyFence(m_fence);
     if (m_pool)
         m_device->DestroyCommandPool(m_pool);
-    if (m_fs)
-        m_device->DestroyShaderModule(m_fs);
-    if (m_vs)
-        m_device->DestroyShaderModule(m_vs);
-    if (m_compiler)
-    {
-        m_compiler->Destroy();
-    }
+    // m_vs/m_fs are borrowed from m_shaderHost's ShaderSystem, which frees them.
+    m_shaderHost.Shutdown();
 }
 
 int main(int argc, char** argv)
