@@ -18,6 +18,7 @@ export import :shader_module;
 export import :bind_group_layout;
 export import :bind_group;
 export import :pipeline_layout;
+export import :push_constant_emulator;
 export import :pipeline_cache;
 export import :render_pipeline;
 export import :compute_pipeline;
