@@ -31,13 +31,22 @@ export namespace draconic::shell
         explicit WebShell(core::StringView selector = u8"#canvas", const WindowSettings& settings = {})
             : m_windows(selector, settings)
         {
+            // Wire the HTML5 keyboard/mouse callbacks to the canvas now that it exists.
+            if (IWindow* main = m_windows.MainWindow())
+            {
+                m_input.RegisterCallbacks(selector, main->Id());
+            }
         }
 
         [[nodiscard]] IWindowManager* WindowManager() noexcept override { return &m_windows; }
         [[nodiscard]] IWindow* MainWindow() noexcept override { return m_windows.MainWindow(); }
         [[nodiscard]] IInputManager* Input() noexcept override { return &m_input; }
         [[nodiscard]] IDialogService* Dialogs() noexcept override { return &m_dialogs; }
-        void ProcessEvents() override { m_windows.Pump(); }
+        void ProcessEvents() override
+        {
+            m_input.Update();  // roll the input frame + drain the async HTML5 event queue
+            m_windows.Pump();  // canvas-size poll -> Resized events
+        }
         [[nodiscard]] bool IsRunning() const noexcept override
         {
             IWindow* main = m_windows.MainWindow();

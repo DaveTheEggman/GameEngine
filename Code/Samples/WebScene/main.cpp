@@ -33,6 +33,7 @@ namespace scene = draconic::scene;
 namespace render = draconic::render;
 namespace geometry = draconic::geometry;
 namespace materials = draconic::materials;
+namespace shell = draconic::shell;
 
 namespace
 {
@@ -110,12 +111,39 @@ namespace
         void OnUpdate(runtime::IApplicationHost& host, core::f32 deltaTime) override
         {
             runtime::DefaultApplication::OnUpdate(host, deltaTime);
-            m_spin += deltaTime;
-            if (m_scene != nullptr)
+            if (m_scene == nullptr)
             {
-                core::Transform t = m_scene->GetLocalTransform(m_cube);
-                t.rotation = core::Quaternion::FromAxisAngle(core::Float3{0.0f, 1.0f, 0.0f}, m_spin);
-                m_scene->SetLocalTransform(m_cube, t);
+                return;
+            }
+
+            // Spin the cube.
+            m_spin += deltaTime;
+            core::Transform ct = m_scene->GetLocalTransform(m_cube);
+            ct.rotation = core::Quaternion::FromAxisAngle(core::Float3{0.0f, 1.0f, 0.0f}, m_spin);
+            m_scene->SetLocalTransform(m_cube, ct);
+
+            // WASD/QE moves the camera (world axes) - the simplest end-to-end test of web input.
+            shell::IShell* sh = host.Shell();
+            shell::IKeyboard* kb = (sh != nullptr && sh->Input() != nullptr) ? sh->Input()->Keyboard()
+                                                                            : nullptr;
+            if (kb != nullptr)
+            {
+                const core::f32 speed = 3.0f * deltaTime;
+                core::Float3 move{0.0f, 0.0f, 0.0f};
+                if (kb->IsKeyDown(shell::KeyCode::W)) move.z -= speed;
+                if (kb->IsKeyDown(shell::KeyCode::S)) move.z += speed;
+                if (kb->IsKeyDown(shell::KeyCode::A)) move.x -= speed;
+                if (kb->IsKeyDown(shell::KeyCode::D)) move.x += speed;
+                if (kb->IsKeyDown(shell::KeyCode::E)) move.y += speed;
+                if (kb->IsKeyDown(shell::KeyCode::Q)) move.y -= speed;
+                if (move.x != 0.0f || move.y != 0.0f || move.z != 0.0f)
+                {
+                    core::Transform camT = m_scene->GetLocalTransform(m_camera);
+                    camT.position.x += move.x;
+                    camT.position.y += move.y;
+                    camT.position.z += move.z;
+                    m_scene->SetLocalTransform(m_camera, camT);
+                }
             }
         }
 
