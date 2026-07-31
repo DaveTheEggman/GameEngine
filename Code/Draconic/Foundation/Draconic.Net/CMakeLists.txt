@@ -1,0 +1,26 @@
+# Draconic::Net - `draconic.net` (real-time game networking: wire format + INetTransport with
+# swappable backends - reliable-UDP (ours), loopback/sim, later websocket/webrtc - + session,
+# reliability, RPC, replication). Over Core (+ Core/System sockets, later). See
+# docs/design/networking.md.
+
+add_library(Draconic.Net STATIC)
+add_library(Draconic::Net ALIAS Draconic.Net)
+
+target_link_libraries(Draconic.Net PUBLIC Draconic::Core Draconic::Policy)
+
+target_sources(Draconic.Net
+    PUBLIC
+        FILE_SET net_modules TYPE CXX_MODULES FILES
+            WireStream.cppm
+            NetTransport.cppm
+            Datagram.cppm
+            Reliable.cppm
+            NetSession.cppm
+            RpcTable.cppm
+            UdpSocket.cppm
+            TcpSocket.cppm
+            NetModule.cppm)
+
+if(DRACONIC_BUILD_TESTS)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Net.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
+endif()

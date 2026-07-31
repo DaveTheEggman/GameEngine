@@ -18,7 +18,7 @@ export module draconic.editor.scene:component_gizmos;
 import draconic.core;
 import draconic.scene;
 import draconic.render;
-import draconic.render.subsystem;
+import draconic.engine.render;
 
 using namespace draconic::core;
 

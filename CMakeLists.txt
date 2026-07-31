@@ -186,8 +186,8 @@ if(EMSCRIPTEN)
     # draconic.render is scene- and resource-agnostic (device-abstract over the RHI interface), so
     # the whole renderer compiles for web now; only its GPU DEVICE (Emscripten WebGPU) is phase 2.
     # (Render/Api + Render/Subsystem link Scene; render.subsystem is gated to the app layer.)
-    add_subdirectory(Code/Draconic/Render/Api)
-    add_subdirectory(Code/Draconic/Render)          # + render.subsystem (deps now up)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Render.Api)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Render)          # + render.subsystem (deps now up)
     add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Animation)  # links Render + Animation (both up)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Particles)
     add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Particles)  # links Render + Particles (both up)
@@ -198,8 +198,8 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/Fonts)
     add_subdirectory(Code/Draconic/VG)
     add_subdirectory(Code/Draconic/UI)
-    add_subdirectory(Code/Draconic/Net)             # sockets over Core/System (emscripten stubs; websockets later)
-    add_subdirectory(Code/Draconic/Net/Replication)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Net)             # sockets over Core/System (emscripten stubs; websockets later)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Net.Replication)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Input)           # action mapping over Core + Shell (interface up)
     add_subdirectory(Code/Draconic/Script)          # reflection->script bridge; Wren backend (AngelScript gated)
     add_subdirectory(Code/Draconic/Script/Facades)  # behavior facades (Entity/Log/Time/Random); ScriptWren needs it
@@ -216,8 +216,8 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/Script/Resource)
     add_subdirectory(Code/Draconic/UI/Resource)
     add_subdirectory(Code/Draconic/UI/Subsystem)
-    add_subdirectory(Code/Draconic/Net/Manager)
-    add_subdirectory(Code/Draconic/Net/Subsystem)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Net.Manager)
+    add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Net)
     # First browser-running app: WebShell + the web runner + the WebGPU graphics factory, tied
     # together by DRACONIC_APP_MAIN. Emits WebTriangle.html.
     add_subdirectory(Code/Samples/WebTriangle)
@@ -240,8 +240,8 @@ add_subdirectory(ThirdParty)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Core)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Settings)  # typed/versioned settings store over Core (runtime + editor)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Profiler)  # CPU scope profiler over Core (instrumented across the engine)
-add_subdirectory(Code/Draconic/Net)       # real-time game networking: wire + INetTransport + loopback sim (over Core)
-add_subdirectory(Code/Draconic/Net/Replication)  # StateReplication foundation: NetworkId + reflection-driven field codec (over Net + Core)
+add_subdirectory(Code/Draconic/Foundation/Draconic.Net)       # real-time game networking: wire + INetTransport + loopback sim (over Core)
+add_subdirectory(Code/Draconic/Foundation/Draconic.Net.Replication)  # StateReplication foundation: NetworkId + reflection-driven field codec (over Net + Core)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Xml)       # DOM XML parser + writer over Core
     add_subdirectory(Code/Draconic/Foundation/Draconic.Xml.Serialization)
 add_subdirectory(Code/Draconic/Foundation/Draconic.VFS)       # byte access over Core stream primitives
@@ -270,8 +270,8 @@ add_subdirectory(Code/Draconic/Foundation/Draconic.Audio)     # miniaudio-backed
 add_subdirectory(Code/Draconic/Foundation/Draconic.Audio.Resource)    # cooked audio clips + factory
 add_subdirectory(Code/Draconic/Editor/Draconic.Audio.Editor)      # audio clip asset/builder/importer (tooling)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Scene)     # scene / ECS foundation (entities, transforms, components, SceneSubsystem)
-add_subdirectory(Code/Draconic/Render/Api) # light scene-rendering interface (ISceneRenderer) - tools drive rendering w/o linking the renderer
-add_subdirectory(Code/Draconic/Render)    # renderer: scene->render extraction + (later) the GPU forward path
+add_subdirectory(Code/Draconic/Foundation/Draconic.Render.Api) # light scene-rendering interface (ISceneRenderer) - tools drive rendering w/o linking the renderer
+add_subdirectory(Code/Draconic/Foundation/Draconic.Render)    # renderer: scene->render extraction + (later) the GPU forward path
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Animation) # skeletal-animation scene integration (links RenderSubsystem; after Render)
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Particles) # particle scene/render integration (renderer + provider seam; after Render)
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Physics) # physics scene integration (components + per-scene Jolt world + interpolation; after Render)
@@ -290,8 +290,8 @@ add_subdirectory(Code/Draconic/GUI)       # fresh eepp-derived UI framework, pro
 add_subdirectory(Code/Draconic/Script)
 add_subdirectory(Code/Draconic/Script/Resource)   # cooked script classes + factory (source + harvested metadata)
 add_subdirectory(Code/Draconic/Script/Facades)    # curated behavior facades (Entity/Log/Time/Random) - shared by cook VM + runtime
-add_subdirectory(Code/Draconic/Net/Manager)       # per-instance networked endpoint (NetworkManager) + Net script facade (over Net + Script)
-add_subdirectory(Code/Draconic/Net/Subsystem)     # once-per-context NetworkSubsystem (injects NetworkComponentManager into scenes)
+add_subdirectory(Code/Draconic/Foundation/Draconic.Net.Manager)       # per-instance networked endpoint (NetworkManager) + Net script facade (over Net + Script)
+add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Net)     # once-per-context NetworkSubsystem (injects NetworkComponentManager into scenes)
 add_subdirectory(Code/Draconic/Script/Editor)     # script class asset/builder/importer (tooling; neutral - resolves a per-language cook)
 add_subdirectory(Code/Draconic/Script/Wren/Editor)        # Wren cook service (compile-check + `static properties` probe + starter)
 add_subdirectory(Code/Draconic/Script/AngelScript/Editor) # AngelScript cook service (compile-check + handler scan + starter; property harvest deferred)

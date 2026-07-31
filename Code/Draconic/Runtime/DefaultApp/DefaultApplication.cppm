@@ -27,7 +27,7 @@ import draconic.shell;                // IShell, IKeyboard, KeyCode (the profile
 import draconic.graphics;             // GraphicsDevice, FrameContext
 import draconic.scene;                // Scene
 import draconic.engine.scene;      // SceneSubsystem (the standard scene driver)
-import draconic.render.subsystem;     // RenderSubsystem (the standard renderer)
+import draconic.engine.render;     // RenderSubsystem (the standard renderer)
 import draconic.engine.animation; // AnimationSubsystem (drives skeletal animation from the scene)
 import draconic.engine.particles; // ParticleSubsystem (scene-driven CPU sim)
 import draconic.physics;             // ContactKind/EntityContact (the contact bridge)
@@ -63,7 +63,7 @@ import draconic.engine.audio;     // AudioSubsystem (voices/buses/one-shots + sc
 import draconic.net;                 // UdpSocket / DatagramEndpoint (the transport)
 import draconic.net.replication;     // NetworkId / StateReplication (the spawn-handler seam)
 import draconic.net.manager;   // NetworkManager + NetworkStartup/StartNetworking + the Net facade
-import draconic.net.subsystem; // NetworkSubsystem (injects the NetworkComponentManager into scenes)
+import draconic.engine.net; // NetworkSubsystem (injects the NetworkComponentManager into scenes)
 import draconic.profiler;      // the CPU scope profiler (P-key dump)
 
 namespace rhi = draconic::rhi;

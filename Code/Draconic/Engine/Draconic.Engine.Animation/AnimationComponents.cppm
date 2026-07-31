@@ -19,7 +19,7 @@ import draconic.core;
 import draconic.resource;
 import draconic.scene;
 import draconic.animation; // Skeleton, AnimationClip, AnimationPlayer, AnimationGraph(+Player)
-import draconic.render.subsystem; // MeshComponentManager / MeshComponent (the feed target)
+import draconic.engine.render; // MeshComponentManager / MeshComponent (the feed target)
 
 using namespace draconic::core;
 namespace scene = draconic::scene;

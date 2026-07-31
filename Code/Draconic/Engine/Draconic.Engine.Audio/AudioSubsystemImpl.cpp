@@ -14,7 +14,7 @@ import draconic.core;
 import draconic.runtime;
 import draconic.scene;
 import draconic.audio;
-import draconic.render.subsystem; // CameraComponentManager (listener fallback)
+import draconic.engine.render; // CameraComponentManager (listener fallback)
 
 using namespace draconic::core;
 

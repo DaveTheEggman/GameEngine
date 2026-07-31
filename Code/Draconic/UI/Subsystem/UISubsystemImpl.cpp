@@ -31,7 +31,7 @@ import draconic.vg.renderer;
 import draconic.ui;
 import draconic.ui.resource;
 import draconic.render.api;
-import draconic.render.subsystem; // RenderSubsystem (overlay-role registration)
+import draconic.engine.render; // RenderSubsystem (overlay-role registration)
 
 using namespace draconic::core;
 namespace vg = draconic::vg;
