@@ -26,14 +26,14 @@ import draconic.core;
 import draconic.vfs;
 import draconic.content;
 import draconic.xml.serialization;
-import draconic.project;
+import draconic.engine.project;
 import :export_roots; // the project owns its "Always Export" set (export_roots.xml)
 
 using namespace draconic::core;
 
 export namespace draconic::editor
 {
-    // The manifest payload + directory layout live in draconic.project (runtime-side,
+    // The manifest payload + directory layout live in draconic.engine.project (runtime-side,
     // editor-free - the player/dist builds read the same manifest without editor code).
     using draconic::project::kCookedAssetExtension;
     using draconic::project::kEngineVersionString;

@@ -56,7 +56,7 @@ import draconic.ui.resource;
 import draconic.ui.subsystem;
 import draconic.xml.serialization;
 import draconic.settings;
-import draconic.project;
+import draconic.engine.project;
 import draconic.vfs.pak;
 
 #include "PlayerApplication.h"      // the shared runner (uses the imports above)

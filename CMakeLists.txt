@@ -168,7 +168,7 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Xml.Serialization)
     add_subdirectory(Code/Draconic/Foundation/Draconic.VFS)
     add_subdirectory(Code/Draconic/Foundation/Draconic.VFS.Pak)
-    add_subdirectory(Code/Draconic/Project)
+    add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Project)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Content)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Resource)
     add_subdirectory(Code/Draconic/Foundation/Draconic.RHI)
@@ -195,7 +195,7 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Model.IO)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Model.GLTF)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Model.FBX)
-    add_subdirectory(Code/Draconic/Fonts)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Fonts)
     add_subdirectory(Code/Draconic/Foundation/Draconic.VG)
     add_subdirectory(Code/Draconic/UI)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Net)             # sockets over Core/System (emscripten stubs; websockets later)
@@ -246,7 +246,7 @@ add_subdirectory(Code/Draconic/Foundation/Draconic.Xml)       # DOM XML parser +
     add_subdirectory(Code/Draconic/Foundation/Draconic.Xml.Serialization)
 add_subdirectory(Code/Draconic/Foundation/Draconic.VFS)       # byte access over Core stream primitives
     add_subdirectory(Code/Draconic/Foundation/Draconic.VFS.Pak)
-add_subdirectory(Code/Draconic/Project)   # project manifest/layout (runtime-side, editor-free)
+add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Project)   # project manifest/layout (runtime-side, editor-free)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Content)   # content database over Core + VFS
 add_subdirectory(Code/Draconic/Foundation/Draconic.Resource)  # resource manager over content
 add_subdirectory(Code/Draconic/Editor)     # asset-pipeline authoring base (tooling)
@@ -276,17 +276,17 @@ add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Animation) # skeletal-anim
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Particles) # particle scene/render integration (renderer + provider seam; after Render)
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Physics) # physics scene integration (components + per-scene Jolt world + interpolation; after Render)
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Audio)   # audio scene integration (components + per-scene voice group + listener sync; after Render)
-add_subdirectory(Code/Draconic/Fonts)     # font types/interfaces over Core + Image
+add_subdirectory(Code/Draconic/Foundation/Draconic.Fonts)     # font types/interfaces over Core + Image
 add_subdirectory(Code/Draconic/Foundation/Draconic.Texture)   # texture descriptors + cooked resource/GPU factory + editor
 add_subdirectory(Code/Draconic/Foundation/Draconic.Materials) # data-driven material model (PipelineConfig + bind-group-inferring MaterialSystem)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Model.Resource) # cooked model manifest + runtime composite (runtime side; no tooling deps)
 add_subdirectory(Code/Draconic/UI/Resource)   # cooked UI documents + themes (game-ui; UI-framework-free records)
 add_subdirectory(Code/Draconic/UI/Editor)     # UI document/theme assets + validating builders (tooling)
 add_subdirectory(Code/Draconic/UI/Subsystem)  # game screen tier: canvases + overlay render + consumption
-add_subdirectory(Code/Draconic/ModelImporter) # top-level model import: model IR -> cooked geometry/material/texture/animation resources
+add_subdirectory(Code/Draconic/Editor/Draconic.ModelImporter) # top-level model import: model IR -> cooked geometry/material/texture/animation resources
 add_subdirectory(Code/Draconic/Foundation/Draconic.VG)        # 2D vector-graphics core over Core + Image
 add_subdirectory(Code/Draconic/UI)        # retained-mode UI framework (faithful Sedulous.UI port) over Core (+ VG/Fonts as phases land)
-add_subdirectory(Code/Draconic/GUI)       # fresh eepp-derived UI framework, progressively sliced onto VG/Fonts (docs/design/gui-port.md)
+add_subdirectory(Code/Draconic/Experimental/Draconic.GUI)       # fresh eepp-derived UI framework, progressively sliced onto VG/Fonts (docs/design/gui-port.md)
 add_subdirectory(Code/Draconic/Script)
 add_subdirectory(Code/Draconic/Script/Resource)   # cooked script classes + factory (source + harvested metadata)
 add_subdirectory(Code/Draconic/Script/Facades)    # curated behavior facades (Entity/Log/Time/Random) - shared by cook VM + runtime
@@ -297,13 +297,13 @@ add_subdirectory(Code/Draconic/Script/Wren/Editor)        # Wren cook service (c
 add_subdirectory(Code/Draconic/Script/AngelScript/Editor) # AngelScript cook service (compile-check + handler scan + starter; property harvest deferred)
 add_subdirectory(Code/Draconic/Shell)     # raw platform/OS service (IShell: window/input/events) over Core; below Runtime
 add_subdirectory(Code/Draconic/Foundation/Draconic.Input)     # action-mapping layer (InputMap + ActionRuntime + asset/cooked) over Core + Shell
-add_subdirectory(Code/Draconic/GUI/Shell)  # draconic.gui.shell: platform input bridge (Shell InputEvents -> GUI EventDispatcher)
-add_subdirectory(Code/Draconic/GUI/VFS)   # draconic.gui.vfs: VFS-backed IResourceProvider (background-image: url() loading)
+add_subdirectory(Code/Draconic/Experimental/Draconic.GUI.Shell)  # draconic.gui.shell: platform input bridge (Shell InputEvents -> GUI EventDispatcher)
+add_subdirectory(Code/Draconic/Experimental/Draconic.GUI.VFS)   # draconic.gui.vfs: VFS-backed IResourceProvider (background-image: url() loading)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Graphics)  # GraphicsDevice/RenderWindow render host over RHI+Shell; below Runtime
 add_subdirectory(Code/Draconic/Runtime)
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Input)  # input runtime hookup (tick + device provider seam) over Runtime
 add_subdirectory(Code/Draconic/Script/Subsystem) # entity behaviors (ScriptComponent + the run's ONE gameplay script context) over Runtime
-add_subdirectory(Code/Draconic/Imgui)     # Dear ImGui debug UI (RHI renderer + subsystem) over Runtime
+add_subdirectory(Code/Draconic/Extensions/Draconic.Imgui)     # Dear ImGui debug UI (RHI renderer + subsystem) over Runtime
 add_subdirectory(Code/Draconic/Editor/App) # editor UI shell (chrome + layout persistence + EditorApplication)
 add_subdirectory(Code/Draconic/Editor/Input) # input-map editing page (editor exe only)
 add_subdirectory(Code/Draconic/Editor/GameUI) # UI document page: text + live preview (editor exe only)

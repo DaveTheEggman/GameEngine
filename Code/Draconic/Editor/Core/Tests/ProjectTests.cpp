@@ -11,7 +11,7 @@ import draconic.core;
 import draconic.vfs;
 import draconic.content;
 import draconic.xml.serialization;
-import draconic.project;
+import draconic.engine.project;
 import draconic.editor.core;
 
 using namespace draconic::core;

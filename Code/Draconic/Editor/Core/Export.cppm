@@ -22,7 +22,7 @@ import draconic.core;
 import draconic.vfs;
 import draconic.vfs.pak;
 import draconic.content;
-import draconic.project;
+import draconic.engine.project;
 import draconic.scene.resource;
 import draconic.editor;
 import draconic.editor.cook;

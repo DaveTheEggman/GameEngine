@@ -20,7 +20,7 @@ import draconic.shell;
 import draconic.graphics;
 import draconic.fonts;
 import draconic.fonts.ttf;
-import draconic.fonts.df.baker; // DFFonts (MSDF baker registration) for the DF font path
+import draconic.fonts.distancefield.baker; // DFFonts (MSDF baker registration) for the DF font path
 import draconic.runtime;
 import draconic.runtime.client;
 import draconic.runtime.defaultapp; // the embedded game application (v3)

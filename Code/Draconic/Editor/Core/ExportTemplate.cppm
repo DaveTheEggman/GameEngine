@@ -16,7 +16,7 @@ export module draconic.editor.core:export_template;
 import draconic.core;
 import draconic.vfs;
 import draconic.xml.serialization;
-import draconic.project;
+import draconic.engine.project;
 import :export_preset; // ExportPreset, ExportPresetSet
 
 using namespace draconic::core;

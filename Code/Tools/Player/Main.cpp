@@ -75,7 +75,7 @@ import draconic.ui.resource;  // UITheme (the manifest's default theme)
 import draconic.ui.subsystem; // UISubsystem (IME target + default theme)
 import draconic.xml.serialization;
 import draconic.settings;
-import draconic.project; // manifest + layout (runtime-side, editor-free)
+import draconic.engine.project; // manifest + layout (runtime-side, editor-free)
 import draconic.vfs.pak; // dist mode: one Content.pak holds products + scenes + scripts
 
 #include "PlayerApplication.h" // the shared runner (uses the imports above)

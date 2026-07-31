@@ -15,7 +15,7 @@ import draconic.vfs;
 import draconic.vfs.pak;
 import draconic.content;
 import draconic.resource;
-import draconic.project;
+import draconic.engine.project;
 import draconic.geometry;
 import draconic.geometry.editor;
 import draconic.geometry.resource;
