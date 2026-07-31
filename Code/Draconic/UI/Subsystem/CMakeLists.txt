@@ -6,7 +6,7 @@ target_link_libraries(DraconicUISubsystem
            Draconic::Resource Draconic::Shell Draconic::RHI Draconic::Fonts Draconic::FontsTTF
            Draconic::Input Draconic::InputSubsystem Draconic::UI Draconic::UIShell
            Draconic::UIResource
-           Draconic::VG Draconic::VGRenderer Draconic::Shaders
+           Draconic::VG Draconic::VGRenderer Draconic::Shaders Draconic::ShaderSystem
            Draconic::Render Draconic::RenderSubsystem Draconic::Policy)
 target_sources(DraconicUISubsystem
     PRIVATE
@@ -14,6 +14,11 @@ target_sources(DraconicUISubsystem
     PUBLIC
         FILE_SET ui_subsystem_modules TYPE CXX_MODULES FILES
             UISubsystem.cppm)
+
+# Dev-mode shader source root: the ShaderSystemHost compiles the VG shaders (vg.vs/vg.ps) on demand
+# from here when no cooked pack is present (a dist/browser ships shaders.dpak and needs no compiler).
+target_compile_definitions(DraconicUISubsystem
+    PRIVATE DRACONIC_ENGINE_SHADER_DIR="${CMAKE_SOURCE_DIR}/Data/Shaders")
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)

@@ -25,6 +25,7 @@ import draconic.fonts.ttf;
 import draconic.input;
 import draconic.input.subsystem;
 import draconic.shaders;
+import draconic.shaders.system; // ShaderSystemHost (cooked-pack-or-dev shader resolution)
 import draconic.vg;
 import draconic.vg.renderer;
 import draconic.ui;
@@ -150,10 +151,10 @@ namespace draconic::ui
     // Per-target-format VG pipeline (backbuffer vs viewport formats differ).
     struct UISubsystem::RenderState
     {
-        draconic::shaders::Compiler* compiler = nullptr;
+        draconic::shaders::ShaderSystemHost shaderHost; // owns the ShaderSystem + VG modules
         rhi::Device* device = nullptr;
-        rhi::ShaderModule* vertexShader = nullptr;
-        rhi::ShaderModule* fragmentShader = nullptr;
+        rhi::ShaderModule* vertexShader = nullptr;   // borrowed from shaderHost
+        rhi::ShaderModule* fragmentShader = nullptr; // borrowed from shaderHost
         vg::VGContext vgContext;
         struct FormatRenderer
         {
@@ -192,18 +193,8 @@ namespace draconic::ui
                 DestroyCanvasTarget(i, false);
             }
             renderers.Clear();
-            if (vertexShader != nullptr && device != nullptr)
-            {
-                device->DestroyShaderModule(vertexShader);
-            }
-            if (fragmentShader != nullptr && device != nullptr)
-            {
-                device->DestroyShaderModule(fragmentShader);
-            }
-            if (compiler != nullptr)
-            {
-                compiler->Destroy();
-            }
+            // vertexShader/fragmentShader are BORROWED from shaderHost's ShaderSystem, which owns
+            // and frees them (and the compiler) when it is destroyed with this struct.
         }
 
         // The (created-on-demand) target for one RT canvas, recreated on resize. Null
@@ -289,40 +280,6 @@ namespace draconic::ui
                 }
             }
             canvasTargets.RemoveAt(index);
-        }
-
-        bool CompileOne(StringView source, draconic::shaders::ShaderStage stage, StringView label,
-                        rhi::ShaderModule*& out)
-        {
-            // The UIHost recipe: DXIL for DX12, else SPIR-V with Vulkan binding shifts.
-            const bool isDX12 = (device->type == rhi::DeviceType::DX12);
-            const draconic::shaders::ShaderTarget target =
-                isDX12 ? draconic::shaders::ShaderTarget::DXIL
-                       : draconic::shaders::ShaderTarget::SPIRV;
-            draconic::shaders::CompileOptions options{};
-            options.shaderModel = u8"6_0";
-            options.optimizationLevel = 3;
-            if (!isDX12)
-            {
-                options.bindingShifts = shaders::BindingShifts::Standard();
-                if (device->type == rhi::DeviceType::WebGPU)
-                {
-                    options.spirvTargetEnvironment = u8"vulkan1.1"; // naga rejects SPIR-V 1.4+
-                }
-                options.bindingShiftSets = 4;
-            }
-            draconic::shaders::CompileResult compiled{};
-            bool ok = false;
-            if (compiler->compile(reinterpret_cast<const u8*>(source.Data()), source.Size(), stage,
-                                  u8"main", target, options, compiled) == ErrorCode::Ok)
-            {
-                rhi::ShaderModuleDesc desc{};
-                desc.code = Span<const u8>(compiled.bytecode, compiled.bytecodeSize);
-                desc.label = label;
-                ok = device->CreateShaderModule(desc, out).IsOk();
-            }
-            compiler->freeResult(compiled);
-            return ok;
         }
 
         // Fetch (or lazily create) the renderer for a target format, with its per-frame
@@ -1678,19 +1635,25 @@ namespace draconic::ui
         }
         m_render->device = &device;
         m_render->frameCount = frameCount;
-        (void)draconic::shaders::createCompiler(draconic::shaders::CompilerDesc{},
-                                                m_render->compiler);
-        if (m_render->compiler == nullptr)
+
+        // Resolve the VG shaders through the shared ShaderSystemHost: cooked WGSL from shaders.dpak
+        // (dist/browser, no compiler) or on-demand DXC over Data/Shaders (dev). The VG shaders ship
+        // in the engine corpus (vg.vs/vg.ps) like every other shader.
+#ifdef DRACONIC_ENGINE_SHADER_DIR
+        constexpr StringView kShaderRoot = u8"" DRACONIC_ENGINE_SHADER_DIR;
+#else
+        constexpr StringView kShaderRoot = u8"Shaders";
+#endif
+        if (!m_render->shaderHost.Initialize(device, kShaderRoot))
         {
-            DRACONIC_LOG_ERROR(u8"UI", u8"shader compiler unavailable - game UI will not render");
+            DRACONIC_LOG_ERROR(u8"UI",
+                               u8"no shader compiler and no shader pack - game UI will not render");
             return;
         }
-        (void)m_render->CompileOne(vg::renderer::VertexShaderSource(),
-                                   draconic::shaders::ShaderStage::Vertex, u8"gameui.vg.vert",
-                                   m_render->vertexShader);
-        (void)m_render->CompileOne(vg::renderer::FragmentShaderSource(),
-                                   draconic::shaders::ShaderStage::Fragment, u8"gameui.vg.frag",
-                                   m_render->fragmentShader);
+        m_render->vertexShader = m_render->shaderHost.GetVariant(
+            u8"vg", draconic::shaders::ShaderStage::Vertex, draconic::shaders::ShaderFlags::None);
+        m_render->fragmentShader = m_render->shaderHost.GetVariant(
+            u8"vg", draconic::shaders::ShaderStage::Fragment, draconic::shaders::ShaderFlags::None);
     }
 }
 
