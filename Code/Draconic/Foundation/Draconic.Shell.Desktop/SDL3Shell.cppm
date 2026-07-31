@@ -22,7 +22,7 @@ module;
 #include <cstdint>
 #define SDL_MAIN_HANDLED
 
-#include "Shell/Desktop/SdlForward.h" // opaque SDL_Window/Cursor/Gamepad (interface uses pointers only)
+#include "Draconic.Shell.Desktop/SdlForward.h" // opaque SDL_Window/Cursor/Gamepad (interface uses pointers only)
 
 export module draconic.shell.desktop;
 

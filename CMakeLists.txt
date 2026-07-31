@@ -172,7 +172,7 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Content)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Resource)
     add_subdirectory(Code/Draconic/Foundation/Draconic.RHI)
-    add_subdirectory(Code/Draconic/Shell) # IShell interface + Null backend; the SDL3 desktop backend auto-skips on emscripten
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Shell) # IShell interface + Null backend; the SDL3 desktop backend auto-skips on emscripten
     add_subdirectory(Code/Draconic/Foundation/Draconic.Graphics) # GraphicsDevice/RenderWindow (interface + Null); GPU factory gated on a backend
     add_subdirectory(Code/Draconic/Foundation/Draconic.RenderGraph)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Image)
@@ -295,7 +295,7 @@ add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Net)     # once-per-contex
 add_subdirectory(Code/Draconic/Script/Editor)     # script class asset/builder/importer (tooling; neutral - resolves a per-language cook)
 add_subdirectory(Code/Draconic/Script/Wren/Editor)        # Wren cook service (compile-check + `static properties` probe + starter)
 add_subdirectory(Code/Draconic/Script/AngelScript/Editor) # AngelScript cook service (compile-check + handler scan + starter; property harvest deferred)
-add_subdirectory(Code/Draconic/Shell)     # raw platform/OS service (IShell: window/input/events) over Core; below Runtime
+add_subdirectory(Code/Draconic/Foundation/Draconic.Shell)     # raw platform/OS service (IShell: window/input/events) over Core; below Runtime
 add_subdirectory(Code/Draconic/Foundation/Draconic.Input)     # action-mapping layer (InputMap + ActionRuntime + asset/cooked) over Core + Shell
 add_subdirectory(Code/Draconic/Experimental/Draconic.GUI.Shell)  # draconic.gui.shell: platform input bridge (Shell InputEvents -> GUI EventDispatcher)
 add_subdirectory(Code/Draconic/Experimental/Draconic.GUI.VFS)   # draconic.gui.vfs: VFS-backed IResourceProvider (background-image: url() loading)
