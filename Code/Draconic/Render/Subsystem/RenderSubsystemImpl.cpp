@@ -23,8 +23,7 @@ import draconic.profiler;
 import draconic.runtime;         // Subsystem, Context
 import draconic.scene;           // Scene, ISceneAware
 import draconic.scene.subsystem; // SceneSubsystem (to register as scene-aware)
-import draconic.shaders;         // Compiler
-import draconic.shaders.system;  // ShaderSystem
+import draconic.shaders.system;  // ShaderSystem (borrowed from the host)
 import draconic.materials;       // MaterialSystem
 import draconic.materials.pso;   // PipelineStateCache
 import draconic.render;          // MeshRenderer, RendererRegistry, RenderFrame, ExtractedScene
@@ -226,7 +225,7 @@ namespace draconic::render
         // Dev hot reload (throttled inside the provider). On a reload, idle the GPU so
         // passes can destroy + rebuild their version-stamped pipelines immediately (a
         // dev-only hiccup; the material path still goes through the PSO retire ring).
-        if (m_shaders->PumpReloads() > 0)
+        if (m_shaders != nullptr && m_shaders->PumpReloads() > 0)
         {
             m_device->WaitIdle();
         }
@@ -444,103 +443,28 @@ namespace draconic::render
         }
     }
 
-    bool RenderSubsystem::LoadCookedShaderPack()
-    {
-        constexpr StringView kPackFile = u8"shaders.dpak";
-        // Prefer the executable's own directory (robust for a relocated dist); then the cwd.
-        String paths[2];
-        const String exeDir = GetExecutableDirectory();
-        if (!exeDir.IsEmpty())
-        {
-            paths[0] = exeDir;
-            paths[0] += u8"/";
-            paths[0] += kPackFile;
-        }
-        paths[1] = String(kPackFile);
-
-        for (const String& path : paths)
-        {
-            if (path.IsEmpty() || !FileExists(path.AsView()))
-            {
-                continue;
-            }
-            FileStream file(path.AsView(), FileMode::Read);
-            if (!file.IsValid())
-            {
-                continue;
-            }
-            UniquePtr<shaders::CookedShaderPack> pack =
-                MakeUnique<shaders::CookedShaderPack>(DefaultAllocator());
-            if (pack->Read(file).IsOk() && !pack->IsEmpty())
-            {
-                rhi::LogInfof("RenderSubsystem: using cooked shader pack (%u variants) - no runtime "
-                              "compiler",
-                              static_cast<unsigned>(pack->Count()));
-                m_shaderPack = Move(pack);
-                return true;
-            }
-        }
-        return false;
-    }
-
     void RenderSubsystem::OnInit()
     {
         RegisterRenderComponentReflection(); // tooling: reflected components (idempotent)
 
-        // DXC is REQUIRED for dev on-demand compilation but OPTIONAL for a dist that ships a cooked
-        // pack (which renders with no compiler). Try to create it; a failure is only fatal if no
-        // pack is present.
-        if (!shaders::createCompiler(shaders::CompilerDesc{}, m_compiler).IsOk())
-        {
-            m_compiler = nullptr;
-        }
-
-        // Dist mode wins when a cooked pack ships beside the executable: GetVariant serves prebuilt
-        // blobs, no DXC. Otherwise the dev file provider drives on-demand compilation (hot reload).
-        const bool havePack = LoadCookedShaderPack();
-        if (m_compiler == nullptr && !havePack)
+        // The ShaderSystemHost encapsulates the pack-vs-dev decision (cooked shaders.dpak beside the
+        // executable => no compiler; otherwise DXC + a file provider over the engine shader root with
+        // hot reload). The same host every consumer (VG/UI, ImGui) uses. Inert if neither is present.
+#ifdef DRACONIC_ENGINE_SHADER_DIR
+        constexpr StringView kEngineShaderRoot = u8"" DRACONIC_ENGINE_SHADER_DIR;
+#else
+        constexpr StringView kEngineShaderRoot = u8"Shaders";
+#endif
+        if (!m_shaderHost.Initialize(*m_device, kEngineShaderRoot))
         {
             return; // neither a compiler nor a pack - renderer stays inert
         }
-
-        m_shaders = (m_compiler != nullptr)
-                        ? MakeUnique<shaders::ShaderSystem>(DefaultAllocator(), *m_compiler,
-                                                            *m_device)
-                        : MakeUnique<shaders::ShaderSystem>(DefaultAllocator(), *m_device);
-
-        if (havePack)
+        m_shaders = m_shaderHost.System();
+        if (m_shaderHost.UsingPack())
         {
-            m_shaders->SetCookedPack(m_shaderPack.Get());
-        }
-        else
-        {
-            // Engine built-in shader SOURCES under the shader root (shaders.md P1). Dev builds bake
-            // the source-tree Data/Shaders path. A missing root is loud but not fatal: explicit
-            // RegisterSource still works (bespoke inline shaders, tests). Requires the compiler.
-#ifdef DRACONIC_ENGINE_SHADER_DIR
-            constexpr StringView kEngineShaderRoot = u8"" DRACONIC_ENGINE_SHADER_DIR;
-#else
-            constexpr StringView kEngineShaderRoot = u8"Shaders";
-#endif
-            StringView shaderRoot = kEngineShaderRoot;
-            if (!DirectoryExists(shaderRoot) && DirectoryExists(u8"Shaders"))
-            {
-                shaderRoot = u8"Shaders"; // relocated build - dist layout fallback
-            }
-            m_shaderProvider = MakeUnique<shaders::FileShaderSourceProvider>(DefaultAllocator());
-            if (m_shaderProvider->Initialize(shaderRoot).IsOk())
-            {
-                m_shaders->SetSourceProvider(m_shaderProvider.Get());
-                const StringView includePaths[] = {m_shaderProvider->RootDirectory()};
-                m_shaders->SetIncludePaths(Span<const StringView>{includePaths, 1});
-            }
-            else
-            {
-                m_shaderProvider.Reset();
-                rhi::LogErrorf("RenderSubsystem: engine shader root not found (%s) - "
-                               "built-in shaders unavailable",
-                               reinterpret_cast<const char*>(shaderRoot.Data()));
-            }
+            rhi::LogInfof("RenderSubsystem: using cooked shader pack (%u variants) - no runtime "
+                          "compiler",
+                          static_cast<unsigned>(m_shaderHost.PackVariantCount()));
         }
 
         m_psoCache =
@@ -733,13 +657,8 @@ namespace draconic::render
         m_meshRenderer.Reset(); // before the systems it borrows (releases material instances first)
         m_materialSystem.Reset();
         m_psoCache.Reset();
-        m_shaders.Reset();
-        m_shaderProvider.Reset(); // after the ShaderSystem that borrows it
-        if (m_compiler != nullptr)
-        {
-            m_compiler->Destroy();
-            m_compiler = nullptr;
-        }
+        m_shaders = nullptr;      // borrowed from the host; the host owns/destroys the ShaderSystem
+        m_shaderHost.Shutdown();  // after every pass that borrowed *m_shaders
     }
 
     ExtractedScene* RenderSubsystem::AcquireScene()

@@ -23,8 +23,7 @@ import draconic.profiler;
 import draconic.runtime;         // Subsystem, Context
 import draconic.scene;           // Scene, ISceneAware
 import draconic.scene.subsystem; // SceneSubsystem (to register as scene-aware)
-import draconic.shaders;         // Compiler
-import draconic.shaders.system;  // ShaderSystem
+import draconic.shaders.system;  // ShaderSystem, ShaderSystemHost
 import draconic.materials;       // MaterialSystem
 import draconic.materials.pso;   // PipelineStateCache
 import draconic.render;          // MeshRenderer, RendererRegistry, RenderFrame, ExtractedScene
@@ -58,7 +57,7 @@ export namespace draconic::render
         void RegisterProvider(scene::Scene& scene, IRenderDataProvider& provider);
         // GPU handles a subsystem needs to build its renderer's pipeline (valid once RenderSubsystem is ready).
         [[nodiscard]] rhi::Device* Device() const noexcept { return m_device; }
-        [[nodiscard]] shaders::ShaderSystem* Shaders() const noexcept { return m_shaders.Get(); }
+        [[nodiscard]] shaders::ShaderSystem* Shaders() const noexcept { return m_shaders; }
         [[nodiscard]] u32 FramesInFlight() const noexcept { return m_framesInFlight; }
 
         [[nodiscard]] i32 UpdateOrder() const noexcept override;
@@ -207,16 +206,12 @@ export namespace draconic::render
         // multiple cameras of the same scene; phase 1 takes one per call.)
         [[nodiscard]] ExtractedScene* AcquireScene();
 
-        // Load a cooked shader pack from beside the executable (dist), into m_shaderPack. True when a
-        // pack was found and read; false => dev mode (compile-on-demand via the file provider).
-        [[nodiscard]] bool LoadCookedShaderPack();
-
         rhi::Device* m_device;
         u32 m_framesInFlight = 2;
-        shaders::Compiler* m_compiler = nullptr;
-        UniquePtr<shaders::ShaderSystem> m_shaders;
-        UniquePtr<shaders::FileShaderSourceProvider> m_shaderProvider; // engine shader root (dev files)
-        UniquePtr<shaders::CookedShaderPack> m_shaderPack; // dist: cooked blobs (no DXC), else null
+        // Owns the pack-vs-dev ShaderSystem (cooked blobs in a dist/web build, DXC + file provider
+        // with hot reload otherwise). m_shaders caches its ShaderSystem for the passes to borrow.
+        shaders::ShaderSystemHost m_shaderHost;
+        shaders::ShaderSystem* m_shaders = nullptr;
         UniquePtr<materials::PipelineStateCache> m_psoCache;
         UniquePtr<materials::MaterialSystem> m_materialSystem;
         UniquePtr<MeshRenderer> m_meshRenderer;

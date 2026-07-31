@@ -86,6 +86,11 @@ export namespace draconic::shaders
         [[nodiscard]] bool IsReady() const noexcept { return m_shaders.Get() != nullptr; }
         /// True when serving prebuilt blobs (dist/web) rather than compiling on demand (dev).
         [[nodiscard]] bool UsingPack() const noexcept { return m_pack.Get() != nullptr; }
+        /// Cooked-variant count when in pack mode (0 in dev mode) - for diagnostics.
+        [[nodiscard]] u32 PackVariantCount() const noexcept
+        {
+            return m_pack.Get() != nullptr ? m_pack->Count() : 0u;
+        }
 
         /// Resolve a shader variant to a GPU module (null if not ready / unknown). Delegates to the
         /// owned ShaderSystem - pack lookup or dev compile-and-cache.
