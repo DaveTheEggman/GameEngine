@@ -41,7 +41,12 @@ add_custom_target(WebSceneShaderPack DEPENDS "${_web_shader_pack}")
 add_dependencies(WebScene WebSceneShaderPack)
 
 target_link_options(WebScene PRIVATE
-    "-sASYNCIFY"              # synchronous device init yields to the browser
+    "-sASYNCIFY"              # synchronous device init + per-frame GPU fence waits yield to the browser
+    # ASYNCIFY unwinds the WHOLE C++ stack into this buffer on every emscripten_sleep. The full
+    # renderer's GPU-completion pump (PumpUntilWithDevice) yields from deep inside the render frame
+    # (app -> render subsystem -> render frame -> passes -> RHI -> WebGPU), which overflows the 4 KB
+    # default and traps as "unreachable". 1 MB comfortably fits the deepest render path.
+    "-sASYNCIFY_STACK_SIZE=1048576"
     "-sALLOW_MEMORY_GROWTH=1"
     "-sASSERTIONS=1"
     "--preload-file=${_web_shader_pack}@shaders.dpak")

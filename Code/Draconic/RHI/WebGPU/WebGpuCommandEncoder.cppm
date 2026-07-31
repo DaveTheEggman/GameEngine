@@ -80,15 +80,21 @@ export namespace draconic::rhi::webgpu
                 const DepthStencilAttachment& attachment =
                     passDesc.depthStencilAttachment.Value();
                 depth.view = static_cast<WebGpuTextureView*>(attachment.view)->Handle();
+                // depthClearValue must be a FINITE value even on a read-only / Load-op plane. The
+                // wgpu INIT sentinel is WGPU_DEPTH_CLEAR_VALUE_UNDEFINED (== NaN); native wgpu
+                // ignores it when not clearing, but the browser's WebGPU validation rejects a
+                // non-finite depthClearValue unconditionally. Always pass the attachment's value
+                // (finite 1.0 by default) so read-only depth passes (e.g. the forward pass reading
+                // the prepass depth) validate in a browser.
+                depth.depthClearValue = attachment.depthClearValue;
                 if (attachment.depthReadOnly)
                 {
-                    depth.depthReadOnly = 1u; // read-only planes must leave ops undefined
+                    depth.depthReadOnly = 1u; // read-only planes must leave load/store ops undefined
                 }
                 else
                 {
                     depth.depthLoadOp = ToWgpuLoadOp(attachment.depthLoadOp);
                     depth.depthStoreOp = ToWgpuStoreOp(attachment.depthStoreOp);
-                    depth.depthClearValue = attachment.depthClearValue;
                 }
                 const bool hasStencil = HasStencil(attachment.view->desc.format);
                 if (hasStencil)

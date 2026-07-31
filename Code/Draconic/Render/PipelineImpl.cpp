@@ -399,11 +399,15 @@ namespace draconic::render
             bd.colorFormatCount = 4;
         }
         bd.depthStencilFormat = m_depthFormat;
-        // Only the opaque pass writes depth (blended/overlay passes run over the
-        // prepass depth read-only); no bundle touches stencil. WebGPU validates
-        // these against the executing pass.
+        // A bundle's read-only flags MUST match the render pass that executes it - the browser's
+        // WebGPU (Dawn) rejects a mismatch (native wgpu is lenient). Depth: only the opaque pass
+        // writes depth (blended/overlay passes run over the prepass depth read-only), which matches
+        // the passes' SetDepthTarget vs SetReadOnlyDepthTarget. Stencil: the engine depth format is
+        // depth-only (no stencil aspect), so the render graph never marks stencil read-only - the
+        // pass ships stencilReadOnly=false, so the bundle must too (a hardcoded `true` here is what
+        // tripped Dawn's execute-bundle validation on WebScene).
         bd.depthReadOnly = passAffinity != PassAffinity::Opaque;
-        bd.stencilReadOnly = true;
+        bd.stencilReadOnly = false;
         bd.sampleCount = 1;
         bd.viewportX = view.ViewportX();
         bd.viewportY = view.ViewportY();
