@@ -175,10 +175,10 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/Shell) # IShell interface + Null backend; the SDL3 desktop backend auto-skips on emscripten
     add_subdirectory(Code/Draconic/Foundation/Draconic.Graphics) # GraphicsDevice/RenderWindow (interface + Null); GPU factory gated on a backend
     add_subdirectory(Code/Draconic/Foundation/Draconic.RenderGraph)
-    add_subdirectory(Code/Draconic/Image)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Image)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Geometry)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Animation)
-    add_subdirectory(Code/Draconic/Shaders)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Shaders)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Texture)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Materials)
     add_subdirectory(Code/Draconic/Runtime) # base lib + client Application + the WEB runner (draconic.runtime.web); game-instance/scripting composition still off
@@ -196,7 +196,7 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Model.GLTF)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Model.FBX)
     add_subdirectory(Code/Draconic/Fonts)
-    add_subdirectory(Code/Draconic/VG)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.VG)
     add_subdirectory(Code/Draconic/UI)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Net)             # sockets over Core/System (emscripten stubs; websockets later)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Net.Replication)
@@ -254,8 +254,8 @@ add_subdirectory(Code/Draconic/Editor/Cook) # incremental cook driver + pipeline
 add_subdirectory(Code/Draconic/Editor/Core) # headless editor domain: context/registries/commands/pages/project (tooling)
 add_subdirectory(Code/Draconic/Foundation/Draconic.RHI)   # depends only on Core (foundational sibling of Runtime)
 add_subdirectory(Code/Draconic/Foundation/Draconic.RenderGraph)  # render graph over RHI
-add_subdirectory(Code/Draconic/Shaders)
-add_subdirectory(Code/Draconic/Image)
+add_subdirectory(Code/Draconic/Foundation/Draconic.Shaders)
+add_subdirectory(Code/Draconic/Foundation/Draconic.Image)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Model)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Model.IO)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Model.GLTF)
@@ -284,7 +284,7 @@ add_subdirectory(Code/Draconic/UI/Resource)   # cooked UI documents + themes (ga
 add_subdirectory(Code/Draconic/UI/Editor)     # UI document/theme assets + validating builders (tooling)
 add_subdirectory(Code/Draconic/UI/Subsystem)  # game screen tier: canvases + overlay render + consumption
 add_subdirectory(Code/Draconic/ModelImporter) # top-level model import: model IR -> cooked geometry/material/texture/animation resources
-add_subdirectory(Code/Draconic/VG)        # 2D vector-graphics core over Core + Image
+add_subdirectory(Code/Draconic/Foundation/Draconic.VG)        # 2D vector-graphics core over Core + Image
 add_subdirectory(Code/Draconic/UI)        # retained-mode UI framework (faithful Sedulous.UI port) over Core (+ VG/Fonts as phases land)
 add_subdirectory(Code/Draconic/GUI)       # fresh eepp-derived UI framework, progressively sliced onto VG/Fonts (docs/design/gui-port.md)
 add_subdirectory(Code/Draconic/Script)

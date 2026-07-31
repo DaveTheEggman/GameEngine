@@ -1,0 +1,8 @@
+# Draconic::ImageEditor - `draconic.image.editor` (tooling: ImageAsset + builder).
+add_library(Draconic.Image.Editor STATIC)
+add_library(Draconic::ImageEditor ALIAS Draconic.Image.Editor)
+target_link_libraries(Draconic.Image.Editor PUBLIC Draconic::Core Draconic::Editor Draconic::Image Draconic::ImageIO Draconic::ImageResource Draconic::Content Draconic::Policy)
+target_sources(Draconic.Image.Editor PUBLIC FILE_SET image_editor_modules TYPE CXX_MODULES FILES ImageAsset.cppm)
+if(DRACONIC_BUILD_TESTS)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Image.Editor.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
+endif()
