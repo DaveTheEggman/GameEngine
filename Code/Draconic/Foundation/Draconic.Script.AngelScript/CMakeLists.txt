@@ -4,14 +4,14 @@
 # is PRIVATE: consumers see only the draconic.script.angelscript module (the
 # factory + registry registration), never the AngelScript C++ API.
 
-add_library(DraconicScriptAngelScript STATIC)
-add_library(Draconic::ScriptAngelScript ALIAS DraconicScriptAngelScript)
+add_library(Draconic.Script.AngelScript STATIC)
+add_library(Draconic::ScriptAngelScript ALIAS Draconic.Script.AngelScript)
 
-target_link_libraries(DraconicScriptAngelScript
+target_link_libraries(Draconic.Script.AngelScript
     PUBLIC Draconic::Script Draconic::Policy
     PRIVATE Draconic::AngelScript)
 
-target_sources(DraconicScriptAngelScript
+target_sources(Draconic.Script.AngelScript
     PRIVATE
         AngelScriptScriptImpl.cpp   # module IMPLEMENTATION unit: all SDK contact
     PUBLIC
@@ -19,5 +19,5 @@ target_sources(DraconicScriptAngelScript
             AngelScriptScript.cppm)
 
 if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(Tests)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Script.AngelScript.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
 endif()

@@ -42,7 +42,7 @@ import draconic.script.wren;         // the Wren backend (primary; toggle via DR
 import draconic.script.angelscript; // the AngelScript backend (second backend; DRACONIC_ENABLE_ANGELSCRIPT)
 #endif
 import draconic.script.resource;     // cooked script classes + factory (entity behaviors)
-import draconic.script.subsystem;    // ScriptSubsystem (behaviors + the run's shared context)
+import draconic.engine.script;    // ScriptSubsystem (behaviors + the run's shared context)
 import draconic.resource;            // ResourceManager (owned or borrowed - see the preset seam)
 import draconic.content;             // IContentDatabase (preset by the entry point)
 import draconic.scene.resource;      // SceneDocument (product-type registration)

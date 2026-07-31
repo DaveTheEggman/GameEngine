@@ -29,20 +29,20 @@ target_include_directories(wren_vm SYSTEM
     PRIVATE ${wren_SOURCE_DIR}/src/vm ${wren_SOURCE_DIR}/src/optional)
 
 # The backend module library.
-add_library(DraconicScriptWren STATIC)
-add_library(Draconic::ScriptWren ALIAS DraconicScriptWren)
+add_library(Draconic.Script.Wren STATIC)
+add_library(Draconic::ScriptWren ALIAS Draconic.Script.Wren)
 
 # wren_vm is PRIVATE: consumers see only the draconic.script.wren module (the
 # factory), never the Wren C API. (CMake still links wren_vm into final exes.)
 # Draconic::ScriptFacades PUBLIC: WrenScript.cppm imports it for BehaviorFacadeNames()
 # (the neutral facade-name list its behavior-module prelude is built from).
-target_link_libraries(DraconicScriptWren PUBLIC Draconic::Script Draconic::ScriptFacades Draconic::Policy PRIVATE wren_vm)
+target_link_libraries(Draconic.Script.Wren PUBLIC Draconic::Script Draconic::ScriptFacades Draconic::Policy PRIVATE wren_vm)
 
-target_sources(DraconicScriptWren
+target_sources(Draconic.Script.Wren
     PUBLIC
         FILE_SET wren_modules TYPE CXX_MODULES FILES
             WrenScript.cppm)
 
 if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(Tests)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Script.Wren.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
 endif()

@@ -1,4 +1,4 @@
-// draconic.script.subsystem tests - the behaviors core, HEADLESS (real Wren VM, real
+// draconic.engine.script tests - the behaviors core, HEADLESS (real Wren VM, real
 // Scene, zero device deps): lifecycle dispatch (deferred start, onUpdate(dt), enable/
 // disable edges, onDestroy on entity destroy AND scene stop), defaults + hash-keyed
 // overrides, the fault-disables-one-behavior rule, hot reload (product swap ->
@@ -21,7 +21,7 @@ import draconic.script;
 import draconic.script.wren;
 import draconic.script.angelscript;
 import draconic.script.resource;
-import draconic.script.subsystem;
+import draconic.engine.script;
 import draconic.physics;
 import draconic.engine.physics;
 

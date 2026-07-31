@@ -11,7 +11,7 @@
 module;
 #include "Draconic.Core/Prelude.h"
 
-export module draconic.script.subsystem:components;
+export module draconic.engine.script:components;
 
 import draconic.core;
 import draconic.scene;

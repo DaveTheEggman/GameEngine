@@ -201,9 +201,9 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Net)             # sockets over Core/System (emscripten stubs; websockets later)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Net.Replication)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Input)           # action mapping over Core + Shell (interface up)
-    add_subdirectory(Code/Draconic/Script)          # reflection->script bridge; Wren backend (AngelScript gated)
-    add_subdirectory(Code/Draconic/Script/Facades)  # behavior facades (Entity/Log/Time/Random); ScriptWren needs it
-    add_subdirectory(Code/Draconic/Script/Subsystem) # ScriptSubsystem (entity behaviors); GameInstance/DefaultApp dep
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Script)          # reflection->script bridge; Wren backend (AngelScript gated)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Script.Facades)  # behavior facades (Entity/Log/Time/Random); ScriptWren needs it
+    add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Script) # ScriptSubsystem (entity behaviors); GameInstance/DefaultApp dep
     add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Input) # input runtime hookup over Runtime + Script
     add_subdirectory(Code/Draconic/Foundation/Draconic.Audio)           # miniaudio-backed (Web Audio backend on emscripten)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Audio.Resource)
@@ -213,7 +213,7 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Physics)
     # Runtime long-tail: cooked-resource + subsystem + manager sub-libs (all deps above are up).
     add_subdirectory(Code/Draconic/Foundation/Draconic.Model.Resource)
-    add_subdirectory(Code/Draconic/Script/Resource)
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Script.Resource)
     add_subdirectory(Code/Draconic/Foundation/Draconic.UI.Resource)
     add_subdirectory(Code/Draconic/Engine/Draconic.Engine.UI)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Net.Manager)
@@ -287,14 +287,14 @@ add_subdirectory(Code/Draconic/Editor/Draconic.ModelImporter) # top-level model 
 add_subdirectory(Code/Draconic/Foundation/Draconic.VG)        # 2D vector-graphics core over Core + Image
 add_subdirectory(Code/Draconic/Foundation/Draconic.UI)        # retained-mode UI framework (faithful Sedulous.UI port) over Core (+ VG/Fonts as phases land)
 add_subdirectory(Code/Draconic/Experimental/Draconic.GUI)       # fresh eepp-derived UI framework, progressively sliced onto VG/Fonts (docs/design/gui-port.md)
-add_subdirectory(Code/Draconic/Script)
-add_subdirectory(Code/Draconic/Script/Resource)   # cooked script classes + factory (source + harvested metadata)
-add_subdirectory(Code/Draconic/Script/Facades)    # curated behavior facades (Entity/Log/Time/Random) - shared by cook VM + runtime
+add_subdirectory(Code/Draconic/Foundation/Draconic.Script)
+add_subdirectory(Code/Draconic/Foundation/Draconic.Script.Resource)   # cooked script classes + factory (source + harvested metadata)
+add_subdirectory(Code/Draconic/Foundation/Draconic.Script.Facades)    # curated behavior facades (Entity/Log/Time/Random) - shared by cook VM + runtime
 add_subdirectory(Code/Draconic/Foundation/Draconic.Net.Manager)       # per-instance networked endpoint (NetworkManager) + Net script facade (over Net + Script)
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Net)     # once-per-context NetworkSubsystem (injects NetworkComponentManager into scenes)
-add_subdirectory(Code/Draconic/Script/Editor)     # script class asset/builder/importer (tooling; neutral - resolves a per-language cook)
-add_subdirectory(Code/Draconic/Script/Wren/Editor)        # Wren cook service (compile-check + `static properties` probe + starter)
-add_subdirectory(Code/Draconic/Script/AngelScript/Editor) # AngelScript cook service (compile-check + handler scan + starter; property harvest deferred)
+add_subdirectory(Code/Draconic/Editor/Draconic.Script.Editor)     # script class asset/builder/importer (tooling; neutral - resolves a per-language cook)
+add_subdirectory(Code/Draconic/Editor/Draconic.Script.Wren.Editor)        # Wren cook service (compile-check + `static properties` probe + starter)
+add_subdirectory(Code/Draconic/Editor/Draconic.Script.AngelScript.Editor) # AngelScript cook service (compile-check + handler scan + starter; property harvest deferred)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Shell)     # raw platform/OS service (IShell: window/input/events) over Core; below Runtime
 add_subdirectory(Code/Draconic/Foundation/Draconic.Input)     # action-mapping layer (InputMap + ActionRuntime + asset/cooked) over Core + Shell
 add_subdirectory(Code/Draconic/Experimental/Draconic.GUI.Shell)  # draconic.gui.shell: platform input bridge (Shell InputEvents -> GUI EventDispatcher)
@@ -302,7 +302,7 @@ add_subdirectory(Code/Draconic/Experimental/Draconic.GUI.VFS)   # draconic.gui.v
 add_subdirectory(Code/Draconic/Foundation/Draconic.Graphics)  # GraphicsDevice/RenderWindow render host over RHI+Shell; below Runtime
 add_subdirectory(Code/Draconic/Foundation/Draconic.Runtime)
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Input)  # input runtime hookup (tick + device provider seam) over Runtime
-add_subdirectory(Code/Draconic/Script/Subsystem) # entity behaviors (ScriptComponent + the run's ONE gameplay script context) over Runtime
+add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Script) # entity behaviors (ScriptComponent + the run's ONE gameplay script context) over Runtime
 add_subdirectory(Code/Draconic/Extensions/Draconic.Imgui)     # Dear ImGui debug UI (RHI renderer + subsystem) over Runtime
 add_subdirectory(Code/Draconic/Editor/App) # editor UI shell (chrome + layout persistence + EditorApplication)
 add_subdirectory(Code/Draconic/Editor/Input) # input-map editing page (editor exe only)
@@ -319,9 +319,6 @@ add_subdirectory(Code/Tools/Player)        # RaptorPlayer generic game runner
 add_subdirectory(Code/Tools/Export)        # RaptorExport dist packager
 add_subdirectory(Code/Tools/ShaderPackCook) # RaptorShaderPackCook: cook shaders.dpak (WGSL for web)
 
-if(DRACONIC_BUILD_TESTS)
-    add_subdirectory(Code/Draconic/Script/Tests)
-endif()
 
 if(DRACONIC_BUILD_SAMPLES)
     add_subdirectory(Code/Samples)

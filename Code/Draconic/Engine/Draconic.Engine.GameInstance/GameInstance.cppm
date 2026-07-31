@@ -19,7 +19,7 @@ export module draconic.engine.gameinstance;
 import draconic.core;
 import draconic.scene;
 import draconic.script;
-import draconic.script.subsystem;
+import draconic.engine.script;
 import draconic.net.manager; // NetworkManager + INetworkController + NetScriptBinding
 import draconic.input;       // ActionRuntime + IInputSourceProvider + InputMap (per-instance input)
 

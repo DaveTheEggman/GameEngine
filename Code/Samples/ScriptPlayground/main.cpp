@@ -37,7 +37,7 @@ import draconic.materials;
 import draconic.materials.resource;
 import draconic.script;
 import draconic.script.resource;
-import draconic.script.subsystem;
+import draconic.engine.script;
 
 #include "../Common/FlyCamera.h"
 

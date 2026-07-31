@@ -1,11 +1,11 @@
 # Draconic::ScriptFacades - `draconic.script.facades` (the curated behavior facades:
 # Entity/Log/Time/Random + the run-service binding). Shared by the runtime SUBSYSTEM
 # and the editor's COOK so both VMs register the same "main"-module surface.
-add_library(DraconicScriptFacades STATIC)
-add_library(Draconic::ScriptFacades ALIAS DraconicScriptFacades)
-target_link_libraries(DraconicScriptFacades PUBLIC
+add_library(Draconic.Script.Facades STATIC)
+add_library(Draconic::ScriptFacades ALIAS Draconic.Script.Facades)
+target_link_libraries(Draconic.Script.Facades PUBLIC
     Draconic::Core Draconic::Scene Draconic::Script Draconic::Policy)
-target_sources(DraconicScriptFacades
+target_sources(Draconic.Script.Facades
     PRIVATE
         ScriptFacadesImpl.cpp   # implementation unit: the DRACONIC_REFLECT_* bodies (GCC gcm rule)
     PUBLIC

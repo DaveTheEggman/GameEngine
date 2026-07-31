@@ -33,7 +33,7 @@ import draconic.vg.renderer;
 import draconic.ui.viewport;
 import draconic.script;
 import draconic.script.resource;  // ScriptClass (the cooked game script, bound from the content DB)
-import draconic.script.subsystem; // ScriptSubsystem / ScriptRunHost (debugger wiring)
+import draconic.engine.script; // ScriptSubsystem / ScriptRunHost (debugger wiring)
 import draconic.shell;
 import draconic.input;
 import draconic.input.resource;

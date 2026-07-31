@@ -1,17 +1,17 @@
-# Draconic::ScriptSubsystem - `draconic.script.subsystem`: entity behaviors
+# Draconic::ScriptSubsystem - `draconic.engine.script`: entity behaviors
 # (ScriptComponent + per-scene dispatch + the run's ONE gameplay script context).
 # Backend-neutral: links Draconic::Script for the REGISTRY only - entry points
 # register concrete backends.
-add_library(DraconicScriptSubsystem STATIC)
-add_library(Draconic::ScriptSubsystem ALIAS DraconicScriptSubsystem)
+add_library(Draconic.Engine.Script STATIC)
+add_library(Draconic::ScriptSubsystem ALIAS Draconic.Engine.Script)
 
-target_link_libraries(DraconicScriptSubsystem
+target_link_libraries(Draconic.Engine.Script
     PUBLIC Draconic::Core Draconic::Runtime Draconic::Scene Draconic::SceneSubsystem
            Draconic::Script Draconic::ScriptResource Draconic::ScriptFacades
            Draconic::Resource Draconic::Content
            Draconic::Profiler Draconic::Policy)
 
-target_sources(DraconicScriptSubsystem
+target_sources(Draconic.Engine.Script
     PRIVATE
         ScriptSubsystemImpl.cpp   # implementation unit: the DRACONIC_REFLECT_* bodies (GCC gcm rule)
     PUBLIC
@@ -21,5 +21,5 @@ target_sources(DraconicScriptSubsystem
 
 # Tests link the AngelScript backend, which is not built for web - desktop-only.
 if(DRACONIC_BUILD_TESTS AND NOT EMSCRIPTEN)
-    add_subdirectory(Tests)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../Draconic.Engine.Script.Tests ${CMAKE_CURRENT_BINARY_DIR}/Tests)
 endif()

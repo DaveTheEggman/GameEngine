@@ -10,7 +10,7 @@ module draconic.engine.gameinstance;
 import draconic.core;
 import draconic.scene;
 import draconic.script;
-import draconic.script.subsystem;
+import draconic.engine.script;
 import draconic.net.manager; // NetworkManager factories + InstallNetScriptService
 import draconic.input;       // kInputRuntimeService (install the per-instance runtime)
 

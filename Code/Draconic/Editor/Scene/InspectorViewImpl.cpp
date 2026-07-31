@@ -40,7 +40,7 @@ import draconic.audio.resource;
 import draconic.engine.audio;
 import draconic.ui.resource;
 import draconic.script.resource;
-import draconic.script.subsystem;
+import draconic.engine.script;
 import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.editor.core;

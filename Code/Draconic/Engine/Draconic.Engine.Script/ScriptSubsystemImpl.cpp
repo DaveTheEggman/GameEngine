@@ -8,7 +8,7 @@ module;
 #include "Draconic.Core/Prelude.h"
 #include "Draconic.Core/Reflection/Reflect.h"
 
-module draconic.script.subsystem;
+module draconic.engine.script;
 
 import draconic.core;
 import draconic.scene;
