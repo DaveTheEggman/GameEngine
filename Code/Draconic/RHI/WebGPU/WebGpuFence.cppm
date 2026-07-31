@@ -74,6 +74,13 @@ export namespace draconic::rhi::webgpu
                 {
                     (void)m_api->wgpuDevicePoll(m_device, 0u, nullptr);
                 }
+                // On web the work-done callback resolves from a browser microtask that
+                // cannot run while this loop spins: without yielding, m_completed never
+                // advances and the loop burns the full iteration guard walking Dawn's
+                // event maps every frame (the dominant web-frame cost). Yield returns to
+                // the event loop so the callback fires; a no-op on desktop, where polls
+                // deliver synchronously and this loop keeps its old behavior.
+                m_api->Yield();
             }
             return m_completed >= value;
         }

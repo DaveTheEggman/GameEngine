@@ -189,6 +189,19 @@ namespace draconic::rhi::webgpu
         // instance feature): the desktop DXC dev loop. Browsers never have it.
         bool spirvIngestion = false;
 
+        /// Return control to the browser event loop so its microtasks run - the ONLY way
+        /// a WebGPU completion future (adapter/device/map/work-done) resolves on web, since
+        /// those callbacks fire from a microtask that cannot run while wasm spins. Requires
+        /// the linking executable to enable ASYNCIFY. A no-op on desktop, where wgpu-native
+        /// delivers callbacks synchronously from ProcessEvents/DevicePoll - so every pump
+        /// loop below is unchanged there and only gains a real progress path on web.
+        void Yield() const
+        {
+#if DRACONIC_PLATFORM_WEB
+            emscripten_sleep(0);
+#endif
+        }
+
         /// Pumps callback delivery for AllowProcessEvents-mode futures until `done`
         /// flips or the iteration guard trips. Suits creation-time waits (nothing on
         /// the GPU timeline); GPU-completion waits use PumpUntilWithDevice.
@@ -197,12 +210,7 @@ namespace draconic::rhi::webgpu
             for (u32 i = 0; i < 100000 && !done; ++i)
             {
                 wgpuInstanceProcessEvents(instance);
-#if DRACONIC_PLATFORM_WEB
-                // A browser cannot block: adapter/device/map futures resolve only when control
-                // returns to its event loop. emscripten_sleep(0) yields there (requires the
-                // linking executable to enable ASYNCIFY) so `done` can actually flip.
-                emscripten_sleep(0);
-#endif
+                Yield();
             }
         }
 
@@ -225,11 +233,7 @@ namespace draconic::rhi::webgpu
                 {
                     (void)wgpuDevicePoll(device, 0u, nullptr);
                 }
-#if DRACONIC_PLATFORM_WEB
-                // Yield to the browser event loop so GPU-completion futures can resolve (see
-                // PumpUntil). DevicePoll is null on web, so this yield is the only progress path.
-                emscripten_sleep(0);
-#endif
+                Yield(); // web: the only progress path (DevicePoll is null there)
             }
         }
     };
