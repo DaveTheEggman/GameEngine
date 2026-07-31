@@ -20,11 +20,15 @@ if(TARGET Draconic::ShellDesktop AND TARGET Draconic::RuntimeDesktop AND TARGET 
     add_subdirectory(ScriptPlayground)   # script P1 consumer proof (Wren Mover/Spinner behaviors on the ScriptSubsystem)
     add_subdirectory(AudioPlayground)    # audio P1 consumer proof (ambient loop + positional one-shots on miniaudio)
     add_subdirectory(MultiWindow)
-    add_subdirectory(Sandbox)            # the dev harness we grow the engine in
     add_subdirectory(RenderStressTest)   # worst-case benchmark to keep perf honest
-    add_subdirectory(AnimStressTest)     # animation/skinning benchmark (Sandbox copy, stripped toward a grid)
-    add_subdirectory(AnimatedCrowd)     # skinned-crowd instancing (InstancedMeshComponent + InstancedSkinning)
-    add_subdirectory(ParticleFX)        # particle-system showcase (CPU sim + dedicated ParticleRenderer)
+    # These dev harnesses link the authoring pipeline (ModelImporter / *.Editor cook libs), so they
+    # only build when the tooling is present (DRACONIC_BUILD_TOOLS; always off for web).
+    if(DRACONIC_BUILD_TOOLS)
+        add_subdirectory(Sandbox)            # the dev harness we grow the engine in
+        add_subdirectory(AnimStressTest)     # animation/skinning benchmark (Sandbox copy, stripped toward a grid)
+        add_subdirectory(AnimatedCrowd)      # skinned-crowd instancing (InstancedMeshComponent + InstancedSkinning)
+        add_subdirectory(ParticleFX)         # particle-system showcase (CPU sim + dedicated ParticleRenderer)
+    endif()
 else()
     message(STATUS "Samples: skipping HelloWindow/MultiWindow (need desktop shell + Vulkan GPU factory)")
 endif()

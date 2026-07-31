@@ -249,9 +249,6 @@ add_subdirectory(Code/Draconic/Foundation/Draconic.VFS)       # byte access over
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Project)   # project manifest/layout (runtime-side, editor-free)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Content)   # content database over Core + VFS
 add_subdirectory(Code/Draconic/Foundation/Draconic.Resource)  # resource manager over content
-add_subdirectory(Code/Draconic/Editor/Draconic.Editor)     # asset-pipeline authoring base (tooling)
-add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Cook) # incremental cook driver + pipeline DB (tooling, headless)
-add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Core) # headless editor domain: context/registries/commands/pages/project (tooling)
 add_subdirectory(Code/Draconic/Foundation/Draconic.RHI)   # depends only on Core (foundational sibling of Runtime)
 add_subdirectory(Code/Draconic/Foundation/Draconic.RenderGraph)  # render graph over RHI
 add_subdirectory(Code/Draconic/Foundation/Draconic.Shaders)
@@ -265,10 +262,8 @@ add_subdirectory(Code/Draconic/Foundation/Draconic.Animation) # skeletal-animati
 add_subdirectory(Code/Draconic/Foundation/Draconic.Particles) # CPU particle runtime (Sedulous.Particles port; Core-only)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Physics)   # Jolt-backed rigid-body core (world/bodies/queries/events; JPH never public)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Physics.Resource)  # cooked collision shapes + physical materials
-add_subdirectory(Code/Draconic/Editor/Draconic.Physics.Editor)    # collision/material assets + builders (tooling)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Audio)     # miniaudio-backed audio engine core (voices/buses/handles; ma_* never public)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Audio.Resource)    # cooked audio clips + factory
-add_subdirectory(Code/Draconic/Editor/Draconic.Audio.Editor)      # audio clip asset/builder/importer (tooling)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Scene)     # scene / ECS foundation (entities, transforms, components, SceneSubsystem)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Render.Api) # light scene-rendering interface (ISceneRenderer) - tools drive rendering w/o linking the renderer
 add_subdirectory(Code/Draconic/Foundation/Draconic.Render)    # renderer: scene->render extraction + (later) the GPU forward path
@@ -281,9 +276,7 @@ add_subdirectory(Code/Draconic/Foundation/Draconic.Texture)   # texture descript
 add_subdirectory(Code/Draconic/Foundation/Draconic.Materials) # data-driven material model (PipelineConfig + bind-group-inferring MaterialSystem)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Model.Resource) # cooked model manifest + runtime composite (runtime side; no tooling deps)
 add_subdirectory(Code/Draconic/Foundation/Draconic.UI.Resource)   # cooked UI documents + themes (game-ui; UI-framework-free records)
-add_subdirectory(Code/Draconic/Editor/Draconic.UI.Editor)     # UI document/theme assets + validating builders (tooling)
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.UI)  # game screen tier: canvases + overlay render + consumption
-add_subdirectory(Code/Draconic/Editor/Draconic.ModelImporter) # top-level model import: model IR -> cooked geometry/material/texture/animation resources
 add_subdirectory(Code/Draconic/Foundation/Draconic.VG)        # 2D vector-graphics core over Core + Image
 add_subdirectory(Code/Draconic/Foundation/Draconic.UI)        # retained-mode UI framework (faithful Sedulous.UI port) over Core (+ VG/Fonts as phases land)
 add_subdirectory(Code/Draconic/Experimental/Draconic.GUI)       # fresh eepp-derived UI framework, progressively sliced onto VG/Fonts (docs/design/gui-port.md)
@@ -292,9 +285,6 @@ add_subdirectory(Code/Draconic/Foundation/Draconic.Script.Resource)   # cooked s
 add_subdirectory(Code/Draconic/Foundation/Draconic.Script.Facades)    # curated behavior facades (Entity/Log/Time/Random) - shared by cook VM + runtime
 add_subdirectory(Code/Draconic/Foundation/Draconic.Net.Manager)       # per-instance networked endpoint (NetworkManager) + Net script facade (over Net + Script)
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Net)     # once-per-context NetworkSubsystem (injects NetworkComponentManager into scenes)
-add_subdirectory(Code/Draconic/Editor/Draconic.Script.Editor)     # script class asset/builder/importer (tooling; neutral - resolves a per-language cook)
-add_subdirectory(Code/Draconic/Editor/Draconic.Script.Wren.Editor)        # Wren cook service (compile-check + `static properties` probe + starter)
-add_subdirectory(Code/Draconic/Editor/Draconic.Script.AngelScript.Editor) # AngelScript cook service (compile-check + handler scan + starter; property harvest deferred)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Shell)     # raw platform/OS service (IShell: window/input/events) over Core; below Runtime
 add_subdirectory(Code/Draconic/Foundation/Draconic.Input)     # action-mapping layer (InputMap + ActionRuntime + asset/cooked) over Core + Shell
 add_subdirectory(Code/Draconic/Experimental/Draconic.GUI.Shell)  # draconic.gui.shell: platform input bridge (Shell InputEvents -> GUI EventDispatcher)
@@ -304,21 +294,39 @@ add_subdirectory(Code/Draconic/Foundation/Draconic.Runtime)
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Input)  # input runtime hookup (tick + device provider seam) over Runtime
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Script) # entity behaviors (ScriptComponent + the run's ONE gameplay script context) over Runtime
 add_subdirectory(Code/Draconic/Extensions/Draconic.Imgui)     # Dear ImGui debug UI (RHI renderer + subsystem) over Runtime
-add_subdirectory(Code/Draconic/Editor/Draconic.Editor.App) # editor UI shell (chrome + layout persistence + EditorApplication)
-add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Input) # input-map editing page (editor exe only)
-add_subdirectory(Code/Draconic/Editor/Draconic.Editor.GameUI) # UI document page: text + live preview (editor exe only)
-add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Audio)  # audio clip audition page: waveform + play (editor exe only)
-add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Texture) # texture asset page: import settings + preview (editor exe only)
-add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Image) # image asset page: inspect + color-space intent (editor exe only)
-add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Generic) # fallback asset page: serialize-driven property form (editor exe only)
-add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Script) # script behavior source page: edit + recook + inline errors (editor exe only)
-add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Scene) # scene editor plugin (SceneEditorPage + RegisterSceneEditor)
-add_subdirectory(Code/Draconic/Tools/Draconic.Tools.Editor)        # RaptorEditor executable (editor assembly)
-add_subdirectory(Code/Draconic/Tools/Draconic.Tools.Cook)          # RaptorCook CLI cooker (headless)
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Player)        # RaptorPlayer generic game runner
-add_subdirectory(Code/Draconic/Tools/Draconic.Tools.Export)        # RaptorExport dist packager
-add_subdirectory(Code/Draconic/Tools/Draconic.Tools.ShaderPack) # RaptorShaderPackCook: cook shaders.dpak (WGSL for web)
 
+
+# --- Authoring tooling: the editor libraries + the CLI executables that assemble them.
+# Gated by DRACONIC_BUILD_TOOLS (forced OFF for web / runtime-only / shipping builds) so the
+# whole editor/cook surface drops cleanly. The in-folder *.Editor sub-targets are gated the
+# same way inside their Foundation libs; every consumer of them lives inside this guard. ---
+if(DRACONIC_BUILD_TOOLS)
+    add_subdirectory(Code/Draconic/Editor/Draconic.Editor)     # asset-pipeline authoring base (tooling)
+    add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Cook) # incremental cook driver + pipeline DB (tooling, headless)
+    add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Core) # headless editor domain: context/registries/commands/pages/project (tooling)
+    add_subdirectory(Code/Draconic/Editor/Draconic.Physics.Editor)    # collision/material assets + builders (tooling)
+    add_subdirectory(Code/Draconic/Editor/Draconic.Audio.Editor)      # audio clip asset/builder/importer (tooling)
+    add_subdirectory(Code/Draconic/Editor/Draconic.UI.Editor)     # UI document/theme assets + validating builders (tooling)
+    add_subdirectory(Code/Draconic/Editor/Draconic.ModelImporter) # top-level model import: model IR -> cooked geometry/material/texture/animation resources
+    add_subdirectory(Code/Draconic/Editor/Draconic.Script.Editor)     # script class asset/builder/importer (tooling; neutral - resolves a per-language cook)
+    add_subdirectory(Code/Draconic/Editor/Draconic.Script.Wren.Editor)        # Wren cook service (compile-check + `static properties` probe + starter)
+    add_subdirectory(Code/Draconic/Editor/Draconic.Script.AngelScript.Editor) # AngelScript cook service (compile-check + handler scan + starter; property harvest deferred)
+    add_subdirectory(Code/Draconic/Editor/Draconic.Editor.App) # editor UI shell (chrome + layout persistence + EditorApplication)
+    add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Input) # input-map editing page (editor exe only)
+    add_subdirectory(Code/Draconic/Editor/Draconic.Editor.GameUI) # UI document page: text + live preview (editor exe only)
+    add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Audio)  # audio clip audition page: waveform + play (editor exe only)
+    add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Texture) # texture asset page: import settings + preview (editor exe only)
+    add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Image) # image asset page: inspect + color-space intent (editor exe only)
+    add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Generic) # fallback asset page: serialize-driven property form (editor exe only)
+    add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Script) # script behavior source page: edit + recook + inline errors (editor exe only)
+    add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Scene) # scene editor plugin (SceneEditorPage + RegisterSceneEditor)
+
+    add_subdirectory(Code/Draconic/Tools/Draconic.Tools.Editor)        # RaptorEditor executable (editor assembly)
+    add_subdirectory(Code/Draconic/Tools/Draconic.Tools.Cook)          # RaptorCook CLI cooker (headless)
+    add_subdirectory(Code/Draconic/Tools/Draconic.Tools.Export)        # RaptorExport dist packager
+    add_subdirectory(Code/Draconic/Tools/Draconic.Tools.ShaderPack) # RaptorShaderPackCook: cook shaders.dpak (WGSL for web)
+endif()
 
 if(DRACONIC_BUILD_SAMPLES)
     add_subdirectory(Code/Samples)
