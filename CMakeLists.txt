@@ -249,9 +249,9 @@ add_subdirectory(Code/Draconic/Foundation/Draconic.VFS)       # byte access over
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Project)   # project manifest/layout (runtime-side, editor-free)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Content)   # content database over Core + VFS
 add_subdirectory(Code/Draconic/Foundation/Draconic.Resource)  # resource manager over content
-add_subdirectory(Code/Draconic/Editor)     # asset-pipeline authoring base (tooling)
-add_subdirectory(Code/Draconic/Editor/Cook) # incremental cook driver + pipeline DB (tooling, headless)
-add_subdirectory(Code/Draconic/Editor/Core) # headless editor domain: context/registries/commands/pages/project (tooling)
+add_subdirectory(Code/Draconic/Editor/Draconic.Editor)     # asset-pipeline authoring base (tooling)
+add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Cook) # incremental cook driver + pipeline DB (tooling, headless)
+add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Core) # headless editor domain: context/registries/commands/pages/project (tooling)
 add_subdirectory(Code/Draconic/Foundation/Draconic.RHI)   # depends only on Core (foundational sibling of Runtime)
 add_subdirectory(Code/Draconic/Foundation/Draconic.RenderGraph)  # render graph over RHI
 add_subdirectory(Code/Draconic/Foundation/Draconic.Shaders)
@@ -304,15 +304,15 @@ add_subdirectory(Code/Draconic/Foundation/Draconic.Runtime)
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Input)  # input runtime hookup (tick + device provider seam) over Runtime
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Script) # entity behaviors (ScriptComponent + the run's ONE gameplay script context) over Runtime
 add_subdirectory(Code/Draconic/Extensions/Draconic.Imgui)     # Dear ImGui debug UI (RHI renderer + subsystem) over Runtime
-add_subdirectory(Code/Draconic/Editor/App) # editor UI shell (chrome + layout persistence + EditorApplication)
-add_subdirectory(Code/Draconic/Editor/Input) # input-map editing page (editor exe only)
-add_subdirectory(Code/Draconic/Editor/GameUI) # UI document page: text + live preview (editor exe only)
-add_subdirectory(Code/Draconic/Editor/Audio)  # audio clip audition page: waveform + play (editor exe only)
-add_subdirectory(Code/Draconic/Editor/Texture) # texture asset page: import settings + preview (editor exe only)
-add_subdirectory(Code/Draconic/Editor/Image) # image asset page: inspect + color-space intent (editor exe only)
-add_subdirectory(Code/Draconic/Editor/Generic) # fallback asset page: serialize-driven property form (editor exe only)
-add_subdirectory(Code/Draconic/Editor/Script) # script behavior source page: edit + recook + inline errors (editor exe only)
-add_subdirectory(Code/Draconic/Editor/Scene) # scene editor plugin (SceneEditorPage + RegisterSceneEditor)
+add_subdirectory(Code/Draconic/Editor/Draconic.Editor.App) # editor UI shell (chrome + layout persistence + EditorApplication)
+add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Input) # input-map editing page (editor exe only)
+add_subdirectory(Code/Draconic/Editor/Draconic.Editor.GameUI) # UI document page: text + live preview (editor exe only)
+add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Audio)  # audio clip audition page: waveform + play (editor exe only)
+add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Texture) # texture asset page: import settings + preview (editor exe only)
+add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Image) # image asset page: inspect + color-space intent (editor exe only)
+add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Generic) # fallback asset page: serialize-driven property form (editor exe only)
+add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Script) # script behavior source page: edit + recook + inline errors (editor exe only)
+add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Scene) # scene editor plugin (SceneEditorPage + RegisterSceneEditor)
 add_subdirectory(Code/Tools/Editor)        # RaptorEditor executable (editor assembly)
 add_subdirectory(Code/Tools/Cook)          # RaptorCook CLI cooker (headless)
 add_subdirectory(Code/Tools/Player)        # RaptorPlayer generic game runner
