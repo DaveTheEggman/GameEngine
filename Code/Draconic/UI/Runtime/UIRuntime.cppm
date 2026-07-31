@@ -21,6 +21,7 @@ export module draconic.ui.runtime;
 import draconic.core;
 import draconic.rhi;
 import draconic.shaders;
+import draconic.shaders.system; // ShaderSystemHost (cooked-pack-or-dev shader resolution)
 import draconic.shell;
 import draconic.graphics;
 import draconic.vg;
@@ -66,7 +67,7 @@ export namespace draconic::ui::runtime
                fonts::IFontService& fontService)
             : m_device(&device), m_shell(&shellRef), m_fonts(&fontService)
         {
-            CompileShaders();
+            InitShaders();
             m_ctx.SetFontService(&fontService);
             m_router =
                 core::MakeUnique<shell::InputRouter>(core::DefaultAllocator(), shellRef.Input());
@@ -78,19 +79,8 @@ export namespace draconic::ui::runtime
         ~UIHost()
         {
             // Per-window VGRenderers are disposed with their RenderWindow's payload (freed by the host
-            // after a GPU idle), not here. We only own the shared shaders + compiler.
-            if (m_vs != nullptr)
-            {
-                m_device->Raw()->DestroyShaderModule(m_vs);
-            }
-            if (m_fs != nullptr)
-            {
-                m_device->Raw()->DestroyShaderModule(m_fs);
-            }
-            if (m_compiler != nullptr)
-            {
-                m_compiler->Destroy();
-            }
+            // after a GPU idle), not here. The VG shader modules (m_vs/m_fs) are BORROWED from the
+            // shader host's ShaderSystem, which owns and frees them when it shuts down below.
         }
 
         UIHost(const UIHost&) = delete;
@@ -407,60 +397,33 @@ export namespace draconic::ui::runtime
             m_bridge->PumpMouseAt(mx, my, mouse);
         }
 
-        void CompileShaders()
+        // Resolve the VG shaders through the shared ShaderSystemHost: cooked WGSL from shaders.dpak
+        // in a dist/browser (no compiler), or on-demand DXC over Data/Shaders in dev. The VG shaders
+        // ship in the engine corpus like every other shader (vg.vs / vg.ps), so this is the SAME path
+        // the renderer uses - no more bespoke inline-HLSL compile here.
+        void InitShaders()
         {
-            (void)shaders::createCompiler(shaders::CompilerDesc{}, m_compiler);
-            if (m_compiler == nullptr)
+#ifdef DRACONIC_ENGINE_SHADER_DIR
+            constexpr core::StringView kShaderRoot = u8"" DRACONIC_ENGINE_SHADER_DIR;
+#else
+            constexpr core::StringView kShaderRoot = u8"Shaders";
+#endif
+            if (!m_shaderHost.Initialize(*m_device->Raw(), kShaderRoot))
             {
-                return;
+                return; // no compiler and no pack - UI stays un-rendered (loud but not a crash)
             }
-            CompileOne(vg::renderer::VertexShaderSource(), shaders::ShaderStage::Vertex,
-                       u8"vg.vert", m_vs);
-            CompileOne(vg::renderer::FragmentShaderSource(), shaders::ShaderStage::Fragment,
-                       u8"vg.frag", m_fs);
-        }
-
-        // Replicates the sample framework's CompileToModule so draconic.ui.runtime doesn't depend on it:
-        // DXIL for DX12, else SPIR-V with Vulkan binding shifts.
-        void CompileOne(core::StringView src, shaders::ShaderStage stage, core::StringView label,
-                        rhi::ShaderModule*& out)
-        {
-            rhi::Device* device = m_device->Raw();
-            const bool isDX12 = (device->type == rhi::DeviceType::DX12);
-            const shaders::ShaderTarget target =
-                isDX12 ? shaders::ShaderTarget::DXIL : shaders::ShaderTarget::SPIRV;
-
-            shaders::CompileOptions opts{};
-            opts.shaderModel = u8"6_0";
-            opts.optimizationLevel = 3;
-            if (!isDX12)
-            {
-                opts.bindingShifts = shaders::BindingShifts::Standard();
-                if (device->type == rhi::DeviceType::WebGPU)
-                {
-                    opts.spirvTargetEnvironment = u8"vulkan1.1"; // naga rejects SPIR-V 1.4+
-                }
-                opts.bindingShiftSets = 4;
-            }
-
-            shaders::CompileResult cr{};
-            if (m_compiler->compile(reinterpret_cast<const core::u8*>(src.Data()), src.Size(),
-                                    stage, u8"main", target, opts, cr) == core::ErrorCode::Ok)
-            {
-                rhi::ShaderModuleDesc desc{};
-                desc.code = core::Span<const core::u8>(cr.bytecode, cr.bytecodeSize);
-                desc.label = label;
-                (void)device->CreateShaderModule(desc, out);
-            }
-            m_compiler->freeResult(cr);
+            m_vs = m_shaderHost.GetVariant(u8"vg", shaders::ShaderStage::Vertex,
+                                           shaders::ShaderFlags::None);
+            m_fs = m_shaderHost.GetVariant(u8"vg", shaders::ShaderStage::Fragment,
+                                           shaders::ShaderFlags::None);
         }
 
         graphics::GraphicsDevice* m_device; // borrowed
         shell::IShell* m_shell;             // borrowed
         fonts::IFontService* m_fonts;       // borrowed
-        shaders::Compiler* m_compiler = nullptr;
-        rhi::ShaderModule* m_vs = nullptr;
-        rhi::ShaderModule* m_fs = nullptr;
+        shaders::ShaderSystemHost m_shaderHost; // owns the ShaderSystem + the VG modules
+        rhi::ShaderModule* m_vs = nullptr;      // borrowed from m_shaderHost
+        rhi::ShaderModule* m_fs = nullptr;      // borrowed from m_shaderHost
 
         UIContext m_ctx; // shared context; owns N RootViews
         core::UniquePtr<shell::InputRouter> m_router;

@@ -13,7 +13,8 @@ target_sources(DraconicShaderSystem
         FILE_SET shader_system_modules TYPE CXX_MODULES FILES
             ShadersSystemModule.cppm
             ShaderSystem.cppm
-            FileShaderSourceProvider.cppm)
+            FileShaderSourceProvider.cppm
+            ShaderSystemHost.cppm)
 
 if(DRACONIC_BUILD_TESTS)
     add_subdirectory(Tests)

@@ -8,3 +8,4 @@ export module draconic.shaders.system;
 
 export import :shader_system;
 export import :file_provider;
+export import :host;
