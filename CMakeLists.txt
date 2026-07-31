@@ -64,8 +64,20 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/DraconicHelpers.cmake)
 # --- Options -----------------------------------------------------------------
 option(DRACONIC_BUILD_TESTS "Build Draconic unit tests" ON)
 option(DRACONIC_BUILD_SAMPLES "Build Draconic sample applications" ON)
-option(DRACONIC_BUILD_TOOLS "Build editor/authoring tooling (the per-library Editor targets)" ON)
+option(DRACONIC_BUILD_TOOLS "Build editor/authoring tooling (the editor libraries + CLI exes)" ON)
+# Experimental modules and optional extensions are independently switchable; each exposes a
+# DRACONIC_HAS_* compile define (see the policy block) so C++ can guard usage with #if.
+option(DRACONIC_EXPERIMENTAL_GUI "Build the experimental GUI framework (draconic.gui + shell/vfs)" ON)
+option(DRACONIC_EXTENSION_IMGUI  "Build the Dear ImGui debug-UI extension (draconic.imgui)" ON)
 option(DRACONIC_WARNINGS_AS_ERRORS "Treat warnings as errors" ON)
+
+# A web (Emscripten) build ships a game, not the authoring/side toolchain: force the tooling,
+# experimental, and extension groups off up front, before the policy defines below capture them.
+if(EMSCRIPTEN)
+    set(DRACONIC_BUILD_TOOLS OFF)
+    set(DRACONIC_EXPERIMENTAL_GUI OFF)
+    set(DRACONIC_EXTENSION_IMGUI OFF)
+endif()
 
 # Enable testing before any subdirectory so add_test() calls made by modules that
 # register their own Tests/ (e.g. Runtime, Script/Wren) are picked up by ctest.
@@ -95,7 +107,11 @@ target_compile_definitions(draconic_policy INTERFACE
     # Build identity as strings, matching the Bin/<Config>/<Platform>-<Compiler> layout: the export
     # host template stamps itself with the config/compiler that built the running tool (export-templates.md).
     DRACONIC_BUILD_CONFIG=\"$<CONFIG>\"
-    DRACONIC_BUILD_COMPILER=\"${_dr_comp}\")
+    DRACONIC_BUILD_COMPILER=\"${_dr_comp}\"
+    # Optional-module presence flags (0/1) - guard usage in C++ with e.g.
+    # `#if DRACONIC_HAS_EXTENSION_IMGUI` / `#if DRACONIC_HAS_EXPERIMENTAL_GUI`.
+    DRACONIC_HAS_EXPERIMENTAL_GUI=$<BOOL:${DRACONIC_EXPERIMENTAL_GUI}>
+    DRACONIC_HAS_EXTENSION_IMGUI=$<BOOL:${DRACONIC_EXTENSION_IMGUI}>)
 
 target_link_options(draconic_policy INTERFACE
     # Shipping: strip symbol tables at link (what a dist ships; the honest size number).
@@ -143,97 +159,15 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/Code/Draconic/Extensions)
 
 # --- Targets -----------------------------------------------------------------
-# Web (Emscripten) builds climb the engine INCREMENTALLY (docs/design/web-platform.md):
-# only the layers proven under wasm are configured; everything below the gate stays
-# desktop-only until its wasm turn comes. P0 = draconic.core + its test suite under node.
+# ONE canonical, dependency-ordered list for every platform. Order is a valid topological order -
+# a few libs probe siblings at configure time with if(TARGET ...) (Graphics->RHI backends,
+# Editor.Core->Shaders, Script->AngelScript). Web builds the SAME list: the groups it cannot run
+# yet - tooling, experimental, extensions - are forced off for EMSCRIPTEN above, so they skip in
+# place. No separate web climb to keep in sync; web-only samples + return() sit at the tail.
 if(EMSCRIPTEN)
-    # Emscripten defaults are sized for tiny demos: 64KB stack (desktop threads get 8MB -
-    # engine code overflows it immediately) and a fixed 16MB heap. 2MB stack + growable
-    # heap; both are link-time-only knobs.
+    # Emscripten defaults are sized for tiny demos: 64KB stack (engine code overflows it) and a
+    # fixed 16MB heap. 2MB stack + growable heap; link-time-only knobs applied to every target below.
     add_link_options(-sSTACK_SIZE=2097152 -sALLOW_MEMORY_GROWTH=1)
-
-    # A web build ships a game, not the authoring tools: skip every per-library Editor target.
-    set(DRACONIC_BUILD_TOOLS OFF)
-
-    add_subdirectory(ThirdParty)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Core)
-
-    # Climbing the stack for web (docs/design/web-platform.md). Each layer is added once it
-    # compiles under wasm; portability fixes land in Core/System backends, not #if branches in
-    # the libraries. Pure-over-Core layers first; platform/third-party edges (sockets, RHI
-    # backends, shell) come as their web backends are wired.
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Settings)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Profiler)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Xml)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Xml.Serialization)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.VFS)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.VFS.Pak)
-    add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Project)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Content)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Resource)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.RHI)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Shell) # IShell interface + Null backend; the SDL3 desktop backend auto-skips on emscripten
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Graphics) # GraphicsDevice/RenderWindow (interface + Null); GPU factory gated on a backend
-    add_subdirectory(Code/Draconic/Foundation/Draconic.RenderGraph)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Image)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Geometry)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Animation)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Shaders)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Texture)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Materials)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Runtime) # base lib + client Application + the WEB runner (draconic.runtime.web); game-instance/scripting composition still off
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Scene) # renderer-agnostic base; its Subsystem (needs Runtime) is off for web
-    # draconic.render is scene- and resource-agnostic (device-abstract over the RHI interface), so
-    # the whole renderer compiles for web now; only its GPU DEVICE (Emscripten WebGPU) is phase 2.
-    # (Render/Api + Render/Subsystem link Scene; render.subsystem is gated to the app layer.)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Render.Api)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Render)          # + render.subsystem (deps now up)
-    add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Animation)  # links Render + Animation (both up)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Particles)
-    add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Particles)  # links Render + Particles (both up)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Model)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Model.IO)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Model.GLTF)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Model.FBX)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Fonts)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.VG)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.UI)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Net)             # sockets over Core/System (emscripten stubs; websockets later)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Net.Replication)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Input)           # action mapping over Core + Shell (interface up)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Script)          # reflection->script bridge; Wren backend (AngelScript gated)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Script.Facades)  # behavior facades (Entity/Log/Time/Random); ScriptWren needs it
-    add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Script) # ScriptSubsystem (entity behaviors); GameInstance/DefaultApp dep
-    add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Input) # input runtime hookup over Runtime + Script
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Audio)           # miniaudio-backed (Web Audio backend on emscripten)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Audio.Resource)
-    add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Audio)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Physics)         # Jolt-backed (Jolt builds for wasm - see ThirdParty)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Physics.Resource)
-    add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Physics)
-    # Runtime long-tail: cooked-resource + subsystem + manager sub-libs (all deps above are up).
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Model.Resource)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Script.Resource)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.UI.Resource)
-    add_subdirectory(Code/Draconic/Engine/Draconic.Engine.UI)
-    add_subdirectory(Code/Draconic/Foundation/Draconic.Net.Manager)
-    add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Net)
-    # First browser-running app: WebShell + the web runner + the WebGPU graphics factory, tied
-    # together by DRACONIC_APP_MAIN. Emits WebTriangle.html.
-    add_subdirectory(Code/Samples/WebTriangle)
-    # First FULL engine app in a browser: DefaultApplication + a lit PBR scene, cooked WGSL pack
-    # bundled. Emits WebScene.html.
-    add_subdirectory(Code/Samples/WebScene)
-    # The generic game runner in a browser: RaptorPlayer's web entry (WebMain.cpp) loads a cooked
-    # dist (Content.pak + player.xml) preloaded into the virtual FS + the WGSL shader pack. Emits
-    # RaptorPlayer.html. NOT tooling (a shipped game runs it), so it is added here, not under BUILD_TOOLS.
-    add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Player)
-    # The app layer climbs on web now: draconic.runtime.defaultapp (DefaultApplication + its whole
-    # subsystem stack) and the game-instance/scripting composition build for wasm (via Runtime +
-    # Script/Subsystem above; AngelScript is gated off inside DefaultApp). Still to do: a full-app
-    # web sample (DefaultApplication + a minimal scene, bundled shaders.dpak), HTML5 input wiring in
-    # the web shell, and the UI/editor hosts.
-    return() # everything above this line is wasm-verified; the rest awaits its turn
 endif()
 
 add_subdirectory(ThirdParty)
@@ -279,7 +213,9 @@ add_subdirectory(Code/Draconic/Foundation/Draconic.UI.Resource)   # cooked UI do
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.UI)  # game screen tier: canvases + overlay render + consumption
 add_subdirectory(Code/Draconic/Foundation/Draconic.VG)        # 2D vector-graphics core over Core + Image
 add_subdirectory(Code/Draconic/Foundation/Draconic.UI)        # retained-mode UI framework (faithful Sedulous.UI port) over Core (+ VG/Fonts as phases land)
-add_subdirectory(Code/Draconic/Experimental/Draconic.GUI)       # fresh eepp-derived UI framework, progressively sliced onto VG/Fonts (docs/design/gui-port.md)
+if(DRACONIC_EXPERIMENTAL_GUI)
+    add_subdirectory(Code/Draconic/Experimental/Draconic.GUI)   # fresh eepp-derived UI framework (docs/design/gui-port.md)
+endif()
 add_subdirectory(Code/Draconic/Foundation/Draconic.Script)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Script.Resource)   # cooked script classes + factory (source + harvested metadata)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Script.Facades)    # curated behavior facades (Entity/Log/Time/Random) - shared by cook VM + runtime
@@ -287,13 +223,17 @@ add_subdirectory(Code/Draconic/Foundation/Draconic.Net.Manager)       # per-inst
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Net)     # once-per-context NetworkSubsystem (injects NetworkComponentManager into scenes)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Shell)     # raw platform/OS service (IShell: window/input/events) over Core; below Runtime
 add_subdirectory(Code/Draconic/Foundation/Draconic.Input)     # action-mapping layer (InputMap + ActionRuntime + asset/cooked) over Core + Shell
-add_subdirectory(Code/Draconic/Experimental/Draconic.GUI.Shell)  # draconic.gui.shell: platform input bridge (Shell InputEvents -> GUI EventDispatcher)
-add_subdirectory(Code/Draconic/Experimental/Draconic.GUI.VFS)   # draconic.gui.vfs: VFS-backed IResourceProvider (background-image: url() loading)
+if(DRACONIC_EXPERIMENTAL_GUI)
+    add_subdirectory(Code/Draconic/Experimental/Draconic.GUI.Shell)  # platform input bridge (Shell InputEvents -> GUI EventDispatcher)
+    add_subdirectory(Code/Draconic/Experimental/Draconic.GUI.VFS)   # VFS-backed IResourceProvider (background-image: url())
+endif()
 add_subdirectory(Code/Draconic/Foundation/Draconic.Graphics)  # GraphicsDevice/RenderWindow render host over RHI+Shell; below Runtime
 add_subdirectory(Code/Draconic/Foundation/Draconic.Runtime)
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Input)  # input runtime hookup (tick + device provider seam) over Runtime
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Script) # entity behaviors (ScriptComponent + the run's ONE gameplay script context) over Runtime
-add_subdirectory(Code/Draconic/Extensions/Draconic.Imgui)     # Dear ImGui debug UI (RHI renderer + subsystem) over Runtime
+if(DRACONIC_EXTENSION_IMGUI)
+    add_subdirectory(Code/Draconic/Extensions/Draconic.Imgui) # Dear ImGui debug UI (RHI renderer + subsystem) over Runtime
+endif()
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Player)        # RaptorPlayer generic game runner
 
 
@@ -326,6 +266,13 @@ if(DRACONIC_BUILD_TOOLS)
     add_subdirectory(Code/Draconic/Tools/Draconic.Tools.Cook)          # RaptorCook CLI cooker (headless)
     add_subdirectory(Code/Draconic/Tools/Draconic.Tools.Export)        # RaptorExport dist packager
     add_subdirectory(Code/Draconic/Tools/Draconic.Tools.ShaderPack) # RaptorShaderPackCook: cook shaders.dpak (WGSL for web)
+endif()
+
+# Web-only samples, then stop - the rest of Code/Samples is desktop-only.
+if(EMSCRIPTEN)
+    add_subdirectory(Code/Samples/WebTriangle)  # WebShell + web runner + WebGPU factory -> WebTriangle.html
+    add_subdirectory(Code/Samples/WebScene)     # DefaultApplication + a lit PBR scene -> WebScene.html
+    return()
 endif()
 
 if(DRACONIC_BUILD_SAMPLES)
