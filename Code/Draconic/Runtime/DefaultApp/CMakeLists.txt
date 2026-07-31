@@ -12,8 +12,7 @@ target_link_libraries(DraconicRuntimeDefaultApp
            Draconic::Scene Draconic::SceneSubsystem Draconic::RenderSubsystem Draconic::AnimationSubsystem
            Draconic::ParticlesSubsystem Draconic::Physics Draconic::PhysicsSubsystem
            Draconic::Audio Draconic::AudioResource Draconic::AudioSubsystem
-           Draconic::Input Draconic::InputSubsystem Draconic::Script Draconic::ScriptWren
-           Draconic::ScriptAngelScript
+           Draconic::Input Draconic::InputSubsystem Draconic::Script
            Draconic::ScriptResource Draconic::ScriptSubsystem
            Draconic::Resource Draconic::Content Draconic::SceneResource
            Draconic::MeshResource Draconic::MaterialResource Draconic::AnimationResource
@@ -22,13 +21,22 @@ target_link_libraries(DraconicRuntimeDefaultApp
            Draconic::Net Draconic::NetManager Draconic::NetSubsystem
            Draconic::Profiler Draconic::Policy)
 
-# AngelScript is the opt-in SECOND script backend (Wren stays primary everywhere). It builds on every
-# platform now - desktop, and web via as_config.h auto-enabling AS_MAX_PORTABILITY on __EMSCRIPTEN__
-# (the backend is all-generic). Linked unconditionally alongside Wren above; this flag gates the
-# import + RegisterAngelScriptBackend() in DefaultApplication. NOT a TARGET guard: DefaultApp is
-# configured before the Script subdir on the web branch, so an immediate if(TARGET) would miss it,
-# whereas forward-referenced link names (like Draconic::ScriptWren above) resolve at generate time.
-target_compile_definitions(DraconicRuntimeDefaultApp PUBLIC DRACONIC_HAS_ANGELSCRIPT)
+# Script VM backends - Wren (primary) and AngelScript (second). Each is independently toggleable via
+# its option; a run resolves the backend by the game script's LANGUAGE, so with both ON a project can
+# ship either. Both build on every platform now (AngelScript climbs to web via as_config.h's
+# AS_MAX_PORTABILITY). Linked by forward-referenced name (resolves at generate time), so ordering vs
+# the Script subdir - which configures AFTER Runtime on the web branch - does not matter. Turn one OFF
+# to drop that backend from the player/app entirely; keep at least one for scripted games.
+option(DRACONIC_ENABLE_WREN "Build the Wren script backend into DefaultApplication" ON)
+option(DRACONIC_ENABLE_ANGELSCRIPT "Build the AngelScript script backend into DefaultApplication" ON)
+if(DRACONIC_ENABLE_WREN)
+    target_link_libraries(DraconicRuntimeDefaultApp PUBLIC Draconic::ScriptWren)
+    target_compile_definitions(DraconicRuntimeDefaultApp PUBLIC DRACONIC_HAS_WREN)
+endif()
+if(DRACONIC_ENABLE_ANGELSCRIPT)
+    target_link_libraries(DraconicRuntimeDefaultApp PUBLIC Draconic::ScriptAngelScript)
+    target_compile_definitions(DraconicRuntimeDefaultApp PUBLIC DRACONIC_HAS_ANGELSCRIPT)
+endif()
 
 target_sources(DraconicRuntimeDefaultApp
     PRIVATE

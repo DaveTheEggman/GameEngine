@@ -25,9 +25,11 @@ import draconic.physics.subsystem;   // PhysicsSubsystem (Jolt worlds + interpol
 import draconic.input;               // the action model/runtime
 import draconic.input.subsystem;     // InputSubsystem + the Wren Input facade
 import draconic.script;              // IScriptManager/Context (the game script)
-import draconic.script.wren;         // the Wren backend
+#ifdef DRACONIC_HAS_WREN
+import draconic.script.wren;         // the Wren backend (primary; toggle via DRACONIC_ENABLE_WREN)
+#endif
 #ifdef DRACONIC_HAS_ANGELSCRIPT
-import draconic.script.angelscript; // the AngelScript backend (opt-in second backend; not on web)
+import draconic.script.angelscript; // the AngelScript backend (second backend; DRACONIC_ENABLE_ANGELSCRIPT)
 #endif
 import draconic.script.resource;     // cooked script classes + factory (entity behaviors)
 import draconic.script.subsystem;    // ScriptSubsystem (behaviors + the run's shared context)
@@ -141,10 +143,12 @@ namespace draconic::runtime
         draconic::input::RegisterInputScriptApi();
         draconic::physics::RegisterPhysicsScriptApi();
         draconic::audio::RegisterAudioScriptApi();
-        // Both backends are registered (batteries-included); a run resolves by the
-        // script's language - one gameplay context per run stays the locked rule. AngelScript is
-        // desktop-only for now (not built for web), so it registers only where it is available.
+        // Every built backend registers (batteries-included); a run resolves by the game script's
+        // LANGUAGE - one gameplay context per run stays the locked rule. Each backend is independently
+        // toggleable (DRACONIC_ENABLE_WREN / _ANGELSCRIPT); both build on every platform, web included.
+#ifdef DRACONIC_HAS_WREN
         draconic::script::wren::RegisterWrenScriptBackend();
+#endif
 #ifdef DRACONIC_HAS_ANGELSCRIPT
         draconic::script::angelscript::RegisterAngelScriptBackend();
 #endif
