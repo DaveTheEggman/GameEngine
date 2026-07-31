@@ -4,13 +4,13 @@
 # (IApplication/ApplicationHost) and graphics (GraphicsDevice). The web/emscripten runner will
 # be its sibling.
 
-add_library(DraconicRuntimeDesktop STATIC)
-add_library(Draconic::RuntimeDesktop ALIAS DraconicRuntimeDesktop)
+add_library(Draconic.Runtime.Desktop STATIC)
+add_library(Draconic::RuntimeDesktop ALIAS Draconic.Runtime.Desktop)
 
-target_link_libraries(DraconicRuntimeDesktop
+target_link_libraries(Draconic.Runtime.Desktop
     PUBLIC Draconic::Shell Draconic::RuntimeClient Draconic::Graphics Draconic::Policy)
 
-target_sources(DraconicRuntimeDesktop
+target_sources(Draconic.Runtime.Desktop
     PUBLIC
         FILE_SET runtime_desktop_modules TYPE CXX_MODULES FILES
             DesktopRunner.cppm)

@@ -4,7 +4,7 @@
 // IApplication, wired by DRACONIC_APP_MAIN. Run it directly; close the window to exit.
 
 #include "Draconic.Core/Prelude.h"
-#include "Runtime/Client/AppMain.h"
+#include "Draconic.Runtime.Client/AppMain.h"
 
 import draconic.core;
 import draconic.runtime;

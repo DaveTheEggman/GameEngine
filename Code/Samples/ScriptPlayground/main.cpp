@@ -17,12 +17,12 @@
 // Fly with WASD / hold RMB to look. No input needed - the cubes move themselves.
 
 #include "Draconic.Core/Prelude.h"
-#include "Runtime/Client/AppMain.h"
+#include "Draconic.Runtime.Client/AppMain.h"
 
 import draconic.core;
 import draconic.runtime;
 import draconic.runtime.client;
-import draconic.runtime.defaultapp;
+import draconic.engine.defaultapp;
 import draconic.shell;
 import draconic.runtime.desktop;
 import draconic.shell.desktop;

@@ -17,14 +17,14 @@ import draconic.runtime.web;  // RunApplication (browser runner) - required by D
 import draconic.shell.web;    // WebShell - required by DRACONIC_APP_MAIN
 import draconic.graphics;     // GraphicsDevice + FrameContext
 import draconic.graphics.gpu; // CreateGraphicsDevice
-import draconic.runtime.defaultapp; // DefaultApplication (registers the standard subsystems)
+import draconic.engine.defaultapp; // DefaultApplication (registers the standard subsystems)
 import draconic.scene;
 import draconic.engine.scene;
 import draconic.engine.render;  // MeshComponent/CameraComponent/LightComponent + their managers
 import draconic.geometry;          // Primitives::Cube / Plane
 import draconic.materials;         // CreatePBR
 
-#include "Runtime/Client/AppMain.h"
+#include "Draconic.Runtime.Client/AppMain.h"
 #include "../Common/FlyCamera.h" // shared free-fly camera (WASD/QE + RMB-look + orbit/pan/zoom)
 
 namespace core = draconic::core;

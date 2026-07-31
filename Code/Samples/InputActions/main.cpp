@@ -7,7 +7,7 @@
 // = color); the point is the input layer, not the drawing.
 
 #include "Draconic.Core/Prelude.h"
-#include "Runtime/Client/AppMain.h"
+#include "Draconic.Runtime.Client/AppMain.h"
 #include "imgui.h"
 #include <cstdio>
 

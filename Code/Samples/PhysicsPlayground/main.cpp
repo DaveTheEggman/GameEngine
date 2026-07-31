@@ -7,14 +7,14 @@
 // respawns the stack; the ImGui panel has gravity + time-scale sliders and live counts.
 
 #include "Draconic.Core/Prelude.h"
-#include "Runtime/Client/AppMain.h"
+#include "Draconic.Runtime.Client/AppMain.h"
 #include "imgui.h"
 #include <cmath>
 
 import draconic.core;
 import draconic.runtime;
 import draconic.runtime.client;
-import draconic.runtime.defaultapp;
+import draconic.engine.defaultapp;
 import draconic.shell;
 import draconic.runtime.desktop;
 import draconic.shell.desktop;

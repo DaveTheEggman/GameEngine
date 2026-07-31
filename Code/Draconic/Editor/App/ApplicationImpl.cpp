@@ -23,7 +23,7 @@ import draconic.fonts.ttf;
 import draconic.fonts.distancefield.baker; // DFFonts (MSDF baker registration) for the DF font path
 import draconic.runtime;
 import draconic.runtime.client;
-import draconic.runtime.defaultapp; // the embedded game application (v3)
+import draconic.engine.defaultapp; // the embedded game application (v3)
 import draconic.ui.resource;        // UITheme (the manifest's default game-UI theme)
 import draconic.ui.subsystem;       // UISubsystem (SetDefaultTheme)
 import draconic.engine.input;    // InputSubsystem (the embedded runtime's scene-input policy)

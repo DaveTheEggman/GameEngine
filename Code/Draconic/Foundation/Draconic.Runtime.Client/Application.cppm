@@ -12,7 +12,7 @@
 //   IApplication     - the app/game: registers subsystems + lifecycle hooks.
 //
 // DefaultApplication (the opinionated base that registers engine default
-// subsystems) lives in a SEPARATE library (draconic.runtime.defaultapp) so this base
+// subsystems) lives in a SEPARATE library (draconic.engine.defaultapp) so this base
 // client never pulls in the engine subsystem libraries - only apps that opt into
 // the defaults link it.
 

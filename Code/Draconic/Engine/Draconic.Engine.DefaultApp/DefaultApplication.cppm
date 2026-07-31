@@ -1,4 +1,4 @@
-// Draconic::RuntimeDefaultApp - the `draconic.runtime.defaultapp` module.
+// Draconic::RuntimeDefaultApp - the `draconic.engine.defaultapp` module.
 //
 // DefaultApplication: an opinionated IApplication base that registers the standard
 // engine subsystems. A game that wants the batteries-included engine writes
@@ -17,12 +17,12 @@ module;
 #include "Draconic.Core/Prelude.h"
 #include "Draconic.Core/Log/Log.h"
 
-export module draconic.runtime.defaultapp;
+export module draconic.engine.defaultapp;
 
 import draconic.core;
 import draconic.rhi;
 import draconic.runtime.client;       // IApplication, IApplicationHost
-import draconic.runtime.gameinstance; // GameInstance - this app's running game (scene + script bracket)
+import draconic.engine.gameinstance; // GameInstance - this app's running game (scene + script bracket)
 import draconic.shell;                // IShell, IKeyboard, KeyCode (the profile-dump hotkey)
 import draconic.graphics;             // GraphicsDevice, FrameContext
 import draconic.scene;                // Scene

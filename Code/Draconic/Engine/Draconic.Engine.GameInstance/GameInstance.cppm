@@ -1,4 +1,4 @@
-// Draconic::RuntimeGameInstance - the `draconic.runtime.gameinstance` module.
+// Draconic::RuntimeGameInstance - the `draconic.engine.gameinstance` module.
 //
 // A single RUNNING GAME as a first-class object (docs/design/game-instance.md): its scene pairing,
 // its script run context + `Game` object + error sink, and its instance time scale. The player owns
@@ -14,7 +14,7 @@
 module;
 #include "Draconic.Core/Prelude.h"
 
-export module draconic.runtime.gameinstance;
+export module draconic.engine.gameinstance;
 
 import draconic.core;
 import draconic.scene;

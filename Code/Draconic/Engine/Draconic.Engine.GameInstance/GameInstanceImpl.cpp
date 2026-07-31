@@ -5,7 +5,7 @@ module;
 #include "Draconic.Core/Prelude.h"
 #include "Draconic.Core/Log/Log.h"
 
-module draconic.runtime.gameinstance;
+module draconic.engine.gameinstance;
 
 import draconic.core;
 import draconic.scene;

@@ -1,4 +1,4 @@
-// Draconic Runtime - draconic.runtime.defaultapp implementation unit.
+// Draconic Runtime - draconic.engine.defaultapp implementation unit.
 //
 // Out-of-line definitions for DefaultApplication's member functions (sec 3.2 / sec 10.6).
 // The class declaration + trivial inline accessors stay in DefaultApplication.cppm.
@@ -7,12 +7,12 @@ module;
 #include "Draconic.Core/Prelude.h"
 #include "Draconic.Core/Log/Log.h"
 
-module draconic.runtime.defaultapp;
+module draconic.engine.defaultapp;
 
 import draconic.core;
 import draconic.rhi;
 import draconic.runtime.client;       // IApplication, IApplicationHost
-import draconic.runtime.gameinstance; // GameInstance - this app's running game (scene + script bracket)
+import draconic.engine.gameinstance; // GameInstance - this app's running game (scene + script bracket)
 import draconic.shell;                // IShell, IKeyboard, KeyCode (the profile-dump hotkey)
 import draconic.graphics;             // GraphicsDevice, FrameContext
 import draconic.scene;                // Scene

@@ -17,7 +17,7 @@
 //   import draconic.shell.desktop;
 //   import draconic.graphics;
 //   import draconic.graphics.gpu;
-//   #include "Runtime/Client/AppMain.h"
+//   #include "Draconic.Runtime.Client/AppMain.h"
 //   class MyApp final : public draconic::runtime::IApplication { ... };
 //   DRACONIC_APP_MAIN(MyApp)
 

@@ -25,8 +25,8 @@ import draconic.graphics;
 import draconic.shell;
 import draconic.runtime;
 import draconic.runtime.client;
-import draconic.runtime.defaultapp;
-import draconic.runtime.gameinstance; // GameInstance (the Game tab's run; multi-instance factory)
+import draconic.engine.defaultapp;
+import draconic.engine.gameinstance; // GameInstance (the Game tab's run; multi-instance factory)
 import draconic.scene;
 import draconic.engine.scene;
 import draconic.scene.resource;

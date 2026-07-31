@@ -42,8 +42,8 @@ import draconic.engine.physics;
 import draconic.audio;
 import draconic.audio.resource;
 import draconic.engine.audio;
-import draconic.runtime.defaultapp;
-import draconic.runtime.gameinstance; // GameInstance - this tab drives its OWN run (multi-instance PIE)
+import draconic.engine.defaultapp;
+import draconic.engine.gameinstance; // GameInstance - this tab drives its OWN run (multi-instance PIE)
 import draconic.editor.core;
 import draconic.editor.app;
 

@@ -1,9 +1,9 @@
-// draconic.runtime.gameinstance - the extracted run bracket owns the script run state + time scale.
+// draconic.engine.gameinstance - the extracted run bracket owns the script run state + time scale.
 #include <doctest/doctest.h>
 #include "Draconic.Core/Prelude.h"
 
 import draconic.core;
-import draconic.runtime.gameinstance;
+import draconic.engine.gameinstance;
 import draconic.scene;
 import draconic.script;
 import draconic.script.wren;

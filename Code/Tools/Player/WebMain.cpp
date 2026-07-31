@@ -21,7 +21,7 @@ import draconic.graphics.gpu;
 import draconic.runtime;
 import draconic.runtime.client;
 import draconic.runtime.web; // RunApplication (the rAF runner) - required by DRACONIC_APP_MAIN
-import draconic.runtime.defaultapp;
+import draconic.engine.defaultapp;
 import draconic.scene;
 import draconic.engine.scene;
 import draconic.scene.resource;
@@ -60,7 +60,7 @@ import draconic.engine.project;
 import draconic.vfs.pak;
 
 #include "PlayerApplication.h"      // the shared runner (uses the imports above)
-#include "Runtime/Client/AppMain.h" // DRACONIC_APP_MAIN (web body: WebShell + WebGPU + rAF runner)
+#include "Draconic.Runtime.Client/AppMain.h" // DRACONIC_APP_MAIN (web body: WebShell + WebGPU + rAF runner)
 
 using namespace draconic::core;
 

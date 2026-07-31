@@ -7,7 +7,7 @@
 // Classic header (the DRACONIC_APP_MAIN pattern): it carries no `import` of its own and uses names
 // the INCLUDING TU must bring in first. Include it AFTER these imports:
 //   draconic.core, draconic.vfs, draconic.vfs.pak, draconic.content, draconic.resource,
-//   draconic.runtime, draconic.runtime.client, draconic.runtime.defaultapp,
+//   draconic.runtime, draconic.runtime.client, draconic.engine.defaultapp,
 //   draconic.scene, draconic.engine.scene, draconic.scene.resource,
 //   draconic.render, draconic.script, draconic.script.resource,
 //   draconic.input, draconic.audio, draconic.audio.resource, draconic.ui.resource,

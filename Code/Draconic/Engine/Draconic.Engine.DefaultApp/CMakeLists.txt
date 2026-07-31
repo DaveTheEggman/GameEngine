@@ -1,13 +1,13 @@
-# Draconic::RuntimeDefaultApp - `draconic.runtime.defaultapp` (DefaultApplication: the
+# Draconic::RuntimeDefaultApp - `draconic.engine.defaultapp` (DefaultApplication: the
 # opinionated IApplication that registers the standard engine subsystems). Kept in
 # its own library so the base client (Draconic::RuntimeClient) never pulls in the
 # engine subsystem libraries - only apps that opt into the defaults link this.
 # As engine subsystems land, add them as link dependencies HERE.
 
-add_library(DraconicRuntimeDefaultApp STATIC)
-add_library(Draconic::RuntimeDefaultApp ALIAS DraconicRuntimeDefaultApp)
+add_library(Draconic.Engine.DefaultApp STATIC)
+add_library(Draconic::RuntimeDefaultApp ALIAS Draconic.Engine.DefaultApp)
 
-target_link_libraries(DraconicRuntimeDefaultApp
+target_link_libraries(Draconic.Engine.DefaultApp
     PUBLIC Draconic::Core Draconic::RHI Draconic::RuntimeClient Draconic::RuntimeGameInstance Draconic::Shell Draconic::Graphics
            Draconic::Scene Draconic::SceneSubsystem Draconic::RenderSubsystem Draconic::AnimationSubsystem
            Draconic::ParticlesSubsystem Draconic::Physics Draconic::PhysicsSubsystem
@@ -30,15 +30,15 @@ target_link_libraries(DraconicRuntimeDefaultApp
 option(DRACONIC_ENABLE_WREN "Build the Wren script backend into DefaultApplication" ON)
 option(DRACONIC_ENABLE_ANGELSCRIPT "Build the AngelScript script backend into DefaultApplication" ON)
 if(DRACONIC_ENABLE_WREN)
-    target_link_libraries(DraconicRuntimeDefaultApp PUBLIC Draconic::ScriptWren)
-    target_compile_definitions(DraconicRuntimeDefaultApp PUBLIC DRACONIC_HAS_WREN)
+    target_link_libraries(Draconic.Engine.DefaultApp PUBLIC Draconic::ScriptWren)
+    target_compile_definitions(Draconic.Engine.DefaultApp PUBLIC DRACONIC_HAS_WREN)
 endif()
 if(DRACONIC_ENABLE_ANGELSCRIPT)
-    target_link_libraries(DraconicRuntimeDefaultApp PUBLIC Draconic::ScriptAngelScript)
-    target_compile_definitions(DraconicRuntimeDefaultApp PUBLIC DRACONIC_HAS_ANGELSCRIPT)
+    target_link_libraries(Draconic.Engine.DefaultApp PUBLIC Draconic::ScriptAngelScript)
+    target_compile_definitions(Draconic.Engine.DefaultApp PUBLIC DRACONIC_HAS_ANGELSCRIPT)
 endif()
 
-target_sources(DraconicRuntimeDefaultApp
+target_sources(Draconic.Engine.DefaultApp
     PRIVATE
         DefaultApplicationImpl.cpp   # out-of-line defs (see DefaultApplication.cppm)
     PUBLIC

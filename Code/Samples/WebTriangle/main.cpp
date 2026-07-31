@@ -21,7 +21,7 @@ import draconic.graphics;     // GraphicsDevice + FrameContext
 import draconic.graphics.gpu; // CreateGraphicsDevice
 import draconic.rhi;
 
-#include "Runtime/Client/AppMain.h"
+#include "Draconic.Runtime.Client/AppMain.h"
 
 namespace core = draconic::core;
 namespace runtime = draconic::runtime;

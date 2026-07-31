@@ -181,7 +181,7 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Shaders)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Texture)
     add_subdirectory(Code/Draconic/Foundation/Draconic.Materials)
-    add_subdirectory(Code/Draconic/Runtime) # base lib + client Application + the WEB runner (draconic.runtime.web); game-instance/scripting composition still off
+    add_subdirectory(Code/Draconic/Foundation/Draconic.Runtime) # base lib + client Application + the WEB runner (draconic.runtime.web); game-instance/scripting composition still off
     add_subdirectory(Code/Draconic/Foundation/Draconic.Scene) # renderer-agnostic base; its Subsystem (needs Runtime) is off for web
     # draconic.render is scene- and resource-agnostic (device-abstract over the RHI interface), so
     # the whole renderer compiles for web now; only its GPU DEVICE (Emscripten WebGPU) is phase 2.
@@ -300,7 +300,7 @@ add_subdirectory(Code/Draconic/Foundation/Draconic.Input)     # action-mapping l
 add_subdirectory(Code/Draconic/Experimental/Draconic.GUI.Shell)  # draconic.gui.shell: platform input bridge (Shell InputEvents -> GUI EventDispatcher)
 add_subdirectory(Code/Draconic/Experimental/Draconic.GUI.VFS)   # draconic.gui.vfs: VFS-backed IResourceProvider (background-image: url() loading)
 add_subdirectory(Code/Draconic/Foundation/Draconic.Graphics)  # GraphicsDevice/RenderWindow render host over RHI+Shell; below Runtime
-add_subdirectory(Code/Draconic/Runtime)
+add_subdirectory(Code/Draconic/Foundation/Draconic.Runtime)
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Input)  # input runtime hookup (tick + device provider seam) over Runtime
 add_subdirectory(Code/Draconic/Script/Subsystem) # entity behaviors (ScriptComponent + the run's ONE gameplay script context) over Runtime
 add_subdirectory(Code/Draconic/Extensions/Draconic.Imgui)     # Dear ImGui debug UI (RHI renderer + subsystem) over Runtime
