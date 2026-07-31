@@ -13,6 +13,7 @@ target_link_libraries(DraconicRuntimeDefaultApp
            Draconic::ParticlesSubsystem Draconic::Physics Draconic::PhysicsSubsystem
            Draconic::Audio Draconic::AudioResource Draconic::AudioSubsystem
            Draconic::Input Draconic::InputSubsystem Draconic::Script Draconic::ScriptWren
+           Draconic::ScriptAngelScript
            Draconic::ScriptResource Draconic::ScriptSubsystem
            Draconic::Resource Draconic::Content Draconic::SceneResource
            Draconic::MeshResource Draconic::MaterialResource Draconic::AnimationResource
@@ -21,14 +22,13 @@ target_link_libraries(DraconicRuntimeDefaultApp
            Draconic::Net Draconic::NetManager Draconic::NetSubsystem
            Draconic::Profiler Draconic::Policy)
 
-# AngelScript is the opt-in SECOND script backend; it is not built for Emscripten yet (needs
-# AS_MAX_PORTABILITY / asCALL_GENERIC). Gate the link + the DRACONIC_HAS_ANGELSCRIPT flag off web
-# (order-robust NOT EMSCRIPTEN, not a TARGET guard); the code registers it only when the flag is set.
-# Wren stays the primary backend on every platform.
-if(NOT EMSCRIPTEN)
-    target_link_libraries(DraconicRuntimeDefaultApp PUBLIC Draconic::ScriptAngelScript)
-    target_compile_definitions(DraconicRuntimeDefaultApp PUBLIC DRACONIC_HAS_ANGELSCRIPT)
-endif()
+# AngelScript is the opt-in SECOND script backend (Wren stays primary everywhere). It builds on every
+# platform now - desktop, and web via as_config.h auto-enabling AS_MAX_PORTABILITY on __EMSCRIPTEN__
+# (the backend is all-generic). Linked unconditionally alongside Wren above; this flag gates the
+# import + RegisterAngelScriptBackend() in DefaultApplication. NOT a TARGET guard: DefaultApp is
+# configured before the Script subdir on the web branch, so an immediate if(TARGET) would miss it,
+# whereas forward-referenced link names (like Draconic::ScriptWren above) resolve at generate time.
+target_compile_definitions(DraconicRuntimeDefaultApp PUBLIC DRACONIC_HAS_ANGELSCRIPT)
 
 target_sources(DraconicRuntimeDefaultApp
     PRIVATE

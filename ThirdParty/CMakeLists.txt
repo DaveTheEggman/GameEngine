@@ -200,8 +200,6 @@ target_compile_definitions(draconic_jolt PUBLIC
     $<$<CONFIG:Debug>:JPH_ENABLE_ASSERTS>)
 set_target_properties(draconic_jolt PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-if(NOT EMSCRIPTEN)
-
 # AngelScript 2.39.0 WIP — vendored BY COPY (github.com/anjo76/angelscript, sdk library
 # + the scriptstdstring and scriptbuilder add-ons; no submodule). Compiled from source as
 # one static lib; per-architecture native-call sources self-select via as_config.h #ifdefs,
@@ -227,7 +225,10 @@ target_include_directories(draconic_angelscript SYSTEM PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/add_on)
 target_compile_features(draconic_angelscript PRIVATE cxx_std_17)
 set_target_properties(draconic_angelscript PROPERTIES POSITION_INDEPENDENT_CODE ON)
-find_package(Threads REQUIRED)
-target_link_libraries(draconic_angelscript PUBLIC Threads::Threads)
-
-endif() # NOT EMSCRIPTEN - compiled third-party gated until their consumers reach web
+if(NOT EMSCRIPTEN)
+    find_package(Threads REQUIRED)
+    target_link_libraries(draconic_angelscript PUBLIC Threads::Threads)
+endif()
+# On Emscripten as_config.h auto-enables AS_MAX_PORTABILITY (native-call trampolines compile out; the
+# backend is all-generic) AND AS_NO_THREADS, so the web build needs no pthread / SharedArrayBuffer and
+# no manual define here - matching the single-threaded web v1 (JobSystem inline) model.
