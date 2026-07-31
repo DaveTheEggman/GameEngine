@@ -326,7 +326,7 @@ TEST_CASE("wren: a script object outlives the local context reference")
     CHECK(obj->Invoke(u8"ping", Span<Variant>{}).Value().Get<f64>() == 42.0);
 }
 
-#include "../../Tests/BackendConformance.h"
+#include "../Draconic.Script.Tests/BackendConformance.h"
 
 TEST_CASE("wren: CERTIFIED - the backend conformance battery (scripting.md B2)")
 {

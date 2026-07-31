@@ -573,7 +573,7 @@ TEST_CASE("angelscript: LoadBehaviorModule reports each class's sourceName as it
     debugger->SetListener(nullptr);
 }
 
-#include "../../Tests/BackendConformance.h"
+#include "../Draconic.Script.Tests/BackendConformance.h"
 
 TEST_CASE("angelscript: CERTIFIED - the backend conformance battery (scripting.md B2)")
 {
