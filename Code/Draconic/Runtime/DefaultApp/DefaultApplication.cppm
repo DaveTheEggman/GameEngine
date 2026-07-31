@@ -36,7 +36,9 @@ import draconic.input;               // the action model/runtime
 import draconic.input.subsystem;     // InputSubsystem + the Wren Input facade
 import draconic.script;              // IScriptManager/Context (the game script)
 import draconic.script.wren;         // the Wren backend
-import draconic.script.angelscript;  // the AngelScript backend (opt-in second backend)
+#ifdef DRACONIC_HAS_ANGELSCRIPT
+import draconic.script.angelscript; // the AngelScript backend (opt-in second backend; not on web)
+#endif
 import draconic.script.resource;     // cooked script classes + factory (entity behaviors)
 import draconic.script.subsystem;    // ScriptSubsystem (behaviors + the run's shared context)
 import draconic.resource;            // ResourceManager (owned or borrowed - see the preset seam)

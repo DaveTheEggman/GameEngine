@@ -186,6 +186,7 @@ if(EMSCRIPTEN)
     add_subdirectory(Code/Draconic/Input)           # action mapping over Core + Shell (interface up)
     add_subdirectory(Code/Draconic/Script)          # reflection->script bridge; Wren backend (AngelScript gated)
     add_subdirectory(Code/Draconic/Script/Facades)  # behavior facades (Entity/Log/Time/Random); ScriptWren needs it
+    add_subdirectory(Code/Draconic/Script/Subsystem) # ScriptSubsystem (entity behaviors); GameInstance/DefaultApp dep
     add_subdirectory(Code/Draconic/Input/Subsystem) # input runtime hookup over Runtime + Script
     add_subdirectory(Code/Draconic/Audio)           # miniaudio-backed (Web Audio backend on emscripten)
     add_subdirectory(Code/Draconic/Audio/Resource)
@@ -203,8 +204,11 @@ if(EMSCRIPTEN)
     # First browser-running app: WebShell + the web runner + the WebGPU graphics factory, tied
     # together by DRACONIC_APP_MAIN. Emits WebTriangle.html.
     add_subdirectory(Code/Samples/WebTriangle)
-    # Still to climb: the game-instance/scripting composition + Scene/Subsystem, and the UI/editor
-    # hosts. HTML5 input wiring in the web shell is a later pass.
+    # The app layer climbs on web now: draconic.runtime.defaultapp (DefaultApplication + its whole
+    # subsystem stack) and the game-instance/scripting composition build for wasm (via Runtime +
+    # Script/Subsystem above; AngelScript is gated off inside DefaultApp). Still to do: a full-app
+    # web sample (DefaultApplication + a minimal scene, bundled shaders.dpak), HTML5 input wiring in
+    # the web shell, and the UI/editor hosts.
     return() # everything above this line is wasm-verified; the rest awaits its turn
 endif()
 

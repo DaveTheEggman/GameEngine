@@ -26,7 +26,9 @@ import draconic.input;               // the action model/runtime
 import draconic.input.subsystem;     // InputSubsystem + the Wren Input facade
 import draconic.script;              // IScriptManager/Context (the game script)
 import draconic.script.wren;         // the Wren backend
-import draconic.script.angelscript;  // the AngelScript backend (opt-in second backend)
+#ifdef DRACONIC_HAS_ANGELSCRIPT
+import draconic.script.angelscript; // the AngelScript backend (opt-in second backend; not on web)
+#endif
 import draconic.script.resource;     // cooked script classes + factory (entity behaviors)
 import draconic.script.subsystem;    // ScriptSubsystem (behaviors + the run's shared context)
 import draconic.resource;            // ResourceManager (owned or borrowed - see the preset seam)
@@ -140,9 +142,12 @@ namespace draconic::runtime
         draconic::physics::RegisterPhysicsScriptApi();
         draconic::audio::RegisterAudioScriptApi();
         // Both backends are registered (batteries-included); a run resolves by the
-        // script's language - one gameplay context per run stays the locked rule.
+        // script's language - one gameplay context per run stays the locked rule. AngelScript is
+        // desktop-only for now (not built for web), so it registers only where it is available.
         draconic::script::wren::RegisterWrenScriptBackend();
+#ifdef DRACONIC_HAS_ANGELSCRIPT
         draconic::script::angelscript::RegisterAngelScriptBackend();
+#endif
         // Networking (net.md §6): the Net facade type is registered here; each GameInstance owns
         // its OWN endpoint and goes online at RUNTIME via the facade (Net.startServer/connect from
         // the game's menu) - no app-owned socket. The primary instance carries the online hook (the

@@ -13,7 +13,6 @@ target_link_libraries(DraconicRuntimeDefaultApp
            Draconic::ParticlesSubsystem Draconic::Physics Draconic::PhysicsSubsystem
            Draconic::Audio Draconic::AudioResource Draconic::AudioSubsystem
            Draconic::Input Draconic::InputSubsystem Draconic::Script Draconic::ScriptWren
-           Draconic::ScriptAngelScript
            Draconic::ScriptResource Draconic::ScriptSubsystem
            Draconic::Resource Draconic::Content Draconic::SceneResource
            Draconic::MeshResource Draconic::MaterialResource Draconic::AnimationResource
@@ -21,6 +20,15 @@ target_link_libraries(DraconicRuntimeDefaultApp
            Draconic::TextureResource Draconic::ImageResource Draconic::ModelResource Draconic::UIResource Draconic::UISubsystem
            Draconic::Net Draconic::NetManager Draconic::NetSubsystem
            Draconic::Profiler Draconic::Policy)
+
+# AngelScript is the opt-in SECOND script backend; it is not built for Emscripten yet (needs
+# AS_MAX_PORTABILITY / asCALL_GENERIC). Gate the link + the DRACONIC_HAS_ANGELSCRIPT flag off web
+# (order-robust NOT EMSCRIPTEN, not a TARGET guard); the code registers it only when the flag is set.
+# Wren stays the primary backend on every platform.
+if(NOT EMSCRIPTEN)
+    target_link_libraries(DraconicRuntimeDefaultApp PUBLIC Draconic::ScriptAngelScript)
+    target_compile_definitions(DraconicRuntimeDefaultApp PUBLIC DRACONIC_HAS_ANGELSCRIPT)
+endif()
 
 target_sources(DraconicRuntimeDefaultApp
     PRIVATE

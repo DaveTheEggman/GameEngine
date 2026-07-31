@@ -16,6 +16,7 @@ target_sources(DraconicRuntimeGameInstance
     PRIVATE
         GameInstanceImpl.cpp)
 
-if(DRACONIC_BUILD_TESTS)
+# Tests link the AngelScript backend, which is not built for web (see DefaultApp) - desktop-only.
+if(DRACONIC_BUILD_TESTS AND NOT EMSCRIPTEN)
     add_subdirectory(Tests)
 endif()

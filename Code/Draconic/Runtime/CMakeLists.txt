@@ -19,15 +19,16 @@ target_sources(DraconicRuntime
 # drives it is execution-model-specific: Desktop (blocking wall-clock loop) on native, Web
 # (emscripten_set_main_loop, yielding to the browser) on Emscripten.
 add_subdirectory(Client)
+# The game-instance/scripting composition + the opinionated DefaultApplication. Their subsystem +
+# resource deps all climb for web now, and AngelScript (their only web-unsafe dep) is gated inside
+# DefaultApp, so they build on every platform. DefaultApplication is what a full app on web uses.
+add_subdirectory(GameInstance)   # a running game as a first-class object (DefaultApp owns one)
+add_subdirectory(DefaultApp)
 
 if(EMSCRIPTEN)
     add_subdirectory(Web) # draconic.runtime.web: the browser run loop (sibling of Desktop)
 else()
-    # The remaining app-layer sub-libs (game-instance/scripting composition + the desktop runner)
-    # link the script VMs and scene subsystems, which are not on web yet.
-    add_subdirectory(GameInstance)   # a running game as a first-class object (DefaultApp owns one)
-    add_subdirectory(DefaultApp)
-    add_subdirectory(Script)
+    add_subdirectory(Script) # draconic.runtime.script (RuntimeScript) - not a DefaultApp dep; desktop
 
     # Desktop runner (draconic.runtime.desktop): the blocking desktop run loop that drives an
     # IApplication (client) against an IShell (shell) with a GraphicsDevice - depends on all three.
