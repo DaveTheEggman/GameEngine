@@ -106,9 +106,11 @@ export namespace draconic::rhi::webgpu
             return m_api->spirvIngestion ? ShaderFormat::SpirV : ShaderFormat::WGSL;
         }
 
-        // WebGPU's setViewport cannot take a negative height, so it does not get the Vulkan/DX12
-        // negative-viewport Y-flip; screen-space reconstruction passes negate their NDC Y for it.
-        [[nodiscard]] bool NeedsClipSpaceYFlip() const noexcept override { return true; }
+        // False: WebGPU raster orientation matches Vulkan's for BOTH shader paths, probe-proven in
+        // Draconic.Render.Backend.Tests. wgpu's runtime SPIR-V frontend applies no clip-space
+        // adjustment, and the WGSL cook passes naga --keep-coordinate-space so the cooked WGSL
+        // carries the same convention. No renderer pass needs a Y compensation on this backend.
+        [[nodiscard]] bool NeedsClipSpaceYFlip() const noexcept override { return false; }
 
         // ---- Queries ----
         Queue* GetQueue(QueueType queueType, u32 index) override

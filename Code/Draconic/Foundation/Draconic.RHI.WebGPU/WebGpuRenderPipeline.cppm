@@ -77,14 +77,7 @@ export namespace draconic::rhi::webgpu
             // ---- Primitive ----
             wgpuDesc.primitive.topology =
                 ToWgpuPrimitiveTopology(pipelineDesc.primitive.topology);
-            // WebGPU cannot take a negative-height viewport (the spec requires height >= 0), so it
-            // does not get the front-face winding flip that Vulkan's negative-viewport Y-flip gives.
-            // The engine's frontFace is authored for that flipped winding, so invert it here to match
-            // the desktop result - otherwise single-sided geometry (e.g. a ground plane) is culled.
-            wgpuDesc.primitive.frontFace =
-                ToWgpuFrontFace(pipelineDesc.primitive.frontFace) == WGPUFrontFace_CCW
-                    ? WGPUFrontFace_CW
-                    : WGPUFrontFace_CCW;
+            wgpuDesc.primitive.frontFace = ToWgpuFrontFace(pipelineDesc.primitive.frontFace);
             wgpuDesc.primitive.cullMode = ToWgpuCullMode(pipelineDesc.primitive.cullMode);
             // WebGPU strip topologies REQUIRE a strip index format; lists must leave it
             // Undefined. UInt32 matches the engine's index buffers.

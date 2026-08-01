@@ -133,10 +133,16 @@ export namespace draconic::shaders
                 return result;
             }
 
-            // 2. naga: SPIR-V -> WGSL (writes wgslPath).
-            const StringView nagaArgs[] = {spvPath.AsView(), wgslPath.AsView()};
+            // 2. naga: SPIR-V -> WGSL (writes wgslPath). --keep-coordinate-space is LOAD-BEARING:
+            // without it naga bakes a clip-space Y adjustment into the WGSL that wgpu's RUNTIME
+            // SPIR-V frontend does NOT apply, so the cooked-WGSL path rendered MIRRORED relative
+            // to both the SPIR-V path and Vulkan (probe-proven in Draconic.Render.Backend.Tests).
+            // With the flag, every WebGPU shader path shares Vulkan's raster orientation and the
+            // renderer needs no Y-flip compensations at all (NeedsClipSpaceYFlip == false).
+            const StringView nagaArgs[] = {u8"--keep-coordinate-space", spvPath.AsView(),
+                                           wgslPath.AsView()};
             const ProcessResult np =
-                RunProcess(m_naga.AsView(), Span<const StringView>(nagaArgs, 2));
+                RunProcess(m_naga.AsView(), Span<const StringView>(nagaArgs, 3));
             if (!np.Ok())
             {
                 result.failedStage = WgslCookStage::Translate;
