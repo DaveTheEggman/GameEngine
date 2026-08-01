@@ -1780,7 +1780,8 @@ namespace draconic::render
                         /*clearColor*/ fxaa || clearColor, v->Settings().clear, v->TargetFormat(),
                         v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
                         m_frameIndex, viewIndex, post.exposure, bloomStrength, uvScale, uvOffset,
-                        aoStrength, showAo, post.agxTonemap);
+                        aoStrength, showAo, post.agxTonemap,
+                        /*sceneYFlipped*/ !post.taaEnabled);
                     // World-space UI draws BETWEEN tonemap and FXAA: authored colors survive
                     // (FXAA doesn't grade) and the quad silhouettes get antialiased. With
                     // FXAA off the pass lands directly on the final LDR (TAA never touched

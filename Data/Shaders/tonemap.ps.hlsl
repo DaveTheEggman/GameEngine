@@ -6,7 +6,7 @@ SamplerState      BloomSamp : register(s0, space0);
 // UvScale/UvOffset map the fullscreen [0,1] uv to this view's sub-rect of the (full-size) HDR/bloom
 // transients - so split-screen views resolve their own region instead of the whole target.
 // AoStrength lerps the AO factor in (0 = GTAO off).
-struct TonemapPush { float Exposure; float BloomIntensity; float2 UvScale; float2 UvOffset; float AoStrength; float DebugShowAo; float Operator; };
+struct TonemapPush { float Exposure; float BloomIntensity; float2 UvScale; float2 UvOffset; float AoStrength; float DebugShowAo; float Operator; float FlipSceneY; };
 PUSH_CONSTANT(TonemapPush, pc, space1);
 
 // Linear -> sRGB display encode (the OETF the CM1a "clamp" operator needs before writing the
@@ -38,7 +38,15 @@ float3 agxLook(float3 val) {
 float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     // Sample HDR + bloom with the SAME (top-origin) uv, mapped to this view's sub-rect. Both via Sample
     // (Sedulous-style - mixing Load(pos) with Sample(uv) is what caused the mirrored bloom ghost).
-    float2 st = pc.UvOffset + uv * pc.UvScale;
+    // FlipSceneY: on Y-flip backends (WebGPU) the scene HDR arrives MIRRORED unless the TAA
+    // resolve ran (its NDC-based uv reconstruction un-mirrors it). When TAA is off, tonemap -
+    // the first post pass - un-mirrors instead, so the LDR intermediate and everything after
+    // (post-tonemap UI, FXAA, the final target) are upright. Flip the LOCAL uv before the
+    // sub-rect mapping so split-screen views flip within their own region. Bloom/AO were
+    // built from the same mirrored scene, so the shared flipped uv keeps all three aligned.
+    float2 local = uv;
+    if (pc.FlipSceneY > 0.5) { local.y = 1.0 - local.y; }
+    float2 st = pc.UvOffset + local * pc.UvScale;
     // Debug: show the GTAO buffer (or a debug channel it wrote) straight to screen, no tonemap.
     if (pc.DebugShowAo > 0.5) { return float4(Ao.SampleLevel(BloomSamp, st, 0).rrr, 1.0); }
     float3 c = max(Hdr.SampleLevel(BloomSamp, st, 0).rgb, 0.0);

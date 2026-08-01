@@ -45,9 +45,8 @@ namespace draconic::render
         rhi::PushConstantRange pc{};
         pc.stages = rhi::ShaderStage::Fragment;
         pc.offset = 0;
-        pc.size =
-            sizeof(f32) *
-            9; // exposure + bloom + uvScale.xy + uvOffset.xy + aoStrength + debugShowAo + operator
+        pc.size = sizeof(f32) * 10; // exposure + bloom + uvScale.xy + uvOffset.xy + aoStrength +
+                                    // debugShowAo + operator + flipSceneY
         rhi::PipelineLayoutDesc pld{};
         pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{layouts, 1};
         pld.pushConstantRanges = Span<const rhi::PushConstantRange>{&pc, 1};
@@ -77,7 +76,7 @@ namespace draconic::render
                                      i32 vpX, i32 vpY, u32 vpW, u32 vpH, u32 frameIndex,
                                      u32 viewIndex, f32 exposure, f32 bloomIntensity,
                                      Float2 uvScale, Float2 uvOffset, f32 aoStrength,
-                                     bool debugShowAo, bool agx)
+                                     bool debugShowAo, bool agx, bool sceneYFlipped)
     {
         rhi::RenderPipeline* pipeline = EnsurePipeline(ldrFormat);
         if (pipeline == nullptr)
@@ -86,10 +85,13 @@ namespace draconic::render
         }
         const u32 slot =
             (viewIndex % kMaxViews) * m_framesInFlight + (frameIndex % m_framesInFlight);
-        const f32 push[9] = {
-            exposure,         bloomIntensity, uvScale.x,  uvScale.y,
-            uvOffset.x,       uvOffset.y,     aoStrength, debugShowAo ? 1.0f : 0.0f,
-            agx ? 1.0f : 0.0f};
+        // The scene input is mirrored on Y-flip backends unless the TAA resolve un-mirrored
+        // it upstream; tonemap compensates then (see tonemap.ps.hlsl FlipSceneY).
+        const bool flipSceneY = sceneYFlipped && m_device->NeedsClipSpaceYFlip();
+        const f32 push[10] = {
+            exposure,          bloomIntensity, uvScale.x,  uvScale.y,
+            uvOffset.x,        uvOffset.y,     aoStrength, debugShowAo ? 1.0f : 0.0f,
+            agx ? 1.0f : 0.0f, flipSceneY ? 1.0f : 0.0f};
 
         const rhi::LoadOp load = clearColor ? rhi::LoadOp::Clear : rhi::LoadOp::Load;
         graph.AddRenderPass(

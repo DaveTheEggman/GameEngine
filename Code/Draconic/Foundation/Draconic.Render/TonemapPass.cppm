@@ -52,7 +52,8 @@ export namespace draconic::render
                             i32 vpY, u32 vpW, u32 vpH, u32 frameIndex, u32 viewIndex,
                             f32 exposure = 1.0f, f32 bloomIntensity = 0.0f,
                             Float2 uvScale = Float2{1, 1}, Float2 uvOffset = Float2{0, 0},
-                            f32 aoStrength = 0.0f, bool debugShowAo = false, bool agx = true);
+                            f32 aoStrength = 0.0f, bool debugShowAo = false, bool agx = true,
+                            bool sceneYFlipped = false);
 
     private:
         static constexpr rhi::TextureFormat kHdrFormat = rhi::TextureFormat::RGBA16Float;
