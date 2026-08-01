@@ -286,9 +286,9 @@ namespace draconic::samples
         {
             if (auto* probes = m_scene->GetSystem<render::ReflectionProbeComponentManager>())
             {
-                scene::EntityHandle probe = m_scene->CreateEntity(u8"probe");
-                m_scene->SetLocalPosition(probe, core::Float3{4.0f, 1.0f, 2.0f});
-                render::ReflectionProbeComponent& pc = probes->Add(probe);
+                m_probe = m_scene->CreateEntity(u8"probe");
+                m_scene->SetLocalPosition(m_probe, core::Float3{4.0f, 1.0f, 2.0f});
+                render::ReflectionProbeComponent& pc = probes->Add(m_probe);
                 pc.halfExtents = core::Float3{5.0f, 3.5f, 5.0f};
                 pc.resolution = 128;
                 pc.parallax = true;
@@ -640,6 +640,20 @@ namespace draconic::samples
                         ImGui::Checkbox("Decal", &dc->visible);
                     }
                 }
+                if (auto* probes = m_scene->GetSystem<render::ReflectionProbeComponentManager>())
+                {
+                    if (render::ReflectionProbeComponent* pc = probes->Get(m_probe))
+                    {
+                        // Diagnostic for the web black-probe hunt: Realtime re-captures every
+                        // frame, separating "capture path broken" from "startup result lost".
+                        bool realtime = pc->update == render::ProbeUpdateMode::Realtime;
+                        if (ImGui::Checkbox("Probe realtime re-capture", &realtime))
+                        {
+                            pc->update = realtime ? render::ProbeUpdateMode::Realtime
+                                                  : render::ProbeUpdateMode::Static;
+                        }
+                    }
+                }
                 if (auto* sprites = m_scene->GetSystem<render::SpriteComponentManager>())
                 {
                     if (render::SpriteComponent* sc = sprites->Get(m_sprites[0]))
@@ -672,6 +686,7 @@ namespace draconic::samples
         scene::EntityHandle m_pointLight{};
         scene::EntityHandle m_floor{};
         scene::EntityHandle m_decal{};
+        scene::EntityHandle m_probe{};
         scene::EntityHandle m_sprites[3] = {};
         scene::EntityHandle m_fountainEntity{};
         scene::EntityHandle m_sparksEntity{};

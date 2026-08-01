@@ -65,7 +65,16 @@ export namespace draconic::rhi::webgpu
         Status Submit() override
         {
             Replay();
-            // The Vulkan batch drains the queue before returning; match it.
+#if !DRACONIC_PLATFORM_WEB
+            // The Vulkan batch drains the queue before returning; match it on desktop.
+            //
+            // On WEB the drain is SKIPPED - and it must be: wgpuQueueWriteBuffer/WriteTexture
+            // copy the payload at CALL time and the single WebGPU queue preserves ordering, so
+            // every later submit already sees the data (nothing here needs completion). Pumping
+            // would yield to the browser MID-FRAME - lazy first-use uploads (GpuMesh, textures,
+            // debug-draw fonts) run inside a frame, the yield returns the rAF, the browser
+            // expires the canvas texture, and that frame's submit is dropped ("Destroyed
+            // texture used in a submit" - the startup killer of one-shot bakes/uploads).
             bool done = false;
             WGPUQueueWorkDoneCallbackInfo info = WGPU_QUEUE_WORK_DONE_CALLBACK_INFO_INIT;
             info.mode = WGPUCallbackMode_AllowProcessEvents;
@@ -74,6 +83,7 @@ export namespace draconic::rhi::webgpu
             info.userdata1 = &done;
             (void)m_api->wgpuQueueOnSubmittedWorkDone(m_queue, info);
             m_api->PumpUntilWithDevice(m_instance, m_device, done);
+#endif
             Reset();
             return ErrorCode::Ok;
         }
