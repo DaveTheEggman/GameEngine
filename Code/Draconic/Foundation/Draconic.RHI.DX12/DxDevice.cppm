@@ -173,6 +173,11 @@ export namespace draconic::rhi::dx12
             return ShaderFormat::DXIL;
         }
 
+        // DX12 is the engine's reference coordinate system (VkRenderPassEncoder flips Y to "match DX12"),
+        // so reconstruction passes need no compensation. NB: DX12 uses a POSITIVE viewport, so if the sky/
+        // shadows ever render flipped on DX12 (untested on the reconstruction path), this becomes true.
+        [[nodiscard]] bool NeedsClipSpaceYFlip() const noexcept override { return false; }
+
         Queue* GetQueue(QueueType t, u32 index) override
         {
             switch (t)

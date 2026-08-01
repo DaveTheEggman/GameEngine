@@ -37,6 +37,11 @@ export namespace draconic::rhi::validation
             return m_inner->PreferredShaderFormat();
         }
 
+        [[nodiscard]] bool NeedsClipSpaceYFlip() const noexcept override
+        {
+            return m_inner->NeedsClipSpaceYFlip();
+        }
+
         // ---- Queues ----
         Queue* GetQueue(QueueType t, u32 index) override
         {

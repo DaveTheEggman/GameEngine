@@ -335,6 +335,8 @@ export namespace draconic::rhi::null
             return ShaderFormat::SpirV;
         }
 
+        [[nodiscard]] bool NeedsClipSpaceYFlip() const noexcept override { return false; }
+
         Queue* GetQueue(QueueType t, u32) override
         {
             switch (t)

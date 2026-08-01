@@ -158,10 +158,14 @@ export namespace draconic::rhi::webgpu
 #endif
             // 32-bit float textures are non-filterable in core WebGPU; the renderer
             // linear-samples HDR sky/IBL sources, so enable filtering when available.
-            if (m_api->wgpuAdapterHasFeature(m_adapter, WGPUFeatureName_Float32Filterable) != 0u)
+            const bool f32Filter =
+                m_api->wgpuAdapterHasFeature(m_adapter, WGPUFeatureName_Float32Filterable) != 0u;
+            if (f32Filter)
             {
                 required.PushBack(WGPUFeatureName_Float32Filterable);
             }
+            LogInfof("WebGpuAdapter: float32-filterable %s",
+                     f32Filter ? "ENABLED" : "MISSING (rgba32f linear-sample will fail)");
             // Encoder-level WriteTimestamp (the RHI's CommandEncoder::WriteTimestamp,
             // used by the GPU GraphProfiler) is a separate wgpu feature from
             // pass-boundary timestamps. The enum is wgpu-native-only - unavailable on web.

@@ -301,6 +301,10 @@ export namespace draconic::rhi::vk
             return ShaderFormat::SpirV;
         }
 
+        // Vulkan flips clip-space Y via a negative-height viewport (VkRenderPassEncoder::SetViewport),
+        // so screen-space reconstruction is already consistent - no compensation needed.
+        [[nodiscard]] bool NeedsClipSpaceYFlip() const noexcept override { return false; }
+
         Queue* GetQueue(QueueType t, u32 index) override
         {
             switch (t)

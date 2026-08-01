@@ -152,6 +152,13 @@ export namespace draconic::rhi
         // the cooked-blob format from this.
         [[nodiscard]] virtual ShaderFormat PreferredShaderFormat() const noexcept = 0;
 
+        // True when this backend does NOT flip clip-space Y in its viewport. Vulkan/DX12 use a
+        // negative-height viewport (which also inverts front-face winding); WebGPU's setViewport
+        // cannot take a negative height, so it gets no such flip. Screen-space reconstruction passes
+        // (sky ray, shadows, SSAO/SSR) that unproject NDC via invViewProj must negate the NDC Y (or,
+        // equivalently, flip the uploaded invViewProj's Y row) when this is true.
+        [[nodiscard]] virtual bool NeedsClipSpaceYFlip() const noexcept = 0;
+
         // ---- Queries ----
         [[nodiscard]] virtual Queue* GetQueue(QueueType type, u32 index = 0) = 0;
         [[nodiscard]] virtual u32 GetQueueCount(QueueType type) = 0;
