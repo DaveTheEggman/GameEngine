@@ -811,11 +811,14 @@ namespace draconic::render
             vd.shadowNormalBias = 0.02f;
             vd.shadowDepthBias = 0.0009f;
             vd.shadowParams.x = ctx.shadowFarFade; // CSM far-fade band (runtime-tunable)
-            // y = shadow-map sample uv.y sign. The shadow map rasterizes the same as the main color
-            // target, so on Y-flip targets (WebGPU/DX12, positive viewport) uv.y = +ndc.y*0.5+0.5;
-            // on Vulkan (negative-height viewport) it stays -ndc.y*0.5+0.5. Mirrors SkyPass's SkyFlags.
-            vd.shadowParams.y = m_device->NeedsClipSpaceYFlip() ? 1.0f : -1.0f;
         }
+        // y = shadow-map sample uv.y sign. The shadow map rasterizes the same as the main color
+        // target, so on Y-flip targets (WebGPU, positive viewport) uv.y = +ndc.y*0.5+0.5; on
+        // Vulkan (negative-height viewport) it stays -ndc.y*0.5+0.5. Mirrors SkyPass's SkyFlags.
+        // OUTSIDE the cascades.valid block: SampleLocalShadow (spot/point tiles) uses this sign
+        // too, and local shadows exist without a valid directional CSM - the struct default (0)
+        // would collapse every local lookup onto one atlas row.
+        vd.shadowParams.y = m_device->NeedsClipSpaceYFlip() ? 1.0f : -1.0f;
         // Ring base + THIS view's scene's entry base (scenes' entries are concatenated per frame;
         // lights carry scene-relative shadowIndex values).
         vd.localShadowBase = m_localShadowBase + ctx.localShadowEntryBase;

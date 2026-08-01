@@ -33,6 +33,10 @@ namespace draconic::render
         gpc.stages = rhi::ShaderStage::Vertex;
         gpc.offset = 0;
         gpc.size = sizeof(Float4x4);
+        // No bind groups -> the push block lives at space0 (debug_geom.vs.hlsl), so the
+        // browser push-constant emulation must synthesize its uniform at group 0 too. The
+        // range default (1) matches every OTHER shader's space1 convention; here it must be 0.
+        gpc.bindGroupIndex = 0;
         rhi::PipelineLayoutDesc gpld{};
         gpld.pushConstantRanges = Span<const rhi::PushConstantRange>{&gpc, 1};
         if (!m_device->CreatePipelineLayout(gpld, m_geomLayout).IsOk())

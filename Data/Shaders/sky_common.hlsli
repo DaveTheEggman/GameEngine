@@ -5,5 +5,5 @@ cbuffer Sky : register(b0, space0) {
     float4 SunDir;            // xyz = light direction, w = sun angular size (deg)
     float4 SunColor;          // rgb = sun color, w = sun intensity
     float4 Jitter;            // xy = this frame's NDC jitter, zw = last frame's
-    float4 SkyFlags;          // x = sampled-ray Y sign (-1 on Y-flip targets: WebGPU/DX12)
+    float4 SkyFlags;          // x = scene-NDC Y sign (-1 on Y-flip targets: WebGPU today)
 };

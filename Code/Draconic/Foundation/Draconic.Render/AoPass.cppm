@@ -105,7 +105,7 @@ export namespace draconic::render
         struct ApplyPushC
         {
             f32 strength = 1.0f;
-            f32 flipAoY = 0; // 1 = sample AO with flipped uv.y (Y-flip targets: WebGPU/DX12)
+            f32 flipAoY = 0; // 1 = sample AO with flipped uv.y (Y-flip targets: WebGPU today)
             f32 p1 = 0, p2 = 0;
         };
 
