@@ -189,3 +189,83 @@ TEST_CASE("vg.context: clear resets and re-seeds the white texture")
     REQUIRE(batch.textures.Size() == 1u);
     CHECK(batch.textures[0]->Width() == 1u);
 }
+
+TEST_CASE("vg.context: identical gradients share ONE cached LUT, stable across frames")
+{
+    // The LUT cache is content-keyed and PERSISTENT: N fills of the same gradient bake one
+    // LUT (not one per FillPath), and the same gradient next frame reuses the same
+    // ImageData identity - the stability the renderer's identity-keyed GPU texture cache
+    // depends on (a per-frame pool made freed/recycled LUTs cache-hit stale GPU ramps).
+    VGContext ctx;
+    VGLinearGradientFill grad(Float2{0.0f, 0.0f}, Float2{10.0f, 0.0f});
+    grad.AddStop(0.0f, Color::Red);
+    grad.AddStop(1.0f, Color::Blue);
+
+    PathBuilder pb;
+    pb.MoveTo(0, 0);
+    pb.LineTo(10, 0);
+    pb.LineTo(10, 10);
+    pb.LineTo(0, 10);
+    pb.Close();
+    const Path path = pb.ToPath();
+
+    ctx.FillPath(path, grad, FillRule::NonZero, false);
+    ctx.FillPath(path, grad, FillRule::NonZero, false);
+    VGBatch& batch = ctx.GetBatch();
+    CHECK(batch.textures.Size() == 2u); // white + ONE shared LUT, not one per fill
+    const draconic::image::ImageData* firstFrameLut = batch.textures[1];
+
+    ctx.Clear();
+    CHECK(ctx.GetBatch().evictedTextures.IsEmpty()); // tiny cache: nothing evicted
+    ctx.FillPath(path, grad, FillRule::NonZero, false);
+    VGBatch& second = ctx.GetBatch();
+    REQUIRE(second.textures.Size() == 2u);
+    CHECK(second.textures[1] == firstFrameLut); // same identity across frames
+
+    // A DIFFERENT ramp gets its own LUT.
+    VGLinearGradientFill other(Float2{0.0f, 0.0f}, Float2{10.0f, 0.0f});
+    other.AddStop(0.0f, Color::Green);
+    other.AddStop(1.0f, Color::Black);
+    ctx.FillPath(path, other, FillRule::NonZero, false);
+    CHECK(ctx.GetBatch().textures.Size() == 3u);
+}
+
+TEST_CASE("vg.context: over-budget LUT cache eviction is announced through the batch")
+{
+    VGContext ctx;
+    PathBuilder pb;
+    pb.MoveTo(0, 0);
+    pb.LineTo(10, 0);
+    pb.LineTo(10, 10);
+    pb.LineTo(0, 10);
+    pb.Close();
+    const Path path = pb.ToPath();
+
+    // Exceed the cache budget with DISTINCT ramps (the animated-gradient shape).
+    const usize distinct = VGContext::kMaxGradientLutCacheEntries + 1;
+    for (usize i = 0; i < distinct; ++i)
+    {
+        VGLinearGradientFill grad(Float2{0.0f, 0.0f}, Float2{10.0f, 0.0f});
+        const f32 r = static_cast<f32>(i % 256) / 255.0f;
+        const f32 g = static_cast<f32>((i / 256) % 256) / 255.0f;
+        grad.AddStop(0.0f, Color{r, g, 0.0f, 1.0f});
+        grad.AddStop(1.0f, Color::Blue);
+        ctx.FillPath(path, grad, FillRule::NonZero, false);
+    }
+
+    // The NEXT frame's batch carries the eviction notice for every dropped LUT, and the
+    // cache restarts (a fresh gradient bakes again and the batch stays consistent).
+    ctx.Clear();
+    VGBatch& batch = ctx.GetBatch();
+    CHECK(batch.evictedTextures.Size() == distinct);
+
+    VGLinearGradientFill grad(Float2{0.0f, 0.0f}, Float2{10.0f, 0.0f});
+    grad.AddStop(0.0f, Color::Red);
+    grad.AddStop(1.0f, Color::Blue);
+    ctx.FillPath(path, grad, FillRule::NonZero, false);
+    CHECK(ctx.GetBatch().textures.Size() == 2u);
+
+    // The frame after that: the eviction list is spent, the cache is small again.
+    ctx.Clear();
+    CHECK(ctx.GetBatch().evictedTextures.IsEmpty());
+}

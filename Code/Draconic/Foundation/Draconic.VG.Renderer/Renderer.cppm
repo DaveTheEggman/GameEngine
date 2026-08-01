@@ -116,6 +116,18 @@ export namespace draconic::vg::renderer
         /// Reset per-frame ring-offset state. Call once before the frame's first Prepare.
         void BeginFrame(i32 frameIndex)
         {
+            // Age the retired texture entries (evicted via VGBatch::evictedTextures) and
+            // free the ones every in-flight frame is done with. Immediate disposal at
+            // eviction time would destroy bind groups a submitted frame still references.
+            for (usize i = m_retiredTextures.Size(); i > 0; --i)
+            {
+                RetiredTexture& retired = m_retiredTextures[i - 1];
+                if (--retired.framesLeft <= 0)
+                {
+                    DisposeCachedTexture(*retired.entry);
+                    m_retiredTextures.RemoveAt(i - 1);
+                }
+            }
             m_frameVertexOffsets[static_cast<usize>(frameIndex)] = 0;
             m_frameIndexOffsets[static_cast<usize>(frameIndex)] = 0;
             m_frameUniformSlotCount[static_cast<usize>(frameIndex)] = 0;
@@ -126,6 +138,13 @@ export namespace draconic::vg::renderer
         /// Upload one batch into the shared frame buffers; returns a slice token.
         VGRenderSlice Prepare(draconic::vg::VGBatch& batch, i32 frameIndex, u32 width, u32 height)
         {
+            // The batch's eviction list is the invalidation signal for the identity-keyed
+            // texture cache (the producer freed/recycled those sources - e.g. gradient-LUT
+            // cache eviction). Process it even when the batch draws nothing, and BEFORE any
+            // upload: a recycled allocation may reuse an evicted address this very frame.
+            for (usize i = 0; i < batch.evictedTextures.Size(); ++i)
+                EvictCachedTexture(batch.evictedTextures[i]);
+
             const u32 vertCountIn = static_cast<u32>(batch.vertices.Size());
             const u32 idxCountIn = static_cast<u32>(batch.indices.Size());
             if (vertCountIn == 0 || idxCountIn == 0)
@@ -318,14 +337,45 @@ export namespace draconic::vg::renderer
             for (usize i = 0; i < m_textureCache.Size(); ++i)
                 DisposeCachedTexture(*m_textureCache[i]);
             m_textureCache.Clear();
+            for (usize i = 0; i < m_retiredTextures.Size(); ++i)
+                DisposeCachedTexture(*m_retiredTextures[i].entry);
+            m_retiredTextures.Clear();
         }
+
+        /// Drop the cache entry for `key` (an identity, never dereferenced): the GPU
+        /// resources move to the retired list and are freed once every in-flight frame
+        /// has aged past them. External (caller-owned) entries are untouched - those are
+        /// invalidated via UnregisterExternalTexture by their owner.
+        void EvictCachedTexture(const image::ImageData* key)
+        {
+            if (key == nullptr)
+                return;
+            for (usize i = 0; i < m_textureCache.Size(); ++i)
+            {
+                if (m_textureCache[i]->source != key || m_textureCache[i]->external)
+                    continue;
+                RetiredTexture retired;
+                retired.entry = Move(m_textureCache[i]);
+                retired.framesLeft = m_frameCount;
+                m_retiredTextures.PushBack(Move(retired));
+                m_textureCache.RemoveAt(i);
+                return;
+            }
+        }
+
+        /// Cache introspection (tests/diagnostics).
+        [[nodiscard]] usize CachedTextureCount() const { return m_textureCache.Size(); }
+        [[nodiscard]] usize RetiredTextureCount() const { return m_retiredTextures.Size(); }
 
         /// Register a caller-owned rhi::TextureView (e.g. a viewport's offscreen
         /// render target) under an ImageData identity key, so DrawImage(key, ...)
         /// samples that GPU texture directly instead of uploading CPU pixels.
         /// The view is NOT owned - the caller must UnregisterExternalTexture before
-        /// destroying it (that Unregister is the cache-invalidation signal; the
-        /// texture cache is otherwise raw-pointer-keyed with no version guard).
+        /// destroying it. The cache is identity-keyed (raw ImageData*), so EVERY
+        /// producer of transient sources must send an invalidation: external views via
+        /// UnregisterExternalTexture, batch-produced sources (gradient LUTs) via
+        /// VGBatch::evictedTextures - without one, a freed-and-recycled allocation
+        /// cache-hits a stale GPU texture.
         /// Re-registering an existing key rebinds it to the new view (bind groups
         /// are torn down and rebuilt lazily).
         void RegisterExternalTexture(const image::ImageData* key, rhi::TextureView* view)
@@ -719,7 +769,15 @@ export namespace draconic::vg::renderer
         Array<rhi::Buffer*> m_indexBuffers;
         Array<rhi::Buffer*> m_uniformBuffers;
 
+        // Evicted entries wait here until every in-flight frame has aged past them.
+        struct RetiredTexture
+        {
+            UniquePtr<CachedTexture> entry;
+            i32 framesLeft = 0;
+        };
+
         Array<UniquePtr<CachedTexture>> m_textureCache;
+        Array<RetiredTexture> m_retiredTextures;
         Array<const image::ImageData*> m_batchTextures;
         Array<draconic::vg::VGCommand> m_drawCommands;
 

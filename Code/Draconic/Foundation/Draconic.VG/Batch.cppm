@@ -49,6 +49,11 @@ export namespace draconic::vg
         // batch - VGContext manages lifetime. By convention index 0 is a 1x1
         // white texture for solid-color draws.
         Array<const image::ImageData*> textures;
+        // Sources whose renderer-side GPU cache entries must be DROPPED before this
+        // batch's textures are considered (the invalidation half of the renderer's
+        // identity-keyed texture cache - e.g. evicted gradient LUTs). Identity keys
+        // only: the renderer compares pointers, never dereferences them.
+        Array<const image::ImageData*> evictedTextures;
         // Distance-field parameters for DistanceField-mode commands: the MSDF spread (texels) and
         // the atlas dimensions the DF fragment shader needs for its screen-space AA.
         f32 dfPxRange = 4.0f;
@@ -86,6 +91,7 @@ export namespace draconic::vg
             indices.Clear();
             commands.Clear();
             textures.Clear();
+            evictedTextures.Clear();
         }
 
         /// Reserve capacity for expected geometry.

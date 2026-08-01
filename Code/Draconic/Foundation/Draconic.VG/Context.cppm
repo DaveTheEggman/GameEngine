@@ -45,6 +45,11 @@ export namespace draconic::vg
     class VGContext
     {
     public:
+        /// Distinct gradient ramps kept in the persistent LUT cache before a whole-cache
+        /// eviction (announced via VGBatch::evictedTextures). Generous: a UI with a few
+        /// static gradients never gets near it; only continuously ANIMATED ramp colors do.
+        static constexpr usize kMaxGradientLutCacheEntries = 256;
+
         explicit VGContext(fonts::IFontService* fontService = nullptr) : m_fontService(fontService)
         {
             m_stateStack.Reserve(16);
@@ -81,9 +86,24 @@ export namespace draconic::vg
             m_currentTextureIndex = 0;
             m_commandStartIndex = 0;
 
-            // The batch (and its raw texture pointers) is now reset, so the LUTs it referenced can
-            // be freed. Do this before re-adding the white texture below.
-            m_gradientLuts.Clear();
+            // Gradient LUTs live in a PERSISTENT content-keyed cache (see BindGradientLut):
+            // stable ImageData pointers per distinct ramp, so the renderer's identity-keyed
+            // GPU texture cache stays valid across frames. Last frame's eviction list has
+            // been consumed by now - the held images can finally die.
+            m_evictedLutHold.Clear();
+            if (m_gradientLutCache.Size() > kMaxGradientLutCacheEntries)
+            {
+                // Over budget (many DISTINCT ramps - e.g. animated gradient colors): drop
+                // the whole cache and tell the renderer which sources died via the batch's
+                // eviction list (identity keys only - never dereferenced). The images are
+                // held one frame so those keys are not dangling while in flight.
+                for (auto& kv : m_gradientLutCache)
+                {
+                    m_batch.evictedTextures.PushBack(kv.value.Get());
+                    m_evictedLutHold.PushBack(Move(kv.value));
+                }
+                m_gradientLutCache.Clear();
+            }
 
             // Re-add the white texture at index 0 for solid color drawing.
             m_batch.textures.PushBack(&m_whiteTexture);
@@ -1003,7 +1023,7 @@ export namespace draconic::vg
 
         // Bake a gradient's color ramp into a 256x1 RGBA8/sRGB LUT, bind it as the active texture,
         // and select the draw mode. Returns the tessellation emit mode (Gouraud for solid fills).
-        // The LUT lives in a per-frame pool with stable addresses (UniquePtr) cleared on Clear();
+        // The LUT lives in the persistent content-keyed cache (see m_gradientLutCache);
         // the GPU decodes the sRGB texels to linear on sample, matching the vertex-color path.
         // Linear gradients stay on the Default pipeline (affine LUT parameter is exact); radial/
         // conic upgrade to their per-pixel pipelines only when the host enabled per-pixel gradients
@@ -1029,11 +1049,24 @@ export namespace draconic::vg
                 pixels[i * 4 + 3] = c.a;
             }
 
-            UniquePtr<image::OwnedImageData> lut = MakeUnique<image::OwnedImageData>(
-                DefaultAllocator(), kLutWidth, 1u, image::PixelFormat::RGBA8,
-                Span<const u8>(pixels, kLutWidth * 4));
-            image::OwnedImageData* raw = lut.Get();
-            m_gradientLuts.PushBack(Move(lut));
+            // Content-keyed persistent cache: identical ramps (N fills of one gradient, and
+            // the same gradient across frames) share ONE ImageData - the stable identity the
+            // renderer's GPU texture cache keys on. A per-frame pool here caused freed-and-
+            // reallocated LUTs to cache-hit stale GPU ramps (or leak one texture per fill).
+            const u64 rampHash = HashBytes(pixels, sizeof(pixels));
+            image::OwnedImageData* raw = nullptr;
+            if (UniquePtr<image::OwnedImageData>* cached = m_gradientLutCache.Find(rampHash))
+            {
+                raw = cached->Get();
+            }
+            else
+            {
+                UniquePtr<image::OwnedImageData> lut = MakeUnique<image::OwnedImageData>(
+                    DefaultAllocator(), kLutWidth, 1u, image::PixelFormat::RGBA8,
+                    Span<const u8>(pixels, kLutWidth * 4));
+                raw = lut.Get();
+                m_gradientLutCache.InsertOrAssign(rampHash, Move(lut));
+            }
 
             VGGradientTess tess = VGGradientTess::LinearLut;
             VGDrawMode mode = VGDrawMode::Default;
@@ -1214,7 +1247,12 @@ export namespace draconic::vg
         image::OwnedImageData m_whiteTexture;
         // Per-frame baked gradient ramp LUTs (owned; UniquePtr for stable addresses since the
         // batch textures hold raw pointers). Cleared on Clear() once the batch is consumed.
-        Array<UniquePtr<image::OwnedImageData>> m_gradientLuts;
+        // Gradient ramp LUTs, keyed by ramp CONTENT hash, persisted across frames (stable
+        // ImageData identities for the renderer's texture cache). Over-budget eviction is
+        // whole-cache, announced through VGBatch::evictedTextures, with the images held one
+        // frame (m_evictedLutHold) so the announced keys are not dangling in flight.
+        HashMap<u64, UniquePtr<image::OwnedImageData>> m_gradientLutCache;
+        Array<UniquePtr<image::OwnedImageData>> m_evictedLutHold;
         PathBuilder m_currentPath;
         fonts::IFontService* m_fontService = nullptr;
 

@@ -228,3 +228,54 @@ TEST_CASE("vg.renderer: ComputeScissor clamps to content then offsets to the vie
         CHECK(s.height == 50u);
     }
 }
+
+TEST_CASE("vg.renderer: batch eviction retires cached textures until frames age out")
+{
+    rhi::null::NullDevice device{DefaultAllocator()};
+    rhi::ShaderModule* vs = MakeModule(device);
+    rhi::ShaderModule* fs = MakeModule(device);
+    REQUIRE(vs != nullptr);
+    REQUIRE(fs != nullptr);
+
+    VGRenderer renderer;
+    REQUIRE(
+        renderer.Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, /*frameCount*/ 2)
+            .IsOk());
+
+    // A gradient fill produces a LUT texture the renderer caches at first sight.
+    VGContext ctx;
+    VGLinearGradientFill grad(Float2{0.0f, 0.0f}, Float2{10.0f, 0.0f});
+    grad.AddStop(0.0f, Color::Red);
+    grad.AddStop(1.0f, Color::Blue);
+    PathBuilder pb;
+    pb.MoveTo(0, 0);
+    pb.LineTo(10, 0);
+    pb.LineTo(10, 10);
+    pb.LineTo(0, 10);
+    pb.Close();
+    ctx.FillPath(pb.ToPath(), grad, FillRule::NonZero, false);
+
+    renderer.BeginFrame(0);
+    REQUIRE(renderer.Prepare(ctx.GetBatch(), 0, 800, 600).isValid);
+    const usize cachedAfterDraw = renderer.CachedTextureCount();
+    CHECK(cachedAfterDraw >= 2u); // white + the LUT
+
+    // The producer announces the LUT's death through the batch's eviction list: the
+    // entry must leave the cache IMMEDIATELY (the address may be recycled this frame)
+    // but its GPU resources retire until every in-flight frame has aged past them.
+    const draconic::image::ImageData* lut = ctx.GetBatch().textures[1];
+    VGBatch evictionBatch;
+    evictionBatch.evictedTextures.PushBack(lut);
+    renderer.BeginFrame(1);
+    (void)renderer.Prepare(evictionBatch, 1, 800, 600); // empty batch: evictions still apply
+    CHECK(renderer.CachedTextureCount() == cachedAfterDraw - 1u);
+    CHECK(renderer.RetiredTextureCount() == 1u);
+
+    renderer.BeginFrame(0);
+    renderer.BeginFrame(1); // frameCount=2: two BeginFrames age the retiree out
+    CHECK(renderer.RetiredTextureCount() == 0u);
+
+    renderer.Dispose();
+    device.DestroyShaderModule(vs);
+    device.DestroyShaderModule(fs);
+}
