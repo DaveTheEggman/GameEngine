@@ -195,7 +195,10 @@ namespace draconic::rhi::webgpu
         /// the linking executable to enable ASYNCIFY. A no-op on desktop, where wgpu-native
         /// delivers callbacks synchronously from ProcessEvents/DevicePoll - so every pump
         /// loop below is unchanged there and only gains a real progress path on web.
-        void Yield() const
+        ///
+        /// NOT named Yield: <windows.h> defines Yield() as an EMPTY function-like macro, so
+        /// that spelling breaks the declaration and silently erases every call site.
+        void YieldToEventLoop() const
         {
 #if DRACONIC_PLATFORM_WEB
             emscripten_sleep(0);
@@ -210,7 +213,7 @@ namespace draconic::rhi::webgpu
             for (u32 i = 0; i < 100000 && !done; ++i)
             {
                 wgpuInstanceProcessEvents(instance);
-                Yield();
+                YieldToEventLoop();
             }
         }
 
@@ -233,7 +236,7 @@ namespace draconic::rhi::webgpu
                 {
                     (void)wgpuDevicePoll(device, 0u, nullptr);
                 }
-                Yield(); // web: the only progress path (DevicePoll is null there)
+                YieldToEventLoop(); // web: the only progress path (DevicePoll is null there)
             }
         }
     };
