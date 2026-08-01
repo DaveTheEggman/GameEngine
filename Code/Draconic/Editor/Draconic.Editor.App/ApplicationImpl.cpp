@@ -178,8 +178,13 @@ namespace draconic::editor::app
         draconic::ui::ThemeRegistry::RegisterExtension(&m_toolkitTheme);
         // Editor theme: the warm "Graphite & Orange" palette on the rounded theme (soft corners
         // everywhere) - a crafted, less-bland alternative to the stock flat/square cool-grey dark.
-        m_styleSheet =
-            draconic::ui::RoundedDarkTheme::Create(draconic::ui::ThemePalette::GraphiteOrange());
+        const draconic::ui::ThemePalette palette = draconic::ui::ThemePalette::GraphiteOrange();
+        m_styleSheet = draconic::ui::RoundedDarkTheme::Create(palette);
+        // The window CLEAR color comes from the same palette: any surface the chrome doesn't
+        // cover (the project-manager screen most of all) must read as the theme's background,
+        // not the UIHost's hard-coded near-black default.
+        m_uiHost->SetClearColor(palette.Background.r, palette.Background.g, palette.Background.b,
+                                1.0f);
         // Editor-specific overrides on top of the stock theme: property-grid fields read
         // better noticeably smaller and tighter than the theme's 14px/6x4 control chrome
         // (a full inspector column of them is the densest text in the editor).
