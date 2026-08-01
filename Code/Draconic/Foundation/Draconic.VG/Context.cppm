@@ -93,6 +93,13 @@ export namespace draconic::vg
         [[nodiscard]] f32 Tolerance() const { return m_tolerance; }
         void SetTolerance(f32 tolerance) { m_tolerance = tolerance; }
 
+        /// Enable per-pixel radial/conic gradients. A host must ONLY enable this if its VGRenderer
+        /// was given the vg_grad_radial/vg_grad_conic shaders; otherwise those draw modes have no
+        /// pipeline. Off (default): radial/conic use the affine LUT approximation, which every
+        /// renderer can draw. Linear gradients are exact either way.
+        void SetPerPixelGradients(bool enabled) { m_perPixelGradients = enabled; }
+        [[nodiscard]] bool PerPixelGradients() const { return m_perPixelGradients; }
+
         /// Pixel snapping: axis-aligned filled rects, borders and horizontal/vertical lines are
         /// snapped to the device pixel grid and drawn WITHOUT the AA fringe (an axis-aligned edge
         /// on a pixel boundary is already crisp and needs no AA). Rotated / curved / diagonal
@@ -233,16 +240,21 @@ export namespace draconic::vg
             // Gradients bake a ramp LUT bound as the active texture; the tessellator then emits the
             // gradient parameter as a per-vertex texcoord so the ramp is sampled per pixel (exact
             // multi-stop, no 8-bit Gouraud banding). Solid fills stay on the white passthrough.
-            const bool gradientLut = BindGradientLut(fill);
+            const VGGradientTess gradientTess = BindGradientLut(fill);
             const usize startVertex = m_batch.vertices.Size();
             const f32 scaledTolerance = GetScaledTolerance();
             FillTessellator::TessellateWithFill(path, fillRule, fill, antiAlias, m_batch.vertices,
                                                 m_batch.indices, scaledTolerance, GetScaledFringe(),
-                                                gradientLut);
+                                                gradientTess);
             ApplyOpacityToVertices(startVertex);
             TransformVertices(startVertex);
-            if (gradientLut)
+            if (gradientTess != VGGradientTess::Gouraud)
+            {
+                // Restore the default sampling mode so later solid draws aren't stuck on the
+                // gradient pipeline / LUT texture.
+                SetDrawMode(VGDrawMode::Default);
                 SetupForSolidDraw();
+            }
         }
 
         /// Stroke a path with a solid color.
@@ -989,16 +1001,20 @@ export namespace draconic::vg
             return static_cast<i32>(m_batch.textures.Size() - 1);
         }
 
-        // Bake a gradient's color ramp into a 256x1 RGBA8/sRGB LUT and bind it as the active
-        // texture. Returns true if a LUT was bound (fill needs interpolation), false for solids.
+        // Bake a gradient's color ramp into a 256x1 RGBA8/sRGB LUT, bind it as the active texture,
+        // and select the draw mode. Returns the tessellation emit mode (Gouraud for solid fills).
         // The LUT lives in a per-frame pool with stable addresses (UniquePtr) cleared on Clear();
         // the GPU decodes the sRGB texels to linear on sample, matching the vertex-color path.
-        [[nodiscard]] bool BindGradientLut(const IVGFill& fill)
+        // Linear gradients stay on the Default pipeline (affine LUT parameter is exact); radial/
+        // conic upgrade to their per-pixel pipelines only when the host enabled per-pixel gradients
+        // (i.e. wired the shaders) - otherwise they fall back to the same affine LUT approximation.
+        [[nodiscard]] VGGradientTess BindGradientLut(const IVGFill& fill)
         {
             if (!fill.RequiresInterpolation())
             {
+                SetDrawMode(VGDrawMode::Default);
                 SetupForSolidDraw();
-                return false;
+                return VGGradientTess::Gouraud;
             }
 
             constexpr u32 kLutWidth = 256;
@@ -1019,8 +1035,27 @@ export namespace draconic::vg
             image::OwnedImageData* raw = lut.Get();
             m_gradientLuts.PushBack(Move(lut));
 
+            VGGradientTess tess = VGGradientTess::LinearLut;
+            VGDrawMode mode = VGDrawMode::Default;
+            if (m_perPixelGradients)
+            {
+                switch (fill.GradientKind())
+                {
+                case VGGradientKind::Radial:
+                    tess = VGGradientTess::RadialCoord;
+                    mode = VGDrawMode::GradientRadial;
+                    break;
+                case VGGradientKind::Conic:
+                    tess = VGGradientTess::ConicCoord;
+                    mode = VGDrawMode::GradientConic;
+                    break;
+                default:
+                    break;
+                }
+            }
+            SetDrawMode(mode);
             SetupForTextureDraw(GetOrAddTexture(raw));
-            return true;
+            return tess;
         }
 
         void SetupForSolidDraw()
@@ -1191,6 +1226,7 @@ export namespace draconic::vg
 
         VGBlendMode m_currentBlendMode = VGBlendMode::Normal;
         VGDrawMode m_currentDrawMode = VGDrawMode::Default;
+        bool m_perPixelGradients = false; // radial/conic use dedicated per-pixel shaders when set
         i32 m_currentTextureIndex = 0;
         i32 m_commandStartIndex = 0;
         f32 m_tolerance = 0.05f;

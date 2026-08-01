@@ -54,7 +54,20 @@ export namespace draconic::vg
     /// (crisp text at any scale). The renderer switches pipelines on this.
     enum class VGDrawMode
     {
-        Default,       ///< Sample the texture / vertex color directly.
-        DistanceField, ///< Decode an MSDF atlas (median-of-3 + screen-space AA).
+        Default,        ///< Sample the texture / vertex color directly.
+        DistanceField,  ///< Decode an MSDF atlas (median-of-3 + screen-space AA).
+        GradientRadial, ///< Per-pixel radial gradient: t = length(texcoord); samples the ramp LUT.
+        GradientConic,  ///< Per-pixel conic gradient: t = angle(texcoord)/2pi; samples the ramp LUT.
+    };
+
+    /// How a gradient fill emits per-vertex data during tessellation (paired with the draw mode).
+    /// Linear is exact as an affine per-vertex parameter; radial/conic need per-pixel coordinates
+    /// so a dedicated shader can compute the (non-affine) parameter without Gouraud approximation.
+    enum class VGGradientTess
+    {
+        Gouraud,     ///< Legacy: per-vertex fill.GetColorAt color, interpolated across triangles.
+        LinearLut,   ///< texcoord = LUT u from the affine linear parameter; ramp sampled per pixel.
+        RadialCoord, ///< texcoord = fill.GradientCoord (radial); the shader derives t per pixel.
+        ConicCoord,  ///< texcoord = fill.GradientCoord (conic); the shader derives t per pixel.
     };
 }

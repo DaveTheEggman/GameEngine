@@ -88,7 +88,9 @@ private:
     shaders::ShaderSystemHost m_shaderHost; // owns the ShaderSystem + the VG modules
     rhi::ShaderModule* m_vs = nullptr;      // borrowed from m_shaderHost
     rhi::ShaderModule* m_fs = nullptr;
-    rhi::ShaderModule* m_dfFs = nullptr; // MSDF distance-field fragment shader
+    rhi::ShaderModule* m_dfFs = nullptr;         // MSDF distance-field fragment shader
+    rhi::ShaderModule* m_gradRadialFs = nullptr; // per-pixel radial gradient fragment shader
+    rhi::ShaderModule* m_gradConicFs = nullptr;  // per-pixel conic gradient fragment shader
     rhi::CommandPool* m_pool = nullptr;
     rhi::Fence* m_fence = nullptr;
     u64 m_fenceVal = 0;
@@ -126,12 +128,17 @@ Status VGSandbox::OnInit()
         m_shaderHost.GetVariant(u8"vg", shaders::ShaderStage::Fragment, shaders::ShaderFlags::None);
     m_dfFs = m_shaderHost.GetVariant(u8"vg_df", shaders::ShaderStage::Fragment,
                                      shaders::ShaderFlags::None);
-    if (m_vs == nullptr || m_fs == nullptr || m_dfFs == nullptr)
+    m_gradRadialFs = m_shaderHost.GetVariant(u8"vg_grad_radial", shaders::ShaderStage::Fragment,
+                                             shaders::ShaderFlags::None);
+    m_gradConicFs = m_shaderHost.GetVariant(u8"vg_grad_conic", shaders::ShaderStage::Fragment,
+                                            shaders::ShaderFlags::None);
+    if (m_vs == nullptr || m_fs == nullptr || m_dfFs == nullptr || m_gradRadialFs == nullptr ||
+        m_gradConicFs == nullptr)
         return ErrorCode::Unknown;
 
     if (!m_renderer
              .Initialize(*m_device, *m_vs, *m_fs, m_swapChain->Format(), static_cast<i32>(kFrames),
-                         m_dfFs)
+                         m_dfFs, m_gradRadialFs, m_gradConicFs)
              .IsOk())
         return ErrorCode::Unknown;
 
@@ -163,6 +170,9 @@ Status VGSandbox::OnInit()
     }
 
     m_vg = MakeUnique<vg::VGContext>(DefaultAllocator(), m_fontService.Get());
+    // The renderer was given the radial/conic gradient shaders above, so enable per-pixel
+    // radial/conic gradients (exact falloff instead of the affine LUT approximation).
+    m_vg->SetPerPixelGradients(true);
 
     // 128x128 checkerboard image for the DrawImage demos.
     {

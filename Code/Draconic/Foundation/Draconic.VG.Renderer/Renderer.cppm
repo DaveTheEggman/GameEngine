@@ -75,7 +75,9 @@ export namespace draconic::vg::renderer
         /// shader modules + the render-target format + frame count.
         Status Initialize(rhi::Device& device, rhi::ShaderModule& vertShader,
                           rhi::ShaderModule& fragShader, rhi::TextureFormat targetFormat,
-                          i32 frameCount, rhi::ShaderModule* dfFragShader = nullptr)
+                          i32 frameCount, rhi::ShaderModule* dfFragShader = nullptr,
+                          rhi::ShaderModule* gradRadialFragShader = nullptr,
+                          rhi::ShaderModule* gradConicFragShader = nullptr)
         {
             m_device = &device;
             m_queue = device.GetQueue(rhi::QueueType::Graphics, 0);
@@ -91,6 +93,14 @@ export namespace draconic::vg::renderer
             // Optional distance-field pipeline (same layout/vertex format, MSDF fragment shader).
             if (dfFragShader != nullptr &&
                 !CreatePipelineInto(vertShader, *dfFragShader, m_dfPipeline).IsOk())
+                return ErrorCode::Unknown;
+            // Optional per-pixel radial/conic gradient pipelines (same layout; the fragment shader
+            // derives the gradient parameter per pixel from the emitted gradient-space texcoord).
+            if (gradRadialFragShader != nullptr &&
+                !CreatePipelineInto(vertShader, *gradRadialFragShader, m_gradRadialPipeline).IsOk())
+                return ErrorCode::Unknown;
+            if (gradConicFragShader != nullptr &&
+                !CreatePipelineInto(vertShader, *gradConicFragShader, m_gradConicPipeline).IsOk())
                 return ErrorCode::Unknown;
             if (!CreatePerFrameResources().IsOk())
                 return ErrorCode::Unknown;
@@ -253,16 +263,21 @@ export namespace draconic::vg::renderer
                 if (cmd.indexCount == 0)
                     continue;
 
-                // Switch pipeline on draw-mode change (default sampling vs MSDF decode); falls back
-                // to the default pipeline when no DF pipeline was built. A pipeline swap forces a
-                // bind-group rebind.
+                // Switch pipeline on draw-mode change (default sampling vs MSDF decode vs per-pixel
+                // radial/conic gradient); falls back to the default pipeline when the requested
+                // variant pipeline was not built. A pipeline swap forces a bind-group rebind.
                 if (cmd.drawMode != currentDrawMode)
                 {
-                    rhi::RenderPipeline* pipeline =
-                        (cmd.drawMode == draconic::vg::VGDrawMode::DistanceField &&
-                         m_dfPipeline != nullptr)
-                            ? m_dfPipeline
-                            : m_pipeline;
+                    rhi::RenderPipeline* pipeline = m_pipeline;
+                    if (cmd.drawMode == draconic::vg::VGDrawMode::DistanceField &&
+                        m_dfPipeline != nullptr)
+                        pipeline = m_dfPipeline;
+                    else if (cmd.drawMode == draconic::vg::VGDrawMode::GradientRadial &&
+                             m_gradRadialPipeline != nullptr)
+                        pipeline = m_gradRadialPipeline;
+                    else if (cmd.drawMode == draconic::vg::VGDrawMode::GradientConic &&
+                             m_gradConicPipeline != nullptr)
+                        pipeline = m_gradConicPipeline;
                     renderPass.SetPipeline(pipeline);
                     currentDrawMode = cmd.drawMode;
                     currentTextureIndex = -2;
@@ -387,6 +402,10 @@ export namespace draconic::vg::renderer
                 m_device->DestroyRenderPipeline(m_pipeline);
             if (m_dfPipeline)
                 m_device->DestroyRenderPipeline(m_dfPipeline);
+            if (m_gradRadialPipeline)
+                m_device->DestroyRenderPipeline(m_gradRadialPipeline);
+            if (m_gradConicPipeline)
+                m_device->DestroyRenderPipeline(m_gradConicPipeline);
             if (m_pipelineLayout)
                 m_device->DestroyPipelineLayout(m_pipelineLayout);
             if (m_bindGroupLayout)
@@ -396,6 +415,8 @@ export namespace draconic::vg::renderer
 
             m_pipeline = nullptr;
             m_dfPipeline = nullptr;
+            m_gradRadialPipeline = nullptr;
+            m_gradConicPipeline = nullptr;
             m_pipelineLayout = nullptr;
             m_bindGroupLayout = nullptr;
             m_sampler = nullptr;
@@ -689,7 +710,9 @@ export namespace draconic::vg::renderer
         rhi::BindGroupLayout* m_bindGroupLayout = nullptr;
         rhi::PipelineLayout* m_pipelineLayout = nullptr;
         rhi::RenderPipeline* m_pipeline = nullptr;
-        rhi::RenderPipeline* m_dfPipeline = nullptr; // MSDF fragment variant (null if unused)
+        rhi::RenderPipeline* m_dfPipeline = nullptr;         // MSDF fragment variant (null if unused)
+        rhi::RenderPipeline* m_gradRadialPipeline = nullptr; // per-pixel radial gradient (nullable)
+        rhi::RenderPipeline* m_gradConicPipeline = nullptr;  // per-pixel conic gradient (nullable)
         rhi::Sampler* m_sampler = nullptr;
 
         Array<rhi::Buffer*> m_vertexBuffers;

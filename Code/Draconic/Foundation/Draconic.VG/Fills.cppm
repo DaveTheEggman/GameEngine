@@ -69,6 +69,16 @@ export namespace draconic::vg
         }
     };
 
+    /// The gradient family a fill represents. VGContext maps this to a draw mode + emit mode when
+    /// per-pixel gradients are enabled; Solid/Linear stay on the default pipeline.
+    enum class VGGradientKind
+    {
+        Solid,
+        Linear,
+        Radial,
+        Conic,
+    };
+
     /// Interface for fill styles used to color vector graphics shapes.
     class IVGFill
     {
@@ -91,6 +101,16 @@ export namespace draconic::vg
         }
         /// Sample the fill's color ramp at parameter t (0-1). Solid fills return BaseColor.
         [[nodiscard]] virtual Color SampleRamp(f32 /*t*/) const { return BaseColor(); }
+
+        /// The gradient family this fill belongs to (Solid for non-gradients).
+        [[nodiscard]] virtual VGGradientKind GradientKind() const { return VGGradientKind::Solid; }
+        /// The per-vertex gradient-space coordinate a per-pixel gradient shader consumes: radial
+        /// returns (pos-center)/radius (the shader takes its length); conic returns (pos-center)
+        /// rotated by -startAngle (the shader takes its angle). Unused by solid/linear fills.
+        [[nodiscard]] virtual Float2 GradientCoord(Float2 /*position*/, Rectangle /*bounds*/) const
+        {
+            return Float2{0.0f, 0.0f};
+        }
     };
 
     /// A solid color fill.
@@ -157,6 +177,7 @@ export namespace draconic::vg
             return stops.IsEmpty() ? Color::White : stops[0].color;
         }
         [[nodiscard]] bool RequiresInterpolation() const override { return true; }
+        [[nodiscard]] VGGradientKind GradientKind() const override { return VGGradientKind::Linear; }
     };
 
     /// Radial gradient fill from a center point.
@@ -193,6 +214,12 @@ export namespace draconic::vg
             return stops.IsEmpty() ? Color::White : stops[0].color;
         }
         [[nodiscard]] bool RequiresInterpolation() const override { return true; }
+        [[nodiscard]] VGGradientKind GradientKind() const override { return VGGradientKind::Radial; }
+        [[nodiscard]] Float2 GradientCoord(Float2 position, Rectangle /*bounds*/) const override
+        {
+            const f32 r = (radius < 0.0001f) ? 1.0f : radius;
+            return (position - center) / r;
+        }
     };
 
     /// Conic (angular/sweep) gradient fill around a center point.
@@ -240,5 +267,15 @@ export namespace draconic::vg
             return stops.IsEmpty() ? Color::White : stops[0].color;
         }
         [[nodiscard]] bool RequiresInterpolation() const override { return true; }
+        [[nodiscard]] VGGradientKind GradientKind() const override { return VGGradientKind::Conic; }
+        [[nodiscard]] Float2 GradientCoord(Float2 position, Rectangle /*bounds*/) const override
+        {
+            // Rotate (pos-center) by -startAngle so the shader's atan2 measures from the start
+            // angle - matching GetParameterAt's (atan2 - startAngle).
+            const Float2 d = position - center;
+            const f32 c = Cos(-startAngle);
+            const f32 s = Sin(-startAngle);
+            return Float2{d.x * c - d.y * s, d.x * s + d.y * c};
+        }
     };
 }

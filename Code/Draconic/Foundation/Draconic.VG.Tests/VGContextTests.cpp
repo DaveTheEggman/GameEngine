@@ -96,6 +96,45 @@ TEST_CASE("vg.context: gradient fill bakes + binds a ramp LUT")
     CHECK(ctx.GetBatch().textures.Size() == 1u);
 }
 
+TEST_CASE("vg.context: per-pixel radial gradient emits the radial draw mode + gradient coords")
+{
+    VGContext ctx;
+    ctx.SetPerPixelGradients(true); // host has wired vg_grad_radial/conic
+    VGRadialGradientFill grad(Float2{5.0f, 5.0f}, 5.0f);
+    grad.AddStop(0.0f, Color::Red);
+    grad.AddStop(1.0f, Color::Blue);
+
+    PathBuilder pb;
+    pb.MoveTo(0, 0);
+    pb.LineTo(10, 0);
+    pb.LineTo(10, 10);
+    pb.LineTo(0, 10);
+    pb.Close();
+    ctx.FillPath(pb.ToPath(), grad, FillRule::NonZero, /*antiAlias*/ false);
+
+    VGBatch& batch = ctx.GetBatch();
+    // The gradient geometry is routed to the radial per-pixel pipeline.
+    bool sawRadialCmd = false;
+    for (usize i = 0; i < batch.commands.Size(); ++i)
+        if (batch.commands[i].drawMode == VGDrawMode::GradientRadial)
+            sawRadialCmd = true;
+    CHECK(sawRadialCmd);
+    // Vertices carry the gradient-space coordinate (pos-center)/radius, not a [0,1] LUT u; the
+    // (0,0) corner maps to (-1,-1), so at least one texcoord is negative.
+    bool sawNegativeCoord = false;
+    for (usize i = 0; i < batch.VertexCount(); ++i)
+        if (batch.vertices[i].texCoord.x < 0.0f)
+            sawNegativeCoord = true;
+    CHECK(sawNegativeCoord);
+
+    // With the flag off, the same fill stays on the default pipeline (affine LUT approximation).
+    VGContext plain;
+    plain.FillPath(pb.ToPath(), grad, FillRule::NonZero, /*antiAlias*/ false);
+    VGBatch& plainBatch = plain.GetBatch();
+    for (usize i = 0; i < plainBatch.commands.Size(); ++i)
+        CHECK(plainBatch.commands[i].drawMode == VGDrawMode::Default);
+}
+
 TEST_CASE("vg.context: state stack save/restore of transform")
 {
     VGContext ctx;

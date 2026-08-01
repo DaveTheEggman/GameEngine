@@ -376,12 +376,13 @@ export namespace draconic::vg
         }
 
         /// Tessellate a filled path with an IVGFill style.
-        // gradientLut: emit per-vertex gradient-parameter texcoords + white color (the caller
-        // has baked + bound a ramp LUT as the active texture). Off = legacy per-vertex Gouraud.
+        // gradientTess: emit per-vertex gradient texcoords + white color (the caller has baked +
+        // bound a ramp LUT as the active texture). Gouraud = legacy per-vertex fill.GetColorAt.
         static void TessellateWithFill(const Path& path, FillRule fillRule, const IVGFill& fill,
                                        bool antiAlias, Array<VGVertex>& vertices,
                                        Array<u32>& indices, f32 tolerance = 0.25f,
-                                       f32 fringeWidth = FringeWidth, bool gradientLut = false)
+                                       f32 fringeWidth = FringeWidth,
+                                       VGGradientTess gradientTess = VGGradientTess::Gouraud)
         {
             if (!fill.RequiresInterpolation())
             {
@@ -415,17 +416,16 @@ export namespace draconic::vg
                 if (antiAlias)
                 {
                     TessellateWithAAFill(points, fillRule, fill, bounds, vertices, indices,
-                                         fringeWidth, gradientLut);
+                                         fringeWidth, gradientTess);
                 }
                 else
                 {
                     const u32 baseIndex = static_cast<u32>(vertices.Size());
                     for (usize i = 0; i < pointCount; ++i)
                     {
-                        if (gradientLut)
+                        if (gradientTess != VGGradientTess::Gouraud)
                             vertices.PushBack(VGVertex(
-                                points[i],
-                                Float2{LutU(fill.GetParameterAt(points[i], bounds)), 0.5f},
+                                points[i], GradientTexCoord(gradientTess, fill, points[i], bounds),
                                 Color::White));
                         else
                             vertices.PushBack(
@@ -448,6 +448,24 @@ export namespace draconic::vg
         [[nodiscard]] static f32 LutU(f32 t)
         {
             return (0.5f + Clamp(t, 0.0f, 1.0f) * (GradientLutWidth - 1.0f)) / GradientLutWidth;
+        }
+
+        /// The per-vertex texcoord to emit for a gradient point: the LUT u for the affine linear
+        /// path (shared shader samples it directly), or the gradient-space coordinate for the
+        /// radial/conic paths (their dedicated shader derives t per pixel from it).
+        [[nodiscard]] static Float2 GradientTexCoord(VGGradientTess mode, const IVGFill& fill,
+                                                     Float2 pt, Rectangle bounds)
+        {
+            switch (mode)
+            {
+            case VGGradientTess::LinearLut:
+                return Float2{LutU(fill.GetParameterAt(pt, bounds)), 0.5f};
+            case VGGradientTess::RadialCoord:
+            case VGGradientTess::ConicCoord:
+                return fill.GradientCoord(pt, bounds);
+            default:
+                return Float2{VGVertex::SolidUV, VGVertex::SolidUV};
+            }
         }
 
         /// Compute per-vertex averaged outward normals (miter-like, clamped).
@@ -580,7 +598,8 @@ export namespace draconic::vg
         static void TessellateWithAAFill(Span<const Float2> points, FillRule fillRule,
                                          const IVGFill& fill, Rectangle bounds,
                                          Array<VGVertex>& vertices, Array<u32>& indices,
-                                         f32 fringeWidth = FringeWidth, bool gradientLut = false)
+                                         f32 fringeWidth = FringeWidth,
+                                         VGGradientTess gradientTess = VGGradientTess::Gouraud)
         {
             const usize n = points.Size();
             Array<Float2> normals;
@@ -591,17 +610,17 @@ export namespace draconic::vg
             innerColors.Resize(n);
             outerColors.Resize(n);
 
-            if (gradientLut)
+            if (gradientTess != VGGradientTess::Gouraud)
             {
-                // Per-pixel gradient LUT: emit the parameter t as a texcoord and carry white in
-                // the colors (the outer fringe fades via coverage=0, set in EmitFringeRing).
+                // Gradient LUT/coord path: emit per-vertex gradient data as a texcoord and carry
+                // white in the colors (the outer fringe fades via coverage=0, set in EmitFringeRing).
                 Array<Float2> texCoords;
                 texCoords.Resize(n);
                 for (usize i = 0; i < n; ++i)
                 {
                     innerColors[i] = Color::White;
                     outerColors[i] = Color::White;
-                    texCoords[i] = Float2{LutU(fill.GetParameterAt(points[i], bounds)), 0.5f};
+                    texCoords[i] = GradientTexCoord(gradientTess, fill, points[i], bounds);
                 }
                 EmitFringeRing(points, fillRule, normals, innerColors, outerColors, vertices,
                                indices, fringeWidth, &texCoords);
