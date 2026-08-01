@@ -277,9 +277,18 @@ export namespace draconic::editor::app
                                 { self->RemoveEntry(rowPath); });
             row->AddView(remove.Get());
 
+            // The card surface: a themed Panel (the stylesheet's "panel" class = the
+            // palette's Surface color) so rows read as cards against the window background.
+            auto card = MakeRef<ui::Panel>(DefaultAllocator());
+            card->AddClass(u8"panel");
+            {
+                auto rowLp = MakeRef<ui::LayoutParams>(DefaultAllocator());
+                rowLp->Width = ui::SizeSpec::Match();
+                card->AddView(row.Get(), rowLp);
+            }
             auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
-            m_listColumn->AddView(row.Get(), lp);
+            m_listColumn->AddView(card.Get(), lp);
         }
 
         void RemoveEntry(const String& path)
