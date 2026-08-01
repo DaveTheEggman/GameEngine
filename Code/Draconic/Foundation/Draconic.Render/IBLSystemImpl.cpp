@@ -386,9 +386,13 @@ namespace draconic::render
                                         rhi::ResourceState::ShaderRead, ctx.m_envState);
         ctx.m_envState = rhi::ResourceState::ShaderRead;
 
-        if (!ctx.m_dirty)
+        if (!ctx.m_dirty && ctx.m_bakeWarmup == 0)
         {
             return;
+        }
+        if (ctx.m_bakeWarmup > 0)
+        {
+            --ctx.m_bakeWarmup; // startup re-bake window (survives dropped-submit startup frames)
         }
         ctx.m_dirty = false;
         ctx.m_generation = ++m_nextGeneration; // system-wide: never collides across contexts

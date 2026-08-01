@@ -122,6 +122,11 @@ export namespace draconic::render
             SkySnapshot m_sky{};
             Float3 m_sunDir = Float3{0.0f, -1.0f, 0.0f};
             bool m_dirty = true;
+            // Startup re-bake window. The env cube is a one-shot bake, but a frame's submit can be
+            // dropped during startup (web: the swapchain surface texture expires before the browser
+            // processes the submit). Re-baking for the first frames guarantees the cube lands on a
+            // frame whose submit survives, instead of being lost forever to a single bad frame.
+            u32 m_bakeWarmup = 20;
             u64 m_generation = 0;
             u64 m_sourceStamp = 0; // programmatic SetEquirect/SetCubemap change tick
         };
