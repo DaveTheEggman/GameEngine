@@ -199,6 +199,85 @@ export namespace draconic::rhi::webgpu
                     m_adapters.PushBack(
                         m_allocator.New<WebGpuAdapter>(m_api, m_instance, handle, m_allocator));
                 }
+
+                // The RHI host uses adapters[0], but wgpu's enumeration order is arbitrary and
+                // on Windows routinely leads with an adapter that cannot PRESENT (a layered /
+                // software / non-display-GPU entry) - the swapchain then dies at configure
+                // ("Surface does not support the adapter's queue family"). Order real GPUs
+                // first (discrete, then integrated, then the rest, stable within a class), and
+                // honor DRACONIC_WEBGPU_ADAPTER=<index into the logged list> as the escape
+                // hatch for hybrid-GPU machines where the heuristic still picks wrong.
+                const auto classRank = [](Adapter* adapter) -> u32
+                {
+                    AdapterInfo info;
+                    adapter->GetInfo(info);
+                    switch (info.type)
+                    {
+                    case AdapterType::DiscreteGpu:
+                        return 0;
+                    case AdapterType::IntegratedGpu:
+                        return 1;
+                    case AdapterType::Unknown:
+                        return 2;
+                    default:
+                        return 3; // Cpu/software last - never present-capable
+                    }
+                };
+                for (usize i = 0; i < m_adapters.Size(); ++i)
+                {
+                    AdapterInfo info;
+                    m_adapters[i]->GetInfo(info);
+                    LogInfof("[webgpu] adapter %u: '%s' (%s)", static_cast<unsigned>(i),
+                             reinterpret_cast<const char*>(info.name.CStr()),
+                             info.type == AdapterType::DiscreteGpu     ? "discrete"
+                             : info.type == AdapterType::IntegratedGpu ? "integrated"
+                             : info.type == AdapterType::Cpu           ? "cpu"
+                                                                       : "unknown");
+                }
+                if (Optional<String> pick = GetEnvironmentVariable(u8"DRACONIC_WEBGPU_ADAPTER");
+                    pick.HasValue() && !pick.Value().IsEmpty())
+                {
+                    usize index = 0;
+                    for (usize i = 0; i < pick.Value().Size(); ++i)
+                    {
+                        const char8_t c = pick.Value()[i];
+                        if (c < u8'0' || c > u8'9')
+                        {
+                            index = m_adapters.Size();
+                            break;
+                        }
+                        index = index * 10u + static_cast<usize>(c - u8'0');
+                    }
+                    if (index < m_adapters.Size())
+                    {
+                        Adapter* chosen = m_adapters[index];
+                        m_adapters.RemoveAt(index);
+                        m_adapters.Insert(0, chosen);
+                        LogInfof("[webgpu] DRACONIC_WEBGPU_ADAPTER=%u",
+                                 static_cast<unsigned>(index));
+                    }
+                    else
+                    {
+                        LogError("[webgpu] DRACONIC_WEBGPU_ADAPTER is not a valid index into "
+                                 "the list above - using the default order");
+                    }
+                }
+                else
+                {
+                    // Stable class sort (insertion by rank preserves in-class order).
+                    Array<Adapter*> ordered;
+                    for (u32 rank = 0; rank < 4; ++rank)
+                    {
+                        for (Adapter* adapter : m_adapters)
+                        {
+                            if (classRank(adapter) == rank)
+                            {
+                                ordered.PushBack(adapter);
+                            }
+                        }
+                    }
+                    m_adapters = Move(ordered);
+                }
             }
             else
             {

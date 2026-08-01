@@ -258,6 +258,29 @@ export namespace draconic::rhi::webgpu
             config.format = ToWgpuTextureFormat(m_format);
 #endif
 
+#if !DRACONIC_PLATFORM_WEB
+            // Refuse CLEANLY when this adapter cannot present to the surface - wgpu-native
+            // PANICS inside configure otherwise ("Surface does not support the adapter's
+            // queue family", seen on Windows hybrid/multi-adapter machines). Zero supported
+            // formats = no present support for this (surface, adapter) pair; the backend logs
+            // the adapter list at startup and DRACONIC_WEBGPU_ADAPTER=<index> overrides the pick.
+            {
+                WGPUSurfaceCapabilities caps = WGPU_SURFACE_CAPABILITIES_INIT;
+                if (m_api->wgpuSurfaceGetCapabilities(m_surface->Handle(), m_adapter, &caps) ==
+                    WGPUStatus_Success)
+                {
+                    const bool presentable = caps.formatCount > 0;
+                    m_api->wgpuSurfaceCapabilitiesFreeMembers(caps);
+                    if (!presentable)
+                    {
+                        LogError("[webgpu] this adapter cannot present to the window surface - "
+                                 "set DRACONIC_WEBGPU_ADAPTER=<index> (adapter list logged at "
+                                 "startup)");
+                        return ErrorCode::NotSupported;
+                    }
+                }
+            }
+#endif
             m_api->wgpuSurfaceConfigure(m_surface->Handle(), &config);
             m_configured = true;
             m_width = width;
