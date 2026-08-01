@@ -19,5 +19,6 @@ float4 main(PSInput input) : SV_Target {
     float opacity = clamp(screenPxRange * (sd - 0.5) + 0.5, 0.0, 1.0);
     float4 result = input.Color;
     result.a *= opacity * input.Coverage;
+    result.rgb *= result.a; // premultiplied output, pairs with the PremultipliedAlpha blend
     return result;
 }

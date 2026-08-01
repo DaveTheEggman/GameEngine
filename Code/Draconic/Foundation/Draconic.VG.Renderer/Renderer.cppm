@@ -489,7 +489,11 @@ export namespace draconic::vg::renderer
 
             rhi::ColorTargetState colorTarget{};
             colorTarget.format = m_targetFormat;
-            colorTarget.blend = rhi::BlendState::AlphaBlend();
+            // Premultiplied-alpha compositing: both VG fragment shaders output premultiplied color
+            // (rgb *= a). This removes the dark halo on straight-alpha AA edges and the double-blend
+            // seams at fringe/join overlaps. (Full self-overlap correctness arrives with the planned
+            // stencil-then-cover fill; this is the correct compositing foundation for it.)
+            colorTarget.blend = rhi::BlendState::PremultipliedAlpha();
             const rhi::ColorTargetState colorTargets[1] = {colorTarget};
 
             rhi::RenderPipelineDesc desc{};

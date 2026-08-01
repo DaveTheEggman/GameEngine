@@ -1,7 +1,7 @@
 // Vector Graphics Distance Field Fragment Shader
 // Decodes a multi-channel signed distance field (MSDF) atlas into a crisp, screen-space
-// antialiased alpha. Reference copy - the canonical source is DistanceFieldFragmentShaderSource()
-// in Shaders.cppm (what consumers actually compile).
+// antialiased alpha, then outputs premultiplied-alpha color. Reference copy - the compiled source
+// consumers actually use is Data/Shaders/vg_df.ps.hlsl.
 
 cbuffer VGUniforms : register(b0)
 {
@@ -43,5 +43,6 @@ float4 main(PSInput input) : SV_Target
 
     float4 result = input.Color;
     result.a *= opacity * input.Coverage;
+    result.rgb *= result.a; // premultiplied output
     return result;
 }
