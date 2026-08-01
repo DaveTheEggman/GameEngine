@@ -1,0 +1,27 @@
+--- a/emcc.py
++++ b/emcc.py
+@@ -530,7 +530,10 @@
+       cmd = get_clang_command_asm() + newargs
+     else:
+       cmd = get_clang_command() + newargs
+-    shared.exec_process(cmd)
++    # See the note in compile_source_file below: a command line that arrived as a short
++    # `@response` file was expanded by substitute_response_files() and would otherwise be
++    # handed to clang in full, blowing the 32767-char CreateProcess limit on Windows.
++    shared.exec_process(building.get_command_with_possible_response_file(cmd))
+     assert False, 'exec_process should not return'
+ 
+   # In COMPILE_AND_LINK we need to compile source files too, but we also need to
+@@ -580,7 +583,11 @@
+       # driver to perform linking which would be a big change.
+       cmd += ['-Xclang', '-split-dwarf-file', '-Xclang', unsuffixed_basename(input_file) + '.dwo']
+       cmd += ['-Xclang', '-split-dwarf-output', '-Xclang', unsuffixed_basename(input_file) + '.dwo']
+-    shared.check_call(cmd)
++    # The link path already funnels through this helper; the compile path did not, so a
++    # command line that arrived as a short `@response` file (as CMake's C++20 module maps
++    # do) got expanded by substitute_response_files() above and then handed to clang in
++    # full, blowing the 32767-char CreateProcess limit on Windows.
++    shared.check_call(building.get_command_with_possible_response_file(cmd))
+     if not shared.SKIP_SUBPROCS:
+       assert os.path.exists(output_file)
+       if options.save_temps:
