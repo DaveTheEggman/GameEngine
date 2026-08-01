@@ -496,6 +496,17 @@ namespace draconic::render
         else
         {
             rhi::LogInfof("RenderSubsystem: using runtime shader compiler (%s)", shaderFmtName);
+            if (shaderFmt == rhi::ShaderFormat::WGSL)
+            {
+                // The runtime compiler (DXC) cannot emit WGSL - that is a cook-time path (naga).
+                // Every shader lookup will miss and the scene renders BLACK. The usual cause is
+                // DRACONIC_WEBGPU_WGSL=1 without DRACONIC_USE_SHADER_PACK=1 (or no cooked
+                // shaders.dpak beside the executable).
+                rhi::LogErrorf("RenderSubsystem: the device wants WGSL but there is no cooked "
+                               "shader pack - the runtime compiler cannot produce WGSL, so "
+                               "NOTHING will render. Cook a WGSL shaders.dpak next to the "
+                               "executable and set DRACONIC_USE_SHADER_PACK=1.");
+            }
         }
 
         m_psoCache =
