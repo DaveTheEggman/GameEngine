@@ -188,14 +188,13 @@ namespace draconic::samples
                 return;
             }
 
-            // Glossy floor: low roughness so SSR has something to reflect into.
-            scene::EntityHandle floor = m_scene->CreateEntity(u8"floor");
-            m_scene->SetLocalPosition(floor, core::Float3{0.0f, -0.75f, 0.0f});
-            render::MeshComponent& fm = meshes->Add(floor);
+            // Glossy floor: low roughness so SSR has something to reflect into. Metallic and
+            // roughness are LIVE-tweakable from the panel (the SSR eye test).
+            m_floor = m_scene->CreateEntity(u8"floor");
+            m_scene->SetLocalPosition(m_floor, core::Float3{0.0f, -0.75f, 0.0f});
+            render::MeshComponent& fm = meshes->Add(m_floor);
             fm.mesh = geometry::Primitives::Plane(30.0f, 30.0f);
-            fm.SetMaterial(materials::CreatePBR(u8"web.floor",
-                                                core::Float4{0.28f, 0.29f, 0.33f, 1.0f},
-                                                /*metallic*/ 0.0f, /*roughness*/ 0.12f));
+            ApplyFloorMaterial();
 
             // Roughness x metallic sphere grid: the PBR response matrix.
             constexpr core::u32 kCols = 5; // roughness 0..1
@@ -332,7 +331,13 @@ namespace draconic::samples
             if (auto* decals = m_scene->GetSystem<render::DecalComponentManager>())
             {
                 m_decal = m_scene->CreateEntity(u8"decal");
-                m_scene->SetLocalPosition(m_decal, core::Float3{-2.5f, -0.2f, 2.5f});
+                core::Transform dt = m_scene->GetLocalTransform(m_decal);
+                dt.position = core::Float3{-2.5f, -0.2f, 2.5f};
+                // Decals project along local +Z; rotate so that axis points DOWN at the floor
+                // (an unrotated box projects horizontally and the angle fade removes it).
+                dt.rotation =
+                    core::Quaternion::FromAxisAngle(core::Float3{1.0f, 0.0f, 0.0f}, 1.5707963f);
+                m_scene->SetLocalTransform(m_decal, dt);
                 render::DecalComponent& dc = decals->Add(m_decal);
                 dc.texture = m_texView;
                 dc.size = core::Float3{3.0f, 2.0f, 3.0f};
@@ -456,6 +461,22 @@ namespace draconic::samples
             ct.position = m_fly.position;
             ct.rotation = m_fly.Rotation();
             m_scene->SetLocalTransform(m_camera, ct);
+        }
+
+        // Swap in a freshly built floor material for the current tweak values. The mesh
+        // renderer keys material instances by UID and prunes unreferenced ones, so material
+        // replacement is the clean live-tweak path.
+        void ApplyFloorMaterial()
+        {
+            if (auto* meshes = m_scene->GetSystem<render::MeshComponentManager>())
+            {
+                if (render::MeshComponent* fm = meshes->Get(m_floor))
+                {
+                    fm->SetMaterial(materials::CreatePBR(u8"web.floor",
+                                                         core::Float4{0.28f, 0.29f, 0.33f, 1.0f},
+                                                         m_floorMetallic, m_floorRoughness));
+                }
+            }
         }
 
         // One shared procedural texture (a soft ring on a checker) for the decal + sprites,
@@ -587,6 +608,16 @@ namespace draconic::samples
                 {
                     renderSub->SetSsrEnabled(ssr);
                 }
+                // The SSR eye test wants a tunable reflector (roughness feeds the SSR
+                // cutoff/cone-gather; metallic drives reflectivity).
+                bool floorChanged = false;
+                floorChanged |= ImGui::SliderFloat("Floor Metallic", &m_floorMetallic, 0.0f, 1.0f);
+                floorChanged |=
+                    ImGui::SliderFloat("Floor Roughness", &m_floorRoughness, 0.0f, 1.0f);
+                if (floorChanged)
+                {
+                    ApplyFloorMaterial();
+                }
                 int aoMode = static_cast<int>(renderSub->GetAoMode());
                 const char* aoItems[] = {"Off", "SSAO", "GTAO"};
                 if (ImGui::Combo("AO", &aoMode, aoItems, 3))
@@ -639,6 +670,7 @@ namespace draconic::samples
         scene::EntityHandle m_camera{};
         scene::EntityHandle m_sun{};
         scene::EntityHandle m_pointLight{};
+        scene::EntityHandle m_floor{};
         scene::EntityHandle m_decal{};
         scene::EntityHandle m_sprites[3] = {};
         scene::EntityHandle m_fountainEntity{};
@@ -649,6 +681,8 @@ namespace draconic::samples
         rhi::TextureView* m_texView = nullptr;
         FlyCamera m_fly;
         core::f32 m_time = 0.0f;
+        core::f32 m_floorMetallic = 0.0f;  // floor material tweakables (SSR eye test)
+        core::f32 m_floorRoughness = 0.12f;
     };
 }
 

@@ -197,14 +197,14 @@ namespace
             // above it and cast visible pools on it. The two cube grids stand on the floor.
             if (auto* meshes = m_scene->GetSystem<render::MeshComponentManager>())
             {
-                scene::EntityHandle floor = m_scene->CreateEntity(u8"floor");
-                m_scene->SetLocalPosition(floor, core::Float3{0.0f, 0.0f, 0.0f});
-                render::MeshComponent& fmc = meshes->Add(floor);
+                m_floorEntity = m_scene->CreateEntity(u8"floor");
+                m_scene->SetLocalPosition(m_floorEntity, core::Float3{0.0f, 0.0f, 0.0f});
+                render::MeshComponent& fmc = meshes->Add(m_floorEntity);
                 fmc.mesh = geometry::Primitives::Plane(120.0f, 120.0f);
                 // Semi-glossy DIELECTRIC green floor (non-metallic, moderate roughness): shadows read
                 // clearly (not washed out by a mirror-metal reflection) while SSR still shows softly.
-                fmc.SetMaterial(materials::CreatePBR(
-                    u8"lit", core::Float4{0.12f, 0.45f, 0.22f, 1.0f}, 0.0f, 0.45f));
+                // Metallic/roughness are LIVE-tweakable from the Environment window (SSR eye test).
+                ApplyFloorMaterial();
 
                 core::RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(0.35f);
                 BuildGrid(*meshes, cube, /*originX*/ -8.0f, /*instanced*/ true);
@@ -993,6 +993,15 @@ namespace
                                             "Reflect Dir"};
                     ImGui::Combo("SSR Debug", &p.debug, ssrDbg, 5);
                 }
+                // The SSR eye test wants a tunable reflector: rebuild the floor material live
+                // (roughness feeds the SSR cutoff/cone-gather; metallic drives reflectivity).
+                bool floorChanged = false;
+                floorChanged |= ImGui::SliderFloat("Floor Metallic", &m_floorMetallic, 0.0f, 1.0f);
+                floorChanged |= ImGui::SliderFloat("Floor Roughness", &m_floorRoughness, 0.0f, 1.0f);
+                if (floorChanged)
+                {
+                    ApplyFloorMaterial();
+                }
                 ImGui::Separator();
                 bool taaOn = render->TaaEnabled();
                 if (ImGui::Checkbox("TAA", &taaOn))
@@ -1630,7 +1639,26 @@ namespace
         }
 
     private:
+        // Swap in a freshly built floor material for the current slider values. The mesh
+        // renderer keys material instances by UID and prunes unreferenced ones, so replacing
+        // the material is the clean live-tweak path (no instance-mutation API needed).
+        void ApplyFloorMaterial()
+        {
+            if (auto* meshes = m_scene->GetSystem<render::MeshComponentManager>())
+            {
+                if (render::MeshComponent* fmc = meshes->Get(m_floorEntity))
+                {
+                    fmc->SetMaterial(materials::CreatePBR(
+                        u8"lit", core::Float4{0.12f, 0.45f, 0.22f, 1.0f}, m_floorMetallic,
+                        m_floorRoughness));
+                }
+            }
+        }
+
         scene::Scene* m_scene = nullptr;
+        scene::EntityHandle m_floorEntity{};
+        core::f32 m_floorMetallic = 0.0f;  // floor material tweakables (SSR eye test)
+        core::f32 m_floorRoughness = 0.45f;
         particles::ParticleEffect m_campfire; // the particle demo (billboards + trail sparks)
         scene::EntityHandle m_campfireEntity{};
         scene::EntityHandle m_camera{};
