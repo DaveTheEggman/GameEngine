@@ -1,14 +1,18 @@
 // WebMain.cpp - the BROWSER entry point for Draconic.Engine.Player. Shares PlayerApplication.h with the
 // desktop Main.cpp and runs the exact same generic game runner; it differs only in the platform
 // trio (web shell + WebGPU + the requestAnimationFrame runner, via DRACONIC_APP_MAIN's web body)
-// and in how the game reaches it: the browser has no argv, so the cooked DIST (Content.pak +
-// player.xml) is PRELOADED into the virtual FS at the root by the link step (see CMakeLists), and
-// the app runs with projectDir ".". The engine WGSL shader pack rides in the same way at
-// /shaders.dpak (browsers have no shader compiler).
+// and in how the game reaches it: the browser has no argv, so the player FETCHES the dist from
+// the SERVING FOLDER at startup - player.xml + Content.pak (the export output) and shaders.dpak
+// (the export-cooked WGSL engine pack; browsers have no shader compiler) - into the MEMFS root,
+// then runs with projectDir ".". Nothing is baked at link time, which is what makes this binary
+// a reusable EXPORT TEMPLATE: export any project, drop the files next to the player, serve the
+// folder, browse. The fetches are synchronous under ASYNCIFY (the same yield mechanism the GPU
+// waits use).
 
 #include "Draconic.Core/Prelude.h"
 #include "Draconic.Core/Log/Log.h"
 #include "Draconic.Core/Reflection/Reflect.h"
+#include <emscripten/emscripten.h>
 
 import draconic.core;
 import draconic.vfs;
@@ -66,8 +70,27 @@ using namespace draconic::core;
 
 namespace
 {
-    // Default-constructible so DRACONIC_APP_MAIN can own it in static storage: the dist lives at the
-    // preloaded MEMFS root, so there is nothing to parse - the project dir is ".".
+    // Pull one dist file from the serving folder into the MEMFS root. Synchronous under
+    // ASYNCIFY (emscripten_wget yields to the browser while the request runs). A build
+    // that PRELOADED the file (e.g. the WebScene sample shape) skips the fetch.
+    void FetchDistFile(const char* name)
+    {
+        const StringView path(reinterpret_cast<const utf8char*>(name));
+        if (FileExists(path))
+        {
+            return; // preloaded/bundled - nothing to fetch
+        }
+        emscripten_wget(name, name);
+        if (!FileExists(path))
+        {
+            DRACONIC_LOG_ERROR(u8"Player", u8"could not fetch '{}' from the serving folder - "
+                                           u8"is it next to the player page?",
+                               path);
+        }
+    }
+
+    // Default-constructible so DRACONIC_APP_MAIN can own it in static storage: the dist is
+    // fetched from the serving folder into the MEMFS root, so the project dir is ".".
     class WebPlayerApplication final : public draconic::player::PlayerApplication
     {
     public:
@@ -76,6 +99,11 @@ namespace
     private:
         static draconic::player::PlayerOptions MakeOptions()
         {
+            // Fetch BEFORE the app boots: the project loader reads player.xml/Content.pak
+            // during Initialize, and the render subsystem loads shaders.dpak on device init.
+            FetchDistFile("player.xml");
+            FetchDistFile("Content.pak");
+            FetchDistFile("shaders.dpak");
             draconic::player::PlayerOptions options;
             options.projectDir = String(u8".");
             return options;

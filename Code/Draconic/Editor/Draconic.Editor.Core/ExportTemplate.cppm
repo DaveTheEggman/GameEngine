@@ -386,6 +386,26 @@ export namespace draconic::editor
                                tmpl); // platform + player + sidecars + engineVersion
         tmpl.isHost = false;
 
+        // A WEB build dir (Bin/<Config>/Emscripten-*) holds the browser player page, not a host
+        // executable: platform "Web", the player is the .html, and the sidecars manifest lists
+        // .js/.wasm/serve.py. The resulting template exports exactly like a desktop one - the
+        // export stages page + sidecars + Content.pak + player.xml + the WGSL shaders.dpak, and
+        // the served folder runs in a browser (the player FETCHES the three dist files).
+        {
+            String webPage(kPlayerBaseName);
+            webPage += u8".html";
+            if (configFs.Exists(webPage.AsView()))
+            {
+                tmpl.platform = String(u8"Web");
+                tmpl.playerBinary = webPage;
+                tmpl.compiler = String(u8"Emscripten");
+                tmpl.sidecars.Clear();
+                String manifest(kPlayerBaseName);
+                manifest += u8".runtime-libs";
+                ReadRuntimeLibs(configFs, manifest.AsView(), tmpl.sidecars);
+            }
+        }
+
         // config/compiler come from WHICH Bin/<Config>/<Platform>-<Compiler> dir is being packaged
         // (not the running tool's), so a Debug editor can still create a Release template.
         String parsedConfig, parsedCompiler;
@@ -398,7 +418,7 @@ export namespace draconic::editor
         {
             tmpl.config = String(u8"Release");
         }
-        if (!parsedCompiler.IsEmpty())
+        if (!parsedCompiler.IsEmpty() && !(tmpl.platform.AsView() == u8"Web"))
         {
             tmpl.compiler = parsedCompiler;
         }

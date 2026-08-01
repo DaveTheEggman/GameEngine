@@ -24,45 +24,11 @@ if(EMSCRIPTEN)
         Draconic::Physics Draconic::Physics.Resource Draconic::Engine.Physics
         Draconic::Engine.Project Draconic::VFS.Pak Draconic::Content Draconic::VFS Draconic::Xml.Serialization)
 
-    # The engine WGSL shader pack: cooked with the NATIVE tool (the browser has no shader compiler)
-    # and preloaded at /shaders.dpak, where RenderSubsystem::LoadCookedShaderPack finds it. This is
-    # SEPARATE from the game dist - the dist carries project assets, not engine shaders. (Same shape
-    # as Code/Samples/WebScene.) The native Draconic.Tools.ShaderPack must be built first (desktop).
-    set(_web_shader_pack "${CMAKE_CURRENT_BINARY_DIR}/shaders.dpak")
-    set(_cook_tool
-        "${DRACONIC_HOST_BIN_DIR}/${DRACONIC_SHADERPACKCOOK_BASENAME}${DRACONIC_HOST_EXE_SUFFIX}")
-    # Fail at CONFIGURE time with instructions, not mid-build with a raw ninja error, when the
-    # native tool or the dist has not been produced yet on this host.
-    if(NOT EXISTS "${_cook_tool}")
-        message(FATAL_ERROR "Draconic.Engine.Player(web) needs the NATIVE shader cook tool at "
-            "'${_cook_tool}'. Build the desktop tools first (e.g. cmake --build build/clang "
-            "--target Draconic.Tools.ShaderPack), or set DRACONIC_HOST_BIN_DIR.")
-    endif()
-    # CONFIGURE_DEPENDS: adding a shader file must re-glob, or the cooked pack silently goes
-    # stale and the web renderer hits the pack-miss error at runtime.
-    file(GLOB _engine_shader_sources CONFIGURE_DEPENDS
-        "${CMAKE_SOURCE_DIR}/Data/Shaders/*.hlsl" "${CMAKE_SOURCE_DIR}/Data/Shaders/*.hlsli")
-    add_custom_command(
-        OUTPUT "${_web_shader_pack}"
-        COMMAND "${_cook_tool}" "${CMAKE_SOURCE_DIR}/Data/Shaders" "${_web_shader_pack}" wgsl
-        DEPENDS ${_engine_shader_sources} "${_cook_tool}"
-        COMMENT "Draconic.Engine.Player(web): cooking WGSL shaders.dpak (native Draconic.Tools.ShaderPack)"
-        VERBATIM)
-    add_custom_target(Draconic.Engine.Player.ShaderPack DEPENDS "${_web_shader_pack}")
-    add_dependencies(Draconic.Engine.Player Draconic.Engine.Player.ShaderPack)
-
-    # The cooked game DIST to bundle (Content.pak + player.xml). Overridable so any exported dist can
-    # be baked in; defaults to the staged EditorProject dist. Both files preload into the MEMFS root,
-    # where the runner (projectDir ".") finds them.
-    set(DRACONIC_WEB_PLAYER_DIST
-        "${DRACONIC_HOST_BIN_DIR}/EditorProject/Dist/${DRACONIC_HOST_PLATFORM}"
-        CACHE PATH "Cooked dist dir (Content.pak + player.xml) to bundle into the web player")
-    if(NOT EXISTS "${DRACONIC_WEB_PLAYER_DIST}/Content.pak"
-       OR NOT EXISTS "${DRACONIC_WEB_PLAYER_DIST}/player.xml")
-        message(FATAL_ERROR "Draconic.Engine.Player(web) needs a cooked dist at "
-            "'${DRACONIC_WEB_PLAYER_DIST}' (Content.pak + player.xml). Export the project on the "
-            "desktop first (Draconic.Tools.Export), or point DRACONIC_WEB_PLAYER_DIST at one.")
-    endif()
+    # NOTHING is baked into this binary: the player FETCHES player.xml + Content.pak (the export
+    # output) and shaders.dpak (the export-cooked WGSL engine pack) from the serving folder at
+    # startup (WebMain.cpp, synchronous under ASYNCIFY). That makes the build a reusable EXPORT
+    # TEMPLATE - export any project, drop its files beside the player, serve, browse - and the
+    # web build no longer needs a native cook tool or a pre-exported dist to CONFIGURE.
 
     # Full-window canvas shell, the player's own (shipping-facing: <title>Draconic Player</title>, its
     # <canvas id=canvas> matches WebShell's default selector; DPR-aware resize drives the swapchain).
@@ -72,10 +38,20 @@ if(EMSCRIPTEN)
         "--shell-file=${_web_shell}"
         "-sASYNCIFY"               # device bring-up + per-frame GPU fence waits yield to the browser
         "-sASYNCIFY_STACK_SIZE=1048576" # the deep render-frame pump overflows the 4KB default
-        "--preload-file=${_web_shader_pack}@shaders.dpak"
-        "--preload-file=${DRACONIC_WEB_PLAYER_DIST}/Content.pak@Content.pak"
-        "--preload-file=${DRACONIC_WEB_PLAYER_DIST}/player.xml@player.xml")
+    )
     set_target_properties(Draconic.Engine.Player PROPERTIES SUFFIX ".html")
+
+    # Stage serve.py (COOP/COEP + wasm MIME + no-store static server) beside the output, and emit
+    # the runtime-libs manifest the export template machinery reads: `--template create <this build
+    # dir> --install` packages the player page + these sidecars as an importable "Web" template.
+    set(_web_out_dir "$<TARGET_FILE_DIR:Draconic.Engine.Player>")
+    add_custom_command(TARGET Draconic.Engine.Player POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                "${CMAKE_CURRENT_SOURCE_DIR}/serve.py" "${_web_out_dir}/serve.py"
+        COMMENT "Draconic.Engine.Player(web): staging serve.py"
+        VERBATIM)
+    file(GENERATE OUTPUT "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Draconic.Engine.Player.runtime-libs"
+         CONTENT "Draconic.Engine.Player.js\nDraconic.Engine.Player.wasm\nserve.py\n")
 
 else()
 

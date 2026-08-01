@@ -26,6 +26,7 @@ import draconic.scene.editor;
 import draconic.editor;
 import draconic.editor.core;
 import draconic.settings;
+import draconic.shaders; // CookedShaderPack (the web export test reads the staged pack)
 import draconic.script.wren;        // the Wren backend (the cook compile-checks against it)
 import draconic.script.wren.editor; // RegisterWrenScriptCook
 import draconic.script.editor;      // ScriptClassAsset + ScriptClassAssetBuilder
@@ -1694,4 +1695,135 @@ TEST_CASE("export: CollectExportRoots seeds Always-Export flags + group members,
     CHECK(reopened->ExportRoots().HasGroup(u8"RuntimeLoaded"));
 
     NukeTree(projectDir.AsView());
+}
+
+TEST_CASE("export: template create recognizes a WEB build dir (player page + web sidecars)")
+{
+    // A wasm build dir holds the browser player PAGE (html) + js/wasm sidecars, not a host
+    // executable: CreateTemplate must synthesize a platform "Web" template whose player is the
+    // page - the reusable web export template (the player fetches the dist from the serving
+    // folder, so nothing project-specific is inside).
+    const String dir = TempDir(u8"draconic_web_template_src");
+    const String dest = TempDir(u8"draconic_web_template_out");
+    NukeTree(dir.AsView());
+    NukeTree(dest.AsView());
+    REQUIRE(CreateDirectory(dir.AsView()));
+    draconic::vfs::NativeFileSystem root(dir.AsView());
+
+    SaveText(root, u8"Draconic.Engine.Player.html", u8"<html>player page</html>");
+    SaveText(root, u8"Draconic.Engine.Player.js", u8"// glue");
+    SaveText(root, u8"Draconic.Engine.Player.wasm", u8"\0asm");
+    SaveText(root, u8"serve.py", u8"# server");
+    SaveText(root, u8"Draconic.Engine.Player.runtime-libs",
+             u8"Draconic.Engine.Player.js\nDraconic.Engine.Player.wasm\nserve.py\n");
+
+    String id, outDir;
+    REQUIRE(editor::CreateTemplate(dir.AsView(), dest.AsView(),
+                                   editor::TemplateOutput::ExportFolder, &id, &outDir)
+                .IsOk());
+
+    draconic::vfs::NativeFileSystem out(outDir.AsView());
+    editor::ExportTemplate created;
+    REQUIRE(editor::LoadTemplateManifest(out, created).IsOk());
+    CHECK(created.platform == u8"Web");
+    CHECK(created.compiler == u8"Emscripten");
+    CHECK(created.playerBinary == u8"Draconic.Engine.Player.html");
+    REQUIRE(created.sidecars.Size() == 3u);
+    CHECK(created.sidecars[0] == u8"Draconic.Engine.Player.js");
+    CHECK(created.sidecars[1] == u8"Draconic.Engine.Player.wasm");
+    CHECK(created.sidecars[2] == u8"serve.py");
+    // The bundle materialized the page + every sidecar.
+    CHECK(out.Exists(u8"Draconic.Engine.Player.html"));
+    CHECK(out.Exists(u8"Draconic.Engine.Player.js"));
+    CHECK(out.Exists(u8"Draconic.Engine.Player.wasm"));
+    CHECK(out.Exists(u8"serve.py"));
+
+    NukeTree(dir.AsView());
+    NukeTree(dest.AsView());
+}
+
+TEST_CASE("export: a Web preset stages the browser player + a WGSL shader pack")
+{
+    // The full web export pipeline: preset (platform Web) -> the imported Web template ->
+    // a served-folder dist (player page + js/wasm/serve.py + Content.pak + player.xml +
+    // a WGSL-format shaders.dpak). This is the export-from-editor flow; the output folder
+    // is directly servable (serve.py) and the player fetches the three dist files.
+    const String projectDir = TempDir(u8"draconic_webexport_proj");
+    const String rootDir = TempDir(u8"draconic_webexport_root");
+    const String toolDir = TempDir(u8"draconic_webexport_tool");
+    const String outRoot = TempDir(u8"draconic_webexport_out");
+    NukeTree(projectDir.AsView());
+    NukeTree(rootDir.AsView());
+    NukeTree(toolDir.AsView());
+    NukeTree(outRoot.AsView());
+
+    REQUIRE(editor::EditorProject::Create(projectDir.AsView(), u8"WebExportTest").IsOk());
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
+    REQUIRE(static_cast<bool>(project));
+    REQUIRE(project->SaveSettings().IsOk());
+
+    // An installed Web template (the shape `--template create <wasm build dir>` produces).
+    REQUIRE(CreateDirectory(rootDir.AsView()));
+    REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), u8"web-template").AsView()));
+    draconic::vfs::NativeFileSystem rootFs(rootDir.AsView());
+    editor::ExportTemplate web;
+    web.id = String(u8"draconic-web-debug-test");
+    web.platform = String(u8"Web");
+    web.compiler = String(u8"Emscripten");
+    web.playerBinary = String(u8"Draconic.Engine.Player.html");
+    web.sidecars.PushBack(String(u8"Draconic.Engine.Player.js"));
+    web.sidecars.PushBack(String(u8"Draconic.Engine.Player.wasm"));
+    web.sidecars.PushBack(String(u8"serve.py"));
+    REQUIRE(editor::SaveTemplateManifest(*rootFs.AsWritable(), web, u8"web-template/template.xml")
+                .IsOk());
+    draconic::vfs::NativeFileSystem webDirFs(PathJoin(rootDir.AsView(), u8"web-template").AsView());
+    SaveText(webDirFs, u8"Draconic.Engine.Player.html", u8"<html>player</html>");
+    SaveText(webDirFs, u8"Draconic.Engine.Player.js", u8"// glue");
+    SaveText(webDirFs, u8"Draconic.Engine.Player.wasm", u8"\0asm");
+    SaveText(webDirFs, u8"serve.py", u8"# server");
+
+    REQUIRE(CreateDirectory(toolDir.AsView()));
+    draconic::vfs::NativeFileSystem toolFs(toolDir.AsView());
+    editor::TemplateRegistry registry;
+    registry.Refresh(rootDir.AsView(), &rootFs, toolDir.AsView(), &toolFs);
+
+    editor::ExportPreset preset;
+    preset.name = String(u8"Web Build");
+    preset.platform = String(u8"Web"); // -> the Web template by platform
+    preset.outputSubdir = String(u8"web");
+
+    editor::BuilderRegistry builders;
+    editor::ExportResult result;
+    REQUIRE(
+        editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result)
+            .IsOk());
+
+    // The served folder: page + sidecars + content + the ENGINE shader pack.
+    draconic::vfs::NativeFileSystem distFs(result.outputDir.AsView());
+    CHECK(distFs.Exists(u8"Draconic.Engine.Player.html"));
+    CHECK(distFs.Exists(u8"Draconic.Engine.Player.js"));
+    CHECK(distFs.Exists(u8"Draconic.Engine.Player.wasm"));
+    CHECK(distFs.Exists(u8"serve.py"));
+    CHECK(distFs.Exists(u8"Content.pak"));
+    CHECK(distFs.Exists(u8"player.xml"));
+    CHECK(distFs.Exists(u8"shaders.dpak"));
+
+    // The pack is WGSL-format (the Web platform's runtime format), not SPIR-V/DXIL.
+    {
+        UniquePtr<IStream> packStream = distFs.Open(u8"shaders.dpak", FileMode::Read);
+        REQUIRE(static_cast<bool>(packStream));
+        draconic::shaders::CookedShaderPack pack;
+        REQUIRE(pack.Read(*packStream).IsOk());
+        CHECK(pack.Find(u8"tonemap", draconic::shaders::ShaderStage::Fragment,
+                        draconic::shaders::ShaderFlags::None,
+                        draconic::shaders::CookedShaderFormat::Wgsl) != nullptr);
+        CHECK(pack.Find(u8"tonemap", draconic::shaders::ShaderStage::Fragment,
+                        draconic::shaders::ShaderFlags::None,
+                        draconic::shaders::CookedShaderFormat::SpirV) == nullptr);
+    }
+
+    NukeTree(projectDir.AsView());
+    NukeTree(rootDir.AsView());
+    NukeTree(toolDir.AsView());
+    NukeTree(outRoot.AsView());
 }
