@@ -1,0 +1,5 @@
+# Patch files must keep LF endings: `git apply` / `patch` match context lines
+# byte-for-byte, and a CRLF checkout (core.autocrlf=true on Windows) makes them
+# fail against the LF sources they target.
+*.patch -text
+*.diff -text
