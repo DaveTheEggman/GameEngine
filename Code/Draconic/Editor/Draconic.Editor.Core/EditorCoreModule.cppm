@@ -11,6 +11,7 @@ export module draconic.editor.core;
 export import :command;
 export import :selection;
 export import :project;
+export import :project_registry;
 export import :page;
 export import :context;
 export import :cook_service;

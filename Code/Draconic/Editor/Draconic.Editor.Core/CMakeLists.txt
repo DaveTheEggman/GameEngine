@@ -35,6 +35,7 @@ target_sources(Draconic.Editor.Core
             Command.cppm
             Selection.cppm
             Project.cppm
+            ProjectRegistry.cppm
             Export.cppm
             Page.cppm
             Context.cppm

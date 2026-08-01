@@ -1,4 +1,5 @@
 add_executable(Draconic.Editor.Core.Tests TestsMain.cpp CommandTests.cpp ProjectTests.cpp
+    ProjectRegistryTests.cpp
     ExportTests.cpp JobServiceTests.cpp ContextTests.cpp LogBufferTests.cpp ImporterTests.cpp)
 target_link_libraries(Draconic.Editor.Core.Tests PRIVATE Draconic::Editor.Core Draconic::Geometry.Editor Draconic::Geometry.Resource
     Draconic::Engine.Render Draconic::Scene.Resource Draconic::Scene.Editor Draconic::VFS.Pak Draconic::Engine.Project Draconic::Content Draconic::VFS Draconic::Settings
