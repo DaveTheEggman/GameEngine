@@ -88,7 +88,7 @@
       "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "DRACONIC_BUILD_SAMPLES": "OFF"
+        "DRACONIC_BUILD_SAMPLES": "ON"
       }
     },
     {

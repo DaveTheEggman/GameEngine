@@ -510,10 +510,14 @@ if(DRACONIC_BUILD_TESTS)
     draconic_test_suite(Code/Draconic/Foundation/Draconic.Xml.Tests                       Draconic::Xml)
 endif()
 
-# Web-only samples, then stop - the rest of Code/Samples is desktop-only.
+# Web-only samples, then stop - the rest of Code/Samples is desktop-only. Honor
+# DRACONIC_BUILD_SAMPLES (both wasm presets default it OFF): a samples-off wasm build
+# must not build the samples NOR inherit WebScene's native shader-cook tool requirement.
 if(EMSCRIPTEN)
-    add_subdirectory(Code/Samples/WebTriangle)  # WebShell + web runner + WebGPU factory -> WebTriangle.html
-    add_subdirectory(Code/Samples/WebScene)     # DefaultApplication + a lit PBR scene -> WebScene.html
+    if(DRACONIC_BUILD_SAMPLES)
+        add_subdirectory(Code/Samples/WebTriangle)  # WebShell + web runner + WebGPU factory -> WebTriangle.html
+        add_subdirectory(Code/Samples/WebScene)     # DefaultApplication + a lit PBR scene -> WebScene.html
+    endif()
     return()
 endif()
 

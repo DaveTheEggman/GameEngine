@@ -30,7 +30,7 @@ target_link_libraries(WebScene PRIVATE
 set(_web_shader_pack "${CMAKE_CURRENT_BINARY_DIR}/shaders.dpak")
 set(_cook_tool
     "${DRACONIC_HOST_BIN_DIR}/${DRACONIC_SHADERPACKCOOK_BASENAME}${DRACONIC_HOST_EXE_SUFFIX}")
-file(GLOB _engine_shader_sources
+file(GLOB _engine_shader_sources CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/Data/Shaders/*.hlsl" "${CMAKE_SOURCE_DIR}/Data/Shaders/*.hlsli")
 add_custom_command(
     OUTPUT "${_web_shader_pack}"

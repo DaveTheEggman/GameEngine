@@ -149,10 +149,10 @@ add_library(draconic_doctest INTERFACE)
 add_library(doctest::doctest ALIAS draconic_doctest)
 target_include_directories(draconic_doctest SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/doctest)
 
-# Compiled third-party (imgui, msdfgen, Jolt, AngelScript) whose Draconic consumers have not yet
-# climbed to web. Gated OFF for Emscripten so a blank wasm build stays clean; each un-gates when its
-# consumer joins the web build (docs/design/web-platform.md). Jolt DOES support Emscripten - the
-# JoltPhysics.js project is that same C++ compiled to wasm - so this is "not needed yet", not "can't".
+# Compiled third-party whose Draconic consumers have not yet climbed to web: imgui + msdfgen
+# (this block ONLY - Jolt and AngelScript build for wasm now and live below it). Gated OFF for
+# Emscripten so a blank wasm build stays clean; each un-gates when its consumer joins the web
+# build (docs/design/web-platform.md).
 if(NOT EMSCRIPTEN)
 
 # Dear ImGui - vendored (copied from upstream, not a submodule). Compiled as a static library;

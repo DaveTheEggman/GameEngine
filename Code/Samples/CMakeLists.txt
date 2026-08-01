@@ -15,15 +15,19 @@ add_subdirectory(NetEcho)
 # the desktop shell + the Vulkan GPU factory.
 if(TARGET Draconic::Shell.Desktop AND TARGET Draconic::Runtime.Desktop AND TARGET Draconic::Graphics.Gpu)
     add_subdirectory(HelloWindow)
-    add_subdirectory(InputActions)       # draconic.input consumer proof (named actions end-to-end)
-    add_subdirectory(PhysicsPlayground)  # physics P1 consumer proof (crates/trigger/raycast on Jolt)
     add_subdirectory(ScriptPlayground)   # script P1 consumer proof (Wren Mover/Spinner behaviors on the ScriptSubsystem)
-    add_subdirectory(AudioPlayground)    # audio P1 consumer proof (ambient loop + positional one-shots on miniaudio)
     add_subdirectory(MultiWindow)
-    add_subdirectory(RenderStressTest)   # worst-case benchmark to keep perf honest
+    # Samples with an ImGui debug UI - honor the extension option, or an
+    # -DDRACONIC_EXTENSION_IMGUI=OFF configure dies on a missing Draconic::Imgui target.
+    if(DRACONIC_EXTENSION_IMGUI)
+        add_subdirectory(InputActions)       # draconic.input consumer proof (named actions end-to-end)
+        add_subdirectory(PhysicsPlayground)  # physics P1 consumer proof (crates/trigger/raycast on Jolt)
+        add_subdirectory(AudioPlayground)    # audio P1 consumer proof (ambient loop + positional one-shots on miniaudio)
+        add_subdirectory(RenderStressTest)   # worst-case benchmark to keep perf honest
+    endif()
     # These dev harnesses link the authoring pipeline (ModelImporter / *.Editor cook libs), so they
     # only build when the tooling is present (DRACONIC_BUILD_TOOLS; always off for web).
-    if(DRACONIC_BUILD_TOOLS)
+    if(DRACONIC_BUILD_TOOLS AND DRACONIC_EXTENSION_IMGUI)
         add_subdirectory(Sandbox)            # the dev harness we grow the engine in
         add_subdirectory(AnimStressTest)     # animation/skinning benchmark (Sandbox copy, stripped toward a grid)
         add_subdirectory(AnimatedCrowd)      # skinned-crowd instancing (InstancedMeshComponent + InstancedSkinning)
@@ -38,6 +42,8 @@ add_subdirectory(Framework)
 if(TARGET Draconic::SamplesFramework)
     add_subdirectory(RHI)
     add_subdirectory(VG)  # VG sandbox - end-to-end VG stack demo
-    add_subdirectory(GUI) # GUI sandbox - draconic.gui widgets + CSS on the VG renderer
+    if(DRACONIC_EXPERIMENTAL_GUI)
+        add_subdirectory(GUI) # GUI sandbox - draconic.gui widgets + CSS on the VG renderer
+    endif()
     add_subdirectory(UI)  # UI sandbox - draconic.ui (Sedulous.UI port) on the VG renderer
 endif()

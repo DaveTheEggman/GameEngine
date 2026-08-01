@@ -31,13 +31,23 @@ if(EMSCRIPTEN)
     set(_web_shader_pack "${CMAKE_CURRENT_BINARY_DIR}/shaders.dpak")
     set(_cook_tool
         "${DRACONIC_HOST_BIN_DIR}/${DRACONIC_SHADERPACKCOOK_BASENAME}${DRACONIC_HOST_EXE_SUFFIX}")
-    file(GLOB _engine_shader_sources
+    # Fail at CONFIGURE time with instructions, not mid-build with a raw ninja error, when the
+    # native tool or the dist has not been produced yet on this host.
+    if(NOT EXISTS "${_cook_tool}")
+        message(FATAL_ERROR "Draconic.Engine.Player(web) needs the NATIVE shader cook tool at "
+            "'${_cook_tool}'. Build the desktop tools first (e.g. cmake --build build/clang "
+            "--target Draconic.Tools.ShaderPack), or set DRACONIC_HOST_BIN_DIR.")
+    endif()
+    # CONFIGURE_DEPENDS: adding a shader file must re-glob, or the cooked pack silently goes
+    # stale and the web renderer hits the pack-miss error at runtime.
+    file(GLOB _engine_shader_sources CONFIGURE_DEPENDS
         "${CMAKE_SOURCE_DIR}/Data/Shaders/*.hlsl" "${CMAKE_SOURCE_DIR}/Data/Shaders/*.hlsli")
     add_custom_command(
         OUTPUT "${_web_shader_pack}"
         COMMAND "${_cook_tool}" "${CMAKE_SOURCE_DIR}/Data/Shaders" "${_web_shader_pack}" wgsl
         DEPENDS ${_engine_shader_sources} "${_cook_tool}"
-        COMMENT "Draconic.Engine.Player(web): cooking WGSL shaders.dpak (native Draconic.Tools.ShaderPack)")
+        COMMENT "Draconic.Engine.Player(web): cooking WGSL shaders.dpak (native Draconic.Tools.ShaderPack)"
+        VERBATIM)
     add_custom_target(Draconic.Engine.Player.ShaderPack DEPENDS "${_web_shader_pack}")
     add_dependencies(Draconic.Engine.Player Draconic.Engine.Player.ShaderPack)
 
@@ -47,6 +57,12 @@ if(EMSCRIPTEN)
     set(DRACONIC_WEB_PLAYER_DIST
         "${DRACONIC_HOST_BIN_DIR}/EditorProject/Dist/${DRACONIC_HOST_PLATFORM}"
         CACHE PATH "Cooked dist dir (Content.pak + player.xml) to bundle into the web player")
+    if(NOT EXISTS "${DRACONIC_WEB_PLAYER_DIST}/Content.pak"
+       OR NOT EXISTS "${DRACONIC_WEB_PLAYER_DIST}/player.xml")
+        message(FATAL_ERROR "Draconic.Engine.Player(web) needs a cooked dist at "
+            "'${DRACONIC_WEB_PLAYER_DIST}' (Content.pak + player.xml). Export the project on the "
+            "desktop first (Draconic.Tools.Export), or point DRACONIC_WEB_PLAYER_DIST at one.")
+    endif()
 
     # Full-window canvas shell, the player's own (shipping-facing: <title>Draconic Player</title>, its
     # <canvas id=canvas> matches WebShell's default selector; DPR-aware resize drives the swapchain).
