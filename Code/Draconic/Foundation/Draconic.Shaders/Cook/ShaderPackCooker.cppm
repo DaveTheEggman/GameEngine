@@ -29,7 +29,11 @@ export namespace draconic::shaders
         StringView scratchDir;                   // WgslTranslator intermediates (must exist)
         Span<const CookedShaderFormat> formats;  // which backend blobs to emit
         bool validateWgsl = true;                // run tint over the WGSL
-        StringView spirvTargetEnv = u8"vulkan1.3"; // for the SPIR-V (Vulkan) blobs
+        // SPIR-V target for the SpirV blobs. vulkan1.1 by contract: the SpirV bucket serves
+        // BOTH Vulkan and native WebGPU (wgpu-native/naga), and naga rejects SPIR-V 1.4+
+        // instructions (OpCopyLogical) that vulkan1.3-targeted DXC emits - a 1.3 pack
+        // panics wgpu-native at pipeline creation. Matches the dev-mode WebGPU compile.
+        StringView spirvTargetEnv = u8"vulkan1.1";
     };
 
     struct ShaderCookReport
@@ -48,6 +52,107 @@ export namespace draconic::shaders
                  ShaderStage stage, ShaderFlags flags, CookedShaderFormat format,
                  const ShaderCookOptions& opts, Span<const StringView> includePaths, StringView stem,
                  StringView fileName, CookedShaderPack& pack, ShaderCookReport& report);
+
+    // Inline-expand `#include "file"` directives against the shader root, so the drift-lint
+    // sees the .hlsli bodies where the real flag #ifdefs live (a stage file is often just the
+    // directive + one include - linting only its own text would pass a cook that silently
+    // strips a used flag in dist). Quote-includes only (the corpus has no angle includes),
+    // depth-limited and de-duplicated; unreadable includes are skipped here - DXC reports
+    // them properly during the actual compile.
+    inline void AppendExpandedSource(StringView shaderDir, StringView source, u32 depth,
+                                     Array<String>& visited, String& out)
+    {
+        constexpr u32 kMaxIncludeDepth = 8;
+        const usize n = source.Size();
+        const char8_t* d = source.Data();
+        usize lineStart = 0;
+        while (lineStart <= n)
+        {
+            usize lineEnd = lineStart;
+            while (lineEnd < n && d[lineEnd] != u8'\n')
+            {
+                ++lineEnd;
+            }
+            const StringView line = source.SubStr(lineStart, lineEnd - lineStart);
+
+            usize k = 0;
+            while (k < line.Size() && (line.Data()[k] == u8' ' || line.Data()[k] == u8'\t'))
+            {
+                ++k;
+            }
+            const StringView trimmed = line.SubStr(k, line.Size() - k);
+            bool expanded = false;
+            if (depth < kMaxIncludeDepth && trimmed.StartsWith(u8"#include"))
+            {
+                const usize firstQuote = [&]() -> usize
+                {
+                    for (usize i = 8; i < trimmed.Size(); ++i)
+                    {
+                        if (trimmed.Data()[i] == u8'"')
+                        {
+                            return i;
+                        }
+                    }
+                    return trimmed.Size();
+                }();
+                usize closeQuote = trimmed.Size();
+                for (usize i = firstQuote + 1; i < trimmed.Size(); ++i)
+                {
+                    if (trimmed.Data()[i] == u8'"')
+                    {
+                        closeQuote = i;
+                        break;
+                    }
+                }
+                if (firstQuote < trimmed.Size() && closeQuote < trimmed.Size())
+                {
+                    const StringView includeName =
+                        trimmed.SubStr(firstQuote + 1, closeQuote - firstQuote - 1);
+                    bool seen = false;
+                    for (const String& v : visited)
+                    {
+                        if (v.AsView() == includeName)
+                        {
+                            seen = true;
+                            break;
+                        }
+                    }
+                    if (!seen)
+                    {
+                        visited.PushBack(String(includeName));
+                        String includePath(shaderDir);
+                        includePath += u8"/";
+                        includePath += includeName;
+                        const Result<Array<byte>> bytes = ReadFile(includePath.AsView());
+                        if (bytes.HasValue())
+                        {
+                            const Array<byte>& b = bytes.Value();
+                            AppendExpandedSource(
+                                shaderDir,
+                                StringView(reinterpret_cast<const char8_t*>(b.Data()), b.Size()),
+                                depth + 1, visited, out);
+                            expanded = true;
+                        }
+                    }
+                    else
+                    {
+                        expanded = true; // already inlined once - don't re-scan or keep the line
+                    }
+                }
+            }
+            if (!expanded)
+            {
+                out += line;
+                out += u8"\n";
+            }
+
+            if (lineEnd >= n)
+            {
+                break;
+            }
+            lineStart = lineEnd + 1;
+        }
+    }
 
     // Fill `pack` from every stage file under opts.shaderDir. On any error the pack is left partially
     // filled and success=false - the caller decides whether to ship (a dist should not).
@@ -76,6 +181,21 @@ export namespace draconic::shaders
             report.errors.PushBack(String(u8"could not list the shader directory"));
             return report;
         }
+        // ListDirectory yields filesystem order (readdir/FindFirstFile) - actually sort, so
+        // the pack's entry order (and bytes) is reproducible across hosts and runs.
+        collector.files.Sort(
+            [](const String& a, const String& b)
+            {
+                const usize n = a.Size() < b.Size() ? a.Size() : b.Size();
+                for (usize i = 0; i < n; ++i)
+                {
+                    if (a[i] != b[i])
+                    {
+                        return a[i] < b[i];
+                    }
+                }
+                return a.Size() < b.Size();
+            });
 
         const StringView includePaths[] = {opts.shaderDir};
 
@@ -104,9 +224,16 @@ export namespace draconic::shaders
             const StringView source(reinterpret_cast<const char8_t*>(sb.Data()), sb.Size());
 
             // Variant model: declared mask + drift-lint (used-but-undeclared is a hard error).
+            // The directive comes from the STAGE FILE, but the lint runs over the
+            // include-EXPANDED text - the flag #ifdefs live in the shared .hlsli bodies.
             const VariantDirective directive = ParseVariantDirective(source);
             Array<StringView> undeclared;
-            FindUndeclaredFlagUses(source, directive.mask, undeclared);
+            String expandedSource;
+            {
+                Array<String> visitedIncludes;
+                AppendExpandedSource(opts.shaderDir, source, 0, visitedIncludes, expandedSource);
+            }
+            FindUndeclaredFlagUses(expandedSource.AsView(), directive.mask, undeclared);
             if (!undeclared.IsEmpty())
             {
                 String msg(u8"uses undeclared variant flag(s):");

@@ -53,6 +53,13 @@ export namespace draconic::shaders
                 MemCopy(e.blob.Data(), blob.Data(), blob.Size());
             }
             const u64 key = CombineKey(nameHash, stage, flags, format);
+            if (const usize* existing = m_index.Find(key))
+            {
+                // Re-adding a variant overwrites in place - a pushed duplicate would stay
+                // orphaned in m_entries and be serialized (and Count()ed) twice.
+                m_entries[*existing] = Move(e);
+                return;
+            }
             m_index.InsertOrAssign(key, m_entries.Size());
             m_entries.PushBack(Move(e));
         }
@@ -165,8 +172,24 @@ export namespace draconic::shaders
                 return Status{ErrorCode::InvalidArgument};
             }
 
+            // Count guard: every count/length read below is bounded by the bytes actually
+            // remaining in the stream, so a truncated/corrupt pack fails cleanly instead of
+            // attempting a multi-GB Resize on a garbage length.
+            const i64 streamSize = in.Size();
+            const auto remaining = [&]() -> u64
+            {
+                const i64 pos = in.Tell();
+                return (streamSize >= 0 && pos >= 0 && streamSize > pos)
+                           ? static_cast<u64>(streamSize - pos)
+                           : 0ull;
+            };
+
             u32 nameCount = 0;
             r.Read(nameCount);
+            if (nameCount > remaining() / 12) // hash(8) + length(4) minimum per record
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
             for (u32 i = 0; i < nameCount && r.IsOk(); ++i)
             {
                 u64 nameHash = 0;
@@ -178,6 +201,10 @@ export namespace draconic::shaders
 
             u32 maskCount = 0;
             r.Read(maskCount);
+            if (maskCount > remaining() / 12) // key(8) + mask(4) per record
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
             for (u32 i = 0; i < maskCount && r.IsOk(); ++i)
             {
                 u64 maskKey = 0;
@@ -189,6 +216,10 @@ export namespace draconic::shaders
 
             u32 entryCount = 0;
             r.Read(entryCount);
+            if (entryCount > remaining() / 24) // fixed header bytes per entry
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
             for (u32 i = 0; i < entryCount && r.IsOk(); ++i)
             {
                 Entry e;
@@ -201,6 +232,10 @@ export namespace draconic::shaders
                 e.stage = static_cast<ShaderStage>(stage);
                 e.flags = static_cast<ShaderFlags>(flags);
                 e.format = static_cast<CookedShaderFormat>(format);
+                if (!r.IsOk() || blobLen > remaining())
+                {
+                    return Status{ErrorCode::InvalidArgument}; // truncated/corrupt blob length
+                }
                 e.blob.Resize(blobLen);
                 if (blobLen > 0)
                 {

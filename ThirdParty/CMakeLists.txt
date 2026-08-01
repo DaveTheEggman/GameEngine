@@ -1,6 +1,6 @@
 # Draconic third-party dependencies.
 
-# SDL3 — pre-built development libraries (Windows). Point find_package(SDL3)
+# SDL3 - pre-built development libraries (Windows). Point find_package(SDL3)
 # to the vendored copy and store the DLL path for post-build copies.
 if(WIN32 AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/SDL3/cmake/SDL3Config.cmake)
     set(SDL3_DIR "${CMAKE_CURRENT_SOURCE_DIR}/SDL3/cmake" CACHE PATH "SDL3 CMake config" FORCE)
@@ -9,7 +9,7 @@ if(WIN32 AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/SDL3/cmake/SDL3Config.cmake)
     endif()
 endif()
 
-# DXC — vendored headers + pre-built runtime binaries (HLSL -> SPIR-V/DXIL).
+# DXC - vendored headers + pre-built runtime binaries (HLSL -> SPIR-V/DXIL).
 # Headers are an INTERFACE target; the runtime library is loaded at run time
 # (dlopen / LoadLibrary), so we only publish its path + an rpath for dev builds.
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/DXC/include/dxc/dxcapi.h)
@@ -46,10 +46,10 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/DXC/include/dxc/dxcapi.h)
         endif()
     endif()
 else()
-    message(STATUS "ThirdParty/DXC not present — draconic.shaders will be skipped.")
+    message(STATUS "ThirdParty/DXC not present - draconic.shaders will be skipped.")
 endif()
 
-# wgpu-native — vendored standard webgpu.h header + pre-built runtime binaries
+# wgpu-native - vendored standard webgpu.h header + pre-built runtime binaries
 # (gfx-rs/wgpu-native, see WgpuNative/VERSION). The desktop WebGPU RHI backend is
 # written against webgpu.h and loads wgpu_native at RUN TIME (dlopen / LoadLibrary),
 # the same runtime-sidecar pattern as DXC: headers are an INTERFACE target; only the
@@ -83,10 +83,10 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/WgpuNative/include/webgpu/webgpu.h)
         endif()
     endif()
 else()
-    message(STATUS "ThirdParty/WgpuNative not present — draconic.rhi.webgpu will be skipped.")
+    message(STATUS "ThirdParty/WgpuNative not present - draconic.rhi.webgpu will be skipped.")
 endif()
 
-# Naga + Tint — vendored COOK-TIME executables for the WGSL shader cook. naga-cli
+# Naga + Tint - vendored COOK-TIME executables for the WGSL shader cook. naga-cli
 # (SPIR-V -> WGSL, version-matched to WgpuNative's naga) is the translator; tint is
 # the Chrome/Dawn conformance oracle run over its output. NOT linked and NOT loaded
 # at run time - the cook shells out to them (core::RunProcess). An INTERFACE target
@@ -111,16 +111,16 @@ if(EXISTS "${_naga_exe}")
     target_compile_definitions(draconic_shader_cook_tools INTERFACE DRACONIC_NAGA_PATH="${_naga_exe}")
     message(STATUS "naga-cli (WGSL cook): ${_naga_exe}")
 else()
-    message(STATUS "naga-cli not present for this host — WGSL cook will report it missing.")
+    message(STATUS "naga-cli not present for this host - WGSL cook will report it missing.")
 endif()
 if(EXISTS "${_tint_exe}")
     target_compile_definitions(draconic_shader_cook_tools INTERFACE DRACONIC_TINT_PATH="${_tint_exe}")
     message(STATUS "tint (WGSL conformance): ${_tint_exe}")
 else()
-    message(STATUS "tint not present for this host — WGSL cook validation will be skipped.")
+    message(STATUS "tint not present for this host - WGSL cook will FAIL unless validateWgsl=false is passed explicitly.")
 endif()
 
-# stb / cgltf / ufbx — vendored header(+source) libraries (copied, not submodules).
+# stb / cgltf / ufbx - vendored header(+source) libraries (copied, not submodules).
 # Header include-dir INTERFACE targets; the *_impl translation units that define
 # the implementations live in the engine libraries that use them.
 add_library(draconic_stb INTERFACE)
@@ -135,7 +135,7 @@ add_library(draconic_ufbx INTERFACE)
 add_library(Draconic::Ufbx ALIAS draconic_ufbx)
 target_include_directories(draconic_ufbx SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/ufbx)
 
-# miniaudio — vendored single-header audio library (github.com/mackron/miniaudio v0.11.25,
+# miniaudio - vendored single-header audio library (github.com/mackron/miniaudio v0.11.25,
 # public domain / MIT-0). Header include-dir INTERFACE target; the MINIAUDIO_IMPLEMENTATION
 # translation unit lives in draconic.audio. Ogg Vorbis decoding is provided by
 # ThirdParty/stb/stb_vorbis.c (public domain), compiled inside the same implementation TU.
@@ -143,7 +143,7 @@ add_library(draconic_miniaudio INTERFACE)
 add_library(Draconic::Miniaudio ALIAS draconic_miniaudio)
 target_include_directories(draconic_miniaudio SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/miniaudio)
 
-# doctest — vendored single-header test framework (github.com/doctest/doctest v2.4.11, MIT).
+# doctest - vendored single-header test framework (github.com/doctest/doctest v2.4.11, MIT).
 # A copy of the source (not a submodule / not FetchContent); tests link doctest::doctest.
 add_library(draconic_doctest INTERFACE)
 add_library(doctest::doctest ALIAS draconic_doctest)
@@ -155,10 +155,10 @@ target_include_directories(draconic_doctest SYSTEM INTERFACE ${CMAKE_CURRENT_SOU
 # JoltPhysics.js project is that same C++ compiled to wasm - so this is "not needed yet", not "can't".
 if(NOT EMSCRIPTEN)
 
-# Dear ImGui — vendored (copied from upstream, not a submodule). Compiled as a static library;
+# Dear ImGui - vendored (copied from upstream, not a submodule). Compiled as a static library;
 # the include dir is PUBLIC + SYSTEM so consumers (the draconic.imgui lib + apps) can
 # #include "imgui.h" and call ImGui:: directly. Does NOT link draconic_policy, so the vendored
-# sources build without our -Werror. No stock backends — Draconic has its own RHI-based renderer.
+# sources build without our -Werror. No stock backends - Draconic has its own RHI-based renderer.
 add_library(draconic_imgui STATIC
     imgui/imgui.cpp
     imgui/imgui_draw.cpp
@@ -169,7 +169,7 @@ add_library(Draconic::ImGui ALIAS draconic_imgui)
 target_include_directories(draconic_imgui SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/imgui)
 set_target_properties(draconic_imgui PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-# msdfgen — multi-channel signed distance field generator (compiled from source).
+# msdfgen - multi-channel signed distance field generator (compiled from source).
 # Import-time only: used by the font atlas baker, not linked at runtime.
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/msdfgen/CMakeLists.txt)
     set(MSDFGEN_CORE_ONLY          ON  CACHE BOOL "" FORCE)
@@ -187,7 +187,7 @@ endif()
 
 endif() # NOT EMSCRIPTEN (imgui + msdfgen gated until their web consumers climb)
 
-# Jolt Physics v5.3.0 — vendored BY COPY (Jolt/ source tree + LICENSE; no submodule).
+# Jolt Physics v5.3.0 - vendored BY COPY (Jolt/ source tree + LICENSE; no submodule).
 # Built for Emscripten too (JoltPhysics.js is this same C++ compiled to wasm).
 # Compiled from source as one static lib with a fixed, engine-chosen configuration
 # (deterministic-enough defaults; no Jolt CMake options surface). Include dir is
@@ -203,7 +203,7 @@ target_compile_definitions(draconic_jolt PUBLIC
     $<$<CONFIG:Debug>:JPH_ENABLE_ASSERTS>)
 set_target_properties(draconic_jolt PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-# AngelScript 2.39.0 WIP — vendored BY COPY (github.com/anjo76/angelscript, sdk library
+# AngelScript 2.39.0 WIP - vendored BY COPY (github.com/anjo76/angelscript, sdk library
 # + the scriptstdstring and scriptbuilder add-ons; no submodule). Compiled from source as
 # one static lib; per-architecture native-call sources self-select via as_config.h #ifdefs,
 # so globbing every .cpp is safe. Include dirs are PUBLIC + SYSTEM so draconic.script.angelscript

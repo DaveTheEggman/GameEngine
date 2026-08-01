@@ -128,27 +128,10 @@ export namespace draconic::shaders
         }
     }
 
-    // Helper: does `line` contain `needle` as a substring?
-    [[nodiscard]] inline bool LineContains(StringView line, StringView needle) noexcept
-    {
-        if (needle.Size() > line.Size())
-        {
-            return false;
-        }
-        for (usize i = 0; i + needle.Size() <= line.Size(); ++i)
-        {
-            if (line.SubStr(i, needle.Size()) == needle)
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
     // Flag names that appear in a preprocessor conditional in the source but are NOT in `declared`.
     // These are the drift bugs canonicalization would silently strip. Scans lines that begin (after
-    // whitespace) with #if / #ifdef / #ifndef / #elif or contain `defined`, matching whole-word flag
-    // names. Empty => clean.
+    // whitespace) with a #if / #ifdef / #ifndef / #elif directive, matching whole-word flag names
+    // (which also covers `defined(FLAG)` operands on those lines). Empty => clean.
     inline void FindUndeclaredFlagUses(StringView source, ShaderFlags declared,
                                        Array<StringView>& out)
     {
@@ -171,15 +154,26 @@ export namespace draconic::shaders
             }
             const StringView line = source.SubStr(lineStart, lineEnd - lineStart);
 
-            // Is this a preprocessor conditional line?
+            // Is this a preprocessor conditional line? Only lines that BEGIN (after whitespace)
+            // with a '#' directive count - a bare substring test for "defined" would fail the
+            // cook on comments like "user-defined" that merely mention a flag name. Whitespace
+            // between '#' and the keyword ("#  if") is legal preprocessor syntax and accepted.
             usize k = 0;
             while (k < line.Size() && (line.Data()[k] == u8' ' || line.Data()[k] == u8'\t'))
             {
                 ++k;
             }
-            const StringView trimmed = line.SubStr(k, line.Size() - k);
-            const bool isCond = trimmed.StartsWith(u8"#if") || trimmed.StartsWith(u8"#elif") ||
-                                LineContains(line, u8"defined");
+            bool isCond = false;
+            if (k < line.Size() && line.Data()[k] == u8'#')
+            {
+                usize m = k + 1;
+                while (m < line.Size() && (line.Data()[m] == u8' ' || line.Data()[m] == u8'\t'))
+                {
+                    ++m;
+                }
+                const StringView keyword = line.SubStr(m, line.Size() - m);
+                isCond = keyword.StartsWith(u8"if") || keyword.StartsWith(u8"elif");
+            }
             if (isCond)
             {
                 for (const ShaderFlagName& e : kShaderFlagNames)

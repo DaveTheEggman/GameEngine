@@ -46,8 +46,9 @@ export namespace draconic::shaders
 
     // Translates HLSL shader stages to WGSL at cook time. Borrows a DXC Compiler (the SPIR-V front
     // end) and writes intermediates into `scratchDir` (must exist and be writable). naga/tint default
-    // to the vendored binaries; a host with no vendored binary for its platform leaves the path empty
-    // and Translate reports the tool missing (Translate/Validate stage).
+    // to the vendored binaries; a host with no vendored binary for its platform leaves the path
+    // empty and Translate reports the tool missing (Translate stage for naga; Validate stage for
+    // tint when validation is requested - skipping validation is an explicit opt-out, never silent).
     class WgslTranslator
     {
     public:
@@ -164,6 +165,20 @@ export namespace draconic::shaders
             result.wgsl = String(StringView(reinterpret_cast<const char8_t*>(wb.Data()), wb.Size()));
 
             // 3. tint: validate the WGSL against the Chrome/Dawn frontend (uniformity et al.).
+            // Validation requested but no tint vendored for this host: FAIL, do not silently
+            // skip - unvalidated WGSL is exactly the class of output the browser rejects at
+            // runtime, and tint is vendored to gate it at cook time. A host that genuinely
+            // has no tint opts out explicitly (SetValidateWithTint(false) /
+            // ShaderCookOptions::validateWgsl = false) and owns the risk.
+            if (m_validate && m_tint.IsEmpty())
+            {
+                result.failedStage = WgslCookStage::Validate;
+                result.error = String(u8"tint is not vendored for this host - WGSL validation is "
+                                      u8"unavailable (pass validateWgsl=false to cook unvalidated "
+                                      u8"WGSL at your own risk)");
+                Cleanup(spvPath, wgslPath);
+                return result;
+            }
             if (m_validate && !m_tint.IsEmpty())
             {
                 const StringView tintArgs[] = {u8"--format", u8"wgsl", wgslPath.AsView()};

@@ -159,8 +159,17 @@ TEST_CASE("cook: the engine corpus cooks to a SPIR-V pack (lint clean, variants 
                     ShaderFlags::AlphaTest | ShaderFlags::GBuffer,
                     CookedShaderFormat::SpirV) != nullptr);
     // A single-variant shader has only its None variant.
-    CHECK(pack.Find(u8"tonemap", ShaderStage::Fragment, ShaderFlags::None,
-                    CookedShaderFormat::SpirV) != nullptr);
+    const Array<byte>* tonemapBlob =
+        pack.Find(u8"tonemap", ShaderStage::Fragment, ShaderFlags::None, CookedShaderFormat::SpirV);
+    REQUIRE(tonemapBlob != nullptr);
+
+    // The SpirV bucket serves BOTH Vulkan and native WebGPU (wgpu-native/naga), and naga
+    // rejects SPIR-V 1.4+ - a 1.4+ pack panics wgpu-native at pipeline creation. The cook
+    // targets vulkan1.1, so the emitted version word must be <= 1.3 (0x00010300).
+    REQUIRE(tonemapBlob->Size() >= 8u);
+    u32 spirvVersion = 0;
+    std::memcpy(&spirvVersion, tonemapBlob->Data() + 4, 4);
+    CHECK(spirvVersion <= 0x00010300u);
 
     compiler->Destroy();
 }
@@ -362,10 +371,44 @@ TEST_CASE("wgsl cook: tint rejects a WGSL uniformity violation")
     }
     else
     {
-        // No oracle available: naga alone (lenient) still translates it.
-        MESSAGE("tint not vendored; uniformity is only warned, not gated");
-        CHECK(r.success);
+        // No oracle available: validation is requested but cannot run, which is a HARD
+        // failure - a silent skip would ship unvalidated WGSL, the exact class of output
+        // browsers reject at runtime. Skipping is an explicit opt-out only.
+        MESSAGE("tint not vendored; expecting the validation-unavailable failure");
+        CHECK_FALSE(r.success);
+        CHECK(r.failedStage == WgslCookStage::Validate);
     }
+
+    compiler->Destroy();
+}
+
+TEST_CASE("wgsl cook: missing tint fails validation unless explicitly opted out")
+{
+    Compiler* compiler = MakeCompiler();
+    if (compiler == nullptr)
+    {
+        return;
+    }
+    (void)CreateDirectory(u8".test-scratch");
+    WgslTranslator translator(*compiler, u8".test-scratch");
+    if (!translator.HasNaga())
+    {
+        compiler->Destroy();
+        return;
+    }
+    translator.SetTintPath(u8""); // simulate a host with no vendored tint
+
+    // Validation requested (the default) but unavailable: loud failure at Validate.
+    const WgslCookResult failed = translator.Translate(Hlsl(kCleanPs), ShaderStage::Fragment);
+    CHECK_FALSE(failed.success);
+    CHECK(failed.failedStage == WgslCookStage::Validate);
+    CHECK_FALSE(failed.error.IsEmpty());
+
+    // The explicit opt-out cooks unvalidated WGSL - the caller owns the risk.
+    translator.SetValidateWithTint(false);
+    const WgslCookResult optedOut = translator.Translate(Hlsl(kCleanPs), ShaderStage::Fragment);
+    CHECK(optedOut.success);
+    CHECK_FALSE(optedOut.wgsl.IsEmpty());
 
     compiler->Destroy();
 }
@@ -387,4 +430,108 @@ TEST_CASE("wgsl cook: a missing naga binary is reported, not a crash")
     CHECK_FALSE(r.error.IsEmpty());
 
     compiler->Destroy();
+}
+
+TEST_CASE("cook: drift-lint sees through #include - the .hlsli holds the #ifdef")
+{
+    Compiler* compiler = MakeCompiler();
+    if (compiler == nullptr)
+    {
+        return;
+    }
+    // The stage file is directive + include only (the real corpus shape: forward.vs.hlsl);
+    // the undeclared #ifdef hides in the shared .hlsli. Linting only the stage file's own
+    // text would pass this cook and the dist would silently strip the flag.
+    (void)CreateDirectory(u8".test-scratch");
+    (void)CreateDirectory(u8".test-scratch/inclint");
+    const char* stage = "// draconic:variants\n"
+                        "#include \"inclint_common.hlsli\"\n";
+    const char* inc = "#ifdef GBUFFER\n"
+                      "#endif\n"
+                      "float4 main() : SV_Target0 { return 0; }\n";
+    REQUIRE(WriteFile(u8".test-scratch/inclint/hidden.ps.hlsl",
+                      Span<const byte>(reinterpret_cast<const byte*>(stage), std::strlen(stage)))
+                .IsOk());
+    REQUIRE(WriteFile(u8".test-scratch/inclint/inclint_common.hlsli",
+                      Span<const byte>(reinterpret_cast<const byte*>(inc), std::strlen(inc)))
+                .IsOk());
+
+    const CookedShaderFormat formats[] = {CookedShaderFormat::SpirV};
+    ShaderCookOptions opts;
+    opts.shaderDir = u8".test-scratch/inclint";
+    opts.scratchDir = u8".test-scratch";
+    opts.formats = Span<const CookedShaderFormat>(formats, 1);
+
+    CookedShaderPack pack;
+    const ShaderCookReport report = CookEngineShaders(*compiler, opts, pack);
+    CHECK_FALSE(report.success);
+    CHECK_FALSE(report.errors.IsEmpty());
+
+    (void)FileDelete(u8".test-scratch/inclint/hidden.ps.hlsl");
+    (void)FileDelete(u8".test-scratch/inclint/inclint_common.hlsli");
+    compiler->Destroy();
+}
+
+TEST_CASE("variants: drift-lint ignores comments that merely mention a flag")
+{
+    // "user-defined" + a whole-word flag name in a COMMENT used to trip the substring
+    // heuristic and fail the cook; only real #if/#ifdef/#ifndef/#elif lines count.
+    const char8_t* src = u8"// GBUFFER is a user-defined marker, see docs\n"
+                         u8"/* undefined behavior when SKINNED */\n"
+                         u8"#  ifdef ALPHA_TEST\n"
+                         u8"#endif\n"
+                         u8"float4 main() : SV_Target0 { return 0; }\n";
+    Array<StringView> undeclared;
+    FindUndeclaredFlagUses(StringView(src), ShaderFlags::None, undeclared);
+    REQUIRE(undeclared.Size() == 1u); // only the real conditional (whitespace after '#' is legal)
+    CHECK(undeclared[0] == u8"ALPHA_TEST");
+}
+
+TEST_CASE("pack: re-adding a variant overwrites in place (no orphaned duplicates)")
+{
+    const byte one[] = {byte{1}};
+    const byte two[] = {byte{2}};
+    CookedShaderPack pack;
+    pack.Add(u8"dup", ShaderStage::Vertex, ShaderFlags::None, CookedShaderFormat::SpirV,
+             Span<const byte>(one, 1));
+    pack.Add(u8"dup", ShaderStage::Vertex, ShaderFlags::None, CookedShaderFormat::SpirV,
+             Span<const byte>(two, 1));
+    CHECK(pack.Count() == 1u);
+    const Array<byte>* blob =
+        pack.Find(u8"dup", ShaderStage::Vertex, ShaderFlags::None, CookedShaderFormat::SpirV);
+    REQUIRE(blob != nullptr);
+    CHECK((*blob)[0] == byte{2});
+}
+
+TEST_CASE("pack: a corrupt/truncated stream fails cleanly (count guards)")
+{
+    // A valid header followed by a garbage entry count must not attempt a giant Resize -
+    // the counts are bounded by the bytes actually remaining in the stream.
+    CookedShaderPack valid;
+    const byte blob[] = {byte{9}};
+    valid.Add(u8"x", ShaderStage::Vertex, ShaderFlags::None, CookedShaderFormat::SpirV,
+              Span<const byte>(blob, 1));
+    MemoryStream buffer;
+    REQUIRE(valid.Write(buffer).IsOk());
+
+    // Corrupt the name-count field (bytes 8..11, after magic+version) to a huge value.
+    REQUIRE(buffer.Seek(8, SeekOrigin::Begin) == 8);
+    const u32 huge = 0x7FFFFFFFu;
+    REQUIRE(buffer.Write(&huge, sizeof(huge)) == sizeof(huge));
+    REQUIRE(buffer.Seek(0, SeekOrigin::Begin) == 0);
+
+    CookedShaderPack loaded;
+    CHECK_FALSE(loaded.Read(buffer).IsOk());
+
+    // Truncated stream: only the first 16 bytes of a valid pack.
+    MemoryStream full;
+    REQUIRE(valid.Write(full).IsOk());
+    REQUIRE(full.Seek(0, SeekOrigin::Begin) == 0);
+    byte head[16];
+    REQUIRE(full.Read(head, 16) == 16);
+    MemoryStream truncated;
+    REQUIRE(truncated.Write(head, 16) == 16);
+    REQUIRE(truncated.Seek(0, SeekOrigin::Begin) == 0);
+    CookedShaderPack fromTruncated;
+    CHECK_FALSE(fromTruncated.Read(truncated).IsOk());
 }
