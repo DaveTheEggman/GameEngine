@@ -249,11 +249,23 @@ export namespace draconic::shaders
             const core::Array<core::byte>* blob = m_pack->Find(nameHash, stage, canon, format);
             if (blob == nullptr)
             {
+                const ShaderFlags mask = m_pack->DeclaredMask(nameHash, stage);
                 rhi::LogErrorf("Cooked shader variant missing from the pack (a cook-coverage bug): "
-                               "'%.*s' stage %u flags %u",
+                               "'%.*s' stage %u canon-flags %u (requested %u, declaredMask %u, "
+                               "lookup format %u)",
                                static_cast<int>(name.Size()),
                                reinterpret_cast<const char*>(name.Data()),
-                               static_cast<unsigned>(stage), static_cast<unsigned>(canon));
+                               static_cast<unsigned>(stage), static_cast<unsigned>(canon),
+                               static_cast<unsigned>(flags), static_cast<unsigned>(mask),
+                               static_cast<unsigned>(format));
+                // Dump what the pack DID cook for this (name, stage) so the gap shows its shape.
+                m_pack->ForEachVariant(nameHash, stage,
+                                       [&](ShaderFlags f, CookedShaderFormat fmt)
+                                       {
+                                           rhi::LogErrorf("    pack has: flags %u format %u",
+                                                          static_cast<unsigned>(f),
+                                                          static_cast<unsigned>(fmt));
+                                       });
                 return nullptr;
             }
 

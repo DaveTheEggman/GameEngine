@@ -87,6 +87,21 @@ export namespace draconic::shaders
             return Find(ShaderNameHash(name), stage, flags, format);
         }
 
+        // Diagnostic: visit every (flags, format) variant the pack holds for a (name, stage). Used by
+        // the runtime miss path to report what WAS cooked vs the (canonical) request that missed, so a
+        // cook-coverage gap shows its shape (wrong format / flags / mask) instead of just "missing".
+        template <class Fn>
+        void ForEachVariant(u64 nameHash, ShaderStage stage, Fn&& fn) const
+        {
+            for (const Entry& e : m_entries)
+            {
+                if (e.nameHash == nameHash && e.stage == stage)
+                {
+                    fn(e.flags, e.format);
+                }
+            }
+        }
+
         // Distinct shader names in the pack (for provider enumeration / tooling).
         void CollectNames(Array<String>& out) const
         {

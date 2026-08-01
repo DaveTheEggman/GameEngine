@@ -239,6 +239,29 @@ namespace draconic::render
         m_frame->SetBloom(m_bloomEnabled ? m_bloomIntensity : 0.0f, m_bloomThreshold, m_bloomKnee);
         m_frame->SetTaa(m_taaEnabled, m_taaBlend, m_taaGamma, m_taaMotionScale);
         m_frame->SetShadowParams(m_shadowDistance, m_shadowFarFade);
+        // DEBUG harness: DRACONIC_AO_DEBUG forces the AO debug channel to screen (0=off, 1=AO,
+        // 2/3/4=N.xyz, 5=viewZ, 6=depth) so SSAO reconstruction can be compared across backends.
+        {
+            static bool s_aoDbgRead = false;
+            static i32 s_aoDbg = 0;
+            if (!s_aoDbgRead)
+            {
+                s_aoDbgRead = true;
+                if (auto v = GetEnvironmentVariable(u8"DRACONIC_AO_DEBUG");
+                    v.HasValue() && !v.Value().IsEmpty())
+                {
+                    const char8_t c = v.Value()[0];
+                    if (c >= u8'0' && c <= u8'9')
+                    {
+                        s_aoDbg = static_cast<i32>(c - u8'0');
+                    }
+                }
+            }
+            if (s_aoDbg != 0)
+            {
+                m_aoDebug = s_aoDbg;
+            }
+        }
         m_frame->SetAo(m_aoMode, m_aoStrength, m_aoRadius, m_aoIntensity, m_aoDebug);
         m_frame->SetFxaa(m_fxaaEnabled, m_fxaaSubpixel);
         m_frame->SetInstanceSharing(m_instanceSharing);
@@ -460,11 +483,19 @@ namespace draconic::render
             return; // neither a compiler nor a pack - renderer stays inert
         }
         m_shaders = m_shaderHost.System();
+        const rhi::ShaderFormat shaderFmt = m_device->PreferredShaderFormat();
+        const char* const shaderFmtName = shaderFmt == rhi::ShaderFormat::WGSL   ? "WGSL"
+                                          : shaderFmt == rhi::ShaderFormat::DXIL  ? "DXIL"
+                                                                                  : "SPIR-V";
         if (m_shaderHost.UsingPack())
         {
-            rhi::LogInfof("RenderSubsystem: using cooked shader pack (%u variants) - no runtime "
+            rhi::LogInfof("RenderSubsystem: using cooked shader pack (%u variants, %s) - no runtime "
                           "compiler",
-                          static_cast<unsigned>(m_shaderHost.PackVariantCount()));
+                          static_cast<unsigned>(m_shaderHost.PackVariantCount()), shaderFmtName);
+        }
+        else
+        {
+            rhi::LogInfof("RenderSubsystem: using runtime shader compiler (%s)", shaderFmtName);
         }
 
         m_psoCache =
