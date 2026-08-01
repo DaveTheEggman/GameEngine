@@ -21,9 +21,31 @@ export namespace draconic::core
         return c == utf8char('/') || c == utf8char('\\');
     }
 
+    // Absolute = rooted on THIS host's filesystem. On Windows that also covers a
+    // drive-qualified root ("D:\x", "D:/x") and UNC ("\\server\share"); a leading
+    // separator alone ("\x") is drive-relative, but treating it as absolute keeps
+    // the POSIX contract and matches how the engine builds paths. PathJoin depends
+    // on this: an absolute `b` must win rather than be appended to `a`.
     [[nodiscard]] inline bool PathIsAbsolute(StringView path) noexcept
     {
-        return !path.IsEmpty() && PathIsSeparator(path[0]);
+        if (path.IsEmpty())
+        {
+            return false;
+        }
+        if (PathIsSeparator(path[0]))
+        {
+            return true; // POSIX root, and UNC "\\..." on Windows
+        }
+#if DRACONIC_PLATFORM_WINDOWS
+        // "X:\..." / "X:/..." - a drive-qualified root.
+        if (path.Size() >= 3 && path[1] == utf8char(':') && PathIsSeparator(path[2]))
+        {
+            const utf8char c = path[0];
+            return (c >= utf8char('A') && c <= utf8char('Z')) ||
+                   (c >= utf8char('a') && c <= utf8char('z'));
+        }
+#endif
+        return false;
     }
 
     // The final component (after the last separator).
