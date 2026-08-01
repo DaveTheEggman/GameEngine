@@ -207,6 +207,24 @@ export namespace draconic::rhi::webgpu
                 // first (discrete, then integrated, then the rest, stable within a class), and
                 // honor DRACONIC_WEBGPU_ADAPTER=<index into the logged list> as the escape
                 // hatch for hybrid-GPU machines where the heuristic still picks wrong.
+                // Rank = (backend, device class). One physical GPU appears once per wgpu
+                // backend; on WINDOWS prefer D3D12 entries - DXGI present works on every
+                // adapter, while a Vulkan entry's queue family often cannot present on
+                // hybrid (Optimus-style) machines and wgpu-native PANICS at configure.
+                const auto backendRank = [](Adapter* adapter) -> u32
+                {
+                    const WGPUBackendType type =
+                        static_cast<WebGpuAdapter*>(adapter)->WgpuBackendType();
+#if DRACONIC_PLATFORM_WINDOWS
+                    return type == WGPUBackendType_D3D12    ? 0u
+                           : type == WGPUBackendType_Vulkan ? 1u
+                                                            : 2u;
+#else
+                    return type == WGPUBackendType_Vulkan  ? 0u
+                           : type == WGPUBackendType_Metal ? 0u
+                                                           : 1u;
+#endif
+                };
                 const auto classRank = [](Adapter* adapter) -> u32
                 {
                     AdapterInfo info;
@@ -223,16 +241,34 @@ export namespace draconic::rhi::webgpu
                         return 3; // Cpu/software last - never present-capable
                     }
                 };
+                const auto backendName = [](Adapter* adapter) -> const char*
+                {
+                    switch (static_cast<WebGpuAdapter*>(adapter)->WgpuBackendType())
+                    {
+                    case WGPUBackendType_Vulkan:
+                        return "vulkan";
+                    case WGPUBackendType_D3D12:
+                        return "d3d12";
+                    case WGPUBackendType_Metal:
+                        return "metal";
+                    case WGPUBackendType_OpenGL:
+                    case WGPUBackendType_OpenGLES:
+                        return "gl";
+                    default:
+                        return "?";
+                    }
+                };
                 for (usize i = 0; i < m_adapters.Size(); ++i)
                 {
                     AdapterInfo info;
                     m_adapters[i]->GetInfo(info);
-                    LogInfof("[webgpu] adapter %u: '%s' (%s)", static_cast<unsigned>(i),
+                    LogInfof("[webgpu] adapter %u: '%s' (%s, %s)", static_cast<unsigned>(i),
                              reinterpret_cast<const char*>(info.name.CStr()),
                              info.type == AdapterType::DiscreteGpu     ? "discrete"
                              : info.type == AdapterType::IntegratedGpu ? "integrated"
                              : info.type == AdapterType::Cpu           ? "cpu"
-                                                                       : "unknown");
+                                                                       : "unknown",
+                             backendName(m_adapters[i]));
                 }
                 if (Optional<String> pick = GetEnvironmentVariable(u8"DRACONIC_WEBGPU_ADAPTER");
                     pick.HasValue() && !pick.Value().IsEmpty())
@@ -264,15 +300,20 @@ export namespace draconic::rhi::webgpu
                 }
                 else
                 {
-                    // Stable class sort (insertion by rank preserves in-class order).
+                    // Stable sort by (backend, class) - insertion by rank preserves the
+                    // enumeration order within a bucket.
                     Array<Adapter*> ordered;
-                    for (u32 rank = 0; rank < 4; ++rank)
+                    for (u32 backend = 0; backend < 3; ++backend)
                     {
-                        for (Adapter* adapter : m_adapters)
+                        for (u32 rank = 0; rank < 4; ++rank)
                         {
-                            if (classRank(adapter) == rank)
+                            for (Adapter* adapter : m_adapters)
                             {
-                                ordered.PushBack(adapter);
+                                if (backendRank(adapter) == backend &&
+                                    classRank(adapter) == rank)
+                                {
+                                    ordered.PushBack(adapter);
+                                }
                             }
                         }
                     }

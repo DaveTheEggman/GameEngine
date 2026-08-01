@@ -31,6 +31,18 @@ export namespace draconic::rhi::webgpu
 
         [[nodiscard]] WGPUAdapter Handle() const { return m_adapter; }
 
+        // The wgpu backend this adapter drives (Vulkan/D3D12/...). One PHYSICAL GPU appears
+        // once per instance backend, so the enumeration ordering needs this to prefer the
+        // backend that can actually present on the platform.
+        [[nodiscard]] WGPUBackendType WgpuBackendType() const
+        {
+            WGPUAdapterInfo info = WGPU_ADAPTER_INFO_INIT;
+            m_api->wgpuAdapterGetInfo(m_adapter, &info);
+            const WGPUBackendType type = info.backendType;
+            m_api->wgpuAdapterInfoFreeMembers(info);
+            return type;
+        }
+
         void GetInfo(AdapterInfo& out) override
         {
             WGPUAdapterInfo info = WGPU_ADAPTER_INFO_INIT;
