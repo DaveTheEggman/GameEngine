@@ -69,6 +69,10 @@ namespace draconic::render
         m_active = 0;
         m_captures.Clear();
         m_sceneRanges.Clear();
+        if (m_captureWarmup > 0)
+        {
+            --m_captureWarmup; // startup re-capture window (survives dropped-submit startup frames)
+        }
     }
 
     u32 ReflectionProbeSystem::Assign(const ExtractedScene* scene,
@@ -110,7 +114,11 @@ namespace draconic::render
             // Dirty tracking for static caching: recapture on a new slot or a moved probe.
             const u64 sig = TransformSignature(p);
             SlotState& st = m_slotState[slot];
-            if (!st.captured || st.signature != sig || p.update == ProbeUpdateMode::Realtime)
+            // The warmup keeps re-capturing for the first frames: on web a startup submit can
+            // be dropped (expired canvas texture), which would silently lose this one-shot bake
+            // while `captured` says done - the same window IBLSystem uses for the env bake.
+            if (!st.captured || st.signature != sig || p.update == ProbeUpdateMode::Realtime ||
+                m_captureWarmup > 0)
             {
                 st.dirty = true;
             }

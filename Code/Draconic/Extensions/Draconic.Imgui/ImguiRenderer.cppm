@@ -294,7 +294,15 @@ export namespace draconic::imgui
             enc.CopyBufferToTexture(m_fontStaging, m_fontTex, region);
             enc.TransitionTexture(m_fontTex, rhi::ResourceState::CopyDst,
                                   rhi::ResourceState::ShaderRead);
+#if DRACONIC_PLATFORM_WEB
+            // A web startup submit can be dropped (the canvas texture expires if the frame
+            // yields), which would lose this one-shot copy while the latch says done - ImGui
+            // would render invisibly forever. Re-record the (tiny) copy for the first frames,
+            // the same startup window the IBL env bake and probe captures use.
+            m_fontUploaded = ++m_fontUploadFrames >= 20;
+#else
             m_fontUploaded = true;
+#endif
         }
 
         bool UploadGeometry(FrameSlot& slot, const ImDrawData* drawData)
@@ -500,6 +508,9 @@ export namespace draconic::imgui
         rhi::Sampler* m_sampler = nullptr;
         u32 m_fontW = 0, m_fontH = 0;
         bool m_fontUploaded = false;
+#if DRACONIC_PLATFORM_WEB
+        u32 m_fontUploadFrames = 0; // web startup re-record window (see EnsureFontUploaded)
+#endif
 
         FrameSlot m_frames[kMaxFIF] = {};
     };

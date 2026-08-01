@@ -461,14 +461,26 @@ TEST_CASE("ReflectionProbeSystem accumulates per-scene ranges (multi-scene frame
         CHECK(t.scene == ((t.slot == 0u) ? &sceneA : &sceneB));
     }
 
-    // Captured static probes stop producing tasks on the next frame.
-    for (const ReflectionProbeSystem::CaptureTask& t : probes.Captures())
+    // Captured static probes stop producing tasks once the startup warmup window has
+    // drained (the first frames deliberately re-capture so a dropped web startup submit
+    // cannot silently lose the one-shot bake - mirrors the IBL env-bake warmup).
+    u32 warmupFrames = 0;
+    for (; warmupFrames < 64; ++warmupFrames)
     {
-        probes.MarkCaptured(t.slot);
+        for (const ReflectionProbeSystem::CaptureTask& t : probes.Captures())
+        {
+            probes.MarkCaptured(t.slot);
+        }
+        probes.BeginFrame();
+        probes.Assign(&sceneA, Span<const ReflectionProbe>{listA, 1});
+        probes.Assign(&sceneB, Span<const ReflectionProbe>{listB, 2});
+        if (probes.Captures().Size() == 0u)
+        {
+            break;
+        }
     }
-    probes.BeginFrame();
-    probes.Assign(&sceneA, Span<const ReflectionProbe>{listA, 1});
-    probes.Assign(&sceneB, Span<const ReflectionProbe>{listB, 2});
+    CHECK(warmupFrames > 0u);  // the warmup window re-captured at least once
+    CHECK(warmupFrames < 64u); // and it DRAINS - static probes go quiet
     CHECK(probes.Captures().Size() == 0u);
     CHECK(probes.RangeFor(&sceneB).base == 1u); // ranges rebuilt identically
 }

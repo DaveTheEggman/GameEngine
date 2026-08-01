@@ -229,6 +229,9 @@ export namespace draconic::render
         SlotState m_slotState[kMaxProbes];
         GpuProbe m_cpuProbes[kMaxProbes];
         u32 m_active = 0;
+        // Startup re-capture window: keep probes dirty for the first frames so a dropped web
+        // startup submit cannot silently lose the one-shot bake (mirrors IBL's m_bakeWarmup).
+        u32 m_captureWarmup = 20;
     };
 
 } // namespace draconic::render
