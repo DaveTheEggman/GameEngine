@@ -105,7 +105,8 @@ export namespace draconic::render
         struct ApplyPushC
         {
             f32 strength = 1.0f;
-            f32 p0 = 0, p1 = 0, p2 = 0;
+            f32 flipAoY = 0; // 1 = sample AO with flipped uv.y (Y-flip targets: WebGPU/DX12)
+            f32 p1 = 0, p2 = 0;
         };
 
         // A fixed byte buffer so a generate push (GTAO or SSAO) can be captured by value into the pass lambda.

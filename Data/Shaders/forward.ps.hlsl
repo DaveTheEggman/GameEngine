@@ -76,7 +76,8 @@ float SampleCascade(int cascade, float3 worldPos, float3 N, float NdotL) {
     float4 lc  = mul(float4(biasedPos, 1.0), CascadeViewProj[cascade]);
     if (lc.w <= 0.0) { return 1.0; }
     float3 ndc = lc.xyz / lc.w;
-    float2 uv  = float2(ndc.x * 0.5 + 0.5, -ndc.y * 0.5 + 0.5);
+    // uv.y sign is backend-driven (ShadowParams.y): -1 on Vulkan (neg viewport), +1 on WebGPU/DX12.
+    float2 uv  = float2(ndc.x * 0.5 + 0.5, ndc.y * ShadowParams.y * 0.5 + 0.5);
     if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) { return 1.0; }
     float compareDepth = ndc.z - ShadowDepthBias;
     float layer = CascadeLayerBase + (float)cascade;   // this view's slice of the shared array
@@ -143,7 +144,7 @@ float SampleLocalShadow(int idx, float3 worldPos) {
     float4 lc = mul(float4(worldPos, 1.0), s.viewProj);
     if (lc.w <= 0.0) { return 1.0; }
     float3 ndc = lc.xyz / lc.w;
-    float2 uv  = float2(ndc.x * 0.5 + 0.5, -ndc.y * 0.5 + 0.5);
+    float2 uv  = float2(ndc.x * 0.5 + 0.5, ndc.y * ShadowParams.y * 0.5 + 0.5);   // backend-driven uv.y sign
     if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 || ndc.z <= 0.0 || ndc.z >= 1.0) { return 1.0; }
     float2 atlasUV = uv * s.atlasScaleBias.xy + s.atlasScaleBias.zw;
     float compareDepth = ndc.z - s.depthBias;

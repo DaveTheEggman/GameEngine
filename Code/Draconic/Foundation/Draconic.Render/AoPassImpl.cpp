@@ -214,6 +214,9 @@ namespace draconic::render
             graph.CreateTransient(u8"ao.applied", rendergraph::RGTextureDesc(kHdrFormat, w, h));
         ApplyPushC ap{};
         ap.strength = strength;
+        // The SSAO/GTAO fullscreen passes store the AO buffer vertically flipped vs the HDR scene on
+        // Y-flip targets (WebGPU/DX12, positive viewport); realign by sampling AO with flipped uv.y there.
+        ap.flipAoY = m_device->NeedsClipSpaceYFlip() ? 1.0f : 0.0f;
         graph.AddRenderPass(
             u8"ao.apply",
             [this, &graph, hdr, ao, out, w, h, ap](rendergraph::PassBuilder& b)

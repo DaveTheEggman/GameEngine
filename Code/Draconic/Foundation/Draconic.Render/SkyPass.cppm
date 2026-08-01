@@ -62,6 +62,7 @@ export namespace draconic::render
             Float4 sunDir;
             Float4 sunColor;
             Float4 jitter;
+            Float4 skyFlags; // x = sky-ray Y sign (-1 flips the sampled ray on Y-flip targets)
         };
 
         rhi::RenderPipeline* EnsurePipeline(rhi::TextureFormat colorFmt,

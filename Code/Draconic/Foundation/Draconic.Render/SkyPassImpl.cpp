@@ -87,6 +87,9 @@ namespace draconic::render
         u.sunDir = Float4{sunDir.x, sunDir.y, sunDir.z, sunSize};
         u.sunColor = Float4{sunColor.x, sunColor.y, sunColor.z, sunIntensity};
         u.jitter = Float4{jitter.x, jitter.y, prevJitter.x, prevJitter.y};
+        // Y-flip targets (WebGPU/DX12, positive viewport) present the reconstructed sky ray mirrored
+        // vertically vs. Vulkan's negative-height viewport; mirror the sampled ray back on those.
+        u.skyFlags = Float4{m_device->NeedsClipSpaceYFlip() ? -1.0f : 1.0f, 0.0f, 0.0f, 0.0f};
 
         graph.AddRenderPass(
             u8"sky",

@@ -11,5 +11,6 @@ VSOut main(uint vid : SV_VertexID) {
     // geometry uses there (both go through the same viewport), so unproject the emitted NDC directly.
     float4 world = mul(float4(ndc, 1.0, 1.0), InvViewProj);  // clip -> world
     o.dir = world.xyz / world.w - CamPosIntensity.xyz;
+    o.dir.y *= SkyFlags.x;   // mirror the sampled ray on Y-flip targets (WebGPU/DX12); +1 on Vulkan
     return o;
 }
