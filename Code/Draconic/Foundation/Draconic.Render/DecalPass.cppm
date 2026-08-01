@@ -45,7 +45,7 @@ export namespace draconic::render
             invViewProj; // (ndc, depth) -> world, for depth reconstruction (this view, jittered)
         Float4 color;    // rgba tint
         Float4 params;   // x,y = 1/full-target-size ; z,w = cos(angleFadeStart), cos(angleFadeEnd)
-        Float4 flip;     // x = scene-NDC Y sign (-1 Vulkan, +1 Y-flip targets); yzw spare
+        Float4 flip;     // x = interpolant Y correction (+1 Vulkan, -1 Y-flip targets); yzw spare
     };
     static_assert(sizeof(DecalUniforms) == 240);
 
