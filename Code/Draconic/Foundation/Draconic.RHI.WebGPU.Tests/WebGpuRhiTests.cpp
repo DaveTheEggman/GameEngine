@@ -1321,3 +1321,169 @@ TEST_CASE("rhi.webgpu: push-constant UNIFORM FALLBACK - forced on desktop, verif
     device->Destroy();
     backend->Destroy();
 }
+
+TEST_CASE("rhi.webgpu: RENDER-pass push emulation - group 0, no bind groups, two draws")
+{
+    // The debug_geom shape: a pipeline with NO bind groups and its push block at group 0
+    // (PushConstantRange.bindGroupIndex = 0, not the default 1) - the emulation must
+    // synthesize the uniform at @group(0). Two draws with different push values into two
+    // pixels also prove the fresh-buffer-per-draw design: the second SetPushConstants
+    // must not clobber the first draw's data.
+    Backend* backend = TryCreateBackend();
+    if (backend == nullptr)
+    {
+        return;
+    }
+    Device* device = nullptr;
+    REQUIRE(backend->EnumerateAdapters()[0]->CreateDevice(DeviceDesc{}, device).IsOk());
+    static_cast<webgpu::WebGpuDevice*>(device)->SetForceUniformPushConstants(true);
+
+    const char8_t* wgsl =
+        u8"struct PushBlock { color : vec4f };\n"
+        u8"@group(0) @binding(0) var<uniform> pc : PushBlock;\n"
+        u8"@vertex fn vertexMain(@builtin(vertex_index) index : u32)\n"
+        u8"    -> @builtin(position) vec4f {\n"
+        u8"  let uv = vec2f(f32((index << 1u) & 2u), f32(index & 2u));\n"
+        u8"  return vec4f(uv * 4.0 - 1.0, 0.0, 1.0);\n"
+        u8"}\n"
+        u8"@fragment fn fragmentMain() -> @location(0) vec4f { return pc.color; }\n";
+    ShaderModuleDesc moduleDesc;
+    moduleDesc.code = Span<const u8>(reinterpret_cast<const u8*>(wgsl), StringView(wgsl).Size());
+    ShaderModule* shaderModule = nullptr;
+    REQUIRE(device->CreateShaderModule(moduleDesc, shaderModule).IsOk());
+
+    PushConstantRange pushRange;
+    pushRange.stages = ShaderStage::Fragment;
+    pushRange.offset = 0;
+    pushRange.size = 16;
+    pushRange.bindGroupIndex = 0; // no bind groups -> the push block lives at group 0
+    PipelineLayoutDesc plDesc;
+    plDesc.pushConstantRanges = Span<const PushConstantRange>(&pushRange, 1);
+    PipelineLayout* pipelineLayout = nullptr;
+    REQUIRE(device->CreatePipelineLayout(plDesc, pipelineLayout).IsOk());
+
+    ColorTargetState target;
+    target.format = TextureFormat::RGBA8Unorm;
+    FragmentState frag;
+    frag.shader = ProgrammableStage{shaderModule, u8"fragmentMain", ShaderStage::Fragment};
+    frag.targets = Span<const ColorTargetState>(&target, 1);
+    RenderPipelineDesc rpDesc;
+    rpDesc.layout = pipelineLayout;
+    rpDesc.vertex.shader = ProgrammableStage{shaderModule, u8"vertexMain", ShaderStage::Vertex};
+    rpDesc.fragment = frag;
+    rpDesc.primitive.topology = PrimitiveTopology::TriangleList;
+    RenderPipeline* pipeline = nullptr;
+    REQUIRE(device->CreateRenderPipeline(rpDesc, pipeline).IsOk());
+
+    TextureDesc texDesc;
+    texDesc.format = TextureFormat::RGBA8Unorm;
+    texDesc.width = 2;
+    texDesc.height = 1;
+    texDesc.usage = TextureUsage::RenderTarget | TextureUsage::CopySrc;
+    Texture* tex = nullptr;
+    REQUIRE(device->CreateTexture(texDesc, tex).IsOk());
+    TextureViewDesc viewDesc;
+    viewDesc.format = TextureFormat::RGBA8Unorm;
+    TextureView* view = nullptr;
+    REQUIRE(device->CreateTextureView(tex, viewDesc, view).IsOk());
+
+    BufferDesc readbackDesc;
+    readbackDesc.size = 256; // bytesPerRow-aligned single row
+    readbackDesc.usage = BufferUsage::CopyDst;
+    readbackDesc.memory = MemoryLocation::GpuToCpu;
+    Buffer* readback = nullptr;
+    REQUIRE(device->CreateBuffer(readbackDesc, readback).IsOk());
+
+    CommandPool* pool = nullptr;
+    REQUIRE(device->CreateCommandPool(QueueType::Graphics, pool).IsOk());
+    CommandEncoder* encoder = nullptr;
+    REQUIRE(pool->CreateEncoder(encoder).IsOk());
+
+    RenderPassDesc pass;
+    ColorAttachment color;
+    color.view = view;
+    color.clearValue = ClearColor{0, 0, 0, 0};
+    pass.colorAttachments.Add(color);
+    RenderPassEncoder* rp = encoder->BeginRenderPass(pass);
+    REQUIRE(rp != nullptr);
+    rp->SetPipeline(pipeline);
+    const f32 red[4] = {1.0f, 0.0f, 0.0f, 1.0f};
+    const f32 green[4] = {0.0f, 1.0f, 0.0f, 1.0f};
+    rp->SetPushConstants(ShaderStage::Fragment, 0, 16, red);
+    rp->SetScissor(0, 0, 1, 1); // left pixel
+    rp->Draw(3, 1, 0, 0);
+    rp->SetPushConstants(ShaderStage::Fragment, 0, 16, green);
+    rp->SetScissor(1, 0, 1, 1); // right pixel
+    rp->Draw(3, 1, 0, 0);
+    rp->End();
+
+    BufferTextureCopyRegion region;
+    region.bytesPerRow = 256;
+    region.rowsPerImage = 1;
+    region.textureExtent = Extent3D{2, 1, 1};
+    encoder->CopyTextureToBuffer(tex, readback, region);
+
+    CommandBuffer* commandBuffer = encoder->Finish();
+    REQUIRE(commandBuffer != nullptr);
+    Fence* fence = nullptr;
+    REQUIRE(device->CreateFence(0, fence).IsOk());
+    CommandBuffer* commandBuffers[] = {commandBuffer};
+    device->GetQueue(QueueType::Graphics)
+        ->Submit(Span<CommandBuffer* const>(commandBuffers, 1), fence, 1);
+    REQUIRE(fence->Wait(1, ~0ull));
+
+    const u8* pixels = static_cast<const u8*>(readback->Map());
+    REQUIRE(pixels != nullptr);
+    CHECK(pixels[0] == 255); // left = red (first draw's push data survived the second Set)
+    CHECK(pixels[1] == 0);
+    CHECK(pixels[4] == 0); // right = green
+    CHECK(pixels[5] == 255);
+    readback->Unmap();
+
+    device->DestroyFence(fence);
+    device->DestroyBuffer(readback);
+    device->DestroyCommandPool(pool);
+    device->DestroyRenderPipeline(pipeline);
+    device->DestroyPipelineLayout(pipelineLayout);
+    device->DestroyShaderModule(shaderModule);
+    device->DestroyTextureView(view);
+    device->DestroyTexture(tex);
+    device->Destroy();
+    backend->Destroy();
+}
+
+TEST_CASE("rhi.webgpu: destroying a fence with a pending work-done callback is safe")
+{
+    // The fb7d7e8d regression shape: a queued OnSubmittedWorkDone callback may be
+    // delivered AFTER the fence it signals is destroyed. The detach/orphan handshake
+    // must keep that delivery writing into live memory, and teardown must not crash
+    // with signals still queued.
+    Backend* backend = TryCreateBackend();
+    if (backend == nullptr)
+    {
+        return;
+    }
+    Device* device = nullptr;
+    REQUIRE(backend->EnumerateAdapters()[0]->CreateDevice(DeviceDesc{}, device).IsOk());
+    Queue* queue = device->GetQueue(QueueType::Graphics);
+
+    // 1. Fast path: submit + wait (resolves the signal), destroy, then keep pumping.
+    Fence* fence = nullptr;
+    REQUIRE(device->CreateFence(0, fence).IsOk());
+    queue->Submit(Span<CommandBuffer* const>{}, fence, 1);
+    CHECK(fence->Wait(1, ~0ull));
+    device->DestroyFence(fence);
+    queue->WaitIdle(); // pump: any late callback must hit the detached record, not the fence
+
+    // 2. Destroy WITHOUT waiting: the callback (if still queued) is delivered after the
+    //    fence is gone; then more submissions + a full teardown with work in flight.
+    Fence* abandoned = nullptr;
+    REQUIRE(device->CreateFence(0, abandoned).IsOk());
+    queue->Submit(Span<CommandBuffer* const>{}, abandoned, 1);
+    device->DestroyFence(abandoned); // no Wait - the signal may still be queued
+    queue->Submit(Span<CommandBuffer* const>{}, nullptr, 0);
+    queue->WaitIdle();
+
+    device->Destroy();
+    backend->Destroy();
+}

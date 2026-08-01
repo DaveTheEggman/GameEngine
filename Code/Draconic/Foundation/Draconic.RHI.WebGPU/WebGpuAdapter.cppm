@@ -144,7 +144,8 @@ export namespace draconic::rhi::webgpu
             // Push constants = WebGPU IMMEDIATES (wgpu-native feature today; the field
             // is in the STANDARD pipeline-layout descriptor, so browsers follow). The
             // feature ENUM is wgpu-native-only; Dawn/emdawnwebgpu has no immediates path,
-            // so web reports it unsupported and SetPushConstants no-ops (see the encoders).
+            // so web routes SetPushConstants through the UNIFORM-BUFFER emulation (the
+            // push_constant_emulator partition) - fully functional, just not Immediates.
 #if DRACONIC_PLATFORM_WEB
             const bool immediatesSupported = false;
 #else
@@ -231,13 +232,20 @@ export namespace draconic::rhi::webgpu
                           reinterpret_cast<const char*>(message.data));
             };
 
-            WGPUDevice device = nullptr;
-            bool done = false;
+            // Heap record + orphan-on-timeout (the fence-fix pattern): a stack record would
+            // leave the still-registered callback writing through a dead frame if the pump
+            // gives up before the request resolves.
             struct Result
             {
-                WGPUDevice* device;
-                bool* done;
-            } result{&device, &done};
+                IAllocator* allocator = nullptr;
+                const WebGpuApi* api = nullptr;
+                WGPUDevice device = nullptr;
+                bool done = false;
+                bool orphaned = false; // waiter gave up; the callback owns deletion
+            };
+            auto* result = m_allocator.New<Result>();
+            result->allocator = &m_allocator;
+            result->api = m_api;
 
             WGPURequestDeviceCallbackInfo callback = WGPU_REQUEST_DEVICE_CALLBACK_INFO_INIT;
             callback.mode = WGPUCallbackMode_AllowProcessEvents;
@@ -245,9 +253,18 @@ export namespace draconic::rhi::webgpu
                                    WGPUStringView message, void* userdata1, void*)
             {
                 auto* r = static_cast<Result*>(userdata1);
+                if (r->orphaned)
+                {
+                    if (status == WGPURequestDeviceStatus_Success && created != nullptr)
+                    {
+                        r->api->wgpuDeviceRelease(created); // nobody else will
+                    }
+                    r->allocator->Delete(r);
+                    return;
+                }
                 if (status == WGPURequestDeviceStatus_Success)
                 {
-                    *r->device = created;
+                    r->device = created;
                 }
                 else
                 {
@@ -255,13 +272,24 @@ export namespace draconic::rhi::webgpu
                               static_cast<int>(message.length),
                               reinterpret_cast<const char*>(message.data));
                 }
-                *r->done = true;
+                r->done = true;
             };
-            callback.userdata1 = &result;
+            callback.userdata1 = result;
 
             (void)m_api->wgpuAdapterRequestDevice(m_adapter, &deviceDesc, callback);
-            m_api->PumpUntil(m_instance, done);
+            m_api->PumpUntil(m_instance, result->done);
 
+            WGPUDevice device = nullptr;
+            if (!result->done)
+            {
+                LogError("[webgpu] RequestDevice callback did not fire (pump timed out)");
+                result->orphaned = true; // the callback owns the record now
+            }
+            else
+            {
+                device = result->device;
+                m_allocator.Delete(result);
+            }
             if (device == nullptr)
             {
                 m_allocator.Delete(lostRoute);
@@ -271,7 +299,11 @@ export namespace draconic::rhi::webgpu
             auto* wrapper = m_allocator.New<WebGpuDevice>(*m_api, m_instance, m_adapter,
                                                           device, m_allocator);
             wrapper->features = info.supportedFeatures;
-            wrapper->features.maxPushConstantSize = immediatesSupported ? 128u : 0u;
+            // SetPushConstants works EITHER way - native Immediates or the uniform-buffer
+            // emulation - so the budget is always advertised. Reporting 0 under emulation
+            // would make capability-checking callers disable the very paths the emulator
+            // exists to serve.
+            wrapper->features.maxPushConstantSize = 128u;
             wrapper->SetImmediatesSupported(immediatesSupported);
             lostRoute->device = wrapper;
             out = wrapper;

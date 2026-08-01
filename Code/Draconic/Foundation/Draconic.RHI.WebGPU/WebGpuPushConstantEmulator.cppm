@@ -39,6 +39,13 @@ export namespace draconic::rhi::webgpu
             m_dirty = false;
             m_buffers.Clear();
             m_bindGroups.Clear();
+            // Clear the shadow too: push data is "undefined until set" per pass, and a
+            // reused pass-encoder object must not carry the PREVIOUS pass's bytes into a
+            // draw that never called SetPushConstants (Vulkan immediates would not).
+            for (u8& b : m_shadow)
+            {
+                b = 0;
+            }
         }
 
         /// On SetPipeline: adopt the pipeline's emulated binding. group < 0 means the pipeline

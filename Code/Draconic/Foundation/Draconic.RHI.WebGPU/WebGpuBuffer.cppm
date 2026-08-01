@@ -86,34 +86,47 @@ export namespace draconic::rhi::webgpu
             }
 
             // Genuine readback mapping: async map + pump (see :api for why no WaitAny).
-            bool done = false;
-            bool mapped = false;
+            // Heap record + orphan-on-timeout (the fence-fix pattern): a timed-out pump
+            // leaves the callback registered; a stack record would be a dead frame when
+            // a later ProcessEvents finally delivers it.
             struct Result
             {
-                bool* done;
-                bool* mapped;
-            } result{&done, &mapped};
+                IAllocator* allocator = nullptr;
+                bool done = false;
+                bool mapped = false;
+                bool orphaned = false; // waiter gave up; the callback owns deletion
+            };
+            auto* result = DefaultAllocator().New<Result>();
+            result->allocator = &DefaultAllocator();
             WGPUBufferMapCallbackInfo callback = WGPU_BUFFER_MAP_CALLBACK_INFO_INIT;
             callback.mode = WGPUCallbackMode_AllowProcessEvents;
             callback.callback = [](WGPUMapAsyncStatus status, WGPUStringView, void* userdata1,
                                    void*)
             {
                 auto* r = static_cast<Result*>(userdata1);
-                *r->mapped = status == WGPUMapAsyncStatus_Success;
-                *r->done = true;
+                if (r->orphaned)
+                {
+                    r->allocator->Delete(r);
+                    return;
+                }
+                r->mapped = status == WGPUMapAsyncStatus_Success;
+                r->done = true;
             };
-            callback.userdata1 = &result;
+            callback.userdata1 = result;
             (void)m_api->wgpuBufferMapAsync(m_buffer, WGPUMapMode_Read, 0,
                                             static_cast<usize>(AlignedSize()), callback);
-            m_api->PumpUntilWithDevice(m_instance, m_device, done);
-            if (!done)
+            m_api->PumpUntilWithDevice(m_instance, m_device, result->done);
+            if (!result->done)
             {
                 // The request is STILL PENDING - a pending map keeps the buffer in the
                 // "mapped" state and later submissions touching it will fail. Loud,
                 // because the caller only sees nullptr.
                 LogError("[webgpu] Buffer::Map timed out with the map request PENDING");
+                result->orphaned = true; // the callback owns the record now
                 return nullptr;
             }
+            const bool mapped = result->mapped;
+            DefaultAllocator().Delete(result);
             if (!mapped)
             {
                 LogError("[webgpu] Buffer::Map failed (MapAsync error)");

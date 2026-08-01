@@ -173,9 +173,14 @@ export namespace draconic::rhi::webgpu
         {
             WGPUSurfaceCapabilities caps = WGPU_SURFACE_CAPABILITIES_INIT;
             if (m_api->wgpuSurfaceGetCapabilities(m_surface->Handle(), m_adapter, &caps) !=
-                    WGPUStatus_Success ||
-                caps.formatCount == 0)
+                    WGPUStatus_Success)
             {
+                return fallback;
+            }
+            if (caps.formatCount == 0)
+            {
+                // A successful query still allocated the caps members - free before bailing.
+                m_api->wgpuSurfaceCapabilitiesFreeMembers(caps);
                 return fallback;
             }
             const WGPUTextureFormat preferred = caps.formats[0];

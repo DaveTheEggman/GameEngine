@@ -78,14 +78,37 @@ export namespace draconic::rhi::webgpu
 
         void WaitIdle() override
         {
-            bool done = false;
+            // Heap record + orphan-on-timeout (the fence-fix pattern): if the pump gives up,
+            // the still-registered callback must not write through a dead stack frame.
+            struct Result
+            {
+                IAllocator* allocator = nullptr;
+                bool done = false;
+                bool orphaned = false; // waiter gave up; the callback owns deletion
+            };
+            auto* result = m_allocator->New<Result>();
+            result->allocator = m_allocator;
             WGPUQueueWorkDoneCallbackInfo info = WGPU_QUEUE_WORK_DONE_CALLBACK_INFO_INIT;
             info.mode = WGPUCallbackMode_AllowProcessEvents;
             info.callback = [](WGPUQueueWorkDoneStatus, WGPUStringView, void* userdata1, void*)
-            { *static_cast<bool*>(userdata1) = true; };
-            info.userdata1 = &done;
+            {
+                auto* r = static_cast<Result*>(userdata1);
+                if (r->orphaned)
+                {
+                    r->allocator->Delete(r);
+                    return;
+                }
+                r->done = true;
+            };
+            info.userdata1 = result;
             (void)m_api->wgpuQueueOnSubmittedWorkDone(m_queue, info);
-            m_api->PumpUntilWithDevice(m_instance, m_device, done);
+            m_api->PumpUntilWithDevice(m_instance, m_device, result->done);
+            if (!result->done)
+            {
+                result->orphaned = true; // the callback owns the record now
+                return;
+            }
+            m_allocator->Delete(result);
         }
 
         Status CreateTransferBatch(TransferBatch*& out) override

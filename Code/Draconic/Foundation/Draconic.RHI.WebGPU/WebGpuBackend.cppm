@@ -202,15 +202,22 @@ export namespace draconic::rhi::webgpu
             }
             else
             {
-                // Standard path (web): one async request for the default adapter.
-                WGPUAdapter handle = nullptr;
-                bool done = false;
+                // Standard path (web): one async request for the default adapter. The record
+                // is HEAP-allocated and ownership transfers to the callback if the pump gives
+                // up (the fence-fix pattern): a stack record would leave the still-registered
+                // callback writing through a dead frame on a later ProcessEvents.
                 struct Result
                 {
-                    WGPUAdapter* adapter;
-                    bool* done;
-                    u32 status;
-                } result{&handle, &done, 0u};
+                    IAllocator* allocator = nullptr;
+                    const WebGpuApi* api = nullptr;
+                    WGPUAdapter adapter = nullptr;
+                    bool done = false;
+                    bool orphaned = false; // waiter gave up; the callback owns deletion
+                    u32 status = 0;
+                };
+                auto* result = m_allocator.New<Result>();
+                result->allocator = &m_allocator;
+                result->api = &m_api;
                 WGPURequestAdapterOptions options = WGPU_REQUEST_ADAPTER_OPTIONS_INIT;
 #if DRACONIC_PLATFORM_WEB
                 // Dawn (emdawnwebgpu) returns NO adapter when featureLevel is left Undefined - it
@@ -225,10 +232,21 @@ export namespace draconic::rhi::webgpu
                                        WGPUStringView message, void* userdata1, void*)
                 {
                     auto* r = static_cast<Result*>(userdata1);
+                    if (r->orphaned)
+                    {
+                        // The waiter timed out and moved on; release the adapter (nobody else
+                        // will) and the record.
+                        if (status == WGPURequestAdapterStatus_Success && adapter != nullptr)
+                        {
+                            r->api->wgpuAdapterRelease(adapter);
+                        }
+                        r->allocator->Delete(r);
+                        return;
+                    }
                     r->status = static_cast<u32>(status);
                     if (status == WGPURequestAdapterStatus_Success)
                     {
-                        *r->adapter = adapter;
+                        r->adapter = adapter;
                     }
                     else if (message.data != nullptr)
                     {
@@ -245,32 +263,39 @@ export namespace draconic::rhi::webgpu
                         }
                         ConsoleWriteError(u8"\n");
                     }
-                    *r->done = true;
+                    r->done = true;
                 };
-                callback.userdata1 = &result;
+                callback.userdata1 = result;
                 (void)m_api.wgpuInstanceRequestAdapter(m_instance, &options, callback);
-                m_api.PumpUntil(m_instance, done);
-                if (!done)
+                m_api.PumpUntil(m_instance, result->done);
+                if (!result->done)
                 {
                     // The callback never fired: the pump gave up before the browser resolved the
                     // requestAdapter promise (an async-yield / ASYNCIFY problem, not a GPU one).
+                    // The record now belongs to the still-registered callback.
                     LogError("WebGpuBackend: requestAdapter callback did not fire (pump timed out)");
+                    result->orphaned = true;
+                    result = nullptr;
                 }
-                else if (handle == nullptr)
+                else if (result->adapter == nullptr)
                 {
                     // status: 2=CallbackCancelled, 3=Unavailable, 4=Error (see WGPURequestAdapterStatus)
-                    const utf8char* name = result.status == 2u   ? u8"CallbackCancelled"
-                                           : result.status == 3u ? u8"Unavailable"
-                                           : result.status == 4u ? u8"Error"
-                                                                 : u8"(unknown)";
+                    const utf8char* name = result->status == 2u   ? u8"CallbackCancelled"
+                                           : result->status == 3u ? u8"Unavailable"
+                                           : result->status == 4u ? u8"Error"
+                                                                  : u8"(unknown)";
                     ConsoleWriteError(u8"WebGpuBackend: requestAdapter returned no adapter, status=");
                     ConsoleWriteError(name);
                     ConsoleWriteError(u8"\n");
                 }
-                if (handle != nullptr)
+                if (result != nullptr)
                 {
-                    m_adapters.PushBack(
-                        m_allocator.New<WebGpuAdapter>(m_api, m_instance, handle, m_allocator));
+                    if (result->adapter != nullptr)
+                    {
+                        m_adapters.PushBack(m_allocator.New<WebGpuAdapter>(
+                            m_api, m_instance, result->adapter, m_allocator));
+                    }
+                    m_allocator.Delete(result);
                 }
             }
             SortAdaptersByPreference(m_adapters);
