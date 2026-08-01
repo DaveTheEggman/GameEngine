@@ -21,6 +21,8 @@ import draconic.engine.scene;
 import draconic.engine.render; // MeshComponent / CameraComponent + their managers
 import draconic.engine.animation; // SkeletalAnimation/AnimationGraph components (engine-driven skinning)
 import draconic.imgui;               // ImguiSubsystem (debug UI)
+import draconic.particles;           // ParticleEffect + the CPU sim (the campfire demo)
+import draconic.engine.particles;    // ParticleEffectComponent + the subsystem
 import draconic.image;               // Image (HDR equirect pixels)
 import draconic.image.io;            // LoadImage
 import draconic.render;              // ViewCamera / ViewportRect (split-screen overrides)
@@ -66,6 +68,7 @@ namespace model = draconic::model;
 namespace modelimporter = draconic::modelimporter;
 namespace animation = draconic::animation;
 namespace imgui = draconic::imgui;
+namespace particles = draconic::particles;
 
 namespace
 {
@@ -390,10 +393,79 @@ namespace
 
             LoadImportedModel(host); // cook + spawn a glTF model through the resource pipeline
 
+            BuildParticleDemo(); // campfire + sparks: the particle path in the full-scene mix
+
             core::ConsoleWrite(
                 u8"Sandbox: split-screen - click a half to fly its camera (WASD/QE, Shift fast); "
                 u8"RMB-drag looks in the hovered half. G cycles the Character graph. Close to "
                 u8"exit.\n");
+        }
+
+        // Particles in the full-scene mix (the renderer-exercise gap Sandbox had): a campfire
+        // (additive billboards + color/size-over-life) with spark TRAILS (the ribbon path),
+        // sharing the frame with meshes/shadows/AO/TAA/probes - so particle regressions show
+        // up here, not only in the dedicated ParticleFX showcase.
+        void BuildParticleDemo()
+        {
+            auto* pmgr = m_scene->GetSystem<particles::ParticleEffectComponentManager>();
+            if (pmgr == nullptr)
+            {
+                return;
+            }
+            {
+                particles::ParticleSystem& sys = m_campfire.AddSystem(5000);
+                sys.name = core::String{u8"campfire"};
+                sys.blendMode = particles::ParticleBlendMode::Additive;
+                sys.renderMode = particles::ParticleRenderMode::Billboard;
+                sys.emitter.mode = particles::EmissionMode::Continuous;
+                sys.emitter.spawnRate = 700.0f;
+                sys.AddInitializer<particles::PositionInitializer>().shape =
+                    particles::EmissionShape::Sphere(0.35f);
+                sys.AddInitializer<particles::LifetimeInitializer>().lifetime =
+                    particles::RangeFloat(0.9f, 1.8f);
+                {
+                    particles::VelocityInitializer& v =
+                        sys.AddInitializer<particles::VelocityInitializer>();
+                    v.baseVelocity = core::Float3{0.0f, 3.2f, 0.0f};
+                    v.randomness = core::Float3{0.8f, 0.8f, 0.8f};
+                }
+                sys.AddInitializer<particles::SizeInitializer>().size =
+                    particles::RangeFloat2::Constant(core::Float2{0.5f, 0.5f});
+                sys.AddInitializer<particles::ColorInitializer>().color = particles::RangeColor(
+                    core::Float4{1.0f, 0.55f, 0.15f, 1.0f}, core::Float4{1.0f, 0.8f, 0.35f, 1.0f});
+                sys.AddBehavior<particles::ColorOverLifetimeBehavior>().curve =
+                    particles::ParticleCurveColor::FadeAlpha(core::Float4{1.0f, 0.45f, 0.1f, 1.0f},
+                                                             0.3f);
+                sys.AddBehavior<particles::SizeOverLifetimeBehavior>().curve =
+                    particles::ParticleCurveFloat2::Linear(core::Float2{0.55f, 0.55f},
+                                                           core::Float2{0.08f, 0.08f});
+            }
+            {
+                particles::ParticleSystem& sys = m_campfire.AddSystem(600);
+                sys.name = core::String{u8"campfire-sparks"};
+                sys.renderMode = particles::ParticleRenderMode::Trail;
+                sys.blendMode = particles::ParticleBlendMode::Additive;
+                sys.emitter.mode = particles::EmissionMode::Continuous;
+                sys.emitter.spawnRate = 16.0f;
+                sys.AddInitializer<particles::PositionInitializer>().shape =
+                    particles::EmissionShape::Sphere(0.2f);
+                sys.AddInitializer<particles::LifetimeInitializer>().lifetime =
+                    particles::RangeFloat(1.0f, 1.8f);
+                {
+                    particles::VelocityInitializer& v =
+                        sys.AddInitializer<particles::VelocityInitializer>();
+                    v.baseVelocity = core::Float3{0.0f, 5.0f, 0.0f};
+                    v.randomness = core::Float3{2.5f, 1.5f, 2.5f};
+                }
+                sys.AddInitializer<particles::SizeInitializer>().size =
+                    particles::RangeFloat2::Constant(core::Float2{0.12f, 0.12f});
+                sys.AddInitializer<particles::ColorInitializer>().color = particles::RangeColor(
+                    core::Float4{1.0f, 0.7f, 0.2f, 1.0f}, core::Float4{1.0f, 0.45f, 0.1f, 1.0f});
+                sys.AddBehavior<particles::GravityBehavior>().multiplier = 0.9f;
+            }
+            m_campfireEntity = m_scene->CreateEntity(u8"campfire");
+            m_scene->SetLocalPosition(m_campfireEntity, core::Float3{-10.0f, 0.2f, 8.0f});
+            pmgr->Add(m_campfireEntity).SetEffect(m_campfire);
         }
 
         // The model-import seam: open the cooked-resource output DB, register the geometry factory,
@@ -1559,6 +1631,8 @@ namespace
 
     private:
         scene::Scene* m_scene = nullptr;
+        particles::ParticleEffect m_campfire; // the particle demo (billboards + trail sparks)
+        scene::EntityHandle m_campfireEntity{};
         scene::EntityHandle m_camera{};
         // Offscreen render target, double-buffered per frame-in-flight (each slot tracks its own size).
         static constexpr core::u32 kOffscreenSlots = 3;

@@ -16,6 +16,8 @@ target_link_libraries(Sandbox PRIVATE
     Draconic::Engine.Scene
     Draconic::Engine.Render
     Draconic::Engine.Animation
+    Draconic::Particles
+    Draconic::Engine.Particles
     Draconic::Imgui
     Draconic::Image
     Draconic::Image.IO
