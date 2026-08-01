@@ -50,6 +50,18 @@ export namespace draconic::rhi::webgpu
             const WGPUInstanceFeatureName spirv = WGPUInstanceFeatureName_ShaderSourceSPIRV;
             WGPUInstanceDescriptor instanceDesc = WGPU_INSTANCE_DESCRIPTOR_INIT;
 #if !DRACONIC_PLATFORM_WEB
+            // Restrict the sidecar instance to the PRIMARY backends (Vulkan/Metal/DX12). Left
+            // unset, wgpu-native enables every backend including GL, whose WGL instance thread
+            // on Windows dies with a fatal callback exception when an instance is created and
+            // torn down without the event loop being pumped in between. We never select GL
+            // (adapter choice is Vulkan/DX12), so nothing is lost by not starting it.
+            WGPUInstanceExtras instanceExtras{};
+            // wgpu-native's extension STypes are a separate enum (WGPUNativeSType) that extends
+            // the standard WGPUSType range; the chain field is typed as the standard one.
+            instanceExtras.chain.sType = static_cast<WGPUSType>(WGPUSType_InstanceExtras);
+            instanceExtras.backends = WGPUInstanceBackend_Primary;
+            instanceDesc.nextInChain = &instanceExtras.chain;
+
             instanceDesc.requiredFeatureCount = 1;
             instanceDesc.requiredFeatures = &spirv;
             m_instance = m_api.wgpuCreateInstance(&instanceDesc);
@@ -58,6 +70,9 @@ export namespace draconic::rhi::webgpu
             if (m_instance == nullptr)
             {
                 instanceDesc = WGPU_INSTANCE_DESCRIPTOR_INIT;
+#if !DRACONIC_PLATFORM_WEB
+                instanceDesc.nextInChain = &instanceExtras.chain; // keep GL out of the fallback too
+#endif
                 m_instance = m_api.wgpuCreateInstance(&instanceDesc);
             }
             (void)spirv;
