@@ -341,6 +341,9 @@ export namespace draconic::editor::app
             m_editorSettings; // per-user editor prefs (<userdata>/editor.settings.xml)
         draconic::editor::ProjectManagerController m_projectManager{
             m_editorSettings}; // headless manager decisions (open gate, registry, create)
+        UniquePtr<draconic::settings::Settings>
+            m_projectEditorSettings; // per-project editor state (<project>/Editor/); one store,
+                                     // typed sections (dock layout, favorites, open pages, ...)
         struct PendingExport
         {
             String presetName;

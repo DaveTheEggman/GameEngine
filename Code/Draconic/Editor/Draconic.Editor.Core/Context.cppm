@@ -13,6 +13,7 @@ export module draconic.editor.core:context;
 
 import draconic.core;
 import draconic.resource;
+import draconic.settings;
 import :importer;
 import draconic.content;
 import :command;
@@ -71,6 +72,27 @@ export namespace draconic::editor
         // Owned by the application (created at project open); pages resolve scene refs and the
         // inspector's pickers bind through it. Null until a project is open.
         void SetResources(draconic::resource::ResourceManager* resources) noexcept;
+
+        /// The PER-PROJECT editor-state settings store (<project>/Editor/ - dock layout,
+        /// favorites, open pages, per-page prefs). Borrowed; the app owns it and sets it for
+        /// the lifetime of the open project (null between projects). Pages mutate their
+        /// section + MarkChanged, then RequestProjectEditorSettingsSave() to persist.
+        void SetProjectEditorSettings(draconic::settings::Settings* store) noexcept
+        {
+            m_projectEditorSettings = store;
+        }
+        [[nodiscard]] draconic::settings::Settings* ProjectEditorSettings() const noexcept
+        {
+            return m_projectEditorSettings;
+        }
+        Function<void()> OnProjectEditorSettingsSaveRequested; // app-bound persist hook
+        void RequestProjectEditorSettingsSave()
+        {
+            if (OnProjectEditorSettingsSaveRequested)
+            {
+                OnProjectEditorSettingsSaveRequested();
+            }
+        }
         [[nodiscard]] draconic::resource::ResourceManager* Resources() const noexcept;
 
         // === Registries ===
@@ -256,6 +278,7 @@ export namespace draconic::editor
 
         EditorProject* m_project = nullptr;
         draconic::resource::ResourceManager* m_resources = nullptr; // borrowed (app-owned)
+        draconic::settings::Settings* m_projectEditorSettings = nullptr; // borrowed (app-owned)
         ImporterRegistry m_importers;                               // borrowed
         EditorPageRegistry m_pageRegistry;
         Array<AssetCreator> m_creators;

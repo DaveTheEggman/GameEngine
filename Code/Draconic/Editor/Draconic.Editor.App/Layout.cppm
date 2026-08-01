@@ -1,19 +1,31 @@
 // Draconic::EditorApp - :layout partition.
 //
-// Per-user dock-layout persistence (docs/design/editor.md §3.2): serialize the toolkit's
-// DockLayoutNode snapshot (DockManager::ExportLayout/ApplyLayout) to an XML file in the
-// project's Editor/ directory. Panels are matched back by their PersistenceId; unknown ids are
-// skipped by ApplyLayout, so a layout file survives panels being added/removed across versions.
+// PER-PROJECT editor-state persistence, UNIFIED on the structured settings store
+// (draconic.settings): ONE file - <project>/Editor/editor.project.settings.xml - holding
+// typed, versioned sections instead of the former bespoke trio (layout.xml + favorites.bin +
+// pages.bin; those are deleted on the first save, no legacy read):
+//
+//   EditorDockLayoutSettings  - the dock tree (DockManager Export/ApplyLayout snapshot);
+//                               panels matched back by PersistenceId, unknown ids skipped
+//   EditorFavoritesSettings   - pinned asset guids (EditorContext favorites)
+//   EditorOpenPagesSettings   - open page instance guids + the active one
+//
+// Other modules add their own sections to the SAME store (e.g. the material page's preview
+// prefs) through EditorContext::ProjectEditorSettings(); their types must be registered
+// before the app loads the store (registerEditors runs first, so per-subsystem registration
+// belongs in each RegisterXxxEditor).
 
 module;
 #include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.editor.app:layout;
 
 import draconic.core;
 import draconic.vfs;
+import draconic.settings;
 import draconic.xml.serialization;
-import draconic.editor.core; // EditorContext (favorites persistence)
+import draconic.editor.core; // EditorContext (favorites)
 import draconic.ui.toolkit;
 
 using namespace draconic::core;
@@ -21,12 +33,12 @@ using namespace draconic::core;
 export namespace draconic::editor::app
 {
     namespace ui = draconic::ui;
+    namespace settings = draconic::settings;
 
-    inline constexpr StringView kDockLayoutFile = u8"layout.xml";
-    inline constexpr StringView kFavoritesFile = u8"favorites.bin";
-    inline constexpr StringView kOpenPagesFile = u8"pages.bin";
+    // The one per-project editor-state file (hand-editable XML, like every settings store).
+    inline constexpr StringView kProjectEditorSettingsFile = u8"editor.project.settings.xml";
 
-    // Bidirectional field walk of one node (children recurse via presence flags).
+    // Bidirectional field walk of one dock node (children recurse via presence flags).
     inline void SerializeLayoutNode(ISerializer& ar, ui::toolkit::DockLayoutNode& node)
     {
         ar.BeginObject();
@@ -61,188 +73,193 @@ export namespace draconic::editor::app
         ar.EndObject();
     }
 
-    // Export `dock`'s current layout to <directory>/<fileName>.
-    [[nodiscard]] inline Status SaveDockLayout(ui::toolkit::DockManager& dock, StringView directory,
-                                               StringView fileName = kDockLayoutFile)
+    // The dock-tree section: owns a DockLayoutNode snapshot (absent root = never captured).
+    class EditorDockLayoutSettings final : public ISerializable
+    {
+        DRACONIC_OBJECT(EditorDockLayoutSettings, ISerializable)
+    public:
+        UniquePtr<ui::toolkit::DockLayoutNode> root;
+
+        void Serialize(ISerializer& ar) override
+        {
+            bool hasRoot = static_cast<bool>(root);
+            draconic::core::Serialize(ar, "hasRoot", hasRoot);
+            if (hasRoot)
+            {
+                if (ar.Mode() == SerializeMode::Read)
+                {
+                    root = MakeUnique<ui::toolkit::DockLayoutNode>(DefaultAllocator());
+                }
+                ar.Key("root");
+                SerializeLayoutNode(ar, *root);
+            }
+        }
+    };
+
+    class EditorFavoritesSettings final : public ISerializable
+    {
+        DRACONIC_OBJECT(EditorFavoritesSettings, ISerializable)
+    public:
+        Array<Guid> favorites;
+
+        void Serialize(ISerializer& ar) override
+        {
+            draconic::core::Serialize(ar, "favorites", favorites);
+        }
+    };
+
+    class EditorOpenPagesSettings final : public ISerializable
+    {
+        DRACONIC_OBJECT(EditorOpenPagesSettings, ISerializable)
+    public:
+        Array<Guid> pages;
+        Guid active;
+
+        void Serialize(ISerializer& ar) override
+        {
+            draconic::core::Serialize(ar, "pages", pages);
+            ar.Key("active");
+            ar.GuidValue(active);
+        }
+    };
+
+    // Register the app-side section types (call once at startup, before any store Load).
+    inline void RegisterEditorProjectSettingsTypes()
+    {
+        GlobalTypeRegistry().Register(EditorDockLayoutSettings::StaticType(),
+                                      TypeDomain(u8"Editor"));
+        RegisterSerializable<EditorDockLayoutSettings>();
+        GlobalTypeRegistry().Register(EditorFavoritesSettings::StaticType(),
+                                      TypeDomain(u8"Editor"));
+        RegisterSerializable<EditorFavoritesSettings>();
+        GlobalTypeRegistry().Register(EditorOpenPagesSettings::StaticType(),
+                                      TypeDomain(u8"Editor"));
+        RegisterSerializable<EditorOpenPagesSettings>();
+    }
+
+    // ---- store <-> live state ------------------------------------------------------------
+
+    // Snapshot `dock`'s current layout into the store. NotFound when the dock tree is empty.
+    [[nodiscard]] inline Status CaptureDockLayout(ui::toolkit::DockManager& dock,
+                                                  settings::Settings& store)
     {
         UniquePtr<ui::toolkit::DockLayoutNode> layout = dock.ExportLayout();
         if (!layout)
         {
             return Status{ErrorCode::NotFound};
-        } // empty dock tree - nothing to save
-
-        MemoryStream buffer;
-        SerializerFactory factory = draconic::xml::XmlSerializerFactory();
-        UniquePtr<SerializerContext> ctx = factory(buffer, SerializeMode::Write);
-        if (!ctx || ctx->serializer == nullptr)
-        {
-            return Status{ErrorCode::Internal};
         }
-        SerializeLayoutNode(*ctx->serializer, *layout);
-        if (!ctx->serializer->IsOk())
-        {
-            return ctx->serializer->GetStatus();
-        }
-        ctx->Flush(buffer);
-
-        vfs::NativeFileSystem root(directory);
-        vfs::IWritableFileSystem* writable = root.AsWritable();
-        if (writable == nullptr)
-        {
-            return Status{ErrorCode::NotSupported};
-        }
-        return writable->Save(fileName, buffer.Bytes());
-    }
-
-    // Rebuild `dock`'s layout from <directory>/<fileName> (panels matched by PersistenceId).
-    // NotFound if the file doesn't exist (caller keeps its default layout).
-    [[nodiscard]] inline Status LoadDockLayout(ui::toolkit::DockManager& dock, StringView directory,
-                                               StringView fileName = kDockLayoutFile)
-    {
-        vfs::NativeFileSystem root(directory);
-        UniquePtr<IStream> stream = root.Open(fileName, FileMode::Read);
-        if (!stream)
-        {
-            return Status{ErrorCode::NotFound};
-        }
-
-        SerializerFactory factory = draconic::xml::XmlSerializerFactory();
-        UniquePtr<SerializerContext> ctx = factory(*stream, SerializeMode::Read);
-        if (!ctx || ctx->serializer == nullptr)
-        {
-            return Status{ErrorCode::Internal};
-        }
-
-        ui::toolkit::DockLayoutNode layout;
-        SerializeLayoutNode(*ctx->serializer, layout);
-        if (!ctx->serializer->IsOk())
-        {
-            return ctx->serializer->GetStatus();
-        }
-
-        dock.ApplyLayout(&layout);
+        store.Section<EditorDockLayoutSettings>().root = Move(layout);
+        store.MarkChanged<EditorDockLayoutSettings>();
         return Status{};
     }
-}
 
-// === Favorites persistence (per-user, <project>/Editor/favorites.bin) =======================
-namespace draconic::editor::app
-{
-    [[nodiscard]] inline Status SaveFavorites(draconic::editor::EditorContext& context,
-                                              StringView directory)
+    // Rebuild `dock` from the store's snapshot (panels matched by PersistenceId).
+    // NotFound when no snapshot was ever captured (caller keeps its default layout).
+    [[nodiscard]] inline Status ApplyDockLayout(ui::toolkit::DockManager& dock,
+                                                settings::Settings& store)
     {
-        MemoryStream buffer;
-        BinarySerializer ar(buffer, SerializeMode::Write);
-        Span<const Guid> favorites = context.Favorites();
-        u32 count = static_cast<u32>(favorites.Size());
-        draconic::core::Serialize(ar, "count", count);
-        for (const Guid& f : favorites)
-        {
-            Guid id = f;
-            ar.Key("id");
-            ar.GuidValue(id);
-        }
-        if (!ar.IsOk())
-        {
-            return ar.GetStatus();
-        }
-
-        vfs::NativeFileSystem root(directory);
-        vfs::IWritableFileSystem* writable = root.AsWritable();
-        if (writable == nullptr)
-        {
-            return Status{ErrorCode::NotSupported};
-        }
-        return writable->Save(kFavoritesFile, buffer.Bytes());
-    }
-
-    [[nodiscard]] inline Status LoadFavorites(draconic::editor::EditorContext& context,
-                                              StringView directory)
-    {
-        vfs::NativeFileSystem root(directory);
-        UniquePtr<IStream> stream = root.Open(kFavoritesFile, FileMode::Read);
-        if (!stream)
+        const EditorDockLayoutSettings* section = store.Find<EditorDockLayoutSettings>();
+        if (section == nullptr || !section->root)
         {
             return Status{ErrorCode::NotFound};
         }
-        BinarySerializer ar(*stream, SerializeMode::Read);
-        u32 count = 0;
-        draconic::core::Serialize(ar, "count", count);
-        Array<Guid> favorites;
-        for (u32 i = 0; i < count && ar.IsOk(); ++i)
-        {
-            Guid id;
-            ar.Key("id");
-            ar.GuidValue(id);
-            favorites.PushBack(id);
-        }
-        if (!ar.IsOk())
-        {
-            return ar.GetStatus();
-        }
-        context.SetFavorites(Move(favorites));
+        dock.ApplyLayout(section->root.Get());
         return Status{};
     }
-}
 
-// === Open-page persistence (per-user, <project>/Editor/pages.bin) ===========================
-// The page INSTANCE guids from the last session + which one was active. Restored before the
-// dock layout so page panels (guid PersistenceIds) land back in their saved arrangement -
-// without this only the default document reopened (user-reported: two side-by-side scenes
-// became one on restart).
-namespace draconic::editor::app
-{
-    [[nodiscard]] inline Status SaveOpenPages(StringView directory, const Array<Guid>& pages,
-                                              const Guid& activePage)
+    inline void CaptureFavorites(draconic::editor::EditorContext& context,
+                                 settings::Settings& store)
+    {
+        EditorFavoritesSettings& section = store.Section<EditorFavoritesSettings>();
+        section.favorites.Clear();
+        for (const Guid& id : context.Favorites())
+        {
+            section.favorites.PushBack(id);
+        }
+        store.MarkChanged<EditorFavoritesSettings>();
+    }
+
+    inline void ApplyFavorites(draconic::editor::EditorContext& context,
+                               settings::Settings& store)
+    {
+        if (const EditorFavoritesSettings* section = store.Find<EditorFavoritesSettings>())
+        {
+            Array<Guid> favorites;
+            for (const Guid& id : section->favorites)
+            {
+                favorites.PushBack(id);
+            }
+            context.SetFavorites(Move(favorites));
+        }
+    }
+
+    inline void CaptureOpenPages(settings::Settings& store, const Array<Guid>& pages,
+                                 const Guid& activePage)
+    {
+        EditorOpenPagesSettings& section = store.Section<EditorOpenPagesSettings>();
+        section.pages = pages;
+        section.active = activePage;
+        store.MarkChanged<EditorOpenPagesSettings>();
+    }
+
+    // NotFound when no page set was ever saved (first launch: caller opens the default doc).
+    [[nodiscard]] inline Status ApplyOpenPages(settings::Settings& store, Array<Guid>& outPages,
+                                               Guid& outActivePage)
+    {
+        const EditorOpenPagesSettings* section = store.Find<EditorOpenPagesSettings>();
+        if (section == nullptr)
+        {
+            return Status{ErrorCode::NotFound};
+        }
+        outPages = section->pages;
+        outActivePage = section->active;
+        return Status{};
+    }
+
+    // ---- file I/O ------------------------------------------------------------------------
+
+    // Load the per-project store from <directory>/editor.project.settings.xml. NotFound when
+    // absent (fresh project / first run with the unified store) - the store stays empty and
+    // every section reads as defaults. Section types must be registered first.
+    [[nodiscard]] inline Status LoadProjectEditorSettings(settings::Settings& store,
+                                                          StringView directory)
+    {
+        vfs::NativeFileSystem root(directory);
+        UniquePtr<IStream> stream = root.Open(kProjectEditorSettingsFile, FileMode::Read);
+        if (!stream)
+        {
+            return Status{ErrorCode::NotFound};
+        }
+        return store.Load(*stream, draconic::xml::XmlSerializerFactory());
+    }
+
+    // Persist the per-project store; on success, delete the pre-unification bespoke files
+    // (layout.xml / favorites.bin / pages.bin) so stale state can't shadow the store.
+    [[nodiscard]] inline Status SaveProjectEditorSettings(const settings::Settings& store,
+                                                          StringView directory)
     {
         MemoryStream buffer;
-        BinarySerializer ar(buffer, SerializeMode::Write);
-        u32 count = static_cast<u32>(pages.Size());
-        draconic::core::Serialize(ar, "count", count);
-        for (const Guid& id : pages)
+        if (Status s = store.Save(buffer, draconic::xml::XmlSerializerFactory()); !s.IsOk())
         {
-            Guid guid = id;
-            ar.Key("id");
-            ar.GuidValue(guid);
+            return s;
         }
-        Guid active = activePage;
-        ar.Key("active");
-        ar.GuidValue(active);
-        if (!ar.IsOk())
-        {
-            return ar.GetStatus();
-        }
-
         vfs::NativeFileSystem root(directory);
         vfs::IWritableFileSystem* writable = root.AsWritable();
         if (writable == nullptr)
         {
             return Status{ErrorCode::NotSupported};
         }
-        return writable->Save(kOpenPagesFile, buffer.Bytes());
+        const Status saved = writable->Save(kProjectEditorSettingsFile, buffer.Bytes());
+        if (saved.IsOk())
+        {
+            (void)FileDelete(PathJoin(directory, u8"layout.xml"));
+            (void)FileDelete(PathJoin(directory, u8"favorites.bin"));
+            (void)FileDelete(PathJoin(directory, u8"pages.bin"));
+        }
+        return saved;
     }
 
-    [[nodiscard]] inline Status LoadOpenPages(StringView directory, Array<Guid>& outPages,
-                                              Guid& outActivePage)
-    {
-        vfs::NativeFileSystem root(directory);
-        UniquePtr<IStream> stream = root.Open(kOpenPagesFile, FileMode::Read);
-        if (!stream)
-        {
-            return Status{ErrorCode::NotFound};
-        }
-        BinarySerializer ar(*stream, SerializeMode::Read);
-        u32 count = 0;
-        draconic::core::Serialize(ar, "count", count);
-        for (u32 i = 0; i < count && ar.IsOk(); ++i)
-        {
-            Guid id;
-            ar.Key("id");
-            ar.GuidValue(id);
-            outPages.PushBack(id);
-        }
-        ar.Key("active");
-        ar.GuidValue(outActivePage);
-        return ar.IsOk() ? Status{} : ar.GetStatus();
-    }
+    DRACONIC_DEFINE_OBJECT_VERSIONED(EditorDockLayoutSettings, "draconic::editor::app", 1)
+    DRACONIC_DEFINE_OBJECT_VERSIONED(EditorFavoritesSettings, "draconic::editor::app", 1)
+    DRACONIC_DEFINE_OBJECT_VERSIONED(EditorOpenPagesSettings, "draconic::editor::app", 1)
 }

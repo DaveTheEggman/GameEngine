@@ -11,6 +11,7 @@ import draconic.core;
 import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.xml.serialization;
+import draconic.settings;
 import draconic.editor.core;
 import draconic.editor.app;
 
@@ -77,16 +78,23 @@ TEST_CASE("editor-shell: dock layout survives a save/restore round-trip")
     EditorShell shell;
     shell.Build(ctx, nullptr, 1280, 720);
 
-    // Capture the default arrangement, save it.
+    // Capture the default arrangement into the per-project settings store, persist it, and
+    // load it back through the same file the app writes (the unified store).
+    RegisterEditorProjectSettingsTypes();
     UniquePtr<ui::toolkit::DockLayoutNode> before = shell.Docks()->ExportLayout();
     REQUIRE(static_cast<bool>(before));
-    REQUIRE(shell.SaveLayout(dir).IsOk());
-    CHECK(FileExists(PathJoin(dir, u8"layout.xml")));
+    draconic::settings::Settings store;
+    REQUIRE(shell.SaveLayout(store).IsOk());
+    REQUIRE(SaveProjectEditorSettings(store, dir).IsOk());
+    CHECK(FileExists(PathJoin(dir, kProjectEditorSettingsFile)));
 
-    // Rearrange (undock a panel), then restore: the exported tree matches the saved one again.
+    // Rearrange (undock a panel), then restore from a FRESHLY LOADED store: the exported
+    // tree matches the saved one again.
     shell.Docks()->UndockPanel(shell.AssetsPanel());
     CHECK(shell.Docks()->FindPanelById(u8"assets") != nullptr); // still registered while undocked
-    REQUIRE(shell.RestoreLayout(dir).IsOk());
+    draconic::settings::Settings loaded;
+    REQUIRE(LoadProjectEditorSettings(loaded, dir).IsOk());
+    REQUIRE(shell.RestoreLayout(loaded).IsOk());
     UniquePtr<ui::toolkit::DockLayoutNode> after = shell.Docks()->ExportLayout();
     REQUIRE(static_cast<bool>(after));
 
@@ -141,7 +149,10 @@ TEST_CASE("editor-layout: restore from a missing file reports NotFound")
     EditorContext ctx;
     EditorShell shell;
     shell.Build(ctx, nullptr, 640, 480);
-    CHECK(shell.RestoreLayout(dir).Code() == ErrorCode::NotFound);
+    // A store with no captured snapshot (and a directory with no store file) both = NotFound.
+    draconic::settings::Settings store;
+    CHECK(shell.RestoreLayout(store).Code() == ErrorCode::NotFound);
+    CHECK(LoadProjectEditorSettings(store, dir).Code() == ErrorCode::NotFound);
 
     RemoveStateDir(dir);
 }

@@ -321,95 +321,37 @@ namespace draconic::editor
         }
     }
 
-    String MaterialEditorPage::PreviewPrefsPath(EditorContext& context)
-    {
-        return (context.Project() != nullptr) ? context.Project()->EditorStateRoot() : String();
-    }
-
-    void MaterialEditorPage::LoadPreviewPrefs(EditorContext& context, Array<PreviewPref>& out)
-    {
-        const String dir = PreviewPrefsPath(context);
-        if (dir.IsEmpty())
-        {
-            return;
-        }
-        draconic::vfs::NativeFileSystem root(dir.AsView());
-        UniquePtr<IStream> stream = root.Open(u8"material-preview.bin", FileMode::Read);
-        if (!stream)
-        {
-            return;
-        }
-        BinarySerializer ar(*stream, SerializeMode::Read);
-        u32 count = 0;
-        draconic::core::Serialize(ar, "count", count);
-        for (u32 i = 0; i < count && ar.IsOk(); ++i)
-        {
-            PreviewPref pref;
-            ar.Key("asset");
-            ar.GuidValue(pref.asset);
-            draconic::core::Serialize(ar, "shape", pref.shape);
-            ar.Key("mesh");
-            ar.GuidValue(pref.mesh);
-            out.PushBack(pref);
-        }
-        if (!ar.IsOk())
-        {
-            out.Clear();
-        }
-    }
-
-    void MaterialEditorPage::SavePreviewPrefs(EditorContext& context, Span<const PreviewPref> prefs)
-    {
-        const String dir = PreviewPrefsPath(context);
-        if (dir.IsEmpty())
-        {
-            return;
-        }
-        MemoryStream buffer;
-        BinarySerializer ar(buffer, SerializeMode::Write);
-        u32 count = static_cast<u32>(prefs.Size());
-        draconic::core::Serialize(ar, "count", count);
-        for (const PreviewPref& p : prefs)
-        {
-            PreviewPref copy = p;
-            ar.Key("asset");
-            ar.GuidValue(copy.asset);
-            draconic::core::Serialize(ar, "shape", copy.shape);
-            ar.Key("mesh");
-            ar.GuidValue(copy.mesh);
-        }
-        if (!ar.IsOk())
-        {
-            return;
-        }
-        draconic::vfs::NativeFileSystem root(dir.AsView());
-        if (draconic::vfs::IWritableFileSystem* writable = root.AsWritable())
-        {
-            (void)writable->Save(u8"material-preview.bin", buffer.Bytes());
-        }
-    }
-
     void MaterialEditorPage::LoadPreviewPref()
     {
-        Array<PreviewPref> prefs;
-        LoadPreviewPrefs(*m_context, prefs);
-        for (const PreviewPref& p : prefs)
+        draconic::settings::Settings* store = m_context->ProjectEditorSettings();
+        if (store == nullptr)
         {
-            if (p.asset == InstanceId())
+            return;
+        }
+        if (const MaterialPreviewSettings* section = store->Find<MaterialPreviewSettings>())
+        {
+            for (const MaterialPreviewPref& p : section->prefs)
             {
-                m_previewShape = p.shape;
-                m_previewMeshGuid = p.mesh;
-                return;
+                if (p.asset == InstanceId())
+                {
+                    m_previewShape = p.shape;
+                    m_previewMeshGuid = p.mesh;
+                    return;
+                }
             }
         }
     }
 
     void MaterialEditorPage::SavePreviewPref()
     {
-        Array<PreviewPref> prefs;
-        LoadPreviewPrefs(*m_context, prefs);
+        draconic::settings::Settings* store = m_context->ProjectEditorSettings();
+        if (store == nullptr)
+        {
+            return;
+        }
+        MaterialPreviewSettings& section = store->Section<MaterialPreviewSettings>();
         bool found = false;
-        for (PreviewPref& p : prefs)
+        for (MaterialPreviewPref& p : section.prefs)
         {
             if (p.asset == InstanceId())
             {
@@ -421,9 +363,11 @@ namespace draconic::editor
         }
         if (!found)
         {
-            prefs.PushBack(PreviewPref{InstanceId(), m_previewShape, m_previewMeshGuid});
+            section.prefs.PushBack(
+                MaterialPreviewPref{InstanceId(), m_previewShape, m_previewMeshGuid});
         }
-        SavePreviewPrefs(*m_context, Span<const PreviewPref>{prefs.Data(), prefs.Size()});
+        store->MarkChanged<MaterialPreviewSettings>();
+        m_context->RequestProjectEditorSettingsSave();
     }
 
     void MaterialEditorPage::ApplyPreviewMesh()

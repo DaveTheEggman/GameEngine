@@ -16,6 +16,7 @@ export module draconic.editor.app:shell;
 
 import draconic.core;
 import draconic.ui;
+import draconic.settings;
 import draconic.ui.toolkit;
 import draconic.editor.core;
 import :layout;
@@ -118,15 +119,15 @@ export namespace draconic::editor::app
             return panel;
         }
 
-        // Per-user layout persistence (project Editor/ dir). Page panels carry no
-        // PersistenceId, so only the global arrangement is captured/matched.
-        [[nodiscard]] Status SaveLayout(StringView directory) const
+        // Dock-layout persistence via the per-project settings STORE (the app owns loading
+        // and saving the store's file); these only capture/apply the dock snapshot section.
+        [[nodiscard]] Status SaveLayout(draconic::settings::Settings& store) const
         {
-            return SaveDockLayout(*m_dock, directory);
+            return CaptureDockLayout(*m_dock, store);
         }
-        [[nodiscard]] Status RestoreLayout(StringView directory) const
+        [[nodiscard]] Status RestoreLayout(draconic::settings::Settings& store) const
         {
-            return LoadDockLayout(*m_dock, directory);
+            return ApplyDockLayout(*m_dock, store);
         }
 
         /// Rebuild the default arrangement (View > Reset Layout).

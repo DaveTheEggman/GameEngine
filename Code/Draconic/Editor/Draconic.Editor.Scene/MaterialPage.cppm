@@ -18,11 +18,13 @@
 module;
 #include "Draconic.Core/Prelude.h"
 #include "Draconic.Core/Log/Log.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 export module draconic.editor.scene:material_page;
 
 import draconic.core;
 import draconic.vfs;
+import draconic.settings;
 import draconic.content;
 import draconic.rhi;
 import draconic.graphics;
@@ -204,23 +206,10 @@ export namespace draconic::editor
 
         // Swap the preview geometry: a built-in primitive, or any mesh asset from the
         // project (imported models show the material with their real UVs).
-        // === Preview prefs persistence (<project>/Editor/material-preview.bin) ===
+        // === Preview prefs (a section in the per-project editor-settings store) ===
         // Editor state, NOT on the MaterialAsset: the preview choice is a per-user pref,
         // never a build input (the Sedulous editor kept these in its asset-cache sidecar).
-        // Flat map: count + { assetGuid, shape u32, meshGuid } records, rewritten whole.
-
-        struct PreviewPref
-        {
-            Guid asset;
-            u32 shape = 0;
-            Guid mesh;
-        };
-
-        [[nodiscard]] static String PreviewPrefsPath(EditorContext& context);
-
-        static void LoadPreviewPrefs(EditorContext& context, Array<PreviewPref>& out);
-
-        static void SavePreviewPrefs(EditorContext& context, Span<const PreviewPref> prefs);
+        // Lives in EditorContext::ProjectEditorSettings() alongside layout/favorites/pages.
 
         void LoadPreviewPref();
 
@@ -345,11 +334,51 @@ export namespace draconic::editor
         return instance;
     }
 
+    // Per-asset material-preview prefs: {assetGuid -> (shape, meshGuid)} - a section in the
+    // per-project editor-settings store (rewritten whole; the page reads/writes its row).
+    struct MaterialPreviewPref
+    {
+        Guid asset;
+        u32 shape = 0;
+        Guid mesh;
+
+        void Serialize(ISerializer& ar)
+        {
+            ar.Key("asset");
+            ar.GuidValue(asset);
+            draconic::core::Serialize(ar, "shape", shape);
+            ar.Key("mesh");
+            ar.GuidValue(mesh);
+        }
+    };
+
+    inline void Serialize(ISerializer& ar, MaterialPreviewPref& p)
+    {
+        ar.BeginObject();
+        p.Serialize(ar);
+        ar.EndObject();
+    }
+
+    class MaterialPreviewSettings final : public ISerializable
+    {
+        DRACONIC_OBJECT(MaterialPreviewSettings, ISerializable)
+    public:
+        Array<MaterialPreviewPref> prefs;
+
+        void Serialize(ISerializer& ar) override
+        {
+            draconic::core::Serialize(ar, "prefs", prefs);
+        }
+    };
+
     inline void RegisterMaterialEditor(EditorContext& context, runtime::IApplicationHost& host,
                                        ui::runtime::UIHost& uiHost)
     {
         GlobalTypeRegistry().Register(materials::MaterialAsset::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<materials::MaterialAsset>();
+        // The preview-prefs section (registered before the app loads the per-project store).
+        GlobalTypeRegistry().Register(MaterialPreviewSettings::StaticType(), TypeDomain(u8"Editor"));
+        RegisterSerializable<MaterialPreviewSettings>();
 
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
             DefaultAllocator().New<MaterialEditorPageFactory>(host, uiHost), DefaultAllocator()));
@@ -368,4 +397,6 @@ export namespace draconic::editor
         { return CreateMaterialInstance(ctx, group, /*unlit*/ true); };
         context.RegisterCreator(Move(unlit));
     }
+
+    DRACONIC_DEFINE_OBJECT_VERSIONED(MaterialPreviewSettings, "draconic::editor", 1)
 }

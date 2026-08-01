@@ -944,7 +944,8 @@ namespace draconic::editor::app
     void EditorApplication::LoadEditorSettings()
     {
         editor::RegisterEditorSettingsTypes();
-        editor::RegisterProjectRegistryTypes(); // the manager's recent-projects section
+        editor::RegisterProjectRegistryTypes();   // the manager's recent-projects section
+        RegisterEditorProjectSettingsTypes();     // the per-project store's app-side sections
         (void)editor::LoadEditorSettingsFromUserData(
             m_editorSettings); // NotFound on first run is fine
     }
@@ -1972,13 +1973,29 @@ namespace draconic::editor::app
             m_inManagerMode = false;
         }
 
+        // The per-project editor-state STORE (one structured file: dock layout, favorites,
+        // open pages, per-page prefs). Absent on a fresh project - sections read as defaults.
+        m_projectEditorSettings = MakeUnique<draconic::settings::Settings>(DefaultAllocator());
+        (void)LoadProjectEditorSettings(*m_projectEditorSettings,
+                                        m_project->EditorStateRoot().AsView());
+        m_context.SetProjectEditorSettings(m_projectEditorSettings.Get());
+        m_context.OnProjectEditorSettingsSaveRequested = [this]()
+        {
+            if (m_project && m_projectEditorSettings)
+            {
+                (void)SaveProjectEditorSettings(*m_projectEditorSettings,
+                                                m_project->EditorStateRoot().AsView());
+            }
+        };
+
         // Per-user pinned assets (browser + picker surface them first).
-        (void)LoadFavorites(m_context, m_project->EditorStateRoot().AsView());
+        ApplyFavorites(m_context, *m_projectEditorSettings);
         m_context.OnFavoritesChanged = [this]()
         {
-            if (m_project)
+            if (m_project && m_projectEditorSettings)
             {
-                (void)SaveFavorites(m_context, m_project->EditorStateRoot().AsView());
+                CaptureFavorites(m_context, *m_projectEditorSettings);
+                m_context.RequestProjectEditorSettingsSave();
             }
         };
 
@@ -2079,7 +2096,7 @@ namespace draconic::editor::app
         {
             Array<Guid> pages;
             Guid activePage;
-            if (LoadOpenPages(m_project->EditorStateRoot().AsView(), pages, activePage).IsOk())
+            if (ApplyOpenPages(*m_projectEditorSettings, pages, activePage).IsOk())
             {
                 UIEditorPage* toActivate = nullptr;
                 for (const Guid& id : pages)
@@ -2119,7 +2136,7 @@ namespace draconic::editor::app
                     (void)OpenInstancePage(*instance);
                 }
             }
-            (void)m_shell.RestoreLayout(m_project->EditorStateRoot().AsView());
+            (void)m_shell.RestoreLayout(*m_projectEditorSettings);
         }
 
         // Record the open in the per-user registry (most-recent-first; snapshot refreshed).
@@ -2172,6 +2189,9 @@ namespace draconic::editor::app
         }
         m_context.SetResources(nullptr);
         m_resources = nullptr;
+        m_context.SetProjectEditorSettings(nullptr);
+        m_context.OnProjectEditorSettingsSaveRequested = {};
+        m_projectEditorSettings = nullptr;
         m_context.SetProject(nullptr);
         m_project = nullptr;
         m_context.SetStatus(u8"Project closed.");
@@ -2383,30 +2403,33 @@ namespace draconic::editor::app
 
     void EditorApplication::SaveLayout()
     {
-        if (m_project)
+        if (!m_project || !m_projectEditorSettings)
         {
-            Array<Guid> pages;
-            Guid activePage;
-            for (const PagePanel& entry : m_pagePanels)
+            return;
+        }
+        Array<Guid> pages;
+        Guid activePage;
+        for (const PagePanel& entry : m_pagePanels)
+        {
+            // Instance-less pages (the Game tab) don't persist in the page set - a
+            // nil guid would just fail the restore lookup.
+            if (entry.page->InstanceId().IsNil())
             {
-                // Instance-less pages (the Game tab) don't persist in the page set - a
-                // nil guid would just fail the restore lookup.
-                if (entry.page->InstanceId().IsNil())
-                {
-                    continue;
-                }
-                pages.PushBack(entry.page->InstanceId());
-                if (m_context.ActivePage() == entry.page)
-                {
-                    activePage = entry.page->InstanceId();
-                }
+                continue;
             }
-            (void)SaveOpenPages(m_project->EditorStateRoot().AsView(), pages, activePage);
+            pages.PushBack(entry.page->InstanceId());
+            if (m_context.ActivePage() == entry.page)
+            {
+                activePage = entry.page->InstanceId();
+            }
         }
-        if (m_project && m_shell.Docks() != nullptr)
+        CaptureOpenPages(*m_projectEditorSettings, pages, activePage);
+        if (m_shell.Docks() != nullptr)
         {
-            (void)m_shell.SaveLayout(m_project->EditorStateRoot().AsView());
+            (void)m_shell.SaveLayout(*m_projectEditorSettings);
         }
+        (void)SaveProjectEditorSettings(*m_projectEditorSettings,
+                                        m_project->EditorStateRoot().AsView());
     }
 
     void EditorApplication::BuildMenus()
