@@ -148,6 +148,13 @@ export namespace draconic::runtime
 
         /// Borrow an existing manager (editor). Wins over SetContentDatabase.
         void SetResourceManager(draconic::resource::ResourceManager* borrowed) noexcept;
+        /// LATE-bind a borrowed manager after OnStartup (the editor's project manager opens
+        /// and closes projects at runtime): sets the borrow AND registers the app's standard
+        /// resource factories into it - exactly what OnStartup does for a preset manager.
+        /// Pass null to detach (the editor destroys the old manager after this returns; the
+        /// app's lazy Resources() consumers all tolerate null between projects).
+        void AttachResourceManager(draconic::resource::ResourceManager* borrowed,
+                                   IApplicationHost& host);
         /// The cooked-content database the app should build its OWN manager over (player).
         void SetContentDatabase(draconic::content::IContentDatabase* database) noexcept;
         [[nodiscard]] draconic::resource::ResourceManager* Resources() const noexcept;
@@ -188,6 +195,11 @@ export namespace draconic::runtime
         void OnRenderWindow(IApplicationHost& host, FrameContext& frame) override;
 
     private:
+        // The standard factory set, registered into whichever manager the app uses (preset at
+        // OnStartup or late-attached by the editor's project manager).
+        void RegisterStandardFactories(draconic::resource::ResourceManager& resources,
+                                       IApplicationHost& host);
+
         // Bridges physics contacts to the script subsystem's neutral ingress, mapping the
         // physics kind onto the script vocabulary. This is the ONLY place physics and script
         // meet for contacts - the subsystems stay mutually independent.

@@ -347,29 +347,48 @@ namespace draconic::runtime
         if (resources == nullptr)
         {
             return;
-        } // headless/no-content apps
-        resources->AddFactory(&m_meshFactory);
-        resources->AddFactory(&m_skinnedMeshFactory);
-        resources->AddFactory(&m_materialFactory);
-        resources->AddFactory(&m_skeletonFactory);
-        resources->AddFactory(&m_animationClipFactory);
-        resources->AddFactory(&m_animationGraphFactory);
-        resources->AddFactory(&m_particleEffectFactory);
-        resources->AddFactory(&m_inputMapFactory);
-        resources->AddFactory(&m_collisionShapeFactory);
-        resources->AddFactory(&m_physicalMaterialFactory);
-        resources->AddFactory(&m_audioClipFactory);
-        resources->AddFactory(&m_busLayoutFactory);
-        resources->AddFactory(&m_soundCueFactory);
-        resources->AddFactory(&m_scriptClassFactory);
-        resources->AddFactory(&m_modelFactory);
-        resources->AddFactory(&m_uiDocumentFactory);
-        resources->AddFactory(&m_uiThemeFactory);
+        } // headless/no-content apps (a project-manager editor attaches one later)
+        RegisterStandardFactories(*resources, host);
+    }
+
+    void DefaultApplication::RegisterStandardFactories(draconic::resource::ResourceManager& resources,
+                                                       IApplicationHost& host)
+    {
+        resources.AddFactory(&m_meshFactory);
+        resources.AddFactory(&m_skinnedMeshFactory);
+        resources.AddFactory(&m_materialFactory);
+        resources.AddFactory(&m_skeletonFactory);
+        resources.AddFactory(&m_animationClipFactory);
+        resources.AddFactory(&m_animationGraphFactory);
+        resources.AddFactory(&m_particleEffectFactory);
+        resources.AddFactory(&m_inputMapFactory);
+        resources.AddFactory(&m_collisionShapeFactory);
+        resources.AddFactory(&m_physicalMaterialFactory);
+        resources.AddFactory(&m_audioClipFactory);
+        resources.AddFactory(&m_busLayoutFactory);
+        resources.AddFactory(&m_soundCueFactory);
+        resources.AddFactory(&m_scriptClassFactory);
+        resources.AddFactory(&m_modelFactory);
+        resources.AddFactory(&m_uiDocumentFactory);
+        resources.AddFactory(&m_uiThemeFactory);
         if (GraphicsDevice* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
         {
-            m_textureFactory = core::MakeUnique<draconic::texture::TextureFactory>(
-                core::DefaultAllocator(), *gfx->Raw());
-            resources->AddFactory(m_textureFactory.Get());
+            if (!m_textureFactory)
+            {
+                m_textureFactory = core::MakeUnique<draconic::texture::TextureFactory>(
+                    core::DefaultAllocator(), *gfx->Raw());
+            }
+            resources.AddFactory(m_textureFactory.Get());
+        }
+    }
+
+    void DefaultApplication::AttachResourceManager(draconic::resource::ResourceManager* borrowed,
+                                                   IApplicationHost& host)
+    {
+        m_borrowedResources = borrowed;
+        if (borrowed != nullptr)
+        {
+            RegisterStandardFactories(*borrowed, host);
         }
     }
 
