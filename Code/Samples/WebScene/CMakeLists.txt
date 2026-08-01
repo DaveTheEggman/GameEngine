@@ -28,7 +28,8 @@ target_link_libraries(WebScene PRIVATE
 # virtual FS at /shaders.dpak, where RenderSubsystem::LoadCookedShaderPack finds it. Draconic.Tools.ShaderPack
 # must be built first by any desktop preset (it is a native authoring tool, never built for wasm).
 set(_web_shader_pack "${CMAKE_CURRENT_BINARY_DIR}/shaders.dpak")
-set(_cook_tool "${CMAKE_SOURCE_DIR}/Bin/Debug/Linux64-Clang/${DRACONIC_SHADERPACKCOOK_BASENAME}")
+set(_cook_tool
+    "${DRACONIC_HOST_BIN_DIR}/${DRACONIC_SHADERPACKCOOK_BASENAME}${DRACONIC_HOST_EXE_SUFFIX}")
 file(GLOB _engine_shader_sources
     "${CMAKE_SOURCE_DIR}/Data/Shaders/*.hlsl" "${CMAKE_SOURCE_DIR}/Data/Shaders/*.hlsli")
 add_custom_command(

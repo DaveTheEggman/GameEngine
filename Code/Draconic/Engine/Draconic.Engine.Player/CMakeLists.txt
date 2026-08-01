@@ -29,7 +29,8 @@ if(EMSCRIPTEN)
     # SEPARATE from the game dist - the dist carries project assets, not engine shaders. (Same shape
     # as Code/Samples/WebScene.) The native Draconic.Tools.ShaderPack must be built first (desktop).
     set(_web_shader_pack "${CMAKE_CURRENT_BINARY_DIR}/shaders.dpak")
-    set(_cook_tool "${CMAKE_SOURCE_DIR}/Bin/Debug/Linux64-Clang/${DRACONIC_SHADERPACKCOOK_BASENAME}")
+    set(_cook_tool
+        "${DRACONIC_HOST_BIN_DIR}/${DRACONIC_SHADERPACKCOOK_BASENAME}${DRACONIC_HOST_EXE_SUFFIX}")
     file(GLOB _engine_shader_sources
         "${CMAKE_SOURCE_DIR}/Data/Shaders/*.hlsl" "${CMAKE_SOURCE_DIR}/Data/Shaders/*.hlsli")
     add_custom_command(
@@ -44,7 +45,7 @@ if(EMSCRIPTEN)
     # be baked in; defaults to the staged EditorProject dist. Both files preload into the MEMFS root,
     # where the runner (projectDir ".") finds them.
     set(DRACONIC_WEB_PLAYER_DIST
-        "${CMAKE_SOURCE_DIR}/Bin/Debug/Linux64-Clang/EditorProject/Dist/Linux64"
+        "${DRACONIC_HOST_BIN_DIR}/EditorProject/Dist/${DRACONIC_HOST_PLATFORM}"
         CACHE PATH "Cooked dist dir (Content.pak + player.xml) to bundle into the web player")
 
     # Full-window canvas shell, the player's own (shipping-facing: <title>Draconic Player</title>, its

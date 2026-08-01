@@ -94,10 +94,13 @@ endif()
 # missing per-platform binary just leaves the define empty (translator reports it).
 add_library(draconic_shader_cook_tools INTERFACE)
 add_library(Draconic::ShaderCookTools ALIAS draconic_shader_cook_tools)
-if(WIN32)
+# Keyed on the HOST, not the target: these run on the cook machine, so a cross build
+# (wasm) still needs the host's binaries - plain WIN32/APPLE are false under Emscripten
+# and would select the Linux ones on a Windows host.
+if(CMAKE_HOST_WIN32)
     set(_naga_exe "${CMAKE_CURRENT_SOURCE_DIR}/Naga/bin/win-x64/naga.exe")
     set(_tint_exe "${CMAKE_CURRENT_SOURCE_DIR}/Tint/bin/win-x64/tint.exe")
-elseif(APPLE)
+elseif(CMAKE_HOST_APPLE)
     set(_naga_exe "${CMAKE_CURRENT_SOURCE_DIR}/Naga/bin/mac-arm64/naga")
     set(_tint_exe "${CMAKE_CURRENT_SOURCE_DIR}/Tint/bin/mac-arm64/tint")
 else()

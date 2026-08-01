@@ -100,6 +100,28 @@ endif()
 set(DRACONIC_PLAYER_BASENAME         "Draconic.Engine.Player")
 set(DRACONIC_SHADERPACKCOOK_BASENAME "Draconic.Tools.ShaderPack")
 
+# Where the DESKTOP build put its executables, as seen from a CROSS build (wasm). The web
+# build shells out to native cook tools by path - it cannot use $<TARGET_FILE:> because those
+# targets do not exist in the wasm configure - so it needs the host's Bin dir. Derived from
+# CMAKE_HOST_* (CMAKE_SYSTEM_NAME is "Emscripten" here, so the _dr_plat above would be wrong),
+# and the exe suffix is the HOST's - CMAKE_EXECUTABLE_SUFFIX is ".js" under Emscripten.
+# Assumes the desktop build used Clang (the documented dev toolchain); override the cache
+# variable for a GCC/MSVC host build or a non-default Bin location.
+if(CMAKE_HOST_WIN32)
+    set(_dr_host_plat "Win64")
+    set(DRACONIC_HOST_EXE_SUFFIX ".exe")
+elseif(CMAKE_HOST_APPLE)
+    set(_dr_host_plat "Mac64")
+    set(DRACONIC_HOST_EXE_SUFFIX "")
+else()
+    set(_dr_host_plat "Linux64")
+    set(DRACONIC_HOST_EXE_SUFFIX "")
+endif()
+set(DRACONIC_HOST_PLATFORM "${_dr_host_plat}" CACHE STRING
+    "Host platform folder name under Bin/<config>/ (cross builds locate native tools there)")
+set(DRACONIC_HOST_BIN_DIR "${CMAKE_SOURCE_DIR}/Bin/Debug/${DRACONIC_HOST_PLATFORM}-Clang"
+    CACHE PATH "Desktop Bin dir holding the native cook tools a cross (web) build shells out to")
+
 # Enable testing before any subdirectory so add_test() calls made by modules that
 # register their own Tests/ (e.g. Runtime, Script/Wren) are picked up by ctest.
 if(DRACONIC_BUILD_TESTS)
@@ -162,6 +184,13 @@ if(DRACONIC_WARNINGS_AS_ERRORS)
     # doctest (and other widely-used macros) rely on it, so suppress the diagnostic.
     target_compile_options(draconic_policy INTERFACE
         $<$<CXX_COMPILER_ID:Clang>:-Wno-error=unused-command-line-argument;-Wno-c2y-extensions>)
+    # em++ re-invokes clang++ for the module precompile and does NOT forward
+    # -Wno-error=unused-command-line-argument to that inner driver, so the same spurious
+    # "'-c' unused" diagnostic is fatal again on the wasm build. Suppress it outright here
+    # (it is never actionable: CMake, not us, passes both --precompile and -c).
+    if(EMSCRIPTEN)
+        target_compile_options(draconic_policy INTERFACE -Wno-unused-command-line-argument)
+    endif()
 endif()
 
 # --- Include roots -----------------------------------------------------------
