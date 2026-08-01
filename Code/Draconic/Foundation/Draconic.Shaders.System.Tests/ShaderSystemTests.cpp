@@ -4,6 +4,9 @@
 #include <doctest/doctest.h>
 #include "Draconic.Core/Prelude.h"
 
+#include <filesystem>
+#include <fstream>
+
 import draconic.core;
 import draconic.rhi;
 import draconic.rhi.null;
@@ -186,4 +189,144 @@ TEST_CASE("shader system: distinct variants cache separately; invalidate recompi
     }
 
     compiler->Destroy();
+}
+
+TEST_CASE("shader system: an explicitly registered source beats the cooked pack")
+{
+    Compiler* compiler = MakeCompiler();
+    if (compiler == nullptr)
+    {
+        MESSAGE("DXC unavailable; skipping");
+        return;
+    }
+
+    rhi::null::NullDevice device{DefaultAllocator()};
+    {
+        // A pack that does NOT contain "user_shader" - the shape of a dist with the engine
+        // pack loaded and a user shader ASSET (ShaderResource) registered at runtime.
+        CookedShaderPack pack;
+        const byte bogus[] = {byte{1}};
+        pack.Add(u8"engine_only", ShaderStage::Vertex, ShaderFlags::None,
+                 CookedShaderFormat::SpirV, Span<const byte>(bogus, 1));
+
+        ShaderSystem ss(*compiler, device);
+        ss.SetCookedPack(&pack);
+        ss.RegisterSource(u8"user_shader", ShaderStage::Vertex, kTrivialVertex);
+
+        // The registered source compiles even though the system is in pack mode.
+        rhi::ShaderModule* m =
+            ss.GetVariant(u8"user_shader", ShaderStage::Vertex, ShaderFlags::None);
+        CHECK(m != nullptr);
+    }
+    compiler->Destroy();
+}
+
+TEST_CASE("shader system: dev mode canonicalizes corpus requests like the cooked path")
+{
+    Compiler* compiler = MakeCompiler();
+    if (compiler == nullptr)
+    {
+        MESSAGE("DXC unavailable; skipping");
+        return;
+    }
+
+    // A tiny corpus: one shader DECLARING Skinned, one with no directive (single-variant).
+    const std::filesystem::path root = "shader_canon_corpus";
+    std::filesystem::remove_all(root);
+    std::filesystem::create_directories(root);
+    {
+        std::ofstream a(root / "declared.vs.hlsl", std::ios::binary);
+        a << "// draconic:variants SKINNED\n"
+          << "float4 main(uint id : SV_VertexID) : SV_Position { return float4(0,0,0,1); }\n";
+        std::ofstream b(root / "plain.vs.hlsl", std::ios::binary);
+        b << "float4 main(uint id : SV_VertexID) : SV_Position { return float4(0,0,0,1); }\n";
+    }
+
+    rhi::null::NullDevice device{DefaultAllocator()};
+    {
+        FileShaderSourceProvider provider;
+        REQUIRE(provider.Initialize(u8"shader_canon_corpus").IsOk());
+
+        ShaderSystem ss(*compiler, device);
+        ss.SetSourceProvider(&provider);
+
+        // Declared mask Skinned: a request carrying an extra UNDECLARED flag collapses onto
+        // the declared-only variant - the same module object, not a recompile.
+        rhi::ShaderModule* declared =
+            ss.GetVariant(u8"declared", ShaderStage::Vertex, ShaderFlags::Skinned);
+        REQUIRE(declared != nullptr);
+        CHECK(ss.GetVariant(u8"declared", ShaderStage::Vertex,
+                            ShaderFlags::Skinned | ShaderFlags::Emissive) == declared);
+        // And the undeclared-only request collapses onto the None variant.
+        rhi::ShaderModule* none =
+            ss.GetVariant(u8"declared", ShaderStage::Vertex, ShaderFlags::None);
+        REQUIRE(none != nullptr);
+        CHECK(ss.GetVariant(u8"declared", ShaderStage::Vertex, ShaderFlags::Emissive) == none);
+        CHECK(none != declared);
+
+        // No directive = single-variant: EVERY request lands on the one variant.
+        rhi::ShaderModule* plain = ss.GetVariant(u8"plain", ShaderStage::Vertex, ShaderFlags::None);
+        REQUIRE(plain != nullptr);
+        CHECK(ss.GetVariant(u8"plain", ShaderStage::Vertex,
+                            ShaderFlags::Skinned | ShaderFlags::Instanced) == plain);
+
+        // Explicitly REGISTERED sources are outside the corpus model: raw flags still apply
+        // (the NormalMap-guarded source only compiles when the define survives).
+        ss.RegisterSource(u8"guarded", ShaderStage::Fragment, kNeedsNormalMap);
+        CHECK(ss.GetVariant(u8"guarded", ShaderStage::Fragment, ShaderFlags::NormalMap) !=
+              nullptr);
+    }
+    compiler->Destroy();
+}
+
+TEST_CASE("shader system host: dev-first policy - a nearby pack does not silently win")
+{
+    rhi::null::NullDevice device{DefaultAllocator()};
+
+    // A usable pack in the CWD (one of the two locations LoadPack scans).
+    {
+        CookedShaderPack pack;
+        const byte blob[] = {byte{1}};
+        pack.Add(u8"x", ShaderStage::Vertex, ShaderFlags::None, CookedShaderFormat::SpirV,
+                 Span<const byte>(blob, 1));
+        FileStream out(u8"shaders.dpak", FileMode::Write);
+        REQUIRE(out.IsValid());
+        REQUIRE(pack.Write(out).IsOk());
+    }
+    // A dev source root.
+    std::filesystem::create_directories("host_dev_root");
+    {
+        std::ofstream f("host_dev_root/hosted.vs.hlsl", std::ios::binary);
+        f << "float4 main(uint id : SV_VertexID) : SV_Position { return float4(0,0,0,1); }\n";
+    }
+
+    {
+        // Automatic: dev is possible (DXC + root), so the pack must NOT take over.
+        ShaderSystemHost host;
+        if (!host.Initialize(device, u8"host_dev_root"))
+        {
+            MESSAGE("DXC unavailable; skipping");
+            (void)FileDelete(u8"shaders.dpak");
+            return;
+        }
+        CHECK_FALSE(host.UsingPack());
+        CHECK(host.GetVariant(u8"hosted", ShaderStage::Vertex, ShaderFlags::None) != nullptr);
+    }
+    {
+        // Explicit opt-in: ForcePack loads a nearby pack. LoadPack scans the EXECUTABLE
+        // directory before the cwd, and a dev machine may legitimately have a cooked pack
+        // beside the test binary - so assert pack mode, not which pack won.
+        ShaderSystemHost host;
+        REQUIRE(host.Initialize(device, u8"host_dev_root", ShaderPackPolicy::ForcePack));
+        CHECK(host.UsingPack());
+        CHECK(host.PackVariantCount() >= 1u);
+    }
+    {
+        // ForceDev ignores the pack even when the root is missing (registered-only mode).
+        ShaderSystemHost host;
+        REQUIRE(host.Initialize(device, u8"no_such_root_zzz", ShaderPackPolicy::ForceDev));
+        CHECK_FALSE(host.UsingPack());
+    }
+
+    (void)FileDelete(u8"shaders.dpak");
 }

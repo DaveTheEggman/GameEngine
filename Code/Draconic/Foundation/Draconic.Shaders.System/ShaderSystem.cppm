@@ -83,10 +83,15 @@ export namespace draconic::shaders
         ShaderSystem(const ShaderSystem&) = delete;
         ShaderSystem& operator=(const ShaderSystem&) = delete;
 
-        // Register a shader's HLSL source for a stage (owned copy).
+        // Register a shader's HLSL source for a stage (owned copy). Explicitly registered
+        // sources are compiled with the RAW requested flags (no declared-mask model): they are
+        // outside the corpus/cook lattice by definition, and callers like the NormalMap-guarded
+        // tests rely on every requested define being applied.
         void RegisterSource(core::StringView name, ShaderStage stage, core::StringView hlsl)
         {
-            m_sources.InsertOrAssign(SourceKey(name, stage), core::String(hlsl));
+            const core::u64 key = SourceKey(name, stage);
+            m_sources.InsertOrAssign(key, core::String(hlsl));
+            m_declaredMasks.Remove(key); // explicit registration overrides a provider fetch
         }
 
         // The source-pull seam (borrowed; may be null - see IShaderSourceProvider).
@@ -129,9 +134,14 @@ export namespace draconic::shaders
         // is handled by InvalidateShader).
         void RemoveSource(core::StringView name)
         {
-            m_sources.Remove(SourceKey(name, ShaderStage::Vertex));
-            m_sources.Remove(SourceKey(name, ShaderStage::Fragment));
-            m_sources.Remove(SourceKey(name, ShaderStage::Compute));
+            constexpr ShaderStage kStages[] = {ShaderStage::Vertex, ShaderStage::Fragment,
+                                               ShaderStage::Compute};
+            for (const ShaderStage stage : kStages)
+            {
+                const core::u64 key = SourceKey(name, stage);
+                m_sources.Remove(key);
+                m_declaredMasks.Remove(key);
+            }
         }
 
         // Include search paths for DXC #include resolution of shared .hlsli (owned).
@@ -152,38 +162,34 @@ export namespace draconic::shaders
         {
             if (m_pack != nullptr)
             {
+                // Explicit RegisterSource beats the pack: the engine pack covers only the
+                // engine corpus, while registered sources carry bespoke inline shaders AND
+                // user shader ASSETS (ShaderResource) - those must keep resolving in pack
+                // mode or custom material shaders die in a dist.
+                if (m_sources.Find(SourceKey(name, stage)) != nullptr)
+                {
+                    if (m_compiler != nullptr)
+                    {
+                        return GetCompiledVariant(name, stage, flags);
+                    }
+                    // Compiler-free dist: a registered SOURCE cannot be served. Loud once
+                    // per (name, stage) - the fix is cooking user shaders to bytecode.
+                    const core::u64 srcKey = SourceKey(name, stage);
+                    if (m_loggedFailures.Find(srcKey) == nullptr)
+                    {
+                        m_loggedFailures.InsertOrAssign(srcKey, true);
+                        rhi::LogErrorf("Registered shader source '%.*s' (stage %u) cannot be "
+                                       "compiled in compiler-free pack mode - cook it or ship "
+                                       "a compiler",
+                                       static_cast<int>(name.Size()),
+                                       reinterpret_cast<const char*>(name.Data()),
+                                       static_cast<unsigned>(stage));
+                    }
+                    return nullptr;
+                }
                 return GetCookedVariant(name, stage, flags);
             }
-
-            const ShaderVariantKey key{ShaderNameHash(name), stage, flags};
-            if (rhi::ShaderModule** cached = m_cache.Find(key))
-            {
-                return *cached;
-            }
-
-            core::String* source = m_sources.Find(SourceKey(name, stage));
-            if (source == nullptr && m_provider != nullptr)
-            {
-                core::String fetched;
-                if (m_provider->FetchSource(name, stage, fetched))
-                {
-                    RegisterSource(name, stage, fetched.AsView());
-                    source = m_sources.Find(SourceKey(name, stage));
-                }
-            }
-            if (source == nullptr)
-            {
-                return nullptr;
-            }
-
-            rhi::ShaderModule* module = Compile(source->AsView(), stage, flags);
-            if (module == nullptr)
-            {
-                return nullptr;
-            }
-
-            m_cache.InsertOrAssign(key, module);
-            return module;
+            return GetCompiledVariant(name, stage, flags);
         }
 
         // Drop + destroy every cached variant of a shader and BUMP its version (the
@@ -230,6 +236,56 @@ export namespace draconic::shaders
             return SelectCookedFormat(m_device->PreferredShaderFormat());
         }
 
+        // Dev path: resolve source (registered, or pulled from the provider), canonicalize
+        // provider-fetched (corpus) requests against the stage's declared variant mask EXACTLY
+        // like the cooked path does - the design requires dev and dist to canonicalize
+        // identically, and it dedupes variants (a PS that ignores SKINNED stops recompiling
+        // per skin). Explicitly registered sources have no mask entry and compile raw flags.
+        [[nodiscard]] rhi::ShaderModule* GetCompiledVariant(core::StringView name,
+                                                            ShaderStage stage, ShaderFlags flags)
+        {
+            const core::u64 srcKey = SourceKey(name, stage);
+            core::String* source = m_sources.Find(srcKey);
+            if (source == nullptr && m_provider != nullptr)
+            {
+                core::String fetched;
+                if (m_provider->FetchSource(name, stage, fetched))
+                {
+                    m_sources.InsertOrAssign(srcKey, core::Move(fetched));
+                    source = m_sources.Find(srcKey);
+                    // Corpus sources carry the variant directive; absent means single-variant
+                    // (mask None) - the same rule the cook applies.
+                    const VariantDirective directive = ParseVariantDirective(source->AsView());
+                    m_declaredMasks.InsertOrAssign(
+                        srcKey, directive.present ? directive.mask : ShaderFlags::None);
+                }
+            }
+            if (source == nullptr)
+            {
+                return nullptr;
+            }
+
+            ShaderFlags canon = flags;
+            if (const ShaderFlags* mask = m_declaredMasks.Find(srcKey))
+            {
+                canon = CanonicalizeFlags(flags, *mask);
+            }
+            const ShaderVariantKey key{ShaderNameHash(name), stage, canon};
+            if (rhi::ShaderModule** cached = m_cache.Find(key))
+            {
+                return *cached;
+            }
+
+            rhi::ShaderModule* module = Compile(source->AsView(), stage, canon);
+            if (module == nullptr)
+            {
+                return nullptr;
+            }
+
+            m_cache.InsertOrAssign(key, module);
+            return module;
+        }
+
         // Dist path: canonicalize against the declared mask, look up the prebuilt blob, and create
         // the GPU module directly. Cached under the CANONICAL key so requests that differ only in
         // ignored flags dedupe. A miss is a cook-coverage bug (loud, returns null).
@@ -249,6 +305,15 @@ export namespace draconic::shaders
             const core::Array<core::byte>* blob = m_pack->Find(nameHash, stage, canon, format);
             if (blob == nullptr)
             {
+                // Loud, but once per variant - PSO layers retry every frame and the full
+                // pack dump per frame would drown the log.
+                const core::u64 missKey = (SourceKey(name, stage) * 1099511628211ull) ^
+                                          (static_cast<core::u64>(canon) << 32);
+                if (m_loggedFailures.Find(missKey) != nullptr)
+                {
+                    return nullptr;
+                }
+                m_loggedFailures.InsertOrAssign(missKey, true);
                 const ShaderFlags mask = m_pack->DeclaredMask(nameHash, stage);
                 rhi::LogErrorf("Cooked shader variant missing from the pack (a cook-coverage bug): "
                                "'%.*s' stage %u canon-flags %u (requested %u, declaredMask %u, "
@@ -374,6 +439,10 @@ export namespace draconic::shaders
         IShaderSourceProvider* m_provider = nullptr;      // borrowed (may be null)
         const CookedShaderPack* m_pack = nullptr;         // dist mode: cooked blobs (borrowed)
         core::HashMap<core::u64, core::String> m_sources; // (name,stage) -> HLSL
+        // Declared variant mask per PROVIDER-FETCHED (corpus) source - the dev half of the
+        // canonicalization contract. Explicitly registered sources have no entry (raw flags).
+        core::HashMap<core::u64, ShaderFlags> m_declaredMasks;
+        core::HashMap<core::u64, bool> m_loggedFailures; // once-per-key error throttling
         core::HashMap<ShaderVariantKey, rhi::ShaderModule*>
             m_cache;                                    // variant -> GPU module (owned)
         core::HashMap<core::u64, core::u64> m_versions; // nameHash -> version
