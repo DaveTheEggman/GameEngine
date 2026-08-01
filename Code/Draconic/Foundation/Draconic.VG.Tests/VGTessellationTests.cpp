@@ -36,7 +36,7 @@ TEST_CASE("vg.fill: solid square (no AA) -> 4 verts, 2 tris")
     CHECK(verts.Size() == 4u);
     CHECK(idx.Size() == 6u);
     for (usize i = 0; i < verts.Size(); ++i)
-        CHECK(verts[i].color == Color32::Red);
+        CHECK(verts[i].color == Color::Red);
 }
 
 TEST_CASE("vg.fill: AA adds an inner+outer fringe ring")
@@ -59,7 +59,7 @@ TEST_CASE("vg.fill: AA adds an inner+outer fringe ring")
     // Outer ring vertices are the transparent fringe (coverage 0).
     bool sawTransparent = false;
     for (usize i = 0; i < verts.Size(); ++i)
-        if (verts[i].coverage == 0.0f && verts[i].color.a == 0)
+        if (verts[i].coverage == 0.0f && verts[i].color.a == 0.0f)
             sawTransparent = true;
     CHECK(sawTransparent);
 }

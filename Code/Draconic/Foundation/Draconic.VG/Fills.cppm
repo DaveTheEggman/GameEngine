@@ -81,6 +81,16 @@ export namespace draconic::vg
         [[nodiscard]] virtual Color BaseColor() const = 0;
         /// Whether this fill requires per-vertex color interpolation.
         [[nodiscard]] virtual bool RequiresInterpolation() const = 0;
+
+        /// The raw gradient parameter t at a point (linear projection, dist/radius, or
+        /// angle/2PI), before clamping. Solid fills return 0. Used to bake + per-pixel
+        /// address the gradient LUT (see [[vg-quality-track]]).
+        [[nodiscard]] virtual f32 GetParameterAt(Float2 /*position*/, Rectangle /*bounds*/) const
+        {
+            return 0.0f;
+        }
+        /// Sample the fill's color ramp at parameter t (0-1). Solid fills return BaseColor.
+        [[nodiscard]] virtual Color SampleRamp(f32 /*t*/) const { return BaseColor(); }
     };
 
     /// A solid color fill.
@@ -123,15 +133,21 @@ export namespace draconic::vg
         /// Add a color stop.
         void AddStop(f32 offset, Color color) { stops.PushBack(GradientStop(offset, color)); }
 
-        [[nodiscard]] Color GetColorAt(Float2 position, Rectangle /*bounds*/) const override
+        [[nodiscard]] Color GetColorAt(Float2 position, Rectangle bounds) const override
+        {
+            return SampleRamp(GetParameterAt(position, bounds));
+        }
+        [[nodiscard]] f32 GetParameterAt(Float2 position, Rectangle /*bounds*/) const override
         {
             const Float2 gradientDir = endPoint - startPoint;
             const f32 gradientLenSq = gradientDir.x * gradientDir.x + gradientDir.y * gradientDir.y;
             if (gradientLenSq < 0.0001f)
-                return BaseColor();
-
+                return 0.0f;
             const Float2 toPoint = position - startPoint;
-            const f32 t = (toPoint.x * gradientDir.x + toPoint.y * gradientDir.y) / gradientLenSq;
+            return (toPoint.x * gradientDir.x + toPoint.y * gradientDir.y) / gradientLenSq;
+        }
+        [[nodiscard]] Color SampleRamp(f32 t) const override
+        {
             return ColorUtils::InterpolateStops(
                 Span<const GradientStop>(stops.Data(), stops.Size()), t);
         }
@@ -156,12 +172,18 @@ export namespace draconic::vg
 
         void AddStop(f32 offset, Color color) { stops.PushBack(GradientStop(offset, color)); }
 
-        [[nodiscard]] Color GetColorAt(Float2 position, Rectangle /*bounds*/) const override
+        [[nodiscard]] Color GetColorAt(Float2 position, Rectangle bounds) const override
+        {
+            return SampleRamp(GetParameterAt(position, bounds));
+        }
+        [[nodiscard]] f32 GetParameterAt(Float2 position, Rectangle /*bounds*/) const override
         {
             if (radius < 0.0001f)
-                return BaseColor();
-            const f32 dist = Length(position - center);
-            const f32 t = dist / radius;
+                return 0.0f;
+            return Length(position - center) / radius;
+        }
+        [[nodiscard]] Color SampleRamp(f32 t) const override
+        {
             return ColorUtils::InterpolateStops(
                 Span<const GradientStop>(stops.Data(), stops.Size()), t);
         }
@@ -189,7 +211,11 @@ export namespace draconic::vg
 
         void AddStop(f32 offset, Color color) { stops.PushBack(GradientStop(offset, color)); }
 
-        [[nodiscard]] Color GetColorAt(Float2 position, Rectangle /*bounds*/) const override
+        [[nodiscard]] Color GetColorAt(Float2 position, Rectangle bounds) const override
+        {
+            return SampleRamp(GetParameterAt(position, bounds));
+        }
+        [[nodiscard]] f32 GetParameterAt(Float2 position, Rectangle /*bounds*/) const override
         {
             const f32 dx = position.x - center.x;
             const f32 dy = position.y - center.y;
@@ -201,7 +227,10 @@ export namespace draconic::vg
             while (angle >= kTwoPi)
                 angle -= kTwoPi;
 
-            const f32 t = angle / kTwoPi;
+            return angle / kTwoPi;
+        }
+        [[nodiscard]] Color SampleRamp(f32 t) const override
+        {
             return ColorUtils::InterpolateStops(
                 Span<const GradientStop>(stops.Data(), stops.Size()), t);
         }

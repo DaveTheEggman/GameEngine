@@ -81,6 +81,10 @@ export namespace draconic::vg
             m_currentTextureIndex = 0;
             m_commandStartIndex = 0;
 
+            // The batch (and its raw texture pointers) is now reset, so the LUTs it referenced can
+            // be freed. Do this before re-adding the white texture below.
+            m_gradientLuts.Clear();
+
             // Re-add the white texture at index 0 for solid color drawing.
             m_batch.textures.PushBack(&m_whiteTexture);
         }
@@ -226,14 +230,19 @@ export namespace draconic::vg
         void FillPath(const Path& path, const IVGFill& fill, FillRule fillRule = FillRule::EvenOdd,
                       bool antiAlias = true)
         {
-            SetupForSolidDraw();
+            // Gradients bake a ramp LUT bound as the active texture; the tessellator then emits the
+            // gradient parameter as a per-vertex texcoord so the ramp is sampled per pixel (exact
+            // multi-stop, no 8-bit Gouraud banding). Solid fills stay on the white passthrough.
+            const bool gradientLut = BindGradientLut(fill);
             const usize startVertex = m_batch.vertices.Size();
             const f32 scaledTolerance = GetScaledTolerance();
             FillTessellator::TessellateWithFill(path, fillRule, fill, antiAlias, m_batch.vertices,
-                                                m_batch.indices, scaledTolerance,
-                                                GetScaledFringe());
+                                                m_batch.indices, scaledTolerance, GetScaledFringe(),
+                                                gradientLut);
             ApplyOpacityToVertices(startVertex);
             TransformVertices(startVertex);
+            if (gradientLut)
+                SetupForSolidDraw();
         }
 
         /// Stroke a path with a solid color.
@@ -980,6 +989,40 @@ export namespace draconic::vg
             return static_cast<i32>(m_batch.textures.Size() - 1);
         }
 
+        // Bake a gradient's color ramp into a 256x1 RGBA8/sRGB LUT and bind it as the active
+        // texture. Returns true if a LUT was bound (fill needs interpolation), false for solids.
+        // The LUT lives in a per-frame pool with stable addresses (UniquePtr) cleared on Clear();
+        // the GPU decodes the sRGB texels to linear on sample, matching the vertex-color path.
+        [[nodiscard]] bool BindGradientLut(const IVGFill& fill)
+        {
+            if (!fill.RequiresInterpolation())
+            {
+                SetupForSolidDraw();
+                return false;
+            }
+
+            constexpr u32 kLutWidth = 256;
+            u8 pixels[kLutWidth * 4];
+            for (u32 i = 0; i < kLutWidth; ++i)
+            {
+                const f32 t = static_cast<f32>(i) / static_cast<f32>(kLutWidth - 1);
+                const Color32 c = ToColor32(fill.SampleRamp(t));
+                pixels[i * 4 + 0] = c.r;
+                pixels[i * 4 + 1] = c.g;
+                pixels[i * 4 + 2] = c.b;
+                pixels[i * 4 + 3] = c.a;
+            }
+
+            UniquePtr<image::OwnedImageData> lut = MakeUnique<image::OwnedImageData>(
+                DefaultAllocator(), kLutWidth, 1u, image::PixelFormat::RGBA8,
+                Span<const u8>(pixels, kLutWidth * 4));
+            image::OwnedImageData* raw = lut.Get();
+            m_gradientLuts.PushBack(Move(lut));
+
+            SetupForTextureDraw(GetOrAddTexture(raw));
+            return true;
+        }
+
         void SetupForSolidDraw()
         {
             if (m_currentTextureIndex != 0)
@@ -1115,10 +1158,9 @@ export namespace draconic::vg
         {
             if (m_currentState.opacity >= 1.0f)
                 return;
-            // Vertices store packed Color32; lift to float, apply, re-pack.
+            // Vertices store full float Color; apply opacity in place.
             for (usize i = startVertex; i < m_batch.vertices.Size(); ++i)
-                m_batch.vertices[i].color =
-                    ToColor32(ApplyOpacity(ToColor(m_batch.vertices[i].color)));
+                m_batch.vertices[i].color = ApplyOpacity(m_batch.vertices[i].color);
         }
 
         [[nodiscard]] Rectangle TransformRect(Rectangle rect) const
@@ -1135,6 +1177,9 @@ export namespace draconic::vg
 
         VGBatch m_batch;
         image::OwnedImageData m_whiteTexture;
+        // Per-frame baked gradient ramp LUTs (owned; UniquePtr for stable addresses since the
+        // batch textures hold raw pointers). Cleared on Clear() once the batch is consumed.
+        Array<UniquePtr<image::OwnedImageData>> m_gradientLuts;
         PathBuilder m_currentPath;
         fonts::IFontService* m_fontService = nullptr;
 

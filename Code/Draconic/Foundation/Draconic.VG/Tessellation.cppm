@@ -376,10 +376,12 @@ export namespace draconic::vg
         }
 
         /// Tessellate a filled path with an IVGFill style.
+        // gradientLut: emit per-vertex gradient-parameter texcoords + white color (the caller
+        // has baked + bound a ramp LUT as the active texture). Off = legacy per-vertex Gouraud.
         static void TessellateWithFill(const Path& path, FillRule fillRule, const IVGFill& fill,
                                        bool antiAlias, Array<VGVertex>& vertices,
                                        Array<u32>& indices, f32 tolerance = 0.25f,
-                                       f32 fringeWidth = FringeWidth)
+                                       f32 fringeWidth = FringeWidth, bool gradientLut = false)
         {
             if (!fill.RequiresInterpolation())
             {
@@ -413,14 +415,22 @@ export namespace draconic::vg
                 if (antiAlias)
                 {
                     TessellateWithAAFill(points, fillRule, fill, bounds, vertices, indices,
-                                         fringeWidth);
+                                         fringeWidth, gradientLut);
                 }
                 else
                 {
                     const u32 baseIndex = static_cast<u32>(vertices.Size());
                     for (usize i = 0; i < pointCount; ++i)
-                        vertices.PushBack(
-                            VGVertex::Solid(points[i], fill.GetColorAt(points[i], bounds)));
+                    {
+                        if (gradientLut)
+                            vertices.PushBack(VGVertex(
+                                points[i],
+                                Float2{LutU(fill.GetParameterAt(points[i], bounds)), 0.5f},
+                                Color::White));
+                        else
+                            vertices.PushBack(
+                                VGVertex::Solid(points[i], fill.GetColorAt(points[i], bounds)));
+                    }
                     Triangulator::Triangulate(points, fillRule, indices, baseIndex);
                 }
             }
@@ -428,6 +438,17 @@ export namespace draconic::vg
 
     private:
         static constexpr f32 FringeWidth = 0.75f;
+
+        /// Width of the baked gradient LUT (matches VGContext's bake). Kept here so the
+        /// texcoord maps to texel CENTERS: with the shared Linear/Repeat sampler this both
+        /// clamps (pad spread) and avoids the wrap seam at u=0/1.
+        static constexpr f32 GradientLutWidth = 256.0f;
+
+        /// Map a raw gradient parameter t to a LUT u-coordinate at a texel center.
+        [[nodiscard]] static f32 LutU(f32 t)
+        {
+            return (0.5f + Clamp(t, 0.0f, 1.0f) * (GradientLutWidth - 1.0f)) / GradientLutWidth;
+        }
 
         /// Compute per-vertex averaged outward normals (miter-like, clamped).
         static void ComputeFringeNormals(Span<const Float2> points, Array<Float2>& normals)
@@ -476,10 +497,14 @@ export namespace draconic::vg
         }
 
         /// Emit the inner-fill triangulation + the inner/outer fringe quad strip.
+        // When texCoords is non-null the fill is gradient-LUT driven: the per-vertex texcoord
+        // (gradient parameter mapped to a LUT texel) is emitted and the colors carry white,
+        // so the fragment shader samples the ramp per pixel instead of Gouraud-interpolating it.
         static void EmitFringeRing(Span<const Float2> points, FillRule fillRule,
                                    const Array<Float2>& normals, const Array<Color>& innerColors,
                                    const Array<Color>& outerColors, Array<VGVertex>& vertices,
-                                   Array<u32>& indices, f32 fringeWidth = FringeWidth)
+                                   Array<u32>& indices, f32 fringeWidth = FringeWidth,
+                                   const Array<Float2>* texCoords = nullptr)
         {
             const i32 n = static_cast<i32>(points.Size());
 
@@ -488,11 +513,13 @@ export namespace draconic::vg
             innerPoints.Resize(static_cast<usize>(n));
             for (i32 i = 0; i < n; ++i)
             {
-                innerPoints[static_cast<usize>(i)] =
-                    points[static_cast<usize>(i)] -
-                    normals[static_cast<usize>(i)] * (fringeWidth * 0.5f);
-                vertices.PushBack(VGVertex::Solid(innerPoints[static_cast<usize>(i)],
-                                                  innerColors[static_cast<usize>(i)], 1.0f));
+                const usize ui = static_cast<usize>(i);
+                innerPoints[ui] = points[ui] - normals[ui] * (fringeWidth * 0.5f);
+                if (texCoords != nullptr)
+                    vertices.PushBack(
+                        VGVertex(innerPoints[ui], (*texCoords)[ui], innerColors[ui], 1.0f));
+                else
+                    vertices.PushBack(VGVertex::Solid(innerPoints[ui], innerColors[ui], 1.0f));
             }
 
             Triangulator::Triangulate(Span<const Float2>(innerPoints.Data(), static_cast<usize>(n)),
@@ -501,10 +528,12 @@ export namespace draconic::vg
             const u32 outerBaseIdx = static_cast<u32>(vertices.Size());
             for (i32 i = 0; i < n; ++i)
             {
-                const Float2 outerPt = points[static_cast<usize>(i)] +
-                                       normals[static_cast<usize>(i)] * (fringeWidth * 0.5f);
-                vertices.PushBack(
-                    VGVertex::Solid(outerPt, outerColors[static_cast<usize>(i)], 0.0f));
+                const usize ui = static_cast<usize>(i);
+                const Float2 outerPt = points[ui] + normals[ui] * (fringeWidth * 0.5f);
+                if (texCoords != nullptr)
+                    vertices.PushBack(VGVertex(outerPt, (*texCoords)[ui], outerColors[ui], 0.0f));
+                else
+                    vertices.PushBack(VGVertex::Solid(outerPt, outerColors[ui], 0.0f));
             }
 
             for (i32 i = 0; i < n; ++i)
@@ -551,7 +580,7 @@ export namespace draconic::vg
         static void TessellateWithAAFill(Span<const Float2> points, FillRule fillRule,
                                          const IVGFill& fill, Rectangle bounds,
                                          Array<VGVertex>& vertices, Array<u32>& indices,
-                                         f32 fringeWidth = FringeWidth)
+                                         f32 fringeWidth = FringeWidth, bool gradientLut = false)
         {
             const usize n = points.Size();
             Array<Float2> normals;
@@ -561,6 +590,24 @@ export namespace draconic::vg
             Array<Color> outerColors;
             innerColors.Resize(n);
             outerColors.Resize(n);
+
+            if (gradientLut)
+            {
+                // Per-pixel gradient LUT: emit the parameter t as a texcoord and carry white in
+                // the colors (the outer fringe fades via coverage=0, set in EmitFringeRing).
+                Array<Float2> texCoords;
+                texCoords.Resize(n);
+                for (usize i = 0; i < n; ++i)
+                {
+                    innerColors[i] = Color::White;
+                    outerColors[i] = Color::White;
+                    texCoords[i] = Float2{LutU(fill.GetParameterAt(points[i], bounds)), 0.5f};
+                }
+                EmitFringeRing(points, fillRule, normals, innerColors, outerColors, vertices,
+                               indices, fringeWidth, &texCoords);
+                return;
+            }
+
             for (usize i = 0; i < n; ++i)
             {
                 const Color fc = fill.GetColorAt(points[i], bounds);

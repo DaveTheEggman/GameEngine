@@ -1,10 +1,12 @@
 // Draconic::VG - :vertex partition.
 //
 // VGVertex: the GPU vertex for vector graphics with analytical-AA coverage.
-// Ported from Sedulous.VG/VGVertex.bf. Color is stored as a packed Color32
-// (byte RGBA) so the vertex is a compact 24 bytes, matching the renderer's
-// unorm8x4 color attribute; the VG API + tessellation compute in float Color
-// and pack at the vertex boundary (see [[textures-port]] / Color32).
+// Ported from Sedulous.VG/VGVertex.bf. Color is stored as a full float Color
+// (RGBA). The renderer's GPU color attribute is Float32x4 (see VGRenderVertex),
+// so packing to a byte Color32 here only quantized colors to 8-bit for no GPU
+// benefit - it re-expanded to float immediately, and the quantization showed up
+// as visible banding across gradients and AA fringes. Keeping float precision
+// end to end removes that banding (see [[vg-quality-track]]).
 
 module;
 #include "Draconic.Core/Prelude.h"
@@ -22,12 +24,11 @@ export namespace draconic::vg
     {
         Float2 position;     ///< Position in screen/world coordinates.
         Float2 texCoord;     ///< Texture coordinates (UV).
-        Color32 color;       ///< Vertex color, stored packed RGBA (byte). The API/math
-                             ///< work in float Color; conversion happens here at emission.
+        Color color;         ///< Vertex color in full float RGBA (no 8-bit quantization).
         f32 coverage = 1.0f; ///< Analytical-AA coverage (0 = transparent fringe, 1 = opaque).
 
         /// Size in bytes of this vertex structure.
-        static constexpr i32 SizeInBytes = 24; // 8 + 8 + 4 + 4
+        static constexpr i32 SizeInBytes = 36; // 8 + 8 + 16 + 4
 
         /// Fixed UV for solid-color drawing.
         static constexpr f32 SolidUV = 0.5f;
@@ -37,14 +38,13 @@ export namespace draconic::vg
         // Constructors take float Color and pack to Color32 at emission.
         constexpr VGVertex(Float2 inPosition, Float2 inTexCoord, Color inColor,
                            f32 inCoverage = 1.0f) noexcept
-            : position(inPosition), texCoord(inTexCoord), color(ToColor32(inColor)),
-              coverage(inCoverage)
+            : position(inPosition), texCoord(inTexCoord), color(inColor), coverage(inCoverage)
         {
         }
 
         constexpr VGVertex(f32 x, f32 y, f32 u, f32 v, Color inColor,
                            f32 inCoverage = 1.0f) noexcept
-            : position(x, y), texCoord(u, v), color(ToColor32(inColor)), coverage(inCoverage)
+            : position(x, y), texCoord(u, v), color(inColor), coverage(inCoverage)
         {
         }
 

@@ -63,7 +63,7 @@ TEST_CASE("vgcontext: opacity applied to vertex color")
     VGBatch& batch = ctx.GetBatch();
     REQUIRE(batch.VertexCount() > 0u);
     for (usize i = 0; i < batch.VertexCount(); ++i)
-        CHECK(batch.vertices[i].color.a < 200);
+        CHECK(batch.vertices[i].color.a < 0.8f);
 }
 
 TEST_CASE("vgcontext: FillCircle produces output")

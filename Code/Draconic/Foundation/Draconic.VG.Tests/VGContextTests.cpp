@@ -59,9 +59,41 @@ TEST_CASE("vg.context: opacity scales vertex alpha")
     // Inner (opaque) vertices should now carry ~half alpha.
     bool sawHalfAlpha = false;
     for (usize i = 0; i < batch.VertexCount(); ++i)
-        if (batch.vertices[i].color.a > 120 && batch.vertices[i].color.a < 135)
+        if (batch.vertices[i].color.a > 0.47f && batch.vertices[i].color.a < 0.53f)
             sawHalfAlpha = true;
     CHECK(sawHalfAlpha);
+}
+
+TEST_CASE("vg.context: gradient fill bakes + binds a ramp LUT")
+{
+    VGContext ctx;
+    VGLinearGradientFill grad(Float2{0.0f, 0.0f}, Float2{10.0f, 0.0f});
+    grad.AddStop(0.0f, Color::Red);
+    grad.AddStop(1.0f, Color::Blue);
+
+    PathBuilder pb;
+    pb.MoveTo(0, 0);
+    pb.LineTo(10, 0);
+    pb.LineTo(10, 10);
+    pb.LineTo(0, 10);
+    pb.Close();
+    ctx.FillPath(pb.ToPath(), grad, FillRule::NonZero, /*antiAlias*/ false);
+
+    VGBatch& batch = ctx.GetBatch();
+    // A ramp LUT texture was registered beyond the index-0 white passthrough.
+    CHECK(batch.textures.Size() >= 2u);
+    // Gradient vertices carry white (the LUT supplies color) with non-solid texcoords, so the
+    // ramp is sampled per pixel rather than Gouraud-interpolated.
+    bool sawGradientVertex = false;
+    for (usize i = 0; i < batch.VertexCount(); ++i)
+        if (batch.vertices[i].color == Color::White &&
+            batch.vertices[i].texCoord.x != VGVertex::SolidUV)
+            sawGradientVertex = true;
+    CHECK(sawGradientVertex);
+
+    // Clearing frees the per-frame LUT pool and re-seats only the white texture.
+    ctx.Clear();
+    CHECK(ctx.GetBatch().textures.Size() == 1u);
 }
 
 TEST_CASE("vg.context: state stack save/restore of transform")

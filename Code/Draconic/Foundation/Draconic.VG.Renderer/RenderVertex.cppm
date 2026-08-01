@@ -1,10 +1,10 @@
 // Draconic::VG::Renderer - :vertex partition.
 //
 // VGRenderVertex: the GPU vertex layout (float2 pos, float2 uv, float4 color,
-// float coverage) the vg shader expects. Built from the CPU VGVertex; the byte
-// Color32 is expanded to float4 with an sRGB->linear decode on RGB (UI/SVG
-// colors are authored sRGB and the swapchain re-encodes on write - decoding here
-// avoids double-encoding). Ported from Sedulous.VG.Renderer/VGRenderVertex.bf.
+// float coverage) the vg shader expects. Built from the CPU VGVertex; the float
+// Color has an sRGB->linear decode applied to RGB (UI/SVG colors are authored
+// sRGB and the swapchain re-encodes on write - decoding here avoids double-
+// encoding). Ported from Sedulous.VG.Renderer/VGRenderVertex.bf.
 
 module;
 #include "Draconic.Core/Prelude.h"
@@ -33,10 +33,10 @@ export namespace draconic::vg::renderer
             position[1] = v.position.y;
             texCoord[0] = v.texCoord.x;
             texCoord[1] = v.texCoord.y;
-            color[0] = SrgbToLinear(static_cast<f32>(v.color.r) / 255.0f);
-            color[1] = SrgbToLinear(static_cast<f32>(v.color.g) / 255.0f);
-            color[2] = SrgbToLinear(static_cast<f32>(v.color.b) / 255.0f);
-            color[3] = static_cast<f32>(v.color.a) / 255.0f;
+            color[0] = SrgbToLinear(v.color.r);
+            color[1] = SrgbToLinear(v.color.g);
+            color[2] = SrgbToLinear(v.color.b);
+            color[3] = v.color.a;
             coverage = v.coverage;
         }
     };

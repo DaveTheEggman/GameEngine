@@ -9,13 +9,13 @@ using namespace draconic::vg;
 
 TEST_CASE("vg.vertex: layout and solid helpers")
 {
-    CHECK(sizeof(VGVertex) == 24u);
-    CHECK(VGVertex::SizeInBytes == 24);
+    CHECK(sizeof(VGVertex) == 36u);
+    CHECK(VGVertex::SizeInBytes == 36);
 
     const VGVertex v = VGVertex::Solid(Float2{3.0f, 4.0f}, Color::Red);
     CHECK(v.position == Float2{3.0f, 4.0f});
     CHECK(v.texCoord == Float2{VGVertex::SolidUV, VGVertex::SolidUV});
-    CHECK(v.color == Color32::Red);
+    CHECK(v.color == Color::Red);
     CHECK(v.coverage == doctest::Approx(1.0f));
 }
 
