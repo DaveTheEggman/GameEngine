@@ -478,6 +478,10 @@ if(DRACONIC_BUILD_TESTS)
     draconic_test_suite(Code/Draconic/Foundation/Draconic.RHI.Validation.Tests            Draconic::RHI.Validation)
     if(NOT EMSCRIPTEN)  # spins up a real device; no headless web path yet
         draconic_test_suite(Code/Draconic/Foundation/Draconic.RHI.WebGPU.Tests Draconic::RHI.WebGPU)
+        if(TARGET Draconic::RHI.Vulkan AND TARGET Draconic::RHI.WebGPU)
+            # Cross-backend pixel probe (needs BOTH backends compiled; GPUs checked at runtime).
+            add_subdirectory(Code/Draconic/Foundation/Draconic.Render.Backend.Tests)
+        endif()
     endif()
     draconic_test_suite(Code/Draconic/Foundation/Draconic.Render.Tests                    Draconic::Render)
     draconic_test_suite(Code/Draconic/Foundation/Draconic.RenderGraph.Tests               Draconic::RenderGraph)
