@@ -111,6 +111,10 @@ export namespace draconic::shell
         if (eq(u8"NumpadMultiply")) return KeyCode::KeypadMultiply;
         if (eq(u8"NumpadDivide")) return KeyCode::KeypadDivide;
         if (eq(u8"NumpadDecimal")) return KeyCode::KeypadDecimal;
+        if (eq(u8"PrintScreen")) return KeyCode::PrintScreen;
+        if (eq(u8"ScrollLock")) return KeyCode::ScrollLock;
+        if (eq(u8"Pause")) return KeyCode::Pause;
+        if (eq(u8"NumLock")) return KeyCode::NumLock;
         return KeyCode::Unknown;
     }
 
@@ -420,6 +424,7 @@ export namespace draconic::shell
         // arrived since the last Update - keeping pressed/released and per-frame deltas correct.
         void Update() override
         {
+            RefreshPointerScale();
             m_keyboard.BeginFrame();
             m_mouse.BeginFrame();
             m_events.Clear();
@@ -432,6 +437,40 @@ export namespace draconic::shell
         }
 
     private:
+        // CSS-pixel -> backing-pixel scale for pointer coordinates. HTML5 mouse/touch
+        // events report CSS pixels, but the window reports the canvas BACKING size (the
+        // shell sizes the backing store at min(devicePixelRatio, 2) x the CSS size), so
+        // at dpr > 1 unscaled clicks land offset/half-scale for every hit-test consumer.
+        // Derived from the two live sizes (not devicePixelRatio) so the shell's cap and
+        // any CSS-vs-backing policy are honored automatically.
+        void RefreshPointerScale()
+        {
+            m_pointerScaleX = 1.0f;
+            m_pointerScaleY = 1.0f;
+            if (m_selector.IsEmpty())
+            {
+                return;
+            }
+            const char* canvas = reinterpret_cast<const char*>(m_selector.CStr());
+            double cssW = 0.0, cssH = 0.0;
+            int backingW = 0, backingH = 0;
+            if (emscripten_get_element_css_size(canvas, &cssW, &cssH) !=
+                    EMSCRIPTEN_RESULT_SUCCESS ||
+                emscripten_get_canvas_element_size(canvas, &backingW, &backingH) !=
+                    EMSCRIPTEN_RESULT_SUCCESS)
+            {
+                return;
+            }
+            if (cssW > 0.0 && backingW > 0)
+            {
+                m_pointerScaleX = static_cast<core::f32>(backingW / cssW);
+            }
+            if (cssH > 0.0 && backingH > 0)
+            {
+                m_pointerScaleY = static_cast<core::f32>(backingH / cssH);
+            }
+        }
+
         struct RawEvent
         {
             enum class Type : core::u8
@@ -469,14 +508,18 @@ export namespace draconic::shell
             }
             case RawEvent::Type::MouseMove:
             {
-                m_mouse.OnMotion(r.x, r.y, r.dx, r.dy);
+                const core::f32 x = r.x * m_pointerScaleX;
+                const core::f32 y = r.y * m_pointerScaleY;
+                const core::f32 dx = r.dx * m_pointerScaleX;
+                const core::f32 dy = r.dy * m_pointerScaleY;
+                m_mouse.OnMotion(x, y, dx, dy);
                 InputEvent e;
                 e.kind = InputEventKind::MouseMove;
                 e.window = m_mainWindow;
-                e.x = r.x;
-                e.y = r.y;
-                e.dx = r.dx;
-                e.dy = r.dy;
+                e.x = x;
+                e.y = y;
+                e.dx = dx;
+                e.dy = dy;
                 m_events.PushBack(e);
                 break;
             }
@@ -503,13 +546,15 @@ export namespace draconic::shell
             }
             case RawEvent::Type::Touch:
             {
+                const core::f32 x = r.x * m_pointerScaleX;
+                const core::f32 y = r.y * m_pointerScaleY;
                 if (r.touchPhase == 2)
                 {
                     m_touch.Remove(r.touchId);
                 }
                 else
                 {
-                    m_touch.Upsert(r.touchId, r.x, r.y);
+                    m_touch.Upsert(r.touchId, x, y);
                 }
                 InputEvent e;
                 e.kind = (r.touchPhase == 0)   ? InputEventKind::TouchDown
@@ -517,8 +562,8 @@ export namespace draconic::shell
                                                : InputEventKind::TouchUp;
                 e.window = m_mainWindow;
                 e.touchId = r.touchId;
-                e.x = r.x;
-                e.y = r.y;
+                e.x = x;
+                e.y = y;
                 m_events.PushBack(e);
                 break;
             }
@@ -548,8 +593,11 @@ export namespace draconic::shell
                 }
                 m_slots[i].BeginFrame(); // snapshot previous buttons before ingesting this frame
                 m_slots[i].Ingest(ev);
-                EmitGamepadEvents(m_slots[i], i);
                 m_connectedPads.PushBack(&m_slots[i]);
+                // Events carry the COMPACT index (what GetGamepad() takes) - stamping the
+                // browser SLOT would dangle after an earlier pad disconnects.
+                EmitGamepadEvents(m_slots[i],
+                                  static_cast<core::i32>(m_connectedPads.Size()) - 1);
             }
         }
 
@@ -595,7 +643,12 @@ export namespace draconic::shell
             r.down = (eventType == EMSCRIPTEN_EVENT_KEYDOWN);
             r.mods = ModsFrom(e);
             self->m_queue.PushBack(r);
-            return EM_TRUE; // consume - a game canvas owns its keys (no page scroll on space/arrows)
+            // Consume plain keys so the page doesn't scroll on space/arrows - but let the
+            // BROWSER keep its own chords and function keys (F5 refresh, F12 devtools,
+            // Ctrl/Cmd+C/V/R/W...); eating those turns the tab into a trap.
+            const bool browserChord = (e->ctrlKey != 0) || (e->metaKey != 0);
+            const bool functionKey = e->code[0] == 'F' && e->code[1] >= '0' && e->code[1] <= '9';
+            return (browserChord || functionKey) ? EM_FALSE : EM_TRUE;
         }
         static EM_BOOL OnMouseMove(int, const EmscriptenMouseEvent* e, void* userData)
         {
@@ -625,9 +678,14 @@ export namespace draconic::shell
             auto* self = static_cast<WebInputManager*>(userData);
             RawEvent r;
             r.type = RawEvent::Type::Wheel;
-            // Normalize to "notches" (browsers report pixels/lines); sign matches scroll-up = +.
-            r.sx = -static_cast<core::f32>(e->deltaX) / 100.0f;
-            r.sy = -static_cast<core::f32>(e->deltaY) / 100.0f;
+            // Normalize to "notches", honoring deltaMode: pixels (Chrome, ~100/notch),
+            // lines (Firefox, ~3/notch), or pages. Ignoring the mode made Firefox scroll
+            // ~30x too slow. Sign matches scroll-up = +.
+            const core::f32 perNotch = (e->deltaMode == DOM_DELTA_LINE)   ? 3.0f
+                                       : (e->deltaMode == DOM_DELTA_PAGE) ? 1.0f
+                                                                          : 100.0f;
+            r.sx = -static_cast<core::f32>(e->deltaX) / perNotch;
+            r.sy = -static_cast<core::f32>(e->deltaY) / perNotch;
             self->m_queue.PushBack(r);
             return EM_TRUE;
         }
@@ -662,6 +720,8 @@ export namespace draconic::shell
         WebTouch m_touch;
         WebGamepad m_slots[kMaxGamepads];            // one per browser gamepad index (stable state)
         core::Array<WebGamepad*> m_connectedPads;    // compact list of currently-connected pads
+        core::f32 m_pointerScaleX = 1.0f; // CSS -> backing pixels (see RefreshPointerScale)
+        core::f32 m_pointerScaleY = 1.0f;
         core::Array<RawEvent> m_queue;   // filled async by the callbacks, drained in Update()
         core::Array<InputEvent> m_events; // this frame's event stream (valid until next Update)
         core::u32 m_mainWindow = 0;
