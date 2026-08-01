@@ -175,23 +175,26 @@ export namespace draconic::rhi::webgpu
             {
                 static_cast<WebGpuFence*>(fence)->NoteSubmission(value, index);
             }
-            struct Pending
-            {
-                WebGpuFence* fence;
-                u64 value;
-                IAllocator* allocator;
-            };
-            auto* pending = m_allocator->New<Pending>();
+            // The record outlives the fence on purpose: Wait's submission-index fast path
+            // resolves without this callback, so it can still be queued when the fence is
+            // destroyed (and then fire during device teardown). Attaching lets the fence
+            // null out `fence` on destruction; the callback frees the record either way.
+            auto* pending = m_allocator->New<WebGpuPendingSignal>();
             pending->fence = static_cast<WebGpuFence*>(fence);
             pending->value = value;
             pending->allocator = m_allocator;
+            static_cast<WebGpuFence*>(fence)->AttachPending(pending);
 
             WGPUQueueWorkDoneCallbackInfo info = WGPU_QUEUE_WORK_DONE_CALLBACK_INFO_INIT;
             info.mode = WGPUCallbackMode_AllowProcessEvents;
             info.callback = [](WGPUQueueWorkDoneStatus, WGPUStringView, void* userdata1, void*)
             {
-                auto* p = static_cast<Pending*>(userdata1);
-                p->fence->SignalFromCallback(p->value);
+                auto* p = static_cast<WebGpuPendingSignal*>(userdata1);
+                if (p->fence != nullptr) // still alive - it detaches us on destruction
+                {
+                    p->fence->DetachPending(p);
+                    p->fence->SignalFromCallback(p->value);
+                }
                 p->allocator->Delete(p);
             };
             info.userdata1 = pending;
