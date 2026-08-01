@@ -394,8 +394,15 @@ namespace draconic::render
         {
             --ctx.m_bakeWarmup; // startup re-bake window (survives dropped-submit startup frames)
         }
+        // Generation tracks PRODUCT IDENTITY (consumers key bind-group caches on it), so it moves
+        // only on a real content change - not on a warmup re-bake, which re-renders the same
+        // content into the same textures. Bumping it there would churn every downstream cache for
+        // the whole warmup window and break the steady-state contract.
+        if (ctx.m_dirty)
+        {
+            ctx.m_generation = ++m_nextGeneration; // system-wide: never collides across contexts
+        }
         ctx.m_dirty = false;
-        ctx.m_generation = ++m_nextGeneration; // system-wide: never collides across contexts
 
         // (1) Source -> env cube: 6 faces. The scene-authored ASSET texture wins over the
         // programmatic pixel path (SetEquirect/SetCubemap) when both are present.
