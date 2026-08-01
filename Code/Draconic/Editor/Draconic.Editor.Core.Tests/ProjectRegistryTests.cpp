@@ -20,6 +20,22 @@ namespace project = draconic::project;
 
 namespace
 {
+    bool Contains(StringView hay, StringView needle)
+    {
+        if (needle.Size() > hay.Size())
+        {
+            return false;
+        }
+        for (usize i = 0; i + needle.Size() <= hay.Size(); ++i)
+        {
+            if (StringView(hay.Data() + i, needle.Size()) == needle)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     void RemoveProjectTree(StringView root)
     {
         FileDelete(PathJoin(root, u8"Project.xml"));
@@ -153,4 +169,64 @@ TEST_CASE("project-registry: manifest backup copies Project.xml beside itself")
     RemoveProjectTree(dir);
 
     CHECK_FALSE(BackupProjectManifest(u8"draconic_registry_no_such_dir").HasValue());
+}
+
+TEST_CASE("project-manager controller: open gates + prompt copy + registry pass-through")
+{
+    RegisterProjectRegistryTypes();
+    settings::Settings store;
+    ProjectManagerController controller(store);
+
+    // Not a project.
+    ProjectManagerController::OpenDecision decision;
+    controller.DecideOpen(u8"draconic_manager_no_such_dir", decision);
+    CHECK(decision.gate == ProjectOpenGate::NotAProject);
+
+    // A freshly scaffolded project is stamped with THIS engine: opens directly.
+    const StringView dir = u8"draconic_manager_gate_test";
+    RemoveProjectTree(dir);
+    REQUIRE(controller.Create(dir, u8"Gate Test").IsOk());
+    controller.DecideOpen(dir, decision);
+    CHECK(decision.gate == ProjectOpenGate::OpenDirectly);
+    CHECK(decision.probed.name.AsView() == u8"Gate Test");
+
+    // Rewrite the manifest with a NEWER stamp (raw text edit: SaveProjectSettings re-stamps
+    // to the current engine by design, so it cannot write a foreign version).
+    {
+        const String manifest = PathJoin(dir, u8"Project.xml");
+        Result<Array<byte>> bytes = ReadFile(manifest.AsView());
+        REQUIRE(bytes.HasValue());
+        String text(StringView(reinterpret_cast<const char8_t*>(bytes.Value().Data()),
+                               bytes.Value().Size()));
+        const String current(project::kEngineVersionString);
+        usize at = text.Size();
+        for (usize i = 0; i + current.Size() <= text.Size(); ++i)
+        {
+            if (StringView(text.Data() + i, current.Size()) == current.AsView())
+            {
+                at = i;
+                break;
+            }
+        }
+        REQUIRE(at != text.Size());
+        String patched(StringView(text.Data(), at));
+        patched += u8"99.0.0";
+        patched += StringView(text.Data() + at + current.Size(), text.Size() - at - current.Size());
+        REQUIRE(WriteFile(manifest.AsView(),
+                          Span<const byte>(reinterpret_cast<const byte*>(patched.Data()),
+                                           patched.Size()))
+                    .IsOk());
+    }
+    controller.DecideOpen(dir, decision);
+    CHECK(decision.gate == ProjectOpenGate::PromptNewerEngine);
+    CHECK(Contains(decision.promptBody.AsView(), u8"99.0.0"));
+    CHECK(Contains(decision.promptBody.AsView(), project::kEngineVersionString));
+
+    // Registry pass-through.
+    controller.NoteOpened(dir, u8"Gate Test", u8"0.1.0");
+    CHECK(controller.Entries().entries.Size() == 1u);
+    CHECK(controller.Remove(dir));
+    CHECK(controller.Entries().entries.IsEmpty());
+
+    RemoveProjectTree(dir);
 }
