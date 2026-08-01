@@ -86,10 +86,15 @@ export namespace draconic::render
 
         void Shutdown();
 
+        // One cached pipeline per (target format, blend mode): in-scene sprites render into
+        // the HDR pass while post-tonemap sprites render into the LDR target IN THE SAME
+        // frame - a single slot per blend mode thrashed destroy/create mid-recording
+        // (destroying a pipeline the frame's command buffer already bound).
         struct Pipelines
         {
             rhi::RenderPipeline* pso = nullptr;
             rhi::TextureFormat format = rhi::TextureFormat::Undefined;
+            bool additive = false;
             u64 shaderVersion = 0; // ShaderSystem::Version at build (hot reload)
         };
 
@@ -104,8 +109,7 @@ export namespace draconic::render
         rhi::Buffer* m_indexBuffer = nullptr;
         rhi::BindGroup* m_viewBg = nullptr;
         u32 m_viewBgGen = 0xFFFFFFFFu; // generation the view bind group was built for
-        Pipelines m_alpha;
-        Pipelines m_additive;
+        Array<Pipelines> m_pipelines; // one entry per (format, additive) seen
         rhi::TextureFormat m_depthFormat = rhi::TextureFormat::Depth32Float;
         // Cached per-texture bind groups. Keyed by view POINTER for lookup speed, but every hit
         // validates the view's uniqueId - dynamic textures (UI render targets) are destroyed and

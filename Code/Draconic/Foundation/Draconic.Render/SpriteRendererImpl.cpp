@@ -266,9 +266,26 @@ namespace draconic::render
     rhi::RenderPipeline* SpriteRenderer::EnsurePipeline(rhi::TextureFormat colorFormat,
                                                         bool additive)
     {
-        Pipelines& p = additive ? m_additive : m_alpha;
         const u64 shaderVersion = m_shaders->Version(u8"sprite"); // hot reload rebuilds
-        if (p.pso != nullptr && p.format == colorFormat && p.shaderVersion == shaderVersion)
+        Pipelines* entry = nullptr;
+        for (Pipelines& candidate : m_pipelines)
+        {
+            if (candidate.format == colorFormat && candidate.additive == additive)
+            {
+                entry = &candidate;
+                break;
+            }
+        }
+        if (entry == nullptr)
+        {
+            Pipelines fresh;
+            fresh.format = colorFormat;
+            fresh.additive = additive;
+            m_pipelines.PushBack(fresh);
+            entry = &m_pipelines[m_pipelines.Size() - 1];
+        }
+        Pipelines& p = *entry;
+        if (p.pso != nullptr && p.shaderVersion == shaderVersion)
         {
             return p.pso;
         }
@@ -332,7 +349,6 @@ namespace draconic::render
             return nullptr;
         }
         p.pso = pso;
-        p.format = colorFormat;
         p.shaderVersion = shaderVersion;
         return pso;
     }
@@ -352,16 +368,15 @@ namespace draconic::render
             m_device->DestroyBindGroup(m_viewBg);
             m_viewBg = nullptr;
         }
-        if (m_alpha.pso != nullptr)
+        for (Pipelines& p : m_pipelines)
         {
-            m_device->DestroyRenderPipeline(m_alpha.pso);
-            m_alpha.pso = nullptr;
+            if (p.pso != nullptr)
+            {
+                m_device->DestroyRenderPipeline(p.pso);
+                p.pso = nullptr;
+            }
         }
-        if (m_additive.pso != nullptr)
-        {
-            m_device->DestroyRenderPipeline(m_additive.pso);
-            m_additive.pso = nullptr;
-        }
+        m_pipelines.Clear();
         if (m_indexBuffer != nullptr)
         {
             m_device->DestroyBuffer(m_indexBuffer);
