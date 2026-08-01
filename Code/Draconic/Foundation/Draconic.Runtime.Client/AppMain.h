@@ -38,6 +38,9 @@
 #define DRACONIC_APP_MAIN(AppType)                                                                 \
     int main()                                                                                     \
     {                                                                                              \
+        static ::draconic::core::ConsoleSink draconicConsoleSink;                                  \
+        ::draconic::core::GlobalLogger().AddSink(&draconicConsoleSink);                            \
+        ::draconic::core::GlobalLogger().SetMinLevel(::draconic::core::LogLevel::Info);            \
         static ::draconic::shell::WebShell draconicShell;                                          \
         ::draconic::graphics::GraphicsDeviceDesc draconicGpuDesc{};                                \
         draconicGpuDesc.backend = ::draconic::graphics::BackendType::WebGPU;                       \
