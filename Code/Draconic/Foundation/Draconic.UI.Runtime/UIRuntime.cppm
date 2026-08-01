@@ -107,8 +107,13 @@ export namespace draconic::ui::runtime
             auto data = core::MakeUnique<UIWindowData>(core::DefaultAllocator());
             data->root = root;
             data->vg = core::MakeUnique<vg::VGContext>(core::DefaultAllocator(), m_fonts);
+            // Per-pixel radial/conic gradients only if both shaders resolved (a pre-cooked pack
+            // may predate them); otherwise the renderer + context fall back to the affine LUT.
+            const bool perPixelGrad = m_gradRadialFs != nullptr && m_gradConicFs != nullptr;
             data->renderer.Initialize(*m_device->Raw(), *m_vs, *m_fs, window->Swap()->Format(),
-                                      static_cast<i32>(m_device->FramesInFlight()));
+                                      static_cast<i32>(m_device->FramesInFlight()),
+                                      /*dfFrag*/ nullptr, m_gradRadialFs, m_gradConicFs);
+            data->vg->SetPerPixelGradients(perPixelGrad);
 
             const f32 w = static_cast<f32>(window->Window().Width());
             const f32 h = static_cast<f32>(window->Window().Height());
@@ -416,6 +421,12 @@ export namespace draconic::ui::runtime
                                            shaders::ShaderFlags::None);
             m_fs = m_shaderHost.GetVariant(u8"vg", shaders::ShaderStage::Fragment,
                                            shaders::ShaderFlags::None);
+            m_gradRadialFs = m_shaderHost.GetVariant(u8"vg_grad_radial",
+                                                     shaders::ShaderStage::Fragment,
+                                                     shaders::ShaderFlags::None);
+            m_gradConicFs = m_shaderHost.GetVariant(u8"vg_grad_conic",
+                                                    shaders::ShaderStage::Fragment,
+                                                    shaders::ShaderFlags::None);
         }
 
         graphics::GraphicsDevice* m_device; // borrowed
@@ -424,6 +435,8 @@ export namespace draconic::ui::runtime
         shaders::ShaderSystemHost m_shaderHost; // owns the ShaderSystem + the VG modules
         rhi::ShaderModule* m_vs = nullptr;      // borrowed from m_shaderHost
         rhi::ShaderModule* m_fs = nullptr;      // borrowed from m_shaderHost
+        rhi::ShaderModule* m_gradRadialFs = nullptr; // per-pixel radial gradient (borrowed)
+        rhi::ShaderModule* m_gradConicFs = nullptr;  // per-pixel conic gradient (borrowed)
 
         UIContext m_ctx; // shared context; owns N RootViews
         core::UniquePtr<shell::InputRouter> m_router;

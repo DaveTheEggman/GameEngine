@@ -142,6 +142,8 @@ private:
     shaders::ShaderSystemHost m_shaderHost; // owns the ShaderSystem + the VG modules
     rhi::ShaderModule* m_vs = nullptr;      // borrowed from m_shaderHost
     rhi::ShaderModule* m_fs = nullptr;
+    rhi::ShaderModule* m_gradRadialFs = nullptr; // per-pixel radial gradient fragment shader
+    rhi::ShaderModule* m_gradConicFs = nullptr;  // per-pixel conic gradient fragment shader
     rhi::CommandPool* m_pool = nullptr;
     rhi::Fence* m_fence = nullptr;
     u64 m_fenceVal = 0;
@@ -206,11 +208,16 @@ Status GUISandbox::OnInit()
     m_vs = m_shaderHost.GetVariant(u8"vg", shaders::ShaderStage::Vertex, shaders::ShaderFlags::None);
     m_fs =
         m_shaderHost.GetVariant(u8"vg", shaders::ShaderStage::Fragment, shaders::ShaderFlags::None);
-    if (m_vs == nullptr || m_fs == nullptr)
+    m_gradRadialFs = m_shaderHost.GetVariant(u8"vg_grad_radial", shaders::ShaderStage::Fragment,
+                                             shaders::ShaderFlags::None);
+    m_gradConicFs = m_shaderHost.GetVariant(u8"vg_grad_conic", shaders::ShaderStage::Fragment,
+                                            shaders::ShaderFlags::None);
+    if (m_vs == nullptr || m_fs == nullptr || m_gradRadialFs == nullptr || m_gradConicFs == nullptr)
         return ErrorCode::Unknown;
 
     if (!m_renderer
-             .Initialize(*m_device, *m_vs, *m_fs, m_swapChain->Format(), static_cast<i32>(kFrames))
+             .Initialize(*m_device, *m_vs, *m_fs, m_swapChain->Format(), static_cast<i32>(kFrames),
+                         /*dfFrag*/ nullptr, m_gradRadialFs, m_gradConicFs)
              .IsOk())
         return ErrorCode::Unknown;
 
@@ -230,6 +237,7 @@ Status GUISandbox::OnInit()
     }
 
     m_vg = MakeUnique<vg::VGContext>(DefaultAllocator(), m_fontService.Get());
+    m_vg->SetPerPixelGradients(true); // renderer was given the radial/conic gradient shaders
 
     BuildUI();
     return ErrorCode::Ok;

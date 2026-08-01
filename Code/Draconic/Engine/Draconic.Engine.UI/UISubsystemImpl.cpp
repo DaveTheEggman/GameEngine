@@ -153,8 +153,10 @@ namespace draconic::ui
     {
         draconic::shaders::ShaderSystemHost shaderHost; // owns the ShaderSystem + VG modules
         rhi::Device* device = nullptr;
-        rhi::ShaderModule* vertexShader = nullptr;   // borrowed from shaderHost
-        rhi::ShaderModule* fragmentShader = nullptr; // borrowed from shaderHost
+        rhi::ShaderModule* vertexShader = nullptr;       // borrowed from shaderHost
+        rhi::ShaderModule* fragmentShader = nullptr;     // borrowed from shaderHost
+        rhi::ShaderModule* gradRadialShader = nullptr;   // per-pixel radial gradient (borrowed)
+        rhi::ShaderModule* gradConicShader = nullptr;    // per-pixel conic gradient (borrowed)
         vg::VGContext vgContext;
         struct FormatRenderer
         {
@@ -307,7 +309,8 @@ namespace draconic::ui
                 }
                 auto renderer = MakeUnique<vg::renderer::VGRenderer>(DefaultAllocator());
                 if (!renderer
-                         ->Initialize(*device, *vertexShader, *fragmentShader, format, frameCount)
+                         ->Initialize(*device, *vertexShader, *fragmentShader, format, frameCount,
+                                      /*dfFrag*/ nullptr, gradRadialShader, gradConicShader)
                          .IsOk())
                 {
                     return nullptr;
@@ -1654,6 +1657,16 @@ namespace draconic::ui
             u8"vg", draconic::shaders::ShaderStage::Vertex, draconic::shaders::ShaderFlags::None);
         m_render->fragmentShader = m_render->shaderHost.GetVariant(
             u8"vg", draconic::shaders::ShaderStage::Fragment, draconic::shaders::ShaderFlags::None);
+        m_render->gradRadialShader =
+            m_render->shaderHost.GetVariant(u8"vg_grad_radial", draconic::shaders::ShaderStage::Fragment,
+                                            draconic::shaders::ShaderFlags::None);
+        m_render->gradConicShader =
+            m_render->shaderHost.GetVariant(u8"vg_grad_conic", draconic::shaders::ShaderStage::Fragment,
+                                            draconic::shaders::ShaderFlags::None);
+        // Per-pixel radial/conic gradients only if both shaders resolved (a pre-cooked pack may
+        // predate them); otherwise every renderer + the context fall back to the affine LUT.
+        m_render->vgContext.SetPerPixelGradients(m_render->gradRadialShader != nullptr &&
+                                                 m_render->gradConicShader != nullptr);
     }
 }
 
