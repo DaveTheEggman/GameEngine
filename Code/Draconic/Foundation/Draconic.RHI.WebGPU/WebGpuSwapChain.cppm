@@ -68,7 +68,7 @@ export namespace draconic::rhi::webgpu
             textureDesc.height = m_height;
             textureDesc.usage = TextureUsage::RenderTarget;
             m_currentTexture.WrapExternal(*m_api, surfaceTexture.texture, textureDesc);
-            m_ownedHandle = surfaceTexture.texture; // released at Present/Drop
+            m_ownedHandle = surfaceTexture.texture; // released at the next AcquireNextImage / Cleanup
 
             TextureViewDesc viewDesc;
             viewDesc.format = m_format;
@@ -99,8 +99,15 @@ export namespace draconic::rhi::webgpu
 #if DRACONIC_PLATFORM_WEB
             // The browser presents the canvas automatically once the requestAnimationFrame
             // callback (the web runner's frame) returns; emdawnwebgpu ABORTS on an explicit
-            // wgpuSurfacePresent. Just drop the borrowed texture.
-            DropCurrent();
+            // wgpuSurfacePresent.
+            //
+            // Do NOT release the borrowed surface texture here. On web wgpuQueueSubmit validates and
+            // executes ASYNCHRONOUSLY (the browser drains the queue after the rAF returns), so
+            // releasing our only reference now - before this frame's submit has been consumed -
+            // destroys the texture out from under it: "Destroyed texture used in a submit", and Dawn
+            // drops the whole command buffer (a startup race that silently killed the one-shot IBL env
+            // bake). Keep it alive; the NEXT AcquireNextImage's DropCurrent releases it, by which point
+            // the submit has run and the frame has presented.
             return ErrorCode::Ok;
 #else
             const WGPUStatus status = m_api->wgpuSurfacePresent(m_surface->Handle());

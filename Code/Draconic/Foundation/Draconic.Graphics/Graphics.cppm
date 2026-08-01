@@ -285,7 +285,19 @@ export namespace draconic::graphics
                 return core::Err(core::ErrorCode::Unknown);
             }
 
+#if DRACONIC_PLATFORM_WEB
+            // Web (Emscripten/Dawn) surfaces hand out a SINGLE current texture, reused every frame,
+            // and wgpuQueueSubmit validates ASYNCHRONOUSLY. With more than one frame in flight, the
+            // next frame's AcquireNextImage releases that shared surface texture while the prior
+            // frame's still-pending submit references it -> "Destroyed texture used in a submit", and
+            // Dawn drops that submit (which silently killed the one-shot IBL env bake -> black sky).
+            // Serialize to a single frame in flight: BeginFrame's fence wait then guarantees a frame's
+            // submit has completed before the next acquire releases the surface texture.
+            const core::u32 frames = 1u;
+            (void)framesInFlight;
+#else
             const core::u32 frames = framesInFlight == 0 ? 1 : framesInFlight;
+#endif
             auto gd = core::MakeUnique<GraphicsDevice>(core::DefaultAllocator(), backend, device,
                                                        queue, frames);
             return core::Result<core::UniquePtr<GraphicsDevice>>(
