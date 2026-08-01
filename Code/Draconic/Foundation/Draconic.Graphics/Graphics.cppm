@@ -525,8 +525,13 @@ export namespace draconic::graphics
         f.valid = true;
         f.window = this;
         f.frameIndex = fi;
-        f.width = m_window->Width();
-        f.height = m_window->Height();
+        // The frame's dimensions are the BACKBUFFER's (the swapchain's configured size), not the
+        // live window size: on web the canvas can resize between SyncSize and here, and every
+        // downstream consumer (viewports, scissors, post targets) must agree with the attachment
+        // this frame actually renders into - WebGPU validation rejects the whole command buffer
+        // on any out-of-attachment viewport/scissor.
+        f.width = m_swapChain->Width();
+        f.height = m_swapChain->Height();
         f.encoder = enc;
         f.pool = m_pools[fi];
         f.backbuffer = m_swapChain->CurrentTexture();

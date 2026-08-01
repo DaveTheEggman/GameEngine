@@ -114,6 +114,33 @@ TEST_CASE("graphics: SyncSize resizes the swapchain when the window changes")
     CHECK_FALSE(rw->SyncSize()); // stable again
 }
 
+TEST_CASE("graphics: FrameContext reports the BACKBUFFER size, not the live window size")
+{
+    // On web the canvas can resize between SyncSize and BeginFrame; the frame must describe
+    // the attachment it actually renders into, or downstream viewports/scissors go out of
+    // bounds and WebGPU validation drops the whole command buffer.
+    NullShell shell;
+    auto created = CreateNullGraphicsDevice();
+    REQUIRE(created.HasValue());
+    UniquePtr<GraphicsDevice>& gd = created.Value();
+
+    auto rwResult = gd->CreateRenderWindow(*shell.MainWindow(), RenderWindowDesc{});
+    REQUIRE(rwResult.HasValue());
+    UniquePtr<RenderWindow>& rw = rwResult.Value();
+
+    // Resize the window WITHOUT SyncSize: the swapchain (and therefore the frame) must
+    // stay at the old size until the host syncs.
+    const u32 oldW = rw->Swap()->Width();
+    const u32 oldH = rw->Swap()->Height();
+    static_cast<NullWindow*>(shell.MainWindow())->Resize(oldW + 320, oldH + 240);
+    FrameContext frame = rw->BeginFrame();
+    REQUIRE(frame.valid);
+    CHECK(frame.width == oldW);
+    CHECK(frame.height == oldH);
+    rw->EndFrame(frame);
+    gd->AdvanceFrame();
+}
+
 TEST_CASE("graphics: a minimized window yields an invalid frame")
 {
     NullShell shell;
