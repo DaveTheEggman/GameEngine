@@ -174,16 +174,23 @@ export namespace draconic::imgui
                     {
                         continue;
                     }
-                    const i32 x = static_cast<i32>(cmd.ClipRect.x - clipOff.x);
-                    const i32 y = static_cast<i32>(cmd.ClipRect.y - clipOff.y);
-                    const i32 w = static_cast<i32>(cmd.ClipRect.z - cmd.ClipRect.x);
-                    const i32 h = static_cast<i32>(cmd.ClipRect.w - cmd.ClipRect.y);
-                    if (w <= 0 || h <= 0)
+                    // Clamp the clip rect to the actual render target: io.DisplaySize is one
+                    // frame stale across a resize (set at NewFrame), and WebGPU validation drops
+                    // the whole command buffer on a scissor outside the attachment.
+                    i32 x0 = static_cast<i32>(cmd.ClipRect.x - clipOff.x);
+                    i32 y0 = static_cast<i32>(cmd.ClipRect.y - clipOff.y);
+                    i32 x1 = static_cast<i32>(cmd.ClipRect.z - clipOff.x);
+                    i32 y1 = static_cast<i32>(cmd.ClipRect.w - clipOff.y);
+                    x0 = x0 < 0 ? 0 : x0;
+                    y0 = y0 < 0 ? 0 : y0;
+                    x1 = x1 > static_cast<i32>(width) ? static_cast<i32>(width) : x1;
+                    y1 = y1 > static_cast<i32>(height) ? static_cast<i32>(height) : y1;
+                    if (x1 <= x0 || y1 <= y0)
                     {
                         continue;
                     }
-                    pass->SetScissor(x < 0 ? 0 : x, y < 0 ? 0 : y, static_cast<u32>(w),
-                                     static_cast<u32>(h));
+                    pass->SetScissor(static_cast<u32>(x0), static_cast<u32>(y0),
+                                     static_cast<u32>(x1 - x0), static_cast<u32>(y1 - y0));
                     pass->SetBindGroup(0, slot.bindGroup, Span<const u32>{});
                     pass->DrawIndexed(cmd.ElemCount, 1, cmd.IdxOffset + globalIdx,
                                       static_cast<i32>(cmd.VtxOffset + globalVtx), 0);
