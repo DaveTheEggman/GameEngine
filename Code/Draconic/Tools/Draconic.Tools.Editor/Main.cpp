@@ -3,9 +3,11 @@
 // modules (draconic.<sys>.editor) get linked HERE and their RegisterEditor(EditorContext&)
 // called on the app's context - the editor core/app libraries never link engine subsystems.
 //
-// Usage: Draconic.Tools.Editor [projectDirectory]
-//   Opens the project (scaffolding Project.xml + Content/Sources/Cooked/Editor/.cache on first
-//   run). Defaults to ./EditorProject.
+// Usage: Draconic.Tools.Editor [projectDirectory] [--project <dir>]
+//   With a project (positional or --project): opens it directly (scaffolding Project.xml +
+//   Content/Sources/Cooked/Editor/.cache on first run) - the single-project lifecycle.
+//   With NO project: starts on the built-in PROJECT MANAGER (recent projects from the
+//   per-user registry, open/create/remove); File > Close Project returns to it.
 
 #include <cstdio>
 #include <cstring>
@@ -235,11 +237,20 @@ int main(int argc, char** argv)
     GlobalLogger().SetMinLevel(LogLevel::Debug); // the Console panel has a Debug filter toggle
 
     editor::app::EditorAppConfig config;
-    config.projectDirectory = String(argc > 1 && argv[1][0] != '-'
-                                         ? StringView(reinterpret_cast<const utf8char*>(argv[1]))
-                                         : StringView(u8"EditorProject"));
+    // Project selection: an explicit project (positional arg or --project <dir>) opens
+    // directly, Godot-style single-project lifecycle. NO project => the built-in PROJECT
+    // MANAGER screen (recent projects, open/create), and File > Close Project returns there.
+    if (argc > 1 && argv[1][0] != '-')
+    {
+        config.projectDirectory = String(StringView(reinterpret_cast<const utf8char*>(argv[1])));
+    }
     for (int i = 1; i < argc - 1; ++i)
     {
+        if (std::strcmp(argv[i], "--project") == 0)
+        {
+            config.projectDirectory =
+                String(StringView(reinterpret_cast<const utf8char*>(argv[i + 1])));
+        }
         if (std::strcmp(argv[i], "--exit-after") == 0)
         {
             config.autoExitSeconds = static_cast<f32>(std::atof(argv[i + 1]));
@@ -249,6 +260,7 @@ int main(int argc, char** argv)
             config.autoRebuildSeconds = static_cast<f32>(std::atof(argv[i + 1]));
         }
     }
+    config.startInProjectManager = config.projectDirectory.IsEmpty();
     config.fontPath =
         String(StringView(reinterpret_cast<const utf8char*>(DRACONIC_EDITOR_FONT_PATH)));
     config.monoFontPath =

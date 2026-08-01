@@ -226,37 +226,15 @@ namespace draconic::editor::app
             m_context.SetStatus(message);
         };
 
-        OpenProject();
-        if (m_project)
-        {
-            // Per-user pinned assets (browser + picker surface them first).
-            (void)LoadFavorites(m_context, m_project->EditorStateRoot().AsView());
-            m_context.OnFavoritesChanged = [this]()
-            {
-                if (m_project)
-                {
-                    (void)SaveFavorites(m_context, m_project->EditorStateRoot().AsView());
-                }
-            };
-        }
-
         // ---- the EMBEDDED RUNTIME (runtime-host.md v3) ----
         // The editor owns a second, persistent runtime Context populated by the SAME
         // DefaultApplication the player runs: gameplay subsystems live THERE, and every
         // scene (editing pages, Simulate, previews, the Game tab) is hosted there. The
-        // editor's own context carries no gameplay subsystems. The editor's existing
-        // ResourceManager is PRESET into the app (a second manager over the same cooked
-        // DB would load every product twice), so it must exist first.
-        if (m_project)
-        {
-            m_resources = MakeUnique<draconic::resource::ResourceManager>(DefaultAllocator(),
-                                                                          m_project->CookedDb());
-            for (const auto& factory : m_resourceFactories)
-            {
-                m_resources->AddFactory(factory.Get());
-            }
-            m_context.SetResources(m_resources.Get());
-        }
+        // editor's own context carries no gameplay subsystems. It starts WITHOUT a
+        // resource manager: projects open and close at runtime now (the built-in project
+        // manager), so the per-project manager late-attaches in OpenProjectAt and
+        // detaches in CloseProject - the runtime's Resources() consumers are lazy and
+        // null-tolerant between projects.
         m_embeddedHost = MakeUnique<runtime::EmbeddedApplicationHost>(DefaultAllocator(), host,
                                                                       m_runtimeContext);
         m_embeddedHost->SetExitHandler(Function<void(int)>{
@@ -273,10 +251,6 @@ namespace draconic::editor::app
         {
             m_embeddedApp->SetUIFontPath(m_config.fontPath.AsView());
         }
-        if (m_resources)
-        {
-            m_embeddedApp->SetResourceManager(m_resources.Get());
-        }
         m_embeddedApp->Configure(*m_embeddedHost);
         // Embedded-runtime input policy (game-ui.md §9): UN-BOUND input must never
         // reach scene-tier game UI here. The player's shell source owns its whole
@@ -292,148 +266,31 @@ namespace draconic::editor::app
         }
         m_runtimeContext.Startup();
         m_embeddedApp->OnStartup(*m_embeddedHost);
-        // Project-default UI theme (game-ui.md P3): the same manifest reference the
-        // player honors at startup, applied to the embedded runtime's game UI so
-        // Simulate/Game-tab/previews style like the shipped game.
-        if (m_project && m_resources && m_embeddedApp->UI() != nullptr)
-        {
-            const Guid themeId = m_project->Settings().defaultUiThemeId;
-            if (!themeId.IsNil())
-            {
-                if (auto themeProxy = m_resources->Bind<draconic::ui::UITheme>(themeId))
-                {
-                    m_embeddedApp->UI()->SetDefaultTheme(themeProxy.Get());
-                }
-            }
-        }
 
         // Per-subsystem editor plugins register here (page factories, creators, ...), and
         // the exe injects the engine interfaces the app drives (SetSceneRenderer). They
         // receive the EMBEDDED host: every page's Ctx() resolves to the runtime context.
+        // ONCE per app run - the registered factories capture the embedded host/app, which
+        // stay alive across project close/open.
         if (m_config.registerEditors)
         {
             m_config.registerEditors(*this, *m_embeddedHost, *m_uiHost);
         }
 
-        // Cook service + the real Assets panel, once the project AND the exe-registered
-        // builders both exist.
-        if (m_project)
-        {
-            m_cookService.Initialize(*m_project, m_builders);
-            // Pages request re-cooks after saving builder-backed assets (materials etc.).
-            m_context.OnCookRequested = [this](bool rebuild)
-            { m_cookService.RequestCook(rebuild); };
-            // Background jobs (export) read the source DB structure and pack cooked FILES
-            // from their worker - DB mutations and new cooks must hold off while one runs,
-            // exactly like during a cook. The cook service folds this into MutationLocked.
-            m_cookService.ExternalMutationLock = [this]() { return m_jobService.IsBusy(); };
-            m_assetsView =
-                MakeRef<AssetsView>(DefaultAllocator(), m_context, m_cookService, &m_jobService);
-            AssetsView* assets = m_assetsView.Get();
-            m_assetsView->OnOpenInstance = [this](draconic::content::Instance& instance)
-            { (void)OpenInstancePage(instance); };
-            m_assetsView->OnCreate =
-                [this](const draconic::editor::EditorContext::AssetCreator& creator,
-                       draconic::content::Group* group) { CreateAndOpen(creator, group); };
-            // Delete-while-open policy: close-then-delete. Called from a mutation-queue
-            // action (never mid-event-dispatch), so synchronous panel + page teardown is
-            // safe here - the same pair of steps the tab close button triggers.
-            m_assetsView->OnCloseInstancePage = [this](const Guid& id)
-            {
-                for (usize i = 0; i < m_pagePanels.Size(); ++i)
-                {
-                    if (m_pagePanels[i].page->InstanceId() == id)
-                    {
-                        ui::toolkit::DockablePanel* panel = m_pagePanels[i].panel;
-                        UIEditorPage* page = m_pagePanels[i].page;
-                        m_shell.Docks()->ClosePanel(panel);
-                        ClosePage(page);
-                        return;
-                    }
-                }
-            };
-            m_cookService.OnCookFinished = [this, assets]()
-            {
-                assets->Rebuild();
-                // Result toast: failures are sticky (Console has the log); silent when the
-                // cook was a no-op (the watcher fires those constantly).
-                const usize failed = m_cookService.LastFailedCount();
-                const usize cooked = m_cookService.LastCookedCount();
-                if (failed > 0)
-                {
-                    ShowToast(editor::NoticeKind::Error,
-                              Format(u8"Cook: {} failed, {} cooked (see Console).", failed, cooked)
-                                  .AsView());
-                }
-                else if (cooked > 0)
-                {
-                    ShowToast(editor::NoticeKind::Success,
-                              Format(u8"Cook finished: {} asset(s).", cooked).AsView());
-                }
-                // Hot reload: rebuilt products swap in behind the proxy handles - live
-                // scenes see the new resources with no reopen (dependents reload
-                // transitively through the manager's recorded edges).
-                if (m_resources)
-                {
-                    for (const Guid& product : m_cookService.LastCookedProducts())
-                    {
-                        (void)m_resources->Reload(product);
-                    }
-                }
-            };
-            m_shell.SetAssetsContent(m_assetsView.Get());
-        }
-
-        // Menus AFTER registration - File > New builds from the creator registry.
+        // Menus AFTER registration - File > New builds from the creator registry. Built once;
+        // both modes share them (the manager screen simply doesn't show the shell chrome).
         BuildMenus();
 
-        // Reopen the pages from the last session (falling back to the default document),
-        // THEN restore the dock layout so page panels land back in their arrangement.
-        if (m_project)
+        // Mode: the project manager screen (no project given on the command line), or
+        // straight into the given project (a CLI-opened editor keeps the single-project
+        // lifecycle - no Close Project round-trip).
+        if (m_config.startInProjectManager)
         {
-            Array<Guid> pages;
-            Guid activePage;
-            if (LoadOpenPages(m_project->EditorStateRoot().AsView(), pages, activePage).IsOk())
-            {
-                UIEditorPage* toActivate = nullptr;
-                for (const Guid& id : pages)
-                {
-                    if (draconic::content::Instance* instance =
-                            m_project->SourceDb().GetInstance(id))
-                    {
-                        UIEditorPage* page = OpenInstancePage(*instance);
-                        if (page != nullptr && id == activePage)
-                        {
-                            toActivate = page;
-                        }
-                    }
-                }
-                if (toActivate != nullptr)
-                {
-                    m_context.SetActivePage(toActivate);
-                }
-            }
-            else
-            {
-                // No saved page set (first launch): fall back to the default scene -
-                // guid first (authoritative), path mirror for guid-less manifests.
-                draconic::content::Instance* instance = nullptr;
-                if (!m_project->Settings().defaultSceneId.IsNil())
-                {
-                    instance =
-                        m_project->SourceDb().GetInstance(m_project->Settings().defaultSceneId);
-                }
-                if (instance == nullptr && !m_project->Settings().defaultScene.IsEmpty())
-                {
-                    instance = m_project->SourceDb().GetInstance(
-                        m_project->Settings().defaultScene.AsView());
-                }
-                if (instance != nullptr)
-                {
-                    (void)OpenInstancePage(*instance);
-                }
-            }
-            (void)m_shell.RestoreLayout(m_project->EditorStateRoot().AsView());
+            EnterManagerMode();
+        }
+        else
+        {
+            OpenProjectAt(m_config.projectDirectory.AsView());
         }
     }
 
@@ -1087,6 +944,7 @@ namespace draconic::editor::app
     void EditorApplication::LoadEditorSettings()
     {
         editor::RegisterEditorSettingsTypes();
+        editor::RegisterProjectRegistryTypes(); // the manager's recent-projects section
         (void)editor::LoadEditorSettingsFromUserData(
             m_editorSettings); // NotFound on first run is fine
     }
@@ -2067,40 +1925,207 @@ namespace draconic::editor::app
         }
     }
 
-    void EditorApplication::OpenProject()
+    void EditorApplication::OpenProjectAt(StringView directory)
     {
-        if (m_config.projectDirectory.IsEmpty())
+        if (directory.IsEmpty())
         {
             m_context.SetStatus(u8"No project directory - pass one on the command line.");
             return;
         }
 
-        m_project = draconic::editor::EditorProject::Open(m_config.projectDirectory.AsView());
-        if (!m_project)
+        m_project = draconic::editor::EditorProject::Open(directory);
+        if (!m_project && !m_config.startInProjectManager)
         {
-            // No manifest yet: scaffold a fresh project, then open it.
-            const Status created = draconic::editor::EditorProject::Create(
-                m_config.projectDirectory.AsView(), m_config.projectName.AsView());
+            // CLI launch keeps the historical scaffold fallback (a bare directory becomes a
+            // fresh project). The manager scaffolds only through its explicit New Project flow.
+            const Status created =
+                draconic::editor::EditorProject::Create(directory, m_config.projectName.AsView());
             if (created.IsOk())
             {
-                m_project =
-                    draconic::editor::EditorProject::Open(m_config.projectDirectory.AsView());
+                m_project = draconic::editor::EditorProject::Open(directory);
             }
         }
 
         if (!m_project)
         {
             String message(u8"Failed to open project: ");
-            message += m_config.projectDirectory;
+            message += directory;
             m_context.SetStatus(message.AsView());
+            if (m_managerView)
+            {
+                m_managerView->SetStatus(message.AsView());
+            }
             return;
         }
 
         m_context.SetProject(m_project.Get());
 
-        // NOTE: the dock layout restores at the END of OnStartup, after the saved pages
-        // reopen - page panels carry guid PersistenceIds, so their side-by-side/tabbed
-        // arrangement only reconstitutes once the panels exist.
+        // Showing the manager? Swap the window over to the editor shell first, so the
+        // status bar narrates the rest of the open.
+        if (m_inManagerMode)
+        {
+            if (graphics::RenderWindow* mainRw = m_host->MainRenderWindow())
+            {
+                m_uiHost->DetachWindow(mainRw);
+                m_uiHost->AttachWindow(mainRw, RefPtr<draconic::ui::RootView>(m_shell.Root()));
+            }
+            m_inManagerMode = false;
+        }
+
+        // Per-user pinned assets (browser + picker surface them first).
+        (void)LoadFavorites(m_context, m_project->EditorStateRoot().AsView());
+        m_context.OnFavoritesChanged = [this]()
+        {
+            if (m_project)
+            {
+                (void)SaveFavorites(m_context, m_project->EditorStateRoot().AsView());
+            }
+        };
+
+        // Per-project resources over the cooked DB, late-attached to the embedded runtime
+        // (which also registers its standard factories into the manager - the same set a
+        // preset manager receives at its startup).
+        m_resources = MakeUnique<draconic::resource::ResourceManager>(DefaultAllocator(),
+                                                                      m_project->CookedDb());
+        for (const auto& factory : m_resourceFactories)
+        {
+            m_resources->AddFactory(factory.Get());
+        }
+        m_context.SetResources(m_resources.Get());
+        m_embeddedApp->AttachResourceManager(m_resources.Get(), *m_embeddedHost);
+        // Project-default UI theme (game-ui.md P3): the same manifest reference the
+        // player honors at startup, applied to the embedded runtime's game UI so
+        // Simulate/Game-tab/previews style like the shipped game.
+        if (m_embeddedApp->UI() != nullptr)
+        {
+            const Guid themeId = m_project->Settings().defaultUiThemeId;
+            if (!themeId.IsNil())
+            {
+                if (auto themeProxy = m_resources->Bind<draconic::ui::UITheme>(themeId))
+                {
+                    m_embeddedApp->UI()->SetDefaultTheme(themeProxy.Get());
+                }
+            }
+        }
+
+        // Cook service + the real Assets panel.
+        m_cookService.Initialize(*m_project, m_builders);
+        // Pages request re-cooks after saving builder-backed assets (materials etc.).
+        m_context.OnCookRequested = [this](bool rebuild)
+        { m_cookService.RequestCook(rebuild); };
+        // Background jobs (export) read the source DB structure and pack cooked FILES
+        // from their worker - DB mutations and new cooks must hold off while one runs,
+        // exactly like during a cook. The cook service folds this into MutationLocked.
+        m_cookService.ExternalMutationLock = [this]() { return m_jobService.IsBusy(); };
+        m_assetsView =
+            MakeRef<AssetsView>(DefaultAllocator(), m_context, m_cookService, &m_jobService);
+        AssetsView* assets = m_assetsView.Get();
+        m_assetsView->OnOpenInstance = [this](draconic::content::Instance& instance)
+        { (void)OpenInstancePage(instance); };
+        m_assetsView->OnCreate =
+            [this](const draconic::editor::EditorContext::AssetCreator& creator,
+                   draconic::content::Group* group) { CreateAndOpen(creator, group); };
+        // Delete-while-open policy: close-then-delete. Called from a mutation-queue
+        // action (never mid-event-dispatch), so synchronous panel + page teardown is
+        // safe here - the same pair of steps the tab close button triggers.
+        m_assetsView->OnCloseInstancePage = [this](const Guid& id)
+        {
+            for (usize i = 0; i < m_pagePanels.Size(); ++i)
+            {
+                if (m_pagePanels[i].page->InstanceId() == id)
+                {
+                    ui::toolkit::DockablePanel* panel = m_pagePanels[i].panel;
+                    UIEditorPage* page = m_pagePanels[i].page;
+                    m_shell.Docks()->ClosePanel(panel);
+                    ClosePage(page);
+                    return;
+                }
+            }
+        };
+        m_cookService.OnCookFinished = [this, assets]()
+        {
+            assets->Rebuild();
+            // Result toast: failures are sticky (Console has the log); silent when the
+            // cook was a no-op (the watcher fires those constantly).
+            const usize failed = m_cookService.LastFailedCount();
+            const usize cooked = m_cookService.LastCookedCount();
+            if (failed > 0)
+            {
+                ShowToast(editor::NoticeKind::Error,
+                          Format(u8"Cook: {} failed, {} cooked (see Console).", failed, cooked)
+                              .AsView());
+            }
+            else if (cooked > 0)
+            {
+                ShowToast(editor::NoticeKind::Success,
+                          Format(u8"Cook finished: {} asset(s).", cooked).AsView());
+            }
+            // Hot reload: rebuilt products swap in behind the proxy handles - live
+            // scenes see the new resources with no reopen (dependents reload
+            // transitively through the manager's recorded edges).
+            if (m_resources)
+            {
+                for (const Guid& product : m_cookService.LastCookedProducts())
+                {
+                    (void)m_resources->Reload(product);
+                }
+            }
+        };
+        m_shell.SetAssetsContent(m_assetsView.Get());
+
+        // Reopen the pages from the last session (falling back to the default document),
+        // THEN restore the dock layout so page panels land back in their arrangement
+        // (panels carry guid PersistenceIds; the layout only reconstitutes once they exist).
+        {
+            Array<Guid> pages;
+            Guid activePage;
+            if (LoadOpenPages(m_project->EditorStateRoot().AsView(), pages, activePage).IsOk())
+            {
+                UIEditorPage* toActivate = nullptr;
+                for (const Guid& id : pages)
+                {
+                    if (draconic::content::Instance* instance =
+                            m_project->SourceDb().GetInstance(id))
+                    {
+                        UIEditorPage* page = OpenInstancePage(*instance);
+                        if (page != nullptr && id == activePage)
+                        {
+                            toActivate = page;
+                        }
+                    }
+                }
+                if (toActivate != nullptr)
+                {
+                    m_context.SetActivePage(toActivate);
+                }
+            }
+            else
+            {
+                // No saved page set (first launch): fall back to the default scene -
+                // guid first (authoritative), path mirror for guid-less manifests.
+                draconic::content::Instance* instance = nullptr;
+                if (!m_project->Settings().defaultSceneId.IsNil())
+                {
+                    instance =
+                        m_project->SourceDb().GetInstance(m_project->Settings().defaultSceneId);
+                }
+                if (instance == nullptr && !m_project->Settings().defaultScene.IsEmpty())
+                {
+                    instance = m_project->SourceDb().GetInstance(
+                        m_project->Settings().defaultScene.AsView());
+                }
+                if (instance != nullptr)
+                {
+                    (void)OpenInstancePage(*instance);
+                }
+            }
+            (void)m_shell.RestoreLayout(m_project->EditorStateRoot().AsView());
+        }
+
+        // Record the open in the per-user registry (most-recent-first; snapshot refreshed).
+        m_projectManager.NoteOpened(directory, m_project->Name(),
+                                    m_project->Settings().engineVersion.AsView());
+        (void)draconic::editor::SaveEditorSettingsToUserData(m_editorSettings);
 
         String message(u8"Project: ");
         message += m_project->Name();
@@ -2108,6 +2133,252 @@ namespace draconic::editor::app
         message += m_project->Directory();
         message += u8")";
         m_context.SetStatus(message.AsView());
+    }
+
+    void EditorApplication::CloseProject()
+    {
+        if (!m_project)
+        {
+            EnterManagerMode();
+            return;
+        }
+        m_cookService.Shutdown(); // joins any in-flight cook before the DBs go away
+        SaveLayout();             // pages.bin + layout.xml for the next open
+        // Close every page: the tab-close pair (panel, then page), applied to all. ClosePage
+        // erases the entry from m_pagePanels, so drain from the front.
+        while (!m_pagePanels.IsEmpty())
+        {
+            PagePanel entry = m_pagePanels[0];
+            if (m_shell.Docks() != nullptr && entry.panel != nullptr)
+            {
+                m_shell.Docks()->ClosePanel(entry.panel);
+            }
+            ClosePage(entry.page);
+        }
+        m_gamePage = nullptr;
+        m_shell.SetAssetsContent(nullptr);
+        m_assetsView = nullptr;
+        m_context.OnCookRequested = {};
+        m_context.OnFavoritesChanged = {};
+        // Detach the per-project resources from the embedded runtime BEFORE destroying them
+        // (its Resources() consumers are lazy and null-tolerant between projects).
+        if (m_embeddedApp)
+        {
+            m_embeddedApp->AttachResourceManager(nullptr, *m_embeddedHost);
+            if (m_embeddedApp->UI() != nullptr)
+            {
+                m_embeddedApp->UI()->SetDefaultTheme(nullptr);
+            }
+        }
+        m_context.SetResources(nullptr);
+        m_resources = nullptr;
+        m_context.SetProject(nullptr);
+        m_project = nullptr;
+        m_context.SetStatus(u8"Project closed.");
+        EnterManagerMode();
+    }
+
+    void EditorApplication::EnterManagerMode()
+    {
+        graphics::RenderWindow* mainRw = m_host != nullptr ? m_host->MainRenderWindow() : nullptr;
+        if (mainRw == nullptr)
+        {
+            return;
+        }
+        if (!m_managerView)
+        {
+            m_managerView = MakeUnique<ProjectManagerView>(DefaultAllocator());
+            m_managerView->OnOpenProject = [this](StringView dir) { OpenFromManager(dir); };
+            m_managerView->OnCreateProject = [this](StringView dir, StringView name)
+            { CreateFromManager(dir, name); };
+            m_managerView->OnStoreChanged = [this]()
+            { (void)draconic::editor::SaveEditorSettingsToUserData(m_editorSettings); };
+            m_managerView->Build(m_projectManager, m_host->Shell()->Dialogs(),
+                                 &m_uiHost->Context(), mainRw->Window().Width(),
+                                 mainRw->Window().Height());
+        }
+        else
+        {
+            m_managerView->Rebuild(); // returning from a project: re-probe the rows
+        }
+        if (!m_inManagerMode)
+        {
+            m_uiHost->DetachWindow(mainRw);
+            m_uiHost->AttachWindow(mainRw, RefPtr<draconic::ui::RootView>(m_managerView->Root()));
+            m_inManagerMode = true;
+        }
+    }
+
+    void EditorApplication::OpenFromManager(StringView directory)
+    {
+        // The controller decides (probe + version relation + prompt copy); this method only
+        // renders dialogs for the prompt gates and runs the open it owns.
+        draconic::editor::ProjectManagerController::OpenDecision decision;
+        m_projectManager.DecideOpen(directory, decision);
+        if (decision.gate == draconic::editor::ProjectOpenGate::NotAProject)
+        {
+            if (m_managerView)
+            {
+                m_managerView->SetStatus(u8"Not a project (no Project.xml there).");
+            }
+            return;
+        }
+        if (decision.gate == draconic::editor::ProjectOpenGate::OpenDirectly)
+        {
+            OpenProjectAt(directory);
+            return;
+        }
+
+        const String dir(directory);
+        RefPtr<draconic::ui::Dialog> dialog =
+            MakeRef<draconic::ui::Dialog>(DefaultAllocator(), decision.promptTitle.AsView());
+        RefPtr<draconic::ui::Label> label =
+            MakeRef<draconic::ui::Label>(DefaultAllocator(), decision.promptBody.AsView());
+        label->WordWrap.SetValue(true);
+        dialog->SetContent(label.Get());
+        draconic::ui::Dialog* rawDialog = dialog.Get();
+
+        if (decision.gate == draconic::editor::ProjectOpenGate::PromptNewerEngine)
+        {
+            draconic::ui::Button* openAnyway =
+                dialog->AddButton(u8"Open Anyway", draconic::ui::DialogResult::None);
+            openAnyway->OnClick.Add(
+                [this, rawDialog, dir](draconic::ui::ButtonBase*)
+                {
+                    rawDialog->Close(draconic::ui::DialogResult::OK);
+                    OpenProjectAt(dir.AsView());
+                });
+        }
+        else // PromptOlderBackup: the Godot-style backup-and-upgrade prompt
+        {
+            draconic::ui::Button* backupOpen =
+                dialog->AddButton(u8"Back Up && Open", draconic::ui::DialogResult::None);
+            backupOpen->OnClick.Add(
+                [this, rawDialog, dir](draconic::ui::ButtonBase*)
+                {
+                    rawDialog->Close(draconic::ui::DialogResult::OK);
+                    if (!m_projectManager.BackupManifest(dir.AsView()).HasValue())
+                    {
+                        if (m_managerView)
+                        {
+                            m_managerView->SetStatus(u8"Backup FAILED - not opening.");
+                        }
+                        return;
+                    }
+                    OpenProjectAt(dir.AsView());
+                    if (m_project)
+                    {
+                        (void)m_project->SaveSettings(); // re-stamp to this engine immediately
+                    }
+                });
+            draconic::ui::Button* openOnly =
+                dialog->AddButton(u8"Open Without Backup", draconic::ui::DialogResult::None);
+            openOnly->OnClick.Add(
+                [this, rawDialog, dir](draconic::ui::ButtonBase*)
+                {
+                    rawDialog->Close(draconic::ui::DialogResult::OK);
+                    OpenProjectAt(dir.AsView());
+                    if (m_project)
+                    {
+                        (void)m_project->SaveSettings();
+                    }
+                });
+        }
+        dialog->AddButton(u8"Cancel", draconic::ui::DialogResult::Cancel);
+        dialog->Show(&m_uiHost->Context());
+    }
+
+    void EditorApplication::CreateFromManager(StringView directory, StringView name)
+    {
+        const Status created = m_projectManager.Create(directory, name);
+        if (!created.IsOk())
+        {
+            if (m_managerView)
+            {
+                m_managerView->SetStatus(created.Code() == ErrorCode::AlreadyExists
+                                             ? StringView(u8"That directory is already a project.")
+                                             : StringView(u8"Create failed (path writable?)."));
+            }
+            return;
+        }
+        OpenProjectAt(directory);
+    }
+
+    void EditorApplication::ConfirmCloseProjectThen()
+    {
+        if (!m_project || m_inManagerMode)
+        {
+            return;
+        }
+        // CloseProject destroys panels/pages - never run it mid-event-dispatch (the
+        // ui-mutation-queue rule); every path below queues it.
+        const auto queueClose = [this]()
+        {
+            m_uiHost->Context().MutationQueueRef().QueueAction(
+                Function<void()>{[this]() { CloseProject(); }});
+        };
+
+        usize dirtyCount = 0;
+        for (const PagePanel& entry : m_pagePanels)
+        {
+            if (entry.page->IsDirty())
+            {
+                ++dirtyCount;
+            }
+        }
+        if (dirtyCount == 0)
+        {
+            queueClose();
+            return;
+        }
+
+        String message;
+        AppendCountTo(message, dirtyCount);
+        message += (dirtyCount == 1) ? StringView(u8" page has unsaved changes.")
+                                     : StringView(u8" pages have unsaved changes.");
+        RefPtr<draconic::ui::Dialog> dialog =
+            MakeRef<draconic::ui::Dialog>(DefaultAllocator(), StringView(u8"Unsaved changes"));
+        RefPtr<draconic::ui::Label> label =
+            MakeRef<draconic::ui::Label>(DefaultAllocator(), message.AsView());
+        label->WordWrap.SetValue(true);
+        dialog->SetContent(label.Get());
+
+        draconic::ui::Dialog* rawDialog = dialog.Get();
+        draconic::ui::Button* saveAll =
+            dialog->AddButton(u8"Save All && Close Project", draconic::ui::DialogResult::None);
+        saveAll->OnClick.Add(
+            [this, rawDialog, queueClose](draconic::ui::ButtonBase*)
+            {
+                bool allSaved = true;
+                for (const PagePanel& entry : m_pagePanels)
+                {
+                    if (entry.page->IsDirty() && !entry.page->Save().IsOk())
+                    {
+                        allSaved = false;
+                    }
+                }
+                if (allSaved)
+                {
+                    queueClose();
+                }
+                else
+                {
+                    m_context.Notify(editor::NoticeKind::Error,
+                                     u8"Save FAILED (see console) - staying open.");
+                }
+                rawDialog->Close(allSaved ? draconic::ui::DialogResult::OK
+                                          : draconic::ui::DialogResult::Cancel);
+            });
+        draconic::ui::Button* discard =
+            dialog->AddButton(u8"Close Without Saving", draconic::ui::DialogResult::None);
+        discard->OnClick.Add(
+            [rawDialog, queueClose](draconic::ui::ButtonBase*)
+            {
+                queueClose();
+                rawDialog->Close(draconic::ui::DialogResult::OK);
+            });
+        dialog->AddButton(u8"Cancel", draconic::ui::DialogResult::Cancel);
+        dialog->Show(&m_uiHost->Context());
     }
 
     void EditorApplication::SaveLayout()
@@ -2216,6 +2487,12 @@ namespace draconic::editor::app
                               m_context.SetStatus(u8"Layout saved.");
                           });
             file->AddSeparator();
+            if (m_config.startInProjectManager)
+            {
+                // Only meaningful when the manager launched us; a CLI-opened editor keeps
+                // its single-project lifecycle (Exit is the way out).
+                file->AddItem(u8"Close Project", [this]() { ConfirmCloseProjectThen(); });
+            }
             file->AddItem(u8"Project Settings...",
                           [this]()
                           {

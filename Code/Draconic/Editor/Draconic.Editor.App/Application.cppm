@@ -41,6 +41,7 @@ import :assets_view;
 import :editor_icons;
 import :settings_dialog;
 import :preferences_dialog;
+import :project_manager_view;
 import :shell;
 import :ui_page;
 
@@ -67,6 +68,11 @@ export namespace draconic::editor::app
         // Log capture registered on GlobalLogger by main() BEFORE anything else runs, so early
         // startup logs reach the console panel. Borrowed; main owns it (outlives the app).
         draconic::editor::EditorLogBuffer* logBuffer = nullptr;
+
+        // Start on the PROJECT MANAGER screen instead of opening projectDirectory (set by
+        // main() when no project was given). File > Close Project returns to the manager only
+        // in this mode; a CLI-opened editor keeps its single-project lifecycle.
+        bool startInProjectManager = false;
 
         // Smoke-test aid: request a CLEAN shutdown after this many seconds (0 = never).
         // Exercises the real teardown path, unlike killing the process.
@@ -275,7 +281,31 @@ export namespace draconic::editor::app
         // Buffered engine logs -> the Console panel, once per frame on the main thread.
         void DrainLog();
 
-        void OpenProject();
+        // === Project lifecycle (the built-in project manager opens/closes at runtime) ===
+
+        // Open + wire a project end-to-end: manifest (with the CLI scaffold fallback),
+        // favorites, resources (late-attached to the embedded runtime), cook service +
+        // assets view, saved pages + dock layout, and the recent-projects registry touch.
+        // Swaps the window to the editor shell when the manager was showing.
+        void OpenProjectAt(StringView directory);
+
+        // The inverse of OpenProjectAt: saves layout/pages, closes every page, shuts the
+        // cook service down, detaches resources from the embedded runtime, releases the
+        // project, and returns to the manager screen. Pages must already be clean/confirmed
+        // (ConfirmCloseProjectThen is the UI entry).
+        void CloseProject();
+
+        // Show the manager screen (building it on first use); swaps the window root.
+        void EnterManagerMode();
+
+        // Manager entries: version-relation prompt (backup-then-upgrade / newer-engine
+        // warning) then OpenProjectAt; scaffold a new project then open it.
+        void OpenFromManager(StringView directory);
+        void CreateFromManager(StringView directory, StringView name);
+
+        // File > Close Project: dirty-pages prompt, then CloseProject.
+        void ConfirmCloseProjectThen();
+
 
         void SaveLayout();
 
@@ -309,6 +339,8 @@ export namespace draconic::editor::app
         draconic::editor::EditorJobService m_jobService; // generic background jobs (export, ...)
         draconic::settings::Settings
             m_editorSettings; // per-user editor prefs (<userdata>/editor.settings.xml)
+        draconic::editor::ProjectManagerController m_projectManager{
+            m_editorSettings}; // headless manager decisions (open gate, registry, create)
         struct PendingExport
         {
             String presetName;
@@ -344,6 +376,8 @@ export namespace draconic::editor::app
         // SetAdapter(nullptr) in its dtor), which is a use-after-free once the host is gone.
         // ASAN caught exactly that with the previous declared-last ordering.
         UniquePtr<ui::runtime::UIHost> m_uiHost;
+        UniquePtr<ProjectManagerView> m_managerView; // built on first EnterManagerMode
+        bool m_inManagerMode = false;
         UniquePtr<ui::application::RuntimeDockableWindowHost>
             m_dockHost; // references m_uiHost: dies first
         EditorShell m_shell;
