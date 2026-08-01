@@ -1,6 +1,11 @@
 # Draconic
 
-C++23 game engine ported from the Sedulous engine (Beef). Uses C++ modules, virtual inheritance for the RHI, and Vulkan 1.3 as the primary GPU backend with a DX12 backend on Windows.
+C++23 game engine (ported from the Sedulous engine and grown well past it). Built on C++
+modules throughout. The GPU layer is an abstract RHI with Vulkan 1.3 as the primary desktop
+backend and WebGPU as a first-class second backend - wgpu-native on desktop, the browser's
+WebGPU when built for the web with Emscripten. Ships with a full editor (scene editing,
+asset pipeline/cook, play-in-editor, export) driven by a Godot-style built-in project
+manager, all in one executable.
 
 ## Requirements
 
@@ -10,11 +15,11 @@ C++23 game engine ported from the Sedulous engine (Beef). Uses C++ modules, virt
 - Vulkan SDK (1.3+)
 
 ### Windows
-- Clang 17+ (via LLVM)
+- Clang 17+ (via LLVM) - the project builds with clang, not MSVC
 - Windows SDK
 
 ### Linux
-- Clang 17+ (**required** - GCC's C++ module support is not sufficient)
+- Clang 17+ and/or GCC 15+ (both toolchains are kept green; clang is the daily driver)
 - Vulkan development libraries
 - SDL3 build dependencies
 
@@ -27,101 +32,166 @@ sudo apt install cmake ninja-build clang pkg-config \
     libxtst-dev libwayland-dev wayland-protocols libxkbcommon-dev libasound2-dev
 ```
 
+### Web (Emscripten)
+- emsdk **6.0.5** with the project's response-file patch applied
+  (`Tools/Emscripten/emcc-compile-response-file.patch` - a stock emsdk cannot compile the
+  module-heavy targets on Windows). Setup details, including the Windows-host cook tools:
+  `docs/emscripten-windows.md`.
+
 ## Building
 
-### Debug (default)
+Everything goes through CMake presets; build outputs (executables, cooked shader packs,
+runtime sidecars) land in `Bin/<Config>/<Platform>-<Compiler>/`, e.g. `Bin/Debug/Linux64-Clang/`,
+`Bin/Debug/Win64-Clang/`, `Bin/Debug/Emscripten-Clang/`.
+
+| Preset | Meaning |
+|---|---|
+| `clang` / `gcc` | Debug (the development configuration) |
+| `clang-reldbg` | RelWithDebInfo (perf validation) |
+| `clang-release` / `gcc-release` | Release |
+| `clang-shipping` / `gcc-shipping` | Shipping (no asserts, stripped) |
+| `wasm` / `wasm-shipping` | Emscripten wasm32 |
+
+### Linux
 
 ```bash
+cmake --preset clang            # or: gcc
+cmake --build --preset clang
+ctest --preset clang            # unit tests
+```
+
+### Windows (clang)
+
+```powershell
 cmake --preset clang
 cmake --build --preset clang
-```
-
-### RelWithDebInfo
-
-```bash
-cmake --preset clang-reldbg
-cmake --build --preset clang-reldbg
-```
-
-### Running tests
-
-```bash
 ctest --preset clang
-# or
-ctest --preset clang-reldbg
 ```
 
-## Running samples
-
-Executables are in `build/<preset>/Code/Samples/`. Examples:
+### Web
 
 ```bash
-# Windows
-build/clang/Code/Samples/RHI/Sample001_Triangle/DraconicSample001_Triangle.exe
-build/clang/Code/Samples/HelloWindow/HelloWindow.exe
-build/clang/Code/Samples/VG/VGSandbox/VGSandbox.exe
-
-# Linux (no .exe extension)
-build/clang/Code/Samples/RHI/Sample001_Triangle/DraconicSample001_Triangle
+# emsdk env active (source emsdk_env.sh / emsdk_env.bat first)
+cmake --preset wasm
+cmake --build --preset wasm
 ```
 
-RHI samples accept `--vk` or `--dx12` to select the GPU backend (default varies by platform).
+The web build cooks browser shaders (WGSL) on the host during the build; the host cook
+tools (DXC, naga, tint) are vendored for both Linux and Windows hosts.
+
+## The editor
+
+One executable, Godot-style project management:
+
+```bash
+Bin/Debug/Linux64-Clang/Draconic.Tools.Editor                    # PROJECT MANAGER screen
+Bin/Debug/Linux64-Clang/Draconic.Tools.Editor --project <dir>    # open a project directly
+Bin/Debug/Linux64-Clang/Draconic.Tools.Editor <dir>              # same, positional form
+```
+
+With no project argument the editor starts on the project manager: recent projects (stored
+per-user in `<user-data>/draconic/editor.settings.xml`, shared by every engine version on
+the machine), open/create/remove, and an engine-version gate on open (backup-then-upgrade
+prompt for older projects, a hard warning for projects saved by a newer engine).
+File > Close Project returns to the manager. A CLI-opened editor keeps the single-project
+lifecycle and scaffolds a fresh project if the directory has no `Project.xml` yet.
+
+The full project/settings model is documented in `docs/design/project-and-settings.md`.
+
+## WebScene - the renderer comparison scene
+
+`Code/Samples/WebScene` is the full-renderer exercise scene, built for BOTH desktop and the
+browser so the backends can be compared side by side: analytic sky -> IBL, CSM sun + shadowed
+spot + orbiting point light, PBR sphere grid, SSR floor, reflection probe + chrome sphere,
+instanced ring, decal, sprites, particles, debug draw, and an ImGui tweak panel.
+
+### Desktop
+
+```bash
+cmake --build --preset clang --target WebScene Draconic.Tools.ShaderPack
+
+Bin/Debug/Linux64-Clang/WebScene --vulkan     # Vulkan reference
+Bin/Debug/Linux64-Clang/WebScene --webgpu     # WebGPU via wgpu-native (SPIR-V ingestion)
+```
+
+To run the EXACT browser shaders (cooked WGSL) on desktop - the fast local repro for
+web-render bugs - cook a WGSL pack beside the exe and force the WGSL path:
+
+```bash
+# Linux
+Bin/Debug/Linux64-Clang/Draconic.Tools.ShaderPack Data/Shaders Bin/Debug/Linux64-Clang/shaders.dpak wgsl spirv
+DRACONIC_USE_SHADER_PACK=1 DRACONIC_WEBGPU_WGSL=1 Bin/Debug/Linux64-Clang/WebScene --webgpu
+```
+
+```powershell
+# Windows (PowerShell env syntax - `set X=1` is cmd-only and silently does nothing here)
+Bin\Debug\Win64-Clang\Draconic.Tools.ShaderPack.exe Data\Shaders Bin\Debug\Win64-Clang\shaders.dpak wgsl spirv
+$env:DRACONIC_USE_SHADER_PACK="1"
+$env:DRACONIC_WEBGPU_WGSL="1"
+Bin\Debug\Win64-Clang\WebScene.exe --webgpu
+```
+
+On `--webgpu` the backend logs every GPU adapter at startup and prefers a discrete GPU; on
+multi-adapter machines where the pick is wrong, override it with
+`DRACONIC_WEBGPU_ADAPTER=<index from the logged list>`.
+
+### Browser
+
+```bash
+cmake --build --preset wasm --target WebScene
+cd Bin/Debug/Emscripten-Clang && python3 -m http.server 8080
+# open http://localhost:8080/WebScene.html
+```
+
+If the plain server causes MIME/caching trouble, `Code/Draconic/Engine/Draconic.Engine.Player/serve.py`
+serves a folder with the correct wasm MIME and no-store headers.
+
+## Samples
+
+Sample executables build into the same `Bin/` directory as everything else
+(`DRACONIC_BUILD_SAMPLES=ON` by default). Highlights: `Sandbox` (the heavy desktop dev
+harness), `WebScene` (above), `RHI/` (numbered RHI bring-up samples), `VG/VGSandbox`
+(2D vector graphics), `UI` (widget toolkit), `PhysicsPlayground`, `AudioPlayground`,
+`ParticleFX`, `ScriptPlayground`, `InputActions`, `NetEcho`, `RenderStressTest`,
+`AnimStressTest`, `AnimatedCrowd`. GPU samples take `--vulkan` / `--webgpu`
+(`--dx12` where staged).
 
 ## Directory layout
 
 ```
 Code/
   Draconic/
-    Core/           Types, memory, containers, math, threading, logging, RTTI
-    Animation/      Skeleton, clip, sampler, pose
-    Content/        Content database over VFS
-    Editor/         Asset-pipeline authoring base
-    Fonts/          Font types, interfaces, TTF backend, distance-field baker
-    Geometry/       Static/skinned mesh runtime format
-    Image/          Image types, pixel formats, I/O
-    Materials/      Data-driven material model + pipeline state cache
-    Model/          Model import (GLTF, FBX) + mesh I/O
-    Profiler/       Scoped CPU profiler
-    Render/         Scene-to-GPU renderer (forward path, shadows, clustering)
-    RenderGraph/    Frame graph with transient resources + render bundles
-    Resource/       Resource manager over content
-    RHI/            Abstract GPU interface
-      Vulkan/       Vulkan 1.3 backend
-      DX12/         Direct3D 12 backend (Windows)
-      Validation/   Validation wrapper layer
-      Null/         Stub backend for headless testing
-    Runtime/        Application host, platform, graphics device
-    Scene/          ECS foundation (entities, transforms, components)
-    Script/         Scripting (Wren)
-    Shaders/        DXC shader compiler wrapper
-    Texture/        Texture descriptors + GPU factory
-    VFS/            Virtual file system
-    VG/             2D vector graphics (paths, fills, strokes, text, SVG)
-    Xml/            DOM XML parser + writer
+    Foundation/     Engine-agnostic libraries: Core (types/containers/math/RTTI),
+                    RHI (+ Vulkan/WebGPU/Null backends, validation layer), Graphics,
+                    Render + RenderGraph, Materials, Shaders (DXC + WGSL cook),
+                    Scene (ECS), Geometry, Model, Image, Texture, Fonts, VG (2D vector
+                    graphics), UI (+ toolkit/runtime/viewport), Audio, Input, Physics,
+                    Particles, Net, Script (Wren + AngelScript), Content, Resource,
+                    VFS, Xml, Settings, Profiler, Shell (OS integration), Runtime
+    Engine/         The assembled game runtime: DefaultApp, GameInstance, Player,
+                    Project, per-subsystem engine bindings (Render/Scene/Audio/...)
+    Editor/         Editor libraries: Core (headless domain: project, registry, cook,
+                    export), App (UI shell + project manager), per-subsystem editors
+    Tools/          Executables: Draconic.Tools.Editor, .Cook, .Export, .ShaderPack
+    Extensions/     Draconic.Imgui (Dear ImGui debug-UI extension)
+    Experimental/   Parked experiments (Draconic.GUI)
   Samples/
-    Framework/      SampleApp base class + helpers
-    RHI/            RHI samples (30 numbered + smoketest)
-    VG/             VG sandbox demo
-    HelloWindow/    Minimal windowed app
-    MultiWindow/    Multi-window demo
-    Sandbox/        Dev harness (scene + renderer)
-    RenderStressTest/  Render performance benchmark
-ThirdParty/
-  SDL3/             SDL3 (pre-built, Windows)
-  DXC/              Vendored DXC headers + binaries
-  stb/              stb_truetype, stb_image, stb_image_write
-  cgltf/            glTF loader
-  ufbx/             FBX loader
-  msdfgen/          Multi-channel SDF generator (core-only)
 Data/
+  Shaders/          Engine HLSL shader corpus (dev-compiled or cooked into packs)
   Assets/           Raw assets (fonts, models)
+ThirdParty/         Vendored dependencies (see below)
+docs/               Design docs + platform guides
 ```
 
 ## Third-party dependencies
 
-- **SDL3** - pre-built development libraries (Windows); system package on Linux.
-- **DXC** - vendored headers and pre-built binaries for HLSL compilation. No manual setup needed.
-- **Vulkan SDK** - system install required for `vulkan.h` and the Vulkan loader.
-- **stb** - header-only libraries (truetype, image, image_write).
-- **cgltf / ufbx** - header-only model loaders (glTF, FBX).
-- **msdfgen** - multi-channel signed distance field generator for font atlas baking.
+- **SDL3** - windowing/input shell backend (pre-built on Windows; system package on Linux)
+- **Vulkan SDK** - system install (headers + loader)
+- **wgpu-native** - the desktop WebGPU implementation (runtime sidecar, loaded at run time)
+- **DXC** - HLSL -> SPIR-V (runtime sidecar); **naga** + **tint** - the WGSL cook + validation toolchain
+- **JoltPhysics** - physics
+- **miniaudio** - audio
+- **Wren** + **AngelScript** - scripting backends
+- **Dear ImGui** - debug-UI extension
+- **stb / cgltf / ufbx / msdfgen** - fonts, images, glTF, FBX, MSDF font baking
+- **doctest** - unit tests
