@@ -16,6 +16,7 @@ import draconic.core;
 import draconic.rhi;
 import :api;
 import :conversions;
+import :queue;
 import :surface;
 import :texture;
 import :texture_view;
@@ -28,11 +29,13 @@ export namespace draconic::rhi::webgpu
     {
     public:
         Status Initialize(const WebGpuApi& api, WGPUAdapter adapter, WGPUDevice device,
-                          WebGpuSurface* surface, const SwapChainDesc& swapDesc)
+                          WebGpuQueue* queue, WebGpuSurface* surface,
+                          const SwapChainDesc& swapDesc)
         {
             m_api = &api;
             m_adapter = adapter;
             m_device = device;
+            m_queue = queue;
             m_surface = surface;
             m_format = swapDesc.format;
             m_presentMode = swapDesc.presentMode;
@@ -101,13 +104,19 @@ export namespace draconic::rhi::webgpu
             // callback (the web runner's frame) returns; emdawnwebgpu ABORTS on an explicit
             // wgpuSurfacePresent.
             //
-            // Do NOT release the borrowed surface texture here. On web wgpuQueueSubmit validates and
-            // executes ASYNCHRONOUSLY (the browser drains the queue after the rAF returns), so
-            // releasing our only reference now - before this frame's submit has been consumed -
-            // destroys the texture out from under it: "Destroyed texture used in a submit", and Dawn
-            // drops the whole command buffer (a startup race that silently killed the one-shot IBL env
-            // bake). Keep it alive; the NEXT AcquireNextImage's DropCurrent releases it, by which point
-            // the submit has run and the frame has presented.
+            // Do NOT release the borrowed surface texture here (or on any fixed frame boundary).
+            // On web wgpuQueueSubmit validates and executes ASYNCHRONOUSLY (the browser drains the
+            // queue after the rAF returns), so releasing our only reference before this frame's
+            // submit has been consumed destroys the texture out from under it: "Destroyed texture
+            // used in a submit", and Dawn drops the whole command buffer (the startup race that
+            // silently killed the one-shot IBL env bake, and every resize's reconfigure). Hand the
+            // borrow to the queue, which releases it from a wgpuQueueOnSubmittedWorkDone callback -
+            // provably after the submit has been consumed, whatever the drain latency.
+            if (m_queue != nullptr && m_ownedHandle != nullptr)
+            {
+                m_queue->ReleaseTextureWhenConsumed(m_ownedHandle);
+                m_ownedHandle = nullptr; // the callback owns it now
+            }
             return ErrorCode::Ok;
 #else
             const WGPUStatus status = m_api->wgpuSurfacePresent(m_surface->Handle());
@@ -307,6 +316,7 @@ export namespace draconic::rhi::webgpu
         const WebGpuApi* m_api = nullptr;
         WGPUAdapter m_adapter = nullptr;
         WGPUDevice m_device = nullptr;
+        WebGpuQueue* m_queue = nullptr; // deferred surface-texture release on web
         WebGpuSurface* m_surface = nullptr;
         TextureFormat m_format = TextureFormat::BGRA8UnormSrgb;
         PresentMode m_presentMode = PresentMode::Fifo;

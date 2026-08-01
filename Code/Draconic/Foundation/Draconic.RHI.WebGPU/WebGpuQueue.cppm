@@ -111,6 +111,37 @@ export namespace draconic::rhi::webgpu
             m_allocator->Delete(result);
         }
 
+        // Release `texture` only once every submission queued SO FAR has been consumed -
+        // fire-and-forget (the heap record owns itself, the fence-fix lifetime pattern). The web
+        // swapchain releases its borrowed surface texture through this: on web wgpuQueueSubmit
+        // validates asynchronously, so releasing the borrow on any fixed frame boundary races the
+        // drain - under startup load or a resize the not-yet-consumed submit loses its texture
+        // ("Destroyed texture used in a submit") and Dawn drops the whole command buffer.
+        void ReleaseTextureWhenConsumed(WGPUTexture texture)
+        {
+            struct Pending
+            {
+                const WebGpuApi* api = nullptr;
+                IAllocator* allocator = nullptr;
+                WGPUTexture texture = nullptr;
+            };
+            auto* pending = m_allocator->New<Pending>();
+            pending->api = m_api;
+            pending->allocator = m_allocator;
+            pending->texture = texture;
+            WGPUQueueWorkDoneCallbackInfo info = WGPU_QUEUE_WORK_DONE_CALLBACK_INFO_INIT;
+            info.mode = WGPUCallbackMode_AllowProcessEvents;
+            info.callback = [](WGPUQueueWorkDoneStatus, WGPUStringView, void* userdata1, void*)
+            {
+                auto* p = static_cast<Pending*>(userdata1);
+                p->api->wgpuTextureRelease(p->texture);
+                IAllocator* allocator = p->allocator;
+                allocator->Delete(p);
+            };
+            info.userdata1 = pending;
+            (void)m_api->wgpuQueueOnSubmittedWorkDone(m_queue, info);
+        }
+
         Status CreateTransferBatch(TransferBatch*& out) override
         {
             auto* batch = m_allocator->New<WebGpuTransferBatch>();

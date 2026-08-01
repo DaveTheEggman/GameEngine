@@ -329,7 +329,7 @@ export namespace draconic::rhi::webgpu
             }
             return CreateResource<WebGpuSwapChain>(
                 out, [&](WebGpuSwapChain& sc)
-                { return sc.Initialize(*m_api, m_adapter, m_device,
+                { return sc.Initialize(*m_api, m_adapter, m_device, &m_graphicsQueue,
                                        static_cast<WebGpuSurface*>(surface), swapDesc); });
         }
 
