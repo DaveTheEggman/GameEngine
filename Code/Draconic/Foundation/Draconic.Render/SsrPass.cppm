@@ -92,7 +92,10 @@ export namespace draconic::render
             f32 edgeFade = 0.1f;
             f32 roughCutoff = 0.6f;
             i32 maxSteps = 96;
-            i32 frameMod = 0;
+            // Scene-NDC Y sign for the shader's uv<->ndc conversions: -1 on Vulkan (negative
+            // viewport), +1 on Y-flip targets (NeedsClipSpaceYFlip). Mirrors ShadowParams.y.
+            // (Occupies the old frameMod slot - the dither is static by design, frameMod was 0.)
+            f32 ySign = -1.0f;
             i32 debug = 0;
             f32 glossy = 1.0f;
         };

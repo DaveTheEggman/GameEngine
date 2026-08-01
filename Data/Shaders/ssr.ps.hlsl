@@ -26,7 +26,7 @@ struct SsrPush {
     float  EdgeFade;              // uv fraction from each border over which SSR fades out
     float  RoughnessCutoff;       // roughness at/above which SSR is fully off (fades to IBL)
     int    MaxSteps;             // march step budget
-    int    FrameMod;             // per-frame jitter rotation (TAA cleans the dither)
+    float  YSign;                // scene-NDC Y sign for uv<->ndc: -1 Vulkan (neg viewport), +1 Y-flip targets
     int    Debug;                // 0=off, 1=raw reflected color, 2=hit uv, 3=weight, 4=reflect dir
     float  Glossy;               // glossy cone-gather scale (0 = sharp mirror)
 };
@@ -40,16 +40,19 @@ float3 OctDecode(float2 e) {
     n.y += n.y >= 0.0 ? -t : t;
     return normalize(n);
 }
-// viewport-LOCAL uv (0..1 within the view) + depth -> view-space position.
+// viewport-LOCAL uv (0..1 within the view) + depth -> view-space position. The uv<->ndc Y
+// mapping is backend-driven (YSign, same convention as ShadowParams.y): Vulkan's negative
+// viewport gives uv.y = (1-ndc.y)/2, Y-flip targets (WebGPU) uv.y = (1+ndc.y)/2 - with the
+// wrong sign every reconstructed view position mirrors and reflections trace the wrong way.
 float3 ViewPos(float2 luv, float depth) {
-    float2 ndc = float2(luv.x * 2.0 - 1.0, (1.0 - luv.y) * 2.0 - 1.0);
+    float2 ndc = float2(luv.x * 2.0 - 1.0, (luv.y * 2.0 - 1.0) * pc.YSign);
     float4 h = mul(float4(ndc, depth, 1.0), pc.InvProj);
     return h.xyz / h.w;
 }
 // view-space position -> viewport-LOCAL uv (jitter-aware). Diagonal proj terms + w = -view.z.
 float2 ViewToLocal(float3 vp) {
     float2 ndc = float2(vp.x * pc.ProjXX, vp.y * pc.ProjYY) / max(-vp.z, 1e-4) - pc.Jitter;
-    return float2(ndc.x * 0.5 + 0.5, 0.5 - 0.5 * ndc.y);
+    return float2(ndc.x * 0.5 + 0.5, ndc.y * pc.YSign * 0.5 + 0.5);
 }
 float2 LocalToFull(float2 luv) { return pc.VpMin + luv * pc.VpSize; }   // local uv -> full-texture uv (sampling)
 float2 FullToLocal(float2 fuv) { return (fuv - pc.VpMin) / pc.VpSize; } // full-texture uv -> local uv
@@ -99,9 +102,10 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     luv1 = luv0 + (luv1 - luv0) * tExit;
     iz1  = lerp(iz0, iz1, tExit);                  // 1/w is linear in the segment parameter
 
-    // Frame-rotated dither (FrameMod animates it); the temporal resolve accumulates it away. When temporal
-    // is off the caller passes FrameMod=0 -> a static per-pixel dither that's stable without TAA.
-    float jit = frac(Ign(pos.xy) + float(pc.FrameMod) * 0.6180339887);
+    // Static per-pixel dither: deterministic per (pixel, camera), so the temporal accumulation is
+    // stable under a still camera while ghost-reject handles moving reflected content. (The frame-
+    // rotated variant lived in this slot before it was repurposed for YSign; dither stays static.)
+    float jit = frac(Ign(pos.xy));
     bool  hit = false;
     float jHit = 0.0, jPrev = 0.0;
     [loop] for (int i = 1; i <= pc.MaxSteps; ++i) {

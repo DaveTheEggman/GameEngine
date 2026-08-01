@@ -249,11 +249,9 @@ namespace draconic::render
         pc.edgeFade = (p.edgeFade > 1e-4f) ? p.edgeFade : 1e-4f;
         pc.roughCutoff = p.roughnessCutoff;
         pc.maxSteps = (p.maxSteps > 1) ? p.maxSteps : 1;
-        // STATIC per-pixel dither (frameMod=0): a frame-rotated dither shimmers, and the temporal pass
-        // can't average it away without also re-admitting the ghosting the reject term suppresses. Static
-        // dither is deterministic per (pixel, camera) -> under a still camera current==history -> the
-        // temporal accumulation is stable, while ghost-reject still handles moving reflected content.
-        pc.frameMod = 0;
+        // The dither is STATIC per pixel (see the shader comment - the old frameMod slot now
+        // carries the uv<->ndc Y convention).
+        pc.ySign = m_device->NeedsClipSpaceYFlip() ? 1.0f : -1.0f;
         pc.debug = p.debug;
         pc.glossy = (p.glossy >= 0.0f) ? p.glossy : 0.0f;
         graph.AddRenderPass(

@@ -165,6 +165,7 @@ namespace draconic::render
             u.invViewProj = invViewProj;
             u.color = Float4{d.color.r, d.color.g, d.color.b, d.color.a};
             u.params = Float4{invSize.x, invSize.y, Cos(d.fadeStart), Cos(d.fadeEnd)};
+            u.flip = Float4{m_device->NeedsClipSpaceYFlip() ? 1.0f : -1.0f, 0.0f, 0.0f, 0.0f};
             MemCopy(r.ptr, &u, sizeof(u));
             viewDraws.PushBack(Draw{r.byteOffset, d.texture});
         }
