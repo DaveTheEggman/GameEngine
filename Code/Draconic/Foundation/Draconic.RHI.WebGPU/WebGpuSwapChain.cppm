@@ -84,6 +84,9 @@ export namespace draconic::rhi::webgpu
             }
             m_haveImage = true;
             ++m_frameIndex;
+#if DRACONIC_PLATFORM_WEB
+            m_api->NoteFrameOpen(); // mid-frame-yield diagnostic (see WebGpuApi)
+#endif
             return ErrorCode::Ok;
         }
 
@@ -117,6 +120,7 @@ export namespace draconic::rhi::webgpu
                 m_queue->ReleaseTextureWhenConsumed(m_ownedHandle);
                 m_ownedHandle = nullptr; // the callback owns it now
             }
+            m_api->NoteFrameClosed();
             return ErrorCode::Ok;
 #else
             const WGPUStatus status = m_api->wgpuSurfacePresent(m_surface->Handle());

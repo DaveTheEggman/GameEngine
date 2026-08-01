@@ -18,6 +18,7 @@ module;
 
 #if DRACONIC_PLATFORM_WEB
 #include <emscripten/emscripten.h> // emscripten_sleep - yield to the browser event loop
+#include <cstdio>                  // mid-frame-yield diagnostic (fprintf carries a JS stack)
 #elif DRACONIC_PLATFORM_WINDOWS
 #include <windows.h>
 #else
@@ -201,9 +202,35 @@ namespace draconic::rhi::webgpu
         void YieldToEventLoop() const
         {
 #if DRACONIC_PLATFORM_WEB
+            // The canvas texture the swapchain acquired EXPIRES when the requestAnimationFrame
+            // callback returns (the browser destroys it at composite time). Yielding between
+            // AcquireNextImage and Present hands control back to the browser MID-FRAME, so this
+            // frame's later submit lands on a destroyed texture ("Destroyed texture used in a
+            // submit") and Dawn drops the whole command buffer - silently losing any one-shot
+            // work it carried (env/probe bakes, the ImGui font atlas). Flag it loudly; the
+            // browser console attaches the full call stack to this line, naming the waiter.
+            if (frameOpen && !frameYieldWarned)
+            {
+                frameYieldWarned = true;
+                std::fprintf(stderr,
+                             "[webgpu] YieldToEventLoop DURING an open frame - the browser "
+                             "will expire the canvas texture and this frame's submit will be "
+                             "dropped (this message's call stack names the mid-frame waiter)\n");
+            }
             emscripten_sleep(0);
 #endif
         }
+
+        // Web frame-lifetime tracking for the diagnostic above; the swapchain marks the frame
+        // open at a successful AcquireNextImage and closed at Present. Desktop never sets it.
+        void NoteFrameOpen() const noexcept
+        {
+            frameOpen = true;
+            frameYieldWarned = false;
+        }
+        void NoteFrameClosed() const noexcept { frameOpen = false; }
+        mutable bool frameOpen = false;
+        mutable bool frameYieldWarned = false;
 
         /// Pumps callback delivery for AllowProcessEvents-mode futures until `done`
         /// flips or the iteration guard trips. Suits creation-time waits (nothing on
