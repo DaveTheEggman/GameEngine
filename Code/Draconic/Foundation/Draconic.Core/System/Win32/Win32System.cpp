@@ -141,30 +141,58 @@ namespace draconic::core::sys
             out[0] = '\0';
         }
 
-        // Build the command line: "exe" "arg0" "arg1" ... (each double-quoted; embedded quotes
-        // backslash-escaped). CreateProcess re-parses this; explicit quoting handles spaces in the
-        // vendored-tool path and file arguments.
+        // Build the command line: exe arg0 arg1 ... CreateProcess re-parses this, so each token is
+        // quoted ONLY WHEN IT NEEDS IT (empty, or containing whitespace/quotes). Quoting
+        // unconditionally breaks callees that parse their own command line rather than using
+        // CommandLineToArgvW - notably cmd.exe, which does not recognise a quoted "/c" switch.
+        // Spaces in the vendored-tool path and file arguments still get quoted.
         char command[8192];
         std::size_t len = 0;
-        auto appendQuoted = [&](const char* s) noexcept
+        auto put = [&](char c) noexcept
         {
             if (len + 1 < sizeof(command))
-                command[len++] = '"';
-            for (const char* p = s; *p != '\0' && len + 2 < sizeof(command); ++p)
-            {
-                if (*p == '"' && len + 3 < sizeof(command))
-                    command[len++] = '\\';
-                command[len++] = *p;
-            }
-            if (len + 1 < sizeof(command))
-                command[len++] = '"';
+                command[len++] = c;
         };
-        appendQuoted(exe);
+        auto appendArg = [&](const char* s) noexcept
+        {
+            bool needsQuotes = (s[0] == '\0');
+            for (const char* p = s; *p != '\0' && !needsQuotes; ++p)
+            {
+                needsQuotes = (*p == ' ' || *p == '\t' || *p == '"');
+            }
+            if (!needsQuotes)
+            {
+                for (const char* p = s; *p != '\0'; ++p)
+                    put(*p);
+                return;
+            }
+            put('"');
+            for (const char* p = s; *p != '\0'; ++p)
+            {
+                if (*p == '\\')
+                {
+                    // A backslash run is literal UNLESS it precedes the closing quote, where
+                    // each one must be doubled so it isn't read as escaping that quote.
+                    std::size_t slashes = 0;
+                    while (p[slashes] == '\\')
+                        ++slashes;
+                    const bool beforeClose = (p[slashes] == '\0');
+                    for (std::size_t i = 0; i < slashes * (beforeClose ? 2u : 1u); ++i)
+                        put('\\');
+                    p += slashes - 1;
+                    continue;
+                }
+                if (*p == '"')
+                    put('\\');
+                put(*p);
+            }
+            put('"');
+        };
+        appendArg(exe);
         for (int i = 0; i < argc; ++i)
         {
-            if (len + 1 < sizeof(command))
-                command[len++] = ' ';
-            appendQuoted(argv[i]);
+            put(' ');
+            appendArg(argv[i]);
         }
         command[(len < sizeof(command)) ? len : sizeof(command) - 1] = '\0';
 
