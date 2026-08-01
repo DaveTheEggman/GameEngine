@@ -15,13 +15,15 @@ DXC (`ThirdParty/DXC`), wgpu-native (`ThirdParty/WgpuNative`), and tint (`ThirdP
   produce it (`cargo install naga-cli --version 29.0.4`); the resulting standalone executable
   depends only on libc/libm/libgcc_s (no Rust runtime) and is checked in.
 
-## Current binary
+## Current binaries
 
 - `bin/linux-x86_64/naga` - naga-cli 29.0.4, stripped, ELF x86-64. `VERSION` = 29.0.4.
+- `bin/win-x64/naga.exe`  - naga-cli 29.0.4, PE x86-64. Built with
+  `cargo install naga-cli --version 29.0.4 --locked` (needs rustc >= 1.82; the `bit-set`
+  dependency enforces that floor). `naga.exe --version` prints `29.0.4`.
 
 ## TODO: other host platforms
 
-Only the Linux x86-64 cook host is vendored so far. The cook runs on the developer/CI host, so
-a `bin/win-x64/naga.exe` and `bin/mac-arm64/naga` are needed for those cook hosts - build each
-with `cargo install naga-cli --version 29.0.4` on that platform (or cross-compile) and drop the
-binary here. Keep the pin at the 29.0 line to stay matched to wgpu-native v29's naga.
+`bin/mac-arm64/naga` is still missing - build it with the same
+`cargo install naga-cli --version 29.0.4 --locked` on that host and drop the binary here.
+Keep the pin at the 29.0 line to stay matched to wgpu-native v29's naga.
