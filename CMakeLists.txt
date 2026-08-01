@@ -85,7 +85,9 @@ option(DRACONIC_WARNINGS_AS_ERRORS "Treat warnings as errors" ON)
 if(EMSCRIPTEN)
     set(DRACONIC_BUILD_TOOLS OFF)
     set(DRACONIC_EXPERIMENTAL_GUI OFF)
-    set(DRACONIC_EXTENSION_IMGUI OFF)
+    # DRACONIC_EXTENSION_IMGUI stays available on web: Dear ImGui + draconic.imgui compile for
+    # wasm (the renderer is pure RHI, the subsystem consumes the shell's input), so the debug
+    # panel works in the browser too (WebScene's tweak UI).
 endif()
 
 # --- Product binary basenames: single source of truth ------------------------

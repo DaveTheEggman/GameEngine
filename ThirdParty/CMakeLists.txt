@@ -149,16 +149,11 @@ add_library(draconic_doctest INTERFACE)
 add_library(doctest::doctest ALIAS draconic_doctest)
 target_include_directories(draconic_doctest SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/doctest)
 
-# Compiled third-party whose Draconic consumers have not yet climbed to web: imgui + msdfgen
-# (this block ONLY - Jolt and AngelScript build for wasm now and live below it). Gated OFF for
-# Emscripten so a blank wasm build stays clean; each un-gates when its consumer joins the web
-# build (docs/design/web-platform.md).
-if(NOT EMSCRIPTEN)
-
 # Dear ImGui - vendored (copied from upstream, not a submodule). Compiled as a static library;
 # the include dir is PUBLIC + SYSTEM so consumers (the draconic.imgui lib + apps) can
 # #include "imgui.h" and call ImGui:: directly. Does NOT link draconic_policy, so the vendored
 # sources build without our -Werror. No stock backends - Draconic has its own RHI-based renderer.
+# Builds for Emscripten too (portable C++; the debug panel works in the browser).
 add_library(draconic_imgui STATIC
     imgui/imgui.cpp
     imgui/imgui_draw.cpp
@@ -168,6 +163,11 @@ add_library(draconic_imgui STATIC
 add_library(Draconic::ImGui ALIAS draconic_imgui)
 target_include_directories(draconic_imgui SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/imgui)
 set_target_properties(draconic_imgui PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+# Compiled third-party whose Draconic consumers have not yet climbed to web: msdfgen only
+# (import-time font tooling; the web build ships no authoring). Jolt/AngelScript/imgui all
+# build for wasm and live outside this gate.
+if(NOT EMSCRIPTEN)
 
 # msdfgen - multi-channel signed distance field generator (compiled from source).
 # Import-time only: used by the font atlas baker, not linked at runtime.
@@ -185,7 +185,7 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/msdfgen/CMakeLists.txt)
     add_library(Draconic::MsdfgenCore ALIAS msdfgen-core)
 endif()
 
-endif() # NOT EMSCRIPTEN (imgui + msdfgen gated until their web consumers climb)
+endif() # NOT EMSCRIPTEN (msdfgen gated until a web consumer needs it)
 
 # Jolt Physics v5.3.0 - vendored BY COPY (Jolt/ source tree + LICENSE; no submodule).
 # Built for Emscripten too (JoltPhysics.js is this same C++ compiled to wasm).
