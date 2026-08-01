@@ -254,8 +254,14 @@ namespace draconic::render
             return true;
         }
 
-        // Grow this slot (GPU idle at startup; resolution changes are rare).
-        m_device->WaitIdle();
+        // Grow this slot. Idle the GPU only when an OLD buffer is being replaced (it may
+        // still be read by in-flight frames); the first allocation has nothing to protect -
+        // and on web the wait pumps the event loop MID-FRAME, which expires the canvas
+        // texture and drops the whole frame's submit.
+        if (m_offsets[bufferSlot] != nullptr || m_indices[bufferSlot] != nullptr)
+        {
+            m_device->WaitIdle();
+        }
         if (m_offsets[bufferSlot] != nullptr)
         {
             m_device->DestroyBuffer(m_offsets[bufferSlot]);

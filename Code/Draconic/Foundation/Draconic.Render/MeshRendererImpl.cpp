@@ -272,9 +272,11 @@ namespace draconic::render
         {
             return true;
         }
-        m_device->WaitIdle();
+        // Idle only when REPLACING a live buffer (first alloc has nothing to protect; a
+        // mid-frame wait on web pumps the event loop and drops the frame's submit).
         if (m_boneDevice != nullptr)
         {
+            m_device->WaitIdle();
             m_device->DestroyBuffer(m_boneDevice);
             m_boneDevice = nullptr;
         }
@@ -635,9 +637,10 @@ namespace draconic::render
         set->skinned = (mm.posePool != nullptr && mm.poseCount > 0 && mm.boneCount > 0);
         if (set->skinned && (set->offsetsBuf == nullptr || mm.instanceCount > set->offsetsCapacity))
         {
-            m_device->WaitIdle();
+            // Idle only when replacing (see the bone-ring grow above).
             if (set->offsetsBuf != nullptr)
             {
+                m_device->WaitIdle();
                 m_device->DestroyBuffer(set->offsetsBuf);
                 set->offsetsBuf = nullptr;
             }
