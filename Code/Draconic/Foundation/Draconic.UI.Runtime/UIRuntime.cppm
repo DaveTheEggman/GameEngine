@@ -130,6 +130,15 @@ export namespace draconic::ui::runtime
                 &window->Window()); // IME target (last attach wins; refined per-window later)
 
             UIWindowData* raw = data.Get();
+            // RE-attach (the editor swaps a window between the project-manager root and the
+            // shell root): SetData below destroys the PREVIOUS payload - a live VGRenderer
+            // whose pipelines/descriptor sets/buffers in-flight frames still reference. Idle
+            // the GPU first; without this, replacing a window's root spews in-use validation
+            // errors and can crash (the DetachWindow comment's race, hit for real).
+            if (window->Data() != nullptr && m_device->Raw() != nullptr)
+            {
+                m_device->Raw()->WaitIdle();
+            }
             window->SetData(static_cast<core::UniquePtr<UIWindowData>&&>(
                 data)); // RenderWindow owns the payload
             m_attached.PushBack(Attached{window, raw});

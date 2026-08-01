@@ -2208,9 +2208,22 @@ namespace draconic::editor::app
         if (!m_managerView)
         {
             m_managerView = MakeUnique<ProjectManagerView>(DefaultAllocator());
-            m_managerView->OnOpenProject = [this](StringView dir) { OpenFromManager(dir); };
+            // Open/Create swap the window's root (detaching the manager view whose button is
+            // mid-dispatch) - defer through the UI mutation queue, like Close Project.
+            m_managerView->OnOpenProject = [this](StringView dir)
+            {
+                const String path(dir);
+                m_uiHost->Context().MutationQueueRef().QueueAction(
+                    Function<void()>{[this, path]() { OpenFromManager(path.AsView()); }});
+            };
             m_managerView->OnCreateProject = [this](StringView dir, StringView name)
-            { CreateFromManager(dir, name); };
+            {
+                const String path(dir);
+                const String projectName(name);
+                m_uiHost->Context().MutationQueueRef().QueueAction(Function<void()>{
+                    [this, path, projectName]()
+                    { CreateFromManager(path.AsView(), projectName.AsView()); }});
+            };
             m_managerView->OnStoreChanged = [this]()
             { (void)draconic::editor::SaveEditorSettingsToUserData(m_editorSettings); };
             m_managerView->Build(m_projectManager, m_host->Shell()->Dialogs(),
