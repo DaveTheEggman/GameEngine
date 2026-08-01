@@ -156,6 +156,13 @@ export namespace draconic::ui::runtime
                 if (m_attached[i].window == window)
                 {
                     UIWindowData* data = m_attached[i].data;
+                    // A detached root gets no input and no ticks, so its open popups (menus,
+                    // dropdowns) can never dismiss - they would freeze and still be showing
+                    // if the root is re-attached later. Close them all now.
+                    if (PopupLayer* popups = data->root->GetPopupLayer())
+                    {
+                        popups->CloseAllPopups();
+                    }
                     m_router->RemoveSurface(data->surface.Get());
                     m_ctx.RemoveRootView(data->root.Get());
                     m_attached.RemoveAt(i);

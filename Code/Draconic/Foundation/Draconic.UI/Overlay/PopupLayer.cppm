@@ -106,6 +106,18 @@ export namespace draconic::ui
             UpdatePopupPosition(popup, bestX, bestY);
         }
 
+        /// Close EVERY open popup (topmost first; ClosePopup cascades dependents). Used when
+        /// a root view is detached from its window: a detached root receives no input and no
+        /// ticks, so an open menu would freeze and still be showing when the root is
+        /// re-attached later (the editor's mode swap hit exactly this with the File menu).
+        void CloseAllPopups()
+        {
+            while (!m_entries.IsEmpty())
+            {
+                ClosePopup(m_entries[m_entries.Size() - 1].Popup.Get());
+            }
+        }
+
         /// Close a specific popup.
         void ClosePopup(View* popup)
         {
