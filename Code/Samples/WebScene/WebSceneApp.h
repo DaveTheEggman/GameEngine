@@ -13,6 +13,7 @@
 //   - a particle fountain (additive billboards) + spark trails (ribbon path)
 //   - an ImGui panel (when the extension is available - desktop and, once climbed, web) tweaking
 //     exposure/sky/post (TAA/FXAA/bloom/AO/SSR) and the feature toggles
+//   - debug draw (grid/axes/wire volumes/3D text via DebugScene + FPS overlay via DebugScreen)
 //
 // Not exercised yet: skinning (needs a skinned asset - procedural skinned content is its own task)
 // and multi-view split-screen (Sandbox covers it; this scene stays single-view light).
@@ -120,6 +121,42 @@ namespace draconic::samples
             camT.position = m_fly.position;
             camT.rotation = m_fly.Rotation();
             m_scene->SetLocalTransform(m_camera, camT);
+
+            // Debug draw: immediate-mode, re-issued every frame. The gizmos exercise the 3D pass
+            // (lines + bitmap text through the scene camera); the FPS readout stays on regardless
+            // and exercises the screen-space pass.
+            if (auto* render = host.Ctx().GetSubsystem<render::RenderSubsystem>())
+            {
+                if (m_showDebugDraw)
+                {
+                    auto& dbg = render->DebugScene(*m_scene);
+                    dbg.DrawGrid(core::Float3{0.0f, 0.01f, 0.0f}, 40.0f, 20,
+                                 core::Color{0.25f, 0.25f, 0.30f, 1.0f});
+                    dbg.DrawAxis(core::Float4x4::Identity(), 2.0f, /*overlay*/ true);
+                    // The reflection probe's box volume + a label - matches BuildProbe exactly, so
+                    // the probe's coverage (and the chrome sphere inside it) is visible at a glance.
+                    dbg.DrawWireBoxCenter(core::Float3{4.0f, 1.0f, 2.0f},
+                                          core::Float3{5.0f, 3.5f, 5.0f},
+                                          core::Color{0.2f, 0.9f, 1.0f, 1.0f});
+                    dbg.DrawText3D(core::Float3{4.0f, 4.7f, 2.0f}, core::StringView(u8"probe"),
+                                   core::Color{0.2f, 0.9f, 1.0f, 1.0f});
+                    // The orbiting point light's current position (it moves - a live gizmo).
+                    dbg.DrawWireSphere(
+                        core::BoundingSphere{m_scene->GetLocalTransform(m_pointLight).position,
+                                             0.25f},
+                        core::Color{1.0f, 0.8f, 0.2f, 1.0f});
+                }
+                const core::f32 inst = (deltaTime > 0.0f) ? (1.0f / deltaTime) : 0.0f;
+                m_fpsSmoothed =
+                    (m_fpsSmoothed > 0.0f) ? (m_fpsSmoothed * 0.9f + inst * 0.1f) : inst;
+                const core::f32 ms = (m_fpsSmoothed > 0.0f) ? (1000.0f / m_fpsSmoothed) : 0.0f;
+                const int msWhole = static_cast<int>(ms);
+                const core::String fpsText = core::Format(
+                    u8"{} FPS  {}.{} ms", static_cast<int>(m_fpsSmoothed + 0.5f), msWhole,
+                    static_cast<int>((ms - static_cast<core::f32>(msWhole)) * 10.0f + 0.5f));
+                render->DebugScreen().DrawScreenText(12.0f, 12.0f, fpsText.AsView(),
+                                                     core::Color{1.0f, 1.0f, 0.4f, 1.0f}, 2.0f);
+            }
         }
 
         void OnShutdown(runtime::IApplicationHost& host) override
@@ -640,6 +677,7 @@ namespace draconic::samples
                         ImGui::Checkbox("Decal", &dc->visible);
                     }
                 }
+                ImGui::Checkbox("Debug draw (gizmos)", &m_showDebugDraw);
                 if (auto* probes = m_scene->GetSystem<render::ReflectionProbeComponentManager>())
                 {
                     if (render::ReflectionProbeComponent* pc = probes->Get(m_probe))
@@ -687,6 +725,8 @@ namespace draconic::samples
         scene::EntityHandle m_floor{};
         scene::EntityHandle m_decal{};
         scene::EntityHandle m_probe{};
+        bool m_showDebugDraw = true;
+        core::f32 m_fpsSmoothed = 0.0f;
         scene::EntityHandle m_sprites[3] = {};
         scene::EntityHandle m_fountainEntity{};
         scene::EntityHandle m_sparksEntity{};
