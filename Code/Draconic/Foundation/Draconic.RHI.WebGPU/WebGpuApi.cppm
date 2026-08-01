@@ -83,6 +83,8 @@ namespace draconic::rhi::webgpu
     X(wgpuQueueWriteTexture)                                                                       \
     X(wgpuDeviceCreateTexture)                                                                     \
     X(wgpuTextureRelease)                                                                          \
+    X(wgpuTextureGetWidth)                                                                         \
+    X(wgpuTextureGetHeight)                                                                        \
     X(wgpuTextureCreateView)                                                                       \
     X(wgpuTextureViewRelease)                                                                      \
     X(wgpuDeviceCreateSampler)                                                                     \
@@ -212,10 +214,12 @@ namespace draconic::rhi::webgpu
             if (frameOpen && !frameYieldWarned)
             {
                 frameYieldWarned = true;
-                std::fprintf(stderr,
-                             "[webgpu] YieldToEventLoop DURING an open frame - the browser "
-                             "will expire the canvas texture and this frame's submit will be "
-                             "dropped (this message's call stack names the mid-frame waiter)\n");
+                // EM_LOG_C_STACK prints the wasm call stack INLINE (no console expansion
+                // needed) - the frames name the exact mid-frame waiter to fix.
+                emscripten_log(EM_LOG_ERROR | EM_LOG_C_STACK,
+                               "[webgpu] YieldToEventLoop DURING an open frame - the browser "
+                               "will expire the canvas texture and this frame's submit will "
+                               "be dropped; the stack below is the mid-frame waiter:");
             }
             emscripten_sleep(0);
 #endif

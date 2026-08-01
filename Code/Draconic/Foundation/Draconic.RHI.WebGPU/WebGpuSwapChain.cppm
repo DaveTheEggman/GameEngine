@@ -65,6 +65,20 @@ export namespace draconic::rhi::webgpu
                 return ErrorCode::Unknown; // lost/outdated: host resizes + retries
             }
 
+            // Size the frame from the TEXTURE WE GOT, not the size we configured: on the
+            // browser the canvas can resize between configure and acquire, and Chrome hands
+            // back the canvas's CURRENT backing texture - rendering with the configured size
+            // then fails validation ("Scissor rect ... not contained in the render area")
+            // and the whole frame drops. Width()/Height() feed FrameContext AFTER acquire,
+            // so every downstream viewport/scissor agrees with the real attachment.
+            const u32 acquiredWidth = m_api->wgpuTextureGetWidth(surfaceTexture.texture);
+            const u32 acquiredHeight = m_api->wgpuTextureGetHeight(surfaceTexture.texture);
+            if (acquiredWidth != 0 && acquiredHeight != 0 &&
+                (acquiredWidth != m_width || acquiredHeight != m_height))
+            {
+                m_width = acquiredWidth;
+                m_height = acquiredHeight;
+            }
             TextureDesc textureDesc;
             textureDesc.format = m_format;
             textureDesc.width = m_width;
