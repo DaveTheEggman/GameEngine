@@ -9,9 +9,9 @@ add_custom_command(
         -DIN=${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf
         -DOUT=${_embedded_font_src}
         -DSYMBOL=g_draconicEmbeddedEditorFont
-        -P ${CMAKE_SOURCE_DIR}/Tools/CMake/EmbedBinary.cmake
+        -P ${CMAKE_SOURCE_DIR}/cmake/EmbedBinary.cmake
     DEPENDS "${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf"
-            "${CMAKE_SOURCE_DIR}/Tools/CMake/EmbedBinary.cmake"
+            "${CMAKE_SOURCE_DIR}/cmake/EmbedBinary.cmake"
     COMMENT "Embedding the editor fallback font")
 
 add_executable(Draconic.Tools.Editor Main.cpp "${_embedded_font_src}")

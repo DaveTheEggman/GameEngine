@@ -21,11 +21,11 @@ target_sources(Draconic.Runtime.Client
 set(DRACONIC_BUILD_STAMP_CPP "${CMAKE_CURRENT_BINARY_DIR}/BuildStamp.cpp")
 execute_process(COMMAND ${CMAKE_COMMAND}
     -DOUT=${DRACONIC_BUILD_STAMP_CPP} -DSRC_ROOT=${CMAKE_SOURCE_DIR}
-    -P ${CMAKE_SOURCE_DIR}/Tools/CMake/GenerateBuildStamp.cmake) # exists at configure
+    -P ${CMAKE_SOURCE_DIR}/cmake/GenerateBuildStamp.cmake) # exists at configure
 add_custom_target(Draconic.BuildStamp.Tick
     COMMAND ${CMAKE_COMMAND}
         -DOUT=${DRACONIC_BUILD_STAMP_CPP} -DSRC_ROOT=${CMAKE_SOURCE_DIR}
-        -P ${CMAKE_SOURCE_DIR}/Tools/CMake/GenerateBuildStamp.cmake
+        -P ${CMAKE_SOURCE_DIR}/cmake/GenerateBuildStamp.cmake
     BYPRODUCTS ${DRACONIC_BUILD_STAMP_CPP}
     COMMENT "Refreshing build stamp")
 add_dependencies(Draconic.Runtime.Client Draconic.BuildStamp.Tick)
