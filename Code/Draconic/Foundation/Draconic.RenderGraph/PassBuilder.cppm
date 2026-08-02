@@ -122,8 +122,14 @@ export namespace draconic::rendergraph
                 m_pass->accesses.PushBack(
                     RGResourceAccess{handle, RGAccessType::ReadWriteDepthTarget, subresource});
             }
-            else if (storeOp == rhi::StoreOp::Store)
+            else
             {
+                // ANY non-read-only depth attachment is a write access, INCLUDING
+                // StoreOp::DontCare (a scratch depth/stencil used only within the pass -
+                // the overlay stencil). The access is what keeps the transient referenced
+                // (allocated) and drives its layout transition; without it the resource
+                // ref-counts to zero, never allocates, and ExecuteRenderPass silently
+                // drops the whole pass at the null-attachment guard.
                 m_pass->accesses.PushBack(
                     RGResourceAccess{handle, RGAccessType::WriteDepthTarget, subresource});
             }

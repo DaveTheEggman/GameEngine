@@ -90,6 +90,21 @@ TEST_CASE("rg.builder: SetDepthTarget carries explicit stencil ops + clear")
     CHECK(dt.depthStoreOp == rhi::StoreOp::DontCare);
 }
 
+TEST_CASE("rg.builder: write-only depth (StoreOp::DontCare) still records the access")
+{
+    // The overlay-stencil regression: a scratch DS used only within the pass (Clear +
+    // DontCare) must still count as a WRITE access - the access keeps the transient
+    // referenced (allocated) and drives its layout transition. Without it the resource
+    // ref-counts to zero and ExecuteRenderPass silently drops the whole pass.
+    RenderGraphPass pass(u8"Test", RGPassType::Render);
+    PassBuilder builder(pass);
+    builder.SetDepthTarget(RGHandle{0, 1}, rhi::LoadOp::Clear, rhi::StoreOp::DontCare, 1.0f, {},
+                           rhi::LoadOp::Clear, rhi::StoreOp::DontCare, 0);
+
+    REQUIRE(pass.accesses.Size() == 1u);
+    CHECK(pass.accesses[0].type == RGAccessType::WriteDepthTarget);
+}
+
 TEST_CASE("rg.builder: ReadDepth sets read-only")
 {
     RenderGraphPass pass(u8"Test", RGPassType::Render);
