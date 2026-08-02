@@ -165,6 +165,7 @@ namespace draconic::ui
             rhi::TextureFormat format = rhi::TextureFormat::RGBA8Unorm;
             bool stencil = false; // stencil-configured variant (canvas + overlay passes
                                   // carry a DS attachment; pipelines must match their pass)
+            u32 sampleCount = 1;  // pipeline multisample state (MSAA canvas passes)
             UniquePtr<vg::renderer::VGRenderer> renderer;
             u64 begunSerial = 0; // last UI frame this renderer's ring was reset for
         };
@@ -183,14 +184,23 @@ namespace draconic::ui
             // device offers no stencil format - the canvas falls back to tessellated fills).
             rhi::Texture* depthStencil = nullptr;
             rhi::TextureView* depthStencilView = nullptr;
+            // MSAA color the canvas pass renders into, resolved into `texture` (the
+            // sampled resolve target). Null = single-sampled fallback (creation failed).
+            rhi::Texture* msaa = nullptr;
+            rhi::TextureView* msaaView = nullptr;
+            u32 sampleCount = 1;
             u32 width = 0;
             u32 height = 0;
             rhi::ResourceState state = rhi::ResourceState::Undefined;
+            rhi::ResourceState msaaState = rhi::ResourceState::Undefined;
             bool seen = false;
         };
         Array<CanvasTarget> canvasTargets;
         // Probed once in EnsureRenderReady; Undefined = device offers no stencil format.
         rhi::TextureFormat canvasStencilFormat = rhi::TextureFormat::Undefined;
+        // Canvas RTT MSAA factor (mirrors UIWindowData::kMsaaSamples on the window host;
+        // 4x is universally supported for 8-bit color on Vulkan and guaranteed by WebGPU).
+        static constexpr u32 kCanvasMsaaSamples = 4;
 
         explicit RenderState(draconic::fonts::IFontService* fonts) : vgContext(fonts) {}
 
@@ -245,10 +255,22 @@ namespace draconic::ui
                 {
                     device->DestroyTexture(found->depthStencil);
                 }
+                if (found->msaaView != nullptr)
+                {
+                    device->DestroyTextureView(found->msaaView);
+                }
+                if (found->msaa != nullptr)
+                {
+                    device->DestroyTexture(found->msaa);
+                }
                 found->texture = nullptr;
                 found->view = nullptr;
                 found->depthStencil = nullptr;
                 found->depthStencilView = nullptr;
+                found->msaa = nullptr;
+                found->msaaView = nullptr;
+                found->sampleCount = 1;
+                found->msaaState = rhi::ResourceState::Undefined;
             }
             if (found == nullptr)
             {
@@ -276,7 +298,37 @@ namespace draconic::ui
                     found->view = nullptr;
                     return nullptr;
                 }
-                // Stencil twin (same size; skipped when no stencil format resolved).
+                // MSAA color (the UIRuntime window-host treatment for canvases): render
+                // into a 4x target, resolve into `texture`. Best-effort - any failure
+                // falls back to single-sampled rendering straight into `texture`.
+                found->sampleCount = 1;
+                found->msaaState = rhi::ResourceState::Undefined;
+                {
+                    rhi::TextureDesc msDesc = rhi::TextureDesc::RenderTarget(
+                        format, width, height, kCanvasMsaaSamples, u8"UICanvasMsaa");
+                    msDesc.usage = rhi::TextureUsage::RenderTarget; // never sampled
+                    if (device->CreateTexture(msDesc, found->msaa).IsOk())
+                    {
+                        if (device->CreateTextureView(found->msaa, rhi::TextureViewDesc{},
+                                                      found->msaaView)
+                                .IsOk())
+                        {
+                            found->sampleCount = kCanvasMsaaSamples;
+                        }
+                        else
+                        {
+                            device->DestroyTexture(found->msaa);
+                            found->msaa = nullptr;
+                            found->msaaView = nullptr;
+                        }
+                    }
+                    else
+                    {
+                        found->msaa = nullptr;
+                    }
+                }
+                // Stencil twin (same size AND sample count as the pass's color
+                // attachment; skipped when no stencil format resolved).
                 if (canvasStencilFormat != rhi::TextureFormat::Undefined)
                 {
                     rhi::TextureDesc dsDesc{};
@@ -286,6 +338,7 @@ namespace draconic::ui
                     dsDesc.height = height;
                     dsDesc.depth = 1;
                     dsDesc.usage = rhi::TextureUsage::DepthStencil;
+                    dsDesc.sampleCount = found->sampleCount;
                     dsDesc.label = u8"UICanvasStencil";
                     if (device->CreateTexture(dsDesc, found->depthStencil).IsOk())
                     {
@@ -336,6 +389,14 @@ namespace draconic::ui
                 {
                     device->DestroyTexture(target.depthStencil);
                 }
+                if (target.msaaView != nullptr)
+                {
+                    device->DestroyTextureView(target.msaaView);
+                }
+                if (target.msaa != nullptr)
+                {
+                    device->DestroyTexture(target.msaa);
+                }
             }
             canvasTargets.RemoveAt(index);
         }
@@ -347,12 +408,14 @@ namespace draconic::ui
         // (scene overlay + screen overlay + preview all share a format's renderer now).
         [[nodiscard]] vg::renderer::VGRenderer* RendererFor(rhi::TextureFormat format,
                                                             u64 frameSerial, i32 frameIndex,
-                                                            bool stencil = false)
+                                                            bool stencil = false,
+                                                            u32 sampleCount = 1)
         {
             FormatRenderer* found = nullptr;
             for (auto& entry : renderers)
             {
-                if (entry.format == format && entry.stencil == stencil)
+                if (entry.format == format && entry.stencil == stencil &&
+                    entry.sampleCount == sampleCount)
                 {
                     found = &entry;
                     break;
@@ -365,6 +428,7 @@ namespace draconic::ui
                     return nullptr;
                 }
                 vg::renderer::VGTargetConfig targetConfig;
+                targetConfig.sampleCount = sampleCount;
                 if (stencil)
                 {
                     targetConfig.depthStencilFormat = canvasStencilFormat;
@@ -380,6 +444,7 @@ namespace draconic::ui
                 FormatRenderer entry;
                 entry.format = format;
                 entry.stencil = stencil;
+                entry.sampleCount = sampleCount;
                 entry.renderer = Move(renderer);
                 renderers.PushBack(Move(entry));
                 found = &renderers[renderers.Size() - 1];
@@ -1368,7 +1433,8 @@ namespace draconic::ui
     // (m_frameSerial) so same-frame draws never clobber each other.
     void UISubsystem::DrawRootInPass(RootView& root, rhi::RenderPassEncoder& encoder,
                                      rhi::TextureFormat format, i32 viewportX, i32 viewportY,
-                                     u32 width, u32 height, i32 frameIndex, bool stencilCapable)
+                                     u32 width, u32 height, i32 frameIndex, bool stencilCapable,
+                                     u32 sampleCount)
     {
         root.ViewportSize = Float2{static_cast<f32>(width), static_cast<f32>(height)};
         m_context.UpdateRootView(&root);
@@ -1390,7 +1456,7 @@ namespace draconic::ui
         }
 
         vg::renderer::VGRenderer* renderer =
-            m_render->RendererFor(format, m_frameSerial, frameIndex, stencil);
+            m_render->RendererFor(format, m_frameSerial, frameIndex, stencil, sampleCount);
         if (renderer == nullptr)
         {
             return;
@@ -1500,11 +1566,21 @@ namespace draconic::ui
                     } // keep the texture, skip the draw
                     encoder.TransitionTexture(target->texture, target->state,
                                               rhi::ResourceState::RenderTarget);
+                    const bool canvasMsaa = target->msaaView != nullptr;
+                    if (canvasMsaa && target->msaaState == rhi::ResourceState::Undefined)
+                    {
+                        encoder.TransitionTexture(target->msaa, rhi::ResourceState::Undefined,
+                                                  rhi::ResourceState::RenderTarget);
+                        target->msaaState = rhi::ResourceState::RenderTarget;
+                    }
                     rhi::RenderPassDesc pass;
                     rhi::ColorAttachment color;
-                    color.view = target->view;
+                    // MSAA: render into the multisampled target, resolve into the sampled
+                    // texture; the MSAA contents die with the pass (DontCare).
+                    color.view = canvasMsaa ? target->msaaView : target->view;
+                    color.resolveTarget = canvasMsaa ? target->view : nullptr;
                     color.loadOp = rhi::LoadOp::Clear; // fresh transparent background
-                    color.storeOp = rhi::StoreOp::Store;
+                    color.storeOp = canvasMsaa ? rhi::StoreOp::DontCare : rhi::StoreOp::Store;
                     color.clearValue = rhi::ClearColor{0.0f, 0.0f, 0.0f, 0.0f};
                     pass.colorAttachments.Add(color);
                     const bool canvasStencil = target->depthStencilView != nullptr;
@@ -1525,7 +1601,7 @@ namespace draconic::ui
                     if (rhi::RenderPassEncoder* rp = encoder.BeginRenderPass(pass))
                     {
                         DrawRootInPass(*c.renderRoot, *rp, kCanvasTextureFormat, 0, 0, width,
-                                       height, frameIndex, canvasStencil);
+                                       height, frameIndex, canvasStencil, target->sampleCount);
                         rp->End();
                     }
                     encoder.TransitionTexture(target->texture, rhi::ResourceState::RenderTarget,
@@ -1587,17 +1663,26 @@ namespace draconic::ui
                         } // keep the texture, skip the draw
                         encoder.TransitionTexture(target->texture, target->state,
                                                   rhi::ResourceState::RenderTarget);
+                        const bool panelMsaa = target->msaaView != nullptr;
+                        if (panelMsaa && target->msaaState == rhi::ResourceState::Undefined)
+                        {
+                            encoder.TransitionTexture(target->msaa, rhi::ResourceState::Undefined,
+                                                      rhi::ResourceState::RenderTarget);
+                            target->msaaState = rhi::ResourceState::RenderTarget;
+                        }
                         rhi::RenderPassDesc pass;
                         rhi::ColorAttachment color;
-                        color.view = target->view;
+                        color.view = panelMsaa ? target->msaaView : target->view;
+                        color.resolveTarget = panelMsaa ? target->view : nullptr;
                         color.loadOp = rhi::LoadOp::Clear;
-                        color.storeOp = rhi::StoreOp::Store;
+                        color.storeOp =
+                            panelMsaa ? rhi::StoreOp::DontCare : rhi::StoreOp::Store;
                         color.clearValue = rhi::ClearColor{0.0f, 0.0f, 0.0f, 0.0f};
                         pass.colorAttachments.Add(color);
                         if (rhi::RenderPassEncoder* rp = encoder.BeginRenderPass(pass))
                         {
                             DrawRootInPass(*c.renderRoot, *rp, kCanvasTextureFormat, 0, 0, width,
-                                           height, frameIndex);
+                                           height, frameIndex, false, target->sampleCount);
                             rp->End();
                         }
                         encoder.TransitionTexture(target->texture, rhi::ResourceState::RenderTarget,

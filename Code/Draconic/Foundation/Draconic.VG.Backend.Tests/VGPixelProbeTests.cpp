@@ -36,9 +36,11 @@ namespace
         }
     };
 
-    // Render one VG scene (recorded by `record`) and read the target back.
+    // Render one VG scene (recorded by `record`) and read the target back. sampleCount > 1
+    // renders into an MSAA target resolved into the readback texture - the same
+    // arrangement the UI canvas-RTT and window hosts use.
     template <typename RecordFn>
-    Pixels RenderScene(rhi::Device& device, RecordFn&& record)
+    Pixels RenderScene(rhi::Device& device, RecordFn&& record, u32 sampleCount = 1)
     {
         Pixels out;
         shaders::ShaderSystemHost host;
@@ -62,7 +64,7 @@ namespace
             REQUIRE(fs != nullptr);
 
             vg::renderer::VGTargetConfig config;
-            config.sampleCount = 1;
+            config.sampleCount = sampleCount;
             config.depthStencilFormat = rhi::TextureFormat::Depth24PlusStencil8;
 
             vg::renderer::VGRenderer renderer;
@@ -79,6 +81,17 @@ namespace
             rhi::TextureView* targetView = nullptr;
             REQUIRE(device.CreateTextureView(target, rhi::TextureViewDesc{}, targetView).IsOk());
 
+            rhi::Texture* msaa = nullptr;
+            rhi::TextureView* msaaView = nullptr;
+            if (sampleCount > 1)
+            {
+                rhi::TextureDesc md = rhi::TextureDesc::RenderTarget(
+                    rhi::TextureFormat::RGBA8UnormSrgb, kSize, kSize, sampleCount);
+                md.usage = rhi::TextureUsage::RenderTarget;
+                REQUIRE(device.CreateTexture(md, msaa).IsOk());
+                REQUIRE(device.CreateTextureView(msaa, rhi::TextureViewDesc{}, msaaView).IsOk());
+            }
+
             rhi::TextureDesc dd{};
             dd.dimension = rhi::TextureDimension::Texture2D;
             dd.format = rhi::TextureFormat::Depth24PlusStencil8;
@@ -86,6 +99,7 @@ namespace
             dd.height = kSize;
             dd.depth = 1;
             dd.usage = rhi::TextureUsage::DepthStencil;
+            dd.sampleCount = sampleCount;
             rhi::Texture* depthStencil = nullptr;
             REQUIRE(device.CreateTexture(dd, depthStencil).IsOk());
             rhi::TextureView* dsView = nullptr;
@@ -118,13 +132,19 @@ namespace
             REQUIRE(pool->CreateEncoder(encoder).IsOk());
             encoder->TransitionTexture(target, rhi::ResourceState::Undefined,
                                        rhi::ResourceState::RenderTarget);
+            if (msaa != nullptr)
+            {
+                encoder->TransitionTexture(msaa, rhi::ResourceState::Undefined,
+                                           rhi::ResourceState::RenderTarget);
+            }
             encoder->TransitionTexture(depthStencil, rhi::ResourceState::Undefined,
                                        rhi::ResourceState::DepthStencilWrite);
             rhi::RenderPassDesc rp{};
             rhi::ColorAttachment color{};
-            color.view = targetView;
+            color.view = msaaView != nullptr ? msaaView : targetView;
+            color.resolveTarget = msaaView != nullptr ? targetView : nullptr;
             color.loadOp = rhi::LoadOp::Clear;
-            color.storeOp = rhi::StoreOp::Store;
+            color.storeOp = msaaView != nullptr ? rhi::StoreOp::DontCare : rhi::StoreOp::Store;
             color.clearValue = rhi::ClearColor::Black();
             rp.colorAttachments.Add(color);
             rhi::DepthStencilAttachment ds{};
@@ -176,6 +196,14 @@ namespace
             device.DestroyCommandPool(pool);
             device.DestroyTextureView(dsView);
             device.DestroyTexture(depthStencil);
+            if (msaaView != nullptr)
+            {
+                device.DestroyTextureView(msaaView);
+            }
+            if (msaa != nullptr)
+            {
+                device.DestroyTexture(msaa);
+            }
             device.DestroyTextureView(targetView);
             device.DestroyTexture(target);
         }
@@ -339,6 +367,50 @@ namespace
             CHECK(static_cast<i32>(multiply[1]) < static_cast<i32>(stripPx[1]) - 40);
             CHECK(Abs(static_cast<i32>(normal[0]) - 180) <= 2);
             CHECK(Abs(static_cast<i32>(normal[1]) - 60) <= 2);
+        }
+
+        // --- 4) MSAA: 4x resolve produces fractional edge coverage ----------------
+        {
+            // Stencil-then-cover fills have HARD edges (no analytic fringes) - edge AA
+            // comes exclusively from MSAA + resolve, the arrangement the canvas-RTT and
+            // window hosts use. A diagonal edge must alias at 1x (every pixel either
+            // background or fill) and antialias at 4x (some pixels in between).
+            auto diagonal = [](vg::VGContext& ctx)
+            {
+                vg::PathBuilder tri;
+                tri.MoveTo(10, 10);
+                tri.LineTo(110, 10);
+                tri.LineTo(10, 110);
+                tri.Close();
+                ctx.FillPath(tri.ToPath(), ByteColor(180, 60, 40), vg::FillRule::NonZero, false);
+            };
+            const Pixels aliased = RenderScene(device, diagonal, 1);
+            const Pixels smooth = RenderScene(device, diagonal, 4);
+            REQUIRE(aliased.valid);
+            REQUIRE(smooth.valid);
+            // Interior stays the exact authored color under the resolve.
+            CHECK(Abs(static_cast<i32>(smooth.At(20, 20)[0]) - 180) <= 2);
+            CHECK(Abs(static_cast<i32>(smooth.At(20, 20)[1]) - 60) <= 2);
+            // Count in-between red bytes crossing the hypotenuse (columns x=30..90 all
+            // cross it once). Fill red is 180, background 0.
+            auto countIntermediate = [](const Pixels& px)
+            {
+                i32 count = 0;
+                for (u32 x = 30; x <= 90; ++x)
+                {
+                    for (u32 y = 10; y <= 110; ++y)
+                    {
+                        const u8 r = px.At(x, y)[0];
+                        if (r > 15 && r < 165)
+                        {
+                            ++count;
+                        }
+                    }
+                }
+                return count;
+            };
+            CHECK(countIntermediate(aliased) == 0);
+            CHECK(countIntermediate(smooth) >= 30);
         }
 
         MESSAGE(backendName << ": all pixel probes passed");
