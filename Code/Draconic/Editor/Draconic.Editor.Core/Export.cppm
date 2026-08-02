@@ -303,7 +303,7 @@ export namespace draconic::editor
                 RefPtr<ISerializable> object = instance->ReadObject();
                 if (const Asset* asset = Cast<Asset>(object.Get()))
                 {
-                    if (!asset->fileName.IsEmpty() && asset->fileName.AsView() == fileName)
+                    if (!asset->fileName.IsEmpty() && asset->fileName.View() == fileName)
                     {
                         return instance->Id();
                     }

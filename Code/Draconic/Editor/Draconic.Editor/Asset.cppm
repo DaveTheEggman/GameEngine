@@ -25,7 +25,7 @@ export module draconic.editor;
 
 import draconic.core;
 import draconic.content;
-import draconic.vfs;
+export import draconic.vfs; // Asset::fileName is vfs::SourcePath
 
 using namespace draconic::core;
 
@@ -38,7 +38,10 @@ export namespace draconic::editor
     {
         DRACONIC_OBJECT(Asset, ISerializable)
     public:
-        String fileName; // source file, relative to the sources mount (empty = embedded data)
+        // Source file, relative to the sources mount (empty = embedded data). Typed:
+        // normalization guarantees forward-slash relative form in cooked data - a
+        // Windows-authored backslash path heals on load instead of breaking the VFS.
+        draconic::vfs::SourcePath fileName;
 
         void Serialize(ISerializer& ar) override
         {
@@ -62,7 +65,7 @@ export namespace draconic::editor
     // and chains `reads`; `references` only order the cook (see the design doc, §3).
     struct AssetDependencies
     {
-        Array<String> files;         // extra source files read (mount-relative)
+        Array<draconic::vfs::SourcePath> files; // extra source files read (mount-relative)
         Array<String> sourceStreams; // the source instance's data streams the build reads
                                      // (embedded payloads live in SIDECAR files the envelope
                                      // hash doesn't cover - declaring them chains their bytes)

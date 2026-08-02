@@ -68,7 +68,7 @@ TEST_CASE("texture.pipeline: TextureAsset -> cook -> GPU Texture")
         id = inst->Id();
 
         TextureAsset asset;
-        asset.fileName = u8"draconic_texpipe_src.png";
+        asset.fileName = draconic::vfs::SourcePath(u8"draconic_texpipe_src.png");
         asset.SetupForUI(); // clamp, no mips
         asset.colorSpace = image::ImageColorSpace::Srgb;
 
@@ -127,7 +127,7 @@ TEST_CASE("texture.pipeline: builder fails on a missing source file")
     auto* inst = outDb.RootGroup()->CreateInstance(u8"diffuse", TextureResource::StaticType());
 
     TextureAsset asset;
-    asset.fileName = u8"does_not_exist_xyz.png";
+    asset.fileName = draconic::vfs::SourcePath(u8"does_not_exist_xyz.png");
     TextureAssetBuilder builder;
     draconic::vfs::NativeFileSystem srcMount(u8".");
     draconic::editor::AssetBuildContext ctx;
@@ -238,7 +238,7 @@ TEST_CASE("texture.pipeline: cubemap - 6 faces cook into one cube product (end t
         id = inst->Id();
 
         TextureAsset asset;
-        asset.fileName = String(faceNames[0]); // the +X face
+        asset.fileName = draconic::vfs::SourcePath(faceNames[0]); // the +X face
         asset.SetupForCubemapSkybox();
 
         // The recipe must chain ALL faces (editing -nz alone must re-cook the cube).

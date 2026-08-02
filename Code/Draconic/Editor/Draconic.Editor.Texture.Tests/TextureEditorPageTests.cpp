@@ -9,6 +9,7 @@
 #include "Draconic.Core/Reflection/Reflect.h"
 
 import draconic.core;
+import draconic.vfs;
 import draconic.image;
 import draconic.texture;
 import draconic.texture.editor;
@@ -40,7 +41,7 @@ TEST_CASE("TextureAsset blob snapshot round-trips every import setting")
 {
     // The exact path TextureEditorPage::Snapshot/ApplyBlob use for undo.
     texture::TextureAsset original;
-    original.fileName = String(u8"Textures/brick.png");
+    original.fileName = draconic::vfs::SourcePath(u8"Textures/brick.png");
     original.colorSpace = image::ImageColorSpace::Linear;
     original.shape = texture::TextureShape::Cubemap;
     original.minFilter = texture::TextureFilter::MipmapNearest;
@@ -62,7 +63,7 @@ TEST_CASE("TextureAsset blob snapshot round-trips every import setting")
     BinarySerializer reader(stream, SerializeMode::Read);
     restored.Serialize(reader);
 
-    CHECK(restored.fileName.AsView() == original.fileName.AsView());
+    CHECK(restored.fileName.View() == original.fileName.View());
     CHECK(restored.colorSpace == image::ImageColorSpace::Linear);
     CHECK(restored.shape == texture::TextureShape::Cubemap);
     CHECK(restored.minFilter == texture::TextureFilter::MipmapNearest);

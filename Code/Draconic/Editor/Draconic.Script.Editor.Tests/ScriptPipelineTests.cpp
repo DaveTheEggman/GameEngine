@@ -118,7 +118,7 @@ namespace
                                   content::Instance*& outInstance)
         {
             ScriptClassAsset asset;
-            asset.fileName = String(fileName);
+            asset.fileName = draconic::vfs::SourcePath(fileName);
             asset.language = String(language);
             ScriptClassAssetBuilder builder;
             draconic::editor::AssetBuildContext ctx;
@@ -415,7 +415,7 @@ TEST_CASE("script.pipeline: B3 - the neutral builder resolves a per-language COO
     content::Instance* second =
         bed.outputDb->RootGroup()->CreateInstance(u8"cooked2", ScriptClassSource::StaticType());
     ScriptClassAsset asset;
-    asset.fileName = String(u8"fake.ftl");
+    asset.fileName = draconic::vfs::SourcePath(u8"fake.ftl");
     asset.language = String(u8"nosuchlang");
     ScriptClassAssetBuilder builder;
     draconic::editor::AssetBuildContext ctx;

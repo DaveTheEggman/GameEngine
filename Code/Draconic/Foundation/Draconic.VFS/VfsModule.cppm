@@ -8,5 +8,6 @@
 export module draconic.vfs;
 
 export import :ifilesystem;
+export import :source_path;
 export import :native_filesystem;
 export import :vfs;

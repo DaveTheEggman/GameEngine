@@ -262,7 +262,7 @@ namespace
                         u8"Roboto", draconic::fonts::FontAsset::StaticType()))
                 {
                     draconic::fonts::FontAsset asset;
-                    asset.fileName = copied.Value();
+                    asset.fileName = draconic::vfs::SourcePath(copied.Value().AsView());
                     asset.family = String(u8"Roboto");
                     if (instance->WriteObject(asset).IsOk())
                     {
@@ -294,7 +294,7 @@ namespace
                         u8"BlueSky", draconic::texture::TextureAsset::StaticType()))
                 {
                     draconic::texture::TextureAsset asset;
-                    asset.fileName = copied.Value();
+                    asset.fileName = draconic::vfs::SourcePath(copied.Value().AsView());
                     asset.SetupForEquirectangularSkybox();
                     (void)instance->WriteObject(asset);
                 }

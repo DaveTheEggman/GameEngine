@@ -136,7 +136,7 @@ export namespace draconic::texture
         static void Import2D(StringView path, image::ImageColorSpace colorSpace,
                              TextureAsset& outAsset)
         {
-            outAsset.fileName = String(path);
+            outAsset.fileName = draconic::vfs::SourcePath(path);
             outAsset.SetupFor3D();
             outAsset.colorSpace = colorSpace;
         }
@@ -144,14 +144,14 @@ export namespace draconic::texture
         // An HDR equirectangular sky (linear, clamped, no mips).
         static void ImportEquirectangular(StringView path, TextureAsset& outAsset)
         {
-            outAsset.fileName = String(path);
+            outAsset.fileName = draconic::vfs::SourcePath(path);
             outAsset.SetupForEquirectangularSkybox();
         }
 
         // A cubemap sky from 6 face files (the first is stored as the asset source).
         static void ImportCubemap(StringView firstFacePath, TextureAsset& outAsset)
         {
-            outAsset.fileName = String(firstFacePath);
+            outAsset.fileName = draconic::vfs::SourcePath(firstFacePath);
             outAsset.SetupForCubemapSkybox();
         }
 
@@ -306,13 +306,13 @@ export namespace draconic::texture
             if (ta.shape == TextureShape::Cubemap && !ta.fileName.IsEmpty())
             {
                 Array<String> faces;
-                if (TextureImporter::DetectCubemapFaces(ta.fileName.AsView(), faces).IsOk())
+                if (TextureImporter::DetectCubemapFaces(ta.fileName.View(), faces).IsOk())
                 {
                     for (usize i = 0; i < faces.Size(); ++i)
                     {
-                        if (faces[i].AsView() != ta.fileName.AsView())
+                        if (faces[i].AsView() != ta.fileName.View())
                         {
-                            out.files.PushBack(Move(faces[i]));
+                            out.files.PushBack(draconic::vfs::SourcePath(faces[i].AsView()));
                         }
                     }
                 }
@@ -342,7 +342,7 @@ export namespace draconic::texture
                 return BuildCubemap(ta, ctx);
             }
 
-            Result<Array<byte>> bytes = ReadSourceBytes(ctx, ta.fileName.AsView());
+            Result<Array<byte>> bytes = ReadSourceBytes(ctx, ta.fileName.View());
             if (!bytes.HasValue())
             {
                 return Status{bytes.Error()};
@@ -390,7 +390,7 @@ export namespace draconic::texture
                                                  draconic::editor::AssetBuildContext& ctx)
         {
             Array<String> facePaths;
-            if (!TextureImporter::DetectCubemapFaces(ta.fileName.AsView(), facePaths).IsOk() ||
+            if (!TextureImporter::DetectCubemapFaces(ta.fileName.View(), facePaths).IsOk() ||
                 facePaths.Size() != 6)
             {
                 return Status{ErrorCode::InvalidArgument}; // fileName matches no face convention
@@ -580,7 +580,7 @@ export namespace draconic::texture
             }
 
             TextureAsset asset;
-            asset.fileName = fileName.Value();
+            asset.fileName = draconic::vfs::SourcePath(fileName.Value().AsView());
             if (draconic::editor::FileExtensionLower(sourcePath) == u8"hdr")
             {
                 asset.SetupForEquirectangularSkybox(); // .hdr = an environment, not a surface map
@@ -654,7 +654,7 @@ export namespace draconic::texture
                 return Err(ErrorCode::Unknown);
             }
             TextureAsset asset;
-            asset.fileName = posXName;
+            asset.fileName = draconic::vfs::SourcePath(posXName.AsView());
             asset.SetupForCubemapSkybox();
             const Status written = instance->WriteObject(asset);
             if (!written.IsOk())

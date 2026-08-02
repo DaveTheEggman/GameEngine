@@ -43,7 +43,7 @@ export namespace draconic::editor
                 if (auto* asset = Cast<audio::SoundCueAsset>(object.Get()))
                 {
                     // Field-wise copy (the Asset base is non-copyable).
-                    m_asset.fileName = String(asset->fileName.AsView());
+                    m_asset.fileName = asset->fileName; // SourcePath copies
                     for (usize i = 0; i < audio::kSoundCueSlotCount; ++i)
                     {
                         m_asset.clipIds[i] = asset->clipIds[i];

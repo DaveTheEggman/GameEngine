@@ -469,11 +469,11 @@ namespace draconic::editor
         Array<CookFileMemo> memos;
         if (!asset.fileName.IsEmpty())
         {
-            h = detail::FoldHash(h, 'F', HashSourceFile(asset.fileName.AsView(), previous, memos));
+            h = detail::FoldHash(h, 'F', HashSourceFile(asset.fileName.View(), previous, memos));
         }
-        for (const String& file : deps.files)
+        for (const draconic::vfs::SourcePath& file : deps.files)
         {
-            h = detail::FoldHash(h, 'F', HashSourceFile(file.AsView(), previous, memos));
+            h = detail::FoldHash(h, 'F', HashSourceFile(file.View(), previous, memos));
         }
         m_pendingMemos.InsertOrAssign(instance.Id(), Move(memos));
 

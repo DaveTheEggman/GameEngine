@@ -81,7 +81,7 @@ TEST_CASE("export: a startup script asset cooks into the dist pak and binds like
             u8"NetGame", script::ScriptClassAsset::StaticType());
         REQUIRE(scriptAsset != nullptr);
         script::ScriptClassAsset asset;
-        asset.fileName = String(u8"game.wren");
+        asset.fileName = draconic::vfs::SourcePath(u8"game.wren");
         asset.language = String(u8"wren");
         REQUIRE(scriptAsset->WriteObject(asset).IsOk());
         scriptId = scriptAsset->Id();

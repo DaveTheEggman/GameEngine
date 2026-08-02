@@ -451,11 +451,11 @@ export namespace draconic::script
             }
 
             String source;
-            const Status read = ReadSourceText(ctx, scriptAsset.fileName.AsView(), source);
+            const Status read = ReadSourceText(ctx, scriptAsset.fileName.View(), source);
             if (!read.IsOk())
             {
                 DRACONIC_LOG_ERROR(u8"Script", u8"'{}': source file missing - cook failed",
-                                   scriptAsset.fileName);
+                                   scriptAsset.fileName.View());
                 return read;
             }
 
@@ -470,13 +470,13 @@ export namespace draconic::script
             {
                 DRACONIC_LOG_ERROR(
                     u8"Script", u8"'{}': no script cook registered for language '{}' - cook failed",
-                    scriptAsset.fileName, language);
+                    scriptAsset.fileName.View(), language);
                 return Status{ErrorCode::NotSupported};
             }
 
             ScriptClassSource cooked;
             CookScriptErrorSink sink;
-            if (!cook->Cook(source.AsView(), scriptAsset.fileName.AsView(), sink, cooked))
+            if (!cook->Cook(source.AsView(), scriptAsset.fileName.View(), sink, cooked))
             {
                 return Status{ErrorCode::InvalidArgument};
             }
@@ -530,7 +530,7 @@ export namespace draconic::script
             }
 
             ScriptClassAsset asset;
-            asset.fileName = fileName.Value();
+            asset.fileName = draconic::vfs::SourcePath(fileName.Value().AsView());
             asset.language = String(backend->languageId.AsView());
             const Status written = instance->WriteObject(asset);
             if (!written.IsOk())

@@ -178,7 +178,7 @@ namespace draconic::editor
         }
         request.valid = true;
         request.path =
-            PathJoin(m_context->Project()->SourcesRoot().AsView(), m_asset->fileName.AsView());
+            PathJoin(m_context->Project()->SourcesRoot().AsView(), m_asset->fileName.View());
         request.distanceField = m_asset->mode == fonts::FontBakeMode::DistanceField;
         // Coverage previews at the ramp's LARGEST size (the most informative atlas).
         request.size = m_asset->dfSize;
@@ -375,7 +375,7 @@ namespace draconic::editor
         {
             const i32 sizeWhole = static_cast<i32>(m_previewSize);
             m_info->SetText(
-                Format(u8"{}  |  {} glyphs @ {}px  |  atlas {} x {}", m_asset->fileName,
+                Format(u8"{}  |  {} glyphs @ {}px  |  atlas {} x {}", m_asset->fileName.View(),
                        static_cast<u64>(m_previewGlyphs), sizeWhole, m_preview->Width(),
                        m_preview->Height())
                     .AsView());
@@ -538,7 +538,7 @@ namespace draconic::editor
         // Source file: read-only path display + a project-constrained picker. Free-typing
         // is deliberately not offered - a typo would cook a dangling reference.
         auto file = MakeRef<ui::toolkit::StringEditor>(DefaultAllocator(), u8"File",
-                                                       m_asset->fileName.AsView(),
+                                                       m_asset->fileName.View(),
                                                        Function<void(StringView)>{}, u8"Source");
         m_fileRow = file.Get();
         m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(file.Get()));
@@ -564,7 +564,7 @@ namespace draconic::editor
                                          Move(extensions));
                                      dialog->OnPicked = [self](StringView picked)
                                      {
-                                         self->m_asset->fileName = String(picked);
+                                         self->m_asset->fileName = draconic::vfs::SourcePath(picked);
                                          self->CommitEdit(u8"file");
                                          self->RefreshRows();
                                      };
@@ -672,7 +672,7 @@ namespace draconic::editor
         }
         if (m_fileRow != nullptr)
         {
-            m_fileRow->SetValue(m_asset->fileName.AsView());
+            m_fileRow->SetValue(m_asset->fileName.View());
         }
     }
 

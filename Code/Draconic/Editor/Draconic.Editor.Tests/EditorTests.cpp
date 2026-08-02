@@ -29,7 +29,7 @@ DRACONIC_DEFINE_OBJECT(WidgetAsset, "draconic::editor::test")
 TEST_CASE("editor: Asset carries a source file path + settings (round-trips)")
 {
     WidgetAsset a;
-    a.fileName = u8"art/widget.png";
+    a.fileName = draconic::vfs::SourcePath(u8"art/widget.png");
     a.quality = 7;
 
     MemoryStream buffer;
@@ -66,7 +66,7 @@ namespace
         [[nodiscard]] u32 Version() const override { return 3; }
         void ScanDependencies(const Asset&, AssetBuildContext&, AssetDependencies& out) override
         {
-            out.files.PushBack(String(u8"extra.bin"));
+            out.files.PushBack(draconic::vfs::SourcePath(u8"extra.bin"));
         }
         [[nodiscard]] Status Build(const Asset&, AssetBuildContext&) override { return Status{}; }
     };

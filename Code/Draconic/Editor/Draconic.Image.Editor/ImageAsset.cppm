@@ -58,7 +58,7 @@ export namespace draconic::image
             }
 
             Image image;
-            Result<Array<byte>> bytes = ReadSourceBytes(ctx, ia.fileName.AsView());
+            Result<Array<byte>> bytes = ReadSourceBytes(ctx, ia.fileName.View());
             if (!bytes.HasValue())
             {
                 return Status{bytes.Error()};

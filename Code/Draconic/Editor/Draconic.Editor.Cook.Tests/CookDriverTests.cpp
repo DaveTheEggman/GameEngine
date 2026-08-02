@@ -73,7 +73,7 @@ namespace
             product.cookedValue = wa.quality;
             if (!wa.fileName.IsEmpty())
             {
-                Result<Array<byte>> bytes = ReadSourceBytes(ctx, wa.fileName.AsView());
+                Result<Array<byte>> bytes = ReadSourceBytes(ctx, wa.fileName.View());
                 if (!bytes.HasValue())
                 {
                     return Status{bytes.Error()};
@@ -214,7 +214,7 @@ namespace
             REQUIRE(inst != nullptr);
             CookWidgetAsset asset;
             asset.quality = quality;
-            asset.fileName = String(file);
+            asset.fileName = draconic::vfs::SourcePath(file);
             REQUIRE(inst->WriteObject(asset).IsOk());
             return inst->Id();
         }
@@ -332,7 +332,7 @@ TEST_CASE("cook: source-file edit dirties exactly the consumer; settings + versi
         content::Instance* inst = fx.sourceDb->GetInstance(a);
         CookWidgetAsset asset;
         asset.quality = 11;
-        asset.fileName = String(u8"a.txt");
+        asset.fileName = draconic::vfs::SourcePath(u8"a.txt");
         REQUIRE(inst->WriteObject(asset).IsOk());
     }
     CookPlan p2 = driver.Plan();

@@ -114,7 +114,7 @@ namespace draconic::editor
             return;
         }
         const String path =
-            PathJoin(m_context->Project()->SourcesRoot().AsView(), m_asset->fileName.AsView());
+            PathJoin(m_context->Project()->SourcesRoot().AsView(), m_asset->fileName.View());
         image::Image source;
         const Status loaded = image::io::LoadImage(path.AsView(), source);
         if (!loaded.IsOk())
@@ -149,7 +149,7 @@ namespace draconic::editor
             m_info->SetText(u8"No preview (source file missing or undecodable).");
             return;
         }
-        String text(m_asset->fileName.AsView());
+        String text(m_asset->fileName.View());
         text.Append(Format(u8"  |  {} x {}  |  {}  |  {} KiB", m_preview->Width(),
                            m_preview->Height(), PixelFormatLabel(m_sourceFormat),
                            m_sourceBytes / 1024)
@@ -194,7 +194,7 @@ namespace draconic::editor
                                                    Function<void(StringView)>{}, u8"Source")
                     .Get()));
         };
-        stat(u8"File", String(m_asset->fileName.AsView()));
+        stat(u8"File", String(m_asset->fileName.View()));
         if (m_preview.Get() != nullptr)
         {
             stat(u8"Dimensions", Format(u8"{} x {}", m_preview->Width(), m_preview->Height()));

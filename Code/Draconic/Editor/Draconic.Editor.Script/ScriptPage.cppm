@@ -19,6 +19,7 @@ module;
 export module draconic.editor.script;
 
 import draconic.core;
+import draconic.vfs;
 import draconic.content;
 import draconic.runtime.client;
 import draconic.ui;
@@ -153,7 +154,7 @@ export namespace draconic::editor
             RefPtr<ISerializable> object = instance.ReadObject();
             if (auto* asset = Cast<draconic::script::ScriptClassAsset>(object.Get()))
             {
-                m_doc.Bind(sourcesRoot.AsView(), asset->fileName.AsView(),
+                m_doc.Bind(sourcesRoot.AsView(), asset->fileName.View(),
                            asset->language.AsView());
                 language = String(asset->language.AsView());
             }
@@ -369,7 +370,7 @@ export namespace draconic::editor
             return nullptr;
         }
         draconic::script::ScriptClassAsset asset;
-        asset.fileName = fileName;
+        asset.fileName = draconic::vfs::SourcePath(fileName.AsView());
         asset.language = String(languageId);
         if (!instance->WriteObject(asset).IsOk())
         {

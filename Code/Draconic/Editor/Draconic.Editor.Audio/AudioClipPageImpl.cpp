@@ -78,7 +78,7 @@ namespace draconic::editor
         }
         m_loop = asset->loop;
         const String path =
-            PathJoin(m_context->Project()->SourcesRoot().AsView(), asset->fileName.AsView());
+            PathJoin(m_context->Project()->SourcesRoot().AsView(), asset->fileName.View());
         Result<Array<byte>> bytes = ReadFile(path.AsView());
         if (!bytes.HasValue())
         {

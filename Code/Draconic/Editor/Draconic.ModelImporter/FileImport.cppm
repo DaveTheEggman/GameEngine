@@ -302,7 +302,7 @@ export namespace draconic::modelimporter
             }
 
             ModelManifestAsset manifestAsset;
-            manifestAsset.fileName = fileName.Value();
+            manifestAsset.fileName = draconic::vfs::SourcePath(fileName.Value().AsView());
             ModelManifestSource& manifest = manifestAsset.manifest;
             manifest.boundsMin = model.bounds().min;
             manifest.boundsMax = model.bounds().max;

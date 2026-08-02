@@ -50,7 +50,7 @@ TEST_CASE("skeleton asset: builder cooks into the content DB, factory loads it b
         skel.ComputeInverseBindPoses();
 
         SkeletonAsset asset;
-        asset.fileName = String{u8"models/char.gltf"};
+        asset.fileName = draconic::vfs::SourcePath(u8"models/char.gltf");
         SkeletonSource::FromSkeleton(skel, asset.source);
 
         SkeletonAssetBuilder builder;

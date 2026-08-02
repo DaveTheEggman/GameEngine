@@ -112,7 +112,7 @@ export namespace draconic::fonts
             {
                 return Status{ErrorCode::InvalidArgument};
             }
-            Result<Array<byte>> bytes = ReadSourceBytes(ctx, fa.fileName.AsView());
+            Result<Array<byte>> bytes = ReadSourceBytes(ctx, fa.fileName.View());
             if (!bytes.HasValue())
             {
                 return Status{bytes.Error()};
@@ -365,7 +365,7 @@ export namespace draconic::fonts
                 return Err(ErrorCode::Unknown);
             }
             FontAsset asset;
-            asset.fileName = fileName.Value();
+            asset.fileName = draconic::vfs::SourcePath(fileName.Value().AsView());
             asset.family = String(stem); // sensible default; cook falls back to the file's name
             const Status written = instance->WriteObject(asset);
             if (!written.IsOk())

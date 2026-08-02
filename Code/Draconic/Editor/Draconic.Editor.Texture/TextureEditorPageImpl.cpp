@@ -183,7 +183,7 @@ namespace draconic::editor
             return;
         }
         const String path =
-            PathJoin(m_context->Project()->SourcesRoot().AsView(), m_asset->fileName.AsView());
+            PathJoin(m_context->Project()->SourcesRoot().AsView(), m_asset->fileName.View());
         image::Image image;
         const Status loaded = image::io::LoadImage(path.AsView(), image);
         if (!loaded.IsOk())

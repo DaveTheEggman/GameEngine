@@ -60,7 +60,7 @@ TEST_CASE("image.pipeline: ImageAsset -> cook -> ImageResource round-trips")
         id = inst->Id();
 
         ImageAsset asset;
-        asset.fileName = u8"draconic_imgpipe_src.png";
+        asset.fileName = draconic::vfs::SourcePath(u8"draconic_imgpipe_src.png");
         asset.colorSpace = ImageColorSpace::Srgb;
 
         ImageAssetBuilder builder;
@@ -116,7 +116,7 @@ TEST_CASE("image.pipeline: builder fails on a missing source file")
     auto* inst = outDb.RootGroup()->CreateInstance(u8"icon", ImageResource::StaticType());
 
     ImageAsset asset;
-    asset.fileName = u8"does_not_exist_xyz.png";
+    asset.fileName = draconic::vfs::SourcePath(u8"does_not_exist_xyz.png");
     ImageAssetBuilder builder;
     NativeFileSystem srcMount2(u8".");
     draconic::editor::AssetBuildContext ctx;

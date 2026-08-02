@@ -70,7 +70,7 @@ export namespace draconic::shaders
             const ShaderAsset& sa = static_cast<const ShaderAsset&>(asset);
             if (!sa.fragmentFile.IsEmpty())
             {
-                out.files.PushBack(String(sa.fragmentFile.AsView()));
+                out.files.PushBack(draconic::vfs::SourcePath(sa.fragmentFile.AsView()));
             }
         }
 
@@ -87,7 +87,7 @@ export namespace draconic::shaders
             ShaderSource source;
             source.name = sa.name;
 
-            Status read = ReadSourceText(ctx, sa.fileName.AsView(), source.vertexSource);
+            Status read = ReadSourceText(ctx, sa.fileName.View(), source.vertexSource);
             if (!read.IsOk())
             {
                 return read;
@@ -110,7 +110,7 @@ export namespace draconic::shaders
                            ShaderAsset& outAsset)
         {
             outAsset.name = String(name);
-            outAsset.fileName = String(vertexFile);
+            outAsset.fileName = draconic::vfs::SourcePath(vertexFile);
             outAsset.fragmentFile = String(fragmentFile);
         }
     };

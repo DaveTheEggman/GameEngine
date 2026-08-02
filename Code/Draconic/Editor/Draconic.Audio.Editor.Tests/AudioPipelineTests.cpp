@@ -157,7 +157,7 @@ TEST_CASE("audio.pipeline: wav -> AudioClipAsset cook -> AudioClip keeps the ORI
                 .IsOk());
 
     AudioClipAsset asset;
-    asset.fileName = String(u8"tone.wav");
+    asset.fileName = draconic::vfs::SourcePath(u8"tone.wav");
     asset.gain = 0.8f;
     asset.loop = true;
     asset.loopStartFrame = 10;
@@ -218,7 +218,7 @@ TEST_CASE("audio.pipeline: stream-flagged cooks bind a re-openable content strea
                 .IsOk());
 
     AudioClipAsset asset;
-    asset.fileName = String(u8"tone.wav");
+    asset.fileName = draconic::vfs::SourcePath(u8"tone.wav");
     asset.stream = true;
 
     AudioClipAssetBuilder builder;
@@ -276,7 +276,7 @@ TEST_CASE("audio.pipeline: the builder VALIDATES - undecodable sources fail the 
                 .IsOk());
 
     AudioClipAsset asset;
-    asset.fileName = String(u8"tone.wav");
+    asset.fileName = draconic::vfs::SourcePath(u8"tone.wav");
     AudioClipAssetBuilder builder;
     draconic::editor::AssetBuildContext ctx;
     ctx.sources = &sourceMount;
@@ -314,7 +314,7 @@ TEST_CASE("audio.pipeline: destructive options - force-mono downmixes, trim drop
             .IsOk());
 
     AudioClipAsset asset;
-    asset.fileName = String(u8"tone.wav");
+    asset.fileName = draconic::vfs::SourcePath(u8"tone.wav");
     asset.forceMono = true;
     asset.trimTrailingSilence = true;
     asset.normalize = true;

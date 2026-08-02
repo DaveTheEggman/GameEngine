@@ -144,7 +144,7 @@ export namespace draconic::audio
                 return Status{ErrorCode::InvalidArgument};
             }
 
-            Result<Array<byte>> bytes = ReadSourceBytes(ctx, audioAsset.fileName.AsView());
+            Result<Array<byte>> bytes = ReadSourceBytes(ctx, audioAsset.fileName.View());
             if (!bytes.HasValue())
             {
                 return Status{bytes.Error()};
@@ -157,11 +157,11 @@ export namespace draconic::audio
                                         metadata))
             {
                 DRACONIC_LOG_ERROR(u8"Audio", u8"'{}' is not decodable audio - cook failed",
-                                   audioAsset.fileName);
+                                   audioAsset.fileName.View());
                 return Status{ErrorCode::InvalidArgument};
             }
 
-            String extension = draconic::editor::FileExtensionLower(audioAsset.fileName.AsView());
+            String extension = draconic::editor::FileExtensionLower(audioAsset.fileName.View());
 
             // Destructive options re-encode (decode -> process -> WAV). Everything else
             // writes the original container bytes through untouched.
@@ -388,7 +388,7 @@ export namespace draconic::audio
 
             const auto* audioOptions = static_cast<const AudioImportOptions*>(options);
             AudioClipAsset asset;
-            asset.fileName = fileName.Value();
+            asset.fileName = draconic::vfs::SourcePath(fileName.Value().AsView());
             asset.stream =
                 (audioOptions != nullptr && audioOptions->stream) ||
                 ShouldStreamAudioByDefault(metadata.durationSeconds, bytes.Value().Size());
@@ -527,7 +527,7 @@ export namespace draconic::audio
             buses[static_cast<usize>(AudioBus::UI)] = &layoutAsset.ui;
             for (usize i = 0; i < static_cast<usize>(AudioBus::Count); ++i)
             {
-                FoldBusSettings(*buses[i], asset.fileName, source.layout.buses[i]);
+                FoldBusSettings(*buses[i], asset.fileName.View(), source.layout.buses[i]);
             }
 
             // Custom-bus slots: fold used slots; validate parents. A parent CYCLE is a
@@ -546,7 +546,7 @@ export namespace draconic::audio
                     DRACONIC_LOG_WARNING(
                         u8"Audio",
                         u8"bus layout '{}': custom bus '{}' shadows a fixed bus - skipped",
-                        asset.fileName, slot.name);
+                        asset.fileName.View(), slot.name);
                     continue;
                 }
                 bool duplicate = false;
@@ -562,13 +562,13 @@ export namespace draconic::audio
                 {
                     DRACONIC_LOG_WARNING(
                         u8"Audio", u8"bus layout '{}': duplicate custom bus '{}' - slot skipped",
-                        asset.fileName, slot.name);
+                        asset.fileName.View(), slot.name);
                     continue;
                 }
                 AudioNamedBus named;
                 named.name = String(slot.name.AsView());
                 named.parent = String(slot.parent.AsView());
-                FoldBusSettings(slot.bus, asset.fileName, named.settings);
+                FoldBusSettings(slot.bus, asset.fileName.View(), named.settings);
                 source.layout.customBuses.PushBack(Move(named));
             }
 
@@ -604,7 +604,7 @@ export namespace draconic::audio
                         DRACONIC_LOG_ERROR(u8"Audio",
                                            u8"bus layout '{}': custom bus '{}' is part of a parent "
                                            u8"CYCLE - cook failed",
-                                           asset.fileName, source.layout.customBuses[i].name);
+                                           asset.fileName.View(), source.layout.customBuses[i].name);
                         return Status{ErrorCode::InvalidArgument};
                     }
                 }
@@ -617,7 +617,7 @@ export namespace draconic::audio
     private:
         // The flat editor fields -> the generic wire chain (lowpass -> highpass ->
         // delay -> reverb, when enabled). Shared by the fixed buses and custom slots.
-        static void FoldBusSettings(const AudioBusLayoutAsset::Bus& bus, const String& assetName,
+        static void FoldBusSettings(const AudioBusLayoutAsset::Bus& bus, StringView assetName,
                                     AudioBusSettings& out)
         {
             out.volume = Clamp(bus.volume, 0.0f, 4.0f);

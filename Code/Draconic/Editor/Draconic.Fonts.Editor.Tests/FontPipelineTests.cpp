@@ -57,7 +57,7 @@ TEST_CASE("font.pipeline: FontAsset raster ramp -> cook -> rasterizer-free Font"
         id = inst->Id();
 
         FontAsset asset;
-        asset.fileName = String(kSourceFont);
+        asset.fileName = draconic::vfs::SourcePath(kSourceFont);
         asset.family = String(u8"TestMono");
         asset.sizes.Clear();
         asset.sizes.PushBack(12.0f);
@@ -128,7 +128,7 @@ TEST_CASE("font.pipeline: MSDF bake cooks a DistanceField resource")
         id = inst->Id();
 
         FontAsset asset;
-        asset.fileName = String(kSourceFont);
+        asset.fileName = draconic::vfs::SourcePath(kSourceFont);
         asset.mode = FontBakeMode::DistanceField;
         asset.dfSize = 32.0f;
         asset.firstCodepoint = 'A';
@@ -184,7 +184,7 @@ TEST_CASE("font.pipeline: builder fails on a missing source file")
     auto* inst = outDb.RootGroup()->CreateInstance(u8"uifont", FontResource::StaticType());
 
     FontAsset asset;
-    asset.fileName = u8"does_not_exist_xyz.ttf";
+    asset.fileName = draconic::vfs::SourcePath(u8"does_not_exist_xyz.ttf");
     FontAssetBuilder builder;
     NativeFileSystem srcMount(u8".");
     draconic::editor::AssetBuildContext ctx;

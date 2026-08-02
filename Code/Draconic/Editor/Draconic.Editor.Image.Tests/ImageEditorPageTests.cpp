@@ -8,6 +8,7 @@
 import draconic.core;
 import draconic.image;
 import draconic.image.editor;
+import draconic.vfs;
 import draconic.editor.image;
 import draconic.editor.core;
 
@@ -34,7 +35,7 @@ TEST_CASE("ImageEditor registers a factory the registry routes for ImageAsset")
 TEST_CASE("ImageAsset blob snapshot round-trips fileName + color space (undo path)")
 {
     image::ImageAsset a;
-    a.fileName = String(u8"Textures/rock.png");
+    a.fileName = draconic::vfs::SourcePath(u8"Textures/rock.png");
     a.colorSpace = image::ImageColorSpace::Linear;
 
     MemoryStream stream;
@@ -50,6 +51,6 @@ TEST_CASE("ImageAsset blob snapshot round-trips fileName + color space (undo pat
         b.Serialize(ar);
         REQUIRE(ar.IsOk());
     }
-    CHECK(b.fileName.AsView() == u8"Textures/rock.png");
+    CHECK(b.fileName.View() == u8"Textures/rock.png");
     CHECK(b.colorSpace == image::ImageColorSpace::Linear);
 }

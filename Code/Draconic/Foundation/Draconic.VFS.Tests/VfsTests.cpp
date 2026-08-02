@@ -221,3 +221,80 @@ TEST_CASE("vfs: NativeFileSystem change source detects adds, edits, and removals
     (void)RemoveDirectory(PathJoin(dir, u8"sub"));
     (void)RemoveDirectory(dir);
 }
+
+// --- SourcePath (draconic.vfs:source_path) ---------------------------------------------
+
+TEST_CASE("vfs.sourcePath: normalization table")
+{
+    // Backslashes heal, duplicate slashes and '.' segments collapse, trailing slash drops.
+    CHECK(SourcePath(u8"Fonts\\Roboto.ttf").View() == u8"Fonts/Roboto.ttf");
+    CHECK(SourcePath(u8"Fonts//Sub///Roboto.ttf").View() == u8"Fonts/Sub/Roboto.ttf");
+    CHECK(SourcePath(u8"./Fonts/./Roboto.ttf").View() == u8"Fonts/Roboto.ttf");
+    CHECK(SourcePath(u8"Fonts/Roboto.ttf/").View() == u8"Fonts/Roboto.ttf");
+    CHECK(SourcePath(u8"Roboto.ttf").View() == u8"Roboto.ttf");
+    CHECK(SourcePath(u8"").IsEmpty());
+
+    // Contract violations normalize to EMPTY - a missing reference, never a wrong one.
+    CHECK(SourcePath(u8"/abs/path.ttf").IsEmpty());          // absolute
+    CHECK(SourcePath(u8"\\abs\\path.ttf").IsEmpty());        // absolute (backslash)
+    CHECK(SourcePath(u8"../escape.ttf").IsEmpty());          // escapes the mount
+    CHECK(SourcePath(u8"Fonts/../../up.ttf").IsEmpty());     // buried escape
+    CHECK(SourcePath(u8"c:/windows/f.ttf").IsEmpty());       // volume
+    CHECK(SourcePath(u8"file://x/f.ttf").IsEmpty());         // scheme
+}
+
+TEST_CASE("vfs.sourcePath: accessors")
+{
+    const SourcePath p(u8"Fonts/Sub/Roboto-Regular.TTF");
+    CHECK(p.FileName() == u8"Roboto-Regular.TTF");
+    CHECK(p.Stem() == u8"Roboto-Regular");
+    CHECK(p.Extension().AsView() == u8"ttf"); // lowercased
+    CHECK(p.Directory() == u8"Fonts/Sub");
+
+    const SourcePath flat(u8"Roboto.ttf");
+    CHECK(flat.Directory() == u8"");
+    CHECK(flat.FileName() == u8"Roboto.ttf");
+
+    const SourcePath noExt(u8"Fonts/README");
+    CHECK(noExt.Extension().IsEmpty());
+    CHECK(noExt.Stem() == u8"README");
+
+    // Comparison is case-SENSITIVE everywhere (one rule; lint catches case bugs).
+    CHECK(SourcePath(u8"a.ttf") != SourcePath(u8"A.ttf"));
+    CHECK(SourcePath(u8"A.ttf") < SourcePath(u8"a.ttf"));
+    CHECK(SourcePath(u8"a/b.ttf") == SourcePath(u8"a\\b.ttf"));
+}
+
+TEST_CASE("vfs.sourcePath: wire shape is String-compatible (existing data loads)")
+{
+    // Write a plain String field, read it back as a SourcePath - the exact upgrade an
+    // existing .xasset/.rasset goes through. Windows-authored separators heal on read.
+    MemoryStream stream;
+    {
+        BinarySerializer ar(stream, SerializeMode::Write);
+        String legacy(u8"Fonts\\Roboto.ttf");
+        Serialize(ar, "fileName", legacy);
+    }
+    (void)stream.Seek(0, SeekOrigin::Begin);
+    {
+        BinarySerializer ar(stream, SerializeMode::Read);
+        SourcePath upgraded;
+        Serialize(ar, "fileName", upgraded);
+        CHECK(upgraded.View() == u8"Fonts/Roboto.ttf");
+    }
+
+    // And the reverse: a SourcePath field reads back as a String unchanged.
+    MemoryStream reverse;
+    {
+        BinarySerializer ar(reverse, SerializeMode::Write);
+        SourcePath path(u8"Fonts/Roboto.ttf");
+        Serialize(ar, "fileName", path);
+    }
+    (void)reverse.Seek(0, SeekOrigin::Begin);
+    {
+        BinarySerializer ar(reverse, SerializeMode::Read);
+        String back;
+        Serialize(ar, "fileName", back);
+        CHECK(back.AsView() == u8"Fonts/Roboto.ttf");
+    }
+}

@@ -11,6 +11,7 @@ target_sources(Draconic.VFS
         FILE_SET vfs_modules TYPE CXX_MODULES FILES
             VfsModule.cppm
             IFileSystem.cppm
+            SourcePath.cppm
             NativeFileSystem.cppm
             VirtualFileSystem.cppm)
 
