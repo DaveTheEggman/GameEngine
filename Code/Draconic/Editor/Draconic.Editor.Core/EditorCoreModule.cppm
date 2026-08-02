@@ -12,6 +12,7 @@ export import :command;
 export import :selection;
 export import :project;
 export import :project_registry;
+export import :editor_settings;
 export import :project_manager;
 export import :page;
 export import :context;
