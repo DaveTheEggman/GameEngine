@@ -29,6 +29,7 @@ import draconic.shell;
 import draconic.rhi;
 import draconic.fonts;
 import draconic.fonts.ttf;
+import draconic.fonts.resource;
 import draconic.input;
 import draconic.engine.input;
 import draconic.render.api; // the two-tier overlay roles (ISceneOverlay/IScreenOverlay)
@@ -345,6 +346,13 @@ export namespace draconic::ui
         /// the built-in GameTheme. Hosts call it at startup from the project manifest's
         /// defaultUiThemeId (player + editor); per-canvas theme overrides layer on top.
         void SetDefaultTheme(const UITheme* theme);
+        /// The project-default FONT (a cooked, GUID-addressable fonts::Font product bound
+        /// through the ResourceManager - the fonts-triad path). Swaps the context's font
+        /// service to a ResourceFontService over the product's baked entries; null restores
+        /// the TTF fallback service. Hosts call it at startup from the manifest's
+        /// defaultUiFontId (player + editor), exactly like SetDefaultTheme. The product is
+        /// BORROWED (the ResourceManager's cache keeps it alive).
+        void SetDefaultFont(const draconic::fonts::Font* font);
         /// The scene-LESS screen tier's root (global overlays only; scene UI lives in
         /// per-scene roots - see SceneRoot).
         [[nodiscard]] RootView* ScreenRoot() noexcept { return m_screenRoot.Get(); }
@@ -548,6 +556,8 @@ export namespace draconic::ui
         RefPtr<ViewGroup> m_overlayLayer; // scene-LESS screen tier, ABOVE everything
         RefPtr<StyleSheet> m_theme;
         UniquePtr<draconic::fonts::TrueTypeFontService> m_fonts;
+        UniquePtr<draconic::fonts::ResourceFontService>
+            m_resourceFonts; // the cooked-font service when a default font product is bound
         Array<SceneUI> m_sceneUIs;
         draconic::input::InputSubsystem* m_input = nullptr;
         draconic::render::ISceneRenderer* m_sceneRenderer = nullptr; // overlay registration seam

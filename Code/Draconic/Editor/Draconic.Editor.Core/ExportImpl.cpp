@@ -157,6 +157,8 @@ namespace draconic::editor
             return u8"always-export";
         case ExportRootReason::Group:
             return u8"always-export-group";
+        case ExportRootReason::ManifestDefault:
+            return u8"manifest-default";
         }
         return u8"?";
     }
@@ -189,6 +191,13 @@ namespace draconic::editor
         // The startup game script is a cooked ScriptClass asset (guid-authoritative) - seed it as a
         // reachability root so it (and the assets IT loads, via the normal AssetRef contract) ship.
         add(settings.startupScriptId, ExportRootReason::StartupScript);
+
+        // Every manifest default the PLAYER binds at startup must ship, or the binding silently
+        // fails in a pruned dist (the theme/input-map/bus-layout gap existed before the font).
+        add(settings.defaultInputMapId, ExportRootReason::ManifestDefault);
+        add(settings.defaultBusLayoutId, ExportRootReason::ManifestDefault);
+        add(settings.defaultUiThemeId, ExportRootReason::ManifestDefault);
+        add(settings.defaultUiFontId, ExportRootReason::ManifestDefault);
 
         // Phase 2 "Always Export": explicit instance flags, then group subtrees (dynamic membership -
         // whatever is under the flagged folder now). A group that also contains the default scene /
@@ -444,6 +453,13 @@ namespace draconic::editor
             dist.startupScriptId = project.Settings().startupScriptId;
             dist.startupScript =
                 String(project.Settings().startupScript.AsView()); // display mirror
+            // The manifest defaults the player binds at startup (previously dropped from the
+            // dist manifest entirely - the theme/input-map/bus-layout bindings could never fire
+            // in a shipped build).
+            dist.defaultInputMapId = project.Settings().defaultInputMapId;
+            dist.defaultBusLayoutId = project.Settings().defaultBusLayoutId;
+            dist.defaultUiThemeId = project.Settings().defaultUiThemeId;
+            dist.defaultUiFontId = project.Settings().defaultUiFontId;
             if (!draconic::project::SaveProjectSettings(*outMount.AsWritable(), dist,
                                                         draconic::project::kDistManifestFile)
                      .IsOk())

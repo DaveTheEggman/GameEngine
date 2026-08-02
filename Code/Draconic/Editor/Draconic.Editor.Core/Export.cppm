@@ -59,6 +59,7 @@ export namespace draconic::editor
         StartupScript, // the startup script's own imported asset (the script FILE ships regardless)
         Flag,          // an instance flagged "Always Export" (ExportRoots::instances)
         Group, // an instance under a group flagged "Always export contents" (ExportRoots::groups)
+        ManifestDefault, // a manifest default reference (input map / bus layout / UI theme / UI font)
     };
 
     [[nodiscard]] StringView ExportRootReasonName(ExportRootReason r);

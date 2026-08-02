@@ -17,6 +17,7 @@ if(EMSCRIPTEN)
         Draconic::Engine.Render Draconic::Engine.Animation Draconic::Engine.Particles
         Draconic::Resource Draconic::Geometry.Resource Draconic::Materials.Resource Draconic::Texture.Resource
         Draconic::Animation.Resource Draconic::Particles.Resource Draconic::Image.Resource
+        Draconic::Fonts Draconic::Fonts.Resource
         Draconic::Model.Resource
         Draconic::Script
         Draconic::Input Draconic::Input.Resource Draconic::Engine.Input
@@ -65,6 +66,7 @@ else()
         Draconic::Engine.Render Draconic::Engine.Animation Draconic::Engine.Particles
         Draconic::Resource Draconic::Geometry.Resource Draconic::Materials.Resource Draconic::Texture.Resource
         Draconic::Animation.Resource Draconic::Particles.Resource Draconic::Image.Resource
+        Draconic::Fonts Draconic::Fonts.Resource
         Draconic::Model.Resource
         Draconic::Script
         Draconic::Input Draconic::Input.Resource Draconic::Engine.Input

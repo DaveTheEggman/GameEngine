@@ -20,6 +20,7 @@ import draconic.shell;
 import draconic.graphics;
 import draconic.fonts;
 import draconic.fonts.ttf;
+import draconic.fonts.resource;
 import draconic.fonts.distancefield.baker; // DFFonts (MSDF baker registration) for the DF font path
 import draconic.runtime;
 import draconic.runtime.client;
@@ -2026,6 +2027,16 @@ namespace draconic::editor::app
                 if (auto themeProxy = m_resources->Bind<draconic::ui::UITheme>(themeId))
                 {
                     m_embeddedApp->UI()->SetDefaultTheme(themeProxy.Get());
+                }
+            }
+            // Project-default UI font (fonts triad): the same manifest reference the
+            // player binds, so Simulate/Game-tab text uses the cooked font product.
+            const Guid fontId = m_project->Settings().defaultUiFontId;
+            if (!fontId.IsNil())
+            {
+                if (auto fontProxy = m_resources->Bind<draconic::fonts::Font>(fontId))
+                {
+                    m_embeddedApp->UI()->SetDefaultFont(fontProxy.Get());
                 }
             }
         }

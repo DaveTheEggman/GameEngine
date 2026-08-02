@@ -26,6 +26,7 @@ export module draconic.fonts.resource;
 import draconic.core;
 import draconic.fonts;
 import draconic.fonts.baked;
+import draconic.fonts.ttf;
 import draconic.fonts.distancefield;
 import draconic.image;
 import draconic.content;
@@ -354,6 +355,149 @@ export namespace draconic::fonts
             }
             return product;
         }
+    };
+
+    // IFontService over bound Font PRODUCTS - the GUID-addressable runtime font path
+    // (roadmap: "fonts are GUID-addressable through the content DB/ResourceManager").
+    // The host binds Font products by guid (the ResourceManager keeps them cached) and
+    // registers them here; the UI resolves (family, size) against the products' entries.
+    //
+    // CachedFont OWNERSHIP: CachedFont's destructor deletes its font/atlas/shaper. The
+    // font+atlas here belong to the PRODUCT, so Clear() nulls those two before deleting
+    // the CachedFont; the per-entry shaper is service-created (TrueTypeTextShaper is
+    // IFont-generic - it only reads GetGlyphInfo/Metrics) and stays owned by the
+    // CachedFont for normal deletion.
+    class ResourceFontService final : public IFontService
+    {
+    public:
+        ResourceFontService() = default;
+        ~ResourceFontService() override { Clear(); }
+        ResourceFontService(const ResourceFontService&) = delete;
+        ResourceFontService& operator=(const ResourceFontService&) = delete;
+
+        void Clear()
+        {
+            for (Entry& entry : m_entries)
+            {
+                if (entry.cached != nullptr)
+                {
+                    entry.cached->font = nullptr;  // product-owned
+                    entry.cached->atlas = nullptr; // product-owned
+                    DefaultAllocator().Delete(entry.cached);
+                }
+            }
+            m_entries.Clear();
+            m_defaultFamily.Clear();
+        }
+
+        // Register a bound product (BORROWED: the caller keeps the product alive - the
+        // ResourceManager's cache does, for as long as the manager lives). The first
+        // registered font becomes the default family.
+        void AddFont(const Font* font)
+        {
+            if (font == nullptr)
+            {
+                return;
+            }
+            for (usize i = 0; i < font->EntryCount(); ++i)
+            {
+                const Font::Entry& productEntry = font->EntryAt(i);
+                Entry entry;
+                entry.family = String(font->Family());
+                entry.pixelHeight = productEntry.pixelHeight;
+                entry.cached = DefaultAllocator().New<CachedFont>(
+                    productEntry.font.Get(), productEntry.atlas.Get(),
+                    DefaultAllocator().New<TrueTypeTextShaper>());
+                entry.image = productEntry.atlasImage.Get();
+                m_entries.PushBack(Move(entry));
+            }
+            if (m_defaultFamily.IsEmpty() && font->EntryCount() > 0)
+            {
+                m_defaultFamily = String(font->Family());
+            }
+        }
+
+        void SetDefaultFamily(StringView family) { m_defaultFamily = String(family); }
+
+        // --- IFontService -------------------------------------------------------------
+        [[nodiscard]] CachedFont* GetFont(f32 pixelHeight) override
+        {
+            return GetFont(m_defaultFamily.AsView(), pixelHeight);
+        }
+
+        [[nodiscard]] CachedFont* GetFont(StringView familyName, f32 pixelHeight) override
+        {
+            Entry* entry = FindClosest(familyName, pixelHeight);
+            if (entry == nullptr)
+            {
+                entry = FindClosest(m_defaultFamily.AsView(), pixelHeight);
+            }
+            return entry != nullptr ? entry->cached : nullptr;
+        }
+
+        [[nodiscard]] draconic::image::ImageData* GetAtlasTexture(CachedFont* font) override
+        {
+            for (Entry& entry : m_entries)
+            {
+                if (entry.cached == font)
+                {
+                    return entry.image;
+                }
+            }
+            return nullptr;
+        }
+
+        [[nodiscard]] draconic::image::ImageData* GetAtlasTexture(StringView familyName,
+                                                                  f32 pixelHeight) override
+        {
+            Entry* entry = FindClosest(familyName, pixelHeight);
+            if (entry == nullptr)
+            {
+                entry = FindClosest(m_defaultFamily.AsView(), pixelHeight);
+            }
+            return entry != nullptr ? entry->image : nullptr;
+        }
+
+        void ReleaseFont(CachedFont*) override {} // products own the payload lifetime
+
+        [[nodiscard]] StringView DefaultFontFamily() const override
+        {
+            return m_defaultFamily.AsView();
+        }
+
+    private:
+        struct Entry
+        {
+            String family;
+            f32 pixelHeight = 0.0f;
+            CachedFont* cached = nullptr;              // owned wrapper (see class comment)
+            draconic::image::ImageData* image = nullptr; // product-owned
+        };
+
+        [[nodiscard]] Entry* FindClosest(StringView family, f32 pixelHeight)
+        {
+            Entry* best = nullptr;
+            f32 bestDistance = 0.0f;
+            for (Entry& entry : m_entries)
+            {
+                if (entry.family.AsView() != family)
+                {
+                    continue;
+                }
+                const f32 distance = entry.pixelHeight > pixelHeight
+                                         ? entry.pixelHeight - pixelHeight
+                                         : pixelHeight - entry.pixelHeight;
+                if (best == nullptr || distance < bestDistance)
+                {
+                    best = &entry;
+                    bestDistance = distance;
+                }
+            }
+            return best;
+        }
+
+        Array<Entry> m_entries;
+        String m_defaultFamily;
     };
 
     inline void RegisterFontResource()

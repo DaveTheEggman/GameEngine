@@ -187,3 +187,60 @@ TEST_CASE("font.factory: cooked MSDF FontResource keeps range + linear RGBA")
 
     RemoveTree(dir);
 }
+
+TEST_CASE("font.service: ResourceFontService resolves (family, size) over bound products")
+{
+    RegisterFontResource();
+    const StringView dir = u8"draconic_fontsvc_db";
+    RemoveTree(dir);
+
+    NativeFileSystem mount(dir);
+    Guid id;
+    {
+        draconic::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+        auto* inst = db.RootGroup()->CreateInstance(u8"font", FontResource::StaticType());
+        id = inst->Id();
+        FontResource res;
+        AuthorFont(res, FontResourcePixels::Alpha8);
+        REQUIRE(inst->WriteObject(res).IsOk());
+        u8 pixels[8] = {1, 2, 3, 4, 5, 6, 7, 8};
+        REQUIRE(inst->WriteData(u8"data", Span<const byte>(reinterpret_cast<const byte*>(pixels),
+                                                           sizeof(pixels)))
+                    .IsOk());
+    }
+
+    draconic::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+    ResourceManager manager(db);
+    FontFactory factory;
+    manager.AddFactory(&factory);
+    Proxy<Font> font = manager.Bind<Font>(id);
+    REQUIRE(font);
+
+    ResourceFontService service;
+    service.AddFont(font.Get());
+    CHECK(service.DefaultFontFamily() == u8"TestFamily");
+
+    // Exact + closest + default-family fallback.
+    CachedFont* at12 = service.GetFont(u8"TestFamily", 12.0f);
+    REQUIRE(at12 != nullptr);
+    CHECK(at12->font->PixelHeight() == doctest::Approx(12.0f));
+    CHECK(at12->shaper != nullptr); // the IFont-generic TrueTypeTextShaper
+    CachedFont* at100 = service.GetFont(100.0f); // default family, closest = 24
+    REQUIRE(at100 != nullptr);
+    CHECK(at100->font->PixelHeight() == doctest::Approx(24.0f));
+    CachedFont* unknownFamily = service.GetFont(u8"NoSuchFamily", 12.0f);
+    CHECK(unknownFamily == at12); // falls back to the default family
+
+    // The atlas texture resolves per cached font and per (family, size).
+    CHECK(service.GetAtlasTexture(at12) != nullptr);
+    CHECK(service.GetAtlasTexture(u8"TestFamily", 24.0f) != nullptr);
+    CHECK(service.GetAtlasTexture(at12) != service.GetAtlasTexture(u8"TestFamily", 24.0f));
+
+    // Shaping works end-to-end over the baked tables ('A' has an advance; kerning applies).
+    Array<GlyphPosition> positions;
+    Result<f32> width = at12->shaper->ShapeText(*at12->font, u8"A", positions);
+    REQUIRE(width.HasValue());
+    CHECK(width.Value() == doctest::Approx(6.0f)); // 12px * 0.5 advance from AuthorFont
+
+    RemoveTree(dir);
+}

@@ -22,6 +22,7 @@ import draconic.shell;
 import draconic.rhi;
 import draconic.fonts;
 import draconic.fonts.ttf;
+import draconic.fonts.resource;
 import draconic.input;
 import draconic.engine.input;
 import draconic.shaders;
@@ -1605,6 +1606,22 @@ namespace draconic::ui
             return;
         }
         DrawRootInto(root, encoder, target, format, width, height, frameIndex);
+    }
+
+    void UISubsystem::SetDefaultFont(const draconic::fonts::Font* font)
+    {
+        if (font == nullptr || font->EntryCount() == 0)
+        {
+            // Restore the TTF fallback service (dev path / no cooked font).
+            m_resourceFonts = nullptr;
+            m_context.SetFontService(m_fonts.Get());
+            return;
+        }
+        m_resourceFonts = MakeUnique<draconic::fonts::ResourceFontService>(DefaultAllocator());
+        m_resourceFonts->AddFont(font);
+        m_context.SetFontService(m_resourceFonts.Get());
+        DRACONIC_LOG_INFO(u8"UI", u8"default font bound: '{}' ({} baked size(s))",
+                          font->Family(), static_cast<u64>(font->EntryCount()));
     }
 
     void UISubsystem::SetDefaultTheme(const UITheme* theme)

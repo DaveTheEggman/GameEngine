@@ -61,6 +61,8 @@ export namespace draconic::project
         Guid defaultBusLayoutId; // the audio mixer layout applied at startup (nil = built-in; v5)
         Guid
             defaultUiThemeId; // the cooked UITheme the game UI defaults to (nil = built-in GameTheme; v5)
+        Guid defaultUiFontId; // the cooked FontResource the game UI defaults to (nil = the dev
+                              // TTF fallback path; v7 - the fonts-triad manifest hook)
 
         // Migration branches on ar.Version() - the type's data version is written/read by
         // the manifest helpers below (DRACONIC_DEFINE_OBJECT_VERSIONED sets the current one).
@@ -96,6 +98,11 @@ export namespace draconic::project
             {
                 ar.Key("startupScriptId");
                 ar.GuidValue(startupScriptId);
+            }
+            if (ar.Version() >= 7) // v7 added the default UI font (fonts triad)
+            {
+                ar.Key("defaultUiFontId");
+                ar.GuidValue(defaultUiFontId);
             }
         }
     };
@@ -145,5 +152,5 @@ export namespace draconic::project
         return writable.Save(fileName, buffer.Bytes());
     }
 
-    DRACONIC_DEFINE_OBJECT_VERSIONED(ProjectSettings, "draconic::project", 6)
+    DRACONIC_DEFINE_OBJECT_VERSIONED(ProjectSettings, "draconic::project", 7)
 }

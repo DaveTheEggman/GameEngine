@@ -248,6 +248,24 @@ namespace draconic::player
                 }
             }
 
+            // The project's default UI font: cooked FontResource -> the game context's
+            // font service (nil/unresolved = the dev TTF fallback, which does not exist
+            // in a dist - a shipped game NEEDS this binding for any text at all).
+            if (UI() != nullptr && !m_settings.defaultUiFontId.IsNil())
+            {
+                auto fontProxy =
+                    Resources()->Bind<draconic::fonts::Font>(m_settings.defaultUiFontId);
+                if (fontProxy)
+                {
+                    UI()->SetDefaultFont(fontProxy.Get());
+                    DRACONIC_LOG_INFO(u8"Player", u8"default UI font bound");
+                }
+                else
+                {
+                    DRACONIC_LOG_WARNING(u8"Player", u8"default UI font did not resolve");
+                }
+            }
+
             // The project's default UI theme: cooked UITheme -> the game context's
             // stylesheet (nil/unresolved = the built-in GameTheme stays).
             if (UI() != nullptr && !m_settings.defaultUiThemeId.IsNil())

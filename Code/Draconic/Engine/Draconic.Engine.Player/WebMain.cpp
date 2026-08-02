@@ -18,6 +18,8 @@ import draconic.core;
 import draconic.vfs;
 import draconic.content;
 import draconic.resource;
+import draconic.fonts;
+import draconic.fonts.resource;
 import draconic.shell;
 import draconic.shell.web; // WebShell (the browser shell) - required by DRACONIC_APP_MAIN's web body
 import draconic.graphics;

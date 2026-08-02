@@ -212,7 +212,10 @@ export namespace draconic::editor
             m_settings.nativeModule = Move(settings.nativeModule);
             m_settings.defaultInputMapId =
                 settings.defaultInputMapId; // was MISSING: Open dropped it
+            m_settings.defaultBusLayoutId =
+                settings.defaultBusLayoutId; // was ALSO missing: Open dropped it (v5)
             m_settings.defaultUiThemeId = settings.defaultUiThemeId;
+            m_settings.defaultUiFontId = settings.defaultUiFontId; // fonts triad (v7)
 
             // The "Always Export" set is a separate committed sidecar (export_roots.xml). Absent =
             // no explicit roots (the empty set), which is the common case; only a project that has

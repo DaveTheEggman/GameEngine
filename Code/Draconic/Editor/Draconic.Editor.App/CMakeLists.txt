@@ -9,7 +9,7 @@ target_link_libraries(Draconic.Editor.App
         Draconic::Core Draconic::VFS Draconic::Xml.Serialization Draconic::Editor Draconic::Resource
         Draconic::Shell Draconic::Graphics Draconic::Runtime Draconic::Runtime.Client Draconic::Engine.DefaultApp
         Draconic::Render.Api
-        Draconic::Fonts Draconic::Fonts.TTF Draconic::Fonts.DistanceField.Baker
+        Draconic::Fonts Draconic::Fonts.TTF Draconic::Fonts.Resource Draconic::Fonts.DistanceField.Baker
         Draconic::UI Draconic::UI.Toolkit Draconic::UI.Runtime Draconic::UI.Application
         Draconic::UI.Resource Draconic::Engine.UI
         Draconic::Input Draconic::Engine.Input

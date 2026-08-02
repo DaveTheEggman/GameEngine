@@ -230,3 +230,29 @@ TEST_CASE("project-manager controller: open gates + prompt copy + registry pass-
 
     RemoveProjectTree(dir);
 }
+
+TEST_CASE("project manifest v7: defaultUiFontId (and the once-dropped defaults) round-trip Open")
+{
+    const StringView dir = u8"draconic_manifest_v7_test";
+    RemoveProjectTree(dir);
+    REQUIRE(EditorProject::Create(dir, u8"V7 Test").IsOk());
+
+    Guid fontId;
+    Guid busId;
+    REQUIRE(Guid::TryParse(u8"6ba7b810-9dad-11d1-80b4-00c04fd430c8", fontId));
+    REQUIRE(Guid::TryParse(u8"6ba7b811-9dad-11d1-80b4-00c04fd430c8", busId));
+    {
+        UniquePtr<EditorProject> project = EditorProject::Open(dir);
+        REQUIRE(project);
+        project->Settings().defaultUiFontId = fontId;
+        project->Settings().defaultBusLayoutId = busId; // the per-field move used to DROP this
+        REQUIRE(project->SaveSettings().IsOk());
+    }
+    {
+        UniquePtr<EditorProject> project = EditorProject::Open(dir);
+        REQUIRE(project);
+        CHECK(project->Settings().defaultUiFontId == fontId);
+        CHECK(project->Settings().defaultBusLayoutId == busId);
+    }
+    RemoveProjectTree(dir);
+}
