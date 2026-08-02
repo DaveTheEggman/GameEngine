@@ -881,6 +881,16 @@ void VGSandbox::OnRender()
 
     enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::Undefined,
                            rhi::ResourceState::RenderTarget);
+    // The offscreen attachments need the same explicit transitions the swapchain gets -
+    // the backend does not auto-transition pass attachments. From Undefined every frame:
+    // both are fully cleared, so the previous contents are discardable.
+    if (m_msaaColor != nullptr)
+    {
+        enc->TransitionTexture(m_msaaColor, rhi::ResourceState::Undefined,
+                               rhi::ResourceState::RenderTarget);
+        enc->TransitionTexture(m_depthStencil, rhi::ResourceState::Undefined,
+                               rhi::ResourceState::DepthStencilWrite);
+    }
 
     rhi::ColorAttachment ca{};
     ca.loadOp = rhi::LoadOp::Clear;

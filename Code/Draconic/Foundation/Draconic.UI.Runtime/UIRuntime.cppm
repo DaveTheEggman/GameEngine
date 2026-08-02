@@ -441,6 +441,14 @@ export namespace draconic::ui::runtime
             if (data->msaaColorView != nullptr && data->targetWidth == frame.width &&
                 data->targetHeight == frame.height && frame.encoder != nullptr)
             {
+                // The host transitions only the backbuffer (BeginFrame); the per-window
+                // MSAA + stencil attachments need their own transitions. From Undefined
+                // every frame: both are fully cleared, previous contents discardable.
+                frame.encoder->TransitionTexture(data->msaaColor, rhi::ResourceState::Undefined,
+                                                 rhi::ResourceState::RenderTarget);
+                frame.encoder->TransitionTexture(data->depthStencil,
+                                                 rhi::ResourceState::Undefined,
+                                                 rhi::ResourceState::DepthStencilWrite);
                 rhi::ColorAttachment color{};
                 color.view = data->msaaColorView;
                 color.resolveTarget = frame.backbufferView;
