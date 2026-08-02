@@ -1294,12 +1294,18 @@ TEST_CASE("ui.worldpanel: instantiates, renders to its target, drives the sprite
     CHECK(panel.renderTexture != nullptr);
     CHECK(panel.renderTextureView != nullptr);
     CHECK(panel.renderRoot->ViewportSize.x == doctest::Approx(200.0f));
+    // The target carries the 2px transparent edge border on each side (silhouette
+    // antialiasing): content 200x100 in a 204x104 texture.
+    CHECK(panel.renderTexture->desc.width == 204);
+    CHECK(panel.renderTexture->desc.height == 104);
 
-    // The sprite is DRIVEN: auto-added, entity-oriented, panel-sized, texture-bound.
+    // The sprite is DRIVEN: auto-added, entity-oriented, texture-bound, and inflated
+    // by the border ratio so the CONTENT keeps the authored world size.
     auto* sprite = scene->GetSystem<draconic::render::SpriteComponentManager>()->Get(e);
     REQUIRE(sprite != nullptr);
     CHECK(sprite->orientation == draconic::render::SpriteOrientation::EntityOriented);
-    CHECK(sprite->size.x == doctest::Approx(2.0f));
+    CHECK(sprite->size.x == doctest::Approx(2.0f * 204.0f / 200.0f));
+    CHECK(sprite->size.y == doctest::Approx(1.0f * 104.0f / 100.0f));
     CHECK(sprite->texture == panel.renderTextureView);
 
     // Route a click: lay the scene root out (the surface size the ray math reads),

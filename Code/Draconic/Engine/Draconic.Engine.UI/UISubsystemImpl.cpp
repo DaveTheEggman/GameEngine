@@ -1623,13 +1623,25 @@ namespace draconic::ui
                         {
                             return;
                         }
+                        // The panel content is drawn INSET by a transparent border: the
+                        // sprite quad's silhouette then lies in fully transparent texels,
+                        // so the panel's outer edge is texture content smoothed by
+                        // bilinear sampling (+ the canvas MSAA) instead of the quad's
+                        // geometric edge, which the non-MSAA scene pass cannot antialias.
+                        // The quad inflates by the same border so on-screen content scale
+                        // and the authored-size input ray mapping are unchanged (rays
+                        // over the skirt miss the authored quad - nothing lives there).
+                        constexpr u32 kEdgePadding = 2;
                         const f32 ppm = Max(c.pixelsPerMeter, 1.0f);
                         const u32 width =
-                            Clamp<u32>(static_cast<u32>(c.sizeMeters.x * ppm + 0.5f), 16u, 2048u);
+                            Clamp<u32>(static_cast<u32>(c.sizeMeters.x * ppm + 0.5f), 16u, 2044u);
                         const u32 height =
-                            Clamp<u32>(static_cast<u32>(c.sizeMeters.y * ppm + 0.5f), 16u, 2048u);
+                            Clamp<u32>(static_cast<u32>(c.sizeMeters.y * ppm + 0.5f), 16u, 2044u);
+                        const u32 paddedWidth = width + 2 * kEdgePadding;
+                        const u32 paddedHeight = height + 2 * kEdgePadding;
                         RenderState::CanvasTarget* target = m_render->EnsureCanvasTarget(
-                            sceneUI.scene, entity, width, height, kCanvasTextureFormat);
+                            sceneUI.scene, entity, paddedWidth, paddedHeight,
+                            kCanvasTextureFormat);
                         if (target == nullptr)
                         {
                             c.renderTexture = nullptr;
@@ -1650,7 +1662,13 @@ namespace draconic::ui
                             }
                             sprite->orientation =
                                 draconic::render::SpriteOrientation::EntityOriented;
-                            sprite->size = c.sizeMeters;
+                            // Inflate by the transparent border so the CONTENT keeps the
+                            // authored world size (texture maps whole-quad).
+                            sprite->size = Float2{
+                                c.sizeMeters.x * (static_cast<f32>(paddedWidth) /
+                                                  static_cast<f32>(width)),
+                                c.sizeMeters.y * (static_cast<f32>(paddedHeight) /
+                                                  static_cast<f32>(height))};
                             sprite->texture = target->view;
                             sprite->visible = c.visible;
                             // Post-tonemap: the panel keeps its AUTHORED colors (matching
@@ -1681,8 +1699,10 @@ namespace draconic::ui
                         pass.colorAttachments.Add(color);
                         if (rhi::RenderPassEncoder* rp = encoder.BeginRenderPass(pass))
                         {
-                            DrawRootInPass(*c.renderRoot, *rp, kCanvasTextureFormat, 0, 0, width,
-                                           height, frameIndex, false, target->sampleCount);
+                            DrawRootInPass(*c.renderRoot, *rp, kCanvasTextureFormat,
+                                           static_cast<i32>(kEdgePadding),
+                                           static_cast<i32>(kEdgePadding), width, height,
+                                           frameIndex, false, target->sampleCount);
                             rp->End();
                         }
                         encoder.TransitionTexture(target->texture, rhi::ResourceState::RenderTarget,
