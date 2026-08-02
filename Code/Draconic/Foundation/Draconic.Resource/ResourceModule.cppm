@@ -11,6 +11,7 @@
 // Sits at the top of the asset stack: Core/VFS -> content -> resource.
 
 module;
+#include "Draconic.Core/Debug/Assert.h"
 #include "Draconic.Core/Prelude.h"
 
 export module draconic.resource;
@@ -33,6 +34,18 @@ export namespace draconic::resource
         [[nodiscard]] bool IsNull() const noexcept { return id.IsNil(); }
     };
 
+    // Load state of a ResourceHandle (async loading, task #123). Unloaded = never built;
+    // Pending = an async decode is in flight (Proxy Get() is null; poll State() or set OnReady);
+    // Ready = product available; Failed = missing instance/factory or a build/decode/finalize
+    // failure. Sync builds settle to Ready/Failed immediately.
+    enum class ResourceState : u8
+    {
+        Unloaded,
+        Pending,
+        Ready,
+        Failed,
+    };
+
     // =======================================================================
     // ResourceHandle - a shared, replaceable slot holding one runtime product.
     // Proxies hold the handle (not the product), so a Reload that Replace()s the
@@ -49,9 +62,27 @@ export namespace draconic::resource
         [[nodiscard]] TypeId ProductTypeId() const noexcept { return m_productTypeId; }
         void SetProductTypeId(TypeId id) noexcept { m_productTypeId = id; }
 
+        [[nodiscard]] ResourceState State() const noexcept { return m_state; }
+        void SetState(ResourceState state) noexcept { m_state = state; }
+
+        // Fired ONCE on the main thread when an async load reaches Ready (during Pump), then
+        // cleared. Set before or during Pending; a load that is already Ready fires nothing.
+        void SetOnReady(Function<void()> callback) noexcept { m_onReady = Move(callback); }
+        void FireOnReady()
+        {
+            if (m_onReady)
+            {
+                Function<void()> callback = Move(m_onReady);
+                m_onReady = nullptr;
+                callback();
+            }
+        }
+
     private:
         RefPtr<Object> m_product;
         TypeId m_productTypeId{};
+        ResourceState m_state = ResourceState::Unloaded;
+        Function<void()> m_onReady;
     };
 
     // =======================================================================
@@ -189,6 +220,27 @@ export namespace draconic::resource
         // records a dependency edge, so reloading a child reloads this resource too.
         [[nodiscard]] virtual RefPtr<Object> Create(ResourceManager& manager,
                                                     draconic::content::Instance& instance) = 0;
+
+        // --- Optional async two-stage path (task #123). Default: SupportsAsync() == false, so the
+        //     manager builds synchronously via Create() (unchanged). A factory opts in by
+        //     overriding all three. DecodeStage is a PURE function of the instance's (cheap,
+        //     pak-backed) source bytes; it runs on a JobSystem worker and MUST NOT touch the
+        //     ResourceManager, the GPU, or global mutable state. FinalizeStage runs on the MAIN
+        //     thread and turns the decoded intermediate into the product (GPU upload, child
+        //     manager.Bind()s, registry writes); a null return signals failure.
+        [[nodiscard]] virtual bool SupportsAsync() const { return false; }
+        [[nodiscard]] virtual RefPtr<Object> DecodeStage(draconic::content::Instance& instance)
+        {
+            (void)instance;
+            return nullptr;
+        }
+        [[nodiscard]] virtual RefPtr<Object> FinalizeStage(ResourceManager& manager,
+                                                           RefPtr<Object> decoded)
+        {
+            (void)manager;
+            (void)decoded;
+            return nullptr;
+        }
     };
 
     // =======================================================================
@@ -199,9 +251,29 @@ export namespace draconic::resource
     class ResourceManager
     {
     public:
-        explicit ResourceManager(draconic::content::IContentDatabase& database) noexcept
-            : m_database(&database)
+        // `jobs` is the shared JobSystem used for async decode (BindAsync). Null = async degrades
+        // to a synchronous Bind, so every existing caller keeps working unchanged. The constructing
+        // thread is recorded as the main thread (async finalize / Pump must run on it).
+        explicit ResourceManager(draconic::content::IContentDatabase& database,
+                                 JobSystem* jobs = nullptr) noexcept
+            : m_database(&database), m_jobs(jobs), m_mainThreadId(Thread::CurrentId())
         {
+        }
+
+        // Drain outstanding decode jobs so none references this manager after destruction. Wait
+        // participates in the pool, so a queued-but-unstarted decode still runs to completion; the
+        // results are simply discarded (never finalized). Not finalizing here is deliberate -
+        // FinalizeStage would touch factories/GPU, unsafe during teardown.
+        ~ResourceManager()
+        {
+            if (m_jobs != nullptr)
+            {
+                for (auto& [id, record] : m_pending)
+                {
+                    (void)id;
+                    m_jobs->Wait(record->counter);
+                }
+            }
         }
 
         /// The backing content database (path-addressed lookups: script facades and
@@ -236,14 +308,27 @@ export namespace draconic::resource
                 // resources, growing the handle map - a rehash dangles the slot pointer.
                 // (The handle OBJECT itself is heap-stable; only the slot moves.)
                 RefPtr<ResourceHandle> handle = *cached;
+                // A sync Bind of a PENDING (async in-flight) id must return it READY: block-
+                // complete the decode (participating in the pool) and finalize inline.
+                if (handle->State() == ResourceState::Pending)
+                {
+                    CompletePending(id);
+                    if (RefPtr<ResourceHandle>* refreshed = m_handles.Find(id))
+                    {
+                        return *refreshed; // re-find: finalize's child Binds may have rehashed
+                    }
+                    return handle;
+                }
                 if (handle->Get() == nullptr)
                 {
                     BuildInto(*handle, productType.id, id);
+                    SettleSyncState(*handle);
                 }
                 return handle;
             }
             RefPtr<ResourceHandle> handle = MakeRef<ResourceHandle>(DefaultAllocator());
             BuildInto(*handle, productType.id, id);
+            SettleSyncState(*handle);
             m_handles.InsertOrAssign(id, handle);
             return handle;
         }
@@ -259,6 +344,120 @@ export namespace draconic::resource
         {
             return Bind<T>(rid.id);
         }
+
+        // Asynchronous bind (task #123): returns the same handle/Proxy IMMEDIATELY with State()
+        // == Pending (Get() null) and decodes on a JobSystem worker; Pump() finalizes it on the
+        // main thread a frame or two later. Falls back to a synchronous, immediately-Ready build
+        // when there is no JobSystem, no instance/factory, or the factory has not migrated
+        // (SupportsAsync() == false). Concurrent BindAsync of the same id share the one handle.
+        [[nodiscard]] RefPtr<ResourceHandle> BindAsync(const TypeInfo& productType, const Guid& id)
+        {
+            if (!m_buildStack.IsEmpty())
+            {
+                RecordDependency(m_buildStack.Back(), id);
+            }
+            if (RefPtr<ResourceHandle>* cached = m_handles.Find(id))
+            {
+                RefPtr<ResourceHandle> handle = *cached;
+                // Dedup: a live product or an already-pending load is shared as-is.
+                if (handle->Get() != nullptr || handle->State() == ResourceState::Pending)
+                {
+                    return handle;
+                }
+                StartAsyncBuild(handle, productType.id, id);
+                return handle;
+            }
+            RefPtr<ResourceHandle> handle = MakeRef<ResourceHandle>(DefaultAllocator());
+            m_handles.InsertOrAssign(id, handle);
+            StartAsyncBuild(handle, productType.id, id);
+            return handle;
+        }
+
+        template <typename T>
+        [[nodiscard]] Proxy<T> BindAsync(const Guid& id)
+        {
+            return Proxy<T>(BindAsync(T::StaticType(), id));
+        }
+
+        template <typename T>
+        [[nodiscard]] Proxy<T> BindAsync(const ResourceId<T>& rid)
+        {
+            return BindAsync<T>(rid.id);
+        }
+
+        // Finalize completed async decodes on the MAIN thread, FIFO, until `budgetSeconds` is
+        // spent (default ~2ms). Tick once per frame BEFORE subsystem update so this-frame spawns
+        // see ready resources. On a 0-worker (web) JobSystem it also drives queued decodes inline
+        // within the budget (the pool has no threads to run them otherwise).
+        void Pump(f64 budgetSeconds = 0.002)
+        {
+            AssertMainThread();
+            const Stopwatch stopwatch = Stopwatch::StartNew();
+            for (;;)
+            {
+                CompletedDecode entry;
+                bool have = false;
+                {
+                    ScopedLock lock(m_completedMutex);
+                    if (!m_completed.IsEmpty())
+                    {
+                        entry = Move(m_completed[0]);
+                        m_completed.RemoveAt(0);
+                        have = true;
+                    }
+                }
+                if (!have)
+                {
+                    // 0-worker fallback: nothing has run the decode yet - drive one inline.
+                    if (m_jobs != nullptr && m_jobs->WorkerCount() == 0 &&
+                        stopwatch.Elapsed().AsSeconds() < budgetSeconds && DriveOneInlineDecode())
+                    {
+                        continue;
+                    }
+                    break;
+                }
+
+                FinalizeCompleted(entry);
+
+                if (stopwatch.Elapsed().AsSeconds() >= budgetSeconds)
+                {
+                    break;
+                }
+            }
+            ReapPending();
+        }
+
+        // Block the main thread until every pending async load has finalized (participating in the
+        // pool). For loading screens and tests only - never call from the per-frame path.
+        void WaitAll()
+        {
+            AssertMainThread();
+            for (usize guard = 0; guard < 4096; ++guard)
+            {
+                bool anyOutstanding = false;
+                if (m_jobs != nullptr)
+                {
+                    for (auto& [id, record] : m_pending)
+                    {
+                        (void)id;
+                        if (!record->finalized)
+                        {
+                            anyOutstanding = true;
+                            m_jobs->Wait(record->counter); // runs the decode inline if not yet done
+                        }
+                    }
+                }
+                Pump(1.0e9); // unbounded: finalize everything now decoded
+                if (m_pending.IsEmpty() || !anyOutstanding)
+                {
+                    break;
+                }
+            }
+        }
+
+        // Number of async loads still pending (decoding or awaiting finalize). Main-thread only;
+        // loading screens read (pending, total) to show progress.
+        [[nodiscard]] usize PendingCount() const noexcept { return m_pending.Size(); }
 
         // Rebuilds the product for an already-bound id (e.g. after the source
         // changed on disk) AND, transitively, every resource that depends on it.
@@ -345,6 +544,26 @@ export namespace draconic::resource
         }
 
     private:
+        // Async-load records (task #123). PendingLoad holds a non-movable Counter, so it lives in a
+        // UniquePtr slot (heap-stable address the JobSystem signals). CompletedDecode is the
+        // self-contained result a worker pushes and Pump finalizes - it carries its own handle +
+        // factory, so finalize never has to touch the pending map.
+        struct PendingLoad
+        {
+            RefPtr<ResourceHandle> handle;
+            Guid id;
+            Counter counter{1};     // 1 -> 0 when the decode job completes
+            bool finalized = false; // product set on main; safe to reap once counter == 0
+        };
+        struct CompletedDecode
+        {
+            Guid id;
+            RefPtr<ResourceHandle> handle;
+            IResourceFactory* factory = nullptr;
+            RefPtr<Object> decoded; // null => decode failed
+            bool ok = false;
+        };
+
         void BuildInto(ResourceHandle& handle, TypeId productTypeId, const Guid& id)
         {
             // A rebuild may resolve different children than before; drop the old
@@ -378,6 +597,152 @@ export namespace draconic::resource
             m_buildStack.PushBack(id);
             handle.Replace((*factory)->Create(*this, *instance));
             m_buildStack.PopBack();
+        }
+
+        // Kick off an async build: park any old product, mark Pending, submit the pure decode to a
+        // worker. Degrades to a synchronous, immediately-settled BuildInto when async is impossible
+        // (no job system / instance / factory, or a factory that has not migrated).
+        void StartAsyncBuild(const RefPtr<ResourceHandle>& handle, TypeId productTypeId,
+                             const Guid& id)
+        {
+            handle->SetProductTypeId(productTypeId);
+
+            draconic::content::Instance* instance = m_database->GetInstance(id);
+            IResourceFactory* const* factorySlot = m_factories.Find(productTypeId);
+            IResourceFactory* factory = (factorySlot != nullptr) ? *factorySlot : nullptr;
+
+            if (m_jobs == nullptr || instance == nullptr || factory == nullptr ||
+                !factory->SupportsAsync())
+            {
+                BuildInto(*handle, productTypeId, id);
+                SettleSyncState(*handle);
+                return;
+            }
+
+            // Park the outgoing product (in-flight frames may still read its GPU objects), mark
+            // pending, and drop stale forward edges so the rebuild re-records children fresh.
+            if (Object* old = handle->Get())
+            {
+                m_graveyard.PushBack(Grave{RefPtr<Object>(old), kGraveFrames});
+            }
+            handle->Replace(nullptr);
+            handle->SetState(ResourceState::Pending);
+            ClearForwardDeps(id);
+
+            UniquePtr<PendingLoad> pending = MakeUnique<PendingLoad>(DefaultAllocator());
+            pending->handle = handle;
+            pending->id = id;
+            PendingLoad* record = pending.Get();
+            m_pending.InsertOrAssign(id, Move(pending));
+
+            // The job captures only thread-safe data: the factory/instance pointers (stable for the
+            // load's lifetime), a RefPtr copy of the handle (atomic refcount), and the id by value.
+            // It NEVER touches the handle or pending maps - those stay main-thread. The counter
+            // 1 -> 0 on completion lets WaitAll / the sync-upgrade path wait on this decode.
+            m_jobs->Submit(
+                [this, id, jobHandle = handle, factory, instance]() mutable
+                {
+                    RefPtr<Object> decoded = factory->DecodeStage(*instance);
+                    const bool ok = decoded.Get() != nullptr;
+                    ScopedLock lock(m_completedMutex);
+                    m_completed.PushBack(
+                        CompletedDecode{id, Move(jobHandle), factory, Move(decoded), ok});
+                },
+                &record->counter);
+        }
+
+        // Turn one decoded entry into its product on the main thread: FinalizeStage with the id on
+        // the build stack (child Binds record dependency edges), settle state, fire OnReady on
+        // success, and mark the pending record finalized.
+        void FinalizeCompleted(CompletedDecode& entry)
+        {
+            RefPtr<Object> product;
+            if (entry.ok)
+            {
+                m_buildStack.PushBack(entry.id);
+                product = entry.factory->FinalizeStage(*this, Move(entry.decoded));
+                m_buildStack.PopBack();
+            }
+            const bool ready = product.Get() != nullptr;
+            entry.handle->Replace(product);
+            entry.handle->SetState(ready ? ResourceState::Ready : ResourceState::Failed);
+            if (UniquePtr<PendingLoad>* record = m_pending.Find(entry.id))
+            {
+                (*record)->finalized = true;
+            }
+            if (ready)
+            {
+                entry.handle->FireOnReady();
+            }
+        }
+
+        // Block-complete an in-flight async load, then finalize it (a sync Bind of a pending id).
+        void CompletePending(const Guid& id)
+        {
+            if (UniquePtr<PendingLoad>* record = m_pending.Find(id))
+            {
+                if (m_jobs != nullptr)
+                {
+                    m_jobs->Wait((*record)->counter); // runs the decode inline if not yet done
+                }
+            }
+            Pump(1.0e9); // unbounded: finalize this id (and any other now-decoded loads)
+        }
+
+        static void SettleSyncState(ResourceHandle& handle) noexcept
+        {
+            handle.SetState(handle.Get() != nullptr ? ResourceState::Ready : ResourceState::Failed);
+        }
+
+        // 0-worker fallback: run one not-yet-started queued decode inline (Wait participates,
+        // executing the job). False when no undriven decode remains.
+        bool DriveOneInlineDecode()
+        {
+            for (auto& [id, record] : m_pending)
+            {
+                (void)id;
+                if (!record->finalized && record->counter.Value() != 0)
+                {
+                    m_jobs->Wait(record->counter);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Free finalized pending records. Freeing must go through the JobSystem's lifetime fence
+        // (Wait), NOT a bare counter.Value()==0 check: the count is set to 0 INSIDE the JobSystem's
+        // Counter lock (see RunJob), so a value of 0 is observable while the signaling worker is
+        // still touching the Counter - destroying it then is a data race (TSAN-confirmed). Wait
+        // returns only after that critical section is released; for a finalized record the decode
+        // body is already done, so Wait is effectively non-blocking here.
+        void ReapPending()
+        {
+            Array<Guid> reap;
+            for (auto& [id, record] : m_pending)
+            {
+                if (record->finalized)
+                {
+                    reap.PushBack(id);
+                }
+            }
+            for (const Guid& id : reap)
+            {
+                if (UniquePtr<PendingLoad>* record = m_pending.Find(id))
+                {
+                    if (m_jobs != nullptr)
+                    {
+                        m_jobs->Wait((*record)->counter); // lifetime fence before free
+                    }
+                    m_pending.Remove(id);
+                }
+            }
+        }
+
+        void AssertMainThread() const noexcept
+        {
+            DRACONIC_ASSERT_MSG(Thread::CurrentId() == m_mainThreadId,
+                                "ResourceManager async finalize/pump must run on the main thread");
         }
 
         // Rebuild `id`, then transitively every resource that depends on it. The
@@ -473,6 +838,13 @@ export namespace draconic::resource
         HashMap<Guid, Array<Guid>> m_dependencies; // id -> resources it depends on
         HashMap<Guid, Array<Guid>> m_dependents;   // id -> resources that depend on it
         Array<Guid> m_buildStack;                  // ids currently building (auto-edge source)
+
+        // --- async load bookkeeping (task #123); PendingLoad/CompletedDecode declared above ---
+        JobSystem* m_jobs = nullptr; // shared decode pool (null = sync-only)
+        u64 m_mainThreadId = 0;      // thread that constructs/pumps; async finalize must run here
+        HashMap<Guid, UniquePtr<PendingLoad>> m_pending; // main-thread only (heap-stable Counter)
+        Mutex m_completedMutex;                          // guards m_completed (worker <-> main)
+        Array<CompletedDecode> m_completed;              // FIFO decode results, drained by Pump
 
         static constexpr u32 kGraveFrames = 8; // > max frames in flight, comfortably
         struct Grave
