@@ -20,7 +20,8 @@ namespace draconic::animation
 
     DRACONIC_REFLECT_VALUE(SkeletalAnimationComponent, "draconic::animation")
     {
-        builder.Property<&SkeletalAnimationComponent::skeleton>("skeleton")
+        builder.Attribute("displayName", String(u8"Skeletal Animation"))
+            .Attribute("category", String(u8"Animation")).Property<&SkeletalAnimationComponent::skeleton>("skeleton")
             .Property<&SkeletalAnimationComponent::clip>("clip")
             .Property<&SkeletalAnimationComponent::speed>("speed")
             .Property<&SkeletalAnimationComponent::startTime>("startTime")
@@ -29,7 +30,8 @@ namespace draconic::animation
 
     DRACONIC_REFLECT_VALUE(AnimationGraphComponent, "draconic::animation")
     {
-        builder.Property<&AnimationGraphComponent::skeleton>("skeleton")
+        builder.Attribute("displayName", String(u8"Animation Graph"))
+            .Attribute("category", String(u8"Animation")).Property<&AnimationGraphComponent::skeleton>("skeleton")
             .Property<&AnimationGraphComponent::graph>("graph")
             .Property<&AnimationGraphComponent::active>("active");
     }

@@ -2520,8 +2520,12 @@ namespace draconic::editor::app
     void EditorApplication::BuildMenus()
     {
         ui::toolkit::MenuBar* bar = m_shell.Menus();
-        // Menu order: File FIRST (muscle memory), Build after it, Help-style menus last.
+        // Conventional order (editor-polish.md P2): File holds document/app essentials
+        // only; per-user prefs live under Edit; project-scoped concerns (settings,
+        // export, templates) get their own Project menu; Build stays cook-only.
         draconic::ui::ContextMenu* file = bar->AddMenu(u8"File");
+        draconic::ui::ContextMenu* editMenu = bar->AddMenu(u8"Edit");
+        draconic::ui::ContextMenu* project = bar->AddMenu(u8"Project");
         if (draconic::ui::ContextMenu* build = bar->AddMenu(u8"Build"))
         {
             build->AddItem(u8"Cook All", [this]() { m_cookService.RequestCook(false); });
@@ -2601,26 +2605,6 @@ namespace draconic::editor::app
                 // its single-project lifecycle (Exit is the way out).
                 file->AddItem(u8"Close Project", [this]() { ConfirmCloseProjectThen(); });
             }
-            file->AddItem(u8"Project Settings...",
-                          [this]()
-                          {
-                              if (m_project)
-                              {
-                                  auto dialog =
-                                      MakeRef<ProjectSettingsDialog>(DefaultAllocator(), m_context);
-                                  dialog->Show(&m_uiHost->Context());
-                              }
-                          });
-            file->AddItem(u8"Preferences...",
-                          [this]()
-                          {
-                              auto dialog = MakeRef<EditorPreferencesDialog>(
-                                  DefaultAllocator(), m_context, m_editorSettings);
-                              dialog->Show(&m_uiHost->Context());
-                          });
-            file->AddSeparator();
-            file->AddItem(u8"Export...", [this]() { OpenExportPresetsPanel(); });
-            file->AddItem(u8"Manage Templates...", [this]() { OpenTemplatesManager(); });
             file->AddItem(u8"Exit",
                           [this, host]()
                           {
@@ -2631,10 +2615,36 @@ namespace draconic::editor::app
                           });
         }
 
-        if (draconic::ui::ContextMenu* edit = bar->AddMenu(u8"Edit"))
+        if (editMenu != nullptr)
         {
-            edit->AddItem(u8"Undo", [this]() { m_context.Undo(); });
-            edit->AddItem(u8"Redo", [this]() { m_context.Redo(); });
+            editMenu->AddItem(u8"Undo", [this]() { m_context.Undo(); });
+            editMenu->AddItem(u8"Redo", [this]() { m_context.Redo(); });
+            editMenu->AddSeparator();
+            // Per-user, not per-document: the conventional Edit home.
+            editMenu->AddItem(u8"Preferences...",
+                              [this]()
+                              {
+                                  auto dialog = MakeRef<EditorPreferencesDialog>(
+                                      DefaultAllocator(), m_context, m_editorSettings);
+                                  dialog->Show(&m_uiHost->Context());
+                              });
+        }
+
+        if (project != nullptr)
+        {
+            project->AddItem(u8"Project Settings...",
+                             [this]()
+                             {
+                                 if (m_project)
+                                 {
+                                     auto dialog = MakeRef<ProjectSettingsDialog>(
+                                         DefaultAllocator(), m_context);
+                                     dialog->Show(&m_uiHost->Context());
+                                 }
+                             });
+            project->AddSeparator();
+            project->AddItem(u8"Export...", [this]() { OpenExportPresetsPanel(); });
+            project->AddItem(u8"Manage Templates...", [this]() { OpenTemplatesManager(); });
         }
 
         // Keyboard equivalents via the UI ShortcutManager. Shortcuts dispatch AFTER the

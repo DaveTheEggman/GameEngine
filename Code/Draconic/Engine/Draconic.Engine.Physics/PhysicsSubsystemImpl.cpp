@@ -207,7 +207,8 @@ namespace draconic::physics
 
     DRACONIC_REFLECT_VALUE(RigidBodyComponent, "draconic::physics")
     {
-        builder.DataVersion(1);
+        builder.Attribute("displayName", String(u8"Rigid Body"))
+            .Attribute("category", String(u8"Physics")).DataVersion(1);
         builder.Property<&RigidBodyComponent::motion>("motion");
         builder.Property<&RigidBodyComponent::layer>("layer");
         builder.Property<&RigidBodyComponent::shape>("shape");
@@ -227,7 +228,8 @@ namespace draconic::physics
 
     DRACONIC_REFLECT_VALUE(ColliderComponent, "draconic::physics")
     {
-        builder.DataVersion(1);
+        builder.Attribute("displayName", String(u8"Collider"))
+            .Attribute("category", String(u8"Physics")).DataVersion(1);
         builder.Property<&ColliderComponent::shape>("shape");
         builder.Property<&ColliderComponent::halfExtents>("halfExtents");
         builder.Property<&ColliderComponent::radius>("radius");
@@ -238,7 +240,8 @@ namespace draconic::physics
 
     DRACONIC_REFLECT_VALUE(CharacterComponent, "draconic::physics")
     {
-        builder.DataVersion(1);
+        builder.Attribute("displayName", String(u8"Character"))
+            .Attribute("category", String(u8"Physics")).DataVersion(1);
         builder.Property<&CharacterComponent::radius>("radius");
         builder.Property<&CharacterComponent::halfHeight>("halfHeight");
         builder.Property<&CharacterComponent::maxSlopeDegrees>("maxSlopeDegrees");
@@ -250,7 +253,8 @@ namespace draconic::physics
 
     DRACONIC_REFLECT_VALUE(JointComponent, "draconic::physics")
     {
-        builder.DataVersion(1);
+        builder.Attribute("displayName", String(u8"Joint"))
+            .Attribute("category", String(u8"Physics")).DataVersion(1);
         builder.Property<&JointComponent::kind>("kind");
         builder.Property<&JointComponent::targetEntity>("targetEntity");
         builder.Property<&JointComponent::localAnchor>("localAnchor");

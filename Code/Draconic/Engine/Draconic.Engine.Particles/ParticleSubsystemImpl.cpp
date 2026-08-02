@@ -18,7 +18,8 @@ namespace draconic::particles
 {
     DRACONIC_REFLECT_VALUE(ParticleEffectComponent, "draconic::particles")
     {
-        builder.Property<&ParticleEffectComponent::effectAsset>("effect")
+        builder.Attribute("displayName", String(u8"Particle Effect"))
+            .Attribute("category", String(u8"Effects")).Property<&ParticleEffectComponent::effectAsset>("effect")
             .Property<&ParticleEffectComponent::mesh>("mesh")
             .Property<&ParticleEffectComponent::material>("material")
             .Property<&ParticleEffectComponent::meshScale>("meshScale")

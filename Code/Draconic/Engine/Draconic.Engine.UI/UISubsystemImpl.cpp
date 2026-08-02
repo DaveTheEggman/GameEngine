@@ -1721,7 +1721,8 @@ namespace draconic::ui
 
     DRACONIC_REFLECT_VALUE(UIBillboardComponent, "draconic::ui")
     {
-        builder.DataVersion(1);
+        builder.Attribute("displayName", String(u8"UI Billboard"))
+            .Attribute("category", String(u8"UI")).DataVersion(1);
         builder.Property<&UIBillboardComponent::document>("document");
         builder.Property<&UIBillboardComponent::offset>("offset");
         builder.Property<&UIBillboardComponent::orientation>("orientation");
@@ -1734,7 +1735,8 @@ namespace draconic::ui
 
     DRACONIC_REFLECT_VALUE(UICanvasComponent, "draconic::ui")
     {
-        builder.DataVersion(2); // v2 added the RenderTexture canvas mode
+        builder.Attribute("displayName", String(u8"UI Canvas"))
+            .Attribute("category", String(u8"UI")).DataVersion(2); // v2 added the RenderTexture canvas mode
         builder.Property<&UICanvasComponent::document>("document");
         builder.Property<&UICanvasComponent::theme>("theme");
         builder.Property<&UICanvasComponent::order>("order");
@@ -1749,7 +1751,8 @@ namespace draconic::ui
 
     DRACONIC_REFLECT_VALUE(UIWorldPanelComponent, "draconic::ui")
     {
-        builder.DataVersion(1);
+        builder.Attribute("displayName", String(u8"UI World Panel"))
+            .Attribute("category", String(u8"UI")).DataVersion(1);
         builder.Property<&UIWorldPanelComponent::document>("document");
         builder.Property<&UIWorldPanelComponent::theme>("theme");
         builder.Property<&UIWorldPanelComponent::sizeMeters>("sizeMeters");

@@ -750,6 +750,45 @@ namespace draconic::editor
         // Other kinds: extend when a settings block needs them.
     }
 
+    namespace
+    {
+        // User-facing component name: the authored "displayName" type attribute wins;
+        // unannotated types fall back to spaced PascalCase minus a trailing "Component"
+        // ("ReflectionProbeComponent" -> "Reflection Probe"), so nothing renders raw.
+        [[nodiscard]] String ComponentDisplayName(const TypeInfo* type)
+        {
+            if (const Variant* v = FindAttribute(*type, "displayName"))
+            {
+                if (const String* s = v->TryGet<String>())
+                {
+                    return String(s->AsView());
+                }
+            }
+            StringView n(reinterpret_cast<const utf8char*>(type->name));
+            const StringView suffix = u8"Component";
+            if (n.Size() > suffix.Size() &&
+                n.SubStr(n.Size() - suffix.Size(), suffix.Size()) == suffix)
+            {
+                n = n.SubStr(0, n.Size() - suffix.Size());
+            }
+            return PrettifyPropertyName(n);
+        }
+
+        // Add-menu grouping: the authored "category" type attribute; unannotated types
+        // gather under "Other" (the cue that a category is missing, not a design).
+        [[nodiscard]] StringView ComponentCategory(const TypeInfo* type)
+        {
+            if (const Variant* v = FindAttribute(*type, "category"))
+            {
+                if (const String* s = v->TryGet<String>())
+                {
+                    return s->AsView();
+                }
+            }
+            return u8"Other";
+        }
+    }
+
     void SceneInspectorView::BuildComponentSection(const Guid& id, scene::ComponentManagerBase& mgr)
     {
         const TypeInfo* type = mgr.ComponentType();
@@ -763,14 +802,7 @@ namespace draconic::editor
         String categoryStorage;
         if (IsRegisteredType(type))
         {
-            StringView n(reinterpret_cast<const utf8char*>(type->name));
-            const StringView suffix = u8"Component";
-            if (n.Size() > suffix.Size() &&
-                n.SubStr(n.Size() - suffix.Size(), suffix.Size()) == suffix)
-            {
-                n = n.SubStr(0, n.Size() - suffix.Size());
-            }
-            categoryStorage = PrettifyPropertyName(n);
+            categoryStorage = ComponentDisplayName(type);
         }
         else
         {
@@ -2090,6 +2122,17 @@ namespace draconic::editor
 
         SceneEditContext* edit = m_edit;
         auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
+
+        // Category submenus with authored display names (editor-polish.md P1) - not the
+        // flat raw-type-name dump this used to be. Categories and items sort
+        // alphabetically so placement is stable as subsystems register.
+        struct Entry
+        {
+            String label;
+            StringView category;
+            const TypeInfo* type = nullptr;
+        };
+        Array<Entry> entries;
         m_edit->Scene().ForEachManager(
             [&](scene::ComponentManagerBase& mgr)
             {
@@ -2098,9 +2141,52 @@ namespace draconic::editor
                 {
                     return;
                 } // skip unreflected
-                menu->AddItem(StringView(reinterpret_cast<const utf8char*>(type->name)),
-                              [edit, id, type]() { edit->AddComponent(id, type); });
+                entries.PushBack(Entry{ComponentDisplayName(type), ComponentCategory(type), type});
             });
+        const auto viewLess = [](StringView a, StringView b)
+        {
+            const usize n = Min(a.Size(), b.Size());
+            for (usize k = 0; k < n; ++k)
+            {
+                if (a[k] != b[k])
+                {
+                    return static_cast<u8>(a[k]) < static_cast<u8>(b[k]);
+                }
+            }
+            return a.Size() < b.Size();
+        };
+        for (usize i = 1; i < entries.Size(); ++i) // insertion sort: category, then label
+        {
+            for (usize j = i; j > 0; --j)
+            {
+                const bool before =
+                    viewLess(entries[j].category, entries[j - 1].category) ||
+                    (entries[j].category == entries[j - 1].category &&
+                     viewLess(entries[j].label.AsView(), entries[j - 1].label.AsView()));
+                if (!before)
+                {
+                    break;
+                }
+                Swap(entries[j], entries[j - 1]);
+            }
+        }
+        ui::ContextMenu* section = nullptr;
+        StringView sectionName;
+        for (const Entry& entry : entries)
+        {
+            if (section == nullptr || entry.category != sectionName)
+            {
+                ui::MenuItem* item = menu->AddSubmenu(entry.category);
+                section = Cast<ui::ContextMenu>(item->Submenu.Get());
+                sectionName = entry.category;
+            }
+            if (section != nullptr)
+            {
+                const TypeInfo* type = entry.type;
+                section->AddItem(entry.label.AsView(),
+                                 [edit, id, type]() { edit->AddComponent(id, type); });
+            }
+        }
         // Paste a copied component (adds or overwrites; one undo step).
         const Span<const byte> clip = m_editor->ClipboardData(u8"component");
         if (!clip.IsEmpty())

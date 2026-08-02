@@ -132,7 +132,8 @@ namespace draconic::audio
 
     DRACONIC_REFLECT_VALUE(AudioSourceComponent, "draconic::audio")
     {
-        builder.DataVersion(3); // v2: busName (custom buses); v3: reverbSend
+        builder.Attribute("displayName", String(u8"Audio Source"))
+            .Attribute("category", String(u8"Audio")).DataVersion(3); // v2: busName (custom buses); v3: reverbSend
         builder.Property<&AudioSourceComponent::clip>("clip");
         builder.Property<&AudioSourceComponent::bus>("bus");
         builder.Property<&AudioSourceComponent::busName>("busName");
@@ -157,7 +158,8 @@ namespace draconic::audio
 
     DRACONIC_REFLECT_VALUE(AudioListenerComponent, "draconic::audio")
     {
-        builder.DataVersion(1);
+        builder.Attribute("displayName", String(u8"Audio Listener"))
+            .Attribute("category", String(u8"Audio")).DataVersion(1);
         builder.Property<&AudioListenerComponent::isActive>("isActive");
     }
 
@@ -182,7 +184,8 @@ namespace draconic::audio
 
     DRACONIC_REFLECT_VALUE(AudioReverbZoneComponent, "draconic::audio")
     {
-        builder.DataVersion(1);
+        builder.Attribute("displayName", String(u8"Reverb Zone"))
+            .Attribute("category", String(u8"Audio")).DataVersion(1);
         builder.Property<&AudioReverbZoneComponent::radius>("radius");
         builder.Property<&AudioReverbZoneComponent::edgeFade>("edgeFade");
         builder.Property<&AudioReverbZoneComponent::roomSize>("roomSize");

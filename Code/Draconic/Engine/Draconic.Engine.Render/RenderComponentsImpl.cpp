@@ -50,7 +50,8 @@ namespace draconic::render
 
     DRACONIC_REFLECT_VALUE(MeshComponent, "draconic::render")
     {
-        builder
+        builder.Attribute("displayName", String(u8"Mesh"))
+            .Attribute("category", String(u8"Rendering"))
             .DataVersion(3) // v3: unified materials array (slot 0 = whole-mesh)
             .Property<&MeshComponent::mesh>("mesh")
             .Property<&MeshComponent::color>("color")
@@ -59,7 +60,9 @@ namespace draconic::render
 
     DRACONIC_REFLECT_VALUE(InstancedMeshComponent, "draconic::render")
     {
-        builder.Property<&InstancedMeshComponent::mesh>("mesh")
+        builder.Attribute("displayName", String(u8"Instanced Mesh"))
+            .Attribute("category", String(u8"Rendering"))
+            .Property<&InstancedMeshComponent::mesh>("mesh")
             .Property<&InstancedMeshComponent::material>("material")
             .Property<&InstancedMeshComponent::color>("color")
             .Property<&InstancedMeshComponent::visible>("visible");
@@ -67,7 +70,8 @@ namespace draconic::render
 
     DRACONIC_REFLECT_VALUE(CameraComponent, "draconic::render")
     {
-        builder.Property<&CameraComponent::fovYRadians>("fovYRadians")
+        builder.Attribute("displayName", String(u8"Camera"))
+            .Attribute("category", String(u8"Rendering")).Property<&CameraComponent::fovYRadians>("fovYRadians")
             .PropAttribute("displayName", String(u8"Field Of View"))
             .PropAttribute("description", String(u8"Vertical field of view (radians)"))
             .PropAttribute("range", Float4{0.10f, 3.04f, 0.01f, 0.0f})
@@ -80,7 +84,8 @@ namespace draconic::render
 
     DRACONIC_REFLECT_VALUE(LightComponent, "draconic::render")
     {
-        builder.Property<&LightComponent::type>("type")
+        builder.Attribute("displayName", String(u8"Light"))
+            .Attribute("category", String(u8"Rendering")).Property<&LightComponent::type>("type")
             .Property<&LightComponent::color>("color")
             .Property<&LightComponent::intensity>("intensity")
             .PropAttribute("range", Float4{0.0f, 50.0f, 0.1f, 0.0f})
@@ -111,7 +116,8 @@ namespace draconic::render
 
     DRACONIC_REFLECT_VALUE(SpriteComponent, "draconic::render")
     {
-        builder.Property<&SpriteComponent::textureAsset>("texture")
+        builder.Attribute("displayName", String(u8"Sprite"))
+            .Attribute("category", String(u8"Rendering")).Property<&SpriteComponent::textureAsset>("texture")
             .Property<&SpriteComponent::size>("size")
             .Property<&SpriteComponent::uvRect>("uvRect")
             .Property<&SpriteComponent::tint>("tint")
@@ -122,7 +128,8 @@ namespace draconic::render
 
     DRACONIC_REFLECT_VALUE(DecalComponent, "draconic::render")
     {
-        builder.Property<&DecalComponent::textureAsset>("texture")
+        builder.Attribute("displayName", String(u8"Decal"))
+            .Attribute("category", String(u8"Rendering")).Property<&DecalComponent::textureAsset>("texture")
             .Property<&DecalComponent::size>("size")
             .Property<&DecalComponent::color>("color")
             .Property<&DecalComponent::fadeStart>("fadeStart")
@@ -141,7 +148,8 @@ namespace draconic::render
 
     DRACONIC_REFLECT_VALUE(EnvironmentSettings, "draconic::render")
     {
-        builder
+        builder.Attribute("displayName", String(u8"Environment"))
+            .Attribute("category", String(u8"Rendering"))
             .DataVersion(
                 3) // v3: skyBackgroundIntensity (visible-backdrop dimmer, separate from IBL)
             .Property<&EnvironmentSettings::ambientColor>("ambientColor")
@@ -194,7 +202,8 @@ namespace draconic::render
 
     DRACONIC_REFLECT_VALUE(ReflectionProbeComponent, "draconic::render")
     {
-        builder.Property<&ReflectionProbeComponent::halfExtents>("halfExtents")
+        builder.Attribute("displayName", String(u8"Reflection Probe"))
+            .Attribute("category", String(u8"Rendering")).Property<&ReflectionProbeComponent::halfExtents>("halfExtents")
             .Property<&ReflectionProbeComponent::blendDistance>("blendDistance")
             .PropAttribute("range", Float4{0.0f, 10.0f, 0.1f, 0.0f})
             .PropAttribute("description", String(u8"Fade width at the probe volume's edge"))
@@ -229,7 +238,8 @@ namespace draconic::render
 
     DRACONIC_REFLECT_VALUE(PostProcessSettings, "draconic::render")
     {
-        builder.DataVersion(1)
+        builder.Attribute("displayName", String(u8"Post Processing"))
+            .Attribute("category", String(u8"Rendering")).DataVersion(1)
             .Property<&PostProcessSettings::exposureEV>("exposureEV")
             .PropAttribute("range", Float4{-8.0f, 8.0f, 0.05f, 0.0f})
             .PropAttribute("displayName", String(u8"Exposure (EV)"))

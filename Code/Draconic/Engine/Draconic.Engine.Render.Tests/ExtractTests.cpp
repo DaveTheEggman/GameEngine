@@ -589,3 +589,39 @@ TEST_CASE("ApplyViewPostOverride strips effects per view without touching the au
         CHECK(vp.taaEnabled);
     }
 }
+
+TEST_CASE("components: reflected types carry authored displayName + category attributes")
+{
+    // The inspector's add-component menu and section headers resolve these; an annotated
+    // type must expose BOTH (editor-polish.md P1 - authored intent, not name heuristics).
+    RegisterRenderComponentReflection();
+
+    const struct
+    {
+        const TypeInfo* type;
+        StringView displayName;
+    } expectations[] = {
+        {&TypeOf<MeshComponent>(), u8"Mesh"},
+        {&TypeOf<InstancedMeshComponent>(), u8"Instanced Mesh"},
+        {&TypeOf<CameraComponent>(), u8"Camera"},
+        {&TypeOf<LightComponent>(), u8"Light"},
+        {&TypeOf<SpriteComponent>(), u8"Sprite"},
+        {&TypeOf<DecalComponent>(), u8"Decal"},
+        {&TypeOf<ReflectionProbeComponent>(), u8"Reflection Probe"},
+        {&TypeOf<PostProcessSettings>(), u8"Post Processing"},
+    };
+    for (const auto& expectation : expectations)
+    {
+        const Variant* display = FindAttribute(*expectation.type, "displayName");
+        REQUIRE(display != nullptr);
+        const String* name = display->TryGet<String>();
+        REQUIRE(name != nullptr);
+        CHECK(name->AsView() == expectation.displayName);
+
+        const Variant* category = FindAttribute(*expectation.type, "category");
+        REQUIRE(category != nullptr);
+        const String* categoryName = category->TryGet<String>();
+        REQUIRE(categoryName != nullptr);
+        CHECK(categoryName->AsView() == u8"Rendering");
+    }
+}
