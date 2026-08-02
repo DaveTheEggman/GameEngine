@@ -273,6 +273,15 @@ export namespace draconic::render
         Array<SceneProvider> m_providers; // per-scene render-data contributors (borrowed)
         OverlayRegistry<ISceneOverlay> m_sceneOverlays;   // scene-tier overlay sources (borrowed)
         OverlayRegistry<IScreenOverlay> m_screenOverlays; // window-space overlay sources (borrowed)
+        // Screen-overlay stencil attachment (stencil-then-cover UI fills): one cached DS
+        // sized to the last window target (single-window runtime; a size change retires
+        // the old texture through the queue and recreates). Undefined format = no stencil.
+        rhi::Texture* m_overlayDsTexture = nullptr;
+        rhi::TextureView* m_overlayDsView = nullptr;
+        u32 m_overlayDsWidth = 0;
+        u32 m_overlayDsHeight = 0;
+        rhi::TextureFormat m_overlayDsFormat = rhi::TextureFormat::Undefined;
+        bool m_overlayDsProbed = false;
         UniquePtr<RenderFrame> m_frame;
 
         Array<UniquePtr<ExtractedScene>> m_scenes; // snapshot pool

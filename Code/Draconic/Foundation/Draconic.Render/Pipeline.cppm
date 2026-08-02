@@ -496,6 +496,7 @@ export namespace draconic::render
               m_clusters(clusters), m_tonemap(tonemap), m_shadows(shadows), m_ibl(ibl), m_sky(sky),
               m_bloom(bloom), m_taa(taa), m_ao(ao), m_fxaa(fxaa)
         {
+            m_device = &device;
         }
 
     private:
@@ -684,8 +685,13 @@ export namespace draconic::render
         const debug::DebugDraw* m_debugGlobal = nullptr; // borrowed; global (all-views) debug list
         const debug::DebugDraw* m_debugScreen =
             nullptr; // borrowed; whole-window screen HUD (drawn once)
+        rhi::Device* m_device = nullptr; // borrowed; outlives the frame
         const Array<ISceneOverlay*>* m_sceneOverlays =
             nullptr;           // borrowed; scene-tier overlay sources
+        // Stencil-capable DS format for the scene-overlay pass (lazy probe; Undefined =
+        // device has none, the pass stays color-only and overlay UI tessellates fills).
+        rhi::TextureFormat m_overlayStencilFormat = rhi::TextureFormat::Undefined;
+        bool m_overlayStencilProbed = false;
         f32 m_exposure = 1.0f; // linear exposure multiplier (tonemap input)
         bool m_fxaaEnabled = false;
         f32 m_fxaaSubpixel = 0.75f;

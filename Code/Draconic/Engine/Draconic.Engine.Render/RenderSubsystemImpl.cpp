@@ -446,18 +446,74 @@ namespace draconic::render
         {
             return;
         }
+        // Stencil attachment for overlay UI (stencil-then-cover fills). Cached at the
+        // target size; a resize retires the old texture (in-flight frames may still
+        // reference it) and recreates. Cleared every frame, so Undefined -> write.
+        if (!m_overlayDsProbed)
+        {
+            m_overlayDsFormat = PickStencilFormat(*m_device);
+            m_overlayDsProbed = true;
+        }
+        if (m_overlayDsFormat != rhi::TextureFormat::Undefined &&
+            (m_overlayDsTexture == nullptr || m_overlayDsWidth != width ||
+             m_overlayDsHeight != height))
+        {
+            m_retireQueue.Retire(m_overlayDsView);
+            m_retireQueue.Retire(m_overlayDsTexture);
+            m_overlayDsView = nullptr;
+            m_overlayDsTexture = nullptr;
+            rhi::TextureDesc dsDesc{};
+            dsDesc.dimension = rhi::TextureDimension::Texture2D;
+            dsDesc.format = m_overlayDsFormat;
+            dsDesc.width = width;
+            dsDesc.height = height;
+            dsDesc.depth = 1;
+            dsDesc.usage = rhi::TextureUsage::DepthStencil;
+            dsDesc.label = u8"screen.overlay.ds";
+            if (m_device->CreateTexture(dsDesc, m_overlayDsTexture).IsOk() &&
+                m_overlayDsTexture != nullptr)
+            {
+                if (!m_device->CreateTextureView(m_overlayDsTexture, rhi::TextureViewDesc{},
+                                                 m_overlayDsView)
+                         .IsOk())
+                {
+                    m_retireQueue.Retire(m_overlayDsTexture);
+                    m_overlayDsTexture = nullptr;
+                    m_overlayDsView = nullptr;
+                }
+            }
+            m_overlayDsWidth = width;
+            m_overlayDsHeight = height;
+        }
         rhi::RenderPassDesc pass;
         rhi::ColorAttachment color;
         color.view = target;
         color.loadOp = rhi::LoadOp::Load;
         color.storeOp = rhi::StoreOp::Store;
         pass.colorAttachments.Add(color);
+        const bool haveDs = m_overlayDsView != nullptr;
+        if (haveDs)
+        {
+            // The backend does not auto-transition pass attachments; fully cleared, so
+            // previous contents are discardable and Undefined is the correct source.
+            encoder.TransitionTexture(m_overlayDsTexture, rhi::ResourceState::Undefined,
+                                      rhi::ResourceState::DepthStencilWrite);
+            rhi::DepthStencilAttachment ds{};
+            ds.view = m_overlayDsView;
+            ds.depthLoadOp = rhi::LoadOp::Clear;
+            ds.depthStoreOp = rhi::StoreOp::DontCare;
+            ds.stencilLoadOp = rhi::LoadOp::Clear; // stencil-then-cover expects 0
+            ds.stencilStoreOp = rhi::StoreOp::DontCare;
+            ds.stencilClearValue = 0;
+            pass.depthStencilAttachment = ds;
+        }
         if (rhi::RenderPassEncoder* rp = encoder.BeginRenderPass(pass))
         {
             ScreenOverlayView view;
             view.width = width;
             view.height = height;
             view.targetFormat = targetFormat;
+            view.depthStencilFormat = haveDs ? m_overlayDsFormat : rhi::TextureFormat::Undefined;
             view.frameIndex = frameIndex;
             for (IScreenOverlay* overlay : m_screenOverlays.Items())
             {
@@ -701,6 +757,16 @@ namespace draconic::render
         }
         m_device->WaitIdle();     // GPU must finish before we free its buffers/PSOs/descriptors
         m_retireQueue.Flush();    // pending retired resources (GPU idle - free now)
+        if (m_overlayDsView != nullptr)
+        {
+            m_device->DestroyTextureView(m_overlayDsView);
+            m_overlayDsView = nullptr;
+        }
+        if (m_overlayDsTexture != nullptr)
+        {
+            m_device->DestroyTexture(m_overlayDsTexture);
+            m_overlayDsTexture = nullptr;
+        }
         m_frame.Reset();          // releases the forward pass's per-frame GPU resources
         m_clusterSystem.Reset();  // before the ShaderSystem it borrows
         m_tonemapPass.Reset();    // before the ShaderSystem it borrows

@@ -163,9 +163,8 @@ namespace draconic::ui
         struct FormatRenderer
         {
             rhi::TextureFormat format = rhi::TextureFormat::RGBA8Unorm;
-            bool stencil = false; // stencil-configured variant (canvas passes carry a DS
-                                  // attachment; overlay passes are host-owned color-only,
-                                  // and pipelines must match their pass)
+            bool stencil = false; // stencil-configured variant (canvas + overlay passes
+                                  // carry a DS attachment; pipelines must match their pass)
             UniquePtr<vg::renderer::VGRenderer> renderer;
             u64 begunSerial = 0; // last UI frame this renderer's ring was reset for
         };
@@ -1323,8 +1322,14 @@ namespace draconic::ui
         // The scene root lays out at the VIEWPORT size and draws at the view's rect
         // (split-screen halves each lay out their own HUD, clipped to their half).
         UpdateSceneView(*sceneUI->scene, view);
+        // Stencil fills only when the pass carries a DS attachment in the SAME format our
+        // stencil pipelines were built against (both sides probe the device in the same
+        // candidate order, so agreement is the expected case).
+        const bool stencil = view.depthStencilFormat != rhi::TextureFormat::Undefined &&
+                             view.depthStencilFormat == m_render->canvasStencilFormat;
         DrawRootInPass(*sceneUI->root, encoder, view.targetFormat, view.viewportX, view.viewportY,
-                       view.viewportWidth, view.viewportHeight, static_cast<i32>(view.frameIndex));
+                       view.viewportWidth, view.viewportHeight, static_cast<i32>(view.frameIndex),
+                       stencil);
     }
 
     // Screen tier (IScreenOverlay): called from the host's RenderOverlays per window
@@ -1339,8 +1344,10 @@ namespace draconic::ui
         {
             return;
         }
+        const bool stencil = view.depthStencilFormat != rhi::TextureFormat::Undefined &&
+                             view.depthStencilFormat == m_render->canvasStencilFormat;
         DrawRootInPass(*m_screenRoot, encoder, view.targetFormat, 0, 0, view.width, view.height,
-                       static_cast<i32>(view.frameIndex));
+                       static_cast<i32>(view.frameIndex), stencil);
     }
 
     // Records one root into an ALREADY-ACTIVE render pass: layout at the CONTENT size
@@ -1356,14 +1363,16 @@ namespace draconic::ui
         m_context.UpdateRootView(&root);
 
         // The emission must match the pass this batch will render into: stencil-fill
-        // commands only when the target pass carries the DS attachment (canvas RTTs).
+        // commands only when the target pass carries the DS attachment (canvas RTTs and
+        // the renderer/host-owned scene/screen overlay passes, which advertise their DS
+        // format through the overlay view).
         const bool stencil =
             stencilCapable && m_render->canvasStencilFormat != rhi::TextureFormat::Undefined;
         m_render->vgContext.SetStencilFills(stencil);
         m_render->vgContext.Clear();
         m_context.DrawRootView(&root, m_render->vgContext);
         vg::VGBatch& batch = m_render->vgContext.GetBatch();
-        m_render->vgContext.SetStencilFills(false); // overlay tiers stay tessellated
+        m_render->vgContext.SetStencilFills(false); // reset; each tier opts in per batch
         if (batch.commands.IsEmpty())
         {
             return;

@@ -32,6 +32,36 @@ export namespace draconic::render
     /// which expires the canvas texture and drops the whole frame's submit - the
     /// dropped-submit class). A replaced resource is RETIRED instead: it stays alive
     /// until every frame that could reference it has aged out, then frees on Tick().
+    /// Probe the device for a single-sampled stencil-capable depth-stencil format, in
+    /// the same candidate order as the VG renderer's PickStencilCapableFormat (keep the
+    /// two in sync): the overlay passes attach the format this returns, and the UI
+    /// subsystem only records stencil fills when its own probe agrees. Undefined = no
+    /// stencil support (overlay UI falls back to tessellated fills).
+    [[nodiscard]] inline rhi::TextureFormat PickStencilFormat(rhi::Device& device)
+    {
+        const rhi::TextureFormat candidates[3] = {rhi::TextureFormat::Depth24PlusStencil8,
+                                                  rhi::TextureFormat::Depth32FloatStencil8,
+                                                  rhi::TextureFormat::Stencil8};
+        for (rhi::TextureFormat format : candidates)
+        {
+            rhi::TextureDesc desc{};
+            desc.dimension = rhi::TextureDimension::Texture2D;
+            desc.format = format;
+            desc.width = 4;
+            desc.height = 4;
+            desc.depth = 1;
+            desc.usage = rhi::TextureUsage::DepthStencil;
+            desc.sampleCount = 1;
+            rhi::Texture* probe = nullptr;
+            if (device.CreateTexture(desc, probe).IsOk() && probe != nullptr)
+            {
+                device.DestroyTexture(probe);
+                return format;
+            }
+        }
+        return rhi::TextureFormat::Undefined;
+    }
+
     /// One queue per owner (the render subsystem shares one across its systems);
     /// consumers fall back to WaitIdle when no queue is wired, so standalone/test use
     /// keeps working unchanged.

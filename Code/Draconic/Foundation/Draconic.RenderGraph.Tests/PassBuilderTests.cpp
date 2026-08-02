@@ -62,6 +62,34 @@ TEST_CASE("rg.builder: SetDepthTarget adds access + attachment")
     CHECK(pass.depthTarget.Value().depthClearValue == 1.0f);
 }
 
+TEST_CASE("rg.builder: SetDepthTarget stencil ops default to DontCare")
+{
+    RenderGraphPass pass(u8"Test", RGPassType::Render);
+    PassBuilder builder(pass);
+    builder.SetDepthTarget(RGHandle{0, 1});
+
+    REQUIRE(pass.depthTarget.HasValue());
+    CHECK(pass.depthTarget.Value().stencilLoadOp == rhi::LoadOp::DontCare);
+    CHECK(pass.depthTarget.Value().stencilStoreOp == rhi::StoreOp::DontCare);
+}
+
+TEST_CASE("rg.builder: SetDepthTarget carries explicit stencil ops + clear")
+{
+    // The scene-overlay pass shape: depth unused, stencil cleared to 0 for
+    // stencil-then-cover UI fills.
+    RenderGraphPass pass(u8"Test", RGPassType::Render);
+    PassBuilder builder(pass);
+    builder.SetDepthTarget(RGHandle{0, 1}, rhi::LoadOp::Clear, rhi::StoreOp::DontCare, 1.0f, {},
+                           rhi::LoadOp::Clear, rhi::StoreOp::DontCare, 0);
+
+    REQUIRE(pass.depthTarget.HasValue());
+    const RGDepthTarget& dt = pass.depthTarget.Value();
+    CHECK(dt.stencilLoadOp == rhi::LoadOp::Clear);
+    CHECK(dt.stencilStoreOp == rhi::StoreOp::DontCare);
+    CHECK(dt.stencilClearValue == 0u);
+    CHECK(dt.depthStoreOp == rhi::StoreOp::DontCare);
+}
+
 TEST_CASE("rg.builder: ReadDepth sets read-only")
 {
     RenderGraphPass pass(u8"Test", RGPassType::Render);

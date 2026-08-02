@@ -1825,6 +1825,14 @@ namespace draconic::render
                 // Sources match views by SceneKey and draw with the view's REAL camera.
                 if (m_sceneOverlays != nullptr && !m_sceneOverlays->IsEmpty())
                 {
+                    // Stencil attachment for overlay UI (stencil-then-cover fills): a
+                    // transient DS cleared to 0, in a device-probed format the sources
+                    // check against their own pipelines before recording stencil draws.
+                    if (!m_overlayStencilProbed)
+                    {
+                        m_overlayStencilFormat = PickStencilFormat(*m_device);
+                        m_overlayStencilProbed = true;
+                    }
                     SceneOverlayView overlayView;
                     overlayView.sceneKey = v->SceneKey();
                     overlayView.viewProjection = unjitteredVP;
@@ -1836,14 +1844,30 @@ namespace draconic::render
                     overlayView.targetWidth = v->Width();
                     overlayView.targetHeight = v->Height();
                     overlayView.targetFormat = v->TargetFormat();
+                    overlayView.depthStencilFormat = m_overlayStencilFormat;
                     overlayView.frameIndex = m_frameIndex;
+                    rendergraph::RGHandle overlayDs = rendergraph::RGHandle::Invalid();
+                    if (m_overlayStencilFormat != rhi::TextureFormat::Undefined)
+                    {
+                        overlayDs = m_graph.CreateTransient(
+                            u8"scene.overlay.ds",
+                            rendergraph::RGTextureDesc(m_overlayStencilFormat, v->Width(),
+                                                       v->Height()));
+                    }
                     const Array<ISceneOverlay*>* overlays = m_sceneOverlays;
                     m_graph.AddRenderPass(
                         u8"scene.overlay",
-                        [colorH, overlays, overlayView](rendergraph::PassBuilder& b)
+                        [colorH, overlayDs, overlays, overlayView](rendergraph::PassBuilder& b)
                         {
                             b.SetColorTarget(0, colorH, rhi::LoadOp::Load, rhi::StoreOp::Store,
                                              rhi::ClearColor::Black());
+                            if (overlayDs.IsValid())
+                            {
+                                // Depth unused; stencil cleared to 0 for stencil-then-cover.
+                                b.SetDepthTarget(overlayDs, rhi::LoadOp::Clear,
+                                                 rhi::StoreOp::DontCare, 1.0f, {},
+                                                 rhi::LoadOp::Clear, rhi::StoreOp::DontCare, 0);
+                            }
                             b.NeverCull();
                             b.SetExecute(
                                 [overlays, overlayView](rhi::RenderPassEncoder& rp)

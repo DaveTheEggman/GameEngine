@@ -112,6 +112,10 @@ export namespace draconic::render
         u32 viewportWidth = 0, viewportHeight = 0;
         u32 targetWidth = 0, targetHeight = 0; // full target extent (pixels)
         rhi::TextureFormat targetFormat = rhi::TextureFormat::BGRA8Unorm;
+        // The pass's depth-stencil attachment format (Undefined = color-only pass).
+        // Sources may record stencil-based draws only when this is set AND matches the
+        // format their own pipelines were built against.
+        rhi::TextureFormat depthStencilFormat = rhi::TextureFormat::Undefined;
         u32 frameIndex = 0;
     };
 
@@ -120,6 +124,8 @@ export namespace draconic::render
     {
         u32 width = 0, height = 0; // target extent (pixels)
         rhi::TextureFormat targetFormat = rhi::TextureFormat::BGRA8Unorm;
+        // Same contract as SceneOverlayView::depthStencilFormat.
+        rhi::TextureFormat depthStencilFormat = rhi::TextureFormat::Undefined;
         u32 frameIndex = 0;
     };
 

@@ -100,7 +100,10 @@ export namespace draconic::rendergraph
 
         PassBuilder& SetDepthTarget(RGHandle handle, rhi::LoadOp loadOp = rhi::LoadOp::Clear,
                                     rhi::StoreOp storeOp = rhi::StoreOp::Store,
-                                    f32 clearDepth = 1.0f, RGSubresourceRange subresource = {})
+                                    f32 clearDepth = 1.0f, RGSubresourceRange subresource = {},
+                                    rhi::LoadOp stencilLoadOp = rhi::LoadOp::DontCare,
+                                    rhi::StoreOp stencilStoreOp = rhi::StoreOp::DontCare,
+                                    u32 clearStencil = 0)
         {
             RGDepthTarget dt{};
             dt.handle = handle;
@@ -108,8 +111,9 @@ export namespace draconic::rendergraph
             dt.depthStoreOp = storeOp;
             dt.depthClearValue = clearDepth;
             dt.readOnly = false;
-            dt.stencilLoadOp = rhi::LoadOp::DontCare;
-            dt.stencilStoreOp = rhi::StoreOp::DontCare;
+            dt.stencilLoadOp = stencilLoadOp;
+            dt.stencilStoreOp = stencilStoreOp;
+            dt.stencilClearValue = clearStencil;
             dt.subresource = subresource;
             m_pass->depthTarget = dt;
 
