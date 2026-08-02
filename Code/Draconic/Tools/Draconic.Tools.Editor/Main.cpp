@@ -226,6 +226,91 @@ namespace
             context.RegisterCreator(draconic::core::Move(creator));
         }
     }
+
+    // Starter content for a manager-created project: the baseline FONT (and its manifest
+    // default - a fresh project must render game-UI text in an export from day one), the
+    // default SKY, and the primitive meshes. Payload files come from the baseline-assets dir
+    // (the source tree in dev; a relocated editor looks beside the exe).
+    [[nodiscard]] String BaselineAssetPath(StringView relative)
+    {
+        String path(StringView(reinterpret_cast<const utf8char*>(DRACONIC_EDITOR_BASELINE_ASSETS)));
+        path = PathJoin(path.AsView(), relative);
+        if (FileExists(path.AsView()))
+        {
+            return path;
+        }
+        return PathJoin(u8"BaselineAssets", relative); // relocated: staged beside the editor
+    }
+
+    void SeedNewProject(editor::EditorContext& ctx, editor::EditorProject& project)
+    {
+        draconic::content::Group* root = project.SourceDb().RootGroup();
+
+        // 1) The baseline UI font: Roboto imported as a real FontAsset + set as the
+        //    manifest's default (the guid the player binds; source guid == product guid).
+        {
+            const String source = BaselineAssetPath(u8"fonts/roboto/Roboto-Regular.ttf");
+            Result<String> copied = editor::CopyIntoSources(project, source.AsView());
+            if (copied.HasValue())
+            {
+                draconic::content::Group* fonts = root->GetGroup(u8"Fonts");
+                if (fonts == nullptr)
+                {
+                    fonts = root->CreateGroup(u8"Fonts");
+                }
+                if (draconic::content::Instance* instance = fonts->CreateInstance(
+                        u8"Roboto", draconic::fonts::FontAsset::StaticType()))
+                {
+                    draconic::fonts::FontAsset asset;
+                    asset.fileName = copied.Value();
+                    asset.family = String(u8"Roboto");
+                    if (instance->WriteObject(asset).IsOk())
+                    {
+                        project.Settings().defaultUiFontId = instance->Id();
+                    }
+                }
+            }
+            else
+            {
+                DRACONIC_LOG_WARNING(u8"Editor",
+                                     u8"starter font missing ({}) - new project has no "
+                                     u8"default UI font",
+                                     source);
+            }
+        }
+
+        // 2) The default sky: BlueSky.hdr as an equirectangular skybox texture.
+        {
+            const String source = BaselineAssetPath(u8"environment/BlueSky.hdr");
+            Result<String> copied = editor::CopyIntoSources(project, source.AsView());
+            if (copied.HasValue())
+            {
+                draconic::content::Group* env = root->GetGroup(u8"Environment");
+                if (env == nullptr)
+                {
+                    env = root->CreateGroup(u8"Environment");
+                }
+                if (draconic::content::Instance* instance = env->CreateInstance(
+                        u8"BlueSky", draconic::texture::TextureAsset::StaticType()))
+                {
+                    draconic::texture::TextureAsset asset;
+                    asset.fileName = copied.Value();
+                    asset.SetupForEquirectangularSkybox();
+                    (void)instance->WriteObject(asset);
+                }
+            }
+        }
+
+        // 3) Primitive meshes (the same creator path as File > New > Primitives).
+        (void)CreatePrimitiveMeshInstance(ctx, u8"Cube", draconic::geometry::Primitives::Cube(),
+                                          nullptr);
+        (void)CreatePrimitiveMeshInstance(ctx, u8"Sphere",
+                                          draconic::geometry::Primitives::Sphere(), nullptr);
+        (void)CreatePrimitiveMeshInstance(ctx, u8"Plane", draconic::geometry::Primitives::Plane(),
+                                          nullptr);
+
+        DRACONIC_LOG_INFO(u8"Editor", u8"starter content seeded (font/sky/primitives)");
+    }
 }
 namespace graphics = draconic::graphics;
 namespace runtime = draconic::runtime;
@@ -276,6 +361,8 @@ int main(int argc, char** argv)
     // drives scene rendering only through the ISceneRenderer interface injected below.
     // Gameplay subsystems are registered by the embedded DefaultApplication against the
     // editor's runtime context (runtime-host.md v3) - the editor registers NONE itself.
+    config.seedNewProject = [](editor::EditorContext& ctx, editor::EditorProject& project)
+    { SeedNewProject(ctx, project); };
     config.registerEditors = [](editor::app::EditorApplication& app,
                                 draconic::runtime::IApplicationHost& host,
                                 draconic::ui::runtime::UIHost& uiHost)

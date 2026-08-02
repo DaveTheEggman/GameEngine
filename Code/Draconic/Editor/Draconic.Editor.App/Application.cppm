@@ -89,6 +89,12 @@ export namespace draconic::editor::app
         /// wiring the app to engine INTERFACES it drives (app.SetSceneRenderer(...)).
         Function<void(EditorApplication&, runtime::IApplicationHost&, ui::runtime::UIHost&)>
             registerEditors;
+        /// Seeds STARTER CONTENT into a project the manager just created (baseline font +
+        /// sky + primitive meshes, and the manifest defaults that reference them). Runs
+        /// once, right after the fresh project opens; the exe composes it because only the
+        /// exe links every asset type. Null = new projects start empty.
+        Function<void(draconic::editor::EditorContext&, draconic::editor::EditorProject&)>
+            seedNewProject;
     };
 
     class EditorApplication : public runtime::IApplication
@@ -380,6 +386,7 @@ export namespace draconic::editor::app
         // ASAN caught exactly that with the previous declared-last ordering.
         UniquePtr<ui::runtime::UIHost> m_uiHost;
         UniquePtr<ProjectManagerView> m_managerView; // built on first EnterManagerMode
+        bool m_seedAfterOpen = false; // starter-content request from CreateFromManager
         bool m_inManagerMode = false;
         UniquePtr<ui::application::RuntimeDockableWindowHost>
             m_dockHost; // references m_uiHost: dies first

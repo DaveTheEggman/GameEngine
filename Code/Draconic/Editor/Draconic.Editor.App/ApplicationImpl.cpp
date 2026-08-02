@@ -2160,6 +2160,24 @@ namespace draconic::editor::app
                                     m_project->Settings().engineVersion.AsView());
         (void)draconic::editor::SaveEditorSettingsToUserData(m_editorSettings);
 
+        // Starter content for a manager-created project (baseline font/sky/meshes + the
+        // manifest defaults). Once, before the first cook pass picks everything up.
+        if (m_seedAfterOpen)
+        {
+            m_seedAfterOpen = false;
+            if (m_config.seedNewProject)
+            {
+                m_config.seedNewProject(m_context, *m_project);
+                (void)m_project->SaveSettings(); // the seed set manifest defaults
+                if (m_assetsView)
+                {
+                    m_assetsView->Rebuild();
+                }
+                m_cookService.RequestCook(false);
+                m_context.SetStatus(u8"Project created with starter content.");
+            }
+        }
+
         String message(u8"Project: ");
         message += m_project->Name();
         message += u8"  (";
@@ -2340,6 +2358,10 @@ namespace draconic::editor::app
     void EditorApplication::CreateFromManager(StringView directory, StringView name)
     {
         const Status created = m_projectManager.Create(directory, name);
+        if (created.IsOk())
+        {
+            m_seedAfterOpen = true; // starter content lands once the fresh project opens
+        }
         if (!created.IsOk())
         {
             if (m_managerView)

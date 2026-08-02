@@ -16,6 +16,7 @@ target_link_libraries(Draconic.Tools.Editor PRIVATE
     Draconic::Animation.Resource)
 target_compile_definitions(Draconic.Tools.Editor PRIVATE
     DRACONIC_EDITOR_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf"
+    DRACONIC_EDITOR_BASELINE_ASSETS="${CMAKE_SOURCE_DIR}/Data/Assets"
     DRACONIC_EDITOR_MONO_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/dejavu/DejaVuSansMono.ttf")
 # Copy SDL3.dll next to the executable on Windows (same as the samples' helper, which is
 # defined in Code/Samples/ and not visible here).
