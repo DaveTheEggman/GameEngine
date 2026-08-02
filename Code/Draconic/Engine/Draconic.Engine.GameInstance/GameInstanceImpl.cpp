@@ -231,6 +231,75 @@ namespace draconic::runtime
         return handle.m_scene;
     }
 
+    i32 GameInstance::TrackScriptLoad(SceneLoadHandle handle)
+    {
+        const i32 ticket = ++m_nextScriptTicket; // 1-based; 0 stays reserved for "did not start"
+        TrackedScriptLoad tracked;
+        tracked.ticket = ticket;
+        tracked.handle = handle; // SceneLoadHandle is a value type (safe to copy/store)
+        m_scriptLoads.PushBack(Move(tracked));
+        return ticket;
+    }
+
+    void GameInstance::PumpScriptLoads()
+    {
+        for (TrackedScriptLoad& load : m_scriptLoads)
+        {
+            if (load.activated || load.handle.Failed() || !load.handle.IsComplete())
+            {
+                continue; // still streaming, already live, or terminally failed
+            }
+            scene::Scene* activated = ActivateLoadedScene(load.handle);
+            if (activated == nullptr)
+            {
+                load.handle.m_failed = true; // complete-but-unactivatable: terminal (defensive)
+                continue;
+            }
+            SetScene(activated);              // instance bookkeeping: current scene + net replication
+            if (m_activatePolicy)
+            {
+                m_activatePolicy(activated); // app render/sim policy (EnsureCamera, Start, ...)
+            }
+            load.activated = true;
+        }
+    }
+
+    f32 GameInstance::ScriptLoadProgress(i32 ticket) const
+    {
+        for (const TrackedScriptLoad& load : m_scriptLoads)
+        {
+            if (load.ticket == ticket)
+            {
+                return load.activated ? 1.0f : load.handle.Progress();
+            }
+        }
+        return 1.0f; // unknown/expired ticket
+    }
+
+    bool GameInstance::ScriptLoadComplete(i32 ticket) const
+    {
+        for (const TrackedScriptLoad& load : m_scriptLoads)
+        {
+            if (load.ticket == ticket)
+            {
+                return load.activated || load.handle.Failed(); // terminal: live OR failed
+            }
+        }
+        return true; // a bad/expired ticket must never hang a `while (!complete) yield` loop
+    }
+
+    bool GameInstance::ScriptLoadFailed(i32 ticket) const
+    {
+        for (const TrackedScriptLoad& load : m_scriptLoads)
+        {
+            if (load.ticket == ticket)
+            {
+                return load.handle.Failed();
+            }
+        }
+        return false;
+    }
+
     void GameInstance::DriveRunHost(f32 deltaTime)
     {
         auto& binding = m_runHost.Binding();

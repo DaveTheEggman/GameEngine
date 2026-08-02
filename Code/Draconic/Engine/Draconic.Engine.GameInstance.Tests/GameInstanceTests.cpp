@@ -378,6 +378,63 @@ TEST_CASE("game-instance: LoadScene / LoadSceneAsync own the scene load orchestr
               nullptr);
     }
 
+    SUBCASE("script-load registry: ticket -> poll -> PumpScriptLoads activates + runs the policy")
+    {
+        runtime::GameInstance gi;
+        CHECK_FALSE(gi.SceneReady()); // no current scene at launch (orchestrator-first boot)
+
+        // The app owns the render/sim policy; here a fake records which scene it activated.
+        scene::Scene* policyRanOn = nullptr;
+        gi.SetSceneActivationPolicy(
+            Function<void(scene::Scene*)>{[&](scene::Scene* s) { policyRanOn = s; }});
+
+        // The Game facade hands the in-flight handle to the instance and gets a ticket back.
+        runtime::SceneLoadHandle handle =
+            gi.LoadSceneAsync(*sceneInst, resources, Function<UniquePtr<IStream>(const Guid&)>{});
+        REQUIRE(handle.Scene() != nullptr);
+        scene::Scene* pending = handle.Scene();
+        const i32 ticket = gi.TrackScriptLoad(handle);
+        CHECK(ticket == 1); // 1-based; 0 is reserved for "did not start"
+
+        // Registered but not yet pumped: not complete, scene still inactive, policy not run.
+        CHECK_FALSE(gi.ScriptLoadComplete(ticket));
+        CHECK_FALSE(gi.ScriptLoadFailed(ticket));
+        CHECK(gi.ScriptLoadProgress(ticket) == doctest::Approx(1.0f)); // no async resources pending
+        CHECK_FALSE(gi.Scenes().IsActive(pending));
+        CHECK(policyRanOn == nullptr);
+
+        gi.PumpScriptLoads(); // resources already complete -> activate + SetScene + policy
+        CHECK(gi.ScriptLoadComplete(ticket));
+        CHECK_FALSE(gi.ScriptLoadFailed(ticket));
+        CHECK(gi.ScriptLoadProgress(ticket) == doctest::Approx(1.0f));
+        CHECK(gi.Scenes().IsActive(pending));
+        CHECK(policyRanOn == pending);   // the app policy ran on the freshly activated scene
+        CHECK(gi.GetScene() == pending); // SetScene bookkeeping happened
+        CHECK(gi.SceneReady());          // Game.sceneReady() now true
+
+        gi.PumpScriptLoads(); // idempotent: an already-activated load is skipped
+        CHECK(policyRanOn == pending);
+
+        // An unknown/expired ticket never hangs a `while (!complete) yield` loop.
+        CHECK(gi.ScriptLoadComplete(999));
+        CHECK_FALSE(gi.ScriptLoadFailed(999));
+        CHECK(gi.ScriptLoadProgress(999) == doctest::Approx(1.0f));
+    }
+
+    SUBCASE("script-load registry: a failed load reports terminal-complete + failed by ticket")
+    {
+        auto* empty =
+            db.RootGroup()->CreateInstance(u8"empty2", scene::SceneDocument::StaticType());
+        runtime::GameInstance gi;
+        const i32 ticket = gi.TrackScriptLoad(
+            gi.LoadSceneAsync(*empty, resources, Function<UniquePtr<IStream>(const Guid&)>{}));
+        CHECK(ticket == 1);
+        gi.PumpScriptLoads(); // a failed handle is skipped (never activated), stays terminal
+        CHECK(gi.ScriptLoadComplete(ticket)); // terminal (failed counts as complete)
+        CHECK(gi.ScriptLoadFailed(ticket));
+        CHECK_FALSE(gi.SceneReady()); // nothing became current
+    }
+
     FileDelete(u8"draconic_gi_load_db/level.rasset");
     FileDelete(u8"draconic_gi_load_db/level.scene.bin");
     RemoveDirectory(u8"draconic_gi_load_db");
