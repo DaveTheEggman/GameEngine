@@ -465,3 +465,77 @@ TEST_CASE("resource.async: destroying the manager with an in-flight decode drain
     }
     CHECK(factory.decodeCalls.load() == 1); // the decode ran to completion during teardown
 }
+
+TEST_CASE("resource.async: Ref::Bind routes through BindAsync under an AsyncBindScope")
+{
+    RegisterAsyncTypes();
+    CleanDir(u8"draconic_async_db");
+    NativeFileSystem mount(u8"draconic_async_db");
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                          u8".rasset");
+    AsyncFactory factory;
+    factory.gates[0].store(false, std::memory_order_relaxed); // hold the decode
+    JobSystem jobs;
+    ResourceManager manager(db, &jobs);
+    manager.AddFactory(&factory);
+    const Guid id = MakeInstance(db, factory, u8"a", 5, 0);
+
+    Ref<AsyncProduct> ref;
+    ref.SetId(id);
+    {
+        AsyncBindScope scope(manager);
+        CHECK(manager.AsyncBindsEnabled());
+        ref.Bind(manager);
+    }
+    CHECK_FALSE(manager.AsyncBindsEnabled());  // scope restored the mode
+    CHECK(manager.PendingCount() == 1u);       // routed to BindAsync: pending, not built yet
+    CHECK(ref.Get() == nullptr);               // proxy is null while pending
+
+    factory.gates[0].store(true, std::memory_order_release);
+    manager.WaitAll();
+
+    CHECK(manager.PendingCount() == 0u);
+    REQUIRE(ref.Get() != nullptr); // the proxy now resolves to the finalized product
+    CHECK(ref.Get()->value == 5);
+}
+
+TEST_CASE("resource.async: AsyncLoadBatch reports progress as loads finalize")
+{
+    RegisterAsyncTypes();
+    CleanDir(u8"draconic_async_db");
+    NativeFileSystem mount(u8"draconic_async_db");
+    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+                                          u8".rasset");
+    AsyncFactory factory;
+    for (int i = 0; i < 3; ++i)
+    {
+        factory.gates[i].store(false, std::memory_order_relaxed); // hold all decodes
+    }
+    JobSystem jobs;
+    ResourceManager manager(db, &jobs);
+    manager.AddFactory(&factory);
+
+    const Guid a = MakeInstance(db, factory, u8"a", 1, 0);
+    const Guid b = MakeInstance(db, factory, u8"b", 2, 1);
+    const Guid c = MakeInstance(db, factory, u8"c", 3, 2);
+    (void)manager.BindAsync<AsyncProduct>(a);
+    (void)manager.BindAsync<AsyncProduct>(b);
+    (void)manager.BindAsync<AsyncProduct>(c);
+
+    AsyncLoadBatch batch(manager);
+    batch.Snapshot();
+    CHECK(batch.Total() == 3u);
+    CHECK(batch.Remaining() == 3u);
+    CHECK(batch.Progress() == doctest::Approx(0.0f));
+    CHECK_FALSE(batch.IsComplete());
+
+    for (int i = 0; i < 3; ++i)
+    {
+        factory.gates[i].store(true, std::memory_order_release);
+    }
+    batch.WaitComplete();
+
+    CHECK(batch.IsComplete());
+    CHECK(batch.Remaining() == 0u);
+    CHECK(batch.Progress() == doctest::Approx(1.0f));
+}

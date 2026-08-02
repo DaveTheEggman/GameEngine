@@ -459,6 +459,13 @@ export namespace draconic::resource
         // loading screens read (pending, total) to show progress.
         [[nodiscard]] usize PendingCount() const noexcept { return m_pending.Size(); }
 
+        // When enabled, Ref<T>::Bind routes through BindAsync instead of Bind. A scene load flips
+        // this on around ResolveSceneResources (see AsyncBindScope) so the whole scene's resource
+        // set decodes on workers; the caller then Pumps to completion (AsyncLoadBatch / a loading
+        // screen). Default off = every existing Ref bind stays synchronous.
+        void SetAsyncBinds(bool enabled) noexcept { m_asyncBinds = enabled; }
+        [[nodiscard]] bool AsyncBindsEnabled() const noexcept { return m_asyncBinds; }
+
         // Rebuilds the product for an already-bound id (e.g. after the source
         // changed on disk) AND, transitively, every resource that depends on it.
         // All proxies see the new products. False if `id` is unbound.
@@ -842,6 +849,7 @@ export namespace draconic::resource
         // --- async load bookkeeping (task #123); PendingLoad/CompletedDecode declared above ---
         JobSystem* m_jobs = nullptr; // shared decode pool (null = sync-only)
         u64 m_mainThreadId = 0;      // thread that constructs/pumps; async finalize must run here
+        bool m_asyncBinds = false;   // Ref<T>::Bind routes through BindAsync while set
         HashMap<Guid, UniquePtr<PendingLoad>> m_pending; // main-thread only (heap-stable Counter)
         Mutex m_completedMutex;                          // guards m_completed (worker <-> main)
         Array<CompletedDecode> m_completed;              // FIFO decode results, drained by Pump
@@ -860,7 +868,71 @@ export namespace draconic::resource
     {
         if (!id.IsNil())
         {
-            m_proxy = manager.Bind<T>(id);
+            // Route through BindAsync when the manager is in async-bind mode (scene load); the
+            // proxy is null (Pending) until Pump finalizes it - Proxy already tolerates that.
+            m_proxy = manager.AsyncBindsEnabled() ? manager.BindAsync<T>(id) : manager.Bind<T>(id);
         }
     }
+
+    // RAII: turn on async Ref binds for a scope (e.g. around ResolveSceneResources), restoring the
+    // previous mode on exit even on an early return. Nesting-safe (saves/restores the prior value).
+    class AsyncBindScope
+    {
+    public:
+        explicit AsyncBindScope(ResourceManager& manager) noexcept
+            : m_manager(&manager), m_previous(manager.AsyncBindsEnabled())
+        {
+            manager.SetAsyncBinds(true);
+        }
+        ~AsyncBindScope() { m_manager->SetAsyncBinds(m_previous); }
+        AsyncBindScope(const AsyncBindScope&) = delete;
+        AsyncBindScope& operator=(const AsyncBindScope&) = delete;
+
+    private:
+        ResourceManager* m_manager;
+        bool m_previous;
+    };
+
+    // Loading-screen helper: after issuing a batch of async binds (e.g. a scene resolve under an
+    // AsyncBindScope), Snapshot() records the outstanding count as the batch total, then Progress()
+    // reports 0..1 as loads finalize. Step() pumps within a per-frame budget; WaitComplete() blocks
+    // to the end (non-interactive loading screen / tests). NOTE: Remaining() reads the manager's
+    // TOTAL pending, so for accurate progress the manager should be dedicated to this batch (the
+    // usual scene-load case); unrelated concurrent async loads would skew it.
+    class AsyncLoadBatch
+    {
+    public:
+        explicit AsyncLoadBatch(ResourceManager& manager) noexcept : m_manager(&manager) {}
+
+        void Snapshot() noexcept { m_total = m_manager->PendingCount(); }
+
+        [[nodiscard]] usize Total() const noexcept { return m_total; }
+        [[nodiscard]] usize Remaining() const noexcept { return m_manager->PendingCount(); }
+        [[nodiscard]] bool IsComplete() const noexcept { return m_manager->PendingCount() == 0; }
+
+        [[nodiscard]] f32 Progress() const noexcept
+        {
+            const usize remaining = m_manager->PendingCount();
+            if (m_total == 0 || remaining == 0)
+            {
+                return 1.0f;
+            }
+            const usize done = (remaining >= m_total) ? 0u : (m_total - remaining);
+            return static_cast<f32>(done) / static_cast<f32>(m_total);
+        }
+
+        // Finalize completed loads within the budget; returns true once the batch is complete.
+        bool Step(f64 budgetSeconds = 0.002)
+        {
+            m_manager->Pump(budgetSeconds);
+            return IsComplete();
+        }
+
+        // Block until every outstanding load has finalized.
+        void WaitComplete() { m_manager->WaitAll(); }
+
+    private:
+        ResourceManager* m_manager;
+        usize m_total = 0;
+    };
 }
