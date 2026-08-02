@@ -1394,3 +1394,164 @@ TEST_CASE("script.scene: behaviors tick without error when no physics subsystem 
 
     ctx.Shutdown();
 }
+
+// ---- Game.* level-load facade (task #123): a behavior kicks an async scene load and polls it
+// to completion through the facade. What is under test is the facade->binding routing (the
+// script never touches a real GameInstance here; the host installs fake load pointers) and the
+// exact ticket round-tripping script->facade->binding. Both backends, uniformly.
+
+TEST_CASE("script.game: Game.loadSceneAsync -> ticket, polled through loadComplete/"
+          "loadProgress to completion (Wren) - facade->binding routing + ticket round-trip")
+{
+    ScriptedScene bed;
+
+    // Fake load service on the binding: records the requested scene id, hands back a fixed
+    // ticket, reports 50% mid-flight, and only reports complete on the SECOND poll (so the
+    // test proves the script keeps polling AND passes the exact ticket it was handed).
+    constexpr i32 kTicket = 7;
+    int asyncCalls = 0;
+    Guid requested;
+    int completePolls = 0;
+    i32 ticketSeen = -1;
+    f64 progressSeen = -1.0;
+    bed.host.Binding().loadSceneAsync = Function<i32(const Guid&)>{
+        [&](const Guid& id) -> i32
+        {
+            ++asyncCalls;
+            requested = id;
+            return kTicket;
+        }};
+    bed.host.Binding().loadProgress = Function<f64(i32)>{
+        [&](i32 t) -> f64
+        {
+            progressSeen = (t == kTicket) ? 0.5 : -1.0;
+            return progressSeen;
+        }};
+    bed.host.Binding().loadComplete = Function<bool(i32)>{
+        [&](i32 t) -> bool
+        {
+            ++completePolls;
+            ticketSeen = t;
+            return completePolls >= 2;
+        }};
+
+    // The behavior kicks the load on start (scene id delivered as an asset property, harvested
+    // like any prefab ref), then polls each tick; on completion it reads progress once and
+    // renames the entity to signal done.
+    RefPtr<ScriptClass> loader =
+        MakeClass(u8"Loader",
+                  u8"class Loader {\n"
+                  u8"    construct new(entity) {\n"
+                  u8"        _entity = entity\n"
+                  u8"        _ticket = 0\n"
+                  u8"        _done = false\n"
+                  u8"    }\n"
+                  u8"    level=(v) { _level = v }\n"
+                  u8"    onStart() { _ticket = Game.loadSceneAsync(_level) }\n"
+                  u8"    onUpdate(dt) {\n"
+                  u8"        if (!_done && Game.loadComplete(_ticket)) {\n"
+                  u8"            Game.loadProgress(_ticket)\n"
+                  u8"            _entity.setName(\"ready\")\n"
+                  u8"            _done = true\n"
+                  u8"        }\n"
+                  u8"    }\n"
+                  u8"}\n",
+                  {u8"onStart", u8"onUpdate"});
+    ScriptPropertyDesc levelProp;
+    levelProp.name = String(u8"level");
+    levelProp.hash = ScriptPropertyNameHash(u8"level");
+    levelProp.type = ScriptPropertyType::Asset;
+    levelProp.assetType = String(u8"Scene");
+    levelProp.defaultValue.kind = ScriptPropertyType::Asset;
+    levelProp.defaultValue.guid = Guid{0xABC, 0xDEF};
+    loader->properties.PushBack(levelProp);
+
+    const scene::EntityHandle e = bed.AddScripted(loader, u8"loader");
+    bed.Start();
+
+    bed.Frame(); // onStart kicks the load; first onUpdate polls once (not yet complete)
+    CHECK(asyncCalls == 1);
+    CHECK(requested == Guid{0xABC, 0xDEF});
+    CHECK(completePolls == 1);
+    CHECK(ticketSeen == kTicket); // the exact ticket round-tripped facade->script->facade
+    CHECK(bed.scene.GetEntityName(e) == StringView(u8"loader")); // not done yet
+
+    bed.Frame(); // second poll flips to complete
+    CHECK(completePolls == 2);
+    CHECK(Near(static_cast<f32>(progressSeen), 0.5f));
+    CHECK(bed.scene.GetEntityName(e) == StringView(u8"ready"));
+
+    bed.Frame(); // _done latched: no further polling
+    CHECK(completePolls == 2);
+}
+
+TEST_CASE("script.game: Game.loadSceneAsync -> ticket, polled to completion (AngelScript) "
+          "- second backend, uniformly")
+{
+    draconic::script::angelscript::RegisterAngelScriptBackend();
+    ScriptedScene bed;
+
+    constexpr i32 kTicket = 11;
+    int asyncCalls = 0;
+    Guid requested;
+    int completePolls = 0;
+    i32 ticketSeen = -1;
+    f64 progressSeen = -1.0;
+    bed.host.Binding().loadSceneAsync = Function<i32(const Guid&)>{
+        [&](const Guid& id) -> i32
+        {
+            ++asyncCalls;
+            requested = id;
+            return kTicket;
+        }};
+    bed.host.Binding().loadProgress = Function<f64(i32)>{
+        [&](i32 t) -> f64
+        {
+            progressSeen = (t == kTicket) ? 0.5 : -1.0;
+            return progressSeen;
+        }};
+    bed.host.Binding().loadComplete = Function<bool(i32)>{
+        [&](i32 t) -> bool
+        {
+            ++completePolls;
+            ticketSeen = t;
+            return completePolls >= 2;
+        }};
+
+    // AS asset-property harvest is a separate concern, so the behavior builds the scene id
+    // inline via the reflected Guid(u64, u64) factory (proven in the AngelScript backend tests);
+    // the facade->binding path exercised here is identical to Wren's.
+    RefPtr<ScriptClass> loader = MakeClassLang(
+        u8"angelscript", u8"Loader",
+        u8"class Loader {\n"
+        u8"    private Entity@ self;\n"
+        u8"    private int ticket;\n"
+        u8"    private bool done;\n"
+        u8"    Loader(Entity@ entity) { @self = entity; ticket = 0; done = false; }\n"
+        u8"    void onStart() { ticket = Game::loadSceneAsync(Guid(0xABC, 0xDEF)); }\n"
+        u8"    void onUpdate(double dt) {\n"
+        u8"        if (!done && Game::loadComplete(ticket)) {\n"
+        u8"            Game::loadProgress(ticket);\n"
+        u8"            self.setName(\"ready\");\n"
+        u8"            done = true;\n"
+        u8"        }\n"
+        u8"    }\n"
+        u8"}\n",
+        {u8"onStart", u8"onUpdate"});
+
+    const scene::EntityHandle e = bed.AddScripted(loader, u8"loader");
+    bed.Start();
+
+    bed.Frame();
+    CHECK(bed.host.Language() == StringView(u8"angelscript"));
+    CHECK(asyncCalls == 1);
+    CHECK(requested == Guid{0xABC, 0xDEF});
+    CHECK(completePolls == 1);
+    CHECK(ticketSeen == kTicket);
+    CHECK(bed.scene.GetEntityName(e) == StringView(u8"loader"));
+
+    bed.Frame();
+    CHECK(completePolls == 2);
+    CHECK(Near(static_cast<f32>(progressSeen), 0.5f));
+    CHECK(bed.scene.GetEntityName(e) == StringView(u8"ready"));
+}

@@ -65,13 +65,24 @@ namespace draconic::script
         builder.Constructor();
     }
 
+    DRACONIC_REFLECT(Game, "draconic::script")
+    {
+        builder.Method<&Game::loadSceneAsync>("loadSceneAsync");
+        builder.Method<&Game::loadProgress>("loadProgress");
+        builder.Method<&Game::loadComplete>("loadComplete");
+        builder.Method<&Game::loadFailed>("loadFailed");
+        builder.Method<&Game::loadScene>("loadScene");
+        builder.Method<&Game::sceneReady>("sceneReady");
+        builder.Constructor();
+    }
+
     core::Span<const core::StringView> BehaviorFacadeNames()
     {
         // Kept in sync with RegisterScriptFacadeReflection below.
         static const core::StringView names[] = {
-            u8"Entity", u8"Log", u8"Time", u8"Random", u8"Scene",
+            u8"Entity", u8"Log", u8"Time", u8"Random", u8"Scene", u8"Game",
         };
-        return core::Span<const core::StringView>{names, 5};
+        return core::Span<const core::StringView>{names, 6};
     }
 
     namespace
@@ -119,6 +130,7 @@ namespace draconic::script
             GlobalTypeRegistry().Register(Time::StaticType());
             GlobalTypeRegistry().Register(Random::StaticType());
             GlobalTypeRegistry().Register(Scene::StaticType());
+            GlobalTypeRegistry().Register(Game::StaticType());
             return true;
         }();
         (void)once;

@@ -69,6 +69,17 @@ export namespace draconic::script
         scene::Scene* currentScene = nullptr;
         core::Function<scene::EntityHandle(scene::Scene*, const core::Guid&, const core::Float3&)>
             spawnPrefab;
+
+        // Async level load (task #123): the `Game` facade routes here. The host installs these,
+        // backed by the running GameInstance's LoadSceneAsync + a ticket->handle map, PER-INSTANCE
+        // (so multi-instance stays isolated). Null = safe no-ops (bare cook VM / no host). Tickets
+        // are i32 (0 = invalid). See Game below and ScriptSubsystem::ConfigureRunHost.
+        core::Function<i32(const core::Guid&)> loadSceneAsync; // -> ticket (0 = failed to start)
+        core::Function<f64(i32)> loadProgress;                 // ticket -> 0..1
+        core::Function<bool(i32)> loadComplete;                // ticket -> complete?
+        core::Function<bool(i32)> loadFailed;                  // ticket -> failed?
+        core::Function<bool(const core::Guid&)> loadScene;     // sync load -> success
+        core::Function<bool()> sceneReady;                     // current scene loaded + active?
     };
 
     // ---- the curated behavior facades (camelCase = the script-visible names, the
@@ -310,7 +321,65 @@ export namespace draconic::script
         }
     };
 
-    /// Registers the behavior facade types (Entity/Log/Time/Random/Scene) with the global
+    /// Game.*: the running instance's LEVEL-LOAD control (task #123). loadSceneAsync kicks an async
+    /// scene load and returns a ticket the script polls - the coroutine idiom is
+    /// `var t = Game.loadSceneAsync(id); while (!Game.loadComplete(t)) yield`. loadScene is a sync
+    /// convenience for tiny scenes; sceneReady reports whether the instance's current scene is live
+    /// (a script on the convenience path waits `while (!Game.sceneReady()) yield` before scene-
+    /// dependent init). All route through host-installed pointers on the run binding (PER-INSTANCE);
+    /// unwired (bare cook VM) = safe no-ops, with loadComplete returning true so a poll never hangs.
+    class Game final : public Object
+    {
+        DRACONIC_OBJECT(Game, Object)
+    public:
+        [[nodiscard]] static ScriptRuntimeBinding* Resolve()
+        {
+            IScriptContext* context = CurrentScriptContext();
+            return context != nullptr ? static_cast<ScriptRuntimeBinding*>(
+                                            context->GetService(kScriptRuntimeService))
+                                      : nullptr;
+        }
+
+        [[nodiscard]] static i32 loadSceneAsync(Guid scene)
+        {
+            ScriptRuntimeBinding* binding = Resolve();
+            return (binding != nullptr && binding->loadSceneAsync && !scene.IsNil())
+                       ? binding->loadSceneAsync(scene)
+                       : 0;
+        }
+        [[nodiscard]] static f64 loadProgress(i32 ticket)
+        {
+            ScriptRuntimeBinding* binding = Resolve();
+            return (binding != nullptr && binding->loadProgress) ? binding->loadProgress(ticket)
+                                                                 : 1.0;
+        }
+        [[nodiscard]] static bool loadComplete(i32 ticket)
+        {
+            ScriptRuntimeBinding* binding = Resolve();
+            // Unwired -> "complete" so a `while (!loadComplete) yield` loop never hangs.
+            return (binding == nullptr || !binding->loadComplete) ? true
+                                                                  : binding->loadComplete(ticket);
+        }
+        [[nodiscard]] static bool loadFailed(i32 ticket)
+        {
+            ScriptRuntimeBinding* binding = Resolve();
+            return (binding != nullptr && binding->loadFailed) ? binding->loadFailed(ticket) : false;
+        }
+        [[nodiscard]] static bool loadScene(Guid scene)
+        {
+            ScriptRuntimeBinding* binding = Resolve();
+            return (binding != nullptr && binding->loadScene && !scene.IsNil())
+                       ? binding->loadScene(scene)
+                       : false;
+        }
+        [[nodiscard]] static bool sceneReady()
+        {
+            ScriptRuntimeBinding* binding = Resolve();
+            return (binding != nullptr && binding->sceneReady) ? binding->sceneReady() : false;
+        }
+    };
+
+    /// Registers the behavior facade types (Entity/Log/Time/Random/Scene/Game) with the global
     /// registry - call BEFORE a script manager is created (the run host and the cook's
     /// builder both do). Idempotent.
     void RegisterScriptFacadeReflection();
