@@ -110,3 +110,48 @@ TEST_CASE("scene-manager: Clear destroys the whole group and notifies")
     CHECK(aware.destroyed == 2);
     CHECK(mgr.CurrentScene() == nullptr);
 }
+
+TEST_CASE("scene-manager: inactive create + activate/deactivate gate (task #123 async level load)")
+{
+    SceneManager mgr;
+
+    // Inactive create: owned, but not ticked/rendered (not active) and not the spawn target.
+    Scene* s = mgr.CreateScene(u8"loading", /*activate*/ false);
+    REQUIRE(s != nullptr);
+    CHECK(mgr.SceneCount() == 1u);
+    CHECK(mgr.ActiveScenes().Size() == 0u);
+    CHECK_FALSE(mgr.IsActive(s));
+    CHECK(mgr.CurrentScene() == nullptr);
+
+    // Activate once resources are ready: now active + current (none was).
+    mgr.ActivateScene(s);
+    CHECK(mgr.ActiveScenes().Size() == 1u);
+    CHECK(mgr.IsActive(s));
+    CHECK(mgr.CurrentScene() == s);
+
+    // Idempotent - a second activate does not double-add.
+    mgr.ActivateScene(s);
+    CHECK(mgr.ActiveScenes().Size() == 1u);
+
+    // Deactivate: dropped from the active/render set + current cleared, but NOT destroyed.
+    mgr.DeactivateScene(s);
+    CHECK(mgr.ActiveScenes().Size() == 0u);
+    CHECK_FALSE(mgr.IsActive(s));
+    CHECK(mgr.CurrentScene() == nullptr);
+    CHECK(mgr.SceneCount() == 1u);
+
+    // Re-activation works.
+    mgr.ActivateScene(s);
+    CHECK(mgr.IsActive(s));
+
+    // Default create still auto-activates (unchanged behavior).
+    Scene* d = mgr.CreateScene(u8"default");
+    CHECK(mgr.IsActive(d));
+    CHECK(mgr.ActiveScenes().Size() == 2u);
+
+    // Activating a scene this manager does not own is a no-op (Owns guard).
+    Scene foreign(u8"foreign");
+    mgr.ActivateScene(&foreign);
+    CHECK_FALSE(mgr.IsActive(&foreign));
+    CHECK(mgr.ActiveScenes().Size() == 2u);
+}

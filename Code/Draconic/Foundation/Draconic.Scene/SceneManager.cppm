@@ -102,21 +102,69 @@ export namespace draconic::scene
 
         // ---- scene lifecycle ----
 
-        Scene* CreateScene(StringView name = u8"Scene")
+        // Create a scene. `activate` (default true = the classic behavior) adds it to the active
+        // set (ticked + rendered) and makes it current if none is; when false the scene is OWNED
+        // but INACTIVE - not ticked, not rendered, not the spawn target - until ActivateScene().
+        // The async level load creates the scene inactive and activates it only once its resources
+        // have finalized, so a half-resolved scene never ticks or renders (task #123).
+        Scene* CreateScene(StringView name = u8"Scene", bool activate = true)
         {
             UniquePtr<Scene> owned = MakeUnique<Scene>(DefaultAllocator(), name);
             Scene* scene = owned.Get();
             m_scenes.PushBack(Move(owned));
-            m_active.PushBack(scene);
-            if (m_current == nullptr)
+            if (activate)
             {
-                m_current = scene;
+                m_active.PushBack(scene);
+                if (m_current == nullptr)
+                {
+                    m_current = scene;
+                }
             }
+            // Aware state (component managers etc.) is set up regardless of active, so LoadScene can
+            // populate an inactive scene before it is activated.
             if (m_registry != nullptr)
             {
                 m_registry->NotifyCreated(*scene);
             }
             return scene;
+        }
+
+        // Add an owned-but-inactive scene to the active set (ticked + rendered); becomes current if
+        // none is. No-op if already active or not owned by this manager.
+        void ActivateScene(Scene* scene)
+        {
+            if (scene == nullptr || !Owns(scene) || IsActive(scene))
+            {
+                return;
+            }
+            m_active.PushBack(scene);
+            if (m_current == nullptr)
+            {
+                m_current = scene;
+            }
+        }
+
+        // Remove a scene from the active set (stops ticking + rendering) WITHOUT destroying it;
+        // clears current if it was current. No-op if not active.
+        void DeactivateScene(Scene* scene)
+        {
+            if (m_current == scene)
+            {
+                m_current = nullptr;
+            }
+            RemoveFromActive(scene);
+        }
+
+        [[nodiscard]] bool IsActive(const Scene* scene) const noexcept
+        {
+            for (const Scene* s : m_active)
+            {
+                if (s == scene)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
         // Deferred to the end of Update if called while updating.
         void DestroyScene(Scene* scene)
@@ -212,14 +260,7 @@ export namespace draconic::scene
             {
                 m_current = nullptr;
             }
-            for (usize i = 0; i < m_active.Size(); ++i)
-            {
-                if (m_active[i] == scene)
-                {
-                    m_active.RemoveAt(i);
-                    break;
-                }
-            }
+            RemoveFromActive(scene);
             for (usize i = 0; i < m_scenes.Size(); ++i)
             {
                 if (m_scenes[i].Get() == scene)
@@ -228,6 +269,31 @@ export namespace draconic::scene
                     break;
                 } // frees the Scene
             }
+        }
+
+        // Drop `scene` from the active set (no destroy). Shared by DeactivateScene + DestroyImmediate.
+        void RemoveFromActive(Scene* scene)
+        {
+            for (usize i = 0; i < m_active.Size(); ++i)
+            {
+                if (m_active[i] == scene)
+                {
+                    m_active.RemoveAt(i);
+                    return;
+                }
+            }
+        }
+
+        [[nodiscard]] bool Owns(const Scene* scene) const noexcept
+        {
+            for (const auto& owned : m_scenes)
+            {
+                if (owned.Get() == scene)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
         void ProcessPendingRemoves()
         {
