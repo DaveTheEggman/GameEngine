@@ -159,109 +159,207 @@ namespace draconic::editor
         RebakePreview();
     }
 
-    void FontEditorPage::RebakePreview()
+    FontEditorPage::~FontEditorPage()
     {
-        m_preview = nullptr;
-        m_previewGlyphs = 0;
-        m_previewSize = 0.0f;
-        if (m_asset.Get() != nullptr && !m_asset->fileName.IsEmpty() &&
-            m_context->Project() != nullptr)
+        if (m_activeSlot != nullptr)
         {
-            const String path =
-                PathJoin(m_context->Project()->SourcesRoot().AsView(), m_asset->fileName.AsView());
-            Result<Array<byte>> bytes = ReadFile(path.AsView());
-            if (bytes.HasValue())
+            m_activeSlot->pageAlive = false; // completion closure still owns + deletes it
+            m_activeSlot = nullptr;
+        }
+    }
+
+    FontEditorPage::BakeRequest FontEditorPage::CaptureBakeRequest()
+    {
+        BakeRequest request;
+        if (m_asset.Get() == nullptr || m_asset->fileName.IsEmpty() ||
+            m_context->Project() == nullptr)
+        {
+            return request;
+        }
+        request.valid = true;
+        request.path =
+            PathJoin(m_context->Project()->SourcesRoot().AsView(), m_asset->fileName.AsView());
+        request.distanceField = m_asset->mode == fonts::FontBakeMode::DistanceField;
+        // Coverage previews at the ramp's LARGEST size (the most informative atlas).
+        request.size = m_asset->dfSize;
+        if (!request.distanceField)
+        {
+            request.size = 14.0f;
+            for (f32 s : m_asset->sizes)
             {
-                const Span<const u8> fontBytes(
-                    reinterpret_cast<const u8*>(bytes.Value().Data()), bytes.Value().Size());
-                const bool distanceField = m_asset->mode == fonts::FontBakeMode::DistanceField;
-                // Coverage previews at the ramp's LARGEST size (the most informative atlas).
-                f32 size = m_asset->dfSize;
-                if (!distanceField)
-                {
-                    size = 14.0f;
-                    for (f32 s : m_asset->sizes)
-                    {
-                        size = Max(size, s);
-                    }
-                }
-                m_previewSize = size;
-
-                fonts::FontLoadOptions options = distanceField
-                                                     ? fonts::FontLoadOptions::DistanceField()
-                                                     : fonts::FontLoadOptions::Default();
-                options.pixelHeight = size;
-                options.firstCodepoint = m_asset->firstCodepoint;
-                options.lastCodepoint = m_asset->lastCodepoint;
-                options.atlasWidth = m_asset->atlasWidth;
-                options.atlasHeight = m_asset->atlasHeight;
-
-                if (distanceField)
-                {
-                    fonts::DFFonts::Initialize();
-                    Array<u8> copy;
-                    copy.Resize(fontBytes.Size());
-                    if (fontBytes.Size() != 0)
-                    {
-                        MemCopy(copy.Data(), fontBytes.Data(), fontBytes.Size());
-                    }
-                    fonts::TrueTypeFont font;
-                    if (font.Initialize(Move(copy), options.pixelHeight) ==
-                        fonts::FontLoadResult::Success)
-                    {
-                        Result<fonts::IFontAtlas*, fonts::FontLoadResult> baked =
-                            fonts::FontAtlasBakerFactory::Bake(font, options);
-                        if (baked.HasValue())
-                        {
-                            UniquePtr<fonts::IFontAtlas> atlas(baked.Value(), DefaultAllocator());
-                            for (i32 cp = options.firstCodepoint; cp <= options.lastCodepoint;
-                                 ++cp)
-                            {
-                                if (atlas->Contains(cp))
-                                {
-                                    ++m_previewGlyphs;
-                                }
-                            }
-                            // Decode the field for the preview: median(r,g,b) is the
-                            // signed distance (0.5 = the glyph edge); a narrow ramp around
-                            // it approximates the DF shader's screen-space anti-aliasing.
-                            // Showing the RAW channels here reads as rainbow noise.
-                            const Span<const u8> field = atlas->PixelData();
-                            Array<u8> decoded(field.Size());
-                            for (usize px = 0; px + 3 < field.Size(); px += 4)
-                            {
-                                const u8 r = field[px + 0];
-                                const u8 g = field[px + 1];
-                                const u8 b = field[px + 2];
-                                const u8 med = Max(Min(r, g), Min(Max(r, g), b));
-                                const i32 alpha = Clamp((static_cast<i32>(med) - 112) * 8, 0, 255);
-                                decoded[px + 0] = 255;
-                                decoded[px + 1] = 255;
-                                decoded[px + 2] = 255;
-                                decoded[px + 3] = static_cast<u8>(alpha);
-                            }
-                            m_preview = MakeUnique<image::OwnedImageData>(
-                                DefaultAllocator(), atlas->Width(), atlas->Height(),
-                                image::PixelFormat::RGBA8, Move(decoded),
-                                image::ImageColorSpace::Linear);
-                        }
-                    }
-                }
-                else
-                {
-                    Result<fonts::BakedFontData*, fonts::FontLoadResult> baked =
-                        fonts::FontImporter::Bake(fontBytes, options);
-                    if (baked.HasValue())
-                    {
-                        UniquePtr<fonts::BakedFontData> data(baked.Value(), DefaultAllocator());
-                        m_previewGlyphs = data->atlas->Regions().Size();
-                        m_preview = UniquePtr<image::OwnedImageData>(
-                            fonts::FontAtlasTexture::ExpandR8ToRGBA8(data->atlas),
-                            DefaultAllocator());
-                    }
-                }
+                request.size = Max(request.size, s);
             }
         }
+        request.firstCodepoint = m_asset->firstCodepoint;
+        request.lastCodepoint = m_asset->lastCodepoint;
+        request.atlasWidth = m_asset->atlasWidth;
+        request.atlasHeight = m_asset->atlasHeight;
+        if (request.distanceField)
+        {
+            fonts::DFFonts::Initialize(); // idempotent; registration happens on the UI thread
+        }
+        return request;
+    }
+
+    // Worker-side (or synchronous fallback): pure CPU, touches ONLY the request + outcome.
+    void FontEditorPage::RunBake(const BakeRequest& request, BakeOutcome& outcome)
+    {
+        outcome.generation = request.generation;
+        outcome.size = request.size;
+        if (!request.valid)
+        {
+            return;
+        }
+        Result<Array<byte>> bytes = ReadFile(request.path.AsView());
+        if (!bytes.HasValue())
+        {
+            return;
+        }
+        const Span<const u8> fontBytes(reinterpret_cast<const u8*>(bytes.Value().Data()),
+                                       bytes.Value().Size());
+
+        fonts::FontLoadOptions options = request.distanceField
+                                             ? fonts::FontLoadOptions::DistanceField()
+                                             : fonts::FontLoadOptions::Default();
+        options.pixelHeight = request.size;
+        options.firstCodepoint = request.firstCodepoint;
+        options.lastCodepoint = request.lastCodepoint;
+        options.atlasWidth = request.atlasWidth;
+        options.atlasHeight = request.atlasHeight;
+
+        if (request.distanceField)
+        {
+            Array<u8> copy;
+            copy.Resize(fontBytes.Size());
+            if (fontBytes.Size() != 0)
+            {
+                MemCopy(copy.Data(), fontBytes.Data(), fontBytes.Size());
+            }
+            fonts::TrueTypeFont font;
+            if (font.Initialize(Move(copy), options.pixelHeight) != fonts::FontLoadResult::Success)
+            {
+                return;
+            }
+            Result<fonts::IFontAtlas*, fonts::FontLoadResult> baked =
+                fonts::FontAtlasBakerFactory::Bake(font, options);
+            if (!baked.HasValue())
+            {
+                return;
+            }
+            UniquePtr<fonts::IFontAtlas> atlas(baked.Value(), DefaultAllocator());
+            for (i32 cp = options.firstCodepoint; cp <= options.lastCodepoint; ++cp)
+            {
+                if (atlas->Contains(cp))
+                {
+                    ++outcome.glyphs;
+                }
+            }
+            // Decode the field for the preview: median(r,g,b) is the signed distance
+            // (0.5 = the glyph edge); a narrow ramp around it approximates the DF
+            // shader's screen-space anti-aliasing. Showing the RAW channels here reads
+            // as rainbow noise.
+            const Span<const u8> field = atlas->PixelData();
+            Array<u8> decoded(field.Size());
+            for (usize px = 0; px + 3 < field.Size(); px += 4)
+            {
+                const u8 r = field[px + 0];
+                const u8 g = field[px + 1];
+                const u8 b = field[px + 2];
+                const u8 med = Max(Min(r, g), Min(Max(r, g), b));
+                const i32 alpha = Clamp((static_cast<i32>(med) - 112) * 8, 0, 255);
+                decoded[px + 0] = 255;
+                decoded[px + 1] = 255;
+                decoded[px + 2] = 255;
+                decoded[px + 3] = static_cast<u8>(alpha);
+            }
+            outcome.image = MakeUnique<image::OwnedImageData>(
+                DefaultAllocator(), atlas->Width(), atlas->Height(), image::PixelFormat::RGBA8,
+                Move(decoded), image::ImageColorSpace::Linear);
+        }
+        else
+        {
+            Result<fonts::BakedFontData*, fonts::FontLoadResult> baked =
+                fonts::FontImporter::Bake(fontBytes, options);
+            if (!baked.HasValue())
+            {
+                return;
+            }
+            UniquePtr<fonts::BakedFontData> data(baked.Value(), DefaultAllocator());
+            outcome.glyphs = data->atlas->Regions().Size();
+            outcome.image = UniquePtr<image::OwnedImageData>(
+                fonts::FontAtlasTexture::ExpandR8ToRGBA8(data->atlas), DefaultAllocator());
+        }
+    }
+
+    void FontEditorPage::RebakePreview()
+    {
+        BakeRequest request = CaptureBakeRequest();
+        request.generation = ++m_bakeGeneration;
+
+        EditorJobService* jobs = m_context->Jobs();
+        if (jobs == nullptr)
+        {
+            // Headless/tests: no job pump, bake in place.
+            BakeOutcome outcome;
+            RunBake(request, outcome);
+            ApplyBakeOutcome(Move(outcome));
+            return;
+        }
+        if (m_bakeBusy)
+        {
+            m_pendingRequest = Move(request); // latest-wins; submitted when the flight lands
+            m_pendingValid = true;
+            return;
+        }
+        StartBake(Move(request));
+    }
+
+    void FontEditorPage::StartBake(BakeRequest request)
+    {
+        EditorJobService* jobs = m_context->Jobs();
+        auto* slot = DefaultAllocator().New<BakeSlot>();
+        m_activeSlot = slot;
+        m_bakeBusy = true;
+        if (m_info.Get() != nullptr)
+        {
+            m_info->SetText(u8"Baking preview...");
+        }
+
+        FontEditorPage* self = this;
+        jobs->SubmitLight(
+            Function<void()>{[slot, request = Move(request)]()
+                             { RunBake(request, slot->outcome); }},
+            Function<void()>{
+                [self, slot]()
+                {
+                    // Main thread. The page may have closed mid-flight; the slot's flag is
+                    // the guard (set/read on the main thread only).
+                    if (slot->pageAlive)
+                    {
+                        self->m_activeSlot = nullptr;
+                        self->m_bakeBusy = false;
+                        self->ApplyBakeOutcome(Move(slot->outcome));
+                        if (self->m_pendingValid)
+                        {
+                            self->m_pendingValid = false;
+                            self->StartBake(Move(self->m_pendingRequest));
+                        }
+                    }
+                    DefaultAllocator().Delete(slot);
+                }});
+    }
+
+    void FontEditorPage::ApplyBakeOutcome(BakeOutcome outcome)
+    {
+        // A stale outcome (older than the newest request) never reaches the screen; the
+        // pending resubmit is already on its way.
+        if (outcome.generation != m_bakeGeneration)
+        {
+            return;
+        }
+        m_preview = Move(outcome.image);
+        m_previewGlyphs = outcome.glyphs;
+        m_previewSize = outcome.size;
 
         m_image->SetImage(m_preview.Get());
         if (m_asset.Get() == nullptr)

@@ -121,3 +121,60 @@ TEST_CASE("cook service: external mutation lock defers RunWhenIdle until release
     cook.Update({});
     CHECK(ran == 2); // released -> the deferred action replays
 }
+
+TEST_CASE("jobs: light lane runs concurrently and never trips IsBusy")
+{
+    editor::EditorJobService jobs;
+
+    // Light work completes on Update without ever making the BUILD lane busy
+    // (IsBusy gates cook mutations - previews must not lock the build).
+    int value = 0;
+    bool lightDone = false;
+    jobs.SubmitLight(Function<void()>{[&value]() { value = 42; }},
+                     Function<void()>{[&lightDone]() { lightDone = true; }});
+    CHECK_FALSE(jobs.IsBusy());
+    CHECK(jobs.IsLightBusy());
+
+    int guard = 0;
+    while (jobs.IsLightBusy() && guard++ < 2'000'000)
+    {
+        jobs.Update();
+    }
+    jobs.Update();
+    CHECK(lightDone);
+    CHECK(value == 42); // the work's writes are published before onDone
+    CHECK_FALSE(jobs.IsLightBusy());
+    CHECK_FALSE(jobs.IsBusy());
+}
+
+TEST_CASE("jobs: queued light jobs run in order; onDone may chain another")
+{
+    editor::EditorJobService jobs;
+
+    Array<i32> order;
+    bool chained = false;
+    jobs.SubmitLight(Function<void()>{}, Function<void()>{[&order]() { order.PushBack(1); }});
+    jobs.SubmitLight(Function<void()>{},
+                     Function<void()>{[&order, &chained, &jobs]()
+                                      {
+                                          order.PushBack(2);
+                                          if (!chained)
+                                          {
+                                              chained = true;
+                                              jobs.SubmitLight(Function<void()>{},
+                                                               Function<void()>{[&order]()
+                                                                                { order.PushBack(3); }});
+                                          }
+                                      }});
+
+    int guard = 0;
+    while (jobs.IsLightBusy() && guard++ < 2'000'000)
+    {
+        jobs.Update();
+    }
+    jobs.Update();
+    REQUIRE(order.Size() == 3);
+    CHECK(order[0] == 1);
+    CHECK(order[1] == 2);
+    CHECK(order[2] == 3);
+}

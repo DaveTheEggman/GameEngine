@@ -86,6 +86,26 @@ export namespace draconic::editor
             return m_running.load() || !m_queue.IsEmpty();
         }
 
+        // --- light lane ---------------------------------------------------------------
+        // Short CPU-only side work (editor preview bakes) on its OWN worker, concurrent
+        // with the build lane. Deliberately outside IsBusy(): that flag gates cook
+        // mutations, and a preview must never lock the build. No progress reporting, no
+        // cancellation - light work finishes in fractions of a second. `work` runs on the
+        // light worker; `onDone` fires on the MAIN thread from Update(). Results travel
+        // through state captured by both closures (work writes before onDone reads -
+        // the completion flag publishes them).
+        void SubmitLight(Function<void()> work, Function<void()> onDone = {})
+        {
+            m_lightQueue.PushBack(PendingLight{static_cast<Function<void()>&&>(work),
+                                               static_cast<Function<void()>&&>(onDone)});
+            StartNextLight();
+        }
+
+        [[nodiscard]] bool IsLightBusy() const noexcept
+        {
+            return m_lightRunning.load() || !m_lightQueue.IsEmpty();
+        }
+
         // Request the running job stop (cooperative; the worker must poll CancelRequested()).
         void CancelActive()
         {
@@ -114,6 +134,18 @@ export namespace draconic::editor
                         log(line.AsView());
                     }
                 }
+            }
+
+            if (m_lightFinished.exchange(false))
+            {
+                JoinLightWorker();
+                Function<void()> lightOnDone = static_cast<Function<void()>&&>(m_lightOnDone);
+                m_lightRunning.store(false);
+                if (lightOnDone)
+                {
+                    lightOnDone();
+                } // may SubmitLight() another (queued)
+                StartNextLight();
             }
 
             if (m_finished.exchange(false))
@@ -180,6 +212,7 @@ export namespace draconic::editor
         {
             CancelActive(); // cooperative - a polling job bails early instead of blocking exit
             JoinWorker();
+            JoinLightWorker();
         }
 
     private:
@@ -189,6 +222,48 @@ export namespace draconic::editor
             Function<Status(JobContext&)> work;
             Function<void(Status)> onDone;
         };
+
+        struct PendingLight
+        {
+            Function<void()> work;
+            Function<void()> onDone;
+        };
+
+        void JoinLightWorker()
+        {
+            if (m_lightWorker)
+            {
+                m_lightWorker->Join();
+                m_lightWorker.Reset();
+            }
+        }
+
+        // Main thread: dequeue and launch the next light job (no-op if busy or empty).
+        void StartNextLight()
+        {
+            if (m_lightRunning.load() || m_lightQueue.IsEmpty())
+            {
+                return;
+            }
+            PendingLight job = static_cast<PendingLight&&>(m_lightQueue[0]);
+            m_lightQueue.RemoveAt(0);
+
+            m_lightOnDone = static_cast<Function<void()>&&>(job.onDone);
+            m_lightRunning.store(true);
+            m_lightFinished.store(false);
+
+            EditorJobService* self = this;
+            m_lightWorker = MakeUnique<Thread>(
+                DefaultAllocator(),
+                [self, work = static_cast<Function<void()>&&>(job.work)]()
+                {
+                    if (work)
+                    {
+                        work();
+                    }
+                    self->m_lightFinished.store(true); // publishes the work's writes
+                });
+        }
 
         void JoinWorker()
         {
@@ -237,5 +312,12 @@ export namespace draconic::editor
         Atomic<bool> m_finished{false};
         Status m_result{};      // worker-written, main-read after m_finished (release/acquire)
         Array<Pending> m_queue; // main-thread only
+
+        // Light lane (see SubmitLight).
+        UniquePtr<Thread> m_lightWorker;
+        Function<void()> m_lightOnDone; // main thread
+        Atomic<bool> m_lightRunning{false};
+        Atomic<bool> m_lightFinished{false};
+        Array<PendingLight> m_lightQueue; // main-thread only
     };
 }

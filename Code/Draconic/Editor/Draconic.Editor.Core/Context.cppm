@@ -19,6 +19,7 @@ import draconic.content;
 import :command;
 import :selection;
 import :page;
+import :job_service;
 import :project;
 
 using namespace draconic::core;
@@ -63,6 +64,11 @@ export namespace draconic::editor
 
         /// The app owns the project; the context borrows it (null = no project open).
         void SetProject(EditorProject* project);
+
+        // The app's background-job runner (build lane + light lane). May be null in
+        // headless/test contexts - callers must fall back to synchronous work.
+        [[nodiscard]] EditorJobService* Jobs() const noexcept { return m_jobs; }
+        void SetJobs(EditorJobService* jobs) noexcept { m_jobs = jobs; }
         [[nodiscard]] EditorProject* Project() const noexcept { return m_project; }
 
         // === Importers (OS file -> Sources/ + typed Asset instance; exe-registered) ===
@@ -277,6 +283,7 @@ export namespace draconic::editor
         void NotifyPagesChanged();
 
         EditorProject* m_project = nullptr;
+        EditorJobService* m_jobs = nullptr; // borrowed (app-owned)
         draconic::resource::ResourceManager* m_resources = nullptr; // borrowed (app-owned)
         draconic::settings::Settings* m_projectEditorSettings = nullptr; // borrowed (app-owned)
         ImporterRegistry m_importers;                               // borrowed

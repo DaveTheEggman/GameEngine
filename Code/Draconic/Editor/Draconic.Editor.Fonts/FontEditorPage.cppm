@@ -38,14 +38,53 @@ export namespace draconic::editor
     public:
         FontEditorPage(EditorContext& context, draconic::content::Instance& instance);
 
+        ~FontEditorPage() override;
+
         [[nodiscard]] StringView Title() const override { return m_title.AsView(); }
         [[nodiscard]] ui::View* ContentView() override { return m_content.Get(); }
         [[nodiscard]] Status Save() override;
 
     private:
-        // Bake the preview atlas with the asset's CURRENT options (same machinery as the
-        // cook) and refresh the info line. Coverage bakes at the ramp's largest size.
+        // The preview bake runs OFF the UI thread (msdfgen over the full codepoint range
+        // takes long enough to hitch a mode switch), on the EditorJobService LIGHT lane
+        // (concurrent with the build lane; never trips the cook mutation lock). The work
+        // closure writes a heap slot; the completion fires on the main thread and applies
+        // it. LATEST-WINS: edits during a bake stash the newest request; a stale outcome
+        // is discarded and the stash re-bakes. The old preview stays on screen until its
+        // replacement is ready. No job service (tests) = synchronous fallback.
+        struct BakeRequest
+        {
+            bool valid = false;
+            String path;
+            bool distanceField = false;
+            f32 size = 0.0f;
+            i32 firstCodepoint = 0;
+            i32 lastCodepoint = 0;
+            u32 atlasWidth = 0;
+            u32 atlasHeight = 0;
+            u64 generation = 0;
+        };
+        struct BakeOutcome
+        {
+            UniquePtr<image::OwnedImageData> image;
+            usize glyphs = 0;
+            f32 size = 0.0f;
+            u64 generation = 0;
+        };
+        // Owned by the in-flight submission's closures; `pageAlive` is the page-lifetime
+        // guard (page dtor clears it; both dtor and completion run on the main thread, so
+        // this is ordering, not a race). The completion closure always deletes the slot.
+        struct BakeSlot
+        {
+            BakeOutcome outcome;
+            bool pageAlive = true;
+        };
+
         void RebakePreview();
+        void StartBake(BakeRequest request);
+        void ApplyBakeOutcome(BakeOutcome outcome);
+        [[nodiscard]] BakeRequest CaptureBakeRequest();
+        static void RunBake(const BakeRequest& request, BakeOutcome& outcome);
         void BuildGrid();
         // Sections are mode-dependent (raster ramp vs MSDF size): a mode change rebuilds the
         // grid, DEFERRED through the UI mutation queue (the change fires from a grid editor -
@@ -97,6 +136,13 @@ export namespace draconic::editor
         UniquePtr<image::OwnedImageData> m_preview; // kept alive for the ImageView (borrowed ptr)
         usize m_previewGlyphs = 0;
         f32 m_previewSize = 0.0f;
+
+        // Async bake state (main-thread only; the worker touches only its slot).
+        bool m_bakeBusy = false;
+        u64 m_bakeGeneration = 0;
+        BakeRequest m_pendingRequest; // newest request stashed while a bake is in flight
+        bool m_pendingValid = false;
+        BakeSlot* m_activeSlot = nullptr; // borrowed view of the in-flight slot
 
         RefPtr<ui::View> m_content;
         RefPtr<ui::ImageView> m_image;
