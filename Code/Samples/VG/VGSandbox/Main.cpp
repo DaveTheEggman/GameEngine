@@ -362,6 +362,33 @@ void VGSandbox::DrawFillCorrectness(vg::VGContext& vgc, f32 x, f32 y, f32 t)
         vgc.FillPath(pb.ToPath(), rings, vg::FillRule::NonZero);
     }
 
+    // Blend modes: three circle pairs over a mid-grey strip. Additive brightens where
+    // the circle overlaps the strip, multiply darkens, screen lightens without clipping
+    // (each returns to Normal so the rest of the sandbox is unaffected).
+    {
+        vg::PathBuilder strip;
+        strip.MoveTo(0.0f, 135.0f);
+        strip.LineTo(270.0f, 135.0f);
+        strip.LineTo(270.0f, 165.0f);
+        strip.LineTo(0.0f, 165.0f);
+        strip.Close();
+        vgc.FillPath(strip.ToPath(), GC(110, 110, 120, 255), vg::FillRule::NonZero);
+
+        auto blendCircle = [&](f32 cx, vg::VGBlendMode mode, Color color)
+        {
+            vgc.SetBlendMode(mode);
+            vg::PathBuilder pb;
+            vg::ShapeBuilder::BuildCircle(Float2{cx, 150.0f}, 18.0f, pb);
+            vgc.FillPath(pb.ToPath(), color, vg::FillRule::NonZero);
+            vgc.SetBlendMode(vg::VGBlendMode::Normal);
+        };
+        blendCircle(40.0f, vg::VGBlendMode::Additive, GC(180, 60, 40, 255));
+        blendCircle(110.0f, vg::VGBlendMode::Multiply, GC(220, 160, 90, 255));
+        blendCircle(180.0f, vg::VGBlendMode::Screen, GC(180, 60, 40, 255));
+        // Normal reference for eyeballing the difference.
+        blendCircle(245.0f, vg::VGBlendMode::Normal, GC(180, 60, 40, 255));
+    }
+
     vgc.PopState();
 }
 

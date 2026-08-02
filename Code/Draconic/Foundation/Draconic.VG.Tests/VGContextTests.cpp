@@ -299,6 +299,29 @@ TEST_CASE("vg.tessellation: non-pad linear gradients emit the RAW parameter")
     CHECK(padFar.x == doctest::Approx(255.5f / 256.0f)); // clamped to the last texel center
 }
 
+TEST_CASE("vg.context: blend mode rides the command and cuts the batch")
+{
+    VGContext ctx;
+    PathBuilder pb;
+    pb.MoveTo(0, 0);
+    pb.LineTo(10, 0);
+    pb.LineTo(10, 10);
+    pb.LineTo(0, 10);
+    pb.Close();
+    const Path path = pb.ToPath();
+
+    ctx.FillPath(path, Color::Red, FillRule::NonZero, false);
+    ctx.SetBlendMode(draconic::vg::VGBlendMode::Additive);
+    ctx.FillPath(path, Color::Blue, FillRule::NonZero, false);
+    ctx.SetBlendMode(draconic::vg::VGBlendMode::Normal);
+    VGBatch& batch = ctx.GetBatch();
+    REQUIRE(batch.commands.Size() >= 2u);
+    const VGCommand& first = batch.commands[batch.commands.Size() - 2];
+    const VGCommand& second = batch.commands[batch.commands.Size() - 1];
+    CHECK(first.blendMode == draconic::vg::VGBlendMode::Normal);
+    CHECK(second.blendMode == draconic::vg::VGBlendMode::Additive);
+}
+
 TEST_CASE("vg.context: over-budget LUT cache eviction is announced through the batch")
 {
     VGContext ctx;

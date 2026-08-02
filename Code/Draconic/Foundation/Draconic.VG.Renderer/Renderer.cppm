@@ -130,6 +130,13 @@ export namespace draconic::vg::renderer
             m_targetFormat = targetFormat;
             m_frameCount = frameCount;
             m_targetConfig = targetConfig;
+            // Kept for LAZY pipeline variants (non-Normal blend modes build on first
+            // use). Borrowed - the shader system owns them and outlives this renderer.
+            m_vsModule = &vertShader;
+            m_fsModule = &fragShader;
+            m_dfModule = dfFragShader;
+            m_gradRadialModule = gradRadialFragShader;
+            m_gradConicModule = gradConicFragShader;
 
             if (!CreateSampler().IsOk())
                 return ErrorCode::Unknown;
@@ -531,6 +538,13 @@ export namespace draconic::vg::renderer
             DestroyBuffers(m_indexBuffers);
             DestroyBuffers(m_vertexBuffers);
 
+            for (usize b = 0; b < kBlendVariantCount; ++b)
+                for (usize k = 0; k < kPipelineKindCount; ++k)
+                {
+                    if (m_blendPipelines[b][k] != nullptr)
+                        m_device->DestroyRenderPipeline(m_blendPipelines[b][k]);
+                    m_blendPipelines[b][k] = nullptr;
+                }
             if (m_pipeline)
                 m_device->DestroyRenderPipeline(m_pipeline);
             if (m_dfPipeline)
@@ -692,11 +706,13 @@ export namespace draconic::vg::renderer
         /// The pipeline a command renders with: stencil write/cover variants for
         /// stencil-phase commands (null = unconfigured, caller skips), else the
         /// draw-mode variant with default fallback.
-        [[nodiscard]] rhi::RenderPipeline* PipelineFor(const draconic::vg::VGCommand& cmd) const
+        [[nodiscard]] rhi::RenderPipeline* PipelineFor(const draconic::vg::VGCommand& cmd)
         {
+            const bool blended = cmd.blendMode != vg::VGBlendMode::Normal;
             switch (cmd.fillPhase)
             {
             case draconic::vg::VGFillPhase::StencilWrite:
+                // Color-masked winding accumulation: the blend state is irrelevant.
                 return cmd.fillRule == draconic::vg::FillRule::EvenOdd ? m_stencilWriteEvenOdd
                                                                        : m_stencilWriteNonZero;
             case draconic::vg::VGFillPhase::StencilCover:
@@ -704,23 +720,95 @@ export namespace draconic::vg::renderer
                     return nullptr;
                 if (cmd.drawMode == draconic::vg::VGDrawMode::GradientRadial &&
                     m_coverGradRadialPipeline != nullptr)
-                    return m_coverGradRadialPipeline;
+                    return blended ? BlendVariant(PipelineKind::CoverRadial, cmd.blendMode)
+                                   : m_coverGradRadialPipeline;
                 if (cmd.drawMode == draconic::vg::VGDrawMode::GradientConic &&
                     m_coverGradConicPipeline != nullptr)
-                    return m_coverGradConicPipeline;
-                return m_coverPipeline;
+                    return blended ? BlendVariant(PipelineKind::CoverConic, cmd.blendMode)
+                                   : m_coverGradConicPipeline;
+                return blended ? BlendVariant(PipelineKind::Cover, cmd.blendMode)
+                               : m_coverPipeline;
             case draconic::vg::VGFillPhase::Direct:
                 break;
             }
             if (cmd.drawMode == draconic::vg::VGDrawMode::DistanceField && m_dfPipeline != nullptr)
-                return m_dfPipeline;
+                return blended ? BlendVariant(PipelineKind::DistanceField, cmd.blendMode)
+                               : m_dfPipeline;
             if (cmd.drawMode == draconic::vg::VGDrawMode::GradientRadial &&
                 m_gradRadialPipeline != nullptr)
-                return m_gradRadialPipeline;
+                return blended ? BlendVariant(PipelineKind::GradRadial, cmd.blendMode)
+                               : m_gradRadialPipeline;
             if (cmd.drawMode == draconic::vg::VGDrawMode::GradientConic &&
                 m_gradConicPipeline != nullptr)
-                return m_gradConicPipeline;
-            return m_pipeline;
+                return blended ? BlendVariant(PipelineKind::GradConic, cmd.blendMode)
+                               : m_gradConicPipeline;
+            return blended ? BlendVariant(PipelineKind::Default, cmd.blendMode) : m_pipeline;
+        }
+
+        /// The fragment-shader/role families that need per-blend pipeline variants
+        /// (stencil WRITE pipelines are color-masked and blend-agnostic).
+        enum class PipelineKind : u8
+        {
+            Default,
+            DistanceField,
+            GradRadial,
+            GradConic,
+            Cover,
+            CoverRadial,
+            CoverConic,
+        };
+        static constexpr usize kPipelineKindCount = 7;
+        static constexpr usize kBlendVariantCount = 3; // Additive / Multiply / Screen
+
+        /// Get-or-create the (kind, blend) pipeline. Built on FIRST use - most content
+        /// never leaves Normal, so the whole matrix usually stays empty. Falls back to
+        /// the Normal pipeline when creation fails (wrong-blend draw beats no draw).
+        [[nodiscard]] rhi::RenderPipeline* BlendVariant(PipelineKind kind,
+                                                        vg::VGBlendMode blendMode)
+        {
+            const usize blendIndex = static_cast<usize>(blendMode) - 1; // Normal is not stored
+            rhi::RenderPipeline*& slot =
+                m_blendPipelines[blendIndex][static_cast<usize>(kind)];
+            if (slot != nullptr)
+            {
+                return slot;
+            }
+            rhi::ShaderModule* frag = nullptr;
+            StencilRole role = StencilRole::None;
+            switch (kind)
+            {
+            case PipelineKind::Default:
+                frag = m_fsModule;
+                break;
+            case PipelineKind::DistanceField:
+                frag = m_dfModule;
+                break;
+            case PipelineKind::GradRadial:
+                frag = m_gradRadialModule;
+                break;
+            case PipelineKind::GradConic:
+                frag = m_gradConicModule;
+                break;
+            case PipelineKind::Cover:
+                frag = m_fsModule;
+                role = StencilRole::Cover;
+                break;
+            case PipelineKind::CoverRadial:
+                frag = m_gradRadialModule;
+                role = StencilRole::Cover;
+                break;
+            case PipelineKind::CoverConic:
+                frag = m_gradConicModule;
+                role = StencilRole::Cover;
+                break;
+            }
+            if (m_vsModule == nullptr || frag == nullptr ||
+                !CreatePipelineVariant(*m_vsModule, *frag, role, slot, blendMode).IsOk())
+            {
+                slot = nullptr;
+                return m_pipeline;
+            }
+            return slot;
         }
 
         /// Which stencil-then-cover role a pipeline plays (None = ordinary color draw).
@@ -739,7 +827,8 @@ export namespace draconic::vg::renderer
         }
 
         Status CreatePipelineVariant(rhi::ShaderModule& vertShader, rhi::ShaderModule& fragShader,
-                                     StencilRole role, rhi::RenderPipeline*& outPipeline)
+                                     StencilRole role, rhi::RenderPipeline*& outPipeline,
+                                     vg::VGBlendMode blendMode = vg::VGBlendMode::Normal)
         {
             const rhi::VertexAttribute attributes[4] = {
                 {rhi::VertexFormat::Float32x2, 0, 0},  // position
@@ -756,8 +845,33 @@ export namespace draconic::vg::renderer
             colorTarget.format = m_targetFormat;
             // Premultiplied-alpha compositing: both VG fragment shaders output premultiplied color
             // (rgb *= a). This removes the dark halo on straight-alpha AA edges and the double-blend
-            // seams at fringe/join overlaps, and lets stencil-cover fills composite exactly.
-            colorTarget.blend = rhi::BlendState::PremultipliedAlpha();
+            // seams at fringe/join overlaps, and lets stencil-cover fills composite exactly. The
+            // non-Normal modes are the premultiplied-source formulations, alpha-aware so a fill's
+            // transparent surround leaves the destination untouched.
+            switch (blendMode)
+            {
+            case vg::VGBlendMode::Additive: // src + dst
+                colorTarget.blend = rhi::BlendState::Additive();
+                break;
+            case vg::VGBlendMode::Multiply: // src*dst + dst*(1-srcA)
+                colorTarget.blend =
+                    rhi::BlendState{{rhi::BlendFactor::Dst, rhi::BlendFactor::OneMinusSrcAlpha,
+                                     rhi::BlendOperation::Add},
+                                    {rhi::BlendFactor::One, rhi::BlendFactor::OneMinusSrcAlpha,
+                                     rhi::BlendOperation::Add}};
+                break;
+            case vg::VGBlendMode::Screen: // src + dst*(1-src)
+                colorTarget.blend =
+                    rhi::BlendState{{rhi::BlendFactor::One, rhi::BlendFactor::OneMinusSrc,
+                                     rhi::BlendOperation::Add},
+                                    {rhi::BlendFactor::One, rhi::BlendFactor::OneMinusSrcAlpha,
+                                     rhi::BlendOperation::Add}};
+                break;
+            case vg::VGBlendMode::Normal:
+            default:
+                colorTarget.blend = rhi::BlendState::PremultipliedAlpha();
+                break;
+            }
             const bool isWrite =
                 role == StencilRole::WriteNonZero || role == StencilRole::WriteEvenOdd;
             if (isWrite)
@@ -1041,6 +1155,12 @@ export namespace draconic::vg::renderer
         rhi::RenderPipeline* m_coverGradConicPipeline = nullptr;  // cover, conic (nullable)
         rhi::RenderPipeline* m_gradRadialPipeline = nullptr; // per-pixel radial gradient (nullable)
         rhi::RenderPipeline* m_gradConicPipeline = nullptr;  // per-pixel conic gradient (nullable)
+        rhi::ShaderModule* m_vsModule = nullptr; // borrowed (lazy blend variants)
+        rhi::ShaderModule* m_fsModule = nullptr;
+        rhi::ShaderModule* m_dfModule = nullptr;
+        rhi::ShaderModule* m_gradRadialModule = nullptr;
+        rhi::ShaderModule* m_gradConicModule = nullptr;
+        rhi::RenderPipeline* m_blendPipelines[3][7] = {}; // [blend-1][PipelineKind]
         rhi::Sampler* m_sampler = nullptr; // clamp: images + pad gradients
         rhi::Sampler* m_samplerRepeat = nullptr;
         rhi::Sampler* m_samplerMirror = nullptr;
