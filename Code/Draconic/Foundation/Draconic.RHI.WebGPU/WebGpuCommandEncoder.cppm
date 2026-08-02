@@ -96,7 +96,16 @@ export namespace draconic::rhi::webgpu
                     depth.depthLoadOp = ToWgpuLoadOp(attachment.depthLoadOp);
                     depth.depthStoreOp = ToWgpuStoreOp(attachment.depthStoreOp);
                 }
-                const bool hasStencil = HasStencil(attachment.view->desc.format);
+                // A view created with a default desc INHERITS the texture's format (the
+                // desc keeps Undefined) - resolve through the owner, or a stencil-capable
+                // attachment is misjudged as depth-only and the browser rejects the pass
+                // ("Both stencilLoadOp and stencilStoreOp must be set...").
+                TextureFormat dsFormat = attachment.view->desc.format;
+                if (dsFormat == TextureFormat::Undefined && attachment.view->texture != nullptr)
+                {
+                    dsFormat = attachment.view->texture->desc.format;
+                }
+                const bool hasStencil = HasStencil(dsFormat);
                 if (hasStencil)
                 {
                     if (attachment.stencilReadOnly)
