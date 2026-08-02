@@ -141,6 +141,114 @@ TEST_CASE("font.factory: cooked Alpha8 FontResource -> rasterizer-free Font prod
     RemoveTree(dir);
 }
 
+TEST_CASE("font.factory: async load matches the sync product")
+{
+    RegisterFontResource();
+    const StringView dir = u8"draconic_fontfac_async_db";
+    RemoveTree(dir);
+    NativeFileSystem mount(dir);
+    Guid id;
+    {
+        draconic::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+        auto* inst = db.RootGroup()->CreateInstance(u8"font", FontResource::StaticType());
+        id = inst->Id();
+        FontResource res;
+        AuthorFont(res, FontResourcePixels::Alpha8);
+        REQUIRE(inst->WriteObject(res).IsOk());
+        u8 pixels[8];
+        for (usize i = 0; i < sizeof(pixels); ++i)
+        {
+            pixels[i] = static_cast<u8>(0x10 * (i + 1));
+        }
+        REQUIRE(inst->WriteData(u8"data", Span<const byte>(reinterpret_cast<const byte*>(pixels),
+                                                           sizeof(pixels)))
+                    .IsOk());
+    }
+
+    draconic::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+    FontFactory factory;
+
+    ResourceManager syncManager(db);
+    syncManager.AddFactory(&factory);
+    auto a = syncManager.Bind<Font>(id);
+    REQUIRE(a);
+
+    JobSystem jobs;
+    ResourceManager asyncManager(db, &jobs);
+    asyncManager.AddFactory(&factory);
+    auto b = asyncManager.BindAsync<Font>(id);
+    asyncManager.WaitAll();
+    REQUIRE(b);
+    CHECK(b.Handle()->State() == ResourceState::Ready);
+
+    CHECK(b->Family() == a->Family());
+    REQUIRE(b->EntryCount() == a->EntryCount());
+    const Font::Entry* ea = a->ClosestEntry(13.0f);
+    const Font::Entry* eb = b->ClosestEntry(13.0f);
+    REQUIRE(ea);
+    REQUIRE(eb);
+    CHECK(eb->pixelHeight == doctest::Approx(ea->pixelHeight));
+    REQUIRE(eb->atlasImage);
+    REQUIRE(ea->atlasImage);
+    CHECK(eb->atlasImage->PixelData().Size() == ea->atlasImage->PixelData().Size());
+
+    RemoveTree(dir);
+}
+
+TEST_CASE("font.factory: many concurrent async decodes run without a race")
+{
+    RegisterFontResource();
+    const StringView dir = u8"draconic_fontfac_conc_db";
+    RemoveTree(dir);
+    NativeFileSystem mount(dir);
+
+    constexpr int kCount = 10;
+    Array<Guid> ids;
+    {
+        draconic::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+        for (int i = 0; i < kCount; ++i)
+        {
+            char8_t name[8] = {u8'f', u8'n', u8't', static_cast<char8_t>(u8'0' + i / 10),
+                               static_cast<char8_t>(u8'0' + i % 10), 0};
+            auto* inst = db.RootGroup()->CreateInstance(StringView(name), FontResource::StaticType());
+            FontResource res;
+            AuthorFont(res, FontResourcePixels::Alpha8);
+            REQUIRE(inst->WriteObject(res).IsOk());
+            u8 pixels[8];
+            for (usize j = 0; j < sizeof(pixels); ++j)
+            {
+                pixels[j] = static_cast<u8>(0x10 * (j + 1));
+            }
+            REQUIRE(inst->WriteData(u8"data", Span<const byte>(reinterpret_cast<const byte*>(pixels),
+                                                               sizeof(pixels)))
+                        .IsOk());
+            ids.PushBack(inst->Id());
+        }
+    }
+
+    draconic::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+    FontFactory factory;
+    JobSystem jobs;
+    ResourceManager manager(db, &jobs);
+    manager.AddFactory(&factory);
+
+    Array<Proxy<Font>> fonts;
+    for (const Guid& id : ids)
+    {
+        fonts.PushBack(manager.BindAsync<Font>(id));
+    }
+    manager.WaitAll();
+
+    for (Proxy<Font>& font : fonts)
+    {
+        REQUIRE(font);
+        CHECK(font.Handle()->State() == ResourceState::Ready);
+        CHECK(font->EntryCount() == 2u);
+    }
+
+    RemoveTree(dir);
+}
+
 TEST_CASE("font.factory: cooked MSDF FontResource keeps range + linear RGBA")
 {
     RegisterFontResource();

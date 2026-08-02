@@ -250,10 +250,30 @@ export namespace draconic::fonts
             return &Font::StaticType();
         }
 
-        [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
+        [[nodiscard]] RefPtr<Object> Create(ResourceManager&,
                                             draconic::content::Instance& instance) override
         {
-            (void)manager;
+            return BuildFont(instance);
+        }
+
+        // Async (task #123): the Font is a pure-CPU product (rasterizer-free glyph/kerning tables +
+        // CPU atlas images the renderer uploads itself), so the whole build - including the heavy
+        // atlas pixel read and per-entry slice copies - runs on a JobSystem worker via DecodeStage
+        // and FinalizeStage is a no-op. Safe: content-DB reads open independent streams and the
+        // FontResource + Font types are registered on the main thread at startup.
+        [[nodiscard]] bool SupportsAsync() const override { return true; }
+        [[nodiscard]] RefPtr<Object> DecodeStage(draconic::content::Instance& instance) override
+        {
+            return BuildFont(instance);
+        }
+        [[nodiscard]] RefPtr<Object> FinalizeStage(ResourceManager&, RefPtr<Object> decoded) override
+        {
+            return decoded;
+        }
+
+    private:
+        [[nodiscard]] static RefPtr<Object> BuildFont(draconic::content::Instance& instance)
+        {
             RefPtr<ISerializable> object = instance.ReadObject();
             FontResource* res = Cast<FontResource>(object.Get());
             if (res == nullptr)
