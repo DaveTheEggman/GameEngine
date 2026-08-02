@@ -605,6 +605,10 @@ namespace draconic::samples
                     auto lp = core::MakeRef<ui::FrameLayoutParams>(core::DefaultAllocator());
                     lp->Gravity = ui::Gravity::Right | ui::Gravity::Bottom;
                     m_badge->LayoutParams = lp;
+                    // Passive watermark: a hit-testable screen overlay makes the global
+                    // layer MODAL (by design, for menus) - which would shield the scene
+                    // HUD from every click.
+                    m_badge->IsHitTestVisible = false;
                 }
             }
         }

@@ -810,9 +810,11 @@ namespace draconic::ui
 
     void UISubsystem::PumpInput()
     {
-        // The global-overlay layer eats input only while occupied (see OnInit).
-        const bool overlayActive =
-            m_overlayLayer.Get() != nullptr && m_overlayLayer->ChildCount() > 0;
+        // The global-overlay layer eats input only while it holds something INTERACTIVE
+        // (see OnInit): a modal menu keeps the modal-while-occupied contract, but a
+        // passive badge/watermark (pushed with IsHitTestVisible = false) must not turn
+        // the full-window layer into a click shield over every scene HUD.
+        const bool overlayActive = OverlayLayerWantsInput();
         if (m_overlayLayer.Get() != nullptr)
         {
             m_overlayLayer->IsHitTestVisible = overlayActive;

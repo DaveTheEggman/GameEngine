@@ -402,6 +402,27 @@ export namespace draconic::ui
         {
             return m_overlayLayer.Get() != nullptr ? m_overlayLayer->ChildCount() : 0;
         }
+        /// True while the global overlay layer should intercept input: it holds at least
+        /// one HIT-TESTABLE child. Modal menus qualify; passive badges/watermarks pushed
+        /// with IsHitTestVisible = false do not - they draw above every scene without
+        /// shielding scene HUDs from the pointer. (PumpInput applies this every frame.)
+        [[nodiscard]] bool OverlayLayerWantsInput() const noexcept
+        {
+            if (m_overlayLayer.Get() == nullptr)
+            {
+                return false;
+            }
+            for (usize i = 0; i < m_overlayLayer->ChildCount(); ++i)
+            {
+                const View* child = m_overlayLayer->GetChildAt(i);
+                if (child != nullptr && child->IsHitTestVisible &&
+                    child->Visibility == VisibilityValue::Visible)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
 
         // ---- lifecycle (definitions in UISubsystemImpl.cpp) ----
         void OnInit() override;

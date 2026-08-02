@@ -299,6 +299,44 @@ TEST_CASE("ui.subsystem: an EMPTY overlay layer never blocks canvas hit-testing"
     ctx.Shutdown();
 }
 
+TEST_CASE("ui.subsystem: a PASSIVE screen overlay (badge) never turns the layer modal")
+{
+    runtime::Context ctx;
+    auto* scenes = ctx.AddSubsystem<scene::SceneSubsystem>();
+    scene::SceneManager sm(&scenes->AwareRegistry());
+    scenes->RegisterManager(&sm);
+    auto* ui = ctx.AddSubsystem<UISubsystem>();
+    ctx.Startup();
+
+    // A watermark/badge pushed with IsHitTestVisible = false must not flip the
+    // full-window overlay layer into a click shield (the WebScene HUD regression);
+    // only a hit-testable overlay (modal menu) claims input.
+    RefPtr<UIDocument> badgeDoc = MakeRef<UIDocument>(DefaultAllocator());
+    badgeDoc->markup = String(u8"<Panel width=\"80\" height=\"24\"><Label "
+                              u8"text=\"badge\"/></Panel>");
+    RefPtr<View> badge = ui->PushScreenOverlay(*badgeDoc);
+    REQUIRE(badge.Get() != nullptr);
+    badge->IsHitTestVisible = false;
+    CHECK(!ui->OverlayLayerWantsInput());
+    ctx.BeginFrame(1.0f / 60.0f); // PumpInput applies the gate to the layer
+
+    RootView* screenRoot = ui->ScreenRoot();
+    screenRoot->ViewportSize = Float2{800.0f, 600.0f};
+    ui->Context().UpdateRootView(screenRoot);
+    View* hit = screenRoot->HitTest(Float2{20.0f, 20.0f});
+    CHECK((hit == nullptr || hit == screenRoot)); // transparent despite the badge
+
+    // A modal overlay alongside it flips the layer back to input-claiming.
+    RefPtr<UIDocument> menuDoc = MakeRef<UIDocument>(DefaultAllocator());
+    menuDoc->markup =
+        String(u8"<Panel width=\"800\" height=\"600\"><Label text=\"menu\"/></Panel>");
+    RefPtr<View> menu = ui->PushScreenOverlay(*menuDoc);
+    REQUIRE(menu.Get() != nullptr);
+    CHECK(ui->OverlayLayerWantsInput());
+
+    ctx.Shutdown();
+}
+
 namespace
 {
     // Minimal pad/provider fakes for the nav pump (the input tests' pattern).
