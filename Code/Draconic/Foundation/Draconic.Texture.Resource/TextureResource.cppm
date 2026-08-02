@@ -143,6 +143,18 @@ export namespace draconic::texture
         u64 m_uid = 0;
     };
 
+    // Off-thread decode result for the async path (task #123): the parsed record + the raw cooked
+    // pixel bytes, both read on a JobSystem worker (content-DB reads open independent streams and
+    // the type/serializable registries are read-only during load, so this is concurrent-safe).
+    // FinalizeStage turns it into the live GPU Texture on the main thread.
+    class DecodedTexture final : public Object
+    {
+        DRACONIC_OBJECT(DecodedTexture, Object)
+    public:
+        RefPtr<ISerializable> record; // the cooked TextureResource record
+        Array<u8> pixels;             // cooked "data" stream bytes
+    };
+
     // Cooked TextureResource -> live GPU Texture (model A). Device-backed.
     class TextureFactory final : public IResourceFactory
     {
@@ -164,8 +176,47 @@ export namespace draconic::texture
             {
                 return RefPtr<Object>{};
             }
+            const Array<u8> pixels = ReadCookedPixels(instance);
+            return BuildTexture(*res, pixels);
+        }
 
-            // Cooked pixels (heavy "data" stream).
+        // --- async path (task #123): decode (record + pixel bytes) on a worker, upload on main ---
+        [[nodiscard]] bool SupportsAsync() const override { return true; }
+
+        [[nodiscard]] RefPtr<Object> DecodeStage(draconic::content::Instance& instance) override
+        {
+            RefPtr<DecodedTexture> decoded = MakeRef<DecodedTexture>(DefaultAllocator());
+            decoded->record = instance.ReadObject();
+            if (Cast<TextureResource>(decoded->record.Get()) == nullptr)
+            {
+                return RefPtr<Object>{}; // not a texture record -> decode failure
+            }
+            decoded->pixels = ReadCookedPixels(instance);
+            return decoded;
+        }
+
+        [[nodiscard]] RefPtr<Object> FinalizeStage(ResourceManager& manager,
+                                                   RefPtr<Object> decoded) override
+        {
+            (void)manager;
+            DecodedTexture* d = Cast<DecodedTexture>(decoded.Get());
+            if (d == nullptr)
+            {
+                return RefPtr<Object>{};
+            }
+            TextureResource* res = Cast<TextureResource>(d->record.Get());
+            if (res == nullptr)
+            {
+                return RefPtr<Object>{};
+            }
+            return BuildTexture(*res, d->pixels);
+        }
+
+    private:
+        // Read the cooked "data" stream (heavy pixel bytes). Pure: opens an independent stream, so
+        // it is safe to call from a worker (see DecodedTexture).
+        [[nodiscard]] static Array<u8> ReadCookedPixels(draconic::content::Instance& instance)
+        {
             Array<u8> pixels;
             if (UniquePtr<IStream> stream = instance.ReadData(u8"data"))
             {
@@ -180,7 +231,14 @@ export namespace draconic::texture
                     }
                 }
             }
+            return pixels;
+        }
 
+        // Create the live GPU texture/view/sampler and upload the pixels. MAIN THREAD ONLY (RHI).
+        [[nodiscard]] RefPtr<Object> BuildTexture(const TextureResource& record,
+                                                  const Array<u8>& pixels)
+        {
+            const TextureResource* res = &record;
             const bool isCube = (res->shape == TextureShape::Cubemap);
 
             rhi::TextureDesc desc{};
@@ -299,8 +357,12 @@ export namespace draconic::texture
     {
         GlobalTypeRegistry().Register(TextureResource::StaticType());
         RegisterSerializable<TextureResource>();
+        // Force the async intermediate's type to initialize on the MAIN thread; DecodeStage
+        // MakeRef<DecodedTexture>()s it on a worker, which must only ever read the type.
+        (void)DecodedTexture::StaticType();
     }
 
     DRACONIC_DEFINE_OBJECT(TextureResource, "draconic::texture")
     DRACONIC_DEFINE_OBJECT(Texture, "draconic::texture")
+    DRACONIC_DEFINE_OBJECT(DecodedTexture, "draconic::texture")
 }
