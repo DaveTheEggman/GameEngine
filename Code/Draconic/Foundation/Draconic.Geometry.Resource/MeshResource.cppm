@@ -176,6 +176,12 @@ export namespace draconic::geometry
     };
 
     // Builds a StaticMeshSource into a runtime StaticMesh.
+    //
+    // The runtime StaticMesh/SkinnedMesh is a PURE-CPU product (vertex/index arrays + submeshes;
+    // the renderer uploads to GPU buffers separately), so the async path (task #123) does the
+    // whole build - including the heavy vertex/index blob copy - on a JobSystem worker and finalize
+    // is a no-op. Safe: content-DB reads open independent streams and the mesh source + product
+    // types are registered on the main thread at startup (RegisterModelResource / AddFactory).
     class StaticMeshFactory final : public IResourceFactory
     {
     public:
@@ -183,10 +189,24 @@ export namespace draconic::geometry
         {
             return &StaticMesh::StaticType();
         }
-        [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
+        [[nodiscard]] RefPtr<Object> Create(ResourceManager&,
                                             draconic::content::Instance& instance) override
         {
-            (void)manager;
+            return BuildMesh(instance);
+        }
+        [[nodiscard]] bool SupportsAsync() const override { return true; }
+        [[nodiscard]] RefPtr<Object> DecodeStage(draconic::content::Instance& instance) override
+        {
+            return BuildMesh(instance);
+        }
+        [[nodiscard]] RefPtr<Object> FinalizeStage(ResourceManager&, RefPtr<Object> decoded) override
+        {
+            return decoded;
+        }
+
+    private:
+        [[nodiscard]] static RefPtr<Object> BuildMesh(draconic::content::Instance& instance)
+        {
             RefPtr<ISerializable> object = instance.ReadObject();
             // A SkinnedMeshSource IS-A StaticMeshSource, so a Ref<StaticMesh> can legitimately bind
             // a skinned product (the picker offers both). Build the REAL SkinnedMesh then - FillStatic
@@ -208,7 +228,7 @@ export namespace draconic::geometry
         }
     };
 
-    // Builds a SkinnedMeshSource into a runtime SkinnedMesh.
+    // Builds a SkinnedMeshSource into a runtime SkinnedMesh. Pure-CPU (see StaticMeshFactory).
     class SkinnedMeshFactory final : public IResourceFactory
     {
     public:
@@ -216,10 +236,24 @@ export namespace draconic::geometry
         {
             return &SkinnedMesh::StaticType();
         }
-        [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
+        [[nodiscard]] RefPtr<Object> Create(ResourceManager&,
                                             draconic::content::Instance& instance) override
         {
-            (void)manager;
+            return BuildMesh(instance);
+        }
+        [[nodiscard]] bool SupportsAsync() const override { return true; }
+        [[nodiscard]] RefPtr<Object> DecodeStage(draconic::content::Instance& instance) override
+        {
+            return BuildMesh(instance);
+        }
+        [[nodiscard]] RefPtr<Object> FinalizeStage(ResourceManager&, RefPtr<Object> decoded) override
+        {
+            return decoded;
+        }
+
+    private:
+        [[nodiscard]] static RefPtr<Object> BuildMesh(draconic::content::Instance& instance)
+        {
             RefPtr<ISerializable> object = instance.ReadObject();
             SkinnedMeshSource* src = Cast<SkinnedMeshSource>(object.Get());
             if (src == nullptr)
