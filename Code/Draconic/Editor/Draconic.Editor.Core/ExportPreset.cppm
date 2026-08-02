@@ -226,11 +226,17 @@ export namespace draconic::editor
     // Call once at editor startup, before LoadEditorSettings.
     inline void RegisterEditorSettingsTypes()
     {
+        // EVERY section type needs BOTH registrations: the type (so Load can match the
+        // stored name) AND the serializable factory (so Load can instantiate it). A type
+        // registered without its factory is a time bomb: the first file SAVED with that
+        // section makes every later Load abort mid-file (Settings phase-1 semantics),
+        // silently dropping the sections after it - the empty-project-list incident.
         GlobalTypeRegistry().Register(EditorExportSettings::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<EditorExportSettings>();
         GlobalTypeRegistry().Register(EditorFontSettings::StaticType(), TypeDomain(u8"Editor"));
-        GlobalTypeRegistry().Register(EditorUiSettings::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<EditorFontSettings>();
+        GlobalTypeRegistry().Register(EditorUiSettings::StaticType(), TypeDomain(u8"Editor"));
+        RegisterSerializable<EditorUiSettings>();
     }
 
     // Load the editor settings store from `root` (XML). NotFound when the file is absent (first run =>

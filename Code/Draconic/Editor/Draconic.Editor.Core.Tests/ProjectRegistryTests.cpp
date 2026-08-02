@@ -256,3 +256,46 @@ TEST_CASE("project manifest v7: defaultUiFontId (and the once-dropped defaults) 
     }
     RemoveProjectTree(dir);
 }
+
+TEST_CASE("editor.settings: every registered section type is INSTANTIABLE (factory too)")
+{
+    // A section type registered without RegisterSerializable is a time bomb: the first
+    // save that includes it makes every later Load abort mid-file (Settings phase-1
+    // semantics), silently dropping the sections after it - the empty-project-list
+    // incident (EditorUiSettings had a type registration but no factory).
+    RegisterEditorSettingsTypes();
+    RegisterProjectRegistryTypes();
+    const TypeInfo* sectionTypes[] = {
+        &EditorExportSettings::StaticType(),
+        &EditorFontSettings::StaticType(),
+        &EditorUiSettings::StaticType(),
+        &RecentProjectsSettings::StaticType(),
+    };
+    for (const TypeInfo* type : sectionTypes)
+    {
+        CHECK(GlobalSerializableRegistry().Create(type->id).Get() != nullptr);
+    }
+}
+
+TEST_CASE("editor.settings: a store with EVERY section round-trips (registry survives)")
+{
+    RegisterEditorSettingsTypes();
+    RegisterProjectRegistryTypes();
+    draconic::settings::Settings store;
+    store.Section<EditorUiSettings>().uiScale = 1.2f;
+    TouchRecentProject(store, u8"/proj/a", u8"A", u8"0.1.0");
+
+    MemoryStream buffer;
+    REQUIRE(store.Save(buffer, draconic::xml::XmlSerializerFactory()).IsOk());
+    (void)buffer.Seek(0, SeekOrigin::Begin);
+
+    draconic::settings::Settings loaded;
+    REQUIRE(loaded.Load(buffer, draconic::xml::XmlSerializerFactory()).IsOk());
+    const RecentProjectsSettings* reg = loaded.Find<RecentProjectsSettings>();
+    REQUIRE(reg != nullptr);
+    REQUIRE(reg->entries.Size() == 1u);
+    CHECK(reg->entries[0].name.AsView() == u8"A");
+    const EditorUiSettings* ui = loaded.Find<EditorUiSettings>();
+    REQUIRE(ui != nullptr);
+    CHECK(ui->uiScale == doctest::Approx(1.2f));
+}

@@ -1034,8 +1034,18 @@ namespace draconic::editor::app
         editor::RegisterEditorSettingsTypes();
         editor::RegisterProjectRegistryTypes();   // the manager's recent-projects section
         RegisterEditorProjectSettingsTypes();     // the per-project store's app-side sections
-        (void)editor::LoadEditorSettingsFromUserData(
-            m_editorSettings); // NotFound on first run is fine
+        const Status loaded = editor::LoadEditorSettingsFromUserData(m_editorSettings);
+        if (!loaded.IsOk() && loaded.Code() != ErrorCode::NotFound)
+        {
+            // NotFound (first run) is fine; anything else means the store loaded
+            // PARTIALLY (Settings aborts at the first uninstantiable section) - and a
+            // later save would rewrite the file from that gutted store, permanently
+            // losing the dropped sections (the project registry, most painfully). Say so
+            // loudly instead of quietly showing an empty manager.
+            DRACONIC_LOG_ERROR(u8"Editor",
+                               u8"editor.settings.xml load FAILED (partial store) - check for "
+                               u8"unregistered section types; later saves may drop sections");
+        }
     }
 
     String EditorApplication::TemplatesRoot() const
