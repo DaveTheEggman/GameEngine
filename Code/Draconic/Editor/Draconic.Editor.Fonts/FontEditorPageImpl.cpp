@@ -222,9 +222,27 @@ namespace draconic::editor
                                     ++m_previewGlyphs;
                                 }
                             }
+                            // Decode the field for the preview: median(r,g,b) is the
+                            // signed distance (0.5 = the glyph edge); a narrow ramp around
+                            // it approximates the DF shader's screen-space anti-aliasing.
+                            // Showing the RAW channels here reads as rainbow noise.
+                            const Span<const u8> field = atlas->PixelData();
+                            Array<u8> decoded(field.Size());
+                            for (usize px = 0; px + 3 < field.Size(); px += 4)
+                            {
+                                const u8 r = field[px + 0];
+                                const u8 g = field[px + 1];
+                                const u8 b = field[px + 2];
+                                const u8 med = Max(Min(r, g), Min(Max(r, g), b));
+                                const i32 alpha = Clamp((static_cast<i32>(med) - 112) * 8, 0, 255);
+                                decoded[px + 0] = 255;
+                                decoded[px + 1] = 255;
+                                decoded[px + 2] = 255;
+                                decoded[px + 3] = static_cast<u8>(alpha);
+                            }
                             m_preview = MakeUnique<image::OwnedImageData>(
                                 DefaultAllocator(), atlas->Width(), atlas->Height(),
-                                image::PixelFormat::RGBA8, atlas->PixelData(),
+                                image::PixelFormat::RGBA8, Move(decoded),
                                 image::ImageColorSpace::Linear);
                         }
                     }
@@ -275,15 +293,43 @@ namespace draconic::editor
         m_undoBaseline = Move(after);
         MarkDirty();
         RebakePreview();
+        if (m_asset->mode != m_gridMode)
+        {
+            QueueGridRebuild();
+        }
+    }
+
+    void FontEditorPage::QueueGridRebuild()
+    {
+        FontEditorPage* self = this;
+        ui::UIContext* ctx = (m_grid.Get() != nullptr) ? m_grid->Context : nullptr;
+        if (ctx != nullptr)
+        {
+            ctx->MutationQueueRef().QueueAction(Function<void()>{[self]() { self->BuildGrid(); }});
+        }
+        else
+        {
+            BuildGrid();
+        }
     }
 
     void FontEditorPage::BuildGrid()
     {
         m_grid->Clear();
+        m_familyRow = nullptr;
+        m_modeRow = nullptr;
+        m_sizesRow = nullptr;
+        m_dfSizeRow = nullptr;
+        m_firstRow = nullptr;
+        m_lastRow = nullptr;
+        m_atlasWidthRow = nullptr;
+        m_atlasHeightRow = nullptr;
+        m_fileRow = nullptr;
         if (m_asset.Get() == nullptr)
         {
             return;
         }
+        m_gridMode = m_asset->mode;
         FontEditorPage* self = this;
 
         auto family = MakeRef<ui::toolkit::StringEditor>(
@@ -309,6 +355,8 @@ namespace draconic::editor
         m_modeRow = mode.Get();
         m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(mode.Get()));
 
+        if (m_asset->mode == fonts::FontBakeMode::RasterRamp)
+        {
         auto sizes = MakeRef<ui::toolkit::StringEditor>(
             DefaultAllocator(), u8"Sizes (px)", FormatSizes(m_asset->sizes).AsView(),
             Function<void(StringView)>{[self](StringView v)
@@ -326,7 +374,10 @@ namespace draconic::editor
             u8"Raster Ramp");
         m_sizesRow = sizes.Get();
         m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(sizes.Get()));
+        }
 
+        if (m_asset->mode == fonts::FontBakeMode::DistanceField)
+        {
         auto dfSize = MakeRef<ui::toolkit::FloatEditor>(
             DefaultAllocator(), u8"MSDF Size (px)", static_cast<f64>(m_asset->dfSize), 8.0, 128.0,
             1.0, 0,
@@ -338,6 +389,7 @@ namespace draconic::editor
             u8"Distance Field");
         m_dfSizeRow = dfSize.Get();
         m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(dfSize.Get()));
+        }
 
         auto first = MakeRef<ui::toolkit::IntEditor>(
             DefaultAllocator(), u8"First Codepoint", static_cast<i64>(m_asset->firstCodepoint), 0,
@@ -385,11 +437,42 @@ namespace draconic::editor
         m_atlasHeightRow = atlasHeight.Get();
         m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(atlasHeight.Get()));
 
-        // Read-only source fact.
+        // Source file: read-only path display + a project-constrained picker. Free-typing
+        // is deliberately not offered - a typo would cook a dangling reference.
+        auto file = MakeRef<ui::toolkit::StringEditor>(DefaultAllocator(), u8"File",
+                                                       m_asset->fileName.AsView(),
+                                                       Function<void(StringView)>{}, u8"Source");
+        m_fileRow = file.Get();
+        m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(file.Get()));
         m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(
-            MakeRef<ui::toolkit::StringEditor>(DefaultAllocator(), u8"File",
-                                               m_asset->fileName.AsView(),
-                                               Function<void(StringView)>{}, u8"Source")
+            MakeRef<ui::toolkit::ButtonEditor>(
+                DefaultAllocator(), u8"Browse...",
+                Function<void()>{[self]()
+                                 {
+                                     ui::UIContext* ctx = (self->m_grid.Get() != nullptr)
+                                                              ? self->m_grid->Context
+                                                              : nullptr;
+                                     if (ctx == nullptr || self->m_context->Project() == nullptr)
+                                     {
+                                         return;
+                                     }
+                                     Array<String> extensions;
+                                     extensions.PushBack(String(u8".ttf"));
+                                     extensions.PushBack(String(u8".otf"));
+                                     extensions.PushBack(String(u8".ttc"));
+                                     auto dialog = MakeRef<app::PathPickerDialog>(
+                                         DefaultAllocator(), u8"Select font file",
+                                         self->m_context->Project()->SourcesRoot().AsView(),
+                                         Move(extensions));
+                                     dialog->OnPicked = [self](StringView picked)
+                                     {
+                                         self->m_asset->fileName = String(picked);
+                                         self->CommitEdit(u8"file");
+                                         self->RefreshRows();
+                                     };
+                                     dialog->Show(ctx);
+                                 }},
+                u8"Source")
                 .Get()));
     }
 
@@ -445,6 +528,10 @@ namespace draconic::editor
         RefreshRows();
         MarkDirty();
         RebakePreview();
+        if (m_asset->mode != m_gridMode)
+        {
+            QueueGridRebuild();
+        }
     }
 
     void FontEditorPage::RefreshRows()
@@ -484,6 +571,10 @@ namespace draconic::editor
         if (m_atlasHeightRow != nullptr)
         {
             m_atlasHeightRow->SetValue(static_cast<i64>(m_asset->atlasHeight));
+        }
+        if (m_fileRow != nullptr)
+        {
+            m_fileRow->SetValue(m_asset->fileName.AsView());
         }
     }
 

@@ -29,6 +29,7 @@ target_sources(Draconic.Editor.App
             UIPage.cppm
             AssetsView.cppm
             AssetPickerDialog.cppm
+            PathPickerDialog.cppm
             ImportDialog.cppm
             SettingsDialog.cppm
             PreferencesDialog.cppm

@@ -47,6 +47,10 @@ export namespace draconic::editor
         // cook) and refresh the info line. Coverage bakes at the ramp's largest size.
         void RebakePreview();
         void BuildGrid();
+        // Sections are mode-dependent (raster ramp vs MSDF size): a mode change rebuilds the
+        // grid, DEFERRED through the UI mutation queue (the change fires from a grid editor -
+        // rebuilding mid-dispatch would destroy the dispatching control).
+        void QueueGridRebuild();
         void CommitEdit(StringView mergeKey);
 
         [[nodiscard]] Array<byte> Snapshot() const;
@@ -107,6 +111,8 @@ export namespace draconic::editor
         ui::toolkit::IntEditor* m_lastRow = nullptr;
         ui::toolkit::IntEditor* m_atlasWidthRow = nullptr;
         ui::toolkit::IntEditor* m_atlasHeightRow = nullptr;
+        ui::toolkit::StringEditor* m_fileRow = nullptr;
+        fonts::FontBakeMode m_gridMode = fonts::FontBakeMode::RasterRamp; // mode the grid was built for
         Array<byte> m_undoBaseline;
     };
 
