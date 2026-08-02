@@ -249,3 +249,21 @@ TEST_CASE("image.pixelformat: distinct values")
     CHECK(PixelFormat::R8 != PixelFormat::RGBA8);
     CHECK(PixelFormat::RGBA8 != PixelFormat::BGRA8);
 }
+
+TEST_CASE("image.data: InstanceId is a per-construction identity")
+{
+    const u8 px[4] = {1, 2, 3, 4};
+    const OwnedImageData a(1, 1, PixelFormat::RGBA8, Span<const u8>(px, 4));
+    const OwnedImageData b(1, 1, PixelFormat::RGBA8, Span<const u8>(px, 4));
+    CHECK(a.InstanceId() != 0);
+    CHECK(a.InstanceId() != b.InstanceId()); // every construction is a new identity
+
+    const OwnedImageData c(a);
+    CHECK(c.InstanceId() != a.InstanceId()); // copies are new identities
+
+    // Assignment keeps the target's identity (caches keyed on it stay coherent).
+    OwnedImageData d(1, 1, PixelFormat::RGBA8, Span<const u8>(px, 4));
+    const u64 dId = d.InstanceId();
+    d = a;
+    CHECK(d.InstanceId() == dId);
+}

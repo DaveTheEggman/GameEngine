@@ -4,6 +4,7 @@
 module;
 #include "Draconic.Core/Prelude.h"
 
+#include <atomic>
 #include <cstdint>
 #include <cstring>
 #include <vector>
@@ -33,12 +34,32 @@ export namespace draconic::image
     class ImageData
     {
     public:
+        ImageData() : m_instanceId(NextInstanceId()) {}
+        // Copies are new identities; assignment keeps the target's identity (renderer
+        // caches key on it - see InstanceId()).
+        ImageData(const ImageData&) : m_instanceId(NextInstanceId()) {}
+        ImageData& operator=(const ImageData&) { return *this; }
         virtual ~ImageData() = default;
         [[nodiscard]] virtual u32 Width() const = 0;
         [[nodiscard]] virtual u32 Height() const = 0;
         [[nodiscard]] virtual PixelFormat Format() const = 0;
         [[nodiscard]] virtual Span<const u8> PixelData() const = 0;
         [[nodiscard]] virtual ImageColorSpace ColorSpace() const = 0;
+
+        /// Process-unique generation id, minted per constructed instance. Identity-keyed
+        /// GPU caches (VGRenderer's texture cache) MUST validate this alongside the raw
+        /// pointer: after delete, the allocator can hand a NEW image the SAME address, and
+        /// a pointer-only key then serves the dead image's texture (the editor's
+        /// rainbow-glyph stale previews). Never key a cache on ImageData* alone.
+        [[nodiscard]] u64 InstanceId() const { return m_instanceId; }
+
+    private:
+        static u64 NextInstanceId()
+        {
+            static std::atomic<u64> counter{1};
+            return counter.fetch_add(1, std::memory_order_relaxed);
+        }
+        u64 m_instanceId = 0;
     };
 
     /// Owns a CPU-side pixel buffer.

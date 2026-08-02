@@ -4,6 +4,7 @@
 // real backends; this covers init + the upload/slice path device-agnostically.)
 #include <doctest/doctest.h>
 #include "Draconic.Core/Prelude.h"
+#include <new>
 import draconic.core;
 import draconic.rhi;
 import draconic.rhi.null;
@@ -275,6 +276,52 @@ TEST_CASE("vg.renderer: batch eviction retires cached textures until frames age 
     renderer.BeginFrame(1); // frameCount=2: two BeginFrames age the retiree out
     CHECK(renderer.RetiredTextureCount() == 0u);
 
+    renderer.Dispose();
+    device.DestroyShaderModule(vs);
+    device.DestroyShaderModule(fs);
+}
+
+TEST_CASE("vg.renderer: texture cache detects address reuse via ImageData::InstanceId")
+{
+    rhi::null::NullDevice device{DefaultAllocator()};
+    rhi::ShaderModule* vs = MakeModule(device);
+    rhi::ShaderModule* fs = MakeModule(device);
+    REQUIRE(vs != nullptr);
+    REQUIRE(fs != nullptr);
+
+    VGRenderer renderer;
+    REQUIRE(renderer.Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, 1).IsOk());
+
+    // Two DIFFERENT images constructed at the SAME address (placement new models the
+    // allocator recycling a freed image's storage - the editor's stale rainbow previews).
+    alignas(image::OwnedImageData) u8 storage[sizeof(image::OwnedImageData)];
+    Array<u8> pixelsA(16 * 16 * 4);
+    auto* first = new (storage)
+        image::OwnedImageData(16, 16, image::PixelFormat::RGBA8, Move(pixelsA));
+    const u64 firstId = first->InstanceId();
+
+    VGContext ctx; // one long-lived context, like a real window's
+    ctx.DrawImage(first, Float2{0, 0});
+    renderer.BeginFrame(0);
+    (void)renderer.Prepare(ctx.GetBatch(), 0, 100, 100);
+    const usize baseline = renderer.CachedTextureCount(); // image + batch-internal sources
+    CHECK(baseline >= 1);
+
+    first->~OwnedImageData();
+    Array<u8> pixelsB(16 * 16 * 4);
+    auto* second = new (storage)
+        image::OwnedImageData(16, 16, image::PixelFormat::RGBA8, Move(pixelsB));
+    CHECK(second->InstanceId() != firstId); // fresh identity at the same address
+
+    ctx.Clear();
+    ctx.DrawImage(second, Float2{0, 0});
+    renderer.BeginFrame(0);
+    (void)renderer.Prepare(ctx.GetBatch(), 0, 100, 100);
+    // The stale entry was retired and the new identity REPLACED it (count unchanged) -
+    // a pointer-only key would have served the dead image's texture instead.
+    CHECK(renderer.CachedTextureCount() == baseline);
+
+    second->~OwnedImageData();
     renderer.Dispose();
     device.DestroyShaderModule(vs);
     device.DestroyShaderModule(fs);

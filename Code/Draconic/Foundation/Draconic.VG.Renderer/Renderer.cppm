@@ -397,11 +397,13 @@ export namespace draconic::vg::renderer
                 c.view = view;
                 c.external = true;
                 c.gpuTexture = nullptr;
+                c.sourceId = key->InstanceId(); // explicit re-register refreshes identity
                 return;
             }
 
             UniquePtr<CachedTexture> cached = MakeUnique<CachedTexture>(DefaultAllocator());
             cached->source = key;
+            cached->sourceId = key->InstanceId();
             cached->view = view;
             cached->external = true;
             cached->bindGroups.Resize(
@@ -478,6 +480,7 @@ export namespace draconic::vg::renderer
         struct CachedTexture
         {
             const image::ImageData* source = nullptr;
+            u64 sourceId = 0; // ImageData::InstanceId() - guards against address reuse
             rhi::Texture* gpuTexture = nullptr;
             rhi::TextureView* view = nullptr;
             Array<rhi::BindGroup*> bindGroups; // per frame
@@ -626,8 +629,23 @@ export namespace draconic::vg::renderer
                 return nullptr;
 
             for (usize i = 0; i < m_textureCache.Size(); ++i)
-                if (m_textureCache[i]->source == texture)
+            {
+                if (m_textureCache[i]->source != texture)
+                    continue;
+                if (m_textureCache[i]->sourceId == texture->InstanceId())
                     return m_textureCache[i].Get();
+                // Same address, different instance: the cached image was deleted and the
+                // allocator reused its address. Retire the stale entry (GPU resources age
+                // out with the in-flight frames) and build a fresh one below.
+                if (m_textureCache[i]->external)
+                    return nullptr; // owner must re-register the external view
+                RetiredTexture retired;
+                retired.entry = Move(m_textureCache[i]);
+                retired.framesLeft = m_frameCount;
+                m_retiredTextures.PushBack(Move(retired));
+                m_textureCache.RemoveAt(i);
+                break;
+            }
 
             const Span<const u8> pixels = texture->PixelData();
             if (pixels.Size() == 0)
@@ -676,6 +694,7 @@ export namespace draconic::vg::renderer
 
             UniquePtr<CachedTexture> cached = MakeUnique<CachedTexture>(DefaultAllocator());
             cached->source = texture;
+            cached->sourceId = texture->InstanceId();
             cached->gpuTexture = gpuTexture;
             cached->view = view;
             cached->bindGroups.Resize(static_cast<usize>(m_frameCount)); // nullptr-filled
