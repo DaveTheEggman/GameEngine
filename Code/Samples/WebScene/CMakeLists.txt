@@ -22,6 +22,9 @@ set(_webscene_common_libs
     Draconic::Materials
     Draconic::Particles
     Draconic::Engine.Particles
+    Draconic::UI
+    Draconic::UI.Resource
+    Draconic::Engine.UI
     Draconic::Policy)
 
 if(EMSCRIPTEN)
@@ -67,7 +70,10 @@ if(EMSCRIPTEN)
         "-sASYNCIFY_STACK_SIZE=1048576"
         "-sALLOW_MEMORY_GROWTH=1"
         "-sASSERTIONS=1"
-        "--preload-file=${_web_shader_pack}@shaders.dpak")
+        "--preload-file=${_web_shader_pack}@shaders.dpak"
+        # The game-UI default font, at the exact dev-tree path the UI subsystem probes -
+        # without it the HUD renders shapes but no text (the startup warning).
+        "--preload-file=${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf@Data/Assets/fonts/roboto/Roboto-Regular.ttf")
 
     set_target_properties(WebScene PROPERTIES SUFFIX ".html")
 

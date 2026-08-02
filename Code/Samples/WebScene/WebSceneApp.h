@@ -14,6 +14,9 @@
 //   - an ImGui panel (when the extension is available - desktop and, once climbed, web) tweaking
 //     exposure/sky/post (TAA/FXAA/bloom/AO/SSR) and the feature toggles
 //   - debug draw (grid/axes/wire volumes/3D text via DebugScene + FPS overlay via DebugScreen)
+//   - game UI: a scene-tier HUD canvas (click-counter button = pointer consumption), a billboard
+//     nameplate riding the spinning cube, and a screen-tier badge (PushScreenOverlay) - together
+//     they exercise both overlay passes (and their stencil attachments) + the bundled font
 //
 // Not exercised yet: skinning (needs a skinned asset - procedural skinned content is its own task)
 // and multi-view split-screen (Sandbox covers it; this scene stays single-view light).
@@ -36,6 +39,7 @@ namespace draconic::samples
     namespace geometry = draconic::geometry;
     namespace materials = draconic::materials;
     namespace particles = draconic::particles;
+    namespace ui = draconic::ui;
     namespace rhi = draconic::rhi;
 
     class WebSceneApp : public runtime::DefaultApplication
@@ -80,6 +84,7 @@ namespace draconic::samples
             BuildDecalAndSprites();
             BuildParticles();
             BuildCamera();
+            BuildGameUI(host);
 
             core::ConsoleWrite(u8"WebScene: started (WASD/QE move, hold right-mouse to look).\n");
         }
@@ -101,6 +106,42 @@ namespace draconic::samples
 #endif
 
             m_time += deltaTime;
+
+            // HUD button binding, once the UI subsystem instantiated the canvas tree
+            // (the PhysicsPlayground pattern): the click counter proves the browser's
+            // pointer path routes into game UI and is CONSUMED there.
+            if (!m_hudBound)
+            {
+                if (auto* canvases = m_scene->GetSystem<ui::UICanvasComponentManager>())
+                {
+                    if (auto* canvas = canvases->Get(m_hudEntity);
+                        canvas != nullptr && canvas->root.Get() != nullptr)
+                    {
+                        if (auto* button = core::Cast<ui::ViewGroup>(canvas->root.Get())
+                                               ->FindByName<ui::Button>(u8"ws-btn"))
+                        {
+                            WebSceneApp* self = this;
+                            ui::Button* raw = button;
+                            button->OnClick.Add(
+                                [self, raw](ui::ButtonBase*)
+                                {
+                                    ++self->m_hudClicks;
+                                    core::String text(u8"Clicks: ");
+                                    const core::u32 n = self->m_hudClicks;
+                                    if (n >= 10)
+                                    {
+                                        text.PushBack(
+                                            static_cast<core::utf8char>('0' + n / 10 % 10));
+                                    }
+                                    text.PushBack(static_cast<core::utf8char>('0' + n % 10));
+                                    raw->SetText(text.AsView());
+                                    core::ConsoleWrite(u8"WebScene: HUD button clicked\n");
+                                });
+                            m_hudBound = true;
+                        }
+                    }
+                }
+            }
 
             // The spinning cube: constant motion so TAA/velocity is always exercised.
             core::Transform ct = m_scene->GetLocalTransform(m_cube);
@@ -500,6 +541,71 @@ namespace draconic::samples
             m_scene->SetLocalTransform(m_camera, ct);
         }
 
+        // Game UI, all three faces of it (runtime documents - the proven UISandbox
+        // vocabulary: kebab-case attributes, EXPLICIT sizes):
+        //   - scene tier:  a HUD canvas (title + controls + a click-counter Button)
+        //   - billboard:   a nameplate riding the spinning cube (distance-scaled)
+        //   - screen tier: a bottom-right badge pushed onto the scene-less overlay layer
+        void BuildGameUI(runtime::IApplicationHost& host)
+        {
+            // Scene-tier HUD canvas.
+            m_hudDocument = core::MakeRef<ui::UIDocument>(core::DefaultAllocator());
+            m_hudDocument->markup = core::String(
+                u8"<Flex direction=\"vertical\" align=\"start\" padding=\"12\" spacing=\"8\">"
+                u8"  <Panel padding=\"12\" width=\"240\""
+                u8"         style=\"background: rounded-rect(rgb(28, 32, 40), radius=8);\">"
+                u8"    <Flex direction=\"vertical\" spacing=\"8\">"
+                u8"      <Label text=\"WebScene\" font-size=\"18\"/>"
+                u8"      <Label text=\"WASD/QE move - RMB look\" font-size=\"12\"/>"
+                u8"      <Button id=\"ws-btn\" text=\"Clicks: 0\" width=\"200\" height=\"36\"/>"
+                u8"    </Flex>"
+                u8"  </Panel>"
+                u8"</Flex>");
+            m_hudEntity = m_scene->CreateEntity(u8"hud");
+            if (auto* canvases = m_scene->GetSystem<ui::UICanvasComponentManager>())
+            {
+                ui::UICanvasComponent& canvas = canvases->Add(m_hudEntity);
+                canvas.document = m_hudDocument;
+            }
+
+            // Billboard nameplate on the spinning cube (the moving anchor makes the
+            // world-tracking path obvious at a glance).
+            m_plateDocument = core::MakeRef<ui::UIDocument>(core::DefaultAllocator());
+            m_plateDocument->markup = core::String(
+                u8"<Panel padding=\"4\""
+                u8"       style=\"background: rounded-rect(rgb(20, 24, 30), radius=4);\">"
+                u8"  <Label text=\"cube\" font-size=\"13\"/>"
+                u8"</Panel>");
+            if (auto* billboards = m_scene->GetSystem<ui::UIBillboardComponentManager>())
+            {
+                ui::UIBillboardComponent& plate = billboards->Add(m_cube);
+                plate.document = m_plateDocument;
+                plate.offset = core::Float3{0.0f, 1.2f, 0.0f};
+                plate.scaleMode = ui::BillboardScale::Distance;
+                plate.referenceDistance = 12.0f;
+            }
+
+            // Screen-tier badge: OUTSIDE any scene (survives scene swaps), anchored
+            // bottom-right by swapping the pushed root's layout params to the overlay
+            // layer's frame gravity.
+            if (auto* gameUi = host.Ctx().GetSubsystem<ui::UISubsystem>())
+            {
+                m_badgeDocument = core::MakeRef<ui::UIDocument>(core::DefaultAllocator());
+                m_badgeDocument->markup = core::String(
+                    u8"<Panel padding=\"6\""
+                    u8"       style=\"background: rounded-rect(rgb(20, 24, 30), radius=6);\">"
+                    u8"  <Label text=\"screen tier\" font-size=\"11\"/>"
+                    u8"</Panel>");
+                m_badge = gameUi->PushScreenOverlay(*m_badgeDocument);
+                if (m_badge.Get() != nullptr)
+                {
+                    auto lp = core::MakeRef<ui::FrameLayoutParams>(core::DefaultAllocator());
+                    lp->Gravity = ui::Gravity::Right | ui::Gravity::Bottom;
+                    m_badge->LayoutParams = lp;
+                }
+            }
+        }
+
         // Swap in a freshly built floor material for the current tweak values. The mesh
         // renderer keys material instances by UID and prunes unreferenced ones, so material
         // replacement is the clean live-tweak path.
@@ -738,6 +844,15 @@ namespace draconic::samples
         core::f32 m_time = 0.0f;
         core::f32 m_floorMetallic = 0.0f;  // floor material tweakables (SSR eye test)
         core::f32 m_floorRoughness = 0.12f;
+        // Game UI (documents keep the runtime markup alive; the badge keep-alive lets a
+        // later phase pop it).
+        core::RefPtr<ui::UIDocument> m_hudDocument;
+        core::RefPtr<ui::UIDocument> m_plateDocument;
+        core::RefPtr<ui::UIDocument> m_badgeDocument;
+        core::RefPtr<ui::View> m_badge;
+        scene::EntityHandle m_hudEntity{};
+        core::u32 m_hudClicks = 0;
+        bool m_hudBound = false;
     };
 }
 

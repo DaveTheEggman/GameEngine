@@ -31,6 +31,9 @@ import draconic.geometry;
 import draconic.materials;
 import draconic.particles;
 import draconic.engine.particles;
+import draconic.ui;
+import draconic.ui.resource; // UIDocument (runtime markup documents)
+import draconic.engine.ui;
 #if DRACONIC_HAS_EXTENSION_IMGUI
 import draconic.imgui;
 #endif
