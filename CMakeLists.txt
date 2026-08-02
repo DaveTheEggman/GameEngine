@@ -487,6 +487,7 @@ if(DRACONIC_BUILD_TESTS)
         if(TARGET Draconic::RHI.Vulkan AND TARGET Draconic::RHI.WebGPU)
             # Cross-backend pixel probe (needs BOTH backends compiled; GPUs checked at runtime).
             add_subdirectory(Code/Draconic/Foundation/Draconic.Render.Backend.Tests)
+            add_subdirectory(Code/Draconic/Foundation/Draconic.VG.Backend.Tests)
         endif()
     endif()
     draconic_test_suite(Code/Draconic/Foundation/Draconic.Render.Tests                    Draconic::Render)
