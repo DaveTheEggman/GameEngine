@@ -322,6 +322,102 @@ TEST_CASE("vg.context: blend mode rides the command and cuts the batch")
     CHECK(second.blendMode == draconic::vg::VGBlendMode::Additive);
 }
 
+TEST_CASE("vg.context: PushClipPath emits write+apply, marks draws, PopClipPath clears")
+{
+    VGContext ctx;
+    ctx.SetStencilFills(true);
+    PathBuilder clip;
+    clip.MoveTo(0, 0);
+    clip.LineTo(20, 0);
+    clip.LineTo(20, 20);
+    clip.LineTo(0, 20);
+    clip.Close();
+    ctx.PushClipPath(clip.ToPath());
+
+    PathBuilder pb;
+    pb.MoveTo(5, 5);
+    pb.LineTo(15, 5);
+    pb.LineTo(15, 15);
+    pb.LineTo(5, 15);
+    pb.Close();
+    ctx.FillPath(pb.ToPath(), Color::Red, FillRule::NonZero, false);
+    ctx.PopClipPath();
+    ctx.FillPath(pb.ToPath(), Color::Blue, FillRule::NonZero, false);
+
+    VGBatch& batch = ctx.GetBatch();
+    // Expected command stream: StencilWrite (clip winding), ClipApply, the CLIPPED
+    // fill, ClipClear, the unclipped fill.
+    REQUIRE(batch.commands.Size() == 5u);
+    CHECK(batch.commands[0].fillPhase == draconic::vg::VGFillPhase::StencilWrite);
+    CHECK(batch.commands[0].clipMode == draconic::vg::VGClipMode::None); // mask writing
+    CHECK(batch.commands[1].fillPhase == draconic::vg::VGFillPhase::ClipApply);
+    CHECK(batch.commands[2].fillPhase == draconic::vg::VGFillPhase::Direct);
+    CHECK(batch.commands[2].clipMode == draconic::vg::VGClipMode::Stencil);
+    CHECK(batch.commands[3].fillPhase == draconic::vg::VGFillPhase::ClipClear);
+    CHECK(batch.commands[4].clipMode == draconic::vg::VGClipMode::None);
+}
+
+TEST_CASE("vg.context: a COMPLEX fill inside a clip keeps both stencil roles")
+{
+    // A self-intersecting star inside a path clip: the fill's write/cover commands must
+    // carry clipMode Stencil (the renderer picks the clip-aware pipelines that confine
+    // winding to the mask and RESTORE the clip bit on cover).
+    VGContext ctx;
+    ctx.SetStencilFills(true);
+    PathBuilder clip;
+    clip.MoveTo(0, 0);
+    clip.LineTo(40, 0);
+    clip.LineTo(40, 40);
+    clip.LineTo(0, 40);
+    clip.Close();
+    ctx.PushClipPath(clip.ToPath());
+
+    PathBuilder star;
+    star.MoveTo(20, 2);
+    star.LineTo(30, 34);
+    star.LineTo(4, 14);
+    star.LineTo(36, 14);
+    star.LineTo(10, 34);
+    star.Close();
+    ctx.FillPath(star.ToPath(), Color::Green, FillRule::NonZero, false);
+    ctx.PopClipPath();
+
+    VGBatch& batch = ctx.GetBatch();
+    // clip write + apply, star write + cover, clip clear.
+    REQUIRE(batch.commands.Size() == 5u);
+    CHECK(batch.commands[2].fillPhase == draconic::vg::VGFillPhase::StencilWrite);
+    CHECK(batch.commands[2].clipMode == draconic::vg::VGClipMode::Stencil);
+    CHECK(batch.commands[3].fillPhase == draconic::vg::VGFillPhase::StencilCover);
+    CHECK(batch.commands[3].clipMode == draconic::vg::VGClipMode::Stencil);
+}
+
+TEST_CASE("vg.context: PushClipPath without stencil support degrades to bounds scissor")
+{
+    VGContext ctx; // stencil fills OFF (default)
+    ctx.Translate(10.0f, 0.0f);
+    PathBuilder clip;
+    clip.MoveTo(0, 0);
+    clip.LineTo(20, 0);
+    clip.LineTo(20, 20);
+    clip.LineTo(0, 20);
+    clip.Close();
+    ctx.PushClipPath(clip.ToPath());
+
+    PathBuilder pb;
+    pb.MoveTo(5, 5);
+    pb.LineTo(15, 5);
+    pb.LineTo(15, 15);
+    pb.LineTo(5, 15);
+    pb.Close();
+    ctx.FillPath(pb.ToPath(), Color::Red, FillRule::NonZero, false);
+    VGBatch& batch = ctx.GetBatch();
+    REQUIRE(!batch.commands.IsEmpty());
+    const VGCommand& cmd = batch.commands[batch.commands.Size() - 1];
+    CHECK(cmd.clipMode == draconic::vg::VGClipMode::Scissor);
+    CHECK(cmd.clipRect.x == doctest::Approx(10.0f)); // TRANSFORMED bounds
+    CHECK(cmd.clipRect.width == doctest::Approx(20.0f));
+}
+
 TEST_CASE("vg.context: over-budget LUT cache eviction is announced through the batch")
 {
     VGContext ctx;

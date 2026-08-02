@@ -129,6 +129,81 @@ export namespace draconic::vg
         void SetStencilFills(bool enabled) { m_stencilFills = enabled; }
         [[nodiscard]] bool StencilFills() const { return m_stencilFills; }
 
+        // === Path clipping (stencil bit 0x80; see VGFillPhase) ===
+
+        /// Clip subsequent draws to `path` (NonZero winding; EvenOdd clip paths are not
+        /// supported in v1). Requires stencil fills (a host-provided stencil attachment);
+        /// without one this degrades to a SCISSOR of the path's transformed bounds.
+        /// One level deep: nested pushes replace the active clip. Balance with
+        /// PopClipPath before Clear()/frame end.
+        void PushClipPath(const Path& path)
+        {
+            Array<FlattenedSubPath> subPaths;
+            PathFlattener::Flatten(path, GetScaledTolerance(), subPaths);
+            if (!m_stencilFills)
+            {
+                // Fallback: scissor to the transformed bounds - coarse but contained.
+                Float2 mn{3.4e38f, 3.4e38f};
+                Float2 mx{-3.4e38f, -3.4e38f};
+                for (const FlattenedSubPath& sp : subPaths)
+                {
+                    for (const Float2& pt : sp.points)
+                    {
+                        const Float2 d = TransformPoint(pt);
+                        mn.x = Min(mn.x, d.x);
+                        mn.y = Min(mn.y, d.y);
+                        mx.x = Max(mx.x, d.x);
+                        mx.y = Max(mx.y, d.y);
+                    }
+                }
+                if (mx.x > mn.x && mx.y > mn.y)
+                {
+                    FlushCurrentCommand();
+                    const Rectangle deviceRect{mn.x, mn.y, mx.x - mn.x, mx.y - mn.y};
+                    if (m_currentState.clipRect.width > 0.0f &&
+                        m_currentState.clipRect.height > 0.0f)
+                        m_currentState.clipRect =
+                            Rectangle::Intersect(m_currentState.clipRect, deviceRect);
+                    else
+                        m_currentState.clipRect = deviceRect;
+                    m_currentState.clipMode = VGClipMode::Scissor;
+                }
+                return;
+            }
+
+            // The clip geometry itself must not be clipped/scissored by prior state.
+            FlushCurrentCommand();
+            const VGClipMode savedMode = m_currentState.clipMode;
+            m_currentState.clipMode = VGClipMode::None;
+
+            // Winding fans (device-transformed), then the ClipApply quad converts the
+            // winding to the 0x80 mask and zeroes the winding bits in one op.
+            const Rectangle deviceBounds = EmitWindingFans(subPaths);
+            m_clipPathBounds = deviceBounds;
+            if (deviceBounds.width <= 0.0f || deviceBounds.height <= 0.0f)
+            {
+                m_currentState.clipMode = savedMode;
+                return;
+            }
+            EmitDeviceQuad(deviceBounds, VGFillPhase::ClipApply);
+            m_clipPathActive = true;
+            m_currentState.clipMode = VGClipMode::Stencil;
+        }
+
+        /// End the active path clip (zeroes the mask over its bounds).
+        void PopClipPath()
+        {
+            if (!m_clipPathActive)
+            {
+                m_currentState.clipMode = VGClipMode::None;
+                return;
+            }
+            FlushCurrentCommand();
+            m_currentState.clipMode = VGClipMode::None;
+            EmitDeviceQuad(m_clipPathBounds, VGFillPhase::ClipClear);
+            m_clipPathActive = false;
+        }
+
         /// Pixel snapping: axis-aligned filled rects, borders and horizontal/vertical lines are
         /// snapped to the device pixel grid and drawn WITHOUT the AA fringe (an axis-aligned edge
         /// on a pixel boundary is already crisp and needs no AA). Rotated / curved / diagonal
@@ -1280,32 +1355,12 @@ export namespace draconic::vg
         /// from each contour's first point) then a bounding-quad cover carrying the fill's
         /// color/gradient data. `fill` null = solid `solidColor` (already opacity-applied);
         /// non-null follows the same gradient plumbing as the tessellated path.
-        void EmitStencilFill(const Array<FlattenedSubPath>& subPaths, FillRule fillRule,
-                             Color solidColor, const IVGFill* fill)
+        /// Emit color-masked winding fans (one per contour, device-transformed) as a
+        /// StencilWrite command. Returns the DEVICE-space bounds of the emitted points
+        /// (zero-sized when degenerate). Shared by stencil fills and PushClipPath.
+        Rectangle EmitWindingFans(const Array<FlattenedSubPath>& subPaths,
+                                  FillRule fillRule = FillRule::NonZero)
         {
-            Float2 boundsMin{3.4e38f, 3.4e38f};
-            Float2 boundsMax{-3.4e38f, -3.4e38f};
-            usize totalPoints = 0;
-            for (const FlattenedSubPath& subPath : subPaths)
-            {
-                for (const Float2& pt : subPath.points)
-                {
-                    boundsMin.x = Min(boundsMin.x, pt.x);
-                    boundsMin.y = Min(boundsMin.y, pt.y);
-                    boundsMax.x = Max(boundsMax.x, pt.x);
-                    boundsMax.y = Max(boundsMax.y, pt.y);
-                }
-                totalPoints += subPath.points.Size();
-            }
-            if (totalPoints < 3 || boundsMax.x <= boundsMin.x || boundsMax.y <= boundsMin.y)
-            {
-                return;
-            }
-            const Rectangle bounds{boundsMin.x, boundsMin.y, boundsMax.x - boundsMin.x,
-                                   boundsMax.y - boundsMin.y};
-
-            // --- Winding pass: fans from each contour's first point. Color is masked by
-            // the renderer's stencil-write pipeline; vertex color/uv are irrelevant.
             SetDrawMode(VGDrawMode::Default);
             SetupForSolidDraw();
             FlushCurrentCommand();
@@ -1332,7 +1387,76 @@ export namespace draconic::vg
                 }
             }
             TransformVertices(writeStartVertex);
+            Float2 mn{3.4e38f, 3.4e38f};
+            Float2 mx{-3.4e38f, -3.4e38f};
+            for (usize i = writeStartVertex; i < m_batch.vertices.Size(); ++i)
+            {
+                const Float2 pt = m_batch.vertices[i].position;
+                mn.x = Min(mn.x, pt.x);
+                mn.y = Min(mn.y, pt.y);
+                mx.x = Max(mx.x, pt.x);
+                mx.y = Max(mx.y, pt.y);
+            }
             PushExplicitCommand(writeStartIndex, VGFillPhase::StencilWrite, fillRule);
+            if (mx.x <= mn.x || mx.y <= mn.y)
+            {
+                return Rectangle{0.0f, 0.0f, 0.0f, 0.0f};
+            }
+            return Rectangle{mn.x, mn.y, mx.x - mn.x, mx.y - mn.y};
+        }
+
+        /// Emit a color-masked DEVICE-space quad as `phase` (ClipApply / ClipClear -
+        /// no vertex transform: the rect is already in device coordinates).
+        void EmitDeviceQuad(Rectangle rect, VGFillPhase phase)
+        {
+            SetDrawMode(VGDrawMode::Default);
+            SetupForSolidDraw();
+            FlushCurrentCommand();
+            const i32 startIndex = static_cast<i32>(m_batch.indices.Size());
+            const u32 base = static_cast<u32>(m_batch.vertices.Size());
+            const Float2 corners[4] = {Float2{rect.x, rect.y},
+                                       Float2{rect.x + rect.width, rect.y},
+                                       Float2{rect.x + rect.width, rect.y + rect.height},
+                                       Float2{rect.x, rect.y + rect.height}};
+            for (const Float2& corner : corners)
+            {
+                m_batch.vertices.PushBack(VGVertex(
+                    corner, Float2{VGVertex::SolidUV, VGVertex::SolidUV}, Color::White));
+            }
+            const u32 quad[6] = {base, base + 1, base + 2, base, base + 2, base + 3};
+            for (u32 index : quad)
+            {
+                m_batch.indices.PushBack(index);
+            }
+            PushExplicitCommand(startIndex, phase, FillRule::NonZero);
+        }
+
+        void EmitStencilFill(const Array<FlattenedSubPath>& subPaths, FillRule fillRule,
+                             Color solidColor, const IVGFill* fill)
+        {
+            Float2 boundsMin{3.4e38f, 3.4e38f};
+            Float2 boundsMax{-3.4e38f, -3.4e38f};
+            usize totalPoints = 0;
+            for (const FlattenedSubPath& subPath : subPaths)
+            {
+                for (const Float2& pt : subPath.points)
+                {
+                    boundsMin.x = Min(boundsMin.x, pt.x);
+                    boundsMin.y = Min(boundsMin.y, pt.y);
+                    boundsMax.x = Max(boundsMax.x, pt.x);
+                    boundsMax.y = Max(boundsMax.y, pt.y);
+                }
+                totalPoints += subPath.points.Size();
+            }
+            if (totalPoints < 3 || boundsMax.x <= boundsMin.x || boundsMax.y <= boundsMin.y)
+            {
+                return;
+            }
+            const Rectangle bounds{boundsMin.x, boundsMin.y, boundsMax.x - boundsMin.x,
+                                   boundsMax.y - boundsMin.y};
+
+            // --- Winding pass (shared emitter; fans transformed to device space).
+            (void)EmitWindingFans(subPaths, fillRule);
 
             // --- Cover pass: a bounds quad with the fill's shading. Gradient fills bind
             // their LUT / per-pixel mode exactly like the tessellated path.
@@ -1566,6 +1690,8 @@ export namespace draconic::vg
         fonts::IFontService* m_fontService = nullptr;
 
         Array<VGState> m_stateStack;
+        Rectangle m_clipPathBounds{}; // DEVICE-space bounds of the active stencil clip
+        bool m_clipPathActive = false;
         VGState m_currentState;
 
         Array<Rectangle> m_clipStack;

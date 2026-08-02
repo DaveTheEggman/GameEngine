@@ -186,6 +186,15 @@ export namespace draconic::vg::renderer
                                            m_coverGradConicPipeline)
                          .IsOk())
                     return ErrorCode::Unknown;
+                // Path clipping (VGContext::PushClipPath): the mask writer + eraser.
+                if (!CreatePipelineVariant(vertShader, fragShader, StencilRole::ClipApply,
+                                           m_clipApplyPipeline)
+                         .IsOk())
+                    return ErrorCode::Unknown;
+                if (!CreatePipelineVariant(vertShader, fragShader, StencilRole::ClipClear,
+                                           m_clipClearPipeline)
+                         .IsOk())
+                    return ErrorCode::Unknown;
             }
             if (!CreatePerFrameResources().IsOk())
                 return ErrorCode::Unknown;
@@ -360,9 +369,11 @@ export namespace draconic::vg::renderer
             i32 currentTextureIndex = -2; // sentinel forces first SetBindGroup
             vg::VGGradientSpread currentSpread = vg::VGGradientSpread::Pad;
             rhi::RenderPipeline* currentPipeline = m_pipeline;
+            i32 currentStencilRef = -1; // sentinel: set on first stencil-relevant command
             if (m_coverPipeline != nullptr)
             {
                 renderPass.SetStencilReference(0); // cover tests NotEqual 0
+                currentStencilRef = 0;
             }
 
             const i32 cmdEnd = slice.drawCommandStart + slice.drawCommandCount;
@@ -385,6 +396,23 @@ export namespace draconic::vg::renderer
                     renderPass.SetPipeline(pipeline);
                     currentPipeline = pipeline;
                     currentTextureIndex = -2;
+                }
+
+                // Dynamic stencil reference: 0x80 whenever the clip mask is involved
+                // (clipped draws test Equal against it; ClipApply/clipped-cover REPLACE
+                // with it), 0 otherwise (unclipped covers compare-to-zero; ClipClear
+                // replaces with 0).
+                if (m_coverPipeline != nullptr || m_clipApplyPipeline != nullptr)
+                {
+                    const bool wantsClipRef =
+                        cmd.clipMode == draconic::vg::VGClipMode::Stencil ||
+                        cmd.fillPhase == draconic::vg::VGFillPhase::ClipApply;
+                    const i32 wantedRef = wantsClipRef ? 0x80 : 0;
+                    if (wantedRef != currentStencilRef)
+                    {
+                        renderPass.SetStencilReference(static_cast<u32>(wantedRef));
+                        currentStencilRef = wantedRef;
+                    }
                 }
 
                 if (cmd.textureIndex != currentTextureIndex ||
@@ -545,6 +573,25 @@ export namespace draconic::vg::renderer
                         m_device->DestroyRenderPipeline(m_blendPipelines[b][k]);
                     m_blendPipelines[b][k] = nullptr;
                 }
+            for (usize b = 0; b < 4; ++b)
+                for (usize k = 0; k < kPipelineKindCount; ++k)
+                {
+                    if (m_clippedPipelines[b][k] != nullptr)
+                        m_device->DestroyRenderPipeline(m_clippedPipelines[b][k]);
+                    m_clippedPipelines[b][k] = nullptr;
+                }
+            if (m_clippedWriteNonZero)
+                m_device->DestroyRenderPipeline(m_clippedWriteNonZero);
+            if (m_clippedWriteEvenOdd)
+                m_device->DestroyRenderPipeline(m_clippedWriteEvenOdd);
+            if (m_clipApplyPipeline)
+                m_device->DestroyRenderPipeline(m_clipApplyPipeline);
+            if (m_clipClearPipeline)
+                m_device->DestroyRenderPipeline(m_clipClearPipeline);
+            m_clippedWriteNonZero = nullptr;
+            m_clippedWriteEvenOdd = nullptr;
+            m_clipApplyPipeline = nullptr;
+            m_clipClearPipeline = nullptr;
             if (m_pipeline)
                 m_device->DestroyRenderPipeline(m_pipeline);
             if (m_dfPipeline)
@@ -607,6 +654,10 @@ export namespace draconic::vg::renderer
         };
 
         static constexpr usize kSpreadCount = 3; // Pad / Repeat / Reflect bind-group slots
+        // Stencil bit planes (must match VGFillPhase's contract): bit 7 = clip mask,
+        // bits 0..6 = fill winding.
+        static constexpr u8 kClipBit = 0x80;
+        static constexpr u8 kWindingMask = 0x7F;
 
         static constexpr i32 MaxVertices = 131072;
         static constexpr i32 MaxIndices = 131072 * 3;
@@ -709,10 +760,20 @@ export namespace draconic::vg::renderer
         [[nodiscard]] rhi::RenderPipeline* PipelineFor(const draconic::vg::VGCommand& cmd)
         {
             const bool blended = cmd.blendMode != vg::VGBlendMode::Normal;
+            const bool clipped = cmd.clipMode == vg::VGClipMode::Stencil;
             switch (cmd.fillPhase)
             {
+            case draconic::vg::VGFillPhase::ClipApply:
+                return m_clipApplyPipeline; // null = unconfigured, command skipped
+            case draconic::vg::VGFillPhase::ClipClear:
+                return m_clipClearPipeline;
             case draconic::vg::VGFillPhase::StencilWrite:
-                // Color-masked winding accumulation: the blend state is irrelevant.
+                // Color-masked winding accumulation: the blend state is irrelevant, the
+                // clip state is not (a clipped fill only accumulates inside the mask).
+                if (clipped)
+                    return cmd.fillRule == draconic::vg::FillRule::EvenOdd
+                               ? ClippedWrite(StencilRole::WriteEvenOdd, m_clippedWriteEvenOdd)
+                               : ClippedWrite(StencilRole::WriteNonZero, m_clippedWriteNonZero);
                 return cmd.fillRule == draconic::vg::FillRule::EvenOdd ? m_stencilWriteEvenOdd
                                                                        : m_stencilWriteNonZero;
             case draconic::vg::VGFillPhase::StencilCover:
@@ -720,30 +781,37 @@ export namespace draconic::vg::renderer
                     return nullptr;
                 if (cmd.drawMode == draconic::vg::VGDrawMode::GradientRadial &&
                     m_coverGradRadialPipeline != nullptr)
-                    return blended ? BlendVariant(PipelineKind::CoverRadial, cmd.blendMode)
-                                   : m_coverGradRadialPipeline;
+                    return (blended || clipped)
+                               ? Variant(PipelineKind::CoverRadial, cmd.blendMode, clipped)
+                               : m_coverGradRadialPipeline;
                 if (cmd.drawMode == draconic::vg::VGDrawMode::GradientConic &&
                     m_coverGradConicPipeline != nullptr)
-                    return blended ? BlendVariant(PipelineKind::CoverConic, cmd.blendMode)
-                                   : m_coverGradConicPipeline;
-                return blended ? BlendVariant(PipelineKind::Cover, cmd.blendMode)
-                               : m_coverPipeline;
+                    return (blended || clipped)
+                               ? Variant(PipelineKind::CoverConic, cmd.blendMode, clipped)
+                               : m_coverGradConicPipeline;
+                return (blended || clipped) ? Variant(PipelineKind::Cover, cmd.blendMode, clipped)
+                                            : m_coverPipeline;
             case draconic::vg::VGFillPhase::Direct:
                 break;
             }
             if (cmd.drawMode == draconic::vg::VGDrawMode::DistanceField && m_dfPipeline != nullptr)
-                return blended ? BlendVariant(PipelineKind::DistanceField, cmd.blendMode)
-                               : m_dfPipeline;
+                return (blended || clipped)
+                           ? Variant(PipelineKind::DistanceField, cmd.blendMode, clipped)
+                           : m_dfPipeline;
             if (cmd.drawMode == draconic::vg::VGDrawMode::GradientRadial &&
                 m_gradRadialPipeline != nullptr)
-                return blended ? BlendVariant(PipelineKind::GradRadial, cmd.blendMode)
-                               : m_gradRadialPipeline;
+                return (blended || clipped)
+                           ? Variant(PipelineKind::GradRadial, cmd.blendMode, clipped)
+                           : m_gradRadialPipeline;
             if (cmd.drawMode == draconic::vg::VGDrawMode::GradientConic &&
                 m_gradConicPipeline != nullptr)
-                return blended ? BlendVariant(PipelineKind::GradConic, cmd.blendMode)
-                               : m_gradConicPipeline;
-            return blended ? BlendVariant(PipelineKind::Default, cmd.blendMode) : m_pipeline;
+                return (blended || clipped)
+                           ? Variant(PipelineKind::GradConic, cmd.blendMode, clipped)
+                           : m_gradConicPipeline;
+            return (blended || clipped) ? Variant(PipelineKind::Default, cmd.blendMode, clipped)
+                                        : m_pipeline;
         }
+
 
         /// The fragment-shader/role families that need per-blend pipeline variants
         /// (stencil WRITE pipelines are color-masked and blend-agnostic).
@@ -760,15 +828,19 @@ export namespace draconic::vg::renderer
         static constexpr usize kPipelineKindCount = 7;
         static constexpr usize kBlendVariantCount = 3; // Additive / Multiply / Screen
 
-        /// Get-or-create the (kind, blend) pipeline. Built on FIRST use - most content
-        /// never leaves Normal, so the whole matrix usually stays empty. Falls back to
-        /// the Normal pipeline when creation fails (wrong-blend draw beats no draw).
-        [[nodiscard]] rhi::RenderPipeline* BlendVariant(PipelineKind kind,
-                                                        vg::VGBlendMode blendMode)
+        /// Get-or-create the (kind, blend, clipped) pipeline. Built on FIRST use - most
+        /// content never leaves (Normal, unclipped), so the matrices usually stay empty.
+        /// Blend-fallback goes to the Normal pipeline (wrong-blend draw beats no draw);
+        /// a failed CLIPPED variant returns null instead - drawing unclipped would paint
+        /// outside the clip.
+        [[nodiscard]] rhi::RenderPipeline* Variant(PipelineKind kind, vg::VGBlendMode blendMode,
+                                                   bool clipped)
         {
-            const usize blendIndex = static_cast<usize>(blendMode) - 1; // Normal is not stored
             rhi::RenderPipeline*& slot =
-                m_blendPipelines[blendIndex][static_cast<usize>(kind)];
+                clipped ? m_clippedPipelines[static_cast<usize>(blendMode)][static_cast<usize>(
+                              kind)]
+                        : m_blendPipelines[static_cast<usize>(blendMode) - 1]
+                                          [static_cast<usize>(kind)];
             if (slot != nullptr)
             {
                 return slot;
@@ -803,10 +875,11 @@ export namespace draconic::vg::renderer
                 break;
             }
             if (m_vsModule == nullptr || frag == nullptr ||
-                !CreatePipelineVariant(*m_vsModule, *frag, role, slot, blendMode).IsOk())
+                (clipped && m_targetConfig.depthStencilFormat == rhi::TextureFormat::Undefined) ||
+                !CreatePipelineVariant(*m_vsModule, *frag, role, slot, blendMode, clipped).IsOk())
             {
                 slot = nullptr;
-                return m_pipeline;
+                return clipped ? nullptr : m_pipeline;
             }
             return slot;
         }
@@ -817,8 +890,28 @@ export namespace draconic::vg::renderer
             None,
             WriteNonZero, ///< color-masked; front incr-wrap / back decr-wrap (winding count)
             WriteEvenOdd, ///< color-masked; invert both faces (parity)
-            Cover,        ///< test NotEqual 0, zero the stencil behind the covered pixels
+            Cover,        ///< test NotEqual, zero/restore behind the covered pixels
+            ClipApply,    ///< color-masked; winding -> the 0x80 clip mask (Replace)
+            ClipClear,    ///< color-masked; unconditional Replace 0 over the clip bounds
         };
+
+        /// Lazy clipped stencil-write pair (needs a stencil attachment).
+        [[nodiscard]] rhi::RenderPipeline* ClippedWrite(StencilRole role,
+                                                        rhi::RenderPipeline*& slot)
+        {
+            if (slot != nullptr)
+                return slot;
+            if (m_vsModule == nullptr || m_fsModule == nullptr ||
+                m_targetConfig.depthStencilFormat == rhi::TextureFormat::Undefined ||
+                !CreatePipelineVariant(*m_vsModule, *m_fsModule, role, slot,
+                                       vg::VGBlendMode::Normal, /*clipped*/ true)
+                     .IsOk())
+            {
+                slot = nullptr;
+                return nullptr; // skip the command rather than corrupt the mask
+            }
+            return slot;
+        }
 
         Status CreatePipelineInto(rhi::ShaderModule& vertShader, rhi::ShaderModule& fragShader,
                                   rhi::RenderPipeline*& outPipeline)
@@ -828,7 +921,8 @@ export namespace draconic::vg::renderer
 
         Status CreatePipelineVariant(rhi::ShaderModule& vertShader, rhi::ShaderModule& fragShader,
                                      StencilRole role, rhi::RenderPipeline*& outPipeline,
-                                     vg::VGBlendMode blendMode = vg::VGBlendMode::Normal)
+                                     vg::VGBlendMode blendMode = vg::VGBlendMode::Normal,
+                                     bool clipped = false)
         {
             const rhi::VertexAttribute attributes[4] = {
                 {rhi::VertexFormat::Float32x2, 0, 0},  // position
@@ -873,10 +967,11 @@ export namespace draconic::vg::renderer
                 break;
             }
             const bool isWrite =
-                role == StencilRole::WriteNonZero || role == StencilRole::WriteEvenOdd;
+                role == StencilRole::WriteNonZero || role == StencilRole::WriteEvenOdd ||
+                role == StencilRole::ClipApply || role == StencilRole::ClipClear;
             if (isWrite)
             {
-                colorTarget.writeMask = rhi::ColorWriteMask::None; // winding only, no color
+                colorTarget.writeMask = rhi::ColorWriteMask::None; // stencil only, no color
             }
             const rhi::ColorTargetState colorTargets[1] = {colorTarget};
 
@@ -911,19 +1006,28 @@ export namespace draconic::vg::renderer
                 switch (role)
                 {
                 case StencilRole::WriteNonZero:
+                    // Winding accumulates in the LOW bits only - the clip mask survives.
+                    // Clipped: only accumulate where the clip bit is set (ref 0x80).
                     ds.stencilEnabled = true;
-                    ds.stencilFront = rhi::StencilFaceState{rhi::CompareFunction::Always,
+                    ds.stencilWriteMask = kWindingMask;
+                    ds.stencilReadMask = kClipBit;
+                    ds.stencilFront = rhi::StencilFaceState{clipped ? rhi::CompareFunction::Equal
+                                                                    : rhi::CompareFunction::Always,
                                                             rhi::StencilOperation::Keep,
                                                             rhi::StencilOperation::Keep,
                                                             rhi::StencilOperation::IncrementWrap};
-                    ds.stencilBack = rhi::StencilFaceState{rhi::CompareFunction::Always,
+                    ds.stencilBack = rhi::StencilFaceState{clipped ? rhi::CompareFunction::Equal
+                                                                   : rhi::CompareFunction::Always,
                                                            rhi::StencilOperation::Keep,
                                                            rhi::StencilOperation::Keep,
                                                            rhi::StencilOperation::DecrementWrap};
                     break;
                 case StencilRole::WriteEvenOdd:
                     ds.stencilEnabled = true;
-                    ds.stencilFront = rhi::StencilFaceState{rhi::CompareFunction::Always,
+                    ds.stencilWriteMask = kWindingMask; // invert flips winding bits ONLY
+                    ds.stencilReadMask = kClipBit;
+                    ds.stencilFront = rhi::StencilFaceState{clipped ? rhi::CompareFunction::Equal
+                                                                    : rhi::CompareFunction::Always,
                                                             rhi::StencilOperation::Keep,
                                                             rhi::StencilOperation::Keep,
                                                             rhi::StencilOperation::Invert};
@@ -931,15 +1035,70 @@ export namespace draconic::vg::renderer
                     break;
                 case StencilRole::Cover:
                     ds.stencilEnabled = true;
-                    // Inside = stencil != 0 (NonZero windings and EvenOdd's 0x00/0xFF parity
-                    // both satisfy it); every op ZEROES, so the buffer is clean afterwards.
+                    if (clipped)
+                    {
+                        // Inside = clip set AND winding != 0: value != 0x80 under a FULL
+                        // read mask. Pass op REPLACE (ref 0x80) zeroes the winding while
+                        // RESTORING the clip mask.
+                        ds.stencilReadMask = 0xFF;
+                        ds.stencilWriteMask = 0xFF;
+                        ds.stencilFront =
+                            rhi::StencilFaceState{rhi::CompareFunction::NotEqual,
+                                                  rhi::StencilOperation::Keep,
+                                                  rhi::StencilOperation::Keep,
+                                                  rhi::StencilOperation::Replace};
+                    }
+                    else
+                    {
+                        // Inside = winding != 0 (clip bit ignored + preserved: both the
+                        // read and the zeroing write stay in the winding bits).
+                        ds.stencilReadMask = kWindingMask;
+                        ds.stencilWriteMask = kWindingMask;
+                        ds.stencilFront =
+                            rhi::StencilFaceState{rhi::CompareFunction::NotEqual,
+                                                  rhi::StencilOperation::Zero,
+                                                  rhi::StencilOperation::Zero,
+                                                  rhi::StencilOperation::Zero};
+                    }
+                    ds.stencilBack = ds.stencilFront;
+                    break;
+                case StencilRole::ClipApply:
+                    // Winding != 0 (winding-bit compare: ref 0x80 & 0x7F == 0) -> REPLACE
+                    // with ref 0x80: the clip mask is set and the winding zeroed in one
+                    // op. Fail (winding == 0) zeroes any stray bits.
+                    ds.stencilEnabled = true;
+                    ds.stencilReadMask = kWindingMask;
+                    ds.stencilWriteMask = 0xFF;
                     ds.stencilFront = rhi::StencilFaceState{rhi::CompareFunction::NotEqual,
                                                             rhi::StencilOperation::Zero,
                                                             rhi::StencilOperation::Zero,
-                                                            rhi::StencilOperation::Zero};
+                                                            rhi::StencilOperation::Replace};
+                    ds.stencilBack = ds.stencilFront;
+                    break;
+                case StencilRole::ClipClear:
+                    // Unconditional REPLACE with ref 0 over the clip bounds.
+                    ds.stencilEnabled = true;
+                    ds.stencilReadMask = 0xFF;
+                    ds.stencilWriteMask = 0xFF;
+                    ds.stencilFront = rhi::StencilFaceState{rhi::CompareFunction::Always,
+                                                            rhi::StencilOperation::Keep,
+                                                            rhi::StencilOperation::Keep,
+                                                            rhi::StencilOperation::Replace};
                     ds.stencilBack = ds.stencilFront;
                     break;
                 case StencilRole::None:
+                    if (clipped)
+                    {
+                        // Ordinary color draw confined to the clip mask (read-only test).
+                        ds.stencilEnabled = true;
+                        ds.stencilReadMask = kClipBit;
+                        ds.stencilWriteMask = 0;
+                        ds.stencilFront = rhi::StencilFaceState{rhi::CompareFunction::Equal,
+                                                                rhi::StencilOperation::Keep,
+                                                                rhi::StencilOperation::Keep,
+                                                                rhi::StencilOperation::Keep};
+                        ds.stencilBack = ds.stencilFront;
+                    }
                     break;
                 }
                 desc.depthStencil = ds;
@@ -1160,7 +1319,12 @@ export namespace draconic::vg::renderer
         rhi::ShaderModule* m_dfModule = nullptr;
         rhi::ShaderModule* m_gradRadialModule = nullptr;
         rhi::ShaderModule* m_gradConicModule = nullptr;
-        rhi::RenderPipeline* m_blendPipelines[3][7] = {}; // [blend-1][PipelineKind]
+        rhi::RenderPipeline* m_blendPipelines[3][7] = {}; // [blend-1][PipelineKind] (unclipped)
+        rhi::RenderPipeline* m_clippedPipelines[4][7] = {}; // [blend][PipelineKind], lazy
+        rhi::RenderPipeline* m_clippedWriteNonZero = nullptr; // lazy clipped write pair
+        rhi::RenderPipeline* m_clippedWriteEvenOdd = nullptr;
+        rhi::RenderPipeline* m_clipApplyPipeline = nullptr; // winding -> clip mask
+        rhi::RenderPipeline* m_clipClearPipeline = nullptr; // clip mask eraser
         rhi::Sampler* m_sampler = nullptr; // clamp: images + pad gradients
         rhi::Sampler* m_samplerRepeat = nullptr;
         rhi::Sampler* m_samplerMirror = nullptr;

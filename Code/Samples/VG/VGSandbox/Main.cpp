@@ -403,6 +403,33 @@ void VGSandbox::DrawFillCorrectness(vg::VGContext& vgc, f32 x, f32 y, f32 t)
         blendCircle(245.0f, vg::VGBlendMode::Normal, GC(180, 60, 40, 255));
     }
 
+    // Path clipping: a rotating star-shaped CLIP over a grid of stripes. The stripes
+    // must be visible ONLY inside the star (hard stencil edge), including a complex
+    // (self-intersecting, stencil-then-cover) fill drawn while clipped.
+    {
+        vgc.PushState();
+        vgc.Translate(320.0f, 30.0f);
+        vgc.Rotate(t * 0.2f);
+        vg::PathBuilder starClip;
+        vg::ShapeBuilder::BuildStar(Float2{0.0f, 0.0f}, 30.0f, 12.0f, 5, starClip);
+        vgc.PushClipPath(starClip.ToPath());
+        for (i32 i = -3; i <= 3; ++i)
+        {
+            vg::PathBuilder stripe;
+            const f32 sy = static_cast<f32>(i) * 9.0f - 3.0f;
+            stripe.MoveTo(-32.0f, sy);
+            stripe.LineTo(32.0f, sy);
+            stripe.LineTo(32.0f, sy + 6.0f);
+            stripe.LineTo(-32.0f, sy + 6.0f);
+            stripe.Close();
+            vgc.FillPath(stripe.ToPath(),
+                         (i % 2 == 0) ? GC(240, 200, 60, 255) : GC(60, 160, 220, 255),
+                         vg::FillRule::NonZero);
+        }
+        vgc.PopClipPath();
+        vgc.PopState();
+    }
+
     vgc.PopState();
 }
 

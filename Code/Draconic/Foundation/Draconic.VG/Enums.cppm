@@ -71,11 +71,16 @@ export namespace draconic::vg
     /// (a bounding quad that draws color where the stencil is non-zero/odd and zeroes the
     /// stencil behind itself). Requires a host-provided stencil attachment - see
     /// VGContext::SetStencilFills / VGRenderer target config.
+    /// Stencil bit-plane contract (fills + path clipping share ONE 8-bit stencil):
+    /// bit 7 (0x80) is the CLIP mask, bits 0..6 accumulate fill winding. Fill covers
+    /// zero only the winding bits; clipped covers RESTORE the clip bit via Replace.
     enum class VGFillPhase : u8
     {
         Direct,       ///< Ordinary draw (no stencil interaction).
         StencilWrite, ///< Winding pass: color-masked fans accumulate into the stencil.
         StencilCover, ///< Cover pass: draw where stencil says inside, clearing it after.
+        ClipApply,    ///< Convert accumulated clip winding to the 0x80 clip mask (color-masked).
+        ClipClear,    ///< Zero the clip mask over the clip bounds (color-masked).
     };
 
     /// How a gradient maps parameters outside [0,1] (the SVG/CSS spread methods).
