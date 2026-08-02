@@ -167,3 +167,148 @@ TEST_CASE("fonts.textDecorationMetrics: defaults + from-font")
     CHECK(m.underlineThickness >= 1);
     CHECK(m.strikethroughThickness >= 1);
 }
+
+// --- scaled views (draconic.fonts:scaled_views) -------------------------------------
+
+namespace
+{
+    // A fixed 32px "font" with one glyph ('A': advance 20, lsb 2, bbox 1,2,3,4) and
+    // kerning A->A = -1.5.
+    class StubFont final : public IFont
+    {
+    public:
+        [[nodiscard]] StringView FamilyName() const override { return u8"Stub"; }
+        [[nodiscard]] f32 PixelHeight() const override { return 32.0f; }
+        [[nodiscard]] FontMetrics Metrics() const override
+        {
+            return FontMetrics(24.0f, -8.0f, 4.0f, 32.0f, 1.0f);
+        }
+        [[nodiscard]] GlyphInfo GetGlyphInfo(i32 codepoint) const override
+        {
+            GlyphInfo info;
+            info.codepoint = codepoint;
+            info.glyphIndex = 1;
+            info.advanceWidth = 20.0f;
+            info.leftSideBearing = 2.0f;
+            info.boundingBox = draconic::fonts::Rectangle(1.0f, 2.0f, 3.0f, 4.0f);
+            return info;
+        }
+        [[nodiscard]] f32 GetKerning(i32, i32) const override { return -1.5f; }
+        [[nodiscard]] bool HasGlyph(i32) const override { return true; }
+        [[nodiscard]] f32 MeasureString(StringView text) const override
+        {
+            return static_cast<f32>(text.Size()) * 20.0f;
+        }
+        [[nodiscard]] f32 MeasureString(StringView text,
+                                        Array<GlyphPosition>& outPositions) const override
+        {
+            outPositions.Clear();
+            return MeasureString(text);
+        }
+    };
+
+    // A 128x128 DF "atlas" whose one region sits at texels (10,20,30,40) with
+    // offsets (3,-24) and advance 20.
+    class StubAtlas final : public IFontAtlas
+    {
+    public:
+        [[nodiscard]] u32 Width() const override { return 128; }
+        [[nodiscard]] u32 Height() const override { return 128; }
+        [[nodiscard]] Span<const u8> PixelData() const override { return {}; }
+        [[nodiscard]] bool Contains(i32) const override { return true; }
+        [[nodiscard]] Float2 WhitePixelUV() const override { return Float2(0.5f, 0.5f); }
+        [[nodiscard]] AtlasMode Mode() const override { return AtlasMode::DistanceField; }
+        [[nodiscard]] f32 DistanceFieldRange() const override { return 4.0f; }
+        [[nodiscard]] bool TryGetRegion(i32, AtlasRegion& region) const override
+        {
+            region = AtlasRegion(10, 20, 30, 40, 3.0f, -24.0f, 20.0f);
+            return true;
+        }
+        [[nodiscard]] bool GetGlyphQuad(i32 codepoint, f32& cursorX, f32 cursorY,
+                                        GlyphQuad& quad) const override
+        {
+            AtlasRegion region;
+            (void)TryGetRegion(codepoint, region);
+            (void)GetGlyphQuadAt(codepoint, cursorX + region.offsetX, cursorY + region.offsetY,
+                                 quad);
+            cursorX += region.advanceX;
+            return true;
+        }
+        [[nodiscard]] bool GetGlyphQuadAt(i32, f32 x, f32 y, GlyphQuad& quad) const override
+        {
+            quad = GlyphQuad(x, y, x + 30.0f, y + 40.0f, 0, 0, 1, 1);
+            return true;
+        }
+    };
+}
+
+TEST_CASE("fonts.scaledViews: font view scales metrics/advances/kerning, keeps identity")
+{
+    const StubFont base;
+    const ScaledFontView view(base, 16.0f); // half size
+
+    CHECK(view.Scale() == doctest::Approx(0.5f));
+    CHECK(view.PixelHeight() == doctest::Approx(16.0f));
+    CHECK(view.FamilyName() == StringView(u8"Stub"));
+    CHECK(view.HasGlyph('A'));
+
+    const FontMetrics metrics = view.Metrics();
+    CHECK(metrics.ascent == doctest::Approx(12.0f));
+    CHECK(metrics.descent == doctest::Approx(-4.0f));
+    CHECK(metrics.lineGap == doctest::Approx(2.0f));
+    CHECK(metrics.lineHeight == doctest::Approx(18.0f)); // ascent - descent + lineGap
+    CHECK(metrics.pixelHeight == doctest::Approx(16.0f));
+
+    const GlyphInfo info = view.GetGlyphInfo('A');
+    CHECK(info.advanceWidth == doctest::Approx(10.0f));
+    CHECK(info.leftSideBearing == doctest::Approx(1.0f));
+    CHECK(info.boundingBox.width == doctest::Approx(1.5f));
+    CHECK(info.boundingBox.height == doctest::Approx(2.0f));
+
+    CHECK(view.GetKerning('A', 'A') == doctest::Approx(-0.75f));
+    CHECK(view.MeasureString(u8"AA") == doctest::Approx(20.0f));
+
+    Array<GlyphPosition> positions;
+    const f32 width = view.MeasureString(u8"AA", positions);
+    REQUIRE(positions.Size() == 2);
+    CHECK(positions[0].x == doctest::Approx(0.0f));
+    // Second glyph: advance 10 + kerning -0.75.
+    CHECK(positions[1].x == doctest::Approx(9.25f));
+    CHECK(width == doctest::Approx(19.25f));
+}
+
+TEST_CASE("fonts.scaledViews: atlas view scales geometry, keeps texels + UVs + DF facts")
+{
+    const StubAtlas base;
+    const ScaledFontAtlasView view(base, 0.5f);
+
+    CHECK(view.Width() == 128);
+    CHECK(view.Height() == 128);
+    CHECK(view.Mode() == AtlasMode::DistanceField);
+    CHECK(view.DistanceFieldRange() == doctest::Approx(4.0f));
+    CHECK(view.Contains('A'));
+
+    AtlasRegion region;
+    REQUIRE(view.TryGetRegion('A', region));
+    CHECK(region.x == 10);          // texel rect untouched
+    CHECK(region.width == 30);
+    CHECK(region.offsetX == doctest::Approx(1.5f));
+    CHECK(region.offsetY == doctest::Approx(-12.0f));
+    CHECK(region.advanceX == doctest::Approx(10.0f));
+
+    GlyphQuad quad;
+    f32 cursorX = 100.0f;
+    REQUIRE(view.GetGlyphQuad('A', cursorX, 50.0f, quad));
+    CHECK(quad.x0 == doctest::Approx(101.5f));  // 100 + 3*0.5
+    CHECK(quad.y0 == doctest::Approx(38.0f));   // 50 - 24*0.5
+    CHECK(quad.Width() == doctest::Approx(15.0f));
+    CHECK(quad.Height() == doctest::Approx(20.0f));
+    CHECK(cursorX == doctest::Approx(110.0f));  // advanced by 20*0.5
+    // UVs still index the BASE atlas texels.
+    CHECK(quad.u0 == doctest::Approx(10.0f / 128.0f));
+    CHECK(quad.v1 == doctest::Approx(60.0f / 128.0f));
+
+    REQUIRE(view.GetGlyphQuadAt('A', 10.0f, 10.0f, quad));
+    CHECK(quad.x0 == doctest::Approx(11.5f));
+    CHECK(quad.y0 == doctest::Approx(-2.0f)); // 10 - 24*0.5
+}

@@ -111,8 +111,8 @@ export namespace draconic::ui::runtime
             // may predate them); otherwise the renderer + context fall back to the affine LUT.
             const bool perPixelGrad = m_gradRadialFs != nullptr && m_gradConicFs != nullptr;
             data->renderer.Initialize(*m_device->Raw(), *m_vs, *m_fs, window->Swap()->Format(),
-                                      static_cast<i32>(m_device->FramesInFlight()),
-                                      /*dfFrag*/ nullptr, m_gradRadialFs, m_gradConicFs);
+                                      static_cast<i32>(m_device->FramesInFlight()), m_dfFs,
+                                      m_gradRadialFs, m_gradConicFs);
             data->vg->SetPerPixelGradients(perPixelGrad);
 
             const f32 w = static_cast<f32>(window->Window().Width());
@@ -443,9 +443,14 @@ export namespace draconic::ui::runtime
             m_gradConicFs = m_shaderHost.GetVariant(u8"vg_grad_conic",
                                                     shaders::ShaderStage::Fragment,
                                                     shaders::ShaderFlags::None);
+            // MSDF text fragment (the DistanceField draw-mode pipeline); a pre-cooked pack
+            // that predates it just means DF glyph runs fall back to the default sampler.
+            m_dfFs = m_shaderHost.GetVariant(u8"vg_df", shaders::ShaderStage::Fragment,
+                                             shaders::ShaderFlags::None);
         }
 
         graphics::GraphicsDevice* m_device; // borrowed
+        rhi::ShaderModule* m_dfFs = nullptr; // MSDF text fragment (borrowed; null = no DF pipeline)
         shell::IShell* m_shell;             // borrowed
         fonts::IFontService* m_fonts;       // borrowed
         shaders::ShaderSystemHost m_shaderHost; // owns the ShaderSystem + the VG modules

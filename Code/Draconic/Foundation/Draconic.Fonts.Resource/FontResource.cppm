@@ -381,9 +381,12 @@ export namespace draconic::fonts
             {
                 if (entry.cached != nullptr)
                 {
-                    entry.cached->font = nullptr;  // product-owned
-                    entry.cached->atlas = nullptr; // product-owned
-                    DefaultAllocator().Delete(entry.cached);
+                    if (!entry.ownsViews)
+                    {
+                        entry.cached->font = nullptr;  // product-owned
+                        entry.cached->atlas = nullptr; // product-owned
+                    }
+                    DefaultAllocator().Delete(entry.cached); // frees shaper (+ owned views)
                 }
             }
             m_entries.Clear();
@@ -427,12 +430,28 @@ export namespace draconic::fonts
 
         [[nodiscard]] CachedFont* GetFont(StringView familyName, f32 pixelHeight) override
         {
+            if (Entry* exact = FindExact(familyName, pixelHeight))
+            {
+                return exact->cached;
+            }
             Entry* entry = FindClosest(familyName, pixelHeight);
             if (entry == nullptr)
             {
                 entry = FindClosest(m_defaultFamily.AsView(), pixelHeight);
             }
-            return entry != nullptr ? entry->cached : nullptr;
+            if (entry == nullptr)
+            {
+                return nullptr;
+            }
+            // Distance-field families serve every size from one bake: hand out a cached
+            // per-size scaled view instead of the bake-size tables.
+            if (entry->cached != nullptr && entry->cached->atlas != nullptr &&
+                entry->cached->atlas->Mode() == AtlasMode::DistanceField &&
+                entry->pixelHeight != pixelHeight)
+            {
+                return SynthesizeScaled(*entry, pixelHeight);
+            }
+            return entry->cached;
         }
 
         [[nodiscard]] draconic::image::ImageData* GetAtlasTexture(CachedFont* font) override
@@ -472,7 +491,48 @@ export namespace draconic::fonts
             f32 pixelHeight = 0.0f;
             CachedFont* cached = nullptr;              // owned wrapper (see class comment)
             draconic::image::ImageData* image = nullptr; // product-owned
+            bool ownsViews = false; // scaled entry: cached->font/atlas are owned view wrappers
         };
+
+        [[nodiscard]] Entry* FindExact(StringView family, f32 pixelHeight)
+        {
+            for (Entry& entry : m_entries)
+            {
+                const f32 diff = entry.pixelHeight > pixelHeight
+                                     ? entry.pixelHeight - pixelHeight
+                                     : pixelHeight - entry.pixelHeight;
+                if (entry.family.AsView() == family && diff < 0.001f)
+                {
+                    return &entry;
+                }
+            }
+            return nullptr;
+        }
+
+        // A scaled per-size entry over a DF base. The views borrow the base's product-owned
+        // font/atlas (products outlive this service's entries via the ResourceManager cache);
+        // the CachedFont owns the view wrappers + shaper (ownsViews). Cached in m_entries so
+        // the next request for this size hits FindExact. NOTE: PushBack may reallocate
+        // m_entries, so everything needed from `base` is copied out first.
+        [[nodiscard]] CachedFont* SynthesizeScaled(const Entry& base, f32 pixelHeight)
+        {
+            Entry entry;
+            entry.family = base.family;
+            entry.pixelHeight = pixelHeight;
+            entry.image = base.image; // shared with the base (same atlas texture)
+            entry.ownsViews = true;
+
+            auto* fontView =
+                DefaultAllocator().New<ScaledFontView>(*base.cached->font, pixelHeight);
+            auto* atlasView = DefaultAllocator().New<ScaledFontAtlasView>(*base.cached->atlas,
+                                                                          fontView->Scale());
+            entry.cached = DefaultAllocator().New<CachedFont>(
+                fontView, atlasView, DefaultAllocator().New<TrueTypeTextShaper>());
+
+            CachedFont* result = entry.cached;
+            m_entries.PushBack(Move(entry));
+            return result;
+        }
 
         [[nodiscard]] Entry* FindClosest(StringView family, f32 pixelHeight)
         {
@@ -480,7 +540,7 @@ export namespace draconic::fonts
             f32 bestDistance = 0.0f;
             for (Entry& entry : m_entries)
             {
-                if (entry.family.AsView() != family)
+                if (entry.ownsViews || entry.family.AsView() != family)
                 {
                     continue;
                 }

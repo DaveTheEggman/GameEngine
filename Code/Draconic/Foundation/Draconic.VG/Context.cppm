@@ -810,6 +810,20 @@ export namespace draconic::vg
                 return;
 
             const i32 textureIndex = GetOrAddTexture(atlasTex);
+
+            // Same DF handling as DrawText: MSDF atlases decode through the distance-field
+            // pipeline, or the raw field channels render as rainbow glyphs. This is the
+            // SHAPED path every real control uses (EditText, wrapped text), so without this
+            // branch the UI could never use MSDF fonts.
+            const bool isDF = font->atlas->Mode() == fonts::AtlasMode::DistanceField;
+            if (isDF)
+            {
+                SetDrawMode(VGDrawMode::DistanceField);
+                m_batch.dfPxRange = font->atlas->DistanceFieldRange();
+                m_batch.dfAtlasW = static_cast<f32>(font->atlas->Width());
+                m_batch.dfAtlasH = static_cast<f32>(font->atlas->Height());
+            }
+
             SetupForTextureDraw(textureIndex);
 
             const usize startVertex = m_batch.vertices.Size();
@@ -825,6 +839,9 @@ export namespace draconic::vg
             }
 
             TransformVertices(startVertex);
+
+            if (isDF)
+                SetDrawMode(VGDrawMode::Default);
         }
 
         /// Draw text with word wrapping. Position is the top-left of the text block.

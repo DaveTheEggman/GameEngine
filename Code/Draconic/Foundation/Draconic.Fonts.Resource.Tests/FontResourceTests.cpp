@@ -244,3 +244,64 @@ TEST_CASE("font.service: ResourceFontService resolves (family, size) over bound 
 
     RemoveTree(dir);
 }
+
+TEST_CASE("font.service: DF families synthesize cached per-size scaled views")
+{
+    RegisterFontResource();
+    const StringView dir = u8"draconic_fontsvc_df_db";
+    RemoveTree(dir);
+
+    NativeFileSystem mount(dir);
+    Guid id;
+    {
+        draconic::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+        auto* inst = db.RootGroup()->CreateInstance(u8"font", FontResource::StaticType());
+        id = inst->Id();
+        FontResource res;
+        AuthorFont(res, FontResourcePixels::DistanceField);
+        REQUIRE(inst->WriteObject(res).IsOk());
+        u8 pixels[32] = {};
+        REQUIRE(inst->WriteData(u8"data", Span<const byte>(reinterpret_cast<const byte*>(pixels),
+                                                           sizeof(pixels)))
+                    .IsOk());
+    }
+
+    draconic::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+    ResourceManager manager(db);
+    FontFactory factory;
+    manager.AddFactory(&factory);
+    Proxy<Font> font = manager.Bind<Font>(id);
+    REQUIRE(font);
+
+    ResourceFontService service;
+    service.AddFont(font.Get());
+
+    // Baked sizes resolve to the products themselves (no view wrapping).
+    CachedFont* at12 = service.GetFont(u8"TestFamily", 12.0f);
+    REQUIRE(at12 != nullptr);
+    CHECK(at12->font->PixelHeight() == doctest::Approx(12.0f));
+
+    // A non-baked size gets a scaled view over the closest bake (12px), not the raw tables.
+    CachedFont* at16 = service.GetFont(u8"TestFamily", 16.0f);
+    REQUIRE(at16 != nullptr);
+    CHECK(at16 != at12);
+    CHECK(at16->font->PixelHeight() == doctest::Approx(16.0f));
+    CHECK(at16->atlas->Mode() == AtlasMode::DistanceField);
+    CHECK(at16->atlas->DistanceFieldRange() == doctest::Approx(3.0f));
+    // Advance scales with the view: 6.0 at the 12px bake -> 8.0 at 16px.
+    CHECK(at16->font->GetGlyphInfo('A').advanceWidth == doctest::Approx(8.0f));
+
+    // The synthesized entry is cached: the same size returns the same CachedFont, and its
+    // atlas texture is the BASE bake's image.
+    CHECK(service.GetFont(u8"TestFamily", 16.0f) == at16);
+    CHECK(service.GetAtlasTexture(at16) != nullptr);
+    CHECK(service.GetAtlasTexture(at16) == service.GetAtlasTexture(at12));
+
+    // Shaping runs over the view (IFont-generic shaper).
+    Array<GlyphPosition> positions;
+    Result<f32> width = at16->shaper->ShapeText(*at16->font, u8"A", positions);
+    REQUIRE(width.HasValue());
+    CHECK(width.Value() == doctest::Approx(8.0f));
+
+    RemoveTree(dir);
+}

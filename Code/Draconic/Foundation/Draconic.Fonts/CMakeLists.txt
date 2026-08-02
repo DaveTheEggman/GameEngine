@@ -14,5 +14,6 @@ target_sources(Draconic.Fonts
             TextUtil.cppm
             FontAtlasTexture.cppm
             NullFontService.cppm
+            ScaledViews.cppm
             FontsModule.cppm)
 

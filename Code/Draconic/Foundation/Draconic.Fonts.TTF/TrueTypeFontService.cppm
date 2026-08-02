@@ -112,7 +112,18 @@ export namespace draconic::fonts
             if (const FontEntry* exact = FindExact(familyName, pixelHeight))
                 return exact->cachedFont;
             if (const FontEntry* closest = FindClosest(familyName, pixelHeight))
+            {
+                // Distance-field families serve EVERY size from one bake: synthesize (and
+                // cache) a scaled view instead of handing out the bake-size tables - the
+                // per-size-scaled-views gap that kept the UI off MSDF.
+                if (closest->cachedFont != nullptr && closest->cachedFont->atlas != nullptr &&
+                    closest->cachedFont->atlas->Mode() == AtlasMode::DistanceField &&
+                    closest->pixelHeight != pixelHeight)
+                {
+                    return SynthesizeScaled(*closest, familyName, pixelHeight);
+                }
                 return closest->cachedFont;
+            }
             return m_defaultFont;
         }
 
@@ -146,7 +157,8 @@ export namespace draconic::fonts
             String family;
             f32 pixelHeight = 0;
             CachedFont* cachedFont = nullptr;                   // owns font/atlas/shaper
-            draconic::image::OwnedImageData* texture = nullptr; // owned
+            draconic::image::OwnedImageData* texture = nullptr; // owned unless sharedTexture
+            bool sharedTexture = false; // scaled-view entry: texture belongs to the base entry
         };
 
         static void DeleteEntry(FontEntry* entry)
@@ -154,7 +166,8 @@ export namespace draconic::fonts
             if (entry == nullptr)
                 return;
             DefaultAllocator().Delete(entry->cachedFont); // frees font/atlas/shaper
-            DefaultAllocator().Delete(entry->texture);
+            if (!entry->sharedTexture)
+                DefaultAllocator().Delete(entry->texture);
             DefaultAllocator().Delete(entry);
         }
 
@@ -174,6 +187,30 @@ export namespace draconic::fonts
                     return false;
             }
             return true;
+        }
+
+        // A scaled per-size entry over a DF base (views borrow the base font/atlas, the
+        // CachedFont owns the view wrappers + its own shaper; the entry SHARES the base's
+        // atlas texture). Cached in m_fonts so the next request hits FindExact.
+        [[nodiscard]] CachedFont* SynthesizeScaled(const FontEntry& base, StringView familyName,
+                                                   f32 pixelHeight)
+        {
+            auto* fontView =
+                DefaultAllocator().New<ScaledFontView>(*base.cachedFont->font, pixelHeight);
+            auto* atlasView = DefaultAllocator().New<ScaledFontAtlasView>(
+                *base.cachedFont->atlas, fontView->Scale());
+            ITextShaper* shaper = DefaultAllocator().New<TrueTypeTextShaper>();
+            CachedFont* cachedFont =
+                DefaultAllocator().New<CachedFont>(fontView, atlasView, shaper);
+
+            FontEntry* entry = DefaultAllocator().New<FontEntry>();
+            entry->family = String(familyName);
+            entry->pixelHeight = pixelHeight;
+            entry->cachedFont = cachedFont;
+            entry->texture = base.texture; // SHARED with the base (see DeleteEntry)
+            entry->sharedTexture = true;
+            m_fonts.PushBack(entry);
+            return cachedFont;
         }
 
         // Bake the atlas, expand to RGBA8, wrap in a CachedFont, and record the
@@ -237,7 +274,7 @@ export namespace draconic::fonts
             const FontEntry* best = nullptr;
             f32 bestDiff = 3.4e38f;
             for (const FontEntry* entry : m_fonts)
-                if (FamilyEquals(entry->family, family))
+                if (!entry->sharedTexture && FamilyEquals(entry->family, family))
                 {
                     const f32 diff = Abs(entry->pixelHeight - pixelHeight);
                     if (diff < bestDiff)

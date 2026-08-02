@@ -12,3 +12,4 @@ export import :interfaces;
 export import :text_util;
 export import :atlas_texture;
 export import :null_service;
+export import :scaled_views;
