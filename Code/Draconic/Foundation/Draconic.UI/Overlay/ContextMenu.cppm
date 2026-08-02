@@ -101,9 +101,18 @@ export namespace draconic::ui
             return raw;
         }
 
+        /// Index of the item currently rendered highlighted (-1 = none).
+        [[nodiscard]] i32 HoveredIndex() const { return m_hoveredIndex; }
+
         /// Show this menu at the given screen position.
         void Show(UIContext* ctx, f32 x, f32 y, IPopupOwner* owner = nullptr)
         {
+            // Menus are RETAINED views (a menu bar reuses its ContextMenu instances), so
+            // the previous session's hover survives the close - reopening after "Close
+            // Project" showed that item still highlighted until the mouse first moved.
+            // Every show starts unhighlighted.
+            m_hoveredIndex = -1;
+
             RootView* root = ctx->ActiveInputRoot();
             if (root == nullptr)
             {

@@ -70,3 +70,23 @@ TEST_CASE("context-menu: IsFocusable")
     auto menu = MakeMenu();
     CHECK(menu->IsFocusable);
 }
+
+TEST_CASE("context-menu: Show resets the stale hover highlight")
+{
+    // Menus are retained views (a menu bar reuses its instances): hover from the previous
+    // open must NOT survive into the next Show - the regression was "Close Project" still
+    // highlighted when reopening the File menu after a project close/reopen.
+    auto menu = MakeMenu();
+    menu->AddItem(u8"Open", {});
+    menu->AddItem(u8"Close Project", {});
+
+    MouseEventArgs move;
+    move.X = 10.0f;
+    move.Y = 10.0f; // inside the first item's band
+    menu->OnMouseMove(move);
+    REQUIRE(menu->HoveredIndex() >= 0);
+
+    UIContext ctx; // no active root: Show early-outs, but AFTER clearing the hover
+    menu->Show(&ctx, 0.0f, 0.0f);
+    CHECK(menu->HoveredIndex() == -1);
+}
