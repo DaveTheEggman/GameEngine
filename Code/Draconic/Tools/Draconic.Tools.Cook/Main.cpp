@@ -17,6 +17,7 @@ import draconic.editor;
 import draconic.editor.core;
 import draconic.editor.cook;
 import draconic.texture.editor;
+import draconic.fonts.editor;
 import draconic.image.editor;
 import draconic.image.resource;
 import draconic.geometry.editor;
@@ -61,6 +62,7 @@ namespace
     void RegisterAllBuilders(editor::BuilderRegistry& registry)
     {
         draconic::texture::RegisterTextureAsset();
+        draconic::fonts::RegisterFontAsset(); // asset + FontResource product
         draconic::image::RegisterImageAsset();
         draconic::geometry::RegisterMeshAssets();
         draconic::animation::RegisterAnimationAssets();
@@ -90,6 +92,7 @@ namespace
         draconic::script::RegisterAngelScriptScriptCook();
 
         Add<draconic::texture::TextureAssetBuilder>(registry);
+        Add<draconic::fonts::FontAssetBuilder>(registry);
         Add<draconic::image::ImageAssetBuilder>(registry);
         Add<draconic::geometry::StaticMeshAssetBuilder>(registry);
         Add<draconic::geometry::SkinnedMeshAssetBuilder>(registry);

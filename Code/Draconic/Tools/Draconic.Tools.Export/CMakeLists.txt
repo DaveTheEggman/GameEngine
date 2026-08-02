@@ -5,7 +5,7 @@ add_dependencies(Draconic.Tools.Export Draconic.Engine.Player)   # stages the pl
 target_link_libraries(Draconic.Tools.Export PRIVATE
     Draconic::Core Draconic::Scene.Resource
     Draconic::Editor Draconic::Editor.Cook Draconic::Editor.Core
-    Draconic::Texture.Editor Draconic::Image.Editor Draconic::Image.Resource Draconic::Geometry.Editor
+    Draconic::Texture.Editor Draconic::Fonts.Editor Draconic::Image.Editor Draconic::Image.Resource Draconic::Geometry.Editor
     Draconic::Animation.Editor Draconic::Materials.Editor Draconic::Shaders.Editor
     Draconic::Particles.Editor Draconic::Input Draconic::Input.Resource Draconic::Input.Editor Draconic::ModelImporter
     Draconic::Engine.Render Draconic::Engine.Animation Draconic::Engine.Particles

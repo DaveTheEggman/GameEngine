@@ -40,6 +40,7 @@ import draconic.editor.core;
 import draconic.editor.app;
 import draconic.editor.scene;
 import draconic.texture.editor;
+import draconic.fonts.editor;
 import draconic.image.editor;
 import draconic.image.resource;
 import draconic.geometry.editor;
@@ -95,6 +96,7 @@ namespace
     void RegisterAllBuilders(editor::BuilderRegistry& registry)
     {
         draconic::texture::RegisterTextureAsset();
+        draconic::fonts::RegisterFontAsset(); // asset + FontResource product
         draconic::image::RegisterImageAsset();
         draconic::geometry::RegisterMeshAssets();
         draconic::animation::RegisterAnimationAssets();
@@ -127,6 +129,7 @@ namespace
         draconic::script::angelscript::RegisterAngelScriptEditorUI();
 
         AddBuilder<draconic::texture::TextureAssetBuilder>(registry);
+        AddBuilder<draconic::fonts::FontAssetBuilder>(registry);
         AddBuilder<draconic::image::ImageAssetBuilder>(registry);
         AddBuilder<draconic::geometry::StaticMeshAssetBuilder>(registry);
         AddBuilder<draconic::geometry::SkinnedMeshAssetBuilder>(registry);
