@@ -331,6 +331,37 @@ void VGSandbox::DrawFillCorrectness(vg::VGContext& vgc, f32 x, f32 y, f32 t)
     starAt(105.0f, 30.0f, vg::FillRule::NonZero, GC(120, 200, 120, 255)); // core FILLED
     starAt(180.0f, 30.0f, vg::FillRule::EvenOdd, GC(120, 160, 220, 255)); // core OPEN
 
+    // Gradient spreads: one red->blue ramp, the gradient LINE spanning a third of each
+    // square. Pad clamps to blue after the first third; Repeat shows three hard-seamed
+    // bands; Reflect ping-pongs red->blue->red. The radial repeat rings the same ramp.
+    {
+        auto spreadRect = [&](f32 cx, vg::VGGradientSpread spread)
+        {
+            vg::VGLinearGradientFill grad(Float2{cx, 75.0f}, Float2{cx + 20.0f, 75.0f});
+            grad.AddStop(0.0f, GC(220, 60, 60, 255));
+            grad.AddStop(1.0f, GC(60, 90, 220, 255));
+            grad.spread = spread;
+            vg::PathBuilder pb;
+            pb.MoveTo(cx, 75.0f);
+            pb.LineTo(cx + 60.0f, 75.0f);
+            pb.LineTo(cx + 60.0f, 115.0f);
+            pb.LineTo(cx, 115.0f);
+            pb.Close();
+            vgc.FillPath(pb.ToPath(), grad, vg::FillRule::NonZero);
+        };
+        spreadRect(0.0f, vg::VGGradientSpread::Pad);
+        spreadRect(75.0f, vg::VGGradientSpread::Repeat);
+        spreadRect(150.0f, vg::VGGradientSpread::Reflect);
+
+        vg::VGRadialGradientFill rings(Float2{245.0f, 95.0f}, 8.0f); // 1/3 of the circle
+        rings.AddStop(0.0f, GC(220, 60, 60, 255));
+        rings.AddStop(1.0f, GC(60, 90, 220, 255));
+        rings.spread = vg::VGGradientSpread::Repeat;
+        vg::PathBuilder pb;
+        vg::ShapeBuilder::BuildCircle(Float2{245.0f, 95.0f}, 24.0f, pb);
+        vgc.FillPath(pb.ToPath(), rings, vg::FillRule::NonZero);
+    }
+
     vgc.PopState();
 }
 

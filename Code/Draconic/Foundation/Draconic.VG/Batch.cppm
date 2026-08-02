@@ -36,6 +36,8 @@ export namespace draconic::vg
         VGDrawMode drawMode = VGDrawMode::Default; ///< Straight sampling vs MSDF decode.
         VGFillPhase fillPhase = VGFillPhase::Direct; ///< Stencil-then-cover phase (see enum).
         FillRule fillRule = FillRule::NonZero; ///< Winding rule for StencilWrite/Cover phases.
+        VGGradientSpread gradientSpread =
+            VGGradientSpread::Pad; ///< LUT sampler address mode for this draw.
     };
 
     /// Batched vector-graphics geometry and draw commands. The output of

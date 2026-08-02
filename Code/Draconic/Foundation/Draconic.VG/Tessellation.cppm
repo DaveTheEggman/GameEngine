@@ -446,8 +446,8 @@ export namespace draconic::vg
 
     public:
         /// Width of the baked gradient LUT (matches VGContext's bake). Kept here so the
-        /// texcoord maps to texel CENTERS: with the shared Linear/Repeat sampler this both
-        /// clamps (pad spread) and avoids the wrap seam at u=0/1.
+        /// PAD texcoord maps to texel CENTERS: exact endpoint stops under the renderer's
+        /// clamp sampler. Repeat/Reflect emit the raw parameter instead (see above).
         static constexpr f32 GradientLutWidth = 256.0f;
 
         /// Map a raw gradient parameter t to a LUT u-coordinate at a texel center.
@@ -465,6 +465,14 @@ export namespace draconic::vg
             switch (mode)
             {
             case VGGradientTess::LinearLut:
+                // Pad compresses to texel centers (clamp sampler; exact endpoint stops).
+                // Repeat/Reflect emit the RAW parameter: u interpolates affinely across
+                // the triangle and the command's wrap/mirror sampler applies the spread
+                // per pixel (a per-vertex clamp would break the tiling).
+                if (fill.Spread() != VGGradientSpread::Pad)
+                {
+                    return Float2{fill.GetParameterAt(pt, bounds), 0.5f};
+                }
                 return Float2{LutU(fill.GetParameterAt(pt, bounds)), 0.5f};
             case VGGradientTess::RadialCoord:
             case VGGradientTess::ConicCoord:

@@ -78,6 +78,16 @@ export namespace draconic::vg
         StencilCover, ///< Cover pass: draw where stencil says inside, clearing it after.
     };
 
+    /// How a gradient maps parameters outside [0,1] (the SVG/CSS spread methods).
+    /// Rendered via the LUT sampler's address mode: Pad = clamp (default), Repeat =
+    /// wrap, Reflect = mirror. Conic gradients wrap inherently and ignore this.
+    enum class VGGradientSpread : u8
+    {
+        Pad,
+        Repeat,
+        Reflect,
+    };
+
     /// How a gradient fill emits per-vertex data during tessellation (paired with the draw mode).
     /// Linear is exact as an affine per-vertex parameter; radial/conic need per-pixel coordinates
     /// so a dedicated shader can compute the (non-affine) parameter without Gouraud approximation.

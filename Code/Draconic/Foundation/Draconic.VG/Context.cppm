@@ -83,6 +83,7 @@ export namespace draconic::vg
             m_currentState = VGState{};
             m_currentBlendMode = VGBlendMode::Normal;
             m_currentDrawMode = VGDrawMode::Default;
+            m_currentGradientSpread = VGGradientSpread::Pad;
             m_currentTextureIndex = 0;
             m_commandStartIndex = 0;
 
@@ -243,6 +244,18 @@ export namespace draconic::vg
             {
                 FlushCurrentCommand();
                 m_currentDrawMode = mode;
+            }
+        }
+
+        /// The spread the NEXT gradient draw samples its LUT with (a sampler-address
+        /// property of the command, so a change cuts the batch - two fills sharing one
+        /// cached ramp may still spread differently).
+        void SetGradientSpread(VGGradientSpread spread)
+        {
+            if (spread != m_currentGradientSpread)
+            {
+                FlushCurrentCommand();
+                m_currentGradientSpread = spread;
             }
         }
 
@@ -1112,6 +1125,7 @@ export namespace draconic::vg
             if (!fill.RequiresInterpolation())
             {
                 SetDrawMode(VGDrawMode::Default);
+                SetGradientSpread(VGGradientSpread::Pad);
                 SetupForSolidDraw();
                 return VGGradientTess::Gouraud;
             }
@@ -1166,6 +1180,7 @@ export namespace draconic::vg
                 }
             }
             SetDrawMode(mode);
+            SetGradientSpread(fill.Spread());
             SetupForTextureDraw(GetOrAddTexture(raw));
             return tess;
         }
@@ -1395,6 +1410,7 @@ export namespace draconic::vg
             cmd.clipMode = m_currentState.clipMode;
             cmd.stencilRef = m_currentState.stencilRef;
             cmd.drawMode = m_currentDrawMode;
+            cmd.gradientSpread = m_currentGradientSpread;
             cmd.fillPhase = phase;
             cmd.fillRule = fillRule;
             m_batch.commands.PushBack(cmd);
@@ -1415,6 +1431,7 @@ export namespace draconic::vg
                 cmd.clipMode = m_currentState.clipMode;
                 cmd.stencilRef = m_currentState.stencilRef;
                 cmd.drawMode = m_currentDrawMode;
+                cmd.gradientSpread = m_currentGradientSpread;
 
                 m_batch.commands.PushBack(cmd);
                 m_commandStartIndex = static_cast<i32>(m_batch.indices.Size());
@@ -1556,6 +1573,7 @@ export namespace draconic::vg
 
         VGBlendMode m_currentBlendMode = VGBlendMode::Normal;
         VGDrawMode m_currentDrawMode = VGDrawMode::Default;
+        VGGradientSpread m_currentGradientSpread = VGGradientSpread::Pad;
         bool m_perPixelGradients = false;
         bool m_stencilFills = false; // host opt-in: stencil-then-cover for complex fills // radial/conic use dedicated per-pixel shaders when set
         i32 m_currentTextureIndex = 0;

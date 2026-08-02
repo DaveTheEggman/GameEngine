@@ -351,6 +351,7 @@ export namespace draconic::vg::renderer
 
             const u32 dynOffsets[1] = {slice.uniformByteOffset};
             i32 currentTextureIndex = -2; // sentinel forces first SetBindGroup
+            vg::VGGradientSpread currentSpread = vg::VGGradientSpread::Pad;
             rhi::RenderPipeline* currentPipeline = m_pipeline;
             if (m_coverPipeline != nullptr)
             {
@@ -379,12 +380,15 @@ export namespace draconic::vg::renderer
                     currentTextureIndex = -2;
                 }
 
-                if (cmd.textureIndex != currentTextureIndex)
+                if (cmd.textureIndex != currentTextureIndex ||
+                    cmd.gradientSpread != currentSpread)
                 {
                     if (rhi::BindGroup* bindGroup =
-                            GetBindGroupForTexture(cmd.textureIndex, frameIndex))
+                            GetBindGroupForTexture(cmd.textureIndex, frameIndex,
+                                                   cmd.gradientSpread))
                         renderPass.SetBindGroup(0, bindGroup, Span<const u32>(dynOffsets, 1));
                     currentTextureIndex = cmd.textureIndex;
+                    currentSpread = cmd.gradientSpread;
                 }
 
                 if (cmd.clipMode == draconic::vg::VGClipMode::Scissor &&
@@ -483,8 +487,8 @@ export namespace draconic::vg::renderer
             cached->sourceId = key->InstanceId();
             cached->view = view;
             cached->external = true;
-            cached->bindGroups.Resize(
-                static_cast<usize>(m_frameCount)); // nullptr-filled, built lazily
+            cached->bindGroups.Resize(static_cast<usize>(m_frameCount) *
+                                      kSpreadCount); // nullptr-filled, built lazily
             m_textureCache.PushBack(Move(cached));
         }
 
@@ -551,6 +555,10 @@ export namespace draconic::vg::renderer
                 m_device->DestroyBindGroupLayout(m_bindGroupLayout);
             if (m_sampler)
                 m_device->DestroySampler(m_sampler);
+            if (m_samplerRepeat)
+                m_device->DestroySampler(m_samplerRepeat);
+            if (m_samplerMirror)
+                m_device->DestroySampler(m_samplerMirror);
 
             m_pipeline = nullptr;
             m_dfPipeline = nullptr;
@@ -564,6 +572,8 @@ export namespace draconic::vg::renderer
             m_pipelineLayout = nullptr;
             m_bindGroupLayout = nullptr;
             m_sampler = nullptr;
+            m_samplerRepeat = nullptr;
+            m_samplerMirror = nullptr;
             m_initialized = false;
             m_device = nullptr;
         }
@@ -575,10 +585,14 @@ export namespace draconic::vg::renderer
             u64 sourceId = 0; // ImageData::InstanceId() - guards against address reuse
             rhi::Texture* gpuTexture = nullptr;
             rhi::TextureView* view = nullptr;
-            Array<rhi::BindGroup*> bindGroups; // per frame
+            // Per (frame, spread): slot = frame * kSpreadCount + spread. Spread picks
+            // the LUT sampler, and the sampler lives in the bind group.
+            Array<rhi::BindGroup*> bindGroups;
             bool external =
                 false; // view is caller-owned (e.g. a viewport RT) - never destroyed here
         };
+
+        static constexpr usize kSpreadCount = 3; // Pad / Repeat / Reflect bind-group slots
 
         static constexpr i32 MaxVertices = 131072;
         static constexpr i32 MaxIndices = 131072 * 3;
@@ -612,8 +626,44 @@ export namespace draconic::vg::renderer
 
         Status CreateSampler()
         {
+            // Default: CLAMP. Images and pad-spread gradients both want edge clamping
+            // (repeat would bleed the opposite edge into bilinear taps at u/v 0 and 1);
+            // the pad LUT path additionally relies on it for its out-of-range clamp.
             rhi::SamplerDesc desc{};
-            return m_device->CreateSampler(desc, m_sampler);
+            desc.addressU = rhi::AddressMode::ClampToEdge;
+            desc.addressV = rhi::AddressMode::ClampToEdge;
+            desc.addressW = rhi::AddressMode::ClampToEdge;
+            if (!m_device->CreateSampler(desc, m_sampler).IsOk())
+            {
+                return ErrorCode::Unknown;
+            }
+            // Spread samplers: the gradient LUT wraps (Repeat) or mirrors (Reflect) so
+            // the shader's raw parameter tiles per pixel (see VGGradientSpread).
+            desc.addressU = rhi::AddressMode::Repeat;
+            desc.addressV = rhi::AddressMode::Repeat;
+            desc.addressW = rhi::AddressMode::Repeat;
+            if (!m_device->CreateSampler(desc, m_samplerRepeat).IsOk())
+            {
+                return ErrorCode::Unknown;
+            }
+            desc.addressU = rhi::AddressMode::MirrorRepeat;
+            desc.addressV = rhi::AddressMode::MirrorRepeat;
+            desc.addressW = rhi::AddressMode::MirrorRepeat;
+            return m_device->CreateSampler(desc, m_samplerMirror);
+        }
+
+        [[nodiscard]] rhi::Sampler* SamplerForSpread(vg::VGGradientSpread spread) const
+        {
+            switch (spread)
+            {
+            case vg::VGGradientSpread::Repeat:
+                return m_samplerRepeat;
+            case vg::VGGradientSpread::Reflect:
+                return m_samplerMirror;
+            case vg::VGGradientSpread::Pad:
+            default:
+                return m_sampler;
+            }
         }
 
         Status CreateLayouts()
@@ -890,13 +940,15 @@ export namespace draconic::vg::renderer
             cached->sourceId = texture->InstanceId();
             cached->gpuTexture = gpuTexture;
             cached->view = view;
-            cached->bindGroups.Resize(static_cast<usize>(m_frameCount)); // nullptr-filled
+            cached->bindGroups.Resize(static_cast<usize>(m_frameCount) *
+                                      kSpreadCount); // nullptr-filled
             CachedTexture* raw = cached.Get();
             m_textureCache.PushBack(Move(cached));
             return raw;
         }
 
-        void UpdateTextureBindGroup(i32 textureIndex, i32 frameIndex)
+        void UpdateTextureBindGroup(i32 textureIndex, i32 frameIndex,
+                                    vg::VGGradientSpread spread = vg::VGGradientSpread::Pad)
         {
             if (textureIndex >= static_cast<i32>(m_batchTextures.Size()))
                 return;
@@ -907,24 +959,27 @@ export namespace draconic::vg::renderer
             CachedTexture* cached = GetOrCreateCachedTexture(texture);
             if (cached == nullptr || cached->view == nullptr)
                 return;
-            if (cached->bindGroups[static_cast<usize>(frameIndex)] != nullptr)
+            const usize slot =
+                static_cast<usize>(frameIndex) * kSpreadCount + static_cast<usize>(spread);
+            if (cached->bindGroups[slot] != nullptr)
                 return; // already built
 
             rhi::BindGroupEntry entries[3];
             entries[0] = rhi::BindGroupEntry::BufferEntry(
                 m_uniformBuffers[static_cast<usize>(frameIndex)], 0, sizeof(VGUniforms));
             entries[1] = rhi::BindGroupEntry::TextureEntry(cached->view);
-            entries[2] = rhi::BindGroupEntry::SamplerEntry(m_sampler);
+            entries[2] = rhi::BindGroupEntry::SamplerEntry(SamplerForSpread(spread));
 
             rhi::BindGroupDesc desc{};
             desc.layout = m_bindGroupLayout;
             desc.entries = Span<const rhi::BindGroupEntry>(entries, 3);
             rhi::BindGroup* group = nullptr;
             if (m_device->CreateBindGroup(desc, group).IsOk())
-                cached->bindGroups[static_cast<usize>(frameIndex)] = group;
+                cached->bindGroups[slot] = group;
         }
 
-        rhi::BindGroup* GetBindGroupForTexture(i32 textureIndex, i32 frameIndex)
+        rhi::BindGroup* GetBindGroupForTexture(i32 textureIndex, i32 frameIndex,
+                                               vg::VGGradientSpread spread)
         {
             if (m_batchTextures.IsEmpty())
                 return nullptr;
@@ -937,9 +992,14 @@ export namespace draconic::vg::renderer
             if (texture == nullptr)
                 return nullptr;
 
+            // Pad groups are built eagerly in Prepare; the (rarer) repeat/mirror groups
+            // build on first use (a device call - legal while the pass records).
+            UpdateTextureBindGroup(effectiveIndex, frameIndex, spread);
+            const usize slot =
+                static_cast<usize>(frameIndex) * kSpreadCount + static_cast<usize>(spread);
             for (usize i = 0; i < m_textureCache.Size(); ++i)
                 if (m_textureCache[i]->source == texture)
-                    return m_textureCache[i]->bindGroups[static_cast<usize>(frameIndex)];
+                    return m_textureCache[i]->bindGroups[slot];
             return nullptr;
         }
 
@@ -981,7 +1041,9 @@ export namespace draconic::vg::renderer
         rhi::RenderPipeline* m_coverGradConicPipeline = nullptr;  // cover, conic (nullable)
         rhi::RenderPipeline* m_gradRadialPipeline = nullptr; // per-pixel radial gradient (nullable)
         rhi::RenderPipeline* m_gradConicPipeline = nullptr;  // per-pixel conic gradient (nullable)
-        rhi::Sampler* m_sampler = nullptr;
+        rhi::Sampler* m_sampler = nullptr; // clamp: images + pad gradients
+        rhi::Sampler* m_samplerRepeat = nullptr;
+        rhi::Sampler* m_samplerMirror = nullptr;
 
         Array<rhi::Buffer*> m_vertexBuffers;
         Array<rhi::Buffer*> m_indexBuffers;

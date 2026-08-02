@@ -11,6 +11,7 @@ module;
 export module draconic.vg:fills;
 
 import draconic.core;
+import :enums; // VGGradientSpread
 
 using namespace draconic::core;
 
@@ -79,6 +80,25 @@ export namespace draconic::vg
         Conic,
     };
 
+    /// Map a raw gradient parameter through a spread method (the CPU mirror of the
+    /// renderer's LUT sampler address mode - keep the two in agreement).
+    [[nodiscard]] inline f32 ApplyGradientSpread(f32 t, VGGradientSpread spread)
+    {
+        switch (spread)
+        {
+        case VGGradientSpread::Repeat:
+            return t - Floor(t); // [0, 1)
+        case VGGradientSpread::Reflect:
+        {
+            const f32 period = t - 2.0f * Floor(t * 0.5f); // [0, 2)
+            return period <= 1.0f ? period : 2.0f - period;
+        }
+        case VGGradientSpread::Pad:
+        default:
+            return Clamp(t, 0.0f, 1.0f);
+        }
+    }
+
     /// Interface for fill styles used to color vector graphics shapes.
     class IVGFill
     {
@@ -104,6 +124,9 @@ export namespace draconic::vg
 
         /// The gradient family this fill belongs to (Solid for non-gradients).
         [[nodiscard]] virtual VGGradientKind GradientKind() const { return VGGradientKind::Solid; }
+        /// The spread method for parameters outside [0,1] (Pad for non-gradients; conic
+        /// gradients wrap inherently and stay Pad).
+        [[nodiscard]] virtual VGGradientSpread Spread() const { return VGGradientSpread::Pad; }
         /// The per-vertex gradient-space coordinate a per-pixel gradient shader consumes: radial
         /// returns (pos-center)/radius (the shader takes its length); conic returns (pos-center)
         /// rotated by -startAngle (the shader takes its angle). Unused by solid/linear fills.
@@ -146,6 +169,7 @@ export namespace draconic::vg
         Float2 startPoint;         ///< Start point of the gradient line.
         Float2 endPoint;           ///< End point of the gradient line.
         Array<GradientStop> stops; ///< Color stops defining the gradient.
+        VGGradientSpread spread = VGGradientSpread::Pad; ///< Outside-[0,1] mapping.
 
         VGLinearGradientFill() = default;
         VGLinearGradientFill(Float2 inStart, Float2 inEnd) : startPoint(inStart), endPoint(inEnd) {}
@@ -155,7 +179,7 @@ export namespace draconic::vg
 
         [[nodiscard]] Color GetColorAt(Float2 position, Rectangle bounds) const override
         {
-            return SampleRamp(GetParameterAt(position, bounds));
+            return SampleRamp(ApplyGradientSpread(GetParameterAt(position, bounds), Spread()));
         }
         [[nodiscard]] f32 GetParameterAt(Float2 position, Rectangle /*bounds*/) const override
         {
@@ -178,6 +202,7 @@ export namespace draconic::vg
         }
         [[nodiscard]] bool RequiresInterpolation() const override { return true; }
         [[nodiscard]] VGGradientKind GradientKind() const override { return VGGradientKind::Linear; }
+        [[nodiscard]] VGGradientSpread Spread() const override { return spread; }
     };
 
     /// Radial gradient fill from a center point.
@@ -187,6 +212,7 @@ export namespace draconic::vg
         Float2 center;             ///< Center of the gradient.
         f32 radius = 0.0f;         ///< Radius of the gradient.
         Array<GradientStop> stops; ///< Color stops defining the gradient.
+        VGGradientSpread spread = VGGradientSpread::Pad; ///< Outside-[0,1] mapping.
 
         VGRadialGradientFill() = default;
         VGRadialGradientFill(Float2 inCenter, f32 inRadius) : center(inCenter), radius(inRadius) {}
@@ -195,7 +221,7 @@ export namespace draconic::vg
 
         [[nodiscard]] Color GetColorAt(Float2 position, Rectangle bounds) const override
         {
-            return SampleRamp(GetParameterAt(position, bounds));
+            return SampleRamp(ApplyGradientSpread(GetParameterAt(position, bounds), Spread()));
         }
         [[nodiscard]] f32 GetParameterAt(Float2 position, Rectangle /*bounds*/) const override
         {
@@ -215,6 +241,7 @@ export namespace draconic::vg
         }
         [[nodiscard]] bool RequiresInterpolation() const override { return true; }
         [[nodiscard]] VGGradientKind GradientKind() const override { return VGGradientKind::Radial; }
+        [[nodiscard]] VGGradientSpread Spread() const override { return spread; }
         [[nodiscard]] Float2 GradientCoord(Float2 position, Rectangle /*bounds*/) const override
         {
             const f32 r = (radius < 0.0001f) ? 1.0f : radius;
@@ -240,7 +267,7 @@ export namespace draconic::vg
 
         [[nodiscard]] Color GetColorAt(Float2 position, Rectangle bounds) const override
         {
-            return SampleRamp(GetParameterAt(position, bounds));
+            return SampleRamp(ApplyGradientSpread(GetParameterAt(position, bounds), Spread()));
         }
         [[nodiscard]] f32 GetParameterAt(Float2 position, Rectangle /*bounds*/) const override
         {

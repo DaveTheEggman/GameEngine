@@ -230,6 +230,75 @@ TEST_CASE("vg.context: identical gradients share ONE cached LUT, stable across f
     CHECK(ctx.GetBatch().textures.Size() == 3u);
 }
 
+TEST_CASE("vg.fills: ApplyGradientSpread pad/repeat/reflect mapping")
+{
+    using draconic::vg::ApplyGradientSpread;
+    using draconic::vg::VGGradientSpread;
+    // Pad clamps.
+    CHECK(ApplyGradientSpread(-0.5f, VGGradientSpread::Pad) == doctest::Approx(0.0f));
+    CHECK(ApplyGradientSpread(1.7f, VGGradientSpread::Pad) == doctest::Approx(1.0f));
+    // Repeat wraps (fractional part).
+    CHECK(ApplyGradientSpread(1.25f, VGGradientSpread::Repeat) == doctest::Approx(0.25f));
+    CHECK(ApplyGradientSpread(-0.25f, VGGradientSpread::Repeat) == doctest::Approx(0.75f));
+    // Reflect mirrors every other period.
+    CHECK(ApplyGradientSpread(0.25f, VGGradientSpread::Reflect) == doctest::Approx(0.25f));
+    CHECK(ApplyGradientSpread(1.25f, VGGradientSpread::Reflect) == doctest::Approx(0.75f));
+    CHECK(ApplyGradientSpread(2.25f, VGGradientSpread::Reflect) == doctest::Approx(0.25f));
+    CHECK(ApplyGradientSpread(-0.25f, VGGradientSpread::Reflect) == doctest::Approx(0.25f));
+}
+
+TEST_CASE("vg.context: gradient spread rides the command and cuts the batch")
+{
+    // Two fills of the SAME ramp with different spreads share one LUT but may not share
+    // one command: the spread picks the LUT sampler, which lives in the bind group.
+    VGContext ctx;
+    PathBuilder pb;
+    pb.MoveTo(0, 0);
+    pb.LineTo(10, 0);
+    pb.LineTo(10, 10);
+    pb.LineTo(0, 10);
+    pb.Close();
+    const Path path = pb.ToPath();
+
+    VGLinearGradientFill pad(Float2{0.0f, 0.0f}, Float2{5.0f, 0.0f});
+    pad.AddStop(0.0f, Color::Red);
+    pad.AddStop(1.0f, Color::Blue);
+    VGLinearGradientFill repeat = pad;
+    repeat.spread = draconic::vg::VGGradientSpread::Repeat;
+
+    ctx.FillPath(path, pad, FillRule::NonZero, false);
+    ctx.FillPath(path, repeat, FillRule::NonZero, false);
+    VGBatch& batch = ctx.GetBatch(); // flushes the open command
+    CHECK(batch.textures.Size() == 2u); // white + ONE shared LUT
+    REQUIRE(batch.commands.Size() >= 2u);
+    const VGCommand& first = batch.commands[batch.commands.Size() - 2];
+    const VGCommand& second = batch.commands[batch.commands.Size() - 1];
+    CHECK(first.gradientSpread == draconic::vg::VGGradientSpread::Pad);
+    CHECK(second.gradientSpread == draconic::vg::VGGradientSpread::Repeat);
+    CHECK(first.textureIndex == second.textureIndex); // same LUT, different sampler
+}
+
+TEST_CASE("vg.tessellation: non-pad linear gradients emit the RAW parameter")
+{
+    // Pad compresses to LUT texel centers (clamp sampler); repeat/reflect must emit raw
+    // t so the sampler's wrap/mirror applies per pixel - a per-vertex clamp would kill
+    // the tiling. A gradient line spanning HALF the shape puts t=2 at the far edge.
+    VGLinearGradientFill repeat(Float2{0.0f, 0.0f}, Float2{5.0f, 0.0f});
+    repeat.AddStop(0.0f, Color::Red);
+    repeat.AddStop(1.0f, Color::Blue);
+    repeat.spread = draconic::vg::VGGradientSpread::Repeat;
+    const Rectangle bounds{0.0f, 0.0f, 10.0f, 10.0f};
+    const Float2 rawFar = FillTessellator::GradientTexCoord(
+        draconic::vg::VGGradientTess::LinearLut, repeat, Float2{10.0f, 0.0f}, bounds);
+    CHECK(rawFar.x == doctest::Approx(2.0f)); // raw, NOT clamped/compressed
+
+    VGLinearGradientFill pad = repeat;
+    pad.spread = draconic::vg::VGGradientSpread::Pad;
+    const Float2 padFar = FillTessellator::GradientTexCoord(
+        draconic::vg::VGGradientTess::LinearLut, pad, Float2{10.0f, 0.0f}, bounds);
+    CHECK(padFar.x == doctest::Approx(255.5f / 256.0f)); // clamped to the last texel center
+}
+
 TEST_CASE("vg.context: over-budget LUT cache eviction is announced through the batch")
 {
     VGContext ctx;
