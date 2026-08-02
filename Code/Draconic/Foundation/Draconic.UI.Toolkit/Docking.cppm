@@ -1432,7 +1432,7 @@ export namespace draconic::ui::toolkit
             }
         }
 
-        static constexpr f32 kCloseButtonSize = 8.0f;    // Icon size (half-extent of X lines).
+        static constexpr f32 kCloseButtonSize = 10.0f;   // Icon draw size (X glyph rect).
         static constexpr f32 kCloseButtonPadding = 6.0f; // Space reserved for close area.
         static constexpr f32 kCloseButtonWidth =
             kCloseButtonSize + kCloseButtonPadding * 2; // Total width.

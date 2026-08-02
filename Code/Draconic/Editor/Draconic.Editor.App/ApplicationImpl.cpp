@@ -2574,7 +2574,7 @@ namespace draconic::editor::app
     {
         EditorIcons& icons = EditorIcons::Get();
         const f32 scale = (contentScale > 0.1f) ? contentScale : 1.0f;
-        const draconic::core::u32 kBaseSizes[] = {12, 14, 16, 20, 24, 32};
+        const draconic::core::u32 kBaseSizes[] = {10, 12, 14, 16, 20, 24, 32};
         draconic::core::Array<draconic::core::u32> sizes;
         for (draconic::core::u32 base : kBaseSizes)
         {

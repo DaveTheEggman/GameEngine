@@ -81,7 +81,7 @@ export namespace draconic::editor::app
 
         // Close X - the tab/panel close glyph (diamond-cut X polygon).
         static constexpr StringView kClose = u8R"svg(<svg viewBox="0 0 24 24">
-  <path d="M5 6.5L6.5 5 12 10.5 17.5 5 19 6.5 13.5 12 19 17.5 17.5 19 12 13.5 6.5 19 5 17.5 10.5 12z" fill="#E0E0E0"/>
+  <path d="M3.5 5.3L5.3 3.5 12 10.2 18.7 3.5 20.5 5.3 13.8 12 20.5 18.7 18.7 20.5 12 13.8 5.3 20.5 3.5 18.7 10.2 12z" fill="#E0E0E0"/>
 </svg>)svg";
 
         // Rotate gizmo - circular arrow.
