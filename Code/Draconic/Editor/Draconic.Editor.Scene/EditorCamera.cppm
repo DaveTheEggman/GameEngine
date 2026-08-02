@@ -25,7 +25,7 @@ export namespace draconic::editor
         f32 pitch = -0.41f;
         bool mouseCaptured = false;
         f32 moveSpeed = 8.0f, fastSpeed = 30.0f, lookSensitivity = 0.003f;
-        f32 zoomSpeed = 1.5f;      // world units per wheel notch (dolly along forward)
+        f32 zoomFraction = 0.12f;  // fraction of the pivot distance per wheel notch
         f32 focusDistance = 12.0f; // pivot distance ahead (Alt+LMB turntable orbit)
         f32 panSensitivity = 0.0015f;
 
@@ -111,8 +111,16 @@ export namespace draconic::editor
                 const f32 scroll = mouse->ScrollY();
                 if (scroll != 0.0f)
                 {
-                    position = position + Forward() * (scroll * zoomSpeed);
-                    focusDistance = Max(1.0f, focusDistance - scroll * zoomSpeed);
+                    // Exponential dolly toward the orbit pivot: the step scales with the
+                    // pivot distance, so zoom feels the same on a 100-unit scene and a
+                    // 0.5-unit mesh, and the camera approaches but never crosses the
+                    // pivot - Alt+LMB stays a turntable at ANY zoom. (The old fixed-step
+                    // dolly clamped focusDistance at 1 and dragged the pivot along with
+                    // the camera, which turned orbit into head-turning on small meshes.)
+                    const Float3 focus = position + Forward() * focusDistance;
+                    const f32 factor = Clamp(1.0f - zoomFraction * scroll, 0.2f, 5.0f);
+                    focusDistance = Max(0.05f, focusDistance * factor);
+                    position = focus - Forward() * focusDistance;
                 }
             }
 

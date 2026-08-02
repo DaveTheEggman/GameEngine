@@ -15,6 +15,7 @@ import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.editor.core;
 import draconic.editor.scene;
+import draconic.shell;
 
 using namespace draconic::core;
 using namespace draconic::editor;
@@ -87,6 +88,83 @@ TEST_CASE("editor-camera: LookAt aims forward at the target with a level horizon
     const f32 yawBefore = still.yaw;
     still.LookAt(Float3{1.0f, 2.0f, 3.0f});
     CHECK(still.yaw == yawBefore);
+}
+
+namespace
+{
+    // Minimal input stubs: only what the camera's Update path reads.
+    struct StubKeyboard final : draconic::shell::IKeyboard
+    {
+        [[nodiscard]] bool IsKeyDown(draconic::shell::KeyCode) const override { return false; }
+        [[nodiscard]] bool IsKeyPressed(draconic::shell::KeyCode) const override { return false; }
+        [[nodiscard]] bool IsKeyReleased(draconic::shell::KeyCode) const override { return false; }
+        [[nodiscard]] draconic::shell::KeyModifiers Modifiers() const override { return {}; }
+    };
+    struct StubMouse final : draconic::shell::IMouse
+    {
+        f32 scrollY = 0.0f;
+        [[nodiscard]] f32 X() const override { return 0; }
+        [[nodiscard]] f32 Y() const override { return 0; }
+        [[nodiscard]] f32 GlobalX() const override { return 0; }
+        [[nodiscard]] f32 GlobalY() const override { return 0; }
+        [[nodiscard]] f32 DeltaX() const override { return 0; }
+        [[nodiscard]] f32 DeltaY() const override { return 0; }
+        [[nodiscard]] f32 ScrollX() const override { return 0; }
+        [[nodiscard]] f32 ScrollY() const override { return scrollY; }
+        [[nodiscard]] bool IsButtonDown(draconic::shell::MouseButton) const override
+        {
+            return false;
+        }
+        [[nodiscard]] bool IsButtonPressed(draconic::shell::MouseButton) const override
+        {
+            return false;
+        }
+        [[nodiscard]] bool IsButtonReleased(draconic::shell::MouseButton) const override
+        {
+            return false;
+        }
+        [[nodiscard]] bool RelativeMode() const override { return false; }
+        void SetRelativeMode(bool) override {}
+        [[nodiscard]] bool CursorVisible() const override { return true; }
+        void SetCursorVisible(bool) override {}
+        void SetCursor(draconic::shell::CursorType) override {}
+        void SetGlobalCapture(bool) override {}
+    };
+}
+
+TEST_CASE("editor-camera: wheel dolly keeps the orbit pivot fixed at any zoom")
+{
+    EditorCamera cam;
+    cam.position = Float3{0.0f, 0.0f, 5.0f};
+    cam.LookAt(Float3{0.0f, 0.0f, 0.0f}); // pivot = origin, focusDistance = 5
+
+    StubKeyboard kb;
+    StubMouse mouse;
+    mouse.scrollY = 1.0f; // one notch in
+
+    // Zoom far past where the old fixed-step dolly (1.5/notch, floor at 1.0) would
+    // have started dragging the pivot: the pivot must stay at the ORIGIN, so
+    // position + Forward()*focusDistance == 0 every step, and the camera never
+    // crosses to the far side.
+    for (int i = 0; i < 40; ++i)
+    {
+        cam.Update(&kb, &mouse, 1.0f / 60.0f);
+        const Float3 pivot = cam.position + cam.Forward() * cam.focusDistance;
+        CHECK(Length(pivot) == doctest::Approx(0.0f).epsilon(0.001f));
+        CHECK(cam.position.z > 0.0f); // still on the near side
+    }
+    CHECK(cam.focusDistance < 1.0f);      // allowed closer than the old 1.0 floor
+    CHECK(cam.focusDistance >= 0.05f);    // but never through the pivot
+
+    // Zooming back out retreats along the same axis, pivot still fixed.
+    mouse.scrollY = -1.0f;
+    for (int i = 0; i < 40; ++i)
+    {
+        cam.Update(&kb, &mouse, 1.0f / 60.0f);
+    }
+    const Float3 pivot = cam.position + cam.Forward() * cam.focusDistance;
+    CHECK(Length(pivot) == doctest::Approx(0.0f).epsilon(0.001f));
+    CHECK(cam.focusDistance > 4.0f); // roughly back out (exponential retreat)
 }
 
 TEST_CASE("editor-scene: CreateSceneInstance makes uniquely-named SceneDocument instances")
