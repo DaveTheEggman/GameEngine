@@ -56,6 +56,99 @@ export namespace draconic::ui::runtime
         core::UniquePtr<vg::VGContext> vg;
         vg::renderer::VGRenderer renderer;
         core::UniquePtr<shell::InputSurface> surface;
+
+        // VG quality targets (host-provided per the stencil-then-cover design): a 4x MSAA
+        // color target resolved into the backbuffer + a stencil attachment for the fill
+        // pipelines. Sized to the swapchain; Update() recreates on resize (desktop hosts -
+        // the WaitIdle there is outside any open frame). Null = plain single-sampled pass.
+        rhi::Device* device = nullptr; // borrowed, for target destruction
+        rhi::Texture* msaaColor = nullptr;
+        rhi::TextureView* msaaColorView = nullptr;
+        rhi::Texture* depthStencil = nullptr;
+        rhi::TextureView* depthStencilView = nullptr;
+        rhi::TextureFormat depthStencilFormat = rhi::TextureFormat::Undefined;
+        u32 targetWidth = 0;
+        u32 targetHeight = 0;
+
+        ~UIWindowData() override { DestroyTargets(); }
+
+        void DestroyTargets()
+        {
+            if (device == nullptr)
+            {
+                return;
+            }
+            if (msaaColorView != nullptr)
+            {
+                device->DestroyTextureView(msaaColorView);
+                msaaColorView = nullptr;
+            }
+            if (msaaColor != nullptr)
+            {
+                device->DestroyTexture(msaaColor);
+                msaaColor = nullptr;
+            }
+            if (depthStencilView != nullptr)
+            {
+                device->DestroyTextureView(depthStencilView);
+                depthStencilView = nullptr;
+            }
+            if (depthStencil != nullptr)
+            {
+                device->DestroyTexture(depthStencil);
+                depthStencil = nullptr;
+            }
+            targetWidth = 0;
+            targetHeight = 0;
+        }
+
+        /// (Re)create the MSAA + stencil targets at the given size. Any failure tears
+        /// everything down: the window falls back to the plain pass as a unit (a stencil
+        /// pipeline without its attachment would be an invalid pass).
+        [[nodiscard]] bool CreateTargets(rhi::TextureFormat colorFormat, u32 width, u32 height)
+        {
+            DestroyTargets();
+            if (device == nullptr || width == 0 || height == 0 ||
+                depthStencilFormat == rhi::TextureFormat::Undefined)
+            {
+                return false;
+            }
+            rhi::TextureDesc cd = rhi::TextureDesc::RenderTarget(colorFormat, width, height);
+            cd.sampleCount = kMsaaSamples;
+            cd.label = u8"UI MSAA color";
+            if (!device->CreateTexture(cd, msaaColor).IsOk())
+            {
+                DestroyTargets();
+                return false;
+            }
+            rhi::TextureDesc dd{};
+            dd.dimension = rhi::TextureDimension::Texture2D;
+            dd.format = depthStencilFormat;
+            dd.width = width;
+            dd.height = height;
+            dd.depth = 1;
+            dd.usage = rhi::TextureUsage::DepthStencil;
+            dd.sampleCount = kMsaaSamples;
+            dd.label = u8"UI stencil";
+            if (!device->CreateTexture(dd, depthStencil).IsOk())
+            {
+                DestroyTargets();
+                return false;
+            }
+            if (!device->CreateTextureView(msaaColor, rhi::TextureViewDesc{}, msaaColorView)
+                     .IsOk() ||
+                !device->CreateTextureView(depthStencil, rhi::TextureViewDesc{}, depthStencilView)
+                     .IsOk())
+            {
+                DestroyTargets();
+                return false;
+            }
+            targetWidth = width;
+            targetHeight = height;
+            return true;
+        }
+
+        static constexpr u32 kMsaaSamples = 4;
     };
 
     /// Renders draconic.ui on the runtime graphics host. Construct once (compiles the VG shaders), attach
@@ -90,9 +183,16 @@ export namespace draconic::ui::runtime
         [[nodiscard]] UIContext& Context() noexcept { return m_ctx; }
 
         /// Background clear color behind the UI (the theme usually paints an opaque root over it).
+        /// Takes the theme's color as authored (sRGB, like every UI color). The swapchain
+        /// is an sRGB format, and pass CLEAR values are interpreted as LINEAR and hardware-
+        /// encoded on store - so the sRGB components must be linearized here or the
+        /// background clears visibly LIGHTER than the same color drawn by the UI (whose
+        /// vertex path linearizes in VGRenderVertex). The project-manager screen, mostly
+        /// bare background, showed this the loudest.
         void SetClearColor(f32 r, f32 g, f32 b, f32 a = 1.0f) noexcept
         {
-            m_clear = rhi::ClearColor(r, g, b, a);
+            m_clear = rhi::ClearColor(core::SrgbToLinear(r), core::SrgbToLinear(g),
+                                      core::SrgbToLinear(b), a);
         }
 
         /// Give a RenderWindow a RootView: builds its VGContext + VGRenderer (against the window's swap
@@ -110,10 +210,27 @@ export namespace draconic::ui::runtime
             // Per-pixel radial/conic gradients only if both shaders resolved (a pre-cooked pack
             // may predate them); otherwise the renderer + context fall back to the affine LUT.
             const bool perPixelGrad = m_gradRadialFs != nullptr && m_gradConicFs != nullptr;
+
+            // VG quality targets: 4x MSAA (fill/stroke edge AA) + a stencil attachment
+            // (stencil-then-cover correctness for holes/self-intersection/even-odd). The
+            // renderer's pipelines must match the pass, so the target config is decided
+            // BEFORE Initialize; any creation failure falls back to the plain pass wholesale.
+            data->device = m_device->Raw();
+            data->depthStencilFormat = PickDepthStencilFormat(*data->device);
+            const bool targetsOk =
+                data->CreateTargets(window->Swap()->Format(), window->Window().Width(),
+                                    window->Window().Height());
+            vg::renderer::VGTargetConfig targetConfig;
+            if (targetsOk)
+            {
+                targetConfig.sampleCount = UIWindowData::kMsaaSamples;
+                targetConfig.depthStencilFormat = data->depthStencilFormat;
+            }
             data->renderer.Initialize(*m_device->Raw(), *m_vs, *m_fs, window->Swap()->Format(),
                                       static_cast<i32>(m_device->FramesInFlight()), m_dfFs,
-                                      m_gradRadialFs, m_gradConicFs);
+                                      m_gradRadialFs, m_gradConicFs, targetConfig);
             data->vg->SetPerPixelGradients(perPixelGrad);
+            data->vg->SetStencilFills(data->renderer.StencilFillsSupported());
 
             const f32 w = static_cast<f32>(window->Window().Width());
             const f32 h = static_cast<f32>(window->Window().Height());
@@ -280,6 +397,19 @@ export namespace draconic::ui::runtime
                     core::Float2{static_cast<f32>(a.window->Window().Width()),
                                  static_cast<f32>(a.window->Window().Height())};
                 m_ctx.UpdateRootView(a.data->root.Get());
+
+                // Resize the VG quality targets with the window - here, OUTSIDE any open
+                // frame, so the idle wait cannot yield mid-frame (desktop hosts only; the
+                // web player uses UISubsystem, not this host). In-flight frames may still
+                // reference the old targets, hence the idle before recreation.
+                const u32 w = static_cast<u32>(a.window->Window().Width());
+                const u32 h = static_cast<u32>(a.window->Window().Height());
+                if (a.data->msaaColorView != nullptr && w != 0 && h != 0 &&
+                    (a.data->targetWidth != w || a.data->targetHeight != h))
+                {
+                    m_device->Raw()->WaitIdle();
+                    (void)a.data->CreateTargets(a.window->Swap()->Format(), w, h);
+                }
             }
         }
 
@@ -303,6 +433,39 @@ export namespace draconic::ui::runtime
             data->renderer.BeginFrame(static_cast<i32>(frame.frameIndex));
             const vg::renderer::VGRenderSlice slice = data->renderer.Prepare(
                 batch, static_cast<i32>(frame.frameIndex), frame.width, frame.height);
+
+            // Quality pass: render into the 4x MSAA color target (resolved into the
+            // backbuffer by the pass) with the stencil attachment cleared to 0. Falls back
+            // to the plain backbuffer pass when targets are absent or stale-sized (the
+            // resize recreate happens in Update, outside the frame).
+            if (data->msaaColorView != nullptr && data->targetWidth == frame.width &&
+                data->targetHeight == frame.height && frame.encoder != nullptr)
+            {
+                rhi::ColorAttachment color{};
+                color.view = data->msaaColorView;
+                color.resolveTarget = frame.backbufferView;
+                color.loadOp = rhi::LoadOp::Clear;
+                color.storeOp = rhi::StoreOp::DontCare; // resolved; the MSAA texels can drop
+                color.clearValue = m_clear;
+                rhi::DepthStencilAttachment ds{};
+                ds.view = data->depthStencilView;
+                ds.depthLoadOp = rhi::LoadOp::Clear;
+                ds.depthStoreOp = rhi::StoreOp::DontCare;
+                ds.stencilLoadOp = rhi::LoadOp::Clear; // stencil-then-cover expects 0
+                ds.stencilStoreOp = rhi::StoreOp::DontCare;
+                ds.stencilClearValue = 0;
+                rhi::RenderPassDesc rpd{};
+                rpd.colorAttachments.Add(color);
+                rpd.depthStencilAttachment = ds;
+                rpd.label = u8"UI (msaa+stencil)";
+                if (rhi::RenderPassEncoder* rp = frame.encoder->BeginRenderPass(rpd))
+                {
+                    data->renderer.Render(*rp, frame.width, frame.height,
+                                          static_cast<i32>(frame.frameIndex), slice);
+                    rp->End();
+                }
+                return;
+            }
 
             rhi::RenderPassEncoder* rp = frame.BeginBackbufferPass(m_clear);
             if (rp != nullptr)
@@ -342,6 +505,33 @@ export namespace draconic::ui::runtime
         }
 
     private:
+        /// The stencil-capable depth-stencil format this device accepts: probe with a tiny
+        /// texture (Vulkan drivers commonly support only one of D24S8 / D32S8).
+        [[nodiscard]] static rhi::TextureFormat PickDepthStencilFormat(rhi::Device& device)
+        {
+            const rhi::TextureFormat candidates[3] = {rhi::TextureFormat::Depth24PlusStencil8,
+                                                      rhi::TextureFormat::Depth32FloatStencil8,
+                                                      rhi::TextureFormat::Stencil8};
+            for (rhi::TextureFormat format : candidates)
+            {
+                rhi::TextureDesc desc{};
+                desc.dimension = rhi::TextureDimension::Texture2D;
+                desc.format = format;
+                desc.width = 4;
+                desc.height = 4;
+                desc.depth = 1;
+                desc.usage = rhi::TextureUsage::DepthStencil;
+                desc.sampleCount = UIWindowData::kMsaaSamples;
+                rhi::Texture* probe = nullptr;
+                if (device.CreateTexture(desc, probe).IsOk() && probe != nullptr)
+                {
+                    device.DestroyTexture(probe);
+                    return format;
+                }
+            }
+            return rhi::TextureFormat::Undefined;
+        }
+
         struct Attached
         {
             graphics::RenderWindow* window = nullptr;
@@ -464,6 +654,7 @@ export namespace draconic::ui::runtime
         core::UniquePtr<UiInputBridge> m_bridge;
         core::UniquePtr<ShellClipboard> m_clipboard;
         core::Array<Attached> m_attached;
-        rhi::ClearColor m_clear = rhi::ClearColor(0.07f, 0.07f, 0.09f, 1.0f);
+        // Default near-black, stored LINEAR (matches an sRGB backbuffer's clear semantics).
+        rhi::ClearColor m_clear = rhi::ClearColor(0.006f, 0.006f, 0.009f, 1.0f);
     };
 }

@@ -32,6 +32,17 @@ using namespace draconic::core;
 
 export namespace draconic::vg::renderer
 {
+    /// What the HOST's render target looks like. sampleCount > 1 = the host renders VG
+    /// into an MSAA target (and resolves it itself); depthStencilFormat != Undefined =
+    /// the pass carries that depth-stencil attachment (stencil cleared to 0 by the
+    /// host), which unlocks the stencil-then-cover fill pipelines. Every pipeline must
+    /// match the pass, so BOTH values apply to ALL pipelines, not just the stencil ones.
+    struct VGTargetConfig
+    {
+        draconic::core::u32 sampleCount = 1;
+        draconic::rhi::TextureFormat depthStencilFormat = draconic::rhi::TextureFormat::Undefined;
+    };
+
     namespace rhi = draconic::rhi;
     namespace image = draconic::image;
 
@@ -71,18 +82,24 @@ export namespace draconic::vg::renderer
 
         [[nodiscard]] bool IsInitialized() const { return m_initialized; }
 
+        /// True when Initialize was given a stencil-capable target (hosts gate
+        /// VGContext::SetStencilFills on this).
+        [[nodiscard]] bool StencilFillsSupported() const { return m_coverPipeline != nullptr; }
+
         /// Initialize with a device + the (already compiled) vg vertex/fragment
         /// shader modules + the render-target format + frame count.
         Status Initialize(rhi::Device& device, rhi::ShaderModule& vertShader,
                           rhi::ShaderModule& fragShader, rhi::TextureFormat targetFormat,
                           i32 frameCount, rhi::ShaderModule* dfFragShader = nullptr,
                           rhi::ShaderModule* gradRadialFragShader = nullptr,
-                          rhi::ShaderModule* gradConicFragShader = nullptr)
+                          rhi::ShaderModule* gradConicFragShader = nullptr,
+                          VGTargetConfig targetConfig = {})
         {
             m_device = &device;
             m_queue = device.GetQueue(rhi::QueueType::Graphics, 0);
             m_targetFormat = targetFormat;
             m_frameCount = frameCount;
+            m_targetConfig = targetConfig;
 
             if (!CreateSampler().IsOk())
                 return ErrorCode::Unknown;
@@ -102,6 +119,37 @@ export namespace draconic::vg::renderer
             if (gradConicFragShader != nullptr &&
                 !CreatePipelineInto(vertShader, *gradConicFragShader, m_gradConicPipeline).IsOk())
                 return ErrorCode::Unknown;
+            // Stencil-then-cover pipelines - only with a host-provided stencil attachment.
+            // Write pass: color-masked fans accumulate winding (incr/decr-wrap = NonZero,
+            // invert = EvenOdd). Cover pass: draw where stencil != 0 and ZERO it behind
+            // (invert only ever yields 0x00/0xFF, so NotEqual-0 serves BOTH fill rules and
+            // the cover needs no per-rule variant). Cover exists per fragment variant so
+            // gradient fills cover with their exact per-pixel shader.
+            if (targetConfig.depthStencilFormat != rhi::TextureFormat::Undefined)
+            {
+                if (!CreatePipelineVariant(vertShader, fragShader, StencilRole::WriteNonZero,
+                                           m_stencilWriteNonZero)
+                         .IsOk())
+                    return ErrorCode::Unknown;
+                if (!CreatePipelineVariant(vertShader, fragShader, StencilRole::WriteEvenOdd,
+                                           m_stencilWriteEvenOdd)
+                         .IsOk())
+                    return ErrorCode::Unknown;
+                if (!CreatePipelineVariant(vertShader, fragShader, StencilRole::Cover,
+                                           m_coverPipeline)
+                         .IsOk())
+                    return ErrorCode::Unknown;
+                if (gradRadialFragShader != nullptr &&
+                    !CreatePipelineVariant(vertShader, *gradRadialFragShader, StencilRole::Cover,
+                                           m_coverGradRadialPipeline)
+                         .IsOk())
+                    return ErrorCode::Unknown;
+                if (gradConicFragShader != nullptr &&
+                    !CreatePipelineVariant(vertShader, *gradConicFragShader, StencilRole::Cover,
+                                           m_coverGradConicPipeline)
+                         .IsOk())
+                    return ErrorCode::Unknown;
+            }
             if (!CreatePerFrameResources().IsOk())
                 return ErrorCode::Unknown;
 
@@ -273,7 +321,11 @@ export namespace draconic::vg::renderer
 
             const u32 dynOffsets[1] = {slice.uniformByteOffset};
             i32 currentTextureIndex = -2; // sentinel forces first SetBindGroup
-            auto currentDrawMode = draconic::vg::VGDrawMode::Default;
+            rhi::RenderPipeline* currentPipeline = m_pipeline;
+            if (m_coverPipeline != nullptr)
+            {
+                renderPass.SetStencilReference(0); // cover tests NotEqual 0
+            }
 
             const i32 cmdEnd = slice.drawCommandStart + slice.drawCommandCount;
             for (i32 i = slice.drawCommandStart; i < cmdEnd; ++i)
@@ -282,23 +334,18 @@ export namespace draconic::vg::renderer
                 if (cmd.indexCount == 0)
                     continue;
 
-                // Switch pipeline on draw-mode change (default sampling vs MSDF decode vs per-pixel
-                // radial/conic gradient); falls back to the default pipeline when the requested
-                // variant pipeline was not built. A pipeline swap forces a bind-group rebind.
-                if (cmd.drawMode != currentDrawMode)
+                // Pipeline per (fill phase, draw mode); falls back to the default pipeline
+                // when a variant was not built. Stencil-phase commands are SKIPPED entirely
+                // without stencil pipelines (a context should not emit them then, but a
+                // stale batch must not draw winding fans as visible color). A pipeline swap
+                // forces a bind-group rebind.
+                rhi::RenderPipeline* pipeline = PipelineFor(cmd);
+                if (pipeline == nullptr)
+                    continue;
+                if (pipeline != currentPipeline)
                 {
-                    rhi::RenderPipeline* pipeline = m_pipeline;
-                    if (cmd.drawMode == draconic::vg::VGDrawMode::DistanceField &&
-                        m_dfPipeline != nullptr)
-                        pipeline = m_dfPipeline;
-                    else if (cmd.drawMode == draconic::vg::VGDrawMode::GradientRadial &&
-                             m_gradRadialPipeline != nullptr)
-                        pipeline = m_gradRadialPipeline;
-                    else if (cmd.drawMode == draconic::vg::VGDrawMode::GradientConic &&
-                             m_gradConicPipeline != nullptr)
-                        pipeline = m_gradConicPipeline;
                     renderPass.SetPipeline(pipeline);
-                    currentDrawMode = cmd.drawMode;
+                    currentPipeline = pipeline;
                     currentTextureIndex = -2;
                 }
 
@@ -458,6 +505,16 @@ export namespace draconic::vg::renderer
                 m_device->DestroyRenderPipeline(m_gradRadialPipeline);
             if (m_gradConicPipeline)
                 m_device->DestroyRenderPipeline(m_gradConicPipeline);
+            if (m_stencilWriteNonZero)
+                m_device->DestroyRenderPipeline(m_stencilWriteNonZero);
+            if (m_stencilWriteEvenOdd)
+                m_device->DestroyRenderPipeline(m_stencilWriteEvenOdd);
+            if (m_coverPipeline)
+                m_device->DestroyRenderPipeline(m_coverPipeline);
+            if (m_coverGradRadialPipeline)
+                m_device->DestroyRenderPipeline(m_coverGradRadialPipeline);
+            if (m_coverGradConicPipeline)
+                m_device->DestroyRenderPipeline(m_coverGradConicPipeline);
             if (m_pipelineLayout)
                 m_device->DestroyPipelineLayout(m_pipelineLayout);
             if (m_bindGroupLayout)
@@ -467,6 +524,11 @@ export namespace draconic::vg::renderer
 
             m_pipeline = nullptr;
             m_dfPipeline = nullptr;
+            m_stencilWriteNonZero = nullptr;
+            m_stencilWriteEvenOdd = nullptr;
+            m_coverPipeline = nullptr;
+            m_coverGradRadialPipeline = nullptr;
+            m_coverGradConicPipeline = nullptr;
             m_gradRadialPipeline = nullptr;
             m_gradConicPipeline = nullptr;
             m_pipelineLayout = nullptr;
@@ -547,8 +609,57 @@ export namespace draconic::vg::renderer
 
         // Build a VG pipeline (shared layout + vertex format) with the given fragment shader into
         // `outPipeline` - used for both the default and the distance-field variants.
+        /// The pipeline a command renders with: stencil write/cover variants for
+        /// stencil-phase commands (null = unconfigured, caller skips), else the
+        /// draw-mode variant with default fallback.
+        [[nodiscard]] rhi::RenderPipeline* PipelineFor(const draconic::vg::VGCommand& cmd) const
+        {
+            switch (cmd.fillPhase)
+            {
+            case draconic::vg::VGFillPhase::StencilWrite:
+                return cmd.fillRule == draconic::vg::FillRule::EvenOdd ? m_stencilWriteEvenOdd
+                                                                       : m_stencilWriteNonZero;
+            case draconic::vg::VGFillPhase::StencilCover:
+                if (m_coverPipeline == nullptr)
+                    return nullptr;
+                if (cmd.drawMode == draconic::vg::VGDrawMode::GradientRadial &&
+                    m_coverGradRadialPipeline != nullptr)
+                    return m_coverGradRadialPipeline;
+                if (cmd.drawMode == draconic::vg::VGDrawMode::GradientConic &&
+                    m_coverGradConicPipeline != nullptr)
+                    return m_coverGradConicPipeline;
+                return m_coverPipeline;
+            case draconic::vg::VGFillPhase::Direct:
+                break;
+            }
+            if (cmd.drawMode == draconic::vg::VGDrawMode::DistanceField && m_dfPipeline != nullptr)
+                return m_dfPipeline;
+            if (cmd.drawMode == draconic::vg::VGDrawMode::GradientRadial &&
+                m_gradRadialPipeline != nullptr)
+                return m_gradRadialPipeline;
+            if (cmd.drawMode == draconic::vg::VGDrawMode::GradientConic &&
+                m_gradConicPipeline != nullptr)
+                return m_gradConicPipeline;
+            return m_pipeline;
+        }
+
+        /// Which stencil-then-cover role a pipeline plays (None = ordinary color draw).
+        enum class StencilRole : u8
+        {
+            None,
+            WriteNonZero, ///< color-masked; front incr-wrap / back decr-wrap (winding count)
+            WriteEvenOdd, ///< color-masked; invert both faces (parity)
+            Cover,        ///< test NotEqual 0, zero the stencil behind the covered pixels
+        };
+
         Status CreatePipelineInto(rhi::ShaderModule& vertShader, rhi::ShaderModule& fragShader,
                                   rhi::RenderPipeline*& outPipeline)
+        {
+            return CreatePipelineVariant(vertShader, fragShader, StencilRole::None, outPipeline);
+        }
+
+        Status CreatePipelineVariant(rhi::ShaderModule& vertShader, rhi::ShaderModule& fragShader,
+                                     StencilRole role, rhi::RenderPipeline*& outPipeline)
         {
             const rhi::VertexAttribute attributes[4] = {
                 {rhi::VertexFormat::Float32x2, 0, 0},  // position
@@ -565,9 +676,14 @@ export namespace draconic::vg::renderer
             colorTarget.format = m_targetFormat;
             // Premultiplied-alpha compositing: both VG fragment shaders output premultiplied color
             // (rgb *= a). This removes the dark halo on straight-alpha AA edges and the double-blend
-            // seams at fringe/join overlaps. (Full self-overlap correctness arrives with the planned
-            // stencil-then-cover fill; this is the correct compositing foundation for it.)
+            // seams at fringe/join overlaps, and lets stencil-cover fills composite exactly.
             colorTarget.blend = rhi::BlendState::PremultipliedAlpha();
+            const bool isWrite =
+                role == StencilRole::WriteNonZero || role == StencilRole::WriteEvenOdd;
+            if (isWrite)
+            {
+                colorTarget.writeMask = rhi::ColorWriteMask::None; // winding only, no color
+            }
             const rhi::ColorTargetState colorTargets[1] = {colorTarget};
 
             rhi::RenderPipelineDesc desc{};
@@ -584,9 +700,56 @@ export namespace draconic::vg::renderer
 
             desc.primitive.topology = rhi::PrimitiveTopology::TriangleList;
             desc.primitive.frontFace = rhi::FrontFace::CCW;
-            desc.primitive.cullMode = rhi::CullMode::None;
-            desc.multisample.count = 1;
+            desc.primitive.cullMode = rhi::CullMode::None; // write pass NEEDS both faces
+            desc.multisample.count = m_targetConfig.sampleCount;
             desc.multisample.alphaToCoverageEnabled = false;
+
+            // Every pipeline must declare the pass's depth-stencil attachment when the host
+            // provides one (pass compatibility), with depth fully disabled - VG never
+            // touches depth. Stencil state per role.
+            if (m_targetConfig.depthStencilFormat != rhi::TextureFormat::Undefined)
+            {
+                rhi::DepthStencilState ds{};
+                ds.format = m_targetConfig.depthStencilFormat;
+                ds.depthTestEnabled = false;
+                ds.depthWriteEnabled = false;
+                ds.depthCompare = rhi::CompareFunction::Always;
+                switch (role)
+                {
+                case StencilRole::WriteNonZero:
+                    ds.stencilEnabled = true;
+                    ds.stencilFront = rhi::StencilFaceState{rhi::CompareFunction::Always,
+                                                            rhi::StencilOperation::Keep,
+                                                            rhi::StencilOperation::Keep,
+                                                            rhi::StencilOperation::IncrementWrap};
+                    ds.stencilBack = rhi::StencilFaceState{rhi::CompareFunction::Always,
+                                                           rhi::StencilOperation::Keep,
+                                                           rhi::StencilOperation::Keep,
+                                                           rhi::StencilOperation::DecrementWrap};
+                    break;
+                case StencilRole::WriteEvenOdd:
+                    ds.stencilEnabled = true;
+                    ds.stencilFront = rhi::StencilFaceState{rhi::CompareFunction::Always,
+                                                            rhi::StencilOperation::Keep,
+                                                            rhi::StencilOperation::Keep,
+                                                            rhi::StencilOperation::Invert};
+                    ds.stencilBack = ds.stencilFront;
+                    break;
+                case StencilRole::Cover:
+                    ds.stencilEnabled = true;
+                    // Inside = stencil != 0 (NonZero windings and EvenOdd's 0x00/0xFF parity
+                    // both satisfy it); every op ZEROES, so the buffer is clean afterwards.
+                    ds.stencilFront = rhi::StencilFaceState{rhi::CompareFunction::NotEqual,
+                                                            rhi::StencilOperation::Zero,
+                                                            rhi::StencilOperation::Zero,
+                                                            rhi::StencilOperation::Zero};
+                    ds.stencilBack = ds.stencilFront;
+                    break;
+                case StencilRole::None:
+                    break;
+                }
+                desc.depthStencil = ds;
+            }
 
             return m_device->CreateRenderPipeline(desc, outPipeline);
         }
@@ -780,6 +943,12 @@ export namespace draconic::vg::renderer
         rhi::PipelineLayout* m_pipelineLayout = nullptr;
         rhi::RenderPipeline* m_pipeline = nullptr;
         rhi::RenderPipeline* m_dfPipeline = nullptr;         // MSDF fragment variant (null if unused)
+        VGTargetConfig m_targetConfig{}; // host target: sample count + DS format
+        rhi::RenderPipeline* m_stencilWriteNonZero = nullptr; // winding pass (nullable)
+        rhi::RenderPipeline* m_stencilWriteEvenOdd = nullptr; // parity pass (nullable)
+        rhi::RenderPipeline* m_coverPipeline = nullptr;       // cover, default shading (nullable)
+        rhi::RenderPipeline* m_coverGradRadialPipeline = nullptr; // cover, radial (nullable)
+        rhi::RenderPipeline* m_coverGradConicPipeline = nullptr;  // cover, conic (nullable)
         rhi::RenderPipeline* m_gradRadialPipeline = nullptr; // per-pixel radial gradient (nullable)
         rhi::RenderPipeline* m_gradConicPipeline = nullptr;  // per-pixel conic gradient (nullable)
         rhi::Sampler* m_sampler = nullptr;

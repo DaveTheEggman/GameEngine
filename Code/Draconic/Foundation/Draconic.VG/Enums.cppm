@@ -8,8 +8,12 @@ module;
 
 export module draconic.vg:enums;
 
+import draconic.core;
+
 export namespace draconic::vg
 {
+    using draconic::core::u8;
+
     /// Determines how the interior of a path is calculated.
     enum class FillRule
     {
@@ -58,6 +62,20 @@ export namespace draconic::vg
         DistanceField,  ///< Decode an MSDF atlas (median-of-3 + screen-space AA).
         GradientRadial, ///< Per-pixel radial gradient: t = length(texcoord); samples the ramp LUT.
         GradientConic,  ///< Per-pixel conic gradient: t = angle(texcoord)/2pi; samples the ramp LUT.
+    };
+
+    /// Stencil-then-cover fill phases. Direct commands draw color immediately (the
+    /// tessellated path). A complex fill (holes, self-intersection, even-odd) instead emits
+    /// a StencilWrite command (contour fans, COLOR MASKED, stencil accumulates winding via
+    /// incr/decr-wrap for NonZero or invert for EvenOdd) followed by a StencilCover command
+    /// (a bounding quad that draws color where the stencil is non-zero/odd and zeroes the
+    /// stencil behind itself). Requires a host-provided stencil attachment - see
+    /// VGContext::SetStencilFills / VGRenderer target config.
+    enum class VGFillPhase : u8
+    {
+        Direct,       ///< Ordinary draw (no stencil interaction).
+        StencilWrite, ///< Winding pass: color-masked fans accumulate into the stencil.
+        StencilCover, ///< Cover pass: draw where stencil says inside, clearing it after.
     };
 
     /// How a gradient fill emits per-vertex data during tessellation (paired with the draw mode).

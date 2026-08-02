@@ -120,6 +120,14 @@ export namespace draconic::vg
         void SetPerPixelGradients(bool enabled) { m_perPixelGradients = enabled; }
         [[nodiscard]] bool PerPixelGradients() const { return m_perPixelGradients; }
 
+        /// Enable stencil-then-cover for COMPLEX path fills (holes, self-intersection,
+        /// even-odd) - the fill-correctness path. Opt-in by the HOST, and only after it
+        /// gave the renderer a stencil attachment (VGRenderer target config): the write/
+        /// cover commands are dropped by a renderer without stencil pipelines. Convex
+        /// single-contour fills keep the tessellated fast path either way.
+        void SetStencilFills(bool enabled) { m_stencilFills = enabled; }
+        [[nodiscard]] bool StencilFills() const { return m_stencilFills; }
+
         /// Pixel snapping: axis-aligned filled rects, borders and horizontal/vertical lines are
         /// snapped to the device pixel grid and drawn WITHOUT the AA fringe (an axis-aligned edge
         /// on a pixel boundary is already crisp and needs no AA). Rotated / curved / diagonal
@@ -244,6 +252,16 @@ export namespace draconic::vg
         void FillPath(const Path& path, Color color, FillRule fillRule = FillRule::EvenOdd,
                       bool antiAlias = true)
         {
+            if (m_stencilFills)
+            {
+                Array<FlattenedSubPath> subPaths;
+                PathFlattener::Flatten(path, GetScaledTolerance(), subPaths);
+                if (NeedsStencilFill(subPaths, fillRule))
+                {
+                    EmitStencilFill(subPaths, fillRule, ApplyOpacity(color), nullptr);
+                    return;
+                }
+            }
             SetupForSolidDraw();
             const usize startVertex = m_batch.vertices.Size();
             const f32 scaledTolerance = GetScaledTolerance();
@@ -257,6 +275,16 @@ export namespace draconic::vg
         void FillPath(const Path& path, const IVGFill& fill, FillRule fillRule = FillRule::EvenOdd,
                       bool antiAlias = true)
         {
+            if (m_stencilFills)
+            {
+                Array<FlattenedSubPath> subPaths;
+                PathFlattener::Flatten(path, GetScaledTolerance(), subPaths);
+                if (NeedsStencilFill(subPaths, fillRule))
+                {
+                    EmitStencilFill(subPaths, fillRule, Color::White, &fill);
+                    return;
+                }
+            }
             // Gradients bake a ramp LUT bound as the active texture; the tessellator then emits the
             // gradient parameter as a per-vertex texcoord so the ramp is sampled per pixel (exact
             // multi-stop, no 8-bit Gouraud banding). Solid fills stay on the white passthrough.
@@ -1126,6 +1154,219 @@ export namespace draconic::vg
             }
         }
 
+        // === Stencil-then-cover emission (complex fills; see SetStencilFills) ===
+
+        /// True when a fill's contours cannot be drawn correctly by the direct tessellator:
+        /// multiple contours (holes / disjoint pieces) or a non-convex single contour
+        /// (self-intersection, concavity - ear clipping mis-fills both under either rule).
+        [[nodiscard]] static bool NeedsStencilFill(const Array<FlattenedSubPath>& subPaths,
+                                                   FillRule /*fillRule*/)
+        {
+            usize contours = 0;
+            const FlattenedSubPath* single = nullptr;
+            for (const FlattenedSubPath& subPath : subPaths)
+            {
+                if (subPath.points.Size() >= 3)
+                {
+                    ++contours;
+                    single = &subPath;
+                }
+            }
+            if (contours == 0)
+            {
+                return false;
+            }
+            if (contours > 1)
+            {
+                return true;
+            }
+            return !IsConvexSimpleLoop(single->points);
+        }
+
+        /// Convex AND simple: every turn has the same sign and the winding totals exactly
+        /// one revolution (a pentagram-style loop turns 2+ revolutions and would slip past
+        /// a sign-only test; under NonZero its core must fill, under EvenOdd it must not -
+        /// both need the stencil).
+        [[nodiscard]] static bool IsConvexSimpleLoop(const Array<Float2>& points)
+        {
+            usize n = points.Size();
+            // Tolerate an explicitly closed polyline (last point repeats the first).
+            if (n >= 2 && points[0].x == points[n - 1].x && points[0].y == points[n - 1].y)
+            {
+                --n;
+            }
+            if (n < 3)
+            {
+                return true; // degenerate - nothing the stencil would improve
+            }
+            f32 turnSign = 0.0f;
+            f32 totalTurn = 0.0f;
+            for (usize i = 0; i < n; ++i)
+            {
+                const Float2 a = points[i];
+                const Float2 b = points[(i + 1) % n];
+                const Float2 c = points[(i + 2) % n];
+                const Float2 ab{b.x - a.x, b.y - a.y};
+                const Float2 bc{c.x - b.x, c.y - b.y};
+                const f32 cross = ab.x * bc.y - ab.y * bc.x;
+                const f32 dot = ab.x * bc.x + ab.y * bc.y;
+                if (Abs(cross) > 1e-6f)
+                {
+                    const f32 sign = cross > 0.0f ? 1.0f : -1.0f;
+                    if (turnSign == 0.0f)
+                    {
+                        turnSign = sign;
+                    }
+                    else if (sign != turnSign)
+                    {
+                        return false;
+                    }
+                }
+                totalTurn += Atan2(cross, dot);
+            }
+            return Abs(Abs(totalTurn) - 2.0f * kPi) < 0.1f;
+        }
+
+        /// Emit a stencil-then-cover fill: a color-masked winding pass (per-contour fans
+        /// from each contour's first point) then a bounding-quad cover carrying the fill's
+        /// color/gradient data. `fill` null = solid `solidColor` (already opacity-applied);
+        /// non-null follows the same gradient plumbing as the tessellated path.
+        void EmitStencilFill(const Array<FlattenedSubPath>& subPaths, FillRule fillRule,
+                             Color solidColor, const IVGFill* fill)
+        {
+            Float2 boundsMin{3.4e38f, 3.4e38f};
+            Float2 boundsMax{-3.4e38f, -3.4e38f};
+            usize totalPoints = 0;
+            for (const FlattenedSubPath& subPath : subPaths)
+            {
+                for (const Float2& pt : subPath.points)
+                {
+                    boundsMin.x = Min(boundsMin.x, pt.x);
+                    boundsMin.y = Min(boundsMin.y, pt.y);
+                    boundsMax.x = Max(boundsMax.x, pt.x);
+                    boundsMax.y = Max(boundsMax.y, pt.y);
+                }
+                totalPoints += subPath.points.Size();
+            }
+            if (totalPoints < 3 || boundsMax.x <= boundsMin.x || boundsMax.y <= boundsMin.y)
+            {
+                return;
+            }
+            const Rectangle bounds{boundsMin.x, boundsMin.y, boundsMax.x - boundsMin.x,
+                                   boundsMax.y - boundsMin.y};
+
+            // --- Winding pass: fans from each contour's first point. Color is masked by
+            // the renderer's stencil-write pipeline; vertex color/uv are irrelevant.
+            SetDrawMode(VGDrawMode::Default);
+            SetupForSolidDraw();
+            FlushCurrentCommand();
+            const usize writeStartVertex = m_batch.vertices.Size();
+            const i32 writeStartIndex = static_cast<i32>(m_batch.indices.Size());
+            for (const FlattenedSubPath& subPath : subPaths)
+            {
+                const usize n = subPath.points.Size();
+                if (n < 3)
+                {
+                    continue;
+                }
+                const u32 base = static_cast<u32>(m_batch.vertices.Size());
+                for (const Float2& pt : subPath.points)
+                {
+                    m_batch.vertices.PushBack(
+                        VGVertex(pt, Float2{VGVertex::SolidUV, VGVertex::SolidUV}, Color::White));
+                }
+                for (usize i = 1; i + 1 < n; ++i)
+                {
+                    m_batch.indices.PushBack(base);
+                    m_batch.indices.PushBack(base + static_cast<u32>(i));
+                    m_batch.indices.PushBack(base + static_cast<u32>(i) + 1);
+                }
+            }
+            TransformVertices(writeStartVertex);
+            PushExplicitCommand(writeStartIndex, VGFillPhase::StencilWrite, fillRule);
+
+            // --- Cover pass: a bounds quad with the fill's shading. Gradient fills bind
+            // their LUT / per-pixel mode exactly like the tessellated path.
+            VGGradientTess gradientTess = VGGradientTess::Gouraud;
+            if (fill != nullptr)
+            {
+                gradientTess = BindGradientLut(*fill);
+            }
+            const usize coverStartVertex = m_batch.vertices.Size();
+            const i32 coverStartIndex = static_cast<i32>(m_batch.indices.Size());
+            const Float2 corners[4] = {Float2{bounds.x, bounds.y},
+                                       Float2{bounds.x + bounds.width, bounds.y},
+                                       Float2{bounds.x + bounds.width, bounds.y + bounds.height},
+                                       Float2{bounds.x, bounds.y + bounds.height}};
+            const u32 coverBase = static_cast<u32>(m_batch.vertices.Size());
+            for (const Float2& corner : corners)
+            {
+                Float2 uv{VGVertex::SolidUV, VGVertex::SolidUV};
+                Color color = solidColor;
+                if (fill != nullptr)
+                {
+                    if (gradientTess == VGGradientTess::Gouraud)
+                    {
+                        // No gradient shader available: affine corner colors (the same
+                        // approximation the Gouraud tessellated path uses).
+                        color = fill->GetColorAt(corner, bounds);
+                    }
+                    else
+                    {
+                        uv = FillTessellator::GradientTexCoord(gradientTess, *fill, corner,
+                                                               bounds);
+                        color = Color::White;
+                    }
+                }
+                m_batch.vertices.PushBack(VGVertex(corner, uv, color));
+            }
+            const u32 quad[6] = {coverBase,     coverBase + 1, coverBase + 2,
+                                 coverBase,     coverBase + 2, coverBase + 3};
+            for (u32 index : quad)
+            {
+                m_batch.indices.PushBack(index);
+            }
+            if (fill != nullptr)
+            {
+                ApplyOpacityToVertices(coverStartVertex);
+            }
+            TransformVertices(coverStartVertex);
+            PushExplicitCommand(coverStartIndex, VGFillPhase::StencilCover, fillRule);
+
+            if (gradientTess != VGGradientTess::Gouraud)
+            {
+                // Restore default sampling so later solid draws aren't stuck on the
+                // gradient pipeline / LUT texture (mirrors FillPath's gradient epilogue).
+                SetDrawMode(VGDrawMode::Default);
+                SetupForSolidDraw();
+            }
+        }
+
+        /// Push a command for indices emitted since `startIndex` with an explicit fill
+        /// phase, using the context's current state for everything else. Used by the
+        /// stencil-then-cover emitter, whose two passes can never merge with neighbors.
+        void PushExplicitCommand(i32 startIndex, VGFillPhase phase, FillRule fillRule)
+        {
+            const i32 indexCount = static_cast<i32>(m_batch.indices.Size()) - startIndex;
+            if (indexCount <= 0)
+            {
+                return;
+            }
+            VGCommand cmd;
+            cmd.startIndex = startIndex;
+            cmd.indexCount = indexCount;
+            cmd.textureIndex = m_currentTextureIndex;
+            cmd.clipRect = m_currentState.clipRect;
+            cmd.blendMode = m_currentBlendMode;
+            cmd.clipMode = m_currentState.clipMode;
+            cmd.stencilRef = m_currentState.stencilRef;
+            cmd.drawMode = m_currentDrawMode;
+            cmd.fillPhase = phase;
+            cmd.fillRule = fillRule;
+            m_batch.commands.PushBack(cmd);
+            m_commandStartIndex = static_cast<i32>(m_batch.indices.Size());
+        }
+
         void FlushCurrentCommand()
         {
             const i32 indexCount = static_cast<i32>(m_batch.indices.Size()) - m_commandStartIndex;
@@ -1281,7 +1522,8 @@ export namespace draconic::vg
 
         VGBlendMode m_currentBlendMode = VGBlendMode::Normal;
         VGDrawMode m_currentDrawMode = VGDrawMode::Default;
-        bool m_perPixelGradients = false; // radial/conic use dedicated per-pixel shaders when set
+        bool m_perPixelGradients = false;
+        bool m_stencilFills = false; // host opt-in: stencil-then-cover for complex fills // radial/conic use dedicated per-pixel shaders when set
         i32 m_currentTextureIndex = 0;
         i32 m_commandStartIndex = 0;
         f32 m_tolerance = 0.05f;

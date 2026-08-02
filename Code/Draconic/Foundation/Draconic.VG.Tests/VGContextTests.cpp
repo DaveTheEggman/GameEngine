@@ -269,3 +269,134 @@ TEST_CASE("vg.context: over-budget LUT cache eviction is announced through the b
     ctx.Clear();
     CHECK(ctx.GetBatch().evictedTextures.IsEmpty());
 }
+
+// --- stencil-then-cover emission (SetStencilFills) -------------------------------------
+
+namespace
+{
+    // A donut: outer CCW square, inner CW square - the canonical hole case the direct
+    // tessellator fills SOLID (contours triangulated independently, no subtraction).
+    Path MakeDonut()
+    {
+        PathBuilder pb;
+        pb.MoveTo(0, 0);
+        pb.LineTo(100, 0);
+        pb.LineTo(100, 100);
+        pb.LineTo(0, 100);
+        pb.Close();
+        pb.MoveTo(30, 30);
+        pb.LineTo(30, 70);
+        pb.LineTo(70, 70);
+        pb.LineTo(70, 30);
+        pb.Close();
+        return pb.ToPath();
+    }
+}
+
+TEST_CASE("vg.context: stencil fills OFF leaves complex paths on the direct tessellator")
+{
+    VGContext ctx;
+    ctx.FillPath(MakeDonut(), Color::Red, FillRule::NonZero, false);
+    for (usize i = 0; i < ctx.GetBatch().commands.Size(); ++i)
+    {
+        CHECK(ctx.GetBatch().commands[i].fillPhase == VGFillPhase::Direct);
+    }
+}
+
+TEST_CASE("vg.context: a hole emits stencil write + cover commands")
+{
+    VGContext ctx;
+    ctx.SetStencilFills(true);
+    ctx.FillPath(MakeDonut(), Color::Red, FillRule::NonZero, false);
+
+    VGBatch& batch = ctx.GetBatch();
+    REQUIRE(batch.commands.Size() == 2u);
+    const VGCommand write = batch.commands[0];
+    const VGCommand cover = batch.commands[1];
+
+    CHECK(write.fillPhase == VGFillPhase::StencilWrite);
+    CHECK(write.fillRule == FillRule::NonZero);
+    // Two quads fan into 2 triangles each = 12 indices of winding geometry.
+    CHECK(write.indexCount == 12);
+
+    CHECK(cover.fillPhase == VGFillPhase::StencilCover);
+    CHECK(cover.indexCount == 6); // the bounding quad
+    CHECK(cover.startIndex == write.startIndex + write.indexCount);
+
+    // The cover quad spans the path bounds and carries the fill color.
+    const VGVertex& corner = batch.vertices[batch.vertices.Size() - 4];
+    CHECK(corner.position.x == doctest::Approx(0.0f));
+    CHECK(corner.position.y == doctest::Approx(0.0f));
+    const VGVertex& opposite = batch.vertices[batch.vertices.Size() - 2];
+    CHECK(opposite.position.x == doctest::Approx(100.0f));
+    CHECK(opposite.position.y == doctest::Approx(100.0f));
+    CHECK(corner.color.r == doctest::Approx(1.0f));
+}
+
+TEST_CASE("vg.context: convex single contours keep the direct fast path with stencil on")
+{
+    VGContext ctx;
+    ctx.SetStencilFills(true);
+    PathBuilder pb;
+    pb.MoveTo(0, 0);
+    pb.LineTo(10, 0);
+    pb.LineTo(10, 10);
+    pb.LineTo(0, 10);
+    pb.Close();
+    ctx.FillPath(pb.ToPath(), Color::Blue, FillRule::NonZero, false);
+    for (usize i = 0; i < ctx.GetBatch().commands.Size(); ++i)
+    {
+        CHECK(ctx.GetBatch().commands[i].fillPhase == VGFillPhase::Direct);
+    }
+}
+
+TEST_CASE("vg.context: a self-intersecting star goes through the stencil (both rules)")
+{
+    // Five-point star drawn edge-to-edge: self-intersecting, turns two revolutions -
+    // NonZero fills the core, EvenOdd leaves it open; the direct tessellator gets
+    // BOTH wrong, so each must route through the stencil.
+    PathBuilder pb;
+    pb.MoveTo(50, 0);
+    pb.LineTo(79, 90);
+    pb.LineTo(2, 35);
+    pb.LineTo(98, 35);
+    pb.LineTo(21, 90);
+    pb.Close();
+    const Path star = pb.ToPath();
+
+    const FillRule rules[2] = {FillRule::NonZero, FillRule::EvenOdd};
+    for (const FillRule rule : rules)
+    {
+        VGContext ctx;
+        ctx.SetStencilFills(true);
+        ctx.FillPath(star, Color::White, rule, false);
+        VGBatch& batch = ctx.GetBatch();
+        REQUIRE(batch.commands.Size() == 2u);
+        CHECK(batch.commands[0].fillPhase == VGFillPhase::StencilWrite);
+        CHECK(batch.commands[0].fillRule == rule);
+        CHECK(batch.commands[1].fillPhase == VGFillPhase::StencilCover);
+    }
+}
+
+TEST_CASE("vg.context: stencil fill respects the current transform and later draws recover")
+{
+    VGContext ctx;
+    ctx.SetStencilFills(true);
+    ctx.PushState();
+    ctx.Translate(10.0f, 20.0f);
+    ctx.FillPath(MakeDonut(), Color::Red, FillRule::EvenOdd, false);
+    ctx.PopState();
+
+    VGBatch& batch = ctx.GetBatch();
+    REQUIRE(batch.commands.Size() == 2u);
+    // First winding vertex carries the translation.
+    const VGVertex& first = batch.vertices[0];
+    CHECK(first.position.x == doctest::Approx(10.0f));
+    CHECK(first.position.y == doctest::Approx(20.0f));
+
+    // A plain rect after the stencil fill batches as an ordinary Direct command.
+    ctx.FillRect(Rectangle{0, 0, 5, 5}, Color::Green);
+    (void)ctx.GetBatch(); // flushes the pending command
+    const VGCommand last = batch.commands[batch.commands.Size() - 1];
+    CHECK(last.fillPhase == VGFillPhase::Direct);
+}

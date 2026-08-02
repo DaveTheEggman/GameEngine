@@ -74,6 +74,7 @@ private:
     void DrawTextDemo(vg::VGContext& vgc, f32 x, f32 y, f32 t);
     void DrawUIConvenience(vg::VGContext& vgc, f32 x, f32 y);
     void DrawImmediatePath(vg::VGContext& vgc, f32 x, f32 y, f32 t);
+    void DrawFillCorrectness(vg::VGContext& vgc, f32 x, f32 y, f32 t);
     void DrawSVGDemo(vg::VGContext& vgc, f32 x, f32 y);
     void DrawDFTextDemo(vg::VGContext& vgc, f32 x, f32 y, f32 t);
 
@@ -90,7 +91,13 @@ private:
     rhi::ShaderModule* m_fs = nullptr;
     rhi::ShaderModule* m_dfFs = nullptr;         // MSDF distance-field fragment shader
     rhi::ShaderModule* m_gradRadialFs = nullptr; // per-pixel radial gradient fragment shader
-    rhi::ShaderModule* m_gradConicFs = nullptr;  // per-pixel conic gradient fragment shader
+    rhi::ShaderModule* m_gradConicFs = nullptr;
+    // VG quality targets: 4x MSAA color (resolved into the swapchain) + stencil
+    // (stencil-then-cover fills). Fixed window size, so created once at init.
+    rhi::Texture* m_msaaColor = nullptr;
+    rhi::TextureView* m_msaaColorView = nullptr;
+    rhi::Texture* m_depthStencil = nullptr;
+    rhi::TextureView* m_depthStencilView = nullptr;  // per-pixel conic gradient fragment shader
     rhi::CommandPool* m_pool = nullptr;
     rhi::Fence* m_fence = nullptr;
     u64 m_fenceVal = 0;
@@ -136,9 +143,38 @@ Status VGSandbox::OnInit()
         m_gradConicFs == nullptr)
         return ErrorCode::Unknown;
 
+    // Quality targets: 4x MSAA + stencil. Failure (unlikely on desktop) falls back to
+    // the plain single-sampled pass with tessellated fills.
+    vg::renderer::VGTargetConfig targetConfig;
+    {
+        rhi::TextureDesc cd = rhi::TextureDesc::RenderTarget(m_swapChain->Format(), m_width,
+                                                             m_height);
+        cd.sampleCount = 4;
+        cd.label = u8"VG MSAA color";
+        rhi::TextureDesc dd{};
+        dd.dimension = rhi::TextureDimension::Texture2D;
+        dd.format = rhi::TextureFormat::Depth24PlusStencil8;
+        dd.width = m_width;
+        dd.height = m_height;
+        dd.depth = 1;
+        dd.usage = rhi::TextureUsage::DepthStencil;
+        dd.sampleCount = 4;
+        dd.label = u8"VG stencil";
+        if (m_device->CreateTexture(cd, m_msaaColor).IsOk() &&
+            m_device->CreateTexture(dd, m_depthStencil).IsOk() &&
+            m_device->CreateTextureView(m_msaaColor, rhi::TextureViewDesc{}, m_msaaColorView)
+                .IsOk() &&
+            m_device->CreateTextureView(m_depthStencil, rhi::TextureViewDesc{}, m_depthStencilView)
+                .IsOk())
+        {
+            targetConfig.sampleCount = 4;
+            targetConfig.depthStencilFormat = rhi::TextureFormat::Depth24PlusStencil8;
+        }
+    }
+
     if (!m_renderer
              .Initialize(*m_device, *m_vs, *m_fs, m_swapChain->Format(), static_cast<i32>(kFrames),
-                         m_dfFs, m_gradRadialFs, m_gradConicFs)
+                         m_dfFs, m_gradRadialFs, m_gradConicFs, targetConfig)
              .IsOk())
         return ErrorCode::Unknown;
 
@@ -173,6 +209,7 @@ Status VGSandbox::OnInit()
     // The renderer was given the radial/conic gradient shaders above, so enable per-pixel
     // radial/conic gradients (exact falloff instead of the affine LUT approximation).
     m_vg->SetPerPixelGradients(true);
+    m_vg->SetStencilFills(m_renderer.StencilFillsSupported());
 
     // 128x128 checkerboard image for the DrawImage demos.
     {
@@ -245,6 +282,56 @@ void VGSandbox::DrawScene(vg::VGContext& vgc, f32 w, f32 h, f32 t)
     DrawImmediatePath(vgc, 150, 410, t);
     DrawSVGDemo(vgc, 150, 470);
     DrawDFTextDemo(vgc, w - 280, 390, t);
+    DrawFillCorrectness(vgc, 560, 340, t);
+}
+
+// Stencil-then-cover verification block. LEFT: a donut (outer + inner contour) - holes
+// must be holes, not solid disks. MIDDLE: a five-point star drawn edge-to-edge
+// (self-intersecting) under NonZero - the core must fill. RIGHT: the same star under
+// EvenOdd - the core must stay OPEN (background shows through). The whole block rotates
+// slowly so MSAA edge quality shows on non-axis-aligned edges. Without stencil fills all
+// three render wrong (solid donut, mangled star cores).
+void VGSandbox::DrawFillCorrectness(vg::VGContext& vgc, f32 x, f32 y, f32 t)
+{
+    vgc.PushState();
+    vgc.Translate(x, y);
+
+    // Donut: two circles as one path (inner reversed by construction order).
+    {
+        vg::PathBuilder pb;
+        vg::ShapeBuilder::BuildCircle(Float2{30.0f, 30.0f}, 28.0f, pb);
+        vg::ShapeBuilder::BuildCircle(Float2{30.0f, 30.0f}, 14.0f, pb);
+        vgc.FillPath(pb.ToPath(), GC(255, 160, 60, 255), vg::FillRule::EvenOdd);
+    }
+
+    // Slow spin for the stars: shows MSAA on moving, non-axis-aligned edges.
+    const f32 spin = t * 0.3f;
+    auto starAt = [&](f32 cx, f32 cy, vg::FillRule rule, Color color)
+    {
+        vgc.PushState();
+        vgc.Translate(cx, cy);
+        vgc.Rotate(spin);
+        vg::PathBuilder pb;
+        const f32 r = 30.0f;
+        for (i32 i = 0; i < 5; ++i)
+        {
+            // Every second point of a pentagon = the self-intersecting star.
+            const f32 a = static_cast<f32>(i) * (4.0f * kPi / 5.0f) - kPi * 0.5f;
+            const f32 px = Cos(a) * r;
+            const f32 py = Sin(a) * r;
+            if (i == 0)
+                pb.MoveTo(px, py);
+            else
+                pb.LineTo(px, py);
+        }
+        pb.Close();
+        vgc.FillPath(pb.ToPath(), color, rule);
+        vgc.PopState();
+    };
+    starAt(105.0f, 30.0f, vg::FillRule::NonZero, GC(120, 200, 120, 255)); // core FILLED
+    starAt(180.0f, 30.0f, vg::FillRule::EvenOdd, GC(120, 160, 220, 255)); // core OPEN
+
+    vgc.PopState();
 }
 
 void VGSandbox::DrawLineWidths(vg::VGContext& vgc, f32 x, f32 y)
@@ -796,11 +883,28 @@ void VGSandbox::OnRender()
                            rhi::ResourceState::RenderTarget);
 
     rhi::ColorAttachment ca{};
-    ca.view = m_swapChain->CurrentTextureView();
     ca.loadOp = rhi::LoadOp::Clear;
     ca.storeOp = rhi::StoreOp::Store;
     ca.clearValue = rhi::ClearColor(0.19f, 0.19f, 0.21f, 1.0f);
     rhi::RenderPassDesc rpd{};
+    if (m_msaaColorView != nullptr)
+    {
+        ca.view = m_msaaColorView;
+        ca.resolveTarget = m_swapChain->CurrentTextureView();
+        ca.storeOp = rhi::StoreOp::DontCare; // resolved; MSAA texels can drop
+        rhi::DepthStencilAttachment ds{};
+        ds.view = m_depthStencilView;
+        ds.depthLoadOp = rhi::LoadOp::Clear;
+        ds.depthStoreOp = rhi::StoreOp::DontCare;
+        ds.stencilLoadOp = rhi::LoadOp::Clear; // stencil-then-cover expects 0
+        ds.stencilStoreOp = rhi::StoreOp::DontCare;
+        ds.stencilClearValue = 0;
+        rpd.depthStencilAttachment = ds;
+    }
+    else
+    {
+        ca.view = m_swapChain->CurrentTextureView();
+    }
     rpd.colorAttachments.Add(ca);
 
     rhi::RenderPassEncoder* rp = enc->BeginRenderPass(rpd);
@@ -826,6 +930,14 @@ void VGSandbox::OnShutdown()
     if (m_device)
         m_device->WaitIdle();
     m_renderer.Dispose();
+    if (m_msaaColorView)
+        m_device->DestroyTextureView(m_msaaColorView);
+    if (m_msaaColor)
+        m_device->DestroyTexture(m_msaaColor);
+    if (m_depthStencilView)
+        m_device->DestroyTextureView(m_depthStencilView);
+    if (m_depthStencil)
+        m_device->DestroyTexture(m_depthStencil);
     m_vg.Reset();
     fonts::DFFonts::Shutdown();
     m_fontService.Reset();

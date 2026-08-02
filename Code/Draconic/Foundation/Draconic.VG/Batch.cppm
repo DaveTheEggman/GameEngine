@@ -34,6 +34,8 @@ export namespace draconic::vg
         VGBlendMode blendMode = VGBlendMode::Normal;
         i32 stencilRef = 0; ///< Stencil reference value (for stencil clipping).
         VGDrawMode drawMode = VGDrawMode::Default; ///< Straight sampling vs MSDF decode.
+        VGFillPhase fillPhase = VGFillPhase::Direct; ///< Stencil-then-cover phase (see enum).
+        FillRule fillRule = FillRule::NonZero; ///< Winding rule for StencilWrite/Cover phases.
     };
 
     /// Batched vector-graphics geometry and draw commands. The output of

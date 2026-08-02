@@ -326,3 +326,58 @@ TEST_CASE("vg.renderer: texture cache detects address reuse via ImageData::Insta
     device.DestroyShaderModule(vs);
     device.DestroyShaderModule(fs);
 }
+
+TEST_CASE("vg.renderer: stencil target config builds the stencil-then-cover pipelines")
+{
+    rhi::null::NullDevice device{DefaultAllocator()};
+    rhi::ShaderModule* vs = MakeModule(device);
+    rhi::ShaderModule* fs = MakeModule(device);
+    REQUIRE(vs != nullptr);
+    REQUIRE(fs != nullptr);
+
+    // Without a stencil format: no stencil support, stencil commands would be skipped.
+    {
+        VGRenderer renderer;
+        REQUIRE(renderer.Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, 1)
+                    .IsOk());
+        CHECK_FALSE(renderer.StencilFillsSupported());
+        renderer.Dispose();
+    }
+
+    // With MSAA + a stencil format: the cover pipelines exist and a stencil batch prepares.
+    {
+        VGRenderer renderer;
+        VGTargetConfig config;
+        config.sampleCount = 4;
+        config.depthStencilFormat = rhi::TextureFormat::Depth24PlusStencil8;
+        REQUIRE(renderer
+                    .Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, 1, nullptr,
+                                nullptr, nullptr, config)
+                    .IsOk());
+        CHECK(renderer.StencilFillsSupported());
+
+        VGContext ctx;
+        ctx.SetStencilFills(true);
+        PathBuilder pb; // donut -> one write + one cover command
+        pb.MoveTo(0, 0);
+        pb.LineTo(100, 0);
+        pb.LineTo(100, 100);
+        pb.LineTo(0, 100);
+        pb.Close();
+        pb.MoveTo(30, 30);
+        pb.LineTo(30, 70);
+        pb.LineTo(70, 70);
+        pb.LineTo(70, 30);
+        pb.Close();
+        ctx.FillPath(pb.ToPath(), Color::Red, FillRule::NonZero, false);
+
+        renderer.BeginFrame(0);
+        const VGRenderSlice slice = renderer.Prepare(ctx.GetBatch(), 0, 128, 128);
+        CHECK(slice.isValid);
+        CHECK(slice.drawCommandCount == 2);
+        renderer.Dispose();
+    }
+
+    device.DestroyShaderModule(vs);
+    device.DestroyShaderModule(fs);
+}

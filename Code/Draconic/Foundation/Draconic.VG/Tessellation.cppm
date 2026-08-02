@@ -436,9 +436,15 @@ export namespace draconic::vg
             }
         }
 
+    public:
+        /// The gradient texcoord/LUT mapping is shared with VGContext's stencil-cover
+        /// emitter (the cover quad carries the same per-vertex gradient data the
+        /// tessellated path would).
+
     private:
         static constexpr f32 FringeWidth = 0.75f;
 
+    public:
         /// Width of the baked gradient LUT (matches VGContext's bake). Kept here so the
         /// texcoord maps to texel CENTERS: with the shared Linear/Repeat sampler this both
         /// clamps (pad spread) and avoids the wrap seam at u=0/1.
@@ -468,6 +474,7 @@ export namespace draconic::vg
             }
         }
 
+    private:
         /// Compute per-vertex averaged outward normals (miter-like, clamped).
         static void ComputeFringeNormals(Span<const Float2> points, Array<Float2>& normals)
         {
