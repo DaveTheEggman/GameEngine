@@ -200,6 +200,130 @@ TEST_CASE("audio.pipeline: wav -> AudioClipAsset cook -> AudioClip keeps the ORI
     RemoveDbTree(u8"draconic_audiopipe_out");
 }
 
+TEST_CASE("audio.pipeline: async clip load matches the synchronous product byte-for-byte")
+{
+    RegisterAudioResource();
+    RegisterAudioAssets();
+    RemoveDbTree(u8"draconic_audioasync_src");
+    RemoveDbTree(u8"draconic_audioasync_out");
+
+    draconic::vfs::NativeFileSystem sourceMount(u8"draconic_audioasync_src");
+    draconic::vfs::NativeFileSystem outputMount(u8"draconic_audioasync_out");
+    content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
+
+    const Array<byte> wav = MakeToneWav(0.25f, 8000, 2);
+    REQUIRE(CreateDirectory(u8"draconic_audioasync_src"));
+    REQUIRE(
+        WriteFile(u8"draconic_audioasync_src/tone.wav", Span<const byte>(wav.Data(), wav.Size()))
+            .IsOk());
+
+    AudioClipAsset asset;
+    asset.fileName = draconic::vfs::SourcePath(u8"tone.wav");
+    asset.gain = 0.8f;
+    AudioClipAssetBuilder builder;
+    draconic::editor::AssetBuildContext ctx;
+    ctx.sources = &sourceMount;
+    auto* inst = outputDb.RootGroup()->CreateInstance(u8"cooked", AudioClipSource::StaticType());
+    ctx.output = inst;
+    REQUIRE(builder.Build(asset, ctx).IsOk());
+    const Guid id = inst->Id();
+
+    AudioClipFactory factory;
+
+    ResourceManager syncManager(outputDb);
+    syncManager.AddFactory(&factory);
+    Proxy<AudioClip> a = syncManager.Bind<AudioClip>(id);
+    REQUIRE(a);
+
+    JobSystem jobs;
+    ResourceManager asyncManager(outputDb, &jobs);
+    asyncManager.AddFactory(&factory);
+    Proxy<AudioClip> b = asyncManager.BindAsync<AudioClip>(id);
+    asyncManager.WaitAll();
+    REQUIRE(b);
+    CHECK(b.Handle()->State() == ResourceState::Ready);
+
+    CHECK(b->channels == a->channels);
+    CHECK(b->sampleRate == a->sampleRate);
+    CHECK(b->gain == doctest::Approx(a->gain));
+    CHECK(b->stream == a->stream);
+    REQUIRE(b->encodedData.Size() == a->encodedData.Size());
+    bool identical = true;
+    for (usize i = 0; i < a->encodedData.Size(); ++i)
+    {
+        if (a->encodedData[i] != b->encodedData[i])
+        {
+            identical = false;
+            break;
+        }
+    }
+    CHECK(identical); // the worker-side ReadData produced the identical container bytes
+
+    RemoveDbTree(u8"draconic_audioasync_src");
+    RemoveDbTree(u8"draconic_audioasync_out");
+}
+
+TEST_CASE("audio.pipeline: many concurrent async clip decodes run on workers without a race")
+{
+    // N clips bound async at once means N DecodeStages reading the content DB + registries
+    // concurrently on workers. Run under TSAN to validate the concurrent-read safety.
+    RegisterAudioResource();
+    RegisterAudioAssets();
+    RemoveDbTree(u8"draconic_audioconc_src");
+    RemoveDbTree(u8"draconic_audioconc_out");
+
+    draconic::vfs::NativeFileSystem sourceMount(u8"draconic_audioconc_src");
+    draconic::vfs::NativeFileSystem outputMount(u8"draconic_audioconc_out");
+    content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
+
+    const Array<byte> wav = MakeToneWav(0.1f, 8000, 1);
+    REQUIRE(CreateDirectory(u8"draconic_audioconc_src"));
+    REQUIRE(
+        WriteFile(u8"draconic_audioconc_src/tone.wav", Span<const byte>(wav.Data(), wav.Size()))
+            .IsOk());
+
+    AudioClipAsset asset;
+    asset.fileName = draconic::vfs::SourcePath(u8"tone.wav");
+    AudioClipAssetBuilder builder;
+    draconic::editor::AssetBuildContext ctx;
+    ctx.sources = &sourceMount;
+
+    constexpr int kCount = 10;
+    Array<Guid> ids;
+    for (int i = 0; i < kCount; ++i)
+    {
+        char8_t name[8] = {u8'c', u8'l', u8'i', u8'p', static_cast<char8_t>(u8'0' + i / 10),
+                           static_cast<char8_t>(u8'0' + i % 10), 0};
+        auto* inst = outputDb.RootGroup()->CreateInstance(StringView(name),
+                                                          AudioClipSource::StaticType());
+        ctx.output = inst;
+        REQUIRE(builder.Build(asset, ctx).IsOk());
+        ids.PushBack(inst->Id());
+    }
+
+    AudioClipFactory factory;
+    JobSystem jobs;
+    ResourceManager manager(outputDb, &jobs);
+    manager.AddFactory(&factory);
+
+    Array<Proxy<AudioClip>> clips;
+    for (const Guid& id : ids)
+    {
+        clips.PushBack(manager.BindAsync<AudioClip>(id));
+    }
+    manager.WaitAll();
+
+    for (Proxy<AudioClip>& clip : clips)
+    {
+        REQUIRE(clip);
+        CHECK(clip.Handle()->State() == ResourceState::Ready);
+        CHECK(clip->encodedData.Size() == wav.Size());
+    }
+
+    RemoveDbTree(u8"draconic_audioconc_src");
+    RemoveDbTree(u8"draconic_audioconc_out");
+}
+
 TEST_CASE("audio.pipeline: stream-flagged cooks bind a re-openable content stream source")
 {
     RegisterAudioResource();

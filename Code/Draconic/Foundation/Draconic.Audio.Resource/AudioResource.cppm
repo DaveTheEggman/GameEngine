@@ -93,6 +93,29 @@ export namespace draconic::audio
         [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager&,
                                             draconic::content::Instance& instance) override
         {
+            return BuildClip(instance);
+        }
+
+        // Async (task #123): the AudioClip is a pure-CPU product (encoded bytes in memory, or a
+        // lazy content stream that pages on demand), so the entire build runs on a worker and
+        // FinalizeStage is a no-op. Safe: content-DB reads open independent streams and the type/
+        // serializable registries are read-only during load; AudioClip's type is force-initialized
+        // on the main thread (see RegisterAudioResource). The instance outlives the product, so a
+        // streamed clip's ContentInstanceStreamSource stays valid.
+        [[nodiscard]] bool SupportsAsync() const override { return true; }
+        [[nodiscard]] RefPtr<Object> DecodeStage(draconic::content::Instance& instance) override
+        {
+            return BuildClip(instance);
+        }
+        [[nodiscard]] RefPtr<Object> FinalizeStage(resource::ResourceManager&,
+                                                   RefPtr<Object> decoded) override
+        {
+            return decoded; // nothing is main-thread-specific for audio
+        }
+
+    private:
+        [[nodiscard]] static RefPtr<Object> BuildClip(draconic::content::Instance& instance)
+        {
             RefPtr<ISerializable> object = instance.ReadObject();
             AudioClipSource* source = Cast<AudioClipSource>(object.Get());
             if (source == nullptr)
