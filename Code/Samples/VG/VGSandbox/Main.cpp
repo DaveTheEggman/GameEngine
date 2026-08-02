@@ -353,6 +353,26 @@ void VGSandbox::DrawFillCorrectness(vg::VGContext& vgc, f32 x, f32 y, f32 t)
         vg::PathBuilder pb;
         vg::ShapeBuilder::BuildCircle(Float2{245.0f, 95.0f}, 24.0f, pb);
         vgc.FillPath(pb.ToPath(), rings, vg::FillRule::NonZero);
+
+        // Color-pipeline consistency: a SOLID fill (vertex-color path, sRGB-decoded in
+        // vg.vs) butted against a SAME-COLOR two-stop gradient (LUT texture path,
+        // sRGB-decoded by the sampler). One seamless red block = both paths agree on
+        // what an authored byte color means; a visible seam = a decode regression.
+        auto halfRect = [&](f32 cx)
+        {
+            vg::PathBuilder half;
+            half.MoveTo(cx, 75.0f);
+            half.LineTo(cx + 30.0f, 75.0f);
+            half.LineTo(cx + 30.0f, 115.0f);
+            half.LineTo(cx, 115.0f);
+            half.Close();
+            return half.ToPath();
+        };
+        vgc.FillPath(halfRect(280.0f), GC(180, 60, 40, 255), vg::FillRule::NonZero);
+        vg::VGLinearGradientFill flat(Float2{310.0f, 75.0f}, Float2{340.0f, 75.0f});
+        flat.AddStop(0.0f, GC(180, 60, 40, 255));
+        flat.AddStop(1.0f, GC(180, 60, 40, 255));
+        vgc.FillPath(halfRect(310.0f), flat, vg::FillRule::NonZero);
     }
 
     // Blend modes over a LIGHT strip - it must be bright in LINEAR space or additive
